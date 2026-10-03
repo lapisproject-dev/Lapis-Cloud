@@ -1,0 +1,68 @@
+= Collapsed create forms (V1.9.40)
+:toc:
+
+== Purpose
+
+On a list screen the form that adds a record used to sit under the list as a second, always visible section ("Neues Gremium anlegen"). That put
+a long form between the person and the content they came for, and it repeated on every screen with a slightly different title. Rule R36B
+(`ui-ux-guideline.adoc`) replaces it: the screen offers one button in the title row and opens the form on demand. This wave adds the building
+block and converts four governance screens as a pilot. It is a client-only change: no migration, no server change, no new RPC.
+
+== Behaviour
+
+[cols="1,4", options="header"]
+|===
+| Moment | What happens
+| After the load | The form is not built. The button ("Neues Gremium", "Neue Bestellung", "Neue Sitzung", "Neuer Antrag") sits in `.lapis-page-action` of the title row with `aria-expanded="false"` and `aria-controls` pointing at the form host, which exists (empty) while the form is closed.
+| Open | The button stays in its place but is `visibility:hidden` with `aria-hidden="true"` and `tabindex="-1"` (nothing jumps, no hidden tab stop). The form is built at once, without animation. The focus moves to the first field. The host scrolls into view (`block: nearest`); the scroll is smooth only without `prefers-reduced-motion`. The focus is only moved on a user action, never when the page is built.
+| Open again | `open()` without a prefill on an open form does nothing. The host is emptied before every build, so a double click can never build two forms. `open(prefill)` on an open form that was changed asks first.
+| Cancel, `Escape` | Compares the field values with the values taken at open. Equal: closes at once. Different: the dialog "Eingaben verwerfen?" with "Verwerfen" and "Weiter bearbeiten"; the focus is on "Weiter bearbeiten", and `Escape` inside the dialog means "keep editing". The `Escape` listener sits on the form host (it dies with the page, nothing global), ignores an `Escape` that a combobox already used, and is silent while a dialog is open.
+| Saved | The screen's save path calls `close(true)`: no question, the focus returns to the button, `aria-expanded="false"`, the list is reloaded by the screen as before.
+| Save fails (validation, 409, no right) | The form stays open with its banner: the component is only told about success.
+|===
+
+"Changed" is a comparison, not a flag: typing a word and deleting it again is "unchanged". A field that is filled programmatically after the
+form was built (the member picker of the board appointment preselects the first member when its options arrive) calls `FormSnapshot.rebaseline()`,
+so the preselection is not mistaken for an edit.
+
+== The building block
+
+`CollapsibleCreateForm.kt`:
+
+* `collapsibleCreateForm(actionSlot, formHost, buttonLabel, formId, build)` returns a `CollapsibleCreateFormController` (`open(prefill)`, `close(force)`, `isOpen`).
+  `build` builds the form into the host and returns a `FormSnapshot`; it receives a `close(saved)` function for the Cancel button and for the save.
+* `PageHeader.actionSlot` (in `PageHeader.kt`): the `.lapis-page-action` slot, created on first access. `pageHeader(primaryAction = ...)` fills the same slot as before.
+* `LapisForm.snapshot()`: the values of every field of a form, in order.
+* `collapseCancelButton(close)`: the "Abbrechen" button of the form row.
+* `confirmDialog(cancelLabel = ...)` (in `ConfirmDialog.kt`): a new optional parameter for the label of the dismissing button; every existing caller is unchanged.
+
+The existing `render...Form` functions keep their signatures; they gained an optional trailing `collapse` parameter and now return the
+`FormSnapshot`. Callers that ignore the result (the body tests, which call them directly) are unaffected.
+
+== Where the data comes from
+
+The pilot screens that need candidates for their pickers (meetings: members; motions: amendable motions) load them with the page, as before.
+The form is built from data already in hand when the button is pressed, and the button lives outside the list refresh, so reloading the list
+never discards a form that someone is filling in. Loading the candidates when the form opens instead was considered and not done: it would add
+RPC reads outside a data region (`ClientDataStateTripwireTest` budget) and a loading state inside the form for no benefit to the pilot.
+
+== The tripwire
+
+`ClientUiGuidelineTripwireTest`, block R36B (see `ui-ux-guideline.adoc` for the rule table entry):
+
+* the four converted screens must use `collapsibleCreateForm` and hold no visible create form;
+* every other visible create form is listed per file in `R36B_NOT_YET_COLLAPSED` with the group that pays it (a fingerprint per finding, so a new
+  one turns the test red, and a converted one must be deleted from the ledger);
+* the look-alikes that are not create forms are in `R36B_EXEMPT`, each with its reason;
+* a downward ratchet (`R36B_REMAINING_MAX`).
+
+The scan is a heuristic (a section title `h2(tr("Neu ..."))`, or a call of a `render...Creation/CreateForm/SubmissionForm/AppointmentForm`
+function outside a `collapsibleCreateForm` call). It does not see a create form built under another name or hand-rolled in a screen: the ledger
+is an honest approximation of the debt, not a complete census.
+
+== Not done
+
+* Polls, and all other groups listed in `R36B_NOT_YET_COLLAPSED`.
+* `open(prefill)` is covered by the component's tests but wired into none of the pilot screens: there is no "duplicate" flow among them.
+* The board appointment keeps its section title and caption ("Manuelle Eintragung") where it was, below the roster, because the caption explains
+  the administrative path; the form opens right beneath it, not under the page header.

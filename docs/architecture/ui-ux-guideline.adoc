@@ -117,6 +117,7 @@ The 44 px target size is never undercut.
 | R39 | an icon-only `button("", icon = ...)` (also `button(text = "", icon = ...)`) carries `title` and `aria-label` in the same block; the one factory line in `DataScreenLayout.kt` that labels its button in the next statement is exempted by name, not the file
 | R24 | (W4a, extended W4b) no labelled `text(`/`password(`/`textArea(` call (a call that carries `label =`) in the 22 screens and dialogs migrated to the form grammar or in the 5 screens that have no labelled field to migrate, and (positive check) a `lapisForm(` in each migrated file, closed by `buttons(` or `finish(`; the search/filter fields of W4b are named exceptions (fingerprint, reason "a filter is not a form"). A downward ratchet (`R24_REMAINING_MAX`, 228 after W4b) covers the labelled fields outside the strict set; its floor (150) only guards against a vacuous scan
 | R24B | (W4b) the same for labelled `select(`/`checkBox(` calls -- a SECOND counter, R24 is not redefined. The strict set holds them only as named exceptions (filter, area/action selector, immediate switch, selection list); a downward ratchet (`R24B_REMAINING_MAX`, 131 after W4b) covers the rest. The factories in `FormGrammar.kt` are exempt
+| R36B | (V1.9.40) a *create form* is collapsed by default: ONE button in the title row (`PageHeader.actionSlot`, the single primary action of R36) opens it directly under the page header; the converted screens use `collapsibleCreateForm(...)`. Held strictly for the four governance pilot screens (`CommitteesScreen`, `BoardMembershipScreen`, `MeetingsScreen`, `MotionsScreen`: they must use the component and show no visible create form); every other visible create form is a ledgered debt per file with the wave that pays it (`R36B_NOT_YET_COLLAPSED`, 40 findings), and the look-alikes that are not create forms are named exemptions with a reason (`R36B_EXEMPT`: one-time key display, conference lobby, social post composer). The scan is a HEURISTIC: a section title `h2(tr("Neu ..."))` or an unwrapped call of a `render...Creation/CreateForm/SubmissionForm/AppointmentForm` function; a create form built under another name is not seen. A downward ratchet (`R36B_REMAINING_MAX`, floor = cap - 3) pins the total. R36B does NOT redefine R36 (the placement rule: at most one primary action, right of the title)
 | R55 | no `width = N.px` in client Kotlin (a fixed column width on a row or header cell is the mark of a pseudo-table; `maxWidth`/`minWidth` are not matched). Ledgered per file: after W3 `AuctionScreen`, `CrowdfundingScreen` and `PoliticianScreen` remain as hand-built pseudo-tables (a remainder wave, W5 in this document) and `SocialNetworkScreen` as one genuine form field (W4) -- they are not "form screens"
 | C7c | no `reportTable(` call carries sort wiring (`onSort`, `sort =`, `sortOptions`, `sortKey`, `focusSortKey`); a text check of the call's own arguments, so a sort control added by a later statement is not seen -- the runtime side is `ReportTableDomTest`
 | R54 | every selector with a `transition` is in the single `prefers-reduced-motion` block, nothing else is, and no transition is longer than 200 ms
@@ -1969,3 +1970,30 @@ the class decides the formatter, and `ClientSystemTimestampTripwireTest` fails t
   from the browser's zone.
 * The zone setting is a native select (never free text) of the server's allow-list with a live preview and a one-line note about what changes; the
   form follows the form grammar (label, `required`, single-shot submit) and the card loads through `dataSection`.
+
+== V1.9.40 -- Collapsed create forms (R36B), governance pilot
+
+A create form is not shown all the time: the screen offers ONE button in the title row, and the form opens directly under the page header.
+The reasoning is in `docs/architecture/collapsible-forms.adoc`; the rule and its numbering are:
+
+* **R36B is a new rule, not a change of R36.** R36 (above, `PageHeader`) says where the single primary action goes: right of the `h1`, at most
+  one. R36B says that the create form of a list screen is that action's target instead of a section that is always on the page. The
+  tripwire block is named `R36B` for the same reason.
+* **What is a "create form"**: a form whose only job is to add a new record to the list shown on the same screen (a committee, a meeting, a motion,
+  a board appointment). It is *not*: an edit form in a row ("Bearbeiten"), a filter or search bar, a one-time display (a newly issued API key), a
+  console/panel of a live conference, a single-purpose page (login, registration, settings) or the composer of the social network.
+* **Building block**: `collapsibleCreateForm(actionSlot, formHost, buttonLabel, formId, build)` in `CollapsibleCreateForm.kt`, with
+  `PageHeader.actionSlot` (created on first access, so a button that is only known after loading can still be hung into the title row, and a
+  screen without one has no empty action area), `FormSnapshot` and `collapseCancelButton`.
+* **Behaviour**: collapsed after the load; opening hides the button in place (`visibility:hidden`, `aria-hidden`, `tabindex=-1`), builds the form at
+  once (no animation), moves the focus to the first field and scrolls the host into view (`block: nearest`, smooth only without
+  `prefers-reduced-motion`); Cancel and `Escape` (listener on the form host, not on the document) close an unchanged form at once and ask
+  "Eingaben verwerfen?" for a changed one (the focus is on "Weiter bearbeiten"); a successful save closes without asking and returns the focus to
+  the button; a failed save leaves the form open with its banner. "Changed" is a comparison of the field values with the values at open
+  (`FormSnapshot`), never a flag, and the snapshot is a closure: it is never put into `data-*`, storage, the console or a URL.
+* **Pilot** (four screens, strict in the tripwire): "Neues Gremium" (Gremien), "Neue Bestellung" (Vorstand), "Neue Sitzung" (Sitzungen),
+  "Neuer Antrag" (Anträge). The empty state of a list names the button ("Noch keine Gremien. Mit "Neues Gremium" legen Sie eines an.") for the
+  person who may use it; without the right there is no button and no empty action area.
+* **Not in this wave (named)**: Polls (the LTR surveys plan is reworking `PollCreateForm`), every other group (the 40 ledgered findings of
+  `R36B_NOT_YET_COLLAPSED`: finance, events, community, documents, compliance, conference administration, the auction), and `open(prefill)` for
+  "duplicate" flows: the component and its tests support it, but none of the four pilot screens has such a flow, so nothing calls it yet.

@@ -8,6 +8,19 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Collapsed create forms, governance pilot** (V1.9.40, rule R36B): a create form is no longer an always visible section under a list. New building
+  block `collapsibleCreateForm` (`CollapsibleCreateForm.kt`): one outline button in the title row (new `PageHeader.actionSlot`) opens the form
+  directly under the page header -- no animation, focus into the first field, scroll into view (smooth only without `prefers-reduced-motion`);
+  Cancel and `Escape` close an unchanged form at once and ask "Eingaben verwerfen?" (focus on "Weiter bearbeiten") for a changed one -- "changed"
+  is a comparison of the field values at open, never a flag, and the snapshot lives in a closure only (no `data-*`, storage, console or URL); a
+  successful save closes without asking and returns the focus to the button; a failed save leaves the form open. `confirmDialog` gained an
+  optional `cancelLabel`. Rule numbering: **R36B**, not R36 -- R36 is the placement rule of the page header (at most one primary action) and is
+  not redefined. New tripwire block R36B in `ClientUiGuidelineTripwireTest` (heuristic scan of section titles `h2(tr("Neu ..."))` and unwrapped
+  `render...Creation/CreateForm/SubmissionForm/AppointmentForm` calls): the four converted screens are strict, 40 other findings are a ledger
+  per file with the group that pays them, three look-alikes are named exemptions, a downward ratchet pins the total. Documentation:
+  `docs/architecture/collapsible-forms.adoc`, `ui-ux-guideline.adoc`, `collapsible-forms-staging-test.adoc` (not executed). Client only: no
+  migration, no server change, no new RPC.
+
 - **Systemic consensus, practice alignment part 1** (V1.9.39): (1) the status quo option ("Passivlösung") is listed first everywhere and carries the
   plaque P; the real options carry gap-free numbers 1..n (rank by `(position, id)`, final once the options are frozen), also in the booth, the
   result, the named-ratings table and the room's operator list. (2) The result shows how often the top value of the scale was given. (3) The
@@ -88,6 +101,13 @@ All notable changes to this project are documented here. Format follows
   `consensusPhase`; no migration.
 
 ### Changed
+
+- **Create forms of Gremien, Vorstand, Sitzungen and Anträge, V1.9.40**: the four screens show their create form only after the button in the title
+  row ("Neues Gremium", "Neue Bestellung", "Neue Sitzung", "Neuer Antrag") is pressed; the section titles "Neues Gremium anlegen", "Neue Sitzung
+  anlegen" and "Neuen Antrag einreichen" are gone ("Manuelle Eintragung" stays on the board screen). Empty lists name the button. A person without
+  the right gets no button and no empty action area; the old texts "Keine Berechtigung, neue Sitzungen anzulegen." and "Keine Berechtigung,
+  Anträge einzureichen." are gone with the always visible form. The `render...Form` functions keep their signatures (an optional trailing
+  `collapse` parameter, a `FormSnapshot` as result).
 
 - **V1.9.38, behaviour change at deploy time**: open polls close, and running events end, up to two hours EARLIER than before in Germany -- at the
   typed-in local time instead of the same digits read as UTC. Announce it and, if possible, deploy while no vote is running.
@@ -176,6 +196,14 @@ All notable changes to this project are documented here. Format follows
   consensus row (`FOR UPDATE`) so a rationale cannot change after a concurrent `freezeOptions` committed (race test on H2 and PostgreSQL).
 
 ### Known limitations
+
+- V1.9.40 (pilot only): only the four governance screens are collapsed; `R36B_NOT_YET_COLLAPSED` lists the 40 findings of the other groups (finance,
+  events, community, documents, compliance, conference administration, the auction) and Polls (`PollCreateForm`, waits for the LTR surveys plan).
+  `open(prefill)` is covered by the component's tests but wired into none of the pilot screens (no "duplicate" flow among them). The candidates of
+  the meeting and motion forms are still loaded with the page, not when the form opens (no new RPC reads outside a data region). On the board
+  screen the section title and caption "Manuelle Eintragung" stay below the roster and the form opens beneath them, not under the page header. The R36B
+  scan is a heuristic and does not see a create form built under another name. The comparison "changed?" after a late programmatic fill uses
+  `FormSnapshot.rebaseline()`: a value the person typed in the instant before the options arrive is taken as the new baseline.
 
 - V1.9.38 (stage 1 only): the wire format is unchanged -- class-A values are zone-less UTC `LocalDateTime`s, so public API and MCP consumers see UTC
   without a zone marker (stage 2, `Instant` on the wire, is not done). Recurring series stay on `Europe/Berlin` (database constraint

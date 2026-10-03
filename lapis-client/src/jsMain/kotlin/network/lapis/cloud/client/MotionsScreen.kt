@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import io.kvision.form.select.select
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.P
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
@@ -115,7 +116,9 @@ fun renderMotionsScreen(
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.pageHeader(tr("Anträge"))
+    val header = root.pageHeader(tr("Anträge"))
+    // V1.9.40 (R36B): the submission form is collapsed; its button sits in the title row and the form opens right under the header.
+    val submissionHost = root.vPanel(spacing = 6)
 
     root.h2(tr("Übersicht")) { addCssClass("h5") }
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
@@ -130,12 +133,15 @@ fun renderMotionsScreen(
     val detailPanel = root.vPanel(spacing = 10)
     detailPanel.p(tr("Antrag oben auswählen, um Details zu sehen."))
 
-    root.h2(tr("Neuen Antrag einreichen")) { addCssClass("h5") }
-    val submissionPanel = root.vPanel(spacing = 6)
-    submissionPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-
     var committees: List<CommitteeDto> = emptyList()
     var currentDetailMotionId: String? = null
+    // Known only after the committee rosters are loaded (below), i.e. usually AFTER the first list render: the empty-state text is
+    // corrected in place once it is (see [emptyNote]).
+    var canSubmit = false
+    var emptyNote: P? = null
+
+    fun emptyText(): String =
+        if (canSubmit) tr("Noch keine Anträge. Mit \"Neuer Antrag\" reichen Sie einen ein.") else tr("Noch keine Anträge vorhanden.")
 
     fun selectMotion(motionId: String) {
         currentDetailMotionId = motionId
@@ -150,12 +156,13 @@ fun renderMotionsScreen(
 
     fun refreshMotions() {
         motionListPanel.removeAll()
+        emptyNote = null
         AppScope.launch {
             val committeeId = committeeFilterSelect.value?.takeIf { it.isNotBlank() }
             val status = statusFilterSelect.value?.takeIf { it.isNotBlank() }?.let { MotionStatus.valueOf(it) }
             val motions = guarded { rpcService<IGovernanceService>().listMotions(committeeId, status) } ?: return@launch
             if (motions.isEmpty()) {
-                motionListPanel.p(tr("Noch keine Anträge vorhanden."))
+                emptyNote = motionListPanel.p(emptyText())
                 return@launch
             }
             renderMotionList(motionListPanel, motions) { selected ->
@@ -204,10 +211,8 @@ fun renderMotionsScreen(
                 result
             }
 
-        submissionPanel.removeAll()
-        if (submittableCommittees.isEmpty()) {
-            submissionPanel.p(tr("Keine Berechtigung, Anträge einzureichen."))
-        } else {
+        // No permission: no button and no empty action area (R36B).
+        if (submittableCommittees.isNotEmpty()) {
             // Eligible amendment targets: every non-terminal MAIN Motion (amendsMotionId == null)
             // across the Committees the caller may submit to -- see [renderMotionSubmissionForm]
             // KDoc for why this is loaded once here rather than reactively on committee-select
@@ -220,7 +225,16 @@ fun renderMotionsScreen(
                     .filter { it.amendsMotionId == null && it.status in NON_TERMINAL_MOTION_STATUSES }
                     .forEach { amendableMotions.add(committee to it) }
             }
-            renderMotionSubmissionForm(submissionPanel, submittableCommittees, amendableMotions) { refreshMotions() }
+            // Loaded with the page, as before; the button lives outside the list refresh, so reloading the list never discards a form
+            // someone is filling in.
+            collapsibleCreateForm<Unit>(
+                actionSlot = header.actionSlot,
+                formHost = submissionHost,
+                buttonLabel = tr("Neuer Antrag"),
+                formId = "lapis-create-motion",
+            ) { _, close -> renderMotionSubmissionForm(this, submittableCommittees, amendableMotions, { refreshMotions() }, close) }
+            canSubmit = true
+            emptyNote?.content = emptyText()
         }
     }
 }
@@ -302,7 +316,8 @@ internal fun renderMotionSubmissionForm(
     submittableCommittees: List<CommitteeDto>,
     amendableMotions: List<Pair<CommitteeDto, MotionDto>>,
     onSubmitted: () -> Unit,
-) {
+    collapse: ((saved: Boolean) -> Unit)? = null,
+): FormSnapshot {
     // Formular-Grammatik (V1.4.29, W4b): Titel und Antragstext sind Pflicht, Begründung und der zu ändernde Antrag optional => Fall (a).
     val form = panel.lapisForm()
     val committeeOptions = untrustedOptions(submittableCommittees.map { it.id to it.name })
@@ -323,7 +338,7 @@ internal fun renderMotionSubmissionForm(
     val textField = form.textAreaField(label = tr("Antragstext"), rows = 4, required = true)
 
     val submitButton = Button(tr("Antrag einreichen"), style = ButtonStyle.PRIMARY)
-    form.buttons(primary = submitButton)
+    form.buttons(primary = submitButton, cancel = collapse?.let { collapseCancelButton(it) })
     submitButton.onClick {
         form.submit(submitButton) {
             val amendsId = amendsField.value.takeIf { it.isNotBlank() }
@@ -357,9 +372,11 @@ internal fun renderMotionSubmissionForm(
                 textField.reset()
                 amendsField.setValue("")
                 onSubmitted()
+                collapse?.invoke(true)
             }
         }
     }
+    return form.snapshot()
 }
 
 /**

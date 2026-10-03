@@ -916,6 +916,274 @@ private const val R24B_REMAINING_MAX = 69
 private fun r24bFindings(file: File): List<String> =
     labelledSelectFindings(file.readText()).minusMultiset(R24B_JUSTIFIED[file.name].orEmpty())
 
+// ── R36B: create forms are collapsed (Welle V1.9.40) ─────────────────────────────────────────────────────
+
+private const val R36B = "R36B create form collapsed behind one title-row button"
+
+/**
+ * What R36B calls a *visible create form*, as a HEURISTIC (an honest approximation, not a proof): (1) a section title `h2(tr("Neu ..."))`
+ * -- the heading that used to introduce an always-visible create section -- and (2) a call of a create-form builder, i.e. a
+ * `render...Creation/CreateForm/CreationForm/SubmissionForm/AppointmentForm...(` function called anywhere that is NOT inside a
+ * `collapsibleCreateForm(...)` call. A create form that is built under another name, or hand-rolled inside a screen, is invisible to
+ * this scan; the Design-Team review and the DOM tests of the pilot screens (`CollapsibleCreateFormScreensDomTest`) cover those.
+ * Edit forms (a row's "Bearbeiten"), filters and one-shot displays are not create forms; the ones that look like one to the heuristic
+ * are listed in [R36B_EXEMPT] with a reason.
+ */
+private val CREATE_SECTION_TITLE = Regex("""\.h[1-6]\(\s*tr\(\s*"Neu[^"]*"""")
+private val CREATE_FORM_CALL =
+    Regex(
+        """(?<![A-Za-z0-9_])render\w*(?:Creation|CreateForm|CreationForm|CreateListingForm|SubmissionForm|SubmitProjectForm|AppointmentForm)\w*\(""",
+    )
+private val COLLAPSIBLE_CALL = Regex("""(?<![A-Za-z0-9_])collapsibleCreateForm(?:<[^>]*>)?\(""")
+
+internal fun visibleCreateFormFindings(text: String): List<String> {
+    val code = codeOnly(text)
+    val collapsed =
+        COLLAPSIBLE_CALL
+            .findAll(code)
+            .map { match ->
+                match.range.first until
+                    match.range.last + callWithTrailingLambda(text = code, openParen = match.range.last).length
+            }.toList()
+    val titles = CREATE_SECTION_TITLE.findAll(code).map { fingerprintAt(code = code, offset = it.range.first) }
+    val calls =
+        CREATE_FORM_CALL
+            .findAll(code)
+            // `fun renderXxxCreation(` is the declaration, not a call
+            .filter { !code.substring(maxOf(0, it.range.first - 4), it.range.first).endsWith("fun ") }
+            .filter { call -> collapsed.none { call.range.first in it } }
+            .map { fingerprintAt(code = code, offset = it.range.first) }
+    return (titles + calls).toList()
+}
+
+private class R36bEntry(
+    val fingerprints: List<String>,
+    val reason: String,
+)
+
+/** Not a create form at all, though the heuristic sees one -- by file, with the reason (always visible, never silent). */
+private val R36B_EXEMPT: Map<String, R36bEntry> =
+    mapOf(
+        "ApiKeysScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "card.h2(tr(\"Neuer Schlüssel -- jetzt speichern\")) { addCssClass(\"h5\") }",
+                        "card.h2(tr(\"Neues Signaturgeheimnis -- jetzt speichern\")) { addCssClass(\"h5\") }",
+                    ),
+                reason = "One-time display of a newly issued API key / signing secret (\"save it now\"): a result card, not a create form.",
+            ),
+        "ConferenceScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "lobbyPanel.h2(tr(\"Neue Besprechung\")) { addCssClass(\"h5\") }",
+                    ),
+                reason =
+                    "Conference lobby panel (\"Neue Besprechung\" starts a room from the live conference screen): " +
+                        "a room panel/console, not a list-plus-create screen.",
+            ),
+        "SocialNetworkScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "root.h2(tr(\"Neuen Beitrag verfassen\")) { addCssClass(\"h5\") }",
+                    ),
+                reason =
+                    "The post composer of the social network (\"Neuen Beitrag verfassen\"): " +
+                        "the screen is the composer, not a list with a create form.",
+            ),
+    )
+
+/** Real create forms that are still always visible: the debt of the later waves, by file, with the wave that pays it. */
+private val R36B_NOT_YET_COLLAPSED: Map<String, R36bEntry> =
+    mapOf(
+        "AuctionScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "root.h2(tr(\"Neues Angebot erstellen\")) { addCssClass(\"h5\") }",
+                        "renderCreateListingForm(createPanel) {",
+                    ),
+                reason = "Group \"Wirtschaft\" (LTR economy): the listing form follows with that group.",
+            ),
+        "CateringScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "root.h2(tr(\"Neue Bestellposition anlegen\")) { addCssClass(\"h5\") }",
+                        "renderCateringOrderCreationForm(creationFormHolder, eventSelect, ::refreshList)",
+                    ),
+                reason = "Group \"Veranstaltungen\" (events).",
+            ),
+        "ConferenceStreamDestinationsScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "root.h2(tr(\"Neues Stream-Ziel anlegen\")) { addCssClass(\"h5\") }",
+                        "renderDestinationCreateForm(root, ::refreshList)",
+                    ),
+                reason = "Group \"Konferenz-Verwaltung\" (conference administration).",
+            ),
+        "CostCentersScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "root.h2(tr(\"Neue Kostenstelle anlegen\")) { addCssClass(\"h5\") }",
+                        "renderCostCenterCreationForm(root) { refreshList() }",
+                    ),
+                reason = "Group \"Finanzen\" (finance).",
+            ),
+        "CrmContactsScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "root.h2(tr(\"Neuen Kontakt anlegen\")) { addCssClass(\"h5\") }",
+                        "panel.h2(tr(\"Neue Interaktion erfassen\")) { addCssClass(\"h5\") }",
+                        "renderCrmContactCreationForm(root, ::refreshList)",
+                    ),
+                reason = "Group \"Gemeinschaft\" (community and members).",
+            ),
+        "CrowdfundingScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "root.h2(tr(\"Neues Projekt einreichen\")) { addCssClass(\"h5\") }",
+                        "renderSubmitProjectForm(submitPanel) { loadProjects() }",
+                    ),
+                reason = "Group \"Gemeinschaft\" (community and members).",
+            ),
+        "DocumentsScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "renderDocumentCreation(creationPanel, folder, AppState.session?.role) { loadDocuments(folder) }",
+                        "renderFolderCreation(folderCreationPanel, AppState.session?.role) { refreshFolders() }",
+                    ),
+                reason = "Group \"Dokumente\" (documents).",
+            ),
+        "DonorsScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "root.h2(tr(\"Neuen Spender anlegen\")) { addCssClass(\"h5\") }",
+                        "renderDonorCreationForm(root) { refreshList() }",
+                    ),
+                reason = "Group \"Finanzen\" (finance).",
+            ),
+        "DsgvoComplianceScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "panel.h2(tr(\"Neuen AVV-Eintrag anlegen\")) { addCssClass(\"h5\") }",
+                        "panel.h2(tr(\"Neue TOM anlegen\")) { addCssClass(\"h5\") }",
+                        "panel.h2(tr(\"Neue DSFA anlegen\")) { addCssClass(\"h5\") }",
+                        "panel.h2(tr(\"Neue Datenpanne melden\")) { addCssClass(\"h5\") }",
+                        "renderAgreementCreationForm(panel, ::refreshList)",
+                        "renderTomCreationForm(panel, ::refreshList)",
+                        "renderDpiaCreationForm(panel, ::refreshList)",
+                        "renderBreachCreationForm(panel, ::refreshList)",
+                    ),
+                reason = "Group \"Compliance\" (data protection and legal).",
+            ),
+        "EventRoomsScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "root.h2(tr(\"Neuen Raum anlegen\")) { addCssClass(\"h5\") }",
+                        "renderEventRoomCreationForm(root, ::refreshList)",
+                    ),
+                reason = "Group \"Veranstaltungen\" (events).",
+            ),
+        "EventVolunteerShiftsScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "root.h2(tr(\"Neue Schicht anlegen\")) { addCssClass(\"h5\") }",
+                        "renderEventVolunteerShiftCreationForm(creationFormHolder, eventSelect, ::refreshList)",
+                    ),
+                reason = "Group \"Veranstaltungen\" (events).",
+            ),
+        "EventsScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "root.h2(tr(\"Neue Veranstaltung anlegen\")) { addCssClass(\"h5\") }",
+                        "renderEventCreationForm(creationFormHolder, emptyList(), ::refreshList)",
+                        "renderEventCreationForm(creationFormHolder, rooms, ::refreshList)",
+                    ),
+                reason = "Group \"Veranstaltungen\" (events).",
+            ),
+        "LedgerScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "root.h2(tr(\"Neues Konto anlegen\")) { addCssClass(\"h5\") }",
+                        "root.h2(tr(\"Neue Buchung\")) { addCssClass(\"h5\") }",
+                        "renderAccountCreationForm(root) { refreshAccounts() }",
+                    ),
+                reason = "Group \"Finanzen\" (finance).",
+            ),
+        "MemberAdministrationScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "if (isBoardOrAdmin) renderDirectMemberCreation(root, chapters)",
+                    ),
+                reason = "Group \"Gemeinschaft\" (community and members).",
+            ),
+        "OpenItemsScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "renderOpenItemCreateForm(",
+                    ),
+                reason = "Group \"Finanzen\" (finance).",
+            ),
+        "PollListView.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "renderPollCreateForm(formHost) { created ->",
+                    ),
+                reason = "Group \"Governance-2\": polls wait for the LTR surveys plan (PollCreateForm.kt is being reworked there).",
+            ),
+        "RegionalChaptersScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "renderChapterCreationForm(root, overview, onChanged)",
+                    ),
+                reason = "Group \"Gemeinschaft\" (community and members).",
+            ),
+        "SepaBatchesScreen.kt" to
+            R36bEntry(
+                fingerprints =
+                    listOf(
+                        "root.h2(tr(\"Neuer Lauf\")) { addCssClass(\"h5\") }",
+                    ),
+                reason = "Group \"Finanzen\" (finance).",
+            ),
+    )
+
+/**
+ * Ratchet over the debt: the number of findings outside the converted screens. Only ever lowered (by the wave that converts a group),
+ * and it may not drop more than 3 below the cap without the cap being lowered -- so a quietly converted screen has to be taken out of the
+ * ledger in the same commit. [R36B_NOT_YET_COLLAPSED] and [R36B_EXEMPT] pin the exact fingerprints; this pins the total.
+ */
+private const val R36B_REMAINING_MAX = 40
+
+/** The governance pilot of V1.9.40: converted, so held strictly (no finding at all) and required to use the component. */
+private val R36B_CONVERTED: Set<String> =
+    setOf("CommitteesScreen.kt", "BoardMembershipScreen.kt", "MeetingsScreen.kt", "MotionsScreen.kt")
+
+private fun r36bActual(): Map<String, List<String>> =
+    clientKotlinFiles()
+        .associate { it.name to visibleCreateFormFindings(it.readText()) }
+        .filterValues { it.isNotEmpty() }
+
+private fun r36bLedger(): Map<String, List<String>> = (R36B_EXEMPT + R36B_NOT_YET_COLLAPSED).mapValues { it.value.fingerprints }
+
 private fun scanFile(
     rule: String,
     file: File,
@@ -1397,6 +1665,56 @@ class ClientUiGuidelineTripwireTest :
             unguardedWriteLaunchFindings("// AppScope.launch { rpcService<IThing>().deleteThing(id) }").size shouldBe 0
             // a read-prefixed NAME that merely starts with the letters (`island`) is a write
             unguardedWriteLaunchFindings("AppScope.launch { rpcService<IThing>().islandCreate() }").size shouldBe 1
+        }
+
+        test(
+            "R36B: the visible create forms equal the exemptions plus the debt ledger exactly (NEW = collapse it, PAID OFF = delete the line)",
+        ) {
+            val diff = ledgerDiff(actual = r36bActual(), ledger = r36bLedger())
+            withClue(diff.joinToString(separator = "\n", prefix = "\n")) { diff shouldBe emptyList() }
+        }
+
+        test("R36B: the converted pilot screens use collapsibleCreateForm and hold no visible create form") {
+            val byName = clientKotlinFiles().associateBy { it.name }
+            R36B_CONVERTED.forEach { name ->
+                withClue(name) {
+                    byName.getValue(name).readText().contains("collapsibleCreateForm") shouldBe true
+                    visibleCreateFormFindings(byName.getValue(name).readText()) shouldBe emptyList()
+                }
+            }
+        }
+
+        test("R36B: every exemption and every debt entry names its reason, and no file is in both lists") {
+            (R36B_EXEMPT + R36B_NOT_YET_COLLAPSED).forEach { (file, entry) ->
+                withClue(file) { entry.reason.isNotBlank() shouldBe true }
+            }
+            R36B_EXEMPT.keys.intersect(R36B_NOT_YET_COLLAPSED.keys) shouldBe emptySet()
+            R36B_CONVERTED.intersect((R36B_EXEMPT + R36B_NOT_YET_COLLAPSED).keys) shouldBe emptySet()
+        }
+
+        test("R36B ratchet: the debt only ever goes down, and the scanner is not vacuous") {
+            val remaining = R36B_NOT_YET_COLLAPSED.values.sumOf { it.fingerprints.size }
+            withClue("remaining visible create forms: $remaining") {
+                (remaining <= R36B_REMAINING_MAX) shouldBe true
+                (remaining >= R36B_REMAINING_MAX - 3) shouldBe true
+            }
+        }
+
+        test("R36B flags a create-section title and an unwrapped create-form call, ignores a wrapped one, a declaration and comments") {
+            visibleCreateFormFindings("root.h2(tr(\"Neues Konto anlegen\")) { addCssClass(\"h5\") }").size shouldBe 1
+            visibleCreateFormFindings("renderCommitteeCreation(root, ::refresh)") shouldBe
+                listOf("renderCommitteeCreation(root, ::refresh)")
+            visibleCreateFormFindings("renderMeetingCreationForm(panel, a, b) { reload() }").size shouldBe 1
+            visibleCreateFormFindings("internal fun renderCommitteeCreation(\n    root: SimplePanel,\n)").size shouldBe 0
+            visibleCreateFormFindings(
+                "collapsibleCreateForm<Unit>(\n    actionSlot = a,\n) { _, close -> renderCommitteeCreation(this, ::refresh, close) }",
+            ).size shouldBe 0
+            visibleCreateFormFindings("// renderCommitteeCreation(root, ::refresh)\n* root.h2(tr(\"Neues Gremium\"))").size shouldBe 0
+            visibleCreateFormFindings("root.h2(tr(\"Übersicht\"))").size shouldBe 0
+            // a call after the wrapped one is not covered by it
+            visibleCreateFormFindings(
+                "collapsibleCreateForm<Unit>(a) { _, c -> renderXCreation(this, c) }\nrenderXCreation(root, f)",
+            ).size shouldBe 1
         }
 
         test("R24B: the strict screens hold no labelled select/checkBox call outside their justified fingerprints") {

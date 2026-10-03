@@ -5,6 +5,7 @@ import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.P
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
@@ -106,7 +107,9 @@ fun renderMeetingsScreen(container: SimplePanel) {
             maxWidth = 800.px
             marginTop = 24.px
         }
-    root.pageHeader(tr("Sitzungen"))
+    val header = root.pageHeader(tr("Sitzungen"))
+    // V1.9.40 (R36B): the create form is collapsed; its button sits in the title row and the form opens right under the header.
+    val createHost = root.vPanel(spacing = 6)
 
     root.h2(tr("Übersicht")) { addCssClass("h5") }
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
@@ -121,12 +124,15 @@ fun renderMeetingsScreen(container: SimplePanel) {
     val detailPanel = root.vPanel(spacing = 10)
     detailPanel.p(tr("Sitzung oben auswählen, um Details zu sehen."))
 
-    root.h2(tr("Neue Sitzung anlegen")) { addCssClass("h5") }
-    val creationPanel = root.vPanel(spacing = 6)
-    creationPanel.p(tr("Wird geladen …")) { addCssClasses("text-muted small") }
-
     var committees: List<CommitteeDto> = emptyList()
     var currentDetailMeetingId: String? = null
+    // Known only after the committee rosters are loaded (below), i.e. usually AFTER the first list render: the empty-state text is
+    // corrected in place once it is (see [emptyNote]).
+    var canCreate = false
+    var emptyNote: P? = null
+
+    fun emptyText(): String =
+        if (canCreate) tr("Noch keine Sitzungen. Mit \"Neue Sitzung\" legen Sie eine an.") else tr("Noch keine Sitzungen vorhanden.")
 
     fun refreshDetail() {
         val meetingId = currentDetailMeetingId ?: return
@@ -137,12 +143,13 @@ fun renderMeetingsScreen(container: SimplePanel) {
 
     fun refreshMeetings() {
         meetingListPanel.removeAll()
+        emptyNote = null
         AppScope.launch {
             val committeeId = committeeFilterSelect.value?.takeIf { it.isNotBlank() }
             val status = statusFilterSelect.value?.takeIf { it.isNotBlank() }?.let { MeetingStatus.valueOf(it) }
             val meetings = guarded { rpcService<IGovernanceService>().listMeetings(committeeId, status) } ?: return@launch
             if (meetings.isEmpty()) {
-                meetingListPanel.p(tr("Noch keine Sitzungen vorhanden."))
+                emptyNote = meetingListPanel.p(emptyText())
                 return@launch
             }
             meetings.forEach { meeting ->
@@ -184,12 +191,19 @@ fun renderMeetingsScreen(container: SimplePanel) {
                 result
             }
 
-        creationPanel.removeAll()
-        if (manageableCommittees.isEmpty()) {
-            creationPanel.p(tr("Keine Berechtigung, neue Sitzungen anzulegen."))
-        } else {
+        // No permission: no button and no empty action area (R36B) -- the screen simply offers nothing to create.
+        if (manageableCommittees.isNotEmpty()) {
             val memberCandidates = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
-            renderMeetingCreationForm(creationPanel, manageableCommittees, memberCandidates) { refreshMeetings() }
+            // The candidates are loaded with the page, as before: the form is built from data in hand when the button is pressed, and the
+            // button lives outside the list refresh, so reloading the list never throws away a form someone is filling in.
+            collapsibleCreateForm<Unit>(
+                actionSlot = header.actionSlot,
+                formHost = createHost,
+                buttonLabel = tr("Neue Sitzung"),
+                formId = "lapis-create-meeting",
+            ) { _, close -> renderMeetingCreationForm(this, manageableCommittees, memberCandidates, { refreshMeetings() }, close) }
+            canCreate = true
+            emptyNote?.content = emptyText()
         }
     }
 }
@@ -224,7 +238,8 @@ internal fun renderMeetingCreationForm(
     committees: List<CommitteeDto>,
     memberCandidates: List<MemberSummaryDto>,
     onCreated: () -> Unit,
-) {
+    collapse: ((saved: Boolean) -> Unit)? = null,
+): FormSnapshot {
     // Formular-Grammatik (V1.4.29, W4b): Titel und Termin sind Pflicht, Ort und die beiden Rollen optional => Fall (a).
     val form = panel.lapisForm()
     val committeeOptions = untrustedOptions(committees.map { it.id to it.name })
@@ -247,7 +262,7 @@ internal fun renderMeetingCreationForm(
     val minuteTakerField = form.searchableSelectField(label = tr("Protokollführung"), options = memberOptions, value = "")
 
     val createButton = Button(tr("Sitzung anlegen"), style = ButtonStyle.PRIMARY)
-    form.buttons(primary = createButton)
+    form.buttons(primary = createButton, cancel = collapse?.let { collapseCancelButton(it) })
     createButton.onClick {
         form.submit(createButton) {
             val title = titleField.value.trim()
@@ -271,9 +286,11 @@ internal fun renderMeetingCreationForm(
                 scheduledAtField.reset()
                 locationField.reset()
                 onCreated()
+                collapse?.invoke(true)
             }
         }
     }
+    return form.snapshot()
 }
 
 /**

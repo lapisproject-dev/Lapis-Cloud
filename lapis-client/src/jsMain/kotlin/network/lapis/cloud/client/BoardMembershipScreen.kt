@@ -61,7 +61,7 @@ fun renderBoardMembershipScreen(container: SimplePanel) {
             maxWidth = 900.px
             marginTop = 24.px
         }
-    root.pageHeader(tr("Vorstand & Transparenzregister"))
+    val header = root.pageHeader(tr("Vorstand & Transparenzregister"))
     root.div(tr(BOARD_MEMBERSHIP_HEADER_NOTE)) { addCssClasses("text-muted small") }
 
     var currentBoard: List<BoardMembershipDto> = emptyList()
@@ -123,7 +123,14 @@ fun renderBoardMembershipScreen(container: SimplePanel) {
     // ---- Manual appointment (administrative/supplementary path, see D9 KDoc above) -----------
     root.h2(tr("Manuelle Eintragung")) { addCssClass("h5") }
     root.div(tr(MANUAL_APPOINTMENT_CAPTION)) { addCssClasses("text-muted small") }
-    renderAppointmentForm(root, currentBoardProvider = { currentBoard }, onAppointed = ::refreshAll)
+    // V1.9.40 (R36B): the appointment form is collapsed; "Neue Bestellung" in the title row opens it right here, below its caption.
+    val appointmentHost = root.vPanel(spacing = 6)
+    collapsibleCreateForm<Unit>(
+        actionSlot = header.actionSlot,
+        formHost = appointmentHost,
+        buttonLabel = tr("Neue Bestellung"),
+        formId = "lapis-create-board-appointment",
+    ) { _, close -> renderAppointmentForm(this, currentBoardProvider = { currentBoard }, onAppointed = ::refreshAll, collapse = close) }
 
     // ---- Transparenzregister report ------------------------------------------------------------
     root.h2(tr("Transparenzregister-Bericht")) { addCssClass("h5") }
@@ -262,7 +269,8 @@ internal fun renderAppointmentForm(
     root: SimplePanel,
     currentBoardProvider: () -> List<BoardMembershipDto>,
     onAppointed: () -> Unit,
-) {
+    collapse: ((saved: Boolean) -> Unit)? = null,
+): FormSnapshot {
     val panel = root.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
     // Formular-Grammatik (V1.4.29): drei Pflichtfelder => Fall (b), Legende "Alle Felder sind Pflichtfelder.".
     val form = panel.lapisForm()
@@ -285,15 +293,18 @@ internal fun renderAppointmentForm(
             rule = { FormRules.isoDate(value = it) },
         )
 
+    val snapshot = form.snapshot()
     AppScope.launch {
         val members = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
         memberSelect.options = untrustedOptions(members.map { it.id to it.displayName })
         memberField.setValue(members.firstOrNull()?.id)
         memberField.validate(force = false)
+        // The preselected first member is not an edit by the person: the "changed?" comparison starts from it.
+        snapshot.rebaseline()
     }
 
     val appointButton = Button(tr("Vorstandsmitglied ernennen"), style = ButtonStyle.PRIMARY)
-    form.buttons(primary = appointButton)
+    form.buttons(primary = appointButton, cancel = collapse?.let { collapseCancelButton(it) })
     appointButton.onClick {
         if (!form.validateAndReport()) return@onClick
         val memberId = memberField.value
@@ -307,6 +318,7 @@ internal fun renderAppointmentForm(
                 if (result != null) {
                     notifySuccess(gettext("%1 wurde als %2 ernannt.", result.memberDisplayName, committeeRoleLabel(role)))
                     onAppointed()
+                    collapse?.invoke(true)
                 }
             }
         }
@@ -323,6 +335,7 @@ internal fun renderAppointmentForm(
             doAppoint()
         }
     }
+    return snapshot
 }
 
 /** Pure predicate covered by [BoardMembershipScreenTest] -- returns the currently active holder of

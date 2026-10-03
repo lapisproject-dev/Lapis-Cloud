@@ -5893,13 +5893,11 @@ msgstr "Nie znaleziono uprawnionych członków."
 msgid "Keine Berechtigung für diese Aktion."
 msgstr "Brak uprawnień do tej czynności."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:209
-msgid "Keine Berechtigung, Anträge einzureichen."
-msgstr "Brak uprawnień do składania wniosków."
+msgid "Noch keine Anträge. Mit \"Neuer Antrag\" reichen Sie einen ein."
+msgstr "Brak wniosków. Przyciskiem \"Nowy wniosek\" złożysz nowy."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:189
-msgid "Keine Berechtigung, neue Sitzungen anzulegen."
-msgstr "Brak uprawnień do tworzenia nowych posiedzeń."
+msgid "Noch keine Sitzungen. Mit \"Neue Sitzung\" legen Sie eine an."
+msgstr "Brak posiedzeń. Przyciskiem \"Nowe posiedzenie\" utworzysz nowe."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:989
 msgid "Keine Beschlüsse."
@@ -7107,9 +7105,11 @@ msgstr ""
 "dopóki funkcja jest wyłączona (strona składek nie pokazuje wtedy zarządzania "
 "mandatami)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:124
-msgid "Neue Sitzung anlegen"
-msgstr "Utwórz nowe posiedzenie"
+msgid "Neue Sitzung"
+msgstr "Nowe posiedzenie"
+
+msgid "Neue Bestellung"
+msgstr "Nowe powołanie"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:327
 msgid "Neue TOM anlegen"
@@ -7120,9 +7120,8 @@ msgstr "Utwórz nowy środek techniczno-organizacyjny (TOM)"
 msgid "Neue Version hochladen"
 msgstr "Prześlij nową wersję"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:133
-msgid "Neuen Antrag einreichen"
-msgstr "Złóż nowy wniosek"
+msgid "Neuer Antrag"
+msgstr "Nowy wniosek"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:139
 msgid "Neuen AVV-Eintrag anlegen"
@@ -7164,9 +7163,8 @@ msgstr "Nowy klucz transmisji (pozostawić puste = bez zmian)"
 msgid "Neues Angebot erstellen"
 msgstr "Utwórz nową ofertę"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:100
-msgid "Neues Gremium anlegen"
-msgstr "Utwórz nowe gremium"
+msgid "Neues Gremium"
+msgstr "Nowe gremium"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:285
 msgid "Neues Konto anlegen"
@@ -7333,6 +7331,9 @@ msgstr "brak dotychczasowych ofert, cena wywoławcza: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:86
 msgid "Noch keine Gremien vorhanden."
 msgstr "Brak dotychczasowych gremiów."
+
+msgid "Noch keine Gremien. Mit \"Neues Gremium\" legen Sie eines an."
+msgstr "Brak gremiów. Przyciskiem \"Nowe gremium\" utworzysz nowe."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:193
 msgid "Noch keine Konten angelegt."
@@ -15790,6 +15791,12 @@ msgstr "Złóż wniosek o nową płatność"
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
 msgid "Verwerfen"
 msgstr "Odrzuć"
+
+msgid "Eingaben verwerfen?"
+msgstr "Odrzucić wprowadzone dane?"
+
+msgid "Die bisher eingegebenen Daten sind noch nicht gespeichert und gehen verloren."
+msgstr "Dotychczas wprowadzone dane nie zostały zapisane i zostaną utracone."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
 msgid "Zahlung eingereicht."

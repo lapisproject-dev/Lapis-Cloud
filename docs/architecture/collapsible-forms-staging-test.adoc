@@ -1,0 +1,39 @@
+= Staging test plan: collapsed create forms (V1.9.40)
+:toc:
+
+== Purpose
+
+The wave is covered by DOM tests (`CollapsibleCreateFormDomTest`, `CollapsibleCreateFormScreensDomTest`) and a tripwire. What only a real browser on a
+real deployment shows: the focus handling with a screen reader, the scroll on a phone, and the behaviour with real data. The plan was **not
+executed** by the author of the wave: nothing was deployed (the staging server belongs to the operator), so every row of "Actual results" is still
+open. It is a plan to be run by a person, not a script.
+
+== Set-up
+
+. Staging with this version deployed; a BOARD account and a MEMBER account (no committee role).
+. A phone, or the browser's device mode at 360 px width; optionally a screen reader (VoiceOver, NVDA).
+
+== Steps
+
+[cols="1,4,4", options="header"]
+|===
+| # | Action | Expected
+| 1 | As BOARD open "Gremien" | no form on the page; the button "Neues Gremium" is right in the title row; an empty list says "Mit "Neues Gremium" legen Sie eines an."
+| 2 | Press the button | the form appears at once under the title, the button is gone but its place stays, the cursor is in "Name"
+| 3 | Press Tab repeatedly | the focus never lands on the hidden button
+| 4 | Press `Escape` without typing | the form closes, the focus is on the button
+| 5 | Open again, type a name, press `Escape` | the dialog "Eingaben verwerfen?" appears with the focus on "Weiter bearbeiten"
+| 6 | Press `Escape` in the dialog | the dialog closes, the typed name is still there
+| 7 | Press "Abbrechen", then "Verwerfen" | the form closes; opening it again shows an empty form
+| 8 | Fill the form and save | success message; the form folds back; the new committee is in the list; the focus is on the button
+| 9 | Open the form, type something, press "Aktualisieren" in the list | the list reloads, the open form and its text stay
+| 10 | Repeat 1 to 8 on "Vorstand" ("Neue Bestellung"), "Sitzungen" ("Neue Sitzung") and "Anträge" ("Neuer Antrag") | same behaviour; on "Vorstand" the section title "Manuelle Eintragung" stays above the place where the form opens
+| 11 | As MEMBER open "Gremien", "Sitzungen", "Anträge" | no button and no empty gap in the title row
+| 12 | At 360 px width open a form | no horizontal scrolling; the form is scrolled into view
+| 13 | With the system setting "reduce motion" on, open a form far down the page | the page jumps, it does not glide
+| 14 | Switch the language to English and open a form, then cancel after typing | button, dialog and empty-state texts are translated
+|===
+
+== Actual results
+
+(to be filled in when the plan is run)

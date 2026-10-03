@@ -245,3 +245,28 @@ internal fun HTMLElement.shownErrors(): List<String> = allOf(".lapis-field-error
 
 internal fun assertNoShownError(root: HTMLElement) =
     assertTrue(root.shownErrors().isEmpty(), "unexpected field errors: ${root.shownErrors()}")
+
+/** The button of a collapsed create form (R36B): the one with `aria-controls` [formId], or the first one with an `aria-controls` at all. */
+internal fun createFormButton(
+    root: HTMLElement,
+    formId: String? = null,
+): HTMLElement {
+    val selector = if (formId == null) "button[aria-controls]" else "button[aria-controls='$formId']"
+    return assertNotNull(root.querySelector(selector) as? HTMLElement, "no create-form button ($selector)")
+}
+
+/**
+ * Opens a collapsed create form the way a person does (clicks its button in the title row) and waits for THAT form: the element with
+ * the id [formId] (the form host, which exists while the form is closed too) holding a built `.lapis-form`. Not a wait for a text that
+ * would also be found elsewhere on the page. Returns the host.
+ */
+internal suspend fun openCreateForm(
+    root: HTMLElement,
+    formId: String? = null,
+): HTMLElement {
+    val button = createFormButton(root, formId)
+    val id = button.getAttribute("aria-controls").orEmpty()
+    button.click()
+    awaitUntil("the create form '$id' is built") { root.querySelector("[id='$id'] .lapis-form") != null }
+    return assertNotNull(root.querySelector("[id='$id']") as? HTMLElement, "no form host '$id'")
+}

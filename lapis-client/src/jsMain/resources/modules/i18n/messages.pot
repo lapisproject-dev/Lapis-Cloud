@@ -5309,12 +5309,10 @@ msgstr ""
 msgid "Keine Berechtigung für diese Aktion."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:209
-msgid "Keine Berechtigung, Anträge einzureichen."
+msgid "Noch keine Anträge. Mit \"Neuer Antrag\" reichen Sie einen ein."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:189
-msgid "Keine Berechtigung, neue Sitzungen anzulegen."
+msgid "Noch keine Sitzungen. Mit \"Neue Sitzung\" legen Sie eine an."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:989
@@ -6460,8 +6458,10 @@ msgstr ""
 msgid "Neue Mandate, Vorschauen und Lastschriftläufe können bis zur erneuten Aktivierung nicht mehr angelegt werden. Bereits erteilte Mandate bleiben bestehen, können von ihren Inhabern aber nicht mehr selbst widerrufen werden, solange die Funktion deaktiviert ist (die Beitragsseite zeigt in diesem Zustand keine Mandatsverwaltung mehr an)."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:124
-msgid "Neue Sitzung anlegen"
+msgid "Neue Sitzung"
+msgstr ""
+
+msgid "Neue Bestellung"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:327
@@ -6473,8 +6473,7 @@ msgstr ""
 msgid "Neue Version hochladen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:133
-msgid "Neuen Antrag einreichen"
+msgid "Neuer Antrag"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:139
@@ -6517,8 +6516,7 @@ msgstr ""
 msgid "Neues Angebot erstellen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:100
-msgid "Neues Gremium anlegen"
+msgid "Neues Gremium"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:285
@@ -6678,6 +6676,9 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:86
 msgid "Noch keine Gremien vorhanden."
+msgstr ""
+
+msgid "Noch keine Gremien. Mit \"Neues Gremium\" legen Sie eines an."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:193
@@ -14872,6 +14873,12 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
 msgid "Verwerfen"
+msgstr ""
+
+msgid "Eingaben verwerfen?"
+msgstr ""
+
+msgid "Die bisher eingegebenen Daten sind noch nicht gespeichert und gehen verloren."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1

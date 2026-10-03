@@ -5935,13 +5935,11 @@ msgstr "Nessun membro avente diritto trovato."
 msgid "Keine Berechtigung für diese Aktion."
 msgstr "Non è autorizzato/a a eseguire questa azione."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:209
-msgid "Keine Berechtigung, Anträge einzureichen."
-msgstr "Non è autorizzato/a a presentare richieste."
+msgid "Noch keine Anträge. Mit \"Neuer Antrag\" reichen Sie einen ein."
+msgstr "Nessuna richiesta ancora. Con \"Nuova richiesta\" ne può presentare una."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:189
-msgid "Keine Berechtigung, neue Sitzungen anzulegen."
-msgstr "Non è autorizzato/a a creare nuove sedute."
+msgid "Noch keine Sitzungen. Mit \"Neue Sitzung\" legen Sie eine an."
+msgstr "Nessuna seduta ancora. Con \"Nuova seduta\" ne può creare una."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:989
 msgid "Keine Beschlüsse."
@@ -7149,9 +7147,11 @@ msgstr ""
 "finché la funzione è disattivata (in questo stato la pagina delle quote non "
 "mostra più la gestione dei mandati)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:124
-msgid "Neue Sitzung anlegen"
-msgstr "Crea nuova seduta"
+msgid "Neue Sitzung"
+msgstr "Nuova seduta"
+
+msgid "Neue Bestellung"
+msgstr "Nuova nomina"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:327
 msgid "Neue TOM anlegen"
@@ -7162,9 +7162,8 @@ msgstr "Crea nuova TOM"
 msgid "Neue Version hochladen"
 msgstr "Carica nuova versione"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:133
-msgid "Neuen Antrag einreichen"
-msgstr "Presenta nuova richiesta"
+msgid "Neuer Antrag"
+msgstr "Nuova richiesta"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:139
 msgid "Neuen AVV-Eintrag anlegen"
@@ -7206,9 +7205,8 @@ msgstr "Nuova chiave di streaming (lasciare vuoto per non modificare)"
 msgid "Neues Angebot erstellen"
 msgstr "Crea nuova offerta"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:100
-msgid "Neues Gremium anlegen"
-msgstr "Crea nuovo organo"
+msgid "Neues Gremium"
+msgstr "Nuovo organo"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:285
 msgid "Neues Konto anlegen"
@@ -7373,6 +7371,9 @@ msgstr "nessuna offerta ancora, prezzo di partenza: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:86
 msgid "Noch keine Gremien vorhanden."
 msgstr "Nessun organo presente ancora."
+
+msgid "Noch keine Gremien. Mit \"Neues Gremium\" legen Sie eines an."
+msgstr "Nessun organo ancora. Con \"Nuovo organo\" ne può creare uno."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:193
 msgid "Noch keine Konten angelegt."
@@ -15837,6 +15838,12 @@ msgstr "Richiedi un nuovo pagamento"
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
 msgid "Verwerfen"
 msgstr "Scarta"
+
+msgid "Eingaben verwerfen?"
+msgstr "Scartare i dati inseriti?"
+
+msgid "Die bisher eingegebenen Daten sind noch nicht gespeichert und gehen verloren."
+msgstr "I dati inseriti finora non sono stati salvati e andranno persi."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:1
 msgid "Zahlung eingereicht."

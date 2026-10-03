@@ -28,6 +28,9 @@ fun confirmDialog(
     extraLines: List<String> = emptyList(),
     dangerNote: String? = null,
     focusCancel: Boolean = false,
+    // V1.9.40 -- additive: the label of the dismissing button. A question whose safe answer is "keep going" ("Eingaben verwerfen?" ->
+    // "Weiter bearbeiten") must not offer "Abbrechen", which reads as the opposite; the default keeps every existing caller unchanged.
+    cancelLabel: String = tr("Abbrechen"),
     onConfirm: () -> Unit,
 ) {
     val modal = Modal(caption = title)
@@ -37,7 +40,7 @@ fun confirmDialog(
     extraLines.forEach { line -> modal.div(line) }
     dangerNote?.let { modal.div(it) { addCssClasses("fw-bold text-danger") } }
     val cancelButton =
-        Button(tr("Abbrechen"), style = ButtonStyle.SECONDARY).apply {
+        Button(cancelLabel, style = ButtonStyle.SECONDARY).apply {
             onClick { modal.hide() }
         }
     modal.addButton(cancelButton)

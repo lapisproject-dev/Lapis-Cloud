@@ -57,8 +57,10 @@ fun renderCommitteesScreen(container: SimplePanel) {
             maxWidth = 720.px
             marginTop = 24.px
         }
-    root.pageHeader(tr("Gremien"))
+    val header = root.pageHeader(tr("Gremien"))
     val canManage = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
+    // V1.9.40 (R36B): the create form is collapsed; its button sits in the title row and the form opens right under the header.
+    val createHost = if (canManage) root.vPanel(spacing = 6) else null
 
     root.h2(tr("Übersicht")) { addCssClass("h5") }
     val filterRow = root.hPanel(spacing = 8) { addCssClasses("align-items-center") }
@@ -80,7 +82,15 @@ fun renderCommitteesScreen(container: SimplePanel) {
                 guarded { rpcService<IGovernanceService>().listCommittees(activeOnly = !includeInactiveCheck.value) }
                     ?: return@launch
             if (committees.isEmpty()) {
-                committeePanel.p(tr("Noch keine Gremien vorhanden."))
+                committeePanel.p(
+                    if (canManage) {
+                        tr(
+                            "Noch keine Gremien. Mit \"Neues Gremium\" legen Sie eines an.",
+                        )
+                    } else {
+                        tr("Noch keine Gremien vorhanden.")
+                    },
+                )
                 return@launch
             }
             committees.forEach { committee ->
@@ -93,9 +103,13 @@ fun renderCommitteesScreen(container: SimplePanel) {
     refreshButton.onClick { refreshCommittees() }
     refreshCommittees()
 
-    if (canManage) {
-        root.h2(tr("Neues Gremium anlegen")) { addCssClass("h5") }
-        renderCommitteeCreation(root, ::refreshCommittees)
+    if (createHost != null) {
+        collapsibleCreateForm<Unit>(
+            actionSlot = header.actionSlot,
+            formHost = createHost,
+            buttonLabel = tr("Neues Gremium"),
+            formId = "lapis-create-committee",
+        ) { _, close -> renderCommitteeCreation(this, ::refreshCommittees, close) }
     }
 }
 
@@ -193,7 +207,8 @@ internal fun renderCommitteeEditForm(
 internal fun renderCommitteeCreation(
     root: SimplePanel,
     onCreated: () -> Unit,
-) {
+    collapse: ((saved: Boolean) -> Unit)? = null,
+): FormSnapshot {
     val panel = root.vPanel(spacing = 6)
     val form = panel.lapisForm()
     val typeOptions = CommitteeType.entries.map { it.name to committeeTypeLabel(it) }
@@ -210,7 +225,7 @@ internal fun renderCommitteeCreation(
         )
 
     val createButton = Button(tr("Gremium anlegen"), style = ButtonStyle.PRIMARY)
-    form.buttons(primary = createButton)
+    form.buttons(primary = createButton, cancel = collapse?.let { collapseCancelButton(it) })
     createButton.onClick {
         form.submit(createButton) {
             val name = nameField.value.trim()
@@ -233,9 +248,11 @@ internal fun renderCommitteeCreation(
                 descriptionField.reset()
                 quorumField.setValue("50")
                 onCreated()
+                collapse?.invoke(true)
             }
         }
     }
+    return form.snapshot()
 }
 
 internal fun renderCommitteeRoster(

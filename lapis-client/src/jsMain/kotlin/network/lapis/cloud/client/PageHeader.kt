@@ -35,7 +35,22 @@ class PageHeader internal constructor(
     val root: Div,
     private val subtitleTag: P?,
     private val subtitleRow: Div?,
+    private val titleRow: Div? = null,
+    private var existingActionSlot: Div? = null,
 ) {
+    /**
+     * V1.9.40 -- the `.lapis-page-action` slot of the title row (R36: at most ONE primary action, right-aligned). Created on first
+     * access, so a screen whose action only becomes known after loading (a role check, a candidate list) can hang it in later, and a
+     * screen without any action never gets an empty slot. Purely additive: [pageHeader]'s `primaryAction` parameter fills the same
+     * slot synchronously, exactly as before.
+     */
+    val actionSlot: Container
+        get() {
+            existingActionSlot?.let { return it }
+            val row = checkNotNull(titleRow) { "pageHeader built without a title row" }
+            return row.div(className = "lapis-page-action").also { existingActionSlot = it }
+        }
+
     /**
      * Sets the subtitle to a loaded data value (TEXT, never markup); a `null` clears it. A header built WITHOUT a subtitle slot
      * (`subtitle = null`) has nothing to write into: setting text there fails loudly instead of silently dropping the value (audit
@@ -124,8 +139,9 @@ fun Container.pageHeader(
             if (PageFocus.consume()) (vnode.elm as? HTMLElement)?.focus()
         },
     )
+    var actionSlot: Div? = null
     if (primaryAction != null) {
-        val actionSlot = titleRow.div(className = "lapis-page-action")
+        actionSlot = titleRow.div(className = "lapis-page-action")
         actionSlot.primaryAction()
     }
     var subtitleRow: Div? = null
@@ -141,7 +157,7 @@ fun Container.pageHeader(
         }
     PageTitle.set(title, subtitle)
     (document.getElementById(LIVE_REGION_ID))?.textContent = resolvedAttributeText(title)
-    return PageHeader(header, subtitleTag, subtitleRow)
+    return PageHeader(header, subtitleTag, subtitleRow, titleRow, actionSlot)
 }
 
 /**
