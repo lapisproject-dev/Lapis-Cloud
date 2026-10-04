@@ -44,12 +44,23 @@ jobs:
 
       # LAPIS_DB_URL is deliberately NOT set (DevSeedData's production guard keys off it, and the lane refuses to
       # run with it). The variables are set on this step only and never echoed.
-      - name: Build & check (clean, incl. ktlint, detekt, Postgres lane)
+      # The Karma/ChromeHeadless tests run in their own step AFTER the server tests. In one `check` Gradle runs them in
+      # parallel with `:lapis-server:test`/`postgresTest`; on the 2-core runner that starved the browser and caused sporadic
+      # DOM-test timeouts and "Disconnected ... ping timeout" (2026-10-03). Excluded here by name, run in the next step.
+      - name: Build & check (clean, incl. ktlint, detekt, Postgres lane; browser tests follow)
         env:
           LAPIS_TEST_POSTGRES_URL: jdbc:postgresql://localhost:5432/lapis_test
           LAPIS_TEST_POSTGRES_USER: lapis_test
           LAPIS_TEST_POSTGRES_PASSWORD: lapis-ci-throwaway
-        run: ./gradlew clean check
+        run: >-
+          ./gradlew clean check
+          -x :lapis-client:allTests -x :lapis-client:jsBrowserTest
+          -x :lapis-shared:allTests -x :lapis-shared:jsBrowserTest
+
+      # Runs even when the step above failed, so one red run shows both results.
+      - name: Browser tests (client and shared, run alone)
+        if: ${{ !cancelled() }}
+        run: ./gradlew :lapis-shared:allTests :lapis-client:allTests
 
       - name: Upload test results
         if: always()
