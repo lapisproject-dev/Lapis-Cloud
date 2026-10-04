@@ -46,6 +46,13 @@ internal fun mobileWebviewBridgeEnabled(getenv: (String) -> String? = System::ge
  * "Required server extension"). The app never sends a route or URL, only one of these keys; the
  * value of an unknown key is NEVER reflected (no open redirect, no reflected content). Role
  * restrictions (e.g. `events` = BOARD/ADMIN) are enforced by the web route guards after the redirect.
+ *
+ * V1.9.52: `my-events` is the member view `Routes.MY_EVENTS` / `MemberEventsScreen`, behind the web guard
+ * `requireAuth` with no role. The bridge adds no requirement of its own: any valid session (the login gate
+ * blocks only WITHDRAWN and REJECTED) reaches the page, and no ACTIVE-status check exists in the web route or
+ * in `EventService`; this is existing web behaviour and unchanged here. `events` stays the BOARD/ADMIN
+ * management page. Keys follow the app regex `^[a-z]+(-[a-z]+)*$`. An older server answers 400
+ * `unknown section` for `my-events`, which is expected.
  */
 internal val MOBILE_SECTION_TARGETS: Map<String, String> =
     mapOf(
@@ -57,6 +64,7 @@ internal val MOBILE_SECTION_TARGETS: Map<String, String> =
         "meetings" to "/app#/meetings",
         "motions" to "/app#/motions",
         "events" to "/app#/events",
+        "my-events" to "/app#/my-events",
         "conference" to "/app#/conference",
     )
 

@@ -55,7 +55,7 @@ this repository. This README describes only the technical scope.
   a clean reimplementation.
 * https://github.com/lapisproject-dev/Lapis-Cloud-Mobile[Lapis Cloud Mobile] — companion app
   (Kotlin Multiplatform, Android + iOS): login, video-conference join, a home hub that opens the
-  main web sections, and the member-card download. Not in any app store yet. Its section and video
+  main web sections (including events), and the member-card download. Not in any app store yet. Its section and video
   features need the optional WebView bridge on the server (off by default, see `CHANGELOG.md`
   `[0.22.0]`).
 * https://kuml.dev[kUML] — the modeling language used for every diagram in this repository
@@ -375,7 +375,7 @@ mechanism"). **V1.6.1 optional AI assistance**
 (statute Q&A, Flyway `V44`) ships **off by default** and is not enabled on any shipped deployment, see
 "AI assistance" below. For the companion app, the server has a generic WebView bridge
 (`/api/mobile/v1/webview-session`) that is header-authenticated (the token is never in a URL) and
-**disabled by default** behind `LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED`, forwarded by `deploy/example/docker-compose.yml` since 2026-09-27 (previously it wasn't -- shipped instances from before that date need the same line added to their own compose file, see `deploy/example/docker-compose.yml`).
+**disabled by default** behind `LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED`, whose `section` keys are a closed server-side allowlist (`MOBILE_SECTION_TARGETS`; `my-events`, the member events page, was added in V1.9.52, and an app newer than the server gets `400` for unknown keys, which is expected -- the app should treat it as "server too old"), forwarded by `deploy/example/docker-compose.yml` since 2026-09-27 (previously it wasn't -- shipped instances from before that date need the same line added to their own compose file, see `deploy/example/docker-compose.yml`).
 The switch and the header-only design close a session-fixation weakness in the bridge routes shipped in
 `v0.21.0`; companion apps built before V1.5.2 (which send `?token=`) no longer work against a server with
 the bridge switched on. Security: a disabled AI route now answers a typed error instead of HTTP 500, the

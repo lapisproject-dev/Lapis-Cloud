@@ -3,8 +3,11 @@ package network.lapis.cloud.server.routes
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldMatch
 import io.kotest.matchers.string.shouldNotContain
+import io.kotest.matchers.string.shouldStartWith
 import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.get
@@ -446,21 +449,130 @@ class MobileWebviewSessionRoutesTest :
             }
         }
 
-        test("section: allowlist contract is pinned (exact key set, documents and volunteer-shifts mappings)") {
-            MOBILE_SECTION_TARGETS.keys shouldBe
-                setOf(
-                    "dashboard",
-                    "contributions",
-                    "documents",
-                    "volunteer-shifts",
-                    "committees",
-                    "meetings",
-                    "motions",
-                    "events",
-                    "conference",
+        test("section: allowlist contract is pinned (exact key set and every mapping)") {
+            MOBILE_SECTION_TARGETS shouldBe
+                mapOf(
+                    "dashboard" to "/app#/dashboard",
+                    "contributions" to "/app#/contributions",
+                    "documents" to "/app#/documents",
+                    "volunteer-shifts" to "/app#/my-volunteer-shifts",
+                    "committees" to "/app#/committees",
+                    "meetings" to "/app#/meetings",
+                    "motions" to "/app#/motions",
+                    "events" to "/app#/events",
+                    "my-events" to "/app#/my-events",
+                    "conference" to "/app#/conference",
                 )
-            MOBILE_SECTION_TARGETS["documents"] shouldBe "/app#/documents"
-            MOBILE_SECTION_TARGETS["volunteer-shifts"] shouldBe "/app#/my-volunteer-shifts"
+            // Contract with the app regex: a new key in the wrong form fails here.
+            MOBILE_SECTION_TARGETS.keys.forEach { it shouldMatch Regex("^[a-z]+(-[a-z]+)*$") }
+            // Structural guard against a future open redirect: relative, same-origin, SPA hash route only.
+            MOBILE_SECTION_TARGETS.values.forEach {
+                it shouldStartWith "/app#/"
+                listOf("//", "\\", ":", "..").forEach { bad -> it shouldNotContain bad }
+            }
+            // The capability probe key must stay outside the allowlist.
+            MOBILE_SECTION_TARGETS.containsKey(MOBILE_WEBVIEW_CAPABILITY_PROBE_SECTION) shouldBe false
+        }
+
+        test("section: my-events with a valid header redirects to exactly /app#/my-events with the full cookie contract") {
+            testApplication {
+                mountRoute(cookieSecure = false)
+                val token = createMemberWithSession()
+
+                val response = noRedirectClient().section("my-events", token)
+
+                response.status shouldBe HttpStatusCode.Found
+                response.headers[HttpHeaders.Location] shouldBe "/app#/my-events"
+                assertBridgeCookie(response.headers[HttpHeaders.SetCookie], expectedToken = token, expectSecure = false)
+            }
+        }
+
+        test("section: my-events behind X-Forwarded-Proto https sets a Secure cookie") {
+            testApplication {
+                mountRoute(cookieSecure = true, trustForwardedHeaders = true)
+                val token = createMemberWithSession()
+
+                val response =
+                    noRedirectClient().section("my-events", token) {
+                        header("X-Forwarded-Proto", "https")
+                    }
+
+                response.status shouldBe HttpStatusCode.Found
+                response.headers[HttpHeaders.Location] shouldBe "/app#/my-events"
+                assertBridgeCookie(response.headers[HttpHeaders.SetCookie], expectedToken = token, expectSecure = true)
+            }
+        }
+
+        test("section: events and my-events are distinct targets") {
+            testApplication {
+                mountRoute(cookieSecure = false)
+                val client = noRedirectClient()
+                val token = createMemberWithSession()
+
+                val events = client.section("events", token)
+                val myEvents = client.section("my-events", token)
+
+                events.headers[HttpHeaders.Location] shouldBe "/app#/events"
+                myEvents.headers[HttpHeaders.Location] shouldNotBe "/app#/events"
+            }
+        }
+
+        test("section: my-events without a valid session is 401 without a cookie (header, scheme, token, expiry, revoke, cookie)") {
+            testApplication {
+                mountRoute(cookieSecure = false)
+                val client = noRedirectClient()
+                val token = createMemberWithSession()
+                val expired = createExpiredSession()
+                val revoked = createMemberWithSession().also { SessionStore.revoke(it) }
+
+                val responses =
+                    listOf(
+                        client.section("my-events"),
+                        client.section("my-events") { header(HttpHeaders.Authorization, "Basic $token") },
+                        client.section("my-events") { parameter("token", token) },
+                        client.section("my-events", expired),
+                        client.section("my-events", revoked),
+                        client.section("my-events") { header(HttpHeaders.Cookie, "lapis_session=$token") },
+                    )
+                responses.forEach {
+                    it.status shouldBe HttpStatusCode.Unauthorized
+                    it.headers[HttpHeaders.SetCookie] shouldBe null
+                    it.headers[HttpHeaders.Location] shouldBe null
+                    it.bodyAsText() shouldBe "Invalid or expired session"
+                }
+            }
+        }
+
+        test("section: tampered my-events variants are 400 with the fixed body, no Location, no cookie") {
+            testApplication {
+                mountRoute(cookieSecure = false)
+                val client = noRedirectClient()
+                val token = createMemberWithSession()
+
+                listOf(
+                    "my-events/../x",
+                    "MY-EVENTS",
+                    "My-Events",
+                    "my_events",
+                    "my-events/",
+                    "my-events ",
+                    " my-events",
+                    "my-events?x=1",
+                    "my-events#x",
+                    "/app#/my-events",
+                    "my--events",
+                    "-my-events",
+                    "my-events-",
+                    "myevents",
+                    "my-events%2F..%2Fx",
+                ).forEach { value ->
+                    val response = client.section(value, token)
+                    response.status shouldBe HttpStatusCode.BadRequest
+                    response.headers[HttpHeaders.Location] shouldBe null
+                    response.headers[HttpHeaders.SetCookie] shouldBe null
+                    response.bodyAsText() shouldBe "unknown section"
+                }
+            }
         }
 
         test("section: unknown or malicious section values are 400, never reflected, no cookie") {

@@ -6,6 +6,15 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Mobile WebView bridge: section key `my-events`** (V1.9.52). Server only: no migration, no client, RPC or `V1__baseline.sql` change.
+  - `MOBILE_SECTION_TARGETS` gains `my-events` -> `/app#/my-events` (member events page, web guard `requireAuth`, no role; no ACTIVE-status requirement,
+    as before on the web). `events` stays the board/admin management page. Allowlist lookup, the `400 unknown section` without reflection, the
+    non-allowlisted capability probe, header-only auth, cookie attributes and the kill switch `LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED` (default off) are unchanged.
+  - Compatibility: a newer app against a server without this change gets `400` for `my-events` (expected); older apps never send it.
+  - Tests: the allowlist is pinned as an exact map, plus key-form and target-shape guards; happy path, 401 cases and tamper variants for `my-events`.
+
 ### Changed
 
 - **Conference lobby: "Besprechung jetzt starten" in the title row; API keys collapsed** (V1.9.51, rules R36B/R36C and R57). Client only: no migration, no server, RPC or
