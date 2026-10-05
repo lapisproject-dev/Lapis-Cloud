@@ -45,9 +45,14 @@ Without `LAPIS_TEST_POSTGRES_URL` the task is skipped and `./gradlew clean check
 
 == Continuous integration
 
-`.github/workflows/ci.yml` starts a `postgres:17` service container (`lapis_test`, a disposable password that is not a secret) and sets
-the three `LAPIS_TEST_POSTGRES_*` variables on the `./gradlew clean check` step ONLY (not job-wide, never echoed). The host is
-`localhost` through the port mapping. `check` runs the lane exactly once.
+Since V1.9.58 the lane has its own job, `postgres`, in `.github/workflows/ci.yml` (see `ci-pipeline.adoc`). The job starts a `postgres:17`
+service container (`lapis_test`, a disposable password that is not a secret) and sets the three `LAPIS_TEST_POSTGRES_*` variables on the
+`./gradlew clean :lapis-server:postgresTest` step ONLY (not job-wide, never echoed). The host is `localhost` through the port mapping.
+The job runs in parallel with the H2 job (`check`, which excludes `postgresTest` by name) and the browser job.
+
+A SKIPPED task (missing variable) writes no JUnit XML and still leaves the build green. The step `Assert Postgres lane ran (not SKIPPED)`
+therefore fails the job unless at least 30 XML files exist and `ElectionIntegrityPostgresTest` is among them
+(`scripts/ci-assert-lane-ran.sh`).
 
 `LAPIS_DB_URL` must NOT be set -- neither in CI nor locally. `DevSeedData`'s production guard keys off that variable, and the lane
 refuses to start when it is present.
@@ -133,7 +138,7 @@ Measured on PostgreSQL 17 (2026-10-02). Everything not listed here behaved exact
   transaction after an `SQLException` (default 3 attempts) still exists: the timeouts bound the wait (up to three times the lock timeout),
   and external effects inside `transaction { }` are now fenced by a source-scan tripwire instead of convention.
 * Only PostgreSQL 17 is exercised. `DROP DATABASE ... WITH (FORCE)` needs PostgreSQL 13 or newer; the version is logged.
-* The Postgres lane adds minutes to CI.
+* The Postgres lane adds minutes to CI. Since V1.9.58 it runs in its own parallel job, so it no longer lengthens the H2 job (about 4 to 6 minutes of its own, plus compiling the server).
 
 == Candidates for the next wave (V1.9.55 analysis)
 

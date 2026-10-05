@@ -78,6 +78,9 @@ Transaktion nach einem fehlgeschlagenen Statement, die echte Flyway-Kette), prü
   Assertions auf beiden Datenbanken; wo H2 nur wegen seines 1-Sekunden-Lock-Timeouts tolerant ist, auf Postgres strenger prüfen, nie lockerer.
   Der Klassenname der Spur-Variante enthält `Postgres` (der Gradle-Filter arbeitet über den Namen; `PostgresLaneNamingTest` wacht darüber).
 - In Szenarien der Spur niemals `module()` oder `DatabaseConfig.connect()` aufrufen (sonst Rückfall auf H2); der Dialekt-Guard in `installLaneGuards` fängt das ab.
+- **Die H2-Spur läuft seit V1.9.58 in mehreren Test-JVMs** (`-Plapis.test.forks=N`, CI: 4). Neue Tests dürfen deshalb keine festen Ports und keine geteilten
+  Dateipfade nutzen (Port `0` bzw. ein Verzeichnis mit `Uuid.random()` im Namen). Jede JVM hat ihre eigene H2-Datenbank; eine Reihenfolge-Abhängigkeit zwischen
+  Spec-Klassen ist ein Testfehler der Fixture, nie ein Grund, eine Assertion zu lockern. Die Postgres-Spur bleibt bei einer JVM.
 - **Nie `LAPIS_DB_URL` setzen** (weder lokal noch in CI) und **nie gegen eine fremde oder produktive Datenbank testen**: die Spur lehnt alles außer einer
   Wegwerf-Instanz ab (URL-Whitelist, Instanz-Check, DROP nur für selbst angelegte `lapis_pgtest_*`). Lokal nur ein frischer Docker-Container, an `127.0.0.1` gebunden.
 - Wer eine Constraint-Verletzung fängt und danach dieselbe Transaktion weiterbenutzt, braucht einen Savepoint (`withSavepoint`, `db/Savepoints.kt`):

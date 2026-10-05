@@ -1,0 +1,159 @@
+= CI pipeline (V1.9.58)
+:toc:
+
+== Purpose
+
+Until V1.9.57 one job, "Build & Test", ran everything one after the other: compile, ktlint, detekt, all H2 tests, the Postgres lane, then the
+browser tests. The wall-clock time grew with every wave and reached about 25 minutes. V1.9.58 splits that job into three parallel jobs and lets the
+H2 tests use several JVMs. No check was removed and no assertion was weakened.
+
+== The three jobs
+
+[cols="1,3,3"]
+|===
+|Job |What it runs |Why separate
+
+|`check` (Check: ktlint, detekt, H2 tests)
+|`./gradlew clean check -Plapis.test.forks=4`, without `postgresTest` and without the browser tests (excluded by name). Then
+`scripts/ci-assert-lane-ran.sh` requires at least 600 JUnit XML files (703 today).
+|Longest job: compile, lint, and the H2 tests spread over four test JVMs.
+
+|`postgres` (Postgres lane)
+|`./gradlew clean :lapis-server:postgresTest` against a `postgres:17` service container. Then `ci-assert-lane-ran.sh` requires at least 30 XML files
+(33 today) and the result file of `ElectionIntegrityPostgresTest`.
+|The lane needs only the server compile and about 4 to 6 minutes of its own. It stays on ONE test JVM (see below).
+
+|`browser` (Browser tests, Karma)
+|`./gradlew :lapis-shared:allTests :lapis-client:allTests`
+|ChromeHeadless on its own runner: no more CPU competition with the server tests (the cause of the "Disconnected ... ping timeout" flakes of 2026-10-03).
+|===
+
+All jobs set `timeout-minutes: 30`, and the workflow sets `permissions: contents: read`. Pull-request runs are cancelled when a newer commit arrives
+(`concurrency`, never for pushes to `master`). Every job prints `nproc; free -h` first, so the real runner hardware is visible in the log.
+
+== What ran where: before and after
+
+[cols="3,2,2"]
+|===
+|Check |Before |Now
+
+|`clean check` (all modules except the browser tests)|step "Build & check"|job `check`
+|ktlint (all source sets and scripts)|"Build & check"|`check`
+|detekt including `lapis-detekt-rules` (RequireNamedArguments)|"Build & check"|`check`
+|Tripwire tests (ClientDataState, time fields, transaction rules, PostgresLaneNaming, ...)|"Build & check" (H2)|`check` (H2 lane, budgets unchanged)
+|Postgres lane `postgresTest`|"Build & check" (through `check.dependsOn`)|job `postgres`, now with the proof "ran, not SKIPPED"
+|Karma / ChromeHeadless and `lapis-shared` jvmTest (`allTests`)|step "Browser tests"|job `browser`
+|Test reports|one artifact `test-results`|three artifacts (`test-results-check`, `-postgres`, `-browser`), now also with the JUnit XML
+|Test JVM flags (`lapis.test.mode`, `sun.net.inetaddr.ttl`, `kotest.tags`, `-PtestTimeZone`)|`configureLapisTestJvm()`|unchanged; forks inherit them
+|===
+
+Gap check (2026-10-05): `./gradlew check --dry-run` (175 tasks) compared with the union of the three jobs' task lists (`--dry-run` each). The union
+contains every task of the full `check`; the only extra tasks are the `clean*` tasks.
+
+There is no branch protection on `master`, so no required check named "Build & Test" breaks. If protection is enabled later, require the three new
+job names.
+
+== Why it was slow: measurements
+
+Runner facts: the repository is public, so `ubuntu-latest` has 4 vCPUs and 16 GB RAM. The earlier comment in `ci.yml` about a "2-core runner" was
+wrong. The first step of every job now prints the real numbers.
+
+The "about 4 minutes before" that was quoted earlier is a cache effect, not a baseline. Run 37181562554 (a pure CI change, 3.8 minutes) found
+`:lapis-server:compileKotlin`, `compileTestKotlin` and `:lapis-server:test` all `FROM-CACHE`, only `postgresTest` really ran. The real trend of the
+build step is steady growth:
+
+[cols="1,1"]
+|===
+|Version |Build step in CI
+
+|V1.9.36 (no Postgres lane)|11.2 min
+|V1.9.53|16.4 min
+|V1.9.54|17.4 min
+|V1.9.57|19.3 min
+|===
+
+plus 3.6 to 6.2 minutes for the browser step.
+
+Local measurement (macOS, 18 cores, `--no-build-cache --rerun-tasks`, 7085 H2 tests in 703 classes, 269 Postgres tests in 33 classes):
+
+[cols="3,1"]
+|===
+|Item |Time
+
+|Complete `clean check` before the wave (one test JVM, Postgres lane included)|8 min 31 s
+|Complete `clean check` after the wave (`-Plapis.test.forks=4`)|5 min 55 s
+|H2 test task alone, forks 2 / 3 / 4 (compile included)|335 s / 285 s / 273 s
+|Sum of H2 class times, sequential|441 s (391 s after the MemberAdministrationTest change)
+|H2 task alone with `-Plapis.test.forks=1` after the wave (order independence in the other direction)|443 s, green
+|Browser tests (`:lapis-shared:allTests :lapis-client:allTests`, no cache)|212 s, green
+|Largest H2 classes|ElectionIntegrityTest 133 to 155 s, PollConcurrencyTest 32 to 50 s, SecretBallotStreamPauseTest 29 s
+|Largest Postgres classes|ElectionIntegrityPostgresTest 87 s, AdminPeerProtectionPostgresTest 60 s, PeerTransferServicePostgresTest 34 s
+|Server compile (main / test)|11 s / 28 s
+|ktlint server (main / test), detekt server (main / test)|13 s / 26 s, 14 s / 25 s
+|===
+
+Findings per hypothesis:
+
+* **Parallelism (confirmed).** The H2 lane ran in one JVM. Forks help until the largest class is the critical path: ElectionIntegrityTest (about
+  2.5 minutes) bounds the gain, so 3 and 4 forks are nearly equal. CI pins 4 (the runner has 4 vCPUs). Kotest's own parallelism inside a JVM stays
+  off.
+* **Database set-up per test (rejected).** `DatabaseConfig` builds and migrates the H2 database once per JVM (lazy). The Postgres lane clones a
+  template database per spec, migrated once per JVM.
+* **Timeouts instead of latches (found, not changed).** Many of the slowest H2 tests take whole seconds (28 s, 22 s, 20 s, 16 s ...). They race six
+  requests against a row lock, and H2 resolves that with its 1-second lock timeout and Exposed's automatic re-run, not with an orderly wait. The same
+  scenarios take about 2 seconds on PostgreSQL. The H2 doubles are required by the repository convention ("same assertions on both databases",
+  `CLAUDE.md`), so they stay (open question F1 of the plan, default "do not remove").
+* **bcrypt (partly confirmed).** An experiment with cost 4 saved about 124 s of summed class time (MemberAdministrationTest alone 38 s), and made the
+  two timing tests that compare the bcrypt cost fail, as they should. Changing production code to make that possible was not done (open question F2).
+  Instead, MemberAdministrationTest now hashes `STRONG_PASSWORD` once and reuses that real cost-12 hash for its fixture accounts.
+* **Compile time (not reduced).** Server main and test are compiled in `check` and again in `postgres` (parallel instead of serial, no shared build
+  cache between parallel jobs of one run). Splitting the module was out of scope.
+
+== Expected CI times (not measured)
+
+The CI numbers below are an estimate from the local measurements and the old CI timings. They are NOT measured. After the first push, fill in the
+real values from the Actions run.
+
+[cols="2,1,1"]
+|===
+|Job |Estimate |Measured in CI
+
+|`check`|10 to 12 min|(to be filled in)
+|`postgres`|8 to 11 min|(to be filled in)
+|`browser`|4 to 6 min|(to be filled in)
+|Workflow wall-clock (longest job)|10 to 12 min, was about 25 min|(to be filled in)
+|===
+
+If the compile of the server stays above 7 minutes on the runner, `check` ends nearer 12 to 13 minutes.
+
+== Reproduce locally
+
+[source,bash]
+----
+export DOCKER_HOST=unix://$HOME/.colima/default/docker.sock
+docker run -d --name lapis-pgtest -p 127.0.0.1:55458:5432 \
+  -e POSTGRES_USER=lapis_test -e POSTGRES_PASSWORD=lapis-local-throwaway -e POSTGRES_DB=lapis_test postgres:17
+export LAPIS_TEST_POSTGRES_URL=jdbc:postgresql://127.0.0.1:55458/lapis_test \
+       LAPIS_TEST_POSTGRES_USER=lapis_test LAPIS_TEST_POSTGRES_PASSWORD=lapis-local-throwaway
+./gradlew clean check --no-build-cache --rerun-tasks --profile -Plapis.test.forks=4 \
+  -x :lapis-client:allTests -x :lapis-client:jsBrowserTest -x :lapis-shared:allTests -x :lapis-shared:jsBrowserTest
+scripts/ci-assert-lane-ran.sh lapis-server/build/test-results/test 600
+scripts/ci-assert-lane-ran.sh lapis-server/build/test-results/postgresTest 30 TEST-network.lapis.cloud.server.rpc.ElectionIntegrityPostgresTest.xml
+----
+
+Never set `LAPIS_DB_URL`. Per-class times come from `lapis-server/build/test-results/{test,postgresTest}/*.xml`; per-task times from
+`build/reports/profile`. `-Plapis.test.forks=1` reproduces the old single-JVM behaviour.
+
+== Rules for tests since forks exist
+
+* No fixed ports (use port 0) and no shared file paths (put `Uuid.random()` in the directory name).
+* A dependency on the order of spec classes is a defect of the fixture, never a reason to loosen an assertion.
+* The Postgres lane stays on one JVM: two forks would create two template databases.
+
+== Known limitations
+
+* The compile of the server module happens in two jobs; the module is not split.
+* The Gradle configuration cache is not reused across CI runs (it would need an encryption key as a new secret).
+* The browser job has a fixed floor of about 4 to 6 minutes.
+* The H2 concurrency doubles still take minutes; ElectionIntegrityTest is the critical path of the `check` job.
+* The CI times above are estimates until the first run is measured.

@@ -241,6 +241,15 @@ fun Test.configureLapisTestJvm() {
 
 tasks.test {
     configureLapisTestJvm()
+    // V1.9.58: spec classes are spread over several test JVMs. Each JVM owns its own in-memory H2 database
+    // (DatabaseConfig names it per JVM), so forks never share database state. CI pins the value with
+    // `-Plapis.test.forks=4`; locally it defaults to half the cores, capped at 4. Kotest's own in-JVM spec
+    // parallelism stays OFF (the H2 database and the admin isolation of PeerFixture are JVM-global).
+    maxParallelForks =
+        providers
+            .gradleProperty("lapis.test.forks")
+            .map(String::toInt)
+            .getOrElse((Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4))
     // V1.9.37: the Postgres lane (specs tagged "Postgres") runs in its own task below.
     systemProperty("kotest.tags", "!Postgres")
 }

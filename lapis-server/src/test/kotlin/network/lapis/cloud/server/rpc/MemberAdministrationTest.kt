@@ -102,6 +102,11 @@ private const val TREASURER_ID = "00000000-0000-0000-0000-000000000003"
 private const val MEMBER_ID = "00000000-0000-0000-0000-000000000004"
 private const val STRONG_PASSWORD = "a-genuinely-strong-password-1"
 
+// V1.9.58: fixture accounts share ONE production-cost bcrypt hash of STRONG_PASSWORD instead of hashing once per
+// created member (measured: about 38 s of this class's 43 s). The hash is a real cost-12 hash, so the password
+// assertions below are exactly as strong as before; only the repeated, identical work is gone.
+private val STRONG_PASSWORD_HASH: String by lazy { PasswordHasher.hash(STRONG_PASSWORD) }
+
 /**
  * Exercises [MemberService]'s Welle-V1.2.12 surface (listMembersForAdministration/
  * updateMemberCoreData/updateMemberStatus/updateMemberRole) end to end -- same "throwaway routes
@@ -196,7 +201,7 @@ class MemberAdministrationTest :
                     it[AccountTable.id] = Uuid.random()
                     it[memberId] = id
                     it[AccountTable.role] = role
-                    it[passwordHash] = PasswordHasher.hash(STRONG_PASSWORD)
+                    it[passwordHash] = STRONG_PASSWORD_HASH
                 }
             }
             createdMemberIds += id

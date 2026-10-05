@@ -530,7 +530,7 @@ with their fields (V1.9.43). **Members** can maintain their address and GwG data
 membership card and register for events themselves (V1.9.33), direct messages gain conversations and
 paging, and the board can mark event refunds as paid outside Lapis Cloud (V1.9.34-V1.9.36). A
 **Postgres test lane** runs the engine-dependent tests against a real PostgreSQL 17, also in CI
-(V1.9.37), and found three code paths that were only correct on H2. The staging test plans of these
+(V1.9.37; its own parallel CI job since V1.9.58), and found three code paths that were only correct on H2. The staging test plans of these
 waves are written but were not executed. Operators: take a backup and apply migrations `V66` to `V69`;
 `V1__baseline.sql` is unchanged, so no `flywayRepair` is needed. Open polls close and running events end
 up to two hours earlier than before (at the typed-in local time) -- deploy while no vote is running --
@@ -665,7 +665,7 @@ idempotency table: link:docs/architecture/database-timeouts-and-retries.adoc[dat
 
 The normal test suite runs on H2. A second Gradle task, `./gradlew :lapis-server:postgresTest`, runs the engine-dependent specs (Flyway
 chain, schema equivalence with H2, row locks, isolation, deadlocks, concurrency) against a real, disposable PostgreSQL; it is part of `check`
-and is skipped when `LAPIS_TEST_POSTGRES_URL` is not set. CI runs it against a `postgres:17` service container. Start it locally with a
+and is skipped when `LAPIS_TEST_POSTGRES_URL` is not set. CI runs it in its own job (V1.9.58) against a `postgres:17` service container, and fails that job when the lane was skipped. Start it locally with a
 fresh Docker container bound to `127.0.0.1` -- see link:docs/architecture/postgres-test-lane.adoc[postgres-test-lane.adoc]. Never set
 `LAPIS_DB_URL` for it and never point it at a real database (the lane refuses).
 

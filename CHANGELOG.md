@@ -78,6 +78,28 @@ All notable changes to this project are documented here. Format follows
   HTTP retry of the same logical checkout is deduplicated by Stripe/PayPal. The persisted `provider_idempotency_key` equals the value sent.
 - `createContributionCheckout` is single-flight per contribution: two parallel requests mint one hosted session instead of two (double payment possible).
 
+### Changed (V1.9.58)
+
+- **CI runs as three parallel jobs** (`check`, `postgres`, `browser`) instead of one serial "Build & Test" job; `docs/architecture/ci-pipeline.adoc` lists what
+  ran where before and after. `permissions: contents: read`, `timeout-minutes: 30` per job, pull-request runs are superseded by newer commits, every job prints
+  `nproc; free -h`. The workflow now FAILS when a lane did not really run: `scripts/ci-assert-lane-ran.sh` requires the JUnit XML of the H2 lane (at least 600 files)
+  and of the Postgres lane (at least 30 files, including `ElectionIntegrityPostgresTest`); a SKIPPED lane used to leave the build green. Test reports are uploaded
+  per job, now with the JUnit XML.
+- **The H2 test lane uses several test JVMs** (`maxParallelForks`, `-Plapis.test.forks=N`; CI 4, default locally half the cores, at most 4). The Postgres lane stays
+  on one JVM. Local measurement (18 cores): complete `clean check` 8 min 31 s -> 5 min 55 s, same 7085 H2 and 269 Postgres tests.
+- `MemberAdministrationTest` hashes its fixture password once (a real cost-12 bcrypt hash) instead of once per created member (about 38 s saved).
+- The `ci.yml` comment about a "2-core runner" was wrong (public repository: 4 vCPUs) and is replaced.
+
+### Known limitations (V1.9.58)
+
+- The CI times in `ci-pipeline.adoc` are an ESTIMATE (about 10 to 12 minutes instead of about 25); they were not measured on GitHub. The 3.8-minute run quoted
+  earlier was a build-cache effect (compile and `test` served `FROM-CACHE`), not a baseline.
+- Server main and test are compiled in two jobs (parallel, not shared); the module is not split. The Gradle configuration cache is not reused across CI runs.
+- `ElectionIntegrityTest` (about 2.5 minutes, H2 lock timeouts instead of orderly waits) is the critical path of the `check` job; the H2 doubles of the race
+  scenarios stay because the repository convention demands the same assertions on both databases.
+- A bcrypt cost override for tests would save about 90 s of summed test time, but needs a test hook in `PasswordHasher` (production code); not done.
+- Existing specs use fixed `build/...` directories (one per class); no collision was observed with 4 forks, three H2 runs in a row.
+
 ### Changed (V1.9.57)
 
 - **An administrator can no longer demote, block or set a password for another administrator alone.** The direct calls answer with the typed `PeerApprovalRequiredException`
