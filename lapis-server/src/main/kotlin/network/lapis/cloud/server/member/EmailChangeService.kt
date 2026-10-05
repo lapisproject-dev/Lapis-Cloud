@@ -23,7 +23,10 @@ import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordResetTokenStore
+import network.lapis.cloud.server.security.PeerDecision
+import network.lapis.cloud.server.security.PeerDeniedSignal
 import network.lapis.cloud.server.security.SessionStore
+import network.lapis.cloud.server.security.peerGuarded
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -41,6 +44,8 @@ import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.OwnEmailChangeResultDto
 import network.lapis.cloud.shared.domain.OwnPendingEmailChangeDto
+import network.lapis.cloud.shared.domain.PeerAction
+import network.lapis.cloud.shared.domain.PeerDenyReason
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.EmailChangeAlreadyCurrentException
 import network.lapis.cloud.shared.rpc.EmailChangeMailUnavailableException
@@ -322,68 +327,96 @@ internal class EmailChangeService(
         val confirmRaw = EmailChangeTokens.newRawToken()
         val revokeRaw = EmailChangeTokens.newRawToken()
         val created =
-            transaction {
-                val member = EmailChangeStore.lockMember(targetId) ?: throw NotFoundException("Member $targetIdRaw not found")
-                requireEligibleTarget(member)
-                val facts = accountFacts(targetId)
-                // Peer protection, re-read UNDER the member lock (a concurrent role change needs that lock too).
-                if (facts.role != null && facts.role in ESCALATED_ROLES && actor.role != AccountRole.ADMIN) throw ForbiddenException()
-                val oldEmail = member[MemberTable.email]
-                if (oldEmail.lowercase() == normalized) throw EmailChangeAlreadyCurrentException()
-                if (usedByAnotherMember(normalized = normalized, memberId = targetId)) throw MemberEmailInUseException()
-
-                // The budgets are consumed only now, after authorization and eligibility passed: a caller who may not touch this
-                // target must not be able to burn its proposal budget. Both counters run unconditionally (no short-circuit), so
-                // cycling either side alone cannot dodge the other; throwing here rolls the transaction back (nothing written yet).
-                val actorAllowed = proposalActorRateLimiter.checkAndRecord("actor:${actor.memberId}")
-                val targetAllowed = proposalTargetRateLimiter.checkAndRecord("target:$targetId")
-                if (!actorAllowed || !targetAllowed) throw EmailChangeRateLimitedException()
-
-                val superseded = EmailChangeStore.supersedeOpenLocked(memberId = targetId, now = now)
-                val kind =
-                    when {
-                        override -> EmailChangeKind.ADMIN_OVERRIDE
-                        passwordRequired(facts) -> EmailChangeKind.PROPOSAL
-                        else -> EmailChangeKind.PROPOSAL_NO_ACCOUNT
+            peerGuarded(actor = actor) {
+                transaction {
+                    val member = EmailChangeStore.lockMember(targetId) ?: throw NotFoundException("Member $targetIdRaw not found")
+                    requireEligibleTarget(member)
+                    val facts = accountFacts(targetId)
+                    // Peer protection, re-read UNDER the member lock (a concurrent role change needs that lock too).
+                    if (facts.role != null && facts.role in ESCALATED_ROLES && actor.role != AccountRole.ADMIN) throw ForbiddenException()
+                    // Welle V1.9.57 "Admin-Peer-Schutz" -- the emergency path (path C) never targets ANOTHER administrator: its only
+                    // safeguard is the 72 hour objection right of the target, and an address the attacker controls plus a reset mail
+                    // would be a takeover by one person without the second administrator the other paths demand. An administrator
+                    // without a usable mailbox gets a temporary password through the approval path and changes the address (path A).
+                    if (override && facts.role == AccountRole.ADMIN) {
+                        throw PeerDeniedSignal(
+                            decision = PeerDecision.Deny(PeerDenyReason.TARGET_IS_ADMIN),
+                            action = PeerAction.EMAIL_OVERRIDE,
+                            targetId = targetId,
+                            targetRole = facts.role,
+                        )
                     }
-                val effectiveAt =
-                    if (kind ==
-                        EmailChangeKind.PROPOSAL
-                    ) {
-                        null
-                    } else {
-                        EmailChangeStore.plus(at = now, duration = EmailChangeStore.OVERRIDE_DELAY)
-                    }
-                val expiresAt =
-                    EmailChangeStore.plus(
-                        at = now,
-                        duration = if (kind == EmailChangeKind.PROPOSAL) EmailChangeStore.PROPOSAL_TTL else EmailChangeStore.OVERRIDE_TTL,
-                    )
-                val changeId =
-                    EmailChangeStore.insertPending(
+                    val oldEmail = member[MemberTable.email]
+                    if (oldEmail.lowercase() == normalized) throw EmailChangeAlreadyCurrentException()
+                    if (usedByAnotherMember(normalized = normalized, memberId = targetId)) throw MemberEmailInUseException()
+
+                    // The budgets are consumed only now, after authorization and eligibility passed: a caller who may not touch this
+                    // target must not be able to burn its proposal budget. Both counters run unconditionally (no short-circuit), so
+                    // cycling either side alone cannot dodge the other; throwing here rolls the transaction back (nothing written yet).
+                    val actorAllowed = proposalActorRateLimiter.checkAndRecord("actor:${actor.memberId}")
+                    val targetAllowed = proposalTargetRateLimiter.checkAndRecord("target:$targetId")
+                    if (!actorAllowed || !targetAllowed) throw EmailChangeRateLimitedException()
+
+                    val superseded = EmailChangeStore.supersedeOpenLocked(memberId = targetId, now = now)
+                    val kind =
+                        when {
+                            override -> EmailChangeKind.ADMIN_OVERRIDE
+                            passwordRequired(facts) -> EmailChangeKind.PROPOSAL
+                            else -> EmailChangeKind.PROPOSAL_NO_ACCOUNT
+                        }
+                    val effectiveAt =
+                        if (kind ==
+                            EmailChangeKind.PROPOSAL
+                        ) {
+                            null
+                        } else {
+                            EmailChangeStore.plus(at = now, duration = EmailChangeStore.OVERRIDE_DELAY)
+                        }
+                    val expiresAt =
+                        EmailChangeStore.plus(
+                            at = now,
+                            duration =
+                                if (kind ==
+                                    EmailChangeKind.PROPOSAL
+                                ) {
+                                    EmailChangeStore.PROPOSAL_TTL
+                                } else {
+                                    EmailChangeStore.OVERRIDE_TTL
+                                },
+                        )
+                    val changeId =
+                        EmailChangeStore.insertPending(
+                            memberId = targetId,
+                            pendingEmail = normalized,
+                            kind = kind,
+                            requestedBy = actor.memberId,
+                            reason = reason,
+                            confirmHash = EmailChangeTokens.hash(confirmRaw),
+                            revokeHash = EmailChangeTokens.hash(revokeRaw),
+                            now = now,
+                            expiresAt = expiresAt,
+                            effectiveAt = effectiveAt,
+                        )
+                    recordSuperseded(
+                        superseded = superseded,
                         memberId = targetId,
-                        pendingEmail = normalized,
-                        kind = kind,
-                        requestedBy = actor.memberId,
-                        reason = reason,
-                        confirmHash = EmailChangeTokens.hash(confirmRaw),
-                        revokeHash = EmailChangeTokens.hash(revokeRaw),
+                        member = member,
+                        role = facts.role,
+                        actor = actor,
                         now = now,
-                        expiresAt = expiresAt,
-                        effectiveAt = effectiveAt,
                     )
-                recordSuperseded(superseded = superseded, memberId = targetId, member = member, role = facts.role, actor = actor, now = now)
-                recordAudit(
-                    actor = actor,
-                    targetId = targetId,
-                    status = member[MemberTable.status],
-                    role = facts.role,
-                    facts = EmailChangeAuditFacts(event = EmailChangeAuditEvent.REQUESTED, kind = kind, changeId = changeId.toString()),
-                    emailChanged = false,
-                    reason = reason,
-                    now = now,
-                )
-                Created(changeId = changeId, kind = kind, oldEmail = oldEmail, expiresAt = expiresAt, effectiveAt = effectiveAt)
+                    recordAudit(
+                        actor = actor,
+                        targetId = targetId,
+                        status = member[MemberTable.status],
+                        role = facts.role,
+                        facts = EmailChangeAuditFacts(event = EmailChangeAuditEvent.REQUESTED, kind = kind, changeId = changeId.toString()),
+                        emailChanged = false,
+                        reason = reason,
+                        now = now,
+                    )
+                    Created(changeId = changeId, kind = kind, oldEmail = oldEmail, expiresAt = expiresAt, effectiveAt = effectiveAt)
+                }
             }
 
         // The warning to the OLD address is the only safety net of the third-party paths, so it goes out FIRST and must be
@@ -1086,7 +1119,8 @@ internal class EmailChangeService(
         if (kind == EmailChangeKind.SELF) return true
         val initiator = change[MemberEmailChangeTable.requestedBy] ?: return false
         val initiatorRole = accountFacts(initiator).role ?: return false
-        if (kind == EmailChangeKind.ADMIN_OVERRIDE) return initiatorRole == AccountRole.ADMIN
+        // V1.9.57: an emergency change against an account that has become ADMIN meanwhile is discarded, like a lost initiator role.
+        if (kind == EmailChangeKind.ADMIN_OVERRIDE) return initiatorRole == AccountRole.ADMIN && targetRole != AccountRole.ADMIN
         if (initiatorRole != AccountRole.ADMIN && initiatorRole != AccountRole.BOARD) return false
         return !(targetRole != null && targetRole in ESCALATED_ROLES && initiatorRole != AccountRole.ADMIN)
     }

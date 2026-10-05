@@ -23,6 +23,8 @@ import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.ErasureRequestDto
 import network.lapis.cloud.shared.domain.ErasureStatus
 import network.lapis.cloud.shared.domain.ExportManifestDto
+import network.lapis.cloud.shared.domain.PeerAction
+import network.lapis.cloud.shared.domain.PeerDenyReason
 import network.lapis.cloud.shared.domain.PublicRankingConsentDisclaimerDto
 import network.lapis.cloud.shared.domain.PublicRankingConsentStateDto
 import network.lapis.cloud.shared.domain.PublicRankingKind
@@ -397,7 +399,13 @@ private fun renderAdminRequestRow(
     if (request.status == ErasureStatus.REQUESTED) {
         renderDecidePanel(row, request, onChanged)
     }
-    if (request.status == ErasureStatus.APPROVED) {
+    if (request.status == ErasureStatus.APPROVED && request.subjectIsAdmin) {
+        // Welle V1.9.57 "Admin-Peer-Schutz": an administrator's account is erased only after the role was taken away. The button stays
+        // visible and disabled; the reason is text next to it.
+        val executeButton = row.actionButton(ActionIcon.DELETE, tr("Endgültig löschen"), style = ButtonStyle.DANGER)
+        executeButton.disabled = true
+        row.peerProtectionNotice(peerDenyText(PeerDenyReason.TARGET_IS_ADMIN, PeerAction.ERASE))
+    } else if (request.status == ErasureStatus.APPROVED) {
         val executeButton = row.actionButton(ActionIcon.DELETE, tr("Endgültig löschen"), style = ButtonStyle.DANGER)
         executeButton.onClick {
             executeErasureConfirmDialog(request) {

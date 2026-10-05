@@ -38,6 +38,13 @@ private external interface EmailChangeRevokeBody {
     var token: String
 }
 
+private external interface PrivilegedActionVetoBody {
+    var token: String
+}
+
+/** Welle V1.9.57 -- what the objection endpoint answered; deliberately closed and free of server text. */
+enum class PrivilegedActionVetoOutcome { SENT, RATE_LIMITED, FAILED }
+
 /**
  * Welle V1.9.56 -- what the two address-change link endpoints answered. Deliberately a small closed set: the server's
  * own text is never shown (its body is one fixed code word, see `EmailChangeRoutes`), and a network failure is [FAILED],
@@ -165,6 +172,27 @@ object AuthHttp {
         } catch (e: Throwable) {
             EmailChangeLinkOutcome.FAILED
         }
+
+    /**
+     * Welle V1.9.57 -- `POST /api/auth/privileged-action/veto`, the target's objection link of a four-eyes request. The server answers
+     * `204` for EVERY token (valid, wrong, used, expired: no enumeration), so the only outcomes the client can tell apart are "sent",
+     * "too many requests" and "failed"; the screen's text says only that the objection was transmitted.
+     */
+    suspend fun vetoPrivilegedAction(token: String): PrivilegedActionVetoOutcome {
+        val body = obj<PrivilegedActionVetoBody> { this.token = token }
+        return try {
+            val response = postJson("/api/auth/privileged-action/veto", JSON.stringify(body))
+            when {
+                response.status.toInt() == 429 -> PrivilegedActionVetoOutcome.RATE_LIMITED
+                response.ok -> PrivilegedActionVetoOutcome.SENT
+                else -> PrivilegedActionVetoOutcome.FAILED
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            PrivilegedActionVetoOutcome.FAILED
+        }
+    }
 
     private suspend fun postJson(
         url: String,

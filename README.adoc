@@ -562,6 +562,12 @@ legal counsel — not something this project can decide once for everyone. See `
   silently drop outbound connections on SMTP ports (25/465/587) regardless of local firewall
   configuration — a correct `LAPIS_SMTP_*` configuration and a genuinely reachable relay are two
   separate things to confirm.
+* **Administrator accounts are protected from each other (V1.9.57).** A temporary password, taking the ADMIN role away or blocking the login of *another
+  administrator* needs the approval of a second administrator (one who held the role for 7 days; request, approval, for a password a 24 hour objection
+  period of the target, generation once by the requester); the emergency e-mail path, the manual Keycloak link and GDPR erasure are refused against another
+  administrator, the board no longer sees an administrator's address data, the target and the other administrators are notified. With one or two
+  administrators no approval is possible -- the reset mail, actions on oneself and the operator console (`set-role`, `set-status`, `reset-password`) stay
+  available. `IAuthService.changePassword` limits wrong current passwords. See `docs/architecture/admin-peer-protection.adoc`.
 * **Changing a member's e-mail address needs outbound mail (V1.9.56).** The address is the login
   identity, so it no longer changes in one call: members change their own with the password (works
   without SMTP); a board member or administrator *proposes* a change that the member accepts with the

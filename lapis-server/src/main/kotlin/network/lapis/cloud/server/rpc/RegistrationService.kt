@@ -12,7 +12,11 @@ import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.FriendVerificationMailer
+import network.lapis.cloud.server.mail.NoOpPeerNotificationMailer
+import network.lapis.cloud.server.mail.PeerNotificationMailer
+import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.isValidMailboxAddress
+import network.lapis.cloud.server.member.PeerNotifier
 import network.lapis.cloud.server.memberbio.MemberPublicBioStore
 import network.lapis.cloud.server.memberphoto.MemberPhotoStore
 import network.lapis.cloud.server.security.ESCALATED_ROLES
@@ -20,7 +24,10 @@ import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
+import network.lapis.cloud.server.security.PeerGuard
 import network.lapis.cloud.server.security.SessionStore
+import network.lapis.cloud.server.security.forMemberUpdate
+import network.lapis.cloud.server.security.peerGuarded
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
@@ -32,6 +39,7 @@ import network.lapis.cloud.shared.domain.FriendTermsDto
 import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MembershipAgreementDto
+import network.lapis.cloud.shared.domain.PeerAction
 import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.RegistrationInput
 import network.lapis.cloud.shared.domain.WebhookEventType
@@ -170,7 +178,15 @@ class RegistrationService internal constructor(
      * hard chapter-selection requirement defaults to off.
      */
     private val regionalChapterEnforcementConfig: RegionalChapterEnforcementConfig = RegionalChapterEnforcementConfig.load(),
+    /**
+     * Welle V1.9.57 "Admin-Peer-Schutz" -- tells every other administrator when [createMemberDirect] creates a new one. Default
+     * no-op on purpose (existing call sites/tests unchanged); `Application.kt` passes the SMTP implementation.
+     */
+    peerNotificationMailer: PeerNotificationMailer = NoOpPeerNotificationMailer,
+    peerSmtpConfigState: SmtpConfigState = SmtpConfigState.NotConfigured,
 ) : IRegistrationService {
+    private val peerNotifier = PeerNotifier(mailer = peerNotificationMailer, smtpConfigState = peerSmtpConfigState)
+
     override suspend fun getMembershipAgreement(): MembershipAgreementDto =
         MembershipAgreementDto(
             version = MembershipAgreementDisclaimer.VERSION,
@@ -269,6 +285,7 @@ class RegistrationService internal constructor(
                     it[id] = Uuid.random()
                     it[AccountTable.memberId] = memberId
                     it[role] = AccountRole.MEMBER
+                    it[roleChangedAt] = now
                     it[AccountTable.passwordHash] = passwordHash
                 }
                 MembershipAgreementAcknowledgmentTable.insert {
@@ -380,26 +397,50 @@ class RegistrationService internal constructor(
         val targetId = memberId.toMemberUuidOrThrow()
         val now = nowLocalDateTime()
         val result =
-            transaction {
-                val applicationRow = requireApplicationRow(id = targetId, forUpdate = true)
-                val fallbackStatus =
-                    if (applicationRow[MemberTable.friendSince] != null) MemberStatus.FRIEND else MemberStatus.REJECTED
-                val updated =
-                    MemberTable.update({
-                        (MemberTable.id eq targetId) and (MemberTable.status eq MemberStatus.APPLICATION)
-                    }) {
-                        it[status] = fallbackStatus
-                        it[rejectionReason] = reason
-                        it[reviewedBy] = current.memberId
-                        it[reviewedAt] = now
+            peerGuarded(actor = current) {
+                transaction {
+                    val applicationRow = requireApplicationRow(id = targetId, forUpdate = true)
+                    // Welle V1.9.57 "Admin-Peer-Schutz" -- an applicant who already holds an escalated account is handled by an ADMIN
+                    // only, and rejecting (login-blocking) an ADMIN account follows the same approval rule as any other suspension.
+                    val peerFacts =
+                        PeerGuard.lockFactsAfterMemberLock(
+                            targetId = targetId,
+                            memberRow = applicationRow,
+                            requesterId = current.memberId,
+                        )
+                    if (peerFacts.targetRole != null && peerFacts.targetRole in ESCALATED_ROLES) current.requireRole(AccountRole.ADMIN)
+                    if (peerFacts.targetRole == AccountRole.ADMIN) {
+                        PeerGuard.decideLocked(
+                            actor = current,
+                            targetId = targetId,
+                            action = PeerAction.SUSPEND,
+                            mailConfigured = false,
+                            facts = peerFacts,
+                        )
                     }
-                if (updated == 0) {
-                    throw ConflictException("Application $memberId was concurrently decided -- retry")
+                    val fallbackStatus =
+                        if (applicationRow[MemberTable.friendSince] != null) MemberStatus.FRIEND else MemberStatus.REJECTED
+                    val updated =
+                        MemberTable.update({
+                            (MemberTable.id eq targetId) and (MemberTable.status eq MemberStatus.APPLICATION)
+                        }) {
+                            it[status] = fallbackStatus
+                            it[rejectionReason] = reason
+                            it[reviewedBy] = current.memberId
+                            it[reviewedAt] = now
+                        }
+                    if (updated == 0) {
+                        throw ConflictException("Application $memberId was concurrently decided -- retry")
+                    }
+                    // See KDoc "stale roster" fix -- same transaction as the status flip above, so a
+                    // rejected applicant can never be observed still seated in a Committee.
+                    endAllOpenCommitteeMembershipsForMember(
+                        memberId = targetId,
+                        until = OrganizationTimeZone.dateOf(now),
+                        current = current,
+                    )
+                    loadMember(targetId)
                 }
-                // See KDoc "stale roster" fix -- same transaction as the status flip above, so a
-                // rejected applicant can never be observed still seated in a Committee.
-                endAllOpenCommitteeMembershipsForMember(memberId = targetId, until = OrganizationTimeZone.dateOf(now), current = current)
-                loadMember(targetId)
             }
         SessionStore.revokeAllForMember(memberId = targetId)
         return result
@@ -418,39 +459,47 @@ class RegistrationService internal constructor(
         PasswordPolicy.validate(newPassword = input.temporaryPassword, email = normalizedEmail)
 
         val now = nowLocalDateTime()
-        return transaction {
-            // Welle V1.9.13 -- this path creates the member directly as ACTIVE, so this is
-            // simultaneously the activation-rule check (equivalent to
-            // requireRegionalChapterBeforeActivation, but as an INPUT validation here since the
-            // row doesn't exist yet to check against).
-            val resolvedChapterId = requireValidRegionalChapterSelection(input.regionalChapterId)
+        val created =
+            transaction {
+                // Welle V1.9.13 -- this path creates the member directly as ACTIVE, so this is
+                // simultaneously the activation-rule check (equivalent to
+                // requireRegionalChapterBeforeActivation, but as an INPUT validation here since the
+                // row doesn't exist yet to check against).
+                val resolvedChapterId = requireValidRegionalChapterSelection(input.regionalChapterId)
 
-            val alreadyExists = MemberTable.selectAll().where { MemberTable.email.lowerCase() eq normalizedEmail }.count() > 0
-            if (alreadyExists) throw ConflictException("A member with this email already exists")
+                val alreadyExists = MemberTable.selectAll().where { MemberTable.email.lowerCase() eq normalizedEmail }.count() > 0
+                if (alreadyExists) throw ConflictException("A member with this email already exists")
 
-            val memberId = Uuid.random()
-            MemberTable.insert {
-                it[id] = memberId
-                it[displayName] = input.displayName
-                it[email] = normalizedEmail
-                it[status] = MemberStatus.ACTIVE
-                it[joinedAt] = OrganizationTimeZone.dateOf(now)
-                it[membershipTierId] = null
-                it[regionalChapterId] = resolvedChapterId
+                val memberId = Uuid.random()
+                MemberTable.insert {
+                    it[id] = memberId
+                    it[displayName] = input.displayName
+                    it[email] = normalizedEmail
+                    it[status] = MemberStatus.ACTIVE
+                    it[joinedAt] = OrganizationTimeZone.dateOf(now)
+                    it[membershipTierId] = null
+                    it[regionalChapterId] = resolvedChapterId
+                }
+                AccountTable.insert {
+                    it[id] = Uuid.random()
+                    it[AccountTable.memberId] = memberId
+                    it[role] = input.role
+                    it[roleChangedAt] = now
+                    it[passwordHash] = PasswordHasher.hash(input.temporaryPassword)
+                }
+                // Welle V1.3.2 "Webhooks" (ausgehend) -- this path creates the member directly as
+                // ACTIVE (unlike self-registration/leaveMembership's own APPLICATION status, which
+                // /api/v1/members never surfaces -- D8, deliberately NOT hooked here or in
+                // RegistrationService.registerFriend).
+                WebhookEventPublisher.publish(eventType = WebhookEventType.MEMBER_CREATED, entityId = memberId, occurredAt = now)
+                loadMember(memberId)
             }
-            AccountTable.insert {
-                it[id] = Uuid.random()
-                it[AccountTable.memberId] = memberId
-                it[role] = input.role
-                it[passwordHash] = PasswordHasher.hash(input.temporaryPassword)
-            }
-            // Welle V1.3.2 "Webhooks" (ausgehend) -- this path creates the member directly as
-            // ACTIVE (unlike self-registration/leaveMembership's own APPLICATION status, which
-            // /api/v1/members never surfaces -- D8, deliberately NOT hooked here or in
-            // RegistrationService.registerFriend).
-            WebhookEventPublisher.publish(eventType = WebhookEventType.MEMBER_CREATED, entityId = memberId, occurredAt = now)
-            loadMember(memberId)
+        // Welle V1.9.57 "Admin-Peer-Schutz" -- a new administrator appears at once (an ADMIN may create one): every OTHER
+        // administrator is told, after the commit.
+        if (input.role == AccountRole.ADMIN) {
+            peerNotifier.newAdministrator(newAdminId = Uuid.parse(created.id), actorId = current.memberId, occurredAt = now)
         }
+        return created
     }
 
     /**
@@ -626,6 +675,7 @@ class RegistrationService internal constructor(
                     it[id] = Uuid.random()
                     it[AccountTable.memberId] = memberId
                     it[role] = AccountRole.MEMBER
+                    it[roleChangedAt] = now
                     it[AccountTable.passwordHash] = passwordHash
                 }
                 // Deliberately NOT MembershipAgreementAcknowledgmentTable -- a FRIEND has not accepted
@@ -721,7 +771,7 @@ class RegistrationService internal constructor(
         forUpdate: Boolean = false,
     ): ResultRow {
         val query = MemberTable.selectAll().where { MemberTable.id eq id }
-        val row = (if (forUpdate) query.forUpdate() else query).singleOrNull() ?: throw NotFoundException("Member $id not found")
+        val row = (if (forUpdate) query.forMemberUpdate() else query).singleOrNull() ?: throw NotFoundException("Member $id not found")
         if (row[MemberTable.status] != MemberStatus.APPLICATION) {
             throw ConflictException("Member $id is not a pending application (status=${row[MemberTable.status]})")
         }

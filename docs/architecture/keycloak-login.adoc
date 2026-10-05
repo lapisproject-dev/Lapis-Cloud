@@ -272,6 +272,11 @@ When the automatic email match misses (`NO_MATCHING_MEMBER`) or is ambiguous
   exceptions, `ConflictException`/`BadRequestException`/`NotFoundException`).
 * `unlinkMember(memberId)` -- idempotent (returns `false`, no side effects, if nothing was
   linked); a genuine removal returns `true`.
+* **Peer protection (V1.9.57):** an ADMIN may link their OWN account and any non-ADMIN member, but *never another administrator's*
+  account (`PeerProtectionDeniedException`, the row's button is shown disabled with the reason). Attaching an arbitrary identity-provider
+  identity to another administrator's account is an account takeover in Keycloak mode; the target gets the existing notice mail, but a notice after
+  the fact is not a protection. The automatic link at the identity provider's own login (verified address matches) is unchanged. See
+  `admin-peer-protection.adoc`. `listUnlinkedMembers` now carries the account role so the UI can show the protected state.
 
 **Security properties added by Wave 2's audit round** (an ADMIN can otherwise silently redirect
 any unlinked member's login to a Keycloak identity of the admin's choosing -- the same trust

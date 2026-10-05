@@ -35,6 +35,8 @@ import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.MemberStatusTransitions
 import network.lapis.cloud.shared.domain.MembershipTierDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
+import network.lapis.cloud.shared.domain.PeerAction
+import network.lapis.cloud.shared.domain.PeerActionDecisionsDto
 import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.RegionalChapterRules
 import network.lapis.cloud.shared.rpc.IContributionService
@@ -85,8 +87,14 @@ private fun renderMemberAdministrationSections(
     header: PageHeader,
     createHost: SimplePanel?,
 ) {
+    // Welle V1.9.57 "Admin-Peer-Schutz" -- the card "Ausstehende Freigaben" sits on top, ADMIN only, and exists only while something is
+    // in it. A request made from a roster dialog reloads it (`afterChange`); an approval that changed a role/status reloads the roster.
+    var reloadCard: () -> Unit = {}
+    var reloadRosterOfCard: () -> Unit = {}
+    if (callerRole == AccountRole.ADMIN) reloadCard = renderPrivilegedActionsCard(root, onExecuted = { reloadRosterOfCard() })
     if (isBoardOrAdmin) renderPendingApplications(root, chapters)
-    val reloadRoster = renderMemberRoster(root, chapters)
+    val reloadRoster = renderMemberRoster(root, chapters, afterChange = { reloadCard() })
+    reloadRosterOfCard = reloadRoster
     // Built exactly once: the sections are assembled once, after the chapter options loaded (or fell back to an empty list).
     if (createHost != null) {
         collapsibleCreateForm<Unit>(
@@ -351,6 +359,7 @@ internal fun rosterQuery(state: RosterState): MemberAdminQuery {
 private fun renderMemberRoster(
     root: SimplePanel,
     chapters: List<RegionalChapterRefDto>,
+    afterChange: () -> Unit = {},
 ): () -> Unit {
     root.h2(tr("Mitgliederverzeichnis")) { addCssClass("h5") }
 
@@ -448,7 +457,12 @@ private fun renderMemberRoster(
                         refresh()
                     },
                     sortOptions = ROSTER_SORT_OPTIONS,
-                    actions = { actions, row -> renderRosterActions(actions, row, chapters, onChanged = { refresh() }) },
+                    actions = {
+                        actions,
+                        row,
+                        ->
+                        renderRosterActions(actions, row, chapters, onChanged = { refresh() }, afterChange = afterChange)
+                    },
                     focusSortKey = sortFocus.takeForRender(),
                 )
             },
@@ -668,6 +682,7 @@ private fun renderRosterActions(
     row: MemberAdminRowDto,
     chapters: List<RegionalChapterRefDto>,
     onChanged: () -> Unit,
+    afterChange: () -> Unit = {},
 ) {
     // GitHub issue #1 -- icon instead of text, so the actions column stays narrow at any table
     // width; `title` is set unconditionally right below and is KVision's own `Widget.title`
@@ -703,7 +718,7 @@ private fun renderRosterActions(
             ),
         )
     } else {
-        editButton.onClick { openMemberEditorDialog(row, onChanged, chapters) }
+        editButton.onClick { openMemberEditorDialog(row, onChanged, chapters, onRequested = afterChange) }
     }
 
     // Welle V1.4.4.1 "Beitragshistorie" -- der erste von zwei Einstiegen in
@@ -850,7 +865,7 @@ private fun renderRosterActions(
             accessButton.disabled = true
             accessButton.tableActionTooltip(block)
         } else {
-            accessButton.onClick { openMemberPasswordResetDialog(row, onChanged) }
+            accessButton.onClick { openMemberPasswordResetDialog(row, onChanged, onRequested = afterChange) }
         }
     }
 
@@ -870,6 +885,8 @@ internal fun openMemberEditorDialog(
     row: MemberAdminRowDto,
     onChanged: () -> Unit,
     chapters: List<RegionalChapterRefDto> = emptyList(),
+    onRequested: () -> Unit = {},
+    rpc: PrivilegedActionRpc = livePrivilegedActionRpc(),
 ) {
     val callerRole = AppState.session?.role
     val callerMemberId = AppState.session?.memberId
@@ -878,6 +895,21 @@ internal fun openMemberEditorDialog(
     val modal = Modal(caption = sanitizeUntrustedI18nText(gettext("%1 bearbeiten", row.displayName)))
     // Sechs Formulare in einem Modal: die Legende "* Pflichtfeld" steht nur einmal (beim ersten Formular, das sie braucht).
     val legendGroup = LegendGroup()
+
+    // Welle V1.9.57 "Admin-Peer-Schutz" -- against ANOTHER ADMIN's account an ADMIN does not demote or block directly: both sections below
+    // then ask for the approval of a second administrator ("Freigabe beantragen"). Which path exists (and why not) is decided by the server
+    // (`getPeerActionDecisions`); the sections are built at once, disabled, and updated when the decision arrives.
+    val adminTarget = callerRole == AccountRole.ADMIN && row.role == AccountRole.ADMIN && row.id != callerMemberId
+    var peerDecisions: PeerActionDecisionsDto? = null
+    var peerDecisionsLoaded = false
+    val peerWatchers = mutableListOf<() -> Unit>()
+    if (adminTarget) {
+        AppScope.launch {
+            peerDecisions = memberAdminGuarded { rpc.decisions(row.id) }
+            peerDecisionsLoaded = true
+            peerWatchers.forEach { it() }
+        }
+    }
 
     // Formular-Grammatik (V1.4.29, W4b): jeder Abschnitt ist ein EIGENES Formular mit eigener Knopfzeile -- die Abschnitte sind
     // unabhängig gespeicherte, unterschiedlich autorisierte RPCs. R28 (genau ein `PRIMARY`) gilt deshalb je FORMULAR, nicht je
@@ -957,7 +989,13 @@ internal fun openMemberEditorDialog(
                 // Ein ausgeblendetes Feld darf das Absenden nicht durch einen unsichtbaren Fehler blockieren.
                 rule = { if (deceasedSelected()) deathDateCheck(value = it) else FieldCheck.Ok },
             )
-        val reasonField = memberReasonField(form)
+        // V1.9.57: against another ADMIN the reason also feeds a four-eyes request, which the server bounds to 10..500 characters.
+        val reasonField =
+            if (adminTarget) {
+                memberReasonField(form, min = PEER_REASON_MIN_LENGTH, max = PEER_REASON_MAX_LENGTH)
+            } else {
+                memberReasonField(form)
+            }
         // Bug fix (live user report): hPanel is a non-wrapping flex row by default -- four chip
         // buttons together exceed the modal's width, so the last one got clipped -- "flex-wrap"
         // (same fix as ConferenceScreen.kt's controlsRow).
@@ -998,10 +1036,66 @@ internal fun openMemberEditorDialog(
         val statusButtonStyle = if (MemberStatusTransitions.requiresAdmin(row.status)) ButtonStyle.WARNING else ButtonStyle.PRIMARY
         val saveStatusButton = newActionButton(ActionIcon.SAVE, tr("Status ändern"), statusButtonStyle)
         form.buttons(primary = saveStatusButton)
+        // V1.9.57: a login-blocking status against another ADMIN is a request ("Freigabe beantragen"), never a direct change.
+        val statusPeerNotice = form.panel.div()
+
+        fun statusNeedsApproval(): Boolean {
+            val target = statusField.value.takeIf { it.isNotBlank() }?.let { MemberStatus.valueOf(it) } ?: return false
+            return adminTarget && target in MemberStatusSets.LOGIN_BLOCKED
+        }
+
+        fun refreshStatusButton() {
+            statusPeerNotice.removeAll()
+            if (!statusNeedsApproval()) {
+                saveStatusButton.text = tr("Status ändern")
+                saveStatusButton.disabled = false
+                return
+            }
+            saveStatusButton.text = tr("Freigabe beantragen")
+            val target = MemberStatus.valueOf(statusField.value)
+            val decision = peerDecisions.of(PeerAction.SUSPEND)
+            when {
+                target == MemberStatus.DECEASED -> {
+                    saveStatusButton.disabled = true
+                    statusPeerNotice.peerProtectionNotice(
+                        tr(
+                            "Nicht möglich: Entziehen Sie zuerst die Administratorrolle (Freigabe), danach kann der Status auf Verstorben gesetzt werden.",
+                        ),
+                    )
+                }
+                !peerDecisionsLoaded -> saveStatusButton.disabled = true
+                decision.needsApproval() -> {
+                    saveStatusButton.disabled = false
+                    statusPeerNotice.peerProtectionNotice(peerApprovalHint())
+                }
+                else -> {
+                    saveStatusButton.disabled = true
+                    statusPeerNotice.peerProtectionNotice(
+                        if (peerDecisions == null) {
+                            tr("Die Schutzprüfung konnte nicht geladen werden. Bitte öffnen Sie den Dialog erneut.")
+                        } else {
+                            peerDenyText(decision?.denyReason, PeerAction.SUSPEND)
+                        },
+                    )
+                }
+            }
+        }
+        statusField.subscribe { refreshStatusButton() }
+        peerWatchers += { refreshStatusButton() }
+        refreshStatusButton()
         saveStatusButton.onClick {
             form.submit(saveStatusButton) {
                 val target = MemberStatus.valueOf(statusField.value)
                 val reason = reasonField.value.trim()
+                if (statusNeedsApproval()) {
+                    val request = memberAdminGuarded { rpc.requestSuspension(memberId = row.id, newStatus = target, reason = reason) }
+                    if (request != null) {
+                        notifySuccess(tr("Freigabe beantragt. Sie finden den Antrag unter „Ausstehende Freigaben“."))
+                        modal.hide()
+                        onRequested()
+                    }
+                    return@submit
+                }
                 // Welle V1.4.4.5 -- nur relevant, wenn der Zielstatus DECEASED ist; leer bleibt erlaubt
                 // ("Datum noch nicht bekannt", siehe Kommentar oben). Die Feldregel hat das Datum bereits geprüft.
                 val rawDeathDate = deathDateField.value.trim()
@@ -1059,11 +1153,57 @@ internal fun openMemberEditorDialog(
         val form = modal.lapisForm(legendGroup)
         val roleOptions = AccountRole.entries.map { it.name to accountRoleLabel(it) }
         val roleField = form.selectField(label = tr("Rolle"), options = roleOptions, value = row.role?.name, required = true)
+        // V1.9.57: against another ADMIN the role section is a request for the demotion (with a reason), never a direct change.
+        val roleReasonField =
+            if (adminTarget) memberReasonField(form, min = PEER_REASON_MIN_LENGTH, max = PEER_REASON_MAX_LENGTH) else null
         val saveRoleButton = newActionButton(ActionIcon.SAVE, tr("Rolle ändern"), ButtonStyle.PRIMARY)
         form.buttons(primary = saveRoleButton)
+        val rolePeerNotice = form.panel.div()
+
+        fun refreshRoleButton() {
+            if (!adminTarget) return
+            rolePeerNotice.removeAll()
+            saveRoleButton.text = tr("Freigabe beantragen")
+            val unchanged = roleField.value == AccountRole.ADMIN.name
+            val decision = peerDecisions.of(PeerAction.DEMOTE)
+            when {
+                !peerDecisionsLoaded -> saveRoleButton.disabled = true
+                decision.needsApproval() -> {
+                    saveRoleButton.disabled = unchanged
+                    rolePeerNotice.peerProtectionNotice(peerApprovalHint())
+                }
+                else -> {
+                    saveRoleButton.disabled = true
+                    rolePeerNotice.peerProtectionNotice(
+                        if (peerDecisions == null) {
+                            tr("Die Schutzprüfung konnte nicht geladen werden. Bitte öffnen Sie den Dialog erneut.")
+                        } else {
+                            peerDenyText(decision?.denyReason, PeerAction.DEMOTE)
+                        },
+                    )
+                }
+            }
+        }
+        if (adminTarget) {
+            roleField.subscribe { refreshRoleButton() }
+            peerWatchers += { refreshRoleButton() }
+            refreshRoleButton()
+        }
         saveRoleButton.onClick {
             form.submit(saveRoleButton) {
                 val newRole = AccountRole.valueOf(roleField.value)
+                if (adminTarget) {
+                    val request =
+                        memberAdminGuarded {
+                            rpc.requestDemotion(memberId = row.id, newRole = newRole, reason = roleReasonField?.value.orEmpty().trim())
+                        }
+                    if (request != null) {
+                        notifySuccess(tr("Freigabe beantragt. Sie finden den Antrag unter „Ausstehende Freigaben“."))
+                        modal.hide()
+                        onRequested()
+                    }
+                    return@submit
+                }
                 val result = memberAdminGuarded { rpcService<IMemberService>().updateMemberRole(row.id, newRole) }
                 if (result != null) {
                     notifySuccess(tr("Rolle geändert."))
@@ -1262,13 +1402,17 @@ internal fun openMemberEditorDialog(
 }
 
 /** Begründung mit Protokollwirkung (3..1000 Zeichen, spiegelt die Servergrenze) -- ein Feld, fünfmal im Editor-Dialog. */
-private fun memberReasonField(form: LapisForm): LapisField =
+private fun memberReasonField(
+    form: LapisForm,
+    min: Int = FormRules.REASON_MIN_LENGTH,
+    max: Int = FormRules.REASON_MAX_LENGTH,
+): LapisField =
     form.textAreaField(
         label = tr("Begründung"),
         rows = 2,
         required = true,
-        hint = gettext("%1 bis %2 Zeichen.", FormRules.REASON_MIN_LENGTH, FormRules.REASON_MAX_LENGTH),
-        rule = { FormRules.reasonText(value = it) },
+        hint = gettext("%1 bis %2 Zeichen.", min, max),
+        rule = { FormRules.reasonText(value = it, min = min, max = max) },
     )
 
 /**

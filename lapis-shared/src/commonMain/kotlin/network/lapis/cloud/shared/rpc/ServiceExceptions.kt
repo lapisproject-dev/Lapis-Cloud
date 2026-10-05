@@ -534,3 +534,34 @@ class EmailChangePendingNotFoundException(
 class EmailChangeRateLimitedException(
     override val message: String = "Too many e-mail change attempts -- try again later",
 ) : AbstractServiceException()
+
+/**
+ * Welle V1.9.57 "Admin-Peer-Schutz" -- distinct type. The peer protection refuses the action against this target (an
+ * ADMIN account, or protected data of one). Kilua RPC transmits only the subclass: the client shows a fixed text and
+ * takes the precise reason from `IPrivilegedActionService.getPeerActionDecisions`.
+ */
+@RpcServiceException
+class PeerProtectionDeniedException(
+    override val message: String = "This action against this account is not permitted",
+) : AbstractServiceException()
+
+/**
+ * Welle V1.9.57 -- distinct type. The action against an ADMIN account is never executed directly: it needs the approval
+ * of a second administrator (`IPrivilegedActionService.request...`). A stale dialog gets this instead of a silent change.
+ */
+@RpcServiceException
+class PeerApprovalRequiredException(
+    override val message: String = "This action needs the approval of a second administrator",
+) : AbstractServiceException()
+
+/** Welle V1.9.57 -- distinct type. The action needs a second administrator, but none is eligible (tenure, status, availability). */
+@RpcServiceException
+class NoSecondAdminException(
+    override val message: String = "No second administrator is eligible to approve this action",
+) : AbstractServiceException()
+
+/** Welle V1.9.57 -- distinct type. The request is not (or no longer) in the state this call needs, or an equal one is already open. */
+@RpcServiceException
+class PrivilegedActionStateException(
+    override val message: String = "The request is not in a state that allows this action",
+) : AbstractServiceException()

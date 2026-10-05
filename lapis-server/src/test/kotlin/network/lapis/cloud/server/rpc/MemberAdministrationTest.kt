@@ -76,7 +76,10 @@ import network.lapis.cloud.shared.rpc.LastAdminException
 import network.lapis.cloud.shared.rpc.MemberAlreadyHasAccountException
 import network.lapis.cloud.shared.rpc.MemberEmailInUseException
 import network.lapis.cloud.shared.rpc.MemberHasNoAccountException
+import network.lapis.cloud.shared.rpc.NoSecondAdminException
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.PeerApprovalRequiredException
+import network.lapis.cloud.shared.rpc.PeerProtectionDeniedException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import network.lapis.cloud.shared.rpc.WeakPasswordException
 import org.jetbrains.exposed.v1.core.and
@@ -839,7 +842,7 @@ class MemberAdministrationTest :
 
         // ── 13b: letzter Admin -- race-safe ──
         test(
-            "updateMemberRole: two ADMINs concurrently demoting each other -- the second one to commit hits LastAdminException, never zero admins",
+            "updateMemberRole: with exactly two ADMINs, two concurrent mutual demotions are BOTH refused (no second administrator to approve) -- never zero admins",
         ) {
             testApplication {
                 application {
@@ -863,14 +866,15 @@ class MemberAdministrationTest :
 
                 try {
                     val results = runConcurrentMutualAdminDemotion(client = client, otherAdminId = adminB)
-                    // Exactly one of the two concurrent demotions must succeed and the other must be
-                    // rejected as a conflict -- never both OK (which would leave zero admins).
-                    results.count { it == HttpStatusCode.OK } shouldBe 1
-                    results.count { it == HttpStatusCode.Conflict } shouldBe 1
+                    // Welle V1.9.57: taking the ADMIN role from another ADMIN is never executed directly any more -- with exactly
+                    // two ADMINs there is no eligible second approver, so BOTH calls are refused (typed, 409) and nothing changes.
+                    // The race "two ADMINs demote each other" now lives in the approval path (AdminPeerProtectionScenarios).
+                    results.count { it == HttpStatusCode.OK } shouldBe 0
+                    results.count { it == HttpStatusCode.Conflict } shouldBe 2
 
                     val remainingAdmins =
                         transaction { AccountTable.selectAll().where { AccountTable.role eq AccountRole.ADMIN }.count() }
-                    (remainingAdmins >= 1L) shouldBe true
+                    (remainingAdmins >= 2L) shouldBe true
                 } finally {
                     // Restore adminA/adminB to ADMIN so this test does not leave a permanently-
                     // degraded seeded fixture behind for any test running after it in the same JVM.
@@ -889,7 +893,7 @@ class MemberAdministrationTest :
 
         // ── 13c: letzter Admin bei Status-Wechsel -- race-safe (Security fix 2026-08-27, MEDIUM) ──
         test(
-            "updateMemberStatus: two ADMINs concurrently WITHDRAWING each other -- the second one to commit hits LastAdminException, never zero non-blocked admins",
+            "updateMemberStatus: with exactly two ADMINs, two concurrent mutual WITHDRAWALS are BOTH refused (no second administrator to approve) -- never zero non-blocked admins",
         ) {
             testApplication {
                 application {
@@ -910,11 +914,10 @@ class MemberAdministrationTest :
 
                 try {
                     val results = runConcurrentMutualAdminStatusWithdraw(client = client, otherAdminId = adminB)
-                    // Exactly one of the two concurrent WITHDRAWALs must succeed and the other must
-                    // be rejected as a conflict -- never both OK (which would leave zero non-blocked
-                    // ADMIN accounts, i.e. nobody left who can administer the roster at all).
-                    results.count { it == HttpStatusCode.OK } shouldBe 1
-                    results.count { it == HttpStatusCode.Conflict } shouldBe 1
+                    // Welle V1.9.57: blocking another ADMIN's login is never executed directly any more -- with exactly two ADMINs
+                    // there is no eligible second approver, so BOTH calls are refused (typed, 409) and nothing changes.
+                    results.count { it == HttpStatusCode.OK } shouldBe 0
+                    results.count { it == HttpStatusCode.Conflict } shouldBe 2
 
                     val remainingNonBlockedAdmins =
                         transaction {
@@ -925,7 +928,7 @@ class MemberAdministrationTest :
                                         (MemberTable.status notInList MemberStatusSets.LOGIN_BLOCKED)
                                 }.count()
                         }
-                    (remainingNonBlockedAdmins >= 1L) shouldBe true
+                    (remainingNonBlockedAdmins >= 2L) shouldBe true
                 } finally {
                     // Restore adminA/adminB to ACTIVE so this test does not leave a permanently-
                     // degraded seeded fixture behind for any test running after it in the same JVM.
@@ -953,7 +956,7 @@ class MemberAdministrationTest :
         // still role ADMIN because only its member.status changed -- tries to demote adminA via
         // updateMemberRole. MemberService.kt:651-666 must reject this. ──
         test(
-            "updateMemberStatus then updateMemberRole: withdrawing the OTHER admin first, then that still-authenticated still-role-ADMIN admin trying to demote the survivor is rejected (MemberService.kt:666)",
+            "a withdrawn-but-still-ADMIN admin (still authenticated) trying to demote the survivor is rejected -- the survivor keeps the ADMIN role",
         ) {
             testApplication {
                 application {
@@ -978,15 +981,15 @@ class MemberAdministrationTest :
                 }
 
                 try {
-                    // Step 1: adminA withdraws adminB -- allowed, adminA remains the sole
-                    // non-blocked ADMIN. Runs through MemberService.kt:528-544's
-                    // Letzter-Admin-Schutz WITHOUT throwing -- this is what sets up a realistic
-                    // step 2 (adminB is now LOGIN_BLOCKED but still an ADMIN *account*).
+                    // Step 1 (V1.9.57): adminA can no longer withdraw adminB on their own -- the direct call is refused (no second
+                    // administrator to approve). The state this test needs (adminB is LOGIN_BLOCKED but still an ADMIN *account*, e.g.
+                    // after an approved suspension, while their session is still alive) is therefore set up directly.
                     client
                         .post("/test/status/$adminB?newStatus=WITHDRAWN&reason=Cross-Methoden-Testgrund") {
                             header("X-Member-Id", adminA.toString())
                         }.status shouldBe
-                        HttpStatusCode.OK
+                        HttpStatusCode.Conflict
+                    transaction { MemberTable.update({ MemberTable.id eq adminB }) { it[status] = MemberStatus.WITHDRAWN } }
                     statusOf(adminB) shouldBe MemberStatus.WITHDRAWN
                     roleOf(adminB) shouldBe AccountRole.ADMIN
 
@@ -1024,7 +1027,7 @@ class MemberAdministrationTest :
         // updateMemberStatus's OWN Letzter-Admin-Schutz where the "other admin" being counted is
         // itself the caller, and is itself already LOGIN_BLOCKED. ──
         test(
-            "updateMemberStatus then updateMemberStatus: the withdrawn-but-still-ADMIN admin trying to ALSO withdraw the survivor is rejected (MemberService.kt:544)",
+            "a withdrawn-but-still-ADMIN admin trying to ALSO withdraw the survivor is rejected -- the survivor stays ACTIVE",
         ) {
             testApplication {
                 application {
@@ -1046,12 +1049,8 @@ class MemberAdministrationTest :
                 }
 
                 try {
-                    // Step 1 -- identical priming to test 13d: adminA withdraws adminB.
-                    client
-                        .post("/test/status/$adminB?newStatus=WITHDRAWN&reason=Cross-Methoden-Testgrund") {
-                            header("X-Member-Id", adminA.toString())
-                        }.status shouldBe
-                        HttpStatusCode.OK
+                    // Step 1 -- identical priming to test 13d (V1.9.57: set up directly, the direct call is refused).
+                    transaction { MemberTable.update({ MemberTable.id eq adminB }) { it[status] = MemberStatus.WITHDRAWN } }
 
                     // Step 2 -- this time adminB attempts the SAME method (updateMemberStatus)
                     // against adminA instead of updateMemberRole. adminB is still role ADMIN (only
@@ -3019,6 +3018,10 @@ private fun StatusPagesConfig.installMemberAdminExceptionHandlers() {
     exception<MemberHasNoAccountException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
     exception<MemberAlreadyHasAccountException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
     exception<LastAdminException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
+    // Welle V1.9.57 "Admin-Peer-Schutz" -- typed peer-protection refusals (an action against ANOTHER administrator).
+    exception<PeerProtectionDeniedException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Forbidden) }
+    exception<PeerApprovalRequiredException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
+    exception<NoSecondAdminException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
     exception<ConflictException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
     // Welle V1.2.13 -- without this handler, WeakPasswordException became an uncaught 500 and
     // test 32 would assert the wrong thing entirely (a server error, not a validation rejection).

@@ -141,6 +141,14 @@ internal fun openMemberAddressAdminDialog(
         ).render(data)
     }
 
+    // Welle V1.9.57 "Admin-Peer-Schutz": the Vorstand never sees an ADMIN's address and GwG data. The role is known from the row, so the
+    // protected state is shown at once -- no "this read is logged" step for a read that returns nothing and logs nothing.
+    if (AppState.session?.role == AccountRole.BOARD && row.role == AccountRole.ADMIN) {
+        content.removeAll()
+        renderProtectedAddressData(content)
+        modal.show()
+        return
+    }
     val notice = content.vPanel(spacing = 8)
     notice.div(
         tr("Diese Angaben unterliegen dem Geldwäschegesetz. Ihr Abruf wird mit Ihrem Namen im Prüfprotokoll vermerkt."),
@@ -155,7 +163,13 @@ internal fun openMemberAddressAdminDialog(
             content.dataSection<MemberAddressDataDto>(
                 isEmpty = { false },
                 load = { guarded { rpc.loadForAdministration(row.id) } },
-                render = { panel, data -> renderCard(panel, data.toFormData()) },
+                // A stale row (the role changed meanwhile): the server answers a protected target with a marked, value-free DTO.
+                render = {
+                    panel,
+                    data,
+                    ->
+                    if (data.protectedTarget) renderProtectedAddressData(panel) else renderCard(panel, data.toFormData())
+                },
             )
         section.reload()
     }

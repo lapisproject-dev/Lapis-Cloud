@@ -6,6 +6,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.DsgvoAuditLogTable
 import network.lapis.cloud.server.db.generated.ErasureRequestTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -16,6 +17,8 @@ import network.lapis.cloud.server.dsgvo.TableErasureOutcome
 import network.lapis.cloud.server.dsgvo.nowUtc
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.server.security.PeerGuard
+import network.lapis.cloud.server.security.peerGuarded
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
@@ -27,6 +30,7 @@ import network.lapis.cloud.shared.domain.ErasureRequestDto
 import network.lapis.cloud.shared.domain.ErasureStatus
 import network.lapis.cloud.shared.domain.ExportManifestDto
 import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.domain.PeerAction
 import network.lapis.cloud.shared.domain.PoliticianProfileStatus
 import network.lapis.cloud.shared.domain.PublicRankingConsentDisclaimerDto
 import network.lapis.cloud.shared.domain.PublicRankingConsentStateDto
@@ -129,27 +133,35 @@ class DsgvoService(
         val current = resolveCurrentMember(call)
         val subjectId = subjectMemberId.toDsgvoUuid()
         requireSelfOrAdmin(current = current, subjectId = subjectId)
-        return transaction {
-            val id = Uuid.random()
-            ErasureRequestTable.insert {
-                it[ErasureRequestTable.id] = id
-                it[ErasureRequestTable.subjectMemberId] = subjectId
-                it[requestedAt] = nowUtc()
-                it[requestedBy] = current.memberId
-                it[ErasureRequestTable.reason] = reason
-                it[ErasureRequestTable.mode] = mode
-                it[status] = ErasureStatus.REQUESTED
-                it[legalHold] = false
+        return peerGuarded(actor = current) {
+            transaction {
+                // Welle V1.9.57 "Admin-Peer-Schutz" -- a request filed by a THIRD party against a (current) ADMIN is refused: the
+                // erasure hard-deletes the account row, which no single administrator may decide for another. An ADMIN may file the
+                // request for their OWN account; it is executed only after they were demoted (see executeErasure).
+                if (subjectId != current.memberId) {
+                    PeerGuard.require(actor = current, targetId = subjectId, action = PeerAction.ERASE, mailConfigured = false)
+                }
+                val id = Uuid.random()
+                ErasureRequestTable.insert {
+                    it[ErasureRequestTable.id] = id
+                    it[ErasureRequestTable.subjectMemberId] = subjectId
+                    it[requestedAt] = nowUtc()
+                    it[requestedBy] = current.memberId
+                    it[ErasureRequestTable.reason] = reason
+                    it[ErasureRequestTable.mode] = mode
+                    it[status] = ErasureStatus.REQUESTED
+                    it[legalHold] = false
+                }
+                writeAuditLog(
+                    actor = current,
+                    action = DsgvoAuditAction.ERASURE_REQUESTED,
+                    subjectMemberId = subjectId,
+                    requestId = id,
+                    outcome = emptyList(),
+                    legalBasis = "Art. 17 DSGVO",
+                )
+                loadErasureRequest(id)
             }
-            writeAuditLog(
-                actor = current,
-                action = DsgvoAuditAction.ERASURE_REQUESTED,
-                subjectMemberId = subjectId,
-                requestId = id,
-                outcome = emptyList(),
-                legalBasis = "Art. 17 DSGVO",
-            )
-            loadErasureRequest(id)
         }
     }
 
@@ -159,7 +171,8 @@ class DsgvoService(
         return transaction {
             val baseQuery = erasureRequestJoin().selectAll()
             val rows = if (status != null) baseQuery.where { ErasureRequestTable.status eq status } else baseQuery
-            rows.map { it.toErasureRequestDto() }
+            val adminIds = adminMemberIds()
+            rows.map { it.toErasureRequestDto(subjectIsAdmin = it[ErasureRequestTable.subjectMemberId] in adminIds) }
         }
     }
 
@@ -202,34 +215,41 @@ class DsgvoService(
         val current = resolveCurrentMember(call)
         current.requireRole(AccountRole.ADMIN)
         val id = requestId.toDsgvoUuid()
-        return transaction {
-            val row =
-                ErasureRequestTable.selectAll().where { ErasureRequestTable.id eq id }.singleOrNull()
-                    ?: throw NotFoundException("ErasureRequest $requestId not found")
-            if (row[ErasureRequestTable.status] != ErasureStatus.APPROVED) {
-                throw ConflictException("ErasureRequest $requestId is not APPROVED")
+        return peerGuarded(actor = current) {
+            transaction {
+                val row =
+                    ErasureRequestTable.selectAll().where { ErasureRequestTable.id eq id }.singleOrNull()
+                        ?: throw NotFoundException("ErasureRequest $requestId not found")
+                if (row[ErasureRequestTable.status] != ErasureStatus.APPROVED) {
+                    throw ConflictException("ErasureRequest $requestId is not APPROVED")
+                }
+                val subjectId = row[ErasureRequestTable.subjectMemberId]
+                val mode = row[ErasureRequestTable.mode]
+                // Welle V1.9.57 "Admin-Peer-Schutz" -- the subject's member row and the account union are locked and the role is read
+                // under that lock: while the subject is an ADMIN nothing is executed, not even for their own request (the last
+                // administrator could otherwise erase the only account that can operate the instance). A concurrent promotion is
+                // serialized by the same lock.
+                PeerGuard.require(actor = current, targetId = subjectId, action = PeerAction.ERASE, mailConfigured = false)
+                val outcomeDtos =
+                    PersonalDataRegistry.contributors
+                        .filter { DsgvoSubjectKind.MEMBER in it.handledSubjects }
+                        .flatMap { it.erase(subject = DataSubject.Member(subjectId), mode = mode) }
+                        .map { it.toDto() }
+                ErasureRequestTable.update({ ErasureRequestTable.id eq id }) {
+                    it[status] = ErasureStatus.COMPLETED
+                    it[executedAt] = nowUtc()
+                    it[outcomeSummary] = Json.encodeToString(outcomeListSerializer, outcomeDtos)
+                }
+                writeAuditLog(
+                    actor = current,
+                    action = DsgvoAuditAction.ERASURE_EXECUTED,
+                    subjectMemberId = subjectId,
+                    requestId = id,
+                    outcome = outcomeDtos,
+                    legalBasis = "Art. 17 DSGVO",
+                )
+                loadErasureRequest(id)
             }
-            val subjectId = row[ErasureRequestTable.subjectMemberId]
-            val mode = row[ErasureRequestTable.mode]
-            val outcomeDtos =
-                PersonalDataRegistry.contributors
-                    .filter { DsgvoSubjectKind.MEMBER in it.handledSubjects }
-                    .flatMap { it.erase(subject = DataSubject.Member(subjectId), mode = mode) }
-                    .map { it.toDto() }
-            ErasureRequestTable.update({ ErasureRequestTable.id eq id }) {
-                it[status] = ErasureStatus.COMPLETED
-                it[executedAt] = nowUtc()
-                it[outcomeSummary] = Json.encodeToString(outcomeListSerializer, outcomeDtos)
-            }
-            writeAuditLog(
-                actor = current,
-                action = DsgvoAuditAction.ERASURE_EXECUTED,
-                subjectMemberId = subjectId,
-                requestId = id,
-                outcome = outcomeDtos,
-                legalBasis = "Art. 17 DSGVO",
-            )
-            loadErasureRequest(id)
         }
     }
 
@@ -408,7 +428,7 @@ class DsgvoService(
             .selectAll()
             .where { ErasureRequestTable.id eq id }
             .single()
-            .toErasureRequestDto()
+            .let { it.toErasureRequestDto(subjectIsAdmin = it[ErasureRequestTable.subjectMemberId] in adminMemberIds()) }
 
     /**
      * Explicit join, not `ErasureRequestTable innerJoin MemberTable`: [ErasureRequestTable] has
@@ -440,7 +460,15 @@ private fun JsonElement.elementCount(): Int =
         else -> 1
     }
 
-private fun ResultRow.toErasureRequestDto(): ErasureRequestDto =
+/** Members that currently hold the ADMIN role -- feeds [ErasureRequestDto.subjectIsAdmin] (V1.9.57). */
+private fun adminMemberIds(): Set<Uuid> =
+    AccountTable
+        .selectAll()
+        .where { AccountTable.role eq AccountRole.ADMIN }
+        .map { it[AccountTable.memberId] }
+        .toSet()
+
+private fun ResultRow.toErasureRequestDto(subjectIsAdmin: Boolean): ErasureRequestDto =
     ErasureRequestDto(
         id = this[ErasureRequestTable.id].toString(),
         subjectMemberId = this[ErasureRequestTable.subjectMemberId].toString(),
@@ -456,6 +484,7 @@ private fun ResultRow.toErasureRequestDto(): ErasureRequestDto =
         executedAt = this[ErasureRequestTable.executedAt],
         legalHold = this[ErasureRequestTable.legalHold],
         outcome = this[ErasureRequestTable.outcomeSummary]?.let { Json.decodeFromString(outcomeListSerializer, it) } ?: emptyList(),
+        subjectIsAdmin = subjectIsAdmin,
     )
 
 private fun ResultRow.toAuditLogEntryDto(): DsgvoAuditLogEntryDto =

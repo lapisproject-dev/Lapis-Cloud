@@ -12,7 +12,7 @@ msgstr "%1 cuenta(s) bancaria(s) requieren un nuevo inicio de sesión FinTS ante
 msgid "%1 von %2 angezeigt – weitertippen, um einzugrenzen."
 msgstr "%1 de %2 mostrados – siga escribiendo para acotar."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:129
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:138
 msgid "%1 wurde mit Keycloak verknüpft."
 msgstr "%1 se ha vinculado con Keycloak."
 
@@ -24,7 +24,7 @@ msgstr "Activar …"
 msgid "Alle Felder sind Pflichtfelder."
 msgstr "Todos los campos son obligatorios."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:62
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:64
 msgid "Alle Mitglieder sind bereits verknüpft (oder die automatische Verknüpfung hat sie bereits zugeordnet)."
 msgstr "Todos los miembros ya están vinculados (o la vinculación automática ya los ha asignado)."
 
@@ -69,11 +69,11 @@ msgstr "Nombre de usuario"
 msgid "Bitte melden Sie sich über Ihre Organisation an."
 msgstr "Inicie sesión a través de su organización."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:168
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:177
 msgid "Die Keycloak-Verknüpfung von %1 wird entfernt, alle aktiven Sitzungen dieses Mitglieds werden beendet und das Mitglied wird per E-Mail benachrichtigt. Falls die E-Mail-Adresse in Keycloak weiterhin übereinstimmt, wird die Verknüpfung bei der nächsten Anmeldung automatisch wiederhergestellt. Um den Zugang dauerhaft zu sperren, deaktivieren Sie das Konto in Keycloak oder setzen Sie den Mitgliedsstatus z. B. auf „Ausgetreten“."
 msgstr "Se eliminará la vinculación de Keycloak de %1, se cerrarán todas las sesiones activas de este miembro y se le notificará por correo electrónico. Si la dirección de correo electrónico en Keycloak sigue coincidiendo, la vinculación se restablecerá automáticamente en el próximo inicio de sesión. Para bloquear el acceso de forma permanente, desactive la cuenta en Keycloak o cambie el estado de membresía, p. ej., a «Baja»."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:191
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:200
 msgid "Für %1 bestand keine Keycloak-Verknüpfung."
 msgstr "No existía ninguna vinculación de Keycloak para %1."
 
@@ -125,24 +125,24 @@ msgstr "Acceso interno de emergencia para administradores"
 msgid "Kein Live-Abruf"
 msgstr "Sin consulta en vivo"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:115
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:124
 msgid "Keycloak-Subject"
 msgstr "Subject de Keycloak"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:51
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:53
 msgid "Keycloak-Verknüpfung"
 msgstr "Vinculación con Keycloak"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:102
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:111
 msgid "Keycloak-Verknüpfung -- %1"
 msgstr "Vinculación con Keycloak -- %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:153
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:156
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:162
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:165
 msgid "Keycloak-Verknüpfung entfernen"
 msgstr "Eliminar vinculación con Keycloak"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:189
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:198
 msgid "Keycloak-Verknüpfung von %1 entfernt."
 msgstr "Vinculación de Keycloak de %1 eliminada."
 
@@ -166,7 +166,7 @@ msgstr "Consulta en vivo no disponible: LAPIS_SECRET_ENCRYPTION_KEY no está con
 msgid "Mit %1 anmelden"
 msgstr "Iniciar sesión con %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:53
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:55
 msgid "Mitglieder, die die automatische Keycloak-Verknüpfung (Abgleich per E-Mail-Adresse) nicht zuordnen konnte -- z. B. weil die Keycloak-Identität eine andere E-Mail-Adresse nutzt. Hier kann ein Administrator die Verknüpfung manuell herstellen."
 msgstr "Miembros que la vinculación automática con Keycloak (por coincidencia de dirección de correo electrónico) no pudo asignar -- por ejemplo, porque la identidad de Keycloak utiliza una dirección de correo diferente. Aquí un administrador puede crear la vinculación manualmente."
 
@@ -217,7 +217,7 @@ msgstr " · notificado el %1"
 msgid " · Moderator"
 msgstr " · Moderador"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:561
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:569
 msgid " (%1)"
 msgstr " (%1)"
 
@@ -689,8 +689,8 @@ msgid "Neuen Kontakt anlegen"
 msgstr "Crear nuevo contacto"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:21
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:372
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:415
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:381
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:424
 msgid "Nicht zugeordnet"
 msgstr "Sin asignar"
 
@@ -742,7 +742,7 @@ msgid "Sparkasse (CAMT-CSV)"
 msgstr "Sparkasse (CAMT-CSV)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:213
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:889
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:916
 msgid "Stammdaten"
 msgstr "Datos maestros"
 
@@ -792,16 +792,16 @@ msgstr "Evento"
 msgid "Verbindung wird über einen Relay-Server erneut aufgebaut …"
 msgstr "Reconectando a través de un servidor de retransmisión …"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:119
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:87
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:128
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:89
 msgid "Verknüpfen"
 msgstr "Vincular"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:104
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:113
 msgid "Verknüpft %1 (%2) mit einer Keycloak-Identität. Das Subject ist die eindeutige Benutzer-ID in Keycloak (nicht die E-Mail-Adresse) -- zu finden im Keycloak-Admin-Konsole unter dem Benutzerprofil (\"ID\")."
 msgstr "Vincula %1 (%2) con una identidad de Keycloak. El subject es el ID de usuario único en Keycloak (no la dirección de correo electrónico) -- se encuentra en la consola de administración de Keycloak, en el perfil de usuario (\"ID\")."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:176
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:185
 msgid "Verknüpfung entfernen"
 msgstr "Eliminar vinculación"
 
@@ -1089,7 +1089,7 @@ msgstr "%1 (%2 bytes)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:327
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4934
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5057
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:580
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:588
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:536
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:710
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReportRows.kt:514
@@ -1097,7 +1097,7 @@ msgstr "%1 (%2 bytes)"
 msgid "%1 (%2)"
 msgstr "%1 (%2)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:176
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:184
 msgid "%1 (%2) -- eingereicht am %3"
 msgstr "%1 (%2) -- presentado el %3"
 
@@ -1105,7 +1105,7 @@ msgstr "%1 (%2) -- presentado el %3"
 msgid "%1 (%2): fehlt %3"
 msgstr "%1 (%2): falta %3"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:185
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:193
 msgid "%1 (Freund-Konto seit %2)"
 msgstr "%1 (cuenta de amigo desde %2)"
 
@@ -1252,7 +1252,7 @@ msgstr "%1 de %2 cartas entregadas correctamente."
 msgid "%1 von %2 Briefen fehlgeschlagen -- Details unten."
 msgstr "%1 de %2 cartas fallidas -- detalles a continuación."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:214
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:222
 msgid "%1 wurde abgelehnt."
 msgstr "%1 ha sido rechazado."
 
@@ -1264,7 +1264,7 @@ msgstr "%1 ha sido nombrado %2."
 msgid "%1 wurde angelegt."
 msgstr "%1 ha sido creado."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:203
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:211
 msgid "%1 wurde aufgenommen."
 msgstr "%1 ha sido admitido."
 
@@ -1279,7 +1279,7 @@ msgstr "%1–%2"
 msgid "%1: %2"
 msgstr "%1: %2"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:563
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:571
 msgid "%1: %2 anonymisiert, %3 gelöscht, %4 beibehalten"
 msgstr "%1: %2 anonimizado(s), %3 eliminado(s), %4 conservado(s)"
 
@@ -1379,7 +1379,7 @@ msgstr "Suscripción cancelada el %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:207
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsRowActions.kt:120
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsRowActions.kt:73
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:466
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:474
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:200
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:220
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:431
@@ -1389,14 +1389,14 @@ msgstr "Suscripción cancelada el %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventSeriesEditor.kt:497
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:225
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:625
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:135
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/LanguageChange.kt:46
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2386
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:526
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:758
 #: src/jsMain/kotlin/network/lapis/cloud/client/MailingHtmlEditor.kt:121
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:269
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:267
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:277
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:277
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:274
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:366
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1106
@@ -1440,7 +1440,7 @@ msgstr "Caducado"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:111
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:58
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:480
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:616
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:624
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1109
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:26
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1143
@@ -1483,11 +1483,12 @@ msgstr "Medidas correctoras (opcional)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt:238
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:377
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:420
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:427
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:208
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:262
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:435
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:216
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:270
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:176
+#: src/jsMain/kotlin/network/lapis/cloud/client/PrivilegedActionsCard.kt:175
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:322
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt:245
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt:298
@@ -1571,7 +1572,7 @@ msgstr "ID de miembro actor (opcional)"
 msgid "Akteur: %1"
 msgstr "Actor: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:554
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:562
 msgid "Akteur: %1 · Betroffenes Mitglied: %2"
 msgstr "Actor: %1 · Miembro afectado: %2"
 
@@ -1709,8 +1710,8 @@ msgstr "La contraseña actual es incorrecta."
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:91
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:460
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:126
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:432
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:480
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:441
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:489
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt:133
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:209
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:93
@@ -1762,7 +1763,7 @@ msgstr "Todos los órganos"
 msgid "Alle Kategorien"
 msgstr "Todas las categorías"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:88
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:90
 msgid ""
 "Alle Löschanträge -- genehmigen/ablehnen, und einen genehmigten Antrag "
 "endgültig ausführen."
@@ -1774,7 +1775,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt:59
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:286
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:372
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:358
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:360
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionsScreen.kt:84
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:118
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:127
@@ -1902,7 +1903,7 @@ msgid "Änderungshinweis (optional)"
 msgstr "Nota de modificación (opcional)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleCoverHttp.kt:81
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:96
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:103
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCoverHttp.kt:85
 msgid "Anfrage fehlgeschlagen."
 msgstr "La solicitud ha fallado."
@@ -1969,11 +1970,11 @@ msgid "Anmeldung erfolgreich, aber Sitzungsdaten konnten nicht geladen werden."
 msgstr ""
 "Inicio de sesión correcto, pero no se pudieron cargar los datos de la sesión."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:74
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:81
 msgid "Anmeldung fehlgeschlagen."
 msgstr "El inicio de sesión ha fallado."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:195
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:203
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:610
 msgid "Annehmen"
 msgstr "Aceptar"
@@ -2040,7 +2041,7 @@ msgstr "Solicitud aprobada."
 msgid "Antrag oben auswählen, um Details zu sehen."
 msgstr "Seleccione una moción arriba para ver los detalles."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:249
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:257
 msgid "Antrag von %1 ablehnen"
 msgstr "Rechazar la moción de %1"
 
@@ -2048,11 +2049,11 @@ msgstr "Rechazar la moción de %1"
 msgid "Antrag vorläufig abgelehnt."
 msgstr "Moción rechazada provisionalmente."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:438
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:446
 msgid "Antrag wurde abgelehnt."
 msgstr "La moción ha sido rechazada."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:438
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:446
 msgid "Antrag wurde genehmigt."
 msgstr "La moción ha sido aprobada."
 
@@ -2070,11 +2071,11 @@ msgstr "Retirar moción"
 msgid "Anträge"
 msgstr "Mociones"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:86
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:88
 msgid "Anträge verwalten"
 msgstr "Gestionar mociones"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:147
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:155
 msgid "Antragsteller"
 msgstr "Solicitante"
 
@@ -2134,8 +2135,8 @@ msgid "Anzeige-Info: Währung"
 msgstr "Información de visualización: moneda"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:553
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1688
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1708
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1825
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1845
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:594
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:779
 msgid "Anzeigen"
@@ -2155,7 +2156,7 @@ msgstr "Clave de API"
 msgid "API-Schlüssel widerrufen bestätigen"
 msgstr "Confirmar revocación de la clave de API"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:296
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:298
 msgid "Art der Löschung"
 msgstr "Tipo de eliminación"
 
@@ -2309,12 +2310,12 @@ msgstr "Gastos"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:463
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:59
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:521
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:511
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:519
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:406
 msgid "Ausgeführt"
 msgstr "Ejecutado"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:660
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:668
 msgid "Ausgeführt am %1"
 msgstr "Ejecutado el %1"
 
@@ -2338,7 +2339,7 @@ msgstr "Excluido:"
 msgid "Ausgetreten"
 msgstr "Baja"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:122
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:124
 msgid "Auskunft"
 msgstr "Solicitud de acceso"
 
@@ -2346,7 +2347,7 @@ msgstr "Solicitud de acceso"
 msgid "Auskunft exportiert"
 msgstr "Solicitud de acceso exportada"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:130
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:132
 msgid "Auskunftsübersicht anzeigen"
 msgstr "Mostrar resumen de solicitudes de acceso"
 
@@ -2436,7 +2437,7 @@ msgstr "Solicitar"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:460
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:56
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:519
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:509
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:517
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:403
 msgid "Beantragt"
 msgstr "Solicitado"
@@ -2454,7 +2455,7 @@ msgstr ""
 "Solicita la eliminación SOLO del contenido de la publicación (no de toda la "
 "publicación) -- un administrador decide sobre la solicitud por separado."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:642
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:650
 msgid "Beantragt von %1 am %2"
 msgstr "Solicitado por %1 el %2"
 
@@ -2475,7 +2476,7 @@ msgstr "Solicitado por %1 el %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:108
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:220
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:676
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:686
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:293
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:113
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:241
@@ -2496,11 +2497,12 @@ msgstr "Inicio"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:741
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusBooth.kt:74
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusOptions.kt:157
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:302
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1267
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:256
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:245
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt:196
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:304
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1404
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:264
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:247
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt:219
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt:378
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:337
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:594
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:665
@@ -2519,8 +2521,9 @@ msgid "Begründung für Beitragsentfernung"
 msgstr "Justificación para la eliminación de la publicación"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticlesScreen.kt:159
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:349
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:391
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:351
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:393
+#: src/jsMain/kotlin/network/lapis/cloud/client/PrivilegedActionsCard.kt:166
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:142
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:288
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:349
@@ -2885,7 +2888,7 @@ msgstr "Confirmar"
 msgid "Bestätigen Sie, dass diese Datei bei der Bank eingereicht wurde."
 msgstr "Confirme que este archivo se ha presentado al banco."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:120
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:127
 msgid "Bestätigung fehlgeschlagen."
 msgstr "La confirmación ha fallado."
 
@@ -2961,11 +2964,11 @@ msgstr "Personas afectadas notificadas el (AAAA-MM-DDTHH:MM:SS, opcional)"
 msgid "Betroffene Ziele: %1"
 msgstr "Destinos afectados: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:525
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:533
 msgid "Betroffenes Mitglied (ID, optional)"
 msgstr "Miembro afectado (ID, opcional)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:459
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:467
 msgid "Betroffenes Mitglied: %1"
 msgstr "Miembro afectado: %1"
 
@@ -3116,7 +3119,7 @@ msgstr "Indique un miembro y un importe de donativo positivo."
 msgid "Bitte ein positives Höchstgebot (LTR) angeben."
 msgstr "Indique una puja máxima positiva (LTR)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:320
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:322
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:677
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:727
 msgid "Bitte eine Begründung angeben."
@@ -3172,7 +3175,7 @@ msgid ""
 msgstr ""
 "Indique un motivo de rechazo -- se mostrará públicamente en el proyecto."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:259
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:267
 msgid "Bitte einen Grund angeben."
 msgstr "Indique un motivo."
 
@@ -3214,7 +3217,7 @@ msgid ""
 msgstr ""
 "Indique el destinatario, un importe positivo en LTR y una caracterización."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:250
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:258
 msgid ""
 "Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."
 msgstr "Indique un motivo de rechazo (se guardará en el registro del miembro)."
@@ -19927,3 +19930,159 @@ msgstr "Enviar propuesta"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:1
 msgid "Vorschlag gesendet."
 msgstr "Propuesta enviada."
+
+msgid "Geschützt: Diese Aktion ist gegen ein Administratorkonto nicht möglich."
+msgstr "Protegido: Esta acción no es posible contra una cuenta de administrador."
+
+msgid "Für ein Administratorkonto ist die Zustimmung eines zweiten Administrators erforderlich -- bitte Ansicht aktualisieren und die Freigabe beantragen."
+msgstr "Una cuenta de administrador requiere la aprobación de un segundo administrador -- actualice la vista y solicite la aprobación."
+
+msgid "Nicht möglich: Es gibt keinen weiteren Administrator für die Freigabe."
+msgstr "No es posible: no hay otro administrador que pueda aprobar."
+
+msgid "Dieser Antrag ist nicht mehr offen -- bitte Ansicht aktualisieren."
+msgstr "Esta solicitud ya no está abierta -- actualice la vista."
+
+msgid "Passwortvergabe widersprechen?"
+msgstr "¿Oponerse a la asignación de la contraseña?"
+
+msgid "Für Ihr Administratorkonto wurde ein temporäres Passwort beantragt. Wenn Sie das nicht erwartet haben, legen Sie hier Widerspruch ein. Ein offener Antrag wird dann beendet."
+msgstr "Se ha solicitado una contraseña temporal para su cuenta de administrador. Si no lo esperaba, presente aquí su oposición. Una solicitud abierta se da entonces por finalizada."
+
+msgid "Widerspruch einlegen"
+msgstr "Presentar oposición"
+
+msgid "Ihr Widerspruch wurde übermittelt. Ein offener Antrag ist damit beendet."
+msgstr "Su oposición ha sido transmitida. Una solicitud abierta queda así finalizada."
+
+msgid "Widerspruch übermittelt."
+msgstr "Oposición transmitida."
+
+msgid "Freigabe beantragen"
+msgstr "Solicitar aprobación"
+
+msgid "Nicht möglich: Entziehen Sie zuerst die Administratorrolle (Freigabe), danach kann der Status auf Verstorben gesetzt werden."
+msgstr "No es posible: retire primero el rol de administrador (aprobación); después se puede establecer el estado Fallecido."
+
+msgid "Die Schutzprüfung konnte nicht geladen werden. Bitte öffnen Sie den Dialog erneut."
+msgstr "No se pudo cargar la comprobación de protección. Abra el cuadro de diálogo de nuevo."
+
+msgid "Freigabe beantragt. Sie finden den Antrag unter „Ausstehende Freigaben“."
+msgstr "Aprobación solicitada. Encontrará la solicitud en «Aprobaciones pendientes»."
+
+msgid "Geschützt"
+msgstr "Protegido"
+
+msgid "Die Daten von Administratoren sind für den Vorstand nicht einsehbar. Administratoren und die betroffene Person selbst sehen sie."
+msgstr "Los datos de los administradores no son visibles para la junta directiva. Los administradores y la propia persona afectada sí los ven."
+
+msgid "Rolle entziehen (neue Rolle: %1)"
+msgstr "Retirar rol (nuevo rol: %1)"
+
+msgid "Zugang sperren (neuer Status: %1)"
+msgstr "Bloquear el acceso (nuevo estado: %1)"
+
+msgid "wartet auf Freigabe"
+msgstr "pendiente de aprobación"
+
+msgid "freigegeben, wartet auf die Erzeugung des Passworts"
+msgstr "aprobado, a la espera de la generación de la contraseña"
+
+msgid "ausgeführt"
+msgstr "ejecutado"
+
+msgid "abgelehnt"
+msgstr "rechazado"
+
+msgid "zurückgezogen"
+msgstr "retirado"
+
+msgid "vom betroffenen Konto widersprochen"
+msgstr "el titular de la cuenta se ha opuesto"
+
+msgid "abgelaufen"
+msgstr "caducado"
+
+msgid "nicht mehr gültig (die Voraussetzungen haben sich geändert)"
+msgstr "ya no es válido (las condiciones han cambiado)"
+
+msgid "%1 für %2"
+msgstr "%1 para %2"
+
+msgid "Beantragt von %1 am %2."
+msgstr "Solicitado por %1 el %2."
+
+msgid "Offen bis %1."
+msgstr "Abierto hasta el %1."
+
+msgid "Stand: %1."
+msgstr "Estado: %1."
+
+msgid "Antrag freigeben"
+msgstr "Aprobar solicitud"
+
+msgid "Freigabe erteilen"
+msgstr "Aprobar"
+
+msgid "%1 für %2 jetzt freigeben? Die Freigabe wird im Prüfprotokoll vermerkt."
+msgstr "¿Aprobar ahora %1 para %2? La aprobación se registra en el registro de auditoría."
+
+msgid "Der Antrag ist nicht mehr gültig: die Voraussetzungen haben sich geändert."
+msgstr "La solicitud ya no es válida: las condiciones han cambiado."
+
+msgid "Freigegeben."
+msgstr "Aprobado."
+
+msgid "Abgelehnt."
+msgstr "Rechazado."
+
+msgid "Das Passwort kann ab %1 erzeugt werden (Widerspruchsfrist des Kontos)."
+msgstr "La contraseña puede generarse a partir del %1 (plazo de oposición de la cuenta)."
+
+msgid "Das Passwort kann bis %1 erzeugt werden."
+msgstr "La contraseña puede generarse hasta el %1."
+
+msgid "Passwort jetzt erzeugen"
+msgstr "Generar contraseña ahora"
+
+msgid "Ausstehende Freigaben"
+msgstr "Aprobaciones pendientes"
+
+msgid "Wartet auf Ihre Freigabe"
+msgstr "Pendiente de su aprobación"
+
+msgid "Von Ihnen beantragt"
+msgstr "Solicitado por usted"
+
+msgid "Das Administratorkonto wird benachrichtigt."
+msgstr "Se notifica a la cuenta de administrador."
+
+msgid "Für ein Administratorkonto vergibt kein einzelner Administrator ein Passwort. Ein zweiter Administrator muss zustimmen, das Konto wird benachrichtigt und kann widersprechen. Frühestens 24 Stunden nach der Freigabe können Sie das Passwort erzeugen und einmalig ablesen."
+msgstr "Para una cuenta de administrador, ningún administrador asigna una contraseña por sí solo. Un segundo administrador debe aprobar; la cuenta es notificada y puede oponerse. Como pronto 24 horas después de la aprobación puede generar la contraseña y leerla una sola vez."
+
+msgid "Nicht möglich: Es gibt keinen weiteren Administrator für die Freigabe. Nutzen Sie die Passwort-Reset-Mail oder wenden Sie sich an den Betreiber."
+msgstr "No es posible: no hay otro administrador que pueda aprobar. Utilice el correo de restablecimiento de contraseña o póngase en contacto con el operador."
+
+msgid "Nicht möglich: Es gibt keinen weiteren Administrator für die Freigabe. Wenden Sie sich an den Betreiber."
+msgstr "No es posible: no hay otro administrador que pueda aprobar. Póngase en contacto con el operador."
+
+msgid "Nicht möglich: Auf dieser Installation ist kein Mailversand eingerichtet, der betroffene Administrator könnte nicht gewarnt werden."
+msgstr "No es posible: en esta instalación no hay envío de correo configurado, no se podría avisar al administrador afectado."
+
+msgid "Geschützt: Ein Administratorkonto wird erst nach der Herabstufung gelöscht."
+msgstr "Protegido: una cuenta de administrador solo se elimina después de retirarle el rol."
+
+msgid "Geschützt: Die Keycloak-Verknüpfung eines anderen Administrators ist hier nicht möglich."
+msgstr "Protegido: aquí no es posible vincular con Keycloak a otro administrador."
+
+msgid "Geschützt: Die Notfalländerung der Adresse eines anderen Administrators ist nicht möglich. Wenden Sie sich an den Betreiber."
+msgstr "Protegido: el cambio de emergencia de la dirección de otro administrador no es posible. Póngase en contacto con el operador."
+
+msgid "Geschützt: Diese Aktion ist gegen ein anderes Administratorkonto nicht möglich."
+msgstr "Protegido: esta acción no es posible contra otra cuenta de administrador."
+
+msgid "Geschützt: Die Daten von Administratoren kann der Vorstand nicht ändern."
+msgstr "Protegido: la junta directiva no puede modificar los datos de los administradores."
+
+msgid "Für ein anderes Administratorkonto ist die Zustimmung eines zweiten Administrators erforderlich."
+msgstr "Para otra cuenta de administrador se requiere la aprobación de un segundo administrador."

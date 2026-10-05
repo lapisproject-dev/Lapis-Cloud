@@ -315,6 +315,8 @@ data class UnlinkedMemberDto(
     val memberId: String,
     val displayName: String,
     val email: String,
+    /** Welle V1.9.57 -- the account role (`null`: no account). The UI shows the manual link of ANOTHER ADMIN as protected instead of offering it. */
+    val role: AccountRole? = null,
 )
 
 /**
@@ -333,4 +335,9 @@ data class MemberAddressDataDto(
     val dateOfBirth: LocalDate?,
     val nationality: String?,
     val dateOfDeath: LocalDate?,
+    /**
+     * Welle V1.9.57 -- `true` when the data of an ADMIN is withheld from a BOARD caller (peer protection): every value
+     * field is `null`, no error is raised. The UI shows "geschuetzt" instead of dots.
+     */
+    val protectedTarget: Boolean = false,
 )

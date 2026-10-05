@@ -31,6 +31,7 @@ Font Awesome 7, bundled by webpack through `kvision-fontawesome` (no CDN, no new
 | `LOCK`, `SETTINGS` | `fa-lock`, `fa-gear` | reserved
 | `ACCESS` | `fa-user-lock` | Sichtbarkeit ändern (who may see an object); V1.9.49, NOT `LOCK`
 | `UNDO` | `fa-rotate-left` | Stornieren, Zurückziehen, Wiederherstellen, Zurücksetzen
+| `PROTECTED` | `fa-shield-halved` | V1.9.57: geschützt -- the reason text next to a disabled control and the masked value of the admin peer protection; marks a state, never an action; NOT `LOCK`, NOT `ACCESS`
 |===
 
 The aliases `fa-times`, `fa-edit` and `fa-refresh` are forbidden (tripwire). `ActionButtonDomTest` checks that every icon name exists in the

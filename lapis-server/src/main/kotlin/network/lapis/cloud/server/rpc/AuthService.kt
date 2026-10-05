@@ -7,6 +7,7 @@ import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.federation.OidcBackChannelLogoutNotifier
 import network.lapis.cloud.server.keycloak.KeycloakConfig
+import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
 import network.lapis.cloud.server.security.SessionStore
@@ -25,6 +26,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * V0.7.1 Authentifizierung -- self-service password management for an already-authenticated
@@ -59,6 +61,13 @@ class AuthService internal constructor(
      */
     private val mcpEnabled: Boolean = false,
     private val mcpWriteEnabled: Boolean = false,
+    /**
+     * Welle V1.9.57 -- brute-force guard of [changePassword] (the current password is the one proof a stolen SESSION lacks: without
+     * a limit an attacker holding a session could guess it at bcrypt speed). Keyed per member, 5 attempts per 15 minutes. MUST be a
+     * singleton created in `Application.kt` -- [AuthService] is rebuilt per RPC call, so this per-call default limits nothing and
+     * exists only so pre-existing test construction sites keep compiling.
+     */
+    private val changePasswordRateLimiter: LoginRateLimiter = LoginRateLimiter(maxFailures = 5, window = 15.minutes),
 ) : IAuthService {
     override suspend fun changePassword(
         currentPassword: String,
@@ -83,7 +92,15 @@ class AuthService internal constructor(
                     .single()
                     .let { it[AccountTable.passwordHash] to it[MemberTable.email] }
             }
+        // Welle V1.9.57 -- the attempt is reserved atomically BEFORE the bcrypt check (concurrent guesses cannot all pass); a wrong
+        // password stays counted, a correct one resets the budget. Over the limit even the correct password is refused until the window
+        // ends (otherwise the limiter would not stop a guess that happens to be right).
+        val attemptKey = "member:${current.memberId}"
+        if (!changePasswordRateLimiter.tryAcquire(attemptKey)) {
+            throw ConflictException("Too many password change attempts -- try again later")
+        }
         if (!PasswordHasher.verify(rawPassword = currentPassword, storedHash = storedHash)) throw InvalidPasswordException()
+        changePasswordRateLimiter.reset(attemptKey)
         PasswordPolicy.validate(newPassword = newPassword, email = email)
         val newHash = PasswordHasher.hash(newPassword)
         transaction {

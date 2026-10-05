@@ -19,6 +19,8 @@ import network.lapis.cloud.shared.domain.EmailChangePendingDto
 import network.lapis.cloud.shared.domain.MailDeliveryState
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.PeerAction
+import network.lapis.cloud.shared.domain.PeerDenyReason
 import network.lapis.cloud.shared.rpc.IMemberEmailChangeService
 
 /** The RPC surface of the proposal section -- an interface so DOM tests can drive it without a server. Exceptions propagate. */
@@ -257,7 +259,15 @@ private fun renderProposalForm(
             null
         }
 
-    fun emergencyOn(): Boolean = emergency?.value == "true"
+    // Welle V1.9.57 "Admin-Peer-Schutz": the emergency path never targets ANOTHER administrator (its only safeguard is the target's
+    // objection right, and one person could take the account over). The switch stays visible, disabled, with the reason as text.
+    val emergencyProtected = emergency != null && row.role == AccountRole.ADMIN
+    if (emergency != null && emergencyProtected) {
+        emergency.control.disabled = true
+        form.panel.peerProtectionNotice(peerDenyText(PeerDenyReason.TARGET_IS_ADMIN, PeerAction.EMAIL_OVERRIDE))
+    }
+
+    fun emergencyOn(): Boolean = !emergencyProtected && emergency?.value == "true"
 
     fun refreshReason() = reason?.setVisible(emergencyOn())
     emergency?.subscribe { refreshReason() }

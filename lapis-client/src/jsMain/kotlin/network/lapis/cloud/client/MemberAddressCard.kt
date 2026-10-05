@@ -7,6 +7,8 @@ import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
 import io.kvision.html.div
 import io.kvision.html.h2
+import io.kvision.html.icon
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
@@ -311,6 +313,40 @@ internal class MemberAddressCard(
         val saved = onSaved
         if (saved != null) saved(if (ok) written else null) else onChanged()
     }
+}
+
+/**
+ * Welle V1.9.57 "Admin-Peer-Schutz" -- what the board dialog shows for an ADMIN's address and beneficial-owner data: the Vorstand does not see
+ * them (the server answers with a marked, value-free DTO, no error). The six fields stand there with the word "Geschützt" and the shield
+ * icon instead of a value or dots, the saves are disabled, and the reason is visible text. Nothing is loaded, nothing is written.
+ */
+internal fun renderProtectedAddressData(parent: SimplePanel) {
+    val root = parent.vPanel(spacing = 8)
+    listOf(
+        tr("Straße und Hausnummer"),
+        tr("Postleitzahl"),
+        tr("Ort"),
+        tr("Land"),
+        tr("Geburtsdatum"),
+        tr("Staatsangehörigkeit"),
+    ).forEach { label ->
+        val line = root.div { addCssClasses("d-flex align-items-center gap-2") }
+        line.span(label) { addCssClass("fw-bold") }
+        line.icon("${ActionIcon.PROTECTED.css} fa-fw lapis-action-icon") { setAttribute("aria-hidden", "true") }
+        line.span(tr("Geschützt")) { addCssClass("text-muted") }
+    }
+    val buttons = root.vPanel(spacing = 4)
+    val addressButton = newActionButton(ActionIcon.SAVE, tr("Anschrift speichern"), ButtonStyle.PRIMARY)
+    addressButton.disabled = true
+    buttons.add(addressButton)
+    val beneficialOwnerButton = newActionButton(ActionIcon.SAVE, tr("Angaben speichern"), ButtonStyle.PRIMARY)
+    beneficialOwnerButton.disabled = true
+    buttons.add(beneficialOwnerButton)
+    root.peerProtectionNotice(
+        tr(
+            "Die Daten von Administratoren sind für den Vorstand nicht einsehbar. Administratoren und die betroffene Person selbst sehen sie.",
+        ),
+    )
 }
 
 /**

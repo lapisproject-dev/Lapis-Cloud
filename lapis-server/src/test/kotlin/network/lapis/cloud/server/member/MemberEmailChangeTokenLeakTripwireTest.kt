@@ -14,7 +14,8 @@ import java.io.File
  */
 class MemberEmailChangeTokenLeakTripwireTest :
     FunSpec({
-        val tokenNames = Regex("""\b(confirmRaw|revokeRaw|rawToken|rawRevokeToken|rawSessionToken|ownRawSessionToken)\b""")
+        val tokenNames =
+            Regex("""\b(confirmRaw|revokeRaw|rawToken|rawRevokeToken|rawSessionToken|ownRawSessionToken|vetoRaw|rawVetoToken)\b""")
         val loggerCall = Regex("""\blogger\s*\.\s*(trace|debug|info|warn|error)\s*(\([^)]*\))?\s*\{""")
 
         fun matching(

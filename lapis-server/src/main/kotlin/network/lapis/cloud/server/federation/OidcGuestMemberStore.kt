@@ -120,6 +120,7 @@ object OidcGuestMemberStore {
                         it[id] = Uuid.random()
                         it[AccountTable.memberId] = newMemberId
                         it[role] = AccountRole.MEMBER
+                        it[roleChangedAt] = now
                         it[passwordHash] = null
                         it[oidcSubject] = claims.subject
                         it[oidcIssuer] = claims.issuer

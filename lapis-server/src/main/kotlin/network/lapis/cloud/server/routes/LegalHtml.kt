@@ -310,6 +310,16 @@ internal object LegalHtml {
             }
             li {
                 +(
+                    "Schutz der Administratorkonten (Vier-Augen-Freigabe): Anträge eines Administrators gegen " +
+                        "ein anderes Administratorkonto (temporäres Passwort, Rollenentzug, Sperrung), die " +
+                        "Freigabe oder Ablehnung durch einen zweiten Administrator, der Einspruch des betroffenen " +
+                        "Kontos sowie die zugehörige Begründung — Art. 6 Abs. 1 lit. f DSGVO (berechtigtes " +
+                        "Interesse an der Sicherheit der Verwaltungskonten und der darin verarbeiteten Daten); " +
+                        "Anträge, in denen Sie das betroffene Konto sind, werden bei einer Löschung gelöscht."
+                )
+            }
+            li {
+                +(
                     "Buchhaltung, Beitrags-/Spendenkonto, Prüfpfad, Zahlungsverkehr, interne Verrechnung, " +
                         "Umsatzsteuer-Voranmeldung (Nachweishilfe) und Auktionen — Art. 6 Abs. 1 lit. c DSGVO " +
                         "(handels-/steuerrechtliche Aufbewahrungspflichten, GoBD/HGB/AO; bei politischen " +

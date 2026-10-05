@@ -1,0 +1,203 @@
+= Admin peer protection (V1.9.57)
+:toc:
+
+== Purpose
+
+Before V1.9.57 one administrator could do anything to another administrator alone: set a temporary password and sign in as them,
+take the ADMIN role away, block the login, erase the account, attach their own identity-provider identity, redirect the
+account's e-mail address (the emergency path of V1.9.56), and the Vorstand could read and write an administrator's postal address and
+beneficial-owner data. A single compromised or malicious administrator account was therefore enough to take over every other one.
+
+V1.9.57 adds **peer protection**: an action against *another administrator's* account is either refused, or needs the approval of a
+*second* administrator (four eyes), or is allowed and the target is told. The rules live in one pure function (`PeerPolicy`, matrix below),
+the database side in `PeerGuard`, the lifecycle in `PrivilegedActionService` (`IPrivilegedActionService` on the wire,
+`V71__privileged_action_request.sql` for the state).
+
+NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+== The matrix
+
+Caller: M = MEMBER, T = TREASURER, B = BOARD, A = ADMIN. Targets: a MEMBER (also without an account), BOARD/TREASURER ("escalated"), an
+ADMIN, oneself. Against oneself the existing own-account flows stay as they are; the actions below are `Forbidden` there.
+
+[cols="2,2,2,3,3", options="header"]
+|===
+| Action | M / T | B | A against MEMBER / escalated | A against ADMIN
+| `TEMP_PASSWORD` | forbidden | forbidden | allowed, the target is notified | *four eyes* (request, approval, 24 h objection period, generation by the requester, once); `NoSecondAdmin` when nobody can approve; refused without outbound mail
+| `RESET_MAIL` | forbidden | forbidden | allowed | allowed, the target is notified (the reset link goes to the target's stored address)
+| `DEMOTE` (role away from ADMIN) | forbidden | forbidden | role change as before | *four eyes*, effective on approval; the last-admin protection still holds
+| `PROMOTE_TO_ADMIN` (role change, access grant, direct creation) | forbidden | forbidden | allowed, *every other administrator is notified* | n/a
+| `SUSPEND` (login-blocking status) | forbidden | against MEMBER as before, escalated forbidden | allowed | *four eyes*, effective on approval
+| status without a blocking effect | forbidden | against MEMBER as before | allowed | allowed, the target is notified
+| `ERASE` (GDPR) | own request only | forbidden | allowed | *refused* for a request by a third party and for every execution while the subject is an ADMIN, also for their own request: it is executed only after the demotion
+| `LINK_IDENTITY` (manual Keycloak link) | forbidden | forbidden | allowed | *refused* (own account allowed)
+| `EMAIL_OVERRIDE` (emergency e-mail change, path C of V1.9.56) | forbidden | forbidden | allowed | *refused*
+| `READ_PROTECTED_DATA` (address, date of birth, nationality) | forbidden | allowed, audited; *masked* for an ADMIN target | allowed, audited | allowed, audited
+| `WRITE_PROTECTED_DATA` | forbidden | allowed; *refused* for an ADMIN target | allowed | allowed, the target is notified
+|===
+
+*Why the emergency e-mail path is closed against another ADMIN (deviation from the first design, which listed only the password actions):* its only
+safeguard is the 72 hour objection right of the target. With it one administrator could redirect another's address and then send a reset mail:
+a takeover by one person without the second administrator every other path demands. An administrator without a usable mailbox gets a
+temporary password through the four-eyes path and changes the address themselves (path A); on an instance with at most two administrators
+the operator console does it.
+
+*`READ_PROTECTED_DATA` masked* means: no error, `protectedTarget = true`, every value field `null`, *no* read-audit entry (nothing leaves)
+-- the UI shows the word "Geschützt" with a shield instead of dots. The matrix is a table of data in `PeerPolicyMatrixTest`, which walks the
+complete cross product (4 callers x 6 target kinds x 11 actions x 0/1/2 eligible approvers x mail on/off) and pins that no cell is missing.
+
+== Lifecycle of a request
+
+[source,kuml,name="privileged-action-lifecycle"]
+----
+stateDiagram(name = "Privileged action request, status") {
+    val start = initialState()
+    val pending = state(name = "PENDING")
+    val waiting = state(name = "APPROVED_WAITING")
+    val executed = state(name = "EXECUTED")
+    val rejected = state(name = "REJECTED")
+    val withdrawn = state(name = "WITHDRAWN")
+    val vetoed = state(name = "VETOED")
+    val expired = state(name = "EXPIRED")
+    val invalidated = state(name = "INVALIDATED")
+
+    transition(source = start, target = pending) {
+        trigger = "requestTemporaryPassword / requestDemotion / requestSuspension"
+        guard = "[target is an ADMIN, an approver exists, (password: mail configured)]"
+    }
+    transition(source = pending, target = executed) { trigger = "approve (demotion, suspension): executed in the same transaction" }
+    transition(source = pending, target = waiting) { trigger = "approve (temporary password): 24 h objection period starts" }
+    transition(source = waiting, target = executed) { trigger = "executeTemporaryPassword by the requester, between not_before and execute_until" }
+    transition(source = pending, target = rejected) { trigger = "an eligible approver rejects" }
+    transition(source = pending, target = withdrawn) { trigger = "the requester withdraws" }
+    transition(source = waiting, target = withdrawn) { trigger = "the requester withdraws" }
+    transition(source = pending, target = vetoed) { trigger = "the target objects (temporary password only)" }
+    transition(source = waiting, target = vetoed) { trigger = "the target objects (temporary password only)" }
+    transition(source = pending, target = expired) { trigger = "72 h without a decision" }
+    transition(source = waiting, target = expired) { trigger = "72 h after not_before without generation" }
+    transition(source = pending, target = invalidated) { trigger = "target role / requester role / status changed" }
+    transition(source = waiting, target = invalidated) { trigger = "the same, found at execution" }
+}
+----
+
+* *Request*: ADMIN only, reason 10-500 characters, rate-limited (10 per requester and hour, 3 per target in 24 hours; the budget is spent only after
+  authorization, so a caller who may not act cannot drain a target's budget). At most one open request per (target, action).
+* *Temporary password* additionally: the target is warned *first* (mail with a one-time objection link) and the mail must really be accepted by
+  the mail queue -- otherwise the request is withdrawn and the link never leaves the server. There is no password field: the password is generated
+  *after* the approval and the objection period, by the *requester*, shown once and never stored (a poller that generated it would have to keep
+  it in clear text until somebody fetched it). Every session and every outstanding reset token of the target ends.
+* *Demotion / suspension*: the target is *not* warned in advance (it could do nothing against it and a rogue administrator should not be tipped
+  off); it gets a notice when it is executed.
+* *Objection* (`POST /api/auth/privileged-action/veto`, `{token}`): POST only, same-origin, IP-limited, and *one answer (204) for every token*
+  -- the caller never learns whether a request existed. The client page renders a button, removes the token from the URL at once and sends one POST per click.
+* *Poller* (15 minutes, always on): expires overdue requests and purges resolved rows after 180 days. Every request is also finished lazily when
+  it is touched, so nothing depends on the timer for correctness.
+
+== Who may approve
+
+An administrator may approve a request when, *under the locks*: they are ADMIN right now; they are neither the requester nor the target; their
+member status is not login-blocked and they are not anonymized; and they held the ADMIN role for at least *7 days at the time of the request*
+(`account.role_changed_at`, `NULL` = pre-existing account = tenured). The tenure rule closes the strawman: without it administrator A would
+create administrator C on the spot and C would approve A's request, so one person could satisfy the four-eyes rule alone.
+The role is stamped by every writer of `account.role` (`AccountRoleChangedAtTripwireTest` pins this; only the two seeds leave `NULL` on purpose).
+
+A request is *invalidated* (not rejected -- a human said no there) when the facts it was based on no longer hold: the target is no longer an
+ADMIN, the requester is no longer a login-capable ADMIN, the target was anonymized or died, or the requested status transition is no longer possible.
+
+== Lock order and the deadlock the Postgres lane found
+
+Every path takes the locks in one order: the target's `member` row, then ONE id-ordered query locking {target account} U {every ADMIN account},
+then the request row, and `AuditLogRecorder.record` last. (The first written plan said "request row first"; member first is the order every
+other writer of this schema uses and the only one that cannot invert against the creating path, which inserts its row after the member lock.)
+
+The PostgreSQL lane found a deadlock the H2 suite cannot see, and the member administration had carried it since before this wave: a plain
+`SELECT ... FOR UPDATE` on a `member` row conflicts with the `FOR KEY SHARE` lock that the foreign key of every audit entry
+(`actor_member_id`) takes on the *actor's* member row. Two administrators acting on each other at the same moment therefore deadlock
+(A holds `member(A)` and waits for the account union, B holds the union and its audit insert waits for `member(A)`). `forMemberUpdate()`
+takes `FOR NO KEY UPDATE` on PostgreSQL instead: it excludes every other writer, but not the foreign-key check. It is used by every
+member-row lock that precedes the union lock (the peer-guarded paths, `updateMemberRole/Status`, `grantMemberAccount`, the address writes, the
+application decision, the e-mail change). *Not* migrated: the other ~25 `MemberTable ... forUpdate()` sites of the code base, which never take the
+union lock; the same pattern can in principle deadlock there (a member row locked FOR UPDATE, then an audit insert whose actor is another
+transaction's locked row). It is listed in the CHANGELOG as a follow-up.
+
+== Emergency path: the operator console
+
+`AdminBootstrap` (a plain `main`, shell access to the deployment, no network endpoint) has three actions, selected by `LAPIS_BOOTSTRAP_ACTION`:
+
+[cols="1,3", options="header"]
+|===
+| Action | What it does
+| `reset-password` (default, unchanged call) | `LAPIS_BOOTSTRAP_ADMIN_EMAIL`, `LAPIS_BOOTSTRAP_ADMIN_PASSWORD` (+ `LAPIS_BOOTSTRAP_FORCE=true` to overwrite). New: ends every session and every outstanding reset token of the account and writes an audit entry without an actor (`operatorConsole = true`); `role_changed_at` is untouched.
+| `set-role` | `LAPIS_BOOTSTRAP_TARGET_EMAIL`, `LAPIS_BOOTSTRAP_ROLE`. Same union lock and last-admin protection as the signed-in paths -- *there is no console path to zero login-capable administrators*. Stamps `role_changed_at`, audit without an actor.
+| `set-status` | `LAPIS_BOOTSTRAP_TARGET_EMAIL`, `LAPIS_BOOTSTRAP_STATUS=ACTIVE`. *Re-activation only*: the emergency this exists for is an administrator who got blocked and cannot unblock themselves; blocking is not an emergency, and ending a membership needs a signed-in person to attribute the committee, mandate and officer clean-up to.
+|===
+
+`set-role` and `set-status` tell the target by mail afterwards when SMTP is configured (straight through the transport, synchronously, so the mail is
+out before the JVM exits; the console prints whether it was sent). Inside the container (the server image holds `java` and the jars under `/app/server/lib`):
+
+[source,bash]
+----
+docker compose run --rm --entrypoint java \
+  -e LAPIS_BOOTSTRAP_ACTION=set-role \
+  -e LAPIS_BOOTSTRAP_TARGET_EMAIL=admin@example.org \
+  -e LAPIS_BOOTSTRAP_ROLE=ADMIN \
+  <server-service> -cp '/app/server/lib/*' network.lapis.cloud.server.bootstrap.AdminBootstrapKt
+----
+
+IMPORTANT: This container invocation is *not yet verified against a real container* (the class path and entry point are read from the image
+definition, the code path is tested in `AdminBootstrapEmergencyTest`). It is a check item of the next staging deploy.
+
+== What an operator must know
+
+* On an instance with *one* administrator no four-eyes action exists (there is nobody to approve); with *two* administrators none either: the
+  requester and the target are both excluded, so `NoSecondAdmin` is the answer. The UI says so as text and points to the reset mail or the console.
+  Nobody is locked out: the reset mail, every action on oneself and the console stay available.
+* A third administrator can approve only after 7 days in the role. A freshly set-up instance therefore has no four-eyes approval for a week.
+* There is *no switch* to turn the protection off.
+* Rate limiters and the objection-link IP limiter are per server instance (in memory).
+
+== GwG and the data of administrators
+
+Section 20 GwG obliges the *organization* to know its beneficial owners; it does not oblige it to show each board member's date of birth to every
+board member. The data of an administrator stays readable for the administrators (audited) and for the person themselves; the board-wide
+export of the data over an ADMIN account stays possible. The Transparenzregister report only checks *whether* a value is present, no value leaves.
+
+== Notices (receipts)
+
+One mail per audited state change, no rate limiter (precedent: the Keycloak link notice), German and English in one message, each naming what happened, who
+triggered it (display name), when, and one thing to do. They are sent after the commit and never decide a result.
+
+[cols="2,3", options="header"]
+|===
+| Mail | To
+| request for the target (with the objection link; the only mail with a token) | the target, temporary password only
+| approval needed | every eligible approver
+| executed (password set, role changed, access blocked, status changed) | the target
+| reset mail triggered | the target administrator
+| address / beneficial-owner data changed | the target administrator
+| new administrator | every other administrator (not the actor, not the new one)
+|===
+
+== Audit and GDPR
+
+`MemberChangeSnapshot.peerAction` (`PeerActionAuditFacts`) carries `event`, `action`, `requestId`, `targetRole`, `approverId`, `denyReason`,
+`operatorConsole` -- *never* the reason, a token, a hash or an address (the audit log is hash-chained and cannot be erased). The reason lives only in the
+erasable `privileged_action_request` row. A request that was refused is audited in its own short transaction after the rollback, only against
+ADMIN targets and only for the actions that matter, and throttled per caller (30 per hour). `PrivilegedActionPersonalData` exports every row
+the subject is part of (never a token hash), deletes the rows in which the subject is the target and replaces the free text in the others.
+
+== Tripwires
+
+* `PrivilegedPeerActionTripwireTest` -- every code path that writes `account.password_hash`/`role`, mints a reset token, writes a member's address,
+  beneficial-owner data or status, inserts a Keycloak link, calls `erase(subject ...)` or reads the address columns in `rpc/` and `routes/` is inside a
+  function that calls `PeerGuard`/`peerGuarded`/`PeerPolicy.decide`, or is on an allowlist with a reason; the allowlist is exact. The two
+  mutation objects the guarded callers delegate to are allowlisted, and every *call* of their entry points must itself be guarded.
+* `AccountRoleChangedAtTripwireTest` -- every write of `account.role` stamps `role_changed_at`.
+* `MemberEmailChangeTokenLeakTripwireTest` -- extended to the objection token.
+
+== Known limitations
+
+See `CHANGELOG.md`, section V1.9.57. In short: a single administrator who lost mailbox and password and has no server access cannot be
+rescued; two colluding administrators who each held the role for 7 days can overrule a target that does not read its mail within 24 hours (the audit remains);
+the board still sees postal addresses in mail merge, contribution invoices and donation receipts, and birth dates in the anniversary list;
+path B0 (no password) against an administrator stays open; the console command inside the container is not verified against a real container.

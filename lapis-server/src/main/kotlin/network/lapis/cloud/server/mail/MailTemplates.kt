@@ -14,6 +14,7 @@ import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.PasswordResetTokenStore
 import network.lapis.cloud.shared.domain.EmailChangeKind
+import network.lapis.cloud.shared.domain.PrivilegedActionKind
 import kotlin.time.Duration
 
 /**
@@ -567,6 +568,270 @@ object MailTemplates {
                 ),
             branding = branding,
         )
+
+    // ------------------------------------------------------------------------------------------------------------
+    // Welle V1.9.57 "Admin-Peer-Schutz" -- receipts: what happened, who (display name), when, one thing to do.
+    // ------------------------------------------------------------------------------------------------------------
+
+    /** A display name is free text: strip control characters (headers/plain text); the HTML part is escaped by kotlinx-html. */
+    private fun safeName(name: String): String = sanitizeSubjectFragment(name).take(120).ifBlank { "?" }
+
+    /** To the TARGET: a temporary password was requested; a second administrator must approve. The objection link is the one thing to do. */
+    fun peerRequestForTarget(
+        rawVetoToken: String,
+        actorName: String,
+        notBefore: LocalDateTime?,
+        branding: MailBranding,
+    ): RenderedMail {
+        val link = "${branding.publicBaseUrl}/app#/privileged-action-veto?token=$rawVetoToken"
+        val actor = safeName(actorName)
+        return bilingual(
+            subject =
+                "Passwortvergabe für Ihr Konto beantragt / Temporary password requested for your account" +
+                    " – ${branding.fromDisplayName}",
+            de =
+                MailSection(
+                    heading = "Passwortvergabe für Ihr Administratorkonto beantragt",
+                    paragraphs =
+                        listOf(
+                            "$actor hat beantragt, für Ihr Konto bei ${branding.fromDisplayName} ein temporäres Passwort zu vergeben. " +
+                                "Dafür muss ein weiterer Administrator zustimmen; frühestens 24 Stunden danach " +
+                                "(voraussichtlich ab ${formatUtc(notBefore)} bei sofortiger Zustimmung) kann das Passwort erzeugt werden.",
+                            "Wenn Sie das nicht erwartet haben, widersprechen Sie bitte über den Link. Der Antrag wird dann beendet.",
+                        ),
+                    linkLabel = "Widerspruch einlegen",
+                    link = link,
+                ),
+            en =
+                MailSection(
+                    heading = "Temporary password requested for your administrator account",
+                    paragraphs =
+                        listOf(
+                            "$actor requested a temporary password for your account at ${branding.fromDisplayName}. " +
+                                "A second administrator must approve; the password can be generated no earlier than 24 hours after " +
+                                "approval (earliest ${formatUtc(notBefore)} if approved at once).",
+                            "If you did not expect this, please object using the link. The request is then ended.",
+                        ),
+                    linkLabel = "Object to the request",
+                    link = link,
+                ),
+            branding = branding,
+        )
+    }
+
+    private fun peerActionLabel(action: PrivilegedActionKind): Pair<String, String> =
+        when (action) {
+            PrivilegedActionKind.TEMP_PASSWORD -> "ein temporäres Passwort zu vergeben" to "to set a temporary password"
+            PrivilegedActionKind.DEMOTE -> "die Administratorrolle zu entziehen" to "to remove the administrator role"
+            PrivilegedActionKind.SUSPEND -> "den Zugang zu sperren" to "to block the access"
+        }
+
+    /** To an eligible approver: a request awaits their decision. */
+    fun peerApprovalNeeded(
+        actorName: String,
+        targetName: String,
+        action: PrivilegedActionKind,
+        expiresAt: LocalDateTime,
+        branding: MailBranding,
+    ): RenderedMail {
+        val actor = safeName(actorName)
+        val target = safeName(targetName)
+        val (de, en) = peerActionLabel(action)
+        val link = "${branding.publicBaseUrl}/app"
+        return bilingual(
+            subject = "Freigabe erforderlich / Approval needed – ${branding.fromDisplayName}",
+            de =
+                MailSection(
+                    heading = "Ihre Freigabe ist erforderlich",
+                    paragraphs =
+                        listOf(
+                            "$actor beantragt für das Administratorkonto von $target, $de. Ohne Ihre Freigabe geschieht nichts. " +
+                                "Der Antrag verfällt am ${formatUtc(expiresAt)}.",
+                            "Sie finden ihn in der Mitgliederverwaltung unter „Ausstehende Freigaben“.",
+                        ),
+                    linkLabel = "Zur Anwendung",
+                    link = link,
+                ),
+            en =
+                MailSection(
+                    heading = "Your approval is needed",
+                    paragraphs =
+                        listOf(
+                            "$actor requests $en for the administrator account of $target. Nothing happens without your approval. " +
+                                "The request expires on ${formatUtc(expiresAt)}.",
+                            "You find it in the member administration under \"Pending approvals\".",
+                        ),
+                    linkLabel = "Open the application",
+                    link = link,
+                ),
+            branding = branding,
+        )
+    }
+
+    /** To the TARGET: the action was carried out. */
+    fun peerExecutedForTarget(
+        event: PeerExecutedEvent,
+        actorName: String,
+        occurredAt: LocalDateTime,
+        branding: MailBranding,
+    ): RenderedMail {
+        val actor = safeName(actorName)
+        val (de, en) =
+            when (event) {
+                PeerExecutedEvent.TEMPORARY_PASSWORD_SET ->
+                    "Für Ihr Konto wurde ein temporäres Passwort vergeben. Alle Sitzungen wurden beendet." to
+                        "A temporary password was set for your account. All sessions were ended."
+                PeerExecutedEvent.ROLE_CHANGED ->
+                    "Die Rolle Ihres Kontos wurde geändert." to "The role of your account was changed."
+                PeerExecutedEvent.ACCESS_SUSPENDED ->
+                    "Der Zugang Ihres Kontos wurde gesperrt. Alle Sitzungen wurden beendet." to
+                        "The access of your account was blocked. All sessions were ended."
+                PeerExecutedEvent.STATUS_CHANGED ->
+                    "Der Status Ihrer Mitgliedschaft wurde geändert." to "The status of your membership was changed."
+            }
+        return bilingual(
+            subject = "Änderung an Ihrem Konto / Change to your account – ${branding.fromDisplayName}",
+            de =
+                MailSection(
+                    heading = "Änderung an Ihrem Konto",
+                    paragraphs =
+                        listOf(
+                            "$de Ausgelöst durch $actor am ${formatUtc(occurredAt)}.",
+                            "Wenn Sie das nicht erwartet haben, melden Sie sich bitte umgehend bei uns.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            en =
+                MailSection(
+                    heading = "Change to your account",
+                    paragraphs =
+                        listOf(
+                            "$en Triggered by $actor on ${formatUtc(occurredAt)}.",
+                            "If you did not expect this, please contact us immediately.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            branding = branding,
+        )
+    }
+
+    /** To the TARGET administrator: an administrator triggered a password-reset mail for the account. */
+    fun peerResetMailTriggered(
+        actorName: String,
+        occurredAt: LocalDateTime,
+        branding: MailBranding,
+    ): RenderedMail {
+        val actor = safeName(actorName)
+        return bilingual(
+            subject = "Passwort-Reset für Ihr Konto ausgelöst / Password reset triggered for your account – ${branding.fromDisplayName}",
+            de =
+                MailSection(
+                    heading = "Passwort-Reset für Ihr Konto ausgelöst",
+                    paragraphs =
+                        listOf(
+                            "$actor hat am ${formatUtc(
+                                occurredAt,
+                            )} eine Passwort-Reset-Mail für Ihr Konto bei ${branding.fromDisplayName} ausgelöst. " +
+                                "Ihr Passwort ist unverändert, solange niemand den Link in dieser Mail verwendet.",
+                            "Wenn Sie das nicht erwartet haben, ändern Sie Ihr Passwort und melden Sie sich bitte umgehend bei uns.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            en =
+                MailSection(
+                    heading = "Password reset triggered for your account",
+                    paragraphs =
+                        listOf(
+                            "$actor triggered a password-reset mail for your account at ${branding.fromDisplayName} on ${formatUtc(
+                                occurredAt,
+                            )}. " +
+                                "Your password is unchanged as long as nobody uses the link in that mail.",
+                            "If you did not expect this, change your password and please contact us immediately.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            branding = branding,
+        )
+    }
+
+    /** To the TARGET administrator: an administrator changed their address or beneficial-owner data. */
+    fun peerProtectedDataChanged(
+        actorName: String,
+        occurredAt: LocalDateTime,
+        branding: MailBranding,
+    ): RenderedMail {
+        val actor = safeName(actorName)
+        return bilingual(
+            subject = "Ihre Anschrift/Angaben wurden geändert / Your address data was changed – ${branding.fromDisplayName}",
+            de =
+                MailSection(
+                    heading = "Ihre Angaben wurden geändert",
+                    paragraphs =
+                        listOf(
+                            "$actor hat am ${formatUtc(occurredAt)} Ihre Anschrift oder Ihre Angaben zur wirtschaftlichen Berechtigung " +
+                                "bei ${branding.fromDisplayName} geändert.",
+                            "Wenn Sie das nicht erwartet haben, melden Sie sich bitte umgehend bei uns.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            en =
+                MailSection(
+                    heading = "Your data was changed",
+                    paragraphs =
+                        listOf(
+                            "$actor changed your address or your beneficial-owner data at ${branding.fromDisplayName} on ${formatUtc(
+                                occurredAt,
+                            )}.",
+                            "If you did not expect this, please contact us immediately.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            branding = branding,
+        )
+    }
+
+    /** To every OTHER administrator: a new administrator appeared. */
+    fun peerNewAdministrator(
+        newAdminName: String,
+        actorName: String,
+        occurredAt: LocalDateTime,
+        branding: MailBranding,
+    ): RenderedMail {
+        val newAdmin = safeName(newAdminName)
+        val actor = safeName(actorName)
+        return bilingual(
+            subject = "Neuer Administrator / New administrator – ${branding.fromDisplayName}",
+            de =
+                MailSection(
+                    heading = "Neuer Administrator",
+                    paragraphs =
+                        listOf(
+                            "$actor hat am ${formatUtc(occurredAt)} $newAdmin zum Administrator von ${branding.fromDisplayName} gemacht.",
+                            "Wenn Sie das nicht erwartet haben, prüfen Sie bitte die Mitgliederverwaltung und das Änderungsprotokoll.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            en =
+                MailSection(
+                    heading = "New administrator",
+                    paragraphs =
+                        listOf(
+                            "$actor made $newAdmin an administrator of ${branding.fromDisplayName} on ${formatUtc(occurredAt)}.",
+                            "If you did not expect this, please check the member administration and the audit log.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            branding = branding,
+        )
+    }
 
     /** One language block of a bilingual mail ([link] and [linkLabel] are both set or both null). */
     private data class MailSection(

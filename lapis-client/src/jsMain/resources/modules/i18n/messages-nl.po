@@ -12,7 +12,7 @@ msgstr "%1 bankrekening(en) hebben een nieuwe FinTS-aanmelding nodig voordat de 
 msgid "%1 von %2 angezeigt – weitertippen, um einzugrenzen."
 msgstr "%1 van %2 weergegeven – blijf typen om te verfijnen."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:129
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:138
 msgid "%1 wurde mit Keycloak verknüpft."
 msgstr "%1 is gekoppeld aan Keycloak."
 
@@ -24,7 +24,7 @@ msgstr "Activeren …"
 msgid "Alle Felder sind Pflichtfelder."
 msgstr "Alle velden zijn verplicht."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:62
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:64
 msgid "Alle Mitglieder sind bereits verknüpft (oder die automatische Verknüpfung hat sie bereits zugeordnet)."
 msgstr "Alle leden zijn al gekoppeld (of de automatische koppeling heeft ze al toegewezen)."
 
@@ -69,11 +69,11 @@ msgstr "Gebruikersnaam"
 msgid "Bitte melden Sie sich über Ihre Organisation an."
 msgstr "Meld u aan via uw organisatie."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:168
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:177
 msgid "Die Keycloak-Verknüpfung von %1 wird entfernt, alle aktiven Sitzungen dieses Mitglieds werden beendet und das Mitglied wird per E-Mail benachrichtigt. Falls die E-Mail-Adresse in Keycloak weiterhin übereinstimmt, wird die Verknüpfung bei der nächsten Anmeldung automatisch wiederhergestellt. Um den Zugang dauerhaft zu sperren, deaktivieren Sie das Konto in Keycloak oder setzen Sie den Mitgliedsstatus z. B. auf „Ausgetreten“."
 msgstr "De Keycloak-koppeling van %1 wordt verwijderd, alle actieve sessies van dit lid worden beëindigd en het lid wordt per e-mail op de hoogte gesteld. Als het e-mailadres in Keycloak nog steeds overeenkomt, wordt de koppeling bij de volgende aanmelding automatisch hersteld. Om de toegang blijvend te blokkeren, deactiveert u het account in Keycloak of zet u de lidmaatschapsstatus bijv. op „Uitgetreden”."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:191
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:200
 msgid "Für %1 bestand keine Keycloak-Verknüpfung."
 msgstr "Er bestond geen Keycloak-koppeling voor %1."
 
@@ -125,24 +125,24 @@ msgstr "Interne noodtoegang voor beheerders"
 msgid "Kein Live-Abruf"
 msgstr "Geen live-opvraging"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:115
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:124
 msgid "Keycloak-Subject"
 msgstr "Keycloak-subject"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:51
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:53
 msgid "Keycloak-Verknüpfung"
 msgstr "Keycloak-koppeling"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:102
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:111
 msgid "Keycloak-Verknüpfung -- %1"
 msgstr "Keycloak-koppeling -- %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:153
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:156
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:162
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:165
 msgid "Keycloak-Verknüpfung entfernen"
 msgstr "Keycloak-koppeling verwijderen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:189
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:198
 msgid "Keycloak-Verknüpfung von %1 entfernt."
 msgstr "Keycloak-koppeling van %1 verwijderd."
 
@@ -166,7 +166,7 @@ msgstr "Live-opvraging niet beschikbaar: LAPIS_SECRET_ENCRYPTION_KEY is niet gec
 msgid "Mit %1 anmelden"
 msgstr "Aanmelden met %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:53
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:55
 msgid "Mitglieder, die die automatische Keycloak-Verknüpfung (Abgleich per E-Mail-Adresse) nicht zuordnen konnte -- z. B. weil die Keycloak-Identität eine andere E-Mail-Adresse nutzt. Hier kann ein Administrator die Verknüpfung manuell herstellen."
 msgstr "Leden die de automatische Keycloak-koppeling (matching op e-mailadres) niet kon toewijzen -- bijvoorbeeld omdat de Keycloak-identiteit een ander e-mailadres gebruikt. Hier kan een beheerder de koppeling handmatig aanmaken."
 
@@ -217,7 +217,7 @@ msgstr " · gemeld op %1"
 msgid " · Moderator"
 msgstr " · Moderator"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:561
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:569
 msgid " (%1)"
 msgstr " (%1)"
 
@@ -689,8 +689,8 @@ msgid "Neuen Kontakt anlegen"
 msgstr "Nieuw contact aanmaken"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:21
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:372
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:415
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:381
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:424
 msgid "Nicht zugeordnet"
 msgstr "Niet toegewezen"
 
@@ -742,7 +742,7 @@ msgid "Sparkasse (CAMT-CSV)"
 msgstr "Sparkasse (CAMT-CSV)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:213
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:889
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:916
 msgid "Stammdaten"
 msgstr "Stamgegevens"
 
@@ -792,16 +792,16 @@ msgstr "Evenement"
 msgid "Verbindung wird über einen Relay-Server erneut aufgebaut …"
 msgstr "Opnieuw verbinden via een relayserver …"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:119
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:87
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:128
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:89
 msgid "Verknüpfen"
 msgstr "Koppelen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:104
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:113
 msgid "Verknüpft %1 (%2) mit einer Keycloak-Identität. Das Subject ist die eindeutige Benutzer-ID in Keycloak (nicht die E-Mail-Adresse) -- zu finden im Keycloak-Admin-Konsole unter dem Benutzerprofil (\"ID\")."
 msgstr "Koppelt %1 (%2) aan een Keycloak-identiteit. Het subject is de unieke gebruikers-ID in Keycloak (niet het e-mailadres) -- te vinden in de Keycloak-beheerconsole onder het gebruikersprofiel (\"ID\")."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:176
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:185
 msgid "Verknüpfung entfernen"
 msgstr "Koppeling verwijderen"
 
@@ -1087,7 +1087,7 @@ msgstr "%1 (%2 bytes)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:327
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4934
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5057
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:580
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:588
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:536
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:710
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReportRows.kt:514
@@ -1095,7 +1095,7 @@ msgstr "%1 (%2 bytes)"
 msgid "%1 (%2)"
 msgstr "%1 (%2)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:176
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:184
 msgid "%1 (%2) -- eingereicht am %3"
 msgstr "%1 (%2) -- ingediend op %3"
 
@@ -1103,7 +1103,7 @@ msgstr "%1 (%2) -- ingediend op %3"
 msgid "%1 (%2): fehlt %3"
 msgstr "%1 (%2): ontbreekt %3"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:185
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:193
 msgid "%1 (Freund-Konto seit %2)"
 msgstr "%1 (vriendenaccount sinds %2)"
 
@@ -1252,7 +1252,7 @@ msgstr "%1 van %2 brieven succesvol overgedragen."
 msgid "%1 von %2 Briefen fehlgeschlagen -- Details unten."
 msgstr "%1 van %2 brieven mislukt -- details hieronder."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:214
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:222
 msgid "%1 wurde abgelehnt."
 msgstr "%1 is afgewezen."
 
@@ -1264,7 +1264,7 @@ msgstr "%1 is benoemd tot %2."
 msgid "%1 wurde angelegt."
 msgstr "%1 is aangemaakt."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:203
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:211
 msgid "%1 wurde aufgenommen."
 msgstr "%1 is opgenomen."
 
@@ -1279,7 +1279,7 @@ msgstr "%1–%2"
 msgid "%1: %2"
 msgstr "%1: %2"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:563
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:571
 msgid "%1: %2 anonymisiert, %3 gelöscht, %4 beibehalten"
 msgstr "%1: %2 geanonimiseerd, %3 verwijderd, %4 behouden"
 
@@ -1379,7 +1379,7 @@ msgstr "Uitgeschreven op %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:207
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsRowActions.kt:120
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsRowActions.kt:73
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:466
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:474
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:200
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:220
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:431
@@ -1389,14 +1389,14 @@ msgstr "Uitgeschreven op %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventSeriesEditor.kt:497
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:225
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:625
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:135
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/LanguageChange.kt:46
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2386
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:526
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:758
 #: src/jsMain/kotlin/network/lapis/cloud/client/MailingHtmlEditor.kt:121
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:269
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:267
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:277
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:277
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:274
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:366
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1106
@@ -1440,7 +1440,7 @@ msgstr "Verlopen"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:111
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:58
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:480
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:616
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:624
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1109
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:26
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1143
@@ -1483,11 +1483,12 @@ msgstr "Corrigerende maatregelen (optioneel)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt:238
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:377
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:420
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:427
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:208
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:262
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:435
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:216
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:270
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:176
+#: src/jsMain/kotlin/network/lapis/cloud/client/PrivilegedActionsCard.kt:175
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:322
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt:245
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt:298
@@ -1571,7 +1572,7 @@ msgstr "Actor-lid-ID (optioneel)"
 msgid "Akteur: %1"
 msgstr "Actor: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:554
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:562
 msgid "Akteur: %1 · Betroffenes Mitglied: %2"
 msgstr "Actor: %1 · Betrokken lid: %2"
 
@@ -1709,8 +1710,8 @@ msgstr "Huidig wachtwoord is onjuist."
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:91
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:460
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:126
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:432
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:480
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:441
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:489
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt:133
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:209
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:93
@@ -1762,7 +1763,7 @@ msgstr "Alle organen"
 msgid "Alle Kategorien"
 msgstr "Alle categorieën"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:88
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:90
 msgid ""
 "Alle Löschanträge -- genehmigen/ablehnen, und einen genehmigten Antrag "
 "endgültig ausführen."
@@ -1772,7 +1773,7 @@ msgstr "Alle verwijderingsaanvragen -- goedkeuren/afwijzen, en een goedgekeurde 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt:59
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:286
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:372
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:358
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:360
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionsScreen.kt:84
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:118
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:127
@@ -1898,7 +1899,7 @@ msgid "Änderungshinweis (optional)"
 msgstr "Wijzigingsopmerking (optioneel)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleCoverHttp.kt:81
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:96
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:103
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCoverHttp.kt:85
 msgid "Anfrage fehlgeschlagen."
 msgstr "Aanvraag mislukt."
@@ -1964,11 +1965,11 @@ msgstr "Aanmelden"
 msgid "Anmeldung erfolgreich, aber Sitzungsdaten konnten nicht geladen werden."
 msgstr "Aanmelding geslaagd, maar sessiegegevens konden niet worden geladen."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:74
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:81
 msgid "Anmeldung fehlgeschlagen."
 msgstr "Aanmelding mislukt."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:195
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:203
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:610
 msgid "Annehmen"
 msgstr "Accepteren"
@@ -2035,7 +2036,7 @@ msgstr "Aanvraag goedgekeurd."
 msgid "Antrag oben auswählen, um Details zu sehen."
 msgstr "Selecteer bovenaan een voorstel om details te zien."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:249
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:257
 msgid "Antrag von %1 ablehnen"
 msgstr "Voorstel van %1 afwijzen"
 
@@ -2043,11 +2044,11 @@ msgstr "Voorstel van %1 afwijzen"
 msgid "Antrag vorläufig abgelehnt."
 msgstr "Voorstel voorlopig afgewezen."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:438
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:446
 msgid "Antrag wurde abgelehnt."
 msgstr "Voorstel is afgewezen."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:438
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:446
 msgid "Antrag wurde genehmigt."
 msgstr "Voorstel is goedgekeurd."
 
@@ -2065,11 +2066,11 @@ msgstr "Voorstel intrekken"
 msgid "Anträge"
 msgstr "Voorstellen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:86
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:88
 msgid "Anträge verwalten"
 msgstr "Voorstellen beheren"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:147
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:155
 msgid "Antragsteller"
 msgstr "Aanvrager"
 
@@ -2129,8 +2130,8 @@ msgid "Anzeige-Info: Währung"
 msgstr "Weergave-info: valuta"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:553
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1688
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1708
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1825
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1845
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:594
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:779
 msgid "Anzeigen"
@@ -2150,7 +2151,7 @@ msgstr "API-sleutel"
 msgid "API-Schlüssel widerrufen bestätigen"
 msgstr "Intrekking van API-sleutel bevestigen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:296
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:298
 msgid "Art der Löschung"
 msgstr "Type verwijdering"
 
@@ -2304,12 +2305,12 @@ msgstr "Uitgaven"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:463
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:59
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:521
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:511
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:519
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:406
 msgid "Ausgeführt"
 msgstr "Uitgevoerd"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:660
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:668
 msgid "Ausgeführt am %1"
 msgstr "Uitgevoerd op %1"
 
@@ -2333,7 +2334,7 @@ msgstr "Uitgesloten:"
 msgid "Ausgetreten"
 msgstr "Uitgetreden"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:122
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:124
 msgid "Auskunft"
 msgstr "Inzage"
 
@@ -2341,7 +2342,7 @@ msgstr "Inzage"
 msgid "Auskunft exportiert"
 msgstr "Inzage geëxporteerd"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:130
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:132
 msgid "Auskunftsübersicht anzeigen"
 msgstr "Inzageoverzicht weergeven"
 
@@ -2431,7 +2432,7 @@ msgstr "Aanvragen"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:460
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:56
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:519
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:509
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:517
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:403
 msgid "Beantragt"
 msgstr "Aangevraagd"
@@ -2447,7 +2448,7 @@ msgid ""
 "gesondert."
 msgstr "Vraagt ALLEEN de verwijdering van de post-inhoud aan (niet van de hele post) -- een beheerder beslist afzonderlijk over de aanvraag."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:642
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:650
 msgid "Beantragt von %1 am %2"
 msgstr "Aangevraagd door %1 op %2"
 
@@ -2468,7 +2469,7 @@ msgstr "Aangevraagd door %1 op %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:108
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:220
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:676
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:686
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:293
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:113
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:241
@@ -2489,11 +2490,12 @@ msgstr "Begin"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:741
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusBooth.kt:74
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusOptions.kt:157
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:302
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1267
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:256
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:245
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt:196
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:304
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1404
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:264
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:247
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt:219
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt:378
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:337
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:594
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:665
@@ -2512,8 +2514,9 @@ msgid "Begründung für Beitragsentfernung"
 msgstr "Motivering voor postverwijdering"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticlesScreen.kt:159
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:349
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:391
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:351
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:393
+#: src/jsMain/kotlin/network/lapis/cloud/client/PrivilegedActionsCard.kt:166
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:142
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:288
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:349
@@ -2879,7 +2882,7 @@ msgstr "Bevestigen"
 msgid "Bestätigen Sie, dass diese Datei bei der Bank eingereicht wurde."
 msgstr "Bevestig dat dit bestand bij de bank is ingediend."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:120
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:127
 msgid "Bestätigung fehlgeschlagen."
 msgstr "Bevestiging mislukt."
 
@@ -2955,11 +2958,11 @@ msgstr "Betrokkenen geïnformeerd op (JJJJ-MM-DDTHH:MM:SS, optioneel)"
 msgid "Betroffene Ziele: %1"
 msgstr "Betrokken doelen: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:525
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:533
 msgid "Betroffenes Mitglied (ID, optional)"
 msgstr "Betrokken lid (ID, optioneel)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:459
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:467
 msgid "Betroffenes Mitglied: %1"
 msgstr "Betrokken lid: %1"
 
@@ -3110,7 +3113,7 @@ msgstr "Geef een lid en een positief donatiebedrag op."
 msgid "Bitte ein positives Höchstgebot (LTR) angeben."
 msgstr "Geef een positief maximumbod (LTR) op."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:320
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:322
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:677
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:727
 msgid "Bitte eine Begründung angeben."
@@ -3167,7 +3170,7 @@ msgstr ""
 "Geef een reden voor afwijzing op -- deze wordt openbaar bij het project "
 "weergegeven."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:259
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:267
 msgid "Bitte einen Grund angeben."
 msgstr "Geef een reden op."
 
@@ -3208,7 +3211,7 @@ msgid ""
 "angeben."
 msgstr "Geef ontvanger, een positief LTR-bedrag en een karakterisering op."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:250
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:258
 msgid ""
 "Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."
 msgstr "Geef een reden voor afwijzing op (wordt bij het lid opgeslagen)."
@@ -3767,7 +3770,7 @@ msgid "Dick"
 msgstr "Dik"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:135
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdminGuard.kt:173
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdminGuard.kt:200
 msgid ""
 "Die Aktion steht im Konflikt mit dem aktuellen Zustand -- bitte Ansicht "
 "aktualisieren."
@@ -4026,7 +4029,7 @@ msgid ""
 "Diese Korrekturübertragung ist ENDGÜLTIG und kann nicht widerrufen werden."
 msgstr "Deze correctieoverdracht is DEFINITIEF en kan niet worden herroepen."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:458
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:466
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:348
 msgid "Diese Löschung ist ENDGÜLTIG und kann nicht rückgängig gemacht werden."
 msgstr "Deze verwijdering is DEFINITIEF en kan niet ongedaan worden gemaakt."
@@ -4057,7 +4060,7 @@ msgid ""
 "Ihrer Einladung."
 msgstr "Deze ruimte-ID is ongeldig. Kopieer deze volledig uit uw uitnodiging."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:695
+#: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:700
 msgid ""
 "Diese Seite konnte nicht geladen werden -- bitte laden Sie die Seite neu."
 msgstr "Deze pagina kon niet worden geladen -- laad de pagina opnieuw."
@@ -4247,7 +4250,7 @@ msgstr "DPIA vereist: %1"
 msgid "DSGVO-Compliance"
 msgstr "AVG-naleving"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:92
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:94
 msgid "DSGVO-Prüfprotokoll"
 msgstr "AVG-controlelogboek"
 
@@ -4259,11 +4262,11 @@ msgstr "Dun"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:44
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:345
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:76
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:79
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:81
 #: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:104
 #: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:213
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:544
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:895
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:553
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:922
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberDirectCreationForm.kt:42
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:86
 msgid "E-Mail"
@@ -4473,8 +4476,9 @@ msgstr "Definitief verwijderen"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:199
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConfirmDialog.kt:215
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:401
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:468
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:405
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:409
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:476
 msgid "Endgültig löschen"
 msgstr "Definitief verwijderen"
 
@@ -4509,8 +4513,8 @@ msgstr "Ontdekt op: %1 · Betrokken gegevenscategorieën: %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:770
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:2167
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:614
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:793
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:816
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:803
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:826
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:443
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:448
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberPhotoCard.kt:274
@@ -4555,11 +4559,11 @@ msgstr "Besluit voor \"%1\" opgeslagen."
 msgid "Entscheidung speichern"
 msgstr "Besluit opslaan"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:424
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:432
 msgid "Entscheidungsnotiz (optional)"
 msgstr "Besluitopmerking (optioneel)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:463
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:471
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:153
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:291
 msgid "Entscheidungsnotiz: %1"
@@ -4567,7 +4571,7 @@ msgstr "Besluitopmerking: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:109
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:114
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:614
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:622
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:102
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:97
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:98
@@ -4579,7 +4583,7 @@ msgid "Entschieden am"
 msgstr "Beslist op"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:257
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:652
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:660
 msgid "Entschieden von %1 am %2"
 msgstr "Beslist door %1 op %2"
 
@@ -4667,7 +4671,7 @@ msgstr "Noodzakelijkheid/proportionaliteit (optioneel)"
 msgid "Ergebnis"
 msgstr "Resultaat"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:559
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:567
 msgid "Ergebnis:"
 msgstr "Resultaat:"
 
@@ -4926,8 +4930,8 @@ msgstr "Filter: status (bestuursbesluit)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:204
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:288
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:374
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:360
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:526
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:362
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:534
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:765
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:236
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:88
@@ -5138,7 +5142,8 @@ msgid "Gebührenkonto (LedgerAccount-ID)"
 msgstr "Kostenrekening (grootboekrekening-ID)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:416
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:245
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:247
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:330
 msgid "Geburtsdatum"
 msgstr "Geboortedatum"
 
@@ -5176,14 +5181,14 @@ msgstr "Gemint:"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticlesScreen.kt:279
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:376
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:384
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:426
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:434
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:321
 msgid "Genehmigen"
 msgstr "Goedkeuren"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:461
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:479
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:615
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:623
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:404
 msgid "Genehmigt"
 msgstr "Goedgekeurd"
@@ -5248,14 +5253,14 @@ msgstr "Opgeslagen -- sleutel wordt niet opnieuw weergegeven."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt:250
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:362
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:310
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:312
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:306
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:724
 msgid "Gespeichert."
 msgstr "Opgeslagen."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:347
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:460
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:349
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:468
 msgid "Gewählter Modus: %1"
 msgstr "Geselecteerde modus: %1"
 
@@ -5464,7 +5469,7 @@ msgstr "Uploaden"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConfirmDialog.kt:148
 #: src/jsMain/kotlin/network/lapis/cloud/client/FormRules.kt:111
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:122
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:124
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:414
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:308
 #: src/jsMain/kotlin/network/lapis/cloud/client/Validation.kt:48
@@ -5595,7 +5600,7 @@ msgstr "Uw maximumbod is bindend en reserveert LTR uit uw vrije tegoed."
 msgid "Ihr Höchstgebot muss mindestens dem Startpreis (%1) entsprechen."
 msgstr "Uw maximumbod moet ten minste overeenkomen met de startprijs (%1)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:345
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:347
 msgid "Ihr Löschantrag"
 msgstr "Uw verwijderingsverzoek"
 
@@ -5627,7 +5632,7 @@ msgstr ""
 "bijdragegeschiedenis en boekingen consistent blijven). Persoonlijke velden "
 "worden gewist of geanonimiseerd."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:75
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:77
 msgid ""
 "Ihr Recht auf Auskunft (Art. 15/20 DSGVO) und auf Löschung (\"Recht auf "
 "Vergessenwerden\", Art. 17 DSGVO) -- eine Löschung wird hier nur BEANTRAGT, "
@@ -5853,7 +5858,7 @@ msgstr "Geen reden opgegeven."
 msgid "Kein gültiges Mandat (MD01)"
 msgstr "Geen geldige machtiging (MD01)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:489
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:497
 msgid "Kein Legal Hold"
 msgstr "Geen Legal Hold"
 
@@ -5861,7 +5866,7 @@ msgstr "Geen Legal Hold"
 msgid "Kein Limit"
 msgstr "Geen limiet"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:1186
+#: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:1195
 msgid "Kein Zugriff -- für diesen Bereich fehlt Ihnen die Berechtigung."
 msgstr "Geen toegang -- u heeft niet de vereiste rechten voor dit gebied."
 
@@ -5886,7 +5891,7 @@ msgstr ""
 "kalenderjaar."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt:100
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:370
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:372
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt:91
 msgid "Keine Anträge für diese Filter gefunden."
 msgstr "Geen voorstellen gevonden voor deze filters."
@@ -5908,8 +5913,9 @@ msgstr "Geen gerechtigde leden gevonden."
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusGuard.kt:36
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt:57
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionGuard.kt:39
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdminGuard.kt:133
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdminGuard.kt:137
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewayGuard.kt:61
+#: src/jsMain/kotlin/network/lapis/cloud/client/PeerProtectionNotice.kt:60
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaGuard.kt:66
 #: src/jsMain/kotlin/network/lapis/cloud/client/WebhookGuard.kt:44
 msgid "Keine Berechtigung für diese Aktion."
@@ -5946,7 +5952,7 @@ msgstr "Geen boekingen in dit onderdeel."
 msgid "Keine Buchungszeilen."
 msgstr "Geen boekingsregels."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:271
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:273
 msgid "Keine Daten in den registrierten Bereichen gefunden."
 msgstr "Geen gegevens gevonden in de geregistreerde gebieden."
 
@@ -5962,7 +5968,7 @@ msgstr "Geen documenten in deze map."
 msgid "Keine Einträge für diese Filter gefunden."
 msgstr "Geen items gevonden voor deze filters."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:535
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:543
 msgid "Keine Einträge gefunden."
 msgstr "Geen items gevonden."
 
@@ -6037,7 +6043,7 @@ msgstr "Er zijn geen leden aan wie een gift kan worden bijgeschreven."
 msgid "Keine Mitglieder vorhanden."
 msgstr "Geen leden aanwezig."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:125
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:133
 msgid "Keine offenen Anträge."
 msgstr "Geen openstaande voorstellen."
 
@@ -6145,8 +6151,8 @@ msgid "Konto (ID)"
 msgstr "Rekening (ID)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1057
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1207
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1235
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1340
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1368
 msgid "Konto anlegen"
 msgstr "Rekening aanmaken"
 
@@ -6357,7 +6363,7 @@ msgstr "Looptijd in uren (bijv. 24)"
 msgid "Layout"
 msgstr "Lay-out"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:487
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:495
 msgid "Legal Hold aktiv -- Löschung darf nicht ausgeführt werden."
 msgstr "Legal Hold actief -- verwijdering mag niet worden uitgevoerd."
 
@@ -6468,8 +6474,8 @@ msgstr "Verwijdering afgewezen"
 msgid "Löschung ausgeführt"
 msgstr "Verwijdering uitgevoerd"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:154
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:309
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:156
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:311
 msgid "Löschung beantragen"
 msgstr "Verwijdering aanvragen"
 
@@ -6485,7 +6491,7 @@ msgstr "Verwijdering aangevraagd"
 msgid "Löschung des Beitragsinhalts beantragen (Art. 17 DSGVO)"
 msgstr "Verwijdering van de post-inhoud aanvragen (art. 17 AVG)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:457
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:465
 msgid "Löschung endgültig ausführen"
 msgstr "Verwijdering definitief uitvoeren"
 
@@ -6493,11 +6499,11 @@ msgstr "Verwijdering definitief uitvoeren"
 msgid "Löschung genehmigt"
 msgstr "Verwijdering goedgekeurd"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:409
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:417
 msgid "Löschung wurde ausgeführt."
 msgstr "Verwijdering is uitgevoerd."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:331
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:333
 msgid "Löschung wurde beantragt."
 msgstr "Verwijdering is aangevraagd."
 
@@ -6673,7 +6679,7 @@ msgid "Meine Buchungen"
 msgstr "Mijn boekingen"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:598
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:73
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:75
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:398
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:414
 msgid "Meine Daten"
@@ -6727,7 +6733,7 @@ msgstr "Meldingen"
 msgid "Meritokratische Vote eröffnen"
 msgstr "Meritocratische stemming openen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:94
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:96
 msgid ""
 "Metadaten aller Auskunfts-/Löschvorgänge -- rein informativ, keine Aktionen "
 "auf dieser Liste."
@@ -6805,7 +6811,7 @@ msgstr "Lid %1"
 msgid "Mitglied anlegen"
 msgstr "Lid aanmaken"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:95
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:103
 msgid "Mitglied direkt anlegen"
 msgstr "Lid direct aanmaken"
 
@@ -6821,7 +6827,7 @@ msgstr "Lid toevoegen"
 msgid "Mitglied nicht aktiv"
 msgstr "Lid niet actief"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:639
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:647
 msgid "Mitglied selbst"
 msgstr "Lid zelf"
 
@@ -6870,12 +6876,12 @@ msgid "Mitglieder: Like %1 / Dislike %2 · Gäste: Like %3 / Dislike %4"
 msgstr "Leden: Like %1 / Dislike %2 · Gasten: Like %3 / Dislike %4"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:87
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:64
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:66
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:556
 msgid "Mitgliederverwaltung"
 msgstr "Ledenbeheer"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:355
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:364
 msgid "Mitgliederverzeichnis"
 msgstr "Ledenoverzicht"
 
@@ -7020,12 +7026,12 @@ msgstr "Berichten"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionResultUi.kt:239
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:175
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:235
-#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:78
+#: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:80
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1019
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:937
 #: src/jsMain/kotlin/network/lapis/cloud/client/MailingListCreateForm.kt:25
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:539
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:891
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:548
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:918
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberDirectCreationForm.kt:39
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:402
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:143
@@ -7217,7 +7223,7 @@ msgstr "Niet vastgelegd"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusGuard.kt:39
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt:60
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionGuard.kt:42
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdminGuard.kt:137
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdminGuard.kt:141
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewayGuard.kt:64
 #: src/jsMain/kotlin/network/lapis/cloud/client/PollGuard.kt:68
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaGuard.kt:69
@@ -7532,7 +7538,7 @@ msgstr "Openstaand"
 msgid "Offen: %1 | Bezahlt: %2 | Gesamt: %3"
 msgstr "Openstaand: %1 | Betaald: %2 | Totaal: %3"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:116
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:124
 msgid "Offene Anträge"
 msgstr "Openstaande voorstellen"
 
@@ -7593,7 +7599,8 @@ msgstr "Organisatie-instellingen"
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCheckInScreen.kt:441
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:256
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:464
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:199
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:201
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:328
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapScreen.kt:115
 msgid "Ort"
 msgstr "Plaats"
@@ -8030,7 +8037,7 @@ msgid "Rechtlich entfernt"
 msgstr "Wettelijk verwijderd"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:224
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:557
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:565
 msgid "Rechtsgrundlage: %1"
 msgstr "Rechtsgrondslag: %1"
 
@@ -8064,11 +8071,11 @@ msgstr "Ruwe gegevens tonen/verbergen"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:687
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:291
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:413
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1058
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1061
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1230
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:151
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:546
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1145
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1148
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1363
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:159
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:555
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberDirectCreationForm.kt:57
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:330
 msgid "Rolle"
@@ -8174,11 +8181,12 @@ msgstr "Correctie-overdracht via arbitrageprocedure bevestigen"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:900
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressAdminDialog.kt:103
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1260
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:235
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1393
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:243
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:506
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt:227
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt:252
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:334
+#: src/jsMain/kotlin/network/lapis/cloud/client/PrivilegedActionsCard.kt:303
 msgid "Schließen"
 msgstr "Sluiten"
 
@@ -8654,7 +8662,7 @@ msgstr "Overige reden (zie vrije tekst)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:471
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:79
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:824
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:969
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1002
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:382
 msgid "Sonstiges"
 msgstr "Overig"
@@ -8812,11 +8820,12 @@ msgid "Sprecher"
 msgstr "Spreker"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:417
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:253
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:255
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressCard.kt:331
 msgid "Staatsangehörigkeit"
 msgstr "Nationaliteit"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:269
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:271
 msgid "Stand: %1"
 msgstr "Stand: %1"
 
@@ -8853,7 +8862,7 @@ msgstr "Startprijs (LTR)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceForms.kt:365
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:287
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:373
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:359
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:361
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:437
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:64
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionBoardUi.kt:216
@@ -8867,8 +8876,8 @@ msgstr "Startprijs (LTR)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:119
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:743
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:883
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:545
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:922
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:554
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:949
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:326
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt:217
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:162
@@ -9071,7 +9080,7 @@ msgid "System"
 msgstr "Systeem"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:327
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:579
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:587
 msgid "Systemvorgang (kein Akteur hinterlegt)"
 msgstr "Systeembewerking (geen actor geregistreerd)"
 
@@ -9228,7 +9237,7 @@ msgstr "Verouderd -- controle vereist"
 msgid "Übersicht"
 msgstr "Overzicht"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:124
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:126
 msgid ""
 "Übersicht, wie viele Datensätze in welchem Bereich zu Ihrer Person "
 "gespeichert sind, sowie ein vollständiger, maschinenlesbarer Export Ihrer "
@@ -9280,7 +9289,7 @@ msgstr "Ongelezen berichten: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusGuard.kt:46
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt:66
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionGuard.kt:51
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdminGuard.kt:177
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdminGuard.kt:204
 #: src/jsMain/kotlin/network/lapis/cloud/client/PaymentGatewayGuard.kt:70
 #: src/jsMain/kotlin/network/lapis/cloud/client/PollGuard.kt:54
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaGuard.kt:75
@@ -9557,7 +9566,7 @@ msgstr "Volledig scherm verlaten"
 msgid "Vollbildmodus wurde vom Browser abgelehnt."
 msgstr "De browser heeft de modus voor volledig scherm geweigerd."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:140
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:142
 msgid "Vollständigen Datenexport herunterladen (JSON)"
 msgstr "Volledige gegevensexport downloaden (JSON)"
 
@@ -9601,7 +9610,7 @@ msgstr "Voor"
 msgid "Vorläufig ablehnen"
 msgstr "Voorlopig afwijzen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1222
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1355
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberDirectCreationForm.kt:49
 msgid "Vorläufiges Passwort (mind. %1 Zeichen)"
 msgstr "Voorlopig wachtwoord (min. %1 tekens)"
@@ -9870,7 +9879,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:279
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:292
 #: src/jsMain/kotlin/network/lapis/cloud/client/DataSection.kt:151
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:133
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:135
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:370
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:66
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:70
@@ -9880,8 +9889,8 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:288
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:560
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:312
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1671
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1675
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1808
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1812
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:409
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:333
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:515
@@ -10071,10 +10080,12 @@ msgstr "Koppeling opgeheven."
 msgid "Zuordnung aufheben"
 msgstr "Koppeling opheffen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:158
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:162
 #: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:84
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:166
 #: src/jsMain/kotlin/network/lapis/cloud/client/PasswordResetDeepLinkScreen.kt:41
+#: src/jsMain/kotlin/network/lapis/cloud/client/PrivilegedActionVetoScreen.kt:37
+#: src/jsMain/kotlin/network/lapis/cloud/client/PrivilegedActionVetoScreen.kt:59
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:220
 #: src/jsMain/kotlin/network/lapis/cloud/client/VerifyEmailDeepLinkScreen.kt:38
 #: src/jsMain/kotlin/network/lapis/cloud/client/VerifyEmailDeepLinkScreen.kt:61
@@ -10093,7 +10104,7 @@ msgstr "Aangehouden (gereserveerd, ongebruikt)"
 msgid "Zurücksetzen anfordern"
 msgstr "Reset aanvragen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:109
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:116
 msgid "Zurücksetzen fehlgeschlagen."
 msgstr "Reset mislukt."
 
@@ -10102,10 +10113,11 @@ msgstr "Reset mislukt."
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:282
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionBoardUi.kt:221
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionBoardUi.kt:230
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:179
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:181
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:541
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:546
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:416
+#: src/jsMain/kotlin/network/lapis/cloud/client/PrivilegedActionsCard.kt:215
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt:447
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceScreen.kt:393
 msgid "Zurückziehen"
@@ -19945,3 +19957,159 @@ msgstr "Voorstel versturen"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:1
 msgid "Vorschlag gesendet."
 msgstr "Voorstel verstuurd."
+
+msgid "Geschützt: Diese Aktion ist gegen ein Administratorkonto nicht möglich."
+msgstr "Beveiligd: deze actie is niet mogelijk tegen een beheerdersaccount."
+
+msgid "Für ein Administratorkonto ist die Zustimmung eines zweiten Administrators erforderlich -- bitte Ansicht aktualisieren und die Freigabe beantragen."
+msgstr "Voor een beheerdersaccount is de goedkeuring van een tweede beheerder vereist -- ververs het scherm en vraag de goedkeuring aan."
+
+msgid "Nicht möglich: Es gibt keinen weiteren Administrator für die Freigabe."
+msgstr "Niet mogelijk: er is geen andere beheerder die kan goedkeuren."
+
+msgid "Dieser Antrag ist nicht mehr offen -- bitte Ansicht aktualisieren."
+msgstr "Deze aanvraag is niet meer open -- ververs het scherm."
+
+msgid "Passwortvergabe widersprechen?"
+msgstr "Bezwaar maken tegen het instellen van het wachtwoord?"
+
+msgid "Für Ihr Administratorkonto wurde ein temporäres Passwort beantragt. Wenn Sie das nicht erwartet haben, legen Sie hier Widerspruch ein. Ein offener Antrag wird dann beendet."
+msgstr "Voor uw beheerdersaccount is een tijdelijk wachtwoord aangevraagd. Als u dit niet verwachtte, maak hier bezwaar. Een openstaande aanvraag wordt dan beëindigd."
+
+msgid "Widerspruch einlegen"
+msgstr "Bezwaar maken"
+
+msgid "Ihr Widerspruch wurde übermittelt. Ein offener Antrag ist damit beendet."
+msgstr "Uw bezwaar is doorgegeven. Een openstaande aanvraag is daarmee beëindigd."
+
+msgid "Widerspruch übermittelt."
+msgstr "Bezwaar doorgegeven."
+
+msgid "Freigabe beantragen"
+msgstr "Goedkeuring aanvragen"
+
+msgid "Nicht möglich: Entziehen Sie zuerst die Administratorrolle (Freigabe), danach kann der Status auf Verstorben gesetzt werden."
+msgstr "Niet mogelijk: trek eerst de beheerdersrol in (goedkeuring), daarna kan de status op Overleden worden gezet."
+
+msgid "Die Schutzprüfung konnte nicht geladen werden. Bitte öffnen Sie den Dialog erneut."
+msgstr "De beveiligingscontrole kon niet worden geladen. Open het dialoogvenster opnieuw."
+
+msgid "Freigabe beantragt. Sie finden den Antrag unter „Ausstehende Freigaben“."
+msgstr "Goedkeuring aangevraagd. U vindt de aanvraag onder „Openstaande goedkeuringen”."
+
+msgid "Geschützt"
+msgstr "Beveiligd"
+
+msgid "Die Daten von Administratoren sind für den Vorstand nicht einsehbar. Administratoren und die betroffene Person selbst sehen sie."
+msgstr "De gegevens van beheerders zijn niet zichtbaar voor het bestuur. Beheerders en de betrokken persoon zelf zien ze wel."
+
+msgid "Rolle entziehen (neue Rolle: %1)"
+msgstr "Rol intrekken (nieuwe rol: %1)"
+
+msgid "Zugang sperren (neuer Status: %1)"
+msgstr "Toegang blokkeren (nieuwe status: %1)"
+
+msgid "wartet auf Freigabe"
+msgstr "wacht op goedkeuring"
+
+msgid "freigegeben, wartet auf die Erzeugung des Passworts"
+msgstr "goedgekeurd, wacht op het genereren van het wachtwoord"
+
+msgid "ausgeführt"
+msgstr "uitgevoerd"
+
+msgid "abgelehnt"
+msgstr "afgewezen"
+
+msgid "zurückgezogen"
+msgstr "ingetrokken"
+
+msgid "vom betroffenen Konto widersprochen"
+msgstr "het betrokken account heeft bezwaar gemaakt"
+
+msgid "abgelaufen"
+msgstr "verlopen"
+
+msgid "nicht mehr gültig (die Voraussetzungen haben sich geändert)"
+msgstr "niet meer geldig (de voorwaarden zijn gewijzigd)"
+
+msgid "%1 für %2"
+msgstr "%1 voor %2"
+
+msgid "Beantragt von %1 am %2."
+msgstr "Aangevraagd door %1 op %2."
+
+msgid "Offen bis %1."
+msgstr "Open tot %1."
+
+msgid "Stand: %1."
+msgstr "Status: %1."
+
+msgid "Antrag freigeben"
+msgstr "Aanvraag goedkeuren"
+
+msgid "Freigabe erteilen"
+msgstr "Goedkeuren"
+
+msgid "%1 für %2 jetzt freigeben? Die Freigabe wird im Prüfprotokoll vermerkt."
+msgstr "%1 voor %2 nu goedkeuren? De goedkeuring wordt in het auditlogboek vastgelegd."
+
+msgid "Der Antrag ist nicht mehr gültig: die Voraussetzungen haben sich geändert."
+msgstr "De aanvraag is niet meer geldig: de voorwaarden zijn gewijzigd."
+
+msgid "Freigegeben."
+msgstr "Goedgekeurd."
+
+msgid "Abgelehnt."
+msgstr "Afgewezen."
+
+msgid "Das Passwort kann ab %1 erzeugt werden (Widerspruchsfrist des Kontos)."
+msgstr "Het wachtwoord kan vanaf %1 worden gegenereerd (bezwaartermijn van het account)."
+
+msgid "Das Passwort kann bis %1 erzeugt werden."
+msgstr "Het wachtwoord kan tot %1 worden gegenereerd."
+
+msgid "Passwort jetzt erzeugen"
+msgstr "Wachtwoord nu genereren"
+
+msgid "Ausstehende Freigaben"
+msgstr "Openstaande goedkeuringen"
+
+msgid "Wartet auf Ihre Freigabe"
+msgstr "Wacht op uw goedkeuring"
+
+msgid "Von Ihnen beantragt"
+msgstr "Door u aangevraagd"
+
+msgid "Das Administratorkonto wird benachrichtigt."
+msgstr "Het beheerdersaccount wordt op de hoogte gebracht."
+
+msgid "Für ein Administratorkonto vergibt kein einzelner Administrator ein Passwort. Ein zweiter Administrator muss zustimmen, das Konto wird benachrichtigt und kann widersprechen. Frühestens 24 Stunden nach der Freigabe können Sie das Passwort erzeugen und einmalig ablesen."
+msgstr "Voor een beheerdersaccount stelt geen enkele beheerder alleen een wachtwoord in. Een tweede beheerder moet goedkeuren, het account wordt op de hoogte gebracht en kan bezwaar maken. Op zijn vroegst 24 uur na de goedkeuring kunt u het wachtwoord genereren en eenmalig aflezen."
+
+msgid "Nicht möglich: Es gibt keinen weiteren Administrator für die Freigabe. Nutzen Sie die Passwort-Reset-Mail oder wenden Sie sich an den Betreiber."
+msgstr "Niet mogelijk: er is geen andere beheerder die kan goedkeuren. Gebruik de wachtwoordreset-mail of neem contact op met de beheerder van het systeem."
+
+msgid "Nicht möglich: Es gibt keinen weiteren Administrator für die Freigabe. Wenden Sie sich an den Betreiber."
+msgstr "Niet mogelijk: er is geen andere beheerder die kan goedkeuren. Neem contact op met de beheerder van het systeem."
+
+msgid "Nicht möglich: Auf dieser Installation ist kein Mailversand eingerichtet, der betroffene Administrator könnte nicht gewarnt werden."
+msgstr "Niet mogelijk: op deze installatie is geen mailverzending ingesteld, de betrokken beheerder zou niet kunnen worden gewaarschuwd."
+
+msgid "Geschützt: Ein Administratorkonto wird erst nach der Herabstufung gelöscht."
+msgstr "Beveiligd: een beheerdersaccount wordt pas na de degradatie verwijderd."
+
+msgid "Geschützt: Die Keycloak-Verknüpfung eines anderen Administrators ist hier nicht möglich."
+msgstr "Beveiligd: het koppelen van een andere beheerder aan Keycloak is hier niet mogelijk."
+
+msgid "Geschützt: Die Notfalländerung der Adresse eines anderen Administrators ist nicht möglich. Wenden Sie sich an den Betreiber."
+msgstr "Beveiligd: de noodwijziging van het adres van een andere beheerder is niet mogelijk. Neem contact op met de beheerder van het systeem."
+
+msgid "Geschützt: Diese Aktion ist gegen ein anderes Administratorkonto nicht möglich."
+msgstr "Beveiligd: deze actie is niet mogelijk tegen een ander beheerdersaccount."
+
+msgid "Geschützt: Die Daten von Administratoren kann der Vorstand nicht ändern."
+msgstr "Beveiligd: het bestuur kan de gegevens van beheerders niet wijzigen."
+
+msgid "Für ein anderes Administratorkonto ist die Zustimmung eines zweiten Administrators erforderlich."
+msgstr "Voor een ander beheerdersaccount is de goedkeuring van een tweede beheerder vereist."

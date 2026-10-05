@@ -38,6 +38,7 @@ import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.InvalidPasswordException
 import network.lapis.cloud.shared.rpc.MemberEmailInUseException
 import network.lapis.cloud.shared.rpc.MemberEmailTooLongException
+import network.lapis.cloud.shared.rpc.PeerProtectionDeniedException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -74,6 +75,8 @@ class EmailChangeServiceTest :
                 "FORBIDDEN"
             } catch (e: EmailChangeNotAllowedException) {
                 "NOT_ALLOWED"
+            } catch (e: PeerProtectionDeniedException) {
+                "PEER_DENIED"
             }
 
         // ───────────────────────────── role matrix ─────────────────────────────
@@ -123,7 +126,13 @@ class EmailChangeServiceTest :
                         } shouldBe
                             expected
                     }
-                    val expectedOverride = if (callerRole == AccountRole.ADMIN) expected else "FORBIDDEN"
+                    // V1.9.57: path C never targets ANOTHER administrator (typed peer denial, not a role violation).
+                    val expectedOverride =
+                        if (callerRole == AccountRole.ADMIN) {
+                            if (kind == "admin") "PEER_DENIED" else expected
+                        } else {
+                            "FORBIDDEN"
+                        }
                     val addr2 = newAddress()
                     withClue(clue = "override caller=$callerRole target=$kind") {
                         outcome {
@@ -742,23 +751,30 @@ class EmailChangeServiceTest :
             audit.forEach { it.shouldNotContain("example.org") }
         }
 
-        test("path C against a fellow ADMIN keeps the peer boundary: ADMIN may, BOARD may not") {
+        test(
+            "V1.9.57: path C is closed against a fellow ADMIN (typed peer denial, no row), BOARD may not propose either, proposals B/B0 by an ADMIN stay open",
+        ) {
             val svc = fx.service()
             val adminTarget = fx.member(role = AccountRole.ADMIN)
             val a = newAddress()
-            svc
-                .requestOverride(
+            shouldThrow<PeerProtectionDeniedException> {
+                svc.requestOverride(
                     actor = EC_SEED_ADMIN,
                     targetIdRaw = adminTarget.toString(),
                     newEmail = a,
                     newEmailRepeat = a,
                     reason = "Notfall mit ausreichender Begründung",
-                ).kind shouldBe
-                EmailChangeKind.ADMIN_OVERRIDE
+                )
+            }
+            fx.rowsOf(adminTarget).shouldBeEmpty()
             val b = newAddress()
             shouldThrow<ForbiddenException> {
                 svc.propose(actor = EC_SEED_BOARD, targetIdRaw = adminTarget.toString(), newEmail = b, newEmailRepeat = b)
             }
+            // the proposal paths (owner's password, or proof of ownership + warning period) are unchanged for an ADMIN caller
+            val c = newAddress()
+            svc.propose(actor = EC_SEED_ADMIN, targetIdRaw = adminTarget.toString(), newEmail = c, newEmailRepeat = c).kind shouldBe
+                EmailChangeKind.PROPOSAL
         }
 
         // ───────────────────────────── no SMTP ─────────────────────────────

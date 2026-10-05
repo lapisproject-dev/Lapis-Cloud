@@ -749,6 +749,28 @@ deployment with SMTP configured but a stale/default `LAPIS_PUBLIC_BASE_URL` send
 containing unusable `http://localhost:8080` links -- `SmtpStartupCheck` logs a `WARN` for exactly
 this case, but only a WARN, not a startup failure (an operator can legitimately be mid-migration).
 
+**Administrator accounts are protected from each other (V1.9.57, `docs/architecture/admin-peer-protection.adoc`, migration `V71`).** A temporary password,
+taking the ADMIN role away or blocking the login of *another administrator* now needs the approval of a *second* administrator (who held the role for at
+least 7 days); the e-mail emergency path, the manual Keycloak link and the GDPR erasure are refused against another administrator; the board no longer
+sees the address data of an administrator. **Check how many administrators your instances have.** With one or two administrators no approval is possible
+(the requester and the target are excluded), so the four-eyes actions answer "no second administrator" -- the password-reset mail, every action on your
+own account and the operator console below stay available, nobody is locked out. A third administrator can approve only after 7 days in the role.
+The notices (mail to the target, to the approvers, to all other administrators when a new one appears) need `LAPIS_SMTP_*`; a temporary-password request
+against an administrator is refused without outbound mail (the target could not be warned).
+
+Operator console (emergency path, no network endpoint). *Not yet verified against a real container -- check it at the next staging deploy:*
+
+[source,bash]
+----
+# demote / promote / re-activate an administrator when four eyes are not possible (the last-admin protection holds here too)
+docker compose run --rm --entrypoint java \
+  -e LAPIS_BOOTSTRAP_ACTION=set-role -e LAPIS_BOOTSTRAP_TARGET_EMAIL=admin@example.org -e LAPIS_BOOTSTRAP_ROLE=ADMIN \
+  <server-service> -cp '/app/server/lib/*' network.lapis.cloud.server.bootstrap.AdminBootstrapKt
+# LAPIS_BOOTSTRAP_ACTION=set-status LAPIS_BOOTSTRAP_STATUS=ACTIVE (re-activation only)
+# LAPIS_BOOTSTRAP_ACTION=reset-password (default) with LAPIS_BOOTSTRAP_ADMIN_EMAIL / LAPIS_BOOTSTRAP_ADMIN_PASSWORD / LAPIS_BOOTSTRAP_FORCE=true
+#   -- now also ends every session and every outstanding reset token of the account
+----
+
 **Without SMTP, board members and administrators cannot change another member's e-mail address (V1.9.56).**
 The address is the login identity: a change by a third party needs a warning mail to the OLD address
 (with a reject link) and a confirmation mail to the NEW one, so `proposeEmailChange` and

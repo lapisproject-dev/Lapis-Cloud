@@ -3,9 +3,11 @@
 package network.lapis.cloud.server.db.generated
 
 import kotlin.uuid.Uuid
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.datetime.datetime
 
 public object AccountTable : Table("account") {
     public val id: Column<Uuid> = uuid("id")
@@ -21,6 +23,9 @@ public object AccountTable : Table("account") {
 
     public val role: Column<AccountRole> = enumerationByName<AccountRole>("role", 9)
     public val memberId: Column<Uuid> = reference("member_id", MemberTable.id)
+
+    // Welle V1.9.57 (V71): stamped by every writer of `role` (UTC, Klasse A); NULL = pre-existing/seeded account.
+    public val roleChangedAt: Column<LocalDateTime?> = datetime("role_changed_at").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

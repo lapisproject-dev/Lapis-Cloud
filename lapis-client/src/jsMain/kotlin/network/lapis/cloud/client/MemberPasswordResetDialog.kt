@@ -18,6 +18,8 @@ import network.lapis.cloud.shared.domain.MemberAccessPreflightDto
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.domain.PeerAction
+import network.lapis.cloud.shared.domain.PeerActionDecisionDto
 import network.lapis.cloud.shared.rpc.IMemberService
 
 /*
@@ -149,6 +151,21 @@ fun generateDictatablePasswordOrNull(): String? {
 fun openMemberPasswordResetDialog(
     row: MemberAdminRowDto,
     onChanged: () -> Unit,
+    onRequested: () -> Unit = {},
+) = openMemberPasswordResetDialog(row = row, onChanged = onChanged, onRequested = onRequested, rpc = livePrivilegedActionRpc())
+
+/**
+ * The dialog with an injectable [rpc] for the four-eyes part (V1.9.57). **Against an administrator's account no single administrator sets a
+ * temporary password**: the dialog then shows "Freigabe beantragen" (a reason, no password field -- the password is generated after the
+ * approval and the objection period, by the requester, once) instead of the direct zone, or -- when the server says no second administrator
+ * could approve -- the disabled request button with the reason as visible text. The reset mail stays available either way; for an
+ * administrator target it says the account is notified.
+ */
+internal fun openMemberPasswordResetDialog(
+    row: MemberAdminRowDto,
+    onChanged: () -> Unit,
+    onRequested: () -> Unit,
+    rpc: PrivilegedActionRpc,
 ) {
     // Security audit follow-up (untrusted-text sanitization gaps): row.displayName is a member display name,
     // free text -- Modal.caption is a widget-content sink like div/span/p, sanitize the whole composed result.
@@ -158,11 +175,17 @@ fun openMemberPasswordResetDialog(
     // bleibt davon unberührt.
     val body = modal.div()
 
+    // V1.9.57: the direct zone and the request zone exclude each other; the decision of the server (loaded below, for an ADMIN target only)
+    // says which one is shown. For a non-ADMIN target nothing changes.
+    val directZone = body.div()
+    val requestZone = body.div()
+    requestZone.hide()
+
     // ── Zone 1: Temporäres Passwort (rot, oben) ──
     // Formular-Grammatik (V1.4.28): Passwort optional (leer = der Server erzeugt), Begründung Pflicht => Fall (a), Stern nur
     // an der Begründung. Das Passwort ist ein Geheimnis, das für einen ANDEREN Menschen erzeugt wurde: keine Passwortmanager-
     // Angebote (`suppressManagers`), aber lesbar machbar (`reveal`) -- die Person muss es diktieren können.
-    val form = body.lapisForm()
+    val form = directZone.lapisForm()
     // Der Knopf entsteht INNERHALB des Aufrufs, der das Feld erst liefert -- daher der nachträglich gesetzte Verweis.
     lateinit var passwordFieldRef: LapisField
     val passwordField =
@@ -221,6 +244,8 @@ fun openMemberPasswordResetDialog(
             addCssClasses("alert alert-secondary")
             hide()
         }
+    val resetMailNote = body.div { addCssClasses("text-muted small") }
+    resetMailNote.hide()
     val resetMailButton = body.actionButton(ActionIcon.SEND, tr("Reset-E-Mail senden"), style = ButtonStyle.OUTLINESECONDARY)
     resetMailButton.disabled = true
 
@@ -231,6 +256,28 @@ fun openMemberPasswordResetDialog(
         val preflight: MemberAccessPreflightDto? =
             memberAdminGuarded { rpcService<IMemberService>().getMemberAccessPreflight(row.id) }
         if (preflight == null) return@launch
+
+        if (row.role == AccountRole.ADMIN) {
+            // Against another administrator: the server decides which path exists (approval, or a reason why not).
+            val decisions = memberAdminGuarded { rpc.decisions(row.id) }
+            directZone.hide()
+            requestZone.show()
+            renderPrivilegedPasswordRequestZone(
+                zone = requestZone,
+                row = row,
+                decision = decisions.of(PeerAction.TEMP_PASSWORD),
+                decisionsLoaded = decisions != null,
+                rpc = rpc,
+                onRequested = {
+                    onRequested()
+                    modal.hide()
+                },
+            )
+            if (decisions.of(PeerAction.RESET_MAIL)?.notifiesTarget == true) {
+                resetMailNote.content = tr("Das Administratorkonto wird benachrichtigt.")
+                resetMailNote.show()
+            }
+        }
 
         consequenceBox.content = temporaryPasswordConsequence(preflight.activeSessionCount)
         setPasswordButton.disabled = false
@@ -305,13 +352,69 @@ fun openMemberPasswordResetDialog(
 }
 
 /**
+ * The request zone of the password dialog for an ADMIN target (V1.9.57): a reason field and "Freigabe beantragen", or -- when the server
+ * refused -- the disabled button with the reason as VISIBLE text (never only a tooltip). [decisionsLoaded] `false` (the decision could not be
+ * fetched, a toast already said so) leaves the button disabled with a neutral sentence: the client never guesses a path the server might refuse.
+ */
+private fun renderPrivilegedPasswordRequestZone(
+    zone: SimplePanel,
+    row: MemberAdminRowDto,
+    decision: PeerActionDecisionDto?,
+    decisionsLoaded: Boolean,
+    rpc: PrivilegedActionRpc,
+    onRequested: () -> Unit,
+) {
+    zone.div(tr("Freigabe beantragen")) { addCssClasses("fw-bold") }
+    zone.div(
+        tr(
+            "Für ein Administratorkonto vergibt kein einzelner Administrator ein Passwort. Ein zweiter Administrator muss zustimmen, das " +
+                "Konto wird benachrichtigt und kann widersprechen. Frühestens 24 Stunden nach der Freigabe können Sie das Passwort " +
+                "erzeugen und einmalig ablesen.",
+        ),
+    ) { addCssClasses("alert alert-secondary") }
+    val form = zone.lapisForm()
+    val reasonField =
+        form.textAreaField(
+            label = tr("Begründung"),
+            rows = 2,
+            required = true,
+            hint = gettext("%1 bis %2 Zeichen.", PEER_REASON_MIN_LENGTH, PEER_REASON_MAX_LENGTH),
+            rule = { FormRules.reasonText(value = it, min = PEER_REASON_MIN_LENGTH, max = PEER_REASON_MAX_LENGTH) },
+        )
+    val requestButton = newActionButton(ActionIcon.SEND, tr("Freigabe beantragen"), ButtonStyle.PRIMARY)
+    form.buttons(primary = requestButton)
+    val available = decision.needsApproval()
+    if (!available) {
+        requestButton.disabled = true
+        zone.peerProtectionNotice(
+            if (decisionsLoaded) {
+                peerDenyText(decision?.denyReason, PeerAction.TEMP_PASSWORD)
+            } else {
+                tr("Die Schutzprüfung konnte nicht geladen werden. Bitte öffnen Sie den Dialog erneut.")
+            },
+        )
+        return
+    }
+    requestButton.onClick {
+        form.submit(requestButton) {
+            val request =
+                memberAdminGuarded { rpc.requestTemporaryPassword(memberId = row.id, reason = reasonField.value.trim()) }
+            if (request != null) {
+                notifySuccess(tr("Freigabe beantragt. Sie finden den Antrag unter „Ausstehende Freigaben“."))
+                onRequested()
+            }
+        }
+    }
+}
+
+/**
  * Ersetzt [body] durch die Quittung -- das Passwort wird NIE erneut angezeigt, dieser Moment ist
  * der einzige. Kein `modal.hide()` hier: Bootstraps ~150ms-Fade würde den einmalig sichtbaren Wert
  * unwiederbringlich verschwinden lassen, bevor ihn jemand notieren/kopieren kann -- genau deshalb
  * ist dieser Dialog kein Abschnitt von [openMemberEditorDialog], siehe dessen "Kein modal.hide()
  * nach dem Setzen"-Stolperfalle.
  */
-private fun renderTemporaryPasswordReceipt(
+internal fun renderTemporaryPasswordReceipt(
     body: SimplePanel,
     generatedPassword: String?,
     revokedSessionCount: Int,

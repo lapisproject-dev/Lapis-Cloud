@@ -813,6 +813,12 @@ data class MemberChangeSnapshot(
      * [AuditEntityType.MEMBER]. Default `null`: older rows decode unchanged.
      */
     val emailChange: EmailChangeAuditFacts? = null,
+    /**
+     * Welle V1.9.57 "Admin-Peer-Schutz" -- set by the peer protection (request, approval, execution, refusal, console
+     * action, notices about a new administrator). Carries NEVER a reason, token or address, see [PeerActionAuditFacts].
+     * Logged under [AuditEntityType.MEMBER]. Default `null`: older rows decode unchanged.
+     */
+    val peerAction: PeerActionAuditFacts? = null,
 )
 
 /** Welle V1.9.19 -- what happened to a member's photo publication. No PII, no token. */

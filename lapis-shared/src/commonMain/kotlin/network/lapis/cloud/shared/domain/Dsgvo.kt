@@ -67,6 +67,11 @@ data class ErasureRequestDto(
     val executedAt: LocalDateTime?,
     val legalHold: Boolean,
     val outcome: List<TableErasureOutcomeDto>,
+    /**
+     * Welle V1.9.57 -- the subject currently holds the ADMIN role. Such a request is executed only after the role was taken away
+     * (`PeerPolicy` ERASE); the UI shows the execute button disabled with the reason instead of offering it.
+     */
+    val subjectIsAdmin: Boolean = false,
 )
 
 /**

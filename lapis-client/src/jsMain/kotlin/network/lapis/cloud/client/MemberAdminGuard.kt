@@ -12,7 +12,11 @@ import network.lapis.cloud.shared.rpc.MemberEmailInUseException
 import network.lapis.cloud.shared.rpc.MemberEmailTooLongException
 import network.lapis.cloud.shared.rpc.MemberHasNoAccountException
 import network.lapis.cloud.shared.rpc.MembershipTierClosedException
+import network.lapis.cloud.shared.rpc.NoSecondAdminException
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.PeerApprovalRequiredException
+import network.lapis.cloud.shared.rpc.PeerProtectionDeniedException
+import network.lapis.cloud.shared.rpc.PrivilegedActionStateException
 import network.lapis.cloud.shared.rpc.RegionalChapterInUseException
 import network.lapis.cloud.shared.rpc.RegionalChapterLimitReachedException
 import network.lapis.cloud.shared.rpc.RegionalChapterNameTakenException
@@ -167,6 +171,29 @@ private suspend fun <T> handleMemberAdminFailure(e: Throwable): T? =
         }
         is LastAdminException -> {
             notifyError(tr("Der letzte verbleibende Administrator kann nicht entfernt werden."))
+            null
+        }
+        // Welle V1.9.57 "Admin-Peer-Schutz" -- typed, fixed toasts (Kilua RPC never transmits the server's own message). The precise
+        // reason stands as text in the dialogs (`getPeerActionDecisions`); a stale dialog lands here.
+        is PeerProtectionDeniedException -> {
+            notifyError(tr("Geschützt: Diese Aktion ist gegen ein Administratorkonto nicht möglich."))
+            null
+        }
+        is PeerApprovalRequiredException -> {
+            notifyError(
+                tr(
+                    "Für ein Administratorkonto ist die Zustimmung eines zweiten Administrators erforderlich -- " +
+                        "bitte Ansicht aktualisieren und die Freigabe beantragen.",
+                ),
+            )
+            null
+        }
+        is NoSecondAdminException -> {
+            notifyError(tr("Nicht möglich: Es gibt keinen weiteren Administrator für die Freigabe."))
+            null
+        }
+        is PrivilegedActionStateException -> {
+            notifyError(tr("Dieser Antrag ist nicht mehr offen -- bitte Ansicht aktualisieren."))
             null
         }
         is ConflictException -> {

@@ -389,6 +389,11 @@ object Routes {
     const val VERIFY_NEW_EMAIL = "/verify-new-email"
     const val REVOKE_EMAIL_CHANGE = "/revoke-email-change"
 
+    // Welle V1.9.57 "Admin-Peer-Schutz" -- the objection link in the mail to the TARGET of a temporary-password request. Unguarded like the
+    // address-change links (the person clicking may not be signed in); the token is read from the hash query, removed from the URL at
+    // once and sent by POST only after a click.
+    const val PRIVILEGED_ACTION_VETO = "/privileged-action-veto"
+
     // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- reachable by ANY authenticated
     // member, verified against `IPaymentGatewayService.createDonationCheckout` (no `requireRole`
     // call at all, only `resolveCurrentMember`). Same `requireAuth`-not-`requireRole` posture as
@@ -990,6 +995,10 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.REVOKE_EMAIL_CHANGE) {
         show(Routes.REVOKE_EMAIL_CHANGE) { container -> renderRevokeEmailChangeScreen(container, hashQueryParam("token")) }
+    }
+    // Welle V1.9.57 -- unguarded like the three above.
+    routing.kvOn(Routes.PRIVILEGED_ACTION_VETO) {
+        show(Routes.PRIVILEGED_ACTION_VETO) { container -> renderPrivilegedActionVetoScreen(container, hashQueryParam("token")) }
     }
     routing.kvOn(Routes.DONATE) {
         requireAuth(routing) { show(Routes.DONATE, ::renderDonationCheckoutScreen) }

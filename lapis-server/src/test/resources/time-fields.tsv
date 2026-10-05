@@ -277,6 +277,10 @@ dto:OwnPendingEmailChangeDto.expiresAt	A	stamped by the server clock (DbClock/Se
 dto:OwnPendingEmailChangeDto.effectiveAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:EmailChangePendingDto.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:EmailChangePendingDto.effectiveAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PrivilegedActionRequestDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PrivilegedActionRequestDto.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PrivilegedActionRequestDto.notBefore	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PrivilegedActionRequestDto.executeUntil	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:MemberFamilyLinkDto.linkedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:MemberFamilyDetailDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:UpcomingMajorityEntryDto.turnsMajorOn	D	calendar date (LocalDate); never converted
@@ -419,6 +423,7 @@ dto:WebhookDeliveryDto.lastAttemptAt	A	stamped by the server clock (DbClock/Serv
 dto:WebhookDeliveryDto.nextAttemptAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:WebhookDeliveryDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:WebhookDeliveryDto.deliveredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AccountTable.roleChangedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AccountingExportCategoryMapTable.mappedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AccountingExportConnectionTable.lastTestedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AccountingExportConnectionTable.zeroVatAcknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
@@ -672,6 +677,12 @@ col:OrganizationSettingsTable.taxExemptionDate	D	calendar date (LocalDate); neve
 col:PasswordResetTokenTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PasswordResetTokenTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PasswordResetTokenTable.consumedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PrivilegedActionRequestTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PrivilegedActionRequestTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PrivilegedActionRequestTable.notBefore	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PrivilegedActionRequestTable.executeUntil	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PrivilegedActionRequestTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PrivilegedActionRequestTable.resolvedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PaymentCheckoutSessionTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PaymentCheckoutSessionTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PaymentCheckoutSessionTable.completedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

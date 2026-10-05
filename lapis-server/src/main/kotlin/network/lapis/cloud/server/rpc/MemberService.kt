@@ -18,13 +18,16 @@ import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.AdminPasswordResetNotificationMailer
+import network.lapis.cloud.server.mail.NoOpPeerNotificationMailer
 import network.lapis.cloud.server.mail.PasswordResetMailer
+import network.lapis.cloud.server.mail.PeerExecutedEvent
+import network.lapis.cloud.server.mail.PeerNotificationMailer
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.isValidMailboxAddress
 import network.lapis.cloud.server.member.MemberCardIssuance
-import network.lapis.cloud.server.memberbio.MemberPublicBioStore
-import network.lapis.cloud.server.memberphoto.MemberPhotoStore
-import network.lapis.cloud.server.payment.sepa.revokeMandatesForEndedMembership
+import network.lapis.cloud.server.member.MemberRoleStatusMutations
+import network.lapis.cloud.server.member.PeerNotifier
+import network.lapis.cloud.server.member.TemporaryPasswordMutation
 import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_ISSUED
 import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_REISSUED
 import network.lapis.cloud.server.security.ESCALATED_ROLES
@@ -32,14 +35,18 @@ import network.lapis.cloud.server.security.MemberVisibility
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
 import network.lapis.cloud.server.security.PasswordResetTokenStore
+import network.lapis.cloud.server.security.PeerDecision
+import network.lapis.cloud.server.security.PeerGuard
+import network.lapis.cloud.server.security.PeerPolicy
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.TemporaryPasswordGenerator
+import network.lapis.cloud.server.security.forMemberUpdate
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.memberVisibility
+import network.lapis.cloud.server.security.peerGuarded
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
-import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AdminPasswordAction
 import network.lapis.cloud.shared.domain.AuditAction
@@ -65,13 +72,14 @@ import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.MemberStatusTransitions
 import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.PasswordResetMailResultDto
+import network.lapis.cloud.shared.domain.PeerAction
+import network.lapis.cloud.shared.domain.PeerActionAuditFacts
+import network.lapis.cloud.shared.domain.PeerAuditEvent
 import network.lapis.cloud.shared.domain.TemporaryPasswordResultDto
-import network.lapis.cloud.shared.domain.WebhookEventType
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IMemberService
-import network.lapis.cloud.shared.rpc.LastAdminException
 import network.lapis.cloud.shared.rpc.MemberAlreadyHasAccountException
 import network.lapis.cloud.shared.rpc.MemberHasNoAccountException
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -88,7 +96,6 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.core.lowerCase
-import org.jetbrains.exposed.v1.core.notInList
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -196,7 +203,15 @@ class MemberService(
      * requirement defaults to off.
      */
     private val regionalChapterEnforcementConfig: RegionalChapterEnforcementConfig = RegionalChapterEnforcementConfig.load(),
+    /**
+     * Welle V1.9.57 "Admin-Peer-Schutz" -- the receipts to the TARGET of an action by another administrator and to the other
+     * administrators when a new one appears. Default [NoOpPeerNotificationMailer] on purpose (same "existing call sites keep
+     * working unchanged" idiom as [regionalChapterEnforcementConfig]); `Application.kt` always passes the SMTP implementation.
+     */
+    peerNotificationMailer: PeerNotificationMailer = NoOpPeerNotificationMailer,
 ) : IMemberService {
+    private val peerNotifier = PeerNotifier(mailer = peerNotificationMailer, smtpConfigState = smtpConfigState)
+
     // V1.2.11 (PdV-CSV-Import, security fix): now requires an authenticated caller -- see
     // IMemberService.listMembers KDoc for the full rationale. Only id + displayName are selected,
     // so email and role (PII / authorization-relevant) never leave the server for this call
@@ -253,31 +268,58 @@ class MemberService(
                 MemberAddressRules.textViolation(field = MemberAddressField.CITY, normalized = normCity) != null ||
                 MemberAddressRules.textViolation(field = MemberAddressField.COUNTRY, normalized = normCountry) != null
         if (violated) throw ConflictException("Invalid address data")
-        return transaction {
-            val now = nowLocalDateTime()
-            val updated =
-                MemberTable.update({ MemberTable.id eq targetId }) {
-                    it[MemberTable.street] = normStreet
-                    it[MemberTable.postalCode] = normPostalCode
-                    it[MemberTable.city] = normCity
-                    it[MemberTable.country] = normCountry
+        var notifyTargetAdmin = false
+        val now = nowLocalDateTime()
+        val result =
+            peerGuarded(actor = current) {
+                transaction {
+                    // Welle V1.9.57 "Admin-Peer-Schutz" -- the target's member row and (as part of the id-ordered union) its account
+                    // row are locked, so the role the decision reads cannot change underneath: BOARD never writes an ADMIN's address,
+                    // an ADMIN writing another ADMIN's data is allowed and the target is told.
+                    if (targetId != current.memberId) {
+                        val memberRow = PeerGuard.lockMember(targetId) ?: throw NotFoundException("Member $memberId not found")
+                        val facts =
+                            PeerGuard.lockFactsAfterMemberLock(
+                                targetId = targetId,
+                                memberRow = memberRow,
+                                requesterId = current.memberId,
+                            )
+                        val decision =
+                            PeerGuard.decideLocked(
+                                actor = current,
+                                targetId = targetId,
+                                action = PeerAction.WRITE_PROTECTED_DATA,
+                                mailConfigured = smtpConfigState is SmtpConfigState.Configured,
+                                facts = facts,
+                            )
+                        notifyTargetAdmin = (decision as? PeerDecision.Allow)?.notifyTarget == true
+                    }
+                    val updated =
+                        MemberTable.update({ MemberTable.id eq targetId }) {
+                            it[MemberTable.street] = normStreet
+                            it[MemberTable.postalCode] = normPostalCode
+                            it[MemberTable.city] = normCity
+                            it[MemberTable.country] = normCountry
+                        }
+                    if (updated == 0) throw NotFoundException("Member $memberId not found")
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.MEMBER,
+                        entityId = targetId,
+                        action = AuditAction.UPDATE,
+                        after = MEMBER_ADDRESS_AUDIT_UPDATED,
+                        occurredAt = now,
+                    )
+                    (MemberTable innerJoin AccountTable)
+                        .selectAll()
+                        .where { MemberTable.id eq targetId }
+                        .single()
+                        .toMemberDto()
                 }
-            if (updated == 0) throw NotFoundException("Member $memberId not found")
-            AuditLogRecorder.record(
-                actorMemberId = current.memberId,
-                actorRole = current.role,
-                entityType = AuditEntityType.MEMBER,
-                entityId = targetId,
-                action = AuditAction.UPDATE,
-                after = MEMBER_ADDRESS_AUDIT_UPDATED,
-                occurredAt = now,
-            )
-            (MemberTable innerJoin AccountTable)
-                .selectAll()
-                .where { MemberTable.id eq targetId }
-                .single()
-                .toMemberDto()
-        }
+            }
+        if (notifyTargetAdmin) peerNotifier.protectedDataChanged(targetId = targetId, actorId = current.memberId, occurredAt = now)
+        return result
     }
 
     /**
@@ -299,6 +341,40 @@ class MemberService(
                 MemberTable.selectAll().where { MemberTable.id eq targetId }.singleOrNull()
                     ?: throw NotFoundException("Member not found")
             if (row[MemberTable.anonymizedAt] != null) throw NotFoundException("Member not found")
+            // Welle V1.9.57 "Admin-Peer-Schutz" -- BOARD does not see an ADMIN's address and beneficial-owner data: a marked,
+            // value-free answer (no error, no field value, no read audit entry because nothing leaves). The rate budget above
+            // was already spent. ADMIN callers and the person themselves are unaffected.
+            val targetRole =
+                AccountTable
+                    .selectAll()
+                    .where { AccountTable.memberId eq targetId }
+                    .singleOrNull()
+                    ?.get(AccountTable.role)
+            val decision =
+                PeerPolicy.decide(
+                    actorRole = current.role,
+                    actorId = current.memberId,
+                    targetRole = targetRole,
+                    targetId = targetId,
+                    action = PeerAction.READ_PROTECTED_DATA,
+                    eligibleApprovers = 0,
+                    mailConfigured = smtpConfigState is SmtpConfigState.Configured,
+                )
+            if (decision is PeerDecision.Mask) {
+                return@transaction MemberAddressDataDto(
+                    memberId = targetId.toString(),
+                    displayName = row[MemberTable.displayName],
+                    street = null,
+                    postalCode = null,
+                    city = null,
+                    country = null,
+                    dateOfBirth = null,
+                    nationality = null,
+                    dateOfDeath = null,
+                    protectedTarget = true,
+                )
+            }
+            if (decision is PeerDecision.Deny) throw ForbiddenException()
             AuditLogRecorder.record(
                 actorMemberId = current.memberId,
                 actorRole = current.role,
@@ -359,42 +435,61 @@ class MemberService(
         if (MemberAddressRules.textViolation(field = MemberAddressField.NATIONALITY, normalized = normNationality) != null) {
             throw ConflictException("Invalid beneficial owner data")
         }
-        return transaction {
-            val now = nowLocalDateTime()
-            val row =
-                MemberTable
-                    .selectAll()
-                    .where { MemberTable.id eq targetId }
-                    .forUpdate()
-                    .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
-            if (MemberAddressRules.birthDateViolation(
-                    dateOfBirth = dateOfBirth,
-                    dateOfDeath = row[MemberTable.dateOfDeath],
-                    today = OrganizationTimeZone.dateOf(now),
-                ) !=
-                null
-            ) {
-                throw ConflictException("Invalid beneficial owner data")
+        var notifyTargetAdmin = false
+        val now = nowLocalDateTime()
+        val result =
+            peerGuarded(actor = current) {
+                transaction {
+                    val row =
+                        MemberTable
+                            .selectAll()
+                            .where { MemberTable.id eq targetId }
+                            .forMemberUpdate()
+                            .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
+                    // Welle V1.9.57 "Admin-Peer-Schutz" -- see updateMemberAddress: the role is read under the member and account locks.
+                    if (targetId != current.memberId) {
+                        val facts = PeerGuard.lockFactsAfterMemberLock(targetId = targetId, memberRow = row, requesterId = current.memberId)
+                        val decision =
+                            PeerGuard.decideLocked(
+                                actor = current,
+                                targetId = targetId,
+                                action = PeerAction.WRITE_PROTECTED_DATA,
+                                mailConfigured = smtpConfigState is SmtpConfigState.Configured,
+                                facts = facts,
+                            )
+                        notifyTargetAdmin = (decision as? PeerDecision.Allow)?.notifyTarget == true
+                    }
+                    if (MemberAddressRules.birthDateViolation(
+                            dateOfBirth = dateOfBirth,
+                            dateOfDeath = row[MemberTable.dateOfDeath],
+                            today = OrganizationTimeZone.dateOf(now),
+                        ) !=
+                        null
+                    ) {
+                        throw ConflictException("Invalid beneficial owner data")
+                    }
+                    MemberTable.update({ MemberTable.id eq targetId }) {
+                        it[MemberTable.dateOfBirth] = dateOfBirth
+                        it[MemberTable.nationality] = normNationality
+                    }
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.MEMBER,
+                        entityId = targetId,
+                        action = AuditAction.UPDATE,
+                        after = MEMBER_BENEFICIAL_OWNER_AUDIT_UPDATED,
+                        occurredAt = now,
+                    )
+                    (MemberTable innerJoin AccountTable)
+                        .selectAll()
+                        .where { MemberTable.id eq targetId }
+                        .single()
+                        .toMemberDto()
+                }
             }
-            MemberTable.update({ MemberTable.id eq targetId }) {
-                it[MemberTable.dateOfBirth] = dateOfBirth
-                it[MemberTable.nationality] = normNationality
-            }
-            AuditLogRecorder.record(
-                actorMemberId = current.memberId,
-                actorRole = current.role,
-                entityType = AuditEntityType.MEMBER,
-                entityId = targetId,
-                action = AuditAction.UPDATE,
-                after = MEMBER_BENEFICIAL_OWNER_AUDIT_UPDATED,
-                occurredAt = now,
-            )
-            (MemberTable innerJoin AccountTable)
-                .selectAll()
-                .where { MemberTable.id eq targetId }
-                .single()
-                .toMemberDto()
-        }
+        if (notifyTargetAdmin) peerNotifier.protectedDataChanged(targetId = targetId, actorId = current.memberId, occurredAt = now)
+        return result
     }
 
     // ── Welle V1.2.12 -- Mitgliederverwaltung: vollständige Bearbeitung + privilegiertes Roster ──
@@ -557,7 +652,7 @@ class MemberService(
                 MemberTable
                     .selectAll()
                     .where { MemberTable.id eq targetId }
-                    .forUpdate()
+                    .forMemberUpdate()
                     .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
             if (row[MemberTable.anonymizedAt] != null) {
                 throw ConflictException("Member has been anonymized and can no longer be edited")
@@ -622,205 +717,96 @@ class MemberService(
 
         val now = nowLocalDateTime()
         var revokeSessions = false
+        // Welle V1.9.57 -- notices go out AFTER the commit (never inside the transaction).
+        var notifyTargetOfStatusChange = false
         val result =
-            transaction {
-                val row =
-                    MemberTable
-                        .selectAll()
-                        .where { MemberTable.id eq targetId }
-                        .forUpdate()
-                        .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
-                if (row[MemberTable.anonymizedAt] != null) {
-                    throw ConflictException("Member has been anonymized and can no longer be edited")
-                }
-                val fromStatus = row[MemberTable.status]
-
-                // Idempotent no-op: DTO back, no update, no audit entry, no side effect -- a call
-                // repeated with the SAME target status must have no additional consequence.
-                if (newStatus == fromStatus) {
-                    return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
-                }
-
-                val allowedTargets = MemberStatusTransitions.allowedTargets(fromStatus)
-                if (newStatus !in allowedTargets) {
-                    throw ConflictException("Transition from $fromStatus to $newStatus is not allowed")
-                }
-                // Leaving DECEASED is a data correction, not a lifecycle event -- ADMIN-exclusive.
-                if (MemberStatusTransitions.requiresAdmin(fromStatus)) current.requireRole(AccountRole.ADMIN)
-
-                // Welle V1.4.4.5 -- plausibility only matters when the target is DECEASED; a null
-                // dateOfDeath is always fine (DeathDateRules.violation returns null for it too).
-                if (newStatus == MemberStatus.DECEASED) {
-                    requirePlausibleDeathDate(dateOfDeath = dateOfDeath, row = row, now = now)
-                }
-
-                // Security fix (2026-08-27, LOW deadlock) -- existingRole is now read from the SAME
-                // id-ordered union-of-{target account} ∪ {every ADMIN account} `.forUpdate()` query
-                // used below for the Letzter-Admin-Schutz check, instead of a separate single-row
-                // `currentAccountRole` lock acquired beforehand. Locking Account rows in two DIFFERENT
-                // orders across this method (a bare single-row lock here) and updateMemberRole (an
-                // id-ordered union lock there) is a genuine lock-order inversion: two ADMINs
-                // concurrently calling updateMemberStatus/updateMemberRole on each other could
-                // deadlock under Postgres (T1 holds Account[Y] via the single-row lock, waits for
-                // Account[X] as part of T2's ordered union; T2 holds Account[X], waits for Account[Y]
-                // as part of T1's OWN ordered union once it reaches the Letzter-Admin-Schutz check
-                // below -- SQLSTATE 40P01, a raw 500 instead of LastAdminException). Acquiring the
-                // union query unconditionally -- exactly mirroring updateMemberRole -- makes both
-                // methods contend for identical rows in identical order, which is what actually
-                // prevents the deadlock (the two ADMIN/BOARD-facing endpoints share a handful of
-                // ADMIN accounts at most, so locking the whole ADMIN set on every status change is
-                // cheap).
-                val lockedAccountRows =
-                    AccountTable
-                        .selectAll()
-                        .where { (AccountTable.memberId eq targetId) or (AccountTable.role eq AccountRole.ADMIN) }
-                        .orderBy(AccountTable.id)
-                        .forUpdate()
-                        .toList()
-                val existingRole =
-                    lockedAccountRows.singleOrNull { it[AccountTable.memberId] == targetId }?.get(AccountTable.role)
-                if (existingRole != null && existingRole in ESCALATED_ROLES) current.requireRole(AccountRole.ADMIN)
-
-                // Letzter-Admin-Schutz, race-safe (Security fix 2026-08-27, MEDIUM) -- a status that
-                // blocks login (MemberStatusSets.LOGIN_BLOCKED) revokes an ADMIN's admin capability
-                // exactly as effectively as updateMemberRole's role downgrade does, but this method
-                // had NO equivalent guard: two ADMINs concurrently WITHDRAWING each other each locked
-                // only their OWN target member row (disjoint rows -- no serialization), so both could
-                // commit and leave zero ADMIN accounts. `lockedAccountRows` above already holds the
-                // union of {target account} ∪ {every ADMIN account} in ONE id-ordered `.forUpdate()`
-                // lock (same rows both concurrent callers contend for, in the same order -- no
-                // deadlock, genuine serialization under READ COMMITTED); re-read the other admins'
-                // CURRENT member status (now safely serialized after that lock) to see whether at
-                // least one non-blocked ADMIN would remain.
-                if (existingRole == AccountRole.ADMIN && newStatus in MemberStatusSets.LOGIN_BLOCKED) {
-                    val otherAdminMemberIds =
-                        lockedAccountRows
-                            .filter { it[AccountTable.role] == AccountRole.ADMIN && it[AccountTable.memberId] != targetId }
-                            .map { it[AccountTable.memberId] }
-                    val remainingNonBlockedAdmins =
-                        if (otherAdminMemberIds.isEmpty()) {
-                            0L
-                        } else {
-                            MemberTable
-                                .selectAll()
-                                .where {
-                                    (MemberTable.id inList otherAdminMemberIds) and
-                                        (MemberTable.status notInList MemberStatusSets.LOGIN_BLOCKED)
-                                }.count()
-                        }
-                    if (remainingNonBlockedAdmins == 0L) throw LastAdminException()
-                }
-
-                // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- called BEFORE the
-                // status write, exactly like RegistrationService.approveApplication's own call
-                // site. `fromStatus != ACTIVE` is implied here: the no-op guard above already
-                // returned early for `newStatus == fromStatus`.
-                if (newStatus == MemberStatus.ACTIVE) {
-                    requireRegionalChapterBeforeActivation(memberId = targetId, enabled = regionalChapterEnforcementConfig.enabled)
-                }
-
-                // Welle V1.4.4.5 -- § 38 BGB: the membership already ended with the death; this
-                // write only records that fact. Clearing date_of_death when LEAVING DECEASED must
-                // happen in the SAME update, otherwise chk_member_date_of_death_requires_status
-                // (V24) fires and turns this into a raw 500.
-                val previousDateOfDeath = row[MemberTable.dateOfDeath]
-                MemberTable.update({ MemberTable.id eq targetId }) {
-                    it[status] = newStatus
-                    if (newStatus == MemberStatus.DECEASED) {
-                        it[MemberTable.dateOfDeath] = dateOfDeath
-                    } else if (fromStatus == MemberStatus.DECEASED) {
-                        it[MemberTable.dateOfDeath] = null
+            peerGuarded(actor = current) {
+                transaction {
+                    val row =
+                        MemberTable
+                            .selectAll()
+                            .where { MemberTable.id eq targetId }
+                            .forMemberUpdate()
+                            .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
+                    if (row[MemberTable.anonymizedAt] != null) {
+                        throw ConflictException("Member has been anonymized and can no longer be edited")
                     }
+                    val fromStatus = row[MemberTable.status]
+
+                    // Idempotent no-op: DTO back, no update, no audit entry, no side effect -- a call
+                    // repeated with the SAME target status must have no additional consequence.
+                    if (newStatus == fromStatus) {
+                        return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
+                    }
+
+                    val allowedTargets = MemberStatusTransitions.allowedTargets(fromStatus)
+                    if (newStatus !in allowedTargets) {
+                        throw ConflictException("Transition from $fromStatus to $newStatus is not allowed")
+                    }
+                    // Leaving DECEASED is a data correction, not a lifecycle event -- ADMIN-exclusive.
+                    if (MemberStatusTransitions.requiresAdmin(fromStatus)) current.requireRole(AccountRole.ADMIN)
+
+                    // Welle V1.4.4.5 -- plausibility only matters when the target is DECEASED.
+                    if (newStatus == MemberStatus.DECEASED) {
+                        MemberRoleStatusMutations.requirePlausibleDeathDate(dateOfDeath = dateOfDeath, row = row, now = now)
+                    }
+
+                    // The id-ordered union of {target account} U {every ADMIN account}, locked in ONE query (Security fix
+                    // 2026-08-27, LOW deadlock: every writer of a role or a login-blocking status contends for identical rows
+                    // in identical order -- updateMemberRole, the peer protection and the approved-request execution included).
+                    val facts = PeerGuard.lockFactsAfterMemberLock(targetId = targetId, memberRow = row, requesterId = current.memberId)
+                    val existingRole = facts.targetRole
+                    MemberRoleStatusMutations.requireAdminForEscalatedTarget(actor = current, existingRole = existingRole)
+
+                    // Welle V1.9.57 "Admin-Peer-Schutz" -- against an ADMIN target a login-blocking status needs the approval of
+                    // a second administrator (never executed directly); any other status change is allowed and notified.
+                    var peerFacts: PeerActionAuditFacts? = null
+                    if (existingRole == AccountRole.ADMIN) {
+                        val action =
+                            if (newStatus in MemberStatusSets.LOGIN_BLOCKED) PeerAction.SUSPEND else PeerAction.NON_BLOCKING_STATUS
+                        val decision =
+                            PeerGuard.decideLocked(
+                                actor = current,
+                                targetId = targetId,
+                                action = action,
+                                mailConfigured = smtpConfigState is SmtpConfigState.Configured,
+                                facts = facts,
+                            )
+                        notifyTargetOfStatusChange = (decision as? PeerDecision.Allow)?.notifyTarget == true
+                        peerFacts = PeerActionAuditFacts(event = PeerAuditEvent.EXECUTED, action = action, targetRole = existingRole)
+                    }
+
+                    val outcome =
+                        MemberRoleStatusMutations.applyStatusChangeLocked(
+                            actor = current,
+                            targetId = targetId,
+                            newStatus = newStatus,
+                            trimmedReason = trimmedReason,
+                            dateOfDeath = dateOfDeath,
+                            row = row,
+                            existingRole = existingRole,
+                            lockedAccountRows = facts.lockedAccountRows,
+                            now = now,
+                            regionalChapterEnforced = regionalChapterEnforcementConfig.enabled,
+                            peerFacts = peerFacts,
+                        )
+                    revokeSessions = outcome.revokeSessions
+                    loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
                 }
-                val newDateOfDeath = if (newStatus == MemberStatus.DECEASED) dateOfDeath else null
-
-                // Welle V1.9.13, decision F1 -- see `revokeActiveRegionalChapterOfficerGrant` KDoc.
-                if (fromStatus == MemberStatus.ACTIVE) {
-                    revokeActiveRegionalChapterOfficerGrant(
-                        memberId = targetId,
-                        now = now,
-                        actorMemberId = current.memberId,
-                        actorRole = current.role,
-                    )
-                }
-
-                // Welle V1.9.19 -- a member who leaves the eligible status set must not keep a
-                // PUBLISHED photo: reset to PRIVATE in the SAME transaction (the public route's live
-                // status join is the primary guard, this keeps consent from reviving on reactivation).
-                MemberPhotoStore.revokePublicationOnStatusLoss(
-                    memberId = targetId,
-                    newStatus = newStatus,
-                    actorMemberId = current.memberId,
-                    actorRole = current.role,
-                    now = now,
-                )
-                // Welle V1.9.20 -- same reasoning for the public short introduction and the politician
-                // listing consent: neither may silently come back after a later reactivation.
-                MemberPublicBioStore.revokePublicationOnStatusLoss(
-                    memberId = targetId,
-                    newStatus = newStatus,
-                    actorMemberId = current.memberId,
-                    actorRole = current.role,
-                    now = now,
-                )
-
-                // Welle V1.3.2 "Webhooks" (ausgehend), D8/S24 -- fires ONLY on a genuine transition
-                // INTO ACTIVE (the no-op guard above already returned early for newStatus ==
-                // fromStatus, so this is never a redundant re-confirmation of an already-ACTIVE
-                // member). GET /api/v1/members/{id} hard-filters on ACTIVE, so this is exactly the
-                // moment this member becomes visible on that endpoint.
-                if (newStatus == MemberStatus.ACTIVE) {
-                    WebhookEventPublisher.publish(eventType = WebhookEventType.MEMBER_CREATED, entityId = targetId, occurredAt = now)
-                }
-
-                // Same shared side-effect ordering RegistrationService.leaveMembership/
-                // rejectApplication already establish: committee/mandate cleanup INSIDE this
-                // transaction, session revocation AFTER commit (see below).
-                if (newStatus in MemberStatusSets.MEMBERSHIP_ENDED) {
-                    endAllOpenCommitteeMembershipsForMember(
-                        memberId = targetId,
-                        until = OrganizationTimeZone.dateOf(now),
-                        current = current,
-                    )
-                    revokeMandatesForEndedMembership(
-                        memberId = targetId,
-                        actorMemberId = current.memberId,
-                        actorRole = current.role,
-                        now = now,
-                    )
-                }
-                revokeSessions = newStatus in MemberStatusSets.LOGIN_BLOCKED
-
-                val beforeSnapshot =
-                    MemberChangeSnapshot(
-                        displayNameChanged = false,
-                        emailChanged = false,
-                        status = fromStatus,
-                        role = existingRole,
-                    )
-                val afterSnapshot =
-                    beforeSnapshot.copy(
-                        status = newStatus,
-                        reason = trimmedReason,
-                        dateOfDeathChanged = newDateOfDeath != previousDateOfDeath,
-                    )
-                AuditLogRecorder.record(
-                    actorMemberId = current.memberId,
-                    actorRole = current.role,
-                    entityType = AuditEntityType.MEMBER,
-                    entityId = targetId,
-                    action = AuditAction.UPDATE,
-                    before = Json.encodeToString(MemberChangeSnapshot.serializer(), beforeSnapshot),
-                    after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
-                    occurredAt = now,
-                )
-                loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
             }
         // resolveCurrentMember does not itself re-check MemberStatusSets.LOGIN_BLOCKED per call --
         // AuthRoutes' login gate blocks a NEW login, but does nothing about a session that already
         // existed before this decision (same gap RegistrationService.rejectApplication's own KDoc
         // documents). Revocation is the only thing that actually ends it before the 8h TTL.
         if (revokeSessions) SessionStore.revokeAllForMember(memberId = targetId)
+        if (notifyTargetOfStatusChange) {
+            peerNotifier.targetExecuted(
+                targetId = targetId,
+                actorId = current.memberId,
+                event = PeerExecutedEvent.STATUS_CHANGED,
+                occurredAt = now,
+            )
+        }
         return result
     }
 
@@ -851,7 +837,7 @@ class MemberService(
                 MemberTable
                     .selectAll()
                     .where { MemberTable.id eq targetId }
-                    .forUpdate()
+                    .forMemberUpdate()
                     .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
             if (row[MemberTable.anonymizedAt] != null) {
                 throw ConflictException("Member has been anonymized and can no longer be edited")
@@ -909,96 +895,86 @@ class MemberService(
         val targetId = memberId.toMemberUuidOrThrow()
         if (targetId == current.memberId) throw ForbiddenException()
 
-        return transaction {
-            val memberRow =
-                MemberTable
-                    .selectAll()
-                    .where { MemberTable.id eq targetId }
-                    .forUpdate()
-                    .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
-            if (memberRow[MemberTable.anonymizedAt] != null) {
-                throw ConflictException("Member has been anonymized and can no longer be edited")
-            }
-            // Letzter-Admin-Schutz, race-safe: lock the target's account row AND every ADMIN
-            // account row in a SINGLE id-ordered query, instead of locking the target row first
-            // and the ADMIN set afterwards. Two concurrent transactions that each lock their own
-            // target row before the ordered ADMIN-set query can request that shared row set in
-            // opposite orders (T1: target(B) then {A,B} ordered; T2: target(A) then {A,B}
-            // ordered) -- a fixed order on ONE of the two queries does not prevent that, only a
-            // single query locking the union in id order does (see this method's own plan KDoc
-            // "Letzter-Admin-Schutz"). `.forUpdate()` then genuinely serializes two concurrent
-            // degradations of the last two ADMIN accounts against each other (a bare count() would
-            // not, under READ COMMITTED).
-            val lockedAccountRows =
-                AccountTable
-                    .selectAll()
-                    .where { (AccountTable.memberId eq targetId) or (AccountTable.role eq AccountRole.ADMIN) }
-                    .orderBy(AccountTable.id)
-                    .forUpdate()
-                    .toList()
-            val accountRow =
-                lockedAccountRows.singleOrNull { it[AccountTable.memberId] == targetId }
-                    ?: throw MemberHasNoAccountException()
-            val currentRole = accountRow[AccountTable.role]
-
-            // Idempotent no-op: DTO back, no update, no audit entry.
-            if (newRole == currentRole) return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
-
-            if (newRole != AccountRole.ADMIN) {
-                // Security fix (2026-08-27, MEDIUM) -- the invariant is "at least one ADMIN with a
-                // non-LOGIN_BLOCKED member status remains", the SAME standard updateMemberStatus's
-                // own Letzter-Admin-Schutz enforces (see that method's KDoc) -- NOT merely "a second
-                // ADMIN *account* exists". The old `adminAccountRows.size == 1` check counted ADMIN
-                // accounts blind to member.status: two ADMINs X/Y, both ACTIVE -- X withdraws Y via
-                // updateMemberStatus (leaves X as the sole non-blocked ADMIN, correctly allowed), then
-                // Y (still logged in, session revocation is async and resolveCurrentMember does not
-                // re-check status per call) demotes X here. `adminAccountRows` = {X, Y}, size 2 -- the
-                // old check let this through, leaving X=MEMBER and Y=ADMIN-but-WITHDRAWN: zero
-                // login-capable ADMIN accounts, recoverable only via direct DB access. Excluding the
-                // TARGET from the "other admins" set (it is about to lose ADMIN regardless of its own
-                // status) and re-reading their CURRENT member status closes that gap.
-                val otherAdminMemberIds =
-                    lockedAccountRows
-                        .filter { it[AccountTable.role] == AccountRole.ADMIN && it[AccountTable.memberId] != targetId }
-                        .map { it[AccountTable.memberId] }
-                val remainingNonBlockedAdmins =
-                    if (otherAdminMemberIds.isEmpty()) {
-                        0L
-                    } else {
+        val now = nowLocalDateTime()
+        var promotedToAdmin = false
+        val result =
+            peerGuarded(actor = current) {
+                transaction {
+                    val memberRow =
                         MemberTable
                             .selectAll()
-                            .where {
-                                (MemberTable.id inList otherAdminMemberIds) and
-                                    (MemberTable.status notInList MemberStatusSets.LOGIN_BLOCKED)
-                            }.count()
+                            .where { MemberTable.id eq targetId }
+                            .forMemberUpdate()
+                            .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
+                    if (memberRow[MemberTable.anonymizedAt] != null) {
+                        throw ConflictException("Member has been anonymized and can no longer be edited")
                     }
-                if (remainingNonBlockedAdmins == 0L) throw LastAdminException()
+                    // Letzter-Admin-Schutz, race-safe: lock the target's account row AND every ADMIN account row in a SINGLE
+                    // id-ordered query (the union lock every role/status writer shares, see PeerGuard) -- `.forUpdate()` then
+                    // genuinely serializes two concurrent degradations of the last two ADMIN accounts against each other.
+                    val facts =
+                        PeerGuard.lockFactsAfterMemberLock(
+                            targetId = targetId,
+                            memberRow = memberRow,
+                            requesterId = current.memberId,
+                        )
+                    val accountRow =
+                        facts.lockedAccountRows.singleOrNull { it[AccountTable.memberId] == targetId }
+                            ?: throw MemberHasNoAccountException()
+                    val currentRole = accountRow[AccountTable.role]
+
+                    // Idempotent no-op: DTO back, no update, no audit entry.
+                    if (newRole ==
+                        currentRole
+                    ) {
+                        return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
+                    }
+
+                    // Welle V1.9.57 "Admin-Peer-Schutz" -- taking the ADMIN role away from an ADMIN needs the approval of a second
+                    // administrator (never executed directly); making somebody ADMIN is allowed, every OTHER administrator is told.
+                    var peerFacts: PeerActionAuditFacts? = null
+                    if (currentRole == AccountRole.ADMIN && newRole != AccountRole.ADMIN) {
+                        PeerGuard.decideLocked(
+                            actor = current,
+                            targetId = targetId,
+                            action = PeerAction.DEMOTE,
+                            mailConfigured = smtpConfigState is SmtpConfigState.Configured,
+                            facts = facts,
+                        )
+                    } else if (newRole == AccountRole.ADMIN) {
+                        PeerGuard.decideLocked(
+                            actor = current,
+                            targetId = targetId,
+                            action = PeerAction.PROMOTE_TO_ADMIN,
+                            mailConfigured = smtpConfigState is SmtpConfigState.Configured,
+                            facts = facts,
+                        )
+                        promotedToAdmin = true
+                        peerFacts =
+                            PeerActionAuditFacts(
+                                event = PeerAuditEvent.NOTIFIED_PROMOTION,
+                                action = PeerAction.PROMOTE_TO_ADMIN,
+                                targetRole = newRole,
+                            )
+                    }
+
+                    MemberRoleStatusMutations.applyRoleChangeLocked(
+                        actor = current,
+                        targetId = targetId,
+                        newRole = newRole,
+                        currentRole = currentRole,
+                        memberRow = memberRow,
+                        lockedAccountRows = facts.lockedAccountRows,
+                        now = now,
+                        peerFacts = peerFacts,
+                    )
+                    // Deliberately NO SessionStore.revokeAllForMember here -- see interface KDoc
+                    // "Deliberately does NOT invalidate the target's existing sessions".
+                    loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
+                }
             }
-
-            AccountTable.update({ AccountTable.memberId eq targetId }) { it[role] = newRole }
-
-            val beforeSnapshot =
-                MemberChangeSnapshot(
-                    displayNameChanged = false,
-                    emailChanged = false,
-                    status = memberRow[MemberTable.status],
-                    role = currentRole,
-                )
-            val afterSnapshot = beforeSnapshot.copy(role = newRole)
-            AuditLogRecorder.record(
-                actorMemberId = current.memberId,
-                actorRole = current.role,
-                entityType = AuditEntityType.MEMBER,
-                entityId = targetId,
-                action = AuditAction.UPDATE,
-                before = Json.encodeToString(MemberChangeSnapshot.serializer(), beforeSnapshot),
-                after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
-                occurredAt = nowLocalDateTime(),
-            )
-            // Deliberately NO SessionStore.revokeAllForMember here -- see interface KDoc
-            // "Deliberately does NOT invalidate the target's existing sessions".
-            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
-        }
+        if (promotedToAdmin) peerNotifier.newAdministrator(newAdminId = targetId, actorId = current.memberId, occurredAt = now)
+        return result
     }
 
     override suspend fun grantMemberAccount(
@@ -1017,114 +993,139 @@ class MemberService(
         // account row, so a self-target necessarily lands in MemberAlreadyHasAccountException below.
 
         val now = nowLocalDateTime()
-        return transaction {
-            val memberRow =
-                MemberTable
-                    .selectAll()
-                    .where { MemberTable.id eq targetId }
-                    .forUpdate()
-                    .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
-            // Load-bearing, NOT copy-paste consistency with the three V1.2.12 RPCs:
-            // FoundationPersonalData.erase HARD-DELETES the account row on an Art. 17 erasure, so an
-            // anonymized member is indistinguishable from a CSV import by `role == null` alone.
-            // Without this check, this RPC would be the one and only way to hand a DSGVO-erased
-            // person a working login again.
-            if (memberRow[MemberTable.anonymizedAt] != null) {
-                throw ConflictException("Member has been anonymized and can no longer be edited")
-            }
-            // The ONLY blocked status -- see interface KDoc for why DONOR/WITHDRAWN/REJECTED are
-            // deliberately allowed (LOGIN_BLOCKED stays the single login policy and keeps such an
-            // account inert) and why DECEASED is not (/api/auth/password-reset/request does not
-            // consult LOGIN_BLOCKED, so the account would make a deceased member's mailbox a valid
-            // password-reset recipient).
-            if (memberRow[MemberTable.status] == MemberStatus.DECEASED) {
-                throw ConflictException("Cannot grant a login account to a deceased member")
-            }
+        val result =
+            peerGuarded(actor = current) {
+                transaction {
+                    val memberRow =
+                        MemberTable
+                            .selectAll()
+                            .where { MemberTable.id eq targetId }
+                            .forMemberUpdate()
+                            .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
+                    // Load-bearing, NOT copy-paste consistency with the three V1.2.12 RPCs:
+                    // FoundationPersonalData.erase HARD-DELETES the account row on an Art. 17 erasure, so an
+                    // anonymized member is indistinguishable from a CSV import by `role == null` alone.
+                    // Without this check, this RPC would be the one and only way to hand a DSGVO-erased
+                    // person a working login again.
+                    if (memberRow[MemberTable.anonymizedAt] != null) {
+                        throw ConflictException("Member has been anonymized and can no longer be edited")
+                    }
+                    // The ONLY blocked status -- see interface KDoc for why DONOR/WITHDRAWN/REJECTED are
+                    // deliberately allowed (LOGIN_BLOCKED stays the single login policy and keeps such an
+                    // account inert) and why DECEASED is not (/api/auth/password-reset/request does not
+                    // consult LOGIN_BLOCKED, so the account would make a deceased member's mailbox a valid
+                    // password-reset recipient).
+                    if (memberRow[MemberTable.status] == MemberStatus.DECEASED) {
+                        throw ConflictException("Cannot grant a login account to a deceased member")
+                    }
 
-            // Against the address AS STORED, never a client-supplied one -- the client does not send
-            // an e-mail on this call at all, and must not be able to weaken this check by sending a
-            // different one. Same PasswordPolicy call RegistrationService.createMemberDirect uses.
-            PasswordPolicy.validate(newPassword = temporaryPassword, email = memberRow[MemberTable.email])
+                    // Against the address AS STORED, never a client-supplied one -- the client does not send
+                    // an e-mail on this call at all, and must not be able to weaken this check by sending a
+                    // different one. Same PasswordPolicy call RegistrationService.createMemberDirect uses.
+                    PasswordPolicy.validate(newPassword = temporaryPassword, email = memberRow[MemberTable.email])
 
-            // Layer 1 of the two-layer uniqueness guard. `.forUpdate()` on a row set that is normally
-            // EMPTY locks nothing -- the real serialization for two concurrent grants against the
-            // SAME member already comes from the MemberTable `.forUpdate()` above (both callers
-            // contend for that one row), and the uq_account_member_id backstop below closes the rest.
-            //
-            // This method acquires at most ONE account-row lock and never asks for a second, so it
-            // cannot participate in the member/account wait cycle updateMemberRole/updateMemberStatus
-            // close with their id-ordered union lock -- the deliberately narrow single-row lock is
-            // correct here, not an oversight.
-            val existingAccount =
-                AccountTable
-                    .selectAll()
-                    .where { AccountTable.memberId eq targetId }
-                    .forUpdate()
-                    .singleOrNull()
-            if (existingAccount != null) throw MemberAlreadyHasAccountException()
+                    // Layer 1 of the two-layer uniqueness guard. Welle V1.9.57: the account row is now locked as part of the id-ordered union
+                    // {target account} U {every ADMIN account} (the lock order every role/status writer shares) instead of a lone single-row
+                    // lock. The real serialization of two concurrent grants against the SAME member comes from the member lock above, and the
+                    // uq_account_member_id backstop below closes the rest.
+                    val facts =
+                        PeerGuard.lockFactsAfterMemberLock(
+                            targetId = targetId,
+                            memberRow = memberRow,
+                            requesterId = current.memberId,
+                        )
+                    if (facts.targetRole != null) throw MemberAlreadyHasAccountException()
+                    // Granting the ADMIN role is allowed for an ADMIN (and tells every OTHER administrator); decided on the locked facts.
+                    if (role == AccountRole.ADMIN) {
+                        PeerGuard.decideLocked(
+                            actor = current,
+                            targetId = targetId,
+                            action = PeerAction.PROMOTE_TO_ADMIN,
+                            mailConfigured = smtpConfigState is SmtpConfigState.Configured,
+                            facts = facts,
+                        )
+                    }
 
-            // Welle V1.9.56 -- a still-open address change must not be interleaved with a first login grant: a proposal
-            // made while the member had no account (path B0) would otherwise decide where the NEXT password reset of the
-            // freshly created account goes. Resolve (withdraw / let expire) the change first.
-            if (MemberEmailChangeTable
-                    .selectAll()
-                    .where { (MemberEmailChangeTable.openMemberId eq targetId) }
-                    .count() > 0
-            ) {
-                throw ConflictException("An e-mail address change is pending for this member -- resolve it before granting access")
-            }
+                    // Welle V1.9.56 -- a still-open address change must not be interleaved with a first login grant: a proposal
+                    // made while the member had no account (path B0) would otherwise decide where the NEXT password reset of the
+                    // freshly created account goes. Resolve (withdraw / let expire) the change first.
+                    if (MemberEmailChangeTable
+                            .selectAll()
+                            .where { (MemberEmailChangeTable.openMemberId eq targetId) }
+                            .count() > 0
+                    ) {
+                        throw ConflictException("An e-mail address change is pending for this member -- resolve it before granting access")
+                    }
 
-            // bcrypt (PasswordHasher.hash, ~250ms at BCRYPT_COST=12) runs INSIDE the transaction on
-            // purpose: PasswordPolicy.validate needs the member's e-mail, which is only known after
-            // the row read above, and hoisting the hash out would cost a second query for no benefit
-            // at this call's frequency (one ADMIN action, not a login path). No enumeration-timing
-            // concern applies -- the caller is an authenticated ADMIN who already sees the roster.
-            try {
-                AccountTable.insert {
-                    it[id] = Uuid.random()
-                    it[AccountTable.memberId] = targetId
-                    it[AccountTable.role] = role
-                    it[passwordHash] = PasswordHasher.hash(temporaryPassword)
-                    // oidcSubject/oidcIssuer stay null -- a password account, not a federated one.
+                    // bcrypt (PasswordHasher.hash, ~250ms at BCRYPT_COST=12) runs INSIDE the transaction on
+                    // purpose: PasswordPolicy.validate needs the member's e-mail, which is only known after
+                    // the row read above, and hoisting the hash out would cost a second query for no benefit
+                    // at this call's frequency (one ADMIN action, not a login path). No enumeration-timing
+                    // concern applies -- the caller is an authenticated ADMIN who already sees the roster.
+                    try {
+                        AccountTable.insert {
+                            it[id] = Uuid.random()
+                            it[AccountTable.memberId] = targetId
+                            it[AccountTable.role] = role
+                            it[roleChangedAt] = now
+                            it[passwordHash] = PasswordHasher.hash(temporaryPassword)
+                            // oidcSubject/oidcIssuer stay null -- a password account, not a federated one.
+                        }
+                    } catch (e: ExposedSQLException) {
+                        // Layer 2: uq_account_member_id (V1__baseline.sql) is the real backstop; the
+                        // pre-check above is racy on its own. Same idiom (and same "log the class name only,
+                        // never the message/stacktrace -- no PII" discipline) updateMemberCoreData's own
+                        // e-mail-uniqueness backstop already establishes.
+                        logger.warn { "AccountTable.insert failed in grantMemberAccount: ${e::class.simpleName}" }
+                        throw MemberAlreadyHasAccountException()
+                    }
+
+                    val beforeSnapshot =
+                        MemberChangeSnapshot(
+                            displayNameChanged = false,
+                            emailChanged = false,
+                            status = memberRow[MemberTable.status],
+                            role = null,
+                        )
+                    // Welle V1.9.57 -- granting the ADMIN role is allowed, every OTHER administrator is told (after the commit).
+                    val afterSnapshot =
+                        beforeSnapshot.copy(
+                            role = role,
+                            peerAction =
+                                if (role == AccountRole.ADMIN) {
+                                    PeerActionAuditFacts(
+                                        event = PeerAuditEvent.NOTIFIED_PROMOTION,
+                                        action = PeerAction.PROMOTE_TO_ADMIN,
+                                        targetRole = role,
+                                    )
+                                } else {
+                                    null
+                                },
+                        )
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.MEMBER,
+                        entityId = targetId,
+                        // CREATE, not UPDATE -- this is the ONE writer of MEMBER/CREATE. It makes "who gave
+                        // this person access, and with which role" a sentence in the GoBD chain that no
+                        // updateMemberRole entry can imitate (see interface KDoc). No new AuditEntityType:
+                        // an ACCOUNT literal would cost a Flyway CHECK migration, another in-place edit of
+                        // V1__baseline.sql and a flywayRepair on BOTH production instances for zero analytic
+                        // gain -- the entity under administration is the member.
+                        action = AuditAction.CREATE,
+                        before = Json.encodeToString(MemberChangeSnapshot.serializer(), beforeSnapshot),
+                        after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
+                        occurredAt = now,
+                    )
+                    // Deliberately NO SessionStore.revokeAllForMember -- there is no session to revoke for an
+                    // account that did not exist a moment ago. Stated explicitly so no reviewer "adds the
+                    // missing revocation" by analogy with updateMemberStatus.
+                    loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
                 }
-            } catch (e: ExposedSQLException) {
-                // Layer 2: uq_account_member_id (V1__baseline.sql) is the real backstop; the
-                // pre-check above is racy on its own. Same idiom (and same "log the class name only,
-                // never the message/stacktrace -- no PII" discipline) updateMemberCoreData's own
-                // e-mail-uniqueness backstop already establishes.
-                logger.warn { "AccountTable.insert failed in grantMemberAccount: ${e::class.simpleName}" }
-                throw MemberAlreadyHasAccountException()
             }
-
-            val beforeSnapshot =
-                MemberChangeSnapshot(
-                    displayNameChanged = false,
-                    emailChanged = false,
-                    status = memberRow[MemberTable.status],
-                    role = null,
-                )
-            val afterSnapshot = beforeSnapshot.copy(role = role)
-            AuditLogRecorder.record(
-                actorMemberId = current.memberId,
-                actorRole = current.role,
-                entityType = AuditEntityType.MEMBER,
-                entityId = targetId,
-                // CREATE, not UPDATE -- this is the ONE writer of MEMBER/CREATE. It makes "who gave
-                // this person access, and with which role" a sentence in the GoBD chain that no
-                // updateMemberRole entry can imitate (see interface KDoc). No new AuditEntityType:
-                // an ACCOUNT literal would cost a Flyway CHECK migration, another in-place edit of
-                // V1__baseline.sql and a flywayRepair on BOTH production instances for zero analytic
-                // gain -- the entity under administration is the member.
-                action = AuditAction.CREATE,
-                before = Json.encodeToString(MemberChangeSnapshot.serializer(), beforeSnapshot),
-                after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
-                occurredAt = now,
-            )
-            // Deliberately NO SessionStore.revokeAllForMember -- there is no session to revoke for an
-            // account that did not exist a moment ago. Stated explicitly so no reviewer "adds the
-            // missing revocation" by analogy with updateMemberStatus.
-            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
-        }
+        if (role == AccountRole.ADMIN) peerNotifier.newAdministrator(newAdminId = targetId, actorId = current.memberId, occurredAt = now)
+        return result
     }
 
     // ── Welle V1.4.4.4 "Familienmitgliedschaften" ──────────────────────────────────────────────
@@ -1223,71 +1224,62 @@ class MemberService(
 
         val now = nowLocalDateTime()
         val (effectivePassword, targetEmail, row) =
-            transaction {
-                val memberRow =
-                    MemberTable
-                        .selectAll()
-                        .where { MemberTable.id eq targetId }
-                        .forUpdate()
-                        .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
-                if (memberRow[MemberTable.anonymizedAt] != null) {
-                    throw ConflictException("Member has been anonymized and can no longer be edited")
-                }
-                // The ONLY blocked status -- mirrors grantMemberAccount's own DECEASED exclusion
-                // exactly: the security notice below would otherwise land in what is, in practice, a
-                // relative's mailbox. DONOR/WITHDRAWN/REJECTED remain allowed -- LOGIN_BLOCKED stays
-                // the single, central login policy and keeps such an account inert regardless.
-                if (memberRow[MemberTable.status] == MemberStatus.DECEASED) {
-                    throw ConflictException("Cannot reset the password of a deceased member")
-                }
-                // Exactly ONE account-row lock, same "narrow single-row lock is correct here, not an
-                // oversight" reasoning grantMemberAccount's own KDoc gives for its identical shape --
-                // this method never asks for a second lock, so it cannot join the id-ordered union-
-                // lock wait cycle updateMemberRole/updateMemberStatus close against EACH OTHER.
-                val accountRow =
-                    AccountTable
-                        .selectAll()
-                        .where { AccountTable.memberId eq targetId }
-                        .forUpdate()
-                        .singleOrNull() ?: throw MemberHasNoAccountException()
+            peerGuarded(actor = current) {
+                transaction {
+                    val memberRow =
+                        MemberTable
+                            .selectAll()
+                            .where { MemberTable.id eq targetId }
+                            .forMemberUpdate()
+                            .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
+                    if (memberRow[MemberTable.anonymizedAt] != null) {
+                        throw ConflictException("Member has been anonymized and can no longer be edited")
+                    }
+                    // The ONLY blocked status -- mirrors grantMemberAccount's own DECEASED exclusion
+                    // exactly: the security notice below would otherwise land in what is, in practice, a
+                    // relative's mailbox. DONOR/WITHDRAWN/REJECTED remain allowed -- LOGIN_BLOCKED stays
+                    // the single, central login policy and keeps such an account inert regardless.
+                    if (memberRow[MemberTable.status] == MemberStatus.DECEASED) {
+                        throw ConflictException("Cannot reset the password of a deceased member")
+                    }
+                    // Welle V1.9.57 -- the account row is now locked as part of the id-ordered union {target account} U {every ADMIN
+                    // account} (the lock order every role/status writer shares), no longer as a lone single-row lock: that single-row
+                    // order was the one remaining inversion against updateMemberRole/updateMemberStatus.
+                    val facts =
+                        PeerGuard.lockFactsAfterMemberLock(
+                            targetId = targetId,
+                            memberRow = memberRow,
+                            requesterId = current.memberId,
+                        )
+                    val accountRole = facts.targetRole ?: throw MemberHasNoAccountException()
 
-                val effectivePassword = newPassword ?: TemporaryPasswordGenerator.generate()
-                // Against the address AS STORED, never a client-supplied one -- this call does not
-                // accept an e-mail parameter at all. Same PasswordPolicy call grantMemberAccount uses.
-                PasswordPolicy.validate(newPassword = effectivePassword, email = memberRow[MemberTable.email])
-
-                AccountTable.update({ AccountTable.memberId eq targetId }) {
-                    it[passwordHash] = PasswordHasher.hash(effectivePassword)
-                }
-
-                val beforeSnapshot =
-                    MemberChangeSnapshot(
-                        displayNameChanged = false,
-                        emailChanged = false,
-                        status = memberRow[MemberTable.status],
-                        role = accountRow[AccountTable.role],
+                    // Welle V1.9.57 "Admin-Peer-Schutz" -- against an ADMIN target a temporary password is never set directly: it
+                    // needs the approval of a second administrator (see PrivilegedActionService); the stale-dialog case lands here.
+                    PeerGuard.decideLocked(
+                        actor = current,
+                        targetId = targetId,
+                        action = PeerAction.TEMP_PASSWORD,
+                        mailConfigured = smtpConfigState is SmtpConfigState.Configured,
+                        facts = facts,
                     )
-                val afterSnapshot =
-                    beforeSnapshot.copy(
-                        reason = trimmedReason,
-                        adminPasswordAction = AdminPasswordAction.TEMPORARY_PASSWORD_SET,
+
+                    val effectivePassword = newPassword ?: TemporaryPasswordGenerator.generate()
+                    TemporaryPasswordMutation.applyLocked(
+                        actor = current,
+                        targetId = targetId,
+                        memberRow = memberRow,
+                        accountRole = accountRole,
+                        effectivePassword = effectivePassword,
+                        auditReason = trimmedReason,
+                        now = now,
+                        peerFacts = null,
                     )
-                // LAST sperrende Operation dieser Transaktion (Deadlock-Vertrag, AuditLogRecorder KDoc).
-                AuditLogRecorder.record(
-                    actorMemberId = current.memberId,
-                    actorRole = current.role,
-                    entityType = AuditEntityType.MEMBER,
-                    entityId = targetId,
-                    action = AuditAction.UPDATE,
-                    before = Json.encodeToString(MemberChangeSnapshot.serializer(), beforeSnapshot),
-                    after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
-                    occurredAt = now,
-                )
-                Triple(
-                    effectivePassword,
-                    memberRow[MemberTable.email],
-                    loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged),
-                )
+                    Triple(
+                        effectivePassword,
+                        memberRow[MemberTable.email],
+                        loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged),
+                    )
+                }
             }
         // AFTER commit -- SessionStore writes its own transaction, same placement discipline
         // updateMemberCoreData/updateMemberStatus already establish for session revocation.
@@ -1396,51 +1388,80 @@ class MemberService(
         }
 
         val now = nowLocalDateTime()
+        var notifyTargetAdmin = false
         val targetEmail =
-            transaction {
-                val memberRow =
-                    MemberTable
-                        .selectAll()
-                        .where { MemberTable.id eq targetId }
-                        .forUpdate()
-                        .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
-                if (memberRow[MemberTable.anonymizedAt] != null) {
-                    throw ConflictException("Member has been anonymized and can no longer be edited")
-                }
-                val accountRow =
-                    AccountTable
-                        .selectAll()
-                        .where { AccountTable.memberId eq targetId }
-                        .forUpdate()
-                        .singleOrNull() ?: throw MemberHasNoAccountException()
-                // Deliberate ASYMMETRY with the unauthenticated self-service endpoint
-                // (/api/auth/password-reset/request), which does NOT consult LOGIN_BLOCKED at all --
-                // see interface KDoc. This ADMIN-facing call owes the operator an honest outcome
-                // instead of a token minted for an account a reset link can never actually unlock.
-                if (memberRow[MemberTable.status] in MemberStatusSets.LOGIN_BLOCKED) {
-                    throw ConflictException("Login is blocked for this member's status -- a reset link would be ineffective")
-                }
+            peerGuarded(actor = current) {
+                transaction {
+                    val memberRow =
+                        MemberTable
+                            .selectAll()
+                            .where { MemberTable.id eq targetId }
+                            .forMemberUpdate()
+                            .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
+                    if (memberRow[MemberTable.anonymizedAt] != null) {
+                        throw ConflictException("Member has been anonymized and can no longer be edited")
+                    }
+                    // Welle V1.9.57 -- union lock (see setTemporaryPasswordForMember) instead of a lone account-row lock.
+                    val facts =
+                        PeerGuard.lockFactsAfterMemberLock(
+                            targetId = targetId,
+                            memberRow = memberRow,
+                            requesterId = current.memberId,
+                        )
+                    val accountRole = facts.targetRole ?: throw MemberHasNoAccountException()
+                    // An administrator MAY trigger a reset mail for another administrator (the reset link only helps the mailbox
+                    // owner); the target is told, and the audit entry names the actor. A temporary password is the guarded path.
+                    val decision =
+                        PeerGuard.decideLocked(
+                            actor = current,
+                            targetId = targetId,
+                            action = PeerAction.RESET_MAIL,
+                            mailConfigured = smtpConfigState is SmtpConfigState.Configured,
+                            facts = facts,
+                        )
+                    notifyTargetAdmin = (decision as? PeerDecision.Allow)?.notifyTarget == true
+                    // Deliberate ASYMMETRY with the unauthenticated self-service endpoint
+                    // (/api/auth/password-reset/request), which does NOT consult LOGIN_BLOCKED at all --
+                    // see interface KDoc. This ADMIN-facing call owes the operator an honest outcome
+                    // instead of a token minted for an account a reset link can never actually unlock.
+                    if (memberRow[MemberTable.status] in MemberStatusSets.LOGIN_BLOCKED) {
+                        throw ConflictException("Login is blocked for this member's status -- a reset link would be ineffective")
+                    }
 
-                val beforeSnapshot =
-                    MemberChangeSnapshot(
-                        displayNameChanged = false,
-                        emailChanged = false,
-                        status = memberRow[MemberTable.status],
-                        role = accountRow[AccountTable.role],
+                    val beforeSnapshot =
+                        MemberChangeSnapshot(
+                            displayNameChanged = false,
+                            emailChanged = false,
+                            status = memberRow[MemberTable.status],
+                            role = accountRole,
+                        )
+                    val afterSnapshot =
+                        beforeSnapshot.copy(
+                            adminPasswordAction = AdminPasswordAction.RESET_MAIL_SENT,
+                            peerAction =
+                                if (accountRole == AccountRole.ADMIN) {
+                                    PeerActionAuditFacts(
+                                        event = PeerAuditEvent.EXECUTED,
+                                        action = PeerAction.RESET_MAIL,
+                                        targetRole = accountRole,
+                                    )
+                                } else {
+                                    null
+                                },
+                        )
+                    // LAST sperrende Operation dieser Transaktion (Deadlock-Vertrag, AuditLogRecorder KDoc).
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.MEMBER,
+                        entityId = targetId,
+                        action = AuditAction.UPDATE,
+                        before = Json.encodeToString(MemberChangeSnapshot.serializer(), beforeSnapshot),
+                        after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
+                        occurredAt = now,
                     )
-                val afterSnapshot = beforeSnapshot.copy(adminPasswordAction = AdminPasswordAction.RESET_MAIL_SENT)
-                // LAST sperrende Operation dieser Transaktion (Deadlock-Vertrag, AuditLogRecorder KDoc).
-                AuditLogRecorder.record(
-                    actorMemberId = current.memberId,
-                    actorRole = current.role,
-                    entityType = AuditEntityType.MEMBER,
-                    entityId = targetId,
-                    action = AuditAction.UPDATE,
-                    before = Json.encodeToString(MemberChangeSnapshot.serializer(), beforeSnapshot),
-                    after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
-                    occurredAt = now,
-                )
-                memberRow[MemberTable.email]
+                    memberRow[MemberTable.email]
+                }
             }
         // AFTER commit -- PasswordResetTokenStore.createToken opens its OWN transaction {}, which
         // in Exposed JOINS an already-open one, including its 1%-purgeExpired -- a swallowed
@@ -1461,6 +1482,7 @@ class MemberService(
             val rawToken = PasswordResetTokenStore.createToken(targetId)
             passwordResetMailer.send(email = targetEmail, rawToken = rawToken)
         }.onFailure { e -> logger.error { "password-reset-mail token creation/send threw: ${e::class.simpleName}" } }
+        if (notifyTargetAdmin) peerNotifier.resetMailTriggered(targetId = targetId, actorId = current.memberId, occurredAt = now)
         return PasswordResetMailResultDto(delivery = MailDeliveryState.HANDED_TO_SMTP)
     }
 

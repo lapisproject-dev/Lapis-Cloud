@@ -11,6 +11,8 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
+import network.lapis.cloud.shared.domain.PeerAction
+import network.lapis.cloud.shared.domain.PeerDenyReason
 import network.lapis.cloud.shared.domain.UnlinkedMemberDto
 import network.lapis.cloud.shared.rpc.IKeycloakLinkService
 
@@ -85,7 +87,14 @@ private fun renderUnlinkedMemberActions(
     onChanged: () -> Unit,
 ) {
     val linkButton = actionsCell.tableActionButton("fas fa-link", tr("Verknüpfen"), ButtonStyle.OUTLINEPRIMARY)
-    linkButton.onClick { openKeycloakLinkDialog(member, onChanged) }
+    // Welle V1.9.57 "Admin-Peer-Schutz": an administrator may not attach an identity to ANOTHER administrator's account (an account takeover
+    // in Keycloak mode) -- the button stays visible and disabled, the reason is its tooltip (a table row has no room for a sentence).
+    if (member.role == AccountRole.ADMIN && member.memberId != AppState.session?.memberId) {
+        linkButton.disabled = true
+        linkButton.tableActionTooltip(peerDenyText(PeerDenyReason.TARGET_IS_ADMIN, PeerAction.LINK_IDENTITY))
+    } else {
+        linkButton.onClick { openKeycloakLinkDialog(member, onChanged) }
+    }
 }
 
 /**

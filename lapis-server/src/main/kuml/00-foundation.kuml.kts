@@ -336,6 +336,12 @@ classDiagram(name = "Foundation") {
         attribute(name = "role", type = accountRole) {
             stereotype("Column") { "columnName" to "role"; "enumType" to "network.lapis.cloud.shared.domain.AccountRole" }
         }
+        // Welle V1.9.57 (V71): stamped (UTC) by every writer of `role`; NULL = pre-existing or seeded account. The approver
+        // tenure rule of the admin peer protection reads it (an ADMIN may approve only after 7 days in the role).
+        attribute(name = "roleChangedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "role_changed_at" }
+        }
     }
 
     association(source = member, target = account, id = "assoc-member-account") {

@@ -5,20 +5,24 @@ import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.audit.OidcLoginAuditRecorder
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.KeycloakAccountLinkTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.keycloak.KeycloakAccountLinker
 import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.KeycloakLinkChange
 import network.lapis.cloud.server.mail.KeycloakLinkNotificationMailer
+import network.lapis.cloud.server.security.PeerGuard
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.extractSessionToken
+import network.lapis.cloud.server.security.peerGuarded
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.OidcLoginEventType
+import network.lapis.cloud.shared.domain.PeerAction
 import network.lapis.cloud.shared.domain.UnlinkedMemberDto
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -65,6 +69,7 @@ class KeycloakLinkService internal constructor(
             // construction (at most one row per member, see that table's own uq_..._member index)
             // so materializing its member ids first is cheap and keeps this query unambiguous.
             val linkedMemberIds = KeycloakAccountLinkTable.selectAll().map { it[KeycloakAccountLinkTable.memberId] }.toSet()
+            val roleByMember = AccountTable.selectAll().associate { it[AccountTable.memberId] to it[AccountTable.role] }
             MemberTable
                 .selectAll()
                 .where { MemberTable.status notInList MemberStatusSets.LOGIN_BLOCKED }
@@ -75,6 +80,7 @@ class KeycloakLinkService internal constructor(
                         memberId = it[MemberTable.id].toString(),
                         displayName = it[MemberTable.displayName],
                         email = it[MemberTable.email],
+                        role = roleByMember[it[MemberTable.id]],
                     )
                 }
         }
@@ -99,70 +105,83 @@ class KeycloakLinkService internal constructor(
         if (subject.length > 255) throw BadRequestException("keycloakSubject must not exceed 255 characters")
         val targetMemberId = memberId.toMemberUuid()
         val now = DbClock.nowLocalDateTime()
+        val current = resolveCurrentMember(call)
         val targetEmail =
-            transaction {
-                val memberRow =
-                    MemberTable.selectAll().where { MemberTable.id eq targetMemberId }.singleOrNull()
-                        ?: throw NotFoundException("Member '$memberId' not found")
-                // Security-audit fix: listUnlinkedMembers already hides these rows, but the RPC
-                // itself accepted them. An anonymized row's address is no longer the member's, and a
-                // LOGIN_BLOCKED member (incl. DECEASED) can never log in through the link anyway --
-                // linking them only produces a dormant identity mapping that silently becomes live
-                // the moment the status is flipped back, and a security notice to what is in
-                // practice a relative's mailbox (same DECEASED reasoning as
-                // IMemberService.setTemporaryPasswordForMember).
-                if (memberRow[MemberTable.anonymizedAt] != null) {
-                    throw ConflictException("Member has been anonymized and can no longer be linked")
-                }
-                if (memberRow[MemberTable.status] in MemberStatusSets.LOGIN_BLOCKED) {
-                    throw ConflictException("Member's status blocks login -- a Keycloak link would have no effect")
-                }
-                if (KeycloakAccountLinkTable.selectAll().where { KeycloakAccountLinkTable.memberId eq targetMemberId }.any()) {
-                    throw ConflictException("Member '$memberId' already has a Keycloak account link")
-                }
-                val existingByIdentity =
-                    KeycloakAccountLinkTable
-                        .selectAll()
-                        .where {
-                            (KeycloakAccountLinkTable.keycloakIssuer eq issuer) and
-                                (KeycloakAccountLinkTable.keycloakSubject eq subject)
-                        }.any()
-                if (existingByIdentity) {
-                    throw ConflictException("This Keycloak identity is already linked to a different member")
-                }
-                val inserted =
-                    runCatching {
-                        KeycloakAccountLinkTable.insert {
-                            it[id] = Uuid.random()
-                            it[KeycloakAccountLinkTable.memberId] = targetMemberId
-                            it[keycloakIssuer] = issuer
-                            it[KeycloakAccountLinkTable.keycloakSubject] = subject
-                            it[linkedAt] = now
-                            it[linkedBy] = adminMemberId
-                            it[lastLoginAt] = null
-                        }
+            peerGuarded(actor = current) {
+                transaction {
+                    // Welle V1.9.57 "Admin-Peer-Schutz" -- the member row is locked and the target's role read under the union lock: an
+                    // administrator may not attach an arbitrary identity-provider identity to ANOTHER administrator's account (that is
+                    // an account takeover in Keycloak mode). Linking one's own account and every non-ADMIN target is unchanged.
+                    val memberRow =
+                        PeerGuard.lockMember(targetMemberId)
+                            ?: throw NotFoundException("Member '$memberId' not found")
+                    PeerGuard.require(
+                        actor = current,
+                        targetId = targetMemberId,
+                        action = PeerAction.LINK_IDENTITY,
+                        mailConfigured = false,
+                        memberRow = memberRow,
+                    )
+                    // Security-audit fix: listUnlinkedMembers already hides these rows, but the RPC
+                    // itself accepted them. An anonymized row's address is no longer the member's, and a
+                    // LOGIN_BLOCKED member (incl. DECEASED) can never log in through the link anyway --
+                    // linking them only produces a dormant identity mapping that silently becomes live
+                    // the moment the status is flipped back, and a security notice to what is in
+                    // practice a relative's mailbox (same DECEASED reasoning as
+                    // IMemberService.setTemporaryPasswordForMember).
+                    if (memberRow[MemberTable.anonymizedAt] != null) {
+                        throw ConflictException("Member has been anonymized and can no longer be linked")
                     }
-                // Reuses KeycloakAccountLinker's own established SQLSTATE-23505-vs-everything-else
-                // mapping instead of duplicating it -- see that function's KDoc. It returns a
-                // LinkOutcome.Rejected(CONFLICTING_LINK) for a genuine unique-violation race (two
-                // concurrent admin link attempts for the same member/identity) and rethrows anything
-                // else untouched.
-                inserted.exceptionOrNull()?.let { cause ->
-                    KeycloakAccountLinker.mapLinkInsertFailure(cause)
-                    throw ConflictException("This member or Keycloak identity was linked concurrently by another request")
+                    if (memberRow[MemberTable.status] in MemberStatusSets.LOGIN_BLOCKED) {
+                        throw ConflictException("Member's status blocks login -- a Keycloak link would have no effect")
+                    }
+                    if (KeycloakAccountLinkTable.selectAll().where { KeycloakAccountLinkTable.memberId eq targetMemberId }.any()) {
+                        throw ConflictException("Member '$memberId' already has a Keycloak account link")
+                    }
+                    val existingByIdentity =
+                        KeycloakAccountLinkTable
+                            .selectAll()
+                            .where {
+                                (KeycloakAccountLinkTable.keycloakIssuer eq issuer) and
+                                    (KeycloakAccountLinkTable.keycloakSubject eq subject)
+                            }.any()
+                    if (existingByIdentity) {
+                        throw ConflictException("This Keycloak identity is already linked to a different member")
+                    }
+                    val inserted =
+                        runCatching {
+                            KeycloakAccountLinkTable.insert {
+                                it[id] = Uuid.random()
+                                it[KeycloakAccountLinkTable.memberId] = targetMemberId
+                                it[keycloakIssuer] = issuer
+                                it[KeycloakAccountLinkTable.keycloakSubject] = subject
+                                it[linkedAt] = now
+                                it[linkedBy] = adminMemberId
+                                it[lastLoginAt] = null
+                            }
+                        }
+                    // Reuses KeycloakAccountLinker's own established SQLSTATE-23505-vs-everything-else
+                    // mapping instead of duplicating it -- see that function's KDoc. It returns a
+                    // LinkOutcome.Rejected(CONFLICTING_LINK) for a genuine unique-violation race (two
+                    // concurrent admin link attempts for the same member/identity) and rethrows anything
+                    // else untouched.
+                    inserted.exceptionOrNull()?.let { cause ->
+                        KeycloakAccountLinker.mapLinkInsertFailure(cause)
+                        throw ConflictException("This member or Keycloak identity was linked concurrently by another request")
+                    }
+                    // Security-audit fix: the audit row is written INSIDE the same transaction as the
+                    // link itself (OidcLoginAuditRecorder's own `transaction {}` joins this one -- no
+                    // nested-transaction mode is configured anywhere in this codebase), so a link can
+                    // never commit without its audit event, and vice versa. It previously ran as a
+                    // separate transaction after commit, where a failed insert left an unaudited link.
+                    OidcLoginAuditRecorder.record(
+                        eventType = OidcLoginEventType.KEYCLOAK_LINK_MANUAL,
+                        memberId = targetMemberId,
+                        remoteParty = issuer,
+                        reason = keycloakLinkAuditReason(adminMemberId = adminMemberId, subject = subject),
+                    )
+                    memberRow[MemberTable.email]
                 }
-                // Security-audit fix: the audit row is written INSIDE the same transaction as the
-                // link itself (OidcLoginAuditRecorder's own `transaction {}` joins this one -- no
-                // nested-transaction mode is configured anywhere in this codebase), so a link can
-                // never commit without its audit event, and vice versa. It previously ran as a
-                // separate transaction after commit, where a failed insert left an unaudited link.
-                OidcLoginAuditRecorder.record(
-                    eventType = OidcLoginEventType.KEYCLOAK_LINK_MANUAL,
-                    memberId = targetMemberId,
-                    remoteParty = issuer,
-                    reason = keycloakLinkAuditReason(adminMemberId = adminMemberId, subject = subject),
-                )
-                memberRow[MemberTable.email]
             }
         // AFTER commit, never ergebnisrelevant -- same placement/posture as
         // MemberService.notifyMemberOfAdminPasswordReset. See KeycloakLinkNotificationMailer KDoc.

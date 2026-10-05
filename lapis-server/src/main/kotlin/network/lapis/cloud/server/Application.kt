@@ -119,6 +119,7 @@ import network.lapis.cloud.server.mail.SmtpFinTsReauthNotificationMailer
 import network.lapis.cloud.server.mail.SmtpFriendVerificationMailer
 import network.lapis.cloud.server.mail.SmtpKeycloakLinkNotificationMailer
 import network.lapis.cloud.server.mail.SmtpPasswordResetMailer
+import network.lapis.cloud.server.mail.SmtpPeerNotificationMailer
 import network.lapis.cloud.server.mail.SmtpStartupCheck
 import network.lapis.cloud.server.mail.newsletter.MailingDeliveryConfig
 import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
@@ -131,6 +132,8 @@ import network.lapis.cloud.server.mcp.ratelimit.McpToolCallRateLimiter
 import network.lapis.cloud.server.mcp.tools.McpToolDispatcher
 import network.lapis.cloud.server.member.EmailChangePoller
 import network.lapis.cloud.server.member.EmailChangeService
+import network.lapis.cloud.server.member.PrivilegedActionPoller
+import network.lapis.cloud.server.member.PrivilegedActionService
 import network.lapis.cloud.server.membermap.MemberMapConfig
 import network.lapis.cloud.server.membermap.MemberMapStartupCheck
 import network.lapis.cloud.server.membermap.PlaceSearchIndex
@@ -194,6 +197,7 @@ import network.lapis.cloud.server.routes.registerMobileConferenceRoutes
 import network.lapis.cloud.server.routes.registerMobileWebviewSessionRoutes
 import network.lapis.cloud.server.routes.registerOidcRoutes
 import network.lapis.cloud.server.routes.registerPaypalWebhookRoutes
+import network.lapis.cloud.server.routes.registerPrivilegedActionRoutes
 import network.lapis.cloud.server.routes.registerPspWebhookRoutes
 import network.lapis.cloud.server.routes.registerPublicApiRoutes
 import network.lapis.cloud.server.routes.registerPublicArticlesOverviewRoutes
@@ -269,6 +273,7 @@ import network.lapis.cloud.server.rpc.PoliticianService
 import network.lapis.cloud.server.rpc.PollService
 import network.lapis.cloud.server.rpc.PostalMailService
 import network.lapis.cloud.server.rpc.PriceOracleService
+import network.lapis.cloud.server.rpc.PrivilegedActionRpcService
 import network.lapis.cloud.server.rpc.RegionalChapterService
 import network.lapis.cloud.server.rpc.RegistrationService
 import network.lapis.cloud.server.rpc.SepaService
@@ -350,6 +355,7 @@ import network.lapis.cloud.shared.rpc.IPoliticianService
 import network.lapis.cloud.shared.rpc.IPollService
 import network.lapis.cloud.shared.rpc.IPostalMailService
 import network.lapis.cloud.shared.rpc.IPriceOracleService
+import network.lapis.cloud.shared.rpc.IPrivilegedActionService
 import network.lapis.cloud.shared.rpc.IReceivableDunningService
 import network.lapis.cloud.shared.rpc.IRegionalChapterService
 import network.lapis.cloud.shared.rpc.IRegistrationService
@@ -758,6 +764,22 @@ internal fun Application.module(
             friendMailActorRateLimiter = emailChangeFriendMailActorRateLimiter,
         )
 
+    // Welle V1.9.57 "Admin-Peer-Schutz" -- singletons (the RPC facades are rebuilt per call, a per-call limiter would limit nothing):
+    // at most 10 new four-eyes requests per requester and hour, 3 per target in 24 hours, 20 objection-link requests per IP and
+    // hour, and 5 attempts at the current password per member and 15 minutes in AuthService.changePassword.
+    val peerNotificationMailer = SmtpPeerNotificationMailer(dispatcher = mailDispatcher, branding = mailBranding)
+    val privilegedActionActorRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 60.minutes)
+    val privilegedActionTargetRateLimiter = FederationInboxRateLimiter(maxRequests = 3, window = 24.hours)
+    val privilegedActionLinkIpRateLimiter = LoginRateLimiter(maxFailures = 20, window = 60.minutes)
+    val changePasswordRateLimiter = LoginRateLimiter(maxFailures = 5, window = 15.minutes)
+    val privilegedActionService =
+        PrivilegedActionService(
+            smtpConfigState = smtpConfigState,
+            mailer = peerNotificationMailer,
+            actorRateLimiter = privilegedActionActorRateLimiter,
+            targetRateLimiter = privilegedActionTargetRateLimiter,
+        )
+
     // Welle V1.4.9 "Admin-Passwort-Reset" -- TARGET-side cap for sendPasswordResetMailToMember's
     // reset-link mail (Weg 2) ONLY -- see MemberService constructor KDoc
     // "adminPasswordMailTargetRateLimiter" for the full rationale, including why it is no longer
@@ -1114,6 +1136,12 @@ internal fun Application.module(
     val emailChangePoller = EmailChangePoller(service = emailChangeService)
     emailChangePoller.start()
     monitor.subscribe(ApplicationStopping) { emailChangePoller.stop() }
+
+    // Welle V1.9.57 -- always on: expires overdue four-eyes requests, purges old resolved rows. Idempotent (open-status guard
+    // under the member and account locks); the service also finishes a lapsed request lazily, so nothing depends on this timer.
+    val privilegedActionPoller = PrivilegedActionPoller(service = privilegedActionService)
+    privilegedActionPoller.start()
+    monitor.subscribe(ApplicationStopping) { privilegedActionPoller.stop() }
 
     // Welle V1.9.15 -- erases raw mailing open/click events after MailingHtmlPolicy.RETENTION_DAYS.
     val mailingTrackingRetentionPoller = MailingTrackingRetentionPoller()
@@ -1704,10 +1732,15 @@ internal fun Application.module(
                 adminPasswordNotificationTargetRateLimiter = adminPasswordNotificationTargetRateLimiter,
                 memberCardIssueRateLimiter = memberCardIssueRateLimiter,
                 memberAddressAdminReadRateLimiter = memberAddressAdminReadRateLimiter,
+                peerNotificationMailer = peerNotificationMailer,
             )
         }
         // Welle V1.9.56 "E-Mail-Änderung absichern" -- the only way to change an existing member's login address.
         registerService(IMemberEmailChangeService::class) { call -> MemberEmailChangeService(call = call, domain = emailChangeService) }
+        // Welle V1.9.57 "Admin-Peer-Schutz" -- the four-eyes lifecycle of the actions against another administrator.
+        registerService(
+            IPrivilegedActionService::class,
+        ) { call -> PrivilegedActionRpcService(call = call, domain = privilegedActionService) }
         registerService(IContributionService::class) { call -> ContributionService(call) }
         registerService(IContributionReliefService::class) { call -> ContributionReliefService(call) }
         // Welle V1.4.11 -- reuses documentStorageRoot with a "travel-expenses/" storage-key
@@ -1858,6 +1891,7 @@ internal fun Application.module(
                 keycloakConfig = keycloakConfig,
                 mcpEnabled = mcpConfig.isOperational,
                 mcpWriteEnabled = mcpConfig.isWriteOperational,
+                changePasswordRateLimiter = changePasswordRateLimiter,
             )
         }
         if (aiConfig.isOperational && aiLlmClient != null) {
@@ -1904,6 +1938,8 @@ internal fun Application.module(
                 // above (avoids a second, redundant env-var parse; see RegistrationService
                 // constructor KDoc "Keycloak mode").
                 keycloakConfig = keycloakConfig,
+                peerNotificationMailer = peerNotificationMailer,
+                peerSmtpConfigState = smtpConfigState,
             )
         }
         registerService(IFederationService::class) { call -> FederationService(call) }
@@ -2117,6 +2153,12 @@ internal fun Application.module(
         registerEmailChangeRoutes(
             service = emailChangeService,
             ipRateLimiter = emailChangeLinkIpRateLimiter,
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+        )
+        // Welle V1.9.57 -- the unauthenticated objection link of the four-eyes lifecycle (temporary password only).
+        registerPrivilegedActionRoutes(
+            service = privilegedActionService,
+            ipRateLimiter = privilegedActionLinkIpRateLimiter,
             baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
         )
         // V1.7.1b "Keycloak als externe Benutzerverwaltung -- Server-Kern".

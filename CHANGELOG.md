@@ -32,8 +32,33 @@ All notable changes to this project are documented here. Format follows
     the Postgres lane; migration incl. the upgrade from V69; GDPR; a source-scan tripwire that no other code writes `member.email` of an existing member and one
     that no token reaches a log or audit; Karma DOM tests for the three client parts.
 
+- **Admin peer protection / four eyes** (V1.9.57, `V71__privileged_action_request.sql`, `IPrivilegedActionService`, `docs/architecture/admin-peer-protection.adoc`). A
+  temporary password, taking the ADMIN role away or blocking the login of *another administrator* needs the approval of a *second* administrator: request (reason 10-500
+  characters, rate-limited), approval by an eligible administrator (ADMIN now, not the requester or the target, not login-blocked, ADMIN for at least 7 days at the time of
+  the request -- the strawman rule), then execution; a demotion or suspension takes effect in the approval transaction, a temporary password after a 24 hour objection period of
+  the target, generated *by the requester* and shown once (never stored), objection through a one-time POST-only link in a mail to the target (one answer for every token).
+  Requests expire after 72 hours (a 15-minute poller plus lazy expiry), are *invalidated* when the target role, the requester or a status transition changed meanwhile.
+  `PeerPolicy` is one pure function, the matrix is tested over its complete cross product. Pending-approvals card in the member administration, request dialogs
+  ("Freigabe beantragen"), notices (receipts) to the target, the approvers and -- when somebody becomes an administrator -- all other administrators; kUML model
+  `63-privileged-action-request.kuml.kts`, 52 new texts in all seven catalogs, GDPR contributor `PrivilegedActionPersonalData`.
+- **Operator console emergency actions** (V1.9.57): `LAPIS_BOOTSTRAP_ACTION=set-role` / `set-status` (re-activation only) next to `reset-password`; same union lock and
+  last-admin protection (no console path to zero administrators), audit entry without an actor. `reset-password` now also ends every session and every outstanding reset token.
+- Tests: `PeerPolicyMatrixTest` (cross product), `AdminPeerProtectionScenarios` on H2 and the Postgres lane (full cycles, races incl. a three-administrator ring),
+  `AdminPeerProtectionRpcTest`, `AdminBootstrapEmergencyTest`, `PrivilegedAction*MigrationTest` (incl. the V70 upgrade), two source-scan tripwires, Karma DOM tests for the card, the
+  request dialogs, the protected data and the objection screen.
+
 ### Security
 
+- **Administrators can no longer take each other over alone (V1.9.57).** Until now one administrator could set another's password and sign in as them, take the role away,
+  block the login, erase the account, attach their own Keycloak identity or redirect the address through the emergency path -- a single compromised administrator account
+  was enough for all of them. The four-eyes rule above covers password, demotion and suspension; the emergency e-mail path (path C), the manual Keycloak link and the GDPR
+  erasure/execution are refused against another administrator; BOARD no longer reads or writes an administrator's address and beneficial-owner data (a marked, value-free answer
+  instead of an error, no read-audit entry). A refusal is audited without a reason, token or address. **A real deadlock found by the new Postgres scenarios** (and present before
+  this wave): a plain `FOR UPDATE` on a `member` row conflicts with the `FOR KEY SHARE` that the audit entry's foreign key takes on the actor's member row, so two administrators
+  acting on each other at the same moment deadlocked on PostgreSQL. The member-row locks that precede the account-union lock now use `FOR NO KEY UPDATE`
+  (`forMemberUpdate()`); H2 cannot show this.
+- **`IAuthService.changePassword` limits wrong current passwords** (V1.9.57): 5 per member and 15 minutes, the attempt is reserved before the bcrypt check, a success resets it; over the
+  limit even the correct password is refused until the window ends. (Closes a V1.9.56 known limitation: a stolen session could guess the current password.)
 - **Account takeover through the address change is closed (V1.9.56).** `MemberService.updateMemberCoreData` let a board member or an administrator overwrite
   `member.email` -- the login identity, the password-reset target and the key of the Keycloak account link -- without any proof that the new address belongs to
   the account owner (set an address you control, request a password reset). It now corrects the display name only and rejects an address change with
@@ -52,6 +77,45 @@ All notable changes to this project are documented here. Format follows
 - Provider idempotency keys are derived from the server's checkout session id (`lapis-checkout-v1-<uuid>`) instead of a fresh random value per call, so an
   HTTP retry of the same logical checkout is deduplicated by Stripe/PayPal. The persisted `provider_idempotency_key` equals the value sent.
 - `createContributionCheckout` is single-flight per contribution: two parallel requests mint one hosted session instead of two (double payment possible).
+
+### Changed (V1.9.57)
+
+- **An administrator can no longer demote, block or set a password for another administrator alone.** The direct calls answer with the typed `PeerApprovalRequiredException`
+  (a second administrator is eligible) or `NoSecondAdminException` (none is); a stale dialog lands there and says so as text. The existing tests that did this directly were
+  rewritten: the concurrent mutual demotion / withdrawal now yields two refusals with two administrators (the race lives in the approval scenarios), the cross-method
+  last-admin tests set the blocked state up directly. The last-admin protection is unchanged and also guards the approved execution.
+- `MemberService.setTemporaryPasswordForMember` and `sendPasswordResetMailToMember` lock the account row as part of the id-ordered union (the order of `updateMemberRole` /
+  `updateMemberStatus`) instead of a lone single-row lock. `grantMemberAccount` does the same and tells the other administrators when it grants ADMIN.
+- The role and status writes were extracted verbatim into `MemberRoleStatusMutations` / `TemporaryPasswordMutation` so the direct path and the approved execution run the same code.
+- `UnlinkedMemberDto.role` and `ErasureRequestDto.subjectIsAdmin` (both defaulted) let the UI show the protected states; `MemberAddressDataDto.protectedTarget` marks a masked answer.
+- `UnlinkedMemberDto`, `ErasureRequestDto` and `MemberAddressDataDto` gained defaulted fields; `MemberService`, `RegistrationService` and `AuthService` gained defaulted constructor parameters
+  (existing call sites unchanged); `AccountTable.roleChangedAt`; privacy page: one new purpose line.
+
+### Operator note (V1.9.57)
+
+- **Check the number of administrators per instance before deploying.** With one or two administrators there is nobody who could approve (requester and target are excluded): temporary
+  password, demotion and suspension of an administrator then answer "no second administrator". Nobody is locked out -- the password-reset mail, every action on one's own account and the
+  console (`LAPIS_BOOTSTRAP_ACTION=set-role|set-status|reset-password`, see `deploy/example/README.adoc`) stay available. A third administrator can approve only after 7 days in the role, so
+  a freshly set-up instance has no approval for a week. There is no switch to turn the protection off. PdV and ELB: both likely have one or two administrators -- the console is then the
+  way to change an administrator.
+- A temporary-password request against an administrator needs `LAPIS_SMTP_*` (the target must be warned and gets the objection link); the other notices are best effort.
+- Migration `V71` is additive (`privileged_action_request`, `account.role_changed_at` NULL = tenured). The container invocation of the console is documented but **not verified against a
+  real container yet** -- a check item of the next staging deploy.
+
+### Known limitations (V1.9.57)
+
+- A single administrator who lost mailbox and password and has no server access cannot be rescued; the same holds for two administrators who both lost access to one of them without the console.
+- Two colluding administrators who each held the role for at least 7 days can overrule a target that does not read its mail within the 24 hour objection period; the audit trail and the notices remain.
+- BOARD reading BOARD data stays open on purpose. With one administrator only that person sees their own beneficial-owner data.
+- Mail merge, contribution invoices and donation receipts (TREASURER/BOARD) still contain the postal address of administrators because the operation needs it; the anniversary list (BOARD) still shows
+  their date of birth; `approveApplication` / `listPendingApplications` return an applicant's address (an applicant is never an administrator in practice).
+- Path B0 of the e-mail change (no usable password, e.g. a Keycloak-only administrator) against another administrator stays open: 72 hours, proof of ownership of the new address and the objection right of
+  the old address. It could be put under four eyes as well -- a decision for the owner.
+- A request against an administrator who is DECEASED cannot be filed (the status needs a date of death); take the role away first, then set the status.
+- `FOR NO KEY UPDATE` is used only where a member-row lock precedes the account-union lock; the other ~25 `MemberTable ... forUpdate()` sites can still deadlock against an audit insert of the locked member
+  as actor on PostgreSQL (rare, needs the locked member to act at the same instant). A follow-up wave should migrate them and add a Postgres scenario per site.
+- Rate limiters (requests per requester/target, objection link per IP, wrong passwords) are per server instance.
+- The operator console container invocation is documented, not verified against a real container.
 
 ### Operator note (V1.9.56)
 

@@ -100,8 +100,14 @@ token; the fifth wrong password on one link burns that change (per-link counter 
 | Caller \ target | no account / MEMBER role / FRIEND | BOARD / TREASURER | ADMIN | self
 | MEMBER, TREASURER | forbidden | forbidden | forbidden | A only
 | BOARD | B / B0 | forbidden | forbidden | A only
-| ADMIN | B / B0 / C | B / C | B / C | A only
+| ADMIN | B / B0 / C | B / C | B (C is closed since V1.9.57) | A only
 |===
+
+Since V1.9.57 (`admin-peer-protection.adoc`) the emergency path C is refused against another ADMIN's account (`PeerProtectionDeniedException`): its only
+safeguard is the target's 72 hour objection right, and an address the initiator controls plus a reset mail would be a takeover by one person without the
+second administrator the other paths demand. An emergency change that was opened earlier and whose target became an ADMIN meanwhile is discarded like a
+change whose initiator lost the right. B and B0 against an ADMIN stay unchanged (B needs the owner's password; B0 needs proof of ownership, 72 hours and
+no objection from the old address -- it exists only for an ADMIN without a usable password, e.g. a Keycloak-only administrator).
 
 The server is the only authority; the client only avoids offering an action the server would refuse (`canProposeEmailChangeOf`).
 A TREASURER holds no initiating right: `updateMemberCoreData` was always BOARD/ADMIN only, and this change does not widen that. The
@@ -159,10 +165,9 @@ PostgreSQL.
 * A member who lost both the password and access to the old address cannot be helped without SMTP -- there is no safe path.
 * After B0 for a member *without a login*, a later `grantMemberAccount` would make the then-current address the reset target;
   `grantMemberAccount` therefore refuses while a change is open, but an address that became effective earlier stays the contact address.
-* An ADMIN can still take over another ADMIN's account with a temporary password (`setTemporaryPasswordForMember`) -- there is no
-  peer protection between administrators for the password actions. Not part of this change (own wave).
+* *Closed in V1.9.57:* an ADMIN can no longer take over another ADMIN's account with a temporary password alone (`admin-peer-protection.adoc`).
 * The mails carry German and English in one message (members have no language preference).
-* `IAuthService.changePassword` has no rate limit for a wrong current password (own wave); the address-change paths do (per member).
+* *Closed in V1.9.57:* `IAuthService.changePassword` now limits wrong current passwords (5 per member and 15 minutes, attempt reserved before the bcrypt check).
 
 == Tests
 

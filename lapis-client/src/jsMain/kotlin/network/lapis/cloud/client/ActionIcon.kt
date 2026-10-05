@@ -43,4 +43,11 @@ enum class ActionIcon(
     EXPORT("fas fa-file-export"),
     SETTINGS("fas fa-gear"),
     UNDO("fas fa-rotate-left"),
+
+    /**
+     * Welle V1.9.57: "protected" -- a value or an action the peer protection withholds (an administrator's address data, an action against
+     * another administrator that needs the second administrator). It marks the REASON text next to a disabled control and the masked
+     * value; it is never an action of its own and NOT [LOCK] (reserved) or [ACCESS] (who may see an object).
+     */
+    PROTECTED("fas fa-shield-halved"),
 }

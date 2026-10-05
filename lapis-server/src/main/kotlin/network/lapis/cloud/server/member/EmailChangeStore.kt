@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.MemberEmailChangeTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.db.withSavepoint
+import network.lapis.cloud.server.security.forMemberUpdate
 import network.lapis.cloud.shared.domain.EmailChangeKind
 import network.lapis.cloud.shared.domain.EmailChangeStatus
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -75,7 +76,7 @@ internal object EmailChangeStore {
         MemberTable
             .selectAll()
             .where { MemberTable.id eq memberId }
-            .forUpdate()
+            .forMemberUpdate()
             .singleOrNull()
 
     /** The open (PENDING) change of [memberId], locked, or null. Does NOT check the expiry -- callers decide. */

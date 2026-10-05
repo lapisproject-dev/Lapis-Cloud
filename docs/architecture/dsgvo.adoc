@@ -444,6 +444,13 @@ start page, which issues one. Kilua RPC transmits only the exception type, so a 
 * `network.lapis.cloud.server.dsgvo.RegionalChapterPersonalData` — hard-delete-own/anonymize-issued
   contributor for `regional_chapter_officer` (Welle V1.9.13), see
   `docs/architecture/regional-chapters.adoc`.
+* `network.lapis.cloud.server.dsgvo.PrivilegedActionPersonalData` — the contributor for `privileged_action_request` (Welle V1.9.57): the
+  rows in which the subject is the *target* are hard-deleted in every mode, in the rows where the subject was only requester or approver the free-text
+  reason is replaced; the export carries every row the subject is part of, never a token hash. **Erasure of an administrator account:** a request
+  filed by a third party against a current ADMIN is refused, and no erasure is executed while the subject is an ADMIN -- also not on their own request
+  (`DsgvoService.requestErasure` / `executeErasure`, `PeerAction.ERASE`); the account is erased after the demotion (which itself needs a second
+  administrator), because the erasure hard-deletes the account row and no single administrator may decide that for another. See
+  `docs/architecture/admin-peer-protection.adoc`. `ErasureRequestDto.subjectIsAdmin` lets the queue show the execute button disabled with the reason.
 * `docs/architecture/domain-model.adoc` — the wider persistence-model documentation this file
   intentionally does not duplicate (this document is scoped to the DSGVO framework's own shape, not
   the CRM entity's full column-level schema — see `38-crm.kuml.kts` for that).
