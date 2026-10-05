@@ -172,6 +172,10 @@ internal fun electionSecrecyFindings(
         if (fileName != "ElectionResultUi.kt" && Regex("""\bcastAt\b""").containsMatchIn(line)) findings += "$fileName: ${line.trim()}"
         if (fileName in BALLOT_BLIND_FILES && BALLOT_CONTENT.containsMatchIn(line)) findings += "$fileName: ${line.trim()}"
         if (fileName in MERIT_BLIND_FILES && MERIT_CONTENT.containsMatchIn(line)) findings += "$fileName: ${line.trim()}"
+        // V1.9.54 (receipt-freeness): a receipt proves inclusion only. No client file reads the option a receipt check might carry.
+        if (Regex("""\.optionLabel\b|\bdisplayReceiptLabels\b""").containsMatchIn(line)) {
+            findings += "$fileName: reads the option of a receipt (receipt-freeness): ${line.trim()}"
+        }
     }
     if (fileName == "VoteBallotForm.kt") findings += voteBallotFormFindings(text)
     return findings
@@ -317,6 +321,11 @@ class ElectionSecrecyTripwireTest :
             electionSecrecyFindings(fileName = "ElectionBooth.kt", text = "val c = result.receiptCode").size shouldBe 0
             electionSecrecyFindings(fileName = "ConferenceVotePanel.kt", text = " * the receiptCode never reaches this file").size shouldBe
                 0
+            // V1.9.54: the receipt dialog never reads the option of a verification
+            electionSecrecyFindings(fileName = "ElectionResultUi.kt", text = "val label = verification.optionLabel").size shouldBe 1
+            electionSecrecyFindings(fileName = "ElectionResultUi.kt", text = "displayReceiptLabels(e, label)").size shouldBe 1
+            electionSecrecyFindings(fileName = "ElectionResultUi.kt", text = "val shown = verification.counted").size shouldBe 0
+            electionSecrecyFindings(fileName = "ElectionResultUi.kt", text = "// verification.optionLabel").size shouldBe 0
             electionSecrecyFindings(fileName = "X.kt", text = "// console.log(code)").size shouldBe 0
             electionSecrecyFindings(fileName = "X.kt", text = " * localStorage is never used").size shouldBe 0
             electionSecrecyFindings(fileName = "X.kt", text = "notifyError(tr(\"Nicht gefunden.\"))").size shouldBe 0

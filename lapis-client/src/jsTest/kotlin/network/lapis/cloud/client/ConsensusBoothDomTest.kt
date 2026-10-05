@@ -201,7 +201,7 @@ class ConsensusBoothDomTest {
                         val codeBox = el.allOf(".lapis-receipt-code").first()
                         assertEquals(TEST_RECEIPT, codeBox.textContent.orEmpty())
                         assertEquals(7, codeBox.allOf("span").size, "27 characters in groups of four")
-                        assertTrue(el.hasButton("Kopieren") && el.hasButton("Drucken"))
+                        assertTrue(el.hasButton("Code kopieren") && el.hasButton("Drucken"))
                         assertTrue(el.isButtonDisabled("Fertig"))
                         assertFalse(window.location.href.contains(TEST_RECEIPT))
                         assertNoStoredCode()
@@ -279,7 +279,34 @@ class ConsensusBoothDomTest {
                 el.buttonNamed("Prüfen").click()
                 awaitUntil("review", 1500) { el.hasButton("Endgültig abgeben") }
                 el.buttonNamed("Endgültig abgeben").click()
-                awaitUntil("explained", 2000) { el.flatText().contains("Die Bewertung ist geschlossen.") }
+                awaitUntil("explained", 2000) {
+                    el.flatText().contains(
+                        "Ihre Bewertung wurde nicht gezählt: Das Konsensieren ist nicht mehr offen. Die Ansicht wurde aktualisiert.",
+                    )
+                }
+                val alert = el.allOf("[role=alert]").first { it.textContent.orEmpty().contains("nicht gezählt") }
+                assertTrue(alert.className.contains("alert-warning"))
+                kotlinx.coroutines.delay(300)
+                assertTrue(el.allOf("[role=alert]").any { it.textContent.orEmpty().contains("nicht gezählt") }, "the message stays")
+            }
+        }
+
+    @Test
+    fun theReviewStepOfAnAnonymousConsensus_announcesTheReceiptAndWhatItDoesNotShow(): Promise<Unit> =
+        formTest {
+            val world = ConsensusWorld(rating(), skParticipation(hasRated = false, canRate = true))
+            withBooth(world, "sk-booth-receipt-hint") { el, _, _ ->
+                el.rateAll()
+                awaitUntil("enabled", 1500) { !el.isButtonDisabled("Prüfen") }
+                el.buttonNamed("Prüfen").click()
+                awaitUntil("review", 1500) { el.hasButton("Endgültig abgeben") }
+                assertTrue(
+                    el.flatText().contains(
+                        "Nach der Abgabe erhalten Sie einen Quittungscode. Damit können Sie später prüfen, " +
+                            "dass Ihre Bewertung mitgezählt wurde. " +
+                            "Welche Werte Sie vergeben haben, zeigt die Quittung nicht an.",
+                    ),
+                )
             }
         }
 

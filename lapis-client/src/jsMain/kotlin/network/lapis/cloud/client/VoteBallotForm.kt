@@ -12,7 +12,6 @@ import io.kvision.panel.vPanel
 import network.lapis.cloud.shared.domain.VoteBallotDto
 import network.lapis.cloud.shared.domain.VoteBallotInput
 import network.lapis.cloud.shared.domain.VoteDto
-import network.lapis.cloud.shared.rpc.IGovernanceService
 
 /*
  * The bid form of a meritocratic vote. Moved here (V1.9.27) from `MotionsScreen.kt` so ONE small file is the only place that may write a
@@ -59,7 +58,8 @@ internal fun renderBallotForm(
     currentOptionId: String?,
     onChanged: () -> Unit,
     confirm: ((optionLabel: String, stakeText: String, proceed: () -> Unit) -> Unit)? = null,
-    cast: suspend (VoteBallotInput) -> VoteBallotDto? = { input -> guarded { rpcService<IGovernanceService>().castVoteBallot(input) } },
+    onNotCounted: () -> Unit = {},
+    cast: suspend (VoteBallotInput) -> VoteBallotDto? = { input -> castVoteGuarded(input, onNotCounted) },
     createOnly: Boolean = false,
 ): BallotFormHandle {
     val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }

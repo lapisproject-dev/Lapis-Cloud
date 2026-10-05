@@ -353,17 +353,27 @@ internal fun renderMotionSubmissionForm(
                 return@submit
             }
             val title = titleField.value.trim()
+            val input =
+                MotionInput(
+                    targetCommitteeId = targetCommitteeId,
+                    title = title,
+                    rationale = rationaleField.value.trim(),
+                    text = textField.value.trim(),
+                    amendsMotionId = amendsId,
+                )
+            // V1.9.54: the server refuses an amendment while the target's election, vote or consensus runs (same ConflictException type
+            // as every other refusal), so an amendment gets a fixed text naming that likely cause; a new motion keeps the generic path.
             val result =
-                guarded {
-                    rpcService<IGovernanceService>().submitMotion(
-                        MotionInput(
-                            targetCommitteeId = targetCommitteeId,
-                            title = title,
-                            rationale = rationaleField.value.trim(),
-                            text = textField.value.trim(),
-                            amendsMotionId = amendsId,
-                        ),
-                    )
+                if (amendsId != null) {
+                    electionGuarded(
+                        conflictMessage =
+                            tr(
+                                "Zu diesem Antrag läuft gerade eine Wahl, eine Abstimmung oder ein Konsensieren. " +
+                                    "Änderungsanträge sind erst danach wieder möglich.",
+                            ),
+                    ) { rpcService<IGovernanceService>().submitMotion(input) }
+                } else {
+                    guarded { rpcService<IGovernanceService>().submitMotion(input) }
                 }
             if (result != null) {
                 notifySuccess(gettext("Antrag \"%1\" wurde eingereicht.", title))
@@ -434,6 +444,7 @@ private fun renderMotionDetail(
         renderMotionMeta(panel, motion, canManage, isSubmitter, onChanged)
         if (parent != null) renderAmendmentContext(panel, parent, onSelectMotion)
         if (motion.amendsMotionId == null) renderAmendmentsSection(panel, amendments, onSelectMotion)
+        if (RejectedBidNotice.shownFor(votes)) renderRejectedBidNotice(panel)
 
         when (motion.status) {
             MotionStatus.SUBMITTED -> renderReviewSection(panel, motion, canManage, onChanged)
@@ -788,16 +799,37 @@ internal fun renderResolutionSection(
         return
     }
 
-    if (activeVote != null && (activeVote.status == VoteStatus.OPEN || activeVote.status == VoteStatus.CLOSED)) {
+    if (activeVote != null && activeVote.status == VoteStatus.OPEN) {
+        // V1.9.54: the server refuses resolveMotion while a vote is OPEN, so the form is not offered at all.
+        panel
+            .p(
+                tr(
+                    "Zu diesem Antrag läuft noch eine meritokratische Abstimmung. Schließen Sie sie oder brechen Sie sie ab, bevor Sie entscheiden.",
+                ),
+            ) {
+                addCssClasses("alert alert-info mb-0")
+                setAttribute("role", "note")
+            }
+        return
+    }
+    if (activeVote != null && activeVote.status == VoteStatus.CLOSED) {
         panel.p(tr("Es läuft bereits eine meritokratische Vote für diesen Antrag -- siehe Abschnitt \"Vote\" unten."))
         return
     }
 
-    // V1.9.22: a running or finished election already decides this motion -- the two other ways would race it (the server does not
-    // guard the paths against each other), so none of the three is offered, only the way back to the election.
+    // V1.9.22: a running or finished election already decides this motion -- the two other ways would race it, so none of the three is
+    // offered, only the way back to the election. V1.9.54: the server refuses resolveMotion while one runs; while it is still running
+    // the hint says what to do first.
     val runningElection = elections.firstOrNull { it.status != ElectionStatus.ABORTED }
     if (runningElection != null) {
-        panel.p(tr("Zu diesem Antrag läuft eine Wahl.")) { addCssClasses("alert alert-info mb-0") }
+        if (runningElection.status == ElectionStatus.TALLIED) {
+            panel.p(tr("Zu diesem Antrag läuft eine Wahl.")) { addCssClasses("alert alert-info mb-0") }
+        } else {
+            panel.p(tr("Zu diesem Antrag läuft noch eine Wahl. Werten Sie sie aus oder brechen Sie sie ab, bevor Sie entscheiden.")) {
+                addCssClasses("alert alert-info mb-0")
+                setAttribute("role", "note")
+            }
+        }
         panel.button(tr("Zur Wahl"), style = ButtonStyle.PRIMARY).onClick { navigateTo("/elections/${runningElection.id}") }
         return
     }
@@ -836,7 +868,7 @@ internal fun renderCommitteeQuorumResolutionForm(
     resolveButton.onClick {
         form.submit(resolveButton) {
             val result =
-                guarded {
+                motionDecisionGuarded(onConflict = onChanged) {
                     rpcService<IGovernanceService>().resolveMotion(
                         motion.id,
                         MotionResolutionInput(
@@ -978,7 +1010,17 @@ internal fun renderVoteSection(
                 }
             }
             if (isEligibleToBallot) {
-                renderBallotForm(panel, vote.toBallotFormModel(), myBallot?.optionId, onChanged)
+                renderBallotForm(
+                    panel = panel,
+                    model = vote.toBallotFormModel(),
+                    currentOptionId = myBallot?.optionId,
+                    onChanged = onChanged,
+                    onNotCounted = {
+                        // V1.9.54: the vote closed under the bid -- say so lastingly (the reload below rebuilds this view).
+                        RejectedBidNotice.mark(vote.id)
+                        onChanged()
+                    },
+                )
             }
             if (canManage) {
                 renderVoteControls(panel, vote, onChanged)

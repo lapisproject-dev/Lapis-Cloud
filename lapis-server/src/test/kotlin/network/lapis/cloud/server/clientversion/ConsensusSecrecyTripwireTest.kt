@@ -99,6 +99,10 @@ internal fun consensusSecrecyFindings(
         FORBIDDEN_EVERYWHERE.forEach { rule -> if (rule.containsMatchIn(line)) findings += "$fileName: ${line.trim()}" }
         if (fileName in RATING_BLIND_FILES && RATING_CONTENT.containsMatchIn(line)) findings += "$fileName: ${line.trim()}"
         if (fileName == "ConsensusGuard.kt" && Regex("""\breceiptCode\b""").containsMatchIn(line)) findings += "$fileName: ${line.trim()}"
+        // V1.9.54 (receipt-freeness): the receipt dialog proves inclusion only and never reads the ratings a verification might carry.
+        if (fileName == "ConsensusReceipt.kt" && Regex("""\bresistances\b|ReceiptResistanceDto""").containsMatchIn(line)) {
+            findings += "$fileName: reads the ratings of a receipt (receipt-freeness): ${line.trim()}"
+        }
         if (fileName != "ConsensusBooth.kt" && fileName != "ConsensusReceipt.kt" && Regex("""\breceiptCode\b""").containsMatchIn(line)) {
             findings += "$fileName: receiptCode outside booth/receipt: ${line.trim()}"
         }
@@ -265,6 +269,10 @@ class ConsensusSecrecyTripwireTest :
             consensusSecrecyFindings(fileName = "RatingBooth.kt", text = "radio.setAttribute(\"data-v\", \"1\")").size shouldBe 1
             consensusSecrecyFindings(fileName = "RatingBooth.kt", text = "val c = result.receiptCode").size shouldBe 2
             consensusSecrecyFindings(fileName = "RatingBooth.kt", text = "SystemicConsensusBallotInput(a, b)").size shouldBe 1
+            consensusSecrecyFindings(fileName = "ConsensusReceipt.kt", text = "val r = verification.resistances").size shouldBe 1
+            consensusSecrecyFindings(fileName = "ConsensusReceipt.kt", text = "SystemicConsensusReceiptResistanceDto(a)").size shouldBe 1
+            consensusSecrecyFindings(fileName = "ConsensusReceipt.kt", text = "val c = verification.countedInCurrentResult").size shouldBe 0
+            consensusSecrecyFindings(fileName = "ConsensusReceipt.kt", text = "// verification.resistances").size shouldBe 0
             consensusSecrecyFindings(fileName = "X.kt", text = "// console.log(code)").size shouldBe 0
             consensusSecrecyFindings(fileName = "X.kt", text = " * localStorage is never used").size shouldBe 0
             consensusSecrecyFindings(fileName = "X.kt", text = "val consoleLike = 1").size shouldBe 0

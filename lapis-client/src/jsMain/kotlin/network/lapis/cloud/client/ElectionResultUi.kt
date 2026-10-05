@@ -252,7 +252,10 @@ internal fun renderReceiptVerification(
     if (e.status != ElectionStatus.OPEN && e.status != ElectionStatus.CLOSED && e.status != ElectionStatus.TALLIED) return
     panel.h2(tr("Quittung prüfen")) { addCssClass("h5") }
     panel.p(
-        tr("Mit Ihrer Quittung können Sie prüfen, dass Ihre Stimme gezählt wurde, ohne dass jemand erfährt, wie Sie abgestimmt haben."),
+        tr(
+            "Mit Ihrer Quittung prüfen Sie, dass Ihr Stimmzettel angekommen ist und mitgezählt wurde. Wofür Sie gestimmt haben, " +
+                "zeigt die Quittung nicht an, damit niemand eine Stimmabgabe beweisen und dadurch erzwingen oder kaufen kann.",
+        ),
     ) {
         addCssClasses("text-muted small")
     }
@@ -271,7 +274,7 @@ internal fun renderReceiptVerification(
     form.buttons(primary = check)
     val outcome =
         panel.div("") {
-            addCssClasses("fw-bold")
+            addCssClasses("text-body-secondary")
             setAttribute("role", "status")
             setAttribute("aria-live", "polite")
         }
@@ -282,25 +285,15 @@ internal fun renderReceiptVerification(
             val verification = guarded { rpcService<IElectionService>().verifyReceipt(e.id, code) }
             codeField.reset()
             if (verification == null) return@submit
-            val label = verification.optionLabel
+            // V1.9.54 (receipt-freeness): inclusion only. The chosen option is never shown, whatever the server sends.
             val text =
                 when {
-                    !verification.found -> gettext("Zu diesem Code wurde keine Stimme gefunden.")
-                    label == null -> gettext("Ihre Stimme ist gespeichert. Die Auswahl wird erst nach der Auszählung angezeigt.")
-                    else -> gettext("Ihre Stimme ist gespeichert und lautet: %1", displayReceiptLabels(e, label))
+                    !verification.found -> gettext("Zu diesem Code wurde in dieser Wahl kein Stimmzettel gefunden.")
+                    !verification.counted ->
+                        gettext("Ihr Stimmzettel ist angekommen. Nach der Auszählung können Sie hier prüfen, ob er mitgezählt wurde.")
+                    else -> gettext("Ihr Stimmzettel wurde bei der Auszählung mitgezählt.")
                 }
-            untrustedContent(outcome, text)
+            outcome.content = text
         }
     }
 }
-
-/** The label(s) of a verified receipt: the server joins several selections with ", "; a yes/no label is one of the three enum names. */
-private fun displayReceiptLabels(
-    e: ElectionDto,
-    raw: String,
-): String =
-    if (e.electionType == ElectionType.YES_NO) {
-        raw.split(", ").joinToString(", ") { displayOptionLabel(e, it) }
-    } else {
-        sanitizeUntrustedI18nText(raw)
-    }

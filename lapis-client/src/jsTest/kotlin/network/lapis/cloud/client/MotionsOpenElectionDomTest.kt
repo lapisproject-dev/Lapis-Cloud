@@ -111,11 +111,49 @@ class MotionsOpenElectionDomTest {
                     committees = committees,
                 )
                 val el = element()
-                assertTrue(el.flatText().contains("Zu diesem Antrag läuft eine Wahl."))
+                // V1.9.54: while it runs the hint says what to do first, as a note
+                assertTrue(
+                    el.flatText().contains(
+                        "Zu diesem Antrag läuft noch eine Wahl. Werten Sie sie aus oder brechen Sie sie ab, bevor Sie entscheiden.",
+                    ),
+                )
+                assertEquals(1, el.allOf("[role=note]").size)
                 assertTrue(el.hasButton("Zur Wahl"))
                 assertFalse(el.hasButton("Wahl eröffnen"))
                 assertFalse(el.hasButton("Entscheidung speichern"), "the quorum path would race the election")
                 assertFalse(el.hasButton("Vote eröffnen"), "the meritocratic path would race the election")
+            }
+            listOf(ElectionStatus.PREPARATION, ElectionStatus.CANDIDATE_LIST_RELEASED, ElectionStatus.CLOSED).forEach { status ->
+                mountedForm("motion-election-running-$status") { root, element ->
+                    renderResolutionSection(
+                        panel = root,
+                        motion = motionDto(),
+                        pendingAmendments = emptyList(),
+                        canManage = true,
+                        activeVote = null,
+                        onSelectMotion = {},
+                        onChanged = {},
+                        elections = listOf(election(status = status)),
+                        committees = committees,
+                    )
+                    assertTrue(element().flatText().contains("Zu diesem Antrag läuft noch eine Wahl."), "$status")
+                    assertFalse(element().hasButton("Entscheidung speichern"), "$status")
+                }
+            }
+            mountedForm("motion-election-tallied") { root, element ->
+                renderResolutionSection(
+                    panel = root,
+                    motion = motionDto(),
+                    pendingAmendments = emptyList(),
+                    canManage = true,
+                    activeVote = null,
+                    onSelectMotion = {},
+                    onChanged = {},
+                    elections = listOf(election(status = ElectionStatus.TALLIED)),
+                    committees = committees,
+                )
+                assertTrue(element().flatText().contains("Zu diesem Antrag läuft eine Wahl."), "a tallied election keeps its old text")
+                assertEquals(0, element().allOf("[role=note]").size)
             }
             mountedForm("motion-election-aborted-only") { root, element ->
                 renderResolutionSection(
@@ -149,8 +187,35 @@ class MotionsOpenElectionDomTest {
                     elections = emptyList(),
                     committees = committees,
                 )
-                assertTrue(element().flatText().contains("Es läuft bereits eine meritokratische Vote"))
+                // V1.9.54: an OPEN vote blocks resolveMotion on the server, so the form is not offered; the hint says what to do first
+                assertTrue(
+                    element().flatText().contains(
+                        "Zu diesem Antrag läuft noch eine meritokratische Abstimmung. Schließen Sie sie oder brechen Sie sie ab, bevor Sie entscheiden.",
+                    ),
+                )
+                assertEquals(1, element().allOf("[role=note]").size)
                 assertFalse(element().hasButton("Wahl eröffnen"))
+                assertFalse(element().hasButton("Entscheidung speichern"))
+            }
+        }
+
+    @Test
+    fun aClosedMeritocraticVote_keepsTheOldHint(): Promise<Unit> =
+        formTest {
+            mountedForm("motion-election-vote-closed") { root, element ->
+                renderResolutionSection(
+                    panel = root,
+                    motion = motionDto(),
+                    pendingAmendments = emptyList(),
+                    canManage = true,
+                    activeVote = runningVote().copy(status = VoteStatus.CLOSED),
+                    onSelectMotion = {},
+                    onChanged = {},
+                    elections = emptyList(),
+                    committees = committees,
+                )
+                assertTrue(element().flatText().contains("Es läuft bereits eine meritokratische Vote"))
+                assertEquals(0, element().allOf("[role=note]").size)
             }
         }
 

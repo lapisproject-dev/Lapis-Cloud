@@ -5,15 +5,12 @@ import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusBallotTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusEligibleVoterTable
-import network.lapis.cloud.server.db.generated.SystemicConsensusOptionTable
-import network.lapis.cloud.server.db.generated.SystemicConsensusResistanceTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.canManageSystemicConsensus
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.SystemicConsensusParticipationDto
-import network.lapis.cloud.shared.domain.SystemicConsensusReceiptResistanceDto
 import network.lapis.cloud.shared.domain.SystemicConsensusReceiptVerificationDto
 import network.lapis.cloud.shared.domain.SystemicConsensusResultDto
 import network.lapis.cloud.shared.domain.SystemicConsensusStatus
@@ -121,7 +118,7 @@ internal object SystemicConsensusReads {
         if (!RECEIPT_CODE_FORMAT.matches(receiptCode)) return notFound
         val ballot =
             SystemicConsensusBallotTable
-                .selectAll()
+                .select(SystemicConsensusBallotTable.id, SystemicConsensusBallotTable.round)
                 .where {
                     (SystemicConsensusBallotTable.systemicConsensusId eq kId) and
                         (SystemicConsensusBallotTable.receiptCode eq receiptCode)
@@ -130,34 +127,11 @@ internal object SystemicConsensusReads {
         val ballotRound = ballot[SystemicConsensusBallotTable.round]
         val counted =
             ballotRound == row[SystemicConsensusTable.round] && row[SystemicConsensusTable.status] == SystemicConsensusStatus.EVALUATED
-        val resistances =
-            if (counted) {
-                val optionById =
-                    SystemicConsensusOptionTable
-                        .selectAll()
-                        .where { SystemicConsensusOptionTable.systemicConsensusId eq kId }
-                        .associateBy { it[SystemicConsensusOptionTable.id] }
-                SystemicConsensusResistanceTable
-                    .selectAll()
-                    .where { SystemicConsensusResistanceTable.ballotId eq ballot[SystemicConsensusBallotTable.id] }
-                    .mapNotNull { r ->
-                        val option = optionById[r[SystemicConsensusResistanceTable.optionId]] ?: return@mapNotNull null
-                        SystemicConsensusReceiptResistanceDto(
-                            optionId = option[SystemicConsensusOptionTable.id].toString(),
-                            isStatusQuoOption = option[SystemicConsensusOptionTable.isStatusQuoOption],
-                            label = option[SystemicConsensusOptionTable.label],
-                            resistance = r[SystemicConsensusResistanceTable.resistanceValue],
-                        ) to option[SystemicConsensusOptionTable.position]
-                    }.sortedBy { it.second }
-                    .map { it.first }
-            } else {
-                null
-            }
         return SystemicConsensusReceiptVerificationDto(
             found = true,
             round = ballotRound,
             countedInCurrentResult = counted,
-            resistances = resistances,
+            resistances = null,
         )
     }
 

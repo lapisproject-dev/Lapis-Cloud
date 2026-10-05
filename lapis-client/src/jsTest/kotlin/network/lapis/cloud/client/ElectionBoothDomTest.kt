@@ -151,6 +151,32 @@ class ElectionBoothDomTest {
             }
         }
 
+    // ── receipt hint before the cast (V1.9.54) ────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun theReviewStepOfASecretElection_announcesTheReceiptAndWhatItDoesNotShow_anOpenOneDoesNot(): Promise<Unit> =
+        formTest {
+            val secret = ElectionWorld(election(type = ElectionType.YES_NO, status = ElectionStatus.OPEN, secret = true))
+            withBooth(secret, "booth-hint-secret") { el, _, _ ->
+                el.chooseTile("Ja")
+                el.buttonNamed("Weiter zur Prüfung").click()
+                awaitUntil("review", 1500) { el.hasButton("Stimme endgültig abgeben") }
+                assertTrue(
+                    el.flatText().contains(
+                        "Nach der Abgabe erhalten Sie einen Quittungscode. Damit können Sie später prüfen, dass Ihr Stimmzettel " +
+                            "mitgezählt wurde. Ihre Auswahl zeigt die Quittung nicht an.",
+                    ),
+                )
+            }
+            val open = ElectionWorld(election(type = ElectionType.YES_NO, status = ElectionStatus.OPEN, secret = false))
+            withBooth(open, "booth-hint-open") { el, _, _ ->
+                el.chooseTile("Ja")
+                el.buttonNamed("Weiter zur Prüfung").click()
+                awaitUntil("review", 1500) { el.hasButton("Stimme endgültig abgeben") }
+                assertFalse(el.flatText().contains("Quittungscode"))
+            }
+        }
+
     // ── single shot ───────────────────────────────────────────────────────────────────────────────────────────────
 
     @Test
@@ -187,9 +213,21 @@ class ElectionBoothDomTest {
                         assertEquals(TEST_RECEIPT, codeBox.textContent.orEmpty(), "the code is drawn character by character, unchanged")
                         assertEquals(7, codeBox.allOf("span").size, "27 characters in groups of four")
                         assertTrue(el.flatText().contains("Sie wird nur jetzt angezeigt und nirgends gespeichert."))
-                        assertTrue(el.hasButton("Kopieren") && el.hasButton("Drucken"))
+                        assertTrue(el.hasButton("Code kopieren") && el.hasButton("Drucken"))
+                        assertTrue(
+                            el.flatText().contains("dass Ihr Stimmzettel mitgezählt wurde."),
+                            "the card promises inclusion, not content",
+                        )
+                        assertFalse(el.flatText().contains("Ihre Stimme wurde mit"), "and says nothing about the choice")
                         // V1.9.23: a secret ballot carries no time of any kind, so the confirmation must not show one either.
                         assertFalse(Regex("""\b\d{1,2}:\d{2}\b""").containsMatchIn(el.flatText()), "no clock time on the receipt screen")
+                        // V1.9.54: nor on the print twin, and no running number
+                        val twin = el.allOf(".lapis-receipt-print").first()
+                        assertFalse(Regex("""\b\d{1,2}:\d{2}\b""").containsMatchIn(twin.flatText()), "no clock time on the print twin")
+                        assertFalse(
+                            Regex("""\b(nr|nummer|no)\.?\s*\d+""", RegexOption.IGNORE_CASE).containsMatchIn(el.flatText()),
+                            "no running number on the receipt",
+                        )
                         assertTrue(el.isButtonDisabled("Fertig"), "done is disabled until the member confirms having noted the receipt")
                         assertFalse(window.location.href.contains(TEST_RECEIPT))
                         assertNoStoredCode()
@@ -316,7 +354,19 @@ class ElectionBoothDomTest {
                 el.chooseTile("Ja")
                 world.election = election(type = ElectionType.YES_NO, status = ElectionStatus.CLOSED)
                 el.castNow()
-                awaitUntil("explained", 2000) { el.flatText().contains("Die Abstimmung ist nicht mehr offen.") }
+                awaitUntil("explained", 2000) {
+                    el.flatText().contains(
+                        "Ihre Stimme wurde nicht gezählt: Die Wahl ist nicht mehr offen. Die Ansicht wurde aktualisiert.",
+                    )
+                }
+                // V1.9.54: an explicit, lasting "not counted" -- a warning with role=alert, no way to vote again
+                val alert = el.allOf("[role=alert]").first { it.textContent.orEmpty().contains("nicht gezählt") }
+                assertTrue(alert.className.contains("alert-warning"))
+                assertFalse(el.hasButton("Erneut abstimmen"), "a closed election offers no second try")
+                assertTrue(el.hasButton("Zurück zur Wahl"))
+                // it stays: nothing re-renders the booth by itself
+                kotlinx.coroutines.delay(300)
+                assertTrue(el.allOf("[role=alert]").any { it.textContent.orEmpty().contains("nicht gezählt") })
             }
         }
 

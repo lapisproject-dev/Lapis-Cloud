@@ -36,9 +36,11 @@ selects (H2 rejects it on joins). The helpers are in `MotionDecisionLock.kt`.
 |===
 | While ... exists | election | vote | systemic consensus | quorum resolution
 | an election (`election.active_motion_id`): any non-`ABORTED` one blocks `openElection` (unique index); only a running one (`PREPARATION` to `CLOSED`, not `TALLIED`) blocks the other paths | `openElection` refused | `openVote`, `closeVote` refused while running | `openSystemicConsensus`, `evaluate` refused while running | `resolveMotion`, `withdrawMotion`, `recordResolution` (agenda item) refused while running
-| a vote that is `OPEN` or `CLOSED` | `openElection` refused | -- | `openSystemicConsensus` refused | allowed (see follow-ups)
-| a systemic consensus that is not `ABORTED` | `openElection` refused | `openVote` refused | -- | allowed (see follow-ups)
+| a vote that is `OPEN` or `CLOSED` | `openElection` refused | -- | `openSystemicConsensus` refused | `resolveMotion` refused while the vote is `OPEN` (V1.9.54); a `CLOSED` one does not block (a tied, re-scheduled motion stays decidable)
+| a systemic consensus that is not `ABORTED` | `openElection` refused | `openVote` refused | -- | `resolveMotion` refused while it runs (`COLLECTION`, `RATING`, `CLOSED`, advisory or binding, V1.9.54); `EVALUATED` does not block
 |===
+
+V1.9.54: `MotionDecisionLock.requireNoRunningDecisionPath` is the complete exclusion used by `resolveMotion` and by `submitMotion` for an amendment.
 
 Also while an election runs: `withdrawMotion` is refused (the election would become untallable -- abort it first), and `tally`,
 `closeVote` and a binding `evaluate` additionally require the *locked* motion row to still be `SCHEDULED`.
@@ -148,9 +150,7 @@ role. It is the same rule as for an anonymous consensus (V1.9.44), expressed onc
 Residual risks, recorded and not changed in this wave:
 
 * *Small elections.* Resolved in V1.9.53: see "Minimum participation (V1.9.53)" below. The residual risks of that wave are listed there.
-* *Receipt as proof.* `verifyReceipt` returns the option label of the ballot to whoever holds the receipt code, from `TALLIED`. A voter can therefore prove
-  to a third party how they voted (vote buying, coercion); the election is not receipt-free. Left unchanged by decision; a later option is a check that
-  reports only `found` / `counted` without the label.
+* *Receipt as proof.* Resolved in V1.9.54: see "Receipt-freeness (V1.9.54)" below.
 
 == Minimum participation (V1.9.53)
 
@@ -198,7 +198,7 @@ exists), and has no figure, no bar and no `aria-valuenow`. A yes/no election sho
   vote is known. Five is a deliberately small constant shared with polls.
 * *E2, small groups.* Five ballots can still be five identifiable people; the rule hides the figures, not the group size (`ballotCount` stays visible).
 * *E3, the verdict leaks a bound.* "Majority reached" for a yes/no election below five ballots tells that more than half of the yes/no votes were yes.
-* *E4, receipt as proof.* `verifyReceipt` still returns the own option label (unchanged, see above).
+* *E4, receipt as proof.* Resolved in V1.9.54 (see "Receipt-freeness (V1.9.54)").
 * *E5, database and backups.* The tables `election_ballot_selection` and `resolution` still hold the real figures (a Legacy resolution row also keeps its stored numbers; only the
   delivery is masked). Whoever has database access sees them.
 * *E6, audit hash and masked entries.* Entries written before V1.9.53 are masked when read, so the delivered `afterSnapshot` no longer matches the stored `entryHash`
@@ -210,13 +210,44 @@ exists), and has no figure, no bar and no `aria-valuenow`. A yes/no election sho
 * *E7, organisation export.* The complete organisation export (`OrganizationExportService`, ADMIN only, database dump) contains `resolution`, `audit_log_entry` and
   `election_ballot*` unmasked: it must stay lossless and restorable (right to secede), the same level as database access.
 
+== Receipt-freeness (V1.9.54)
+
+A receipt of a secret election, and of an anonymous systemic consensus, proves *inclusion only*: `ReceiptVerificationDto.found` (a ballot with this code exists in this
+election) and `counted` (it was part of the tally, i.e. the election is `TALLIED`). `optionLabel` is `null` for a secret election in every status; the anonymous consensus
+check never returns `resistances`. Otherwise a receipt would be transferable proof of how someone voted, which allows coercion and vote buying.
+
+*The price, stated plainly:* nobody can any more check individually that their own option stands in the result as chosen. That stays trust in the server and the election
+board. This is not cryptographic end-to-end verifiability and adds no cryptography.
+
+* `rpc/ElectionReceiptCheck.kt` is the only place that evaluates an election receipt. It checks the format (27 Base64url characters; an ill-formed and an unknown code are
+  both just `found = false`, so no oracle), selects the ballot *id only*, and for a secret election never reads a selection or option row (gate before read). An open election
+  keeps its labels after `TALLIED`.
+* The token is 160 random bits with no time and no running number, and is not kept in memory, logs or the audit trail (pinned by `ReceiptFreenessTest` and
+  `ServerReceiptFreenessTripwireTest`). The anonymous consensus' cast result no longer carries the ballot id either.
+* `counted` is exact: the tally reads every ballot row of the election and drops none.
+* Residual risks: (1) `receipt_code` sits in the database next to the ballot and its selections; whoever has database access and a code can look the option up (hashing would not
+  help, the known code can be hashed too) -- this belongs to E5. (2) `cast_at` of an anonymous consensus ballot is coarsened to the day, not constant as for elections; it is only
+  stored, never delivered. (3) Coercion by watching the cast is outside the system. (4) A unanimous result reveals everything (E1).
+
+== Races closed (V1.9.54)
+
+* `castVoteBallot` locks the `vote` row `FOR UPDATE` before its status check and before `lockForDebit` (order: vote, then member; `closeVote`/`abortVote` lock motion, vote,
+  and never a member). A bid either commits before the close reads the ballots and is settled, or it sees `CLOSED` and is refused. Before, a bid could land after the close
+  and leave an unsettled ballot and a never-settled `VOTE_STAKE` debit.
+* `castResistanceBallot`, `closeRating`, `reopenRating`, `freezeOptions` and `abortSystemicConsensus` lock the consensus row (as `evaluate` already did), so a rating can never
+  land after the rating was closed, aborted or evaluated. All ratings of one consensus now run one after another over that lock (as ballots of an election since V1.9.23).
+* `castElectionBallot` was already safe (`lockElectionRow` before its status check); now proven deterministically.
+* Amendments: `submitMotion` refuses an amendment while the target's election, vote or consensus runs, and `openElection`, `openVote` and a binding `openSystemicConsensus`
+  refuse a main motion with a pending amendment. A running path of a main motion therefore never has a pending amendment. `resolveMotion` additionally locks the target of an
+  adopted amendment (ascending id order) and refuses while it runs. *Limit:* paths that were already running with pending amendments before this change stay as they were
+  (the tally refuses until the amendment is withdrawn or decided); there is no data migration. Operators: withdraw the amendment or abort the decision path.
+
 == Known limitations and follow-ups
 
-* `resolveMotion` is not refused while a meritocratic vote or a systemic consensus is open (only the election blocks it). That would
-  change existing behaviour and is a separate decision.
+* `recordResolution` (free-form resolution of an agenda item) and `withdrawMotion` still check only the election, not a vote or a consensus; `resolveMotion` is covered since V1.9.54.
 * Specific conflict codes in the RPC (today every refusal is a `ConflictException`).
 * Who released the tally is visible only as a count.
 * The concurrency tests run on H2 AND, since V1.9.37, on a real PostgreSQL (the Postgres test lane, link:postgres-test-lane.adoc[postgres-test-lane.adoc]);
   the lock order of this document is measured there, including all decision paths racing on one motion.
-* `castVoteBallot` and `castResistanceBallot` have their own races against closing; they are outside this wave.
-* Amendments to a motion that has a running election.
+* `addOption`/`removeOption` of a consensus take no row lock against a concurrent `freezeOptions` (only `setOptionRationale` does).
+* The client also hides the quorum form for a `TALLIED` election and a `CLOSED` vote, although the server allows it for a tied, re-scheduled motion.

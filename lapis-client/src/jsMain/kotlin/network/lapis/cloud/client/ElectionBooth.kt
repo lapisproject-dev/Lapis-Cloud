@@ -272,6 +272,14 @@ private class ElectionBooth(
             }
         lines.forEach { line -> booth.div(line) { addCssClasses("lapis-booth-review fw-bold") } }
         booth.p(tr("Nach der Abgabe kann Ihre Stimme nicht mehr geändert werden.")) { addCssClasses("text-muted mb-0") }
+        if (election.secret) {
+            booth.p(
+                tr(
+                    "Nach der Abgabe erhalten Sie einen Quittungscode. Damit können Sie später prüfen, dass Ihr Stimmzettel " +
+                        "mitgezählt wurde. Ihre Auswahl zeigt die Quittung nicht an.",
+                ),
+            ) { addCssClasses("text-muted mb-0") }
+        }
         val row = booth.hPanel(spacing = 8)
         val back = newActionButton(ActionIcon.BACK, tr("Zurück"), ButtonStyle.OUTLINESECONDARY)
         val cast = Button(tr("Stimme endgültig abgeben"), style = ButtonStyle.PRIMARY)
@@ -398,7 +406,12 @@ private class ElectionBooth(
                     ),
                 )
             current != null && current.status != ElectionStatus.OPEN ->
-                showTerminal(tr("Abstimmung beendet"), tr("Die Abstimmung ist nicht mehr offen."))
+                // V1.9.54: an explicit, lasting "not counted" -- never leave the member guessing whether the vote counted.
+                showTerminal(
+                    tr("Stimme nicht gezählt"),
+                    tr("Ihre Stimme wurde nicht gezählt: Die Wahl ist nicht mehr offen. Die Ansicht wurde aktualisiert."),
+                    alert = true,
+                )
             else ->
                 showTerminal(
                     tr("Stimmabgabe gerade nicht möglich"),
@@ -415,10 +428,16 @@ private class ElectionBooth(
         title: String,
         text: String,
         retry: Boolean = false,
+        alert: Boolean = false,
     ) {
         val booth = fresh()
         booth.h2(title) { addCssClass("h5") }
-        booth.p(text)
+        booth.p(text) {
+            if (alert) {
+                addCssClasses("alert alert-warning mb-0")
+                setAttribute("role", "alert")
+            }
+        }
         val row = booth.hPanel(spacing = 8)
         row.button(tr("Zurück zur Wahl"), style = ButtonStyle.OUTLINESECONDARY).onClick { exit(true) }
         if (retry) row.button(tr("Erneut abstimmen"), style = ButtonStyle.PRIMARY).onClick { showSelect() }
@@ -447,7 +466,7 @@ private class ElectionBooth(
         booth.p(
             tr(
                 "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. " +
-                    "Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Stimme gezählt wurde.",
+                    "Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihr Stimmzettel mitgezählt wurde.",
             ),
         ) { addCssClasses("alert alert-warning mb-0") }
         var raw: String? = code
@@ -468,7 +487,7 @@ private class ElectionBooth(
                 setAttribute("aria-live", "polite")
             }
         val actions = booth.hPanel(spacing = 8)
-        val copy = actions.actionButton(ActionIcon.COPY, tr("Kopieren"), style = ButtonStyle.OUTLINESECONDARY)
+        val copy = actions.actionButton(ActionIcon.COPY, tr("Code kopieren"), style = ButtonStyle.OUTLINESECONDARY)
         val print = actions.actionButton(ActionIcon.PRINT, tr("Drucken"), style = ButtonStyle.OUTLINESECONDARY)
         copy.onClick {
             val failed = gettext("Kopieren nicht möglich. Bitte schreiben Sie den Code ab.")

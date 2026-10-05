@@ -37,7 +37,7 @@ enum class ElectionAnswer { YES, NO, ABSTAIN }
  * `releaseCandidateList` from the approved Candidacies). [voteCount] is always `0` while the
  * Election has not reached [ElectionStatus.TALLIED] -- exposing a live running count while voting is
  * still open would leak a partial tally and undermine ballot secrecy, the same reasoning behind
- * [ReceiptVerificationDto.optionLabel] staying `null` before the tally runs.
+ * [ReceiptVerificationDto.optionLabel] staying `null`.
  *
  * V1.9.53: for a secret election with fewer than [DisclosureRules.MIN_ANONYMOUS_RESPONSES] ballots
  * [voteCount] is always `0` and [ElectionDto.figuresWithheld] is set -- never evaluate it without that flag.
@@ -212,15 +212,24 @@ data class ElectionResultDto(
 )
 
 /**
- * [optionLabel] is `null` until the Election reaches [ElectionStatus.TALLIED], even when [found] is
- * `true` -- returning a partial tally result to a receipt holder while voting is still open (or
- * closed but not yet counted) would leak information no other caller can see, defeating the point
- * of holding vote-counts back until the tally (see [ElectionOptionDto.voteCount] KDoc).
+ * Result of checking a receipt code (V1.9.54: receipt-freeness).
+ *
+ * A receipt proves **inclusion only**: [found] says the ballot with this code exists in this election, [counted]
+ * says it was part of the tally (`found` and the election is TALLIED). It never proves the **content** of the
+ * ballot: [optionLabel] is **always `null` for a secret election**, in every status. Otherwise a receipt would be
+ * transferable proof of how someone voted, which makes coercion and vote buying possible.
+ *
+ * The price of this: nobody can check individually that their own option stands in the result as chosen; that
+ * stays trust in the server and the election board (see `elections-integrity.adoc`). For an open (non-secret)
+ * election the labels are still returned after TALLIED, as before -- there the ballot is public anyway.
  */
 @Serializable
 data class ReceiptVerificationDto(
     val found: Boolean,
+    /** Secret election: ALWAYS `null` (V1.9.54). Open election: the label(s) after TALLIED. */
     val optionLabel: String?,
+    /** `found` and the election is TALLIED: this ballot was part of the tally (inclusion only, never its content). */
+    val counted: Boolean = false,
 )
 
 /**

@@ -707,9 +707,10 @@ class ElectionDetailDomTest {
                     result = ElectionResultDto("e1", listOf("o-yes"), false, true, mapOf("o-yes" to 1, "o-no" to 0, "o-abstain" to 0)),
                 )
             val routes = electionRoutes()
+            // V1.9.54 (receipt-freeness) tamper case: even a server that sends the option of a secret election must not get it shown anywhere.
             world.verification =
                 network.lapis.cloud.shared.domain
-                    .ReceiptVerificationDto(found = true, optionLabel = "YES")
+                    .ReceiptVerificationDto(found = true, optionLabel = "Kandidat-ZX9Q", counted = true)
             withConsoleSpy { consoleCalls ->
                 withDetail(world, member, "el-receipt-check") { el, calls, _ ->
                     el.typeInto("Quittungscode", "  Abc1 23_-  Abc123_- Abc123_-Abc ")
@@ -718,7 +719,14 @@ class ElectionDetailDomTest {
                     val call = calls.singleCall(routes.verify)
                     assertEquals("e1", call.rpcParam(0) as String)
                     assertEquals(TEST_RECEIPT, call.rpcParam(1) as String, "whitespace is stripped before the request")
-                    awaitUntil("outcome shown", 1500) { el.flatText().contains("Ihre Stimme ist gespeichert und lautet: Ja") }
+                    awaitUntil("outcome shown", 1500) { el.flatText().contains("Ihr Stimmzettel wurde bei der Auszählung mitgezählt.") }
+                    assertFalse(el.flatText().contains("ZX9Q"), "the option of a secret election is never shown")
+                    assertFalse(
+                        el.innerHTML.contains("ZX9Q"),
+                        "the option is in no text node and in no attribute (title, aria-*, data-*, value)",
+                    )
+                    assertFalse(el.flatText().contains("lautet"), "no sentence names the choice")
+                    assertFalse(storedAnywhere("ZX9Q"), "the option is not stored in local or session storage")
                     assertEquals("", (el.controlOf("Quittungscode") as HTMLInputElement).value, "the field is cleared after the check")
                     assertFalse(el.innerHTML.contains(TEST_RECEIPT), "the code is not echoed anywhere")
                     assertFalse(
@@ -742,16 +750,44 @@ class ElectionDetailDomTest {
             withDetail(world, member, "el-receipt-missing") { el, calls, _ ->
                 el.typeInto("Quittungscode", TEST_RECEIPT)
                 el.buttonNamed("Prüfen").click()
-                awaitUntil("not found", 1500) { el.flatText().contains("Zu diesem Code wurde keine Stimme gefunden.") }
+                assertTrue(
+                    el.flatText().contains(
+                        "Mit Ihrer Quittung prüfen Sie, dass Ihr Stimmzettel angekommen ist " +
+                            "und mitgezählt wurde. Wofür Sie gestimmt haben, " +
+                            "zeigt die Quittung nicht an, damit niemand eine Stimmabgabe beweisen und dadurch erzwingen oder kaufen kann.",
+                    ),
+                    "the dialog explains what a receipt proves and what it does not",
+                )
+                awaitUntil("not found", 1500) { el.flatText().contains("Zu diesem Code wurde in dieser Wahl kein Stimmzettel gefunden.") }
                 world.verification =
                     network.lapis.cloud.shared.domain
-                        .ReceiptVerificationDto(found = true, optionLabel = null)
+                        .ReceiptVerificationDto(found = true, optionLabel = null, counted = false)
                 el.typeInto("Quittungscode", TEST_RECEIPT)
                 el.buttonNamed("Prüfen").click()
                 awaitUntil("before tally", 1500) {
-                    el.flatText().contains("Ihre Stimme ist gespeichert. Die Auswahl wird erst nach der Auszählung angezeigt.")
+                    el.flatText().contains(
+                        "Ihr Stimmzettel ist angekommen. Nach der Auszählung können Sie hier prüfen, ob er mitgezählt wurde.",
+                    )
                 }
-                assertEquals(2, calls.toRoute(routes.verify).size)
+                world.verification =
+                    network.lapis.cloud.shared.domain
+                        .ReceiptVerificationDto(found = true, optionLabel = null, counted = true)
+                el.typeInto("Quittungscode", TEST_RECEIPT)
+                el.buttonNamed("Prüfen").click()
+                awaitUntil("counted", 1500) { el.flatText().contains("Ihr Stimmzettel wurde bei der Auszählung mitgezählt.") }
+                assertEquals(3, calls.toRoute(routes.verify).size)
+                // a neutral, polite status: not a success colour, not bold, not an alert
+                val status =
+                    el.allOf("[role=status]").first {
+                        it.getAttribute("aria-live") == "polite" &&
+                            it.textContent.orEmpty().contains("mitgezählt")
+                    }
+                assertFalse(
+                    status.className.contains("text-success") ||
+                        status.className.contains("alert-success") ||
+                        status.className.contains("fw-bold"),
+                )
+                assertEquals("", (el.controlOf("Quittungscode") as HTMLInputElement).value, "the field is empty after every check")
             }
             val open = ElectionWorld(election(status = ElectionStatus.OPEN, secret = false), participation(eligible = false))
             withDetail(open, member, "el-receipt-open-election") { el, _, _ ->

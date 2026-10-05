@@ -129,6 +129,11 @@ The outcomes:
 
 == Receipt handling
 
+V1.9.54 (receipt-freeness): the receipt proves inclusion only. The check dialog says "Mit Ihrer Quittung prüfen Sie, dass Ihr Stimmzettel angekommen ist und mitgezählt wurde ..." and
+answers with one of three neutral texts (not found, arrived and not yet counted, counted); the answer is a `role="status"` polite region without a success colour, and the option
+is never shown. The review step of a secret election announces the receipt before the cast; the receipt card has no time and no running number, and its button reads "Code kopieren".
+A conflict because the election is no longer open ends in a lasting `role="alert"` warning "Ihre Stimme wurde nicht gezählt ...", with no second try.
+
 The receipt code is 20 random bytes as unpadded Base64url: exactly 27 characters of `[A-Za-z0-9_-]`.
 
 * It is checked against that exact alphabet before it is drawn. A code that does not match is never drawn.
@@ -192,6 +197,6 @@ aktualisiert."), never the server's message, and reloads the motion or the elect
 . Expected everywhere: heading "Stimmzettel", the count line, the sentence about the ballot secrecy, *no table*, and in the browser network tab *no*
   `listElectionBallots` request. "Quittung prüfen" directly below.
 . Call `listElectionBallots` by hand (devtools RPC or a test client) for each of them: `[]`.
-. Enter a receipt code after `TALLIED`: the check still works (found, option label), the result counts are unchanged.
+. Enter a receipt code after `TALLIED`: the check says the ballot arrived and was counted, and never shows the option (V1.9.54); the result counts are unchanged.
 . An open-ballot election after `TALLIED` shows its named table as before.
 . The conference room panel with a secret election: no option label of the own choice, no ballot table, no receipt code outside the booth.

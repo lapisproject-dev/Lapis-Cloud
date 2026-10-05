@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.rpc
 
+import io.kotest.assertions.withClue
 import io.kotest.core.annotation.EnabledIf
 import io.kotest.core.annotation.Tags
 import io.kotest.core.spec.style.FunSpec
@@ -25,6 +26,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.conference.NoOpSecretBallotStreamGuard
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
@@ -42,14 +44,19 @@ import network.lapis.cloud.server.db.generated.ElectionOptionTable
 import network.lapis.cloud.server.db.generated.ElectionParticipationTable
 import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.db.generated.ElectionTallyApprovalTable
+import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusBallotTable
+import network.lapis.cloud.server.db.generated.SystemicConsensusEligibleVoterTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusOptionTable
+import network.lapis.cloud.server.db.generated.SystemicConsensusParticipationTable
+import network.lapis.cloud.server.db.generated.SystemicConsensusResistanceTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusTable
 import network.lapis.cloud.server.db.generated.TransparenzregisterReminderTable
+import network.lapis.cloud.server.db.generated.VoteBallotTable
 import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.testdb.PostgresConfigured
@@ -64,16 +71,20 @@ import network.lapis.cloud.shared.domain.ElectionBallotInput
 import network.lapis.cloud.shared.domain.ElectionOpenInput
 import network.lapis.cloud.shared.domain.ElectionStatus
 import network.lapis.cloud.shared.domain.ElectionType
+import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.MeetingFormat
 import network.lapis.cloud.shared.domain.MeetingStatus
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.MotionInput
 import network.lapis.cloud.shared.domain.MotionResolutionInput
 import network.lapis.cloud.shared.domain.MotionStatus
 import network.lapis.cloud.shared.domain.ResolutionInput
 import network.lapis.cloud.shared.domain.ResolutionStatus
+import network.lapis.cloud.shared.domain.SystemicConsensusBallotInput
 import network.lapis.cloud.shared.domain.SystemicConsensusBindingness
 import network.lapis.cloud.shared.domain.SystemicConsensusOpenInput
 import network.lapis.cloud.shared.domain.SystemicConsensusStatus
+import network.lapis.cloud.shared.domain.VoteBallotInput
 import network.lapis.cloud.shared.domain.VoteOpenInput
 import network.lapis.cloud.shared.domain.VoteStatus
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -588,11 +599,11 @@ abstract class ElectionIntegrityScenarios(
                     .get("/test/election-result/$electionId") { header("X-Member-Id", f.chair.toString()) }
                     .bodyAsText()
                     .substringAfterLast(":") shouldBe ""
-                // and the voter can still check their own ballot with the receipt
+                // and the voter can still check that their ballot was counted with the receipt (never what it contained, V1.9.54)
                 val code = receipt.substringAfterLast(":").trim()
                 client
                     .get("/test/verify-receipt/$electionId?receiptCode=$code") { header("X-Member-Id", f.voters[0].toString()) }
-                    .bodyAsText() shouldBe "true:NO"
+                    .bodyAsText() shouldBe "true::true"
             }
         }
 
@@ -1042,6 +1053,725 @@ abstract class ElectionIntegrityScenarios(
                 }
             }
         }
+
+        // ------------------------------------------------------------------ V1.9.54 (B): resolveMotion is excluded by every running decision path
+
+        fun motionStatusOf(motionId: Uuid): MotionStatus =
+            transaction { MotionTable.selectAll().where { MotionTable.id eq motionId }.single()[MotionTable.status] }
+
+        fun motionCurrentTextOf(motionId: Uuid): String? =
+            transaction { MotionTable.selectAll().where { MotionTable.id eq motionId }.single()[MotionTable.currentText] }
+
+        fun pathRowCount(motionId: Uuid): Long =
+            transaction {
+                VoteTable.selectAll().where { VoteTable.motionId eq motionId }.count() +
+                    ElectionTable.selectAll().where { ElectionTable.motionId eq motionId }.count() +
+                    SystemicConsensusTable.selectAll().where { SystemicConsensusTable.motionId eq motionId }.count()
+            }
+
+        /** An AMENDMENT written straight into the database (the legacy state that the API can no longer produce), SCHEDULED, same meeting. */
+        fun insertRawAmendment(
+            f: Fixture,
+            status: MotionStatus = MotionStatus.SCHEDULED,
+        ): Uuid {
+            val id = Uuid.random()
+            transaction {
+                MotionTable.insert {
+                    it[MotionTable.id] = id
+                    it[targetCommitteeId] = f.committeeId
+                    it[title] = "raw amendment"
+                    it[rationale] = "R"
+                    it[text] = "Neuer Text"
+                    it[submitterMemberId] = f.chair
+                    it[MotionTable.status] = status
+                    it[submittedAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                    it[reviewedBy] = f.chair
+                    it[reviewedAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                    it[reviewNote] = null
+                    it[MotionTable.meetingId] = f.meetingId
+                    it[agendaItemId] = null
+                    it[resolutionId] = null
+                    it[withdrawnAt] = null
+                    it[amendsMotionId] = f.motionId
+                    it[currentText] = null
+                }
+            }
+            return id
+        }
+
+        /** resolveMotion(ADOPTED) as the chair: [blocked] means a Conflict that changes nothing, otherwise the motion is decided. */
+        suspend fun io.ktor.server.testing.ApplicationTestBuilder.assertResolve(
+            f: Fixture,
+            blocked: Boolean,
+            clue: String,
+        ) {
+            val resolutionsBefore = meetingResolutionCount(f.meetingId)
+            val response = client.post("/test/resolve-motion/${f.motionId}/ADOPTED") { header("X-Member-Id", f.chair.toString()) }
+            if (blocked) {
+                withClue("$clue must refuse resolveMotion") { response.status shouldBe HttpStatusCode.Conflict }
+                motionStatusOf(f.motionId) shouldBe MotionStatus.SCHEDULED
+                meetingResolutionCount(f.meetingId) shouldBe resolutionsBefore
+            } else {
+                withClue("$clue must leave resolveMotion decidable") { response.status shouldBe HttpStatusCode.OK }
+                motionStatusOf(f.motionId) shouldBe MotionStatus.RESOLVED
+            }
+        }
+
+        test("resolveMotion: a running election blocks it, an aborted or tallied one does not") {
+            withApp {
+                listOf(
+                    ElectionStatus.PREPARATION to true,
+                    ElectionStatus.CANDIDATE_LIST_RELEASED to true,
+                    ElectionStatus.OPEN to true,
+                    ElectionStatus.CLOSED to true,
+                    ElectionStatus.ABORTED to false,
+                    ElectionStatus.TALLIED to false,
+                ).forEach { (status, blocked) ->
+                    val f = fixture("lock-el-$status")
+                    val electionId = Uuid.parse(client.openElection(f))
+                    transaction {
+                        ElectionTable.update({ ElectionTable.id eq electionId }) {
+                            it[ElectionTable.status] = status
+                            if (status == ElectionStatus.ABORTED) it[activeMotionId] = null
+                        }
+                    }
+                    assertResolve(f, blocked, "election $status")
+                }
+            }
+        }
+
+        test("resolveMotion: an OPEN vote blocks it, a CLOSED or aborted one does not (a tied, re-scheduled motion stays decidable)") {
+            withApp {
+                listOf(VoteStatus.OPEN to true, VoteStatus.CLOSED to false, VoteStatus.ABORTED to false).forEach { (status, blocked) ->
+                    val f = fixture("lock-vote-$status")
+                    val voteId = insertRawOpenVote(f)
+                    transaction { VoteTable.update({ VoteTable.id eq voteId }) { it[VoteTable.status] = status } }
+                    assertResolve(f, blocked, "vote $status")
+                }
+            }
+        }
+
+        test(
+            "resolveMotion: a running systemic consensus (COLLECTION, RATING, CLOSED), advisory or binding, blocks it; EVALUATED and ABORTED do not",
+        ) {
+            withApp {
+                for (bindingness in SystemicConsensusBindingness.entries) {
+                    listOf(
+                        SystemicConsensusStatus.COLLECTION to true,
+                        SystemicConsensusStatus.RATING to true,
+                        SystemicConsensusStatus.CLOSED to true,
+                        SystemicConsensusStatus.EVALUATED to false,
+                        SystemicConsensusStatus.ABORTED to false,
+                    ).forEach { (status, blocked) ->
+                        val f = fixture("lock-sc-$bindingness-$status")
+                        insertRawSystemicConsensus(f, status, bindingness)
+                        assertResolve(f, blocked, "consensus $bindingness $status")
+                    }
+                }
+            }
+        }
+
+        test("the opening paths refuse a motion that is already decided, withdrawn or rejected and write no row") {
+            withApp {
+                listOf(MotionStatus.RESOLVED, MotionStatus.REJECTED, MotionStatus.WITHDRAWN).forEach { status ->
+                    val f = fixture("closed-$status")
+                    transaction { MotionTable.update({ MotionTable.id eq f.motionId }) { it[MotionTable.status] = status } }
+                    val chair = f.chair.toString()
+                    client.post("/test/open-vote/${f.motionId}") { header("X-Member-Id", chair) }.status shouldBe HttpStatusCode.Conflict
+                    client.post("/test/open-election/${f.motionId}/YES_NO?secret=false") { header("X-Member-Id", chair) }.status shouldBe
+                        HttpStatusCode.Conflict
+                    client.post("/test/open-systemic-consensus/${f.motionId}") { header("X-Member-Id", chair) }.status shouldBe
+                        HttpStatusCode.Conflict
+                    pathRowCount(f.motionId) shouldBe 0L
+                    motionStatusOf(f.motionId) shouldBe status
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ V1.9.54 (C.3): amendments versus a running decision path
+
+        test("submitMotion (amendment) is refused while the target's election, vote or consensus runs, and allowed again afterwards") {
+            withApp {
+                val chair = { f: Fixture -> f.chair.toString() }
+                val amend = { f: Fixture -> "/test/submit-motion/${f.committeeId}?amends=${f.motionId}" }
+
+                val fe = fixture("amend-election")
+                val electionId = client.openElection(fe)
+                client.post(amend(fe)) { header("X-Member-Id", chair(fe)) }.status shouldBe HttpStatusCode.Conflict
+                client.post("/test/abort-election/$electionId") { header("X-Member-Id", chair(fe)) }.status shouldBe HttpStatusCode.OK
+                client.post(amend(fe)) { header("X-Member-Id", chair(fe)) }.status shouldBe HttpStatusCode.OK
+
+                val fv = fixture("amend-vote")
+                val voteId = insertRawOpenVote(fv)
+                client.post(amend(fv)) { header("X-Member-Id", chair(fv)) }.status shouldBe HttpStatusCode.Conflict
+                client.post("/test/abort-vote/$voteId") { header("X-Member-Id", chair(fv)) }.status shouldBe HttpStatusCode.OK
+                client.post(amend(fv)) { header("X-Member-Id", chair(fv)) }.status shouldBe HttpStatusCode.OK
+
+                for (bindingness in SystemicConsensusBindingness.entries) {
+                    val fc = fixture("amend-sc-$bindingness")
+                    val scId = insertRawSystemicConsensus(fc, SystemicConsensusStatus.COLLECTION, bindingness)
+                    client.post(amend(fc)) { header("X-Member-Id", chair(fc)) }.status shouldBe HttpStatusCode.Conflict
+                    transaction {
+                        SystemicConsensusTable.update({ SystemicConsensusTable.id eq scId }) {
+                            it[SystemicConsensusTable.status] = SystemicConsensusStatus.ABORTED
+                        }
+                    }
+                    client.post(amend(fc)) { header("X-Member-Id", chair(fc)) }.status shouldBe HttpStatusCode.OK
+                }
+            }
+        }
+
+        test("the opening paths refuse a main motion with a pending amendment on the server; an advisory consensus is exempt") {
+            withApp {
+                val f = fixture("open-with-amendment")
+                val chair = f.chair.toString()
+                client
+                    .post("/test/submit-motion/${f.committeeId}?amends=${f.motionId}") { header("X-Member-Id", chair) }
+                    .status shouldBe HttpStatusCode.OK
+                client.post("/test/open-vote/${f.motionId}") { header("X-Member-Id", chair) }.status shouldBe HttpStatusCode.Conflict
+                client.post("/test/open-election/${f.motionId}/YES_NO?secret=false") { header("X-Member-Id", chair) }.status shouldBe
+                    HttpStatusCode.Conflict
+                client
+                    .post("/test/open-systemic-consensus/${f.motionId}?bindingness=BINDING") { header("X-Member-Id", chair) }
+                    .status shouldBe HttpStatusCode.Conflict
+                pathRowCount(f.motionId) shouldBe 0L
+                // ADVISORY never decides, so it never adopts an amendment either
+                client
+                    .post("/test/open-systemic-consensus/${f.motionId}?bindingness=ADVISORY") { header("X-Member-Id", chair) }
+                    .status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test("legacy state: adopting an amendment is refused while the target's vote runs, and its text stays unchanged") {
+            withApp {
+                val f = fixture("legacy-amendment")
+                val chair = f.chair.toString()
+                val voteId = insertRawOpenVote(f)
+                val amendmentId = insertRawAmendment(f)
+                client.post("/test/resolve-motion/$amendmentId/ADOPTED") { header("X-Member-Id", chair) }.status shouldBe
+                    HttpStatusCode.Conflict
+                motionCurrentTextOf(f.motionId) shouldBe null
+                motionStatusOf(amendmentId) shouldBe MotionStatus.SCHEDULED
+                // the pending amendment still blocks the main vote's close (ordering guard kept)
+                client.post("/test/close-vote/$voteId") { header("X-Member-Id", chair) }.status shouldBe HttpStatusCode.Conflict
+                // a REJECTED amendment never writes the target's text, so it may be decided
+                client.post("/test/resolve-motion/$amendmentId/REJECTED") { header("X-Member-Id", chair) }.status shouldBe HttpStatusCode.OK
+                motionCurrentTextOf(f.motionId) shouldBe null
+            }
+        }
+
+        test("closeVote adopting an amendment is refused while an ADVISORY consensus runs on the target, then succeeds") {
+            withApp {
+                val f = fixture("close-vote-amendment-advisory")
+                val chair = f.chair.toString()
+                val amendmentId = insertRawAmendment(f)
+                val voteId = Uuid.random()
+                transaction {
+                    VoteTable.insert {
+                        it[VoteTable.id] = voteId
+                        it[motionId] = amendmentId
+                        it[meetingId] = f.meetingId
+                        it[title] = "amendment vote"
+                        it[status] = VoteStatus.OPEN
+                        it[openedBy] = f.chair
+                        it[openedAt] = LocalDateTime(2026, 3, 1, 18, 0)
+                        it[closedAt] = null
+                        it[winnerOptionId] = null
+                        it[secondPriceLtr] = null
+                        it[resolutionId] = null
+                    }
+                    val yesId = Uuid.random()
+                    listOf("YES", "NO").forEachIndexed { index, label ->
+                        VoteOptionTable.insert {
+                            it[VoteOptionTable.id] = if (index == 0) yesId else Uuid.random()
+                            it[VoteOptionTable.voteId] = voteId
+                            it[VoteOptionTable.label] = label
+                            it[position] = index
+                        }
+                    }
+                    VoteBallotTable.insert {
+                        it[VoteBallotTable.id] = Uuid.random()
+                        it[VoteBallotTable.voteId] = voteId
+                        it[VoteBallotTable.optionId] = yesId
+                        it[VoteBallotTable.memberId] = f.voters[0]
+                        it[stakeLtr] = java.math.BigDecimal("5.00")
+                        it[settledLtr] = null
+                        it[castAt] = LocalDateTime(2026, 3, 1, 18, 5)
+                    }
+                }
+                val scId = insertRawSystemicConsensus(f, SystemicConsensusStatus.RATING, SystemicConsensusBindingness.ADVISORY)
+                client.post("/test/close-vote/$voteId") { header("X-Member-Id", chair) }.status shouldBe HttpStatusCode.Conflict
+                motionCurrentTextOf(f.motionId) shouldBe null
+                motionStatusOf(amendmentId) shouldBe MotionStatus.SCHEDULED
+                client.post("/test/resolve-motion/$amendmentId/ADOPTED") { header("X-Member-Id", chair) }.status shouldBe
+                    HttpStatusCode.Conflict
+                motionCurrentTextOf(f.motionId) shouldBe null
+                transaction {
+                    SystemicConsensusTable.update({ SystemicConsensusTable.id eq scId }) {
+                        it[SystemicConsensusTable.status] = SystemicConsensusStatus.ABORTED
+                    }
+                }
+                client.post("/test/close-vote/$voteId") { header("X-Member-Id", chair) }.status shouldBe HttpStatusCode.OK
+                motionCurrentTextOf(f.motionId) shouldBe "Neuer Text"
+            }
+        }
+
+        // ------------------------------------------------------------------ V1.9.54: races of the new exclusions
+
+        test("resolveMotion racing openVote, openElection and openSystemicConsensus: exactly one of the two wins, never both") {
+            withApp {
+                val openers =
+                    listOf(
+                        { f: Fixture -> "/test/open-vote/${f.motionId}" },
+                        { f: Fixture -> "/test/open-election/${f.motionId}/YES_NO?secret=false" },
+                        { f: Fixture -> "/test/open-systemic-consensus/${f.motionId}" },
+                    )
+                openers.forEachIndexed { openerIndex, openerPath ->
+                    repeat(3) { round ->
+                        val f = fixture("race-resolve-open-$openerIndex-$round")
+                        val chair = f.chair.toString()
+                        val results =
+                            parallel(2) { i ->
+                                if (i == 0) {
+                                    client.post("/test/resolve-motion/${f.motionId}/ADOPTED") { header("X-Member-Id", chair) }.status
+                                } else {
+                                    client.post(openerPath(f)) { header("X-Member-Id", chair) }.status
+                                }
+                            }
+                        val resolveWon = results[0] == HttpStatusCode.OK
+                        val openWon = results[1] == HttpStatusCode.OK
+                        withClue("opener $openerIndex round $round: $results") { (resolveWon != openWon) shouldBe true }
+                        if (resolveWon) {
+                            motionStatusOf(f.motionId) shouldBe MotionStatus.RESOLVED
+                            pathRowCount(f.motionId) shouldBe 0L
+                        } else {
+                            motionStatusOf(f.motionId) shouldBe MotionStatus.SCHEDULED
+                            pathRowCount(f.motionId) shouldBe 1L
+                        }
+                        if (db.isPostgres) {
+                            results.filter { it != HttpStatusCode.OK }.all { it == HttpStatusCode.Conflict } shouldBe true
+                        }
+                    }
+                }
+            }
+        }
+
+        test("an amendment submitted while the main motion's election opens: exactly one of the two exists afterwards") {
+            withApp {
+                repeat(4) { round ->
+                    val f = fixture("race-amend-open-$round")
+                    val chair = f.chair.toString()
+                    val results =
+                        parallel(2) { i ->
+                            if (i == 0) {
+                                client
+                                    .post(
+                                        "/test/submit-motion/${f.committeeId}?amends=${f.motionId}",
+                                    ) { header("X-Member-Id", chair) }
+                                    .status
+                            } else {
+                                client.post("/test/open-election/${f.motionId}/YES_NO?secret=false") { header("X-Member-Id", chair) }.status
+                            }
+                        }
+                    val amendments =
+                        transaction { MotionTable.selectAll().where { MotionTable.amendsMotionId eq f.motionId }.count() }
+                    val elections = transaction { ElectionTable.selectAll().where { ElectionTable.motionId eq f.motionId }.count() }
+                    withClue("round $round: $results") { (amendments + elections) shouldBe 1L }
+                    (results[0] == HttpStatusCode.OK) shouldBe (amendments == 1L)
+                    (results[1] == HttpStatusCode.OK) shouldBe (elections == 1L)
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ V1.9.54 (C): a ballot can never land after its close
+
+        fun mint(
+            memberId: Uuid,
+            amount: String = "100.00",
+        ) {
+            transaction {
+                LtrLedgerEntryTable.insert {
+                    it[id] = Uuid.random()
+                    it[LtrLedgerEntryTable.memberId] = memberId
+                    it[entryType] = LtrLedgerEntryType.MINT
+                    it[amountLtr] = java.math.BigDecimal(amount)
+                    it[referenceType] = null
+                    it[referenceId] = null
+                    it[note] = "Integrity seed"
+                    it[createdBy] = null
+                    it[createdAt] = LocalDateTime(2026, 1, 1, 0, 0)
+                }
+            }
+        }
+
+        /** [count] extra committee members with an LTR balance, who can all bid and rate. */
+        fun bidders(
+            f: Fixture,
+            tag: String,
+            count: Int,
+        ): List<Uuid> {
+            val members = (1..count).map { createMember("integrity-$tag-bidder$it@example.org") }
+            members.forEach {
+                addToCommittee(f.committeeId, it, CommitteeRole.MEMBER)
+                mint(it)
+            }
+            return members
+        }
+
+        fun voteOptionIds(voteId: Uuid): List<Uuid> =
+            transaction {
+                VoteOptionTable
+                    .selectAll()
+                    .where { VoteOptionTable.voteId eq voteId }
+                    .orderBy(VoteOptionTable.position)
+                    .map { it[VoteOptionTable.id] }
+            }
+
+        fun voteBallots(voteId: Uuid) = transaction { VoteBallotTable.selectAll().where { VoteBallotTable.voteId eq voteId }.toList() }
+
+        fun voteStakeLedgerRows(voteId: Uuid): Long =
+            transaction {
+                LtrLedgerEntryTable
+                    .selectAll()
+                    .where {
+                        (LtrLedgerEntryTable.referenceId eq voteId) and
+                            (LtrLedgerEntryTable.entryType eq LtrLedgerEntryType.VOTE_STAKE)
+                    }.count()
+            }
+
+        /** A RATING consensus (open ballots, 3 options incl. the status quo) with [eligible] as its round-1 electorate. */
+        fun insertRatingConsensus(
+            f: Fixture,
+            eligible: List<Uuid>,
+        ): Pair<Uuid, List<Uuid>> {
+            val id = insertRawSystemicConsensus(f, SystemicConsensusStatus.RATING, SystemicConsensusBindingness.ADVISORY)
+            val optionIds = (0 until 3).map { Uuid.random() }
+            transaction {
+                SystemicConsensusTable.update({ SystemicConsensusTable.id eq id }) {
+                    it[ratingOpenedAt] = LocalDateTime(2026, 3, 1, 18, 0)
+                }
+                optionIds.forEachIndexed { index, optionId ->
+                    SystemicConsensusOptionTable.insert {
+                        it[SystemicConsensusOptionTable.id] = optionId
+                        it[label] = if (index == 0) "Status quo" else "Option $index"
+                        it[position] = index
+                        it[isStatusQuoOption] = index == 0
+                        it[systemicConsensusId] = id
+                        it[createdBy] = f.chair
+                        it[rationale] = null
+                    }
+                }
+                eligible.forEach { member ->
+                    SystemicConsensusEligibleVoterTable.insert {
+                        it[SystemicConsensusEligibleVoterTable.id] = Uuid.random()
+                        it[systemicConsensusId] = id
+                        it[round] = 1
+                        it[memberId] = member
+                    }
+                }
+            }
+            return id to optionIds
+        }
+
+        fun consensusBallotCount(scId: Uuid): Long =
+            transaction {
+                SystemicConsensusBallotTable.selectAll().where { SystemicConsensusBallotTable.systemicConsensusId eq scId }.count()
+            }
+
+        fun resistanceQuery(optionIds: List<Uuid>): String = optionIds.joinToString(",") { "$it:5" }
+
+        /**
+         * Transaction A (own thread) takes [hold] -- the very row lock the production close path takes -- and keeps its transaction open until
+         * [release] is counted down; [whileHeld] runs in the caller meanwhile. [finish] runs inside A, right before it commits (it changes the
+         * row the way the real close does). The proof: the cast under test either waits for A (Postgres) or runs into its lock timeout (H2).
+         */
+        suspend fun <T> withHeldLock(
+            hold: () -> Unit,
+            finish: () -> Unit,
+            whileHeld: suspend (release: () -> Unit) -> T,
+        ): T {
+            val holding = java.util.concurrent.CountDownLatch(1)
+            val release = java.util.concurrent.CountDownLatch(1)
+            val pool =
+                java.util.concurrent.Executors
+                    .newSingleThreadExecutor()
+            val a =
+                pool.submit {
+                    transaction {
+                        hold()
+                        holding.countDown()
+                        release.await(60, java.util.concurrent.TimeUnit.SECONDS)
+                        finish()
+                    }
+                }
+            try {
+                holding.await(20, java.util.concurrent.TimeUnit.SECONDS) shouldBe true
+                return whileHeld { release.countDown() }
+            } finally {
+                release.countDown()
+                a.get(30, java.util.concurrent.TimeUnit.SECONDS)
+                pool.shutdownNow()
+            }
+        }
+
+        /** The common assertion of the three lock proofs: the cast waited for the closer's lock, then saw CLOSED and was refused. */
+        suspend fun io.ktor.server.testing.ApplicationTestBuilder.lockProof(
+            lockAndClose: Pair<() -> Unit, () -> Unit>,
+            castPath: String,
+            caller: Uuid,
+        ): HttpStatusCode =
+            withHeldLock(hold = lockAndClose.first, finish = lockAndClose.second) { release ->
+                coroutineScope {
+                    val cast = async(Dispatchers.IO) { client.post(castPath) { header("X-Member-Id", caller.toString()) }.status }
+                    if (db is TestDatabase.Postgres) {
+                        // the cast really is blocked behind the lock holder: no sleep, the signal comes from pg_stat_activity
+                        db.db.awaitLockWaiter(queryFragment = "for update")
+                        release()
+                    } else {
+                        // H2: the cast runs into its lock timeout while the lock is still held -- it never got past the lock
+                        val status = cast.await()
+                        release()
+                        return@coroutineScope status
+                    }
+                    cast.await()
+                }
+            }
+
+        test("castVoteBallot waits for the vote's row lock and then refuses the closed vote (deterministic lock proof)") {
+            withApp {
+                val f = fixture("lockproof-vote")
+                val voter = bidders(f, "lockproof-vote", 1).single()
+                val voteId = insertRawOpenVote(f)
+                val option = voteOptionIds(voteId).first()
+                val status =
+                    lockProof(
+                        lockAndClose =
+                            Pair(
+                                {
+                                    VoteTable
+                                        .selectAll()
+                                        .where { VoteTable.id eq voteId }
+                                        .forUpdate()
+                                        .single()
+                                },
+                                {
+                                    VoteTable.update({ VoteTable.id eq voteId }) { it[VoteTable.status] = VoteStatus.CLOSED }
+                                },
+                            ),
+                        castPath = "/test/cast-vote-ballot/$voteId/$option/10.00",
+                        caller = voter,
+                    )
+                withClue("the cast must not succeed: $status") { status shouldNotBe HttpStatusCode.OK }
+                if (db.isPostgres) status shouldBe HttpStatusCode.Conflict
+                voteBallots(voteId).size shouldBe 0
+                voteStakeLedgerRows(voteId) shouldBe 0L
+            }
+        }
+
+        test("castResistanceBallot waits for the consensus row lock and then refuses the closed rating (deterministic lock proof)") {
+            withApp {
+                val f = fixture("lockproof-sc")
+                val voter = bidders(f, "lockproof-sc", 1).single()
+                val (scId, optionIds) = insertRatingConsensus(f, listOf(voter))
+                val status =
+                    lockProof(
+                        lockAndClose =
+                            Pair(
+                                {
+                                    SystemicConsensusTable
+                                        .selectAll()
+                                        .where { SystemicConsensusTable.id eq scId }
+                                        .forUpdate()
+                                        .single()
+                                },
+                                {
+                                    SystemicConsensusTable.update({ SystemicConsensusTable.id eq scId }) {
+                                        it[SystemicConsensusTable.status] = SystemicConsensusStatus.CLOSED
+                                    }
+                                },
+                            ),
+                        castPath = "/test/cast-resistance/$scId?r=${resistanceQuery(optionIds)}",
+                        caller = voter,
+                    )
+                withClue("the rating must not succeed: $status") { status shouldNotBe HttpStatusCode.OK }
+                if (db.isPostgres) status shouldBe HttpStatusCode.Conflict
+                consensusBallotCount(scId) shouldBe 0L
+            }
+        }
+
+        test("castElectionBallot waits for the election's row lock and then refuses the closed election (deterministic lock proof)") {
+            withApp {
+                val f = fixture("lockproof-election")
+                val electionId = client.openElection(f)
+                client.appointBoard(f, electionId)
+                client.post("/test/open-voting/$electionId") { header("X-Member-Id", f.board[0].toString()) }
+                val electionUuid = Uuid.parse(electionId)
+                val status =
+                    lockProof(
+                        lockAndClose =
+                            Pair(
+                                {
+                                    ElectionTable
+                                        .selectAll()
+                                        .where { ElectionTable.id eq electionUuid }
+                                        .forUpdate()
+                                        .single()
+                                },
+                                {
+                                    ElectionTable.update({ ElectionTable.id eq electionUuid }) {
+                                        it[ElectionTable.status] = ElectionStatus.CLOSED
+                                    }
+                                },
+                            ),
+                        castPath = "/test/cast-election-ballot/$electionId?answer=YES",
+                        caller = f.voters[0],
+                    )
+                withClue("the ballot must not succeed: $status") { status shouldNotBe HttpStatusCode.OK }
+                if (db.isPostgres) status shouldBe HttpStatusCode.Conflict
+                transaction { ElectionBallotTable.selectAll().where { ElectionBallotTable.electionId eq electionUuid }.count() } shouldBe 0L
+            }
+        }
+
+        test("bids racing closeVote: every ballot of a closed vote is settled and every debit belongs to an accepted bid") {
+            withApp {
+                repeat(4) { round ->
+                    val f = fixture("race-bid-close-$round")
+                    val members = bidders(f, "race-bid-close-$round", 3)
+                    val voteId = insertRawOpenVote(f)
+                    val option = voteOptionIds(voteId).first()
+                    val results =
+                        parallel(4) { i ->
+                            if (i < 3) {
+                                client
+                                    .post("/test/cast-vote-ballot/$voteId/$option/10.00") { header("X-Member-Id", members[i].toString()) }
+                                    .status
+                            } else {
+                                client.post("/test/close-vote/$voteId") { header("X-Member-Id", f.chair.toString()) }.status
+                            }
+                        }
+                    val accepted = results.take(3).count { it == HttpStatusCode.OK }
+                    val ballots = voteBallots(voteId)
+                    withClue("round $round: $results") { ballots.size shouldBe accepted }
+                    voteStakeLedgerRows(voteId) shouldBe accepted.toLong()
+                    val closed = transaction { VoteTable.selectAll().where { VoteTable.id eq voteId }.single()[VoteTable.status] }
+                    if (closed == VoteStatus.CLOSED) ballots.all { it[VoteBallotTable.settledLtr] != null } shouldBe true
+                    if (db.isPostgres) results.filter { it != HttpStatusCode.OK }.all { it == HttpStatusCode.Conflict } shouldBe true
+                }
+            }
+        }
+
+        test("bids racing abortVote: no ballot and no debit survives an aborted vote beyond the accepted ones") {
+            withApp {
+                repeat(3) { round ->
+                    val f = fixture("race-bid-abort-$round")
+                    val members = bidders(f, "race-bid-abort-$round", 3)
+                    val voteId = insertRawOpenVote(f)
+                    val option = voteOptionIds(voteId).first()
+                    val results =
+                        parallel(4) { i ->
+                            if (i < 3) {
+                                client
+                                    .post("/test/cast-vote-ballot/$voteId/$option/10.00") { header("X-Member-Id", members[i].toString()) }
+                                    .status
+                            } else {
+                                client.post("/test/abort-vote/$voteId") { header("X-Member-Id", f.chair.toString()) }.status
+                            }
+                        }
+                    val accepted = results.take(3).count { it == HttpStatusCode.OK }
+                    withClue("round $round: $results") { voteBallots(voteId).size shouldBe accepted }
+                    voteStakeLedgerRows(voteId) shouldBe accepted.toLong()
+                }
+            }
+        }
+
+        test("ratings racing closeRating and evaluate: the stored result is exactly the result of the ballots in the database") {
+            withApp {
+                repeat(4) { round ->
+                    val f = fixture("race-rate-close-$round")
+                    val members = bidders(f, "race-rate-close-$round", 3)
+                    val (scId, optionIds) = insertRatingConsensus(f, members)
+                    val results =
+                        parallel(4) { i ->
+                            if (i < 3) {
+                                val rated =
+                                    client.post("/test/cast-resistance/$scId?r=${resistanceQuery(optionIds)}") {
+                                        header("X-Member-Id", members[i].toString())
+                                    }
+                                rated.status to ""
+                            } else {
+                                val closed = client.post("/test/close-rating/$scId") { header("X-Member-Id", f.chair.toString()) }
+                                if (closed.status == HttpStatusCode.OK) {
+                                    val evaluated = client.post("/test/evaluate-result/$scId") { header("X-Member-Id", f.chair.toString()) }
+                                    evaluated.status to evaluated.bodyAsText()
+                                } else {
+                                    closed.status to ""
+                                }
+                            }
+                        }
+                    val accepted = results.take(3).count { it.first == HttpStatusCode.OK }
+                    withClue("round $round: ${results.map { it.first }}") { consensusBallotCount(scId).toInt() shouldBe accepted }
+                    val evaluation = results[3]
+                    if (evaluation.first == HttpStatusCode.OK) {
+                        // the result the evaluation returned is the one recomputed from the ballots that are stored now: no rating came in late
+                        val recomputed =
+                            client.get("/test/consensus-result/$scId") { header("X-Member-Id", f.chair.toString()) }.bodyAsText()
+                        recomputed shouldBe evaluation.second
+                    }
+                    if (db.isPostgres) {
+                        results.map { it.first }.filter { it != HttpStatusCode.OK }.all { it == HttpStatusCode.Conflict } shouldBe true
+                    }
+                }
+            }
+        }
+
+        test("election ballots racing closeVoting and the tally: the tally counts exactly the ballots in the database") {
+            withApp {
+                repeat(3) { round ->
+                    val f = fixture("race-election-tally-$round")
+                    val electionId = client.openElection(f)
+                    client.appointBoard(f, electionId)
+                    client.post("/test/open-voting/$electionId") { header("X-Member-Id", f.board[0].toString()) }
+                    val results =
+                        parallel(3) { i ->
+                            when (i) {
+                                0, 1 ->
+                                    client
+                                        .post("/test/cast-election-ballot/$electionId?answer=YES") {
+                                            header("X-Member-Id", f.voters[i].toString())
+                                        }.status
+                                else -> {
+                                    val closed =
+                                        client.post(
+                                            "/test/close-voting/$electionId",
+                                        ) { header("X-Member-Id", f.board[0].toString()) }
+                                    closed.status
+                                }
+                            }
+                        }
+                    val accepted = results.take(2).count { it == HttpStatusCode.OK }
+                    client.post("/test/release-tally/$electionId") { header("X-Member-Id", f.board[0].toString()) }
+                    client.post("/test/release-tally/$electionId") { header("X-Member-Id", f.board[1].toString()) }
+                    val tallied = client.post("/test/tally/$electionId") { header("X-Member-Id", f.board[0].toString()) }
+                    val rows =
+                        transaction {
+                            ElectionBallotTable.selectAll().where { ElectionBallotTable.electionId eq Uuid.parse(electionId) }.count()
+                        }
+                    withClue("round $round: $results") { rows.toInt() shouldBe accepted }
+                    if (tallied.status == HttpStatusCode.OK) {
+                        val counted =
+                            client
+                                .get("/test/election-result/$electionId") { header("X-Member-Id", f.chair.toString()) }
+                                .bodyAsText()
+                                .substringAfterLast(":")
+                                .split("|")
+                                .filter { it.isNotBlank() }
+                                .sumOf { it.toInt() }
+                        // an open election: every ballot is one YES/NO/ABSTAIN count, so the counts add up to the ballot rows
+                        counted shouldBe accepted
+                    }
+                }
+            }
+        }
     })
 
 /** The unchanged H2 run (normal `test` task). */
@@ -1152,7 +1882,7 @@ private fun Route.registerIntegrityTestRoutes() {
                 electionId = call.parameters["electionId"]!!,
                 receiptCode = call.request.queryParameters["receiptCode"]!!,
             )
-        call.respondText("${r.found}:${r.optionLabel ?: ""}")
+        call.respondText("${r.found}:${r.optionLabel ?: ""}:${r.counted}")
     }
     post("/test/open-vote/{motionId}") {
         val service = GovernanceService(call = call)
@@ -1207,8 +1937,78 @@ private fun Route.registerIntegrityTestRoutes() {
     }
     post("/test/open-systemic-consensus/{motionId}") {
         val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
-        val sc = service.openSystemicConsensus(SystemicConsensusOpenInput(motionId = call.parameters["motionId"]!!, secret = false))
+        val bindingness = call.request.queryParameters["bindingness"]?.let { SystemicConsensusBindingness.valueOf(it) }
+        val input = SystemicConsensusOpenInput(motionId = call.parameters["motionId"]!!, secret = false)
+        val sc = service.openSystemicConsensus(if (bindingness == null) input else input.copy(bindingness = bindingness))
         call.respondText(sc.id)
+    }
+    post("/test/cast-vote-ballot/{voteId}/{optionId}/{stake}") {
+        val service = GovernanceService(call = call)
+        val b =
+            service.castVoteBallot(
+                VoteBallotInput(
+                    voteId = call.parameters["voteId"]!!,
+                    optionId = call.parameters["optionId"]!!,
+                    stakeLtr = java.math.BigDecimal(call.parameters["stake"]!!),
+                ),
+            )
+        call.respondText(b.id)
+    }
+    post("/test/cast-resistance/{id}") {
+        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val resistances =
+            call.request.queryParameters["r"]!!.split(",").associate { entry ->
+                entry.substringBefore(":") to entry.substringAfter(":").toInt()
+            }
+        val r =
+            service.castResistanceBallot(
+                SystemicConsensusBallotInput(systemicConsensusId = call.parameters["id"]!!, resistances = resistances),
+            )
+        call.respondText(r.id)
+    }
+    post("/test/close-rating/{id}") {
+        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        call.respondText(service.closeRating(call.parameters["id"]!!).status.name)
+    }
+    post("/test/evaluate-result/{id}") {
+        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        val r = service.evaluate(call.parameters["id"]!!)
+        call.respondText(
+            Json.encodeToString(
+                network.lapis.cloud.shared.domain.SystemicConsensusResultDto
+                    .serializer(),
+                r,
+            ),
+        )
+    }
+    post("/test/evaluate-result-shape/{id}") {
+        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        service.evaluate(call.parameters["id"]!!)
+        call.respondText("ok")
+    }
+    get("/test/consensus-result/{id}") {
+        val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
+        call.respondText(
+            Json.encodeToString(
+                network.lapis.cloud.shared.domain.SystemicConsensusResultDto
+                    .serializer(),
+                service.getSystemicConsensusResult(call.parameters["id"]!!),
+            ),
+        )
+    }
+    post("/test/submit-motion/{committeeId}") {
+        val service = GovernanceService(call = call)
+        val m =
+            service.submitMotion(
+                MotionInput(
+                    targetCommitteeId = call.parameters["committeeId"]!!,
+                    title = "Änderung",
+                    rationale = "R",
+                    text = "Änderungstext",
+                    amendsMotionId = call.request.queryParameters["amends"],
+                ),
+            )
+        call.respondText(m.id)
     }
     post("/test/evaluate-systemic-consensus/{id}") {
         val service = SystemicConsensusService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
@@ -1297,10 +2097,24 @@ private fun cleanUpIntegrityTestData(
             ElectionTable.deleteWhere { ElectionTable.id inList electionIds }
         }
         if (voteIds.isNotEmpty()) {
+            VoteBallotTable.deleteWhere { VoteBallotTable.voteId inList voteIds }
             VoteOptionTable.deleteWhere { VoteOptionTable.voteId inList voteIds }
             VoteTable.deleteWhere { VoteTable.id inList voteIds }
         }
         if (scIds.isNotEmpty()) {
+            val scBallotIds =
+                SystemicConsensusBallotTable
+                    .selectAll()
+                    .where { SystemicConsensusBallotTable.systemicConsensusId inList scIds }
+                    .map { it[SystemicConsensusBallotTable.id] }
+            if (scBallotIds.isNotEmpty()) {
+                SystemicConsensusResistanceTable.deleteWhere {
+                    SystemicConsensusResistanceTable.ballotId inList
+                        scBallotIds
+                }
+            }
+            SystemicConsensusParticipationTable.deleteWhere { SystemicConsensusParticipationTable.systemicConsensusId inList scIds }
+            SystemicConsensusEligibleVoterTable.deleteWhere { SystemicConsensusEligibleVoterTable.systemicConsensusId inList scIds }
             SystemicConsensusBallotTable.deleteWhere { SystemicConsensusBallotTable.systemicConsensusId inList scIds }
             SystemicConsensusOptionTable.deleteWhere { SystemicConsensusOptionTable.systemicConsensusId inList scIds }
             SystemicConsensusTable.deleteWhere { SystemicConsensusTable.id inList scIds }
@@ -1330,6 +2144,7 @@ private fun cleanUpIntegrityTestData(
                     null
             }
             TransparenzregisterReminderTable.deleteWhere { TransparenzregisterReminderTable.memberId inList memberIds }
+            LtrLedgerEntryTable.deleteWhere { LtrLedgerEntryTable.memberId inList memberIds }
             BoardMembershipTable.deleteWhere { BoardMembershipTable.memberId inList memberIds }
             AccountTable.deleteWhere { AccountTable.memberId inList memberIds }
             MemberTable.deleteWhere { MemberTable.id inList memberIds }

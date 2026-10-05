@@ -392,7 +392,7 @@ private class RatingBooth(
             }
             probed.closed -> {
                 ratings.clear()
-                showTerminal(texts.closedHeading, listOf(texts.closedText))
+                showTerminal(texts.closedHeading, listOf(texts.closedText), alert = true)
             }
             probed.unknown -> {
                 ratings.clear()
@@ -414,11 +414,19 @@ private class RatingBooth(
     private fun showTerminal(
         title: String,
         lines: List<String>,
+        alert: Boolean = false,
     ) {
         onReview(false)
         val booth = fresh()
         booth.h2(title) { addCssClass("h5") }
-        lines.forEach { booth.p(it) }
+        lines.forEach { line ->
+            booth.p(line) {
+                if (alert) {
+                    addCssClasses("alert alert-warning mb-0")
+                    setAttribute("role", "alert")
+                }
+            }
+        }
         booth.button(roomHost?.exitLabel ?: texts.exitLabel, style = ButtonStyle.OUTLINESECONDARY).onClick { exit(true) }
     }
 

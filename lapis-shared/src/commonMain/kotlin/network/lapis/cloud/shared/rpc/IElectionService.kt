@@ -142,14 +142,16 @@ interface IElectionService {
     /**
      * Transparency read of the ballots of an OPEN-ballot (non-secret) election, named.
      * **Always empty for a secret election** -- in every status, at any participation, for every role.
-     * The result of a secret election is available via [getElectionResult]; each voter can check their
-     * own ballot via [verifyReceipt].
+     * The result of a secret election is available via [getElectionResult]; each voter can check via
+     * [verifyReceipt] that their ballot arrived and was counted (never what it contained).
      */
     suspend fun listElectionBallots(electionId: String): List<ElectionBallotDto>
 
     /**
      * Role: any authenticated member -- the receipt code itself is the real access gate (matches
      * the Helios-style "anyone holding the code may check" model), not the caller's identity.
+     * V1.9.54 (receipt-freeness): proves inclusion only (`found`, `counted`); for a secret election the chosen option
+     * is never returned. An ill-formed code yields `found = false`, never a different error.
      */
     suspend fun verifyReceipt(
         electionId: String,

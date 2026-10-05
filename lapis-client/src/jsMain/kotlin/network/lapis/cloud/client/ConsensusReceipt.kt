@@ -56,7 +56,7 @@ internal fun renderConsensusReceipt(
     booth.p(
         tr(
             "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. " +
-                "Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Bewertung gezählt wurde.",
+                "Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Bewertung mitgezählt wurde.",
         ),
     ) { addCssClasses("alert alert-warning mb-0") }
     var raw: String? = code
@@ -77,7 +77,7 @@ internal fun renderConsensusReceipt(
             setAttribute("aria-live", "polite")
         }
     val actions = booth.hPanel(spacing = 8)
-    val copy = actions.actionButton(ActionIcon.COPY, tr("Kopieren"), style = ButtonStyle.OUTLINESECONDARY)
+    val copy = actions.actionButton(ActionIcon.COPY, tr("Code kopieren"), style = ButtonStyle.OUTLINESECONDARY)
     val print = actions.actionButton(ActionIcon.PRINT, tr("Drucken"), style = ButtonStyle.OUTLINESECONDARY)
     copy.onClick {
         val failed = gettext("Kopieren nicht möglich. Bitte schreiben Sie den Code ab.")
@@ -152,7 +152,10 @@ internal fun renderConsensusReceiptCheck(
     }
     panel.h2(tr("Quittung prüfen")) { addCssClass("h5") }
     panel.p(
-        tr("Mit Ihrer Quittung können Sie prüfen, dass Ihre Bewertung gezählt wurde, ohne dass jemand erfährt, wie Sie bewertet haben."),
+        tr(
+            "Mit Ihrer Quittung prüfen Sie, dass Ihre Bewertung angekommen ist und mitgezählt wurde. Welche Werte Sie vergeben haben, " +
+                "zeigt die Quittung nicht an, damit niemand eine Stimmabgabe beweisen und dadurch erzwingen oder kaufen kann.",
+        ),
     ) { addCssClasses("text-muted small") }
     val form = panel.lapisForm()
     val codeField =
@@ -169,7 +172,7 @@ internal fun renderConsensusReceiptCheck(
     form.buttons(primary = check)
     val outcome =
         panel.div("") {
-            addCssClasses("fw-bold")
+            addCssClasses("text-body-secondary")
             setAttribute("role", "status")
             setAttribute("aria-live", "polite")
         }
@@ -182,26 +185,15 @@ internal fun renderConsensusReceiptCheck(
             if (verification == null) return@submit
             outcome.removeAll()
             val round = verification.round
-            val resistances = verification.resistances
+            // V1.9.54 (receipt-freeness): inclusion only, the ratings are never shown.
             when {
-                !verification.found -> outcome.content = gettext("Zu diesem Code wurde keine Bewertung gefunden.")
+                !verification.found -> outcome.content = gettext("Zu diesem Code wurde in diesem Konsensieren keine Bewertung gefunden.")
                 round != null && round < c.round && !verification.countedInCurrentResult ->
                     outcome.content = gettext("Diese Bewertung stammt aus Runde %1 und zählt im aktuellen Ergebnis nicht mehr.", round)
-                resistances == null ->
-                    outcome.content = gettext("Ihre Bewertung ist gespeichert. Die Werte werden erst nach der Auswertung angezeigt.")
-                else -> {
-                    outcome.content = gettext("Ihre Bewertung ist gespeichert und lautet:")
-                    resistances.forEach { r ->
-                        outcome.div(
-                            gettext(
-                                "%1: Widerstand %2 von %3",
-                                consensusOptionText(isStatusQuoOption = r.isStatusQuoOption, label = r.label),
-                                r.resistance,
-                                c.scaleMax,
-                            ),
-                        ) { addCssClasses("fw-normal text-break") }
-                    }
-                }
+                !verification.countedInCurrentResult ->
+                    outcome.content =
+                        gettext("Ihre Bewertung ist angekommen. Nach der Auswertung können Sie hier prüfen, ob sie mitgezählt wurde.")
+                else -> outcome.content = gettext("Ihre Bewertung wurde bei der Auswertung mitgezählt.")
             }
         }
     }

@@ -161,6 +161,11 @@ class ElectionService(
             MotionDecisionLock.requireNoElection(aId)
             MotionDecisionLock.requireNoOpenVote(aId)
             MotionDecisionLock.requireNoActiveSystemicConsensus(aId)
+            // V1.9.54: a main motion with a pending amendment may not enter a decision path (serverside; the client
+            // only hid the button before). Otherwise that amendment could be adopted while the vote runs and change
+            // `currentText` under the voters. Together with submitMotion's refusal (no amendment during a running
+            // path) a running path of a main motion therefore never has a pending amendment.
+            if (motionRow[MotionTable.amendsMotionId] == null) requireNoPendingAmendments(aId)
 
             if (input.electionType == ElectionType.LIST_VOTE || input.electionType == ElectionType.RANKED_CHOICE) {
                 throw ConflictException("${input.electionType} is reserved for forward compatibility and not supported in V0.2.4")
@@ -1031,27 +1036,7 @@ class ElectionService(
     ): ReceiptVerificationDto {
         resolveCurrentMember(call)
         val wId = electionId.toUuidOrNotFound("Election")
-        return transaction {
-            val electionRow = requireElectionRow(wId)
-            val ballotRow =
-                ElectionBallotTable
-                    .selectAll()
-                    .where { (ElectionBallotTable.electionId eq wId) and (ElectionBallotTable.receiptCode eq receiptCode) }
-                    .singleOrNull()
-                    ?: return@transaction ReceiptVerificationDto(found = false, optionLabel = null)
-            val optionLabel =
-                if (electionRow[ElectionTable.status] == ElectionStatus.TALLIED) {
-                    (ElectionBallotSelectionTable innerJoin ElectionOptionTable)
-                        .selectAll()
-                        .where { ElectionBallotSelectionTable.ballotId eq ballotRow[ElectionBallotTable.id] }
-                        .map { it[ElectionOptionTable.label] }
-                        .joinToString(", ")
-                        .ifBlank { null }
-                } else {
-                    null
-                }
-            ReceiptVerificationDto(found = true, optionLabel = optionLabel)
-        }
+        return transaction { verifyElectionReceipt(electionRow = requireElectionRow(wId), receiptCode = receiptCode) }
     }
 
     override suspend fun getElectionParticipation(electionId: String): ElectionParticipationDto {

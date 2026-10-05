@@ -659,7 +659,7 @@ class ConsensusDetailDomTest {
     }
 
     @Test
-    fun theReceiptCheck_saysFoundNotFoundAndOldRound_andShowsValuesOnlyWhenTheServerSendsThem(): Promise<Unit> =
+    fun theReceiptCheck_saysFoundNotFoundAndOldRound_andNeverShowsTheRatings(): Promise<Unit> =
         formTest {
             val routes = consensusRoutes()
             val world =
@@ -668,10 +668,20 @@ class ConsensusDetailDomTest {
                     skParticipation(canRate = false, hasRated = true),
                 )
             withDetail(world, "sk-verify") { el, calls, _ ->
+                assertTrue(
+                    el.flatText().contains(
+                        "Mit Ihrer Quittung prüfen Sie, dass Ihre Bewertung angekommen ist " +
+                            "und mitgezählt wurde. Welche Werte Sie vergeben " +
+                            "haben, zeigt die Quittung nicht an, damit niemand eine Stimmabgabe beweisen und dadurch erzwingen oder kaufen kann.",
+                    ),
+                )
                 world.verification =
                     SystemicConsensusReceiptVerificationDto(found = false, round = null, countedInCurrentResult = false, resistances = null)
                 el.check(" $TEST_RECEIPT ")
-                awaitUntil("not found", 2000) { el.flatText().contains("Zu diesem Code wurde keine Bewertung gefunden.") }
+                awaitUntil(
+                    "not found",
+                    2000,
+                ) { el.flatText().contains("Zu diesem Code wurde in diesem Konsensieren keine Bewertung gefunden.") }
                 assertEquals(TEST_RECEIPT, calls.singleCall(routes.verify).rpcParam(1) as String, "whitespace is removed before sending")
                 assertEquals("", (el.controlOf("Quittungscode") as HTMLInputElement).value, "the field is cleared after checking")
 
@@ -686,26 +696,32 @@ class ConsensusDetailDomTest {
                 world.verification =
                     SystemicConsensusReceiptVerificationDto(found = true, round = 2, countedInCurrentResult = false, resistances = null)
                 el.check(TEST_RECEIPT)
-                awaitUntil("stored", 2000) {
-                    el.flatText().contains("Ihre Bewertung ist gespeichert. Die Werte werden erst nach der Auswertung angezeigt.")
+                awaitUntil("arrived", 2000) {
+                    el.flatText().contains(
+                        "Ihre Bewertung ist angekommen. Nach der Auswertung können Sie hier prüfen, ob sie mitgezählt wurde.",
+                    )
                 }
 
+                // V1.9.54 tamper case: even a server that sends the ratings must not get them shown anywhere
                 world.verification =
                     SystemicConsensusReceiptVerificationDto(
                         found = true,
                         round = 2,
                         countedInCurrentResult = true,
-                        resistances =
-                            listOf(
-                                SystemicConsensusReceiptResistanceDto("o-a", false, "Option A", 2),
-                                SystemicConsensusReceiptResistanceDto("o-sq", true, SK_SERVER_STATUS_QUO_LABEL, 9),
-                            ),
+                        resistances = listOf(SystemicConsensusReceiptResistanceDto("o-a", false, "Option-ZX9Q", 7)),
                     )
                 el.check(TEST_RECEIPT)
-                awaitUntil("values", 2000) { el.flatText().contains("Ihre Bewertung ist gespeichert und lautet:") }
-                assertTrue(el.flatText().contains("Option A: Widerstand 2 von 10"))
-                assertTrue(el.flatText().contains("Alles bleibt wie bisher (Passivlösung): Widerstand 9 von 10"))
-                assertFalse(el.flatText().contains("Status quo (no change)"))
+                awaitUntil("counted", 2000) { el.flatText().contains("Ihre Bewertung wurde bei der Auswertung mitgezählt.") }
+                assertFalse(el.innerHTML.contains("ZX9Q"), "no label of a rating is in any text node or attribute")
+                assertFalse(el.flatText().contains("Widerstand 7"), "no value of a rating is shown")
+                assertFalse(el.flatText().contains("lautet"))
+                assertFalse(storedAnywhere("ZX9Q"))
+                val status =
+                    el.allOf("[role=status]").first {
+                        it.getAttribute("aria-live") == "polite" &&
+                            it.textContent.orEmpty().contains("mitgezählt")
+                    }
+                assertFalse(status.className.contains("text-success") || status.className.contains("fw-bold"))
             }
         }
 

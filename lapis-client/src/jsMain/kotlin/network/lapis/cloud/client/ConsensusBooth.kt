@@ -73,7 +73,18 @@ internal fun renderConsensusBooth(
                     anchors = RatingAnchors(low = tr("kein"), middle = tr("deutliche Bedenken"), high = tr("nicht tragbar")),
                     explanationClosedLabel = tr("Begründung"),
                     reviewLine = { text, value -> gettext("%1: Widerstand %2 von %3", text, value, consensus.scaleMax) },
-                    finalNote = tr("Nach der Abgabe kann Ihre Bewertung nicht mehr geändert werden."),
+                    finalNote =
+                        if (consensus.secret) {
+                            // gettext, not tr: the two sentences are joined into one plain string
+                            gettext("Nach der Abgabe kann Ihre Bewertung nicht mehr geändert werden.") + " " +
+                                gettext(
+                                    "Nach der Abgabe erhalten Sie einen Quittungscode. Damit können Sie später prüfen, " +
+                                        "dass Ihre Bewertung mitgezählt wurde. Welche Werte Sie vergeben haben, " +
+                                        "zeigt die Quittung nicht an.",
+                                )
+                        } else {
+                            tr("Nach der Abgabe kann Ihre Bewertung nicht mehr geändert werden.")
+                        },
                     exitLabel = tr("Zurück zum Konsensieren"),
                     doneHeading = tr("Ihre Bewertung wurde gezählt"),
                     doneText = tr("Danke, Ihre Bewertung ist eingegangen."),
@@ -87,8 +98,9 @@ internal fun renderConsensusBooth(
                                 "Ihre Bewertung wurde gezählt. Die Bestätigung ist wegen eines Verbindungsabbruchs nicht bei Ihnen angekommen.",
                             ),
                         ),
-                    closedHeading = tr("Bewertung beendet"),
-                    closedText = tr("Die Bewertung ist geschlossen."),
+                    closedHeading = tr("Bewertung nicht gezählt"),
+                    closedText =
+                        tr("Ihre Bewertung wurde nicht gezählt: Das Konsensieren ist nicht mehr offen. Die Ansicht wurde aktualisiert."),
                     noConnectionHeading = tr("Keine Verbindung"),
                     noConnectionLostText =
                         tr(

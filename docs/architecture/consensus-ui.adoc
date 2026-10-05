@@ -83,7 +83,7 @@ All four read existing tables; `V1__baseline.sql` is unchanged and there is no n
 | `getSystemicConsensusResult(id)` | Only `EVALUATED` (otherwise a conflict). Computed by `computeSystemicConsensusOutcome`, the very function `evaluate` uses (extracted unchanged), so the display can never drift from what was recorded. Results of earlier rounds are not retrievable.
 | `getSystemicConsensusParticipation(id)` | Only the caller's *own* flags plus public counters. Every lookup is filtered to the round of the row, so a rating from round 1 does not survive into round 2.
 | `listSystemicConsensusParticipations(ids)` | The batch variant for the list: at most 100 distinct ids (otherwise a conflict), a constant number of queries, own flags only.
-| `verifySystemicConsensusReceipt(id, code)` | Only for an anonymous consensus (otherwise a conflict). A code that cannot exist (not 27 Base64url characters) is `found = false` without a query. The receipt's resistances are returned only when the consensus is `EVALUATED` *and* the receipt belongs to the current round.
+| `verifySystemicConsensusReceipt(id, code)` | Only for an anonymous consensus (otherwise a conflict). A code that cannot exist (not 27 Base64url characters) is `found = false` without a query. V1.9.54 (receipt-freeness): existence and inclusion only (`found`, `round`, `countedInCurrentResult`); `resistances` is always `null`, the ratings are never returned.
 | length check in `addOption` | The text is trimmed and must be 1..200 characters (the column is `VARCHAR(200)`); otherwise a conflict instead of a database error.
 |===
 
@@ -207,11 +207,10 @@ table, and `ServerConsensusDisclosureTripwireTest` pins this order, the single D
 | `listResistanceBallots` | `[]` always, no role exception
 | `getSystemicConsensusResult` / `evaluate` | aggregates per option from five ballots on, otherwise `figuresWithheld`
 | `getSystemicConsensusParticipation` / `listSystemicConsensusParticipations` | the caller's own participation state and public counters
-| `verifySystemicConsensusReceipt` | only the caller's own ratings, by receipt code
+| `verifySystemicConsensusReceipt` | existence and inclusion only, never the ratings (V1.9.54)
 |===
 
-Receipt verification returns only the
-caller's own ratings and is unchanged; the room state (`RoomBallotDto`) never carried a figure and is pinned by an allowlist test.
+Receipt verification proves inclusion only (V1.9.54), the cast result of an anonymous rating carries no ballot id, and every status transition and `castResistanceBallot` lock the consensus row; the room state (`RoomBallotDto`) never carried a figure and is pinned by an allowlist test.
 The minimum is judged per round: a revote with fewer ballots withholds again, one with five or more discloses.
 
 *Client.* Both result renderers (the detail page and the room operator step) branch on `figuresWithheld` only -- never on the emptiness of
@@ -294,7 +293,7 @@ Small points that bring the screens closer to how a Systemic Consensus is run in
   of that section remain. `listResistanceBallots` has returned `[]` for every anonymous consensus since V1.9.44.
 * The booth is embedded in the conference room since V1.9.32 (see the last section); the room has no results distribution.
 * V1.9.39: the receipt carries no option numbers; the status quo option has no rationale; `addOption`/`removeOption` take no row lock against a
-  concurrent `freezeOptions` (only `setOptionRationale` does); `scaleMax` has no server-side upper bound and the compact room grid has a fixed
+  concurrent `freezeOptions` (only `setOptionRationale` does; `freezeOptions` itself locks since V1.9.54); `scaleMax` has no server-side upper bound and the compact room grid has a fixed
   11 columns; rationales travel with `listSystemicConsensuses` (up to 25 x 1000 characters per consensus); there is still no minimum
   participation for anonymous results (closed by V1.9.42).
 * The staging test is written, not executed: `consensus-staging-test.adoc`.

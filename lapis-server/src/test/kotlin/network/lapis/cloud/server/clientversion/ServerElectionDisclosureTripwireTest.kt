@@ -27,11 +27,15 @@ private const val DISCLOSURE_FILE = "rpc/ElectionBallotDisclosure.kt"
  * Cast + receipt check + tally (aggregate) in the service, own participation, the member's own named ballots in the DSGVO export.
  * V1.9.53: `rpc/ElectionResultDisclosure.kt` is the single decision point of the minimum participation (it counts the ballots and
  * the per-option selections); it was added on purpose, see `ServerElectionResultDisclosureTripwireTest`.
+ * V1.9.54: `rpc/ElectionReceiptCheck.kt` is the single place that evaluates a receipt code. The receipt query moved there from
+ * `ElectionService.kt`, which stays listed for the cast and the tally: net, the allowlist grew by exactly this one file and it is
+ * narrower than before (the check gates on `secret` before any selection or option row is read, see the test below).
  */
 private val BALLOT_TABLE_ALLOWLIST =
     setOf(
         DISCLOSURE_FILE,
         "rpc/ElectionResultDisclosure.kt",
+        "rpc/ElectionReceiptCheck.kt",
         "rpc/ElectionService.kt",
         "rpc/ElectionOwnParticipation.kt",
         "dsgvo/ElectionPersonalData.kt",
@@ -115,6 +119,27 @@ class ServerElectionDisclosureTripwireTest :
             body.contains("disclosedElectionBallots") shouldBe true
             body.contains("ElectionBallotTable") shouldBe false
             body.contains("ElectionBallotSelectionTable") shouldBe false
+        }
+
+        test("V1.9.54: verifyReceipt only delegates to the receipt check, which gates on secret before it reads any selection or option") {
+            val service = serverSources().first { it.first == "rpc/ElectionService.kt" }.second
+            val start = service.indexOf("override suspend fun verifyReceipt")
+            val end = service.indexOf("override suspend fun getElectionParticipation")
+            (start in 0 until end) shouldBe true
+            val body = codeOnly(service.substring(start, end)).joinToString("\n")
+            body.contains("verifyElectionReceipt(") shouldBe true
+            body.contains("ElectionBallotTable") shouldBe false
+            body.contains("ElectionBallotSelectionTable") shouldBe false
+            body.contains("ElectionOptionTable") shouldBe false
+            val check = codeOnly(serverSources().first { it.first == "rpc/ElectionReceiptCheck.kt" }.second).joinToString("\n")
+            val body2 = check.substring(check.indexOf("internal fun verifyElectionReceipt"))
+            val secretGate = body2.indexOf("electionRow[ElectionTable.secret]")
+            val labelRead = body2.indexOf("openBallotLabels(")
+            (secretGate >= 0) shouldBe true
+            (secretGate < labelRead) shouldBe true
+            // the ballot lookup selects the id only: a later change cannot carry content along by accident
+            body2.contains(".select(ElectionBallotTable.id)") shouldBe true
+            body2.contains("ElectionBallotTable.selectAll()") shouldBe false
         }
 
         test("the shared rule: a secret vote discloses nothing, an open one does") {

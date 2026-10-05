@@ -604,6 +604,10 @@ class GovernanceService(
                 if (targetRow[MotionTable.status] !in NON_TERMINAL_MOTION_STATUSES) {
                     throw ConflictException("Motion ${input.amendsMotionId} is ${targetRow[MotionTable.status]}, not amendable")
                 }
+                // V1.9.54: while the target's election / vote / systemic consensus runs, its text must not change
+                // under the voters, and the amendment would only block the tally. The target row is locked above and
+                // every path opens under that same lock, so this check is serialized against them.
+                MotionDecisionLock.requireNoRunningDecisionPath(amendsId)
             }
             val id = Uuid.random()
             val now = nowLocalDateTime()
@@ -807,6 +811,28 @@ class GovernanceService(
             // (see that KDoc for the exact race this closes) and with closeVote's equivalent lock
             // below. For a MAIN motion this also serializes against a second concurrent
             // resolveMotion/closeVote call finalizing the same motion twice.
+            //
+            // V1.9.54: adopting an AMENDMENT writes the target's `currentText`, so then the target is locked too.
+            // `amends_motion_id` never changes, so it is read without a lock; both rows are then locked in
+            // ascending id order (the order of `lockMotionsByAgendaItem`), so no lock cycle is possible (closeVote uses the same order).
+            val amendsPeek =
+                if (input.status == ResolutionStatus.ADOPTED) {
+                    MotionTable
+                        .select(MotionTable.amendsMotionId)
+                        .where { MotionTable.id eq aId }
+                        .singleOrNull()
+                        ?.get(MotionTable.amendsMotionId)
+                } else {
+                    null
+                }
+            var targetRow: ResultRow? = null
+            if (amendsPeek != null) {
+                val ordered = listOf(aId, amendsPeek).sortedBy { it.toString() }
+                ordered.forEach { lockedId ->
+                    val locked = MotionDecisionLock.lockMotion(lockedId)
+                    if (lockedId == amendsPeek) targetRow = locked
+                }
+            }
             val row =
                 MotionTable
                     .selectAll()
@@ -819,8 +845,12 @@ class GovernanceService(
             if (row[MotionTable.status] != MotionStatus.SCHEDULED) {
                 throw ConflictException("Motion $id is ${row[MotionTable.status]}, expected SCHEDULED")
             }
+            // V1.9.54: the target of an adopted amendment must not be in the middle of its own decision path
+            // (legacy state only: submitMotion and the opening paths keep this from arising any more).
+            if (targetRow != null) MotionDecisionLock.requireNoRunningDecisionPath(checkNotNull(amendsPeek))
             // V1.9.23: an election is the decision path of this motion; the quorum path may not decide it too.
-            MotionDecisionLock.requireNoActiveElection(aId)
+            // V1.9.54: the same holds for an OPEN meritocratic vote and a running systemic consensus.
+            MotionDecisionLock.requireNoRunningDecisionPath(aId)
             // Änderungsantrag (V0.2.6) ordering guard: a MAIN motion may not resolve while any of
             // its amendments is still pending -- see requireNoPendingAmendments KDoc.
             if (row[MotionTable.amendsMotionId] == null) requireNoPendingAmendments(aId)
@@ -893,6 +923,11 @@ class GovernanceService(
                     ?: throw ConflictException("Motion ${input.motionId} has no scheduled Meeting")
             MotionDecisionLock.requireNoActiveElection(aId)
             MotionDecisionLock.requireNoActiveSystemicConsensus(aId)
+            // V1.9.54: a main motion with a pending amendment may not enter a decision path (serverside; the client
+            // only hid the button before). Otherwise that amendment could be adopted while the vote runs and change
+            // `currentText` under the voters. Together with submitMotion's refusal (no amendment during a running
+            // path) a running path of a main motion therefore never has a pending amendment.
+            if (motionRow[MotionTable.amendsMotionId] == null) requireNoPendingAmendments(aId)
             val hasActiveVote =
                 VoteTable
                     .selectAll()
@@ -969,8 +1004,17 @@ class GovernanceService(
             // project's own concept states "Keine Stimmrechte für Gäste": guests never get vote
             // weight, full stop.
             requireActiveMembership(memberId = current.memberId)
+            // V1.9.54: the vote row is locked FOR UPDATE (child row only, never the motion) BEFORE the status check
+            // and before lockForDebit (lock order: vote, then member). closeVote/abortVote lock motion -> vote, so a
+            // bid either commits before they read the ballots (and is settled) or sees CLOSED/ABORTED and is refused;
+            // before, a bid could land after closeVote committed: an unsettled ballot and a VOTE_STAKE debit that
+            // nothing ever settles.
             val voteRow =
-                VoteTable.selectAll().where { VoteTable.id eq abId }.singleOrNull()
+                VoteTable
+                    .selectAll()
+                    .where { VoteTable.id eq abId }
+                    .forUpdate()
+                    .singleOrNull()
                     ?: throw NotFoundException("Vote ${input.voteId} not found")
             if (voteRow[VoteTable.status] != VoteStatus.OPEN) {
                 throw ConflictException(
@@ -1112,7 +1156,25 @@ class GovernanceService(
             // forUpdate(): same lock discipline as resolveMotion's own Motion-row read -- see its
             // KDoc for the submitMotion race this closes; closeVote is the second path capable of
             // finalizing a main motion, so it needs the identical lock.
-            val motionRow = MotionDecisionLock.lockMotion(motionId)
+            // V1.9.54: adopting an amendment writes the target's `currentText`, so the target is locked as well,
+            // in the same ascending-id order as resolveMotion (amends_motion_id never changes, so the peek needs
+            // no lock) -- otherwise closeVote (A -> T) and resolveMotion (T -> A) could deadlock on one amendment.
+            val amendsPeek =
+                MotionTable
+                    .select(MotionTable.amendsMotionId)
+                    .where { MotionTable.id eq motionId }
+                    .singleOrNull()
+                    ?.get(MotionTable.amendsMotionId)
+            var motionRowLocked: ResultRow? = null
+            if (amendsPeek != null) {
+                listOf(motionId, amendsPeek).sortedBy { it.toString() }.forEach { lockedId ->
+                    val locked = MotionDecisionLock.lockMotion(lockedId)
+                    if (lockedId == motionId) motionRowLocked = locked
+                }
+            } else {
+                motionRowLocked = MotionDecisionLock.lockMotion(motionId)
+            }
+            val motionRow = checkNotNull(motionRowLocked)
             // V1.9.23: the vote row is re-read FOR UPDATE only AFTER the motion lock. Before, it was read
             // before the lock and its stale status was "re-checked" below, so two concurrent closeVote calls
             // could both settle and both write a resolution.
@@ -1167,6 +1229,11 @@ class GovernanceService(
                         if (winnerLabel.equals("NO", ignoreCase = true)) ResolutionStatus.REJECTED else ResolutionStatus.ADOPTED
                     }
                 }
+            // V1.9.54: an adopted amendment rewrites the target's text, so the target must not be in the middle
+            // of its own decision path (e.g. an ADVISORY consensus running on it) -- same guard as resolveMotion.
+            if (resolutionStatus == ResolutionStatus.ADOPTED && amendsPeek != null) {
+                MotionDecisionLock.requireNoRunningDecisionPath(amendsPeek)
+            }
             val (votesYes, votesNo) =
                 if (optionRows.size == 2) {
                     val yes = ballotRows.count { labelByOptionId[it[VoteBallotTable.optionId]].equals("YES", ignoreCase = true) }

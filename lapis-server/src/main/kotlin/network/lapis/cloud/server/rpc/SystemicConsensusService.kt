@@ -140,6 +140,10 @@ class SystemicConsensusService(
             val sId = motionRow[MotionTable.meetingId] ?: throw ConflictException("Motion ${input.motionId} has no scheduled Meeting")
             MotionDecisionLock.requireNoActiveElection(aId)
             MotionDecisionLock.requireNoOpenVote(aId)
+            // V1.9.54: only a BINDING consensus can decide (and so adopt an amendment); an ADVISORY one never does.
+            if (input.bindingness == SystemicConsensusBindingness.BINDING && motionRow[MotionTable.amendsMotionId] == null) {
+                requireNoPendingAmendments(aId)
+            }
 
             val hasActive =
                 SystemicConsensusTable
@@ -329,7 +333,7 @@ class SystemicConsensusService(
         // snapshot, not before" ordering (Stolperfalle §9.7).
         val prep =
             transaction {
-                val row = requireSystemicConsensusRow(kId)
+                val row = lockSystemicConsensusRow(kId)
                 val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
                 if (!current.canManageSystemicConsensus(committeeId)) throw ForbiddenException()
                 if (row[SystemicConsensusTable.status] != SystemicConsensusStatus.COLLECTION) {
@@ -392,7 +396,7 @@ class SystemicConsensusService(
             // (ACTIVE), not requirePoliticianRaterMembership -- guests never get vote weight in this
             // project's concept.
             requireActiveMembership(memberId = current.memberId)
-            val row = requireSystemicConsensusRow(kId)
+            val row = lockSystemicConsensusRow(kId)
             if (row[SystemicConsensusTable.status] != SystemicConsensusStatus.RATING) {
                 throw ConflictException(
                     "SystemicConsensus ${input.systemicConsensusId} is ${row[SystemicConsensusTable.status]}, expected RATING",
@@ -498,7 +502,8 @@ class SystemicConsensusService(
                     }
                 }
                 SystemicConsensusBallotCastResultDto(
-                    id = ballotId.toString(),
+                    // V1.9.54: an anonymous rating never hands out the ballot id (as with the secret election).
+                    id = if (secret) "" else ballotId.toString(),
                     castAt = castAt,
                     receiptCode = if (secret) receiptCode else null,
                 )
@@ -519,7 +524,7 @@ class SystemicConsensusService(
         val kId = systemicConsensusId.toUuidOrNotFound("SystemicConsensus")
         val closed =
             transaction {
-                val row = requireSystemicConsensusRow(kId)
+                val row = lockSystemicConsensusRow(kId)
                 val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
                 if (!current.canManageSystemicConsensus(committeeId)) throw ForbiddenException()
                 if (row[SystemicConsensusTable.status] != SystemicConsensusStatus.RATING) {
@@ -662,7 +667,7 @@ class SystemicConsensusService(
         // freezeOptions/ElectionService.openVoting (D7).
         val prep =
             transaction {
-                val row = requireSystemicConsensusRow(kId)
+                val row = lockSystemicConsensusRow(kId)
                 val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
                 if (!current.canManageSystemicConsensus(committeeId)) throw ForbiddenException()
                 val status = row[SystemicConsensusTable.status]
@@ -716,7 +721,7 @@ class SystemicConsensusService(
         val kId = systemicConsensusId.toUuidOrNotFound("SystemicConsensus")
         val aborted =
             transaction {
-                val row = requireSystemicConsensusRow(kId)
+                val row = lockSystemicConsensusRow(kId)
                 val committeeId = requireMotionCommitteeId(row[SystemicConsensusTable.motionId])
                 if (!current.canManageSystemicConsensus(committeeId)) throw ForbiddenException()
                 val status = row[SystemicConsensusTable.status]
@@ -805,6 +810,20 @@ class SystemicConsensusService(
         SystemicConsensusTable
             .selectAll()
             .where { SystemicConsensusTable.id eq systemicConsensusId }
+            .singleOrNull() ?: throw NotFoundException("SystemicConsensus $systemicConsensusId not found")
+
+    /**
+     * V1.9.54: locks the SystemicConsensus row `FOR UPDATE` (child row only, never the motion -- a subset of the
+     * [MotionDecisionLock] order) and returns the re-read row; the caller does every status check on it. Every
+     * status transition (`freezeOptions`, `closeRating`, `reopenRating`, `abortSystemicConsensus`, `evaluate`) and
+     * [castResistanceBallot] take it, so a rating can never land after the rating was closed, aborted or evaluated.
+     * It must run BEFORE a `try` that catches `ExposedSQLException`: a lock timeout must not read as "already rated".
+     */
+    private fun lockSystemicConsensusRow(systemicConsensusId: Uuid): ResultRow =
+        SystemicConsensusTable
+            .selectAll()
+            .where { SystemicConsensusTable.id eq systemicConsensusId }
+            .forUpdate()
             .singleOrNull() ?: throw NotFoundException("SystemicConsensus $systemicConsensusId not found")
 
     /** Locks the SystemicConsensus row (`FOR UPDATE`) and requires COLLECTION -- only this row, no Motion (subset of the lock order). */

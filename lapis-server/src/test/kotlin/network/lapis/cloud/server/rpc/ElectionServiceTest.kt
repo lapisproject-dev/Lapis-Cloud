@@ -402,28 +402,28 @@ class ElectionServiceTest :
                     }
                 storedMemberId shouldBe null
 
-                // Before TALLIED, verifyReceipt confirms existence but never the option.
+                // Before TALLIED, verifyReceipt confirms existence but never the option; V1.9.54: not counted yet.
                 val beforeTally =
                     client
                         .get(
                             "/test/verify-receipt/$electionId?receiptCode=$receiptCode",
                         ) { header("X-Member-Id", voter.toString()) }
                         .bodyAsText()
-                beforeTally shouldBe "true:"
+                beforeTally shouldBe "true::false"
 
                 client.post("/test/close-voting/$electionId") { header("X-Member-Id", electionBoardMembers[0].toString()) }
                 client.post("/test/release-tally/$electionId") { header("X-Member-Id", electionBoardMembers[0].toString()) }
                 client.post("/test/release-tally/$electionId") { header("X-Member-Id", electionBoardMembers[1].toString()) }
                 client.post("/test/tally/$electionId") { header("X-Member-Id", electionBoardMembers[0].toString()) }
 
-                // After TALLIED, the receipt reveals the chosen option's label (the candidate's display name).
+                // After TALLIED (V1.9.54, receipt-freeness) the receipt proves inclusion only: counted, but NEVER the chosen option.
                 val afterTally =
                     client
                         .get(
                             "/test/verify-receipt/$electionId?receiptCode=$receiptCode",
                         ) { header("X-Member-Id", voter.toString()) }
                         .bodyAsText()
-                afterTally shouldBe "true:Election Testmitglied"
+                afterTally shouldBe "true::true"
 
                 // Winner (candidateA, only ballot cast) is seated into targetCommittee.
                 val seated =
@@ -1554,7 +1554,7 @@ private fun Route.registerElectionTestRoutes() {
         val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)
         val receiptCode = call.request.queryParameters["receiptCode"]!!
         val r = service.verifyReceipt(electionId = call.parameters["electionId"]!!, receiptCode = receiptCode)
-        call.respondText("${r.found}:${r.optionLabel ?: ""}")
+        call.respondText("${r.found}:${r.optionLabel ?: ""}:${r.counted}")
     }
     get("/test/list-ballots/{electionId}") {
         val service = ElectionService(call = call, streamGuard = NoOpSecretBallotStreamGuard)

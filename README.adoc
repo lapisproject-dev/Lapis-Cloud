@@ -1534,7 +1534,7 @@ elections are rejected by the server. Who approved a tally is visible only as a 
 recount a secret election themselves (a deliberate consequence of V1.9.46). Since V1.9.53 a secret election
 with fewer than five ballots discloses no vote counts (unreleased; see `docs/architecture/elections-integrity.adoc`,
 "Minimum participation"); from five ballots on, or for an open election, the counts are delivered, so with a unanimous
-result the votes are known. The receipt check tells the holder of a receipt code the chosen option.
+result the votes are known. The receipt check tells the holder of a receipt code only that the ballot arrived and was counted, never the chosen option.
 
 == Voting in the conference room (V1.9.24-V1.9.27)
 

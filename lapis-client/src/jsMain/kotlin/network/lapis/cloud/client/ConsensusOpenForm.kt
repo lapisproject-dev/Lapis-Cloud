@@ -47,7 +47,20 @@ internal fun renderConsensusDecisionGate(
                 )
         }
     if (owning != null) {
-        panel.p(tr("Zu diesem Antrag läuft ein Konsensieren.")) { addCssClasses("alert alert-info mb-0") }
+        val running = owning.status != SystemicConsensusStatus.EVALUATED
+        // V1.9.54: while it runs (collecting, rating or awaiting its evaluation) the server refuses resolveMotion; say what to do first.
+        val hint =
+            if (running) {
+                tr(
+                    "Zu diesem Antrag läuft noch ein Systemisches Konsensieren. Werten Sie es aus oder brechen Sie es ab, bevor Sie entscheiden.",
+                )
+            } else {
+                tr("Zu diesem Antrag läuft ein Konsensieren.")
+            }
+        panel.p(hint) {
+            addCssClasses("alert alert-info mb-0")
+            if (running) setAttribute("role", "note")
+        }
         panel.button(tr("Zum Konsensieren"), style = ButtonStyle.PRIMARY).onClick { navigateTo("/consensus/${owning.id}") }
         return true
     }

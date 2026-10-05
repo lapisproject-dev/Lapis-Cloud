@@ -2519,8 +2519,8 @@ class GovernanceServiceTest :
         }
 
         test(
-            "closeVote (Änderungsantrag): enforces the same ordering guard as resolveMotion, and an ADOPTED " +
-                "amendment via the Vickrey path also updates the main Motion's currentText",
+            "closeVote (Änderungsantrag): the amendment is decided BEFORE the vote opens (V1.9.54: opening is refused " +
+                "while one is pending), and the vote then decides the amended text",
         ) {
             testApplication {
                 application {
@@ -2563,6 +2563,13 @@ class GovernanceServiceTest :
                 client.post("/test/review-motion/$amendmentId/ACCEPT") { header("X-Member-Id", chair.toString()) }
                 client.post("/test/schedule-motion/$amendmentId/$meetingId/1") { header("X-Member-Id", chair.toString()) }
 
+                // V1.9.54: a main motion with a pending amendment cannot enter a decision path at all (checked on the server, no
+                // longer only by the client), so the amendment's text can never change under the voters.
+                client.post("/test/open-vote/$mainMotionId") { header("X-Member-Id", chair.toString()) }.status shouldBe
+                    HttpStatusCode.Conflict
+
+                client.post("/test/resolve-motion/$amendmentId/ADOPTED") { header("X-Member-Id", chair.toString()) }
+
                 val opened =
                     client.post("/test/open-vote/$mainMotionId") { header("X-Member-Id", chair.toString()) }.bodyAsText()
                 val voteId = opened.substringBefore(":")
@@ -2573,12 +2580,6 @@ class GovernanceServiceTest :
                         .first { it.endsWith("=YES") }
                         .substringBefore("=")
                 client.post("/test/cast-vote-ballot/$voteId/$jaOptionId/10.00") { header("X-Member-Id", voter.toString()) }
-
-                // Amendment still SCHEDULED (pending): closeVote must be blocked, same guard as resolveMotion.
-                val blockedClose = client.post("/test/close-vote/$voteId") { header("X-Member-Id", chair.toString()) }
-                blockedClose.status shouldBe HttpStatusCode.Conflict
-
-                client.post("/test/resolve-motion/$amendmentId/ADOPTED") { header("X-Member-Id", chair.toString()) }
 
                 val closed =
                     client.post("/test/close-vote/$voteId") { header("X-Member-Id", chair.toString()) }.bodyAsText()

@@ -158,8 +158,8 @@ interface ISystemicConsensusService {
 
     /**
      * V1.9.28. Role: any authenticated member. Only for a secret Systemic Consensus (otherwise a conflict).
-     * Returns whether the receipt exists and in which round it was issued; the receipt's resistances are
-     * only returned once the consensus is EVALUATED and the receipt belongs to the current round.
+     * Returns whether the receipt exists, in which round it was issued and whether it is part of the current
+     * evaluated result. V1.9.54 (receipt-freeness): never the ratings themselves.
      */
     suspend fun verifySystemicConsensusReceipt(
         systemicConsensusId: String,

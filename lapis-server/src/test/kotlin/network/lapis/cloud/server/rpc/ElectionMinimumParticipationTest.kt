@@ -236,7 +236,14 @@ class ElectionMinimumParticipationTest :
             val labels =
                 if (type == ElectionType.YES_NO) listOf("YES", "NO", "ABSTAIN") else (0 until optionCount).map { "Kandidat-$it" }
             val optionIds = labels.map { Uuid.random() }
-            val codes = ballots.indices.map { "MP-${Uuid.random().toString().take(30)}" }
+            val codes =
+                ballots.indices.map {
+                    Uuid
+                        .random()
+                        .toString()
+                        .replace("-", "")
+                        .take(27)
+                }
             transaction {
                 MotionTable.insert {
                     it[id] = motionId
@@ -383,7 +390,7 @@ class ElectionMinimumParticipationTest :
                                         electionId = call.parameters["id"]!!,
                                         receiptCode = call.request.queryParameters["code"]!!,
                                     )
-                            call.respondText("${r.found}:${r.optionLabel ?: ""}")
+                            call.respondText("${r.found}:${r.optionLabel ?: ""}:${r.counted}")
                         }
                         get("/t/resolutions/{meetingId}") {
                             val list = GovernanceService(call = call).listResolutions(meetingId = call.parameters["meetingId"]!!)
@@ -599,10 +606,11 @@ class ElectionMinimumParticipationTest :
             }
         }
 
-        test("verifyReceipt after the tally still returns the own label at 1 ballot") {
+        // Assertion inverted per user decision 2026-10-05 (receipt-freeness, V1.9.54): the receipt proves inclusion only. A stricter expectation.
+        test("verifyReceipt after the tally returns no label at 1 ballot, only that it was counted") {
             val subject = seed(ElectionType.YES_NO, ElectionStatus.TALLIED, secret = true, ballots = yesNo(YES))
             testApp {
-                client.read("/t/verify-receipt/${subject.id}?code=${subject.receiptCodes.single()}", plainMember) shouldBe "true:YES"
+                client.read("/t/verify-receipt/${subject.id}?code=${subject.receiptCodes.single()}", plainMember) shouldBe "true::true"
             }
         }
 

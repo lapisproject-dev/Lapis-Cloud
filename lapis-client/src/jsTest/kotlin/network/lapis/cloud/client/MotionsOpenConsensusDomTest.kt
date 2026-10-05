@@ -95,7 +95,12 @@ class MotionsOpenConsensusDomTest {
             mountedForm("sk-motion-running") { root, element ->
                 element().render(root, consensuses = listOf(consensus(status = SystemicConsensusStatus.RATING)))
                 val el = element()
-                assertTrue(el.flatText().contains("Zu diesem Antrag läuft ein Konsensieren."))
+                assertTrue(
+                    el.flatText().contains(
+                        "Zu diesem Antrag läuft noch ein Systemisches Konsensieren. Werten Sie es aus oder brechen Sie es ab, bevor Sie entscheiden.",
+                    ),
+                )
+                assertEquals(1, el.allOf("[role=note]").size)
                 assertTrue(el.hasButton("Zum Konsensieren"))
                 listOf("Konsensieren eröffnen", "Wahl eröffnen", "Entscheidung speichern", "Vote eröffnen").forEach {
                     assertFalse(el.hasButton(it), "'$it' would race the consensus")
@@ -111,6 +116,11 @@ class MotionsOpenConsensusDomTest {
                 val binding = consensus(status = SystemicConsensusStatus.EVALUATED, bindingness = SystemicConsensusBindingness.BINDING)
                 element().render(root, consensuses = listOf(binding))
                 assertTrue(element().hasButton("Zum Konsensieren"))
+                assertTrue(
+                    element().flatText().contains("Zu diesem Antrag läuft ein Konsensieren."),
+                    "an evaluated binding one keeps its text",
+                )
+                assertEquals(0, element().allOf("[role=note]").size)
                 assertFalse(element().hasButton("Wahl eröffnen"))
             }
         }

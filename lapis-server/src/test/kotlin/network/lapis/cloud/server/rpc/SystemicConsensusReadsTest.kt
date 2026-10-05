@@ -405,7 +405,8 @@ class SystemicConsensusReadsTest :
             }
         }
 
-        test("verifySystemicConsensusReceipt: no values before EVALUATED, values after, and not for a receipt of an older round") {
+        // Assertion inverted per user decision 2026-10-05 (receipt-freeness, V1.9.54): no values in any status, only inclusion.
+        test("verifySystemicConsensusReceipt: never any values, inclusion after EVALUATED, and not for a receipt of an older round") {
             withApp {
                 val w = buildWorld(tag = "verify2", day = 11, secret = true)
                 val receipt1 = cast(w, w.voters[0], 8, 2, 5).substringAfter(":")
@@ -427,9 +428,7 @@ class SystemicConsensusReadsTest :
                 client.send("POST", "/t/evaluate/${w.consensusId}", w.chair)
                 val evaluated = verify(receipt1)
                 evaluated.countedInCurrentResult shouldBe true
-                evaluated.resistances!!.associate { it.optionId to it.resistance } shouldBe
-                    mapOf(w.statusQuo to 8, w.optionA to 2, w.optionB to 5)
-                evaluated.resistances!!.first { it.optionId == w.statusQuo }.isStatusQuoOption shouldBe true
+                evaluated.resistances shouldBe null
 
                 client.send("POST", "/t/reopen/${w.consensusId}", w.chair)
                 val old = verify(receipt1)

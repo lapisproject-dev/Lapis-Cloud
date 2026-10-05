@@ -6,6 +6,19 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Races: `castVoteBallot` now locks the vote row before its status check (a bid could land after `closeVote` and leave an unsettled ballot and debit); `castResistanceBallot`,
+  `closeRating`, `reopenRating`, `freezeOptions` and `abortSystemicConsensus` lock the consensus row (a rating could land after the close or even the evaluation). The client says
+  lastingly that a bid, rating or vote was not counted when the vote, consensus or election was no longer open.
+
+### Known limitations (V1.9.54)
+
+- Price of receipt-freeness: nobody can individually verify the chosen option any more; this is trust in server and election board, not end-to-end verifiability.
+- Decision paths already running with pending amendments before this change stay as they were (no data migration): withdraw the amendment or abort the path.
+- Not covered: `recordResolution` and `withdrawMotion` still check only the election; `addOption`/`removeOption` take no lock against `freezeOptions`.
+- `receipt_code` stays in the database next to the ballot (database access remains a risk, E5).
+
 ### Added
 
 - **Mobile WebView bridge: section key `my-events`** (V1.9.52). Server only: no migration, no client, RPC or `V1__baseline.sql` change.
@@ -17,6 +30,14 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **API BEHAVIOUR CHANGE: receipts of secret elections and anonymous consensus no longer disclose the choice** (V1.9.54). `verifyReceipt` of a secret election returns
+  `optionLabel = null` in every status and the new `ReceiptVerificationDto.counted` (the ballot was part of the tally); `verifySystemicConsensusReceipt` never returns
+  `resistances`; the cast result of an anonymous rating has an empty `id`. Open elections keep their labels. New `rpc/ElectionReceiptCheck.kt` is the single evaluation point
+  (gate on `secret` before any selection row, format check, `found = false` for any unusable code). Client: new check texts, receipt announced before the cast, "Code kopieren".
+  No migration, no change to `V1__baseline.sql`.
+- `resolveMotion` is refused while an election runs, a meritocratic vote is `OPEN` or a systemic consensus runs (`COLLECTION`, `RATING`, `CLOSED`); the client shows what to do first
+  and a fixed text on a conflict. `submitMotion` refuses an amendment while the target's decision path runs; `openElection`, `openVote` and a binding `openSystemicConsensus`
+  refuse a main motion with a pending amendment on the server.
 - **API BEHAVIOUR CHANGE: minimum participation for the figures of secret elections** (V1.9.53). A secret election with fewer than five ballots
   (`DisclosureRules.MIN_ANONYMOUS_RESPONSES`, the same constant as polls and anonymous consensus) no longer discloses any per-option figure. No migration, no
   `V1__baseline.sql` change. Open-ballot elections are unaffected. The decision (winners, tie, majority) is made on the full data as before; only the disclosure is

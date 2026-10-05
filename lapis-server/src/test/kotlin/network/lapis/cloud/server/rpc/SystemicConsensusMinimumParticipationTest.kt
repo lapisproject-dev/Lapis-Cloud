@@ -401,7 +401,8 @@ class SystemicConsensusMinimumParticipationTest :
             }
         }
 
-        test("receipt verification with one ballot returns only the own ratings, no aggregate") {
+        // Assertion inverted per user decision 2026-10-05 (receipt-freeness, V1.9.54): even with 1 ballot the receipt proves inclusion only.
+        test("receipt verification with one ballot proves inclusion only, never the ratings") {
             withApp {
                 val w = buildWorld(tag = "receipt", day = 16, voterCount = 3)
                 val receipt = castAll(w, 1).single().substringAfter(":")
@@ -409,10 +410,10 @@ class SystemicConsensusMinimumParticipationTest :
                 val body = client.call("GET", "/m/verify/${w.consensusId}?code=$receipt", w.voters[0])
                 val verification = json.decodeFromString<SystemicConsensusReceiptVerificationDto>(body)
                 verification.found shouldBe true
-                verification.resistances!!.size shouldBe 3
+                verification.countedInCurrentResult shouldBe true
+                verification.resistances shouldBe null
                 val element = Json.parseToJsonElement(body)
-                keys(element) shouldBe
-                    setOf("found", "round", "countedInCurrentResult", "resistances", "optionId", "isStatusQuoOption", "label", "resistance")
+                keys(element) shouldBe setOf("found", "round", "countedInCurrentResult", "resistances")
                 element.jsonObject.keys shouldBe setOf("found", "round", "countedInCurrentResult", "resistances")
             }
         }

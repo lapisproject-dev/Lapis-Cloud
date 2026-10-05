@@ -237,3 +237,14 @@ internal suspend fun <T> withBeforeUnloadSpy(block: suspend (() -> Int) -> T): T
         for (index in 0 until (active.length as Int)) originalRemove.call(kotlinx.browser.window, "beforeunload", active[index])
     }
 }
+
+/** `true` when [needle] sits in a key or a value of `localStorage` or `sessionStorage`. */
+internal fun storedAnywhere(needle: String): Boolean {
+    val window = kotlinx.browser.window
+    return listOf(window.localStorage, window.sessionStorage).any { storage ->
+        (0 until storage.length).any { index ->
+            val key = storage.key(index).orEmpty()
+            key.contains(needle) || storage.getItem(key).orEmpty().contains(needle)
+        }
+    }
+}

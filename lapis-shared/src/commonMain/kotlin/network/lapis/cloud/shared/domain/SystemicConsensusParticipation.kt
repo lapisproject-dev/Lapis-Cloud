@@ -25,7 +25,10 @@ data class SystemicConsensusParticipationDto(
     val ballotCount: Int,
 )
 
-/** One option's resistance as it appears on a verified receipt. The label is meaningless for the status quo option -- the UI translates by [isStatusQuoOption]. */
+/**
+ * Deprecated since V1.9.54 and never constructed any more: a receipt proves inclusion only, never the rating
+ * (receipt-freeness). Kept solely so the wire form of [SystemicConsensusReceiptVerificationDto] does not change.
+ */
 @Serializable
 data class SystemicConsensusReceiptResistanceDto(
     val optionId: String,
@@ -36,8 +39,9 @@ data class SystemicConsensusReceiptResistanceDto(
 
 /**
  * Result of checking a receipt code of a secret Systemic Consensus. [round] is the round the receipt
- * was issued in. [resistances] is only present once the consensus is EVALUATED and [round] is the
- * current round ([countedInCurrentResult]) -- before that the receipt only proves that the ballot exists.
+ * was issued in. Since V1.9.54 the receipt proves **inclusion only** ([countedInCurrentResult]: it belongs to the
+ * current round and the consensus is EVALUATED), never the rating: [resistances] is **always `null`**
+ * (receipt-freeness; the field only keeps the wire form stable).
  */
 @Serializable
 data class SystemicConsensusReceiptVerificationDto(

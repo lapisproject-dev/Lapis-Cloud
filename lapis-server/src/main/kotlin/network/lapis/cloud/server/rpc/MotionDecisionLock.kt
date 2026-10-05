@@ -33,6 +33,9 @@ import kotlin.uuid.Uuid
  * then locks the motion, then re-reads the child row `FOR UPDATE` and does every check on that
  * re-read row. A method that never touches the motion (casting a ballot, approving the tally ...) may
  * lock only the child row: it cannot take part in a lock cycle because it never waits for the motion.
+ * V1.9.54: that is now also true for a meritocratic bid ([GovernanceService.castVoteBallot]: `vote` -> `member`, via
+ * `LtrBalanceProvider.lockForDebit`) and a rating ([SystemicConsensusService.castResistanceBallot]: `systemic_consensus`
+ * only), which lock their child row BEFORE the status check so a concurrent close/abort/evaluate is serialized.
  *
  * `forUpdate()` is only ever applied to single-table selects (H2 rejects it on joins).
  * Every function must run inside an already-open `transaction {}`.
@@ -117,6 +120,50 @@ internal object MotionDecisionLock {
                         )
                 }.count() > 0
         if (active) throw ConflictException("Motion $motionId has an open or resolved SystemicConsensus")
+    }
+
+    /**
+     * V1.9.54: a meritocratic vote that is still OPEN owns the motion's decision. CLOSED and ABORTED do not block:
+     * a POSTPONED (tied), re-scheduled motion keeps its CLOSED vote and has to stay decidable. (Unlike
+     * [requireNoOpenVote], which also refuses a CLOSED vote and is meant for OPENING a path.)
+     */
+    fun requireNoOpenVoteOnly(motionId: Uuid) {
+        val open =
+            VoteTable
+                .selectAll()
+                .where { (VoteTable.motionId eq motionId) and (VoteTable.status eq VoteStatus.OPEN) }
+                .count() > 0
+        if (open) throw ConflictException("Motion $motionId has an open Vote; close or abort it first")
+    }
+
+    /**
+     * V1.9.54: a systemic consensus in COLLECTION, RATING or CLOSED (closed but not yet evaluated), of any bindingness,
+     * blocks the quorum path. EVALUATED and ABORTED do not block: an evaluated BINDING one has already moved the motion
+     * off SCHEDULED, and a tied, POSTPONED and re-scheduled motion has to stay decidable.
+     */
+    fun requireNoRunningSystemicConsensus(motionId: Uuid) {
+        val running =
+            SystemicConsensusTable
+                .selectAll()
+                .where {
+                    (SystemicConsensusTable.motionId eq motionId) and
+                        (SystemicConsensusTable.status inList DECISION_BLOCKING_CONSENSUS_STATUSES)
+                }.count() > 0
+        if (running) throw ConflictException("Motion $motionId has a running SystemicConsensus; evaluate or abort it first")
+    }
+
+    private val DECISION_BLOCKING_CONSENSUS_STATUSES =
+        listOf(SystemicConsensusStatus.COLLECTION, SystemicConsensusStatus.RATING, SystemicConsensusStatus.CLOSED)
+
+    /**
+     * V1.9.54: the complete exclusion of the quorum path ([GovernanceService.resolveMotion]) and of amendments
+     * ([GovernanceService.submitMotion]): a running election, an OPEN vote or a running systemic consensus owns the
+     * motion. The same [ConflictException] type as the election case. The motion row must already be locked.
+     */
+    fun requireNoRunningDecisionPath(motionId: Uuid) {
+        requireNoActiveElection(motionId)
+        requireNoOpenVoteOnly(motionId)
+        requireNoRunningSystemicConsensus(motionId)
     }
 
     /**
