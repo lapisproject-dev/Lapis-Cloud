@@ -747,8 +747,9 @@ class DunningService(
      * that only happened when cancelling the SOLE notice in a cycle, or via [resetDunning] (where
      * "start over" is the whole point); a treasurer cancelling ONE wrong notice out of several now
      * gets the same automatic-restart behaviour, which is easy to misread as "just remove that one
-     * mistake" rather than "the whole dunning cycle for this contribution restarts". TODO(UI):
-     * surface this explicitly in the confirmation dialog once one exists.
+     * mistake" rather than "the whole dunning cycle for this contribution restarts". The
+     * confirmation dialog of `DunningCasesScreen` states this explicitly (cycle restart, real postal
+     * letter when dispatch is enabled).
      *
      * **Locking**: locks the `contribution` row FIRST ([ContributionTable] `forUpdate()`), THEN the
      * targeted `dunning_notice` row -- same lock ORDER [resetDunning]/[skipDunningLevel] already

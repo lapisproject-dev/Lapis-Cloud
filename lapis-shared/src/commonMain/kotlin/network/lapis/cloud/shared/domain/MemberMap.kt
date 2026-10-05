@@ -55,7 +55,7 @@ data class BoardMemberMapResponse(
     val foreign: Int,
     /** Basemap PMTiles file is configured, present, and header-valid right now (see `PmtilesBasemap.probe()`) -- re-checked on every call, no caching, so an operator swapping the file takes effect without a restart. */
     val tilesAvailable: Boolean,
-    /** Bundled postal-code centroid CSV parsed successfully at JVM startup (see `PostalCodeCentroidIndex.bundled`) -- independent of [tilesAvailable]; either can be true/false regardless of the other. The client-side degradation matrix that reads both flags (see `docs/architecture/member-map.adoc`) is not yet implemented on this branch -- this wave is server+shared only, see that document's own status note. */
+    /** Bundled postal-code centroid CSV parsed successfully at JVM startup (see `PostalCodeCentroidIndex.bundled`) -- independent of [tilesAvailable]; either can be true/false regardless of the other. The client-side degradation matrix that reads both flags (see `docs/architecture/member-map.adoc`) is implemented in `memberMapDegradation` (`MemberMapScreen.kt`). */
     val geodataAvailable: Boolean,
 )
 
