@@ -14,6 +14,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.SepaMandateTable
+import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.pdf.MahnungPdfGenerator
 import network.lapis.cloud.server.routes.archiveGeneratedPdf
 import network.lapis.cloud.server.routes.loadMailmergeMember
@@ -410,6 +411,8 @@ internal fun issueDunningNotice(
                 it[cancellationReason] = null
             }
         } catch (e: ExposedSQLException) {
+            // V1.9.55: only a unique violation (23505) means "slot already issued"; a timeout propagates.
+            if (!e.isUniqueViolation()) throw e
             // The `uq_dunning_notice_slot` unique-constraint violation this function's own KDoc
             // documents -- caught here (rather than propagating) exactly as documented. The
             // `forUpdate()` lock above already makes this practically unreachable for a race on the

@@ -11,7 +11,6 @@ import network.lapis.cloud.shared.domain.PaymentProvider
 import java.io.IOException
 import java.math.BigDecimal
 import java.net.URLEncoder
-import java.security.SecureRandom
 
 private val logger = KotlinLogging.logger {}
 
@@ -53,7 +52,8 @@ class StripeCheckoutClient(
      * [checkoutSessionId] in the HASH FRAGMENT (never a query parameter -- see `hashQueryParam`
      * precedent, `01-contribution.kuml.kts`/client `Routing.kt`: a hash fragment never reaches a
      * server log or `Referer` header); the embed-widget path's [PspReturnUrls.embedDonation]
-     * carries no session identifier at all. `Idempotency-Key` is a fresh random value per call --
+     * carries no session identifier at all. `Idempotency-Key` is derived deterministically from [checkoutSessionId]
+     * ([PspIdempotencyKeys.checkout], V1.9.55) so an HTTP retry of the same logical checkout is deduplicated by Stripe;
      * the CALLER (`PaymentGatewayService`/`AnonymousDonationCheckout`) is responsible for not
      * calling this twice for the same logical checkout (see `PaymentGatewayService`'s own
      * session-reuse guard). Deliberately does NOT send Stripe an `expires_at` form parameter --
@@ -71,7 +71,7 @@ class StripeCheckoutClient(
         val unitAmountMinorUnits = amount.movePointRight(2).longValueExact()
         val successUrl = returnUrls.successUrl
         val cancelUrl = returnUrls.cancelUrl
-        val idempotencyKey = randomIdempotencyKey()
+        val idempotencyKey = PspIdempotencyKeys.checkout(checkoutSessionId)
 
         val formBody =
             listOf(
@@ -131,14 +131,6 @@ class StripeCheckoutClient(
     }
 
     companion object {
-        private val idempotencyRandom = SecureRandom()
-
-        private fun randomIdempotencyKey(): String {
-            val bytes = ByteArray(16)
-            idempotencyRandom.nextBytes(bytes)
-            return bytes.joinToString(separator = "") { byte -> "%02x".format(byte) }
-        }
-
         private fun urlEncode(value: String): String = URLEncoder.encode(value, Charsets.UTF_8)
     }
 }

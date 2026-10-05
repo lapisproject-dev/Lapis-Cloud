@@ -2,6 +2,7 @@ package network.lapis.cloud.server.testdb
 
 import com.zaxxer.hikari.HikariDataSource
 import network.lapis.cloud.server.db.DatabaseConfig
+import network.lapis.cloud.server.db.DbSessionTimeouts
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import java.net.URI
@@ -197,6 +198,7 @@ internal object PostgresTestSupport {
         cfg: PostgresTestConfig,
         name: String,
         size: Int,
+        timeouts: DbSessionTimeouts = DbSessionTimeouts.DEFAULTS,
     ): HikariDataSource =
         DatabaseConfig.buildDataSource(
             jdbcUrl = cfg.url.jdbcUrl(name),
@@ -205,6 +207,7 @@ internal object PostgresTestSupport {
             poolSize = size,
             connectionTimeoutMs = 30_000L,
             poolName = "lapis-pgtest-$name",
+            sessionTimeouts = timeouts,
         )
 
     /** Runs once per JVM: instance guard + migrated template. Returns the template name. */
@@ -222,7 +225,9 @@ internal object PostgresTestSupport {
                 createdNames.add(tpl)
                 c.createStatement().use { it.execute("CREATE DATABASE \"$tpl\"") }
             }
-            newPool(cfg = cfg, name = tpl, size = 2).use { ds -> DatabaseConfig.flywayFor(ds).migrate() }
+            newPool(cfg = cfg, name = tpl, size = 2, timeouts = DbSessionTimeouts.DISABLED).use { ds ->
+                DatabaseConfig.flywayFor(ds).migrate()
+            }
             // The pool is closed before any CREATE DATABASE ... TEMPLATE (no open connection to the template allowed).
             templateName = tpl
             tpl
@@ -232,7 +237,10 @@ internal object PostgresTestSupport {
      * A fresh database for one spec. [migrated] = clone of the migrated template (fast); `false` = an
      * EMPTY database (used by the migration test, which must run the migrations itself).
      */
-    fun createDatabase(migrated: Boolean = true): PgSpecDatabase {
+    fun createDatabase(
+        migrated: Boolean = true,
+        timeouts: DbSessionTimeouts = DbSessionTimeouts.DEFAULTS,
+    ): PgSpecDatabase {
         val cfg = requireNotNull(config) { "Postgres lane not configured" }
         val tpl = ensureTemplate(cfg)
         val name = "lapis_pgtest_${randomHex16()}"
@@ -242,7 +250,7 @@ internal object PostgresTestSupport {
             val sql = if (migrated) "CREATE DATABASE \"$name\" TEMPLATE \"$tpl\"" else "CREATE DATABASE \"$name\""
             c.createStatement().use { it.execute(sql) }
         }
-        val ds = newPool(cfg = cfg, name = name, size = 10)
+        val ds = newPool(cfg = cfg, name = name, size = 10, timeouts = timeouts)
         return PgSpecDatabase(name = name, jdbcUrl = cfg.url.jdbcUrl(name), user = cfg.user, password = cfg.password, dataSource = ds)
     }
 }

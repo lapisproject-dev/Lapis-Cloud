@@ -5,6 +5,7 @@ import io.kotest.core.spec.Spec
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.DatabaseConfig
+import network.lapis.cloud.server.db.DbSessionTimeouts
 import org.jetbrains.exposed.v1.core.vendors.currentDialect
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.reflect.KClass
@@ -40,7 +41,11 @@ sealed interface TestDatabase {
         override fun assertActive() = Unit
     }
 
-    class Postgres : TestDatabase {
+    class Postgres internal constructor(
+        private val timeouts: DbSessionTimeouts,
+    ) : TestDatabase {
+        constructor() : this(DbSessionTimeouts.DEFAULTS)
+
         private var specDb: PgSpecDatabase? = null
 
         override val isPostgres: Boolean = true
@@ -48,7 +53,7 @@ sealed interface TestDatabase {
         val db: PgSpecDatabase get() = requireNotNull(specDb) { "Postgres test database not active" }
 
         override fun activate() {
-            val created = PostgresTestSupport.createDatabase()
+            val created = PostgresTestSupport.createDatabase(timeouts = timeouts)
             specDb = created
             created.activate()
             assertActive()

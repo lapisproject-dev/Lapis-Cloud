@@ -631,6 +631,23 @@ Local development/testing infrastructure (`deploy/local/` — this repository's 
 a full local-run recipe, including a two-browser manual verification walkthrough and an opt-in live
 integration test, are documented in link:deploy/local/README.adoc[deploy/local/README.adoc].
 
+=== Database session timeouts (V1.9.55)
+
+The application pool applies three PostgreSQL session timeouts to every connection (integer milliseconds, `0` = off, an invalid value stops
+the start). `deploy/example/docker-compose.yml` forwards them with the defaults below.
+
+[cols="2,1,3", options="header"]
+|===
+| Variable | Default | Meaning
+| `LAPIS_DB_LOCK_TIMEOUT_MS` | 10000 | Maximum wait for a row or index lock.
+| `LAPIS_DB_STATEMENT_TIMEOUT_MS` | 60000 | Maximum run time of one statement (must be greater than the lock timeout unless one of them is 0).
+| `LAPIS_DB_IDLE_TX_TIMEOUT_MS` | 120000 | Maximum idle time inside an open transaction.
+|===
+
+Exposed re-runs a failed transaction up to three times, so one request can wait up to three lock timeouts. A timeout reaches the user as
+"The server is currently busy" and never shows database text. No migration. Details, relaxations (export, full-text index) and the
+idempotency table: link:docs/architecture/database-timeouts-and-retries.adoc[database-timeouts-and-retries.adoc].
+
 === Postgres test lane (V1.9.37)
 
 The normal test suite runs on H2. A second Gradle task, `./gradlew :lapis-server:postgresTest`, runs the engine-dependent specs (Flyway

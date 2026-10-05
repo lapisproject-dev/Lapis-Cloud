@@ -2,6 +2,7 @@ package network.lapis.cloud.server.db
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.jdbc.Database
 import java.util.UUID
@@ -26,6 +27,8 @@ import javax.sql.DataSource
  * current.
  */
 object DatabaseConfig {
+    private val logger = KotlinLogging.logger {}
+
     // Unique per JVM run so concurrent test JVMs (or a stray leftover process) never share
     // in-memory state; stable across repeated connect() calls within the same run.
     private val inMemoryDatabaseName = "lapis-${UUID.randomUUID()}"
@@ -41,27 +44,18 @@ object DatabaseConfig {
         val username = System.getenv("LAPIS_DB_USER") ?: "sa"
         val password = System.getenv("LAPIS_DB_PASSWORD") ?: ""
         val poolSize = System.getenv("LAPIS_DB_POOL_SIZE")?.toIntOrNull() ?: 10
-        // Security-Audit-Fund S-A1 (2026-08-18, Welle V1.1.2 "Kommentarbaum, Boosts, rekursive
-        // Gesamtgewichtung"): the real fix for the pool-exhaustion risk this fund described (two
-        // concurrent SocialNetworkService writes against the same large thread's root post, one
-        // blocked on the other's `SELECT ... FOR UPDATE` row lock) is SocialNetworkService's own
-        // change -- the expensive subtree aggregation moved out of the write transaction, see
-        // `SocialNetworkService.loadPostAfterCommit` KDoc -- NOT this line.
-        //
-        // Corrected (Review Runde 2 / Security-Audit Runde 2, 2026-08-18, Fund N-3): an earlier
-        // revision of this comment overstated what `connectionTimeout` does. HikariConfig's field
-        // default is already 30s regardless of whether this codebase sets it -- so this line is
-        // behaviorally a no-op except for making it `LAPIS_DB_CONNECTION_TIMEOUT_MS`-configurable.
-        // More importantly, `connectionTimeout` bounds how long a caller waits to ACQUIRE a
-        // connection from the pool when none are free -- it does NOT bound how long an
-        // already-acquired connection may be held waiting on a database-level row lock, so it was
-        // never a backstop against the S-A1 scenario itself. A genuine backstop against a stuck
-        // `FOR UPDATE` wait would be a Postgres-side `lock_timeout`/`statement_timeout`, which this
-        // codebase does not yet set anywhere -- noted as a follow-up, not yet actioned.
+        // `connectionTimeout` bounds how long a caller waits to ACQUIRE a pooled connection; it does NOT
+        // bound a wait on a database-level row lock. That backstop is the Postgres-side session timeouts
+        // introduced in V1.9.55 (see DbSessionTimeouts and docs/architecture/database-timeouts-and-retries.adoc).
         val connectionTimeoutMs = System.getenv("LAPIS_DB_CONNECTION_TIMEOUT_MS")?.toLongOrNull() ?: 30_000L
 
-        // Known gap (unchanged by the V1.9.37 refactor): no Postgres-side `lock_timeout`/
-        // `statement_timeout` is configured anywhere -- see the comment above.
+        // Invalid timeout variables abort startup (fail fast) -- see DbSessionTimeouts.fromEnv.
+        val timeouts = DbSessionTimeouts.fromEnv()
+
+        // Migrations run on their OWN short-lived pool WITHOUT session timeouts (a long index build must
+        // not be cancelled), so no session-wide SET can ever leak into the application pool.
+        migrateWithDedicatedPool(jdbcUrl = jdbcUrl, username = username, password = password, connectionTimeoutMs = connectionTimeoutMs)
+
         val dataSource =
             buildDataSource(
                 jdbcUrl = jdbcUrl,
@@ -70,8 +64,12 @@ object DatabaseConfig {
                 poolSize = poolSize,
                 connectionTimeoutMs = connectionTimeoutMs,
                 poolName = "lapis-cloud-db-pool",
+                sessionTimeouts = timeouts,
             )
-        flywayFor(dataSource).migrate()
+        logger.info {
+            "DB session timeouts (ms): lock=${timeouts.lockTimeoutMs} statement=${timeouts.statementTimeoutMs} " +
+                "idleInTransaction=${timeouts.idleInTransactionTimeoutMs}"
+        }
 
         return Database.connect(dataSource)
     }
@@ -88,6 +86,7 @@ object DatabaseConfig {
         poolSize: Int,
         connectionTimeoutMs: Long,
         poolName: String,
+        sessionTimeouts: DbSessionTimeouts,
     ): HikariDataSource {
         val driverClassName = if (jdbcUrl.startsWith("jdbc:postgresql")) "org.postgresql.Driver" else "org.h2.Driver"
         val hikariConfig =
@@ -99,8 +98,32 @@ object DatabaseConfig {
                 this.maximumPoolSize = poolSize
                 this.connectionTimeout = connectionTimeoutMs
                 this.poolName = poolName
+                // Postgres-only: H2 has no equivalent session variables.
+                if (jdbcUrl.startsWith("jdbc:postgresql")) {
+                    this.connectionInitSql = sessionTimeouts.toPostgresInitSql()
+                }
+                // Records the SQLSTATE of failures for the RPC error sanitizer; always CONTINUE_EVICT.
+                this.exceptionOverride = DbFailureRecordingOverride
             }
         return HikariDataSource(hikariConfig)
+    }
+
+    /** Runs Flyway on a dedicated, timeout-free, short-lived pool. */
+    internal fun migrateWithDedicatedPool(
+        jdbcUrl: String,
+        username: String,
+        password: String,
+        connectionTimeoutMs: Long = 30_000L,
+    ) {
+        buildDataSource(
+            jdbcUrl = jdbcUrl,
+            username = username,
+            password = password,
+            poolSize = 2,
+            connectionTimeoutMs = connectionTimeoutMs,
+            poolName = "lapis-cloud-db-migrate",
+            sessionTimeouts = DbSessionTimeouts.DISABLED,
+        ).use { flywayFor(it).migrate() }
     }
 
     /** The Flyway configuration used in production (classpath migrations, nothing else). */

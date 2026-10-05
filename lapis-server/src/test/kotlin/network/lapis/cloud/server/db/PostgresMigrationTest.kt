@@ -50,7 +50,9 @@ class PostgresMigrationTest :
             return names.filter { it.endsWith(".sql") }.map { it.removePrefix("V").substringBefore("__").toInt() }.sorted()
         }
 
-        beforeSpec { pg = PostgresTestSupport.createDatabase(migrated = false) }
+        // V1.9.55: the spec's own pool carries no session timeouts; the migration itself runs through the production
+        // dedicated migration pool (DatabaseConfig.migrateWithDedicatedPool), which is timeout-free by construction.
+        beforeSpec { pg = PostgresTestSupport.createDatabase(migrated = false, timeouts = DbSessionTimeouts.DISABLED) }
         afterSpec { pg.close() }
 
         var executed = -1
@@ -58,9 +60,10 @@ class PostgresMigrationTest :
         test("migrate() applies every migration file to an empty PostgreSQL database") {
             val files = migrationFileVersions()
             files.size shouldBeGreaterThanOrEqual 66
-            val result = flyway.migrate()
-            result.success shouldBe true
-            executed = result.migrationsExecuted
+            flyway.info().applied().size shouldBe 0
+            // V1.9.55: the production path -- a dedicated pool with all session timeouts disabled.
+            DatabaseConfig.migrateWithDedicatedPool(jdbcUrl = pg.jdbcUrl, username = pg.user, password = pg.password)
+            executed = flyway.info().applied().size
             executed shouldBe files.size
         }
 

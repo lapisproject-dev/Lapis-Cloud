@@ -87,11 +87,15 @@ class PaypalOrdersClientTest :
             val result =
                 runBlocking {
                     ordersClient.createCheckout(
-                        checkoutSessionId = "checkout-session-id",
+                        checkoutSessionId = "e817eec5-7a05-5ad8-8bdc-6797d01d24fd",
                         amount = BigDecimal("12.34"),
                         currency = "EUR",
                         description = "Mitgliedsbeitrag",
-                        returnUrls = PspReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-id"),
+                        returnUrls =
+                            PspReturnUrls.memberSpa(
+                                baseUrl = "https://lapis.example",
+                                checkoutSessionId = "e817eec5-7a05-5ad8-8bdc-6797d01d24fd",
+                            ),
                     )
                 }
 
@@ -100,7 +104,7 @@ class PaypalOrdersClientTest :
             requestId.isNotBlank().shouldBeTrue()
             capturedBody.contains("\"intent\":\"CAPTURE\"") shouldBe true
             capturedBody.contains("\"value\":\"12.34\"") shouldBe true
-            capturedBody.contains("\"custom_id\":\"checkout-session-id\"") shouldBe true
+            capturedBody.contains("\"custom_id\":\"e817eec5-7a05-5ad8-8bdc-6797d01d24fd\"") shouldBe true
             (result is PspCheckoutResult.Success) shouldBe true
             val success = result as PspCheckoutResult.Success
             success.sessionId shouldBe "ORDER-123"
@@ -127,12 +131,15 @@ class PaypalOrdersClientTest :
             val result =
                 runBlocking {
                     ordersClient.createCheckout(
-                        checkoutSessionId = "checkout-session-payer-action",
+                        checkoutSessionId = "78af1f6b-ba79-5567-af45-a4662ad8cc40",
                         amount = BigDecimal("5.00"),
                         currency = "EUR",
                         description = "Spende",
                         returnUrls =
-                            PspReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-payer-action"),
+                            PspReturnUrls.memberSpa(
+                                baseUrl = "https://lapis.example",
+                                checkoutSessionId = "78af1f6b-ba79-5567-af45-a4662ad8cc40",
+                            ),
                     )
                 }
 
@@ -154,12 +161,15 @@ class PaypalOrdersClientTest :
             val result =
                 runBlocking {
                     ordersClient.createCheckout(
-                        checkoutSessionId = "checkout-session-no-link",
+                        checkoutSessionId = "031cbd79-4be2-5716-9a58-dc1bfcf82c55",
                         amount = BigDecimal("5.00"),
                         currency = "EUR",
                         description = "Spende",
                         returnUrls =
-                            PspReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-no-link"),
+                            PspReturnUrls.memberSpa(
+                                baseUrl = "https://lapis.example",
+                                checkoutSessionId = "031cbd79-4be2-5716-9a58-dc1bfcf82c55",
+                            ),
                     )
                 }
 
@@ -180,11 +190,15 @@ class PaypalOrdersClientTest :
             val result =
                 runBlocking {
                     ordersClient.createCheckout(
-                        checkoutSessionId = "checkout-session-400",
+                        checkoutSessionId = "a02ce19e-b5e2-5783-bab3-1a44e568b1fe",
                         amount = BigDecimal("1.00"),
                         currency = "EUR",
                         description = "Test",
-                        returnUrls = PspReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-400"),
+                        returnUrls =
+                            PspReturnUrls.memberSpa(
+                                baseUrl = "https://lapis.example",
+                                checkoutSessionId = "a02ce19e-b5e2-5783-bab3-1a44e568b1fe",
+                            ),
                     )
                 }
 

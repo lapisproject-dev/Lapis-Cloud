@@ -1,0 +1,115 @@
+= Database timeouts, retries and idempotency (V1.9.55)
+:toc:
+
+== Purpose
+
+Before V1.9.55 nothing bounded how long a request could wait on a database lock or run a statement, a database timeout would have
+shown the raw PostgreSQL text to the user, and a lock timeout on a money path could have been mistaken for "already processed".
+This document is the single place that explains how the three concerns fit together.
+
+== Session timeouts
+
+Every connection of the application pool gets three PostgreSQL session settings (Hikari `connectionInitSql`, once per physical
+connection). H2 (tests, local run) has no equivalent and gets none.
+
+[cols="2,1,3", options="header"]
+|===
+| Variable | Default | Meaning
+| `LAPIS_DB_LOCK_TIMEOUT_MS` | 10000 | `lock_timeout`: how long a statement waits for a row/index lock (SQLSTATE `55P03`).
+| `LAPIS_DB_STATEMENT_TIMEOUT_MS` | 60000 | `statement_timeout`: how long one statement may run (SQLSTATE `57014`).
+| `LAPIS_DB_IDLE_TX_TIMEOUT_MS` | 120000 | `idle_in_transaction_session_timeout`: how long a transaction may sit idle before the server ends the session (`25P03`).
+|===
+
+* Values are integer milliseconds between 0 and 2147483647. `0` renders an explicit `SET ... = 0` ("off") that overrides role- and
+  database-level defaults instead of inheriting them.
+* An invalid value (blank, text, negative, out of range) or `statement <= lock` (both non-zero) aborts the start with an error that
+  names only the variable, never the value. A typo therefore stops the start instead of silently running without a backstop.
+* The Flyway migration runs on its own short-lived pool with all three timeouts disabled (`DatabaseConfig.migrateWithDedicatedPool`),
+  so a long index build is never cancelled and no session-wide `SET` can leak into the application pool. There is deliberately no
+  `initSql` on the Flyway configuration.
+* `transaction_timeout` (PostgreSQL 17+) is not set; it is a possible later measure.
+
+=== Retry multiplication (read this before tuning)
+
+Exposed re-runs a failed transaction on _any_ `SQLException` (default `maxAttempts = 3`) -- including a lock or statement timeout, and
+without looking at the SQLSTATE. One request can therefore wait `3 x lock_timeout` (30 s with the defaults) or run `3 x statement_timeout`.
+That is the reason for the rather tight defaults. `defaultMaxAttempts` is deliberately NOT changed globally: legacy paths rely on the
+silent re-run. Where a re-run is harmful, set `maxAttempts = 1` as the first line of the transaction block.
+
+=== Relaxations (`SET LOCAL`)
+
+`JdbcTransaction.relaxSessionTimeouts(...)` lifts timeouts for ONE transaction (`SET LOCAL`, reverted at COMMIT/ROLLBACK, pool-safe,
+no-op on H2). Rule: main code never issues a session-wide `SET` of these variables; a tripwire test enforces it.
+
+[cols="2,3", options="header"]
+|===
+| Place | Change
+| `OrganizationExportService.streamTable` | `maxAttempts = 1` (a re-run would append the rows a second time to the ZIP entry: corrupt backup, wrong digest) and statement + idle timeouts lifted: the cursor streams into the HTTP sink, a slow client leaves the transaction idle for as long as it takes. `lock_timeout` stays.
+| `PostgresFullTextIndexInitializer` | `statement_timeout` lifted for `CREATE INDEX`/`CREATE EXTENSION`. `lock_timeout` stays: if the table is busy the statement is skipped and logged, as before.
+|===
+
+Reviewed and left unchanged (many short statements, no single statement expected to exceed 60 s): `OrganizationRestoreService`
+(transactions per row/chunk), `MemberCsvImport`, mail-merge batch, bank statement import, `KnowledgeIndexer`. Add a relaxation only on
+measured need.
+
+== Error mapping
+
+Kilua RPC cannot wrap service exceptions. For every non-typed exception it answers `JsonRpcResponse(error = e.message, exceptionJson = null)`
+and logs `e.message`. For an `ExposedSQLException` the message is the full PostgreSQL text including the `Detail:` line (values on unique
+violations) and the SQL -- the client showed it verbatim as a toast. V1.9.55 closes that leak at the HTTP layer:
+
+. A Hikari `SQLExceptionOverride` (always `CONTINUE_EVICT`, so pool behaviour is unchanged) records SQLSTATE and failure kind into a
+  per-call holder (`DbFailureHolder`, carried by `DbFailureContext`).
+. `RpcErrorSanitizer` (installed BEFORE `initRpc`) rewrites the untyped response: a classified timeout/deadlock/serialization failure
+  becomes a typed `ServiceBusyException` (the client shows "The server is currently busy"); any other SQL error becomes an empty error text
+  (the client shows "Unknown error"); everything else -- typed exceptions and deliberate `require`/`error(...)` messages -- is untouched.
+. Non-RPC routes: `StatusPages` maps a `SQLException` to `503` + `Retry-After: 5` (timeout class) or a generic `500`.
+  PSP webhook routes catch themselves and answer `500`, so the provider redelivers.
+
+The WARN log carries SQLSTATE and request path only -- no parameters, no member data.
+
+== Idempotency and unique violations
+
+A caught `ExposedSQLException` on a money path may only mean "unique violation" (`23505`). Otherwise a lock timeout would be
+reported as "duplicate": for a PSP webhook that 200-acknowledges a delivery whose competing twin may still roll back, and the payment is
+lost because Stripe does not redeliver. `Throwable.isUniqueViolation()` is used in `PspWebhookIngestion`, `BankStatementStore`,
+`DunningIssuance`, `DunningService`, `PaymentReferenceAllocator` and `AccountingService`; `ContributionService` already narrows by constraint
+name. A tripwire test (`MoneyPathSqlCatchTripwireTest`) keeps it that way.
+
+Deliberately unchanged: the blanket catches of elections, polls and systemic consensus and of non-money paths (CRM, regional chapters,
+member families). There a timeout is shown as a conflict toast; no data is damaged.
+
+=== Idempotency per external effect
+
+[cols="2,3", options="header"]
+|===
+| Effect | Guarantee
+| Stripe/PayPal checkout creation | The provider key (`Idempotency-Key`, `PayPal-Request-Id`) is derived from the server's own `checkoutSessionId` (`PspIdempotencyKeys`): a retried HTTP call for the same logical checkout is deduplicated by the provider. The persisted `providerIdempotencyKey` equals the value sent. The id is a UUID shown to the payer in the return URL; without the API secret the key is worthless.
+| Contribution checkout | Single flight per contribution (process-local mutex stripes): reuse check, provider call and persist run under the lock, so two parallel clicks mint one session.
+| PayPal capture | Already stable: `PayPal-Request-Id = capture-<orderId>`.
+| PSP webhook | `uq_payment_transaction_provider_event` plus the session row lock; redelivery is a `Duplicate`, a timeout throws and the route answers `500`.
+| lexoffice voucher push | Claim `SENDING`; the reaper sets `UNKNOWN`, never `PENDING`: no automatic re-push (the API has no idempotency key).
+| Mailing worker | At-least-once only for a crash between send and log update.
+| Letter dispatch (Postal) | At-most-once.
+| Webhook delivery | Outbox.
+| FinTS | Read access; the import is deduplicated by the unique index.
+|===
+
+== External effects never inside `transaction { }`
+
+Provider HTTP calls, mail, letters, accounting pushes and `runBlocking` never run inside a `transaction { }` block: Exposed re-runs the
+block, an idle-in-transaction kill would replay the effect, and the transaction would hold a connection and row locks across a network
+round trip. The calls are `suspend`, which already prevents most of it structurally; `ExternalEffectsOutsideTransactionTripwireTest`
+scans the sources and fails on any new violation (the allowlist starts empty and needs a reason per entry).
+
+Known grey area, not changed: `archiveGeneratedBytes` writes a file inside a transaction; a re-run leaves an orphaned file, no double effect.
+
+== Known limitations
+
+* The single flight is process-local. A second server instance would not serialize; the provider key derivation then deduplicates
+  the HTTP call only if the same session id is reused.
+* Kilua RPC still logs `e.message` of untyped SQL errors on the server, including the `Detail:` line of a unique violation (values).
+  The client is protected, the server log is not.
+* The sanitizer relies on the Hikari override running on the call's own coroutine context. Database work in a foreign executor falls
+  back to the generic text (the message-prefix check still blanks driver text).
+* Wait time per request is up to three lock timeouts (see above).

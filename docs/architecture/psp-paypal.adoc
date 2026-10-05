@@ -177,3 +177,10 @@ currently exists for a stale row to leak from, so nothing is actually orphaned i
   webhook route skeleton, and why it stays a separate file from `PspWebhookRoutes.kt` rather than
   merging with it.
 * README `Payment service providers (Stripe + PayPal)` — operator-facing setup and current scope.
+
+== Idempotency keys (V1.9.55)
+
+`createCheckout` sends `PayPal-Request-Id` (and Stripe `Idempotency-Key`) derived from the server's own `checkoutSessionId`
+(`PspIdempotencyKeys.checkout`: `lapis-checkout-v1-<uuid>`), not a fresh random value per call, so an HTTP retry of the same logical
+checkout is deduplicated by the provider. The capture request id stays `capture-<orderId>`. The persisted `provider_idempotency_key`
+equals the header value. See `database-timeouts-and-retries.adoc`.

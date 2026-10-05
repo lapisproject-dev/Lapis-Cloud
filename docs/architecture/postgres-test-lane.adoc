@@ -84,6 +84,10 @@ The lane creates and drops databases, so it is deliberately paranoid.
 | `AuditChainConcurrencyTest` | 16 parallel writers: gapless sequence numbers, every entry chained to its predecessor, every hash recomputed independently; the genesis race (8 parallel first writers on an empty chain) on PostgreSQL. | H2 + PG
 | `UniqueViolationRecoveryTest`, `UniqueViolationWaitPostgresTest` | Code that catches a unique violation and keeps using the transaction (see Findings). The deterministic variants hold a conflicting uncommitted row in a second transaction, wait (via `pg_stat_activity`, no sleeps) until the code under test is blocked inside its INSERT, and only then commit the blocker. | H2 + PG / PG
 | `PostgresLockSemanticsTest` | The isolation level is `read committed`; for every production lock helper (`lockMotion`, `lockForDebit`, `requireActiveMembership(forUpdate)`, the audit chain-state row, `lockPollRow`, the organization-settings mutex, the PSP session row, the refund marker row) a second transaction waits (`55P03` under `lock_timeout`), and after the first commits it sees the first's COMMITTED change; plus a proof that the deadlock counter really counts. | PG
+| `DbTimeoutPostgresTest`, `DbTimeoutScenariosPostgresTest` (V1.9.55) | The application pool applies 10 s / 1 min / 2 min and the migration pool all zeros; `0` renders an explicit `SET = 0`; a statement timeout is `57014` and a lock timeout `55P03`, both classified and recorded for the RPC sanitizer; an idle-in-transaction timeout kills the backend and the pool keeps serving; `relaxSessionTimeouts` is transaction-local on ten distinct pooled connections; a lock timeout reaches the client as a typed `ServiceBusyException` with no SQL text, a unique violation as an empty error. | PG (+ H2 for the pipeline scenarios)
+| `PspWebhookIdempotencyTest` / `PspWebhookIdempotencyPostgresTest` (V1.9.55) | The same Stripe event delivered twice and concurrently is processed once (one payment_transaction, one journal entry, one settled contribution); PayPal likewise; a lock timeout while the twin holds the unique-index lock THROWS (it is not a Duplicate, nothing is written) and the redelivery after the twin's rollback is processed; after the twin's COMMIT it is a genuine Duplicate; the route answers `500` on a database timeout. | H2 + PG
+| `ContributionCheckoutSingleFlightTest` / `...PostgresTest` (V1.9.55) | Two parallel checkouts for one contribution make exactly one provider call and return one session (the test fails without the lock). | H2 + PG
+| `OrganizationExportTimeoutPostgresTest` (V1.9.55) | A slow client holds the export transaction `idle in transaction` for longer than twice the idle timeout (polled in `pg_stat_activity`); the export still completes and every table digest and row count matches the manifest. Fails without the relaxation. | PG
 | `PostgresFullTextRetrieverLiveTest` | The Postgres full-text knowledge retriever, previously a manual, env-gated test. | PG
 | `PostgresTestSupportUrlValidationTest`, `PostgresLaneNamingTest` | URL whitelist and DROP guard; tag/name convention. No database needed -- they run in the normal `test` task. | none
 |===
@@ -123,9 +127,26 @@ Measured on PostgreSQL 17 (2026-10-02). Everything not listed here behaved exact
 
 == Known limitations
 
-* There is still no Postgres-side `lock_timeout`/`statement_timeout` in production (`DatabaseConfig`); the lane only measures that waits
-  behave as designed, it does not add a backstop. Exposed's automatic re-run of a whole transaction after an `SQLException` (default 3
-  attempts) can repeat external side effects (for example a Stripe call inside `resumeOwnEventPayment`); the single-flight test measures
-  exactly one call, but nothing prevents the pattern in general. Both are deliberately out of scope of this wave.
+* Since V1.9.55 production sets Postgres-side `lock_timeout`/`statement_timeout`/`idle_in_transaction_session_timeout`
+  (see `database-timeouts-and-retries.adoc`) and the lane runs with the same defaults (`DbSessionTimeouts.DEFAULTS`); a long-held lock in
+  a lane spec must stay below the lock timeout -- adjust the test, never raise the default. Exposed's automatic re-run of a whole
+  transaction after an `SQLException` (default 3 attempts) still exists: the timeouts bound the wait (up to three times the lock timeout),
+  and external effects inside `transaction { }` are now fenced by a source-scan tripwire instead of convention.
 * Only PostgreSQL 17 is exercised. `DROP DATABASE ... WITH (FORCE)` needs PostgreSQL 13 or newer; the version is logged.
-* The Postgres lane adds minutes to CI (the measured local run time is in the CHANGELOG entry).
+* The Postgres lane adds minutes to CI.
+
+== Candidates for the next wave (V1.9.55 analysis)
+
+[cols="2,3", options="header"]
+|===
+| Spec | Why on PostgreSQL
+| `DunningIssuanceTest`, `DunningPollerTest` | `FOR UPDATE` on contribution plus the unique `uq_dunning_notice_slot`
+| `PaymentReferenceAllocatorTest` | savepoint and unique index on a money path
+| `AuctionServiceTest`, `CrowdfundingServiceTest` | second and third callers of `lockForDebit`, so far covered at helper level only
+| `EventCapacityTest` | event row lock, capacity, waitlist
+| `SepaServiceTest` | batch against `DEBIT_IN_FLIGHT`, money
+| `JournalEntryBalanceTest`, `AccountingServiceTest` | bookings, unique account number and cost centre code
+| Bank statement import specs | unique index on `payment_transaction`, money
+| `DocumentService` folder lock (five lock sites) | lock chain over ancestors
+| `PaypalWebhookRoutesTest` | capture and dedup through the route
+|===

@@ -84,6 +84,11 @@ Transaktion nach einem fehlgeschlagenen Statement, die echte Flyway-Kette), prü
   auf Postgres vergiftet die Verletzung die ganze Transaktion (`25P02`). Exposed wiederholt dann die GESAMTE Transaktion und maskiert den Fehler -- Tests zählen
   deshalb, wie oft der Block lief, nicht nur das Ergebnis.
 
+- **Transaktionsregeln (V1.9.55, Tripwire-Tests wachen darüber)**: (1) Timeouts ausschließlich per `SET LOCAL` (`relaxSessionTimeouts`), nie sitzungsweit
+  (`DbSessionTimeouts` ist die einzige Ausnahme); (2) externe Effekte (Provider-HTTP, Mail, Brief, Buchhaltungs-Push, `runBlocking`) nie in `transaction {}` --
+  Exposed wiederholt den Block bei jeder `SQLException`; (3) ein gefangener `ExposedSQLException` auf Geldpfaden bedeutet nur Unique-Verletzung
+  (`isUniqueViolation()`, SQLSTATE 23505), sonst wird er weitergeworfen. Details: `docs/architecture/database-timeouts-and-retries.adoc`.
+
 ## Verwandte Repositories
 
 - `kuml-dev/kUML` — Modellierungssprache für alle Diagramme

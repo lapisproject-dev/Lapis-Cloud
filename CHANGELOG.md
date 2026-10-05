@@ -6,6 +6,57 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Database session timeouts** (V1.9.55). The application pool applies `lock_timeout` (default 10 s), `statement_timeout` (60 s) and
+  `idle_in_transaction_session_timeout` (120 s) to every PostgreSQL connection. Operator variables: `LAPIS_DB_LOCK_TIMEOUT_MS`,
+  `LAPIS_DB_STATEMENT_TIMEOUT_MS`, `LAPIS_DB_IDLE_TX_TIMEOUT_MS` (milliseconds, `0` = explicit off; forwarded with these defaults by
+  `deploy/example/docker-compose.yml`). **A typo in any of them stops the start** (error names the variable only). No migration.
+  - Flyway runs on its own timeout-free, short-lived pool. `relaxSessionTimeouts` (`SET LOCAL`) lifts the timeouts for one transaction:
+    the organization export (`maxAttempts = 1`, statement and idle timeouts lifted -- a retry used to append rows twice to the ZIP entry) and the
+    full-text index creation.
+  - `ServiceBusyException` and a client toast ("The server is currently busy...", translated in all 7 catalogs): a lock/statement/idle timeout,
+    deadlock or serialization failure reaches the user as a typed error instead of database text.
+  - Tests: unit tests for configuration parsing, SQLSTATE classification and the sanitizer; scenario specs on H2 and the Postgres lane (timeouts,
+    idempotent webhooks, single-flight checkout, export under a slow client); tripwires for external effects inside `transaction { }`, session-wide
+    `SET`, and money-path SQL catches.
+
+### Security
+
+- **Database error text no longer reaches the client.** Kilua RPC answered every untyped service exception with `e.message`; for an
+  `ExposedSQLException` that is the complete PostgreSQL message including the `Detail:` line (values of a unique violation) and the SQL, shown as a toast.
+  `RpcErrorSanitizer` now blanks it (non-RPC routes: generic 500, timeouts 503 + `Retry-After`).
+
+### Changed
+
+- Provider idempotency keys are derived from the server's checkout session id (`lapis-checkout-v1-<uuid>`) instead of a fresh random value per call, so an
+  HTTP retry of the same logical checkout is deduplicated by Stripe/PayPal. The persisted `provider_idempotency_key` equals the value sent.
+- `createContributionCheckout` is single-flight per contribution: two parallel requests mint one hosted session instead of two (double payment possible).
+
+### Fixed
+
+- **A lock timeout could have been acknowledged as "duplicate" on money paths.** `PspWebhookIngestion` treated every `ExposedSQLException` of the
+  `payment_transaction` insert as a duplicate delivery and answered 200; with a lock timeout a delivery waiting on its twin would have been
+  acknowledged and, if the twin rolled back, the payment lost (the provider does not redeliver). Now only SQLSTATE 23505 counts; the same narrowing
+  applies to `BankStatementStore`, `DunningIssuance`, `DunningService`, `PaymentReferenceAllocator` and `AccountingService`.
+- Reusing an existing checkout session in `createContributionCheckout` queried the database outside a transaction ("No transaction in context", a 500 on
+  every reuse). Found by the new single-flight test, the first to exercise the reuse path.
+
+### Known limitations (V1.9.55)
+
+- Exposed re-runs a failed transaction on any `SQLException` (3 attempts), so one request can wait up to three lock timeouts (30 s with the defaults) or run
+  three statement timeouts. The global `defaultMaxAttempts` is unchanged on purpose.
+- The single-flight of contribution checkouts is process-local (one server instance).
+- Kilua RPC still logs `e.message` of untyped SQL errors on the server, including the `Detail:` line of a unique violation. The client is protected, the log is not.
+- Blanket `ExposedSQLException` catches outside the money paths (elections, polls, systemic consensus, CRM, regional chapters, member families) are unchanged:
+  there a timeout shows as a conflict toast. No data is damaged.
+- `archiveGeneratedBytes` writes a file inside a transaction; a transaction re-run leaves an orphaned file (no double effect).
+- lexoffice has no idempotency key; the reaper sets `UNKNOWN` and never re-pushes. Mailing is at-least-once only for a crash between send and log update;
+  letter dispatch is at-most-once.
+- The Postgres lane grows by the new specs.
+- A deliberate untyped service message (`require`/`error`) thrown after an SQL error was already caught in the same RPC call is blanked by the sanitizer
+  (shown as "Unbekannter Fehler") because the failure record is sticky per call. Safe (no leak, no data damage), but the text is lost.
+
 ### Fixed
 
 - Races: `castVoteBallot` now locks the vote row before its status check (a bid could land after `closeVote` and leave an unsettled ballot and debit); `castResistanceBallot`,

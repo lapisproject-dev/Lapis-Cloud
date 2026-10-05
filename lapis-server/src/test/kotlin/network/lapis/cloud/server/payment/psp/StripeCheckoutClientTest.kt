@@ -59,11 +59,15 @@ class StripeCheckoutClientTest :
 
             val result =
                 checkoutClient.createCheckout(
-                    checkoutSessionId = "checkout-session-id",
+                    checkoutSessionId = "e817eec5-7a05-5ad8-8bdc-6797d01d24fd",
                     amount = BigDecimal("12.34"),
                     currency = "EUR",
                     description = "Mitgliedsbeitrag",
-                    returnUrls = PspReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-id"),
+                    returnUrls =
+                        PspReturnUrls.memberSpa(
+                            baseUrl = "https://lapis.example",
+                            checkoutSessionId = "e817eec5-7a05-5ad8-8bdc-6797d01d24fd",
+                        ),
                 )
 
             capturedAuth shouldBe "Bearer $TEST_SECRET_KEY"
@@ -94,12 +98,12 @@ class StripeCheckoutClientTest :
             val checkoutClient = StripeCheckoutClient(pspConfig = testPspConfig(), httpClient = client)
 
             checkoutClient.createCheckout(
-                checkoutSessionId = "checkout-session-hash-test",
+                checkoutSessionId = "970de338-877c-58f5-b8ba-78c16cd83766",
                 amount = BigDecimal("5.00"),
                 currency = "EUR",
                 description = "Spende",
                 returnUrls =
-                    PspReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-hash-test"),
+                    PspReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "970de338-877c-58f5-b8ba-78c16cd83766"),
             )
 
             capturedBody.contains("success_url=") shouldBe true
@@ -121,11 +125,15 @@ class StripeCheckoutClientTest :
 
             val result =
                 checkoutClient.createCheckout(
-                    checkoutSessionId = "checkout-session-400",
+                    checkoutSessionId = "a02ce19e-b5e2-5783-bab3-1a44e568b1fe",
                     amount = BigDecimal("1.00"),
                     currency = "EUR",
                     description = "Test",
-                    returnUrls = PspReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-400"),
+                    returnUrls =
+                        PspReturnUrls.memberSpa(
+                            baseUrl = "https://lapis.example",
+                            checkoutSessionId = "a02ce19e-b5e2-5783-bab3-1a44e568b1fe",
+                        ),
                 )
 
             (result is PspCheckoutResult.Failure) shouldBe true
@@ -140,11 +148,15 @@ class StripeCheckoutClientTest :
 
             val result =
                 checkoutClient.createCheckout(
-                    checkoutSessionId = "checkout-session-500",
+                    checkoutSessionId = "bf1f5c2e-5fd8-5997-91cd-9cdbb87c240a",
                     amount = BigDecimal("1.00"),
                     currency = "EUR",
                     description = "Test",
-                    returnUrls = PspReturnUrls.memberSpa(baseUrl = "https://lapis.example", checkoutSessionId = "checkout-session-500"),
+                    returnUrls =
+                        PspReturnUrls.memberSpa(
+                            baseUrl = "https://lapis.example",
+                            checkoutSessionId = "bf1f5c2e-5fd8-5997-91cd-9cdbb87c240a",
+                        ),
                 )
 
             (result is PspCheckoutResult.Failure) shouldBe true

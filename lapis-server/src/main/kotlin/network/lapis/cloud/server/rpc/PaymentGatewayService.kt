@@ -1,6 +1,8 @@
 package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -60,6 +62,9 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
+
+private const val CONTRIBUTION_CHECKOUT_STRIPES = 64
+private val contributionCheckoutStripes = Array(CONTRIBUTION_CHECKOUT_STRIPES) { Mutex() }
 
 private val TREASURY_READ_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)
 
@@ -233,43 +238,51 @@ class PaymentGatewayService(
         }
         val client = requirePaymentGatewayUsable()
 
-        val now = DbClock.nowLocalDateTime()
-        val reusable =
-            transaction {
-                PspCheckoutSessions.findReusableForContribution(contributionId = contributionId, provider = client.provider, now = now)
+        // V1.9.55 single-flight: the reuse check, the provider call and the persist run under a per-contribution
+        // lock, so two parallel requests cannot both pass the reuse check and mint two hosted sessions (double
+        // payment). Process-local only -- see CHANGELOG known limitations.
+        return contributionCheckoutStripes[(contributionId.hashCode() and Int.MAX_VALUE) % CONTRIBUTION_CHECKOUT_STRIPES].withLock {
+            val now = DbClock.nowLocalDateTime()
+            val reusable =
+                transaction {
+                    PspCheckoutSessions.findReusableForContribution(contributionId = contributionId, provider = client.provider, now = now)
+                }
+            if (reusable != null) {
+                // V1.9.55: toCheckoutSessionDto() runs a query (payment_transaction lookup) and therefore needs an open
+                // transaction -- the reuse path used to call it outside one ("No transaction in context", a 500 on every
+                // reuse). Found by ContributionCheckoutSingleFlightTest, the first test to exercise the reuse path.
+                return transaction { reusable.toCheckoutSessionDto() }
             }
-        if (reusable != null) {
-            return reusable.toCheckoutSessionDto()
-        }
 
-        val amount = contributionRow[ContributionTable.amountDue]
-        val checkoutSessionId = Uuid.random()
-        val stripeResult =
-            client.createCheckout(
-                checkoutSessionId = checkoutSessionId.toString(),
+            val amount = contributionRow[ContributionTable.amountDue]
+            val checkoutSessionId = Uuid.random()
+            val stripeResult =
+                client.createCheckout(
+                    checkoutSessionId = checkoutSessionId.toString(),
+                    amount = amount,
+                    currency = "EUR",
+                    description = "Mitgliedsbeitrag",
+                    returnUrls =
+                        PspReturnUrls.memberSpa(
+                            baseUrl = FederationConfig.publicBaseUrl,
+                            checkoutSessionId = checkoutSessionId.toString(),
+                        ),
+                )
+            return persistCheckoutSessionOrThrow(
+                gateway = client,
+                checkoutResult = stripeResult,
+                checkoutSessionId = checkoutSessionId,
+                intent = PaymentIntent.CONTRIBUTION,
+                contributionId = contributionId,
+                memberId = ownerMemberId,
+                externalDonorId = null,
+                embedOrigin = null,
                 amount = amount,
-                currency = "EUR",
-                description = "Mitgliedsbeitrag",
-                returnUrls =
-                    PspReturnUrls.memberSpa(
-                        baseUrl = FederationConfig.publicBaseUrl,
-                        checkoutSessionId = checkoutSessionId.toString(),
-                    ),
+                donorCategory = null,
+                purpose = null,
+                now = now,
             )
-        return persistCheckoutSessionOrThrow(
-            gateway = client,
-            checkoutResult = stripeResult,
-            checkoutSessionId = checkoutSessionId,
-            intent = PaymentIntent.CONTRIBUTION,
-            contributionId = contributionId,
-            memberId = ownerMemberId,
-            externalDonorId = null,
-            embedOrigin = null,
-            amount = amount,
-            donorCategory = null,
-            purpose = null,
-            now = now,
-        )
+        }
     }
 
     /**

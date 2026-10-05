@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import network.lapis.cloud.server.backup.OrganizationSchemaCatalog.TableMetadata
+import network.lapis.cloud.server.db.relaxSessionTimeouts
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.BackupOperationStatus
 import network.lapis.cloud.shared.domain.BackupOperationType
@@ -196,6 +197,12 @@ class OrganizationExportService(
         var rowCount = 0L
         zip.putNextEntry(ZipEntry(DATA_ENTRY_PREFIX + table.tableName + ".jsonl"))
         transaction(database) {
+            // V1.9.55: NEVER retry this block. Exposed would re-run it on any SQLException and append the
+            // rows a second time to the ZIP entry (corrupt backup, wrong digest). The cursor streams into the
+            // HTTP sink, so a slow client leaves gaps with the transaction idle: lift statement and
+            // idle-in-transaction timeouts for THIS transaction only (SET LOCAL, pool-safe). lock_timeout stays.
+            maxAttempts = 1
+            relaxSessionTimeouts(statementTimeoutMs = 0, idleInTransactionTimeoutMs = 0)
             val connection = rawConnection()
             connection.prepareStatement(selectAllSql(table)).use { statement ->
                 statement.fetchSize = JDBC_FETCH_SIZE

@@ -68,6 +68,12 @@ services:
       LAPIS_DB_URL: jdbc:postgresql://postgres:5432/${LAPIS_DB_NAME:-lapiscloud}
       LAPIS_DB_USER: ${LAPIS_DB_USER:?LAPIS_DB_USER must be set in .env}
       LAPIS_DB_PASSWORD: ${LAPIS_DB_PASSWORD:?LAPIS_DB_PASSWORD must be set in .env}
+      # V1.9.55 -- Postgres session timeouts of the application pool (milliseconds, 0 = off). The defaults are written
+      # out here on purpose: a blank value is a startup error (fail fast), so `${VAR:-}` would break every instance whose
+      # .env does not set them. See docs/architecture/database-timeouts-and-retries.adoc.
+      LAPIS_DB_LOCK_TIMEOUT_MS: ${LAPIS_DB_LOCK_TIMEOUT_MS:-10000}
+      LAPIS_DB_STATEMENT_TIMEOUT_MS: ${LAPIS_DB_STATEMENT_TIMEOUT_MS:-60000}
+      LAPIS_DB_IDLE_TX_TIMEOUT_MS: ${LAPIS_DB_IDLE_TX_TIMEOUT_MS:-120000}
       LAPIS_PUBLIC_BASE_URL: ${LAPIS_PUBLIC_BASE_URL:?LAPIS_PUBLIC_BASE_URL must be set in .env}
       # Video conferencing (Videokonferenzen Wave 1) -- see README.adoc "Video conferencing".
       # LAPIS_LIVEKIT_URL is the PUBLIC wss:// origin browsers connect to (Apache-proxied);

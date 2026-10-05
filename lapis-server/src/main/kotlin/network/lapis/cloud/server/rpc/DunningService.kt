@@ -15,6 +15,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PostalDeliveryLogTable
+import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.payment.dunning.DunningConfig
 import network.lapis.cloud.server.payment.dunning.DunningIssueOutcome
@@ -596,6 +597,8 @@ class DunningService(
                     it[cancellationReason] = reason.take(500)
                 }
             } catch (e: ExposedSQLException) {
+                // V1.9.55: only a unique violation (23505) is the duplicate-slot race; a timeout propagates.
+                if (!e.isUniqueViolation()) throw e
                 // Concurrent-duplicate-slot race -- the `forUpdate()` lock above already makes this
                 // practically unreachable for a race on the SAME contribution (same "pre-check is
                 // racy, the DB-level UNIQUE is the real backstop" idiom `RegistrationService

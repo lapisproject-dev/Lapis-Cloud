@@ -10,6 +10,7 @@ import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
+import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.rpc.ContributionPaymentEvents
 import network.lapis.cloud.server.rpc.ContributionPostingBridge
 import network.lapis.cloud.server.rpc.DonationPostingBridge
@@ -44,7 +45,6 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.notInList
-import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -237,7 +237,7 @@ internal object BankStatementStore {
                     }
                 }
             if (inserted.isFailure) {
-                if (inserted.exceptionOrNull() is ExposedSQLException) {
+                if (inserted.exceptionOrNull()?.isUniqueViolation() == true) {
                     throw ConflictException("Diese Zeile wurde bereits gebucht.")
                 }
                 throw inserted.exceptionOrNull() ?: IllegalStateException("payment_transaction insert failed")
@@ -356,7 +356,7 @@ internal object BankStatementStore {
                     }
                 }
             if (inserted.isFailure) {
-                if (inserted.exceptionOrNull() is ExposedSQLException) throw ConflictException("Diese Zeile wurde bereits gebucht.")
+                if (inserted.exceptionOrNull()?.isUniqueViolation() == true) throw ConflictException("Diese Zeile wurde bereits gebucht.")
                 throw inserted.exceptionOrNull() ?: IllegalStateException("payment_transaction insert failed")
             }
 

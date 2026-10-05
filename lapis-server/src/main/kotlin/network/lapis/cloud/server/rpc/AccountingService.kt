@@ -14,6 +14,7 @@ import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PostingTable
+import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -142,6 +143,7 @@ class AccountingService(
                     it[isCashRegister] = input.isCashRegister
                 }
             } catch (e: ExposedSQLException) {
+                if (!e.isUniqueViolation()) throw e // V1.9.55: a timeout is not a duplicate
                 // Application-level pre-check above is racy under concurrency on its own -- the
                 // DB-level UNIQUE (uq_ledger_account_number) is the real backstop, same
                 // "pre-check + ExposedSQLException backstop" idiom as ElectionService's receipt
@@ -218,6 +220,7 @@ class AccountingService(
                     it[active] = input.active
                 }
             } catch (e: ExposedSQLException) {
+                if (!e.isUniqueViolation()) throw e // V1.9.55: a timeout is not a duplicate
                 // Application-level pre-check above is racy under concurrency on its own -- the
                 // DB-level UNIQUE (uq_cost_center_code) is the real backstop, same "pre-check +
                 // ExposedSQLException backstop" idiom as createLedgerAccount.

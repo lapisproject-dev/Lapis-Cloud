@@ -11,6 +11,7 @@ import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.ExternalDonorTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
+import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.events.EventCapacityGuard
 import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.events.EventTicketIssuer
@@ -40,7 +41,6 @@ import network.lapis.cloud.shared.domain.WebhookEventType
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.notInList
-import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -230,7 +230,10 @@ object PspWebhookIngestion {
                 // documented, same "ExposedSQLException IS the constraint violation" idiom
                 // DunningIssuance/RegistrationService/AccountingService/PoliticianService/
                 // ElectionService already establish for their own first-write races.
-                if (cause is ExposedSQLException) {
+                // V1.9.55: ONLY a unique violation (23505) means "already ingested". A lock/statement
+                // timeout (55P03/57014) must propagate: counting it as Duplicate would 200-acknowledge a
+                // delivery whose competing twin may still roll back, losing the payment forever.
+                if (cause != null && cause.isUniqueViolation()) {
                     return@transaction CheckoutCompletedIngestionResult(outcome = CheckoutCompletedIngestionOutcome.Duplicate)
                 }
                 throw cause ?: IllegalStateException("payment_transaction insert failed with no exception")

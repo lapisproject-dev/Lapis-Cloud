@@ -95,3 +95,6 @@ after adding the end-to-end test named above. Decide the `ConflictCode` naming i
 
 * Open question for that wave: does the client want the code in `guarded`'s generic mapping, or only in
   dedicated per-screen guards (as `openItemGuarded` does today)?
+* V1.9.55 added `ServiceBusyException` (database lock/statement/idle timeout, deadlock, serialization failure). It is never thrown by
+  service code: the HTTP-level `RpcErrorSanitizer` synthesizes it from the untyped Kilua error response, because Kilua RPC offers no hook
+  to wrap service exceptions. The same sanitizer blanks every other untyped SQL error text. See `database-timeouts-and-retries.adoc`.

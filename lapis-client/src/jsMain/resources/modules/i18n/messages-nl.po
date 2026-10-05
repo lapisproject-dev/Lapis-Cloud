@@ -16399,6 +16399,10 @@ msgstr "Artikelen (%1)"
 msgid "Vorschau vorübergehend nicht verfügbar – bitte kurz warten."
 msgstr "Voorbeeld tijdelijk niet beschikbaar – even geduld."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
+msgid "Der Server ist gerade ausgelastet. Bitte versuchen Sie es in einem Moment erneut."
+msgstr "De server is momenteel druk bezet. Probeer het zo meteen opnieuw."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt
 msgid "Vorschau wird geladen…"
 msgstr "Voorbeeld wordt geladen…"

@@ -17,7 +17,6 @@ import network.lapis.cloud.shared.domain.PaymentProvider
 import java.io.IOException
 import java.math.BigDecimal
 import java.math.RoundingMode
-import java.security.SecureRandom
 
 private val logger = KotlinLogging.logger {}
 
@@ -78,9 +77,9 @@ class PaypalOrdersClient(
      * `POST /v2/checkout/orders`, `intent=CAPTURE`, EIN `purchase_unit`, `custom_id =
      * checkoutSessionId`, `amount.value = amount.setScale(2).toPlainString()` (NIEMALS über
      * [Double]), `currency_code = currency`. `experience_context.return_url`/`cancel_url` =
-     * [returnUrls]. Header `PayPal-Request-Id` = frischer zufälliger 16-Byte-Hex-Wert (gleiche
-     * Disziplin wie Stripes `Idempotency-Key` -- ein frischer Wert pro logischem Checkout; der
-     * AUFRUFER ist für Session-Wiederverwendung verantwortlich).
+     * [returnUrls]. Header `PayPal-Request-Id` = aus [checkoutSessionId] abgeleiteter, stabiler Wert
+     * ([PspIdempotencyKeys.checkout], V1.9.55) -- ein Wert pro logischem Checkout; der
+     * AUFRUFER ist für Session-Wiederverwendung verantwortlich.
      */
     override suspend fun createCheckout(
         checkoutSessionId: String,
@@ -106,7 +105,7 @@ class PaypalOrdersClient(
         // instead, breaking the PspCheckoutGateway.idempotencyKey contract (persisted onto
         // payment_checkout_session.provider_idempotency_key for forensic/support reconciliation
         // against PayPal's own request-id, exactly like StripeCheckoutClient already honors it).
-        val requestId = randomRequestId()
+        val requestId = PspIdempotencyKeys.checkout(checkoutSessionId)
         val requestBody =
             buildJsonObject {
                 put("intent", "CAPTURE")
@@ -297,14 +296,4 @@ class PaypalOrdersClient(
                 }.getOrNull()
             }?.let { it.message ?: it.details.firstOrNull()?.issue }
             ?: "PayPal hat die Anfrage abgelehnt (Status $statusCode)"
-
-    companion object {
-        private val requestIdRandom = SecureRandom()
-
-        private fun randomRequestId(): String {
-            val bytes = ByteArray(16)
-            requestIdRandom.nextBytes(bytes)
-            return bytes.joinToString(separator = "") { byte -> "%02x".format(byte) }
-        }
-    }
 }

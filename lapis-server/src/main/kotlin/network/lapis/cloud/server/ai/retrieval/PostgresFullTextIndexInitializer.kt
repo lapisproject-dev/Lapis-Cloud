@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.ai.retrieval
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import network.lapis.cloud.server.db.relaxSessionTimeouts
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 private val logger = KotlinLogging.logger {}
@@ -29,10 +30,16 @@ internal object PostgresFullTextIndexInitializer {
             "CREATE EXTENSION IF NOT EXISTS pg_trgm",
             "CREATE INDEX IF NOT EXISTS idx_ai_knowledge_chunk_fts ON ai_knowledge_chunk USING GIN (to_tsvector('german', content))",
         ).forEach { statement ->
-            runCatching { transaction { exec(statement) } }
-                .onFailure {
-                    logger.info { "AI-Volltextindex: Statement übersprungen (${it::class.simpleName}) -- Suche funktioniert auch ohne." }
+            runCatching {
+                transaction {
+                    // V1.9.55: an index build over a large table may exceed statement_timeout; lifted for this
+                    // transaction only. lock_timeout stays: if the table is busy the statement is skipped + logged.
+                    relaxSessionTimeouts(statementTimeoutMs = 0)
+                    exec(statement)
                 }
+            }.onFailure {
+                logger.info { "AI-Volltextindex: Statement übersprungen (${it::class.simpleName}) -- Suche funktioniert auch ohne." }
+            }
         }
     }
 }

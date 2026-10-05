@@ -42,6 +42,18 @@ class NotFoundException(
     override val message: String,
 ) : AbstractServiceException()
 
+/**
+ * Welle V1.9.55 -- the server could not complete the call because the database was busy (lock timeout,
+ * statement timeout, idle-in-transaction timeout, deadlock or serialization failure). Synthesized by the
+ * server-side `RpcErrorSanitizer`, never thrown by service code: Kilua RPC offers no hook to wrap service
+ * exceptions, so the HTTP layer replaces the untyped, SQL-leaking error response with this typed one.
+ * The client shows a fixed, translated "server busy, try again" toast.
+ */
+@RpcServiceException
+class ServiceBusyException(
+    override val message: String = "",
+) : AbstractServiceException()
+
 @RpcServiceException
 class ConflictException(
     override val message: String,

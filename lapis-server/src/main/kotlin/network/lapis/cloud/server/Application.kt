@@ -78,6 +78,7 @@ import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.StagingSeedData
+import network.lapis.cloud.server.db.dbFailureKind
 import network.lapis.cloud.server.economy.oracle.OracleSourceConfig
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
 import network.lapis.cloud.server.economy.oracle.PriceOracleSnapshotConfig
@@ -273,6 +274,7 @@ import network.lapis.cloud.server.rpc.TrustAnchorService
 import network.lapis.cloud.server.rpc.VatService
 import network.lapis.cloud.server.rpc.VolunteerAllowanceService
 import network.lapis.cloud.server.rpc.WebhookService
+import network.lapis.cloud.server.rpc.installRpcErrorSanitizer
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.social.PostDraftRetentionPoller
 import network.lapis.cloud.server.webhook.WebhookConfig
@@ -1652,7 +1654,11 @@ internal fun Application.module(
         exception<ForbiddenException> { call, cause ->
             call.respondText(cause.message, status = HttpStatusCode.Forbidden)
         }
+        installSqlExceptionHandler()
     }
+
+    // V1.9.55: must precede initRpc (see RpcErrorSanitizer KDoc).
+    installRpcErrorSanitizer()
 
     // initRpc installs its own ContentNegotiation (JSON) plugin internally, configured for the
     // RPC serializers module — installing another one ourselves would collide with it
@@ -2426,3 +2432,18 @@ private fun brandingLogoContentType(path: String): ContentType? =
         "webp" -> ContentType.parse("image/webp")
         else -> null
     }
+
+/**
+ * V1.9.55: non-RPC routes never echo driver/ORM text. A timeout-class failure is a 503 with
+ * Retry-After (PSP webhook senders then redeliver); everything else a generic 500.
+ */
+internal fun io.ktor.server.plugins.statuspages.StatusPagesConfig.installSqlExceptionHandler() {
+    exception<java.sql.SQLException> { call, cause ->
+        if (cause.dbFailureKind() != null) {
+            call.response.headers.append(io.ktor.http.HttpHeaders.RetryAfter, "5")
+            call.respondText("The server is busy, please retry shortly.", status = HttpStatusCode.ServiceUnavailable)
+        } else {
+            call.respondText("Internal server error.", status = HttpStatusCode.InternalServerError)
+        }
+    }
+}

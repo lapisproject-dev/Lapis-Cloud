@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.payment.bankstatement
 
 import network.lapis.cloud.server.db.generated.ContributionTable
+import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.shared.domain.PaymentReferenceCode
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.eq
@@ -78,8 +79,10 @@ internal object PaymentReferenceAllocator {
                     connection.releaseSavepoint(savepoint)
                     result
                 } catch (e: ExposedSQLException) {
-                    // uq_contribution_payment_reference collision -- retry with a fresh payload.
                     connection.rollback(savepoint)
+                    // V1.9.55: only a uq_contribution_payment_reference collision (23505) is retried with a
+                    // fresh payload; a lock/statement timeout or any other failure propagates.
+                    if (!e.isUniqueViolation()) throw e
                     0
                 }
             if (updated > 0) return candidate
