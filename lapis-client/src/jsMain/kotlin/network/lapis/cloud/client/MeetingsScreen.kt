@@ -27,6 +27,7 @@ import network.lapis.cloud.shared.domain.AttendanceInput
 import network.lapis.cloud.shared.domain.AttendanceStatus
 import network.lapis.cloud.shared.domain.CommitteeDto
 import network.lapis.cloud.shared.domain.CommitteeType
+import network.lapis.cloud.shared.domain.DisclosureRules
 import network.lapis.cloud.shared.domain.MeetingDetailDto
 import network.lapis.cloud.shared.domain.MeetingDto
 import network.lapis.cloud.shared.domain.MeetingFormat
@@ -829,17 +830,29 @@ fun renderResolutionRow(
     headerRow.statusBadge(resolutionStatusLabel(resolution.status), resolutionStatusColor(resolution.status))
     headerRow.typeBadge(resolutionModeLabel(resolution.resolutionMode), resolutionModeColor(resolution.resolutionMode))
     row.untrustedP(resolution.text, className = "mb-0")
-    row.div(
-        gettext(
-            "Ja: %1 · Nein: %2 · Enthaltung: %3 · Quorum %4 · entschieden am %5 von %6",
-            resolution.votesYes,
-            resolution.votesNo,
-            resolution.votesAbstain,
-            if (resolution.quorumMet) gettext("erreicht") else gettext("nicht erreicht"),
-            formatSystemDateTime(resolution.decidedAt),
-            resolution.recordedByDisplayName,
-        ),
-    ) { addCssClasses("text-muted small") }
+    val quorumText = if (resolution.quorumMet) gettext("erreicht") else gettext("nicht erreicht")
+    val decisionLine =
+        if (resolution.figuresWithheld) {
+            // V1.9.53: a secret election below the minimum participation -- no figures, only the rule.
+            gettext(
+                "Stimmenzahlen nicht veröffentlicht (geheime Wahl mit weniger als %1 Stimmzetteln) · Quorum %2 · entschieden am %3 von %4",
+                DisclosureRules.MIN_ANONYMOUS_RESPONSES,
+                quorumText,
+                formatSystemDateTime(resolution.decidedAt),
+                resolution.recordedByDisplayName,
+            )
+        } else {
+            gettext(
+                "Ja: %1 · Nein: %2 · Enthaltung: %3 · Quorum %4 · entschieden am %5 von %6",
+                resolution.votesYes,
+                resolution.votesNo,
+                resolution.votesAbstain,
+                quorumText,
+                formatSystemDateTime(resolution.decidedAt),
+                resolution.recordedByDisplayName,
+            )
+        }
+    row.div(decisionLine) { addCssClasses("text-muted small") }
 }
 
 internal fun renderRecordResolutionForm(

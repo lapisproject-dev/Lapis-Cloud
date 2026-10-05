@@ -23,10 +23,15 @@ private val SERVER_DIR =
 
 private const val DISCLOSURE_FILE = "rpc/ElectionBallotDisclosure.kt"
 
-/** Cast + receipt check + tally (aggregate) in the service, own participation, the member's own named ballots in the DSGVO export. */
+/**
+ * Cast + receipt check + tally (aggregate) in the service, own participation, the member's own named ballots in the DSGVO export.
+ * V1.9.53: `rpc/ElectionResultDisclosure.kt` is the single decision point of the minimum participation (it counts the ballots and
+ * the per-option selections); it was added on purpose, see `ServerElectionResultDisclosureTripwireTest`.
+ */
 private val BALLOT_TABLE_ALLOWLIST =
     setOf(
         DISCLOSURE_FILE,
+        "rpc/ElectionResultDisclosure.kt",
         "rpc/ElectionService.kt",
         "rpc/ElectionOwnParticipation.kt",
         "dsgvo/ElectionPersonalData.kt",

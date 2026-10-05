@@ -111,6 +111,46 @@ internal fun removedSecretTableFindings(
 private fun codeLines(text: String): List<String> =
     text.lines().filterNot { line -> line.trimStart().let { it.startsWith("//") || it.startsWith("*") || it.startsWith("/*") } }
 
+/**
+ * V1.9.53 (minimum participation): the code of the declaration that starts at [signature], up to the next top-level declaration
+ * (`fun`/`private fun`/`internal fun`/`class` at column 0). Empty when the signature is absent.
+ */
+internal fun declarationBody(
+    text: String,
+    signature: String,
+): String {
+    val start = text.indexOf(signature)
+    if (start < 0) return ""
+    val next = Regex("""\n(private |internal )?(fun|class) """).find(text, start + signature.length)
+    return codeLines(text.substring(start, next?.range?.first ?: text.length)).joinToString("\n")
+}
+
+private val WITHHELD_RENDERER_FORBIDDEN =
+    Regex("""perOptionVotes|voteCount|lapis-election-bar|sortedByDescending|maxVotes|aria-valuenow|\bwidth\b|\bperc\b""")
+
+/** V1.9.53: findings in the code of the withheld-result renderer: any figure, bar or ranking, or an `Int` parameter other than the rule constant. */
+internal fun withheldRendererFindings(body: String): List<String> {
+    val findings = mutableListOf<String>()
+    WITHHELD_RENDERER_FORBIDDEN.findAll(body).forEach { findings += "withheld renderer mentions ${it.value}" }
+    Regex("""(\w+)\s*:\s*Int\b""").findAll(body).forEach {
+        if (it.groupValues[1] !=
+            "minimumResponses"
+        ) {
+            findings += "Int parameter ${it.groupValues[1]}"
+        }
+    }
+    return findings
+}
+
+/** V1.9.53: client code that decides on the shape of the figures instead of the server's flag. */
+internal fun figureShapeBranchFindings(
+    fileName: String,
+    text: String,
+): List<String> =
+    codeLines(text)
+        .filter { Regex("""voteCount\s*==\s*0|perOptionVotes\.isEmpty\(\)|perOptionVotes\.isNotEmpty\(\)""").containsMatchIn(it) }
+        .map { "$fileName: branches on the shape of the figures, use figuresWithheld: ${it.trim()}" }
+
 private val FORBIDDEN_EVERYWHERE =
     listOf(
         Regex("""\bconsole\."""),
@@ -217,6 +257,49 @@ class ElectionSecrecyTripwireTest :
             code.contains("consensusReceiptVisibilityHook === onChange") shouldBe true
             code.contains("private val onChange: (Boolean) -> Unit") shouldBe true
             electionSecrecyFindings(fileName = "ConferenceConsensusBoothHost.kt", text = "val c = result.receiptCode").size shouldBe 1
+        }
+
+        test("V1.9.53: the result renderer decides on figuresWithheld first, the withheld renderer shows no figure, bar or ranking") {
+            val text = File(CLIENT_DIR, "ElectionResultUi.kt").readText()
+            val compact = declarationBody(text = text, signature = "internal fun renderElectionResultCompact(")
+            (compact.isNotEmpty()) shouldBe true
+            val firstBranch = compact.indexOf("if (result.figuresWithheld)")
+            (firstBranch >= 0) shouldBe true
+            (firstBranch < compact.indexOf("perOptionVotes")) shouldBe true
+            (firstBranch < compact.indexOf("renderResultRow(")) shouldBe true
+            // ordered by position, never by the figures: the order must not tell a ranking
+            compact.contains("sortedByDescending") shouldBe false
+            compact.contains("sortedBy { it.position }") shouldBe true
+            val withheld = declarationBody(text = text, signature = "private fun renderElectionResultWithheld(")
+            (withheld.isNotEmpty()) shouldBe true
+            withheldRendererFindings(withheld).shouldBeEmpty()
+        }
+
+        test("V1.9.53: the withheld-renderer detector flags figures, bars, rankings and Int parameters") {
+            withheldRendererFindings("val v = result.perOptionVotes").size shouldBe 1
+            withheldRendererFindings("option.voteCount").size shouldBe 1
+            withheldRendererFindings("div(className = \"lapis-election-bar\")").size shouldBe 1
+            withheldRendererFindings("list.sortedByDescending { it }").size shouldBe 1
+            withheldRendererFindings("bar.width = x.perc").size shouldBe 2
+            withheldRendererFindings("votes: Int,").size shouldBe 1
+            withheldRendererFindings("minimumResponses: Int,").size shouldBe 0
+            withheldRendererFindings("showHint: Boolean,").size shouldBe 0
+        }
+
+        test("V1.9.53: the decision line of a resolution and the audit snapshot read the figures only after the figuresWithheld branch") {
+            val meetings = codeLines(File(CLIENT_DIR, "MeetingsScreen.kt").readText()).joinToString("\n")
+            val audit = codeLines(File(CLIENT_DIR, "AuditLogScreen.kt").readText()).joinToString("\n")
+            (meetings.indexOf("resolution.figuresWithheld") in 0 until meetings.indexOf("resolution.votesYes")) shouldBe true
+            (audit.indexOf("if (figuresWithheld)") in 0 until audit.indexOf("snapshot.votesYes")) shouldBe true
+        }
+
+        test("V1.9.53: no client file branches on the shape of the figures") {
+            val files = CLIENT_DIR.listFiles { f -> f.isFile && f.name.endsWith(".kt") }!!.toList()
+            files.flatMap { figureShapeBranchFindings(fileName = it.name, text = it.readText()) }.shouldBeEmpty()
+            figureShapeBranchFindings(fileName = "X.kt", text = "if (option.voteCount == 0) hide()").size shouldBe 1
+            figureShapeBranchFindings(fileName = "X.kt", text = "if (result.perOptionVotes.isEmpty()) hide()").size shouldBe 1
+            figureShapeBranchFindings(fileName = "X.kt", text = "if (result.figuresWithheld) hide()").size shouldBe 0
+            figureShapeBranchFindings(fileName = "X.kt", text = "// voteCount == 0").size shouldBe 0
         }
 
         test("the detector flags each forbidden shape and ignores comments and look-alikes") {

@@ -1357,7 +1357,8 @@ class GovernanceService(
         ResolutionTable
             .selectAll()
             .where { ResolutionTable.meetingId eq meetingId }
-            .map { it.toResolutionDto() }
+            .toList()
+            .toResolutionDtos()
 
     private fun loadMotion(id: Uuid): MotionDto =
         (MotionTable innerJoin CommitteeTable)

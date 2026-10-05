@@ -1520,7 +1520,8 @@ members, never members of the target executive board), candidacies, the voting b
 casting, exactly one request however often the button is clicked), a one-time receipt for secret
 ballots, the four-eyes count approval (only real committee members, no admin bypass), the result and
 a receipt check. Since V1.9.46 the single ballots of a secret election are never delivered, in any
-status and to any role; open-ballot elections keep their named list. V1.9.23 hardened the server: the four ways to decide a motion exclude each other
+status and to any role; open-ballot elections keep their named list. A secret election with fewer than five ballots
+shows no vote counts (V1.9.53, unreleased; API behaviour change). V1.9.23 hardened the server: the four ways to decide a motion exclude each other
 (`MotionDecisionLock`), a tally requires the motion to still be scheduled, and the ballot of a secret
 election carries no time and no order. See `docs/architecture/elections-ui.adoc` and
 `docs/architecture/elections-integrity.adoc`.
@@ -1530,10 +1531,10 @@ election carries no time and no order. See `docs/architecture/elections-ui.adoc`
 A real end-to-end election run with several accounts on Staging is still outstanding. The concurrency tests run on H2 and, since V1.9.37, also on PostgreSQL (the Postgres test lane). List and ranked-choice
 elections are rejected by the server. Who approved a tally is visible only as a count.
 `castVoteBallot` and `castResistanceBallot` have their own races against closing. Members cannot
-recount a secret election themselves (a deliberate consequence of V1.9.46). The vote counts of a small
-secret election are delivered without a minimum participation, so with one ballot or a unanimous
-result the votes are known; the receipt check tells the holder of a receipt code the chosen option (see
-`docs/architecture/elections-integrity.adoc`).
+recount a secret election themselves (a deliberate consequence of V1.9.46). Since V1.9.53 a secret election
+with fewer than five ballots discloses no vote counts (unreleased; see `docs/architecture/elections-integrity.adoc`,
+"Minimum participation"); from five ballots on, or for an open election, the counts are delivered, so with a unanimous
+result the votes are known. The receipt check tells the holder of a receipt code the chosen option.
 
 == Voting in the conference room (V1.9.24-V1.9.27)
 

@@ -412,3 +412,5 @@ server withholds shows the reason in a sentence instead of partial numbers; a wi
   its backups can rebuild whole vectors through `response_id` (see "Anonymity of the consensus kinds"). The histogram of the result labels
   every number 0..10 (same renderer as the proposal consensus).
 * The staging test plan covers the kinds (`polls-staging-test.adoc`); it was not executed.
+
+NOTE: V1.9.53 -- `DisclosureRules.MIN_ANONYMOUS_RESPONSES` is now also the minimum participation for the figures of secret elections (`elections-integrity.adoc`): polls, anonymous consensus and secret elections share one constant.

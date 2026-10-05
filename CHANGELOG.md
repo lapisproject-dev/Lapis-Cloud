@@ -17,6 +17,31 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **API BEHAVIOUR CHANGE: minimum participation for the figures of secret elections** (V1.9.53). A secret election with fewer than five ballots
+  (`DisclosureRules.MIN_ANONYMOUS_RESPONSES`, the same constant as polls and anonymous consensus) no longer discloses any per-option figure. No migration, no
+  `V1__baseline.sql` change. Open-ballot elections are unaffected. The decision (winners, tie, majority) is made on the full data as before; only the disclosure is
+  reduced, with no role exception and no operator switch.
+  - New file `rpc/ElectionResultDisclosure.kt` is the single decision point (`electionFiguresWithheld`, `disclosedElectionResult`, `disclosedOptionVoteCounts`,
+    `withheldElectionIds`, `ResolutionDto.withElectionDisclosure`). `ElectionService.computeOutcome` returns internal figures; no DTO is built there any more.
+  - RPC fields (all additive, default `false`): `ElectionResultDto.figuresWithheld` (+ `minimumResponses`, `perOptionVotes` empty), `ElectionDto.figuresWithheld`
+    (every `ElectionOptionDto.voteCount` is `0`, only from `TALLIED`), `ResolutionDto.figuresWithheld` (`votesYes/No/Abstain` zeroed), `AuditLogEntryDto.figuresWithheld`.
+  - Resolution book: every reader goes through `toResolutionDtos` (one batch lookup, no N+1), so resolutions and audit entries written before this change are masked on
+    delivery too. `tally()` writes 0/0/0 for a yes/no election below the minimum; new audit snapshots are built from the masked DTO (no new field in the hashed JSON).
+    The stored hash chain and `verifyChainIntegrity` are untouched.
+  - **Public API `/api/v1/resolutions[/{id}]`**: `votesYes`, `votesNo`, `votesAbstain` are now nullable (explicit `null`) and `figuresWithheld` is always present.
+    Clients that read the figures as numbers must check the flag.
+  - Client: the result shows options by position (not by votes) in both forms; below the minimum a people election lists the options with the "Gewählt" badge and no
+    figure, bar or `aria-valuenow`, a yes/no election shows only the verdict, plus one explanatory sentence (not for 0 ballots). The participation line stays. The
+    resolution book row, the audit detail and the open form show the rule. Four new msgids in all eight catalogs; the translations are by the agent, not by a native speaker.
+  - Known limitations: *E1* a unanimous result from five ballots on still reveals every vote; *E2* five ballots can be five identifiable people; *E3* "majority reached"
+    below five ballots bounds the yes share; *E4* the receipt still names the own option; *E5* the database tables still hold the real figures; *E6* a masked old audit
+    entry no longer matches its stored `entryHash` when an external verifier hashes the delivered snapshot (flagged by `figuresWithheld`; the old entry's figures stay recoverable by brute force from the delivered hashes for audit roles, new entries are not affected); *E7* the full organisation export
+    (ADMIN, database dump) is unmasked on purpose (lossless, restorable). "Receipt as proof / vote buying" stays open.
+  - Tests: `ElectionResultDisclosureTest` (rule), `ElectionMinimumParticipationTest` (matrix of secret/open x 0/1/4/5/6 ballots for YES_NO, SINGLE_CHOICE, MULTI_CHOICE, the
+    abstention counts, all read paths, tally write, legacy rows, public API with explicit `null`, stored audit row and hash untouched, batch helper),
+    `ServerElectionResultDisclosureTripwireTest`, extended `ElectionSecrecyTripwireTest` and `ElectionsI18nCatalogTest`, and DOM tests for the detail view, the
+    conference panel, the resolution row, the audit snapshot and the open form.
+
 - **Conference lobby: "Besprechung jetzt starten" in the title row; API keys collapsed** (V1.9.51, rules R36B/R36C and R57). Client only: no migration, no server, RPC or
   `V1__baseline.sql` change.
   - The start action of the conference screen is the one button of the title row (plus icon, outlined primary); the heading "Neue Besprechung" and the content button are

@@ -5,6 +5,7 @@ import network.lapis.cloud.shared.domain.CommitteeDto
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.ElectionBallotDto
+import network.lapis.cloud.shared.domain.ElectionOptionDto
 import network.lapis.cloud.shared.domain.ElectionResultDto
 import network.lapis.cloud.shared.domain.ElectionStatus
 import network.lapis.cloud.shared.domain.ElectionType
@@ -422,7 +423,7 @@ class ElectionDetailDomTest {
     private fun peopleOptions() = listOf(option("o1", "Anna", 0, "k1"), option("o2", "Boris", 1, "k2"), option("o3", "Cleo", 2, "k3"))
 
     @Test
-    fun thePeopleResult_listsByVotes_marksTheWinner_andLinksTheResolution(): Promise<Unit> =
+    fun thePeopleResult_listsByPosition_showsTheFigures_marksTheWinner_andLinksTheResolution(): Promise<Unit> =
         formTest {
             val world =
                 ElectionWorld(
@@ -438,10 +439,12 @@ class ElectionDetailDomTest {
                 )
             withDetail(world, member, "el-result-people") { el, _, _ ->
                 val text = el.flatText()
+                // V1.9.53: ordered by position, never by votes -- the order is the same with and without figures
                 assertTrue(
-                    text.indexOf("Boris") < text.indexOf("Anna") && text.indexOf("Anna") < text.indexOf("Cleo"),
-                    "ordered by votes: $text",
+                    text.indexOf("Anna") < text.indexOf("Boris") && text.indexOf("Boris") < text.indexOf("Cleo"),
+                    "ordered by position: $text",
                 )
+                assertEquals(3, el.allOf(".lapis-election-bar").size, "the open result keeps its figures and bars")
                 assertEquals(1, el.allOf(".badge").count { it.textContent?.trim() == "Gewählt" })
                 assertFalse(text.contains("Es wurde niemand gewählt"))
                 assertTrue(el.hasButton("Beschluss im Beschlussbuch"))
@@ -497,6 +500,94 @@ class ElectionDetailDomTest {
                 val text = el.flatText()
                 assertTrue(text.contains("Gleichstand oder keine entscheidenden Stimmen: Der Antrag wurde zurückgestellt."))
                 assertFalse(text.contains("nicht erreicht"), "a tie is never shown as 'rejected'")
+            }
+        }
+
+    // ── V1.9.53 minimum participation ────────────────────────────────────────────────────────────────────────
+
+    private fun withheldWorld(
+        type: ElectionType,
+        winners: List<String>,
+        tie: Boolean = false,
+        majorityMet: Boolean? = null,
+        ballotCount: Int = 3,
+        options: List<ElectionOptionDto> = if (type == ElectionType.YES_NO) yesNoOptions() else peopleOptions(),
+    ) = ElectionWorld(
+        election(type = type, status = ElectionStatus.TALLIED, options = options),
+        participation(boardSize = 3, ballotCount = ballotCount),
+        result =
+            ElectionResultDto(
+                electionId = "e1",
+                winnerOptionIds = winners,
+                tie = tie,
+                majorityMet = majorityMet,
+                perOptionVotes = emptyMap(),
+                figuresWithheld = true,
+            ),
+    )
+
+    private val withheldHint =
+        "Aus Gründen des Wahlgeheimnisses werden bei geheimen Wahlen Stimmenzahlen erst ab 5 Stimmzetteln gezeigt."
+
+    @Test
+    fun aWithheldPeopleResult_listsTheOptionsByPosition_marksTheWinner_andShowsNoFigureOrBar(): Promise<Unit> =
+        formTest {
+            withDetail(withheldWorld(ElectionType.SINGLE_CHOICE, winners = listOf("o3")), member, "el-withheld-people") { el, _, _ ->
+                val text = el.flatText()
+                assertTrue(
+                    text.indexOf("Anna") < text.indexOf("Boris") && text.indexOf("Boris") < text.indexOf("Cleo"),
+                    "ordered by position, not by votes: $text",
+                )
+                assertEquals(1, el.allOf(".badge").count { it.textContent?.trim() == "Gewählt" })
+                assertEquals(0, el.allOf(".lapis-election-bar").size, "no bar in the DOM")
+                assertEquals(0, el.allOf(".lapis-num").size, "no figure in the DOM")
+                assertEquals(0, el.allOf("[aria-valuenow]").size, "no figure in an aria attribute")
+                assertTrue(text.contains(withheldHint), text)
+                assertTrue(text.contains("Beteiligung: 3 von 4 Wahlberechtigten"), "the participation line stays: $text")
+            }
+        }
+
+    @Test
+    fun aWithheldYesNoResult_showsNoOptionRows_butTheVerdictAndTheHint(): Promise<Unit> =
+        formTest {
+            withDetail(
+                withheldWorld(ElectionType.YES_NO, winners = listOf("o-yes"), majorityMet = true),
+                member,
+                "el-withheld-yesno",
+            ) { el, _, _ ->
+                val text = el.flatText()
+                assertTrue(text.contains("Die erforderliche Mehrheit wurde erreicht."))
+                assertTrue(text.contains(withheldHint))
+                assertEquals(0, el.allOf(".lapis-election-bar").size)
+                assertEquals(0, el.allOf(".lapis-num").size)
+                assertFalse(text.contains("Enthaltung"), "no option row, so no abstention row: $text")
+            }
+        }
+
+    @Test
+    fun aWithheldTie_keepsTheAlert_andNeverMistakesWithheldFiguresForNoVotes(): Promise<Unit> =
+        formTest {
+            withDetail(
+                withheldWorld(ElectionType.SINGLE_CHOICE, winners = emptyList(), tie = true),
+                member,
+                "el-withheld-tie",
+            ) { el, _, _ ->
+                val text = el.flatText()
+                assertTrue(text.contains("Es wurde niemand gewählt"))
+                assertTrue(text.contains(withheldHint))
+                assertEquals(0, el.allOf(".badge").count { it.textContent?.trim() == "Gewählt" })
+            }
+        }
+
+    @Test
+    fun aWithheldResultOfAnElectionWithoutBallots_showsNoHint(): Promise<Unit> =
+        formTest {
+            withDetail(
+                withheldWorld(ElectionType.YES_NO, winners = emptyList(), tie = true, majorityMet = false, ballotCount = 0),
+                member,
+                "el-withheld-zero",
+            ) { el, _, _ ->
+                assertFalse(el.flatText().contains(withheldHint), "0 ballots: the hint would explain nothing")
             }
         }
 

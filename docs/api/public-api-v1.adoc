@@ -303,7 +303,7 @@ Query parameters: `?committeeId=<uuid>`, `?meetingId=<uuid>`.
       "id": "<uuid>", "meetingId": "<uuid>", "number": "WORKING_GROUP-2026-01",
       "title": "...", "text": "...", "status": "ADOPTED", "resolutionMode": "COMMITTEE_QUORUM",
       "decidedAt": "2026-03-01T19:00:00",
-      "votesYes": 5, "votesNo": 1, "votesAbstain": 0, "quorumMet": true
+      "votesYes": 5, "votesNo": 1, "votesAbstain": 0, "quorumMet": true, "figuresWithheld": false
     }
   ],
   "totalCount": 1, "limit": 25, "offset": 0
@@ -312,6 +312,10 @@ Query parameters: `?committeeId=<uuid>`, `?meetingId=<uuid>`.
 
 `status` is one of `ADOPTED`, `REJECTED`, `POSTPONED`. `resolutionMode` is one of
 `COMMITTEE_QUORUM`, `MERITOCRATIC`, `DEMOCRATIC`, `SYSTEMIC_CONSENSUS`.
+
+NOTE: *Behaviour change (V1.9.53, unreleased).* `votesYes`, `votesNo` and `votesAbstain` are nullable. For a resolution that stems from a secret election with
+fewer than five ballots they are an explicit `null` (the keys are present, never omitted) and `figuresWithheld` is `true`; `figuresWithheld` is always present.
+Clients must not read the figures without checking the flag. The same applies to the single-resource endpoint `/api/v1/resolutions/{id}`.
 
 Errors: `400 bad_request` if `?committeeId=` or `?meetingId=` is not a valid UUID.
 

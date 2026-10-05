@@ -276,6 +276,12 @@ data class ResolutionDto(
     // above. Always null for a SystemicConsensusBindingness.ADVISORY SystemicConsensus -- see [ResolutionMode
     // .SYSTEMIC_CONSENSUS] KDoc.
     val systemicConsensusId: String? = null,
+    /**
+     * V1.9.53: `true` iff this resolution stems from a secret election with fewer than
+     * [DisclosureRules.MIN_ANONYMOUS_RESPONSES] ballots. [votesYes]/[votesNo]/[votesAbstain] are then `0` and mean
+     * "not disclosed" -- never evaluate them without this flag.
+     */
+    val figuresWithheld: Boolean = false,
 )
 
 @Serializable

@@ -147,13 +147,68 @@ role. It is the same rule as for an anonymous consensus (V1.9.44), expressed onc
 
 Residual risks, recorded and not changed in this wave:
 
-* *Small elections.* `ElectionOptionDto.voteCount` is delivered from `TALLIED` without a minimum participation (`MIN_TALLY_THRESHOLD = 2` is the number of
-  four-eyes tally approvals, not a minimum number of ballots). With one ballot the result is that single vote; with a unanimous result every vote is known.
-  Recommended for a later wave, after the owner decides whether statutes or protocol duties require published vote counts: a minimum participation for
-  `secret = true` analogous to `DisclosureRules.MIN_ANONYMOUS_RESPONSES`, below which only the outcome (elected / adopted or not) is delivered.
+* *Small elections.* Resolved in V1.9.53: see "Minimum participation (V1.9.53)" below. The residual risks of that wave are listed there.
 * *Receipt as proof.* `verifyReceipt` returns the option label of the ballot to whoever holds the receipt code, from `TALLIED`. A voter can therefore prove
   to a third party how they voted (vote buying, coercion); the election is not receipt-free. Left unchanged by decision; a later option is a check that
   reports only `found` / `counted` without the label.
+
+== Minimum participation (V1.9.53)
+
+*Rule.* A secret election (`secret = true`) with fewer than `DisclosureRules.MIN_ANONYMOUS_RESPONSES` (5) ballots discloses no per-option figures. The
+constant is the same as for anonymous polls and anonymous consensus, so the three features cannot drift apart. An open-ballot election is unaffected: its named
+ballots are public anyway. The decision (winners, tie, majority) is always made from the full data in `ElectionService.computeOutcome`; only the *disclosure* is
+reduced. There is no role exception: BOARD, ADMIN and the election board get the withheld form too, and there is no operator switch.
+
+*Counting.* The number is the rows of `election_ballot` (a ballot is a cast vote, abstention included -- for a yes/no election the abstention is its own option).
+It is not the number of eligible voters. There are no invalid digital ballots and no rounds: a runoff is a new election (the motion is postponed). `tally()` runs
+exactly once, so the ballot count is frozen when the figures are decided.
+
+*Where it is applied.* In one file on the server: `rpc/ElectionResultDisclosure.kt` (`electionFiguresWithheld`, `disclosedElectionResult`,
+`disclosedOptionVoteCounts`, `withheldElectionIds`, `ResolutionDto.withElectionDisclosure`). `ServerElectionResultDisclosureTripwireTest` pins that no other file
+builds `ElectionResultDto`, that `ElectionOptionDto.voteCount` only comes from `disclosedOptionVoteCounts` (which decides before it reads the selection table), that
+`ResolutionDto` and the `votes*` columns are only handled in `ResolutionBook.kt` (through `toResolutionDtos`), and that `PublicApiResolutionDto` is only built by the
+public API routes. `ElectionResultDisclosure.kt` was added on purpose to the ballot-table allowlist of `ServerElectionDisclosureTripwireTest`.
+
+[cols="3,3,4", options="header"]
+|===
+| Read path | Source | Below the minimum
+| `tally()` result, `getElectionResult` | `disclosedElectionResult` | `perOptionVotes` empty, `figuresWithheld = true`, `minimumResponses = 5`; winners, `tie`, `majorityMet` unchanged
+| `getElection`, `listElections`, lifecycle RPCs returning `ElectionDto` | `disclosedOptionVoteCounts` | every `voteCount = 0`, `ElectionDto.figuresWithheld = true` (only from `TALLIED`; before the tally the flag is `false`)
+| Resolution book: `listResolutions`, `getResolution`, meeting detail, `insertResolutionRow` | `toResolutionDtos` | `votesYes/No/Abstain = 0`, `ResolutionDto.figuresWithheld = true` -- also for rows written before V1.9.53
+| Resolution book (write) | `ElectionService.tally` | a YES_NO election below the minimum stores 0/0/0 (people elections and consensus always did)
+| Audit log (write) | `auditResolutionCreate` | the snapshot is built from the masked DTO, so new entries hold 0/0/0; the hashed JSON gains no field
+| Audit log (read) | `AuditLogService.toAuditLogEntryDtos` | `afterSnapshot`/`beforeSnapshot` of a resolution entry are delivered with zeroed votes and `AuditLogEntryDto.figuresWithheld = true`
+| Public API `/api/v1/resolutions[/{id}]` | `ResolutionDto.toPublicApiDto` | `votesYes/No/Abstain = null` (explicit `null`, not omitted), `figuresWithheld = true`
+|===
+
+*Negative inventory* (checked by source search, pinned where noted): the webhook `resolution.adopted` is a thin event (only the id; the receiver reads `/api/v1`, covered
+above); the MCP tools have no election or resolution tool; PDF, mail and serial letter do not carry vote counts; the DSGVO exports (`GovernancePersonalData`,
+`ElectionPersonalData`, `AuditLogPersonalData`) carry no figures or snapshots; `MotionDto` and `PublicApiMotionDto` carry only `resolutionId`; the conference room reads only id,
+title, secret flag, status and times of an election (`ConferenceService`). The participation line "x of y" (`ElectionParticipationDto.ballotCount`) stays visible, like
+`ballotCount`/`eligibleCount` for consensus.
+
+*Client.* `renderElectionResultCompact` decides on `result.figuresWithheld` first. The withheld form lists the options of a people election by *position* (never by
+votes -- the order must not tell a ranking), marks the winners, shows the verdict and one sentence ("Aus Gründen des Wahlgeheimnisses ...", only when at least one ballot
+exists), and has no figure, no bar and no `aria-valuenow`. A yes/no election shows no option rows at all. The normal path now also orders by position. The client never infers
+"withheld" from `voteCount == 0` (`ElectionSecrecyTripwireTest`). The resolution book row, the audit log detail and the open form ("Geheime Wahl" help line) show the rule.
+
+*Residual risks and limits* (recorded, not changed in this wave):
+
+* *E1, the decision itself.* The outcome is public: with a tie, `tie` and the missing winner say that the votes were level; with a unanimous result from five ballots on, every
+  vote is known. Five is a deliberately small constant shared with polls.
+* *E2, small groups.* Five ballots can still be five identifiable people; the rule hides the figures, not the group size (`ballotCount` stays visible).
+* *E3, the verdict leaks a bound.* "Majority reached" for a yes/no election below five ballots tells that more than half of the yes/no votes were yes.
+* *E4, receipt as proof.* `verifyReceipt` still returns the own option label (unchanged, see above).
+* *E5, database and backups.* The tables `election_ballot_selection` and `resolution` still hold the real figures (a Legacy resolution row also keeps its stored numbers; only the
+  delivery is masked). Whoever has database access sees them.
+* *E6, audit hash and masked entries.* Entries written before V1.9.53 are masked when read, so the delivered `afterSnapshot` no longer matches the stored `entryHash`
+  (flagged by `AuditLogEntryDto.figuresWithheld`). The server-side `verifyChainIntegrity` reads the raw rows and stays valid; an external verifier that hashes the delivered
+  snapshot of such an entry cannot reproduce the hash. New entries are written masked, so they verify. *Honest limit:* the hash fields are still delivered, so a reader with
+  an audit role (TREASURER, BOARD, ADMIN) can recover the figures of such an old entry by brute force (fewer than 5 ballots: at most 35 candidate triples, one SHA-256 each).
+  Withholding `entryHash` would not help, because the next entry's hash covers it as `previousEntryHash`. Entries written since V1.9.53 store 0/0/0 and offer no oracle.
+  A snapshot that cannot be decoded is withheld (`null`), never delivered unmasked. Closing the gap for old data would need a data migration that rewrites the chain; not planned.
+* *E7, organisation export.* The complete organisation export (`OrganizationExportService`, ADMIN only, database dump) contains `resolution`, `audit_log_entry` and
+  `election_ballot*` unmasked: it must stay lossless and restorable (right to secede), the same level as database access.
 
 == Known limitations and follow-ups
 

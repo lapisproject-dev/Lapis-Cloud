@@ -415,6 +415,14 @@ data class AuditLogEntryDto(
     val afterSnapshot: String?,
     val entryHash: String,
     val previousEntryHash: String?,
+    /**
+     * V1.9.53: `true` iff [afterSnapshot] (a resolution snapshot) had its vote figures zeroed on delivery because
+     * the resolution stems from a secret election below the minimum participation. The stored row and its hash are
+     * untouched, so [entryHash] does not match the delivered snapshot of such an entry. This is no secrecy guarantee
+     * for entries written before V1.9.53: the hash fields are still delivered and the few possible figure triples can
+     * be brute-forced against them. A snapshot that cannot be decoded is delivered as `null` (fail-closed).
+     */
+    val figuresWithheld: Boolean = false,
 )
 
 /**

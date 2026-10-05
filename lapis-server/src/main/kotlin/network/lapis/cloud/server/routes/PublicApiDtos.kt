@@ -84,10 +84,16 @@ data class PublicApiResolutionDto(
     val status: ResolutionStatus,
     val resolutionMode: ResolutionMode,
     val decidedAt: LocalDateTime,
-    val votesYes: Int,
-    val votesNo: Int,
-    val votesAbstain: Int,
+    /**
+     * V1.9.53: `null` (explicitly, never omitted) when [figuresWithheld] -- the resolution stems from a secret
+     * election with fewer than the minimum number of ballots.
+     */
+    val votesYes: Int?,
+    val votesNo: Int?,
+    val votesAbstain: Int?,
     val quorumMet: Boolean,
+    /** V1.9.53: no default on purpose, so the flag is always on the wire. */
+    val figuresWithheld: Boolean,
 )
 
 @Serializable

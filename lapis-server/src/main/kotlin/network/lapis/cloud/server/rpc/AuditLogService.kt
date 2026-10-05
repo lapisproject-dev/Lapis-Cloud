@@ -2,17 +2,21 @@ package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditHashChain
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditChainVerificationResultDto
+import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.AuditLogEntryDto
 import network.lapis.cloud.shared.domain.AuditLogListQuery
+import network.lapis.cloud.shared.domain.ResolutionSnapshot
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.IAuditLogService
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -22,6 +26,7 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -85,7 +90,8 @@ class AuditLogService(
             filtered
                 .orderBy(AuditLogEntryTable.sequenceNumber to SortOrder.DESC)
                 .limit(cappedLimit)
-                .map { it.toAuditLogEntryDto() }
+                .toList()
+                .toAuditLogEntryDtos()
         }
     }
 
@@ -98,7 +104,7 @@ class AuditLogService(
                 .selectAll()
                 .where { AuditLogEntryTable.id eq entryId }
                 .singleOrNull()
-                ?.toAuditLogEntryDto() ?: throw NotFoundException("AuditLogEntry $id not found")
+                ?.let { listOf(it).toAuditLogEntryDtos().single() } ?: throw NotFoundException("AuditLogEntry $id not found")
         }
     }
 
@@ -253,6 +259,62 @@ class AuditLogService(
         )
     }
 
+    /**
+     * V1.9.53: the only way from audit rows to [AuditLogEntryDto]s. The vote figures of a resolution snapshot stemming
+     * from a secret election below the minimum participation are zeroed on delivery (batch lookup, no N+1). Only the
+     * delivery is masked -- the stored row, [AuditHashChain] and [verifyAuditLog] are untouched, so the delivered
+     * snapshot of such an entry no longer matches its `entryHash` (flagged by `figuresWithheld`).
+     *
+     * Known limitation (accepted, documented as E6): `entryHash`/`previousEntryHash` are still delivered. For entries
+     * written BEFORE V1.9.53 (real figures in the stored snapshot) an audit-role reader can recover the figures by
+     * brute force (fewer than 5 ballots means at most 35 candidate triples, each checked with one SHA-256). Withholding
+     * the hash would not close this: the following entry's hash covers it as `previousEntryHash`. Entries written since
+     * V1.9.53 store 0/0/0 and offer no oracle. Fail-closed: a snapshot that cannot be decoded is withheld entirely.
+     */
+    private fun List<ResultRow>.toAuditLogEntryDtos(): List<AuditLogEntryDto> {
+        val resolutionIds =
+            filter { it[AuditLogEntryTable.entityType] == AuditEntityType.RESOLUTION }
+                .map { it[AuditLogEntryTable.entityId] }
+                .toSet()
+        val withheldResolutionIds: Set<Uuid> =
+            if (resolutionIds.isEmpty()) {
+                emptySet()
+            } else {
+                val electionByResolution =
+                    ResolutionTable
+                        .selectAll()
+                        .where { ResolutionTable.id inList resolutionIds }
+                        .mapNotNull { row -> row[ResolutionTable.electionId]?.let { row[ResolutionTable.id] to it } }
+                        .toMap()
+                val withheldElections = withheldElectionIds(electionByResolution.values)
+                electionByResolution.filterValues { it in withheldElections }.keys
+            }
+        return map { row ->
+            val dto = row.toAuditLogEntryDto()
+            if (row[AuditLogEntryTable.entityType] == AuditEntityType.RESOLUTION &&
+                row[AuditLogEntryTable.entityId] in withheldResolutionIds
+            ) {
+                dto.copy(
+                    beforeSnapshot = dto.beforeSnapshot?.withoutResolutionFigures(),
+                    afterSnapshot = dto.afterSnapshot?.withoutResolutionFigures(),
+                    figuresWithheld = true,
+                )
+            } else {
+                dto
+            }
+        }
+    }
+
+    /** Fail-closed: returns `null` (snapshot withheld) when the snapshot cannot be decoded, never the original string. */
+    private fun String.withoutResolutionFigures(): String? {
+        val snapshot =
+            runCatching { lenientSnapshotJson.decodeFromString(ResolutionSnapshot.serializer(), this) }.getOrNull() ?: return null
+        return Json.encodeToString(
+            ResolutionSnapshot.serializer(),
+            snapshot.copy(votesYes = 0, votesNo = 0, votesAbstain = 0),
+        )
+    }
+
     private fun ResultRow.toAuditLogEntryDto(): AuditLogEntryDto {
         val actorId = this[AuditLogEntryTable.actorMemberId]
         return AuditLogEntryDto(
@@ -282,3 +344,5 @@ class AuditLogService(
     private fun String.toAuditUuid(kind: String): Uuid =
         runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid $kind id: $this") }
 }
+
+private val lenientSnapshotJson = Json { ignoreUnknownKeys = true }

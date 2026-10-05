@@ -20,6 +20,7 @@ import network.lapis.cloud.shared.domain.ResolutionStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Compliance UI wave -- covers only the pure, DOM-independent functions factored out of
@@ -211,5 +212,34 @@ class AuditLogScreenTest {
     fun auditEntityRoute_receivableDunningNoticeAndOtherTypes_haveNoLink() {
         assertNull(auditEntityRoute(AuditEntityType.RECEIVABLE_DUNNING_NOTICE, "0b8a1d2e-1c3f-4a5b-9c7d-1234567890ab"))
         assertNull(auditEntityRoute(AuditEntityType.JOURNAL_ENTRY, "0b8a1d2e-1c3f-4a5b-9c7d-1234567890ab"))
+    }
+
+    @Test
+    fun resolutionSnapshot_withheldFigures_showTheRule_notTheVotes() {
+        val snapshot =
+            ResolutionSnapshot(
+                meetingId = "meeting-1",
+                number = "2026-01",
+                title = "Testbeschluss",
+                text = "Beschlusstext",
+                votesYes = 0,
+                votesNo = 0,
+                votesAbstain = 0,
+                quorumMet = true,
+                status = ResolutionStatus.ADOPTED,
+                decidedAt = LocalDateTime(2026, 1, 1, 10, 0),
+                recordedBy = "member-2",
+                resolutionMode = ResolutionMode.DEMOCRATIC,
+            )
+        withMountedRoot("audit-withheld") { root, element ->
+            renderResolutionSnapshotBody(root, snapshot, figuresWithheld = true)
+            val text = element().textContent.orEmpty()
+            assertTrue(text.contains("Stimmenzahlen nicht veröffentlicht (geheime Wahl mit weniger als 5 Stimmzetteln)."), text)
+            assertTrue(!text.contains("Ja: ") && !text.contains("Nein: "), text)
+        }
+        withMountedRoot("audit-figures") { root, element ->
+            renderResolutionSnapshotBody(root, snapshot.copy(votesYes = 5, votesNo = 1), figuresWithheld = false)
+            assertTrue(element().textContent.orEmpty().contains("Ja: 5 · Nein: 1 · Enthaltung: 0"))
+        }
     }
 }

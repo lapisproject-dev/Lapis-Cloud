@@ -233,6 +233,22 @@ class MotionsOpenElectionDomTest {
         }
 
     @Test
+    fun aSecretElection_explainsTheMinimumParticipation_andAnOpenOneDoesNot(): Promise<Unit> =
+        formTest {
+            val hint =
+                "Bei weniger als 5 abgegebenen Stimmzetteln werden nur das Ergebnis und die Beteiligung angezeigt, keine Stimmenzahlen."
+            mountedForm("motion-election-min-participation") { root, element ->
+                renderOpenElectionForm(root, motionDto(), committees) {}
+                val el = element()
+                assertTrue(el.flatText().contains(hint), "secret is the default, so the rule is shown")
+                (el.controlOf("Geheime Wahl") as HTMLInputElement).click()
+                awaitUntil("hint hidden for an open election", 15_000) { !element().flatText().contains(hint) }
+                (el.controlOf("Geheime Wahl") as HTMLInputElement).click()
+                awaitUntil("hint back for a secret election", 15_000) { element().flatText().contains(hint) }
+            }
+        }
+
+    @Test
     fun aYesNoElection_sendsTypeSecrecyMajorityAndApprovals_andNoCommittee(): Promise<Unit> =
         formTest {
             val routes = electionRoutes()

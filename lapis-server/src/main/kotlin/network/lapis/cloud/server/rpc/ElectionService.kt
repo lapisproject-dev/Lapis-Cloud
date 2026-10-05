@@ -56,7 +56,6 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -101,7 +100,7 @@ private data class SeatedBoardMembership(
 
 /** Result of [ElectionService.computeOutcome]: everything [ElectionService.tally] persists plus the option rows it seats from. */
 private data class ComputedOutcome(
-    val result: ElectionResultDto,
+    val figures: ElectionOutcomeFigures,
     val resolutionStatus: ResolutionStatus,
     val votesYes: Int,
     val votesNo: Int,
@@ -793,16 +792,21 @@ class ElectionService(
             // of the same invariant.
             if (electionMotionRow[MotionTable.amendsMotionId] == null) requireNoPendingAmendments(electionMotionRow[MotionTable.id])
 
-            val outcome = computeOutcome(electionRow = electionRow, electionId = electionId)
-            val ergebnis = outcome.result
+            val outcome = computeOutcome(electionRow = electionRow)
+            // V1.9.53 minimum participation: the decision below runs on the full figures; what is persisted in
+            // the resolution book and returned is reduced when the secret election is below the minimum.
+            val secretElection = electionRow[ElectionTable.secret]
+            val ballotCount = electionBallotCount(wId)
+            val figuresWithheld = electionFiguresWithheld(secret = secretElection, ballotCount = ballotCount)
+            val ergebnis = disclosedElectionResult(figures = outcome.figures, secret = secretElection, ballotCount = ballotCount)
             val resolutionStatus = outcome.resolutionStatus
-            val votesYes = outcome.votesYes
-            val votesNo = outcome.votesNo
-            val votesAbstain = outcome.votesAbstain
+            val votesYes = if (figuresWithheld) 0 else outcome.votesYes
+            val votesNo = if (figuresWithheld) 0 else outcome.votesNo
+            val votesAbstain = if (figuresWithheld) 0 else outcome.votesAbstain
             val optionRows = outcome.optionRows
             val electionType = electionRow[ElectionTable.electionType]
-            val effectiveTie = ergebnis.tie
-            val effectiveWinnerOptionIds = ergebnis.winnerOptionIds.map { Uuid.parse(it) }
+            val effectiveTie = outcome.figures.tie
+            val effectiveWinnerOptionIds = outcome.figures.winnerOptionIds.map { Uuid.parse(it) }
             // V0.5.3 GoBD audit log: collected here, audited only at the very end of the
             // transaction -- see SeatedBoardMembership KDoc.
             val seatedBoardMemberships = mutableListOf<SeatedBoardMembership>()
@@ -1103,7 +1107,11 @@ class ElectionService(
             if (electionRow[ElectionTable.status] != ElectionStatus.TALLIED) {
                 throw ConflictException("Election $electionId is ${electionRow[ElectionTable.status]}, expected TALLIED")
             }
-            computeOutcome(electionRow = electionRow, electionId = electionId).result
+            disclosedElectionResult(
+                figures = computeOutcome(electionRow = electionRow).figures,
+                secret = electionRow[ElectionTable.secret],
+                ballotCount = electionBallotCount(electionRow[ElectionTable.id]),
+            )
         }
     }
 
@@ -1112,10 +1120,7 @@ class ElectionService(
      * (which only reads it): V1.9.22 extracted it unchanged so the displayed result can never drift
      * from what was written to the resolution book.
      */
-    private fun computeOutcome(
-        electionRow: ResultRow,
-        electionId: String,
-    ): ComputedOutcome {
+    private fun computeOutcome(electionRow: ResultRow): ComputedOutcome {
         val wId = electionRow[ElectionTable.id]
         val optionRows =
             ElectionOptionTable
@@ -1135,7 +1140,7 @@ class ElectionService(
                 .groupBy({ it[ElectionBallotSelectionTable.ballotId] }, { it[ElectionBallotSelectionTable.optionId] })
 
         val electionType = electionRow[ElectionTable.electionType]
-        val ergebnis: ElectionResultDto
+        val ergebnis: ElectionOutcomeFigures
         val resolutionStatus: ResolutionStatus
         val votesYes: Int
         val votesNo: Int
@@ -1167,8 +1172,8 @@ class ElectionService(
                     listOf(neinOptionId.toString())
                 }
             ergebnis =
-                ElectionResultDto(
-                    electionId = electionId,
+                ElectionOutcomeFigures(
+                    electionId = wId,
                     winnerOptionIds = winnerOptionIds,
                     tie = jaNein.tie,
                     majorityMet = jaNein.majorityMet,
@@ -1232,10 +1237,19 @@ class ElectionService(
                     true
                 }
             val effectiveTie = personenelection.tie || !einzelelectionMajorityMet
-            val effectiveWinnerOptionIds = if (effectiveTie) emptyList() else personenelection.winnerOptionIds
+            // Winners are listed in ballot POSITION order, never in vote-count order: the count ranking would leak
+            // through the RPC response and the seating / audit-log order even when the figures are withheld
+            // (V1.9.53 minimum participation).
+            val positionByOptionId = optionRows.associate { it[ElectionOptionTable.id] to it[ElectionOptionTable.position] }
+            val effectiveWinnerOptionIds =
+                if (effectiveTie) {
+                    emptyList()
+                } else {
+                    personenelection.winnerOptionIds.sortedBy { positionByOptionId.getValue(it) }
+                }
             ergebnis =
-                ElectionResultDto(
-                    electionId = electionId,
+                ElectionOutcomeFigures(
+                    electionId = wId,
                     winnerOptionIds = effectiveWinnerOptionIds.map { it.toString() },
                     tie = effectiveTie,
                     majorityMet = null,
@@ -1247,7 +1261,7 @@ class ElectionService(
             votesAbstain = 0
         }
         return ComputedOutcome(
-            result = ergebnis,
+            figures = ergebnis,
             resolutionStatus = resolutionStatus,
             votesYes = votesYes,
             votesNo = votesNo,
@@ -1332,17 +1346,13 @@ class ElectionService(
                 .where { ElectionOptionTable.electionId eq electionId }
                 .orderBy(ElectionOptionTable.position)
                 .toList()
-        val voteCountByOptionId =
-            if (status == ElectionStatus.TALLIED) {
-                val optionIds = optionRows.map { it[ElectionOptionTable.id] }
-                ElectionBallotSelectionTable
-                    .selectAll()
-                    .where { ElectionBallotSelectionTable.optionId inList optionIds }
-                    .groupingBy { it[ElectionBallotSelectionTable.optionId] }
-                    .eachCount()
-            } else {
-                emptyMap()
-            }
+        val (voteCountByOptionId, figuresWithheld) =
+            disclosedOptionVoteCounts(
+                electionId = electionId,
+                secret = this[ElectionTable.secret],
+                status = status,
+                optionIds = optionRows.map { it[ElectionOptionTable.id] },
+            )
         val options =
             optionRows.map { optRow ->
                 val optionId = optRow[ElectionOptionTable.id]
@@ -1388,6 +1398,7 @@ class ElectionService(
             options = options,
             requiredMajorityNumerator = this[ElectionTable.requiredMajorityNumerator],
             requiredMajorityDenominator = this[ElectionTable.requiredMajorityDenominator],
+            figuresWithheld = figuresWithheld,
         )
     }
 

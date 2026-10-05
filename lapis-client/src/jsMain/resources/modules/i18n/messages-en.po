@@ -19618,3 +19618,15 @@ msgstr "New key"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt
 msgid "Schlüssel ausstellen"
 msgstr "Issue key"
+
+msgid "Aus Gründen des Wahlgeheimnisses werden bei geheimen Wahlen Stimmenzahlen erst ab %1 Stimmzetteln gezeigt."
+msgstr "To protect ballot secrecy, vote counts of secret elections are only shown from %1 ballots."
+
+msgid "Stimmenzahlen nicht veröffentlicht (geheime Wahl mit weniger als %1 Stimmzetteln)."
+msgstr "Vote counts not published (secret election with fewer than %1 ballots)."
+
+msgid "Stimmenzahlen nicht veröffentlicht (geheime Wahl mit weniger als %1 Stimmzetteln) · Quorum %2 · entschieden am %3 von %4"
+msgstr "Vote counts not published (secret election with fewer than %1 ballots) · Quorum %2 · decided on %3 by %4"
+
+msgid "Bei weniger als %1 abgegebenen Stimmzetteln werden nur das Ergebnis und die Beteiligung angezeigt, keine Stimmenzahlen."
+msgstr "With fewer than %1 ballots cast, only the result and the participation are shown, no vote counts."

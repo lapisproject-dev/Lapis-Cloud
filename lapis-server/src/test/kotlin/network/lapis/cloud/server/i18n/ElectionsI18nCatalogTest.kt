@@ -85,4 +85,38 @@ class ElectionsI18nCatalogTest :
                 }
             offenders.shouldBeEmpty()
         }
+
+        test("V1.9.53: the four minimum-participation texts are in the template and all seven catalogs, with the same placeholders") {
+            val texts =
+                listOf(
+                    "Aus Gründen des Wahlgeheimnisses werden bei geheimen Wahlen Stimmenzahlen erst ab %1 Stimmzetteln gezeigt.",
+                    "Stimmenzahlen nicht veröffentlicht (geheime Wahl mit weniger als %1 Stimmzetteln).",
+                    "Stimmenzahlen nicht veröffentlicht (geheime Wahl mit weniger als %1 Stimmzetteln) · Quorum %2 · entschieden am %3 von %4",
+                    "Bei weniger als %1 abgegebenen Stimmzetteln werden nur das Ergebnis und die Beteiligung angezeigt, keine Stimmenzahlen.",
+                )
+            val placeholder = Regex("%\\d")
+            val pot = parseCatalog(File(CATALOG_DIR, "messages.pot"))
+            texts.filterNot { pot.containsKey(it) }.shouldBeEmpty()
+            val problems =
+                CATALOG_LANGUAGES.flatMap { lang ->
+                    texts.mapNotNull { id ->
+                        val translation = catalogs.getValue(lang)[id]
+                        when {
+                            translation.isNullOrBlank() -> "$lang: missing or empty \"$id\""
+                            placeholder
+                                .findAll(translation)
+                                .map { it.value }
+                                .toList()
+                                .sorted() !=
+                                placeholder
+                                    .findAll(id)
+                                    .map { it.value }
+                                    .toList()
+                                    .sorted() -> "$lang: placeholders differ in \"$id\""
+                            else -> null
+                        }
+                    }
+                }
+            problems.shouldBeEmpty()
+        }
     })

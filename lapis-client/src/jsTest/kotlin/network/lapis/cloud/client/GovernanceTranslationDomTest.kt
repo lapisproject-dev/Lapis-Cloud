@@ -33,6 +33,29 @@ class GovernanceTranslationDomTest {
             recordedByDisplayName = "Erika",
         )
 
+    @Test
+    fun aWithheldResolution_showsTheRuleInsteadOfTheVoteFigures() {
+        withMountedRoot("gov-withheld") { root, element ->
+            renderResolutionRow(
+                root,
+                resolution(quorumMet = true).copy(votesYes = 0, votesNo = 0, votesAbstain = 0, figuresWithheld = true),
+            )
+            val text = element().textContent.orEmpty()
+            assertTrue(text.contains("Stimmenzahlen nicht veröffentlicht (geheime Wahl mit weniger als 5 Stimmzetteln)"), text)
+            assertTrue(!text.contains("Ja:") && !text.contains("Nein:") && !text.contains("Enthaltung:"), "no figures: $text")
+            assertTrue(text.contains("Quorum erreicht") && text.contains("Erika"), text)
+        }
+    }
+
+    @Test
+    fun anOrdinaryResolution_keepsItsVoteFigures() {
+        withMountedRoot("gov-figures") { root, element ->
+            renderResolutionRow(root, resolution(quorumMet = true))
+            val text = element().textContent.orEmpty()
+            assertTrue(text.contains("Ja: 5 · Nein: 1 · Enthaltung: 0"), text)
+        }
+    }
+
     private fun motion(id: String) =
         MotionDto(
             id = id,

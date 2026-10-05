@@ -433,6 +433,32 @@ class ConferenceVoteOperatorDomTest {
         }
 
     @Test
+    fun aWithheldResult_isShownWithoutFiguresOrBars_toAnOperatorInTheRoom(): Promise<Unit> =
+        formTest {
+            val world =
+                ElectionWorld(
+                    election(status = ElectionStatus.TALLIED),
+                    participation(isBoard = true),
+                    result =
+                        ElectionResultDto(
+                            "e1",
+                            listOf("o-yes"),
+                            tie = false,
+                            majorityMet = true,
+                            perOptionVotes = emptyMap(),
+                            figuresWithheld = true,
+                        ),
+                )
+            withOperatorPanel("op-withheld-result", world, ctx(boardOrAdmin = true)) { el, handle, _, _, _ ->
+                handle.apply(answerOf(roomBallot("e1", RoomBallotStatus.DECIDED, voted = true)))
+                awaitUntil("result", 15_000) { el.flatText().contains("Die erforderliche Mehrheit wurde erreicht.") }
+                assertTrue(el.flatText().contains("erst ab 5 Stimmzetteln gezeigt"), el.flatText())
+                assertEquals(0, el.allOf(".lapis-election-bar").size)
+                assertEquals(0, el.allOf(".lapis-num").size)
+            }
+        }
+
+    @Test
     fun aLoadFailure_showsTheRetryState_andRetryLoadsAgain(): Promise<Unit> =
         formTest {
             val world = ElectionWorld(election(status = ElectionStatus.OPEN), board)

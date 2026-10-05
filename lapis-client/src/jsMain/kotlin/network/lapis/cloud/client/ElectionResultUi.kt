@@ -60,7 +60,7 @@ internal fun renderElectionResultSection(
     val e = data.election
     val result = data.result ?: return
     panel.h2(tr("Ergebnis")) { addCssClass("h5") }
-    renderElectionResultCompact(panel, e, result)
+    renderElectionResultCompact(panel, e, result, showHint = data.participation.ballotCount > 0)
 
     val eligibleCount = data.participation.eligibleCount
     if (eligibleCount != null) {
@@ -82,8 +82,23 @@ internal fun renderElectionResultCompact(
     container: Container,
     e: ElectionDto,
     result: ElectionResultDto,
+    showHint: Boolean = true,
 ) {
-    val options = e.options.sortedByDescending { result.perOptionVotes[it.id] ?: 0 }
+    // V1.9.53: the first decision is the server's flag, never the shape of the figures.
+    if (result.figuresWithheld) {
+        renderElectionResultWithheld(
+            container = container,
+            e = e,
+            winnerOptionIds = result.winnerOptionIds,
+            tie = result.tie,
+            majorityMet = result.majorityMet,
+            minimumResponses = result.minimumResponses,
+            showHint = showHint,
+        )
+        return
+    }
+    // Ordered by position, not by votes: the order is the same with and without figures and never tells a ranking.
+    val options = e.options.sortedBy { it.position }
     val maxVotes = options.maxOfOrNull { result.perOptionVotes[it.id] ?: 0 }?.coerceAtLeast(1) ?: 1
     options.forEach { option ->
         renderResultRow(
@@ -95,16 +110,55 @@ internal fun renderElectionResultCompact(
             option.id in result.winnerOptionIds,
         )
     }
+    renderElectionVerdict(container, e, result.tie, result.majorityMet)
+}
 
+/**
+ * V1.9.53 -- the result of a secret election below the minimum participation: who won (labels, no counts), the verdict and
+ * one sentence why no figures are shown. Takes no vote figure at all; [minimumResponses] is the rule's constant, not a count.
+ */
+private fun renderElectionResultWithheld(
+    container: Container,
+    e: ElectionDto,
+    winnerOptionIds: List<String>,
+    tie: Boolean,
+    majorityMet: Boolean?,
+    minimumResponses: Int,
+    showHint: Boolean,
+) {
+    if (e.electionType != ElectionType.YES_NO) {
+        e.options.sortedBy { it.position }.forEach { option ->
+            val row = container.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+            row.div(displayOptionLabel(e, option.label)) { addCssClasses("flex-grow-1") }
+            if (option.id in winnerOptionIds) row.statusBadge(tr("Gewählt"), "success")
+        }
+    }
+    renderElectionVerdict(container, e, tie, majorityMet)
+    if (showHint) {
+        container.p(
+            gettext(
+                "Aus Gründen des Wahlgeheimnisses werden bei geheimen Wahlen Stimmenzahlen erst ab %1 Stimmzetteln gezeigt.",
+                minimumResponses,
+            ),
+        ) { addCssClasses("text-muted small mb-0") }
+    }
+}
+
+private fun renderElectionVerdict(
+    container: Container,
+    e: ElectionDto,
+    tie: Boolean,
+    majorityMet: Boolean?,
+) {
     if (e.electionType == ElectionType.YES_NO) {
         val text =
             when {
-                result.tie -> gettext("Gleichstand oder keine entscheidenden Stimmen: Der Antrag wurde zurückgestellt.")
-                result.majorityMet == true -> gettext("Die erforderliche Mehrheit wurde erreicht.")
+                tie -> gettext("Gleichstand oder keine entscheidenden Stimmen: Der Antrag wurde zurückgestellt.")
+                majorityMet == true -> gettext("Die erforderliche Mehrheit wurde erreicht.")
                 else -> gettext("Die erforderliche Mehrheit wurde nicht erreicht.")
             }
         container.p(text) { addCssClasses("fw-bold mb-0") }
-    } else if (result.tie) {
+    } else if (tie) {
         container.p(
             tr(
                 "Es wurde niemand gewählt: Gleichstand an der Sitzgrenze oder die erforderliche Mehrheit wurde verfehlt. " +

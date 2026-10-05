@@ -11,6 +11,7 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
 import network.lapis.cloud.shared.domain.CommitteeDto
 import network.lapis.cloud.shared.domain.CommitteeRole
+import network.lapis.cloud.shared.domain.DisclosureRules
 import network.lapis.cloud.shared.domain.ElectionDto
 import network.lapis.cloud.shared.domain.ElectionOpenInput
 import network.lapis.cloud.shared.domain.ElectionType
@@ -80,6 +81,14 @@ internal fun renderOpenElectionForm(
             addCssClasses("alert alert-warning mb-0")
             hide()
         }
+    // V1.9.53: the minimum-participation rule, shown while "Geheime Wahl" is ticked.
+    val minimumParticipationHint =
+        form.panel.div(
+            gettext(
+                "Bei weniger als %1 abgegebenen Stimmzetteln werden nur das Ergebnis und die Beteiligung angezeigt, keine Stimmenzahlen.",
+                DisclosureRules.MIN_ANONYMOUS_RESPONSES,
+            ),
+        ) { addCssClasses("text-muted small") }
     val committeeField =
         form.searchableSelectField(
             label = tr("Zielgremium"),
@@ -164,7 +173,13 @@ internal fun renderOpenElectionForm(
         if (type == ElectionType.MULTI_CHOICE) majorityBox.hide() else majorityBox.show()
         customNumeratorField.setVisible(customActive())
         customDenominatorField.setVisible(customActive())
-        if ((secretField.control as CheckBox).value) openWarning.hide() else openWarning.show()
+        if ((secretField.control as CheckBox).value) {
+            openWarning.hide()
+            minimumParticipationHint.show()
+        } else {
+            openWarning.show()
+            minimumParticipationHint.hide()
+        }
         explanation.removeAll()
         val (numerator, denominator) = currentFraction() ?: (MajorityPreset.HALF.numerator to MajorityPreset.HALF.denominator)
         majorityExplanation(type, numerator, denominator).forEach { line -> explanation.div(line) { addCssClasses("text-muted small") } }

@@ -146,8 +146,9 @@ internal fun nextResolutionNumber(
  * .DEMOCRATIC]/[ResolutionMode.SYSTEMIC_CONSENSUS] Resolution too (for the historical record),
  * even though the outcome itself is decided by LTR baskets, one-person-one-vote ballots or lowest
  * cumulative resistance, not by this headcount figure -- documented decision point carried over
- * from the V0.2.3 implementation plan's "Quorum interaction" note; a minimum-participation guard
- * on Voteen/Electionen/SystemicConsensusen is deferred.
+ * from the V0.2.3 implementation plan's "Quorum interaction" note. A minimum-participation guard exists for the
+ * figures of secret Electionen since V1.9.53 (`ElectionResultDisclosure.kt`, applied to every returned [ResolutionDto]
+ * via [toResolutionDtos]); Voteen are still deferred.
  */
 internal fun insertResolutionRow(
     sId: Uuid,
@@ -246,7 +247,19 @@ internal fun auditResolutionCreate(
     )
 }
 
-internal fun ResultRow.toResolutionDto(): ResolutionDto =
+/**
+ * V1.9.53 -- the ONLY public way from resolution rows to [ResolutionDto]s: one batch lookup decides which
+ * resolutions stem from a secret election below the minimum participation and masks their figures (also for
+ * rows written before V1.9.53 that still hold the real numbers). Must run inside a transaction.
+ */
+internal fun List<ResultRow>.toResolutionDtos(): List<ResolutionDto> {
+    val withheld = withheldElectionIds(mapNotNull { it[ResolutionTable.electionId] })
+    return map { it.toRawResolutionDto().withElectionDisclosure(withheld) }
+}
+
+internal fun ResultRow.toResolutionDto(): ResolutionDto = listOf(this).toResolutionDtos().single()
+
+private fun ResultRow.toRawResolutionDto(): ResolutionDto =
     ResolutionDto(
         id = this[ResolutionTable.id].toString(),
         meetingId = this[ResolutionTable.meetingId].toString(),

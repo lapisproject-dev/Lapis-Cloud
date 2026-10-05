@@ -38,6 +38,9 @@ enum class ElectionAnswer { YES, NO, ABSTAIN }
  * Election has not reached [ElectionStatus.TALLIED] -- exposing a live running count while voting is
  * still open would leak a partial tally and undermine ballot secrecy, the same reasoning behind
  * [ReceiptVerificationDto.optionLabel] staying `null` before the tally runs.
+ *
+ * V1.9.53: for a secret election with fewer than [DisclosureRules.MIN_ANONYMOUS_RESPONSES] ballots
+ * [voteCount] is always `0` and [ElectionDto.figuresWithheld] is set -- never evaluate it without that flag.
  */
 @Serializable
 data class ElectionOptionDto(
@@ -80,6 +83,12 @@ data class ElectionDto(
     /** Exact required majority as a reduced fraction; both `null` for elections created before V1.9.23. */
     val requiredMajorityNumerator: Int? = null,
     val requiredMajorityDenominator: Int? = null,
+    /**
+     * V1.9.53: `true` iff the election is TALLIED, secret and has fewer than
+     * [DisclosureRules.MIN_ANONYMOUS_RESPONSES] ballots -- every [ElectionOptionDto.voteCount] is then `0`
+     * and means "not disclosed", not "no votes". Always `false` before the tally.
+     */
+    val figuresWithheld: Boolean = false,
 )
 
 /**
@@ -193,6 +202,13 @@ data class ElectionResultDto(
     val tie: Boolean,
     val majorityMet: Boolean?,
     val perOptionVotes: Map<String, Int>,
+    /**
+     * V1.9.53: `true` iff the election is secret and has fewer than [minimumResponses] ballots. [perOptionVotes]
+     * is then empty; winners, [tie] and [majorityMet] stay (decided on the full data). Decide on this flag, never
+     * on the emptiness of [perOptionVotes]. No role exception.
+     */
+    val figuresWithheld: Boolean = false,
+    val minimumResponses: Int = DisclosureRules.MIN_ANONYMOUS_RESPONSES,
 )
 
 /**

@@ -335,10 +335,11 @@ private fun ResolutionDto.toPublicApiDto(): PublicApiResolutionDto =
         status = status,
         resolutionMode = resolutionMode,
         decidedAt = decidedAt,
-        votesYes = votesYes,
-        votesNo = votesNo,
-        votesAbstain = votesAbstain,
+        votesYes = if (figuresWithheld) null else votesYes,
+        votesNo = if (figuresWithheld) null else votesNo,
+        votesAbstain = if (figuresWithheld) null else votesAbstain,
         quorumMet = quorumMet,
+        figuresWithheld = figuresWithheld,
     )
 
 /** See [CommitteeDto.toPublicApiDto] KDoc -- same extraction, for `/api/v1/motions`/`/api/v1/motions/{id}`. */

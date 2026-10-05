@@ -23,6 +23,7 @@ import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.AuditLogEntryDto
 import network.lapis.cloud.shared.domain.AuditLogListQuery
 import network.lapis.cloud.shared.domain.BoardMembershipSnapshot
+import network.lapis.cloud.shared.domain.DisclosureRules
 import network.lapis.cloud.shared.domain.JournalEntrySnapshot
 import network.lapis.cloud.shared.domain.OrganizationSettingsPaymentMappingSnapshot
 import network.lapis.cloud.shared.domain.PartyDonationVerdictSnapshot
@@ -397,13 +398,13 @@ private fun renderSnapshotSection(
     entry.beforeSnapshot?.let { raw ->
         val column = columns.vPanel(spacing = 4) { addCssClasses("flex-grow-1") }
         column.div(tr("Vorher")) { addCssClass("fw-bold") }
-        renderSnapshotBody(column, entry.entityType, raw)
+        renderSnapshotBody(column, entry.entityType, raw, entry.figuresWithheld)
     }
     entry.afterSnapshot?.let { raw ->
         val column = columns.vPanel(spacing = 4) { addCssClasses("flex-grow-1") }
         column.div(tr("Nachher")) { addCssClass("fw-bold") }
         val marker = auditMarkerDescription(entry.entityType, raw)
-        if (marker != null) column.div(marker) else renderSnapshotBody(column, entry.entityType, raw)
+        if (marker != null) column.div(marker) else renderSnapshotBody(column, entry.entityType, raw, entry.figuresWithheld)
     }
 }
 
@@ -573,10 +574,11 @@ private fun renderSnapshotBody(
     panel: SimplePanel,
     entityType: AuditEntityType,
     raw: String,
+    figuresWithheld: Boolean,
 ) {
     when (val decoded = decodeAuditSnapshot(entityType, raw)) {
         is JournalEntrySnapshot -> renderJournalEntrySnapshotBody(panel, decoded)
-        is ResolutionSnapshot -> renderResolutionSnapshotBody(panel, decoded)
+        is ResolutionSnapshot -> renderResolutionSnapshotBody(panel, decoded, figuresWithheld)
         is BoardMembershipSnapshot -> renderBoardMembershipSnapshotBody(panel, decoded)
         is PartyDonationVerdictSnapshot -> renderPartyDonationVerdictSnapshotBody(panel, decoded)
         is OrganizationSettingsPaymentMappingSnapshot -> renderOrganizationSettingsPaymentMappingSnapshotBody(panel, decoded)
@@ -641,9 +643,10 @@ private val SNAPSHOT_POSTING_HEADERS =
         TableHeader(title = tr("Sphäre")),
     )
 
-private fun renderResolutionSnapshotBody(
+internal fun renderResolutionSnapshotBody(
     panel: SimplePanel,
     snapshot: ResolutionSnapshot,
+    figuresWithheld: Boolean,
 ) {
     val details = panel.detailList()
     details.labelValueRow(gettext("Sitzung (ID)"), snapshot.meetingId)
@@ -652,7 +655,14 @@ private fun renderResolutionSnapshotBody(
     details.labelValueRow(gettext("Text"), snapshot.text)
     details.labelValueRow(
         gettext("Abstimmung"),
-        gettext("Ja: %1 · Nein: %2 · Enthaltung: %3", snapshot.votesYes, snapshot.votesNo, snapshot.votesAbstain),
+        if (figuresWithheld) {
+            gettext(
+                "Stimmenzahlen nicht veröffentlicht (geheime Wahl mit weniger als %1 Stimmzetteln).",
+                DisclosureRules.MIN_ANONYMOUS_RESPONSES,
+            )
+        } else {
+            gettext("Ja: %1 · Nein: %2 · Enthaltung: %3", snapshot.votesYes, snapshot.votesNo, snapshot.votesAbstain)
+        },
     )
     details.labelValueRow(gettext("Quorum erreicht"), if (snapshot.quorumMet) tr("Ja") else tr("Nein"))
     details.labelStatusBadgeRow(gettext("Status"), resolutionStatusLabel(snapshot.status), resolutionStatusColor(snapshot.status))

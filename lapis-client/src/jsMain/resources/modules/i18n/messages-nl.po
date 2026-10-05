@@ -19666,3 +19666,15 @@ msgstr "Nieuwe sleutel"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt
 msgid "Schlüssel ausstellen"
 msgstr "Sleutel uitgeven"
+
+msgid "Aus Gründen des Wahlgeheimnisses werden bei geheimen Wahlen Stimmenzahlen erst ab %1 Stimmzetteln gezeigt."
+msgstr "Ter bescherming van het stemgeheim worden stemaantallen van geheime verkiezingen pas getoond vanaf %1 stembiljetten."
+
+msgid "Stimmenzahlen nicht veröffentlicht (geheime Wahl mit weniger als %1 Stimmzetteln)."
+msgstr "Stemaantallen niet gepubliceerd (geheime verkiezing met minder dan %1 stembiljetten)."
+
+msgid "Stimmenzahlen nicht veröffentlicht (geheime Wahl mit weniger als %1 Stimmzetteln) · Quorum %2 · entschieden am %3 von %4"
+msgstr "Stemaantallen niet gepubliceerd (geheime verkiezing met minder dan %1 stembiljetten) · Quorum %2 · beslist op %3 door %4"
+
+msgid "Bei weniger als %1 abgegebenen Stimmzetteln werden nur das Ergebnis und die Beteiligung angezeigt, keine Stimmenzahlen."
+msgstr "Bij minder dan %1 uitgebrachte stembiljetten worden alleen het resultaat en de opkomst getoond, geen stemaantallen."

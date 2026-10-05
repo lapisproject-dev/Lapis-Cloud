@@ -19656,3 +19656,15 @@ msgstr "Новый ключ"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt
 msgid "Schlüssel ausstellen"
 msgstr "Выпустить ключ"
+
+msgid "Aus Gründen des Wahlgeheimnisses werden bei geheimen Wahlen Stimmenzahlen erst ab %1 Stimmzetteln gezeigt."
+msgstr "Для защиты тайны голосования число голосов на тайных выборах показывается только начиная с %1 бюллетеней."
+
+msgid "Stimmenzahlen nicht veröffentlicht (geheime Wahl mit weniger als %1 Stimmzetteln)."
+msgstr "Число голосов не опубликовано (тайные выборы менее чем с %1 бюллетенями)."
+
+msgid "Stimmenzahlen nicht veröffentlicht (geheime Wahl mit weniger als %1 Stimmzetteln) · Quorum %2 · entschieden am %3 von %4"
+msgstr "Число голосов не опубликовано (тайные выборы менее чем с %1 бюллетенями) · Кворум %2 · решение принято %3 (%4)"
+
+msgid "Bei weniger als %1 abgegebenen Stimmzetteln werden nur das Ergebnis und die Beteiligung angezeigt, keine Stimmenzahlen."
+msgstr "При менее чем %1 поданных бюллетенях показываются только результат и явка, без числа голосов."

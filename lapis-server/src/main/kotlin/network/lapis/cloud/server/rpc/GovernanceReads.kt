@@ -121,7 +121,7 @@ internal object GovernanceReads {
                 else -> ResolutionTable.selectAll()
             }
         val paged = if (limit != null) base.limit(limit).offset(offset.toLong()) else base
-        return paged.map { it.toResolutionDto() }
+        return paged.toList().toResolutionDtos()
     }
 
     fun countResolutions(

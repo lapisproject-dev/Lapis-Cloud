@@ -179,6 +179,8 @@ recorded as a resolution and, when the status quo option won, that the motion co
 discloses no figures. The constant is shared with the anonymous polls (`PollRules.MIN_RESPONSES_FOR_RESULT` is an alias of it), so the two features cannot
 drift apart. An open (non-anonymous) consensus is unaffected: its ratings are public anyway.
 
+NOTE: Since V1.9.53 the same constant also governs the result figures of secret elections (see `elections-integrity.adoc`): one constant for three features.
+
 *Where it is applied.* In exactly one place on the server: `SystemicConsensusOutcome.toResultDto` in `SystemicConsensusOutcome.kt`, the only way to a
 `SystemicConsensusResultDto`. Both `evaluate` and `getSystemicConsensusResult` go through it, and the binding decision in `evaluate` is still made from the
 full data -- only the *disclosure* is reduced. There is no role exception: managers and moderation receive the withheld form too.

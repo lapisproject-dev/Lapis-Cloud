@@ -162,6 +162,16 @@ expresses two thirds exactly (a whole percent cannot: 66 % is too lenient, 67 % 
 filled (`ceil(numerator * 100 / denominator)`) so a V1.9.22 client keeps working. A plurality election (multiple choice) has no
 majority and the group is hidden. The live explanation uses the same arithmetic as the server.
 
+== Minimum participation (V1.9.53)
+
+A secret election with fewer than five ballots is shown without figures; the full rule, the table of read paths and the residual risks are in
+`elections-integrity.adoc` ("Minimum participation (V1.9.53)"). In the client: `renderElectionResultCompact` (detail view and conference panel share it) branches on
+`result.figuresWithheld` first; the withheld form lists a people election's options by position with the "Gewählt" badge, shows the verdict and the sentence
+"Aus Gründen des Wahlgeheimnisses werden bei geheimen Wahlen Stimmenzahlen erst ab 5 Stimmzetteln gezeigt." (not for 0 ballots), and renders no figure, bar or
+`aria-valuenow`; a yes/no election shows no option rows. The participation line stays. `MeetingsScreen` and `AuditLogScreen` show "Stimmenzahlen nicht veröffentlicht
+(geheime Wahl mit weniger als 5 Stimmzetteln)" instead of the yes/no/abstain line, and the open form explains the rule under "Geheime Wahl". Four new msgids in all
+eight catalogs (the translations are by the agent, not by a native speaker).
+
 == Conflicts
 
 A conflict on an election action, or when opening an election from a motion, now means that another decision path got there first

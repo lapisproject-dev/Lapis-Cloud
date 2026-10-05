@@ -582,11 +582,12 @@ abstract class ElectionIntegrityScenarios(
                 client
                     .get("/test/list-ballots/$electionId") { header("X-Member-Id", f.chair.toString()) }
                     .bodyAsText() shouldBe ""
-                // the aggregate result is unchanged: two ballots counted (1 YES, 1 NO, 0 ABSTAIN)
+                // V1.9.53: two ballots are below the minimum participation of a secret election, so the result carries no figures
+                // (the decision stays; the disclosed form is covered by ElectionMinimumParticipationTest)
                 client
                     .get("/test/election-result/$electionId") { header("X-Member-Id", f.chair.toString()) }
                     .bodyAsText()
-                    .substringAfterLast(":") shouldBe "0|1|1"
+                    .substringAfterLast(":") shouldBe ""
                 // and the voter can still check their own ballot with the receipt
                 val code = receipt.substringAfterLast(":").trim()
                 client
