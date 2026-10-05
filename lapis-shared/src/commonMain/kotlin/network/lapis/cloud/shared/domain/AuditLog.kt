@@ -747,7 +747,9 @@ data class DunningLevelSnapshot(
  * the GoBD-relevant FACT (something about this field changed, WHO did it via
  * [AuditLogEntryDto.actorMemberId], WHEN via `occurredAt`) without the value itself -- the identity
  * is already `entityId`, and the CURRENT value always lives on the (erasable) `member` row. Only
- * [network.lapis.cloud.server.rpc.MemberService.updateMemberCoreData] ever sets a `true` here; the
+ * [network.lapis.cloud.server.member.EmailChangeService] (V1.9.56: the only writer of an existing member's address,
+ * only when a change became effective) ever sets `emailChanged = true` here; `updateMemberCoreData` (name only since
+ * V1.9.56) writes `false`, and the
  * other three writers ([network.lapis.cloud.server.rpc.MemberService.updateMemberStatus]/
  * [network.lapis.cloud.server.rpc.MemberService.updateMemberRole]/
  * [network.lapis.cloud.server.rpc.MemberService.grantMemberAccount]) always write `false` for both,
@@ -804,6 +806,13 @@ data class MemberChangeSnapshot(
      * [AuditEntityType.MEMBER]. Default `null`: older rows decode unchanged.
      */
     val memberPublicBio: MemberPublicBioAuditSnapshot? = null,
+    /**
+     * Welle V1.9.56 "E-Mail-Änderung absichern" -- set ONLY by the address-change lifecycle (request, confirmation of
+     * the new address, applied, revoked, withdrawn, expired, superseded, conflict). Carries NEVER an address (not
+     * even masked or hashed, see [EmailChangeAuditFacts]) -- only event, kind and the change id. Logged under
+     * [AuditEntityType.MEMBER]. Default `null`: older rows decode unchanged.
+     */
+    val emailChange: EmailChangeAuditFacts? = null,
 )
 
 /** Welle V1.9.19 -- what happened to a member's photo publication. No PII, no token. */

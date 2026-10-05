@@ -26,6 +26,7 @@ class LoginRateLimiter(
     private val maxFailures: Int = 5,
     private val window: Duration = 15.minutes,
     private val maxTrackedKeys: Int = 100_000,
+    private val clock: Clock = Clock.System,
 ) {
     private data class FailureWindow(
         val count: Int,
@@ -43,7 +44,7 @@ class LoginRateLimiter(
 
     /** Records one failed attempt for [key], starting (or continuing) its sliding window. */
     fun recordFailure(key: String) {
-        val now = Clock.System.now()
+        val now = clock.now()
         failuresByKey.compute(key) { _, existing ->
             if (existing == null || isExpired(existing)) {
                 FailureWindow(count = 1, windowStart = now)
@@ -54,12 +55,42 @@ class LoginRateLimiter(
         evictExpiredIfOverCapacity()
     }
 
+    /**
+     * Atomically reserves one attempt for [key]: `false` (and nothing recorded) iff [maxFailures] is already reached within the
+     * current [window], otherwise the attempt is counted and `true` returned. Unlike the [checkAllowed] + [recordFailure] pair,
+     * concurrent callers cannot all pass the check before the first one is recorded. Pair with [reset] on success and
+     * [release] when the reserved attempt turns out not to count.
+     */
+    fun tryAcquire(key: String): Boolean {
+        val now = clock.now()
+        var allowed = true
+        failuresByKey.compute(key) { _, existing ->
+            if (existing == null || isExpired(existing)) {
+                FailureWindow(count = 1, windowStart = now)
+            } else if (existing.count >= maxFailures) {
+                allowed = false
+                existing
+            } else {
+                FailureWindow(count = existing.count + 1, windowStart = existing.windowStart)
+            }
+        }
+        if (allowed) evictExpiredIfOverCapacity()
+        return allowed
+    }
+
+    /** Gives back one attempt reserved by [tryAcquire] for [key]. */
+    fun release(key: String) {
+        failuresByKey.computeIfPresent(key) { _, existing ->
+            if (existing.count <= 1) null else FailureWindow(count = existing.count - 1, windowStart = existing.windowStart)
+        }
+    }
+
     /** Clears [key]'s failure count — called on a successful login so a legitimate user is never penalized by earlier, unrelated failed attempts once they DO get in. */
     fun reset(key: String) {
         failuresByKey.remove(key)
     }
 
-    private fun isExpired(entry: FailureWindow): Boolean = Clock.System.now() - entry.windowStart >= window
+    private fun isExpired(entry: FailureWindow): Boolean = clock.now() - entry.windowStart >= window
 
     /**
      * Bounds unbounded memory growth (a malicious caller cycling through many distinct emails/IPs
@@ -70,7 +101,7 @@ class LoginRateLimiter(
      */
     private fun evictExpiredIfOverCapacity() {
         if (failuresByKey.size <= maxTrackedKeys) return
-        val now = Clock.System.now()
+        val now = clock.now()
         failuresByKey.entries.removeIf { (_, entry) -> now - entry.windowStart >= window }
     }
 }

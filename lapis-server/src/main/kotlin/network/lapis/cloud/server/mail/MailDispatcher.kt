@@ -110,7 +110,7 @@ class MailDispatcher(
         plainTextBody: String,
         htmlBody: String,
         purpose: String,
-    ) {
+    ): Boolean {
         // maskEmailForLogging: see its own KDoc -- pairing a full recipient address with a purpose
         // like "password-reset"/"friend-email-verification" on every request would otherwise turn
         // the server log into a standing "who reset a password / joined as FRIEND when" record.
@@ -130,6 +130,7 @@ class MailDispatcher(
         if (result.isFailure) {
             logger.error { "Mail dropped, dispatcher saturated: purpose=$purpose to=$maskedTo" }
         }
+        return result.isSuccess
     }
 
     private suspend fun sendOne(mail: QueuedMail) {

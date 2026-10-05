@@ -21,17 +21,56 @@ All notable changes to this project are documented here. Format follows
     idempotent webhooks, single-flight checkout, export under a slow client); tripwires for external effects inside `transaction { }`, session-wide
     `SET`, and money-path SQL catches.
 
+- **Safe e-mail address change** (V1.9.56, `V70__member_email_change.sql`, `IMemberEmailChangeService`, `docs/architecture/member-email-change.adoc`). The
+  address of an existing member changes only through `EmailChangeService`: the owner with the password (immediately), a proposal by a board member or
+  administrator that the owner accepts WITH the password, or -- for a member without a usable password and on the ADMIN emergency path -- proof of
+  ownership of the new address plus a 72 hour warning period in which the old address can reject. Reject / withdraw, a 15-minute poller (expiry after 7 days,
+  application after the warning period, purge of resolved rows after 180 days), POST-only mail links with the token stripped from the URL, a "Meine Daten" card,
+  a proposal section in the roster editor, three deep-link screens, GDPR export / erasure, kUML model `62-member-email-change.kuml.kts`, 55 new texts in all
+  seven catalogs.
+  - Tests: role matrix (4 callers x 10 target kinds x propose/override), every path, tokens, duplicates, Keycloak, no-SMTP, audit; link routes; races on H2 and
+    the Postgres lane; migration incl. the upgrade from V69; GDPR; a source-scan tripwire that no other code writes `member.email` of an existing member and one
+    that no token reaches a log or audit; Karma DOM tests for the three client parts.
+
 ### Security
 
+- **Account takeover through the address change is closed (V1.9.56).** `MemberService.updateMemberCoreData` let a board member or an administrator overwrite
+  `member.email` -- the login identity, the password-reset target and the key of the Keycloak account link -- without any proof that the new address belongs to
+  the account owner (set an address you control, request a password reset). It now corrects the display name only and rejects an address change with
+  `EmailChangeNotAllowedException`. The audit log carries no address at all (not even masked or hashed: it is hash-chained and cannot be erased).
 - **Database error text no longer reaches the client.** Kilua RPC answered every untyped service exception with `e.message`; for an
   `ExposedSQLException` that is the complete PostgreSQL message including the `Detail:` line (values of a unique violation) and the SQL, shown as a toast.
   `RpcErrorSanitizer` now blanks it (non-RPC routes: generic 500, timeouts 503 + `Retry-After`).
 
 ### Changed
 
+- **The roster editor shows the e-mail address read-only** and offers "Änderung vorschlagen" instead (V1.9.56). `updateMemberCoreData` keeps its signature (wire
+  compatibility) but the address argument must equal the stored one; anything else throws `EmailChangeNotAllowedException`. A pending change redirects neither
+  login nor password reset nor the Keycloak link (they keep reading the current address). `keycloak-login.adoc`: the "BOARD-level email-change takeover" known
+  limitation is replaced by the fix. `grantMemberAccount` refuses while a change is open. The FRIEND verification mail that `updateMemberCoreData` used to re-send now
+  follows an own change (path A); the two limiters moved with it (`MemberService` lost three constructor parameters).
 - Provider idempotency keys are derived from the server's checkout session id (`lapis-checkout-v1-<uuid>`) instead of a fresh random value per call, so an
   HTTP retry of the same logical checkout is deduplicated by Stripe/PayPal. The persisted `provider_idempotency_key` equals the value sent.
 - `createContributionCheckout` is single-flight per contribution: two parallel requests mint one hosted session instead of two (double payment possible).
+
+### Operator note (V1.9.56)
+
+- **Without `LAPIS_SMTP_*`, board members and administrators can no longer change another member's e-mail address.** A change by a third party needs the warning
+  mail to the old address and the confirmation mail to the new one; without outbound mail it is refused with a typed error (the UI shows the button disabled with
+  the reason). Members still change their OWN address with their password -- no mail needed. The emergency path (ADMIN, with a reason) needs SMTP and takes effect
+  only after the new address is confirmed and 72 hours have passed. Tell the board of deployments without SMTP (PdV, ELB: check `LAPIS_SMTP_*`) before deploying.
+  Migration `V70` is additive; existing addresses are untouched.
+
+### Known limitations (V1.9.56)
+
+- A member who lost both the password and access to the old address gets no help without SMTP (there is no safe path).
+- For a member WITHOUT a login, a change that became effective earlier stays the contact address; a later `grantMemberAccount` then decides the reset target
+  (it refuses only while a change is still open).
+- An ADMIN can still take over another ADMIN's account with a temporary password (`setTemporaryPasswordForMember`, `sendPasswordResetMailToMember`): there is no
+  peer protection between administrators for the password actions. Not part of this change.
+- `IAuthService.changePassword` has no rate limit for a wrong current password (a stolen session could guess it). The address-change paths limit per member.
+- The mails carry German and English in one message (members have no language preference). A TREASURER cannot propose a change (as before: BOARD/ADMIN only).
+- The member row of the audit log shows the new `emailChange` facts as raw JSON in the protocol screen (the client decodes `MEMBER` snapshots as raw text).
 
 ### Fixed
 

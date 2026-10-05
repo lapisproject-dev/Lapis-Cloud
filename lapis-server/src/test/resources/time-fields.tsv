@@ -273,6 +273,10 @@ dto:AnniversaryEntryDto.originalDate	D	calendar date (LocalDate); never converte
 dto:MemberAnniversaryOverviewDto.from	D	calendar date (LocalDate); never converted
 dto:MemberAnniversaryOverviewDto.through	D	calendar date (LocalDate); never converted
 dto:MemberCardReissueResultDto.issuedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:OwnPendingEmailChangeDto.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:OwnPendingEmailChangeDto.effectiveAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:EmailChangePendingDto.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:EmailChangePendingDto.effectiveAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:MemberFamilyLinkDto.linkedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:MemberFamilyDetailDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:UpcomingMajorityEntryDto.turnsMajorOn	D	calendar date (LocalDate); never converted
@@ -613,6 +617,11 @@ col:MeetingTable.calledAt	A	stamped by the server clock (DbClock/ServerClock) or
 col:MeetingTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:MemberCardCodeTable.issuedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:MemberCardCodeTable.revokedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberEmailChangeTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberEmailChangeTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberEmailChangeTable.effectiveAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberEmailChangeTable.newEmailConfirmedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberEmailChangeTable.resolvedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:MemberFamilyLinkTable.linkedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:MemberFamilyTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:MemberHonorTable.awardedAt	D	calendar date (LocalDate); never converted

@@ -889,21 +889,20 @@ internal fun openMemberEditorDialog(
         modal.h2(tr("Stammdaten")) { addCssClass("h6") }
         val form = modal.lapisForm(legendGroup)
         val nameField = form.textField(label = tr("Name"), value = row.displayName, required = true)
-        val emailField =
-            form.textField(
-                label = tr("E-Mail"),
-                type = InputType.EMAIL,
-                value = row.email,
-                required = true,
-                rule = { FormRules.email(value = it) },
-            )
+        // Welle V1.9.56 "E-Mail-Änderung absichern": the address is the login identity and is shown read-only here; it changes only through
+        // the proposal section below (or the member's own "Meine Daten"), never by overwriting it in this form.
+        form.textField(
+            label = tr("E-Mail"),
+            type = InputType.EMAIL,
+            value = row.email,
+            init = { it.readonly = true },
+        )
         val saveCoreDataButton = newActionButton(ActionIcon.SAVE, tr("Stammdaten speichern"), ButtonStyle.PRIMARY)
         form.buttons(primary = saveCoreDataButton)
         saveCoreDataButton.onClick {
             form.submit(saveCoreDataButton) {
                 val name = nameField.value.trim()
-                val email = emailField.value.trim()
-                val result = memberAdminGuarded { rpcService<IMemberService>().updateMemberCoreData(row.id, name, email) }
+                val result = memberAdminGuarded { rpcService<IMemberService>().updateMemberCoreData(row.id, name, row.email) }
                 if (result != null) {
                     notifySuccess(tr("Stammdaten gespeichert."))
                     modal.hide()
@@ -911,6 +910,11 @@ internal fun openMemberEditorDialog(
                 }
             }
         }
+    }
+
+    if (canProposeEmailChangeOf(callerRole, callerMemberId, row)) {
+        modal.div { addCssClass("mt-3") }
+        renderEmailChangeProposalSection(modal, row, callerRole, legendGroup, onChanged = {})
     }
 
     if (canChangeStatusOf(callerRole, callerMemberId, row)) {

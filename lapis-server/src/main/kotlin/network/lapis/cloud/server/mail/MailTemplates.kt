@@ -5,6 +5,7 @@ import kotlinx.html.a
 import kotlinx.html.body
 import kotlinx.html.h1
 import kotlinx.html.head
+import kotlinx.html.hr
 import kotlinx.html.html
 import kotlinx.html.p
 import kotlinx.html.stream.createHTML
@@ -12,6 +13,7 @@ import kotlinx.html.title
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.PasswordResetTokenStore
+import network.lapis.cloud.shared.domain.EmailChangeKind
 import kotlin.time.Duration
 
 /**
@@ -354,6 +356,262 @@ object MailTemplates {
                 }
             }
         return RenderedMail(subject = subject, plainText = plainText, html = html)
+    }
+
+    /**
+     * Welle V1.9.56 "E-Mail-Änderung absichern" -- link to the NEW address. [EmailChangeKind.PROPOSAL]: accept with the
+     * password (`/app#/confirm-email?token=...`); the other proposal kinds: prove the address (`/app#/verify-new-email`),
+     * effective no earlier than [effectiveAt]. German first, English second, one message (members have no language
+     * preference). The mail names no member and no initiator.
+     */
+    fun emailChangeConfirm(
+        rawToken: String,
+        kind: EmailChangeKind,
+        effectiveAt: LocalDateTime?,
+        branding: MailBranding,
+    ): RenderedMail {
+        val needsPassword = kind == EmailChangeKind.PROPOSAL
+        val route = if (needsPassword) "confirm-email" else "verify-new-email"
+        val link = "${branding.publicBaseUrl}/app#/$route?token=$rawToken"
+        val de =
+            if (needsPassword) {
+                MailSection(
+                    heading = "Neue Anmeldeadresse annehmen",
+                    paragraphs =
+                        listOf(
+                            "Für ein Konto bei ${branding.fromDisplayName} wurde vorgeschlagen, diese E-Mail-Adresse als Anmeldeadresse zu verwenden.",
+                            "Wenn das Ihr Konto ist, öffnen Sie den Link und bestätigen Sie mit Ihrem Passwort. Der Link ist 7 Tage gültig.",
+                            "Wenn Sie das nicht erwartet haben, können Sie diese E-Mail ignorieren – es wurde nichts verändert.",
+                        ),
+                    linkLabel = "Neue Adresse annehmen",
+                    link = link,
+                )
+            } else {
+                MailSection(
+                    heading = "E-Mail-Adresse bestätigen",
+                    paragraphs =
+                        listOf(
+                            "Für ein Konto bei ${branding.fromDisplayName} wurde beantragt, diese E-Mail-Adresse als Anmeldeadresse zu verwenden.",
+                            "Bitte bestätigen Sie, dass diese Adresse Ihnen gehört. Die Änderung wird frühestens ${formatUtc(
+                                effectiveAt,
+                            )} " +
+                                "wirksam; bis dahin kann sie über die bisherige Adresse abgelehnt werden. Der Link ist 7 Tage gültig.",
+                            "Wenn Sie das nicht erwartet haben, können Sie diese E-Mail ignorieren – es wurde nichts verändert.",
+                        ),
+                    linkLabel = "Adresse bestätigen",
+                    link = link,
+                )
+            }
+        val en =
+            if (needsPassword) {
+                MailSection(
+                    heading = "Accept the new sign-in address",
+                    paragraphs =
+                        listOf(
+                            "Using this e-mail address as the sign-in address of an account at ${branding.fromDisplayName} was proposed.",
+                            "If this is your account, open the link and confirm with your password. The link is valid for 7 days.",
+                            "If you did not expect this, you can ignore this e-mail – nothing has been changed.",
+                        ),
+                    linkLabel = "Accept the new address",
+                    link = link,
+                )
+            } else {
+                MailSection(
+                    heading = "Confirm your e-mail address",
+                    paragraphs =
+                        listOf(
+                            "Using this e-mail address as the sign-in address of an account at ${branding.fromDisplayName} was requested.",
+                            "Please confirm that this address is yours. The change takes effect no earlier than ${formatUtc(
+                                effectiveAt,
+                            )}; " +
+                                "until then it can be rejected through the previous address. The link is valid for 7 days.",
+                            "If you did not expect this, you can ignore this e-mail – nothing has been changed.",
+                        ),
+                    linkLabel = "Confirm the address",
+                    link = link,
+                )
+            }
+        return bilingual(
+            subject = "E-Mail-Adresse ändern / Change e-mail address – ${branding.fromDisplayName}",
+            de = de,
+            en = en,
+            branding = branding,
+        )
+    }
+
+    /**
+     * Welle V1.9.56 -- warning with the reject link to the OLD address. Only the MASKED new address, no name and no role
+     * of the initiator (the audit trail holds that, the mail only has to trigger "that was not me").
+     */
+    fun emailChangeWarningOld(
+        rawRevokeToken: String,
+        kind: EmailChangeKind,
+        maskedNewEmail: String,
+        effectiveAt: LocalDateTime?,
+        branding: MailBranding,
+    ): RenderedMail {
+        val link = "${branding.publicBaseUrl}/app#/revoke-email-change?token=$rawRevokeToken"
+        val needsPassword = kind == EmailChangeKind.PROPOSAL
+        val deEffect =
+            if (needsPassword) {
+                "Die Änderung wird nur wirksam, wenn Sie sie mit Ihrem Passwort annehmen."
+            } else {
+                "Die Änderung wird frühestens ${formatUtc(
+                    effectiveAt,
+                )} wirksam, sofern die neue Adresse bestätigt wurde und Sie nicht ablehnen."
+            }
+        val enEffect =
+            if (needsPassword) {
+                "The change only takes effect if you accept it with your password."
+            } else {
+                "The change takes effect no earlier than ${formatUtc(
+                    effectiveAt,
+                )}, provided the new address has been confirmed and you do not reject it."
+            }
+        return bilingual(
+            subject = "Änderung Ihrer Anmeldeadresse / Change of your sign-in address – ${branding.fromDisplayName}",
+            de =
+                MailSection(
+                    heading = "Änderung Ihrer Anmeldeadresse beantragt",
+                    paragraphs =
+                        listOf(
+                            "Für Ihr Konto bei ${branding.fromDisplayName} hat eine administrative Person beantragt, die Anmeldeadresse " +
+                                "auf $maskedNewEmail zu ändern.",
+                            deEffect,
+                            "Wenn Sie das NICHT erwartet haben, lehnen Sie die Änderung jetzt ab und melden Sie sich bitte umgehend bei uns.",
+                        ),
+                    linkLabel = "Änderung ablehnen",
+                    link = link,
+                ),
+            en =
+                MailSection(
+                    heading = "Change of your sign-in address requested",
+                    paragraphs =
+                        listOf(
+                            "For your account at ${branding.fromDisplayName}, an administrative person requested to change the sign-in " +
+                                "address to $maskedNewEmail.",
+                            enEffect,
+                            "If you did NOT expect this, reject the change now and please contact us immediately.",
+                        ),
+                    linkLabel = "Reject the change",
+                    link = link,
+                ),
+            branding = branding,
+        )
+    }
+
+    /** Welle V1.9.56 -- info to the OLD address after the OWNER changed the address with their password (path A). */
+    fun emailChangeSelfInfo(
+        maskedNewEmail: String,
+        branding: MailBranding,
+    ): RenderedMail =
+        bilingual(
+            subject = "Ihre Anmeldeadresse wurde geändert / Your sign-in address was changed – ${branding.fromDisplayName}",
+            de =
+                MailSection(
+                    heading = "Anmeldeadresse geändert",
+                    paragraphs =
+                        listOf(
+                            "Die Anmeldeadresse Ihres Kontos bei ${branding.fromDisplayName} wurde soeben auf $maskedNewEmail geändert. " +
+                                "Alle anderen Sitzungen wurden beendet.",
+                            "Wenn Sie das NICHT selbst getan haben, melden Sie sich bitte umgehend bei uns.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            en =
+                MailSection(
+                    heading = "Sign-in address changed",
+                    paragraphs =
+                        listOf(
+                            "The sign-in address of your account at ${branding.fromDisplayName} was just changed to $maskedNewEmail. " +
+                                "All other sessions were ended.",
+                            "If you did NOT do this yourself, please contact us immediately.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            branding = branding,
+        )
+
+    /** Welle V1.9.56 -- info to the OLD address after a third-party change became effective (warning period elapsed). */
+    fun emailChangeAppliedInfo(
+        maskedNewEmail: String,
+        branding: MailBranding,
+    ): RenderedMail =
+        bilingual(
+            subject = "Ihre Anmeldeadresse wurde geändert / Your sign-in address was changed – ${branding.fromDisplayName}",
+            de =
+                MailSection(
+                    heading = "Anmeldeadresse geändert",
+                    paragraphs =
+                        listOf(
+                            "Die Anmeldeadresse Ihres Kontos bei ${branding.fromDisplayName} wurde nach Ablauf der Warnfrist auf " +
+                                "$maskedNewEmail geändert. Alle Sitzungen wurden beendet.",
+                            "Wenn Sie das nicht erwartet haben, melden Sie sich bitte umgehend bei uns.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            en =
+                MailSection(
+                    heading = "Sign-in address changed",
+                    paragraphs =
+                        listOf(
+                            "The sign-in address of your account at ${branding.fromDisplayName} was changed to $maskedNewEmail after the " +
+                                "warning period elapsed. All sessions were ended.",
+                            "If you did not expect this, please contact us immediately.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            branding = branding,
+        )
+
+    /** One language block of a bilingual mail ([link] and [linkLabel] are both set or both null). */
+    private data class MailSection(
+        val heading: String,
+        val paragraphs: List<String>,
+        val linkLabel: String?,
+        val link: String?,
+    )
+
+    /** German block first, English second, ONE footer -- plain text and HTML (kotlinx-html auto-escaping) carry identical content. */
+    private fun bilingual(
+        subject: String,
+        de: MailSection,
+        en: MailSection,
+        branding: MailBranding,
+    ): RenderedMail {
+        fun plain(section: MailSection): String =
+            buildString {
+                append(section.heading).append("\n\n")
+                section.paragraphs.forEach { append(it).append("\n\n") }
+                if (section.link != null) append(section.linkLabel).append(":\n").append(section.link).append("\n\n")
+            }
+        val plainText = plain(de) + "----\n\n" + plain(en) + footer(branding)
+        val html =
+            createHTML().html {
+                head { title { +subject } }
+                body {
+                    listOf(de, en).forEachIndexed { index, section ->
+                        if (index > 0) hr()
+                        h1 { +section.heading }
+                        section.paragraphs.forEach { paragraph -> p { +paragraph } }
+                        if (section.link != null) {
+                            p { a(href = section.link) { +(section.linkLabel ?: section.link) } }
+                        }
+                    }
+                    p { +footer(branding) }
+                }
+            }
+        return RenderedMail(subject = subject, plainText = plainText, html = html)
+    }
+
+    /** `2026-10-08 14:30 UTC` -- class-A system timestamps are UTC, a mail has no viewer zone to convert to. */
+    private fun formatUtc(at: LocalDateTime?): String {
+        if (at == null) return "(unbekannt / unknown)"
+        return "${at.date} ${at.hour.toString().padStart(2, '0')}:${at.minute.toString().padStart(2, '0')} UTC"
     }
 
     /**

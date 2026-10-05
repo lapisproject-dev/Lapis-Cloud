@@ -217,7 +217,7 @@ msgstr " · сообщено %1"
 msgid " · Moderator"
 msgstr " · модератор"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:560
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:561
 msgid " (%1)"
 msgstr " (%1)"
 
@@ -935,7 +935,7 @@ msgstr "Удалить «%1» из встречи?"
 msgid "\"%1\" wird sofort geschlossen -- alle Verbindungen werden getrennt."
 msgstr "«%1» будет немедленно закрыт(а) — все соединения будут разорваны."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1101
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1105
 msgid "\"%1\" wirklich abbrechen? Es wird keine Abrechnung durchgeführt."
 msgstr "Действительно отменить «%1»? Расчёт производиться не будет."
 
@@ -1086,7 +1086,7 @@ msgstr "%1 (%2 байт)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:327
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:4934
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5057
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:579
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:580
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:536
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:710
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReportRows.kt:514
@@ -1216,7 +1216,7 @@ msgstr "%1 источников"
 msgid "%1 s"
 msgstr "%1 с"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:990
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:994
 msgid "%1 Stimmen abgegeben."
 msgstr "Отдано %1 голосов."
 
@@ -1280,15 +1280,15 @@ msgstr "%1–%2"
 msgid "%1: %2"
 msgstr "%1: %2"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:562
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:563
 msgid "%1: %2 anonymisiert, %3 gelöscht, %4 beibehalten"
 msgstr "%1: %2 анонимизировано, %3 удалено, %4 сохранено"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1064
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1068
 msgid "%1: %2, %3"
 msgstr "%1: %2, %3"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1056
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1060
 msgid "%1: %2, %3 · belastet: %4"
 msgstr "%1: %2, %3 · списано: %4"
 
@@ -1380,7 +1380,7 @@ msgstr "Подписка отменена %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:207
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsRowActions.kt:120
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsRowActions.kt:73
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:465
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:466
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:200
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:220
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:431
@@ -1397,9 +1397,10 @@ msgstr "Подписка отменена %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:758
 #: src/jsMain/kotlin/network/lapis/cloud/client/MailingHtmlEditor.kt:121
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:269
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:267
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:274
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:366
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1102
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1106
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:587
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:130
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:297
@@ -1440,10 +1441,10 @@ msgstr "Истёк"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:111
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:58
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:480
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:615
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:616
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:1109
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatusLabels.kt:26
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1139
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1143
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:173
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:390
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:405
@@ -1483,9 +1484,11 @@ msgstr "Меры по устранению (необязательно)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt:238
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:377
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:420
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:426
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:427
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:208
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:262
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:144
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:176
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:322
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt:245
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt:298
@@ -1570,7 +1573,7 @@ msgstr "ID участника-инициатора (необязательно)"
 msgid "Akteur: %1"
 msgstr "Инициатор: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:553
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:554
 msgid "Akteur: %1 · Betroffenes Mitglied: %2"
 msgstr "Инициатор: %1 · Затронутый участник: %2"
 
@@ -1694,10 +1697,12 @@ msgid "Aktuelles Gewicht (10 %/Tag Zerfall)"
 msgstr "Текущий вес (распад 10 %/день)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:194
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:139
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:193
 msgid "Aktuelles Passwort"
 msgstr "Текущий пароль"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:130
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:137
 msgid "Aktuelles Passwort ist falsch."
 msgstr "Текущий пароль неверен."
 
@@ -1744,7 +1749,7 @@ msgstr "Все взносы"
 msgid "Alle Entitätstypen"
 msgstr "Все типы сущностей"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1046
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1050
 msgid "Alle Gebote"
 msgstr "Все ставки"
 
@@ -1771,7 +1776,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt:59
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:286
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:372
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:357
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:358
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionsScreen.kt:84
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:118
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:127
@@ -1895,7 +1900,7 @@ msgid "Änderungshinweis (optional)"
 msgstr "Примечание к изменению (необязательно)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleCoverHttp.kt:81
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:80
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:96
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventCoverHttp.kt:85
 msgid "Anfrage fehlgeschlagen."
 msgstr "Запрос не удался."
@@ -1961,7 +1966,7 @@ msgstr "Войти"
 msgid "Anmeldung erfolgreich, aber Sitzungsdaten konnten nicht geladen werden."
 msgstr "Вход выполнен успешно, но данные сеанса загрузить не удалось."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:58
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:74
 msgid "Anmeldung fehlgeschlagen."
 msgstr "Не удалось войти."
 
@@ -2040,11 +2045,11 @@ msgstr "Отклонить заявку от %1"
 msgid "Antrag vorläufig abgelehnt."
 msgstr "Заявка предварительно отклонена."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:437
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:438
 msgid "Antrag wurde abgelehnt."
 msgstr "Заявка отклонена."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:437
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:438
 msgid "Antrag wurde genehmigt."
 msgstr "Заявка одобрена."
 
@@ -2126,8 +2131,8 @@ msgid "Anzeige-Info: Währung"
 msgstr "Информация об отображении: валюта"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:553
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1684
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1704
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1688
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1708
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:594
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:779
 msgid "Anzeigen"
@@ -2147,7 +2152,7 @@ msgstr "API-ключ"
 msgid "API-Schlüssel widerrufen bestätigen"
 msgstr "Подтвердите отзыв ключа API"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:295
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:296
 msgid "Art der Löschung"
 msgstr "Тип удаления"
 
@@ -2301,12 +2306,12 @@ msgstr "Расходы"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:463
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:59
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:521
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:510
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:511
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:406
 msgid "Ausgeführt"
 msgstr "Исполнено"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:659
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:660
 msgid "Ausgeführt am %1"
 msgstr "Исполнено %1"
 
@@ -2330,7 +2335,7 @@ msgstr "Исключено:"
 msgid "Ausgetreten"
 msgstr "Выбыл"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:121
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:122
 msgid "Auskunft"
 msgstr "Справка"
 
@@ -2338,7 +2343,7 @@ msgstr "Справка"
 msgid "Auskunft exportiert"
 msgstr "Справка экспортирована"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:129
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:130
 msgid "Auskunftsübersicht anzeigen"
 msgstr "Показать обзор справок"
 
@@ -2427,7 +2432,7 @@ msgstr "Подать заявку"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:460
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:56
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionsScreen.kt:519
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:508
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:509
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:403
 msgid "Beantragt"
 msgstr "Запрошено"
@@ -2445,7 +2450,7 @@ msgstr ""
 "Запрашивает удаление ТОЛЬКО содержимого записи (не всей записи целиком) -- "
 "решение по заявке принимается администратором отдельно."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:641
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:642
 msgid "Beantragt von %1 am %2"
 msgstr "Запрошено %1, %2"
 
@@ -2487,9 +2492,10 @@ msgstr "Начало"
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:741
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusBooth.kt:74
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusOptions.kt:157
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:301
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1263
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:302
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1267
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:256
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:245
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt:196
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:337
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:594
@@ -2509,8 +2515,8 @@ msgid "Begründung für Beitragsentfernung"
 msgstr "Обоснование удаления записи"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticlesScreen.kt:159
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:348
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:390
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:349
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:391
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:142
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:288
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:349
@@ -2787,7 +2793,7 @@ msgstr "Решение «%1» зафиксировано."
 msgid "Beschluss erfassen (Gremienbeschluss)"
 msgstr "Зафиксировать решение (решение органа)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:955
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:959
 msgid "Beschluss konnte nicht geladen werden."
 msgstr "Не удалось загрузить решение."
 
@@ -2874,7 +2880,7 @@ msgstr "Подтвердить"
 msgid "Bestätigen Sie, dass diese Datei bei der Bank eingereicht wurde."
 msgstr "Подтвердите, что этот файл был отправлен в банк."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:104
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:120
 msgid "Bestätigung fehlgeschlagen."
 msgstr "Подтверждение не удалось."
 
@@ -2950,11 +2956,11 @@ msgstr "Затронутые лица уведомлены (ГГГГ-ММ-ДДT�
 msgid "Betroffene Ziele: %1"
 msgstr "Затронутые цели: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:524
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:525
 msgid "Betroffenes Mitglied (ID, optional)"
 msgstr "Затронутый участник (ID, необязательно)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:458
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:459
 msgid "Betroffenes Mitglied: %1"
 msgstr "Затронутый участник: %1"
 
@@ -3105,7 +3111,7 @@ msgstr "Укажите участника и положительную сумм
 msgid "Bitte ein positives Höchstgebot (LTR) angeben."
 msgstr "Укажите положительное максимальное предложение (LTR)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:319
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:320
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:677
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:727
 msgid "Bitte eine Begründung angeben."
@@ -3130,7 +3136,7 @@ msgstr "Выберите файл."
 msgid "Bitte eine Laufzeit in ganzen Stunden (größer als 0) angeben."
 msgstr "Укажите срок действия в целых часах (больше 0)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/VoteBallotForm.kt:103
+#: src/jsMain/kotlin/network/lapis/cloud/client/VoteBallotForm.kt:102
 msgid "Bitte eine Option und einen positiven LTR-Einsatz angeben."
 msgstr "Укажите вариант и положительную ставку в LTR."
 
@@ -3193,7 +3199,7 @@ msgstr "Укажите имя."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:266
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:475
-#: src/jsMain/kotlin/network/lapis/cloud/client/VoteBallotForm.kt:84
+#: src/jsMain/kotlin/network/lapis/cloud/client/VoteBallotForm.kt:83
 msgid "Bitte einen positiven Betrag (LTR) angeben."
 msgstr "Укажите положительную сумму (LTR)."
 
@@ -3264,7 +3270,7 @@ msgstr ""
 msgid "Bitte melden Sie sich mit Ihrer E-Mail-Adresse an."
 msgstr "Войдите с помощью своего адреса электронной почты."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:914
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:918
 msgid "Bitte mindestens 2 unterschiedliche Optionen angeben."
 msgstr "Укажите не менее 2 различных вариантов."
 
@@ -3454,7 +3460,7 @@ msgid "Chat"
 msgstr "Чат"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:783
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:849
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:853
 msgid "Committee-Quorum entscheiden"
 msgstr "Определить кворум комитета"
 
@@ -3756,7 +3762,7 @@ msgstr "Диагностика: текущий курс"
 msgid "Dick"
 msgstr "Жирный"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:128
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:135
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdminGuard.kt:173
 msgid ""
 "Die Aktion steht im Konflikt mit dem aktuellen Zustand -- bitte Ansicht "
@@ -4010,7 +4016,7 @@ msgid ""
 "Diese Korrekturübertragung ist ENDGÜLTIG und kann nicht widerrufen werden."
 msgstr "Этот корректирующий перевод ОКОНЧАТЕЛЕН и не может быть отозван."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:457
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:458
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:348
 msgid "Diese Löschung ist ENDGÜLTIG und kann nicht rückgängig gemacht werden."
 msgstr "Это удаление ОКОНЧАТЕЛЬНО и не может быть отменено."
@@ -4044,7 +4050,7 @@ msgstr ""
 "Этот идентификатор комнаты недействителен. Скопируйте его полностью из "
 "вашего приглашения."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:687
+#: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:695
 msgid ""
 "Diese Seite konnte nicht geladen werden -- bitte laden Sie die Seite neu."
 msgstr "Не удалось загрузить эту страницу — перезагрузите её."
@@ -4248,7 +4254,7 @@ msgstr "Тонкий"
 #: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:104
 #: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:213
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:544
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:894
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:895
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberDirectCreationForm.kt:42
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:86
 msgid "E-Mail"
@@ -4335,7 +4341,7 @@ msgstr ""
 msgid "Eingabekontrolle"
 msgstr "Контроль ввода"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1134
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1138
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:550
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaLabels.kt:43
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:15
@@ -4398,7 +4404,7 @@ msgstr "Подать"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AiDraftsScreen.kt:260
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:280
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:957
-#: src/jsMain/kotlin/network/lapis/cloud/client/VoteBallotForm.kt:78
+#: src/jsMain/kotlin/network/lapis/cloud/client/VoteBallotForm.kt:77
 msgid "Einsatz (LTR)"
 msgstr "Ставка (LTR)"
 
@@ -4457,8 +4463,8 @@ msgstr "Удалить окончательно"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:199
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConfirmDialog.kt:215
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:400
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:467
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:401
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:468
 msgid "Endgültig löschen"
 msgstr "Удалить окончательно"
 
@@ -4510,7 +4516,7 @@ msgid "Entfernt am %1"
 msgstr "Удалено %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:880
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:857
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:861
 msgid "Enthaltungen"
 msgstr "Воздержавшиеся"
 
@@ -4531,19 +4537,19 @@ msgstr "Тип сущности"
 msgid "Entscheidung"
 msgstr "Решение"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:879
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:883
 msgid "Entscheidung für \"%1\" gespeichert."
 msgstr "Решение для «%1» сохранено."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:862
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:866
 msgid "Entscheidung speichern"
 msgstr "Сохранить решение"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:423
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:424
 msgid "Entscheidungsnotiz (optional)"
 msgstr "Примечание к решению (необязательно)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:462
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:463
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:153
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:291
 msgid "Entscheidungsnotiz: %1"
@@ -4551,7 +4557,7 @@ msgstr "Примечание к решению: %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:109
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:114
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:613
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:614
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:102
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:97
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt:98
@@ -4563,7 +4569,7 @@ msgid "Entschieden am"
 msgstr "Дата решения"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:257
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:651
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:652
 msgid "Entschieden von %1 am %2"
 msgstr "Решено %1, %2"
 
@@ -4643,7 +4649,7 @@ msgstr "Необходимость/соразмерность (необязат�
 #: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:395
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionPhase.kt:49
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionResultUi.kt:62
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:940
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:944
 #: src/jsMain/kotlin/network/lapis/cloud/client/NonprofitComplianceReportsScreen.kt:112
 #: src/jsMain/kotlin/network/lapis/cloud/client/PollRatingResultView.kt:35
 #: src/jsMain/kotlin/network/lapis/cloud/client/PollResultView.kt:36
@@ -4651,7 +4657,7 @@ msgstr "Необходимость/соразмерность (необязат�
 msgid "Ergebnis"
 msgstr "Результат"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:558
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:559
 msgid "Ergebnis:"
 msgstr "Результат:"
 
@@ -4728,7 +4734,7 @@ msgstr "Предоставлен"
 msgid "Ertragskonto"
 msgstr "Счёт доходов"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:812
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:816
 msgid ""
 "Es läuft bereits eine meritokratische Vote für diesen Antrag -- siehe "
 "Abschnitt \"Vote\" unten."
@@ -4911,8 +4917,8 @@ msgstr "Фильтр: статус (решение правления)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:204
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:288
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:374
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:359
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:525
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:360
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:526
 #: src/jsMain/kotlin/network/lapis/cloud/client/SepaBatchesScreen.kt:765
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:236
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:88
@@ -5073,8 +5079,8 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeritBidView.kt:115
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeritBidView.kt:63
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceMeritVoteCard.kt:70
-#: src/jsMain/kotlin/network/lapis/cloud/client/VoteBallotForm.kt:67
-#: src/jsMain/kotlin/network/lapis/cloud/client/VoteBallotForm.kt:96
+#: src/jsMain/kotlin/network/lapis/cloud/client/VoteBallotForm.kt:66
+#: src/jsMain/kotlin/network/lapis/cloud/client/VoteBallotForm.kt:95
 msgid "Gebot abgeben"
 msgstr "Сделать ставку"
 
@@ -5086,7 +5092,7 @@ msgstr "Ставка принята. Текущая цена: %1. %2"
 msgid "Gebot bestätigen"
 msgstr "Подтвердить ставку"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/VoteBallotForm.kt:120
+#: src/jsMain/kotlin/network/lapis/cloud/client/VoteBallotForm.kt:119
 msgid "Gebot gespeichert."
 msgstr "Ставка сохранена."
 
@@ -5161,14 +5167,14 @@ msgstr "Выпущено:"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticlesScreen.kt:279
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:376
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:384
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:425
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:426
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:321
 msgid "Genehmigen"
 msgstr "Одобрить"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:461
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:479
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:614
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:615
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:404
 msgid "Genehmigt"
 msgstr "Одобрено"
@@ -5239,8 +5245,8 @@ msgstr "Сохранено — ключ больше не будет отобр�
 msgid "Gespeichert."
 msgstr "Сохранено."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:346
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:459
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:347
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:460
 msgid "Gewählter Modus: %1"
 msgstr "Выбранный режим: %1"
 
@@ -5261,7 +5267,7 @@ msgstr "Показать/скрыть историю веса"
 msgid "Gewinn- und Verlustrechnung (GuV)"
 msgstr "Отчёт о прибылях и убытках (ОПиУ)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1029
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1033
 msgid "Gewinner"
 msgstr "Победитель"
 
@@ -5556,7 +5562,7 @@ msgstr ""
 "выбранным паролем и участвовать в видеоконференциях, на которые вас "
 "пригласили."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:994
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:998
 msgid "Ihr Gebot: %1, %2"
 msgstr "Ваша ставка: %1, %2"
 
@@ -5579,7 +5585,7 @@ msgstr ""
 msgid "Ihr Höchstgebot muss mindestens dem Startpreis (%1) entsprechen."
 msgstr "Ваше максимальное предложение должно быть не ниже стартовой цены (%1)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:344
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:345
 msgid "Ihr Löschantrag"
 msgstr "Ваша заявка на удаление"
 
@@ -5733,7 +5739,7 @@ msgid "Ja"
 msgstr "Да"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:876
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:853
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:857
 msgid "Ja-Stimmen"
 msgstr "Голоса «за»"
 
@@ -5825,7 +5831,7 @@ msgstr "Нет активного мандата"
 msgid "Kein AVV"
 msgstr "AVV отсутствует"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:942
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:946
 msgid "Kein Beschluss verknüpft."
 msgstr "Решение не привязано."
 
@@ -5837,7 +5843,7 @@ msgstr "Причина не указана."
 msgid "Kein gültiges Mandat (MD01)"
 msgstr "Нет действующего мандата (MD01)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:488
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:489
 msgid "Kein Legal Hold"
 msgstr "Без Legal Hold"
 
@@ -5845,7 +5851,7 @@ msgstr "Без Legal Hold"
 msgid "Kein Limit"
 msgstr "Без ограничения"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:1168
+#: src/jsMain/kotlin/network/lapis/cloud/client/Routing.kt:1186
 msgid "Kein Zugriff -- für diesen Bereich fehlt Ihnen die Berechtigung."
 msgstr "Нет доступа -- у вас недостаточно прав для этого раздела."
 
@@ -5870,7 +5876,7 @@ msgstr ""
 "календарный год."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefQueueScreen.kt:100
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:369
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:370
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt:91
 msgid "Keine Anträge für diese Filter gefunden."
 msgstr "По заданным фильтрам заявки не найдены."
@@ -5888,7 +5894,7 @@ msgstr "Взносы отсутствуют."
 msgid "Keine berechtigten Mitglieder gefunden."
 msgstr "Правомочные участники не найдены."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:126
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:133
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusGuard.kt:36
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt:57
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionGuard.kt:39
@@ -5930,7 +5936,7 @@ msgstr "В этом разделе проводки отсутствуют."
 msgid "Keine Buchungszeilen."
 msgstr "Строки проводки отсутствуют."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:270
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:271
 msgid "Keine Daten in den registrierten Bereichen gefunden."
 msgstr "В зарегистрированных разделах данные не найдены."
 
@@ -5946,7 +5952,7 @@ msgstr "В этой папке нет документов."
 msgid "Keine Einträge für diese Filter gefunden."
 msgstr "По заданным фильтрам записи не найдены."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:534
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:535
 msgid "Keine Einträge gefunden."
 msgstr "Записи не найдены."
 
@@ -5977,7 +5983,7 @@ msgid ""
 msgstr ""
 "Разрешённые цели трансляции отсутствуют -- обратитесь к администратору."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1048
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1052
 msgid "Keine Gebote abgegeben."
 msgstr "Ставки не сделаны."
 
@@ -6129,8 +6135,8 @@ msgid "Konto (ID)"
 msgstr "Счёт (ID)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:1057
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1203
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1231
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1207
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1235
 msgid "Konto anlegen"
 msgstr "Создать счёт"
 
@@ -6343,7 +6349,7 @@ msgstr "Продолжительность в часах (например, 24)"
 msgid "Layout"
 msgstr "Раскладка"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:486
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:487
 msgid "Legal Hold aktiv -- Löschung darf nicht ausgeführt werden."
 msgstr ""
 "Активна юридическая блокировка (Legal Hold) -- удаление выполнить нельзя."
@@ -6455,8 +6461,8 @@ msgstr "Удаление отклонено"
 msgid "Löschung ausgeführt"
 msgstr "Удаление выполнено"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:153
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:308
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:154
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:309
 msgid "Löschung beantragen"
 msgstr "Запросить удаление"
 
@@ -6472,7 +6478,7 @@ msgstr "Удаление запрошено"
 msgid "Löschung des Beitragsinhalts beantragen (Art. 17 DSGVO)"
 msgstr "Запросить удаление содержимого записи (ст. 17 GDPR)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:456
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:457
 msgid "Löschung endgültig ausführen"
 msgstr "Окончательно выполнить удаление"
 
@@ -6480,11 +6486,11 @@ msgstr "Окончательно выполнить удаление"
 msgid "Löschung genehmigt"
 msgstr "Удаление одобрено"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:408
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:409
 msgid "Löschung wurde ausgeführt."
 msgstr "Удаление выполнено."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:330
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:331
 msgid "Löschung wurde beantragt."
 msgstr "Удаление запрошено."
 
@@ -6711,7 +6717,7 @@ msgid "Meldungen"
 msgstr "Жалобы"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:787
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:895
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:899
 msgid "Meritokratische Vote eröffnen"
 msgstr "Открыть меритократическое голосование"
 
@@ -6809,7 +6815,7 @@ msgstr "Добавить участника"
 msgid "Mitglied nicht aktiv"
 msgstr "Участник неактивен"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:638
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:639
 msgid "Mitglied selbst"
 msgstr "Сам участник"
 
@@ -7055,7 +7061,7 @@ msgid "Nein"
 msgstr "Нет"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:878
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:855
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:859
 msgid "Nein-Stimmen"
 msgstr "Голоса «против»"
 
@@ -7177,7 +7183,7 @@ msgstr "Новый пароль (не менее %1 символов)"
 msgid "Neues Passwort bestätigen"
 msgstr "Подтвердите новый пароль"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:132
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:139
 msgid ""
 "Neues Passwort erfüllt nicht die Anforderungen (mind. 12, max. 128 Zeichen, "
 "nicht die E-Mail-Adresse)."
@@ -7202,7 +7208,7 @@ msgstr "Создать новую цель трансляции"
 msgid "Nicht festgelegt"
 msgstr "Не задано"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:127
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:134
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusGuard.kt:39
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt:60
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionGuard.kt:42
@@ -7548,7 +7554,7 @@ msgstr ""
 msgid "Ohne Referenz (z. B. Gutschrift)"
 msgstr "Без ссылки (например, для зачисления)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/VoteBallotForm.kt:72
+#: src/jsMain/kotlin/network/lapis/cloud/client/VoteBallotForm.kt:71
 msgid "Option"
 msgstr "Вариант"
 
@@ -7612,6 +7618,7 @@ msgstr "Пассивы"
 msgid "Passivkonto"
 msgstr "Пассивный счёт"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:114
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:85
 #: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:113
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:95
@@ -7824,7 +7831,7 @@ msgstr ""
 msgid "Postversand-Übersicht"
 msgstr "Обзор почтовых рассылок"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1042
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1046
 msgid "Preis: %1 (Vickrey-Zweitpreis)"
 msgstr "Цена: %1 (аукцион Викри, цена второй по величине ставки)"
 
@@ -8015,7 +8022,7 @@ msgid "Rechtlich entfernt"
 msgstr "Удалено по правовым основаниям"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:224
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:556
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:557
 msgid "Rechtsgrundlage: %1"
 msgstr "Правовое основание: %1"
 
@@ -8048,9 +8055,9 @@ msgstr "Показать/скрыть исходные данные"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:687
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:291
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:413
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1054
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1057
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1226
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1058
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1061
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1230
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:151
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:546
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberDirectCreationForm.kt:57
@@ -8160,7 +8167,7 @@ msgstr "Подтвердите корректировочный перевод �
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:900
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAddressAdminDialog.kt:103
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1256
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1260
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:235
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:506
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt:227
@@ -8501,7 +8508,7 @@ msgstr "Заседание «%1» создано."
 msgid "Sitzung (ID)"
 msgstr "Заседание (ID)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:164
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:185
 msgid "Sitzung abgelaufen -- bitte erneut anmelden."
 msgstr "Сессия истекла -- пожалуйста, войдите снова."
 
@@ -8642,7 +8649,7 @@ msgstr "Иная причина (см. произвольный текст)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:471
 #: src/jsMain/kotlin/network/lapis/cloud/client/ContributionReliefLabels.kt:79
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:824
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:965
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:969
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialModerationScreen.kt:382
 msgid "Sonstiges"
 msgstr "Прочее"
@@ -8804,7 +8811,7 @@ msgstr "Докладчик"
 msgid "Staatsangehörigkeit"
 msgstr "Гражданство"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:268
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:269
 msgid "Stand: %1"
 msgstr "Состояние на: %1"
 
@@ -8841,7 +8848,7 @@ msgstr "Стартовая цена (LTR)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceForms.kt:365
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:287
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:373
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:358
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:359
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:437
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:64
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionBoardUi.kt:216
@@ -8856,12 +8863,12 @@ msgstr "Стартовая цена (LTR)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:743
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:883
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:545
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:918
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:922
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:326
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFinancialHistoryScreen.kt:217
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:162
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:128
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:860
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:864
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1026
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1141
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:358
@@ -9059,7 +9066,7 @@ msgid "System"
 msgstr "Система"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:327
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:578
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:579
 msgid "Systemvorgang (kein Akteur hinterlegt)"
 msgstr "Системная операция (исполнитель не указан)"
 
@@ -9090,7 +9097,7 @@ msgstr "Технические и организационные меры (TOM)"
 msgid "Teilnehmende"
 msgstr "Участники"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1000
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1004
 msgid "Teilnehmende: %1"
 msgstr "Участники: %1"
 
@@ -9216,7 +9223,7 @@ msgstr "Устарело -- требуется проверка"
 msgid "Übersicht"
 msgstr "Обзор"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:123
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:124
 msgid ""
 "Übersicht, wie viele Datensätze in welchem Bereich zu Ihrer Person "
 "gespeichert sind, sowie ein vollständiger, maschinenlesbarer Export Ihrer "
@@ -9241,7 +9248,7 @@ msgstr "Перевод отправлен"
 msgid "Üble Nachrede/Verleumdung"
 msgstr "Клевета"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:152
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:173
 msgid "Unbekannter Fehler"
 msgstr "Неизвестная ошибка"
 
@@ -9249,7 +9256,7 @@ msgstr "Неизвестная ошибка"
 msgid "unbekanntes Ziel"
 msgstr "неизвестная цель"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1034
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1038
 msgid ""
 "Unentschieden -- die höchsten beiden Gebotskörbe waren gleich hoch. Kein "
 "Gewinner, keine Belastung; der Antrag wird zurückgestellt (POSTPONED)."
@@ -9264,7 +9271,7 @@ msgstr "Непредвиденная ошибка (HTTP %1): %2"
 msgid "Ungelesene Nachrichten: %1"
 msgstr "Непрочитанные сообщения: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:129
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:136
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusGuard.kt:46
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt:66
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionGuard.kt:51
@@ -9449,7 +9456,7 @@ msgstr "Версии «%1»:"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1726
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1747
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusOpenForm.kt:124
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusOpenForm.kt:126
 msgid "Verstanden"
 msgstr "Понятно"
 
@@ -9544,7 +9551,7 @@ msgstr "Выйти из полноэкранного режима"
 msgid "Vollbildmodus wurde vom Browser abgelehnt."
 msgstr "Браузер отклонил полноэкранный режим."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:139
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:140
 msgid "Vollständigen Datenexport herunterladen (JSON)"
 msgstr "Скачать полный экспорт данных (JSON)"
 
@@ -9588,7 +9595,7 @@ msgstr "До"
 msgid "Vorläufig ablehnen"
 msgstr "Предварительно отклонить"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1218
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1222
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberDirectCreationForm.kt:49
 msgid "Vorläufiges Passwort (mind. %1 Zeichen)"
 msgstr "Временный пароль (не менее %1 символов)"
@@ -9634,32 +9641,32 @@ msgstr "Прекратить членство в правлении"
 msgid "Vortragend: %1"
 msgstr "Докладчик: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:978
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:982
 msgid "Vote"
 msgstr "Голосование"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1097
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1100
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1101
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1104
 msgid "Vote abbrechen"
 msgstr "Отменить голосование"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1107
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1111
 msgid "Vote abgebrochen."
 msgstr "Голосование отменено."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:921
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:925
 msgid "Vote eröffnen"
 msgstr "Открыть голосование"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:929
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:933
 msgid "Vote eröffnet."
 msgstr "Голосование открыто."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1092
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1096
 msgid "Vote geschlossen."
 msgstr "Голосование закрыто."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1087
+#: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1091
 msgid "Vote schließen"
 msgstr "Закрыть голосование"
 
@@ -9856,7 +9863,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:279
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:292
 #: src/jsMain/kotlin/network/lapis/cloud/client/DataSection.kt:151
-#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:132
+#: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:133
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:370
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:66
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningSettingsScreen.kt:70
@@ -9866,8 +9873,8 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:288
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:560
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:312
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1667
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1671
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1675
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:409
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemDialogs.kt:333
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:515
@@ -10057,6 +10064,8 @@ msgstr "Привязка снята."
 msgid "Zuordnung aufheben"
 msgstr "Снять привязку"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:158
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:84
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:166
 #: src/jsMain/kotlin/network/lapis/cloud/client/PasswordResetDeepLinkScreen.kt:41
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:220
@@ -10077,7 +10086,7 @@ msgstr "Отложено (зарезервировано, не использу�
 msgid "Zurücksetzen anfordern"
 msgstr "Запросить сброс"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:93
+#: src/jsMain/kotlin/network/lapis/cloud/client/AuthHttp.kt:109
 msgid "Zurücksetzen fehlgeschlagen."
 msgstr "Сброс не удался."
 
@@ -10086,6 +10095,7 @@ msgstr "Сброс не удался."
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:282
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionBoardUi.kt:221
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionBoardUi.kt:230
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:179
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:541
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:546
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:416
@@ -19701,3 +19711,227 @@ msgstr "Сейчас по этой заявке нельзя принять ре
 
 msgid "Zu diesem Antrag läuft gerade eine Wahl, eine Abstimmung oder ein Konsensieren. Änderungsanträge sind erst danach wieder möglich."
 msgstr "По этой заявке сейчас идут выборы, голосование или консенсус. Поправки снова возможны только после этого."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "Auf dieser Instanz ist kein Mailversand eingerichtet. Adressänderungen für andere Mitglieder sind daher nicht möglich."
+msgstr "На этом экземпляре не настроена отправка почты, поэтому изменение адреса других участников невозможно."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "Die beiden E-Mail-Adressen stimmen nicht überein."
+msgstr "Два адреса электронной почты не совпадают."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "Für dieses Mitglied ist hier keine Adressänderung möglich."
+msgstr "Для этого участника здесь изменение адреса невозможно."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "Das ist bereits die aktuelle E-Mail-Adresse."
+msgstr "Это уже текущий адрес электронной почты."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:1
+msgid "Diese Änderung ist nicht mehr offen -- bitte Ansicht aktualisieren."
+msgstr "Это изменение больше не открыто -- обновите вид."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Dieser Link ist ungültig oder abgelaufen."
+msgstr "Эта ссылка недействительна или срок её действия истёк."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Das Passwort ist nicht korrekt."
+msgstr "Пароль неверный."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Diese E-Mail-Adresse ist inzwischen nicht mehr verfügbar."
+msgstr "Этот адрес электронной почты больше недоступен."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Zu viele Versuche. Bitte versuchen Sie es später erneut."
+msgstr "Слишком много попыток. Повторите позже."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Die Anfrage ist fehlgeschlagen. Bitte versuchen Sie es später erneut."
+msgstr "Запрос не выполнен. Повторите позже."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Neue Adresse für Ihr Konto übernehmen?"
+msgstr "Принять новый адрес для вашей учётной записи?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Diese Adresse bestätigen?"
+msgstr "Подтвердить этот адрес?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Änderung ablehnen?"
+msgstr "Отклонить изменение?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Für Ihr Konto wurde eine neue Anmeldeadresse vorgeschlagen. Zur Bestätigung geben Sie bitte Ihr Passwort ein. Erst danach wird die Adresse geändert."
+msgstr "Для вашей учётной записи предложен новый адрес для входа. Для подтверждения введите пароль. Только после этого адрес будет изменён."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Bitte bestätigen Sie, dass diese E-Mail-Adresse Ihnen gehört. Die Änderung wird nach Ablauf der Warnfrist von 72 Stunden wirksam; bis dahin kann sie über die bisherige Adresse abgelehnt werden."
+msgstr "Подтвердите, что этот адрес электронной почты принадлежит вам. Изменение вступит в силу по истечении 72-часового срока предупреждения; до этого его можно отклонить с прежнего адреса."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Für Ihr Konto wurde eine Änderung der Anmeldeadresse beantragt. Wenn Sie das nicht erwartet haben, lehnen Sie die Änderung hier ab."
+msgstr "Для вашей учётной записи запрошено изменение адреса для входа. Если вы этого не ожидали, отклоните изменение здесь."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Neue Adresse übernehmen"
+msgstr "Принять новый адрес"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Adresse bestätigen"
+msgstr "Подтвердить адрес"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Änderung ablehnen"
+msgstr "Отклонить изменение"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Ihre neue Anmeldeadresse ist jetzt aktiv. Bitte melden Sie sich neu an."
+msgstr "Ваш новый адрес для входа теперь активен. Войдите снова."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Danke, die Adresse ist bestätigt. Die Änderung wird nach Ablauf der Warnfrist wirksam."
+msgstr "Спасибо, адрес подтверждён. Изменение вступит в силу по истечении срока предупреждения."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Danke, die Adresse ist bestätigt und die Änderung ist bereits wirksam. Bitte melden Sie sich neu an."
+msgstr "Спасибо, адрес подтверждён, изменение уже вступило в силу. Пожалуйста, войдите снова."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Die Änderung wurde abgelehnt. Ihre bisherige Adresse bleibt gültig."
+msgstr "Изменение отклонено. Ваш прежний адрес остаётся действительным."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Anmeldeadresse geändert."
+msgstr "Адрес для входа изменён."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Adresse bestätigt."
+msgstr "Адрес подтверждён."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmailChangeDeepLinkScreens.kt:1
+msgid "Änderung abgelehnt."
+msgstr "Изменение отклонено."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "E-Mail-Adresse"
+msgstr "Адрес электронной почты"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "Ihre E-Mail-Adresse ist zugleich Ihre Anmeldeadresse. Eine Änderung wird erst wirksam, wenn Sie sie mit Ihrem Passwort bestätigen -- oder, wenn eine andere Person sie veranlasst hat, nach einer Warnfrist, in der Sie ablehnen können."
+msgstr "Ваш адрес электронной почты одновременно является адресом для входа. Изменение вступает в силу только после подтверждения паролем -- или, если его инициировал кто-то другой, после срока предупреждения, в течение которого вы можете его отклонить."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "Aktuelle Adresse:"
+msgstr "Текущий адрес:"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "Ihre Adresse verwalten Sie über die Anmeldung Ihrer Organisation."
+msgstr "Управлять адресом можно через систему входа вашей организации."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "Für Ihr Konto können Sie die Adresse hier nicht selbst ändern. Wenden Sie sich bitte an den Vorstand."
+msgstr "Адрес своей учётной записи здесь самостоятельно изменить нельзя. Обратитесь в правление."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "Eine neue Anmeldeadresse wurde für Sie vorgeschlagen:"
+msgstr "Вам предложен новый адрес для входа:"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "Übernehmen Sie sie mit Ihrem Passwort -- oder lehnen Sie sie ab, wenn Sie das nicht erwartet haben."
+msgstr "Примите его с помощью пароля -- или отклоните, если вы этого не ожидали."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "Ihre E-Mail-Adresse wurde geändert."
+msgstr "Ваш адрес электронной почты изменён."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "Der Vorschlag wurde abgelehnt."
+msgstr "Предложение отклонено."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "Eine administrative Person hat eine neue Anmeldeadresse veranlasst:"
+msgstr "Администратор инициировал новый адрес для входа:"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "Sie wird frühestens am %1 wirksam -- sofern die neue Adresse bestätigt wurde und Sie nicht ablehnen."
+msgstr "Вступит в силу не ранее %1 -- если новый адрес подтверждён и вы не отклоните его."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "Sie wird wirksam, sobald die neue Adresse bestätigt wurde und Sie nicht ablehnen."
+msgstr "Вступит в силу, как только новый адрес будет подтверждён и вы не отклоните его."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "Die Änderung wurde abgelehnt."
+msgstr "Изменение отклонено."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "E-Mail-Adresse ändern"
+msgstr "Изменить адрес электронной почты"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "Neue E-Mail-Adresse"
+msgstr "Новый адрес электронной почты"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "Neue E-Mail-Adresse wiederholen"
+msgstr "Повторите новый адрес электронной почты"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "Die beiden Adressen stimmen nicht überein."
+msgstr "Два адреса не совпадают."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailCard.kt:1
+msgid "Adresse ändern"
+msgstr "Изменить адрес"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:1
+msgid "Die E-Mail-Adresse ist die Anmeldeadresse des Mitglieds und kann nicht direkt geändert werden. Sie schlagen eine neue Adresse vor: Das Mitglied übernimmt sie mit seinem Passwort -- oder, wo es kein Passwort gibt, wird sie nach Bestätigung der neuen Adresse und einer Warnfrist von 72 Stunden wirksam."
+msgstr "Адрес электронной почты — это адрес участника для входа, его нельзя изменить напрямую. Вы предлагаете новый адрес: участник принимает его с помощью пароля — или, если пароля нет, он вступает в силу после подтверждения нового адреса и 72-часового срока предупреждения."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:1
+msgid "Änderung ausstehend"
+msgstr "Изменение ожидает"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:1
+msgid "Wartet auf die Annahme durch das Mitglied. Der Vorschlag läuft ab am %1."
+msgstr "Ожидает принятия участником. Предложение истекает %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:1
+msgid "Wird frühestens am %1 wirksam."
+msgstr "Вступит в силу не ранее %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:1
+msgid "Wird nach der Warnfrist wirksam."
+msgstr "Вступит в силу по истечении срока предупреждения."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:1
+msgid "Die neue Adresse ist noch nicht bestätigt."
+msgstr "Новый адрес ещё не подтверждён."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:1
+msgid "Änderung zurückgezogen."
+msgstr "Изменение отозвано."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:1
+msgid "Änderung vorschlagen"
+msgstr "Предложить изменение"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:1
+msgid "Notfall ohne Annahme durch das Mitglied"
+msgstr "Экстренный случай без принятия участником"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:1
+msgid "Nur wenn das Mitglied keinen Zugang mehr hat. Die Änderung wird erst nach Bestätigung der neuen Adresse und 72 Stunden wirksam."
+msgstr "Только если у участника больше нет доступа. Изменение вступит в силу лишь после подтверждения нового адреса и через 72 часа."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:1
+msgid "Vorschlag senden"
+msgstr "Отправить предложение"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:1
+msgid "Vorschlag gesendet."
+msgstr "Предложение отправлено."

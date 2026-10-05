@@ -78,7 +78,8 @@ class BadRequestException(
  * never to the browser), and a dedicated client-side catch clause
  * (`network.lapis.cloud.client.MemberAdminGuard.memberAdminGuarded`) that shows a fixed,
  * type-appropriate German toast instead of trying to parse a message that never arrives. Thrown by
- * `network.lapis.cloud.server.rpc.MemberService.updateMemberCoreData` for both the pre-check and
+ * `network.lapis.cloud.server.member.EmailChangeService` (V1.9.56; formerly
+ * `MemberService.updateMemberCoreData`) for both the pre-check and
  * the concurrent-write race backstop (same two-layer uniqueness guard
  * `RegistrationService.createMemberDirect` already establishes for the identical email-uniqueness
  * question).
@@ -482,4 +483,54 @@ class MemberPublicBioNotEligibleException(
 @RpcServiceException
 class MemberPublicBioRateLimitedException(
     override val message: String = "Too many public profile actions",
+) : AbstractServiceException()
+
+/**
+ * Welle V1.9.56 "E-Mail-Änderung absichern" -- distinct types (Kilua RPC transmits only the subclass discriminator, see
+ * [MemberEmailInUseException]). Proposals by a third party (board/admin), the emergency path and the old-address
+ * notice need a working outbound mail transport: without the warning mail to the OLD address no third-party path is
+ * safe. Thrown instead of silently skipping the mail.
+ */
+@RpcServiceException
+class EmailChangeMailUnavailableException(
+    override val message: String = "Outbound mail is not configured -- an address change by another person is not possible",
+) : AbstractServiceException()
+
+/** Welle V1.9.56 -- distinct type. The new address and its repetition differ. */
+@RpcServiceException
+class EmailChangeRepeatMismatchException(
+    override val message: String = "The two new e-mail addresses are not identical",
+) : AbstractServiceException()
+
+/**
+ * Welle V1.9.56 -- distinct type. The requested path is structurally impossible for this target or caller: the
+ * target is the caller itself (proposal / emergency path), a GUEST, DECEASED or anonymized, the e-mail changes
+ * through the identity provider (Keycloak, non-ADMIN), or `MemberService.updateMemberCoreData` was asked to change
+ * the address directly. A pure role violation stays a [ForbiddenException].
+ */
+@RpcServiceException
+class EmailChangeNotAllowedException(
+    override val message: String = "This e-mail change is not allowed for this member",
+) : AbstractServiceException()
+
+/** Welle V1.9.56 -- distinct type. The new address equals the current one. */
+@RpcServiceException
+class EmailChangeAlreadyCurrentException(
+    override val message: String = "The new e-mail address equals the current one",
+) : AbstractServiceException()
+
+/** Welle V1.9.56 -- distinct type. No open change with this id exists for this caller (never says "missing" vs. "foreign"). */
+@RpcServiceException
+class EmailChangePendingNotFoundException(
+    override val message: String = "No such pending e-mail change",
+) : AbstractServiceException()
+
+/**
+ * Welle V1.9.56 -- distinct type (the generic [RateLimitedException] maps to a client toast about the article preview). Thrown
+ * by the address-change service when a proposal budget (per target / per initiator) or the wrong-password budget of a member
+ * is exhausted.
+ */
+@RpcServiceException
+class EmailChangeRateLimitedException(
+    override val message: String = "Too many e-mail change attempts -- try again later",
 ) : AbstractServiceException()

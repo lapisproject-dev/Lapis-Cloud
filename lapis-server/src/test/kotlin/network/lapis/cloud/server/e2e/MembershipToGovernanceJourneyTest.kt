@@ -390,9 +390,6 @@ class MembershipToGovernanceJourneyTest :
                         post("/e2e1/update-address/{memberId}") {
                             MemberService(
                                 call = call,
-                                friendVerificationMailer = FakeFriendVerificationMailer(),
-                                memberCoreDataFriendMailRateLimiter = FederationInboxRateLimiter(),
-                                memberCoreDataFriendMailActorRateLimiter = FederationInboxRateLimiter(),
                                 passwordResetMailer = FakePasswordResetMailer(),
                                 adminPasswordResetNotificationMailer = FakeAdminPasswordResetNotificationMailer(),
                                 smtpConfigState = SmtpConfigState.NotConfigured,

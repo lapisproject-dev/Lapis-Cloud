@@ -7,6 +7,12 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.EmailChangeAlreadyCurrentException
+import network.lapis.cloud.shared.rpc.EmailChangeMailUnavailableException
+import network.lapis.cloud.shared.rpc.EmailChangeNotAllowedException
+import network.lapis.cloud.shared.rpc.EmailChangePendingNotFoundException
+import network.lapis.cloud.shared.rpc.EmailChangeRateLimitedException
+import network.lapis.cloud.shared.rpc.EmailChangeRepeatMismatchException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.InvalidPasswordException
 import network.lapis.cloud.shared.rpc.MemberPhotoConsentOutdatedException
@@ -151,6 +157,18 @@ private fun handleGuardedFailure(e: Throwable) {
         is MemberPublicBioValidationException -> notifyError(tr("Die Kurzvorstellung ist zu lang oder enthält unzulässige Zeichen."))
         is MemberPublicBioRateLimitedException -> notifyError(tr("Zu viele Versuche. Bitte später erneut versuchen."))
         is MemberPublicBioConsentOutdatedException -> notifyError(tr("Der Hinweistext wurde aktualisiert. Bitte erneut bestätigen."))
+        // Welle V1.9.56 "E-Mail-Änderung absichern" -- typed, fixed toasts (Kilua RPC never transmits the server's own message).
+        is EmailChangeMailUnavailableException ->
+            notifyError(
+                tr(
+                    "Auf dieser Instanz ist kein Mailversand eingerichtet. Adressänderungen für andere Mitglieder sind daher nicht möglich.",
+                ),
+            )
+        is EmailChangeRepeatMismatchException -> notifyError(tr("Die beiden E-Mail-Adressen stimmen nicht überein."))
+        is EmailChangeNotAllowedException -> notifyError(tr("Für dieses Mitglied ist hier keine Adressänderung möglich."))
+        is EmailChangeAlreadyCurrentException -> notifyError(tr("Das ist bereits die aktuelle E-Mail-Adresse."))
+        is EmailChangePendingNotFoundException -> notifyError(tr("Diese Änderung ist nicht mehr offen -- bitte Ansicht aktualisieren."))
+        is EmailChangeRateLimitedException -> notifyError(tr("Zu viele Versuche. Bitte später erneut versuchen."))
         else -> {
             val message = e.message?.takeIf { it.isNotBlank() } ?: tr("Unbekannter Fehler")
             if (message.contains("Unauthorized")) {

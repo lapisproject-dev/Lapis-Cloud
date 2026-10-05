@@ -79,9 +79,6 @@ class MemberPhotoStatusLossTest :
                         val service =
                             MemberService(
                                 call = call,
-                                friendVerificationMailer = FakeFriendVerificationMailer(),
-                                memberCoreDataFriendMailRateLimiter = FederationInboxRateLimiter(),
-                                memberCoreDataFriendMailActorRateLimiter = FederationInboxRateLimiter(),
                                 passwordResetMailer = FakePasswordResetMailer(),
                                 adminPasswordResetNotificationMailer = FakeAdminPasswordResetNotificationMailer(),
                                 smtpConfigState = SmtpConfigState.NotConfigured,

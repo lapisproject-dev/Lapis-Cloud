@@ -16,7 +16,6 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.FakeAdminPasswordResetNotificationMailer
-import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.mail.FakePasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.memberbio.PublicProfilesFixtures
@@ -55,9 +54,6 @@ class MemberAdminModerationFlagsTest :
                     val service =
                         MemberService(
                             call = call,
-                            friendVerificationMailer = FakeFriendVerificationMailer(),
-                            memberCoreDataFriendMailRateLimiter = FederationInboxRateLimiter(),
-                            memberCoreDataFriendMailActorRateLimiter = FederationInboxRateLimiter(),
                             passwordResetMailer = FakePasswordResetMailer(),
                             adminPasswordResetNotificationMailer = FakeAdminPasswordResetNotificationMailer(),
                             smtpConfigState = SmtpConfigState.NotConfigured,

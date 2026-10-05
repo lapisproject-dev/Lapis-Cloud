@@ -73,6 +73,35 @@ class MemberAdministrationScreenTest {
         assertFalse(canEditCoreDataOf(AccountRole.ADMIN, row(role = AccountRole.MEMBER, anonymized = true)))
     }
 
+    // ── canProposeEmailChangeOf (V1.9.56) ──
+
+    @Test
+    fun canProposeEmailChangeOf_boardAndAdmin_forAnOrdinaryMember_butNeverMemberTreasurerOrNull() {
+        assertTrue(canProposeEmailChangeOf(AccountRole.BOARD, callerMemberId, row(role = AccountRole.MEMBER)))
+        assertTrue(canProposeEmailChangeOf(AccountRole.ADMIN, callerMemberId, row(role = AccountRole.MEMBER)))
+        assertTrue(canProposeEmailChangeOf(AccountRole.BOARD, callerMemberId, row(role = null)))
+        assertFalse(canProposeEmailChangeOf(AccountRole.MEMBER, callerMemberId, row(role = AccountRole.MEMBER)))
+        assertFalse(canProposeEmailChangeOf(AccountRole.TREASURER, callerMemberId, row(role = AccountRole.MEMBER)))
+        assertFalse(canProposeEmailChangeOf(null, callerMemberId, row(role = AccountRole.MEMBER)))
+    }
+
+    @Test
+    fun canProposeEmailChangeOf_escalatedTarget_isAdminOnly() {
+        listOf(AccountRole.ADMIN, AccountRole.BOARD, AccountRole.TREASURER).forEach { escalatedRole ->
+            assertFalse(canProposeEmailChangeOf(AccountRole.BOARD, callerMemberId, row(role = escalatedRole)), "BOARD vs $escalatedRole")
+            assertTrue(canProposeEmailChangeOf(AccountRole.ADMIN, callerMemberId, row(role = escalatedRole)), "ADMIN vs $escalatedRole")
+        }
+    }
+
+    @Test
+    fun canProposeEmailChangeOf_neverForTheOwnRow_anAnonymizedGuestOrDeceasedMember() {
+        assertFalse(canProposeEmailChangeOf(AccountRole.ADMIN, callerMemberId, row(role = AccountRole.ADMIN, id = callerMemberId)))
+        assertFalse(canProposeEmailChangeOf(AccountRole.ADMIN, callerMemberId, row(anonymized = true)))
+        assertFalse(canProposeEmailChangeOf(AccountRole.ADMIN, callerMemberId, row(status = MemberStatus.GUEST)))
+        assertFalse(canProposeEmailChangeOf(AccountRole.ADMIN, callerMemberId, row(status = MemberStatus.DECEASED)))
+        assertTrue(canProposeEmailChangeOf(AccountRole.ADMIN, callerMemberId, row(status = MemberStatus.FRIEND)))
+    }
+
     // ── canEditRoleOf ──
 
     @Test

@@ -114,6 +114,7 @@ import network.lapis.cloud.server.mail.SmtpAdminPasswordResetNotificationMailer
 import network.lapis.cloud.server.mail.SmtpArticleReviewNotificationMailer
 import network.lapis.cloud.server.mail.SmtpConfig
 import network.lapis.cloud.server.mail.SmtpConfigState
+import network.lapis.cloud.server.mail.SmtpEmailChangeMailer
 import network.lapis.cloud.server.mail.SmtpFinTsReauthNotificationMailer
 import network.lapis.cloud.server.mail.SmtpFriendVerificationMailer
 import network.lapis.cloud.server.mail.SmtpKeycloakLinkNotificationMailer
@@ -128,6 +129,8 @@ import network.lapis.cloud.server.mcp.config.McpConfig
 import network.lapis.cloud.server.mcp.config.McpStartupCheck
 import network.lapis.cloud.server.mcp.ratelimit.McpToolCallRateLimiter
 import network.lapis.cloud.server.mcp.tools.McpToolDispatcher
+import network.lapis.cloud.server.member.EmailChangePoller
+import network.lapis.cloud.server.member.EmailChangeService
 import network.lapis.cloud.server.membermap.MemberMapConfig
 import network.lapis.cloud.server.membermap.MemberMapStartupCheck
 import network.lapis.cloud.server.membermap.PlaceSearchIndex
@@ -173,6 +176,7 @@ import network.lapis.cloud.server.routes.registerDatevRoutes
 import network.lapis.cloud.server.routes.registerDocumentRoutes
 import network.lapis.cloud.server.routes.registerDsgvoRoutes
 import network.lapis.cloud.server.routes.registerDunningRoutes
+import network.lapis.cloud.server.routes.registerEmailChangeRoutes
 import network.lapis.cloud.server.routes.registerEmbedRoutes
 import network.lapis.cloud.server.routes.registerEventCoverRoutes
 import network.lapis.cloud.server.routes.registerEventPublicRoutes
@@ -248,6 +252,7 @@ import network.lapis.cloud.server.rpc.LtrLedgerService
 import network.lapis.cloud.server.rpc.MailingService
 import network.lapis.cloud.server.rpc.McpAccessService
 import network.lapis.cloud.server.rpc.MemberAnniversaryService
+import network.lapis.cloud.server.rpc.MemberEmailChangeService
 import network.lapis.cloud.server.rpc.MemberFamilyService
 import network.lapis.cloud.server.rpc.MemberFinancialHistoryService
 import network.lapis.cloud.server.rpc.MemberHonorService
@@ -328,6 +333,7 @@ import network.lapis.cloud.shared.rpc.ILtrLedgerService
 import network.lapis.cloud.shared.rpc.IMailingService
 import network.lapis.cloud.shared.rpc.IMcpAccessService
 import network.lapis.cloud.shared.rpc.IMemberAnniversaryService
+import network.lapis.cloud.shared.rpc.IMemberEmailChangeService
 import network.lapis.cloud.shared.rpc.IMemberFamilyService
 import network.lapis.cloud.shared.rpc.IMemberFinancialHistoryService
 import network.lapis.cloud.shared.rpc.IMemberHonorService
@@ -724,19 +730,33 @@ internal fun Application.module(
     val friendVerificationMailer: FriendVerificationMailer =
         SmtpFriendVerificationMailer(dispatcher = mailDispatcher, branding = mailBranding)
 
-    // Security fix (2026-08-27, LOW) -- Welle V1.2.12 `MemberService.updateMemberCoreData` mints
-    // the SAME verification-token type as `RegistrationService.registerFriend` above, but had no
-    // rate limiter guarding its own outbound send -- see MemberService constructor KDoc
-    // "memberCoreDataFriendMailRateLimiter" for the full rationale. This is the TARGET-side cap
-    // (per-FRIEND anti-spam protection) -- deliberately tight.
-    val memberCoreDataFriendMailRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 60.minutes)
-
-    // Security fix (2026-08-27, LOW, follow-up) -- SEPARATE actor-side cap, deliberately more
-    // generous than the target-side one above, see MemberService constructor KDoc
-    // "memberCoreDataFriendMailActorRateLimiter" for why a shared cap under both keys silently
-    // suppressed verification mails for a legitimate BOARD caller correcting many different
-    // FRIENDs in one sitting (e.g. after a `MemberCsvImport`).
-    val memberCoreDataFriendMailActorRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 60.minutes)
+    // Welle V1.9.56 "E-Mail-Änderung absichern" -- `MemberService.updateMemberCoreData` no longer changes an address (the
+    // address is the login identity, see EmailChangeService KDoc). The FRIEND verification mail that used to be re-sent
+    // from there is now re-sent after an owner's own change (path A), guarded by the SAME two limiters as before:
+    // the TARGET-side cap (per-FRIEND anti-spam, tight) and a SEPARATE, more generous ACTOR-side cap -- see the
+    // Security fixes of 2026-08-27 in CHANGELOG for why a shared cap under both keys silenced legitimate callers.
+    val emailChangeFriendMailTargetRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 60.minutes)
+    val emailChangeFriendMailActorRateLimiter = FederationInboxRateLimiter(maxRequests = 100, window = 60.minutes)
+    // Welle V1.9.56 -- singletons (MemberEmailChangeService is rebuilt per RPC call, a per-call limiter would limit nothing):
+    // at most 3 proposals per target and 20 per initiator in 24 hours, 5 wrong password attempts per member / per link in
+    // 15 minutes (the per-link count additionally never decays: the fifth wrong password burns the proposal), 20 link requests per IP and hour.
+    val emailChangeProposalTargetRateLimiter = FederationInboxRateLimiter(maxRequests = 3, window = 24.hours)
+    val emailChangeProposalActorRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 24.hours)
+    val emailChangePasswordAttemptRateLimiter = LoginRateLimiter()
+    val emailChangeLinkIpRateLimiter = LoginRateLimiter(maxFailures = 20, window = 60.minutes)
+    val emailChangeMailer = SmtpEmailChangeMailer(dispatcher = mailDispatcher, branding = mailBranding)
+    val emailChangeService =
+        EmailChangeService(
+            smtpConfigState = smtpConfigState,
+            keycloakEnabled = keycloakConfig.enabled,
+            mailer = emailChangeMailer,
+            friendVerificationMailer = friendVerificationMailer,
+            proposalTargetRateLimiter = emailChangeProposalTargetRateLimiter,
+            proposalActorRateLimiter = emailChangeProposalActorRateLimiter,
+            passwordAttemptRateLimiter = emailChangePasswordAttemptRateLimiter,
+            friendMailTargetRateLimiter = emailChangeFriendMailTargetRateLimiter,
+            friendMailActorRateLimiter = emailChangeFriendMailActorRateLimiter,
+        )
 
     // Welle V1.4.9 "Admin-Passwort-Reset" -- TARGET-side cap for sendPasswordResetMailToMember's
     // reset-link mail (Weg 2) ONLY -- see MemberService constructor KDoc
@@ -1088,6 +1108,12 @@ internal fun Application.module(
     val carpoolRetentionPoller = CarpoolRetentionPoller()
     carpoolRetentionPoller.start()
     monitor.subscribe(ApplicationStopping) { carpoolRetentionPoller.stop() }
+
+    // Welle V1.9.56 -- always on: expires overdue address changes, applies confirmed path B0/C changes once their 72 hour
+    // warning period elapsed, purges old resolved rows. Idempotent (status guard under the member lock).
+    val emailChangePoller = EmailChangePoller(service = emailChangeService)
+    emailChangePoller.start()
+    monitor.subscribe(ApplicationStopping) { emailChangePoller.stop() }
 
     // Welle V1.9.15 -- erases raw mailing open/click events after MailingHtmlPolicy.RETENTION_DAYS.
     val mailingTrackingRetentionPoller = MailingTrackingRetentionPoller()
@@ -1670,9 +1696,6 @@ internal fun Application.module(
         ) { call ->
             MemberService(
                 call = call,
-                friendVerificationMailer = friendVerificationMailer,
-                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
-                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
                 passwordResetMailer = passwordResetMailer,
                 adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
                 smtpConfigState = smtpConfigState,
@@ -1683,6 +1706,8 @@ internal fun Application.module(
                 memberAddressAdminReadRateLimiter = memberAddressAdminReadRateLimiter,
             )
         }
+        // Welle V1.9.56 "E-Mail-Änderung absichern" -- the only way to change an existing member's login address.
+        registerService(IMemberEmailChangeService::class) { call -> MemberEmailChangeService(call = call, domain = emailChangeService) }
         registerService(IContributionService::class) { call -> ContributionService(call) }
         registerService(IContributionReliefService::class) { call -> ContributionReliefService(call) }
         // Welle V1.4.11 -- reuses documentStorageRoot with a "travel-expenses/" storage-key
@@ -2087,6 +2112,12 @@ internal fun Application.module(
             passwordResetMailer = passwordResetMailer,
             friendEmailVerifyRateLimiter = friendEmailVerifyRateLimiter,
             keycloakConfig = keycloakConfig,
+        )
+        // Welle V1.9.56 -- the two unauthenticated link endpoints of the address-change lifecycle.
+        registerEmailChangeRoutes(
+            service = emailChangeService,
+            ipRateLimiter = emailChangeLinkIpRateLimiter,
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
         )
         // V1.7.1b "Keycloak als externe Benutzerverwaltung -- Server-Kern".
         registerKeycloakAuthRoutes(

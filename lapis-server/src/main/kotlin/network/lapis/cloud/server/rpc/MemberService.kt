@@ -8,6 +8,7 @@ import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.MemberEmailChangeTable
 import network.lapis.cloud.server.db.generated.MemberFamilyLinkTable
 import network.lapis.cloud.server.db.generated.MemberFamilyTable
 import network.lapis.cloud.server.db.generated.MemberPhotoTable
@@ -17,7 +18,6 @@ import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.AdminPasswordResetNotificationMailer
-import network.lapis.cloud.server.mail.FriendVerificationMailer
 import network.lapis.cloud.server.mail.PasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.isValidMailboxAddress
@@ -28,7 +28,6 @@ import network.lapis.cloud.server.payment.sepa.revokeMandatesForEndedMembership
 import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_ISSUED
 import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_REISSUED
 import network.lapis.cloud.server.security.ESCALATED_ROLES
-import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.MemberVisibility
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
@@ -74,8 +73,6 @@ import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.LastAdminException
 import network.lapis.cloud.shared.rpc.MemberAlreadyHasAccountException
-import network.lapis.cloud.shared.rpc.MemberEmailInUseException
-import network.lapis.cloud.shared.rpc.MemberEmailTooLongException
 import network.lapis.cloud.shared.rpc.MemberHasNoAccountException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.ColumnSet
@@ -91,7 +88,6 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.core.lowerCase
-import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.notInList
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
@@ -107,51 +103,10 @@ private val logger = KotlinLogging.logger {}
 class MemberService(
     private val call: ApplicationCall,
     /**
-     * Review Runde 3 fix -- see [updateMemberCoreData]'s own "resend on address change" comment.
-     * No default value on purpose, same discipline [RegistrationService]'s own
-     * `friendVerificationMailer` constructor parameter KDoc documents: the compiler enforces the
-     * wiring at every `MemberService(...)` call site instead of allowing a silent no-op fallback.
-     */
-    private val friendVerificationMailer: FriendVerificationMailer,
-    /**
-     * Security fix (2026-08-27, LOW) -- see [updateMemberCoreData]'s own "resend on address
-     * change" comment. Without this, an ADMIN/BOARD caller looping this RPC against the SAME
-     * FRIEND target with a caller-chosen address each time could mint unlimited outbound SMTP
-     * sends through the organization's mail domain -- the only OTHER writer of this same
-     * verification-token type, [RegistrationService.registerFriend], is guarded by three separate
-     * limiters (see that class's own constructor KDoc); this call site had none. Reuses
-     * [FederationInboxRateLimiter] (counts every send attempt, not just failures -- the right tool
-     * here, same reasoning [RegistrationService]'s `friendSignupIpRateLimiter` KDoc documents),
-     * checked/recorded under the TARGET member's key so repeatedly correcting the SAME FRIEND
-     * cannot mint unlimited mails to them. No default value on purpose, same discipline
-     * [friendVerificationMailer] above already establishes.
-     *
-     * **Security fix (2026-08-27, LOW, follow-up)** -- this used to be the ONLY limiter, checked
-     * under BOTH the caller's and the target's key with an IDENTICAL cap. A legitimate BOARD
-     * caller correcting many DIFFERENT FRIENDs' e-mail addresses in one sitting (e.g. after a CSV
-     * import, see `MemberCsvImport`) hit the actor-side cap after a handful of corrections and
-     * silently stopped minting verification mails for every subsequent target -- each of those
-     * FRIENDs was left unverified with its OLD token already invalidated and NO path back to
-     * verified for up to the window's duration, which can cost them
-     * `requireLtrEligibleMembership`/`requireConferenceEligibleMembership` in the meantime (see
-     * `updateMemberCoreData`'s own "irreversible state" comment). [memberCoreDataFriendMailActorRateLimiter]
-     * now guards the actor key with its own, deliberately more generous cap -- abuse against a
-     * SINGLE target is still capped by this property's tighter per-target limit regardless of how
-     * generous the actor-side cap is.
-     */
-    private val memberCoreDataFriendMailRateLimiter: FederationInboxRateLimiter,
-    /**
-     * Security fix (2026-08-27, LOW, follow-up) -- see [memberCoreDataFriendMailRateLimiter]'s own
-     * KDoc for why this needs to be a SEPARATE instance with a more generous cap rather than the
-     * SAME instance/cap checked under a second key. No default value on purpose, same discipline
-     * every other rate-limiter constructor parameter on this class already establishes.
-     */
-    private val memberCoreDataFriendMailActorRateLimiter: FederationInboxRateLimiter,
-    /**
      * Welle V1.4.9 "Admin-Passwort-Reset" -- Weg 2 triggers the SAME token-mint-and-mail mechanism
      * as `/api/auth/password-reset/request`, so it reuses the SAME [PasswordResetMailer] instance
      * that endpoint uses (wired once in `Application.kt`), never a second one. No default value on
-     * purpose, same discipline [friendVerificationMailer] already establishes.
+     * purpose, same discipline every other constructor parameter on this class already establishes.
      */
     private val passwordResetMailer: PasswordResetMailer,
     /** Welle V1.4.9 -- Weg 1's password-free security notice to the target member. */
@@ -175,13 +130,13 @@ class MemberService(
      * the IP+email limiter `network.lapis.cloud.server.routes.AuthRoutes` uses for
      * `/api/auth/password-reset/request` -- this is an authenticated path that limiter is never
      * consulted on, and reusing it would let a shared operator IP block genuine self-service resets.
-     * Pattern: [memberCoreDataFriendMailRateLimiter].
+     * Pattern: the per-target / per-actor limiter pair of `network.lapis.cloud.server.member.EmailChangeService`.
      */
     private val adminPasswordMailTargetRateLimiter: FederationInboxRateLimiter,
     /**
      * Welle V1.4.9 -- ACTOR-side cap (50/60min, key `"actor:<callerId>"`) for
      * [sendPasswordResetMailToMember] ONLY, deliberately more generous than the target-side cap
-     * above. Pattern + reasoning: [memberCoreDataFriendMailActorRateLimiter] (an operator resetting
+     * above. Pattern + reasoning: the actor-side cap of `network.lapis.cloud.server.member.EmailChangeService` (an operator resetting
      * many DIFFERENT members' access after a data incident must not go silent after five cases; the
      * target-side cap above remains the actual anti-abuse protection).
      *
@@ -572,6 +527,15 @@ class MemberService(
         }
     }
 
+    /**
+     * Welle V1.9.56 "E-Mail-Änderung absichern" -- corrects the DISPLAY NAME only. The address is the login and
+     * password-reset identity of a member, so it can no longer be rewritten here (a board member or administrator could
+     * otherwise take over any account in two calls: set an address they control, request a password reset). [email] is
+     * still part of the signature (wire compatibility) but is IGNORED: the stored address is never written here, and a
+     * stale value from an admin list loaded before the member changed their own address must not make a pure name
+     * correction fail. To change an address use `IMemberEmailChangeService` (owner with password, or a proposal the
+     * owner accepts, or the emergency path with proof of ownership and a warning period).
+     */
     override suspend fun updateMemberCoreData(
         memberId: String,
         displayName: String,
@@ -586,156 +550,51 @@ class MemberService(
         if (trimmedName.length > MEMBER_DISPLAY_NAME_MAX_LENGTH) {
             throw ConflictException("displayName must be at most $MEMBER_DISPLAY_NAME_MAX_LENGTH characters")
         }
-        val normalizedEmail = email.trim().lowercase()
-        if (!isValidMailboxAddress(normalizedEmail)) throw ConflictException("email is not a valid mailbox address")
-        // MemberTable.email is VARCHAR(320) (V1__baseline.sql line 127) -- reject an overlong but
-        // otherwise well-formed address client-side/server-side here, same reasoning
-        // MEMBER_DISPLAY_NAME_MAX_LENGTH above already applies to displayName. Without this, an overlong
-        // address passes isValidMailboxAddress (which checks syntax, not length) and the pre-check
-        // below (which only tests for a DUPLICATE), then hits the column-length constraint inside
-        // the try block further down -- which today reports that as "email already in use" even
-        // though no address is actually duplicated.
-        // Review Runde 3: a dedicated exception type, not ConflictException -- see
-        // MemberEmailTooLongException's own KDoc for why (the generic client-side conflict toast
-        // was actively misleading for a length problem, "refresh the view" fixes nothing here).
-        if (normalizedEmail.length > MEMBER_EMAIL_MAX_LENGTH) throw MemberEmailTooLongException()
 
         val now = nowLocalDateTime()
-        var emailChanged = false
-        var targetStatus: MemberStatus? = null
-        val result =
-            transaction {
-                val row =
-                    MemberTable
-                        .selectAll()
-                        .where { MemberTable.id eq targetId }
-                        .forUpdate()
-                        .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
-                if (row[MemberTable.anonymizedAt] != null) {
-                    throw ConflictException("Member has been anonymized and can no longer be edited")
-                }
+        return transaction {
+            val row =
+                MemberTable
+                    .selectAll()
+                    .where { MemberTable.id eq targetId }
+                    .forUpdate()
+                    .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
+            if (row[MemberTable.anonymizedAt] != null) {
+                throw ConflictException("Member has been anonymized and can no longer be edited")
+            }
 
-                // Peer-Schutz: a BOARD caller may not edit a fellow ADMIN/BOARD/TREASURER account --
-                // same escalated-role boundary network.lapis.cloud.server.security.ESCALATED_ROLES
-                // already draws for RegistrationService.createMemberDirect.
-                val existingRole = currentAccountRole(targetId)
-                if (existingRole != null && existingRole in ESCALATED_ROLES) current.requireRole(AccountRole.ADMIN)
+            // Peer-Schutz: a BOARD caller may not edit a fellow ADMIN/BOARD/TREASURER account --
+            // same escalated-role boundary network.lapis.cloud.server.security.ESCALATED_ROLES
+            // already draws for RegistrationService.createMemberDirect.
+            val existingRole = currentAccountRole(targetId)
+            if (existingRole != null && existingRole in ESCALATED_ROLES) current.requireRole(AccountRole.ADMIN)
 
-                val alreadyUsedByAnother =
-                    MemberTable
-                        .selectAll()
-                        .where { (MemberTable.email.lowerCase() eq normalizedEmail) and (MemberTable.id neq targetId) }
-                        .count() > 0
-                if (alreadyUsedByAnother) throw MemberEmailInUseException()
-
-                val beforeSnapshot =
-                    MemberChangeSnapshot(
-                        displayNameChanged = false,
-                        emailChanged = false,
-                        status = row[MemberTable.status],
-                        role = existingRole,
-                    )
-                val displayNameChanged = row[MemberTable.displayName] != trimmedName
-                emailChanged = row[MemberTable.email] != normalizedEmail
-                targetStatus = row[MemberTable.status]
-
-                try {
-                    MemberTable.update({ MemberTable.id eq targetId }) {
-                        it[MemberTable.displayName] = trimmedName
-                        it[MemberTable.email] = normalizedEmail
-                        // An ADMIN/BOARD-driven correction changes WHICH mailbox this member is
-                        // reachable at -- any prior FRIEND self-registration verification of the
-                        // OLD address says nothing about ownership of the NEW one, so it must not
-                        // keep counting. Only touched when the address actually changed (a bare
-                        // name correction leaves emailVerifiedAt untouched, same "only when it
-                        // actually changed" guard SessionStore.revokeAllForMember below applies).
-                        if (emailChanged) it[emailVerifiedAt] = null
-                    }
-                } catch (e: ExposedSQLException) {
-                    // Race backstop -- same two-layer uniqueness idiom
-                    // RegistrationService.registerApplication/registerFriend already establish for
-                    // MemberTable's UNIQUE(email): the pre-check above is racy under concurrency on
-                    // its own, the DB constraint is the real backstop.
-                    //
-                    // Security fix (2026-08-27, INFO) -- logged BEFORE converting: this branch used
-                    // to swallow `e` entirely, so any OTHER `ExposedSQLException` here (a future
-                    // CHECK constraint, a deadlock abort, a connection error mid-statement) would
-                    // present to the caller as the same misleading "email already in use" toast
-                    // (see MemberAdminGuard's handler) while leaving zero trace in the server logs.
-                    // The exception class name alone is logged (no message/stacktrace) -- carries no
-                    // PII (the attempted email/name never appear in the class name).
-                    logger.warn { "MemberTable.update failed in updateMemberCoreData: ${e::class.simpleName}" }
-                    throw MemberEmailInUseException()
-                }
-
-                val afterSnapshot =
-                    beforeSnapshot.copy(displayNameChanged = displayNameChanged, emailChanged = emailChanged)
-                AuditLogRecorder.record(
-                    actorMemberId = current.memberId,
-                    actorRole = current.role,
-                    entityType = AuditEntityType.MEMBER,
-                    entityId = targetId,
-                    action = AuditAction.UPDATE,
-                    before = Json.encodeToString(MemberChangeSnapshot.serializer(), beforeSnapshot),
-                    after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
-                    occurredAt = now,
+            val beforeSnapshot =
+                MemberChangeSnapshot(
+                    displayNameChanged = false,
+                    emailChanged = false,
+                    status = row[MemberTable.status],
+                    role = existingRole,
                 )
-                loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
+            val displayNameChanged = row[MemberTable.displayName] != trimmedName
+
+            MemberTable.update({ MemberTable.id eq targetId }) {
+                it[MemberTable.displayName] = trimmedName
             }
-        // The email IS the login identifier -- revoke every live session only when it actually
-        // changed. A bare name correction has no such consequence. Runs AFTER commit, same
-        // placement RegistrationService.leaveMembership/rejectApplication already establish.
-        if (emailChanged) {
-            SessionStore.revokeAllForMember(memberId = targetId)
-            // A verification token minted for the OLD address must not go on verifying the NEW
-            // one -- see emailVerifiedAt-reset comment above. Same "AFTER commit" placement as the
-            // session revocation right above; harmless no-op when no such token exists.
-            FriendEmailVerificationTokenStore.invalidateAllForMember(memberId = targetId)
-            // Review Runde 3 fix -- "irreversible state" finding: invalidating the old token above
-            // (and the emailVerifiedAt reset inside the transaction) correctly replaces "stale
-            // verification" with "no verification", but WITHOUT this, there was no path left back
-            // to "verified" -- FriendEmailVerificationTokenStore.createToken was only ever called
-            // from RegistrationService.registerFriend's own one-time self-registration flow, never
-            // again afterwards, so a FRIEND account corrected by an ADMIN/BOARD would be
-            // PERMANENTLY unable to satisfy requireLtrEligibleMembership/
-            // requireConferenceEligibleMembership once LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION is
-            // enabled -- fixable only by a direct DB write. Only for MemberStatus.FRIEND, mirroring
-            // exactly the ONE status those two guards actually gate on emailVerifiedAt (see
-            // MembershipGuards.kt) -- sending an unsolicited "please confirm your email" mail to an
-            // ACTIVE member, whose membership was never conditioned on this token in the first
-            // place, would just be confusing. Same runCatching-around-a-mail-send discipline
-            // RegistrationService.registerFriend's own send already establishes: a misbehaving
-            // mailer must never turn a successful, already-committed core-data correction into a
-            // failed RPC call.
-            if (targetStatus == MemberStatus.FRIEND) {
-                // Security fix (2026-08-27, LOW) -- rate-limited under BOTH the caller's and the
-                // target's key before minting/sending anything, see
-                // [memberCoreDataFriendMailRateLimiter] KDoc for why. Both checkAndRecord calls
-                // run unconditionally (no short-circuit) so cycling either side alone cannot dodge
-                // the other side's cap. A rate-limited attempt is a silent no-op from the caller's
-                // perspective, same "must never turn a successful, already-committed core-data
-                // correction into a failed RPC call" posture the mail-failure branch below already
-                // establishes -- the core-data edit itself already committed.
-                //
-                // Security fix (2026-08-27, LOW, follow-up) -- actor and target are now checked
-                // against TWO SEPARATE limiter instances (see [memberCoreDataFriendMailActorRateLimiter]
-                // KDoc), not the same shared instance/cap under two keys. A single shared cap made a
-                // legitimate BOARD caller correcting many DIFFERENT FRIENDs in one sitting silently
-                // stop minting verification mails after a handful of corrections -- the actor-side
-                // cap is deliberately more generous, the target-side cap stays tight (the actual
-                // anti-abuse protection against spamming ONE target).
-                val actorAllowed = memberCoreDataFriendMailActorRateLimiter.checkAndRecord("actor:${current.memberId}")
-                val targetAllowed = memberCoreDataFriendMailRateLimiter.checkAndRecord("target:$targetId")
-                if (actorAllowed && targetAllowed) {
-                    val rawToken = FriendEmailVerificationTokenStore.createToken(targetId)
-                    runCatching { friendVerificationMailer.send(email = normalizedEmail, rawToken = rawToken) }
-                        .onFailure { e -> logger.error { "friendVerificationMailer.send threw: ${e::class.simpleName}" } }
-                } else {
-                    logger.warn { "updateMemberCoreData friend-verification mail suppressed by rate limiter (target=$targetId)" }
-                }
-            }
+
+            val afterSnapshot = beforeSnapshot.copy(displayNameChanged = displayNameChanged)
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.MEMBER,
+                entityId = targetId,
+                action = AuditAction.UPDATE,
+                before = Json.encodeToString(MemberChangeSnapshot.serializer(), beforeSnapshot),
+                after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
+                occurredAt = now,
+            )
+            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
         }
-        return result
     }
 
     override suspend fun updateMemberStatus(
@@ -1203,6 +1062,17 @@ class MemberService(
                     .forUpdate()
                     .singleOrNull()
             if (existingAccount != null) throw MemberAlreadyHasAccountException()
+
+            // Welle V1.9.56 -- a still-open address change must not be interleaved with a first login grant: a proposal
+            // made while the member had no account (path B0) would otherwise decide where the NEXT password reset of the
+            // freshly created account goes. Resolve (withdraw / let expire) the change first.
+            if (MemberEmailChangeTable
+                    .selectAll()
+                    .where { (MemberEmailChangeTable.openMemberId eq targetId) }
+                    .count() > 0
+            ) {
+                throw ConflictException("An e-mail address change is pending for this member -- resolve it before granting access")
+            }
 
             // bcrypt (PasswordHasher.hash, ~250ms at BCRYPT_COST=12) runs INSIDE the transaction on
             // purpose: PasswordPolicy.validate needs the member's e-mail, which is only known after

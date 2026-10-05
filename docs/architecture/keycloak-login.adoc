@@ -423,10 +423,13 @@ of what Waves 1-3 deliver:
   Lapis Cloud member email. To cut access for good, change or remove the Keycloak user.
 * **No notification when an automatic link is created.** Only manual link/unlink sends the
   security-notice email, and that mail is best effort (see the security-properties table).
-* **A pre-existing BOARD-level email-change takeover path** (independent of Keycloak in origin: a
-  member email can be changed without proof of control of the new address) is deliberately left
-  unfixed in Wave 2. With Keycloak on, changing a member's email to one a Keycloak user controls can
-  be turned into an automatic-link takeover of that member.
+* **The BOARD-level email-change takeover path is closed (V1.9.56).** It used to be possible to change a
+  member's email without proof of control of the new address and turn that into an automatic-link
+  takeover. The address of an existing member now changes only through `EmailChangeService` (owner
+  with the password, or proof of ownership of the new address plus a 72 hour warning period, see
+  `member-email-change.adoc`). The account link still keys on the CURRENT `member.email`: a pending
+  address never links. In Keycloak mode the local password acceptance is not available to non-ADMIN
+  members, so a change against them always takes the ownership-plus-warning route.
 * **Manual linking is still possible for `BOARD`/`TREASURER`/`ADMIN` targets** (see "Manual linking").
 * **Keycloak setup mistakes are silent for members**: an unverified Keycloak email
   (`EMAIL_NOT_VERIFIED`) or a non-RS256 signing algorithm (`UNKNOWN_KID`) shows the member only the

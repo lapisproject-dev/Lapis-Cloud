@@ -5,12 +5,14 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import network.lapis.cloud.server.db.generated.FriendEmailVerificationTokenTable
 import network.lapis.cloud.server.db.generated.FriendTermsAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.MemberEmailChangeTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.PasswordResetTokenTable
 import network.lapis.cloud.shared.domain.ErasureMode
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
 
 /**
@@ -42,6 +44,13 @@ import kotlin.uuid.Uuid
  *   interest -- hard-deleted just like [PasswordResetTokenTable].
  * - **[FriendEmailVerificationTokenTable]**: same "purely transient access-control artifact" reasoning
  *   as [PasswordResetTokenTable] -- hard-deleted regardless of [ErasureMode].
+ *
+ * **V1.9.56 "E-Mail-Änderung absichern" addition -- [MemberEmailChangeTable]:** a transient access-control artifact
+ * as well (which address change is pending, with token HASHES only), so the member's own rows are hard-deleted in every
+ * [ErasureMode]; rows another member initiated against someone else have `requested_by` nulled when the INITIATOR is
+ * erased (the row belongs to the target). The export carries the pending/proposed address, kind, status and the
+ * timestamps (Art. 15), never a token hash; the free-text reason of an emergency change is included because it is data
+ * about the person. The hash-chained audit log carries no address at all (see `EmailChangeAuditFacts`).
  */
 object RegistrationPersonalData : MemberPersonalDataContributor {
     override val sectionKey = "registration"
@@ -52,6 +61,7 @@ object RegistrationPersonalData : MemberPersonalDataContributor {
             PasswordResetTokenTable,
             FriendTermsAcknowledgmentTable,
             FriendEmailVerificationTokenTable,
+            MemberEmailChangeTable,
         )
 
     override fun exportMember(memberId: Uuid) =
@@ -94,6 +104,30 @@ object RegistrationPersonalData : MemberPersonalDataContributor {
                         }
                 },
             )
+            put(
+                "emailChanges",
+                buildJsonArray {
+                    MemberEmailChangeTable
+                        .selectAll()
+                        .where { MemberEmailChangeTable.memberId eq memberId }
+                        .forEach { row ->
+                            add(
+                                buildJsonObject {
+                                    put("id", row[MemberEmailChangeTable.id].toString())
+                                    put("pendingEmail", row[MemberEmailChangeTable.pendingEmail])
+                                    put("kind", row[MemberEmailChangeTable.kind])
+                                    put("status", row[MemberEmailChangeTable.status])
+                                    put("reason", row[MemberEmailChangeTable.reason])
+                                    put("createdAt", row[MemberEmailChangeTable.createdAt].toString())
+                                    put("expiresAt", row[MemberEmailChangeTable.expiresAt].toString())
+                                    put("effectiveAt", row[MemberEmailChangeTable.effectiveAt]?.toString())
+                                    put("newEmailConfirmedAt", row[MemberEmailChangeTable.newEmailConfirmedAt]?.toString())
+                                    put("resolvedAt", row[MemberEmailChangeTable.resolvedAt]?.toString())
+                                },
+                            )
+                        }
+                },
+            )
         }
 
     override fun eraseMember(
@@ -109,6 +143,9 @@ object RegistrationPersonalData : MemberPersonalDataContributor {
         val friendTermsDeleted = FriendTermsAcknowledgmentTable.deleteWhere { FriendTermsAcknowledgmentTable.memberId eq memberId }
         val friendTokensDeleted =
             FriendEmailVerificationTokenTable.deleteWhere { FriendEmailVerificationTokenTable.memberId eq memberId }
+        // Rows of OTHER members this member initiated (as board member / administrator) stay -- they belong to the target.
+        MemberEmailChangeTable.update({ MemberEmailChangeTable.requestedBy eq memberId }) { it[requestedBy] = null }
+        val emailChangesDeleted = MemberEmailChangeTable.deleteWhere { MemberEmailChangeTable.memberId eq memberId }
 
         return listOf(
             TableErasureOutcome(
@@ -121,6 +158,7 @@ object RegistrationPersonalData : MemberPersonalDataContributor {
             TableErasureOutcome(table = "password_reset_token", rowsDeleted = tokensDeleted),
             TableErasureOutcome(table = "friend_terms_acknowledgment", rowsDeleted = friendTermsDeleted),
             TableErasureOutcome(table = "friend_email_verification_token", rowsDeleted = friendTokensDeleted),
+            TableErasureOutcome(table = "member_email_change", rowsDeleted = emailChangesDeleted),
         )
     }
 }

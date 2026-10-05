@@ -131,30 +131,20 @@ interface IMemberService {
     suspend fun listMembersForAdministration(query: MemberAdminQuery): MemberAdminPageDto
 
     /**
-     * Welle V1.2.12 -- the ADMIN/BOARD editor's "Stammdaten" section: name + email, the two fields
-     * every member row always has regardless of whether it has a login `account` (see
-     * [MemberAdminRowDto.role] KDoc). BOARD/ADMIN only (`isPrivileged`) -- unlike
-     * [updateMemberAddress]/[updateMemberBeneficialOwnerData], this is never self-service; a plain
-     * member edits their own name/email nowhere in this codebase today.
+     * Welle V1.2.12 -- the ADMIN/BOARD editor's "Stammdaten" section. BOARD/ADMIN only (`isPrivileged`) -- unlike
+     * [updateMemberAddress]/[updateMemberBeneficialOwnerData], this is never self-service.
      *
-     * `displayName` is trimmed, rejected if blank or over the `VARCHAR(200)` column width.
-     * `email` is trimmed/lowercased, rejected if malformed, over the `VARCHAR(320)` column width
-     * (throws [MemberEmailTooLongException] -- see that exception's own KDoc for why a distinct
-     * TYPE, not a message, is the only way a client can tell a length problem apart from a
-     * duplicate-address conflict) or already used by a DIFFERENT member -- throws
-     * [MemberEmailInUseException] for that case specifically (never a generic [ConflictException] --
-     * same "distinct type" reasoning). Sessions are revoked
-     * ([network.lapis.cloud.server.security.SessionStore.revokeAllForMember] on the server side) if
-     * and only if the email actually changed -- the email is the login identifier; a bare name
-     * correction has no such consequence. When the email DOES change, `emailVerifiedAt` is also
-     * reset to `null` (a prior FRIEND self-registration verification of the OLD address says nothing
-     * about ownership of the NEW one) and any outstanding email-verification token for this member
-     * is invalidated -- and, ONLY when the target's status is [MemberStatus.FRIEND], a FRESH
-     * verification token is minted and emailed to the NEW address (the one status
-     * `MembershipGuards` actually gates on `emailVerifiedAt`; this call therefore has an OUTBOUND
-     * EMAIL SIDE EFFECT for a FRIEND target's core-data correction). Throws [ForbiddenException] if
-     * the caller is not privileged, [NotFoundException] if `memberId` does not resolve,
-     * [ConflictException] if the target member has been DSGVO-anonymized.
+     * **Welle V1.9.56 "E-Mail-Änderung absichern": this call corrects the DISPLAY NAME only.** The e-mail address is
+     * the login and password-reset identity of a member, so rewriting it directly would let a board member or an
+     * administrator take over any account. [email] stays in the signature (wire compatibility) and must equal the
+     * stored address (trimmed, case-insensitive); anything else throws [EmailChangeNotAllowedException] -- an address
+     * is changed through [IMemberEmailChangeService] (the owner with the password, a proposal the owner accepts, or
+     * the emergency path with proof of ownership of the new address and a 72 hour warning period).
+     *
+     * `displayName` is trimmed, rejected if blank or over the `VARCHAR(200)` column width. Throws
+     * [ForbiddenException] if the caller is not privileged (or, as a BOARD caller, targets a BOARD/TREASURER/ADMIN
+     * account), [NotFoundException] if `memberId` does not resolve, [ConflictException] if the target member has been
+     * DSGVO-anonymized.
      */
     suspend fun updateMemberCoreData(
         memberId: String,

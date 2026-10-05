@@ -64,8 +64,9 @@ class DomainModelMergerTest :
             // 58-regional-chapter.kuml.kts. Welle V1.9.19 "Mitglieder-Foto" -- was 59, now 60 with
             // the addition of 59-member-photo.kuml.kts. Welle V1.9.20 "Öffentliche Seiten" -- was 60,
             // now 61 with the addition of 60-member-public-bio.kuml.kts. Welle V1.9.30 "Umfragen auf
-            // LTR-Basis" -- was 61, now 62 with the addition of 61-poll.kuml.kts.
-            scriptFiles shouldHaveSize 62
+            // LTR-Basis" -- was 61, now 62 with the addition of 61-poll.kuml.kts. Welle V1.9.56 "E-Mail-Aenderung
+            // absichern" -- was 62, now 63 with the addition of 62-member-email-change.kuml.kts.
+            scriptFiles shouldHaveSize 63
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -511,7 +512,10 @@ class DomainModelMergerTest :
             // table names (173 -> 177).
             // Welle V1.9.41 "Konsensieren-Modi in Umfragen" adds ONE more real table to the same script
             // (poll_response_rating), 177 -> 178.
-            val distinctTableNames = 178
+            // Welle V1.9.56 "E-Mail-Aenderung absichern" adds 62-member-email-change.kuml.kts's ONE new real table
+            // (member_email_change), WITH its own cross-domain Member stub (dedups into the already-real member
+            // entity) -- net +1 distinct table name (178 -> 179).
+            val distinctTableNames = 179
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -832,6 +836,8 @@ class DomainModelMergerTest :
                     // counterparts, no new Table file for either stub.
                     "RegionalChapterTable.kt",
                     "RegionalChapterOfficerTable.kt",
+                    // Welle V1.9.56 "E-Mail-Aenderung absichern" -- ONE new real table (member_email_change).
+                    "MemberEmailChangeTable.kt",
                 )
         }
 

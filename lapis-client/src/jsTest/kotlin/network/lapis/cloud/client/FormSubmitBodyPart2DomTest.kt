@@ -238,15 +238,15 @@ class FormSubmitBodyPart2DomTest {
                     openMemberEditorDialog(row(), onChanged = {})
                     val modal = lastModal()
 
-                    // Stammdaten: name / e-mail (two same-typed text fields)
+                    // Stammdaten: the name only -- since V1.9.56 the e-mail is shown read-only (it is the login identity and changes
+                    // only through the proposal section) and is passed through unchanged in its slot.
                     modal.type("Name", "  Amara Neu  ")
-                    modal.type("E-Mail", "  neu@example.org ")
                     modal.button("Stammdaten speichern").click()
                     awaitUntil("updateMemberCoreData", timeoutMs = 600) { calls.toRoute(r.coreData).isNotEmpty() }
                     val core = calls.singleCall(r.coreData)
                     assertEquals("member-5", core.rpcParam(0) as String)
                     assertEquals("Amara Neu", core.rpcParam(1) as String, "the name is trimmed and in its own slot")
-                    assertEquals("neu@example.org", core.rpcParam(2) as String, "the e-mail is trimmed and in its own slot")
+                    assertEquals("amara@example.org", core.rpcParam(2) as String, "the stored e-mail is passed through unchanged")
 
                     // Status: target + death date + reason
                     modal.choose("Neuer Status", "DECEASED")

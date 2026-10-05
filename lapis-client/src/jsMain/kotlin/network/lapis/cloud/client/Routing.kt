@@ -381,6 +381,14 @@ object Routes {
     const val PASSWORD_RESET = "/password-reset"
     const val VERIFY_EMAIL = "/verify-email"
 
+    // Welle V1.9.56 "E-Mail-Änderung absichern" -- the three mail links of an address change, same unguarded
+    // deep-link shape as [PASSWORD_RESET]/[VERIFY_EMAIL]: [CONFIRM_EMAIL] (accept a proposal with the password),
+    // [VERIFY_NEW_EMAIL] (prove the new address) and [REVOKE_EMAIL_CHANGE] (reject, from the OLD address). The
+    // token is read from the hash query, removed from the URL at once and sent by POST only after a click.
+    const val CONFIRM_EMAIL = "/confirm-email"
+    const val VERIFY_NEW_EMAIL = "/verify-new-email"
+    const val REVOKE_EMAIL_CHANGE = "/revoke-email-change"
+
     // Welle V1.2.8 "PSP-Checkout (Stripe)" (GitHub Issue #6) -- reachable by ANY authenticated
     // member, verified against `IPaymentGatewayService.createDonationCheckout` (no `requireRole`
     // call at all, only `resolveCurrentMember`). Same `requireAuth`-not-`requireRole` posture as
@@ -972,6 +980,16 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.VERIFY_EMAIL) {
         show(Routes.VERIFY_EMAIL) { container -> renderVerifyEmailScreen(container, hashQueryParam("token")) }
+    }
+    // Welle V1.9.56 -- unguarded like the two above (a logged-out visitor clicks a mail link).
+    routing.kvOn(Routes.CONFIRM_EMAIL) {
+        show(Routes.CONFIRM_EMAIL) { container -> renderConfirmEmailScreen(container, hashQueryParam("token")) }
+    }
+    routing.kvOn(Routes.VERIFY_NEW_EMAIL) {
+        show(Routes.VERIFY_NEW_EMAIL) { container -> renderVerifyNewEmailScreen(container, hashQueryParam("token")) }
+    }
+    routing.kvOn(Routes.REVOKE_EMAIL_CHANGE) {
+        show(Routes.REVOKE_EMAIL_CHANGE) { container -> renderRevokeEmailChangeScreen(container, hashQueryParam("token")) }
     }
     routing.kvOn(Routes.DONATE) {
         requireAuth(routing) { show(Routes.DONATE, ::renderDonationCheckoutScreen) }

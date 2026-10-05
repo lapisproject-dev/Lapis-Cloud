@@ -1,0 +1,173 @@
+= Changing a member's e-mail address (V1.9.56)
+:toc:
+
+== Purpose
+
+`member.email` is the login identity *and* the password-reset target of a member, and (with Keycloak on) the key that links a Keycloak
+identity to the member. Before V1.9.56 a board member or an administrator could overwrite it in one call
+(`MemberService.updateMemberCoreData`) -- and then request a password reset to the new address. That is an account takeover in two steps
+and needs no proof that the new address belongs to anybody the account owner knows.
+
+V1.9.56 closes it. The address of an existing member now changes only through `EmailChangeService` (`IMemberEmailChangeService` on the
+wire, `V70__member_email_change.sql` for the state). **A third party can never change it immediately.** It takes effect either through
+the *owner's password*, or -- where no password exists -- through *proof of ownership of the new address plus a 72 hour warning period*
+during which the old address is warned and can reject.
+
+NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+== Core rule
+
+*A pending change redirects nothing.* Login, password reset and the Keycloak account link keep reading `member.email` (the CURRENT
+address). The pending address lives only in `member_email_change` until the change is applied. `MemberEmailWriteTripwireTest` scans the
+main source for any other write of `member.email` of an existing member; the allowlist is exactly `EmailChangeStore.applyLocked` plus the
+GDPR anonymization.
+
+== The paths
+
+[cols="1,2,3,3", options="header"]
+|===
+| Path | Who | Takes effect ... | Needs
+| *A* self | the owner, signed in | at once, with the current password | a password account; works without SMTP
+| *B* proposal | BOARD / ADMIN against a member who has a password | when the owner accepts WITH the password (signed in, or through the link to the new address) | SMTP
+| *B0* proposal, no password | BOARD / ADMIN against a member without a usable password (no account, or login managed by Keycloak) | after proof of ownership of the new address *and* 72 hours without rejection | SMTP
+| *C* emergency | ADMIN only, never against oneself, with a reason of 10-500 characters | same as B0, even for a member who has a password | SMTP
+| *D1* reject | anybody with the link in the mail to the OLD address (no sign-in), or the owner signed in | the change ends (`REVOKED`) | --
+| *D2* withdraw | the initiator, or an ADMIN | the change ends (`WITHDRAWN`) | --
+|===
+
+`emailVerifiedAt` follows reality: it is set to "now" only when ownership of the new address was proven (the link to the new address was
+used); an immediate own change (A) and an acceptance inside a session leave it `null`. For a FRIEND (A and B in-session) the existing
+verification mail is re-sent to the new address, under the same two rate limits the old code used.
+
+A new proposal or an own change *supersedes* an open proposal (`SUPERSEDED`); there is at most one open change per member
+(`uq_member_email_change_open`, see below). Further guards: a GUEST, DECEASED or anonymized target is refused, a member can never be the
+target of B/C against themselves, `grantMemberAccount` refuses while a change is open, at most 3 proposals per target and 20 per
+initiator in 24 hours, five wrong passwords per member in 15 minutes (a wrong password through a proposal link counts against both the member and the link; the per-link count never decays, see below).
+
+[source,kuml,name="member-email-change-lifecycle"]
+----
+stateDiagram(name = "Address change, status") {
+    val start = initialState()
+    val pending = state(name = "PENDING")
+    val applied = state(name = "APPLIED")
+    val revoked = state(name = "REVOKED")
+    val withdrawn = state(name = "WITHDRAWN")
+    val expired = state(name = "EXPIRED")
+    val superseded = state(name = "SUPERSEDED")
+    val conflict = state(name = "CONFLICT")
+
+    transition(source = start, target = pending) {
+        trigger = "proposeEmailChange / requestEmailChangeOverride"
+        guard = "[mail configured]"
+    }
+    transition(source = start, target = applied) {
+        trigger = "changeOwnEmail (path A)"
+        guard = "[current password]"
+    }
+    transition(source = pending, target = applied) {
+        trigger = "owner accepts (B) / new address confirmed and 72 h elapsed (B0, C)"
+    }
+    transition(source = pending, target = conflict) { trigger = "address taken by another member in the meantime" }
+    transition(source = pending, target = revoked) { trigger = "reject link (old address) / owner declines" }
+    transition(source = pending, target = withdrawn) { trigger = "initiator or ADMIN withdraws / initiator lost the right" }
+    transition(source = pending, target = expired) { trigger = "7 days without a result / 5 wrong passwords on the link" }
+    transition(source = pending, target = superseded) { trigger = "newer proposal or own change" }
+}
+----
+
+== Bearer tokens
+
+Each open change carries two tokens, both 256 bit (`SecureRandom`, Base64url, 43 characters), stored only as SHA-256 hex hashes
+(`confirm_token_hash`, `revoke_token_hash`, both UNIQUE). The raw tokens exist as local variables between insert and mail hand-off; they
+never reach a return value, a log line or an audit snapshot (`MemberEmailChangeTokenLeakTripwireTest`). Finishing a change nulls both
+hashes, so a used, rejected, expired or superseded link is dead by construction.
+
+* *Link to the NEW address* (`#/confirm-email?token=...` for B, `#/verify-new-email?token=...` for B0/C): B needs the password in the
+  request body; the ownership-proof links must not carry one. B0/C stamp `new_email_confirmed_at`; the change is applied by the click when
+  the 72 hours are already over, otherwise by the poller.
+* *Link to the OLD address* (`#/revoke-email-change?token=...`): rejects the change, no sign-in.
+
+The links are *POST-only*: opening a link in a mail client (or a link scanner) changes nothing, the client page renders a button, removes
+the token from the URL at once (`history.replaceState`) and sends exactly one POST per click to `POST /api/auth/email-change/confirm`
+or `.../revoke`. The endpoints are same-origin only, never redirect, answer every unusable token (wrong, used, expired, foreign, wrong
+kind) with the same `400 invalid`, and are limited to 20 requests per IP and hour. `400 wrong-password` is returned only for a *valid*
+token; the fifth wrong password on one link burns that change (per-link counter that does not decay with the 15 minute window; it is kept in memory per server instance, so a restart resets it), and every wrong password through the link also counts against the per-member budget.
+
+== Roles
+
+[cols="2,2,2,2,1", options="header"]
+|===
+| Caller \ target | no account / MEMBER role / FRIEND | BOARD / TREASURER | ADMIN | self
+| MEMBER, TREASURER | forbidden | forbidden | forbidden | A only
+| BOARD | B / B0 | forbidden | forbidden | A only
+| ADMIN | B / B0 / C | B / C | B / C | A only
+|===
+
+The server is the only authority; the client only avoids offering an action the server would refuse (`canProposeEmailChangeOf`).
+A TREASURER holds no initiating right: `updateMemberCoreData` was always BOARD/ADMIN only, and this change does not widen that. The
+role of the target is re-read *under the member lock*, and when a change is accepted or applied the initiator's right is checked again
+-- a change whose initiator has since been demoted (or whose requester was erased) is discarded (`WITHDRAWN`) instead of applied.
+
+== Without SMTP
+
+Without `LAPIS_SMTP_*` there is no warning to the old address, so no third-party path is safe: B, B0 and C are refused with a typed
+error (`EmailChangeMailUnavailableException`, no row is written) and the UI shows the button disabled with the reason. *Path A keeps
+working* -- the password is enough. See the operator note below.
+
+== Keycloak
+
+With Keycloak active the local password change is closed for non-ADMIN members (`AuthService.changePassword`), so path A and the
+password acceptance of B are not available to them; the capability call reports `ownChangeAvailable = false` and the UI points to the
+organization's sign-in. A proposal against such a member (or against a member with no password) takes the B0 route (proof of ownership
+plus 72 hours plus warning). `KeycloakAccountLinker` links only through the current `member.email`: a pending address never links, and
+an address that stops matching after a change no longer auto-links (a link that already exists is keyed on the Keycloak subject and is
+unaffected). This replaces the earlier "known limitation" of `keycloak-login.adoc`.
+
+== Audit and GDPR
+
+* *No address in the audit log.* The audit log is hash-chained and cannot be erased; a SHA-256 of a mailbox address can be reversed by
+  dictionary, so even a hash would defeat Art. 17. Each lifecycle event is one `MEMBER`/`UPDATE` entry carrying `EmailChangeAuditFacts`
+  (`event`, `kind`, `changeId`, `linkActor` for link events) and `emailChanged = true` only when a change was applied; the reason of an
+  emergency change is stored in the existing `reason` field. Actor: the initiator or owner for authenticated actions, none for link
+  clicks and the poller.
+* The addresses live in the erasable `member_email_change` row. Erasure hard-deletes the member's rows in every `ErasureMode` and nulls
+  `requested_by` where the erased member was the initiator; the export (Art. 15) carries address, kind, status, timestamps and the
+  emergency reason, never a token hash. Resolved rows are deleted by the poller after 180 days -- third-party addresses are not kept
+  indefinitely.
+* The table is part of the whole-organization backup (it is audit-relevant, not excluded).
+
+== The poller
+
+`EmailChangePoller` runs every 15 minutes and is always on: it expires overdue changes (7 days), applies confirmed B0/C changes whose
+72 hours elapsed (then ends all sessions and sends an info mail to the old address), and purges old resolved rows. Every row is handled in
+its own transaction under the member lock with a `status = PENDING` guard, so a repeated or concurrent run is idempotent; it races
+cleanly against withdraw and the link click (see the concurrency scenarios).
+
+== Database
+
+`member_email_change` holds one change from request to resolution. "At most one open change per member" cannot be a partial unique index
+(H2 has none, see V12/V18/V43/V44); the substitute is `open_member_id` -- the member id while `PENDING`, `NULL` otherwise -- with a plain
+`UNIQUE` constraint (several NULLs are legal) and `chk_member_email_change_open` tying the column to the status. Note the explicit
+`IS NOT NULL` in that check: a CHECK that evaluates to UNKNOWN *passes*, so `PENDING AND open_member_id = member_id` alone would have
+let a `PENDING` row with a NULL `open_member_id` through and bypassed the uniqueness. The migration test pins that case on H2 and
+PostgreSQL.
+
+== Operator notes and known limitations
+
+* *Without SMTP* board members and administrators can no longer change another member's address. This is intended. Members change their
+  own address with the password.
+* A member who lost both the password and access to the old address cannot be helped without SMTP -- there is no safe path.
+* After B0 for a member *without a login*, a later `grantMemberAccount` would make the then-current address the reset target;
+  `grantMemberAccount` therefore refuses while a change is open, but an address that became effective earlier stays the contact address.
+* An ADMIN can still take over another ADMIN's account with a temporary password (`setTemporaryPasswordForMember`) -- there is no
+  peer protection between administrators for the password actions. Not part of this change (own wave).
+* The mails carry German and English in one message (members have no language preference).
+* `IAuthService.changePassword` has no rate limit for a wrong current password (own wave); the address-change paths do (per member).
+
+== Tests
+
+`EmailChangeServiceTest` (role matrix, all paths, tokens, duplicates, Keycloak, no-SMTP, audit), `EmailChangeRoutesTest` (link
+endpoints, login / reset behaviour while pending, facade authentication), `EmailChangeConcurrencyTest` and
+`EmailChangeConcurrencyPostgresTest` (races, PostgreSQL lane), `MemberEmailChangeMigrationTest` (+ Postgres, upgrade from V69),
+`EmailChangeIntegrationTest` (Keycloak link, `grantMemberAccount`, GDPR), the two tripwires above, and on the client
+`EmailChangeDeepLinkScreensDomTest`, `MemberEmailCardDomTest`, `MemberEmailChangeProposalDomTest`.

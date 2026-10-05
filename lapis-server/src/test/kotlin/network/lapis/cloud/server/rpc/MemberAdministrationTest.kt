@@ -43,9 +43,7 @@ import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.AdminPasswordResetNotificationMailer
 import network.lapis.cloud.server.mail.FakeAdminPasswordResetNotificationMailer
-import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.mail.FakePasswordResetMailer
-import network.lapis.cloud.server.mail.FriendVerificationMailer
 import network.lapis.cloud.server.mail.PasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpConfig
 import network.lapis.cloud.server.mail.SmtpConfigState
@@ -72,11 +70,11 @@ import network.lapis.cloud.shared.domain.SepaMandateStatus
 import network.lapis.cloud.shared.domain.SepaSequenceType
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.EmailChangeNotAllowedException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.LastAdminException
 import network.lapis.cloud.shared.rpc.MemberAlreadyHasAccountException
 import network.lapis.cloud.shared.rpc.MemberEmailInUseException
-import network.lapis.cloud.shared.rpc.MemberEmailTooLongException
 import network.lapis.cloud.shared.rpc.MemberHasNoAccountException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
@@ -713,7 +711,7 @@ class MemberAdministrationTest :
 
         // ── 10: Kerndaten ──
         test(
-            "updateMemberCoreData: validation, foreign-email conflict, own-email-unchanged ok, normalization, session revoked only on email change",
+            "updateMemberCoreData: name validation, the submitted address is ignored and never written (V1.9.56), sessions untouched",
         ) {
             testApplication {
                 application {
@@ -732,9 +730,10 @@ class MemberAdministrationTest :
                     .status shouldBe
                     HttpStatusCode.Conflict
 
-                // Foreign email already used by b -- MemberEmailInUseException, mapped to Conflict.
-                client.post("/test/core-data/$a?name=Core+A&email=core-b@example.org") { header("X-Member-Id", ADMIN_ID) }.status shouldBe
-                    HttpStatusCode.Conflict
+                // A foreign address (already used by b) is ignored, not written and not a conflict: only the name is corrected.
+                val foreign =
+                    client.post("/test/core-data/$a?name=Core+A&email=core-b@example.org") { header("X-Member-Id", ADMIN_ID) }
+                foreign.status shouldBe HttpStatusCode.OK
 
                 // Own email unchanged -> ok, no session revocation.
                 val session = SessionStore.createSession(a)
@@ -743,16 +742,25 @@ class MemberAdministrationTest :
                 unchanged.status shouldBe HttpStatusCode.OK
                 activeSessionCount(a) shouldBe 1L
 
-                // Email actually changed, normalized -- and it revokes the session.
+                // The stored address compared trimmed and case-insensitively -- still the SAME address, still fine.
+                client
+                    .post(
+                        "/test/core-data/$a?name=Core+A&email=%20%20CORE-A%40EXAMPLE.ORG%20",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe HttpStatusCode.OK
+
+                // A stale or different address (list loaded before the member changed it) never fails a name correction and is never written.
                 val changed =
                     client.post(
-                        "/test/core-data/$a?name=Core+A&email=%20%20CORE-A-NEW%40EXAMPLE.ORG%20",
+                        "/test/core-data/$a?name=Core+A&email=core-a-new%40example.org",
                     ) { header("X-Member-Id", ADMIN_ID) }
                 changed.status shouldBe HttpStatusCode.OK
                 transaction { MemberTable.selectAll().where { MemberTable.id eq a }.single()[MemberTable.email] } shouldBe
-                    "core-a-new@example.org"
-                activeSessionCount(a) shouldBe 0L
-                SessionStore.resolve(session.rawToken) shouldBe null
+                    "core-a@example.org"
+                activeSessionCount(a) shouldBe 1L
+                SessionStore.resolve(session.rawToken) shouldNotBe null
+                transaction { MemberTable.selectAll().where { MemberTable.id eq b }.single()[MemberTable.email] } shouldBe
+                    "core-b@example.org"
             }
         }
 
@@ -1622,9 +1630,9 @@ class MemberAdministrationTest :
             }
         }
 
-        // ── 23: E-Mail-Längenschranke (Review Runde 3) ──
+        // ── 23-25 (V1.9.56): updateMemberCoreData ändert keine Adresse mehr ──
         test(
-            "updateMemberCoreData: an email over MEMBER_EMAIL_MAX_LENGTH (320) is rejected as MemberEmailTooLongException/Conflict, not silently accepted",
+            "updateMemberCoreData: a malformed, overlong or different address is ignored -- the address is never written, only the name is corrected",
         ) {
             testApplication {
                 application {
@@ -1632,120 +1640,49 @@ class MemberAdministrationTest :
                     routing { registerMemberAdminTestRoutes() }
                 }
                 val member = createTestMember("length-target@example.org")
-                // "a".repeat(310) + "@example.org" is syntactically a fine mailbox address (no
-                // control characters, exactly one '@') but 322 characters long -- passes
-                // isValidMailboxAddress (syntax only, see that check's own KDoc "checks syntax, not
-                // length") while still exceeding MemberTable.email's VARCHAR(320).
                 val overlongEmail = "a".repeat(310) + "@example.org"
                 (overlongEmail.length > MEMBER_EMAIL_MAX_LENGTH) shouldBe true
 
-                val response =
-                    client.post("/test/core-data/$member?name=Name&email=$overlongEmail") { header("X-Member-Id", ADMIN_ID) }
-                response.status shouldBe HttpStatusCode.Conflict
-                // Review Runde 4: pin the exception TYPE, not just the shared 409 status code --
-                // installMemberAdminExceptionHandlers below maps MemberEmailInUseException,
-                // MemberHasNoAccountException, LastAdminException AND a plain ConflictException all
-                // to the same Conflict status, so asserting the status alone would stay green if
-                // MemberService.updateMemberCoreData's `throw MemberEmailTooLongException()` were
-                // reverted to a generic `ConflictException(...)` -- exactly the regression this test
-                // exists to catch (see MemberEmailTooLongException's own KDoc: the client-side
-                // MemberAdminGuard needs the TYPE to show the correct, non-misleading toast).
-                response.bodyAsText() shouldBe "email exceeds the maximum length"
-                // Rejected before any write -- the original address is untouched.
+                listOf(overlongEmail, "not-an-address", "other@example.org", "").forEach { attempted ->
+                    val response =
+                        client.post("/test/core-data/$member?name=Name&email=$attempted") { header("X-Member-Id", ADMIN_ID) }
+                    response.status shouldBe HttpStatusCode.OK
+                }
                 transaction { MemberTable.selectAll().where { MemberTable.id eq member }.single()[MemberTable.email] } shouldBe
                     "length-target@example.org"
             }
         }
 
-        // ── 24: emailVerifiedAt-Reset (Review Runde 3) ──
         test(
-            "updateMemberCoreData: emailVerifiedAt is reset to null when the address actually changes, but left untouched by a bare name correction",
+            "updateMemberCoreData: emailVerifiedAt, sessions and verification tokens survive a name correction that carries a different address",
         ) {
             testApplication {
                 application {
                     install(StatusPages) { installMemberAdminExceptionHandlers() }
                     routing { registerMemberAdminTestRoutes() }
                 }
-                val member = createTestMember("verified-active@example.org", status = MemberStatus.ACTIVE)
+                val member = createTestMember("verified-active@example.org", status = MemberStatus.FRIEND)
                 markEmailVerified(member)
-                emailVerifiedAtOf(member) shouldNotBe null
+                val token = FriendEmailVerificationTokenStore.createToken(member)
+                val session = SessionStore.createSession(member)
 
-                // Bare name correction, same email -- emailVerifiedAt must survive untouched, same
-                // "only when it actually changed" guard SessionStore.revokeAllForMember already gets
-                // (test 10 above pins the session-untouched half of that guard; this pins the
-                // emailVerifiedAt half).
                 client
-                    .post(
-                        "/test/core-data/$member?name=Renamed+Only&email=verified-active@example.org",
-                    ) { header("X-Member-Id", ADMIN_ID) }
-                    .status shouldBe
-                    HttpStatusCode.OK
-                emailVerifiedAtOf(member) shouldNotBe null
-
-                // The address itself changes -- must be cleared, an ADMIN/BOARD correction to the
-                // NEW address carries no proof the caller controls it, see updateMemberCoreData's
-                // own "emailChanged" comment.
+                    .post("/test/core-data/$member?name=Renamed+Only&email=verified-active@example.org") { header("X-Member-Id", ADMIN_ID) }
+                    .status shouldBe HttpStatusCode.OK
                 client
                     .post(
                         "/test/core-data/$member?name=Renamed+Only&email=verified-active-new@example.org",
                     ) { header("X-Member-Id", ADMIN_ID) }
-                    .status shouldBe
-                    HttpStatusCode.OK
-                emailVerifiedAtOf(member) shouldBe null
-            }
-        }
+                    .status shouldBe HttpStatusCode.OK
 
-        // ── 25: Verifikations-Token-Invalidierung + Resend (Review Runde 3) ──
-        test(
-            "updateMemberCoreData: a real address change invalidates the OLD verification token AND, for a FRIEND target, mints+sends a fresh one to the NEW address -- but not for an ACTIVE target",
-        ) {
-            testApplication {
-                val recordingMailer = RecordingResendFriendVerificationMailer()
-                application {
-                    install(StatusPages) { installMemberAdminExceptionHandlers() }
-                    routing { registerMemberAdminTestRoutes(mailer = recordingMailer) }
-                }
-
-                // -- FRIEND target: old token invalidated, a new one is minted and sent to the NEW
-                // address, and the NEW token (unlike the old one) actually verifies the member.
-                val friend = createTestMember("friend-resend@example.org", status = MemberStatus.FRIEND)
-                val oldToken = FriendEmailVerificationTokenStore.createToken(friend)
-                FriendEmailVerificationTokenStore.peekMemberId(oldToken) shouldBe friend
-
-                client
-                    .post(
-                        "/test/core-data/$friend?name=Friend+Resend&email=friend-resend-new@example.org",
-                    ) { header("X-Member-Id", ADMIN_ID) }
-                    .status shouldBe
-                    HttpStatusCode.OK
-
-                // Old token is dead -- consumeToken.KDoc "Never throws for an invalid token", peek
-                // just as authoritative for "still usable".
-                FriendEmailVerificationTokenStore.peekMemberId(oldToken) shouldBe null
-                // A NEW token was sent to the NEW address (never the old one, never the raw member
-                // id, see the caught-in-review bug this test would have failed on: the send-site
-                // originally passed the memberId string instead of the normalized email).
-                recordingMailer.sentTo shouldBe listOf("friend-resend-new@example.org")
-
-                // -- ACTIVE target: mailer must NOT fire -- MembershipGuards only ever reads
-                // emailVerifiedAt for MemberStatus.FRIEND (requireLtrEligibleMembership/
-                // requireConferenceEligibleMembership), so an unsolicited "please confirm your
-                // email" mail to an ACTIVE member would just be confusing noise.
-                val active = createTestMember("active-no-resend@example.org", status = MemberStatus.ACTIVE)
-                client
-                    .post(
-                        "/test/core-data/$active?name=Active+NoResend&email=active-no-resend-new@example.org",
-                    ) { header("X-Member-Id", ADMIN_ID) }
-                    .status shouldBe
-                    HttpStatusCode.OK
-                recordingMailer.sentTo shouldBe listOf("friend-resend-new@example.org")
+                emailVerifiedAtOf(member) shouldNotBe null
+                FriendEmailVerificationTokenStore.peekMemberId(token) shouldBe member
+                SessionStore.resolve(session.rawToken) shouldNotBe null
             }
         }
 
         // ── 26: PII-Minimierung im Audit-Log (Security fix 2026-08-27, MAJOR) ──
-        test(
-            "audit: MEMBER before/after snapshot never carries the subject's plaintext displayName/email, only changed-flags",
-        ) {
+        test("audit: MEMBER before/after snapshot never carries the subject's plaintext displayName/email, only changed-flags") {
             testApplication {
                 application {
                     install(StatusPages) { installMemberAdminExceptionHandlers() }
@@ -1755,7 +1692,7 @@ class MemberAdministrationTest :
                 val member = createTestMember("pii-audit-before@example.org", status = MemberStatus.ACTIVE, displayName = original)
                 client
                     .post(
-                        "/test/core-data/$member?name=Pii+Minimierung+Danach&email=pii-audit-after@example.org",
+                        "/test/core-data/$member?name=Pii+Minimierung+Danach&email=pii-audit-before@example.org",
                     ) { header("X-Member-Id", ADMIN_ID) }
                     .status shouldBe
                     HttpStatusCode.OK
@@ -1772,51 +1709,18 @@ class MemberAdministrationTest :
                     }
                 requireNotNull(beforeJson)
                 requireNotNull(afterJson)
-                // Neither the OLD nor the NEW displayName/email plaintext ever reaches the
-                // append-only, hash-chained audit_log_entry row -- an Art. 17 erasure of `member`
-                // must be able to remove every trace of these values, and AuditLogPersonalData.erase
-                // never clears this table's payload (GoBD retention, see that object's KDoc).
+                // Neither the displayName nor the e-mail plaintext ever reaches the append-only, hash-chained
+                // audit_log_entry row -- an Art. 17 erasure of `member` must be able to remove every trace of these
+                // values, and AuditLogPersonalData.erase never clears this table's payload (GoBD retention).
                 listOf(beforeJson, afterJson).forEach { json ->
                     json.contains("Pii Minimierung") shouldBe false
                     json.contains("pii-audit-before@example.org") shouldBe false
-                    json.contains("pii-audit-after@example.org") shouldBe false
                 }
-                // The GoBD-relevant FACT that both fields changed is still recorded, just not the
-                // values themselves.
                 beforeJson.contains("\"displayNameChanged\":false") shouldBe true
                 beforeJson.contains("\"emailChanged\":false") shouldBe true
                 afterJson.contains("\"displayNameChanged\":true") shouldBe true
-                afterJson.contains("\"emailChanged\":true") shouldBe true
-            }
-        }
-
-        // ── 27: Rate-Limit für den Verifikations-Resend (Security fix 2026-08-27, LOW) ──
-        test(
-            "updateMemberCoreData: friend-verification resend mail is rate-limited per actor/target -- the RPC itself never fails when the limiter trips",
-        ) {
-            testApplication {
-                val recordingMailer = RecordingResendFriendVerificationMailer()
-                application {
-                    install(StatusPages) { installMemberAdminExceptionHandlers() }
-                    routing {
-                        registerMemberAdminTestRoutes(
-                            mailer = recordingMailer,
-                            memberCoreDataFriendMailRateLimiter = FederationInboxRateLimiter(maxRequests = 2),
-                        )
-                    }
-                }
-                val friend = createTestMember("rate-limit-friend@example.org", status = MemberStatus.FRIEND)
-                // Three real address changes in a row -- each one WOULD mint+send a fresh
-                // verification mail on its own (see test 25), but the maxRequests=2 limiter above
-                // caps it at 2 sends for this actor/target pair.
-                listOf("rl-1@example.org", "rl-2@example.org", "rl-3@example.org").forEach { newEmail ->
-                    client
-                        .post("/test/core-data/$friend?name=Rate+Limit+Friend&email=$newEmail") {
-                            header("X-Member-Id", ADMIN_ID)
-                        }.status shouldBe
-                        HttpStatusCode.OK
-                }
-                recordingMailer.sentTo.size shouldBe 2
+                // The address is never changed here any more -- the flag stays false.
+                afterJson.contains("\"emailChanged\":false") shouldBe true
             }
         }
 
@@ -3111,7 +3015,7 @@ private fun StatusPagesConfig.installMemberAdminExceptionHandlers() {
     exception<ForbiddenException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Forbidden) }
     exception<NotFoundException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.NotFound) }
     exception<MemberEmailInUseException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
-    exception<MemberEmailTooLongException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
+    exception<EmailChangeNotAllowedException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
     exception<MemberHasNoAccountException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
     exception<MemberAlreadyHasAccountException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
     exception<LastAdminException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
@@ -3124,17 +3028,6 @@ private fun StatusPagesConfig.installMemberAdminExceptionHandlers() {
 }
 
 private fun Route.registerMemberAdminTestRoutes(
-    mailer: FriendVerificationMailer = FakeFriendVerificationMailer(),
-    // ONE instance per `registerMemberAdminTestRoutes()` call, shared across every request handler
-    // below -- same "constructed once, reused across the whole route registration" shape the real
-    // `Application.kt` wiring uses for `memberCoreDataFriendMailRateLimiter`, not a fresh instance
-    // per request (which would make the limiter a permanent no-op in every test).
-    memberCoreDataFriendMailRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(),
-    // Security fix (2026-08-27, LOW, follow-up) -- SEPARATE actor-side limiter, see MemberService
-    // constructor KDoc "memberCoreDataFriendMailActorRateLimiter" for why. A fresh instance by
-    // default, same "no default in production, generous default here" shape the parameter above
-    // already establishes for tests that don't care about this specific rate limit.
-    memberCoreDataFriendMailActorRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(),
     // Welle V1.4.9 "Admin-Passwort-Reset" -- five new parameters, all defaulted so every pre-existing
     // call site above/below stays unaffected. `smtpConfigState` defaults to `NotConfigured` (the
     // realistic default for a test that does not care about mail delivery at all); tests that DO
@@ -3143,7 +3036,7 @@ private fun Route.registerMemberAdminTestRoutes(
     adminPasswordResetNotificationMailer: AdminPasswordResetNotificationMailer = FakeAdminPasswordResetNotificationMailer(),
     smtpConfigState: SmtpConfigState = SmtpConfigState.NotConfigured,
     // ONE instance per `registerMemberAdminTestRoutes()` call, same reasoning as
-    // memberCoreDataFriendMailRateLimiter above.
+    // adminPasswordMailTargetRateLimiter above.
     adminPasswordMailTargetRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(),
     adminPasswordMailActorRateLimiter: FederationInboxRateLimiter = FederationInboxRateLimiter(),
     // Security fix (Welle V1.4.9 review round, MINOR) -- DEDICATED pool for Weg 1's security
@@ -3160,9 +3053,6 @@ private fun Route.registerMemberAdminTestRoutes(
         val service =
             MemberService(
                 call = call,
-                friendVerificationMailer = mailer,
-                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
-                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
                 passwordResetMailer = passwordResetMailer,
                 adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
                 smtpConfigState = smtpConfigState,
@@ -3205,9 +3095,6 @@ private fun Route.registerMemberAdminTestRoutes(
         val service =
             MemberService(
                 call = call,
-                friendVerificationMailer = mailer,
-                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
-                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
                 passwordResetMailer = passwordResetMailer,
                 adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
                 smtpConfigState = smtpConfigState,
@@ -3230,9 +3117,6 @@ private fun Route.registerMemberAdminTestRoutes(
         val service =
             MemberService(
                 call = call,
-                friendVerificationMailer = mailer,
-                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
-                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
                 passwordResetMailer = passwordResetMailer,
                 adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
                 smtpConfigState = smtpConfigState,
@@ -3257,9 +3141,6 @@ private fun Route.registerMemberAdminTestRoutes(
         val service =
             MemberService(
                 call = call,
-                friendVerificationMailer = mailer,
-                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
-                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
                 passwordResetMailer = passwordResetMailer,
                 adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
                 smtpConfigState = smtpConfigState,
@@ -3282,9 +3163,6 @@ private fun Route.registerMemberAdminTestRoutes(
         val service =
             MemberService(
                 call = call,
-                friendVerificationMailer = mailer,
-                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
-                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
                 passwordResetMailer = passwordResetMailer,
                 adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
                 smtpConfigState = smtpConfigState,
@@ -3303,9 +3181,6 @@ private fun Route.registerMemberAdminTestRoutes(
         val service =
             MemberService(
                 call = call,
-                friendVerificationMailer = mailer,
-                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
-                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
                 passwordResetMailer = passwordResetMailer,
                 adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
                 smtpConfigState = smtpConfigState,
@@ -3329,9 +3204,6 @@ private fun Route.registerMemberAdminTestRoutes(
         val service =
             MemberService(
                 call = call,
-                friendVerificationMailer = mailer,
-                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
-                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
                 passwordResetMailer = passwordResetMailer,
                 adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
                 smtpConfigState = smtpConfigState,
@@ -3359,9 +3231,6 @@ private fun Route.registerMemberAdminTestRoutes(
         val service =
             MemberService(
                 call = call,
-                friendVerificationMailer = mailer,
-                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
-                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
                 passwordResetMailer = passwordResetMailer,
                 adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
                 smtpConfigState = smtpConfigState,
@@ -3378,9 +3247,6 @@ private fun Route.registerMemberAdminTestRoutes(
         val service =
             MemberService(
                 call = call,
-                friendVerificationMailer = mailer,
-                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
-                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
                 passwordResetMailer = passwordResetMailer,
                 adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
                 smtpConfigState = smtpConfigState,
@@ -3405,9 +3271,6 @@ private fun Route.registerMemberAdminTestRoutes(
         val service =
             MemberService(
                 call = call,
-                friendVerificationMailer = mailer,
-                memberCoreDataFriendMailRateLimiter = memberCoreDataFriendMailRateLimiter,
-                memberCoreDataFriendMailActorRateLimiter = memberCoreDataFriendMailActorRateLimiter,
                 passwordResetMailer = passwordResetMailer,
                 adminPasswordResetNotificationMailer = adminPasswordResetNotificationMailer,
                 smtpConfigState = smtpConfigState,
@@ -3553,31 +3416,9 @@ private fun runConcurrentMutualAdminStatusWithdraw(
 }
 
 /**
- * Test-only [FriendVerificationMailer] that records every recipient it was asked to send to --
- * same shape as `FriendRegistrationTest.RecordingFriendVerificationMailer` (that one is `private`
- * to its own file, so this is a deliberate, small duplicate rather than a cross-file `internal`
- * export for one test double -- also distinctly named, not just distinctly scoped: Kotlin rejects
- * two file-private top-level CLASSES sharing one simple name in the same package as a
- * `Redeclaration`, unlike file-private top-level properties/functions, which that same-package
- * pattern tolerates). Used by test 25 to assert the Review-Runde-3 resend-on-change fix sends to
- * the NEW address, for a FRIEND target only, and NOT for an ACTIVE target.
- */
-private class RecordingResendFriendVerificationMailer : FriendVerificationMailer {
-    val sentTo = mutableListOf<String>()
-
-    override fun send(
-        email: String,
-        rawToken: String,
-    ): DeliveryStatus {
-        sentTo += email
-        return DeliveryStatus.SENT
-    }
-}
-
-/**
  * Welle V1.4.9 -- records every `(email, rawToken)` pair [network.lapis.cloud.server.rpc.MemberService
  * .sendPasswordResetMailToMember] was asked to send, distinctly named from
- * [RecordingResendFriendVerificationMailer] for the same "no two file-private top-level classes
+ * a prior test mailer for the same "no two file-private top-level classes
  * sharing a simple name" reason that class's own KDoc documents.
  */
 private class RecordingPasswordResetMailer : PasswordResetMailer {

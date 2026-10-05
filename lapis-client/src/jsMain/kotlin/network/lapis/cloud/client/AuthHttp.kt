@@ -29,6 +29,22 @@ private external interface FriendEmailVerifyBody {
     var token: String
 }
 
+private external interface EmailChangeConfirmBody {
+    var token: String
+    var password: String?
+}
+
+private external interface EmailChangeRevokeBody {
+    var token: String
+}
+
+/**
+ * Welle V1.9.56 -- what the two address-change link endpoints answered. Deliberately a small closed set: the server's
+ * own text is never shown (its body is one fixed code word, see `EmailChangeRoutes`), and a network failure is [FAILED],
+ * distinct from a server-side [INVALID].
+ */
+enum class EmailChangeLinkOutcome { OK, CONFIRMED_PENDING, INVALID, WRONG_PASSWORD, UNAVAILABLE, RATE_LIMITED, FAILED }
+
 /**
  * Mirrors `network.lapis.cloud.server.routes.AuthRoutes.kt` 1:1 -- login/logout/password-reset are
  * dedicated HTTP routes, not Kilua RPC (see `IAuthService` KDoc for why: these must be reachable
@@ -103,6 +119,52 @@ object AuthHttp {
         val response = postJson("/api/auth/friend/verify-email", JSON.stringify(body))
         return if (response.ok) null else response.text().await().ifBlank { tr("Bestätigung fehlgeschlagen.") }
     }
+
+    /**
+     * Welle V1.9.56 -- `POST /api/auth/email-change/confirm`. [password] is sent only for a proposal the owner accepts;
+     * the ownership-proof links carry none. Only the status code and the fixed body code word are evaluated.
+     */
+    suspend fun confirmEmailChange(
+        token: String,
+        password: String?,
+    ): EmailChangeLinkOutcome {
+        val body =
+            obj<EmailChangeConfirmBody> {
+                this.token = token
+                if (password != null) this.password = password
+            }
+        return emailChangeOutcome("/api/auth/email-change/confirm", JSON.stringify(body))
+    }
+
+    /** Welle V1.9.56 -- `POST /api/auth/email-change/revoke`, the reject link in the mail to the OLD address. */
+    suspend fun revokeEmailChange(token: String): EmailChangeLinkOutcome {
+        val body = obj<EmailChangeRevokeBody> { this.token = token }
+        return emailChangeOutcome("/api/auth/email-change/revoke", JSON.stringify(body))
+    }
+
+    private suspend fun emailChangeOutcome(
+        url: String,
+        jsonBody: String,
+    ): EmailChangeLinkOutcome =
+        try {
+            val response = postJson(url, jsonBody)
+            when {
+                response.status.toInt() == 202 -> EmailChangeLinkOutcome.CONFIRMED_PENDING
+                response.ok -> EmailChangeLinkOutcome.OK
+                response.status.toInt() == 429 -> EmailChangeLinkOutcome.RATE_LIMITED
+                else ->
+                    when (response.text().await().trim()) {
+                        "invalid" -> EmailChangeLinkOutcome.INVALID
+                        "wrong-password" -> EmailChangeLinkOutcome.WRONG_PASSWORD
+                        "unavailable" -> EmailChangeLinkOutcome.UNAVAILABLE
+                        else -> EmailChangeLinkOutcome.FAILED
+                    }
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            EmailChangeLinkOutcome.FAILED
+        }
 
     private suspend fun postJson(
         url: String,

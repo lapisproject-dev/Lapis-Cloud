@@ -562,6 +562,13 @@ legal counsel — not something this project can decide once for everyone. See `
   silently drop outbound connections on SMTP ports (25/465/587) regardless of local firewall
   configuration — a correct `LAPIS_SMTP_*` configuration and a genuinely reachable relay are two
   separate things to confirm.
+* **Changing a member's e-mail address needs outbound mail (V1.9.56).** The address is the login
+  identity, so it no longer changes in one call: members change their own with the password (works
+  without SMTP); a board member or administrator *proposes* a change that the member accepts with the
+  password -- or, for a member without a usable password and on the administrator's emergency path,
+  that takes effect after proof of ownership of the new address and a 72 hour warning period in which
+  the old address can reject. Without `LAPIS_SMTP_*` those third-party paths are refused (the UI shows
+  why). See `docs/architecture/member-email-change.adoc`.
 * **FRIEND email verification now has a working delivery path AND a client landing screen (V1.2.3),
   but enforcement is still off.** `MemberStatus.FRIEND` (V0.11.0) is a self-registerable status
   (`/register-friend`, no board approval, no identity check) scoped strictly to video-conference

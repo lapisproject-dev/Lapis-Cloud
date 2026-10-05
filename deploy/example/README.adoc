@@ -749,6 +749,14 @@ deployment with SMTP configured but a stale/default `LAPIS_PUBLIC_BASE_URL` send
 containing unusable `http://localhost:8080` links -- `SmtpStartupCheck` logs a `WARN` for exactly
 this case, but only a WARN, not a startup failure (an operator can legitimately be mid-migration).
 
+**Without SMTP, board members and administrators cannot change another member's e-mail address (V1.9.56).**
+The address is the login identity: a change by a third party needs a warning mail to the OLD address
+(with a reject link) and a confirmation mail to the NEW one, so `proposeEmailChange` and
+`requestEmailChangeOverride` are refused with a typed error when no `LAPIS_SMTP_*` is configured (and the
+roster dialog shows the button disabled). Members still change their OWN address with their password --
+no mail needed. If your deployment has no SMTP yet, tell the board before deploying V1.9.56; see
+`docs/architecture/member-email-change.adoc`.
+
 `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` (see `network.lapis.cloud.server.rpc.FriendRegistrationConfig`
 KDoc) stays on its default `false` regardless of whether SMTP is configured -- activating hard
 enforcement is a separate, later operational decision, not automatically flipped by this wave.

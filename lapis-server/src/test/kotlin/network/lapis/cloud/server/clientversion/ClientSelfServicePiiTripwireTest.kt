@@ -21,6 +21,11 @@ private val SELF_SERVICE_FILES =
         "EventRefundsSection.kt",
         "MemberEventPaymentUi.kt",
         "AuditMarkerLabels.kt",
+        // V1.9.56 "E-Mail-Änderung absichern": the member's own address and password, the mail-link token, and the (masked) address of
+        // someone else's pending change.
+        "MemberEmailCard.kt",
+        "MemberEmailChangeProposal.kt",
+        "EmailChangeDeepLinkScreens.kt",
     )
 
 private val SOURCES =
@@ -32,7 +37,7 @@ private fun codeLines(file: File): List<String> =
 
 private fun sourceOf(name: String): File = SOURCES.walkTopDown().first { it.isFile && it.name == name }
 
-private val PII_FIELDS = "street|postalCode|city|country|dateOfBirth|nationality|memberNumber"
+private val PII_FIELDS = "street|postalCode|city|country|dateOfBirth|nationality|memberNumber|newEmail|pendingEmail|newEmailMasked|email"
 
 class ClientSelfServicePiiTripwireTest :
     FunSpec({
@@ -83,6 +88,31 @@ class ClientSelfServicePiiTripwireTest :
                 Regex("""(?:window\.location|\bhistory\.|URLSearchParams|navigateTo\(|\.assign\()[^\n]*\b(?:$PII_FIELDS)\b""")
             piiInUrl.containsMatchIn("""window.location.assign("/x?city=" + dto.city)""") shouldBe true
             piiInUrl.containsMatchIn("""window.location.assign(url)""") shouldBe false
+        }
+
+        test("V1.9.56: the address-change screens keep the mail-link token out of toasts, logs, storage and any URL helper") {
+            val tokenSink =
+                Regex(
+                    """(?:notify\w*|toast\w*)\([^)]*\btoken\b|\bconsole\.[^\n]*\btoken\b|(?:localStorage|sessionStorage)[^\n]*\btoken\b""",
+                )
+            val tokenInUrl = Regex("""(?:window\.location|\bhistory\.|URLSearchParams|navigateTo\(|\.assign\()[^\n]*\btoken\b""")
+            val findings =
+                listOf("EmailChangeDeepLinkScreens.kt", "AuthHttp.kt").flatMap { name ->
+                    codeLines(sourceOf(name))
+                        .filter { tokenSink.containsMatchIn(it) || tokenInUrl.containsMatchIn(it) }
+                        .map { "$name: ${it.trim()}" }
+                }
+            findings shouldBe emptyList()
+            tokenSink.containsMatchIn("""notifyError(token)""") shouldBe true
+            tokenInUrl.containsMatchIn("""window.location.hash = "#/x?token=" + token""") shouldBe true
+            tokenInUrl.containsMatchIn("""window.history.replaceState(null, "", "#${'$'}route")""") shouldBe false
+        }
+
+        test("V1.9.56: the new address-change screens are part of the scanned set and the scanner finds them") {
+            listOf("MemberEmailCard.kt", "MemberEmailChangeProposal.kt", "EmailChangeDeepLinkScreens.kt").forEach { name ->
+                (name in SELF_SERVICE_FILES) shouldBe true
+                sourceOf(name).isFile shouldBe true
+            }
         }
 
         test("the detector sees what it is meant to see") {
