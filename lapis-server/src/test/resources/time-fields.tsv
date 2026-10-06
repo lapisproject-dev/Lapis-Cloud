@@ -801,3 +801,8 @@ dto:MemberCountPointDto.periodEnd	D	calendar date (LocalDate); never converted
 dto:MemberCountHistoryDto.earliestDate	D	calendar date (LocalDate); never converted
 dto:MemberCountHistoryDto.today	D	calendar date (LocalDate); never converted
 dto:MemberCountHistoryDto.reconstructedBefore	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:EncounterSpaceDto.openedAt	A	EncounterSpaceService.openSpace: the session's conference_room.created_at, stamped by the server clock (DbClock); stored and sent as UTC
+col:EncounterSpaceTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EncounterSpaceTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EncounterSpaceTable.archivedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EncounterConsentAcknowledgmentTable.acknowledgedOn	D	EncounterSpaceService.recordConsent: OrganizationTimeZone.today() -- a DATE on purpose, never a timestamp (Art. 9: no time of attendance)

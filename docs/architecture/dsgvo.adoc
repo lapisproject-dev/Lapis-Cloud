@@ -416,6 +416,30 @@ correct them without a blind form.
 registrations and `refundMarkedCount` (how often the member marked a refund as a board member). Erasure keeps `refund_marked_by` as an FK anchor with
 a written reason (a GoBD-relevant payment event must stay traceable), like `invoice_issued_by`. See `member-events.adoc`.
 
+== Gathering room / encounter space (V1.9.61, wave B1)
+
+Taking part in a church service can reveal religious belief: a special category of personal data (Art. 9 GDPR). The *encounter space*
+(`docs/architecture/encounter-space.adoc`) therefore keeps **no lasting record of who attended**, and the Art. 9(2)(a) consent of a non-member is
+stored as an accountability proof that cannot be read as an attendance record. Legal bases are an *assumption* of this wave (explicit consent of
+non-members; members: the performance of the organization's own purposes) and are to be confirmed by the controller.
+
+[cols="2,3,3", options="header"]
+|===
+| Table | Content | Retention, export, erasure
+| `conference_participation` (rows of an encounter session) | who is present *now* | deleted on leave, on close and by the poller; never `left_at`. Export: whatever exists at that moment (nothing after the session). Erasure: nothing to do.
+| `encounter_space_role` | who holds the office PULPIT / STEWARD of a space | exported; **deleted** on erasure (pure office configuration).
+| `encounter_space` | title, theme, entry policy, archive state | organization configuration; `created_by_member_id` is retained with the reason on erasure (the member row is anonymized, never deleted).
+| `encounter_consent_acknowledgment` | (member, consent version, hash, **date**) -- no room, no space, no time | kept as accountability proof (Art. 5(2), 7(1)); exported; retained on erasure with the reason. The retention period is an open legal question.
+| `audit_log_entry` (`ENCOUNTER_SPACE`) | configuration changes and open/close, actor = BOARD/ADMIN or the office holder, `null` for the poller | **never** entering, leaving, presence, removing or silencing -- the log is hash-chained and cannot be erased.
+|===
+
+The contributor is `network.lapis.cloud.server.dsgvo.EncounterSpacePersonalData`. Removed and silenced people of a running session exist only in
+memory (`EncounterModerationState`) and vanish with the session or a restart.
+
+NOTE: *Known limitation.* The **ordinary conference** keeps what the encounter space deliberately does not: `conference_participation` is append-only
+with `left_at`, `listParticipants` shows the history, and `conference_guest_consent_acknowledgment` is written per join. That is unchanged: a formal
+meeting needs its attendance record. An encounter session is fenced off from all of it (`EncounterRoomGuard`).
+
 == Card revocation without a new card (V1.9.33)
 
 "Mitgliedsausweis" on "Meine Daten" lets a member block a lost card (`IMemberService.reissueMemberCard`, the existing RPC; no server code
@@ -455,6 +479,9 @@ start page, which issues one. Kilua RPC transmits only the exception type, so a 
   *kept* in both erasure modes (`rowsRetained`, with the reason in the outcome) because they hold only a status and an instant, the member row itself is anonymized
   and never deleted, and deleting them would silently rewrite every past member count; the export lists the subject's own rows. There is no `changed_by`
   column, so the log adds no second personal reference. See `docs/architecture/member-status-history.adoc`.
+* `network.lapis.cloud.server.dsgvo.EncounterSpacePersonalData` — the contributor for the three encounter-space tables (Welle V1.9.61): office rows are
+  *deleted*, the space a member created and the consent proof are *retained with the reason*; presence rows are transient and never reach the export of a
+  closed session. See `docs/architecture/encounter-space.adoc`.
 * `docs/architecture/domain-model.adoc` — the wider persistence-model documentation this file
   intentionally does not duplicate (this document is scoped to the DSGVO framework's own shape, not
   the CRM entity's full column-level schema — see `38-crm.kuml.kts` for that).

@@ -6,6 +6,59 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added (V1.9.61, wave B1 "Begegnungsraum", server and data protection -- no client screen yet, that is wave B2)
+
+- **Encounter space** ("Begegnungsraum"): a standing room with a *pulpit* and a listening *congregation* (first theme: a church service), served by the new
+  `IEncounterSpaceService` (`listSpaces`, `getSpace`, `getEntryInfo`, `createSpace`, `updateSpace`, `archiveSpace`, `listSpaceRoles`, `setSpaceRoles`,
+  `openSpace`, `closeSpace`, `enterSpace`, `leaveSpace`, `listPresent`, `removeFromSpace`, `silenceInSpace`). Offices `PULPIT` / `STEWARD` per space
+  (`encounter_space_role`), re-derived from the database on every call (and only while the holder is `ACTIVE`); only an office holder receives a token that may
+  publish, everybody else -- also BOARD/ADMIN without an office -- listens only. Migration **`V73`** (additive): `encounter_space`, `encounter_space_role`,
+  `encounter_consent_acknowledgment`, `conference_room.encounter_space_id`, audit literal `ENCOUNTER_SPACE`. Design and access matrix:
+  `docs/architecture/encounter-space.adoc`, staging test script: `docs/architecture/encounter-space-staging-test.adoc`.
+- `LiveKitAccessToken.mintParticipantToken` takes `canPublish` and `canPublishData` as **required** parameters; the ordinary conference passes `true, true`
+  (token unchanged).
+- `ConferenceModeratorAuthority`: one shared "may this caller moderate this room" for the six conference services (ordinary room: creator or BOARD/ADMIN, as
+  before; encounter session: `ACTIVE` office holder or BOARD/ADMIN).
+- `EncounterSpacePoller` (start + every 60 s): deletes orphaned presence rows, closes sessions whose LiveKit room is gone or older than 12 hours, disconnects
+  removed people who reconnected, retries LiveKit room deletions.
+- Glossary entry and seven catalog translations for "Begegnungsraum" (the audit-log label of the new entity type).
+
+### Security (V1.9.61)
+
+- **The ordinary conference RPC surface cannot touch an encounter session.** `ConferenceService.joinRoom` and `ConferenceBreakoutService.rejoinMainRoomToken`
+  would have minted a token with `canPublish = true` for any `ACTIVE` member; with a congregation member able to ask for such a token the "listen only" form
+  would be worthless. `EncounterRoomGuard` is the first statement of every room-id method of the six conference services (and of
+  `requireRoomEntryAuthorization`); `EncounterRoomGuardTripwireTest` fails the build when a new room-id method misses it. Recording, breakout rooms, shared notes,
+  whiteboard and `listParticipants` (the participant history) are refused for encounter sessions; an external stream may only show the pulpit.
+- **Art. 9 GDPR -- no lasting trace of who attended a service.** The presence row exists only while the person is in the room (deleted on leave, on close, by the
+  poller); no `left_at`; the legacy guest-consent table is never written; the audit log gets only configuration changes and open/close, never entering, leaving,
+  removing or silencing; the consent proof of a non-member carries a *date*, no time and no room; moderation state (removed / silenced people) is memory-only.
+  `EncounterPrivacyWatchTest` and `EncounterPrivacyTripwireTest` pin this.
+- `ConferenceStreamingService.listStreamTargets` additionally admits an `ACTIVE` office holder of an encounter space.
+
+### Operator note (V1.9.61)
+
+- **Run `./gradlew :lapis-server:flywayRepair` BEFORE deploying this version on PdV, ELB and Staging, and take a backup first.** `V1__baseline.sql`'s still-unnamed
+  inline CHECK on `audit_log_entry.entity_type` was widened in place by `ENCOUNTER_SPACE` (the exact precedent of V59/V60/V65: on H2 that unnamed constraint
+  cannot be dropped by name and governs every fresh database; on PostgreSQL it is replaced by `V73`'s named constraint). Flyway therefore sees a checksum
+  mismatch for the applied V1 on an existing instance. No data changes. **This differs from the plan of the wave, which assumed V1 stays untouched**; the
+  alternative without a repair is to write the encounter audit entries under the existing literal `CONFERENCE_ROOM`.
+- `V73` is otherwise additive and runs automatically. No new environment variable.
+
+### Known limitations (V1.9.61)
+
+- **LiveKit's behaviour for `canPublish = false` is not verified against a live instance** (`hidden` is not used); the staging test script is written, not run.
+- **The ordinary conference keeps its lasting records** (`conference_participation` with `left_at`, `conference_guest_consent_acknowledgment`, the participant
+  history of `listParticipants`) -- deliberately unchanged (attendance proof for formal meetings, see `docs/architecture/dsgvo.adoc`).
+- The congregation is limited to the instance maximum (25) minus 2 reserved places for office holders, at most 20 non-members; no load test.
+- Removed and silenced people are kept **in memory only**: lost on a server restart. A removed person's still-valid token can reconnect to LiveKit directly for
+  up to the poller period (60 s); a silenced person's old token keeps its data channel until it expires or they reconnect (silencing a connected sender needs
+  a new LiveKit admin call, stage 2).
+- No client before wave B2. The Art. 9 consent text is a **draft** and needs legal review; the retention of the consent proof and whether the audit entry of
+  `setSpaceRoles` should name the office holders (as now) or only count them are open questions.
+- LiveKit and Docker logs are not rotated (an operations task); LiveKit logs participant identities at INFO.
+- The translations of the one new catalog entry for es/fr/it/nl/pl/ru were written by the agent and not reviewed by a native speaker.
+
 ## [0.29.0] — 2026-10-06
 
 Release summary (the detail is in the sections below, grouped by wave V1.9.50 -- V1.9.60):

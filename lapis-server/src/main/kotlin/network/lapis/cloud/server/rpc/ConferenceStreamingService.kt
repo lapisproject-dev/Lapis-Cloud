@@ -18,6 +18,8 @@ import network.lapis.cloud.server.db.generated.ConferenceStreamDestinationTable
 import network.lapis.cloud.server.db.generated.ConferenceStreamTable
 import network.lapis.cloud.server.db.generated.ConferenceStreamTargetTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
+import network.lapis.cloud.server.encounter.EncounterRoles
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.federation.isIpv6UniqueLocalAddress
 import network.lapis.cloud.server.security.CurrentMember
@@ -39,6 +41,7 @@ import network.lapis.cloud.shared.domain.ConferenceStreamStatus
 import network.lapis.cloud.shared.domain.ConferenceStreamTargetDto
 import network.lapis.cloud.shared.domain.ConferenceStreamTargetStatus
 import network.lapis.cloud.shared.domain.ConferenceStreamTargetStatusDto
+import network.lapis.cloud.shared.domain.EncounterSpaceRole
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -483,11 +486,14 @@ class ConferenceStreamingService(
                 val ownsAnyRoom =
                     ConferenceRoomTable
                         .selectAll()
-                        .where { ConferenceRoomTable.createdByMemberId eq current.memberId }
-                        .limit(
+                        .where {
+                            (ConferenceRoomTable.createdByMemberId eq current.memberId) and
+                                ConferenceRoomTable.encounterSpaceId.isNull()
+                        }.limit(
                             1,
                         ).any()
-                if (!ownsAnyRoom) throw ForbiddenException()
+                // V1.9.61: an ACTIVE office holder of an encounter space may pick targets too (the stream itself is re-checked per room).
+                if (!ownsAnyRoom && !EncounterRoles.isOfficerOfAnySpace(memberId = current.memberId)) throw ForbiddenException()
             }
             ConferenceStreamDestinationTable
                 .selectAll()
@@ -554,6 +560,7 @@ class ConferenceStreamingService(
                     throw ConflictException("Conference room $roomUuid has already ended -- cannot start a stream")
                 }
                 requireModeratorOrPrivileged(room = room, current = current)
+                requireEncounterStreamIsPulpitOnly(room = room, layout = layout, participantIdentity = participantIdentity)
 
                 // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- hard-wired,
                 // never disableable via the UI (Konzeptnotiz): a room bound to a Sitzung with a
@@ -1242,7 +1249,8 @@ class ConferenceStreamingService(
             // who is actually in the room (allowFederationGuests + has joined) can see the stream
             // badge too -- "everyone in the room has a legal right to know" applies to a guest
             // exactly as much as to an ACTIVE member. See requireRoomEntryAuthorization KDoc.
-            val status = requireRoomEntryAuthorization(roomRow = room, current = current)
+            // allowEncounterRoom: the "a stream is running" badge stays visible to everybody in an encounter session (legal right to know).
+            val status = requireRoomEntryAuthorization(roomRow = room, current = current, allowEncounterRoom = true)
             requireGuestHasJoinedRoom(roomId = roomUuid, current = current, status = status)
             val row =
                 ConferenceStreamTable
@@ -1349,8 +1357,26 @@ class ConferenceStreamingService(
         room: ResultRow,
         current: CurrentMember,
     ) {
-        val isCreator = room[ConferenceRoomTable.createdByMemberId] == current.memberId
-        if (!isCreator && !current.isPrivileged) throw ForbiddenException()
+        // V1.9.61: delegates to the shared authority (ordinary room: creator or BOARD/ADMIN, as before; encounter session: office holders
+        // or BOARD/ADMIN).
+        ConferenceModeratorAuthority.requireModerator(row = room, current = current)
+    }
+
+    /**
+     * V1.9.61 -- a stream of an ENCOUNTER session may only ever show the pulpit: layout `SINGLE_PARTICIPANT` on an ACTIVE PULPIT office
+     * holder. The congregation therefore never reaches the (public) external platform. No-op for an ordinary room.
+     */
+    private fun requireEncounterStreamIsPulpitOnly(
+        room: ResultRow,
+        layout: ConferenceStreamLayout,
+        participantIdentity: String?,
+    ) {
+        val spaceId = room[ConferenceRoomTable.encounterSpaceId] ?: return
+        if (layout != ConferenceStreamLayout.SINGLE_PARTICIPANT) {
+            throw ConflictException("A stream of an encounter space may only show the pulpit (layout SINGLE_PARTICIPANT)")
+        }
+        val pulpitId = participantIdentity?.let { runCatching { Uuid.parse(it) }.getOrNull() } ?: throw ForbiddenException()
+        if (EncounterRoles.roleOf(spaceId = spaceId, memberId = pulpitId) != EncounterSpaceRole.PULPIT) throw ForbiddenException()
     }
 
     private fun validateRtmpUrl(url: String) {

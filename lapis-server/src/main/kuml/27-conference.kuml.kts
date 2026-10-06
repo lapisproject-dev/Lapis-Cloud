@@ -120,6 +120,17 @@ classDiagram(name = "Conference") {
         }
     }
 
+    // Id-only stub, added V1.9.61 "Begegnungsraum" purely so conference_room.encounter_space_id's «Column».fkEntity override resolves
+    // within this single-file evaluation -- same cross-domain-stub pattern the Member/Meeting stubs above establish. The real model
+    // lives in 65-encounter-space.kuml.kts.
+    val encounterSpace = classOf(name = "EncounterSpace") {
+        stereotype("Entity") { "tableName" to "encounter_space"; "kotlinObjectName" to "EncounterSpaceTable" }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
+
     // Literal order is load-bearing: ConferenceSchemaDriftTest (a future step of this wave) asserts
     // ErmDataType.Enum.values in exactly this order, matching
     // network.lapis.cloud.shared.domain.ConferenceRole.
@@ -132,6 +143,7 @@ classDiagram(name = "Conference") {
         stereotype("Entity") { "tableName" to "conference_room"; "kotlinObjectName" to "ConferenceRoomTable" }
         stereotype("Index") { "columns" to listOf("created_by_member_id"); "name" to "idx_conference_room_created_by" }
         stereotype("Index") { "columns" to listOf("ended_at"); "name" to "idx_conference_room_ended_at" }
+        stereotype("Index") { "columns" to listOf("encounter_space_id"); "name" to "idx_conference_room_encounter_space" }
         // Wave 9 "Stream-Pause bei geheimen Abstimmungen" addition -- see file header "Wave 9
         // addition".
         stereotype("Index") { "columns" to listOf("meeting_id"); "name" to "idx_conference_room_meeting" }
@@ -207,6 +219,13 @@ classDiagram(name = "Conference") {
         attribute(name = "meetingId", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "meeting_id"; "fkEntity" to "Meeting" }
+        }
+        // V1.9.61 "Begegnungsraum" addition -- V73. NULL for every ordinary conference room. Non-NULL marks the room as ONE SESSION of an
+        // encounter space: different authority (office holders instead of the creator), no breakout/recording/notes/whiteboard, no
+        // lasting participation trace -- see docs/architecture/encounter-space.adoc.
+        attribute(name = "encounterSpaceId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "encounter_space_id"; "fkEntity" to "EncounterSpace" }
         }
     }
 

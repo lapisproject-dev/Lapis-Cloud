@@ -53,6 +53,7 @@ private class FakeLiveKitAdminClient : LiveKitAdminClient {
         name: String,
         maxParticipants: Int,
         emptyTimeoutSeconds: Int,
+        departureTimeoutSeconds: Int?,
     ): LiveKitRoomInfo = error("not used by RecordingPoller")
 
     override suspend fun deleteRoom(name: String) = error("not used by RecordingPoller")

@@ -163,6 +163,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.MEMBERSHIP_TIER -> gettext("Mitgliedschaftsstufe")
         // Welle V1.9.30 "Umfragen auf LTR-Basis"
         AuditEntityType.POLL -> gettext("Umfrage")
+        // Welle V1.9.61 "Begegnungsraum"
+        AuditEntityType.ENCOUNTER_SPACE -> gettext("Begegnungsraum")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -262,6 +264,7 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.MEMBERSHIP_TIER -> "warning"
         // Welle V1.9.30 -- a non-binding opinion poll: informational, no money or access rights involved.
         AuditEntityType.POLL -> "info"
+        AuditEntityType.ENCOUNTER_SPACE -> "info"
     }
 
 // ------------------------------------------------------------------------------------------------

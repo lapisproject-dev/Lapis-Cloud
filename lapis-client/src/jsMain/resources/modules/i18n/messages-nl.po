@@ -20185,3 +20185,6 @@ msgstr "Tabel verbergen"
 
 msgid "Mitglieder je Status am Ende des jeweiligen Zeitraums"
 msgstr "Leden per status aan het einde van elke periode"
+
+msgid "Begegnungsraum"
+msgstr "Ontmoetingsruimte"

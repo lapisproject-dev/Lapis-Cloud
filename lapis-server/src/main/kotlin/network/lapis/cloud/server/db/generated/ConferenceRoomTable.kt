@@ -41,6 +41,13 @@ public object ConferenceRoomTable : Table("conference_room") {
      */
     public val meetingId: Column<Uuid?> = optReference("meeting_id", MeetingTable.id)
 
+    /**
+     * V1.9.61 "Begegnungsraum" -- `null` for every ordinary conference room. Non-null marks the row as one SESSION of an encounter
+     * space (see 27-conference.kuml.kts and docs/architecture/encounter-space.adoc). The decisive switch for
+     * network.lapis.cloud.server.encounter.EncounterRoomGuard and ConferenceModeratorAuthority.
+     */
+    public val encounterSpaceId: Column<Uuid?> = optReference("encounter_space_id", EncounterSpaceTable.id)
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 2 index(es) declared on this entity are not emitted --

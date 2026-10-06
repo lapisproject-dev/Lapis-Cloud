@@ -87,6 +87,8 @@ import network.lapis.cloud.server.economy.oracle.PriceOracleStartupCheck
 import network.lapis.cloud.server.economy.oracle.defaultOracleSources
 import network.lapis.cloud.server.embed.EmbedAssets
 import network.lapis.cloud.server.embed.EmbedConfig
+import network.lapis.cloud.server.encounter.EncounterModerationState
+import network.lapis.cloud.server.encounter.EncounterSpacePoller
 import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.events.EventRegistrationSubmission
 import network.lapis.cloud.server.federation.FederationActorKeyProvisioner
@@ -247,6 +249,7 @@ import network.lapis.cloud.server.rpc.DsgvoComplianceService
 import network.lapis.cloud.server.rpc.DsgvoService
 import network.lapis.cloud.server.rpc.DunningService
 import network.lapis.cloud.server.rpc.ElectionService
+import network.lapis.cloud.server.rpc.EncounterSpaceService
 import network.lapis.cloud.server.rpc.EventRoomService
 import network.lapis.cloud.server.rpc.EventService
 import network.lapis.cloud.server.rpc.EventVolunteerService
@@ -330,6 +333,7 @@ import network.lapis.cloud.shared.rpc.IDsgvoComplianceService
 import network.lapis.cloud.shared.rpc.IDsgvoService
 import network.lapis.cloud.shared.rpc.IDunningService
 import network.lapis.cloud.shared.rpc.IElectionService
+import network.lapis.cloud.shared.rpc.IEncounterSpaceService
 import network.lapis.cloud.shared.rpc.IEventRoomService
 import network.lapis.cloud.shared.rpc.IEventService
 import network.lapis.cloud.shared.rpc.IEventVolunteerService
@@ -942,6 +946,18 @@ internal fun Application.module(
     val conferenceBackgroundUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 60.minutes)
     val conferenceBackgroundDecodeSemaphore = Semaphore(permits = 2)
 
+    // Welle V1.9.61 "Begegnungsraum" -- module-scoped singletons, NOT left to EncounterSpaceService's constructor: registerService's
+    // factory lambda constructs a fresh service per RPC call, so any limiter or moderation state created per construction would be
+    // empty on every request (the EncounterSpaceService constructor therefore has no defaults for them). The in-memory moderation state
+    // (blocked / silenced people of a running session) is shared with the EncounterSpacePoller started further below.
+    val encounterModerationState = EncounterModerationState()
+    val encounterListRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+    val encounterEnterRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    val encounterLeaveRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    val encounterOpenCloseRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    val encounterModerationRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    val encounterConfigRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+
     // V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- ConferenceRecordingConfig.load()
     // is pure string parsing (no I/O, see that class's own KDoc), so it is safe to call
     // unconditionally here regardless of whether LAPIS_RECORDING_ENABLED is set, same posture
@@ -1149,6 +1165,18 @@ internal fun Application.module(
     val privilegedActionPoller = PrivilegedActionPoller(service = privilegedActionService)
     privilegedActionPoller.start()
     monitor.subscribe(ApplicationStopping) { privilegedActionPoller.stop() }
+
+    // Welle V1.9.61 "Begegnungsraum" -- the data-protection safety net of the encounter spaces (deletes orphaned presence rows, closes
+    // forgotten sessions). Runs once right now (also clears leftovers of a crash), then every 60 s. Always started: its LiveKit part is
+    // skipped when conferencing is not configured, the database cleanup is not.
+    val encounterSpacePoller =
+        EncounterSpacePoller(
+            liveKitAdminClient = liveKitAdminClient,
+            moderationState = encounterModerationState,
+            liveKitEnabled = conferenceConfig.enabled,
+        )
+    encounterSpacePoller.start()
+    monitor.subscribe(ApplicationStopping) { encounterSpacePoller.stop() }
 
     // Welle V1.9.15 -- erases raw mailing open/click events after MailingHtmlPolicy.RETENTION_DAYS.
     val mailingTrackingRetentionPoller = MailingTrackingRetentionPoller()
@@ -1974,6 +2002,20 @@ internal fun Application.module(
                 notesState = conferenceNotesState,
                 conferenceMeetingBindRateLimiter = conferenceMeetingBindRateLimiter,
                 roomVotingStateRateLimiter = roomVotingStateRateLimiter,
+            )
+        }
+        registerService(IEncounterSpaceService::class) { call ->
+            EncounterSpaceService(
+                call = call,
+                liveKitAdminClient = liveKitAdminClient,
+                moderationState = encounterModerationState,
+                listRateLimiter = encounterListRateLimiter,
+                enterRateLimiter = encounterEnterRateLimiter,
+                leaveRateLimiter = encounterLeaveRateLimiter,
+                openCloseRateLimiter = encounterOpenCloseRateLimiter,
+                moderationRateLimiter = encounterModerationRateLimiter,
+                configRateLimiter = encounterConfigRateLimiter,
+                config = conferenceConfig,
             )
         }
         registerService(IConferenceBreakoutService::class) { call ->

@@ -586,6 +586,13 @@ legal counsel — not something this project can decide once for everyone. See `
   acknowledgments, `reviewed_at`, `date_of_death`; a voluntary withdrawal leaves no trace, so earlier ACTIVE counts are slightly under-estimated; a member
   with no earlier evidence counts from the earliest date that proves the current status. Such periods are drawn pale. From the day V72 runs, every change is
   recorded live. Only counts per period leave the server, never a member id. See `docs/architecture/member-status-history.adoc`.
+* **Encounter space / "Begegnungsraum" (V1.9.61, wave B1, server side only).** A standing room with a pulpit and a listening congregation (first theme: a church
+  service) on top of the LiveKit conference stack: offices `PULPIT` / `STEWARD` per space, only an office holder may speak, everybody else listens. Because
+  attending a service can reveal religious belief (Art. 9 GDPR) no lasting record of who attended is kept: the presence row is deleted on leave and when the
+  session ends, nothing about entering or leaving reaches the audit log, the consent of a non-member is stored with a date only. The ordinary conference API cannot
+  open, join, record or list such a session. **Not yet usable by people**: no client screen (wave B2), LiveKit's enforcement of the listen-only token still has to
+  be verified on staging (`docs/architecture/encounter-space-staging-test.adoc`). Migration `V73`, **`flywayRepair` needed before the deploy**. See
+  `docs/architecture/encounter-space.adoc`.
 * **Administrator accounts are protected from each other (V1.9.57).** A temporary password, taking the ADMIN role away or blocking the login of *another
   administrator* needs the approval of a second administrator (one who held the role for 7 days; request, approval, for a password a 24 hour objection
   period of the target, generation once by the requester); the emergency e-mail path, the manual Keycloak link and GDPR erasure are refused against another

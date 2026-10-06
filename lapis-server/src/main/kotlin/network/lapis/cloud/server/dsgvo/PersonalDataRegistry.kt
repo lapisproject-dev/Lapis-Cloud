@@ -72,6 +72,7 @@ object PersonalDataRegistry {
             MemberPhotoPersonalData,
             MemberPublicBioPersonalData,
             PollPersonalData,
+            EncounterSpacePersonalData,
         )
 
     /**

@@ -351,6 +351,7 @@ class LegalHtmlTest :
                     "regionalChapter" to "Landesverband",
                     "privilegedActions" to "Vier-Augen-Freigabe",
                     "memberStatusHistory" to "Mitgliederstatistik",
+                    "encounterSpace" to "Begegnungsräume",
                 )
 
             // Deliberately NOT matched by their own keyword: these three LTR-economy

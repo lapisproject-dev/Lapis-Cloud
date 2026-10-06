@@ -25,7 +25,7 @@ interface MigrationHarness {
     fun close() = Unit
 }
 
-private class H2MigrationHarness : MigrationHarness {
+internal class H2MigrationHarness : MigrationHarness {
     private val url = "jdbc:h2:mem:member-status-history-${UUID.randomUUID()};MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1"
 
     override fun flyway(target: String?): Flyway {
@@ -37,7 +37,7 @@ private class H2MigrationHarness : MigrationHarness {
     override fun <T> connection(block: (Connection) -> T): T = DriverManager.getConnection(url, "sa", "").use(block)
 }
 
-private class PostgresMigrationHarness : MigrationHarness {
+internal class PostgresMigrationHarness : MigrationHarness {
     private val pg = PostgresTestSupport.createDatabase(migrated = false, timeouts = DbSessionTimeouts.DISABLED)
     private val dataSource: DataSource = pg.dataSource
 

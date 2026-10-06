@@ -1,0 +1,256 @@
+= Encounter space ("Begegnungsraum"), server and data protection (V1.9.61, wave B1)
+:toc:
+
+== Purpose
+
+An *encounter space* is a standing room with a *pulpit* (one or a few people who speak) and a *congregation* (everybody else, who listens).
+The first theme is a church service. It is built on the LiveKit conference stack but is a different thing from the ordinary conference
+("Besprechung"): the congregation is *listen-only*, the authority comes from an *office* (not from having created the room), and --
+because attending a church service can reveal religious belief, a special category of personal data under Art. 9 GDPR -- the system is
+built so that **no lasting trace of who attended remains**.
+
+This wave (B1) is the server and the data protection. It adds no client screen (that is wave B2): `IEncounterSpaceService` is the RPC
+surface, `V73__encounter_space.sql` the schema, `network.lapis.cloud.server.encounter.*` plus `rpc/EncounterSpaceService.kt` the implementation.
+
+NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+== Model
+
+A *space* is permanent configuration. A *session* is one running occurrence: an ordinary `conference_room` row that carries
+`encounter_space_id`. The session is "open" while its room row has `ended_at IS NULL`. There is deliberately **no `opened_at` /
+`current_room_id` column** on `encounter_space` -- it would need a circular foreign key, and the opening time and the opener already are
+`conference_room.created_at` / `created_by_member_id`. "At most one open session per space" is enforced by the row lock on the space (see
+<<lock-order>>), not by a constraint.
+
+[source,kuml,name="encounter-space-model"]
+----
+classDiagram(name = "Encounter space -- ERM excerpt") {
+    val member = classOf(name = "member") {
+        attribute(name = "id", type = "UUID")
+    }
+
+    val space = classOf(name = "encounter_space") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "title", type = "String")
+        attribute(name = "theme_key", type = "String")
+        attribute(name = "mode", type = "String")
+        attribute(name = "guest_policy", type = "String")
+        attribute(name = "max_participants", type = "Int?")
+        attribute(name = "closed_notice", type = "String?")
+        attribute(name = "archived_at", type = "LocalDateTime?")
+    }
+
+    val office = classOf(name = "encounter_space_role") {
+        attribute(name = "space_id", type = "UUID")
+        attribute(name = "member_id", type = "UUID")
+        attribute(name = "role", type = "String")
+    }
+
+    val consent = classOf(name = "encounter_consent_acknowledgment") {
+        attribute(name = "member_id", type = "UUID")
+        attribute(name = "consent_version", type = "String")
+        attribute(name = "consent_sha256", type = "String")
+        attribute(name = "acknowledged_on", type = "LocalDate")
+    }
+
+    val room = classOf(name = "conference_room") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "encounter_space_id", type = "UUID?")
+        attribute(name = "ended_at", type = "LocalDateTime?")
+    }
+
+    val participation = classOf(name = "conference_participation") {
+        attribute(name = "room_id", type = "UUID")
+        attribute(name = "member_id", type = "UUID")
+    }
+
+    association(source = space, target = office) {
+        source { multiplicity(spec = "1"); role = "space" }
+        target { multiplicity(spec = "0..*"); role = "offices" }
+    }
+    association(source = member, target = office) {
+        source { multiplicity(spec = "1"); role = "holder" }
+        target { multiplicity(spec = "0..*"); role = "offices" }
+    }
+    association(source = member, target = consent) {
+        source { multiplicity(spec = "1"); role = "member" }
+        target { multiplicity(spec = "0..*"); role = "proofs" }
+    }
+    association(source = space, target = room) {
+        source { multiplicity(spec = "0..1"); role = "space" }
+        target { multiplicity(spec = "0..*"); role = "sessions" }
+    }
+    association(source = room, target = participation) {
+        source { multiplicity(spec = "1"); role = "session" }
+        target { multiplicity(spec = "0..*"); role = "present (transient)" }
+    }
+}
+----
+
+* `encounter_space` -- title, description, `theme_key` (`CHURCH`), `mode` (`SERVICE`), `guest_policy` (`MEMBERS_ONLY` /
+  `MEMBERS_AND_GUESTS`), `max_participants` (`NULL` = the instance maximum; the service clamps it to `ConferenceConfig.maxParticipants`),
+  `closed_notice` (free text such as "Gottesdienst beginnt um 10:15 Uhr" shown while closed -- no time field on purpose), `archived_at`.
+* `encounter_space_role` -- the *office* configuration: who is `PULPIT` or `STEWARD` ("Ordner") of a space. Composite primary key
+  `(space_id, member_id)`: one office per member per space. Never the congregation.
+* `encounter_consent_acknowledgment` -- the accountability proof of a *non-member's* explicit consent (<<consent>>). Composite key
+  `(member_id, consent_version)`, **no room or space reference and no timestamp -- only a date**, so it cannot be read as an attendance record.
+* `conference_room.encounter_space_id` -- `NULL` for every ordinary room.
+
+=== States
+
+[source,kuml,name="encounter-space-session-states"]
+----
+stateDiagram(name = "Encounter space and its sessions") {
+    val start = initialState()
+    val closed = state(name = "CLOSED (space active)")
+    val open = state(name = "OPEN (one session running)")
+    val archived = state(name = "ARCHIVED")
+
+    transition(source = start, target = closed) { trigger = "createSpace (BOARD/ADMIN)" }
+    transition(source = closed, target = open) { trigger = "openSpace (office holder, BOARD/ADMIN)" }
+    transition(source = open, target = closed) { trigger = "closeSpace / poller: EMPTY or MAX_DURATION" }
+    transition(source = closed, target = archived) { trigger = "archiveSpace (BOARD/ADMIN, only while closed)" }
+}
+----
+
+A session is closed for one of three reasons, all audited with the same snapshot shape `{"state":"CLOSED","reason":...}`: `MANUAL`
+(`closeSpace`), `EMPTY` (the LiveKit room is gone) or `MAX_DURATION` (older than 12 hours). Closing deletes the LiveKit room and **deletes
+every presence row** (<<privacy>>).
+
+== Offices and access
+
+The office is *re-derived from the database on every call*; nothing is cached and the participation row is never an authorization source.
+An office only counts while the holder is `ACTIVE`: a withdrawn or rejected member loses it the moment the status changes, with no cleanup job.
+
+[cols="2,1,1,1,1,1,1", options="header"]
+|===
+| Operation | BOARD/ADMIN | PULPIT | STEWARD | other ACTIVE | GUEST/FRIEND | other status
+| list / get / entry info | yes | yes | yes | yes | only `MEMBERS_AND_GUESTS` | no
+| create / update / archive / list+set roles | yes | no | no | no | no | no
+| open / close a session | yes | yes | yes | no | no | no
+| enter | yes (listen only) | yes (may speak) | yes (may speak) | yes (listen only) | yes, after consent (listen only) | no
+| leave | yes | yes | yes | yes | yes | yes
+| list who is present | only if present | only if present | only if present | only if present | only if present | no
+| remove / silence | anybody | congregation only | congregation only | no | no | no
+|===
+
+* An archived space is visible to BOARD/ADMIN only (a `NotFoundException` for everybody else); a guest policy miss is a `ForbiddenException`.
+* **BOARD/ADMIN without an office listen only** (`canPublish = false`) but may moderate. Speaking requires an office.
+* A PULPIT or STEWARD holder may remove or silence only members of the congregation, never another office holder and never BOARD/ADMIN; only
+  BOARD/ADMIN may. Nobody moderates themselves.
+* `setSpaceRoles` is replace-all, at most 20 assignments, no duplicate member, every member `ACTIVE` at the time of the assignment.
+
+=== The token: two shapes, one service
+
+`LiveKitAccessToken.mintParticipantToken` takes `canPublish` and `canPublishData` as *required* parameters (no default), so the compiler forces
+every call site to decide. An ordinary conference passes `true, true` (byte-for-byte the grant map of before). The *congregation* token has
+`canPublish = false`, `canSubscribe = true`; a person a steward silenced additionally has `canPublishData = false`. The token is never
+`hidden`, never `recorder`, never carries an admin grant. Token lifetime: non-members `guestTokenTtlMinutes` (15), members `tokenTtlMinutes`.
+
+=== The ordinary conference RPC surface is fenced off
+
+The congregation's listen-only token is enforced *by the server when it mints the token*. `ConferenceService.joinRoom` and
+`ConferenceBreakoutService.rejoinMainRoomToken` mint tokens with `canPublish = true` for any `ACTIVE` member. If they accepted the id of an
+encounter session, any congregation member could ask for a publishing token for the same LiveKit room and speak from the pulpit. That
+would make "listen only" worthless, so `EncounterRoomGuard.requireNotEncounterRoom` is the *first* statement of every room-id method of the
+six conference services (and of `requireRoomEntryAuthorization`, which the shared entry gate uses).
+
+[cols="2,3", options="header"]
+|===
+| Service | In an encounter session
+| `ConferenceService` | `getRoom`, `joinRoom`, `leaveRoom`, `endRoom`, `listParticipants`, `removeParticipant`, `renameRoom`, `getGuestJoinInfo`, `setRoomGuestAccess`, `setRoomMeeting`, `getRoomVotingState`: all refused. `listActiveRooms` and the lazy reconciliation skip encounter rooms (they would close a session by `left_at` instead of deleting the rows).
+| `ConferenceBreakoutService` | every room-id method refused, including `rejoinMainRoomToken` and (defence in depth) `requestBreakoutJoinToken`. `returnToMainRoom` only closes the caller's own assignment row.
+| `ConferenceRecordingService` | `startRecording`, `getActiveRecording` refused: a recording would be a lasting record of who was in a church service.
+| `ConferenceNotesService`, `ConferenceWhiteboardService` | every method refused (attributed, persistent content).
+| `ConferenceStreamingService` | allowed, but `startStream` only with layout `SINGLE_PARTICIPANT` on an `ACTIVE` `PULPIT` holder: the congregation never reaches an external platform. `getActiveStream` stays visible to everybody present ("everybody in the room may know a stream runs").
+|===
+
+`ConferenceModeratorAuthority` replaces the six private copies of `requireModeratorOrPrivileged`: ordinary room = creator or BOARD/ADMIN
+(unchanged), encounter session = `ACTIVE` office holder or BOARD/ADMIN. **The one who pressed "open" has no special right**: an office can be
+withdrawn while a session runs and must take effect at once. `EncounterRoomGuardTripwireTest` fails the build if a room-id method stops
+referring to the guard.
+
+[#privacy]
+== Data protection by construction (Art. 9 GDPR)
+
+* **Presence is transient.** `enterSpace` inserts one `conference_participation` row (at most one per session and person, a reconnect reuses
+  it). `leaveSpace` *deletes* it (no `left_at` is ever kept), `closeSpace` deletes all rows of the session, and `EncounterSpacePoller`
+  deletes what a crashed client left behind. `conference_guest_consent_acknowledgment` is *never written* for an encounter session; if such a
+  row existed it is deleted with the session.
+* **`listPresent`** answers only a person who is present themselves, sorted by name (the order must not reveal who arrived when), without
+  times and without home servers. BOARD/ADMIN who are not in the room see nothing: no surveillance from outside. `EncounterSpaceDto.presentCount`
+  is only a number.
+* **The audit log** receives configuration changes (`create`, `update`, `archive`, `setSpaceRoles`, actor = BOARD/ADMIN) and open/close
+  (actor = the office holder, or `null` for the poller's automatic close). **Never** entering, leaving, presence, removing or silencing:
+  the log is hash-chained and cannot be erased, so an entry "member X was in the church service" would be a permanent trace.
+  `setSpaceRoles` records the office holders' member ids (an office is an act of the organization and the assignment of rights must be
+  traceable); the alternative -- only counts -- is an open question.
+* **Moderation state** (who was removed, who was silenced) lives only in memory (`EncounterModerationState`, bounded to 64 sessions and 200
+  entries per list; a full list *refuses* instead of evicting a block) and is dropped when the session ends. A database block list would be a
+  lasting record about a person. Consequence: it is lost on a server restart.
+* **Logs** in the encounter code never name a member id, an identity, a display name or a room id above DEBUG. Stream keys are untouched
+  (`SecretBox`). `EncounterPrivacyTripwireTest` and `EncounterPrivacyWatchTest` pin all of this.
+* **Export and erasure** (`EncounterSpacePersonalData`): the export lists the subject's own spaces, offices and consent proofs. Erasure
+  *deletes* the office rows and *retains, with the reason*, the spaces the member created (organization configuration) and the consent proof
+  (Art. 5(2)/7(1) accountability).
+
+[#consent]
+=== The consent of a non-member
+
+A GUEST or FRIEND must explicitly consent (Art. 9(2)(a)) before entering a space with `MEMBERS_AND_GUESTS`. `getEntryInfo` returns
+`consentRequired` and the text; `enterSpace` takes the version and hash *unmodified* (`EncounterConsentDisclaimer.matches`, constant time). The
+proof is one row `(member, version)` with the hash and a *date*, written inside a savepoint (`isUniqueViolation()` is the only exception
+swallowed -- on PostgreSQL a failed statement would otherwise poison the transaction). Consent given once covers every space for that version.
+For an `ACTIVE` member a submitted consent is ignored and nothing is stored. **The text is a draft** and needs legal review.
+
+== Session lifecycle and the poller
+
+`openSpace` is idempotent (an open session is returned unchanged): transaction 1 authorizes, the LiveKit room is created *outside* any
+transaction (`empty_timeout` 1800 s for a room nobody has joined yet, plus `departure_timeout` 1800 s for a room whose last participant left, so a break or a dropped pulpit connection does not tear the session down), transaction 2 re-verifies under the locks and inserts the room
+row. A call that loses the race deletes its freshly created LiveKit room again. `closeSpace` deletes the LiveKit room first (a failure is only
+logged -- data protection beats availability, the poller retries), then ends the session and deletes the rows under the locks.
+
+`EncounterSpacePoller` runs at start and every 60 s: (a) deletes presence rows of ended sessions -- always, even if LiveKit is down;
+(b) per open session deletes presence rows of people no longer connected (older than 120 s *and* absent in two consecutive sweeps, because
+`livekit-client` reconnects with its still-valid token without calling `enterSpace` again, so one sweep inside a short network gap must not
+cost a person their row), disconnects blocked people who reconnected with a still-valid token; (c) closes a session that is older than 12
+hours (`MAX_DURATION`, done *before* any LiveKit call, so an outage cannot keep it open past its limit) or whose LiveKit room is gone
+(`EMPTY`); (d) retries the LiveKit deletion of sessions that ended in the last 24 hours. If LiveKit is unreachable, (b), the room-gone part
+of (c) and (d) are skipped with a warning that carries no ids. A client that is told its connection was re-established need not call
+`enterSpace` again; if it does, that is harmless.
+
+[#lock-order]
+== Lock order and transactions
+
+Every writer takes the locks in this order, without exception: (1) `encounter_space FOR UPDATE`, (2) `conference_room FOR UPDATE`, (3) the
+caller's status is *read* without a lock, (4) inserts and deletes, (5) `AuditLogRecorder.record` *last*. Never `FOR UPDATE` on `member`
+(see `docs/architecture/row-locks.adoc`). LiveKit and HTTP calls are never inside `transaction {}`. The ceilings are enforced inside the
+locked transaction:
+
+* The congregation stops `2` places short of the maximum (`ENCOUNTER_OFFICER_RESERVED_SLOTS`), so a full congregation can never lock the pulpit
+  out; office holders and BOARD/ADMIN use the reserve; the hard maximum (LiveKit `max_participants`, at most 25) holds for everybody. A
+  reconnecting person already present is never turned away.
+* At most `maxNonMemberParticipants` (20) non-members.
+
+== Assumptions about LiveKit
+
+* A token with `canPublish = false` is believed to be *enforced by LiveKit* (the grant is part of the signed token). This is **not verified
+  against a live instance** in this wave; `docs/architecture/encounter-space-staging-test.adoc` is the test script for it. `hidden` is not used.
+* `removeParticipant` disconnects but does not invalidate the token: a removed person who still holds a valid token can reconnect to LiveKit
+  directly. The server blocks re-entry (`enterSpace`) and the poller disconnects blocked identities again within its period (60 s). A *silenced*
+  person's old token still carries the data channel; the poller compares the live `permission.can_publish_data` of every silenced identity and
+  disconnects it again within its period (60 s), so the bypass window is bounded by the sweep, not by the token lifetime.
+* A withdrawn office: `setSpaceRoles` disconnects (best effort, after the commit) every ex-holder who is present in the running session, and
+  a re-entry via `enterSpace` gets a listen-only token. Even after a successful disconnect, the old token (`canPublish = true`) allows a
+  direct reconnect to LiveKit; the poller therefore disconnects, every sweep (60 s), any live participant that holds publish rights
+  (`permission.can_publish` or published tracks) without being a current ACTIVE office holder. Only re-entry via `enterSpace` is listen-only.
+  The moderation checks of the server are unaffected.
+* `auto_create` (LiveKit default `true`) would revive a deleted room when somebody connects with an old token; the server checks that the
+  session is open when a token is requested, and the poller closes the session record.
+
+== Open questions (for the product owner and legal)
+
+. The wording of the Art. 9 consent (`EncounterConsentDisclaimer`, version `2026-10-06.v1`) -- a draft, legal review required.
+. Retention of `encounter_consent_acknowledgment` -- kept as accountability proof, the period is open.
+. Whether the audit entry of `setSpaceRoles` should carry the office holders' ids (as now) or only counts.
+. Listing the participants of an encounter session in the ordinary API is refused (`listParticipants`); the only roster is `listPresent`.

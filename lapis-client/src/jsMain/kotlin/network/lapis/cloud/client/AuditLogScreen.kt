@@ -567,6 +567,7 @@ fun decodeAuditSnapshot(
             // Welle V1.9.30 "Umfragen" -- PollService writes PollSnapshot (see AuditLog.kt), no client-side
             // decode/render pair (same posture as above) -- falls through to the raw-text display.
             AuditEntityType.POLL -> null
+            AuditEntityType.ENCOUNTER_SPACE -> null
         }
     }.getOrNull()
 

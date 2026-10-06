@@ -16,9 +16,10 @@ import network.lapis.cloud.server.db.generated.ConferenceBreakoutRoomTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
+import network.lapis.cloud.server.encounter.EncounterRoomGuard
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
-import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.ConferenceBreakoutAssignmentDto
@@ -207,6 +208,7 @@ class ConferenceBreakoutService(
                 val row =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomUuid }.singleOrNull()
                         ?: throw NotFoundException("Conference room $roomUuid not found")
+                EncounterRoomGuard.requireNotEncounterRoom(row = row)
                 requireModeratorOrPrivileged(row = row, current = current)
                 if (row[ConferenceRoomTable.endedAt] != null) {
                     throw ConflictException("Conference room $roomUuid has already ended")
@@ -376,6 +378,7 @@ class ConferenceBreakoutService(
                 val parentRow =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomUuid }.singleOrNull()
                         ?: throw NotFoundException("Conference room $roomUuid not found")
+                EncounterRoomGuard.requireNotEncounterRoom(row = parentRow)
                 requireModeratorOrPrivileged(row = parentRow, current = current)
 
                 val openRooms =
@@ -493,6 +496,7 @@ class ConferenceBreakoutService(
                 val parentRow =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomUuid }.singleOrNull()
                         ?: throw NotFoundException("Conference room $roomUuid not found")
+                EncounterRoomGuard.requireNotEncounterRoom(row = parentRow)
                 requireModeratorOrPrivileged(row = parentRow, current = current)
                 ConferenceBreakoutRoomTable
                     .selectAll()
@@ -536,8 +540,10 @@ class ConferenceBreakoutService(
         requireWithinRate(limiter = tokenRateLimiter, memberId = current.memberId)
         val roomUuid = roomId.toBreakoutUuid()
         return transaction {
-            ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomUuid }.singleOrNull()
-                ?: throw NotFoundException("Conference room $roomUuid not found")
+            val parentRow =
+                ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomUuid }.singleOrNull()
+                    ?: throw NotFoundException("Conference room $roomUuid not found")
+            EncounterRoomGuard.requireNotEncounterRoom(row = parentRow)
             val hasParticipation =
                 ConferenceParticipationTable
                     .selectAll()
@@ -588,6 +594,13 @@ class ConferenceBreakoutService(
                                 ConferenceBreakoutAssignmentTable.recalledAt.isNull()
                         }.singleOrNull()
                         ?: throw ForbiddenException("Caller does not hold an open assignment to breakout room $breakoutUuid")
+                // V1.9.61: defence in depth -- breakout rooms of an encounter session cannot exist (createBreakoutRooms is fenced), but a
+                // token for one would carry canPublish = true.
+                ConferenceRoomTable
+                    .selectAll()
+                    .where { ConferenceRoomTable.id eq assignmentRow[ConferenceBreakoutRoomTable.parentRoomId] }
+                    .singleOrNull()
+                    ?.let { EncounterRoomGuard.requireNotEncounterRoom(row = it) }
                 TokenPrep(
                     livekitRoomName = assignmentRow[ConferenceBreakoutRoomTable.livekitRoomName],
                     isNonMember = currentMemberIsNonMember(current.memberId),
@@ -635,6 +648,8 @@ class ConferenceBreakoutService(
                 val row =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomUuid }.singleOrNull()
                         ?: throw NotFoundException("Conference room $roomUuid not found")
+                // V1.9.61: FIRST thing -- this method would mint a token with canPublish = true for an encounter session.
+                EncounterRoomGuard.requireNotEncounterRoom(row = row)
                 if (row[ConferenceRoomTable.endedAt] != null) {
                     throw ConflictException("Conference room $roomUuid has already ended")
                 }
@@ -725,8 +740,8 @@ class ConferenceBreakoutService(
         row: ResultRow,
         current: CurrentMember,
     ) {
-        val isCreator = row[ConferenceRoomTable.createdByMemberId] == current.memberId
-        if (!isCreator && !current.isPrivileged) throw ForbiddenException()
+        // V1.9.61: delegates to the shared authority (see ConferenceModeratorAuthority).
+        ConferenceModeratorAuthority.requireModerator(row = row, current = current)
     }
 
     /**
@@ -781,6 +796,8 @@ class ConferenceBreakoutService(
                 identity = memberId.toString(),
                 displayName = displayName,
                 ttl = effectiveTtl.minutes,
+                canPublish = true,
+                canPublishData = true,
             )
         // Uses config.allTurnUrls (not config.turnUrls) so an optionally-configured `turns:` endpoint
         // travels in the SAME credential entry -- see ConferenceConfig.turnsUrls KDoc.

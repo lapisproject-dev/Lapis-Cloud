@@ -20137,3 +20137,6 @@ msgstr "Hide table"
 
 msgid "Mitglieder je Status am Ende des jeweiligen Zeitraums"
 msgstr "Members by status at the end of each period"
+
+msgid "Begegnungsraum"
+msgstr "Gathering room"

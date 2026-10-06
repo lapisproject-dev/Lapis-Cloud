@@ -370,6 +370,16 @@ enum class AuditEntityType {
      * `MEMBERSHIP_TIER`, additive only.
      */
     POLL,
+
+    /**
+     * Welle V1.9.61 "Begegnungsraum" -- `network.lapis.cloud.server.rpc.EncounterSpaceService` writes `CREATE`/`UPDATE` entries for
+     * configuration changes (create, update, archive, setSpaceRoles -- actor BOARD/ADMIN) and for opening/closing a session
+     * (`{"state":"OPEN"|"CLOSED"}` -- actor: the office holder, or `null` for the poller's automatic close), `entityId` = the
+     * `encounter_space` row's id. **Entering, leaving, presence, removing and silencing are NEVER audited**: the log is hash-chained and
+     * cannot be erased, so an entry "member X was in the church service" would be a permanent Art. 9 GDPR trace. 15 chars, well under the
+     * `audit_log_entry.entity_type` `VARCHAR(29)` width limit. Appended LAST, after `POLL`, additive only.
+     */
+    ENCOUNTER_SPACE,
 }
 
 /**

@@ -1385,6 +1385,7 @@ private object VotingStateStubLiveKit : LiveKitAdminClient {
         name: String,
         maxParticipants: Int,
         emptyTimeoutSeconds: Int,
+        departureTimeoutSeconds: Int?,
     ): LiveKitRoomInfo = error("not used")
 
     override suspend fun deleteRoom(name: String): Unit = error("not used")

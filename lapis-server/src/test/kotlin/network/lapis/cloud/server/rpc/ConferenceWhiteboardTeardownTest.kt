@@ -75,6 +75,7 @@ private class TeardownFakeLiveKitAdminClient : LiveKitAdminClient {
         name: String,
         maxParticipants: Int,
         emptyTimeoutSeconds: Int,
+        departureTimeoutSeconds: Int?,
     ): LiveKitRoomInfo {
         val info = LiveKitRoomInfo(sid = "RM_$name", name = name, maxParticipants = maxParticipants, numParticipants = 0)
         rooms[name] = info

@@ -193,6 +193,16 @@ for every German msgid that contains a core term as a whole word (or one of its 
 | poziom
 | уровен, уровн
 | V1.9.18: the `MembershipTier` (amount, interval, payment term). Renders as "membership tier" / "nivel de membresía" / "niveau d'adhésion" / "livello di iscrizione" / "lidmaatschapsniveau" / "poziom członkostwa" / "уровень членства". Replaces the former "Tarif" and "Beitragssatz" wherever the tier itself is meant (roster dialog, families, SEPA filter, tier administration). "Beitragsstufe" (relief request, target tier) and the amount-only "Beitragssatz" of the statement import search are NOT covered by this entry.
+
+| Begegnungsraum, Begegnungsräume, Begegnungsraums
+| gathering
+| encuentro
+| rencontre
+| incontr
+| ontmoeting
+| wspólnot
+| гостин
+| V1.9.61: the "encounter space" (a standing room with a pulpit and a listening congregation, first theme: a church service). Renders as "gathering room" / "sala de encuentro" / "espace de rencontre" / "sala d'incontro" / "ontmoetingsruimte" / "przestrzeń wspólnoty" / "гостиная общины". Deliberately NOT "reunión" / "réunion" / "riunione" / "vergadering" / "posiedzenie" / "встреча": those are the formal meeting ("Sitzung"/"Besprechung") the ordinary conference serves.
 |===
 
 == Terms with an entry in the catalogs but without an automatic check

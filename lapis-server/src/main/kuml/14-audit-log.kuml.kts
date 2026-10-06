@@ -207,6 +207,7 @@ classDiagram(name = "AuditLog") {
         literal(name = "REGIONAL_CHAPTER_OFFICER") // Welle V1.9.13 -- RegionalChapterService.grantOfficer/revokeOfficer writes; 24 chars, fits within VARCHAR(29)
         literal(name = "MEMBERSHIP_TIER") // Welle V1.9.18 "Verwaltung der Mitgliedschaftsstufen" -- ContributionService.createMembershipTier/updateMembershipTier writes; 15 chars, fits within VARCHAR(29)
         literal(name = "POLL") // Welle V1.9.30 "Umfragen auf LTR-Basis" -- PollService.createPoll/closePoll/abortPoll writes (abortPoll uses action=VOID); individual responses are NEVER audited; 4 chars, fits within VARCHAR(29)
+        literal(name = "ENCOUNTER_SPACE") // Welle V1.9.61 "Begegnungsraum" -- EncounterSpaceService/EncounterSpacePoller write configuration changes and open/close (actor = office holder or null for the poller); entering/leaving/removing is NEVER audited (Art. 9); 15 chars, fits within VARCHAR(29)
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

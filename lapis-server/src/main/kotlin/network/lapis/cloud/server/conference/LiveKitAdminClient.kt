@@ -55,6 +55,7 @@ interface LiveKitAdminClient {
         name: String,
         maxParticipants: Int,
         emptyTimeoutSeconds: Int,
+        departureTimeoutSeconds: Int? = null,
     ): LiveKitRoomInfo
 
     /** `POST .../DeleteRoom` -- gated on `roomCreate`, same as [createRoom]. Disconnects every current participant. */
@@ -114,11 +115,18 @@ class HttpLiveKitAdminClient(
         name: String,
         maxParticipants: Int,
         emptyTimeoutSeconds: Int,
+        departureTimeoutSeconds: Int?,
     ): LiveKitRoomInfo =
         call(
             method = "CreateRoom",
             room = name,
-            request = LiveKitCreateRoomRequest(name = name, maxParticipants = maxParticipants, emptyTimeout = emptyTimeoutSeconds),
+            request =
+                LiveKitCreateRoomRequest(
+                    name = name,
+                    maxParticipants = maxParticipants,
+                    emptyTimeout = emptyTimeoutSeconds,
+                    departureTimeout = departureTimeoutSeconds,
+                ),
         )
 
     override suspend fun deleteRoom(name: String) {
@@ -271,6 +279,18 @@ data class LiveKitParticipantInfo(
     val state: String = "",
     @SerialName("joined_at") val joinedAtEpochSeconds: String = "0",
     val tracks: List<LiveKitTrackInfo> = emptyList(),
+    /** The grants of the token the participant is connected with (`livekit.ParticipantPermission`); `null` if LiveKit did not report them. */
+    val permission: LiveKitParticipantPermission? = null,
+)
+
+/**
+ * `livekit.ParticipantPermission` -- only the two grants the encounter poller compares against the server's current decision
+ * (snake_case like every other field of this API). A field that LiveKit omits (protobuf JSON drops `false`) decodes as `false`.
+ */
+@Serializable
+data class LiveKitParticipantPermission(
+    @SerialName("can_publish") val canPublish: Boolean = false,
+    @SerialName("can_publish_data") val canPublishData: Boolean = false,
 )
 
 /**
@@ -298,6 +318,8 @@ internal data class LiveKitCreateRoomRequest(
     val name: String,
     @SerialName("max_participants") val maxParticipants: Int,
     @SerialName("empty_timeout") val emptyTimeout: Int,
+    // Null = omitted from the JSON (default Json does not encode defaults) so LiveKit applies its own 20 s default.
+    @SerialName("departure_timeout") val departureTimeout: Int? = null,
 )
 
 /** `DeleteRoom`/`ListParticipants` request shape -- both take a single `room` field. */

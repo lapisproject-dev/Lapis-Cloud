@@ -330,6 +330,17 @@ internal object LegalHtml {
             }
             li {
                 +(
+                    "Begegnungsräume (z. B. Gottesdienste): Wer eine Veranstaltung gerade besucht, wird nur " +
+                        "für die Dauer der Teilnahme geführt und beim Verlassen oder Ende der Veranstaltung " +
+                        "gelöscht; es gibt keine Teilnahmeliste und keine Aufzeichnung. Gäste willigen vorher " +
+                        "ausdrücklich ein (Art. 9 Abs. 2 lit. a DSGVO, da die Teilnahme Rückschlüsse auf " +
+                        "religiöse Überzeugungen zulassen kann); als Nachweis werden nur Version des Textes, " +
+                        "Prüfsumme und Datum gespeichert (Art. 7 Abs. 1 DSGVO). Die Ämter (Kanzel, Ordner) " +
+                        "einer Veranstaltung — Art. 6 Abs. 1 lit. b DSGVO."
+                )
+            }
+            li {
+                +(
                     "Buchhaltung, Beitrags-/Spendenkonto, Prüfpfad, Zahlungsverkehr, interne Verrechnung, " +
                         "Umsatzsteuer-Voranmeldung (Nachweishilfe) und Auktionen — Art. 6 Abs. 1 lit. c DSGVO " +
                         "(handels-/steuerrechtliche Aufbewahrungspflichten, GoBD/HGB/AO; bei politischen " +

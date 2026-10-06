@@ -19268,3 +19268,6 @@ msgstr ""
 
 msgid "Mitglieder je Status am Ende des jeweiligen Zeitraums"
 msgstr ""
+
+msgid "Begegnungsraum"
+msgstr ""

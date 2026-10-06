@@ -26,6 +26,8 @@ import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusTable
 import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
+import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
+import network.lapis.cloud.server.encounter.EncounterRoomGuard
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.LoginRateLimiter
@@ -306,7 +308,7 @@ class ConferenceService(
             reconcileActiveRooms(liveRooms = liveRooms, now = now)
             ConferenceRoomTable
                 .selectAll()
-                .where { ConferenceRoomTable.endedAt.isNull() }
+                .where { ConferenceRoomTable.endedAt.isNull() and ConferenceRoomTable.encounterSpaceId.isNull() }
                 .orderBy(ConferenceRoomTable.createdAt, SortOrder.DESC)
                 .limit(MAX_LIST_RESULTS)
                 .map { row -> rowToDto(row = row, callerId = current.memberId, liveRooms = liveRooms) }
@@ -325,6 +327,7 @@ class ConferenceService(
             val row =
                 ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                     ?: throw NotFoundException("Conference room $id not found")
+            EncounterRoomGuard.requireNotEncounterRoom(row = row)
             val fresh = reconcileRoomIfDue(row = row, liveRooms = liveRooms, now = now)
             rowToDto(row = fresh, callerId = current.memberId, liveRooms = liveRooms)
         }
@@ -403,6 +406,8 @@ class ConferenceService(
                 val row =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomUuid }.singleOrNull()
                         ?: throw NotFoundException("Conference room $roomUuid not found")
+                // V1.9.61: FIRST thing -- this method would mint a token with canPublish = true for an encounter session.
+                EncounterRoomGuard.requireNotEncounterRoom(row = row)
                 if (row[ConferenceRoomTable.endedAt] != null) {
                     throw ConflictException("Conference room $roomUuid has already ended")
                 }
@@ -475,6 +480,8 @@ class ConferenceService(
                 identity = current.memberId.toString(),
                 displayName = prep.displayName,
                 ttl = effectiveTtl.minutes,
+                canPublish = true,
+                canPublishData = true,
             )
         // Audit-round-1 fix: mint a fresh, short-lived TURN credential alongside the JWT, same TTL
         // -- see TurnCredentialMinter KDoc. Empty iff TURN is unconfigured (config.turnEnabled ==
@@ -525,6 +532,7 @@ class ConferenceService(
                     .forUpdate()
                     .singleOrNull()
                     ?: throw NotFoundException("Conference room $roomUuid not found")
+            EncounterRoomGuard.requireNotEncounterRoom(row = freshRoomRow)
             if (freshRoomRow[ConferenceRoomTable.endedAt] != null) {
                 throw ConflictException("Conference room $roomUuid has already ended")
             }
@@ -607,6 +615,10 @@ class ConferenceService(
         val id = roomId.toConferenceUuid()
         val now = nowLocalDateTime()
         transaction {
+            // V1.9.61: an encounter session is left via IEncounterSpaceService.leaveSpace, which DELETES the presence row.
+            ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()?.let {
+                EncounterRoomGuard.requireNotEncounterRoom(row = it)
+            }
             closeOpenParticipationsFor(roomId = id, memberId = current.memberId, now = now)
         }
     }
@@ -620,6 +632,7 @@ class ConferenceService(
                 val existing =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                         ?: throw NotFoundException("Conference room $id not found")
+                EncounterRoomGuard.requireNotEncounterRoom(row = existing)
                 requireModeratorOrPrivileged(row = existing, current = current)
                 existing
             }
@@ -687,6 +700,8 @@ class ConferenceService(
                 val row =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                         ?: throw NotFoundException("Conference room $id not found")
+                // V1.9.61: the participant history would be exactly the attendance record an encounter session must not have.
+                EncounterRoomGuard.requireNotEncounterRoom(row = row)
                 val status = requireRoomEntryAuthorization(roomRow = row, current = current)
                 // Wave 5: extra narrowing for a guest beyond the shared gate above -- see
                 // requireGuestHasJoinedRoom KDoc.
@@ -759,6 +774,7 @@ class ConferenceService(
                 val existing =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                         ?: throw NotFoundException("Conference room $id not found")
+                EncounterRoomGuard.requireNotEncounterRoom(row = existing)
                 requireModeratorOrPrivileged(row = existing, current = current)
                 if (existing[ConferenceRoomTable.createdByMemberId] == targetId) {
                     throw ConflictException("Cannot remove the room's own moderator")
@@ -799,6 +815,7 @@ class ConferenceService(
             val existing =
                 ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                     ?: throw NotFoundException("Conference room $id not found")
+            EncounterRoomGuard.requireNotEncounterRoom(row = existing)
             requireModeratorOrPrivileged(row = existing, current = current)
             if (existing[ConferenceRoomTable.endedAt] != null) {
                 throw ConflictException("Cannot rename an ended room")
@@ -837,6 +854,7 @@ class ConferenceService(
             val row =
                 ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                     ?: throw NotFoundException("Conference room $id not found")
+            EncounterRoomGuard.requireNotEncounterRoom(row = row)
             val creatorId = row[ConferenceRoomTable.createdByMemberId]
             ConferenceGuestJoinInfoDto(
                 roomId = id.toString(),
@@ -884,6 +902,7 @@ class ConferenceService(
                 val existing =
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                         ?: throw NotFoundException("Conference room $id not found")
+                EncounterRoomGuard.requireNotEncounterRoom(row = existing)
                 requireModeratorOrPrivileged(row = existing, current = current)
                 if (existing[ConferenceRoomTable.endedAt] != null) {
                     throw ConflictException("Cannot change guest access on an ended room")
@@ -979,6 +998,7 @@ class ConferenceService(
                     .forUpdate()
                     .singleOrNull()
                     ?: throw NotFoundException("Conference room $id not found")
+            EncounterRoomGuard.requireNotEncounterRoom(row = existing)
             // Baseline gate, unchanged -- "is this caller the room's creator, or globally privileged"
             // is still necessary (though, see below, no longer SUFFICIENT) for either direction.
             requireModeratorOrPrivileged(row = existing, current = current)
@@ -1098,7 +1118,11 @@ class ConferenceService(
                                 ConferenceParticipationTable.leftAt.isNull()
                         }.limit(1)
                         .count() > 0
-                if (row == null || row[ConferenceRoomTable.endedAt] != null || !hasOpenParticipation) {
+                if (row == null ||
+                    EncounterRoomGuard.isEncounterRoom(row) ||
+                    row[ConferenceRoomTable.endedAt] != null ||
+                    !hasOpenParticipation
+                ) {
                     throw ForbiddenException(ROOM_VOTING_UNAVAILABLE)
                 }
                 val status = requireRoomEntryAuthorization(roomRow = row, current = current)
@@ -1457,9 +1481,11 @@ class ConferenceService(
         liveRooms: Map<String, Int>,
         now: LocalDateTime,
     ) {
+        // V1.9.61: encounter sessions are never reconciled here -- this lazy path would close them by `left_at` instead of deleting
+        // the presence rows (see EncounterSessionTeardown / EncounterSpacePoller).
         ConferenceRoomTable
             .selectAll()
-            .where { ConferenceRoomTable.endedAt.isNull() }
+            .where { ConferenceRoomTable.endedAt.isNull() and ConferenceRoomTable.encounterSpaceId.isNull() }
             .toList()
             .forEach { row -> reconcileRoomIfDue(row = row, liveRooms = liveRooms, now = now) }
     }
@@ -1477,6 +1503,7 @@ class ConferenceService(
         now: LocalDateTime,
     ): ResultRow {
         if (row[ConferenceRoomTable.endedAt] != null) return row
+        if (EncounterRoomGuard.isEncounterRoom(row)) return row
         if (row[ConferenceRoomTable.livekitRoomName] in liveRooms) return row
         if (!graceElapsed(createdAt = row[ConferenceRoomTable.createdAt], now = now)) return row
         val id = row[ConferenceRoomTable.id]
@@ -1535,8 +1562,9 @@ class ConferenceService(
         row: ResultRow,
         current: CurrentMember,
     ) {
-        val isCreator = row[ConferenceRoomTable.createdByMemberId] == current.memberId
-        if (!isCreator && !current.isPrivileged) throw ForbiddenException()
+        // V1.9.61: delegates to the shared authority (ordinary room: creator or BOARD/ADMIN, exactly as before; encounter session:
+        // office holders or BOARD/ADMIN).
+        ConferenceModeratorAuthority.requireModerator(row = row, current = current)
     }
 
     /** `organization_settings.name` -- the DSGVO-verantwortliche Organisation the disclaimer names. Single-row lookup. */

@@ -68,7 +68,8 @@ class DomainModelMergerTest :
             // absichern" -- was 62, now 63 with the addition of 62-member-email-change.kuml.kts.
             // Welle V1.9.57 "Admin-Peer-Schutz" -- was 63, now 64 with the addition of 63-privileged-action-request.kuml.kts.
             // Welle V1.9.59 "Mitgliederzahlen ueber Zeit" -- was 64, now 65 with the addition of 64-member-status-history.kuml.kts.
-            scriptFiles shouldHaveSize 65
+            // Welle V1.9.61 "Begegnungsraum" -- was 65, now 66 with the addition of 65-encounter-space.kuml.kts.
+            scriptFiles shouldHaveSize 66
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -521,7 +522,10 @@ class DomainModelMergerTest :
             // (privileged_action_request), with its own Member stub -- net +1 (179 -> 180).
             // Welle V1.9.59 "Mitgliederzahlen ueber Zeit" adds 64-member-status-history.kuml.kts's ONE new real table
             // (member_status_history), with its own Member stub -- net +1 (180 -> 181).
-            val distinctTableNames = 181
+            // Welle V1.9.61 "Begegnungsraum" adds 65-encounter-space.kuml.kts's THREE new real tables (encounter_space,
+            // encounter_space_role, encounter_consent_acknowledgment); the Member stub there and the EncounterSpace stub added to
+            // 27-conference.kuml.kts both dedup into their real counterparts -- net +3 (181 -> 184).
+            val distinctTableNames = 184
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -848,6 +852,10 @@ class DomainModelMergerTest :
                     "PrivilegedActionRequestTable.kt",
                     // Welle V1.9.59 "Mitgliederzahlen ueber Zeit" -- ONE new real table (member_status_history).
                     "MemberStatusHistoryTable.kt",
+                    // Welle V1.9.61 "Begegnungsraum" -- THREE new real tables.
+                    "EncounterSpaceTable.kt",
+                    "EncounterSpaceRoleTable.kt",
+                    "EncounterConsentAcknowledgmentTable.kt",
                 )
         }
 

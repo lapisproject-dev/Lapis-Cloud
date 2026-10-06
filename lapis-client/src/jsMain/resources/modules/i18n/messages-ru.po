@@ -20175,3 +20175,6 @@ msgstr "Скрыть таблицу"
 
 msgid "Mitglieder je Status am Ende des jeweiligen Zeitraums"
 msgstr "Участники по статусам на конец каждого периода"
+
+msgid "Begegnungsraum"
+msgstr "Гостиная общины"

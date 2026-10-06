@@ -20150,3 +20150,6 @@ msgstr "Ocultar tabla"
 
 msgid "Mitglieder je Status am Ende des jeweiligen Zeitraums"
 msgstr "Miembros por estado al final de cada período"
+
+msgid "Begegnungsraum"
+msgstr "Sala de encuentro"

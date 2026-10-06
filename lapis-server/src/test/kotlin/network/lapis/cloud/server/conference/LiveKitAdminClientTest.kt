@@ -91,6 +91,22 @@ class LiveKitAdminClientTest :
             capturedToken.shouldNotContain(API_SECRET)
         }
 
+        test("createRoom writes departure_timeout into the body only when given") {
+            val bodies = mutableListOf<String>()
+            val client =
+                mockClient { request ->
+                    bodies += bodyText(request)
+                    jsonResponse(ROOM_INFO_JSON)
+                }
+            val admin = HttpLiveKitAdminClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
+
+            admin.createRoom(name = ROOM_NAME, maxParticipants = 25, emptyTimeoutSeconds = 300, departureTimeoutSeconds = 1800)
+            admin.createRoom(name = ROOM_NAME, maxParticipants = 25, emptyTimeoutSeconds = 300)
+
+            bodies[0] shouldContain "\"departure_timeout\":1800"
+            bodies[1] shouldNotContain "departure_timeout"
+        }
+
         test("createRoom's admin token carries roomCreate but not room-scoping (empirically CreateRoom needs no room claim)") {
             var capturedToken = ""
             val client =

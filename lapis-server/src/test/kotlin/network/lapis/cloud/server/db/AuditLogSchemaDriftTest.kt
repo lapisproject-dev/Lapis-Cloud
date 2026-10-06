@@ -164,6 +164,7 @@ class AuditLogSchemaDriftTest :
                             "REGIONAL_CHAPTER_OFFICER",
                             "MEMBERSHIP_TIER",
                             "POLL",
+                            "ENCOUNTER_SPACE",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

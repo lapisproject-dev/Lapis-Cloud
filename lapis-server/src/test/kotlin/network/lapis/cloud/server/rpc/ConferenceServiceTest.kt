@@ -154,6 +154,7 @@ private class FakeLiveKitAdminClient : LiveKitAdminClient {
         name: String,
         maxParticipants: Int,
         emptyTimeoutSeconds: Int,
+        departureTimeoutSeconds: Int?,
     ): LiveKitRoomInfo {
         maybeFail()
         val info = LiveKitRoomInfo(sid = "RM_$name", name = name, maxParticipants = maxParticipants, numParticipants = 0)

@@ -14,6 +14,8 @@ import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
+import network.lapis.cloud.server.encounter.EncounterRoomGuard
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.LoginRateLimiter
@@ -206,6 +208,8 @@ class ConferenceRecordingService(
         if (room[ConferenceRoomTable.endedAt] != null) {
             throw ConflictException("Conference room $roomUuid has already ended -- cannot start a recording")
         }
+        // V1.9.61: an encounter session is never recorded (a recording would be a lasting record of who was in a church service).
+        EncounterRoomGuard.requireNotEncounterRoom(row = room)
         requireModeratorOrPrivileged(room = room, current = current)
 
         val alreadyActive =
@@ -667,8 +671,9 @@ class ConferenceRecordingService(
         room: ResultRow,
         current: CurrentMember,
     ) {
-        val isCreator = room[ConferenceRoomTable.createdByMemberId] == current.memberId
-        if (!isCreator && !current.isPrivileged) throw ForbiddenException()
+        // V1.9.61: delegates to the shared authority (ordinary room: creator or BOARD/ADMIN, as before; encounter session: office holders
+        // or BOARD/ADMIN).
+        ConferenceModeratorAuthority.requireModerator(row = room, current = current)
     }
 
     private fun rowToDto(

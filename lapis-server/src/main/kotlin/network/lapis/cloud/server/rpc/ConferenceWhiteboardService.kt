@@ -7,10 +7,11 @@ import network.lapis.cloud.server.conference.WhiteboardRasterizer
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
+import network.lapis.cloud.server.encounter.EncounterRoomGuard
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.routes.archiveGeneratedBytes
 import network.lapis.cloud.server.security.CurrentMember
-import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.ConferenceWhiteboardSaveResultDto
 import network.lapis.cloud.shared.domain.ConferenceWhiteboardStateDto
@@ -219,15 +220,21 @@ class ConferenceWhiteboardService(
         }
     }
 
-    private fun requireRoomExists(roomId: Uuid): ResultRow =
-        ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.singleOrNull()
-            ?: throw NotFoundException("Conference room $roomId not found")
+    private fun requireRoomExists(roomId: Uuid): ResultRow {
+        val row =
+            ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.singleOrNull()
+                ?: throw NotFoundException("Conference room $roomId not found")
+        // V1.9.61: shared notes / whiteboard would be a lasting, attributed record of an encounter session -- fenced off entirely.
+        EncounterRoomGuard.requireNotEncounterRoom(row = row)
+        return row
+    }
 
     /** See [commitStroke]'s own call-site comment "TOCTOU" -- a narrow, final re-check that the room has not ended between the top-of-function `requireOpenParticipation` check and the in-memory `tryCommit` call. Mirrors `ConferenceService.joinRoom`'s own re-check shape (`endedAt != null` -> `ConflictException`), NOT `requireRoomExists`'s `NotFoundException` -- a room that existed a moment ago and has since ended is a conflict, not a 404. */
     private fun requireRoomStillOpen(roomId: Uuid) {
         val row =
             ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.singleOrNull()
                 ?: throw NotFoundException("Conference room $roomId not found")
+        EncounterRoomGuard.requireNotEncounterRoom(row = row)
         if (row[ConferenceRoomTable.endedAt] != null) {
             throw ConflictException("Conference room $roomId has already ended")
         }
@@ -255,8 +262,8 @@ class ConferenceWhiteboardService(
         row: ResultRow,
         current: CurrentMember,
     ) {
-        val isCreator = row[ConferenceRoomTable.createdByMemberId] == current.memberId
-        if (!isCreator && !current.isPrivileged) throw ForbiddenException()
+        // V1.9.61: delegates to the shared authority (see ConferenceModeratorAuthority).
+        ConferenceModeratorAuthority.requireModerator(row = row, current = current)
     }
 
     private fun validateStroke(stroke: WhiteboardStrokeWireDto) {

@@ -82,6 +82,13 @@ import kotlin.uuid.Uuid
  * history, same treatment `conference_participation`/`auction_bid` already receive.
  *
 
+ * **Encounter sessions (V1.9.61).** A `conference_room` row with `encounter_space_id` (one session of an encounter space, see
+ * [EncounterSpacePersonalData]) is the exception to the "attendance is a shared record" reasoning above: its
+ * `conference_participation` rows exist ONLY while the person is present -- they are deleted on leave, on close and by the poller, never kept with
+ * `left_at`, and `conference_guest_consent_acknowledgment` is never written for such a session -- because the attendance of a church service can reveal
+ * religious belief (Art. 9 GDPR). So an export or an erasure of a closed session finds no participation row to report; the room row itself
+ * (organization configuration, opener) follows the retain-with-reason rule of every other room.
+ *
  * **The stream key is never part of any export or erasure output here** --
  * `conference_stream_destination.stream_key_ciphertext` is never read by this object; export
  * surfaces only the same non-secret fields `ConferenceStreamDestinationDto` itself would (label/

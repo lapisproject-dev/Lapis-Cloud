@@ -20230,3 +20230,6 @@ msgstr "Nascondi tabella"
 
 msgid "Mitglieder je Status am Ende des jeweiligen Zeitraums"
 msgstr "Soci per stato alla fine di ogni periodo"
+
+msgid "Begegnungsraum"
+msgstr "Sala d'incontro"

@@ -123,6 +123,7 @@ private class FakeBreakoutLiveKitAdminClient : LiveKitAdminClient {
         name: String,
         maxParticipants: Int,
         emptyTimeoutSeconds: Int,
+        departureTimeoutSeconds: Int?,
     ): LiveKitRoomInfo {
         maybeFail()
         createRoomCallCount++
@@ -420,6 +421,7 @@ class ConferenceBreakoutServiceTest :
                         name: String,
                         maxParticipants: Int,
                         emptyTimeoutSeconds: Int,
+                        departureTimeoutSeconds: Int?,
                     ): LiveKitRoomInfo {
                         breakoutCreateCalls++
                         if (breakoutCreateCalls == 2) throw LiveKitAdminException(message = "simulated failure on room 2 of 3")

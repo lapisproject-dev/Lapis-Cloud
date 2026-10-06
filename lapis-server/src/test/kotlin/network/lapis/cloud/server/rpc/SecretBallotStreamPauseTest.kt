@@ -2882,6 +2882,7 @@ private object StubLiveKitAdminClient : LiveKitAdminClient {
         name: String,
         maxParticipants: Int,
         emptyTimeoutSeconds: Int,
+        departureTimeoutSeconds: Int?,
     ): LiveKitRoomInfo = error("not used by SecretBallotStreamPauseTest")
 
     override suspend fun deleteRoom(name: String): Unit = error("not used by SecretBallotStreamPauseTest")

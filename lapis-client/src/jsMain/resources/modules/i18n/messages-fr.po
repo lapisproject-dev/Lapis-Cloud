@@ -20248,3 +20248,6 @@ msgstr "Masquer le tableau"
 
 msgid "Mitglieder je Status am Ende des jeweiligen Zeitraums"
 msgstr "Membres par statut à la fin de chaque période"
+
+msgid "Begegnungsraum"
+msgstr "Espace de rencontre"

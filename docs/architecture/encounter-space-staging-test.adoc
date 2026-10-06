@@ -1,0 +1,42 @@
+= Encounter space: staging test script (V1.9.61, wave B1)
+:toc:
+
+This script is *written, not executed*: wave B1 was built without a reachable LiveKit instance. It verifies on `staging` what the unit and
+scenario tests can only assume (see `docs/architecture/encounter-space.adoc`, "Assumptions about LiveKit"). Run it before wave B2 builds a
+client on top, and record the results below.
+
+== Setup
+
+. Deploy the version with `V73` to staging (run `./gradlew :lapis-server:flywayRepair` first -- the baseline's audit CHECK was widened in place, see the
+  operator note at the top of `V73__encounter_space.sql`; take a backup).
+. As BOARD: create a space (`MEMBERS_AND_GUESTS`), give one member the office `PULPIT` and one the office `STEWARD`.
+. Two devices, two browsers each: Chrome and Safari. Devices: one for the pulpit, one for a congregation member (plain `ACTIVE`), a third
+  login for a `GUEST`/`FRIEND`.
+
+== Checks
+
+[cols="1,3,2", options="header"]
+|===
+| # | Check | Expected
+| 1 | The congregation member enters and *tries to publish* (camera/microphone) with the token from `enterSpace` | LiveKit refuses the publication; the member can subscribe to the pulpit. Note the exact client-side symptom for B2.
+| 2 | The congregation member edits the token's `video.canPublish` to `true` and reconnects | the signature check fails, the connection is refused.
+| 3 | The congregation member calls `IConferenceService.joinRoom` / `IConferenceBreakoutService.rejoinMainRoomToken` with the session room id | `ForbiddenException`; no token is returned.
+| 4 | The pulpit publishes | audio/video reach the congregation.
+| 5 | A steward calls `removeFromSpace` for a connected congregation member, then the member tries to reconnect with the *old* token | the old token still works directly against LiveKit for up to the poller period (60 s) and the poller disconnects the person again; `enterSpace` answers `ForbiddenException`.
+| 6 | `silenceInSpace`, then the member reconnects | the new token has `canPublishData = false`; the data channel is refused.
+| 7 | A `GUEST` enters: consent is required once, the token is valid for 15 minutes; wait 16 minutes and let the client reconnect | after expiry the client needs `enterSpace` again (no consent prompt the second time).
+| 8 | The pulpit leaves, the room stays empty for 31 minutes with the session open | LiveKit removes the room (`empty_timeout` 1800, and `departure_timeout` 1800 for a room somebody had joined -- the server sets both in `CreateRoom`); on the next poller run the session is closed with reason `EMPTY`; `audit_log_entry` gets `{"state":"CLOSED","reason":"EMPTY"}` with no actor.
+| 9 | Connect a client with an old token to the deleted room (`auto_create`) | LiveKit may recreate the room; the poller closes/deletes it again (check `ListRooms`).
+| 10 | Close the space with 3 people present | no `conference_participation` row remains for the session (`SELECT count(*) ... WHERE room_id = <session>` is 0), the LiveKit room is gone.
+| 11 | Kill the server process while people are present, restart | after the second poller run (about 60 s after start; the first run only records who is absent, the two-sweep rule) the orphaned rows of the open session whose clients are gone are deleted; rows of ended sessions are deleted immediately at start.
+| 12 | Read the LiveKit and server logs on `pdv2` during checks 1 to 10 | LiveKit logs participant identities (member UUIDs) at INFO -- note it, decide on log rotation/level (open ops task); the *server* logs no identity, name or room id.
+| 13 | Start an external stream (`startStream`) as the steward with `SINGLE_PARTICIPANT` on the pulpit | only the pulpit's picture is streamed; the same with `GRID` is refused.
+| 14 | Two devices call `openSpace` at the same moment | exactly one session; `ListRooms` shows no leftover room of the loser.
+| 15 | The pulpit joins briefly (audio test), disconnects, and a congregation member enters 25 minutes later | the room is still there (`departure_timeout` 1800 was honoured by LiveKit; with the default 20 s it would be gone and the session closed as `EMPTY`); the member gets a token. Confirm `CreateRoom` accepts `departure_timeout` and `ListRooms` reports it.
+| 16 | A congregation member's network drops for ~10 s and `livekit-client` reconnects with the old token | the presence row survives the poller (two absent sweeps are needed); `listPresent` still answers the person.
+| 17 | The BOARD withdraws the pulpit's office while the pulpit is connected | the pulpit is disconnected; a re-entry via `enterSpace` yields a listen-only token (`canPublish = false`). Also reconnect directly to LiveKit with the old token: this still succeeds with publish rights until `tokenTtlMinutes` expires (known limitation, see Assumptions about LiveKit).
+|===
+
+== Result log
+
+(to be filled in by whoever runs the script: date, LiveKit version, result per check, deviations)

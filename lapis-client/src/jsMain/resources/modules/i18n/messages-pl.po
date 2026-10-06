@@ -20184,3 +20184,6 @@ msgstr "Ukryj tabelę"
 
 msgid "Mitglieder je Status am Ende des jeweiligen Zeitraums"
 msgstr "Członkowie według statusu na koniec każdego okresu"
+
+msgid "Begegnungsraum"
+msgstr "Przestrzeń wspólnoty"

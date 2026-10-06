@@ -42,6 +42,8 @@ class LiveKitAccessTokenTest :
                     identity = MEMBER_ID,
                     displayName = DISPLAY_NAME,
                     ttl = 240.minutes,
+                    canPublish = true,
+                    canPublishData = true,
                     now = now,
                 )
 
@@ -155,6 +157,8 @@ class LiveKitAccessTokenTest :
                     identity = MEMBER_ID,
                     displayName = DISPLAY_NAME,
                     ttl = 240.minutes,
+                    canPublish = true,
+                    canPublishData = true,
                 )
             val parts = minted.jwt.split(".")
             val tamperedSignature = parts[2].reversed()
@@ -172,6 +176,8 @@ class LiveKitAccessTokenTest :
                     identity = MEMBER_ID,
                     displayName = DISPLAY_NAME,
                     ttl = 240.minutes,
+                    canPublish = true,
+                    canPublishData = true,
                 )
             val parts = minted.jwt.split(".")
             // Attempt to smuggle in an admin grant by editing the (unsigned) payload segment --
@@ -194,6 +200,8 @@ class LiveKitAccessTokenTest :
                     identity = MEMBER_ID,
                     displayName = DISPLAY_NAME,
                     ttl = 240.minutes,
+                    canPublish = true,
+                    canPublishData = true,
                 )
             val wrongSecret = "wrong-secret-but-still-at-least-32-bytes-long!!"
             SignedJWT.parse(minted.jwt).verify(MACVerifier(wrongSecret.toByteArray(Charsets.UTF_8))).shouldBeFalse()
@@ -217,6 +225,8 @@ class LiveKitAccessTokenTest :
                     identity = MEMBER_ID,
                     displayName = DISPLAY_NAME,
                     ttl = 5.minutes,
+                    canPublish = true,
+                    canPublishData = true,
                     now = fixedNow,
                 )
             minted.expiresAt shouldBe Instant.fromEpochMilliseconds(0) + 5.minutes
@@ -246,7 +256,85 @@ class LiveKitAccessTokenTest :
                     identity = MEMBER_ID,
                     displayName = DISPLAY_NAME,
                     ttl = 240.minutes,
+                    canPublish = true,
+                    canPublishData = true,
                 )
             minted.jwt.shouldNotContain(API_SECRET)
+        }
+
+        // ── V1.9.61 "Begegnungsraum": the listen-only "Gemeinde" form ────────
+
+        test(
+            "the congregation token (canPublish=false) is the same participant shape, but cannot publish -- and carries no privileged grant",
+        ) {
+            val jwt =
+                LiveKitAccessToken
+                    .mintParticipantToken(
+                        apiKey = API_KEY,
+                        apiSecret = API_SECRET,
+                        roomName = ROOM_NAME,
+                        identity = MEMBER_ID,
+                        displayName = DISPLAY_NAME,
+                        ttl = 15.minutes,
+                        canPublish = false,
+                        canPublishData = true,
+                    ).jwt
+            val grant = videoGrant(verify(jwt))
+            grant["room"] shouldBe ROOM_NAME
+            grant["roomJoin"] shouldBe true
+            grant["canPublish"] shouldBe false
+            grant["canSubscribe"] shouldBe true
+            grant["canPublishData"] shouldBe true
+            grant["canUpdateOwnMetadata"] shouldBe false
+            listOf("hidden", "recorder", "roomAdmin", "roomCreate", "roomList", "roomRecord", "canPublishSources").forEach {
+                grant.containsKey(it).shouldBeFalse()
+            }
+        }
+
+        test("a silenced person's token (canPublishData=false) keeps listening but cannot send on the data channel") {
+            val grant =
+                videoGrant(
+                    verify(
+                        LiveKitAccessToken
+                            .mintParticipantToken(
+                                apiKey = API_KEY,
+                                apiSecret = API_SECRET,
+                                roomName = ROOM_NAME,
+                                identity = MEMBER_ID,
+                                displayName = DISPLAY_NAME,
+                                ttl = 15.minutes,
+                                canPublish = false,
+                                canPublishData = false,
+                            ).jwt,
+                    ),
+                )
+            grant["canPublish"] shouldBe false
+            grant["canPublishData"] shouldBe false
+            grant["canSubscribe"] shouldBe true
+        }
+
+        test("the pulpit token (canPublish=true) is bit-for-bit the grant map of an ordinary participant token") {
+            val now = Instant.fromEpochMilliseconds(1_700_000_000_000)
+            val pulpit =
+                videoGrant(
+                    verify(
+                        LiveKitAccessToken
+                            .mintParticipantToken(
+                                apiKey = API_KEY,
+                                apiSecret = API_SECRET,
+                                roomName = ROOM_NAME,
+                                identity = MEMBER_ID,
+                                displayName = DISPLAY_NAME,
+                                ttl = 240.minutes,
+                                canPublish = true,
+                                canPublishData = true,
+                                now = now,
+                            ).jwt,
+                    ),
+                )
+            pulpit.keys shouldBe
+                setOf("room", "roomJoin", "canPublish", "canSubscribe", "canPublishData", "canUpdateOwnMetadata")
+            pulpit["canPublish"] shouldBe true
+            pulpit["canPublishData"] shouldBe true
         }
     })

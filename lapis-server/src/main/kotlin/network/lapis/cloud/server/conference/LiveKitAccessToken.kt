@@ -65,7 +65,8 @@ object LiveKitAccessToken {
     /**
      * Mints a room-pinned participant join token -- the ONLY LiveKit token shape ever sent to a
      * browser. Grants exactly `roomJoin`/`canPublish`/`canSubscribe`/`canPublishData` on
-     * [roomName]; never `canUpdateOwnMetadata`, never `hidden`, never `recorder`, never any
+     * [roomName] (`canPublish`/`canPublishData` as passed by the caller -- the "Gemeinde" form of an encounter space is the same shape
+     * with `canPublish = false`); never `canUpdateOwnMetadata`, never `hidden`, never `recorder`, never any
      * `room*Create/Admin/List` admin grant. Because the grant is pinned to one room name, holding
      * this token grants nothing beyond the room the caller (a future wave's `ConferenceService`)
      * already authorized -- there is no broader capability to escalate to.
@@ -75,6 +76,12 @@ object LiveKitAccessToken {
      *   a receiving client can trust `RemoteParticipant.identity` as a server-verified member id.
      * @param displayName rendered as the JWT `name` claim, which `livekit-client` surfaces as
      *   `RemoteParticipant.name` -- purely cosmetic, never used for any authorization decision.
+     * @param canPublish whether the holder may publish audio/video. REQUIRED, with no default, so the compiler forces every call
+     *   site to decide: an ordinary conference passes `true`; the "Gemeinde" form of an encounter space (V1.9.61) passes `false` for
+     *   the congregation, which can then only listen. (Whether LiveKit also hides a non-publisher from other clients is NOT relied
+     *   upon: `hidden` is never set.)
+     * @param canPublishData whether the holder may send data-channel messages (chat, reactions). REQUIRED for the same reason; `false`
+     *   for a person a steward silenced.
      */
     fun mintParticipantToken(
         apiKey: String,
@@ -83,6 +90,8 @@ object LiveKitAccessToken {
         identity: String,
         displayName: String,
         ttl: Duration,
+        canPublish: Boolean,
+        canPublishData: Boolean,
         now: Instant = Clock.System.now(),
     ): ParticipantToken {
         val expiresAt = now + ttl
@@ -90,9 +99,9 @@ object LiveKitAccessToken {
             linkedMapOf<String, Any>(
                 "room" to roomName,
                 "roomJoin" to true,
-                "canPublish" to true,
+                "canPublish" to canPublish,
                 "canSubscribe" to true,
-                "canPublishData" to true,
+                "canPublishData" to canPublishData,
                 "canUpdateOwnMetadata" to false,
             )
         val claims =

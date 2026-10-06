@@ -6,9 +6,10 @@ import network.lapis.cloud.server.conference.ConferenceNotesState
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
+import network.lapis.cloud.server.encounter.EncounterRoomGuard
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.routes.archiveGeneratedBytes
-import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.ConferenceNotesSaveResultDto
 import network.lapis.cloud.shared.domain.ConferenceNotesStateDto
@@ -194,7 +195,7 @@ class ConferenceNotesService(
                 requireOpenParticipation(roomId = roomUuid, memberId = current.memberId)
                 r
             }
-        val canModerate = row[ConferenceRoomTable.createdByMemberId] == current.memberId || current.isPrivileged
+        val canModerate = ConferenceModeratorAuthority.isModerator(row = row, current = current)
         // Not leak-critical (removing from an already-cleared map is inherently safe) but included
         // for consistent, explicit "room already ended" UX rather than a silent no-op.
         transaction { requireRoomStillOpen(roomUuid) }
@@ -281,15 +282,21 @@ class ConferenceNotesService(
         }
     }
 
-    private fun requireRoomExists(roomId: Uuid): ResultRow =
-        ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.singleOrNull()
-            ?: throw NotFoundException("Conference room $roomId not found")
+    private fun requireRoomExists(roomId: Uuid): ResultRow {
+        val row =
+            ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.singleOrNull()
+                ?: throw NotFoundException("Conference room $roomId not found")
+        // V1.9.61: shared notes / whiteboard would be a lasting, attributed record of an encounter session -- fenced off entirely.
+        EncounterRoomGuard.requireNotEncounterRoom(row = row)
+        return row
+    }
 
     /** See [ConferenceWhiteboardService.requireRoomStillOpen] KDoc -- identical shape, identical reasoning, deliberately duplicated. */
     private fun requireRoomStillOpen(roomId: Uuid) {
         val row =
             ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.singleOrNull()
                 ?: throw NotFoundException("Conference room $roomId not found")
+        EncounterRoomGuard.requireNotEncounterRoom(row = row)
         if (row[ConferenceRoomTable.endedAt] != null) {
             throw ConflictException("Conference room $roomId has already ended")
         }

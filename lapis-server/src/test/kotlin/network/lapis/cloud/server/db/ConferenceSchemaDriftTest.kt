@@ -35,8 +35,9 @@ class ConferenceSchemaDriftTest :
             // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- adds an
             // id-only Meeting stub purely so conference_room.meeting_id's fkEntity override
             // resolves, see 27-conference.kuml.kts file header "Wave 9 addition".
+            // V1.9.61 "Begegnungsraum" -- adds an id-only EncounterSpace stub for conference_room.encounter_space_id.
             model.entities.map { it.name }.toSet() shouldBe
-                setOf("member", "meeting", "conference_room", "conference_participation")
+                setOf("member", "meeting", "encounter_space", "conference_room", "conference_participation")
         }
 
         // ── conference_room ───────────────────────────────────────────────
@@ -72,6 +73,11 @@ class ConferenceSchemaDriftTest :
             real.foreignKeys["meeting_id"] shouldBe "meeting"
             model.entityNameOf(entity.attributeByName("meeting_id")?.foreignKey?.targetEntityId ?: "") shouldBe "meeting"
             entity.attributeByName("meeting_id")?.nullable shouldBe true
+
+            // V1.9.61 "Begegnungsraum" -- NULL for every ordinary room; non-NULL marks one SESSION of an encounter space.
+            real.foreignKeys["encounter_space_id"] shouldBe "encounter_space"
+            model.entityNameOf(entity.attributeByName("encounter_space_id")?.foreignKey?.targetEntityId ?: "") shouldBe "encounter_space"
+            entity.attributeByName("encounter_space_id")?.nullable shouldBe true
         }
 
         // ── conference_participation ──────────────────────────────────────
