@@ -100,7 +100,7 @@ already carries the new status, and it never catches an exception: a primary key
 | CSV import | the imported status, effective from the start of the join day in the organization zone (capped at now) | `IMPORT`
 | first-admin bootstrap | ACTIVE | `LIVE`
 | OIDC guest | GUEST | `LIVE`
-| dev seed, staging seed | seeded status, effective from the start of the join day (UTC) | `SEED`
+| dev seed, staging seed | dev seed: the seeded status from the start of the join day (UTC). Staging seed (V1.9.63): one row per step of the member's timeline, oldest first, each with a back-dated `effective_from` (several `SEED` rows per member; the last one equals `member.status`) | `SEED`
 |===
 
 *Not status writers* (the tripwire documents that): address, beneficial-owner data, name, `correctDateOfDeath`, tier and chapter assignment, e-mail change,

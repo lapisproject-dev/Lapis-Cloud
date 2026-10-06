@@ -372,7 +372,7 @@ Price-Oracle history with an hourly snapshot poller and a price chart (Flyway `V
 default and must be enabled on at most one instance, see `deploy/example/README.adoc`, "Price-Oracle
 Snapshot Poller"); a BOARD/ADMIN screen for creating and managing events; and support for a dedicated
 staging deployment with fictitious seed data only (see `deploy/example/README.adoc`, "Staging seed
-mechanism"). **V1.6.1 optional AI assistance**
+mechanism"; since V1.9.63 a full 24-month demo: members, finance, governance with a closed and a running election, community). **V1.6.1 optional AI assistance**
 (statute Q&A, Flyway `V44`) ships **off by default** and is not enabled on any shipped deployment, see
 "AI assistance" below. For the companion app, the server has a generic WebView bridge
 (`/api/mobile/v1/webview-session`) that is header-authenticated (the token is never in a URL) and

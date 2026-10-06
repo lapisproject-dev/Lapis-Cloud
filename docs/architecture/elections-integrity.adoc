@@ -242,6 +242,20 @@ board. This is not cryptographic end-to-end verifiability and adds no cryptograp
   adopted amendment (ascending id order) and refuses while it runs. *Limit:* paths that were already running with pending amendments before this change stay as they were
   (the tally refuses until the amendment is withdrawn or decided); there is no data migration. Operators: withdraw the amendment or abort the decision path.
 
+== Cast and tally cores (V1.9.63)
+
+The write core of a ballot and the body of the tally were extracted from `ElectionService` into two `internal` top-level functions of the SAME file,
+without a behaviour change: `recordElectionBallotLocked` (participation row for a secret election, the anonymous ballot with `member_id` NULL and the
+constant `cast_at = voting_opened_at`, the selections) and `tallyElectionLocked` (approvals, undecided check, outcome, seating, resolution, motion,
+election, audit last). `castElectionBallot` keeps everything around the core -- membership check, election lock, status, stream quiescence (before the
+`try`), eligibility, option validation and the `try`/`catch (ExposedSQLException)` that turns a unique violation into "already voted" -- and `tally`
+keeps the lock order (motion, then election) and the board check.
+
+The staging seed (`StagingSeedGovernance`) uses exactly these two functions, so a seeded election is cast and tallied by the live code and not by a copy of
+its rules. This adds no new reading place for the ballot tables: the allowlist of `ServerElectionDisclosureTripwireTest` is unchanged, and the seed itself
+never names `ElectionBallotTable` or `ElectionBallotSelectionTable`. The seed draws its voters from the electoral roll independently of the planned answers
+and never stores or logs a (person, answer) pair.
+
 == Known limitations and follow-ups
 
 * `recordResolution` (free-form resolution of an agenda item) and `withdrawMotion` still check only the election, not a vote or a consensus; `resolveMotion` is covered since V1.9.54.

@@ -1540,13 +1540,82 @@ ever be populated against a real deployment:
    sentinels, and an obviously-placeholder org name** -- nothing seeded here can be mistaken for
    real membership data even if all three locks above were somehow defeated at once.
 
+=== What the demo dataset contains
+
+Since V1.9.63 the seed is a full, relative-to-today demo of the Testverein. Everything is computed from ONE captured start time, so
+"30 days ago" means the same day for the meeting, its resolution and the contribution paid that week; it is written in ONE
+transaction (all or nothing) and it goes through the same code the live services use wherever that works without an HTTP call
+(posting bridges, resolution book, audit recorder, the ballot and tally cores of the election service, the event-series materializer).
+
+Members and history::
+40 fictitious members (`@staging.invalid`): 8 founders, a steady stream of admissions over 24 months, 5 withdrawals, one death, one
+rejection, two open applications and one friend, donor and guest each; two members on the reduced tier. Every status step is
+back-dated into the status history, so the member-statistics page shows 24 monthly points instead of one flat line. Three login
+accounts (ADMIN, BOARD, TREASURER) and five MEMBER accounts share the seed password.
+
+Finance::
+Six months of contributions (paid, open, overdue, debit scheduled) with the ledger entries behind every paid one; two open items
+(a receivable and a payable) booked through the open-item bridge; with an encryption key: eight SEPA mandates (encrypted
+test IBANs that no bank can have issued: bank code `00000000`) and ONE debit run in `DRAFT`; three dunning levels, so the
+overdue contributions appear as dunning cases.
+
+Governance::
+Four committees (board, working group, member assembly, auditors), four held board meetings and one planned, a held and a
+running online member assembly, attendance, motions in every status, three committee resolutions, one CLOSED and tallied
+secret yes/no election (9 ballots), one RUNNING secret personnel election (6 ballots, the demo logins have not voted yet, so a
+visitor can vote), and two polls (one closed, one running).
+
+Community::
+Three fictitious regional chapters with officers (no crest images), articles in three states, the folder structure of the
+document store, events (one finished, one public, the members' evening) plus a weekly series of eight dates, and carpool postings.
+
+=== What it deliberately does not contain
+
+* **Documents**: only the folders. A stored document needs a file in the document storage; writing it is an external effect that
+  does not belong into the seed transaction.
+* **Issued dunning notices**: they need a generated PDF and a file. The treasurer can issue one live in the demo.
+* **Submitted or returned SEPA debits**: they need a pain.008 file and a return record. The debit run stays in `DRAFT`, and no
+  bank IBAN is configured, so generating the file asks for it (an honest demo state).
+* **Manual journal entries, opening balance, donations**: the general ledger only holds what the bridges book (contribution
+  payments, open-item creation).
+* **A settled open item** and **a waived contribution**.
+* **Weighted poll results**: there is no LTR data, so the weighted result reads "not available" (the head count is shown).
+* **The encounter space** and **crest images**.
+* **SEPA without a key**: if `LAPIS_SECRET_ENCRYPTION_KEY` is not set (or invalid) the seed skips SEPA completely and logs one
+  INFO line; everything else is still seeded.
+* **Audit evidence is not back-dated.** Audit entries, resolutions' decision stamps and tally timestamps carry the moment of the
+  seed run, because that is when they were really written; only the business dates are relative.
+
+The seed acknowledges the SEPA and dunning compliance notices on behalf of the fictitious admin (only for this fictitious
+organization), otherwise those two areas would be switched off and show nothing.
+
+=== Keep the pollers off on a demo or staging instance
+
+Leave `LAPIS_SEPA_POLLER_ENABLED`, `LAPIS_DUNNING_POLLER_ENABLED` and `LAPIS_DUNNING_POSTAL_DISPATCH_ENABLED` **unset or `false`**.
+The seeded data is built for clicking through, not for being processed. What each poller would do with it (read from the code):
+
+* `DunningPoller` (the one that matters): phase A turns `OPEN` contributions past their due date into `OVERDUE`; phase B escalates the overdue
+  ones, i.e. issues dunning notices with a generated PDF in the document storage and mails to the `@staging.invalid` addresses (undeliverable,
+  but still a mail attempt), and with `LAPIS_DUNNING_POSTAL_DISPATCH_ENABLED` also letters; phase C archives the PDFs. Leaving it off keeps the
+  "dunning cases" list in exactly the seeded state.
+* `SepaBatchPoller`: phase A expires mandates after 36 months without use, phase B revokes the mandates of withdrawn or rejected members and
+  phase C releases items of a `SUBMITTED` batch after the return window. The seed has no `SUBMITTED` batch, only active members hold mandates
+  and the mandates are weeks old, so it would currently do nothing, but it would act on whatever visitors create.
+* `ReceivableDunningPoller`: a complete no-op while `organization_settings.receivable_dunning_enabled` is `false`, which the seed leaves unchanged.
+
+`postal_mail_enabled` is `false` in the seed.
+
+=== Resetting the demo
+
 **Re-seeding**: delete the Postgres volume (`docker compose down -v`, or `docker volume rm
 <compose-project>_lapis-staging-postgres-data`) and restart -- the next boot's empty `member` table
 triggers a fresh seed. There is no in-place "reset" RPC; this is the same volume-delete workflow
-local dev already uses to re-seed `DevSeedData`.
+local dev already uses to re-seed `DevSeedData`. **Everything visitors entered since the last seed is lost** (members, votes, bookings),
+and the new seed starts from the new "today". An instance that was seeded earlier keeps its old data until it is reset this way: the seed
+runs only on an empty `member` table, never as an upgrade.
 
 **Password rotation**: `LAPIS_STAGING_SEED_PASSWORD` is the login password for every seeded
-login-capable account (ADMIN/BOARD/TREASURER/MEMBER accounts, see `StagingSeedData.seedMembers`).
+login-capable account (ADMIN/BOARD/TREASURER/MEMBER accounts, see `StagingSeedData`).
 There is no separate rotation mechanism beyond deleting the Postgres volume and re-seeding with a
 new `.env` value -- acceptable for a throwaway test instance, called out here so it is not assumed
 to be rotatable in place.

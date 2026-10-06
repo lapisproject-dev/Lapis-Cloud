@@ -6,6 +6,44 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added (V1.9.63, richer staging/demo data)
+
+- **A full 24-month demo dataset** for the fictitious "Testverein Musterstadt e.V." (staging seed, `LAPIS_STAGING_MODE`; the four locks are unchanged). Everything is relative to the start of the seed run and written in one
+  transaction:
+  - **Members**: 40 (was 18) with a back-dated status history -- 8 founders, steady admissions, 5 withdrawals, one death, one rejection, two open applications, a friend, a donor and a guest, two members on the new reduced tier;
+    the member-statistics page now shows 24 monthly points. New tiers "Ermäßigt" and "Fördermitgliedschaft"; fixed ids for the ledger accounts.
+  - **Finance**: six months of contributions (paid / open / overdue / debit scheduled) with the booking behind every paid one (`ContributionPostingBridge`), two open items (`OpenItemPostingBridge`), with an encryption key eight SEPA
+    mandates (encrypted test IBANs with the never-issued bank code `00000000`) and one SEPA debit run in `DRAFT`, three dunning levels.
+  - **Governance**: four committees, held and planned meetings with agenda and attendance, motions in every status, committee resolutions through the resolution book, one CLOSED and tallied secret yes/no election
+    (9 ballots, disclosed), one RUNNING secret personnel election (6 ballots; the demo logins have not voted), one closed and one running poll.
+  - **Community**: three regional chapters with officers, articles in three states, the folder structure of the document store, three events plus a weekly series of eight dates, carpool postings.
+- `README.adoc` of `deploy/example/`: "What the demo dataset contains", "What it deliberately does not contain", "Keep the pollers off", "Resetting the demo".
+
+### Changed (V1.9.63)
+
+- `ElectionService`: the ballot write core and the tally body are `internal` top-level functions of the same file (`recordElectionBallotLocked`, `tallyElectionLocked`); `computeOutcome`, `storedMajorityFraction`, `requireMotionCommitteeId` and the receipt
+  code generator moved to private top-level functions. **No behaviour change**; the election tripwires and the allowlist are untouched. The seed uses these cores.
+- `AuditLogService`: the hash-chain walk moved unchanged to `AuditChainVerifier` (`audit/AuditChainVerifier.kt`); `verifyChainIntegrity` delegates to it.
+- `SepaService`: `sepaBatchMessageId` and `batchSnapshotFrom` are `internal` (used by the seed), nothing else changed.
+- `StagingSeedData.seedIfEmpty` takes an optional `database` (tests only; the production call is unchanged) and reads the encryption key through `SepaConfig.load` (never logged). Seed code split into `StagingSeedSupport`,
+  `StagingSeedChapters`, `StagingSeedFinance`, `StagingSeedGovernance`, `StagingSeedCommunity`; `StagingSeedData` keeps the one and only `member` write. No migration.
+
+### Tests (V1.9.63)
+
+- `StagingSeedScenarios` runs on H2 (`StagingSeedTest`) and on a real PostgreSQL (`StagingSeedPostgresTest`): identity and hashes, status-history consistency, 24 monthly points of the statistics aggregation, election results
+  and ballot secrecy, poll disclosure, motion statuses, balanced bookings, SEPA decryption and `DRAFT` batch, dunning, community, audit-chain validity (`AuditChainVerifier`), idempotency (no row of any touched table changes) and
+  "no external effect". `StagingSeedWithoutSepaKeyTest` covers the no-key case, `StagingSeedConfigSafetyTest` the gate in front of the database work (no mode: nothing written; weak or missing password: fail fast, nothing written).
+
+### Known limitations (V1.9.63)
+
+- The seed runs **only on an empty database**. A staging or demo instance seeded before this version keeps its old data until its volume is reset (which also deletes everything visitors entered).
+- **Not in the seed**: stored documents (folders only), issued dunning notices, submitted or returned SEPA debits (the run stays `DRAFT`, no bank IBAN is configured), manual journal entries and an opening balance, a settled open item, a waived
+  contribution, weighted poll results (no LTR data), the encounter space, crest images.
+- SEPA demo data exists only if `LAPIS_SECRET_ENCRYPTION_KEY` is set and valid; otherwise it is skipped (one INFO line).
+- Audit entries, resolution decision stamps and tally timestamps carry the moment of the seed run (they are not back-dated); only business dates are relative.
+- The seed acknowledges the SEPA and dunning compliance notices on behalf of the fictitious admin (fictitious organization only).
+- Keep `LAPIS_SEPA_POLLER_ENABLED`, `LAPIS_DUNNING_POLLER_ENABLED` and `LAPIS_DUNNING_POSTAL_DISPATCH_ENABLED` off on a demo or staging instance: the seeded overdue items, the `DRAFT` run and the overdue receivable are built for clicking through.
+
 ### Added (V1.9.62, wave B2 "Begegnungsraum", client)
 
 - **Room list** "Begegnungsräume" (`#/begegnung`, third flat sidebar entry for ACTIVE/GUEST/FRIEND): title, doors open/closed (word and colour), the number present, the pulpit's names;

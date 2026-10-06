@@ -1,7 +1,5 @@
 package network.lapis.cloud.server.db
 
-import com.zaxxer.hikari.HikariConfig
-import com.zaxxer.hikari.HikariDataSource
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.comparables.shouldBeGreaterThan
 import io.kotest.matchers.nulls.shouldBeNull
@@ -20,14 +18,12 @@ import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.shared.domain.MemberStatus
-import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import java.util.UUID
 import kotlin.uuid.Uuid
 
 /**
@@ -41,26 +37,7 @@ class StagingSeedDataTest :
     FunSpec({
         val seedPassword = "ein-starkes-testpasswort"
 
-        fun freshDatabase(): Database {
-            val jdbcUrl = "jdbc:h2:mem:staging-seed-${UUID.randomUUID()};DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE"
-            val dataSource =
-                HikariDataSource(
-                    HikariConfig().apply {
-                        this.jdbcUrl = jdbcUrl
-                        this.username = "sa"
-                        this.password = ""
-                        this.driverClassName = "org.h2.Driver"
-                        this.maximumPoolSize = 4
-                    },
-                )
-            Flyway
-                .configure()
-                .dataSource(dataSource)
-                .locations("classpath:db/migration")
-                .load()
-                .migrate()
-            return Database.connect(dataSource)
-        }
+        fun freshDatabase(): Database = IsolatedH2Database.create()
 
         test("seedWith populates a fresh instance: unique @staging.invalid emails, three seeded accounts") {
             val db = freshDatabase()
@@ -152,7 +129,12 @@ class StagingSeedDataTest :
                 }
             }
 
-            StagingSeedData.seedWith(seedPassword = seedPassword, database = db)
+            val before = StagingSeedProbe.snapshot(db)
+
+            StagingSeedData.seedWith(seedPassword = seedPassword, database = db, sepaKey = ByteArray(32) { it.toByte() })
+
+            // Not a single row in ANY table the seed writes, and the audit hash chain did not move.
+            StagingSeedProbe.snapshot(db) shouldBe before
 
             transaction(db) {
                 MemberTable.selectAll().count() shouldBe 1L

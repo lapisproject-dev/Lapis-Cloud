@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.rpc
 
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.comparables.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
@@ -402,7 +403,9 @@ class MemberStatusHistoryWritePathTest :
             }
         }
 
-        test("staging seed: every seeded member has exactly one SEED row equal to its status, effective from the start of the join day") {
+        test(
+            "staging seed: every seeded member has a SEED chain (the status timeline, back-dated, strictly ascending) whose last row equals its status",
+        ) {
             val db = TestDatabaseFactory.freshMigratedH2Database("history-staging-${Uuid.random()}")
             StagingSeedData.seedWith(seedPassword = "ein-starkes-testpasswort", database = db)
             transaction(db) {
@@ -411,12 +414,20 @@ class MemberStatusHistoryWritePathTest :
                         MemberStatusHistoryTable
                             .selectAll()
                             .where { MemberStatusHistoryTable.memberId eq member[MemberTable.id] }
+                            .orderBy(MemberStatusHistoryTable.effectiveFrom to SortOrder.ASC)
                             .toList()
-                    rows.size shouldBe 1
-                    rows.single()[MemberStatusHistoryTable.status] shouldBe member[MemberTable.status].name
-                    rows.single()[MemberStatusHistoryTable.sourceKind] shouldBe "SEED"
-                    rows.single()[MemberStatusHistoryTable.effectiveFrom].toString() shouldBe "2026-01-01T00:00"
+                    (rows.isNotEmpty()) shouldBe true
+                    rows.forEach { it[MemberStatusHistoryTable.sourceKind] shouldBe "SEED" }
+                    rows.last()[MemberStatusHistoryTable.status] shouldBe member[MemberTable.status].name
+                    // the first row has no predecessor, every later row points at the one before it
+                    rows.first()[MemberStatusHistoryTable.previousStatus] shouldBe null
+                    rows.zipWithNext().forEach { (before, after) ->
+                        after[MemberStatusHistoryTable.effectiveFrom] shouldBeGreaterThan before[MemberStatusHistoryTable.effectiveFrom]
+                        after[MemberStatusHistoryTable.previousStatus] shouldBe before[MemberStatusHistoryTable.status]
+                    }
                 }
+                // V1.9.63: the history is real, not one flat row per member -- someone has more than one step
+                (MemberStatusHistoryTable.selectAll().count() > MemberTable.selectAll().count()) shouldBe true
             }
         }
 

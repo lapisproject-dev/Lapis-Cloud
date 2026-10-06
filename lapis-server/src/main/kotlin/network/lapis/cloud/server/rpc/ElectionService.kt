@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.ResolutionTable
+import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.canManageElection
 import network.lapis.cloud.server.security.canStandAsCandidate
 import network.lapis.cloud.server.security.isElectionBoard
@@ -634,73 +635,24 @@ class ElectionService(
                     distinctSelections
                 }
 
-            val secret = electionRow[ElectionTable.secret]
             val now = nowLocalDateTime()
-            // De-anonymization guard: election_participation.voted_at (carries member_id) and
-            // election_ballot.cast_at (the anonymous ballot) must NOT be derived from the same
-            // instant for a secret Election -- a bit-identical timestamp on both rows would let anyone
-            // join `voted_at = cast_at` and re-link every "secret" ballot back to its voter.
-            // V1.9.23: coarsening to the day (the V1.9.22 behaviour) still leaked the order and the day;
-            // now every secret ballot carries the one constant voting_opened_at of its election, so
-            // cast_at carries no information at all. voted_at keeps full precision for the legitimate
-            // "did this member vote" audit. Non-secret ballots have no anonymity to protect (member_id is
-            // stored in the clear on election_ballot itself), so they keep full timestamp precision.
-            val castAt =
-                if (secret) {
-                    electionRow[ElectionTable.votingOpenedAt]
-                        ?: throw ConflictException("Election ${input.electionId} is OPEN but has no votingOpenedAt")
-                } else {
-                    now
-                }
             try {
-                if (secret) {
-                    val alreadyVoted =
-                        ElectionParticipationTable
-                            .selectAll()
-                            .where {
-                                (ElectionParticipationTable.electionId eq wId) and
-                                    (ElectionParticipationTable.memberId eq current.memberId)
-                            }.count() > 0
-                    if (alreadyVoted) throw ConflictException("Member ${current.memberId} already voted in Election ${input.electionId}")
-                    ElectionParticipationTable.insert {
-                        it[ElectionParticipationTable.id] = Uuid.random()
-                        it[ElectionParticipationTable.electionId] = wId
-                        it[ElectionParticipationTable.memberId] = current.memberId
-                        it[votedAt] = now
-                    }
-                } else {
-                    val alreadyVoted =
-                        ElectionBallotTable
-                            .selectAll()
-                            .where { (ElectionBallotTable.electionId eq wId) and (ElectionBallotTable.memberId eq current.memberId) }
-                            .count() > 0
-                    if (alreadyVoted) throw ConflictException("Member ${current.memberId} already voted in Election ${input.electionId}")
-                }
-
-                val ballotId = Uuid.random()
-                val receiptCode = generateUniqueReceiptCode(wId)
-                ElectionBallotTable.insert {
-                    it[ElectionBallotTable.id] = ballotId
-                    it[ElectionBallotTable.electionId] = wId
-                    it[ElectionBallotTable.memberId] = if (secret) null else current.memberId
-                    it[ElectionBallotTable.receiptCode] = receiptCode
-                    it[ElectionBallotTable.castAt] = castAt
-                }
-                selectedOptionIds.forEach { optionId ->
-                    ElectionBallotSelectionTable.insert {
-                        it[ElectionBallotSelectionTable.id] = Uuid.random()
-                        it[ElectionBallotSelectionTable.ballotId] = ballotId
-                        it[ElectionBallotSelectionTable.optionId] = optionId
-                    }
-                }
+                val written =
+                    recordElectionBallotLocked(
+                        electionRow = electionRow,
+                        voterMemberId = current.memberId,
+                        selectedOptionIds = selectedOptionIds,
+                        now = now,
+                    )
+                val secret = electionRow[ElectionTable.secret]
                 ElectionBallotCastResultDto(
                     // Blank for a secret election: the id would let a later ballot-list poll show who voted when.
-                    id = if (secret) "" else ballotId.toString(),
-                    castAt = castAt,
-                    receiptCode = if (secret) receiptCode else null,
+                    id = if (secret) "" else written.ballotId.toString(),
+                    castAt = written.castAt,
+                    receiptCode = if (secret) written.receiptCode else null,
                 )
             } catch (e: ExposedSQLException) {
-                // The application-level pre-checks above are racy under concurrency on their own;
+                // The application-level pre-checks in recordElectionBallotLocked are racy under concurrency on their own;
                 // the DB-level UNIQUE(election_id, member_id) constraint (on election_participation for the
                 // secret path, on election_ballot for the non-secret path) is the real backstop.
                 // A caught violation here always means "someone already voted" -- surface it as a
@@ -773,200 +725,7 @@ class ElectionService(
             val electionMotionRow = MotionDecisionLock.lockMotion(motionId)
             val electionRow = lockElectionRow(wId)
             if (!current.isElectionBoard(wId)) throw ForbiddenException()
-            if (electionRow[ElectionTable.status] != ElectionStatus.CLOSED) {
-                throw ConflictException("Election $electionId is ${electionRow[ElectionTable.status]}, expected CLOSED")
-            }
-            val approvalCount = ElectionTallyApprovalTable.selectAll().where { ElectionTallyApprovalTable.electionId eq wId }.count()
-            val threshold = electionRow[ElectionTable.tallyThreshold]
-            if (approvalCount < threshold) {
-                throw ConflictException("Election $electionId has $approvalCount/$threshold required Tally approvals")
-            }
-            // The motion must still be waiting for a decision. Without this check a quorum resolution that
-            // landed between the election's last status read and this point would be overwritten by a second
-            // resolution and a second motion status.
-            MotionDecisionLock.requireUndecided(electionMotionRow)
-            val alreadyResolved = ResolutionTable.selectAll().where { ResolutionTable.electionId eq wId }.count() > 0
-            if (alreadyResolved || electionRow[ElectionTable.resolutionId] != null) {
-                throw ConflictException("Election $electionId already has a Resolution")
-            }
-            // Änderungsantrag (V0.2.6) ordering guard: tally() also finalizes the underlying
-            // Motion to a terminal status (RESOLVED/REJECTED/POSTPONED below), so it needs the
-            // same soundness guard GovernanceService.resolveMotion/closeVote enforce -- see
-            // requireNoPendingAmendments KDoc. Amending an Election's underlying Motion has no
-            // real procedural meaning, but leaving this path unguarded would be a silent bypass
-            // of the same invariant.
-            if (electionMotionRow[MotionTable.amendsMotionId] == null) requireNoPendingAmendments(electionMotionRow[MotionTable.id])
-
-            val outcome = computeOutcome(electionRow = electionRow)
-            // V1.9.53 minimum participation: the decision below runs on the full figures; what is persisted in
-            // the resolution book and returned is reduced when the secret election is below the minimum.
-            val secretElection = electionRow[ElectionTable.secret]
-            val ballotCount = electionBallotCount(wId)
-            val figuresWithheld = electionFiguresWithheld(secret = secretElection, ballotCount = ballotCount)
-            val ergebnis = disclosedElectionResult(figures = outcome.figures, secret = secretElection, ballotCount = ballotCount)
-            val resolutionStatus = outcome.resolutionStatus
-            val votesYes = if (figuresWithheld) 0 else outcome.votesYes
-            val votesNo = if (figuresWithheld) 0 else outcome.votesNo
-            val votesAbstain = if (figuresWithheld) 0 else outcome.votesAbstain
-            val optionRows = outcome.optionRows
-            val electionType = electionRow[ElectionTable.electionType]
-            val effectiveTie = outcome.figures.tie
-            val effectiveWinnerOptionIds = outcome.figures.winnerOptionIds.map { Uuid.parse(it) }
-            // V0.5.3 GoBD audit log: collected here, audited only at the very end of the
-            // transaction -- see SeatedBoardMembership KDoc.
-            val seatedBoardMemberships = mutableListOf<SeatedBoardMembership>()
-
-            if (electionType != ElectionType.YES_NO) {
-                if (!effectiveTie && effectiveWinnerOptionIds.isNotEmpty()) {
-                    val targetCommitteeId =
-                        electionRow[ElectionTable.targetCommitteeId]
-                            ?: throw ConflictException("Election $electionId has no targetCommitteeId to seat winners into")
-                    val targetRole = electionRow[ElectionTable.targetRole] ?: CommitteeRole.MEMBER
-                    // V0.5.2 Transparenzregister (§20 GwG): this Election is the ONLY path that
-                    // seats winners into a targetCommittee (the YES_NO branch above seats nobody),
-                    // so it is also the only tally-time hook needed to keep the Transparenzregister
-                    // beneficial-owner roster (BoardMembershipEvents.recordBoardJoin, see that
-                    // object's KDoc) in step with the real Vorstand. Gated on the targetCommittee's
-                    // type, NOT on isPoliticalParty -- §20 GwG applies to every Verein/Partei.
-                    val targetCommitteeType =
-                        CommitteeTable.selectAll().where { CommitteeTable.id eq targetCommitteeId }.single()[CommitteeTable.type]
-                    val candidacyIdByOptionId = optionRows.associate { it[ElectionOptionTable.id] to it[ElectionOptionTable.candidacyId] }
-                    val today = OrganizationTimeZone.today()
-                    effectiveWinnerOptionIds.forEach { winnerOptionId ->
-                        val candidacyId =
-                            candidacyIdByOptionId[winnerOptionId]
-                                ?: throw ConflictException("Winning option $winnerOptionId has no Candidacy")
-                        val winnerMemberId =
-                            ElectionCandidacyTable
-                                .selectAll()
-                                .where { ElectionCandidacyTable.id eq candidacyId }
-                                .single()[ElectionCandidacyTable.memberId]
-                        // ANTRAG membership-gate audit follow-up (2026-07-30), round-2 review
-                        // finding: this winner-seating branch is a SEPARATE seat-creation path from
-                        // GovernanceService.addCommitteeMember -- it writes CommitteeMembershipTable
-                        // directly and was never routed through that method, so the addCommitteeMember
-                        // root-cause fix above does NOT cover it despite comments elsewhere in this
-                        // file (castElectionBallot) assuming Committee seats only ever originate
-                        // there. canStandAsCandidate only re-checks ACTIVE at submitCandidacy time
-                        // (ElectionAuthorization.kt); a candidate who was ACTIVE then but calls
-                        // leaveMembership (-> WITHDRAWN) before tally() runs would otherwise be
-                        // seated here with no live status recheck at all -- for an EXECUTIVE_BOARD
-                        // targetCommittee that means a departed member becoming a real, audited
-                        // Vorstand seat (BoardMembershipEvents.recordBoardJoin) below. Same gate,
-                        // same semantics as addCommitteeMember: ACTIVE-only, applied to the winner
-                        // being seated, not the caller (current.isElectionBoard(wId) already gates
-                        // the caller above). forUpdate = true (round-3 audit fix, 2026-07-30): this
-                        // check gates a CommitteeMembershipTable insert a few lines below in this
-                        // SAME transaction -- without the row lock, a concurrent leaveMembership()
-                        // could commit in between, seating the winner from an already-stale status
-                        // read. See requireActiveMembership KDoc "forUpdate".
-                        requireActiveMembership(memberId = winnerMemberId, forUpdate = true)
-                        // Guarded seat, mirroring the single-active-membership invariant
-                        // GovernanceService.addCommitteeMember enforces (GovernanceService.kt
-                        // ~200-212): an incumbent who wins re-election (or is elected into a new
-                        // Role, e.g. a sitting MEMBER elected CHAIR) already has an active
-                        // (until == null) row for this Committee. Closing it before inserting the
-                        // fresh term -- instead of an unconditional insert -- prevents a second
-                        // concurrent active membership row for the same member+Committee, which
-                        // would silently corrupt membership history in a legally-relevant
-                        // Vereins-/Parteiverwaltung (a later removeCommitteeMitglied/
-                        // endCommitteeMembership closes only one row, leaving a phantom active
-                        // membership behind).
-                        CommitteeMembershipTable.update({
-                            (CommitteeMembershipTable.committeeId eq targetCommitteeId) and
-                                (CommitteeMembershipTable.memberId eq winnerMemberId) and
-                                (CommitteeMembershipTable.until.isNull())
-                        }) {
-                            it[until] = today
-                        }
-                        CommitteeMembershipTable.insert {
-                            it[CommitteeMembershipTable.id] = Uuid.random()
-                            it[CommitteeMembershipTable.committeeId] = targetCommitteeId
-                            it[CommitteeMembershipTable.memberId] = winnerMemberId
-                            it[role] = targetRole
-                            it[since] = today
-                            it[until] = null
-                        }
-                        if (targetCommitteeType == CommitteeType.EXECUTIVE_BOARD) {
-                            val boardMembershipId =
-                                BoardMembershipEvents.recordBoardJoin(
-                                    memberId = winnerMemberId,
-                                    role = targetRole,
-                                    startedAt = today,
-                                    now = nowLocalDateTime(),
-                                )
-                            seatedBoardMemberships +=
-                                SeatedBoardMembership(
-                                    id = boardMembershipId,
-                                    memberId = winnerMemberId,
-                                    role = targetRole,
-                                    startedAt = today,
-                                )
-                        }
-                    }
-                }
-            }
-
-            val meeting = MeetingTable.selectAll().where { MeetingTable.id eq electionRow[ElectionTable.meetingId] }.single()
-            val committeeId = requireMotionCommitteeId(electionRow[ElectionTable.motionId])
-            // The row locked at the top of this transaction -- nothing has changed it since.
-            val motionRow = electionMotionRow
-            // Änderungsantrag (V0.2.6): current working text, not the immutable original -- same
-            // as GovernanceService.resolveMotion/closeVote, see MotionDto.effectiveText KDoc.
-            val effectiveText = motionRow[MotionTable.currentText] ?: motionRow[MotionTable.text]
-            val resolutionInput =
-                ResolutionInput(
-                    agendaItemId = motionRow[MotionTable.agendaItemId]?.toString(),
-                    title = motionRow[MotionTable.title],
-                    text = effectiveText,
-                    votesYes = votesYes,
-                    votesNo = votesNo,
-                    votesAbstain = votesAbstain,
-                    status = resolutionStatus,
-                )
-            val resolution =
-                insertResolutionRow(
-                    sId = electionRow[ElectionTable.meetingId],
-                    committeeId = committeeId,
-                    scheduledDate = meeting[MeetingTable.scheduledAt].date,
-                    input = resolutionInput,
-                    current = current,
-                    resolutionMode = ResolutionMode.DEMOCRATIC,
-                    electionId = wId,
-                )
-
-            val newMotionStatus =
-                when (resolutionStatus) {
-                    ResolutionStatus.ADOPTED -> MotionStatus.RESOLVED
-                    ResolutionStatus.REJECTED -> MotionStatus.REJECTED
-                    ResolutionStatus.POSTPONED -> MotionStatus.POSTPONED
-                }
-            MotionTable.update({ MotionTable.id eq motionRow[MotionTable.id] }) {
-                it[MotionTable.status] = newMotionStatus
-                it[MotionTable.resolutionId] = Uuid.parse(resolution.id)
-            }
-
-            ElectionTable.update({ ElectionTable.id eq wId }) {
-                it[status] = ElectionStatus.TALLIED
-                it[tallyRunAt] = nowLocalDateTime()
-                it[ElectionTable.resolutionId] = Uuid.parse(resolution.id)
-            }
-            // V0.5.3 GoBD audit log: called last, after every other row-locking write in this
-            // transaction (CommitteeMembershipTable/MotionTable/ElectionTable), so this satisfies
-            // AuditLogRecorder's deadlock-avoidance contract -- see auditBoardMembershipCreate/
-            // auditResolutionCreate KDoc for why these calls cannot happen earlier (inside the
-            // seating loop / inside insertResolutionRow).
-            seatedBoardMemberships.forEach {
-                auditBoardMembershipCreate(
-                    boardMembershipId = it.id,
-                    memberId = it.memberId,
-                    committeeRole = it.role,
-                    startedAt = it.startedAt,
-                    current = current,
-                )
-            }
-            auditResolutionCreate(resolution = resolution, current = current)
-            ergebnis
+            tallyElectionLocked(electionMotionRow = electionMotionRow, electionRow = electionRow, actor = current)
         }
     }
 
@@ -1100,174 +859,9 @@ class ElectionService(
         }
     }
 
-    /**
-     * The pure outcome calculation shared by [tally] (which then persists it) and [getElectionResult]
-     * (which only reads it): V1.9.22 extracted it unchanged so the displayed result can never drift
-     * from what was written to the resolution book.
-     */
-    private fun computeOutcome(electionRow: ResultRow): ComputedOutcome {
-        val wId = electionRow[ElectionTable.id]
-        val optionRows =
-            ElectionOptionTable
-                .selectAll()
-                .where { ElectionOptionTable.electionId eq wId }
-                .orderBy(ElectionOptionTable.position)
-                .toList()
-        val optionIds = optionRows.map { it[ElectionOptionTable.id] }
-        val labelByOptionId = optionRows.associate { it[ElectionOptionTable.id] to it[ElectionOptionTable.label] }
-        val auselectionRows =
-            (ElectionBallotSelectionTable innerJoin ElectionBallotTable)
-                .selectAll()
-                .where { ElectionBallotTable.electionId eq wId }
-                .toList()
-        val selectionsByBallot =
-            auselectionRows
-                .groupBy({ it[ElectionBallotSelectionTable.ballotId] }, { it[ElectionBallotSelectionTable.optionId] })
-
-        val electionType = electionRow[ElectionTable.electionType]
-        val ergebnis: ElectionOutcomeFigures
-        val resolutionStatus: ResolutionStatus
-        val votesYes: Int
-        val votesNo: Int
-        val votesAbstain: Int
-
-        if (electionType == ElectionType.YES_NO) {
-            val ballots =
-                selectionsByBallot.values.map { selectedIds ->
-                    ElectionAnswer.valueOf(labelByOptionId.getValue(selectedIds.single()))
-                }
-            val jaNein =
-                computeJaNeinErgebnis(
-                    ballots = ballots,
-                    requiredMajorityPercent = electionRow[ElectionTable.requiredMajorityPercent],
-                    fraction = storedMajorityFraction(electionRow),
-                )
-            val jaOptionId = optionRows.single { it[ElectionOptionTable.label] == ElectionAnswer.YES.name }[ElectionOptionTable.id]
-            val neinOptionId = optionRows.single { it[ElectionOptionTable.label] == ElectionAnswer.NO.name }[ElectionOptionTable.id]
-            val enthaltungOptionId =
-                optionRows.single {
-                    it[ElectionOptionTable.label] == ElectionAnswer.ABSTAIN.name
-                }[ElectionOptionTable.id]
-            val winnerOptionIds =
-                if (jaNein.tie) {
-                    emptyList()
-                } else if (jaNein.majorityMet) {
-                    listOf(jaOptionId.toString())
-                } else {
-                    listOf(neinOptionId.toString())
-                }
-            ergebnis =
-                ElectionOutcomeFigures(
-                    electionId = wId,
-                    winnerOptionIds = winnerOptionIds,
-                    tie = jaNein.tie,
-                    majorityMet = jaNein.majorityMet,
-                    perOptionVotes =
-                        mapOf(
-                            jaOptionId.toString() to jaNein.ja,
-                            neinOptionId.toString() to jaNein.nein,
-                            enthaltungOptionId.toString() to jaNein.enthaltung,
-                        ),
-                )
-            resolutionStatus =
-                if (jaNein.tie) {
-                    ResolutionStatus.POSTPONED
-                } else if (jaNein.majorityMet) {
-                    ResolutionStatus.ADOPTED
-                } else {
-                    ResolutionStatus.REJECTED
-                }
-            votesYes = jaNein.ja
-            votesNo = jaNein.nein
-            votesAbstain = jaNein.enthaltung
-        } else {
-            val ballots = selectionsByBallot.values.map { ElectionBallotData(optionIds = it) }
-            val personenelection =
-                computePersonnelElectionErgebnis(
-                    ballots = ballots,
-                    optionIds = optionIds,
-                    seatCount = electionRow[ElectionTable.seatCount],
-                )
-            // SINGLE_CHOICE requires an absolute majority of the votes cast, not merely a
-            // plurality -- see `03 Bereiche/Lapis Cloud/Demokratische Electionen.md` Electiontypen
-            // table ("Absolute Mehrheit, ggf. Stichelection"). computePersonnelElectionErgebnis alone
-            // implements top-n-by-plurality (correct for MULTI_CHOICE, insufficient for
-            // SINGLE_CHOICE on its own), so the majority check is layered on top here, reusing
-            // the same requiredMajorityPercent field the YES_NO branch above already applies.
-            // Only meaningful in the genuinely *contested* case (more candidates than seats) --
-            // the undersubscribed single-candidate case is left to computePersonnelElectionErgebnis's
-            // own documented "uncontested seat needs no ballot" convention. A winner who fails
-            // the majority requirement resolves the whole Election to POSTPONED (no winner seated),
-            // signalling that a Stichelection (runoff) is required -- same "tie is the safe,
-            // non-manipulable default" philosophy as a seat-cutoff tie.
-            val contested = optionIds.size > electionRow[ElectionTable.seatCount]
-            val einzelelectionMajorityMet =
-                if (electionType == ElectionType.SINGLE_CHOICE &&
-                    contested &&
-                    !personenelection.tie &&
-                    personenelection.winnerOptionIds.isNotEmpty()
-                ) {
-                    val totalVotes = personenelection.voteCounts.values.sum()
-                    val winnerVotes = personenelection.voteCounts.getValue(personenelection.winnerOptionIds.single())
-                    val requiredPercent = electionRow[ElectionTable.requiredMajorityPercent]
-                    val fraction = storedMajorityFraction(electionRow)
-                    // Same denominator as before V1.9.23: every vote cast (totalVotes sums all option counts).
-                    totalVotes > 0 &&
-                        if (fraction != null) {
-                            fraction.isMetBy(votes = winnerVotes, total = totalVotes)
-                        } else {
-                            winnerVotes.toLong() * 100 >= requiredPercent.toLong() * totalVotes
-                        }
-                } else {
-                    true
-                }
-            val effectiveTie = personenelection.tie || !einzelelectionMajorityMet
-            // Winners are listed in ballot POSITION order, never in vote-count order: the count ranking would leak
-            // through the RPC response and the seating / audit-log order even when the figures are withheld
-            // (V1.9.53 minimum participation).
-            val positionByOptionId = optionRows.associate { it[ElectionOptionTable.id] to it[ElectionOptionTable.position] }
-            val effectiveWinnerOptionIds =
-                if (effectiveTie) {
-                    emptyList()
-                } else {
-                    personenelection.winnerOptionIds.sortedBy { positionByOptionId.getValue(it) }
-                }
-            ergebnis =
-                ElectionOutcomeFigures(
-                    electionId = wId,
-                    winnerOptionIds = effectiveWinnerOptionIds.map { it.toString() },
-                    tie = effectiveTie,
-                    majorityMet = null,
-                    perOptionVotes = personenelection.voteCounts.mapKeys { (optionId, _) -> optionId.toString() },
-                )
-            resolutionStatus = if (effectiveTie) ResolutionStatus.POSTPONED else ResolutionStatus.ADOPTED
-            votesYes = 0
-            votesNo = 0
-            votesAbstain = 0
-        }
-        return ComputedOutcome(
-            figures = ergebnis,
-            resolutionStatus = resolutionStatus,
-            votesYes = votesYes,
-            votesNo = votesNo,
-            votesAbstain = votesAbstain,
-            optionRows = optionRows,
-        )
-    }
-
-    /** The exact majority fraction of an election created since V1.9.23, `null` for the legacy percent path. */
-    private fun storedMajorityFraction(electionRow: ResultRow): MajorityFraction? {
-        val numerator = electionRow[ElectionTable.requiredMajorityNumerator]
-        val denominator = electionRow[ElectionTable.requiredMajorityDenominator]
-        return if (numerator != null && denominator != null) MajorityFraction(numerator = numerator, denominator = denominator) else null
-    }
-
     private fun requireElectionRow(electionId: Uuid): ResultRow =
         ElectionTable.selectAll().where { ElectionTable.id eq electionId }.singleOrNull()
             ?: throw NotFoundException("Election $electionId not found")
-
-    private fun requireMotionCommitteeId(motionId: Uuid): Uuid =
-        MotionTable.selectAll().where { MotionTable.id eq motionId }.single()[MotionTable.targetCommitteeId]
 
     private fun loadElection(id: Uuid): ElectionDto =
         ElectionTable
@@ -1299,28 +893,6 @@ class ElectionService(
         }
 
     private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
-
-    /**
-     * Retries a small, bounded number of times on a receipt-code collision (astronomically
-     * unlikely at [RECEIPT_CODE_BYTES] bytes of [SecureRandom] entropy, but checked rather than
-     * assumed) -- see [ElectionBallotTable] KDoc.
-     */
-    private fun generateUniqueReceiptCode(electionId: Uuid): String {
-        repeat(RECEIPT_CODE_MAX_ATTEMPTS) {
-            val bytes = ByteArray(RECEIPT_CODE_BYTES)
-            secureRandom.nextBytes(bytes)
-            val candidate = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
-            val exists =
-                ElectionBallotTable
-                    .selectAll()
-                    .where { (ElectionBallotTable.electionId eq electionId) and (ElectionBallotTable.receiptCode eq candidate) }
-                    .count() > 0
-            if (!exists) return candidate
-        }
-        throw ConflictException(
-            "Failed to generate a unique receipt code for Election $electionId after $RECEIPT_CODE_MAX_ATTEMPTS attempts",
-        )
-    }
 
     private fun ResultRow.toElectionDto(): ElectionDto {
         val electionId = this[ElectionTable.id]
@@ -1409,4 +981,485 @@ class ElectionService(
 
     private fun String.toUuidOrNotFound(kind: String): Uuid =
         runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Invalid $kind id: $this") }
+}
+
+/**
+ * The pure outcome calculation shared by [tally] (which then persists it) and [getElectionResult]
+ * (which only reads it): V1.9.22 extracted it unchanged so the displayed result can never drift
+ * from what was written to the resolution book.
+ */
+private fun computeOutcome(electionRow: ResultRow): ComputedOutcome {
+    val wId = electionRow[ElectionTable.id]
+    val optionRows =
+        ElectionOptionTable
+            .selectAll()
+            .where { ElectionOptionTable.electionId eq wId }
+            .orderBy(ElectionOptionTable.position)
+            .toList()
+    val optionIds = optionRows.map { it[ElectionOptionTable.id] }
+    val labelByOptionId = optionRows.associate { it[ElectionOptionTable.id] to it[ElectionOptionTable.label] }
+    val auselectionRows =
+        (ElectionBallotSelectionTable innerJoin ElectionBallotTable)
+            .selectAll()
+            .where { ElectionBallotTable.electionId eq wId }
+            .toList()
+    val selectionsByBallot =
+        auselectionRows
+            .groupBy({ it[ElectionBallotSelectionTable.ballotId] }, { it[ElectionBallotSelectionTable.optionId] })
+
+    val electionType = electionRow[ElectionTable.electionType]
+    val ergebnis: ElectionOutcomeFigures
+    val resolutionStatus: ResolutionStatus
+    val votesYes: Int
+    val votesNo: Int
+    val votesAbstain: Int
+
+    if (electionType == ElectionType.YES_NO) {
+        val ballots =
+            selectionsByBallot.values.map { selectedIds ->
+                ElectionAnswer.valueOf(labelByOptionId.getValue(selectedIds.single()))
+            }
+        val jaNein =
+            computeJaNeinErgebnis(
+                ballots = ballots,
+                requiredMajorityPercent = electionRow[ElectionTable.requiredMajorityPercent],
+                fraction = storedMajorityFraction(electionRow),
+            )
+        val jaOptionId = optionRows.single { it[ElectionOptionTable.label] == ElectionAnswer.YES.name }[ElectionOptionTable.id]
+        val neinOptionId = optionRows.single { it[ElectionOptionTable.label] == ElectionAnswer.NO.name }[ElectionOptionTable.id]
+        val enthaltungOptionId =
+            optionRows.single {
+                it[ElectionOptionTable.label] == ElectionAnswer.ABSTAIN.name
+            }[ElectionOptionTable.id]
+        val winnerOptionIds =
+            if (jaNein.tie) {
+                emptyList()
+            } else if (jaNein.majorityMet) {
+                listOf(jaOptionId.toString())
+            } else {
+                listOf(neinOptionId.toString())
+            }
+        ergebnis =
+            ElectionOutcomeFigures(
+                electionId = wId,
+                winnerOptionIds = winnerOptionIds,
+                tie = jaNein.tie,
+                majorityMet = jaNein.majorityMet,
+                perOptionVotes =
+                    mapOf(
+                        jaOptionId.toString() to jaNein.ja,
+                        neinOptionId.toString() to jaNein.nein,
+                        enthaltungOptionId.toString() to jaNein.enthaltung,
+                    ),
+            )
+        resolutionStatus =
+            if (jaNein.tie) {
+                ResolutionStatus.POSTPONED
+            } else if (jaNein.majorityMet) {
+                ResolutionStatus.ADOPTED
+            } else {
+                ResolutionStatus.REJECTED
+            }
+        votesYes = jaNein.ja
+        votesNo = jaNein.nein
+        votesAbstain = jaNein.enthaltung
+    } else {
+        val ballots = selectionsByBallot.values.map { ElectionBallotData(optionIds = it) }
+        val personenelection =
+            computePersonnelElectionErgebnis(
+                ballots = ballots,
+                optionIds = optionIds,
+                seatCount = electionRow[ElectionTable.seatCount],
+            )
+        // SINGLE_CHOICE requires an absolute majority of the votes cast, not merely a
+        // plurality -- see `03 Bereiche/Lapis Cloud/Demokratische Electionen.md` Electiontypen
+        // table ("Absolute Mehrheit, ggf. Stichelection"). computePersonnelElectionErgebnis alone
+        // implements top-n-by-plurality (correct for MULTI_CHOICE, insufficient for
+        // SINGLE_CHOICE on its own), so the majority check is layered on top here, reusing
+        // the same requiredMajorityPercent field the YES_NO branch above already applies.
+        // Only meaningful in the genuinely *contested* case (more candidates than seats) --
+        // the undersubscribed single-candidate case is left to computePersonnelElectionErgebnis's
+        // own documented "uncontested seat needs no ballot" convention. A winner who fails
+        // the majority requirement resolves the whole Election to POSTPONED (no winner seated),
+        // signalling that a Stichelection (runoff) is required -- same "tie is the safe,
+        // non-manipulable default" philosophy as a seat-cutoff tie.
+        val contested = optionIds.size > electionRow[ElectionTable.seatCount]
+        val einzelelectionMajorityMet =
+            if (electionType == ElectionType.SINGLE_CHOICE &&
+                contested &&
+                !personenelection.tie &&
+                personenelection.winnerOptionIds.isNotEmpty()
+            ) {
+                val totalVotes = personenelection.voteCounts.values.sum()
+                val winnerVotes = personenelection.voteCounts.getValue(personenelection.winnerOptionIds.single())
+                val requiredPercent = electionRow[ElectionTable.requiredMajorityPercent]
+                val fraction = storedMajorityFraction(electionRow)
+                // Same denominator as before V1.9.23: every vote cast (totalVotes sums all option counts).
+                totalVotes > 0 &&
+                    if (fraction != null) {
+                        fraction.isMetBy(votes = winnerVotes, total = totalVotes)
+                    } else {
+                        winnerVotes.toLong() * 100 >= requiredPercent.toLong() * totalVotes
+                    }
+            } else {
+                true
+            }
+        val effectiveTie = personenelection.tie || !einzelelectionMajorityMet
+        // Winners are listed in ballot POSITION order, never in vote-count order: the count ranking would leak
+        // through the RPC response and the seating / audit-log order even when the figures are withheld
+        // (V1.9.53 minimum participation).
+        val positionByOptionId = optionRows.associate { it[ElectionOptionTable.id] to it[ElectionOptionTable.position] }
+        val effectiveWinnerOptionIds =
+            if (effectiveTie) {
+                emptyList()
+            } else {
+                personenelection.winnerOptionIds.sortedBy { positionByOptionId.getValue(it) }
+            }
+        ergebnis =
+            ElectionOutcomeFigures(
+                electionId = wId,
+                winnerOptionIds = effectiveWinnerOptionIds.map { it.toString() },
+                tie = effectiveTie,
+                majorityMet = null,
+                perOptionVotes = personenelection.voteCounts.mapKeys { (optionId, _) -> optionId.toString() },
+            )
+        resolutionStatus = if (effectiveTie) ResolutionStatus.POSTPONED else ResolutionStatus.ADOPTED
+        votesYes = 0
+        votesNo = 0
+        votesAbstain = 0
+    }
+    return ComputedOutcome(
+        figures = ergebnis,
+        resolutionStatus = resolutionStatus,
+        votesYes = votesYes,
+        votesNo = votesNo,
+        votesAbstain = votesAbstain,
+        optionRows = optionRows,
+    )
+}
+
+/** The exact majority fraction of an election created since V1.9.23, `null` for the legacy percent path. */
+private fun storedMajorityFraction(electionRow: ResultRow): MajorityFraction? {
+    val numerator = electionRow[ElectionTable.requiredMajorityNumerator]
+    val denominator = electionRow[ElectionTable.requiredMajorityDenominator]
+    return if (numerator != null && denominator != null) MajorityFraction(numerator = numerator, denominator = denominator) else null
+}
+
+/**
+ * Retries a small, bounded number of times on a receipt-code collision (astronomically
+ * unlikely at [RECEIPT_CODE_BYTES] bytes of [SecureRandom] entropy, but checked rather than
+ * assumed) -- see [ElectionBallotTable] KDoc.
+ */
+private fun generateUniqueReceiptCode(electionId: Uuid): String {
+    repeat(RECEIPT_CODE_MAX_ATTEMPTS) {
+        val bytes = ByteArray(RECEIPT_CODE_BYTES)
+        secureRandom.nextBytes(bytes)
+        val candidate = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+        val exists =
+            ElectionBallotTable
+                .selectAll()
+                .where { (ElectionBallotTable.electionId eq electionId) and (ElectionBallotTable.receiptCode eq candidate) }
+                .count() > 0
+        if (!exists) return candidate
+    }
+    throw ConflictException(
+        "Failed to generate a unique receipt code for Election $electionId after $RECEIPT_CODE_MAX_ATTEMPTS attempts",
+    )
+}
+
+private fun requireMotionCommitteeId(motionId: Uuid): Uuid =
+    MotionTable.selectAll().where { MotionTable.id eq motionId }.single()[MotionTable.targetCommitteeId]
+
+/** The ids of a ballot written by [recordElectionBallotLocked] (the receipt code is only meant for a secret election's voter). */
+internal data class ElectionBallotWritten(
+    val ballotId: Uuid,
+    val receiptCode: String,
+    val castAt: LocalDateTime,
+)
+
+/**
+ * The write core of [ElectionService.castElectionBallot] (V1.9.63: extracted unchanged so the staging/demo seed casts its
+ * ballots through the SAME code as a live vote instead of re-implementing the secret-ballot rules): a secret election writes
+ * an `election_participation` row (member, `votedAt = now`) and an anonymous `election_ballot` (no member, `cast_at` = the
+ * constant `voting_opened_at`); an open election writes the named ballot. Then the selections.
+ *
+ * The caller holds the election row lock ([lockElectionRow]), has checked the status, the stream quiescence, the eligibility
+ * and the option validity, and wraps this call in its own `try`/`catch (ExposedSQLException)` (a unique violation here always
+ * means "already voted"). Must run inside an open transaction.
+ */
+internal fun recordElectionBallotLocked(
+    electionRow: ResultRow,
+    voterMemberId: Uuid,
+    selectedOptionIds: List<Uuid>,
+    now: LocalDateTime,
+): ElectionBallotWritten {
+    val wId = electionRow[ElectionTable.id]
+    val secret = electionRow[ElectionTable.secret]
+    // De-anonymization guard: election_participation.voted_at (carries member_id) and
+    // election_ballot.cast_at (the anonymous ballot) must NOT be derived from the same
+    // instant for a secret Election -- a bit-identical timestamp on both rows would let anyone
+    // join `voted_at = cast_at` and re-link every "secret" ballot back to its voter.
+    // V1.9.23: coarsening to the day (the V1.9.22 behaviour) still leaked the order and the day;
+    // now every secret ballot carries the one constant voting_opened_at of its election, so
+    // cast_at carries no information at all. voted_at keeps full precision for the legitimate
+    // "did this member vote" audit. Non-secret ballots have no anonymity to protect (member_id is
+    // stored in the clear on election_ballot itself), so they keep full timestamp precision.
+    val castAt =
+        if (secret) {
+            electionRow[ElectionTable.votingOpenedAt]
+                ?: throw ConflictException("Election $wId is OPEN but has no votingOpenedAt")
+        } else {
+            now
+        }
+    if (secret) {
+        val alreadyVoted =
+            ElectionParticipationTable
+                .selectAll()
+                .where {
+                    (ElectionParticipationTable.electionId eq wId) and
+                        (ElectionParticipationTable.memberId eq voterMemberId)
+                }.count() > 0
+        if (alreadyVoted) throw ConflictException("Member $voterMemberId already voted in Election $wId")
+        ElectionParticipationTable.insert {
+            it[ElectionParticipationTable.id] = Uuid.random()
+            it[ElectionParticipationTable.electionId] = wId
+            it[ElectionParticipationTable.memberId] = voterMemberId
+            it[votedAt] = now
+        }
+    } else {
+        val alreadyVoted =
+            ElectionBallotTable
+                .selectAll()
+                .where { (ElectionBallotTable.electionId eq wId) and (ElectionBallotTable.memberId eq voterMemberId) }
+                .count() > 0
+        if (alreadyVoted) throw ConflictException("Member $voterMemberId already voted in Election $wId")
+    }
+
+    val ballotId = Uuid.random()
+    val receiptCode = generateUniqueReceiptCode(wId)
+    ElectionBallotTable.insert {
+        it[ElectionBallotTable.id] = ballotId
+        it[ElectionBallotTable.electionId] = wId
+        it[ElectionBallotTable.memberId] = if (secret) null else voterMemberId
+        it[ElectionBallotTable.receiptCode] = receiptCode
+        it[ElectionBallotTable.castAt] = castAt
+    }
+    selectedOptionIds.forEach { optionId ->
+        ElectionBallotSelectionTable.insert {
+            it[ElectionBallotSelectionTable.id] = Uuid.random()
+            it[ElectionBallotSelectionTable.ballotId] = ballotId
+            it[ElectionBallotSelectionTable.optionId] = optionId
+        }
+    }
+    return ElectionBallotWritten(ballotId = ballotId, receiptCode = receiptCode, castAt = castAt)
+}
+
+/**
+ * The body of [ElectionService.tally] after its authorization (V1.9.63: extracted unchanged so the staging/demo seed tallies
+ * a closed election through the SAME code as a live tally): checks the approvals and that the motion is still undecided,
+ * computes the outcome, seats winners, writes the resolution, the motion and the election, and audits last.
+ *
+ * The caller holds the motion lock ([MotionDecisionLock.lockMotion]) and then the election row lock ([lockElectionRow]), in
+ * that order, and has checked that [actor] is allowed to tally. Must run inside an open transaction.
+ */
+internal fun tallyElectionLocked(
+    electionMotionRow: ResultRow,
+    electionRow: ResultRow,
+    actor: CurrentMember,
+): ElectionResultDto {
+    val wId = electionRow[ElectionTable.id]
+    if (electionRow[ElectionTable.status] != ElectionStatus.CLOSED) {
+        throw ConflictException("Election $wId is ${electionRow[ElectionTable.status]}, expected CLOSED")
+    }
+    val approvalCount = ElectionTallyApprovalTable.selectAll().where { ElectionTallyApprovalTable.electionId eq wId }.count()
+    val threshold = electionRow[ElectionTable.tallyThreshold]
+    if (approvalCount < threshold) {
+        throw ConflictException("Election $wId has $approvalCount/$threshold required Tally approvals")
+    }
+    // The motion must still be waiting for a decision. Without this check a quorum resolution that
+    // landed between the election's last status read and this point would be overwritten by a second
+    // resolution and a second motion status.
+    MotionDecisionLock.requireUndecided(electionMotionRow)
+    val alreadyResolved = ResolutionTable.selectAll().where { ResolutionTable.electionId eq wId }.count() > 0
+    if (alreadyResolved || electionRow[ElectionTable.resolutionId] != null) {
+        throw ConflictException("Election $wId already has a Resolution")
+    }
+    // Änderungsantrag (V0.2.6) ordering guard: tally() also finalizes the underlying
+    // Motion to a terminal status (RESOLVED/REJECTED/POSTPONED below), so it needs the
+    // same soundness guard GovernanceService.resolveMotion/closeVote enforce -- see
+    // requireNoPendingAmendments KDoc. Amending an Election's underlying Motion has no
+    // real procedural meaning, but leaving this path unguarded would be a silent bypass
+    // of the same invariant.
+    if (electionMotionRow[MotionTable.amendsMotionId] == null) requireNoPendingAmendments(electionMotionRow[MotionTable.id])
+
+    val outcome = computeOutcome(electionRow = electionRow)
+    // V1.9.53 minimum participation: the decision below runs on the full figures; what is persisted in
+    // the resolution book and returned is reduced when the secret election is below the minimum.
+    val secretElection = electionRow[ElectionTable.secret]
+    val ballotCount = electionBallotCount(wId)
+    val figuresWithheld = electionFiguresWithheld(secret = secretElection, ballotCount = ballotCount)
+    val ergebnis = disclosedElectionResult(figures = outcome.figures, secret = secretElection, ballotCount = ballotCount)
+    val resolutionStatus = outcome.resolutionStatus
+    val votesYes = if (figuresWithheld) 0 else outcome.votesYes
+    val votesNo = if (figuresWithheld) 0 else outcome.votesNo
+    val votesAbstain = if (figuresWithheld) 0 else outcome.votesAbstain
+    val optionRows = outcome.optionRows
+    val electionType = electionRow[ElectionTable.electionType]
+    val effectiveTie = outcome.figures.tie
+    val effectiveWinnerOptionIds = outcome.figures.winnerOptionIds.map { Uuid.parse(it) }
+    // V0.5.3 GoBD audit log: collected here, audited only at the very end of the
+    // transaction -- see SeatedBoardMembership KDoc.
+    val seatedBoardMemberships = mutableListOf<SeatedBoardMembership>()
+
+    if (electionType != ElectionType.YES_NO) {
+        if (!effectiveTie && effectiveWinnerOptionIds.isNotEmpty()) {
+            val targetCommitteeId =
+                electionRow[ElectionTable.targetCommitteeId]
+                    ?: throw ConflictException("Election $wId has no targetCommitteeId to seat winners into")
+            val targetRole = electionRow[ElectionTable.targetRole] ?: CommitteeRole.MEMBER
+            // V0.5.2 Transparenzregister (§20 GwG): this Election is the ONLY path that
+            // seats winners into a targetCommittee (the YES_NO branch above seats nobody),
+            // so it is also the only tally-time hook needed to keep the Transparenzregister
+            // beneficial-owner roster (BoardMembershipEvents.recordBoardJoin, see that
+            // object's KDoc) in step with the real Vorstand. Gated on the targetCommittee's
+            // type, NOT on isPoliticalParty -- §20 GwG applies to every Verein/Partei.
+            val targetCommitteeType =
+                CommitteeTable.selectAll().where { CommitteeTable.id eq targetCommitteeId }.single()[CommitteeTable.type]
+            val candidacyIdByOptionId = optionRows.associate { it[ElectionOptionTable.id] to it[ElectionOptionTable.candidacyId] }
+            val today = OrganizationTimeZone.today()
+            effectiveWinnerOptionIds.forEach { winnerOptionId ->
+                val candidacyId =
+                    candidacyIdByOptionId[winnerOptionId]
+                        ?: throw ConflictException("Winning option $winnerOptionId has no Candidacy")
+                val winnerMemberId =
+                    ElectionCandidacyTable
+                        .selectAll()
+                        .where { ElectionCandidacyTable.id eq candidacyId }
+                        .single()[ElectionCandidacyTable.memberId]
+                // ANTRAG membership-gate audit follow-up (2026-07-30), round-2 review
+                // finding: this winner-seating branch is a SEPARATE seat-creation path from
+                // GovernanceService.addCommitteeMember -- it writes CommitteeMembershipTable
+                // directly and was never routed through that method, so the addCommitteeMember
+                // root-cause fix above does NOT cover it despite comments elsewhere in this
+                // file (castElectionBallot) assuming Committee seats only ever originate
+                // there. canStandAsCandidate only re-checks ACTIVE at submitCandidacy time
+                // (ElectionAuthorization.kt); a candidate who was ACTIVE then but calls
+                // leaveMembership (-> WITHDRAWN) before tally() runs would otherwise be
+                // seated here with no live status recheck at all -- for an EXECUTIVE_BOARD
+                // targetCommittee that means a departed member becoming a real, audited
+                // Vorstand seat (BoardMembershipEvents.recordBoardJoin) below. Same gate,
+                // same semantics as addCommitteeMember: ACTIVE-only, applied to the winner
+                // being seated, not the caller (actor.isElectionBoard(wId) already gates
+                // the caller above). forUpdate = true (round-3 audit fix, 2026-07-30): this
+                // check gates a CommitteeMembershipTable insert a few lines below in this
+                // SAME transaction -- without the row lock, a concurrent leaveMembership()
+                // could commit in between, seating the winner from an already-stale status
+                // read. See requireActiveMembership KDoc "forUpdate".
+                requireActiveMembership(memberId = winnerMemberId, forUpdate = true)
+                // Guarded seat, mirroring the single-active-membership invariant
+                // GovernanceService.addCommitteeMember enforces (GovernanceService.kt
+                // ~200-212): an incumbent who wins re-election (or is elected into a new
+                // Role, e.g. a sitting MEMBER elected CHAIR) already has an active
+                // (until == null) row for this Committee. Closing it before inserting the
+                // fresh term -- instead of an unconditional insert -- prevents a second
+                // concurrent active membership row for the same member+Committee, which
+                // would silently corrupt membership history in a legally-relevant
+                // Vereins-/Parteiverwaltung (a later removeCommitteeMitglied/
+                // endCommitteeMembership closes only one row, leaving a phantom active
+                // membership behind).
+                CommitteeMembershipTable.update({
+                    (CommitteeMembershipTable.committeeId eq targetCommitteeId) and
+                        (CommitteeMembershipTable.memberId eq winnerMemberId) and
+                        (CommitteeMembershipTable.until.isNull())
+                }) {
+                    it[until] = today
+                }
+                CommitteeMembershipTable.insert {
+                    it[CommitteeMembershipTable.id] = Uuid.random()
+                    it[CommitteeMembershipTable.committeeId] = targetCommitteeId
+                    it[CommitteeMembershipTable.memberId] = winnerMemberId
+                    it[role] = targetRole
+                    it[since] = today
+                    it[until] = null
+                }
+                if (targetCommitteeType == CommitteeType.EXECUTIVE_BOARD) {
+                    val boardMembershipId =
+                        BoardMembershipEvents.recordBoardJoin(
+                            memberId = winnerMemberId,
+                            role = targetRole,
+                            startedAt = today,
+                            now = DbClock.nowLocalDateTime(),
+                        )
+                    seatedBoardMemberships +=
+                        SeatedBoardMembership(
+                            id = boardMembershipId,
+                            memberId = winnerMemberId,
+                            role = targetRole,
+                            startedAt = today,
+                        )
+                }
+            }
+        }
+    }
+
+    val meeting = MeetingTable.selectAll().where { MeetingTable.id eq electionRow[ElectionTable.meetingId] }.single()
+    val committeeId = requireMotionCommitteeId(electionRow[ElectionTable.motionId])
+    // The row locked at the top of this transaction -- nothing has changed it since.
+    val motionRow = electionMotionRow
+    // Änderungsantrag (V0.2.6): current working text, not the immutable original -- same
+    // as GovernanceService.resolveMotion/closeVote, see MotionDto.effectiveText KDoc.
+    val effectiveText = motionRow[MotionTable.currentText] ?: motionRow[MotionTable.text]
+    val resolutionInput =
+        ResolutionInput(
+            agendaItemId = motionRow[MotionTable.agendaItemId]?.toString(),
+            title = motionRow[MotionTable.title],
+            text = effectiveText,
+            votesYes = votesYes,
+            votesNo = votesNo,
+            votesAbstain = votesAbstain,
+            status = resolutionStatus,
+        )
+    val resolution =
+        insertResolutionRow(
+            sId = electionRow[ElectionTable.meetingId],
+            committeeId = committeeId,
+            scheduledDate = meeting[MeetingTable.scheduledAt].date,
+            input = resolutionInput,
+            current = actor,
+            resolutionMode = ResolutionMode.DEMOCRATIC,
+            electionId = wId,
+        )
+
+    val newMotionStatus =
+        when (resolutionStatus) {
+            ResolutionStatus.ADOPTED -> MotionStatus.RESOLVED
+            ResolutionStatus.REJECTED -> MotionStatus.REJECTED
+            ResolutionStatus.POSTPONED -> MotionStatus.POSTPONED
+        }
+    MotionTable.update({ MotionTable.id eq motionRow[MotionTable.id] }) {
+        it[MotionTable.status] = newMotionStatus
+        it[MotionTable.resolutionId] = Uuid.parse(resolution.id)
+    }
+
+    ElectionTable.update({ ElectionTable.id eq wId }) {
+        it[status] = ElectionStatus.TALLIED
+        it[tallyRunAt] = DbClock.nowLocalDateTime()
+        it[ElectionTable.resolutionId] = Uuid.parse(resolution.id)
+    }
+    // V0.5.3 GoBD audit log: called last, after every other row-locking write in this
+    // transaction (CommitteeMembershipTable/MotionTable/ElectionTable), so this satisfies
+    // AuditLogRecorder's deadlock-avoidance contract -- see auditBoardMembershipCreate/
+    // auditResolutionCreate KDoc for why these calls cannot happen earlier (inside the
+    // seating loop / inside insertResolutionRow).
+    seatedBoardMemberships.forEach {
+        auditBoardMembershipCreate(
+            boardMembershipId = it.id,
+            memberId = it.memberId,
+            committeeRole = it.role,
+            startedAt = it.startedAt,
+            current = actor,
+        )
+    }
+    auditResolutionCreate(resolution = resolution, current = actor)
+    return ergebnis
 }

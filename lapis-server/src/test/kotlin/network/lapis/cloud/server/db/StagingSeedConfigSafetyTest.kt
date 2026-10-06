@@ -1,9 +1,15 @@
 package network.lapis.cloud.server.db
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
+import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.SepaMandateTable
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import java.util.Base64
 
 /**
  * Exercises [StagingSeedConfig.decide] -- the pure decision core behind [StagingSeedData.seedIfEmpty]
@@ -117,5 +123,51 @@ class StagingSeedConfigSafetyTest :
                 }
             }
             enabledCount shouldBe 1
+        }
+
+        // ---- the gate in front of the DATABASE work (V1.9.63): none of these may write a single row ----------------------------
+
+        test("seedIfEmpty without a mode writes nothing (Disabled is a silent no-op, not an error)") {
+            val db = IsolatedH2Database.create()
+            val before = StagingSeedProbe.snapshot(db)
+            StagingSeedData.seedIfEmpty(env = envOf(StagingSeedConfig.ENV_SEED_PASSWORD to "ein-starkes-testpasswort"), database = db)
+            StagingSeedProbe.snapshot(db) shouldBe before
+            transaction(db) { MemberTable.selectAll().count() } shouldBe 0L
+        }
+
+        test("seedIfEmpty with mode=true but a missing or weak password fails fast naming the variable, and writes nothing") {
+            listOf(null, "", "kurz", DevSeedData.DEMO_PASSWORD).forEach { password ->
+                val db = IsolatedH2Database.create()
+                val before = StagingSeedProbe.snapshot(db)
+                val failure =
+                    shouldThrow<IllegalStateException> {
+                        StagingSeedData.seedIfEmpty(
+                            env = envOf(StagingSeedConfig.ENV_STAGING_MODE to "true", StagingSeedConfig.ENV_SEED_PASSWORD to password),
+                            database = db,
+                        )
+                    }
+                failure.message.orEmpty() shouldContain StagingSeedConfig.ENV_SEED_PASSWORD
+                StagingSeedProbe.snapshot(db) shouldBe before
+            }
+        }
+
+        test("seedIfEmpty with mode, password and an encryption key seeds everything including the SEPA part (key read via SepaConfig)") {
+            System.setProperty("net.fortuna.ical4j.timezone.update.enabled", "false")
+            System.setProperty("net.fortuna.ical4j.recur.maxincrementcount", "1000")
+            val db = IsolatedH2Database.create()
+            val key = Base64.getEncoder().encodeToString(ByteArray(32) { (it + 7).toByte() })
+            StagingSeedData.seedIfEmpty(
+                env =
+                    envOf(
+                        StagingSeedConfig.ENV_STAGING_MODE to "true",
+                        StagingSeedConfig.ENV_SEED_PASSWORD to "ein-starkes-testpasswort",
+                        "LAPIS_SECRET_ENCRYPTION_KEY" to key,
+                    ),
+                database = db,
+            )
+            transaction(db) {
+                MemberTable.selectAll().count() shouldBe 40L
+                SepaMandateTable.selectAll().count() shouldBe 8L
+            }
         }
     })

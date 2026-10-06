@@ -2078,7 +2078,7 @@ class SepaService(
     }
 }
 
-private fun batchSnapshotFrom(row: ResultRow): SepaDebitBatchSnapshot =
+internal fun batchSnapshotFrom(row: ResultRow): SepaDebitBatchSnapshot =
     SepaDebitBatchSnapshot(
         messageId = row[SepaDebitBatchTable.messageId],
         status = row[SepaDebitBatchTable.status],
@@ -2293,7 +2293,7 @@ internal fun resetGeneratedBatchesForUnusableMandate(
     }
 }
 
-private fun sepaBatchMessageId(now: LocalDateTime): String {
+internal fun sepaBatchMessageId(now: LocalDateTime): String {
     // Review Round 2 (2026-08-20, N-3, MINOR): Locale.ROOT added explicitly -- without it, %d
     // renders under the JVM's default locale, which under certain locale configurations (e.g.
     // Arabic-Indic digit extensions) can produce non-ASCII digits in this internal message ID.
