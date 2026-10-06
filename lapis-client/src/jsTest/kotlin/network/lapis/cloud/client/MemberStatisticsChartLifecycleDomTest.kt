@@ -74,35 +74,43 @@ class MemberStatisticsChartLifecycleDomTest {
     fun themeSwitch_recoloursTheLiveChart_withoutRecreatingIt(): Promise<Unit> =
         test {
             withMountedRoot("member-statistics-lifecycle-4") { root, _ ->
-                val charts = FakeStatisticsCharts()
-                renderMemberStatisticsScreen(root, deps(charts))
-                awaitUntil("chart") { charts.created == 1 }
-                val before =
-                    (
-                        charts.configs
-                            .single()
-                            .data.datasets as Array<dynamic>
-                    )[0].borderColor as String
                 val html = document.documentElement!!
                 val previous = html.getAttribute("data-theme")
-                // The observer reads the computed custom properties again; an explicit theme attribute is enough to trigger it.
-                html.setAttribute("data-theme", "dark")
-                delay(60)
+                // Self-contained: the test brings its OWN theme tokens instead of relying on whether theme.css happens to be part of the Karma page
+                // (it is not in a fresh page, but another spec of the same run may have loaded it -- the CI failed once on exactly that order dependence).
+                // The rules are added last, so they win over any theme.css rule of the same specificity.
+                val style = document.createElement("style")
+                style.textContent =
+                    ":root { --lapis-surface: $LIGHT_TOKEN; } :root[data-theme=\"dark\"] { --lapis-surface: $DARK_TOKEN; }"
+                document.head!!.appendChild(style)
+                html.setAttribute("data-theme", "light")
                 try {
-                    assertEquals(1, charts.created, "no second chart for a theme switch")
-                    assertEquals(0, charts.destroyed)
-                    val after =
+                    val charts = FakeStatisticsCharts()
+                    renderMemberStatisticsScreen(root, deps(charts))
+                    awaitUntil("chart") { charts.created == 1 }
+
+                    fun borderColor() =
                         (
                             charts.configs
                                 .single()
                                 .data.datasets as Array<dynamic>
                         )[0].borderColor as String
-                    // theme.css is not part of the Karma page, so the tokens read back as empty strings in both themes: the point is that
-                    // the re-colouring ran without error against the live configuration object
-                    assertEquals(before, after)
+                    assertEquals(LIGHT_TOKEN, borderColor(), "the bar outline starts with the light surface token")
+                    // The observer reads the computed custom properties again when the attribute changes.
+                    html.setAttribute("data-theme", "dark")
+                    awaitUntil("re-coloured to the dark surface token", detail = { "borderColor is '${borderColor()}'" }) {
+                        borderColor() ==
+                            DARK_TOKEN
+                    }
+                    assertEquals(1, charts.created, "no second chart for a theme switch")
+                    assertEquals(0, charts.destroyed)
                 } finally {
                     if (previous == null) html.removeAttribute("data-theme") else html.setAttribute("data-theme", previous)
+                    style.parentNode?.removeChild(style)
                 }
             }
         }
 }
+
+private const val LIGHT_TOKEN = "#112233"
+private const val DARK_TOKEN = "#445566"
