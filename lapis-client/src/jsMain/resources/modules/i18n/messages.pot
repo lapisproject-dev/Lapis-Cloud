@@ -19271,3 +19271,306 @@ msgstr ""
 
 msgid "Begegnungsraum"
 msgstr ""
+
+msgid "Dieser Raum wurde archiviert."
+msgstr ""
+
+msgid "Der Raum ist geschlossen."
+msgstr ""
+
+msgid "Türen öffnen"
+msgstr ""
+
+msgid "Der Raum ist voll oder gerade geschlossen."
+msgstr ""
+
+msgid "Sie können diesen Raum nicht betreten."
+msgstr ""
+
+msgid "Diesen Raum gibt es nicht."
+msgstr ""
+
+msgid "Der Gottesdienst ist beendet."
+msgstr ""
+
+msgid "Die Verbindung wurde unterbrochen."
+msgstr ""
+
+msgid "Sie wurden aus diesem Raum entfernt."
+msgstr ""
+
+msgid "Übertragung"
+msgstr ""
+
+msgid "Übertragung ist auf dieser Instanz nicht eingerichtet."
+msgstr ""
+
+msgid "Kein Übertragungsziel eingerichtet."
+msgstr ""
+
+msgid "Übertragungsziele verwalten"
+msgstr ""
+
+msgid "Live (nur Kanzel)"
+msgstr ""
+
+msgid "Übertragung beenden"
+msgstr ""
+
+msgid "Die Übertragung wird beendet."
+msgstr ""
+
+msgid "Nur Kanzel"
+msgstr ""
+
+msgid "Wessen Bild wird übertragen?"
+msgstr ""
+
+msgid "Niemand ist auf der Kanzel."
+msgstr ""
+
+msgid "Übertragung starten"
+msgstr ""
+
+msgid "Bitte wählen Sie mindestens ein Ziel (höchstens %1)."
+msgstr ""
+
+msgid "Die Übertragung wird gestartet."
+msgstr ""
+
+msgid "Bevor Sie eintreten"
+msgstr ""
+
+msgid "Wird die Kanzel übertragen, sehen Zuschauer außerhalb des Raums nur Bild und Ton der Kanzel. Sie selbst werden nicht übertragen."
+msgstr ""
+
+msgid "Andere Anwesende sehen Ihren Namen, solange Sie im Raum sind. Ihre Kamera und Ihr Mikrofon bleiben aus."
+msgstr ""
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste und keine Aufzeichnung dieses Raums."
+msgstr ""
+
+msgid "Die Teilnahme an einem Gottesdienst kann Rückschlüsse auf religiöse Überzeugungen zulassen (besondere Kategorie personenbezogener Daten, Art. 9 DSGVO). Dieser Hinweis ist keine Rechtsberatung."
+msgstr ""
+
+msgid "Vollständigen Text anzeigen"
+msgstr ""
+
+msgid "Ich habe den Hinweis gelesen und möchte eintreten."
+msgstr ""
+
+msgid "Bitte bestätigen Sie den Hinweis, um einzutreten."
+msgstr ""
+
+msgid "Sie wurden von einem Ordner stummgeschaltet."
+msgstr ""
+
+msgid "Nachricht schreiben"
+msgstr ""
+
+msgid "Die Nachricht ist zu lang (höchstens %1 Zeichen)."
+msgstr ""
+
+msgid "Die Kanzel ist noch leer."
+msgstr ""
+
+msgid "Gemeinde"
+msgstr ""
+
+msgid "Ordner im Gottesdienst"
+msgstr ""
+
+msgid "Kanzel: %1"
+msgstr ""
+
+msgid "%1, Hand erhoben"
+msgstr ""
+
+msgid "Eintreten und Kanzel übernehmen"
+msgstr ""
+
+msgid "Eintreten als Ordner"
+msgstr ""
+
+msgid "Eintreten"
+msgstr ""
+
+msgid "Kanzel"
+msgstr ""
+
+msgid "Niemand ist anwesend."
+msgstr ""
+
+msgid "In diesem Raum"
+msgstr ""
+
+msgid "%1 anwesend"
+msgstr ""
+
+msgid "Erhobene Hände"
+msgstr ""
+
+msgid "Stummschalten"
+msgstr ""
+
+msgid "Die Person wurde stummgeschaltet."
+msgstr ""
+
+msgid "Diese Person entfernen?"
+msgstr ""
+
+msgid "Die Person verlässt den Raum und kann bis zum Ende dieses Gottesdienstes nicht wieder eintreten."
+msgstr ""
+
+msgid "Die Person wurde entfernt."
+msgstr ""
+
+msgid "Diese Person können Sie hier nicht entfernen."
+msgstr ""
+
+msgid "Ämter"
+msgstr ""
+
+msgid "Noch keine Ämter vergeben."
+msgstr ""
+
+msgid "Amt entziehen"
+msgstr ""
+
+msgid "Person"
+msgstr ""
+
+msgid "Bitte eine Person auswählen."
+msgstr ""
+
+msgid "Amt"
+msgstr ""
+
+msgid "Amt vergeben"
+msgstr ""
+
+msgid "Höchstens %1 Ämter pro Raum."
+msgstr ""
+
+msgid "Diese Person hat bereits ein Amt in diesem Raum."
+msgstr ""
+
+msgid "Ämter speichern"
+msgstr ""
+
+msgid "Die Ämter wurden gespeichert."
+msgstr ""
+
+msgid "Begegnungsräume"
+msgstr ""
+
+msgid "Noch keine Begegnungsräume."
+msgstr ""
+
+msgid "Neuer Begegnungsraum"
+msgstr ""
+
+msgid "Geöffnet"
+msgstr ""
+
+msgid "Erst Türen schließen, dann archivieren."
+msgstr ""
+
+msgid "Den Raum archivieren?"
+msgstr ""
+
+msgid "Ein archivierter Raum erscheint nicht mehr in der Liste und kann nicht mehr geöffnet werden."
+msgstr ""
+
+msgid "Der Raum wurde archiviert."
+msgstr ""
+
+msgid "Wer darf eintreten?"
+msgstr ""
+
+msgid "Mitglieder und Gäste"
+msgstr ""
+
+msgid "Hinweis, solange der Raum geschlossen ist"
+msgstr ""
+
+msgid "Höchstzahl der Anwesenden"
+msgstr ""
+
+msgid "Leer lassen für die Voreinstellung der Instanz."
+msgstr ""
+
+msgid "Begegnungsraum anlegen"
+msgstr ""
+
+msgid "Der Begegnungsraum wurde angelegt."
+msgstr ""
+
+msgid "Der Begegnungsraum wurde gespeichert."
+msgstr ""
+
+msgid "Kanzel (spricht)"
+msgstr ""
+
+msgid "Ordner (spricht und moderiert)"
+msgstr ""
+
+msgid "Der Ton ist ausgeschaltet."
+msgstr ""
+
+msgid "Ton einschalten"
+msgstr ""
+
+msgid "Die Verbindung wird wiederhergestellt …"
+msgstr ""
+
+msgid "Hand heben"
+msgstr ""
+
+msgid "Amen"
+msgstr ""
+
+msgid "Bitte einen Moment warten."
+msgstr ""
+
+msgid "Neue Nachrichten"
+msgstr ""
+
+msgid "Szene aus"
+msgstr ""
+
+msgid "Türen schließen"
+msgstr ""
+
+msgid "Amen aus der Gemeinde"
+msgstr ""
+
+msgid "%1 hebt die Hand"
+msgstr ""
+
+msgid "Szene ein"
+msgstr ""
+
+msgid "Türen schließen?"
+msgstr ""
+
+msgid "Alle Anwesenden verlassen den Raum."
+msgstr ""
+
+msgid "Ihr Mikrofon ist aus."
+msgstr ""
+
+msgid "Einschalten"
+msgstr ""
+
+msgid "Raum-Bereiche"
+msgstr ""
+
+msgid "Chat und Anwesende"
+msgstr ""
+
+msgid "Anwesende"
+msgstr ""
+
+msgid "Zum Raum"
+msgstr ""

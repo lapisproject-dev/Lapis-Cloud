@@ -20178,3 +20178,306 @@ msgstr "Участники по статусам на конец каждого 
 
 msgid "Begegnungsraum"
 msgstr "Гостиная общины"
+
+msgid "Dieser Raum wurde archiviert."
+msgstr "Эта комната архивирована."
+
+msgid "Der Raum ist geschlossen."
+msgstr "Комната закрыта."
+
+msgid "Türen öffnen"
+msgstr "Открыть двери"
+
+msgid "Der Raum ist voll oder gerade geschlossen."
+msgstr "Комната заполнена или только что закрыта."
+
+msgid "Sie können diesen Raum nicht betreten."
+msgstr "Вы не можете войти в эту комнату."
+
+msgid "Diesen Raum gibt es nicht."
+msgstr "Такой комнаты нет."
+
+msgid "Der Gottesdienst ist beendet."
+msgstr "Богослужение завершено."
+
+msgid "Die Verbindung wurde unterbrochen."
+msgstr "Соединение прервано."
+
+msgid "Sie wurden aus diesem Raum entfernt."
+msgstr "Вас удалили из этой комнаты."
+
+msgid "Übertragung"
+msgstr "Трансляция"
+
+msgid "Übertragung ist auf dieser Instanz nicht eingerichtet."
+msgstr "Трансляция на этом экземпляре не настроена."
+
+msgid "Kein Übertragungsziel eingerichtet."
+msgstr "Не настроено ни одной цели трансляции."
+
+msgid "Übertragungsziele verwalten"
+msgstr "Управление целями трансляции"
+
+msgid "Live (nur Kanzel)"
+msgstr "В эфире (только кафедра)"
+
+msgid "Übertragung beenden"
+msgstr "Завершить трансляцию"
+
+msgid "Die Übertragung wird beendet."
+msgstr "Трансляция завершается."
+
+msgid "Nur Kanzel"
+msgstr "Только кафедра"
+
+msgid "Wessen Bild wird übertragen?"
+msgstr "Чьё изображение транслируется?"
+
+msgid "Niemand ist auf der Kanzel."
+msgstr "На кафедре никого нет."
+
+msgid "Übertragung starten"
+msgstr "Начать трансляцию"
+
+msgid "Bitte wählen Sie mindestens ein Ziel (höchstens %1)."
+msgstr "Выберите хотя бы одну цель (не более %1)."
+
+msgid "Die Übertragung wird gestartet."
+msgstr "Трансляция начинается."
+
+msgid "Bevor Sie eintreten"
+msgstr "Прежде чем войти"
+
+msgid "Wird die Kanzel übertragen, sehen Zuschauer außerhalb des Raums nur Bild und Ton der Kanzel. Sie selbst werden nicht übertragen."
+msgstr "Если кафедра транслируется, зрители за пределами комнаты видят только изображение и звук с кафедры. Вас самих не транслируют."
+
+msgid "Andere Anwesende sehen Ihren Namen, solange Sie im Raum sind. Ihre Kamera und Ihr Mikrofon bleiben aus."
+msgstr "Другие присутствующие видят ваше имя, пока вы в комнате. Ваши камера и микрофон остаются выключенными."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste und keine Aufzeichnung dieses Raums."
+msgstr "Lapis Cloud не хранит список присутствующих и не записывает эту комнату."
+
+msgid "Die Teilnahme an einem Gottesdienst kann Rückschlüsse auf religiöse Überzeugungen zulassen (besondere Kategorie personenbezogener Daten, Art. 9 DSGVO). Dieser Hinweis ist keine Rechtsberatung."
+msgstr "Участие в богослужении может позволять делать выводы о религиозных убеждениях (особая категория персональных данных, ст. 9 GDPR). Это уведомление не является юридической консультацией."
+
+msgid "Vollständigen Text anzeigen"
+msgstr "Показать полный текст"
+
+msgid "Ich habe den Hinweis gelesen und möchte eintreten."
+msgstr "Я прочитал(а) уведомление и хочу войти."
+
+msgid "Bitte bestätigen Sie den Hinweis, um einzutreten."
+msgstr "Подтвердите уведомление, чтобы войти."
+
+msgid "Sie wurden von einem Ordner stummgeschaltet."
+msgstr "Распорядитель отключил вам возможность писать."
+
+msgid "Nachricht schreiben"
+msgstr "Написать сообщение"
+
+msgid "Die Nachricht ist zu lang (höchstens %1 Zeichen)."
+msgstr "Сообщение слишком длинное (не более %1 символов)."
+
+msgid "Die Kanzel ist noch leer."
+msgstr "Кафедра пока пуста."
+
+msgid "Gemeinde"
+msgstr "Прихожане"
+
+msgid "Ordner im Gottesdienst"
+msgstr "Распорядитель"
+
+msgid "Kanzel: %1"
+msgstr "Кафедра: %1"
+
+msgid "%1, Hand erhoben"
+msgstr "%1, рука поднята"
+
+msgid "Eintreten und Kanzel übernehmen"
+msgstr "Войти и занять кафедру"
+
+msgid "Eintreten als Ordner"
+msgstr "Войти как распорядитель"
+
+msgid "Eintreten"
+msgstr "Войти"
+
+msgid "Kanzel"
+msgstr "Кафедра"
+
+msgid "Niemand ist anwesend."
+msgstr "Никого нет."
+
+msgid "In diesem Raum"
+msgstr "В этой комнате"
+
+msgid "%1 anwesend"
+msgstr "Присутствует: %1"
+
+msgid "Erhobene Hände"
+msgstr "Поднятые руки"
+
+msgid "Stummschalten"
+msgstr "Отключить звук"
+
+msgid "Die Person wurde stummgeschaltet."
+msgstr "Звук участника отключён."
+
+msgid "Diese Person entfernen?"
+msgstr "Удалить этого участника?"
+
+msgid "Die Person verlässt den Raum und kann bis zum Ende dieses Gottesdienstes nicht wieder eintreten."
+msgstr "Участник покинет комнату и не сможет вернуться до окончания этого богослужения."
+
+msgid "Die Person wurde entfernt."
+msgstr "Участник удалён."
+
+msgid "Diese Person können Sie hier nicht entfernen."
+msgstr "Вы не можете удалить этого участника здесь."
+
+msgid "Ämter"
+msgstr "Должности"
+
+msgid "Noch keine Ämter vergeben."
+msgstr "Должности ещё не назначены."
+
+msgid "Amt entziehen"
+msgstr "Снять с должности"
+
+msgid "Person"
+msgstr "Человек"
+
+msgid "Bitte eine Person auswählen."
+msgstr "Выберите человека."
+
+msgid "Amt"
+msgstr "Должность"
+
+msgid "Amt vergeben"
+msgstr "Назначить на должность"
+
+msgid "Höchstens %1 Ämter pro Raum."
+msgstr "Не более %1 должностей на комнату."
+
+msgid "Diese Person hat bereits ein Amt in diesem Raum."
+msgstr "У этого человека уже есть должность в этой комнате."
+
+msgid "Ämter speichern"
+msgstr "Сохранить должности"
+
+msgid "Die Ämter wurden gespeichert."
+msgstr "Должности сохранены."
+
+msgid "Begegnungsräume"
+msgstr "Гостиные общины"
+
+msgid "Noch keine Begegnungsräume."
+msgstr "Гостиных общины пока нет."
+
+msgid "Neuer Begegnungsraum"
+msgstr "Новая гостиная общины"
+
+msgid "Geöffnet"
+msgstr "Открыто"
+
+msgid "Erst Türen schließen, dann archivieren."
+msgstr "Сначала закройте двери, затем архивируйте."
+
+msgid "Den Raum archivieren?"
+msgstr "Архивировать комнату?"
+
+msgid "Ein archivierter Raum erscheint nicht mehr in der Liste und kann nicht mehr geöffnet werden."
+msgstr "Архивированная комната больше не отображается в списке и не может быть открыта."
+
+msgid "Der Raum wurde archiviert."
+msgstr "Комната архивирована."
+
+msgid "Wer darf eintreten?"
+msgstr "Кто может войти?"
+
+msgid "Mitglieder und Gäste"
+msgstr "Участники и гости"
+
+msgid "Hinweis, solange der Raum geschlossen ist"
+msgstr "Сообщение, пока комната закрыта"
+
+msgid "Höchstzahl der Anwesenden"
+msgstr "Максимальное число присутствующих"
+
+msgid "Leer lassen für die Voreinstellung der Instanz."
+msgstr "Оставьте пустым, чтобы использовать значение по умолчанию экземпляра."
+
+msgid "Begegnungsraum anlegen"
+msgstr "Создать гостиную общины"
+
+msgid "Der Begegnungsraum wurde angelegt."
+msgstr "Гостиная общины создана."
+
+msgid "Der Begegnungsraum wurde gespeichert."
+msgstr "Гостиная общины сохранена."
+
+msgid "Kanzel (spricht)"
+msgstr "Кафедра (говорит)"
+
+msgid "Ordner (spricht und moderiert)"
+msgstr "Распорядитель (говорит и модерирует)"
+
+msgid "Der Ton ist ausgeschaltet."
+msgstr "Звук выключен."
+
+msgid "Ton einschalten"
+msgstr "Включить звук"
+
+msgid "Die Verbindung wird wiederhergestellt …"
+msgstr "Соединение восстанавливается …"
+
+msgid "Hand heben"
+msgstr "Поднять руку"
+
+msgid "Amen"
+msgstr "Аминь"
+
+msgid "Bitte einen Moment warten."
+msgstr "Подождите немного."
+
+msgid "Neue Nachrichten"
+msgstr "Новые сообщения"
+
+msgid "Szene aus"
+msgstr "Скрыть сцену"
+
+msgid "Türen schließen"
+msgstr "Закрыть двери"
+
+msgid "Amen aus der Gemeinde"
+msgstr "Аминь от прихожан"
+
+msgid "%1 hebt die Hand"
+msgstr "%1 поднимает руку"
+
+msgid "Szene ein"
+msgstr "Показать сцену"
+
+msgid "Türen schließen?"
+msgstr "Закрыть двери?"
+
+msgid "Alle Anwesenden verlassen den Raum."
+msgstr "Все присутствующие покинут комнату."
+
+msgid "Ihr Mikrofon ist aus."
+msgstr "Ваш микрофон выключен."
+
+msgid "Einschalten"
+msgstr "Включить"
+
+msgid "Raum-Bereiche"
+msgstr "Разделы комнаты"
+
+msgid "Chat und Anwesende"
+msgstr "Чат и присутствующие"
+
+msgid "Anwesende"
+msgstr "Присутствующие"
+
+msgid "Zum Raum"
+msgstr "В комнату"

@@ -20233,3 +20233,306 @@ msgstr "Soci per stato alla fine di ogni periodo"
 
 msgid "Begegnungsraum"
 msgstr "Sala d'incontro"
+
+msgid "Dieser Raum wurde archiviert."
+msgstr "Questa sala è stata archiviata."
+
+msgid "Der Raum ist geschlossen."
+msgstr "La sala è chiusa."
+
+msgid "Türen öffnen"
+msgstr "Apri le porte"
+
+msgid "Der Raum ist voll oder gerade geschlossen."
+msgstr "La sala è piena o è appena stata chiusa."
+
+msgid "Sie können diesen Raum nicht betreten."
+msgstr "Non può entrare in questa sala."
+
+msgid "Diesen Raum gibt es nicht."
+msgstr "Questa sala non esiste."
+
+msgid "Der Gottesdienst ist beendet."
+msgstr "Il culto è terminato."
+
+msgid "Die Verbindung wurde unterbrochen."
+msgstr "La connessione è stata interrotta."
+
+msgid "Sie wurden aus diesem Raum entfernt."
+msgstr "È stato rimosso da questa sala."
+
+msgid "Übertragung"
+msgstr "Trasmissione"
+
+msgid "Übertragung ist auf dieser Instanz nicht eingerichtet."
+msgstr "La trasmissione non è configurata su questa istanza."
+
+msgid "Kein Übertragungsziel eingerichtet."
+msgstr "Nessuna destinazione di trasmissione configurata."
+
+msgid "Übertragungsziele verwalten"
+msgstr "Gestisci le destinazioni di trasmissione"
+
+msgid "Live (nur Kanzel)"
+msgstr "In diretta (solo il pulpito)"
+
+msgid "Übertragung beenden"
+msgstr "Termina la trasmissione"
+
+msgid "Die Übertragung wird beendet."
+msgstr "La trasmissione sta per terminare."
+
+msgid "Nur Kanzel"
+msgstr "Solo il pulpito"
+
+msgid "Wessen Bild wird übertragen?"
+msgstr "Di chi è l'immagine trasmessa?"
+
+msgid "Niemand ist auf der Kanzel."
+msgstr "Nessuno è al pulpito."
+
+msgid "Übertragung starten"
+msgstr "Avvia la trasmissione"
+
+msgid "Bitte wählen Sie mindestens ein Ziel (höchstens %1)."
+msgstr "Selezioni almeno una destinazione (al massimo %1)."
+
+msgid "Die Übertragung wird gestartet."
+msgstr "La trasmissione sta per iniziare."
+
+msgid "Bevor Sie eintreten"
+msgstr "Prima di entrare"
+
+msgid "Wird die Kanzel übertragen, sehen Zuschauer außerhalb des Raums nur Bild und Ton der Kanzel. Sie selbst werden nicht übertragen."
+msgstr "Se il pulpito viene trasmesso, gli spettatori all'esterno della sala vedono solo immagine e audio del pulpito. Lei non viene trasmesso."
+
+msgid "Andere Anwesende sehen Ihren Namen, solange Sie im Raum sind. Ihre Kamera und Ihr Mikrofon bleiben aus."
+msgstr "Le altre persone presenti vedono il suo nome finché è nella sala. La sua fotocamera e il suo microfono restano spenti."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste und keine Aufzeichnung dieses Raums."
+msgstr "Lapis Cloud non conserva alcun elenco dei presenti né alcuna registrazione di questa sala."
+
+msgid "Die Teilnahme an einem Gottesdienst kann Rückschlüsse auf religiöse Überzeugungen zulassen (besondere Kategorie personenbezogener Daten, Art. 9 DSGVO). Dieser Hinweis ist keine Rechtsberatung."
+msgstr "La partecipazione a un culto può rivelare convinzioni religiose (categoria particolare di dati personali, art. 9 GDPR). Questo avviso non costituisce consulenza legale."
+
+msgid "Vollständigen Text anzeigen"
+msgstr "Mostra il testo completo"
+
+msgid "Ich habe den Hinweis gelesen und möchte eintreten."
+msgstr "Ho letto l'avviso e desidero entrare."
+
+msgid "Bitte bestätigen Sie den Hinweis, um einzutreten."
+msgstr "Confermi l'avviso per entrare."
+
+msgid "Sie wurden von einem Ordner stummgeschaltet."
+msgstr "È stato silenziato da un addetto all'accoglienza."
+
+msgid "Nachricht schreiben"
+msgstr "Scrivi un messaggio"
+
+msgid "Die Nachricht ist zu lang (höchstens %1 Zeichen)."
+msgstr "Il messaggio è troppo lungo (al massimo %1 caratteri)."
+
+msgid "Die Kanzel ist noch leer."
+msgstr "Il pulpito è ancora vuoto."
+
+msgid "Gemeinde"
+msgstr "I fedeli"
+
+msgid "Ordner im Gottesdienst"
+msgstr "Addetto all'accoglienza"
+
+msgid "Kanzel: %1"
+msgstr "Pulpito: %1"
+
+msgid "%1, Hand erhoben"
+msgstr "%1, mano alzata"
+
+msgid "Eintreten und Kanzel übernehmen"
+msgstr "Entra e prendi il pulpito"
+
+msgid "Eintreten als Ordner"
+msgstr "Entra come addetto all'accoglienza"
+
+msgid "Eintreten"
+msgstr "Entra"
+
+msgid "Kanzel"
+msgstr "Pulpito"
+
+msgid "Niemand ist anwesend."
+msgstr "Non c'è nessuno."
+
+msgid "In diesem Raum"
+msgstr "In questa sala"
+
+msgid "%1 anwesend"
+msgstr "%1 presenti"
+
+msgid "Erhobene Hände"
+msgstr "Mani alzate"
+
+msgid "Stummschalten"
+msgstr "Silenzia"
+
+msgid "Die Person wurde stummgeschaltet."
+msgstr "La persona è stata silenziata."
+
+msgid "Diese Person entfernen?"
+msgstr "Rimuovere questa persona?"
+
+msgid "Die Person verlässt den Raum und kann bis zum Ende dieses Gottesdienstes nicht wieder eintreten."
+msgstr "La persona lascia la sala e non potrà rientrare fino alla fine di questo culto."
+
+msgid "Die Person wurde entfernt."
+msgstr "La persona è stata rimossa."
+
+msgid "Diese Person können Sie hier nicht entfernen."
+msgstr "Non può rimuovere qui questa persona."
+
+msgid "Ämter"
+msgstr "Incarichi"
+
+msgid "Noch keine Ämter vergeben."
+msgstr "Nessun incarico ancora assegnato."
+
+msgid "Amt entziehen"
+msgstr "Revoca l'incarico"
+
+msgid "Person"
+msgstr "Persona"
+
+msgid "Bitte eine Person auswählen."
+msgstr "Selezioni una persona."
+
+msgid "Amt"
+msgstr "Incarico"
+
+msgid "Amt vergeben"
+msgstr "Assegna l'incarico"
+
+msgid "Höchstens %1 Ämter pro Raum."
+msgstr "Al massimo %1 incarichi per sala."
+
+msgid "Diese Person hat bereits ein Amt in diesem Raum."
+msgstr "Questa persona ha già un incarico in questa sala."
+
+msgid "Ämter speichern"
+msgstr "Salva gli incarichi"
+
+msgid "Die Ämter wurden gespeichert."
+msgstr "Gli incarichi sono stati salvati."
+
+msgid "Begegnungsräume"
+msgstr "Sale d'incontro"
+
+msgid "Noch keine Begegnungsräume."
+msgstr "Ancora nessuna sala d'incontro."
+
+msgid "Neuer Begegnungsraum"
+msgstr "Nuova sala d'incontro"
+
+msgid "Geöffnet"
+msgstr "Aperta"
+
+msgid "Erst Türen schließen, dann archivieren."
+msgstr "Prima chiuda le porte, poi archivi."
+
+msgid "Den Raum archivieren?"
+msgstr "Archiviare la sala?"
+
+msgid "Ein archivierter Raum erscheint nicht mehr in der Liste und kann nicht mehr geöffnet werden."
+msgstr "Una sala archiviata non compare più nell'elenco e non può più essere aperta."
+
+msgid "Der Raum wurde archiviert."
+msgstr "La sala è stata archiviata."
+
+msgid "Wer darf eintreten?"
+msgstr "Chi può entrare?"
+
+msgid "Mitglieder und Gäste"
+msgstr "Membri e ospiti"
+
+msgid "Hinweis, solange der Raum geschlossen ist"
+msgstr "Avviso finché la sala è chiusa"
+
+msgid "Höchstzahl der Anwesenden"
+msgstr "Numero massimo di presenti"
+
+msgid "Leer lassen für die Voreinstellung der Instanz."
+msgstr "Lasci vuoto per il valore predefinito dell'istanza."
+
+msgid "Begegnungsraum anlegen"
+msgstr "Crea sala d'incontro"
+
+msgid "Der Begegnungsraum wurde angelegt."
+msgstr "La sala d'incontro è stata creata."
+
+msgid "Der Begegnungsraum wurde gespeichert."
+msgstr "La sala d'incontro è stata salvata."
+
+msgid "Kanzel (spricht)"
+msgstr "Pulpito (parla)"
+
+msgid "Ordner (spricht und moderiert)"
+msgstr "Addetto all'accoglienza (parla e modera)"
+
+msgid "Der Ton ist ausgeschaltet."
+msgstr "L'audio è disattivato."
+
+msgid "Ton einschalten"
+msgstr "Attiva l'audio"
+
+msgid "Die Verbindung wird wiederhergestellt …"
+msgstr "La connessione si sta ripristinando …"
+
+msgid "Hand heben"
+msgstr "Alza la mano"
+
+msgid "Amen"
+msgstr "Amen"
+
+msgid "Bitte einen Moment warten."
+msgstr "Attenda un momento."
+
+msgid "Neue Nachrichten"
+msgstr "Nuovi messaggi"
+
+msgid "Szene aus"
+msgstr "Nascondi la scena"
+
+msgid "Türen schließen"
+msgstr "Chiudi le porte"
+
+msgid "Amen aus der Gemeinde"
+msgstr "Amen dai fedeli"
+
+msgid "%1 hebt die Hand"
+msgstr "%1 alza la mano"
+
+msgid "Szene ein"
+msgstr "Mostra la scena"
+
+msgid "Türen schließen?"
+msgstr "Chiudere le porte?"
+
+msgid "Alle Anwesenden verlassen den Raum."
+msgstr "Tutti i presenti lasceranno la sala."
+
+msgid "Ihr Mikrofon ist aus."
+msgstr "Il suo microfono è spento."
+
+msgid "Einschalten"
+msgstr "Attiva"
+
+msgid "Raum-Bereiche"
+msgstr "Sezioni della sala"
+
+msgid "Chat und Anwesende"
+msgstr "Chat e persone presenti"
+
+msgid "Anwesende"
+msgstr "Presenti"
+
+msgid "Zum Raum"
+msgstr "Alla sala"

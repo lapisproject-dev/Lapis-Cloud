@@ -20251,3 +20251,306 @@ msgstr "Membres par statut à la fin de chaque période"
 
 msgid "Begegnungsraum"
 msgstr "Espace de rencontre"
+
+msgid "Dieser Raum wurde archiviert."
+msgstr "Cette salle a été archivée."
+
+msgid "Der Raum ist geschlossen."
+msgstr "La salle est fermée."
+
+msgid "Türen öffnen"
+msgstr "Ouvrir les portes"
+
+msgid "Der Raum ist voll oder gerade geschlossen."
+msgstr "La salle est pleine ou vient d'être fermée."
+
+msgid "Sie können diesen Raum nicht betreten."
+msgstr "Vous ne pouvez pas entrer dans cette salle."
+
+msgid "Diesen Raum gibt es nicht."
+msgstr "Cette salle n'existe pas."
+
+msgid "Der Gottesdienst ist beendet."
+msgstr "Le culte est terminé."
+
+msgid "Die Verbindung wurde unterbrochen."
+msgstr "La connexion a été interrompue."
+
+msgid "Sie wurden aus diesem Raum entfernt."
+msgstr "Vous avez été retiré de cette salle."
+
+msgid "Übertragung"
+msgstr "Diffusion"
+
+msgid "Übertragung ist auf dieser Instanz nicht eingerichtet."
+msgstr "La diffusion n'est pas configurée sur cette instance."
+
+msgid "Kein Übertragungsziel eingerichtet."
+msgstr "Aucune destination de diffusion n'est configurée."
+
+msgid "Übertragungsziele verwalten"
+msgstr "Gérer les destinations de diffusion"
+
+msgid "Live (nur Kanzel)"
+msgstr "En direct (chaire uniquement)"
+
+msgid "Übertragung beenden"
+msgstr "Terminer la diffusion"
+
+msgid "Die Übertragung wird beendet."
+msgstr "La diffusion est en cours d'arrêt."
+
+msgid "Nur Kanzel"
+msgstr "Chaire uniquement"
+
+msgid "Wessen Bild wird übertragen?"
+msgstr "Quelle image est diffusée ?"
+
+msgid "Niemand ist auf der Kanzel."
+msgstr "Personne n'est à la chaire."
+
+msgid "Übertragung starten"
+msgstr "Démarrer la diffusion"
+
+msgid "Bitte wählen Sie mindestens ein Ziel (höchstens %1)."
+msgstr "Veuillez choisir au moins une destination (au plus %1)."
+
+msgid "Die Übertragung wird gestartet."
+msgstr "La diffusion démarre."
+
+msgid "Bevor Sie eintreten"
+msgstr "Avant d'entrer"
+
+msgid "Wird die Kanzel übertragen, sehen Zuschauer außerhalb des Raums nur Bild und Ton der Kanzel. Sie selbst werden nicht übertragen."
+msgstr "Si la chaire est diffusée, les spectateurs à l'extérieur de la salle ne voient que l'image et le son de la chaire. Vous-même n'êtes pas diffusé."
+
+msgid "Andere Anwesende sehen Ihren Namen, solange Sie im Raum sind. Ihre Kamera und Ihr Mikrofon bleiben aus."
+msgstr "Les autres personnes présentes voient votre nom tant que vous êtes dans la salle. Votre caméra et votre microphone restent éteints."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste und keine Aufzeichnung dieses Raums."
+msgstr "Lapis Cloud n'enregistre ni liste de présence ni enregistrement de cette salle."
+
+msgid "Die Teilnahme an einem Gottesdienst kann Rückschlüsse auf religiöse Überzeugungen zulassen (besondere Kategorie personenbezogener Daten, Art. 9 DSGVO). Dieser Hinweis ist keine Rechtsberatung."
+msgstr "La participation à un culte peut révéler des convictions religieuses (catégorie particulière de données personnelles, art. 9 RGPD). Cet avis ne constitue pas un conseil juridique."
+
+msgid "Vollständigen Text anzeigen"
+msgstr "Afficher le texte complet"
+
+msgid "Ich habe den Hinweis gelesen und möchte eintreten."
+msgstr "J'ai lu l'avis et je souhaite entrer."
+
+msgid "Bitte bestätigen Sie den Hinweis, um einzutreten."
+msgstr "Veuillez confirmer l'avis pour entrer."
+
+msgid "Sie wurden von einem Ordner stummgeschaltet."
+msgstr "Un membre du service d'ordre vous a réduit au silence."
+
+msgid "Nachricht schreiben"
+msgstr "Écrire un message"
+
+msgid "Die Nachricht ist zu lang (höchstens %1 Zeichen)."
+msgstr "Le message est trop long (%1 caractères au maximum)."
+
+msgid "Die Kanzel ist noch leer."
+msgstr "La chaire est encore vide."
+
+msgid "Gemeinde"
+msgstr "Les fidèles"
+
+msgid "Ordner im Gottesdienst"
+msgstr "Service d'ordre"
+
+msgid "Kanzel: %1"
+msgstr "Chaire : %1"
+
+msgid "%1, Hand erhoben"
+msgstr "%1, main levée"
+
+msgid "Eintreten und Kanzel übernehmen"
+msgstr "Entrer et prendre la chaire"
+
+msgid "Eintreten als Ordner"
+msgstr "Entrer comme membre du service d'ordre"
+
+msgid "Eintreten"
+msgstr "Entrer"
+
+msgid "Kanzel"
+msgstr "Chaire"
+
+msgid "Niemand ist anwesend."
+msgstr "Personne n'est présent."
+
+msgid "In diesem Raum"
+msgstr "Dans cette salle"
+
+msgid "%1 anwesend"
+msgstr "%1 présents"
+
+msgid "Erhobene Hände"
+msgstr "Mains levées"
+
+msgid "Stummschalten"
+msgstr "Rendre muet"
+
+msgid "Die Person wurde stummgeschaltet."
+msgstr "La personne a été rendue muette."
+
+msgid "Diese Person entfernen?"
+msgstr "Retirer cette personne ?"
+
+msgid "Die Person verlässt den Raum und kann bis zum Ende dieses Gottesdienstes nicht wieder eintreten."
+msgstr "La personne quitte la salle et ne pourra pas revenir avant la fin de ce culte."
+
+msgid "Die Person wurde entfernt."
+msgstr "La personne a été retirée."
+
+msgid "Diese Person können Sie hier nicht entfernen."
+msgstr "Vous ne pouvez pas retirer cette personne ici."
+
+msgid "Ämter"
+msgstr "Fonctions"
+
+msgid "Noch keine Ämter vergeben."
+msgstr "Aucune fonction n'est encore attribuée."
+
+msgid "Amt entziehen"
+msgstr "Retirer la fonction"
+
+msgid "Person"
+msgstr "Personne"
+
+msgid "Bitte eine Person auswählen."
+msgstr "Veuillez sélectionner une personne."
+
+msgid "Amt"
+msgstr "Fonction"
+
+msgid "Amt vergeben"
+msgstr "Attribuer la fonction"
+
+msgid "Höchstens %1 Ämter pro Raum."
+msgstr "%1 fonctions au maximum par salle."
+
+msgid "Diese Person hat bereits ein Amt in diesem Raum."
+msgstr "Cette personne a déjà une fonction dans cette salle."
+
+msgid "Ämter speichern"
+msgstr "Enregistrer les fonctions"
+
+msgid "Die Ämter wurden gespeichert."
+msgstr "Les fonctions ont été enregistrées."
+
+msgid "Begegnungsräume"
+msgstr "Espaces de rencontre"
+
+msgid "Noch keine Begegnungsräume."
+msgstr "Pas encore d'espaces de rencontre."
+
+msgid "Neuer Begegnungsraum"
+msgstr "Nouvel espace de rencontre"
+
+msgid "Geöffnet"
+msgstr "Ouvert"
+
+msgid "Erst Türen schließen, dann archivieren."
+msgstr "Fermez d'abord les portes, puis archivez."
+
+msgid "Den Raum archivieren?"
+msgstr "Archiver la salle ?"
+
+msgid "Ein archivierter Raum erscheint nicht mehr in der Liste und kann nicht mehr geöffnet werden."
+msgstr "Une salle archivée n'apparaît plus dans la liste et ne peut plus être ouverte."
+
+msgid "Der Raum wurde archiviert."
+msgstr "La salle a été archivée."
+
+msgid "Wer darf eintreten?"
+msgstr "Qui peut entrer ?"
+
+msgid "Mitglieder und Gäste"
+msgstr "Membres et invités"
+
+msgid "Hinweis, solange der Raum geschlossen ist"
+msgstr "Avis tant que la salle est fermée"
+
+msgid "Höchstzahl der Anwesenden"
+msgstr "Nombre maximal de personnes présentes"
+
+msgid "Leer lassen für die Voreinstellung der Instanz."
+msgstr "Laissez vide pour la valeur par défaut de l'instance."
+
+msgid "Begegnungsraum anlegen"
+msgstr "Créer l'espace de rencontre"
+
+msgid "Der Begegnungsraum wurde angelegt."
+msgstr "L'espace de rencontre a été créé."
+
+msgid "Der Begegnungsraum wurde gespeichert."
+msgstr "L'espace de rencontre a été enregistré."
+
+msgid "Kanzel (spricht)"
+msgstr "Chaire (parle)"
+
+msgid "Ordner (spricht und moderiert)"
+msgstr "Service d'ordre (parle et modère)"
+
+msgid "Der Ton ist ausgeschaltet."
+msgstr "Le son est désactivé."
+
+msgid "Ton einschalten"
+msgstr "Activer le son"
+
+msgid "Die Verbindung wird wiederhergestellt …"
+msgstr "La connexion est en cours de rétablissement …"
+
+msgid "Hand heben"
+msgstr "Lever la main"
+
+msgid "Amen"
+msgstr "Amen"
+
+msgid "Bitte einen Moment warten."
+msgstr "Veuillez patienter un instant."
+
+msgid "Neue Nachrichten"
+msgstr "Nouveaux messages"
+
+msgid "Szene aus"
+msgstr "Masquer la scène"
+
+msgid "Türen schließen"
+msgstr "Fermer les portes"
+
+msgid "Amen aus der Gemeinde"
+msgstr "Amen des fidèles"
+
+msgid "%1 hebt die Hand"
+msgstr "%1 lève la main"
+
+msgid "Szene ein"
+msgstr "Afficher la scène"
+
+msgid "Türen schließen?"
+msgstr "Fermer les portes ?"
+
+msgid "Alle Anwesenden verlassen den Raum."
+msgstr "Toutes les personnes présentes quitteront la salle."
+
+msgid "Ihr Mikrofon ist aus."
+msgstr "Votre microphone est éteint."
+
+msgid "Einschalten"
+msgstr "Activer"
+
+msgid "Raum-Bereiche"
+msgstr "Sections de la salle"
+
+msgid "Chat und Anwesende"
+msgstr "Chat et personnes présentes"
+
+msgid "Anwesende"
+msgstr "Personnes présentes"
+
+msgid "Zum Raum"
+msgstr "Vers la salle"

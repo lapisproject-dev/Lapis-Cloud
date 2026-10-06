@@ -166,4 +166,16 @@ class NavVisibilityTest {
         assertTrue(NavVisibility.showsChapterRoster(RegionalChapterRefDto(id = "c1", name = "Bayern")))
         assertFalse(NavVisibility.showsChapterRoster(null))
     }
+
+    @Test
+    fun encounterSpaces_areOffered_exactlyToTheConferenceEligibleStatuses() {
+        // V1.9.62: ACTIVE, GUEST and FRIEND (the audience of `IEncounterSpaceService.listSpaces`); every other status sees no door.
+        MemberStatus.entries.forEach { status ->
+            assertEquals(
+                status in setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND),
+                NavVisibility.showsEncounterSpaces(status),
+                "showsEncounterSpaces($status)",
+            )
+        }
+    }
 }

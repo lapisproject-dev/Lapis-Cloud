@@ -20188,3 +20188,306 @@ msgstr "Leden per status aan het einde van elke periode"
 
 msgid "Begegnungsraum"
 msgstr "Ontmoetingsruimte"
+
+msgid "Dieser Raum wurde archiviert."
+msgstr "Deze ruimte is gearchiveerd."
+
+msgid "Der Raum ist geschlossen."
+msgstr "De ruimte is gesloten."
+
+msgid "Türen öffnen"
+msgstr "Deuren openen"
+
+msgid "Der Raum ist voll oder gerade geschlossen."
+msgstr "De ruimte is vol of net gesloten."
+
+msgid "Sie können diesen Raum nicht betreten."
+msgstr "U kunt deze ruimte niet betreden."
+
+msgid "Diesen Raum gibt es nicht."
+msgstr "Deze ruimte bestaat niet."
+
+msgid "Der Gottesdienst ist beendet."
+msgstr "De dienst is afgelopen."
+
+msgid "Die Verbindung wurde unterbrochen."
+msgstr "De verbinding is verbroken."
+
+msgid "Sie wurden aus diesem Raum entfernt."
+msgstr "U bent uit deze ruimte verwijderd."
+
+msgid "Übertragung"
+msgstr "Uitzending"
+
+msgid "Übertragung ist auf dieser Instanz nicht eingerichtet."
+msgstr "Uitzenden is niet ingesteld op deze instantie."
+
+msgid "Kein Übertragungsziel eingerichtet."
+msgstr "Er is geen uitzendbestemming ingesteld."
+
+msgid "Übertragungsziele verwalten"
+msgstr "Uitzendbestemmingen beheren"
+
+msgid "Live (nur Kanzel)"
+msgstr "Live (alleen de kansel)"
+
+msgid "Übertragung beenden"
+msgstr "Uitzending beëindigen"
+
+msgid "Die Übertragung wird beendet."
+msgstr "De uitzending wordt beëindigd."
+
+msgid "Nur Kanzel"
+msgstr "Alleen de kansel"
+
+msgid "Wessen Bild wird übertragen?"
+msgstr "Wiens beeld wordt uitgezonden?"
+
+msgid "Niemand ist auf der Kanzel."
+msgstr "Er staat niemand op de kansel."
+
+msgid "Übertragung starten"
+msgstr "Uitzending starten"
+
+msgid "Bitte wählen Sie mindestens ein Ziel (höchstens %1)."
+msgstr "Kies minstens één bestemming (maximaal %1)."
+
+msgid "Die Übertragung wird gestartet."
+msgstr "De uitzending start."
+
+msgid "Bevor Sie eintreten"
+msgstr "Voordat u binnenkomt"
+
+msgid "Wird die Kanzel übertragen, sehen Zuschauer außerhalb des Raums nur Bild und Ton der Kanzel. Sie selbst werden nicht übertragen."
+msgstr "Als de kansel wordt uitgezonden, zien kijkers buiten de ruimte alleen beeld en geluid van de kansel. U zelf wordt niet uitgezonden."
+
+msgid "Andere Anwesende sehen Ihren Namen, solange Sie im Raum sind. Ihre Kamera und Ihr Mikrofon bleiben aus."
+msgstr "Andere aanwezigen zien uw naam zolang u in de ruimte bent. Uw camera en microfoon blijven uit."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste und keine Aufzeichnung dieses Raums."
+msgstr "Lapis Cloud slaat geen aanwezigheidslijst en geen opname van deze ruimte op."
+
+msgid "Die Teilnahme an einem Gottesdienst kann Rückschlüsse auf religiöse Überzeugungen zulassen (besondere Kategorie personenbezogener Daten, Art. 9 DSGVO). Dieser Hinweis ist keine Rechtsberatung."
+msgstr "Deelname aan een dienst kan conclusies over religieuze overtuigingen mogelijk maken (bijzondere categorie persoonsgegevens, art. 9 AVG). Deze mededeling is geen juridisch advies."
+
+msgid "Vollständigen Text anzeigen"
+msgstr "Volledige tekst tonen"
+
+msgid "Ich habe den Hinweis gelesen und möchte eintreten."
+msgstr "Ik heb de mededeling gelezen en wil binnengaan."
+
+msgid "Bitte bestätigen Sie den Hinweis, um einzutreten."
+msgstr "Bevestig de mededeling om binnen te gaan."
+
+msgid "Sie wurden von einem Ordner stummgeschaltet."
+msgstr "U bent gedempt door een ordedienstmedewerker."
+
+msgid "Nachricht schreiben"
+msgstr "Bericht schrijven"
+
+msgid "Die Nachricht ist zu lang (höchstens %1 Zeichen)."
+msgstr "Het bericht is te lang (maximaal %1 tekens)."
+
+msgid "Die Kanzel ist noch leer."
+msgstr "De kansel is nog leeg."
+
+msgid "Gemeinde"
+msgstr "Gemeente"
+
+msgid "Ordner im Gottesdienst"
+msgstr "Ordedienst"
+
+msgid "Kanzel: %1"
+msgstr "Kansel: %1"
+
+msgid "%1, Hand erhoben"
+msgstr "%1, hand opgestoken"
+
+msgid "Eintreten und Kanzel übernehmen"
+msgstr "Binnengaan en de kansel innemen"
+
+msgid "Eintreten als Ordner"
+msgstr "Binnengaan als ordedienst"
+
+msgid "Eintreten"
+msgstr "Binnengaan"
+
+msgid "Kanzel"
+msgstr "Kansel"
+
+msgid "Niemand ist anwesend."
+msgstr "Er is niemand aanwezig."
+
+msgid "In diesem Raum"
+msgstr "In deze ruimte"
+
+msgid "%1 anwesend"
+msgstr "%1 aanwezig"
+
+msgid "Erhobene Hände"
+msgstr "Opgestoken handen"
+
+msgid "Stummschalten"
+msgstr "Dempen"
+
+msgid "Die Person wurde stummgeschaltet."
+msgstr "De persoon is gedempt."
+
+msgid "Diese Person entfernen?"
+msgstr "Deze persoon verwijderen?"
+
+msgid "Die Person verlässt den Raum und kann bis zum Ende dieses Gottesdienstes nicht wieder eintreten."
+msgstr "De persoon verlaat de ruimte en kan pas weer binnenkomen als deze dienst is afgelopen."
+
+msgid "Die Person wurde entfernt."
+msgstr "De persoon is verwijderd."
+
+msgid "Diese Person können Sie hier nicht entfernen."
+msgstr "U kunt deze persoon hier niet verwijderen."
+
+msgid "Ämter"
+msgstr "Functies"
+
+msgid "Noch keine Ämter vergeben."
+msgstr "Er zijn nog geen functies toegewezen."
+
+msgid "Amt entziehen"
+msgstr "Functie intrekken"
+
+msgid "Person"
+msgstr "Persoon"
+
+msgid "Bitte eine Person auswählen."
+msgstr "Selecteer een persoon."
+
+msgid "Amt"
+msgstr "Functie"
+
+msgid "Amt vergeben"
+msgstr "Functie toewijzen"
+
+msgid "Höchstens %1 Ämter pro Raum."
+msgstr "Maximaal %1 functies per ruimte."
+
+msgid "Diese Person hat bereits ein Amt in diesem Raum."
+msgstr "Deze persoon heeft al een functie in deze ruimte."
+
+msgid "Ämter speichern"
+msgstr "Functies opslaan"
+
+msgid "Die Ämter wurden gespeichert."
+msgstr "De functies zijn opgeslagen."
+
+msgid "Begegnungsräume"
+msgstr "Ontmoetingsruimten"
+
+msgid "Noch keine Begegnungsräume."
+msgstr "Nog geen ontmoetingsruimten."
+
+msgid "Neuer Begegnungsraum"
+msgstr "Nieuwe ontmoetingsruimte"
+
+msgid "Geöffnet"
+msgstr "Geopend"
+
+msgid "Erst Türen schließen, dann archivieren."
+msgstr "Sluit eerst de deuren en archiveer daarna."
+
+msgid "Den Raum archivieren?"
+msgstr "De ruimte archiveren?"
+
+msgid "Ein archivierter Raum erscheint nicht mehr in der Liste und kann nicht mehr geöffnet werden."
+msgstr "Een gearchiveerde ruimte verschijnt niet meer in de lijst en kan niet meer worden geopend."
+
+msgid "Der Raum wurde archiviert."
+msgstr "De ruimte is gearchiveerd."
+
+msgid "Wer darf eintreten?"
+msgstr "Wie mag binnenkomen?"
+
+msgid "Mitglieder und Gäste"
+msgstr "Leden en gasten"
+
+msgid "Hinweis, solange der Raum geschlossen ist"
+msgstr "Mededeling zolang de ruimte gesloten is"
+
+msgid "Höchstzahl der Anwesenden"
+msgstr "Maximaal aantal aanwezigen"
+
+msgid "Leer lassen für die Voreinstellung der Instanz."
+msgstr "Laat leeg voor de standaardwaarde van de instantie."
+
+msgid "Begegnungsraum anlegen"
+msgstr "Ontmoetingsruimte aanmaken"
+
+msgid "Der Begegnungsraum wurde angelegt."
+msgstr "De ontmoetingsruimte is aangemaakt."
+
+msgid "Der Begegnungsraum wurde gespeichert."
+msgstr "De ontmoetingsruimte is opgeslagen."
+
+msgid "Kanzel (spricht)"
+msgstr "Kansel (spreekt)"
+
+msgid "Ordner (spricht und moderiert)"
+msgstr "Ordedienst (spreekt en modereert)"
+
+msgid "Der Ton ist ausgeschaltet."
+msgstr "Het geluid staat uit."
+
+msgid "Ton einschalten"
+msgstr "Geluid aanzetten"
+
+msgid "Die Verbindung wird wiederhergestellt …"
+msgstr "De verbinding wordt hersteld …"
+
+msgid "Hand heben"
+msgstr "Hand opsteken"
+
+msgid "Amen"
+msgstr "Amen"
+
+msgid "Bitte einen Moment warten."
+msgstr "Even geduld."
+
+msgid "Neue Nachrichten"
+msgstr "Nieuwe berichten"
+
+msgid "Szene aus"
+msgstr "Scène verbergen"
+
+msgid "Türen schließen"
+msgstr "Deuren sluiten"
+
+msgid "Amen aus der Gemeinde"
+msgstr "Amen van de gemeente"
+
+msgid "%1 hebt die Hand"
+msgstr "%1 steekt de hand op"
+
+msgid "Szene ein"
+msgstr "Scène tonen"
+
+msgid "Türen schließen?"
+msgstr "Deuren sluiten?"
+
+msgid "Alle Anwesenden verlassen den Raum."
+msgstr "Alle aanwezigen verlaten de ruimte."
+
+msgid "Ihr Mikrofon ist aus."
+msgstr "Uw microfoon staat uit."
+
+msgid "Einschalten"
+msgstr "Aanzetten"
+
+msgid "Raum-Bereiche"
+msgstr "Onderdelen van de ruimte"
+
+msgid "Chat und Anwesende"
+msgstr "Chat en aanwezigen"
+
+msgid "Anwesende"
+msgstr "Aanwezigen"
+
+msgid "Zum Raum"
+msgstr "Naar de ruimte"

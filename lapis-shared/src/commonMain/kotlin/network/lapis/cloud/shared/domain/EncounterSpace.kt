@@ -34,12 +34,19 @@ enum class EncounterSpaceRole { PULPIT, STEWARD }
 @Serializable
 enum class EncounterPresenceRole { PULPIT, STEWARD, CONGREGATION }
 
-/** The two reactions a congregation member may send (B2 data-channel topic, no server path in B1). */
+/**
+ * The reactions a congregation member may send (B2 data-channel topic, no server path). [HAND] is a STATE ("my hand is up"): the
+ * sender renews it every 30 s while it stays up and the receivers let it lapse after 90 s; [HAND_LOWERED] ends it at once. [AMEN] is an
+ * EVENT (a short symbol at the sender's seat), never counted.
+ */
 @Serializable
-enum class EncounterReaction { HAND, AMEN }
+enum class EncounterReaction { HAND, HAND_LOWERED, AMEN }
 
 /** LiveKit data-channel topic of [EncounterReaction] messages (B2, informational only: the server has no path that reads it). */
 const val ENCOUNTER_REACTION_TOPIC = "lapis-encounter-reaction"
+
+/** Largest accepted reaction payload in bytes; `{"r":"HAND_LOWERED"}` is 20 bytes. Anything longer is dropped unread by the receiver. */
+const val ENCOUNTER_REACTION_MAX_PAYLOAD_BYTES = 32
 
 /**
  * Create/update input. [maxParticipants] `null` = the conference default; the service clamps it to the instance maximum.

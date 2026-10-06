@@ -3,8 +3,11 @@ package network.lapis.cloud.client.livekit
 import io.kvision.utils.obj
 import kotlinx.coroutines.await
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.client.encounter.EncounterReactionWire
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
 import network.lapis.cloud.shared.domain.ConferenceTurnServer
+import network.lapis.cloud.shared.domain.ENCOUNTER_REACTION_TOPIC
+import network.lapis.cloud.shared.domain.EncounterReaction
 import network.lapis.cloud.shared.domain.NoteBlockBroadcastDto
 import network.lapis.cloud.shared.domain.WhiteboardStrokeWireDto
 import network.lapis.cloud.shared.domain.isStructurallyValid
@@ -339,6 +342,22 @@ class LiveKitRoomSession(
     private val onVoteNudge: () -> Unit = {},
     /** Test seam: lets a `jsTest` inject a deterministic [VoteNudgeThrottle] (fake clock/scheduler). */
     voteNudgeThrottleFactory: ((onRefresh: () -> Unit) -> VoteNudgeThrottle)? = null,
+    /**
+     * V1.9.62 Begegnungsraum (B2) -- the second, runtime lock of the listen-only rule (the first is the compile-time split of
+     * `EncounterMediaSession.kt`, the third is the LiveKit token grant `canPublish = false` the server mints). `false` makes
+     * [setCamera], [setMicrophone] and [setScreenShare] return at once WITHOUT touching the SDK -- so no `getUserMedia`, no permission
+     * prompt, no published track, whatever a caller does. The device listing and switching are empty/refused too, because enumerating
+     * devices is what some browsers answer with a permission heuristic. The conference passes nothing and keeps `true`.
+     */
+    private val publishEnabled: Boolean = true,
+    /**
+     * V1.9.62 -- a decoded [EncounterReaction] and its SENDER. The sender is ONLY ever the SDK-verified `participant.identity` of the
+     * data packet, never a field of the payload (which is not even read for one): see [EncounterReactionWire]. Never fires for a
+     * payload that is too long, malformed or of an unknown shape.
+     */
+    private val onEncounterReaction: (senderIdentity: String, reaction: EncounterReaction) -> Unit = { _, _ -> },
+    /** V1.9.62 -- the browser's audio autoplay permission changed (`false` = blocked, show "Ton einschalten"); also seeded once after connect. */
+    private val onAudioPlaybackChanged: (canPlay: Boolean) -> Unit = {},
 ) {
     private var room: Room? = null
 
@@ -590,6 +609,7 @@ class LiveKitRoomSession(
             try {
                 onRecordingStatusChanged(newRoom.isRecording)
                 seedRoster(newRoom)
+                onAudioPlaybackChanged(newRoom.canPlaybackAudio)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Throwable) {
@@ -709,6 +729,8 @@ class LiveKitRoomSession(
             val kind = rawKind?.let { s -> ConferenceDeviceKind.entries.firstOrNull { it.jsKind == s } }
             onMediaDevicesError(kind, classifyDeviceFailure(p0))
         }
+        // V1.9.62 -- fires `(canPlayback: boolean)`; only the single boolean is read.
+        room.onOwned(RoomEvent.AudioPlaybackStatusChanged) { p0, _, _, _ -> onAudioPlaybackChanged(p0.unsafeCast<Boolean>()) }
         room.onOwned(RoomEvent.DataReceived) { p0, p1, _, p3 ->
             val payload = p0.unsafeCast<org.khronos.webgl.Uint8Array?>() ?: return@onOwned
             val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@onOwned
@@ -756,6 +778,12 @@ class LiveKitRoomSession(
                     }
                 // V1.9.24 -- NO decode, NO payload/participant access: see class KDoc "Vote-nudge trust boundary".
                 VOTE_NUDGE_TOPIC -> voteNudgeThrottle.trigger()
+                // V1.9.62 -- the sender is the SDK-verified identity, never a payload field; decode() never throws and drops
+                // anything over the size cap, so a hostile peer can neither crash this handler nor smuggle a name.
+                ENCOUNTER_REACTION_TOPIC ->
+                    runCatching {
+                        EncounterReactionWire.decode(payload)?.let { onEncounterReaction(participant.identity, it) }
+                    }
                 else -> return@onOwned
             }
         }
@@ -839,6 +867,7 @@ class LiveKitRoomSession(
      * enable and every mic/camera button click.
      */
     suspend fun setCamera(enabled: Boolean): ConferenceDeviceFailure? {
+        if (!publishEnabled) return publishLockedFailure()
         // Race-condition fix (review, GitHub Issue #2 review round 2): a null `room` is now returned
         // as an ordinary `ConferenceDeviceFailure.OTHER`, NOT thrown. Throwing here would escape this
         // method's own try/catch and be caught only by the call site's outer `guarded {}`
@@ -872,6 +901,7 @@ class LiveKitRoomSession(
      * [setCamera]'s own KDoc for the review fix this mirrors, including the round-2 race-condition
      * fix ("a null `room` is now returned...") -- identical reasoning applies here verbatim. */
     suspend fun setMicrophone(enabled: Boolean): ConferenceDeviceFailure? {
+        if (!publishEnabled) return publishLockedFailure()
         val currentRoom = room ?: return ConferenceDeviceFailure.OTHER
         return try {
             currentRoom.localParticipant.setMicrophoneEnabled(enabled).await()
@@ -883,6 +913,10 @@ class LiveKitRoomSession(
 
     /** See class KDoc "[setCamera]/[setMicrophone]/[setScreenShare] now throw on a null [room]". */
     suspend fun setScreenShare(enabled: Boolean) {
+        if (!publishEnabled) {
+            publishLockedFailure()
+            return
+        }
         val currentRoom = room ?: throw IllegalStateException("setScreenShare called with no active room")
         currentRoom.localParticipant.setScreenShareEnabled(enabled).await()
     }
@@ -906,6 +940,7 @@ class LiveKitRoomSession(
      * entirely.
      */
     suspend fun listDevices(kind: ConferenceDeviceKind): List<ConferenceDeviceOption> {
+        if (!publishEnabled) return emptyList()
         val currentRoom = room ?: throw IllegalStateException("listDevices called with no active room")
         // Room.getLocalDevices is a static (companion object) member -- independent of currentRoom --
         // but the guard above stays: enumerating devices outside an active call serves no purpose for
@@ -923,7 +958,7 @@ class LiveKitRoomSession(
      * yet know an active device for [kind] (e.g. before the first publish attempt has resolved). */
     fun activeDeviceId(kind: ConferenceDeviceKind): String? =
         // V1.4.19 -- ein blanker LiveKit-Wert ist nie eine Auswahl (siehe `conferenceUsableDeviceOptions`).
-        room?.getActiveDevice(kind.jsKind)?.takeIf { it.isNotBlank() }
+        if (publishEnabled) room?.getActiveDevice(kind.jsKind)?.takeIf { it.isNotBlank() } else null
 
     /**
      * V1.3.x Geräteauswahl -- switches the currently active [kind] device to [deviceId]. Returns
@@ -950,6 +985,7 @@ class LiveKitRoomSession(
         kind: ConferenceDeviceKind,
         deviceId: String,
     ): ConferenceDeviceFailure? {
+        if (!publishEnabled) return publishLockedFailure()
         val currentRoom = room ?: throw IllegalStateException("switchDevice called with no active room")
         // V1.4.19 -- Defense in depth: LiveKit wird nie mit `exact: ""` gerufen (OverconstrainedError; und
         // `switchActiveDevice` würde die blanke ID als Capture-Default merken und spätere
@@ -977,6 +1013,35 @@ class LiveKitRoomSession(
             MediaDeviceFailure.DeviceInUse -> ConferenceDeviceFailure.DEVICE_IN_USE
             else -> ConferenceDeviceFailure.OTHER
         }
+
+    /** V1.9.62 -- the one [publishEnabled] refusal: a static warning (never an identity, name or room), a typed failure instead of a throw. */
+    private fun publishLockedFailure(): ConferenceDeviceFailure {
+        kotlin.js.console.warn("LiveKit publish is disabled for this session")
+        return ConferenceDeviceFailure.OTHER
+    }
+
+    /**
+     * V1.9.62 Begegnungsraum -- sends one [EncounterReaction] as a RELIABLE data packet on [ENCOUNTER_REACTION_TOPIC]. The payload is
+     * `{"r":"<NAME>"}` only (see [EncounterReactionWire.encode]): no sender, no name, no time. The receivers attribute it to the
+     * SDK-verified identity of the packet. A no-op without a room. Whether the LiveKit token may publish data at all
+     * (`canPublishData`, withdrawn when a steward silences the person) is the SERVER's grant -- a publish by a silenced person is dropped by
+     * LiveKit, the UI disables the buttons so it is not even tried.
+     */
+    suspend fun sendEncounterReaction(reaction: EncounterReaction) {
+        val currentRoom = room ?: return
+        val options =
+            obj<PublishDataOptions> {
+                reliable = true
+                topic = ENCOUNTER_REACTION_TOPIC
+            }
+        currentRoom.localParticipant.publishData(EncounterReactionWire.encode(reaction), options).await()
+    }
+
+    /** V1.9.62 -- resumes audio blocked by the browser's autoplay policy; call from a click handler. A no-op without a room. */
+    suspend fun startAudio() {
+        val currentRoom = room ?: return
+        currentRoom.startAudio().await()
+    }
 
     suspend fun sendChat(message: ConferenceChatMessage) {
         val currentRoom = room ?: return

@@ -436,6 +436,13 @@ non-members; members: the performance of the organization's own purposes) and ar
 The contributor is `network.lapis.cloud.server.dsgvo.EncounterSpacePersonalData`. Removed and silenced people of a running session exist only in
 memory (`EncounterModerationState`) and vanish with the session or a restart.
 
+*The client (V1.9.62, wave B2).* The page adds no lasting trace either: the only browser storage is the key `lapis.encounter.sceneOff` (a choice, no room, no
+person, no time); the chat and the reactions live in memory for the visit and are never stored or sent anywhere but the LiveKit data channel; no time is shown
+(the chat wire field is sent as `0`); nothing about a person is written to the console or to telemetry (`ClientEncounterPrivacyTripwireTest`). The listing of the people present
+shows names to the people who are present themselves; `isGuest` is delivered to every present person by `listPresent` but the page shows the marker "Gast" only to people who moderate
+(data minimisation on the server side would be a B1 change, see `encounter-space.adoc` "Known limitations of B2"). The entry notice names what others see (the name, not the camera),
+what is transmitted if the pulpit is, that nothing is recorded, and the Art. 9 remark with "Dieser Hinweis ist keine Rechtsberatung."
+
 NOTE: *Known limitation.* The **ordinary conference** keeps what the encounter space deliberately does not: `conference_participation` is append-only
 with `left_at`, `listParticipants` shows the history, and `conference_guest_consent_acknowledgment` is written per join. That is unchanged: a formal
 meeting needs its attendance record. An encounter session is fenced off from all of it (`EncounterRoomGuard`).

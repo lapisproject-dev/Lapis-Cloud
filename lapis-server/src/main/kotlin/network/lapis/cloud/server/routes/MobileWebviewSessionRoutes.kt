@@ -66,6 +66,8 @@ internal val MOBILE_SECTION_TARGETS: Map<String, String> =
         "events" to "/app#/events",
         "my-events" to "/app#/my-events",
         "conference" to "/app#/conference",
+        // V1.9.62 Begegnungsraum: the list of the standing rooms (the single room has its own route below).
+        "encounter" to "/app#/begegnung",
     )
 
 /**
@@ -75,7 +77,7 @@ internal val MOBILE_SECTION_TARGETS: Map<String, String> =
  */
 internal const val MOBILE_WEBVIEW_CAPABILITY_PROBE_SECTION: String = "__capability_probe__"
 
-/** Room ids are opaque LiveKit identifiers -- an allowlist charset, never reflected verbatim into a Location header. */
+/** Room ids (and encounter space ids, V1.9.62) are opaque identifiers -- an allowlist charset, never reflected verbatim into a Location header. */
 private val MOBILE_ROOM_ID_PATTERN = Regex("^[A-Za-z0-9_-]{1,64}$")
 
 private const val WEBVIEW_BRIDGE_UNAUTHORIZED_MESSAGE = "Invalid or expired session"
@@ -245,5 +247,24 @@ fun Route.registerMobileWebviewSessionRoutes(
             return@get
         }
         call.completeWebviewBridge(rawToken = token, target = "/app#/conference/$roomId", cookieSecure = cookieSecure)
+    }
+
+    // V1.9.62 Begegnungsraum (B2): the same header-only bridge, landing on one standing room. NO existence or visibility check here (the
+    // conference route has none either): who may see the room is decided by the page's own RPC after the redirect, and an unknown id only
+    // ends in the client's "not found" state. The id is matched against the allowlist charset and never reflected anywhere else; nothing
+    // is logged about it (not above DEBUG, not at all today).
+    get("/api/mobile/v1/encounter/spaces/{spaceId}/webview-session") {
+        val token =
+            call.authorizeWebviewBridge(
+                cookieSecure = cookieSecure,
+                failureLimiter = failureLimiter,
+                requestLimiter = requestLimiter,
+            ) ?: return@get
+        val spaceId = call.parameters["spaceId"]
+        if (spaceId == null || !MOBILE_ROOM_ID_PATTERN.matches(spaceId)) {
+            call.respond(HttpStatusCode.BadRequest, "unknown space")
+            return@get
+        }
+        call.completeWebviewBridge(rawToken = token, target = "/app#/begegnung/$spaceId", cookieSecure = cookieSecure)
     }
 }

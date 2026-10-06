@@ -116,6 +116,15 @@ external class Room(
      */
     val isRecording: Boolean
 
+    /**
+     * V1.9.62 Begegnungsraum (B2) -- `false` while the browser's autoplay policy blocks audio playback of subscribed tracks (a listener
+     * who has never touched the page; Safari and Chrome both). Paired with [RoomEvent.AudioPlaybackStatusChanged] and [startAudio].
+     */
+    val canPlaybackAudio: Boolean
+
+    /** V1.9.62 -- resumes blocked audio playback; MUST run inside a user gesture (a click) to be allowed by the browser. */
+    fun startAudio(): Promise<Unit>
+
     fun connect(
         url: String,
         token: String,
@@ -263,6 +272,9 @@ external object RoomEvent {
     val LocalTrackPublished: String
     val LocalTrackUnpublished: String
     val DataReceived: String
+
+    /** V1.9.62 -- fires `(canPlayback: boolean) => void` whenever the audio autoplay permission changes (see [Room.canPlaybackAudio]). */
+    val AudioPlaybackStatusChanged: String
 
     /** Bug fix (GitHub issue #3, "Audio Mute and Camera Toggle Controls Are Unreliable") -- fires
      * `(publication: TrackPublication, participant: Participant) => void` for EVERY track mute state

@@ -199,11 +199,13 @@ val videoEffectStagedPaths =
         "mediapipe/tasks-vision-$mediaPipeTasksVisionVersion/wasm/vision_wasm_nosimd_internal.js",
         "mediapipe/tasks-vision-$mediaPipeTasksVisionVersion/wasm/vision_wasm_nosimd_internal.wasm",
         "mediapipe/selfie_segmenter.tflite",
-    ) + videoEffectBackgroundIds.map { "video-backgrounds/$it.webp" }
+    ) + videoEffectBackgroundIds.map { "video-backgrounds/$it.webp" } +
+        // V1.9.62 Begegnungsraum: the decorative church scene (a CSS mask, see theme.css `.lapis-encounter-scene`) rides the same staging.
+        "encounter-themes/church/church.svg"
 
 val videoEffectStagingDir = layout.buildDirectory.dir("video-effect-assets")
 
-// Bündelt Eigen-Assets + MediaPipe-WASM in EIN Staging-Verzeichnis, damit nur eine Quelle in die zwei
+// Bündelt Eigen-Assets (Hintergrundbilder, V1.9.62 auch die Begegnungsraum-Szene) + MediaPipe-WASM in EIN Staging-Verzeichnis, damit nur eine Quelle in die zwei
 // Ausgabeverzeichnisse gespiegelt werden muss.
 val stageVideoEffectAssets by tasks.registering(Sync::class) {
     dependsOn(rootProject.tasks.named("kotlinNpmInstall")) // node_modules muss existieren
@@ -213,6 +215,11 @@ val stageVideoEffectAssets by tasks.registering(Sync::class) {
     }
     from(layout.projectDirectory.dir("src/jsMain/webAssets/mediapipe")) {
         into("mediapipe")
+        exclude("PROVENANCE.adoc")
+    }
+    // V1.9.62 Begegnungsraum: scene assets (the task keeps its historical name; it stages every own asset of the client).
+    from(layout.projectDirectory.dir("src/jsMain/webAssets/encounter-themes")) {
+        into("encounter-themes")
         exclude("PROVENANCE.adoc")
     }
     from(nodeModulesDir.map { it.dir("@mediapipe/tasks-vision/wasm") }) {

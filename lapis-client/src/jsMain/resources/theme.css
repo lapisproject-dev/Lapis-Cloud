@@ -113,6 +113,19 @@
   --lapis-guest-fill:        #A855F7;  /* Gast-Abzeichen: bewusst in beiden Themes gleich */
   --lapis-guest-glyph:       #FFFFFF;
 
+  /* V1.9.62 Begegnungsraum -- zwei Ebenen (Duarte): die Szene (Maske, nur Dekoration) liegt HINTER einer Buehne, deren Flaechen
+     (Kanzel, Plaetze, Namensschilder) deckend sind. Text steht nie auf dem Motiv. Kontraste (WCAG 1.4.3, gerechnet):
+       --lapis-text      #14181E auf --lapis-encounter-surface #F4EFE6 = 15,6:1
+       seat-text         #3B3121 auf --lapis-encounter-seat    #E3D9C6 =  9,1:1
+     Dunkel:
+       --lapis-text      #E8E6E0 auf --lapis-encounter-surface #232933 = 11,7:1
+       seat-text         #E8EAEE auf --lapis-encounter-seat    #3A4455 =  8,2:1 */
+  --lapis-encounter-scene-ink:  #B9AB8E;
+  --lapis-encounter-scene-tint: #F1EBDD;
+  --lapis-encounter-surface:    #F4EFE6;
+  --lapis-encounter-seat:       #E3D9C6;
+  --lapis-encounter-seat-text:  #3B3121;
+
   --lapis-font-display: Georgia, serif;
   /* V1.4.16: PdV-Branding-Schrift Inter (siehe CLAUDE.md "PdV-Branding") für den Fließtext -- der
      Georgia-Serif-Auftritt oben bleibt auf die Wortmarke (`.lapis-brand-text`) beschränkt, keine
@@ -181,6 +194,12 @@
     --lapis-media-overlay-text: #FFFFFF;
     --lapis-guest-fill:        #A855F7;
     --lapis-guest-glyph:       #FFFFFF;
+
+    --lapis-encounter-scene-ink:  #56637A;
+    --lapis-encounter-scene-tint: #1D232C;
+    --lapis-encounter-surface:    #232933;
+    --lapis-encounter-seat:       #3A4455;
+    --lapis-encounter-seat-text:  #E8EAEE;
   }
 }
 
@@ -241,6 +260,12 @@
   --lapis-media-overlay-text: #FFFFFF;
   --lapis-guest-fill:        #A855F7;
   --lapis-guest-glyph:       #FFFFFF;
+
+  --lapis-encounter-scene-ink:  #56637A;
+  --lapis-encounter-scene-tint: #1D232C;
+  --lapis-encounter-surface:    #232933;
+  --lapis-encounter-seat:       #3A4455;
+  --lapis-encounter-seat-text:  #E8EAEE;
 }
 
 body {
@@ -2675,6 +2700,303 @@ html .form-select.is-invalid:focus {
   margin-inline-end: 0;
 }
 
+/* ── V1.9.62 Begegnungsraum (B2) ──────────────────────────────────────────────────────────────────────────────────────
+   Zwei Ebenen: `.lapis-encounter-scene` (Ebene 0, Maske, aria-hidden) und `.lapis-encounter-stage` (Ebene 1). Die Buehne selbst ist
+   durchsichtig; ihre FLAECHEN (Kanzel, Ordnerleiste, Plaetze, Beschriftungen) sind deckend -- darauf steht jeder Text. */
+.lapis-encounter-main {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.lapis-encounter {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background: var(--lapis-encounter-scene-tint);
+  overflow: hidden;
+}
+
+.lapis-encounter-scene {
+  position: absolute;
+  inset: 0;
+  background-color: var(--lapis-encounter-scene-ink);
+  /* The mask itself (`/assets/encounter-themes/church/church.svg`) is set inline by EncounterSceneLayout: a `url()` here would be resolved by
+     the bundler at build time, but the file is a runtime asset served from `/assets`. */
+  pointer-events: none;
+}
+
+.lapis-encounter--scene-off .lapis-encounter-scene {
+  display: none;
+}
+
+/* Hoher Kontrast und erzwungene Farben: das Motiv verschwindet von selbst, es darf mit dem Inhalt nie konkurrieren. */
+@media (forced-colors: active), (prefers-contrast: more) {
+  .lapis-encounter-scene {
+    display: none;
+  }
+}
+
+.lapis-encounter-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.lapis-encounter-pulpit {
+  width: 100%;
+  max-width: 720px;
+  padding: 0.5rem;
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 0.5rem;
+  background: var(--lapis-encounter-surface);
+  color: var(--lapis-text);
+}
+
+.lapis-encounter-pulpit-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.lapis-encounter-pulpit-empty {
+  text-align: center;
+  padding: 1rem;
+  color: var(--lapis-muted);
+}
+
+.lapis-encounter-stewards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  padding: 0.5rem;
+  border: 1px solid var(--lapis-border);
+  border-radius: 0.5rem;
+  background: var(--lapis-encounter-surface);
+}
+
+.lapis-encounter-tile {
+  position: relative;
+  flex: 0 0 140px;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 0.375rem;
+  background: var(--lapis-tile-bg);
+  color: var(--lapis-tile-text);
+}
+
+.lapis-encounter-tile--large {
+  flex: 1 1 100%;
+  aspect-ratio: 16 / 9;
+  max-width: 720px;
+}
+
+.lapis-encounter-tile-media {
+  width: 100%;
+  height: 100%;
+}
+
+.lapis-encounter-tile video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lapis-encounter-tile-label {
+  position: absolute;
+  left: 0.5rem;
+  bottom: 0.5rem;
+  max-width: calc(100% - 1rem);
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--lapis-media-overlay-text);
+  font-size: 0.875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lapis-encounter-benches {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Mittelgang: der Abstand zwischen den beiden Bloecken einer Reihe. */
+.lapis-encounter-row {
+  display: flex;
+  gap: 32px;
+}
+
+.lapis-encounter-block {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.lapis-encounter-seat {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--lapis-encounter-seat);
+  color: var(--lapis-encounter-seat-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.lapis-encounter-seat--empty {
+  background: transparent;
+  border: 2px dashed var(--lapis-encounter-seat);
+}
+
+/* Hand und Amen: kleine, leise Zeichen am Platz (nie eine Zahl). Ein- und Ausblenden in 200 ms, bei Bewegungsreduktion sofort. */
+.lapis-encounter-seat-hand,
+.lapis-encounter-seat-amen {
+  position: absolute;
+  top: -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--lapis-encounter-surface);
+  color: var(--lapis-encounter-seat-text);
+  font-size: 0.7rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms;
+}
+
+.lapis-encounter-seat-hand {
+  right: -6px;
+}
+
+.lapis-encounter-seat-amen {
+  left: -6px;
+}
+
+.lapis-encounter-seat-hand.is-on,
+.lapis-encounter-seat-amen.is-on {
+  opacity: 1;
+}
+
+.lapis-encounter-info {
+  min-height: 1.75rem;
+}
+
+.lapis-encounter-band {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 0.375rem;
+  background: var(--lapis-surface-sunken);
+  color: var(--lapis-text);
+}
+
+.lapis-encounter-mic-band {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 0.375rem;
+  background: var(--lapis-surface-sunken);
+}
+
+.lapis-encounter-unread {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+}
+
+.lapis-encounter-unread.is-on {
+  background: var(--lapis-invalid);
+}
+
+.lapis-encounter-side {
+  flex: 0 0 320px;
+  max-height: 70vh;
+  overflow: auto;
+  padding: 0.5rem;
+  border: 1px solid var(--lapis-border);
+  border-radius: 0.5rem;
+  background: var(--lapis-surface);
+  color: var(--lapis-text);
+}
+
+.lapis-encounter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.lapis-encounter-chat-log {
+  max-height: 40vh;
+  overflow-y: auto;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  border: 1px solid var(--lapis-border);
+  border-radius: 0.375rem;
+}
+
+.lapis-encounter-chat-line {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 767.98px) {
+  .lapis-encounter-main {
+    flex-direction: column;
+  }
+
+  .lapis-encounter-room {
+    padding-bottom: 72px;
+  }
+
+  /* Schmaler Bildschirm: sechs Plaetze je Reihe ohne Gang, die Kanzel in voller Breite, die Bedienleiste fest unten (Symbol + Beschriftung). */
+  .lapis-encounter-row {
+    gap: 0.5rem;
+  }
+
+  .lapis-encounter-seat {
+    width: 36px;
+    height: 36px;
+    font-size: 0.75rem;
+  }
+
+  .lapis-encounter-controls {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1030;
+    min-height: 56px;
+    padding: 0.5rem 0.75rem;
+    border-top: 1px solid var(--lapis-border);
+    background: var(--lapis-surface);
+  }
+
+  .lapis-encounter-side.is-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 1055;
+    max-height: none;
+    border-radius: 0;
+    border: 0;
+    padding: 1rem;
+  }
+}
+
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle vier `transition:`-Deklarationen dieser
    Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau, `.lapis-busy` der Offene-Posten-Liste).
    Wer eine neue Transition ergaenzt, ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */
@@ -2682,7 +3004,9 @@ html .form-select.is-invalid:focus {
   body,
   .lapis-conference-controls-row,
   .lapis-conference-background-preview,
-  .lapis-busy {
+  .lapis-busy,
+  .lapis-encounter-seat-hand,
+  .lapis-encounter-seat-amen {
     transition: none;
   }
 }

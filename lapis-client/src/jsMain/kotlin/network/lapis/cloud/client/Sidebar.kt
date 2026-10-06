@@ -360,6 +360,10 @@ fun buildSidebar(
     // `App.kt`-Git-Historie, UI/UX-Design-Team-Review 2026-08-14 (Norman/Raskin).
     nav.sidebarLink(Routes.DASHBOARD, tr("Dashboard"), "fas fa-house")
     nav.sidebarLink(Routes.CONFERENCE, tr("Videokonferenz"), "fas fa-video")
+    // V1.9.62 Begegnungsraum -- a third flat entry on purpose: a guest has no group to find it in, and the room is a destination of its own.
+    if (NavVisibility.showsEncounterSpaces(session.status)) {
+        nav.sidebarLink(Routes.ENCOUNTER, tr("Begegnungsräume"), "fas fa-church")
+    }
 
     if (NavVisibility.showsMembershipSection(session.status)) {
         nav.sidebarGroup(SidebarGroupId.MEMBERSHIP, tr("Mitgliedschaft"), "fas fa-id-card") { toggle ->

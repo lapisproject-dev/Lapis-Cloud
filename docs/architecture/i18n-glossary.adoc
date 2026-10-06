@@ -203,6 +203,47 @@ for every German msgid that contains a core term as a whole word (or one of its 
 | wspólnot
 | гостин
 | V1.9.61: the "encounter space" (a standing room with a pulpit and a listening congregation, first theme: a church service). Renders as "gathering room" / "sala de encuentro" / "espace de rencontre" / "sala d'incontro" / "ontmoetingsruimte" / "przestrzeń wspólnoty" / "гостиная общины". Deliberately NOT "reunión" / "réunion" / "riunione" / "vergadering" / "posiedzenie" / "встреча": those are the formal meeting ("Sitzung"/"Besprechung") the ordinary conference serves.
+
+| Kanzel, Kanzeln
+| pulpit
+| púlpito
+| chaire
+| pulpito
+| kansel
+| ambon
+| кафедр
+| V1.9.62: the PULPIT of an encounter space -- the place from which the office holders of the role PULPIT speak (and the only picture the transmission shows). Not "Kanzlei" (office) and not "Rednerpult" (a lectern in a meeting).
+
+| Gemeinde
+| congregation
+| congregación
+| fidèles
+| fedeli
+| gemeente
+| zbór, zbor
+| прихожан
+| V1.9.62: the listening people of an encounter space (the persons present without an office). Deliberately NOT the stems of "Begegnungsraum" (pl "wspólnot", ru "общин" are taken there) and NOT fr "assemblée" (that is the Versammlung of the governance screens). Polish needs both stems: nominative "zbór" has an o-acute, its other cases ("zboru") do not.
+
+| Amen
+| amen
+| amén
+| amen
+| amen
+| amen
+| amen
+| амин
+| V1.9.62: the one reaction of the congregation in an encounter space; the word itself in every language (ru "Аминь").
+
+| Szene
+| scene
+| escena
+| scène
+| scena
+| scène
+| scen
+| сцен
+| V1.9.62: the decorative picture of an encounter space (the church outline); "Szene aus" / "Szene ein" read hide scene / show scene. Not a "Szenario" and not a film scene.
+
 |===
 
 == Terms with an entry in the catalogs but without an automatic check
@@ -256,6 +297,12 @@ The check above needs a term that is a distinct whole word. These terms are fixe
 
 | Verlauf (einer Unterhaltung)
 | History (en), historial (es), historique (fr), cronologia (it), geschiedenis (nl), historia (pl), история (ru) -- V1.9.34, the expandable list of all direct messages with one member. Not "Chat" or "Thread".
+
+| Hand heben
+| Raise hand (en), levantar la mano (es), lever la main (fr), alzare la mano (it), hand opsteken (nl), podnieść rękę (pl), поднять руку (ru) -- V1.9.62, the congregation's way to ask for the word in an encounter space. A state ("my hand is up"), not an event.
+
+| Ordner (Rolle im Begegnungsraum)
+| Steward (en), encargado de sala (es), membre du service d'ordre (fr), addetto all'accoglienza (it), ordedienst (nl), porządkowy (pl), распорядитель (ru) -- V1.9.62, the office that speaks and moderates in an encounter space. NOT a table row on purpose: the bare German word "Ordner" already means "folder" (documents) in every catalog, and a table row would force the steward rendering onto those msgids. The role therefore always appears as a sentence ("Ordner (spricht und moderiert)", "Eintreten als Ordner", "Ordner im Gottesdienst"), never as the bare word.
 |===
 
 == Known gaps

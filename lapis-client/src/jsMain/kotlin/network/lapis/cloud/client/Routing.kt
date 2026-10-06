@@ -3,6 +3,8 @@ package network.lapis.cloud.client
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.routing.Routing
+import network.lapis.cloud.client.encounter.renderEncounterServiceView
+import network.lapis.cloud.client.encounter.renderEncounterSpaceScreen
 import network.lapis.cloud.shared.domain.AccountRole
 
 /**
@@ -256,6 +258,12 @@ object Routes {
     // surface, this route only ever pre-fills which room `renderConferenceScreen`'s existing,
     // already-gated `listActiveRooms`/`joinRoom` calls act on.
     const val CONFERENCE_ROOM = "/conference/:roomId"
+
+    // V1.9.62 Begegnungsraum (B2) -- the list of the standing rooms and one room. German route word on purpose (design-team decision, see
+    // docs/architecture/encounter-space.adoc "Client"); the Mobile bridge lands on `#/begegnung/<id>`. Same `requireAuth` gate as
+    // [CONFERENCE]: who may see or enter a room is decided by `IEncounterSpaceService`, never by the route.
+    const val ENCOUNTER = "/begegnung"
+    const val ENCOUNTER_SPACE = "/begegnung/:spaceId"
 
     // V1.0 Videokonferenzen (Kleinsitzung), Wave 3 "Externes Streaming" -- `IConferenceStreamingService`
     // destination (Stream-Ziele) credential CRUD. Role gate verified against
@@ -913,6 +921,20 @@ fun initRouting(pageContainer: SimplePanel) {
         requireAuth(routing) {
             show(Routes.CONFERENCE_ROOM) { container -> renderConferenceScreen(container, roomId) }
         }
+    }
+    // V1.9.62 -- the room route is registered BEFORE the list route (same order as the conference).
+    routing.kvOn(Routes.ENCOUNTER_SPACE) { params ->
+        val spaceId = params.asDynamic().data.spaceId as? String
+        requireAuth(routing) {
+            if (spaceId.isNullOrBlank()) {
+                routing.navigate(Routes.ENCOUNTER)
+            } else {
+                show(Routes.ENCOUNTER_SPACE) { container -> renderEncounterServiceView(container, spaceId) }
+            }
+        }
+    }
+    routing.kvOn(Routes.ENCOUNTER) {
+        requireAuth(routing) { show(Routes.ENCOUNTER, ::renderEncounterSpaceScreen) }
     }
     routing.kvOn(Routes.CONFERENCE_STREAM_DESTINATIONS) {
         requireRole(routing, AccountRole.ADMIN) {

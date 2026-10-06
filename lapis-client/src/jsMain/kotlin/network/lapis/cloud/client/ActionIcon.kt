@@ -50,4 +50,26 @@ enum class ActionIcon(
      * value; it is never an action of its own and NOT [LOCK] (reserved) or [ACCESS] (who may see an object).
      */
     PROTECTED("fas fa-shield-halved"),
+
+    /**
+     * Welle V1.9.62 "Begegnungsraum": the verbs of the encounter room, one picture each and none of them reused: [ENTER] a room
+     * (also the "open this room" link), [OPEN_DOORS]/[CLOSE_DOORS] the room itself, [ARCHIVE] a room away, [HAND] raise or lower the
+     * hand, [AMEN] the one reaction, [CHAT] show the chat, [SCENE] show or hide the decorative scene, [SILENCE] withdraw a person's
+     * right to send, [BROADCAST] start/stop the transmission of the pulpit, [OFFICES] who holds which office of a room, [PEOPLE] the list of the people present, [MICROPHONE]/[CAMERA] the office holder's own devices.
+     */
+    ENTER("fas fa-right-to-bracket"),
+    LEAVE("fas fa-right-from-bracket"),
+    OPEN_DOORS("fas fa-door-open"),
+    CLOSE_DOORS("fas fa-door-closed"),
+    ARCHIVE("fas fa-box-archive"),
+    HAND("fas fa-hand"),
+    AMEN("fas fa-hands-praying"),
+    CHAT("fas fa-comments"),
+    SCENE("fas fa-image"),
+    SILENCE("fas fa-volume-xmark"),
+    BROADCAST("fas fa-tower-broadcast"),
+    OFFICES("fas fa-user-tie"),
+    PEOPLE("fas fa-users"),
+    MICROPHONE("fas fa-microphone"),
+    CAMERA("fas fa-video"),
 }

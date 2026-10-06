@@ -9,7 +9,7 @@ The first theme is a church service. It is built on the LiveKit conference stack
 because attending a church service can reveal religious belief, a special category of personal data under Art. 9 GDPR -- the system is
 built so that **no lasting trace of who attended remains**.
 
-This wave (B1) is the server and the data protection. It adds no client screen (that is wave B2): `IEncounterSpaceService` is the RPC
+Wave B1 is the server and the data protection; wave B2 (V1.9.62, <<client>>) is the client. B1 adds no client screen: `IEncounterSpaceService` is the RPC
 surface, `V73__encounter_space.sql` the schema, `network.lapis.cloud.server.encounter.*` plus `rpc/EncounterSpaceService.kt` the implementation.
 
 NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs` Gradle task.
@@ -247,6 +247,128 @@ locked transaction:
   The moderation checks of the server are unaffected.
 * `auto_create` (LiveKit default `true`) would revive a deleted room when somebody connects with an old token; the server checks that the
   session is open when a token is requested, and the poller closes the session record.
+
+[[client]]
+== Client (wave B2, V1.9.62)
+
+The client lives in `lapis-client/.../client/encounter/` (every file starts with `Encounter`, so the source tripwires can find it). Nothing in
+this section changes the server except one route (<<client-mobile>>) and one enum value.
+
+=== Routes and navigation
+
+[cols="2,3", options="header"]
+|===
+| Route | What
+| `#/begegnung` (`Routes.ENCOUNTER`) | the list of rooms, `EncounterSpaceScreen`; BOARD/ADMIN additionally create, edit, assign offices and archive
+| `#/begegnung/:spaceId` (`Routes.ENCOUNTER_SPACE`) | one room, `renderEncounterServiceView`; registered *before* the list route like the conference
+|===
+
+Both sit behind `requireAuth`: who may see or enter a room is decided by `IEncounterSpaceService`, never by the route. The sidebar gets a third
+flat entry "Begegnungsräume" (`NavVisibility.showsEncounterSpaces`: ACTIVE, GUEST and FRIEND, the `CONFERENCE_ELIGIBLE` set) -- a guest has no
+group to find it in.
+
+=== The three phases of a room
+
+[source,kuml,name="encounter-client-phases"]
+----
+stateDiagram(name = "Encounter room view (client)") {
+    val start = initialState()
+    val closed = state(name = "Closed")
+    val entry = state(name = "Entry")
+    val inside = state(name = "Inside")
+
+    transition(source = start, target = closed) { trigger = "getEntryInfo: doors closed" }
+    transition(source = start, target = entry) { trigger = "getEntryInfo: doors open" }
+    transition(source = closed, target = entry) { trigger = "doors opened (poll every 30 s, or openSpace)" }
+    transition(source = entry, target = inside) { trigger = "click Eintreten: enterSpace + connect" }
+    transition(source = inside, target = closed) { trigger = "doors closed / session ended" }
+    transition(source = inside, target = entry) { trigger = "Verlassen, connection lost, re-entry refused" }
+}
+----
+
+* *Closed*: the notice of the room (untrusted text) or a plain sentence; a moderator gets "Türen öffnen".
+* *Entry*: `EncounterEntryPanel`, deliberately *not* a modal. Three plain sentences, the Art. 9 remark ("Dieser Hinweis ist keine Rechtsberatung."), for a
+  non-member the server's consent text (headline and key points as untrusted text, the full text behind a disclosure, a required tick box). The version and the
+  hash go to `enterSpace` unmodified. There is no link to any streaming platform: whether the pulpit is transmitted is the operator's decision.
+* *Inside*: `EncounterRoom`. After an unexpected disconnect the state is read: closed means "Der Gottesdienst ist beendet."; open means one automatic re-entry
+  (at most 3 per 5 minutes), then the entry panel again; a refusal on re-entry means "Sie wurden aus diesem Raum entfernt.".
+
+The room view's teardown is the destroy hook of the screen root, registered *before* the root is added (see `addWithLifecycle`): leaving the route stops every timer and
+listener, disconnects the session and calls `leaveSpace`. A closing page does the same best effort on `pagehide` (a plain RPC can be cancelled by the browser then; the
+server's presence poller removes a stale row).
+
+=== Listen-only, three layers
+
+. The server mints the token with `canPublish = false` for everybody without an office (B1).
+. *The type*: `EncounterMediaSession.kt` hands a congregation member an `EncounterListenerSession`, an interface *without any media method*. Only an entry with
+  `canPublish = true` yields an `EncounterSpeakerSession` (with `setCamera`/`setMicrophone`). The code that could switch a camera on does not compile for a listener.
+. *The runtime flag*: `LiveKitRoomSession(publishEnabled = entry.canPublish)`. With `false`, `setCamera`/`setMicrophone`/`setScreenShare` return at once without touching the SDK, and
+  device listing, switching and enumeration are empty or refused (some browsers answer an enumeration with a permission heuristic). The conference keeps the default `true`.
+
+A pulpit person's camera is switched on in the same click chain that entered (so Safari's gesture rule is met); the microphone stays off, with a standing status band "Ihr Mikrofon ist aus." (`role="status"`).
+A steward starts with both off.
+
+=== Scene, pews, reactions
+
+* *Two layers* (design team, Duarte): the scene `lapis-encounter-scene` is a decorative CSS mask of `/assets/encounter-themes/church/church.svg` (set inline by the layout, colour and visibility from `theme.css`; own drawing, vector only, `aria-hidden`);
+  the stage on top holds opaque surfaces (pulpit, stewards' strip, seats, name labels), so text never sits on the motif. Contrast pairs are documented in `theme.css`
+  (`--lapis-encounter-*`, light and dark). "Szene aus" removes the layer; forced-colours and `prefers-contrast: more` hide it automatically.
+* *Pews* (`EncounterSeating`): 2 blocks of 3 seats per row, an aisle between, filled alternately left/right from the front; the plan grows by one row of six when full and never
+  shrinks. A seat never moves; a leaving person leaves an empty seat. The plan is *per device* (nothing is synchronised, nothing could record who sat where); the people already
+  present sit down in name order so the order of arrival is not readable. Only people `listPresent` names get a seat -- a LiveKit participant that is not listed (an egress bot, a stranger) never does.
+  A seat is a `listitem` of the `list` "Gemeinde" with an accessible name, no button, no tab stop.
+* *Reactions* (data-channel topic `lapis-encounter-reaction`, payload `{"r":"<NAME>"}` only, at most 32 bytes (the longest, `HAND_LOWERED`, is 20)): `HAND` is a *state* (renewed every 30 s by its owner, lapses after 90 s,
+  `HAND_LOWERED` ends it), `AMEN` an *event* (a symbol at the seat for 3 s, announced as the fixed sentence "Amen aus der Gemeinde" at most every 10 s, never a number). Limits: sender
+  amen 5 s / hand 2 s, receiver 2 per second and sender, the sender table bounded to 64. **Trust boundary**: the receiver reads only the key `r`; the sender is the SDK-verified identity of the packet,
+  never a payload field; oversize and malformed payloads are dropped unread; only people who sit can react.
+* *Raised hands* are listed (in the order they went up) only for office holders and BOARD/ADMIN; the congregation sees seats, not a queue.
+* *Chat* reuses the conference's topic `lapis-chat`: in-memory only, at most 200 lines of 500 characters, plain text (no markup, no links, the KVision i18n marker neutralised), and *no time*
+  (the wire field is sent as `0`). A silenced person (`canPublishData = false`) can read but not write.
+
+=== Moderation and transmission
+
+* The menu "Stummschalten"/"Entfernen" (`encounterCanActOn`): never for oneself, never for the congregation viewer; an office holder acts against the congregation only (the server refuses another office
+  holder and BOARD/ADMIN -- the client cannot see a congregation member's global role, so an office holder may see the menu for a BOARD member and the server then refuses; the client says so in one fixed sentence).
+  "Entfernen" asks first. The guest marker "Gast" is shown only to people who moderate.
+* The transmission tab (`EncounterStreamPanel`, moderators only) starts and stops the transmission of the *pulpit*: the layout is fixed to `SINGLE_PARTICIPANT` ("Nur Kanzel", no choice), the picture is the pulpit person's
+  (a choice only with more than one), the latency is the conference's default (`STANDARD`). It creates and activates no destination, in particular no YouTube destination; administrators get a link to the
+  destination screen. Pause and resume are not part of B2.
+* The badge "Live (nur Kanzel)" is shown to *everybody present* while a stream runs: the server's transparency read (`getActiveStream`) is allowed for all present people. It is polled every 30 s while the
+  page is visible; a conflict answer (streaming not enabled) stops the polling.
+
+=== Polling and the rate budget
+
+The server's `list` budget (60 per minute and member) is shared by `listSpaces`, `getSpace`, `getEntryInfo` and `listPresent`. The client therefore refreshes `listPresent` at most every 5 s on a roster event
+(merged: `EncounterRefreshPlanner`), every 20 s by timer, and only while the page is visible; a closed room is asked every 30 s; re-entry after a disconnect is limited to 3 per 5 minutes (the `enter` budget is 30 per minute).
+
+=== Accessibility
+
+Controls are real buttons with names; the hand button carries `aria-pressed` (fixed label); the pulpit is a `group` named "Kanzel: <name>" and receives the focus after entering (`tabindex=-1`); two polite live
+regions (amen bundling for everybody, "<name> hebt die Hand" for office holders only); no single-letter shortcuts; the side panel is closed by default, Escape closes it, below 768 px it is a full-screen sheet
+(`role="dialog"`, `aria-modal`, focus trap, focus returns to the opener); amen fades in and out in 200 ms, switched off under `prefers-reduced-motion`; on a narrow screen the controls are a fixed 56 px bar with icon and label.
+
+=== Browser storage
+
+The only storage of the encounter client is the key `lapis.encounter.sceneOff` (value `1`): no room, no person, no time (`EncounterSceneToggle.kt`). Reading or writing it is wrapped in `try`/`catch`; a blocked
+storage means "scene on". `ClientEncounterPrivacyTripwireTest` pins this together with the other privacy rules (no `innerHTML`, no console, no exception text, devices only in the two allowed files, no telemetry).
+
+[[client-mobile]]
+=== Mobile bridge
+
+`GET /api/mobile/v1/encounter/spaces/{spaceId}/webview-session` (same header-only bridge as the conference route, same kill switch `LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED`) lands on `/app#/begegnung/<id>`; the section key
+`encounter` lands on the list. The id is matched against the allowlist charset (`^[A-Za-z0-9_-]{1,64}$`) and never reflected; there is no existence or visibility check in the route (the page's own RPC decides; an unknown id ends in the client's
+"not found" state). Nothing is logged about the id.
+
+=== Known limitations of B2
+
+* B1's staging script was not run when B2 was built: that LiveKit really enforces `canPublish = false`, and the exact client-side symptom, are *assumptions* (the client prevents the attempt, the token refuses it).
+* Safari: audio output echo is possible without headphones; the autoplay band "Ton einschalten" is the fallback for a listener who has never touched the page.
+* The room is sized for a congregation of about 20; the pews grow by rows, nothing is virtualised.
+* `listPresent` sends `isGuest` to every present person; the page shows it only to moderators. Data minimisation would need a server change (not part of B2).
+* The LIVE badge is visible to everybody present (a transparency right of the server), not only to office holders.
+* Translations (7 languages) were written for this wave and not reviewed by native speakers.
+* No test on a real device; the Karma tests run in headless Chrome.
+* Not included: pause/resume of the transmission, a help page, activating a destination, a request-to-speak flow, subtitles, further scenes.
 
 == Open questions (for the product owner and legal)
 

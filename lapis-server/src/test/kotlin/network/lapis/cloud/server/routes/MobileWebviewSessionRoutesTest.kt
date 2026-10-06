@@ -462,6 +462,7 @@ class MobileWebviewSessionRoutesTest :
                     "events" to "/app#/events",
                     "my-events" to "/app#/my-events",
                     "conference" to "/app#/conference",
+                    "encounter" to "/app#/begegnung",
                 )
             // Contract with the app regex: a new key in the wrong form fails here.
             MOBILE_SECTION_TARGETS.keys.forEach { it shouldMatch Regex("^[a-z]+(-[a-z]+)*$") }

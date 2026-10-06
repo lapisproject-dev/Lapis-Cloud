@@ -6,6 +6,46 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added (V1.9.62, wave B2 "Begegnungsraum", client)
+
+- **Room list** "Begegnungsräume" (`#/begegnung`, third flat sidebar entry for ACTIVE/GUEST/FRIEND): title, doors open/closed (word and colour), the number present, the pulpit's names;
+  BOARD/ADMIN create (collapsed form, R36B), edit, assign the offices ("Ämter": person search select + role, `setSpaceRoles` replace-all, at most 20) and archive (only while closed, with a question).
+- **Entry notice** (not a modal): three plain sentences, the Art. 9 remark ("Dieser Hinweis ist keine Rechtsberatung."), for a non-member the server's consent text with a required tick box (version and
+  hash sent unmodified). No link to any streaming platform.
+- **Room view** (`#/begegnung/:spaceId`): closed (notice, "Türen öffnen" for moderators) / entry / inside. Inside: a decorative church scene (CSS mask, own drawing, `aria-hidden`, "Szene aus", hidden automatically in
+  forced-colours/high-contrast), the pulpit, a strip for stewards, stable pews (a seat never moves), hand ("Hand heben", a state) and amen (an event, 3 s at the seat, announced as one fixed sentence at most every 10 s, never a
+  number), chat (text only, no time, in memory), the list of the people present with "Stummschalten"/"Entfernen" for moderators, the list of raised hands for office holders, "Türen schließen", and the
+  transmission of the **pulpit only** (fixed layout, no destination is created, no YouTube) with the badge "Live (nur Kanzel)".
+- **Mobile bridge**: `GET /api/mobile/v1/encounter/spaces/{spaceId}/webview-session` (same header-only bridge and kill switch as the conference route) lands on `/app#/begegnung/<id>`; section key `encounter` lands on the list.
+- Seven catalogs and glossary entries (Kanzel, Gemeinde, Amen, Szene; "Hand heben" and the steward as prose), `docs/architecture/encounter-space.adoc` "Client", staging checks 18-28.
+
+### Changed (V1.9.62)
+
+- `EncounterReaction` (shared) gets `HAND_LOWERED` (the hand is a state, `AMEN` an event) and the constant `ENCOUNTER_REACTION_MAX_PAYLOAD_BYTES` (32). The server never reads the topic: no server behaviour changes.
+- `LiveKitRoomSession` (additive, defaults keep the conference unchanged): `publishEnabled`, the reaction topic, `startAudio` and the audio-autoplay relay.
+
+### Security (V1.9.62)
+
+- **Listen-only in three layers** on the client: the server's token (B1), the TYPE (a congregation member gets an `EncounterListenerSession` that has no media method at all; only an entry with `canPublish = true` yields an
+  `EncounterSpeakerSession`) and the runtime flag `LiveKitRoomSession(publishEnabled = false)` (no SDK call, no device enumeration). `ClientEncounterPrivacyTripwireTest` pins where devices may be touched.
+- **Reactions**: `{"r":"<NAME>"}` only, at most 32 bytes, only the key `r` is read, the sender is the SDK-verified identity (never a payload field), sender limits (amen 5 s, hand 2 s), receiver limits (2 per second and
+  sender, table bounded to 64), only people who sit can react.
+- **Chat and names are text**: every name, notice, title and message goes through the `untrusted*` helpers (the KVision i18n marker is neutralised); no markup, no links; no time shown, the wire time is sent as `0`.
+- **No trace**: the only browser storage is `lapis.encounter.sceneOff`; no console output, no exception text, no telemetry (source tripwire).
+- The mobile route matches the id against the allowlist charset, reflects nothing and logs nothing; no existence check (the page's RPC decides).
+
+### Known limitations (V1.9.62)
+
+- **LiveKit's enforcement of `canPublish = false` is not verified**: the B1 staging script (`encounter-space-staging-test.adoc`, checks 1-17) was not run, so the exact client-side symptom is unknown. The client prevents the attempt
+  (type and flag); recommended: run the staging script (including checks 18-28) before the release.
+- The audio echo of Safari without headphones; the room is sized for a congregation of about 20 (pews grow by rows, nothing is virtualised); no test on a real device (Karma runs in headless Chrome).
+- The pews are **per device**, not synchronised: two people see different seat plans (the order of arrival is not readable from them).
+- The badge "Live (nur Kanzel)" is visible to **everybody present** (the server's transparency read), not only to office holders.
+- `listPresent` sends `isGuest` to every present person; the page shows "Gast" only to moderators. Data minimisation would be a server change (not done).
+- An office holder sees the menu "Entfernen" also for a BOARD/ADMIN member who sits in the congregation (the client cannot see the global role); the server refuses and the page says so.
+- **Not included**: pause/resume of the transmission, a help page, activating a destination, a request-to-speak flow, subtitles, further scenes.
+- The translations (es/fr/it/nl/pl/ru, about 100 sentences) were written by the agent and not reviewed by native speakers.
+
 ### Added (V1.9.61, wave B1 "Begegnungsraum", server and data protection -- no client screen yet, that is wave B2)
 
 - **Encounter space** ("Begegnungsraum"): a standing room with a *pulpit* and a listening *congregation* (first theme: a church service), served by the new

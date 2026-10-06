@@ -105,9 +105,11 @@ class SidebarStructureTest {
         val links = navChildren.filterIsInstance<Link>()
         val groupHeaders = navChildren.filterIsInstance<Button>().filter { it.hasCssClass("lapis-sidebar-group-header") }
 
-        assertEquals(2, links.size)
+        // V1.9.62: the "Begegnungsräume" entry is a third flat link (a guest has no group to find it in), visible for ACTIVE/GUEST/FRIEND.
+        assertEquals(3, links.size)
         assertEquals("#${Routes.DASHBOARD}", links[0].url)
         assertEquals("#${Routes.CONFERENCE}", links[1].url)
+        assertEquals("#${Routes.ENCOUNTER}", links[2].url)
 
         assertEquals(6, groupHeaders.size)
         // `tr(key)` (siehe `Sidebar.kt`'s `sidebarGroup`-Aufrufe) liefert laut kvision-9.6.0

@@ -38,6 +38,13 @@ object NavVisibility {
     /** "Umfragen" (V1.9.31) -- the audience of the server's read gate for ordinary members: ACTIVE only (the same set as [showsSelfGovernance]). */
     fun showsPolls(status: MemberStatus): Boolean = showsSelfGovernance(status)
 
+    /**
+     * "Begegnungsräume" (V1.9.62) -- the audience of `IEncounterSpaceService.listSpaces`: ACTIVE, GUEST and FRIEND
+     * ([MemberStatusSets.CONFERENCE_ELIGIBLE], the same set as the video conference). A guest sees only the rooms that admit guests; the
+     * server filters, the navigation merely offers the door.
+     */
+    fun showsEncounterSpaces(status: MemberStatus): Boolean = status in MemberStatusSets.CONFERENCE_ELIGIBLE
+
     /** "Mitgliedschaft"-Dropdown als Ganzes (Beiträge/Dokumente/Kommunikation/Meine Daten). */
     fun showsMembershipSection(status: MemberStatus): Boolean = status in MemberStatusSets.ORGANIZATION_MEMBER
 

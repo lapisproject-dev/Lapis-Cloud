@@ -20187,3 +20187,306 @@ msgstr "Członkowie według statusu na koniec każdego okresu"
 
 msgid "Begegnungsraum"
 msgstr "Przestrzeń wspólnoty"
+
+msgid "Dieser Raum wurde archiviert."
+msgstr "Ten pokój został zarchiwizowany."
+
+msgid "Der Raum ist geschlossen."
+msgstr "Pokój jest zamknięty."
+
+msgid "Türen öffnen"
+msgstr "Otwórz drzwi"
+
+msgid "Der Raum ist voll oder gerade geschlossen."
+msgstr "Pokój jest pełny lub został właśnie zamknięty."
+
+msgid "Sie können diesen Raum nicht betreten."
+msgstr "Nie można wejść do tego pokoju."
+
+msgid "Diesen Raum gibt es nicht."
+msgstr "Ten pokój nie istnieje."
+
+msgid "Der Gottesdienst ist beendet."
+msgstr "Nabożeństwo się zakończyło."
+
+msgid "Die Verbindung wurde unterbrochen."
+msgstr "Połączenie zostało przerwane."
+
+msgid "Sie wurden aus diesem Raum entfernt."
+msgstr "Usunięto Cię z tego pokoju."
+
+msgid "Übertragung"
+msgstr "Transmisja"
+
+msgid "Übertragung ist auf dieser Instanz nicht eingerichtet."
+msgstr "Transmisja nie jest skonfigurowana w tej instancji."
+
+msgid "Kein Übertragungsziel eingerichtet."
+msgstr "Nie skonfigurowano żadnego celu transmisji."
+
+msgid "Übertragungsziele verwalten"
+msgstr "Zarządzaj celami transmisji"
+
+msgid "Live (nur Kanzel)"
+msgstr "Na żywo (tylko ambona)"
+
+msgid "Übertragung beenden"
+msgstr "Zakończ transmisję"
+
+msgid "Die Übertragung wird beendet."
+msgstr "Transmisja jest kończona."
+
+msgid "Nur Kanzel"
+msgstr "Tylko ambona"
+
+msgid "Wessen Bild wird übertragen?"
+msgstr "Czyj obraz jest transmitowany?"
+
+msgid "Niemand ist auf der Kanzel."
+msgstr "Nikt nie stoi na ambonie."
+
+msgid "Übertragung starten"
+msgstr "Rozpocznij transmisję"
+
+msgid "Bitte wählen Sie mindestens ein Ziel (höchstens %1)."
+msgstr "Wybierz co najmniej jeden cel (maksymalnie %1)."
+
+msgid "Die Übertragung wird gestartet."
+msgstr "Transmisja się rozpoczyna."
+
+msgid "Bevor Sie eintreten"
+msgstr "Zanim wejdziesz"
+
+msgid "Wird die Kanzel übertragen, sehen Zuschauer außerhalb des Raums nur Bild und Ton der Kanzel. Sie selbst werden nicht übertragen."
+msgstr "Jeśli ambona jest transmitowana, widzowie spoza pokoju widzą tylko obraz i dźwięk z ambony. Ty sam nie jesteś transmitowany."
+
+msgid "Andere Anwesende sehen Ihren Namen, solange Sie im Raum sind. Ihre Kamera und Ihr Mikrofon bleiben aus."
+msgstr "Pozostali obecni widzą Twoje imię i nazwisko, dopóki jesteś w pokoju. Twoja kamera i mikrofon pozostają wyłączone."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste und keine Aufzeichnung dieses Raums."
+msgstr "Lapis Cloud nie zapisuje listy obecności ani nagrania tego pokoju."
+
+msgid "Die Teilnahme an einem Gottesdienst kann Rückschlüsse auf religiöse Überzeugungen zulassen (besondere Kategorie personenbezogener Daten, Art. 9 DSGVO). Dieser Hinweis ist keine Rechtsberatung."
+msgstr "Udział w nabożeństwie może pozwalać wnioskować o przekonaniach religijnych (szczególna kategoria danych osobowych, art. 9 RODO). Ta informacja nie stanowi porady prawnej."
+
+msgid "Vollständigen Text anzeigen"
+msgstr "Pokaż pełny tekst"
+
+msgid "Ich habe den Hinweis gelesen und möchte eintreten."
+msgstr "Przeczytałem/Przeczytałam informację i chcę wejść."
+
+msgid "Bitte bestätigen Sie den Hinweis, um einzutreten."
+msgstr "Potwierdź informację, aby wejść."
+
+msgid "Sie wurden von einem Ordner stummgeschaltet."
+msgstr "Porządkowy wyłączył Ci możliwość pisania."
+
+msgid "Nachricht schreiben"
+msgstr "Napisz wiadomość"
+
+msgid "Die Nachricht ist zu lang (höchstens %1 Zeichen)."
+msgstr "Wiadomość jest zbyt długa (maksymalnie %1 znaków)."
+
+msgid "Die Kanzel ist noch leer."
+msgstr "Ambona jest jeszcze pusta."
+
+msgid "Gemeinde"
+msgstr "Zbór"
+
+msgid "Ordner im Gottesdienst"
+msgstr "Porządkowy"
+
+msgid "Kanzel: %1"
+msgstr "Ambona: %1"
+
+msgid "%1, Hand erhoben"
+msgstr "%1, podniesiona ręka"
+
+msgid "Eintreten und Kanzel übernehmen"
+msgstr "Wejdź i zajmij ambonę"
+
+msgid "Eintreten als Ordner"
+msgstr "Wejdź jako porządkowy"
+
+msgid "Eintreten"
+msgstr "Wejdź"
+
+msgid "Kanzel"
+msgstr "Ambona"
+
+msgid "Niemand ist anwesend."
+msgstr "Nikogo nie ma."
+
+msgid "In diesem Raum"
+msgstr "W tym pokoju"
+
+msgid "%1 anwesend"
+msgstr "Obecnych: %1"
+
+msgid "Erhobene Hände"
+msgstr "Podniesione ręce"
+
+msgid "Stummschalten"
+msgstr "Wycisz"
+
+msgid "Die Person wurde stummgeschaltet."
+msgstr "Osobę wyciszono."
+
+msgid "Diese Person entfernen?"
+msgstr "Usunąć tę osobę?"
+
+msgid "Die Person verlässt den Raum und kann bis zum Ende dieses Gottesdienstes nicht wieder eintreten."
+msgstr "Osoba opuszcza pokój i nie może wrócić do końca tego nabożeństwa."
+
+msgid "Die Person wurde entfernt."
+msgstr "Osobę usunięto."
+
+msgid "Diese Person können Sie hier nicht entfernen."
+msgstr "Nie możesz tutaj usunąć tej osoby."
+
+msgid "Ämter"
+msgstr "Funkcje"
+
+msgid "Noch keine Ämter vergeben."
+msgstr "Nie przypisano jeszcze żadnych funkcji."
+
+msgid "Amt entziehen"
+msgstr "Odbierz funkcję"
+
+msgid "Person"
+msgstr "Osoba"
+
+msgid "Bitte eine Person auswählen."
+msgstr "Wybierz osobę."
+
+msgid "Amt"
+msgstr "Funkcja"
+
+msgid "Amt vergeben"
+msgstr "Przypisz funkcję"
+
+msgid "Höchstens %1 Ämter pro Raum."
+msgstr "Co najwyżej %1 funkcji na pokój."
+
+msgid "Diese Person hat bereits ein Amt in diesem Raum."
+msgstr "Ta osoba ma już funkcję w tym pokoju."
+
+msgid "Ämter speichern"
+msgstr "Zapisz funkcje"
+
+msgid "Die Ämter wurden gespeichert."
+msgstr "Funkcje zapisano."
+
+msgid "Begegnungsräume"
+msgstr "Przestrzenie wspólnoty"
+
+msgid "Noch keine Begegnungsräume."
+msgstr "Brak przestrzeni wspólnoty."
+
+msgid "Neuer Begegnungsraum"
+msgstr "Nowa przestrzeń wspólnoty"
+
+msgid "Geöffnet"
+msgstr "Otwarte"
+
+msgid "Erst Türen schließen, dann archivieren."
+msgstr "Najpierw zamknij drzwi, potem zarchiwizuj."
+
+msgid "Den Raum archivieren?"
+msgstr "Zarchiwizować pokój?"
+
+msgid "Ein archivierter Raum erscheint nicht mehr in der Liste und kann nicht mehr geöffnet werden."
+msgstr "Zarchiwizowany pokój nie pojawia się już na liście i nie można go ponownie otworzyć."
+
+msgid "Der Raum wurde archiviert."
+msgstr "Pokój zarchiwizowano."
+
+msgid "Wer darf eintreten?"
+msgstr "Kto może wejść?"
+
+msgid "Mitglieder und Gäste"
+msgstr "Członkowie i goście"
+
+msgid "Hinweis, solange der Raum geschlossen ist"
+msgstr "Informacja, dopóki pokój jest zamknięty"
+
+msgid "Höchstzahl der Anwesenden"
+msgstr "Maksymalna liczba obecnych"
+
+msgid "Leer lassen für die Voreinstellung der Instanz."
+msgstr "Zostaw puste, aby użyć wartości domyślnej instancji."
+
+msgid "Begegnungsraum anlegen"
+msgstr "Utwórz przestrzeń wspólnoty"
+
+msgid "Der Begegnungsraum wurde angelegt."
+msgstr "Przestrzeń wspólnoty została utworzona."
+
+msgid "Der Begegnungsraum wurde gespeichert."
+msgstr "Przestrzeń wspólnoty została zapisana."
+
+msgid "Kanzel (spricht)"
+msgstr "Ambona (przemawia)"
+
+msgid "Ordner (spricht und moderiert)"
+msgstr "Porządkowy (przemawia i moderuje)"
+
+msgid "Der Ton ist ausgeschaltet."
+msgstr "Dźwięk jest wyłączony."
+
+msgid "Ton einschalten"
+msgstr "Włącz dźwięk"
+
+msgid "Die Verbindung wird wiederhergestellt …"
+msgstr "Trwa przywracanie połączenia …"
+
+msgid "Hand heben"
+msgstr "Podnieś rękę"
+
+msgid "Amen"
+msgstr "Amen"
+
+msgid "Bitte einen Moment warten."
+msgstr "Poczekaj chwilę."
+
+msgid "Neue Nachrichten"
+msgstr "Nowe wiadomości"
+
+msgid "Szene aus"
+msgstr "Ukryj scenę"
+
+msgid "Türen schließen"
+msgstr "Zamknij drzwi"
+
+msgid "Amen aus der Gemeinde"
+msgstr "Amen od zboru"
+
+msgid "%1 hebt die Hand"
+msgstr "%1 podnosi rękę"
+
+msgid "Szene ein"
+msgstr "Pokaż scenę"
+
+msgid "Türen schließen?"
+msgstr "Zamknąć drzwi?"
+
+msgid "Alle Anwesenden verlassen den Raum."
+msgstr "Wszyscy obecni opuszczą pokój."
+
+msgid "Ihr Mikrofon ist aus."
+msgstr "Twój mikrofon jest wyłączony."
+
+msgid "Einschalten"
+msgstr "Włącz"
+
+msgid "Raum-Bereiche"
+msgstr "Sekcje pokoju"
+
+msgid "Chat und Anwesende"
+msgstr "Czat i obecni"
+
+msgid "Anwesende"
+msgstr "Obecni"
+
+msgid "Zum Raum"
+msgstr "Do pokoju"

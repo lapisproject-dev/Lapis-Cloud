@@ -3,7 +3,7 @@
 
 This script is *written, not executed*: wave B1 was built without a reachable LiveKit instance. It verifies on `staging` what the unit and
 scenario tests can only assume (see `docs/architecture/encounter-space.adoc`, "Assumptions about LiveKit"). Run it before wave B2 builds a
-client on top, and record the results below.
+client on top, and record the results below. Checks 18-28 (V1.9.62) cover the client of wave B2 and are written, not run either.
 
 == Setup
 
@@ -35,6 +35,17 @@ client on top, and record the results below.
 | 15 | The pulpit joins briefly (audio test), disconnects, and a congregation member enters 25 minutes later | the room is still there (`departure_timeout` 1800 was honoured by LiveKit; with the default 20 s it would be gone and the session closed as `EMPTY`); the member gets a token. Confirm `CreateRoom` accepts `departure_timeout` and `ListRooms` reports it.
 | 16 | A congregation member's network drops for ~10 s and `livekit-client` reconnects with the old token | the presence row survives the poller (two absent sweeps are needed); `listPresent` still answers the person.
 | 17 | The BOARD withdraws the pulpit's office while the pulpit is connected | the pulpit is disconnected; a re-entry via `enterSpace` yields a listen-only token (`canPublish = false`). Also reconnect directly to LiveKit with the old token: this still succeeds with publish rights until `tokenTtlMinutes` expires (known limitation, see Assumptions about LiveKit).
+| 18 | B2 (Chrome and Safari): a congregation member enters, never touching the page before | no permission prompt for camera or microphone; the pulpit is heard only after "Ton einschalten" if the browser blocked autoplay (the band appears), then without the band.
+| 19 | B2: the pulpit person clicks "Eintreten und Kanzel übernehmen" | the camera starts in that click (one permission prompt), the microphone is off, the band "Ihr Mikrofon ist aus." is shown; "Einschalten" switches it on.
+| 20 | B2: two devices -- the congregation member raises a hand and sends an amen | the symbol appears at the member's seat on the other device (hand stays until lowered or 90 s without renewal, amen about 3 s); an office holder sees the hand in the list "Erhobene Hände"; no number appears anywhere.
+| 21 | B2: a steward silences the member | the member's hand, amen and chat are disabled with "Sie wurden von einem Ordner stummgeschaltet." (after the member re-enters, `canPublishData = false`); reading continues.
+| 22 | B2: a steward removes a congregation member, and tries the same against the pulpit person and against a BOARD member without an office | the member leaves and cannot re-enter this session; the menu is absent for the pulpit and for another steward; for the BOARD member the server refuses and the page shows "Diese Person können Sie hier nicht entfernen.".
+| 23 | B2: the pulpit person (or a steward) clicks "Türen schließen" and confirms | everybody present lands on the entry/closed view with "Der Gottesdienst ist beendet."; the notice of the room is shown while closed.
+| 24 | B2: a moderator starts the transmission (a non-listed test RTMP destination, if available) | only the pulpit's picture is sent (`SINGLE_PARTICIPANT`); there is no layout choice and no YouTube destination is created; everybody present sees "Live (nur Kanzel)" within 30 s; stop removes it.
+| 25 | B2: open `#/begegnung/<id>` through the mobile bridge (`encounter/spaces/<id>/webview-session`) | the room opens inside the WebView with the session cookie; camera/microphone permissions are requested only for an office holder.
+| 26 | B2: switch the scene off, reload, then enable the operating system's high-contrast mode | the choice survives the reload (one key in browser storage, nothing else); in high-contrast mode the scene is hidden by itself.
+| 27 | B2: VoiceOver (Safari) or TalkBack | the pulpit region reads "Kanzel: <name>"; seats read the person's name (and "Hand erhoben"); the pews are a list "Gemeinde"; no single-letter shortcut fires; the side sheet traps the focus and Escape closes it.
+| 28 | B2: leave the page (close the tab) while inside | within the poller period the presence row is gone (`pagehide` is best effort); `listPresent` no longer names the person.
 |===
 
 == Result log

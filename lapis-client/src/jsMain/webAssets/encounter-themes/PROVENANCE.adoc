@@ -1,0 +1,11 @@
+= Encounter themes: provenance
+
+`church/church.svg` is an original line drawing made for Lapis Cloud (V1.9.62, "Begegnungsraum"): a pointed nave arch with ribs, a rose window and six lancet windows.
+It is not derived from any photograph, font, clip art or third-party artwork.
+It is licensed under the licence of this repository.
+
+Technical contract of every theme asset:
+
+* Vector only (no raster image, no gradient, no `<script>`, no external reference), at most 30 KB.
+* Used as a CSS *mask* (`theme.css`, `.lapis-encounter-scene`): only the alpha channel counts, so the drawing uses two tones through opacity -- lines at 1.0, areas at about 0.3 -- and the colour comes from the design token `--lapis-encounter-scene-ink`.
+* Decorative only (`aria-hidden`); nothing the person has to read or press ever sits on it.

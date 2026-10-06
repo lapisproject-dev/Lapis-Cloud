@@ -20140,3 +20140,306 @@ msgstr "Members by status at the end of each period"
 
 msgid "Begegnungsraum"
 msgstr "Gathering room"
+
+msgid "Dieser Raum wurde archiviert."
+msgstr "This room has been archived."
+
+msgid "Der Raum ist geschlossen."
+msgstr "The room is closed."
+
+msgid "Türen öffnen"
+msgstr "Open the doors"
+
+msgid "Der Raum ist voll oder gerade geschlossen."
+msgstr "The room is full or has just been closed."
+
+msgid "Sie können diesen Raum nicht betreten."
+msgstr "You cannot enter this room."
+
+msgid "Diesen Raum gibt es nicht."
+msgstr "This room does not exist."
+
+msgid "Der Gottesdienst ist beendet."
+msgstr "The service has ended."
+
+msgid "Die Verbindung wurde unterbrochen."
+msgstr "The connection was interrupted."
+
+msgid "Sie wurden aus diesem Raum entfernt."
+msgstr "You were removed from this room."
+
+msgid "Übertragung"
+msgstr "Broadcast"
+
+msgid "Übertragung ist auf dieser Instanz nicht eingerichtet."
+msgstr "Broadcasting is not set up on this instance."
+
+msgid "Kein Übertragungsziel eingerichtet."
+msgstr "No broadcast destination is set up."
+
+msgid "Übertragungsziele verwalten"
+msgstr "Manage broadcast destinations"
+
+msgid "Live (nur Kanzel)"
+msgstr "Live (pulpit only)"
+
+msgid "Übertragung beenden"
+msgstr "End the broadcast"
+
+msgid "Die Übertragung wird beendet."
+msgstr "The broadcast is being ended."
+
+msgid "Nur Kanzel"
+msgstr "Pulpit only"
+
+msgid "Wessen Bild wird übertragen?"
+msgstr "Whose picture is broadcast?"
+
+msgid "Niemand ist auf der Kanzel."
+msgstr "Nobody is at the pulpit."
+
+msgid "Übertragung starten"
+msgstr "Start the broadcast"
+
+msgid "Bitte wählen Sie mindestens ein Ziel (höchstens %1)."
+msgstr "Please select at least one destination (at most %1)."
+
+msgid "Die Übertragung wird gestartet."
+msgstr "The broadcast is starting."
+
+msgid "Bevor Sie eintreten"
+msgstr "Before you enter"
+
+msgid "Wird die Kanzel übertragen, sehen Zuschauer außerhalb des Raums nur Bild und Ton der Kanzel. Sie selbst werden nicht übertragen."
+msgstr "If the pulpit is broadcast, viewers outside the room see only the picture and sound of the pulpit. You yourself are not broadcast."
+
+msgid "Andere Anwesende sehen Ihren Namen, solange Sie im Raum sind. Ihre Kamera und Ihr Mikrofon bleiben aus."
+msgstr "Other people present see your name as long as you are in the room. Your camera and microphone stay off."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste und keine Aufzeichnung dieses Raums."
+msgstr "Lapis Cloud stores no attendance list and no recording of this room."
+
+msgid "Die Teilnahme an einem Gottesdienst kann Rückschlüsse auf religiöse Überzeugungen zulassen (besondere Kategorie personenbezogener Daten, Art. 9 DSGVO). Dieser Hinweis ist keine Rechtsberatung."
+msgstr "Taking part in a service can allow conclusions about religious beliefs (a special category of personal data, Art. 9 GDPR). This notice is not legal advice."
+
+msgid "Vollständigen Text anzeigen"
+msgstr "Show full text"
+
+msgid "Ich habe den Hinweis gelesen und möchte eintreten."
+msgstr "I have read the notice and wish to enter."
+
+msgid "Bitte bestätigen Sie den Hinweis, um einzutreten."
+msgstr "Please confirm the notice to enter."
+
+msgid "Sie wurden von einem Ordner stummgeschaltet."
+msgstr "A steward has muted you."
+
+msgid "Nachricht schreiben"
+msgstr "Write a message"
+
+msgid "Die Nachricht ist zu lang (höchstens %1 Zeichen)."
+msgstr "The message is too long (at most %1 characters)."
+
+msgid "Die Kanzel ist noch leer."
+msgstr "The pulpit is still empty."
+
+msgid "Gemeinde"
+msgstr "Congregation"
+
+msgid "Ordner im Gottesdienst"
+msgstr "Steward"
+
+msgid "Kanzel: %1"
+msgstr "Pulpit: %1"
+
+msgid "%1, Hand erhoben"
+msgstr "%1, hand raised"
+
+msgid "Eintreten und Kanzel übernehmen"
+msgstr "Enter and take the pulpit"
+
+msgid "Eintreten als Ordner"
+msgstr "Enter as steward"
+
+msgid "Eintreten"
+msgstr "Enter"
+
+msgid "Kanzel"
+msgstr "Pulpit"
+
+msgid "Niemand ist anwesend."
+msgstr "Nobody is present."
+
+msgid "In diesem Raum"
+msgstr "In this room"
+
+msgid "%1 anwesend"
+msgstr "%1 present"
+
+msgid "Erhobene Hände"
+msgstr "Raised hands"
+
+msgid "Stummschalten"
+msgstr "Mute"
+
+msgid "Die Person wurde stummgeschaltet."
+msgstr "The person has been muted."
+
+msgid "Diese Person entfernen?"
+msgstr "Remove this person?"
+
+msgid "Die Person verlässt den Raum und kann bis zum Ende dieses Gottesdienstes nicht wieder eintreten."
+msgstr "The person leaves the room and cannot come back until this service has ended."
+
+msgid "Die Person wurde entfernt."
+msgstr "The person has been removed."
+
+msgid "Diese Person können Sie hier nicht entfernen."
+msgstr "You cannot remove this person here."
+
+msgid "Ämter"
+msgstr "Offices"
+
+msgid "Noch keine Ämter vergeben."
+msgstr "No offices assigned yet."
+
+msgid "Amt entziehen"
+msgstr "Withdraw the office"
+
+msgid "Person"
+msgstr "Person"
+
+msgid "Bitte eine Person auswählen."
+msgstr "Please select a person."
+
+msgid "Amt"
+msgstr "Office"
+
+msgid "Amt vergeben"
+msgstr "Assign the office"
+
+msgid "Höchstens %1 Ämter pro Raum."
+msgstr "At most %1 offices per room."
+
+msgid "Diese Person hat bereits ein Amt in diesem Raum."
+msgstr "This person already holds an office in this room."
+
+msgid "Ämter speichern"
+msgstr "Save the offices"
+
+msgid "Die Ämter wurden gespeichert."
+msgstr "The offices have been saved."
+
+msgid "Begegnungsräume"
+msgstr "Gathering rooms"
+
+msgid "Noch keine Begegnungsräume."
+msgstr "No gathering rooms yet."
+
+msgid "Neuer Begegnungsraum"
+msgstr "New gathering room"
+
+msgid "Geöffnet"
+msgstr "Open"
+
+msgid "Erst Türen schließen, dann archivieren."
+msgstr "Close the doors first, then archive."
+
+msgid "Den Raum archivieren?"
+msgstr "Archive the room?"
+
+msgid "Ein archivierter Raum erscheint nicht mehr in der Liste und kann nicht mehr geöffnet werden."
+msgstr "An archived room no longer appears in the list and cannot be opened any more."
+
+msgid "Der Raum wurde archiviert."
+msgstr "The room has been archived."
+
+msgid "Wer darf eintreten?"
+msgstr "Who may enter?"
+
+msgid "Mitglieder und Gäste"
+msgstr "Members and guests"
+
+msgid "Hinweis, solange der Raum geschlossen ist"
+msgstr "Notice while the room is closed"
+
+msgid "Höchstzahl der Anwesenden"
+msgstr "Maximum number of people present"
+
+msgid "Leer lassen für die Voreinstellung der Instanz."
+msgstr "Leave empty for the instance default."
+
+msgid "Begegnungsraum anlegen"
+msgstr "Create gathering room"
+
+msgid "Der Begegnungsraum wurde angelegt."
+msgstr "The gathering room has been created."
+
+msgid "Der Begegnungsraum wurde gespeichert."
+msgstr "The gathering room has been saved."
+
+msgid "Kanzel (spricht)"
+msgstr "Pulpit (speaks)"
+
+msgid "Ordner (spricht und moderiert)"
+msgstr "Steward (speaks and moderates)"
+
+msgid "Der Ton ist ausgeschaltet."
+msgstr "The sound is switched off."
+
+msgid "Ton einschalten"
+msgstr "Switch the sound on"
+
+msgid "Die Verbindung wird wiederhergestellt …"
+msgstr "The connection is being restored …"
+
+msgid "Hand heben"
+msgstr "Raise hand"
+
+msgid "Amen"
+msgstr "Amen"
+
+msgid "Bitte einen Moment warten."
+msgstr "Please wait a moment."
+
+msgid "Neue Nachrichten"
+msgstr "New messages"
+
+msgid "Szene aus"
+msgstr "Hide scene"
+
+msgid "Türen schließen"
+msgstr "Close the doors"
+
+msgid "Amen aus der Gemeinde"
+msgstr "Amen from the congregation"
+
+msgid "%1 hebt die Hand"
+msgstr "%1 raises a hand"
+
+msgid "Szene ein"
+msgstr "Show scene"
+
+msgid "Türen schließen?"
+msgstr "Close the doors?"
+
+msgid "Alle Anwesenden verlassen den Raum."
+msgstr "Everyone present will leave the room."
+
+msgid "Ihr Mikrofon ist aus."
+msgstr "Your microphone is off."
+
+msgid "Einschalten"
+msgstr "Switch on"
+
+msgid "Raum-Bereiche"
+msgstr "Room sections"
+
+msgid "Chat und Anwesende"
+msgstr "Chat and people present"
+
+msgid "Anwesende"
+msgstr "People present"
+
+msgid "Zum Raum"
+msgstr "To the room"

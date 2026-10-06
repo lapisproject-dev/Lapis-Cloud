@@ -1115,6 +1115,8 @@ private val R36B_CONVERTED: Set<String> =
         "VolunteerAllowanceScreen.kt",
         "DunningSettingsScreen.kt",
         "ReceivableDunningSettingsScreen.kt",
+        // V1.9.62 Begegnungsraum: the room list is held strictly from the start (its create form is collapsed behind one title-row button).
+        "EncounterSpaceScreen.kt",
     )
 
 private fun r36bActual(): Map<String, List<String>> =
@@ -1871,10 +1873,18 @@ class ClientUiGuidelineTripwireTest :
             reducedMotionViolations(THEME_CSS.readText()) shouldBe emptyList()
         }
 
-        test("R54 names exactly the four known transitions today") {
+        test("R54 names exactly the six known transitions today (V1.9.62: the hand and amen symbols of the encounter room)") {
             val css = THEME_CSS.readText()
             val reduced = parseCssRules(css).filter { REDUCED_MOTION in it.atRules }.flatMap { selectorsOf(it) }.toSet()
-            reduced shouldBe setOf("body", ".lapis-conference-controls-row", ".lapis-conference-background-preview", ".lapis-busy")
+            reduced shouldBe
+                setOf(
+                    "body",
+                    ".lapis-conference-controls-row",
+                    ".lapis-conference-background-preview",
+                    ".lapis-busy",
+                    ".lapis-encounter-seat-hand",
+                    ".lapis-encounter-seat-amen",
+                )
         }
 
         test("the 44 px touch-target rule under pointer: coarse leaves an inline btn-link alone") {
