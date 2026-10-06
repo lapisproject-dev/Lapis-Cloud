@@ -365,6 +365,24 @@ classDiagram(name = "AccountingExport") {
                 multiplicity = Multiplicity(0, 1)
                 stereotype("Column") { "columnName" to "finished_at" }
             }
+            // V1.9.65 (V75__accounting_export_claim_generation.sql) -- the FENCING TOKEN: incremented by every claim, NEVER reset (attempts is
+            // reset by retryFailed, which made the token ABA-prone).
+            attribute(name = "claimGeneration", type = "Int") {
+                stereotype("Column") { "columnName" to "claim_generation" }
+            }
+            // V1.9.65 (V74__accounting_export_reconcile.sql) -- bookkeeping of the automatic UNKNOWN reconciliation (voucher lookup by
+            // number). Deliberately separate from attempts/nextAttemptAt, which carry SEND semantics (MAX_ATTEMPTS, retryFailed reset).
+            attribute(name = "reconcileChecks", type = "Int") {
+                stereotype("Column") { "columnName" to "reconcile_checks" }
+            }
+            attribute(name = "reconcileNextAt", type = "LocalDateTime") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "reconcile_next_at" }
+            }
+            attribute(name = "reconcileLastResult", type = "String") {
+                multiplicity = Multiplicity(0, 1)
+                stereotype("Column") { "columnName" to "reconcile_last_result"; "sqlType" to "VARCHAR(32)" }
+            }
         }
 
     val accountingExportCategoryMap =

@@ -6,6 +6,69 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added (V1.9.65, operational hardening)
+
+- **Log privacy.** SQL statement text and personal data no longer reach the server log. Two Logback converters (`%safeMsg`, `%safeEx`, package
+  `network.lapis.cloud.server.logging`) replace the messages of every SQL-bearing exception in the cause chain (and of wrappers that embed them), the
+  PostgreSQL `Detail:` line and Exposed's `SQL: [...]`/`Statement(s):` tails, for every logger. SQLSTATE, exception classes, constraint and table name
+  and all stack frames stay. Background: Kilua RPC logs every non-typed exception with `LOG.error(e.getMessage(), e)`, and about a hundred application call
+  sites log `logger.warn(e)`. Details: `docs/architecture/logging-privacy.adoc`.
+- **lexoffice check-before-create.** Before a voucher is sent the poller searches lexoffice for the voucher number
+  (`GET /v1/voucherlist?voucherType=salesinvoice,purchaseinvoice&voucherStatus=any&voucherNumber=...`, exact-match filtered on our side). One hit with the
+  same amount and date is adopted (`SUCCEEDED`, nothing is sent); several hits or another amount make the item `UNKNOWN` (`PROVIDER_DUPLICATE_OR_MISMATCH`);
+  a failed lookup schedules a retry (nothing was sent). New `AccountingExportProviderAdapter.findVouchersByNumber` (default `Unsupported`, so sevDesk is unchanged).
+- **Automatic reconciliation of `UNKNOWN` items** (poller phase A1): an item older than ten minutes is looked up (at most six times, 10 min / 30 min / 2 h / 6 h /
+  24 h / 24 h, one lookup per tick). Exactly one matching voucher resolves it to `SUCCEEDED` ("Automatisch abgeglichen"); no hit leaves it `UNKNOWN`.
+  Migration `V74__accounting_export_reconcile.sql` (additive: `reconcile_checks`, `reconcile_next_at`, `reconcile_last_result`).
+- **Operator backup** `deploy/example/backup.sh` and `restore.sh`: database (`pg_dump -Fc`), the uploaded-files volume, branding, manifest and checksums; restore
+  verifies the checksums and refuses a non-empty database. New section "Backup and restore" in `deploy/example/README.adoc` with every place that holds state.
+- **ADMIN backup bundle format 2** carries the chapter-crest, event-cover and article-cover files (`assets/<family>/<uuid>.<ext>`); a format 1 bundle still restores.
+  `docs/architecture/accounting-export-idempotency.adoc`, `docs/architecture/logging-privacy.adoc`.
+
+### Changed (V1.9.65)
+
+- **Fencing for every write after a claim.** `AccountingExportStore.markFailed/markUnknown/markRetryScheduled/markSkippedAlreadyExported/markSucceeded` take the claim's
+  `attempts` value as a fencing token and return `FencedWrite.APPLIED|LOST_FENCE`; a late sender can no longer overwrite the state the reaper or `abortRun` set (previously a
+  late retry could turn an aborted item back into `PENDING` and send it again). A late success still wins over `UNKNOWN`. `claim` increments `attempts` in SQL.
+  `duePendingItemIds` returns only items of a `RUNNING` run.
+- `logback.xml`: the pattern uses `%safeMsg`/`%safeEx`; logger `Exposed` has an INFO floor (its DEBUG output contains statements with values).
+- `OrganizationExportService.FORMAT_VERSION` is 2; `OrganizationRestoreService` accepts the formats in `SUPPORTED_FORMAT_VERSIONS` (1 and 2). The export and restore services and
+  `registerBackupRoutes` take the configured `LAPIS_*_STORAGE_ROOT` directories (`BackupAssetRoots`).
+- `docs/architecture/accounting-export-lexoffice.adoc`: idempotency section rewritten (anchor moved to its heading), rate limit recalculated (two requests per item), scope cut updated.
+
+### Security (V1.9.65)
+
+- Personal data in a failed statement (e-mail addresses in a unique violation, bound values) no longer reaches stdout, the Docker log driver or a log aggregator, also not when an
+  operator raises a log level to DEBUG.
+- A manipulated ADMIN bundle cannot bypass the upload hardening: an `assets/` entry needs a strict name (no traversal), an id referenced by a restored row, at most 5 MiB, and valid
+  content (SVG through the crest sanitizer again, raster by signature).
+- `backup.sh` passes no secret on a command line, reads the database credentials inside the container, uses `umask 077`; `restore.sh` never deletes.
+
+### Tests (V1.9.65)
+
+- `SqlLogRedactionTest`, `LogbackSqlRedactionScenarios` (H2 and PostgreSQL, real unique violation, production pattern, rendered bytes inspected) with tripwires for the pattern tokens,
+  `logback-test.xml` and the `Exposed` level.
+- `AccountingExportIdempotencyScenarios` and `AccountingExportConcurrencyScenarios` (H2 and PostgreSQL), `LexofficeApiClientTest` (voucherlist lookup).
+- `OrganizationBackupAssetsTest` (round trip of the three file families through overridden roots, manipulated SVG, raster without signature, traversal, unreferenced id, oversized entry, format 1 bundle, unsupported format).
+
+### Operator note (V1.9.65)
+
+- V74 is additive; **no `flywayRepair` is needed** (no applied migration was edited).
+- Take a backup with `deploy/example/backup.sh` before deploying. After this release the lexoffice export needs one more request per item; a tick takes longer.
+- Keep `LAPIS_SECRET_ENCRYPTION_KEY` and the `.env` in a separate, encrypted backup: they are not part of `backup.sh`.
+
+### Known limitations (V1.9.65)
+
+- lexoffice has no server-side idempotency key; the protection is client-side.
+- The index delay of the lexoffice voucherlist is unknown, hence the ten-minute minimum age and the rule that "not found" never turns an `UNKNOWN` item into "not sent" automatically.
+- **Duplicates created before this version are not deduplicated retroactively.** They only become visible (as `PROVIDER_DUPLICATE`) if the item is touched again.
+- sevDesk has neither lookup nor reconciliation.
+- The `LexofficeRateLimiter` is process-local: more than one server instance with the export poller enabled is still not supported.
+- A lookup failure shares the attempt budget of the send retries (three attempts), then the item is `FAILED` (nothing sent; `retryFailed` reopens it).
+- The log filter is heuristic for a message without a throwable (marker cut); the PostgreSQL driver's `java.util.logging` output is not bridged (it is below the JUL default level).
+- Member photos and conference backgrounds stay out of the ADMIN bundle on purpose (private data).
+- `LAPIS_FINTS_PASSPORT_DIR` is not set in the example compose file; its default lies in the container's writable layer, outside every volume and every backup (documented in the deploy README, not changed here).
+
 ### Fixed (V1.9.64)
 
 - Receipt text of secret elections and anonymous systemic consensus no longer claims the code is "stored nowhere"; it now says the code is not kept in the browser, that the server keeps it only together with the anonymous ballot (or rating) for the inclusion check, and that the receipt does not show the choice. Translations (en, es, fr, it, nl, pl, ru) are agent translations, not reviewed by native speakers. Text only: no server, schema or behaviour change.

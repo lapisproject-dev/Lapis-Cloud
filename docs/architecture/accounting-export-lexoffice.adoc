@@ -130,7 +130,6 @@ classDiagram(name = "Accounting Export — ERM excerpt") {
 }
 ----
 
-[[idempotency-and-unknown]]
 == Portability note: no partial unique index
 
 The obvious idempotency anchor — "a `journal_entry` is exported to a given provider at most once,
@@ -182,6 +181,7 @@ level (`chk_accounting_export_item_exported_key`, `chk_accounting_export_run_act
    and locally assigned, so a treasurer can search for it inside lexoffice itself if an item ever
    ends up `UNKNOWN`.
 
+[[idempotency-and-unknown]]
 == Idempotency and the `UNKNOWN` state
 
 lexoffice's `POST /v1/vouchers` carries no idempotency key. A network failure *after* the request
@@ -194,6 +194,11 @@ for the deterministic `voucherNumber` inside lexoffice itself and resolve it man
 conservative choice: a missed voucher is a visible gap a treasurer can spot and re-run; a duplicated
 voucher is a silent double-booking a Steuerberater may not catch.
 
+Since V1.9.65 the poller checks the provider for the voucher number before sending (check-before-create), every write after the
+claim is fenced by the claim's `attempts` value, and an `UNKNOWN` item with exactly one matching voucher at lexoffice is reconciled
+automatically after ten minutes -- "not found" still never decides. Details and the limits:
+link:accounting-export-idempotency.adoc[accounting-export-idempotency.adoc].
+
 **Design choice, not forced:** `voucherStatus = "open"` (rather than the also-writable `"unchecked"`)
 was this wave's implementation choice, left open for the operator to revisit — see the plan's own
 §11.2. `"unchecked"` would arguably better signal "this arrived unreviewed from an automated import"
@@ -202,9 +207,11 @@ given this planner's own blocking behavior (an entry is never sent half-mapped).
 
 == Rate limiting — two layers
 
-1. **Poller cadence** (primary): `AccountingExportPoller` sends at most 3 items per tick, strictly
+1. **Poller cadence** (primary): `AccountingExportPoller` handles at most 3 items per tick, strictly
    sequentially (no `async`/`awaitAll` the way `WebhookDeliveryPoller` uses for its own, unrelated
-   provider), at a 2-second default interval — ~1.5 req/s, comfortably under the 2 req/s ceiling.
+   provider), at a 2-second default interval. Since V1.9.65 each item costs two requests (the
+   voucher-number lookup before the send), so the limiter below, not the cadence, sets the pace:
+   at most about 1.5 items per second, always below the 2 req/s ceiling; a tick simply takes longer.
 2. **`LexofficeRateLimiter`** (defense-in-depth): a shared, module-scoped minimum-inter-request-gap
    guard that also covers the synchronous `testConnection`/`listCategories` RPC path, which reaches
    lexoffice entirely outside the poller's own cadence.
@@ -238,7 +245,8 @@ given this planner's own blocking behavior (an entry is never sent half-mapped).
 
 == Scope cuts
 
-* No read-back/reconciliation sync from lexoffice — this is a one-way push.
+* No general read-back sync from lexoffice — this is a one-way push. The only read is the voucher-number lookup of V1.9.65
+  (check-before-create and reconciliation of `UNKNOWN` items, see link:accounting-export-idempotency.adoc[accounting-export-idempotency.adoc]).
 * No USt-Schlüssel modelling — every voucher travels at 0%, see `ZeroVatExportDisclaimer`.
 * No contact/Stammdaten sync — `useCollectiveContact = true` always, `contactId`/`contactName` never
   sent; no member/donor personal data crosses the wire beyond what the voucher amount/date/category

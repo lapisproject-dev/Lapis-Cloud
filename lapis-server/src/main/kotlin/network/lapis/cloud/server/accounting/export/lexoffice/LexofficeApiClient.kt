@@ -6,6 +6,7 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
@@ -14,14 +15,18 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.utils.io.readAvailable
+import kotlinx.datetime.LocalDate
 import kotlinx.serialization.serializer
 import network.lapis.cloud.server.accounting.export.CategoryListOutcome
 import network.lapis.cloud.server.accounting.export.ConnectionTestOutcome
 import network.lapis.cloud.server.accounting.export.ExternalCategory
+import network.lapis.cloud.server.accounting.export.FoundVoucher
 import network.lapis.cloud.server.accounting.export.OutboundVoucher
+import network.lapis.cloud.server.accounting.export.VoucherLookupOutcome
 import network.lapis.cloud.server.accounting.export.VoucherPushOutcome
 import network.lapis.cloud.shared.domain.AccountingExportDirection
 import java.io.IOException
+import java.math.BigDecimal
 import java.math.RoundingMode
 import java.net.ConnectException
 import java.net.UnknownHostException
@@ -288,6 +293,77 @@ internal class LexofficeApiClient(
         return VoucherPushOutcome.Rejected(errorCode = code, message = message)
     }
 
+    /**
+     * `GET /v1/voucherlist?voucherType=salesinvoice,purchaseinvoice&voucherStatus=any&voucherNumber=...&size=250` (V1.9.65).
+     *
+     * lexoffice offers NO idempotency key on `POST /v1/vouchers` and promises nowhere that a `voucherNumber` is unique, but the
+     * voucherlist can be filtered by it (live docs, "Voucherlist Endpoint" > "Filter Parameters": `voucherNumber string no`).
+     * `GET /v1/vouchers?voucherNumber=` also exists but the docs call it deprecated, so it is not used. The filter's matching
+     * semantics (exact? prefix?) are not specified, therefore the result is filtered again here for an EXACT number match. The
+     * parameter goes through Ktor's `parameter(...)` (URL-encoded), never string concatenation. Read-only: the shared
+     * [rateLimiter] is acquired, the body is size-capped, and neither body text nor the token is ever logged.
+     *
+     * A page that is not the complete result (`totalPages > 1`) with no exact match cannot prove absence, so it is [VoucherLookupOutcome.Failed].
+     */
+    suspend fun findVouchersByNumber(
+        token: String,
+        voucherNumber: String,
+    ): VoucherLookupOutcome {
+        rateLimiter.acquire()
+        val response =
+            try {
+                httpClient.get("$baseUrl/v1/voucherlist") {
+                    header(HttpHeaders.Authorization, "Bearer $token")
+                    header(HttpHeaders.Accept, "application/json")
+                    parameter("voucherType", "salesinvoice,purchaseinvoice")
+                    parameter("voucherStatus", "any")
+                    parameter("voucherNumber", voucherNumber)
+                    parameter("size", VOUCHERLIST_PAGE_SIZE)
+                }
+            } catch (e: IOException) {
+                logger.warn(e) { "LexofficeApiClient: network failure calling GET /v1/voucherlist" }
+                return VoucherLookupOutcome.Failed(errorCode = "NETWORK_ERROR")
+            }
+        val bodyBytes =
+            try {
+                response.readCappedLexofficeBody()
+            } catch (e: IOException) {
+                logger.warn(e) { "LexofficeApiClient: network failure reading GET /v1/voucherlist response" }
+                return VoucherLookupOutcome.Failed(errorCode = "NETWORK_ERROR")
+            }
+        val status = response.status.value
+        if (status == HTTP_TOO_MANY_REQUESTS) {
+            return VoucherLookupOutcome.Failed(
+                errorCode = "RATE_LIMITED",
+                retryAfter = response.headers[HttpHeaders.RetryAfter]?.toLongOrNull()?.seconds,
+            )
+        }
+        if (status == HTTP_UNAUTHORIZED || status == HTTP_FORBIDDEN) return VoucherLookupOutcome.Failed(errorCode = "UNAUTHORIZED")
+        if (status !in 200..299) return VoucherLookupOutcome.Failed(errorCode = "HTTP_$status")
+        val page = bodyBytes?.let { decodeOrNull<LexofficeVoucherListResponse>(it) }
+        if (page == null) {
+            logger.warn { "LexofficeApiClient: 2xx /v1/voucherlist but unparseable or oversized body" }
+            return VoucherLookupOutcome.Failed(errorCode = "UNEXPECTED_RESPONSE")
+        }
+        val matches =
+            page.content
+                .filter { it.voucherNumber == voucherNumber }
+                .map { entry ->
+                    FoundVoucher(
+                        id = entry.id,
+                        voucherType = entry.voucherType,
+                        // "2023-06-14T00:00:00.000+02:00": the first ten characters are the voucher's own calendar date.
+                        voucherDate = entry.voucherDate?.take(DATE_PREFIX_LENGTH)?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
+                        totalAmount = entry.totalAmount?.let { BigDecimal.valueOf(it) },
+                    )
+                }
+        return when {
+            matches.isNotEmpty() -> VoucherLookupOutcome.Found(matches)
+            page.totalPages > 1 -> VoucherLookupOutcome.Failed(errorCode = "LOOKUP_INCOMPLETE")
+            else -> VoucherLookupOutcome.NotFound
+        }
+    }
+
     /** Tries the plain `{"message": ...}` shape first (401/500/504, see the live docs'
      * "Authorization and Connection Error Responses"), then the "legacy error response" `IssueList`
      * shape (`vouchers`/`contacts`/`files`) -- see [LexofficeLegacyErrorEnvelope] KDoc. Falls back to
@@ -319,6 +395,8 @@ internal class LexofficeApiClient(
         const val HTTP_UNAUTHORIZED = 401
         const val HTTP_FORBIDDEN = 403
         const val HTTP_SERVICE_UNAVAILABLE = 503
+        const val VOUCHERLIST_PAGE_SIZE = 250
+        const val DATE_PREFIX_LENGTH = 10
     }
 }
 

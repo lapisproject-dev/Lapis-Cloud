@@ -16,6 +16,9 @@ import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.shared.domain.AccountingExportProvider
+import network.lapis.cloud.shared.domain.AccountingExportUnknownItemResolution
+import network.lapis.cloud.shared.domain.displayName
+import java.math.RoundingMode
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
@@ -31,6 +34,19 @@ internal const val MAX_ITEMS_PER_TICK = 3
 
 /** Attempts before an item is marked `FAILED` -- see class KDoc "Retry plan". */
 private const val MAX_ATTEMPTS = 3
+
+/** An `UNKNOWN` item is first looked up at the provider after this age -- the provider's list index may lag behind a just-accepted
+ * voucher, so judging a fresh item would be a guess (V1.9.65, "Phase A1"). */
+private val RECONCILE_MIN_AGE = 10.minutes
+
+/** Lookups per `UNKNOWN` item in total. */
+internal const val MAX_RECONCILE_CHECKS = 6
+
+/** Gap BEFORE lookup k+1 (indexed by the number of lookups already made, 1..5); the gap before lookup 1 is [RECONCILE_MIN_AGE]. */
+private val RECONCILE_GAPS = listOf(30.minutes, 120.minutes, 360.minutes, 1440.minutes, 1440.minutes)
+
+/** Lookups per tick -- see "Phase A1". */
+private const val MAX_RECONCILE_PER_TICK = 1
 
 /** After-attempt-N backoff, indexed `[N-1]` -- 2s / 4s / 8s. Fallback ONLY -- see
  * [VoucherPushOutcome.Retryable.retryAfter] handling in `sendOneSafely`, which prefers a
@@ -78,12 +94,21 @@ private val MAX_HONORED_RETRY_AFTER = 5.minutes
  *   only way an item stays `SENDING` this long) risks creating a genuine DUPLICATE voucher rather
  *   than merely retrying a delivery. `UNKNOWN` puts the burden of resolution on a human (search for
  *   the deterministic `voucherNumber` inside lexoffice itself), which is the safer failure mode.
+ * - **A1 -- Reconciliation (V1.9.65).** At most [MAX_RECONCILE_PER_TICK] `UNKNOWN` item older than [RECONCILE_MIN_AGE] is looked up
+ *   at the provider by its deterministic `voucherNumber` (lexoffice: `GET /v1/voucherlist?voucherNumber=`). Exactly one exact match
+ *   with the same amount and date resolves the item to `SUCCEEDED` ("automatisch abgeglichen"); no match leaves it `UNKNOWN` -- an
+ *   absent voucher is NEVER turned into "not sent" automatically, because the provider's index may lag; several matches or a
+ *   mismatch leave it `UNKNOWN` with `PROVIDER_DUPLICATE(_OR_MISMATCH)`. At most [MAX_RECONCILE_CHECKS] lookups per item at
+ *   10 min / 30 min / 2 h / 6 h / 24 h / 24 h; the bookkeeping lives in the `reconcile_*` columns (V74), not in `attempts`.
  * - **A -- Sending.** Up to [MAX_ITEMS_PER_TICK] due `PENDING` items across every provider with an
  *   active run, claimed one at a time ([AccountingExportStore.claim] -- only a caller that actually
  *   won the row, `updatedRows == 1`, proceeds), sent SEQUENTIALLY. Immediately before sending, the
  *   item is re-checked against [AccountingExportStore.isAlreadyExported] (defensive -- see that
  *   function's own call site KDoc) -- a hit skips the HTTP call entirely
- *   (`SKIPPED_ALREADY_EXPORTED`).
+ *   (`SKIPPED_ALREADY_EXPORTED`). Then, for a provider with a lookup, **check before create**: the voucher number is searched at
+ *   the provider; a hit with the same amount/date is adopted (`SUCCEEDED`, no send), a hit with another amount or several hits
+ *   make the item `UNKNOWN` (`PROVIDER_DUPLICATE_OR_MISMATCH`), a failed lookup schedules a retry (nothing was sent yet). Every
+ *   write after the claim is FENCED by the claim's `attempts` value -- see [AccountingExportStore.FencedWrite].
  * - **B -- Run bookkeeping.** After every item this tick (sent or reaped), the owning run's counts
  *   are recomputed from the actual item rows and, if none remain `PENDING`/`SENDING`, the run is
  *   finalized -- see [AccountingExportStore.recomputeRunCounts]. UNCONDITIONALLY, every
@@ -142,6 +167,7 @@ internal class AccountingExportPoller(
             // feed the SAME finalization step.
             val touchedRunIds = mutableSetOf<Uuid>()
             touchedRunIds += reapStaleClaims(now)
+            touchedRunIds += runReconcilePhase(now)
             touchedRunIds += runSendPhase(now)
             // Fund 2026-09-07 review Runde 2 (Befund 4): self-healing safety net, not a third
             // "phase" in its own right -- every ACTIVE run's counts are recomputed every tick
@@ -210,29 +236,228 @@ internal class AccountingExportPoller(
         }
     }
 
+    /** Phase A1 -- see class KDoc. Returns the runs whose counts changed. */
+    private fun runReconcilePhase(now: LocalDateTime): Set<Uuid> {
+        val touched = mutableSetOf<Uuid>()
+        try {
+            val candidates =
+                AccountingExportStore.dueReconcileCandidates(
+                    providers = adaptersByProvider.keys,
+                    now = now,
+                    olderThan = now.minusMinutes(RECONCILE_MIN_AGE.inWholeMinutes),
+                    maxChecks = MAX_RECONCILE_CHECKS,
+                    limit = MAX_RECONCILE_PER_TICK,
+                )
+            candidates.forEach { candidate ->
+                try {
+                    reconcileOne(candidate = candidate, now = now)?.let { touched += it }
+                } catch (e: Throwable) {
+                    logger.warn(e) { "AccountingExportPoller: reconciliation failed for ${candidate.item.id}" }
+                    // Must still consume a check: otherwise the same (oldest) candidate is returned on every tick and starves
+                    // every younger candidate (limit = MAX_RECONCILE_PER_TICK).
+                    recordReconcileSkip(candidate = candidate, result = "ERROR", now = now)
+                }
+            }
+        } catch (e: Throwable) {
+            logger.warn(e) { "AccountingExportPoller: reconciliation lookup of candidates failed" }
+        }
+        return touched
+    }
+
+    /** Records a lookup that could not even be attempted (no token, no key, exception) so the candidate moves on. */
+    private fun recordReconcileSkip(
+        candidate: AccountingExportStore.ReconcileCandidate,
+        result: String,
+        now: LocalDateTime,
+    ) {
+        try {
+            AccountingExportStore.recordReconcileCheck(
+                id = candidate.item.id,
+                result = result,
+                nextAt = RECONCILE_GAPS.getOrNull(candidate.reconcileChecks)?.let { now.plusDuration(it) },
+                exhaust = false,
+                maxChecks = MAX_RECONCILE_CHECKS,
+            )
+        } catch (e: Throwable) {
+            logger.warn(e) { "AccountingExportPoller: could not record reconcile skip for ${candidate.item.id}" }
+        }
+    }
+
+    private fun reconcileOne(
+        candidate: AccountingExportStore.ReconcileCandidate,
+        now: LocalDateTime,
+    ): Uuid? {
+        val item = candidate.item
+        val adapter = adaptersByProvider[item.provider]
+        val box = secretBox
+        if (adapter == null || box == null) {
+            recordReconcileSkip(candidate = candidate, result = "NO_ADAPTER_OR_KEY", now = now)
+            return null
+        }
+        val token = AccountingExportStore.readToken(provider = item.provider, secretBox = box)
+        if (token == null) {
+            // Provider disconnected (or never connected): consume a check so this item does not block younger candidates forever.
+            recordReconcileSkip(candidate = candidate, result = "NO_TOKEN", now = now)
+            return null
+        }
+
+        fun next(): LocalDateTime? = RECONCILE_GAPS.getOrNull(candidate.reconcileChecks)?.let { now.plusDuration(it) }
+
+        fun record(
+            result: String,
+            exhaust: Boolean = false,
+            code: String? = null,
+            message: String? = null,
+        ) = AccountingExportStore.recordReconcileCheck(
+            id = item.id,
+            result = result,
+            nextAt = if (exhaust) null else next(),
+            exhaust = exhaust,
+            maxChecks = MAX_RECONCILE_CHECKS,
+            newErrorCode = code,
+            newErrorMessage = message,
+        )
+
+        if (AccountingExportStore.isAlreadyExported(provider = item.provider, journalEntryId = item.journalEntryId)) {
+            // Another item of the same journal entry already succeeded; nothing to adopt here.
+            record(result = "ALREADY_EXPORTED", exhaust = true)
+            return null
+        }
+        when (val lookup = runBlocking { adapter.findVouchersByNumber(token = token, voucherNumber = item.voucherNumber) }) {
+            is VoucherLookupOutcome.Unsupported -> {
+                record(result = "UNSUPPORTED", exhaust = true)
+                return null
+            }
+            is VoucherLookupOutcome.Failed -> {
+                record(result = "LOOKUP_FAILED")
+                return null
+            }
+            is VoucherLookupOutcome.NotFound -> {
+                // Deliberately stays UNKNOWN: "not found" may be index lag. The decision stays with a human.
+                record(result = "NOT_FOUND")
+                return null
+            }
+            is VoucherLookupOutcome.Found -> {
+                val single = lookup.matches.singleOrNull()
+                when {
+                    single == null -> {
+                        record(
+                            result = "DUPLICATE",
+                            exhaust = true,
+                            code = "PROVIDER_DUPLICATE",
+                            message = DUPLICATE_MESSAGE,
+                        )
+                        return null
+                    }
+                    !matchesItem(found = single, item = item) -> {
+                        record(
+                            result = "MISMATCH",
+                            exhaust = true,
+                            code = "PROVIDER_DUPLICATE_OR_MISMATCH",
+                            message = MISMATCH_MESSAGE,
+                        )
+                        return null
+                    }
+                    else -> {
+                        val outcome =
+                            AccountingExportStore.resolveUnknown(
+                                id = item.id,
+                                resolution = AccountingExportUnknownItemResolution.CONFIRMED_SENT,
+                                externalVoucherId = single.id,
+                                now = now,
+                                automatic = true,
+                            )
+                        if (outcome is AccountingExportStore.ResolveUnknownOutcome.Resolved) {
+                            AccountingExportStore.recordReconcileCheck(
+                                id = item.id,
+                                result = "MATCHED",
+                                nextAt = null,
+                                exhaust = true,
+                                maxChecks = MAX_RECONCILE_CHECKS,
+                            )
+                            logger.info {
+                                "AccountingExportPoller: UNKNOWN item ${item.id} reconciled (voucher ${item.voucherNumber} found)"
+                            }
+                            return item.runId
+                        }
+                        return null
+                    }
+                }
+            }
+        }
+    }
+
+    /** Same amount (sign-insensitive, two decimals) and same calendar date as the item that would have been sent. */
+    private fun matchesItem(
+        found: FoundVoucher,
+        item: AccountingExportStore.ItemRow,
+    ): Boolean {
+        val amount = found.totalAmount ?: return false
+        val date = found.voucherDate ?: return false
+        return date == item.entryDate &&
+            amount.abs().setScale(2, RoundingMode.HALF_UP).compareTo(item.grossAmount.abs().setScale(2, RoundingMode.HALF_UP)) == 0
+    }
+
+    private fun lostFence(
+        item: AccountingExportStore.ItemRow,
+        what: String,
+        externalVoucherId: String? = null,
+    ) {
+        // Only ids and the locally assigned voucher number -- no personal data. The reconciliation (Phase A1) picks the voucher up.
+        logger.error {
+            "AccountingExportPoller: late result ($what) for item ${item.id} voucherNumber=${item.voucherNumber} " +
+                "externalVoucherId=${externalVoucherId ?: "-"} discarded: the item was re-assigned (reaped/aborted/resolved) while " +
+                "this send was in flight -- verify manually"
+        }
+    }
+
+    private fun AccountingExportStore.FencedWrite.orLog(
+        item: AccountingExportStore.ItemRow,
+        what: String,
+        externalVoucherId: String? = null,
+    ) {
+        if (this == AccountingExportStore.FencedWrite.LOST_FENCE) lostFence(item = item, what = what, externalVoucherId = externalVoucherId)
+    }
+
     /** Returns the touched run's id (for Phase B), or `null` if the claim was lost. */
     private fun sendOneSafely(
         id: Uuid,
         now: LocalDateTime,
     ): Uuid? {
         val item = AccountingExportStore.claim(id = id, now = now) ?: return null
+        val claimed = item.claimGeneration
 
         if (AccountingExportStore.isAlreadyExported(provider = item.provider, journalEntryId = item.journalEntryId)) {
-            AccountingExportStore.markSkippedAlreadyExported(id = item.id, now = now)
+            AccountingExportStore
+                .markSkippedAlreadyExported(id = item.id, claimedGeneration = claimed, now = now)
+                .orLog(item = item, what = "skipped")
             return item.runId
         }
 
         val adapter = adaptersByProvider[item.provider]
         val box = secretBox
         if (adapter == null || box == null) {
-            AccountingExportStore.markUnknown(id = item.id, errorCode = "NO_ADAPTER_OR_KEY", now = now)
+            AccountingExportStore
+                .markUnknown(id = item.id, claimedGeneration = claimed, errorCode = "NO_ADAPTER_OR_KEY", now = now)
+                .orLog(item = item, what = "no adapter")
             return item.runId
         }
         val token = AccountingExportStore.readToken(provider = item.provider, secretBox = box)
         if (token == null) {
-            AccountingExportStore.markFailed(id = item.id, errorCode = "NOT_CONNECTED", errorMessage = "Kein Token hinterlegt", now = now)
+            AccountingExportStore
+                .markFailed(
+                    id = item.id,
+                    claimedGeneration = claimed,
+                    errorCode = "NOT_CONNECTED",
+                    errorMessage = "Kein Token hinterlegt",
+                    now = now,
+                ).orLog(item = item, what = "not connected")
             return item.runId
         }
+
+        // Check before create: the provider has no idempotency key, so a voucher that is already there (a restored older database, a
+        // wrongly resolved UNKNOWN, a second system) must not be created a second time.
+        if (!passesCheckBeforeCreate(item = item, adapter = adapter, token = token, now = now)) return item.runId
 
         val voucher =
             OutboundVoucher(
@@ -247,41 +472,143 @@ internal class AccountingExportPoller(
         val outcome = runBlocking { adapter.pushVoucher(token = token, voucher = voucher) }
         when (outcome) {
             is VoucherPushOutcome.Succeeded ->
-                AccountingExportStore.markSucceeded(
-                    id = item.id,
-                    provider = item.provider,
-                    journalEntryId = item.journalEntryId,
-                    externalVoucherId = outcome.externalVoucherId,
-                    now = now,
-                )
-            is VoucherPushOutcome.Rejected -> {
-                AccountingExportStore.markFailed(id = item.id, errorCode = outcome.errorCode, errorMessage = outcome.message, now = now)
-                if (outcome.errorCode == "UNAUTHORIZED") AccountingExportStore.markTestDue(item.provider)
-            }
-            is VoucherPushOutcome.Indeterminate -> AccountingExportStore.markUnknown(id = item.id, errorCode = outcome.errorCode, now = now)
-            is VoucherPushOutcome.Retryable -> {
-                if (item.attempts >= MAX_ATTEMPTS) {
-                    AccountingExportStore.markFailed(id = item.id, errorCode = outcome.errorCode, errorMessage = outcome.message, now = now)
-                } else {
-                    // Provider-supplied Retry-After wins over the fixed table when present -- see
-                    // MAX_HONORED_RETRY_AFTER KDoc for the Fund 2026-09-07 rationale and the cap.
-                    val backoff =
-                        outcome.retryAfter
-                            ?.takeIf { it > kotlin.time.Duration.ZERO }
-                            ?.coerceAtMost(MAX_HONORED_RETRY_AFTER)
-                            ?: RETRY_BACKOFF.getOrElse(item.attempts - 1) { RETRY_BACKOFF.last() }
-                    AccountingExportStore.markRetryScheduled(
+                AccountingExportStore
+                    .markSucceeded(
                         id = item.id,
-                        nextAttemptAt = now.plusDuration(backoff),
+                        claimedGeneration = claimed,
+                        provider = item.provider,
+                        journalEntryId = item.journalEntryId,
+                        externalVoucherId = outcome.externalVoucherId,
+                        now = now,
+                    ).orLog(item = item, what = "succeeded", externalVoucherId = outcome.externalVoucherId)
+            is VoucherPushOutcome.Rejected -> {
+                AccountingExportStore
+                    .markFailed(
+                        id = item.id,
+                        claimedGeneration = claimed,
                         errorCode = outcome.errorCode,
                         errorMessage = outcome.message,
-                    )
-                }
+                        now = now,
+                    ).orLog(item = item, what = "rejected")
+                if (outcome.errorCode == "UNAUTHORIZED") AccountingExportStore.markTestDue(item.provider)
             }
+            is VoucherPushOutcome.Indeterminate ->
+                AccountingExportStore
+                    .markUnknown(id = item.id, claimedGeneration = claimed, errorCode = outcome.errorCode, now = now)
+                    .orLog(item = item, what = "indeterminate")
+            is VoucherPushOutcome.Retryable ->
+                scheduleRetryOrFail(
+                    item = item,
+                    errorCode = outcome.errorCode,
+                    message = outcome.message,
+                    retryAfter = outcome.retryAfter,
+                    now = now,
+                )
         }
         return item.runId
     }
+
+    /**
+     * Returns `true` if the voucher may be created now. Otherwise the item has already been moved on (adopted as `SUCCEEDED`,
+     * `UNKNOWN` on a mismatch/duplicate, or a retry was scheduled) and the caller must not send.
+     */
+    private fun passesCheckBeforeCreate(
+        item: AccountingExportStore.ItemRow,
+        adapter: AccountingExportProviderAdapter,
+        token: String,
+        now: LocalDateTime,
+    ): Boolean {
+        val claimed = item.claimGeneration
+        when (val lookup = runBlocking { adapter.findVouchersByNumber(token = token, voucherNumber = item.voucherNumber) }) {
+            is VoucherLookupOutcome.Unsupported, is VoucherLookupOutcome.NotFound -> return true
+            is VoucherLookupOutcome.Failed -> {
+                if (lookup.errorCode == "UNAUTHORIZED") {
+                    AccountingExportStore.markTestDue(item.provider)
+                    // Same as the push path (Rejected): a rejected token will not heal within the backoff, so fail at once.
+                    AccountingExportStore
+                        .markFailed(
+                            id = item.id,
+                            claimedGeneration = claimed,
+                            errorCode = "LOOKUP_UNAUTHORIZED",
+                            errorMessage = "Prüfung auf bereits vorhandenen Beleg fehlgeschlagen",
+                            now = now,
+                        ).orLog(item = item, what = "lookup unauthorized")
+                    return false
+                }
+                // Nothing was sent yet, so retrying is safe; after MAX_ATTEMPTS the item is FAILED (retryFailed reopens it).
+                scheduleRetryOrFail(
+                    item = item,
+                    errorCode = "LOOKUP_${lookup.errorCode}",
+                    message = "Prüfung auf bereits vorhandenen Beleg fehlgeschlagen",
+                    retryAfter = lookup.retryAfter,
+                    now = now,
+                )
+                return false
+            }
+            is VoucherLookupOutcome.Found -> {
+                val single = lookup.matches.singleOrNull()
+                if (single != null && matchesItem(found = single, item = item)) {
+                    AccountingExportStore
+                        .markSucceeded(
+                            id = item.id,
+                            claimedGeneration = claimed,
+                            provider = item.provider,
+                            journalEntryId = item.journalEntryId,
+                            externalVoucherId = single.id,
+                            now = now,
+                            note = "Beleg bereits bei ${item.provider.displayName} vorhanden (automatisch abgeglichen)",
+                        ).orLog(item = item, what = "adopted", externalVoucherId = single.id)
+                } else {
+                    AccountingExportStore
+                        .markUnknown(
+                            id = item.id,
+                            claimedGeneration = claimed,
+                            errorCode = "PROVIDER_DUPLICATE_OR_MISMATCH",
+                            now = now,
+                            errorMessage = if (single == null) DUPLICATE_MESSAGE else MISMATCH_MESSAGE,
+                        ).orLog(item = item, what = "duplicate or mismatch")
+                }
+                return false
+            }
+        }
+    }
+
+    private fun scheduleRetryOrFail(
+        item: AccountingExportStore.ItemRow,
+        errorCode: String,
+        message: String?,
+        retryAfter: kotlin.time.Duration?,
+        now: LocalDateTime,
+    ) {
+        val claimed = item.claimGeneration
+        if (item.attempts >= MAX_ATTEMPTS) {
+            AccountingExportStore
+                .markFailed(id = item.id, claimedGeneration = claimed, errorCode = errorCode, errorMessage = message, now = now)
+                .orLog(item = item, what = "failed after retries")
+            return
+        }
+        // Provider-supplied Retry-After wins over the fixed table when present -- see
+        // MAX_HONORED_RETRY_AFTER KDoc for the Fund 2026-09-07 rationale and the cap.
+        val backoff =
+            retryAfter
+                ?.takeIf { it > kotlin.time.Duration.ZERO }
+                ?.coerceAtMost(MAX_HONORED_RETRY_AFTER)
+                ?: RETRY_BACKOFF.getOrElse(item.attempts - 1) { RETRY_BACKOFF.last() }
+        AccountingExportStore
+            .markRetryScheduled(
+                id = item.id,
+                claimedGeneration = claimed,
+                nextAttemptAt = now.plusDuration(backoff),
+                errorCode = errorCode,
+                errorMessage = message,
+            ).orLog(item = item, what = "retry scheduled")
+    }
 }
+
+private const val DUPLICATE_MESSAGE =
+    "Beim Anbieter existieren mehrere Belege mit dieser Belegnummer. Bitte manuell prüfen und bereinigen."
+private const val MISMATCH_MESSAGE =
+    "Beim Anbieter existiert bereits ein Beleg mit dieser Belegnummer, aber Betrag oder Datum weichen ab. Bitte manuell prüfen."
 
 private fun LocalDateTime.minusMinutes(minutes: Long): LocalDateTime = plusDuration(-minutes.minutes)
 

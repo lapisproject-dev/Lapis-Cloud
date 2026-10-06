@@ -83,10 +83,17 @@ private const val STORAGE_KEY_COLUMN = "storage_key"
 class OrganizationExportService(
     private val database: Database,
     private val documentStorageRoot: File,
+    private val assetRoots: BackupAssetRoots = BackupAssetRoots.under(documentStorageRoot),
 ) {
     companion object {
-        /** The bundle format this service writes and [OrganizationRestoreService] validates against -- bump on any incompatible bundle-shape change. */
-        const val FORMAT_VERSION = 1
+        /**
+         * The bundle format this service writes. Format 2 (V1.9.65) adds the `assets/` entries (chapter crests, event and article
+         * covers); format 1 bundles carry none and are still accepted by [OrganizationRestoreService] ([SUPPORTED_FORMAT_VERSIONS]).
+         */
+        const val FORMAT_VERSION = 2
+
+        /** Bundle formats [OrganizationRestoreService] accepts -- bump [FORMAT_VERSION] on an incompatible shape change, extend this on a compatible one. */
+        val SUPPORTED_FORMAT_VERSIONS: Set<Int> = setOf(1, 2)
     }
 
     /**
@@ -106,6 +113,8 @@ class OrganizationExportService(
         var totalRowCount = 0L
         var blobCount = 0
         var blobBytesTotal = 0L
+        var assetCount = 0
+        var assetBytesTotal = 0L
         val countingSink = CountingOutputStream(sink)
         try {
             ZipOutputStream(countingSink).use { zip ->
@@ -115,9 +124,16 @@ class OrganizationExportService(
 
                 val tableEntries = mutableListOf<TableManifestEntry>()
                 val blobStorageKeys = mutableListOf<String>()
+                val assetIds = BACKUP_ASSET_KINDS.associateWith { mutableSetOf<String>() }
 
                 for (table in tables) {
-                    val (rowCount, contentSha256) = streamTable(zip = zip, table = table, blobStorageKeys = blobStorageKeys)
+                    val (rowCount, contentSha256) =
+                        streamTable(
+                            zip = zip,
+                            table = table,
+                            blobStorageKeys = blobStorageKeys,
+                            assetIds = assetIds,
+                        )
                     totalRowCount += rowCount
                     tableEntries +=
                         TableManifestEntry(
@@ -143,6 +159,17 @@ class OrganizationExportService(
                     // still exported faithfully via the document_version table entry itself.
                 }
 
+                assetIds.forEach { (kind, ids) ->
+                    ids.sorted().forEach { id ->
+                        val file = resolveAssetFile(kind = kind, id = id) ?: return@forEach
+                        zip.putNextEntry(ZipEntry(ASSET_ENTRY_PREFIX + kind.folder + "/" + file.name))
+                        file.inputStream().use { it.copyTo(zip) }
+                        zip.closeEntry()
+                        assetCount++
+                        assetBytesTotal += file.length()
+                    }
+                }
+
                 val manifest =
                     BackupManifest(
                         formatVersion = FORMAT_VERSION,
@@ -152,6 +179,8 @@ class OrganizationExportService(
                         tables = tableEntries,
                         blobCount = blobCount,
                         blobBytesTotal = blobBytesTotal,
+                        assetCount = assetCount,
+                        assetBytesTotal = assetBytesTotal,
                     )
                 zip.putNextEntry(ZipEntry(MANIFEST_ENTRY_NAME))
                 zip.write(Json.encodeToString(BackupManifest.serializer(), manifest).toByteArray(Charsets.UTF_8))
@@ -173,8 +202,8 @@ class OrganizationExportService(
                     bundleFormatVersion = FORMAT_VERSION,
                     tableCount = tableCount,
                     totalRowCount = totalRowCount,
-                    blobCount = blobCount,
-                    blobBytesTotal = blobBytesTotal,
+                    blobCount = blobCount + assetCount,
+                    blobBytesTotal = blobBytesTotal + assetBytesTotal,
                     bundleSizeBytes = countingSink.count,
                     errorMessage = errorMessage,
                 )
@@ -192,7 +221,9 @@ class OrganizationExportService(
         zip: ZipOutputStream,
         table: TableMetadata,
         blobStorageKeys: MutableList<String>,
+        assetIds: Map<BackupAssetKind, MutableSet<String>>,
     ): Pair<Long, String> {
+        val assetKinds = BACKUP_ASSET_KINDS.filter { it.tableName == table.tableName }
         val digest = MessageDigest.getInstance("SHA-256")
         var rowCount = 0L
         zip.putNextEntry(ZipEntry(DATA_ENTRY_PREFIX + table.tableName + ".jsonl"))
@@ -211,6 +242,9 @@ class OrganizationExportService(
                         val row = JdbcRowCodec.rowToJson(rs = rs, columns = table.columns)
                         if (table.tableName in BLOB_TABLES) {
                             (row[STORAGE_KEY_COLUMN] as? JsonPrimitive)?.contentOrNull?.let { blobStorageKeys += it }
+                        }
+                        for (kind in assetKinds) {
+                            (row[kind.idColumn] as? JsonPrimitive)?.contentOrNull?.let { assetIds.getValue(kind) += it }
                         }
                         val line = Json.encodeToString(JsonObject.serializer(), row)
                         val bytes = line.toByteArray(Charsets.UTF_8)
@@ -234,6 +268,23 @@ class OrganizationExportService(
         val columns = table.columns.joinToString(", ") { "\"${it.name}\"" }
         val orderBy = table.primaryKeyColumns.joinToString(", ") { "\"$it\"" }
         return "SELECT $columns FROM \"${table.tableName}\" ORDER BY $orderBy"
+    }
+
+    /**
+     * The file of asset [id] under the family's storage root: the id must be a canonical UUID (it comes from a database column, but a
+     * hand-edited row must not become a path), the name is `<id>.<ext>` with a fixed extension, and the file must be a direct child of the root.
+     */
+    private fun resolveAssetFile(
+        kind: BackupAssetKind,
+        id: String,
+    ): File? {
+        val uuid = runCatching { java.util.UUID.fromString(id) }.getOrNull()?.toString() ?: return null
+        val root = assetRoots.rootFor(kind).canonicalFile
+        for (extension in kind.extensions) {
+            val candidate = File(root, "$uuid.$extension").canonicalFile
+            if (candidate.parentFile == root && candidate.isFile) return candidate
+        }
+        return null
     }
 
     /** Zip-Slip-safe resolution of a `document_version.storage_key` value against [documentStorageRoot] -- storageKey values here are always server-generated (see `registerDocumentRoutes` KDoc), but this guard is defense in depth against a hand-edited/corrupted row. */

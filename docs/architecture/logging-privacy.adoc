@@ -1,0 +1,101 @@
+= Log privacy: no SQL text, no personal data (V1.9.65)
+:toc:
+
+== Purpose
+
+A failed SQL statement puts the statement text and the offending values into the exception message: PostgreSQL's
+`Detail: Key (email)=(erika.mustermann@example.org) already exists.`, Exposed's `SQL: [INSERT INTO ...]`, H2's `VALUES (...)`.
+Before V1.9.65 that text reached the server log. This document explains where it came from, how it is removed, what stays for
+diagnosis and how the guarantee is kept.
+
+== Where the text came from (verified)
+
+* **Kilua RPC** logs every exception that is not a typed service exception with `LOG.error(e.getMessage(), e)` on the logger
+  `dev.kilua.rpc.RpcServiceManager` (checked in the 0.0.45 bytecode, `RpcServiceManager$createRequestHandler$1`). The message is
+  therefore in the log twice: as the log message and, with the cause chain (`Caused by: org.postgresql.util.PSQLException: ...
+  Detail: ...`), in the throwable output.
+* **The application itself** has around a hundred `logger.warn(e) { ... }` call sites, among them every poller. Some also interpolate
+  `${e.message}`. Every Exposed exception there renders the full statement.
+* **Exposed** logs `"Transaction attempt #N failed: <message>. Statement(s): <sql>"` on logger `Exposed` at DEBUG. At INFO that is
+  silent, but an operator who raises the level to find a problem would get statements with values.
+
+A filter on the Kilua logger alone would therefore not be enough. The redaction sits in the Logback layout and covers every logger.
+
+[source,kuml,name="logging-privacy-flow"]
+----
+sequenceDiagram(name = "From a failed statement to a log line") {
+    val service = lifeline(name = "RPC service or poller")
+    val kilua = lifeline(name = "Kilua RpcServiceManager / application logger")
+    val logback = lifeline(name = "Logback PatternLayout")
+    val message = lifeline(name = "%safeMsg SqlSafeMessageConverter")
+    val trace = lifeline(name = "%safeEx SqlSafeThrowableProxyConverter")
+    val out = lifeline(name = "STDOUT / Docker log driver")
+
+    message(from = service, to = kilua, label = "ExposedSQLException (PSQLException cause, Detail: Key (email)=(...))")
+    message(from = kilua, to = logback, label = "LOG.error(e.message, e)")
+    message(from = logback, to = message, label = "formatted message + throwable")
+    message(from = message, to = logback, label = "message with SQL text and values replaced, cut at SQL markers")
+    message(from = logback, to = trace, label = "throwable proxy chain")
+    message(from = trace, to = logback, label = "header 'class: [redacted] sqlState=23505, constraint=...', all stack frames kept")
+    message(from = logback, to = out, label = "one line, then the redacted trace")
+}
+----
+
+== What is removed and what stays
+
+[cols="1,3", options="header"]
+|===
+| Removed | Kept for diagnosis
+| The message of every SQL-bearing exception in the cause chain (`java.sql.*`, `org.jetbrains.exposed.*`, `org.postgresql.*`,
+  `org.h2.*`, `org.flywaydb.*`), including `suppressed` and `SQLException.nextException`
+| SQLSTATE (`23505`, `55P03`, `57014`, ...)
+| The message of any wrapper that embeds such a message (`RuntimeException(cause)` renders `cause.toString()`)
+| The exception class names of the whole chain
+| PostgreSQL's `Detail:` / `Hint:` text and Exposed's `SQL: [...]` and `Statement(s): ...` tails
+| The constraint and table name (schema names, never values)
+| In a message without any throwable: everything from the first SQL marker on (`Detail:`, `SQL: [`, `Statement(s):`, `Key (..)=(`, `ERROR: ` with `Position:`/`Detail`, the driver class names)
+| Every stack frame, and the ERROR level of the Kilua line
+|===
+
+Column values and detail values are never printed, not even partially.
+
+== Components
+
+* `SqlLogRedaction` (pure functions, never throw): walks the cause chain with a depth limit and an identity cycle guard, collects the
+  sensitive fragments, replaces them, cuts at the markers. On an internal failure the result is the fixed text `[redaction failed]`,
+  never the raw text.
+* `SqlSafeMessageConverter` (`%safeMsg`) and `SqlSafeThrowableProxyConverter` (`%safeEx`): Logback converters. `%safeEx` extends
+  `ThrowableProxyConverter`, so `PatternLayout` does not append its own raw `%ex` behind it. It wraps every proxy in the chain in a
+  `RedactingThrowableProxy`; the header of a SQL-bearing node is `[redacted] sqlState=..., constraint=...`, the frames are passed through.
+* `logback.xml`: registers both conversion words (Logback 1.6 reads the converter from the `class` attribute), uses them in the only
+  appender pattern, and sets logger `Exposed` to INFO as a floor (same reasoning as the existing `io.ktor.client` floor).
+
+== Rules for contributors
+
+* Never use `%msg`, `%m`, `%message`, `%ex`, `%xEx`, `%rEx`, `%throwable` (or their long forms) in a Logback pattern of this repository.
+* Do not log `e.message` of a database exception into your own message when you can avoid it; the converters catch it anyway, but
+  a shorter message is easier to read.
+* Do not add a `logback-test.xml`: the tests must load the production configuration, otherwise the guarantee is untested.
+
+== How the guarantee is kept
+
+* `SqlLogRedactionTest`: a real unique violation produced in H2, wrappers, suppressed exceptions, `nextException` chains, cycles,
+  messages without a throwable, unchanged ordinary messages.
+* `LogbackSqlRedactionScenarios` (H2 and, in the Postgres lane, a real `PSQLException` with a real `Detail:` line): attaches an
+  appender with exactly the production pattern to the Kilua logger, logs the way Kilua does, and inspects the rendered bytes: no
+  e-mail, no name, no statement text, no digits of the planted phone number, SQLSTATE and an application frame present, the trace
+  rendered exactly once.
+* Tripwires: every configured appender pattern avoids the raw tokens and uses `%safeMsg`/`%safeEx`; no `logback-test.xml` or
+  `logback.groovy` on the test classpath; `Exposed` is at least INFO.
+
+Kilua RPC cannot be driven wire-level from a JVM test in this codebase (its JVM client stub is a no-op). The test therefore
+reproduces the Kilua call (`LOG.error(e.getMessage(), e)` on `dev.kilua.rpc.RpcServiceManager`); the call shape was read from the bytecode.
+
+== Limits
+
+* The filter is heuristic for a message that has no throwable (marker cut). A hand-written message that contains personal data is
+  not recognised; do not log personal data.
+* The PostgreSQL driver logs through `java.util.logging`. This repository has no JUL bridge; the JUL default is INFO and pgjdbc logs
+  at FINE, so nothing reaches the output. If a bridge is added later, the converters do not cover it.
+* The client-facing side (what the browser sees) is a separate mechanism: `RpcErrorSanitizer` and `installSqlExceptionHandler`, see
+  link:database-timeouts-and-retries.adoc[database-timeouts-and-retries.adoc].

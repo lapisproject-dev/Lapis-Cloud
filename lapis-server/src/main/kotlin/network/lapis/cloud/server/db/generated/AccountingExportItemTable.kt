@@ -33,6 +33,10 @@ public object AccountingExportItemTable : Table("accounting_export_item") {
     public val nextAttemptAt: Column<LocalDateTime?> = datetime("next_attempt_at").nullable()
     public val claimedAt: Column<LocalDateTime?> = datetime("claimed_at").nullable()
     public val finishedAt: Column<LocalDateTime?> = datetime("finished_at").nullable()
+    public val claimGeneration: Column<Int> = integer("claim_generation")
+    public val reconcileChecks: Column<Int> = integer("reconcile_checks")
+    public val reconcileNextAt: Column<LocalDateTime?> = datetime("reconcile_next_at").nullable()
+    public val reconcileLastResult: Column<String?> = varchar("reconcile_last_result", 32).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

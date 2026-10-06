@@ -103,3 +103,20 @@ internal data class LexofficeIssue(
 internal data class LexofficeSimpleErrorEnvelope(
     val message: String? = null,
 )
+
+/** `GET /v1/voucherlist` page (only the fields the reconciliation uses; `totalAmount` is a JSON number, `voucherDate` an RFC 3339 date-time). */
+@Serializable
+internal data class LexofficeVoucherListResponse(
+    val content: List<LexofficeVoucherListEntry> = emptyList(),
+    val totalPages: Int = 1,
+    val totalElements: Long = 0,
+)
+
+@Serializable
+internal data class LexofficeVoucherListEntry(
+    val id: String,
+    val voucherType: String? = null,
+    val voucherNumber: String? = null,
+    val voucherDate: String? = null,
+    val totalAmount: Double? = null,
+)

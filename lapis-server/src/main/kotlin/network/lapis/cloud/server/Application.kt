@@ -49,6 +49,7 @@ import network.lapis.cloud.server.ai.qa.StatuteQaPipeline
 import network.lapis.cloud.server.ai.ratelimit.AiQuestionRateLimiter
 import network.lapis.cloud.server.ai.retrieval.KnowledgeRetrievers
 import network.lapis.cloud.server.ai.retrieval.PostgresFullTextIndexInitializer
+import network.lapis.cloud.server.backup.BackupAssetRoots
 import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.branding.BrandingHtml
 import network.lapis.cloud.server.branding.BrandingStartupCheck
@@ -2191,7 +2192,16 @@ internal fun Application.module(
         registerDunningRoutes(storageRoot = documentStorageRoot, previewRateLimiter = dunningPreviewRateLimiter)
         // Welle V1.4.5.2 "DATEV-Format-Export".
         registerDatevRoutes(exportRateLimiter = datevExportRateLimiter)
-        registerBackupRoutes(database = DatabaseConfig.connect(), documentStorageRoot = documentStorageRoot)
+        registerBackupRoutes(
+            database = DatabaseConfig.connect(),
+            documentStorageRoot = documentStorageRoot,
+            assetRoots =
+                BackupAssetRoots(
+                    chapterCrests = chapterCrestStorageRoot,
+                    eventCovers = eventCoverStorageRoot,
+                    articleCovers = articleCoverStorageRoot,
+                ),
+        )
         registerAuthRoutes(
             rateLimiter = loginRateLimiter,
             cookieSecure = cookieSecure,

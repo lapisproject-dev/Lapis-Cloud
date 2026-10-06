@@ -2,6 +2,7 @@ package network.lapis.cloud.server.backup
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import network.lapis.cloud.server.backup.OrganizationSchemaCatalog.TableMetadata
 import network.lapis.cloud.server.security.CurrentMember
@@ -98,6 +99,8 @@ data class OrganizationRestoreResult(
     val tablesRestored: List<TableManifestEntry>,
     val blobsRestored: Int,
     val warnings: List<String>,
+    /** Public-asset files (crests, event and article covers) written from `assets/` entries -- bundle format 2. */
+    val assetsRestored: Int = 0,
 )
 
 /**
@@ -141,6 +144,7 @@ data class OrganizationRestoreResult(
 class OrganizationRestoreService(
     private val database: Database,
     private val documentStorageRoot: File,
+    private val assetRoots: BackupAssetRoots = BackupAssetRoots.under(documentStorageRoot),
 ) {
     /**
      * Restores [bundleFile] (a complete ZIP bundle already on disk -- callers, e.g.
@@ -165,15 +169,17 @@ class OrganizationRestoreService(
         var tablesRestored = emptyList<TableManifestEntry>()
         var blobsRestored = 0
         var blobBytesRestored = 0L
+        var assetsRestored = 0
+        var assetBytesRestored = 0L
         var totalRowCount = 0L
         val warnings = mutableListOf<String>()
         try {
             ZipFile(bundleFile).use { zip ->
                 val manifest = readManifest(zip)
-                if (manifest.formatVersion != OrganizationExportService.FORMAT_VERSION) {
+                if (manifest.formatVersion !in OrganizationExportService.SUPPORTED_FORMAT_VERSIONS) {
                     throw IncompatibleBundleException(
                         "Bundle formatVersion ${manifest.formatVersion} is incompatible with this server's " +
-                            "expected formatVersion ${OrganizationExportService.FORMAT_VERSION}",
+                            "supported formatVersions ${OrganizationExportService.SUPPORTED_FORMAT_VERSIONS.sorted()}",
                     )
                 }
 
@@ -208,6 +214,8 @@ class OrganizationRestoreService(
                 val orderedTables = OrganizationSchemaCatalog.restoreOrder(manifest.tables.mapNotNull { liveByName[it.tableName] })
 
                 val restored = mutableListOf<TableManifestEntry>()
+                // Ids referenced by the restored rows -- an assets/ entry is only ever written for an id in here.
+                val referencedAssetIds = BACKUP_ASSET_KINDS.associateWith { mutableSetOf<String>() }
                 for (tableMeta in orderedTables) {
                     val manifestEntry = manifestByName.getValue(tableMeta.tableName)
                     if (manifestEntry.columns.toSet() != tableMeta.columns.map { it.name }.toSet()) {
@@ -219,7 +227,14 @@ class OrganizationRestoreService(
                     val zipEntry =
                         zip.getEntry(DATA_ENTRY_PREFIX + tableMeta.tableName + ".jsonl")
                             ?: throw IncompatibleBundleException("Bundle is missing data file for table '${tableMeta.tableName}'")
-                    val rowCount = restoreTable(zip = zip, entry = zipEntry, table = tableMeta, manifestEntry = manifestEntry)
+                    val rowCount =
+                        restoreTable(
+                            zip = zip,
+                            entry = zipEntry,
+                            table = tableMeta,
+                            manifestEntry = manifestEntry,
+                            referencedAssetIds = referencedAssetIds,
+                        )
                     totalRowCount += rowCount
                     restored += manifestEntry.copy(rowCount = rowCount)
                 }
@@ -243,6 +258,22 @@ class OrganizationRestoreService(
                     }
                 if (blobsRestored < manifest.blobCount) {
                     warnings += "Manifest declared ${manifest.blobCount} blob(s) but only $blobsRestored were present/restorable"
+                }
+
+                zip
+                    .entries()
+                    .asSequence()
+                    .filter { it.name.startsWith(ASSET_ENTRY_PREFIX) && !it.isDirectory }
+                    .forEach { assetEntry ->
+                        val written =
+                            restoreAsset(zip = zip, entry = assetEntry, referencedAssetIds = referencedAssetIds, warnings = warnings)
+                        if (written > 0) {
+                            assetsRestored++
+                            assetBytesRestored += written
+                        }
+                    }
+                if (assetsRestored < manifest.assetCount) {
+                    warnings += "Manifest declared ${manifest.assetCount} asset file(s) but only $assetsRestored were restorable"
                 }
             }
             status = BackupOperationStatus.SUCCEEDED
@@ -270,8 +301,8 @@ class OrganizationRestoreService(
                     bundleFormatVersion = OrganizationExportService.FORMAT_VERSION,
                     tableCount = tablesRestored.size,
                     totalRowCount = totalRowCount,
-                    blobCount = blobsRestored,
-                    blobBytesTotal = blobBytesRestored,
+                    blobCount = blobsRestored + assetsRestored,
+                    blobBytesTotal = blobBytesRestored + assetBytesRestored,
                     bundleSizeBytes = bundleFile.length(),
                     errorMessage = errorMessage,
                 )
@@ -289,7 +320,12 @@ class OrganizationRestoreService(
                 if (errorMessage == null) throw bookkeepingFailure
             }
         }
-        return OrganizationRestoreResult(tablesRestored = tablesRestored, blobsRestored = blobsRestored, warnings = warnings)
+        return OrganizationRestoreResult(
+            tablesRestored = tablesRestored,
+            blobsRestored = blobsRestored,
+            warnings = warnings,
+            assetsRestored = assetsRestored,
+        )
     }
 
     private fun readManifest(zip: ZipFile): BackupManifest {
@@ -315,7 +351,9 @@ class OrganizationRestoreService(
         entry: ZipEntry,
         table: TableMetadata,
         manifestEntry: TableManifestEntry,
+        referencedAssetIds: Map<BackupAssetKind, MutableSet<String>>,
     ): Long {
+        val assetKinds = BACKUP_ASSET_KINDS.filter { it.tableName == table.tableName }
         val digest = MessageDigest.getInstance("SHA-256")
         var rowCount = 0L
         zip.getInputStream(entry).bufferedReader(Charsets.UTF_8).useLines { lines ->
@@ -327,6 +365,12 @@ class OrganizationRestoreService(
                         digest.update(NEWLINE_BYTE)
                         val row = Json.parseToJsonElement(line).jsonObject
                         upsertRow(connection = connection, table = table, row = row)
+                        for (kind in assetKinds) {
+                            (row[kind.idColumn] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull?.let {
+                                referencedAssetIds.getValue(kind) +=
+                                    it
+                            }
+                        }
                         rowCount++
                     }
                 }
@@ -415,6 +459,57 @@ class OrganizationRestoreService(
         return findings
     }
 
+    /**
+     * Writes one `assets/<folder>/<uuid>.<ext>` entry, or skips it with a warning. Strict name grammar (no sub-path, no traversal), only
+     * an id that a restored row references, size cap, and the upload hardening again on the content ([BackupAssetRules.acceptableBytes]:
+     * SVG through the crest sanitizer, raster by signature). Returns the number of bytes written, 0 if skipped.
+     */
+    private fun restoreAsset(
+        zip: ZipFile,
+        entry: ZipEntry,
+        referencedAssetIds: Map<BackupAssetKind, Set<String>>,
+        warnings: MutableList<String>,
+    ): Long {
+        val parsed =
+            BackupAssetRules.parse(entry.name) ?: run {
+                warnings += "Skipped asset entry with unsafe or unknown name: ${entry.name.take(ASSET_WARNING_NAME_LIMIT)}"
+                return 0
+            }
+        if (parsed.id !in referencedAssetIds.getValue(parsed.kind)) {
+            warnings += "Skipped asset entry not referenced by any restored row: ${entry.name}"
+            return 0
+        }
+        if (entry.size > MAX_RESTORED_ASSET_BYTES) {
+            warnings += "Skipped oversized asset entry: ${entry.name}"
+            return 0
+        }
+        // Read at most cap+1 bytes: the declared size of a ZIP entry is not trusted.
+        val bytes =
+            zip.getInputStream(entry).use { input ->
+                input.readNBytes((MAX_RESTORED_ASSET_BYTES + 1).toInt())
+            }
+        val accepted =
+            BackupAssetRules.acceptableBytes(extension = parsed.extension, bytes = bytes) ?: run {
+                warnings += "Skipped asset entry whose content failed validation: ${entry.name}"
+                return 0
+            }
+        val root = assetRoots.rootFor(parsed.kind).apply { mkdirs() }.canonicalFile
+        val target = File(root, "${parsed.id}.${parsed.extension}").canonicalFile
+        if (target.parentFile != root) {
+            warnings += "Skipped asset entry with unsafe path: ${entry.name}"
+            return 0
+        }
+        val tmp = File(root, "${target.name}.tmp")
+        tmp.writeBytes(accepted)
+        java.nio.file.Files.move(
+            tmp.toPath(),
+            target.toPath(),
+            java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+            java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+        )
+        return accepted.size.toLong()
+    }
+
     private fun resolveSafeBlobPath(relativeKey: String): File? {
         if (relativeKey.isBlank() || File(relativeKey).isAbsolute) return null
         val candidate = documentStorageRoot.resolve(relativeKey).canonicalFile
@@ -424,3 +519,5 @@ class OrganizationRestoreService(
 }
 
 private val NEWLINE_BYTE = "\n".toByteArray(Charsets.UTF_8)
+
+private const val ASSET_WARNING_NAME_LIMIT = 120

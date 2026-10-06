@@ -4,6 +4,7 @@ import network.lapis.cloud.server.accounting.export.AccountingExportProviderAdap
 import network.lapis.cloud.server.accounting.export.CategoryListOutcome
 import network.lapis.cloud.server.accounting.export.ConnectionTestOutcome
 import network.lapis.cloud.server.accounting.export.OutboundVoucher
+import network.lapis.cloud.server.accounting.export.VoucherLookupOutcome
 import network.lapis.cloud.server.accounting.export.VoucherPushOutcome
 import network.lapis.cloud.shared.domain.AccountingExportProvider
 
@@ -28,4 +29,9 @@ internal class LexofficeAdapter(
         token: String,
         voucher: OutboundVoucher,
     ): VoucherPushOutcome = client.createVoucher(token = token, voucher = voucher)
+
+    override suspend fun findVouchersByNumber(
+        token: String,
+        voucherNumber: String,
+    ): VoucherLookupOutcome = client.findVouchersByNumber(token = token, voucherNumber = voucherNumber)
 }

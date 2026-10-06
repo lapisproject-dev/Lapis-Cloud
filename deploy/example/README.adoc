@@ -250,6 +250,66 @@ PostgreSQL instance as disposable.
   removed from the host. This is a separate, deliberately later step -- do not remove the source of
   truth before the migration target has been verified against real traffic.
 
+== Backup and restore
+
+A restorable backup of one instance is three things that live in different places: the database, the uploaded files and the
+branding. `backup.sh` and `restore.sh` (this directory, POSIX `sh`, `shellcheck`-clean) cover all three. Nothing else is needed for
+the data; the secrets are deliberately separate (see below).
+
+[source,bash]
+----
+./backup.sh --out ~/lapis-backups                 # database, files, branding, manifest, checksums
+./backup.sh --out ~/lapis-backups --stop-server   # strictly consistent: lapis-server is stopped meanwhile and started again
+./restore.sh ~/lapis-backups/lapis-backup-<UTC timestamp>
+----
+
+Everything that holds state:
+
+[cols="2,3,2", options="header"]
+|===
+| What | Where | In `backup.sh`
+| Database (members, ledger, documents' metadata, the metadata of every file below, Flyway history) | Postgres volume `lapis-postgres-data` | yes, `pg_dump -Fc` (`db.dump`)
+| Uploaded files: documents and finished recordings, travel-expense receipts, chapter crests (`chapter-crests/`), event covers (`event-covers/`), article covers (`article-covers/`), member photos (`member-photos/`), conference backgrounds (`conference-backgrounds/`), SEPA and dunning archives | named volume `lapis-document-storage`, mounted at `/app/document-storage` | yes (`document-storage.tar`)
+| Brand logo behind `LAPIS_BRAND_LOGO_PATH` | bind mount `./branding` | yes (`branding.tar`)
+| Map data (`LAPIS_MAP_PMTILES_PATH`) | bind mount `./geodata` | only with `--include-geodata` (reproducible)
+| Raw per-track recordings of running conferences | named volume `lapis-egress-output` | only with `--include-raw-recordings` (volatile; only a failed composition leaves something)
+| `.env`, `livekit.yaml`, `turnserver.conf`, `egress.yaml`, `coturn-certs/` | this directory | **no, on purpose** -- back them up separately and encrypted
+|===
+
+IMPORTANT: **`LAPIS_SECRET_ENCRYPTION_KEY` must be backed up separately from the data.** Without it the stored lexoffice and sevDesk
+tokens, streaming keys and SEPA IBANs cannot be decrypted after a restore. Keep it where the `.env` is kept, and never in the same
+place as the dump.
+
+Rules and details:
+
+* **The files must be part of every backup.** The database holds only the metadata (an id, a token, a content type); the bytes are in
+  the volume. A restore of the database alone leaves crest, cover and document URLs answering 404.
+* If you set a `LAPIS_*_STORAGE_ROOT` override that points outside `/app/document-storage` (`LAPIS_CHAPTER_CREST_STORAGE_ROOT`,
+  `LAPIS_EVENT_COVER_STORAGE_ROOT`, `LAPIS_ARTICLE_COVER_STORAGE_ROOT`, `LAPIS_MEMBER_PHOTO_STORAGE_ROOT`), that directory is not in
+  `document-storage.tar`; back it up in addition.
+* **Order and consistency.** The database is dumped first, the files afterwards: a file that arrives in between is a harmless orphan,
+  a row without its file would be a loss. `--stop-server` removes even that window.
+* **No secret on a command line.** The database credentials are read inside the postgres container; no `PGPASSWORD`, no `-W`. The
+  backup directory and its files are readable by the current user only (`umask 077`). The dump contains personal data and password
+  hashes: store it encrypted and off the host.
+* **Restore refuses a non-empty database** and deletes nothing. To restore over an existing database, take a fresh backup of it,
+  recreate the database yourself (the command is in the header of `restore.sh`) and run the script again. Checksums are verified first.
+* A backup made by an older release restores and is migrated forward by Flyway on the next start. A backup from a newer release than the
+  running image is refused by Flyway: deploy the matching release first.
+* **Exports to lexoffice after a restore.** If you restore an older backup, vouchers that were exported after it are unknown locally. The
+  export checks lexoffice for the voucher number before creating one, so they are adopted, not duplicated
+  (xref:../../docs/architecture/accounting-export-idempotency.adoc[accounting-export-idempotency.adoc]). sevDesk has no such lookup: do
+  not re-export a period for sevDesk that was exported after the backup.
+* **The ADMIN backup in the app** (`/api/backup/export`, a ZIP of every table) is a different thing: it is the data-portability export
+  for moving an organization to another server, and it deliberately leaves out member photos and conference backgrounds (private
+  data). It is not a substitute for this operator backup. Since V1.9.65 it carries crest, event-cover and article-cover files.
+* Test a restore on a scratch host once. A backup that was never restored is a hope, not a backup.
+
+Not covered here (found while writing this section): `LAPIS_FINTS_PASSPORT_DIR` is not set in the example compose file. Its default
+(`<working directory>/fints-passports`) lies in the container's writable layer, outside every volume: the HBCI passport files (bank
+access material) are lost when the container is recreated and are in no backup. If you use FinTS, mount a volume for it and add that
+volume to your backup.
+
 == Updating an existing deployment
 
 This is the routine used to deploy a new `master` commit to an already-running instance -- unlike
@@ -271,7 +331,8 @@ to run at all on any of these three already-migrated instances until `flywayRepa
 each of them -- see the CHANGELOG "Operator notes" entry for this wave for the full mechanism and
 the exact command. Run it once per instance before rebuilding that instance below.
 
-. **Back up the database.** Read the Postgres credentials from the running container's own
+. **Back up** with `./backup.sh` (see "Backup and restore" above): it covers the database AND the uploaded files, which a plain
+  `pg_dump` does not. The single-command alternative below is the minimal database-only variant. Read the Postgres credentials from the running container's own
   environment rather than sourcing `.env` in the shell -- unquoted special characters in a
   `LAPIS_DB_PASSWORD` value can otherwise break a plain `source ./.env`:
 +

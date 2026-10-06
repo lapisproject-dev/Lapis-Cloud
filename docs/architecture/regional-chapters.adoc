@@ -341,4 +341,7 @@ stays safe: the old code resolves the unknown stored type to no format and answe
 
 == V1.9.20 cross-reference
 
+Backup: since V1.9.65 the crest files travel in the ADMIN backup bundle (`assets/chapter-crests/`, format 2) and are validated again on restore,
+see the "Backup" section there.
+
 See xref:public-profiles.adoc[Public pages: board, politicians, regional chapters] (new tabs, touch fix, consumers of the photo/crest, chapter description and crest).

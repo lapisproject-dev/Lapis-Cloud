@@ -100,6 +100,20 @@ Transaktion nach einem fehlgeschlagenen Statement, die echte Flyway-Kette), prü
 - PZB (`gitlab.com/pdv7/pzb`) — Vorgänger-Repo, read-only Referenz für die Neuimplementierung
 - Lapis Net — dezentrales P2P-Schwesterprojekt (eigenes Repo, noch anzulegen)
 
+## Logging und Datenschutz (V1.9.65)
+
+Details: `docs/architecture/logging-privacy.adoc`. Kurzregeln:
+
+- **Logback-Patterns nur mit `%safeMsg`/`%safeEx`**, nie mit `%msg`, `%m`, `%message`, `%ex`, `%xEx`, `%rEx`, `%throwable` -- diese umgehen die Schwärzung von SQL-Text und
+  Personendaten (Kilua loggt jede Exposed-Ausnahme mit Meldung und Ursachenkette). Ein Tripwire-Test prüft die Appender-Patterns.
+- Kein `logback-test.xml` anlegen (die Tests müssen die Produktionskonfiguration laden); Logger `Exposed` bleibt mindestens INFO.
+
+## Buchhaltungs-Export (V1.9.65)
+
+Details: `docs/architecture/accounting-export-idempotency.adoc`. Jeder Schreibzugriff nach einem `claim` trägt das Fencing-Token (`claim_generation`, nie zurückgesetzt) und liefert `FencedWrite`; neue
+`mark*`-Funktionen brauchen dieselbe Bedingung. Ein Anbieter mit Beleg-Suche implementiert `findVouchersByNumber`; "nicht gefunden" setzt einen `UNKNOWN`-Posten nie automatisch auf
+"nicht gesendet".
+
 ## Zeiten und Zeitzonen (V1.9.38)
 
 Details: `docs/architecture/time-and-timezones.adoc`. Kurzregeln:

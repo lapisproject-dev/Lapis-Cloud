@@ -276,7 +276,7 @@ class AccountingExportPollerTest :
                 }
             // The FIRST run's item genuinely succeeds -- this is what makes journalEntryId
             // "already exported" from AccountingExportStore.isAlreadyExported's point of view.
-            AccountingExportStore.markSucceeded(
+            testMarkSucceeded(
                 id = firstItemId,
                 provider = AccountingExportProvider.LEXOFFICE,
                 journalEntryId = entryId,
@@ -572,7 +572,7 @@ class AccountingExportPollerTest :
                     row[AccountingExportItemTable.journalEntryId]
                 }
             val overLong = "V".repeat(100) // external_voucher_id is VARCHAR(64)
-            AccountingExportStore.markSucceeded(
+            testMarkSucceeded(
                 id = itemId,
                 provider = AccountingExportProvider.LEXOFFICE,
                 journalEntryId = entryId,

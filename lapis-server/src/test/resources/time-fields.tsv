@@ -433,6 +433,7 @@ col:AccountingExportItemTable.entryDate	D	calendar date (LocalDate); never conve
 col:AccountingExportItemTable.nextAttemptAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AccountingExportItemTable.claimedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AccountingExportItemTable.finishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AccountingExportItemTable.reconcileNextAt	A	stamped by the server clock (poller clock) or derived from it; stored and sent as UTC
 col:AccountingExportRunTable.periodFrom	D	calendar date (LocalDate); never converted
 col:AccountingExportRunTable.periodTo	D	calendar date (LocalDate); never converted
 col:AccountingExportRunTable.startedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

@@ -15,6 +15,7 @@ import io.ktor.server.routing.post
 import io.ktor.utils.io.jvm.javaio.toOutputStream
 import io.ktor.utils.io.readAvailable
 import kotlinx.serialization.Serializable
+import network.lapis.cloud.server.backup.BackupAssetRoots
 import network.lapis.cloud.server.backup.IncompatibleBundleException
 import network.lapis.cloud.server.backup.NonEmptyTargetException
 import network.lapis.cloud.server.backup.OrganizationExportService
@@ -67,6 +68,7 @@ private data class RestoreResultResponse(
     val totalRowCount: Long,
     val blobsRestored: Int,
     val warnings: List<String>,
+    val assetsRestored: Int = 0,
 )
 
 /**
@@ -87,12 +89,14 @@ private data class RestoreResultResponse(
 fun Route.registerBackupRoutes(
     database: Database,
     documentStorageRoot: File,
+    assetRoots: BackupAssetRoots = BackupAssetRoots.under(documentStorageRoot),
 ) {
     get("/api/backup/export") {
         val current = resolveCurrentMember(call)
         current.requireRole(AccountRole.ADMIN)
 
-        val exportService = OrganizationExportService(database = database, documentStorageRoot = documentStorageRoot)
+        val exportService =
+            OrganizationExportService(database = database, documentStorageRoot = documentStorageRoot, assetRoots = assetRoots)
         val fileName = "lapis-cloud-backup-${Clock.System.now().toEpochMilliseconds()}.zip"
         call.response.header(
             HttpHeaders.ContentDisposition,
@@ -131,7 +135,8 @@ fun Route.registerBackupRoutes(
                 return@post
             }
 
-            val restoreService = OrganizationRestoreService(database = database, documentStorageRoot = documentStorageRoot)
+            val restoreService =
+                OrganizationRestoreService(database = database, documentStorageRoot = documentStorageRoot, assetRoots = assetRoots)
             try {
                 val result = restoreService.restore(actor = current, bundleFile = tempFile, allowNonEmptyTarget = allowNonEmptyTarget)
                 call.respond(
@@ -141,6 +146,7 @@ fun Route.registerBackupRoutes(
                         totalRowCount = result.tablesRestored.sumOf { it.rowCount },
                         blobsRestored = result.blobsRestored,
                         warnings = result.warnings,
+                        assetsRestored = result.assetsRestored,
                     ),
                 )
             } catch (e: IncompatibleBundleException) {

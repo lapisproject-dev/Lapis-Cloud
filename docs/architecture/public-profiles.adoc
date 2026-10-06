@@ -89,9 +89,18 @@ Exact key sets: board `{name, role, roleLabel, photoUrl?, bio?}`, politicians `{
 
 == Backup
 
-`member_public_bio` is excluded from the ADMIN backup (a private self-description). `regional_chapter` stays in; the `crest_*`
-columns travel but the files do not, so after a restore the crest URL answers 404 until a crest is uploaded again (same posture as
-event and article covers). Alternative not taken: nulling `crest_*` on export.
+`member_public_bio` is excluded from the ADMIN backup (a private self-description). `regional_chapter` stays in, with its `crest_*`
+columns. Since V1.9.65 (bundle format 2) the crest FILES travel as well, as `assets/chapter-crests/<uuid>.<ext>`, together with the
+event covers (`assets/event-covers/`) and article covers (`assets/article-covers/`); before that a restored row answered 404 for its
+crest until a crest was uploaded again. This revises the V1.9.20 decision. Member photos and conference backgrounds are still not
+part of the bundle (private data, see `OrganizationSchemaCatalog.EXCLUDED_TABLES`).
+
+Restore treats the ZIP as untrusted input. An `assets/` entry is written only if its name is exactly `assets/<family>/<lowercase uuid>.<ext>`
+(no sub-path, no traversal, extension allowed for the family), its id is referenced by a restored row, it is at most 5 MiB, and its
+content passes the upload hardening again: an SVG goes through `SvgCrestSanitizer` and is stored as the sanitizer's fresh
+serialization, a raster must start with the signature of its extension. Anything else is skipped with a warning in the restore result.
+A format 1 bundle (no `assets/`) still restores. The files are read from and written to the configured `LAPIS_*_STORAGE_ROOT`
+directories, not assumed to lie below the document storage.
 
 == Operations
 

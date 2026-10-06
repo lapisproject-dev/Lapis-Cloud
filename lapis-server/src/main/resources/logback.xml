@@ -1,7 +1,19 @@
 <configuration>
+    <!--
+        V1.9.65 log privacy. A failed SQL statement puts the statement text AND the offending values into the exception
+        message (`Detail: Key (email)=(...)`, Exposed's `SQL: [INSERT ...]`), and Kilua RPC logs every non-service
+        exception with LOG.error(e.getMessage(), e) (message plus full cause chain). These two converters redact SQL
+        text and values for EVERY logger; SQLSTATE, exception classes, constraint/table name and all stack frames stay.
+        Do NOT use the raw tokens %msg, %m, %message, %ex, %xEx, %rEx, %throwable (or their long forms) in any pattern of
+        this file: they bypass the redaction. the tripwire test in LogbackSqlRedactionScenarios (run as LogbackSqlRedactionTest) fails the build if one appears.
+        Logback 1.6 reads the converter class from the `class` attribute.
+    -->
+    <conversionRule conversionWord="safeMsg" class="network.lapis.cloud.server.logging.SqlSafeMessageConverter" />
+    <conversionRule conversionWord="safeEx" class="network.lapis.cloud.server.logging.SqlSafeThrowableProxyConverter" />
+
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %safeMsg%n%safeEx</pattern>
         </encoder>
     </appender>
 
@@ -23,6 +35,13 @@
         explicitly and briefly.
     -->
     <logger name="io.ktor.client" level="INFO" />
+
+    <!--
+        Exposed logs the failed statement WITH its values at DEBUG ("Transaction attempt #N failed ... Statement(s): ...").
+        Same reasoning as the io.ktor.client floor above: an operator raising the level for troubleshooting must not get
+        statements with personal data into the log.
+    -->
+    <logger name="Exposed" level="INFO" />
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />

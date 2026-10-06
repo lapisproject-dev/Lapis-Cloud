@@ -1,0 +1,136 @@
+= Accounting export: idempotency, check-before-create, reconciliation (V1.9.65)
+:toc:
+
+== Purpose
+
+lexoffice offers no idempotency key on `POST /v1/vouchers`, and its documentation promises nowhere that a `voucherNumber` is unique.
+A voucher that is sent twice is a silent double booking. This document describes the layers that keep that from happening and what
+V1.9.65 added. The surrounding design is in link:accounting-export-lexoffice.adoc[accounting-export-lexoffice.adoc].
+
+== What was already there
+
+* Persisted items with `PENDING / SENDING / SUCCEEDED / FAILED / SKIPPED_ALREADY_EXPORTED / UNKNOWN`.
+* An atomic claim: a compare-and-set `UPDATE ... WHERE status = 'PENDING'`; only the caller that updates the row sends.
+* A unique index on `exported_key` (at most one `SUCCEEDED` per provider and journal entry) and one on `active_key` (at most one
+  active run per provider).
+* A deterministic `voucherNumber` (`LAPIS-yyyyMMdd-<8hex>`).
+* A reaper that turns a `SENDING` item older than five minutes into `UNKNOWN`, never back to `PENDING`.
+* `Indeterminate` outcomes (timeout, lost response, 5xx other than 503, a 2xx without an `id`) become `UNKNOWN` and are not retried;
+  only `ConnectException`, `UnknownHostException`, 429 and 503 are `Retryable`.
+* A manual resolution (`CONFIRMED_SENT` / `CONFIRMED_NOT_SENT`) and a block on starting a run while `UNKNOWN` items exist.
+
+== The gaps V1.9.65 closes
+
+[cols="1,3", options="header"]
+|===
+| Gap | Closed by
+| A sender that comes back after the reaper or `abortRun` took the item away overwrote the newer state. Worst case: after `abortRun` a late retry set the item back to `PENDING`, and it was sent again.
+| Fencing (below). A late write is discarded, a late success wins over `UNKNOWN`.
+| No check before creating: a voucher that already exists at the provider was created a second time (restore of an older database, a wrongly resolved `UNKNOWN`, a second system).
+| Check-before-create, then automatic reconciliation.
+| `UNKNOWN` could only be resolved by hand.
+| Reconciliation resolves the unambiguous case; the ambiguous ones stay with a human.
+|===
+
+== Fencing
+
+`claim` increments `claim_generation` (and the retry budget `attempts`) in SQL and returns them; `claim_generation` is the item's fencing token. It is never reset (`retryFailed` zeroes `attempts`, which would make a token ABA-prone). Every write after the
+send is conditional on it:
+
+* `markFailed`, `markUnknown`, `markRetryScheduled`, `markSkippedAlreadyExported`: `WHERE id = ? AND status = 'SENDING' AND claim_generation = ?`.
+* `markSucceeded`: additionally accepted for `status = 'UNKNOWN' AND claim_generation = ?`. A positive receipt beats "unknown", also for an
+  item the reaper or `abortRun` had declared unknown while the sender was still working.
+
+Each returns `APPLIED` or `LOST_FENCE`. On `LOST_FENCE` the poller logs an ERROR with the item id, the voucher number and the external
+voucher id (no personal data) and does nothing else; the reconciliation picks the voucher up. `duePendingItemIds` joins the run and
+returns only items of a `RUNNING` run, so a `PENDING` item inside an aborted run is never sent.
+
+[source,kuml,name="accounting-export-item-states"]
+----
+stateDiagram(name = "Accounting export item") {
+    val start = initialState()
+    val pending = state(name = "PENDING")
+    val sending = state(name = "SENDING (fencing token = claim_generation)")
+    val succeeded = state(name = "SUCCEEDED")
+    val failed = state(name = "FAILED")
+    val unknown = state(name = "UNKNOWN")
+    val skipped = state(name = "SKIPPED_ALREADY_EXPORTED")
+
+    transition(source = start, target = pending)
+    transition(source = pending, target = sending) { trigger = "claim: compare-and-set, attempts + 1" }
+    transition(source = sending, target = skipped) { trigger = "journal entry already exported" }
+    transition(source = sending, target = succeeded) { trigger = "lookup finds the voucher (same amount and date), or push succeeded" }
+    transition(source = sending, target = pending) {
+        trigger = "retryable push failure or failed lookup"
+        guard = "[token matches, attempts < 3]"
+    }
+    transition(source = sending, target = failed) { trigger = "rejected, or retries exhausted" }
+    transition(source = sending, target = unknown) { trigger = "indeterminate push, other amount, several hits, reaper, abortRun" }
+    transition(source = unknown, target = succeeded) { trigger = "late success with the same token, or reconciliation finds exactly one match" }
+    transition(source = unknown, target = unknown) { trigger = "reconciliation: not found, several hits, mismatch, lookup failed" }
+    transition(source = unknown, target = succeeded) { trigger = "manual CONFIRMED_SENT" }
+    transition(source = unknown, target = failed) { trigger = "manual CONFIRMED_NOT_SENT" }
+}
+----
+
+== Check before create
+
+Before every send, for a provider with a lookup, the voucher number is searched at the provider:
+
+`GET /v1/voucherlist?voucherType=salesinvoice,purchaseinvoice&voucherStatus=any&voucherNumber=<number>&size=250`
+
+* This is the documented search (live docs, "Voucherlist Endpoint", filter `voucherNumber`). `GET /v1/vouchers?voucherNumber=` also
+  exists, but the documentation calls it deprecated, so it is not used.
+* The matching semantics of the filter are not specified. The client therefore filters the answer again for an *exact* number match.
+  A page that is not the complete result and has no exact match cannot prove absence and is a failed lookup.
+* The number goes through Ktor's parameter encoding, the base URL is the fixed constant, the body is size-capped, nothing from the
+  response body and nothing of the token is logged.
+
+[cols="2,3", options="header"]
+|===
+| Lookup result | Effect
+| exactly one hit, same amount (sign-insensitive, two decimals) and same date | item becomes `SUCCEEDED` with the provider's voucher id; nothing is sent. The item shows "automatisch abgeglichen".
+| several hits, or one hit with another amount or date | item becomes `UNKNOWN` (`PROVIDER_DUPLICATE_OR_MISMATCH`); nothing is sent
+| no hit | the voucher is sent
+| lookup failed | nothing was sent yet, so a retry is scheduled (backoff, `Retry-After` honoured); after three attempts the item is `FAILED` and `retryFailed` reopens it
+| provider without lookup (sevDesk) | the voucher is sent as before
+|===
+
+A lookup failure uses the same attempt budget as a send retry (one attempt per claim). That is deliberate and safe: `FAILED` after a
+failed lookup means "not sent".
+
+== Automatic reconciliation of `UNKNOWN` (Phase A1)
+
+Each tick looks up at most one `UNKNOWN` item that is older than ten minutes (the provider's index may lag) and has had fewer than six
+lookups. The gaps are 10 min, 30 min, 2 h, 6 h, 24 h, 24 h. The bookkeeping lives in three new columns
+(`reconcile_checks`, `reconcile_next_at`, `reconcile_last_result`, migration V74), not in `attempts`/`next_attempt_at`, which carry
+send semantics.
+
+* Exactly one exact hit with the same amount and date: `SUCCEEDED` ("Automatisch abgeglichen"), the run is recomputed.
+* No hit: **stays `UNKNOWN`**. An absent voucher is never turned into "not sent" automatically, because an index delay would then
+  produce a duplicate. Only the time and result of the check are recorded.
+* Several hits or a mismatch: stays `UNKNOWN` with `PROVIDER_DUPLICATE` / `PROVIDER_DUPLICATE_OR_MISMATCH`, not looked up again.
+* A journal entry that another item already exported successfully: not touched.
+
+== Rate limit
+
+Every item now costs two requests (lookup and send). The limiter is shared by all endpoints (lexoffice allows two requests per second),
+so a tick takes longer; the throughput is at most about 1.5 items per second. The limiter is process-local: running more than one
+server instance with this poller enabled is still not supported (the claim and the fencing are multi-instance safe, the limiter is not).
+
+== Tests
+
+* `AccountingExportIdempotencyScenarios` (H2 and PostgreSQL): timeout leaves `UNKNOWN` and pushes once; second run is skipped; restore
+  of an older database adopts the existing voucher; a rejected voucher in the middle of a run; fencing after `abortRun`, after the
+  reaper, after a re-claim; mismatch and several hits; failed lookup; a non-`RUNNING` run is never due; reconciliation (not found,
+  six lookups at most, exact hit, several hits).
+* `AccountingExportConcurrencyScenarios` (H2 and PostgreSQL): two pollers on several threads push each of twenty vouchers exactly once.
+* `LexofficeApiClientTest`: exact query, URL encoding, exact-match filtering, incomplete page, error mapping, size cap, no token in a log.
+
+== Known limits
+
+* lexoffice has no server-side idempotency key; everything above is client-side defence.
+* The index delay of the voucherlist is unknown, hence the ten-minute minimum age and the rule that "not found" never decides.
+* Duplicates created before V1.9.65 are not deduplicated retroactively; they only become visible as `PROVIDER_DUPLICATE` if the item is touched again.
+* sevDesk has neither lookup nor reconciliation.
+* After restoring an older database, do not re-export a period for sevDesk that was already exported after the backup.

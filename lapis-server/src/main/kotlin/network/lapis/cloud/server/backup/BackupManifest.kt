@@ -42,4 +42,7 @@ data class BackupManifest(
     val tables: List<TableManifestEntry>,
     val blobCount: Int,
     val blobBytesTotal: Long,
+    /** Bundle format 2 (V1.9.65): number and total size of the `assets/` entries (crests, event and article covers). Absent (0) in format 1. */
+    val assetCount: Int = 0,
+    val assetBytesTotal: Long = 0,
 )

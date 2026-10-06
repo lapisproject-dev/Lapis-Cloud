@@ -38,6 +38,43 @@ internal interface AccountingExportProviderAdapter {
         token: String,
         voucher: OutboundVoucher,
     ): VoucherPushOutcome
+
+    /**
+     * V1.9.65: looks up vouchers that already exist at the provider under [voucherNumber] -- the deterministic, locally assigned
+     * `LAPIS-yyyyMMdd-<8hex>`. Used to (a) check before creating and (b) reconcile `UNKNOWN` items automatically. Read-only.
+     * The default is [VoucherLookupOutcome.Unsupported]: a provider without a usable lookup (sevDesk today) keeps the old behaviour.
+     */
+    suspend fun findVouchersByNumber(
+        token: String,
+        voucherNumber: String,
+    ): VoucherLookupOutcome = VoucherLookupOutcome.Unsupported
+}
+
+/** A voucher found at the provider; only the fields the reconciliation compares. */
+internal data class FoundVoucher(
+    val id: String,
+    val voucherType: String?,
+    val voucherDate: kotlinx.datetime.LocalDate?,
+    val totalAmount: BigDecimal?,
+)
+
+internal sealed interface VoucherLookupOutcome {
+    /** One or more vouchers whose number equals the requested one exactly (the client filters; the API's filter semantics are unspecified). */
+    data class Found(
+        val matches: List<FoundVoucher>,
+    ) : VoucherLookupOutcome
+
+    /** The provider answered and holds no voucher with that number. NOT proof that nothing was sent (index lag), see the reconciliation. */
+    data object NotFound : VoucherLookupOutcome
+
+    /** The lookup itself failed (network, rate limit, unexpected response, incomplete page). Nothing is known. */
+    data class Failed(
+        val errorCode: String,
+        val retryAfter: Duration? = null,
+    ) : VoucherLookupOutcome
+
+    /** The provider has no lookup. */
+    data object Unsupported : VoucherLookupOutcome
 }
 
 internal sealed interface ConnectionTestOutcome {

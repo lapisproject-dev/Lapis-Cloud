@@ -25,6 +25,8 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.accounting.export.AccountingExportProviderAdapter
 import network.lapis.cloud.server.accounting.export.AccountingExportStore
+import network.lapis.cloud.server.accounting.export.testMarkSucceeded
+import network.lapis.cloud.server.accounting.export.testMarkUnknown
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.crypto.SecretBoxException
 import network.lapis.cloud.server.db.DatabaseConfig
@@ -299,6 +301,7 @@ class AccountingExportServiceTest :
                     it[status] = network.lapis.cloud.shared.domain.AccountingExportItemStatus.UNKNOWN
                     it[exportedKey] = null
                     it[attempts] = 1
+                    it[reconcileChecks] = 0
                     it[finishedAt] = now
                 }
             }
@@ -720,7 +723,7 @@ class AccountingExportServiceTest :
                 // Simulate exactly what AccountingExportPoller does on a successful send (mark the
                 // item SUCCEEDED, then recompute the run) -- this finishes the FIRST run so the entry
                 // counts as already-exported for the second startExport below.
-                AccountingExportStore.markSucceeded(
+                testMarkSucceeded(
                     id = firstItemId,
                     provider = AccountingExportProvider.LEXOFFICE,
                     journalEntryId = entryId,
@@ -870,7 +873,7 @@ class AccountingExportServiceTest :
                     }
                 // Simulate exactly what reapStaleClaims/abortRun leave behind: a SENDING claim whose
                 // outcome at the provider was never confirmed.
-                AccountingExportStore.markUnknown(id = itemId, errorCode = "STALE_CLAIM_REAPED", now = DbClock.nowLocalDateTime())
+                testMarkUnknown(id = itemId, errorCode = "STALE_CLAIM_REAPED", now = DbClock.nowLocalDateTime())
                 AccountingExportStore.recomputeRunCounts(runId = runId, now = DbClock.nowLocalDateTime())
 
                 val previewBody =
@@ -966,7 +969,7 @@ class AccountingExportServiceTest :
                             .where { AccountingExportItemTable.runId eq runId }
                             .single()[AccountingExportItemTable.id]
                     }
-                AccountingExportStore.markUnknown(id = itemId, errorCode = "ABORTED_WHILE_SENDING", now = DbClock.nowLocalDateTime())
+                testMarkUnknown(id = itemId, errorCode = "ABORTED_WHILE_SENDING", now = DbClock.nowLocalDateTime())
                 AccountingExportStore.recomputeRunCounts(runId = runId, now = DbClock.nowLocalDateTime())
 
                 // listRunItems exposes the item's own id -- the response encodes it via the test
@@ -1037,7 +1040,7 @@ class AccountingExportServiceTest :
                             .where { AccountingExportItemTable.runId eq runAId }
                             .single()[AccountingExportItemTable.id]
                     }
-                AccountingExportStore.markUnknown(id = itemAId, errorCode = "STALE_CLAIM_REAPED", now = DbClock.nowLocalDateTime())
+                testMarkUnknown(id = itemAId, errorCode = "STALE_CLAIM_REAPED", now = DbClock.nowLocalDateTime())
                 AccountingExportStore.recomputeRunCounts(runId = runAId, now = DbClock.nowLocalDateTime())
                 AccountingExportStore.hasActiveRun(AccountingExportProvider.LEXOFFICE) shouldBe false
 

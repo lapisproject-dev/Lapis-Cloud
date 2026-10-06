@@ -22,13 +22,14 @@ import kotlin.uuid.Uuid
 /**
  * Welle V1.9.20 "Öffentliche Seiten" -- `member_public_bio` is deliberately NOT part of the ADMIN-only
  * whole-organization backup (a PRIVATE self-description must not become readable through it), while
- * `regional_chapter` stays in (its description and the `crest_*` columns travel) but the crest FILES
- * do not: after a restore the row points at a crest that has to be uploaded again.
+ * `regional_chapter` stays in (its description and the `crest_*` columns travel). Since V1.9.65 the crest FILE travels too
+ * (`assets/chapter-crests/`, bundle format 2) -- the V1.9.20 decision "crest files in a restore: not implemented" was revised
+ * because a restored row then answered 404 for its crest; the exclusion of `member_public_bio` is unchanged.
  */
 class MemberPublicBioBackupExclusionTest :
     FunSpec({
         test(
-            "the bundle holds no member_public_bio data; the chapter row and its description travel, the crest file does not; the restore works",
+            "the bundle holds no member_public_bio data; the chapter row, its description and its crest file travel; the restore works",
         ) {
             val sourceDb = TestDatabaseFactory.freshMigratedH2Database("backup-bio-source-${Uuid.random()}")
             val targetDb = TestDatabaseFactory.freshMigratedH2Database("backup-bio-target-${Uuid.random()}")
@@ -38,7 +39,7 @@ class MemberPublicBioBackupExclusionTest :
             val crestFileId = Uuid.random()
             val crestFile = sourceStorage.resolve("chapter-crests/$crestFileId.png")
             crestFile.parentFile.mkdirs()
-            crestFile.writeBytes(byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 1, 2, 3))
+            crestFile.writeBytes(byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3))
 
             transaction(sourceDb) {
                 MemberTable.insert {
@@ -91,7 +92,7 @@ class MemberPublicBioBackupExclusionTest :
                             .map { it.name }
                             .toList()
                     names.none { it.contains("member_public_bio") } shouldBe true
-                    names.none { it.contains("chapter-crests") } shouldBe true
+                    names.any { it == "assets/chapter-crests/$crestFileId.png" } shouldBe true
                     val all =
                         names.joinToString("\n") { name ->
                             String(zip.getInputStream(zip.getEntry(name)).use { it.readBytes() }, Charsets.ISO_8859_1)
@@ -106,8 +107,8 @@ class MemberPublicBioBackupExclusionTest :
                 transaction(targetDb) { MemberPublicBioTable.selectAll().count() } shouldBe 0L
                 val restored = transaction(targetDb) { RegionalChapterTable.selectAll().single() }
                 restored[RegionalChapterTable.description] shouldBe "Beschreibung reist mit"
-                // The crest file is NOT restored -- the row points at a file that has to be uploaded again (documented).
-                targetStorage.resolve("chapter-crests").exists() shouldBe false
+                // The crest file is restored next to its row (V1.9.65), so the crest URL does not answer 404.
+                targetStorage.resolve("chapter-crests/$crestFileId.png").isFile shouldBe true
             } finally {
                 bundle.delete()
                 sourceStorage.deleteRecursively()

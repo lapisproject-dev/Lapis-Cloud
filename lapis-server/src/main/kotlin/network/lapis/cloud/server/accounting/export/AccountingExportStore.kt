@@ -13,6 +13,7 @@ import network.lapis.cloud.shared.domain.AccountingExportProvider
 import network.lapis.cloud.shared.domain.AccountingExportRunStatus
 import network.lapis.cloud.shared.domain.AccountingExportUnknownItemResolution
 import network.lapis.cloud.shared.domain.displayName
+import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -20,7 +21,9 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.lessEq
+import org.jetbrains.exposed.v1.core.notInList
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.core.plus
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -395,6 +398,8 @@ internal object AccountingExportStore {
                         if (alreadyExported) AccountingExportItemStatus.SKIPPED_ALREADY_EXPORTED else AccountingExportItemStatus.PENDING
                     it[exportedKey] = null
                     it[attempts] = 0
+                    it[claimGeneration] = 0
+                    it[reconcileChecks] = 0
                     it[finishedAt] = if (alreadyExported) now else null
                 }
             }
@@ -573,6 +578,7 @@ internal object AccountingExportStore {
         val direction: AccountingExportDirection,
         val grossAmount: BigDecimal,
         val attempts: Int,
+        val claimGeneration: Int,
     )
 
     fun listRunItems(
@@ -626,7 +632,11 @@ internal object AccountingExportStore {
 
     // ── Poller-facing ───────────────────────────────────────────────────────────────────────
 
-    /** Ids of `PENDING` items across [providers] that are due to send now (no backoff pending). */
+    /** Ids of `PENDING` items across [providers] that are due to send now (no backoff pending).
+     *
+     * V1.9.65 defence in depth: only items of a run that is still `RUNNING` are returned. `abortRun` already turns every `PENDING`
+     * item of its run into `FAILED`, so a `PENDING` item inside an ABORTED run can only appear through a late write that
+     * resurrected it; it must never be sent. */
     fun duePendingItemIds(
         providers: Collection<AccountingExportProvider>,
         now: LocalDateTime,
@@ -635,10 +645,12 @@ internal object AccountingExportStore {
         if (providers.isEmpty()) return emptyList()
         return transaction {
             AccountingExportItemTable
+                .join(AccountingExportRunTable, JoinType.INNER, AccountingExportItemTable.runId, AccountingExportRunTable.id)
                 .select(AccountingExportItemTable.id)
                 .where {
                     (AccountingExportItemTable.provider inList providers) and
                         (AccountingExportItemTable.status eq AccountingExportItemStatus.PENDING) and
+                        (AccountingExportRunTable.status eq AccountingExportRunStatus.RUNNING) and
                         ((AccountingExportItemTable.nextAttemptAt.isNull()) or (AccountingExportItemTable.nextAttemptAt lessEq now))
                 }.orderBy(AccountingExportItemTable.claimedAt, SortOrder.ASC)
                 .limit(limit)
@@ -646,45 +658,48 @@ internal object AccountingExportStore {
         }
     }
 
-    /** Atomic claim -- `null` if lost the race (another claimer, or the reaper). */
+    /** Atomic claim -- `null` if lost the race (another claimer, or the reaper).
+     *
+     * The compare-and-set is the `WHERE status = 'PENDING'` of the single UPDATE; `attempts` is incremented IN SQL
+     * (`attempts = attempts + 1`), not read-modify-write. The returned [ItemRow.claimGeneration] is the item's FENCING TOKEN (never reset, unlike `attempts` which retryFailed zeroes): every
+     * write after the send (`markSucceeded`, `markFailed`, ...) is conditional on it, so a sender that comes back after the
+     * reaper or `abortRun` took the item away cannot overwrite the newer state. */
     fun claim(
         id: Uuid,
         now: LocalDateTime,
     ): ItemRow? =
         transaction {
-            val current =
-                AccountingExportItemTable
-                    .select(AccountingExportItemTable.attempts)
-                    .where { AccountingExportItemTable.id eq id }
-                    .singleOrNull() ?: return@transaction null
             val updated =
                 AccountingExportItemTable.update({
                     (AccountingExportItemTable.id eq id) and (AccountingExportItemTable.status eq AccountingExportItemStatus.PENDING)
                 }) {
                     it[status] = AccountingExportItemStatus.SENDING
                     it[claimedAt] = now
-                    it[attempts] = current[AccountingExportItemTable.attempts] + 1
+                    it[attempts] = attempts + 1
+                    it[claimGeneration] = claimGeneration + 1
                 }
             if (updated != 1) return@transaction null
             AccountingExportItemTable
                 .selectAll()
                 .where { AccountingExportItemTable.id eq id }
                 .single()
-                .let {
-                    ItemRow(
-                        id = it[AccountingExportItemTable.id],
-                        runId = it[AccountingExportItemTable.runId],
-                        provider = it[AccountingExportItemTable.provider],
-                        journalEntryId = it[AccountingExportItemTable.journalEntryId],
-                        entryDate = it[AccountingExportItemTable.entryDate],
-                        externalCategoryId = it[AccountingExportItemTable.externalCategoryId],
-                        voucherNumber = it[AccountingExportItemTable.voucherNumber],
-                        direction = it[AccountingExportItemTable.direction],
-                        grossAmount = it[AccountingExportItemTable.grossAmount],
-                        attempts = it[AccountingExportItemTable.attempts],
-                    )
-                }
+                .toItemRow()
         }
+
+    private fun org.jetbrains.exposed.v1.core.ResultRow.toItemRow(): ItemRow =
+        ItemRow(
+            id = this[AccountingExportItemTable.id],
+            runId = this[AccountingExportItemTable.runId],
+            provider = this[AccountingExportItemTable.provider],
+            journalEntryId = this[AccountingExportItemTable.journalEntryId],
+            entryDate = this[AccountingExportItemTable.entryDate],
+            externalCategoryId = this[AccountingExportItemTable.externalCategoryId],
+            voucherNumber = this[AccountingExportItemTable.voucherNumber],
+            direction = this[AccountingExportItemTable.direction],
+            grossAmount = this[AccountingExportItemTable.grossAmount],
+            attempts = this[AccountingExportItemTable.attempts],
+            claimGeneration = this[AccountingExportItemTable.claimGeneration],
+        )
 
     fun isAlreadyExported(
         provider: AccountingExportProvider,
@@ -701,71 +716,183 @@ internal object AccountingExportStore {
                 .count() > 0
         }
 
-    fun markSkippedAlreadyExported(
-        id: Uuid,
-        now: LocalDateTime,
-    ) {
-        transaction {
-            AccountingExportItemTable.update({ AccountingExportItemTable.id eq id }) {
-                it[status] = AccountingExportItemStatus.SKIPPED_ALREADY_EXPORTED
-                it[finishedAt] = now
-            }
-        }
+    /** Result of a write guarded by the claim's fencing token. */
+    enum class FencedWrite {
+        /** The item was still in the state this claim left it in; the write happened. */
+        APPLIED,
+
+        /** The item was taken away since the claim (reaped, aborted, resolved by a human, re-claimed); nothing was written. */
+        LOST_FENCE,
     }
 
+    fun markSkippedAlreadyExported(
+        id: Uuid,
+        claimedGeneration: Int,
+        now: LocalDateTime,
+    ): FencedWrite =
+        transaction {
+            val updated =
+                AccountingExportItemTable.update({ stillOurClaim(id = id, claimedGeneration = claimedGeneration) }) {
+                    it[status] = AccountingExportItemStatus.SKIPPED_ALREADY_EXPORTED
+                    it[finishedAt] = now
+                }
+            if (updated == 1) FencedWrite.APPLIED else FencedWrite.LOST_FENCE
+        }
+
+    /** The item is still the `SENDING` row this claim produced (same fencing token). */
+    private fun stillOurClaim(
+        id: Uuid,
+        claimedGeneration: Int,
+    ): org.jetbrains.exposed.v1.core.Op<Boolean> =
+        (AccountingExportItemTable.id eq id) and
+            (AccountingExportItemTable.status eq AccountingExportItemStatus.SENDING) and
+            (AccountingExportItemTable.claimGeneration eq claimedGeneration)
+
+    /**
+     * A positive receipt beats "unknown": besides the item still being our `SENDING` claim, a `SUCCEEDED` write is also accepted for
+     * an `UNKNOWN` item with the SAME fencing token -- the reaper (`STALE_CLAIM_REAPED`) or `abortRun` (`ABORTED_WHILE_SENDING`)
+     * declared it unknown while the sender was in fact still working and then got the provider's confirmation.
+     * [note] is stored as `error_message` (informational; the item is `SUCCEEDED`).
+     */
     fun markSucceeded(
         id: Uuid,
+        claimedGeneration: Int,
         provider: AccountingExportProvider,
         journalEntryId: Uuid,
         externalVoucherId: String,
         now: LocalDateTime,
-    ) {
+        note: String? = null,
+    ): FencedWrite =
         transaction {
-            AccountingExportItemTable.update({ AccountingExportItemTable.id eq id }) {
-                it[status] = AccountingExportItemStatus.SUCCEEDED
-                // Truncated defensively -- externalVoucherId comes straight from the provider's own
-                // response body, and external_voucher_id is VARCHAR(64); an untruncated write would
-                // throw an ExposedSQLException here (Poller:144 only logs it, the item stays
-                // SENDING and is later wrongly reaped to UNKNOWN even though lexoffice DID accept
-                // the voucher). Same guard errorMessage already gets via MAX_ERROR_MESSAGE_LENGTH.
-                it[AccountingExportItemTable.externalVoucherId] = externalVoucherId.take(MAX_EXTERNAL_VOUCHER_ID_LENGTH)
-                it[exportedKey] = exportedKeyOf(provider = provider, journalEntryId = journalEntryId)
-                it[errorCode] = null
-                it[errorMessage] = null
-                it[finishedAt] = now
-            }
+            val where =
+                (AccountingExportItemTable.id eq id) and
+                    (AccountingExportItemTable.claimGeneration eq claimedGeneration) and
+                    (
+                        (AccountingExportItemTable.status eq AccountingExportItemStatus.SENDING) or
+                            (AccountingExportItemTable.status eq AccountingExportItemStatus.UNKNOWN)
+                    )
+            val updated =
+                AccountingExportItemTable.update({ where }) {
+                    it[status] = AccountingExportItemStatus.SUCCEEDED
+                    // Truncated defensively -- externalVoucherId comes straight from the provider's own
+                    // response body, and external_voucher_id is VARCHAR(64); an untruncated write would
+                    // throw an ExposedSQLException here and the item would be wrongly reaped to UNKNOWN
+                    // even though the provider DID accept the voucher. Same guard errorMessage gets.
+                    it[AccountingExportItemTable.externalVoucherId] = externalVoucherId.take(MAX_EXTERNAL_VOUCHER_ID_LENGTH)
+                    it[exportedKey] = exportedKeyOf(provider = provider, journalEntryId = journalEntryId)
+                    it[errorCode] = null
+                    it[errorMessage] = note?.take(MAX_ERROR_MESSAGE_LENGTH)
+                    it[finishedAt] = now
+                }
+            if (updated == 1) FencedWrite.APPLIED else FencedWrite.LOST_FENCE
         }
-    }
 
     fun markFailed(
         id: Uuid,
+        claimedGeneration: Int,
         errorCode: String,
         errorMessage: String?,
         now: LocalDateTime,
-    ) {
+    ): FencedWrite =
         transaction {
-            AccountingExportItemTable.update({ AccountingExportItemTable.id eq id }) {
-                it[status] = AccountingExportItemStatus.FAILED
-                it[AccountingExportItemTable.errorCode] = errorCode
-                it[AccountingExportItemTable.errorMessage] = errorMessage?.take(MAX_ERROR_MESSAGE_LENGTH)
-                it[finishedAt] = now
-            }
+            val updated =
+                AccountingExportItemTable.update({ stillOurClaim(id = id, claimedGeneration = claimedGeneration) }) {
+                    it[status] = AccountingExportItemStatus.FAILED
+                    it[AccountingExportItemTable.errorCode] = errorCode
+                    it[AccountingExportItemTable.errorMessage] = errorMessage?.take(MAX_ERROR_MESSAGE_LENGTH)
+                    it[finishedAt] = now
+                }
+            if (updated == 1) FencedWrite.APPLIED else FencedWrite.LOST_FENCE
         }
-    }
 
     fun markUnknown(
         id: Uuid,
+        claimedGeneration: Int,
         errorCode: String,
         now: LocalDateTime,
-    ) {
+        errorMessage: String? = null,
+    ): FencedWrite =
         transaction {
-            AccountingExportItemTable.update({ AccountingExportItemTable.id eq id }) {
-                it[status] = AccountingExportItemStatus.UNKNOWN
-                it[AccountingExportItemTable.errorCode] = errorCode
-                it[finishedAt] = now
-            }
+            val updated =
+                AccountingExportItemTable.update({ stillOurClaim(id = id, claimedGeneration = claimedGeneration) }) {
+                    it[status] = AccountingExportItemStatus.UNKNOWN
+                    it[AccountingExportItemTable.errorCode] = errorCode
+                    it[AccountingExportItemTable.errorMessage] = errorMessage?.take(MAX_ERROR_MESSAGE_LENGTH)
+                    it[finishedAt] = now
+                }
+            if (updated == 1) FencedWrite.APPLIED else FencedWrite.LOST_FENCE
+        }
+
+    // ── Automatic reconciliation of UNKNOWN items (V1.9.65) ──────────────────────────────────
+
+    /** An `UNKNOWN` item due for a voucher lookup, with the number of lookups made so far. */
+    data class ReconcileCandidate(
+        val item: ItemRow,
+        val reconcileChecks: Int,
+    )
+
+    /**
+     * `UNKNOWN` items whose lookup is due: older than [olderThan] (the provider's index may lag, so a fresh item is never judged),
+     * fewer than [maxChecks] lookups so far, [ReconcileCandidate]'s own schedule reached, and not already classified as a
+     * duplicate/mismatch (a repeat lookup would give the same answer). Oldest first.
+     */
+    fun dueReconcileCandidates(
+        providers: Collection<AccountingExportProvider>,
+        now: LocalDateTime,
+        olderThan: LocalDateTime,
+        maxChecks: Int,
+        limit: Int,
+    ): List<ReconcileCandidate> {
+        if (providers.isEmpty()) return emptyList()
+        return transaction {
+            AccountingExportItemTable
+                .selectAll()
+                .where {
+                    (AccountingExportItemTable.provider inList providers) and
+                        (AccountingExportItemTable.status eq AccountingExportItemStatus.UNKNOWN) and
+                        (AccountingExportItemTable.finishedAt lessEq olderThan) and
+                        (AccountingExportItemTable.reconcileChecks less maxChecks) and
+                        (AccountingExportItemTable.reconcileNextAt.isNull() or (AccountingExportItemTable.reconcileNextAt lessEq now)) and
+                        (
+                            AccountingExportItemTable.errorCode.isNull() or
+                                (AccountingExportItemTable.errorCode notInList RECONCILE_TERMINAL_ERROR_CODES)
+                        )
+                }.orderBy(AccountingExportItemTable.finishedAt, SortOrder.ASC)
+                .limit(limit)
+                .map { ReconcileCandidate(item = it.toItemRow(), reconcileChecks = it[AccountingExportItemTable.reconcileChecks]) }
         }
     }
+
+    /**
+     * Records one lookup for an `UNKNOWN` item. Only touches the item while it is still `UNKNOWN` (a human may have resolved it
+     * meanwhile). [exhaust] sets the counter to [maxChecks] so no further lookup happens (a conclusive result such as a
+     * duplicate, or a provider without lookup support). [newErrorCode] / [newErrorMessage] replace the item's reason when given.
+     */
+    fun recordReconcileCheck(
+        id: Uuid,
+        result: String,
+        nextAt: LocalDateTime?,
+        exhaust: Boolean,
+        maxChecks: Int,
+        newErrorCode: String? = null,
+        newErrorMessage: String? = null,
+    ): Boolean =
+        transaction {
+            val updated =
+                AccountingExportItemTable.update({
+                    (AccountingExportItemTable.id eq id) and (AccountingExportItemTable.status eq AccountingExportItemStatus.UNKNOWN)
+                }) {
+                    if (exhaust) it[reconcileChecks] = maxChecks else it[reconcileChecks] = reconcileChecks + 1
+                    it[reconcileNextAt] = nextAt
+                    it[reconcileLastResult] = result
+                    if (newErrorCode != null) it[errorCode] = newErrorCode
+                    if (newErrorMessage != null) it[errorMessage] = newErrorMessage.take(MAX_ERROR_MESSAGE_LENGTH)
+                }
+            updated == 1
+        }
+
+    /** Error codes after which a further lookup is pointless (the provider already answered conclusively). */
+    val RECONCILE_TERMINAL_ERROR_CODES = listOf("PROVIDER_DUPLICATE_OR_MISMATCH", "PROVIDER_DUPLICATE")
 
     /** Security review Fund 2026-09-07 (Runde 4, Befund 2): outcome of [resolveUnknown] --
      * distinguishes "id doesn't exist" from "exists but is not currently `UNKNOWN`" so the caller
@@ -808,6 +935,7 @@ internal object AccountingExportStore {
         resolution: AccountingExportUnknownItemResolution,
         externalVoucherId: String?,
         now: LocalDateTime,
+        automatic: Boolean = false,
     ): ResolveUnknownOutcome =
         transaction {
             val before =
@@ -839,7 +967,11 @@ internal object AccountingExportStore {
                                 externalVoucherId?.take(MAX_EXTERNAL_VOUCHER_ID_LENGTH)
                             it[errorCode] = null
                             it[errorMessage] =
-                                "Manuell durch Schatzmeister/Admin geprüft: Beleg wurde bei ${provider.displayName} gefunden."
+                                if (automatic) {
+                                    "Automatisch abgeglichen: Beleg wurde bei ${provider.displayName} per Belegnummer gefunden."
+                                } else {
+                                    "Manuell durch Schatzmeister/Admin geprüft: Beleg wurde bei ${provider.displayName} gefunden."
+                                }
                         }
                     }
                     it[finishedAt] = now
@@ -852,19 +984,21 @@ internal object AccountingExportStore {
 
     fun markRetryScheduled(
         id: Uuid,
+        claimedGeneration: Int,
         nextAttemptAt: LocalDateTime,
         errorCode: String,
         errorMessage: String?,
-    ) {
+    ): FencedWrite =
         transaction {
-            AccountingExportItemTable.update({ AccountingExportItemTable.id eq id }) {
-                it[status] = AccountingExportItemStatus.PENDING
-                it[AccountingExportItemTable.nextAttemptAt] = nextAttemptAt
-                it[AccountingExportItemTable.errorCode] = errorCode
-                it[AccountingExportItemTable.errorMessage] = errorMessage?.take(MAX_ERROR_MESSAGE_LENGTH)
-            }
+            val updated =
+                AccountingExportItemTable.update({ stillOurClaim(id = id, claimedGeneration = claimedGeneration) }) {
+                    it[status] = AccountingExportItemStatus.PENDING
+                    it[AccountingExportItemTable.nextAttemptAt] = nextAttemptAt
+                    it[AccountingExportItemTable.errorCode] = errorCode
+                    it[AccountingExportItemTable.errorMessage] = errorMessage?.take(MAX_ERROR_MESSAGE_LENGTH)
+                }
+            if (updated == 1) FencedWrite.APPLIED else FencedWrite.LOST_FENCE
         }
-    }
 
     /** Phase A0 -- any `SENDING` item claimed before [staleCutoff] is reset to `UNKNOWN`, NEVER back
      * to `PENDING` (unlike `WebhookDeliveryQueue.reapStaleClaims`) -- see `AccountingExportPoller`

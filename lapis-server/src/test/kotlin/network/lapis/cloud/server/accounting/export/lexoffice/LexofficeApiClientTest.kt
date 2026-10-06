@@ -1,8 +1,12 @@
 package network.lapis.cloud.server.accounting.export.lexoffice
 
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -21,8 +25,10 @@ import network.lapis.cloud.server.accounting.export.CategoryListOutcome
 import network.lapis.cloud.server.accounting.export.ConnectionTestOutcome
 import network.lapis.cloud.server.accounting.export.ExternalCategory
 import network.lapis.cloud.server.accounting.export.OutboundVoucher
+import network.lapis.cloud.server.accounting.export.VoucherLookupOutcome
 import network.lapis.cloud.server.accounting.export.VoucherPushOutcome
 import network.lapis.cloud.shared.domain.AccountingExportDirection
+import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.math.BigDecimal
 import java.net.ConnectException
@@ -260,6 +266,171 @@ class LexofficeApiClientTest :
                     ExternalCategory(id = "a", name = "Einnahmen", groupName = "Einnahmen", direction = AccountingExportDirection.INCOME),
                     ExternalCategory(id = "b", name = "Reisekosten", groupName = "Reisen", direction = AccountingExportDirection.EXPENSE),
                 )
+        }
+
+        // ── findVouchersByNumber (V1.9.65) ───────────────────────────────────────────────
+
+        fun voucherListBody(
+            vararg numbers: String,
+            totalPages: Int = 1,
+        ): String {
+            val items =
+                numbers.joinToString(",") { n ->
+                    """{"id":"id-$n","voucherType":"salesinvoice","voucherStatus":"open","voucherNumber":"$n",""" +
+                        """"voucherDate":"2026-01-31T00:00:00.000+01:00","totalAmount":119.0,"currency":"EUR","archived":false}"""
+                }
+            return """{"content":[$items],"first":true,"last":true,"totalPages":$totalPages,""" +
+                """"totalElements":${numbers.size},"size":250,"number":0}"""
+        }
+
+        test(
+            "findVouchersByNumber: sends exactly the documented query, url-encoded, with Bearer auth, and returns only EXACT number matches",
+        ) {
+            var captured: HttpRequestData? = null
+            val client =
+                mockClient { request ->
+                    captured = request
+                    // The API's filter semantics are unspecified: a near-miss in the answer must be dropped client-side.
+                    respond(
+                        voucherListBody("LAPIS-20260131-1a2b3c4d", "LAPIS-20260131-1a2b3c4d-X"),
+                        HttpStatusCode.OK,
+                        headersOf(HttpHeaders.ContentType, "application/json"),
+                    )
+                }
+            val apiClient = LexofficeApiClient(rateLimiter = fastLimiter(), httpClient = client)
+            val outcome = apiClient.findVouchersByNumber(token = TEST_TOKEN, voucherNumber = "LAPIS-20260131-1a2b3c4d")
+            val request = requireNotNull(captured)
+            request.method.value shouldBe "GET"
+            request.url.encodedPath shouldBe "/v1/voucherlist"
+            request.url.parameters["voucherType"] shouldBe "salesinvoice,purchaseinvoice"
+            request.url.parameters["voucherStatus"] shouldBe "any"
+            request.url.parameters["voucherNumber"] shouldBe "LAPIS-20260131-1a2b3c4d"
+            request.url.parameters["size"] shouldBe "250"
+            request.headers[HttpHeaders.Authorization] shouldBe "Bearer $TEST_TOKEN"
+            request.url.toString() shouldNotContain TEST_TOKEN
+            val found = (outcome as VoucherLookupOutcome.Found).matches.single()
+            found.id shouldBe "id-LAPIS-20260131-1a2b3c4d"
+            found.voucherDate shouldBe LocalDate(2026, 1, 31)
+            found.totalAmount?.compareTo(BigDecimal("119.00")) shouldBe 0
+        }
+
+        test("findVouchersByNumber: a number with reserved characters is passed as a parameter, never concatenated into the path") {
+            var captured: HttpRequestData? = null
+            val client =
+                mockClient { request ->
+                    captured = request
+                    respond(voucherListBody(), HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                }
+            LexofficeApiClient(rateLimiter = fastLimiter(), httpClient = client)
+                .findVouchersByNumber(token = TEST_TOKEN, voucherNumber = "A&voucherType=any#x y")
+            val request = requireNotNull(captured)
+            request.url.parameters["voucherNumber"] shouldBe "A&voucherType=any#x y"
+            request.url.parameters["voucherType"] shouldBe "salesinvoice,purchaseinvoice"
+            request.url.encodedPath shouldBe "/v1/voucherlist"
+        }
+
+        test("findVouchersByNumber: an empty page is NotFound, an incomplete page without a hit is Failed (absence is not proven)") {
+            val empty = mockClient { respond(voucherListBody(), HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json")) }
+            (
+                LexofficeApiClient(
+                    rateLimiter = fastLimiter(),
+                    httpClient = empty,
+                ).findVouchersByNumber(token = TEST_TOKEN, voucherNumber = "N-1") is VoucherLookupOutcome.NotFound
+            ) shouldBe
+                true
+            val partial =
+                mockClient {
+                    respond(
+                        voucherListBody("other", totalPages = 3),
+                        HttpStatusCode.OK,
+                        headersOf(HttpHeaders.ContentType, "application/json"),
+                    )
+                }
+            val outcome =
+                LexofficeApiClient(
+                    rateLimiter = fastLimiter(),
+                    httpClient = partial,
+                ).findVouchersByNumber(token = TEST_TOKEN, voucherNumber = "N-1")
+            (outcome as VoucherLookupOutcome.Failed).errorCode shouldBe "LOOKUP_INCOMPLETE"
+        }
+
+        test("findVouchersByNumber: 429 is Failed with Retry-After, 401 is Failed UNAUTHORIZED, 500 is Failed, garbage is Failed") {
+            val limited = mockClient { respond("", HttpStatusCode.TooManyRequests, headersOf(HttpHeaders.RetryAfter, "7")) }
+            val rate =
+                LexofficeApiClient(
+                    rateLimiter = fastLimiter(),
+                    httpClient = limited,
+                ).findVouchersByNumber(token = TEST_TOKEN, voucherNumber = "N-1")
+            (rate as VoucherLookupOutcome.Failed).errorCode shouldBe "RATE_LIMITED"
+            rate.retryAfter shouldBe 7.seconds
+            val unauthorized = mockClient { respond("{}", HttpStatusCode.Unauthorized) }
+            (
+                LexofficeApiClient(
+                    rateLimiter = fastLimiter(),
+                    httpClient = unauthorized,
+                ).findVouchersByNumber(token = TEST_TOKEN, voucherNumber = "N-1") as VoucherLookupOutcome.Failed
+            ).errorCode shouldBe
+                "UNAUTHORIZED"
+            val server = mockClient { respond("oops", HttpStatusCode.InternalServerError) }
+            (
+                LexofficeApiClient(
+                    rateLimiter = fastLimiter(),
+                    httpClient = server,
+                ).findVouchersByNumber(token = TEST_TOKEN, voucherNumber = "N-1") as VoucherLookupOutcome.Failed
+            ).errorCode shouldBe
+                "HTTP_500"
+            val garbage = mockClient { respond("not json", HttpStatusCode.OK) }
+            (
+                LexofficeApiClient(
+                    rateLimiter = fastLimiter(),
+                    httpClient = garbage,
+                ).findVouchersByNumber(token = TEST_TOKEN, voucherNumber = "N-1") as VoucherLookupOutcome.Failed
+            ).errorCode shouldBe
+                "UNEXPECTED_RESPONSE"
+        }
+
+        test("findVouchersByNumber: a response body larger than the 64 KiB cap is discarded, never partially parsed") {
+            val client =
+                mockClient { respond("x".repeat(70 * 1024), HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json")) }
+            val outcome =
+                LexofficeApiClient(
+                    rateLimiter = fastLimiter(),
+                    httpClient = client,
+                ).findVouchersByNumber(token = TEST_TOKEN, voucherNumber = "N-1")
+            (outcome as VoucherLookupOutcome.Failed).errorCode shouldBe "UNEXPECTED_RESPONSE"
+        }
+
+        test("findVouchersByNumber: a network failure is Failed NETWORK_ERROR and the token never reaches a log line") {
+            val root = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME) as ch.qos.logback.classic.Logger
+            val appender = ListAppender<ILoggingEvent>()
+            appender.start()
+            root.addAppender(appender)
+            try {
+                val client = mockClient { throw ConnectException("boom") }
+                val outcome =
+                    LexofficeApiClient(
+                        rateLimiter = fastLimiter(),
+                        httpClient = client,
+                    ).findVouchersByNumber(token = TEST_TOKEN, voucherNumber = "N-1")
+                (outcome as VoucherLookupOutcome.Failed).errorCode shouldBe "NETWORK_ERROR"
+            } finally {
+                root.detachAppender(appender)
+            }
+            appender.list.joinToString("\n") { it.formattedMessage + (it.throwableProxy?.message ?: "") } shouldNotContain TEST_TOKEN
+        }
+
+        test("findVouchersByNumber: the base URL is fixed to the constant, no input can redirect the request") {
+            var host: String? = null
+            val client =
+                mockClient { request ->
+                    host = request.url.host
+                    respond(voucherListBody(), HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                }
+            LexofficeApiClient(
+                rateLimiter = fastLimiter(),
+                httpClient = client,
+            ).findVouchersByNumber(token = TEST_TOKEN, voucherNumber = "https://evil.example/x")
+            host shouldBe "api.lexware.io"
         }
 
         test("LexofficeRateLimiter: five consecutive acquire() calls take at least 4 * minGap of real wall-clock time") {
