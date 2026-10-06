@@ -668,9 +668,9 @@ class ElectionMinimumParticipationTest :
                         it[number] = "MP-2026-${id.toString().take(6)}"
                         it[title] = "Legacy Resolution"
                         it[text] = "Legacy text"
-                        it[votesYes] = 31
-                        it[votesNo] = 17
-                        it[votesAbstain] = 13
+                        it[votesYes] = 3171
+                        it[votesNo] = 1749
+                        it[votesAbstain] = 1313
                         it[quorumMet] = true
                         it[status] = ResolutionStatus.ADOPTED
                         it[decidedAt] = LocalDateTime(2026, 3, 1, 19, 0)
@@ -695,9 +695,9 @@ class ElectionMinimumParticipationTest :
                                     number = "MP-LEGACY",
                                     title = "Legacy Resolution",
                                     text = "Legacy text",
-                                    votesYes = 31,
-                                    votesNo = 17,
-                                    votesAbstain = 13,
+                                    votesYes = 3171,
+                                    votesNo = 1749,
+                                    votesAbstain = 1313,
                                     quorumMet = true,
                                     status = ResolutionStatus.ADOPTED,
                                     decidedAt = LocalDateTime(2026, 3, 1, 19, 0),
@@ -717,18 +717,18 @@ class ElectionMinimumParticipationTest :
                 resolutions.getValue(secretResolution.toString()).figuresWithheld shouldBe true
                 resolutions.getValue(secretResolution.toString()).votesYes shouldBe 0
                 resolutions.getValue(openResolution.toString()).figuresWithheld shouldBe false
-                resolutions.getValue(openResolution.toString()).votesYes shouldBe 31
+                resolutions.getValue(openResolution.toString()).votesYes shouldBe 3171
 
                 val detail = json.decodeFromString(MeetingDetailDto.serializer(), client.read("/t/meeting/$meetingId", plainMember))
                 detail.resolutions.first { it.id == secretResolution.toString() }.votesYes shouldBe 0
 
                 val auditList = client.read("/t/audit/$secretResolution", boardAccount)
-                auditList shouldNotContainNumber "31"
-                auditList shouldNotContainNumber "17"
+                auditList shouldNotContainNumber "3171"
+                auditList shouldNotContainNumber "1749"
                 val entries = json.decodeFromString(ListSerializer(AuditLogEntryDto.serializer()), auditList)
                 entries.single().figuresWithheld shouldBe true
                 val single = client.read("/t/audit-entry/${entries.single().id}", boardAccount)
-                single shouldNotContainNumber "31"
+                single shouldNotContainNumber "3171"
                 val singleEntry = json.decodeFromString(AuditLogEntryDto.serializer(), single)
                 singleEntry.figuresWithheld shouldBe true
                 val maskedSnapshot = json.decodeFromString(ResolutionSnapshot.serializer(), singleEntry.afterSnapshot.orEmpty())
@@ -738,13 +738,13 @@ class ElectionMinimumParticipationTest :
                 val openEntries = client.read("/t/audit/$openResolution", boardAccount)
                 val openEntry = json.decodeFromString(ListSerializer(AuditLogEntryDto.serializer()), openEntries).single()
                 openEntry.figuresWithheld shouldBe false
-                json.decodeFromString(ResolutionSnapshot.serializer(), openEntry.afterSnapshot.orEmpty()).votesYes shouldBe 31
+                json.decodeFromString(ResolutionSnapshot.serializer(), openEntry.afterSnapshot.orEmpty()).votesYes shouldBe 3171
 
                 // The stored row is untouched by the masking: it still holds the real figures and its hash still matches a recomputation
                 // (the global chain is not asserted here: other specs sharing the database may leave their own rows behind).
                 transaction {
                     val raw = AuditLogEntryTable.selectAll().where { AuditLogEntryTable.entityId eq secretResolution }.single()
-                    raw[AuditLogEntryTable.afterSnapshot].orEmpty() shouldContain "\"votesYes\":31"
+                    raw[AuditLogEntryTable.afterSnapshot].orEmpty() shouldContain "\"votesYes\":3171"
                     AuditHashChain.computeHash(
                         AuditHashChain.ChainInput(
                             sequenceNumber = raw[AuditLogEntryTable.sequenceNumber],
@@ -769,14 +769,14 @@ class ElectionMinimumParticipationTest :
                 page.getValue(secretResolution.toString()).votesNo shouldBe null
                 page.getValue(secretResolution.toString()).votesAbstain shouldBe null
                 page.getValue(secretResolution.toString()).figuresWithheld shouldBe true
-                page.getValue(openResolution.toString()).votesYes shouldBe 31
+                page.getValue(openResolution.toString()).votesYes shouldBe 3171
                 page.getValue(openResolution.toString()).figuresWithheld shouldBe false
                 // the null is on the wire, not omitted
                 publicBody shouldContain "\"votesYes\":null"
                 publicBody shouldContain "\"figuresWithheld\":true"
                 val publicSingle = client.get("/api/v1/resolutions/$secretResolution") { header("Authorization", "Bearer ${key.rawKey}") }
                 val singleBody = publicSingle.bodyAsText()
-                singleBody shouldNotContainNumber "31"
+                singleBody shouldNotContainNumber "3171"
                 singleBody shouldContain "\"votesYes\":null"
                 singleBody shouldContain "\"figuresWithheld\":true"
             }
