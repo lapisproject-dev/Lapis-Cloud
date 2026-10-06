@@ -57,7 +57,8 @@ this repository. This README describes only the technical scope.
   (Kotlin Multiplatform, Android + iOS): login, video-conference join, a home hub that opens the
   main web sections (including events), and the member-card download. Not in any app store yet. Its section and video
   features need the optional WebView bridge on the server (off by default, see `CHANGELOG.md`
-  `[0.22.0]`).
+  `[0.22.0]`); its member tile "Veranstaltungen" uses the section key `my-events`, which needs a server from `v0.29.0` on
+  (an older server answers `400` and the app shows a hint).
 * https://kuml.dev[kUML] — the modeling language used for every diagram in this repository
   (see below).
 * `lapisproject-dev/Lapis-Cloud-Ops` (private) — the real, filled-in deployment config (`.env`,
@@ -177,7 +178,7 @@ LTR-weighted guest pool isn't possible yet, since no guest LTR-earning mechanism
 client UI for Politician Profiles exists yet (backend/RPC-only, unchanged from V0.6.4). See
 `CHANGELOG.md` `[0.6.0]` for the original scope-cut reasoning and `[0.9.0]` for the closure.
 
-Eighteen further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
+Nineteen further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
 in the same release session: `v0.16.0` was placed at the historical commit boundary matching an
 already-published website release-notes page for that version, and `v0.17.0` immediately after it
 for the newer work.
@@ -535,6 +536,22 @@ waves are written but were not executed. Operators: take a backup and apply migr
 `V1__baseline.sql` is unchanged, so no `flywayRepair` is needed. Open polls close and running events end
 up to two hours earlier than before (at the typed-in local time) -- deploy while no vote is running --
 see `CHANGELOG.md` `[0.28.0]`.
+
+**`v0.29.0`** spans eleven numbered waves (V1.9.50 through V1.9.60) plus test-only stability fixes; see
+`CHANGELOG.md` `[0.29.0]`, whose release summary lists the **API behaviour changes** first. **Administrators are
+protected from each other** (V1.9.57): a temporary password, taking the ADMIN role away or blocking the login of another
+administrator needs the approval of a second administrator, and the board no longer reads an administrator's address and
+GwG data. **The e-mail address of a member changes only through a safe change process** (V1.9.56: own change with the
+password, or a proposal / ownership proof plus a 72 hour warning period). **Secret elections** disclose no figures below
+five ballots, and a receipt no longer proves the choice (V1.9.53/V1.9.54; the public resolutions API returns `null`
+figures with `figuresWithheld`). **"Mitgliederentwicklung"** shows the members per status over time from a new
+status history (V1.9.59). PostgreSQL session timeouts, sanitized database errors and idempotent payment paths (V1.9.55),
+deadlock-free member-row locks (V1.9.60), a three-job CI (V1.9.58), UI stragglers and the conference lobby (V1.9.50/V1.9.51)
+and the mobile section key `my-events` (V1.9.52) complete the release. No wave was played through by users on Staging
+yet. Operators: take a backup and apply migrations `V70` to `V72` (`V1__baseline.sql` unchanged, no `flywayRepair`);
+check the number of administrators per instance (an approval needs at least three, the approver at least 7 days in the
+role); third-party e-mail changes and temporary-password requests against administrators need `LAPIS_SMTP_*`; the new
+`LAPIS_DB_*_TIMEOUT_MS` variables default to 10 s / 60 s / 120 s -- see `CHANGELOG.md` `[0.29.0]`.
 
 === Auction opt-in (V0.6.2)
 
@@ -1565,7 +1582,7 @@ casting, exactly one request however often the button is clicked), a one-time re
 ballots, the four-eyes count approval (only real committee members, no admin bypass), the result and
 a receipt check. Since V1.9.46 the single ballots of a secret election are never delivered, in any
 status and to any role; open-ballot elections keep their named list. A secret election with fewer than five ballots
-shows no vote counts (V1.9.53, unreleased; API behaviour change). V1.9.23 hardened the server: the four ways to decide a motion exclude each other
+shows no vote counts (V1.9.53, since `v0.29.0`; API behaviour change). V1.9.23 hardened the server: the four ways to decide a motion exclude each other
 (`MotionDecisionLock`), a tally requires the motion to still be scheduled, and the ballot of a secret
 election carries no time and no order. See `docs/architecture/elections-ui.adoc` and
 `docs/architecture/elections-integrity.adoc`.
@@ -1574,9 +1591,11 @@ election carries no time and no order. See `docs/architecture/elections-ui.adoc`
 
 A real end-to-end election run with several accounts on Staging is still outstanding. The concurrency tests run on H2 and, since V1.9.37, also on PostgreSQL (the Postgres test lane). List and ranked-choice
 elections are rejected by the server. Who approved a tally is visible only as a count.
-`castVoteBallot` and `castResistanceBallot` have their own races against closing. Members cannot
+`recordResolution` and `withdrawMotion` still check only the election, not a running vote or consensus. (Until V1.9.54 this
+section also listed races of `castVoteBallot` and `castResistanceBallot` against closing; both now lock the vote or consensus
+row before their status check.) Members cannot
 recount a secret election themselves (a deliberate consequence of V1.9.46). Since V1.9.53 a secret election
-with fewer than five ballots discloses no vote counts (unreleased; see `docs/architecture/elections-integrity.adoc`,
+with fewer than five ballots discloses no vote counts (since `v0.29.0`; see `docs/architecture/elections-integrity.adoc`,
 "Minimum participation"); from five ballots on, or for an open election, the counts are delivered, so with a unanimous
 result the votes are known. The receipt check tells the holder of a receipt code only that the ballot arrived and was counted, never the chosen option.
 

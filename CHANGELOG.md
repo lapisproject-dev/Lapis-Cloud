@@ -6,6 +6,77 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.29.0] — 2026-10-06
+
+Release summary (the detail is in the sections below, grouped by wave V1.9.50 -- V1.9.60):
+
+- **API BEHAVIOR CHANGES** (read these first if anything outside the bundled web client talks to the server):
+  - **Public REST API `/api/v1/resolutions[/{id}]`**: `votesYes`, `votesNo`, `votesAbstain` are now **nullable** (explicit `null` when withheld) and the new
+    field `figuresWithheld` is always present. A secret election with fewer than five ballots discloses no per-option figure; the RPC DTOs
+    (`ElectionResultDto`, `ElectionDto`, `ResolutionDto`, `AuditLogEntryDto`) gained `figuresWithheld` (defaulted `false`) and deliver zeroed figures (V1.9.53).
+  - **Receipt check of secret elections**: `verifyReceipt` returns `optionLabel = null` in every status and the new `ReceiptVerificationDto.counted`;
+    `verifySystemicConsensusReceipt` never returns `resistances`; the cast result of an anonymous rating has an empty `id` (V1.9.54, receipt-freeness).
+  - **Kilua RPC error text of SQL errors is blanked**: an untyped exception from the database no longer reaches the client as `e.message`
+    (`RpcErrorSanitizer`); lock/statement/idle timeouts, deadlocks and serialization failures arrive as the typed `ServiceBusyException`; non-RPC routes
+    answer a generic 500, timeouts 503 with `Retry-After` (V1.9.55).
+  - **E-mail address of an existing member changes only through the new `IMemberEmailChangeService`** (`EmailChangeService`):
+    `updateMemberCoreData` keeps its signature but rejects any address change with `EmailChangeNotAllowedException`; `grantMemberAccount` refuses while a
+    change is open (V1.9.56).
+  - **Admin actions against another ADMIN need a second ADMIN**: temporary password, taking the ADMIN role away and blocking the login of another
+    administrator answer `PeerApprovalRequiredException` (a second administrator could approve, use `IPrivilegedActionService`) or `NoSecondAdminException`
+    (none could); the e-mail emergency path, the manual Keycloak link and GDPR erasure/execution are refused against another administrator
+    (V1.9.57).
+  - **BOARD no longer reads an ADMIN's address and GwG (beneficial-owner) data**: a marked, value-free answer (`MemberAddressDataDto.protectedTarget`)
+    instead of an error (V1.9.57).
+  - **`IAuthService.changePassword` is rate-limited**: 5 wrong current passwords per member and 15 minutes; over the limit even the correct password is
+    refused until the window ends (V1.9.57).
+  - `resolveMotion` is refused while an election, an `OPEN` meritocratic vote or a running systemic consensus exists for the motion; `submitMotion` refuses an
+    amendment while the target's decision path runs (V1.9.54).
+- **Operator notes**:
+  - **Take a backup, then deploy.** New migrations **`V70`** (e-mail change), **`V71`** (privileged action requests, `account.role_changed_at`) and
+    **`V72`** (member status history) are additive and run automatically. `V1__baseline.sql` is unchanged since v0.27.0, so **no `flywayRepair`** is
+    needed.
+  - **V72 backfills the status history** from the audit log, acknowledgments, `reviewed_at`, `friend_since` and `date_of_death`. After the start check the log
+    for `member_status_history is inconsistent with member.status for N member(s)`: the warning is written only when N is above 0, so **no such line
+    means 0**, which is the expected value.
+  - **New environment variables** `LAPIS_DB_LOCK_TIMEOUT_MS`, `LAPIS_DB_STATEMENT_TIMEOUT_MS`, `LAPIS_DB_IDLE_TX_TIMEOUT_MS` (milliseconds, defaults
+    10 s / 60 s / 120 s, `0` = off; unset means the default). A blank or invalid value stops the start (the error names the variable only);
+    `deploy/example/docker-compose.yml` forwards them with the defaults.
+  - **SMTP (`LAPIS_SMTP_*`) is required** for an e-mail change by a third party (board member, administrator, emergency path) and for a temporary-password
+    request against an administrator. Without SMTP these are refused with a typed error; members still change their own address with their password.
+  - **Operator console**: `LAPIS_BOOTSTRAP_ACTION=set-role` / `set-status` (re-activation only) / `reset-password` (now also ends every session and
+    outstanding reset token); same last-admin protection, see `deploy/example/README.adoc`. Checked on Staging on 2026-10-05 with a non-existent target
+    address (clean error, no data change).
+  - **Count the administrators of every instance before deploying.** A four-eyes approval needs **at least three administrators** (requester and target are
+    excluded), and the approver must have held the ADMIN role for **at least 7 days** at the time of the request. With one or two administrators, or
+    with a freshly promoted third one, the protected actions answer "no second administrator"; the password-reset mail, every action on one's own
+    account and the console stay available. There is no switch to turn the protection off. PdV and ELB likely have one or two administrators.
+- **Members and board**: safe e-mail address change with proposals, ownership proof and a 72 hour warning period (V1.9.56); member counts over time,
+  screen "Mitgliederentwicklung" with chart, table and CSV export (V1.9.59); four-eyes peer protection between administrators with a pending-approvals card
+  and objection link (V1.9.57).
+- **Elections**: minimum participation (five ballots) for the figures of secret elections (V1.9.53); receipts no longer prove the choice, `resolveMotion`
+  is locked against running decision paths, cast-versus-close races closed for meritocratic bids and consensus ratings (V1.9.54).
+- **Robustness**: PostgreSQL session timeouts, narrow duplicate detection on money paths, provider idempotency keys derived from the checkout session,
+  single-flight contribution checkout (V1.9.55); member-row locks use `FOR NO KEY UPDATE` so they no longer deadlock against audit entries (V1.9.57 for the
+  peer-protection paths, V1.9.60 for 17 more sites).
+- **UI**: create flows and action icons aligned with the UI guideline in Mitfahrerzentrale, Artikel, "Meine Daten" and about 40 more files (V1.9.50);
+  conference lobby start action in the title row, API keys behind a collapsed form (V1.9.51).
+- **Mobile bridge**: section key `my-events` for the companion app (V1.9.52, server only; the bridge stays off by default).
+- **CI**: three parallel jobs (`check`, `postgres`, `browser`), several H2 test JVMs, and the workflow fails when a test lane was skipped (V1.9.58).
+  Measured: about 13.5 minutes when the server really compiles and tests, below 8 minutes with the build cache (was about 25).
+- **Not yet verified in real use**: no wave of this release was played through by users on Staging (the V1.9.50 test plan is written, not executed; the
+  later waves rest on automated tests); new translations were written by an agent, not by native speakers. See "Known limitations of this release" at the end of this section.
+
+### Fixed -- release housekeeping
+
+- **Flaky tests and CI stability** (test and CI code only, no production change): the Karma browser tests ran in parallel with the server tests and
+  starved (`aa0cdef6`, superseded by the separate `browser` job of V1.9.58); generous Karma disconnect/ping timeouts (`354a0639`); slow-CI DOM tests wait for
+  the app scope to be idle, `awaitUntil`/`formTest` budgets and readable failure output (`bfab7d49`); numeric "does not contain" assertions no longer match
+  digits inside random UUIDs (`aa6144e1`, `8cc4647a`); the member-statistics theme-switch test brings its own theme tokens (`5f19e0a0`).
+- Two stale code comments refreshed (`DunningService`, `MemberMap`; `d8f16f21`).
+- **`build.gradle.kts` version** is `0.29.0`; the MCP `serverInfo.version` constant (`MCP_SERVER_VERSION`, bumped by hand, had stayed at `0.23.0`) is
+  `0.29.0` as well.
+
 ### Added
 
 - **Member counts over time** (V1.9.59, `V72__member_status_history.sql`, `IMemberStatisticsService`, `docs/architecture/member-status-history.adoc`). New screen "Mitgliederentwicklung"
@@ -16,7 +87,7 @@ All notable changes to this project are documented here. Format follows
   - **Operator note: migration V72 backfills the past in plain SQL** (audit log, friend-terms / membership-agreement acknowledgments, `reviewed_at`, `friend_since`,
     `date_of_death`, then anchors and a closing row to `member.status`). Additive, idempotent in its inserts, `member` and `audit_log_entry` byte-identical. Rows it reconstructs
     carry `source BACKFILL_*` and `recorded_at NULL`; every change after the deployment is recorded live. The server logs once at start the NUMBER of members whose latest history row
-    disagrees with `member.status` (a warning, never an id); it should be 0.
+    disagrees with `member.status` (a warning, never an id); it should be 0. (The warning is written only when the number is above 0: no such line means 0.)
   - Every writer of `member.status` now appends the history in the same transaction under the member row lock (13 sites: the central status mutation, registration, approval,
     rejection, direct creation, leaving, friend registration, applying for membership, CSV import, first-admin bootstrap, OIDC guest, dev and staging seed);
     `MemberStatusWriteTripwireTest` pins that no other writer exists and that each calls the recorder.
@@ -159,7 +230,8 @@ All notable changes to this project are documented here. Format follows
 ### Known limitations (V1.9.58)
 
 - The CI times in `ci-pipeline.adoc` are an ESTIMATE (about 10 to 12 minutes instead of about 25); they were not measured on GitHub. The 3.8-minute run quoted
-  earlier was a build-cache effect (compile and `test` served `FROM-CACHE`), not a baseline.
+  earlier was a build-cache effect (compile and `test` served `FROM-CACHE`), not a baseline. (Status at the time; measured since, see `ci-pipeline.adoc`: about 13.5 minutes when the
+  server really compiles and tests, so the estimate was narrowly missed; below 8 minutes with the build cache.)
 - Server main and test are compiled in two jobs (parallel, not shared); the module is not split. The Gradle configuration cache is not reused across CI runs.
 - `ElectionIntegrityTest` (about 2.5 minutes, H2 lock timeouts instead of orderly waits) is the critical path of the `check` job; the H2 doubles of the race
   scenarios stay because the repository convention demands the same assertions on both databases.
@@ -188,7 +260,8 @@ All notable changes to this project are documented here. Format follows
   way to change an administrator.
 - A temporary-password request against an administrator needs `LAPIS_SMTP_*` (the target must be warned and gets the objection link); the other notices are best effort.
 - Migration `V71` is additive (`privileged_action_request`, `account.role_changed_at` NULL = tenured). The container invocation of the console is documented but **not verified against a
-  real container yet** -- a check item of the next staging deploy.
+  real container yet** -- a check item of the next staging deploy. (Status at the time; since then checked on Staging on 2026-10-05: with a non-existent target address the console ends
+  with a clean error and changes no data.)
 
 ### Known limitations (V1.9.57)
 
@@ -202,7 +275,8 @@ All notable changes to this project are documented here. Format follows
 - A request against an administrator who is DECEASED cannot be filed (the status needs a date of death); take the role away first, then set the status.
 - (done in V1.9.60, see Fixed) `FOR NO KEY UPDATE` was used only where a member-row lock precedes the account-union lock.
 - Rate limiters (requests per requester/target, objection link per IP, wrong passwords) are per server instance.
-- The operator console container invocation is documented, not verified against a real container.
+- The operator console container invocation is documented, not verified against a real container. (Status at the time; checked on Staging on 2026-10-05 with a non-existent address:
+  clean error, no data change.)
 
 ### Operator note (V1.9.56)
 
@@ -218,8 +292,10 @@ All notable changes to this project are documented here. Format follows
 - For a member WITHOUT a login, a change that became effective earlier stays the contact address; a later `grantMemberAccount` then decides the reset target
   (it refuses only while a change is still open).
 - An ADMIN can still take over another ADMIN's account with a temporary password (`setTemporaryPasswordForMember`, `sendPasswordResetMailToMember`): there is no
-  peer protection between administrators for the password actions. Not part of this change.
-- `IAuthService.changePassword` has no rate limit for a wrong current password (a stolen session could guess it). The address-change paths limit per member.
+  peer protection between administrators for the password actions. Not part of this change. (Status at the time; closed since V1.9.57: a temporary password for another
+  administrator needs the approval of a second administrator.)
+- `IAuthService.changePassword` has no rate limit for a wrong current password (a stolen session could guess it). The address-change paths limit per member. (Status at the time;
+  closed since V1.9.57: 5 wrong current passwords per member and 15 minutes.)
 - The mails carry German and English in one message (members have no language preference). A TREASURER cannot propose a change (as before: BOARD/ADMIN only).
 - The member row of the audit log shows the new `emailChange` facts as raw JSON in the protocol screen (the client decodes `MEMBER` snapshots as raw text).
 
@@ -296,9 +372,9 @@ All notable changes to this project are documented here. Format follows
     figure, bar or `aria-valuenow`, a yes/no election shows only the verdict, plus one explanatory sentence (not for 0 ballots). The participation line stays. The
     resolution book row, the audit detail and the open form show the rule. Four new msgids in all eight catalogs; the translations are by the agent, not by a native speaker.
   - Known limitations: *E1* a unanimous result from five ballots on still reveals every vote; *E2* five ballots can be five identifiable people; *E3* "majority reached"
-    below five ballots bounds the yes share; *E4* the receipt still names the own option; *E5* the database tables still hold the real figures; *E6* a masked old audit
+    below five ballots bounds the yes share; *E4* the receipt still names the own option (status at the time; resolved since V1.9.54, receipt-freeness: the check returns `optionLabel = null`); *E5* the database tables still hold the real figures; *E6* a masked old audit
     entry no longer matches its stored `entryHash` when an external verifier hashes the delivered snapshot (flagged by `figuresWithheld`; the old entry's figures stay recoverable by brute force from the delivered hashes for audit roles, new entries are not affected); *E7* the full organisation export
-    (ADMIN, database dump) is unmasked on purpose (lossless, restorable). "Receipt as proof / vote buying" stays open.
+    (ADMIN, database dump) is unmasked on purpose (lossless, restorable). "Receipt as proof / vote buying" stays open (status at the time; resolved since V1.9.54, see the receipt-freeness entry above).
   - Tests: `ElectionResultDisclosureTest` (rule), `ElectionMinimumParticipationTest` (matrix of secret/open x 0/1/4/5/6 ballots for YES_NO, SINGLE_CHOICE, MULTI_CHOICE, the
     abstention counts, all read paths, tally write, legacy rows, public API with explicit `null`, stored audit row and hash untouched, batch helper),
     `ServerElectionResultDisclosureTripwireTest`, extended `ElectionSecrecyTripwireTest` and `ElectionsI18nCatalogTest`, and DOM tests for the detail view, the
@@ -336,6 +412,31 @@ All notable changes to this project are documented here. Format follows
 - The article editor stays a full-screen mode that replaces the list (no inline create form).
 - Disclosure toggles ("Verlauf anzeigen", "Mehr anzeigen", ...) and domain icons (conference control bar, editor glyphs, three "<Zeilenart> hinzufügen" buttons) deliberately
   stay without a standard icon; they are in `R57_LEDGER` with a reason. The staging test plan of this wave is written, not executed.
+
+### Known limitations of this release (collected)
+
+- **The status history before V72 is an estimate.** A voluntary withdrawal (`leaveMembership`) leaves no audit entry and no date: it is placed one second after
+  the last evidence, so earlier ACTIVE counts are under-estimated; a member without earlier evidence counts only from the earliest date that proves the
+  current status; `effective_from` is the recording moment, not the legal effect (V1.9.59).
+- **Three member-row locks stay plain `FOR UPDATE`** because they may write `member_number` (`MemberNumberAllocator.ensureFor`, `MemberCardStore.lockMemberOrThrow`,
+  `MemberCardIssuance.requireEligible`): two actors acting on each other in the same instant can still deadlock there; `EmailChangeStore.lockMember` is raised to
+  `FOR UPDATE` when the address is written (V1.9.60).
+- **SEPA lock order**: `createDebitBatch` and `grantMandate` lock in crossing orders; documented, not re-ordered (money path, own wave).
+- **Elections**: `recordResolution` and `withdrawMotion` still check only the election, not a vote or a consensus; `addOption`/`removeOption` take no lock against
+  `freezeOptions`; a unanimous secret result from five ballots on still reveals every vote; the database still holds the real figures and `receipt_code`;
+  receipt-freeness means nobody can verify the chosen option individually (trust in server and election board).
+- **Path B0 of the e-mail change** (no usable password, e.g. a Keycloak-only administrator) against another administrator stays open (72 hours, ownership
+  proof, objection right of the old address).
+- **Collusion of two administrators** who each held the role for at least 7 days can overrule a target that does not read its mail within the 24 hour objection
+  period; audit trail and notices remain. A single administrator who lost mailbox and password and has no server access cannot be rescued.
+- **Rate limiters and the checkout single-flight are per server instance** (peer-protection requests, objection link, wrong passwords, address change).
+- **Kilua RPC still logs `e.message` of untyped SQL errors on the server**, including the `Detail:` line of a unique violation (the client is protected, the
+  log is not). Exposed re-runs a failed transaction up to three times, so one request can wait up to three lock timeouts.
+- **Not played through by users on Staging**: the staging test plan of V1.9.50 (`collapsible-forms-staging-test.adoc`) is written, not executed; a real
+  end-to-end election run with several accounts is still outstanding; for V1.9.53 -- V1.9.60 no user run on Staging is documented (the evidence is the
+  automated H2, PostgreSQL and Karma tests). The operator console was checked on Staging only with a non-existent address.
+- **Translations** of the new texts in the seven non-German catalogs were written by the agent, not by native speakers.
+- The detailed per-wave lists above remain authoritative.
 
 ## [0.28.0] — 2026-10-03
 

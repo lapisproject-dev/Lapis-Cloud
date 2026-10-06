@@ -142,8 +142,9 @@ docker compose run --rm --entrypoint java \
   <server-service> -cp '/app/server/lib/*' network.lapis.cloud.server.bootstrap.AdminBootstrapKt
 ----
 
-IMPORTANT: This container invocation is *not yet verified against a real container* (the class path and entry point are read from the image
-definition, the code path is tested in `AdminBootstrapEmergencyTest`). It is a check item of the next staging deploy.
+NOTE: This container invocation was checked on 2026-10-05 against the Staging container: with a non-existent target address the console starts
+(class path and entry point resolve) and ends with a clean error, no data is changed. That check covered the non-existent-address case; the code
+paths of the actions are tested in `AdminBootstrapEmergencyTest`. (Until that date this section said "not yet verified against a real container".)
 
 == What an operator must know
 
@@ -198,4 +199,5 @@ the subject is part of (never a token hash), deletes the rows in which the subje
 See `CHANGELOG.md`, section V1.9.57. In short: a single administrator who lost mailbox and password and has no server access cannot be
 rescued; two colluding administrators who each held the role for 7 days can overrule a target that does not read its mail within 24 hours (the audit remains);
 the board still sees postal addresses in mail merge, contribution invoices and donation receipts, and birth dates in the anniversary list;
-path B0 (no password) against an administrator stays open; the console command inside the container is not verified against a real container.
+path B0 (no password) against an administrator stays open. (The console command inside the container, listed here as unverified until then, was checked
+on Staging on 2026-10-05 with a non-existent address: clean error, no data change.)

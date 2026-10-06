@@ -300,9 +300,11 @@ with the same controls that precedent established):
   not merely hidden from the `listUnlinkedMembers()` result.
 
 **Deliberately not implemented** (documented tradeoff, not an oversight): manual linking is
-still possible for `BOARD`/`TREASURER`/`ADMIN` target accounts -- blocking it would be
-circumventable anyway (demote, link, re-promote), and the existing password-reset trust
-precedent already grants an ADMIN equivalent power over any account.
+still possible for `BOARD`/`TREASURER` target accounts -- the existing password-reset trust
+precedent grants an ADMIN equivalent power over those accounts. (Wave 2 also allowed it for `ADMIN`
+targets, arguing that a block could be circumvented by demote, link, re-promote. Since V1.9.57 that no
+longer holds: linking *another* administrator's account is refused, and demoting another administrator
+needs the approval of a second administrator -- see "Peer protection" above.)
 
 == Emergency-admin-login safety property
 
@@ -435,7 +437,9 @@ of what Waves 1-3 deliver:
   `member-email-change.adoc`). The account link still keys on the CURRENT `member.email`: a pending
   address never links. In Keycloak mode the local password acceptance is not available to non-ADMIN
   members, so a change against them always takes the ownership-plus-warning route.
-* **Manual linking is still possible for `BOARD`/`TREASURER`/`ADMIN` targets** (see "Manual linking").
+* **Manual linking is still possible for `BOARD`/`TREASURER` targets** (see "Manual linking"). Against
+  another administrator's account it is refused since V1.9.57 (peer protection); an administrator may
+  still link their own account.
 * **Keycloak setup mistakes are silent for members**: an unverified Keycloak email
   (`EMAIL_NOT_VERIFIED`) or a non-RS256 signing algorithm (`UNKNOWN_KID`) shows the member only the
   generic error page; the reason appears in the audit log and server log. See the deployment README's

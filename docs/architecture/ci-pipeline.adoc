@@ -15,12 +15,12 @@ H2 tests use several JVMs. No check was removed and no assertion was weakened.
 
 |`check` (Check: ktlint, detekt, H2 tests)
 |`./gradlew clean check -Plapis.test.forks=4`, without `postgresTest` and without the browser tests (excluded by name). Then
-`scripts/ci-assert-lane-ran.sh` requires at least 600 JUnit XML files (703 today).
+`scripts/ci-assert-lane-ran.sh` requires at least 600 JUnit XML files (703 at V1.9.58, 716 in CI run 37405895540 on 2026-10-06).
 |Longest job: compile, lint, and the H2 tests spread over four test JVMs.
 
 |`postgres` (Postgres lane)
 |`./gradlew clean :lapis-server:postgresTest` against a `postgres:17` service container. Then `ci-assert-lane-ran.sh` requires at least 30 XML files
-(33 today) and the result file of `ElectionIntegrityPostgresTest`.
+(33 at V1.9.58, 36 in CI run 37405895540 on 2026-10-06) and the result file of `ElectionIntegrityPostgresTest`.
 |The lane needs only the server compile and about 4 to 6 minutes of its own. It stays on ONE test JVM (see below).
 
 |`browser` (Browser tests, Karma)
@@ -109,22 +109,26 @@ Findings per hypothesis:
 * **Compile time (not reduced).** Server main and test are compiled in `check` and again in `postgres` (parallel instead of serial, no shared build
   cache between parallel jobs of one run). Splitting the module was out of scope.
 
-== Expected CI times (not measured)
+== CI times: estimate and measurement
 
-The CI numbers below are an estimate from the local measurements and the old CI timings. They are NOT measured. After the first push, fill in the
-real values from the Actions run.
+Before the first push the CI times were ESTIMATED from the local measurements and the old CI timings: `check` 10 to 12 min, `postgres` 8 to 11
+min, `browser` 4 to 6 min, workflow wall-clock 10 to 12 min (was about 25 min). Measured on GitHub after V1.9.59/V1.9.60 (job start to job end, from
+`gh run view`):
 
-[cols="2,1,1"]
+[cols="2,2,2"]
 |===
-|Job |Estimate |Measured in CI
+|Job |Run 37403706425 (2026-10-06, server code changed: server compile and H2 tests really ran) |Run 37405895540 (2026-10-06, client test change only: server compile and `:lapis-server:test` `FROM-CACHE`)
 
-|`check`|10 to 12 min|(to be filled in)
-|`postgres`|8 to 11 min|(to be filled in)
-|`browser`|4 to 6 min|(to be filled in)
-|Workflow wall-clock (longest job)|10 to 12 min, was about 25 min|(to be filled in)
+|`check`|13 min 31 s|2 min 31 s
+|`postgres`|11 min 17 s|7 min 29 s (`postgresTest` always runs, never cached)
+|`browser`|8 min 37 s (failed, a flaky test fixed by the next commit)|7 min 29 s
+|Workflow wall-clock|13 min 36 s|7 min 33 s
 |===
 
-If the compile of the server stays above 7 minutes on the runner, `check` ends nearer 12 to 13 minutes.
+So the estimate of 10 to 12 minutes was narrowly missed when the server really compiles and tests (about 13.5 minutes, `check` is the longest
+job, close to the "12 to 13 minutes" foreseen for a slow server compile); still about half of the 25 minutes before V1.9.58. With the build cache
+(only client or documentation changes) the workflow can end below 8 minutes; then the Postgres lane and the browser job are the longest. Two runs
+are not a statistic: treat the figures as orders of magnitude.
 
 == Reproduce locally
 
@@ -156,4 +160,5 @@ Never set `LAPIS_DB_URL`. Per-class times come from `lapis-server/build/test-res
 * The Gradle configuration cache is not reused across CI runs (it would need an encryption key as a new secret).
 * The browser job has a fixed floor of about 4 to 6 minutes.
 * The H2 concurrency doubles still take minutes; ElectionIntegrityTest is the critical path of the `check` job.
-* The CI times above are estimates until the first run is measured.
+* The measured CI times rest on two runs (see "CI times: estimate and measurement"); without the build cache the 10 to 12 minute estimate is
+  narrowly missed (about 13.5 minutes).

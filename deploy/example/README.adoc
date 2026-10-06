@@ -345,6 +345,14 @@ curl -s -o /dev/null -w '%{http_code}\n' https://<the instance's public URL>/
 `200` (or `401` on an instance behind HTTP basic auth, e.g. staging) from `curl`, confirm the new
 version is live. A stack trace, a non-2xx/401 status, or a Flyway migration-count mismatch means
 stop and investigate -- do not treat "the container started" alone as success.
++
+Since migration `V72` (V1.9.59, tag `v0.29.0`) also look for `member_status_history is inconsistent with member.status for N member(s)` in the
+log. The line is written only when N is above 0; its absence means the status history V72 reconstructed agrees with every member's current
+status. If it appears, keep the instance running (nothing is blocked) and investigate, see `docs/architecture/member-status-history.adoc`.
+Since V1.9.55 the server also refuses to start on an invalid `LAPIS_DB_LOCK_TIMEOUT_MS`, `LAPIS_DB_STATEMENT_TIMEOUT_MS` or
+`LAPIS_DB_IDLE_TX_TIMEOUT_MS` (milliseconds, `0` = off; the error names the variable). `docker-compose.yml` forwards them with the defaults
+10000 / 60000 / 120000; an unset variable also means the default, but an EMPTY one (e.g. `${VAR:-}` without a default) stops the start. See
+`docs/architecture/database-timeouts-and-retries.adoc`.
 
 . **If something goes wrong after this point**, the pre-deploy dump from step 1 is the way back:
 stop `lapis-server`, restore the dump into `postgres` (see "Migrating from a prior bare-JVM +
@@ -758,7 +766,8 @@ own account and the operator console below stay available, nobody is locked out.
 The notices (mail to the target, to the approvers, to all other administrators when a new one appears) need `LAPIS_SMTP_*`; a temporary-password request
 against an administrator is refused without outbound mail (the target could not be warned).
 
-Operator console (emergency path, no network endpoint). *Not yet verified against a real container -- check it at the next staging deploy:*
+Operator console (emergency path, no network endpoint). Checked on Staging on 2026-10-05 with a non-existent target address: the container invocation
+below starts, ends with a clean error and changes no data:
 
 [source,bash]
 ----

@@ -20,7 +20,7 @@ internal const val MCP_PROTOCOL_VERSION = "2025-06-18"
  * exists -- checked by `McpConformanceTest` only for shape (a non-blank string), never for the
  * exact value.
  */
-internal const val MCP_SERVER_VERSION = "0.23.0"
+internal const val MCP_SERVER_VERSION = "0.29.0"
 
 /** `initialize` result -- server capabilities are read-only tools, no resources, no prompts, no sampling, no `listChanged` (the catalog never changes at runtime). */
 internal fun mcpInitializeResult(): JsonObject =
