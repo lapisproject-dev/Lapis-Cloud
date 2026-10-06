@@ -50,7 +50,7 @@ Release summary (the detail is in the sections below, grouped by wave V1.9.50 --
   - **Count the administrators of every instance before deploying.** A four-eyes approval needs **at least three administrators** (requester and target are
     excluded), and the approver must have held the ADMIN role for **at least 7 days** at the time of the request. With one or two administrators, or
     with a freshly promoted third one, the protected actions answer "no second administrator"; the password-reset mail, every action on one's own
-    account and the console stay available. There is no switch to turn the protection off. PdV and ELB likely have one or two administrators.
+    account and the console stay available. There is no switch to turn the protection off. Small pilot instances often have only one or two administrators.
 - **Members and board**: safe e-mail address change with proposals, ownership proof and a 72 hour warning period (V1.9.56); member counts over time,
   screen "Mitgliederentwicklung" with chart, table and CSV export (V1.9.59); four-eyes peer protection between administrators with a pending-approvals card
   and objection link (V1.9.57).
@@ -63,7 +63,7 @@ Release summary (the detail is in the sections below, grouped by wave V1.9.50 --
   conference lobby start action in the title row, API keys behind a collapsed form (V1.9.51).
 - **Mobile bridge**: section key `my-events` for the companion app (V1.9.52, server only; the bridge stays off by default).
 - **CI**: three parallel jobs (`check`, `postgres`, `browser`), several H2 test JVMs, and the workflow fails when a test lane was skipped (V1.9.58).
-  Measured: about 13.5 minutes when the server really compiles and tests, below 8 minutes with the build cache (was about 25).
+  Measured: about 13.5 minutes when the server really compiles and tests, can end below 8 minutes with the build cache (one measured run: 7:33; was about 25).
 - **Not yet verified in real use**: no wave of this release was played through by users on Staging (the V1.9.50 test plan is written, not executed; the
   later waves rest on automated tests); new translations were written by an agent, not by native speakers. See "Known limitations of this release" at the end of this section.
 
@@ -95,7 +95,7 @@ Release summary (the detail is in the sections below, grouped by wave V1.9.50 --
     otherwise `BadRequestException` (never silently coarsened); one aggregated query without `member_id`; only counts per period cross the wire.
   - GDPR: contributor `MemberStatusHistoryPersonalData` -- the rows are kept on erasure (status and instant only, the member row is anonymized, deleting would rewrite every past
     count); the export lists the subject's own rows. kUML model `64-member-status-history.kuml.kts`, 8 theme tokens `--lapis-chart-*` (>= 3:1 in all three theme blocks), 21 new
-    texts in all seven catalogs, one new paragraph in the privacy page's purposes list.
+    texts in all seven translation catalogs, one new paragraph in the privacy page's purposes list.
   - Deviations from the first design, deliberate: the route constant is `/member-statistics` (repository convention); no `changed_by` column (the actor is in the audit log; no second
     personal reference); no surrogate id (portable backfill SQL, composite key `(member_id, effective_from)`); the extra column `previous_status`; the screen uses two button groups instead of
     two drop-downs (the unavailable combinations are disabled with a sentence saying why).
@@ -110,7 +110,7 @@ Release summary (the detail is in the sections below, grouped by wave V1.9.50 --
   - Flyway runs on its own timeout-free, short-lived pool. `relaxSessionTimeouts` (`SET LOCAL`) lifts the timeouts for one transaction:
     the organization export (`maxAttempts = 1`, statement and idle timeouts lifted -- a retry used to append rows twice to the ZIP entry) and the
     full-text index creation.
-  - `ServiceBusyException` and a client toast ("The server is currently busy...", translated in all 7 catalogs): a lock/statement/idle timeout,
+  - `ServiceBusyException` and a client toast ("The server is currently busy...", translated in all seven translation catalogs): a lock/statement/idle timeout,
     deadlock or serialization failure reaches the user as a typed error instead of database text.
   - Tests: unit tests for configuration parsing, SQLSTATE classification and the sanitizer; scenario specs on H2 and the Postgres lane (timeouts,
     idempotent webhooks, single-flight checkout, export under a slow client); tripwires for external effects inside `transaction { }`, session-wide
@@ -122,7 +122,7 @@ Release summary (the detail is in the sections below, grouped by wave V1.9.50 --
   ownership of the new address plus a 72 hour warning period in which the old address can reject. Reject / withdraw, a 15-minute poller (expiry after 7 days,
   application after the warning period, purge of resolved rows after 180 days), POST-only mail links with the token stripped from the URL, a "Meine Daten" card,
   a proposal section in the roster editor, three deep-link screens, GDPR export / erasure, kUML model `62-member-email-change.kuml.kts`, 55 new texts in all
-  seven catalogs.
+  seven translation catalogs.
   - Tests: role matrix (4 callers x 10 target kinds x propose/override), every path, tokens, duplicates, Keycloak, no-SMTP, audit; link routes; races on H2 and
     the Postgres lane; migration incl. the upgrade from V69; GDPR; a source-scan tripwire that no other code writes `member.email` of an existing member and one
     that no token reaches a log or audit; Karma DOM tests for the three client parts.
@@ -135,12 +135,12 @@ Release summary (the detail is in the sections below, grouped by wave V1.9.50 --
   Requests expire after 72 hours (a 15-minute poller plus lazy expiry), are *invalidated* when the target role, the requester or a status transition changed meanwhile.
   `PeerPolicy` is one pure function, the matrix is tested over its complete cross product. Pending-approvals card in the member administration, request dialogs
   ("Freigabe beantragen"), notices (receipts) to the target, the approvers and -- when somebody becomes an administrator -- all other administrators; kUML model
-  `63-privileged-action-request.kuml.kts`, 52 new texts in all seven catalogs, GDPR contributor `PrivilegedActionPersonalData`.
+  `63-privileged-action-request.kuml.kts`, 52 new texts in all seven translation catalogs, GDPR contributor `PrivilegedActionPersonalData`.
+  - Tests: `PeerPolicyMatrixTest` (cross product), `AdminPeerProtectionScenarios` on H2 and the Postgres lane (full cycles, races incl. a three-administrator ring),
+    `AdminPeerProtectionRpcTest`, `AdminBootstrapEmergencyTest`, `PrivilegedAction*MigrationTest` (incl. the V70 upgrade), two source-scan tripwires, Karma DOM tests for the card, the
+    request dialogs, the protected data and the objection screen.
 - **Operator console emergency actions** (V1.9.57): `LAPIS_BOOTSTRAP_ACTION=set-role` / `set-status` (re-activation only) next to `reset-password`; same union lock and
   last-admin protection (no console path to zero administrators), audit entry without an actor. `reset-password` now also ends every session and every outstanding reset token.
-- Tests: `PeerPolicyMatrixTest` (cross product), `AdminPeerProtectionScenarios` on H2 and the Postgres lane (full cycles, races incl. a three-administrator ring),
-  `AdminPeerProtectionRpcTest`, `AdminBootstrapEmergencyTest`, `PrivilegedAction*MigrationTest` (incl. the V70 upgrade), two source-scan tripwires, Karma DOM tests for the card, the
-  request dialogs, the protected data and the objection screen.
 
 ### Security
 
@@ -256,7 +256,7 @@ Release summary (the detail is in the sections below, grouped by wave V1.9.50 --
 - **Check the number of administrators per instance before deploying.** With one or two administrators there is nobody who could approve (requester and target are excluded): temporary
   password, demotion and suspension of an administrator then answer "no second administrator". Nobody is locked out -- the password-reset mail, every action on one's own account and the
   console (`LAPIS_BOOTSTRAP_ACTION=set-role|set-status|reset-password`, see `deploy/example/README.adoc`) stay available. A third administrator can approve only after 7 days in the role, so
-  a freshly set-up instance has no approval for a week. There is no switch to turn the protection off. PdV and ELB: both likely have one or two administrators -- the console is then the
+  a freshly set-up instance has no approval for a week. There is no switch to turn the protection off. Small deployments often have only one or two administrators -- the console is then the
   way to change an administrator.
 - A temporary-password request against an administrator needs `LAPIS_SMTP_*` (the target must be warned and gets the objection link); the other notices are best effort.
 - Migration `V71` is additive (`privileged_action_request`, `account.role_changed_at` NULL = tenured). The container invocation of the console is documented but **not verified against a
@@ -283,7 +283,7 @@ Release summary (the detail is in the sections below, grouped by wave V1.9.50 --
 - **Without `LAPIS_SMTP_*`, board members and administrators can no longer change another member's e-mail address.** A change by a third party needs the warning
   mail to the old address and the confirmation mail to the new one; without outbound mail it is refused with a typed error (the UI shows the button disabled with
   the reason). Members still change their OWN address with their password -- no mail needed. The emergency path (ADMIN, with a reason) needs SMTP and takes effect
-  only after the new address is confirmed and 72 hours have passed. Tell the board of deployments without SMTP (PdV, ELB: check `LAPIS_SMTP_*`) before deploying.
+  only after the new address is confirmed and 72 hours have passed. Tell the board of deployments without SMTP (check `LAPIS_SMTP_*` on every pilot instance) before deploying.
   Migration `V70` is additive; existing addresses are untouched.
 
 ### Known limitations (V1.9.56)
@@ -370,7 +370,7 @@ Release summary (the detail is in the sections below, grouped by wave V1.9.50 --
     Clients that read the figures as numbers must check the flag.
   - Client: the result shows options by position (not by votes) in both forms; below the minimum a people election lists the options with the "Gewählt" badge and no
     figure, bar or `aria-valuenow`, a yes/no election shows only the verdict, plus one explanatory sentence (not for 0 ballots). The participation line stays. The
-    resolution book row, the audit detail and the open form show the rule. Four new msgids in all eight catalogs; the translations are by the agent, not by a native speaker.
+    resolution book row, the audit detail and the open form show the rule. Four new msgids in all seven translation catalogs (and the `.pot` template); the translations are by the agent, not by a native speaker.
   - Known limitations: *E1* a unanimous result from five ballots on still reveals every vote; *E2* five ballots can be five identifiable people; *E3* "majority reached"
     below five ballots bounds the yes share; *E4* the receipt still names the own option (status at the time; resolved since V1.9.54, receipt-freeness: the check returns `optionLabel = null`); *E5* the database tables still hold the real figures; *E6* a masked old audit
     entry no longer matches its stored `entryHash` when an external verifier hashes the delivered snapshot (flagged by `figuresWithheld`; the old entry's figures stay recoverable by brute force from the delivered hashes for audit roles, new entries are not affected); *E7* the full organisation export
@@ -387,7 +387,7 @@ Release summary (the detail is in the sections below, grouped by wave V1.9.50 --
     shows and hides the lobby and its title-row action together: no second meeting can be started from inside a running call.
   - New `actionLink(kind, label, url, target)`: the recording download carries the download icon and `rel="noopener"`.
   - `ApiKeysScreen`: the always-visible issue form (icon-less "Neuen Schlüssel ausstellen") is a collapsible create form behind "Neuer Schlüssel"; the form button is
-    "Schlüssel ausstellen". i18n: two new msgids in all eight catalogs, the old one removed.
+    "Schlüssel ausstellen". i18n: two new msgids in all seven translation catalogs (and the `.pot` template), the old one removed.
   - Ratchet: `ConferenceScreen.kt` leaves `R36B_EXEMPT` (five exemptions become four); new detector R36C (text-only "Neue ..."/"... jetzt starten" buttons in the content,
     one named exemption) and a tripwire against raw `lobbyPanel.show()`/`hide()`.
   - Tests: new `ConferenceTitleRowStartDomTest`; `FormSubmitBodyDomTest.apiKeyIssue_sendsTheTrimmedLabel` opens the collapsed form first.
@@ -435,7 +435,9 @@ Release summary (the detail is in the sections below, grouped by wave V1.9.50 --
 - **Not played through by users on Staging**: the staging test plan of V1.9.50 (`collapsible-forms-staging-test.adoc`) is written, not executed; a real
   end-to-end election run with several accounts is still outstanding; for V1.9.53 -- V1.9.60 no user run on Staging is documented (the evidence is the
   automated H2, PostgreSQL and Karma tests). The operator console was checked on Staging only with a non-existent address.
-- **Translations** of the new texts in the seven non-German catalogs were written by the agent, not by native speakers.
+- **Translations** of the new texts in the seven translation catalogs were written by the agent, not by native speakers.
+- The receipt hint in the election booth says the code is "stored nowhere"; the server keeps it in the database next to the ballot (E5). Fix planned as a
+  text change, not part of this release.
 - The detailed per-wave lists above remain authoritative.
 
 ## [0.28.0] — 2026-10-03

@@ -313,7 +313,7 @@ Query parameters: `?committeeId=<uuid>`, `?meetingId=<uuid>`.
 `status` is one of `ADOPTED`, `REJECTED`, `POSTPONED`. `resolutionMode` is one of
 `COMMITTEE_QUORUM`, `MERITOCRATIC`, `DEMOCRATIC`, `SYSTEMIC_CONSENSUS`.
 
-NOTE: *Behaviour change (V1.9.53, unreleased).* `votesYes`, `votesNo` and `votesAbstain` are nullable. For a resolution that stems from a secret election with
+NOTE: *Behaviour change (V1.9.53, since `v0.29.0`).* `votesYes`, `votesNo` and `votesAbstain` are nullable. For a resolution that stems from a secret election with
 fewer than five ballots they are an explicit `null` (the keys are present, never omitted) and `figuresWithheld` is `true`; `figuresWithheld` is always present.
 Clients must not read the figures without checking the flag. The same applies to the single-resource endpoint `/api/v1/resolutions/{id}`.
 
