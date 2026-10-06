@@ -4,8 +4,11 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toKotlinLocalDateTime
+import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AgendaItemTable
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
@@ -19,6 +22,8 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.member.MemberStatusHistory
+import network.lapis.cloud.server.member.MemberStatusHistorySource
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
@@ -315,6 +320,15 @@ object StagingSeedData {
                     it[membershipTierId] = standardTierId
                     it[dateOfDeath] = seed.dateOfDeath
                 }
+                // Welle V1.9.59 -- the status history starts with the member row: SEED, from the start of the join day (UTC; the
+                // seed has no organization zone yet), capped at now.
+                MemberStatusHistory.recordLocked(
+                    memberId = seed.id,
+                    newStatus = seed.status,
+                    now = DbClock.nowLocalDateTime(),
+                    source = MemberStatusHistorySource.SEED,
+                    effectiveFrom = LocalDate(2026, 1, 1).atStartOfDayIn(TimeZone.UTC).toLocalDateTime(TimeZone.UTC),
+                )
                 if (seed.accountRole != null) {
                     AccountTable.insert {
                         it[id] = Uuid.random()

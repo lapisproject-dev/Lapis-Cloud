@@ -34,6 +34,7 @@ import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.FriendEmailVerificationTokenTable
 import network.lapis.cloud.server.db.generated.MemberFamilyLinkTable
 import network.lapis.cloud.server.db.generated.MemberFamilyTable
+import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PasswordResetTokenTable
 import network.lapis.cloud.server.db.generated.RegionalChapterOfficerTable
@@ -163,6 +164,7 @@ class MemberAdministrationTest :
                     // reasoning as the FriendEmailVerificationTokenTable cleanup right above.
                     PasswordResetTokenTable.deleteWhere { PasswordResetTokenTable.memberId eq id }
                     AccountTable.deleteWhere { AccountTable.memberId eq id }
+                    MemberStatusHistoryTable.deleteWhere { MemberStatusHistoryTable.memberId eq id }
                     MemberTable.deleteWhere { MemberTable.id eq id }
                 }
                 createdCommitteeIds.forEach { id ->

@@ -41,6 +41,7 @@ import network.lapis.cloud.server.db.generated.ConferenceBreakoutRoomTable
 import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
+import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
 import network.lapis.cloud.server.db.generated.SessionTable
@@ -2569,6 +2570,7 @@ private fun cleanUpConferenceTestData(memberIds: List<Uuid>) {
         // Bearer flow) -- delete before member, same FK-ordering reasoning as the profile row above.
         SessionTable.deleteWhere { SessionTable.memberId inList memberIds }
         AccountTable.deleteWhere { AccountTable.memberId inList memberIds }
+        MemberStatusHistoryTable.deleteWhere { MemberStatusHistoryTable.memberId inList memberIds }
         MemberTable.deleteWhere { MemberTable.id inList memberIds }
     }
 }

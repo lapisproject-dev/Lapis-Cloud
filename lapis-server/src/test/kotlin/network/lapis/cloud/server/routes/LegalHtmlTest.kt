@@ -350,6 +350,7 @@ class LegalHtmlTest :
                     "articles" to "freigegebene Artikel",
                     "regionalChapter" to "Landesverband",
                     "privilegedActions" to "Vier-Augen-Freigabe",
+                    "memberStatusHistory" to "Mitgliederstatistik",
                 )
 
             // Deliberately NOT matched by their own keyword: these three LTR-economy

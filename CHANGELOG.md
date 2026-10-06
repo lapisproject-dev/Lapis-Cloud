@@ -8,6 +8,30 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Member counts over time** (V1.9.59, `V72__member_status_history.sql`, `IMemberStatisticsService`, `docs/architecture/member-status-history.adoc`). New screen "Mitgliederentwicklung"
+  (Verwaltung group, route `/member-statistics`, BOARD/ADMIN): a stacked bar chart of the members per status at the end of each month, quarter or year of the organization
+  zone, four ranges (last 12 months, this year, last 5 years, since the start), the same figures in a table, a CSV export (UTF-8 with BOM, `;`), and an accuracy note where a
+  period rests on a reconstruction (pale bars). The figures come from a new append-only log, `member_status_history` (one row per status change with `previous_status`, so a
+  count is one `GROUP BY` over deltas), **not** from today's rows counted backwards.
+  - **Operator note: migration V72 backfills the past in plain SQL** (audit log, friend-terms / membership-agreement acknowledgments, `reviewed_at`, `friend_since`,
+    `date_of_death`, then anchors and a closing row to `member.status`). Additive, idempotent in its inserts, `member` and `audit_log_entry` byte-identical. Rows it reconstructs
+    carry `source BACKFILL_*` and `recorded_at NULL`; every change after the deployment is recorded live. The server logs once at start the NUMBER of members whose latest history row
+    disagrees with `member.status` (a warning, never an id); it should be 0.
+  - Every writer of `member.status` now appends the history in the same transaction under the member row lock (13 sites: the central status mutation, registration, approval,
+    rejection, direct creation, leaving, friend registration, applying for membership, CSV import, first-admin bootstrap, OIDC guest, dev and staging seed);
+    `MemberStatusWriteTripwireTest` pins that no other writer exists and that each calls the recorder.
+  - `IMemberStatisticsService.getMemberCountHistory(from, to, granularity)`: first statement `requireRole(BOARD, ADMIN)`; `from >= 1900-01-01`, `to <= today`, at most 240 periods,
+    otherwise `BadRequestException` (never silently coarsened); one aggregated query without `member_id`; only counts per period cross the wire.
+  - GDPR: contributor `MemberStatusHistoryPersonalData` -- the rows are kept on erasure (status and instant only, the member row is anonymized, deleting would rewrite every past
+    count); the export lists the subject's own rows. kUML model `64-member-status-history.kuml.kts`, 8 theme tokens `--lapis-chart-*` (>= 3:1 in all three theme blocks), 21 new
+    texts in all seven catalogs, one new paragraph in the privacy page's purposes list.
+  - Deviations from the first design, deliberate: the route constant is `/member-statistics` (repository convention); no `changed_by` column (the actor is in the audit log; no second
+    personal reference); no surrogate id (portable backfill SQL, composite key `(member_id, effective_from)`); the extra column `previous_status`; the screen uses two button groups instead of
+    two drop-downs (the unavailable combinations are disabled with a sentence saying why).
+  - Tests: aggregation matrices (zones Berlin / New York, leap year, DST month, year boundary, limit 240/241), migration scenarios on H2 and PostgreSQL (eleven member fixtures, the
+    JSON-escaping case, byte-identity, re-run), the write paths, the recorder's monotonic clamp and races on H2 and the Postgres lane, role matrix incl. FRIEND/GUEST, the wire, the
+    exposure and write tripwires, GDPR, theme-token contrast, and Karma tests for the screen, chart configuration and lifecycle, CSV and formatting.
+
 - **Database session timeouts** (V1.9.55). The application pool applies `lock_timeout` (default 10 s), `statement_timeout` (60 s) and
   `idle_in_transaction_session_timeout` (120 s) to every PostgreSQL connection. Operator variables: `LAPIS_DB_LOCK_TIMEOUT_MS`,
   `LAPIS_DB_STATEMENT_TIMEOUT_MS`, `LAPIS_DB_IDLE_TX_TIMEOUT_MS` (milliseconds, `0` = explicit off; forwarded with these defaults by
@@ -77,6 +101,23 @@ All notable changes to this project are documented here. Format follows
 - Provider idempotency keys are derived from the server's checkout session id (`lapis-checkout-v1-<uuid>`) instead of a fresh random value per call, so an
   HTTP retry of the same logical checkout is deduplicated by Stripe/PayPal. The persisted `provider_idempotency_key` equals the value sent.
 - `createContributionCheckout` is single-flight per contribution: two parallel requests mint one hosted session instead of two (double payment possible).
+
+### Changed (V1.9.59)
+
+- The `member_status_history` table carries a foreign key to `member` WITHOUT cascade: every test that hard-deletes members it created through a service now deletes their history first
+  (a mechanical one-line addition in about 15 cleanup helpers). Production never deletes member rows (GDPR anonymizes them).
+- CSV import reads the organization zone from the transaction's own `organization_settings` row, not from the default database, to place the join day of each imported member.
+
+### Known limitations (V1.9.59)
+
+- **The reconstruction is an estimate.** A voluntary withdrawal (`leaveMembership`) has neither an audit entry nor a date: it is placed one second after the last evidence, so
+  ACTIVE counts before it are *under*-estimated. A member without any earlier evidence counts only from the earliest date that proves the current status (usually the join date);
+  DECEASED counts from the date of death. Dates are converted as noon UTC (exact for organization zones UTC-12 to UTC+11).
+- `effective_from` is the moment a change was recorded, not its legal effect (a death date, a withdrawal to the end of the month): a separate legal effective date would be its own wave.
+  Correcting a date of death does not change the history.
+- Small cells (one APPLICATION in a month) are visible to BOARD and ADMIN, who see the member list anyway.
+- Not done: a flow view (joined / left per period), free date fields, views per chapter or tier, hatching instead of pale bars.
+- The Postgres migration scenarios of V72 ran on a local throw-away container; the CI lane runs them as part of `postgresTest`.
 
 ### Changed (V1.9.58)
 

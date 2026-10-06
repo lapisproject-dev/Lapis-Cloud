@@ -33,6 +33,7 @@ import network.lapis.cloud.server.db.generated.ConferenceBreakoutAssignmentTable
 import network.lapis.cloud.server.db.generated.ConferenceBreakoutRoomTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
+import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
 import network.lapis.cloud.server.db.generated.SessionTable
@@ -997,6 +998,7 @@ private fun cleanUpConferenceBreakoutTestData(memberIds: List<Uuid>) {
         OidcGuestProfileTable.deleteWhere { OidcGuestProfileTable.memberId inList memberIds }
         SessionTable.deleteWhere { SessionTable.memberId inList memberIds }
         AccountTable.deleteWhere { AccountTable.memberId inList memberIds }
+        MemberStatusHistoryTable.deleteWhere { MemberStatusHistoryTable.memberId inList memberIds }
         MemberTable.deleteWhere { MemberTable.id inList memberIds }
     }
 }

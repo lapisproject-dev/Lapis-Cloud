@@ -19,6 +19,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.RegionalChapterOfficerTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
@@ -67,6 +68,7 @@ class RegionalChapterActivationRuleTest :
                 MemberTable.update({ MemberTable.id inList createdMemberIds }) { it[regionalChapterId] = null }
                 RegionalChapterTable.deleteWhere { id inList createdChapterIds }
                 AccountTable.deleteWhere { memberId inList createdMemberIds }
+                MemberStatusHistoryTable.deleteWhere { MemberStatusHistoryTable.memberId inList createdMemberIds }
                 MemberTable.deleteWhere { id inList createdMemberIds }
             }
         }

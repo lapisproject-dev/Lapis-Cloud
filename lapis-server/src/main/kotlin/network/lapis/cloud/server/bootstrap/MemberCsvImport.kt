@@ -2,12 +2,19 @@ package network.lapis.cloud.server.bootstrap
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toKotlinLocalDate
+import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.member.MemberStatusHistory
+import network.lapis.cloud.server.member.MemberStatusHistorySource
 import network.lapis.cloud.server.rpc.MEMBER_DISPLAY_NAME_MAX_LENGTH
 import network.lapis.cloud.server.rpc.MEMBER_EMAIL_MAX_LENGTH
+import network.lapis.cloud.server.time.OrganizationTimeZoneRules
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -120,7 +127,7 @@ internal object DelimitedCsvParser {
         delimiter: Char = ';',
         maxRows: Int? = null,
     ): List<List<String>> {
-        val input = if (text.isNotEmpty() && text[0] == '﻿') text.substring(1) else text
+        val input = if (text.isNotEmpty() && text[0] == '\uFEFF') text.substring(1) else text
         val rows = mutableListOf<List<String>>()
         var row = mutableListOf<String>()
         val field = StringBuilder()
@@ -754,7 +761,12 @@ internal fun runImport(
 ): ImportOutcome =
     transaction(database) {
         // Serializes concurrent runImport calls against each other -- see function KDoc "Concurrency".
-        OrganizationSettingsTable.selectAll().forUpdate().single()
+        val settings = OrganizationSettingsTable.selectAll().forUpdate().single()
+        // The organization zone is read from THIS transaction's own settings row (not OrganizationTimeZone.current(), which reads the
+        // default database): the import may run against an explicitly passed database.
+        val storedZone = settings[OrganizationSettingsTable.timezone]
+        val importZone =
+            TimeZone.of(if (OrganizationTimeZoneRules.isValid(storedZone)) storedZone else OrganizationTimeZoneRules.DEFAULT_ZONE_ID)
 
         val existingExternalReferences =
             MemberTable
@@ -769,6 +781,7 @@ internal fun runImport(
 
         val dbSkips = mutableListOf<SkippedMember>()
         var insertedCount = 0
+        val importNow = DbClock.nowLocalDateTime()
 
         for (member in plan.prepared) {
             val skipReason =
@@ -803,8 +816,9 @@ internal fun runImport(
                 // later wave wants this closed, the two options are: reject rows without a
                 // resolvable chapter column, or run a bulk `assignMemberToChapter` pass right
                 // after import.
+                val importedMemberId = Uuid.random()
                 MemberTable.insert {
-                    it[id] = Uuid.random()
+                    it[id] = importedMemberId
                     it[displayName] = member.displayName
                     it[email] = member.email
                     it[status] = member.status
@@ -818,6 +832,15 @@ internal fun runImport(
                     it[nationality] = member.nationality
                     it[externalReference] = member.externalReference
                 }
+                // Welle V1.9.59 -- the status history starts with the member row: IMPORT, effective from the start of the join day in
+                // the organization zone (capped at now), so the member counts from the day they joined.
+                MemberStatusHistory.recordLocked(
+                    memberId = importedMemberId,
+                    newStatus = member.status,
+                    now = importNow,
+                    source = MemberStatusHistorySource.IMPORT,
+                    effectiveFrom = member.joinedAt.atStartOfDayIn(importZone).toLocalDateTime(TimeZone.UTC),
+                )
             } catch (e: Exception) {
                 // Deliberately no `cause = e` -- see MemberImportWriteException KDoc: the underlying
                 // exception (e.g. ExposedSQLException) may render this row's bound PII values into

@@ -67,7 +67,8 @@ class DomainModelMergerTest :
             // LTR-Basis" -- was 61, now 62 with the addition of 61-poll.kuml.kts. Welle V1.9.56 "E-Mail-Aenderung
             // absichern" -- was 62, now 63 with the addition of 62-member-email-change.kuml.kts.
             // Welle V1.9.57 "Admin-Peer-Schutz" -- was 63, now 64 with the addition of 63-privileged-action-request.kuml.kts.
-            scriptFiles shouldHaveSize 64
+            // Welle V1.9.59 "Mitgliederzahlen ueber Zeit" -- was 64, now 65 with the addition of 64-member-status-history.kuml.kts.
+            scriptFiles shouldHaveSize 65
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -518,7 +519,9 @@ class DomainModelMergerTest :
             // entity) -- net +1 distinct table name (178 -> 179).
             // Welle V1.9.57 "Admin-Peer-Schutz" adds 63-privileged-action-request.kuml.kts's ONE new real table
             // (privileged_action_request), with its own Member stub -- net +1 (179 -> 180).
-            val distinctTableNames = 180
+            // Welle V1.9.59 "Mitgliederzahlen ueber Zeit" adds 64-member-status-history.kuml.kts's ONE new real table
+            // (member_status_history), with its own Member stub -- net +1 (180 -> 181).
+            val distinctTableNames = 181
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -843,6 +846,8 @@ class DomainModelMergerTest :
                     "MemberEmailChangeTable.kt",
                     // Welle V1.9.57 "Admin-Peer-Schutz" -- ONE new real table (privileged_action_request).
                     "PrivilegedActionRequestTable.kt",
+                    // Welle V1.9.59 "Mitgliederzahlen ueber Zeit" -- ONE new real table (member_status_history).
+                    "MemberStatusHistoryTable.kt",
                 )
         }
 

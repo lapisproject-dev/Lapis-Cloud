@@ -18,6 +18,8 @@ import network.lapis.cloud.server.mail.PeerExecutedEvent
 import network.lapis.cloud.server.mail.SmtpConfig
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.member.MemberRoleStatusMutations
+import network.lapis.cloud.server.member.MemberStatusHistory
+import network.lapis.cloud.server.member.MemberStatusHistorySource
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
 import network.lapis.cloud.server.security.PasswordResetTokenStore
@@ -510,11 +512,19 @@ object AdminBootstrap {
                 it[joinedAt] = OrganizationTimeZone.today()
                 it[membershipTierId] = null
             }
+            val bootstrapNow = DbClock.nowLocalDateTime()
+            // Welle V1.9.59 -- the status history starts with the member row.
+            MemberStatusHistory.recordLocked(
+                memberId = memberId,
+                newStatus = MemberStatus.ACTIVE,
+                now = bootstrapNow,
+                source = MemberStatusHistorySource.LIVE,
+            )
             AccountTable.insert {
                 it[id] = Uuid.random()
                 it[AccountTable.memberId] = memberId
                 it[role] = AccountRole.ADMIN
-                it[roleChangedAt] = DbClock.nowLocalDateTime()
+                it[roleChangedAt] = bootstrapNow
                 it[passwordHash] = PasswordHasher.hash(rawPassword)
             }
             BootstrapFirstAdminResult.Success(email = normalizedEmail, displayName = trimmedDisplayName)

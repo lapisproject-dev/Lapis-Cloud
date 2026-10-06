@@ -41,7 +41,7 @@ msgid "Bank"
 msgstr "Banco"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:63
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:476
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:477
 msgid "Bankkonten"
 msgstr "Cuentas bancarias"
 
@@ -633,12 +633,12 @@ msgid "Kontakt wurde gelöscht."
 msgstr "El contacto se ha eliminado."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:65
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:572
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:573
 msgid "Kontakte & Interessenten"
 msgstr "Contactos e interesados"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:81
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:477
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:478
 msgid "Kontoauszüge"
 msgstr "Extractos bancarios"
 
@@ -742,7 +742,7 @@ msgid "Sparkasse (CAMT-CSV)"
 msgstr "Sparkasse (CAMT-CSV)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:213
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:916
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:921
 msgid "Stammdaten"
 msgstr "Datos maestros"
 
@@ -1711,7 +1711,7 @@ msgstr "La contraseña actual es incorrecta."
 #: src/jsMain/kotlin/network/lapis/cloud/client/LedgerScreen.kt:460
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:126
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:441
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:489
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:494
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAnniversariesScreen.kt:133
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:209
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemLabels.kt:93
@@ -2067,7 +2067,7 @@ msgstr "Retirar moción"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:70
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:119
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:421
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:422
 msgid "Anträge"
 msgstr "Mociones"
 
@@ -2135,8 +2135,8 @@ msgid "Anzeige-Info: Währung"
 msgstr "Información de visualización: moneda"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:553
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1825
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1845
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1832
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1852
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:594
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:779
 msgid "Anzeigen"
@@ -2148,7 +2148,7 @@ msgstr "Nombre visible (no verificado)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:46
 #: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt:108
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:571
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:572
 msgid "API-Schlüssel"
 msgstr "Clave de API"
 
@@ -2227,7 +2227,7 @@ msgstr "Grabaciones"
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:276
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:135
 #: src/jsMain/kotlin/network/lapis/cloud/client/LtrLedgerScreen.kt:815
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:441
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:442
 msgid "Auktion"
 msgstr "Subasta"
 
@@ -2408,7 +2408,7 @@ msgid "AVV-Status"
 msgstr "Estado del AVV"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BackupScreen.kt:48
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:588
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:590
 msgid "Backup & Wiederherstellung"
 msgstr "Copia de seguridad y restauración"
 
@@ -2476,7 +2476,7 @@ msgstr "Solicitado por %1 el %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:108
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventVolunteerShiftsScreen.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:220
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:686
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:691
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:293
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:113
 #: src/jsMain/kotlin/network/lapis/cloud/client/ReceivableDunningSettingsScreen.kt:241
@@ -2490,6 +2490,7 @@ msgstr "Finalizado"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:689
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventsScreen.kt:420
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatisticsScreen.kt:180
 #: src/jsMain/kotlin/network/lapis/cloud/client/MembershipTiersScreen.kt:361
 msgid "Beginn"
 msgstr "Inicio"
@@ -2498,7 +2499,7 @@ msgstr "Inicio"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusBooth.kt:74
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusOptions.kt:157
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoRightsScreen.kt:304
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1404
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1411
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:264
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberEmailChangeProposal.kt:247
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberPasswordResetDialog.kt:219
@@ -2645,7 +2646,7 @@ msgstr "¿Desea condonar realmente la cuota de %1 por %2?"
 msgid "Beitrag: %1"
 msgstr "Publicación: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:365
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:366
 msgid "Beiträge"
 msgstr "Cuotas"
 
@@ -3476,7 +3477,7 @@ msgid "Committee-Quorum entscheiden"
 msgstr "Decidir cuórum del comité"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrowdfundingScreen.kt:105
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:440
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:441
 msgid "Crowdfunding"
 msgstr "Crowdfunding"
 
@@ -3523,7 +3524,7 @@ msgstr ""
 "futuras cuotas ya no podrán cobrarse por domiciliación."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DashboardScreen.kt:47
-#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:360
+#: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:361
 msgid "Dashboard"
 msgstr "Panel"
 
@@ -20086,3 +20087,66 @@ msgstr "Protegido: la junta directiva no puede modificar los datos de los admini
 
 msgid "Für ein anderes Administratorkonto ist die Zustimmung eines zweiten Administrators erforderlich."
 msgstr "Para otra cuenta de administrador se requiere la aprobación de un segundo administrador."
+
+msgid "Mitgliederentwicklung"
+msgstr "Evolución de miembros"
+
+msgid "CSV exportieren"
+msgstr "Exportar CSV"
+
+msgid "Nicht wählbar sind Kombinationen mit mehr als %1 Zeiträumen."
+msgstr "No se pueden seleccionar combinaciones con más de %1 períodos."
+
+msgid "Letzte 12 Monate"
+msgstr "Últimos 12 meses"
+
+msgid "Dieses Jahr"
+msgstr "Este año"
+
+msgid "Letzte 5 Jahre"
+msgstr "Últimos 5 años"
+
+msgid "Seit Beginn"
+msgstr "Desde el inicio"
+
+msgid "Einteilung"
+msgstr "Agrupación"
+
+msgid "Quartal"
+msgstr "Trimestre"
+
+msgid "Noch keine Mitgliederzahlen vorhanden."
+msgstr "Aún no hay cifras de miembros."
+
+msgid "Ende (exklusiv)"
+msgstr "Fin (exclusivo)"
+
+msgid "Datenbasis"
+msgstr "Origen de los datos"
+
+msgid "aufgezeichnet"
+msgstr "registrado"
+
+msgid "rekonstruiert"
+msgstr "reconstruido"
+
+msgid "Aktive Mitglieder: %1"
+msgstr "Miembros activos: %1"
+
+msgid "Aktive Mitglieder: %1 (%2 seit Ende von %3)"
+msgstr "Miembros activos: %1 (%2 desde el final de %3)"
+
+msgid "Gestapeltes Säulendiagramm der Mitglieder je Status im Zeitverlauf. Alle Werte stehen auch in der Tabelle."
+msgstr "Gráfico de columnas apiladas de los miembros por estado a lo largo del tiempo. Todos los valores también están en la tabla."
+
+msgid "Hinweis zur Genauigkeit: Bis zum %1 wurde der Verlauf aus vorhandenen Aufzeichnungen rekonstruiert (blasse Balken). Dabei zählt ein Mitglied erst ab dem frühesten Datum, das seinen heutigen Status belegt (meist das Eintrittsdatum). Ein Austritt ohne Datum kann zu früh oder zu spät erscheinen."
+msgstr "Nota sobre la precisión: hasta el %1 el historial se reconstruyó a partir de registros existentes (barras pálidas). Un miembro cuenta solo desde la fecha más temprana que acredita su estado actual (normalmente la fecha de ingreso). Una baja sin fecha puede aparecer demasiado pronto o demasiado tarde."
+
+msgid "Tabelle anzeigen"
+msgstr "Mostrar tabla"
+
+msgid "Tabelle ausblenden"
+msgstr "Ocultar tabla"
+
+msgid "Mitglieder je Status am Ende des jeweiligen Zeitraums"
+msgstr "Miembros por estado al final de cada período"

@@ -13,6 +13,7 @@ import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.MemberPhotoTable
 import network.lapis.cloud.server.db.generated.MemberPublicBioTable
+import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PoliticianProfileTable
 import network.lapis.cloud.server.db.generated.PublicRankingConsentEventTable
@@ -282,6 +283,7 @@ internal class PublicProfilesFixtures {
             if (memberIds.isNotEmpty()) {
                 MemberPhotoTable.deleteWhere { memberId inList memberIds }
                 AccountTable.deleteWhere { memberId inList memberIds }
+                MemberStatusHistoryTable.deleteWhere { MemberStatusHistoryTable.memberId inList memberIds }
                 MemberTable.deleteWhere { id inList memberIds }
             }
         }

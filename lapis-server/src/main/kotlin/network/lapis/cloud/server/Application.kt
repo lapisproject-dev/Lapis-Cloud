@@ -132,6 +132,7 @@ import network.lapis.cloud.server.mcp.ratelimit.McpToolCallRateLimiter
 import network.lapis.cloud.server.mcp.tools.McpToolDispatcher
 import network.lapis.cloud.server.member.EmailChangePoller
 import network.lapis.cloud.server.member.EmailChangeService
+import network.lapis.cloud.server.member.MemberStatusHistoryConsistency
 import network.lapis.cloud.server.member.PrivilegedActionPoller
 import network.lapis.cloud.server.member.PrivilegedActionService
 import network.lapis.cloud.server.membermap.MemberMapConfig
@@ -263,6 +264,7 @@ import network.lapis.cloud.server.rpc.MemberHonorService
 import network.lapis.cloud.server.rpc.MemberPhotoService
 import network.lapis.cloud.server.rpc.MemberPublicProfileService
 import network.lapis.cloud.server.rpc.MemberService
+import network.lapis.cloud.server.rpc.MemberStatisticsService
 import network.lapis.cloud.server.rpc.OpenItemService
 import network.lapis.cloud.server.rpc.OrganizationSettingsService
 import network.lapis.cloud.server.rpc.OrganizationTimeZoneService
@@ -345,6 +347,7 @@ import network.lapis.cloud.shared.rpc.IMemberHonorService
 import network.lapis.cloud.shared.rpc.IMemberPhotoService
 import network.lapis.cloud.shared.rpc.IMemberPublicProfileService
 import network.lapis.cloud.shared.rpc.IMemberService
+import network.lapis.cloud.shared.rpc.IMemberStatisticsService
 import network.lapis.cloud.shared.rpc.IOpenItemService
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.IOrganizationTimeZoneService
@@ -368,6 +371,7 @@ import network.lapis.cloud.shared.rpc.IVatService
 import network.lapis.cloud.shared.rpc.IVolunteerAllowanceService
 import network.lapis.cloud.shared.rpc.IWebhookService
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -404,6 +408,9 @@ fun main() {
     // suite at all, so keeping it here is both correct for real deployments (idempotent, runs once
     // per process start, no-op thereafter) and inert for tests.
     BankAccountStore.backfillLegacyDefaultAccountIfNeeded()
+    // Welle V1.9.59 -- operations signal only (the NUMBER of members whose status history disagrees with member.status, never an id);
+    // never blocks the start. Deliberately ONLY here: it reads the whole member table.
+    runCatching { MemberStatusHistoryConsistency.warnIfInconsistent(transaction { MemberStatusHistoryConsistency.countMismatches() }) }
     embeddedServer(Netty, port = 8080, host = "0.0.0.0", module = Application::module)
         .start(wait = true)
 }
@@ -1777,6 +1784,8 @@ internal fun Application.module(
                 placeSearchIndex = placeSearchIndex,
             )
         }
+        // Welle V1.9.59 "Mitgliederzahlen ueber Zeit" -- BOARD/ADMIN-only history of the member counts per status.
+        registerService(IMemberStatisticsService::class) { call -> MemberStatisticsService(call = call) }
         registerService(IMemberHonorService::class) { call -> MemberHonorService(call = call) }
         registerService(IMemberFamilyService::class) { call -> MemberFamilyService(call = call) }
         registerService(IDocumentService::class) { call -> DocumentService(call) }

@@ -792,3 +792,12 @@ col:WebhookDeliveryTable.deliveredAt	A	stamped by the server clock (DbClock/Serv
 col:WebhookEndpointTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:WebhookEndpointTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:WebhookEndpointTable.deactivatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberStatusHistoryTable.effectiveFrom	A	MemberStatusHistory.recordLocked (the moment a status change was recorded, UTC) and the V72 backfill (noon UTC of a date source); capped at the server clock
+col:MemberStatusHistoryTable.recordedAt	A	MemberStatusHistory.recordLocked, stamped by the server clock (DbClock/ServerClock); NULL for the V72 backfill rows
+dto:MemberCountHistoryQuery.from	D	calendar date (LocalDate); never converted
+dto:MemberCountHistoryQuery.to	D	calendar date (LocalDate); never converted
+dto:MemberCountPointDto.periodStart	D	calendar date (LocalDate); never converted
+dto:MemberCountPointDto.periodEnd	D	calendar date (LocalDate); never converted
+dto:MemberCountHistoryDto.earliestDate	D	calendar date (LocalDate); never converted
+dto:MemberCountHistoryDto.today	D	calendar date (LocalDate); never converted
+dto:MemberCountHistoryDto.reconstructedBefore	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

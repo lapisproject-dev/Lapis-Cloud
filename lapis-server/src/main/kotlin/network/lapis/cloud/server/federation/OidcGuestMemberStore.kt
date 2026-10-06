@@ -4,6 +4,8 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
+import network.lapis.cloud.server.member.MemberStatusHistory
+import network.lapis.cloud.server.member.MemberStatusHistorySource
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -116,6 +118,13 @@ object OidcGuestMemberStore {
                         it[joinedAt] = OrganizationTimeZone.dateOf(now)
                         it[membershipTierId] = null
                     }
+                    // Welle V1.9.59 -- the status history starts with the member row.
+                    MemberStatusHistory.recordLocked(
+                        memberId = newMemberId,
+                        newStatus = MemberStatus.GUEST,
+                        now = now,
+                        source = MemberStatusHistorySource.LIVE,
+                    )
                     AccountTable.insert {
                         it[id] = Uuid.random()
                         it[AccountTable.memberId] = newMemberId

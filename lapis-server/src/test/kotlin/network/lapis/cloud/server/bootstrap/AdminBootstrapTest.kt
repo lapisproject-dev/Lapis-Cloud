@@ -6,6 +6,7 @@ import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.backup.TestDatabaseFactory
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.shared.domain.AccountRole
@@ -287,6 +288,7 @@ private fun cleanUpAdminBootstrapTestData(memberIds: List<Uuid>) {
     if (memberIds.isEmpty()) return
     transaction {
         AccountTable.deleteWhere { AccountTable.memberId inList memberIds }
+        MemberStatusHistoryTable.deleteWhere { MemberStatusHistoryTable.memberId inList memberIds }
         MemberTable.deleteWhere { MemberTable.id inList memberIds }
     }
 }

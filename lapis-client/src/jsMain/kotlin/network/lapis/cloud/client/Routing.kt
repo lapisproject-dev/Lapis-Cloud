@@ -537,6 +537,11 @@ object Routes {
     // einzelne PLZ (Security-Checkliste, docs/architecture/member-map.adoc).
     const val MEMBER_MAP = "/member-map"
 
+    // Welle V1.9.59 "Mitgliederzahlen ueber Zeit" -- BOARD/ADMIN, verifiziert gegen MemberStatisticsService.kt:
+    // requireRole(BOARD, ADMIN) als erste Anweisung -- keine Selbstauskunft-Variante, nur Zaehler je Zeitraum.
+    // Lebt in der Verwaltung-Dropdown, direkt nach der Mitgliederkarte. Kein Query-Parameter.
+    const val MEMBER_STATISTICS = "/member-statistics"
+
     // Welle V1.4.5.1.1 "Kontoauszuege" -- TREASURER/BOARD/ADMIN auf Routenebene, verifiziert gegen
     // `BankStatementService.kt`s `BANK_STATEMENT_READ_ROLES`. Die engere TREASURER/ADMIN-Stufe
     // (`BANK_STATEMENT_WRITE_ROLES` = `BankStatementRoutes.BANK_STATEMENT_UPLOAD_ROLES`) wird
@@ -1095,6 +1100,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.MEMBER_MAP) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.MEMBER_MAP, ::renderMemberMapScreen)
+        }
+    }
+    routing.kvOn(Routes.MEMBER_STATISTICS) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.MEMBER_STATISTICS, ::renderMemberStatisticsScreen)
         }
     }
     routing.kvOn(Routes.BANK_IMPORT) {

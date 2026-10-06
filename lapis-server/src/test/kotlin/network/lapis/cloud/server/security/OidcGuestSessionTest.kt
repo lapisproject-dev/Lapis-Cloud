@@ -7,6 +7,7 @@ import io.kotest.matchers.shouldNotBe
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
 import network.lapis.cloud.server.db.generated.SessionTable
@@ -45,6 +46,7 @@ class OidcGuestSessionTest :
                 OidcGuestProfileTable.deleteWhere { OidcGuestProfileTable.memberId inList createdMemberIds }
                 SessionTable.deleteWhere { SessionTable.memberId inList createdMemberIds }
                 AccountTable.deleteWhere { AccountTable.memberId inList createdMemberIds }
+                MemberStatusHistoryTable.deleteWhere { MemberStatusHistoryTable.memberId inList createdMemberIds }
                 MemberTable.deleteWhere { MemberTable.id inList createdMemberIds }
             }
         }

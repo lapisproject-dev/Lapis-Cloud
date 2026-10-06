@@ -91,6 +91,17 @@
   --lapis-role-guest:      #B35300;
   --lapis-role-inactive:   #6B7280;
 
+  /* V1.9.59 Mitgliederentwicklung: eine Farbe je Mitgliedsstatus fuer das Saeulendiagramm, jede >= 3:1 gegen --lapis-surface
+     (hell: auf Weiss 4,8:1 bis 9,7:1); ThemeChartTokensTest rechnet das nach. */
+  --lapis-chart-active:       #1E56C8;
+  --lapis-chart-application:  #B35300;
+  --lapis-chart-friend:       #0F6C79;
+  --lapis-chart-donor:        #6A3DBE;
+  --lapis-chart-guest:        #6B7280;
+  --lapis-chart-withdrawn:    #C62828;
+  --lapis-chart-rejected:     #8A6B10;
+  --lapis-chart-deceased:     #3D4552;
+
   /* V1.4.25 Medienflächen -- Konferenzkacheln, Aufzeichnungs-/Bildschirmteilungs-Player und das
      Gast-Abzeichen sitzen in JEDEM Theme auf dunklem Grund (Video-Letterbox). Deshalb sind die
      Werte in allen drei Blöcken (hell, System-dunkel, explizit dunkel) dunkel bzw. identisch. */
@@ -152,6 +163,17 @@
     --lapis-role-guest:      #F0A050;
     --lapis-role-inactive:   #9CA3AF;
 
+    /* V1.9.59 Mitgliederentwicklung: eine Farbe je Mitgliedsstatus fuer das Saeulendiagramm, jede >= 3:1 gegen --lapis-surface
+       (dunkel: auf #1B2028 5,2:1 bis 10,1:1); ThemeChartTokensTest rechnet das nach. */
+    --lapis-chart-active:       #5B8FF0;
+    --lapis-chart-application:  #F0A050;
+    --lapis-chart-friend:       #4DB6C4;
+    --lapis-chart-donor:        #A78BEA;
+    --lapis-chart-guest:        #9CA3AF;
+    --lapis-chart-withdrawn:    #E57373;
+    --lapis-chart-rejected:     #D4AF37;
+    --lapis-chart-deceased:     #C7CCD4;
+
     --lapis-tile-bg:           #0B1220;
     --lapis-tile-border:       #2A3441;
     --lapis-tile-text:         #EEEEEE;
@@ -200,6 +222,17 @@
   --lapis-role-member:     #4DB6C4;
   --lapis-role-guest:      #F0A050;
   --lapis-role-inactive:   #9CA3AF;
+
+  /* V1.9.59 Mitgliederentwicklung: eine Farbe je Mitgliedsstatus fuer das Saeulendiagramm, jede >= 3:1 gegen --lapis-surface
+     (dunkel: auf #1B2028 5,2:1 bis 10,1:1); ThemeChartTokensTest rechnet das nach. */
+  --lapis-chart-active:       #5B8FF0;
+  --lapis-chart-application:  #F0A050;
+  --lapis-chart-friend:       #4DB6C4;
+  --lapis-chart-donor:        #A78BEA;
+  --lapis-chart-guest:        #9CA3AF;
+  --lapis-chart-withdrawn:    #E57373;
+  --lapis-chart-rejected:     #D4AF37;
+  --lapis-chart-deceased:     #C7CCD4;
 
   --lapis-tile-bg:           #0B1220;
   --lapis-tile-border:       #2A3441;

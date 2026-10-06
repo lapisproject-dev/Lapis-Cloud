@@ -4,6 +4,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PasswordResetTokenTable
 import network.lapis.cloud.server.db.generated.PrivilegedActionRequestTable
@@ -181,6 +182,7 @@ internal class PeerFixture {
             SessionTable.deleteWhere { memberId inList createdMemberIds }
             PasswordResetTokenTable.deleteWhere { memberId inList createdMemberIds }
             AccountTable.deleteWhere { memberId inList createdMemberIds }
+            MemberStatusHistoryTable.deleteWhere { MemberStatusHistoryTable.memberId inList createdMemberIds }
             MemberTable.deleteWhere { id inList createdMemberIds }
         }
     }

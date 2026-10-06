@@ -179,6 +179,10 @@ server tests because all tripwires run there and read it; the shared DTOs are un
 
 A NEW temporal field fails the first test until it is classified: that is the point where its clock and its display rule are decided.
 
+NOTE: The member-count history (V1.9.59, `member-status-history.adoc`) is a worked example of the three classes: `member_status_history.effective_from` and
+`recorded_at` are class A (UTC), the request and the periods of `IMemberStatisticsService` are class D (calendar dates), and the period boundaries are
+computed in the organization zone with `atStartOfDayIn`, never in the process zone. The V72 backfill converts dates to instants as noon UTC.
+
 `./gradlew :lapis-server:test -PtestTimeZone=Europe/Berlin` runs the whole suite with a non-UTC process zone (JVM zone and `TZ`); both
 that run and the default UTC run must stay green.
 

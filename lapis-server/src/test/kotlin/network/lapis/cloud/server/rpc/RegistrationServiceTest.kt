@@ -30,6 +30,7 @@ import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.BoardMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
+import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
@@ -1101,6 +1102,7 @@ private fun cleanUpRegistrationTestData(
             SessionTable.deleteWhere { SessionTable.memberId inList memberIds }
             MembershipAgreementAcknowledgmentTable.deleteWhere { MembershipAgreementAcknowledgmentTable.memberId inList memberIds }
             AccountTable.deleteWhere { AccountTable.memberId inList memberIds }
+            MemberStatusHistoryTable.deleteWhere { MemberStatusHistoryTable.memberId inList memberIds }
             MemberTable.deleteWhere { MemberTable.id inList memberIds }
         }
     }

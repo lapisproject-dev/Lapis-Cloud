@@ -1,10 +1,15 @@
 package network.lapis.cloud.server.db
 
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
+import network.lapis.cloud.server.member.MemberStatusHistory
+import network.lapis.cloud.server.member.MemberStatusHistorySource
 import network.lapis.cloud.server.security.DeploymentMode
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.shared.domain.AccountRole
@@ -296,6 +301,15 @@ object DevSeedData {
                     it[joinedAt] = LocalDate(2026, 1, 1)
                     it[membershipTierId] = standardTierId
                 }
+                // Welle V1.9.59 -- the status history starts with the member row: SEED, from the start of the join day (UTC; the
+                // seed has no organization zone yet), capped at now.
+                MemberStatusHistory.recordLocked(
+                    memberId = seed.id,
+                    newStatus = MemberStatus.ACTIVE,
+                    now = DbClock.nowLocalDateTime(),
+                    source = MemberStatusHistorySource.SEED,
+                    effectiveFrom = LocalDate(2026, 1, 1).atStartOfDayIn(TimeZone.UTC).toLocalDateTime(TimeZone.UTC),
+                )
                 AccountTable.insert {
                     it[id] = Uuid.random()
                     it[memberId] = seed.id

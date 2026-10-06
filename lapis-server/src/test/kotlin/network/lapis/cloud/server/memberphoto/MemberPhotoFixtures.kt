@@ -5,6 +5,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.MemberPhotoTable
+import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -120,6 +121,7 @@ internal class MemberPhotoFixtures {
             MemberPhotoTable.deleteWhere { memberId inList createdMemberIds }
             AuditLogEntryTable.deleteWhere { actorMemberId inList createdMemberIds }
             AccountTable.deleteWhere { memberId inList createdMemberIds }
+            MemberStatusHistoryTable.deleteWhere { MemberStatusHistoryTable.memberId inList createdMemberIds }
             MemberTable.deleteWhere { id inList createdMemberIds }
         }
     }

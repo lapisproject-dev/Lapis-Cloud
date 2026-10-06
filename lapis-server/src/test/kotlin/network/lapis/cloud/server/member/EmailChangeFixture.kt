@@ -10,6 +10,7 @@ import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.FriendEmailVerificationTokenTable
 import network.lapis.cloud.server.db.generated.MemberEmailChangeTable
+import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PasswordResetTokenTable
 import network.lapis.cloud.server.db.generated.SessionTable
@@ -216,6 +217,7 @@ internal class EmailChangeFixture {
             FriendEmailVerificationTokenTable.deleteWhere { memberId inList createdMemberIds }
             PasswordResetTokenTable.deleteWhere { memberId inList createdMemberIds }
             AccountTable.deleteWhere { memberId inList createdMemberIds }
+            MemberStatusHistoryTable.deleteWhere { MemberStatusHistoryTable.memberId inList createdMemberIds }
             MemberTable.deleteWhere { id inList createdMemberIds }
         }
     }

@@ -167,6 +167,14 @@ internal object MemberRoleStatusMutations {
                 it[MemberTable.dateOfDeath] = null
             }
         }
+        // Welle V1.9.59 -- status history, right after the successful write; the caller holds the member row lock. This is the
+        // one central path of MemberService.updateMemberStatus, the privileged-action execution and the operator console.
+        MemberStatusHistory.recordLocked(
+            memberId = targetId,
+            newStatus = newStatus,
+            now = now,
+            source = MemberStatusHistorySource.LIVE,
+        )
         val newDateOfDeath = if (newStatus == MemberStatus.DECEASED) dateOfDeath else null
 
         if (fromStatus == MemberStatus.ACTIVE) {

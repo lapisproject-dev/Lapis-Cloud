@@ -320,6 +320,16 @@ internal object LegalHtml {
             }
             li {
                 +(
+                    "Mitgliederstatistik: Zum Nachweis der Entwicklung der Mitgliederzahlen wird jeder Wechsel " +
+                        "des Mitgliedsstatus (neuer Status und Zeitpunkt, ohne Namen oder Anschrift) " +
+                        "festgehalten und nur als Zahl je Zeitraum für Vorstand und Administratoren " +
+                        "ausgewertet — Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an einer " +
+                        "wahrheitsgemäßen Darstellung der Mitgliederentwicklung); bei einer Löschung bleibt " +
+                        "dieser Verlauf anonym erhalten, weil die Mitgliederzeile nur anonymisiert wird."
+                )
+            }
+            li {
+                +(
                     "Buchhaltung, Beitrags-/Spendenkonto, Prüfpfad, Zahlungsverkehr, interne Verrechnung, " +
                         "Umsatzsteuer-Voranmeldung (Nachweishilfe) und Auktionen — Art. 6 Abs. 1 lit. c DSGVO " +
                         "(handels-/steuerrechtliche Aufbewahrungspflichten, GoBD/HGB/AO; bei politischen " +

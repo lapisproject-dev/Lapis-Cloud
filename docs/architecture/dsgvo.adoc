@@ -451,6 +451,10 @@ start page, which issues one. Kilua RPC transmits only the exception type, so a 
   (`DsgvoService.requestErasure` / `executeErasure`, `PeerAction.ERASE`); the account is erased after the demotion (which itself needs a second
   administrator), because the erasure hard-deletes the account row and no single administrator may decide that for another. See
   `docs/architecture/admin-peer-protection.adoc`. `ErasureRequestDto.subjectIsAdmin` lets the queue show the execute button disabled with the reason.
+* `network.lapis.cloud.server.dsgvo.MemberStatusHistoryPersonalData` — the contributor for `member_status_history` (Welle V1.9.59): the rows are
+  *kept* in both erasure modes (`rowsRetained`, with the reason in the outcome) because they hold only a status and an instant, the member row itself is anonymized
+  and never deleted, and deleting them would silently rewrite every past member count; the export lists the subject's own rows. There is no `changed_by`
+  column, so the log adds no second personal reference. See `docs/architecture/member-status-history.adoc`.
 * `docs/architecture/domain-model.adoc` — the wider persistence-model documentation this file
   intentionally does not duplicate (this document is scoped to the DSGVO framework's own shape, not
   the CRM entity's full column-level schema — see `38-crm.kuml.kts` for that).

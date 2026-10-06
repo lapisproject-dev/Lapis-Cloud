@@ -22,6 +22,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.FriendTermsAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -552,6 +553,7 @@ private fun cleanUpFriendRegistrationTestData(memberIds: List<Uuid>) {
         FriendTermsAcknowledgmentTable.deleteWhere { FriendTermsAcknowledgmentTable.memberId inList memberIds }
         MembershipAgreementAcknowledgmentTable.deleteWhere { MembershipAgreementAcknowledgmentTable.memberId inList memberIds }
         AccountTable.deleteWhere { AccountTable.memberId inList memberIds }
+        MemberStatusHistoryTable.deleteWhere { MemberStatusHistoryTable.memberId inList memberIds }
         MemberTable.deleteWhere { MemberTable.id inList memberIds }
     }
 }

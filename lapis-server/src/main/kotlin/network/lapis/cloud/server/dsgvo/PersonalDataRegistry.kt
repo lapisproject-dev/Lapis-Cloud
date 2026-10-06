@@ -42,6 +42,7 @@ object PersonalDataRegistry {
             SessionPersonalData,
             RegistrationPersonalData,
             PrivilegedActionPersonalData,
+            MemberStatusHistoryPersonalData,
             OidcGuestPersonalData,
             ConferencePersonalData,
             SocialNetworkPersonalData,

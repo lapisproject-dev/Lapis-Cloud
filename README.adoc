@@ -562,6 +562,13 @@ legal counsel — not something this project can decide once for everyone. See `
   silently drop outbound connections on SMTP ports (25/465/587) regardless of local firewall
   configuration — a correct `LAPIS_SMTP_*` configuration and a genuinely reachable relay are two
   separate things to confirm.
+* **Member counts over time (V1.9.59).** Every change of a member's status is appended to an append-only log (`member_status_history`, migration `V72`),
+  so "how many members did we have at the end of each month / quarter / year" has a historically correct answer instead of today's rows counted backwards.
+  The screen "Mitgliederentwicklung" (Verwaltung group, BOARD/ADMIN only, `/member-statistics`) shows a stacked bar chart per status, the same figures in a
+  table, a CSV export and a note where a period rests on a reconstruction. **The past before V72 is reconstructed, not known**: from the audit log,
+  acknowledgments, `reviewed_at`, `date_of_death`; a voluntary withdrawal leaves no trace, so earlier ACTIVE counts are slightly under-estimated; a member
+  with no earlier evidence counts from the earliest date that proves the current status. Such periods are drawn pale. From the day V72 runs, every change is
+  recorded live. Only counts per period leave the server, never a member id. See `docs/architecture/member-status-history.adoc`.
 * **Administrator accounts are protected from each other (V1.9.57).** A temporary password, taking the ADMIN role away or blocking the login of *another
   administrator* needs the approval of a second administrator (one who held the role for 7 days; request, approval, for a password a 24 hour objection
   period of the target, generation once by the requester); the emergency e-mail path, the manual Keycloak link and GDPR erasure are refused against another
@@ -1387,6 +1394,13 @@ postal-code centroid lookup (place names + coordinates) ships bundled with `lapi
   `lapis-server/src/main/resources/geodata/LICENSE-GeoNames.txt`.
 * Basemap tiles (c) link:https://www.openstreetmap.org/copyright[OpenStreetMap contributors], ODbL
   (via a https://protomaps.com[Protomaps] build, BSD-3-Clause build tooling).
+
+== Member counts over time (V1.9.59)
+
+BOARD/ADMIN-only history of the number of members per status: `IMemberStatisticsService.getMemberCountHistory` over the append-only
+`member_status_history` log, the screen "Mitgliederentwicklung" (stacked bars, table, CSV export), calendar periods of the organization time zone, at most
+240 periods per request. The data model, the V72 backfill with its limits, the privacy decision (counts only, rows are kept on GDPR erasure) and
+what is not done: `docs/architecture/member-status-history.adoc`.
 
 == SuperMailer (V1.9.7/V1.9.15)
 

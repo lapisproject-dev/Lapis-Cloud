@@ -1,0 +1,188 @@
+= Member status history and member counts over time (V1.9.59)
+:toc:
+
+== Purpose
+
+Until V1.9.59 the system only knew *today's* status of every member (`member.status`). "How many members did we have on 31 December?" could
+not be answered: counting today's rows backwards (everybody whose `joined_at` is before that date) counts people who left in between and
+misses people who were members and are gone, which is exactly the mistake of a statistic that only knows the present.
+
+V1.9.59 adds an **append-only log of status changes** (`member_status_history`, `V72__member_status_history.sql`), a BOARD/ADMIN-only RPC that
+turns it into counts per month, quarter or year (`IMemberStatisticsService`), and the screen "Mitgliederentwicklung" (route
+`/member-statistics`). The table `member` is untouched; `member.status` stays the source of truth for *now*.
+
+NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+== Model and invariants
+
+[source,kuml,name="member-status-history-model"]
+----
+classDiagram(name = "Member status history -- ERM excerpt") {
+    val member = classOf(name = "member") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "status", type = "MemberStatus")
+    }
+
+    val history = classOf(name = "member_status_history") {
+        attribute(name = "member_id", type = "UUID")
+        attribute(name = "effective_from", type = "LocalDateTime")
+        attribute(name = "status", type = "String")
+        attribute(name = "previous_status", type = "String?")
+        attribute(name = "source", type = "String")
+        attribute(name = "recorded_at", type = "LocalDateTime?")
+    }
+
+    association(source = member, target = history) {
+        source { multiplicity(spec = "1"); role = "member" }
+        target { multiplicity(spec = "0..*"); role = "history" }
+    }
+}
+----
+
+* **One row per change** of `member.status`. Rows are never updated and never deleted (the V72 backfill itself drops rows that repeat their
+  predecessor).
+* **Primary key `(member_id, effective_from)`, no surrogate id.** The backfill has to create rows in SQL that runs on H2 and on PostgreSQL;
+  `gen_random_uuid()` and `RANDOM_UUID()` are not portable. The composite key also makes the order per member deterministic.
+* **`previous_status`** is the status of the member's previous row (`NULL` = the first row). Therefore the number of members with status S
+  at an instant T is the sum over all rows before T of `+1` (row `status` is S) and `-1` (row `previous_status` is S). One `GROUP BY
+  (status, previous_status, effective_from)` is all the database does; no window function, no `member_id` in the result, identical on H2 and PostgreSQL.
+* **`effective_from`** (class A, UTC) is the instant the change was *recorded*, strictly increasing per member. It is `max(min(requested, now),
+  latest + 1 microsecond)`: several paths compute `now` before their transaction, and without the lower bound a slower request could write an older instant
+  behind a younger one and break the chain. **`recorded_at`** is the clock when the row was written; it is `NULL` exactly for the rows the V72 backfill
+  reconstructed (`source` `BACKFILL_*`). `chk_member_status_history_recorded` pins that coupling.
+* **No `changed_by`.** The actor of a change is already in the hash-chained audit log; a second personal reference here would only add erasure special cases.
+* **No CASCADE** on the foreign key. The application layer is authoritative; a member row with history cannot be deleted.
+
+[source,kuml,name="member-status-history-transitions"]
+----
+stateDiagram(name = "Member status, as recorded by the history") {
+    val start = initialState()
+    val application = state(name = "APPLICATION")
+    val active = state(name = "ACTIVE")
+    val friend = state(name = "FRIEND")
+    val guest = state(name = "GUEST")
+    val donor = state(name = "DONOR")
+    val withdrawn = state(name = "WITHDRAWN")
+    val rejected = state(name = "REJECTED")
+    val deceased = state(name = "DECEASED")
+
+    transition(source = start, target = application) { trigger = "registerApplication" }
+    transition(source = start, target = friend) { trigger = "registerFriend" }
+    transition(source = start, target = active) { trigger = "createMemberDirect / CSV import / bootstrap / seed" }
+    transition(source = start, target = guest) { trigger = "OIDC guest" }
+    transition(source = friend, target = application) { trigger = "applyForMembership" }
+    transition(source = application, target = active) { trigger = "approveApplication" }
+    transition(source = application, target = rejected) { trigger = "rejectApplication" }
+    transition(source = application, target = friend) { trigger = "rejectApplication (former FRIEND)" }
+    transition(source = active, target = withdrawn) { trigger = "leaveMembership / updateMemberStatus" }
+    transition(source = active, target = donor) { trigger = "updateMemberStatus" }
+    transition(source = active, target = deceased) { trigger = "updateMemberStatus (death date)" }
+}
+----
+
+== Every writer of `member.status` appends the history
+
+`MemberStatusHistory.recordLocked` is the only writer of the table. It requires that the caller holds the member row lock in the *same transaction* and
+that the status write itself already succeeded (after the `updated == 0` check, so a failed change leaves no row). It writes nothing when the latest row
+already carries the new status, and it never catches an exception: a primary key violation here is a bug and must roll the transaction back.
+
+[cols="3,2,2", options="header"]
+|===
+| Writer | New status | `source`
+| `MemberRoleStatusMutations.applyStatusChangeLocked` (updateMemberStatus, privileged-action execution, operator console) | any | `LIVE`
+| `registerApplication` | APPLICATION | `LIVE`
+| `approveApplication` | ACTIVE | `LIVE`
+| `rejectApplication` | REJECTED or FRIEND | `LIVE`
+| `createMemberDirect` | ACTIVE | `LIVE`
+| `leaveMembership` | WITHDRAWN | `LIVE`
+| `registerFriend` | FRIEND | `LIVE`
+| `applyForMembership` | APPLICATION | `LIVE`
+| CSV import | the imported status, effective from the start of the join day in the organization zone (capped at now) | `IMPORT`
+| first-admin bootstrap | ACTIVE | `LIVE`
+| OIDC guest | GUEST | `LIVE`
+| dev seed, staging seed | seeded status, effective from the start of the join day (UTC) | `SEED`
+|===
+
+*Not status writers* (the tripwire documents that): address, beneficial-owner data, name, `correctDateOfDeath`, tier and chapter assignment, e-mail change,
+GDPR anonymization. In particular **correcting a date of death does not change the history**: the recorded instant stays the instant of the correction's
+status change.
+
+`MemberStatusWriteTripwireTest` scans `src/main` for every `MemberTable.update/insert/...` that assigns `status`, pins the number per file, and requires
+a `recordLocked` call before the next status write or the next function. Raw SQL that updates `member.status` or inserts into `member` is forbidden in
+`src/main` and, in migrations after V72, allowed only together with `member_status_history`. `MemberStatusHistoryConsistency.countMismatches()` is an
+operations signal logged once at start (the *number* of members whose latest history row disagrees with `member.status`, never an id).
+
+== The backfill (V72)
+
+The migration reconstructs the past from evidence the database really holds, in plain SQL, in a fixed order. Every insert is guarded by `NOT EXISTS` on the
+primary key, so the order is the priority:
+
+[cols="1,4", options="header"]
+|===
+| Step | Source
+| B1 | status changes in `audit_log_entry` (`entity_type MEMBER`, `before_snapshot`/`after_snapshot`, only where the status differs); a CREATE entry has no before snapshot. Status extraction is `LIKE '%"status":"X"%'` -- a `"status"` inside free text is JSON-escaped (`\"status\"`) and cannot match; a status that cannot be extracted is skipped, never guessed
+| B2 / B3 | first friend-terms acknowledgment, else `friend_since` (noon UTC): the member became a FRIEND
+| B4 | first membership-agreement acknowledgment: the member applied
+| B5 | `reviewed_at`: the decision on an application (REJECTED / FRIEND / otherwise ACTIVE); skipped for a member whose current status is APPLICATION or GUEST, because the decision may belong to an earlier application
+| B6 | `date_of_death` of a DECEASED member (noon UTC)
+| B7 | anchor rows: (a) the first row is an audit change with a known before status -> that status is the anchor, (c) the first row is a decision without any acknowledgment -> APPLICATION (approving and rejecting are only possible from APPLICATION)
+| B8 | members without any evidence: the current status counts from the earliest date that proves *this* status (DECEASED from `date_of_death`, FRIEND from `friend_since`, everything else from `joined_at`) -- `BACKFILL_ASSUMED`
+| B9 | the latest row differs from `member.status` (for example a voluntary withdrawal): close the chain one second after the last evidence -- `BACKFILL_ASSUMED`
+| B10 / B11 | `previous_status` recomputed from the real predecessor for every row; rows that repeat their predecessor's status are dropped
+|===
+
+Dates (`joined_at`, `friend_since`, `date_of_death`) are `DATE`s; the migration uses noon UTC (`CAST(d AS TIMESTAMP) + 12 HOUR`) -- pure arithmetic,
+independent of the process zone, and the same calendar day for every organization zone from UTC-12 to UTC+11. An organization at UTC+12 or beyond sees
+such a reconstructed instant on the previous day.
+
+*Ground rules:* nothing is invented. Audit entries for photo or bio revocation and committee-end dates are *not* used as hints for the instant of a leaving:
+they exist for some members only and say little about the status. The backfill reads `audit_log_entry`; the audit hash chain and `member` stay byte-identical
+(`MemberStatusHistoryMigrationScenarios` pins that on H2 and PostgreSQL).
+
+=== Known limitations of the reconstruction
+
+* **A voluntary withdrawal (`leaveMembership`) leaves neither an audit entry nor a date.** Its instant is not recoverable; after B9 it sits directly behind the
+  last evidence, so earlier ACTIVE counts are *under*-estimated. (The alternative -- placing it at the V72 date -- would over-estimate.) Both are marked reconstructed.
+* **A member without any earlier evidence** counts only from the earliest date that proves the current status (usually the join date). The wording "DECEASED
+  counted from the join date" would be factually impossible; DECEASED counts from the date of death, and before that the member is not counted at all.
+* **`effective_from` is the moment of recording, not the legal effect.** A death date, a withdrawal "to the end of the month", a retroactive entry: the history says
+  when the system learned of it. A separate legal effective date would be its own wave.
+* The Mittag-UTC approximation above.
+
+== Counting (RPC `IMemberStatisticsService`)
+
+`getMemberCountHistory(from, to, granularity)` returns one point per calendar month, quarter or year *of the organization zone* from the period containing
+`from` to the one containing `to`; the figure of a period is the count at the first instant of the following period (converted to UTC with `atStartOfDayIn`,
+daylight-saving safe). The current period is counted up to now (boundary now + 1 microsecond, so a change stamped exactly now is included). All eight
+statuses are always present. A negative figure means an inconsistent chain: the service logs only numbers and fails loudly instead of showing it.
+
+Limits (enforced by the server, shared with the client in `MemberStatisticsRules`): `from >= 1900-01-01`, `from <= to <= today`, at most 240 periods. Invalid
+ranges are a `BadRequestException`, never silently coarsened. The first statement of the service is `requireRole(BOARD, ADMIN)`, before any input is looked at.
+
+*Reconstructed periods.* `reconstructedBefore` is the instant up to which the history is a reconstruction: the oldest `recorded_at` of any live row when
+backfill rows exist (between V72 and the first live row no status changes, so this is a conservative end), and the newest `recorded_at` of an `IMPORT` row (a
+CSV import is backdated by design). A point is `reconstructed` when its boundary is at or before that instant and it is not the current period. The screen draws
+such periods pale and explains them.
+
+== Time model
+
+`effective_from` and `recorded_at` are class A (system timestamps, UTC); the request and the period boundaries of the response are class D (calendar dates
+in the organization zone, `time-fields.tsv`); `reconstructedBefore` is class A. Period boundaries are computed in `OrganizationTimeZone.current()`, never
+in the process zone. See `time-and-timezones.adoc`.
+
+== Privacy
+
+* The response carries **only counts per period** -- no member id, no name, no single member's instant. The query shape guarantees it: `member_id` is never selected.
+* *Small cells* (a period with one APPLICATION) are shown to BOARD and ADMIN, who see the member list anyway; the numbers add no information those roles do not have.
+* The screen is for BOARD and ADMIN only (route and server). Not reachable through the public API, MCP, embeds, webhooks or federation
+  (`MemberStatisticsExposureTripwireTest`).
+* **GDPR:** the rows are *kept* on erasure (`MemberStatusHistoryPersonalData`, both erasure modes): they hold only a status and an instant, the member row is
+  anonymized and never deleted, and deleting them would silently rewrite every past count. The export lists the subject's own rows.
+
+== Not done
+
+* A flow view (how many joined, left, changed in a period) -- the data supports it, the screen shows stocks only.
+* Free date fields; the screen offers four ranges and three divisions.
+* Views per regional chapter or tier.
+* Hatching for reconstructed periods (they are drawn pale).
+* A rollback of V72: the migration is additive; dropping the table is the whole undo.

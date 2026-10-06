@@ -16,6 +16,8 @@ import network.lapis.cloud.server.mail.NoOpPeerNotificationMailer
 import network.lapis.cloud.server.mail.PeerNotificationMailer
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.isValidMailboxAddress
+import network.lapis.cloud.server.member.MemberStatusHistory
+import network.lapis.cloud.server.member.MemberStatusHistorySource
 import network.lapis.cloud.server.member.PeerNotifier
 import network.lapis.cloud.server.memberbio.MemberPublicBioStore
 import network.lapis.cloud.server.memberphoto.MemberPhotoStore
@@ -281,6 +283,13 @@ class RegistrationService internal constructor(
                     it[membershipTierId] = null
                     it[regionalChapterId] = resolvedChapterId
                 }
+                // Welle V1.9.59 -- the status history starts with the member row (same transaction, member row just inserted).
+                MemberStatusHistory.recordLocked(
+                    memberId = memberId,
+                    newStatus = MemberStatus.APPLICATION,
+                    now = now,
+                    source = MemberStatusHistorySource.LIVE,
+                )
                 AccountTable.insert {
                     it[id] = Uuid.random()
                     it[AccountTable.memberId] = memberId
@@ -347,6 +356,13 @@ class RegistrationService internal constructor(
             if (updated == 0) {
                 throw ConflictException("Application $memberId was concurrently decided -- retry")
             }
+            // Welle V1.9.59 -- status history, after the successful write, under the member row lock taken above.
+            MemberStatusHistory.recordLocked(
+                memberId = targetId,
+                newStatus = MemberStatus.ACTIVE,
+                now = now,
+                source = MemberStatusHistorySource.LIVE,
+            )
             // Welle V1.3.2 "Webhooks" (ausgehend), D8 -- the APPLICATION -> ACTIVE transition this
             // function performs is a raw MemberTable.update, NOT a call into
             // MemberService.updateMemberStatus (MemberStatusTransitions.allowedTargets(APPLICATION)
@@ -432,6 +448,13 @@ class RegistrationService internal constructor(
                     if (updated == 0) {
                         throw ConflictException("Application $memberId was concurrently decided -- retry")
                     }
+                    // Welle V1.9.59 -- status history, after the successful write, under the member row lock.
+                    MemberStatusHistory.recordLocked(
+                        memberId = targetId,
+                        newStatus = fallbackStatus,
+                        now = now,
+                        source = MemberStatusHistorySource.LIVE,
+                    )
                     // See KDoc "stale roster" fix -- same transaction as the status flip above, so a
                     // rejected applicant can never be observed still seated in a Committee.
                     endAllOpenCommitteeMembershipsForMember(
@@ -480,6 +503,13 @@ class RegistrationService internal constructor(
                     it[membershipTierId] = null
                     it[regionalChapterId] = resolvedChapterId
                 }
+                // Welle V1.9.59 -- the status history starts with the member row.
+                MemberStatusHistory.recordLocked(
+                    memberId = memberId,
+                    newStatus = MemberStatus.ACTIVE,
+                    now = now,
+                    source = MemberStatusHistorySource.LIVE,
+                )
                 AccountTable.insert {
                     it[id] = Uuid.random()
                     it[AccountTable.memberId] = memberId
@@ -529,6 +559,13 @@ class RegistrationService internal constructor(
                 if (updated == 0) {
                     throw ConflictException("Not an active member -- already left, never approved, or rejected")
                 }
+                // Welle V1.9.59 -- status history, after the successful write (the UPDATE holds the member row lock).
+                MemberStatusHistory.recordLocked(
+                    memberId = current.memberId,
+                    newStatus = MemberStatus.WITHDRAWN,
+                    now = now,
+                    source = MemberStatusHistorySource.LIVE,
+                )
                 // See KDoc "stale roster" fix -- same transaction as the status flip above, so a
                 // withdrawn member can never be observed still seated in a Committee.
                 endAllOpenCommitteeMembershipsForMember(
@@ -671,6 +708,13 @@ class RegistrationService internal constructor(
                     it[membershipTierId] = null
                     it[friendSince] = OrganizationTimeZone.dateOf(now)
                 }
+                // Welle V1.9.59 -- the status history starts with the member row.
+                MemberStatusHistory.recordLocked(
+                    memberId = memberId,
+                    newStatus = MemberStatus.FRIEND,
+                    now = now,
+                    source = MemberStatusHistorySource.LIVE,
+                )
                 AccountTable.insert {
                     it[id] = Uuid.random()
                     it[AccountTable.memberId] = memberId
@@ -752,6 +796,13 @@ class RegistrationService internal constructor(
             if (updated == 0) {
                 throw ConflictException("Not a FRIEND account -- already applied, or already a member")
             }
+            // Welle V1.9.59 -- status history, after the successful write, under the member row lock taken above.
+            MemberStatusHistory.recordLocked(
+                memberId = current.memberId,
+                newStatus = MemberStatus.APPLICATION,
+                now = now,
+                source = MemberStatusHistorySource.LIVE,
+            )
             MembershipAgreementAcknowledgmentTable.insert {
                 it[id] = Uuid.random()
                 it[MembershipAgreementAcknowledgmentTable.memberId] = current.memberId
