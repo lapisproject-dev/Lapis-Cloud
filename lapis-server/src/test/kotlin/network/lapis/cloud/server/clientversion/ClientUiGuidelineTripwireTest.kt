@@ -118,11 +118,6 @@ private val BASELINE: Map<String, Map<String, List<String>>> =
                     listOf(
                         "listPanel.table(",
                     ),
-                // W5 admin / integrations
-                "WebhookDeliveryLogPanel.kt" to
-                    listOf(
-                        "scrollWrapper.table(",
-                    ),
             ),
         R15 to
             mapOf(
@@ -142,11 +137,6 @@ private val BASELINE: Map<String, Map<String, List<String>>> =
                 "DunningSettingsScreen.kt" to
                     listOf(
                         "listPanel.table(",
-                    ),
-                // W5 admin / integrations
-                "WebhookDeliveryLogPanel.kt" to
-                    listOf(
-                        "scrollWrapper.table(",
                     ),
             ),
         R39 to
@@ -1502,8 +1492,8 @@ class ClientUiGuidelineTripwireTest :
             }
         }
 
-        test("R14/R15 see every table( call of the client, also the ones broken before the dot (8 including the standardTable helper)") {
-            clientKotlinFiles().sumOf { tableCalls(it.readText()).size } shouldBe 8
+        test("R14/R15 see every table( call of the client, also the ones broken before the dot (7 including the standardTable helper)") {
+            clientKotlinFiles().sumOf { tableCalls(it.readText()).size } shouldBe 7
         }
 
         test("C7c: no reportTable( call of the client carries sort wiring (a report is never sortable)") {

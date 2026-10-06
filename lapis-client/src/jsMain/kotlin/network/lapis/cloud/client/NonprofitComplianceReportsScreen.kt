@@ -3,7 +3,6 @@ package network.lapis.cloud.client
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDouble
 import io.kvision.core.Container
-import io.kvision.core.Overflow
 import io.kvision.form.check.checkBox
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
@@ -20,7 +19,6 @@ import io.kvision.panel.vPanel
 import io.kvision.table.Row
 import io.kvision.table.Table
 import io.kvision.table.cell
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.FourSphereIncomeStatementDto
@@ -580,8 +578,6 @@ private fun vatEnableDisclaimerModal(
     ) { addCssClasses("text-muted small mb-2") }
     modal.div {
         addCssClasses("border rounded p-2 mb-2")
-        maxHeight = 300.px
-        overflow = Overflow.AUTO
         disclaimer.text.lines().forEach { line -> p(line) { addCssClasses("small mb-1") } }
     }
     modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })

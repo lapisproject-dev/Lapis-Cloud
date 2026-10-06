@@ -1,6 +1,5 @@
 package network.lapis.cloud.client
 
-import io.kvision.core.Overflow
 import io.kvision.html.Autocomplete
 import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
@@ -71,9 +70,7 @@ private fun renderRegistrationForm(
 ) {
     root.h2(gettext("Beitrittsvertrag (Version %1)", agreement.version)) { addCssClass("h5") }
     root.div {
-        addCssClasses("border rounded p-2 mb-2")
-        maxHeight = 240.px
-        overflow = Overflow.AUTO
+        addCssClasses("border rounded p-2 mb-2 lapis-legal-text")
         content = sanitizeUntrustedI18nText(agreement.text)
     }
 

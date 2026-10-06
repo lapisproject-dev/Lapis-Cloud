@@ -1,7 +1,6 @@
 package network.lapis.cloud.client
 
 import io.kvision.core.Container
-import io.kvision.core.Overflow
 import io.kvision.core.Widget
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.Select
@@ -856,9 +855,6 @@ private fun conferenceGuestConsentModal(
     val scrollBox =
         modal.div {
             addCssClasses("border rounded p-2 mb-2")
-            maxHeight = 320.px
-            overflow = Overflow.AUTO
-            setAttribute("tabindex", "0")
         }
     untrustedContent(scrollBox, d.text)
 
@@ -2630,7 +2626,8 @@ private fun enterCall(
         compactLabelElement = compactLabel
 
         val compact = document.createElement("div") as HTMLElement
-        compact.style.cssText = "display:flex;overflow-x:auto;overflow-y:hidden;gap:8px;margin-top:4px;display:none;"
+        compact.className = "lapis-conference-filmstrip"
+        compact.style.display = "none"
         root.appendChild(compact)
         compactZoneElement = compact
     }
@@ -2762,9 +2759,10 @@ private fun enterCall(
     chatPanel.h2(tr("Chat")) { addCssClass("h6") }
     val chatLog =
         chatPanel.div {
-            addCssClasses("small")
-            height = 160.px
-            overflow = Overflow.AUTO
+            addCssClasses("small lapis-conference-chat-log")
+            setAttribute("tabindex", "0")
+            setAttribute("role", "log")
+            setAttribute("aria-label", gettext("Chat"))
         }
     // V1.9.66 -- the same chat input row as the encounter room (`lapisChatComposer`): a field without a visible label and an icon-only
     // send button as high as the field. Enter sends (an IME composition Enter does not): no raw-DOM hook, the composer wires KVision events.
@@ -3559,7 +3557,7 @@ private fun enterCall(
         // invent a novel layout").
         clearElement(stage)
         val mediaElement = track.attach()
-        mediaElement.style.cssText = "width:100%;max-height:60vh;border-radius:6px;background:var(--lapis-media-bg);"
+        mediaElement.className = "lapis-conference-share-media"
         stage.appendChild(mediaElement)
         val label = document.createElement("div") as HTMLElement
         label.style.cssText = "font-size:12px;color:var(--lapis-muted);margin-top:4px;"

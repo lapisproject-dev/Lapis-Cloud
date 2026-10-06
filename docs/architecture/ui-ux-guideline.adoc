@@ -2167,3 +2167,36 @@ Client plus one additive migration (V76); no change of the standing UI rules.
   default reactions again. While the room is open both groups are disabled with a visible hint; the server refuses the change too. The list shows the type as a text badge, never colour alone.
 * **Full screen** has a CSS fallback (`is-pseudo-fullscreen`) and `aria-pressed`; Escape leaves it.
 
+
+== V1.9.68 -- One scroll surface (R59)
+
+Client only; no server, RPC or database change.
+
+*R59 -- the page is the ONE scroll surface.* A box that scrolls inside the page (a fixed `max-height` plus `overflow: auto`, a sidebar with its own scrollbar, a table in a `table-responsive`
+frame) is a scroll trap for keyboard, screen-reader and touch users, and hides content behind a scrollbar that nobody sees. Content grows to its full height and the page scrolls.
+`ScrollSurfaceTripwireTest` scans `theme.css` and every client Kotlin file; the ledger of allowed scrollers may only shrink, and E5 stays empty.
+
+Allowed exceptions (each ledger entry must also say `overscroll-behavior: contain`, so it never chains its scroll into the page):
+
+[cols="1,4"]
+|===
+|E0 |A fixed-height fullscreen surface (conference call panel, encounter room in fullscreen): it IS the scroll root while it is up, the page behind it is out of reach.
+|E1 |A modal, overlay or bottom sheet that is fixed or absolute and bounded by the viewport (conference roster/chat/voting rail and sheets, the "Mehr" sheet, the encounter side panel as overlay and as sheet; Bootstrap's `.modal` and `.offcanvas-body`).
+|E2 |A popup list that opens over the page (searchable-select dropdown, member-map search results).
+|E3 |A log: a bounded, keyboard-focusable region that follows new messages (`tabindex="0"`, `role="log"`): the conference chat and the encounter chat.
+|E4h |A horizontal strip (`overflow-x` only; `overflow-y` is `hidden`, never a vertical scroller): the compact conference filmstrip.
+|E5 |Anything else. Must stay empty.
+|===
+
+What is gone: the sidebar's own scroller (and its `position: sticky`; it now scrolls with the page, so on a long page the navigation rolls out of view), the conference tile grid cap (480 px), the
+Rechtstext boxes in modals and on the registration/DSGVO pages (the text stands in full, a modal scrolls as a whole), the API-key reveal boxes (the key wraps), the mailing editor cap, the
+member-map table frame (and with it the sticky table head -- the map stays in view next to the table where the window is at least 760 px high), the encounter benches frame and side column, the sideways
+scrolling of the encounter bar (it wraps) and of the segmented control (it wraps, 44 px high), the webhook delivery log (now a `dataTable`, a card list on a phone).
+
+The encounter room height is now a *minimum* (the former height), so the room grows with its benches; the stage size is unchanged (`--lapis-encounter-room-h`). In fullscreen the height stays fixed and the room scrolls (E0).
+
+WCAG 2.4.11: `html { scroll-padding-top }` keeps a keyboard-focused element below the sticky transparency banner. The only sticky elements left are that banner and the member map.
+
+*Not verified:* the whole conference and encounter screens cannot be mounted in Karma (the DOM tests run on the production classes and the real encounter room); not tested on a real device or in
+Safari/iOS (`dvh`, rubber-banding, `overscroll-behavior` before iOS 16). Follow-ups: a "Mehr" overflow for the encounter bar (the conference bar's mechanism is tied to its control slots), a paged
+conference gallery.

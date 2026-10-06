@@ -621,13 +621,12 @@ body {
   flex-direction: column;
   gap: 0.125rem;
   padding: 0.75rem 0.5rem;
-  /* Safety net for a viewport too narrow for --lapis-sidebar-width's own 368px (see that
-     variable's comment): every entry below is `white-space: nowrap`, so on a phone where even
-     the offcanvas's `min(86vw, 368px)` cap loses to 86vw, a long nowrap label would otherwise be
-     silently clipped by the panel's own edge. `overflow-x: auto` lets it scroll into view instead
-     -- reachable and fully readable, never wrapped, never clipped. No visible effect at or above
-     368px, where nothing is ever wide enough to trigger it. */
-  overflow-x: auto;
+  /* V1.9.68 (R59, one scroll surface): no scroller of its own any more. A label wider than the
+     panel wraps (`white-space: normal`, set per entry below 992px) or breaks anywhere instead of
+     scrolling sideways; the page itself is the one scroll surface. */
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 @media (min-width: 992px) {
@@ -640,7 +639,7 @@ body {
      load-bearing here -- DO NOT remove it as unexplained "cleanup"; without it the sidebar
      silently vanishes again on every desktop viewport. Verified against the pinned
      kvision-bootstrap 9.6.0 `Offcanvas.kt` source, see plan Abschnitt 7 Stolperfalle 1.
-     `position: sticky` keeps it in view while `.lapis-content` scrolls past it.
+     V1.9.68: the panel is `position: static` and scrolls with the page (one scroll surface).
 
      Review-Fund 2026-09-08 (Finding 2, HOCH): `:not(.lapis-sidebar-empty)` -- this same
      `!important` override that correctly forces the POPULATED sidebar visible on desktop also, by
@@ -656,10 +655,9 @@ body {
      desktop behavior this rule exists for completely unchanged. */
   .lapis-sidebar.offcanvas-lg:not(.lapis-sidebar-empty) {
     display: block !important;
-    position: sticky;
-    top: 0;
-    max-height: 100vh;
-    overflow-y: auto;
+    /* V1.9.68 (R59): scrolls WITH the page -- no sticky, no max-height, no own scrollbar. */
+    position: static;
+    align-self: flex-start;
   }
 
   /* V1.4.8 Sidebar-Layout-Fix -- Bootstrap sets `.offcanvas-lg .offcanvas-body { display: flex }`
@@ -722,6 +720,21 @@ body {
      ("Mitgliedschaft", "Wirtschaft", ...) are short enough today to never need this in practice,
      added for consistency/future-proofing rather than a label that currently wraps. */
   white-space: nowrap;
+}
+
+/* V1.9.68 (R59): below 992px the sidebar is an offcanvas drawer. Its own scroller (Bootstrap's
+   `.offcanvas-body`, ledger class E1: a modal surface, the page behind is scroll-locked by
+   Bootstrap) must not chain its scroll into the page; and a label wider than the drawer wraps
+   instead of needing a sideways scroller. */
+@media (max-width: 991.98px) {
+  .lapis-sidebar .offcanvas-body {
+    overscroll-behavior: contain;
+  }
+
+  .lapis-sidebar .nav-link,
+  .lapis-sidebar-group-header {
+    white-space: normal;
+  }
 }
 
 .lapis-sidebar-group-header:hover,
@@ -826,8 +839,8 @@ body {
    Gewohnheit. */
 .lapis-conference-grid {
   min-height: 220px;
-  max-height: 480px;
-  overflow: auto;
+  /* V1.9.68 (R59, one scroll surface): no max-height, no own scrollbar -- the grid grows with its
+     tiles and the page scrolls. */
 }
 
 /* D9: Einrichtungs-Zeilen (Gastzugang, Sitzungsverknüpfung, Breakout-Verwaltung, Rollenzeile) --
@@ -840,8 +853,62 @@ body {
 
 /* D11 fullscreen override: Grid darf den ganzen verfügbaren Platz einnehmen. */
 .lapis-conference-fullscreen .lapis-conference-grid {
-  max-height: none;
   flex: 1 1 auto;
+}
+
+/* V1.9.68 (R59), ledger class E0: the fullscreen surface has a fixed height (the browser's
+   fullscreen box) and IS the scroll root while it is up -- the page behind it is not reachable. */
+.lapis-conference-call-panel.lapis-conference-fullscreen {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* V1.9.68 (R59): the screen-share media and the recording player are media, not scrollers. */
+.lapis-conference-share-media {
+  width: 100%;
+  max-height: 60vh;
+  border-radius: 6px;
+  background: var(--lapis-media-bg);
+}
+
+@supports (height: 1dvh) {
+  .lapis-conference-share-media {
+    max-height: 60dvh;
+  }
+
+  .lapis-conference-fullscreen .lapis-conference-share-media {
+    max-height: calc(100dvh - 56px);
+  }
+}
+
+.lapis-recording-player {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: min(70vh, 540px);
+  max-height: min(70dvh, 540px);
+  object-fit: contain;
+  border-radius: 6px;
+  background: var(--lapis-media-bg);
+}
+
+/* V1.9.68 (R59), ledger class E3: the conference chat log is a log (a bounded scroll region that
+   follows new messages), keyboard-focusable via tabindex="0" in ConferenceScreen.kt. */
+.lapis-conference-chat-log {
+  height: clamp(160px, 30vh, 320px);
+  height: clamp(160px, 30dvh, 320px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* V1.9.68 (R59), ledger class E4h: the compact filmstrip is a horizontal strip of thumbnails, it
+   scrolls sideways only (and never vertically: overflow-y is hidden, not a scroller). */
+.lapis-conference-filmstrip {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 /* D10: eine Overlay-Schiene rechts, undurchsichtig, harte Kante -- Zoom/BBB-Vorbild, kein
@@ -860,6 +927,7 @@ body {
   background-color: var(--lapis-surface);
   border-left: 1px solid var(--lapis-border-strong);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .lapis-conference-fullscreen .lapis-conference-roster {
@@ -917,6 +985,7 @@ body {
     z-index: 4;
     margin: 0;
     overflow-y: auto;
+    overscroll-behavior: contain;
     background-color: var(--lapis-surface);
     border-top: 1px solid var(--lapis-border-strong);
     border-left: none;
@@ -958,6 +1027,7 @@ body {
     background-color: var(--lapis-surface);
     border-left: 1px solid var(--lapis-border-strong);
     overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .lapis-conference-fullscreen .lapis-conference-voting.lapis-conference-rail-voting-major {
@@ -999,6 +1069,7 @@ body {
     z-index: 4;
     margin: 0;
     overflow-y: auto;
+    overscroll-behavior: contain;
     background-color: var(--lapis-surface);
     border-top: 1px solid var(--lapis-border-strong);
     border-left: none;
@@ -1100,6 +1171,7 @@ body {
   width: min(420px, calc(100vw - 16px));
   max-height: 60vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   background-color: var(--lapis-surface);
   border: 1px solid var(--lapis-border-strong);
   border-radius: 8px;
@@ -1301,6 +1373,13 @@ body {
   position: sticky;
   top: 0;
   z-index: 6;
+}
+
+/* V1.9.68 (R59, WCAG 2.4.11 Focus Not Obscured): the sticky banner above covers the top of the
+   viewport; a keyboard-focused element scrolled into view must land below it, not under it. The
+   page is the one scroll surface, so the padding lives on its scroll container (`html`). */
+html {
+  scroll-padding-top: 4.5rem;
 }
 
 /* Defensiver Belt-and-suspenders: native :fullscreen-Pseudoklasse als Backup, falls der
@@ -1674,21 +1753,17 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* Segmented Control mit mehr als drei Optionen: unter 768 px waagerecht scrollen statt umbrechen. */
+/* Segmented Control mit mehr als drei Optionen: unter 768 px umbrechen statt waagerecht zu scrollen
+   (V1.9.68, R59: one scroll surface). Jede Option bleibt mindestens 44 px hoch (Touch-Ziel). */
 @media (max-width: 767.98px) {
-  .lapis-segmented-scroll {
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-  }
-
   .lapis-segmented-scroll .btn-group {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
 
   .lapis-segmented-scroll .btn {
     flex-shrink: 0;
     white-space: nowrap;
-    scroll-snap-align: start;
+    min-height: 44px;
   }
 }
 
@@ -1921,6 +1996,14 @@ html .form-select.is-invalid:focus {
     height: clamp(480px, calc(100vh - 260px), 760px);
   }
 }
+/* Sticky only with room for it: at least 760px of viewport height (a shorter window would cut the map off). */
+@media (min-width: 992px) and (min-height: 760px) {
+  .lapis-member-map-panel {
+    position: sticky;
+    top: 1rem;
+    align-self: start;
+  }
+}
 
 .lapis-member-map-canvas-host {
   position: absolute;
@@ -1943,18 +2026,9 @@ html .form-select.is-invalid:focus {
   flex-direction: column;
   gap: .5rem;
 }
-@media (min-width: 992px) {
-  .lapis-member-map-table-panel .table-responsive {
-    max-height: clamp(480px, calc(100vh - 260px), 760px);
-    overflow-y: auto;
-  }
-  .lapis-member-map-table-panel thead th {
-    position: sticky;
-    top: 0;
-    background-color: var(--lapis-surface);
-    z-index: 1;
-  }
-}
+/* V1.9.68 (R59, one scroll surface): the table no longer scrolls inside its own box (no max-height, no
+   overflow-y, hence no sticky header either -- that only worked inside that scroller). The table grows and the page
+   scrolls; instead the MAP stays in view next to it (see `.lapis-member-map-panel` above) where there is room. */
 
 /* Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- byte-for-byte the same four rule
    bodies as network.lapis.cloud.server.routes.SocialPublicHtml.STYLESHEET's own V1.4.36 block
@@ -2105,6 +2179,7 @@ html .form-select.is-invalid:focus {
   box-shadow: 0 2px 6px rgba(0, 0, 0, .2);
   max-height: 220px;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .lapis-member-map-search-result {
   display: block;
@@ -2139,11 +2214,9 @@ html .form-select.is-invalid:focus {
 
 /* Welle V1.9.15 "SuperMailer" Teil A -- WYSIWYG-Editor fuer Mailing-Nachrichten (MailingHtmlEditor.kt).
    Ausschliesslich vorhandene Tokens, keine neue Farbe, keine Transition. Die Hoehe ist begrenzt
-   (scrollt selbst), damit ein langer Text nie die Seite sprengt. */
+   waechst mit dem Text (V1.9.68, R59: one scroll surface -- kein eigener Scroller, die Seite scrollt). */
 .lapis-mailing-editor {
   min-height: 12rem;
-  max-height: 40rem;
-  overflow: auto;
   padding: .5rem .75rem;
   border: 1px solid var(--lapis-border-strong);
   border-radius: .375rem;
@@ -2211,6 +2284,7 @@ html .form-select.is-invalid:focus {
   left: 0;
   max-height: min(18rem, 50vh);
   overflow-y: auto;
+  overscroll-behavior: contain;
   position: absolute;
   right: 0;
   top: 2px;
@@ -2804,15 +2878,16 @@ html .form-select.is-invalid:focus {
   --lapis-encounter-room-h: calc(100vh - var(--lapis-header-h) - var(--lapis-encounter-bar-h));
   display: flex;
   flex-direction: column;
-  height: calc(100vh - var(--lapis-header-h));
-  min-height: 480px;
+  /* V1.9.68 (R59, one scroll surface): a MINIMUM, no longer a fixed height -- the room grows with its benches and the page
+     scrolls. `--lapis-encounter-room-h` below is untouched, so the stage keeps its size. Fullscreen keeps a fixed height. */
+  min-height: max(480px, calc(100vh - var(--lapis-header-h)));
   background: var(--lapis-surface);
 }
 
 @supports (height: 100dvh) {
   .lapis-encounter-room {
     --lapis-encounter-room-h: calc(100dvh - var(--lapis-header-h) - var(--lapis-encounter-bar-h));
-    height: calc(100dvh - var(--lapis-header-h));
+    min-height: max(480px, calc(100dvh - var(--lapis-header-h)));
   }
 }
 
@@ -2823,12 +2898,22 @@ html .form-select.is-invalid:focus {
   z-index: 1060;
   width: 100%;
   height: 100%;
+  min-height: 0;
   padding: 0.5rem;
 }
 
 .lapis-encounter-room:fullscreen {
   height: 100%;
+  min-height: 0;
   padding: 0.5rem;
+}
+
+/* V1.9.68 (R59), ledger class E0: a fullscreen room has a fixed height (the screen) and IS the scroll root while it is up --
+   the page behind it is not reachable. Its main area never shrinks below its content, so nothing is clipped, the room scrolls. */
+.lapis-encounter-room.is-pseudo-fullscreen,
+.lapis-encounter-room:fullscreen {
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .lapis-encounter-room.is-pseudo-fullscreen,
@@ -2839,7 +2924,8 @@ html .form-select.is-invalid:focus {
 .lapis-encounter-main {
   position: relative;
   display: flex;
-  flex: 1 1 auto;
+  /* V1.9.68: grows to fill, never shrinks below its content (the room is no longer a fixed-height box in the page flow). */
+  flex: 1 0 auto;
   min-height: 0;
   gap: 1rem;
   align-items: stretch;
@@ -2987,13 +3073,12 @@ html .form-select.is-invalid:focus {
   white-space: nowrap;
 }
 
-/* Die Baenke liegen unter der Buehne in einem eigenen Bereich, der bei vielen Reihen selbst scrollt. */
+/* Die Baenke liegen unter der Buehne und waechst mit den Reihen (V1.9.68, R59: kein eigener Scroller, die Seite scrollt). */
 .lapis-encounter-benches-frame {
   position: relative;
-  flex: 1 1 0;
+  flex: 0 0 auto;
   width: 100%;
   min-height: 120px;
-  overflow-y: auto;
 }
 
 .lapis-encounter-benches {
@@ -3100,8 +3185,6 @@ html .form-select.is-invalid:focus {
 /* Seitenpanel: ab 1200 px eine Spalte (340 px, einklappbar), von 768 bis 1199 px eine Ueberlagerung am rechten Rand, darunter das Vollbild-Blatt. */
 .lapis-encounter-side {
   flex: 0 0 340px;
-  max-height: 100%;
-  overflow: auto;
   padding: 0.5rem;
   border: 1px solid var(--lapis-border);
   border-radius: 0.5rem;
@@ -3116,9 +3199,12 @@ html .form-select.is-invalid:focus {
   margin-bottom: 0.5rem;
 }
 
+/* V1.9.68 (R59), ledger class E3: the chat log is a log -- a bounded, keyboard-focusable scroll region that follows new messages. */
 .lapis-encounter-chat-log {
-  max-height: 40vh;
+  height: clamp(240px, 50vh, 480px);
+  height: clamp(240px, 50dvh, 480px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   margin-bottom: 0.5rem;
   padding: 0.5rem;
   border: 1px solid var(--lapis-border);
@@ -3133,13 +3219,14 @@ html .form-select.is-invalid:focus {
 .lapis-encounter-controls {
   display: flex;
   flex: 0 0 auto;
-  flex-wrap: nowrap;
+  /* V1.9.68 (R59): wraps instead of scrolling sideways. A "Mehr" overflow like the conference bar's is the follow-up (its
+     mechanism is tied to the conference control slots). */
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   min-height: var(--lapis-encounter-bar-h);
   padding: 0.25rem 0.5rem;
   border-top: 1px solid var(--lapis-border);
-  overflow-x: auto;
 }
 
 .lapis-encounter-control-group {
@@ -3171,6 +3258,9 @@ html .form-select.is-invalid:focus {
     z-index: 5;
     max-width: 90%;
     box-shadow: 0 0 0 1px var(--lapis-border-strong);
+    /* Ledger class E1: an overlay bounded by the room's height scrolls itself. */
+    overflow: auto;
+    overscroll-behavior: contain;
   }
 }
 
@@ -3209,6 +3299,9 @@ html .form-select.is-invalid:focus {
     border-radius: 0;
     border: 0;
     padding: 1rem;
+    /* Ledger class E1: the fixed full-screen sheet is a modal surface. */
+    overflow: auto;
+    overscroll-behavior: contain;
   }
 }
 

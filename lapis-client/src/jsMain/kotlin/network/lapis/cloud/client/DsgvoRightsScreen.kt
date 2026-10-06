@@ -218,8 +218,7 @@ internal fun renderPublicRankingConsentToggle(
         disclosurePanel.untrustedDiv(disclaimer.headline, className = "small fw-bold")
         disclaimer.keyPoints.forEach { point -> disclosurePanel.div(point) { addCssClasses("text-muted small") } }
         disclosurePanel.untrustedDiv(disclaimer.text) {
-            addCssClasses("text-muted small border rounded p-2 overflow-auto")
-            height = 140.px
+            addCssClasses("text-muted small border rounded p-2 lapis-legal-text")
         }
     }
 

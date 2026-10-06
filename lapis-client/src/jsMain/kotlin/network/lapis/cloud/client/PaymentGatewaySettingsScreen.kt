@@ -1,6 +1,5 @@
 package network.lapis.cloud.client
 
-import io.kvision.core.Overflow
 import io.kvision.form.select.select
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
@@ -220,8 +219,6 @@ private fun paymentGatewayEnableDisclaimerModal(
     ) { addCssClasses("text-muted small mb-2") }
     modal.div {
         addCssClasses("border rounded p-2 mb-2")
-        maxHeight = 300.px
-        overflow = Overflow.AUTO
         content = sanitizeUntrustedI18nText(disclaimer.text)
     }
     modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })

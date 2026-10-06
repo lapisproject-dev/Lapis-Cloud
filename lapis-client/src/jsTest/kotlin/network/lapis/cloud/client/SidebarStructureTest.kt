@@ -100,6 +100,8 @@ class SidebarStructureTest {
         nav.addCssClass("sidebar-structure-test-probe")
         nav.removeCssClass("sidebar-structure-test-probe")
         assertTrue(nav.hasCssClass("lapis-sidebar-nav"))
+        // V1.9.68 (R59, one scroll surface): the sidebar nav carries no scroller class of its own (the computed style is measured in ScrollSurfaceDomTest).
+        assertFalse(nav.hasCssClass("overflow-auto") || nav.hasCssClass("overflow-scroll") || nav.hasCssClass("overflow-y-auto"))
 
         val navChildren = nav.getChildren()
         val links = navChildren.filterIsInstance<Link>()

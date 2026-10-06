@@ -1,6 +1,5 @@
 package network.lapis.cloud.client
 
-import io.kvision.core.Overflow
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -8,10 +7,6 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
-import io.kvision.table.TableType
-import io.kvision.table.cell
-import io.kvision.table.row
-import io.kvision.table.table
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -71,30 +66,32 @@ private fun renderWebhookDeliveryTable(
         body.div(tr("Noch keine Zustellungen.")) { addCssClasses("text-muted small") }
         return
     }
-    val scrollWrapper = body.div { overflow = Overflow.AUTO }
-    val table =
-        scrollWrapper.table(
-            headerNames =
-                listOf(tr("Zeitpunkt"), tr("Event"), tr("Versuch"), "HTTP", tr("Status"), tr("Nächster Versuch")),
-            types = setOf(TableType.STRIPED, TableType.HOVER),
-        )
-    items.forEach { item ->
-        table.row {
-            textCell(formatSystemTimestamp(item.occurredAt))
-            cell { webhookEventTypeBadge(item.eventType) }
-            textCell("${item.attemptCount}/${item.maxAttempts}")
-            textCell(item.lastHttpStatus?.toString() ?: "–")
-            cell {
-                webhookDeliveryStatusBadge(item.status)
-                val errorCode = item.lastErrorCode
-                if (errorCode != null) {
-                    div(webhookFailureReasonLabel(errorCode)) { addCssClasses("small text-muted mt-1") }
-                }
-            }
-            // Trusted: the relative text is built from `tr(...)`/`gettext(...)` and numbers only (no foreign field).
-            textCell(item.nextAttemptAt?.let { trusted(formatWebhookRelativeFuture(it)) } ?: "–")
-        }
-    }
+    // V1.9.68 (R59, one scroll surface): a `dataTable` (card list on a narrow screen) instead of a table inside an
+    // `overflow: auto` wrapper -- the log grows with its rows, the page scrolls.
+    body.plainDataTable(
+        columns =
+            listOf(
+                textColumn<WebhookDeliveryDto>(title = tr("Zeitpunkt"), primary = true) { formatSystemTimestamp(it.occurredAt) },
+                DataColumn(title = tr("Event"), cell = { cell, item -> cell.webhookEventTypeBadge(item.eventType) }),
+                textColumn<WebhookDeliveryDto>(title = tr("Versuch"), numeric = true) { "${it.attemptCount}/${it.maxAttempts}" },
+                textColumn<WebhookDeliveryDto>(title = "HTTP", numeric = true) { it.lastHttpStatus?.toString() ?: "–" },
+                DataColumn(
+                    title = tr("Status"),
+                    cell = { cell, item ->
+                        cell.webhookDeliveryStatusBadge(item.status)
+                        val errorCode = item.lastErrorCode
+                        if (errorCode != null) {
+                            cell.div(webhookFailureReasonLabel(errorCode)) { addCssClasses("small text-muted mt-1") }
+                        }
+                    },
+                ),
+                // Trusted: the relative text is built from `tr(...)`/`gettext(...)` and numbers only (no foreign field).
+                textColumn<WebhookDeliveryDto>(title = tr("Nächster Versuch")) {
+                    it.nextAttemptAt?.let { next -> trusted(formatWebhookRelativeFuture(next)) } ?: "–"
+                },
+            ),
+        rows = items,
+    )
 }
 
 /**

@@ -6,6 +6,30 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed (V1.9.68, one scroll surface)
+
+- **The page is the one scroll surface (R59).** A box that scrolled inside the page is gone: the sidebar's own scrollbar (and its sticky position -- it now scrolls with the page, so on a long page the navigation
+  rolls out of view), the conference tile grid cap, the legal-text boxes (registration, friend registration, DSGVO, and the disclaimers in the bank, SEPA, dunning, payment, auction and compliance modals --
+  the text stands in full, a modal scrolls as a whole), the API-key/secret reveal boxes (the key wraps), the mailing editor cap, the member-map table frame (the sticky table head went with it; the map
+  stays in view next to the table in a window at least 760 px high), the encounter benches frame and side column, and the sideways scrolling of the encounter bar and the segmented control (both wrap now).
+  The webhook delivery log is a `dataTable` (a card list on a phone) instead of a table in a scroll wrapper. The encounter room height is a minimum, so the room grows with its benches (the stage size is unchanged).
+- **What still scrolls (ledger, `ScrollSurfaceTripwireTest`):** E0 the fullscreen conference panel and encounter room, E1 modals/overlays/sheets (conference rail and sheets, the encounter side panel, Bootstrap modal and
+  drawer), E2 popup lists (searchable select, map search results), E3 the two chat logs (bounded, keyboard-focusable), E4h the compact conference filmstrip (sideways only). All of them contain their scroll
+  (`overscroll-behavior: contain`). Anything else fails the build.
+- Screen-share media and the recording player are sized by classes (`.lapis-conference-share-media`, `.lapis-recording-player`), no longer inline styles.
+- `html { scroll-padding-top }` keeps a focused element below the sticky transparency banner (WCAG 2.4.11).
+
+### Tests (V1.9.68)
+
+- New JVM tripwire `ScrollSurfaceTripwireTest` (detectors proven on positive and negative examples, shrink-only ledger, `overscroll-behavior` required, sticky and sidebar rules). New Karma tests
+  `ScrollSurfaceDomTest` (computed styles in the real cascade, a long `dataTable` at 360/768/1280 px) and `EncounterScrollSurfaceDomTest` (the real room: minimum height, growing benches, fullscreen as scroll root, nothing
+  focusable clipped).
+
+### Known limitations (V1.9.68)
+
+- Not tested on a real device or in Safari/iOS (`dvh`, rubber-banding, `overscroll-behavior` before iOS 16). Karma cannot mount the whole conference or encounter screen, only the production classes and the encounter room.
+- The encounter bar wraps on a narrow screen instead of folding into a "Mehr" sheet like the conference bar; a paged conference gallery is not part of this release.
+
 ### Added (V1.9.67, encounter room stage 1)
 
 - **Room profiles.** A room is a church service (default; all existing rooms) or an *assembly*. The profile selects the vocabulary (pulpit/steward/congregation vs. podium/moderation/participants), the

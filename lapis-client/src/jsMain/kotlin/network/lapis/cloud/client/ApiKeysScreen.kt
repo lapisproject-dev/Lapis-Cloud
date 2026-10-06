@@ -1,6 +1,5 @@
 package network.lapis.cloud.client
 
-import io.kvision.core.Overflow
 import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
@@ -443,8 +442,7 @@ private fun showApiKeyRevealCard(
     // is vanishingly unlikely to contain) would risk the operator copying a corrupted key. Documented ledger
     // exception, see ClientUntrustedWidgetTextTripwireTest.
     card.div(result.rawKey) {
-        addCssClasses("font-monospace fs-6 p-2 bg-body-secondary rounded")
-        overflow = Overflow.AUTO
+        addCssClasses("font-monospace fs-6 p-2 bg-body-secondary rounded lapis-secret-reveal")
     }
     card.div(tr("Schlüssel verloren? Einfach neu ausstellen -- der alte wird dabei automatisch widerrufen.")) {
         addCssClasses("small text-muted")
@@ -480,8 +478,7 @@ private fun showWebhookSecretRevealCard(
         ),
     ) { addCssClasses("text-muted small") }
     card.div(rawSecret) {
-        addCssClasses("font-monospace fs-6 p-2 bg-body-secondary rounded")
-        overflow = Overflow.AUTO
+        addCssClasses("font-monospace fs-6 p-2 bg-body-secondary rounded lapis-secret-reveal")
     }
     card.div(
         tr(

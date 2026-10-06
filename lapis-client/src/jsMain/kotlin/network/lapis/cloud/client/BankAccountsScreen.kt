@@ -1,7 +1,6 @@
 package network.lapis.cloud.client
 
 import io.kvision.core.Container
-import io.kvision.core.Overflow
 import io.kvision.core.Widget
 import io.kvision.form.text.Password
 import io.kvision.form.text.text
@@ -18,7 +17,6 @@ import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
-import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.BankAccountDto
 import network.lapis.cloud.shared.domain.BankAccountInput
@@ -411,8 +409,6 @@ internal fun showFinTsSetupModal(
     credentialsPanel.div(tr("Rechtlicher Hinweis (bitte vollständig lesen):")) { addCssClass("fw-bold") }
     credentialsPanel.div {
         addCssClasses("border rounded p-2 mb-2")
-        maxHeight = 250.px
-        overflow = Overflow.AUTO
         content = sanitizeUntrustedI18nText(disclaimer.text)
     }
     // W4c: die Zugangsdaten sind ein [LapisForm]. Das Bestätigungskästchen ist eine Pflicht-Checkbox: der frühere graue "Aktivieren"-Knopf

@@ -3,7 +3,6 @@ package network.lapis.cloud.client
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDecimal
 import dev.kilua.rpc.types.toDouble
-import io.kvision.core.Overflow
 import io.kvision.form.select.select
 import io.kvision.form.text.text
 import io.kvision.html.Button
@@ -511,8 +510,6 @@ private fun auctionEnableDisclaimerModal(
     ) { addCssClasses("text-muted small mb-2") }
     modal.div {
         addCssClasses("border rounded p-2 mb-2")
-        maxHeight = 300.px
-        overflow = Overflow.AUTO
         content = sanitizeUntrustedI18nText(disclaimer.text)
     }
     modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })

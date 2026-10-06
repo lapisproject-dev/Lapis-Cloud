@@ -261,9 +261,9 @@ fun buildSidebar(
     // V1.4.8 Sidebar-Layout-Fix (Design-Team Atkinson/Kay, Jobs' Review): EIN eigener, vertikal
     // stapelnder Container statt Bootstraps privatem `.offcanvas-body` direkt zu befüllen. Bootstrap
     // setzt `.offcanvas-lg .offcanvas-body { display: flex }` ab 992px (Navbar-Muster, bootstrap.css
-    // 5.3.8 Z. 6515) -- OHNE eigenes `flex-direction` (Default `row`). Weil `.lapis-sidebar` selbst
-    // `overflow-y: auto` setzt (theme.css, das per CSS-Spezifikation `overflow-x` ebenfalls auf
-    // `auto` zwingt statt `visible` zu belassen), liefen die bislang direkt in `body` eingefügten
+    // 5.3.8 Z. 6515) -- OHNE eigenes `flex-direction` (Default `row`). Weil `.lapis-sidebar` damals selbst
+    // `overflow-y: auto` setzte (per CSS-Spezifikation wird `overflow-x` dann ebenfalls `auto`;
+    // seit V1.9.68 / R59 hat die Seitenleiste ab 992px gar keinen eigenen Scroller mehr), liefen die bislang direkt in `body` eingefügten
     // Top-Level-Einträge (2 flache Links + 6 Gruppen, siehe [GROUP_ROUTES]) in EINER horizontalen
     // Zeile -- alles ab dem zweiten Link wurde innerhalb der 264px-breiten Spalte unsichtbar
     // weggescrollt (Live-Fund PROD_HOST: ADMIN-Account sah nur "Dashboard"/
