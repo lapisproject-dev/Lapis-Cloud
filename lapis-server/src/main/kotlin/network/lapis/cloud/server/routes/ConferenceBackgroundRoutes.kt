@@ -25,6 +25,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import network.lapis.cloud.server.conference.BackgroundImageOutcome
 import network.lapis.cloud.server.conference.ConferenceBackgroundImageProcessor
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.ConferenceBackgroundImageTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -287,7 +288,7 @@ internal fun Route.registerConferenceBackgroundRoutes(
                     MemberTable
                         .selectAll()
                         .where { MemberTable.id eq current.memberId }
-                        .forUpdate()
+                        .forMemberUpdate()
                         .singleOrNull()
                         ?: return@transaction BackgroundInsertOutcome.MemberNotFound
                     val existingCount =

@@ -8,6 +8,7 @@ import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.chapters.ChapterCrestStorage
 import network.lapis.cloud.server.chapters.ChapterCrestStore
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
@@ -289,7 +290,7 @@ class RegionalChapterService internal constructor(
                 MemberTable
                     .selectAll()
                     .where { MemberTable.id eq targetId }
-                    .forUpdate()
+                    .forMemberUpdate()
                     .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
             if (memberRow[MemberTable.anonymizedAt] != null) {
                 throw ConflictException("Member has been anonymized and can no longer be edited")
@@ -447,7 +448,7 @@ class RegionalChapterService internal constructor(
                 MemberTable
                     .selectAll()
                     .where { MemberTable.id eq targetId }
-                    .forUpdate()
+                    .forMemberUpdate()
                     .singleOrNull() ?: throw NotFoundException("Member $memberId not found")
 
             // Serializes against deleteChapter and against a concurrent grantOfficer for the

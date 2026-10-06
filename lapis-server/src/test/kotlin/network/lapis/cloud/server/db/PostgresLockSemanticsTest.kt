@@ -11,6 +11,7 @@ import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.MeetingTable
+import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
@@ -28,6 +29,7 @@ import network.lapis.cloud.server.rpc.requireActiveMembership
 import network.lapis.cloud.server.testdb.PostgresConfigured
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
@@ -35,6 +37,7 @@ import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
 import network.lapis.cloud.shared.domain.MeetingFormat
 import network.lapis.cloud.shared.domain.MeetingStatus
+import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MotionStatus
 import network.lapis.cloud.shared.domain.PaymentCheckoutSessionStatus
 import network.lapis.cloud.shared.domain.PaymentIntent
@@ -127,6 +130,39 @@ class PostgresLockSemanticsTest :
                         }
                     }
                 failure.sqlState shouldBe "55P03"
+            } finally {
+                release.countDown()
+                a.get(30, TimeUnit.SECONDS)
+                pool.shutdownNow()
+            }
+        }
+
+        /**
+         * Counterpart of [assertSecondTransactionWaits] (V1.9.60): A holds the lock taken by [hold]; B, with `lock_timeout = 300ms`,
+         * runs [contend] and must go straight through -- no `55P03`. [contend] ends with a rollback (see [rolledBack]) so the
+         * probe leaves no trace.
+         */
+        fun assertSecondTransactionDoesNotWait(
+            hold: () -> Unit,
+            contend: () -> Unit,
+        ) {
+            val holding = CountDownLatch(1)
+            val release = CountDownLatch(1)
+            val pool = Executors.newSingleThreadExecutor()
+            val a =
+                pool.submit {
+                    transaction {
+                        hold()
+                        holding.countDown()
+                        release.await(60, TimeUnit.SECONDS)
+                    }
+                }
+            try {
+                holding.await(20, TimeUnit.SECONDS) shouldBe true
+                transaction {
+                    exec("SET LOCAL lock_timeout = '300ms'")
+                    contend()
+                }
             } finally {
                 release.countDown()
                 a.get(30, TimeUnit.SECONDS)
@@ -351,6 +387,104 @@ class PostgresLockSemanticsTest :
             createdEventIds += eventId
             val mark = { EventRefunds.markRefunded(registrationId = registrationId, actor = organizer, now = now) }
             assertSecondTransactionWaits(hold = { mark() }, contend = { mark() })
+        }
+
+        // ---- V1.9.60: the member-row lock matrix (which lock mode conflicts with the foreign-key check of a child row) ----
+
+        fun newMemberRow(label: String): Uuid = data.member(label = label, role = AccountRole.MEMBER, status = MemberStatus.ACTIVE)
+
+        fun rawLock(
+            memberId: Uuid,
+            mode: String,
+        ) {
+            TransactionManager.current().exec("SELECT 1 FROM member WHERE id = '$memberId' $mode") { rs -> rs.next() }
+        }
+
+        /** What the foreign key of every audit entry does to the ACTOR's member row: a `FOR KEY SHARE`. Rolled back, so no audit row stays. */
+        fun childInsertFor(memberId: Uuid) {
+            AuditLogRecorder.record(
+                actorMemberId = memberId,
+                actorRole = null,
+                entityType = AuditEntityType.JOURNAL_ENTRY,
+                entityId = Uuid.random(),
+                action = AuditAction.CREATE,
+                before = null,
+                after = "{}",
+            )
+        }
+
+        fun rolledBack(body: () -> Unit) {
+            body()
+            TransactionManager.current().rollback()
+        }
+
+        test("member lock matrix: FOR UPDATE blocks a child insert (the foreign-key trap); NO KEY UPDATE, SHARE and KEY SHARE do not") {
+            val m = newMemberRow("matrix-held-lock")
+            assertSecondTransactionWaits(
+                hold = { rawLock(m, "FOR UPDATE") },
+                contend = { rolledBack { childInsertFor(m) } },
+            )
+            listOf("FOR NO KEY UPDATE", "FOR SHARE", "FOR KEY SHARE").forEach { mode ->
+                assertSecondTransactionDoesNotWait(
+                    hold = { rawLock(m, mode) },
+                    contend = { rolledBack { childInsertFor(m) } },
+                )
+            }
+        }
+
+        test("member lock matrix: a held child insert blocks FOR UPDATE, but not FOR NO KEY UPDATE or a non-key UPDATE") {
+            val m = newMemberRow("matrix-held-child")
+            assertSecondTransactionWaits(
+                hold = { childInsertFor(m) },
+                contend = { rawLock(m, "FOR UPDATE") },
+            )
+            assertSecondTransactionDoesNotWait(
+                hold = { childInsertFor(m) },
+                contend = { rolledBack { rawLock(m, "FOR NO KEY UPDATE") } },
+            )
+            assertSecondTransactionDoesNotWait(
+                hold = { childInsertFor(m) },
+                contend = { rolledBack { MemberTable.update({ MemberTable.id eq m }) { it[status] = MemberStatus.ACTIVE } } },
+            )
+        }
+
+        test("member lock matrix: FOR NO KEY UPDATE keeps excluding every other FOR (NO KEY) UPDATE") {
+            val m = newMemberRow("matrix-exclusion")
+            listOf("FOR NO KEY UPDATE", "FOR UPDATE").forEach { contending ->
+                assertSecondTransactionWaits(
+                    hold = { rawLock(m, "FOR NO KEY UPDATE") },
+                    contend = { rawLock(m, contending) },
+                )
+            }
+        }
+
+        test("member lock matrix: a change of a key column (email, member_number) needs FOR UPDATE and so waits for a held child insert") {
+            val m = newMemberRow("matrix-key-columns")
+            assertSecondTransactionWaits(
+                hold = { childInsertFor(m) },
+                contend = { MemberTable.update({ MemberTable.id eq m }) { it[email] = "changed-$m@example.org" } },
+            )
+            assertSecondTransactionWaits(
+                hold = { childInsertFor(m) },
+                contend = { MemberTable.update({ MemberTable.id eq m }) { it[memberNumber] = "T-${m.toString().take(8)}" } },
+            )
+        }
+
+        test("member lock matrix: forMemberUpdate() followed by a key-column UPDATE in the same transaction is raised to FOR UPDATE") {
+            val m = newMemberRow("matrix-escalation")
+            assertSecondTransactionWaits(
+                hold = { childInsertFor(m) },
+                contend = {
+                    // Takes NO KEY UPDATE first (does not wait) ...
+                    MemberTable
+                        .selectAll()
+                        .where { MemberTable.id eq m }
+                        .forMemberUpdate()
+                        .single()
+                    // ... and the key-column write silently turns it into FOR UPDATE (waits for the held foreign-key lock).
+                    MemberTable.update({ MemberTable.id eq m }) { it[email] = "escalated-$m@example.org" }
+                },
+            )
         }
 
         test("lock order: a protocol-conforming pair (motion first, then member) never deadlocks; a real inversion IS counted") {

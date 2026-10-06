@@ -102,6 +102,31 @@ All notable changes to this project are documented here. Format follows
   HTTP retry of the same logical checkout is deduplicated by Stripe/PayPal. The persisted `provider_idempotency_key` equals the value sent.
 - `createContributionCheckout` is single-flight per contribution: two parallel requests mint one hosted session instead of two (double payment possible).
 
+### Fixed (V1.9.60)
+
+- **Member-row locks no longer deadlock against audit entries** (`db/RowLocks.kt`, `docs/architecture/row-locks.adoc`). A plain `SELECT ... FOR UPDATE` on a `member` row conflicts with the `FOR KEY SHARE`
+  that the foreign key of every audit entry takes on the actor's row, so a transaction holding such a lock and then waiting for another lock could deadlock with one inserting an audit entry for that member.
+  17 more sites now use `forMemberUpdate()` (`FOR NO KEY UPDATE` on PostgreSQL; H2 unchanged): `lockForDebit`, `requireMembershipStatusIn`, `requireLtrEligibleMembership`, the public-bio and photo stores,
+  the conference background, the post drafts (2), the contribution relief execution (2), the tier assignment, the public-ranking consent, the politician revocation, the regional chapter (2),
+  the friend-to-applicant step and the SEPA batch creation. `forMemberUpdate()` moved from `security/PeerProtection.kt` to `db/RowLocks.kt`. No migration.
+- The PostgreSQL lane reproduces the deadlock deterministically (`pg_stat_database.deadlocks` +1 with the old lock mode, +0 now) and measures the lock matrix.
+
+### Security (V1.9.60)
+
+- No exclusion was loosened: `FOR NO KEY UPDATE` still excludes every other writer and every other `FOR (NO KEY) UPDATE` (a scenario per site group). New tripwire `MemberRowLockTripwireTest`: no `forUpdate()` on
+  `MemberTable` outside three pinned key-column sites, one spelling of `FOR NO KEY UPDATE`, no hand-written row-locking SQL on `member`, and every writer of `id`/`email`/`member_number` is pinned.
+
+### Known limitations (V1.9.60)
+
+- Three sites keep a plain `FOR UPDATE` on purpose because they may write `member_number`, a key column (PostgreSQL raises any lock to `FOR UPDATE` when a key column changes): `MemberNumberAllocator.ensureFor`,
+  `MemberCardStore.lockMemberOrThrow`, `MemberCardIssuance.requireEligible`. They are followed by an audit write, so two actors acting on each other in the same instant can still deadlock there (PostgreSQL aborts one
+  after `deadlock_timeout`).
+- `EmailChangeStore.lockMember` takes `forMemberUpdate()`, but applying an e-mail change writes `email` (a key column) and so raises it to `FOR UPDATE`; left as in V1.9.57 because a plain `FOR UPDATE` could bring back the
+  two-administrator deadlock fixed there. Pinned by a matrix test; a clean fix is its own wave.
+- SEPA: `createDebitBatch` (contribution, mandate, member) and `grantMandate` (member, mandate) lock in crossing orders; documented and characterised, not re-ordered (money path, own wave).
+- Other parent tables with `forUpdate()` (ledger account, election, contribution, ...) are not migrated: no deadlock through the foreign-key check is demonstrated there. Listed in `row-locks.adoc`.
+- Sites that need a request context (Politician, RegionalChapter, Registration, Sepa, Dsgvo, ContributionReliefExecution, ConferenceBackgroundRoutes) have no PostgreSQL scenario of their own; the tripwire and their H2 suites cover them.
+
 ### Changed (V1.9.59)
 
 - The `member_status_history` table carries a foreign key to `member` WITHOUT cascade: every test that hard-deletes members it created through a service now deletes their history first
@@ -175,8 +200,7 @@ All notable changes to this project are documented here. Format follows
 - Path B0 of the e-mail change (no usable password, e.g. a Keycloak-only administrator) against another administrator stays open: 72 hours, proof of ownership of the new address and the objection right of
   the old address. It could be put under four eyes as well -- a decision for the owner.
 - A request against an administrator who is DECEASED cannot be filed (the status needs a date of death); take the role away first, then set the status.
-- `FOR NO KEY UPDATE` is used only where a member-row lock precedes the account-union lock; the other ~25 `MemberTable ... forUpdate()` sites can still deadlock against an audit insert of the locked member
-  as actor on PostgreSQL (rare, needs the locked member to act at the same instant). A follow-up wave should migrate them and add a Postgres scenario per site.
+- (done in V1.9.60, see Fixed) `FOR NO KEY UPDATE` was used only where a member-row lock precedes the account-union lock.
 - Rate limiters (requests per requester/target, objection link per IP, wrong passwords) are per server instance.
 - The operator console container invocation is documented, not verified against a real container.
 

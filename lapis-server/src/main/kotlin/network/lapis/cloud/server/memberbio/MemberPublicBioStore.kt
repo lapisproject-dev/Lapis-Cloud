@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.MemberPublicBioTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.rpc.PublicRankingConsentStore
@@ -57,7 +58,7 @@ internal object MemberPublicBioStore {
         MemberTable
             .selectAll()
             .where { MemberTable.id eq memberId }
-            .forUpdate()
+            .forMemberUpdate()
             .singleOrNull()
 
     /**

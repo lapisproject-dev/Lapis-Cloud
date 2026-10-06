@@ -4,11 +4,11 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.MemberEmailChangeTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.db.withSavepoint
-import network.lapis.cloud.server.security.forMemberUpdate
 import network.lapis.cloud.shared.domain.EmailChangeKind
 import network.lapis.cloud.shared.domain.EmailChangeStatus
 import org.jetbrains.exposed.v1.core.ResultRow

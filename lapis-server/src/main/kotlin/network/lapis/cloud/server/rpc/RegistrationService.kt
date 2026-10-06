@@ -4,6 +4,7 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.plugins.origin
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.FriendTermsAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -28,7 +29,6 @@ import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
 import network.lapis.cloud.server.security.PeerGuard
 import network.lapis.cloud.server.security.SessionStore
-import network.lapis.cloud.server.security.forMemberUpdate
 import network.lapis.cloud.server.security.peerGuarded
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -784,7 +784,7 @@ class RegistrationService internal constructor(
             MemberTable
                 .selectAll()
                 .where { MemberTable.id eq current.memberId }
-                .forUpdate()
+                .forMemberUpdate()
                 .singleOrNull() ?: throw NotFoundException("Member ${current.memberId} not found")
             val updated =
                 MemberTable.update({
@@ -816,7 +816,7 @@ class RegistrationService internal constructor(
 
     // ── Internal helpers ──────────────────────────────────────────────────────────────────
 
-    /** [forUpdate] takes a `SELECT ... FOR UPDATE` row lock on this member before returning it -- required by [approveApplication]/[rejectApplication], see class KDoc "Concurrency". */
+    /** [forUpdate] takes a `forMemberUpdate()` row lock on this member before returning it -- required by [approveApplication]/[rejectApplication], see class KDoc "Concurrency". */
     private fun requireApplicationRow(
         id: Uuid,
         forUpdate: Boolean = false,

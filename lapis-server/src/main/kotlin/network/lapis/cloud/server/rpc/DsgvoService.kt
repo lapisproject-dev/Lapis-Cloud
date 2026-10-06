@@ -6,6 +6,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.DsgvoAuditLogTable
 import network.lapis.cloud.server.db.generated.ErasureRequestTable
@@ -374,7 +375,7 @@ class DsgvoService(
     }
 
     /**
-     * `SELECT ... FOR UPDATE` on [MemberTable] -- same [network.lapis.cloud.server.economy
+     * `forMemberUpdate()` (`FOR NO KEY UPDATE` on PostgreSQL) on [MemberTable] -- same [network.lapis.cloud.server.economy
      * .LtrBalanceProvider.lockForDebit] idiom, reused here as the per-member mutex
      * [PublicRankingConsentStore]'s own KDoc ("Concurrency") requires its caller to hold BEFORE
      * calling [PublicRankingConsentStore.grant]/[PublicRankingConsentStore.revoke].
@@ -383,7 +384,7 @@ class DsgvoService(
         MemberTable
             .selectAll()
             .where { MemberTable.id eq memberId }
-            .forUpdate()
+            .forMemberUpdate()
             .singleOrNull()
             ?: error("Member $memberId not found while locking for a public-ranking-consent write")
     }

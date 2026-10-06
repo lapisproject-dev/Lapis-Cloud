@@ -43,6 +43,7 @@ internal object MemberNumberAllocator {
      * on that member's `joined_at` year.
      */
     fun ensureFor(memberId: Uuid): String {
+        // row-lock: FOR UPDATE (key change: member_number) -- member_number may be written later in this transaction, see docs/architecture/row-locks.adoc
         val memberRow =
             MemberTable
                 .selectAll()

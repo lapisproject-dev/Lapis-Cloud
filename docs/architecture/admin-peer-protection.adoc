@@ -116,9 +116,7 @@ The PostgreSQL lane found a deadlock the H2 suite cannot see, and the member adm
 (A holds `member(A)` and waits for the account union, B holds the union and its audit insert waits for `member(A)`). `forMemberUpdate()`
 takes `FOR NO KEY UPDATE` on PostgreSQL instead: it excludes every other writer, but not the foreign-key check. It is used by every
 member-row lock that precedes the union lock (the peer-guarded paths, `updateMemberRole/Status`, `grantMemberAccount`, the address writes, the
-application decision, the e-mail change). *Not* migrated: the other ~25 `MemberTable ... forUpdate()` sites of the code base, which never take the
-union lock; the same pattern can in principle deadlock there (a member row locked FOR UPDATE, then an audit insert whose actor is another
-transaction's locked row). It is listed in the CHANGELOG as a follow-up.
+application decision, the e-mail change). Since V1.9.60 the remaining member-row locks use it as well (except the three that may write `member_number`); see `row-locks.adoc` for the rule, the sites and the tripwire.
 
 == Emergency path: the operator console
 

@@ -56,7 +56,7 @@ internal object MemberCardIssuance {
      *
      * Throws [NotFoundException] for an unknown member and [ConflictException] for a member who is
      * not [MemberCardEligibility.isEligible] -- a card is a membership assertion, see that object's
-     * KDoc. The eligibility check happens under [MemberCardStore]'s own `forUpdate()` lock on the
+     * KDoc. The eligibility check happens under [MemberCardStore]'s own `forUpdate()` lock (kept a plain `FOR UPDATE`: the first card writes `member_number`, a key column) on the
      * member row, so it cannot race a concurrent status change: either the status change commits
      * first (and this call refuses) or this call commits first (and the status change proceeds,
      * leaving a card whose holder the verification page will then correctly report as no longer a
@@ -83,6 +83,7 @@ internal object MemberCardIssuance {
 
     /** Locks the member row and refuses a non-member up front -- see [rotate]'s own comment. */
     private fun requireEligible(memberId: Uuid) {
+        // row-lock: FOR UPDATE (key change: member_number) -- member_number may be written later in this transaction, see docs/architecture/row-locks.adoc
         val row =
             MemberTable
                 .selectAll()

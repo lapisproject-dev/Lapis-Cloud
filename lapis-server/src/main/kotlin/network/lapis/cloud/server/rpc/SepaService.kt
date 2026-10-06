@@ -11,6 +11,7 @@ import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -610,9 +611,15 @@ class SepaService(
                 if (memberIds.isEmpty()) {
                     emptyMap()
                 } else {
-                    MemberTable.selectAll().where { MemberTable.id inList memberIds }.orderBy(MemberTable.id).forUpdate().associateBy {
-                        it[MemberTable.id]
-                    }
+                    MemberTable
+                        .selectAll()
+                        .where { MemberTable.id inList memberIds }
+                        .orderBy(
+                            MemberTable.id,
+                        ).forMemberUpdate()
+                        .associateBy {
+                            it[MemberTable.id]
+                        }
                 }
 
             val eligible =

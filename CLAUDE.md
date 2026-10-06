@@ -77,6 +77,7 @@ Transaktion nach einem fehlgeschlagenen Statement, die echte Flyway-Kette), prü
   und `FooPostgresTest : FooScenarios(TestDatabase.Postgres())` mit `@Tags("Postgres")` und `@EnabledIf(PostgresConfigured::class)`. Gleiche
   Assertions auf beiden Datenbanken; wo H2 nur wegen seines 1-Sekunden-Lock-Timeouts tolerant ist, auf Postgres strenger prüfen, nie lockerer.
   Der Klassenname der Spur-Variante enthält `Postgres` (der Gradle-Filter arbeitet über den Namen; `PostgresLaneNamingTest` wacht darüber).
+- `MemberTable`-Zeilen nie mit `forUpdate()` sperren, sondern `forMemberUpdate()` (`db/RowLocks.kt`, `FOR NO KEY UPDATE`); Ausnahme nur bei Änderung einer Schlüsselspalte (id/email/member_number), siehe `docs/architecture/row-locks.adoc` (Tripwire: `MemberRowLockTripwireTest`).
 - In Szenarien der Spur niemals `module()` oder `DatabaseConfig.connect()` aufrufen (sonst Rückfall auf H2); der Dialekt-Guard in `installLaneGuards` fängt das ab.
 - **Die H2-Spur läuft seit V1.9.58 in mehreren Test-JVMs** (`-Plapis.test.forks=N`, CI: 4). Neue Tests dürfen deshalb keine festen Ports und keine geteilten
   Dateipfade nutzen (Port `0` bzw. ein Verzeichnis mit `Uuid.random()` im Namen). Jede JVM hat ihre eigene H2-Datenbank; eine Reihenfolge-Abhängigkeit zwischen

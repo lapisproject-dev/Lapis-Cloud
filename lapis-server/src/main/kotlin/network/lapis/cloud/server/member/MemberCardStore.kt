@@ -112,6 +112,7 @@ internal object MemberCardStore {
     const val MEMBER_NUMBER_PENDING_PLACEHOLDER: String = "M-PENDING"
 
     private fun lockMemberOrThrow(memberId: Uuid) {
+        // row-lock: FOR UPDATE (key change: member_number) -- member_number may be written later in this transaction, see docs/architecture/row-locks.adoc
         MemberTable
             .selectAll()
             .where { MemberTable.id eq memberId }

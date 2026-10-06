@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.security.CurrentMember
@@ -68,7 +69,7 @@ internal object MembershipTierAssignment {
             MemberTable
                 .selectAll()
                 .where { MemberTable.id eq targetMemberId }
-                .forUpdate()
+                .forMemberUpdate()
                 .singleOrNull() ?: throw NotFoundException("Member $targetMemberId not found")
         if (row[MemberTable.anonymizedAt] != null) {
             throw ConflictException("Member has been anonymized and can no longer be edited")

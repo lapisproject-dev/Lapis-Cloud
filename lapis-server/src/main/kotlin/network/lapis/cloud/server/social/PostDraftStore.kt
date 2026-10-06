@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.social
 
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.McpPostDraftTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.shared.domain.McpPostDraftDto
@@ -57,7 +58,7 @@ internal object PostDraftStore {
             MemberTable
                 .selectAll()
                 .where { MemberTable.id eq memberId }
-                .forUpdate()
+                .forMemberUpdate()
                 .singleOrNull()
                 ?: error("Member $memberId not found while locking for draft creation")
 
@@ -181,7 +182,7 @@ internal object PostDraftStore {
             MemberTable
                 .selectAll()
                 .where { MemberTable.id eq memberId }
-                .forUpdate()
+                .forMemberUpdate()
                 .singleOrNull()
                 ?: error("Member $memberId not found while locking for draft restore")
 

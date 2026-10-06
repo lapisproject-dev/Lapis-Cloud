@@ -2,6 +2,7 @@ package network.lapis.cloud.server.rpc
 
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.ContributionReliefRequestTable
 import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -113,7 +114,7 @@ internal object ContributionReliefExecution {
             MemberTable
                 .selectAll()
                 .where { MemberTable.id eq subjectMemberId }
-                .forUpdate()
+                .forMemberUpdate()
                 .singleOrNull() ?: return ReliefExecutionOutcome.Failed("member_not_found")
         if (row[MemberTable.anonymizedAt] != null) return ReliefExecutionOutcome.Failed("member_anonymized")
         if (row[MemberTable.status] in MemberStatusSets.MEMBERSHIP_ENDED) return ReliefExecutionOutcome.Failed("membership_ended")
@@ -157,7 +158,7 @@ internal object ContributionReliefExecution {
             MemberTable
                 .selectAll()
                 .where { MemberTable.id eq subjectMemberId }
-                .forUpdate()
+                .forMemberUpdate()
                 .singleOrNull() ?: return ReliefExecutionOutcome.Failed("member_not_found")
         if (memberRow[MemberTable.anonymizedAt] != null) return ReliefExecutionOutcome.Failed("member_anonymized")
         if (memberRow[MemberTable.status] in MemberStatusSets.MEMBERSHIP_ENDED) return ReliefExecutionOutcome.Failed("membership_ended")

@@ -8,6 +8,7 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -32,10 +33,6 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.notInList
 import org.jetbrains.exposed.v1.core.or
-import org.jetbrains.exposed.v1.core.vendors.ForUpdateOption
-import org.jetbrains.exposed.v1.core.vendors.PostgreSQLDialect
-import org.jetbrains.exposed.v1.core.vendors.currentDialect
-import org.jetbrains.exposed.v1.jdbc.Query
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.time.Duration
@@ -44,18 +41,6 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
-
-/**
- * Locks the selected `member` row for a write that never changes its key. PostgreSQL: `FOR NO KEY UPDATE`, **not** `FOR UPDATE`.
- * The difference is load-bearing (found by the V1.9.57 Postgres lane): a plain `FOR UPDATE` on a member row conflicts with the
- * `FOR KEY SHARE` lock that the foreign key of every audit entry (`actor_member_id`) takes on the ACTOR's member row, so a
- * transaction that holds `member(a) FOR UPDATE` and then waits for another lock deadlocks against one that holds that lock and is
- * inserting an audit entry with actor `a` (two administrators acting on each other at the same time). `FOR NO KEY UPDATE` still
- * excludes every other writer and every other `FOR (NO KEY) UPDATE`, but not the foreign-key check. Any other dialect (the H2 of
- * the normal test task, which has no such option): a plain `FOR UPDATE`.
- */
-internal fun Query.forMemberUpdate(): Query =
-    if (currentDialect is PostgreSQLDialect) forUpdate(ForUpdateOption.PostgreSQL.ForNoKeyUpdate) else forUpdate()
 
 /**
  * Welle V1.9.57 "Admin-Peer-Schutz" -- the outcome of the peer-protection matrix for one action of one caller against one

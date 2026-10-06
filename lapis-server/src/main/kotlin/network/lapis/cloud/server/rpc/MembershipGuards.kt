@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.rpc
 
+import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -21,7 +22,7 @@ import kotlin.uuid.Uuid
  * inside the caller's open `transaction {}`, same convention every other query helper in this
  * package follows.
  *
- * [forUpdate] takes a `SELECT ... FOR UPDATE` row lock on the member row before it is inspected --
+ * [forUpdate] takes a row lock (`forMemberUpdate()`: `FOR NO KEY UPDATE` on PostgreSQL) on the member row before it is inspected --
  * same "check-then-act must not race a concurrent status change" discipline as
  * [RegistrationService.requireApplicationRow]/[PoliticianService.requireProfileRowByMember]/
  * [CrowdfundingService.requireProjectRow] etc. Required whenever the same transaction goes on to
@@ -46,7 +47,7 @@ fun requireMembershipStatusIn(
     forUpdate: Boolean = false,
 ): MemberStatus {
     val query = MemberTable.selectAll().where { MemberTable.id eq memberId }
-    val status = (if (forUpdate) query.forUpdate() else query).singleOrNull()?.get(MemberTable.status)
+    val status = (if (forUpdate) query.forMemberUpdate() else query).singleOrNull()?.get(MemberTable.status)
     if (status == null || status !in allowed) throw ForbiddenException()
     return status
 }
@@ -122,7 +123,7 @@ fun requireLtrEligibleMembership(
     config: FriendRegistrationConfig = FriendRegistrationConfig.load(),
 ): MemberStatus {
     val query = MemberTable.selectAll().where { MemberTable.id eq memberId }
-    val row = (if (forUpdate) query.forUpdate() else query).singleOrNull()
+    val row = (if (forUpdate) query.forMemberUpdate() else query).singleOrNull()
     val status = row?.get(MemberTable.status)
     if (status == null || status !in MemberStatusSets.LTR_ELIGIBLE) throw ForbiddenException()
     if (status == MemberStatus.FRIEND && config.requireEmailVerification && row[MemberTable.emailVerifiedAt] == null) {

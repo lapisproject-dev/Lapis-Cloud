@@ -1,0 +1,133 @@
+= Row locks on `member` (V1.9.60)
+:toc:
+
+== Purpose
+
+PostgreSQL row locks are not interchangeable. A plain `SELECT ... FOR UPDATE` on a `member` row looks like a harmless mutex, but it
+conflicts with the lock that a foreign-key check takes on the parent row. This page states the rule, the one helper that implements it,
+the sites that follow it, the sites that must not, and the tripwire that keeps it that way.
+
+== Lock modes and what conflicts with what
+
+[cols="2,1,1,1,1", options="header"]
+|===
+| Held by A \ requested by B | `FOR KEY SHARE` | `FOR SHARE` | `FOR NO KEY UPDATE` | `FOR UPDATE`
+| `FOR KEY SHARE` | ok | ok | ok | *waits*
+| `FOR SHARE` | ok | ok | *waits* | *waits*
+| `FOR NO KEY UPDATE` | ok | *waits* | *waits* | *waits*
+| `FOR UPDATE` | *waits* | *waits* | *waits* | *waits*
+|===
+
+Inserting (or updating the foreign-key column of) a child row takes `FOR KEY SHARE` on the referenced parent row. `member` has 192
+referencing foreign keys; the one that matters most is `audit_log_entry.actor_member_id`, because almost every writing transaction ends
+with an audit entry whose actor is the logged-in member.
+
+== The trap
+
+Transaction A holds `member(a) FOR UPDATE` and then waits for some other lock L (for example the global audit chain-state row).
+Transaction B holds L and inserts an audit entry whose actor is `a`: the foreign-key check needs `FOR KEY SHARE` on `member(a)` and waits
+for A. A waits for B, B waits for A: a deadlock. H2 cannot show it; the PostgreSQL lane reproduced it
+(`MemberRowLockPostgresTest`, "the deadlock itself", `pg_stat_database.deadlocks` +1 before the fix, +0 after).
+
+`FOR NO KEY UPDATE` excludes every other writer and every other `FOR (NO KEY) UPDATE`, but it does not conflict with `FOR KEY SHARE`.
+
+== The rule
+
+* Lock a `member` row with `forMemberUpdate()` (`db/RowLocks.kt`): `FOR NO KEY UPDATE` on PostgreSQL, a plain `FOR UPDATE` on any other
+  dialect (the H2 of the normal test task has no such option; its behaviour is byte-identical to before).
+* *Exception: key columns.* PostgreSQL does not look at foreign keys to decide what a "key" is. Any column of a unique, non-partial,
+  non-expression index counts. On `member` these are `id`, `email` (`UNIQUE`) and `member_number` (`uq_member_member_number`). A later
+  `UPDATE` that really changes one of them (an unchanged value does not) silently raises the lock to `FOR UPDATE`. So `forMemberUpdate()`
+  is never right in front of a change of `id`, `email` or `member_number`; those sites keep `forUpdate()` and carry the marker comment
+  `row-lock: FOR UPDATE (key change: ...)`.
+* `status`, `regional_chapter_id`, `membership_tier_id`, `contribution_exempt_*`, `display_name`, the address fields and
+  `email_verified_at` are not key columns. There is no `DELETE` on `member` in production code.
+* The order of locks is unchanged by this wave, and `lock_timeout` (10 s, `DbSessionTimeouts`) applies to every lock mode alike.
+
+== Sites on `member`
+
+Paths relative to `lapis-server/src/main/kotlin/network/lapis/cloud/server/`.
+
+[cols="3,2,2", options="header"]
+|===
+| Site | What the transaction writes on `member` | Lock
+| `economy/LtrBalanceProvider.kt` `lockForDebit` | nothing (a mutex; ledger and audit rows are children) | NO KEY. Pairs are locked in sorted order (`AuctionService`, `PeerTransferService`)
+| `rpc/MembershipGuards.kt` `requireMembershipStatusIn`, `requireLtrEligibleMembership` (and `requireActiveMembership`) | nothing | NO KEY
+| `memberbio/MemberPublicBioStore.kt`, `memberphoto/MemberPhotoStore.kt`, `routes/ConferenceBackgroundRoutes.kt`, `social/PostDraftStore.kt` (2) | nothing (child rows) | NO KEY
+| `rpc/ContributionReliefExecution.kt` (2), `rpc/MembershipTierAssignment.kt` | `contribution_exempt_*`, `membership_tier_id` | NO KEY
+| `rpc/DsgvoService.kt` (public-ranking consent) | nothing (consent events are children) | NO KEY
+| `rpc/PoliticianService.kt` | nothing on `member` (profile and statistics are children of the profile) | NO KEY. Order: member, then profile
+| `rpc/RegionalChapterService.kt` (2) | `regional_chapter_id` / nothing | NO KEY. Order: member, then chapter
+| `rpc/RegistrationService.kt` (FRIEND to APPLICATION) | `status`, `regional_chapter_id`, status history | NO KEY
+| `rpc/SepaService.kt` `createDebitBatch` | nothing (mandate expiry check) | NO KEY, `inList` + `orderBy(id)`
+| `bootstrap/AdminBootstrap.kt`, `security/PeerProtection.kt`, `rpc/MemberService.kt` (8), `member/EmailChangeStore.kt`, `rpc/RegistrationService.kt` `requireMemberRow` | various non-key columns | NO KEY (since V1.9.57; see the limitation on the e-mail change below)
+| `member/MemberNumberAllocator.kt` `ensureFor` | `member_number` | *FOR UPDATE* (key change)
+| `member/MemberCardStore.kt` `lockMemberOrThrow`, `member/MemberCardIssuance.kt` `requireEligible` | `member_number` (first card, through `ensureFor`) | *FOR UPDATE* (key change). The pure revoke would not need it; one conservative helper is simpler
+|===
+
+Not a `member` lock, and unchanged: `KeycloakLinkService` (locks `keycloak_account_link` and deletes the row, so `FOR UPDATE` is right),
+the account-union lock in `PeerProtection` and the `currentAccountRole` reads (no table references `account`, so nothing can take
+`FOR KEY SHARE` on it).
+
+The DSGVO erasure (`FoundationPersonalData.eraseMember`) rewrites `email` and `member_number`; it takes no explicit lock, only the implicit
+`FOR UPDATE` of that `UPDATE`.
+
+== Other parent tables
+
+Not migrated in this wave, and there is no generic helper for them. `member` is the proven case: 192 foreign keys plus the audit entry
+of almost every transaction. For every other parent table with a `forUpdate()` the same questions were asked (is it a parent; is a row
+deleted or a key column changed; does another transaction insert children without first taking the parent lock):
+
+[cols="2,3", options="header"]
+|===
+| Parent tables with `forUpdate()` (referencing foreign keys) | Assessment
+| `ledger_account` (15), `election` (7), `contribution` (6), `social_post` (6), `conference_room` (5), `open_item` (5), `systemic_consensus` (4), `event` (3), `motion` (3), `poll` (3), `membership_tier` (3), `crm_contact` (3) | The paths that insert children take the parent lock first (the lock is the mutex of that aggregate); no deadlock through the foreign-key check is demonstrated. Candidates for a later wave, not changed without a Postgres scenario.
+| `sepa_mandate`, `regional_chapter`, `politician_profile`, `crowdfunding_project`, `vote`, `bank_account` (2 each), and 15 tables with one child each | As above.
+| `regional_chapter` (`deleteChapter`), `event`, `crm_contact`, `bank_account`, `payment_checkout_session`, `travel_expense_report`, `conference_recording`, `conference_stream_destination` | A row is deleted: `FOR UPDATE` is right in any case.
+|===
+
+== Lock order findings (documented, not changed)
+
+. *SEPA counter-cycle.* `createDebitBatch` locks contribution, mandate, member; `grantMandate` locks member, then the member's active
+  mandate. With an existing active mandate the orders cross. `NO KEY UPDATE` does not resolve it (the modes exclude each other), but
+  `grantMandate` ends in a conflict anyway in that situation and PostgreSQL aborts one transaction after `deadlock_timeout` (`40P01`).
+  Re-ordering a money path is a separate wave.
+. *Audit before member lock.* `AuditLogRecorder.record` holds the global chain-state row until commit and its KDoc requires it to be the
+  last lock. A path that audits first and locks a member row afterwards forms the opposite order to "member, then audit". No lock mode helps
+  against that; the contract on `record` is the protection.
+. *`ElectionService` winner seating* locks the winners in the order of the winner list, not by `id`. Two simultaneous tallies with the same
+  members are not realistic; documented only.
+. *The pinned `FOR UPDATE` sites are followed by an audit write* (`MemberService.reissueMemberCard`, the card route). Two actors acting
+  on each other in the same instant can still deadlock there; PostgreSQL aborts one after `deadlock_timeout`. Residual, rare, pinned.
+. *Escalation inside one transaction.* No path that holds `forMemberUpdate()` calls the card issuance or the number allocator afterwards
+  (verified by reading the callers); that would raise the lock to `FOR UPDATE`.
+
+== E-mail change (known limitation)
+
+`EmailChangeStore.lockMember` (V1.9.57) takes `forMemberUpdate()` and the same transaction later applies `UPDATE member SET email`, a key
+column, which raises the lock to `FOR UPDATE`. Going back to a plain `FOR UPDATE` could re-introduce the two-administrator deadlock V1.9.57
+fixed (that lock sits before the account-union lock), so it was not touched. The matrix test
+(`PostgresLockSemanticsTest`, "raised to FOR UPDATE") pins the behaviour. A clean fix separates the lock for the application of the change.
+
+== Tripwire
+
+`db/MemberRowLockTripwireTest` scans the production sources (comments and string contents blanked):
+
+. no `forUpdate()` on a query built from `MemberTable` (direct chain, via a local variable, or a join), except the three pinned sites,
+  each with the marker comment; a stale pin fails the test;
+. `ForNoKeyUpdate` is spelled only in `db/RowLocks.kt`;
+. no hand-written SQL locks `member` rows;
+. a `MemberTable.update` that assigns `id`, `email` or `member_number` is allowed only in `EmailChangeStore`, `MemberNumberAllocator` and
+  `FoundationPersonalData`; a new writer of a key column forces a review against this page.
+
+The detectors have positive and negative self-tests.
+
+== Tests
+
+* `PostgresLockSemanticsTest`: the lock matrix of this page, measured (held lock against child insert, exclusion, key columns, escalation).
+* `MemberRowLockPostgresTest` (scenarios shared with `MemberRowLockH2Test`, the H2 compatibility smoke test): per directly callable site, the
+  lock does not block a child insert and a held `FOR KEY SHARE` does not block the site; the sites still exclude another writer; the pinned
+  allocator keeps waiting; and the deadlock itself, deterministic, without sleeps.
+* Sites that need a request context (the RPC services and the conference-background route: Politician, RegionalChapter, Registration, Sepa,
+  Dsgvo, ContributionReliefExecution, ConferenceBackgroundRoutes) are covered by the tripwire and their unchanged H2 suites, not by a
+  PostgreSQL scenario of their own.

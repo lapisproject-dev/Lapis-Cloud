@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.economy
 
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PublicRankingConsentEventTable
@@ -61,7 +62,7 @@ interface LtrBalanceProvider {
     fun freeBalances(memberIds: Collection<Uuid>): Map<Uuid, BigDecimal> = memberIds.associateWith { freeBalance(it) }
 
     /**
-     * Takes a row-level lock (`SELECT ... FOR UPDATE`) serializing concurrent debit-causing
+     * Takes a row-level lock (`SELECT ... FOR NO KEY UPDATE` on PostgreSQL via `forMemberUpdate()`, see `docs/architecture/row-locks.adoc`) serializing concurrent debit-causing
      * writers against [memberId]'s free balance. `freeBalance` alone is a `SUM(amount_ltr)`
      * aggregate over [LtrLedgerEntryTable] — no single row can carry a DB-level
      * non-negativity CHECK for it, exactly the same aggregate-invariant gap
@@ -149,7 +150,7 @@ class LedgerBackedLtrBalanceProvider : LtrBalanceProvider {
         MemberTable
             .selectAll()
             .where { MemberTable.id eq memberId }
-            .forUpdate()
+            .forMemberUpdate()
             .singleOrNull()
             ?: error("Member $memberId not found while locking for LTR debit -- caller must resolve/validate the member first")
     }

@@ -7,6 +7,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberEmailChangeTable
 import network.lapis.cloud.server.db.generated.MemberFamilyLinkTable
@@ -40,7 +41,6 @@ import network.lapis.cloud.server.security.PeerGuard
 import network.lapis.cloud.server.security.PeerPolicy
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.TemporaryPasswordGenerator
-import network.lapis.cloud.server.security.forMemberUpdate
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.memberVisibility
 import network.lapis.cloud.server.security.peerGuarded

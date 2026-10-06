@@ -3,6 +3,7 @@ import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PoliticianProfileTable
@@ -205,7 +206,7 @@ class PoliticianService(
             MemberTable
                 .selectAll()
                 .where { MemberTable.id eq targetMemberId }
-                .forUpdate()
+                .forMemberUpdate()
                 .singleOrNull()
             val row = requireProfileRowByMember(memberId = targetMemberId, forUpdate = true)
             if (row[PoliticianProfileTable.status] != PoliticianProfileStatus.ACTIVE) {
