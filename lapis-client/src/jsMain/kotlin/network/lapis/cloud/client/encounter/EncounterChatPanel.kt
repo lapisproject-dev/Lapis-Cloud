@@ -1,21 +1,14 @@
 package network.lapis.cloud.client.encounter
 
 import io.kvision.core.Container
-import io.kvision.core.Widget
 import io.kvision.core.onEvent
-import io.kvision.form.text.Text
-import io.kvision.form.text.text
-import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
-import io.kvision.html.InputType
 import io.kvision.html.div
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import kotlinx.coroutines.launch
-import network.lapis.cloud.client.ActionIcon
 import network.lapis.cloud.client.AppScope
-import network.lapis.cloud.client.actionButton
-import network.lapis.cloud.client.lapisToolbar
+import network.lapis.cloud.client.lapisChatComposer
 import network.lapis.cloud.client.notifyError
 import network.lapis.cloud.client.untrustedSpan
 
@@ -38,9 +31,7 @@ internal class EncounterChatPanel(
     private val logView: Div = root.div(className = "lapis-encounter-chat-log")
     private val silencedNote: Div = root.div(tr("Sie wurden von einem Ordner stummgeschaltet."), className = "text-muted small")
     private val counter: Div = root.div(className = "text-muted small")
-    private val composer = root.lapisToolbar { }
-    private val field: Text = composer.text(type = InputType.TEXT)
-    private val sendAction = composer.actionButton(ActionIcon.SEND, tr("Senden"), style = ButtonStyle.PRIMARY)
+    private val composer = root.lapisChatComposer(onSend = { send() })
 
     init {
         logView.setAttribute("role", "log")
@@ -50,21 +41,7 @@ internal class EncounterChatPanel(
         logView.setAttribute("tabindex", "0")
         silencedNote.hide()
         counter.hide()
-        // The attributes belong on the <input> itself, not on the form-group wrapper `Text` renders around it.
-        (field.input as? Widget)?.setAttribute("aria-label", gettext("Nachricht schreiben"))
-        (field.input as? Widget)?.setAttribute("autocomplete", "off")
-        field.placeholder = gettext("Nachricht schreiben")
-        field.onEvent {
-            keydown = { event ->
-                // Enter sends; a composition (IME) Enter never does.
-                if (event.key == "Enter" && !event.isComposing) {
-                    event.preventDefault()
-                    send()
-                }
-            }
-            input = { updateCounter() }
-        }
-        sendAction.onClick { send() }
+        composer.input.onEvent { input = { updateCounter() } }
     }
 
     /** Adds a received or own line (the text is cut to the limit by the log). */
@@ -81,17 +58,17 @@ internal class EncounterChatPanel(
 
     /** Silenced people can read but not write: input and button are disabled and the reason is shown. */
     fun setSendingEnabled(enabled: Boolean) {
-        field.disabled = !enabled
-        sendAction.disabled = !enabled
+        composer.input.disabled = !enabled
+        composer.sendButton.disabled = !enabled
         if (enabled) silencedNote.hide() else silencedNote.show()
     }
 
     fun focusInput() {
-        field.focus()
+        composer.focus()
     }
 
     private fun updateCounter() {
-        val length = (field.value ?: "").length
+        val length = composer.value.length
         if (length > COUNTER_FROM) {
             counter.content = gettext("%1 von %2 Zeichen", length, ENCOUNTER_CHAT_MAX_CHARS)
             counter.show()
@@ -101,7 +78,7 @@ internal class EncounterChatPanel(
     }
 
     private fun send() {
-        when (val draft = encounterChatDraft(field.value ?: "")) {
+        when (val draft = encounterChatDraft(composer.value)) {
             EncounterChatDraft.Empty -> Unit
             EncounterChatDraft.TooLong ->
                 notifyError(
@@ -110,7 +87,7 @@ internal class EncounterChatPanel(
             is EncounterChatDraft.Ready ->
                 AppScope.launch {
                     if (onSend(draft.text)) {
-                        field.value = ""
+                        composer.value = ""
                         updateCounter()
                     }
                 }

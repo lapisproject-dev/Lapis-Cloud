@@ -67,9 +67,17 @@ enum class ActionIcon(
     CHAT("fas fa-comments"),
     SCENE("fas fa-image"),
     SILENCE("fas fa-volume-xmark"),
+
+    /** Transmission of the pulpit; V1.9.66: also the conference live stream (same verb: transmitting live). */
     BROADCAST("fas fa-tower-broadcast"),
     OFFICES("fas fa-user-tie"),
     PEOPLE("fas fa-users"),
     MICROPHONE("fas fa-microphone"),
     CAMERA("fas fa-video"),
+
+    /** V1.9.66: start/stop the recording of a conference (record symbol). Shown in the conference bar only. */
+    RECORD("fas fa-circle-dot"),
+
+    /** V1.9.66: end the meeting for everyone (power off). Deliberately NOT [LEAVE] (own exit) and NOT [CLOSE_DOORS] (encounter room). */
+    END_FOR_ALL("fas fa-power-off"),
 }

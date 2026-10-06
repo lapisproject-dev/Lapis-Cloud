@@ -81,11 +81,12 @@ private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
             ),
         "ConferenceScreen.kt" to
             (
-                9 to
+                8 to
                     "role=alert banners (hidden first; the live call path cannot be mounted in a test, so they were not converted), " +
                     "roster/chat badges (raw child, next add patches), stage/grid zones " +
-                    "(first fire is the replacement, before any tile exists), chatRow (hidden panel), setStaticA11yLabel/" +
-                    "setDynamicA11yTitle (getElement() ?: hook idiom)"
+                    "(first fire is the replacement, before any tile exists), setStaticA11yLabel/" +
+                    "setDynamicA11yTitle (getElement() ?: hook idiom); V1.9.66: the chatRow Enter hook is gone (shared chat composer " +
+                    "wires KVision events)"
             ),
         "MemberMapScreen.kt" to
             (

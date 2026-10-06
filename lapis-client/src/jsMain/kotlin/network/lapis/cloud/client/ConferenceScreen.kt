@@ -14,6 +14,7 @@ import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
@@ -238,13 +239,13 @@ import kotlin.time.Clock
  *   platforms) the concept note's transparency requirement demands. [conferenceStatusBadgeRows]
  *   returns 0-2 rows; both render simultaneously, stacked, when both are active. Distinct glyphs
  *   ("●" recording, "◆" streaming) so the distinction does not rely on red-vs-red alone.
- * - **D5, must-mock-before-code -- recording and streaming controls are SPATIALLY SEPARATE groups**,
- *   each under its own small "Aufzeichnung:"/"Live-Stream:" sub-header, never a shared row or dropdown
- *   -- see [recordingControlsRowRef]/[streamingControlsRowRef]. Every confirm dialog restates the noun
+ * - **D5, must-mock-before-code -- recording and streaming controls are SEPARATE controls**
+ *   (V1.9.66: two toggles of the moderation group in the bottom bar, no longer rows with sub-headers),
+ *   never a shared control or dropdown -- see `conferenceModerationGroup` (ConferenceControlBar.kt). Every confirm dialog restates the noun
  *   it acts on ("Stream **beenden**?", never a bare "Wirklich beenden?") -- see
  *   [pauseStreamConfirmDialog]/[resumeStreamConfirmDialog]/[stopStreamConfirmDialog]. "Für alle
- *   beenden" (ending the whole meeting) stays in its own pre-existing `moderatorRow`, spatially
- *   separated from both media control groups, per Wave 1's own precedent.
+ *   beenden" (ending the whole meeting) is the last control of the same group (V1.9.66), never next
+ *   to "Verlassen" (the panel group and the dividers always sit between them).
  * - **D2 -- no re-typing on the start-stream dialog.** [startStreamDialog]'s destination checklist
  *   doubles as the confirm surface itself: a live summary line ([conferenceStreamStartSummary]) names
  *   the SELECTED destinations by LABEL (never url/key) and restates irrevocability in plain German as
@@ -266,7 +267,7 @@ import kotlin.time.Clock
  *   a real button-disabled "in flight" state while the new egress connects (rule 2, double-submit
  *   protection), never a silent instant jump back to "Live-Stream läuft".
  * - **D11 -- unconfigured is invisible, not disabled.** [refreshStreamState] hides
- *   [streamingControlsRowRef] entirely when [IConferenceStreamingService.getStreamingAvailability]
+ *   the stream toggle (`ConferenceModerationGroup.setStreamingAvailable`) entirely when [IConferenceStreamingService.getStreamingAvailability]
  *   reports `enabled=false`, and never calls [IConferenceStreamingService.getActiveStream]/
  *   `.listStreamTargets` before that check (both throw `ConflictException` when streaming is
  *   unconfigured) -- exactly Wave 2's own `refreshRecordingState`/D14 posture, independently applied.
@@ -318,7 +319,7 @@ import kotlin.time.Clock
  *   transition happens, unlisted (state, event) pairs are ignored (return the same state) rather than
  *   throwing, and `Ended` is terminal. `renderConnectionState` (inside [enterCall]) is what makes this
  *   an ACTUALLY UI-driving state machine, not just an internal label: it disables
- *   `micButton`/`cameraButton`/`screenShareButton`/`chatSendButton` while not `Connected`, and shows a
+ *   `micButton`/`cameraButton`/`screenShareButton`/the chat composer's send button while not `Connected`, and shows a
  *   calm, non-alarming "Verbindung unterbrochen -- wird automatisch neu verbunden …" status line while
  *   `Reconnecting` (LiveKit's own `RoomEvent.Reconnecting`/`.Reconnected`, now wired into
  *   `LiveKitRoomSession`). **Security-relevant**: a forcibly-terminated/kicked session (server-side
@@ -469,7 +470,7 @@ internal fun Container.conferenceScreenRoot(onTeardown: () -> Unit): VPanel =
 
 /**
  * The inline-rename input of the conference title row: autofocus plus Enter-to-submit, both wired through a
- * raw-DOM insert hook (same discipline as `chatRow`'s Enter-to-send hook).
+ * raw-DOM insert hook (same discipline the chat composer used before V1.9.66 for its Enter-to-send hook).
  *
  * Built by constructor and added with [addWithLifecycle] so the hook exists BEFORE the input is rendered. The
  * previous version added the input first and registered the hook afterwards -- as the last statement of the
@@ -1127,8 +1128,17 @@ private fun enterCall(
     // ring to THIS row's toggle buttons (roster/chat/more) instead of leaking globally onto every
     // `.btn.active` on the page (e.g. the whiteboard toolbar's eraser/thin/thick buttons, which
     // toggle their own unrelated `.active` class -- see theme.css comment).
+    //
+    // V1.9.66 -- the bar never wraps any more (no `flex-wrap`): moderation (recording, live stream, end for everyone) is its own group
+    // in the bar, and what does not fit moves into the "Mehr" sheet (see `ConferenceControlBar.kt`). The icon-only look stays in every
+    // width (the "ab 768px"-label of the V1.2.10 review was never built, see theme.css).
+    // A polite status line above the bar names a recording / stream that is changing state (moderator only).
+    val actionStatusLine = callPanel.div { addCssClasses("small lapis-conference-action-status") }
+    actionStatusLine.setAttribute("role", "status")
+    actionStatusLine.setAttribute("aria-live", "polite")
+    actionStatusLine.hide()
     val controlsRow =
-        callPanel.hPanel(spacing = 6) { addCssClasses("align-items-center flex-wrap lapis-conference-controls-row") }
+        callPanel.hPanel(spacing = 6) { addCssClasses("align-items-center lapis-conference-controls-row") }
     val micButton = controlsRow.button("", icon = "fas fa-microphone", style = ButtonStyle.OUTLINESECONDARY)
     val cameraButton = controlsRow.button("", icon = "fas fa-video", style = ButtonStyle.OUTLINESECONDARY)
     // V1.2.10 -- verschwindet vollständig auf Geräten ohne `getDisplayMedia` (iOS Safari) statt in
@@ -1139,6 +1149,21 @@ private fun enterCall(
         } else {
             null
         }
+    // V1.9.66 -- group order: devices | moderation | panels | exit. The click callbacks of the moderation group are assigned once the
+    // handlers exist (a local function cannot be referenced before its declaration).
+    val divider1 = controlsRow.conferenceControlsDivider()
+    var recordClick: () -> Unit = {}
+    var streamClick: () -> Unit = {}
+    var endForAllClick: () -> Unit = {}
+    val moderation =
+        controlsRow.conferenceModerationGroup(
+            canModerate = canModerate,
+            onRecord = { recordClick() },
+            onStream = { streamClick() },
+            onEndForAll = { endForAllClick() },
+        )
+    if (moderation == null) divider1.hide()
+    val divider2 = controlsRow.conferenceControlsDivider()
     // V1.2.9 Vollbildmodus: neuer Sichtbarkeits-Schalter für die Teilnehmerliste (D7) -- direkt vor
     // chatToggleButton, damit beide Overlay-Schienen-Schalter im Vollbild nebeneinander sitzen.
     val rosterToggleButton = controlsRow.button("", icon = "fas fa-users", style = ButtonStyle.OUTLINESECONDARY)
@@ -1170,6 +1195,10 @@ private fun enterCall(
     // V1.2.10 -- "Mehr"-Offenlegung (kein Popup-Menü, Tesler): Whiteboard/Notizen sowie die
     // Einrichtungs-Zeilen (Gastzugang/Sitzung/Breakout) wandern ins `moreSheet` weiter unten.
     val moreToggleButton = controlsRow.button("", icon = "fas fa-ellipsis", style = ButtonStyle.OUTLINESECONDARY)
+    // V1.9.66 -- state signs on "Mehr" while a recording / stream runs whose control sits inside the sheet (● recording, ◆ stream).
+    val moreBadge = moreToggleButton.span(className = "lapis-conference-control-badge")
+    moreBadge.setAttribute("aria-hidden", "true")
+    val divider3 = controlsRow.conferenceControlsDivider()
     // Wave 6: inside a breakout room, "Zurück zum Hauptraum" is the everyday, low-stakes, FREQUENT
     // action and reads as the confident default (PRIMARY); "Besprechung ganz verlassen" is the
     // rarer, heavier one -- a deliberate INVERSION of the main room's own button-weight convention,
@@ -1191,6 +1220,42 @@ private fun enterCall(
     // (Tesler: Offenlegung, kein Popup, das sich beim Auswählen sofort wieder schließt).
     val moreSheet = callPanel.vPanel(spacing = 8) { addCssClasses("lapis-conference-more-sheet") }
     moreSheet.hide()
+
+    // V1.9.66 -- labelled twins of the bar controls that do not fit (R58: the sheet has room, so the words stand there). A click on a
+    // twin clicks the (hidden) primary control, so there is exactly one handler per action. Shown by `ConferenceControlsOverflow`.
+    val barTwinSection = moreSheet.vPanel(spacing = 4) { addCssClasses("lapis-conference-bar-twins") }
+    barTwinSection.hide()
+
+    fun twin(
+        primary: Button?,
+        build: (Container) -> Button,
+    ): Button? {
+        if (primary == null) return null
+        val result = build(barTwinSection)
+        result.hide()
+        result.onClick { primary.getElement()?.click() }
+        return result
+    }
+    val screenTwin = twin(screenShareButton) { it.button(tr("Bildschirm teilen"), style = ButtonStyle.OUTLINESECONDARY) }
+    val recordTwin = twin(moderation?.recordButton) { it.actionButton(ActionIcon.RECORD, tr("Aufzeichnung starten")) }
+    val streamTwin = twin(moderation?.streamButton) { it.actionButton(ActionIcon.BROADCAST, tr("Live-Stream starten …")) }
+    val endTwin = twin(moderation?.endButton) { it.actionButton(ActionIcon.END_FOR_ALL, tr("Für alle beenden"), ButtonStyle.OUTLINEDANGER) }
+    val rosterTwin = twin(rosterToggleButton) { it.actionButton(ActionIcon.PEOPLE, tr("Teilnehmende")) }
+    val voteTwin = twin(votingToggle?.button) { it.button(tr("Abstimmen"), style = ButtonStyle.OUTLINESECONDARY) }
+
+    // V1.9.66 -- pause / resume of a running live stream: rare actions, so they live in the sheet (start and stop are the bar's
+    // toggle). The block is not a `lapis-conference-config-row`, so it survives the fullscreen mode like the device group.
+    val streamSheetSection = moreSheet.vPanel(spacing = 4) { addCssClasses("lapis-conference-stream-sheet") }
+    streamSheetSection.hide()
+    var streamPauseButton: Button? = null
+    var streamResumeButton: Button? = null
+    if (canModerate) {
+        streamSheetSection.div(tr("Live-Stream")) { addCssClasses("text-muted small") }
+        streamPauseButton = streamSheetSection.button(tr("Stream unterbrechen"), style = ButtonStyle.OUTLINEWARNING)
+        streamResumeButton = streamSheetSection.button(tr("Stream fortsetzen"), style = ButtonStyle.WARNING)
+        streamPauseButton.hide()
+        streamResumeButton.hide()
+    }
 
     // V1.0 Videokonferenzen, Wave 7 "Whiteboard" -- V1.2.10: wandert aus controlsRow ins Mehr-Blatt,
     // MIT Text (volle Breite, linksbündig -- Norman: irgendwo müssen die Wörter stehen). Gate
@@ -1290,24 +1355,13 @@ private fun enterCall(
     // exactly the same reasoning `fullscreenButton`'s own comment already gives, generalized to
     // every other icon-only button in this row.
 
-    // D5/D6: "end for everyone" gets its own, spatially separate row -- never adjacent to "Verlassen"
-    // (Tesler: near-identical destructive actions placed next to each other is a classic slip-inducing
-    // layout). Not rendered at all for a plain participant, same "don't tease an action the server
-    // will reject" posture `AuctionScreen.kt`'s own ADMIN-only Verwaltung panel documents. Wave 3, D5:
-    // this row stays reserved for "Für alle beenden" ONLY -- recording/streaming controls each get
-    // their OWN, further spatially separate row below (see [recordingControlsRowRef]/
-    // [streamingControlsRowRef]), never sharing this one. Wave 6: breakout-room create/recall gets
-    // its OWN row too (see [breakoutControlsRowRef] below) -- never this one either. `canModerate` is
-    // always `false` inside a breakout call (see its own KDoc above), so this naturally never
-    // renders there.
-    val endButton =
-        if (canModerate) {
-            val moderatorRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
-            moderatorRow.div(tr("Moderator:")) { addCssClasses("text-muted small") }
-            moderatorRow.button(tr("Für alle beenden"), style = ButtonStyle.OUTLINEDANGER)
-        } else {
-            null
-        }
+    // D5/D6 (V1.9.66: continued, not dropped): "end for everyone" is the last control of the moderation group in the bar. It is never
+    // adjacent to "Verlassen": the panel group (roster/chat/more) always sits between them, plus the dividers, and a gap of 6 px more.
+    // The group is not rendered at all for a plain participant (and never inside a breakout call: `canModerate` is `false` there),
+    // same "don't tease an action the server will reject" posture `AuctionScreen.kt`'s own ADMIN-only Verwaltung panel documents.
+    // Recording and live stream are the group's two other controls; their availability is shown/hidden by
+    // [refreshRecordingState]/[refreshStreamState] (D11), pause/resume of a stream sit in the "Mehr" sheet.
+    val endButton = moderation?.endButton
 
     // --- Recording + streaming indicator/controls (Wave 2 "Aufzeichnung" + Wave 3 "Externes
     // Streaming", see file KDoc for the full D-item list) -- chrome-level, built right after the
@@ -1321,32 +1375,27 @@ private fun enterCall(
     // exactly the same reason, see [bannerLeaveButton]/[streamBannerLeaveButton] below.
     var recordingAvailable = false
     var activeRecordingDto: ConferenceRecordingDto? = null
-    var recordButton: Button? = null
     var recordingBannerAcknowledged = false
 
     var streamingAvailable = false
     var streamMaxDestinations = 3
     var activeStreamDto: ConferenceStreamDto? = null
-    var streamStartButton: Button? = null
-    var streamPauseButton: Button? = null
-    var streamResumeButton: Button? = null
-    var streamStopButton: Button? = null
     var streamBannerAcknowledged = false
 
-    // D5: recording and streaming get their own, spatially separate control groups -- never a
-    // shared row, never a shared dropdown -- each with a small labeled sub-header, mirroring the
-    // pre-existing `moderatorRow`'s own "Moderator:" label pattern. Hidden/shown per-feature by
-    // [refreshRecordingState]/[refreshStreamState] once availability is known (D11).
-    var recordingControlsRowRef: SimplePanel? = null
-    var streamingControlsRowRef: SimplePanel? = null
-    if (canModerate) {
-        val recordingRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-        recordingRow.div(tr("Aufzeichnung:")) { addCssClasses("text-muted small") }
-        recordingControlsRowRef = recordingRow
+    // V1.9.66: the status line above the bar names a recording / stream that is changing state ("wird beendet …"); the control itself
+    // shows the busy state (disabled + aria-busy + spinner). Errors stay toasts (guarded {}), as before. Moderator only.
+    var lastActionStatus = ""
 
-        val streamingRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-        streamingRow.div(tr("Live-Stream:")) { addCssClasses("text-muted small") }
-        streamingControlsRowRef = streamingRow
+    fun updateActionStatusLine() {
+        val text = moderation?.progressTexts?.joinToString(" · ").orEmpty()
+        if (text == lastActionStatus) return
+        lastActionStatus = text
+        if (text.isEmpty()) {
+            actionStatusLine.hide()
+        } else {
+            actionStatusLine.content = text
+            actionStatusLine.show()
+        }
     }
 
     // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- design review D1/D3: its OWN,
@@ -1941,31 +1990,17 @@ private fun enterCall(
     }
 
     fun updateRecordButtonLabel() {
-        val btn = recordButton ?: return
-        when (activeRecordingDto?.status) {
-            ConferenceRecordingStatus.RECORDING -> {
-                btn.text = tr("Aufzeichnung beenden")
-                btn.disabled = false
-            }
-            ConferenceRecordingStatus.STOPPING -> {
-                btn.text = tr("Aufzeichnung wird beendet …")
-                btn.disabled = true
-            }
-            ConferenceRecordingStatus.PROCESSING -> {
-                // Review-round-1 fix (2026-08-09): PROCESSING can now reach this button too, via
-                // `pollInFlightRecordingStatus` below -- without this branch it fell into the
-                // `else` case and showed an ENABLED "Aufzeichnung starten" label whose click handler
-                // then silently did nothing ([onRecordButtonClicked] only ever handles a `null` or
-                // `RECORDING` active recording), a live-looking but dead button. Same disabled tier
-                // as STOPPING.
-                btn.text = tr("Aufzeichnung wird zusammengeführt …")
-                btn.disabled = true
-            }
-            else -> {
-                btn.text = tr("Aufzeichnung starten")
-                btn.disabled = false
-            }
-        }
+        val group = moderation ?: return
+        // PROCESSING can reach this control through `pollInFlightRecordingStatus`: not recording any more, not clickable (the view
+        // disables it). Idle (nothing / READY / FAILED) is the start state.
+        val view =
+            recordingToggleView(
+                activeRecordingDto?.status,
+                recordingCanStart(canModerate = canModerate, recordingAvailable = recordingAvailable, activeRecording = activeRecordingDto),
+            )
+        group.applyRecording(view)
+        recordTwin?.text = view.title
+        updateActionStatusLine()
     }
 
     // Wave 3, D6: resume shows a real "in flight" transitional state (button-disabled while the
@@ -1982,104 +2017,55 @@ private fun enterCall(
     // forget a transition, at the cost of the banner not being a one-time "just happened" notice like
     // [streamBanner] (it is not one -- see [secretBallotPauseBanner]'s own declaration comment). This
     // update happens BEFORE the buttons' own null-guard below so it still runs for a PLAIN
-    // PARTICIPANT, for whom `streamStartButton`/etc. are never created (`canModerate == false`) --
+    // PARTICIPANT, for whom `moderation` is `null` (`canModerate == false`) --
     // the pause is everyone's business, not the moderator's alone (design review D7 "everyone in the
     // room has a legal right to know", same posture [IConferenceStreamingService.getActiveStream]
     // KDoc already establishes).
     fun updateStreamButtonsVisibility() {
         streamStateSink(activeStreamDto?.status, activeStreamDto?.pauseReason)
         updateSecretBallotBanner()
+        val status = activeStreamDto?.status
         val pausedForSecretBallot =
-            activeStreamDto?.status == ConferenceStreamStatus.PAUSED &&
-                activeStreamDto?.pauseReason == ConferenceStreamPauseReason.SECRET_BALLOT
+            status == ConferenceStreamStatus.PAUSED && activeStreamDto?.pauseReason == ConferenceStreamPauseReason.SECRET_BALLOT
 
-        val startBtn = streamStartButton
+        // V1.9.66: start and stop are ONE toggle of the bar. A new stream while a secret ballot is open is already server-rejected
+        // (`ConferenceStreamingService.startStream`'s `hasOpenSecretBallot` guard) -- the toggle is hidden then (see
+        // `streamToggleView`), so it never invites a click the server will refuse.
+        val view =
+            streamToggleView(
+                status,
+                activeStreamDto?.pauseReason,
+                conferenceStreamCanStart(canModerate, streamingAvailable, activeStreamDto),
+            )
+        moderation?.applyStream(view)
+        streamTwin?.text = view.title
+
         val pauseBtn = streamPauseButton
         val resumeBtn = streamResumeButton
-        val stopBtn = streamStopButton
-        if (startBtn == null || pauseBtn == null || resumeBtn == null || stopBtn == null) return
-        stopBtn.text = tr("Stream beenden")
-        when (activeStreamDto?.status) {
-            null, ConferenceStreamStatus.ENDED, ConferenceStreamStatus.FAILED -> {
-                // Belt-and-suspenders (D8 point 3 of the Wave 9 plan): starting a NEW stream while a
-                // secret ballot is open on this room is already server-rejected
-                // (`ConferenceStreamingService.startStream`'s `hasOpenSecretBallot` guard) -- hidden
-                // here too so the button never invites a click the server will refuse.
-                if (activeStreamDto?.pauseReason == ConferenceStreamPauseReason.SECRET_BALLOT) {
-                    startBtn.hide()
-                } else {
-                    startBtn.show()
-                    startBtn.disabled = !conferenceStreamCanStart(canModerate, streamingAvailable, activeStreamDto)
-                }
-                pauseBtn.hide()
-                resumeBtn.hide()
-                stopBtn.hide()
-            }
-            ConferenceStreamStatus.STARTING -> {
-                startBtn.hide()
-                pauseBtn.hide()
-                resumeBtn.hide()
-                stopBtn.show()
-                stopBtn.disabled = false
-            }
-            ConferenceStreamStatus.LIVE -> {
-                startBtn.hide()
-                resumeBtn.hide()
-                pauseBtn.show()
-                pauseBtn.disabled = false
-                stopBtn.show()
-                stopBtn.disabled = false
-            }
-            // V1.0 Wave 9 -- the fail-closed transitional state (StopEgress requested, not yet
-            // confirmed terminal, see `ConferenceStreamStatus.PAUSING` KDoc): every control except
-            // "Stream beenden" is hidden, same shape as `STARTING`/`STOPPING` -- there is nothing a
-            // moderator can meaningfully click while the server is still waiting for LiveKit to
-            // confirm the egress actually stopped.
-            ConferenceStreamStatus.PAUSING -> {
-                startBtn.hide()
-                pauseBtn.hide()
-                resumeBtn.hide()
-                stopBtn.show()
-                stopBtn.disabled = false
-            }
-            ConferenceStreamStatus.PAUSED -> {
-                startBtn.hide()
-                pauseBtn.hide()
-                // V1.0 Wave 9, D3 -- "hart verdrahtet, nicht über die UI deaktivierbar" (Konzeptnotiz):
-                // the resume control does not exist at all while the pause reason is SECRET_BALLOT,
-                // never merely disabled. `resumeStream` rejects this server-side too
-                // (`SecretBallotStreamLock.hasOpenSecretBallot`) -- this is the client-side mirror of
-                // that same fail-closed rule, exactly like the start-button hiding above.
-                if (pausedForSecretBallot) {
-                    resumeBtn.hide()
-                } else {
-                    resumeBtn.show()
-                    resumeBtn.disabled = false
-                }
-                stopBtn.show()
-                stopBtn.disabled = false
-            }
-            ConferenceStreamStatus.STOPPING -> {
-                startBtn.hide()
-                pauseBtn.hide()
-                resumeBtn.hide()
-                stopBtn.show()
-                stopBtn.disabled = true
-                stopBtn.text = tr("Stream wird beendet …")
-            }
+        if (pauseBtn != null && resumeBtn != null) {
+            // Pause only exists while LIVE (the fail-closed transitional states STARTING/PAUSING/STOPPING offer nothing to click).
+            val showPause = status == ConferenceStreamStatus.LIVE
+            // V1.0 Wave 9, D3 -- "hart verdrahtet, nicht über die UI deaktivierbar" (Konzeptnotiz): the resume control does not exist at
+            // all while the pause reason is SECRET_BALLOT, never merely disabled. `resumeStream` rejects this server-side too
+            // (`SecretBallotStreamLock.hasOpenSecretBallot`) -- this is the client-side mirror of that same fail-closed rule.
+            val showResume = status == ConferenceStreamStatus.PAUSED && !pausedForSecretBallot
+            if (showPause) pauseBtn.show() else pauseBtn.hide()
+            if (showResume) resumeBtn.show() else resumeBtn.hide()
+            if (streamingAvailable && (showPause || showResume)) streamSheetSection.show() else streamSheetSection.hide()
         }
+        updateActionStatusLine()
     }
 
     fun onRecordButtonClicked() {
-        val btn = recordButton ?: return
+        val group = moderation ?: return
         val active = activeRecordingDto
         if (active == null) {
             if (!recordingCanStart(canModerate = canModerate, recordingAvailable = recordingAvailable, activeRecording = active)) return
             startRecordingConfirmDialog { accessLevel ->
-                btn.disabled = true
+                group.setRecordingBusy(true)
                 AppScope.launch {
                     val result = guarded { rpcService<IConferenceRecordingService>().startRecording(room.id, accessLevel) }
-                    btn.disabled = false
+                    group.setRecordingBusy(false)
                     // Rule: only update UI state once the guarded {} call's result confirms success --
                     // never optimistically before the RPC resolves.
                     if (result != null) {
@@ -2092,10 +2078,10 @@ private fun enterCall(
             }
         } else if (active.status == ConferenceRecordingStatus.RECORDING) {
             stopRecordingConfirmDialog {
-                btn.disabled = true
+                group.setRecordingBusy(true)
                 AppScope.launch {
                     val result = guarded { rpcService<IConferenceRecordingService>().stopRecording(active.id) }
-                    btn.disabled = false
+                    group.setRecordingBusy(false)
                     if (result != null) {
                         activeRecordingDto = result
                         notifySuccess(tr("Aufzeichnung wird beendet."))
@@ -2113,11 +2099,11 @@ private fun enterCall(
     // otherwise, see [updateStreamButtonsVisibility]/[conferenceStreamCanStart]).
     fun onStreamStartClicked() {
         if (!conferenceStreamCanStart(canModerate, streamingAvailable, activeStreamDto)) return
-        val startBtn = streamStartButton ?: return
-        startBtn.disabled = true
+        val group = moderation ?: return
+        group.setStreamBusy(true)
         AppScope.launch {
             val targets = guarded { rpcService<IConferenceStreamingService>().listStreamTargets() }
-            startBtn.disabled = false
+            group.setStreamBusy(false)
             if (targets.isNullOrEmpty()) {
                 notifyError(
                     tr(
@@ -2138,7 +2124,7 @@ private fun enterCall(
                 streamMaxDestinations,
                 participantOptions,
             ) { destinationIds, layout, latencyMode, participantIdentity ->
-                startBtn.disabled = true
+                group.setStreamBusy(true)
                 AppScope.launch {
                     val result =
                         guarded {
@@ -2150,7 +2136,7 @@ private fun enterCall(
                                 participantIdentity,
                             )
                         }
-                    startBtn.disabled = false
+                    group.setStreamBusy(false)
                     // Rule: only update UI state once the guarded {} call's result confirms success --
                     // never optimistically before the RPC resolves.
                     if (result != null) {
@@ -2214,11 +2200,11 @@ private fun enterCall(
         val stream = activeStreamDto ?: return
         val labels = stream.targets.joinToString(", ") { it.label }
         stopStreamConfirmDialog(labels) {
-            val btn = streamStopButton ?: return@stopStreamConfirmDialog
-            btn.disabled = true
+            val group = moderation ?: return@stopStreamConfirmDialog
+            group.setStreamBusy(true)
             AppScope.launch {
                 val result = guarded { rpcService<IConferenceStreamingService>().stopStream(stream.id) }
-                btn.disabled = false
+                group.setStreamBusy(false)
                 if (result != null) {
                     activeStreamDto =
                         if (result.status == ConferenceStreamStatus.ENDED || result.status == ConferenceStreamStatus.FAILED) {
@@ -2238,67 +2224,31 @@ private fun enterCall(
         }
     }
 
-    fun ensureRecordButton() {
-        val existing = recordButton
-        if (existing != null) {
-            // Re-shows a button that a PREVIOUS refresh hid because availability had flipped false in
-            // between (e.g. a transient LiveKit/ffmpeg hiccup) -- creating it once and never touching
-            // visibility again would otherwise strand it hidden forever once that happens.
-            existing.show()
-            return
+    // The handlers exist now: wire the bar's moderation group and the sheet's pause/resume buttons (V1.9.66).
+    recordClick = { onRecordButtonClicked() }
+    streamClick = {
+        when (conferenceStreamToggleAction(activeStreamDto?.status)) {
+            StreamToggleAction.OPEN_START_DIALOG -> onStreamStartClicked()
+            StreamToggleAction.CONFIRM_STOP -> onStreamStopClicked()
+            StreamToggleAction.NONE -> Unit
         }
-        val row = recordingControlsRowRef ?: return
-        val btn = row.button(tr("Aufzeichnung starten"), style = ButtonStyle.WARNING)
-        btn.onClick { onRecordButtonClicked() }
-        recordButton = btn
     }
-
-    // Wave 3: D5's own dedicated control group -- see [recordingControlsRowRef]/[ensureRecordButton]
-    // sibling reasoning. All four buttons are created together (their VISIBILITY, not existence, is
-    // what [updateStreamButtonsVisibility] governs per [ConferenceStreamStatus]).
-    fun ensureStreamControls() {
-        if (streamStartButton != null) {
-            updateStreamButtonsVisibility()
-            return
-        }
-        val row = streamingControlsRowRef ?: return
-        val startBtn = row.button(tr("Live-Stream starten …"), style = ButtonStyle.WARNING)
-        startBtn.onClick { onStreamStartClicked() }
-        streamStartButton = startBtn
-
-        val pauseBtn = row.button(tr("Stream unterbrechen"), style = ButtonStyle.OUTLINEWARNING)
-        pauseBtn.onClick { onStreamPauseClicked() }
-        streamPauseButton = pauseBtn
-
-        val resumeBtn = row.button(tr("Stream fortsetzen"), style = ButtonStyle.WARNING)
-        resumeBtn.onClick { onStreamResumeClicked() }
-        streamResumeButton = resumeBtn
-
-        val stopBtn = row.button(tr("Stream beenden"), style = ButtonStyle.OUTLINEDANGER)
-        stopBtn.onClick { onStreamStopClicked() }
-        streamStopButton = stopBtn
-
-        updateStreamButtonsVisibility()
-    }
+    streamPauseButton?.onClick { onStreamPauseClicked() }
+    streamResumeButton?.onClick { onStreamResumeClicked() }
 
     // D14/D11: invisible, not disabled-and-confusing, when unconfigured -- and the reason
     // getActiveRecording is never called before this check: it THROWS ConflictException when
     // recording is unconfigured server-side (see file KDoc "D14"). Also hides/shows the WHOLE
-    // "Aufzeichnung:" control group ([recordingControlsRowRef]), not just the button, so a plain
-    // participant (for whom that row was never created, `canModerate == false`) is unaffected.
+    // recording toggle (`ConferenceModerationGroup.setRecordingAvailable`), so a plain participant (for whom the
+    // group was never created, `canModerate == false`) is unaffected.
     suspend fun refreshRecordingState() {
         val availability = guarded { rpcService<IConferenceRecordingService>().getRecordingAvailability() }
         recordingAvailable = availability?.enabled == true
         recordingStateKnown = true
-        if (canModerate && recordingAvailable) {
-            recordingControlsRowRef?.show()
-            ensureRecordButton()
-        } else {
-            recordingControlsRowRef?.hide()
-            recordButton?.hide()
-        }
+        moderation?.setRecordingAvailable(canModerate && recordingAvailable)
         if (!recordingAvailable) {
             activeRecordingDto = null
+            updateRecordButtonLabel()
             updateRecordingDetailLine()
             updateSecretBallotBanner()
             return
@@ -2321,18 +2271,11 @@ private fun enterCall(
         val availability = guarded { rpcService<IConferenceStreamingService>().getStreamingAvailability() }
         streamingAvailable = availability?.enabled == true
         streamMaxDestinations = availability?.maxDestinations ?: streamMaxDestinations
-        if (canModerate && streamingAvailable) {
-            streamingControlsRowRef?.show()
-            ensureStreamControls()
-        } else {
-            streamingControlsRowRef?.hide()
-            streamStartButton?.hide()
-            streamPauseButton?.hide()
-            streamResumeButton?.hide()
-            streamStopButton?.hide()
-        }
+        moderation?.setStreamingAvailable(canModerate && streamingAvailable)
+        if (!streamingAvailable) streamSheetSection.hide()
         if (!streamingAvailable) {
             activeStreamDto = null
+            updateStreamButtonsVisibility()
             updateStreamDetailLine()
             // Edge case (streaming got disabled server-side while this room's stream happened to be
             // paused for a secret ballot): the banner is driven from `activeStreamDto`, which this
@@ -2823,9 +2766,10 @@ private fun enterCall(
             height = 160.px
             overflow = Overflow.AUTO
         }
-    val chatRow = chatPanel.hPanel(spacing = 6)
-    val chatInput = chatRow.text(label = tr("Nachricht")) { addCssClasses("flex-grow-1") }
-    val chatSendButton = chatRow.actionButton(ActionIcon.SEND, tr("Senden"), style = ButtonStyle.OUTLINEPRIMARY)
+    // V1.9.66 -- the same chat input row as the encounter room (`lapisChatComposer`): a field without a visible label and an icon-only
+    // send button as high as the field. Enter sends (an IME composition Enter does not): no raw-DOM hook, the composer wires KVision events.
+    var sendChatAction: () -> Unit = {}
+    val chatComposer = chatPanel.lapisChatComposer(onSend = { sendChatAction() })
 
     // --- V1.9.25 voting panel ("Abstimmen"), the third rail panel next to roster and chat -------------------------------------
     // The panel talks back through two sinks assigned right after `applyPanelVisibility` (a local function cannot be referenced before
@@ -2912,6 +2856,74 @@ private fun enterCall(
         }
     }
 
+    // --- V1.9.66 -- the bar never wraps: controls that do not fit move into the "Mehr" sheet (priority order in
+    // `CONFERENCE_OVERFLOW_ORDER`), their labelled twins appear there. Started lazily by `applyPanelVisibility` (no hook), disconnected
+    // in `cleanupFullscreen`. `barOverflowSink` is assigned once `applyMoreSummary` exists.
+    var barOverflowSink: () -> Unit = {}
+    val overflow =
+        ConferenceControlsOverflow(
+            bar = controlsRow,
+            slots =
+                buildList {
+                    add(OverflowSlot(ConferenceControlSlot.MIC, micButton, null))
+                    add(OverflowSlot(ConferenceControlSlot.CAMERA, cameraButton, null))
+                    screenShareButton?.let { add(OverflowSlot(ConferenceControlSlot.SCREEN, it, screenTwin, mirrorPressed = true)) }
+                    moderation?.let {
+                        add(OverflowSlot(ConferenceControlSlot.RECORD, it.recordButton, recordTwin))
+                        add(OverflowSlot(ConferenceControlSlot.STREAM, it.streamButton, streamTwin))
+                        add(OverflowSlot(ConferenceControlSlot.END_FOR_ALL, it.endButton, endTwin))
+                    }
+                    add(OverflowSlot(ConferenceControlSlot.ROSTER, rosterToggleButton, rosterTwin, mirrorPressed = true))
+                    add(OverflowSlot(ConferenceControlSlot.CHAT, chatToggleButton, null))
+                    votingToggle?.let { add(OverflowSlot(ConferenceControlSlot.VOTE, it.button, voteTwin, mirrorPressed = true)) }
+                    add(OverflowSlot(ConferenceControlSlot.MORE, moreToggleButton, null))
+                    backToMainButton?.let { add(OverflowSlot(ConferenceControlSlot.BACK, it, null)) }
+                    add(OverflowSlot(ConferenceControlSlot.LEAVE, leaveButton, null))
+                },
+            dividers = listOf(divider1 to 1, divider2 to 2, divider3 to 3),
+            onChanged = { barOverflowSink() },
+            containerGroups = if (moderation != null) setOf(1) else emptySet(),
+        )
+    moderation?.onStateChanged = {
+        overflow.recompute()
+        barOverflowSink()
+    }
+
+    /** The twins' section, the accessible name of "Mehr" and its state signs follow what moved into the sheet. */
+    var lastMoreSummary = ""
+
+    // Fullscreen rule inputs (set by `applyPanelVisibility`): "Mehr" is hidden in fullscreen only while nothing but the twins could be in
+    // the sheet. Decided AFTER the overflow has been computed (and re-decided on every observer change), see `applyMoreVisibility`.
+    var moreHideInFullscreenBase = false
+
+    fun applyMoreVisibility() {
+        val hide = moreHideInFullscreenBase && !streamSheetSection.visible && !barTwinSection.visible
+        if (hide == !moreToggleButton.visible) return
+        if (hide) moreToggleButton.hide() else moreToggleButton.show()
+        // MORE counts in the width measurement only while shown: measure once more with the new state.
+        overflow.recompute()
+    }
+
+    fun applyMoreSummary() {
+        val moved = overflow.moved()
+        if (moved.isEmpty()) barTwinSection.hide() else barTwinSection.show()
+        val recordingInSheet = moderation?.recordingActive == true && ConferenceControlSlot.RECORD in moved
+        val streamInSheet = moderation?.streamActive == true && ConferenceControlSlot.STREAM in moved
+        val glyphs = conferenceMoreBadgeGlyphs(recordingInSheet, streamInSheet)
+        if (glyphs != lastMoreSummary) {
+            lastMoreSummary = glyphs
+            moreBadge.content = glyphs
+            if (glyphs.isEmpty()) {
+                moreBadge.removeCssClass(ConferenceModerationGroup.BADGE_ON)
+            } else {
+                moreBadge.addCssClass(ConferenceModerationGroup.BADGE_ON)
+            }
+        }
+        // `setStaticA11yLabel` writes on every call (it is re-applied by `applyPanelVisibility`, see there).
+        moreToggleButton.setStaticA11yLabel(conferenceMoreButtonLabel(recordingInSheet, streamInSheet))
+        applyMoreVisibility()
+    }
+
     // --- V1.2.9 Vollbildmodus -- die EINE Rendering-Funktion, die aus panelState liest (Alan Kay:
     // ein Wertetyp, ein Reducer, eine reine Ableitung, Rendering ist dumm). Muss textuell NACH
     // rosterPanel/chatPanel/rosterToggleButton/chatToggleButton/fullscreenButton UND
@@ -2985,7 +2997,7 @@ private fun enterCall(
         receiptLock.apply(
             locked = panelState.votingLock.blocksLeaving(),
             leaving = leaving,
-            buttons = listOf(leaveButton, endButton, backToMainButton),
+            buttons = listOf(leaveButton, endButton, endTwin, backToMainButton),
         )
 
         // D6/Stolperfalle 7: KVision-Widgets kennen addCssClass/removeCssClass NUR auf sich selbst --
@@ -3036,11 +3048,7 @@ private fun enterCall(
         // V1.4.23 -- der Hintergrund-Abschnitt überlebt den Vollbildmodus ebenfalls (siehe
         // `backgroundSection`); im nicht unterstützten Fall zeigt er nur einen Erklärsatz, der den
         // Knopf im Vollbild nicht rechtfertigt.
-        if (panelState.fullscreen && !deviceGroupHasVisibleRows && !backgroundSection.supported) {
-            moreToggleButton.hide()
-        } else {
-            moreToggleButton.show()
-        }
+        moreHideInFullscreenBase = panelState.fullscreen && !deviceGroupHasVisibleRows && !backgroundSection.supported
         backgroundSection.applyToggleAria()
 
         // V1.2.10 -- Auto-Hide-Sichtbarkeit der gesamten Steuerleiste (generell, nicht nur im
@@ -3065,7 +3073,9 @@ private fun enterCall(
         // former one-time call site (now removed) for why these are re-applied on every call
         // instead of once at construction.
         screenShareButton?.setStaticA11yLabel(tr("Bildschirm teilen"))
-        moreToggleButton.setStaticA11yLabel(tr("Mehr"))
+        overflow.ensureObserving()
+        overflow.recompute()
+        applyMoreSummary()
         leaveButton.setStaticA11yLabel(if (isBreakout) tr("Besprechung ganz verlassen") else tr("Verlassen"))
         backToMainButton?.setStaticA11yLabel(tr("Zurück zum Hauptraum"))
         whiteboardToggleButton?.setStaticA11yLabel(tr("Whiteboard"))
@@ -3076,6 +3086,7 @@ private fun enterCall(
         window.setTimeout({ callPanel.getElement()?.let { el -> resumeStalledVideos(el) } }, 0)
     }
     applyPanelVisibility() // initialer Render, Default-Zustand
+    barOverflowSink = { applyMoreSummary() }
 
     // V1.9.25 -- the panel's two sinks, now that `applyPanelVisibility` exists.
     votingLockSink = { lock ->
@@ -3238,6 +3249,7 @@ private fun enterCall(
     fun cleanupFullscreen() {
         // V1.9.25: the ballot poll, the receipt hook and the viewport listener end with the call, on every way out of it
         ConferenceVoteRuntime.disposeActive()
+        overflow.dispose()
         document.removeEventListener("fullscreenchange", fullscreenChangeListener)
         document.removeEventListener("webkitfullscreenchange", fullscreenChangeListener)
         document.removeEventListener("pointermove", onControlsActivity)
@@ -3624,7 +3636,8 @@ private fun enterCall(
         micButton.disabled = !interactive
         cameraButton.disabled = !interactive
         screenShareButton?.disabled = !interactive
-        chatSendButton.disabled = !interactive
+        chatComposer.sendButton.disabled = !interactive
+        overflow.recompute()
     }
 
     /** See [conferenceConnectionReduce] KDoc -- unlisted (state, event) pairs are ignored, never
@@ -4372,8 +4385,10 @@ private fun enterCall(
     // "screen-share off"), only the same `.active`-ring treatment `rosterToggleButton`/
     // `chatToggleButton` already use.
     screenShareButton?.let { btn ->
+        btn.setAttribute("aria-pressed", "false")
         btn.onClick {
             btn.disabled = true
+            overflow.recompute()
             AppScope.launch {
                 val desired = !screenShareEnabled
                 // Same fix as micButton.onClick above -- see that handler's comment.
@@ -4382,7 +4397,9 @@ private fun enterCall(
                 if (result != null) {
                     screenShareEnabled = desired
                     if (screenShareEnabled) btn.addCssClass("active") else btn.removeCssClass("active")
+                    btn.setAttribute("aria-pressed", screenShareEnabled.toString())
                 }
+                overflow.recompute()
             }
         }
     }
@@ -4474,7 +4491,7 @@ private fun enterCall(
     }
 
     fun sendChatMessage() {
-        val text = chatInput.value.orEmpty().trim()
+        val text = chatComposer.value.trim()
         if (text.isBlank()) return
         val ownMessage =
             ConferenceChatMessage(
@@ -4483,7 +4500,7 @@ private fun enterCall(
                 text = text,
                 sentAtEpochMs = Clock.System.now().toEpochMilliseconds(),
             )
-        chatInput.value = null
+        chatComposer.clear()
         AppScope.launch {
             // LiveKit never echoes a locally published data message back to its own sender (see
             // LiveKitRoomSession KDoc "Chat trust boundary") -- this screen renders its own outgoing
@@ -4492,22 +4509,7 @@ private fun enterCall(
             appendChatLine(gettext("Sie"), text, isOwn = true)
         }
     }
-    chatSendButton.onClick { sendChatMessage() }
-    // D7 "Enter-to-send": KVision's own event-binding surface is not used here -- the chat row's
-    // real `<input>` element is grabbed once via `addAfterInsertHook` (same raw-DOM posture the
-    // video grid/stage above already use) and wired with a plain `keydown` listener, mirroring this
-    // file's own `beforeunload` listener pattern.
-    chatRow.addAfterInsertHook { vnode ->
-        val rowElement = vnode.elm as? HTMLElement
-        val inputElement = rowElement?.querySelector("input") as? HTMLInputElement
-        inputElement?.addEventListener("keydown", { event ->
-            val keyEvent = event as? KeyboardEvent
-            if (keyEvent?.key == "Enter") {
-                keyEvent.preventDefault()
-                sendChatMessage()
-            }
-        })
-    }
+    sendChatAction = { sendChatMessage() }
 
     // V1.0 Videokonferenzen, Wave 6 -- "Zurück zum Hauptraum", only present inside a breakout call
     // (see [backToMainButton]'s own declaration). Deliberately calls `returnToMainRoom` BEFORE
@@ -4584,11 +4586,12 @@ private fun enterCall(
         }
     }
 
-    endButton?.onClick {
-        if (ConferenceReceiptGate.blocksUnload) return@onClick
+    endForAllClick = click@{
+        if (ConferenceReceiptGate.blocksUnload) return@click
         endRoomConfirmDialog(roomTitle) {
             leaving = true
-            endButton.disabled = true
+            endButton?.disabled = true
+            endTwin?.disabled = true
             transition(ConferenceConnectionEvent.UserLeft)
             AppScope.launch {
                 // Audit-Befund B1: Trennen zuerst, Hintergrundeffekt-Aufräumen danach.

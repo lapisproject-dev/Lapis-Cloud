@@ -2081,7 +2081,7 @@ Client only: no migration, no server change, no new RPC.
   `docs/architecture/action-icons.adoc`.
 * **R58 -- icon-only buttons only in dense table rows.** From two actions per row the table uses icon-only `btn-sm` buttons; with one action
   icon plus text. Every icon-only button carries `title` and `aria-label` (`require(label.isNotBlank())`); labels are static `tr()` texts, never
-  data.
+  data. Named exceptions: see V1.9.66.
 
 Tripwire block `ClientToolbarIconTripwireTest` (module `lapis-server`): no `hPanel` row with `align-items-center|end` holds a field and a
 button (one named roster row), no `btn-sm` inside a toolbar, `theme.css` keeps the bottom alignment and the zero wrapper margin, no forbidden
@@ -2103,3 +2103,48 @@ Client only: no migration, no server, RPC or `V1__baseline.sql` change.
 * `ApiKeysScreen`: the always-visible issue form (button "Neuen Schlüssel ausstellen" without an icon, found by no scanner) is now a collapsible create form behind "Neuer Schlüssel"
   in the title row; the form button is "Schlüssel ausstellen" with the plus. The one-time cards stay between form and list.
 * Left open on purpose: the post composer of the social network (the LTR balance and the effort note have to be visible before writing); R36B_EXEMPT.
+
+== V1.9.66 -- Conference controls and chat composer
+
+Client only: no migration, no server change, no new RPC, `V1__baseline.sql` untouched. (The tripwire and catalog tests live in `lapis-server/src/test`,
+because the client sources are scanned there; no server production code changed.)
+
+* **One chat input row.** `lapisChatComposer` (`ChatComposer.kt`) builds the chat input of the conference call AND of the encounter room: a `lapisToolbar` row with a
+  text field without a visible label (`aria-label` and placeholder "Nachricht") and a square icon-only send button as high as the field (`ActionIcon.SEND`, primary
+  style, `title` and `aria-label` "Senden"). Enter sends, Enter while an IME composes does not (the conference chat now behaves like the encounter chat). The row does
+  not wrap on a phone: `.lapis-toolbar.lapis-chat-composer` (specificity 0-3-0) overrides the narrow-width full-width rule of a toolbar. The button is not disabled
+  on an empty field (unchanged behaviour). Under `pointer: coarse` field and button reach 44 px.
+* **R58, two named exceptions.** An icon-only button without `btn-sm` exists only through `newIconOnlyActionButton` (`ActionButton.kt`), and only these two places
+  call it: (a) `lapisChatComposer` (the send button, one call) and (b) `conferenceControlButton` (`ConferenceControlBar.kt`, the icon-only control of the bar
+  `lapis-conference-controls-row` in `ConferenceScreen.kt`, one call). `ClientToolbarIconTripwireTest` fails for any other caller, and for `conferenceControlButton`
+  outside `ConferenceControlBar.kt`.
+* **The moderation controls live in the bar.** The separate rows "Moderator:", "Aufzeichnung:" and "Live-Stream:" above the video are gone. The bar is ordered in
+  four groups, separated by thin dividers: devices (microphone, camera, screen share) | moderation (recording, live stream, end for everyone) | panels (participants,
+  chat, vote, more) | exit (back to main room, leave). A plain participant and every breakout room get no moderation group and no divider for it. "Für alle beenden"
+  (`ActionIcon.END_FOR_ALL`, power-off, outline-danger) is the last control of its group and is never a neighbour of "Verlassen" (the panel group always sits between);
+  `endForAllAdjacentToLeave` pins that for every width and role.
+* **State model.** Each of recording and live stream is one control with a FIXED noun as accessible name ("Aufzeichnung", "Live-Stream") and its state in `aria-pressed`;
+  the verb a click would run is the tooltip (`title`: "Aufzeichnung starten" / "Aufzeichnung beenden", "Live-Stream starten …" / "Live-Stream beenden"). A running
+  one also shows the pressed ring and a sign (● recording, ◆ live stream), so the state is never colour alone. While it changes state ("wird beendet …", "wird
+  zusammengeführt …") the control is disabled, `aria-busy="true"` and shows a spinner (Font Awesome `fa-spin`, whose own `prefers-reduced-motion` rule stops it);
+  the text of the transition goes into a polite status line (`role="status"`) above the bar, for moderators only. A running request blocks a second click.
+  Errors stay toasts, as before.
+* **Start and stop of a stream are ONE toggle.** A click while idle opens the destination dialog (never starts without it); a click while a stream is active opens the
+  stop confirmation. Pause and resume are rare and live in the "Mehr" sheet (section "Live-Stream"). Every confirmation dialog of the old buttons is kept; the start of a
+  stream is still hidden while a secret ballot pauses the room, and "Fortsetzen" does not exist for a pause caused by a secret ballot.
+* **The bar never wraps.** `flex-wrap` is gone; what does not fit moves into the "Mehr" sheet in a fixed order: vote, screen share, participants, live stream,
+  recording, end for everyone. Never moved: microphone, camera, chat, "Mehr", back to main room, leave. `ConferenceControlsOverflow` measures the bar with a
+  `ResizeObserver` (started lazily, no hook; disconnected with the call) and hides a moved control with a CSS class (its owner keeps its own visibility). In the sheet the
+  moved control appears as a LABELLED twin (the sheet has room, so the words stand there); a click on a twin clicks the hidden primary, so there is one handler per
+  action. "Mehr" names a recording or stream whose control sits in the sheet ("Mehr, Aufzeichnung läuft", "Mehr, Live-Stream läuft", "Mehr, Aufzeichnung und
+  Live-Stream laufen") and shows ● / ◆. The twin of "Für alle beenden" is locked by the same receipt lock as the primary.
+* **Consent display unchanged.** The banners, the status badges with the "● " prefix in `document.title`, the detail lines ("gestartet von ... um ...") and the list of
+  stream targets are built for EVERY participant, outside any moderator branch, and did not move. A tripwire pins their declarations.
+* **Correction of the review assumption.** The design review assumed a visible label under each icon from 768 px (`::after{content:attr(data-label)}`). That rule was
+  never built: the bar has been icon-only in every width since the user decision of 2026-09-01 (see the comment in `theme.css`), and it stays so. The words stand in
+  `title`, `aria-label`, the confirmation dialogs and the labelled sheet. `data-label` is still written, but invisible.
+* **Fullscreen.** The moderation controls are now part of the bar, so they are available in fullscreen too (before, the rows were in the document flow) and they follow
+  the automatic hiding of the bar. The consent display is independent of that and stays visible.
+* **Not verified.** The call screen itself cannot be mounted in Karma (its RPCs fail). The DOM tests therefore run against the extracted building blocks in a mounted
+  root with the real stylesheet cascade; the wiring in `ConferenceScreen.kt` is pinned by text tripwires. Not tested on a real device or in Safari. The new
+  translations (en, fr, nl, it, es, pl, ru) are agent translations and not reviewed by native speakers.

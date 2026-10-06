@@ -31,6 +31,9 @@ Font Awesome 7, bundled by webpack through `kvision-fontawesome` (no CDN, no new
 | `LOCK`, `SETTINGS` | `fa-lock`, `fa-gear` | reserved
 | `ACCESS` | `fa-user-lock` | Sichtbarkeit ändern (who may see an object); V1.9.49, NOT `LOCK`
 | `UNDO` | `fa-rotate-left` | Stornieren, Zurückziehen, Wiederherstellen, Zurücksetzen
+| `BROADCAST` | `fa-tower-broadcast` | V1.9.62: the pulpit transmission of the encounter room; V1.9.66: also the conference live stream (same verb: transmitting live)
+| `RECORD` | `fa-circle-dot` | V1.9.66: start/stop a conference recording (conference bar only)
+| `END_FOR_ALL` | `fa-power-off` | V1.9.66: end the meeting for everyone; deliberately NOT `LEAVE` (own exit) and NOT `CLOSE_DOORS` (encounter room)
 | `PROTECTED` | `fa-shield-halved` | V1.9.57: geschützt -- the reason text next to a disabled control and the masked value of the admin peer protection; marks a state, never an action; NOT `LOCK`, NOT `ACCESS`
 |===
 
@@ -169,6 +172,15 @@ is in the ledger `R57_LEDGER` of `ClientToolbarIconTripwireTest`, each entry wit
 * The recording download is a link, so it uses `actionLink(ActionIcon.DOWNLOAD, tr("Herunterladen"), url, "_blank")` (icon decorative, `rel="noopener"`).
 * Without an icon, on purpose (domain verbs): "Beitreten" (room card), "Aufzeichnung jetzt starten" (the confirmation of the consent modal), "Umfrage starten", the
   pager "‹ Zurück" / "Weiter ›" of the recordings list (text pager, like the member roster) and the conference control bar.
+
+=== V1.9.66: conference bar
+
+* `RECORD` and `END_FOR_ALL` are new; the live stream reuses `BROADCAST`. Power-off for "Für alle beenden" because the two neighbours already mean something else: `LEAVE`
+  (the door arrow) is the own exit and `CLOSE_DOORS` closes an encounter room. Two exits with one picture in one bar would be exactly the slip the design wants to prevent.
+* The spinner of a control that changes state is a state sign (`fa-spinner fa-spin` in a `span`), not an `ActionIcon`.
+* The sheet twins of "Bildschirm teilen" and "Abstimmen" are deliberately text-only (their bar icons are domain strings, see the S3 ledger); the twin of the participants
+  control uses `PEOPLE`, the others use their own bar icon.
+* The send button of the chat composer uses `SEND` and is the one icon-only button outside a table row besides the bar (R58 named exceptions, see the guideline, V1.9.66).
 
 == Known limitations
 

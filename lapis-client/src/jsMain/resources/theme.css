@@ -1023,6 +1023,32 @@ body {
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
+/* V1.9.66 -- the bar never wraps: what does not fit moves into the "Mehr" sheet (ConferenceControlBar.kt). The groups
+   (devices | moderation | panels | exit) are separated by thin dividers. */
+.lapis-conference-controls-row {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.lapis-conference-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lapis-conference-controls-divider {
+  flex: none;
+  width: 1px;
+  height: 24px;
+  margin: 0 4px;
+  background-color: var(--lapis-border-strong);
+}
+
+/* A control that moved into the sheet (its labelled twin shows there). A class, not hide(): the owner keeps its own visibility. */
+.lapis-conference-control-overflowed {
+  display: none !important;
+}
+
 .lapis-conference-controls-row .btn {
   min-width: 44px;
   min-height: 44px;
@@ -1035,7 +1061,8 @@ body {
 }
 
 /* Bewusst KEIN sichtbarer Beschriftungstext unter dem Icon (Nutzer-Entscheidung 2026-09-01, revidiert
-   die vorherige "ab 768px Beschriftung" -- die Steuerleiste bleibt icon-only in jeder Breite,
+   die vorherige "ab 768px Beschriftung" -- die Steuerleiste bleibt icon-only in jeder Breite; V1.9.66 aendert das
+   nicht: die Woerter stehen im beschrifteten "Mehr"-Blatt, in `title`/`aria-label` und in den Rueckfragedialogen,
    `data-label` bedient ausschließlich `title`/`aria-label` in ConferenceScreen.kt's
    `setStaticA11yLabel`/`updateMicButtonState` etc., nie sichtbaren Text). */
 
@@ -1219,6 +1246,34 @@ body {
     width: auto;
     border-radius: 8px 8px 0 0;
   }
+}
+
+/* V1.9.66 -- state signs (● recording, ◆ live stream, also on "Mehr") are shown through this class; the
+   badge of the roster/chat/vote toggles keeps painting itself inline. */
+.lapis-conference-control-badge.lapis-conference-control-badge-on {
+  display: block;
+}
+
+/* Loading state of a moderation control: the spinner replaces the icon (Font Awesome's own reduced-motion rule stops the spin). */
+.lapis-conference-controls-row .btn[aria-busy="true"] > i.lapis-action-icon {
+  display: none;
+}
+
+.lapis-conference-controls-row .btn:focus-visible,
+.lapis-chat-composer-send:focus-visible {
+  outline: 2px solid var(--lapis-accent);
+  outline-offset: 2px;
+}
+
+/* Polite status line above the bar ("Aufzeichnung wird beendet …"); never takes a click. */
+.lapis-conference-action-status {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 4px);
+  z-index: 4;
+  text-align: center;
+  pointer-events: none;
 }
 
 /* Teilnehmer-/Ungelesen-Zähler-Badge auf `rosterToggleButton`/`chatToggleButton` -- setzt auf
@@ -2688,6 +2743,40 @@ html .form-select.is-invalid:focus {
   .lapis-toolbar > .form-group,
   .lapis-toolbar > .kv-mb-3 {
     flex: 1 1 100%;
+  }
+}
+
+/* V1.9.66 Chat-Eingabezeile (Konferenz + Begegnungsraum): Feld und Senden-Icon bleiben auch auf dem Telefon in EINER Zeile.
+   Spezifitaet 0-3-0 schlaegt die Umbruchregel oben (0-2-0) unabhaengig von der Reihenfolge. */
+.lapis-toolbar.lapis-chat-composer {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.lapis-toolbar.lapis-chat-composer > .form-group,
+.lapis-toolbar.lapis-chat-composer > .kv-mb-3 {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Quadratischer Senden-Knopf, so hoch wie das Feld (Hoehe eines .form-control). */
+.lapis-chat-composer-send {
+  width: calc(1.5em + 0.75rem + 2px);
+  height: calc(1.5em + 0.75rem + 2px);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (pointer: coarse) {
+  .lapis-chat-composer .form-control {
+    min-height: 44px;
+  }
+
+  .lapis-chat-composer-send {
+    min-width: 44px;
+    min-height: 44px;
   }
 }
 

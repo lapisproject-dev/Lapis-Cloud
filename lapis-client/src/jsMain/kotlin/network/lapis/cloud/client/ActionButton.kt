@@ -51,12 +51,34 @@ fun newActionButton(
     small: Boolean = false,
     init: Button.() -> Unit = {},
 ): Button {
+    val result = buildActionButton(kind, label, style, iconOnly, small = small || iconOnly)
+    result.init()
+    return result
+}
+
+/**
+ * V1.9.66 (R58 exception, named): icon-only button WITHOUT `btn-sm` for exactly two places -- `lapisChatComposer` (ChatComposer.kt)
+ * and `conferenceControlButton` (ConferenceControlBar.kt). [label] becomes `title` + `aria-label` ([tableActionTooltip] path).
+ * Tripwire R58 allows calls only from those two functions.
+ */
+internal fun newIconOnlyActionButton(
+    kind: ActionIcon,
+    label: String,
+    style: ButtonStyle,
+): Button = buildActionButton(kind, label, style, iconOnly = true, small = false)
+
+private fun buildActionButton(
+    kind: ActionIcon,
+    label: String,
+    style: ButtonStyle,
+    iconOnly: Boolean,
+    small: Boolean,
+): Button {
     require(label.isNotBlank()) { "actionButton needs a label (accessible name), also when iconOnly" }
     val result = Button(text = if (iconOnly) "" else label, icon = "${kind.css} $ACTION_ICON_EXTRA_CLASSES", style = style)
     result.addAfterInsertHook { vnode -> (vnode.elm as? HTMLElement)?.querySelector("i")?.setAttribute("aria-hidden", "true") }
     if (iconOnly) result.tableActionTooltip(label)
-    if (small || iconOnly) result.addCssClass("btn-sm")
-    result.init()
+    if (small) result.addCssClass("btn-sm")
     return result
 }
 

@@ -6,6 +6,25 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed (V1.9.66, conference controls)
+
+- **Moderation controls moved into the bottom bar.** The rows "Moderator:", "Aufzeichnung:" and "Live-Stream:" above the video are gone. Recording, live stream and "Für alle beenden" are
+  an own group of the bar (new icons `ActionIcon.RECORD` and `END_FOR_ALL`; the live stream reuses `BROADCAST`), between thin dividers: devices | moderation | panels | exit. A
+  plain participant and every breakout room get no such group. "Für alle beenden" still asks first and is never next to "Verlassen". Each control has a fixed name and shows its state
+  by `aria-pressed`, the pressed ring and a sign (● / ◆); a state change shows a spinner, `aria-busy` and a line of text above the bar.
+- **Live stream: start and stop are one toggle**; pause and resume moved into the "Mehr" sheet. All confirmations are kept, the start stays hidden while a secret ballot pauses the room.
+- **The bar no longer wraps.** What does not fit moves into the "Mehr" sheet (vote, screen share, participants, live stream, recording, end for everyone) as labelled entries;
+  "Mehr" names a running recording or stream whose control sits there ("Mehr, Aufzeichnung läuft" ...).
+- **Chat: send is an icon.** Conference chat and encounter-room chat share one input row (`lapisChatComposer`): field without a visible label, square send icon as high as the field,
+  one row also on a phone. Enter in the conference chat no longer sends while an IME composition is confirmed (as in the encounter room). The field is named "Nachricht" in both chats.
+- Moderation controls are now also available in fullscreen and follow the automatic hiding of the bar. The consent display (banners, badges, "● " in the tab title, detail lines,
+  list of stream targets) is unchanged and independent of the bar.
+- Client only: no migration, no server or RPC change. Tests: new Karma tests for the chat composer, the pure bar logic, the moderation group and the overflow (real stylesheet,
+  extracted building blocks -- the call screen itself cannot be mounted in Karma); new tripwires (R58 named exceptions, no wrapping bar, consent display not in a moderator branch,
+  confirmations and receipt lock kept); late-hook ledger of `ConferenceScreen.kt` 9 -> 8.
+- **Not verified:** not tested on a real device or in Safari. The new translations (en, fr, nl, it, es, pl, ru: "Mehr, Aufzeichnung läuft", "Mehr, Live-Stream läuft", "Mehr, Aufzeichnung
+  und Live-Stream laufen") are agent translations, not reviewed by native speakers. Unused msgids ("Moderator:", "Aufzeichnung:", "Live-Stream:", "Stream beenden", "Nachricht schreiben") were removed.
+
 ### Added (V1.9.65, operational hardening)
 
 - **Log privacy.** SQL statement text and personal data no longer reach the server log. Two Logback converters (`%safeMsg`, `%safeEx`, package

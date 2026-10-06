@@ -264,6 +264,60 @@ private val R57_LEDGER: Map<String, LedgerEntry> =
         "S3:SearchableSelect.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_9),
     )
 
+// ── V1.9.66: conference control bar + chat composer (R58 named exceptions, no wrapping bar, consent display stays) ─────────────
+
+private val TOP_LEVEL_FUN = Regex("""^(?:(?:internal|private|public)\s+)?fun\s+(?:[\w.<>]+\.)?(\w+)\(""")
+
+/**
+ * The calls of [name] in [source] as `enclosing top-level function -> count` (comment lines blanked, the declaration itself skipped). A call
+ * that sits in no top-level function is reported as `<none>`.
+ */
+internal fun callsByEnclosingFunction(
+    source: String,
+    name: String,
+): Map<String, Int> {
+    val lines = codeLines(source)
+    val result = mutableMapOf<String, Int>()
+    lines.forEachIndexed { index, line ->
+        if (!line.contains("$name(") ||
+            line.contains("fun $name(") ||
+            Regex("""fun\s+\w+\.$name\(""").containsMatchIn(line)
+        ) {
+            return@forEachIndexed
+        }
+        val enclosing =
+            (index downTo 0).firstNotNullOfOrNull { TOP_LEVEL_FUN.find(lines[it])?.groupValues?.get(1) } ?: "<none>"
+        result.merge(enclosing, 1, Int::plus)
+    }
+    return result
+}
+
+/** The two (and only two) places that may build an icon-only button without `btn-sm` (R58 named exceptions a and b, V1.9.66). */
+private val R58_ICON_ONLY_FACTORY_CALLS: Map<String, Map<String, Int>> =
+    mapOf(
+        "ChatComposer.kt" to mapOf("lapisChatComposer" to 1),
+        "ConferenceControlBar.kt" to mapOf("conferenceControlButton" to 1),
+    )
+
+/** The declaration line(s) `val controlsRow =` plus the line after it, as one text. */
+internal fun controlsRowDeclaration(source: String): String {
+    val lines = codeLines(source)
+    val at = lines.indexOfFirst { it.trimStart().startsWith("val controlsRow =") }
+    return if (at < 0) "" else lines.subList(at, minOf(at + 3, lines.size)).joinToString("\n")
+}
+
+private val CONSENT_DISPLAY_NAMES =
+    listOf("recordingBanner", "streamBanner", "statusBadgesPanel", "recordingDetailLine", "streamDetailLine", "streamTargetsPanel")
+
+/** `val <name> =` lines of [source] with their indentation (4 = the body of the call screen's function, not a nested branch). */
+internal fun declarationIndents(
+    source: String,
+    name: String,
+): List<Int> =
+    codeLines(source).mapNotNull { line ->
+        if (Regex("""^\s*val\s+$name\s*=""").containsMatchIn(line)) line.length - line.trimStart().length else null
+    }
+
 class ClientToolbarIconTripwireTest :
     FunSpec({
         test("R56 detector: a centred row with a field and a button is found, a row of buttons or a lapisToolbar is not") {
@@ -414,6 +468,105 @@ class ClientToolbarIconTripwireTest :
             val actual = clientFiles().associate { it.name to stringTableActionButtons(it.readText()) }.filterValues { it > 0 }
             withClue("use tableActionButton(ActionIcon.X, ...) for a standard verb: $actual") {
                 actual shouldBe R57_STRING_TABLE_ACTION_LEDGER
+            }
+        }
+
+        test("R58 detector (V1.9.66): a call is attributed to its enclosing top-level function") {
+            val source =
+                """
+                internal fun newIconOnlyActionButton(a: Int): Button = build(a)
+
+                internal fun Container.lapisChatComposer(onSend: () -> Unit): ChatComposer {
+                    val b = newIconOnlyActionButton(ActionIcon.SEND, x, y)
+                    return b
+                }
+
+                fun somewhereElse() {
+                    // newIconOnlyActionButton(ignored)
+                    val c = newIconOnlyActionButton(ActionIcon.SEND, x, y)
+                }
+                """.trimIndent()
+            callsByEnclosingFunction(source = source, name = "newIconOnlyActionButton") shouldBe
+                mapOf("lapisChatComposer" to 1, "somewhereElse" to 1)
+        }
+
+        test("R58 (V1.9.66): newIconOnlyActionButton is called only by lapisChatComposer and conferenceControlButton -- one call each") {
+            val actual =
+                clientFiles()
+                    .associate { it.name to callsByEnclosingFunction(source = it.readText(), name = "newIconOnlyActionButton") }
+                    .filterValues { it.isNotEmpty() }
+            withClue("an icon-only button without btn-sm is a named exception, not a general tool: $actual") {
+                actual shouldBe R58_ICON_ONLY_FACTORY_CALLS
+            }
+        }
+
+        test("R58 (V1.9.66): conferenceControlButton is only used inside ConferenceControlBar.kt (the moderation group: three controls)") {
+            val actual =
+                clientFiles()
+                    .associate { it.name to callsByEnclosingFunction(source = it.readText(), name = "conferenceControlButton") }
+                    .filterValues { it.isNotEmpty() }
+            actual shouldBe mapOf("ConferenceControlBar.kt" to mapOf("conferenceModerationGroup" to 3))
+        }
+
+        test("V1.9.66: the bar of the conference call never wraps; the chat composer overrides the narrow-width wrap of a toolbar") {
+            controlsRowDeclaration(
+                """    val controlsRow =
+        callPanel.hPanel(spacing = 6) { addCssClasses("align-items-center flex-wrap lapis-conference-controls-row") }""",
+            ).contains("flex-wrap") shouldBe true // the detector sees a wrapping declaration
+            val screen = clientFiles().first { it.name == "ConferenceScreen.kt" }.readText()
+            val declaration = controlsRowDeclaration(screen)
+            withClue("controlsRow declaration: $declaration") {
+                declaration.contains("lapis-conference-controls-row") shouldBe true
+                declaration.contains("flex-wrap") shouldBe false
+            }
+            val css = THEME_CSS.readText()
+            val bar = Regex("""\.lapis-conference-controls-row\s*\{[^}]*\}""").findAll(css).map { it.value }.toList()
+            withClue("theme.css: .lapis-conference-controls-row must say flex-wrap: nowrap somewhere") {
+                bar.any { it.contains("flex-wrap: nowrap") } shouldBe true
+            }
+            val composer = Regex("""\.lapis-toolbar\.lapis-chat-composer\s*\{[^}]*\}""").find(css)?.value ?: ""
+            withClue("theme.css: the composer row must not wrap (Spezifitaet 0-3-0 beats the toolbar's narrow-width rule)") {
+                composer.contains("flex-wrap: nowrap") shouldBe true
+            }
+        }
+
+        test(
+            "V1.9.66: the consent display (banners, badges, detail lines, target list) is built for EVERY participant, never inside a moderator branch",
+        ) {
+            val screen = clientFiles().first { it.name == "ConferenceScreen.kt" }.readText()
+            CONSENT_DISPLAY_NAMES.forEach { name ->
+                val indents = declarationIndents(source = screen, name = name)
+                withClue(
+                    "$name must be declared exactly once, in the body of the call screen (indent 4), not in a nested branch: $indents",
+                ) {
+                    indents shouldBe listOf(4)
+                }
+            }
+            // the moderation group is the ONLY thing the moderator role gates in the bar
+            screen.contains("conferenceModerationGroup(") shouldBe true
+        }
+
+        test("V1.9.66: the bar's wiring keeps every confirmation, the receipt lock on the end-for-all twin, and the observer teardown") {
+            val screen = clientFiles().first { it.name == "ConferenceScreen.kt" }.readText()
+            val endHandler = screen.substring(screen.indexOf("endForAllClick = click@{"))
+            withClue("end for everyone asks first (endRoomConfirmDialog before endRoom)") {
+                (endHandler.indexOf("endRoomConfirmDialog(") in 0 until endHandler.indexOf("endRoom(")) shouldBe true
+            }
+            withClue("the twin of 'Für alle beenden' in the sheet is locked together with the primary during a receipt") {
+                screen.contains("buttons = listOf(leaveButton, endButton, endTwin, backToMainButton)") shouldBe true
+            }
+            withClue("a stream is never started without the destination dialog, never stopped without a confirmation") {
+                screen.contains("conferenceStreamToggleAction(activeStreamDto?.status)") shouldBe true
+                screen.contains("startStreamDialog(") shouldBe true
+                screen.contains("stopStreamConfirmDialog(labels)") shouldBe true
+                screen.contains("pauseStreamConfirmDialog(labels)") shouldBe true
+                screen.contains("resumeStreamConfirmDialog {") shouldBe true
+                screen.contains("startRecordingConfirmDialog {") shouldBe true
+                screen.contains("stopRecordingConfirmDialog {") shouldBe true
+            }
+            withClue("'Mehr' names a recording / stream whose control sits in the sheet, and the observer is disconnected with the call") {
+                screen.contains("conferenceMoreButtonLabel(") shouldBe true
+                screen.contains("overflow.dispose()") shouldBe true
             }
         }
     })

@@ -2209,10 +2209,6 @@ msgstr "Nagrywanie zostało zakończone."
 msgid "Aufzeichnung wird zusammengeführt …"
 msgstr "Nagranie jest scalane …"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1344
-msgid "Aufzeichnung:"
-msgstr "Nagrywanie:"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:91
 msgid "Aufzeichnungen"
 msgstr "Nagrania"
@@ -6434,10 +6430,6 @@ msgstr "Transmisja na żywo jest kończona."
 msgid "Live-Stream wird gestartet."
 msgstr "Transmisja na żywo jest uruchamiana."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1348
-msgid "Live-Stream:"
-msgstr "Transmisja na żywo:"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:690
 msgid "Löschantrag übermittelt."
 msgstr "Wniosek o usunięcie przesłany."
@@ -6961,10 +6953,6 @@ msgstr "Moderacja"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3272
 msgid "Moderator"
 msgstr "Moderator"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1306
-msgid "Moderator:"
-msgstr "Moderator:"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatisticsScreen.kt:128
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:617
@@ -8969,11 +8957,6 @@ msgstr "Anulowano: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:386
 msgid "Straße (optional)"
 msgstr "Ulica (opcjonalnie)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2001
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2277
-msgid "Stream beenden"
-msgstr "Zakończ transmisję"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5183
 msgid "Stream beenden? Die Übertragung zu %1 endet sofort."
@@ -14478,6 +14461,18 @@ msgstr "Uczestnicy, %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
 msgid "Mehr"
 msgstr "Więcej"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceControlBar.kt:1
+msgid "Mehr, Aufzeichnung läuft"
+msgstr "Więcej, trwa nagrywanie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceControlBar.kt:1
+msgid "Mehr, Live-Stream läuft"
+msgstr "Więcej, trwa transmisja na żywo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceControlBar.kt:1
+msgid "Mehr, Aufzeichnung und Live-Stream laufen"
+msgstr "Więcej, trwa nagrywanie i transmisja na żywo"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
 msgid "Mikrofon ausschalten"
@@ -20280,9 +20275,6 @@ msgstr "Potwierdź informację, aby wejść."
 
 msgid "Sie wurden von einem Ordner stummgeschaltet."
 msgstr "Porządkowy wyłączył Ci możliwość pisania."
-
-msgid "Nachricht schreiben"
-msgstr "Napisz wiadomość"
 
 msgid "Die Nachricht ist zu lang (höchstens %1 Zeichen)."
 msgstr "Wiadomość jest zbyt długa (maksymalnie %1 znaków)."

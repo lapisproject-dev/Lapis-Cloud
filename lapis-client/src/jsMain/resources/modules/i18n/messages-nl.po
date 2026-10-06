@@ -2211,10 +2211,6 @@ msgstr "Opname wordt beëindigd."
 msgid "Aufzeichnung wird zusammengeführt …"
 msgstr "Opname wordt samengevoegd …"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1344
-msgid "Aufzeichnung:"
-msgstr "Opname:"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:91
 msgid "Aufzeichnungen"
 msgstr "Opnamen"
@@ -6441,10 +6437,6 @@ msgstr "Livestream wordt beëindigd."
 msgid "Live-Stream wird gestartet."
 msgstr "Livestream wordt gestart."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1348
-msgid "Live-Stream:"
-msgstr "Livestream:"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:690
 msgid "Löschantrag übermittelt."
 msgstr "Verwijderingsverzoek ingediend."
@@ -6965,10 +6957,6 @@ msgstr "Moderatie"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3272
 msgid "Moderator"
 msgstr "Moderator"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1306
-msgid "Moderator:"
-msgstr "Moderator:"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatisticsScreen.kt:128
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:617
@@ -8970,11 +8958,6 @@ msgstr "Geannuleerd: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:386
 msgid "Straße (optional)"
 msgstr "Straat (optioneel)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2001
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2277
-msgid "Stream beenden"
-msgstr "Stream beëindigen"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5183
 msgid "Stream beenden? Die Übertragung zu %1 endet sofort."
@@ -14480,6 +14463,18 @@ msgstr "Deelnemers, %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
 msgid "Mehr"
 msgstr "Meer"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceControlBar.kt:1
+msgid "Mehr, Aufzeichnung läuft"
+msgstr "Meer, opname loopt"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceControlBar.kt:1
+msgid "Mehr, Live-Stream läuft"
+msgstr "Meer, livestream loopt"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceControlBar.kt:1
+msgid "Mehr, Aufzeichnung und Live-Stream laufen"
+msgstr "Meer, opname en livestream lopen"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
 msgid "Mikrofon ausschalten"
@@ -20281,9 +20276,6 @@ msgstr "Bevestig de mededeling om binnen te gaan."
 
 msgid "Sie wurden von einem Ordner stummgeschaltet."
 msgstr "U bent gedempt door een ordedienstmedewerker."
-
-msgid "Nachricht schreiben"
-msgstr "Bericht schrijven"
 
 msgid "Die Nachricht ist zu lang (höchstens %1 Zeichen)."
 msgstr "Het bericht is te lang (maximaal %1 tekens)."

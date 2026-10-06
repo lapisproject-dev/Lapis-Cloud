@@ -2133,10 +2133,6 @@ msgstr ""
 msgid "Aufzeichnung wird zusammengeführt …"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1344
-msgid "Aufzeichnung:"
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:91
 msgid "Aufzeichnungen"
 msgstr ""
@@ -5828,10 +5824,6 @@ msgstr ""
 msgid "Live-Stream wird gestartet."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1348
-msgid "Live-Stream:"
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/SocialNetworkScreen.kt:690
 msgid "Löschantrag übermittelt."
 msgstr ""
@@ -6334,10 +6326,6 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:3272
 msgid "Moderator"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1306
-msgid "Moderator:"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberStatisticsScreen.kt:128
@@ -8174,11 +8162,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmCollapsibleForms.kt:116
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:386
 msgid "Straße (optional)"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2001
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2277
-msgid "Stream beenden"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5183
@@ -13558,6 +13541,18 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
 msgid "Mehr"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceControlBar.kt:1
+msgid "Mehr, Aufzeichnung läuft"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceControlBar.kt:1
+msgid "Mehr, Live-Stream läuft"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceControlBar.kt:1
+msgid "Mehr, Aufzeichnung und Live-Stream laufen"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1
@@ -19363,9 +19358,6 @@ msgid "Bitte bestätigen Sie den Hinweis, um einzutreten."
 msgstr ""
 
 msgid "Sie wurden von einem Ordner stummgeschaltet."
-msgstr ""
-
-msgid "Nachricht schreiben"
 msgstr ""
 
 msgid "Die Nachricht ist zu lang (höchstens %1 Zeichen)."

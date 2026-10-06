@@ -1851,6 +1851,17 @@ class ClientUiGuidelineTripwireTest :
             (".lapis-form .form-check .form-check-label" in coarse) shouldBe true
         }
 
+        test("V1.9.66: the chat composer's field and send button reach a 44 px target under pointer: coarse") {
+            val coarse =
+                parseCssRules(THEME_CSS.readText())
+                    .filter { "@media (pointer: coarse)" in it.atRules }
+            val minHeight = coarse.filter { "min-height: 44px" in it.body }.flatMap { selectorsOf(it) }
+            val minWidth = coarse.filter { "min-width: 44px" in it.body }.flatMap { selectorsOf(it) }
+            (".lapis-chat-composer .form-control" in minHeight) shouldBe true
+            (".lapis-chat-composer-send" in minHeight) shouldBe true
+            (".lapis-chat-composer-send" in minWidth) shouldBe true
+        }
+
         test("R39 justified exemption is still needed (a stale exemption must go)") {
             R39_JUSTIFIED.forEach { (fileName, fingerprints) ->
                 val raw = clientKotlinFiles().first { it.name == fileName }.readText().let { iconOnlyButtonFindings(it) }

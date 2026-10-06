@@ -278,8 +278,8 @@ class EncounterRoomDomTest {
                 element.openChat()
                 assertTrue(element.buttonNamed("Hand heben").hasAttribute("disabled"))
                 assertTrue(element.buttonNamed("Amen").hasAttribute("disabled"))
-                assertTrue(element.buttonNamed("Senden").hasAttribute("disabled"))
-                val field = assertNotNull(element.querySelector("input[aria-label='Nachricht schreiben']") as? HTMLInputElement)
+                assertTrue(element.sendButton().hasAttribute("disabled"))
+                val field = assertNotNull(element.querySelector("input[aria-label='Nachricht']") as? HTMLInputElement)
                 assertTrue(field.disabled)
                 assertTrue(element.textContent.orEmpty().contains("Sie wurden von einem Ordner stummgeschaltet."))
                 assertTrue(rig.session.reactions.isEmpty())
@@ -287,6 +287,10 @@ class EncounterRoomDomTest {
         }
 
     // ── chat ─────────────────────────────────────────────────────────────────────
+
+    /** V1.9.66: the send button is icon-only, so its name is the `aria-label`, not its text. */
+    private fun HTMLElement.sendButton(): HTMLElement =
+        assertNotNull(querySelector(".lapis-chat-composer button[aria-label='Senden']") as? HTMLElement, "no send button")
 
     private fun HTMLElement.chatLog(): HTMLElement = assertNotNull(querySelector(".lapis-encounter-chat-log") as? HTMLElement)
 
@@ -313,10 +317,10 @@ class EncounterRoomDomTest {
         formTest {
             withRoom(testEntry(), sixPeople) { rig, element ->
                 element.openChat()
-                val field = assertNotNull(element.querySelector("input[aria-label='Nachricht schreiben']") as? HTMLInputElement)
+                val field = assertNotNull(element.querySelector("input[aria-label='Nachricht']") as? HTMLInputElement)
                 field.value = "   Guten Morgen  "
                 field.dispatchEvent(Event("input"))
-                element.buttonNamed("Senden").click()
+                element.sendButton().click()
                 awaitUntil("the line was sent") { rig.session.chats == listOf("Guten Morgen") }
                 awaitUntil("the line is in the log") {
                     element
@@ -328,7 +332,7 @@ class EncounterRoomDomTest {
                 awaitUntil("the field is empty again") { field.value.isEmpty() }
                 field.value = "x".repeat(ENCOUNTER_CHAT_MAX_CHARS + 1)
                 field.dispatchEvent(Event("input"))
-                element.buttonNamed("Senden").click()
+                element.sendButton().click()
                 delay(150)
                 assertEquals(1, rig.session.chats.size, "an over-long line is refused")
             }
