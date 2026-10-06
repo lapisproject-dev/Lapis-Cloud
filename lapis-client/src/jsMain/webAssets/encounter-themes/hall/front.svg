@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" preserveAspectRatio="xMidYMin meet" role="presentation" focusable="false">
+<rect x="180" y="10" width="840" height="280" rx="12" fill="#000" fill-opacity="0.12" stroke="#000" stroke-width="5"/>
+<rect x="260" y="50" width="680" height="170" rx="8" fill="#000" fill-opacity="0.2" stroke="#000" stroke-width="4" stroke-opacity="0.8"/>
+<rect x="540" y="90" width="120" height="70" rx="6" fill="#000" fill-opacity="0.3" stroke="#000" stroke-width="5"/>
+<line x1="540" y1="104" x2="660" y2="104" stroke="#000" stroke-width="3" stroke-opacity="0.7"/>
+<circle cx="440" cy="125" r="14" fill="#000" fill-opacity="0.5" stroke="#000" stroke-width="3"/>
+<circle cx="760" cy="125" r="14" fill="#000" fill-opacity="0.5" stroke="#000" stroke-width="3"/>
+<rect x="380" y="240" width="440" height="36" rx="6" fill="#000" fill-opacity="0.16" stroke="#000" stroke-width="3" stroke-opacity="0.7"/>
+</svg>

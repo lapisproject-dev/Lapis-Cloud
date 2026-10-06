@@ -7,6 +7,7 @@ import network.lapis.cloud.server.rpc.EncounterSpaceService
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EncounterConsentInput
 import network.lapis.cloud.shared.domain.EncounterGuestPolicy
+import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterSpaceInput
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
 import network.lapis.cloud.shared.domain.EncounterSpaceRoleAssignmentInput
@@ -94,7 +95,7 @@ class EncounterRoleMatrixTest :
                 }) { s, c -> s.getEntryInfo(c.space.toString()) },
                 Case(name = "createSpace", expected = {
                     if (it.privileged) Outcome.OK else Outcome.FORBIDDEN
-                }) { s, _ -> s.createSpace(EncounterSpaceInput(title = "Matrix")) },
+                }) { s, _ -> s.createSpace(EncounterSpaceInput(title = "Matrix", profile = EncounterProfile.ASSEMBLY)) },
                 Case(name = "updateSpace", expected = { if (it.privileged) Outcome.OK else Outcome.FORBIDDEN }) { s, c ->
                     s.updateSpace(
                         spaceId = c.space.toString(),

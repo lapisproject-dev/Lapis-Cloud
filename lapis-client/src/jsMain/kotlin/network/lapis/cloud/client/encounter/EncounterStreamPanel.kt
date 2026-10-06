@@ -63,6 +63,7 @@ private fun ConferenceStreamDto.isRunning(): Boolean = status != ConferenceStrea
  */
 internal class EncounterStreamPanel(
     parent: Container,
+    private val terms: EncounterTerms,
     private val roomId: String,
     private val isAdmin: Boolean,
     private val pulpitPeople: () -> List<EncounterPresentDto>,
@@ -111,7 +112,7 @@ internal class EncounterStreamPanel(
         panel: SimplePanel,
         stream: ConferenceStreamDto,
     ) {
-        panel.div(tr("Live (nur Kanzel)"), className = "fw-bold")
+        panel.div(terms.liveBadgeContent(), className = "fw-bold")
         val stop = newActionButton(ActionIcon.BROADCAST, tr("Übertragung beenden"), ButtonStyle.OUTLINEDANGER)
         panel.add(stop)
         stop.onClick {
@@ -129,7 +130,7 @@ internal class EncounterStreamPanel(
         data: StreamPanelData,
     ) {
         val form = panel.vPanel(spacing = 6).lapisForm()
-        panel.div(tr("Nur Kanzel"), className = "text-muted small")
+        panel.div(terms.streamOnlyStageContent(), className = "text-muted small")
         val targetFields = mutableListOf<Pair<String, LapisField>>()
         data.targets.forEach { target ->
             targetFields +=
@@ -148,7 +149,7 @@ internal class EncounterStreamPanel(
             } else {
                 null
             }
-        if (pulpit.isEmpty()) form.panel.div(tr("Niemand ist auf der Kanzel."), className = "text-muted small")
+        if (pulpit.isEmpty()) form.panel.div(terms.nobodyOnStageContent(), className = "text-muted small")
         val start = newActionButton(ActionIcon.BROADCAST, tr("Übertragung starten"), ButtonStyle.PRIMARY)
         start.disabled = pulpit.isEmpty()
         form.buttons(primary = start)
@@ -184,9 +185,10 @@ internal class EncounterStreamPanel(
  */
 internal class EncounterLiveBadge(
     parent: Container,
+    terms: EncounterTerms,
     private val roomId: String,
 ) {
-    val badge: Span = parent.span(tr("Live (nur Kanzel)"), className = "badge text-bg-danger lapis-encounter-live")
+    val badge: Span = parent.span(terms.liveBadgeContent(), className = "badge text-bg-danger lapis-encounter-live")
 
     /** Stays `false` after the first conflict answer: streaming is not available here, so there is nothing to poll. */
     var available: Boolean = true

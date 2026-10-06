@@ -20448,3 +20448,93 @@ msgstr "Personas presentes"
 
 msgid "Zum Raum"
 msgstr "A la sala"
+
+msgid "Amen von den Teilnehmenden"
+msgstr "Amén de los participantes"
+
+msgid "Applaus"
+msgstr "Aplauso"
+
+msgid "Applaus aus der Gemeinde"
+msgstr "Aplauso de la congregación"
+
+msgid "Applaus von den Teilnehmenden"
+msgstr "Aplauso de los participantes"
+
+msgid "Bitte wählen Sie eine Raumart."
+msgstr "Elija un tipo de sala."
+
+msgid "Das Podium ist noch leer."
+msgstr "El podio todavía está vacío."
+
+msgid "Die Person verlässt den Raum und kann bis zum Ende dieser Versammlung nicht wieder eintreten."
+msgstr "La persona abandona la sala y no puede volver a entrar hasta el final de esta asamblea."
+
+msgid "Die Teilnahme an einer Versammlung kann Rückschlüsse auf politische Meinungen oder weltanschauliche Überzeugungen zulassen (besondere Kategorie personenbezogener Daten, Art. 9 DSGVO). Dieser Hinweis ist keine Rechtsberatung."
+msgstr "La participación en una asamblea puede revelar opiniones políticas o convicciones ideológicas (categoría especial de datos personales, art. 9 RGPD). Este aviso no constituye asesoramiento jurídico."
+
+msgid "Die Versammlung ist beendet."
+msgstr "La asamblea ha terminado."
+
+msgid "Eine Kanzel spricht, die Gemeinde hört zu. Reaktionen: Hand und Amen."
+msgstr "Habla el púlpito y la congregación escucha. Reacciones: mano y amén."
+
+msgid "Eintreten als Moderation"
+msgstr "Entrar como moderación"
+
+msgid "Eintreten und Podium übernehmen"
+msgstr "Entrar y ocupar el podio"
+
+msgid "Gottesdienst"
+msgstr "Servicio religioso"
+
+msgid "Herz"
+msgstr "Corazón"
+
+msgid "Herz aus der Gemeinde"
+msgstr "Corazón de la congregación"
+
+msgid "Herz von den Teilnehmenden"
+msgstr "Corazón de los participantes"
+
+msgid "Immer verfügbar: Wortmeldung"
+msgstr "Siempre disponible: petición de palabra"
+
+msgid "Live (nur Podium)"
+msgstr "En directo (solo el podio)"
+
+msgid "Moderation (spricht und moderiert)"
+msgstr "Moderación (habla y modera)"
+
+msgid "Niemand ist auf dem Podium."
+msgstr "Nadie está en el podio."
+
+msgid "Nur Podium"
+msgstr "Solo el podio"
+
+msgid "Podium"
+msgstr "Podio"
+
+msgid "Podium (spricht)"
+msgstr "Podio (habla)"
+
+msgid "Podium und Moderation sprechen, die Teilnehmenden hören zu. Reaktionen: Hand und Applaus."
+msgstr "Hablan el podio y la moderación, los participantes escuchan. Reacciones: mano y aplauso."
+
+msgid "Podium: %1"
+msgstr "Podio: %1"
+
+msgid "Raumart"
+msgstr "Tipo de sala"
+
+msgid "Raumart und Reaktionen lassen sich nur bei geschlossenem Raum ändern."
+msgstr "El tipo de sala y las reacciones solo se pueden cambiar con la sala cerrada."
+
+msgid "Sie wurden von der Moderation stummgeschaltet."
+msgstr "La moderación le ha silenciado."
+
+msgid "Versammlung"
+msgstr "Asamblea"
+
+msgid "Wird das Podium übertragen, sehen Zuschauer außerhalb des Raums nur Bild und Ton des Podiums. Sie selbst werden nicht übertragen."
+msgstr "Si se retransmite el podio, los espectadores fuera de la sala solo ven imagen y sonido del podio. Usted no se retransmite."

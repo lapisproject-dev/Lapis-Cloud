@@ -90,7 +90,7 @@ internal fun SimplePanel.encounterViewRoot(onTeardown: () -> Unit): VPanel =
     addWithLifecycle(
         VPanel(spacing = 14) {
             addCssClass("mx-auto")
-            maxWidth = 1100.px
+            maxWidth = 1800.px
             width = 100.perc
             marginTop = 24.px
         },
@@ -255,7 +255,7 @@ private class EncounterVisit(
                 entry = entry,
                 viewer = rights,
                 clock = clock,
-                onDoorsClosed = { exitRoom(message = tr("Der Gottesdienst ist beendet.")) },
+                onDoorsClosed = { exitRoom(message = termsFor(space.profile).eventEndedContent()) },
                 onConnectionLost = { onConnectionLost(space) },
             )
         val newSession = opener(entry, newRoom.callbacks)
@@ -327,7 +327,7 @@ private class EncounterVisit(
             if (tornDown) return@launch
             when {
                 fresh == null -> showEntryAgain(tr("Die Verbindung wurde unterbrochen."))
-                !fresh.open -> showEntryAgain(tr("Der Gottesdienst ist beendet."))
+                !fresh.open -> showEntryAgain(termsFor(fresh.profile).eventEndedContent())
                 reentryAllowed() -> reenter(fresh)
                 else -> showEntryAgain(tr("Die Verbindung wurde unterbrochen."))
             }

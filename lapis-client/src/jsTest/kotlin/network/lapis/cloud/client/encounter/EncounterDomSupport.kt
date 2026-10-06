@@ -19,7 +19,9 @@ import network.lapis.cloud.shared.domain.EncounterEntryDto
 import network.lapis.cloud.shared.domain.EncounterGuestPolicy
 import network.lapis.cloud.shared.domain.EncounterPresenceRole
 import network.lapis.cloud.shared.domain.EncounterPresentDto
+import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterReaction
+import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.EncounterSpaceMode
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
@@ -38,6 +40,8 @@ internal fun testSpace(
     archived: Boolean = false,
     presentCount: Int = 0,
     pulpitNames: List<String> = emptyList(),
+    profile: EncounterProfile = EncounterProfile.CHURCH_SERVICE,
+    reactions: List<EncounterReactionOption> = EncounterReactionOption.defaultsFor(profile),
 ) = EncounterSpaceDto(
     id = id,
     title = title,
@@ -54,6 +58,8 @@ internal fun testSpace(
     myRole = myRole,
     canModerate = canModerate,
     archived = archived,
+    profile = profile,
+    reactions = reactions,
 )
 
 internal fun testEntry(
@@ -189,6 +195,7 @@ internal suspend fun withEncounterRoom(
     privileged: Boolean = false,
     session: FakeListenerSession = FakeListenerSession(dataAllowed = entry.canPublishData),
     extraRespond: (RecordedRequest) -> StubResponse? = { null },
+    space: EncounterSpaceDto = testSpace(),
     block: suspend (EncounterRoomRig, HTMLElement) -> Unit,
 ) {
     val presentRoute = routeOf { rpcService<IEncounterSpaceService>().listPresent("space-1") }
@@ -206,7 +213,7 @@ internal suspend fun withEncounterRoom(
             val room =
                 EncounterRoom(
                     parent = root,
-                    space = testSpace(),
+                    space = space,
                     entry = entry,
                     viewer = testRights(entry = entry, privileged = privileged),
                     clock = clock,

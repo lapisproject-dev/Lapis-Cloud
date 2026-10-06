@@ -6,6 +6,52 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added (V1.9.67, encounter room stage 1)
+
+- **Room profiles.** A room is a church service (default; all existing rooms) or an *assembly*. The profile selects the vocabulary (pulpit/steward/congregation vs. podium/moderation/participants), the
+  floor-plan scene, the default reactions and the Art. 9 consent text. All words live in one client file (`EncounterVocabulary.kt`); a tripwire forbids hard-coded profile words and branching on the profile elsewhere.
+- **Configurable reactions.** Per room: hand (always on), amen, applause, heart. The bar shows the room's set in a fixed order, a received reaction the room does not allow is dropped silently. The three event
+  reactions share one 5 s send budget, the hand is never blocked. No thumbs-up on purpose (it reads as a vote in an assembly). One event symbol per seat, announced as one fixed sentence, never counted.
+- **Stage mode.** The room fills the height under the header, the podium/pulpit is 16:9 (the 720 px cap is gone), the benches scroll in their own area. Side panel: column from 1200 px, overlay from 768 px,
+  sheet below. Full screen with a CSS fallback where the Fullscreen API is missing. A grouped bar below the stage with 44 px targets (icon only on a phone, the text stays the accessible name).
+- **Floor-plan scenes** (church and hall: front once, rows tiled behind the seats) replace the old front-view drawing; own drawings, see `PROVENANCE.adoc`.
+- **Room form:** room type as radio choice without a default when creating, reaction checkboxes (hand locked on), both locked while the room is open; the list shows the type as a badge.
+- New `ActionIcon`s: `APPLAUSE`, `HEART`, `FULLSCREEN`, `FULLSCREEN_EXIT`.
+
+### Changed (V1.9.67)
+
+- `EncounterSpaceInput.profile`/`reactions` are *nullable*: on create `null` means church service with its default reactions, on update `null` means *unchanged* (a cached old admin client sends neither
+  and must not turn an assembly into a church service). `EncounterSpaceDto` gains `profile` and `reactions` with defaults (an old server's answer decodes as a church room). `EncounterReaction` gains `APPLAUSE` and `HEART`
+  (appended; an old client decodes the unknown name to nothing and drops it). `theme_key` stays frozen at `CHURCH`.
+- Changing profile or reactions while a session is open is a conflict (like the guest policy); unchanged values and all other fields stay editable.
+- Consent text, hash and stored proof are now per profile. The church text and hash are unchanged (pinned by a test), so existing consents stay valid; a guest who consented for a church service consents again for an assembly.
+- The encounter page is up to 1800 px wide (was 1100).
+
+### Security (V1.9.67)
+
+- No new personal data: the two columns describe the room, reactions are never logged, audit snapshots carry room values only. Reaction list length is capped at 8 (DoS). The assembly consent is compared
+  in constant time like the church text. Scene assets are static SVG without script or external reference, loaded only as CSS masks (CSP unchanged).
+
+### Tests (V1.9.67)
+
+- Server (H2 and Postgres): migration V75 -> V76 (defaults, CHECKs, re-run), create/update semantics incl. `null` = unchanged, freeze while open, audit, per-profile consent, pinned church hash.
+- Client (Karma): vocabulary, reaction filter and budgets, bar per profile, panel toggle, full screen and its fallback, scenes, seat-grid geometry vs. the row tile, 360 px, the room form, wire compatibility
+  (`EncounterWireCompatTest` proves that Kilua's JSON ignores unknown keys). New tripwire `ClientEncounterVocabularyTripwireTest`.
+
+### Operator note (V1.9.67)
+
+- **V76 is purely additive**: no `flywayRepair`, V1..V75 are untouched. Take a backup before the deploy as usual.
+
+### Known limitations (V1.9.67)
+
+- Not tested on a real device, in Safari or in the mobile WebView (Fullscreen API usually missing there; the CSS fallback exists but was not seen).
+- The new translations (en, fr, nl, it, es, pl, ru) are agent translations, not reviewed by native speakers.
+- Profile and reactions are enforced on the client only (the server never reads a reaction).
+- The order of the reaction buttons is fixed; no organization-wide default profile; the assembly consent text has no legal review yet.
+- The "Verlassen" button stays in the page header (not in the bar): in full screen, Escape leaves the full screen first.
+- Stages 2 and 3 of the encounter-room plan are not included. The navigation still shows a church symbol for the rooms.
+- An unknown enum name in a raw RPC request is rejected by Kilua before the service; whether that answers 400 or 500 was not checked.
+
 ### Changed (V1.9.66, conference controls)
 
 - **Moderation controls moved into the bottom bar.** The rows "Moderator:", "Aufzeichnung:" and "Live-Stream:" above the video are gone. Recording, live stream and "Für alle beenden" are

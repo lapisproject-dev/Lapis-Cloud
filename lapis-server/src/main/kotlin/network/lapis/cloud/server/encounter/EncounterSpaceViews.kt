@@ -12,6 +12,8 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.shared.domain.EncounterGuestPolicy
+import network.lapis.cloud.shared.domain.EncounterProfile
+import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.EncounterSpaceMode
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
@@ -26,6 +28,28 @@ import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import kotlin.uuid.Uuid
+
+/** The canonical CSV stored in `encounter_space.reaction_set` (HAND first, canonical order, deduplicated). */
+internal fun reactionSetCsv(options: Collection<EncounterReactionOption>): String =
+    EncounterReactionOption.normalize(options).joinToString(",") { it.name }
+
+/**
+ * Parses `encounter_space.reaction_set`. Robust against a value a future version no longer knows: unknown tokens are dropped and HAND is
+ * forced, so a stored value can never make a room unreadable.
+ */
+internal fun parseReactionSet(csv: String): List<EncounterReactionOption> =
+    EncounterReactionOption.normalize(
+        csv.split(',').mapNotNull { token ->
+            EncounterReactionOption.entries.firstOrNull {
+                it.name ==
+                    token.trim()
+            }
+        },
+    )
+
+/** The profile of a space row; an unknown stored value (impossible under the CHECK constraint) falls back to the church profile. */
+internal fun profileOf(row: ResultRow): EncounterProfile =
+    EncounterProfile.entries.firstOrNull { it.name == row[EncounterSpaceTable.profile] } ?: EncounterProfile.CHURCH_SERVICE
 
 /** The effective participant ceiling of a space: its own limit, clamped to the instance maximum. */
 internal fun effectiveMaxParticipants(
@@ -97,6 +121,8 @@ internal object EncounterSpaceViews {
                 myRole = myRole,
                 canModerate = current.isPrivileged || myRole != null,
                 archived = row[EncounterSpaceTable.archivedAt] != null,
+                profile = profileOf(row),
+                reactions = parseReactionSet(row[EncounterSpaceTable.reactionSet]),
             )
         }
     }
@@ -107,6 +133,8 @@ internal object EncounterSpaceViews {
             put("title", row[EncounterSpaceTable.title])
             put("theme", row[EncounterSpaceTable.themeKey])
             put("mode", row[EncounterSpaceTable.mode])
+            put("profile", row[EncounterSpaceTable.profile])
+            put("reactions", row[EncounterSpaceTable.reactionSet])
             put("guestPolicy", row[EncounterSpaceTable.guestPolicy])
             put("maxParticipants", row[EncounterSpaceTable.maxParticipants])
             put("closedNotice", row[EncounterSpaceTable.closedNotice])

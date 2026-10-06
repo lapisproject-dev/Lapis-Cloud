@@ -40,8 +40,13 @@ interface IEncounterSpaceService {
     /** Whether [enterSpace] needs a consent, and the text to show. */
     suspend fun getEntryInfo(spaceId: String): EncounterEntryInfoDto
 
+    /** `input.profile`/`input.reactions` `null` = church service with its default reactions. */
     suspend fun createSpace(input: EncounterSpaceInput): EncounterSpaceDto
 
+    /**
+     * `input.profile`/`input.reactions` `null` = unchanged. A real change of either is a [ConflictException] while a session is open
+     * (the room's vocabulary and reaction set cannot change under people who are present).
+     */
     suspend fun updateSpace(
         spaceId: String,
         input: EncounterSpaceInput,

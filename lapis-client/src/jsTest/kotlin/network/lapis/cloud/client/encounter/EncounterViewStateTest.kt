@@ -3,6 +3,7 @@ package network.lapis.cloud.client.encounter
 import network.lapis.cloud.shared.domain.EncounterGuestPolicy
 import network.lapis.cloud.shared.domain.EncounterPresenceRole
 import network.lapis.cloud.shared.domain.EncounterPresentDto
+import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.EncounterSpaceMode
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
@@ -92,20 +93,57 @@ class EncounterViewStateTest {
 
     @Test
     fun theGuestMarker_andTheRole_areShownOnlyWhereTheyAreMeant() {
-        assertEquals("", encounterPersonFacts(person("a", EncounterPresenceRole.CONGREGATION), showGuestMarker = true))
-        assertEquals("Gast", encounterPersonFacts(person("a", EncounterPresenceRole.CONGREGATION, isGuest = true), showGuestMarker = true))
-        assertEquals("", encounterPersonFacts(person("a", EncounterPresenceRole.CONGREGATION, isGuest = true), showGuestMarker = false))
-        assertEquals("Kanzel", encounterPersonFacts(person("a", EncounterPresenceRole.PULPIT), showGuestMarker = false))
+        assertEquals(
+            "",
+            encounterPersonFacts(
+                person("a", EncounterPresenceRole.CONGREGATION),
+                showGuestMarker = true,
+                profile = EncounterProfile.CHURCH_SERVICE,
+            ),
+        )
+        assertEquals(
+            "Gast",
+            encounterPersonFacts(
+                person("a", EncounterPresenceRole.CONGREGATION, isGuest = true),
+                showGuestMarker = true,
+                profile = EncounterProfile.CHURCH_SERVICE,
+            ),
+        )
+        assertEquals(
+            "",
+            encounterPersonFacts(
+                person("a", EncounterPresenceRole.CONGREGATION, isGuest = true),
+                showGuestMarker = false,
+                profile = EncounterProfile.CHURCH_SERVICE,
+            ),
+        )
+        assertEquals(
+            "Kanzel",
+            encounterPersonFacts(
+                person("a", EncounterPresenceRole.PULPIT),
+                showGuestMarker = false,
+                profile = EncounterProfile.CHURCH_SERVICE,
+            ),
+        )
         assertEquals(
             "Ordner im Gottesdienst · Gast",
-            encounterPersonFacts(person("a", EncounterPresenceRole.STEWARD, isGuest = true), showGuestMarker = true),
+            encounterPersonFacts(
+                person("a", EncounterPresenceRole.STEWARD, isGuest = true),
+                showGuestMarker = true,
+                profile = EncounterProfile.CHURCH_SERVICE,
+            ),
         )
     }
 
     @Test
     fun theStewardLabel_isNeverTheBareWordOrdner() {
         // The bare msgid "Ordner" already means "folder" (documents) in every catalog.
-        EncounterPresenceRole.entries.forEach { role -> assertTrue(encounterPresenceRoleLabel(role) != "Ordner", role.name) }
+        EncounterPresenceRole.entries.forEach { role ->
+            assertTrue(
+                encounterPresenceRoleLabel(role, EncounterProfile.CHURCH_SERVICE) != "Ordner",
+                role.name,
+            )
+        }
     }
 
     // ── the refresh planner ──────────────────────────────────────────────────────

@@ -11,6 +11,9 @@ import org.w3c.dom.HTMLElement
 /** Icon classes every [actionButton] icon carries: fixed width (aligned labels) + the spacing class from theme.css. */
 private const val ACTION_ICON_EXTRA_CLASSES = "fa-fw lapis-action-icon"
 
+/** The full class string of an [actionButton] icon (for a button whose icon changes with its state). */
+internal fun actionIconClasses(kind: ActionIcon): String = "${kind.css} $ACTION_ICON_EXTRA_CLASSES"
+
 /**
  * Standard button with the icon of its verb (V1.9.43, guideline R57).
  *
@@ -75,7 +78,7 @@ private fun buildActionButton(
     small: Boolean,
 ): Button {
     require(label.isNotBlank()) { "actionButton needs a label (accessible name), also when iconOnly" }
-    val result = Button(text = if (iconOnly) "" else label, icon = "${kind.css} $ACTION_ICON_EXTRA_CLASSES", style = style)
+    val result = Button(text = if (iconOnly) "" else label, icon = actionIconClasses(kind), style = style)
     result.addAfterInsertHook { vnode -> (vnode.elm as? HTMLElement)?.querySelector("i")?.setAttribute("aria-hidden", "true") }
     if (iconOnly) result.tableActionTooltip(label)
     if (small) result.addCssClass("btn-sm")

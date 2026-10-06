@@ -2148,3 +2148,22 @@ because the client sources are scanned there; no server production code changed.
 * **Not verified.** The call screen itself cannot be mounted in Karma (its RPCs fail). The DOM tests therefore run against the extracted building blocks in a mounted
   root with the real stylesheet cascade; the wiring in `ConferenceScreen.kt` is pinned by text tripwires. Not tested on a real device or in Safari. The new
   translations (en, fr, nl, it, es, pl, ru) are agent translations and not reviewed by native speakers.
+
+== V1.9.67 -- Encounter room stage mode, room type form, reaction bar
+
+Client plus one additive migration (V76); no change of the standing UI rules.
+
+* **Stage mode.** The room fills the height under the header (token `--lapis-header-h`) minus the bar (`--lapis-encounter-bar-h`, a CSS token and no Kotlin `px`, R55);
+  `height: calc(100vh ...)` is declared before the `100dvh` version. The pulpit or podium is 16:9 and at most 62 % of the room height, the 720 px cap is removed. The benches live in
+  their own `overflow-y: auto` area. New transitions: none (the seat symbol keeps its one 200 ms fade, now named `.lapis-encounter-seat-event` in the single reduced-motion block, R54).
+* **Side panel by width.** 340 px column from 1200 px, overlay from 768 to 1199 px (closed by default, Escape, focus back to the opener), sheet below 768 px. The toggle has `aria-expanded` and
+  `aria-controls`; no `localStorage`.
+* **The bar** (`EncounterControlBar`) is grouped (reactions, devices, panel, view, moderation) with CSS dividers between non-empty groups. Targets are at least 44 px; below 768 px only the
+  icon is visible (the label text stays in the DOM as the accessible name, `font-size: 0`), so no icon-only button is built (R58 untouched). The doors button is a group of its own and never
+  next to the reactions.
+* **Room type in the form.** Two choices as a radio group (`role="radiogroup"`, real `input[type=radio]` with labels, name and one sentence each), with *no preselection* when a room is created: a missing
+  choice blocks submitting with an error text at the field ("Bitte wählen Sie eine Raumart."), the client always sends the profile explicitly. Editing preselects the current type. The reactions are
+  checkboxes in the canonical order; the hand is checked and disabled with the hint "Immer verfügbar: Wortmeldung" (`aria-describedby` via the form grammar). Choosing another type offers that type's
+  default reactions again. While the room is open both groups are disabled with a visible hint; the server refuses the change too. The list shows the type as a text badge, never colour alone.
+* **Full screen** has a CSS fallback (`is-pseudo-fullscreen`) and `aria-pressed`; Escape leaves it.
+

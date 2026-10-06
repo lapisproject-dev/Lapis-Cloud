@@ -37,6 +37,7 @@ internal fun SimplePanel.encounterEntryPanel(
     info: EncounterEntryInfoDto,
     onEnter: suspend (EncounterConsentInput?) -> Unit,
 ) {
+    val terms = termsFor(info.space.profile)
     val box = vPanel(spacing = 8) { addCssClasses("border rounded p-3 lapis-encounter-entry") }
     box.h2(tr("Bevor Sie eintreten")) { addCssClass("h5") }
     val notes = Tag(TAG.UL, className = "lapis-encounter-notes mb-0")
@@ -44,11 +45,7 @@ internal fun SimplePanel.encounterEntryPanel(
     notes.add(
         Tag(
             TAG.LI,
-            content =
-                tr(
-                    "Wird die Kanzel übertragen, sehen Zuschauer außerhalb des Raums nur Bild und Ton der Kanzel. " +
-                        "Sie selbst werden nicht übertragen.",
-                ),
+            content = terms.transmissionNoteContent(),
         ),
     )
     notes.add(
@@ -58,12 +55,7 @@ internal fun SimplePanel.encounterEntryPanel(
         ),
     )
     notes.add(Tag(TAG.LI, content = tr("Lapis Cloud speichert keine Anwesenheitsliste und keine Aufzeichnung dieses Raums.")))
-    box.div(
-        tr(
-            "Die Teilnahme an einem Gottesdienst kann Rückschlüsse auf religiöse Überzeugungen zulassen (besondere Kategorie personenbezogener Daten, Art. 9 DSGVO). Dieser Hinweis ist keine Rechtsberatung.",
-        ),
-        className = "text-muted small",
-    )
+    box.div(terms.article9NoteContent(), className = "text-muted small")
 
     val disclaimer = if (info.consentRequired) info.disclaimer else null
     if (disclaimer != null) {

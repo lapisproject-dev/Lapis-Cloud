@@ -5,7 +5,6 @@ import io.kvision.core.onEvent
 import io.kvision.html.Div
 import io.kvision.html.div
 import io.kvision.i18n.gettext
-import io.kvision.i18n.tr
 import kotlinx.coroutines.launch
 import network.lapis.cloud.client.AppScope
 import network.lapis.cloud.client.lapisChatComposer
@@ -23,13 +22,14 @@ import network.lapis.cloud.client.untrustedSpan
  */
 internal class EncounterChatPanel(
     parent: Container,
+    terms: EncounterTerms,
     private val onSend: suspend (String) -> Boolean,
 ) {
     val root: Div = parent.div(className = "lapis-encounter-chat")
     private val log = EncounterChatLog()
     private val rows = ArrayDeque<Div>()
     private val logView: Div = root.div(className = "lapis-encounter-chat-log")
-    private val silencedNote: Div = root.div(tr("Sie wurden von einem Ordner stummgeschaltet."), className = "text-muted small")
+    private val silencedNote: Div = root.div(terms.silencedNoteContent(), className = "text-muted small")
     private val counter: Div = root.div(className = "text-muted small")
     private val composer = root.lapisChatComposer(onSend = { send() })
 

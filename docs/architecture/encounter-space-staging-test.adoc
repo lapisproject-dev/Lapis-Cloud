@@ -46,6 +46,11 @@ client on top, and record the results below. Checks 18-28 (V1.9.62) cover the cl
 | 26 | B2: switch the scene off, reload, then enable the operating system's high-contrast mode | the choice survives the reload (one key in browser storage, nothing else); in high-contrast mode the scene is hidden by itself.
 | 27 | B2: VoiceOver (Safari) or TalkBack | the pulpit region reads "Kanzel: <name>"; seats read the person's name (and "Hand erhoben"); the pews are a list "Gemeinde"; no single-letter shortcut fires; the side sheet traps the focus and Escape closes it.
 | 28 | B2: leave the page (close the tab) while inside | within the poller period the presence row is gone (`pagehide` is best effort); `listPresent` no longer names the person.
+| 29 | V1.9.67: create a room of the type "Versammlung" (assembly) with the default reactions | the bar offers "Hand heben" and "Applaus" (no "Amen"); the room speaks of "Podium", "Moderation" and "Teilnehmende" everywhere (entry panel, role editor, list, people tab); the scene is the podium floor plan.
+| 30 | V1.9.67: while the assembly is open, try to change its type or its reactions (also with a second tab that was loaded before the deploy) | the form shows the fields disabled with a hint; the server answers a real change with a conflict; changing only the title works; an old tab that sends no profile leaves the room unchanged.
+| 31 | V1.9.67: a guest who consented for a church service enters the assembly | the guest sees the assembly text ("Sie nehmen an einer Versammlung teil.") and must consent again; the church room still needs no second consent.
+| 32 | V1.9.67: stage mode on a desktop, a tablet width (768-1199 px) and a phone | the podium is large (16:9), the bar sits below the stage; the side panel is a column from 1200 px, an overlay below (Escape closes it, focus returns to the button), a sheet on the phone; no horizontal scrolling at 360 px; bar targets at least 44 px.
+| 33 | V1.9.67: "Vollbild" in Chrome, Firefox, Safari (desktop) and on an iPhone | desktop: real full screen, "Vollbild beenden" leaves it; iPhone Safari and the mobile WebView: the CSS fallback fills the screen, Escape or the button leaves it.
 |===
 
 == Result log

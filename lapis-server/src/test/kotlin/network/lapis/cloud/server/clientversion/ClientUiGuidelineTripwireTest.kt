@@ -1884,7 +1884,7 @@ class ClientUiGuidelineTripwireTest :
             reducedMotionViolations(THEME_CSS.readText()) shouldBe emptyList()
         }
 
-        test("R54 names exactly the six known transitions today (V1.9.62: the hand and amen symbols of the encounter room)") {
+        test("R54 names exactly the six known transitions today (V1.9.62: the hand and event symbols of the encounter room)") {
             val css = THEME_CSS.readText()
             val reduced = parseCssRules(css).filter { REDUCED_MOTION in it.atRules }.flatMap { selectorsOf(it) }.toSet()
             reduced shouldBe
@@ -1894,7 +1894,7 @@ class ClientUiGuidelineTripwireTest :
                     ".lapis-conference-background-preview",
                     ".lapis-busy",
                     ".lapis-encounter-seat-hand",
-                    ".lapis-encounter-seat-amen",
+                    ".lapis-encounter-seat-event",
                 )
         }
 

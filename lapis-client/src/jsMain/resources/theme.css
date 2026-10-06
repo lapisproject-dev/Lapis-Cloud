@@ -2792,29 +2792,100 @@ html .form-select.is-invalid:focus {
 /* ── V1.9.62 Begegnungsraum (B2) ──────────────────────────────────────────────────────────────────────────────────────
    Zwei Ebenen: `.lapis-encounter-scene` (Ebene 0, Maske, aria-hidden) und `.lapis-encounter-stage` (Ebene 1). Die Buehne selbst ist
    durchsichtig; ihre FLAECHEN (Kanzel, Ordnerleiste, Plaetze, Beschriftungen) sind deckend -- darauf steht jeder Text. */
-.lapis-encounter-main {
-  display: flex;
-  gap: 1rem;
-  align-items: flex-start;
+/* V1.9.67 Buehnenmodus: der Raum fuellt die Hoehe unter der Kopfzeile (Token `--lapis-header-h`, Navigation + Seitenkopf), die Leiste liegt
+   unter der Buehne (`--lapis-encounter-bar-h`). `100vh` zuerst, `100dvh` danach (aelteres Safari kennt dvh nicht). Im Vollbild gibt es
+   keine Kopfzeile: dort fuellt der Raum den ganzen Bildschirm. */
+:root {
+  --lapis-header-h: 136px;
 }
 
-.lapis-encounter {
+.lapis-encounter-room {
+  --lapis-encounter-bar-h: 56px;
+  --lapis-encounter-room-h: calc(100vh - var(--lapis-header-h) - var(--lapis-encounter-bar-h));
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--lapis-header-h));
+  min-height: 480px;
+  background: var(--lapis-surface);
+}
+
+@supports (height: 100dvh) {
+  .lapis-encounter-room {
+    --lapis-encounter-room-h: calc(100dvh - var(--lapis-header-h) - var(--lapis-encounter-bar-h));
+    height: calc(100dvh - var(--lapis-header-h));
+  }
+}
+
+/* Rueckfall ohne Fullscreen-API (Safari auf dem iPhone, viele WebViews): der Raum fuellt den Anzeigebereich allein per CSS. */
+.lapis-encounter-room.is-pseudo-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1060;
+  width: 100%;
+  height: 100%;
+  padding: 0.5rem;
+}
+
+.lapis-encounter-room:fullscreen {
+  height: 100%;
+  padding: 0.5rem;
+}
+
+.lapis-encounter-room.is-pseudo-fullscreen,
+.lapis-encounter-room:fullscreen {
+  --lapis-encounter-room-h: calc(100vh - var(--lapis-encounter-bar-h) - 3rem);
+}
+
+.lapis-encounter-main {
   position: relative;
+  display: flex;
   flex: 1 1 auto;
+  min-height: 0;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+/* Raster der Plaetze und Mass der Szenen-Kachel (`row.svg`, 352 x 56): ein DOM-Test prueft, dass beides zu EncounterSeating passt. */
+.lapis-encounter {
+  --lapis-enc-seat: 48px;
+  --lapis-enc-seat-gap: 8px;
+  --lapis-enc-aisle: 32px;
+  --lapis-enc-row-w: 352px;
+  --lapis-enc-row-h: 56px;
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   min-width: 0;
+  min-height: 0;
   padding: 1rem;
   border-radius: 0.5rem;
   background: var(--lapis-encounter-scene-tint);
   overflow: hidden;
 }
 
+/* Die Szene: Ebene 0 -- vorne (Altarraum oder Podium) einmal oben, dahinter die Reihen als Kachel hinter den Plaetzen. Die Maske selbst
+   (`--lapis-enc-scene-front` / `--lapis-enc-scene-row`) setzt EncounterSceneLayout inline: ein `url()` hier wuerde der Bundler zur
+   Build-Zeit aufloesen, die Dateien sind aber Laufzeit-Assets unter `/assets`. */
 .lapis-encounter-scene {
+  background-color: var(--lapis-encounter-scene-ink);
+  pointer-events: none;
+}
+
+.lapis-encounter-scene-front {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  height: 240px;
+  -webkit-mask: var(--lapis-enc-scene-front) top center / contain no-repeat;
+  mask: var(--lapis-enc-scene-front) top center / contain no-repeat;
+}
+
+.lapis-encounter-scene-rows {
   position: absolute;
   inset: 0;
-  background-color: var(--lapis-encounter-scene-ink);
-  /* The mask itself (`/assets/encounter-themes/church/church.svg`) is set inline by EncounterSceneLayout: a `url()` here would be resolved by
-     the bundler at build time, but the file is a runtime asset served from `/assets`. */
-  pointer-events: none;
+  -webkit-mask: var(--lapis-enc-scene-row) top center / var(--lapis-enc-row-w) var(--lapis-enc-row-h) repeat-y;
+  mask: var(--lapis-enc-scene-row) top center / var(--lapis-enc-row-w) var(--lapis-enc-row-h) repeat-y;
 }
 
 .lapis-encounter--scene-off .lapis-encounter-scene {
@@ -2831,14 +2902,18 @@ html .form-select.is-invalid:focus {
 .lapis-encounter-stage {
   position: relative;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   align-items: center;
   gap: 1rem;
+  min-height: 0;
 }
 
+/* Kanzel/Podium: 16:9, so gross wie die Raumhoehe es zulaesst (hoechstens 62 % der Raumhoehe), nie breiter als der Raum. */
 .lapis-encounter-pulpit {
-  width: 100%;
-  max-width: 720px;
+  width: min(100%, calc(0.62 * var(--lapis-encounter-room-h) * 16 / 9));
+  max-width: 1600px;
+  flex: 0 0 auto;
   padding: 0.5rem;
   border: 1px solid var(--lapis-border-strong);
   border-radius: 0.5rem;
@@ -2883,7 +2958,6 @@ html .form-select.is-invalid:focus {
 .lapis-encounter-tile--large {
   flex: 1 1 100%;
   aspect-ratio: 16 / 9;
-  max-width: 720px;
 }
 
 .lapis-encounter-tile-media {
@@ -2913,22 +2987,32 @@ html .form-select.is-invalid:focus {
   white-space: nowrap;
 }
 
+/* Die Baenke liegen unter der Buehne in einem eigenen Bereich, der bei vielen Reihen selbst scrollt. */
+.lapis-encounter-benches-frame {
+  position: relative;
+  flex: 1 1 0;
+  width: 100%;
+  min-height: 120px;
+  overflow-y: auto;
+}
+
 .lapis-encounter-benches {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lapis-enc-seat-gap);
 }
 
 /* Mittelgang: der Abstand zwischen den beiden Bloecken einer Reihe. */
 .lapis-encounter-row {
   display: flex;
-  gap: 32px;
+  gap: var(--lapis-enc-aisle);
 }
 
 .lapis-encounter-block {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--lapis-enc-seat-gap);
 }
 
 .lapis-encounter-seat {
@@ -2936,8 +3020,8 @@ html .form-select.is-invalid:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: var(--lapis-enc-seat);
+  height: var(--lapis-enc-seat);
   border-radius: 50%;
   background: var(--lapis-encounter-seat);
   color: var(--lapis-encounter-seat-text);
@@ -2950,9 +3034,10 @@ html .form-select.is-invalid:focus {
   border: 2px dashed var(--lapis-encounter-seat);
 }
 
-/* Hand und Amen: kleine, leise Zeichen am Platz (nie eine Zahl). Ein- und Ausblenden in 200 ms, bei Bewegungsreduktion sofort. */
+/* Hand und Ereignis (Amen, Applaus, Herz): kleine, leise Zeichen am Platz (nie eine Zahl; ein Ereignis-Platz je Sitz). Ein- und Ausblenden
+   in 200 ms, bei Bewegungsreduktion sofort. */
 .lapis-encounter-seat-hand,
-.lapis-encounter-seat-amen {
+.lapis-encounter-seat-event {
   position: absolute;
   top: -6px;
   display: flex;
@@ -2973,12 +3058,12 @@ html .form-select.is-invalid:focus {
   right: -6px;
 }
 
-.lapis-encounter-seat-amen {
+.lapis-encounter-seat-event {
   left: -6px;
 }
 
 .lapis-encounter-seat-hand.is-on,
-.lapis-encounter-seat-amen.is-on {
+.lapis-encounter-seat-event.is-on {
   opacity: 1;
 }
 
@@ -3012,9 +3097,10 @@ html .form-select.is-invalid:focus {
   background: var(--lapis-invalid);
 }
 
+/* Seitenpanel: ab 1200 px eine Spalte (340 px, einklappbar), von 768 bis 1199 px eine Ueberlagerung am rechten Rand, darunter das Vollbild-Blatt. */
 .lapis-encounter-side {
-  flex: 0 0 320px;
-  max-height: 70vh;
+  flex: 0 0 340px;
+  max-height: 100%;
   overflow: auto;
   padding: 0.5rem;
   border: 1px solid var(--lapis-border);
@@ -3043,36 +3129,76 @@ html .form-select.is-invalid:focus {
   overflow-wrap: anywhere;
 }
 
+/* Die Bedienleiste unter der Buehne: Gruppen, Ziele von mindestens 44 px, ein Trenner zwischen zwei nicht leeren Gruppen. */
+.lapis-encounter-controls {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--lapis-encounter-bar-h);
+  padding: 0.25rem 0.5rem;
+  border-top: 1px solid var(--lapis-border);
+  overflow-x: auto;
+}
+
+.lapis-encounter-control-group {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.lapis-encounter-control-group:empty {
+  display: none;
+}
+
+.lapis-encounter-control-group + .lapis-encounter-control-group:not(:empty) {
+  padding-inline-start: 0.5rem;
+  border-inline-start: 1px solid var(--lapis-border);
+}
+
+.lapis-encounter-controls .btn {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  .lapis-encounter-side {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    z-index: 5;
+    max-width: 90%;
+    box-shadow: 0 0 0 1px var(--lapis-border-strong);
+  }
+}
+
 @media (max-width: 767.98px) {
   .lapis-encounter-main {
     flex-direction: column;
   }
 
-  .lapis-encounter-room {
-    padding-bottom: 72px;
-  }
-
-  /* Schmaler Bildschirm: sechs Plaetze je Reihe ohne Gang, die Kanzel in voller Breite, die Bedienleiste fest unten (Symbol + Beschriftung). */
-  .lapis-encounter-row {
-    gap: 0.5rem;
+  /* Schmaler Bildschirm: sechs Plaetze je Reihe fast ohne Gang, die Kanzel in voller Breite. Die Leiste zeigt nur Symbole (der Text bleibt als
+     zugaenglicher Name im DOM). Kachel der Szene: 256 x 44. */
+  .lapis-encounter {
+    --lapis-enc-seat: 36px;
+    --lapis-enc-aisle: 8px;
+    --lapis-enc-row-w: 256px;
+    --lapis-enc-row-h: 44px;
   }
 
   .lapis-encounter-seat {
-    width: 36px;
-    height: 36px;
     font-size: 0.75rem;
   }
 
-  .lapis-encounter-controls {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 1030;
-    min-height: 56px;
-    padding: 0.5rem 0.75rem;
-    border-top: 1px solid var(--lapis-border);
-    background: var(--lapis-surface);
+  .lapis-encounter-controls .btn {
+    font-size: 0;
+  }
+
+  .lapis-encounter-controls .btn .lapis-action-icon {
+    margin-inline-end: 0;
+    font-size: 1rem;
   }
 
   .lapis-encounter-side.is-sheet {
@@ -3095,7 +3221,7 @@ html .form-select.is-invalid:focus {
   .lapis-conference-background-preview,
   .lapis-busy,
   .lapis-encounter-seat-hand,
-  .lapis-encounter-seat-amen {
+  .lapis-encounter-seat-event {
     transition: none;
   }
 }

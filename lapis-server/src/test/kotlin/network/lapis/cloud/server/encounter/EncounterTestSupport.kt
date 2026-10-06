@@ -31,6 +31,8 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.rpc.EncounterSpaceService
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EncounterGuestPolicy
+import network.lapis.cloud.shared.domain.EncounterProfile
+import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.and
@@ -310,6 +312,8 @@ internal class EncounterFixtures {
         guestPolicy: EncounterGuestPolicy = EncounterGuestPolicy.MEMBERS_ONLY,
         maxParticipants: Int? = null,
         archived: Boolean = false,
+        profile: EncounterProfile = EncounterProfile.CHURCH_SERVICE,
+        reactions: List<EncounterReactionOption> = EncounterReactionOption.defaultsFor(profile),
     ): Uuid {
         val id = Uuid.random()
         val now = DbClock.nowLocalDateTime()
@@ -319,6 +323,8 @@ internal class EncounterFixtures {
                 it[EncounterSpaceTable.title] = title
                 it[description] = ""
                 it[themeKey] = "CHURCH"
+                it[EncounterSpaceTable.profile] = profile.name
+                it[reactionSet] = reactionSetCsv(reactions)
                 it[mode] = "SERVICE"
                 it[EncounterSpaceTable.guestPolicy] = guestPolicy.name
                 it[EncounterSpaceTable.maxParticipants] = maxParticipants

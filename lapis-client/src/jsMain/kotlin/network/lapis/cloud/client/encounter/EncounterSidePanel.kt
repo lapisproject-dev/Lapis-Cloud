@@ -15,6 +15,9 @@ import network.lapis.cloud.client.actionButton
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.asList
 
+/** DOM id of the side panel (target of `aria-controls` of the button that opens it). */
+internal const val ENCOUNTER_SIDE_PANEL_ID = "lapis-encounter-side"
+
 /** The tabs of the side panel. */
 internal enum class EncounterSideTab { CHAT, PRESENT, STREAM }
 
@@ -22,7 +25,8 @@ internal enum class EncounterSideTab { CHAT, PRESENT, STREAM }
  * V1.9.62 Begegnungsraum (B2) -- the right-hand panel of the room with the tabs "Chat", "Anwesende" and (for people who moderate)
  * "Übertragung". On a wide screen it sits beside the stage and does not take the focus away from anything; below 768 px it is a full
  * screen SHEET: `role="dialog"`, `aria-modal`, Escape closes it, Tab and Shift+Tab cycle inside it, and the focus returns to the
- * element that opened it. The panel is closed by default (a congregation that only listens needs no chrome), and every tab body is
+ * element that opened it. Between 768 and 1199 px (V1.9.67, stage mode) it is an OVERLAY over the right edge of the stage (`is-overlay`):
+ * the stage keeps its width, Escape closes it and the focus returns to the opener; from 1200 px it is a column beside the stage. The panel is closed by default (a congregation that only listens needs no chrome), and every tab body is
  * built by the caller into [hostOf] so the logic of chat, presence and stream stays in its own classes.
  */
 internal class EncounterSidePanel(
@@ -30,7 +34,7 @@ internal class EncounterSidePanel(
     private val tabs: List<EncounterSideTab>,
     private val onTabShown: (EncounterSideTab) -> Unit = {},
 ) {
-    val root: Div = parent.div(className = "lapis-encounter-side")
+    val root: Div = parent.div(className = "lapis-encounter-side").also { it.setAttribute("id", ENCOUNTER_SIDE_PANEL_ID) }
     private val tabList: Div = root.div(className = "lapis-encounter-tabs")
     private val bodies = tabs.associateWith { root.div(className = "lapis-encounter-tabpanel") }
     private val tabButtons = mutableMapOf<EncounterSideTab, Button>()
@@ -44,6 +48,10 @@ internal class EncounterSidePanel(
 
     /** True while the panel is shown as a full-screen sheet (a narrow screen). */
     var isSheet: Boolean = false
+        private set
+
+    /** True while the panel is shown as an overlay over the stage (a medium screen). */
+    var isOverlay: Boolean = false
         private set
 
     init {
@@ -94,6 +102,8 @@ internal class EncounterSidePanel(
         if (!isOpen) {
             opener = document.activeElement as? HTMLElement
             isSheet = window.matchMedia("(max-width: 767.98px)").matches
+            isOverlay = !isSheet && window.matchMedia("(max-width: 1199.98px)").matches
+            if (isOverlay) root.addCssClass("is-overlay")
             if (isSheet) {
                 root.addCssClass("is-sheet")
                 root.setAttribute("role", "dialog")
@@ -110,8 +120,10 @@ internal class EncounterSidePanel(
         if (!isOpen) return
         isOpen = false
         isSheet = false
+        isOverlay = false
         root.hide()
         root.removeCssClass("is-sheet")
+        root.removeCssClass("is-overlay")
         root.removeAttribute("role")
         root.removeAttribute("aria-modal")
         root.removeAttribute("aria-label")

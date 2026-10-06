@@ -310,7 +310,7 @@ A steward starts with both off.
 
 === Scene, pews, reactions
 
-* *Two layers* (design team, Duarte): the scene `lapis-encounter-scene` is a decorative CSS mask of `/assets/encounter-themes/church/church.svg` (set inline by the layout, colour and visibility from `theme.css`; own drawing, vector only, `aria-hidden`);
+* *Two layers* (design team, Duarte): the scene `lapis-encounter-scene-front`/`-rows` are decorative CSS masks of the floor plans under `/assets/encounter-themes/<theme>/` (since V1.9.67, see <<stage-1>>; set inline by the layout, colour and visibility from `theme.css`; own drawings, vector only, `aria-hidden`);
   the stage on top holds opaque surfaces (pulpit, stewards' strip, seats, name labels), so text never sits on the motif. Contrast pairs are documented in `theme.css`
   (`--lapis-encounter-*`, light and dark). "Szene aus" removes the layer; forced-colours and `prefers-contrast: more` hide it automatically.
 * *Pews* (`EncounterSeating`): 2 blocks of 3 seats per row, an aisle between, filled alternately left/right from the front; the plan grows by one row of six when full and never
@@ -370,9 +370,86 @@ storage means "scene on". `ClientEncounterPrivacyTripwireTest` pins this togethe
 * No test on a real device; the Karma tests run in headless Chrome.
 * Not included: pause/resume of the transmission, a help page, activating a destination, a request-to-speak flow, subtitles, further scenes.
 
+[[stage-1]]
+== Stage 1 (V1.9.67): room profiles, configurable reactions, stage mode, floor-plan scenes
+
+A room now has a *profile* (`encounter_space.profile`, V76) and a *reaction set* (`encounter_space.reaction_set`). Both describe the *room*, never a person: no new
+table, no new column with personal data, no log of reactions, so the Art. 9 position of the room is unchanged.
+
+=== Profiles and vocabulary
+
+[cols="2,3,3"]
+|===
+| | `CHURCH_SERVICE` (default, every existing room) | `ASSEMBLY`
+
+| Who speaks | Kanzel (pulpit) | Podium
+| Who moderates | Ordner im Gottesdienst | Moderation
+| Who listens | Gemeinde | Teilnehmende
+| Default reactions | hand, amen | hand, applause
+| Scene | chancel, pews | podium, chairs
+| Consent text | `EncounterConsentDisclaimer` (`2026-10-06.v1`) | `EncounterAssemblyConsentDisclaimer` (`2026-10-07.assembly.v1`)
+|===
+
+All profile words live in one client file (`EncounterVocabulary.kt`, `EncounterTerms`); `ClientEncounterVocabularyTripwireTest` fails the build if another file of
+`client/encounter/` writes one of them as a literal or branches on the profile. `theme_key` stays frozen at `CHURCH` so a cached old client still decodes `EncounterTheme`;
+the profile is the truth. Existing rooms get `CHURCH_SERVICE` and `HAND,AMEN` from the migration: the behaviour of a running church room does not change.
+
+=== Reaction set
+
+`HAND`, `AMEN`, `APPLAUSE`, `HEART`. There is deliberately no thumbs-up: in an assembly it reads as a vote. `HAND` is always on (a person must always be able to ask for the floor);
+`HAND_LOWERED` is the wire counterpart of `HAND` and is never selectable. The server stores the canonical list (`EncounterReactionOption.normalize`: deduplicated, fixed order, `HAND` first)
+as a CSV and rejects a list of more than 8 entries (DoS guard). The order of the buttons is fixed. The set is enforced *on the client only*: the server never reads a reaction (data channel,
+no server path), so the client builds a button per allowed option and drops a received reaction the room does not allow (`admitReaction`; silent, no log, no counter). A manipulated client can
+still send anything; the 32-byte limit, the per-sender receive limit and "only people who sit can react" stay in force. The three event reactions share one 5 s send budget; the hand has its own 2 s budget and
+is never blocked by an event. A seat has one event slot (a newer event replaces the older), announced as one fixed sentence at most every 10 s, never as a count.
+
+=== Changing the profile
+
+`createSpace`: `profile = null` means `CHURCH_SERVICE`, `reactions = null` means the defaults of the profile. `updateSpace`: `null` means *unchanged* -- an old cached admin client sends neither field
+and must not silently turn an assembly into a church service. A real change of profile or reactions while a session is open is a `ConflictException` (same pattern as the guest policy): the
+vocabulary and the reaction set cannot change under people who are present. Unchanged values while open are accepted; title, description, notice and maximum stay editable. Only BOARD/ADMIN, as before.
+The audit snapshot (`configSnapshot`) gets `profile` and `reactions` (room values only; the only member id in an audit entry is still the actor's).
+
+=== Consent per profile
+
+The consent a guest gives is bound to a text (`encounterConsentFor(profile)`). A guest who consented for a church service must consent again for an assembly: the purpose is another (Art. 9: a political
+opinion or worldview instead of a religious belief). `getEntryInfo`, `enterSpace` (version and hash must match the room's own text, constant-time compare), the stored proof and `hasCurrentConsent` all use the room's text.
+The church text and its hash are unchanged, so existing consents stay valid. *The assembly text is a draft and MUST be reviewed by a lawyer.*
+
+=== Stage mode
+
+* The room fills the height under the header (`--lapis-header-h`, a token) minus the bar; `100vh` first, `100dvh` second (older Safari has no `dvh`). The pulpit/podium keeps 16:9 and takes at most
+  62 % of the room height; the old 720 px cap is gone (`ClientEncounterVocabularyTripwireTest` pins that). The benches sit below in their own scrolling area.
+* The side panel: from 1200 px a 340 px column (closable), from 768 to 1199 px an *overlay* over the right edge (closed by default, Escape closes it, focus returns to the opener), below 768 px the full-screen sheet.
+  The toggle carries `aria-expanded` and `aria-controls`; the state lives in memory only.
+* Full screen (`EncounterFullscreen`): the Fullscreen API on the room element; without it (or when `requestFullscreen()` is rejected) the room gets `is-pseudo-fullscreen` (`position: fixed; inset: 0`) and Escape leaves it.
+  Listeners are removed when the person leaves. Nothing is stored.
+* The bar (`EncounterControlBar`) has groups: reactions | devices (office holders) | panel | view (scene, full screen) | moderation. Targets are at least 44 px; below 768 px only the symbols are visible (the text stays as the accessible name).
+  The "Verlassen" button stays in the page header: in full screen the header is not visible, Escape leaves the full screen first.
+
+=== Floor-plan scenes
+
+`church/{front,row}.svg` and `hall/{front,row}.svg` (drawn for this project, see `PROVENANCE.adoc`), loaded as CSS masks: the front once at the top, the row (352 x 56 units) tiled behind the seats (`--lapis-enc-row-w` x `--lapis-enc-row-h`
+equal one row of seats; a DOM test checks that against the seat grid). Colour only from `--lapis-encounter-scene-ink`/`-tint` (light and dark); hidden in `forced-colors` and `prefers-contrast: more`; "Szene aus" removes both layers.
+The old front view `church.svg` was removed.
+
+=== Known limitations of stage 1
+
+* Not tested on a real device, in Safari or in the mobile WebView (`Lapis-Cloud-Mobile`), where the Fullscreen API is often missing: the CSS fallback exists but was not seen there.
+* The translations (en, fr, nl, it, es, pl, ru) are agent translations, not reviewed by native speakers.
+* Profile and reactions are enforced on the client only (see above).
+* The order of the reaction buttons is fixed; a custom order is not part of stage 1.
+* There is no organization-wide default profile (it would need a column and a settings page in `organization_settings` and a further permission surface; two to five rooms per organization do not justify it yet).
+* The assembly consent text has not been reviewed by a lawyer.
+* Stages 2 and 3 of the encounter-room plan (not part of this wave) are not included.
+* Wire compatibility with a cached old tab is proven by a test (`EncounterWireCompatTest`: Kilua's JSON ignores unknown keys), not by a live old client.
+* The header height token `--lapis-header-h` is a fixed estimate (navigation plus page header); a taller header shortens the stage, `min-height: 480px` keeps it usable.
+* The side navigation still shows a church symbol for "Begegnungsräume" in every organization (open question, not changed in this wave).
+
 == Open questions (for the product owner and legal)
 
 . The wording of the Art. 9 consent (`EncounterConsentDisclaimer`, version `2026-10-06.v1`) -- a draft, legal review required.
 . Retention of `encounter_consent_acknowledgment` -- kept as accountability proof, the period is open.
 . Whether the audit entry of `setSpaceRoles` should carry the office holders' ids (as now) or only counts.
 . Listing the participants of an encounter session in the ordinary API is refused (`listParticipants`); the only roster is `listPresent`.
+. The wording of the assembly consent (`EncounterAssemblyConsentDisclaimer`, version `2026-10-07.assembly.v1`) -- a draft, legal review required. Until then an operator may keep assembly rooms on `MEMBERS_ONLY`.

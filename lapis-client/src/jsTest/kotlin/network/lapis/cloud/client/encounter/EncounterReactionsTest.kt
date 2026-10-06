@@ -2,6 +2,8 @@ package network.lapis.cloud.client.encounter
 
 import network.lapis.cloud.shared.domain.ENCOUNTER_REACTION_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.EncounterReaction
+import network.lapis.cloud.shared.domain.EncounterReactionOption
+import network.lapis.cloud.shared.domain.option
 import org.khronos.webgl.Uint8Array
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -77,11 +79,11 @@ class EncounterReactionsTest {
     fun amenIsLimitedToOnePerFiveSeconds_andTheHandToggleToOnePerTwo() {
         var clock = 1_000.0
         val throttle = EncounterReactionSendThrottle { clock }
-        assertTrue(throttle.tryAmen())
+        assertTrue(throttle.tryEvent())
         clock += 4_999
-        assertFalse(throttle.tryAmen())
+        assertFalse(throttle.tryEvent())
         clock += 1
-        assertTrue(throttle.tryAmen())
+        assertTrue(throttle.tryEvent())
 
         assertTrue(throttle.tryHandToggle())
         clock += 1_999
@@ -89,7 +91,7 @@ class EncounterReactionsTest {
         clock += 1
         assertTrue(throttle.tryHandToggle())
         // the two limits are independent
-        assertFalse(throttle.tryAmen())
+        assertFalse(throttle.tryEvent())
     }
 
     // ── receiver-side limits ─────────────────────────────────────────────────────
@@ -155,13 +157,69 @@ class EncounterReactionsTest {
     @Test
     fun amenAnnouncements_areBundled_toOneEveryTenSeconds() {
         var clock = 0.0
-        val announcer = EncounterAmenAnnouncer({ clock })
-        assertTrue(announcer.onAmen())
+        val announcer = EncounterEventAnnouncer({ clock })
+        assertTrue(announcer.onEvent())
         repeat(20) {
             clock += 400
-            assertFalse(announcer.onAmen(), "within the gap")
+            assertFalse(announcer.onEvent(), "within the gap")
         }
         clock += 10_000
-        assertTrue(announcer.onAmen())
+        assertTrue(announcer.onEvent())
+    }
+
+    // ── V1.9.67: configurable reactions ───────────────────────────────────────────────
+
+    @Test
+    fun admitReaction_dropsWhatTheRoomDoesNotAllow_andAlwaysLetsTheHandThrough() {
+        val churchSet = setOf(EncounterReactionOption.HAND, EncounterReactionOption.AMEN)
+        assertTrue(admitReaction(EncounterReaction.AMEN, churchSet))
+        assertFalse(admitReaction(EncounterReaction.APPLAUSE, churchSet))
+        assertFalse(admitReaction(EncounterReaction.HEART, churchSet))
+        val assemblySet = setOf(EncounterReactionOption.HAND, EncounterReactionOption.APPLAUSE)
+        assertTrue(admitReaction(EncounterReaction.APPLAUSE, assemblySet))
+        assertFalse(admitReaction(EncounterReaction.AMEN, assemblySet))
+        // HAND_LOWERED belongs to the hand: it passes in every room that has a hand (all of them)
+        listOf(churchSet, assemblySet, setOf(EncounterReactionOption.HAND)).forEach {
+            assertTrue(admitReaction(EncounterReaction.HAND, it))
+            assertTrue(admitReaction(EncounterReaction.HAND_LOWERED, it))
+        }
+    }
+
+    @Test
+    fun anUnknownOrOldReactionName_decodesToNull_andNeverThrows() {
+        listOf("THUMBS_UP", "", "amen", "HAND ", "null").forEach {
+            assertNull(EncounterReactionWire.decodeText("{\"r\":\"$it\"}"), it)
+        }
+        assertNull(EncounterReactionWire.decodeText("{\"r\":5}"))
+        assertNull(EncounterReactionWire.decodeText("[]"))
+        assertEquals(EncounterReaction.APPLAUSE, EncounterReactionWire.decodeText("{\"r\":\"APPLAUSE\"}"))
+        assertEquals(EncounterReaction.HEART, EncounterReactionWire.decodeText("{\"r\":\"HEART\"}"))
+    }
+
+    @Test
+    fun theLongestPayload_stillFitsTheLimit() {
+        EncounterReaction.entries.forEach {
+            assertTrue(
+                EncounterReactionWire.encode(it).length <= network.lapis.cloud.shared.domain.ENCOUNTER_REACTION_MAX_PAYLOAD_BYTES,
+                it.name,
+            )
+        }
+    }
+
+    @Test
+    fun theEventReactions_shareOneBudget_andTheHandIsNeverBlockedByThem() {
+        var clock = 0.0
+        val throttle = EncounterReactionSendThrottle { clock }
+        assertTrue(throttle.tryEvent())
+        assertFalse(throttle.tryEvent(), "applause right after an amen shares the budget")
+        assertTrue(throttle.tryHandToggle(), "the hand is a separate budget")
+        clock += EncounterReactionSendThrottle.EVENT_GAP_MS
+        assertTrue(throttle.tryEvent())
+    }
+
+    @Test
+    fun everyOption_hasItsWireReaction_andBack() {
+        EncounterReactionOption.entries.forEach { assertEquals(it, it.toWire().option()) }
+        assertEquals(EncounterReactionOption.HAND, EncounterReaction.HAND_LOWERED.option())
     }
 }

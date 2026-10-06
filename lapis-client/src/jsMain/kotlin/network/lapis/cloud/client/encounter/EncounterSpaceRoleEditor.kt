@@ -41,7 +41,7 @@ private class EncounterRoleEditorData(
 )
 
 /**
- * V1.9.62 -- the office editor of one space ("Ämter"), BOARD/ADMIN only: who is on the pulpit ("Kanzel", speaks) and who is a steward
+ * V1.9.62 -- the office editor of one space ("Ämter"), BOARD/ADMIN only: who speaks (the pulpit or podium) and who is a steward
  * ("Ordner", speaks and moderates). The list is edited LOCALLY (add a person with a role, remove one) and saved as a whole with
  * `setSpaceRoles` (replace-all, at most [ENCOUNTER_MAX_ROLE_ASSIGNMENTS]); a person holds one office per space. The people come from the
  * same member source as every other person picker (`IMemberService.listMembers`, ACTIVE members only) through a [SearchableSelect].
@@ -88,7 +88,7 @@ private fun renderRoleEditorBody(
         entries.toList().forEach { entry ->
             val row = listPanel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center") }
             row.untrustedSpan(names[entry.memberId] ?: entry.memberId, className = "flex-grow-1")
-            row.div(encounterSpaceRoleLabel(entry.role), className = "text-muted small")
+            row.div(encounterSpaceRoleLabel(entry.role, space.profile), className = "text-muted small")
             row.actionButton(ActionIcon.REMOVE, tr("Amt entziehen"), style = ButtonStyle.OUTLINESECONDARY, small = true).onClick {
                 entries.remove(entry)
                 redraw()
@@ -109,7 +109,7 @@ private fun renderRoleEditorBody(
     val roleField =
         addForm.selectField(
             label = tr("Amt"),
-            options = EncounterSpaceRole.entries.map { it.name to encounterSpaceRoleLabel(it) },
+            options = EncounterSpaceRole.entries.map { it.name to encounterSpaceRoleLabel(it, space.profile) },
             value = EncounterSpaceRole.PULPIT.name,
             required = true,
         )

@@ -5,6 +5,7 @@ import network.lapis.cloud.shared.domain.EncounterEntryDto
 import network.lapis.cloud.shared.domain.EncounterEntryInfoDto
 import network.lapis.cloud.shared.domain.EncounterPresenceRole
 import network.lapis.cloud.shared.domain.EncounterPresentDto
+import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
 
@@ -34,8 +35,8 @@ internal sealed interface EncounterViewPhase {
 /** The label of the one entry button: an office holder is told which office they enter with. */
 internal fun encounterEnterLabel(space: EncounterSpaceDto): String =
     when (space.myRole) {
-        EncounterSpaceRole.PULPIT -> gettext("Eintreten und Kanzel übernehmen")
-        EncounterSpaceRole.STEWARD -> gettext("Eintreten als Ordner")
+        EncounterSpaceRole.PULPIT -> termsFor(space.profile).enterAsSpeakerLabel()
+        EncounterSpaceRole.STEWARD -> termsFor(space.profile).enterAsStewardLabel()
         null -> gettext("Eintreten")
     }
 
@@ -70,12 +71,10 @@ internal fun encounterCanActOn(
 }
 
 /**
- * The role label of a present person (static constants). The steward is NOT the bare msgid "Ordner": that one already means "folder"
- * (documents) in every catalog, so it gets its own, unambiguous sentence.
+ * The role label of a present person, in the vocabulary of the room's [profile] ([EncounterTerms.presenceRoleLabel]). The steward is NOT
+ * the bare msgid "Ordner": that one already means "folder" (documents) in every catalog, so it gets its own, unambiguous sentence.
  */
-internal fun encounterPresenceRoleLabel(role: EncounterPresenceRole): String =
-    when (role) {
-        EncounterPresenceRole.PULPIT -> gettext("Kanzel")
-        EncounterPresenceRole.STEWARD -> gettext("Ordner im Gottesdienst")
-        EncounterPresenceRole.CONGREGATION -> gettext("Gemeinde")
-    }
+internal fun encounterPresenceRoleLabel(
+    role: EncounterPresenceRole,
+    profile: EncounterProfile,
+): String = termsFor(profile).presenceRoleLabel(role)

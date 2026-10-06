@@ -24,6 +24,7 @@ import network.lapis.cloud.client.rpcService
 import network.lapis.cloud.client.untrustedDiv
 import network.lapis.cloud.client.untrustedSpan
 import network.lapis.cloud.shared.domain.EncounterPresentDto
+import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IEncounterSpaceService
 
@@ -43,9 +44,12 @@ import network.lapis.cloud.shared.rpc.IEncounterSpaceService
 internal class EncounterPresentPanel(
     parent: Container,
     private val spaceId: String,
+    private val terms: EncounterTerms,
     private val viewer: EncounterViewerRights,
     private val raisedHands: () -> List<String>,
     private val onRoster: (List<EncounterPresentDto>) -> Unit,
+    // Called right before a confirmation dialog opens: the room leaves the full screen so the dialog (mounted at body level) is visible.
+    private val beforeDialog: () -> Unit = {},
 ) {
     val root: Div = parent.div(className = "lapis-encounter-present")
     private var content: SimplePanel? = null
@@ -128,7 +132,7 @@ internal class EncounterPresentPanel(
         val row = panel.hPanel(spacing = 8) { addCssClasses("border-bottom py-1 align-items-center lapis-encounter-person") }
         val text = row.vPanel(spacing = 0) { addCssClass("flex-grow-1") }
         text.untrustedDiv(person.displayName)
-        val facts = encounterPersonFacts(person, showGuestMarker = viewer.canModerate)
+        val facts = encounterPersonFacts(person, showGuestMarker = viewer.canModerate, profile = terms.profile)
         if (facts.isNotEmpty()) text.div(facts, className = "text-muted small")
         if (!encounterCanActOn(viewer = viewer, target = person)) return
         row.actionButton(ActionIcon.SILENCE, tr("Stummschalten"), style = ButtonStyle.OUTLINESECONDARY, small = true).onClick {
@@ -137,9 +141,10 @@ internal class EncounterPresentPanel(
             }
         }
         row.actionButton(ActionIcon.REMOVE, tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER, small = true).onClick {
+            beforeDialog()
             confirmDialog(
                 title = tr("Diese Person entfernen?"),
-                message = tr("Die Person verlässt den Raum und kann bis zum Ende dieses Gottesdienstes nicht wieder eintreten."),
+                message = terms.removalWarningContent(),
                 confirmLabel = tr("Entfernen"),
                 confirmIcon = ActionIcon.REMOVE,
             ) {
@@ -178,12 +183,13 @@ internal class EncounterPresentPanel(
 internal fun encounterPersonFacts(
     person: EncounterPresentDto,
     showGuestMarker: Boolean,
+    profile: EncounterProfile,
 ): String =
     listOfNotNull(
         if (person.role !=
             network.lapis.cloud.shared.domain.EncounterPresenceRole.CONGREGATION
         ) {
-            encounterPresenceRoleLabel(person.role)
+            encounterPresenceRoleLabel(person.role, profile)
         } else {
             null
         },

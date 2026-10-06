@@ -80,4 +80,12 @@ enum class ActionIcon(
 
     /** V1.9.66: end the meeting for everyone (power off). Deliberately NOT [LEAVE] (own exit) and NOT [CLOSE_DOORS] (encounter room). */
     END_FOR_ALL("fas fa-power-off"),
+
+    /** V1.9.67: the configurable reactions of an encounter room besides [HAND] and [AMEN]: applause and a heart. */
+    APPLAUSE("fas fa-hands-clapping"),
+    HEART("fas fa-heart"),
+
+    /** V1.9.67: stage mode of the encounter room, enter and leave the full screen. */
+    FULLSCREEN("fas fa-expand"),
+    FULLSCREEN_EXIT("fas fa-compress"),
 }

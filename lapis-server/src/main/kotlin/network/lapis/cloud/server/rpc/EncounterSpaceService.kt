@@ -20,13 +20,17 @@ import network.lapis.cloud.server.db.generated.EncounterSpaceTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.db.withSavepoint
-import network.lapis.cloud.server.encounter.EncounterConsentDisclaimer
+import network.lapis.cloud.server.encounter.EncounterConsentText
 import network.lapis.cloud.server.encounter.EncounterModerationState
 import network.lapis.cloud.server.encounter.EncounterRoles
 import network.lapis.cloud.server.encounter.EncounterSessionTeardown
 import network.lapis.cloud.server.encounter.EncounterSessions
 import network.lapis.cloud.server.encounter.EncounterSpaceViews
 import network.lapis.cloud.server.encounter.effectiveMaxParticipants
+import network.lapis.cloud.server.encounter.encounterConsentFor
+import network.lapis.cloud.server.encounter.parseReactionSet
+import network.lapis.cloud.server.encounter.profileOf
+import network.lapis.cloud.server.encounter.reactionSetCsv
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.isPrivileged
@@ -46,12 +50,15 @@ import network.lapis.cloud.shared.domain.EncounterEntryInfoDto
 import network.lapis.cloud.shared.domain.EncounterGuestPolicy
 import network.lapis.cloud.shared.domain.EncounterPresenceRole
 import network.lapis.cloud.shared.domain.EncounterPresentDto
+import network.lapis.cloud.shared.domain.EncounterProfile
+import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.EncounterSpaceInput
 import network.lapis.cloud.shared.domain.EncounterSpaceMode
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
 import network.lapis.cloud.shared.domain.EncounterSpaceRoleAssignmentInput
 import network.lapis.cloud.shared.domain.EncounterSpaceRoleDto
+import network.lapis.cloud.shared.domain.EncounterTheme
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.rpc.BadRequestException
@@ -93,6 +100,7 @@ private const val MAX_TITLE_LENGTH = 200
 private const val MAX_DESCRIPTION_LENGTH = 1000
 private const val MAX_NOTICE_LENGTH = 200
 private const val MAX_ROLE_ASSIGNMENTS = 20
+private const val MAX_REACTION_OPTIONS = 8
 private const val MAX_LIST_RESULTS = 200
 private const val MIN_SPACE_PARTICIPANTS = 2
 
@@ -166,11 +174,13 @@ class EncounterSpaceService(
         return transaction {
             val status = requireConferenceEligibleMembership(memberId = current.memberId)
             val row = loadVisibleSpace(spaceId = id, current = current, status = status)
-            val consentRequired = status in MemberStatusSets.NON_MEMBER && !hasCurrentConsent(memberId = current.memberId)
+            val consentText = encounterConsentFor(profileOf(row))
+            val consentRequired =
+                status in MemberStatusSets.NON_MEMBER && !hasCurrentConsent(memberId = current.memberId, text = consentText)
             EncounterEntryInfoDto(
                 space = EncounterSpaceViews.toDtos(rows = listOf(row), current = current, config = config).single(),
                 consentRequired = consentRequired,
-                disclaimer = if (consentRequired) disclaimerDto() else null,
+                disclaimer = if (consentRequired) disclaimerDto(consentText) else null,
             )
         }
     }
@@ -205,11 +215,16 @@ class EncounterSpaceService(
         return transaction {
             requireConfigAuthority(current)
             val newId = Uuid.random()
+            val newProfile = valid.profile ?: EncounterProfile.CHURCH_SERVICE
+            val newReactions = valid.reactions ?: EncounterReactionOption.defaultsFor(newProfile)
             EncounterSpaceTable.insert {
                 it[EncounterSpaceTable.id] = newId
                 it[EncounterSpaceTable.title] = valid.title
                 it[EncounterSpaceTable.description] = input.description
-                it[EncounterSpaceTable.themeKey] = input.theme.name
+                // theme_key stays frozen at CHURCH (V1.9.67): old cached clients still decode EncounterTheme; the profile is the truth.
+                it[EncounterSpaceTable.themeKey] = EncounterTheme.CHURCH.name
+                it[EncounterSpaceTable.profile] = newProfile.name
+                it[EncounterSpaceTable.reactionSet] = reactionSetCsv(newReactions)
                 it[EncounterSpaceTable.mode] = EncounterSpaceMode.SERVICE.name
                 it[EncounterSpaceTable.guestPolicy] = input.guestPolicy.name
                 it[EncounterSpaceTable.maxParticipants] = input.maxParticipants
@@ -249,10 +264,20 @@ class EncounterSpaceService(
                 // Already-present non-members would otherwise stay inside a room that no longer admits them.
                 throw ConflictException("The guest policy can only be changed while the encounter space is closed")
             }
+            val newProfile = valid.profile ?: profileOf(before)
+            val newReactions = valid.reactions ?: parseReactionSet(before[EncounterSpaceTable.reactionSet])
+            val changesProfile =
+                newProfile != profileOf(before) ||
+                    reactionSetCsv(newReactions) != reactionSetCsv(parseReactionSet(before[EncounterSpaceTable.reactionSet]))
+            if (changesProfile && EncounterSessions.openSession(spaceId = id) != null) {
+                // The vocabulary and the reaction set cannot change under people who are present (same pattern as the guest policy).
+                throw ConflictException("The profile and the reactions can only be changed while the encounter space is closed")
+            }
             EncounterSpaceTable.update({ EncounterSpaceTable.id eq id }) {
                 it[EncounterSpaceTable.title] = valid.title
                 it[EncounterSpaceTable.description] = input.description
-                it[EncounterSpaceTable.themeKey] = input.theme.name
+                it[EncounterSpaceTable.profile] = newProfile.name
+                it[EncounterSpaceTable.reactionSet] = reactionSetCsv(newReactions)
                 it[EncounterSpaceTable.guestPolicy] = input.guestPolicy.name
                 it[EncounterSpaceTable.maxParticipants] = input.maxParticipants
                 it[EncounterSpaceTable.closedNotice] = valid.closedNotice
@@ -674,6 +699,8 @@ class EncounterSpaceService(
     private data class ValidInput(
         val title: String,
         val closedNotice: String?,
+        val profile: EncounterProfile?,
+        val reactions: List<EncounterReactionOption>?,
     )
 
     private data class OpenOutcome(
@@ -693,6 +720,7 @@ class EncounterSpaceService(
         val canModerate: Boolean,
         val effectiveMax: Int,
         val needsConsentRow: Boolean,
+        val consentText: EncounterConsentText,
     ) {
         val isNonMember: Boolean get() = status in MemberStatusSets.NON_MEMBER
     }
@@ -714,7 +742,16 @@ class EncounterSpaceService(
         ) {
             throw BadRequestException("maxParticipants must be at least $MIN_SPACE_PARTICIPANTS")
         }
-        return ValidInput(title = title, closedNotice = notice)
+        val reactions = input.reactions
+        if (reactions != null && reactions.size > MAX_REACTION_OPTIONS) {
+            throw BadRequestException("at most $MAX_REACTION_OPTIONS reactions are allowed")
+        }
+        return ValidInput(
+            title = title,
+            closedNotice = notice,
+            profile = input.profile,
+            reactions = reactions?.let { EncounterReactionOption.normalize(it) },
+        )
     }
 
     /** Everything an entry needs, derived from the database NOW. Throws on any denial. Runs inside a transaction (no lock itself). */
@@ -734,13 +771,14 @@ class EncounterSpaceService(
         val role = EncounterRoles.roleOf(spaceId = spaceId, memberId = current.memberId)
         // A non-member needs the current Art. 9 consent: either already on file, or submitted now (verbatim, never altered).
         var needsConsentRow = false
-        if (status in MemberStatusSets.NON_MEMBER && !hasCurrentConsent(memberId = current.memberId)) {
+        val consentText = encounterConsentFor(profileOf(space))
+        if (status in MemberStatusSets.NON_MEMBER && !hasCurrentConsent(memberId = current.memberId, text = consentText)) {
             val submitted =
                 consent
                     ?: throw ConflictException(
                         "A non-member must acknowledge the current consent text before entering -- call getEntryInfo and submit it unmodified",
                     )
-            if (!EncounterConsentDisclaimer.matches(version = submitted.consentVersion, sha256 = submitted.consentSha256)) {
+            if (!consentText.matches(version = submitted.consentVersion, sha256 = submitted.consentSha256)) {
                 throw ConflictException("consentVersion/consentSha256 do not match the current consent text -- call getEntryInfo again")
             }
             needsConsentRow = true
@@ -757,6 +795,7 @@ class EncounterSpaceService(
             canModerate = role != null || current.isPrivileged, // PULPIT and STEWARD, consistent with requireSpaceModerator
             effectiveMax = effectiveMaxParticipants(spaceRow = space, config = config),
             needsConsentRow = needsConsentRow,
+            consentText = consentText,
         )
     }
 
@@ -811,7 +850,7 @@ class EncounterSpaceService(
                 it[ConferenceParticipationTable.leftAt] = null
             }
         }
-        if (prep.needsConsentRow) recordConsent(memberId = current.memberId, consent = consent!!)
+        if (prep.needsConsentRow) recordConsent(memberId = current.memberId, consent = consent!!, text = prep.consentText)
     }
 
     /**
@@ -821,14 +860,15 @@ class EncounterSpaceService(
     private fun recordConsent(
         memberId: Uuid,
         consent: EncounterConsentInput,
+        text: EncounterConsentText,
     ) {
         try {
             withSavepoint(name = "encounter_consent") {
                 EncounterConsentAcknowledgmentTable.insert {
                     it[EncounterConsentAcknowledgmentTable.memberId] = memberId
-                    it[EncounterConsentAcknowledgmentTable.consentVersion] = consent.consentVersion
+                    it[EncounterConsentAcknowledgmentTable.consentVersion] = text.version
                     // Canonical lowercase hash: matches() is case-insensitive, hasCurrentConsent() compares exactly; the value equals the submitted one.
-                    it[EncounterConsentAcknowledgmentTable.consentSha256] = EncounterConsentDisclaimer.SHA256
+                    it[EncounterConsentAcknowledgmentTable.consentSha256] = text.sha256
                     it[EncounterConsentAcknowledgmentTable.acknowledgedOn] = OrganizationTimeZone.today()
                 }
             }
@@ -973,23 +1013,26 @@ class EncounterSpaceService(
             .where { EncounterSpaceRoleTable.spaceId eq spaceId }
             .map { it[EncounterSpaceRoleTable.memberId] to it[EncounterSpaceRoleTable.role] }
 
-    private fun hasCurrentConsent(memberId: Uuid): Boolean =
+    private fun hasCurrentConsent(
+        memberId: Uuid,
+        text: EncounterConsentText,
+    ): Boolean =
         EncounterConsentAcknowledgmentTable
             .selectAll()
             .where {
                 (EncounterConsentAcknowledgmentTable.memberId eq memberId) and
-                    (EncounterConsentAcknowledgmentTable.consentVersion eq EncounterConsentDisclaimer.VERSION) and
-                    (EncounterConsentAcknowledgmentTable.consentSha256 eq EncounterConsentDisclaimer.SHA256)
+                    (EncounterConsentAcknowledgmentTable.consentVersion eq text.version) and
+                    (EncounterConsentAcknowledgmentTable.consentSha256 eq text.sha256)
             }.limit(1)
             .any()
 
-    private fun disclaimerDto() =
+    private fun disclaimerDto(text: EncounterConsentText) =
         EncounterConsentDisclaimerDto(
-            version = EncounterConsentDisclaimer.VERSION,
-            headline = EncounterConsentDisclaimer.HEADLINE,
-            keyPoints = EncounterConsentDisclaimer.KEY_POINTS,
-            text = EncounterConsentDisclaimer.TEXT,
-            sha256 = EncounterConsentDisclaimer.SHA256,
+            version = text.version,
+            headline = text.headline,
+            keyPoints = text.keyPoints,
+            text = text.text,
+            sha256 = text.sha256,
         )
 
     /** Configuration is BOARD/ADMIN only (and an ACTIVE member). */

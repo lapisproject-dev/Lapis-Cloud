@@ -7,22 +7,21 @@ import io.kvision.html.div
 import io.kvision.html.icon
 import io.kvision.html.span
 import io.kvision.i18n.gettext
-import io.kvision.i18n.tr
 import kotlinx.browser.window
 import network.lapis.cloud.client.sanitizeUntrustedI18nText
 import network.lapis.cloud.client.untrustedContent
+import network.lapis.cloud.shared.domain.EncounterReactionOption
 
-/** How long an amen stays visible at its seat, in milliseconds (a short, quiet symbol, never a counter). */
-internal const val ENCOUNTER_AMEN_VISIBLE_MS = 3_000
-
-/** Path of the church scene. The scene is a decorative mask (see `theme.css`); the operation never sits on it. */
-internal const val ENCOUNTER_CHURCH_SCENE_PATH = "/assets/encounter-themes/church/church.svg"
+/** How long an event reaction (amen, applause, heart) stays visible at its seat, in milliseconds (a short, quiet symbol, never a counter). */
+internal const val ENCOUNTER_EVENT_VISIBLE_MS = 3_000
 
 /**
  * V1.9.62 Begegnungsraum (B2) -- the two layers of the room (design team, Duarte: scene and operation in separate layers):
  *
- * - **Layer 0, the scene** (`lapis-encounter-scene`): a decorative CSS mask of the church outline, `aria-hidden`, switched off by
- *   "Szene aus", by forced-colours/high-contrast modes and removed from the picture when switched off.
+ * - **Layer 0, the scene** (`lapis-encounter-scene-front` and `lapis-encounter-scene-rows`): a floor plan seen from above, drawn as CSS
+ *   masks, `aria-hidden`: the front (chancel or podium) once at the top, one row of benches or chairs tiled behind the seats. Switched
+ *   off by "Szene aus", by forced-colours/high-contrast modes and removed from the picture when switched off. Which drawing is used
+ *   comes from the room's [EncounterTerms] (the profile); this class never asks the profile itself.
  * - **Layer 1, the stage** (`lapis-encounter-stage`): an opaque surface (`--lapis-encounter-surface`) with the pulpit, the stewards'
  *   strip and the pews. Text is always on this surface, never on the scene, so contrast does not depend on the motif.
  *
@@ -31,32 +30,36 @@ internal const val ENCOUNTER_CHURCH_SCENE_PATH = "/assets/encounter-themes/churc
  */
 internal class EncounterSceneLayout(
     parent: Container,
+    private val terms: EncounterTerms,
 ) {
     val root: Div = parent.div(className = "lapis-encounter")
-    private val sceneLayer: Div = root.div(className = "lapis-encounter-scene")
+    private val sceneLayer: Div = root.div(className = "lapis-encounter-scene lapis-encounter-scene-front")
     private val stage: Div = root.div(className = "lapis-encounter-stage")
 
     /** The pulpit region; the keyboard focus lands here after entering (`tabindex=-1`: focusable by script, not a tab stop). */
     val pulpit: Div = stage.div(className = "lapis-encounter-pulpit")
     private val pulpitTiles: Div = pulpit.div(className = "lapis-encounter-pulpit-tiles")
-    private val pulpitEmpty: Div = pulpit.div(tr("Die Kanzel ist noch leer."), className = "lapis-encounter-pulpit-empty")
+    private val pulpitEmpty: Div = pulpit.div(terms.emptyStageContent(), className = "lapis-encounter-pulpit-empty")
     private val stewards: Div = stage.div(className = "lapis-encounter-stewards")
-    private val benches: Div = stage.div(className = "lapis-encounter-benches")
+    private val benchesFrame: Div = stage.div(className = "lapis-encounter-benches-frame")
+    private val rowsLayer: Div = benchesFrame.div(className = "lapis-encounter-scene lapis-encounter-scene-rows")
+    private val benches: Div = benchesFrame.div(className = "lapis-encounter-benches")
     val seats: EncounterSeatGrid = EncounterSeatGrid(benches)
 
     init {
         sceneLayer.setAttribute("aria-hidden", "true")
-        // The decorative mask: set inline because the bundler would try to resolve a `url()` in theme.css at build time, and the file is a
-        // runtime asset served from `/assets` (staged by `stageVideoEffectAssets`). Colour and visibility come from theme.css.
-        val mask = "url(\"$ENCOUNTER_CHURCH_SCENE_PATH\") center / contain no-repeat"
-        sceneLayer.setStyle("-webkit-mask", mask)
-        sceneLayer.setStyle("mask", mask)
+        rowsLayer.setAttribute("aria-hidden", "true")
+        // The decorative masks: set inline because the bundler would try to resolve a `url()` in theme.css at build time, and the files are
+        // runtime assets served from `/assets` (staged by `stageVideoEffectAssets`). Size, repeat, colour and visibility come from theme.css
+        // through the custom properties below.
+        sceneLayer.setStyle("--lapis-enc-scene-front", "url(\"${terms.sceneFrontPath}\")")
+        rowsLayer.setStyle("--lapis-enc-scene-row", "url(\"${terms.sceneRowPath}\")")
         pulpit.setAttribute("tabindex", "-1")
         pulpit.setAttribute("role", "group")
         benches.setAttribute("role", "list")
-        benches.setAttribute("aria-label", gettext("Gemeinde"))
+        benches.setAttribute("aria-label", terms.audienceName())
         stewards.setAttribute("role", "group")
-        stewards.setAttribute("aria-label", gettext("Ordner im Gottesdienst"))
+        stewards.setAttribute("aria-label", terms.stewardsName())
         stewards.hide()
         setPulpitNames(emptyList())
     }
@@ -74,13 +77,13 @@ internal class EncounterSceneLayout(
         if (tiles.isEmpty()) stewards.hide() else stewards.show()
     }
 
-    /** The accessible name of the pulpit region: "Kanzel: <names>" (names are untrusted and sanitised) or the empty-pulpit sentence. */
+    /** The accessible name of the stage region: "<speakers>: <names>" (names are untrusted and sanitised) or the empty-stage sentence. */
     fun setPulpitNames(names: List<String>) {
         val label =
             if (names.isEmpty()) {
-                gettext("Die Kanzel ist noch leer.")
+                terms.emptyStage()
             } else {
-                gettext("Kanzel: %1", sanitizeUntrustedI18nText(names.joinToString(", ")))
+                terms.stageNamed(sanitizeUntrustedI18nText(names.joinToString(", ")))
             }
         pulpit.setAttribute("aria-label", label)
     }
@@ -121,13 +124,14 @@ private class SeatCell(
     val root: Div,
     val initials: Span,
     val hand: Span,
-    val amen: Span,
+    val event: Span,
 )
 
 /**
  * The pews as widgets: [blocks] blocks of [perBlock] seats per row, built row by row as the [EncounterSeating] plan grows (it never
  * shrinks). The seat INDEX is the position -- a cell is only ever updated in place, never moved, so people coming and going do not
- * shift anyone. Amen symbols disappear on their own after [ENCOUNTER_AMEN_VISIBLE_MS].
+ * shift anyone. Event symbols (amen, applause, heart) disappear on their own after [ENCOUNTER_EVENT_VISIBLE_MS]; a seat has ONE event slot,
+ * a newer event replaces the older one.
  */
 internal class EncounterSeatGrid(
     private val host: Div,
@@ -137,6 +141,7 @@ internal class EncounterSeatGrid(
     private val perRow = blocks * perBlock
     private val cells = mutableListOf<SeatCell>()
     private val timers = mutableSetOf<Int>()
+    private val eventTimers = mutableMapOf<Int, Int>()
 
     val seatCount: Int get() = cells.size
 
@@ -162,10 +167,9 @@ internal class EncounterSeatGrid(
         val hand = cell.span(className = "lapis-encounter-seat-hand")
         hand.icon("fas fa-hand")
         hand.setAttribute("aria-hidden", "true")
-        val amen = cell.span(className = "lapis-encounter-seat-amen")
-        amen.icon("fas fa-hands-praying")
-        amen.setAttribute("aria-hidden", "true")
-        return SeatCell(root = cell, initials = initials, hand = hand, amen = amen)
+        val event = cell.span(className = "lapis-encounter-seat-event")
+        event.setAttribute("aria-hidden", "true")
+        return SeatCell(root = cell, initials = initials, hand = hand, event = event)
     }
 
     /** Updates one seat in place. [name] `null` = empty seat. */
@@ -183,7 +187,7 @@ internal class EncounterSeatGrid(
             cell.root.addCssClass("lapis-encounter-seat--empty")
             untrustedContent(cell.initials, "")
             cell.hand.removeCssClass("is-on")
-            cell.amen.removeCssClass("is-on")
+            cell.event.removeCssClass("is-on")
             return
         }
         val safe = sanitizeUntrustedI18nText(name)
@@ -197,24 +201,46 @@ internal class EncounterSeatGrid(
         if (handUp) cell.hand.addCssClass("is-on") else cell.hand.removeCssClass("is-on")
     }
 
-    /** Shows the amen symbol at [seat] for a few seconds. */
-    fun showAmen(seat: Int) {
+    /** Shows the symbol of [option] (amen, applause, heart) at [seat] for a few seconds; a newer event replaces the one shown. */
+    fun showEvent(
+        seat: Int,
+        option: EncounterReactionOption,
+    ) {
         val cell = cells.getOrNull(seat) ?: return
-        cell.amen.addCssClass("is-on")
+        cell.event.removeAll()
+        cell.event.icon(reactionGlyph(option))
+        cell.event.setAttribute("data-reaction", option.name)
+        cell.event.addCssClass("is-on")
+        eventTimers.remove(seat)?.let { old ->
+            window.clearTimeout(old)
+            timers.remove(old)
+        }
         var handle = 0
         handle =
             window.setTimeout({
                 timers.remove(handle)
-                cell.amen.removeCssClass("is-on")
-            }, ENCOUNTER_AMEN_VISIBLE_MS)
+                eventTimers.remove(seat)
+                cell.event.removeCssClass("is-on")
+            }, ENCOUNTER_EVENT_VISIBLE_MS)
         timers += handle
+        eventTimers[seat] = handle
     }
 
-    /** True while the amen symbol of [seat] is shown (tests). */
-    fun amenVisible(seat: Int): Boolean = cells.getOrNull(seat)?.amen?.hasCssClass("is-on") == true
+    /** True while an event symbol of [seat] is shown (tests). */
+    fun eventVisible(seat: Int): Boolean = cells.getOrNull(seat)?.event?.hasCssClass("is-on") == true
+
+    /** The reaction whose symbol [seat] shows right now, or `null` (tests). */
+    fun eventShown(seat: Int): EncounterReactionOption? =
+        cells
+            .getOrNull(seat)
+            ?.event
+            ?.takeIf { it.hasCssClass("is-on") }
+            ?.getAttribute("data-reaction")
+            ?.let { name -> EncounterReactionOption.entries.firstOrNull { it.name == name } }
 
     fun dispose() {
         timers.forEach { window.clearTimeout(it) }
         timers.clear()
+        eventTimers.clear()
     }
 }

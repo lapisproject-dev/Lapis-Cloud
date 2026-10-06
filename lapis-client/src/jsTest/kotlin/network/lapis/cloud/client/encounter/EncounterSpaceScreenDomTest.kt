@@ -1,5 +1,6 @@
 package network.lapis.cloud.client.encounter
 
+import kotlinx.browser.document
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.builtins.ListSerializer
 import network.lapis.cloud.client.AppState
@@ -17,6 +18,8 @@ import network.lapis.cloud.client.rpcService
 import network.lapis.cloud.client.typeInto
 import network.lapis.cloud.client.withFetchStub
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.EncounterProfile
+import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.EncounterSpaceInput
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
@@ -27,6 +30,7 @@ import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.IEncounterSpaceService
 import network.lapis.cloud.shared.rpc.IMemberService
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.HTMLInputElement
 import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -50,6 +54,7 @@ class EncounterSpaceScreenDomTest {
         val list: String,
         val create: String,
         val archive: String,
+        val update: String,
         val roles: String,
         val members: String,
     )
@@ -59,6 +64,7 @@ class EncounterSpaceScreenDomTest {
             list = routeOf { rpcService<IEncounterSpaceService>().listSpaces() },
             create = routeOf { rpcService<IEncounterSpaceService>().createSpace(EncounterSpaceInput(title = "x")) },
             archive = routeOf { rpcService<IEncounterSpaceService>().archiveSpace("s") },
+            update = routeOf { rpcService<IEncounterSpaceService>().updateSpace("s", EncounterSpaceInput(title = "x")) },
             roles = routeOf { rpcService<IEncounterSpaceService>().listSpaceRoles("s") },
             members = routeOf { rpcService<IMemberService>().listMembers() },
         )
@@ -151,10 +157,12 @@ class EncounterSpaceScreenDomTest {
                 element.buttonNamed("Neuer Begegnungsraum").click()
                 awaitUntil("the form is open") { element.querySelector("[id='lapis-create-encounter-space'] .lapis-form") != null }
                 element.typeInto("Titel", "   Neuer Raum  ")
+                element.profileRadio("CHURCH_SERVICE").click()
                 element.buttonNamed("Begegnungsraum anlegen").click()
                 awaitUntil("the create call was sent") { requests.any { it.isRpc && it.rpcRoute == r.create } }
                 val input = requests.first { it.isRpc && it.rpcRoute == r.create }.rpcParam(0)
                 assertEquals("Neuer Raum", input.title.toString())
+                assertEquals("CHURCH_SERVICE", input.profile.toString())
                 assertTrue(
                     input.guestPolicy == undefined || input.guestPolicy.toString() == "MEMBERS_ONLY",
                     "the default policy: members only",
@@ -195,6 +203,109 @@ class EncounterSpaceScreenDomTest {
                 assertNull(element.querySelector("select option[value='m2']"), "a person is never a plain select")
                 val names = element.allOf("button").map { it.textContent.orEmpty().trim() }
                 assertTrue("Amt vergeben" in names && "Ämter speichern" in names, names.toString())
+            }
+        }
+
+    private fun HTMLElement.profileRadio(profile: String): HTMLInputElement =
+        allOf("input[type=radio]").first { it.getAttribute("value") == profile } as HTMLInputElement
+
+    private fun HTMLElement.reactionBox(label: String): HTMLInputElement {
+        val labelElement = allOf("label").first { it.textContent.orEmpty().trim() == label }
+        return assertNotNull(document.getElementById(labelElement.getAttribute("for").orEmpty()) as? HTMLInputElement, "checkbox of $label")
+    }
+
+    @Test
+    fun theCreateForm_hasNoPreselectedRoomType_andAMissingChoiceBlocksSubmittingWithAnErrorAtTheField(): Promise<Unit> =
+        formTest {
+            withScreen(AccountRole.BOARD, listOf(openSpace)) { element, requests, r ->
+                element.buttonNamed("Neuer Begegnungsraum").click()
+                awaitUntil("the form is open") { element.querySelector("[id='lapis-create-encounter-space'] .lapis-form") != null }
+                val radios = element.allOf("input[type=radio]").map { it as HTMLInputElement }
+                assertEquals(setOf("CHURCH_SERVICE", "ASSEMBLY"), radios.map { it.getAttribute("value") }.toSet())
+                assertTrue(radios.none { it.checked }, "no room type is preselected")
+                element.typeInto("Titel", "Ohne Raumart")
+                element.buttonNamed("Begegnungsraum anlegen").click()
+                awaitUntil("the field shows its error") { element.textContent.orEmpty().contains("Bitte wählen Sie eine Raumart.") }
+                assertEquals(0, requests.count { it.isRpc && it.rpcRoute == r.create }, "nothing is sent without a room type")
+            }
+        }
+
+    @Test
+    fun theHandReactionIsAlwaysOnAndLocked_andChoosingAnAssemblyOffersApplause(): Promise<Unit> =
+        formTest {
+            withScreen(AccountRole.BOARD, listOf(openSpace)) { element, requests, r ->
+                element.buttonNamed("Neuer Begegnungsraum").click()
+                awaitUntil("the form is open") { element.querySelector("[id='lapis-create-encounter-space'] .lapis-form") != null }
+                val hand = element.reactionBox("Hand heben")
+                assertTrue(hand.checked && hand.disabled, "the hand is always on and cannot be switched off")
+                element.profileRadio("ASSEMBLY").click()
+                awaitUntil("the assembly defaults are set") { element.reactionBox("Applaus").checked }
+                assertFalse(element.reactionBox("Amen").checked)
+                element.typeInto("Titel", "Mitgliederversammlung")
+                element.reactionBox("Herz").click()
+                element.buttonNamed("Begegnungsraum anlegen").click()
+                awaitUntil("the create call was sent") { requests.any { it.isRpc && it.rpcRoute == r.create } }
+                val input = requests.first { it.isRpc && it.rpcRoute == r.create }.rpcParam(0)
+                assertEquals("ASSEMBLY", input.profile.toString())
+                assertEquals("[\"HAND\",\"APPLAUSE\",\"HEART\"]", js("JSON.stringify")(input.reactions).toString())
+            }
+        }
+
+    @Test
+    fun editingAnOpenRoom_locksTheRoomTypeAndTheReactions_aClosedOneKeepsThemEditable(): Promise<Unit> =
+        formTest {
+            val closedManaged = testSpace(id = "closed-1", title = "Abendandacht", open = false, canModerate = true)
+            withScreen(AccountRole.BOARD, listOf(openSpace, closedManaged)) { element, _, _ ->
+                val rows = element.allOf(".lapis-encounter-space-row")
+                rows.first { it.textContent.orEmpty().contains("Sonntagsgottesdienst") }.buttonNamed("Bearbeiten").click()
+                awaitUntil("the edit form of the open room is shown") { element.querySelector("input[type=radio]") != null }
+                assertTrue(element.allOf("input[type=radio]").all { it.hasAttribute("disabled") }, "room type locked while open")
+                assertTrue(element.reactionBox("Amen").disabled, "reactions locked while open")
+                assertTrue(element.textContent.orEmpty().contains("nur bei geschlossenem Raum ändern"))
+                assertTrue(element.profileRadio("CHURCH_SERVICE").checked, "the current room type is selected")
+            }
+        }
+
+    @Test
+    fun editingAClosedRoom_keepsANonDefaultReactionSet_whenOnlyTheTitleChanges(): Promise<Unit> =
+        formTest {
+            val closedManaged =
+                testSpace(
+                    id = "closed-1",
+                    title = "Abendandacht",
+                    open = false,
+                    canModerate = true,
+                    profile = EncounterProfile.CHURCH_SERVICE,
+                    reactions = listOf(EncounterReactionOption.HAND, EncounterReactionOption.AMEN, EncounterReactionOption.HEART),
+                )
+            withScreen(AccountRole.BOARD, listOf(closedManaged)) { element, requests, r ->
+                element.buttonNamed("Bearbeiten").click()
+                awaitUntil("the edit form is shown") { element.querySelector("input[type=radio]") != null }
+                assertTrue(element.reactionBox("Herz").checked, "the stored reaction is shown as set")
+                element.typeInto("Titel", "Abendandacht (korrigiert)")
+                element.buttonNamed("Speichern").click()
+                awaitUntil("the update was sent") { requests.any { it.isRpc && it.rpcRoute == r.update } }
+                val sent = requests.first { it.isRpc && it.rpcRoute == r.update }.rpcParam(1)
+                assertEquals("[\"HAND\",\"AMEN\",\"HEART\"]", js("JSON.stringify")(sent.reactions).toString())
+            }
+        }
+
+    @Test
+    fun theList_namesTheRoomTypeAsText(): Promise<Unit> =
+        formTest {
+            val assembly =
+                testSpace(id = "v1", title = "Mitgliederversammlung", profile = EncounterProfile.ASSEMBLY, pulpitNames = listOf("Pia"))
+            withScreen(AccountRole.MEMBER, listOf(openSpace, assembly)) { element, _, _ ->
+                val rows = element.allOf(".lapis-encounter-space-row")
+                assertTrue(
+                    rows[0].textContent.orEmpty().contains(
+                        "Gottesdienst",
+                    ) &&
+                        rows[0].textContent.orEmpty().contains("Kanzel: Pfarrer Paul"),
+                )
+                val second = rows[1].textContent.orEmpty()
+                assertTrue(second.contains("Versammlung") && second.contains("Podium: Pia"), second)
+                assertFalse(second.contains("Kanzel"), second)
             }
         }
 }

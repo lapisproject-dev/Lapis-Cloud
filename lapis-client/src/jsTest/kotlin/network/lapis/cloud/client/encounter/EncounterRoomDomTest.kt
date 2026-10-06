@@ -216,7 +216,7 @@ class EncounterRoomDomTest {
                 awaitUntil("six seats occupied") { element.occupied() == 6 }
                 rig.room.callbacks.onReaction("unknown-identity", EncounterReaction.HAND)
                 rig.room.callbacks.onReaction("unknown-identity", EncounterReaction.AMEN)
-                assertEquals(0, element.querySelectorAll(".lapis-encounter-seat-hand.is-on, .lapis-encounter-seat-amen.is-on").length)
+                assertEquals(0, element.querySelectorAll(".lapis-encounter-seat-hand.is-on, .lapis-encounter-seat-event.is-on").length)
                 assertTrue(rig.room.raisedHandIds.isEmpty())
             }
         }
@@ -227,7 +227,7 @@ class EncounterRoomDomTest {
             withRoom(testEntry(), sixPeople) { rig, element ->
                 awaitUntil("six seats occupied") { element.occupied() == 6 }
                 rig.room.callbacks.onReaction("c1", EncounterReaction.AMEN)
-                awaitUntil("the amen is shown") { element.querySelectorAll(".lapis-encounter-seat-amen.is-on").length == 1 }
+                awaitUntil("the amen is shown") { element.querySelectorAll(".lapis-encounter-seat-event.is-on").length == 1 }
                 val stage = assertNotNull(element.querySelector(".lapis-encounter-stage") as? HTMLElement)
                 assertFalse(Regex("\\d").containsMatchIn(stage.textContent.orEmpty()), "no counter on the stage: ${stage.textContent}")
                 val live = element.allOf("[aria-live=polite]").first { it.classList.contains("visually-hidden") }

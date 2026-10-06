@@ -18,6 +18,9 @@
 // one. `state` columns are plain VARCHAR strings (no Exposed enumerations), same as every status column of this schema family since
 // V1.9.57; their CHECK constraints are plain SQL in V73, not expressible in the ERM profile.
 //
+// **V76 (Welle V1.9.67).** `profile` (CHURCH_SERVICE | ASSEMBLY) and `reaction_set` (canonical CSV, HAND always first) describe the ROOM,
+// never a person. `theme_key` is frozen at 'CHURCH' (old cached clients still decode EncounterTheme); the profile is the source of truth.
+//
 // Cross-domain stub: minimal id-only `Member` (owned by `00-foundation.kuml.kts`), same single-file-evaluation pattern every later
 // domain file's own header documents.
 import dev.kuml.profile.erm.ermMappingProfile
@@ -58,6 +61,14 @@ classDiagram(name = "EncounterSpace") {
         // SERVICE
         attribute(name = "mode", type = "String") {
             stereotype("Column") { "columnName" to "mode"; "sqlType" to "VARCHAR(16)" }
+        }
+        // CHURCH_SERVICE | ASSEMBLY (V76); theme_key above stays frozen at CHURCH for old cached clients
+        attribute(name = "profile", type = "String") {
+            stereotype("Column") { "columnName" to "profile"; "sqlType" to "VARCHAR(16)" }
+        }
+        // canonical CSV of the allowed reactions, HAND first (V76)
+        attribute(name = "reactionSet", type = "String") {
+            stereotype("Column") { "columnName" to "reaction_set"; "sqlType" to "VARCHAR(64)" }
         }
         // MEMBERS_ONLY | MEMBERS_AND_GUESTS
         attribute(name = "guestPolicy", type = "String") {

@@ -234,6 +234,26 @@ for every German msgid that contains a core term as a whole word (or one of its 
 | амин
 | V1.9.62: the one reaction of the congregation in an encounter space; the word itself in every language (ru "Аминь").
 
+| Podium
+| podium
+| podio
+| podium
+| podio
+| podium
+| podium
+| подиум
+| V1.9.67: where the speakers of an ASSEMBLY room speak (the counterpart of the "Kanzel" of a church service). Not "stage" (a theatre), not "Rednerpult" (a lectern in a meeting).
+
+| Applaus
+| applause
+| aplauso
+| applaudissement
+| applauso
+| applaus
+| oklask
+| аплодисмент
+| V1.9.67: a reaction of an encounter room (a symbol at the seat, never counted). Not "clap" and not "bravo".
+
 | Szene
 | scene
 | escena

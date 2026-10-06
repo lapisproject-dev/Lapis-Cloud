@@ -14,6 +14,43 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 enum class EncounterTheme { CHURCH, }
+// V1.9.67: EncounterTheme is frozen at CHURCH (old cached clients still decode it); read [EncounterProfile] instead.
+
+/**
+ * V1.9.67: the kind of gathering a room hosts. It selects the vocabulary (pulpit/steward/congregation vs. podium/moderation/participants),
+ * the floor-plan scene, the default reactions and the Art. 9 consent text. Describes the ROOM, never a person. Stored in
+ * `encounter_space.profile` (V76).
+ */
+@Serializable
+enum class EncounterProfile { CHURCH_SERVICE, ASSEMBLY }
+
+/**
+ * The reactions a room can be configured with (V1.9.67). Canonical order = declaration order. [HAND] is always on and
+ * [HAND_LOWERED] (the wire counterpart of [HAND]) is never selectable. There is deliberately no thumbs-up: in an assembly it reads as
+ * a vote.
+ */
+@Serializable
+enum class EncounterReactionOption {
+    HAND,
+    AMEN,
+    APPLAUSE,
+    HEART,
+    ;
+
+    companion object {
+        val ALWAYS_ON: EncounterReactionOption = HAND
+
+        fun defaultsFor(profile: EncounterProfile): List<EncounterReactionOption> =
+            when (profile) {
+                EncounterProfile.CHURCH_SERVICE -> listOf(HAND, AMEN)
+                EncounterProfile.ASSEMBLY -> listOf(HAND, APPLAUSE)
+            }
+
+        /** Dedupe + canonical order + [HAND] forced. Pure; shared by the server validation and the client form. */
+        fun normalize(input: Collection<EncounterReactionOption>): List<EncounterReactionOption> =
+            (input + HAND).toSet().sortedBy { it.ordinal }
+    }
+}
 
 /** What happens in the room. Only [SERVICE] (a service with a pulpit and a listening congregation) exists in B1. */
 @Serializable
@@ -37,10 +74,20 @@ enum class EncounterPresenceRole { PULPIT, STEWARD, CONGREGATION }
 /**
  * The reactions a congregation member may send (B2 data-channel topic, no server path). [HAND] is a STATE ("my hand is up"): the
  * sender renews it every 30 s while it stays up and the receivers let it lapse after 90 s; [HAND_LOWERED] ends it at once. [AMEN] is an
- * EVENT (a short symbol at the sender's seat), never counted.
+ * EVENT (a short symbol at the sender's seat), never counted; so are [APPLAUSE] and [HEART] (V1.9.67, appended
+ * only: old clients decode an unknown name to `null` and drop it).
  */
 @Serializable
-enum class EncounterReaction { HAND, HAND_LOWERED, AMEN }
+enum class EncounterReaction { HAND, HAND_LOWERED, AMEN, APPLAUSE, HEART }
+
+/** Maps a wire reaction to its configuration option ([EncounterReaction.HAND_LOWERED] belongs to [EncounterReactionOption.HAND]). */
+fun EncounterReaction.option(): EncounterReactionOption =
+    when (this) {
+        EncounterReaction.HAND, EncounterReaction.HAND_LOWERED -> EncounterReactionOption.HAND
+        EncounterReaction.AMEN -> EncounterReactionOption.AMEN
+        EncounterReaction.APPLAUSE -> EncounterReactionOption.APPLAUSE
+        EncounterReaction.HEART -> EncounterReactionOption.HEART
+    }
 
 /** LiveKit data-channel topic of [EncounterReaction] messages (B2, informational only: the server has no path that reads it). */
 const val ENCOUNTER_REACTION_TOPIC = "lapis-encounter-reaction"
@@ -60,6 +107,10 @@ data class EncounterSpaceInput(
     val guestPolicy: EncounterGuestPolicy = EncounterGuestPolicy.MEMBERS_ONLY,
     val closedNotice: String? = null,
     val maxParticipants: Int? = null,
+    /** Create: `null` = [EncounterProfile.CHURCH_SERVICE]. Update: `null` = unchanged (an old cached admin client sends no profile). */
+    val profile: EncounterProfile? = null,
+    /** Create: `null` = [EncounterReactionOption.defaultsFor] the profile. Update: `null` = unchanged. HAND is forced, order is canonical. */
+    val reactions: List<EncounterReactionOption>? = null,
 )
 
 /**
@@ -84,6 +135,8 @@ data class EncounterSpaceDto(
     val myRole: EncounterSpaceRole?,
     val canModerate: Boolean,
     val archived: Boolean,
+    val profile: EncounterProfile = EncounterProfile.CHURCH_SERVICE,
+    val reactions: List<EncounterReactionOption> = listOf(EncounterReactionOption.HAND, EncounterReactionOption.AMEN),
 )
 
 /** One office assignment of [network.lapis.cloud.shared.rpc.IEncounterSpaceService.setSpaceRoles] (replace-all, at most 20). */

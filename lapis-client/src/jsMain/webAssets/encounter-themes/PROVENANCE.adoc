@@ -1,11 +1,24 @@
 = Encounter themes: provenance
 
-`church/church.svg` is an original line drawing made for Lapis Cloud (V1.9.62, "Begegnungsraum"): a pointed nave arch with ribs, a rose window and six lancet windows.
-It is not derived from any photograph, font, clip art or third-party artwork.
-It is licensed under the licence of this repository.
+All four scene assets are original drawings made for Lapis Cloud (V1.9.67, "Begegnungsraum Stufe 1"): floor plans seen from above.
+They are not derived from any photograph, font, clip art or third-party artwork.
+They are licensed under the licence of this repository.
+
+[cols="2,3"]
+|===
+| Asset | What it shows
+
+| `church/front.svg` | The chancel: altar steps, altar with two candlesticks, a lectern at the side.
+| `church/row.svg`   | One row of pews: a bench per block (two blocks of three seats, aisle in the middle). Tiled downwards behind the seats.
+| `hall/front.svg`   | The podium: stage with a step, lectern, two microphones, a table for the moderation.
+| `hall/row.svg`     | One row of chairs: three chairs per block, aisle in the middle. Tiled downwards behind the seats.
+|===
+
+`church/church.svg` (V1.9.62, a front view of a nave with a rose window) was removed in V1.9.67 and replaced by the floor plans above.
 
 Technical contract of every theme asset:
 
-* Vector only (no raster image, no gradient, no `<script>`, no external reference), at most 30 KB.
-* Used as a CSS *mask* (`theme.css`, `.lapis-encounter-scene`): only the alpha channel counts, so the drawing uses two tones through opacity -- lines at 1.0, areas at about 0.3 -- and the colour comes from the design token `--lapis-encounter-scene-ink`.
+* Vector only (no raster image, no gradient, no `<script>`, no `<foreignObject>`, no external reference), at most 30 KB.
+* Used as a CSS *mask* (`theme.css`, `.lapis-encounter-scene-front` and `.lapis-encounter-scene-rows`): only the alpha channel counts, so the drawing uses two tones through opacity -- lines at 1.0, areas at about 0.3 -- and the colour comes from the design token `--lapis-encounter-scene-ink`.
+* The `row.svg` tile is 352 x 56 units, exactly the footprint of one row of seats (`--lapis-enc-row-w` x `--lapis-enc-row-h` in `theme.css`, checked against `EncounterSeating` by a DOM test). On a narrow screen the tile is scaled to 256 x 44 (`preserveAspectRatio="none"`); the benches are decorative, a slight mismatch with the narrower aisle is accepted.
 * Decorative only (`aria-hidden`); nothing the person has to read or press ever sits on it.

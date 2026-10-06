@@ -5,6 +5,9 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import java.security.MessageDigest
 
+/** SHA-256 of the church consent text as of V1.9.61, computed from the pre-V1.9.67 source. A change here invalidates every guest's consent. */
+private const val CHURCH_SHA256_PINNED = "bd0356b664bb37b4866ebf31ac844b575a19592ba7922a8d5608ad2bb7467319"
+
 /** Welle V1.9.61 -- [EncounterConsentDisclaimer]: versioned, hashed, composed from its parts, and exact-match only. */
 class EncounterConsentDisclaimerTest :
     FunSpec({
@@ -50,5 +53,30 @@ class EncounterConsentDisclaimerTest :
                 version = network.lapis.cloud.server.rpc.ConferenceGuestConsentDisclaimer.VERSION,
                 sha256 = network.lapis.cloud.server.rpc.ConferenceGuestConsentDisclaimer.SHA256,
             ) shouldBe false
+        }
+
+        test(
+            "V1.9.67: the church text and hash are pinned (existing consents of church guests stay valid) and the assembly text is separate",
+        ) {
+            EncounterConsentDisclaimer.VERSION shouldBe "2026-10-06.v1"
+            EncounterConsentDisclaimer.SHA256 shouldBe CHURCH_SHA256_PINNED
+            EncounterAssemblyConsentDisclaimer.VERSION shouldBe "2026-10-07.assembly.v1"
+            (EncounterAssemblyConsentDisclaimer.SHA256 == EncounterConsentDisclaimer.SHA256) shouldBe false
+            EncounterAssemblyConsentDisclaimer.TEXT shouldContain "Sie nehmen an einer Versammlung teil."
+            EncounterAssemblyConsentDisclaimer.TEXT shouldContain "politische Meinungen"
+            EncounterAssemblyConsentDisclaimer.TEXT shouldContain "nur das Podium"
+            EncounterAssemblyConsentDisclaimer.TEXT shouldContain "nichts aufgezeichnet"
+            EncounterAssemblyConsentDisclaimer.TEXT shouldContain "Entwurf"
+            EncounterAssemblyConsentDisclaimer.KEY_POINTS.forEach { EncounterAssemblyConsentDisclaimer.TEXT shouldContain it }
+        }
+
+        test("V1.9.67: matches is profile specific -- each text accepts only itself") {
+            val church = encounterConsentFor(network.lapis.cloud.shared.domain.EncounterProfile.CHURCH_SERVICE)
+            val assembly = encounterConsentFor(network.lapis.cloud.shared.domain.EncounterProfile.ASSEMBLY)
+            church.matches(version = church.version, sha256 = church.sha256) shouldBe true
+            assembly.matches(version = assembly.version, sha256 = assembly.sha256) shouldBe true
+            church.matches(version = assembly.version, sha256 = assembly.sha256) shouldBe false
+            assembly.matches(version = church.version, sha256 = church.sha256) shouldBe false
+            assembly.matches(version = assembly.version, sha256 = church.sha256) shouldBe false
         }
     })

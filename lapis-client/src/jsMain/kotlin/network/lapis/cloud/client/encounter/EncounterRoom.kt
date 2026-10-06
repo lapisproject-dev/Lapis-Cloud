@@ -17,9 +17,9 @@ import network.lapis.cloud.client.ActionIcon
 import network.lapis.cloud.client.AppScope
 import network.lapis.cloud.client.AppState
 import network.lapis.cloud.client.actionButton
+import network.lapis.cloud.client.actionIconClasses
 import network.lapis.cloud.client.confirmDialog
 import network.lapis.cloud.client.guarded
-import network.lapis.cloud.client.lapisToolbar
 import network.lapis.cloud.client.livekit.Track
 import network.lapis.cloud.client.livekit.TrackPublication
 import network.lapis.cloud.client.rpcService
@@ -30,8 +30,11 @@ import network.lapis.cloud.shared.domain.EncounterEntryDto
 import network.lapis.cloud.shared.domain.EncounterPresenceRole
 import network.lapis.cloud.shared.domain.EncounterPresentDto
 import network.lapis.cloud.shared.domain.EncounterReaction
+import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
+import network.lapis.cloud.shared.domain.option
 import network.lapis.cloud.shared.rpc.IEncounterSpaceService
+import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLMediaElement
 import kotlin.js.Date
 
@@ -49,9 +52,12 @@ import kotlin.js.Date
  *   the whole encounter client is the "scene off" key, [EncounterSceneToggle]).
  * - The pews: [EncounterSeating], per device; people from `listPresent` only (a LiveKit participant that is not listed -- an egress
  *   bot, a stranger -- never gets a seat). A seat never moves.
- * - Reactions: a hand is a state (renewed every 30 s by its owner, lapses after 90 s without a renewal), an amen is an event shown for
- *   3 s at the seat and announced at most every 10 s as a fixed sentence, never as a count. The sender is always the SDK identity.
- * - Hand and amen are quiet: sender-side limits (amen 5 s, hand 2 s), receiver-side limits (2 per second and sender).
+ * - Reactions: a hand is a state (renewed every 30 s by its owner, lapses after 90 s without a renewal); amen, applause and heart are
+ *   events shown for 3 s at the seat and announced at most every 10 s as a fixed sentence, never as a count. The sender is always the SDK
+ *   identity. Only the reactions the room allows ([EncounterSpaceDto.reactions], V1.9.67) get a button and are admitted when they arrive.
+ * - Reactions are quiet: sender-side limits (events share one 5 s budget, hand 2 s), receiver-side limits (2 per second and sender).
+ * - Stage mode (V1.9.67): the room fills the screen under the header, the bar sits below the stage, the side panel is a column (wide),
+ *   an overlay (medium) or a sheet (narrow), and the whole room can go to the full screen ([EncounterFullscreen]).
  */
 internal class EncounterRoom(
     parent: Container,
@@ -62,15 +68,17 @@ internal class EncounterRoom(
     private val onDoorsClosed: () -> Unit,
     private val onConnectionLost: () -> Unit,
 ) {
+    private val terms: EncounterTerms = termsFor(space.profile)
+    private val allowedReactions: Set<EncounterReactionOption> = EncounterReactionOption.normalize(space.reactions).toSet()
     private val root = parent.vPanel(spacing = 10) { addCssClass("lapis-encounter-room") }
     private val infoRow: Div = root.div(className = "lapis-encounter-info d-flex flex-wrap align-items-center gap-3")
     private val countText: Span = infoRow.span(className = "text-muted")
-    private val liveBadge = EncounterLiveBadge(infoRow, entry.join.roomId)
-    private val amenLive: Div = root.div(className = "visually-hidden")
+    private val liveBadge = EncounterLiveBadge(infoRow, terms, entry.join.roomId)
+    private val eventLive: Div = root.div(className = "visually-hidden")
     private val handLive: Div? = if (viewer.canModerate) root.div(className = "visually-hidden") else null
     private val bands: Div = root.div(className = "lapis-encounter-bands")
     private val main: Div = root.div(className = "lapis-encounter-main")
-    private val layout = EncounterSceneLayout(main)
+    private val layout = EncounterSceneLayout(main, terms)
     private val tabs =
         buildList {
             add(EncounterSideTab.CHAT)
@@ -78,14 +86,15 @@ internal class EncounterRoom(
             if (viewer.canModerate) add(EncounterSideTab.STREAM)
         }
     private val side = EncounterSidePanel(main, tabs) { tab -> onTabShown(tab) }
-    private val controls: Div = root.lapisToolbar { addCssClass("lapis-encounter-controls") }
+    private val controlBar = EncounterControlBar(root)
+    private val controls: Div get() = controlBar.root
 
     private val seating = EncounterSeating()
     private val seated = mutableSetOf<String>()
     private val hands = EncounterRaisedHands(clock)
     private val sendThrottle = EncounterReactionSendThrottle(clock)
     private val receiveGuard = EncounterReactionReceiveGuard(clock)
-    private val amenAnnouncer = EncounterAmenAnnouncer(clock)
+    private val eventAnnouncer = EncounterEventAnnouncer(clock)
     private val refreshPlanner = EncounterRefreshPlanner(clock)
     private val audioSink = EncounterMediaHost("lapis-encounter-audio-sink")
     private val tiles = LinkedHashMap<String, EncounterTile>()
@@ -100,19 +109,22 @@ internal class EncounterRoom(
     private var pulpitControls: EncounterPulpitControls? = null
     private val cleanups = mutableListOf<() -> Unit>()
 
-    private val chat = EncounterChatPanel(side.hostOf(EncounterSideTab.CHAT)) { text -> sendChat(text) }
+    private val chat = EncounterChatPanel(side.hostOf(EncounterSideTab.CHAT), terms) { text -> sendChat(text) }
     private val presentPanel =
         EncounterPresentPanel(
             parent = side.hostOf(EncounterSideTab.PRESENT),
             spaceId = space.id,
+            terms = terms,
             viewer = viewer,
             raisedHands = { hands.ordered },
             onRoster = { people -> onRoster(people) },
+            beforeDialog = { fullscreen.leaveIfActive() },
         )
     private val streamPanel: EncounterStreamPanel? =
         if (viewer.canModerate) {
             EncounterStreamPanel(
                 parent = side.hostOf(EncounterSideTab.STREAM),
+                terms = terms,
                 roomId = entry.join.roomId,
                 isAdmin = AppState.hasRole(AccountRole.ADMIN),
                 pulpitPeople = { present.values.filter { it.role == EncounterPresenceRole.PULPIT } },
@@ -122,10 +134,16 @@ internal class EncounterRoom(
         }
 
     private lateinit var handButton: Button
-    private lateinit var amenButton: Button
+    private val eventButtons = LinkedHashMap<EncounterReactionOption, Button>()
     private lateinit var chatButton: Button
     private lateinit var sceneButton: Button
-    private lateinit var amenWaitNote: Span
+    private lateinit var fullscreenButton: Button
+    private lateinit var eventWaitNote: Span
+    private val fullscreen =
+        EncounterFullscreen(
+            element = { root.getElement() as? HTMLElement },
+            onChange = { active -> refreshFullscreenButton(active) },
+        )
     private lateinit var unreadDot: Span
     private lateinit var unreadText: Span
     private lateinit var audioBand: Div
@@ -152,8 +170,8 @@ internal class EncounterRoom(
         )
 
     init {
-        amenLive.setAttribute("role", "status")
-        amenLive.setAttribute("aria-live", "polite")
+        eventLive.setAttribute("role", "status")
+        eventLive.setAttribute("aria-live", "polite")
         handLive?.setAttribute("role", "status")
         handLive?.setAttribute("aria-live", "polite")
         buildBands()
@@ -179,36 +197,49 @@ internal class EncounterRoom(
         reconnectBand.setAttribute("role", "status")
         reconnectBand.hide()
         if (!entry.canPublishData) {
-            val silenced = bands.div(tr("Sie wurden von einem Ordner stummgeschaltet."), className = "lapis-encounter-band")
+            val silenced = bands.div(terms.silencedNoteContent(), className = "lapis-encounter-band")
             silenced.setAttribute("role", "status")
         }
     }
 
     private fun buildControls() {
-        handButton = controls.actionButton(ActionIcon.HAND, tr("Hand heben"))
+        val reactions = controlBar.group(EncounterControlGroup.REACTIONS)
+        handButton =
+            reactions.actionButton(reactionActionIcon(EncounterReactionOption.HAND), reactionLabelContent(EncounterReactionOption.HAND))
         handButton.setAttribute("aria-pressed", "false")
         handButton.disabled = !entry.canPublishData
         handButton.onClick { toggleHand() }
-        amenButton = controls.actionButton(ActionIcon.AMEN, tr("Amen"))
-        amenButton.disabled = !entry.canPublishData
-        amenButton.onClick { sendAmen() }
-        amenWaitNote = controls.span(tr("Bitte einen Moment warten."), className = "text-muted small")
-        amenWaitNote.hide()
-        chatButton = controls.actionButton(ActionIcon.CHAT, tr("Chat"))
+        // The event reactions of the room in canonical order (HAND is the button above, always present).
+        EncounterReactionOption.entries.filter { it != EncounterReactionOption.ALWAYS_ON && it in allowedReactions }.forEach { option ->
+            val button = reactions.actionButton(reactionActionIcon(option), reactionLabelContent(option))
+            button.disabled = !entry.canPublishData
+            button.onClick { sendEvent(option) }
+            eventButtons[option] = button
+        }
+        eventWaitNote = reactions.span(tr("Bitte einen Moment warten."), className = "text-muted small")
+        eventWaitNote.hide()
+        val panels = controlBar.group(EncounterControlGroup.PANELS)
+        chatButton = panels.actionButton(ActionIcon.CHAT, tr("Chat"))
         chatButton.setAttribute("aria-expanded", "false")
+        chatButton.setAttribute("aria-controls", ENCOUNTER_SIDE_PANEL_ID)
         chatButton.onClick { toggleSide(EncounterSideTab.CHAT) }
         // A persistent polite status region (a region that is created together with its text is not announced): the dot shows through the
         // `is-on` class, the words "Neue Nachrichten" are written into it when a line arrives while the chat is not in view.
-        unreadDot = controls.span(className = "lapis-encounter-unread")
+        unreadDot = panels.span(className = "lapis-encounter-unread")
         unreadDot.setAttribute("role", "status")
         unreadText = unreadDot.span(className = "visually-hidden")
-        sceneButton = controls.actionButton(ActionIcon.SCENE, tr("Szene aus"))
+        val view = controlBar.group(EncounterControlGroup.VIEW)
+        sceneButton = view.actionButton(ActionIcon.SCENE, tr("Szene aus"))
         sceneButton.onClick { toggleScene() }
+        fullscreenButton = view.actionButton(ActionIcon.FULLSCREEN, tr("Vollbild"))
+        fullscreenButton.setAttribute("aria-pressed", "false")
+        fullscreenButton.onClick { fullscreen.toggle() }
         if (viewer.canModerate) {
-            controls.actionButton(ActionIcon.BROADCAST, tr("Übertragung"), style = ButtonStyle.OUTLINESECONDARY).onClick {
+            val moderation = controlBar.group(EncounterControlGroup.MODERATION)
+            moderation.actionButton(ActionIcon.BROADCAST, tr("Übertragung"), style = ButtonStyle.OUTLINESECONDARY).onClick {
                 toggleSide(EncounterSideTab.STREAM)
             }
-            controls
+            moderation
                 .actionButton(
                     ActionIcon.CLOSE_DOORS,
                     tr("Türen schließen"),
@@ -217,13 +248,20 @@ internal class EncounterRoom(
         }
     }
 
+    private fun refreshFullscreenButton(active: Boolean) {
+        fullscreenButton.setAttribute("aria-pressed", active.toString())
+        fullscreenButton.text = if (active) tr("Vollbild beenden") else tr("Vollbild")
+        fullscreenButton.icon = actionIconClasses(if (active) ActionIcon.FULLSCREEN_EXIT else ActionIcon.FULLSCREEN)
+    }
+
     // ── wiring to the session ───────────────────────────────────────────────
 
     /** Gives the room its session (a speaker session builds the office holder's device controls). */
     fun bind(session: EncounterListenerSession) {
         this.session = session
         if (session is EncounterSpeakerSession && entry.canPublish) {
-            pulpitControls = EncounterPulpitControls(toolbar = controls, band = bands, session = session)
+            pulpitControls =
+                EncounterPulpitControls(toolbar = controlBar.group(EncounterControlGroup.DEVICES), band = bands, session = session)
         }
     }
 
@@ -375,6 +413,8 @@ internal class EncounterRoom(
         reaction: EncounterReaction,
     ) {
         if (disposed || !receiveGuard.admit(identity)) return
+        // Only the reactions the room allows (HAND_LOWERED belongs to the hand and always passes); anything else is dropped silently.
+        if (!admitReaction(reaction, allowedReactions)) return
         // Only people who SIT (the congregation from `listPresent`) react: anybody else's packet is dropped unread.
         val seat = seating.seatOf(identity) ?: return
         when (reaction) {
@@ -384,17 +424,22 @@ internal class EncounterRoom(
                 if (!wasUp) announceHand(identity)
             }
             EncounterReaction.HAND_LOWERED -> hands.lower(identity)
-            EncounterReaction.AMEN -> showAmen(seat)
+            EncounterReaction.AMEN, EncounterReaction.APPLAUSE, EncounterReaction.HEART -> showEvent(seat, reaction.option())
         }
         renderSeats()
         presentPanel.rerender()
     }
 
-    private fun showAmen(seat: Int) {
-        layout.seats.showAmen(seat)
-        if (amenAnnouncer.onAmen()) {
-            amenLive.content = gettext("Amen aus der Gemeinde")
-            later(LIVE_TEXT_MS) { amenLive.content = "" }
+    private fun showEvent(
+        seat: Int,
+        option: EncounterReactionOption,
+    ) {
+        layout.seats.showEvent(seat, option)
+        if (eventAnnouncer.onEvent()) {
+            // a fixed sentence from the vocabulary (never data of a person)
+            val sentence = terms.reactionFromAudience(option)
+            eventLive.content = sentence
+            later(LIVE_TEXT_MS) { eventLive.content = "" }
         }
     }
 
@@ -417,16 +462,17 @@ internal class EncounterRoom(
         AppScope.launch { session?.sendReaction(if (ownHandUp) EncounterReaction.HAND else EncounterReaction.HAND_LOWERED) }
     }
 
-    private fun sendAmen() {
-        if (!sendThrottle.tryAmen()) return
-        seating.seatOf(viewer.selfIdentity)?.let { showAmen(it) }
-        amenButton.disabled = true
-        amenWaitNote.show()
-        later(EncounterReactionSendThrottle.AMEN_GAP_MS.toInt()) {
-            amenButton.disabled = !entry.canPublishData
-            amenWaitNote.hide()
+    private fun sendEvent(option: EncounterReactionOption) {
+        if (option !in allowedReactions || !sendThrottle.tryEvent()) return
+        seating.seatOf(viewer.selfIdentity)?.let { showEvent(it, option) }
+        // The three event reactions share one budget: all of them wait together.
+        eventButtons.values.forEach { it.disabled = true }
+        eventWaitNote.show()
+        later(EncounterReactionSendThrottle.EVENT_GAP_MS.toInt()) {
+            eventButtons.values.forEach { it.disabled = !entry.canPublishData }
+            eventWaitNote.hide()
         }
-        AppScope.launch { session?.sendReaction(EncounterReaction.AMEN) }
+        AppScope.launch { session?.sendReaction(option.toWire()) }
     }
 
     private fun onChat(
@@ -485,6 +531,8 @@ internal class EncounterRoom(
     }
 
     private fun askCloseDoors() {
+        // The dialog lives at body level: in (pseudo-)full screen it would stay behind or outside the room.
+        fullscreen.leaveIfActive()
         confirmDialog(
             title = tr("Türen schließen?"),
             message = tr("Alle Anwesenden verlassen den Raum."),
@@ -568,6 +616,7 @@ internal class EncounterRoom(
         cleanups.forEach { it() }
         cleanups.clear()
         layout.dispose()
+        fullscreen.dispose()
         tiles.values.forEach { it.dispose() }
         tiles.clear()
         audioSink.clear()
@@ -584,6 +633,8 @@ internal class EncounterRoom(
     internal val pulpitRegion: Div get() = layout.pulpit
     internal val liveBadgeView: EncounterLiveBadge get() = liveBadge
     internal val rosterReady: Boolean get() = rosterLoaded
+    internal val controlBarView: EncounterControlBar get() = controlBar
+    internal val fullscreenControl: EncounterFullscreen get() = fullscreen
 
     private companion object {
         const val HAND_EXPIRY_TICK_MS = 5_000

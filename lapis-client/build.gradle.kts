@@ -200,8 +200,8 @@ val videoEffectStagedPaths =
         "mediapipe/tasks-vision-$mediaPipeTasksVisionVersion/wasm/vision_wasm_nosimd_internal.wasm",
         "mediapipe/selfie_segmenter.tflite",
     ) + videoEffectBackgroundIds.map { "video-backgrounds/$it.webp" } +
-        // V1.9.62 Begegnungsraum: the decorative church scene (a CSS mask, see theme.css `.lapis-encounter-scene`) rides the same staging.
-        "encounter-themes/church/church.svg"
+        // V1.9.67 Begegnungsraum: the decorative floor-plan scenes (CSS masks, see theme.css `.lapis-encounter-scene-front`/`-rows`) ride the same staging.
+        listOf("church", "hall").flatMap { theme -> listOf("front", "row").map { part -> "encounter-themes/$theme/$part.svg" } }
 
 val videoEffectStagingDir = layout.buildDirectory.dir("video-effect-assets")
 

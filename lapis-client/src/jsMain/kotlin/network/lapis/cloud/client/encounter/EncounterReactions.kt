@@ -7,6 +7,8 @@ import network.lapis.cloud.client.livekit.TextDecoder
 import network.lapis.cloud.client.livekit.TextEncoder
 import network.lapis.cloud.shared.domain.ENCOUNTER_REACTION_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.EncounterReaction
+import network.lapis.cloud.shared.domain.EncounterReactionOption
+import network.lapis.cloud.shared.domain.option
 import org.khronos.webgl.Uint8Array
 
 /**
@@ -14,7 +16,7 @@ import org.khronos.webgl.Uint8Array
  * here is DOM-free and takes its clock as a parameter (`now` in milliseconds), so a test can drive minutes of behaviour without waiting.
  *
  * ## Trust boundary
- * A reaction packet is peer-to-peer and unauthenticated beyond LiveKit's own transport. The payload is `{"r":"AMEN"}` and nothing
+ * A reaction packet is peer-to-peer and unauthenticated beyond LiveKit's own transport. The payload is `{"r":"AMEN"}` (or APPLAUSE, HEART, HAND, HAND_LOWERED) and nothing
  * else: [EncounterReactionWire.decode] reads ONLY the key `r`, ignores every other field (a forged `sender`/`name` is never looked
  * at), refuses anything longer than [ENCOUNTER_REACTION_MAX_PAYLOAD_BYTES] unread and never throws. The sender of a reaction is the
  * SDK-verified participant identity the caller passes next to the payload ([network.lapis.cloud.client.livekit.LiveKitRoomSession]).
@@ -47,14 +49,37 @@ internal object EncounterReactionWire {
     }
 }
 
-/** Sender-side rate limits: one amen per 5 s, one hand toggle per 2 s. A refused call has no effect (the UI shows the button as waiting). */
+/** The wire reaction an option is sent as (the hand is sent as [EncounterReaction.HAND]; lowering it is [EncounterReaction.HAND_LOWERED]). */
+internal fun EncounterReactionOption.toWire(): EncounterReaction =
+    when (this) {
+        EncounterReactionOption.HAND -> EncounterReaction.HAND
+        EncounterReactionOption.AMEN -> EncounterReaction.AMEN
+        EncounterReactionOption.APPLAUSE -> EncounterReaction.APPLAUSE
+        EncounterReactionOption.HEART -> EncounterReaction.HEART
+    }
+
+/**
+ * V1.9.67: the receive filter of the configured reaction set. A reaction is admitted only when its option ([EncounterReaction.option])
+ * is among the options the room allows; [EncounterReaction.HAND_LOWERED] belongs to the hand and is therefore always admitted (HAND is
+ * always on). A dropped reaction leaves no trace: no log, no counter. The set is enforced on the client only (the server never reads a
+ * reaction); a manipulated client can send anything, so this is a courtesy of the honest client, not a security boundary.
+ */
+internal fun admitReaction(
+    reaction: EncounterReaction,
+    allowed: Set<EncounterReactionOption>,
+): Boolean = reaction.option() in allowed
+
+/**
+ * Sender-side rate limits: one EVENT reaction (amen, applause, heart share one budget) per 5 s, one hand toggle per 2 s. The hand is never
+ * blocked by an event: a person who wants the floor can always ask for it. A refused call has no effect (the UI shows the button as waiting).
+ */
 internal class EncounterReactionSendThrottle(
     private val now: () -> Double,
 ) {
-    private var lastAmen = Double.NEGATIVE_INFINITY
+    private var lastEvent = Double.NEGATIVE_INFINITY
     private var lastHand = Double.NEGATIVE_INFINITY
 
-    fun tryAmen(): Boolean = take(lastAmen, AMEN_GAP_MS) { lastAmen = it }
+    fun tryEvent(): Boolean = take(lastEvent, EVENT_GAP_MS) { lastEvent = it }
 
     fun tryHandToggle(): Boolean = take(lastHand, HAND_GAP_MS) { lastHand = it }
 
@@ -70,7 +95,7 @@ internal class EncounterReactionSendThrottle(
     }
 
     companion object {
-        const val AMEN_GAP_MS = 5_000.0
+        const val EVENT_GAP_MS = 5_000.0
         const val HAND_GAP_MS = 2_000.0
     }
 }
@@ -138,16 +163,16 @@ internal class EncounterRaisedHands(
 }
 
 /**
- * Bundles the polite announcement of amens: at most one announcement per [minGapMs] (10 s), however many amens arrive, and never a
- * number -- the caller shows one fixed sentence. `true` = announce now.
+ * Bundles the polite announcement of event reactions (amen, applause, heart): at most one announcement per [minGapMs] (10 s), however
+ * many arrive, and never a number -- the caller shows one fixed sentence. `true` = announce now.
  */
-internal class EncounterAmenAnnouncer(
+internal class EncounterEventAnnouncer(
     private val now: () -> Double,
     private val minGapMs: Double = 10_000.0,
 ) {
     private var last = Double.NEGATIVE_INFINITY
 
-    fun onAmen(): Boolean {
+    fun onEvent(): Boolean {
         val t = now()
         if (t - last < minGapMs) return false
         last = t

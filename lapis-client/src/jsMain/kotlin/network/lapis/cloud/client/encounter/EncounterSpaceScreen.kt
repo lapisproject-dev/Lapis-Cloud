@@ -1,5 +1,7 @@
 package network.lapis.cloud.client.encounter
 
+import io.kvision.form.check.CheckBox
+import io.kvision.form.check.radioGroup
 import io.kvision.html.ButtonStyle
 import io.kvision.html.div
 import io.kvision.i18n.gettext
@@ -15,6 +17,7 @@ import network.lapis.cloud.client.AppState
 import network.lapis.cloud.client.DataSection
 import network.lapis.cloud.client.FormRules
 import network.lapis.cloud.client.FormSnapshot
+import network.lapis.cloud.client.LapisField
 import network.lapis.cloud.client.Routes
 import network.lapis.cloud.client.actionButton
 import network.lapis.cloud.client.actionLink
@@ -32,11 +35,14 @@ import network.lapis.cloud.client.pageHeader
 import network.lapis.cloud.client.rpcService
 import network.lapis.cloud.client.snapshot
 import network.lapis.cloud.client.statusBadge
+import network.lapis.cloud.client.typeBadge
 import network.lapis.cloud.client.untrustedCardTitle
 import network.lapis.cloud.client.untrustedP
 import network.lapis.cloud.client.untrustedSpan
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EncounterGuestPolicy
+import network.lapis.cloud.shared.domain.EncounterProfile
+import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.EncounterSpaceInput
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
@@ -95,11 +101,13 @@ private fun renderEncounterSpaceRow(
     headerRow.untrustedCardTitle(space.title)
     // Open or closed is text AND colour (never colour alone).
     headerRow.statusBadge(if (space.open) gettext("Geöffnet") else gettext("Geschlossen"), if (space.open) "success" else "secondary")
+    // The kind of room is text, never colour alone.
+    headerRow.typeBadge(termsFor(space.profile).profileName(), "info")
     if (space.description.isNotBlank()) row.untrustedP(space.description, className = "mb-0")
     val facts = row.div(className = "text-muted small d-flex flex-wrap gap-3")
     facts.div(gettext("%1 anwesend", space.presentCount))
     if (space.pulpitDisplayNames.isNotEmpty()) {
-        facts.untrustedSpan(gettext("Kanzel: %1", space.pulpitDisplayNames.joinToString(", ")))
+        facts.untrustedSpan(termsFor(space.profile).speakersFact(space.pulpitDisplayNames.joinToString(", ")))
     }
 
     val actions = row.lapisToolbar()
@@ -198,6 +206,54 @@ internal fun renderEncounterSpaceForm(
             value = existing?.description,
             rule = { FormRules.maxLength(value = it, max = SPACE_DESCRIPTION_MAX) },
         )
+    // V1.9.67: the kind of room (no preselection when creating: the person decides, a wrong default would put the wrong vocabulary and the
+    // wrong consent text in the room) and the reactions it offers. Both are frozen while a session is open (the server refuses a change too).
+    val locked = existing?.open == true
+    val profileRadio =
+        form.panel.radioGroup(
+            options = EncounterProfile.entries.map { it.name to termsFor(it).profileName() + ": " + termsFor(it).profileDescription() },
+            value = existing?.profile?.name,
+            label = tr("Raumart"),
+        )
+    profileRadio.setAttribute("role", "radiogroup")
+    profileRadio.disabled = locked
+    val profileField =
+        form.register(
+            control = profileRadio,
+            label = tr("Raumart"),
+            required = true,
+            requiredMessage = tr("Bitte wählen Sie eine Raumart."),
+        )
+    val reactionChecks = LinkedHashMap<EncounterReactionOption, LapisField>()
+    val currentReactions = existing?.reactions ?: emptyList()
+    EncounterReactionOption.entries.forEach { option ->
+        val always = option == EncounterReactionOption.ALWAYS_ON
+        reactionChecks[option] =
+            form.checkField(
+                label = reactionLabel(option),
+                value = always || option in currentReactions,
+                hint = if (always) gettext("Immer verfügbar: Wortmeldung") else null,
+                init = { box -> box.disabled = always || locked },
+            )
+    }
+    if (locked) {
+        form.panel.div(
+            tr("Raumart und Reaktionen lassen sich nur bei geschlossenem Raum ändern."),
+            className = "text-muted small",
+        )
+    }
+    // KVision calls the observer at once with the current value: only a real change of the kind may reset the reactions, otherwise opening
+    // a closed room with a non-default reaction set would silently replace it by the defaults.
+    var lastProfile = existing?.profile?.name
+    profileRadio.subscribe { chosen ->
+        if (chosen == lastProfile) return@subscribe
+        lastProfile = chosen
+        // A change of the kind of room offers that kind's usual reactions again (the person may adjust them afterwards).
+        val profile = EncounterProfile.entries.firstOrNull { it.name == chosen } ?: return@subscribe
+        if (locked) return@subscribe
+        val defaults = EncounterReactionOption.defaultsFor(profile)
+        reactionChecks.forEach { (option, field) -> (field.control as? CheckBox)?.value = option in defaults }
+    }
     val policyField =
         form.selectField(
             label = tr("Wer darf eintreten?"),
@@ -237,6 +293,14 @@ internal fun renderEncounterSpaceForm(
                     title = titleField.value.trim(),
                     description = descriptionField.value.trim(),
                     guestPolicy = EncounterGuestPolicy.valueOf(policyField.value),
+                    profile = EncounterProfile.entries.first { it.name == profileField.value },
+                    reactions =
+                        EncounterReactionOption.normalize(
+                            reactionChecks
+                                .filter { (option, field) ->
+                                    option == EncounterReactionOption.ALWAYS_ON || field.value == "true"
+                                }.keys,
+                        ),
                     closedNotice = noticeField.value.trim().ifEmpty { null },
                     maxParticipants = maxField.value.trim().toIntOrNull(),
                 )
@@ -263,9 +327,8 @@ internal fun renderEncounterSpaceForm(
     return form.snapshot()
 }
 
-/** Static label of an office (the bare msgid "Ordner" already means "folder", so the role carries its meaning in a sentence). */
-internal fun encounterSpaceRoleLabel(role: EncounterSpaceRole): String =
-    when (role) {
-        EncounterSpaceRole.PULPIT -> gettext("Kanzel (spricht)")
-        EncounterSpaceRole.STEWARD -> gettext("Ordner (spricht und moderiert)")
-    }
+/** Label of an office in the vocabulary of the room's [profile] (the bare msgid "Ordner" already means "folder"). */
+internal fun encounterSpaceRoleLabel(
+    role: EncounterSpaceRole,
+    profile: EncounterProfile,
+): String = termsFor(profile).spaceRoleLabel(role)
