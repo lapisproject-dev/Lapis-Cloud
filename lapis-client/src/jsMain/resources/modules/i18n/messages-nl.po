@@ -19704,11 +19704,11 @@ msgstr "Na het uitbrengen van uw stem ontvangt u een bewijscode. Daarmee kunt u 
 msgid "Nach der Abgabe erhalten Sie einen Quittungscode. Damit können Sie später prüfen, dass Ihre Bewertung mitgezählt wurde. Welche Werte Sie vergeben haben, zeigt die Quittung nicht an."
 msgstr "Na het indienen ontvangt u een bewijscode. Daarmee kunt u later controleren dat uw beoordeling is meegeteld. Het bewijs toont niet welke waarden u hebt gegeven."
 
-msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihr Stimmzettel mitgezählt wurde."
-msgstr "Dit is uw bewijs. Het wordt alleen nu getoond en nergens opgeslagen. Noteer of print het als u later wilt controleren dat uw stembiljet is meegeteld."
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und in Ihrem Browser nicht gespeichert; der Server bewahrt den Code nur zusammen mit Ihrem anonymen Stimmzettel auf, damit Sie später prüfen können, dass Ihr Stimmzettel mitgezählt wurde. Notieren oder drucken Sie sie deshalb jetzt. Die Quittung zeigt nicht, wofür Sie gestimmt haben."
+msgstr "Dit is uw bewijs. Het wordt alleen nu getoond en niet bewaard in uw browser; de server bewaart de code alleen samen met uw anonieme stembiljet, zodat u later kunt controleren dat uw stembiljet is meegeteld. Noteer of print het nu. Het bewijs toont niet waarop u hebt gestemd."
 
-msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Bewertung mitgezählt wurde."
-msgstr "Dit is uw bewijs. Het wordt alleen nu getoond en nergens opgeslagen. Noteer of print het als u later wilt controleren dat uw beoordeling is meegeteld."
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und in Ihrem Browser nicht gespeichert; der Server bewahrt den Code nur zusammen mit Ihrer anonymen Bewertung auf, damit Sie später prüfen können, dass Ihre Bewertung mitgezählt wurde. Notieren oder drucken Sie sie deshalb jetzt. Die Quittung zeigt nicht, welche Werte Sie vergeben haben."
+msgstr "Dit is uw bewijs. Het wordt alleen nu getoond en niet bewaard in uw browser; de server bewaart de code alleen samen met uw anonieme beoordeling, zodat u later kunt controleren dat uw beoordeling is meegeteld. Noteer of print het nu. Het bewijs toont niet welke waarden u hebt gegeven."
 
 msgid "Code kopieren"
 msgstr "Code kopiëren"

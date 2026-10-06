@@ -19767,11 +19767,11 @@ msgstr "Après le vote, vous recevez un code de reçu. Il vous permettra de vér
 msgid "Nach der Abgabe erhalten Sie einen Quittungscode. Damit können Sie später prüfen, dass Ihre Bewertung mitgezählt wurde. Welche Werte Sie vergeben haben, zeigt die Quittung nicht an."
 msgstr "Après l'envoi, vous recevez un code de reçu. Il vous permettra de vérifier plus tard que votre évaluation a été comptée. Le reçu n'indique pas les valeurs attribuées."
 
-msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihr Stimmzettel mitgezählt wurde."
-msgstr "Voici votre reçu. Il n'est affiché que maintenant et n'est enregistré nulle part. Notez-le ou imprimez-le si vous souhaitez vérifier plus tard que votre bulletin a été compté."
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und in Ihrem Browser nicht gespeichert; der Server bewahrt den Code nur zusammen mit Ihrem anonymen Stimmzettel auf, damit Sie später prüfen können, dass Ihr Stimmzettel mitgezählt wurde. Notieren oder drucken Sie sie deshalb jetzt. Die Quittung zeigt nicht, wofür Sie gestimmt haben."
+msgstr "Voici votre reçu. Il n'est affiché que maintenant et n'est pas conservé dans votre navigateur ; le serveur ne conserve le code qu'avec votre bulletin anonyme, afin que vous puissiez vérifier plus tard que votre bulletin a été compté. Notez-le ou imprimez-le maintenant. Le reçu ne montre pas ce pour quoi vous avez voté."
 
-msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Bewertung mitgezählt wurde."
-msgstr "Voici votre reçu. Il n'est affiché que maintenant et n'est enregistré nulle part. Notez-le ou imprimez-le si vous souhaitez vérifier plus tard que votre évaluation a été comptée."
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und in Ihrem Browser nicht gespeichert; der Server bewahrt den Code nur zusammen mit Ihrer anonymen Bewertung auf, damit Sie später prüfen können, dass Ihre Bewertung mitgezählt wurde. Notieren oder drucken Sie sie deshalb jetzt. Die Quittung zeigt nicht, welche Werte Sie vergeben haben."
+msgstr "Voici votre reçu. Il n'est affiché que maintenant et n'est pas conservé dans votre navigateur ; le serveur ne conserve le code qu'avec votre évaluation anonyme, afin que vous puissiez vérifier plus tard que votre évaluation a été comptée. Notez-le ou imprimez-le maintenant. Le reçu ne montre pas les valeurs que vous avez attribuées."
 
 msgid "Code kopieren"
 msgstr "Copier le code"

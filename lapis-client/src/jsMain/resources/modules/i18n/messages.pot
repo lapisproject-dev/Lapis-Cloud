@@ -18787,10 +18787,10 @@ msgstr ""
 msgid "Nach der Abgabe erhalten Sie einen Quittungscode. Damit können Sie später prüfen, dass Ihre Bewertung mitgezählt wurde. Welche Werte Sie vergeben haben, zeigt die Quittung nicht an."
 msgstr ""
 
-msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihr Stimmzettel mitgezählt wurde."
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und in Ihrem Browser nicht gespeichert; der Server bewahrt den Code nur zusammen mit Ihrem anonymen Stimmzettel auf, damit Sie später prüfen können, dass Ihr Stimmzettel mitgezählt wurde. Notieren oder drucken Sie sie deshalb jetzt. Die Quittung zeigt nicht, wofür Sie gestimmt haben."
 msgstr ""
 
-msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Bewertung mitgezählt wurde."
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und in Ihrem Browser nicht gespeichert; der Server bewahrt den Code nur zusammen mit Ihrer anonymen Bewertung auf, damit Sie später prüfen können, dass Ihre Bewertung mitgezählt wurde. Notieren oder drucken Sie sie deshalb jetzt. Die Quittung zeigt nicht, welche Werte Sie vergeben haben."
 msgstr ""
 
 msgid "Code kopieren"

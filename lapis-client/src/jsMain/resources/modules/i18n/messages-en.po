@@ -19656,11 +19656,11 @@ msgstr "After submitting you will receive a receipt code. With it you can later 
 msgid "Nach der Abgabe erhalten Sie einen Quittungscode. Damit können Sie später prüfen, dass Ihre Bewertung mitgezählt wurde. Welche Werte Sie vergeben haben, zeigt die Quittung nicht an."
 msgstr "After submitting you will receive a receipt code. With it you can later check that your rating was counted. The receipt does not show which values you gave."
 
-msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihr Stimmzettel mitgezählt wurde."
-msgstr "This is your receipt. It is shown only now and stored nowhere. Write it down or print it if you want to check later that your ballot was counted."
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und in Ihrem Browser nicht gespeichert; der Server bewahrt den Code nur zusammen mit Ihrem anonymen Stimmzettel auf, damit Sie später prüfen können, dass Ihr Stimmzettel mitgezählt wurde. Notieren oder drucken Sie sie deshalb jetzt. Die Quittung zeigt nicht, wofür Sie gestimmt haben."
+msgstr "This is your receipt. It is shown only now and is not kept in your browser; the server keeps the code only together with your anonymous ballot, so that you can check later that your ballot was counted. Please write it down or print it now. The receipt does not show what you voted for."
 
-msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Bewertung mitgezählt wurde."
-msgstr "This is your receipt. It is shown only now and stored nowhere. Write it down or print it if you want to check later that your rating was counted."
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und in Ihrem Browser nicht gespeichert; der Server bewahrt den Code nur zusammen mit Ihrer anonymen Bewertung auf, damit Sie später prüfen können, dass Ihre Bewertung mitgezählt wurde. Notieren oder drucken Sie sie deshalb jetzt. Die Quittung zeigt nicht, welche Werte Sie vergeben haben."
+msgstr "This is your receipt. It is shown only now and is not kept in your browser; the server keeps the code only together with your anonymous rating, so that you can check later that your rating was counted. Please write it down or print it now. The receipt does not show which values you gave."
 
 msgid "Code kopieren"
 msgstr "Copy code"

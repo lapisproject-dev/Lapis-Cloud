@@ -19703,11 +19703,11 @@ msgstr "Po oddaniu głosu otrzymają Państwo kod potwierdzenia. Dzięki niemu m
 msgid "Nach der Abgabe erhalten Sie einen Quittungscode. Damit können Sie später prüfen, dass Ihre Bewertung mitgezählt wurde. Welche Werte Sie vergeben haben, zeigt die Quittung nicht an."
 msgstr "Po wysłaniu otrzymają Państwo kod potwierdzenia. Dzięki niemu mogą Państwo później sprawdzić, że ocena została policzona. Potwierdzenie nie pokazuje przyznanych wartości."
 
-msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihr Stimmzettel mitgezählt wurde."
-msgstr "To jest Państwa potwierdzenie. Jest wyświetlane tylko teraz i nigdzie nie jest zapisywane. Proszę je zapisać lub wydrukować, aby później sprawdzić, że karta została policzona."
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und in Ihrem Browser nicht gespeichert; der Server bewahrt den Code nur zusammen mit Ihrem anonymen Stimmzettel auf, damit Sie später prüfen können, dass Ihr Stimmzettel mitgezählt wurde. Notieren oder drucken Sie sie deshalb jetzt. Die Quittung zeigt nicht, wofür Sie gestimmt haben."
+msgstr "To jest Państwa potwierdzenie. Jest wyświetlane tylko teraz i nie jest zapisywane w przeglądarce; serwer przechowuje kod wyłącznie wraz z anonimową kartą do głosowania, aby później można było sprawdzić, że karta została policzona. Proszę je zapisać lub wydrukować teraz. Potwierdzenie nie pokazuje, na co Państwo głosowali."
 
-msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Bewertung mitgezählt wurde."
-msgstr "To jest Państwa potwierdzenie. Jest wyświetlane tylko teraz i nigdzie nie jest zapisywane. Proszę je zapisać lub wydrukować, aby później sprawdzić, że ocena została policzona."
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und in Ihrem Browser nicht gespeichert; der Server bewahrt den Code nur zusammen mit Ihrer anonymen Bewertung auf, damit Sie später prüfen können, dass Ihre Bewertung mitgezählt wurde. Notieren oder drucken Sie sie deshalb jetzt. Die Quittung zeigt nicht, welche Werte Sie vergeben haben."
+msgstr "To jest Państwa potwierdzenie. Jest wyświetlane tylko teraz i nie jest zapisywane w przeglądarce; serwer przechowuje kod wyłącznie wraz z anonimową oceną, aby później można było sprawdzić, że ocena została policzona. Proszę je zapisać lub wydrukować teraz. Potwierdzenie nie pokazuje, jakie wartości Państwo przyznali."
 
 msgid "Code kopieren"
 msgstr "Kopiuj kod"

@@ -1728,8 +1728,9 @@ button in a list:
 * The outcome is never guessed. After a conflict or a lost connection the screen reads the state again and says what really
   happened (voted, closed, not possible right now); it never shows a server message, because Kilua RPC does not transmit one and
   the server's text can contain identifiers.
-* Anything the member must keep (a receipt code) is shown once, is not stored anywhere (no storage, no URL, no state object, no
-  console, no toast), and the way out is blocked until the member confirms having noted it.
+* Anything the member must keep (a receipt code) is shown once, is not stored anywhere in the client (no storage, no URL, no state
+  object, no console, no toast; the server keeps the code only with the anonymous ballot for the inclusion check), and the way out
+  is blocked until the member confirms having noted it.
 * Selection tiles are at least 48 px high with a visible focus ring; a choice with a limit shows a live counter in a polite live
   region and *locks* (disables, does not hide) the remaining options at the limit.
 

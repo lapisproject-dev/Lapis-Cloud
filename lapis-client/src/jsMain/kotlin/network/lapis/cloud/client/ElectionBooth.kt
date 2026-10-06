@@ -465,8 +465,10 @@ private class ElectionBooth(
         }
         booth.p(
             tr(
-                "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. " +
-                    "Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihr Stimmzettel mitgezählt wurde.",
+                "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und in Ihrem Browser nicht gespeichert; " +
+                    "der Server bewahrt den Code nur zusammen mit Ihrem anonymen Stimmzettel auf, damit Sie später prüfen können, " +
+                    "dass Ihr Stimmzettel mitgezählt wurde. Notieren oder drucken Sie sie deshalb jetzt. " +
+                    "Die Quittung zeigt nicht, wofür Sie gestimmt haben.",
             ),
         ) { addCssClasses("alert alert-warning mb-0") }
         var raw: String? = code

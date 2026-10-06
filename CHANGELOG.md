@@ -6,6 +6,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed (V1.9.64)
+
+- Receipt text of secret elections and anonymous systemic consensus no longer claims the code is "stored nowhere"; it now says the code is not kept in the browser, that the server keeps it only together with the anonymous ballot (or rating) for the inclusion check, and that the receipt does not show the choice. Translations (en, es, fr, it, nl, pl, ru) are agent translations, not reviewed by native speakers. Text only: no server, schema or behaviour change.
+
 ### Added (V1.9.63, richer staging/demo data)
 
 - **A full 24-month demo dataset** for the fictitious "Testverein Musterstadt e.V." (staging seed, `LAPIS_STAGING_MODE`; the four locks are unchanged). Everything is relative to the start of the seed run and written in one

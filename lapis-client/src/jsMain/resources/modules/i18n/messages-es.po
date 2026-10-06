@@ -19669,11 +19669,11 @@ msgstr "Tras emitir su voto recibirá un código de recibo. Con él podrá compr
 msgid "Nach der Abgabe erhalten Sie einen Quittungscode. Damit können Sie später prüfen, dass Ihre Bewertung mitgezählt wurde. Welche Werte Sie vergeben haben, zeigt die Quittung nicht an."
 msgstr "Tras enviar recibirá un código de recibo. Con él podrá comprobar más adelante que su valoración fue contada. El recibo no muestra qué valores asignó."
 
-msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihr Stimmzettel mitgezählt wurde."
-msgstr "Este es su recibo. Solo se muestra ahora y no se guarda en ningún sitio. Anótelo o imprímalo si desea comprobar más adelante que su papeleta fue contada."
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und in Ihrem Browser nicht gespeichert; der Server bewahrt den Code nur zusammen mit Ihrem anonymen Stimmzettel auf, damit Sie später prüfen können, dass Ihr Stimmzettel mitgezählt wurde. Notieren oder drucken Sie sie deshalb jetzt. Die Quittung zeigt nicht, wofür Sie gestimmt haben."
+msgstr "Este es su recibo. Solo se muestra ahora y no se guarda en su navegador; el servidor conserva el código únicamente junto con su papeleta anónima, para que usted pueda comprobar más adelante que su papeleta fue contada. Anótelo o imprímalo ahora. El recibo no muestra por qué ha votado."
 
-msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Bewertung mitgezählt wurde."
-msgstr "Este es su recibo. Solo se muestra ahora y no se guarda en ningún sitio. Anótelo o imprímalo si desea comprobar más adelante que su valoración fue contada."
+msgid "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und in Ihrem Browser nicht gespeichert; der Server bewahrt den Code nur zusammen mit Ihrer anonymen Bewertung auf, damit Sie später prüfen können, dass Ihre Bewertung mitgezählt wurde. Notieren oder drucken Sie sie deshalb jetzt. Die Quittung zeigt nicht, welche Werte Sie vergeben haben."
+msgstr "Este es su recibo. Solo se muestra ahora y no se guarda en su navegador; el servidor conserva el código únicamente junto con su valoración anónima, para que usted pueda comprobar más adelante que su valoración fue contada. Anótelo o imprímalo ahora. El recibo no muestra qué valores ha dado."
 
 msgid "Code kopieren"
 msgstr "Copiar código"

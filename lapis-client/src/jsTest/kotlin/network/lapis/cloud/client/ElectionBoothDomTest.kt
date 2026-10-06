@@ -212,7 +212,11 @@ class ElectionBoothDomTest {
                         val codeBox = el.allOf(".lapis-receipt-code").first()
                         assertEquals(TEST_RECEIPT, codeBox.textContent.orEmpty(), "the code is drawn character by character, unchanged")
                         assertEquals(7, codeBox.allOf("span").size, "27 characters in groups of four")
-                        assertTrue(el.flatText().contains("Sie wird nur jetzt angezeigt und nirgends gespeichert."))
+                        val text = el.flatText()
+                        assertTrue(text.contains("Sie wird nur jetzt angezeigt und in Ihrem Browser nicht gespeichert;"))
+                        assertTrue(text.contains("zusammen mit Ihrem anonymen Stimmzettel"), "says where the code really lives")
+                        assertTrue(text.contains("Die Quittung zeigt nicht, wofür Sie gestimmt haben."))
+                        assertFalse(text.contains("nirgends gespeichert"), "V1.9.64 regression: the server does keep the code")
                         assertTrue(el.hasButton("Code kopieren") && el.hasButton("Drucken"))
                         assertTrue(
                             el.flatText().contains("dass Ihr Stimmzettel mitgezählt wurde."),

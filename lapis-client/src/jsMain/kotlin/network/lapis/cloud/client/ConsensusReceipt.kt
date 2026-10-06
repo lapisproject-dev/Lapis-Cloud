@@ -55,8 +55,10 @@ internal fun renderConsensusReceipt(
     booth.h2(tr("Ihre Bewertung wurde gezählt")) { addCssClass("h5") }
     booth.p(
         tr(
-            "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und nirgends gespeichert. " +
-                "Notieren oder drucken Sie sie, wenn Sie später prüfen möchten, dass Ihre Bewertung mitgezählt wurde.",
+            "Dies ist Ihre Quittung. Sie wird nur jetzt angezeigt und in Ihrem Browser nicht gespeichert; " +
+                "der Server bewahrt den Code nur zusammen mit Ihrer anonymen Bewertung auf, damit Sie später prüfen können, " +
+                "dass Ihre Bewertung mitgezählt wurde. Notieren oder drucken Sie sie deshalb jetzt. " +
+                "Die Quittung zeigt nicht, welche Werte Sie vergeben haben.",
         ),
     ) { addCssClasses("alert alert-warning mb-0") }
     var raw: String? = code
