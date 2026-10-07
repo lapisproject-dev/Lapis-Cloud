@@ -418,8 +418,10 @@ The church text and its hash are unchanged, so existing consents stay valid. *Th
 
 === Stage mode
 
-* The room fills the height under the header (`--lapis-header-h`, a token) minus the bar; `100vh` first, `100dvh` second (older Safari has no `dvh`). The pulpit/podium keeps 16:9 and takes at most
-  62 % of the room height; the old 720 px cap is gone (`ClientEncounterVocabularyTripwireTest` pins that). The benches sit below in their own scrolling area.
+* The room fills at least the height under the header (`--lapis-header-h`, a token) minus the bar; `100vh` first, `100dvh` second (older Safari has no `dvh`). The pulpit/podium keeps 16:9 and takes at most
+  62 % of that height; the old 720 px cap is gone (`ClientEncounterVocabularyTripwireTest` pins that). The benches sit below. Since V1.9.68 (R59, one scroll surface) the height is a minimum, not
+  a fixed size: the room grows with its benches and the page scrolls; there is no inner scrolling area for the benches any more. In full screen the room itself is the scroll container
+  (ledger entry E0 of `ScrollSurfaceTripwireTest`, see `ui-ux-guideline.adoc` R59).
 * The side panel: from 1200 px a 340 px column (closable), from 768 to 1199 px an *overlay* over the right edge (closed by default, Escape closes it, focus returns to the opener), below 768 px the full-screen sheet.
   The toggle carries `aria-expanded` and `aria-controls`; the state lives in memory only.
 * Full screen (`EncounterFullscreen`): the Fullscreen API on the room element; without it (or when `requestFullscreen()` is rejected) the room gets `is-pseudo-fullscreen` (`position: fixed; inset: 0`) and Escape leaves it.

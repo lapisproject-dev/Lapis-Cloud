@@ -58,7 +58,8 @@ this repository. This README describes only the technical scope.
   main web sections (including events), and the member-card download. Not in any app store yet. Its section and video
   features need the optional WebView bridge on the server (off by default, see `CHANGELOG.md`
   `[0.22.0]`); its member tile "Veranstaltungen" uses the section key `my-events`, which needs a server from `v0.29.0` on
-  (an older server answers `400` and the app shows a hint).
+  (an older server answers `400` and the app shows a hint). From `v0.30.0` on the server also offers a bridge route and the section
+  key `encounter` for the encounter space ("Begegnungsraum"); the app has no tile for it yet.
 * https://kuml.dev[kUML] — the modeling language used for every diagram in this repository
   (see below).
 * `lapisproject-dev/Lapis-Cloud-Ops` (private) — the real, filled-in deployment config (`.env`,
@@ -178,7 +179,7 @@ LTR-weighted guest pool isn't possible yet, since no guest LTR-earning mechanism
 client UI for Politician Profiles exists yet (backend/RPC-only, unchanged from V0.6.4). See
 `CHANGELOG.md` `[0.6.0]` for the original scope-cut reasoning and `[0.9.0]` for the closure.
 
-Nineteen further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
+Twenty further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
 in the same release session: `v0.16.0` was placed at the historical commit boundary matching an
 already-published website release-notes page for that version, and `v0.17.0` immediately after it
 for the newer work.
@@ -312,7 +313,8 @@ match-then-post rules, an IBAN-checksum payment-reference code printed on every 
 encrypted-at-rest counterparty IBANs (V1.4.5.1); a byte-verified DATEV-EXTF Buchungsstapel export
 for the Steuerberater with an all-or-nothing blocker model (V1.4.5.2); and live, incremental
 accounting-export bridges to both Lexware Office/lexoffice and sevDesk behind one provider-neutral
-adapter interface (V1.4.5.3/V1.4.5.4). Public presence (V1.4.6/V1.4.7): `GET /` is now a
+adapter interface (V1.4.5.3/V1.4.5.4; since V1.9.65 the lexoffice side looks a voucher number up before creating it and
+reconciles uncertain items automatically -- lexoffice has no server-side idempotency key, so this protection is client-side). Public presence (V1.4.6/V1.4.7): `GET /` is now a
 server-rendered, SEO-indexable landing page (member/LTR/post counters plus top-post teasers) — the
 member SPA moved from `/` to `/app` as a **breaking change** for any bookmarked `/#/...` link or
 embedded website snippet, softened by a same-origin hash-bridge redirect for already-circulating
@@ -553,6 +555,22 @@ check the number of administrators per instance (an approval needs at least thre
 role); third-party e-mail changes and temporary-password requests against administrators need `LAPIS_SMTP_*`; the new
 `LAPIS_DB_*_TIMEOUT_MS` variables default to 10 s / 60 s / 120 s -- see `CHANGELOG.md` `[0.29.0]`.
 
+**`v0.30.0`** spans eight numbered waves (V1.9.61 through V1.9.68) plus a test-only stability fix; see `CHANGELOG.md`
+`[0.30.0]`, whose release summary lists the **API behaviour changes** first. **The encounter space ("Begegnungsraum")** arrives
+for the ELB pilot: a standing room with a pulpit and a listening congregation on the LiveKit stack, without a lasting record of who
+attended (Art. 9 GDPR; V1.9.61), with a web client (V1.9.62) and, in stage 1, two room profiles (church service and assembly) with
+their own words, floor-plan scene and consent text, configurable reactions, a stage mode and full screen (V1.9.67); see
+"Encounter space" under "What doesn't work yet" below. **The conference bar** carries recording, live stream and "Für alle beenden"
+as a moderation group and no longer wraps (V1.9.66). **Operations are hardened** (V1.9.65): SQL text and personal data no longer
+reach the server log, the lexoffice export looks a voucher up before creating it and reconciles uncertain items, and
+`deploy/example/backup.sh` / `restore.sh` back up database, uploaded files and branding. The page is the one scroll surface
+(V1.9.68), the staging/demo seed covers 24 months of a fictitious association (V1.9.63), and the receipt text of secret votes no longer
+claims the code is stored nowhere (V1.9.64). The encounter space was rolled out on Staging, PdV and ELB but has not been used by a
+real congregation; LiveKit's enforcement of listen-only tokens and the behaviour on real devices and iOS/Safari are not verified.
+Operators: take a backup, then **run `flywayRepair` once on every instance that ran `v0.29.0` or older** (V1.9.61 edited
+`V1__baseline.sql`), then deploy; migrations `V73` to `V76` are additive; no new environment variable -- see `CHANGELOG.md` `[0.30.0]`
+and `deploy/example/README.adoc`.
+
 === Auction opt-in (V0.6.2)
 
 The legal classification of an LTR-for-goods marketplace (payment-services supervision, trade law,
@@ -590,11 +608,14 @@ legal counsel — not something this project can decide once for everyone. See `
   service) on top of the LiveKit conference stack: offices `PULPIT` / `STEWARD` per space, only an office holder may speak, everybody else listens. Because
   attending a service can reveal religious belief (Art. 9 GDPR) no lasting record of who attended is kept: the presence row is deleted on leave and when the
   session ends, nothing about entering or leaving reaches the audit log, the consent of a non-member is stored with a date only. The ordinary conference API cannot
-  open, join, record or list such a session. **Client available, unreleased (V1.9.62, wave B2)**: room list ("Begegnungsräume", `#/begegnung`), entry notice,
-  the room view with a decorative church scene and stable pews, hand and amen, chat, moderation, transmission of the pulpit only, a mobile bridge route and
-  translations in seven languages. LiveKit's enforcement of the listen-only token still has to be verified on staging
-  (`docs/architecture/encounter-space-staging-test.adoc`, checks 1-17 for B1 and 18-28 for the client). Migration `V73`, **`flywayRepair` needed before the
-  deploy**. See `docs/architecture/encounter-space.adoc`.
+  open, join, record or list such a session. **Client (V1.9.62, wave B2, released in `v0.30.0`)**: room list ("Begegnungsräume", `#/begegnung`), entry notice,
+  the room view with stable pews, hand and reactions, chat, moderation, transmission of the pulpit only, a mobile bridge route and
+  translations in seven languages. **Stage 1 (V1.9.67)**: a room is a church service or an assembly (own vocabulary, floor-plan scene, default reactions and
+  consent text), reactions are configurable per room (hand, amen, applause, heart), stage mode with full screen. **Not yet verified**: the room has not been used
+  by a real congregation; LiveKit's enforcement of the listen-only token was not checked against a live LiveKit server
+  (`docs/architecture/encounter-space-staging-test.adoc`, checks 1-28, written, not run); not tested on a real device or in Safari/iOS (audio echo without
+  headphones); the consent texts are drafts without legal review; the translations are not reviewed by native speakers. Migrations `V73` and `V76`;
+  **`flywayRepair` needed before the first deploy on an instance from `v0.29.0` or older**. See `docs/architecture/encounter-space.adoc`.
 * **Administrator accounts are protected from each other (V1.9.57).** A temporary password, taking the ADMIN role away or blocking the login of *another
   administrator* needs the approval of a second administrator (one who held the role for 7 days; request, approval, for a password a 24 hour objection
   period of the target, generation once by the requester); the emergency e-mail path, the manual Keycloak link and GDPR erasure are refused against another
@@ -1577,8 +1598,9 @@ site gains `/vorstand`, `/politiker` and `/landesverbaende` with matching embed 
 (`/api/embed/v1/board|politicians|chapters`, behind `LAPIS_EMBED_ENABLED` and the origin allowlist):
 only explicitly allow-listed fields, never ids or e-mail addresses. Regional chapters get a crest --
 JPEG, PNG or a strictly sanitized SVG (element and attribute allowlist, the stored file is a fresh
-serialization) -- and a description. Photos and crests are **not** part of the organization backup
-and must be uploaded again after a restore. See `docs/architecture/member-photo.adoc`,
+serialization) -- and a description. Member photos are **not** part of the in-app organization backup
+(ADMIN bundle) and must be uploaded again after a restore; crests (and event and article covers) are, since bundle format 2
+(V1.9.65, `v0.30.0`). The operator backup `deploy/example/backup.sh` covers all uploaded files. See `docs/architecture/member-photo.adoc`,
 `docs/architecture/public-profiles.adoc` and `docs/architecture/regional-chapters.adoc`.
 
 == Democratic elections (V1.9.22/V1.9.23)

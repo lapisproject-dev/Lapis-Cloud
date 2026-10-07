@@ -6,6 +6,67 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.30.0] — 2026-10-07
+
+Release summary (the detail is in the sections below, grouped by wave V1.9.61 -- V1.9.68):
+
+- **API BEHAVIOR CHANGES** (read these first if anything outside the bundled web client talks to the server):
+  - **The ordinary conference RPC surface refuses encounter sessions.** Every room-id method of the six conference services starts with `EncounterRoomGuard`;
+    for a conference room that belongs to an encounter space, joining through `IConferenceService`, rejoining from a breakout room, recording, breakout rooms,
+    shared notes, whiteboard and `listParticipants` are refused, and an external stream may show only the pulpit. Ordinary rooms behave as before (V1.9.61).
+  - **New RPC service `IEncounterSpaceService`** (spaces, offices, open/close, enter/leave, presence, moderation). Only an `ACTIVE` office holder (`PULPIT` /
+    `STEWARD`) receives a LiveKit token that may publish; every other participant, also BOARD/ADMIN without an office, gets `canPublish = false` (V1.9.61).
+  - **`EncounterSpaceInput.profile` and `reactions` are nullable** (on create `null` = church service with its default reactions, on update `null` = unchanged);
+    `EncounterSpaceDto` gains `profile` and `reactions` with defaults. `EncounterReaction` gains `HAND_LOWERED` (V1.9.62), `APPLAUSE` and `HEART` (V1.9.67), all
+    appended. Changing profile or reactions while a session is open answers a conflict (V1.9.67).
+  - **Mobile WebView bridge** (still behind `LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED`, default off): new route
+    `GET /api/mobile/v1/encounter/spaces/{spaceId}/webview-session` and section key `encounter` (lands on `/app#/begegnung`). Lapis Cloud Mobile does not use
+    either yet (V1.9.62).
+  - **ADMIN backup bundle (`/api/backup/export`) is format 2** and carries the chapter-crest, event-cover and article-cover files; this release restores format 1
+    and 2, a server of `v0.29.0` or older refuses a format 2 bundle (V1.9.65).
+  - **lexoffice export**: one more request per item (voucher-number lookup before creating), `UNKNOWN` items are reconciled automatically; the store's
+    `mark*` methods take a fencing token (V1.9.65; internal, not on the RPC surface).
+  - The receipt text of secret elections and anonymous consensus changed (V1.9.64, text only).
+- **Operator notes**:
+  - **Take a backup first** (new: `deploy/example/backup.sh`, see `deploy/example/README.adoc` "Backup and restore"; keep `.env` and
+    `LAPIS_SECRET_ENCRYPTION_KEY` in a separate, encrypted backup).
+  - **`flywayRepair` once before the first start of this release on every instance that ran `v0.29.0` or older.** V1.9.61 widened the unnamed audit
+    `entity_type` CHECK in `V1__baseline.sql` in place (`ENCOUNTER_SPACE`), so Flyway sees a checksum mismatch for the applied `V1` and `lapis-server` does not
+    start until `./gradlew :lapis-server:flywayRepair` (with `LAPIS_DB_URL`, `LAPIS_DB_USER`, `LAPIS_DB_PASSWORD`, run from the commit being deployed) has
+    realigned it. No data changes. The maintainer's three pilot instances (PdV, ELB, Staging) and the demo instance were already repaired when the waves were
+    rolled out before this tag; every other existing instance needs it. A fresh database needs nothing.
+  - **New migrations, all additive, applied automatically**: `V73` (encounter space, offices, consent proof, `conference_room.encounter_space_id`, audit literal
+    `ENCOUNTER_SPACE`), `V74` (lexoffice reconciliation columns), `V75` (`accounting_export_item.claim_generation`, the never-reset fencing token), `V76` (encounter
+    room profile and reactions). The Flyway migration count goes up by exactly four.
+  - **No new environment variable.** The log pattern now uses the redacting converters `%safeMsg`/`%safeEx`; an operator who uses an own Logback configuration should take
+    them over. Logger `Exposed` has an INFO floor.
+  - The staging/demo seed is richer (24 months of a fictitious association) but runs **only on an empty database**; keep the SEPA, dunning and postal pollers off on
+    such an instance (V1.9.63).
+- **Encounter space ("Begegnungsraum")**: a standing room with a pulpit and a listening congregation on top of the LiveKit stack, built for the ELB pilot --
+  server and Art. 9 GDPR data protection (no lasting attendance record, V1.9.61), web client with room list, entry notice, room view, hand/amen, chat, moderation and
+  pulpit-only transmission (V1.9.62), and stage 1 (room profiles church service / assembly with their own vocabulary, scene and consent text, configurable
+  reactions, stage mode, full screen, floor-plan scenes, V1.9.67).
+- **Conference**: recording, live stream and "Für alle beenden" moved into the bottom bar as a moderation group, the bar no longer wraps (overflow in "Mehr"), the
+  chat send button is an icon (V1.9.66).
+- **Operations**: SQL text and personal data no longer reach the server log (closes the `v0.29.0` limitation "Kilua RPC still logs `e.message` of untyped SQL
+  errors"), lexoffice check-before-create, automatic reconciliation and fencing, operator `backup.sh`/`restore.sh`, ADMIN bundle format 2 (V1.9.65).
+- **UI**: the page is the one scroll surface (R59); nested scroll boxes are gone, a tripwire ledger names the few remaining scroll containers (V1.9.68).
+- **Demo data**: 24-month "Testverein Musterstadt e.V." staging seed (V1.9.63). **Text**: the receipt no longer claims the code is "stored nowhere" (closes the
+  `v0.29.0` limitation, V1.9.64).
+- **Not yet verified in real use**: the encounter space was rolled out on Staging, PdV and ELB but has not been used by a real congregation; LiveKit's
+  enforcement of `canPublish = false` was not checked against a live LiveKit server (the staging script is written, not run); conference bar, encounter room
+  and scroll changes were not tested on a real device or on iOS/Safari; new translations were written by an agent. See "Known limitations of this release" at
+  the end of this section.
+
+### Fixed -- release housekeeping
+
+- `ElectionMinimumParticipationTest` no longer collides with timestamp tokens: its "does not contain" checks for `31`/`17` matched the minute or second of
+  the audit entry's timestamp, so the test failed in the 31st minute of any hour; the figures are now four-digit numbers (`62d8af5b`, test code only, no
+  production change).
+- **`build.gradle.kts` version** and the MCP `serverInfo.version` constant (`MCP_SERVER_VERSION`) are `0.30.0`.
+- This changelog: the V1.9.65 entry named `attempts` as the fencing token and listed only migration `V74`; the code uses the never-reset
+  `claim_generation` column of migration `V75` (corrected below).
+
 ### Changed (V1.9.68, one scroll surface)
 
 - **The page is the one scroll surface (R59).** A box that scrolled inside the page is gone: the sidebar's own scrollbar (and its sticky position -- it now scrolls with the page, so on a long page the navigation
@@ -117,8 +178,10 @@ All notable changes to this project are documented here. Format follows
 ### Changed (V1.9.65)
 
 - **Fencing for every write after a claim.** `AccountingExportStore.markFailed/markUnknown/markRetryScheduled/markSkippedAlreadyExported/markSucceeded` take the claim's
-  `attempts` value as a fencing token and return `FencedWrite.APPLIED|LOST_FENCE`; a late sender can no longer overwrite the state the reaper or `abortRun` set (previously a
-  late retry could turn an aborted item back into `PENDING` and send it again). A late success still wins over `UNKNOWN`. `claim` increments `attempts` in SQL.
+  `claim_generation` value as a fencing token and return `FencedWrite.APPLIED|LOST_FENCE`; a late sender can no longer overwrite the state the reaper or `abortRun` set (previously a
+  late retry could turn an aborted item back into `PENDING` and send it again). A late success still wins over `UNKNOWN`. `claim` increments `claim_generation` and the
+  retry budget `attempts` in SQL. `claim_generation` is a new column (migration `V75__accounting_export_claim_generation.sql`, additive) that is never reset:
+  `attempts` cannot serve as the token because `retryFailed` zeroes it (ABA).
   `duePendingItemIds` returns only items of a `RUNNING` run.
 - `logback.xml`: the pattern uses `%safeMsg`/`%safeEx`; logger `Exposed` has an INFO floor (its DEBUG output contains statements with values).
 - `OrganizationExportService.FORMAT_VERSION` is 2; `OrganizationRestoreService` accepts the formats in `SUPPORTED_FORMAT_VERSIONS` (1 and 2). The export and restore services and
@@ -142,7 +205,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Operator note (V1.9.65)
 
-- V74 is additive; **no `flywayRepair` is needed** (no applied migration was edited).
+- V74 and V75 are additive; **no `flywayRepair` is needed for this wave** (no applied migration was edited; the repair duty of V1.9.61 stays).
 - Take a backup with `deploy/example/backup.sh` before deploying. After this release the lexoffice export needs one more request per item; a tick takes longer.
 - Keep `LAPIS_SECRET_ENCRYPTION_KEY` and the `.env` in a separate, encrypted backup: they are not part of `backup.sh`.
 
@@ -292,6 +355,33 @@ All notable changes to this project are documented here. Format follows
   `setSpaceRoles` should name the office holders (as now) or only count them are open questions.
 - LiveKit and Docker logs are not rotated (an operations task); LiveKit logs participant identities at INFO.
 - The translations of the one new catalog entry for es/fr/it/nl/pl/ru were written by the agent and not reviewed by a native speaker.
+
+### Known limitations of this release (collected)
+
+- **The encounter space has not been used by a real congregation or assembly.** It was rolled out on Staging, PdV and ELB; the evidence is the automated H2,
+  PostgreSQL and Karma tests. The staging script `docs/architecture/encounter-space-staging-test.adoc` (checks 1-28) is written, not run.
+- **LiveKit's enforcement of `canPublish = false` is not verified against a live LiveKit server.** The client prevents the attempt (type and runtime flag), the
+  server mints a listen-only token; what LiveKit does with a publish attempt was not observed.
+- **Encounter room**: audio echo in Safari without headphones; sized for a congregation of about 20 (instance maximum 25 minus 2 office places, at most 20
+  non-members, no load test); pews are per device, not synchronised; removed and silenced people are kept in memory only (lost on restart; a removed person's
+  token can reconnect for up to 60 s); profile and reactions are enforced on the client only; "Live (nur Kanzel)" is visible to everybody present; `listPresent`
+  sends `isGuest` to every present person; stages 2 and 3 of the room plan, a request-to-speak flow, pause/resume of the transmission and a help page are not
+  included. The ordinary conference keeps its lasting attendance records on purpose.
+- **Consent texts are drafts**: the Art. 9 consent text of the church service and the one of the assembly have had no legal review; the retention of the consent
+  proof is an open question.
+- **Not tested on a real device or on iOS/Safari**: the conference bar (V1.9.66), the encounter room and its full screen (V1.9.62, V1.9.67; the Fullscreen API is
+  usually missing in the mobile WebView, the CSS fallback was not seen) and the one scroll surface (V1.9.68: `dvh`, rubber-banding, `overscroll-behavior` before
+  iOS 16). Karma runs in headless Chrome and cannot mount the whole conference or encounter screen.
+- **Translations** of the new texts (en, es, fr, it, nl, pl, ru) were written by an agent, not reviewed by native speakers.
+- **lexoffice has no server-side idempotency key**; the protection is client-side (lookup before create, reconciliation after ten minutes). Duplicates created
+  before this release are not deduplicated retroactively; sevDesk has neither lookup nor reconciliation; the rate limiter is per process, so more than one server
+  instance with the export poller enabled is still not supported.
+- **Log redaction is heuristic** for a message without a throwable; the PostgreSQL driver's `java.util.logging` output is not bridged. LiveKit and Docker logs
+  are not rotated, and LiveKit logs participant identities at INFO.
+- **Backups**: `backup.sh` deliberately leaves out `.env` and the rendered configs (back them up separately and encrypted); `LAPIS_FINTS_PASSPORT_DIR` lies
+  outside every volume and every backup in the example compose file; the ADMIN bundle leaves out member photos and conference backgrounds on purpose.
+- **Demo seed** runs only on an empty database; it contains no stored documents, no encounter space and no crest images.
+- The detailed per-wave lists above remain authoritative.
 
 ## [0.29.0] — 2026-10-06
 

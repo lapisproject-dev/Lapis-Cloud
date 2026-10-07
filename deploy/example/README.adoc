@@ -295,14 +295,17 @@ Rules and details:
 * **Restore refuses a non-empty database** and deletes nothing. To restore over an existing database, take a fresh backup of it,
   recreate the database yourself (the command is in the header of `restore.sh`) and run the script again. Checksums are verified first.
 * A backup made by an older release restores and is migrated forward by Flyway on the next start. A backup from a newer release than the
-  running image is refused by Flyway: deploy the matching release first.
+  running image is refused by Flyway: deploy the matching release first. **A backup from `v0.29.0` or older restored under `v0.30.0`
+  or newer** carries the old checksum of `V1__baseline.sql` in its Flyway history: run `flywayRepair` once after the restore and before
+  the start (see the second CAUTION in "Updating an existing deployment" below).
 * **Exports to lexoffice after a restore.** If you restore an older backup, vouchers that were exported after it are unknown locally. The
   export checks lexoffice for the voucher number before creating one, so they are adopted, not duplicated
   (xref:../../docs/architecture/accounting-export-idempotency.adoc[accounting-export-idempotency.adoc]). sevDesk has no such lookup: do
   not re-export a period for sevDesk that was exported after the backup.
 * **The ADMIN backup in the app** (`/api/backup/export`, a ZIP of every table) is a different thing: it is the data-portability export
   for moving an organization to another server, and it deliberately leaves out member photos and conference backgrounds (private
-  data). It is not a substitute for this operator backup. Since V1.9.65 it carries crest, event-cover and article-cover files.
+  data). It is not a substitute for this operator backup. Since V1.9.65 (`v0.30.0`) it carries crest, event-cover and article-cover files
+  (bundle format 2); a server of `v0.29.0` or older refuses such a bundle, while `v0.30.0` still restores a format 1 bundle.
 * Test a restore on a scratch host once. A backup that was never restored is a hope, not a backup.
 
 Not covered here (found while writing this section): `LAPIS_FINTS_PASSPORT_DIR` is not set in the example compose file. Its default
@@ -330,6 +333,25 @@ any instance: that wave edited 16 already-applied Flyway migration files in plac
 to run at all on any of these three already-migrated instances until `flywayRepair` has run against
 each of them -- see the CHANGELOG "Operator notes" entry for this wave for the full mechanism and
 the exact command. Run it once per instance before rebuilding that instance below.
+
+[CAUTION]
+====
+**Upgrading from `v0.29.0` or older to `v0.30.0` or newer needs `flywayRepair` once, before the first start.** V1.9.61
+(encounter space) widened the unnamed `audit_log_entry.entity_type` CHECK in `V1__baseline.sql` in place (`ENCOUNTER_SPACE`), so
+Flyway sees a checksum mismatch for the applied `V1` and `lapis-server` does not start. Order: back up (step 1 below), sync the new
+code, then run the repair **from the commit you are about to deploy** with the database reachable from where you run it, then rebuild.
+No data changes; a fresh database needs nothing; an instance that was already repaired while running the V1.9.61+ waves needs no
+second run. The migrations of that release (`V73` to `V76`) are additive and run on the next start (the reported migration count goes
+up by four).
+
+[source,bash]
+----
+LAPIS_DB_URL='jdbc:postgresql://<db-host>:5432/<db-name>' \
+LAPIS_DB_USER='<db-user>' \
+LAPIS_DB_PASSWORD='<db-password>' \
+./gradlew :lapis-server:flywayRepair
+----
+====
 
 . **Back up** with `./backup.sh` (see "Backup and restore" above): it covers the database AND the uploaded files, which a plain
   `pg_dump` does not. The single-command alternative below is the minimal database-only variant. Read the Postgres credentials from the running container's own
