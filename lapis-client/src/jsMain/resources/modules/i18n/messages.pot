@@ -19656,3 +19656,24 @@ msgstr ""
 
 msgid "Wird das Podium übertragen, sehen Zuschauer außerhalb des Raums nur Bild und Ton des Podiums. Sie selbst werden nicht übertragen."
 msgstr ""
+
+msgid "Auf einem anderen Gerät verbunden"
+msgstr ""
+
+msgid "Dieses Konto ist gerade auf einem anderen Gerät mit der Besprechung verbunden. Pro Konto ist zurzeit nur ein Gerät gleichzeitig möglich."
+msgstr ""
+
+msgid "Wenn Sie hier fortsetzen, wird das andere Gerät getrennt."
+msgstr ""
+
+msgid "Hier fortsetzen"
+msgstr ""
+
+msgid "Verbindung mehrmals getrennt"
+msgstr ""
+
+msgid "Die Verbindung wurde mehrmals getrennt. Bitte treten Sie erneut bei."
+msgstr ""
+
+msgid "Erneut beitreten"
+msgstr ""

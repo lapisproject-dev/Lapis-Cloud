@@ -20525,3 +20525,24 @@ msgstr "Assembly"
 
 msgid "Wird das Podium übertragen, sehen Zuschauer außerhalb des Raums nur Bild und Ton des Podiums. Sie selbst werden nicht übertragen."
 msgstr "If the podium is broadcast, viewers outside the room only see the picture and sound of the podium. You yourself are not broadcast."
+
+msgid "Auf einem anderen Gerät verbunden"
+msgstr "Connected on another device"
+
+msgid "Dieses Konto ist gerade auf einem anderen Gerät mit der Besprechung verbunden. Pro Konto ist zurzeit nur ein Gerät gleichzeitig möglich."
+msgstr "This account is currently connected to the meeting on another device. Only one device per account is possible at a time."
+
+msgid "Wenn Sie hier fortsetzen, wird das andere Gerät getrennt."
+msgstr "If you continue here, the other device will be disconnected."
+
+msgid "Hier fortsetzen"
+msgstr "Continue here"
+
+msgid "Verbindung mehrmals getrennt"
+msgstr "Connection lost several times"
+
+msgid "Die Verbindung wurde mehrmals getrennt. Bitte treten Sie erneut bei."
+msgstr "The connection was lost several times. Please join again."
+
+msgid "Erneut beitreten"
+msgstr "Join again"

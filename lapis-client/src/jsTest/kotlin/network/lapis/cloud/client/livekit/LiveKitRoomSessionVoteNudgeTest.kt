@@ -89,7 +89,7 @@ class LiveKitRoomSessionVoteNudgeTest {
                 onNotesCommit = { _, _, _ -> otherCallbacks++ },
                 onReconnecting = {},
                 onReconnected = {},
-                onDisconnected = {},
+                onDisconnected = { _ -> },
                 roomFactory = { _ -> fake.asRoom() },
                 onVoteNudge = { nudges++ },
                 voteNudgeThrottleFactory = { onRefresh ->

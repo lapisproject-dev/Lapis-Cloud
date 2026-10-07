@@ -290,7 +290,9 @@ stateDiagram(name = "Encounter room view (client)") {
 * *Entry*: `EncounterEntryPanel`, deliberately *not* a modal. Three plain sentences, the Art. 9 remark ("Dieser Hinweis ist keine Rechtsberatung."), for a
   non-member the server's consent text (headline and key points as untrusted text, the full text behind a disclosure, a required tick box). The version and the
   hash go to `enterSpace` unmodified. There is no link to any streaming platform: whether the pulpit is transmitted is the operator's decision.
-* *Inside*: `EncounterRoom`. After an unexpected disconnect the state is read: closed means "Der Gottesdienst ist beendet."; open means one automatic re-entry
+* *Inside*: `EncounterRoom`. A disconnect with the reason `DUPLICATE_IDENTITY` (the same account entered on another device) is decided first: the room view is replaced by the
+  "connected on another device" card with "Hier fortsetzen" / "Zur Übersicht"; no `getSpace`, no re-entry, no `leaveSpace` (that would delete the presence row and the poller would then
+  disconnect the other device). Any other disconnect: the state is read: closed means "Der Gottesdienst ist beendet."; open means one automatic re-entry
   (at most 3 per 5 minutes), then the entry panel again; a refusal on re-entry means "Sie wurden aus diesem Raum entfernt.".
 
 The room view's teardown is the destroy hook of the screen root, registered *before* the root is added (see `addWithLifecycle`): leaving the route stops every timer and

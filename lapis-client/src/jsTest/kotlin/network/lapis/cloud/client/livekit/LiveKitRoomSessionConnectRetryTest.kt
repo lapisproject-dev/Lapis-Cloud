@@ -107,7 +107,7 @@ class LiveKitRoomSessionConnectRetryTest {
                 onNotesCommit = { _, _, _ -> },
                 onReconnecting = {},
                 onReconnected = {},
-                onDisconnected = { disconnectedCount++ },
+                onDisconnected = { _ -> disconnectedCount++ },
                 onRelayFallback = { relayFallbackCount++ },
                 roomFactory = roomFactory,
             )
@@ -304,7 +304,7 @@ class LiveKitRoomSessionConnectRetryTest {
                     onNotesCommit = { _, _, _ -> },
                     onReconnecting = {},
                     onReconnected = {},
-                    onDisconnected = {},
+                    onDisconnected = { _ -> },
                     onRelayFallback = { harness.relayFallbackCount++ },
                     roomFactory = { _ ->
                         factoryCallCount++

@@ -20572,3 +20572,24 @@ msgstr "Zgromadzenie"
 
 msgid "Wird das Podium übertragen, sehen Zuschauer außerhalb des Raums nur Bild und Ton des Podiums. Sie selbst werden nicht übertragen."
 msgstr "Jeśli podium jest transmitowane, widzowie poza pokojem widzą tylko obraz i dźwięk podium. Ty sam nie jesteś transmitowany."
+
+msgid "Auf einem anderen Gerät verbunden"
+msgstr "Połączono na innym urządzeniu"
+
+msgid "Dieses Konto ist gerade auf einem anderen Gerät mit der Besprechung verbunden. Pro Konto ist zurzeit nur ein Gerät gleichzeitig möglich."
+msgstr "To konto jest obecnie połączone ze spotkaniem na innym urządzeniu. Na jedno konto można obecnie używać tylko jednego urządzenia naraz."
+
+msgid "Wenn Sie hier fortsetzen, wird das andere Gerät getrennt."
+msgstr "Jeśli Państwo kontynuują tutaj, drugie urządzenie zostanie rozłączone."
+
+msgid "Hier fortsetzen"
+msgstr "Kontynuuj tutaj"
+
+msgid "Verbindung mehrmals getrennt"
+msgstr "Połączenie kilkakrotnie przerwane"
+
+msgid "Die Verbindung wurde mehrmals getrennt. Bitte treten Sie erneut bei."
+msgstr "Połączenie zostało kilkakrotnie przerwane. Proszę dołączyć ponownie."
+
+msgid "Erneut beitreten"
+msgstr "Dołącz ponownie"

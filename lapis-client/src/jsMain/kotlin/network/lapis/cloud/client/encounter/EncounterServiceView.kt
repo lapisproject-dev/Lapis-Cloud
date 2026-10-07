@@ -17,14 +17,17 @@ import kotlinx.coroutines.launch
 import network.lapis.cloud.client.ActionIcon
 import network.lapis.cloud.client.AppScope
 import network.lapis.cloud.client.AppState
+import network.lapis.cloud.client.ConnectionStoppedKind
 import network.lapis.cloud.client.DataSection
 import network.lapis.cloud.client.PageHeader
 import network.lapis.cloud.client.actionButton
 import network.lapis.cloud.client.addCssClasses
 import network.lapis.cloud.client.addWithLifecycle
 import network.lapis.cloud.client.conferenceConnectErrorMessage
+import network.lapis.cloud.client.conferenceConnectionStoppedNotice
 import network.lapis.cloud.client.dataSection
 import network.lapis.cloud.client.guarded
+import network.lapis.cloud.client.livekit.DisconnectCause
 import network.lapis.cloud.client.newActionButton
 import network.lapis.cloud.client.notifyError
 import network.lapis.cloud.client.pageHeader
@@ -256,7 +259,7 @@ private class EncounterVisit(
                 viewer = rights,
                 clock = clock,
                 onDoorsClosed = { exitRoom(message = termsFor(space.profile).eventEndedContent()) },
-                onConnectionLost = { onConnectionLost(space) },
+                onConnectionLost = { cause -> onConnectionLost(space, cause) },
             )
         val newSession = opener(entry, newRoom.callbacks)
         newRoom.bind(newSession)
@@ -304,7 +307,10 @@ private class EncounterVisit(
         }
     }
 
-    private fun onConnectionLost(space: EncounterSpaceDto) {
+    private fun onConnectionLost(
+        space: EncounterSpaceDto,
+        cause: DisconnectCause,
+    ) {
         if (!entered || leaving || tornDown) return
         val endingRoom = room
         val endingSession = session
@@ -316,6 +322,30 @@ private class EncounterVisit(
         leaveButton.hide()
         AppScope.launch {
             runCatching { endingSession?.disconnect() }
+            if (cause == DisconnectCause.DuplicateIdentity) {
+                // V1.9.69: the same account is in this room on another device. Decided BEFORE getSpace/reentryAllowed (the two
+                // devices would otherwise evict each other until the re-entry limit). Deliberately no leaveSpace: it deletes the
+                // member's presence row and the other device would be thrown out by the presence poller.
+                if (tornDown) return@launch
+                var card: Div? = null
+                card =
+                    insidePanel.conferenceConnectionStoppedNotice(
+                        kind = ConnectionStoppedKind.Displaced,
+                        onResume = {
+                            // The room view is built inside insidePanel: the card steps aside while the attempt runs and comes back
+                            // if it fails.
+                            card?.hide()
+                            enter(space, consent = null)
+                            if (entered) card?.let { insidePanel.remove(it) } else card?.show()
+                            entered
+                        },
+                        onOverview = {
+                            insidePanel.removeAll()
+                            showEntryAgain("")
+                        },
+                    )
+                return@launch
+            }
             val fresh =
                 try {
                     rpcService<IEncounterSpaceService>().getSpace(space.id)

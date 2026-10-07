@@ -56,7 +56,7 @@ class ConferenceNotesFocusDomTest {
             onNotesCommit = { _, _, _ -> },
             onReconnecting = {},
             onReconnected = {},
-            onDisconnected = {},
+            onDisconnected = { _ -> },
         )
 
     private fun block(

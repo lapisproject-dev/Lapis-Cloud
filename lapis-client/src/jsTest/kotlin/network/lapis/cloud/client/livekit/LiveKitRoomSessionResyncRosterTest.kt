@@ -93,7 +93,7 @@ class LiveKitRoomSessionResyncRosterTest {
         onNotesCommit = { _, _, _ -> },
         onReconnecting = { },
         onReconnected = { },
-        onDisconnected = { },
+        onDisconnected = { _ -> },
         roomFactory = { room },
     )
 

@@ -46,7 +46,7 @@ class LiveKitRoomSessionDeviceFailureTest {
             onNotesCommit = { _, _, _ -> },
             onReconnecting = {},
             onReconnected = {},
-            onDisconnected = {},
+            onDisconnected = { _ -> },
         )
 
     // Kotlin/JS's `@Test` functions cannot be `suspend` directly (compiler-enforced, see this

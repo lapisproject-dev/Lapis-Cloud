@@ -12,6 +12,7 @@ import network.lapis.cloud.client.awaitUntil
 import network.lapis.cloud.client.buttonNamed
 import network.lapis.cloud.client.formTest
 import network.lapis.cloud.client.jsonOf
+import network.lapis.cloud.client.livekit.DisconnectCause
 import network.lapis.cloud.client.mountedForm
 import network.lapis.cloud.client.routeOf
 import network.lapis.cloud.client.rpcService
@@ -289,7 +290,7 @@ class EncounterServiceViewDomTest {
                 awaitUntil("the entry panel is shown") { element.textContent.orEmpty().contains("Bevor Sie eintreten") }
                 element.buttonNamed("Eintreten").click()
                 awaitUntil("inside") { element.querySelector(".lapis-encounter") != null }
-                callbacks?.onDisconnected?.invoke()
+                callbacks?.onDisconnected?.invoke(DisconnectCause.Other)
                 awaitUntil("the room is left") { element.querySelector(".lapis-encounter") == null }
                 awaitUntil(
                     "the notice says the service has ended",
@@ -312,7 +313,7 @@ class EncounterServiceViewDomTest {
                 awaitUntil("the entry panel is shown") { element.textContent.orEmpty().contains("Bevor Sie eintreten") }
                 element.buttonNamed("Eintreten").click()
                 awaitUntil("inside") { opened == 1 && element.querySelector(".lapis-encounter") != null }
-                callbacks?.onDisconnected?.invoke()
+                callbacks?.onDisconnected?.invoke(DisconnectCause.Other)
                 awaitUntil("the second session was opened by the automatic re-entry") { opened == 2 }
                 awaitUntil("inside again") { element.querySelector(".lapis-encounter") != null }
                 assertEquals(2, requests.count { it.isRpc && it.rpcRoute == r.enter })
@@ -335,16 +336,73 @@ class EncounterServiceViewDomTest {
                 element.buttonNamed("Eintreten").click()
                 awaitUntil("inside") { opened == 1 && element.querySelector(".lapis-encounter") != null }
                 repeat(3) { round ->
-                    callbacks?.onDisconnected?.invoke()
+                    callbacks?.onDisconnected?.invoke(DisconnectCause.Other)
                     awaitUntil("re-entry number ${round + 1}") { opened == round + 2 && element.querySelector(".lapis-encounter") != null }
                 }
-                callbacks?.onDisconnected?.invoke() // the fourth within the window: no automatic re-entry
+                callbacks?.onDisconnected?.invoke(DisconnectCause.Other) // the fourth within the window: no automatic re-entry
                 awaitUntil("the entry panel is back") {
                     element.querySelector(".lapis-encounter") == null &&
                         element.textContent.orEmpty().contains("Bevor Sie eintreten")
                 }
                 assertEquals(4, opened, "the sessions: the first entry and three automatic re-entries")
                 assertTrue(element.textContent.orEmpty().contains("Die Verbindung wurde unterbrochen."))
+            }
+        }
+
+    // ── the same account on a second device (V1.9.69) ───────────────────────────
+
+    @Test
+    fun aDuplicateIdentityDisconnect_showsTheCard_andNeitherReEntersNorReadsTheSpaceNorLeaves(): Promise<Unit> =
+        formTest {
+            var callbacks: EncounterSessionCallbacks? = null
+            var opened = 0
+            val stage = Stage(info = EncounterEntryInfoDto(testSpace(open = true), false, null))
+            withView(stage, { _, cb ->
+                callbacks = cb
+                opened++
+                FakeListenerSession()
+            }) { element, requests, r, _ ->
+                awaitUntil("the entry panel is shown") { element.textContent.orEmpty().contains("Bevor Sie eintreten") }
+                element.buttonNamed("Eintreten").click()
+                awaitUntil("inside") { opened == 1 && element.querySelector(".lapis-encounter") != null }
+                val getSpaceBefore = requests.count { it.isRpc && it.rpcRoute == r.getSpace }
+                callbacks?.onDisconnected?.invoke(DisconnectCause.DuplicateIdentity)
+                awaitUntil("the card is shown") { element.querySelector(".lapis-connection-stopped") != null }
+                kotlinx.coroutines.delay(100)
+                assertEquals(1, opened, "no automatic re-entry")
+                assertEquals(1, requests.count { it.isRpc && it.rpcRoute == r.enter })
+                assertEquals(
+                    getSpaceBefore,
+                    requests.count { it.isRpc && it.rpcRoute == r.getSpace },
+                    "no getSpace for the lost connection",
+                )
+                assertEquals(0, requests.count { it.isRpc && it.rpcRoute == r.leave }, "leaveSpace would throw the other device out")
+                assertTrue(element.textContent.orEmpty().contains("Auf einem anderen Gerät verbunden"))
+            }
+        }
+
+    @Test
+    fun theDuplicateIdentityCard_resumeEntersAgainOnClick(): Promise<Unit> =
+        formTest {
+            var callbacks: EncounterSessionCallbacks? = null
+            var opened = 0
+            val stage = Stage(info = EncounterEntryInfoDto(testSpace(open = true), false, null))
+            withView(stage, { _, cb ->
+                callbacks = cb
+                opened++
+                FakeListenerSession()
+            }) { element, requests, r, _ ->
+                awaitUntil("the entry panel is shown") { element.textContent.orEmpty().contains("Bevor Sie eintreten") }
+                element.buttonNamed("Eintreten").click()
+                awaitUntil("inside") { opened == 1 && element.querySelector(".lapis-encounter") != null }
+                callbacks?.onDisconnected?.invoke(DisconnectCause.DuplicateIdentity)
+                awaitUntil("the card is shown") { element.querySelector(".lapis-connection-stopped") != null }
+                element.buttonNamed("Hier fortsetzen").click()
+                awaitUntil("the second session was opened by the click") { opened == 2 }
+                awaitUntil("the card is gone and the room is back") {
+                    element.querySelector(".lapis-connection-stopped") == null && element.querySelector(".lapis-encounter") != null
+                }
+                assertEquals(2, requests.count { it.isRpc && it.rpcRoute == r.enter })
             }
         }
 }

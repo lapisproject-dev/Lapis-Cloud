@@ -118,7 +118,7 @@ class LiveKitRoomSessionEncounterTest {
                 onNotesCommit = { _, _, _ -> },
                 onReconnecting = {},
                 onReconnected = {},
-                onDisconnected = {},
+                onDisconnected = { _ -> },
                 roomFactory = { _ -> fake.asRoom() },
                 publishEnabled = publishEnabled,
                 onEncounterReaction = { sender, reaction -> reactions += sender to reaction },

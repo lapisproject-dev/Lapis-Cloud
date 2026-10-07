@@ -2200,3 +2200,23 @@ WCAG 2.4.11: `html { scroll-padding-top }` keeps a keyboard-focused element belo
 *Not verified:* the whole conference and encounter screens cannot be mounted in Karma (the DOM tests run on the production classes and the real encounter room); not tested on a real device or in
 Safari/iOS (`dvh`, rubber-banding, `overscroll-behavior` before iOS 16). Follow-ups: a "Mehr" overflow for the encounter bar (the conference bar's mechanism is tied to its control slots), a paged
 conference gallery.
+
+== V1.9.69 -- Connection-stopped card
+
+Client only; no server, RPC or database change.
+
+When the connection ends and must NOT come back by itself, the call (video grid and control bar) is replaced by a *card*, not a dialog or a toast: a modal would
+trap the person in a state that needs no decision from a bystander, and a toast disappears. Two cases: the same account joined from another device
+(`DUPLICATE_IDENTITY`: "Auf einem anderen Gerät verbunden") and the automatic re-join guard ran out ("Verbindung mehrmals getrennt").
+
+* Neutral, no warning colour and no exclamation mark; `role="alert"` and `tabindex="-1"`, the card takes focus once it is in the DOM.
+* The primary button comes first ("Hier fortsetzen" / "Erneut beitreten"), then "Zur Übersicht". Both are `actionButton`s (R57).
+* No countdown, no auto-dismiss, no shortcut. The primary button is disabled at once and makes exactly ONE attempt per click (no double click, no loop).
+* Camera, microphone and the session are off BEFORE the card renders and the connection state is terminal (the navigation guard no longer says "conference running").
+  No `leaveRoom`/`leaveSpace` (they would close the participation or presence of the *member* and with it that of the device that is legitimately still in the call) and no toast.
+* The automatic re-join is bounded to 3 per 60 s (`AutoRejoinGuard`, one per screen); a deliberate click starts a fresh window.
+
+*Not verified:* two real devices against a LiveKit server (see the CHANGELOG); the whole conference page cannot be mounted in Karma, the wiring is guarded by `ClientConferenceRejoinTripwireTest`.
+
+*Backlog (not started):* multi-device support (an own LiveKit identity per device, needs a server change) and a *floating conference window or dialog* so that other functions of the app can be used without leaving
+the conference.

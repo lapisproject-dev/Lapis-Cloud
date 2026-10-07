@@ -36,6 +36,7 @@ import kotlinx.datetime.number
 import network.lapis.cloud.client.livekit.ConferenceConnectFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceKind
+import network.lapis.cloud.client.livekit.DisconnectCause
 import network.lapis.cloud.client.livekit.LiveKitRoomSession
 import network.lapis.cloud.client.livekit.LocalVideoTrack
 import network.lapis.cloud.client.livekit.Track
@@ -82,6 +83,7 @@ import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.get
 import org.w3c.dom.set
 import org.w3c.files.File
+import kotlin.js.Date
 import kotlin.time.Clock
 
 /**
@@ -386,6 +388,10 @@ fun renderConferenceScreen(
     var activeSession: LiveKitRoomSession? = null
     val setActiveSession: (LiveKitRoomSession?) -> Unit = { activeSession = it }
 
+    // V1.9.69: ONE guard per screen, created here and threaded through every `enterCall` -- creating it inside `enterCall` would reset it
+    // on every recursion and make it useless. Bounds the AUTOMATIC re-join after a disconnect (3 in 60 s).
+    val rejoinGuard = AutoRejoinGuard(now = { Date.now() })
+
     // V1.9.25: `beforeunload` fires BEFORE the browser asks "leave this page?" -- with a secret-ballot receipt on screen the booth asks, and
     // answering "stay" must not leave the member out of the room. So `beforeunload` disconnects only without a receipt; `pagehide` (the
     // page really goes) always does. See [ConferenceUnloadGuard].
@@ -430,10 +436,10 @@ fun renderConferenceScreen(
             // V1.5.1 Mobile App: no federation-guest-consent UI on mobile yet (see
             // Lapis-Cloud-Mobile's docs/known-limitations.adoc) -- autoJoinRoomId is simply
             // ignored for a GUEST/FRIEND caller, same as it always was for the web guest lobby.
-            renderGuestLobby(lobbyPanel, callPanel, setActiveSession)
+            renderGuestLobby(lobbyPanel, callPanel, setActiveSession, rejoinGuard)
         } else {
             // The title-row slot is only read in THIS branch (lazy getter): guest lobby, lock panel and load error get no empty slot.
-            renderLobby(lobbyPanel, callPanel, setActiveSession, header.actionSlot, autoJoinRoomId)
+            renderLobby(lobbyPanel, callPanel, setActiveSession, rejoinGuard, header.actionSlot, autoJoinRoomId)
         }
     }
 }
@@ -520,6 +526,7 @@ private fun renderLobby(
     lobbyPanel: SimplePanel,
     callPanel: SimplePanel,
     setActiveSession: (LiveKitRoomSession?) -> Unit,
+    rejoinGuard: AutoRejoinGuard,
     headerAction: Container,
     autoJoinRoomId: String? = null,
 ) {
@@ -560,7 +567,7 @@ private fun renderLobby(
                 roomsPanel.div(tr("Derzeit keine aktive Besprechung.")) { addCssClasses("text-muted small") }
             } else {
                 rooms.forEach { room ->
-                    renderRoomCard(roomsPanel, room, lobbyPanel, callPanel, setActiveSession) {
+                    renderRoomCard(roomsPanel, room, lobbyPanel, callPanel, setActiveSession, rejoinGuard) {
                         loadRooms()
                         renderConferenceRecordingsPanel(recordingsSection)
                     }
@@ -573,7 +580,7 @@ private fun renderLobby(
                 val targetRoom = rooms.find { it.id == autoJoinRoomId }
                 if (targetRoom != null) {
                     autoJoinConsumed = true
-                    joinConferenceRoomAndEnterCall(targetRoom, lobbyPanel, callPanel, setActiveSession) {
+                    joinConferenceRoomAndEnterCall(targetRoom, lobbyPanel, callPanel, setActiveSession, rejoinGuard) {
                         loadRooms()
                         renderConferenceRecordingsPanel(recordingsSection)
                     }
@@ -612,10 +619,11 @@ private fun renderLobby(
             // joinRoom does next -- Norman: visible system status, recoverable if the next step
             // fails (see file KDoc "Wave 4 -- D1").
             refreshLobby()
+            rejoinGuard.reset() // a deliberate join starts a fresh window
             val token = guarded { rpcService<IConferenceService>().joinRoom(room.id) }
             startButton.text = tr("Besprechung jetzt starten")
             if (token != null) {
-                enterCall(ConferenceCallTarget.MainRoom(room), token, lobbyPanel, callPanel, setActiveSession, refreshLobby)
+                enterCall(ConferenceCallTarget.MainRoom(room), token, lobbyPanel, callPanel, setActiveSession, rejoinGuard, refreshLobby)
             }
             // else: guarded {} already toasted the error; the room stays in the already-refreshed
             // list for a manual "Beitreten" retry -- never silently lost.
@@ -631,6 +639,7 @@ private fun renderRoomCard(
     lobbyPanel: SimplePanel,
     callPanel: SimplePanel,
     setActiveSession: (LiveKitRoomSession?) -> Unit,
+    rejoinGuard: AutoRejoinGuard,
     onReturnedToLobby: () -> Unit,
 ) {
     val card = panel.hPanel(spacing = 8) { addCssClasses("border rounded p-2 align-items-center flex-wrap") }
@@ -654,7 +663,7 @@ private fun renderRoomCard(
     joinButton.onClick {
         joinButton.disabled = true
         AppScope.launch {
-            joinConferenceRoomAndEnterCall(room, lobbyPanel, callPanel, setActiveSession, onReturnedToLobby)
+            joinConferenceRoomAndEnterCall(room, lobbyPanel, callPanel, setActiveSession, rejoinGuard, onReturnedToLobby)
             joinButton.disabled = false
         }
     }
@@ -671,11 +680,13 @@ private suspend fun joinConferenceRoomAndEnterCall(
     lobbyPanel: SimplePanel,
     callPanel: SimplePanel,
     setActiveSession: (LiveKitRoomSession?) -> Unit,
+    rejoinGuard: AutoRejoinGuard,
     onReturnedToLobby: () -> Unit,
 ) {
+    rejoinGuard.reset() // a deliberate join starts a fresh window
     val token = guarded { rpcService<IConferenceService>().joinRoom(room.id) }
     if (token != null) {
-        enterCall(ConferenceCallTarget.MainRoom(room), token, lobbyPanel, callPanel, setActiveSession, onReturnedToLobby)
+        enterCall(ConferenceCallTarget.MainRoom(room), token, lobbyPanel, callPanel, setActiveSession, rejoinGuard, onReturnedToLobby)
     }
 }
 
@@ -699,6 +710,7 @@ private fun renderGuestLobby(
     lobbyPanel: SimplePanel,
     callPanel: SimplePanel,
     setActiveSession: (LiveKitRoomSession?) -> Unit,
+    rejoinGuard: AutoRejoinGuard,
 ) {
     lobbyPanel.removeAll()
     setConferenceLobbyVisible(lobbyPanel, true)
@@ -750,6 +762,7 @@ private fun renderGuestLobby(
 
             conferenceGuestConsentModal(info) { consent ->
                 AppScope.launch {
+                    rejoinGuard.reset() // a deliberate join starts a fresh window
                     val token = guarded { rpcService<IConferenceService>().joinRoom(info.roomId, consent) }
                     if (token != null) {
                         // Design review D14: a guest cannot call getRoom (ACTIVE-only), so a minimal
@@ -775,8 +788,15 @@ private fun renderGuestLobby(
                                 myRole = token.role,
                                 allowFederationGuests = info.allowsFederationGuests,
                             )
-                        enterCall(ConferenceCallTarget.MainRoom(syntheticRoom), token, lobbyPanel, callPanel, setActiveSession) {
-                            renderGuestLobby(lobbyPanel, callPanel, setActiveSession)
+                        enterCall(
+                            ConferenceCallTarget.MainRoom(syntheticRoom),
+                            token,
+                            lobbyPanel,
+                            callPanel,
+                            setActiveSession,
+                            rejoinGuard,
+                        ) {
+                            renderGuestLobby(lobbyPanel, callPanel, setActiveSession, rejoinGuard)
                         }
                     }
                 }
@@ -977,6 +997,7 @@ private fun enterCall(
     lobbyPanel: SimplePanel,
     callPanel: SimplePanel,
     setActiveSession: (LiveKitRoomSession?) -> Unit,
+    rejoinGuard: AutoRejoinGuard,
     onReturnedToLobby: () -> Unit,
 ) {
     setConferenceLobbyVisible(lobbyPanel, false)
@@ -3922,6 +3943,59 @@ private fun enterCall(
         localCameraTrack = null
     }
 
+    // V1.9.69 -- ONE token attempt for a deliberate "Hier fortsetzen"/"Erneut beitreten" click. Breakout: the breakout token. Main room:
+    // the re-join token (works for guests too and adds no second participation row); only a MEMBER falls back to `joinRoom` (a guest
+    // would need a fresh consent there and goes through the guest lobby instead).
+    // A breakout whose assignment was recalled meanwhile refuses the breakout token; then the person belongs in the main room, so the
+    // fallback returns the MAIN target together with its token (otherwise the card's primary action would stay dead).
+    suspend fun resumeToken(): Pair<ConferenceCallTarget, ConferenceJoinTokenDto>? {
+        if (target is ConferenceCallTarget.BreakoutRoom) {
+            guarded { rpcService<IConferenceBreakoutService>().requestBreakoutJoinToken(target.breakoutRoomId) }
+                ?.let { return target to it }
+            return guarded { rpcService<IConferenceBreakoutService>().rejoinMainRoomToken(target.parentRoom.id) }
+                ?.let { ConferenceCallTarget.MainRoom(target.parentRoom) to it }
+        }
+        val token =
+            guarded { rpcService<IConferenceBreakoutService>().rejoinMainRoomToken(room.id) }
+                ?: if (AppState.session?.isGuest == true) null else guarded { rpcService<IConferenceService>().joinRoom(room.id) }
+        return token?.let { target to it }
+    }
+
+    // V1.9.69 -- the connection stopped and must not come back by itself (same account joined elsewhere, or the automatic re-join
+    // guard ran out). Order matters: tracks off and the session gone BEFORE the card renders, and the state terminal so the
+    // navigation guard does not claim "conference running". Deliberately NO `leaveRoom` (it would close the participation of the
+    // MEMBER id and with it that of the device that is legitimately still in the call) and NO `notifyInfo` (the card says it).
+    suspend fun stopAndShowNotice(kind: ConnectionStoppedKind) {
+        runCatching { session.disconnect() }
+        setActiveSession(null)
+        cleanupFullscreen()
+        transition(ConferenceConnectionEvent.ResolvedAsEnded)
+        document.title = baseDocumentTitle
+        callPanel.removeAll()
+        callPanel.conferenceConnectionStoppedNotice(
+            kind = kind,
+            onResume = {
+                rejoinGuard.reset()
+                val resumed = resumeToken()
+                if (resumed == null) {
+                    false
+                } else {
+                    enterCall(resumed.first, resumed.second, lobbyPanel, callPanel, setActiveSession, rejoinGuard, onReturnedToLobby)
+                    true
+                }
+            },
+            onOverview = {
+                returnToLobby(
+                    callPanel = callPanel,
+                    lobbyPanel = lobbyPanel,
+                    setActiveSession = setActiveSession,
+                    onReturnedToLobby = onReturnedToLobby,
+                    originalTitle = baseDocumentTitle,
+                )
+            },
+        )
+    }
+
     session =
         LiveKitRoomSession(
             onRemoteTrack = { identity, displayName, track, publication ->
@@ -4089,7 +4163,7 @@ private fun enterCall(
             // "never trust a cached authorization/state flag" discipline this codebase applies
             // everywhere else). See [resolvePostDisconnectDestination] KDoc for how the four causes
             // are disambiguated with two cheap RPC calls.
-            onDisconnected = {
+            onDisconnected = { cause ->
                 // Security-relevant (D10, unchanged): reachable from BOTH `Connected` and
                 // `Reconnecting` -- see `isLive()`'s own KDoc. A second `RoomEvent.Disconnected`
                 // firing while the first one's resolution is still in flight (state already
@@ -4128,8 +4202,14 @@ private fun enterCall(
                         // konnte nicht ...") in den NEUEN Raum oder in die Lobby hinein zeigen und auf
                         // einem Track herumräumen, der zu dieser Ansicht nicht mehr gehört.
                         disposeBackgroundEffects()
-                        when (val destination = resolvePostDisconnectDestination(room.id)) {
-                            is PostDisconnectDestination.Ended -> {
+                        // V1.9.69: DUPLICATE_IDENTITY is decided BEFORE any RPC (nothing to resolve, and in a breakout
+                        // `requestBreakoutJoinToken` would restart the loop through the breakout path).
+                        val resolved =
+                            if (cause == DisconnectCause.DuplicateIdentity) null else resolvePostDisconnectDestination(room.id)
+                        when (val action = decideAfterDisconnect(cause, resolved, rejoinGuard::tryConsume)) {
+                            PostDisconnectAction.Displaced -> stopAndShowNotice(ConnectionStoppedKind.Displaced)
+                            PostDisconnectAction.LoopStopped -> stopAndShowNotice(ConnectionStoppedKind.LoopStopped)
+                            PostDisconnectAction.Ended -> {
                                 transition(ConferenceConnectionEvent.ResolvedAsEnded)
                                 notifyInfo(tr("Die Besprechung wurde beendet oder die Verbindung getrennt."))
                                 returnToLobby(
@@ -4141,7 +4221,8 @@ private fun enterCall(
                                     onBeforeReturn = ::cleanupFullscreen,
                                 )
                             }
-                            is PostDisconnectDestination.Breakout -> {
+                            is PostDisconnectAction.Breakout -> {
+                                val destination = action.destination
                                 val breakoutToken =
                                     guarded {
                                         rpcService<IConferenceBreakoutService>()
@@ -4184,11 +4265,13 @@ private fun enterCall(
                                         lobbyPanel,
                                         callPanel,
                                         setActiveSession,
+                                        rejoinGuard,
                                         onReturnedToLobby,
                                     )
                                 }
                             }
-                            is PostDisconnectDestination.Main -> {
+                            is PostDisconnectAction.RejoinMain -> {
+                                val destination = action.destination
                                 val mainToken =
                                     guarded { rpcService<IConferenceBreakoutService>().rejoinMainRoomToken(destination.parentRoom.id) }
                                 if (mainToken == null) {
@@ -4215,6 +4298,7 @@ private fun enterCall(
                                         lobbyPanel,
                                         callPanel,
                                         setActiveSession,
+                                        rejoinGuard,
                                         onReturnedToLobby,
                                     )
                                 }
@@ -4541,7 +4625,15 @@ private fun enterCall(
                 // `Breakout`/`Main` branches above; this button is the third and last direct
                 // `enterCall(...)` re-entry point that bypasses `returnToLobby`.
                 cleanupFullscreen()
-                enterCall(ConferenceCallTarget.MainRoom(room), mainToken, lobbyPanel, callPanel, setActiveSession, onReturnedToLobby)
+                enterCall(
+                    ConferenceCallTarget.MainRoom(room),
+                    mainToken,
+                    lobbyPanel,
+                    callPanel,
+                    setActiveSession,
+                    rejoinGuard,
+                    onReturnedToLobby,
+                )
             } else {
                 returnToLobby(
                     callPanel = callPanel,
@@ -4772,7 +4864,8 @@ internal sealed class PostDisconnectDestination {
  * fallback reaches [PostDisconnectDestination.Ended] exactly as before this wave). A caller merely
  * reconnecting after a transient drop gets a fresh token and rejoins automatically instead of being
  * dropped back to the Lobby -- a deliberate, welcome side effect of this wave's own mechanism, not
- * a scope creep bug.
+ * a scope creep bug. Since V1.9.69 that automatic re-join is bounded by [AutoRejoinGuard] (3 in 60 s) and
+ * `DUPLICATE_IDENTITY` is excluded from it altogether (see [decideAfterDisconnect]).
  */
 private suspend fun resolvePostDisconnectDestination(parentRoomId: String): PostDisconnectDestination {
     val parentRoom = guarded { rpcService<IConferenceService>().getRoom(parentRoomId) }

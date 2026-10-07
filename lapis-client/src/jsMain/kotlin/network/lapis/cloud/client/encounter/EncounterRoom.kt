@@ -20,6 +20,7 @@ import network.lapis.cloud.client.actionButton
 import network.lapis.cloud.client.actionIconClasses
 import network.lapis.cloud.client.confirmDialog
 import network.lapis.cloud.client.guarded
+import network.lapis.cloud.client.livekit.DisconnectCause
 import network.lapis.cloud.client.livekit.Track
 import network.lapis.cloud.client.livekit.TrackPublication
 import network.lapis.cloud.client.rpcService
@@ -66,7 +67,7 @@ internal class EncounterRoom(
     private val viewer: EncounterViewerRights,
     private val clock: () -> Double = { Date.now() },
     private val onDoorsClosed: () -> Unit,
-    private val onConnectionLost: () -> Unit,
+    private val onConnectionLost: (DisconnectCause) -> Unit,
 ) {
     private val terms: EncounterTerms = termsFor(space.profile)
     private val allowedReactions: Set<EncounterReactionOption> = EncounterReactionOption.normalize(space.reactions).toSet()
@@ -166,7 +167,7 @@ internal class EncounterRoom(
                 reconnectBand.hide()
                 requestPresentRefresh()
             },
-            onDisconnected = { if (!disposed) onConnectionLost() },
+            onDisconnected = { cause -> if (!disposed) onConnectionLost(cause) },
         )
 
     init {

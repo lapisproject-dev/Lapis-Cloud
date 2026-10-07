@@ -20636,3 +20636,24 @@ msgstr "Assemblée"
 
 msgid "Wird das Podium übertragen, sehen Zuschauer außerhalb des Raums nur Bild und Ton des Podiums. Sie selbst werden nicht übertragen."
 msgstr "Si le podium est diffusé, les spectateurs hors de la salle ne voient que l'image et le son du podium. Vous-même n'êtes pas diffusé."
+
+msgid "Auf einem anderen Gerät verbunden"
+msgstr "Connecté sur un autre appareil"
+
+msgid "Dieses Konto ist gerade auf einem anderen Gerät mit der Besprechung verbunden. Pro Konto ist zurzeit nur ein Gerät gleichzeitig möglich."
+msgstr "Ce compte est actuellement connecté à la réunion sur un autre appareil. Un seul appareil par compte est possible à la fois."
+
+msgid "Wenn Sie hier fortsetzen, wird das andere Gerät getrennt."
+msgstr "Si vous continuez ici, l'autre appareil sera déconnecté."
+
+msgid "Hier fortsetzen"
+msgstr "Continuer ici"
+
+msgid "Verbindung mehrmals getrennt"
+msgstr "Connexion interrompue à plusieurs reprises"
+
+msgid "Die Verbindung wurde mehrmals getrennt. Bitte treten Sie erneut bei."
+msgstr "La connexion a été interrompue à plusieurs reprises. Veuillez rejoindre à nouveau."
+
+msgid "Erneut beitreten"
+msgstr "Rejoindre à nouveau"

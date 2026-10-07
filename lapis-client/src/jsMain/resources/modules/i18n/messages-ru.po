@@ -20563,3 +20563,24 @@ msgstr "Собрание"
 
 msgid "Wird das Podium übertragen, sehen Zuschauer außerhalb des Raums nur Bild und Ton des Podiums. Sie selbst werden nicht übertragen."
 msgstr "Если подиум транслируется, зрители вне комнаты видят только изображение и звук подиума. Вас самих не транслируют."
+
+msgid "Auf einem anderen Gerät verbunden"
+msgstr "Подключено на другом устройстве"
+
+msgid "Dieses Konto ist gerade auf einem anderen Gerät mit der Besprechung verbunden. Pro Konto ist zurzeit nur ein Gerät gleichzeitig möglich."
+msgstr "Эта учётная запись сейчас подключена к встрече на другом устройстве. Для одной учётной записи пока возможно только одно устройство одновременно."
+
+msgid "Wenn Sie hier fortsetzen, wird das andere Gerät getrennt."
+msgstr "Если вы продолжите здесь, другое устройство будет отключено."
+
+msgid "Hier fortsetzen"
+msgstr "Продолжить здесь"
+
+msgid "Verbindung mehrmals getrennt"
+msgstr "Соединение несколько раз прерывалось"
+
+msgid "Die Verbindung wurde mehrmals getrennt. Bitte treten Sie erneut bei."
+msgstr "Соединение несколько раз прерывалось. Пожалуйста, присоединитесь снова."
+
+msgid "Erneut beitreten"
+msgstr "Присоединиться снова"

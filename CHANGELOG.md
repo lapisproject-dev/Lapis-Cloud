@@ -6,6 +6,35 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **A second sign-in with the same account no longer puts the conference into an endless loop (V1.9.69).** LiveKit evicts the older connection when the same
+  identity joins from a second device; the client dropped the disconnect reason and re-joined by itself, so the two devices evicted each other forever.
+  `RoomEvent.Disconnected` now hands its reason on (`DisconnectCause`). On `DUPLICATE_IDENTITY` the client makes no RPC and no automatic join: the call is
+  replaced by a calm card ("Auf einem anderen Gerät verbunden") with "Hier fortsetzen" (one deliberate attempt, which disconnects the other device) and
+  "Zur Übersicht". Camera and microphone are off and the session is gone before the card renders; the participation on the server is deliberately not closed
+  (it belongs to the member and with it to the device that is still in the call).
+- **The automatic re-join after a disconnect is bounded**: at most 3 per 60 s per screen (`AutoRejoinGuard`), then the card "Verbindung mehrmals getrennt" with
+  "Erneut beitreten". A deliberate click (including joining from the lobby) starts a fresh window. The automatic hand-over into a breakout room stays as it was
+  (it is only triggered by a moderator) -- it is not covered by this guard.
+- **Encounter room**: a `DUPLICATE_IDENTITY` disconnect shows the same card instead of up to three rounds of mutual eviction; no `getSpace`, no re-entry, no
+  `leaveSpace` (that would delete the presence row and the presence poller would then throw the other device out). Other disconnects behave as before
+  (3 re-entries per 5 minutes).
+- Seven new texts in all seven catalogs (the translations come from an agent and were not checked by native speakers).
+
+### Known limitations
+
+- Still only one device per account at a time; the card says so.
+- Not tested with two real devices against a LiveKit server (that cannot be reproduced without one): a manual test on Staging with two computers is needed.
+  Covered automatically: the pure rules (`ConferenceRejoinPolicyTest`), the reason mapping against the real `livekit-client` module (`DisconnectCauseTest`),
+  the card itself (`ConferenceConnectionStoppedNoticeDomTest`), the encounter view (`EncounterServiceViewDomTest`) and the wiring as a source scan
+  (`ClientConferenceRejoinTripwireTest`). The whole conference page cannot be mounted in Karma.
+
+### Planned (backlog, not started)
+
+- Multi-device support (an own LiveKit identity per device; needs a server change).
+- A floating conference window or dialog, so that other Lapis Cloud functions can be used without leaving the conference.
+
 ## [0.30.0] — 2026-10-07
 
 Release summary (the detail is in the sections below, grouped by wave V1.9.61 -- V1.9.68):

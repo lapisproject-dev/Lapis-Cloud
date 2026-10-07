@@ -260,6 +260,12 @@ external interface ActiveSpeaker {
     val identity: String
 }
 
+/** V1.9.69 -- `DisconnectReason` (re-exported from @livekit/protocol by livekit-client 2.21.0).
+ * Only the member this client acts on is declared. DUPLICATE_IDENTITY == 2 is pinned by a jsTest. */
+external object DisconnectReason {
+    val DUPLICATE_IDENTITY: Int
+}
+
 external object RoomEvent {
     val Connected: String
     val Disconnected: String

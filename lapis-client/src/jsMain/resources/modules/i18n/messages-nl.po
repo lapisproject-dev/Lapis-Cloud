@@ -20573,3 +20573,24 @@ msgstr "Vergadering"
 
 msgid "Wird das Podium übertragen, sehen Zuschauer außerhalb des Raums nur Bild und Ton des Podiums. Sie selbst werden nicht übertragen."
 msgstr "Als het podium wordt uitgezonden, zien kijkers buiten de ruimte alleen beeld en geluid van het podium. U zelf wordt niet uitgezonden."
+
+msgid "Auf einem anderen Gerät verbunden"
+msgstr "Verbonden op een ander apparaat"
+
+msgid "Dieses Konto ist gerade auf einem anderen Gerät mit der Besprechung verbunden. Pro Konto ist zurzeit nur ein Gerät gleichzeitig möglich."
+msgstr "Dit account is momenteel op een ander apparaat met de vergadering verbonden. Per account is momenteel slechts één apparaat tegelijk mogelijk."
+
+msgid "Wenn Sie hier fortsetzen, wird das andere Gerät getrennt."
+msgstr "Als u hier doorgaat, wordt het andere apparaat losgekoppeld."
+
+msgid "Hier fortsetzen"
+msgstr "Hier verdergaan"
+
+msgid "Verbindung mehrmals getrennt"
+msgstr "Verbinding meerdere keren verbroken"
+
+msgid "Die Verbindung wurde mehrmals getrennt. Bitte treten Sie erneut bei."
+msgstr "De verbinding is meerdere keren verbroken. Neem opnieuw deel."
+
+msgid "Erneut beitreten"
+msgstr "Opnieuw deelnemen"

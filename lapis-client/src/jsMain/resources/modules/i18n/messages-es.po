@@ -20538,3 +20538,24 @@ msgstr "Asamblea"
 
 msgid "Wird das Podium übertragen, sehen Zuschauer außerhalb des Raums nur Bild und Ton des Podiums. Sie selbst werden nicht übertragen."
 msgstr "Si se retransmite el podio, los espectadores fuera de la sala solo ven imagen y sonido del podio. Usted no se retransmite."
+
+msgid "Auf einem anderen Gerät verbunden"
+msgstr "Conectado en otro dispositivo"
+
+msgid "Dieses Konto ist gerade auf einem anderen Gerät mit der Besprechung verbunden. Pro Konto ist zurzeit nur ein Gerät gleichzeitig möglich."
+msgstr "Esta cuenta está conectada ahora mismo a la reunión en otro dispositivo. Por ahora solo es posible un dispositivo a la vez por cuenta."
+
+msgid "Wenn Sie hier fortsetzen, wird das andere Gerät getrennt."
+msgstr "Si continúa aquí, se desconectará el otro dispositivo."
+
+msgid "Hier fortsetzen"
+msgstr "Continuar aquí"
+
+msgid "Verbindung mehrmals getrennt"
+msgstr "Conexión interrumpida varias veces"
+
+msgid "Die Verbindung wurde mehrmals getrennt. Bitte treten Sie erneut bei."
+msgstr "La conexión se interrumpió varias veces. Vuelva a unirse, por favor."
+
+msgid "Erneut beitreten"
+msgstr "Volver a unirse"

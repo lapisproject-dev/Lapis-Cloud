@@ -2,6 +2,7 @@ package network.lapis.cloud.client.encounter
 
 import network.lapis.cloud.client.livekit.ConferenceConnectFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
+import network.lapis.cloud.client.livekit.DisconnectCause
 import network.lapis.cloud.client.livekit.LiveKitRoomSession
 import network.lapis.cloud.client.livekit.Track
 import network.lapis.cloud.client.livekit.TrackPublication
@@ -62,7 +63,7 @@ internal class EncounterSessionCallbacks(
     val onAudioPlaybackChanged: (canPlay: Boolean) -> Unit,
     val onReconnecting: () -> Unit,
     val onReconnected: () -> Unit,
-    val onDisconnected: () -> Unit,
+    val onDisconnected: (DisconnectCause) -> Unit,
 )
 
 /** The factory seam of the room view (a `jsTest` hands over a fake). The real one is [openEncounterSession]. */

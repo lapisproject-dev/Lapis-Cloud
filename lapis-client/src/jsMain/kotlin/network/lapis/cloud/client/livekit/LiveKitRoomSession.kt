@@ -314,7 +314,8 @@ class LiveKitRoomSession(
     private val onNotesCommit: (authorMemberId: String, authorDisplayName: String, broadcast: NoteBlockBroadcastDto) -> Unit,
     private val onReconnecting: () -> Unit,
     private val onReconnected: () -> Unit,
-    private val onDisconnected: () -> Unit,
+    /** V1.9.69 -- receives WHY the room disconnected ([DisconnectCause]); never swallow it, see [disconnectCauseOf]. */
+    private val onDisconnected: (DisconnectCause) -> Unit,
     /** Fired exactly once per [connect] call, immediately BEFORE the single relay-fallback retry
      * starts -- purely so `ConferenceScreen.kt` can swap its connection status line to accurate copy
      * for the second, up-to-15-second attempt. Never fired when the first attempt succeeds, and never
@@ -690,7 +691,7 @@ class LiveKitRoomSession(
             if (track.kind != "video") return@onOwned
             onLocalCameraTrackPublished(track)
         }
-        room.onOwned(RoomEvent.Disconnected) { _, _, _, _ -> onDisconnected() }
+        room.onOwned(RoomEvent.Disconnected) { p0, _, _, _ -> onDisconnected(disconnectCauseOf(p0)) }
         room.onOwned(RoomEvent.Reconnecting) { _, _, _, _ -> onReconnecting() }
         room.onOwned(RoomEvent.Reconnected) { _, _, _, _ -> onReconnected() }
         room.onOwned(RoomEvent.RecordingStatusChanged) { p0, _, _, _ ->
