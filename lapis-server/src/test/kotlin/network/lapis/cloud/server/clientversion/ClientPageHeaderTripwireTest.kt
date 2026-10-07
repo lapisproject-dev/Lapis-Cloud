@@ -54,6 +54,7 @@ private val DOCUMENT_TITLE_WRITERS: Map<String, String> =
     mapOf(
         "PageHeader.kt" to "the header itself",
         "ConferenceScreen.kt" to "recording/streaming marker prefix and its restore when the room is left",
+        "ConferenceDock.kt" to "removes the recording/streaming marker when the conference dock ends (the route's own title is untouched)",
     )
 
 private fun clientFiles(): List<File> = CLIENT_SOURCES.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()

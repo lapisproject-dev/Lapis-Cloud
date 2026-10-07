@@ -83,7 +83,6 @@ import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.get
 import org.w3c.dom.set
 import org.w3c.files.File
-import kotlin.js.Date
 import kotlin.time.Clock
 
 /**
@@ -385,47 +384,44 @@ fun renderConferenceScreen(
     container: SimplePanel,
     autoJoinRoomId: String? = null,
 ) {
-    var activeSession: LiveKitRoomSession? = null
-    val setActiveSession: (LiveKitRoomSession?) -> Unit = { activeSession = it }
+    // V1.9.70: the call lives in the conference dock, not in this screen. This screen is only ONE view on it: it shows the call view (the
+    // dock's call panel) while it is mounted and hides it again when it goes -- leaving the route never ends the call.
+    ConferenceDock.prepareForRoute()
+    val screenToken = Any()
+    val fromBar = ConferenceDock.consumeFocusFromBar()
+    val setActiveSession: (LiveKitRoomSession?) -> Unit = { ConferenceDock.activeSession = it }
 
-    // V1.9.69: ONE guard per screen, created here and threaded through every `enterCall` -- creating it inside `enterCall` would reset it
-    // on every recursion and make it useless. Bounds the AUTOMATIC re-join after a disconnect (3 in 60 s).
-    val rejoinGuard = AutoRejoinGuard(now = { Date.now() })
+    // V1.9.69: ONE guard for the whole dock, threaded through every `enterCall` -- creating it inside `enterCall` would reset it on every
+    // recursion and make it useless. Bounds the AUTOMATIC re-join after a disconnect (3 in 60 s).
+    val rejoinGuard = ConferenceDock.rejoinGuard
 
-    // V1.9.25: `beforeunload` fires BEFORE the browser asks "leave this page?" -- with a secret-ballot receipt on screen the booth asks, and
-    // answering "stay" must not leave the member out of the room. So `beforeunload` disconnects only without a receipt; `pagehide` (the
-    // page really goes) always does. See [ConferenceUnloadGuard].
-    val unloadGuard =
-        ConferenceUnloadGuard(
-            receiptVisible = { ConferenceReceiptGate.blocksUnload },
-            disconnect = { AppScope.launch { runCatching { activeSession?.disconnect() } } },
-        )
-    unloadGuard.install()
     val root =
         container.conferenceScreenRoot {
-            // V1.4.20: a screen change mid-call must never strand the "call live" flag at true.
-            ConferenceCallPresence.set(live = false)
-            unloadGuard.uninstall()
-            ConferenceVoteRuntime.disposeActive()
-            AppScope.launch { runCatching { activeSession?.disconnect() } }
+            // Only the view goes away: the call keeps running (mic, camera, audio, chat, votes). The mini bar takes over.
+            ConferenceLobbyPort.clear(screenToken)
+            ConferenceDock.detachView(screenToken)
         }
     val header = root.pageHeader(tr("Videokonferenz"))
     val statusLine = root.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
     val lobbyPanel = root.vPanel(spacing = 10)
-    val callPanel = root.vPanel(spacing = 10) { addCssClass("lapis-conference-call-panel") }
-    callPanel.hide()
+    val callPanel = ConferenceDock.callPanel
+    val lobbyReturn = ConferenceLobbyReturn()
+    val callRunning = ConferenceDock.state !is DockState.Idle
+    // A deep link opened while a call already runs must never auto-join later, when that call ends and the lobby is built
+    val effectiveAutoJoinRoomId = conferenceEffectiveAutoJoin(callRunning, autoJoinRoomId)
 
-    AppScope.launch {
+    suspend fun showLobby() {
+        statusLine.show()
         val availability =
             guarded { rpcService<IConferenceService>().getAvailability() }
                 ?: run {
                     statusLine.content = tr("Videokonferenzen konnten nicht geladen werden.")
-                    return@launch
+                    return
                 }
         statusLine.hide()
         if (!availability.enabled) {
             renderDisabledPanel(lobbyPanel)
-            return@launch
+            return
         }
         // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- a federated guest gets an
         // entirely different lobby: no "Besprechung jetzt starten" (createRoom is ACTIVE-only) and
@@ -436,12 +432,48 @@ fun renderConferenceScreen(
             // V1.5.1 Mobile App: no federation-guest-consent UI on mobile yet (see
             // Lapis-Cloud-Mobile's docs/known-limitations.adoc) -- autoJoinRoomId is simply
             // ignored for a GUEST/FRIEND caller, same as it always was for the web guest lobby.
-            renderGuestLobby(lobbyPanel, callPanel, setActiveSession, rejoinGuard)
+            renderGuestLobby(lobbyPanel, callPanel, setActiveSession, rejoinGuard, lobbyReturn)
         } else {
             // The title-row slot is only read in THIS branch (lazy getter): guest lobby, lock panel and load error get no empty slot.
-            renderLobby(lobbyPanel, callPanel, setActiveSession, rejoinGuard, header.actionSlot, autoJoinRoomId)
+            renderLobby(lobbyPanel, callPanel, setActiveSession, rejoinGuard, header.actionSlot, effectiveAutoJoinRoomId, lobbyReturn)
         }
     }
+
+    // After the call ended while this screen is shown: show the lobby again (the first time it is built, later only refreshed).
+    ConferenceLobbyPort.set(screenToken) {
+        if (lobbyReturn.rendered) {
+            setConferenceLobbyVisible(lobbyPanel, true)
+            lobbyReturn.refresh()
+        } else {
+            AppScope.launch { showLobby() }
+        }
+    }
+    ConferenceDock.attachView(screenToken, fromBar)
+
+    if (callRunning) {
+        // A call is running (or just stopped): this screen shows its view, never a second lobby and never a second join.
+        statusLine.hide()
+        if (autoJoinRoomId != null && autoJoinRoomId != ConferenceDock.roomId) {
+            root.div(tr("Sie sind bereits in einer Besprechung. Verlassen Sie diese zuerst.")) {
+                addCssClasses("alert alert-warning")
+                setAttribute("role", "status")
+            }
+        }
+        return
+    }
+    AppScope.launch { showLobby() }
+}
+
+/** A deep link that met a running call is consumed by that call's screen: the lobby built later (call ended) must not auto-join. */
+internal fun conferenceEffectiveAutoJoin(
+    callRunning: Boolean,
+    autoJoinRoomId: String?,
+): String? = if (callRunning) null else autoJoinRoomId
+
+/** What a screen's lobby offers the call when it ends while the screen is shown: set by the lobby that was built, read by the screen. */
+private class ConferenceLobbyReturn {
+    var rendered = false
+    var refresh: () -> Unit = {}
 }
 
 /**
@@ -529,6 +561,7 @@ private fun renderLobby(
     rejoinGuard: AutoRejoinGuard,
     headerAction: Container,
     autoJoinRoomId: String? = null,
+    lobbyReturn: ConferenceLobbyReturn = ConferenceLobbyReturn(),
 ) {
     lobbyPanel.removeAll()
 
@@ -596,6 +629,9 @@ private fun renderLobby(
         renderConferenceRecordingsPanel(recordingsSection)
     }
 
+    lobbyReturn.refresh = refreshLobby
+    lobbyReturn.rendered = true
+
     refreshButton.onClick { refreshLobby() }
     renderConferenceRecordingsPanel(recordingsSection)
 
@@ -605,6 +641,8 @@ private fun renderLobby(
     // runGuardedAction: a second click while the first still runs is a no-op (exactly one room); `disabled` is restored in its finally.
     startButton.onClick {
         runGuardedAction(startButton) {
+            // V1.9.70: one conference per tab -- no room is created while another call (or its end state) is still in the dock
+            if (!ConferenceDock.canJoin()) return@runGuardedAction
             startButton.text = tr("Wird gestartet …")
             val now = organizationNow()
             val room =
@@ -619,11 +657,20 @@ private fun renderLobby(
             // joinRoom does next -- Norman: visible system status, recoverable if the next step
             // fails (see file KDoc "Wave 4 -- D1").
             refreshLobby()
-            rejoinGuard.reset() // a deliberate join starts a fresh window
+            // a deliberate join starts a fresh window (the dock resets the guard) and takes the single seat of the tab
+            if (!ConferenceDock.beginJoin(room.id)) {
+                startButton.text = tr("Besprechung jetzt starten")
+                return@runGuardedAction
+            }
+            val generation = ConferenceDock.generation
             val token = guarded { rpcService<IConferenceService>().joinRoom(room.id) }
             startButton.text = tr("Besprechung jetzt starten")
             if (token != null) {
+                // the call was ended hard (sign-out, language change) while the token was on its way: no device may be switched on
+                if (!ConferenceDock.isCurrent(generation)) return@runGuardedAction
                 enterCall(ConferenceCallTarget.MainRoom(room), token, lobbyPanel, callPanel, setActiveSession, rejoinGuard, refreshLobby)
+            } else {
+                ConferenceDock.dispatch(DockEvent.Terminated(DockTerminateReason.LEAVE))
             }
             // else: guarded {} already toasted the error; the room stays in the already-refreshed
             // list for a manual "Beitreten" retry -- never silently lost.
@@ -683,10 +730,15 @@ private suspend fun joinConferenceRoomAndEnterCall(
     rejoinGuard: AutoRejoinGuard,
     onReturnedToLobby: () -> Unit,
 ) {
-    rejoinGuard.reset() // a deliberate join starts a fresh window
+    // a deliberate join starts a fresh window (the dock resets the guard) and takes the single seat of the tab; a second click is a no-op
+    if (!ConferenceDock.beginJoin(room.id)) return
+    val generation = ConferenceDock.generation
     val token = guarded { rpcService<IConferenceService>().joinRoom(room.id) }
     if (token != null) {
+        if (!ConferenceDock.isCurrent(generation)) return
         enterCall(ConferenceCallTarget.MainRoom(room), token, lobbyPanel, callPanel, setActiveSession, rejoinGuard, onReturnedToLobby)
+    } else {
+        ConferenceDock.dispatch(DockEvent.Terminated(DockTerminateReason.LEAVE))
     }
 }
 
@@ -711,9 +763,12 @@ private fun renderGuestLobby(
     callPanel: SimplePanel,
     setActiveSession: (LiveKitRoomSession?) -> Unit,
     rejoinGuard: AutoRejoinGuard,
+    lobbyReturn: ConferenceLobbyReturn = ConferenceLobbyReturn(),
 ) {
     lobbyPanel.removeAll()
     setConferenceLobbyVisible(lobbyPanel, true)
+    lobbyReturn.refresh = { renderGuestLobby(lobbyPanel, callPanel, setActiveSession, rejoinGuard, lobbyReturn) }
+    lobbyReturn.rendered = true
 
     lobbyPanel.h2(tr("Als Gast beitreten")) { addCssClass("h5") }
     lobbyPanel.div(
@@ -762,9 +817,13 @@ private fun renderGuestLobby(
 
             conferenceGuestConsentModal(info) { consent ->
                 AppScope.launch {
-                    rejoinGuard.reset() // a deliberate join starts a fresh window
+                    // a deliberate join starts a fresh window (the dock resets the guard) and takes the single seat of the tab
+                    if (!ConferenceDock.beginJoin(info.roomId)) return@launch
+                    val generation = ConferenceDock.generation
                     val token = guarded { rpcService<IConferenceService>().joinRoom(info.roomId, consent) }
-                    if (token != null) {
+                    if (token == null) {
+                        ConferenceDock.dispatch(DockEvent.Terminated(DockTerminateReason.LEAVE))
+                    } else if (ConferenceDock.isCurrent(generation)) {
                         // Design review D14: a guest cannot call getRoom (ACTIVE-only), so a minimal
                         // local ConferenceRoomDto is synthesized from the two calls just made. It
                         // carries the REAL createdByMemberId/createdByDisplayName from
@@ -795,9 +854,8 @@ private fun renderGuestLobby(
                             callPanel,
                             setActiveSession,
                             rejoinGuard,
-                        ) {
-                            renderGuestLobby(lobbyPanel, callPanel, setActiveSession, rejoinGuard)
-                        }
+                            onReturnedToLobby = { renderGuestLobby(lobbyPanel, callPanel, setActiveSession, rejoinGuard, lobbyReturn) },
+                        )
                     }
                 }
             }
@@ -999,7 +1057,16 @@ private fun enterCall(
     setActiveSession: (LiveKitRoomSession?) -> Unit,
     rejoinGuard: AutoRejoinGuard,
     onReturnedToLobby: () -> Unit,
+    // V1.9.70: what microphone and camera start as. A deliberate join switches both on; every AUTOMATIC re-entry (breakout, recall,
+    // resume) passes the last wish of the person -- with the view undocked a camera they had switched off must not come back on unseen.
+    initialDevices: ConferenceDeviceIntent = conferenceInitialDevices(null),
 ) {
+    // V1.9.70: the dock decides whether this call still wants to start (it was ended hard in the meantime: sign-out, language change)
+    if (ConferenceDock.state is DockState.Idle) return
+    val dockGeneration = ConferenceDock.generation
+    val dockInstance = ConferenceDock.claimInstance()
+    // a re-entry starts from an empty audio container: the elements of the session that just ended must not linger
+    clearElement(ConferenceDock.audioContainer)
     setConferenceLobbyVisible(lobbyPanel, false)
     callPanel.removeAll()
     callPanel.show()
@@ -1021,7 +1088,13 @@ private fun enterCall(
     // Wave 2 "Aufzeichnung": captured BEFORE anything can prefix it, restored on every path back to
     // the Lobby -- see file KDoc "`document.title` prefix". Wave 4, D1: now a `var` -- a mid-call
     // rename ([titleEditButton] below) must update the base the "● " prefix builds on top of.
-    var baseDocumentTitle = document.title
+    // Re-entry while undocked (breakout hand-over, recall, resume) must not adopt the foreign route's title (nor its "● ")
+    var baseDocumentTitle =
+        if (ConferenceDock.isAttached) {
+            document.title.removePrefix("● ")
+        } else {
+            listOfNotNull(resolvedAttributeText(tr("Videokonferenz")), Branding.title).joinToString(" – ")
+        }
 
     val localMemberId = AppState.session?.memberId
     // D-item "moderator-only actions": a UX nicety over the server's own re-checked authority (see
@@ -1084,8 +1157,8 @@ private fun enterCall(
     // Wave 4, D10: replaces the Wave 1-3 ad-hoc `leftCall` boolean entirely -- see file KDoc "D10"
     // and [ConferenceConnectionState]/[conferenceConnectionReduce].
     var connectionState: ConferenceConnectionState = ConferenceConnectionState.Disconnected
-    var micEnabled = true
-    var cameraEnabled = true
+    var micEnabled = initialDevices.mic
+    var cameraEnabled = initialDevices.camera
     var screenShareEnabled = false
     var chatOpen = false
     var unreadChatCount = 0
@@ -1870,6 +1943,32 @@ private fun enterCall(
         }
     }
 
+    // V1.9.70 -- the snapshot the dock's mini bar shows (no personal data, no title). Published at every place that changes one of its
+    // inputs: `transition`, the mic/camera state functions, the screen-share click, `updateStatusBadgesAndTitle` and the vote callback.
+    fun dockSnapshot(): DockSnapshot =
+        DockSnapshot(
+            micOn = micEnabled,
+            cameraOn = cameraEnabled,
+            screenSharing = screenShareEnabled,
+            recording = activeRecordingDto != null,
+            streaming = activeStreamDto != null,
+            streamPaused =
+                activeStreamDto?.status.let { it == ConferenceStreamStatus.PAUSED || it == ConferenceStreamStatus.PAUSING },
+            voteOpen = (voteController?.state?.badgeCount() ?: 0) > 0,
+            transitioning =
+                when (connectionState) {
+                    is ConferenceConnectionState.Connecting, is ConferenceConnectionState.Reconnecting -> DockTransition.CONNECTING
+                    is ConferenceConnectionState.Resolving -> DockTransition.BREAKOUT_SWITCH
+                    else -> null
+                },
+        )
+
+    fun publishDock() {
+        // a call that was ended hard or replaced no longer speaks for the dock
+        if (!ConferenceDock.isCurrent(dockGeneration) || !ConferenceDock.isCurrentInstance(dockInstance)) return
+        ConferenceDock.publish(dockSnapshot())
+    }
+
     // D8: the ONE place either badge row or the document.title prefix is ever rendered -- always
     // from `activeRecordingDto`/`activeStreamDto` (server state), never from a raw LiveKit push
     // boolean. Declared first so every updater below can end by calling it.
@@ -1882,7 +1981,12 @@ private fun enterCall(
             statusBadgesPanel.show()
             rows.forEach { row -> statusBadgesPanel.statusBadge(row.text, row.color) }
         }
-        document.title = conferenceMediaDocumentTitle(baseDocumentTitle, activeRecordingDto != null, activeStreamDto != null)
+        // V1.9.70: the tab title belongs to the route that is shown; the undocked call only contributes the "● " marker
+        // (PageTitle.apply asks the dock for it), it never writes a title of its own
+        if (ConferenceDock.isAttached) {
+            document.title = conferenceMediaDocumentTitle(baseDocumentTitle, activeRecordingDto != null, activeStreamDto != null)
+        }
+        publishDock()
     }
 
     // Wave 4, D1 -- inline rename in the in-call header, moderator-only. Placed HERE (not right next
@@ -3128,6 +3232,7 @@ private fun enterCall(
                 updateVoteBindingHint()
                 votingHandle?.apply(update)
                 updateSecretBallotBanner()
+                publishDock()
                 guestVoteLine?.let { line ->
                     if (update.state.ballots.any { it.status == RoomBallotStatus.OPEN }) line.show() else line.hide()
                 }
@@ -3181,12 +3286,14 @@ private fun enterCall(
         micButton.icon = if (micEnabled) "fas fa-microphone" else "fas fa-microphone-slash"
         if (micEnabled) micButton.removeCssClass("text-danger") else micButton.addCssClass("text-danger")
         micButton.setStaticA11yLabel(if (micEnabled) tr("Mikrofon ausschalten") else tr("Mikrofon einschalten"))
+        publishDock()
     }
 
     fun updateCameraButtonState() {
         cameraButton.icon = if (cameraEnabled) "fas fa-video" else "fas fa-video-slash"
         if (cameraEnabled) cameraButton.removeCssClass("text-danger") else cameraButton.addCssClass("text-danger")
         cameraButton.setStaticA11yLabel(if (cameraEnabled) tr("Kamera ausschalten") else tr("Kamera einschalten"))
+        publishDock()
     }
     // Review fix (V1.2.10) -- `updateMicButtonState`/`updateCameraButtonState` were previously only
     // ever invoked from the initial connect block's failure branch (`!micOk`/`!cameraOk`) or from
@@ -3664,6 +3771,14 @@ private fun enterCall(
     fun transition(event: ConferenceConnectionEvent) {
         connectionState = conferenceConnectionReduce(connectionState, event)
         ConferenceCallPresence.set(live = connectionState.countsAsLiveCall())
+        // V1.9.70: the dock mirrors the connection (the mini bar shows "connecting", "running", "switching")
+        if (ConferenceDock.isCurrent(dockGeneration) && ConferenceDock.isCurrentInstance(dockInstance)) {
+            when (connectionState) {
+                is ConferenceConnectionState.Connected -> ConferenceDock.dispatch(DockEvent.Connected(dockSnapshot()))
+                is ConferenceConnectionState.Resolving -> ConferenceDock.dispatch(DockEvent.DisconnectResolving)
+                else -> publishDock()
+            }
+        }
         renderConnectionState()
         // V1.9.25: no ballot polling once the call is over (the server would only deny it)
         if (connectionState is ConferenceConnectionState.Ended) voteRegistration.dispose()
@@ -3970,17 +4085,27 @@ private fun enterCall(
         setActiveSession(null)
         cleanupFullscreen()
         transition(ConferenceConnectionEvent.ResolvedAsEnded)
-        document.title = baseDocumentTitle
+        if (ConferenceDock.isAttached) document.title = baseDocumentTitle
         callPanel.removeAll()
         callPanel.conferenceConnectionStoppedNotice(
             kind = kind,
             onResume = {
                 rejoinGuard.reset()
                 val resumed = resumeToken()
-                if (resumed == null) {
+                if (resumed == null || !ConferenceDock.isCurrent(dockGeneration)) {
                     false
                 } else {
-                    enterCall(resumed.first, resumed.second, lobbyPanel, callPanel, setActiveSession, rejoinGuard, onReturnedToLobby)
+                    ConferenceDock.dispatch(DockEvent.ReEntered)
+                    enterCall(
+                        resumed.first,
+                        resumed.second,
+                        lobbyPanel,
+                        callPanel,
+                        setActiveSession,
+                        rejoinGuard,
+                        onReturnedToLobby,
+                        conferenceInitialDevices(ConferenceDock.lastDeviceIntent),
+                    )
                     true
                 }
             },
@@ -3993,6 +4118,15 @@ private fun enterCall(
                     originalTitle = baseDocumentTitle,
                 )
             },
+        )
+        // V1.9.70: the card is the end state; with the view undocked the mini bar shows it (and offers the way back to this card)
+        ConferenceDock.dispatch(
+            DockEvent.Stopped(
+                when (kind) {
+                    ConnectionStoppedKind.Displaced -> DockStopReason.DUPLICATE_IDENTITY
+                    ConnectionStoppedKind.LoopStopped -> DockStopReason.REJOIN_EXHAUSTED
+                },
+            ),
         )
     }
 
@@ -4016,7 +4150,9 @@ private fun enterCall(
                             setTileVideo(entry, mediaElement)
                         } else {
                             mediaElement.style.cssText = "display:none;"
-                            entry.element.appendChild(mediaElement)
+                            // V1.9.70: a media element pauses when it leaves the document. The audio lives in the permanent container
+                            // outside the KVision root, not in the tile, so it keeps playing while the view is undocked.
+                            ConferenceDock.audioContainer.appendChild(mediaElement)
                             setTileMic(entry, true)
                         }
                     }
@@ -4206,18 +4342,24 @@ private fun enterCall(
                         // `requestBreakoutJoinToken` would restart the loop through the breakout path).
                         val resolved =
                             if (cause == DisconnectCause.DuplicateIdentity) null else resolvePostDisconnectDestination(room.id)
+                        // ended hard (sign-out, language change) while the question was on its way: nothing to hand over to
+                        if (!ConferenceDock.isCurrent(dockGeneration)) return@launch
                         when (val action = decideAfterDisconnect(cause, resolved, rejoinGuard::tryConsume)) {
                             PostDisconnectAction.Displaced -> stopAndShowNotice(ConnectionStoppedKind.Displaced)
                             PostDisconnectAction.LoopStopped -> stopAndShowNotice(ConnectionStoppedKind.LoopStopped)
                             PostDisconnectAction.Ended -> {
                                 transition(ConferenceConnectionEvent.ResolvedAsEnded)
-                                notifyInfo(tr("Die Besprechung wurde beendet oder die Verbindung getrennt."))
+                                // undocked, the mini bar is the message (no toast over an unrelated page)
+                                if (ConferenceDock.isAttached) {
+                                    notifyInfo(tr("Die Besprechung wurde beendet oder die Verbindung getrennt."))
+                                }
                                 returnToLobby(
                                     callPanel = callPanel,
                                     lobbyPanel = lobbyPanel,
                                     setActiveSession = setActiveSession,
                                     onReturnedToLobby = onReturnedToLobby,
                                     originalTitle = baseDocumentTitle,
+                                    dockOutcome = DockStopReason.ENDED,
                                     onBeforeReturn = ::cleanupFullscreen,
                                 )
                             }
@@ -4239,6 +4381,7 @@ private fun enterCall(
                                         setActiveSession = setActiveSession,
                                         onReturnedToLobby = onReturnedToLobby,
                                         originalTitle = baseDocumentTitle,
+                                        dockOutcome = DockStopReason.ENDED,
                                         onBeforeReturn = ::cleanupFullscreen,
                                     )
                                 } else {
@@ -4255,6 +4398,8 @@ private fun enterCall(
                                     // fresh `panelState`/listener pair, same discipline as every
                                     // `returnToLobby(...)` call site above.
                                     cleanupFullscreen()
+                                    if (!ConferenceDock.isCurrent(dockGeneration)) return@launch
+                                    ConferenceDock.dispatch(DockEvent.ReEntered)
                                     enterCall(
                                         ConferenceCallTarget.BreakoutRoom(
                                             breakoutRoomId = destination.assignment.breakoutRoomId,
@@ -4267,6 +4412,7 @@ private fun enterCall(
                                         setActiveSession,
                                         rejoinGuard,
                                         onReturnedToLobby,
+                                        conferenceInitialDevices(ConferenceDock.lastDeviceIntent),
                                     )
                                 }
                             }
@@ -4284,6 +4430,7 @@ private fun enterCall(
                                         setActiveSession = setActiveSession,
                                         onReturnedToLobby = onReturnedToLobby,
                                         originalTitle = baseDocumentTitle,
+                                        dockOutcome = DockStopReason.ENDED,
                                         onBeforeReturn = ::cleanupFullscreen,
                                     )
                                 } else {
@@ -4292,6 +4439,8 @@ private fun enterCall(
                                     // V1.2.9, review fix -- same direct-re-entry cleanup as the
                                     // `Breakout` branch above.
                                     cleanupFullscreen()
+                                    if (!ConferenceDock.isCurrent(dockGeneration)) return@launch
+                                    ConferenceDock.dispatch(DockEvent.ReEntered)
                                     enterCall(
                                         ConferenceCallTarget.MainRoom(destination.parentRoom),
                                         mainToken,
@@ -4300,6 +4449,7 @@ private fun enterCall(
                                         setActiveSession,
                                         rejoinGuard,
                                         onReturnedToLobby,
+                                        conferenceInitialDevices(ConferenceDock.lastDeviceIntent),
                                     )
                                 }
                             }
@@ -4342,6 +4492,8 @@ private fun enterCall(
         // regression this file already fixed once.
         val connectFailure = guarded { session.connect(joinToken.serverUrl, joinToken.token, joinToken.turnServers) }
         if (connectFailure != null) {
+            // ended hard while connecting (sign-out, language change): the dock already cleaned up, nothing to report
+            if (!ConferenceDock.isCurrent(dockGeneration)) return@launch
             notifyError(conferenceConnectErrorMessage(connectFailure))
             transition(ConferenceConnectionEvent.ConnectFailed(connectFailure.name))
             setActiveSession(null)
@@ -4351,8 +4503,14 @@ private fun enterCall(
                 setActiveSession = setActiveSession,
                 onReturnedToLobby = onReturnedToLobby,
                 originalTitle = baseDocumentTitle,
+                dockOutcome = DockStopReason.CONNECT_FAILED,
                 onBeforeReturn = ::cleanupFullscreen,
             )
+            return@launch
+        }
+        if (!ConferenceDock.isCurrent(dockGeneration)) {
+            // ended hard while connecting: this session must not stay open with a device on
+            runCatching { session.disconnect() }
             return@launch
         }
         transition(ConferenceConnectionEvent.ConnectSucceeded)
@@ -4399,8 +4557,16 @@ private fun enterCall(
         // a non-null failure is the ONE accurate signal, and the ONLY toast shown for it, see
         // `conferenceDeviceEnableErrorMessage` KDoc for why `onMediaDevicesError` deliberately stays
         // silent now.
-        val micFailure = guarded { session.setMicrophone(true) }
-        val cameraFailure = guarded { session.setCamera(true) }
+        // V1.9.70: only what the person wants is switched on (an automatic re-entry carries their last wish), and never once the call was
+        // ended hard in the meantime -- every `await` above is a place where a sign-out or a language change can have happened.
+        val micFailure =
+            if (micEnabled && ConferenceDock.isCurrent(dockGeneration)) guarded { session.setMicrophone(true) } else null
+        val cameraFailure =
+            if (cameraEnabled && ConferenceDock.isCurrent(dockGeneration)) guarded { session.setCamera(true) } else null
+        if (!ConferenceDock.isCurrent(dockGeneration)) {
+            runCatching { session.disconnect() }
+            return@launch
+        }
         if (micFailure != null) {
             notifyError(conferenceDeviceEnableErrorMessage(ConferenceDeviceKind.MICROPHONE, micFailure))
             micEnabled = false
@@ -4418,7 +4584,8 @@ private fun enterCall(
         refreshDeviceOptions()
     }
 
-    micButton.onClick {
+    // V1.9.70: the click handlers are local functions so the dock's mini bar calls exactly the same code as the buttons of the view.
+    fun toggleMic() {
         micButton.disabled = true
         AppScope.launch {
             val desired = !micEnabled
@@ -4445,7 +4612,9 @@ private fun enterCall(
             }
         }
     }
-    cameraButton.onClick {
+    micButton.onClick { toggleMic() }
+
+    fun toggleCamera() {
         cameraButton.disabled = true
         AppScope.launch {
             val desired = !cameraEnabled
@@ -4462,28 +4631,33 @@ private fun enterCall(
             }
         }
     }
+    cameraButton.onClick { toggleCamera() }
+
     // V1.2.10 -- `screenShareButton` is now nullable (absent on devices without `getDisplayMedia`,
     // see its own declaration) -- no text/slash-icon feedback (Kare: no FA6 counterpart for
     // "screen-share off"), only the same `.active`-ring treatment `rosterToggleButton`/
     // `chatToggleButton` already use.
+    fun toggleScreenShare() {
+        val btn = screenShareButton ?: return
+        btn.disabled = true
+        overflow.recompute()
+        AppScope.launch {
+            val desired = !screenShareEnabled
+            // Same fix as micButton.onClick above -- see that handler's comment.
+            val result = guarded { session.setScreenShare(desired) }
+            btn.disabled = false
+            if (result != null) {
+                screenShareEnabled = desired
+                if (screenShareEnabled) btn.addCssClass("active") else btn.removeCssClass("active")
+                btn.setAttribute("aria-pressed", screenShareEnabled.toString())
+                publishDock()
+            }
+            overflow.recompute()
+        }
+    }
     screenShareButton?.let { btn ->
         btn.setAttribute("aria-pressed", "false")
-        btn.onClick {
-            btn.disabled = true
-            overflow.recompute()
-            AppScope.launch {
-                val desired = !screenShareEnabled
-                // Same fix as micButton.onClick above -- see that handler's comment.
-                val result = guarded { session.setScreenShare(desired) }
-                btn.disabled = false
-                if (result != null) {
-                    screenShareEnabled = desired
-                    if (screenShareEnabled) btn.addCssClass("active") else btn.removeCssClass("active")
-                    btn.setAttribute("aria-pressed", screenShareEnabled.toString())
-                }
-                overflow.recompute()
-            }
-        }
+        btn.onClick { toggleScreenShare() }
     }
 
     // V1.3.x Geräteauswahl -- ein nutzergetriebener Dropdown-Wechsel ruft `switchDevice` auf.
@@ -4625,6 +4799,9 @@ private fun enterCall(
                 // `Breakout`/`Main` branches above; this button is the third and last direct
                 // `enterCall(...)` re-entry point that bypasses `returnToLobby`.
                 cleanupFullscreen()
+                if (!ConferenceDock.isCurrent(dockGeneration)) return@launch
+                // "Back to the main room" is a deliberate move inside the call: microphone and camera stay as the person had them
+                ConferenceDock.dispatch(DockEvent.ReEntered)
                 enterCall(
                     ConferenceCallTarget.MainRoom(room),
                     mainToken,
@@ -4633,6 +4810,7 @@ private fun enterCall(
                     setActiveSession,
                     rejoinGuard,
                     onReturnedToLobby,
+                    conferenceInitialDevices(ConferenceDock.lastDeviceIntent),
                 )
             } else {
                 returnToLobby(
@@ -4641,6 +4819,7 @@ private fun enterCall(
                     setActiveSession = setActiveSession,
                     onReturnedToLobby = onReturnedToLobby,
                     originalTitle = baseDocumentTitle,
+                    dockOutcome = DockStopReason.ENDED,
                     onBeforeReturn = ::cleanupFullscreen,
                 )
             }
@@ -4652,9 +4831,10 @@ private fun enterCall(
     // verlassen" (see its own declaration) but its RPC target is unchanged: leaving the breakout
     // room's own LiveKit connection plus leaving the PARENT meeting's `conference_participation`
     // record, exactly like leaving from Main always has.
-    leaveButton.onClick {
+    // V1.9.70: the same flow serves the button of the view and the "Verlassen" of the dock's mini bar.
+    fun performLeave() {
         // V1.9.25: the receipt of a secret ballot exists only on this screen -- leaving would lose it
-        if (ConferenceReceiptGate.blocksUnload) return@onClick
+        if (ConferenceReceiptGate.blocksUnload) return
         leaving = true
         leaveButton.disabled = true
         transition(ConferenceConnectionEvent.UserLeft)
@@ -4675,6 +4855,7 @@ private fun enterCall(
             )
         }
     }
+    leaveButton.onClick { performLeave() }
 
     endForAllClick = click@{
         if (ConferenceReceiptGate.blocksUnload) return@click
@@ -4703,6 +4884,58 @@ private fun enterCall(
             }
         }
     }
+
+    // V1.9.70 -- the dock's only handle on this call. Registered last, when every function it calls exists. A re-entry (breakout, recall,
+    // resume) runs a NEW `enterCall` that registers itself and thereby replaces this one.
+    val dockLeave: () -> Unit = { performLeave() }
+    val dockToggleMic: () -> Unit = { toggleMic() }
+    val dockToggleCamera: () -> Unit = { toggleCamera() }
+    val dockToggleScreenShare: () -> Unit = { toggleScreenShare() }
+    ConferenceDock.register(
+        object : DockableSession {
+            override val kind = DockSessionKind.CONFERENCE
+
+            override fun attach() {
+                // the view is shown again: videos that were paused while it was hidden play on, the bar re-measures its width
+                window.setTimeout({ callPanel.getElement()?.let { el -> resumeStalledVideos(el) } }, 0)
+                window.setTimeout({ overflow.recompute() }, 0)
+                window.setTimeout({ overflow.recompute() }, 150)
+            }
+
+            override fun detach() {
+                // browser fullscreen of a hidden view would leave the person in a black page; dialogs of the call must not hover over
+                // an unrelated page. Deliberately NOT `cleanupFullscreen()`: that also stops the ballot poll and the bar's observers.
+                if (currentFullscreenElement() != null) runCatching { exitBrowserFullscreen() }
+                closeOpenConferenceDialogs()
+            }
+
+            override fun leave() = dockLeave()
+
+            override suspend fun terminate(reason: DockTerminateReason) {
+                // hard, no question, no `leaveRoom` (the participation of the member may be alive on another device)
+                leaving = true
+                transition(ConferenceConnectionEvent.UserLeft)
+                runCatching { session.disconnect() }
+                disposeBackgroundEffects()
+                setActiveSession(null)
+                cleanupFullscreen()
+            }
+
+            override fun toggleMic() = dockToggleMic()
+
+            override fun toggleCamera() = dockToggleCamera()
+
+            override fun stopScreenShare() {
+                if (screenShareEnabled) dockToggleScreenShare()
+            }
+        },
+    )
+}
+
+/** V1.9.70 -- closes every open dialog by its own close button (the dock hides the view while a dialog of the call may be open). */
+private fun closeOpenConferenceDialogs() {
+    val closeButtons = document.querySelectorAll(".modal.show .btn-close")
+    for (index in 0 until closeButtons.length) (closeButtons.item(index) as? HTMLElement)?.click()
 }
 
 /** V1.9.25 -- a CSS class on a KVision widget, on or off (both calls are idempotent). */
@@ -4815,14 +5048,26 @@ private fun returnToLobby(
     // Lobby nach dem Verlassen nie im Browser-Vollbild verbleibt und der fullscreenchange-Listener
     // dieses Calls nicht über den Lobby-Wechsel hinaus lebt.
     onBeforeReturn: () -> Unit = {},
+    // V1.9.70: why the call ended when the person did NOT end it (`null` = a deliberate leave / "end for all" / "to overview"). Only matters
+    // while the view is undocked: the mini bar then turns into the end message instead of the lobby appearing nowhere.
+    dockOutcome: DockStopReason? = null,
 ) {
     onBeforeReturn()
     setActiveSession(null)
     callPanel.removeAll()
-    callPanel.hide()
-    setConferenceLobbyVisible(lobbyPanel, true)
-    if (originalTitle != null) document.title = originalTitle
-    onReturnedToLobby()
+    val showLobby = ConferenceLobbyPort.current
+    if (ConferenceDock.isAttached && showLobby != null) {
+        callPanel.hide()
+        if (originalTitle != null) document.title = originalTitle
+        showLobby()
+        ConferenceDock.dispatch(DockEvent.Terminated(DockTerminateReason.LEAVE))
+    } else if (dockOutcome == null) {
+        // a deliberate leave from the mini bar: nothing left to show, no end message needed
+        ConferenceDock.dispatch(DockEvent.Terminated(DockTerminateReason.LEAVE))
+    } else {
+        // undocked and ended on its own: the bar says so, no toast, and the tab title stays the one of the route that is shown
+        ConferenceDock.dispatch(DockEvent.Stopped(dockOutcome))
+    }
 }
 
 /** V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- what [enterCall]'s `onDisconnected` callback

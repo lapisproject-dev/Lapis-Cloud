@@ -409,6 +409,78 @@ internal fun Container.conferenceModerationGroup(
     return ConferenceModerationGroup(root, record, stream, end, recordBadge, streamBadge, recordSpinner, streamSpinner)
 }
 
+/** The four controls of the dock bar (V1.9.70), built once; the bar only toggles their state. */
+internal class DockBarControls internal constructor(
+    val root: Div,
+    val mic: Button,
+    val camera: Button,
+    val stopShare: Button,
+    val leave: Button,
+) {
+    private var shownMic: Boolean? = null
+    private var shownCamera: Boolean? = null
+
+    /** Mic and camera show their state through `aria-pressed` ("on" = pressed) and the slash icon; the verb is the tooltip. */
+    fun applyDevices(
+        micOn: Boolean,
+        cameraOn: Boolean,
+    ) {
+        if (shownMic != micOn) {
+            shownMic = micOn
+            mic.icon = if (micOn) "fas fa-microphone" else "fas fa-microphone-slash"
+            mic.toggleClass("text-danger", !micOn)
+            mic.setAttrIfChanged("aria-pressed", micOn.toString())
+            val label = resolvedAttributeText(if (micOn) tr("Mikrofon ausschalten") else tr("Mikrofon einschalten"))
+            mic.setAttrIfChanged("aria-label", label)
+            mic.setAttrIfChanged("title", label)
+        }
+        if (shownCamera != cameraOn) {
+            shownCamera = cameraOn
+            camera.icon = if (cameraOn) "fas fa-video" else "fas fa-video-slash"
+            camera.toggleClass("text-danger", !cameraOn)
+            camera.setAttrIfChanged("aria-pressed", cameraOn.toString())
+            val label = resolvedAttributeText(if (cameraOn) tr("Kamera ausschalten") else tr("Kamera einschalten"))
+            camera.setAttrIfChanged("aria-label", label)
+            camera.setAttrIfChanged("title", label)
+        }
+    }
+
+    private fun Widget.toggleClass(
+        name: String,
+        on: Boolean,
+    ) {
+        if (on) addCssClass(name) else removeCssClass(name)
+    }
+}
+
+/**
+ * V1.9.70: the controls of the conference dock bar -- microphone, camera, "stop sharing the screen" (only while sharing) and "leave".
+ * They call the SAME functions as the buttons of the full view (see `DockableSession`), no second implementation. Four
+ * [conferenceControlButton] calls: R58 ledger entry in `ClientToolbarIconTripwireTest` (named exception b, extended).
+ */
+internal fun Container.conferenceDockBarControls(
+    onMic: () -> Unit,
+    onCamera: () -> Unit,
+    onStopShare: () -> Unit,
+    onLeave: () -> Unit,
+): DockBarControls {
+    val root = div(className = "lapis-conference-controls-group lapis-dock-controls")
+    root.setAttribute("role", "group")
+    root.setAttribute("aria-label", gettext("Besprechung"))
+    val mic = root.conferenceControlButton(ActionIcon.MICROPHONE, tr("Mikrofon ausschalten"))
+    val camera = root.conferenceControlButton(ActionIcon.CAMERA, tr("Kamera ausschalten"))
+    val stopShare = root.conferenceControlButton(ActionIcon.SCREEN_SHARE, tr("Bildschirmfreigabe beenden"))
+    val leave = root.conferenceControlButton(ActionIcon.HANG_UP, tr("Verlassen"), ButtonStyle.DANGER)
+    stopShare.hide()
+    mic.setAttribute("aria-pressed", "true")
+    camera.setAttribute("aria-pressed", "true")
+    mic.onClick { onMic() }
+    camera.onClick { onCamera() }
+    stopShare.onClick { onStopShare() }
+    leave.onClick { onLeave() }
+    return DockBarControls(root, mic, camera, stopShare, leave)
+}
+
 /** A thin vertical line between two groups of the bar; decorative. */
 internal fun Container.conferenceControlsDivider(): Span {
     val divider = span(className = "lapis-conference-controls-divider")

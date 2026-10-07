@@ -247,15 +247,22 @@ class ConferenceTitleRowStartDomTest {
                 },
             ) { calls ->
                 mountedForm("r36b-conference-start-enter-call") { root, element ->
-                    renderConferenceScreen(root)
-                    awaitUntil("the start button is shown", timeoutMs) { element().headerButtons().isNotEmpty() }
-                    element().headerButtons().single().click()
-                    awaitUntil("the call panel is shown (enterCall was reached)", timeoutMs) {
-                        element().querySelector(".lapis-conference-call-panel") != null
+                    // V1.9.70: the call view lives in the dock host (next to the route outlet), so the test mounts one
+                    ConferenceDock.resetForTest()
+                    ConferenceDock.bindHost(root.vPanel())
+                    try {
+                        renderConferenceScreen(root)
+                        awaitUntil("the start button is shown", timeoutMs) { element().headerButtons().isNotEmpty() }
+                        element().headerButtons().single().click()
+                        awaitUntil("the call panel is shown (enterCall was reached)", timeoutMs) {
+                            element().querySelector(".lapis-conference-call-panel") != null
+                        }
+                        assertEquals(1, calls.toRoute(routes.create).size)
+                        assertEquals(emptyList(), element().headerButtons().map { it.textContent }, "no start action inside a call")
+                        assertFalse(element().shows("Aktive Besprechungen"), "the lobby is gone while the call runs")
+                    } finally {
+                        ConferenceDock.resetForTest()
                     }
-                    assertEquals(1, calls.toRoute(routes.create).size)
-                    assertEquals(emptyList(), element().headerButtons().map { it.textContent }, "no start action inside a call")
-                    assertFalse(element().shows("Aktive Besprechungen"), "the lobby is gone while the call runs")
                 }
             }
         }

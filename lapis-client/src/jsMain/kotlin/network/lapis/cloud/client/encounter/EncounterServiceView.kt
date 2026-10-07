@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import network.lapis.cloud.client.ActionIcon
 import network.lapis.cloud.client.AppScope
 import network.lapis.cloud.client.AppState
+import network.lapis.cloud.client.ConferenceDock
 import network.lapis.cloud.client.ConnectionStoppedKind
 import network.lapis.cloud.client.DataSection
 import network.lapis.cloud.client.PageHeader
@@ -220,6 +221,12 @@ private class EncounterVisit(
         consent: EncounterConsentInput?,
     ) {
         if (tornDown || entered) return
+        // V1.9.70: one conference per tab -- a running video conference (or its end state) in the dock holds the seat; the encounter room
+        // is not a second dock session yet (follow-up wave), so it simply does not start while the dock is busy
+        if (!ConferenceDock.canJoin()) {
+            notice.content = tr("Sie sind bereits in einer Besprechung. Verlassen Sie diese zuerst.")
+            return
+        }
         val entry =
             guarded {
                 try {

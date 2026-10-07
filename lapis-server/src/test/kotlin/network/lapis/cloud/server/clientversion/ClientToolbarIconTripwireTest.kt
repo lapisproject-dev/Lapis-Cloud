@@ -500,12 +500,16 @@ class ClientToolbarIconTripwireTest :
             }
         }
 
-        test("R58 (V1.9.66): conferenceControlButton is only used inside ConferenceControlBar.kt (the moderation group: three controls)") {
+        test(
+            "R58 (V1.9.66, extended V1.9.70): conferenceControlButton is only used inside ConferenceControlBar.kt " +
+                "(the moderation group: three controls, the dock bar: four controls)",
+        ) {
             val actual =
                 clientFiles()
                     .associate { it.name to callsByEnclosingFunction(source = it.readText(), name = "conferenceControlButton") }
                     .filterValues { it.isNotEmpty() }
-            actual shouldBe mapOf("ConferenceControlBar.kt" to mapOf("conferenceModerationGroup" to 3))
+            actual shouldBe
+                mapOf("ConferenceControlBar.kt" to mapOf("conferenceModerationGroup" to 3, "conferenceDockBarControls" to 4))
         }
 
         test("V1.9.66: the bar of the conference call never wraps; the chat composer overrides the narrow-width wrap of a toolbar") {

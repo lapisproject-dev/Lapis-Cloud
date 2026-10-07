@@ -673,7 +673,8 @@ fun navigateTo(route: String) {
  * would see a stale, always-unauthenticated state and bounce a genuinely logged-in visitor
  * (refreshing the page) to `/login` before their session had a chance to load.
  *
- * [pageContainer] is cleared and re-populated by every route handler -- each screen owns its own
+ * [pageContainer] is the ROUTE OUTLET (V1.9.70: not the whole `.lapis-content` landmark -- the permanent conference dock host sits next to it
+ * and is never cleared by routing, so a running conference survives a route change). It is cleared and re-populated by every route handler -- each screen owns its own
  * `renderXScreen(container)` top-level function in its own file (`LoginScreen.kt`,
  * `DashboardScreen.kt`, ...).
  */

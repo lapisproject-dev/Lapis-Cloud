@@ -1,0 +1,244 @@
+= The conference dock: a running conference survives navigation (V1.9.70)
+:toc:
+
+== Purpose and promise
+
+A person in a video conference clicks "Mitglieder", "Anträge" or any other page. Until V1.9.69 that ended the call: the route outlet was
+cleared, the screen's destroy hook disconnected the LiveKit session, and the camera and microphone stopped.
+
+Since V1.9.70 the call **keeps running** when the route changes:
+
+* microphone, camera, remote audio, chat, roster, running votes and a secret-ballot receipt all stay alive;
+* while the call view is not on screen, a **mini bar** at the bottom of the page stands for it (status, recording / live stream
+  badges, microphone, camera, "Verlassen", and a way back);
+* there is exactly **one** conference per browser tab.
+
+This wave is step 1 of two. It does *not* add a free-floating window (step 2), Document Picture-in-Picture, or the encounter room as
+a second dock session.
+
+== Decision: the view stays, it is only hidden
+
+The call screen (`enterCall` in `ConferenceScreen.kt`) is one closure of roughly 3,700 lines in which the session and the view are woven
+together: LiveKit callbacks, raw-DOM video tiles, chat, votes, whiteboard, notes, background effects, moderation. Splitting that into a
+model and a view would be the largest regression risk of the whole client.
+
+So the KVision subtree of the call view (`ConferenceDock.callPanel`) lives in a **permanent dock host** next to the route outlet:
+
+.Shell structure (`App.kt`)
+----
+.lapis-content (role=main, id=lapis-content)
+ |- route outlet   (cleared on every route change by Routing.show)
+ `- dock host      (never cleared; carries the call view; hidden by the class d-none, NEVER by hide())
+conference dock bar (position: fixed; sibling after the landmark, before the version banner)
+document.body > div#lapis-conference-audio (hidden; created once; outside the KVision root)
+----
+
+"Docking" means showing the host and moving the focus; "undocking" means hiding it with CSS. Nothing is torn down, so:
+
+* nothing a person has typed or received in the call is lost (chat log, roster, vote panel and receipt just keep running);
+* the background-effect processor is never released by an undock (it only ends with the call);
+* a media element is never removed from the document while the call runs.
+
+[IMPORTANT]
+====
+The host and the bar are hidden with the Bootstrap class `d-none`, never with KVision's `hide()`. KVision does not render a hidden
+widget at all: it would drop the call view out of the document (its raw-DOM tiles, its videos) and, for a widget that *starts* hidden,
+never run its insert hook. The bar's first paint additionally runs one tick after its insert hook: changing the bar's own classes
+inside its insert hook re-patches the vnode that is still being inserted and fires the hook again (endless recursion, found by the
+Karma test of the bar).
+====
+
+Remote audio is the one exception to "the tile holds its media": the HTML specification pauses a media element that leaves the
+document. Remote `<audio>` elements therefore live in `#lapis-conference-audio`, a permanent container in `document.body`.
+
+== State machine
+
+[source,kuml,name="conference-dock-states"]
+----
+stateDiagram(name = "Conference dock") {
+    val start = initialState()
+    val idle = state(name = "Idle")
+    val joining = state(name = "Joining")
+    val live = state(name = "Live (attached | undocked)")
+    val resolving = state(name = "Resolving")
+    val stopped = state(name = "Stopped (reason)")
+
+    transition(source = start, target = idle)
+    transition(source = idle, target = joining) {
+        trigger = "beginJoin"
+        guard = "[state is Idle]"
+    }
+    transition(source = joining, target = live) { trigger = "Connected" }
+    transition(source = live, target = resolving) { trigger = "RoomEvent.Disconnected" }
+    transition(source = resolving, target = joining) { trigger = "ReEntered (breakout, recall)" }
+    transition(source = live, target = stopped) { trigger = "duplicate identity / rejoin exhausted / ended undocked" }
+    transition(source = joining, target = stopped) { trigger = "connect failed undocked" }
+    transition(source = stopped, target = joining) { trigger = "ReEntered (deliberate resume)" }
+    transition(source = stopped, target = idle) { trigger = "Dismissed" }
+    transition(source = live, target = idle) { trigger = "Terminated (leave, sign-out, account switch, language, root restart)" }
+}
+----
+
+`conferenceDockReduce` is a pure function (no DOM): an unknown (state, event) pair returns the old state unchanged, `Terminated` leads to
+`Idle` from every state, and "attached" (is the call view shown in the route?) is an orthogonal flag inside every non-idle state. A
+stopped dock never joins by itself; only an explicit click ("Hier fortsetzen", "Erneut beitreten") re-enters.
+
+Side effects live in one place, `ConferenceDock.dispatch`:
+
+* `ConferenceCallPresence` is true exactly in `Joining`, `Live` and `Resolving` (it feeds the "new version available" hint and the
+  language switcher);
+* the unload guard (`ConferenceUnloadGuard`, exactly one instance in the client) is installed in those states and removed otherwise;
+* the dock host is visible only while the state is not `Idle` *and* attached;
+* `document.body` and `html` get `lapis-has-dock` exactly while the bar is shown (it reserves the bar's space and sets
+  `scroll-padding-bottom`, so a focused control never ends up behind the bar, WCAG 2.4.11);
+* when the dock becomes `Idle`, everything is cleared: the active session, the registered `DockableSession`, the room id, the device
+  wish, the vote runtime, the audio container and the call panel (no chat, roster or receipt DOM may survive).
+
+== Lifecycle
+
+[cols="2,3,3"]
+|===
+|Event |What happens |Why
+
+|Route change away from the conference screen
+|The screen's destroy hook calls `ConferenceDock.detachView(token)` only. The call keeps running.
+|The view is hidden, not torn down. The destroy hook of an *older* screen instance can run after a newer one attached (a click on the
+current route in the sidebar), so detaching is keyed by a per-screen token.
+
+|Route change back ("Zur Konferenz" in the bar)
+|`attachView(token, fromBar)`: the host is shown, stalled videos are resumed, the bar re-measures, and only a click from the bar moves
+the focus into the view (after the route's own focus handling).
+|Navigation only: it never joins.
+
+|Sign-out
+|`ConferenceDock.terminate(LOGOUT)` runs before `AuthHttp.logout()`.
+|Camera and microphone must be off before the session goes.
+
+|Session change
+|`AppState.setSession` calls `onAuthSessionChanged(old, new)` before `onSessionChange()`: `null` ends the call (`LOGOUT`), another
+identity (member id, guest flag, home server) ends it (`ACCOUNT_SWITCH`), a refresh of the same identity (new `expiresAt`) does not.
+|Includes session expiry by a failing RPC.
+
+|Language change
+|`requestLanguageChange` ends the call hard first, then applies the switch.
+|`I18n.language` restarts the KVision root and rebuilds every widget, including the dock host. The call cannot survive that.
+
+|Root restart
+|`App.start` calls `bindHost`; a running call is terminated with `ROOT_RESTART`.
+|A new root means a new host.
+
+|Reload or closing the tab
+|Unchanged: `beforeunload` / `pagehide` disconnect (`beforeunload` only without a secret-ballot receipt on screen).
+|Reloading ends the call (a known limit, see below).
+|===
+
+`terminate` is idempotent and bounded (5 seconds for the call's own teardown), bumps a *generation* counter first, and finishes with a
+last guard `disconnect()` of the active session, whatever the session's own `terminate` did. Every `await` in `enterCall` after
+which a device could be switched on (connect, microphone, camera) checks the generation, so a join or re-entry that was in flight when
+a sign-out or a language change happened can never leave a camera running without a view.
+
+== One conference per tab
+
+`beginJoin(roomId)` returns `false` unless the dock is `Idle`: the second click of a double click, a second room card, the deep link
+`#/conference/:roomId` during a call (the screen then shows its view plus a hint, no auto-join) and the guest lobby all go through it.
+The encounter room asks `ConferenceDock.canJoin()` before it enters (it is not a second dock session yet).
+
+All automatic re-joins share **one** `AutoRejoinGuard` (three per 60 seconds) that lives in the dock, not in the screen.
+
+== Microphone and camera across re-entries
+
+`enterCall` takes `initialDevices`. A deliberate join switches both on. Every **automatic** re-entry (breakout assignment, recall to the
+main room, "Zurück zum Hauptraum", the manual resume) passes the last wish of the person (`ConferenceDock.lastDeviceIntent`, taken from
+the last `Live` snapshot only, never from what stopping tracks report during a hand-over). Before V1.9.70 every re-entry switched
+both devices on again; with the view undocked that would have been an invisible re-activation of a camera the person had switched off.
+
+== The mini bar
+
+`conferenceDockBar()` is built once and mounted as a direct child of the shell. It shows only what a person must know and may do from
+anywhere, from a `DockSnapshot` (no personal data, no room title, no room id):
+
+* the return surface (a button; the status text gives way, the badges never do) and, from 768 px, the words "Zur Konferenz";
+* consent badges with glyph and word: "● Aufzeichnung", "◆ Live-Stream", "◆ Live-Stream pausiert" (secret-ballot pause); "Abstimmung
+  läuft"; "Bildschirmfreigabe";
+* microphone and camera with `aria-pressed`, "Bildschirmfreigabe beenden" only while sharing, "Verlassen";
+* below 480 px with something to show above the controls: two rows (badges row over the controls).
+
+The controls are the same functions the call view's buttons call (`DockableSession`: `toggleMic`, `toggleCamera`, `stopScreenShare`,
+`leave`). "Verlassen" with a secret-ballot receipt on screen does not leave: it takes the person to the view (leaving would lose the
+receipt, exactly as the unload guard does). There is no moderation in the bar, no Escape handling, no shortcut, no animation and no
+transition.
+
+=== End states
+
+[cols="2,3,3"]
+|===
+|Reason |Bar text |Actions
+
+|`ENDED` (kicked, ended for everyone, token refused)
+|"Die Besprechung wurde beendet oder die Verbindung getrennt."
+|"Zur Übersicht", "Schließen"
+
+|`CONNECT_FAILED`
+|"Die Verbindung zur Besprechung konnte nicht hergestellt werden."
+|"Zur Übersicht", "Schließen"
+
+|`DUPLICATE_IDENTITY`
+|"Dieses Konto ist auf einem anderen Gerät verbunden."
+|"Zur Konferenz" (the card with "Hier fortsetzen"), "Schließen"
+
+|`REJOIN_EXHAUSTED`
+|"Die Verbindung wurde mehrmals getrennt."
+|"Zur Konferenz" (the card with "Erneut beitreten"), "Schließen"
+|===
+
+"Removed" and "ended" are not distinguishable on the client (a kick in the main room ends in a failing `rejoinMainRoomToken`), so both
+are `ENDED` with the existing text. Undocked, there is no toast (the bar is the message); an end state nobody looked at is dismissed
+when the conference route opens.
+
+=== Announcements
+
+Two visually hidden live regions inside the bar, only while the view is not on screen, never moving the focus:
+
+* polite, once per call, when the view goes away for the first time (with a hint when microphone or camera are on);
+* an alert on every change of recording or live stream (also paused / resumed) and on an involuntary end that the person must act on;
+* switching microphone or camera is never announced (the person did it).
+
+The tab title keeps its "● " marker while a recording or stream runs, on whatever page is shown (`PageTitle.apply` asks
+`ConferenceDock.decorateTitle`); an undocked call never writes a title of its own, and a room title never reaches the tab title.
+
+== Privacy
+
+* The bar, the announcements and the tab title carry no name, no room title and no room id; the room id is kept in the dock only to
+  compare with a deep link and is never rendered or logged.
+* Everything is cleared when the dock becomes idle (sign-out, account switch, leave): no chat, roster or receipt DOM survives.
+* The dock and the bar contain no `rpcService` read (ledger of `ClientDataStateTripwireTest`).
+
+== `DockableSession` and the encounter room
+
+`DockableSession` (`attach`, `detach`, `leave`, `terminate`, `toggleMic`, `toggleCamera`, `stopScreenShare`) is the only bridge from
+the dock into a running call; `DockSessionKind.ENCOUNTER` is declared for the follow-up wave in which the encounter room becomes a
+second kind of dock session. Until then the encounter room only asks `canJoin()`.
+
+`detach()` leaves browser fullscreen and closes the dialogs of the call. It deliberately does **not** call `cleanupFullscreen()`, which
+also stops the ballot poll and the control bar's observers.
+
+== Guards (tripwires)
+
+`ClientConferenceDockTripwireTest` (server test module, source scan) keeps the wiring true: the conference screen's destroy hook only
+detaches; exactly one unload guard, one rejoin guard and one `var state` exist, all in the dock; `disposeBackgroundEffects` has five
+known callers; remote audio goes to the permanent container; sign-out, identity change and language change end the dock first; the
+dock and bar make no RPC read and show no personal data; the bar is `position: fixed` without transform, transition or animation.
+`ClientConferenceRejoinTripwireTest`, `ClientToolbarIconTripwireTest` (R58 ledger: `conferenceDockBarControls` with four
+controls) and `ClientPageHeaderTripwireTest` were adapted. Karma: `ConferenceDockReduceTest`, `ConferenceDockLifecycleTest`,
+`ConferenceDockBarTest` (view model and announcements), `ConferenceDockBarDomTest`, `ConferenceScreenRootLifecycleDomTest`,
+`LanguageChangeDomTest`.
+
+== Known limits
+
+* That sound and video really keep running across a route change with a real LiveKit call is not testable in Karma. It needs a manual
+  test on desktop Chrome, Firefox, Safari and a phone before it is announced.
+* Mobile browsers can pause background tabs; the bar cannot prevent that.
+* A reload or closing the tab still ends the call.
+* `adaptiveStream` is off, so hidden remote videos keep loading (bandwidth); dynacast and the subscription logic are unchanged.
+* The narrow two-row bar is covered by a view-model test and a CSS review, not by a 360 px browser test (Karma runs at a fixed width).
+* The new texts in the seven catalogs come from an agent and are not checked by native speakers.

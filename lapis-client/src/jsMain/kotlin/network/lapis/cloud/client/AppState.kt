@@ -69,7 +69,11 @@ object AppState {
      */
     fun setSession(newSession: SessionInfoDto?) {
         if (newSession == session) return
+        val previousSession = session
         session = newSession
+        // V1.9.70: a sign-out or another identity ends a running conference (before any screen re-renders); a refresh of the same
+        // identity (new `expiresAt`) does not.
+        ConferenceDock.onAuthSessionChanged(previousSession, newSession)
         // V1.9.38: the organization's zone travels with the session; it must be in place before any screen re-renders.
         OrganizationTime.zoneId = newSession?.organizationTimeZone ?: DEFAULT_ORGANIZATION_ZONE_ID
         onSessionChange()

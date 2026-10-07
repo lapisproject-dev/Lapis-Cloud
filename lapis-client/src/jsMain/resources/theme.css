@@ -3305,6 +3305,135 @@ html .form-select.is-invalid:focus {
   }
 }
 
+/* V1.9.70 -- conference dock bar: the mini bar that stands for a running conference while its view is not on screen.
+   `position: fixed` like the call's own control bar; NEVER put transform/filter/perspective on an ancestor (it would silently break
+   `fixed`, same warning as `.lapis-conference-controls-row`). No animation and no transition by design (nothing to add to the
+   reduced-motion block). It is only mounted visible while the view is undocked, so it never overlaps the call's own bar. */
+/* --lapis-dock-min-h is the designed height; --lapis-dock-h is what the page reserves. The bar writes its MEASURED height into
+   --lapis-dock-h (inline on html) while it is shown, because badges can wrap in a long locale on a narrow phone; this is the fallback. */
+:root {
+  --lapis-dock-min-h: calc(56px + env(safe-area-inset-bottom, 0px));
+  --lapis-dock-h: var(--lapis-dock-min-h);
+}
+
+.lapis-conference-dock-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  height: auto;
+  min-height: var(--lapis-dock-min-h);
+  padding: 0 8px env(safe-area-inset-bottom, 0px) 8px;
+  background-color: var(--lapis-surface);
+  border-top: 1px solid var(--lapis-border-strong);
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.lapis-dock-return {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.lapis-dock-status {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* the consent display is never shortened: each badge keeps its full text, the status text gives way instead */
+.lapis-dock-badges {
+  flex: 0 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.lapis-dock-badges .badge {
+  flex: none;
+  white-space: nowrap;
+}
+
+.lapis-dock-controls,
+.lapis-dock-stopped-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lapis-conference-dock-bar .btn {
+  min-height: 44px;
+}
+
+.lapis-dock-controls .btn {
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lapis-conference-dock-bar .btn:focus-visible {
+  outline: 2px solid var(--lapis-accent);
+  outline-offset: 2px;
+}
+
+/* the space of the bar is reserved on every page, and the focus must never end up behind it (WCAG 2.4.11) */
+body.lapis-has-dock .lapis-content {
+  padding-bottom: calc(var(--lapis-dock-h) + 12px);
+}
+
+html.lapis-has-dock {
+  scroll-padding-bottom: calc(var(--lapis-dock-h) + 8px);
+}
+
+@media (min-width: 992px) {
+  /* the sidebar permanently occupies the left edge on desktop: stand under `.lapis-content`, like the call's own bar */
+  .lapis-conference-dock-bar {
+    left: var(--lapis-sidebar-width);
+  }
+}
+
+@media (max-width: 479.98px) {
+  /* narrow: the consent badges get their own row above the controls (two rows) */
+  html.lapis-dock-two-rows {
+    --lapis-dock-min-h: calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+
+  html.lapis-dock-two-rows .lapis-conference-dock-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "badges badges"
+      "return controls";
+    align-content: center;
+    row-gap: 2px;
+  }
+
+  html.lapis-dock-two-rows .lapis-dock-badges {
+    grid-area: badges;
+    font-size: 0.8em;
+  }
+
+  html.lapis-dock-two-rows .lapis-dock-return {
+    grid-area: return;
+  }
+
+  html.lapis-dock-two-rows .lapis-dock-controls,
+  html.lapis-dock-two-rows .lapis-dock-stopped-actions {
+    grid-area: controls;
+  }
+}
+
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle vier `transition:`-Deklarationen dieser
    Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau, `.lapis-busy` der Offene-Posten-Liste).
    Wer eine neue Transition ergaenzt, ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */

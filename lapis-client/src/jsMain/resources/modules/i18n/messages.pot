@@ -19677,3 +19677,72 @@ msgstr ""
 
 msgid "Erneut beitreten"
 msgstr ""
+
+msgid "Besprechung"
+msgstr ""
+
+msgid "Dieses Konto ist auf einem anderen Gerät verbunden."
+msgstr ""
+
+msgid "Die Verbindung wurde mehrmals getrennt."
+msgstr ""
+
+msgid "Die Verbindung zur Besprechung konnte nicht hergestellt werden."
+msgstr ""
+
+msgid "Besprechung läuft"
+msgstr ""
+
+msgid "Verbindung wird gewechselt …"
+msgstr ""
+
+msgid "● Aufzeichnung"
+msgstr ""
+
+msgid "◆ Live-Stream pausiert"
+msgstr ""
+
+msgid "◆ Live-Stream"
+msgstr ""
+
+msgid "Zur Konferenz: %1"
+msgstr ""
+
+msgid "Die Besprechung läuft im Hintergrund weiter."
+msgstr ""
+
+msgid "Mikrofon oder Kamera sind eingeschaltet."
+msgstr ""
+
+msgid "Aufzeichnung läuft"
+msgstr ""
+
+msgid "Aufzeichnung beendet"
+msgstr ""
+
+msgid "Live-Stream läuft"
+msgstr ""
+
+msgid "Live-Stream beendet"
+msgstr ""
+
+msgid "Live-Stream pausiert"
+msgstr ""
+
+msgid "Live-Stream fortgesetzt"
+msgstr ""
+
+msgid "Leiste der laufenden Besprechung"
+msgstr ""
+
+msgid "Zur Konferenz"
+msgstr ""
+
+msgid "Bildschirmfreigabe"
+msgstr ""
+
+msgid "Bildschirmfreigabe beenden"
+msgstr ""
+
+msgid "Sie sind bereits in einer Besprechung. Verlassen Sie diese zuerst."
+msgstr ""

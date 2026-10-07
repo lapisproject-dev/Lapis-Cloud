@@ -2220,3 +2220,38 @@ trap the person in a state that needs no decision from a bystander, and a toast 
 
 *Backlog (not started):* multi-device support (an own LiveKit identity per device, needs a server change) and a *floating conference window or dialog* so that other functions of the app can be used without leaving
 the conference.
+
+== V1.9.70 -- Conference dock bar
+
+Client only; no server, RPC or database change. The architecture (what is kept alive, the state machine, the lifecycle) is in `conference-dock.adoc`; this section is the
+interface rules.
+
+A running conference survives navigation. While the call view is not on screen, a *mini bar* (`conferenceDockBar`, `.lapis-conference-dock-bar`) stands for it.
+
+* **Layout.** One row, `position: fixed` at the bottom, 56 px plus the safe-area inset, the same look as the call's own control bar (surface, strong top border,
+  `z-index: 5`). From 992 px it starts at the sidebar's right edge (`left: var(--lapis-sidebar-width)`), like `.lapis-conference-controls-row`. The bar reserves its space
+  through the class `lapis-has-dock` on `body` and `html` (`.lapis-content` gets `padding-bottom`, `html` gets `scroll-padding-bottom`, so a focused control is never behind
+  the bar, WCAG 2.4.11). It only exists visibly while the view is undocked, so it never overlaps the call's own bar.
+* **Two rows below 480 px**, and only when there is something to show above the controls (consent badges, vote badge, screen sharing): the badges row on top, the
+  controls below (`--lapis-dock-h` becomes 84 px through the class `lapis-dock-two-rows` on `html`). The status text is the part that gives way (`text-truncate`); a
+  badge is never shortened (`flex: none; white-space: nowrap`).
+* **Content.** The return surface (a button, accessible name "Zur Konferenz: <status>", from 768 px with the words "Zur Konferenz" and a chevron), consent badges with a glyph AND
+  a word ("● Aufzeichnung", "◆ Live-Stream", "◆ Live-Stream pausiert"), "Abstimmung läuft", microphone and camera (`aria-pressed`), "Bildschirmfreigabe beenden" only while
+  sharing, "Verlassen". No moderation, no names, no room title.
+* **No animation, no transition, no Escape, no shortcut.** The bar never takes the focus by itself. Two visually hidden live regions announce: polite once when the view first
+  goes away (with a hint if microphone or camera are on), and `role="alert"` on every change of recording or live stream and on an involuntary end. Switching
+  microphone or camera is not announced.
+* **Focus.** "Zur Konferenz" only navigates (a double click never joins); after the route's own focus handling the focus moves into the call view, and only after a click from
+  the bar. After "Verlassen" the focus goes to `.lapis-content`. With a secret-ballot receipt on screen, "Verlassen" takes the person to the view instead (the receipt exists only
+  there).
+* **End states** replace the status text and the controls: "Zur Übersicht" and "Schließen" for an end that needs no decision; "Zur Konferenz" (the card with "Hier fortsetzen" or
+  "Erneut beitreten") and "Schließen" for a duplicate identity or an exhausted rejoin guard.
+* **R58 ledger extended.** `conferenceControlButton` is now called by two functions of `ConferenceControlBar.kt`: `conferenceModerationGroup` (three controls) and
+  `conferenceDockBarControls` (four controls: microphone, camera, stop sharing, leave). `ClientToolbarIconTripwireTest` pins both counts; the bar needs the same 44 px icon-only
+  controls as the call's bar, there is no other way to build them.
+* **R59.** The bar is `fixed` and has no scroll surface (`overflow: hidden`, like the control bar); `fixed` is not what R59 measures, `sticky` and `overflow` are.
+* **Hiding.** The dock host and the bar are hidden with the class `d-none`, never with `hide()`: KVision does not render a hidden widget, which would drop the call view out of the
+  document (see `conference-dock.adoc`).
+
+*Not verified:* a real call across a route change on a real device, Safari and iOS, and a 360 px browser (Karma runs at a fixed width; the narrow layout is covered by the view-model
+test and the CSS review).

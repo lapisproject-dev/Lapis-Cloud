@@ -69,10 +69,20 @@ class ClientConferenceRejoinTripwireTest :
             val screen = code(source("ConferenceScreen.kt"))
             screen shouldContain "decideAfterDisconnect(cause, resolved, rejoinGuard::tryConsume)"
             screen shouldContain "if (cause == DisconnectCause.DuplicateIdentity) null else resolvePostDisconnectDestination(room.id)"
-            // ONE guard per screen, created next to activeSession -- never inside enterCall (each recursion would reset it)
-            Regex("""AutoRejoinGuard\(""").findAll(screen).count() shouldBe 1
+            // V1.9.70: ONE guard for the whole conference dock, created in ConferenceDock.kt -- not in the screen (it would be one per route
+            // visit) and never inside enterCall (each recursion would reset it). The screen only reads it from the dock.
+            screen shouldContain "val rejoinGuard = ConferenceDock.rejoinGuard"
+            Regex("""AutoRejoinGuard\(""").findAll(screen).count() shouldBe 0
             val enterCall = screen.substring(screen.indexOf("private fun enterCall("))
             enterCall shouldNotContain "AutoRejoinGuard("
+            val inDock = Regex("""AutoRejoinGuard\(""").findAll(code(source("ConferenceDock.kt"))).count()
+            inDock shouldBe 1
+            val inWholeClient =
+                CLIENT_DIR
+                    .walkTopDown()
+                    .filter { it.isFile && it.extension == "kt" && it.name != "ConferenceRejoinPolicy.kt" }
+                    .sumOf { Regex("""AutoRejoinGuard\(""").findAll(code(it.readText())).count() }
+            withClue("the client creates the guard exactly once, in the dock") { inWholeClient shouldBe 1 }
         }
 
         test("the displaced and loop-stopped paths never leave the room on the server and do not toast") {

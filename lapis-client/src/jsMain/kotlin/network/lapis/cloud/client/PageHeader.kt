@@ -105,7 +105,8 @@ internal object PageTitle {
     fun apply() {
         val key = titleKey ?: return
         val plain = resolvedAttributeText(key)
-        document.title = listOfNotNull(plain, subtitle, Branding.title).joinToString(" – ")
+        // V1.9.70: a running recording / stream keeps its "● " marker on whatever page the person is on (tab title only, no personal data)
+        document.title = ConferenceDock.decorateTitle(listOfNotNull(plain, subtitle, Branding.title).joinToString(" – "))
     }
 
     /** Test seam: forget the current page. */

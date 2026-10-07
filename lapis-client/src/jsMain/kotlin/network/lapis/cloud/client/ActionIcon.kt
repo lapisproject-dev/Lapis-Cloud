@@ -88,4 +88,10 @@ enum class ActionIcon(
     /** V1.9.67: stage mode of the encounter room, enter and leave the full screen. */
     FULLSCREEN("fas fa-expand"),
     FULLSCREEN_EXIT("fas fa-compress"),
+
+    /** V1.9.70: share the screen / stop sharing it (conference dock bar). */
+    SCREEN_SHARE("fas fa-display"),
+
+    /** V1.9.70: leave a running call from the dock bar (hang up). Same picture as the call's own "Verlassen" button. */
+    HANG_UP("fas fa-phone-slash"),
 }

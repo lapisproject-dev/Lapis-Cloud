@@ -533,3 +533,15 @@ the plaques; it still carries no rationale. Details: `consensus-ui.adoc`, sectio
 * The compact result has no distribution and no named ratings.
 * The banner and the pre-flight lines say "Geheime Wahl ..." for an anonymous consensus too; a neutral wording would change existing msgids.
 * The staging test (`conference-voting-staging-test.adoc`) and a real-room test were written but not run: the credentials belong to the operator.
+
+== The panel across a route change (V1.9.70)
+
+The room voting panel, the ballot poll and a secret-ballot receipt now live in the conference dock (`conference-dock.adoc`): leaving the conference page does not end the call,
+so none of them is torn down. The call view is only hidden; the poll keeps running, the receipt stays on screen in the hidden view, and the vote badge of the mini bar shows
+"Abstimmung läuft" while a ballot is open for the member.
+
+* Undocking does NOT call `cleanupFullscreen()` (which would stop the ballot poll through `ConferenceVoteRuntime.disposeActive()`); it only leaves browser fullscreen and closes dialogs.
+* The receipt gate (`ConferenceReceiptGate`) still blocks leaving: "Verlassen" in the mini bar does not leave while a receipt is on screen or a ballot request is in flight, it takes the
+  person to the call view where the receipt is. The unload guard is the same one, now owned by the dock.
+* The ballot poll and the receipt hook end with the call on every way out (leave, end for everyone, kick, sign-out, account switch, language change): `ConferenceDock` calls
+  `ConferenceVoteRuntime.disposeActive()` when it becomes idle.

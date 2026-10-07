@@ -6,6 +6,31 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **A running conference survives navigation: the conference dock (V1.9.70, step 1 of two).** Clicking another page no longer ends the call: microphone, camera, remote audio, chat,
+  roster, running votes and a secret-ballot receipt keep running. The call view lives in a permanent dock host next to the route outlet and is only hidden (CSS), never torn down.
+  Architecture, state machine and lifecycle: `docs/architecture/conference-dock.adoc`.
+- **Mini bar** (`ConferenceDockBar`, fixed at the bottom) while the call view is not on screen: status, consent badges with glyph and word ("● Aufzeichnung", "◆ Live-Stream",
+  "◆ Live-Stream pausiert"), "Abstimmung läuft", microphone and camera (`aria-pressed`), "Bildschirmfreigabe beenden" while sharing, "Verlassen" and "Zur Konferenz". Two rows below
+  480 px, 44 px targets, no animation, no Escape handling, it never takes the focus; two hidden live regions announce the first undocking (polite) and every change of recording or
+  live stream and every involuntary end (alert). No names, no room title, no room id. With a secret-ballot receipt on screen "Verlassen" takes the person to the call view instead.
+  The tab title keeps its "● " marker on every page while a recording or stream runs.
+- **One conference per tab.** A second join (double click, second room card, deep link `#/conference/:roomId` during a call, guest lobby) is refused with a hint; the encounter room
+  does not start while a conference holds the dock.
+- 23 new texts in all seven catalogs (the translations come from an agent and were not checked by native speakers).
+
+### Changed
+
+- **Navigating no longer ends the conference.** Ended by a deliberate "Verlassen" or "Für alle beenden", a kick, the end of the meeting, a sign-out, another account, a language switch
+  (which still asks first and now ends the call hard before the root restarts) and a reload or closing the tab. Session expiry ends it as before.
+- **Automatic re-entries (breakout assignment, recall to the main room, "Zurück zum Hauptraum", the manual "Hier fortsetzen") take over the last microphone and camera state** instead
+  of switching both on. Before, every re-entry re-activated a camera the person had switched off; with the view undocked that would have been invisible. This also changes the behaviour
+  while the view is shown (a privacy fix, deliberately).
+- Remote audio plays from a permanent container outside the KVision root (`#lapis-conference-audio`), because a media element pauses when it leaves the document.
+- The automatic re-join guard (3 per 60 s) is one object for the whole client and lives in the dock.
+- A conference that ended on its own while the view was undocked shows its message in the mini bar (no toast over an unrelated page).
+
 ### Fixed
 
 - **A second sign-in with the same account no longer puts the conference into an endless loop (V1.9.69).** LiveKit evicts the older connection when the same
@@ -24,6 +49,18 @@ All notable changes to this project are documented here. Format follows
 
 ### Known limitations
 
+- **Not tested with a real call.** That sound and video really keep running across a route change cannot be tested in Karma (no LiveKit server). The project owner must test it
+  manually on desktop Chrome, Firefox and Safari and on a phone before it is announced. Covered automatically: the state machine (`ConferenceDockReduceTest`), the dock lifecycle
+  with a fake session (`ConferenceDockLifecycleTest`), the bar in a mounted root with the real stylesheets (`ConferenceDockBarDomTest`, `ConferenceDockBarTest`), the screen's
+  teardown hook (`ConferenceScreenRootLifecycleDomTest`), the language switch (`LanguageChangeDomTest`) and the wiring as a source scan (`ClientConferenceDockTripwireTest`).
+- Not in this step: a free-floating conference window (step 2), Document Picture-in-Picture, the encounter room as a second dock session.
+- Mobile browsers can pause background tabs; the bar cannot prevent that.
+- A reload or closing the tab still ends the call.
+- "Removed" (kicked) and "ended" cannot be told apart on the client (a kick in the main room ends in a refused rejoin token); both read "Die Besprechung wurde beendet oder die Verbindung getrennt."
+  A separate "Entfernt" message needs a server change.
+- `adaptiveStream` is off, so remote videos of a hidden call view keep loading (bandwidth). Dynacast and the subscription logic are unchanged.
+- The narrow two-row bar is covered by a view-model test and a CSS review, not by a 360 px browser test (Karma runs at a fixed width).
+- The seven new-catalog translations are not checked by native speakers.
 - Still only one device per account at a time; the card says so.
 - Not tested with two real devices against a LiveKit server (that cannot be reproduced without one): a manual test on Staging with two computers is needed.
   Covered automatically: the pure rules (`ConferenceRejoinPolicyTest`), the reason mapping against the real `livekit-client` module (`DisconnectCauseTest`),
@@ -33,7 +70,8 @@ All notable changes to this project are documented here. Format follows
 ### Planned (backlog, not started)
 
 - Multi-device support (an own LiveKit identity per device; needs a server change).
-- A floating conference window or dialog, so that other Lapis Cloud functions can be used without leaving the conference.
+- Step 2: a free-floating conference window (or Document Picture-in-Picture) on top of the dock, and the encounter room as a second dock session (`DockSessionKind.ENCOUNTER`
+  is declared, nothing uses it yet).
 
 ## [0.30.0] — 2026-10-07
 

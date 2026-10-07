@@ -87,6 +87,53 @@ class LanguageChangeDomTest {
             }
         }
 
+    private class OrderedFake(
+        private val log: MutableList<String>,
+    ) : DockableSession {
+        override val kind = DockSessionKind.CONFERENCE
+
+        override fun attach() = Unit
+
+        override fun detach() = Unit
+
+        override fun leave() = Unit
+
+        override suspend fun terminate(reason: DockTerminateReason) {
+            log += "terminate:$reason"
+        }
+
+        override fun toggleMic() = Unit
+
+        override fun toggleCamera() = Unit
+
+        override fun stopScreenShare() = Unit
+    }
+
+    @Test
+    fun aRunningDockCall_isTerminatedHard_beforeTheSwitchIsApplied(): Promise<Unit> =
+        test {
+            ConferenceDock.resetForTest()
+            try {
+                withMountedRoot("language-change-dock-call") { _, _ ->
+                    val log = mutableListOf<String>()
+                    assertTrue(ConferenceDock.beginJoin("room-1"))
+                    ConferenceDock.register(OrderedFake(log))
+                    requestLanguageChange(code = "en", currentLanguage = "de") { log += "apply:${ConferenceDock.state}" }
+                    awaitUntil("the confirm modal is shown") { document.querySelectorAll(".modal.show").length > 0 }
+                    assertEquals(emptyList(), log, "nothing happens before the person confirms")
+                    assertNotNull(modalButton("Sprache wechseln und Besprechung beenden")).click()
+                    awaitUntil("the switch was applied") { log.any { it.startsWith("apply") } }
+                    assertEquals(
+                        listOf("terminate:${DockTerminateReason.LANGUAGE_CHANGE}", "apply:${DockState.Idle}"),
+                        log,
+                        "the call ends (camera, microphone, sessions) BEFORE the root restarts",
+                    )
+                }
+            } finally {
+                ConferenceDock.resetForTest()
+            }
+        }
+
     @Test
     fun aVisibleAmount_followsTheRealLanguageSwitch_withoutAScreenRebuild(): Promise<Unit> =
         test {

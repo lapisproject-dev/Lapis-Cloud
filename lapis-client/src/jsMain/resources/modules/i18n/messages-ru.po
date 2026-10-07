@@ -20584,3 +20584,95 @@ msgstr "Соединение несколько раз прерывалось. �
 
 msgid "Erneut beitreten"
 msgstr "Присоединиться снова"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDock.kt
+msgid "Besprechung"
+msgstr "Встреча"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Dieses Konto ist auf einem anderen Gerät verbunden."
+msgstr "Эта учётная запись подключена на другом устройстве."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Die Verbindung wurde mehrmals getrennt."
+msgstr "Соединение несколько раз прерывалось."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Die Verbindung zur Besprechung konnte nicht hergestellt werden."
+msgstr "Не удалось установить соединение со встречей."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Besprechung läuft"
+msgstr "Встреча идёт"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Verbindung wird gewechselt …"
+msgstr "Смена соединения…"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "● Aufzeichnung"
+msgstr "● Запись"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "◆ Live-Stream pausiert"
+msgstr "◆ Прямая трансляция приостановлена"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "◆ Live-Stream"
+msgstr "◆ Прямая трансляция"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Zur Konferenz: %1"
+msgstr "К конференции: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Die Besprechung läuft im Hintergrund weiter."
+msgstr "Встреча продолжается в фоновом режиме."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Mikrofon oder Kamera sind eingeschaltet."
+msgstr "Микрофон или камера включены."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Aufzeichnung läuft"
+msgstr "Идёт запись"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Aufzeichnung beendet"
+msgstr "Запись завершена"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Live-Stream läuft"
+msgstr "Прямая трансляция идёт"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Live-Stream beendet"
+msgstr "Прямая трансляция завершена"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Live-Stream pausiert"
+msgstr "Прямая трансляция приостановлена"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Live-Stream fortgesetzt"
+msgstr "Прямая трансляция возобновлена"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Leiste der laufenden Besprechung"
+msgstr "Панель идущей встречи"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Zur Konferenz"
+msgstr "К конференции"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Bildschirmfreigabe"
+msgstr "Демонстрация экрана"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceControlBar.kt
+msgid "Bildschirmfreigabe beenden"
+msgstr "Завершить демонстрацию экрана"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt
+msgid "Sie sind bereits in einer Besprechung. Verlassen Sie diese zuerst."
+msgstr "Вы уже участвуете во встрече. Сначала покиньте её."

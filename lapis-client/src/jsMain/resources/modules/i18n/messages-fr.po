@@ -20657,3 +20657,95 @@ msgstr "La connexion a été interrompue à plusieurs reprises. Veuillez rejoind
 
 msgid "Erneut beitreten"
 msgstr "Rejoindre à nouveau"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDock.kt
+msgid "Besprechung"
+msgstr "Réunion"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Dieses Konto ist auf einem anderen Gerät verbunden."
+msgstr "Ce compte est connecté sur un autre appareil."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Die Verbindung wurde mehrmals getrennt."
+msgstr "La connexion a été interrompue à plusieurs reprises."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Die Verbindung zur Besprechung konnte nicht hergestellt werden."
+msgstr "La connexion à la réunion n'a pas pu être établie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Besprechung läuft"
+msgstr "Réunion en cours"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Verbindung wird gewechselt …"
+msgstr "Changement de connexion…"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "● Aufzeichnung"
+msgstr "● Enregistrement"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "◆ Live-Stream pausiert"
+msgstr "◆ Diffusion en direct en pause"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "◆ Live-Stream"
+msgstr "◆ Diffusion en direct"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Zur Konferenz: %1"
+msgstr "Vers la conférence : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Die Besprechung läuft im Hintergrund weiter."
+msgstr "La réunion se poursuit en arrière-plan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Mikrofon oder Kamera sind eingeschaltet."
+msgstr "Le microphone ou la caméra sont activés."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Aufzeichnung läuft"
+msgstr "Enregistrement en cours"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Aufzeichnung beendet"
+msgstr "Enregistrement terminé"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Live-Stream läuft"
+msgstr "Diffusion en direct en cours"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Live-Stream beendet"
+msgstr "Diffusion en direct terminée"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Live-Stream pausiert"
+msgstr "Diffusion en direct en pause"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Live-Stream fortgesetzt"
+msgstr "Diffusion en direct reprise"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Leiste der laufenden Besprechung"
+msgstr "Barre de la réunion en cours"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Zur Konferenz"
+msgstr "Vers la conférence"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Bildschirmfreigabe"
+msgstr "Partage d'écran"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceControlBar.kt
+msgid "Bildschirmfreigabe beenden"
+msgstr "Arrêter le partage d'écran"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt
+msgid "Sie sind bereits in einer Besprechung. Verlassen Sie diese zuerst."
+msgstr "Vous participez déjà à une réunion. Veuillez d'abord la quitter."
