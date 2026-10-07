@@ -1180,3 +1180,26 @@ class LiveKitRoomSession(
         const val VOTE_NUDGE_TOPIC = "lapis-vote-nudge"
     }
 }
+
+/**
+ * V1.9.71 -- while the call is shown as a small floating window, only the big picture needs medium quality, the strip needs low and the
+ * full view high. `false` switches the whole adaptation off: every picture then keeps whatever quality the SDK negotiated (only the pictures
+ * that are visible are rendered, nothing more).
+ */
+internal const val FLOAT_ADAPTS_REMOTE_QUALITY = true
+
+/**
+ * Asks the SFU for [quality] (0 = low, 1 = medium, 2 = high) of a SUBSCRIBED remote video [publication]. Only an `UpdateTrackSettings`
+ * message is sent: no re-subscription, no new `TrackSubscribed`, so the `<video>` element stays the same. Not a log line, not an exception:
+ * returns whether the request was handed to the SDK.
+ */
+internal fun requestRemoteVideoQuality(
+    publication: TrackPublication,
+    quality: Int,
+): Boolean {
+    if (!FLOAT_ADAPTS_REMOTE_QUALITY) return false
+    if (quality !in 0..2) return false
+    if (!publication.isSubscribed) return false
+    if (jsTypeOf(publication.asDynamic().setVideoQuality) != "function") return false
+    return runCatching { publication.unsafeCast<RemoteVideoQualityControl>().setVideoQuality(quality) }.isSuccess
+}

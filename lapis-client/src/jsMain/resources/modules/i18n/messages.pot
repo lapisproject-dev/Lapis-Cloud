@@ -19746,3 +19746,48 @@ msgstr ""
 
 msgid "Sie sind bereits in einer Besprechung. Verlassen Sie diese zuerst."
 msgstr ""
+
+msgid "Konferenzfenster"
+msgstr ""
+
+msgid "Als Fenster zeigen"
+msgstr ""
+
+msgid "Einklappen"
+msgstr ""
+
+msgid "In die nächste Ecke"
+msgstr ""
+
+msgid "Größe: Klein"
+msgstr ""
+
+msgid "Größe: Mittel"
+msgstr ""
+
+msgid "Größe: Groß"
+msgstr ""
+
+msgid "▣ Sie teilen Ihren Bildschirm"
+msgstr ""
+
+msgid "Bildschirm von %1"
+msgstr ""
+
+msgid "Konferenz als schwebendes Fenster"
+msgstr ""
+
+msgid "Konferenz eingeklappt"
+msgstr ""
+
+msgid "Alt+Umschalt+K: zum Konferenzfenster, dann Pfeiltasten zum Verschieben, Umschalt+Pfeiltasten für die Größe, Escape zurück zur Seite"
+msgstr ""
+
+msgid "Das Konferenzfenster verdeckt das ausgewählte Element. Alt+Umschalt+K, dann Pfeiltasten zum Verschieben."
+msgstr ""
+
+msgid "Weitere Teilnehmende: %1"
+msgstr ""
+
+msgid "Eigenbild"
+msgstr ""

@@ -20638,3 +20638,63 @@ msgstr "Stop screen sharing"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt
 msgid "Sie sind bereits in einer Besprechung. Verlassen Sie diese zuerst."
 msgstr "You are already in a meeting. Please leave it first."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceFloatWindow.kt
+msgid "Konferenzfenster"
+msgstr "Conference window"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceDockBar.kt
+msgid "Als Fenster zeigen"
+msgstr "Show as window"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceFloatWindow.kt
+msgid "Einklappen"
+msgstr "Collapse"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceFloatWindow.kt
+msgid "In die nächste Ecke"
+msgstr "To the next corner"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceFloatWindow.kt
+msgid "Größe: Klein"
+msgstr "Size: small"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceFloatWindow.kt
+msgid "Größe: Mittel"
+msgstr "Size: medium"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceFloatWindow.kt
+msgid "Größe: Groß"
+msgstr "Size: large"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceFloatWindow.kt
+msgid "▣ Sie teilen Ihren Bildschirm"
+msgstr "▣ You are sharing your screen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt
+msgid "Bildschirm von %1"
+msgstr "Screen of %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceFloatWindow.kt
+msgid "Konferenz als schwebendes Fenster"
+msgstr "Conference as a floating window"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceFloatWindow.kt
+msgid "Konferenz eingeklappt"
+msgstr "Conference collapsed"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceFloatWindow.kt
+msgid "Alt+Umschalt+K: zum Konferenzfenster, dann Pfeiltasten zum Verschieben, Umschalt+Pfeiltasten für die Größe, Escape zurück zur Seite"
+msgstr "Alt+Shift+K: go to the conference window, then arrow keys to move it, Shift+arrow keys to resize it, Escape to return to the page"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceFloatWindow.kt
+msgid "Das Konferenzfenster verdeckt das ausgewählte Element. Alt+Umschalt+K, dann Pfeiltasten zum Verschieben."
+msgstr "The conference window covers the selected element. Alt+Shift+K, then arrow keys to move it."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceFloatWindow.kt
+msgid "Weitere Teilnehmende: %1"
+msgstr "Further participants: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceFloatWindow.kt
+msgid "Eigenbild"
+msgstr "Your own picture"

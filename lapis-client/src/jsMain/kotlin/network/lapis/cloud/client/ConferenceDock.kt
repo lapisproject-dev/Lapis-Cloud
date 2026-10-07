@@ -207,6 +207,9 @@ internal interface DockableSession {
     fun toggleCamera()
 
     fun stopScreenShare()
+
+    /** V1.9.71: the pictures the floating window may lend (default: none, so a fake session in a test needs no change). */
+    fun floatMedia(): List<FloatMediaSource> = emptyList()
 }
 
 /** What microphone and camera were wanted when the connection ended: an automatic re-entry must not switch on what the person had switched off. */
@@ -303,6 +306,9 @@ internal object ConferenceDock {
 
     /** The route screen that currently shows the view. A stale screen's late destroy hook must not detach a newer one. */
     private var viewToken: Any? = null
+
+    /** V1.9.71: the pictures the floating window has on loan. A `val`, not state: it only mirrors elements that live in the call view. */
+    val videoLedger = ConferenceVideoLedger()
 
     /** Owned by the dock; `enterCall` renders only into this panel. */
     val callPanel: VPanel =
@@ -408,6 +414,7 @@ internal object ConferenceDock {
     fun publish(snapshot: DockSnapshot) = dispatch(DockEvent.SnapshotChanged(snapshot))
 
     private fun clearRun() {
+        videoLedger.returnAll()
         generation++
         currentInstance = 0
         ConferenceVoteRuntime.disposeActive()
@@ -437,11 +444,21 @@ internal object ConferenceDock {
             unloadGuard.uninstall()
         }
         applyHostVisibility()
-        val bar = new !is DockState.Idle && !new.isAttached
+        // the space of the bar is reserved only while the BAR is what the person sees (not while the floating window is)
+        val bar = new !is DockState.Idle && !new.isAttached && !ConferenceFloatController.showsFloat(new)
         toggleDocumentClass(bar)
         if (new is DockState.Idle) removeTitlePrefix()
         if (old is DockState.Idle && new !is DockState.Idle) callPanel.show()
     }
+
+    /** The presentation (bar / window) changed without a state change: reserve or release the bar's space again. */
+    fun reapplyChrome() {
+        val s = state
+        toggleDocumentClass(s !is DockState.Idle && !s.isAttached && !ConferenceFloatController.showsFloat(s))
+    }
+
+    /** The call's media changed (a tile, a picture, a share): the floating window repaints its pictures. */
+    fun notifyMediaChanged() = ConferenceFloatController.onMediaChanged()
 
     private fun applyHostVisibility() {
         val h = host ?: return
@@ -524,6 +541,8 @@ internal object ConferenceDock {
     suspend fun terminate(reason: DockTerminateReason) {
         if (state is DockState.Idle) return
         generation++ // an in-flight join / re-entry of this call must not switch on a device any more
+        // V1.9.71: every picture on loan goes back to the call view FIRST -- then its own teardown stops them where they belong
+        videoLedger.returnAll()
         val current = session
         // bounded: a hung disconnect must not hold a sign-out or a language change hostage
         runCatching { withTimeoutOrNull(TERMINATE_TIMEOUT_MS) { current?.terminate(reason) } }
@@ -566,6 +585,7 @@ internal object ConferenceDock {
     }
 
     internal fun resetForTest() {
+        videoLedger.returnAll()
         observers.clear()
         generation++
         state = DockState.Idle
@@ -582,6 +602,7 @@ internal object ConferenceDock {
         toggleDocumentClass(false)
         callPanel.removeAll()
         host = null
+        ConferenceFloatController.resetForTest()
     }
 }
 

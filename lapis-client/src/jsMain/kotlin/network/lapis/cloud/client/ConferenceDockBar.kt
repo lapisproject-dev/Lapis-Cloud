@@ -41,6 +41,8 @@ internal data class DockBarView(
     val cameraPressed: Boolean,
     val stopped: DockStopReason?,
     val twoRows: Boolean,
+    /** V1.9.71: "Als Fenster zeigen" -- only on a wide viewport while a call is live. */
+    val showFloatButton: Boolean,
 )
 
 internal fun dockStopText(reason: DockStopReason): String =
@@ -51,10 +53,15 @@ internal fun dockStopText(reason: DockStopReason): String =
         DockStopReason.CONNECT_FAILED -> tr("Die Verbindung zur Besprechung konnte nicht hergestellt werden.")
     }
 
-/** Pure: the paint instructions of the bar for [state]. [narrow]: viewport below [DOCK_NARROW_MAX_WIDTH_PX]. */
+/**
+ * Pure: the paint instructions of the bar for [state]. [narrow]: viewport below [DOCK_NARROW_MAX_WIDTH_PX]. [floatShown]: the floating
+ * window stands for the conference (V1.9.71), the bar is not shown. [wide]: the viewport is wide enough for the window.
+ */
 internal fun dockBarViewOf(
     state: DockState,
     narrow: Boolean,
+    floatShown: Boolean = false,
+    wide: Boolean = false,
 ): DockBarView {
     val hidden =
         DockBarView(
@@ -70,8 +77,9 @@ internal fun dockBarViewOf(
             cameraPressed = false,
             stopped = null,
             twoRows = false,
+            showFloatButton = false,
         )
-    if (state is DockState.Idle || state.isAttached) return hidden
+    if (state is DockState.Idle || state.isAttached || floatShown) return hidden
     val snapshot = state.snapshotOrNull
     val status =
         when (state) {
@@ -102,6 +110,7 @@ internal fun dockBarViewOf(
         cameraPressed = snapshot?.cameraOn == true,
         stopped = (state as? DockState.Stopped)?.reason,
         twoRows = narrow && (badges.isNotEmpty() || voteBadge || (screenShare && live)),
+        showFloatButton = wide && (state is DockState.Live || state is DockState.Resolving),
     )
 }
 
@@ -122,6 +131,8 @@ internal fun dockBarAnnouncement(
     prev: DockState,
     next: DockState,
     alreadyAnnounced: Boolean,
+    /** V1.9.71: the floating window stands for the conference (the first-detach note then says so). */
+    floating: Boolean = false,
 ): DockAnnouncement? {
     if (next is DockState.Idle || next.isAttached) return null
     val consent = consentChanges(prev.snapshotOrNull, next.snapshotOrNull)
@@ -138,7 +149,10 @@ internal fun dockBarAnnouncement(
     if (!alreadyAnnounced && prev !is DockState.Idle && prev.isAttached) {
         val snapshot = next.snapshotOrNull
         val devices = snapshot != null && (snapshot.micOn || snapshot.cameraOn)
-        val base = resolvedAttributeText(tr("Die Besprechung läuft im Hintergrund weiter."))
+        val base =
+            resolvedAttributeText(
+                if (floating) tr("Konferenz als schwebendes Fenster") else tr("Die Besprechung läuft im Hintergrund weiter."),
+            )
         val text =
             if (devices) base + " " + resolvedAttributeText(tr("Mikrofon oder Kamera sind eingeschaltet.")) else base
         return DockAnnouncement(DockAnnouncementKind.POLITE, text)
@@ -188,6 +202,18 @@ private fun focusMain() {
     (document.getElementById("lapis-content") as? HTMLElement)?.focus()
 }
 
+/**
+ * "Verlassen" from the bar or the floating window: the one path, including the secret-ballot receipt gate -- a receipt exists only in the
+ * view, so leaving from here would lose it and the person is taken there instead.
+ */
+internal fun conferenceDockLeaveRequested() {
+    if (ConferenceReceiptGate.blocksUnload) {
+        conferenceDockReturnToView()
+    } else {
+        ConferenceDock.leaveFromBar()
+    }
+}
+
 /** "Zur Konferenz": navigation only, never a join. The focus moves into the view after it was rendered ([ConferenceDock.attachView]). */
 internal fun conferenceDockReturnToView() {
     ConferenceDock.pendingFocusFromBar = true
@@ -217,19 +243,17 @@ internal fun Container.conferenceDockBar(): Div {
 
     val badges = Div(className = "lapis-dock-badges")
     bar.add(badges)
+    val floatToggle =
+        bar.actionButton(ActionIcon.FLOAT_WINDOW, tr("Als Fenster zeigen"), ButtonStyle.LIGHT, iconOnly = true) {
+            addCssClass("lapis-dock-float-toggle")
+        }
+    floatToggle.onClick { ConferenceFloatController.setMode(FloatMode.FLOAT) }
     val controls =
         bar.conferenceDockBarControls(
             onMic = { ConferenceDock.session?.toggleMic() },
             onCamera = { ConferenceDock.session?.toggleCamera() },
             onStopShare = { ConferenceDock.session?.stopScreenShare() },
-            onLeave = {
-                // a secret-ballot receipt exists only in the view: leaving from here would lose it, so the person is taken there
-                if (ConferenceReceiptGate.blocksUnload) {
-                    conferenceDockReturnToView()
-                } else {
-                    ConferenceDock.leaveFromBar()
-                }
-            },
+            onLeave = { conferenceDockLeaveRequested() },
         )
     val stoppedActions = Div(className = "lapis-dock-stopped-actions")
     val toView = stoppedActions.actionButton(ActionIcon.ENTER, tr("Zur Konferenz"), ButtonStyle.PRIMARY)
@@ -246,33 +270,20 @@ internal fun Container.conferenceDockBar(): Div {
         focusMain()
     }
 
-    // two visually hidden live regions: polite for status, alert for consent changes and involuntary ends
-    val politeRegion =
-        Div(className = "visually-hidden") {
-            setAttribute("role", "status")
-            setAttribute("aria-live", "polite")
-            setAttribute("aria-atomic", "true")
-        }
-    val alertRegion =
-        Div(className = "visually-hidden") {
-            setAttribute("role", "alert")
-            setAttribute("aria-atomic", "true")
-        }
-    bar.add(politeRegion)
-    bar.add(alertRegion)
-
     val narrowQuery = window.matchMedia("(max-width: ${DOCK_NARROW_MAX_WIDTH_PX - 0.02}px)")
-    var previous: DockState = ConferenceDock.state
     var shownBadges: List<String> = emptyList()
     var shownVote = false
     var shownShare = false
     var wasVisible = false
 
-    fun paint(
-        state: DockState,
-        announce: Boolean,
-    ) {
-        val view = dockBarViewOf(state, narrowQuery.matches)
+    fun paint(state: DockState) {
+        val view =
+            dockBarViewOf(
+                state,
+                narrowQuery.matches,
+                floatShown = ConferenceFloatController.showsFloat(state),
+                wide = ConferenceFloatController.wide,
+            )
         val root = document.documentElement
         if (!view.visible) {
             if (!bar.hasCssClass(DOCK_HIDDEN_CLASS)) bar.addCssClass(DOCK_HIDDEN_CLASS)
@@ -334,45 +345,36 @@ internal fun Container.conferenceDockBar(): Div {
             }
             if (view.screenShare) controls.stopShare.show() else controls.stopShare.hide()
             if (view.showLeave) controls.leave.show() else controls.leave.hide()
+            if (view.showFloatButton) floatToggle.show() else floatToggle.hide()
             // the page reserves what the bar really measures (badges may wrap in a long locale on a narrow phone), one tick after the patch
             window.setTimeout({
                 val height = bar.getElement()?.offsetHeight ?: 0
                 if (height > 0) (document.documentElement as? HTMLElement)?.style?.setProperty("--lapis-dock-h", "${height}px")
             }, 0)
         }
-        if (announce) {
-            val announcement = dockBarAnnouncement(previous, state, ConferenceDock.announcedFirstDetach)
-            if (announcement != null) {
-                val announcedText = announcement.text
-                if (announcement.kind == DockAnnouncementKind.ALERT) {
-                    alertRegion.content = announcedText
-                } else {
-                    politeRegion.content = announcedText
-                    if (previous.isAttached && previous !is DockState.Idle && !state.isAttached && state !is DockState.Stopped) {
-                        ConferenceDock.announcedFirstDetach = true
-                    }
-                }
-            }
-        }
-        previous = state
     }
 
     var unobserve: (() -> Unit)? = null
-    val narrowListener: (Event) -> Unit = { paint(ConferenceDock.state, announce = false) }
+    var unobservePresentation: (() -> Unit)? = null
+    val narrowListener: (Event) -> Unit = { paint(ConferenceDock.state) }
     return addWithLifecycle(
         bar,
         onInsert = {
             unobserve?.invoke()
-            unobserve = ConferenceDock.observe { state -> paint(state, announce = true) }
+            unobserve = ConferenceDock.observe { state -> paint(state) }
+            unobservePresentation?.invoke()
+            // the stored wish or the viewport changed: the bar appears or gives way to the floating window without a state change
+            unobservePresentation = ConferenceFloatController.observe { paint(ConferenceDock.state) }
             narrowQuery.addEventListener("change", narrowListener)
-            previous = ConferenceDock.state
             // NOT synchronously: changing the bar's own classes inside its insert hook re-patches the vnode that is still being inserted,
             // which fires this hook again (endless recursion). The first paint runs right after the insertion has finished.
-            window.setTimeout({ paint(ConferenceDock.state, announce = false) }, 0)
+            window.setTimeout({ paint(ConferenceDock.state) }, 0)
         },
         onDestroy = {
             unobserve?.invoke()
             unobserve = null
+            unobservePresentation?.invoke()
+            unobservePresentation = null
             narrowQuery.removeEventListener("change", narrowListener)
         },
     )

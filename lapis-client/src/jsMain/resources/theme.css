@@ -626,7 +626,7 @@ body {
      scrolling sideways; the page itself is the one scroll surface. */
   min-width: 0;
   max-width: 100%;
-  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 @media (min-width: 992px) {
@@ -3434,8 +3434,248 @@ html.lapis-has-dock {
   }
 }
 
+/* V1.9.71 -- the conference as a free-floating window (shown while the call view is away, the viewport is at least 768 px wide and the
+   person has not folded it into the bar). Non-modal: no backdrop, the page stays operable. `position: fixed`; NEVER put transform, filter
+   or perspective on it or an ancestor, and NO overflow clip on the window (rounded corners come from border-radius on the pictures
+   themselves): that would silently break `fixed` and add a clip to the ledger of ScrollSurfaceTripwireTest.
+
+   Stacking order (low to high), one table for the whole file:
+     chrome (sidebar, banners) <= 6, conference dock bar 5, FLOATING WINDOW 1034 (--lapis-z-conference-float),
+     update pill 1035, offcanvas backdrop 1040, offcanvas 1045, modal and `.lapis-encounter-side.is-sheet` 1055,
+     1060 layer (popovers, tooltips), toast and skip link 2000.
+   The window sits below every dialog (a dialog must cover it) but above the page. */
+:root {
+  --lapis-z-conference-float: 1034;
+}
+
+.lapis-conference-float {
+  position: fixed;
+  z-index: var(--lapis-z-conference-float);
+  box-sizing: border-box;
+  width: 352px;
+  max-width: calc(100vw - 32px);
+  background-color: var(--lapis-surface);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  transition: left 160ms ease-out, right 160ms ease-out, top 160ms ease-out, bottom 160ms ease-out, width 160ms ease-out;
+}
+
+.lapis-conference-float:focus-visible,
+.lapis-conference-float .btn:focus-visible {
+  outline: 2px solid var(--lapis-accent);
+  outline-offset: 2px;
+}
+
+/* the window covers the element that has the focus: a visible ring on the window (it never moves away by itself) */
+.lapis-conference-float.is-covering-focus {
+  outline: 2px solid var(--lapis-accent);
+  outline-offset: 2px;
+}
+
+.lapis-float-header {
+  flex: none;
+  min-height: 44px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  padding: 4px 8px;
+  touch-action: none;
+  cursor: move;
+  user-select: none;
+}
+
+.lapis-float-status {
+  flex: 1 1 0;
+  min-width: 0;
+  font-weight: 600;
+}
+
+/* the consent display is never shortened: each badge keeps its full text, the status text gives way */
+.lapis-float-badges {
+  flex: 0 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.lapis-float-badges .badge {
+  flex: none;
+  white-space: nowrap;
+}
+
+.lapis-float-header-buttons {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.lapis-float-header-buttons .btn {
+  min-width: 32px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lapis-float-stage {
+  position: relative;
+  flex: none;
+}
+
+.lapis-float-main,
+.lapis-float-strip-cell,
+.lapis-float-inset {
+  position: relative;
+  background-color: var(--lapis-tile-bg);
+  color: var(--lapis-tile-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lapis-float-main {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.lapis-float-main video,
+.lapis-float-strip-cell video,
+.lapis-float-inset video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 6px;
+  background-color: var(--lapis-media-bg);
+}
+
+.lapis-float-strip {
+  display: flex;
+  gap: 4px;
+  height: 64px;
+  padding: 4px;
+  box-sizing: border-box;
+  align-items: stretch;
+}
+
+.lapis-float-strip-cell {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 6px;
+}
+
+.lapis-float-more {
+  flex: none;
+  min-width: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: var(--lapis-muted);
+}
+
+.lapis-float-inset {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 64px;
+  height: 36px;
+  border-radius: 6px;
+  box-shadow: 0 0 0 2px var(--lapis-surface);
+}
+
+.lapis-float-label {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  max-width: 90%;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background-color: rgba(0, 0, 0, 0.55);
+  color: var(--lapis-media-overlay-text);
+  font-size: 11px;
+  word-break: break-word;
+  pointer-events: none;
+}
+
+/* a name tile (no picture): the name stands in the middle */
+.lapis-float-nametile {
+  padding: 0 8px;
+  font-weight: 600;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.lapis-float-inset .lapis-float-label,
+.lapis-conference-float.is-size-small .lapis-float-label {
+  display: none;
+}
+
+.lapis-float-resolving {
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: var(--lapis-media-overlay-text);
+  font-weight: 600;
+  text-align: center;
+}
+
+.lapis-conference-float .lapis-dock-controls {
+  flex: none;
+  min-height: 52px;
+  padding: 4px 8px;
+  justify-content: center;
+}
+
+.lapis-conference-float .lapis-dock-controls .btn {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lapis-float-grip {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 24px;
+  height: 24px;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+@media (pointer: coarse) {
+  .lapis-float-header-buttons .btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .lapis-float-grip {
+    width: 44px;
+    height: 44px;
+    top: -12px;
+    left: -12px;
+  }
+}
+
+/* never on a phone: the mini bar stays (the controller does not show the window there either) */
+@media (max-width: 767.98px) {
+  .lapis-conference-float {
+    display: none !important;
+  }
+}
+
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle vier `transition:`-Deklarationen dieser
-   Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau, `.lapis-busy` der Offene-Posten-Liste).
+   Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau, `.lapis-busy` der Offene-Posten-Liste, schwebendes Konferenzfenster).
    Wer eine neue Transition ergaenzt, ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */
 @media (prefers-reduced-motion: reduce) {
   body,
@@ -3443,7 +3683,8 @@ html.lapis-has-dock {
   .lapis-conference-background-preview,
   .lapis-busy,
   .lapis-encounter-seat-hand,
-  .lapis-encounter-seat-event {
+  .lapis-encounter-seat-event,
+  .lapis-conference-float {
     transition: none;
   }
 }

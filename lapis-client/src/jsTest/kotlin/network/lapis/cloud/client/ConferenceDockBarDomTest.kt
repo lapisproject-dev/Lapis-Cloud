@@ -270,6 +270,8 @@ class ConferenceDockBarDomTest {
                 document.body!!.appendChild(focusTarget)
                 try {
                     root.conferenceDockBar()
+                    // V1.9.71: the live regions live in the announcer, a sibling of the bar (the bar can be display:none)
+                    root.conferenceDockAnnouncer()
                     startUndockedCall()
                     awaitUntil("the bar shows") {
                         element().querySelector(".lapis-conference-dock-bar")?.let {
@@ -282,13 +284,12 @@ class ConferenceDockBarDomTest {
                     ConferenceDock.dispatch(DockEvent.Stopped(DockStopReason.DUPLICATE_IDENTITY))
                     awaitUntil("the end message shows") {
                         element()
-                            .bar()
                             .textContent
                             .orEmpty()
                             .contains("Dieses Konto ist auf einem anderen Gerät verbunden.")
                     }
                     assertTrue(document.activeElement === focusTarget, "the bar never takes the focus")
-                    val alert = element().bar().querySelector("[role=alert]") as HTMLElement
+                    val alert = element().querySelector("[role=alert]") as HTMLElement
                     assertTrue(alert.textContent.orEmpty().contains("anderen Gerät"), "an involuntary end is an alert")
                     assertEquals(listOf("Zur Konferenz", "Schließen"), element().bar().visibleButtons())
 

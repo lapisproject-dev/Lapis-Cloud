@@ -2255,3 +2255,24 @@ A running conference survives navigation. While the call view is not on screen, 
 
 *Not verified:* a real call across a route change on a real device, Safari and iOS, and a 360 px browser (Karma runs at a fixed width; the narrow layout is covered by the view-model
 test and the CSS review).
+
+== V1.9.71 -- Conference floating window
+
+Client only; no server, RPC or database change. Architecture, the video loan ledger and the keyboard model are in `conference-dock.adoc`; this section is the interface
+rule that came out of it.
+
+* **R60 -- a non-modal floating overlay.** A surface that floats over the page without blocking it (today only `.lapis-conference-float`) obeys five rules:
+  (1) its `z-index` is a named token below every dialog, the offcanvas and the update pill (`--lapis-z-conference-float: 1034`; the whole order is tabulated in
+  `theme.css` and `conference-dock.adoc`); (2) no backdrop and no focus trap, the page stays operable; (3) every pointer gesture (moving, resizing) has a keyboard alternative
+  (WCAG 2.5.7) and the window never moves by itself away from the focus -- it gives a visible ring and one announcement instead (WCAG 2.4.11); (4) it is `position: fixed`
+  with no `transform`, `filter` or `overflow` (rounded corners come from `border-radius` on the content), so it is neither a scroll surface (R59) nor a clip;
+  (5) it is never shown on a viewport narrower than 768 px (controller and a CSS guard).
+* **R54 inventory.** The window's 160 ms move transition is declared normally and switched off in the single `prefers-reduced-motion` block; `ClientUiGuidelineTripwireTest`
+  now names seven transitions instead of six. That is an inventory change, not a raised budget (still at most 200 ms, still off under reduce).
+* **Live regions** that must be heard in every presentation live outside the element that can be `display: none` (`conferenceDockAnnouncer`).
+* **Icons (R57):** four new verbs in `ActionIcon`: corner, size, collapse and "Als Fenster zeigen" (`fa-arrows-up-down-left-right`,
+  `fa-up-right-and-down-left-from-center`, `fa-window-minimize`, `fa-window-restore`). The window's header buttons and the bar's "Als Fenster zeigen" are icon-only
+  `actionButton`s with a tooltip and `aria-label`; the R58 ledger of `conferenceControlButton` is unchanged (the window reuses `conferenceDockBarControls`).
+
+*Not verified:* a real call on a real device, Safari and iOS.
+

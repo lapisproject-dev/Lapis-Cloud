@@ -97,6 +97,31 @@ class ConferenceDockBarTest {
         assertEquals("Zur Konferenz: Besprechung läuft", view.accessibleName)
     }
 
+    // ── V1.9.71: the floating window ─────────────────────────────────────────
+
+    @Test
+    fun floatShown_hidesTheBar() {
+        assertTrue(dockBarViewOf(detachedLive, narrow = false, floatShown = false).visible)
+        assertFalse(dockBarViewOf(detachedLive, narrow = false, floatShown = true).visible)
+    }
+
+    @Test
+    fun theFloatButton_existsOnlyOnAWideViewportWhileTheCallIsLive() {
+        assertTrue(dockBarViewOf(detachedLive, narrow = false, wide = true).showFloatButton)
+        assertFalse(dockBarViewOf(detachedLive, narrow = false, wide = false).showFloatButton)
+        assertTrue(dockBarViewOf(DockState.Resolving(attached = false, snapshot = snap), narrow = false, wide = true).showFloatButton)
+        assertFalse(dockBarViewOf(DockState.Joining(attached = false), narrow = false, wide = true).showFloatButton)
+        assertFalse(dockBarViewOf(DockState.Stopped(DockStopReason.ENDED, attached = false), narrow = false, wide = true).showFloatButton)
+    }
+
+    @Test
+    fun theFirstDetachNote_saysFloatingWindow_whenTheWindowStandsForTheCall() {
+        val floating = assertNotNull(dockBarAnnouncement(attachedLive, detachedLive, alreadyAnnounced = false, floating = true))
+        assertEquals(DockAnnouncementKind.POLITE, floating.kind)
+        assertTrue(floating.text.contains("Konferenz als schwebendes Fenster"), floating.text)
+        assertTrue(floating.text.contains("Mikrofon oder Kamera sind eingeschaltet."), "the devices note stays: ${floating.text}")
+    }
+
     // ── announcements ─────────────────────────────────────────────────────────
 
     @Test

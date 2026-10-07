@@ -372,6 +372,11 @@ class App : Application() {
             ConferenceDock.bindHost(dockHost)
             // The mini bar: after the landmark in the DOM (and before the version banner `ClientVersionWatcher` appends last).
             shell.conferenceDockBar()
+            // V1.9.71: the floating window and the announcer (the live regions are not inside the bar: the bar is display:none while
+            // the window floats). Both are shell children, outside the route outlet and the dock host.
+            shell.conferenceFloatWindow()
+            shell.conferenceDockAnnouncer()
+            ConferenceFloatController.install()
 
             // Rebuilds both the navbar (language switcher + account menu, toggle button included)
             // and the sidebar (route list) together -- a single entry point so every trigger that

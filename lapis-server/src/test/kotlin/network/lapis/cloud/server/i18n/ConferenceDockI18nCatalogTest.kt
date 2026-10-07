@@ -6,7 +6,7 @@ import io.kotest.matchers.shouldBe
 import java.io.File
 
 /**
- * Welle V1.9.70 "Konferenz-Dock und Mini-Leiste" -- i18n-Waechter. Strukturell identisch zu
+ * Wellen V1.9.70 "Konferenz-Dock und Mini-Leiste" und V1.9.71 "schwebendes Konferenzfenster" -- i18n-Waechter. Strukturell identisch zu
  * [OpenItemI18nCatalogTest] (gleicher Ort, gleiche Extraktion, gleiche vier Pruefungen), nur mit der
  * Dateiliste DIESER Welle: prueft AUSSCHLIESSLICH deren Textstrings, gegen alle sieben Sprachkataloge, auf
  * VORHANDENSEIN und NICHT-LEEREN `msgstr`.
@@ -32,6 +32,9 @@ class ConferenceDockI18nCatalogTest :
                 "ConferenceDock.kt",
                 "ConferenceDockBar.kt",
                 "ConferenceControlBar.kt",
+                // V1.9.71 -- the floating window
+                "ConferenceFloatWindow.kt",
+                "ConferenceFloatSelection.kt",
             )
 
         val languages = listOf("en", "es", "fr", "it", "nl", "pl", "ru")

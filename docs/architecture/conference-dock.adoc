@@ -1,4 +1,4 @@
-= The conference dock: a running conference survives navigation (V1.9.70)
+= The conference dock: a running conference survives navigation (V1.9.70, floating window V1.9.71)
 :toc:
 
 == Purpose and promise
@@ -13,8 +13,9 @@ Since V1.9.70 the call **keeps running** when the route changes:
   badges, microphone, camera, "Verlassen", and a way back);
 * there is exactly **one** conference per browser tab.
 
-This wave is step 1 of two. It does *not* add a free-floating window (step 2), Document Picture-in-Picture, or the encounter room as
-a second dock session.
+V1.9.70 was step 1 of two. Step 2 (V1.9.71) adds the free-floating conference window described in
+<<presentation>> and the sections after it. Neither step adds Document Picture-in-Picture or the encounter room as a second dock
+session.
 
 == Decision: the view stays, it is only hidden
 
@@ -50,6 +51,133 @@ Karma test of the bar).
 
 Remote audio is the one exception to "the tile holds its media": the HTML specification pauses a media element that leaves the
 document. Remote `<audio>` elements therefore live in `#lapis-conference-audio`, a permanent container in `document.body`.
+
+[#presentation]
+== Presentation: bar, floating window, full view (V1.9.71)
+
+`DockState` (above) says *whether* a conference runs. A second, **derived** axis says *how it is shown*: `DockPresentation` is computed by
+the pure function `dockPresentationOf(state, wish, wide)` and never stored.
+
+[source,kuml,name="conference-dock-presentation"]
+----
+stateDiagram(name = "Conference dock presentation") {
+    val bar = state(name = "BAR (mini bar)")
+    val float = state(name = "FLOAT (window)")
+    val full = state(name = "FULL (call view in the route)")
+
+    transition(source = bar, target = float) {
+        trigger = "Als Fenster zeigen (wide viewport, Live or Resolving)"
+    }
+    transition(source = float, target = bar) {
+        trigger = "Einklappen, viewport below 768 px, Joining, Stopped"
+    }
+    transition(source = bar, target = full) { trigger = "route opened (ViewAttached)" }
+    transition(source = float, target = full) { trigger = "route opened (ViewAttached)" }
+    transition(source = full, target = float) { trigger = "route left, wish is FLOAT, wide" }
+    transition(source = full, target = bar) { trigger = "route left, wish is BAR or narrow" }
+}
+----
+
+* The view in the route always wins (`FULL`). Floating needs a **live** call (`Live` or `Resolving`, not `Joining`, not an end state), the
+  stored wish and a viewport of at least 768 px (`matchMedia`); everything else is the mini bar. A phone never gets the window.
+* The wish (window or bar) and the window's anchor (corner, two distances, width) are stored in one short string,
+  `lapis.conferenceFloat.v1` (`v1|float|0|16|16|352`). A whitelist parser rejects everything else and deletes the key; storage that is
+  missing or throws is ignored. The value holds no room, person or identifier, so it is deliberately **not** cleared on sign-out or an
+  account switch (it is a per-device display preference). **From 768 px the window is the default**; after that the person's last choice
+  counts. This changes the V1.9.70 behaviour (the bar) on wide screens.
+* The window is anchored to the nearest corner (`FloatGeometry`: corner, `dx`, `dy`, width) instead of absolute pixels, so a shrinking
+  viewport never leaves it off screen: the rectangle is recomputed and clamped on every paint (margin 16 px plus the safe-area insets,
+  width 256..640 px and never so wide that the height no longer fits).
+* The window is built by `conferenceFloatWindow()` and mounted by `App.kt` as a sibling of the bar (never inside the dock host, which is
+  `d-none` while the view is away). It is shown and hidden by the class `d-none`, never by `hide()`. The controller
+  (`ConferenceFloatController`) observes the dock, the viewport and the storage and is the only place that decides the presentation.
+* The window offers: header with status and consent badges, corner / size / collapse / back-to-view buttons, a 16:9 big picture, a strip of
+  up to three more pictures (from 320 px width; the own picture takes one place and only exists with the camera on), a "+N" counter for
+  the rest, and the same microphone / camera / stop-sharing / leave controls as the bar (`conferenceDockBarControls`, same handlers, same
+  receipt gate through `conferenceDockLeaveRequested()`). Small (256 px) has no strip; the own picture is a 64 x 36 inset.
+* Which picture is big: a foreign screen share; else the person who is speaking (a new speaker takes over only after 2 s of uninterrupted
+  leading, so an interjection does not flip the picture); else the first remote person; alone, the own picture. Names are shown from the
+  finished tile text the call view hands over (`FloatMediaSource.label`, always via `textContent`); the bar stays free of names.
+
+[#video-ledger]
+== Video ledger: borrow, never re-attach
+
+One track is one `<video>`. The window never creates a video element and never attaches a track a second time: it **lends** the element
+the call view already owns (`ConferenceVideoLedger.borrow`) and hands it back (`returnHome`). Only `setTileVideo` and
+`showScreenShareStage` create elements, through `track.attach()`. A video moves with a single `appendChild` of a connected node, never
+`remove()` followed by a later insert (a media element outside the document for longer than one task is paused by the browser, see
+V1.4.19).
+
+Rules that keep this true:
+
+* `setTileVideo`, `removeTile` and the screen-share stage call `videoLedger.reclaimSlot(slot)` **before** they `clearElement(slot)`, so a
+  picture that is on loan is back where the call view expects it (otherwise switching the own camera off would leave the old picture in
+  the window).
+* `ConferenceDock.terminate` calls `videoLedger.returnAll()` **before** `current?.terminate(...)`; `clearRun()` and the test reset do the
+  same; when the dock turns idle the controller additionally stops and drops every `<video>` still in its stage (last guard: no live
+  stream stays behind after leave, sign-out, account switch, language change, a root restart or a narrow viewport).
+* FLOAT to FULL: the observer runs synchronously inside `dispatch(ViewAttached)`: `returnAll()`, window hidden, quality high; then
+  `session.attach()` resumes the videos. FLOAT to BAR: `returnAll()`, window hidden, the bar paints and (after "Einklappen") the focus
+  goes to "Als Fenster zeigen". To FLOAT: window shown, then the pictures are lent, then `resumeStalledVideosIn(stage)`.
+* The call view's watchdog only looks under its own panel and never finds a video on loan, so `resumeStalledVideos` is the top-level
+  `resumeStalledVideosIn(scope)` and the controller runs it on its stage after every move and every two seconds.
+* `track.detach()` removes elements wherever they hang, so a track that goes away is cleaned up regardless of a loan; `prune()` then
+  forgets the stale loan.
+* Switching the presentation never calls `beginJoin`, `register`, `connect` or `attach()`: one connection, one session.
+
+== Keyboard model and WCAG 2.5.7 / 2.4.11
+
+* **Alt+Shift+K** (global, only while the bar or the window is visible) moves the focus to the window, or to the bar's first control when
+  it is folded; it does nothing without a running call. The window is a `role="region"` with `tabindex="0"` and an
+  `aria-description` naming the keys.
+* With the window itself focused: arrow keys move it by 16 px, Shift+arrow keys resize it by 32 px (right/up wider, left/down narrower),
+  Home returns to the default corner. These are the single-pointer / keyboard alternatives to dragging the header and the resize grip
+  (2.5.7). The corner and size buttons do the same by click. The preference is stored on key-up, on release and on a button, never on
+  every `pointermove`.
+* Escape anywhere in the window gives the focus back to the element that had it on the page (else `#lapis-content`); the mode stays.
+* **The window never dodges the focus.** If a focused page element is more than half covered (`coversFocus`), the window gets a
+  2 px focus-token ring (`is-covering-focus`) and the person hears the key hint once per page load. A window that jumps away under the
+  keyboard would be worse than one that can be moved on purpose.
+* Dragging is by the header only (not from its buttons), with pointer capture, a 4 px threshold, edge snapping (24 px) and a reset on
+  `pointercancel`. Touch targets are 32 px (44 px under `pointer: coarse`).
+
+== Stacking order
+
+[cols="2,1"]
+|===
+|Layer |z-index
+
+|App chrome (sidebar, banners), call control bar |<= 6
+|Conference dock bar |5
+|**Conference floating window** (`--lapis-z-conference-float`) |**1034**
+|"New version" pill |1035
+|Offcanvas backdrop / offcanvas |1040 / 1045
+|Modal, `.lapis-encounter-side.is-sheet` |1055
+|Popovers, tooltips |1060
+|Toast, skip link |2000
+|===
+
+The window lies above the page and below every dialog (a dialog must cover it) and below the update pill. It is non-modal: no backdrop,
+the page stays operable. It is `position: fixed` with no `transform`, `filter` or `overflow` (rounded corners come from `border-radius`
+on the pictures, so it adds neither a clip to the ledger of `ScrollSurfaceTripwireTest` nor a scroll surface).
+
+== The announcer
+
+The two live regions (polite, alert) used to sit inside the bar. The bar is `display: none` while the window floats, and a region in
+`display: none` is not read out, so they moved into `conferenceDockAnnouncer()`: a never-hidden sibling of the bar and the window, fed
+once per dock transition in **both** presentations. A change of recording or live stream is therefore announced while the window floats
+too (consent). The first-detach note reads "Konferenz als schwebendes Fenster" when the window stands for the call; a later switch between
+window and bar announces "Konferenz als schwebendes Fenster" or "Konferenz eingeklappt" (polite).
+
+== Load: `setVideoQuality`, never `setSubscribed`
+
+While floating, only the big picture needs medium quality; the strip and the folded pictures need low, the full view high, and the bar low
+(nothing is visible). `requestRemoteVideoQuality` calls `RemoteTrackPublication.setVideoQuality` (livekit-client 2.21.0: LOW 0, MEDIUM 1,
+HIGH 2) for a **subscribed** publication; it only sends `UpdateTrackSettings` and neither re-subscribes nor fires a new
+`TrackSubscribed`, so the `<video>` stays the same and it is compatible with `adaptiveStream = false`. `setSubscribed` is deliberately not
+used. The whole adaptation is switched off by `FLOAT_ADAPTS_REMOTE_QUALITY = false`; then only visible pictures are rendered and the
+quality is whatever the SDK negotiated. Pictures that the window does not show **stay subscribed** (only their quality is lowered).
+
 
 == State machine
 
@@ -210,6 +338,16 @@ The tab title keeps its "● " marker while a recording or stream runs, on whate
 
 * The bar, the announcements and the tab title carry no name, no room title and no room id; the room id is kept in the dock only to
   compare with a deep link and is never rendered or logged.
+* **The floating window shows faces and therefore names** at its tiles, exactly the text the full view already shows (`tileLabel`, set by
+  `textContent`); the bar stays name-free. The own picture appears only while the camera is on (`cameraOn` and a real video), never as a
+  stale frame, and the state of microphone and camera is visible and operable in every size, also in the smallest one.
+* A foreign screen share is always labelled ("Bildschirm von ...") and cannot be dismissed from the window; the own share is never shown as
+  a picture, only as the badge "▣ Sie teilen Ihren Bildschirm" and the stop button.
+* **Sharing the whole screen** captures the floating window with the other participants' videos and sends it into the conference, and
+  with it into a running recording or live stream. Only the badge and this note address it today (the page cannot tell which surface the
+  person shares); an audit point for a later wave.
+* The stored preference holds only numbers and the mode (see above); it is not cleared on sign-out because it is not personal data.
+* The window itself never logs a name, a label or a track id.
 * Everything is cleared when the dock becomes idle (sign-out, account switch, leave): no chat, roster or receipt DOM survives.
 * The dock and the bar contain no `rpcService` read (ledger of `ClientDataStateTripwireTest`).
 
@@ -233,7 +371,25 @@ controls) and `ClientPageHeaderTripwireTest` were adapted. Karma: `ConferenceDoc
 `ConferenceDockBarTest` (view model and announcements), `ConferenceDockBarDomTest`, `ConferenceScreenRootLifecycleDomTest`,
 `LanguageChangeDomTest`.
 
+V1.9.71 extends the tripwire with the floating window: its files make no RPC read, never join or attach a track, build no markup from
+text and show no personal data; `localStorage` is touched only by `ConferenceFloatStore`; `reclaimSlot` precedes `clearElement` in the
+call view and `returnAll` precedes the session's teardown in `terminate`; the window's CSS is fixed, not transformed or clipped and below
+1035; `ClientUiGuidelineTripwireTest` (R54) names seven transitions. `ClientDataStateTripwireTest` is deliberately unchanged (the wave has
+no RPC; its ledger of 153/46 cannot move). Karma: `ConferenceFloatGeometryTest`, `ConferenceFloatStoreTest`,
+`ConferenceFloatSelectionTest`, `ConferenceDockPresentationTest`, `ConferenceVideoLedgerDomTest`, `ConferenceFloatWindowDomTest`,
+`RemoteVideoQualityTest`.
+
 == Known limits
+
+* **Not tested on a real device.** A real call with real participants over a route change, the real effect of `setVideoQuality` on the
+  bandwidth, Safari and iOS cannot run in Karma (no LiveKit server). Covered automatically: the geometry, the codec and the selection
+  (pure jsTests), the loan ledger and the window in a mounted root with the real stylesheet (`ConferenceVideoLedgerDomTest`,
+  `ConferenceFloatWindowDomTest`), the wiring as a source scan (`ClientConferenceDockTripwireTest`). Karma's iframe is narrower than
+  768 px, so these tests fake the media query and neutralise the CSS guard; the guard itself is pinned as text.
+* No picture-in-picture, no chat and no encounter room in the window; on a phone only the mini bar exists.
+* Pictures the window does not show stay subscribed (only their quality is lowered).
+* `prefers-reduced-motion` switches the window's 160 ms move transition off (R54, tested as CSS text; Karma cannot emulate the media
+  feature here).
 
 * That sound and video really keep running across a route change with a real LiveKit call is not testable in Karma. It needs a manual
   test on desktop Chrome, Firefox, Safari and a phone before it is announced.

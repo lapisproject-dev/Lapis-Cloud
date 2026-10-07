@@ -8,6 +8,21 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **The conference as a free-floating window (V1.9.71, step 2 of two).** While the call view is away and the viewport is at least 768 px wide, the conference stands for itself
+  in a small, non-modal window instead of the bottom bar: a 16:9 big picture (a foreign screen share, else the speaker -- a new speaker only after 2 s --, else the first
+  person, alone the own picture), a strip of up to three more pictures (medium and large; the own picture takes a place and only exists with the camera on), "+N" for the rest,
+  status and consent badges with glyph and word, microphone, camera, "Bildschirmfreigabe beenden", "Verlassen" (same handlers and receipt gate as the bar). Three sizes
+  (small 256, **medium 352 = default**, large 480 px), corner button, size button, "Einklappen" (back to the bar; "Als Fenster zeigen" in the bar brings it back), "Zur Konferenz".
+  The window is dragged by its header (edge snapping 24 px), resized by a grip, and has a full keyboard alternative: Alt+Shift+K focuses it, arrow keys move by 16 px,
+  Shift+arrow keys resize by 32 px, Home resets, Escape returns to the page. Wish and anchor are stored on the device (`lapis.conferenceFloat.v1`, numbers only, whitelist
+  parser). z-index 1034: above the page, below every dialog and the update pill. Architecture, the video loan ledger, the keyboard model and the stacking order:
+  `docs/architecture/conference-dock.adoc`; interface rule R60: `docs/architecture/ui-ux-guideline.adoc`.
+- **One track, one `<video>`.** The window never creates or re-attaches a video: it lends the element of the call view and hands it back (`ConferenceVideoLedger`); the call view
+  settles a loan before it clears a tile or the share stage, and the dock hands every loan back before a call's teardown.
+- **Lower load while floating.** Only the big picture requests medium quality, the strip and folded pictures low, the full view high, the bar low (`RemoteTrackPublication.setVideoQuality`,
+  a subscribed publication only; no re-subscription; switchable by `FLOAT_ADAPTS_REMOTE_QUALITY`).
+- 15 new texts in all seven catalogs (the translations come from an agent and were not checked by native speakers).
+
 - **A running conference survives navigation: the conference dock (V1.9.70, step 1 of two).** Clicking another page no longer ends the call: microphone, camera, remote audio, chat,
   roster, running votes and a secret-ballot receipt keep running. The call view lives in a permanent dock host next to the route outlet and is only hidden (CSS), never torn down.
   Architecture, state machine and lifecycle: `docs/architecture/conference-dock.adoc`.
@@ -22,6 +37,11 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **From 768 px the floating window is the default presentation of a background conference** instead of the mini bar of V1.9.70; after that the person's last choice counts.
+  Below 768 px (phones) nothing changes: the mini bar.
+- **The two live regions moved out of the mini bar** into `conferenceDockAnnouncer()` (the bar is `display: none` while the window floats and a region in `display: none` is not
+  read out). A change of recording or live stream is announced in both presentations.
+- `ClientUiGuidelineTripwireTest` R54 names seven transitions (the window's 160 ms move) instead of six -- an inventory change, not a raised budget.
 - **Navigating no longer ends the conference.** Ended by a deliberate "Verlassen" or "Für alle beenden", a kick, the end of the meeting, a sign-out, another account, a language switch
   (which still asks first and now ends the call hard before the root restarts) and a reload or closing the tab. Session expiry ends it as before.
 - **Automatic re-entries (breakout assignment, recall to the main room, "Zurück zum Hauptraum", the manual "Hier fortsetzen") take over the last microphone and camera state** instead
@@ -53,7 +73,14 @@ All notable changes to this project are documented here. Format follows
   manually on desktop Chrome, Firefox and Safari and on a phone before it is announced. Covered automatically: the state machine (`ConferenceDockReduceTest`), the dock lifecycle
   with a fake session (`ConferenceDockLifecycleTest`), the bar in a mounted root with the real stylesheets (`ConferenceDockBarDomTest`, `ConferenceDockBarTest`), the screen's
   teardown hook (`ConferenceScreenRootLifecycleDomTest`), the language switch (`LanguageChangeDomTest`) and the wiring as a source scan (`ClientConferenceDockTripwireTest`).
-- Not in this step: a free-floating conference window (step 2), Document Picture-in-Picture, the encounter room as a second dock session.
+- Not in this step: Document Picture-in-Picture, the encounter room as a second dock session.
+- **Floating window (V1.9.71): not tested on a real device, with real participants, in Safari or on iOS.** The real effect of `setVideoQuality` on the bandwidth cannot be checked in
+  Karma either; the project owner must test it manually before it is announced. Karma's iframe is narrower than 768 px, so the window tests fake the media query and neutralise the
+  CSS guard; the guard is pinned as text.
+- Floating window: no picture-in-picture, no chat, no encounter room in the window; on a phone only the mini bar. Pictures the window does not show stay subscribed (only their quality
+  is lowered). Sharing the **whole screen** captures the window with the other participants' videos and sends it into the conference (and into a running recording or stream);
+  only the badge "▣ Sie teilen Ihren Bildschirm" and a note in the architecture document address it.
+- The 15 new texts' translations come from an agent and were not checked by native speakers.
 - Mobile browsers can pause background tabs; the bar cannot prevent that.
 - A reload or closing the tab still ends the call.
 - "Removed" (kicked) and "ended" cannot be told apart on the client (a kick in the main room ends in a refused rejoin token); both read "Die Besprechung wurde beendet oder die Verbindung getrennt."

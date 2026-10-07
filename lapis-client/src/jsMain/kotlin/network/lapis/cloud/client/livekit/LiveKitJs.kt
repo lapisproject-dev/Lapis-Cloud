@@ -254,6 +254,14 @@ external interface TrackPublication {
     val isSubscribed: Boolean
 }
 
+/**
+ * V1.9.71 -- the one method of `RemoteTrackPublication` the floating window calls: `setVideoQuality(VideoQuality)` (LOW = 0, MEDIUM = 1,
+ * HIGH = 2 in livekit-client 2.21.0). A separate interface, NOT a member of [TrackPublication]: a local publication does not have it.
+ */
+external interface RemoteVideoQualityControl {
+    fun setVideoQuality(quality: Int)
+}
+
 /** V1.0 Videokonferenzen Wave 4 "Politur", D3 -- see [Room] class KDoc "Deliberately minimal" for why
  * this carries ONLY [identity]. */
 external interface ActiveSpeaker {

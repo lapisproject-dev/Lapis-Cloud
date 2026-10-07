@@ -94,4 +94,13 @@ enum class ActionIcon(
 
     /** V1.9.70: leave a running call from the dock bar (hang up). Same picture as the call's own "Verlassen" button. */
     HANG_UP("fas fa-phone-slash"),
+
+    /**
+     * V1.9.71: the verbs of the floating conference window -- [FLOAT_CORNER] jump to the next corner, [FLOAT_SIZE] cycle the size,
+     * [COLLAPSE] fold the window into the bar, [FLOAT_WINDOW] show the conference as a floating window again (bar button).
+     */
+    FLOAT_CORNER("fas fa-arrows-up-down-left-right"),
+    FLOAT_SIZE("fas fa-up-right-and-down-left-from-center"),
+    COLLAPSE("fas fa-window-minimize"),
+    FLOAT_WINDOW("fas fa-window-restore"),
 }

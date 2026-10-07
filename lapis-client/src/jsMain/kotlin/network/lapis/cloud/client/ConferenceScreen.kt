@@ -40,6 +40,8 @@ import network.lapis.cloud.client.livekit.DisconnectCause
 import network.lapis.cloud.client.livekit.LiveKitRoomSession
 import network.lapis.cloud.client.livekit.LocalVideoTrack
 import network.lapis.cloud.client.livekit.Track
+import network.lapis.cloud.client.livekit.TrackPublication
+import network.lapis.cloud.client.livekit.requestRemoteVideoQuality
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceBreakoutAssignmentDto
 import network.lapis.cloud.shared.domain.ConferenceBreakoutAssignmentInput
@@ -1033,6 +1035,8 @@ private class ConferenceTileEntry(
     val guestBadgeEl: HTMLElement,
     var hasCamera: Boolean = false,
     var hasMic: Boolean = false,
+    /** V1.9.71: the one `<video>` of this tile (created by `setTileVideo`), for the floating window to lend; `null` without a camera picture. */
+    var video: org.w3c.dom.HTMLVideoElement? = null,
 )
 
 /** Wave 4, D3 -- which zone a tile's DOM styling currently reflects. [FLAT] is the <= threshold,
@@ -1154,6 +1158,11 @@ private fun enterCall(
     // KDoc "D3" for why the periodic sweep, not this map's mutation, is the sole trigger).
     val lastSpokeAtMs = mutableMapOf<String, Long>()
     var activeScreenShare: Pair<String, Track>? = null
+    // V1.9.71: what the floating window needs of the foreign share (its element and the finished label), and the camera publications
+    // whose requested quality it may lower (identity -> publication).
+    var activeScreenShareVideo: org.w3c.dom.HTMLVideoElement? = null
+    var activeScreenShareLabel: String = ""
+    val remoteCameraPublications = mutableMapOf<String, TrackPublication>()
     // Wave 4, D10: replaces the Wave 1-3 ad-hoc `leftCall` boolean entirely -- see file KDoc "D10"
     // and [ConferenceConnectionState]/[conferenceConnectionReduce].
     var connectionState: ConferenceConnectionState = ConferenceConnectionState.Disconnected
@@ -2641,35 +2650,8 @@ private fun enterCall(
     // Absicherung, die jeden verbleibenden Fall (auch andere Ersetzungs-Ursachen) abfängt. Muss
     // textuell VOR `videoArea`, `applyConferenceGridReflow` und `applyPanelVisibility` stehen
     // (Kotlin: keine Vorwärtsreferenz auf lokale Funktionen).
-    fun resumeStalledVideos(scope: org.w3c.dom.Element) {
-        val videos = scope.querySelectorAll("video")
-        for (i in 0 until videos.length) {
-            val video = videos.item(i) as? org.w3c.dom.HTMLVideoElement ?: continue
-            val srcObject: dynamic = video.asDynamic().srcObject
-            val hasSrcObject = srcObject != null
-            val streamActive = hasSrcObject && ((srcObject.active as? Boolean) ?: true)
-            if (
-                !conferenceVideoNeedsResume(
-                    isConnected = video.isConnected,
-                    paused = video.paused,
-                    ended = video.ended,
-                    hasSrcObject = hasSrcObject,
-                    streamActive = streamActive,
-                )
-            ) {
-                continue
-            }
-            try {
-                // `play()` liefert ein Promise; ein Autoplay-`NotAllowedError` o. Ä. darf nie
-                // unbehandelt entweichen -- der nächste Watchdog-Tick versucht es erneut. Bewusst
-                // KEIN `await` (der Watchdog-Pfad darf nie hängen).
-                val playPromise: dynamic = video.asDynamic().play()
-                if (playPromise != null) playPromise.catch { _: dynamic -> null }
-            } catch (ignored: Throwable) {
-                // synchroner Fehler (sehr selten) -- nächster Tick.
-            }
-        }
-    }
+    // V1.9.71: the body lives top-level in `ConferenceVideoLedger.kt` (the floating window runs it on its own stage).
+    fun resumeStalledVideos(scope: org.w3c.dom.Element) = resumeStalledVideosIn(scope)
 
     // --- V1.2.9 Vollbildmodus: Video-Bereich, umschließt Bühne/Grid/Roster/Chat -----------------
     val videoArea = callPanel.vPanel(spacing = 10) { addCssClass("lapis-conference-video-area") }
@@ -3468,8 +3450,11 @@ private fun enterCall(
         entry: ConferenceTileEntry,
         mediaElement: org.w3c.dom.HTMLMediaElement?,
     ) {
+        // V1.9.71: a video that is on loan in the floating window comes home BEFORE the slot is cleared (otherwise it would stay there)
+        ConferenceDock.videoLedger.reclaimSlot(entry.mediaSlot)
         clearElement(entry.mediaSlot)
         entry.hasCamera = mediaElement != null
+        entry.video = mediaElement as? org.w3c.dom.HTMLVideoElement
         if (mediaElement != null) {
             mediaElement.style.cssText = "width:100%;height:100%;object-fit:cover;"
             // ELB-Test-Fix 2026-09-27 (Befund 6): a portrait stream (phone held upright) is letterboxed
@@ -3492,6 +3477,7 @@ private fun enterCall(
             // distinction matters for a first-time user's trust in the tool (design review D4).
             entry.mediaSlot.textContent = conferenceInitials(entry.displayName)
         }
+        ConferenceDock.notifyMediaChanged()
     }
 
     fun setTileMic(
@@ -3621,14 +3607,18 @@ private fun enterCall(
         tiles[identity] = entry
         refreshRoster()
         applyConferenceGridReflow()
+        ConferenceDock.notifyMediaChanged()
         return entry
     }
 
     fun removeTile(identity: String) {
         val entry = tiles.remove(identity) ?: return
+        ConferenceDock.videoLedger.reclaimSlot(entry.mediaSlot)
+        remoteCameraPublications.remove(identity)
         entry.element.parentNode?.removeChild(entry.element)
         refreshRoster()
         applyConferenceGridReflow()
+        ConferenceDock.notifyMediaChanged()
     }
 
     /**
@@ -3683,10 +3673,13 @@ private fun enterCall(
         // Wave 1 keeps only the most-recently-started share on stage -- multiple simultaneous shares
         // stacking/tabbing is out of scope (design review D4 "follow the standard convention, don't
         // invent a novel layout").
+        ConferenceDock.videoLedger.reclaimSlot(stage)
         clearElement(stage)
         val mediaElement = track.attach()
         mediaElement.className = "lapis-conference-share-media"
         stage.appendChild(mediaElement)
+        activeScreenShareVideo = mediaElement as? org.w3c.dom.HTMLVideoElement
+        activeScreenShareLabel = gettext("Bildschirm von %1", displayName)
         val label = document.createElement("div") as HTMLElement
         label.style.cssText = "font-size:12px;color:var(--lapis-muted);margin-top:4px;"
         label.textContent = gettext("%1 teilt den Bildschirm", displayName)
@@ -3694,6 +3687,7 @@ private fun enterCall(
         stage.style.display = "block"
         activeScreenShare = identity to track
         resumeStalledVideos(stage)
+        ConferenceDock.notifyMediaChanged()
     }
 
     fun hideScreenShareStageIfCurrent(
@@ -3704,10 +3698,13 @@ private fun enterCall(
         if (current.first != identity) return
         track.detach().forEach { el -> el.parentNode?.removeChild(el) }
         stageElement?.let {
+            ConferenceDock.videoLedger.reclaimSlot(it)
             clearElement(it)
             it.style.display = "none"
         }
         activeScreenShare = null
+        activeScreenShareVideo = null
+        ConferenceDock.notifyMediaChanged()
     }
 
     fun appendChatLine(
@@ -4147,6 +4144,7 @@ private fun enterCall(
                         val entry = ensureTile(identity, displayName)
                         val mediaElement = track.attach()
                         if (track.kind == "video") {
+                            if (publication.source == "camera") remoteCameraPublications[identity] = publication
                             setTileVideo(entry, mediaElement)
                         } else {
                             mediaElement.style.cssText = "display:none;"
@@ -4164,6 +4162,7 @@ private fun enterCall(
                     ConferenceTileKind.CAMERA, ConferenceTileKind.OTHER -> {
                         track.detach().forEach { el -> el.parentNode?.removeChild(el) }
                         val entry = tiles[identity]
+                        if (track.kind == "video") remoteCameraPublications.remove(identity)
                         if (entry != null) {
                             if (track.kind == "video") setTileVideo(entry, null)
                             if (track.kind == "audio") setTileMic(entry, false)
@@ -4891,6 +4890,43 @@ private fun enterCall(
     val dockToggleMic: () -> Unit = { toggleMic() }
     val dockToggleCamera: () -> Unit = { toggleCamera() }
     val dockToggleScreenShare: () -> Unit = { toggleScreenShare() }
+    // V1.9.71 -- what the floating window may show: ready-made strings and the elements it lends, no names of its own.
+    val dockFloatMedia: () -> List<FloatMediaSource> = {
+        buildList {
+            activeScreenShare?.let { (identity, _) ->
+                val stage = stageElement
+                if (stage != null) {
+                    add(
+                        FloatMediaSource(
+                            key = "share:$identity",
+                            label = activeScreenShareLabel,
+                            isLocal = false,
+                            isScreenShare = true,
+                            video = activeScreenShareVideo,
+                            home = stage,
+                            lastSpokeAtMs = 0L,
+                            setQuality = null,
+                        ),
+                    )
+                }
+            }
+            for (entry in tiles.values) {
+                val publication = if (entry.isLocal) null else remoteCameraPublications[entry.identity]
+                add(
+                    FloatMediaSource(
+                        key = "tile:${entry.identity}",
+                        label = tileLabel(entry),
+                        isLocal = entry.isLocal,
+                        isScreenShare = false,
+                        video = entry.video,
+                        home = entry.mediaSlot,
+                        lastSpokeAtMs = lastSpokeAtMs[entry.identity] ?: 0L,
+                        setQuality = publication?.let { pub -> { quality: Int -> requestRemoteVideoQuality(pub, quality) } },
+                    ),
+                )
+            }
+        }
+    }
     ConferenceDock.register(
         object : DockableSession {
             override val kind = DockSessionKind.CONFERENCE
@@ -4910,6 +4946,8 @@ private fun enterCall(
             }
 
             override fun leave() = dockLeave()
+
+            override fun floatMedia(): List<FloatMediaSource> = dockFloatMedia()
 
             override suspend fun terminate(reason: DockTerminateReason) {
                 // hard, no question, no `leaveRoom` (the participation of the member may be alive on another device)
