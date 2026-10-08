@@ -82,6 +82,7 @@ private fun renderFriendRegistrationForm(
             label = tr("Passwort"),
             required = true,
             autocomplete = Autocomplete.NEW_PASSWORD,
+            reveal = true,
             hint = gettext("Mindestens %1 Zeichen.", Validation.PASSWORD_MIN_LENGTH),
             rule = { FormRules.newPassword(value = it, email = emailField.value.trim()) },
         )
@@ -90,6 +91,7 @@ private fun renderFriendRegistrationForm(
             label = tr("Passwort bestätigen"),
             required = true,
             autocomplete = Autocomplete.NEW_PASSWORD,
+            revealedBy = passwordField,
         )
     form.crossFieldRule(field = confirmPasswordField) {
         FormRules.passwordsMatch(password = passwordField.value, confirmation = confirmPasswordField.value)
@@ -103,7 +105,7 @@ private fun renderFriendRegistrationForm(
     )
 
     val submitButton = newActionButton(ActionIcon.ADD, tr("Freund-Konto anlegen"), style = ButtonStyle.PRIMARY)
-    form.buttons(primary = submitButton)
+    form.buttons(primary = submitButton, enterSubmits = true)
     submitButton.onClick {
         form.submit(submitButton) {
             val result =

@@ -114,6 +114,7 @@ private fun renderEmailChangeLinkScreen(
                 label = tr("Passwort"),
                 required = true,
                 autocomplete = Autocomplete.CURRENT_PASSWORD,
+                reveal = true,
             )
         } else {
             null
@@ -129,7 +130,11 @@ private fun renderEmailChangeLinkScreen(
             EmailChangeLinkKind.VERIFY_NEW_ADDRESS -> newActionButton(ActionIcon.APPROVE, tr("Adresse bestätigen"), ButtonStyle.PRIMARY)
             EmailChangeLinkKind.REVOKE -> newActionButton(ActionIcon.REJECT, tr("Änderung ablehnen"), ButtonStyle.OUTLINEDANGER)
         }
-    if (kind == EmailChangeLinkKind.REVOKE) form.buttons(primary = null, destructive = button) else form.buttons(primary = button)
+    if (kind == EmailChangeLinkKind.REVOKE) {
+        form.buttons(primary = null, destructive = button)
+    } else {
+        form.buttons(primary = button, enterSubmits = kind == EmailChangeLinkKind.CONFIRM_WITH_PASSWORD)
+    }
 
     button.onClick {
         form.submit(button) {

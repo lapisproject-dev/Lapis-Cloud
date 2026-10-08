@@ -423,6 +423,19 @@ finance forms) reuse the same building blocks.
   and there is deliberately no `aria-pressed` (a changing name plus a pressed state contradict each other); the value
   never appears in an attribute, a title or an error message (`SecretFieldDomTest`).
 
+| Own passwords (V1.9.78)
+| Every field with `autocomplete` `current-password` or `new-password` has a reveal toggle (`reveal = true`); a confirmation field hangs on the
+  toggle of its main field (`revealedBy = main`), so both change together and there is one eye, not two. The toggle is `type="button"`, carries
+  `aria-controls` with the id(s) of the input(s) and has no `aria-pressed` (V1.9.75 reasoning stays). The inputs get `spellcheck="false"`,
+  `autocapitalize="off"`, `autocorrect="off"`; `autocomplete` is never touched, and `type=password` is restored before submit so password managers
+  still offer to save. A revealed field is concealed again on submit (before validation and before the server call, so also after any error),
+  when the page goes to the background (`visibilitychange`), when the form is left or hidden, and on cancel/reset. There is no timer and nothing
+  is persisted. Passwords that are dictated to another person (`suppressManagers`) are concealed only when the form is left. The toggle is at
+  least 44 px high and wide and stays in one row at 360 px. Enter submits only where a form opts in with `buttons(enterSubmits = true)` (single-line
+  text and password inputs, never the cancel or the destructive button, not while composing, not on key repeat). Telemetry / screen capture: the
+  client has no error reporter, session replay or beacon that could read field values; a screen share the person starts in a conference is a
+  remaining risk, and the app-switcher thumbnail is covered by the `visibilitychange` rule.
+
 | Consent checkboxes
 | They stay a `checkBox` (KVision renders label and error state differently). `aria-required` on the input, the check is
   a cross-field rule whose message goes into the collective region and the focus moves to the checkbox. A field-bound

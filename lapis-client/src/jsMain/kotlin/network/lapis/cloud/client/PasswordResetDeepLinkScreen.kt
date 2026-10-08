@@ -49,11 +49,12 @@ fun renderPasswordResetScreen(
             label = tr("Neues Passwort"),
             required = true,
             autocomplete = Autocomplete.NEW_PASSWORD,
+            reveal = true,
             hint = gettext("Mindestens %1 Zeichen.", Validation.PASSWORD_MIN_LENGTH),
             rule = { FormRules.newPassword(value = it, email = "") },
         )
     val confirmButton = Button(tr("Neues Passwort setzen"), style = ButtonStyle.PRIMARY)
-    form.buttons(primary = confirmButton)
+    form.buttons(primary = confirmButton, enterSubmits = true)
     confirmButton.onClick {
         form.submit(confirmButton) {
             val error = AuthHttp.confirmPasswordReset(token, newPassword.value)

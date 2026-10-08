@@ -191,7 +191,13 @@ internal fun renderChangePassword(root: SimplePanel) {
     panel.p(tr("Passwort ändern"))
     val email = "" // SessionInfoDto carries no email field -- see KDoc above.
     val form = panel.lapisForm()
-    val current = form.passwordField(label = tr("Aktuelles Passwort"), required = true, autocomplete = Autocomplete.CURRENT_PASSWORD)
+    val current =
+        form.passwordField(
+            label = tr("Aktuelles Passwort"),
+            required = true,
+            autocomplete = Autocomplete.CURRENT_PASSWORD,
+            reveal = true,
+        )
     val next =
         form.passwordField(
             label = gettext("Neues Passwort (mind. %1 Zeichen)", Validation.PASSWORD_MIN_LENGTH),
@@ -201,11 +207,16 @@ internal fun renderChangePassword(root: SimplePanel) {
             rule = { FormRules.newPassword(value = it, email = email) },
         )
     val confirm =
-        form.passwordField(label = tr("Neues Passwort bestätigen"), required = true, autocomplete = Autocomplete.NEW_PASSWORD)
+        form.passwordField(
+            label = tr("Neues Passwort bestätigen"),
+            required = true,
+            autocomplete = Autocomplete.NEW_PASSWORD,
+            revealedBy = next,
+        )
     form.crossFieldRule(field = confirm) { FormRules.passwordsMatch(password = next.value, confirmation = confirm.value) }
     val save = newActionButton(ActionIcon.PASSWORD, tr("Passwort ändern"), ButtonStyle.PRIMARY)
     val cancel = newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.PRIMARY)
-    form.buttons(primary = save, cancel = cancel)
+    form.buttons(primary = save, cancel = cancel, enterSubmits = true)
     cancel.onClick { listOf(current, next, confirm).forEach { it.reset() } }
     save.onClick {
         form.submit(save) {

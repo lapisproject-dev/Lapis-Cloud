@@ -73,6 +73,14 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **Password reveal toggle on every own-password field (V1.9.78).** Login (also the emergency-admin login), the reset-confirmation form, registration, friend registration, the password-reset
+  deep link, the e-mail-change confirmation (with password), both password prompts of the e-mail card and "Passwort ändern" now have the "Anzeigen"/"Verbergen" eye. The confirmation field shares
+  the eye of its main field (new also for "Passwort ändern"); `aria-controls` names the input(s), the button is `type="button"`, and the inputs get `spellcheck="false"`, `autocapitalize="off"`,
+  `autocorrect="off"` (`autocomplete` untouched). A revealed field is concealed on submit (also on a validation or server error), when the page goes to the background (`visibilitychange`),
+  when the form is left or hidden, and on cancel. No timer, no persistence. Dictated passwords (`suppressManagers`) are concealed only when the form is left. Enter now submits in these forms
+  (opt-in `buttons(enterSubmits = true)`; elsewhere nothing changed). Still no `aria-pressed` (V1.9.75). The toggle is at least 44 px. There is no separate invitation, first-password or
+  two-factor password screen (grep), and the client has no telemetry that reads field values. No migration, no server change, no new texts.
+
 - **Password buttons with symbols and text (V1.9.75).** "Passwort ändern" now carries a key (`ActionIcon.PASSWORD`, `fa-key`), "Abmelden" the exit symbol (`ActionIcon.LEAVE`, the same picture
   as leaving a room, now also the source of the menu entry's symbol in `App.kt`); the account action row may wrap on a narrow phone. The reveal toggle of a password field shows the
   eye together with the text "Anzeigen" / "Verbergen" instead of a bare symbol; symbol, text, `title` and `aria-label` change together and the long name ("Passwort anzeigen" /

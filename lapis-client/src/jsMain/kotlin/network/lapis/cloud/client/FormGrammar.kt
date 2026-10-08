@@ -19,6 +19,7 @@ import io.kvision.form.upload.Upload
 import io.kvision.html.Autocomplete
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.ButtonType
 import io.kvision.html.Div
 import io.kvision.html.InputType
 import io.kvision.html.div
@@ -34,6 +35,7 @@ import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import org.w3c.dom.Element
+import org.w3c.dom.events.KeyboardEvent
 
 /*
  * Welle V1.4.28 (W4a) "Formular-Grammatik, Teil 1" -- die Bausteine. Vertrag: docs/architecture/ui-ux-guideline.adoc,
@@ -211,6 +213,12 @@ class LapisForm internal constructor(
 
     private var alertSlot: Div? = null
 
+    /** V1.9.78: alle Aufdecken-Gruppen dieses Formulars, damit [concealAll] sie beim Absenden verbergen kann. */
+    private val revealGroups = mutableListOf<RevealGroup>()
+
+    /** V1.9.78: Primärknopf, den Enter in einem einzeiligen Feld auslöst (nur mit `buttons(enterSubmits = true)`). */
+    private var enterPrimary: Button? = null
+
     /** `true`, solange die Sammelmeldung der Validierung (nicht ein Servertext!) angezeigt wird -- nur die räumt sich selbst. */
     private var collectiveShown = false
 
@@ -250,8 +258,12 @@ class LapisForm internal constructor(
      * des Bearbeiters sind (Stream-Schlüssel, ein für einen anderen Menschen erzeugtes Passwort): `autocomplete="off"`
      * plus Manager-Bitten. **Ehrlich:** `autocomplete="off"` wird bei Passwortfeldern browserabhängig ignoriert; die
      * `data-*`-Attribute sind eine Bitte an 1Password/LastPass/Bitwarden, keine Garantie.
-     * [reveal] hängt einen Aufdecken-Knopf (`aria-pressed`) unter das Feld. [actions] erhält den Container dieser
-     * Knopfzeile für weitere Knöpfe (z. B. "Neu erzeugen").
+     * [reveal] hängt einen Aufdecken-Knopf unter das Feld (kein aria-pressed: der Name wechselt mit dem Zustand, siehe
+     * [revealToggle]). [revealedBy] koppelt dieses Feld (z. B. die Bestätigung) an das Auge eines Hauptfelds desselben Formulars:
+     * beide wechseln gemeinsam, es gibt keinen zweiten Knopf. Aufgedeckt wird nie dauerhaft: das Feld wird wieder verborgen beim
+     * Absenden (auch bei Prüf- oder Serverfehler), wenn die Seite in den Hintergrund geht (`visibilitychange`), beim Verlassen oder
+     * Ausblenden der Maske und bei [LapisField.reset]. Für [suppressManagers]-Felder (diktierte Passwörter) gilt nur das Verlassen
+     * der Maske. [actions] erhält den Container dieser Knopfzeile für weitere Knöpfe (z. B. "Neu erzeugen").
      */
     fun passwordField(
         label: String,
@@ -261,6 +273,7 @@ class LapisForm internal constructor(
         suppressManagers: Boolean = false,
         hint: String? = null,
         reveal: Boolean = false,
+        revealedBy: LapisField? = null,
         host: Container = panel,
         requiredMessage: String? = null,
         rule: (String) -> FieldCheck = { FieldCheck.Ok },
@@ -271,9 +284,16 @@ class LapisForm internal constructor(
         require(!(suppressManagers && autocomplete != null)) {
             "passwordField: autocomplete and suppressManagers are mutually exclusive (suppressManagers sets autocomplete=off)"
         }
+        require(!(reveal && revealedBy != null)) { "passwordField: reveal and revealedBy are mutually exclusive" }
+        require(revealedBy == null || revealedBy.revealGroup != null) {
+            "passwordField: revealedBy needs a field created with reveal = true"
+        }
+        require(revealedBy == null || revealedBy.isOwnedBy(this)) { "passwordField: revealedBy must belong to the same form" }
+        require(!(revealedBy != null && suppressManagers)) { "passwordField: revealedBy and suppressManagers are mutually exclusive" }
         val control = host.password(value = value, label = label)
         if (autocomplete != null) control.autocomplete = autocomplete
         init?.invoke(control)
+        var group: RevealGroup? = null
         val field =
             wire(
                 control = control,
@@ -287,13 +307,28 @@ class LapisForm internal constructor(
                     if (reveal || actions != null) {
                         { slotHost ->
                             val row = slotHost.hPanel(spacing = 8) { addCssClass("lapis-field-actions") }
-                            if (reveal) row.add(revealToggle(control))
+                            if (reveal) {
+                                val created = newRevealGroup(control, concealOnSubmitAndHide = !suppressManagers)
+                                group = created
+                                row.addWithLifecycle(
+                                    created.toggle,
+                                    onInsert = { created.onInserted() },
+                                    onDestroy = { created.onDestroyed() },
+                                )
+                            }
                             actions?.invoke(row)
                         }
                     } else {
                         null
                     },
             )
+        if (revealedBy != null) {
+            val shared = revealedBy.revealGroup!!
+            shared.attach(control)
+            field.revealGroup = shared
+        } else {
+            field.revealGroup = group
+        }
         if (suppressManagers) {
             (control.input as? Widget)?.let { widget ->
                 SECRET_FIELD_ATTRIBUTES.forEach { (name, attr) -> widget.setAttribute(name, attr) }
@@ -457,12 +492,17 @@ class LapisForm internal constructor(
      * [primary] und [cancel] müssen NEU erzeugt, nicht bereits eingehängt sein. [primary] darf fehlen, wenn die einzige Aktion
      * destruktiv ist (dann steht sie allein in der Zone darunter und das Formular hat KEIN `PRIMARY`; erlaubt, R28 verbietet nur zwei). Reihenfolge: Abbrechen links, Primäraktion
      * rechts; genau EIN `PRIMARY` je Formular (R28, Augenprüfung). [destructive] steht in einer eigenen Zone darunter.
+     * [enterSubmits] (V1.9.78, Opt-in): Enter in einem einzeiligen Text- oder Passwortfeld klickt [primary] -- also über dessen
+     * `onClick`, mit `aria-busy` und Doppelklick-Schutz. Nie für Abbrechen, nie für die destruktive Aktion.
      */
     fun buttons(
         primary: Button?,
         cancel: Button? = null,
         destructive: Button? = null,
+        enterSubmits: Boolean = false,
     ): HPanel {
+        require(!enterSubmits || primary != null) { "buttons: enterSubmits needs a primary button" }
+        if (enterSubmits) enterPrimary = primary
         decideRequiredMarking()
         val block = panel.simplePanel()
         mountAlertSlot(block)
@@ -525,6 +565,8 @@ class LapisForm internal constructor(
      * "Bitte korrigieren Sie diese Felder: Bezeichnung." wäre dieselbe Aussage ein zweites Mal.
      */
     fun validateAndReport(): Boolean {
+        // V1.9.78: aufgedeckte Passwörter werden vor jeder Prüfung und jedem Serveraufruf wieder verborgen.
+        concealAll()
         clearFormError()
         val invalidFields = fieldList.filterNot { it.validate(force = true) }
         // Jede Querregel GENAU EINMAL (die Meldung wird gleich mit verwendet).
@@ -543,6 +585,21 @@ class LapisForm internal constructor(
             collectiveShown = true
         }
         return false
+    }
+
+    /** Verbirgt alle aufgedeckten Passwortfelder dieses Formulars (idempotent). */
+    fun concealAll() {
+        revealGroups.forEach { it.conceal() }
+    }
+
+    internal fun newRevealGroup(
+        control: Password,
+        concealOnSubmitAndHide: Boolean,
+    ): RevealGroup {
+        val group = RevealGroup(buildRevealToggle(), concealOnSubmitAndHide)
+        group.attach(control)
+        if (concealOnSubmitAndHide) revealGroups += group
+        return group
     }
 
     /**
@@ -710,33 +767,117 @@ class LapisForm internal constructor(
             blur = { handleBlur(field) }
             input = { field.onInput() }
             change = { field.onInput() }
+            keydown = { event -> handleEnter(control, event.unsafeCast<KeyboardEvent>()) }
         }
         fieldList += field
         return field
     }
 
-    private fun revealToggle(control: Password): Button {
+    private fun handleEnter(
+        control: FormControl,
+        event: KeyboardEvent,
+    ) {
+        val primary = enterPrimary ?: return
+        if (control !is Text && control !is Password) return
+        if (event.key != "Enter" || event.isComposing || event.repeat) return
+        if (event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return
+        event.preventDefault()
+        primary.getElement()?.asDynamic()?.click()
+    }
+
+    /**
+     * V1.9.75: visible text next to the eye ("Anzeigen" / "Verbergen"); title and aria-label carry the longer name that
+     * CONTAINS the visible text (WCAG 2.5.3 label in name). No aria-pressed: a changing name AND a pressed state contradict
+     * each other (a screen reader would say "hide password, pressed"), so name and symbol change together instead.
+     */
+    private fun buildRevealToggle(): Button {
+        val toggle = newActionButton(ActionIcon.VIEW, tr("Anzeigen"), ButtonStyle.OUTLINESECONDARY)
+        toggle.type = ButtonType.BUTTON
         val showLabel = tr("Passwort anzeigen")
-        val hideLabel = tr("Passwort verbergen")
-        // V1.9.75: visible text next to the eye ("Anzeigen" / "Verbergen"); the title and aria-label carry the longer name that
-        // CONTAINS the visible text (WCAG 2.5.3 label in name). No aria-pressed: a changing name AND a pressed state contradict
-        // each other (a screen reader would say "hide password, pressed"), so name and symbol change together instead.
-        val showText = tr("Anzeigen")
-        val hideText = tr("Verbergen")
-        val toggle = newActionButton(ActionIcon.VIEW, showText, ButtonStyle.OUTLINESECONDARY)
         toggle.title = showLabel
         toggle.setAttribute("aria-label", resolvedAttributeText(showLabel))
-        var revealed = false
-        toggle.onClick {
-            revealed = !revealed
-            control.type = if (revealed) InputType.TEXT else InputType.PASSWORD
-            val nextLabel = if (revealed) hideLabel else showLabel
-            toggle.icon = if (revealed) "$HIDE_ICON $REVEAL_STATE_ICON_EXTRA" else actionIconClasses(ActionIcon.VIEW)
-            toggle.text = if (revealed) hideText else showText
-            toggle.title = nextLabel
-            toggle.setAttribute("aria-label", resolvedAttributeText(nextLabel))
-        }
         return toggle
+    }
+}
+
+/**
+ * V1.9.78: ein Aufdecken-Knopf für ein oder mehrere Passwortfelder (Hauptfeld + Bestätigung wechseln gemeinsam). Hält nur den
+ * Zustand, nie den Wert; der Wert taucht in keinem Attribut auf.
+ */
+internal class RevealGroup(
+    val toggle: Button,
+    private val concealOnSubmitAndHide: Boolean,
+) {
+    private val controls = mutableListOf<Password>()
+    private var visibilityListener: ((org.w3c.dom.events.Event) -> Unit)? = null
+    var revealed: Boolean = false
+        private set
+
+    init {
+        toggle.onClick { toggle() }
+    }
+
+    fun attach(control: Password) {
+        controls += control
+        (control.input as? Widget)?.let { widget ->
+            widget.setAttribute("spellcheck", "false")
+            widget.setAttribute("autocapitalize", "off")
+            widget.setAttribute("autocorrect", "off")
+        }
+        control.type = if (revealed) InputType.TEXT else InputType.PASSWORD
+        writeAriaControls()
+    }
+
+    fun toggle() {
+        revealed = !revealed
+        apply()
+    }
+
+    fun conceal() {
+        if (!revealed) return
+        revealed = false
+        apply()
+    }
+
+    /** Idempotent: ein Sprachwechsel löst destroy und danach insert aus. */
+    fun onInserted() {
+        if (!concealOnSubmitAndHide || visibilityListener != null) return
+        val listener: (org.w3c.dom.events.Event) -> Unit = {
+            if (document.asDynamic().visibilityState == "hidden") conceal()
+        }
+        visibilityListener = listener
+        document.addEventListener("visibilitychange", listener)
+    }
+
+    fun onDestroyed() {
+        conceal()
+        visibilityListener?.let { document.removeEventListener("visibilitychange", it) }
+        visibilityListener = null
+    }
+
+    private fun apply() {
+        controls.forEach { it.type = if (revealed) InputType.TEXT else InputType.PASSWORD }
+        val showLabel = tr("Passwort anzeigen")
+        val hideLabel = tr("Passwort verbergen")
+        val nextLabel = if (revealed) hideLabel else showLabel
+        toggle.icon = if (revealed) "$HIDE_ICON $REVEAL_STATE_ICON_EXTRA" else actionIconClasses(ActionIcon.VIEW)
+        toggle.text = if (revealed) tr("Verbergen") else tr("Anzeigen")
+        toggle.title = nextLabel
+        toggle.setAttribute("aria-label", resolvedAttributeText(nextLabel))
+    }
+
+    private fun writeAriaControls() {
+        val ids =
+            controls.mapNotNull { control ->
+                (control.input as? Widget)?.let { widget ->
+                    widget.id ?: "lapis-pw-${revealIdCounter++}".also { widget.id = it }
+                }
+            }
+        toggle.setAttribute("aria-controls", ids.joinToString(" "))
+    }
+
+    private companion object {
+        var revealIdCounter = 0
     }
 }
 
@@ -758,6 +899,11 @@ class LapisField internal constructor(
     /** Das Feld wurde getippt oder geändert. */
     var dirty: Boolean = false
         private set
+
+    /** V1.9.78: die Aufdecken-Gruppe dieses Passwortfelds (eigene oder die des Hauptfelds). */
+    internal var revealGroup: RevealGroup? = null
+
+    internal fun isOwnedBy(form: LapisForm): Boolean = owner === form
 
     private var submitted = false
     private var errorShown = false
@@ -796,6 +942,7 @@ class LapisField internal constructor(
             is CheckBox -> control.value = false
             else -> setValue(null)
         }
+        revealGroup?.conceal()
         dirty = false
         submitted = false
         clearError()

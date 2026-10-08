@@ -2202,4 +2202,37 @@ class ClientUiGuidelineTripwireTest :
             val shifted = "// c1\n// c2\n$code"
             fingerprintAt(code = codeOnly(shifted), offset = codeOnly(shifted).indexOf("table(")) shouldBe "panel .table("
         }
+        test("V1.9.78: every own-password field carries a reveal toggle (reveal = true or revealedBy =)") {
+            fun findings(text: String): List<String> {
+                val code = codeOnly(text)
+                return Regex("""\.passwordField\(""")
+                    .findAll(code)
+                    .map { callWithTrailingLambda(text = code, openParen = it.range.last) }
+                    // Bank credentials (user id / PIN) borrow the new-password hint only to keep the manager away; they are not an own password.
+                    .filterNot { it.contains("hardenSecretInput") }
+                    .filter { it.contains("Autocomplete.CURRENT_PASSWORD") || it.contains("Autocomplete.NEW_PASSWORD") }
+                    .filterNot { it.contains("reveal = true") || it.contains("revealedBy =") }
+                    .toList()
+            }
+            findings("form.passwordField(label = a, autocomplete = Autocomplete.NEW_PASSWORD)").size shouldBe 1
+            findings("form.passwordField(label = a, autocomplete = Autocomplete.CURRENT_PASSWORD, reveal = true)").size shouldBe 0
+            findings("form.passwordField(label = a, autocomplete = Autocomplete.NEW_PASSWORD, revealedBy = next)").size shouldBe 0
+            findings("form.passwordField(label = a, suppressManagers = true)").size shouldBe 0
+            clientKotlinFiles().forEach { file ->
+                withClue("${file.name}: a current-/new-password field without a reveal toggle") {
+                    findings(file.readText()) shouldBe emptyList()
+                }
+            }
+        }
+
+        test("V1.9.78: FormGrammar keeps the reveal contract (aria-controls, input attributes, conceal first)") {
+            val grammar = clientKotlinFiles().first { it.name == "FormGrammar.kt" }.readText()
+            val code = codeOnly(grammar)
+            code.contains("\"aria-pressed\"") shouldBe false
+            code.contains("\"aria-controls\"") shouldBe true
+            code.contains("\"spellcheck\"") shouldBe true
+            code.contains("ButtonType.BUTTON") shouldBe true
+            code.contains("newActionButton(ActionIcon.VIEW") shouldBe true
+            Regex("""fun validateAndReport\(\): Boolean \{\s*(//[^\n]*\s*)*concealAll\(\)""").containsMatchIn(grammar) shouldBe true
+        }
     })

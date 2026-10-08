@@ -139,10 +139,11 @@ internal class MemberEmailCard(
                     label = tr("Aktuelles Passwort"),
                     required = true,
                     autocomplete = Autocomplete.CURRENT_PASSWORD,
+                    reveal = true,
                 )
             val accept = newActionButton(ActionIcon.APPROVE, tr("Übernehmen"), ButtonStyle.PRIMARY)
             val decline = newActionButton(ActionIcon.REJECT, tr("Ablehnen"), ButtonStyle.OUTLINESECONDARY)
-            form.buttons(primary = accept, cancel = decline)
+            form.buttons(primary = accept, cancel = decline, enterSubmits = true)
             accept.onClick {
                 form.submit(accept) {
                     val ok = write { rpc.accept(pending.changeId, password.value) }
@@ -193,6 +194,7 @@ internal class MemberEmailCard(
                 label = tr("Aktuelles Passwort"),
                 required = true,
                 autocomplete = Autocomplete.CURRENT_PASSWORD,
+                reveal = true,
             )
         val newEmail =
             form.textField(
@@ -217,7 +219,7 @@ internal class MemberEmailCard(
             }
         }
         val save = newActionButton(ActionIcon.SAVE, tr("Adresse ändern"), ButtonStyle.PRIMARY)
-        form.buttons(primary = save)
+        form.buttons(primary = save, enterSubmits = true)
         save.onClick {
             form.submit(save) {
                 val ok = write { rpc.changeOwn(password.value, newEmail.value.trim(), repeat.value.trim()) }

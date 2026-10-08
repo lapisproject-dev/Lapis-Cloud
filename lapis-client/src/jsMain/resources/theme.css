@@ -2896,6 +2896,9 @@ html .form-select.is-invalid:focus {
 .lapis-field-actions .btn {
   white-space: nowrap;
   flex: 0 0 auto;
+  /* V1.9.78: minimum touch target (44 px) for the reveal toggle on every own-password field. */
+  min-height: 44px;
+  min-width: 44px;
 }
 
 /* ── V1.9.62 Begegnungsraum (B2) ──────────────────────────────────────────────────────────────────────────────────────

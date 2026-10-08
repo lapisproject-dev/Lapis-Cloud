@@ -113,9 +113,10 @@ private fun renderEmailPasswordLoginForm(parent: SimplePanel) {
             label = tr("Passwort"),
             required = true,
             autocomplete = Autocomplete.CURRENT_PASSWORD,
+            reveal = true,
         )
     val loginButton = Button(tr("Anmelden"), style = ButtonStyle.PRIMARY)
-    form.buttons(primary = loginButton)
+    form.buttons(primary = loginButton, enterSubmits = true)
     loginButton.onClick {
         form.submit(loginButton) {
             val email = emailField.value.trim()
@@ -241,11 +242,12 @@ private fun renderForgotPasswordToggle(parent: SimplePanel) {
             label = tr("Neues Passwort"),
             required = true,
             autocomplete = Autocomplete.NEW_PASSWORD,
+            reveal = true,
             hint = gettext("Mindestens %1 Zeichen.", Validation.PASSWORD_MIN_LENGTH),
             rule = { FormRules.newPassword(value = it, email = "") },
         )
     val confirmButton = Button(tr("Neues Passwort setzen"), style = ButtonStyle.OUTLINEPRIMARY)
-    confirmForm.buttons(primary = confirmButton)
+    confirmForm.buttons(primary = confirmButton, enterSubmits = true)
     confirmButton.onClick {
         confirmForm.submit(confirmButton) {
             val error = AuthHttp.confirmPasswordReset(resetToken.value.trim(), newPassword.value)
