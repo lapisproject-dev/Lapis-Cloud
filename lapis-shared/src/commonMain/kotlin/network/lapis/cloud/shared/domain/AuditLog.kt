@@ -758,8 +758,9 @@ data class DunningLevelSnapshot(
  * [AuditLogEntryDto.actorMemberId], WHEN via `occurredAt`) without the value itself -- the identity
  * is already `entityId`, and the CURRENT value always lives on the (erasable) `member` row. Only
  * [network.lapis.cloud.server.member.EmailChangeService] (V1.9.56: the only writer of an existing member's address,
- * only when a change became effective) ever sets `emailChanged = true` here; `updateMemberCoreData` (name only since
- * V1.9.56) writes `false`, and the
+ * only when a change became effective) and, since V1.9.73, the opt-in Keycloak profile sync (which goes through the same
+ * `EmailChangeStore` and records `EmailChangeKind.IDP_SYNC`) ever set `emailChanged = true` here; `updateMemberCoreData`
+ * (name only since V1.9.56) writes `false`, and the
  * other three writers ([network.lapis.cloud.server.rpc.MemberService.updateMemberStatus]/
  * [network.lapis.cloud.server.rpc.MemberService.updateMemberRole]/
  * [network.lapis.cloud.server.rpc.MemberService.grantMemberAccount]) always write `false` for both,
@@ -829,6 +830,48 @@ data class MemberChangeSnapshot(
      * Logged under [AuditEntityType.MEMBER]. Default `null`: older rows decode unchanged.
      */
     val peerAction: PeerActionAuditFacts? = null,
+    /**
+     * Welle V1.9.73 "Keycloak: Just-in-time-Anlage und Profil-Abgleich" -- set ONLY by the Keycloak first-login provisioning
+     * and the opt-in profile sync. Carries NEVER a name, an address, a claim or a subject -- only the event and, for an
+     * address take-over, the change id (see [KeycloakIdpAuditFacts]). Logged under [AuditEntityType.MEMBER]. Default `null`:
+     * older rows decode unchanged.
+     */
+    val keycloakIdp: KeycloakIdpAuditFacts? = null,
+)
+
+/**
+ * Welle V1.9.73 -- what the Keycloak integration did to a member row. The values stay on the (erasable) `member` /
+ * `member_email_change` rows; the hash-chained audit log only learns THAT something happened.
+ */
+@Serializable
+enum class KeycloakIdpAuditEvent {
+    /** The member was created on the first login (just-in-time provisioning). */
+    PROVISIONED,
+
+    /** The display name was taken over from the identity provider. */
+    NAME_SYNCED,
+
+    /** The address was taken over from the identity provider ([KeycloakIdpAuditFacts.emailChangeId] is set). */
+    EMAIL_SYNCED,
+
+    /** The address differed but the account holds BOARD / TREASURER / ADMIN: the local address was kept. */
+    EMAIL_SYNC_SKIPPED_PROTECTED_ROLE,
+
+    /** The address differed but belongs to another member (or became theirs by a race): nothing changed. */
+    EMAIL_SYNC_SKIPPED_COLLISION,
+
+    /** The address differed but the identity provider did not mark it verified: nothing changed. */
+    EMAIL_SYNC_SKIPPED_UNVERIFIED,
+
+    /** The address differed but an address change is already open (V1.9.56 / V1.9.57 flows): nothing changed. */
+    EMAIL_SYNC_SKIPPED_OPEN_CHANGE,
+}
+
+/** Welle V1.9.73 -- see [MemberChangeSnapshot.keycloakIdp]. [emailChangeId] only for [KeycloakIdpAuditEvent.EMAIL_SYNCED]. */
+@Serializable
+data class KeycloakIdpAuditFacts(
+    val event: KeycloakIdpAuditEvent,
+    val emailChangeId: String? = null,
 )
 
 /** Welle V1.9.19 -- what happened to a member's photo publication. No PII, no token. */

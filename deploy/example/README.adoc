@@ -1185,6 +1185,12 @@ file). Note that the three boolean switches which default to `true` use `:-true`
       LAPIS_KEYCLOAK_RP_INITIATED_LOGOUT: "${LAPIS_KEYCLOAK_RP_INITIATED_LOGOUT:-true}"
       LAPIS_KEYCLOAK_DISCOVERY_CACHE_SECONDS: "${LAPIS_KEYCLOAK_DISCOVERY_CACHE_SECONDS:-}"
       LAPIS_KEYCLOAK_JWKS_CACHE_SECONDS: "${LAPIS_KEYCLOAK_JWKS_CACHE_SECONDS:-}"
+      # Optional (V1.9.73), both off unless you set them -- see "Just-in-time provisioning and profile sync" below:
+      LAPIS_KEYCLOAK_AUTO_PROVISION: "${LAPIS_KEYCLOAK_AUTO_PROVISION:-}"
+      LAPIS_KEYCLOAK_PROVISION_CLAIM: "${LAPIS_KEYCLOAK_PROVISION_CLAIM:-}"
+      LAPIS_KEYCLOAK_PROVISION_GROUP: "${LAPIS_KEYCLOAK_PROVISION_GROUP:-}"
+      LAPIS_KEYCLOAK_PROVISION_RATE_PER_HOUR: "${LAPIS_KEYCLOAK_PROVISION_RATE_PER_HOUR:-}"
+      LAPIS_KEYCLOAK_SYNC_PROFILE: "${LAPIS_KEYCLOAK_SYNC_PROFILE:-}"
 ----
 
 WARNING: With a plain `${VAR:-}`, a variable you leave unset (or blank) in `.env` reaches the container
@@ -1296,6 +1302,30 @@ All `LAPIS_KEYCLOAK_*` variables (`network.lapis.cloud.server.keycloak.KeycloakC
 | `300`
 | TTL for the cached JWKS (signing-key) document. Same range and fallback behavior as the
   discovery-cache variable above.
+
+| `LAPIS_KEYCLOAK_AUTO_PROVISION`
+| `false`
+| V1.9.73. Create a member on the first login when the verified ID token carries the group below and no member matches (see "Just-in-time
+  provisioning and profile sync"). Requires `LAPIS_KEYCLOAK_PROVISION_GROUP`. Setting it to `true` without `LAPIS_KEYCLOAK_ENABLED=true`, or
+  together with `LAPIS_REGIONAL_CHAPTER_ENFORCEMENT_ENABLED=true`, stops the server at startup. An empty value means `false` (unlike the three
+  switches above, `false` is the safe reading here, so the plain `:-` in the compose snippet is right).
+
+| `LAPIS_KEYCLOAK_PROVISION_CLAIM`
+| `groups`
+| Top-level ID-token claim that carries the groups. No nested paths (a dot is rejected).
+
+| `LAPIS_KEYCLOAK_PROVISION_GROUP`
+| *(required when `AUTO_PROVISION` is on)*
+| The one group whose members are provisioned, compared exactly (`apolda` and `/apolda` both match; `/parent/apolda` does not).
+
+| `LAPIS_KEYCLOAK_PROVISION_RATE_PER_HOUR`
+| `10`
+| Maximum creations per hour (`1..1000`), counted in the database.
+
+| `LAPIS_KEYCLOAK_SYNC_PROFILE`
+| `false`
+| V1.9.73. At every login of a linked member take the display name over from the token, and the e-mail address only if it is verified, free,
+  not on a BOARD/TREASURER/ADMIN account and no address change is open.
 |===
 
 **All-or-nothing for the three required variables** (`ISSUER_URL`/`CLIENT_ID`/`CLIENT_SECRET`):
@@ -1304,6 +1334,27 @@ start (`IllegalStateException`, fail-fast) and the startup log names exactly whi
 rejected -- never their values. This mirrors the SMTP configuration's own fail-fast posture above:
 a half-configured, security-relevant feature is treated as an operator error, never a silent
 partial state.
+
+=== Just-in-time provisioning and profile sync
+
+[WARNING]
+====
+A member created this way is **ACTIVE at once**. That does not replace an admission procedure (for example a party's admission decision
+under the Parteiengesetz): where a body must decide on the admission, leave `LAPIS_KEYCLOAK_AUTO_PROVISION` off. The Keycloak group
+must itself be the admission decision.
+====
+
+. In Keycloak add a **Group Membership** mapper to the client: *Token Claim Name* `groups`, **Add to ID token** on. *Full group path* may be
+  on or off (both forms match; sub-groups do not).
+. Make sure the ID token carries `email` (verified) and `name` (or `given_name` / `family_name`).
+. Set `LAPIS_KEYCLOAK_AUTO_PROVISION=true` and `LAPIS_KEYCLOAK_PROVISION_GROUP=<group>` in `.env`, and add the five lines to your compose file
+  (see the snippet above). Optionally `LAPIS_KEYCLOAK_PROVISION_RATE_PER_HOUR`.
+. The new member has the role `MEMBER`, no tier and no regional chapter: no contribution is billed until you assign a tier. Every
+  administrator gets one notice mail per creation when SMTP is configured.
+. Removing someone from the Keycloak group does **not** remove the member, and a linked identity keeps logging in; disable the Keycloak
+  user and set the member's status in Lapis Cloud. After an Art. 17 erasure, a later login with the group creates a new member.
+
+Details, the limits and the security properties: `docs/architecture/keycloak-login.adoc`, section "Just-in-time provisioning and profile sync".
 
 === Keycloak client configuration
 

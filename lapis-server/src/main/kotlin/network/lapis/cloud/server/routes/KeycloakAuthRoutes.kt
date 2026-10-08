@@ -34,8 +34,11 @@ import network.lapis.cloud.server.federation.readCappedFederationBodyOrNull
 import network.lapis.cloud.server.keycloak.KeycloakAccountLinker
 import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.keycloak.KeycloakIssuerUrlGuard
+import network.lapis.cloud.server.keycloak.KeycloakMemberProvisioner
 import network.lapis.cloud.server.keycloak.KeycloakOidcMetadata
+import network.lapis.cloud.server.keycloak.KeycloakProfileSync
 import network.lapis.cloud.server.keycloak.keycloakHttpClient
+import network.lapis.cloud.server.rpc.keycloakSubjectFingerprint
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.SESSION_COOKIE_NAME
 import network.lapis.cloud.server.security.SessionStore
@@ -148,6 +151,14 @@ internal fun Route.registerKeycloakAuthRoutes(
      * `LetterxpressPostalMailProviderTest` documents).
      */
     tokenHttpClientFactory: () -> io.ktor.client.HttpClient = { keycloakHttpClient() },
+    /**
+     * Welle V1.9.73 -- the just-in-time provisioning stage, consulted ONLY after the linker answered `NO_MATCHING_MEMBER` and only
+     * when [KeycloakConfig.autoProvision] is on. `null` (the default, and the production wiring while the option is off) means
+     * exactly the behaviour before this wave.
+     */
+    provisioner: KeycloakMemberProvisioner? = null,
+    /** Welle V1.9.73 -- the opt-in profile sync, run after a successful login of an already linked member. `null` = off. */
+    profileSync: KeycloakProfileSync? = null,
 ) {
     get("/auth/keycloak/start") {
         if (!config.isOperational) {
@@ -550,30 +561,98 @@ internal fun Route.registerKeycloakAuthRoutes(
             return@get
         }
 
-        val linkOutcome =
+        val issuer = requireNotNull(config.issuerUrl)
+        var linkOutcome =
             KeycloakAccountLinker.linkOrResolve(
-                issuer = requireNotNull(config.issuerUrl),
+                issuer = issuer,
                 subject = subject,
                 email = email,
                 emailVerified = emailVerified,
                 requireVerifiedEmail = config.requireVerifiedEmail,
             )
+        // Welle V1.9.73 -- just-in-time provisioning: a SEPARATE, opt-in stage that runs only after the linker found no member.
+        // The linker itself never creates anything. With the option off this block is skipped and nothing differs from before.
+        var provisionRejection: KeycloakMemberProvisioner.RejectReason? = null
+        var justProvisioned = false
+        val missed = linkOutcome
+        if (missed is KeycloakAccountLinker.LinkOutcome.Rejected &&
+            missed.reason == KeycloakAccountLinker.RejectionReason.NO_MATCHING_MEMBER &&
+            config.autoProvision &&
+            provisioner != null
+        ) {
+            when (
+                val provisioned =
+                    provisioner.provision(
+                        issuer = issuer,
+                        subject = subject,
+                        rawEmail = email,
+                        emailVerified = emailVerified,
+                        claims = claims,
+                    )
+            ) {
+                is KeycloakMemberProvisioner.Outcome.Provisioned -> {
+                    justProvisioned = true
+                    linkOutcome = KeycloakAccountLinker.LinkOutcome.Linked(memberId = provisioned.memberId, wasNewLink = true)
+                }
+                // A member or link appeared (or already existed): resolve through the linker exactly once more.
+                KeycloakMemberProvisioner.Outcome.ExistingFound ->
+                    linkOutcome =
+                        KeycloakAccountLinker.linkOrResolve(
+                            issuer = issuer,
+                            subject = subject,
+                            email = email,
+                            emailVerified = emailVerified,
+                            requireVerifiedEmail = config.requireVerifiedEmail,
+                        )
+                is KeycloakMemberProvisioner.Outcome.Rejected -> provisionRejection = provisioned.reason
+            }
+        }
         val memberId =
-            when (linkOutcome) {
-                is KeycloakAccountLinker.LinkOutcome.Linked -> linkOutcome.memberId
+            when (val outcome = linkOutcome) {
+                is KeycloakAccountLinker.LinkOutcome.Linked -> outcome.memberId
                 is KeycloakAccountLinker.LinkOutcome.Rejected -> {
-                    logger.warn { "Keycloak callback rejected: LINK_${linkOutcome.reason}" }
+                    val rejection = provisionRejection
                     startRateLimiter.recordFailure(ipKey)
+                    if (rejection != null) {
+                        // Reason code and subject fingerprint only -- never an address, a name or a claim value.
+                        logger.warn {
+                            "Keycloak callback rejected: PROVISION_$rejection (subjectFingerprint=${keycloakSubjectFingerprint(
+                                subject,
+                            )})"
+                        }
+                        OidcLoginAuditRecorder.record(
+                            eventType = OidcLoginEventType.KEYCLOAK_LOGIN_FAILED,
+                            remoteParty = config.issuerUrl,
+                            reason = "PROVISION_$rejection".take(255),
+                        )
+                        if (rejection == KeycloakMemberProvisioner.RejectReason.GROUP_MISSING ||
+                            rejection == KeycloakMemberProvisioner.RejectReason.GROUP_NO_MATCH ||
+                            rejection == KeycloakMemberProvisioner.RejectReason.GROUP_WRONG_TYPE
+                        ) {
+                            OidcLoginAuditRecorder.record(
+                                eventType = OidcLoginEventType.KEYCLOAK_LINK_MISS,
+                                remoteParty = config.issuerUrl,
+                                reason = "NO_MATCHING_MEMBER",
+                            )
+                        }
+                        call.respondText(
+                            keycloakErrorPageHtml(provisionRejectionMessage(rejection)),
+                            contentType = ContentType.Text.Html,
+                            status = HttpStatusCode.Unauthorized,
+                        )
+                        return@get
+                    }
+                    logger.warn { "Keycloak callback rejected: LINK_${outcome.reason}" }
                     OidcLoginAuditRecorder.record(
                         eventType = OidcLoginEventType.KEYCLOAK_LOGIN_FAILED,
                         remoteParty = config.issuerUrl,
-                        reason = "LINK_${linkOutcome.reason}".take(255),
+                        reason = "LINK_${outcome.reason}".take(255),
                     )
                     // NO_MATCHING_MEMBER is also recorded as its own distinct KEYCLOAK_LINK_MISS
                     // event -- see OidcLoginEventType KDoc; this is the "verified identity, but
                     // nobody has manually linked it yet" case an operator needs to be able to find
                     // without grepping generic KEYCLOAK_LOGIN_FAILED rows for a reason string.
-                    if (linkOutcome.reason == KeycloakAccountLinker.RejectionReason.NO_MATCHING_MEMBER) {
+                    if (outcome.reason == KeycloakAccountLinker.RejectionReason.NO_MATCHING_MEMBER) {
                         // Do NOT persist the raw email here: oidc_guest_login_event is allowlisted
                         // in PersonalDataRegistry.kt / OidcGuestPersonalData.kt as containing NO
                         // personal data (subjects referenced only by an unconstrained UUID). Use a
@@ -597,6 +676,21 @@ internal fun Route.registerKeycloakAuthRoutes(
                     return@get
                 }
             }
+        val wasNewLink = (linkOutcome as KeycloakAccountLinker.LinkOutcome.Linked).wasNewLink
+
+        // Welle V1.9.73 -- opt-in profile sync for an already linked member (not right after a creation: the data IS the token's).
+        // Before the session exists, and a failure NEVER blocks the login.
+        if (config.syncProfile && profileSync != null && !justProvisioned) {
+            runCatching {
+                profileSync.syncOnLogin(
+                    memberId = memberId,
+                    subject = subject,
+                    rawEmail = email,
+                    emailVerified = emailVerified,
+                    claims = claims,
+                )
+            }.onFailure { e -> logger.error { "Keycloak profile sync failed: ${e::class.simpleName}" } }
+        }
 
         // Never persist/log id_token/tokenResponse itself beyond this point -- see class KDoc.
         val issuedSession = SessionStore.createSession(memberId)
@@ -625,7 +719,7 @@ internal fun Route.registerKeycloakAuthRoutes(
             memberId = memberId,
             remoteParty = config.issuerUrl,
         )
-        if (linkOutcome.wasNewLink) {
+        if (wasNewLink) {
             OidcLoginAuditRecorder.record(
                 eventType = OidcLoginEventType.KEYCLOAK_LINK_CREATED,
                 memberId = memberId,
@@ -687,6 +781,19 @@ internal fun Route.registerKeycloakAuthRoutes(
 private fun keycloakPublicBaseUrl(): String =
     network.lapis.cloud.server.federation.FederationConfig.publicBaseUrl
         .trimEnd('/')
+
+/**
+ * Welle V1.9.73 -- the page for a refused just-in-time creation. The group reasons deliberately read like the ordinary
+ * "no member" page (nothing reveals whether the identity is in the group); only the two cases the person can act on differ.
+ */
+private fun provisionRejectionMessage(reason: KeycloakMemberProvisioner.RejectReason): String =
+    when (reason) {
+        KeycloakMemberProvisioner.RejectReason.RATE_LIMITED ->
+            "Die automatische Anlage ist vorübergehend ausgelastet, bitte später erneut versuchen oder die Verwaltung kontaktieren."
+        KeycloakMemberProvisioner.RejectReason.NAME_MISSING ->
+            "Ihr Anmeldekonto enthält keinen Namen – bitte an die Verwaltung wenden."
+        else -> "Kein zugeordnetes Mitgliedskonto -- bitte an die Verwaltung wenden."
+    }
 
 private fun keycloakErrorPageHtml(message: String): String =
     """

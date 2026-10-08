@@ -34,6 +34,24 @@ internal class KeycloakConfig private constructor(
     val rpInitiatedLogout: Boolean,
     val discoveryCacheSeconds: Int,
     val jwksCacheSeconds: Int,
+    /**
+     * Welle V1.9.73 -- `LAPIS_KEYCLOAK_AUTO_PROVISION`: create a member on the first login when the verified ID token carries
+     * the required group and no member matches. **Default OFF.** See [KeycloakMemberProvisioner].
+     */
+    val autoProvision: Boolean,
+    /** Top-level ID-token claim that carries the groups (default `groups`). Nested paths such as `realm_access.roles` are not supported. */
+    val provisionClaim: String,
+    /** The one group whose members may be provisioned. Required when [autoProvision] is on. */
+    val provisionGroup: String?,
+    /** Maximum number of just-in-time creations per hour (counted in the database, per instance). */
+    val provisionRatePerHour: Int,
+    /** Welle V1.9.73 -- `LAPIS_KEYCLOAK_SYNC_PROFILE`: take name (and, under strict rules, address) over from the ID token at login. Default OFF. */
+    val syncProfile: Boolean,
+    /**
+     * Names of `LAPIS_KEYCLOAK_AUTO_PROVISION` / `LAPIS_KEYCLOAK_SYNC_PROFILE` that are switched ON while `LAPIS_KEYCLOAK_ENABLED` is
+     * not -- a misconfiguration the startup check refuses (the operator believes provisioning is active, it silently is not).
+     */
+    val orphanedOptions: List<String>,
     /** Names of the `LAPIS_KEYCLOAK_*` variables whose value was rejected/missing -- for startup logging only, never a reason to throw here. */
     val invalid: List<String>,
 ) {
@@ -41,7 +59,15 @@ internal class KeycloakConfig private constructor(
     val clientSecret: String? get() = clientSecretValue
 
     val isOperational: Boolean
-        get() = enabled && issuerUrl != null && !clientId.isNullOrBlank() && !clientSecretValue.isNullOrBlank()
+        get() =
+            enabled &&
+                issuerUrl != null &&
+                !clientId.isNullOrBlank() &&
+                !clientSecretValue.isNullOrBlank() &&
+                (!autoProvision || provisionGroup != null) &&
+                ENV_PROVISION_CLAIM !in invalid &&
+                ENV_PROVISION_GROUP !in invalid &&
+                ENV_PROVISION_RATE_PER_HOUR !in invalid
 
     /** Redacted -- [clientSecretValue] never appears, not even shortened or hashed. */
     override fun toString(): String =
@@ -50,7 +76,9 @@ internal class KeycloakConfig private constructor(
             "requireVerifiedEmail=$requireVerifiedEmail, emergencyAdminLoginEnabled=$emergencyAdminLoginEnabled, " +
             "allowPrivateIssuerHost=$allowPrivateIssuerHost, allowPlaintextIssuerUrl=$allowPlaintextIssuerUrl, " +
             "rpInitiatedLogout=$rpInitiatedLogout, discoveryCacheSeconds=$discoveryCacheSeconds, " +
-            "jwksCacheSeconds=$jwksCacheSeconds, invalid=$invalid)"
+            "jwksCacheSeconds=$jwksCacheSeconds, autoProvision=$autoProvision, provisionClaim=$provisionClaim, " +
+            "provisionGroup=$provisionGroup, provisionRatePerHour=$provisionRatePerHour, syncProfile=$syncProfile, " +
+            "orphanedOptions=$orphanedOptions, invalid=$invalid)"
 
     companion object {
         const val ENV_ENABLED = "LAPIS_KEYCLOAK_ENABLED"
@@ -65,6 +93,19 @@ internal class KeycloakConfig private constructor(
         const val ENV_RP_INITIATED_LOGOUT = "LAPIS_KEYCLOAK_RP_INITIATED_LOGOUT"
         const val ENV_DISCOVERY_CACHE_SECONDS = "LAPIS_KEYCLOAK_DISCOVERY_CACHE_SECONDS"
         const val ENV_JWKS_CACHE_SECONDS = "LAPIS_KEYCLOAK_JWKS_CACHE_SECONDS"
+        const val ENV_AUTO_PROVISION = "LAPIS_KEYCLOAK_AUTO_PROVISION"
+        const val ENV_PROVISION_CLAIM = "LAPIS_KEYCLOAK_PROVISION_CLAIM"
+        const val ENV_PROVISION_GROUP = "LAPIS_KEYCLOAK_PROVISION_GROUP"
+        const val ENV_PROVISION_RATE_PER_HOUR = "LAPIS_KEYCLOAK_PROVISION_RATE_PER_HOUR"
+        const val ENV_SYNC_PROFILE = "LAPIS_KEYCLOAK_SYNC_PROFILE"
+
+        const val DEFAULT_PROVISION_CLAIM = "groups"
+        const val DEFAULT_PROVISION_RATE_PER_HOUR = 10
+        private val PROVISION_RATE_RANGE = 1..1000
+        private const val PROVISION_GROUP_MAX_LENGTH = 255
+
+        /** A top-level claim name. A dot is rejected on purpose: nested paths are not supported. */
+        private val PROVISION_CLAIM_PATTERN = Regex("^[A-Za-z_][A-Za-z0-9_:-]{0,63}$")
 
         const val DEFAULT_SCOPES = "openid email profile"
         const val DEFAULT_DISCOVERY_CACHE_SECONDS = 3600
@@ -81,7 +122,19 @@ internal class KeycloakConfig private constructor(
             val enabled = env(ENV_ENABLED)?.trim().equals("true", ignoreCase = true)
             val invalid = mutableListOf<String>()
 
-            if (!enabled) return disabled()
+            // Read BEFORE the early return below, so "switched on, but ENABLED missing" is detectable by the startup check.
+            val autoProvision = env(ENV_AUTO_PROVISION)?.trim().equals("true", ignoreCase = true)
+            val syncProfile = env(ENV_SYNC_PROFILE)?.trim().equals("true", ignoreCase = true)
+
+            if (!enabled) {
+                return disabled(
+                    orphanedOptions =
+                        listOfNotNull(
+                            ENV_AUTO_PROVISION.takeIf { autoProvision },
+                            ENV_SYNC_PROFILE.takeIf { syncProfile },
+                        ),
+                )
+            }
 
             val allowPrivateIssuerHost = env(ENV_ALLOW_PRIVATE_ISSUER_HOST)?.trim().equals("true", ignoreCase = true)
             val allowPlaintextIssuerUrl = env(ENV_ALLOW_PLAINTEXT_ISSUER_URL)?.trim().equals("true", ignoreCase = true)
@@ -119,6 +172,17 @@ internal class KeycloakConfig private constructor(
                     invalid = invalid,
                 )
 
+            val provisionClaim = resolveProvisionClaim(raw = env(ENV_PROVISION_CLAIM)?.trim(), invalid = invalid)
+            val provisionGroup = resolveProvisionGroup(raw = env(ENV_PROVISION_GROUP)?.trim(), required = autoProvision, invalid = invalid)
+            val provisionRatePerHour =
+                intVar(
+                    env = env,
+                    name = ENV_PROVISION_RATE_PER_HOUR,
+                    default = DEFAULT_PROVISION_RATE_PER_HOUR,
+                    range = PROVISION_RATE_RANGE,
+                    invalid = invalid,
+                )
+
             return KeycloakConfig(
                 enabled = true,
                 issuerUrl = issuerUrl,
@@ -132,11 +196,17 @@ internal class KeycloakConfig private constructor(
                 rpInitiatedLogout = rpInitiatedLogout,
                 discoveryCacheSeconds = discoveryCacheSeconds,
                 jwksCacheSeconds = jwksCacheSeconds,
+                autoProvision = autoProvision,
+                provisionClaim = provisionClaim,
+                provisionGroup = provisionGroup,
+                provisionRatePerHour = provisionRatePerHour,
+                syncProfile = syncProfile,
+                orphanedOptions = emptyList(),
                 invalid = invalid.toList(),
             )
         }
 
-        private fun disabled(): KeycloakConfig =
+        private fun disabled(orphanedOptions: List<String> = emptyList()): KeycloakConfig =
             KeycloakConfig(
                 enabled = false,
                 issuerUrl = null,
@@ -150,6 +220,12 @@ internal class KeycloakConfig private constructor(
                 rpInitiatedLogout = true,
                 discoveryCacheSeconds = DEFAULT_DISCOVERY_CACHE_SECONDS,
                 jwksCacheSeconds = DEFAULT_JWKS_CACHE_SECONDS,
+                autoProvision = false,
+                provisionClaim = DEFAULT_PROVISION_CLAIM,
+                provisionGroup = null,
+                provisionRatePerHour = DEFAULT_PROVISION_RATE_PER_HOUR,
+                syncProfile = false,
+                orphanedOptions = orphanedOptions,
                 invalid = emptyList(),
             )
 
@@ -168,6 +244,45 @@ internal class KeycloakConfig private constructor(
                 invalid += name
                 default
             }
+        }
+
+        /** Unset/blank -> `groups`. A value that is not a plain top-level claim name is rejected (the variable NAME lands in [invalid]). */
+        private fun resolveProvisionClaim(
+            raw: String?,
+            invalid: MutableList<String>,
+        ): String {
+            if (raw.isNullOrEmpty()) return DEFAULT_PROVISION_CLAIM
+            if (!PROVISION_CLAIM_PATTERN.matches(raw)) {
+                invalid += ENV_PROVISION_CLAIM
+                return DEFAULT_PROVISION_CLAIM
+            }
+            return raw
+        }
+
+        /**
+         * Trimmed, non-empty, no control character, at most 255 characters, at most ONE leading `/` and no further `/`
+         * (a nested group path is not supported). Required while [required] (auto-provisioning is on).
+         */
+        private fun resolveProvisionGroup(
+            raw: String?,
+            required: Boolean,
+            invalid: MutableList<String>,
+        ): String? {
+            if (raw.isNullOrEmpty()) {
+                if (required) invalid += ENV_PROVISION_GROUP
+                return null
+            }
+            val bare = raw.removePrefix("/")
+            val valid =
+                raw.length <= PROVISION_GROUP_MAX_LENGTH &&
+                    bare.isNotEmpty() &&
+                    '/' !in bare &&
+                    raw.none { it.code < 0x20 || it.code == 0x7f }
+            if (!valid) {
+                invalid += ENV_PROVISION_GROUP
+                return null
+            }
+            return raw
         }
 
         /** Rejects an empty/missing value (required-when-enabled) and any control character (header-injection defense). */

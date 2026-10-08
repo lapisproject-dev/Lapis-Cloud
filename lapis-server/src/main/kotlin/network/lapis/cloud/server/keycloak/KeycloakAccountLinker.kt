@@ -35,7 +35,9 @@ private const val UNIQUE_VIOLATION_SQL_STATE = "23505"
  * (keycloak_issuer, keycloak_subject)` is meant to behave as a durable identity mapping, not a
  * live email lookup performed on every login.
  *
- * **Never creates a member.** Unlike [network.lapis.cloud.server.federation.OidcGuestMemberStore]
+ * **Never creates a member** -- this class has no insert into `member`, ever. Since V1.9.73 an operator may opt in to
+ * just-in-time provisioning, but that is a SEPARATE, opt-in stage ([KeycloakMemberProvisioner]) that the caller consults only after this
+ * linker answered [RejectionReason.NO_MATCHING_MEMBER]; with the option off (the default) nothing below changed. Unlike [network.lapis.cloud.server.federation.OidcGuestMemberStore]
  * (which mints a new `Member(status=GUEST)` row for a first-time federated guest), an email miss
  * here is always a hard rejection -- an admin must link manually. This is the entire point of
  * decision 5: prevent a mistyped/collided email from silently vending a Keycloak login into

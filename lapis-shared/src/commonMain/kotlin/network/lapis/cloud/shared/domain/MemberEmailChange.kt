@@ -13,9 +13,12 @@ import kotlinx.serialization.Serializable
  *   password is managed by the identity provider) -- takes effect after proof of ownership of the new address AND a
  *   72 hour warning period without rejection.
  * - [ADMIN_OVERRIDE]: the emergency path (ADMIN only, with a reason) -- same ownership + 72 hour rule.
+ * - [IDP_SYNC]: Welle V1.9.73 -- the address was taken over from the identity provider (Keycloak) at login, applied at
+ *   once. The proof is the verified ID token (`email_verified = true`); there are no tokens and no warning period, and
+ *   the row is written already APPLIED (or CONFLICT), never PENDING. Opt-in (`LAPIS_KEYCLOAK_SYNC_PROFILE`).
  */
 @Serializable
-enum class EmailChangeKind { SELF, PROPOSAL, PROPOSAL_NO_ACCOUNT, ADMIN_OVERRIDE }
+enum class EmailChangeKind { SELF, PROPOSAL, PROPOSAL_NO_ACCOUNT, ADMIN_OVERRIDE, IDP_SYNC }
 
 /** Welle V1.9.56 -- lifecycle of a `member_email_change` row. Only PENDING is open. */
 @Serializable

@@ -23,6 +23,8 @@ class MemberStatisticsExposureTripwireTest :
                     "Art. 15 export / Art. 17 retention of the subject's own rows",
                 "network/lapis/cloud/server/dsgvo/PersonalDataRegistry.kt" to "contributor registration",
                 "network/lapis/cloud/server/Application.kt" to "registers the RPC service; the startup consistency signal",
+                "network/lapis/cloud/server/keycloak/KeycloakMemberProvisioner.kt" to
+                    "counts its own KEYCLOAK_JIT rows of the last hour for the creation rate limit; exposes no count",
             )
         val forbiddenPackages = listOf("mcp", "embed", "routes", "webhook", "federation", "publicapi", "api")
         val reference =

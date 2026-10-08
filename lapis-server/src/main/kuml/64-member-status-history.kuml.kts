@@ -14,7 +14,8 @@
 // (`gen_random_uuid()` and `RANDOM_UUID()` are not portable), and the composite key makes the per-member order deterministic.
 // `effective_from` is a class-A timestamp (UTC): the moment the change was RECORDED, not the legal effect.
 //
-// **`source`**: LIVE (a service wrote it), IMPORT (CSV import), SEED (dev/staging seed), BACKFILL_AUDIT / BACKFILL_RECORD /
+// **`source`**: LIVE (a service wrote it), IMPORT (CSV import), SEED (dev/staging seed), KEYCLOAK_JIT (V77: member created on the
+// first Keycloak login), BACKFILL_AUDIT / BACKFILL_RECORD /
 // BACKFILL_ASSUMED (V72 reconstruction from the audit log / from records / assumed). `recorded_at` is NULL exactly for the
 // BACKFILL_* rows, set for the others -- chk_member_status_history_recorded.
 //
@@ -69,7 +70,7 @@ classDiagram(name = "MemberStatusHistory") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "previous_status"; "sqlType" to "VARCHAR(11)" }
         }
-        // LIVE | IMPORT | SEED | BACKFILL_AUDIT | BACKFILL_RECORD | BACKFILL_ASSUMED
+        // LIVE | IMPORT | SEED | KEYCLOAK_JIT | BACKFILL_AUDIT | BACKFILL_RECORD | BACKFILL_ASSUMED
         attribute(name = "source", type = "String") {
             stereotype("Column") { "columnName" to "source"; "sqlType" to "VARCHAR(16)" }
         }

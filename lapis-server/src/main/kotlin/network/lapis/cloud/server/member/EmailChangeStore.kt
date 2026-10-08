@@ -232,6 +232,37 @@ internal object EmailChangeStore {
         return id
     }
 
+    /**
+     * Welle V1.9.73 -- records an address taken over from the identity provider at login as an already APPLIED row
+     * (`kind = IDP_SYNC`, no requester, no tokens), so audit and export have a change id. The caller then runs [applyLocked],
+     * which may still turn the row into CONFLICT. Member lock held.
+     */
+    fun insertAppliedIdpSync(
+        memberId: Uuid,
+        pendingEmail: String,
+        now: LocalDateTime,
+    ): Uuid {
+        val id = Uuid.random()
+        MemberEmailChangeTable.insert {
+            it[MemberEmailChangeTable.id] = id
+            it[MemberEmailChangeTable.memberId] = memberId
+            it[openMemberId] = null
+            it[MemberEmailChangeTable.pendingEmail] = pendingEmail
+            it[kind] = EmailChangeKind.IDP_SYNC.name
+            it[requestedBy] = null
+            it[reason] = null
+            it[confirmTokenHash] = null
+            it[revokeTokenHash] = null
+            it[status] = EmailChangeStatus.APPLIED.name
+            it[createdAt] = now
+            it[expiresAt] = now
+            it[effectiveAt] = now
+            it[newEmailConfirmedAt] = now
+            it[resolvedAt] = now
+        }
+        return id
+    }
+
     /** Stamps the proof of ownership of the new address (path B0/C). */
     fun markNewAddressConfirmedLocked(
         changeId: Uuid,

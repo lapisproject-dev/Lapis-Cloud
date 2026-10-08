@@ -8,6 +8,21 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Keycloak: create a member on the first login (V1.9.73, opt-in, default off).** With `LAPIS_KEYCLOAK_AUTO_PROVISION=true` and `LAPIS_KEYCLOAK_PROVISION_GROUP`, a person who logs in
+  through Keycloak, whose verified ID token carries that group and for whom no member matches, becomes an **ACTIVE** member at once: role `MEMBER` (a constant, never read from a claim),
+  no password, no tier, no regional chapter, a member number, a status-history row (source `KEYCLOAK_JIT`), the `MEMBER_CREATED` webhook, one `MEMBER`/`CREATE` audit entry (flags only,
+  no name, no address). A member with the same address (any letter case) or an existing link always wins -- no duplicate. `email_verified` must be `true` whatever
+  `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_EMAIL` says, and the token must carry a name. Limited to `LAPIS_KEYCLOAK_PROVISION_RATE_PER_HOUR` (default 10) creations per hour, counted in the database.
+  Every ADMIN gets a notice mail (when SMTP is configured; never blocks the login). **This is not an admission procedure** -- do not use it where a body must decide on the admission
+  (a party under the Parteiengesetz). New variables: `LAPIS_KEYCLOAK_AUTO_PROVISION`, `_PROVISION_CLAIM` (default `groups`, top-level claims only), `_PROVISION_GROUP`,
+  `_PROVISION_RATE_PER_HOUR`, `_SYNC_PROFILE`. The server refuses to start when `AUTO_PROVISION` or `SYNC_PROFILE` is on without `LAPIS_KEYCLOAK_ENABLED`, or `AUTO_PROVISION` together
+  with `LAPIS_REGIONAL_CHAPTER_ENFORCEMENT_ENABLED`.
+- **Keycloak: optional profile sync (V1.9.73, `LAPIS_KEYCLOAK_SYNC_PROFILE`, default off).** At each login of a linked member the display name is taken over from the token. The address
+  only if it is verified, free, the account is not BOARD / TREASURER / ADMIN and no address change is open; it is written through `EmailChangeStore` as an applied change of the new kind
+  `EmailChangeKind.IDP_SYNC`, ends all other sessions and reset tokens, and warns the old address (new one masked). Role, status and contribution are never touched.
+- Migration V77 (additive): `member_status_history.source` accepts `KEYCLOAK_JIT`, `member_email_change.kind` accepts `IDP_SYNC`. Documentation:
+  `docs/architecture/keycloak-login.adoc` ("Just-in-time provisioning and profile sync"), `deploy/example/README.adoc`, `docs/architecture/dsgvo.adoc`.
+
 - **The conference as a free-floating window (V1.9.71, step 2 of two).** While the call view is away and the viewport is at least 768 px wide, the conference stands for itself
   in a small, non-modal window instead of the bottom bar: a 16:9 big picture (a foreign screen share, else the speaker -- a new speaker only after 2 s --, else the first
   person, alone the own picture), a strip of up to three more pictures (medium and large; the own picture takes a place and only exists with the camera on), "+N" for the rest,
@@ -75,8 +90,25 @@ All notable changes to this project are documented here. Format follows
   (3 re-entries per 5 minutes).
 - Seven new texts in all seven catalogs (the translations come from an agent and were not checked by native speakers).
 
+### Security (V1.9.73)
+
+- Group, address and name are read **only** from the claims of the ID token after signature, issuer, audience, nonce and expiry were verified; the UserInfo endpoint is not called and the
+  access token is never decoded. Covered with an unsigned token, a re-signed payload, a wrong audience / issuer / nonce, an expired token and a group that sits only in the access token.
+- One creation at a time per database (`FOR UPDATE` on the organization-settings singleton), re-resolution of link and address under that lock, SQLSTATE 23505 as backstop, `maxAttempts = 1`.
+- No claim value, name, address or raw subject in any log line (source-scan tripwire plus a log-capture test); audit entries without personal data.
+- The profile sync never changes the address of a BOARD / TREASURER / ADMIN account, never overtakes an open change (V1.9.56 / V1.9.57), and keeps the link keyed on the subject.
+
 ### Known limitations
 
+- **Keycloak provisioning / sync (V1.9.73): not tested against a real Keycloak or WABEO** -- only against a simulated identity provider (a mock token endpoint and JWKS, real RSA signatures).
+- Provisioning reads only top-level claims; a nested claim path (`realm_access.roles`) is not supported. A group is matched exactly; sub-groups do not match.
+- Group removal does not de-provision: the member stays and a linked identity keeps logging in; there is still no back-channel logout (sessions run up to 8 hours). After an Art. 17 erasure,
+  a login with the group claim creates a **new** active member (a block list would contradict the erasure).
+- A provisioned member has no tier (no contribution is billed until one is assigned) and no membership-agreement acknowledgment, as with direct creation by an administrator.
+- The rate limit is counted per database. No admin mail when it is hit (a mail flood would be worse than a log line); the server log has a `WARN`.
+- The profile sync overwrites a locally edited name at the next login; a skipped address (unverified, protected role, collision, open change) writes one audit entry per login while the difference lasts.
+- The "status history" of a single member has no screen (only the aggregated statistics), so the new source `KEYCLOAK_JIT` is not shown anywhere in the UI.
+- The Keycloak refusal pages are rendered by the server in German only (like every existing page of the callback); no new catalog text was needed for this change.
 - **Not tested with a real call.** That sound and video really keep running across a route change cannot be tested in Karma (no LiveKit server). The project owner must test it
   manually on desktop Chrome, Firefox and Safari and on a phone before it is announced. Covered automatically: the state machine (`ConferenceDockReduceTest`), the dock lifecycle
   with a fake session (`ConferenceDockLifecycleTest`), the bar in a mounted root with the real stylesheets (`ConferenceDockBarDomTest`, `ConferenceDockBarTest`), the screen's

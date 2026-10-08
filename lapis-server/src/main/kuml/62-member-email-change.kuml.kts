@@ -12,8 +12,8 @@
 // status. Plain SQL constraints in V70, not expressible in the ERM profile.
 //
 // **Tokens**: `confirm_token_hash` (link to the NEW address) and `revoke_token_hash` (link to the OLD address) hold
-// SHA-256 hex digests only, never the raw token. `kind` SELF | PROPOSAL | PROPOSAL_NO_ACCOUNT | ADMIN_OVERRIDE and
-// `status` PENDING | APPLIED | REVOKED | WITHDRAWN | EXPIRED | SUPERSEDED | CONFLICT are plain VARCHAR columns with
+// SHA-256 hex digests only, never the raw token. `kind` SELF | PROPOSAL | PROPOSAL_NO_ACCOUNT | ADMIN_OVERRIDE | IDP_SYNC (V77: taken over from the
+// identity provider at login) and `status` PENDING | APPLIED | REVOKED | WITHDRAWN | EXPIRED | SUPERSEDED | CONFLICT are plain VARCHAR columns with
 // CHECK constraints (strings, not Exposed enumerations -- same as every other status column of this schema family).
 //
 // **No CASCADE on the FKs** -- the application layer is authoritative for cleanup.

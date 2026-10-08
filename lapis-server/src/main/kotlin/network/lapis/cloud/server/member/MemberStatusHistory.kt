@@ -28,6 +28,9 @@ enum class MemberStatusHistorySource {
     /** Dev / staging seed data. */
     SEED,
 
+    /** Welle V1.9.73: a member created on the first Keycloak login (just-in-time provisioning). Counted by the hourly rate limit. */
+    KEYCLOAK_JIT,
+
     /** V72 backfill: reconstructed from the hash-chained audit log. */
     BACKFILL_AUDIT,
 
@@ -67,9 +70,10 @@ object MemberStatusHistory {
         require(
             source == MemberStatusHistorySource.LIVE ||
                 source == MemberStatusHistorySource.IMPORT ||
-                source == MemberStatusHistorySource.SEED,
+                source == MemberStatusHistorySource.SEED ||
+                source == MemberStatusHistorySource.KEYCLOAK_JIT,
         ) {
-            "only LIVE, IMPORT and SEED rows are written at runtime"
+            "only LIVE, IMPORT, SEED and KEYCLOAK_JIT rows are written at runtime"
         }
         val latest =
             MemberStatusHistoryTable

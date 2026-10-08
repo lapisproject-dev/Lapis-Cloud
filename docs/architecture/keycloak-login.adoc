@@ -306,6 +306,160 @@ targets, arguing that a block could be circumvented by demote, link, re-promote.
 longer holds: linking *another* administrator's account is refused, and demoting another administrator
 needs the approval of a second administrator -- see "Peer protection" above.)
 
+== Just-in-time provisioning and profile sync (V1.9.73)
+
+Two optional stages, both **off by default**, both independent of each other. With both off, the behaviour is exactly the one
+described above.
+
+[WARNING]
+====
+A member created by just-in-time provisioning is **ACTIVE at once**. That is not an admission procedure. Where the decision about a
+new member must be taken by a body (a political party under the Parteiengesetz, an association with an admission vote), leave
+`LAPIS_KEYCLOAK_AUTO_PROVISION` off. Provisioning is meant for deployments where the identity provider's group IS the admission
+decision.
+====
+
+=== Variables
+
+[cols="2,1,4"]
+|===
+| Variable | Default | Meaning
+
+| `LAPIS_KEYCLOAK_AUTO_PROVISION`
+| `false`
+| Create a member on the first login when the verified ID token carries the required group and no member matches. Needs
+  `LAPIS_KEYCLOAK_ENABLED=true` and `LAPIS_KEYCLOAK_PROVISION_GROUP`; the server refuses to start otherwise (also when this is `true`
+  but `LAPIS_KEYCLOAK_ENABLED` is not -- the option would silently do nothing).
+
+| `LAPIS_KEYCLOAK_PROVISION_CLAIM`
+| `groups`
+| Name of the **top-level** ID-token claim that carries the groups. Letters, digits, `_`, `:`, `-`; at most 64 characters. A dot is
+  rejected on purpose: nested paths such as `realm_access.roles` are not supported.
+
+| `LAPIS_KEYCLOAK_PROVISION_GROUP`
+| --
+| The one group whose members may be provisioned, compared exactly and case-sensitively. `apolda` and `/apolda` both match a claim
+  value `apolda` or `/apolda`; a nested path (`/parent/apolda`) is **not** the group. At most one `/` (leading), at most 255 characters.
+
+| `LAPIS_KEYCLOAK_PROVISION_RATE_PER_HOUR`
+| `10`
+| Maximum number of creations per hour, `1`..`1000`. Counted in the database (`member_status_history` rows with source
+  `KEYCLOAK_JIT` in the last hour), so it survives restarts and is shared by all server processes on the same database.
+
+| `LAPIS_KEYCLOAK_SYNC_PROFILE`
+| `false`
+| At every login of an already linked member, take the display name -- and under strict rules the address -- over from the ID token.
+|===
+
+The server also refuses to start when `LAPIS_KEYCLOAK_AUTO_PROVISION=true` is combined with
+`LAPIS_REGIONAL_CHAPTER_ENFORCEMENT_ENABLED=true`: a member created on the first login has no regional chapter, which the activation
+rule forbids.
+
+=== Flow
+
+[source,kuml,name="keycloak-jit-provisioning"]
+----
+sequenceDiagram(name = "Keycloak just-in-time provisioning (V1.9.73)") {
+    val server = lifeline(name = "KeycloakAuthRoutes")
+    val linker = lifeline(name = "KeycloakAccountLinker")
+    val provisioner = lifeline(name = "KeycloakMemberProvisioner")
+    val db = lifeline(name = "Database")
+
+    message(from = server, to = linker, label = "linkOrResolve(issuer, sub, email)")
+    message(from = linker, to = server, label = "Rejected(NO_MATCHING_MEMBER)")
+    message(from = server, to = provisioner, label = "provision(verified claims) -- only if AUTO_PROVISION")
+    message(from = provisioner, to = provisioner, label = "group claim, email_verified, address, name")
+    message(from = provisioner, to = db, label = "lock organization_settings (one creation at a time)")
+    message(from = provisioner, to = db, label = "re-resolve link / address; count KEYCLOAK_JIT of the last hour")
+    message(from = provisioner, to = db, label = "member ACTIVE, history, account MEMBER, link, number, audit (no PII)")
+    message(from = provisioner, to = server, label = "Provisioned | ExistingFound | Rejected(reason)")
+    message(from = server, to = server, label = "after commit: notice to the ADMINs; session + redirect")
+}
+----
+
+Order of the checks inside `KeycloakMemberProvisioner.provision` (no database write before all of them passed):
+
+. the option is on and a group is configured;
+. the group claim of the **verified ID token** contains the group (`MISSING`, `WRONG_TYPE` and `NO_MATCH` are distinct reasons);
+. `email_verified` is `true` -- **independent** of `LAPIS_KEYCLOAK_REQUIRE_VERIFIED_EMAIL`: a new account is never created for an address
+  the identity provider did not verify;
+. the address is a valid mailbox address of at most 320 characters (trimmed, lower-cased);
+. the token carries a name (`name`, else `given_name` + `family_name`; one part alone is accepted), sanitized: control and format
+  characters (including bidirectional overrides) removed, line breaks become a space, at most 200 characters.
+
+Then, in one transaction under a `FOR UPDATE` lock on the organization-settings singleton: an existing link for `(issuer, subject)` or an
+existing member with that address (any letter case) wins -- the answer is `ExistingFound` and the caller asks the linker exactly once
+more, so **no duplicate is ever created**; the hourly count is checked; the rows are written. SQLSTATE 23505 from a writer that does not
+take the lock is mapped to `ExistingFound` as well (backstop); any other SQL error propagates. The block never retries
+(`maxAttempts = 1`).
+
+What is created: member `ACTIVE` (no tier, no regional chapter, `joined_at` = the organization-zone date, address marked verified), a
+`member_status_history` row (`KEYCLOAK_JIT`), an account with the **literal role `MEMBER`** and no password (`oidc_issuer` /
+`oidc_subject` stay empty -- they belong to the guest federation path), a `keycloak_account_link` (`linked_by = NULL`), the member
+number (assigned at creation), the `MEMBER_CREATED` webhook and one `MEMBER`/`CREATE` audit entry that carries flags and the fact
+`PROVISIONED` -- never a name, an address or a subject. The login events are `KEYCLOAK_LOGIN_SUCCESS` plus `KEYCLOAK_LINK_CREATED`;
+a refusal is `KEYCLOAK_LOGIN_FAILED` with reason `PROVISION_<REASON>` (no new event type, no schema change there).
+
+What an ACTIVE member without a tier does, checked in the code (same as `RegistrationService.createMemberDirect`):
+
+* **No contribution run** picks the member up (`ContributionService` selects ACTIVE members *of a tier*), hence no dunning notice and no SEPA
+  debit follows from it. Assign a tier to start billing.
+* The member **counts as ACTIVE** in the dashboard, the statistics and the member list, receives the `MEMBER_CREATED` webhook, and has
+  every right that is gated by `MemberStatus.ACTIVE`: voting and elections, committee eligibility (`CommitteeEligibility`), conferences
+  and the mailing lists.
+* **No membership-agreement acknowledgment** is recorded -- the person never saw the agreement in Lapis Cloud.
+
+Refusal pages: the group reasons show the ordinary "Kein zugeordnetes Mitgliedskonto" page, so nothing reveals whether an identity is in
+the group; only a rate limit ("vorübergehend ausgelastet") and a missing name ("enthält keinen Namen") get their own text. These pages are
+rendered by the server in German only (like every other error page of the callback).
+
+Notice: after the commit every account with the role `ADMIN` (not `BOARD`; not blocked, not anonymized) gets one mail with the new
+member's name -- only when SMTP is configured. A missing SMTP configuration or a failing send never blocks the login. No mail is sent
+when the rate limit is hit (that would turn an attack into a mail flood); the server log carries a `WARN` without personal data.
+
+=== Profile sync
+
+With `LAPIS_KEYCLOAK_SYNC_PROFILE=true`, `KeycloakProfileSync` runs after every successful login of an **already linked** member (not right
+after a creation), **before** the session is created, and a failure of the sync never blocks the login. In one transaction under the
+member row lock:
+
+* **Name:** taken over (any role) when the token carries one and it differs. A name edited locally is overwritten at the next login --
+  that is what an opt-in sync means.
+* **Address:** only when ALL hold -- `email_verified` is `true`; the role of the account, read under the lock, is not `BOARD` /
+  `TREASURER` / `ADMIN`; no address change is open (V1.9.56 / V1.9.57 are never overtaken); the address is valid and belongs to nobody
+  else. The write goes through `EmailChangeStore` (`insertAppliedIdpSync` + `applyLocked`), the one writer of an existing member's
+  address, as an already applied change of kind `IDP_SYNC` (the proof is the verified token; there are no tokens and no warning period).
+  A concurrent claim of the address ends as `CONFLICT`, and the surrounding PostgreSQL transaction stays usable (savepoint).
+* Otherwise the local address stays and only an audit entry without any address records why (`EMAIL_SYNC_SKIPPED_UNVERIFIED`,
+  `_PROTECTED_ROLE`, `_COLLISION`, `_OPEN_CHANGE`). Such a difference repeats at every login, and so does the audit entry.
+* After an applied address: all other sessions and password-reset / verification tokens of the member end (the address is the login
+  identifier, as for V1.9.56), and the **old** address is warned by mail with the new one only masked.
+* **Never changed:** role, status, tier, contribution.
+
+The audit entries carry the flags `displayNameChanged` / `emailChanged`, the fact and, for an address, the change id -- the values live
+only in the erasable `member` / `member_email_change` rows.
+
+=== Operator checklist (Keycloak side)
+
+. Add a **Group Membership** mapper to the client (Client scopes -> dedicated scope): *Token Claim Name* `groups` (or your
+  `LAPIS_KEYCLOAK_PROVISION_CLAIM`), **Add to ID token** on. *Full group path* may be on or off (both match); sub-groups do not.
+. Only users who are meant to become members belong to the group. The group IS the admission decision.
+. The ID token must carry `name` (or `given_name` / `family_name`) and a verified `email`. Add `profile` and `email` to the scopes (the
+  defaults do).
+. Remember the limits below: removing a user from the group, or disabling the user in Keycloak, does not remove the Lapis Cloud member.
+
+=== Limits (V1.9.73)
+
+* Only top-level claims; a nested claim path is not supported.
+* **Group removal does not de-provision.** The member stays, and an already linked identity keeps logging in (the linker only checks
+  the link). To cut access: disable the user in Keycloak AND set the member's status in Lapis Cloud. There is no back-channel logout, so
+  existing sessions run until they expire (8 hours).
+* After an Art. 17 erasure the link is deleted and the address anonymized. If the same person logs in again with the group claim, a **new**
+  active member is created. Remove them from the Keycloak group first. A block list would contradict the erasure.
+* Not tested against a real Keycloak (or WABEO) -- only against a simulated identity provider in the test suite.
+* The rate limit counts per database; there is no per-IP limit on top of the existing callback failure limiter.
+* The hourly count uses the history rows; erasing a member's history within the hour would reduce the count.
+
 == Emergency-admin-login safety property
 
 The classic `POST /api/auth/login` route and `AuthService` stay in place in Keycloak mode, but they
@@ -400,6 +554,23 @@ the trust statement an operator can rely on:
   no-op when SMTP is not configured, and it is skipped when unlinking an anonymized or `DECEASED`
   member), and full session revocation on unlink -- see "Manual linking" above and "Known
   limitations".
+
+| Account creation from a forged or foreign token (V1.9.73)
+| Group, address and name are read only from the claims of the ID token **after** signature, issuer, audience, nonce and expiry were
+  verified; the UserInfo endpoint is never called and the access token is never decoded. An unsigned or re-signed token, a token for
+  another audience or issuer and a group that sits only in the access token create nothing (covered by `KeycloakJitCallbackTest`).
+
+| Privilege escalation through provisioning (V1.9.73)
+| The role of a provisioned account is the literal `AccountRole.MEMBER`; no claim is ever read as a role
+  (`KeycloakProvisioningTripwireTest`).
+
+| Mass creation / duplicates (V1.9.73)
+| Database-counted hourly limit, serialized under a lock on the organization-settings singleton; an existing address or link always
+  wins; 23505 as backstop; `maxAttempts = 1`.
+
+| Takeover through the profile sync (V1.9.73)
+| An address is taken over only if verified, free, not on a BOARD/TREASURER/ADMIN account and not while another change is open; the write
+  goes through `EmailChangeStore`; the link stays keyed on the subject, never on the address.
 
 | Token persistence
 | `id_token`/`access_token` are read once in memory and never written to any table or log --

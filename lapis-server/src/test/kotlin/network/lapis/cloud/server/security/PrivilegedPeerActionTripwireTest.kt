@@ -55,6 +55,8 @@ class PrivilegedPeerActionTripwireTest :
                 "network/lapis/cloud/server/rpc/RegistrationService.kt" to
                     "creates NEW members/accounts and decides applications; createMemberDirect(ADMIN) tells every other administrator",
                 "network/lapis/cloud/server/federation/OidcGuestMemberStore.kt" to "OIDC guest: creates a NEW synthetic guest member",
+                "network/lapis/cloud/server/keycloak/KeycloakMemberProvisioner.kt" to
+                    "Keycloak just-in-time provisioning: creates a NEW MEMBER account (literal role) and its link; touches no existing account",
                 "network/lapis/cloud/server/dsgvo/FoundationPersonalData.kt" to
                     "Art. 17 anonymization, reachable only through DsgvoService.executeErasure (guarded)",
                 "network/lapis/cloud/server/rpc/CrmService.kt#eraseContact" to

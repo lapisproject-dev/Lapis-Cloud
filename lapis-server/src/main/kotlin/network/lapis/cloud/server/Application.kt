@@ -99,7 +99,9 @@ import network.lapis.cloud.server.federation.FederationReplayGuard
 import network.lapis.cloud.server.federation.OidcSigningKeyProvisioner
 import network.lapis.cloud.server.federation.TrustAnchorSigningKeyProvisioner
 import network.lapis.cloud.server.keycloak.KeycloakConfig
+import network.lapis.cloud.server.keycloak.KeycloakMemberProvisioner
 import network.lapis.cloud.server.keycloak.KeycloakOidcMetadata
+import network.lapis.cloud.server.keycloak.KeycloakProfileSync
 import network.lapis.cloud.server.keycloak.KeycloakStartupCheck
 import network.lapis.cloud.server.legal.LegalConfig
 import network.lapis.cloud.server.legal.LegalStartupCheck
@@ -121,6 +123,7 @@ import network.lapis.cloud.server.mail.SmtpEmailChangeMailer
 import network.lapis.cloud.server.mail.SmtpFinTsReauthNotificationMailer
 import network.lapis.cloud.server.mail.SmtpFriendVerificationMailer
 import network.lapis.cloud.server.mail.SmtpKeycloakLinkNotificationMailer
+import network.lapis.cloud.server.mail.SmtpKeycloakProvisioningMailer
 import network.lapis.cloud.server.mail.SmtpPasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpPeerNotificationMailer
 import network.lapis.cloud.server.mail.SmtpStartupCheck
@@ -135,6 +138,7 @@ import network.lapis.cloud.server.mcp.ratelimit.McpToolCallRateLimiter
 import network.lapis.cloud.server.mcp.tools.McpToolDispatcher
 import network.lapis.cloud.server.member.EmailChangePoller
 import network.lapis.cloud.server.member.EmailChangeService
+import network.lapis.cloud.server.member.KeycloakProvisioningNotifier
 import network.lapis.cloud.server.member.MemberStatusHistoryConsistency
 import network.lapis.cloud.server.member.PrivilegedActionPoller
 import network.lapis.cloud.server.member.PrivilegedActionService
@@ -280,6 +284,7 @@ import network.lapis.cloud.server.rpc.PollService
 import network.lapis.cloud.server.rpc.PostalMailService
 import network.lapis.cloud.server.rpc.PriceOracleService
 import network.lapis.cloud.server.rpc.PrivilegedActionRpcService
+import network.lapis.cloud.server.rpc.RegionalChapterEnforcementConfig
 import network.lapis.cloud.server.rpc.RegionalChapterService
 import network.lapis.cloud.server.rpc.RegistrationService
 import network.lapis.cloud.server.rpc.SepaService
@@ -519,7 +524,11 @@ internal fun Application.module(
     // later). Same "never fail-fast unless enabled-but-broken" posture as SmtpConfig/
     // SmtpStartupCheck elsewhere in this function.
     val keycloakConfig = KeycloakConfig.load()
-    KeycloakStartupCheck.verifyAndLog(config = keycloakConfig, logger = applicationLogger)
+    KeycloakStartupCheck.verifyAndLog(
+        config = keycloakConfig,
+        logger = applicationLogger,
+        regionalChapterEnforcementEnabled = RegionalChapterEnforcementConfig.load().enabled,
+    )
 
     // V1.2.5 White-Label-Branding -- operator-supplied web-UI title/optional logo (see BrandConfig
     // KDoc). Constructed here, right after clientDistRoot above (clientShell below needs it).
@@ -822,6 +831,27 @@ internal fun Application.module(
     // KeycloakLinkNotificationMailer KDoc. SAME mailDispatcher/mailBranding as above.
     val keycloakLinkNotificationMailer: KeycloakLinkNotificationMailer =
         SmtpKeycloakLinkNotificationMailer(dispatcher = mailDispatcher, branding = mailBranding)
+    // Welle V1.9.73 -- Keycloak just-in-time provisioning + opt-in profile sync. Both are null while their option is off, so
+    // the default behaviour is exactly the one before this wave. The notifier only mails when SMTP is configured.
+    val keycloakProvisioningNotifier =
+        KeycloakProvisioningNotifier(
+            mailer = SmtpKeycloakProvisioningMailer(dispatcher = mailDispatcher, branding = mailBranding),
+            smtpConfigState = smtpConfigState,
+        )
+    val keycloakMemberProvisioner: KeycloakMemberProvisioner? =
+        if (keycloakConfig.isOperational && keycloakConfig.autoProvision) {
+            KeycloakMemberProvisioner(config = keycloakConfig, notifier = keycloakProvisioningNotifier)
+        } else {
+            null
+        }
+    val keycloakProfileSync: KeycloakProfileSync? =
+        if (keycloakConfig.isOperational &&
+            keycloakConfig.syncProfile
+        ) {
+            KeycloakProfileSync(notifier = keycloakProvisioningNotifier)
+        } else {
+            null
+        }
 
     // V0.8.1 Federation-Grundgerüst -- this server's own ActivityPub Actor keypair must exist from
     // first boot onward (unconditional, not LAPIS_SEED_DEMO_DATA-gated, see
@@ -2228,6 +2258,8 @@ internal fun Application.module(
             metadata = keycloakMetadata,
             startRateLimiter = keycloakStartRateLimiter,
             startFloodLimiter = keycloakStartFloodLimiter,
+            provisioner = keycloakMemberProvisioner,
+            profileSync = keycloakProfileSync,
         )
         // V1.5.1 Mobile App -- thin REST wrapper around IConferenceService (see
         // MobileConferenceRoutes.kt KDoc) plus the WebView session-bridge endpoint (see

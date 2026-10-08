@@ -34,6 +34,8 @@ class MemberEmailWriteTripwireTest :
                 "network/lapis/cloud/server/bootstrap/MemberCsvImport.kt" to "CSV import creates NEW members",
                 "network/lapis/cloud/server/bootstrap/AdminBootstrap.kt" to "first-admin bootstrap creates a NEW member",
                 "network/lapis/cloud/server/federation/OidcGuestMemberStore.kt" to "OIDC guest creates a NEW synthetic-address member",
+                "network/lapis/cloud/server/keycloak/KeycloakMemberProvisioner.kt" to
+                    "Keycloak just-in-time provisioning creates a NEW member (never touches an existing one: an address match wins)",
                 "network/lapis/cloud/server/db/DevSeedData.kt" to "dev seed, NEW members",
                 "network/lapis/cloud/server/db/StagingSeedData.kt" to "staging seed, NEW members",
             )

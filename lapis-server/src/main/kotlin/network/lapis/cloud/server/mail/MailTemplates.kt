@@ -289,6 +289,84 @@ object MailTemplates {
     }
 
     /**
+     * Welle V1.9.73 -- to an administrator: a member was created on the first Keycloak login. The subject is STATIC (no name,
+     * so no header injection); [newMemberName] is free text from the identity provider and goes through [safeName]
+     * (control characters stripped, 120 characters) -- the HTML part is escaped by kotlinx-html. No address, no credential.
+     */
+    fun keycloakMemberProvisioned(
+        newMemberName: String,
+        occurredAt: LocalDateTime,
+        branding: MailBranding,
+    ): RenderedMail {
+        val name = safeName(newMemberName)
+        return bilingual(
+            subject = "Mitglied automatisch angelegt / Member created automatically – ${branding.fromDisplayName}",
+            de =
+                MailSection(
+                    heading = "Mitglied automatisch angelegt",
+                    paragraphs =
+                        listOf(
+                            "$name wurde am ${formatUtc(occurredAt)} beim ersten Login über den externen Anmeldedienst (Keycloak) " +
+                                "automatisch als aktives Mitglied bei ${branding.fromDisplayName} angelegt.",
+                            "Wenn Sie das nicht erwartet haben, prüfen Sie bitte die Mitgliederverwaltung und das Änderungsprotokoll.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            en =
+                MailSection(
+                    heading = "Member created automatically",
+                    paragraphs =
+                        listOf(
+                            "$name was created as an active member at ${branding.fromDisplayName} on ${formatUtc(occurredAt)}, " +
+                                "on their first login through the external sign-in service (Keycloak).",
+                            "If you did not expect this, please review the member administration and the change log.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            branding = branding,
+        )
+    }
+
+    /** Welle V1.9.73 -- to the OLD address: the sign-in address was taken over from the identity provider; the new one only [maskedNewEmail]. */
+    fun keycloakEmailSyncedNotice(
+        maskedNewEmail: String,
+        occurredAt: LocalDateTime,
+        branding: MailBranding,
+    ): RenderedMail =
+        bilingual(
+            subject = "E-Mail-Adresse übernommen / Email address taken over – ${branding.fromDisplayName}",
+            de =
+                MailSection(
+                    heading = "E-Mail-Adresse aus dem Anmeldedienst übernommen",
+                    paragraphs =
+                        listOf(
+                            "Die E-Mail-Adresse Ihres Kontos bei ${branding.fromDisplayName} wurde am ${formatUtc(occurredAt)} aus dem " +
+                                "externen Anmeldedienst (Keycloak) übernommen und lautet jetzt $maskedNewEmail. Alle anderen " +
+                                "Sitzungen wurden beendet.",
+                            "Wenn Sie das nicht erwartet haben, melden Sie sich bitte umgehend bei uns.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            en =
+                MailSection(
+                    heading = "Email address taken over from the sign-in service",
+                    paragraphs =
+                        listOf(
+                            "The email address of your account at ${branding.fromDisplayName} was taken over from the external " +
+                                "sign-in service (Keycloak) on ${formatUtc(occurredAt)} and is now $maskedNewEmail. All other " +
+                                "sessions were ended.",
+                            "If you did not expect this, please contact us immediately.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            branding = branding,
+        )
+
+    /**
      * Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- author-facing notification for the
      * three board decisions on a submitted/published article. **Never names the reviewing person**
      * (mirrors `ArticleReviewDto` KDoc "keine Namen nach aussen") -- the signature is always

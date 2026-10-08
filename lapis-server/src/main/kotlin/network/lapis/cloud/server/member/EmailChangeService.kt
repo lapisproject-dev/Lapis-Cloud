@@ -22,10 +22,8 @@ import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
-import network.lapis.cloud.server.security.PasswordResetTokenStore
 import network.lapis.cloud.server.security.PeerDecision
 import network.lapis.cloud.server.security.PeerDeniedSignal
-import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.peerGuarded
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
@@ -1044,11 +1042,8 @@ internal class EmailChangeService(
         memberId: Uuid,
         exceptRawToken: String?,
     ) {
-        // The address IS the login identifier: every other session ends, and a token minted for the OLD address must
-        // not go on resetting a password or verifying the NEW address.
-        SessionStore.revokeAllForMember(memberId = memberId, exceptRawToken = exceptRawToken)
-        PasswordResetTokenStore.invalidateAllForMember(memberId = memberId)
-        FriendEmailVerificationTokenStore.invalidateAllForMember(memberId = memberId)
+        // See AddressChangeSideEffects (shared with the Keycloak profile sync).
+        AddressChangeSideEffects.invalidateAfterAddressChange(memberId = memberId, exceptRawToken = exceptRawToken)
     }
 
     private fun sendFriendVerification(

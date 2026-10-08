@@ -129,6 +129,12 @@ plus 72 hours plus warning). `KeycloakAccountLinker` links only through the curr
 an address that stops matching after a change no longer auto-links (a link that already exists is keyed on the Keycloak subject and is
 unaffected). This replaces the earlier "known limitation" of `keycloak-login.adoc`.
 
+*Profile sync (V1.9.73, opt-in `LAPIS_KEYCLOAK_SYNC_PROFILE`).* The one other way an address changes without the owner's password is the
+take-over from the identity provider at login: kind `IDP_SYNC`, written already `APPLIED` by `EmailChangeStore.insertAppliedIdpSync` and
+applied by `applyLocked` (so the member lock, the collision handling and the single-writer rule hold). It happens only for a verified
+address, never for BOARD / TREASURER / ADMIN, never while another change is open, and ends all other sessions and reset tokens like path A
+(`AddressChangeSideEffects`); the old address is warned. See `keycloak-login.adoc`, "Profile sync".
+
 == Audit and GDPR
 
 * *No address in the audit log.* The audit log is hash-chained and cannot be erased; a SHA-256 of a mailbox address can be reversed by

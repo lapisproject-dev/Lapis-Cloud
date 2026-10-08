@@ -36,6 +36,8 @@ class MemberStatusWriteTripwireTest :
                 "network/lapis/cloud/server/bootstrap/MemberCsvImport.kt" to (1 to "CSV import (source IMPORT)"),
                 "network/lapis/cloud/server/bootstrap/AdminBootstrap.kt" to (1 to "first-admin bootstrap"),
                 "network/lapis/cloud/server/federation/OidcGuestMemberStore.kt" to (1 to "OIDC guest creation"),
+                "network/lapis/cloud/server/keycloak/KeycloakMemberProvisioner.kt" to
+                    (1 to "Keycloak just-in-time provisioning (source KEYCLOAK_JIT)"),
                 "network/lapis/cloud/server/db/DevSeedData.kt" to (1 to "dev seed (source SEED)"),
                 "network/lapis/cloud/server/db/StagingSeedData.kt" to (1 to "staging seed (source SEED)"),
             )

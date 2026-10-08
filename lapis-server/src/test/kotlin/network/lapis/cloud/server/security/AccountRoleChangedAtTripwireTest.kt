@@ -27,6 +27,7 @@ class AccountRoleChangedAtTripwireTest :
                 "network/lapis/cloud/server/rpc/MemberService.kt",
                 "network/lapis/cloud/server/rpc/RegistrationService.kt",
                 "network/lapis/cloud/server/federation/OidcGuestMemberStore.kt",
+                "network/lapis/cloud/server/keycloak/KeycloakMemberProvisioner.kt",
                 "network/lapis/cloud/server/bootstrap/AdminBootstrap.kt",
             )
 
