@@ -2123,6 +2123,8 @@ because the client sources are scanned there; no server production code changed.
   chat, vote, more) | exit (back to main room, leave). A plain participant and every breakout room get no moderation group and no divider for it. "Für alle beenden"
   (`ActionIcon.END_FOR_ALL`, power-off, outline-danger) is the last control of its group and is never a neighbour of "Verlassen" (the panel group always sits between);
   `endForAllAdjacentToLeave` pins that for every width and role.
+  *Superseded by V1.9.72 (see below): "Für alle beenden" now sits in the exit group directly before "Verlassen"; `endForAllImmediatelyBeforeLeave` replaced
+  `endForAllAdjacentToLeave`. This paragraph stays as the record of the V1.9.66 decision.*
 * **State model.** Each of recording and live stream is one control with a FIXED noun as accessible name ("Aufzeichnung", "Live-Stream") and its state in `aria-pressed`;
   the verb a click would run is the tooltip (`title`: "Aufzeichnung starten" / "Aufzeichnung beenden", "Live-Stream starten …" / "Live-Stream beenden"). A running
   one also shows the pressed ring and a sign (● recording, ◆ live stream), so the state is never colour alone. While it changes state ("wird beendet …", "wird
@@ -2280,3 +2282,31 @@ rule that came out of it.
 
 *Not verified:* a real call on a real device, Safari and iOS.
 
+== V1.9.72 -- "Für alle beenden" next to "Verlassen"
+
+Client only; no server, RPC or database change, no new text (all strings and dialog texts already existed, the seven catalogs are untouched).
+
+*Decision of the project owner, 2026-10-08: it reverses the V1.9.66 rule (D5/D6/R58 ledger).* V1.9.66 kept "Für alle beenden" away from "Verlassen" (slip protection through
+distance). The owner wants it at the very end of the bar, next to "Verlassen". The confirmation dialog stays; because distance no longer protects, the dialog and the group are
+hardened instead. The older text is not rewritten, it is marked as superseded above.
+
+* **Layout.** The bar is ordered devices | moderation (recording, live stream) | panels | exit. The exit group is one wrapper (`.lapis-conference-controls-group--exit`,
+  `role="group"`, `aria-label` "Besprechung", an existing text) with, in this order, "Zurück zum Hauptraum" (breakout only), "Für alle beenden" (moderator in the main room only)
+  and "Verlassen", which is always the last control. 12 px between the controls (plain flex `gap`, no divider, no padding, so the gap is not a hit area), in every width and for
+  every pointer. The `ms-2` margins of back and leave are gone. "Verlassen" and "Zurück zum Hauptraum" are now also `conferenceControlButton`s (same `fa-phone-slash` / `fa-arrow-left`, same labels, `ActionIcon.HANG_UP` / `BACK`).
+* **Slip protection, instead of distance (the replacement safeguards):**
+  (1) the confirmation cannot be bypassed: `endRoom` is reached only through the confirm block of `endRoomConfirmDialog`, behind `EndRoomDialogGuard`; the twin in the sheet
+  clicks the primary control, so there is one path; (2) the keyboard focus starts on "Abbrechen", the confirming button never gets the focus or `autofocus`, so Enter right
+  after opening cancels; (3) `ConfirmOnce` fires the action at most once (double click, a fast second click while the dialog fades out); (4) `EndRoomDialogGuard` opens no second
+  dialog while one is open (autorepeat, double click, control and twin); (5) its own symbol (`END_FOR_ALL`, power-off) and the outline style, against the filled "Verlassen";
+  (6) 12 px gap without a divider; (7) overflow: "Für alle beenden" moves into the "Mehr" sheet *last* (`CONFERENCE_OVERFLOW_ORDER`), stands last in the sheet, set apart by a rule
+  and in the danger colour; "Verlassen" and "Zurück zum Hauptraum" never move. There is no keyboard shortcut. Escape and a click on the backdrop close the dialog without ending
+  (Bootstrap defaults, not changed). After "Abbrechen" or Escape the focus returns to the control (or to "Mehr" while the control sits in the sheet).
+* **Invariants in code.** `endForAllImmediatelyBeforeLeave` (Beenden is the shown control directly before Verlassen, when shown) and `leaveIsLast` hold for every width and role
+  (`ConferenceControlBarTest`, `ConferenceControlsOverflowDomTest`). `ClientToolbarIconTripwireTest`: the R58 ledger is `conferenceModerationGroup` 2, `conferenceExitGroup` 3,
+  `conferenceDockBarControls` 4; `ActionIcon.END_FOR_ALL` occurs in exactly three places (exit group, sheet twin, dialog confirmation); `endRoom(` exists once, behind the guard.
+* **Residual risk** (named by the design review): next to a frequently used control a destructive one is hit by mistake more often, whatever the dialog says. What stays is the
+  dialog, the focus on "Abbrechen" and the differing symbol/style.
+
+*Not verified:* real devices, Safari and iOS, touch use with a real finger. Karma tests the extracted building blocks, not the whole call screen. The width model counts
+conservatively, so on a moderator's bar narrower than about 390 px "Für alle beenden" is already in the sheet (still last there); it is still in the bar on wider screens.

@@ -33,7 +33,7 @@ Font Awesome 7, bundled by webpack through `kvision-fontawesome` (no CDN, no new
 | `UNDO` | `fa-rotate-left` | Stornieren, Zurückziehen, Wiederherstellen, Zurücksetzen
 | `BROADCAST` | `fa-tower-broadcast` | V1.9.62: the pulpit transmission of the encounter room; V1.9.66: also the conference live stream (same verb: transmitting live)
 | `RECORD` | `fa-circle-dot` | V1.9.66: start/stop a conference recording (conference bar only)
-| `END_FOR_ALL` | `fa-power-off` | V1.9.66: end the meeting for everyone; deliberately NOT `LEAVE` (own exit) and NOT `CLOSE_DOORS` (encounter room)
+| `END_FOR_ALL` | `fa-power-off` | V1.9.66: end the meeting for everyone; deliberately NOT `LEAVE` (own exit) and NOT `CLOSE_DOORS` (encounter room). V1.9.72: it now sits directly before "Verlassen" in the exit group, so the different symbol (and the outline style) is one of the remaining slip protections; used in exactly three places (exit group, sheet twin, confirmation dialog)
 | `PROTECTED` | `fa-shield-halved` | V1.9.57: geschützt -- the reason text next to a disabled control and the masked value of the admin peer protection; marks a state, never an action; NOT `LOCK`, NOT `ACCESS`
 |===
 

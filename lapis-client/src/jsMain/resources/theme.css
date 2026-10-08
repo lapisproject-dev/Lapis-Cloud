@@ -1107,6 +1107,30 @@ body {
   gap: 6px;
 }
 
+/* V1.9.72 -- the exit group (back to the main room, end for everyone, leave): 12 px between the controls in every width and for
+   every pointer, no divider and no padding inside (the gap is plain flex gap, it is NOT a hit area). `flex: none` keeps the group
+   at the width of its controls. */
+.lapis-conference-controls-group--exit {
+  gap: 12px;
+  flex: none;
+}
+
+/* V1.9.72 -- "Für alle beenden" as the LAST entry of the "Mehr" sheet, set apart by a rule above it (the danger colour comes from
+   text-danger on the twin). The rule is a pseudo-element, so the button keeps its own outline. */
+.lapis-conference-more-sheet .lapis-conference-twin-end {
+  position: relative;
+  margin-top: 16px;
+}
+
+.lapis-conference-more-sheet .lapis-conference-twin-end::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -9px;
+  border-top: 1px solid var(--lapis-border-strong);
+}
+
 .lapis-conference-controls-divider {
   flex: none;
   width: 1px;

@@ -1259,7 +1259,6 @@ private fun enterCall(
             canModerate = canModerate,
             onRecord = { recordClick() },
             onStream = { streamClick() },
-            onEndForAll = { endForAllClick() },
         )
     if (moderation == null) divider1.hide()
     val divider2 = controlsRow.conferenceControlsDivider()
@@ -1298,22 +1297,25 @@ private fun enterCall(
     val moreBadge = moreToggleButton.span(className = "lapis-conference-control-badge")
     moreBadge.setAttribute("aria-hidden", "true")
     val divider3 = controlsRow.conferenceControlsDivider()
-    // Wave 6: inside a breakout room, "Zurück zum Hauptraum" is the everyday, low-stakes, FREQUENT
-    // action and reads as the confident default (PRIMARY); "Besprechung ganz verlassen" is the
-    // rarer, heavier one -- a deliberate INVERSION of the main room's own button-weight convention,
-    // where "Verlassen" alone is the everyday action. Flagged explicitly here so a future reviewer
-    // does not "fix" this back to match the main room by reflex (design review verdict).
-    val backToMainButton =
-        if (isBreakout) {
-            controlsRow.button("", icon = "fas fa-arrow-left", style = ButtonStyle.PRIMARY).apply { addCssClass("ms-2") }
-        } else {
-            null
-        }
-    // V1.2.10 -- `DANGER` (gefüllt) statt vormals `SECONDARY`: zwei fast identische destruktive
-    // Aktionen ("Verlassen" hier, "Für alle beenden" auf `endButton`) dürfen nie gleich aussehen
-    // (Tesler, Design-Review V1.2.10 F3) -- `endButton` bleibt bewusst `OUTLINEDANGER`.
-    val leaveButton = controlsRow.button("", icon = "fas fa-phone-slash", style = ButtonStyle.DANGER)
-    leaveButton.addCssClass("ms-2")
+    // V1.9.72 -- exit group: [Zurück zum Hauptraum] (breakout only) [Für alle beenden] (moderator, main room only) [Verlassen].
+    // "Verlassen" is always the last control; 12 px between the controls (theme.css `--exit`), no divider inside the group. The
+    // confirmation dialog (`endRoomConfirmDialog`: focus on "Abbrechen", fires once) is the slip protection for "Für alle beenden",
+    // not the distance -- on explicit request of the project owner, reversing the V1.9.66 rule (see ui-ux-guideline.adoc, V1.9.72).
+    //
+    // Wave 6: inside a breakout room, "Zurück zum Hauptraum" is the everyday, low-stakes, FREQUENT action and reads as the confident
+    // default (PRIMARY); "Besprechung ganz verlassen" is the rarer, heavier one -- a deliberate INVERSION of the main room's own
+    // button-weight convention, where "Verlassen" alone is the everyday action. Flagged explicitly here so a future reviewer does not
+    // "fix" this back to match the main room by reflex (design review verdict).
+    // V1.2.10 -- `DANGER` (gefüllt) for "Verlassen" vs `OUTLINEDANGER` for "Für alle beenden": two near-identical destructive actions
+    // must never look the same (Tesler, Design-Review V1.2.10 F3). The click handlers of back / leave are attached further down.
+    val exitGroup =
+        controlsRow.conferenceExitGroup(
+            canEndForAll = canModerate && !isBreakout,
+            isBreakout = isBreakout,
+            onEndForAll = { endForAllClick() },
+        )
+    val backToMainButton = exitGroup.backButton
+    val leaveButton = exitGroup.leaveButton
 
     // V1.2.10 -- "Mehr"-Blatt, DOM-Position direkt nach controlsRow. Bleibt nach jedem Klick offen
     // (Tesler: Offenlegung, kein Popup, das sich beim Auswählen sofort wieder schließt).
@@ -1338,9 +1340,11 @@ private fun enterCall(
     val screenTwin = twin(screenShareButton) { it.button(tr("Bildschirm teilen"), style = ButtonStyle.OUTLINESECONDARY) }
     val recordTwin = twin(moderation?.recordButton) { it.actionButton(ActionIcon.RECORD, tr("Aufzeichnung starten")) }
     val streamTwin = twin(moderation?.streamButton) { it.actionButton(ActionIcon.BROADCAST, tr("Live-Stream starten …")) }
-    val endTwin = twin(moderation?.endButton) { it.actionButton(ActionIcon.END_FOR_ALL, tr("Für alle beenden"), ButtonStyle.OUTLINEDANGER) }
     val rosterTwin = twin(rosterToggleButton) { it.actionButton(ActionIcon.PEOPLE, tr("Teilnehmende")) }
     val voteTwin = twin(votingToggle?.button) { it.button(tr("Abstimmen"), style = ButtonStyle.OUTLINESECONDARY) }
+    // V1.9.72 -- "Für alle beenden" moves into the sheet LAST (overflow order) and stands LAST in it, set apart by a rule and the danger
+    // colour (theme.css `.lapis-conference-twin-end`); its click goes through the primary control, so there is one confirmation path.
+    val endTwin = twin(exitGroup.endButton) { it.conferenceEndForAllTwin() }
 
     // V1.9.66 -- pause / resume of a running live stream: rare actions, so they live in the sheet (start and stop are the bar's
     // toggle). The block is not a `lapis-conference-config-row`, so it survives the fullscreen mode like the device group.
@@ -1454,13 +1458,12 @@ private fun enterCall(
     // exactly the same reasoning `fullscreenButton`'s own comment already gives, generalized to
     // every other icon-only button in this row.
 
-    // D5/D6 (V1.9.66: continued, not dropped): "end for everyone" is the last control of the moderation group in the bar. It is never
-    // adjacent to "Verlassen": the panel group (roster/chat/more) always sits between them, plus the dividers, and a gap of 6 px more.
-    // The group is not rendered at all for a plain participant (and never inside a breakout call: `canModerate` is `false` there),
-    // same "don't tease an action the server will reject" posture `AuctionScreen.kt`'s own ADMIN-only Verwaltung panel documents.
-    // Recording and live stream are the group's two other controls; their availability is shown/hidden by
+    // D5/D6 (V1.9.66) were REVERSED on explicit request in V1.9.72: "end for everyone" sits in the exit group directly before "Verlassen"
+    // (see the exit group's declaration above). It is not built at all for a plain participant (and never inside a breakout call:
+    // `canModerate` is `false` there), same "don't tease an action the server will reject" posture `AuctionScreen.kt`'s own ADMIN-only
+    // Verwaltung panel documents; the server still decides. Recording and live stream are the moderation group's two controls; their availability is shown/hidden by
     // [refreshRecordingState]/[refreshStreamState] (D11), pause/resume of a stream sit in the "Mehr" sheet.
-    val endButton = moderation?.endButton
+    val endButton = exitGroup.endButton
 
     // --- Recording + streaming indicator/controls (Wave 2 "Aufzeichnung" + Wave 3 "Externes
     // Streaming", see file KDoc for the full D-item list) -- chrome-level, built right after the
@@ -2976,18 +2979,18 @@ private fun enterCall(
                     moderation?.let {
                         add(OverflowSlot(ConferenceControlSlot.RECORD, it.recordButton, recordTwin))
                         add(OverflowSlot(ConferenceControlSlot.STREAM, it.streamButton, streamTwin))
-                        add(OverflowSlot(ConferenceControlSlot.END_FOR_ALL, it.endButton, endTwin))
                     }
                     add(OverflowSlot(ConferenceControlSlot.ROSTER, rosterToggleButton, rosterTwin, mirrorPressed = true))
                     add(OverflowSlot(ConferenceControlSlot.CHAT, chatToggleButton, null))
                     votingToggle?.let { add(OverflowSlot(ConferenceControlSlot.VOTE, it.button, voteTwin, mirrorPressed = true)) }
                     add(OverflowSlot(ConferenceControlSlot.MORE, moreToggleButton, null))
                     backToMainButton?.let { add(OverflowSlot(ConferenceControlSlot.BACK, it, null)) }
+                    exitGroup.endButton?.let { add(OverflowSlot(ConferenceControlSlot.END_FOR_ALL, it, endTwin)) }
                     add(OverflowSlot(ConferenceControlSlot.LEAVE, leaveButton, null))
                 },
             dividers = listOf(divider1 to 1, divider2 to 2, divider3 to 3),
             onChanged = { barOverflowSink() },
-            containerGroups = if (moderation != null) setOf(1) else emptySet(),
+            containerGroups = setOfNotNull(if (moderation != null) 1 else null, CONFERENCE_EXIT_GROUP),
         )
     moderation?.onStateChanged = {
         overflow.recompute()
@@ -4856,9 +4859,23 @@ private fun enterCall(
     }
     leaveButton.onClick { performLeave() }
 
+    // V1.9.72 -- re-entry guard: while the dialog is open (or still fading out) a second trigger (autorepeat, double click, the twin AND
+    // the primary) opens no second dialog. `ConfirmOnce` inside the dialog guards the other thing: a second click on "Für alle beenden".
+    val endDialogGuard = EndRoomDialogGuard()
     endForAllClick = click@{
         if (ConferenceReceiptGate.blocksUnload) return@click
-        endRoomConfirmDialog(roomTitle) {
+        if (leaving) return@click
+        endDialogGuard.show(
+            roomTitle = roomTitle,
+            // Bootstrap does not hand the focus back: without this a keyboard user lands on <body> after "Abbrechen" / Escape.
+            onClosedWithoutConfirm = {
+                if (ConferenceControlSlot.END_FOR_ALL in overflow.moved()) {
+                    moreToggleButton.getElement()?.focus()
+                } else {
+                    endButton?.getElement()?.focus()
+                }
+            },
+        ) {
             leaving = true
             endButton?.disabled = true
             endTwin?.disabled = true
@@ -5177,26 +5194,88 @@ internal fun resolvePostDisconnectDestinationOf(
 /** Rule 3 (irreversible action -> bespoke confirm modal): matches `AuctionScreen.kt`'s own
  * `auctionDisableConfirmDialog` tier -- danger-framed, states the concrete consequence in plain
  * language (design review D6's "Diese Besprechung wird für alle Teilnehmenden beendet. Fortfahren?"
- * copy). */
-private fun endRoomConfirmDialog(
+ * copy).
+ *
+ * V1.9.72 -- since "Für alle beenden" sits next to "Verlassen" this dialog IS the slip protection, so it is hardened:
+ * - the keyboard focus starts on "Abbrechen" (Enter / Space right after opening cancel); the confirming button never gets the focus
+ *   or an `autofocus`;
+ * - [ConfirmOnce] fires [onConfirm] at most once (double click, fast second click while the modal fades out);
+ * - Escape and a click on the backdrop are Bootstrap's defaults (they close without confirming) and stay that way;
+ * - nothing but a click on the confirming button reaches [onConfirm].
+ * [onClosedWithoutConfirm] runs when the dialog is gone without a confirmation (focus return), [onClosed] after every close. */
+internal fun endRoomConfirmDialog(
     roomTitle: String,
+    onClosedWithoutConfirm: () -> Unit = {},
+    onClosed: () -> Unit = {},
     onConfirm: () -> Unit,
-) {
+): Modal {
     val modal = Modal(caption = tr("Besprechung für alle beenden"))
     modal.div(tr("Diese Besprechung wird für alle Teilnehmenden beendet. Fortfahren?")) { addCssClasses("fw-bold text-danger") }
     modal.div(gettext("\"%1\" wird sofort geschlossen -- alle Verbindungen werden getrennt.", roomTitle)) {
         addCssClasses("text-muted small")
     }
-    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
-    modal.addButton(
-        Button(tr("Für alle beenden"), style = ButtonStyle.DANGER).apply {
-            onClick {
-                modal.hide()
-                onConfirm()
-            }
-        },
-    )
+    var confirmed = false
+    var closeReported = false
+    val cancelButton = newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } }
+    modal.addButton(cancelButton)
+    val once = ConfirmOnce()
+    val confirmButton = newActionButton(ActionIcon.END_FOR_ALL, tr("Für alle beenden"), ButtonStyle.DANGER)
+    confirmButton.onClick {
+        once.run(confirmButton) {
+            confirmed = true
+            modal.hide()
+            onConfirm()
+        }
+    }
+    modal.addButton(confirmButton)
+    // Two moments for the focus, because Bootstrap decides the first (see `confirmDialog`): idempotent, both only focus "Abbrechen".
+    modal.addAfterInsertHook { vnode ->
+        val element = vnode.elm as? HTMLElement ?: return@addAfterInsertHook
+        element.addEventListener("shown.bs.modal", { cancelButton.getElement()?.focus() })
+        element.addEventListener(
+            "hidden.bs.modal",
+            {
+                // Bootstrap may dispatch the event more than once (its own jQuery trigger plus the native one): report the close once.
+                if (!closeReported) {
+                    closeReported = true
+                    if (!confirmed) onClosedWithoutConfirm()
+                    onClosed()
+                }
+            },
+        )
+        window.setTimeout({ cancelButton.getElement()?.focus() }, 0)
+    }
     modal.show()
+    return modal
+}
+
+/**
+ * V1.9.72 -- the re-entry guard of [endRoomConfirmDialog]: while a dialog is open (or still fading out) [show] opens no second one
+ * (autorepeat of Enter on the control, a double click, the primary control AND its twin). It is released by the dialog's own `hidden`
+ * event, whichever way the dialog was closed.
+ */
+internal class EndRoomDialogGuard {
+    var open: Boolean = false
+        private set
+    private var current: Modal? = null
+
+    /** Opens the dialog and returns it, or returns `null` (nothing opened) while one is already open. */
+    fun show(
+        roomTitle: String,
+        onClosedWithoutConfirm: () -> Unit = {},
+        onConfirm: () -> Unit,
+    ): Modal? {
+        // A dialog whose element was torn out of the document never fires `hidden`: do not stay locked forever because of it.
+        val element = current?.getElement()
+        if (open && !(element != null && !element.isConnected)) return null
+        open = true
+        return endRoomConfirmDialog(
+            roomTitle = roomTitle,
+            onClosedWithoutConfirm = onClosedWithoutConfirm,
+            onClosed = { open = false },
+            onConfirm = onConfirm,
+        ).also { current = it }
+    }
 }
 
 /** Design review D9: removing a participant is an action taken against another person without their

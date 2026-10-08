@@ -17,8 +17,8 @@ import network.lapis.cloud.shared.domain.ConferenceStreamPauseReason
 import network.lapis.cloud.shared.domain.ConferenceStreamStatus
 
 /*
- * V1.9.66 -- the bottom control bar of a conference call: moderation controls (recording, live stream, end for everyone) live in the
- * bar as their own group, the bar never wraps (what does not fit moves into the "Mehr" sheet), chat sending is an icon.
+ * V1.9.66 -- the bottom control bar of a conference call: moderation controls (recording, live stream) live in the
+ * bar as their own group (V1.9.72: "Für alle beenden" moved out of it, into the exit group next to "Verlassen"), the bar never wraps (what does not fit moves into the "Mehr" sheet), chat sending is an icon.
  *
  * This file is the testable core of that bar: pure functions (overflow order, toggle state model), the one icon-only control factory
  * ([conferenceControlButton], named R58 exception b), the moderation group and the overflow handler. It contains NO RPC call and NO
@@ -27,18 +27,21 @@ import network.lapis.cloud.shared.domain.ConferenceStreamStatus
  */
 
 /** The controls of the bar, in DOM order. */
-internal enum class ConferenceControlSlot { MIC, CAMERA, SCREEN, RECORD, STREAM, END_FOR_ALL, ROSTER, CHAT, VOTE, MORE, BACK, LEAVE }
+internal enum class ConferenceControlSlot { MIC, CAMERA, SCREEN, RECORD, STREAM, ROSTER, CHAT, VOTE, MORE, BACK, END_FOR_ALL, LEAVE }
 
 /** Group index of a slot: 0 devices, 1 moderation, 2 panels, 3 exit. A divider separates two non-empty groups. */
 internal fun conferenceControlGroup(slot: ConferenceControlSlot): Int =
     when (slot) {
         ConferenceControlSlot.MIC, ConferenceControlSlot.CAMERA, ConferenceControlSlot.SCREEN -> 0
-        ConferenceControlSlot.RECORD, ConferenceControlSlot.STREAM, ConferenceControlSlot.END_FOR_ALL -> 1
+        ConferenceControlSlot.RECORD, ConferenceControlSlot.STREAM -> 1
         ConferenceControlSlot.ROSTER, ConferenceControlSlot.CHAT, ConferenceControlSlot.VOTE, ConferenceControlSlot.MORE -> 2
-        ConferenceControlSlot.BACK, ConferenceControlSlot.LEAVE -> 3
+        ConferenceControlSlot.BACK, ConferenceControlSlot.END_FOR_ALL, ConferenceControlSlot.LEAVE -> 3
     }
 
-/** Overflow order, the first one is moved first. Never moved: MIC, CAMERA, CHAT, MORE, BACK, LEAVE. */
+/** The exit group: BACK (breakout only), END_FOR_ALL (moderator only), LEAVE. */
+internal const val CONFERENCE_EXIT_GROUP = 3
+
+/** Overflow order, the first one is moved first (END_FOR_ALL last, V1.9.72). Never moved: MIC, CAMERA, CHAT, MORE, BACK, LEAVE. */
 internal val CONFERENCE_OVERFLOW_ORDER: List<ConferenceControlSlot> =
     listOf(
         ConferenceControlSlot.VOTE,
@@ -48,6 +51,9 @@ internal val CONFERENCE_OVERFLOW_ORDER: List<ConferenceControlSlot> =
         ConferenceControlSlot.RECORD,
         ConferenceControlSlot.END_FOR_ALL,
     )
+
+/** V1.9.72: gap between the controls of the exit group (BACK, END_FOR_ALL, LEAVE); theme.css `--exit` uses the same 12 px. */
+internal const val CONFERENCE_EXIT_GAP_PX = 12.0
 
 /** Space a divider takes in the bar (1 px line + 4 px margin on each side, see theme.css). */
 internal const val CONFERENCE_DIVIDER_FOOTPRINT_PX = 9.0
@@ -71,6 +77,7 @@ internal fun conferenceControlsOverflow(
     gap: Double,
     dividerWidth: Double,
     containerGroups: Set<Int> = emptySet(),
+    exitGap: Double = CONFERENCE_EXIT_GAP_PX,
 ): Set<ConferenceControlSlot> {
     val moved = linkedSetOf<ConferenceControlSlot>()
 
@@ -82,7 +89,10 @@ internal fun conferenceControlsOverflow(
         // A group wrapper that stays rendered although all its controls moved is an empty flex item: it still takes a column gap.
         val emptyContainers = containerGroups.count { it !in shownGroups }
         val items = shown.size + (groups - 1) + emptyContainers
-        return shown.sumOf { it.width } + (groups - 1) * dividerWidth + gap * (items - 1)
+        // V1.9.72: inside the exit group the controls sit exitGap apart instead of the bar's gap.
+        val exitItems = shown.count { it.group == CONFERENCE_EXIT_GROUP }
+        val exitExtra = (exitGap - gap) * maxOf(0, exitItems - 1)
+        return shown.sumOf { it.width } + (groups - 1) * dividerWidth + gap * (items - 1) + exitExtra
     }
     for (slot in CONFERENCE_OVERFLOW_ORDER) {
         if (total() <= available) break
@@ -91,11 +101,17 @@ internal fun conferenceControlsOverflow(
     return moved
 }
 
-/** Pure invariant: "Für alle beenden" and "Verlassen" are never neighbours among the shown controls (slip protection, design D6). */
-internal fun endForAllAdjacentToLeave(shownInOrder: List<ConferenceControlSlot>): Boolean {
+/** Pure invariant (V1.9.72): "Verlassen" is the last shown control of the bar. */
+internal fun leaveIsLast(shownInOrder: List<ConferenceControlSlot>): Boolean = shownInOrder.lastOrNull() == ConferenceControlSlot.LEAVE
+
+/**
+ * Pure invariant (V1.9.72, replaces `endForAllAdjacentToLeave` of V1.9.66 on explicit request): "Verlassen" is the last shown control
+ * and "Für alle beenden", when shown, is the control directly before it. The confirmation dialog, not the distance, is the slip protection.
+ */
+internal fun endForAllImmediatelyBeforeLeave(shownInOrder: List<ConferenceControlSlot>): Boolean {
+    if (!leaveIsLast(shownInOrder)) return false
     val end = shownInOrder.indexOf(ConferenceControlSlot.END_FOR_ALL)
-    val leave = shownInOrder.indexOf(ConferenceControlSlot.LEAVE)
-    return end >= 0 && leave >= 0 && kotlin.math.abs(end - leave) == 1
+    return end < 0 || end == shownInOrder.size - 2
 }
 
 /** The state of one toggle control (recording, live stream) as the bar shows it. */
@@ -234,12 +250,11 @@ internal fun Container.conferenceControlButton(
     return button
 }
 
-/** The group of the moderator's controls in the bar: record, live stream, end for everyone. */
+/** The group of the moderator's controls in the bar: record, live stream ("Für alle beenden" sits in the exit group since V1.9.72). */
 internal class ConferenceModerationGroup internal constructor(
     val root: Div,
     val recordButton: Button,
     val streamButton: Button,
-    val endButton: Button,
     private val recordBadge: Span,
     private val streamBadge: Span,
     private val recordSpinner: Span,
@@ -302,8 +317,8 @@ internal class ConferenceModerationGroup internal constructor(
         renderStream()
     }
 
-    /** All three controls hidden: the divider before the group is suppressed. */
-    fun isEmpty(): Boolean = !recordButton.visible && !streamButton.visible && !endButton.visible
+    /** Both controls hidden: the divider before the group is suppressed. */
+    fun isEmpty(): Boolean = !recordButton.visible && !streamButton.visible
 
     private fun renderRecording() {
         val view = recordingView
@@ -375,7 +390,7 @@ internal class ConferenceModerationGroup internal constructor(
  * Builds the moderation group inside the bar. Returns `null` when [canModerate] is false (plain participant, every breakout room):
  * nothing is rendered, no empty group, no divider.
  *
- * The three controls carry a FIXED noun as accessible name ("Aufzeichnung", "Live-Stream", "Für alle beenden") and show their state
+ * The two controls carry a FIXED noun as accessible name ("Aufzeichnung", "Live-Stream") and show their state
  * through `aria-pressed`; the verb that a click would run is the tooltip. Recording and live stream start hidden until availability
  * is known ([ConferenceModerationGroup.setRecordingAvailable]).
  */
@@ -383,7 +398,6 @@ internal fun Container.conferenceModerationGroup(
     canModerate: Boolean,
     onRecord: () -> Unit,
     onStream: () -> Unit,
-    onEndForAll: () -> Unit,
 ): ConferenceModerationGroup? {
     if (!canModerate) return null
     val root = div(className = "lapis-conference-controls-group")
@@ -395,7 +409,6 @@ internal fun Container.conferenceModerationGroup(
     val stream = root.conferenceControlButton(ActionIcon.BROADCAST, tr("Live-Stream"))
     val streamBadge = stream.span("◆", className = "lapis-conference-control-badge")
     val streamSpinner = stream.span(className = "lapis-conference-control-spinner fas fa-spinner fa-spin")
-    val end = root.conferenceControlButton(ActionIcon.END_FOR_ALL, tr("Für alle beenden"), ButtonStyle.OUTLINEDANGER)
     for (spinner in listOf(recordSpinner, streamSpinner)) {
         spinner.setAttribute("aria-hidden", "true")
         spinner.hide()
@@ -405,9 +418,71 @@ internal fun Container.conferenceModerationGroup(
     stream.hide()
     record.onClick { onRecord() }
     stream.onClick { onStream() }
-    end.onClick { onEndForAll() }
-    return ConferenceModerationGroup(root, record, stream, end, recordBadge, streamBadge, recordSpinner, streamSpinner)
+    return ConferenceModerationGroup(root, record, stream, recordBadge, streamBadge, recordSpinner, streamSpinner)
 }
+
+/** The exit group of the bar (V1.9.72): back to the main room (breakout only), end for everyone (moderator, main room only), leave. */
+internal class ConferenceExitGroup internal constructor(
+    val root: Div,
+    val backButton: Button?,
+    val endButton: Button?,
+    val leaveButton: Button,
+)
+
+/**
+ * V1.9.72 -- builds the exit group: [Zurück zum Hauptraum] (only [isBreakout]), [Für alle beenden] (only [canEndForAll] and never in a
+ * breakout), [Verlassen] -- "Verlassen" is always the last control. 12 px between the controls (theme.css `--exit`), no divider.
+ *
+ * "Für alle beenden" only calls [onEndForAll]; the caller routes that to the confirmation dialog (`endRoomConfirmDialog`), there is no other
+ * path to `endRoom`. The server still decides who may end a room; this only hides the control. [onLeave] / [onBack] are optional: the
+ * call screen attaches its own handlers once its session exists.
+ */
+internal fun Container.conferenceExitGroup(
+    canEndForAll: Boolean,
+    isBreakout: Boolean,
+    onEndForAll: () -> Unit,
+    onLeave: (() -> Unit)? = null,
+    onBack: (() -> Unit)? = null,
+): ConferenceExitGroup {
+    val root = div(className = "lapis-conference-controls-group lapis-conference-controls-group--exit")
+    root.setAttribute("role", "group")
+    root.setAttribute("aria-label", gettext("Besprechung"))
+    // Inside a breakout "Zurück zum Hauptraum" is the frequent, low-stakes action (PRIMARY), "ganz verlassen" the heavier one.
+    val back =
+        if (isBreakout) {
+            root.conferenceControlButton(ActionIcon.BACK, tr("Zurück zum Hauptraum"), ButtonStyle.PRIMARY).also { button ->
+                onBack?.let { button.onClick { it() } }
+            }
+        } else {
+            null
+        }
+    val end =
+        if (canEndForAll && !isBreakout) {
+            root.conferenceControlButton(ActionIcon.END_FOR_ALL, tr("Für alle beenden"), ButtonStyle.OUTLINEDANGER).also { button ->
+                button.onClick { onEndForAll() }
+            }
+        } else {
+            null
+        }
+    val leave =
+        root.conferenceControlButton(
+            ActionIcon.HANG_UP,
+            if (isBreakout) tr("Besprechung ganz verlassen") else tr("Verlassen"),
+            ButtonStyle.DANGER,
+        )
+    onLeave?.let { leave.onClick { it() } }
+    return ConferenceExitGroup(root, back, end, leave)
+}
+
+/**
+ * V1.9.72 -- the labelled twin of "Für alle beenden" in the "Mehr" sheet (the control moves there LAST when the bar is too narrow). It
+ * stands last in the sheet, set apart by a rule and in the danger colour (theme.css `.lapis-conference-twin-end`). The caller wires the
+ * click to the primary control, so there is exactly one path to the confirmation dialog.
+ */
+internal fun Container.conferenceEndForAllTwin(): Button =
+    actionButton(ActionIcon.END_FOR_ALL, tr("Für alle beenden"), ButtonStyle.OUTLINEDANGER) {
+        addCssClasses("lapis-conference-twin-end text-danger")
+    }
 
 /** The four controls of the dock bar (V1.9.70), built once; the bar only toggles their state. */
 internal class DockBarControls internal constructor(
@@ -544,7 +619,7 @@ internal class ConferenceControlsOverflow(
         for (s in slots) {
             val el = s.primary.getElement()
             if (el != null && el.offsetWidth > 0) {
-                // The bounding box excludes CSS margins (e.g. `ms-2` on the leave / back buttons), the row still has to hold them.
+                // The bounding box excludes CSS margins, the row still has to hold them.
                 val cs = window.getComputedStyle(el)
                 widths[s.slot] = el.getBoundingClientRect().width + parsePx(cs.marginLeft) + parsePx(cs.marginRight)
             }

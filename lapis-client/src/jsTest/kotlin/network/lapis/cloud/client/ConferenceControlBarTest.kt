@@ -28,13 +28,14 @@ class ConferenceControlBarTest {
             if (moderator) {
                 add(ConferenceControlSlot.RECORD)
                 add(ConferenceControlSlot.STREAM)
-                add(ConferenceControlSlot.END_FOR_ALL)
             }
             add(ConferenceControlSlot.ROSTER)
             add(ConferenceControlSlot.CHAT)
             if (vote) add(ConferenceControlSlot.VOTE)
             add(ConferenceControlSlot.MORE)
             if (back) add(ConferenceControlSlot.BACK)
+            // V1.9.72: "Für alle beenden" belongs to the exit group, directly before "Verlassen" (main room only).
+            if (moderator && !back) add(ConferenceControlSlot.END_FOR_ALL)
             add(ConferenceControlSlot.LEAVE)
         }.map { ConferenceControlMeasure(it, control, conferenceControlGroup(it)) }
 
@@ -67,6 +68,7 @@ class ConferenceControlBarTest {
     @Test
     fun overflow_movesStrictlyInThePriorityOrder_asAPrefix() {
         // Walk the width down: whatever moves is always a PREFIX of the order (vote, screen, roster, stream, record, end).
+        // End for everyone moves LAST (V1.9.72): it is the control next to "Verlassen".
         var width = 1200.0
         while (width >= 200.0) {
             val moved = conferenceControlsOverflow(width, measures(), gap, divider)
@@ -98,7 +100,8 @@ class ConferenceControlBarTest {
         // What stays fits: sum of widths + gaps + dividers <= available.
         val shown = measures().filter { it.slot !in moved }
         val groups = shown.map { it.group }.distinct().size
-        val total = shown.sumOf { it.width } + (groups - 1) * divider + gap * (shown.size + groups - 2)
+        val exitExtra = (CONFERENCE_EXIT_GAP_PX - gap) * maxOf(0, shown.count { it.group == CONFERENCE_EXIT_GROUP } - 1)
+        val total = shown.sumOf { it.width } + (groups - 1) * divider + gap * (shown.size + groups - 2) + exitExtra
         assertTrue(total <= 344.0, "total $total")
     }
 
@@ -127,36 +130,89 @@ class ConferenceControlBarTest {
     }
 
     @Test
-    fun endForAll_isNeverAdjacentToLeave_forEveryWidthAndRole() {
+    fun endForAll_isImmediatelyBeforeLeave_forEveryWidthAndRole() {
         val domOrder = ConferenceControlSlot.entries
+        var checked = 0
         for (moderator in listOf(true, false)) {
             for (screen in listOf(true, false)) {
                 for (vote in listOf(true, false)) {
                     for (back in listOf(true, false)) {
-                        var width = 300
+                        var width = 200
                         while (width <= 1200) {
                             val all = measures(moderator, screen, vote, back)
                             val moved = conferenceControlsOverflow(width.toDouble(), all, gap, divider)
                             val shown = domOrder.filter { slot -> all.any { it.slot == slot } && slot !in moved }
-                            assertFalse(endForAllAdjacentToLeave(shown), "width $width moderator $moderator screen $screen vote $vote")
+                            val context = "width $width moderator $moderator screen $screen vote $vote back $back: $shown"
+                            assertTrue(endForAllImmediatelyBeforeLeave(shown), context)
+                            assertTrue(leaveIsLast(shown), context)
+                            checked++
                             width += 10
                         }
                     }
                 }
             }
         }
+        assertTrue(checked > 500, "the sweep really ran: $checked")
     }
 
     @Test
-    fun endForAllAdjacentToLeave_detectsAdjacency() {
-        assertTrue(endForAllAdjacentToLeave(listOf(ConferenceControlSlot.END_FOR_ALL, ConferenceControlSlot.LEAVE)))
-        assertTrue(endForAllAdjacentToLeave(listOf(ConferenceControlSlot.LEAVE, ConferenceControlSlot.END_FOR_ALL)))
-        assertFalse(
-            endForAllAdjacentToLeave(
-                listOf(ConferenceControlSlot.END_FOR_ALL, ConferenceControlSlot.CHAT, ConferenceControlSlot.LEAVE),
-            ),
+    fun endForAllImmediatelyBeforeLeave_detectsAWrongOrder() {
+        val end = ConferenceControlSlot.END_FOR_ALL
+        val leave = ConferenceControlSlot.LEAVE
+        assertTrue(endForAllImmediatelyBeforeLeave(listOf(ConferenceControlSlot.CHAT, end, leave)))
+        assertTrue(endForAllImmediatelyBeforeLeave(listOf(ConferenceControlSlot.BACK, end, leave)))
+        assertTrue(endForAllImmediatelyBeforeLeave(listOf(ConferenceControlSlot.CHAT, leave)), "no end control: only LEAVE-last counts")
+        // Beenden -> Chat -> Verlassen
+        assertFalse(endForAllImmediatelyBeforeLeave(listOf(end, ConferenceControlSlot.CHAT, leave)))
+        // Verlassen vor Beenden
+        assertFalse(endForAllImmediatelyBeforeLeave(listOf(leave, end)))
+        assertFalse(endForAllImmediatelyBeforeLeave(listOf(ConferenceControlSlot.CHAT, end)), "no LEAVE at all")
+        assertFalse(leaveIsLast(listOf(leave, ConferenceControlSlot.CHAT)))
+        assertTrue(leaveIsLast(listOf(ConferenceControlSlot.CHAT, leave)))
+    }
+
+    @Test
+    fun endForAll_movesLast_andLeaveAndBackNever() {
+        assertEquals(ConferenceControlSlot.END_FOR_ALL, CONFERENCE_OVERFLOW_ORDER.last())
+        assertFalse(ConferenceControlSlot.LEAVE in CONFERENCE_OVERFLOW_ORDER)
+        assertFalse(ConferenceControlSlot.BACK in CONFERENCE_OVERFLOW_ORDER)
+        // The narrowest width still keeps LEAVE; END_FOR_ALL is gone only after everything else that can move has moved.
+        val moved = conferenceControlsOverflow(60.0, measures(), gap, divider)
+        assertEquals(CONFERENCE_OVERFLOW_ORDER.toSet(), moved)
+        assertFalse(ConferenceControlSlot.LEAVE in moved)
+    }
+
+    @Test
+    fun theExitGroup_isGroupThree_andEndForAllNoLongerSharesTheModerationGroup() {
+        assertEquals(3, conferenceControlGroup(ConferenceControlSlot.END_FOR_ALL))
+        assertEquals(3, conferenceControlGroup(ConferenceControlSlot.LEAVE))
+        assertEquals(3, conferenceControlGroup(ConferenceControlSlot.BACK))
+        assertEquals(1, conferenceControlGroup(ConferenceControlSlot.RECORD))
+        assertEquals(1, conferenceControlGroup(ConferenceControlSlot.STREAM))
+    }
+
+    @Test
+    fun exitGap_isCounted_exactFitStays_oneLessMovesEndForAll() {
+        // Only the exit group remains besides the fixed controls: shown = MIC, CAMERA, CHAT, MORE (groups 0, 2) + END, LEAVE (group 3).
+        val fixed =
+            listOf(
+                ConferenceControlSlot.MIC,
+                ConferenceControlSlot.CAMERA,
+                ConferenceControlSlot.CHAT,
+                ConferenceControlSlot.MORE,
+                ConferenceControlSlot.END_FOR_ALL,
+                ConferenceControlSlot.LEAVE,
+            ).map { ConferenceControlMeasure(it, control, conferenceControlGroup(it)) }
+        // 6 controls, 3 groups -> 2 dividers, 5 + 2 = 7 items... items = shown(6) + (groups-1)(2) = 8, gaps = 7; one exit gap is 12, not 6.
+        val exact = 6 * control + 2 * divider + gap * 7 + (CONFERENCE_EXIT_GAP_PX - gap)
+        assertEquals(emptySet(), conferenceControlsOverflow(exact, fixed, gap, divider), "an exact fit moves nothing")
+        assertEquals(
+            setOf(ConferenceControlSlot.END_FOR_ALL),
+            conferenceControlsOverflow(exact - 1.0, fixed, gap, divider),
+            "1 px less: only END_FOR_ALL moves",
         )
-        assertFalse(endForAllAdjacentToLeave(listOf(ConferenceControlSlot.LEAVE)))
+        // Without the 12 px gap the same width would still fit -- the gap is really counted.
+        assertEquals(emptySet(), conferenceControlsOverflow(exact - 1.0, fixed, gap, divider, exitGap = gap))
     }
 
     // ── toggle state model ───────────────────────────────────────────────────────────────────────

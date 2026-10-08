@@ -37,6 +37,13 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **"Für alle beenden" now sits at the very end of the conference bar, directly next to "Verlassen" (V1.9.72).** On explicit request of the project owner; this **reverses the V1.9.66
+  safeguard** that kept the two apart (the old text in `ui-ux-guideline.adoc` is marked as superseded, not rewritten). The bar's exit group is [Zurück zum Hauptraum, breakout only]
+  [Für alle beenden, moderator in the main room only] [Verlassen, always last] with 12 px between the controls and no divider; the moderation group keeps only recording and
+  live stream. The confirmation stays and is hardened: the keyboard focus starts on "Abbrechen", a double click or a fast second click ends the meeting only once, and a second
+  trigger while the dialog is open opens no second dialog; after cancelling, the focus returns to the control. On a narrow bar "Für alle beenden" moves into the "Mehr" sheet
+  *last*, shown last, in the danger colour and set apart by a rule; "Verlassen" never moves. Client only, no server or text change. **Not tested on real devices, Safari or iOS**;
+  the bar's width model counts conservatively, so a moderator's bar narrower than about 390 px already shows the control in the sheet.
 - **From 768 px the floating window is the default presentation of a background conference** instead of the mini bar of V1.9.70; after that the person's last choice counts.
   Below 768 px (phones) nothing changes: the mini bar.
 - **The two live regions moved out of the mini bar** into `conferenceDockAnnouncer()` (the bar is `display: none` while the window floats and a region in `display: none` is not

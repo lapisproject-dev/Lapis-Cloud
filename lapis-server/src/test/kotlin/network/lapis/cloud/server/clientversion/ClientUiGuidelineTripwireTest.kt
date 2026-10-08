@@ -149,12 +149,10 @@ private val BASELINE: Map<String, Map<String, List<String>>> =
                 // W5 conference
                 "ConferenceScreen.kt" to
                     listOf(
-                        "controlsRow.button(\"\", icon = \"fas fa-arrow-left\", style = ButtonStyle.PRIMARY).apply { addCssClass(\"ms-2\") }",
                         "controlsRow.button(\"\", icon = \"fas fa-display\", style = ButtonStyle.OUTLINESECONDARY)",
                         "overlayControls.button(\"\", icon = \"fas fa-expand\", style = ButtonStyle.OUTLINESECONDARY) { addCssClass(\"btn-sm\") }",
                         "val cameraButton = controlsRow.button(\"\", icon = \"fas fa-video\", style = ButtonStyle.OUTLINESECONDARY)",
                         "val chatToggleButton = controlsRow.button(\"\", icon = \"fas fa-comments\", style = ButtonStyle.OUTLINESECONDARY)",
-                        "val leaveButton = controlsRow.button(\"\", icon = \"fas fa-phone-slash\", style = ButtonStyle.DANGER)",
                         "val micButton = controlsRow.button(\"\", icon = \"fas fa-microphone\", style = ButtonStyle.OUTLINESECONDARY)",
                         "val moreToggleButton = controlsRow.button(\"\", icon = \"fas fa-ellipsis\", style = ButtonStyle.OUTLINESECONDARY)",
                         "val rosterToggleButton = controlsRow.button(\"\", icon = \"fas fa-users\", style = ButtonStyle.OUTLINESECONDARY)",

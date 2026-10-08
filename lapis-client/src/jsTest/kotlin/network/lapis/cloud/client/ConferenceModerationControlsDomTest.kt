@@ -37,7 +37,7 @@ class ConferenceModerationControlsDomTest {
     @Test
     fun aPlainParticipant_getsNoGroupAndNoEmptyGroupInTheDom() {
         withMountedRoot("moderation-none") { root, element ->
-            val group = root.conferenceModerationGroup(canModerate = false, onRecord = {}, onStream = {}, onEndForAll = {})
+            val group = root.conferenceModerationGroup(canModerate = false, onRecord = {}, onStream = {})
             assertNull(group)
             assertNull(element().querySelector("[role=group][aria-label='Moderation']"))
             assertNull(element().querySelector("button"))
@@ -45,24 +45,25 @@ class ConferenceModerationControlsDomTest {
     }
 
     @Test
-    fun aModerator_getsTheGroupWithThreeNamedControls() {
+    fun aModerator_getsTheGroupWithTwoNamedControls_andNoEndForAll() {
         assertTrue(stylesLoaded)
         withMountedRoot("moderation-group") { root, element ->
-            val group = assertNotNull(root.conferenceModerationGroup(true, {}, {}, {}))
+            val group = assertNotNull(root.conferenceModerationGroup(true, {}, {}))
             group.setRecordingAvailable(true)
             group.setStreamingAvailable(true)
             val host = element()
             val box = host.q("[role=group][aria-label='Moderation']")
-            assertEquals(3, box.querySelectorAll("button").length)
-            for (name in listOf("Aufzeichnung", "Live-Stream", "Für alle beenden")) host.byLabel(name)
-            assertNull(host.byLabel("Für alle beenden").getAttribute("aria-pressed"), "ending is an action, not a state")
+            assertEquals(2, box.querySelectorAll("button").length)
+            for (name in listOf("Aufzeichnung", "Live-Stream")) host.byLabel(name)
+            // V1.9.72: "Für alle beenden" lives in the exit group next to "Verlassen", not in the moderation group
+            assertNull(host.querySelector("button[aria-label='Für alle beenden']"))
         }
     }
 
     @Test
     fun recordingAndStreamingStayHidden_notDisabled_whileTheyAreNotConfigured() {
         withMountedRoot("moderation-unconfigured") { root, element ->
-            val group = assertNotNull(root.conferenceModerationGroup(true, {}, {}, {}))
+            val group = assertNotNull(root.conferenceModerationGroup(true, {}, {}))
             val host = element()
             // A hidden KVision widget is not rendered at all: no control to click, nothing disabled and confusing.
             assertNull(host.querySelector("button[aria-label='Aufzeichnung']"))
@@ -78,7 +79,7 @@ class ConferenceModerationControlsDomTest {
     @Test
     fun recordingState_isShownByPressedRingBadgeAndVerb() {
         withMountedRoot("moderation-recording-state") { root, element ->
-            val group = assertNotNull(root.conferenceModerationGroup(true, {}, {}, {}))
+            val group = assertNotNull(root.conferenceModerationGroup(true, {}, {}))
             group.setRecordingAvailable(true)
             val host = element()
             val button = { host.byLabel("Aufzeichnung") }
@@ -104,7 +105,7 @@ class ConferenceModerationControlsDomTest {
     @Test
     fun streamState_isShownLikewise_withTheDiamondSign() {
         withMountedRoot("moderation-stream-state") { root, element ->
-            val group = assertNotNull(root.conferenceModerationGroup(true, {}, {}, {}))
+            val group = assertNotNull(root.conferenceModerationGroup(true, {}, {}))
             group.setStreamingAvailable(true)
             val host = element()
             group.applyStream(streamToggleView(ConferenceStreamStatus.LIVE, null, canStart = false))
@@ -124,7 +125,7 @@ class ConferenceModerationControlsDomTest {
         assertTrue(stylesLoaded)
         withMountedRoot("moderation-busy") { root, element ->
             val bar = root.hPanel(spacing = 6) { addCssClasses("lapis-conference-controls-row") }
-            val group = assertNotNull(bar.conferenceModerationGroup(true, {}, {}, {}))
+            val group = assertNotNull(bar.conferenceModerationGroup(true, {}, {}))
             group.setRecordingAvailable(true)
             val host = element()
             val button = { host.byLabel("Aufzeichnung") }
@@ -179,7 +180,6 @@ class ConferenceModerationControlsDomTest {
                         true,
                         onRecord = { calls += "record" },
                         onStream = { calls += "stream" },
-                        onEndForAll = { calls += "end" },
                     ),
                 )
             group.setRecordingAvailable(true)
@@ -187,8 +187,7 @@ class ConferenceModerationControlsDomTest {
             val host = element()
             host.byLabel("Aufzeichnung").click()
             host.byLabel("Live-Stream").click()
-            host.byLabel("Für alle beenden").click()
-            assertEquals(listOf("record", "stream", "end"), calls)
+            assertEquals(listOf("record", "stream"), calls)
         }
     }
 
@@ -197,11 +196,11 @@ class ConferenceModerationControlsDomTest {
         assertTrue(stylesLoaded)
         withMountedRoot("moderation-keyboard") { root, element ->
             val bar = root.hPanel(spacing = 6) { addCssClasses("lapis-conference-controls-row") }
-            val group = assertNotNull(bar.conferenceModerationGroup(true, {}, {}, {}))
+            val group = assertNotNull(bar.conferenceModerationGroup(true, {}, {}))
             group.setRecordingAvailable(true)
             group.setStreamingAvailable(true)
             val host = element()
-            for (name in listOf("Aufzeichnung", "Live-Stream", "Für alle beenden")) {
+            for (name in listOf("Aufzeichnung", "Live-Stream")) {
                 val button = host.byLabel(name)
                 assertTrue(button.tabIndex >= 0, "$name is reachable by Tab")
                 val style = window.getComputedStyle(button)
@@ -211,6 +210,94 @@ class ConferenceModerationControlsDomTest {
             // The focus ring comes from one theme.css rule (the headless page has no keyboard modality to match :focus-visible).
             val css = themeRuleText()
             assertTrue(css.contains(".lapis-conference-controls-row .btn:focus-visible"), "focus-visible rule for the bar")
+        }
+    }
+
+    // ── V1.9.72: the exit group ──────────────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun exitGroup_moderatorInTheMainRoom_showsEndForAllAndLeave_noBack() {
+        assertTrue(stylesLoaded)
+        withMountedRoot("exit-moderator") { root, element ->
+            val exit = root.conferenceExitGroup(canEndForAll = true, isBreakout = false, onEndForAll = {})
+            val host = element()
+            assertNotNull(exit.endButton)
+            assertNull(exit.backButton)
+            host.byLabel("Für alle beenden")
+            host.byLabel("Verlassen")
+            val labels = host.q(".lapis-conference-controls-group--exit").allOf("button").map { it.getAttribute("aria-label") }
+            assertEquals(listOf("Für alle beenden", "Verlassen"), labels, "Verlassen is the last control")
+            assertNull(host.byLabel("Für alle beenden").getAttribute("aria-pressed"), "ending is an action, not a state")
+        }
+    }
+
+    @Test
+    fun exitGroup_participant_hasNoEndForAll() {
+        withMountedRoot("exit-participant") { root, element ->
+            val exit = root.conferenceExitGroup(canEndForAll = false, isBreakout = false, onEndForAll = {})
+            assertNull(exit.endButton)
+            assertNull(element().querySelector("button[aria-label='Für alle beenden']"))
+            element().byLabel("Verlassen")
+        }
+    }
+
+    @Test
+    fun exitGroup_breakout_hasNoEndForAll_evenForAModerator_butBackAndTheLongerLeaveLabel() {
+        withMountedRoot("exit-breakout") { root, element ->
+            val exit = root.conferenceExitGroup(canEndForAll = true, isBreakout = true, onEndForAll = {})
+            assertNull(exit.endButton, "never in a breakout, whatever the role")
+            assertNotNull(exit.backButton)
+            val host = element()
+            assertNull(host.querySelector("button[aria-label='Für alle beenden']"))
+            host.byLabel("Zurück zum Hauptraum")
+            host.byLabel("Besprechung ganz verlassen")
+        }
+    }
+
+    @Test
+    fun exitGroup_clickOnEndForAll_callsOnlyOnEndForAll_notLeave() {
+        withMountedRoot("exit-clicks") { root, element ->
+            val calls = mutableListOf<String>()
+            root.conferenceExitGroup(
+                canEndForAll = true,
+                isBreakout = false,
+                onEndForAll = { calls += "end" },
+                onLeave = { calls += "leave" },
+            )
+            val host = element()
+            host.byLabel("Für alle beenden").click()
+            assertEquals(listOf("end"), calls)
+            host.byLabel("Verlassen").click()
+            assertEquals(listOf("end", "leave"), calls)
+        }
+    }
+
+    @Test
+    fun exitGroup_hasTheOutlineAndTheFilledDangerStyle_andTheGapOf12px() {
+        assertTrue(stylesLoaded)
+        withMountedRoot("exit-style") { root, element ->
+            val bar = root.hPanel(spacing = 6) { addCssClasses("lapis-conference-controls-row") }
+            bar.conferenceExitGroup(canEndForAll = true, isBreakout = false, onEndForAll = {})
+            val host = element()
+            // two near-identical destructive actions never look the same (Tesler): outline vs filled
+            assertTrue(host.byLabel("Für alle beenden").classList.contains("btn-outline-danger"))
+            assertTrue(host.byLabel("Verlassen").classList.contains("btn-danger"))
+            assertEquals("12px", window.getComputedStyle(host.q(".lapis-conference-controls-group--exit")).columnGap)
+            // the icons differ (power-off vs phone-slash)
+            assertTrue(
+                host
+                    .byLabel("Für alle beenden")
+                    .q("i")
+                    .className
+                    .contains("fa-power-off"),
+            )
+            assertTrue(
+                host
+                    .byLabel("Verlassen")
+                    .q("i")
+                    .className
+                    .contains("fa-phone-slash"),
+            )
         }
     }
 

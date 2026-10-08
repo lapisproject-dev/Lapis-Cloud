@@ -81,12 +81,13 @@ private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
             ),
         "ConferenceScreen.kt" to
             (
-                8 to
+                9 to
                     "role=alert banners (hidden first; the live call path cannot be mounted in a test, so they were not converted), " +
                     "roster/chat badges (raw child, next add patches), stage/grid zones " +
                     "(first fire is the replacement, before any tile exists), setStaticA11yLabel/" +
                     "setDynamicA11yTitle (getElement() ?: hook idiom); V1.9.66: the chatRow Enter hook is gone (shared chat composer " +
-                    "wires KVision events)"
+                    "wires KVision events); V1.9.72: endRoomConfirmDialog -- registered on a Modal created in the same call, before it " +
+                    "has an element, it only focuses 'Abbrechen' and reports the close (hidden.bs.modal); covered by EndRoomConfirmDialogDomTest"
             ),
         "MemberMapScreen.kt" to
             (

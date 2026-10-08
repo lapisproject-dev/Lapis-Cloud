@@ -256,7 +256,7 @@ private val R57_LEDGER: Map<String, LedgerEntry> =
         "S3:App.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_2),
         "S3:ClientVersionWatcher.kt" to LedgerEntry(count = 1, reason = REASON_CLASSNAME),
         "S3:ConferenceBackgroundSection.kt" to LedgerEntry(count = 2, reason = REASON_DOMAIN_ICON_3),
-        "S3:ConferenceScreen.kt" to LedgerEntry(count = 11, reason = REASON_DOMAIN_ICON_4),
+        "S3:ConferenceScreen.kt" to LedgerEntry(count = 9, reason = REASON_DOMAIN_ICON_4),
         "S3:ConferenceVotePanel.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_5),
         "S3:DocumentsScreen.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_6),
         "S3:MailingListRows.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_7),
@@ -288,6 +288,22 @@ internal fun callsByEnclosingFunction(
         val enclosing =
             (index downTo 0).firstNotNullOfOrNull { TOP_LEVEL_FUN.find(lines[it])?.groupValues?.get(1) } ?: "<none>"
         result.merge(enclosing, 1, Int::plus)
+    }
+    return result
+}
+
+/** The uses of [token] in [source] as `enclosing top-level function -> count` (comment lines blanked). */
+internal fun usesByEnclosingFunction(
+    source: String,
+    token: String,
+): Map<String, Int> {
+    val lines = codeLines(source)
+    val result = mutableMapOf<String, Int>()
+    lines.forEachIndexed { index, line ->
+        val uses = Regex(Regex.escape(token) + """\b""").findAll(line).count()
+        if (uses == 0) return@forEachIndexed
+        val enclosing = (index downTo 0).firstNotNullOfOrNull { TOP_LEVEL_FUN.find(lines[it])?.groupValues?.get(1) } ?: "<none>"
+        result.merge(enclosing, uses, Int::plus)
     }
     return result
 }
@@ -501,15 +517,18 @@ class ClientToolbarIconTripwireTest :
         }
 
         test(
-            "R58 (V1.9.66, extended V1.9.70): conferenceControlButton is only used inside ConferenceControlBar.kt " +
-                "(the moderation group: three controls, the dock bar: four controls)",
+            "R58 (V1.9.66, extended V1.9.70 and V1.9.72): conferenceControlButton is only used inside ConferenceControlBar.kt " +
+                "(the moderation group: two controls, the exit group: three controls, the dock bar: four controls)",
         ) {
             val actual =
                 clientFiles()
                     .associate { it.name to callsByEnclosingFunction(source = it.readText(), name = "conferenceControlButton") }
                     .filterValues { it.isNotEmpty() }
             actual shouldBe
-                mapOf("ConferenceControlBar.kt" to mapOf("conferenceModerationGroup" to 3, "conferenceDockBarControls" to 4))
+                mapOf(
+                    "ConferenceControlBar.kt" to
+                        mapOf("conferenceModerationGroup" to 2, "conferenceExitGroup" to 3, "conferenceDockBarControls" to 4),
+                )
         }
 
         test("V1.9.66: the bar of the conference call never wraps; the chat composer overrides the narrow-width wrap of a toolbar") {
@@ -553,8 +572,9 @@ class ClientToolbarIconTripwireTest :
         test("V1.9.66: the bar's wiring keeps every confirmation, the receipt lock on the end-for-all twin, and the observer teardown") {
             val screen = clientFiles().first { it.name == "ConferenceScreen.kt" }.readText()
             val endHandler = screen.substring(screen.indexOf("endForAllClick = click@{"))
-            withClue("end for everyone asks first (endRoomConfirmDialog before endRoom)") {
-                (endHandler.indexOf("endRoomConfirmDialog(") in 0 until endHandler.indexOf("endRoom(")) shouldBe true
+            withClue("end for everyone asks first (the dialog guard, which opens endRoomConfirmDialog, before endRoom)") {
+                (endHandler.indexOf("endDialogGuard.show(") in 0 until endHandler.indexOf("endRoom(")) shouldBe true
+                screen.substring(screen.indexOf("internal class EndRoomDialogGuard")).contains("endRoomConfirmDialog(") shouldBe true
             }
             withClue("the twin of 'Für alle beenden' in the sheet is locked together with the primary during a receipt") {
                 screen.contains("buttons = listOf(leaveButton, endButton, endTwin, backToMainButton)") shouldBe true
@@ -571,6 +591,88 @@ class ClientToolbarIconTripwireTest :
             withClue("'Mehr' names a recording / stream whose control sits in the sheet, and the observer is disconnected with the call") {
                 screen.contains("conferenceMoreButtonLabel(") shouldBe true
                 screen.contains("overflow.dispose()") shouldBe true
+            }
+        }
+
+        // ── V1.9.72: "Für alle beenden" next to "Verlassen" -- the dialog, not the distance, is the slip protection ─────────────────
+
+        test("V1.9.72 detector: a use of a token is attributed to its enclosing top-level function, comments are exempt") {
+            val source =
+                """
+                internal fun Container.conferenceExitGroup(a: Int): ConferenceExitGroup {
+                    val end = root.conferenceControlButton(ActionIcon.END_FOR_ALL, x, y)
+                    return end
+                }
+
+                private fun endRoomConfirmDialog() {
+                    // ActionIcon.END_FOR_ALL in a comment
+                    val b = newActionButton(ActionIcon.END_FOR_ALL, x, y)
+                }
+                """.trimIndent()
+            usesByEnclosingFunction(source = source, token = "ActionIcon.END_FOR_ALL") shouldBe
+                mapOf("conferenceExitGroup" to 1, "endRoomConfirmDialog" to 1)
+        }
+
+        test("V1.9.72: ActionIcon.END_FOR_ALL is used in exactly three places -- exit group, sheet twin, dialog confirmation") {
+            val actual =
+                clientFiles()
+                    .associate { it.name to usesByEnclosingFunction(source = it.readText(), token = "ActionIcon.END_FOR_ALL") }
+                    .filterValues { it.isNotEmpty() }
+            withClue("the end-for-all symbol belongs to these three places and nowhere else (no second button, no shortcut): $actual") {
+                actual shouldBe
+                    mapOf(
+                        "ConferenceControlBar.kt" to mapOf("conferenceExitGroup" to 1, "conferenceEndForAllTwin" to 1),
+                        "ConferenceScreen.kt" to mapOf("endRoomConfirmDialog" to 1),
+                    )
+            }
+        }
+
+        test("V1.9.72: endRoom is called once, inside the confirm block behind the dialog guard -- no other trigger") {
+            val calls =
+                clientFiles()
+                    .associate { file -> file.name to codeLines(file.readText()).count { it.contains(".endRoom(") } }
+                    .filterValues { it > 0 }
+            calls shouldBe mapOf("ConferenceScreen.kt" to 1)
+            val screen = clientFiles().first { it.name == "ConferenceScreen.kt" }.readText()
+            val handler = screen.substring(screen.indexOf("endForAllClick = click@{"))
+            val guard = handler.indexOf("endDialogGuard.show(")
+            val call = handler.indexOf(".endRoom(")
+            withClue("endRoom( must sit in the trailing onConfirm block of endDialogGuard.show(...)") {
+                (guard in 0 until call) shouldBe true
+            }
+            // no click handler of the exit group or any twin reaches endRoom except through endForAllClick
+            screen.contains("onEndForAll = { endForAllClick() }") shouldBe true
+        }
+
+        test("V1.9.72: the dialog focuses 'Abbrechen', fires once and never autofocuses the confirming button") {
+            val screen = clientFiles().first { it.name == "ConferenceScreen.kt" }.readText()
+            val dialog = screen.substring(screen.indexOf("internal fun endRoomConfirmDialog("))
+            val body = dialog.substring(0, dialog.indexOf("internal class EndRoomDialogGuard"))
+            withClue("endRoomConfirmDialog: ConfirmOnce, focus on cancelButton, no autofocus") {
+                body.contains("ConfirmOnce()") shouldBe true
+                body.contains("once.run(confirmButton)") shouldBe true
+                body.contains("cancelButton.getElement()?.focus()") shouldBe true
+                body.contains("shown.bs.modal") shouldBe true
+                codeLines(body).any { it.contains("autofocus", ignoreCase = true) } shouldBe false
+                codeLines(body).any { it.contains("confirmButton") && it.contains("focus()") } shouldBe false
+                // Escape / backdrop stay Bootstrap's defaults
+                codeLines(body).any { it.contains("static") || it.contains("keyboard") } shouldBe false
+            }
+        }
+
+        test("V1.9.72: the exit group has no ms-2 margin hack and keeps its 12 px gap; Verlassen is a conference control button") {
+            val screen = clientFiles().first { it.name == "ConferenceScreen.kt" }.readText()
+            codeLines(screen).any { it.contains("leaveButton.addCssClass(\"ms-2\")") } shouldBe false
+            codeLines(screen).any { it.contains("addCssClass(\"ms-2\")") && it.contains("arrow-left") } shouldBe false
+            val bar = clientFiles().first { it.name == "ConferenceControlBar.kt" }.readText()
+            codeLines(bar).any { it.contains("\"ms-2\"") } shouldBe false
+            bar.contains("lapis-conference-controls-group lapis-conference-controls-group--exit") shouldBe true
+            bar.contains("CONFERENCE_EXIT_GAP_PX = 12.0") shouldBe true
+            val css = THEME_CSS.readText()
+            val exit = Regex("""\.lapis-conference-controls-group--exit\s*\{[^}]*\}""").find(css)?.value ?: ""
+            withClue("theme.css: the exit group's gap is 12px, plain flex gap (no divider, no padding)") {
+                exit.contains("gap: 12px") shouldBe true
+                exit.contains("padding") shouldBe false
             }
         }
     })
