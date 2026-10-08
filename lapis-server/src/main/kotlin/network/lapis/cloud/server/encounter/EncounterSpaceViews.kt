@@ -12,6 +12,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.shared.domain.EncounterGuestPolicy
+import network.lapis.cloud.shared.domain.EncounterNotifyMode
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
@@ -50,6 +51,10 @@ internal fun parseReactionSet(csv: String): List<EncounterReactionOption> =
 /** The profile of a space row; an unknown stored value (impossible under the CHECK constraint) falls back to the church profile. */
 internal fun profileOf(row: ResultRow): EncounterProfile =
     EncounterProfile.entries.firstOrNull { it.name == row[EncounterSpaceTable.profile] } ?: EncounterProfile.CHURCH_SERVICE
+
+/** The notify mode of a space row; an unknown stored value (impossible under the CHECK constraint) falls back to NONE (no mail). */
+internal fun notifyModeOf(row: ResultRow): EncounterNotifyMode =
+    EncounterNotifyMode.entries.firstOrNull { it.name == row[EncounterSpaceTable.notifyMode] } ?: EncounterNotifyMode.NONE
 
 /** The effective participant ceiling of a space: its own limit, clamped to the instance maximum. */
 internal fun effectiveMaxParticipants(
@@ -123,6 +128,7 @@ internal object EncounterSpaceViews {
                 archived = row[EncounterSpaceTable.archivedAt] != null,
                 profile = profileOf(row),
                 reactions = parseReactionSet(row[EncounterSpaceTable.reactionSet]),
+                notifyMode = notifyModeOf(row),
             )
         }
     }
@@ -135,6 +141,7 @@ internal object EncounterSpaceViews {
             put("mode", row[EncounterSpaceTable.mode])
             put("profile", row[EncounterSpaceTable.profile])
             put("reactions", row[EncounterSpaceTable.reactionSet])
+            put("notifyMode", row[EncounterSpaceTable.notifyMode])
             put("guestPolicy", row[EncounterSpaceTable.guestPolicy])
             put("maxParticipants", row[EncounterSpaceTable.maxParticipants])
             put("closedNotice", row[EncounterSpaceTable.closedNotice])

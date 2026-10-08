@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
+import network.lapis.cloud.server.mail.FakeEncounterEntryNoticeMailer
 import network.lapis.cloud.shared.domain.EncounterConsentInput
 import network.lapis.cloud.shared.domain.EncounterGuestPolicy
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
@@ -242,6 +243,7 @@ class EncounterPrivacyWatchTest :
                 EncounterSpacePoller(
                     liveKitAdminClient = FakeEncounterLiveKit(),
                     moderationState = EncounterModerationState(),
+                    entryNotifier = EncounterEntryNotifier(state = EncounterEntryNoticeState(), mailer = FakeEncounterEntryNoticeMailer()),
                     liveKitEnabled = false,
                 )
             runBlocking { poller.tick() }
@@ -253,5 +255,53 @@ class EncounterPrivacyWatchTest :
                     .count()
             } shouldBe 0L
             fx.participationCount(ordinary) shouldBe 1L
+        }
+
+        // ── Welle V1.9.76: the anonymous entry notice leaves no trace ─────
+
+        test(
+            "V1.9.76: an entry that sends the notice leaves no audit entry and no row about the entrant, and no new column names a person",
+        ) {
+            encounterApp {
+                val rig = EncounterRig()
+                val steward = fx.createMember()
+                val guest = fx.createMember()
+                val space =
+                    fx.createSpace(
+                        createdBy = fx.createMember(),
+                        notifyMode = network.lapis.cloud.shared.domain.EncounterNotifyMode.FIRST_GUEST,
+                    )
+                fx.setRole(spaceId = space, memberId = steward, role = EncounterSpaceRole.STEWARD)
+                rig.asMember(client = client, member = steward) { it.openSpace(space.toString()) }.getOrThrow()
+                val room = fx.openSessionRoom(space)!!
+                val auditBefore = fx.auditCount()
+                rig.asMember(client = client, member = guest) { it.enterSpace(spaceId = space.toString(), consent = null) }.getOrThrow()
+                rig.entryMailer.calls.size shouldBe 1
+                fx.auditCount() shouldBe auditBefore
+                // the only lasting row about the entrant is the transient presence row, deleted on leave
+                rig.asMember(client = client, member = guest) { it.leaveSpace(space.toString()) }.getOrThrow()
+                fx.participationCount(room) shouldBe 0L
+                // the room configuration got exactly one new column, and it is not a reference to a person
+                network.lapis.cloud.server.db.generated.EncounterSpaceTable.columns
+                    .map { it.name }
+                    .toSet() shouldBe
+                    setOf(
+                        "id",
+                        "title",
+                        "description",
+                        "theme_key",
+                        "mode",
+                        "profile",
+                        "reaction_set",
+                        "notify_mode",
+                        "guest_policy",
+                        "max_participants",
+                        "closed_notice",
+                        "created_at",
+                        "created_by_member_id",
+                        "updated_at",
+                        "archived_at",
+                    )
+            }
         }
     })

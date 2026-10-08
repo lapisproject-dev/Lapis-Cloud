@@ -449,6 +449,14 @@ church text (nothing about attendance is stored, nothing is recorded, only the p
 consent again for the other: the proof row is `(member, version)` and the purposes differ. *The assembly text is a DRAFT and must be reviewed by a lawyer before a real deployment.* The two new columns
 (`profile`, `reaction_set`) describe the room only; reactions are never logged or stored, and the audit snapshots carry the room values only.
 
+*Entry notice for office holders (V1.9.76).* An encounter room can send its office holders (PULPIT, STEWARD) an _anonymous_ e-mail when a person without an office enters (`encounter_space.notify_mode`: off, first newcomer,
+every newcomer in five-minute summaries). The mail states the room, a time (or a five-minute window), the number of newcomers and the number of people present -- never a name, an address, an id or the role of the entrant. Nothing is stored:
+no new table, no audit entry for the entry or the mail, no list of who triggered it; the claim and the counters are kept in the memory of the server only and are dropped when the session ends. *Data of the recipients:* the office holder's e-mail address
+is used at the moment of sending (individual mails, nobody sees the others) on the basis of the organisation's legitimate interest in running the room (Art. 6(1)(f)) in connection with the office the person accepted; it is not stored or logged for this purpose
+(`MailDispatcher.enqueue(logRecipient = false)` writes `to=(withheld)`). The operator decides and documents the legal basis. *Residual correlation, accepted on purpose:* the time of a single entry (mode "first newcomer") can be
+linked by an office holder who knows who was expected at that minute; the window of the other mode blurs this. The setting is part of the configuration snapshot in the audit log (actor = BOARD/ADMIN); the room list shows every authorised person that the office holders are
+informed (transparency, Art. 13).
+
 NOTE: *Known limitation.* The **ordinary conference** keeps what the encounter space deliberately does not: `conference_participation` is append-only
 with `left_at`, `listParticipants` shows the history, and `conference_guest_consent_acknowledgment` is written per join. That is unchanged: a formal
 meeting needs its attendance record. An encounter session is fenced off from all of it (`EncounterRoomGuard`).

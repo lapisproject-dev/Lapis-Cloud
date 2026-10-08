@@ -3,10 +3,12 @@ package network.lapis.cloud.server.encounter
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.DatabaseConfig
+import network.lapis.cloud.server.db.generated.EncounterSpaceTable
 import network.lapis.cloud.server.rpc.EncounterSpaceService
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EncounterConsentInput
 import network.lapis.cloud.shared.domain.EncounterGuestPolicy
+import network.lapis.cloud.shared.domain.EncounterNotifyMode
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterSpaceInput
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
@@ -16,6 +18,9 @@ import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.uuid.Uuid
 
 private enum class Outcome { OK, FORBIDDEN, CONFLICT, NOT_FOUND, BAD_REQUEST }
@@ -102,6 +107,20 @@ class EncounterRoleMatrixTest :
                         input = EncounterSpaceInput(title = "Neu", guestPolicy = EncounterGuestPolicy.MEMBERS_AND_GUESTS),
                     )
                 },
+                Case(name = "createSpace (notifyMode)", expected = { if (it.privileged) Outcome.OK else Outcome.FORBIDDEN }) { s, _ ->
+                    s.createSpace(EncounterSpaceInput(title = "Matrix", notifyMode = EncounterNotifyMode.EVERY_GUEST))
+                },
+                Case(name = "updateSpace (notifyMode)", expected = { if (it.privileged) Outcome.OK else Outcome.FORBIDDEN }) { s, c ->
+                    s.updateSpace(
+                        spaceId = c.space.toString(),
+                        input =
+                            EncounterSpaceInput(
+                                title = "Neu",
+                                guestPolicy = EncounterGuestPolicy.MEMBERS_AND_GUESTS,
+                                notifyMode = EncounterNotifyMode.FIRST_GUEST,
+                            ),
+                    )
+                },
                 Case(
                     name = "archiveSpace (open session)",
                     expected = { if (it.privileged) Outcome.CONFLICT else Outcome.FORBIDDEN },
@@ -165,6 +184,37 @@ class EncounterRoleMatrixTest :
                     }
                 }
                 failures shouldBe emptyList()
+            }
+        }
+
+        test("V1.9.76: the notify mode is BOARD/ADMIN only -- everybody else is refused and the stored mode stays unchanged") {
+            encounterApp {
+                listOf(Caller.PULPIT, Caller.STEWARD, Caller.ACTIVE_NO_OFFICE, Caller.GUEST, Caller.FRIEND).forEach { kind ->
+                    val rig = EncounterRig()
+                    val boardCreator = fx.createMember(role = AccountRole.BOARD)
+                    val space = fx.createSpace(createdBy = boardCreator, guestPolicy = EncounterGuestPolicy.MEMBERS_AND_GUESTS)
+                    val callerId = fx.createMember(status = kind.status, role = kind.account)
+                    kind.office?.let { fx.setRole(spaceId = space, memberId = callerId, role = it) }
+                    val input =
+                        EncounterSpaceInput(
+                            title = "Neu",
+                            guestPolicy = EncounterGuestPolicy.MEMBERS_AND_GUESTS,
+                            notifyMode = EncounterNotifyMode.EVERY_GUEST,
+                        )
+                    rig
+                        .asMember(client = client, member = callerId) { it.updateSpace(spaceId = space.toString(), input = input) }
+                        .failure<ForbiddenException>()
+                    rig.asMember(client = client, member = callerId) { it.createSpace(input) }.failure<ForbiddenException>()
+                    val stored =
+                        transaction {
+                            EncounterSpaceTable
+                                .selectAll()
+                                .where {
+                                    EncounterSpaceTable.id eq space
+                                }.single()[EncounterSpaceTable.notifyMode]
+                        }
+                    stored shouldBe "NONE"
+                }
             }
         }
 

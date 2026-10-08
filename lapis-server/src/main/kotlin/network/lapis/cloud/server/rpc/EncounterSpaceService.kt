@@ -21,6 +21,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.db.withSavepoint
 import network.lapis.cloud.server.encounter.EncounterConsentText
+import network.lapis.cloud.server.encounter.EncounterEntryNotifier
 import network.lapis.cloud.server.encounter.EncounterModerationState
 import network.lapis.cloud.server.encounter.EncounterRoles
 import network.lapis.cloud.server.encounter.EncounterSessionTeardown
@@ -28,6 +29,7 @@ import network.lapis.cloud.server.encounter.EncounterSessions
 import network.lapis.cloud.server.encounter.EncounterSpaceViews
 import network.lapis.cloud.server.encounter.effectiveMaxParticipants
 import network.lapis.cloud.server.encounter.encounterConsentFor
+import network.lapis.cloud.server.encounter.notifyModeOf
 import network.lapis.cloud.server.encounter.parseReactionSet
 import network.lapis.cloud.server.encounter.profileOf
 import network.lapis.cloud.server.encounter.reactionSetCsv
@@ -48,6 +50,7 @@ import network.lapis.cloud.shared.domain.EncounterConsentInput
 import network.lapis.cloud.shared.domain.EncounterEntryDto
 import network.lapis.cloud.shared.domain.EncounterEntryInfoDto
 import network.lapis.cloud.shared.domain.EncounterGuestPolicy
+import network.lapis.cloud.shared.domain.EncounterNotifyMode
 import network.lapis.cloud.shared.domain.EncounterPresenceRole
 import network.lapis.cloud.shared.domain.EncounterPresentDto
 import network.lapis.cloud.shared.domain.EncounterProfile
@@ -123,14 +126,18 @@ private const val SPACE_CLOSED_MESSAGE = "The encounter space is not open"
  *   leaving, presence, removing or silencing.
  * - **Listen-only congregation**: only an ACTIVE PULPIT/STEWARD office holder receives a token with `canPublish = true`.
  *
- * Constructed per RPC request (see `Application.module`'s `registerService`), therefore EVERY throttle and [moderationState] are
- * constructor parameters WITHOUT a default and come from module-scoped singletons -- a default would silently give every request a
- * fresh, empty limiter (the lesson of `conferenceMeetingBindRateLimiter`).
+ * - **Entry notice (V1.9.76)**: when a person WITHOUT an office is newly admitted, [entryNotifier] may send the office holders an
+ *   anonymous e-mail -- called only AFTER the entry transaction committed, never throwing, never writing a trace.
+ *
+ * Constructed per RPC request (see `Application.module`'s `registerService`), therefore EVERY throttle, [moderationState] and
+ * [entryNotifier] are constructor parameters WITHOUT a default and come from module-scoped singletons -- a default would silently give
+ * every request a fresh, empty limiter or notice state (the lesson of `conferenceMeetingBindRateLimiter`).
  */
 class EncounterSpaceService(
     private val call: ApplicationCall,
     private val liveKitAdminClient: LiveKitAdminClient,
     private val moderationState: EncounterModerationState,
+    private val entryNotifier: EncounterEntryNotifier,
     private val listRateLimiter: FederationInboxRateLimiter,
     private val enterRateLimiter: FederationInboxRateLimiter,
     private val leaveRateLimiter: FederationInboxRateLimiter,
@@ -225,6 +232,7 @@ class EncounterSpaceService(
                 it[EncounterSpaceTable.themeKey] = EncounterTheme.CHURCH.name
                 it[EncounterSpaceTable.profile] = newProfile.name
                 it[EncounterSpaceTable.reactionSet] = reactionSetCsv(newReactions)
+                it[EncounterSpaceTable.notifyMode] = (valid.notifyMode ?: EncounterNotifyMode.NONE).name
                 it[EncounterSpaceTable.mode] = EncounterSpaceMode.SERVICE.name
                 it[EncounterSpaceTable.guestPolicy] = input.guestPolicy.name
                 it[EncounterSpaceTable.maxParticipants] = input.maxParticipants
@@ -256,45 +264,57 @@ class EncounterSpaceService(
         val id = spaceId.toSpaceUuid()
         val valid = validateInput(input)
         val now = nowLocalDateTime()
-        return transaction {
-            requireConfigAuthority(current)
-            val before = lockSpace(spaceId = id)
-            if (before[EncounterSpaceTable.archivedAt] != null) throw ConflictException("An archived encounter space cannot be changed")
-            if (input.guestPolicy.name != before[EncounterSpaceTable.guestPolicy] && EncounterSessions.openSession(spaceId = id) != null) {
-                // Already-present non-members would otherwise stay inside a room that no longer admits them.
-                throw ConflictException("The guest policy can only be changed while the encounter space is closed")
+        var notifyModeChanged = false
+        val updated =
+            transaction {
+                requireConfigAuthority(current)
+                val before = lockSpace(spaceId = id)
+                if (before[EncounterSpaceTable.archivedAt] != null) throw ConflictException("An archived encounter space cannot be changed")
+                if (input.guestPolicy.name != before[EncounterSpaceTable.guestPolicy] &&
+                    EncounterSessions.openSession(spaceId = id) != null
+                ) {
+                    // Already-present non-members would otherwise stay inside a room that no longer admits them.
+                    throw ConflictException("The guest policy can only be changed while the encounter space is closed")
+                }
+                val newProfile = valid.profile ?: profileOf(before)
+                val newReactions = valid.reactions ?: parseReactionSet(before[EncounterSpaceTable.reactionSet])
+                val changesProfile =
+                    newProfile != profileOf(before) ||
+                        reactionSetCsv(newReactions) != reactionSetCsv(parseReactionSet(before[EncounterSpaceTable.reactionSet]))
+                if (changesProfile && EncounterSessions.openSession(spaceId = id) != null) {
+                    // The vocabulary and the reaction set cannot change under people who are present (same pattern as the guest policy).
+                    throw ConflictException("The profile and the reactions can only be changed while the encounter space is closed")
+                }
+                // The notify mode may change while the room is open (it only affects who is told about FUTURE entries).
+                val oldNotifyMode = notifyModeOf(before)
+                val newNotifyMode = valid.notifyMode ?: oldNotifyMode
+                notifyModeChanged = newNotifyMode != oldNotifyMode
+                EncounterSpaceTable.update({ EncounterSpaceTable.id eq id }) {
+                    it[EncounterSpaceTable.title] = valid.title
+                    it[EncounterSpaceTable.description] = input.description
+                    it[EncounterSpaceTable.profile] = newProfile.name
+                    it[EncounterSpaceTable.reactionSet] = reactionSetCsv(newReactions)
+                    it[EncounterSpaceTable.notifyMode] = newNotifyMode.name
+                    it[EncounterSpaceTable.guestPolicy] = input.guestPolicy.name
+                    it[EncounterSpaceTable.maxParticipants] = input.maxParticipants
+                    it[EncounterSpaceTable.closedNotice] = valid.closedNotice
+                    it[EncounterSpaceTable.updatedAt] = now
+                }
+                val after = loadSpace(spaceId = id)
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.ENCOUNTER_SPACE,
+                    entityId = id,
+                    action = AuditAction.UPDATE,
+                    before = EncounterSpaceViews.configSnapshot(before),
+                    after = EncounterSpaceViews.configSnapshot(after),
+                )
+                EncounterSpaceViews.toDtos(rows = listOf(after), current = current, config = config).single()
             }
-            val newProfile = valid.profile ?: profileOf(before)
-            val newReactions = valid.reactions ?: parseReactionSet(before[EncounterSpaceTable.reactionSet])
-            val changesProfile =
-                newProfile != profileOf(before) ||
-                    reactionSetCsv(newReactions) != reactionSetCsv(parseReactionSet(before[EncounterSpaceTable.reactionSet]))
-            if (changesProfile && EncounterSessions.openSession(spaceId = id) != null) {
-                // The vocabulary and the reaction set cannot change under people who are present (same pattern as the guest policy).
-                throw ConflictException("The profile and the reactions can only be changed while the encounter space is closed")
-            }
-            EncounterSpaceTable.update({ EncounterSpaceTable.id eq id }) {
-                it[EncounterSpaceTable.title] = valid.title
-                it[EncounterSpaceTable.description] = input.description
-                it[EncounterSpaceTable.profile] = newProfile.name
-                it[EncounterSpaceTable.reactionSet] = reactionSetCsv(newReactions)
-                it[EncounterSpaceTable.guestPolicy] = input.guestPolicy.name
-                it[EncounterSpaceTable.maxParticipants] = input.maxParticipants
-                it[EncounterSpaceTable.closedNotice] = valid.closedNotice
-                it[EncounterSpaceTable.updatedAt] = now
-            }
-            val after = loadSpace(spaceId = id)
-            AuditLogRecorder.record(
-                actorMemberId = current.memberId,
-                actorRole = current.role,
-                entityType = AuditEntityType.ENCOUNTER_SPACE,
-                entityId = id,
-                action = AuditAction.UPDATE,
-                before = EncounterSpaceViews.configSnapshot(before),
-                after = EncounterSpaceViews.configSnapshot(after),
-            )
-            EncounterSpaceViews.toDtos(rows = listOf(after), current = current, config = config).single()
-        }
+        // After the commit: on a rolled-back update the notice state stays untouched.
+        if (notifyModeChanged) entryNotifier.clearSpace(id)
+        return updated
     }
 
     override suspend fun archiveSpace(spaceId: String): EncounterSpaceDto {
@@ -552,6 +572,7 @@ class EncounterSpaceService(
                 }
             }
             moderationState.clear(roomId)
+            entryNotifier.clearSession(roomId)
         }
         return transaction { dtoOf(spaceId = id, current = current) }
     }
@@ -587,21 +608,31 @@ class EncounterSpaceService(
         val now = nowLocalDateTime()
 
         // Tx2: lock, re-verify everything, enforce the ceilings, write the (transient) presence row.
-        transaction {
-            lockSpace(spaceId = id)
-            val room =
-                ConferenceRoomTable
-                    .selectAll()
-                    .where { ConferenceRoomTable.id eq prep.roomId }
-                    .forUpdate()
-                    .singleOrNull()
-            if (room == null || room[ConferenceRoomTable.endedAt] != null) throw ConflictException(SPACE_CLOSED_MESSAGE)
-            val fresh = prepareEntry(spaceId = id, current = current, consent = consent)
-            if (fresh.roomId != prep.roomId || fresh.canPublish != prep.canPublish || fresh.canPublishData != prep.canPublishData) {
-                // The session, the office or the silence changed while the token was being minted: the token must not be returned.
-                throw ConflictException("The access rights changed -- please try again")
+        val (admittedNew, notifyMode) =
+            transaction {
+                val spaceRow = lockSpace(spaceId = id)
+                val room =
+                    ConferenceRoomTable
+                        .selectAll()
+                        .where { ConferenceRoomTable.id eq prep.roomId }
+                        .forUpdate()
+                        .singleOrNull()
+                if (room == null || room[ConferenceRoomTable.endedAt] != null) throw ConflictException(SPACE_CLOSED_MESSAGE)
+                val fresh = prepareEntry(spaceId = id, current = current, consent = consent)
+                if (fresh.roomId != prep.roomId || fresh.canPublish != prep.canPublish || fresh.canPublishData != prep.canPublishData) {
+                    // The session, the office or the silence changed while the token was being minted: the token must not be returned.
+                    throw ConflictException("The access rights changed -- please try again")
+                }
+                admitInTx(prep = fresh, current = current, consent = consent, now = now) to notifyModeOf(spaceRow)
             }
-            admitInTx(prep = fresh, current = current, consent = consent, now = now)
+        // After the commit (Exposed may re-run the block on an SQLException, so the hook must not sit inside it). Only a NEW presence row
+        // of a person without an office counts: a reconnect reuses its row, BOARD/ADMIN without an office are not "guests".
+        if (admittedNew && prep.presenceRole == EncounterPresenceRole.CONGREGATION && !current.isPrivileged) {
+            try {
+                entryNotifier.onGuestEntered(spaceId = id, sessionRoomId = prep.roomId, mode = notifyMode)
+            } catch (e: Exception) {
+                logger.warn { "encounter entry notice failed (${e::class.simpleName})" }
+            }
         }
         return EncounterEntryDto(
             join =
@@ -701,6 +732,7 @@ class EncounterSpaceService(
         val closedNotice: String?,
         val profile: EncounterProfile?,
         val reactions: List<EncounterReactionOption>?,
+        val notifyMode: EncounterNotifyMode?,
     )
 
     private data class OpenOutcome(
@@ -751,6 +783,7 @@ class EncounterSpaceService(
             closedNotice = notice,
             profile = input.profile,
             reactions = reactions?.let { EncounterReactionOption.normalize(it) },
+            notifyMode = input.notifyMode,
         )
     }
 
@@ -799,13 +832,16 @@ class EncounterSpaceService(
         )
     }
 
-    /** The final, locked part of [enterSpace]: ceilings, the presence row, the consent proof. The space and room rows are already locked. */
+    /**
+     * The final, locked part of [enterSpace]: ceilings, the presence row, the consent proof. The space and room rows are already locked.
+     * Returns `true` iff a NEW presence row was inserted (a reconnect reuses its row and returns `false`).
+     */
     private fun admitInTx(
         prep: EntryPrep,
         current: CurrentMember,
         consent: EncounterConsentInput?,
         now: LocalDateTime,
-    ) {
+    ): Boolean {
         val isOfficer = prep.presenceRole != EncounterPresenceRole.CONGREGATION
         val others =
             ConferenceParticipationTable
@@ -851,6 +887,7 @@ class EncounterSpaceService(
             }
         }
         if (prep.needsConsentRow) recordConsent(memberId = current.memberId, consent = consent!!, text = prep.consentText)
+        return !existing
     }
 
     /**

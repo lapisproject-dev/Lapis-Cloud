@@ -3,6 +3,7 @@ package network.lapis.cloud.client.encounter
 import io.kvision.form.check.CheckBox
 import io.kvision.form.check.radioGroup
 import io.kvision.html.ButtonStyle
+import io.kvision.html.Span
 import io.kvision.html.div
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -41,6 +42,7 @@ import network.lapis.cloud.client.untrustedP
 import network.lapis.cloud.client.untrustedSpan
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EncounterGuestPolicy
+import network.lapis.cloud.shared.domain.EncounterNotifyMode
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
@@ -103,6 +105,15 @@ private fun renderEncounterSpaceRow(
     headerRow.statusBadge(if (space.open) gettext("Geöffnet") else gettext("Geschlossen"), if (space.open) "success" else "secondary")
     // The kind of room is text, never colour alone.
     headerRow.typeBadge(termsFor(space.profile).profileName(), "info")
+    // V1.9.76: a quiet sign that the office holders are told about newcomers (transparency, Art. 13) -- no badge, no colour, no number.
+    notifyIndicatorText(space.notifyMode)?.let { name ->
+        // An icon element like the chevron of the conference dock: no rich text, so nothing foreign can become markup.
+        val bell = Span(className = "fas fa-bell text-muted")
+        bell.setAttribute("role", "img")
+        bell.setAttribute("aria-label", name)
+        bell.setAttribute("title", name)
+        headerRow.add(bell)
+    }
     if (space.description.isNotBlank()) row.untrustedP(space.description, className = "mb-0")
     val facts = row.div(className = "text-muted small d-flex flex-wrap gap-3")
     facts.div(gettext("%1 anwesend", space.presentCount))
@@ -254,6 +265,30 @@ internal fun renderEncounterSpaceForm(
         val defaults = EncounterReactionOption.defaultsFor(profile)
         reactionChecks.forEach { (option, field) -> (field.control as? CheckBox)?.value = option in defaults }
     }
+    // V1.9.76: the anonymous e-mail notice to the office holders. NOT frozen while the room is open: it only affects future entries.
+    val notifyRadio =
+        form.panel.radioGroup(
+            options =
+                EncounterNotifyMode.entries.map { it.name to notifyModeName(it) + notifyModeDescription(it) },
+            value = (existing?.notifyMode ?: EncounterNotifyMode.NONE).name,
+            label = tr("Benachrichtigung der Amtsträger per E-Mail"),
+        )
+    notifyRadio.setAttribute("role", "radiogroup")
+    val notifyField =
+        form.register(
+            control = notifyRadio,
+            label = tr("Benachrichtigung der Amtsträger per E-Mail"),
+        )
+    // The supporting text is linked to the group by hand: the form grammar only links hints to text-like controls, a radio group has no input.
+    val notifyHintId = "lapis-encounter-notify-hint-${notifyHintCounter++}"
+    form.panel.div(
+        gettext(
+            "Die Nachricht ist anonym: Raumname, Uhrzeit und Zahl der Anwesenden, keine Namen. " +
+                "Sie geht nur an Amtsträger, die gerade nicht im Raum sind, und nur, wenn E-Mail-Versand eingerichtet ist.",
+        ),
+        className = "text-muted small",
+    ) { id = notifyHintId }
+    notifyRadio.setAttribute("aria-describedby", notifyHintId)
     val policyField =
         form.selectField(
             label = tr("Wer darf eintreten?"),
@@ -303,6 +338,7 @@ internal fun renderEncounterSpaceForm(
                         ),
                     closedNotice = noticeField.value.trim().ifEmpty { null },
                     maxParticipants = maxField.value.trim().toIntOrNull(),
+                    notifyMode = EncounterNotifyMode.entries.firstOrNull { it.name == notifyField.value } ?: EncounterNotifyMode.NONE,
                 )
             val saved =
                 guarded {
@@ -326,6 +362,33 @@ internal fun renderEncounterSpaceForm(
     }
     return form.snapshot()
 }
+
+/** Makes the id of the supporting text unique per form instance (the create form and several edit forms can be on the page at once). */
+private var notifyHintCounter = 0
+
+/** Name of a notify mode as shown in the form (`gettext`: the option labels are plain strings). */
+internal fun notifyModeName(mode: EncounterNotifyMode): String =
+    when (mode) {
+        EncounterNotifyMode.NONE -> gettext("Keine Nachricht")
+        EncounterNotifyMode.FIRST_GUEST -> gettext("Bei der ersten Person ohne Amt")
+        EncounterNotifyMode.EVERY_GUEST -> gettext("Bei jeder Person ohne Amt")
+    }
+
+private fun notifyModeDescription(mode: EncounterNotifyMode): String =
+    when (mode) {
+        EncounterNotifyMode.NONE -> ""
+        EncounterNotifyMode.FIRST_GUEST -> ": " + gettext("Höchstens eine Nachricht je Öffnung des Raums.")
+        EncounterNotifyMode.EVERY_GUEST ->
+            ": " + gettext("Höchstens eine Nachricht alle fünf Minuten, mehrere Eintritte zusammengefasst.")
+    }
+
+/** The accessible name of the bell in a room's row, `null` for NONE (no bell). Pure. */
+internal fun notifyIndicatorText(mode: EncounterNotifyMode): String? =
+    when (mode) {
+        EncounterNotifyMode.NONE -> null
+        EncounterNotifyMode.FIRST_GUEST -> gettext("Amtsträger erhalten eine anonyme E-Mail bei der ersten Person ohne Amt")
+        EncounterNotifyMode.EVERY_GUEST -> gettext("Amtsträger erhalten eine anonyme E-Mail bei jeder Person ohne Amt")
+    }
 
 /** Label of an office in the vocabulary of the room's [profile] (the bare msgid "Ordner" already means "folder"). */
 internal fun encounterSpaceRoleLabel(

@@ -18,6 +18,7 @@ import network.lapis.cloud.client.rpcService
 import network.lapis.cloud.client.typeInto
 import network.lapis.cloud.client.withFetchStub
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.EncounterNotifyMode
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
@@ -206,6 +207,14 @@ class EncounterSpaceScreenDomTest {
             }
         }
 
+    private val profileValues = setOf("CHURCH_SERVICE", "ASSEMBLY")
+
+    private fun HTMLElement.profileRadios(): List<HTMLInputElement> =
+        allOf("input[type=radio]").map { it as HTMLInputElement }.filter { it.getAttribute("value") in profileValues }
+
+    private fun HTMLElement.notifyRadios(): List<HTMLInputElement> =
+        allOf("input[type=radio]").map { it as HTMLInputElement }.filter { it.getAttribute("value") !in profileValues }
+
     private fun HTMLElement.profileRadio(profile: String): HTMLInputElement =
         allOf("input[type=radio]").first { it.getAttribute("value") == profile } as HTMLInputElement
 
@@ -220,7 +229,7 @@ class EncounterSpaceScreenDomTest {
             withScreen(AccountRole.BOARD, listOf(openSpace)) { element, requests, r ->
                 element.buttonNamed("Neuer Begegnungsraum").click()
                 awaitUntil("the form is open") { element.querySelector("[id='lapis-create-encounter-space'] .lapis-form") != null }
-                val radios = element.allOf("input[type=radio]").map { it as HTMLInputElement }
+                val radios = element.profileRadios()
                 assertEquals(setOf("CHURCH_SERVICE", "ASSEMBLY"), radios.map { it.getAttribute("value") }.toSet())
                 assertTrue(radios.none { it.checked }, "no room type is preselected")
                 element.typeInto("Titel", "Ohne Raumart")
@@ -258,8 +267,8 @@ class EncounterSpaceScreenDomTest {
             withScreen(AccountRole.BOARD, listOf(openSpace, closedManaged)) { element, _, _ ->
                 val rows = element.allOf(".lapis-encounter-space-row")
                 rows.first { it.textContent.orEmpty().contains("Sonntagsgottesdienst") }.buttonNamed("Bearbeiten").click()
-                awaitUntil("the edit form of the open room is shown") { element.querySelector("input[type=radio]") != null }
-                assertTrue(element.allOf("input[type=radio]").all { it.hasAttribute("disabled") }, "room type locked while open")
+                awaitUntil("the edit form of the open room is shown") { element.profileRadios().isNotEmpty() }
+                assertTrue(element.profileRadios().all { it.hasAttribute("disabled") }, "room type locked while open")
                 assertTrue(element.reactionBox("Amen").disabled, "reactions locked while open")
                 assertTrue(element.textContent.orEmpty().contains("nur bei geschlossenem Raum ändern"))
                 assertTrue(element.profileRadio("CHURCH_SERVICE").checked, "the current room type is selected")
@@ -306,6 +315,103 @@ class EncounterSpaceScreenDomTest {
                 val second = rows[1].textContent.orEmpty()
                 assertTrue(second.contains("Versammlung") && second.contains("Podium: Pia"), second)
                 assertFalse(second.contains("Kanzel"), second)
+            }
+        }
+
+    // ── V1.9.76: the notice to the office holders ────────────────────────
+
+    @Test
+    fun theForm_offersThreeNotifyModes_withNoneSelectedOnCreate_andASupportingTextLinkedToTheGroup(): Promise<Unit> =
+        formTest {
+            withScreen(AccountRole.BOARD, listOf(openSpace)) { element, _, _ ->
+                element.buttonNamed("Neuer Begegnungsraum").click()
+                awaitUntil("the form is open") { element.querySelector("[id='lapis-create-encounter-space'] .lapis-form") != null }
+                val radios = element.notifyRadios()
+                assertEquals(listOf("NONE", "FIRST_GUEST", "EVERY_GUEST"), radios.map { it.getAttribute("value") })
+                assertEquals(listOf(true, false, false), radios.map { it.checked }, "NONE is preselected")
+                val text = element.textContent.orEmpty()
+                assertTrue(text.contains("Benachrichtigung der Amtsträger per E-Mail"), text)
+                assertTrue(text.contains("Bei der ersten Person ohne Amt: Höchstens eine Nachricht je Öffnung des Raums."), text)
+                assertTrue(text.contains("Bei jeder Person ohne Amt: Höchstens eine Nachricht alle fünf Minuten"), text)
+                val hint =
+                    assertNotNull(element.allOf("div").firstOrNull { it.textContent.orEmpty().startsWith("Die Nachricht ist anonym") })
+                assertTrue(hint.id.isNotBlank(), "the supporting text has a stable id")
+                assertTrue(
+                    element.allOf("[aria-describedby]").any { it.getAttribute("aria-describedby").orEmpty().contains(hint.id) },
+                    "something in the group points at the supporting text",
+                )
+                assertNull(element.querySelector("[data-bs-toggle=tooltip]"), "no tooltip")
+            }
+        }
+
+    @Test
+    fun creatingARoom_sendsTheChosenNotifyMode(): Promise<Unit> =
+        formTest {
+            withScreen(AccountRole.BOARD, listOf(openSpace)) { element, requests, r ->
+                element.buttonNamed("Neuer Begegnungsraum").click()
+                awaitUntil("the form is open") { element.querySelector("[id='lapis-create-encounter-space'] .lapis-form") != null }
+                element.typeInto("Titel", "Mit Hinweis")
+                element.profileRadio("CHURCH_SERVICE").click()
+                element.notifyRadios().first { it.getAttribute("value") == "EVERY_GUEST" }.click()
+                element.buttonNamed("Begegnungsraum anlegen").click()
+                awaitUntil("the create call was sent") { requests.any { it.isRpc && it.rpcRoute == r.create } }
+                assertEquals(
+                    "EVERY_GUEST",
+                    requests
+                        .first { it.isRpc && it.rpcRoute == r.create }
+                        .rpcParam(0)
+                        .notifyMode
+                        .toString(),
+                )
+            }
+        }
+
+    @Test
+    fun theNotifyMode_staysEditableWhileTheRoomIsOpen_andShowsTheStoredMode(): Promise<Unit> =
+        formTest {
+            val notifying = testSpace(id = "n-1", title = "Mit Hinweis", open = true, notifyMode = EncounterNotifyMode.FIRST_GUEST)
+            withScreen(AccountRole.BOARD, listOf(notifying)) { element, _, _ ->
+                element.buttonNamed("Bearbeiten").click()
+                awaitUntil("the edit form is shown") { element.notifyRadios().isNotEmpty() }
+                assertTrue(element.profileRadios().all { it.disabled }, "the room type is frozen while open")
+                assertTrue(element.notifyRadios().none { it.disabled }, "the notify mode is not")
+                assertEquals("FIRST_GUEST", element.notifyRadios().single { it.checked }.getAttribute("value"))
+            }
+        }
+
+    @Test
+    fun theList_showsABellWithAName_onlyWhenOfficeHoldersAreNotified(): Promise<Unit> =
+        formTest {
+            val first = testSpace(id = "b1", title = "Erster", notifyMode = EncounterNotifyMode.FIRST_GUEST)
+            val every = testSpace(id = "b2", title = "Jeder", notifyMode = EncounterNotifyMode.EVERY_GUEST)
+            val none = testSpace(id = "b3", title = "Keiner")
+            withScreen(AccountRole.MEMBER, listOf(first, every, none)) { element, _, _ ->
+                val rows = element.allOf(".lapis-encounter-space-row")
+
+                fun bell(title: String) = rows.first { it.textContent.orEmpty().contains(title) }.querySelector("[role=img].fa-bell")
+                assertNotNull(bell("Erster"))
+                assertNotNull(bell("Jeder"))
+                assertNull(bell("Keiner"), "no bell for NONE")
+                val firstLabel =
+                    rows
+                        .first {
+                            it.textContent.orEmpty().contains(
+                                "Erster",
+                            )
+                        }.querySelector("[role=img].fa-bell")!!
+                        .getAttribute("aria-label")
+                assertEquals("Amtsträger erhalten eine anonyme E-Mail bei der ersten Person ohne Amt", firstLabel)
+                val everyLabel =
+                    rows
+                        .first {
+                            it.textContent.orEmpty().contains(
+                                "Jeder",
+                            )
+                        }.querySelector("[role=img].fa-bell")!!
+                        .getAttribute("aria-label")
+                assertEquals("Amtsträger erhalten eine anonyme E-Mail bei jeder Person ohne Amt", everyLabel)
+                // no badge, no number: the bell is a quiet glyph
+                assertNull(rows.first { it.textContent.orEmpty().contains("Erster") }.querySelector(".badge[role=img]"))
             }
         }
 }

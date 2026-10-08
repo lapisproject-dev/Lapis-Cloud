@@ -9,6 +9,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
+import network.lapis.cloud.server.mail.FakeEncounterEntryNoticeMailer
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
 import org.jetbrains.exposed.v1.core.eq
@@ -40,7 +41,12 @@ class EncounterSpacePollerTest :
             val steward: Uuid,
         ) {
             fun poller(enabled: Boolean = true) =
-                EncounterSpacePoller(liveKitAdminClient = liveKit, moderationState = moderation, liveKitEnabled = enabled)
+                EncounterSpacePoller(
+                    liveKitAdminClient = liveKit,
+                    moderationState = moderation,
+                    entryNotifier = EncounterEntryNotifier(state = EncounterEntryNoticeState(), mailer = FakeEncounterEntryNoticeMailer()),
+                    liveKitEnabled = enabled,
+                )
         }
 
         suspend fun world(): World {

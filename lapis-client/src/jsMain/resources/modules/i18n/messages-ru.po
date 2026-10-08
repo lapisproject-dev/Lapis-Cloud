@@ -20741,3 +20741,39 @@ msgstr "Выход"
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
 msgid "Weitere Bedienelemente"
 msgstr "Дополнительные элементы управления"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Benachrichtigung der Amtsträger per E-Mail"
+msgstr "Уведомление по e-mail для лиц, занимающих должности"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Keine Nachricht"
+msgstr "Без сообщений"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Bei der ersten Person ohne Amt"
+msgstr "При входе первого человека без должности"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Höchstens eine Nachricht je Öffnung des Raums."
+msgstr "Не более одного сообщения при каждом открытии комнаты."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Bei jeder Person ohne Amt"
+msgstr "При входе каждого человека без должности"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Höchstens eine Nachricht alle fünf Minuten, mehrere Eintritte zusammengefasst."
+msgstr "Не более одного сообщения раз в пять минут, несколько входов объединяются."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Die Nachricht ist anonym: Raumname, Uhrzeit und Zahl der Anwesenden, keine Namen. Sie geht nur an Amtsträger, die gerade nicht im Raum sind, und nur, wenn E-Mail-Versand eingerichtet ist."
+msgstr "Сообщение анонимно: название комнаты, время и число присутствующих, без имён. Оно приходит только тем, кто занимает должность и в этот момент не находится в комнате, и только если настроена отправка e-mail."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Amtsträger erhalten eine anonyme E-Mail bei der ersten Person ohne Amt"
+msgstr "Лица, занимающие должности, получают анонимное письмо при входе первого человека без должности"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Amtsträger erhalten eine anonyme E-Mail bei jeder Person ohne Amt"
+msgstr "Лица, занимающие должности, получают анонимное письмо при входе любого человека без должности"

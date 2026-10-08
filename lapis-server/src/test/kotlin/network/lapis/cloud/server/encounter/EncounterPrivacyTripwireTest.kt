@@ -109,4 +109,81 @@ class EncounterPrivacyTripwireTest :
                 raw.substring(m.range.first, end + 1).contains("liveKitAdminClient") shouldBe false
             }
         }
+
+        // ── Welle V1.9.76: the anonymous entry notice ─────────────────────
+
+        val notifierFile = EncounterSourceScan.mainFile("encounter/EncounterEntryNotifier.kt")
+        val stateFile = EncounterSourceScan.mainFile("encounter/EncounterEntryNoticeState.kt")
+        val noticeMailerFile = EncounterSourceScan.mainFile("mail/SmtpEncounterEntryNoticeMailer.kt")
+
+        test("the entry-notice paths never write the audit log (an audit entry would be a permanent record that somebody entered)") {
+            val fns = EncounterSourceScan.functions(notifierFile).associateBy { it.name }
+            listOf("onGuestEntered", "flushDue", "sendFirstGuest", "sendWindow", "resolveNotice", "noticeRecipients").forEach { name ->
+                val fn = fns[name] ?: error("function $name not found -- the tripwire must not run empty")
+                fn.body.contains("AuditLogRecorder") shouldBe false
+            }
+            listOf(notifierFile, stateFile, noticeMailerFile).forEach { f ->
+                SourceScan.blank(f.readText()).contains("AuditLogRecorder") shouldBe false
+            }
+            // the service calls the hook outside the audit-writing helpers
+            EncounterSourceScan
+                .functions(serviceFile)
+                .single { it.name == "admitInTx" }
+                .body
+                .contains("entryNotifier") shouldBe false
+        }
+
+        test("no log line of the entry-notice files mentions an address, a recipient, a title or a count") {
+            val offenders = mutableListOf<String>()
+            val forbidden = Regex("""email|recipient|title|\bcount\b|address|\bentries\b""", RegexOption.IGNORE_CASE)
+            listOf(notifierFile, stateFile, noticeMailerFile).forEach { f ->
+                f.readLines().forEachIndexed { index, line ->
+                    val code = line.substringBefore("//")
+                    if (code.contains("logger.") && forbidden.containsMatchIn(code.substringAfter("logger."))) {
+                        offenders += "${f.name}:${index + 1}: ${line.trim()}"
+                    }
+                }
+            }
+            offenders.shouldBeEmpty()
+        }
+
+        test("the notice mailer enqueues every mail with logRecipient = false (the dispatcher must not log even a masked address)") {
+            val code = SourceScan.blank(noticeMailerFile.readText())
+            code.contains("dispatcher.enqueue(") shouldBe true
+            code.contains("logRecipient = false") shouldBe true
+            code.contains("logger") shouldBe false
+        }
+
+        test("transaction rule 2: the notifier never sends a mail inside a transaction lambda") {
+            val raw = SourceScan.blank(notifierFile.readText())
+            var checked = 0
+            Regex("""transaction\s*\{""").findAll(raw).forEach { m ->
+                var depth = 0
+                var end = m.range.last
+                for (i in m.range.last until raw.length) {
+                    if (raw[i] == '{') depth++
+                    if (raw[i] == '}') {
+                        depth--
+                        if (depth == 0) {
+                            end = i
+                            break
+                        }
+                    }
+                }
+                val block = raw.substring(m.range.first, end + 1)
+                block.contains("mailer.") shouldBe false
+                block.contains(".send(") shouldBe false
+                checked++
+            }
+            (checked >= 2) shouldBe true // the scan is not vacuous: the two read transactions were found
+            // the service calls the notifier after the entry transaction, wrapped so that it can never break the entry
+            val enter = EncounterSourceScan.functions(serviceFile).single { it.name == "enterSpace" }.body
+            enter.contains("entryNotifier.onGuestEntered") shouldBe true
+            (enter.indexOf("entryNotifier.onGuestEntered") > enter.indexOf("admitInTx")) shouldBe true
+        }
+
+        test("the notifier class stores no person: its state is keyed by session/space ids only") {
+            val code = SourceScan.blank(stateFile.readText())
+            Regex("""memberId|identity|email|displayName""", RegexOption.IGNORE_CASE).containsMatchIn(code) shouldBe false
+        }
     })

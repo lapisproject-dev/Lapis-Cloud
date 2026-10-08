@@ -88,6 +88,8 @@ import network.lapis.cloud.server.economy.oracle.PriceOracleStartupCheck
 import network.lapis.cloud.server.economy.oracle.defaultOracleSources
 import network.lapis.cloud.server.embed.EmbedAssets
 import network.lapis.cloud.server.embed.EmbedConfig
+import network.lapis.cloud.server.encounter.EncounterEntryNoticeState
+import network.lapis.cloud.server.encounter.EncounterEntryNotifier
 import network.lapis.cloud.server.encounter.EncounterModerationState
 import network.lapis.cloud.server.encounter.EncounterSpacePoller
 import network.lapis.cloud.server.events.EventCoverStorage
@@ -120,6 +122,7 @@ import network.lapis.cloud.server.mail.SmtpArticleReviewNotificationMailer
 import network.lapis.cloud.server.mail.SmtpConfig
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.SmtpEmailChangeMailer
+import network.lapis.cloud.server.mail.SmtpEncounterEntryNoticeMailer
 import network.lapis.cloud.server.mail.SmtpFinTsReauthNotificationMailer
 import network.lapis.cloud.server.mail.SmtpFriendVerificationMailer
 import network.lapis.cloud.server.mail.SmtpKeycloakLinkNotificationMailer
@@ -982,6 +985,21 @@ internal fun Application.module(
     // empty on every request (the EncounterSpaceService constructor therefore has no defaults for them). The in-memory moderation state
     // (blocked / silenced people of a running session) is shared with the EncounterSpacePoller started further below.
     val encounterModerationState = EncounterModerationState()
+
+    // Welle V1.9.76 -- the anonymous entry notice for office holders: ONE notifier (its in-memory state must outlive a request) with its
+    // own flush ticker. mailDispatcher is defined far above; with SMTP unconfigured the mailer is disabled and the notifier does no work.
+    val encounterEntryNotifier =
+        EncounterEntryNotifier(
+            state = EncounterEntryNoticeState(),
+            mailer =
+                SmtpEncounterEntryNoticeMailer(
+                    dispatcher = mailDispatcher,
+                    branding = mailBranding,
+                    smtpConfigured = smtpConfigState is SmtpConfigState.Configured,
+                ),
+        )
+    encounterEntryNotifier.start()
+    monitor.subscribe(ApplicationStopping) { encounterEntryNotifier.stop() }
     val encounterListRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
     val encounterEnterRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     val encounterLeaveRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
@@ -1204,6 +1222,7 @@ internal fun Application.module(
         EncounterSpacePoller(
             liveKitAdminClient = liveKitAdminClient,
             moderationState = encounterModerationState,
+            entryNotifier = encounterEntryNotifier,
             liveKitEnabled = conferenceConfig.enabled,
         )
     encounterSpacePoller.start()
@@ -2040,6 +2059,7 @@ internal fun Application.module(
                 call = call,
                 liveKitAdminClient = liveKitAdminClient,
                 moderationState = encounterModerationState,
+                entryNotifier = encounterEntryNotifier,
                 listRateLimiter = encounterListRateLimiter,
                 enterRateLimiter = encounterEnterRateLimiter,
                 leaveRateLimiter = encounterLeaveRateLimiter,

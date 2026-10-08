@@ -647,6 +647,82 @@ object MailTemplates {
             branding = branding,
         )
 
+    /**
+     * Welle V1.9.76 -- anonymous entry notice to the office holders of an encounter space. Names nobody (see [EncounterEntryNotice]):
+     * room title, time, number of persons without an office, number of people present. No link, no logo. The room title is
+     * sanitised and cut before it reaches the `Subject:` header (header injection); the HTML part is an unformatted mirror of the plain
+     * text (the transport always sends multipart/alternative).
+     */
+    fun encounterEntryNotice(
+        notice: EncounterEntryNotice,
+        branding: MailBranding,
+    ): RenderedMail {
+        val title = sanitizeSubjectFragment(notice.spaceTitle).take(80).ifBlank { "?" }
+
+        fun clock(at: LocalDateTime): String = "${at.hour.toString().padStart(2, '0')}:${at.minute.toString().padStart(2, '0')}"
+        val single = notice.kind == EncounterEntryNotice.Kind.FIRST_GUEST
+        val whenDe =
+            if (single || notice.windowEnd == null) {
+                "um ${clock(notice.at)} Uhr"
+            } else {
+                "zwischen ${clock(notice.at)} und ${clock(notice.windowEnd)} Uhr"
+            }
+        val whenEn =
+            if (single || notice.windowEnd == null) {
+                "at ${clock(notice.at)}"
+            } else {
+                "between ${clock(notice.at)} and ${clock(notice.windowEnd)}"
+            }
+        val subject =
+            if (single) {
+                "Begegnungsraum „$title“: jemand ist eingetroffen / someone has arrived"
+            } else {
+                "Begegnungsraum „$title“: ${notice.entries} Personen sind eingetroffen / ${notice.entries} people have arrived"
+            }
+        val headingDe =
+            if (single) "Im Begegnungsraum „$title“ ist jemand eingetroffen." else "Im Begegnungsraum „$title“ sind Personen eingetroffen."
+        val headingEn =
+            if (single) "Someone has arrived in the gathering room “$title”." else "People have arrived in the gathering room “$title”."
+        val detailDe =
+            if (single) {
+                "Eine Person ohne Amt ist $whenDe eingetroffen. Aktuell sind ${notice.presentCount} Personen im Raum."
+            } else {
+                "${notice.entries} Personen ohne Amt sind $whenDe eingetroffen. Aktuell sind ${notice.presentCount} Personen im Raum."
+            }
+        val detailEn =
+            if (single) {
+                "One person without an office arrived $whenEn. ${notice.presentCount} people are in the room now."
+            } else {
+                "${notice.entries} people without an office arrived $whenEn. ${notice.presentCount} people are in the room now."
+            }
+        return bilingual(
+            subject = subject,
+            de =
+                MailSection(
+                    heading = headingDe,
+                    paragraphs =
+                        listOf(
+                            detailDe,
+                            "Diese Nachricht nennt bewusst keine Namen, um die Vertraulichkeit der Teilnahme zu wahren.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            en =
+                MailSection(
+                    heading = headingEn,
+                    paragraphs =
+                        listOf(
+                            detailEn,
+                            "This message deliberately names nobody, to keep attendance confidential.",
+                        ),
+                    linkLabel = null,
+                    link = null,
+                ),
+            branding = branding,
+        )
+    }
+
     // ------------------------------------------------------------------------------------------------------------
     // Welle V1.9.57 "Admin-Peer-Schutz" -- receipts: what happened, who (display name), when, one thing to do.
     // ------------------------------------------------------------------------------------------------------------

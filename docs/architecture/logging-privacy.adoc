@@ -70,6 +70,9 @@ Column values and detail values are never printed, not even partially.
 * `logback.xml`: registers both conversion words (Logback 1.6 reads the converter from the `class` attribute), uses them in the only
   appender pattern, and sets logger `Exposed` to INFO as a floor (same reasoning as the existing `io.ktor.client` floor).
 
+* `MailDispatcher.enqueue(..., logRecipient = false)` (V1.9.76): the dispatcher's log lines (dropped, delivered, not delivered, failed) carry `to=(withheld)` instead of the masked address.
+  Used by the encounter entry notice, where even `p***@domain` next to the purpose would say that a given office holder was told about an entry. The default stays `true`; no other caller changed.
+
 == Rules for contributors
 
 * Never use `%msg`, `%m`, `%message`, `%ex`, `%xEx`, `%rEx`, `%throwable` (or their long forms) in a Logback pattern of this repository.

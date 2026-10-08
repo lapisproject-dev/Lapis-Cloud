@@ -28,9 +28,11 @@ import network.lapis.cloud.server.db.generated.EncounterSpaceTable
 import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.server.mail.FakeEncounterEntryNoticeMailer
 import network.lapis.cloud.server.rpc.EncounterSpaceService
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EncounterGuestPolicy
+import network.lapis.cloud.shared.domain.EncounterNotifyMode
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
@@ -202,6 +204,11 @@ internal class EncounterRig(
     val moderationState: EncounterModerationState = EncounterModerationState(),
     private val limiter: () -> FederationInboxRateLimiter = { FederationInboxRateLimiter(maxRequests = 1_000, window = 1.minutes) },
 ) {
+    /** V1.9.76: the entry notice -- ONE state and ONE fake mailer per test, like the moderation state. */
+    val entryMailer = FakeEncounterEntryNoticeMailer()
+    val entryState = EncounterEntryNoticeState()
+    val entryNotifier = EncounterEntryNotifier(state = entryState, mailer = entryMailer)
+
     private val list = limiter()
     private val enter = limiter()
     private val leave = limiter()
@@ -216,6 +223,7 @@ internal class EncounterRig(
         call = call,
         liveKitAdminClient = liveKit,
         moderationState = moderationState,
+        entryNotifier = entryNotifier,
         listRateLimiter = list,
         enterRateLimiter = enter,
         leaveRateLimiter = leave,
@@ -314,6 +322,7 @@ internal class EncounterFixtures {
         archived: Boolean = false,
         profile: EncounterProfile = EncounterProfile.CHURCH_SERVICE,
         reactions: List<EncounterReactionOption> = EncounterReactionOption.defaultsFor(profile),
+        notifyMode: EncounterNotifyMode = EncounterNotifyMode.NONE,
     ): Uuid {
         val id = Uuid.random()
         val now = DbClock.nowLocalDateTime()
@@ -325,6 +334,7 @@ internal class EncounterFixtures {
                 it[themeKey] = "CHURCH"
                 it[EncounterSpaceTable.profile] = profile.name
                 it[reactionSet] = reactionSetCsv(reactions)
+                it[EncounterSpaceTable.notifyMode] = notifyMode.name
                 it[mode] = "SERVICE"
                 it[EncounterSpaceTable.guestPolicy] = guestPolicy.name
                 it[EncounterSpaceTable.maxParticipants] = maxParticipants

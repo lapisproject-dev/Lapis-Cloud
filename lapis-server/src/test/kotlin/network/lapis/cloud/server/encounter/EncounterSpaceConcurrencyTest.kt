@@ -158,7 +158,12 @@ abstract class EncounterSpaceConcurrencyScenarios(
                 rig.asMember(client = client, member = steward) { it.openSpace(space.toString()) }.getOrThrow()
                 val room = fx.openSessionRoom(space)!!
                 val poller =
-                    EncounterSpacePoller(liveKitAdminClient = rig.liveKit, moderationState = rig.moderationState, liveKitEnabled = true)
+                    EncounterSpacePoller(
+                        liveKitAdminClient = rig.liveKit,
+                        moderationState = rig.moderationState,
+                        entryNotifier = rig.entryNotifier,
+                        liveKitEnabled = true,
+                    )
                 val results =
                     parallel(n = members.size + 3) { i ->
                         if (i < 3) {

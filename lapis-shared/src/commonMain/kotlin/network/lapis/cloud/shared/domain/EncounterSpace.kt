@@ -92,6 +92,13 @@ fun EncounterReaction.option(): EncounterReactionOption =
 /** LiveKit data-channel topic of [EncounterReaction] messages (B2, informational only: the server has no path that reads it). */
 const val ENCOUNTER_REACTION_TOPIC = "lapis-encounter-reaction"
 
+/**
+ * V1.9.76 -- anonymous e-mail notice to the room's office holders when a person WITHOUT an office enters. [NONE] = off (default),
+ * [FIRST_GUEST] = at most one notice per opening of the room, [EVERY_GUEST] = at most one notice per five minutes (entries summarised).
+ * The notice never names the person (Art. 9 GDPR); see `docs/architecture/encounter-space.adoc`.
+ */
+enum class EncounterNotifyMode { NONE, FIRST_GUEST, EVERY_GUEST }
+
 /** Largest accepted reaction payload in bytes; `{"r":"HAND_LOWERED"}` is 20 bytes. Anything longer is dropped unread by the receiver. */
 const val ENCOUNTER_REACTION_MAX_PAYLOAD_BYTES = 32
 
@@ -111,6 +118,8 @@ data class EncounterSpaceInput(
     val profile: EncounterProfile? = null,
     /** Create: `null` = [EncounterReactionOption.defaultsFor] the profile. Update: `null` = unchanged. HAND is forced, order is canonical. */
     val reactions: List<EncounterReactionOption>? = null,
+    /** Create: `null` = [EncounterNotifyMode.NONE]. Update: `null` = unchanged (an old cached admin client sends no mode). */
+    val notifyMode: EncounterNotifyMode? = null,
 )
 
 /**
@@ -137,6 +146,7 @@ data class EncounterSpaceDto(
     val archived: Boolean,
     val profile: EncounterProfile = EncounterProfile.CHURCH_SERVICE,
     val reactions: List<EncounterReactionOption> = listOf(EncounterReactionOption.HAND, EncounterReactionOption.AMEN),
+    val notifyMode: EncounterNotifyMode = EncounterNotifyMode.NONE,
 )
 
 /** One office assignment of [network.lapis.cloud.shared.rpc.IEncounterSpaceService.setSpaceRoles] (replace-all, at most 20). */

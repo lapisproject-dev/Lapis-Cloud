@@ -1,6 +1,7 @@
 package network.lapis.cloud.client.encounter
 
 import dev.kilua.rpc.RpcSerialization
+import network.lapis.cloud.shared.domain.EncounterNotifyMode
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
@@ -51,5 +52,38 @@ class EncounterWireCompatTest {
         val input = RpcSerialization.getJson().decodeFromString(EncounterSpaceInput.serializer(), "{\"title\":\"x\"}")
         assertNull(input.profile)
         assertNull(input.reactions)
+    }
+
+    @Test
+    fun aRoomWithoutNotifyMode_isNone() {
+        val dto = RpcSerialization.getJson().decodeFromString(EncounterSpaceDto.serializer(), "{$base}")
+        assertEquals(EncounterNotifyMode.NONE, dto.notifyMode)
+    }
+
+    @Test
+    fun aRoomWithNotifyMode_isDecoded() {
+        val dto =
+            RpcSerialization.getJson().decodeFromString(
+                EncounterSpaceDto.serializer(),
+                "{$base,\"notifyMode\":\"EVERY_GUEST\"}",
+            )
+        assertEquals(EncounterNotifyMode.EVERY_GUEST, dto.notifyMode)
+    }
+
+    @Test
+    fun anOldAdminInput_withoutNotifyMode_decodesToNullMeaningUnchanged() {
+        val input = RpcSerialization.getJson().decodeFromString(EncounterSpaceInput.serializer(), "{\"title\":\"x\"}")
+        assertNull(input.notifyMode)
+    }
+
+    @Test
+    fun anAdminInputWithNotifyMode_roundTrips() {
+        val json = RpcSerialization.getJson()
+        val text =
+            json.encodeToString(
+                EncounterSpaceInput.serializer(),
+                EncounterSpaceInput(title = "x", notifyMode = EncounterNotifyMode.FIRST_GUEST),
+            )
+        assertEquals(EncounterNotifyMode.FIRST_GUEST, json.decodeFromString(EncounterSpaceInput.serializer(), text).notifyMode)
     }
 }

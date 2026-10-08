@@ -18,6 +18,7 @@ public object EncounterSpaceTable : Table("encounter_space") {
     public val mode: Column<String> = varchar("mode", 16)
     public val profile: Column<String> = varchar("profile", 16).default("CHURCH_SERVICE")
     public val reactionSet: Column<String> = varchar("reaction_set", 64).default("HAND,AMEN")
+    public val notifyMode: Column<String> = varchar("notify_mode", 16).default("NONE")
     public val guestPolicy: Column<String> = varchar("guest_policy", 18)
     public val maxParticipants: Column<Int?> = integer("max_participants").nullable()
     public val closedNotice: Column<String?> = varchar("closed_notice", 200).nullable()

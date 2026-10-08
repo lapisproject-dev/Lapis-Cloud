@@ -44,6 +44,7 @@ internal fun testSpace(
     pulpitNames: List<String> = emptyList(),
     profile: EncounterProfile = EncounterProfile.CHURCH_SERVICE,
     reactions: List<EncounterReactionOption> = EncounterReactionOption.defaultsFor(profile),
+    notifyMode: network.lapis.cloud.shared.domain.EncounterNotifyMode = network.lapis.cloud.shared.domain.EncounterNotifyMode.NONE,
 ) = EncounterSpaceDto(
     id = id,
     title = title,
@@ -62,6 +63,7 @@ internal fun testSpace(
     archived = archived,
     profile = profile,
     reactions = reactions,
+    notifyMode = notifyMode,
 )
 
 internal fun testEntry(

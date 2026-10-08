@@ -21,6 +21,9 @@
 // **V76 (Welle V1.9.67).** `profile` (CHURCH_SERVICE | ASSEMBLY) and `reaction_set` (canonical CSV, HAND always first) describe the ROOM,
 // never a person. `theme_key` is frozen at 'CHURCH' (old cached clients still decode EncounterTheme); the profile is the source of truth.
 //
+// **V78 (Welle V1.9.76).** `notify_mode` (NONE | FIRST_GUEST | EVERY_GUEST) configures the anonymous e-mail notice to the office holders
+// when a person without an office enters. It describes the ROOM, never a person; the CHECK constraint lives in the SQL only.
+//
 // Cross-domain stub: minimal id-only `Member` (owned by `00-foundation.kuml.kts`), same single-file-evaluation pattern every later
 // domain file's own header documents.
 import dev.kuml.profile.erm.ermMappingProfile
@@ -69,6 +72,10 @@ classDiagram(name = "EncounterSpace") {
         // canonical CSV of the allowed reactions, HAND first (V76)
         attribute(name = "reactionSet", type = "String") {
             stereotype("Column") { "columnName" to "reaction_set"; "sqlType" to "VARCHAR(64)" }
+        }
+        // NONE | FIRST_GUEST | EVERY_GUEST (V78): anonymous entry notice to the office holders
+        attribute(name = "notifyMode", type = "String") {
+            stereotype("Column") { "columnName" to "notify_mode"; "sqlType" to "VARCHAR(16)" }
         }
         // MEMBERS_ONLY | MEMBERS_AND_GUESTS
         attribute(name = "guestPolicy", type = "String") {

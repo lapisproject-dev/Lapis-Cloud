@@ -8,6 +8,18 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Encounter room: anonymous entry notice for office holders (V1.9.76, migration V78, off by default).** BOARD/ADMIN can set per room (`encounter_space.notify_mode`) that the ACTIVE PULPIT/STEWARD
+  office holders who are not in the room get an e-mail when a person without an office enters: *first newcomer* (one mail per opening of the room) or *every newcomer* (summarised in fixed five-minute
+  slots, at most one mail per room per five minutes). The mail names the room, the time, the number of newcomers and the number present -- **never a name, address, id or role of the entrant**; German first,
+  English below, no link. Nothing is stored (no table, no audit entry for entry or mail; claim and counters only in the server's memory, dropped when the session ends or the mode changes); the setting is
+  audited. It is sent best effort after the entry committed and can never block an entry; a reconnect, an office holder or BOARD/ADMIN without an office never trigger it. New: `EncounterEntryNotifier`,
+  `EncounterEntryNoticeState`, `SmtpEncounterEntryNoticeMailer`, `MailTemplates.encounterEntryNotice`, `MailDispatcher.enqueue(logRecipient = false)` (the log shows `to=(withheld)`). Client: a radio group in the
+  room form (not locked while the room is open) and a quiet bell with a name in the room list. Nine new texts in all seven catalogs. `EncounterSpaceService` and `EncounterSpacePoller` take the notifier as a
+  constructor parameter without a default (module-scoped singleton).
+  *Known limitations:* only with SMTP configured; the claim and the throttle live in the memory of one server instance (a restart forgets them, several instances do not share them, so a mail may come twice);
+  the time of a single entry stays a weak correlate with the one person who arrived; an office holder with a stuck presence row gets no mail until the poller removes it (about two to four minutes); a first
+  newcomer who arrives while all office holders are present still uses up the first-newcomer claim; the website help page `gathering-room` (EN, DE) is updated at the rollout, not in this wave.
+
 - **Encounter room: icon-only control bar, exit group, "Mehr" sheet (V1.9.74).** The bar under the stage shows symbols only (the reactions keep their word from 768 px); every control has a name
   and a tooltip, and a toggle shows its state through `aria-pressed` with a ring instead of a changing label ("Szene ausblenden", "Vollbild", microphone and camera with the slash symbol).
   "Türen schließen" and "Verlassen" form an exit group at the end of the bar, 12 px apart; "Verlassen" is always last (no confirmation, it locks itself at the first click) and the leave

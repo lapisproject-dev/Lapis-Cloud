@@ -189,4 +189,56 @@ class MailTemplatesTest :
                 .keycloakLinkChangedByAdmin(change = KeycloakLinkChange.UNLINKED, occurredAt = occurredAt, branding = testBranding())
                 .plainText shouldContain "Sitzungen wurden beendet"
         }
+
+        // ── Welle V1.9.76: the anonymous entry notice ─────────────────────
+
+        fun entryNotice(
+            title: String = "Sonntagsgottesdienst",
+            kind: EncounterEntryNotice.Kind = EncounterEntryNotice.Kind.FIRST_GUEST,
+            entries: Int = 1,
+        ) = EncounterEntryNotice(
+            recipients = listOf("amt@example.org"),
+            spaceTitle = title,
+            kind = kind,
+            at = LocalDateTime(2026, 10, 8, 10, 0),
+            windowEnd = if (kind == EncounterEntryNotice.Kind.WINDOW) LocalDateTime(2026, 10, 8, 10, 5) else null,
+            entries = entries,
+            presentCount = 7,
+        )
+
+        test(
+            "encounterEntryNotice -- a title with CR/LF, U+2028 and control characters yields a one-line subject, the title cut at 80 characters",
+        ) {
+            val hostile = "Raum\r\nBcc: x@evil.example\u2028zwei\u0007" + "y".repeat(200)
+            val mail = MailTemplates.encounterEntryNotice(notice = entryNotice(title = hostile), branding = testBranding())
+            mail.subject.any { it == '\r' || it == '\n' || it == '\u2028' || it == '\u0085' || it.isISOControl() } shouldBe false
+            val quoted = mail.subject.substringAfter("„").substringBefore("“")
+            (quoted.length <= 80) shouldBe true
+            mail.subject shouldContain "jemand ist eingetroffen / someone has arrived"
+        }
+
+        test("encounterEntryNotice -- the window mail names the number and the grid bounds, never single entry times") {
+            val mail =
+                MailTemplates.encounterEntryNotice(
+                    notice = entryNotice(kind = EncounterEntryNotice.Kind.WINDOW, entries = 4),
+                    branding = testBranding(),
+                )
+            mail.subject shouldContain "4 Personen sind eingetroffen / 4 people have arrived"
+            mail.plainText shouldContain "zwischen 10:00 und 10:05 Uhr"
+            mail.plainText shouldContain "between 10:00 and 10:05"
+            mail.plainText shouldContain "7 Personen"
+            mail.plainText shouldContain "Diese Nachricht nennt bewusst keine Namen"
+        }
+
+        test("encounterEntryNotice -- German before English, no link anywhere, the room title is HTML-escaped") {
+            val mail =
+                MailTemplates.encounterEntryNotice(
+                    notice = entryNotice(title = "<script>alert(1)</script>"),
+                    branding = testBranding(replyTo = "kontakt@example.org"),
+                )
+            (mail.plainText.indexOf("Im Begegnungsraum") < mail.plainText.indexOf("Someone has arrived")) shouldBe true
+            mail.html.shouldNotContain("href")
+            mail.plainText.shouldNotContain("http")
+            mail.html.shouldNotContain("<script>")
+        }
     })

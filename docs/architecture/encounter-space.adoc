@@ -188,6 +188,8 @@ referring to the guard.
 * **Moderation state** (who was removed, who was silenced) lives only in memory (`EncounterModerationState`, bounded to 64 sessions and 200
   entries per list; a full list *refuses* instead of evicting a block) and is dropped when the session ends. A database block list would be a
   lasting record about a person. Consequence: it is lost on a server restart.
+* **The entry notice (V1.9.76)** tells the office holders _that_ someone without an office arrived, never _who_: no name, address, id or role of the entrant is in the
+  mail, in the memory state, in the logs or in the audit log, and nothing is written to the database (see "Entry notice for office holders").
 * **Logs** in the encounter code never name a member id, an identity, a display name or a room id above DEBUG. Stream keys are untouched
   (`SecretBox`). `EncounterPrivacyTripwireTest` and `EncounterPrivacyWatchTest` pin all of this.
 * **Export and erasure** (`EncounterSpacePersonalData`): the export lists the subject's own spaces, offices and consent proofs. Erasure
@@ -478,6 +480,58 @@ The old front view `church.svg` was removed.
 * The header height token `--lapis-header-h` is a fixed estimate (navigation plus page header); a taller header shortens the stage, `min-height: 480px` keeps it usable.
 * The side navigation still shows a church symbol for "Begegnungsräume" in every organization (open question, not changed in this wave).
 
+== Entry notice for office holders (V1.9.76)
+
+A room can tell its office holders (PULPIT and STEWARD) by e-mail that a person *without an office* has entered. It is configured per room
+(`encounter_space.notify_mode`, migration V78, BOARD/ADMIN only like the rest of the configuration) and is off by default.
+
+[cols="1,3"]
+|===
+| Mode | Behaviour
+
+| `NONE`
+| No message (default; every existing room).
+
+| `FIRST_GUEST`
+| One message per opening of the room: for the first newcomer of the session. A closed and reopened room is a new session and announces its first newcomer again.
+
+| `EVERY_GUEST`
+| Newcomers are counted into fixed five-minute slots of the organisation's wall clock ("between 10:00 and 10:05"). When a slot has ended, one summary mail follows, and a space sends at most one mail per five minutes
+  (late slots are merged into one).
+|===
+
+*Who counts as "a person without an office".* A _newly admitted_ person whose `presenceRole` is `CONGREGATION` and who is not BOARD/ADMIN. A reconnect reuses its presence row and never counts. PULPIT and STEWARD never trigger a notice
+(and never use up the first-newcomer claim). BOARD/ADMIN without an office do not either: the product owner decided that they are not "guests" of the room.
+
+*Who is informed.* The ACTIVE PULPIT/STEWARD office holders who are *not in the room at that moment* -- read from `conference_participation`, which is already the transient live presence (written on entry, deleted on leave, on close and by the poller). No
+new presence storage was needed. Addresses are lower-cased and deduplicated, anonymised members (`*.invalid`) are dropped, at most 20 recipients. Each recipient gets an individual mail (nobody sees the others' addresses). If nobody remains, nothing is sent.
+Honest blur: an office holder who closes the tab without `leaveSpace` still counts as present until the poller removes the row (about two to four minutes) and gets no mail in that time.
+
+*What the mail says.* Room name, the time (the minute for a single entry, the window for a summary), the number of newcomers and the number of people present, German first, English below, no link, no logo, plus the sentence that the message names nobody on purpose.
+It never carries a name, an address, an id or the role of the entrant: `EncounterEntryNotice` has no field for a person, `EncounterEntryNoticeAnonymityTest` pins that. The HTML part is an unformatted mirror of the plain text (the transport always sends multipart/alternative).
+
+*Where the state lives.* `EncounterEntryNoticeState` holds, only in memory, the claim of the first newcomer per session and the slot counters per session, bounded (64 sessions, 4 pending slots per session; a full state refuses instead of evicting).
+It is dropped when the session is closed (`closeSpace`, the poller), when the notify mode of the room changes, and by a server restart. A window of a session that has ended is discarded without a mail. Nothing is written to the database.
+
+*When it runs.* `EncounterSpaceService.enterSpace` calls `EncounterEntryNotifier.onGuestEntered` only after the entry transaction has committed (Exposed may re-run a block, a claim inside it could be spent twice or survive a rollback). The notifier never throws: a mail problem
+can never block or undo an entry. The recipient query runs in its own short read transaction; the mail is only _enqueued_ (outside any transaction). With SMTP not configured the notifier does no work at all (no state, no database read).
+`EVERY_GUEST` windows are sent by a ticker of the notifier (every 30 seconds, independent of LiveKit and of the poller) and opportunistically by the next entry.
+
+*What is audited.* The _setting_ (`notifyMode` is part of the configuration snapshot of `create`/`update`, actor = BOARD/ADMIN). The mail itself is not audited, and neither is an entry: an audit line "somebody entered at 10:03" would be the permanent trace this room is built to avoid.
+The notify mode may be changed while the room is open (it only affects future entries); a real change resets the state of the room.
+
+*Logs.* The notice code logs only exception classes and the fact that the state is full -- no id, title, address or number. `MailDispatcher.enqueue(logRecipient = false)` makes the dispatcher write `to=(withheld)` instead of the masked address.
+The remaining line "Mail delivered: purpose=encounter-entry-notice to=(withheld)" says that a notice mail left, without room and without person.
+
+=== Known limitations of the entry notice
+
+* Only with SMTP configured; without it the setting is stored but nothing is sent.
+* The claim and the throttle live in the memory of one server instance: a restart forgets them (a first newcomer may be announced twice), and several instances do not share them (a mail may come twice).
+* The time of a single entry (`FIRST_GUEST`) remains a weak correlate with the one person who arrived then; `EVERY_GUEST` blurs it to a window.
+* If the first newcomer arrives while every office holder is present (nobody to tell), the claim is still spent: later newcomers of that session are not announced, even if the office holders have left in the meantime.
+* An office holder with a stuck presence row gets no mail until the poller has removed it.
+* The website help page `gathering-room` (EN, DE) is not updated in this wave; do that at the rollout.
+
 == Open questions (for the product owner and legal)
 
 . The wording of the Art. 9 consent (`EncounterConsentDisclaimer`, version `2026-10-06.v1`) -- a draft, legal review required.
@@ -485,3 +539,5 @@ The old front view `church.svg` was removed.
 . Whether the audit entry of `setSpaceRoles` should carry the office holders' ids (as now) or only counts.
 . Listing the participants of an encounter session in the ordinary API is refused (`listParticipants`); the only roster is `listPresent`.
 . The wording of the assembly consent (`EncounterAssemblyConsentDisclaimer`, version `2026-10-07.assembly.v1`) -- a draft, legal review required. Until then an operator may keep assembly rooms on `MEMBERS_ONLY`.
+. (V1.9.76) Whether a first newcomer who arrives while all office holders are present should still use up the `FIRST_GUEST` claim (as now: the rule is "the first person of the session"), or only a mail that was actually sent.
+. (V1.9.76) Whether the setting `notifyMode` should be visible to everybody who may see the room (as now: transparency towards the participants, Art. 13) or only to BOARD/ADMIN and office holders.

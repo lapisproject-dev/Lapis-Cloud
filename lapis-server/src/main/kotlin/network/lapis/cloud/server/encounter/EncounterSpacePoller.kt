@@ -78,6 +78,7 @@ private data class OpenSession(
 class EncounterSpacePoller(
     private val liveKitAdminClient: LiveKitAdminClient,
     private val moderationState: EncounterModerationState,
+    private val entryNotifier: EncounterEntryNotifier,
     private val liveKitEnabled: Boolean,
     private val intervalSeconds: Long = 60,
     private val clock: () -> LocalDateTime = { DbClock.nowLocalDateTime() },
@@ -266,6 +267,7 @@ class EncounterSpacePoller(
             }
         }
         moderationState.clear(session.roomId)
+        entryNotifier.clearSession(session.roomId)
         logger.info { "encounter poller: a session was closed ($reason)" }
     }
 

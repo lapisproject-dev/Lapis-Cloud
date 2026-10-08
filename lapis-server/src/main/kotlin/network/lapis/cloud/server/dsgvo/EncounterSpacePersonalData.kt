@@ -18,6 +18,8 @@ import kotlin.uuid.Uuid
  *
  * - `encounter_space` (`created_by_member_id`): **retain-with-reason**. The space is organisational configuration (title, theme, entry
  *   policy), not personal data of its creator; the member row is anonymised, never deleted, so the reference stays valid.
+ *   V1.9.76: `encounter_space.notify_mode` is room configuration without personal reference; the anonymous entry-notice mail leaves
+ *   no row (no table, no log line with an address), so nothing about it is exported or erased here.
  * - `encounter_space_role`: the rows are **deleted**. They are pure office configuration ("who is pulpit / steward"); a member who is
  *   erased no longer holds an office.
  * - `encounter_consent_acknowledgment`: **retain-with-reason** -- the organisation's accountability proof under Art. 5(2)/7(1) GDPR

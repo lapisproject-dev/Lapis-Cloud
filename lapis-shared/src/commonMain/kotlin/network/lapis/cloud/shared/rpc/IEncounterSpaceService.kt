@@ -40,7 +40,10 @@ interface IEncounterSpaceService {
     /** Whether [enterSpace] needs a consent, and the text to show. */
     suspend fun getEntryInfo(spaceId: String): EncounterEntryInfoDto
 
-    /** `input.profile`/`input.reactions` `null` = church service with its default reactions. */
+    /**
+     * `input.profile`/`input.reactions` `null` = church service with its default reactions. `input.notifyMode` `null` = NONE (V1.9.76:
+     * BOARD/ADMIN only, like the whole configuration).
+     */
     suspend fun createSpace(input: EncounterSpaceInput): EncounterSpaceDto
 
     /**

@@ -103,6 +103,9 @@ class MailDispatcher(
      * Nimmt die Nachricht zur Zustellung an und kehrt SOFORT zurück -- wirft nie. [purpose] ist
      * nur für Logging gedacht (`"password-reset"`/`"friend-email-verification"`), niemals Teil des
      * versendeten Inhalts.
+     *
+     * [logRecipient] `false` (V1.9.76, encounter entry notice): the log lines carry `to=(withheld)` instead of the masked address --
+     * a partial address next to a sensitive purpose is still personal data in a log.
      */
     fun enqueue(
         to: String,
@@ -110,11 +113,12 @@ class MailDispatcher(
         plainTextBody: String,
         htmlBody: String,
         purpose: String,
+        logRecipient: Boolean = true,
     ): Boolean {
         // maskEmailForLogging: see its own KDoc -- pairing a full recipient address with a purpose
         // like "password-reset"/"friend-email-verification" on every request would otherwise turn
         // the server log into a standing "who reset a password / joined as FRIEND when" record.
-        val maskedTo = maskEmailForLogging(to)
+        val maskedTo = if (logRecipient) maskEmailForLogging(to) else WITHHELD_RECIPIENT
         val mail =
             QueuedMail(
                 to = to,
@@ -192,6 +196,8 @@ class MailDispatcher(
     }
 
     companion object {
+        /** What the log shows instead of the recipient when [enqueue] was called with `logRecipient = false`. */
+        const val WITHHELD_RECIPIENT = "(withheld)"
         const val DEFAULT_MAX_CONCURRENT_SENDS = 4
         const val DEFAULT_QUEUE_CAPACITY = 64
         val DEFAULT_PER_SEND_TIMEOUT: Duration = 60.seconds
