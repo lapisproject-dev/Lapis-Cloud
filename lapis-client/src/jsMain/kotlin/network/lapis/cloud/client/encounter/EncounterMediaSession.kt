@@ -4,11 +4,14 @@ import network.lapis.cloud.client.livekit.ConferenceConnectFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
 import network.lapis.cloud.client.livekit.DisconnectCause
 import network.lapis.cloud.client.livekit.LiveKitRoomSession
+import network.lapis.cloud.client.livekit.Room
+import network.lapis.cloud.client.livekit.RoomOptions
 import network.lapis.cloud.client.livekit.Track
 import network.lapis.cloud.client.livekit.TrackPublication
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
 import network.lapis.cloud.shared.domain.EncounterEntryDto
 import network.lapis.cloud.shared.domain.EncounterReaction
+import network.lapis.cloud.shared.domain.EncounterTableTokenDto
 
 /**
  * V1.9.62 Begegnungsraum (B2) -- THE place where the listen-only rule of the congregation is enforced on the client, in three layers:
@@ -172,4 +175,95 @@ private class SpeakerSession(
     override suspend fun setCamera(enabled: Boolean): ConferenceDeviceFailure? = liveKit.setCamera(enabled)
 
     override suspend fun setMicrophone(enabled: Boolean): ConferenceDeviceFailure? = liveKit.setMicrophone(enabled)
+}
+
+// ── V1.9.80 Stage 2b: the audio session of a TABLE ─────────────────────────────────────────────────────────────────────
+
+/**
+ * V1.9.80 -- the second, separate LiveKit session of a person who sits at a table: audio only. The type has NO camera, NO screen share
+ * and NO data method (the narrowest possible interface); the server's table token additionally grants only the microphone source
+ * (`canPublishSources = ["microphone"]`) and no data channel. The microphone is OFF after [connect]; [microphone] is the only media call
+ * and it needs a token with `canPublish = true` (a quieted table's token has none, and the runtime flag `publishEnabled` refuses the
+ * call too).
+ */
+internal interface EncounterTableSession {
+    /** Connects to the table's room. `null` = connected, otherwise why not. Publishes nothing. */
+    suspend fun connect(): ConferenceConnectFailure?
+
+    /** Switches the own microphone; a typed refusal when the token may not publish. */
+    suspend fun microphone(on: Boolean): ConferenceDeviceFailure?
+
+    /** Leaves the table room and stops the local audio track. */
+    suspend fun disconnect()
+}
+
+/** What the table view wants to hear: audio tracks only (a video track is dropped unread), the speakers, and the end of the connection. */
+internal class EncounterTableCallbacks(
+    val onAudioTrack: (identity: String, track: Track) -> Unit,
+    val onAudioTrackGone: (identity: String, track: Track) -> Unit,
+    val onActiveSpeakers: (identities: List<String>) -> Unit,
+    val onDisconnected: (DisconnectCause) -> Unit,
+    val onReconnecting: () -> Unit = {},
+    val onReconnected: () -> Unit = {},
+)
+
+/** The factory seam of the table view (a `jsTest` hands over a fake). The real one is [openEncounterTableSession]. */
+internal typealias EncounterTableSessionOpener = (
+    token: EncounterTableTokenDto,
+    callbacks: EncounterTableCallbacks,
+) -> EncounterTableSession
+
+private fun tableLiveKitSession(
+    callbacks: EncounterTableCallbacks,
+    publishEnabled: Boolean,
+    roomFactory: (RoomOptions) -> Room,
+): LiveKitRoomSession =
+    LiveKitRoomSession(
+        // Only audio is ever handed on: a video track at a table is not wanted (the reconciler of the server rotates the table anyway).
+        onRemoteTrack = { identity, _, track, _ -> if (track.kind == "audio") callbacks.onAudioTrack(identity, track) },
+        onRemoteTrackGone = { identity, track, _ -> if (track.kind == "audio") callbacks.onAudioTrackGone(identity, track) },
+        onParticipantJoined = { _, _ -> },
+        onParticipantLeft = { _ -> },
+        onLocalVideoTrack = { _ -> },
+        onLocalTrackMuteChanged = { _, _ -> },
+        onRecordingStatusChanged = {},
+        onActiveSpeakersChanged = callbacks.onActiveSpeakers,
+        onActiveDeviceChanged = { _, _ -> },
+        onMediaDevicesChanged = {},
+        onMediaDevicesError = { _, _ -> },
+        onChat = { _ -> },
+        onWhiteboardPreview = { _, _, _ -> },
+        onWhiteboardCommit = { _, _, _ -> },
+        onNotesCommit = { _, _, _ -> },
+        onReconnecting = callbacks.onReconnecting,
+        onReconnected = callbacks.onReconnected,
+        onDisconnected = callbacks.onDisconnected,
+        roomFactory = roomFactory,
+        publishEnabled = publishEnabled,
+    )
+
+/**
+ * Builds the audio session of [token]; the underlying session gets `publishEnabled = token.canPublish` (a quieted table's token has none).
+ * [roomFactory] is the test seam for the LiveKit room (a fake room in a `jsTest`).
+ */
+internal fun openEncounterTableSession(
+    token: EncounterTableTokenDto,
+    callbacks: EncounterTableCallbacks,
+    roomFactory: (RoomOptions) -> Room = { options -> Room(options) },
+): EncounterTableSession =
+    TableAudioSession(
+        liveKit = tableLiveKitSession(callbacks = callbacks, publishEnabled = token.canPublish, roomFactory = roomFactory),
+        token = token,
+    )
+
+private class TableAudioSession(
+    private val liveKit: LiveKitRoomSession,
+    private val token: EncounterTableTokenDto,
+) : EncounterTableSession {
+    override suspend fun connect(): ConferenceConnectFailure? =
+        liveKit.connect(token.join.serverUrl, token.join.token, token.join.turnServers)
+
+    override suspend fun microphone(on: Boolean): ConferenceDeviceFailure? = liveKit.setMicrophone(on)
+
+    override suspend fun disconnect() = liveKit.disconnect()
 }

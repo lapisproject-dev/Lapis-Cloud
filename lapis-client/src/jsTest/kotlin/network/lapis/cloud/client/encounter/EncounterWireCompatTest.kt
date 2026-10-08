@@ -135,4 +135,65 @@ class EncounterWireCompatTest {
             )
         assertTrue(seated.contains("\"seat\":3"), seated)
     }
+
+    // ── V1.9.80: tables ───────────────────────────────────────────────────
+
+    @Test
+    fun aRoomWithoutTables_hasTablesOff_withTheDefaults() {
+        val dto = RpcSerialization.getJson().decodeFromString(EncounterSpaceDto.serializer(), "{$base}")
+        assertEquals(
+            network.lapis.cloud.shared.domain
+                .EncounterTablesConfig(enabled = false, count = 4, seats = 6),
+            dto.tables,
+        )
+    }
+
+    @Test
+    fun aRoomWithTables_isDecoded() {
+        val dto =
+            RpcSerialization.getJson().decodeFromString(
+                EncounterSpaceDto.serializer(),
+                "{$base,\"profile\":\"ASSEMBLY\",\"tables\":{\"enabled\":true,\"count\":5,\"seats\":3}}",
+            )
+        assertEquals(
+            network.lapis.cloud.shared.domain
+                .EncounterTablesConfig(enabled = true, count = 5, seats = 3),
+            dto.tables,
+        )
+    }
+
+    @Test
+    fun anOldAdminInput_withoutTables_decodesToNullMeaningUnchanged() {
+        val input = RpcSerialization.getJson().decodeFromString(EncounterSpaceInput.serializer(), "{\"title\":\"x\"}")
+        assertNull(input.tables)
+    }
+
+    @Test
+    fun aPersonWithoutATable_isInThePlenary_andOneWithATableIsDecoded() {
+        val plain =
+            RpcSerialization.getJson().decodeFromString(
+                EncounterPresentDto.serializer(),
+                "{\"memberId\":\"m\",\"displayName\":\"N\",\"role\":\"CONGREGATION\",\"isGuest\":false}",
+            )
+        assertNull(plain.table)
+        assertNull(plain.tableSeat)
+        val seated =
+            RpcSerialization.getJson().decodeFromString(
+                EncounterPresentDto.serializer(),
+                "{\"memberId\":\"m\",\"displayName\":\"N\",\"role\":\"CONGREGATION\",\"isGuest\":false,\"table\":2,\"tableSeat\":1}",
+            )
+        assertEquals(2, seated.table)
+        assertEquals(1, seated.tableSeat)
+    }
+
+    @Test
+    fun theTokenAnswer_withoutAToken_meansNoTable() {
+        val none =
+            RpcSerialization.getJson().decodeFromString(
+                network.lapis.cloud.shared.domain.EncounterTableTokenAnswer
+                    .serializer(),
+                "{}",
+            )
+        assertNull(none.token)
+    }
 }

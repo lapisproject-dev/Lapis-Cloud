@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.encounter
 
+import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 /**
@@ -17,6 +18,7 @@ class EncounterModerationState {
     private val lock = Any()
     private val removed = HashMap<Uuid, MutableSet<Uuid>>()
     private val silenced = HashMap<Uuid, MutableSet<Uuid>>()
+    private val tableBans = HashMap<Uuid, MutableMap<Uuid, Instant>>()
 
     /** Blocks [memberId] from re-entering [sessionRoomId]. `false` iff the state is full (nothing recorded). */
     fun block(
@@ -42,6 +44,36 @@ class EncounterModerationState {
         memberId: Uuid,
     ): Boolean = synchronized(lock) { silenced[sessionRoomId]?.contains(memberId) == true }
 
+    /**
+     * Keeps [memberId] away from the tables of [sessionRoomId] until [until] (sent back to the plenum by a moderator: without this they
+     * could sit down again two seconds later). Expired entries are pruned on the way. `false` iff the state is full (nothing recorded).
+     */
+    fun banFromTables(
+        sessionRoomId: Uuid,
+        memberId: Uuid,
+        until: Instant,
+        now: Instant,
+        privileged: Boolean = false,
+    ): Boolean =
+        synchronized(lock) {
+            val map = tableBans[sessionRoomId]
+            if (map == null) {
+                if (sessionKeys().size >= MAX_SESSIONS) return false
+                tableBans[sessionRoomId] = mutableMapOf(memberId to until)
+                return true
+            }
+            map.values.removeAll { it <= now }
+            if (memberId !in map && map.size >= MAX_ENTRIES_PER_SESSION + (if (privileged) PRIVILEGED_RESERVE else 0)) return false
+            map[memberId] = until
+            true
+        }
+
+    fun isTableBanned(
+        sessionRoomId: Uuid,
+        memberId: Uuid,
+        now: Instant,
+    ): Boolean = synchronized(lock) { tableBans[sessionRoomId]?.get(memberId)?.let { it > now } == true }
+
     /** The identities (member UUID strings) currently blocked in [sessionRoomId] -- the poller kicks those that are still connected. */
     fun blockedIdentities(sessionRoomId: Uuid): Set<String> =
         synchronized(lock) { removed[sessionRoomId].orEmpty().map { it.toString() }.toSet() }
@@ -55,11 +87,14 @@ class EncounterModerationState {
         synchronized(lock) {
             removed.remove(sessionRoomId)
             silenced.remove(sessionRoomId)
+            tableBans.remove(sessionRoomId)
         }
     }
 
     /** Number of sessions with any state (test/diagnostic aid). */
-    fun trackedSessions(): Int = synchronized(lock) { (removed.keys + silenced.keys).size }
+    fun trackedSessions(): Int = synchronized(lock) { sessionKeys().size }
+
+    private fun sessionKeys(): Set<Uuid> = removed.keys + silenced.keys + tableBans.keys
 
     private fun add(
         target: MutableMap<Uuid, MutableSet<Uuid>>,
@@ -70,7 +105,7 @@ class EncounterModerationState {
         synchronized(lock) {
             val set = target[sessionRoomId]
             if (set == null) {
-                if ((removed.keys + silenced.keys).size >= MAX_SESSIONS) return false
+                if (sessionKeys().size >= MAX_SESSIONS) return false
                 target[sessionRoomId] = mutableSetOf(memberId)
                 true
             } else if (memberId in set) {

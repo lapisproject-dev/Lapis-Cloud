@@ -120,7 +120,32 @@ data class EncounterSpaceInput(
     val reactions: List<EncounterReactionOption>? = null,
     /** Create: `null` = [EncounterNotifyMode.NONE]. Update: `null` = unchanged (an old cached admin client sends no mode). */
     val notifyMode: EncounterNotifyMode? = null,
+    /** V1.9.80: Create: `null` = tables off. Update: `null` = unchanged (an old cached admin client sends none). Describes the ROOM. */
+    val tables: EncounterTablesConfig? = null,
 )
+
+/**
+ * V1.9.80 (stage 2b): table configuration of a room. Describes the ROOM, never a person. Tables exist only in the
+ * [EncounterProfile.ASSEMBLY] profile: [enabled] with the church profile is rejected by the server (and by a CHECK constraint, V79).
+ */
+@Serializable
+data class EncounterTablesConfig(
+    val enabled: Boolean = false,
+    val count: Int = 4,
+    val seats: Int = 6,
+)
+
+/** V1.9.80: at most this many tables per room. */
+const val ENCOUNTER_TABLE_MAX_COUNT = 12
+
+/** V1.9.80: fewest seats per table. */
+const val ENCOUNTER_TABLE_MIN_SEATS = 2
+
+/** V1.9.80: most seats per table. */
+const val ENCOUNTER_TABLE_MAX_SEATS = 8
+
+/** V1.9.80: a quieted table stays quiet for this long unless a moderator lifts it earlier. */
+const val ENCOUNTER_TABLE_QUIET_MINUTES = 5
 
 /**
  * One space as the CALLER sees it. [presentCount] is only a number -- no names. [pulpitDisplayNames] names the office holders of the
@@ -147,6 +172,8 @@ data class EncounterSpaceDto(
     val profile: EncounterProfile = EncounterProfile.CHURCH_SERVICE,
     val reactions: List<EncounterReactionOption> = listOf(EncounterReactionOption.HAND, EncounterReactionOption.AMEN),
     val notifyMode: EncounterNotifyMode = EncounterNotifyMode.NONE,
+    /** V1.9.80: effective table configuration (`enabled` only ever true in the assembly profile). Last + default = wire compatible. */
+    val tables: EncounterTablesConfig = EncounterTablesConfig(),
 )
 
 /** One office assignment of [network.lapis.cloud.shared.rpc.IEncounterSpaceService.setSpaceRoles] (replace-all, at most 20). */
@@ -208,6 +235,40 @@ data class EncounterPresentDto(
     val isGuest: Boolean,
     /** V1.9.79: the seat this CONGREGATION person chose (0-based), `null` = not seated. Last + default = wire compatible both ways. */
     val seat: Int? = null,
+    /** V1.9.80: the table (0-based) this CONGREGATION person sits at, `null` = in the plenum. Visible to everybody present. */
+    val table: Int? = null,
+    /** V1.9.80: the seat at that table (0-based). */
+    val tableSeat: Int? = null,
+)
+
+/**
+ * V1.9.80: the answer of `tableToken`: [token] `null` = the caller sits at no table (any more). A wrapper because the RPC generator cannot
+ * express a nullable return type.
+ */
+@Serializable
+data class EncounterTableTokenAnswer(
+    val token: EncounterTableTokenDto? = null,
+)
+
+/** V1.9.80: one table as listed -- occupied seat numbers only, never a person. */
+@Serializable
+data class EncounterTableDto(
+    val table: Int,
+    val seats: Int,
+    val occupiedSeats: List<Int>,
+    val quieted: Boolean,
+)
+
+/**
+ * V1.9.80: the join data of the caller's own table. [join] carries a short-lived (30 s) LiveKit token for the table's own room;
+ * [canPublish] is `false` while the table is quieted. Never contains another person.
+ */
+@Serializable
+data class EncounterTableTokenDto(
+    val join: ConferenceJoinTokenDto,
+    val canPublish: Boolean,
+    val table: Int,
+    val tableSeat: Int,
 )
 
 /** V1.9.79: seats per row -- two blocks of three with the aisle between position 3 and 4. */

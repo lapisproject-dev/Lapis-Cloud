@@ -41,6 +41,9 @@ import network.lapis.cloud.client.untrustedCardTitle
 import network.lapis.cloud.client.untrustedP
 import network.lapis.cloud.client.untrustedSpan
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.ENCOUNTER_TABLE_MAX_COUNT
+import network.lapis.cloud.shared.domain.ENCOUNTER_TABLE_MAX_SEATS
+import network.lapis.cloud.shared.domain.ENCOUNTER_TABLE_MIN_SEATS
 import network.lapis.cloud.shared.domain.EncounterGuestPolicy
 import network.lapis.cloud.shared.domain.EncounterNotifyMode
 import network.lapis.cloud.shared.domain.EncounterProfile
@@ -48,6 +51,7 @@ import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.EncounterSpaceInput
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
+import network.lapis.cloud.shared.domain.EncounterTablesConfig
 import network.lapis.cloud.shared.rpc.IEncounterSpaceService
 
 /**
@@ -253,6 +257,39 @@ internal fun renderEncounterSpaceForm(
             className = "text-muted small",
         )
     }
+    // V1.9.80 (stage 2b): tables with their own audio group -- the assembly profile only, frozen while a session is open (the server refuses a
+    // change too). Choosing the church-service profile switches them off and greys them out.
+    val tablesNow = existing?.tables ?: EncounterTablesConfig()
+    val tablesAllowed = existing?.profile == EncounterProfile.ASSEMBLY
+    val tablesCheck =
+        form.checkField(
+            label = tr("Tische mit eigener Audiogruppe"),
+            value = tablesNow.enabled && tablesAllowed,
+            hint = gettext("Nur in der Raumart Versammlung. Wer an einem Tisch sitzt, hört und spricht nur dort mit den anderen am Tisch."),
+            init = { box -> box.disabled = locked || !tablesAllowed },
+        )
+    val tableCountField =
+        form.textField(
+            label = tr("Anzahl der Tische"),
+            value = tablesNow.count.toString(),
+            hint = gettext("Zwischen %1 und %2.", 1, ENCOUNTER_TABLE_MAX_COUNT),
+            rule = { FormRules.intInRange(value = it, min = 1, max = ENCOUNTER_TABLE_MAX_COUNT) },
+            init = { it.disabled = locked },
+        )
+    val tableSeatsField =
+        form.textField(
+            label = tr("Plätze je Tisch"),
+            value = tablesNow.seats.toString(),
+            hint = gettext("Zwischen %1 und %2.", ENCOUNTER_TABLE_MIN_SEATS, ENCOUNTER_TABLE_MAX_SEATS),
+            rule = { FormRules.intInRange(value = it, min = ENCOUNTER_TABLE_MIN_SEATS, max = ENCOUNTER_TABLE_MAX_SEATS) },
+            init = { it.disabled = locked },
+        )
+    if (locked) {
+        form.panel.div(
+            tr("Die Tische lassen sich nur bei geschlossenem Raum ändern."),
+            className = "text-muted small",
+        )
+    }
     // KVision calls the observer at once with the current value: only a real change of the kind may reset the reactions, otherwise opening
     // a closed room with a non-default reaction set would silently replace it by the defaults.
     var lastProfile = existing?.profile?.name
@@ -264,6 +301,14 @@ internal fun renderEncounterSpaceForm(
         if (locked) return@subscribe
         val defaults = EncounterReactionOption.defaultsFor(profile)
         reactionChecks.forEach { (option, field) -> (field.control as? CheckBox)?.value = option in defaults }
+    }
+    profileRadio.subscribe { chosen ->
+        val box = tablesCheck.control as? CheckBox ?: return@subscribe
+        if (locked) return@subscribe
+        val assembly = chosen == EncounterProfile.ASSEMBLY.name
+        // Tables belong to the assembly profile: any other kind switches them off and greys them out.
+        if (!assembly) box.value = false
+        box.disabled = !assembly
     }
     // V1.9.76: the anonymous e-mail notice to the office holders. NOT frozen while the room is open: it only affects future entries.
     val notifyRadio =
@@ -339,6 +384,12 @@ internal fun renderEncounterSpaceForm(
                     closedNotice = noticeField.value.trim().ifEmpty { null },
                     maxParticipants = maxField.value.trim().toIntOrNull(),
                     notifyMode = EncounterNotifyMode.entries.firstOrNull { it.name == notifyField.value } ?: EncounterNotifyMode.NONE,
+                    tables =
+                        EncounterTablesConfig(
+                            enabled = tablesCheck.value == "true" && profileField.value == EncounterProfile.ASSEMBLY.name,
+                            count = tableCountField.value.trim().toIntOrNull() ?: tablesNow.count,
+                            seats = tableSeatsField.value.trim().toIntOrNull() ?: tablesNow.seats,
+                        ),
                 )
             val saved =
                 guarded {

@@ -13,6 +13,9 @@ import network.lapis.cloud.server.db.generated.EncounterSpaceRoleTable
 import network.lapis.cloud.server.db.generated.EncounterSpaceTable
 import network.lapis.cloud.server.encounter.EncounterConsentDisclaimer
 import network.lapis.cloud.server.encounter.EncounterFixtures
+import network.lapis.cloud.server.encounter.encounterApp
+import network.lapis.cloud.server.encounter.openAndEnter
+import network.lapis.cloud.server.encounter.tableWorld
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
 import network.lapis.cloud.shared.domain.ErasureMode
@@ -63,6 +66,18 @@ class EncounterSpacePersonalDataTest :
             (consents[0] as JsonObject).getValue("acknowledgedOn").jsonPrimitive.content shouldBe OrganizationTimeZone.today().toString()
             json.toString() shouldNotContain other.toString()
             json.toString() shouldNotContain "Fremde Andacht"
+        }
+
+        test("V1.9.80: the export of a person who sat at a table knows no table, no seat and no table room") {
+            val w = fx.tableWorld()
+            encounterApp {
+                openAndEnter(w = w, w.steward, w.a)
+                w.rig.asMember(client = client, member = w.a) { it.joinTable(spaceId = w.spaceId, table = 1, seat = 1) }.getOrThrow()
+                val text = transaction { EncounterSpacePersonalData.exportMember(w.a) }.toString()
+                text shouldNotContain "lc-et-"
+                text shouldNotContain "tableSeat"
+                text shouldNotContain "\"table\""
+            }
         }
 
         test("erasure: office rows are deleted, the space and the consent proof are retained with their reasons -- in both modes") {

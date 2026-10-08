@@ -20933,3 +20933,179 @@ msgstr "Выбрать ряд %1, место %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Reihe %1, Stuhl %2 wählen"
 msgstr "Выбрать ряд %1, стул %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tisch %1"
+msgstr "Стол %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tische"
+msgstr "Столы"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Setzen Sie sich an einen Tisch, um dort mit wenigen Personen zu sprechen. Ihr Mikrofon ist beim Hinsetzen aus."
+msgstr "Сядьте за стол, чтобы поговорить там с несколькими людьми. Ваш микрофон выключен, когда вы садитесь."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Der Tisch ist beruhigt"
+msgstr "Стол приглушён"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tisch verlassen"
+msgstr "Покинуть стол"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tisch beruhigen"
+msgstr "Приглушить стол"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Beruhigung aufheben"
+msgstr "Снять приглушение"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tisch %1 · %2 von %3 Plätzen frei"
+msgstr "Стол %1 · свободно мест: %2 из %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "beruhigt"
+msgstr "приглушён"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tisch %1, Platz %2, Ihr Platz"
+msgstr "Стол %1, место %2, ваше место"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tisch %1, Platz %2, frei, hier setzen"
+msgstr "Стол %1, место %2, свободно, сесть здесь"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tisch %1, Platz %2, frei"
+msgstr "Стол %1, место %2, свободно"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tisch %1, Platz %2, besetzt, %3"
+msgstr "Стол %1, место %2, занято, %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Sie sind wieder im Plenum."
+msgstr "Вы снова в общем зале."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Das Mikrofon konnte nicht eingeschaltet werden."
+msgstr "Не удалось включить микрофон."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Ihr Mikrofon ist an."
+msgstr "Ваш микрофон включён."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Sie wurden ins Plenum zurückgesetzt."
+msgstr "Вас вернули в общий зал."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Die Verbindung zum Tisch konnte nicht hergestellt werden."
+msgstr "Не удалось подключиться к столу."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Sie sitzen an Tisch %1. Ihr Mikrofon ist aus."
+msgstr "Вы сидите за столом %1. Ваш микрофон выключен."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Der Tisch wurde beruhigt."
+msgstr "Стол был приглушён."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Die Beruhigung wurde aufgehoben."
+msgstr "Приглушение снято."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Die Verbindung zum Tisch wurde beendet."
+msgstr "Соединение со столом завершено."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Die Verbindung zum Tisch ist abgebrochen. Sie sind wieder im Plenum."
+msgstr "Соединение со столом прервано. Вы снова в общем зале."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
+msgid "Mikrofon am Tisch"
+msgstr "Микрофон за столом"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
+msgid "Der Tisch ist beruhigt. Ihr Mikrofon ist gesperrt."
+msgstr "Стол приглушён. Ваш микрофон заблокирован."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
+msgid "Mikrofon an"
+msgstr "Микрофон включён"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
+msgid "Mikrofon aus"
+msgstr "Микрофон выключен"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
+msgid "Tisch %1 wurde beruhigt."
+msgstr "Стол %1 приглушён."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
+msgid "Die Beruhigung von Tisch %1 wurde aufgehoben."
+msgstr "Приглушение стола %1 снято."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterPresentPanel.kt
+msgid "Tisch über eine Liste wählen"
+msgstr "Выбрать стол из списка"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterPresentPanel.kt
+msgid "Sie sitzen an Tisch %1."
+msgstr "Вы сидите за столом %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterPresentPanel.kt
+msgid "Sie sitzen an keinem Tisch."
+msgstr "Вы не сидите ни за одним столом."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterPresentPanel.kt
+msgid "Alle Tische sind besetzt."
+msgstr "Все столы заняты."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterPresentPanel.kt
+msgid "Tisch %1 (%2 Plätze frei)"
+msgstr "Стол %1 (свободно мест: %2)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterPresentPanel.kt
+msgid "Ins Plenum setzen"
+msgstr "Вернуть в общий зал"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterPresentPanel.kt
+msgid "Die Person wurde ins Plenum gesetzt."
+msgstr "Человек возвращён в общий зал."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Tische mit eigener Audiogruppe"
+msgstr "Столы с собственной аудиогруппой"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Nur in der Raumart Versammlung. Wer an einem Tisch sitzt, hört und spricht nur dort mit den anderen am Tisch."
+msgstr "Только для вида зала «Собрание». Тот, кто сидит за столом, слышит и говорит только с другими за этим столом."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Anzahl der Tische"
+msgstr "Количество столов"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Zwischen %1 und %2."
+msgstr "От %1 до %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Plätze je Tisch"
+msgstr "Мест за столом"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Die Tische lassen sich nur bei geschlossenem Raum ändern."
+msgstr "Столы можно менять только при закрытом зале."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Kanzel lauter"
+msgstr "Кафедру громче"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Podium lauter"
+msgstr "Подиум громче"

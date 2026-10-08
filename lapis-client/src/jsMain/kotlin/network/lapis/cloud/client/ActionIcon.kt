@@ -115,4 +115,16 @@ enum class ActionIcon(
 
     /** V1.9.79: give up one's own seat in the encounter room ("Platz freigeben"). Used once, in the room's seat area. */
     RELEASE_SEAT("fas fa-chair"),
+
+    /** V1.9.80: get up from a table of the encounter room ("Tisch verlassen"): back to the plenum. */
+    LEAVE_TABLE("fas fa-users-slash"),
+
+    /** V1.9.80: a moderator lifts the quiet of a table ("Beruhigung aufheben"); the opposite of [SILENCE] at table level. */
+    LIFT_QUIET("fas fa-volume-high"),
+
+    /** V1.9.80: a person at a table turns the pulpit's sound up again ("Kanzel lauter"); the pulpit is quieter while one sits at a table. */
+    PULPIT_LOUDER("fas fa-bullhorn"),
+
+    /** V1.9.80: a moderator sends a person from a table back to the plenum ("Ins Plenum setzen"); NOT [REMOVE] (the person stays in the room). */
+    SEND_TO_PLENUM("fas fa-people-roof"),
 }

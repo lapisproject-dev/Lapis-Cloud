@@ -691,8 +691,9 @@ class ClientToolbarIconTripwireTest :
                     mapOf(
                         // the declaration itself
                         "EncounterControlBar.kt" to 1,
-                        // chat, more (panels), scene, full screen (view), transmission (moderation), doors, leave (exit)
-                        "EncounterRoom.kt" to 7,
+                        // chat, more (panels), scene, full screen (view), transmission (moderation), doors, leave (exit);
+                        // V1.9.80: + the table microphone and "Kanzel lauter" (devices group, shown while one sits at a table)
+                        "EncounterRoom.kt" to 9,
                         // microphone and camera
                         "EncounterPulpitControls.kt" to 2,
                     )

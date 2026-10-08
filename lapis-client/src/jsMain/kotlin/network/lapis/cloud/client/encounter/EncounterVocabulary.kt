@@ -227,6 +227,9 @@ internal class EncounterTerms(
     /** The same label as widget content (`tr`), for the visible button. */
     fun releaseSeatLabelContent(): String = if (church) tr("Platz freigeben") else tr("Stuhl freigeben")
 
+    /** V1.9.80: the control that turns the pulpit's sound up again while one sits at a table (icon-only bar control and its tooltip). */
+    fun pulpitLouderLabel(): String = if (church) tr("Kanzel lauter") else tr("Podium lauter")
+
     /** The summary of the list alternative to the seat plan (for people who do not use the picture). */
     fun chooseFromListSummary(): String = if (church) gettext("Platz über eine Liste wählen") else gettext("Stuhl über eine Liste wählen")
 

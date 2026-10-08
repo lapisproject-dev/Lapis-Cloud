@@ -38,6 +38,7 @@ class EncounterSpacePollerTest :
             val liveKit: FakeEncounterLiveKit,
             val moderation: EncounterModerationState,
             val seatState: EncounterSeatState = EncounterSeatState(),
+            val tableState: EncounterTableState = EncounterTableState(),
             val space: Uuid,
             val steward: Uuid,
         ) {
@@ -46,6 +47,7 @@ class EncounterSpacePollerTest :
                     liveKitAdminClient = liveKit,
                     moderationState = moderation,
                     seatState = seatState,
+                    tableState = tableState,
                     entryNotifier = EncounterEntryNotifier(state = EncounterEntryNoticeState(), mailer = FakeEncounterEntryNoticeMailer()),
                     liveKitEnabled = enabled,
                 )

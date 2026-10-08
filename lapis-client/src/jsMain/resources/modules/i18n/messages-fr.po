@@ -21006,3 +21006,179 @@ msgstr "Choisir la rangée %1, place %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Reihe %1, Stuhl %2 wählen"
 msgstr "Choisir la rangée %1, chaise %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tisch %1"
+msgstr "Table %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tische"
+msgstr "Tables"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Setzen Sie sich an einen Tisch, um dort mit wenigen Personen zu sprechen. Ihr Mikrofon ist beim Hinsetzen aus."
+msgstr "Asseyez-vous à une table pour y parler avec quelques personnes. Votre microphone est coupé lorsque vous vous asseyez."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Der Tisch ist beruhigt"
+msgstr "La table est apaisée"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tisch verlassen"
+msgstr "Quitter la table"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tisch beruhigen"
+msgstr "Apaiser la table"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Beruhigung aufheben"
+msgstr "Lever l'apaisement"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tisch %1 · %2 von %3 Plätzen frei"
+msgstr "Table %1 · %2 places libres sur %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "beruhigt"
+msgstr "apaisée"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tisch %1, Platz %2, Ihr Platz"
+msgstr "Table %1, place %2, votre place"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tisch %1, Platz %2, frei, hier setzen"
+msgstr "Table %1, place %2, libre, s'asseoir ici"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tisch %1, Platz %2, frei"
+msgstr "Table %1, place %2, libre"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Tisch %1, Platz %2, besetzt, %3"
+msgstr "Table %1, place %2, occupée, %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Sie sind wieder im Plenum."
+msgstr "Vous êtes de retour en plénière."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Das Mikrofon konnte nicht eingeschaltet werden."
+msgstr "Le microphone n'a pas pu être activé."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Ihr Mikrofon ist an."
+msgstr "Votre microphone est activé."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Sie wurden ins Plenum zurückgesetzt."
+msgstr "Vous avez été replacé en plénière."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Die Verbindung zum Tisch konnte nicht hergestellt werden."
+msgstr "La connexion à la table n'a pas pu être établie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Sie sitzen an Tisch %1. Ihr Mikrofon ist aus."
+msgstr "Vous êtes assis à la table %1. Votre microphone est coupé."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Der Tisch wurde beruhigt."
+msgstr "La table a été apaisée."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Die Beruhigung wurde aufgehoben."
+msgstr "L'apaisement a été levé."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Die Verbindung zum Tisch wurde beendet."
+msgstr "La connexion à la table a été interrompue."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTables.kt
+msgid "Die Verbindung zum Tisch ist abgebrochen. Sie sind wieder im Plenum."
+msgstr "La connexion à la table a été coupée. Vous êtes de retour en plénière."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
+msgid "Mikrofon am Tisch"
+msgstr "Microphone à la table"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
+msgid "Der Tisch ist beruhigt. Ihr Mikrofon ist gesperrt."
+msgstr "La table est apaisée. Votre microphone est bloqué."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
+msgid "Mikrofon an"
+msgstr "Microphone activé"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
+msgid "Mikrofon aus"
+msgstr "Microphone coupé"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
+msgid "Tisch %1 wurde beruhigt."
+msgstr "La table %1 a été apaisée."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
+msgid "Die Beruhigung von Tisch %1 wurde aufgehoben."
+msgstr "L'apaisement de la table %1 a été levé."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterPresentPanel.kt
+msgid "Tisch über eine Liste wählen"
+msgstr "Choisir une table dans une liste"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterPresentPanel.kt
+msgid "Sie sitzen an Tisch %1."
+msgstr "Vous êtes assis à la table %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterPresentPanel.kt
+msgid "Sie sitzen an keinem Tisch."
+msgstr "Vous n'êtes assis à aucune table."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterPresentPanel.kt
+msgid "Alle Tische sind besetzt."
+msgstr "Toutes les tables sont occupées."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterPresentPanel.kt
+msgid "Tisch %1 (%2 Plätze frei)"
+msgstr "Table %1 (%2 places libres)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterPresentPanel.kt
+msgid "Ins Plenum setzen"
+msgstr "Remettre en plénière"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterPresentPanel.kt
+msgid "Die Person wurde ins Plenum gesetzt."
+msgstr "La personne a été remise en plénière."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Tische mit eigener Audiogruppe"
+msgstr "Tables avec leur propre groupe audio"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Nur in der Raumart Versammlung. Wer an einem Tisch sitzt, hört und spricht nur dort mit den anderen am Tisch."
+msgstr "Uniquement pour le type de salle Assemblée. Qui s'assoit à une table n'entend et ne parle qu'avec les autres personnes de cette table."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Anzahl der Tische"
+msgstr "Nombre de tables"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Zwischen %1 und %2."
+msgstr "Entre %1 et %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Plätze je Tisch"
+msgstr "Places par table"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
+msgid "Die Tische lassen sich nur bei geschlossenem Raum ändern."
+msgstr "Les tables ne peuvent être modifiées que lorsque la salle est fermée."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Kanzel lauter"
+msgstr "Chaire plus fort"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Podium lauter"
+msgstr "Podium plus fort"

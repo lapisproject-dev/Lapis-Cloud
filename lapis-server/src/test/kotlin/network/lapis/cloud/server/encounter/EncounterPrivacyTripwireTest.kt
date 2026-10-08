@@ -200,20 +200,121 @@ class EncounterPrivacyTripwireTest :
             }
         }
 
-        test("V1.9.79: no migration and no generated schema file knows a seat; there is no V79 migration") {
+        test(
+            "V1.9.79/V1.9.80: no migration and no generated schema file knows a seat or a person at a seat; V79 is the only table migration",
+        ) {
             val migrations =
                 File(SourceScan.mainRoot().parentFile, "resources/db/migration").listFiles()!!.filter { it.extension == "sql" }
             (migrations.size > 70) shouldBe true // the scan is not vacuous
-            migrations.none { it.name.startsWith("V79__") } shouldBe true
+            // V1.9.80: V79 is the ONE new encounter migration; it adds exactly the three room-setting columns (with CHECKs) and nothing about a person
+            val v79 = migrations.filter { it.name.startsWith("V79__") }.single()
+            v79.name shouldBe "V79__encounter_space_tables.sql"
+            val v79Code = v79.readLines().filterNot { it.trim().startsWith("--") }.joinToString("\n")
+            Regex("""ADD COLUMN IF NOT EXISTS (\w+)""").findAll(v79Code).map { it.groupValues[1] }.toList() shouldBe
+                listOf("tables_enabled", "table_count", "table_seats")
+            Regex("""\b(member|person|identity|seat|participant)\b""", RegexOption.IGNORE_CASE).containsMatchIn(v79Code) shouldBe false
+            migrations.none { it.name.startsWith("V80__") } shouldBe true
             // (V18 events legitimately has event seats; only the encounter migrations are in question)
             val encounterMigrations = migrations.filter { it.name.contains("encounter", ignoreCase = true) }
-            (encounterMigrations.size >= 3) shouldBe true
+            (encounterMigrations.size >= 4) shouldBe true
             encounterMigrations.none { Regex("""\bseat\b""", RegexOption.IGNORE_CASE).containsMatchIn(it.readText()) } shouldBe true
             val generated = File(SourceScan.mainRoot(), "network/lapis/cloud/server/db/generated")
             (generated.exists()) shouldBe true
             generated.walkTopDown().filter { it.isFile && it.extension == "kt" && it.name.startsWith("Encounter") }.none {
                 Regex("""\bseat\b""", RegexOption.IGNORE_CASE).containsMatchIn(it.readText())
             } shouldBe true
+        }
+
+        // ── Welle V1.9.80: the in-memory table plan ───────────────────────
+
+        test("V1.9.80: the table state is memory only -- no transaction, no table, no logger, no audit") {
+            val code = SourceScan.blank(EncounterSourceScan.mainFile("encounter/EncounterTableState.kt").readText())
+            listOf("transaction", "Table(", "logger", "KotlinLogging", "AuditLogRecorder", "println", "suspend").forEach { forbidden ->
+                code.contains(forbidden) shouldBe false
+            }
+        }
+
+        test("V1.9.80: the table paths never write the audit log and never log") {
+            val fns = EncounterSourceScan.functions(serviceFile).associateBy { it.name }
+            listOf(
+                "joinTable",
+                "leaveTable",
+                "tableToken",
+                "listTables",
+                "quietTable",
+                "sendToPlenum",
+                "applyRotations",
+                "mintTableToken",
+                "moderationSessionInTx",
+            ).forEach { name ->
+                val fn = fns[name] ?: error("function $name not found -- the tripwire must not run empty")
+                fn.body.contains("AuditLogRecorder") shouldBe false
+                fn.body.contains("logger") shouldBe false
+            }
+        }
+
+        test("V1.9.80: the table paths never touch the conference participation/room tables' write side or the egress client") {
+            val tableFiles =
+                listOf(
+                    "encounter/EncounterTableState.kt",
+                    "encounter/EncounterTableRooms.kt",
+                    "encounter/EncounterTableReconciler.kt",
+                ).map { SourceScan.blank(EncounterSourceScan.mainFile(it).readText()) }
+            tableFiles.forEach { code ->
+                listOf(
+                    "ConferenceRoomTable",
+                    "ConferenceParticipationTable",
+                    "LiveKitEgressClient",
+                    "AuditLogRecorder",
+                    "transaction",
+                ).forEach {
+                    code.contains(it) shouldBe false
+                }
+            }
+            val fns = EncounterSourceScan.functions(serviceFile).associateBy { it.name }
+            listOf("joinTable", "leaveTable", "tableToken", "listTables", "quietTable", "sendToPlenum", "mintTableToken").forEach { name ->
+                fns.getValue(name).body.contains("LiveKitEgressClient") shouldBe false
+                fns.getValue(name).body.contains("Insert") shouldBe false
+            }
+        }
+
+        test(
+            "V1.9.80: joinTable and leaveTable throttle with requireSeatRate (ServiceBusyException) before any database access; tableToken has its own limiter",
+        ) {
+            val fns = EncounterSourceScan.functions(serviceFile).associateBy { it.name }
+            listOf("joinTable", "leaveTable").forEach { name ->
+                val body = fns.getValue(name).body
+                body shouldContain "requireSeatRate(limiter = tableRateLimiter"
+                body.contains("requireWithinRate") shouldBe false
+                (body.indexOf("requireSeatRate") < body.indexOf("transaction")) shouldBe true
+            }
+            val token = fns.getValue("tableToken").body
+            token shouldContain "requireSeatRate(limiter = tableTokenRateLimiter"
+            (token.indexOf("requireSeatRate") < token.indexOf("transaction")) shouldBe true
+            // there is no member id parameter: nobody can put another person at a table
+            fns.getValue("joinTable").params.contains("memberId") shouldBe false
+            // no LiveKit call and no token minting inside a transaction of the table paths
+            listOf("joinTable", "leaveTable", "tableToken", "listTables", "quietTable", "sendToPlenum").forEach { name ->
+                val raw = SourceScan.blank(fns.getValue(name).body)
+                Regex("""transaction\s*\{""").findAll(raw).forEach { m ->
+                    var depth = 0
+                    var end = m.range.last
+                    for (i in m.range.last until raw.length) {
+                        if (raw[i] == '{') depth++
+                        if (raw[i] == '}') {
+                            depth--
+                            if (depth == 0) {
+                                end = i
+                                break
+                            }
+                        }
+                    }
+                    val block = raw.substring(m.range.first, end + 1)
+                    listOf("applyRotations", "liveKitAdminClient", "mintTableToken", "LiveKitAccessToken").forEach { forbidden ->
+                        block.contains(forbidden) shouldBe false
+                    }
+                }
+            }
         }
 
         test("V1.9.79: selectSeat throttles with its own helper and ServiceBusyException, before any database access") {

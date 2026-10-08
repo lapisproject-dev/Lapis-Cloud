@@ -4,6 +4,8 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 /** Welle V1.9.61 -- [EncounterModerationState]: in memory, bounded, refuses instead of evicting, cleared per session. */
@@ -83,5 +85,27 @@ class EncounterModerationStateTest :
             }
             accepted.size shouldBe EncounterModerationState.MAX_ENTRIES_PER_SESSION
             accepted.all { state.isBlocked(sessionRoomId = room, memberId = it) } shouldBe true
+        }
+
+        test("a table ban expires, is per person and session, is bounded and cleared with the session") {
+            val state = EncounterModerationState()
+            val room = Uuid.random()
+            val a = Uuid.random()
+            val now = Instant.parse("2026-10-08T10:00:00Z")
+            state.banFromTables(sessionRoomId = room, memberId = a, until = now + 2.minutes, now = now) shouldBe true
+            state.isTableBanned(sessionRoomId = room, memberId = a, now = now + 1.minutes) shouldBe true
+            state.isTableBanned(sessionRoomId = room, memberId = a, now = now + 2.minutes) shouldBe false
+            state.isTableBanned(sessionRoomId = room, memberId = Uuid.random(), now = now) shouldBe false
+            state.isTableBanned(sessionRoomId = Uuid.random(), memberId = a, now = now) shouldBe false
+            // expired entries are pruned, so a full list recovers
+            repeat(EncounterModerationState.MAX_ENTRIES_PER_SESSION) {
+                state.banFromTables(sessionRoomId = room, memberId = Uuid.random(), until = now + 2.minutes, now = now)
+            }
+            state.banFromTables(sessionRoomId = room, memberId = Uuid.random(), until = now + 2.minutes, now = now) shouldBe false
+            state.banFromTables(sessionRoomId = room, memberId = Uuid.random(), until = now + 4.minutes, now = now + 3.minutes) shouldBe
+                true
+            state.clear(room)
+            state.isTableBanned(sessionRoomId = room, memberId = a, now = now) shouldBe false
+            state.trackedSessions() shouldBe 0
         }
     })

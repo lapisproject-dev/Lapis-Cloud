@@ -9,6 +9,9 @@ import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.EncounterSpaceInput
 import network.lapis.cloud.shared.domain.EncounterSpaceRoleAssignmentInput
 import network.lapis.cloud.shared.domain.EncounterSpaceRoleDto
+import network.lapis.cloud.shared.domain.EncounterTableDto
+import network.lapis.cloud.shared.domain.EncounterTableTokenAnswer
+import network.lapis.cloud.shared.domain.EncounterTableTokenDto
 
 /**
  * Welle V1.9.61 "Begegnungsraum" (B1, server side): standing rooms with a pulpit and a listening congregation (first theme: a church
@@ -27,6 +30,9 @@ import network.lapis.cloud.shared.domain.EncounterSpaceRoleDto
  * - [listPresent]: only a person who is currently present sees who is present -- BOARD/ADMIN who are not present see nothing.
  * - [selectSeat]: only a CONGREGATION person who is present in the open session, for their OWN seat (no member id parameter).
  * - [removeFromSpace]/[silenceInSpace]: office holder or BOARD/ADMIN; a STEWARD may not act against a PULPIT/STEWARD/BOARD/ADMIN.
+ * - [joinTable]/[leaveTable]/[tableToken]/[listTables] (V1.9.80, assembly profile with tables enabled only): a CONGREGATION person present in
+ *   the open session, for their OWN table. Office holders never receive a table token (they do not listen in).
+ * - [quietTable]/[sendToPlenum] (V1.9.80): office holder or BOARD/ADMIN; [sendToPlenum] follows the protection rules of [removeFromSpace].
  *
  * Kilua transmits only the exception TYPE: [NotFoundException] unknown/invisible id, [ForbiddenException] not allowed,
  * [ConflictException] state conflict (closed, full, throttled, consent missing), [BadRequestException] invalid input.
@@ -107,6 +113,43 @@ interface IEncounterSpaceService {
 
     /** Takes the person's data channel away (reactions) until the session ends: disconnects them; they re-enter without `canPublishData`. */
     suspend fun silenceInSpace(
+        spaceId: String,
+        memberId: String,
+    )
+
+    /**
+     * V1.9.80: sits the caller at [table]/[seat] (both 0-based) and returns the token of the table's own audio room. Frees the benches
+     * seat and a previous table seat. [ConflictException] = seat taken; [ServiceBusyException] = throttled or session table full;
+     * [BadRequestException] = out of range; [ForbiddenException] = tables off, not present, closed, blocked, office holder.
+     * Writes no audit entry and no log line (Art. 9).
+     */
+    suspend fun joinTable(
+        spaceId: String,
+        table: Int,
+        seat: Int,
+    ): EncounterTableTokenDto
+
+    /** V1.9.80: leaves the caller's table (back to the plenum). Idempotent. */
+    suspend fun leaveTable(spaceId: String)
+
+    /**
+     * V1.9.80: a fresh token for the table the caller currently sits at (after a room rotation); the answer's `token` is `null` if the
+     * caller sits nowhere (any more). [ServiceBusyException] = throttled.
+     */
+    suspend fun tableToken(spaceId: String): EncounterTableTokenAnswer
+
+    /** V1.9.80: the tables with their occupied seat numbers (no persons); only for someone who is present. Empty if tables are off. */
+    suspend fun listTables(spaceId: String): List<EncounterTableDto>
+
+    /** V1.9.80: silences ([quiet] `true`, for five minutes) or releases a table; nobody there can speak while it is quieted. */
+    suspend fun quietTable(
+        spaceId: String,
+        table: Int,
+        quiet: Boolean,
+    )
+
+    /** V1.9.80: moves a person from a table back to the plenum. Same protection rules as [removeFromSpace]; no audit entry. */
+    suspend fun sendToPlenum(
         spaceId: String,
         memberId: String,
     )

@@ -28,12 +28,16 @@ import network.lapis.cloud.server.encounter.EncounterSeatState
 import network.lapis.cloud.server.encounter.EncounterSessionTeardown
 import network.lapis.cloud.server.encounter.EncounterSessions
 import network.lapis.cloud.server.encounter.EncounterSpaceViews
+import network.lapis.cloud.server.encounter.EncounterTableRooms
+import network.lapis.cloud.server.encounter.EncounterTableState
 import network.lapis.cloud.server.encounter.effectiveMaxParticipants
 import network.lapis.cloud.server.encounter.encounterConsentFor
 import network.lapis.cloud.server.encounter.notifyModeOf
 import network.lapis.cloud.server.encounter.parseReactionSet
 import network.lapis.cloud.server.encounter.profileOf
 import network.lapis.cloud.server.encounter.reactionSetCsv
+import network.lapis.cloud.server.encounter.storedTablesOf
+import network.lapis.cloud.server.encounter.tablesOf
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.isPrivileged
@@ -47,6 +51,10 @@ import network.lapis.cloud.shared.domain.ConferenceJoinTokenDto
 import network.lapis.cloud.shared.domain.ConferenceRole
 import network.lapis.cloud.shared.domain.ConferenceTurnServer
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_MAX
+import network.lapis.cloud.shared.domain.ENCOUNTER_TABLE_MAX_COUNT
+import network.lapis.cloud.shared.domain.ENCOUNTER_TABLE_MAX_SEATS
+import network.lapis.cloud.shared.domain.ENCOUNTER_TABLE_MIN_SEATS
+import network.lapis.cloud.shared.domain.ENCOUNTER_TABLE_QUIET_MINUTES
 import network.lapis.cloud.shared.domain.EncounterConsentDisclaimerDto
 import network.lapis.cloud.shared.domain.EncounterConsentInput
 import network.lapis.cloud.shared.domain.EncounterEntryDto
@@ -63,6 +71,10 @@ import network.lapis.cloud.shared.domain.EncounterSpaceMode
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
 import network.lapis.cloud.shared.domain.EncounterSpaceRoleAssignmentInput
 import network.lapis.cloud.shared.domain.EncounterSpaceRoleDto
+import network.lapis.cloud.shared.domain.EncounterTableDto
+import network.lapis.cloud.shared.domain.EncounterTableTokenAnswer
+import network.lapis.cloud.shared.domain.EncounterTableTokenDto
+import network.lapis.cloud.shared.domain.EncounterTablesConfig
 import network.lapis.cloud.shared.domain.EncounterTheme
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
@@ -84,7 +96,9 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
 
 // Privacy rule of this file (Art. 9 GDPR): never log a member id, identity or display name together with a space or room id above DEBUG.
@@ -104,12 +118,21 @@ internal const val ENCOUNTER_DEPARTURE_TIMEOUT_SECONDS = 1800
 internal const val ENCOUNTER_OFFICER_RESERVED_SLOTS = 2
 
 private const val MAX_TITLE_LENGTH = 200
+
+/** How long a person sent back to the plenum by a moderator stays away from the tables. */
+private const val ENCOUNTER_TABLE_PLENUM_BAN_SECONDS = 120
 private const val MAX_DESCRIPTION_LENGTH = 1000
 private const val MAX_NOTICE_LENGTH = 200
 private const val MAX_ROLE_ASSIGNMENTS = 20
 private const val MAX_REACTION_OPTIONS = 8
 private const val MAX_LIST_RESULTS = 200
 private const val MIN_SPACE_PARTICIPANTS = 2
+
+/** V1.9.80: a table token only has to survive the connect; LiveKit refreshes it itself afterwards (so it is NOT a revocation, see EncounterTableState). */
+private const val TABLE_TOKEN_TTL_SECONDS = 30L
+
+/** How often a table token is minted again when the table rotated while it was minted. */
+private const val TABLE_TOKEN_MINT_ATTEMPTS = 3
 
 /** BOARD/ADMIN, the two roles [network.lapis.cloud.server.security.isPrivileged] treats as privileged. */
 private val PRIVILEGED_ACCOUNT_ROLES = listOf(AccountRole.BOARD, AccountRole.ADMIN)
@@ -142,6 +165,7 @@ class EncounterSpaceService(
     private val liveKitAdminClient: LiveKitAdminClient,
     private val moderationState: EncounterModerationState,
     private val seatState: EncounterSeatState,
+    private val tableState: EncounterTableState,
     private val entryNotifier: EncounterEntryNotifier,
     private val listRateLimiter: FederationInboxRateLimiter,
     private val enterRateLimiter: FederationInboxRateLimiter,
@@ -150,6 +174,8 @@ class EncounterSpaceService(
     private val moderationRateLimiter: FederationInboxRateLimiter,
     private val configRateLimiter: FederationInboxRateLimiter,
     private val seatRateLimiter: FederationInboxRateLimiter,
+    private val tableRateLimiter: FederationInboxRateLimiter,
+    private val tableTokenRateLimiter: FederationInboxRateLimiter,
     private val config: ConferenceConfig = ConferenceConfig.load(),
 ) : IEncounterSpaceService {
     // ── Reads ─────────────────────────────────────────────────────────────
@@ -230,6 +256,8 @@ class EncounterSpaceService(
             val newId = Uuid.random()
             val newProfile = valid.profile ?: EncounterProfile.CHURCH_SERVICE
             val newReactions = valid.reactions ?: EncounterReactionOption.defaultsFor(newProfile)
+            val newTables = valid.tables ?: EncounterTablesConfig()
+            requireTablesFitProfile(tables = newTables, profile = newProfile)
             EncounterSpaceTable.insert {
                 it[EncounterSpaceTable.id] = newId
                 it[EncounterSpaceTable.title] = valid.title
@@ -239,6 +267,9 @@ class EncounterSpaceService(
                 it[EncounterSpaceTable.profile] = newProfile.name
                 it[EncounterSpaceTable.reactionSet] = reactionSetCsv(newReactions)
                 it[EncounterSpaceTable.notifyMode] = (valid.notifyMode ?: EncounterNotifyMode.NONE).name
+                it[EncounterSpaceTable.tablesEnabled] = newTables.enabled
+                it[EncounterSpaceTable.tableCount] = newTables.count.toShort()
+                it[EncounterSpaceTable.tableSeats] = newTables.seats.toShort()
                 it[EncounterSpaceTable.mode] = EncounterSpaceMode.SERVICE.name
                 it[EncounterSpaceTable.guestPolicy] = input.guestPolicy.name
                 it[EncounterSpaceTable.maxParticipants] = input.maxParticipants
@@ -284,12 +315,19 @@ class EncounterSpaceService(
                 }
                 val newProfile = valid.profile ?: profileOf(before)
                 val newReactions = valid.reactions ?: parseReactionSet(before[EncounterSpaceTable.reactionSet])
+                val oldTables = storedTablesOf(before)
+                val newTables = valid.tables ?: oldTables
+                requireTablesFitProfile(tables = newTables, profile = newProfile)
                 val changesProfile =
                     newProfile != profileOf(before) ||
                         reactionSetCsv(newReactions) != reactionSetCsv(parseReactionSet(before[EncounterSpaceTable.reactionSet]))
                 if (changesProfile && EncounterSessions.openSession(spaceId = id) != null) {
                     // The vocabulary and the reaction set cannot change under people who are present (same pattern as the guest policy).
                     throw ConflictException("The profile and the reactions can only be changed while the encounter space is closed")
+                }
+                if (newTables != oldTables && EncounterSessions.openSession(spaceId = id) != null) {
+                    // People may already sit at tables: the table layout cannot change under them (same pattern as the profile).
+                    throw ConflictException("The tables can only be changed while the encounter space is closed")
                 }
                 // The notify mode may change while the room is open (it only affects who is told about FUTURE entries).
                 val oldNotifyMode = notifyModeOf(before)
@@ -301,6 +339,9 @@ class EncounterSpaceService(
                     it[EncounterSpaceTable.profile] = newProfile.name
                     it[EncounterSpaceTable.reactionSet] = reactionSetCsv(newReactions)
                     it[EncounterSpaceTable.notifyMode] = newNotifyMode.name
+                    it[EncounterSpaceTable.tablesEnabled] = newTables.enabled
+                    it[EncounterSpaceTable.tableCount] = newTables.count.toShort()
+                    it[EncounterSpaceTable.tableSeats] = newTables.seats.toShort()
                     it[EncounterSpaceTable.guestPolicy] = input.guestPolicy.name
                     it[EncounterSpaceTable.maxParticipants] = input.maxParticipants
                     it[EncounterSpaceTable.closedNotice] = valid.closedNotice
@@ -367,6 +408,7 @@ class EncounterSpaceService(
         // Filled inside the transaction: who lost an office while a session is running (disconnected AFTER the commit, outside any transaction).
         var withdrawn: List<Uuid> = emptyList()
         var openRoomName: String? = null
+        var openRoomId: Uuid? = null
         val result =
             transaction {
                 requireConfigAuthority(current)
@@ -390,7 +432,9 @@ class EncounterSpaceService(
                 }
                 val beforeRoles = currentRoleRows(spaceId = id)
                 withdrawn = beforeRoles.map { it.first }.filter { old -> parsed.none { it.first == old } }
-                openRoomName = EncounterSessions.openSession(spaceId = id)?.get(ConferenceRoomTable.livekitRoomName)
+                val openSession = EncounterSessions.openSession(spaceId = id)
+                openRoomName = openSession?.get(ConferenceRoomTable.livekitRoomName)
+                openRoomId = openSession?.get(ConferenceRoomTable.id)
                 EncounterSpaceRoleTable.deleteWhere { EncounterSpaceRoleTable.spaceId eq id }
                 parsed.forEach { (memberId, role) ->
                     EncounterSpaceRoleTable.insert {
@@ -421,6 +465,8 @@ class EncounterSpaceService(
                     }.sortedWith(compareBy({ it.role }, { it.displayName }))
             }
         disconnectWithdrawnOfficeHolders(roomName = openRoomName, memberIds = withdrawn)
+        // V1.9.80: an office holder never listens in at a table -- whoever was just given an office leaves theirs (the table rotates).
+        openRoomId?.let { roomId -> applyRotations(tableState.leaveAll(sessionRoomId = roomId, memberIds = parsed.map { it.first })) }
         return result
     }
 
@@ -579,6 +625,7 @@ class EncounterSpaceService(
             }
             moderationState.clear(roomId)
             seatState.clear(roomId)
+            EncounterTableRooms.deleteAll(liveKit = liveKitAdminClient, rooms = tableState.clear(roomId))
             entryNotifier.clearSession(roomId)
         }
         return transaction { dtoOf(spaceId = id, current = current) }
@@ -634,6 +681,7 @@ class EncounterSpaceService(
             }
         // V1.9.79: every entry starts without a seat (a reload / re-entry must not resurrect a seat of an earlier connection).
         seatState.release(sessionRoomId = prep.roomId, memberId = current.memberId)
+        applyRotations(listOfNotNull(tableState.leave(sessionRoomId = prep.roomId, memberId = current.memberId)))
         // After the commit (Exposed may re-run the block on an SQLException, so the hook must not sit inside it). Only a NEW presence row
         // of a person without an office counts: a reconnect reuses its row, BOARD/ADMIN without an office are not "guests".
         if (admittedNew && prep.presenceRole == EncounterPresenceRole.CONGREGATION && !current.isPrivileged) {
@@ -685,20 +733,25 @@ class EncounterSpaceService(
             }
         // V1.9.79: the seat goes with the person (in memory only, after the commit).
         sessionRooms.forEach { seatState.release(sessionRoomId = it, memberId = current.memberId) }
+        // V1.9.80: so does the table seat (the table rotates, nobody keeps listening with an old token).
+        applyRotations(sessionRooms.mapNotNull { tableState.leave(sessionRoomId = it, memberId = current.memberId) })
     }
 
     override suspend fun listPresent(spaceId: String): List<EncounterPresentDto> {
         val current = resolveCurrentMember(call)
         requireWithinRate(limiter = listRateLimiter, memberId = current.memberId)
         val id = spaceId.toSpaceUuid()
-        return transaction {
-            val status = requireConferenceEligibleMembership(memberId = current.memberId)
-            loadVisibleSpace(spaceId = id, current = current, status = status)
-            val session = EncounterSessions.openSession(spaceId = id) ?: throw ForbiddenException()
-            val roomId = session[ConferenceRoomTable.id]
-            val view = presentViewInTx(roomId = roomId, spaceId = id, currentId = current.memberId)
-            presentDtos(roomId = roomId, view = view)
-        }
+        val result =
+            transaction {
+                val status = requireConferenceEligibleMembership(memberId = current.memberId)
+                loadVisibleSpace(spaceId = id, current = current, status = status)
+                val session = EncounterSessions.openSession(spaceId = id) ?: throw ForbiddenException()
+                val roomId = session[ConferenceRoomTable.id]
+                val view = presentViewInTx(roomId = roomId, spaceId = id, currentId = current.memberId)
+                presentDtos(roomId = roomId, view = view)
+            }
+        applyRotations(result.rotations)
+        return result.dtos
     }
 
     override suspend fun selectSeat(
@@ -711,28 +764,33 @@ class EncounterSpaceService(
         requireSeatRate(limiter = seatRateLimiter, memberId = current.memberId)
         if (seat != null && seat !in 0 until ENCOUNTER_SEAT_MAX) throw BadRequestException("Seat out of range")
         val id = spaceId.toSpaceUuid()
-        return transaction {
-            val status = requireConferenceEligibleMembership(memberId = current.memberId)
-            loadVisibleSpace(spaceId = id, current = current, status = status)
-            val session = EncounterSessions.openSession(spaceId = id) ?: throw ForbiddenException()
-            val roomId = session[ConferenceRoomTable.id]
-            val view = presentViewInTx(roomId = roomId, spaceId = id, currentId = current.memberId)
-            if (view.roleOf(current.memberId) != EncounterPresenceRole.CONGREGATION) throw ForbiddenException()
-            if (seat != null && seat >= encounterSeatCapacity(view.congregation().size)) throw BadRequestException("Seat out of range")
-            when (
-                seatState.select(
-                    sessionRoomId = roomId,
-                    memberId = current.memberId,
-                    seat = seat,
-                    present = view.congregation(),
-                )
-            ) {
-                EncounterSeatState.Outcome.Ok -> Unit
-                EncounterSeatState.Outcome.Taken -> throw ConflictException("Seat taken")
-                EncounterSeatState.Outcome.Full -> throw ServiceBusyException("Seat table full")
+        val result =
+            transaction {
+                val status = requireConferenceEligibleMembership(memberId = current.memberId)
+                loadVisibleSpace(spaceId = id, current = current, status = status)
+                val session = EncounterSessions.openSession(spaceId = id) ?: throw ForbiddenException()
+                val roomId = session[ConferenceRoomTable.id]
+                val view = presentViewInTx(roomId = roomId, spaceId = id, currentId = current.memberId)
+                if (view.roleOf(current.memberId) != EncounterPresenceRole.CONGREGATION) throw ForbiddenException()
+                if (seat != null && seat >= encounterSeatCapacity(view.congregation().size)) throw BadRequestException("Seat out of range")
+                when (
+                    seatState.select(
+                        sessionRoomId = roomId,
+                        memberId = current.memberId,
+                        seat = seat,
+                        present = view.congregation(),
+                    )
+                ) {
+                    EncounterSeatState.Outcome.Ok -> Unit
+                    EncounterSeatState.Outcome.Taken -> throw ConflictException("Seat taken")
+                    EncounterSeatState.Outcome.Full -> throw ServiceBusyException("Seat table full")
+                }
+                // V1.9.80: one place per person -- a bench seat frees a table seat.
+                val leftTable = if (seat != null) tableState.leave(sessionRoomId = roomId, memberId = current.memberId) else null
+                presentDtos(roomId = roomId, view = view, extraRotations = listOfNotNull(leftTable))
             }
-            presentDtos(roomId = roomId, view = view)
-        }
+        applyRotations(result.rotations)
+        return result.dtos
     }
 
     /** The presence rows of one open session plus the office roles of its space, read in the caller's transaction. */
@@ -741,6 +799,9 @@ class EncounterSpaceService(
         val roles: Map<Uuid, EncounterSpaceRole>,
     ) {
         fun roleOf(memberId: Uuid): EncounterPresenceRole = roles[memberId].toPresenceRole()
+
+        fun displayNameOf(memberId: Uuid): String =
+            participants.first { it[ConferenceParticipationTable.memberId] == memberId }[MemberTable.displayName]
 
         /** Members present who hold no office (the only ones that can sit). */
         fun congregation(): Set<Uuid> =
@@ -771,24 +832,36 @@ class EncounterSpaceService(
         return PresentView(participants = participants, roles = roles)
     }
 
+    /** The presence list plus the table rotations the caller has to carry out at LiveKit AFTER its transaction. */
+    private class PresentResult(
+        val dtos: List<EncounterPresentDto>,
+        val rotations: List<EncounterTableState.Rotation>,
+    )
+
     private fun presentDtos(
         roomId: Uuid,
         view: PresentView,
-    ): List<EncounterPresentDto> {
+        extraRotations: List<EncounterTableState.Rotation> = emptyList(),
+    ): PresentResult {
         // snapshot() also prunes seats of people who are gone or hold an office by now.
         val seats = seatState.snapshot(sessionRoomId = roomId, present = view.congregation())
-        return view.participants
-            .map { row ->
-                val memberId = row[ConferenceParticipationTable.memberId]
-                EncounterPresentDto(
-                    memberId = memberId.toString(),
-                    displayName = row[MemberTable.displayName],
-                    role = view.roleOf(memberId),
-                    isGuest = row[MemberTable.status] in MemberStatusSets.NON_MEMBER,
-                    seat = seats[memberId],
-                )
-                // Sorted by name: the order must not reveal who arrived when.
-            }.sortedBy { it.displayName }
+        val tables = tableState.snapshot(sessionRoomId = roomId, present = view.congregation(), now = Clock.System.now())
+        val dtos =
+            view.participants
+                .map { row ->
+                    val memberId = row[ConferenceParticipationTable.memberId]
+                    EncounterPresentDto(
+                        memberId = memberId.toString(),
+                        displayName = row[MemberTable.displayName],
+                        role = view.roleOf(memberId),
+                        isGuest = row[MemberTable.status] in MemberStatusSets.NON_MEMBER,
+                        seat = seats[memberId],
+                        table = tables.positions[memberId]?.first,
+                        tableSeat = tables.positions[memberId]?.second,
+                    )
+                    // Sorted by name: the order must not reveal who arrived when.
+                }.sortedBy { it.displayName }
+        return PresentResult(dtos = dtos, rotations = extraRotations + tables.rotations)
     }
 
     // ── Moderation (office holders, BOARD/ADMIN) ──────────────────────────
@@ -807,6 +880,378 @@ class EncounterSpaceService(
         moderate(spaceId = spaceId, memberId = memberId, silenceOnly = true)
     }
 
+    // ── Tables (V1.9.80) ──────────────────────────────────────────────────
+
+    override suspend fun joinTable(
+        spaceId: String,
+        table: Int,
+        seat: Int,
+    ): EncounterTableTokenDto {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        // Throttle FIRST, own exception type (see selectSeat): "seat taken" (ConflictException) must stay distinguishable from "slow down".
+        requireSeatRate(limiter = tableRateLimiter, memberId = current.memberId)
+        val id = spaceId.toSpaceUuid()
+        val joined =
+            transaction {
+                val status = requireConferenceEligibleMembership(memberId = current.memberId)
+                val space = loadVisibleSpace(spaceId = id, current = current, status = status)
+                val tables = tablesOf(space)
+                if (!tables.enabled) throw ForbiddenException()
+                if (table !in 0 until tables.count || seat !in 0 until tables.seats) throw BadRequestException("Table or seat out of range")
+                val session = EncounterSessions.openSession(spaceId = id) ?: throw ForbiddenException()
+                val roomId = session[ConferenceRoomTable.id]
+                val view = presentViewInTx(roomId = roomId, spaceId = id, currentId = current.memberId)
+                if (view.roleOf(current.memberId) != EncounterPresenceRole.CONGREGATION) throw ForbiddenException()
+                if (moderationState.isBlocked(sessionRoomId = roomId, memberId = current.memberId)) throw ForbiddenException()
+                // A silenced person must not get a live audio channel to others, and one sent back to the plenum stays away for a while.
+                if (!mayUseTables(roomId = roomId, memberId = current.memberId, now = Clock.System.now())) throw ForbiddenException()
+                val outcome =
+                    tableState.join(
+                        sessionRoomId = roomId,
+                        memberId = current.memberId,
+                        table = table,
+                        seat = seat,
+                        present = view.congregation(),
+                        seatsPerTable = tables.seats,
+                        now = Clock.System.now(),
+                    )
+                when (outcome) {
+                    EncounterTableState.JoinOutcome.Taken -> throw ConflictException("Seat taken")
+                    EncounterTableState.JoinOutcome.Full -> throw ServiceBusyException("Table state full")
+                    EncounterTableState.JoinOutcome.TooFast -> throw ServiceBusyException("Too many table changes -- please wait a moment")
+                    is EncounterTableState.JoinOutcome.Ok -> {
+                        // One place per person: a table seat frees the bench seat.
+                        seatState.release(sessionRoomId = roomId, memberId = current.memberId)
+                        TableJoin(
+                            roomId = roomId,
+                            status = status,
+                            displayName = view.displayNameOf(current.memberId),
+                            assignment = outcome.assignment,
+                            rotations = outcome.rotations,
+                        )
+                    }
+                }
+            }
+        applyRotations(joined.rotations)
+        return mintTableToken(
+            sessionRoomId = joined.roomId,
+            memberId = current.memberId,
+            status = joined.status,
+            displayName = joined.displayName,
+            assignment = joined.assignment,
+        )
+    }
+
+    override suspend fun leaveTable(spaceId: String) {
+        val current = resolveCurrentMember(call)
+        requireSeatRate(limiter = tableRateLimiter, memberId = current.memberId)
+        val id = spaceId.toSpaceUuid()
+        val rooms =
+            transaction {
+                ConferenceRoomTable
+                    .selectAll()
+                    .where { ConferenceRoomTable.encounterSpaceId eq id }
+                    .map { it[ConferenceRoomTable.id] }
+            }
+        val now = Clock.System.now()
+        val leaves = rooms.map { tableState.leaveSelf(sessionRoomId = it, memberId = current.memberId, now = now) }
+        // Nothing is changed for a throttled departure (it would rotate a shared table again and again).
+        if (leaves.any { it.throttled }) throw ServiceBusyException("Too many table changes -- please wait a moment")
+        applyRotations(leaves.mapNotNull { it.rotation })
+    }
+
+    override suspend fun tableToken(spaceId: String): EncounterTableTokenAnswer {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        requireSeatRate(limiter = tableTokenRateLimiter, memberId = current.memberId)
+        val id = spaceId.toSpaceUuid()
+        val found =
+            transaction {
+                val status = requireConferenceEligibleMembership(memberId = current.memberId)
+                val space = loadVisibleSpace(spaceId = id, current = current, status = status)
+                val session = EncounterSessions.openSession(spaceId = id) ?: return@transaction null
+                val roomId = session[ConferenceRoomTable.id]
+                val view =
+                    try {
+                        presentViewInTx(roomId = roomId, spaceId = id, currentId = current.memberId)
+                    } catch (e: ForbiddenException) {
+                        null // not present (any more)
+                    }
+                val allowed =
+                    view != null &&
+                        tablesOf(space).enabled &&
+                        view.roleOf(current.memberId) == EncounterPresenceRole.CONGREGATION &&
+                        !moderationState.isBlocked(sessionRoomId = roomId, memberId = current.memberId) &&
+                        mayUseTables(roomId = roomId, memberId = current.memberId, now = Clock.System.now())
+                // Not (or no longer) allowed to sit: drop the seat so the table rotates and no stale token keeps listening.
+                val dropped = if (allowed) null else tableState.leave(sessionRoomId = roomId, memberId = current.memberId)
+                val assignment =
+                    if (allowed) {
+                        tableState.assignmentOf(
+                            sessionRoomId = roomId,
+                            memberId = current.memberId,
+                            now = Clock.System.now(),
+                        )
+                    } else {
+                        null
+                    }
+                TableLookup(
+                    roomId = roomId,
+                    status = status,
+                    displayName = view?.displayNameOf(current.memberId),
+                    assignment = assignment,
+                    rotations = listOfNotNull(dropped),
+                )
+            } ?: return EncounterTableTokenAnswer()
+        applyRotations(found.rotations)
+        val assignment = found.assignment ?: return EncounterTableTokenAnswer()
+        return EncounterTableTokenAnswer(
+            token =
+                mintTableToken(
+                    sessionRoomId = found.roomId,
+                    memberId = current.memberId,
+                    status = found.status,
+                    displayName = found.displayName ?: return EncounterTableTokenAnswer(),
+                    assignment = assignment,
+                ),
+        )
+    }
+
+    override suspend fun listTables(spaceId: String): List<EncounterTableDto> {
+        val current = resolveCurrentMember(call)
+        requireWithinRate(limiter = listRateLimiter, memberId = current.memberId)
+        val id = spaceId.toSpaceUuid()
+        val listed =
+            transaction {
+                val status = requireConferenceEligibleMembership(memberId = current.memberId)
+                val space = loadVisibleSpace(spaceId = id, current = current, status = status)
+                val tables = tablesOf(space)
+                val session = EncounterSessions.openSession(spaceId = id) ?: throw ForbiddenException()
+                val roomId = session[ConferenceRoomTable.id]
+                val view = presentViewInTx(roomId = roomId, spaceId = id, currentId = current.memberId)
+                if (!tables.enabled) return@transaction TableListing(tables = emptyList(), rotations = emptyList())
+                val snapshot = tableState.snapshot(sessionRoomId = roomId, present = view.congregation(), now = Clock.System.now())
+                TableListing(
+                    tables =
+                        (0 until tables.count).map { index ->
+                            EncounterTableDto(
+                                table = index,
+                                seats = tables.seats,
+                                occupiedSeats = snapshot.occupied[index].orEmpty().sorted(),
+                                quieted = index in snapshot.quieted,
+                            )
+                        },
+                    rotations = snapshot.rotations,
+                )
+            }
+        applyRotations(listed.rotations)
+        return listed.tables
+    }
+
+    override suspend fun quietTable(
+        spaceId: String,
+        table: Int,
+        quiet: Boolean,
+    ) {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        requireWithinRate(limiter = moderationRateLimiter, memberId = current.memberId)
+        val id = spaceId.toSpaceUuid()
+        val roomId =
+            transaction {
+                requireConferenceEligibleMembership(memberId = current.memberId)
+                val space = loadSpace(spaceId = id)
+                requireSpaceModerator(spaceId = id, current = current)
+                val tables = tablesOf(space)
+                if (!tables.enabled) throw ForbiddenException()
+                if (table !in 0 until tables.count) throw BadRequestException("Table out of range")
+                val open = EncounterSessions.openSession(spaceId = id) ?: throw ConflictException(SPACE_CLOSED_MESSAGE)
+                open[ConferenceRoomTable.id]
+            }
+        val now = Clock.System.now()
+        val until = if (quiet) now + ENCOUNTER_TABLE_QUIET_MINUTES.minutes else null
+        applyRotations(listOfNotNull(tableState.quiet(sessionRoomId = roomId, table = table, until = until, now = now)))
+    }
+
+    override suspend fun sendToPlenum(
+        spaceId: String,
+        memberId: String,
+    ) {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        requireWithinRate(limiter = moderationRateLimiter, memberId = current.memberId)
+        val id = spaceId.toSpaceUuid()
+        val targetId = memberId.toBodyUuid()
+        if (targetId == current.memberId) throw ConflictException("You cannot moderate yourself")
+        val session =
+            transaction {
+                requireConferenceEligibleMembership(memberId = current.memberId)
+                moderationSessionInTx(spaceId = id, targetId = targetId, current = current)
+            }
+        val roomId = session[ConferenceRoomTable.id]
+        // Recorded BEFORE the table is left, like a block: otherwise the person could sit down again right away (and each return rotates
+        // a table). A full list still sends the person back, but the caller is told that the ban is missing.
+        val now = Clock.System.now()
+        val recorded =
+            moderationState.banFromTables(
+                sessionRoomId = roomId,
+                memberId = targetId,
+                until = now + ENCOUNTER_TABLE_PLENUM_BAN_SECONDS.seconds,
+                now = now,
+                privileged = current.isPrivileged,
+            )
+        applyRotations(listOfNotNull(tableState.leave(sessionRoomId = roomId, memberId = targetId)))
+        if (!recorded) throw ConflictException("The moderation list of this session is full")
+    }
+
+    /** Silenced people and people recently sent back to the plenum may not sit at a table (a table room is a live audio channel). */
+    private fun mayUseTables(
+        roomId: Uuid,
+        memberId: Uuid,
+        now: kotlin.time.Instant,
+    ): Boolean =
+        !moderationState.isSilenced(sessionRoomId = roomId, memberId = memberId) &&
+            !moderationState.isTableBanned(sessionRoomId = roomId, memberId = memberId, now = now)
+
+    private class TableJoin(
+        val roomId: Uuid,
+        val status: MemberStatus,
+        val displayName: String,
+        val assignment: EncounterTableState.Assignment,
+        val rotations: List<EncounterTableState.Rotation>,
+    )
+
+    private class TableLookup(
+        val roomId: Uuid,
+        val status: MemberStatus,
+        val displayName: String?,
+        val assignment: EncounterTableState.Assignment?,
+        val rotations: List<EncounterTableState.Rotation>,
+    )
+
+    private class TableListing(
+        val tables: List<EncounterTableDto>,
+        val rotations: List<EncounterTableState.Rotation>,
+    )
+
+    /**
+     * Mints the token of the caller's table room (30 s, microphone only, no data channel; `canPublish` off while the table is quieted) plus
+     * TURN credentials with the PLENUM lifetime (coturn re-checks the credential on every allocation refresh -- a 30 s credential would cut the audio of
+     * everybody behind a relay). The name is the INITIALS only. Afterwards the assignment is re-read: if the table rotated meanwhile
+     * the token points at a deleted room and is not returned -- a new one is minted for the current assignment (bounded); a conflict
+     * only remains if the person does not sit at a table any more.
+     */
+    private fun mintTableToken(
+        sessionRoomId: Uuid,
+        memberId: Uuid,
+        status: MemberStatus,
+        displayName: String,
+        assignment: EncounterTableState.Assignment,
+    ): EncounterTableTokenDto {
+        var current = assignment
+        // The caller already sits at the table (joinTable) -- a rotation in between (another person left, a quiet) must not turn into an
+        // error that leaves a seat without a client: mint again for the current assignment. Bounded; "not seated any more" is a real conflict.
+        repeat(TABLE_TOKEN_MINT_ATTEMPTS) {
+            val minted = mintTableTokenFor(memberId = memberId, status = status, displayName = displayName, assignment = current)
+            val still = tableState.assignmentOf(sessionRoomId = sessionRoomId, memberId = memberId, now = Clock.System.now())
+            if (still == null) throw ConflictException("The table changed -- please try again")
+            if (still.room == current.room && still.generation == current.generation) {
+                return tableTokenDto(
+                    sessionRoomId = sessionRoomId,
+                    memberId = memberId,
+                    displayName = displayName,
+                    minted = minted,
+                    assignment = current,
+                )
+            }
+            current = still
+        }
+        throw ConflictException("The table changed -- please try again")
+    }
+
+    private class MintedTableToken(
+        val jwt: String,
+        val expiresAt: kotlin.time.Instant,
+        val turnServers: List<ConferenceTurnServer>,
+    )
+
+    private fun mintTableTokenFor(
+        memberId: Uuid,
+        status: MemberStatus,
+        displayName: String,
+        assignment: EncounterTableState.Assignment,
+    ): MintedTableToken {
+        val canPublish = !assignment.quieted
+        val minted =
+            LiveKitAccessToken.mintTableParticipantToken(
+                apiKey = config.apiKey,
+                apiSecret = config.apiSecret,
+                roomName = assignment.room,
+                identity = memberId.toString(),
+                displayName = initialsOf(displayName),
+                ttl = TABLE_TOKEN_TTL_SECONDS.seconds,
+                canPublish = canPublish,
+            )
+        val plenumTtl = if (status in MemberStatusSets.NON_MEMBER) config.guestTokenTtlMinutes else config.tokenTtlMinutes
+        return MintedTableToken(
+            jwt = minted.jwt,
+            expiresAt = minted.expiresAt,
+            turnServers = mintTurnServers(memberId = memberId, ttlMinutes = plenumTtl),
+        )
+    }
+
+    private fun tableTokenDto(
+        sessionRoomId: Uuid,
+        memberId: Uuid,
+        displayName: String,
+        minted: MintedTableToken,
+        assignment: EncounterTableState.Assignment,
+    ): EncounterTableTokenDto =
+        EncounterTableTokenDto(
+            join =
+                ConferenceJoinTokenDto(
+                    roomId = sessionRoomId.toString(),
+                    livekitRoomName = assignment.room,
+                    serverUrl = config.livekitUrl,
+                    token = minted.jwt,
+                    identity = memberId.toString(),
+                    displayName = initialsOf(displayName),
+                    role = ConferenceRole.PARTICIPANT,
+                    expiresAt = minted.expiresAt.toLocalDateTime(ServerClock.zone),
+                    turnServers = minted.turnServers,
+                ),
+            canPublish = !assignment.quieted,
+            table = assignment.table,
+            tableSeat = assignment.seat,
+        )
+
+    /** Carries out the LiveKit side of table rotations. Never inside a transaction. */
+    private suspend fun applyRotations(rotations: Collection<EncounterTableState.Rotation>) {
+        if (rotations.isNotEmpty()) EncounterTableRooms.apply(liveKit = liveKitAdminClient, rotations = rotations)
+    }
+
+    private fun requireTablesFitProfile(
+        tables: EncounterTablesConfig,
+        profile: EncounterProfile,
+    ) {
+        if (tables.enabled && profile != EncounterProfile.ASSEMBLY) {
+            throw BadRequestException("Tables are only available in the assembly profile")
+        }
+    }
+
+    /** Initials of a display name ("Anna Maria Beispiel" becomes "AB"): the only name a table ever shows. */
+    private fun initialsOf(displayName: String): String {
+        val parts = displayName.split(' ', '-', '\t').filter { it.isNotBlank() }
+        val letters =
+            when {
+                parts.isEmpty() -> ""
+                parts.size == 1 -> parts.first().take(1)
+                else -> parts.first().take(1) + parts.last().take(1)
+            }
+        return letters.uppercase().ifBlank { "?" }
+    }
+
     // ── Internals ─────────────────────────────────────────────────────────
 
     private data class ValidInput(
@@ -815,6 +1260,7 @@ class EncounterSpaceService(
         val profile: EncounterProfile?,
         val reactions: List<EncounterReactionOption>?,
         val notifyMode: EncounterNotifyMode?,
+        val tables: EncounterTablesConfig?,
     )
 
     private data class OpenOutcome(
@@ -860,12 +1306,24 @@ class EncounterSpaceService(
         if (reactions != null && reactions.size > MAX_REACTION_OPTIONS) {
             throw BadRequestException("at most $MAX_REACTION_OPTIONS reactions are allowed")
         }
+        val tables = input.tables
+        if (tables != null &&
+            (
+                tables.count !in 1..ENCOUNTER_TABLE_MAX_COUNT ||
+                    tables.seats !in ENCOUNTER_TABLE_MIN_SEATS..ENCOUNTER_TABLE_MAX_SEATS
+            )
+        ) {
+            throw BadRequestException(
+                "tables: count must be 1..$ENCOUNTER_TABLE_MAX_COUNT and seats $ENCOUNTER_TABLE_MIN_SEATS..$ENCOUNTER_TABLE_MAX_SEATS",
+            )
+        }
         return ValidInput(
             title = title,
             closedNotice = notice,
             profile = input.profile,
             reactions = reactions?.let { EncounterReactionOption.normalize(it) },
             notifyMode = input.notifyMode,
+            tables = tables,
         )
     }
 
@@ -1011,30 +1469,7 @@ class EncounterSpaceService(
         val session =
             transaction {
                 requireConferenceEligibleMembership(memberId = current.memberId)
-                loadSpace(spaceId = id)
-                requireSpaceModerator(spaceId = id, current = current)
-                val open = EncounterSessions.openSession(spaceId = id) ?: throw ConflictException(SPACE_CLOSED_MESSAGE)
-                // Only a real member can be moderated: an office holder must not be able to fill the bounded moderation list with random UUIDs.
-                if (MemberTable
-                        .selectAll()
-                        .where { MemberTable.id eq targetId }
-                        .limit(1)
-                        .none()
-                ) {
-                    throw NotFoundException("Member not found")
-                }
-                if (!current.isPrivileged) {
-                    // An office holder may act against the congregation only, never against another office holder or BOARD/ADMIN.
-                    val targetIsProtected =
-                        EncounterRoles.hasAnyRoleRow(spaceId = id, memberId = targetId) ||
-                            AccountTable
-                                .selectAll()
-                                .where { (AccountTable.memberId eq targetId) and (AccountTable.role inList PRIVILEGED_ACCOUNT_ROLES) }
-                                .limit(1)
-                                .any()
-                    if (targetIsProtected) throw ForbiddenException()
-                }
-                open
+                moderationSessionInTx(spaceId = id, targetId = targetId, current = current)
             }
         val roomId = session[ConferenceRoomTable.id]
         // The block/silence is recorded BEFORE the disconnect, so a failing LiveKit call can never leave the person free to re-enter.
@@ -1046,7 +1481,12 @@ class EncounterSpaceService(
             }
         if (!recorded) throw ConflictException("The moderation list of this session is full")
         // V1.9.79: a removed person loses the seat (a silenced one keeps it and re-enters without a data channel).
-        if (!silenceOnly) seatState.release(sessionRoomId = roomId, memberId = targetId)
+        if (!silenceOnly) {
+            seatState.release(sessionRoomId = roomId, memberId = targetId)
+        }
+        // V1.9.80: the table seat goes in BOTH cases: a table is a live microphone channel, which silencing must close. The table
+        // rotates so the person cannot keep talking/listening with a refreshed token.
+        applyRotations(listOfNotNull(tableState.leave(sessionRoomId = roomId, memberId = targetId)))
 
         val roomName = session[ConferenceRoomTable.livekitRoomName]
         val live = liveKitCall { liveKitAdminClient.listParticipants(roomName) }.any { it.identity == targetId.toString() }
@@ -1064,6 +1504,41 @@ class EncounterSpaceService(
                 (ConferenceParticipationTable.roomId eq roomId) and (ConferenceParticipationTable.memberId eq targetId)
             }
         }
+    }
+
+    /**
+     * Shared by [moderate] and [sendToPlenum]; runs inside the caller's transaction. Returns the open session of the space after checking
+     * that the caller may moderate it, that the target is a real member and (for a non-privileged caller) is not protected: an office
+     * holder may act against the congregation only, never against another office holder or BOARD/ADMIN.
+     */
+    private fun moderationSessionInTx(
+        spaceId: Uuid,
+        targetId: Uuid,
+        current: CurrentMember,
+    ): ResultRow {
+        loadSpace(spaceId = spaceId)
+        requireSpaceModerator(spaceId = spaceId, current = current)
+        val open = EncounterSessions.openSession(spaceId = spaceId) ?: throw ConflictException(SPACE_CLOSED_MESSAGE)
+        // Only a real member can be moderated: an office holder must not be able to fill the bounded moderation list with random UUIDs.
+        if (MemberTable
+                .selectAll()
+                .where { MemberTable.id eq targetId }
+                .limit(1)
+                .none()
+        ) {
+            throw NotFoundException("Member not found")
+        }
+        if (!current.isPrivileged) {
+            val targetIsProtected =
+                EncounterRoles.hasAnyRoleRow(spaceId = spaceId, memberId = targetId) ||
+                    AccountTable
+                        .selectAll()
+                        .where { (AccountTable.memberId eq targetId) and (AccountTable.role inList PRIVILEGED_ACCOUNT_ROLES) }
+                        .limit(1)
+                        .any()
+            if (targetIsProtected) throw ForbiddenException()
+        }
+        return open
     }
 
     private fun mintTurnServers(

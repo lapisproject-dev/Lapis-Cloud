@@ -31,6 +31,7 @@ import network.lapis.cloud.client.untrustedDiv
 import network.lapis.cloud.client.untrustedSpan
 import network.lapis.cloud.shared.domain.EncounterPresentDto
 import network.lapis.cloud.shared.domain.EncounterProfile
+import network.lapis.cloud.shared.domain.EncounterTableDto
 import network.lapis.cloud.shared.domain.encounterSeatPosition
 import network.lapis.cloud.shared.domain.encounterSeatRow
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -63,11 +64,16 @@ internal class EncounterPresentPanel(
     private val seatList: () -> EncounterSeatListState? = { null },
     private val onChooseSeat: (Int) -> Unit = {},
     private val onReleaseSeat: () -> Unit = {},
+    // V1.9.80: the table list alternative (BR-E2) -- `null` = no tables in this room or the viewer cannot sit (an office holder).
+    private val tableList: () -> EncounterTableListState? = { null },
+    private val onChooseTable: (Int) -> Unit = {},
+    private val onLeaveTable: () -> Unit = {},
 ) {
     val root: Div = parent.div(className = "lapis-encounter-present")
     private var content: SimplePanel? = null
     private var people: List<EncounterPresentDto> = emptyList()
     private var seatListOpen = false
+    private var tableListOpen = false
 
     /** Counts the lists that arrived from elsewhere; a `listPresent` that started under an older count is stale when it answers. */
     private var generation = 0
@@ -101,6 +107,19 @@ internal class EncounterPresentPanel(
         rebuild(loaded)
         return true
     }
+
+    /**
+     * V1.9.80: the tables with their quiet flags (no persons); `null` when the request failed. It lives here, with the other read of the
+     * presence list, because it is refreshed together with it.
+     */
+    suspend fun loadTables(): List<EncounterTableDto>? =
+        try {
+            rpcService<IEncounterSpaceService>().listTables(spaceId)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            null
+        }
 
     /** V1.9.79: takes a list that came from elsewhere (the answer of `selectSeat`), exactly like a refresh. */
     fun replace(loaded: List<EncounterPresentDto>) {
@@ -148,6 +167,7 @@ internal class EncounterPresentPanel(
     ) {
         if (viewer.canModerate) renderRaisedHands(panel, loaded)
         renderSeatList(panel)
+        renderTableList(panel)
         panel.h2(tr("In diesem Raum")) { addCssClass("h6") }
         panel.div(gettext("%1 anwesend", loaded.size), className = "text-muted small")
         loaded.forEach { person -> renderPerson(panel, person) }
@@ -198,6 +218,41 @@ internal class EncounterPresentPanel(
         panel.add(details)
     }
 
+    /**
+     * V1.9.80: "Tisch über eine Liste wählen" -- the same choice as the tables, as a `<details>` of plain buttons: one per table that still has
+     * a free seat (no names, no taken seats), plus the viewer's own place and "Tisch verlassen". The disclosure state survives the rebuilds.
+     */
+    private fun renderTableList(panel: SimplePanel) {
+        val state = tableList() ?: return
+        val details = Tag(TAG.DETAILS, className = "lapis-encounter-table-list")
+        if (tableListOpen) details.setAttribute("open", "")
+        val summary = Tag(TAG.SUMMARY, content = tr("Tisch über eine Liste wählen"))
+        summary.onClick { tableListOpen = !tableListOpen }
+        details.add(summary)
+        val status =
+            state.ownTable?.let { gettext("Sie sitzen an Tisch %1.", it + 1) } ?: tr("Sie sitzen an keinem Tisch.")
+        details.add(Div(content = status, className = "small text-muted my-1"))
+        if (state.ownTable != null) {
+            val leave = newActionButton(ActionIcon.LEAVE_TABLE, tr("Tisch verlassen"), ButtonStyle.OUTLINESECONDARY, small = true)
+            leave.setAttribute("data-list-table", "leave")
+            leave.onClick { onLeaveTable() }
+            details.add(leave)
+        }
+        if (state.tablesWithFreeSeats.isEmpty()) {
+            if (state.ownTable == null) details.add(Div(content = tr("Alle Tische sind besetzt."), className = "small"))
+        } else {
+            state.tablesWithFreeSeats.forEach { (table, free) ->
+                val button = Tag(TAG.BUTTON, className = "btn btn-outline-secondary lapis-encounter-table-list-button")
+                button.setAttribute("type", "button")
+                button.setAttribute("data-list-table", table.toString())
+                button.content = gettext("Tisch %1 (%2 Plätze frei)", table + 1, free)
+                button.onClick { onChooseTable(table) }
+                details.add(button)
+            }
+        }
+        panel.add(details)
+    }
+
     private fun renderRaisedHands(
         panel: SimplePanel,
         loaded: List<EncounterPresentDto>,
@@ -224,7 +279,23 @@ internal class EncounterPresentPanel(
         text.untrustedDiv(person.displayName)
         val facts = encounterPersonFacts(person, showGuestMarker = viewer.canModerate, profile = terms.profile)
         if (facts.isNotEmpty()) text.div(facts, className = "text-muted small")
+        // V1.9.80: who sits at which table is visible to everybody present (consent point 1 of the stage-2b notes).
+        person.table?.let { table -> text.div(encounterTableTitle(table), className = "text-muted small") }
         if (!encounterCanActOn(viewer = viewer, target = person)) return
+        // V1.9.80: a person at a table can be sent back to the plenum (stays in the room; the server applies the same protection rules).
+        if (person.table != null) {
+            row
+                .actionButton(
+                    ActionIcon.SEND_TO_PLENUM,
+                    tr("Ins Plenum setzen"),
+                    style = ButtonStyle.OUTLINESECONDARY,
+                    small = true,
+                ).onClick {
+                    moderate(successMessage = tr("Die Person wurde ins Plenum gesetzt.")) {
+                        rpcService<IEncounterSpaceService>().sendToPlenum(spaceId, person.memberId)
+                    }
+                }
+        }
         row.actionButton(ActionIcon.SILENCE, tr("Stummschalten"), style = ButtonStyle.OUTLINESECONDARY, small = true).onClick {
             moderate(successMessage = tr("Die Person wurde stummgeschaltet.")) {
                 rpcService<IEncounterSpaceService>().silenceInSpace(spaceId, person.memberId)

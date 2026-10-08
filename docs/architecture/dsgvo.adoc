@@ -438,6 +438,8 @@ memory (`EncounterModerationState`) and vanish with the session or a restart.
 
 *Seat choice (V1.9.79, stage 2a).* The seat a person chose lives only in memory (`EncounterSeatState`), is not exported and is dropped when the person leaves, when the session closes, by the poller and on a restart; nothing is written to the database or the audit log. The position is visible to all present people, with the initials of the occupant (needs legal review: the consent text does not mention it).
 
+*Tables (V1.9.80, stage 2b).* Who sits at which table, which LiveKit room carries which table and which tables are quieted live only in memory (`EncounterTableState`): no table, no log line, no audit entry, not in the Art. 15 export, dropped on leave, removal, close, by the poller and on a restart. The room settings `tables_enabled`, `table_count` and `table_seats` (V79) describe the room, not a person. The table membership is visible to all present people (initials) and conversations at a table are audible to the others at it (needs legal review: the consent texts do not mention it).
+
 *The client (V1.9.62, wave B2).* The page adds no lasting trace either: the only browser storage is the key `lapis.encounter.sceneOff` (a choice, no room, no
 person, no time); the chat and the reactions live in memory for the visit and are never stored or sent anywhere but the LiveKit data channel; no time is shown
 (the chat wire field is sent as `0`); nothing about a person is written to the console or to telemetry (`ClientEncounterPrivacyTripwireTest`). The listing of the people present

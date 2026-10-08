@@ -27,6 +27,8 @@ import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.EncounterSpaceMode
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
+import network.lapis.cloud.shared.domain.EncounterTableTokenDto
+import network.lapis.cloud.shared.domain.EncounterTablesConfig
 import network.lapis.cloud.shared.domain.EncounterTheme
 import network.lapis.cloud.shared.rpc.IEncounterSpaceService
 import org.w3c.dom.HTMLElement
@@ -46,6 +48,7 @@ internal fun testSpace(
     profile: EncounterProfile = EncounterProfile.CHURCH_SERVICE,
     reactions: List<EncounterReactionOption> = EncounterReactionOption.defaultsFor(profile),
     notifyMode: network.lapis.cloud.shared.domain.EncounterNotifyMode = network.lapis.cloud.shared.domain.EncounterNotifyMode.NONE,
+    tables: EncounterTablesConfig = EncounterTablesConfig(),
 ) = EncounterSpaceDto(
     id = id,
     title = title,
@@ -65,7 +68,14 @@ internal fun testSpace(
     profile = profile,
     reactions = reactions,
     notifyMode = notifyMode,
+    tables = tables,
 )
+
+/** V1.9.80: an assembly room with 3 tables of 6 seats. */
+internal fun tablesSpace(
+    myRole: EncounterSpaceRole? = null,
+    tables: EncounterTablesConfig = EncounterTablesConfig(enabled = true, count = 3, seats = 6),
+) = testSpace(profile = EncounterProfile.ASSEMBLY, myRole = myRole, tables = tables)
 
 internal fun testEntry(
     role: EncounterPresenceRole = EncounterPresenceRole.CONGREGATION,
@@ -95,7 +105,79 @@ internal fun testPerson(
     name: String = "Person $id",
     isGuest: Boolean = false,
     seat: Int? = null,
-) = EncounterPresentDto(memberId = id, displayName = name, role = role, isGuest = isGuest, seat = seat)
+    table: Int? = null,
+    tableSeat: Int? = null,
+) = EncounterPresentDto(
+    memberId = id,
+    displayName = name,
+    role = role,
+    isGuest = isGuest,
+    seat = seat,
+    table = table,
+    tableSeat = tableSeat,
+)
+
+/** V1.9.80: the join data of a table (room name `lc-et-<n>`). */
+internal fun testTableToken(
+    room: String = "lc-et-1",
+    table: Int = 0,
+    seat: Int = 0,
+    canPublish: Boolean = true,
+) = EncounterTableTokenDto(
+    join =
+        ConferenceJoinTokenDto(
+            roomId = "room-1",
+            livekitRoomName = room,
+            serverUrl = "ws://127.0.0.1:9",
+            token = "not-a-real-table-token",
+            identity = "me",
+            displayName = "IS",
+            role = ConferenceRole.PARTICIPANT,
+            expiresAt = LocalDateTime(2099, 1, 1, 0, 0),
+        ),
+    canPublish = canPublish,
+    table = table,
+    tableSeat = seat,
+)
+
+/** V1.9.80: a table audio session that records what the room asks of it. It has NO camera, screen or data method (the type is the lock). */
+internal class FakeTableSession(
+    private val canPublish: Boolean = true,
+    private val connectFailure: ConferenceConnectFailure? = null,
+) : EncounterTableSession {
+    var connects = 0
+    var disconnects = 0
+    val microphoneCalls = mutableListOf<Boolean>()
+
+    override suspend fun connect(): ConferenceConnectFailure? {
+        connects++
+        return connectFailure
+    }
+
+    override suspend fun microphone(on: Boolean): ConferenceDeviceFailure? {
+        if (!canPublish) return ConferenceDeviceFailure.OTHER
+        microphoneCalls += on
+        return null
+    }
+
+    override suspend fun disconnect() {
+        disconnects++
+    }
+}
+
+/** V1.9.80: the opener of a test: hands out a [FakeTableSession] per call and remembers the callbacks of the last one. */
+internal class FakeTableOpener(
+    private val sessionFor: (EncounterTableTokenDto) -> FakeTableSession = { FakeTableSession(canPublish = it.canPublish) },
+) {
+    val opened = mutableListOf<Pair<EncounterTableTokenDto, FakeTableSession>>()
+    var lastCallbacks: EncounterTableCallbacks? = null
+
+    val opener: EncounterTableSessionOpener =
+        { token, callbacks ->
+            lastCallbacks = callbacks
+            sessionFor(token).also { opened += token to it }
+        }
+}
 
 /** V1.9.79: [count] congregation people who have already chosen the seats 0 until [count] ("Gast 1" sits at seat 0, ...). */
 internal fun seatedCrowd(count: Int = 6) = (1..count).map { testPerson("c$it", name = "Gast $it", seat = it - 1) }
@@ -221,6 +303,8 @@ internal suspend fun withEncounterRoom(
     selectSeatAnswer: (RecordedRequest) -> StubResponse = { request -> defaultSeatAnswer(request, entry, peopleOf) },
     space: EncounterSpaceDto = testSpace(),
     seatNudgeDelayMs: () -> Int = { 0 },
+    /** V1.9.80: the factory of the table's audio session (a fake by default: no network). */
+    tableSessionOpener: EncounterTableSessionOpener = FakeTableOpener().opener,
     /** How long the stub server takes to answer `listPresent` (the roster is read when the request ARRIVES, so a slow answer is a stale one). */
     presentDelayMs: () -> Int = { 0 },
     onLeave: () -> Unit = {},
@@ -255,6 +339,7 @@ internal suspend fun withEncounterRoom(
                     onLeave = onLeave,
                     onDoorsClosed = onDoorsClosed,
                     onConnectionLost = {},
+                    tableSessionOpener = tableSessionOpener,
                 )
             room.bind(session)
             room.afterConnected()

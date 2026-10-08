@@ -16,7 +16,8 @@ import network.lapis.cloud.shared.domain.EncounterReactionOption
  * The groups of the control bar of the encounter room, in DOM order. A divider (CSS only) separates two non-empty groups.
  *
  * - [REACTIONS]: the configured reactions of the room (hand always first, then the allowed events) -- the only controls with a word.
- * - [DEVICES]: microphone and camera -- only an office holder's session ever fills this group.
+ * - [DEVICES]: microphone and camera -- only an office holder's session fills this group; since V1.9.80 also the table microphone and
+ *   "Kanzel lauter" of a congregation person who sits at a table.
  * - [PANELS]: the side panel (chat) and "Mehr" (the sheet with what did not fit).
  * - [VIEW]: scene on/off and the full screen.
  * - [MODERATION]: the transmission (people who moderate); never next to the reactions, so a slip does not trigger a reaction.
@@ -36,6 +37,12 @@ internal sealed interface EncounterControlSlot {
 
     data object Camera : EncounterControlSlot
 
+    /** V1.9.80: the microphone of the viewer's own table (a congregation person; shown only while seated). */
+    data object TableMic : EncounterControlSlot
+
+    /** V1.9.80: "Kanzel lauter" (profile word: "Podium lauter" in an assembly) -- turns the pulpit up again while the viewer sits at a table. */
+    data object PulpitLouder : EncounterControlSlot
+
     data object Chat : EncounterControlSlot
 
     data object More : EncounterControlSlot
@@ -54,7 +61,8 @@ internal sealed interface EncounterControlSlot {
 internal fun encounterControlGroup(slot: EncounterControlSlot): EncounterControlGroup =
     when (slot) {
         EncounterControlSlot.Hand, is EncounterControlSlot.Reaction -> EncounterControlGroup.REACTIONS
-        EncounterControlSlot.Mic, EncounterControlSlot.Camera -> EncounterControlGroup.DEVICES
+        EncounterControlSlot.Mic, EncounterControlSlot.Camera, EncounterControlSlot.TableMic, EncounterControlSlot.PulpitLouder ->
+            EncounterControlGroup.DEVICES
         EncounterControlSlot.Chat, EncounterControlSlot.More -> EncounterControlGroup.PANELS
         EncounterControlSlot.Scene, EncounterControlSlot.Fullscreen -> EncounterControlGroup.VIEW
         EncounterControlSlot.Broadcast -> EncounterControlGroup.MODERATION

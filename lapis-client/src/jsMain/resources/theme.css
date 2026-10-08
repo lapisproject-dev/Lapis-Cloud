@@ -3028,6 +3028,7 @@ html .form-select.is-invalid:focus {
 /* V1.9.79: erzwungene Farben -- Kontur in `Highlight`, die Initialen, das Wort "Sie" und die Glyphen bleiben sichtbar (Rahmen statt Fuellung). */
 @media (forced-colors: active) {
   .lapis-encounter-seat,
+  .lapis-encounter-table-seat,
   .lapis-encounter-unseated-item {
     border: 2px solid CanvasText;
     forced-color-adjust: none;
@@ -3036,13 +3037,28 @@ html .form-select.is-invalid:focus {
   }
 
   .lapis-encounter-seat--free,
-  .lapis-encounter-seat--pending {
+  .lapis-encounter-seat--pending,
+  .lapis-encounter-table-seat--free,
+  .lapis-encounter-table-seat--pending {
     border-style: dashed;
   }
 
-  .lapis-encounter-seat--own {
+  .lapis-encounter-seat--own,
+  .lapis-encounter-table-seat--own,
+  .lapis-encounter-table-seat.is-speaking {
     outline: 3px solid Highlight;
     outline-offset: 2px;
+  }
+
+  .lapis-encounter-table {
+    border-color: CanvasText;
+  }
+
+  .lapis-encounter-table-seat-self,
+  .lapis-encounter-table-seat-speaking {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
   }
 
   .lapis-encounter-seat:focus-visible {
@@ -3327,6 +3343,165 @@ html .form-select.is-invalid:focus {
 .lapis-encounter-seat-list-button {
   min-width: 44px;
   min-height: 44px;
+}
+
+/* V1.9.80 (Stufe 2b): die Tische zwischen Kanzel und Baenken. Je Tisch eine Karte (`role="group"`), je Platz ein Knopf von mindestens 44 x 44 px,
+   drei je Zeile (3 x 44 + 2 x 2 = 136 px + Innenabstand und Rahmen = 154 px je Karte: zwei Karten nebeneinander bei 320 px). Frei = gestrichelt, besetzt =
+   gefuellt mit Initialen, eigener Platz = Doppelring plus das Wort "Sie", spricht = kraeftiger Ring plus das Wort "spricht", beruhigt = Symbol
+   plus Text (nie Farbe allein). Keine Transition: nichts animiert. */
+.lapis-encounter-tables-host {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0.5rem 0;
+}
+
+/* Telefon: der Raum hat 296 px Innenbreite, zwei Karten brauchen 2 x 154 + 8 px -- der Tischbereich ragt darum 12 px links und rechts in
+   den Innenabstand des Raums (der Raum selbst schneidet nichts ab: 320 px Breite, zwei Spalten). */
+@media (max-width: 767.98px) {
+  .lapis-encounter-tables-host {
+    width: calc(100% + 1.5rem);
+    margin-inline: -0.75rem;
+  }
+}
+
+.lapis-encounter-tables-heading {
+  margin: 0 0 0.25rem;
+}
+
+.lapis-encounter-tables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(154px, 1fr));
+  gap: 0.5rem;
+}
+
+.lapis-encounter-table {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 0.4rem;
+  border: 2px solid var(--lapis-encounter-seat-text);
+  border-radius: 0.75rem;
+  background: var(--lapis-encounter-surface);
+  color: var(--lapis-encounter-seat-text);
+}
+
+.lapis-encounter-table-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  font-size: 0.875rem;
+}
+
+.lapis-encounter-table-title,
+.lapis-encounter-table-quiet {
+  font-weight: 600;
+}
+
+.lapis-encounter-table-mic:empty {
+  display: none;
+}
+
+.lapis-encounter-table-seats {
+  display: grid;
+  grid-template-columns: repeat(3, 44px);
+  justify-content: start;
+  gap: 2px;
+  margin: 0.5rem 0;
+}
+
+.lapis-encounter-table-seat {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: var(--lapis-encounter-seat);
+  color: var(--lapis-encounter-seat-text);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lapis-encounter-table-seat--free {
+  background: transparent;
+  border: 2px dashed var(--lapis-encounter-seat-text);
+}
+
+.lapis-encounter-table-seat[aria-disabled="true"] {
+  cursor: default;
+}
+
+.lapis-encounter-table-seat--own {
+  box-shadow: 0 0 0 2px var(--lapis-encounter-surface), 0 0 0 4px var(--lapis-encounter-seat-text);
+}
+
+.lapis-encounter-table-seat--pending {
+  border: 2px dashed var(--lapis-encounter-seat-text);
+  cursor: progress;
+}
+
+.lapis-encounter-table-seat.is-speaking {
+  outline: 3px solid var(--lapis-encounter-seat-text);
+  outline-offset: 2px;
+}
+
+.lapis-encounter-table-seat:focus-visible {
+  outline: 3px solid var(--lapis-encounter-seat-text);
+  outline-offset: 3px;
+}
+
+.lapis-encounter-table-seat-self,
+.lapis-encounter-table-seat-speaking {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 0.3rem;
+  border-radius: 0.5rem;
+  background: var(--lapis-encounter-seat-text);
+  color: var(--lapis-encounter-surface);
+  font-size: 0.625rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.lapis-encounter-table-seat-self {
+  bottom: -8px;
+}
+
+.lapis-encounter-table-seat-speaking {
+  top: -8px;
+}
+
+.lapis-encounter-table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.lapis-encounter-table-list {
+  margin-bottom: 0.75rem;
+}
+
+.lapis-encounter-table-list summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.lapis-encounter-table-list-button {
+  display: block;
+  min-height: 44px;
+  margin: 0.25rem 0;
 }
 
 /* Hand und Ereignis (Amen, Applaus, Herz): kleine, leise Zeichen am Platz (nie eine Zahl; ein Ereignis-Platz je Sitz). Ein- und Ausblenden

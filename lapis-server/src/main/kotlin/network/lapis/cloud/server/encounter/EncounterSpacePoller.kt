@@ -79,6 +79,7 @@ class EncounterSpacePoller(
     private val liveKitAdminClient: LiveKitAdminClient,
     private val moderationState: EncounterModerationState,
     private val seatState: EncounterSeatState,
+    private val tableState: EncounterTableState,
     private val entryNotifier: EncounterEntryNotifier,
     private val liveKitEnabled: Boolean,
     private val intervalSeconds: Long = 60,
@@ -117,6 +118,9 @@ class EncounterSpacePoller(
         try {
             val openRoomIds = transaction { loadOpenSessions() }.map { it.roomId }.toSet()
             seatState.retainOnly(openRoomIds)
+            // V1.9.80: table state of a session that is gone -- its LiveKit rooms go too (best effort, the reconciler is the backstop).
+            val orphanRooms = tableState.retainOnly(openRoomIds)
+            if (orphanRooms.isNotEmpty() && liveKitEnabled) EncounterTableRooms.deleteAll(liveKit = liveKitAdminClient, rooms = orphanRooms)
         } catch (e: Exception) {
             logger.error { "encounter poller: the seat table cleanup failed (${e::class.simpleName})" }
         }
@@ -217,6 +221,7 @@ class EncounterSpacePoller(
         val liveIds = live.mapNotNull { runCatching { Uuid.parse(it) }.getOrNull() }
         // Two consecutive absent sweeps are required: livekit-client reconnects with its still-valid token WITHOUT calling enterSpace again,
         // so a single sweep that falls into a short network gap must not delete the row of a person who is about to be live again.
+        val confirmedGone = mutableListOf<Uuid>()
         val removed =
             transaction {
                 val candidates =
@@ -235,6 +240,7 @@ class EncounterSpacePoller(
                 } else {
                     // V1.9.79: seats go with the presence row (in memory, idempotent).
                     seatState.releaseAll(sessionRoomId = session.roomId, memberIds = confirmed)
+                    confirmedGone += confirmed
                     ConferenceParticipationTable.deleteWhere {
                         (ConferenceParticipationTable.roomId eq session.roomId) and
                             (ConferenceParticipationTable.joinedAt less cutoff) and
@@ -242,11 +248,18 @@ class EncounterSpacePoller(
                     }
                 }
             }
+        // V1.9.80: ... and the table seat; the tables concerned rotate (outside the transaction).
+        if (confirmedGone.isNotEmpty()) {
+            EncounterTableRooms.apply(
+                liveKit = liveKitAdminClient,
+                rotations = tableState.leaveAll(sessionRoomId = session.roomId, memberIds = confirmedGone),
+            )
+        }
         if (removed > 0) logger.info { "encounter poller: $removed stale presence row(s) deleted" }
     }
 
     /** Closes [session] under the locks (space first, then room, audit last) iff it is still open; never throws into the sweep. */
-    private fun closeSession(
+    private suspend fun closeSession(
         session: OpenSession,
         reason: String,
         now: LocalDateTime,
@@ -277,6 +290,7 @@ class EncounterSpacePoller(
         }
         moderationState.clear(session.roomId)
         seatState.clear(session.roomId)
+        EncounterTableRooms.deleteAll(liveKit = liveKitAdminClient, rooms = tableState.clear(session.roomId))
         entryNotifier.clearSession(session.roomId)
         logger.info { "encounter poller: a session was closed ($reason)" }
     }

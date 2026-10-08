@@ -185,4 +185,48 @@ class ClientEncounterPrivacyTripwireTest :
                 code.filter { Regex("""location\.(href|hash|search)|history\.(push|replace)State""").containsMatchIn(it) }.shouldBeEmpty()
             }
         }
+
+        // ── Welle V1.9.80: tables ────────────────────────────────────────────
+
+        test("V1.9.80: the table session type has no camera, no screen and no data method, and a video track is never attached") {
+            val media = encounterFiles().first { it.name == "EncounterMediaSession.kt" }
+            val text = codeLines(media).joinToString("\n")
+            val start = text.indexOf("internal interface EncounterTableSession")
+            (start >= 0) shouldBe true
+            val body = text.substring(start, text.indexOf("\n}\n", start))
+            // exactly three members: connect, microphone, disconnect
+            Regex("""suspend fun (\w+)""").findAll(body).map { it.groupValues[1] }.toList() shouldBe
+                listOf("connect", "microphone", "disconnect")
+            listOf("Camera", "Screen", "sendChat", "sendReaction", "sendSeatNudge", "Data").forEach { forbidden ->
+                withClue("EncounterTableSession must not mention '$forbidden'") { body.contains(forbidden) shouldBe false }
+            }
+            // the audio-only filter of the factory: only a track of kind "audio" is handed on
+            val factory =
+                text.substring(
+                    text.indexOf("private fun tableLiveKitSession"),
+                    text.indexOf("internal fun openEncounterTableSession"),
+                )
+            factory.contains("if (track.kind == \"audio\") callbacks.onAudioTrack") shouldBe true
+            factory.contains("onLocalVideoTrack = { _ -> }") shouldBe true
+        }
+
+        test("V1.9.80: nothing about tables is stored in the browser, and a table is never part of a URL") {
+            encounterFiles().filter { it.name in setOf("EncounterTables.kt", "EncounterRoom.kt") }.forEach { f ->
+                val code = codeLines(f).filterNot { it.trimStart().startsWith("import ") }
+                code.filter { STORAGE.containsMatchIn(it) }.shouldBeEmpty()
+                code.filter { Regex("""location\.(href|hash|search)|history\.(push|replace)State""").containsMatchIn(it) }.shouldBeEmpty()
+            }
+        }
+
+        test("V1.9.80: no announcement of a table names a person -- the sentences carry table numbers only") {
+            val tables = encounterFiles().first { it.name == "EncounterTables.kt" }
+            val announcing = codeLines(tables).filter { Regex("""host\.announce\(""").containsMatchIn(it) }
+            (announcing.size >= 6) shouldBe true // the scan is not vacuous
+            announcing.filter { Regex("""displayName|\.name\b|initials""", RegexOption.IGNORE_CASE).containsMatchIn(it) }.shouldBeEmpty()
+            val room = encounterFiles().first { it.name == "EncounterRoom.kt" }
+            codeLines(room)
+                .filter { Regex("""announceTable\(""").containsMatchIn(it) && !it.contains("private fun") }
+                .filter { Regex("""displayName|\.name\b""", RegexOption.IGNORE_CASE).containsMatchIn(it) }
+                .shouldBeEmpty()
+        }
     })

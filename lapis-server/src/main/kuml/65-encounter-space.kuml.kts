@@ -24,6 +24,10 @@
 // **V78 (Welle V1.9.76).** `notify_mode` (NONE | FIRST_GUEST | EVERY_GUEST) configures the anonymous e-mail notice to the office holders
 // when a person without an office enters. It describes the ROOM, never a person; the CHECK constraint lives in the SQL only.
 //
+// **V79 (Welle V1.9.80).** `tables_enabled`, `table_count` (1..12) and `table_seats` (2..8) configure the tables of an ASSEMBLY room. They
+// describe the ROOM, never a person (who sits where is held in memory only); the CHECK constraints (incl. "tables only in the ASSEMBLY
+// profile") live in the SQL only.
+//
 // Cross-domain stub: minimal id-only `Member` (owned by `00-foundation.kuml.kts`), same single-file-evaluation pattern every later
 // domain file's own header documents.
 import dev.kuml.profile.erm.ermMappingProfile
@@ -76,6 +80,16 @@ classDiagram(name = "EncounterSpace") {
         // NONE | FIRST_GUEST | EVERY_GUEST (V78): anonymous entry notice to the office holders
         attribute(name = "notifyMode", type = "String") {
             stereotype("Column") { "columnName" to "notify_mode"; "sqlType" to "VARCHAR(16)" }
+        }
+        // tables of an ASSEMBLY room (V79); the CHECK constraints live in the SQL only
+        attribute(name = "tablesEnabled", type = "Boolean") {
+            stereotype("Column") { "columnName" to "tables_enabled"; "sqlType" to "BOOLEAN" }
+        }
+        attribute(name = "tableCount", type = "Int") {
+            stereotype("Column") { "columnName" to "table_count"; "sqlType" to "SMALLINT" }
+        }
+        attribute(name = "tableSeats", type = "Int") {
+            stereotype("Column") { "columnName" to "table_seats"; "sqlType" to "SMALLINT" }
         }
         // MEMBERS_ONLY | MEMBERS_AND_GUESTS
         attribute(name = "guestPolicy", type = "String") {

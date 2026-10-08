@@ -544,7 +544,7 @@ congregation can choose a free seat; everybody sees who sits where as initials. 
 * *State* (`EncounterSeatState`): `session -> (seat -> member)` and `member -> seat`, *in memory only*, never persisted, never logged, never audited -- like `EncounterModerationState`. At most 64 sessions (a 65th gets
   `Full`), one seat per person, `0 until 240` seats (40 rows of six; the shared `encounterSeatCapacity` offers whole rows, at least 24, one spare row). Choose-and-claim is one `synchronized` block: whoever enters first wins a contested seat.
   A seat whose occupant is not present any more (stale) counts as free.
-* *No schema change.* The schema stays at v78; there is no V79 migration (`EncounterPrivacyTripwireTest` pins that no migration and no generated encounter table knows a seat).
+* *No schema change.* Stage 2a added no migration (`EncounterPrivacyTripwireTest` pins that no migration and no generated encounter table knows a seat); the one later migration, V79 of stage 2b, adds room settings only.
 * *Release points:* `leaveSpace`, removal (`removeFromSpace`; silencing keeps the seat), `closeSpace`, the poller (a deleted stale presence row releases the seat; a session it closes is cleared) and every `enterSpace`
   (an entry always starts without a seat -- a reload does not resurrect a seat). A person who becomes an office holder loses the seat at the next read.
 * *`listPresent` carries the seat* (`EncounterPresentDto.seat`, last and with a default: an old client ignores the key, a new client reads `null` from an old server). `selectSeat` answers with the same list.
@@ -592,6 +592,65 @@ exported, and dropped when the person leaves, when the session closes and on a r
 * Translations of the new texts are agent-made, not checked by native speakers.
 * The seat plan has no "sit anonymously" option (initials are always shown); noted for the legal review.
 
+[#stage-2b]
+== Stage 2b (V1.9.80): tables with their own audio group
+
+In a room with the *assembly profile* the BOARD/ADMIN can switch on *tables* (`encounter_space.tables_enabled`, `table_count` 1 to 12, `table_seats` 2 to 8; migration V79, additive; a CHECK constraint ties `tables_enabled` to the profile `ASSEMBLY`).
+A person of the congregation sits down at a table and then hears and speaks *only with the others at that table*; the plenary (pulpit or podium) is turned down to 30 % on that device. Office holders never join a table, so nobody who moderates listens in.
+Everything about who sits where is in memory only (`EncounterTableState`), like the seat plan of stage 2a.
+
+=== Configuration and profile rules
+
+* The three columns describe the *room*, never a person. `EncounterSpaceInput.tables` (`null` = unchanged on update, off on create) and `EncounterSpaceDto.tables` (effective: `enabled` only ever `true` for the assembly profile) are the last fields with a default (wire compatible both ways).
+* `validateInput`: count 1..12 and seats 2..8 (`BadRequestException`, also for a disabled configuration), `enabled` with another profile than ASSEMBLY is a `BadRequestException` -- also when only the profile changes on update while tables are on (the client switches the tables off in the same call; the SQL CHECK never fires first).
+* A real change of the table configuration while the room is open is a `ConflictException` (same pattern as the profile and the reactions). The audit snapshot carries the three fields and no person.
+
+=== The security model: one LiveKit room per table, rotated on every departure
+
+*Why not just remove a participant?* LiveKit refreshes the token of a connected client by itself with the same grants, so a short token TTL is no revocation: a client that was only removed could walk back into the table with a refreshed token and listen in.
+Therefore the server never relies on removal or on the TTL:
+
+* Each table has an opaque LiveKit room `lc-et-<uuid>` (no space id, no table number). The room is created when the first person sits down, with `max_participants` = the seats of a table, and has *no* `conference_room` row: no participation row, no recording, no protocol, nothing that the ordinary conference RPC surface can address.
+* *Every* departure rotates the table: somebody leaves the table, sits at another one, chooses a bench seat, leaves the room, is removed, loses the presence row (the poller), becomes an office holder, or the table is quieted or released. The server allocates a *new* room name, creates it, then *deletes the old room* -- which disconnects everybody in it at once. Names are never reused.
+  The remaining people fetch a fresh token for the new name (`tableToken`); a stale token only points at the deleted name and, at worst, re-creates an empty room (LiveKit's default `auto_create`) that nobody listens in and that the reconciler deletes again. *There is no window in which a departed person still hears the table.*
+* The table token (`LiveKitAccessToken.mintTableParticipantToken`): room-pinned, `canSubscribe`, `canPublish` only while the table is not quieted, `canPublishSources = ["microphone"]` (no camera, no screen), `canPublishData = false` (no chat and no reactions at a table), never `hidden`/`recorder`/admin. TTL 30 s -- this is only the time to connect, *not* a protection.
+  The identity is the member id (as in the plenary), the display name in the token is the *initials*. TURN credentials of a table connection carry the *plenary* lifetime (coturn checks the credential on every allocation refresh; 30 s would cut the audio of everybody behind a relay).
+* *"Tisch beruhigen"* needs no `UpdateParticipant`/`MutePublishedTrack` call: the table is rotated and the new tokens carry `canPublish = false` for five minutes (`ENCOUNTER_TABLE_QUIET_MINUTES`) or until a moderator lifts it (which rotates again). `UpdateParticipant` replaces the *whole* `ParticipantPermission` (a partial object would silently set `can_subscribe=false`), so it was deliberately not built.
+* `EncounterTableReconciler` (every 5 s) is defence in depth: it deletes every `lc-et-*` room that is not the current room of a table (phantoms, rooms orphaned by a restart or a failed rotation), and rotates a table in which somebody is connected who is not assigned there, holds a track that is not the microphone, or may publish / publishes in a quieted table. It also lifts quiets whose time is up. If LiveKit is unreachable only a warning *without ids* is logged.
+
+=== Service rules
+
+* RPCs: `joinTable(spaceId, table, seat)`, `leaveTable`, `tableToken` (answer `EncounterTableTokenAnswer`, its `token` is `null` when the caller sits nowhere -- Kilua's generator cannot express a nullable return type), `listTables` (seat numbers only, no persons), `quietTable` and `sendToPlenum` (moderation).
+* `joinTable`: only a CONGREGATION person present in the open session, tables enabled, not removed from the session (`ForbiddenException` otherwise); `BadRequestException` out of range; `ConflictException` seat taken; `ServiceBusyException` throttled (1 change per 2 s, `requireSeatRate`, checked first) or the table state is full. One place per person: a table seat frees the bench seat and the other way round.
+  `tableToken` has its own throttle (20 per minute: a rotation makes everybody at the table ask at once). A token is only returned if the assignment is unchanged after minting (otherwise `ConflictException`, the client asks again).
+* `quietTable` / `sendToPlenum`: office holder or BOARD/ADMIN; `sendToPlenum` uses the protection rules of `removeFromSpace` (`moderationSessionInTx`): a steward may not act against a pulpit person, another steward or BOARD/ADMIN; no self-moderation. Neither writes an audit entry or a log line.
+* *No LiveKit call inside a transaction or a `synchronized` block*: mutations return `Rotation`s that the caller carries out after its commit (`EncounterTableRooms.apply`: create the new room, delete the old one, best effort -- data protection beats availability, the reconciler is the backstop).
+* The state is dropped when the session closes (`closeSpace`, the poller) and its rooms are deleted.
+
+=== The room (client)
+
+* A section "Tische" between the pulpit and the pews: one card per table (`role="group"`, "Tisch 3 · 2 von 6 Plätzen frei"), per seat a real `<button type="button">` of at least 44 x 44 px, three per row. The accessible name is table, seat, state and the spelled initials ("Tisch 3, Platz 2, besetzt, M S"); there is no name and no `title`. Own seat: double ring and the word "Sie"; a quieted table says so in words and with a symbol; a speaking seat carries the word "spricht" (only at the *own* table -- LiveKit reports the speakers of the room one is connected to).
+  Roving tab stop per table, Left/Right/Home/End. On a phone two cards fit side by side (the section breaks out of the room's padding by 0.75rem). No transition.
+* Sitting down is not optimistic: the seat is pending until the server answered. The microphone is *off* after sitting down (`EncounterTableSession.microphone` is the only media call; the type has no camera, screen or data method, and a video track is dropped unread). After a rotation the client reconnects with a new token and the microphone comes back only if it was on and the table is not quieted.
+  Controls (icon-only bar controls, shown while one sits at a table): the table microphone (`aria-pressed`, state also as text in the card) and the pulpit turned up again ("Kanzel lauter" / "Podium lauter", profile word). The device APIs live in `EncounterMediaSession.kt` only; the allow-list of `ClientEncounterPrivacyTripwireTest` is unchanged.
+* List alternative "Tisch über eine Liste wählen" in the "Anwesende" tab (tables with a free seat, no names). Moderators get "Tisch beruhigen" / "Beruhigung aufheben" on every card and "Ins Plenum setzen" in a person's row.
+* Announcements (polite region, only the viewer's *own* events): sat down, back in the plenary, the table was quieted or released, seat taken, please wait, connection lost. No sentence names another person.
+
+=== Data protection
+
+Who sits at which table is visible to everybody present (initials; matchable to a name through the "Anwesende" list), and people at a table talk audibly with each other. Nothing is stored: no column, no log line, no audit entry, not part of the Art. 15 export (`EncounterSpacePersonalDataTest`).
+The consent texts were *not* changed. *Needs legal review:* (1) the table membership is visible to all present people; (2) conversations at a table are heard by everybody at that table; (3) pulpit and stewards can quiet a table and send people back to the plenary without listening in; (4) there is no option to sit at a table without initials.
+
+=== Known limitations of stage 2b
+
+* No load test (the precondition of stage 2 in the vault, about 20 people, is not met); several table connections raise the TURN load (a second connection per person at a table).
+* The table state lives in the memory of one server instance and is lost on a restart (the people at tables are then back in the plenary and their client reconnects or gives up).
+* Every departure briefly interrupts the others at the table (the room is replaced); the client reconnects within about half a second.
+* "Kanzel lauter": the plenary is turned down through `HTMLMediaElement.volume`, which is read-only on iOS Safari -- there the plenary keeps its full volume.
+* `canPublishSources` is a LiveKit grant; whether v1.13.5 enforces it against a client that tries to publish a camera was *not verified live* in this wave. The reconciler therefore rotates a table in which a non-microphone track appears (checked every 5 s); until then such a track could be heard/seen for up to five seconds.
+* `room.auto_create: false` in the LiveKit production configuration would be extra hardening but is not needed (the rotation makes stale tokens harmless); not changed here.
+* Translations of the new texts are agent-made, not checked by native speakers.
+
 == Open questions (for the product owner and legal)
 
 . The wording of the Art. 9 consent (`EncounterConsentDisclaimer`, version `2026-10-06.v1`) -- a draft, legal review required.
@@ -602,3 +661,4 @@ exported, and dropped when the person leaves, when the session closes and on a r
 . (V1.9.76) Whether a first newcomer who arrives while all office holders are present should still use up the `FIRST_GUEST` claim (as now: the rule is "the first person of the session"), or only a mail that was actually sent.
 . (V1.9.76) Whether the setting `notifyMode` should be visible to everybody who may see the room (as now: transparency towards the participants, Art. 13) or only to BOARD/ADMIN and office holders.
 . (V1.9.79) Whether the Art. 9 consent texts must name the shared seating position (see <<stage-2a>>), and whether an option to sit without initials is needed.
+. (V1.9.80) Legal review of the tables: the table membership is visible to all present people, conversations at a table are audible, moderators can quiet a table and send people back without listening in, and there is no option to sit at a table without initials (see <<stage-2b>>).

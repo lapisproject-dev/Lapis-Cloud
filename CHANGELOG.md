@@ -8,6 +8,28 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Encounter room, stage 2b: tables with their own audio group (V1.9.80, migration V79, off by default).** In a room with the *assembly profile* BOARD/ADMIN can switch on tables (`encounter_space.tables_enabled`, `table_count` 1..12,
+  `table_seats` 2..8; a CHECK constraint ties them to the profile `ASSEMBLY`; the settings can only be changed while the room is closed). A person of the congregation sits down at a table (`joinTable`, `leaveTable`, `tableToken`,
+  `listTables`) and then hears and speaks only with the others at that table; the plenary is turned down to 30 % on that device ("Kanzel lauter" / "Podium lauter" turns it up). The microphone is *off* after sitting down. Office holders never
+  join a table, so nobody who moderates listens in; they can quiet a table for five minutes (`quietTable`) and send a person back to the plenary (`sendToPlenum`, same protection rules as removal). Who sits where is held in memory only
+  (`EncounterTableState`: no column, no log line, no audit entry, not in the Art. 15 export).
+  **Security model -- a deliberate deviation from the design note:** each table is its own opaque LiveKit room `lc-et-<uuid>` (no `conference_room` row, so nothing of the ordinary conference RPC surface can address it) and it is *rotated on every
+  departure* (new name, new room, old room deleted, which disconnects everybody at once). The design note planned `removeParticipant` plus a 30 s token TTL and a 3 s reconciliation; that would have left a real eavesdropping window because LiveKit
+  refreshes the tokens of connected clients by itself. "Tisch beruhigen" needs no `UpdateParticipant`/`MutePublishedTrack` either: the table is rotated and the new tokens carry `canPublish = false`. The table token (30 s, only for connecting) is
+  room-pinned, `canPublishSources = ["microphone"]`, `canPublishData = false`, the name in it is the initials. `EncounterTableReconciler` (every 5 s) deletes orphaned `lc-et-*` rooms and rotates a table with an unexpected listener, a
+  non-microphone track or a publisher in a quieted table. `LiveKitAdminClient` did not change.
+  Client: a section "Tische" between pulpit and pews (cards with real 44 px seat buttons, initials only, roving tab stop, arrow keys, quiet and speaking shown in words and symbols, two cards side by side on a phone, no transition), icon-only bar
+  controls for the table microphone and "Kanzel lauter", a list alternative in the "Anwesende" tab, moderator buttons, a second audio-only LiveKit session (`EncounterTableSession`: no camera, screen or data method; reconnects after every rotation and
+  restores the microphone only if it was on and the table is not quieted). `EncounterSpaceService`/`EncounterSpacePoller` take `EncounterTableState` (and the service two more throttles) as constructor parameters without a default (module-scoped
+  singletons). `tableToken` answers `EncounterTableTokenAnswer` (Kilua's generator cannot express a nullable return type). 44 new texts in all seven catalogs. Docs: `encounter-space.adoc` (stage 2b), `dsgvo.adoc`, `action-icons.adoc`. Website, help page
+  `gathering-room`, release, version bump, push and deploy are not part of this wave; **back up the database before deploying V79**.
+  *Known limitations:* **no load test** (the vault's precondition (b) is not met); the table state lives in the memory of one server instance and is lost on a restart; every departure briefly interrupts the others at the table (the room is replaced,
+  the client reconnects within about half a second); a second LiveKit connection per person at a table raises the TURN load; "Kanzel lauter" is ineffective on iOS Safari (`HTMLMediaElement.volume` is read-only there); **whether LiveKit v1.13.5
+  enforces `canPublishSources` against a client that tries to publish a camera was not verified live** (the reconciler rotates such a table within 5 s as a backstop); translations are agent-made and not checked by native speakers.
+  **Needs legal review:** (1) the table membership is visible to all present people (initials, matchable to a name through the "Anwesende" list); (2) conversations at a table are audible to everybody at that table; (3) pulpit and stewards can quiet a
+  table and send people back to the plenary without listening in; (4) there is no option to sit at a table without initials. `EncounterConsentDisclaimer` and `EncounterAssemblyConsentDisclaimer` were deliberately *not* changed. The new-entry notice
+  (precondition (c) of the vault) is still open too: the wave can be built but not rolled out before the legal review and the load test.
+
 - **Encounter room, stage 2a: choose your seat, symbols in the room (V1.9.79, no migration).** The pews are no longer a per-device drawing: every person of the congregation can *choose* a free seat
   (`IEncounterSpaceService.selectSeat(spaceId, seat)`, `null` releases it), the server decides who wins a contested seat, and everybody sees the seats as initials. Nobody is seated automatically; people without a
   seat stand in a quiet row "Noch ohne Platz". The seat state is in memory only (`EncounterSeatState`: 64 sessions, 240 seats, one seat per person; released on leave, removal, close, by the poller and at every

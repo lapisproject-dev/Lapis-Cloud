@@ -18,6 +18,7 @@ import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.EncounterSpaceMode
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
+import network.lapis.cloud.shared.domain.EncounterTablesConfig
 import network.lapis.cloud.shared.domain.EncounterTheme
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -55,6 +56,18 @@ internal fun profileOf(row: ResultRow): EncounterProfile =
 /** The notify mode of a space row; an unknown stored value (impossible under the CHECK constraint) falls back to NONE (no mail). */
 internal fun notifyModeOf(row: ResultRow): EncounterNotifyMode =
     EncounterNotifyMode.entries.firstOrNull { it.name == row[EncounterSpaceTable.notifyMode] } ?: EncounterNotifyMode.NONE
+
+/** The stored table configuration of a space row (no profile filtering). */
+internal fun storedTablesOf(row: ResultRow): EncounterTablesConfig =
+    EncounterTablesConfig(
+        enabled = row[EncounterSpaceTable.tablesEnabled],
+        count = row[EncounterSpaceTable.tableCount].toInt(),
+        seats = row[EncounterSpaceTable.tableSeats].toInt(),
+    )
+
+/** The EFFECTIVE table configuration: tables exist only in the assembly profile (the V79 CHECK guarantees it, this is the belt to its braces). */
+internal fun tablesOf(row: ResultRow): EncounterTablesConfig =
+    storedTablesOf(row).let { it.copy(enabled = it.enabled && profileOf(row) == EncounterProfile.ASSEMBLY) }
 
 /** The effective participant ceiling of a space: its own limit, clamped to the instance maximum. */
 internal fun effectiveMaxParticipants(
@@ -129,6 +142,7 @@ internal object EncounterSpaceViews {
                 profile = profileOf(row),
                 reactions = parseReactionSet(row[EncounterSpaceTable.reactionSet]),
                 notifyMode = notifyModeOf(row),
+                tables = tablesOf(row),
             )
         }
     }
@@ -142,6 +156,9 @@ internal object EncounterSpaceViews {
             put("profile", row[EncounterSpaceTable.profile])
             put("reactions", row[EncounterSpaceTable.reactionSet])
             put("notifyMode", row[EncounterSpaceTable.notifyMode])
+            put("tablesEnabled", row[EncounterSpaceTable.tablesEnabled])
+            put("tableCount", row[EncounterSpaceTable.tableCount].toInt())
+            put("tableSeats", row[EncounterSpaceTable.tableSeats].toInt())
             put("guestPolicy", row[EncounterSpaceTable.guestPolicy])
             put("maxParticipants", row[EncounterSpaceTable.maxParticipants])
             put("closedNotice", row[EncounterSpaceTable.closedNotice])

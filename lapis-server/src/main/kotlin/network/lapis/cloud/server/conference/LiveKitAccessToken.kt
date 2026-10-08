@@ -23,8 +23,9 @@ import kotlin.uuid.Uuid
  * [network.lapis.cloud.server.federation.OidcJwt]'s own "why a library, not hand-rolled" KDoc says
  * does NOT need a JOSE library's alg-confusion defenses (this is a signer, not a verifier).
  *
- * **The three shapes are never mixed, and are structurally distinguishable by their `video` grant
- * alone**: [mintParticipantToken] sets `roomJoin`/`canPublish`/`canSubscribe`/`canPublishData` and
+ * **The four shapes are never mixed, and are structurally distinguishable by their `video` grant
+ * alone**: [mintTableParticipantToken] (V1.9.80, encounter table audio) sets `roomJoin`/`canSubscribe`/`canPublish` plus a
+ * `canPublishSources` list of exactly `microphone` and NEVER `canPublishData`; [mintParticipantToken] sets `roomJoin`/`canPublish`/`canSubscribe`/`canPublishData` and
  * NEVER `roomCreate`/`roomAdmin`/`roomList`/`roomRecord`; [mintAdminToken] sets `roomCreate`/
  * `roomAdmin`/`roomList` and NEVER `roomJoin`/`roomRecord`; [mintEgressToken] (V1.0 Wave 2
  * "Aufzeichnung") sets EXACTLY `roomRecord` (+ `room`) and NEVER `roomJoin`/`roomCreate`/
@@ -102,6 +103,48 @@ object LiveKitAccessToken {
                 "canPublish" to canPublish,
                 "canSubscribe" to true,
                 "canPublishData" to canPublishData,
+                "canUpdateOwnMetadata" to false,
+            )
+        val claims =
+            JWTClaimsSet
+                .Builder()
+                .issuer(apiKey)
+                .subject(identity)
+                .notBeforeTime(toJavaDate(now))
+                .expirationTime(toJavaDate(expiresAt))
+                .jwtID(Uuid.random().toString())
+                .claim("name", displayName)
+                .claim("video", videoGrant)
+                .build()
+        return ParticipantToken(jwt = sign(claims = claims, apiSecret = apiSecret), expiresAt = expiresAt)
+    }
+
+    /**
+     * V1.9.80 -- the token of a table audio room of an encounter space. Same room-pinned shape as [mintParticipantToken] but with the
+     * narrowest possible publish grant: `canPublishSources = ["microphone"]` (no camera, no screen), `canPublishData = false` (no chat,
+     * no reactions at a table), `canUpdateOwnMetadata = false`, never `hidden`/`recorder`. [canPublish] is `false` while the table is quieted.
+     * The TTL is meant to be short (30 s, only for connecting) -- but LiveKit refreshes the token of a connected client by itself, so
+     * the TTL is NOT a revocation: the table room is rotated instead (see `EncounterTableState`).
+     */
+    fun mintTableParticipantToken(
+        apiKey: String,
+        apiSecret: String,
+        roomName: String,
+        identity: String,
+        displayName: String,
+        ttl: Duration,
+        canPublish: Boolean,
+        now: Instant = Clock.System.now(),
+    ): ParticipantToken {
+        val expiresAt = now + ttl
+        val videoGrant =
+            linkedMapOf<String, Any>(
+                "room" to roomName,
+                "roomJoin" to true,
+                "canPublish" to canPublish,
+                "canSubscribe" to true,
+                "canPublishData" to false,
+                "canPublishSources" to listOf("microphone"),
                 "canUpdateOwnMetadata" to false,
             )
         val claims =

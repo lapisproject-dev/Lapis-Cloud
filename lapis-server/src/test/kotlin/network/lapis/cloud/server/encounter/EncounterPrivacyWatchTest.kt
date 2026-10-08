@@ -244,6 +244,7 @@ class EncounterPrivacyWatchTest :
                     liveKitAdminClient = FakeEncounterLiveKit(),
                     moderationState = EncounterModerationState(),
                     seatState = EncounterSeatState(),
+                    tableState = EncounterTableState(),
                     entryNotifier = EncounterEntryNotifier(state = EncounterEntryNoticeState(), mailer = FakeEncounterEntryNoticeMailer()),
                     liveKitEnabled = false,
                 )
@@ -282,7 +283,7 @@ class EncounterPrivacyWatchTest :
                 // the only lasting row about the entrant is the transient presence row, deleted on leave
                 rig.asMember(client = client, member = guest) { it.leaveSpace(space.toString()) }.getOrThrow()
                 fx.participationCount(room) shouldBe 0L
-                // the room configuration got exactly one new column, and it is not a reference to a person
+                // the room configuration got no column that references a person (V1.9.80 added three room-setting columns)
                 network.lapis.cloud.server.db.generated.EncounterSpaceTable.columns
                     .map { it.name }
                     .toSet() shouldBe
@@ -295,6 +296,10 @@ class EncounterPrivacyWatchTest :
                         "profile",
                         "reaction_set",
                         "notify_mode",
+                        // V1.9.80: three more columns, all of them room configuration (never a person)
+                        "tables_enabled",
+                        "table_count",
+                        "table_seats",
                         "guest_policy",
                         "max_participants",
                         "closed_notice",
@@ -303,6 +308,49 @@ class EncounterPrivacyWatchTest :
                         "updated_at",
                         "archived_at",
                     )
+            }
+        }
+
+        test("V1.9.80: the table paths log neither a member, an identity, a table nor a room name (even when LiveKit fails)") {
+            val root = org.slf4j.LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as ch.qos.logback.classic.Logger
+            val appender =
+                ch.qos.logback.core.read
+                    .ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>()
+            appender.start()
+            root.addAppender(appender)
+            try {
+                val w = fx.tableWorld()
+                encounterApp {
+                    openAndEnter(w = w, w.steward, w.a, w.b)
+                    w.rig.liveKit.failAll = true // every rotation fails -> the warning paths run
+                    w.rig.asMember(client = client, member = w.a) { it.joinTable(spaceId = w.spaceId, table = 0, seat = 0) }.getOrThrow()
+                    w.rig.asMember(client = client, member = w.b) { it.joinTable(spaceId = w.spaceId, table = 0, seat = 1) }.getOrThrow()
+                    w.rig
+                        .asMember(
+                            client = client,
+                            member = w.steward,
+                        ) { it.quietTable(spaceId = w.spaceId, table = 0, quiet = true) }
+                        .getOrThrow()
+                    w.rig
+                        .asMember(
+                            client = client,
+                            member = w.steward,
+                        ) { it.sendToPlenum(spaceId = w.spaceId, memberId = w.a.toString()) }
+                        .getOrThrow()
+                    w.rig.asMember(client = client, member = w.b) { it.leaveTable(w.spaceId) }.getOrThrow()
+                    EncounterTableReconciler(
+                        liveKitAdminClient = w.rig.liveKit,
+                        tableState = w.rig.tableState,
+                        liveKitEnabled = true,
+                    ).tick()
+                    val text = appender.list.joinToString("\n") { it.formattedMessage }
+                    listOf(w.a, w.b, w.steward).forEach { text.contains(it.toString()) shouldBe false }
+                    text.contains(ENCOUNTER_TABLE_ROOM_PREFIX) shouldBe false
+                    text.contains(w.space.toString()) shouldBe false
+                    (appender.list.count { it.formattedMessage.contains("encounter tables") } > 0) shouldBe true // the scan is not vacuous
+                }
+            } finally {
+                root.detachAppender(appender)
             }
         }
     })

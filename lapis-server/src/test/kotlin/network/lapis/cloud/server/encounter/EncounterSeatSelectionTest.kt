@@ -65,7 +65,7 @@ class EncounterSeatSelectionTest :
         test("a seated person is returned with the seat; an office holder never has a seat; entry starts unseated") {
             val w = world()
             encounterApp {
-                openAndEnter(w, w.steward, w.a)
+                openAndEnter(w = w, w.steward, w.a)
                 w.rig
                     .asMember(
                         client = client,
@@ -114,7 +114,7 @@ class EncounterSeatSelectionTest :
             val w = world()
             val guest = fx.createMember(status = MemberStatus.GUEST, name = "Gast")
             encounterApp {
-                openAndEnter(w, w.steward, w.a, w.b)
+                openAndEnter(w = w, w.steward, w.a, w.b)
                 w.rig
                     .asMember(
                         client = client,
@@ -146,7 +146,7 @@ class EncounterSeatSelectionTest :
                         member = w.a,
                     ) { it.selectSeat(spaceId = w.space.toString(), seat = 1) }
                     .failure<ForbiddenException>()
-                openAndEnter(w, w.steward, w.pulpit, w.a)
+                openAndEnter(w = w, w.steward, w.pulpit, w.a)
                 w.rig
                     .asMember(
                         client = client,
@@ -178,7 +178,7 @@ class EncounterSeatSelectionTest :
         test("range: -1, beyond the hard maximum and beyond the current capacity are BadRequest") {
             val w = world()
             encounterApp {
-                openAndEnter(w, w.steward, w.a)
+                openAndEnter(w = w, w.steward, w.a)
                 w.rig
                     .asMember(
                         client = client,
@@ -205,7 +205,7 @@ class EncounterSeatSelectionTest :
         test("throttle: a second change within one second is ServiceBusyException (not Conflict)") {
             val w = world(EncounterRig(seatLimiterOverride = FederationInboxRateLimiter(maxRequests = 1, window = 1.minutes)))
             encounterApp {
-                openAndEnter(w, w.steward, w.a)
+                openAndEnter(w = w, w.steward, w.a)
                 w.rig.asMember(client = client, member = w.a) { it.selectSeat(spaceId = w.space.toString(), seat = 1) }.getOrThrow()
                 w.rig
                     .asMember(
@@ -221,7 +221,7 @@ class EncounterSeatSelectionTest :
         test("the seat is free again after leave, removal, close and a poller close") {
             val w = world()
             encounterApp {
-                openAndEnter(w, w.steward, w.a, w.b)
+                openAndEnter(w = w, w.steward, w.a, w.b)
                 val roomId = fx.openSessionRoom(w.space)!!
                 w.rig.asMember(client = client, member = w.a) { it.selectSeat(spaceId = w.space.toString(), seat = 6) }.getOrThrow()
                 w.rig.asMember(client = client, member = w.a) { it.leaveSpace(w.space.toString()) }.getOrThrow()
@@ -243,7 +243,7 @@ class EncounterSeatSelectionTest :
         test("a seat of a person whose presence row vanished is free for the next person") {
             val w = world()
             encounterApp {
-                openAndEnter(w, w.steward, w.a, w.b)
+                openAndEnter(w = w, w.steward, w.a, w.b)
                 val roomId = fx.openSessionRoom(w.space)!!
                 w.rig.asMember(client = client, member = w.a) { it.selectSeat(spaceId = w.space.toString(), seat = 8) }.getOrThrow()
                 fx.deleteParticipation(roomId = roomId, memberId = w.a)
@@ -258,7 +258,7 @@ class EncounterSeatSelectionTest :
         test("choosing a seat writes no audit entry") {
             val w = world()
             encounterApp {
-                openAndEnter(w, w.steward, w.a)
+                openAndEnter(w = w, w.steward, w.a)
                 val before = fx.auditCount()
                 w.rig.asMember(client = client, member = w.a) { it.selectSeat(spaceId = w.space.toString(), seat = 1) }.getOrThrow()
                 w.rig.asMember(client = client, member = w.a) { it.selectSeat(spaceId = w.space.toString(), seat = null) }.getOrThrow()

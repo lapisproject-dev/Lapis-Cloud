@@ -55,6 +55,9 @@ internal class EncounterSceneLayout(
     private val pulpitTiles: Div = pulpit.div(className = "lapis-encounter-pulpit-tiles")
     private val pulpitEmpty: Div = pulpit.div(terms.emptyStageContent(), className = "lapis-encounter-pulpit-empty")
     private val stewards: Div = stage.div(className = "lapis-encounter-stewards")
+
+    /** V1.9.80: the home of the tables (between the pulpit and the pews); hidden unless the room has tables. */
+    val tablesHost: Div = stage.div(className = "lapis-encounter-tables-host")
     private val benchesFrame: Div = stage.div(className = "lapis-encounter-benches-frame")
     private val rowsLayer: Div = benchesFrame.div(className = "lapis-encounter-scene lapis-encounter-scene-rows")
 

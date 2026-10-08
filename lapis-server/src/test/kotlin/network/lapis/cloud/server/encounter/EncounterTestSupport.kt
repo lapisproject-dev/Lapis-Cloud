@@ -135,7 +135,7 @@ internal class FakeEncounterLiveKit : LiveKitAdminClient {
     override suspend fun listParticipants(room: String): List<LiveKitParticipantInfo> {
         if (failAll) throw LiveKitAdminException(message = "simulated LiveKit failure")
         return live[room].orEmpty().map {
-            LiveKitParticipantInfo(identity = it, name = it, permission = permissions[room to it])
+            LiveKitParticipantInfo(identity = it, name = it, permission = permissions[room to it], tracks = tracks[room to it].orEmpty())
         }
     }
 
@@ -152,6 +152,11 @@ internal class FakeEncounterLiveKit : LiveKitAdminClient {
     val permissions =
         java.util.concurrent
             .ConcurrentHashMap<Pair<String, String>, network.lapis.cloud.server.conference.LiveKitParticipantPermission>()
+
+    /** Tracks LiveKit reports per connected (room, identity) -- empty by default. */
+    val tracks =
+        java.util.concurrent
+            .ConcurrentHashMap<Pair<String, String>, List<network.lapis.cloud.server.conference.LiveKitTrackInfo>>()
 
     /** Connects [identity] with the grants of its token (what a reconnect with an OLD token looks like). */
     fun connect(
@@ -206,6 +211,11 @@ internal class EncounterRig(
     val seatState: EncounterSeatState = EncounterSeatState(),
     /** V1.9.79: `null` = as permissive as every other throttle; a test of the 1-per-second throttle passes its own. */
     seatLimiterOverride: FederationInboxRateLimiter? = null,
+    /** V1.9.80: the in-memory table plan -- ONE per test. */
+    val tableState: EncounterTableState = EncounterTableState(),
+    /** V1.9.80: `null` = permissive; a throttle test passes its own. */
+    tableLimiterOverride: FederationInboxRateLimiter? = null,
+    tableTokenLimiterOverride: FederationInboxRateLimiter? = null,
     private val limiter: () -> FederationInboxRateLimiter = { FederationInboxRateLimiter(maxRequests = 1_000, window = 1.minutes) },
 ) {
     /** V1.9.76: the entry notice -- ONE state and ONE fake mailer per test, like the moderation state. */
@@ -220,6 +230,8 @@ internal class EncounterRig(
     private val moderation = limiter()
     private val configLimiter = limiter()
     private val seatLimiter = seatLimiterOverride ?: limiter()
+    private val tableLimiter = tableLimiterOverride ?: limiter()
+    private val tableTokenLimiter = tableTokenLimiterOverride ?: limiter()
 
     fun service(
         call: ApplicationCall,
@@ -229,6 +241,7 @@ internal class EncounterRig(
         liveKitAdminClient = liveKit,
         moderationState = moderationState,
         seatState = seatState,
+        tableState = tableState,
         entryNotifier = entryNotifier,
         listRateLimiter = list,
         enterRateLimiter = enter,
@@ -237,6 +250,8 @@ internal class EncounterRig(
         moderationRateLimiter = moderation,
         configRateLimiter = configLimiter,
         seatRateLimiter = seatLimiter,
+        tableRateLimiter = tableLimiter,
+        tableTokenRateLimiter = tableTokenLimiter,
         config = config,
     )
 
@@ -330,6 +345,9 @@ internal class EncounterFixtures {
         profile: EncounterProfile = EncounterProfile.CHURCH_SERVICE,
         reactions: List<EncounterReactionOption> = EncounterReactionOption.defaultsFor(profile),
         notifyMode: EncounterNotifyMode = EncounterNotifyMode.NONE,
+        tablesEnabled: Boolean = false,
+        tableCount: Int = 4,
+        tableSeats: Int = 6,
     ): Uuid {
         val id = Uuid.random()
         val now = DbClock.nowLocalDateTime()
@@ -342,6 +360,9 @@ internal class EncounterFixtures {
                 it[EncounterSpaceTable.profile] = profile.name
                 it[reactionSet] = reactionSetCsv(reactions)
                 it[EncounterSpaceTable.notifyMode] = notifyMode.name
+                it[EncounterSpaceTable.tablesEnabled] = tablesEnabled
+                it[EncounterSpaceTable.tableCount] = tableCount.toShort()
+                it[EncounterSpaceTable.tableSeats] = tableSeats.toShort()
                 it[mode] = "SERVICE"
                 it[EncounterSpaceTable.guestPolicy] = guestPolicy.name
                 it[EncounterSpaceTable.maxParticipants] = maxParticipants

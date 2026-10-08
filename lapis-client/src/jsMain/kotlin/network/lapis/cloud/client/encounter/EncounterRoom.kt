@@ -88,6 +88,8 @@ internal class EncounterRoom(
     private val onLeave: () -> Unit,
     private val onDoorsClosed: () -> Unit,
     private val onConnectionLost: (DisconnectCause) -> Unit,
+    /** V1.9.80: the factory of the table's audio session -- a seam for tests. */
+    private val tableSessionOpener: EncounterTableSessionOpener = ::openEncounterTableSession,
 ) {
     private val terms: EncounterTerms = termsFor(space.profile)
     private val allowedReactions: Set<EncounterReactionOption> = EncounterReactionOption.normalize(space.reactions).toSet()
@@ -100,9 +102,45 @@ internal class EncounterRoom(
     /** V1.9.79: the outcome of the viewer's OWN seat choice (seated, released, taken, busy) -- a fixed sentence, polite. */
     private val seatLive: Div = root.div(className = "visually-hidden")
     private val handLive: Div? = if (viewer.canModerate) root.div(className = "visually-hidden") else null
+
+    /** V1.9.80: the outcome of the viewer's OWN table events (sat down, got up, quieted, back in the plenum) -- fixed sentences, polite. */
+    private val tableLive: Div = root.div(className = "visually-hidden")
     private val bands: Div = root.div(className = "lapis-encounter-bands")
     private val main: Div = root.div(className = "lapis-encounter-main")
     private val layout = EncounterSceneLayout(main, terms)
+
+    // ── tables (V1.9.80, stage 2b): assembly profile with tables enabled only ──
+    private val tablesOn: Boolean = space.tables.enabled // the server reports it only for the assembly profile
+    private val tableView: EncounterTablesView? = if (tablesOn) EncounterTablesView(layout.tablesHost) else null
+    private val tableAudioSink = EncounterMediaHost("lapis-encounter-table-audio-sink")
+    private val tableThrottle = EncounterSeatChoiceThrottle(clock, minGapMs = TABLE_CHOICE_GAP_MS)
+    private var quietedTables: Set<Int> = emptySet()
+    private var pulpitLouder = false
+    private lateinit var tableMicButton: Button
+    private lateinit var louderButton: Button
+    private val tables: EncounterTableController =
+        EncounterTableController(
+            spaceId = space.id,
+            opener = tableSessionOpener,
+            host =
+                object : EncounterTableHost {
+                    override fun tablesChanged() = renderTables()
+
+                    override fun announce(sentence: String) = announceTable(sentence)
+
+                    override fun requestRefresh() = requestPresentRefresh()
+
+                    override fun nudge() {
+                        AppScope.launch { session?.sendSeatNudge() }
+                    }
+
+                    override fun setAtTable(atTable: Boolean) = onAtTableChanged(atTable)
+
+                    override fun addTableAudio(element: HTMLElement) = tableAudioSink.add(element)
+
+                    override fun removeTableAudio(element: HTMLElement) = tableAudioSink.remove(element)
+                },
+        )
     private val tabs =
         buildList {
             add(EncounterSideTab.CHAT)
@@ -161,6 +199,9 @@ internal class EncounterRoom(
             seatList = { seatListState() },
             onChooseSeat = { seat -> chooseSeat(seat) },
             onReleaseSeat = { chooseSeat(null) },
+            tableList = { tableListState() },
+            onChooseTable = { table -> chooseTableFromList(table) },
+            onLeaveTable = { leaveTable() },
         )
     private val streamPanel: EncounterStreamPanel? =
         if (viewer.canModerate) {
@@ -228,6 +269,13 @@ internal class EncounterRoom(
         seatLive.setAttribute("role", "status")
         seatLive.setAttribute("aria-live", "polite")
         layout.seats.onChoose = { seat -> chooseSeat(seat) }
+        tableLive.setAttribute("role", "status")
+        tableLive.setAttribute("aria-live", "polite")
+        tableView?.let { view ->
+            view.onChoose = { table, seat -> chooseTableSeat(table, seat) }
+            view.onLeave = { leaveTable() }
+            view.onQuiet = { table, quiet -> quietTable(table, quiet) }
+        }
         layout.releaseSeatButton.onClick { chooseSeat(null) }
         handLive?.setAttribute("role", "status")
         handLive?.setAttribute("aria-live", "polite")
@@ -235,6 +283,7 @@ internal class EncounterRoom(
         buildControls()
         chat.setSendingEnabled(entry.canPublishData)
         audioSink.attachTo(root)
+        tableAudioSink.attachTo(root)
         // A person with an office has a tile of their own from the first moment (their own camera needs a place before `listPresent` answers).
         if (viewer.presenceRole != EncounterPresenceRole.CONGREGATION) syncTiles()
         val scene = !encounterSceneOffStored() && !encounterSceneForcedOff()
@@ -298,6 +347,7 @@ internal class EncounterRoom(
         eventWaitNote = bands.div(tr("Bitte einen Moment warten."), className = "lapis-encounter-band text-muted small")
         eventWaitNote.setAttribute("role", "status")
         eventWaitNote.hide()
+        if (tablesOn && viewer.presenceRole == EncounterPresenceRole.CONGREGATION) buildTableControls()
         val panels = controlBar.group(EncounterControlGroup.PANELS)
         chatButton = panels.encounterControlButton(ActionIcon.CHAT, tr("Chat"))
         chatButton.setAttribute("aria-expanded", "false")
@@ -380,6 +430,29 @@ internal class EncounterRoom(
                 moreGroup = EncounterControlGroup.PANELS.ordinal,
                 moreButton = moreButton,
             )
+    }
+
+    /**
+     * V1.9.80: the two controls of a person who sits at a table -- the table microphone and "Kanzel lauter". Icon-only bar controls
+     * (R58 named exception c) that never move into the sheet; they are shown only while the viewer sits at a table.
+     */
+    private fun buildTableControls() {
+        val devices = controlBar.group(EncounterControlGroup.DEVICES)
+        // The label is stable; the state is `aria-pressed` ("the microphone at the table is on") plus the status line in the table's card.
+        tableMicButton = devices.encounterControlButton(ActionIcon.MICROPHONE, tr("Mikrofon am Tisch"))
+        tableMicButton.setAttribute("aria-pressed", "false")
+        tableMicButton.onClick { AppScope.launch { tables.toggleMicrophone(!tables.micOn) } }
+        tableMicButton.hide()
+        louderButton = devices.encounterControlButton(ActionIcon.PULPIT_LOUDER, terms.pulpitLouderLabel())
+        louderButton.setAttribute("aria-pressed", "false")
+        louderButton.onClick {
+            pulpitLouder = !pulpitLouder
+            louderButton.setAttribute("aria-pressed", pulpitLouder.toString())
+            applyPlenumVolume()
+        }
+        louderButton.hide()
+        barSlots += ControlBarSlot(EncounterControlSlot.TableMic, tableMicButton, null)
+        barSlots += ControlBarSlot(EncounterControlSlot.PulpitLouder, louderButton, null)
     }
 
     /** A group whose controls all sit in the sheet is hidden (its wrapper would otherwise take a gap and keep its divider). */
@@ -481,6 +554,8 @@ internal class EncounterRoom(
         layout.focusPulpit()
         presentPanel.load()
         if (disposed) return
+        refreshTables(startedAt = tables.generation)
+        if (disposed) return
         startTimers()
         liveBadge.poll()
     }
@@ -503,6 +578,7 @@ internal class EncounterRoom(
         if (pendingSeat != null && !seatRequestRunning) pendingSeat = null
         announceNewcomers(before = before, firstLoad = firstLoad)
         renderSeats()
+        renderTables()
         syncTiles()
         presentPanel.rerender()
     }
@@ -547,7 +623,7 @@ internal class EncounterRoom(
         layout.seats.render(SeatGridModel(slots = slots, choosable = canChoose))
         layout.unseated.render(seating.unseated().map { person -> person.memberId to person.displayName }) { hands.contains(it) }
         val mine = seating.seatOf(self)
-        layout.setSeatHintVisible(canChoose && mine == null)
+        layout.setSeatHintVisible(canChoose && mine == null && !tables.seated)
         layout.setReleaseVisible(canChoose && mine != null)
     }
 
@@ -699,7 +775,10 @@ internal class EncounterRoom(
         // Idempotent like the conference: a resync may deliver the same track again; an element made for it earlier is dropped first.
         track.detach().forEach { element -> audioSink.remove(element) }
         when {
-            track.kind == "audio" -> audioSink.add(track.attach().also { it.style.display = "none" })
+            track.kind == "audio" -> {
+                audioSink.add(track.attach().also { it.style.display = "none" })
+                applyPlenumVolume()
+            }
             track.kind == "video" && publication.source == "camera" -> {
                 val element = track.attach()
                 videoElements[identity] = element
@@ -821,6 +900,178 @@ internal class EncounterRoom(
         return sent
     }
 
+    // ── tables (V1.9.80) ────────────────────────────────────────────────────
+
+    /** Draws the tables from the server's list (`present`), overlaid with what this device knows about the viewer's own place. */
+    private fun renderTables() {
+        val view = tableView ?: return
+        if (disposed) return
+        val config = space.tables
+        val self = viewer.selfIdentity
+        val own = tables.position
+        val canSit = viewer.presenceRole == EncounterPresenceRole.CONGREGATION
+        val sitters = present.values.filter { it.role == EncounterPresenceRole.CONGREGATION && it.table != null && it.tableSeat != null }
+        val cards =
+            (0 until config.count).map { table ->
+                val ownHere = own?.first == table
+                val seats =
+                    (0 until config.seats).map { seat ->
+                        val person = sitters.firstOrNull { it.table == table && it.tableSeat == seat && it.memberId != self }
+                        when {
+                            own == table to seat ->
+                                TableSeatSlot(
+                                    initials = encounterInitials(entry.join.displayName),
+                                    own = true,
+                                    speaking = tables.isSpeaking(self),
+                                )
+                            tables.pending == table to seat -> TableSeatSlot(initials = null, pending = true)
+                            person != null ->
+                                TableSeatSlot(
+                                    initials = encounterInitials(person.displayName),
+                                    speaking = ownHere && tables.isSpeaking(person.memberId),
+                                )
+                            else -> TableSeatSlot(initials = null)
+                        }
+                    }
+                TableCardModel(
+                    table = table,
+                    seats = seats,
+                    quieted = table in quietedTables || (ownHere && tables.quieted),
+                    own = ownHere,
+                    micStatus = if (ownHere) tableMicStatus() else null,
+                )
+            }
+        view.render(TablesModel(cards = cards, choosable = canSit && tables.pending == null, canModerate = viewer.canModerate))
+        if (canSit && tablesOn) refreshTableControls()
+    }
+
+    private fun tableMicStatus(): String =
+        when {
+            tables.quieted -> gettext("Der Tisch ist beruhigt. Ihr Mikrofon ist gesperrt.")
+            tables.micOn -> gettext("Mikrofon an")
+            else -> gettext("Mikrofon aus")
+        }
+
+    /** The table microphone shows its state through `aria-pressed`; both controls exist only while the viewer sits at a table. */
+    private fun refreshTableControls() {
+        if (!::tableMicButton.isInitialized) return
+        val seated = tables.seated
+        val before = tableMicButton.visible
+        if (seated) {
+            tableMicButton.show()
+            louderButton.show()
+        } else {
+            tableMicButton.hide()
+            louderButton.hide()
+        }
+        tableMicButton.setAttrIfChanged("aria-pressed", tables.micOn.toString())
+        tableMicButton.disabled = !tables.canPublish || !tables.connected
+        if (before != seated) overflow.recompute()
+    }
+
+    /** The viewer sat down or is back in the plenum: the pulpit becomes quieter / normal again, the seat hint follows. */
+    private fun onAtTableChanged(atTable: Boolean) {
+        if (disposed) return
+        if (!atTable) {
+            pulpitLouder = false
+            if (::louderButton.isInitialized) louderButton.setAttribute("aria-pressed", "false")
+        }
+        applyPlenumVolume()
+        renderSeats()
+        presentPanel.rerender()
+    }
+
+    /** At a table the pulpit is turned down to 30 % (the "Kanzel lauter" control lifts it); a device that ignores `volume` (iOS Safari) keeps full sound. */
+    private fun applyPlenumVolume() {
+        val volume = if (tables.seated && !pulpitLouder) PLENUM_DUCKED_VOLUME else 1.0
+        audioSink.elements.forEach { element -> (element as? HTMLMediaElement)?.volume = volume }
+    }
+
+    private fun announceTable(sentence: String) {
+        tableLive.content = sentence
+    }
+
+    private fun chooseTableSeat(
+        table: Int,
+        seat: Int,
+    ) {
+        if (disposed || !tablesOn || viewer.presenceRole != EncounterPresenceRole.CONGREGATION) return
+        if (tables.pending != null || !tableThrottle.tryChoose()) return
+        if (tables.position == table to seat) return
+        AppScope.launch {
+            tables.join(table, seat)
+            if (!disposed) tables.position?.let { (t, s) -> tableView?.focusSeat(t, s) }
+        }
+    }
+
+    private fun chooseTableFromList(table: Int) {
+        val occupied = sitterSeatsOf(table)
+        val seat = (0 until space.tables.seats).firstOrNull { it !in occupied } ?: return
+        chooseTableSeat(table, seat)
+    }
+
+    private fun sitterSeatsOf(table: Int): Set<Int> =
+        present.values
+            .filter { it.table == table && it.memberId != viewer.selfIdentity }
+            .mapNotNull { it.tableSeat }
+            .toSet()
+
+    private fun leaveTable() {
+        if (disposed || !tables.seated) return
+        AppScope.launch { tables.leave() }
+    }
+
+    /** The list alternative's view of the tables; `null` for an office holder (who cannot sit) or a room without tables. */
+    private fun tableListState(): EncounterTableListState? {
+        if (!tablesOn || viewer.presenceRole != EncounterPresenceRole.CONGREGATION) return null
+        val free =
+            (0 until space.tables.count).mapNotNull { table ->
+                val taken = sitterSeatsOf(table).size + (if (tables.position?.first == table) 1 else 0)
+                val left = space.tables.seats - taken
+                if (left > 0 && tables.position?.first != table) table to left else null
+            }
+        return EncounterTableListState(ownTable = tables.position?.first, tablesWithFreeSeats = free)
+    }
+
+    /** A moderator quiets or releases a table. The outcome is a fixed sentence with the table number only. */
+    private fun quietTable(
+        table: Int,
+        quiet: Boolean,
+    ) {
+        if (disposed || !viewer.canModerate) return
+        AppScope.launch {
+            val done = guarded { rpcService<IEncounterSpaceService>().quietTable(space.id, table, quiet) }
+            if (done == null || disposed) return@launch
+            announceTable(
+                if (quiet) {
+                    gettext("Tisch %1 wurde beruhigt.", table + 1)
+                } else {
+                    gettext(
+                        "Die Beruhigung von Tisch %1 wurde aufgehoben.",
+                        table + 1,
+                    )
+                },
+            )
+            refreshTables(startedAt = tables.generation)
+        }
+    }
+
+    /**
+     * Reloads the table list (quiet flags) and believes the roster about the viewer's own place only when nothing was done meanwhile
+     * ([startedAt] is the controller's generation when the refresh began).
+     */
+    private suspend fun refreshTables(startedAt: Int) {
+        if (!tablesOn || disposed) return
+        val listed = presentPanel.loadTables() ?: return
+        if (disposed) return
+        quietedTables = listed.filter { it.quieted }.map { it.table }.toSet()
+        val self = viewer.selfIdentity
+        if (startedAt == tables.generation && tables.seated && tables.pending == null && rosterLoaded && present[self]?.table == null) {
+            tables.serverSaysPlenum()
+        }
+        renderTables()
+    }
+
     // ── side panel, scene, doors ────────────────────────────────────────────
 
     private fun toggleSide(tab: EncounterSideTab) {
@@ -915,7 +1166,11 @@ internal class EncounterRoom(
         val wait = refreshPlanner.request() ?: return
         later(wait.toInt()) {
             refreshPlanner.started()
-            AppScope.launch { presentPanel.refresh() }
+            AppScope.launch {
+                val startedAt = tables.generation
+                presentPanel.refresh()
+                refreshTables(startedAt)
+            }
         }
     }
 
@@ -956,6 +1211,8 @@ internal class EncounterRoom(
         fullscreen.dispose()
         tiles.values.forEach { it.dispose() }
         tiles.clear()
+        tables.dispose()
+        tableAudioSink.clear()
         audioSink.clear()
         videoElements.clear()
         untrustedContent(countText, "")
@@ -973,6 +1230,8 @@ internal class EncounterRoom(
     internal val rosterReady: Boolean get() = rosterLoaded
     internal val controlBarView: EncounterControlBar get() = controlBar
     internal val fullscreenControl: EncounterFullscreen get() = fullscreen
+    internal val tablesView: EncounterTablesView? get() = tableView
+    internal val tableController: EncounterTableController get() = tables
 
     private companion object {
         const val OVERFLOWED_CLASS = "lapis-encounter-control-overflowed"
@@ -983,5 +1242,7 @@ internal class EncounterRoom(
         const val LIVE_POLL_MS = 30_000
         const val LIVE_TEXT_MS = 4_000
         const val SEAT_NUDGE_JITTER_MS = 1_000
+        const val TABLE_CHOICE_GAP_MS = 2_000.0
+        const val PLENUM_DUCKED_VOLUME = 0.3
     }
 }

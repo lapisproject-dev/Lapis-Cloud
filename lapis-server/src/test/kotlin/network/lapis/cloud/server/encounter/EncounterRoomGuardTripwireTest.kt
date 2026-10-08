@@ -141,4 +141,27 @@ class EncounterRoomGuardTripwireTest :
             unnamed.shouldBeEmpty()
             callers shouldBe setOf("ConferenceService.kt", "ConferenceBreakoutService.kt", "EncounterSpaceService.kt")
         }
+
+        test(
+            "V1.9.80: the table token is minted by the encounter service only, always with an explicit canPublish, never for an office holder's room",
+        ) {
+            val callers = mutableSetOf<String>()
+            SourceScan.mainFiles().forEach { f ->
+                val blanked = SourceScan.blank(f.readText())
+                Regex("""mintTableParticipantToken\(""").findAll(blanked).forEach { m ->
+                    if (blanked.substring(maxOf(0, m.range.first - 6), m.range.first).contains("fun ")) return@forEach
+                    callers += f.name
+                }
+            }
+            callers shouldBe setOf("EncounterSpaceService.kt")
+            val mint =
+                EncounterSourceScan.functions(EncounterSourceScan.mainFile("rpc/EncounterSpaceService.kt")).single {
+                    it.name ==
+                        "mintTableTokenFor"
+                }
+            mint.body shouldContain "canPublish = canPublish"
+            mint.body shouldContain "val canPublish = !assignment.quieted"
+            // the table rooms have no conference_room row: nothing of the ordinary conference RPC surface can address one
+            EncounterSourceScan.mainFile("encounter/EncounterTableRooms.kt").readText().contains("ConferenceRoomTable") shouldBe false
+        }
     })
