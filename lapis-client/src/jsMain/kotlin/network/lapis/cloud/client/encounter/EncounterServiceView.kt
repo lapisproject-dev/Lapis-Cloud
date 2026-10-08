@@ -1,6 +1,5 @@
 package network.lapis.cloud.client.encounter
 
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
 import io.kvision.html.div
@@ -21,7 +20,6 @@ import network.lapis.cloud.client.ConferenceDock
 import network.lapis.cloud.client.ConnectionStoppedKind
 import network.lapis.cloud.client.DataSection
 import network.lapis.cloud.client.PageHeader
-import network.lapis.cloud.client.actionButton
 import network.lapis.cloud.client.addCssClasses
 import network.lapis.cloud.client.addWithLifecycle
 import network.lapis.cloud.client.conferenceConnectErrorMessage
@@ -111,7 +109,6 @@ private class EncounterVisit(
     private lateinit var preEntry: VPanel
     private lateinit var insidePanel: VPanel
     private lateinit var section: DataSection
-    private lateinit var leaveButton: Button
 
     private var room: EncounterRoom? = null
     private var session: EncounterListenerSession? = null
@@ -124,9 +121,6 @@ private class EncounterVisit(
 
     fun build(root: VPanel) {
         header = root.pageHeader(tr("Begegnungsraum"), subtitle = "")
-        leaveButton = header.actionSlot.actionButton(ActionIcon.LEAVE, tr("Verlassen"), style = ButtonStyle.OUTLINESECONDARY)
-        leaveButton.hide()
-        leaveButton.onClick { leave() }
         notice = root.div(className = "text-muted")
         notice.setAttribute("role", "status")
         preEntry = root.vPanel(spacing = 10)
@@ -265,6 +259,7 @@ private class EncounterVisit(
                 entry = entry,
                 viewer = rights,
                 clock = clock,
+                onLeave = ::leave,
                 onDoorsClosed = { exitRoom(message = termsFor(space.profile).eventEndedContent()) },
                 onConnectionLost = { cause -> onConnectionLost(space, cause) },
             )
@@ -274,7 +269,6 @@ private class EncounterVisit(
         session = newSession
         closedPhase = false
         preEntry.hide()
-        leaveButton.show()
         val failure = newSession.connect()
         // The visit may have ended while connect() was in flight (Verlassen, route change): then nothing of it is ours any more.
         if (tornDown || room !== newRoom) return
@@ -303,7 +297,6 @@ private class EncounterVisit(
         entered = false
         endingRoom?.dispose()
         insidePanel.removeAll()
-        leaveButton.hide()
         if (message != null) notice.content = message
         preEntry.show()
         section.reload()
@@ -326,7 +319,6 @@ private class EncounterVisit(
         entered = false
         endingRoom?.dispose()
         insidePanel.removeAll()
-        leaveButton.hide()
         AppScope.launch {
             runCatching { endingSession?.disconnect() }
             if (cause == DisconnectCause.DuplicateIdentity) {

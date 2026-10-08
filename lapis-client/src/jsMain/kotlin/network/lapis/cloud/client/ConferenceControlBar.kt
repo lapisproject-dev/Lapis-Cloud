@@ -10,8 +10,6 @@ import io.kvision.html.div
 import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
-import kotlinx.browser.window
-import network.lapis.cloud.client.maplibre.ResizeObserver
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceStreamPauseReason
 import network.lapis.cloud.shared.domain.ConferenceStreamStatus
@@ -56,16 +54,13 @@ internal val CONFERENCE_OVERFLOW_ORDER: List<ConferenceControlSlot> =
 internal const val CONFERENCE_EXIT_GAP_PX = 12.0
 
 /** Space a divider takes in the bar (1 px line + 4 px margin on each side, see theme.css). */
-internal const val CONFERENCE_DIVIDER_FOOTPRINT_PX = 9.0
+internal const val CONFERENCE_DIVIDER_FOOTPRINT_PX = CONTROL_BAR_DIVIDER_FOOTPRINT_PX
 
 /** Fallback width of a control that was never measured (44 px minimum target + border). */
-internal const val CONFERENCE_CONTROL_FALLBACK_WIDTH_PX = 46.0
+internal const val CONFERENCE_CONTROL_FALLBACK_WIDTH_PX = CONTROL_BAR_FALLBACK_WIDTH_PX
 
-internal data class ConferenceControlMeasure(
-    val slot: ConferenceControlSlot,
-    val width: Double,
-    val group: Int,
-)
+/** V1.9.74: the measure type is the generic one of [ControlBarOverflow]; the constructor with positional arguments is unchanged. */
+internal typealias ConferenceControlMeasure = ControlMeasure<ConferenceControlSlot>
 
 /**
  * Pure: which slots move into the sheet so that the shown controls (plus the gaps and the dividers between non-empty groups) fit in
@@ -78,28 +73,17 @@ internal fun conferenceControlsOverflow(
     dividerWidth: Double,
     containerGroups: Set<Int> = emptySet(),
     exitGap: Double = CONFERENCE_EXIT_GAP_PX,
-): Set<ConferenceControlSlot> {
-    val moved = linkedSetOf<ConferenceControlSlot>()
-
-    fun total(): Double {
-        val shown = visible.filter { it.slot !in moved }
-        if (shown.isEmpty()) return 0.0
-        val shownGroups = shown.map { it.group }.distinct()
-        val groups = shownGroups.size
-        // A group wrapper that stays rendered although all its controls moved is an empty flex item: it still takes a column gap.
-        val emptyContainers = containerGroups.count { it !in shownGroups }
-        val items = shown.size + (groups - 1) + emptyContainers
-        // V1.9.72: inside the exit group the controls sit exitGap apart instead of the bar's gap.
-        val exitItems = shown.count { it.group == CONFERENCE_EXIT_GROUP }
-        val exitExtra = (exitGap - gap) * maxOf(0, exitItems - 1)
-        return shown.sumOf { it.width } + (groups - 1) * dividerWidth + gap * (items - 1) + exitExtra
-    }
-    for (slot in CONFERENCE_OVERFLOW_ORDER) {
-        if (total() <= available) break
-        if (visible.any { it.slot == slot }) moved += slot
-    }
-    return moved
-}
+): Set<ConferenceControlSlot> =
+    controlBarOverflow(
+        available = available,
+        visible = visible,
+        order = CONFERENCE_OVERFLOW_ORDER,
+        gap = gap,
+        dividerWidth = dividerWidth,
+        exitGroup = CONFERENCE_EXIT_GROUP,
+        containerGroups = containerGroups,
+        exitGap = exitGap,
+    )
 
 /** Pure invariant (V1.9.72): "Verlassen" is the last shown control of the bar. */
 internal fun leaveIsLast(shownInOrder: List<ConferenceControlSlot>): Boolean = shownInOrder.lastOrNull() == ConferenceControlSlot.LEAVE
@@ -226,14 +210,6 @@ internal fun conferenceMoreBadgeGlyphs(
     recordingActiveInSheet: Boolean,
     streamActiveInSheet: Boolean,
 ): String = (if (recordingActiveInSheet) "●" else "") + (if (streamActiveInSheet) "◆" else "")
-
-/** `Widget.setAttribute` re-renders on every call; only a real change is written. */
-private fun Widget.setAttrIfChanged(
-    name: String,
-    value: String,
-) {
-    if (getAttribute(name) != value) setAttribute(name, value)
-}
 
 /**
  * V1.9.66 (R58 named exception b): the ONLY icon-only factory of the conference bar. At least 44 x 44 px through theme.css.
@@ -564,127 +540,42 @@ internal fun Container.conferenceControlsDivider(): Span {
 }
 
 /** One control of the bar that [ConferenceControlsOverflow] may move into the sheet. [twin] is its labelled counterpart in the sheet. */
-internal data class OverflowSlot(
-    val slot: ConferenceControlSlot,
-    val primary: Button,
-    val twin: Button?,
-    /** Mirror `aria-pressed` of the primary onto the twin (panel toggles); recording / stream carry the state in the verb instead. */
-    val mirrorPressed: Boolean = false,
-)
+internal typealias OverflowSlot = ControlBarSlot<ConferenceControlSlot>
 
 /**
- * Measures the bar (ResizeObserver, started lazily WITHOUT a hook through [ensureObserving]), moves slots that do not fit into the
- * sheet and mirrors the state of a moved control to its twin. A moved primary is hidden by a CSS class (never `hide()`: its owner keeps
- * control over its own visibility); a twin is shown only while its primary is moved AND wanted.
- *
- * Only a change of the moved set is written; widths of the controls are cached (a hidden control cannot be measured), the fallback
- * is [CONFERENCE_CONTROL_FALLBACK_WIDTH_PX]. That keeps the bar from flickering.
+ * The overflow handler of the conference bar: a thin wrapper around the generic [ControlBarOverflow] (V1.9.74) that fixes the slot type,
+ * the group function, the overflow order and the CSS class. Behaviour is unchanged since V1.9.72.
  */
 internal class ConferenceControlsOverflow(
-    private val bar: Widget,
-    private val slots: List<OverflowSlot>,
+    bar: Widget,
+    slots: List<OverflowSlot>,
     /** A divider and the group it sits in front of. */
-    private val dividers: List<Pair<Span, Int>>,
-    private val onChanged: (moved: Set<ConferenceControlSlot>) -> Unit,
+    dividers: List<Pair<Span, Int>>,
+    onChanged: (moved: Set<ConferenceControlSlot>) -> Unit,
     /** Groups whose controls sit in a wrapper element that stays rendered (and takes a column gap) even when empty. */
-    private val containerGroups: Set<Int> = emptySet(),
+    containerGroups: Set<Int> = emptySet(),
 ) {
-    private var observer: ResizeObserver? = null
-    private val widths = mutableMapOf<ConferenceControlSlot, Double>()
-    private var moved: Set<ConferenceControlSlot> = emptySet()
-    private val twinState = mutableMapOf<ConferenceControlSlot, Triple<Boolean, Boolean, Boolean>>()
-    private val dividerState = mutableMapOf<Span, Boolean>()
-    private var disposed = false
+    private val delegate =
+        ControlBarOverflow(
+            bar = bar,
+            slots = slots,
+            dividers = dividers,
+            groupOf = ::conferenceControlGroup,
+            order = CONFERENCE_OVERFLOW_ORDER,
+            exitGroup = CONFERENCE_EXIT_GROUP,
+            overflowedClass = OVERFLOWED,
+            onChanged = onChanged,
+            containerGroups = containerGroups,
+        )
 
-    fun moved(): Set<ConferenceControlSlot> = moved
+    fun moved(): Set<ConferenceControlSlot> = delegate.moved()
 
     /** Idempotent. Needs the element of the bar, so it simply tries again on the next call while it does not exist. */
-    fun ensureObserving() {
-        if (disposed || observer != null) return
-        val element = bar.getElement() ?: return
-        observer = ResizeObserver { _, _ -> recompute() }.also { it.observe(element) }
-        recompute()
-    }
+    fun ensureObserving() = delegate.ensureObserving()
 
-    fun dispose() {
-        disposed = true
-        observer?.disconnect()
-        observer = null
-    }
+    fun dispose() = delegate.dispose()
 
-    fun recompute() {
-        if (disposed) return
-        val element = bar.getElement() ?: return
-        if (element.clientWidth <= 0) return
-        for (s in slots) {
-            val el = s.primary.getElement()
-            if (el != null && el.offsetWidth > 0) {
-                // The bounding box excludes CSS margins, the row still has to hold them.
-                val cs = window.getComputedStyle(el)
-                widths[s.slot] = el.getBoundingClientRect().width + parsePx(cs.marginLeft) + parsePx(cs.marginRight)
-            }
-        }
-        val style = window.getComputedStyle(element)
-        val padding = parsePx(style.paddingLeft) + parsePx(style.paddingRight)
-        val gap = style.columnGap.removeSuffix("px").toDoubleOrNull() ?: 6.0
-        val measures =
-            slots.filter { it.primary.visible }.map {
-                ConferenceControlMeasure(it.slot, widths[it.slot] ?: CONFERENCE_CONTROL_FALLBACK_WIDTH_PX, conferenceControlGroup(it.slot))
-            }
-        val newMoved =
-            conferenceControlsOverflow(
-                element.clientWidth - padding,
-                measures,
-                gap,
-                CONFERENCE_DIVIDER_FOOTPRINT_PX,
-                containerGroups,
-            )
-        apply(newMoved)
-    }
-
-    private fun apply(newMoved: Set<ConferenceControlSlot>) {
-        val shownGroups = mutableSetOf<Int>()
-        for (s in slots) {
-            val isMoved = s.slot in newMoved
-            val wanted = s.primary.visible
-            if (wanted && !isMoved) shownGroups += conferenceControlGroup(s.slot)
-            if (isMoved != (s.slot in moved)) {
-                if (isMoved) s.primary.addCssClass(OVERFLOWED) else s.primary.removeCssClass(OVERFLOWED)
-            }
-            val twin = s.twin ?: continue
-            val twinShown = isMoved && wanted
-            val state = Triple(twinShown, s.primary.disabled, s.primary.getAttribute("aria-pressed") == "true")
-            if (twinState[s.slot] == state) continue
-            twinState[s.slot] = state
-            if (twin.visible != twinShown) {
-                if (twinShown) {
-                    twin.show()
-                } else {
-                    twin.hide()
-                }
-            }
-            twin.disabled = state.second
-            if (s.mirrorPressed) twin.setAttrIfChanged("aria-pressed", state.third.toString())
-        }
-        for ((divider, beforeGroup) in dividers) {
-            val show = beforeGroup in shownGroups && shownGroups.any { it < beforeGroup }
-            if (dividerState[divider] == show) continue
-            dividerState[divider] = show
-            if (divider.visible != show) {
-                if (show) {
-                    divider.show()
-                } else {
-                    divider.hide()
-                }
-            }
-        }
-        if (newMoved != moved) {
-            moved = newMoved
-            onChanged(newMoved)
-        }
-    }
-
-    private fun parsePx(value: String): Double = value.removeSuffix("px").toDoubleOrNull() ?: 0.0
+    fun recompute() = delegate.recompute()
 
     companion object {
         const val OVERFLOWED = "lapis-conference-control-overflowed"

@@ -262,7 +262,7 @@ for every German msgid that contains a core term as a whole word (or one of its 
 | scène
 | scen
 | сцен
-| V1.9.62: the decorative picture of an encounter space (the church outline); "Szene aus" / "Szene ein" read hide scene / show scene. Not a "Szenario" and not a film scene.
+| V1.9.62: the decorative picture of an encounter space (the church outline); "Szene ausblenden" reads hide scene (the label is stable since V1.9.74; whether the scene is hidden is `aria-pressed`). Not a "Szenario" and not a film scene.
 
 |===
 

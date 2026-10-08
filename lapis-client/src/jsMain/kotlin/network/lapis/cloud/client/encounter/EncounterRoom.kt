@@ -16,8 +16,12 @@ import kotlinx.coroutines.launch
 import network.lapis.cloud.client.ActionIcon
 import network.lapis.cloud.client.AppScope
 import network.lapis.cloud.client.AppState
+import network.lapis.cloud.client.CONTROL_BAR_FALLBACK_WIDTH_PX
+import network.lapis.cloud.client.ControlBarOverflow
+import network.lapis.cloud.client.ControlBarSlot
 import network.lapis.cloud.client.actionButton
 import network.lapis.cloud.client.actionIconClasses
+import network.lapis.cloud.client.addCssClasses
 import network.lapis.cloud.client.confirmDialog
 import network.lapis.cloud.client.guarded
 import network.lapis.cloud.client.livekit.DisconnectCause
@@ -25,6 +29,7 @@ import network.lapis.cloud.client.livekit.Track
 import network.lapis.cloud.client.livekit.TrackPublication
 import network.lapis.cloud.client.rpcService
 import network.lapis.cloud.client.sanitizeUntrustedI18nText
+import network.lapis.cloud.client.setAttrIfChanged
 import network.lapis.cloud.client.untrustedContent
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EncounterEntryDto
@@ -37,6 +42,9 @@ import network.lapis.cloud.shared.domain.option
 import network.lapis.cloud.shared.rpc.IEncounterSpaceService
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLMediaElement
+import org.w3c.dom.Node
+import org.w3c.dom.events.Event
+import org.w3c.dom.events.KeyboardEvent
 import kotlin.js.Date
 
 /**
@@ -66,6 +74,7 @@ internal class EncounterRoom(
     private val entry: EncounterEntryDto,
     private val viewer: EncounterViewerRights,
     private val clock: () -> Double = { Date.now() },
+    private val onLeave: () -> Unit,
     private val onDoorsClosed: () -> Unit,
     private val onConnectionLost: (DisconnectCause) -> Unit,
 ) {
@@ -89,6 +98,17 @@ internal class EncounterRoom(
     private val side = EncounterSidePanel(main, tabs) { tab -> onTabShown(tab) }
     private val controlBar = EncounterControlBar(root)
     private val controls: Div get() = controlBar.root
+
+    /**
+     * V1.9.74 -- the "Mehr" sheet: a sibling of the bar (not inside it), anchored above it. Non-modal (`role="dialog"` without a focus
+     * trap): Escape or a click outside closes it and the focus returns to "Mehr". It holds the labelled twins of what did not fit.
+     */
+    private val moreSheet: Div =
+        root.div(className = "lapis-encounter-more-sheet").also {
+            it.setAttribute("id", ENCOUNTER_MORE_SHEET_ID)
+            it.setAttribute("role", "dialog")
+            it.setAttribute("aria-label", gettext("Weitere Bedienelemente"))
+        }
 
     private val seating = EncounterSeating()
     private val seated = mutableSetOf<String>()
@@ -137,9 +157,18 @@ internal class EncounterRoom(
     private lateinit var handButton: Button
     private val eventButtons = LinkedHashMap<EncounterReactionOption, Button>()
     private lateinit var chatButton: Button
+    private lateinit var moreButton: Button
     private lateinit var sceneButton: Button
     private lateinit var fullscreenButton: Button
-    private lateinit var eventWaitNote: Span
+    private lateinit var broadcastButton: Button
+    private lateinit var leaveButton: Button
+    private var fullscreenTwin: Button? = null
+    private lateinit var eventWaitNote: Div
+    private lateinit var overflow: ControlBarOverflow<EncounterControlSlot>
+    private val barSlots = mutableListOf<ControlBarSlot<EncounterControlSlot>>()
+    private val twinsInOrder = mutableListOf<Button>()
+    private var sheetOpen = false
+    private var sheetCleanup: (() -> Unit)? = null
     private val fullscreen =
         EncounterFullscreen(
             element = { root.getElement() as? HTMLElement },
@@ -203,56 +232,198 @@ internal class EncounterRoom(
         }
     }
 
+    /** A labelled twin in the "Mehr" sheet; the overflow handler shows it while its primary sits in the sheet. */
+    private fun sheetTwin(
+        kind: ActionIcon,
+        label: String,
+        style: ButtonStyle = ButtonStyle.OUTLINESECONDARY,
+        action: () -> Unit,
+    ): Button {
+        val twin = moreSheet.actionButton(kind, label, style)
+        twin.hide()
+        twin.onClick {
+            closeSheet(returnFocus = false)
+            action()
+        }
+        twinsInOrder += twin
+        return twin
+    }
+
     private fun buildControls() {
+        moreSheet.hide()
         val reactions = controlBar.group(EncounterControlGroup.REACTIONS)
         handButton =
             reactions.actionButton(reactionActionIcon(EncounterReactionOption.HAND), reactionLabelContent(EncounterReactionOption.HAND))
         handButton.setAttribute("aria-pressed", "false")
         handButton.disabled = !entry.canPublishData
         handButton.onClick { toggleHand() }
-        // The event reactions of the room in canonical order (HAND is the button above, always present).
+        barSlots += ControlBarSlot(EncounterControlSlot.Hand, handButton, null)
+        // The event reactions of the room in canonical order (HAND is the button above, always present). They keep their word.
         EncounterReactionOption.entries.filter { it != EncounterReactionOption.ALWAYS_ON && it in allowedReactions }.forEach { option ->
             val button = reactions.actionButton(reactionActionIcon(option), reactionLabelContent(option))
             button.disabled = !entry.canPublishData
             button.onClick { sendEvent(option) }
             eventButtons[option] = button
+            val twin = sheetTwin(reactionActionIcon(option), reactionLabelContent(option)) { sendEvent(option) }
+            barSlots += ControlBarSlot(EncounterControlSlot.Reaction(option), button, twin)
         }
-        eventWaitNote = reactions.span(tr("Bitte einen Moment warten."), className = "text-muted small")
+        // The wait note is a status of the room, not a control: it stands in the bands (one reason less for the bar to break).
+        eventWaitNote = bands.div(tr("Bitte einen Moment warten."), className = "lapis-encounter-band text-muted small")
+        eventWaitNote.setAttribute("role", "status")
         eventWaitNote.hide()
         val panels = controlBar.group(EncounterControlGroup.PANELS)
-        chatButton = panels.actionButton(ActionIcon.CHAT, tr("Chat"))
+        chatButton = panels.encounterControlButton(ActionIcon.CHAT, tr("Chat"))
         chatButton.setAttribute("aria-expanded", "false")
         chatButton.setAttribute("aria-controls", ENCOUNTER_SIDE_PANEL_ID)
         chatButton.onClick { toggleSide(EncounterSideTab.CHAT) }
+        barSlots +=
+            ControlBarSlot(
+                EncounterControlSlot.Chat,
+                chatButton,
+                sheetTwin(ActionIcon.CHAT, tr("Chat")) { toggleSide(EncounterSideTab.CHAT) },
+            )
         // A persistent polite status region (a region that is created together with its text is not announced): the dot shows through the
         // `is-on` class, the words "Neue Nachrichten" are written into it when a line arrives while the chat is not in view.
         unreadDot = panels.span(className = "lapis-encounter-unread")
         unreadDot.setAttribute("role", "status")
         unreadText = unreadDot.span(className = "visually-hidden")
+        moreButton = panels.encounterControlButton(ActionIcon.MORE, tr("Mehr"))
+        moreButton.setAttribute("aria-expanded", "false")
+        moreButton.setAttribute("aria-controls", ENCOUNTER_MORE_SHEET_ID)
+        moreButton.onClick { toggleSheet() }
+        moreButton.hide()
         val view = controlBar.group(EncounterControlGroup.VIEW)
-        sceneButton = view.actionButton(ActionIcon.SCENE, tr("Szene aus"))
+        // The label is stable; `aria-pressed="true"` means "the scene is hidden" (the control hides the scene).
+        sceneButton = view.encounterControlButton(ActionIcon.SCENE, tr("Szene ausblenden"))
         sceneButton.onClick { toggleScene() }
-        fullscreenButton = view.actionButton(ActionIcon.FULLSCREEN, tr("Vollbild"))
+        barSlots +=
+            ControlBarSlot(
+                EncounterControlSlot.Scene,
+                sceneButton,
+                sheetTwin(ActionIcon.SCENE, tr("Szene ausblenden")) { toggleScene() },
+                mirrorPressed = true,
+            )
+        fullscreenButton = view.encounterControlButton(ActionIcon.FULLSCREEN, tr("Vollbild"))
         fullscreenButton.setAttribute("aria-pressed", "false")
         fullscreenButton.onClick { fullscreen.toggle() }
+        fullscreenTwin = sheetTwin(ActionIcon.FULLSCREEN, tr("Vollbild")) { fullscreen.toggle() }
+        barSlots += ControlBarSlot(EncounterControlSlot.Fullscreen, fullscreenButton, fullscreenTwin, mirrorPressed = true)
         if (viewer.canModerate) {
             val moderation = controlBar.group(EncounterControlGroup.MODERATION)
-            moderation.actionButton(ActionIcon.BROADCAST, tr("Übertragung"), style = ButtonStyle.OUTLINESECONDARY).onClick {
-                toggleSide(EncounterSideTab.STREAM)
-            }
-            moderation
-                .actionButton(
-                    ActionIcon.CLOSE_DOORS,
-                    tr("Türen schließen"),
-                    style = ButtonStyle.OUTLINEDANGER,
-                ).onClick { askCloseDoors() }
+            broadcastButton = moderation.encounterControlButton(ActionIcon.BROADCAST, tr("Übertragung"))
+            broadcastButton.setAttribute("aria-expanded", "false")
+            broadcastButton.setAttribute("aria-controls", ENCOUNTER_SIDE_PANEL_ID)
+            broadcastButton.onClick { toggleSide(EncounterSideTab.STREAM) }
+            barSlots +=
+                ControlBarSlot(
+                    EncounterControlSlot.Broadcast,
+                    broadcastButton,
+                    sheetTwin(ActionIcon.BROADCAST, tr("Übertragung")) { toggleSide(EncounterSideTab.STREAM) },
+                )
         }
+        val exit = controlBar.group(EncounterControlGroup.EXIT)
+        if (viewer.canModerate) {
+            val doors = exit.encounterControlButton(ActionIcon.CLOSE_DOORS, tr("Türen schließen"), ButtonStyle.OUTLINEDANGER)
+            doors.onClick { askCloseDoors() }
+            // The twin stands last in the sheet, set apart by a rule; it leads to the SAME dialog (one path to closeSpace).
+            val doorsTwin =
+                sheetTwin(ActionIcon.CLOSE_DOORS, tr("Türen schließen"), ButtonStyle.OUTLINEDANGER) { askCloseDoors() }
+            doorsTwin.addCssClasses("lapis-encounter-twin-end text-danger")
+            barSlots += ControlBarSlot(EncounterControlSlot.CloseDoors, doors, doorsTwin)
+        }
+        leaveButton = exit.encounterControlButton(ActionIcon.LEAVE, tr("Verlassen"), ButtonStyle.DANGER)
+        leaveButton.onClick {
+            // A double click must not leave twice: the button is locked at once, the owner ends the visit.
+            leaveButton.disabled = true
+            leaveButton.setAttribute("aria-busy", "true")
+            onLeave()
+        }
+        barSlots += ControlBarSlot(EncounterControlSlot.Leave, leaveButton, null)
+        overflow =
+            ControlBarOverflow(
+                bar = controlBar.root,
+                slots = barSlots,
+                dividers = emptyList(),
+                groupOf = { encounterControlGroup(it).ordinal },
+                order = encounterOverflowOrder(allowedReactions),
+                exitGroup = EncounterControlGroup.EXIT.ordinal,
+                overflowedClass = OVERFLOWED_CLASS,
+                onChanged = { onOverflowChanged() },
+                moreWidth = CONTROL_BAR_FALLBACK_WIDTH_PX,
+                moreGroup = EncounterControlGroup.PANELS.ordinal,
+                moreButton = moreButton,
+            )
+    }
+
+    /** A group whose controls all sit in the sheet is hidden (its wrapper would otherwise take a gap and keep its divider). */
+    private fun onOverflowChanged() {
+        val moved = overflow.moved()
+        for (group in EncounterControlGroup.entries) {
+            val members = barSlots.filter { encounterControlGroup(it.slot) == group }
+            if (members.isEmpty()) continue
+            val shown =
+                members.any { it.primary.visible && it.slot !in moved } || (group == EncounterControlGroup.PANELS && moved.isNotEmpty())
+            controlBar.setGroupSpent(group, !shown)
+        }
+        if (moved.isEmpty()) closeSheet(returnFocus = false)
+    }
+
+    private fun registerBarSlot(slot: ControlBarSlot<EncounterControlSlot>) {
+        barSlots += slot
+        overflow.register(slot)
+    }
+
+    private fun toggleSheet() {
+        if (sheetOpen) closeSheet(returnFocus = true) else openSheet()
+    }
+
+    private fun openSheet() {
+        if (sheetOpen || disposed) return
+        // The twins mirror the state of their primaries only when the overflow is recomputed: do it before the sheet is shown.
+        overflow.recompute()
+        sheetOpen = true
+        moreSheet.show()
+        moreButton.setAttrIfChanged("aria-expanded", "true")
+        val onKey: (Event) -> Unit = { event -> if ((event as? KeyboardEvent)?.key == "Escape") closeSheet(returnFocus = true) }
+        val onClick: (Event) -> Unit = { event ->
+            val target = event.target as? Node
+            val inside =
+                target != null &&
+                    (
+                        (moreSheet.getElement()?.contains(target) == true) ||
+                            (moreButton.getElement()?.contains(target) == true)
+                    )
+            if (!inside) closeSheet(returnFocus = false)
+        }
+        document.addEventListener("keydown", onKey)
+        document.addEventListener("click", onClick)
+        val cleanup: () -> Unit = {
+            document.removeEventListener("keydown", onKey)
+            document.removeEventListener("click", onClick)
+        }
+        sheetCleanup = cleanup
+        cleanups += cleanup
+        later(0) { twinsInOrder.firstOrNull { it.visible }?.getElement()?.let { (it as? HTMLElement)?.focus() } }
+    }
+
+    private fun closeSheet(returnFocus: Boolean) {
+        if (!sheetOpen) return
+        sheetOpen = false
+        moreSheet.hide()
+        moreButton.setAttrIfChanged("aria-expanded", "false")
+        sheetCleanup?.let {
+            it()
+            cleanups.remove(it)
+        }
+        sheetCleanup = null
+        if (returnFocus) (moreButton.getElement() as? HTMLElement)?.focus()
     }
 
     private fun refreshFullscreenButton(active: Boolean) {
-        fullscreenButton.setAttribute("aria-pressed", active.toString())
-        fullscreenButton.text = if (active) tr("Vollbild beenden") else tr("Vollbild")
-        fullscreenButton.icon = actionIconClasses(if (active) ActionIcon.FULLSCREEN_EXIT else ActionIcon.FULLSCREEN)
+        fullscreenButton.setAttrIfChanged("aria-pressed", active.toString())
+        val icon = actionIconClasses(if (active) ActionIcon.FULLSCREEN_EXIT else ActionIcon.FULLSCREEN)
+        fullscreenButton.icon = icon
+        fullscreenTwin?.icon = icon
     }
 
     // ── wiring to the session ───────────────────────────────────────────────
@@ -261,8 +432,13 @@ internal class EncounterRoom(
     fun bind(session: EncounterListenerSession) {
         this.session = session
         if (session is EncounterSpeakerSession && entry.canPublish) {
-            pulpitControls =
+            val created =
                 EncounterPulpitControls(toolbar = controlBar.group(EncounterControlGroup.DEVICES), band = bands, session = session)
+            pulpitControls = created
+            // The device controls never move into the sheet, but they take room in the bar: they have to be measured.
+            registerBarSlot(ControlBarSlot(EncounterControlSlot.Mic, created.micButton, null))
+            registerBarSlot(ControlBarSlot(EncounterControlSlot.Camera, created.cameraButton, null))
+            overflow.recompute()
         }
     }
 
@@ -272,6 +448,7 @@ internal class EncounterRoom(
      */
     suspend fun afterConnected() {
         if (disposed) return
+        overflow.ensureObserving()
         if (viewer.presenceRole == EncounterPresenceRole.PULPIT) pulpitControls?.startCamera()
         if (disposed) return
         layout.focusPulpit()
@@ -496,7 +673,10 @@ internal class EncounterRoom(
 
     private fun toggleSide(tab: EncounterSideTab) {
         side.toggle(tab)
-        chatButton.setAttribute("aria-expanded", (side.isOpen && side.activeTab == EncounterSideTab.CHAT).toString())
+        chatButton.setAttrIfChanged("aria-expanded", (side.isOpen && side.activeTab == EncounterSideTab.CHAT).toString())
+        if (viewer.canModerate) {
+            broadcastButton.setAttrIfChanged("aria-expanded", (side.isOpen && side.activeTab == EncounterSideTab.STREAM).toString())
+        }
     }
 
     private fun onTabShown(tab: EncounterSideTab) {
@@ -528,7 +708,8 @@ internal class EncounterRoom(
     }
 
     private fun refreshSceneButton() {
-        sceneButton.text = if (layout.isSceneOff) tr("Szene ein") else tr("Szene aus")
+        // The label never changes; the state is `aria-pressed` ("the scene is hidden") plus the ring of theme.css.
+        sceneButton.setAttrIfChanged("aria-pressed", layout.isSceneOff.toString())
     }
 
     private fun askCloseDoors() {
@@ -539,6 +720,7 @@ internal class EncounterRoom(
             message = tr("Alle Anwesenden verlassen den Raum."),
             confirmLabel = tr("Türen schließen"),
             confirmIcon = ActionIcon.CLOSE_DOORS,
+            focusCancel = true,
         ) {
             AppScope.launch {
                 val closed = guarded { rpcService<IEncounterSpaceService>().closeSpace(space.id) }
@@ -616,6 +798,8 @@ internal class EncounterRoom(
         disposed = true
         cleanups.forEach { it() }
         cleanups.clear()
+        sheetCleanup = null
+        overflow.dispose()
         layout.dispose()
         fullscreen.dispose()
         tiles.values.forEach { it.dispose() }
@@ -638,6 +822,8 @@ internal class EncounterRoom(
     internal val fullscreenControl: EncounterFullscreen get() = fullscreen
 
     private companion object {
+        const val OVERFLOWED_CLASS = "lapis-encounter-control-overflowed"
+        const val ENCOUNTER_MORE_SHEET_ID = "lapis-encounter-more-sheet"
         const val HAND_EXPIRY_TICK_MS = 5_000
         const val HAND_RENEW_MS = 30_000
         const val PRESENT_POLL_MS = 20_000

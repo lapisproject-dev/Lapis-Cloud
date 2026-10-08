@@ -1,7 +1,6 @@
 package network.lapis.cloud.client
 
 import io.kvision.core.Container
-import io.kvision.core.Widget
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
@@ -188,14 +187,6 @@ private fun consentChanges(
             )
     }
     return result
-}
-
-/** `Widget.setAttribute` re-renders on every call; only a real change is written. */
-private fun Widget.setAttrIfChanged(
-    name: String,
-    value: String,
-) {
-    if (getAttribute(name) != value) setAttribute(name, value)
 }
 
 private fun focusMain() {

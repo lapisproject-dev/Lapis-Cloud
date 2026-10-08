@@ -165,7 +165,7 @@ class EncounterStageModeDomTest {
     fun thePanelToggle_tellsItsStateAndWhatItControls(): Promise<Unit> =
         formTest {
             withRoom(EncounterProfile.CHURCH_SERVICE) { _, element ->
-                val toggle = element.buttonNamed("Chat")
+                val toggle = element.barControl("Chat")
                 assertEquals(ENCOUNTER_SIDE_PANEL_ID, toggle.getAttribute("aria-controls"))
                 assertEquals("false", toggle.getAttribute("aria-expanded"))
                 toggle.click()
@@ -181,13 +181,15 @@ class EncounterStageModeDomTest {
             js("Object.defineProperty(document, 'fullscreenEnabled', {value: false, configurable: true})")
             try {
                 withRoom(EncounterProfile.CHURCH_SERVICE) { rig, element ->
-                    val button = element.buttonNamed("Vollbild")
+                    val button = element.barControl("Vollbild")
                     assertEquals("false", button.getAttribute("aria-pressed"))
                     button.click()
                     val room = element.querySelector(".lapis-encounter-room") as HTMLElement
                     awaitUntil("the css fullscreen is on") { room.classList.contains(ENCOUNTER_PSEUDO_FULLSCREEN_CLASS) }
                     assertEquals("true", button.getAttribute("aria-pressed"))
-                    assertTrue(button.textContent.orEmpty().contains("Vollbild beenden"))
+                    // V1.9.74: the label stays "Vollbild"; the state is aria-pressed and the symbol
+                    assertEquals("Vollbild", button.getAttribute("aria-label"))
+                    awaitUntil("the symbol shows the way back") { button.querySelector("i")?.classList?.contains("fa-compress") == true }
                     document.dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = "Escape")))
                     awaitUntil("Escape left it") { !room.classList.contains(ENCOUNTER_PSEUDO_FULLSCREEN_CLASS) }
                     assertEquals("false", button.getAttribute("aria-pressed"))
@@ -219,9 +221,9 @@ class EncounterStageModeDomTest {
                     session = FakeSpeakerSession(),
                 ) { _, element ->
                     val room = element.querySelector(".lapis-encounter-room") as HTMLElement
-                    element.buttonNamed("Vollbild").click()
+                    element.barControl("Vollbild").click()
                     awaitUntil("the css fullscreen is on") { room.classList.contains(ENCOUNTER_PSEUDO_FULLSCREEN_CLASS) }
-                    element.buttonNamed("Türen schließen").click()
+                    element.barControl("Türen schließen").click()
                     awaitUntil("the room left the fullscreen") { !room.classList.contains(ENCOUNTER_PSEUDO_FULLSCREEN_CLASS) }
                     awaitUntil("the dialog is open") { document.querySelector(".modal") != null }
                     for (selector in listOf(".modal", ".modal-backdrop")) {
@@ -286,10 +288,10 @@ class EncounterStageModeDomTest {
                     assertEquals("true", rows.getAttribute("aria-hidden"))
                     assertTrue(front.style.getPropertyValue("--lapis-enc-scene-front").contains("/encounter-themes/$folder/front.svg"))
                     assertTrue(rows.style.getPropertyValue("--lapis-enc-scene-row").contains("/encounter-themes/$folder/row.svg"))
-                    element.buttonNamed("Szene aus").click()
+                    element.barControl("Szene ausblenden").click()
                     awaitUntil("the scene is gone") { element.querySelector(".lapis-encounter--scene-off") != null }
                     assertFalse(front.isShown() || rows.isShown(), "both layers leave the picture")
-                    element.buttonNamed("Szene ein").click()
+                    element.barControl("Szene ausblenden").click()
                     awaitUntil("the scene is back") { element.querySelector(".lapis-encounter--scene-off") == null }
                 }
             }
@@ -365,9 +367,9 @@ class EncounterStageModeDomTest {
                 space = testSpace(profile = EncounterProfile.ASSEMBLY),
             ) { _, element ->
                 val devices = assertNotNull(element.querySelector(".lapis-encounter-control-group--devices") as? HTMLElement)
-                assertEquals(listOf("Mikrofon", "Kamera"), devices.allOf("button").map { it.textContent.orEmpty().trim() })
+                assertEquals(listOf("Mikrofon", "Kamera"), devices.allOf("button").map { it.barName() })
                 val reactions = assertNotNull(element.querySelector(".lapis-encounter-control-group--reactions") as? HTMLElement)
-                assertFalse(reactions.allOf("button").any { it.textContent.orEmpty().trim() in setOf("Mikrofon", "Kamera") })
+                assertFalse(reactions.allOf("button").any { it.barName() in setOf("Mikrofon", "Kamera") })
             }
         }
 }

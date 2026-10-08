@@ -351,7 +351,7 @@ The server's `list` budget (60 per minute and member) is shared by `listSpaces`,
 
 Controls are real buttons with names; the hand button carries `aria-pressed` (fixed label); the pulpit is a `group` named "Kanzel: <name>" and receives the focus after entering (`tabindex=-1`); two polite live
 regions (amen bundling for everybody, "<name> hebt die Hand" for office holders only); no single-letter shortcuts; the side panel is closed by default, Escape closes it, below 768 px it is a full-screen sheet
-(`role="dialog"`, `aria-modal`, focus trap, focus returns to the opener); amen fades in and out in 200 ms, switched off under `prefers-reduced-motion`; on a narrow screen the controls are a fixed 56 px bar with icon and label.
+(`role="dialog"`, `aria-modal`, focus trap, focus returns to the opener); amen fades in and out in 200 ms, switched off under `prefers-reduced-motion`; the control bar shows symbols only (names and tooltips stay) and keeps a word for the reactions from 768 px on; see "The control bar" below.
 
 === Browser storage
 
@@ -432,8 +432,32 @@ The church text and its hash are unchanged, so existing consents stay valid. *Th
   The toggle carries `aria-expanded` and `aria-controls`; the state lives in memory only.
 * Full screen (`EncounterFullscreen`): the Fullscreen API on the room element; without it (or when `requestFullscreen()` is rejected) the room gets `is-pseudo-fullscreen` (`position: fixed; inset: 0`) and Escape leaves it.
   Listeners are removed when the person leaves. Nothing is stored.
-* The bar (`EncounterControlBar`) has groups: reactions | devices (office holders) | panel | view (scene, full screen) | moderation. Targets are at least 44 px; below 768 px only the symbols are visible (the text stays as the accessible name).
-  The "Verlassen" button stays in the page header: in full screen the header is not visible, Escape leaves the full screen first.
+* The bar (`EncounterControlBar`, V1.9.74: icon bar) is described in the next section.
+
+=== The control bar (V1.9.74)
+
+The bar under the stage shows *symbols only*, except the reactions (hand and the room's event reactions), which keep their word from 768 px on. Every symbol button has an accessible
+name, a tooltip (`title`) and a stable label; the state of a toggle is carried by `aria-pressed` (hand, scene, full screen, microphone, camera) or `aria-expanded` (chat, transmission,
+"Mehr") together with a ring and, for microphone and camera, the slash symbol -- never by colour alone and never by a changing label ("Szene ausblenden" is pressed while the scene is
+hidden; "Vollbild" changes its symbol, not its name).
+
+Groups, in DOM order (`EncounterControlGroup`): *reactions | devices (office holders) | panels (chat, "Mehr") | view (scene, full screen) | moderation (transmission) | exit*. A divider
+(CSS) separates two non-empty groups. The *exit group* sits at the far end of the bar, 12 px between its controls and no hit area in the gap: "Türen schließen" (people who moderate; outline,
+danger colour) and "Verlassen" (everybody; filled, always the *last* control). "Verlassen" has no confirmation; it locks itself (`disabled`, `aria-busy`) at the first click, so a double click
+leaves once. The leave button of the page header is gone (the room owns the only "Verlassen"). The moderation group never borders the reactions.
+
+"Türen schließen" is guarded by the confirmation dialog, not by distance: the focus starts on "Abbrechen", the dialog fires once (`ConfirmOnce`), a full-screen room is left first, and the
+control in the bar and its twin in the sheet call the *same* function (`askCloseDoors`), so there is exactly one path to `closeSpace`. The server still decides who may close.
+
+*Overflow.* The bar never wraps and never scrolls sideways (R59). What does not fit moves into the "Mehr" sheet, measured by the shared `ControlBarOverflow` (also behind the conference bar).
+The order is: full screen, scene, transmission, the event reactions (the last of the canonical order first), "Türen schließen", and last of all the chat. Never moved: the hand, microphone,
+camera, "Mehr" and "Verlassen". "Mehr" is there exactly while something sits in the sheet. At 360 px a person at the pulpit keeps hand, devices, chat and "Verlassen"; at 320 px the chat
+moves into the sheet and nothing else can move (the last step). A group whose controls all moved is hidden, so it takes no gap.
+
+*The sheet* (`.lapis-encounter-more-sheet`) is a sibling of the bar, anchored above it, *not modal* (`role="dialog"`, no focus trap, name "Weitere Bedienelemente"). It holds labelled twins in the bar's
+order; the twins of scene and full screen mirror `aria-pressed`; the twin of "Türen schließen" stands last, set apart by a rule. "Verlassen" is never in the sheet. On opening, the focus goes
+to the first twin; Escape or a click outside closes it, and Escape returns the focus to "Mehr". A twin closes the sheet and then runs the action. The two document listeners (Escape, click)
+exist only while the sheet is open and are removed on close and in `dispose()`. The sheet scrolls itself (ledger class E1 of the scroll rule, R59).
 
 === Floor-plan scenes
 

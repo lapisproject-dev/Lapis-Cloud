@@ -149,6 +149,7 @@ private val CSS_LEDGER: Map<String, String> =
         ".lapis-conference-fullscreen .lapis-conference-voting" to "E1",
         ".lapis-conference-voting, .lapis-conference-fullscreen .lapis-conference-voting" to "E1",
         ".lapis-conference-more-sheet" to "E1",
+        ".lapis-encounter-more-sheet" to "E1",
         ".lapis-encounter-side" to "E1",
         ".lapis-encounter-side.is-sheet" to "E1",
         ".lapis-member-map-search-results" to "E2",

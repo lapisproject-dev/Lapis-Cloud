@@ -238,14 +238,14 @@ class EncounterMediaAndStreamDomTest {
     fun theTransmissionTab_existsOnlyForPeopleWhoModerate(): Promise<Unit> =
         formTest {
             withEncounterRoom(entry = testEntry(), peopleOf = { listOf(testPerson("c1")) }, clock = { clock }) { _, element ->
-                element.buttonNamed("Chat").click()
+                element.barControl("Chat").click()
                 awaitUntil("the panel is open") { element.querySelector("[role=tab]") != null }
                 assertEquals(listOf("Chat", "Anwesende"), element.allOf("[role=tab]").map { it.textContent.orEmpty().trim() })
             }
             withEncounterRoom(entry = steward, peopleOf = {
                 listOf(testPerson("me", EncounterPresenceRole.STEWARD))
             }, clock = { clock }) { _, element ->
-                element.buttonNamed("Chat").click()
+                element.barControl("Chat").click()
                 awaitUntil("the panel is open") { element.querySelector("[role=tab]") != null }
                 assertEquals(
                     listOf("Chat", "Anwesende", "Übertragung"),
@@ -269,7 +269,7 @@ class EncounterMediaAndStreamDomTest {
                 session = FakeSpeakerSession(),
                 extraRespond = respondStreaming(routes, targets = targets),
             ) { rig, element ->
-                element.buttonNamed("Übertragung").click()
+                element.barControl("Übertragung").click()
                 val panel = assertNotNull(element.querySelector(".lapis-encounter-stream") as? HTMLElement)
                 awaitUntil("the start form is shown") { panel.textContent.orEmpty().contains("Gemeinde-Kanal") }
                 assertTrue(panel.textContent.orEmpty().contains("Nur Kanzel"), "the layout is a fixed text")
@@ -301,7 +301,7 @@ class EncounterMediaAndStreamDomTest {
                 session = FakeSpeakerSession(),
                 extraRespond = respondStreaming(routes, targets = targets),
             ) { _, element ->
-                element.buttonNamed("Übertragung").click()
+                element.barControl("Übertragung").click()
                 val panel = assertNotNull(element.querySelector(".lapis-encounter-stream") as? HTMLElement)
                 awaitUntil("the start form is shown") { panel.textContent.orEmpty().contains("Gemeinde-Kanal") }
                 assertTrue(panel.textContent.orEmpty().contains("Niemand ist auf der Kanzel."))
@@ -322,7 +322,7 @@ class EncounterMediaAndStreamDomTest {
                     session = FakeSpeakerSession(),
                     extraRespond = respondStreaming(routes, targets = emptyList()),
                 ) { _, element ->
-                    element.buttonNamed("Übertragung").click()
+                    element.barControl("Übertragung").click()
                     val panel = assertNotNull(element.querySelector(".lapis-encounter-stream") as? HTMLElement)
                     awaitUntil("the empty state is shown") { panel.textContent.orEmpty().contains("Kein Übertragungsziel eingerichtet.") }
                     assertEquals(expectLink, panel.textContent.orEmpty().contains("Übertragungsziele verwalten"), "role $role")
@@ -342,7 +342,7 @@ class EncounterMediaAndStreamDomTest {
                 session = FakeSpeakerSession(),
                 extraRespond = respondStreaming(routes, enabled = false, targets = emptyList()),
             ) { _, element ->
-                element.buttonNamed("Übertragung").click()
+                element.barControl("Übertragung").click()
                 val panel = assertNotNull(element.querySelector(".lapis-encounter-stream") as? HTMLElement)
                 awaitUntil(
                     "the unavailable text",

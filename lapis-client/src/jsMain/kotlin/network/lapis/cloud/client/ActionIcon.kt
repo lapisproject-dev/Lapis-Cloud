@@ -103,4 +103,7 @@ enum class ActionIcon(
     FLOAT_SIZE("fas fa-up-right-and-down-left-from-center"),
     COLLAPSE("fas fa-window-minimize"),
     FLOAT_WINDOW("fas fa-window-restore"),
+
+    /** V1.9.74: show the "Mehr" sheet -- the controls of an encounter-room bar that did not fit. (The conference bar's own "Mehr" keeps its raw string.) */
+    MORE("fas fa-ellipsis"),
 }

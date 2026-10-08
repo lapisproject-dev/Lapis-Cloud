@@ -155,7 +155,12 @@ class EncounterServiceViewDomTest {
                 awaitUntil("the room is built and connected") { session.connects == 1 && element.querySelector(".lapis-encounter") != null }
                 assertEquals("me", opened?.join?.identity)
                 assertNull(requests.first { it.isRpc && it.rpcRoute == r.enter }.rpcParam(1), "a member sends no consent")
-                assertTrue(element.allOf("button").any { it.textContent.orEmpty().trim() == "Verlassen" }, "the one way out")
+                assertTrue(element.barControlNames().contains("Verlassen"), "the one way out, in the bar")
+                assertEquals(
+                    emptyList(),
+                    element.allOf(".lapis-page-header button").filter { it.barName() == "Verlassen" },
+                    "V1.9.74: no second 'Verlassen' in the header",
+                )
                 assertEquals(0, requests.count { it.isRpc && it.rpcRoute == r.leave })
 
                 root.removeAll() // the route changes: the screen goes away
@@ -172,7 +177,7 @@ class EncounterServiceViewDomTest {
                 awaitUntil("the entry panel is shown") { element.textContent.orEmpty().contains("Bevor Sie eintreten") }
                 element.buttonNamed("Eintreten").click()
                 awaitUntil("inside") { element.querySelector(".lapis-encounter") != null }
-                element.buttonNamed("Verlassen").click()
+                element.barControl("Verlassen").click()
                 awaitUntil("the session was disconnected") { session.disconnects == 1 }
                 awaitUntil("the server was told") { requests.count { it.isRpc && it.rpcRoute == r.leave } == 1 }
                 awaitUntil("the entry panel is back") {
@@ -257,7 +262,7 @@ class EncounterServiceViewDomTest {
                     val viewOwnListeners = liveVisibilityListeners // the screen's own listener, not the room's
                     element.buttonNamed("Eintreten").click()
                     awaitUntil("connect is pending") { session.connects == 1 }
-                    element.buttonNamed("Verlassen").click()
+                    element.barControl("Verlassen").click()
                     awaitUntil("the server was told") { requests.count { it.isRpc && it.rpcRoute == r.leave } == 1 }
                     gate.complete(null) // the connect finishes only after the visit has ended
                     delay(300)

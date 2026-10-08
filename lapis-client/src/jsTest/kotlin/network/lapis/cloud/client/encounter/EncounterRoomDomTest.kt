@@ -54,12 +54,12 @@ class EncounterRoomDomTest {
 
     /** The side panel is not in the document while it is closed (KVision does not render a hidden widget): open it on the chat tab first. */
     private suspend fun HTMLElement.openChat() {
-        buttonNamed("Chat").click()
+        barControl("Chat").click()
         awaitUntil("the side panel is open") { querySelector(".lapis-encounter-chat-log") != null }
     }
 
     private suspend fun HTMLElement.openPeople() {
-        buttonNamed("Chat").click()
+        barControl("Chat").click()
         awaitUntil("the side panel is open") { querySelector("[role=tab]") != null }
         allOf("[role=tab]").first { it.textContent.orEmpty().trim() == "Anwesende" }.click()
         awaitUntil("the people tab is shown") {
@@ -91,7 +91,7 @@ class EncounterRoomDomTest {
             }
             try {
                 withRoom(testEntry(), sixPeople) { rig, element ->
-                    val names = element.allOf("button").map { it.textContent.orEmpty().trim() }
+                    val names = element.barControlNames()
                     assertFalse("Mikrofon" in names, "no microphone button for the congregation, not even a disabled one: $names")
                     assertFalse("Kamera" in names, "no camera button: $names")
                     assertFalse("Übertragung" in names, "the congregation has no transmission control: $names")
@@ -123,7 +123,7 @@ class EncounterRoomDomTest {
                 val band = assertNotNull(element.querySelector(".lapis-encounter-mic-band") as? HTMLElement, "the standing mic band")
                 assertEquals("status", band.getAttribute("role"))
                 assertTrue(band.textContent.orEmpty().contains("Ihr Mikrofon ist aus."))
-                val names = element.allOf("button").map { it.textContent.orEmpty().trim() }
+                val names = element.barControlNames()
                 assertTrue("Mikrofon" in names && "Kamera" in names, "the pulpit controls: $names")
                 // switching the microphone on is the one explicit click
                 band.buttonNamed("Einschalten").click()
@@ -363,11 +363,13 @@ class EncounterRoomDomTest {
                     assertEquals("true", scene.getAttribute("aria-hidden"))
                     val root = assertNotNull(element.querySelector(".lapis-encounter") as? HTMLElement)
                     assertFalse(root.classList.contains("lapis-encounter--scene-off"))
-                    element.buttonNamed("Szene aus").click()
+                    assertEquals("false", element.barControl("Szene ausblenden").getAttribute("aria-pressed"))
+                    element.barControl("Szene ausblenden").click()
                     awaitUntil("the scene is off") { root.classList.contains("lapis-encounter--scene-off") }
                     assertEquals("1", window.localStorage.getItem(ENCOUNTER_SCENE_OFF_KEY))
                     // (theme.css is not loaded under Karma: the `display: none` of the modifier class is pinned by the CSS tripwires)
-                    assertTrue(element.allOf("button").any { it.textContent.orEmpty().trim() == "Szene ein" })
+                    // V1.9.74: the label stays, the state is aria-pressed ("the scene is hidden")
+                    assertEquals("true", element.barControl("Szene ausblenden").getAttribute("aria-pressed"))
                     assertEquals(
                         1,
                         window.localStorage.length.let { count ->
@@ -412,7 +414,7 @@ class EncounterRoomDomTest {
             withRoom(testEntry(), sixPeople) { rig, element ->
                 assertNull(element.querySelector(".lapis-encounter-side"), "closed by default: not even in the document")
                 assertFalse(rig.room.sidePanel.isOpen)
-                element.buttonNamed("Chat").click()
+                element.barControl("Chat").click()
                 awaitUntil("the panel is open") { element.querySelector(".lapis-encounter-side") != null }
                 assertTrue(rig.room.sidePanel.isOpen)
                 val panel = assertNotNull(element.querySelector(".lapis-encounter-side") as? HTMLElement)

@@ -2310,3 +2310,25 @@ hardened instead. The older text is not rewritten, it is marked as superseded ab
 
 *Not verified:* real devices, Safari and iOS, touch use with a real finger. Karma tests the extracted building blocks, not the whole call screen. The width model counts
 conservatively, so on a moderator's bar narrower than about 390 px "Für alle beenden" is already in the sheet (still last there); it is still in the bar on wider screens.
+
+== V1.9.74 -- Encounter room: icon bar, exit group, "Mehr" sheet
+
+Client only; no server, RPC or database change. Three new texts ("Szene ausblenden", "Ausgang", "Weitere Bedienelemente") in all seven catalogs (agent translations, not checked by native
+speakers); "Szene aus" / "Szene ein" were replaced by the stable "Szene ausblenden" (the state is `aria-pressed`). Architecture: `encounter-space.adoc`, "The control bar (V1.9.74)".
+
+* **R58, third named exception (c).** An icon-only button without `btn-sm` also exists through `encounterControlButton` (`encounter/EncounterControlBar.kt`, the only call of
+  `newIconOnlyActionButton` of the encounter room). `ClientToolbarIconTripwireTest`: the R58 ledger is `ChatComposer.kt`, `ConferenceControlBar.kt`, `EncounterControlBar.kt` one call each;
+  `encounterControlButton` is used only in `EncounterControlBar.kt` (declaration), `EncounterRoom.kt` (7) and `EncounterPulpitControls.kt` (2). The reactions stay `actionButton`s with a word.
+* **Exit group.** "Türen schließen" and "Verlassen" in their own group at the end of the bar, 12 px apart, "Verlassen" last. *No confirmation for "Verlassen"* (project owner's decision:
+  leaving is reversible, you can enter again); it locks itself at the first click. The page header has no leave button any more.
+* **Slip protection for the doors.** Confirmation with the focus on "Abbrechen" (`focusCancel = true`), fires once, one path from bar and sheet twin; `ActionIcon.CLOSE_DOORS` occurs in
+  exactly three places of `EncounterRoom.kt` (bar button, twin, dialog confirmation).
+* **State, not label.** Toggles carry `aria-pressed`, openers `aria-expanded` / `aria-controls`; a label never changes. The ring (`[aria-pressed="true"]`) uses two bands so that it also shows on a
+  filled button.
+* **The bar never wraps, never scrolls** (`flex-wrap: nowrap`, no `overflow-x`); overflow moves controls into the "Mehr" sheet (`ControlBarOverflow`, shared with the conference bar, whose
+  tests are unchanged). The sheet is a scroll surface of ledger class E1 (`ScrollSurfaceTripwireTest`, `ALLOWED_SCROLLER_SELECTORS`).
+* **New icon.** `ActionIcon.MORE` (`fa-ellipsis`) -- used by the encounter bar only; the conference bar's own "Mehr" keeps its raw string (no behaviour change there).
+* **Follow-ups (not done here).** The help pages `gathering-room` (EN, DE) and `video-conferencing` (the statement "never next to Verlassen") on the website are to be updated at the rollout.
+  The microphone of the *conference* still changes its label with its state (older debt); not touched here.
+
+*Not verified:* real devices, Safari and iOS, a real finger on the 44 px targets, a screen reader. The width model counts conservatively (it uses the bar's gap for the gaps inside a group).

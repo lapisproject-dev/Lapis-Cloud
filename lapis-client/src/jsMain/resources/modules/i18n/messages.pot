@@ -19528,7 +19528,7 @@ msgstr ""
 msgid "Neue Nachrichten"
 msgstr ""
 
-msgid "Szene aus"
+msgid "Szene ausblenden"
 msgstr ""
 
 msgid "Türen schließen"
@@ -19538,9 +19538,6 @@ msgid "Amen aus der Gemeinde"
 msgstr ""
 
 msgid "%1 hebt die Hand"
-msgstr ""
-
-msgid "Szene ein"
 msgstr ""
 
 msgid "Türen schließen?"
@@ -19790,4 +19787,12 @@ msgid "Weitere Teilnehmende: %1"
 msgstr ""
 
 msgid "Eigenbild"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterControlBar.kt
+msgid "Ausgang"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
+msgid "Weitere Bedienelemente"
 msgstr ""

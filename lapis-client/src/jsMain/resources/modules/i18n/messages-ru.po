@@ -20435,7 +20435,7 @@ msgstr "Подождите немного."
 msgid "Neue Nachrichten"
 msgstr "Новые сообщения"
 
-msgid "Szene aus"
+msgid "Szene ausblenden"
 msgstr "Скрыть сцену"
 
 msgid "Türen schließen"
@@ -20446,9 +20446,6 @@ msgstr "Аминь от прихожан"
 
 msgid "%1 hebt die Hand"
 msgstr "%1 поднимает руку"
-
-msgid "Szene ein"
-msgstr "Показать сцену"
 
 msgid "Türen schließen?"
 msgstr "Закрыть двери?"
@@ -20736,3 +20733,11 @@ msgstr "Остальные участники: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceFloatWindow.kt
 msgid "Eigenbild"
 msgstr "Собственное изображение"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterControlBar.kt
+msgid "Ausgang"
+msgstr "Выход"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
+msgid "Weitere Bedienelemente"
+msgstr "Дополнительные элементы управления"

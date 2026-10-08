@@ -25,6 +25,7 @@ internal val ALLOWED_SCROLLER_SELECTORS =
         ".lapis-conference-chat",
         ".lapis-conference-voting",
         ".lapis-conference-more-sheet",
+        ".lapis-encounter-more-sheet",
         ".lapis-conference-call-panel.lapis-conference-fullscreen",
         ".lapis-encounter-room.is-pseudo-fullscreen",
         ".lapis-conference-filmstrip",

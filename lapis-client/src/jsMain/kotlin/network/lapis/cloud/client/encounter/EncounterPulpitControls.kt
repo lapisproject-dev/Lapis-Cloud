@@ -14,6 +14,7 @@ import network.lapis.cloud.client.conferenceDeviceEnableErrorMessage
 import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceKind
 import network.lapis.cloud.client.notifyError
+import network.lapis.cloud.client.setAttrIfChanged
 
 /**
  * V1.9.62 Begegnungsraum (B2) -- the own-device controls of an OFFICE HOLDER (pulpit or steward). The ONLY encounter UI that touches a
@@ -32,8 +33,8 @@ internal class EncounterPulpitControls(
     band: Container,
     private val session: EncounterSpeakerSession,
 ) {
-    private val micButton: Button = toolbar.actionButton(ActionIcon.MICROPHONE, tr("Mikrofon"))
-    private val cameraButton: Button = toolbar.actionButton(ActionIcon.CAMERA, tr("Kamera"))
+    internal val micButton: Button = toolbar.encounterControlButton(ActionIcon.MICROPHONE, tr("Mikrofon"))
+    internal val cameraButton: Button = toolbar.encounterControlButton(ActionIcon.CAMERA, tr("Kamera"))
     private val micBand: Div = band.div(className = "lapis-encounter-mic-band d-flex align-items-center gap-2")
     private var micOn = false
     private var cameraOn = false
@@ -98,10 +99,17 @@ internal class EncounterPulpitControls(
     }
 
     private fun render() {
-        micButton.setAttribute("aria-pressed", micOn.toString())
-        cameraButton.setAttribute("aria-pressed", cameraOn.toString())
+        // The label stays ("Mikrofon", "Kamera"); the state is `aria-pressed`, the filled style and the slash symbol (never colour alone).
+        micButton.setAttrIfChanged("aria-pressed", micOn.toString())
+        cameraButton.setAttrIfChanged("aria-pressed", cameraOn.toString())
         micButton.style = if (micOn) ButtonStyle.PRIMARY else ButtonStyle.OUTLINESECONDARY
         cameraButton.style = if (cameraOn) ButtonStyle.PRIMARY else ButtonStyle.OUTLINESECONDARY
+        val micIcon = if (micOn) "fas fa-microphone" else "fas fa-microphone-slash"
+        val cameraIcon = if (cameraOn) "fas fa-video" else "fas fa-video-slash"
+        if (micButton.icon != micIcon) micButton.icon = micIcon
+        if (cameraButton.icon != cameraIcon) cameraButton.icon = cameraIcon
+        if (micOn) micButton.removeCssClass("text-danger") else micButton.addCssClass("text-danger")
+        if (cameraOn) cameraButton.removeCssClass("text-danger") else cameraButton.addCssClass("text-danger")
         if (micOn) micBand.hide() else micBand.show()
     }
 }

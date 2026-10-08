@@ -308,11 +308,15 @@ internal fun usesByEnclosingFunction(
     return result
 }
 
-/** The two (and only two) places that may build an icon-only button without `btn-sm` (R58 named exceptions a and b, V1.9.66). */
+/**
+ * The three (and only three) places that may build an icon-only button without `btn-sm` (R58 named exceptions a and b, V1.9.66; c, the
+ * encounter room's bar, V1.9.74).
+ */
 private val R58_ICON_ONLY_FACTORY_CALLS: Map<String, Map<String, Int>> =
     mapOf(
         "ChatComposer.kt" to mapOf("lapisChatComposer" to 1),
         "ConferenceControlBar.kt" to mapOf("conferenceControlButton" to 1),
+        "EncounterControlBar.kt" to mapOf("encounterControlButton" to 1),
     )
 
 /** The declaration line(s) `val controlsRow =` plus the line after it, as one text. */
@@ -506,7 +510,9 @@ class ClientToolbarIconTripwireTest :
                 mapOf("lapisChatComposer" to 1, "somewhereElse" to 1)
         }
 
-        test("R58 (V1.9.66): newIconOnlyActionButton is called only by lapisChatComposer and conferenceControlButton -- one call each") {
+        test(
+            "R58 (V1.9.66, V1.9.74): newIconOnlyActionButton is called only by lapisChatComposer, conferenceControlButton and encounterControlButton -- one call each",
+        ) {
             val actual =
                 clientFiles()
                     .associate { it.name to callsByEnclosingFunction(source = it.readText(), name = "newIconOnlyActionButton") }
@@ -674,5 +680,99 @@ class ClientToolbarIconTripwireTest :
                 exit.contains("gap: 12px") shouldBe true
                 exit.contains("padding") shouldBe false
             }
+        }
+        // ── V1.9.74: the encounter room's icon bar (R58 named exception c), the exit group, the sheet ────────────────────────────
+
+        test("V1.9.74: encounterControlButton is built only by the encounter room's three files, with fixed counts") {
+            val actual =
+                clientFiles()
+                    .associate {
+                        it.name to
+                            codeLines(it.readText()).sumOf { line -> Regex("""\bencounterControlButton\(""").findAll(line).count() }
+                    }.filterValues { it > 0 }
+            withClue("the icon-only factory of the encounter bar stays inside the encounter room: $actual") {
+                actual shouldBe
+                    mapOf(
+                        // the declaration itself
+                        "EncounterControlBar.kt" to 1,
+                        // chat, more (panels), scene, full screen (view), transmission (moderation), doors, leave (exit)
+                        "EncounterRoom.kt" to 7,
+                        // microphone and camera
+                        "EncounterPulpitControls.kt" to 2,
+                    )
+            }
+        }
+
+        test(
+            "V1.9.74: the encounter bar's CSS never wraps and never scrolls sideways; the exit group keeps its 12 px and sits at the end",
+        ) {
+            val css = THEME_CSS.readText()
+            val bar = Regex("""\.lapis-encounter-controls\s*\{[^}]*\}""").find(css)?.value ?: ""
+            withClue("theme.css .lapis-encounter-controls: $bar") {
+                bar.contains("flex-wrap: nowrap") shouldBe true
+                bar.contains("flex-wrap: wrap") shouldBe false
+                Regex("""overflow-x:\s*(auto|scroll)""").containsMatchIn(bar) shouldBe false
+            }
+            val exit = Regex("""\.lapis-encounter-control-group--exit\s*\{[^}]*\}""").find(css)?.value ?: ""
+            withClue("theme.css .lapis-encounter-control-group--exit: $exit") {
+                exit.contains("gap: 12px") shouldBe true
+                exit.contains("margin-inline-start: auto") shouldBe true
+            }
+            Regex("""\.lapis-encounter-control-overflowed\s*\{[^}]*display:\s*none""").containsMatchIn(css) shouldBe true
+            val sheet = Regex("""\.lapis-encounter-more-sheet\s*\{[^}]*\}""").find(css)?.value ?: ""
+            withClue("the sheet is a scroll surface of ledger class E1 and sits above the bar: $sheet") {
+                sheet.contains("position: absolute") shouldBe true
+                sheet.contains("overflow: auto") shouldBe true
+            }
+        }
+
+        test(
+            "V1.9.74: ActionIcon.CLOSE_DOORS is used in exactly three places of EncounterRoom -- bar button, sheet twin, dialog confirmation",
+        ) {
+            val room = clientFiles().first { it.name == "EncounterRoom.kt" }.readText()
+            codeLines(room).sumOf { Regex("""ActionIcon\.CLOSE_DOORS""").findAll(it).count() } shouldBe 3
+        }
+
+        test("V1.9.74: closing the doors has one path -- the confirmation (focus on Abbrechen), reached from the bar and from the twin") {
+            val room = clientFiles().first { it.name == "EncounterRoom.kt" }.readText()
+            val dialog = room.substring(room.indexOf("private fun askCloseDoors()"))
+            val body = dialog.substring(0, dialog.indexOf("// ── timers"))
+            withClue("askCloseDoors: $body") {
+                body.contains("focusCancel = true") shouldBe true
+                body.contains("fullscreen.leaveIfActive()") shouldBe true
+            }
+            codeLines(room).count { it.contains("closeSpace(") } shouldBe 1
+            codeLines(room).count { it.contains("askCloseDoors()") } shouldBe 3 // declaration + bar click + twin action
+        }
+
+        test("V1.9.74: 'Verlassen' lives in the bar only -- the header of the service view has no leave button any more") {
+            val view = clientFiles().first { it.name == "EncounterServiceView.kt" }.readText()
+            codeLines(view).any { it.contains("ActionIcon.LEAVE") } shouldBe false
+            codeLines(view).any { it.contains("actionSlot.actionButton(") } shouldBe false
+            val room = clientFiles().first { it.name == "EncounterRoom.kt" }.readText()
+            codeLines(room).count { it.contains("ActionIcon.LEAVE") } shouldBe 1
+        }
+
+        test("V1.9.74: the icon bar writes its state through aria-pressed / aria-expanded, never through a changing label") {
+            val room = clientFiles().first { it.name == "EncounterRoom.kt" }.readText()
+            codeLines(room).any { Regex("""(sceneButton|fullscreenButton)\.text\s*=""").containsMatchIn(it) } shouldBe false
+            codeLines(room).any { it.contains("tr(\"Szene ein\")") || it.contains("tr(\"Vollbild beenden\")") } shouldBe false
+        }
+
+        test("V1.9.74: the sheet's document listeners are removed on close and on dispose, and the overflow observer is disposed") {
+            val room = clientFiles().first { it.name == "EncounterRoom.kt" }.readText()
+            val sheetListeners =
+                codeLines(room).count {
+                    it.contains("document.addEventListener(\"keydown\"") ||
+                        it.contains("document.addEventListener(\"click\"")
+                }
+            val removals =
+                codeLines(room).count {
+                    it.contains("document.removeEventListener(\"keydown\"") ||
+                        it.contains("document.removeEventListener(\"click\"")
+                }
+            withClue("every document listener of the sheet has a removal") { removals shouldBe sheetListeners }
+            room.contains("overflow.dispose()") shouldBe true
+            codeLines(room).any { it.contains("addAfterInsertHook") } shouldBe false
         }
     })

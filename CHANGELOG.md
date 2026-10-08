@@ -8,6 +8,15 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Encounter room: icon-only control bar, exit group, "Mehr" sheet (V1.9.74).** The bar under the stage shows symbols only (the reactions keep their word from 768 px); every control has a name
+  and a tooltip, and a toggle shows its state through `aria-pressed` with a ring instead of a changing label ("Szene ausblenden", "Vollbild", microphone and camera with the slash symbol).
+  "Türen schließen" and "Verlassen" form an exit group at the end of the bar, 12 px apart; "Verlassen" is always last (no confirmation, it locks itself at the first click) and the leave
+  button of the page header is gone. The bar never wraps and never scrolls: what does not fit moves into a non-modal "Mehr" sheet with labelled twins (full screen, scene, transmission, event
+  reactions, doors, chat -- in that order; hand, devices and "Verlassen" never move); the doors twin leads to the same confirmation, now with the focus on "Abbrechen". The overflow
+  mechanism of the conference bar was generalised (`ControlBarOverflow`); the conference behaviour and tests are unchanged. R58 gets a third named exception (`encounterControlButton`).
+  Three new texts in all seven catalogs ("Szene ausblenden", "Ausgang", "Weitere Bedienelemente"); "Szene aus" / "Szene ein" were removed. No server, RPC or database change.
+  Follow-ups: update the website help pages `gathering-room` (EN, DE) and `video-conferencing` at the rollout; the conference microphone still changes its label with its state.
+
 - **Keycloak: create a member on the first login (V1.9.73, opt-in, default off).** With `LAPIS_KEYCLOAK_AUTO_PROVISION=true` and `LAPIS_KEYCLOAK_PROVISION_GROUP`, a person who logs in
   through Keycloak, whose verified ID token carries that group and for whom no member matches, becomes an **ACTIVE** member at once: role `MEMBER` (a constant, never read from a claim),
   no password, no tier, no regional chapter, a member number, a status-history row (source `KEYCLOAK_JIT`), the `MEMBER_CREATED` webhook, one `MEMBER`/`CREATE` audit entry (flags only,

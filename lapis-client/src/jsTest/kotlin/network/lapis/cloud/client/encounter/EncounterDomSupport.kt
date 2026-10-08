@@ -4,6 +4,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.builtins.ListSerializer
 import network.lapis.cloud.client.RecordedRequest
 import network.lapis.cloud.client.StubResponse
+import network.lapis.cloud.client.allOf
 import network.lapis.cloud.client.answerWith
 import network.lapis.cloud.client.awaitUntil
 import network.lapis.cloud.client.jsonOf
@@ -28,6 +29,7 @@ import network.lapis.cloud.shared.domain.EncounterSpaceRole
 import network.lapis.cloud.shared.domain.EncounterTheme
 import network.lapis.cloud.shared.rpc.IEncounterSpaceService
 import org.w3c.dom.HTMLElement
+import kotlin.test.assertNotNull
 
 /** Shared fixtures of the encounter DOM tests (V1.9.62). */
 internal fun testSpace(
@@ -174,6 +176,18 @@ internal fun HTMLElement.seatNames(): List<String?> =
         }
     }
 
+/** The buttons of the control bar (not of the "Mehr" sheet) in DOM order. */
+internal fun HTMLElement.barButtons(): List<HTMLElement> = allOf(".lapis-encounter-controls button")
+
+/** The accessible name of a bar control: `aria-label` of an icon-only button, the text of a reaction. */
+internal fun HTMLElement.barName(): String = getAttribute("aria-label") ?: textContent.orEmpty().trim()
+
+/** V1.9.74: the bar's controls are icon-only, so they are found by their accessible name -- and only in the bar. */
+internal fun HTMLElement.barControl(name: String): HTMLElement =
+    assertNotNull(barButtons().firstOrNull { it.barName() == name }, "no bar control '$name' in ${barControlNames()}")
+
+internal fun HTMLElement.barControlNames(): List<String> = barButtons().map { it.barName() }
+
 /** Visible in the layout: an element (or an ancestor) with `display: none` has an empty box. */
 internal fun HTMLElement.isShown(): Boolean = getBoundingClientRect().let { it.width > 0 || it.height > 0 }
 
@@ -196,6 +210,8 @@ internal suspend fun withEncounterRoom(
     session: FakeListenerSession = FakeListenerSession(dataAllowed = entry.canPublishData),
     extraRespond: (RecordedRequest) -> StubResponse? = { null },
     space: EncounterSpaceDto = testSpace(),
+    onLeave: () -> Unit = {},
+    onDoorsClosed: () -> Unit = {},
     block: suspend (EncounterRoomRig, HTMLElement) -> Unit,
 ) {
     val presentRoute = routeOf { rpcService<IEncounterSpaceService>().listPresent("space-1") }
@@ -217,13 +233,19 @@ internal suspend fun withEncounterRoom(
                     entry = entry,
                     viewer = testRights(entry = entry, privileged = privileged),
                     clock = clock,
-                    onDoorsClosed = {},
+                    onLeave = onLeave,
+                    onDoorsClosed = onDoorsClosed,
                     onConnectionLost = {},
                 )
             room.bind(session)
             room.afterConnected()
             awaitUntil("the first roster arrived") { room.rosterReady }
-            block(EncounterRoomRig(room, session, requests), element())
+            try {
+                block(EncounterRoomRig(room, session, requests), element())
+            } finally {
+                // A room that outlives its test keeps polling into the next test's fetch stub.
+                room.dispose()
+            }
         }
     }
 }

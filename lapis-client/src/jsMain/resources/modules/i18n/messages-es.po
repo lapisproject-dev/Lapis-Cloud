@@ -20410,7 +20410,7 @@ msgstr "Espere un momento."
 msgid "Neue Nachrichten"
 msgstr "Mensajes nuevos"
 
-msgid "Szene aus"
+msgid "Szene ausblenden"
 msgstr "Ocultar escena"
 
 msgid "Türen schließen"
@@ -20421,9 +20421,6 @@ msgstr "Amén de la congregación"
 
 msgid "%1 hebt die Hand"
 msgstr "%1 levanta la mano"
-
-msgid "Szene ein"
-msgstr "Mostrar escena"
 
 msgid "Türen schließen?"
 msgstr "¿Cerrar las puertas?"
@@ -20711,3 +20708,11 @@ msgstr "Otros participantes: %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceFloatWindow.kt
 msgid "Eigenbild"
 msgstr "Su propia imagen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterControlBar.kt
+msgid "Ausgang"
+msgstr "Salida"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
+msgid "Weitere Bedienelemente"
+msgstr "Más controles"
