@@ -235,7 +235,7 @@ Side effects live in one place, `ConferenceDock.dispatch`:
 current route in the sidebar), so detaching is keyed by a per-screen token.
 
 |Route change back ("Zur Konferenz" in the bar or the window)
-|`attachView(token, fromBar)`: the host is shown, stalled videos are resumed, the bar re-measures, and only a click from the bar moves
+|`attachView(token, fromBar)`: the host is shown, stalled videos are resumed, the bar re-measures, and only a click from the bar or the window moves
 the focus into the view (after the route's own focus handling).
 |Navigation only: it never joins.
 
@@ -295,7 +295,7 @@ anywhere, from a `DockSnapshot` (no personal data, no room title, no room id):
 
 The controls are the same functions the call view's buttons call (`DockableSession`: `toggleMic`, `toggleCamera`, `stopScreenShare`,
 `leave`). "Verlassen" with a secret-ballot receipt on screen does not leave: it takes the person to the view (leaving would lose the
-receipt, exactly as the unload guard does). There is no moderation in the bar, no Escape handling, no shortcut, no animation and no
+receipt, exactly as the unload guard does). There is no moderation in the bar, no Escape handling, no shortcut of its own (since V1.9.71 the global Alt+Shift+K can move the focus to its first control, see "Keyboard model"), no animation and no
 transition.
 
 === End states

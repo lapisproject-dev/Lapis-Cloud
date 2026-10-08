@@ -91,7 +91,7 @@ All notable changes to this project are documented here. Format follows
 - The seven new-catalog translations are not checked by native speakers.
 - Still only one device per account at a time; the card says so. Multi-device support is planned (see below), not built.
 - Not checked inside the `Lapis-Cloud-Mobile` app: its WebView shows the full web client, so the dock, the mini bar and (on a WebView at least 768 px wide)
-  the floating window apply there too, but none of it was tried in the app.
+  the floating window presumably apply there too, but none of it was tried in the app.
 - Not tested with two real devices against a LiveKit server (that cannot be reproduced without one): a manual test on Staging with two computers is needed.
   Covered automatically: the pure rules (`ConferenceRejoinPolicyTest`), the reason mapping against the real `livekit-client` module (`DisconnectCauseTest`),
   the card itself (`ConferenceConnectionStoppedNoticeDomTest`), the encounter view (`EncounterServiceViewDomTest`) and the wiring as a source scan
