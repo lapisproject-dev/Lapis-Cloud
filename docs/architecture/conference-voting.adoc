@@ -537,8 +537,8 @@ the plaques; it still carries no rationale. Details: `consensus-ui.adoc`, sectio
 == The panel across a route change (V1.9.70)
 
 The room voting panel, the ballot poll and a secret-ballot receipt now live in the conference dock (`conference-dock.adoc`): leaving the conference page does not end the call,
-so none of them is torn down. The call view is only hidden; the poll keeps running, the receipt stays on screen in the hidden view, and the vote badge of the mini bar shows
-"Abstimmung läuft" while a ballot is open for the member.
+so none of them is torn down. The call view is only hidden; the poll keeps running, the receipt stays on screen in the hidden view, and the vote badge of the mini bar (since
+V1.9.71 also of the floating window) shows "Abstimmung läuft" while a ballot is open for the member. "Verlassen" in the floating window goes through the same receipt gate.
 
 * Undocking does NOT call `cleanupFullscreen()` (which would stop the ballot poll through `ConferenceVoteRuntime.disposeActive()`); it only leaves browser fullscreen and closes dialogs.
 * The receipt gate (`ConferenceReceiptGate`) still blocks leaving: "Verlassen" in the mini bar does not leave while a receipt is on screen or a ballot request is in flight, it takes the

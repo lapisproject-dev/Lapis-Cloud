@@ -299,6 +299,10 @@ The room view's teardown is the destroy hook of the screen root, registered *bef
 listener, disconnects the session and calls `leaveSpace`. A closing page does the same best effort on `pagehide` (a plain RPC can be cancelled by the browser then; the
 server's presence poller removes a stale row).
 
+Unlike a video conference since V1.9.70 (`conference-dock.adoc`), the encounter room is *not* kept in the conference dock: leaving its route still ends it as described
+above. It does not start while a conference holds the dock (`ConferenceDock.canJoin()`; the entry shows "Sie sind bereits in einer Besprechung. Verlassen Sie diese
+zuerst."). Becoming a second kind of dock session is a follow-up, not started.
+
 === Listen-only, three layers
 
 . The server mints the token with `canPublish = false` for everybody without an office (B1).

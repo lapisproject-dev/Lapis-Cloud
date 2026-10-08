@@ -813,6 +813,23 @@ speaking-priority reflow above ~12 participants) and D10 (a fully named client-s
 state machine) as still-open polish items for the next Videokonferenzen step — not yet built, see
 `ConferenceScreen.kt`'s own file KDoc.
 
+=== A conference across navigation (V1.9.69-V1.9.71, on `master`, not in a release tag yet)
+
+Client only, no server change; listed under `[Unreleased]` in `CHANGELOG.md`. **Navigating no longer ends the call** (V1.9.70): the call
+view is kept in a conference dock and only hidden, so microphone, camera, remote audio, chat, roster, running votes and a secret-ballot
+receipt keep running. While the call view is not on screen, a mini bar at the bottom of the page stands for it (status, recording /
+live-stream badges, "Abstimmung läuft", microphone, camera, stop sharing, "Verlassen", "Zur Konferenz"); from 768 px a small,
+non-modal **floating window** (V1.9.71) does so by default, with a big picture, up to three more pictures, the same controls, three sizes,
+drag and resize plus a full keyboard alternative; "Einklappen" turns it back into the bar, and its position and size are remembered on
+the device. A phone only gets the bar. There is one conference per browser tab. The call still ends with "Verlassen", "Für alle
+beenden", a kick, the end of the meeting, sign-out, an account switch, a language switch, and a reload or closing the tab.
+**One account, one device** (V1.9.69): a second sign-in with the same account evicts the first connection, which now shows "Auf einem
+anderen Gerät verbunden" with "Hier fortsetzen" / "Zur Übersicht" instead of re-joining by itself (automatic re-joins are bounded to
+3 per 60 s); multi-device support is planned, not built. The encounter room is not part of the dock (leaving its page still ends it).
+**Not verified**: no test with a real call, real participants, two real devices, Safari/iOS or a real phone; no picture-in-picture and no
+chat in the floating window; the new texts are agent translations not checked by native speakers. See
+link:docs/architecture/conference-dock.adoc[conference-dock.adoc].
+
 == Payment service providers (Stripe + PayPal)
 
 Welle V1.2.8 (GitHub Issue #6) let members pay contributions and leave donations through a

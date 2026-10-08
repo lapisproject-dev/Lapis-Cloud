@@ -59,7 +59,8 @@ All notable changes to this project are documented here. Format follows
   replaced by a calm card ("Auf einem anderen Gerät verbunden") with "Hier fortsetzen" (one deliberate attempt, which disconnects the other device) and
   "Zur Übersicht". Camera and microphone are off and the session is gone before the card renders; the participation on the server is deliberately not closed
   (it belongs to the member and with it to the device that is still in the call).
-- **The automatic re-join after a disconnect is bounded**: at most 3 per 60 s per screen (`AutoRejoinGuard`), then the card "Verbindung mehrmals getrennt" with
+- **The automatic re-join after a disconnect is bounded**: at most 3 per 60 s (`AutoRejoinGuard`; one per screen in V1.9.69, since V1.9.70 one for the whole
+  client, kept in the dock -- see "Changed"), then the card "Verbindung mehrmals getrennt" with
   "Erneut beitreten". A deliberate click (including joining from the lobby) starts a fresh window. The automatic hand-over into a breakout room stays as it was
   (it is only triggered by a moderator) -- it is not covered by this guard.
 - **Encounter room**: a `DUPLICATE_IDENTITY` disconnect shows the same card instead of up to three rounds of mutual eviction; no `getSpace`, no re-entry, no
@@ -88,7 +89,9 @@ All notable changes to this project are documented here. Format follows
 - `adaptiveStream` is off, so remote videos of a hidden call view keep loading (bandwidth). Dynacast and the subscription logic are unchanged.
 - The narrow two-row bar is covered by a view-model test and a CSS review, not by a 360 px browser test (Karma runs at a fixed width).
 - The seven new-catalog translations are not checked by native speakers.
-- Still only one device per account at a time; the card says so.
+- Still only one device per account at a time; the card says so. Multi-device support is planned (see below), not built.
+- Not checked inside the `Lapis-Cloud-Mobile` app: its WebView shows the full web client, so the dock, the mini bar and (on a WebView at least 768 px wide)
+  the floating window apply there too, but none of it was tried in the app.
 - Not tested with two real devices against a LiveKit server (that cannot be reproduced without one): a manual test on Staging with two computers is needed.
   Covered automatically: the pure rules (`ConferenceRejoinPolicyTest`), the reason mapping against the real `livekit-client` module (`DisconnectCauseTest`),
   the card itself (`ConferenceConnectionStoppedNoticeDomTest`), the encounter view (`EncounterServiceViewDomTest`) and the wiring as a source scan
@@ -97,8 +100,8 @@ All notable changes to this project are documented here. Format follows
 ### Planned (backlog, not started)
 
 - Multi-device support (an own LiveKit identity per device; needs a server change).
-- Step 2: a free-floating conference window (or Document Picture-in-Picture) on top of the dock, and the encounter room as a second dock session (`DockSessionKind.ENCOUNTER`
-  is declared, nothing uses it yet).
+- Document Picture-in-Picture, and the encounter room as a second dock session (`DockSessionKind.ENCOUNTER` is declared, nothing uses it yet). The free-floating
+  window itself was delivered in V1.9.71 (see "Added").
 
 ## [0.30.0] — 2026-10-07
 
