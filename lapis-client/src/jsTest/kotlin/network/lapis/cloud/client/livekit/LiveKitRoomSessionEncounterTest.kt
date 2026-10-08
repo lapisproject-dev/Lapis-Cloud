@@ -4,6 +4,8 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.promise
 import network.lapis.cloud.client.encounter.EncounterReactionWire
 import network.lapis.cloud.shared.domain.ENCOUNTER_REACTION_TOPIC
+import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_TOPIC
 import network.lapis.cloud.shared.domain.EncounterReaction
 import org.khronos.webgl.Uint8Array
 import kotlin.js.Promise
@@ -97,6 +99,7 @@ class LiveKitRoomSessionEncounterTest {
         val fake = FakeRoom().also { it.canPlay = canPlay }
         val reactions = mutableListOf<Pair<String, EncounterReaction>>()
         val playback = mutableListOf<Boolean>()
+        val seatNudges = mutableListOf<String>()
         var chats = 0
 
         val session =
@@ -123,6 +126,7 @@ class LiveKitRoomSessionEncounterTest {
                 publishEnabled = publishEnabled,
                 onEncounterReaction = { sender, reaction -> reactions += sender to reaction },
                 onAudioPlaybackChanged = { playback += it },
+                onEncounterSeatNudge = { seatNudges += it },
             )
     }
 
@@ -226,5 +230,42 @@ class LiveKitRoomSessionEncounterTest {
             assertEquals(listOf(false, true), h.playback)
             h.session.startAudio()
             assertEquals(1, h.fake.startAudioCalls)
+        }
+
+    // ── V1.9.79: the seat nudge ──────────────────────────────────────────────────
+
+    @Test
+    fun aSeatNudge_reportsOnlyTheSdkIdentity_andNeverReadsThePayload() =
+        GlobalScope.promise {
+            val h = Harness(publishEnabled = false)
+            h.session.connect("wss://example.invalid", "token")
+            h.fake.emitData(bytesOf("""{"s":1}"""), ENCOUNTER_SEAT_NUDGE_TOPIC, identity = "real-identity")
+            // a payload that is not even JSON is still a valid nudge: it is never decoded, only measured
+            h.fake.emitData(bytesOf("junk"), ENCOUNTER_SEAT_NUDGE_TOPIC, identity = "other")
+            assertEquals(listOf("real-identity", "other"), h.seatNudges)
+        }
+
+    @Test
+    fun anOversizedSeatNudge_isDroppedUnread_andTheOtherTopicsDoNotTriggerIt() =
+        GlobalScope.promise {
+            val h = Harness(publishEnabled = false)
+            h.session.connect("wss://example.invalid", "token")
+            h.fake.emitData(Uint8Array(ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES + 1), ENCOUNTER_SEAT_NUDGE_TOPIC)
+            h.fake.emitData(Uint8Array(64 * 1024), ENCOUNTER_SEAT_NUDGE_TOPIC)
+            h.fake.emitData(bytesOf("""{"s":1}"""), ENCOUNTER_REACTION_TOPIC)
+            h.fake.emitData(bytesOf("""{"s":1}"""), LiveKitRoomSession.CHAT_TOPIC)
+            assertTrue(h.seatNudges.isEmpty())
+            assertTrue(h.reactions.isEmpty())
+        }
+
+    @Test
+    fun sendEncounterSeatNudge_publishesOneReliableTinyPacketOnItsOwnTopic() =
+        GlobalScope.promise {
+            val h = Harness(publishEnabled = false)
+            h.session.connect("wss://example.invalid", "token")
+            h.session.sendEncounterSeatNudge()
+            val (topic, length) = h.fake.published.single()
+            assertEquals(ENCOUNTER_SEAT_NUDGE_TOPIC, topic)
+            assertTrue(length <= ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES, "the nudge fits the receiver's size limit: $length")
         }
 }

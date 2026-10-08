@@ -20786,3 +20786,159 @@ msgstr "Osoby pełniące funkcje otrzymują anonimowy e-mail, gdy wchodzi pierws
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterSpaceScreen.kt
 msgid "Amtsträger erhalten eine anonyme E-Mail bei jeder Person ohne Amt"
 msgstr "Osoby pełniące funkcje otrzymują anonimowy e-mail, gdy wchodzi dowolna osoba bez funkcji"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterPresentPanel.kt
+msgid "Reihe %1"
+msgstr "Rząd %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
+msgid "Eine Person ist hinzugekommen."
+msgstr "Dołączyła jedna osoba."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
+msgid "Bitte warten Sie einen Moment und versuchen Sie es erneut."
+msgstr "Proszę chwilę zaczekać i spróbować ponownie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTile.kt
+msgid "spricht"
+msgstr "mówi"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTile.kt
+msgid "%1, spricht"
+msgstr "%1, mówi"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Sitzplan"
+msgstr "Plan miejsc"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Die Mikrofone der Gemeinde sind aus."
+msgstr "Mikrofony zboru są wyłączone."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Die Mikrofone der Teilnehmenden sind aus."
+msgstr "Mikrofony uczestników są wyłączone."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Reihe %1, Platz %2, frei. Diesen Platz wählen"
+msgstr "Rząd %1, miejsce %2, wolne. Wybrać to miejsce"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Reihe %1, Stuhl %2, frei. Diesen Stuhl wählen"
+msgstr "Rząd %1, krzesło %2, wolne. Wybrać to krzesło"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Reihe %1, Platz %2, frei"
+msgstr "Rząd %1, miejsce %2, wolne"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Reihe %1, Stuhl %2, frei"
+msgstr "Rząd %1, krzesło %2, wolne"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Reihe %1, Platz %2, besetzt, %3"
+msgstr "Rząd %1, miejsce %2, zajęte, %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Reihe %1, Stuhl %2, besetzt, %3"
+msgstr "Rząd %1, krzesło %2, zajęte, %3"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Reihe %1, Platz %2, Ihr Platz"
+msgstr "Rząd %1, miejsce %2, Państwa miejsce"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Reihe %1, Stuhl %2, Ihr Stuhl"
+msgstr "Rząd %1, krzesło %2, Państwa krzesło"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid ", Hand erhoben"
+msgstr ", podniesiona ręka"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid ", Reaktion: %1"
+msgstr ", reakcja: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Sie sitzen jetzt in Reihe %1, Platz %2."
+msgstr "Siedzą Państwo teraz w rzędzie %1, na miejscu %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Sie sitzen jetzt in Reihe %1, auf Stuhl %2."
+msgstr "Siedzą Państwo teraz w rzędzie %1, na krześle %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Sie haben Ihren Platz freigegeben."
+msgstr "Zwolnili Państwo swoje miejsce."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Sie haben Ihren Stuhl freigegeben."
+msgstr "Zwolnili Państwo swoje krzesło."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Dieser Platz ist inzwischen besetzt. Bitte wählen Sie einen anderen."
+msgstr "To miejsce zostało w międzyczasie zajęte. Proszę wybrać inne."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Dieser Stuhl ist inzwischen besetzt. Bitte wählen Sie einen anderen."
+msgstr "To krzesło zostało w międzyczasie zajęte. Proszę wybrać inne."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Tippen Sie auf einen freien Platz, um sich zu setzen."
+msgstr "Proszę dotknąć wolnego miejsca, aby usiąść."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Tippen Sie auf einen freien Stuhl, um sich zu setzen."
+msgstr "Proszę dotknąć wolnego krzesła, aby usiąść."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Noch ohne Platz"
+msgstr "Jeszcze bez miejsca"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Platz freigeben"
+msgstr "Zwolnić miejsce"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Stuhl freigeben"
+msgstr "Zwolnić krzesło"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Platz über eine Liste wählen"
+msgstr "Wybrać miejsce z listy"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Stuhl über eine Liste wählen"
+msgstr "Wybrać krzesło z listy"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Ihr Platz: Reihe %1, Platz %2"
+msgstr "Państwa miejsce: rząd %1, miejsce %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Ihr Stuhl: Reihe %1, Stuhl %2"
+msgstr "Państwa krzesło: rząd %1, krzesło %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Sie haben noch keinen Platz."
+msgstr "Nie mają Państwo jeszcze miejsca."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Sie haben noch keinen Stuhl."
+msgstr "Nie mają Państwo jeszcze krzesła."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Es ist kein Platz mehr frei."
+msgstr "Nie ma już wolnego miejsca."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Es ist kein Stuhl mehr frei."
+msgstr "Nie ma już wolnego krzesła."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Reihe %1, Platz %2 wählen"
+msgstr "Wybrać rząd %1, miejsce %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Reihe %1, Stuhl %2 wählen"
+msgstr "Wybrać rząd %1, krzesło %2"

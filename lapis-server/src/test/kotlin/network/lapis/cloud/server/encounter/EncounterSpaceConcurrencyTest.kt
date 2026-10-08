@@ -74,6 +74,35 @@ abstract class EncounterSpaceConcurrencyScenarios(
         }
 
         test(
+            "V1.9.79: N people choosing the SAME seat at once: exactly one wins, every other caller gets a conflict, nobody holds two seats",
+        ) {
+            val rig = EncounterRig()
+            val steward = fx.createMember()
+            val space = fx.createSpace(createdBy = fx.createMember())
+            fx.setRole(spaceId = space, memberId = steward, role = EncounterSpaceRole.STEWARD)
+            val members = List(10) { fx.createMember() }
+            encounterApp {
+                rig.asMember(client = client, member = steward) { it.openSpace(space.toString()) }.getOrThrow()
+                members.forEach { m ->
+                    rig.asMember(client = client, member = m) { it.enterSpace(spaceId = space.toString(), consent = null) }.getOrThrow()
+                }
+                val results =
+                    parallel(n = members.size) { i ->
+                        rig.asMember(client = client, member = members[i]) { it.selectSeat(spaceId = space.toString(), seat = 7) }
+                    }
+                results.count { it.isSuccess } shouldBe 1
+                results.filter { it.isFailure }.forEach { (it.exceptionOrNull() is ConflictException) shouldBe true }
+                val seated =
+                    rig
+                        .asMember(client = client, member = members[0]) { it.listPresent(space.toString()) }
+                        .getOrThrow()
+                        .filter { it.seat != null }
+                seated.size shouldBe 1
+                seated.single().seat shouldBe 7
+            }
+        }
+
+        test(
             "closeSpace racing a crowd of entries: afterwards the session is closed, NO presence row remains, nobody entered a closed session",
         ) {
             val rig = EncounterRig()
@@ -161,6 +190,7 @@ abstract class EncounterSpaceConcurrencyScenarios(
                     EncounterSpacePoller(
                         liveKitAdminClient = rig.liveKit,
                         moderationState = rig.moderationState,
+                        seatState = rig.seatState,
                         entryNotifier = rig.entryNotifier,
                         liveKitEnabled = true,
                     )

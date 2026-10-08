@@ -1,14 +1,19 @@
 package network.lapis.cloud.client.encounter
 
 import dev.kilua.rpc.RpcSerialization
+import kotlinx.serialization.Serializable
 import network.lapis.cloud.shared.domain.EncounterNotifyMode
+import network.lapis.cloud.shared.domain.EncounterPresenceRole
+import network.lapis.cloud.shared.domain.EncounterPresentDto
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.EncounterSpaceInput
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * V1.9.67 -- C1: wire compatibility of the new `profile`/`reactions` fields, with the JSON configuration Kilua RPC really uses (not a
@@ -85,5 +90,49 @@ class EncounterWireCompatTest {
                 EncounterSpaceInput(title = "x", notifyMode = EncounterNotifyMode.FIRST_GUEST),
             )
         assertEquals(EncounterNotifyMode.FIRST_GUEST, json.decodeFromString(EncounterSpaceInput.serializer(), text).notifyMode)
+    }
+
+    // ── V1.9.79: the `seat` field of EncounterPresentDto, last and with a default -- compatible both ways ──────────
+
+    private val presentBase = """"memberId":"m1","displayName":"Anna","role":"CONGREGATION","isGuest":false"""
+
+    /** What an old, cached tab knows of a present person (no `seat`). */
+    @Serializable
+    private class OldPresent(
+        val memberId: String,
+        val displayName: String,
+        val role: EncounterPresenceRole,
+        val isGuest: Boolean,
+    )
+
+    @Test
+    fun aPersonWithoutSeat_decodesToNull_aPersonWithSeat_toTheSeat() {
+        val old = RpcSerialization.getJson().decodeFromString(EncounterPresentDto.serializer(), "{$presentBase}")
+        assertNull(old.seat)
+        val new = RpcSerialization.getJson().decodeFromString(EncounterPresentDto.serializer(), "{$presentBase,\"seat\":17}")
+        assertEquals(17, new.seat)
+    }
+
+    @Test
+    fun anOldClient_decodesTheNewJson_theUnknownSeatKeyIsIgnored() {
+        val decoded = RpcSerialization.getJson().decodeFromString(OldPresent.serializer(), "{$presentBase,\"seat\":17}")
+        assertEquals("Anna", decoded.displayName)
+    }
+
+    @Test
+    fun theServerWritesNoSeatKeyForAnUnseatedPerson_andTheSeatForASeatedOne() {
+        val json = RpcSerialization.getJson()
+        val unseated =
+            json.encodeToString(
+                EncounterPresentDto.serializer(),
+                EncounterPresentDto("m", "A", EncounterPresenceRole.CONGREGATION, false),
+            )
+        assertFalse(unseated.contains("seat"), unseated)
+        val seated =
+            json.encodeToString(
+                EncounterPresentDto.serializer(),
+                EncounterPresentDto("m", "A", EncounterPresenceRole.CONGREGATION, false, seat = 3),
+            )
+        assertTrue(seated.contains("\"seat\":3"), seated)
     }
 }

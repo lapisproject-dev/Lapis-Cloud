@@ -78,6 +78,7 @@ private data class OpenSession(
 class EncounterSpacePoller(
     private val liveKitAdminClient: LiveKitAdminClient,
     private val moderationState: EncounterModerationState,
+    private val seatState: EncounterSeatState,
     private val entryNotifier: EncounterEntryNotifier,
     private val liveKitEnabled: Boolean,
     private val intervalSeconds: Long = 60,
@@ -112,6 +113,12 @@ class EncounterSpacePoller(
             if (purged > 0) logger.info { "encounter poller: $purged orphaned presence row(s) of ended sessions deleted" }
         } catch (e: Exception) {
             logger.error { "encounter poller: the cleanup of ended sessions failed (${e::class.simpleName})" }
+        }
+        try {
+            val openRoomIds = transaction { loadOpenSessions() }.map { it.roomId }.toSet()
+            seatState.retainOnly(openRoomIds)
+        } catch (e: Exception) {
+            logger.error { "encounter poller: the seat table cleanup failed (${e::class.simpleName})" }
         }
         if (!liveKitEnabled) return
         try {
@@ -226,6 +233,8 @@ class EncounterSpacePoller(
                 if (confirmed.isEmpty()) {
                     0
                 } else {
+                    // V1.9.79: seats go with the presence row (in memory, idempotent).
+                    seatState.releaseAll(sessionRoomId = session.roomId, memberIds = confirmed)
                     ConferenceParticipationTable.deleteWhere {
                         (ConferenceParticipationTable.roomId eq session.roomId) and
                             (ConferenceParticipationTable.joinedAt less cutoff) and
@@ -267,6 +276,7 @@ class EncounterSpacePoller(
             }
         }
         moderationState.clear(session.roomId)
+        seatState.clear(session.roomId)
         entryNotifier.clearSession(session.roomId)
         logger.info { "encounter poller: a session was closed ($reason)" }
     }

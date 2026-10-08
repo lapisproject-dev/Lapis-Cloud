@@ -321,14 +321,13 @@ A steward starts with both off.
 * *Two layers* (design team, Duarte): the scene `lapis-encounter-scene-front`/`-rows` are decorative CSS masks of the floor plans under `/assets/encounter-themes/<theme>/` (since V1.9.67, see <<stage-1>>; set inline by the layout, colour and visibility from `theme.css`; own drawings, vector only, `aria-hidden`);
   the stage on top holds opaque surfaces (pulpit, stewards' strip, seats, name labels), so text never sits on the motif. Contrast pairs are documented in `theme.css`
   (`--lapis-encounter-*`, light and dark). "Szene aus" removes the layer; forced-colours and `prefers-contrast: more` hide it automatically.
-* *Pews* (`EncounterSeating`): 2 blocks of 3 seats per row, an aisle between, filled alternately left/right from the front; the plan grows by one row of six when full and never
-  shrinks. A seat never moves; a leaving person leaves an empty seat. The plan is *per device* (nothing is synchronised, nothing could record who sat where); the people already
-  present sit down in name order so the order of arrival is not readable. Only people `listPresent` names get a seat -- a LiveKit participant that is not listed (an egress bot, a stranger) never does.
-  A seat is a `listitem` of the `list` "Gemeinde" with an accessible name, no button, no tab stop.
+* *Pews* (B2 as built, *replaced by stage 2a, see <<stage-2a>>*): 2 blocks of 3 seats per row, an aisle between. In B2 the plan was assigned *per device* (filled alternately left/right from the
+  front, name order for the people already present, nothing synchronised) and a seat was a non-interactive `listitem`. Since V1.9.79 the seat plan is the server's picture, a seat is a button, and nobody is seated
+  automatically. Unchanged: only people `listPresent` names are shown -- a LiveKit participant that is not listed (an egress bot, a stranger) never gets a seat or a symbol.
 * *Reactions* (data-channel topic `lapis-encounter-reaction`, payload `{"r":"<NAME>"}` only, at most 32 bytes (the longest, `HAND_LOWERED`, is 20)): `HAND` is a *state* (renewed every 30 s by its owner, lapses after 90 s,
   `HAND_LOWERED` ends it), `AMEN` an *event* (a symbol at the seat for 3 s, announced as the fixed sentence "Amen aus der Gemeinde" at most every 10 s, never a number). Limits: sender
   amen 5 s / hand 2 s, receiver 2 per second and sender, the sender table bounded to 64. **Trust boundary**: the receiver reads only the key `r`; the sender is the SDK-verified identity of the packet,
-  never a payload field; oversize and malformed payloads are dropped unread; only people who sit can react.
+  never a payload field; oversize and malformed payloads are dropped unread; since V1.9.79 every person of the congregation in `listPresent` can react (see <<stage-2a>>: sitting is no precondition any more).
 * *Raised hands* are listed (in the order they went up) only for office holders and BOARD/ADMIN; the congregation sees seats, not a queue.
 * *Chat* reuses the conference's topic `lapis-chat`: in-memory only, at most 200 lines of 500 characters, plain text (no markup, no links, the KVision i18n marker neutralised), and *no time*
   (the wire field is sent as `0`). A silenced person (`canPublishData = false`) can read but not write.
@@ -352,7 +351,7 @@ The server's `list` budget (60 per minute and member) is shared by `listSpaces`,
 === Accessibility
 
 Controls are real buttons with names; the hand button carries `aria-pressed` (fixed label); the pulpit is a `group` named "Kanzel: <name>" and receives the focus after entering (`tabindex=-1`); two polite live
-regions (amen bundling for everybody, "<name> hebt die Hand" for office holders only); no single-letter shortcuts; the side panel is closed by default, Escape closes it, below 768 px it is a full-screen sheet
+regions (amen bundling for everybody, "<name> hebt die Hand" for office holders only); no single-letter shortcuts (stage 2a: the seat plan is one tab stop with arrow-key navigation, see <<stage-2a>>); the side panel is closed by default, Escape closes it, below 768 px it is a full-screen sheet
 (`role="dialog"`, `aria-modal`, focus trap, focus returns to the opener); amen fades in and out in 200 ms, switched off under `prefers-reduced-motion`; the control bar shows symbols only (names and tooltips stay) and keeps a word for the reactions from 768 px on; see "The control bar" below.
 
 === Browser storage
@@ -408,7 +407,7 @@ the profile is the truth. Existing rooms get `CHURCH_SERVICE` and `HAND,AMEN` fr
 `HAND_LOWERED` is the wire counterpart of `HAND` and is never selectable. The server stores the canonical list (`EncounterReactionOption.normalize`: deduplicated, fixed order, `HAND` first)
 as a CSV and rejects a list of more than 8 entries (DoS guard). The order of the buttons is fixed. The set is enforced *on the client only*: the server never reads a reaction (data channel,
 no server path), so the client builds a button per allowed option and drops a received reaction the room does not allow (`admitReaction`; silent, no log, no counter). A manipulated client can
-still send anything; the 32-byte limit, the per-sender receive limit and "only people who sit can react" stay in force. The three event reactions share one 5 s send budget; the hand has its own 2 s budget and
+still send anything; the 32-byte limit and the per-sender receive limit stay in force (and, in stage 2a, "only people in the congregation list react"). The three event reactions share one 5 s send budget; the hand has its own 2 s budget and
 is never blocked by an event. A seat has one event slot (a newer event replaces the older), announced as one fixed sentence at most every 10 s, never as a count.
 
 === Changing the profile
@@ -532,6 +531,67 @@ The remaining line "Mail delivered: purpose=encounter-entry-notice to=(withheld)
 * An office holder with a stuck presence row gets no mail until the poller has removed it.
 * The website help page `gathering-room` (EN, DE) is not updated in this wave; do that at the rollout.
 
+[#stage-2a]
+== Stage 2a (V1.9.79): seat choice and person symbols
+
+The B2 pews were a local drawing: every device placed everybody itself and nobody could choose where to sit. Stage 2a turns the pews into a *shared, chosen* seat plan. Everybody in the
+congregation can choose a free seat; everybody sees who sits where as initials. There is still no automatic seating, no history and no database column.
+
+=== Model
+
+* *Server-authoritative, chosen seats only.* `IEncounterSpaceService.selectSeat(spaceId, seat)` sets the caller's *own* seat, `null` releases it. There is no member-id parameter: nobody can put another person on a seat. Only a CONGREGATION person
+  who is present in the open session may choose (`ForbiddenException` for an office holder, a person who is not present, a closed room).
+* *State* (`EncounterSeatState`): `session -> (seat -> member)` and `member -> seat`, *in memory only*, never persisted, never logged, never audited -- like `EncounterModerationState`. At most 64 sessions (a 65th gets
+  `Full`), one seat per person, `0 until 240` seats (40 rows of six; the shared `encounterSeatCapacity` offers whole rows, at least 24, one spare row). Choose-and-claim is one `synchronized` block: whoever enters first wins a contested seat.
+  A seat whose occupant is not present any more (stale) counts as free.
+* *No schema change.* The schema stays at v78; there is no V79 migration (`EncounterPrivacyTripwireTest` pins that no migration and no generated encounter table knows a seat).
+* *Release points:* `leaveSpace`, removal (`removeFromSpace`; silencing keeps the seat), `closeSpace`, the poller (a deleted stale presence row releases the seat; a session it closes is cleared) and every `enterSpace`
+  (an entry always starts without a seat -- a reload does not resurrect a seat). A person who becomes an office holder loses the seat at the next read.
+* *`listPresent` carries the seat* (`EncounterPresentDto.seat`, last and with a default: an old client ignores the key, a new client reads `null` from an old server). `selectSeat` answers with the same list.
+
+=== Exceptions, throttle, budget
+
+Kilua transmits only the exception *type*, so the outcomes are distinguishable by type: `ConflictException` = seat taken, `ServiceBusyException` = throttled (1 change per second and member, `requireSeatRate`) or seat table full,
+`BadRequestException` = seat out of range. The shared `requireWithinRate` (a `ConflictException`) is deliberately not used for `selectSeat`. The throttle is checked first, before any database access.
+`selectSeat` shares the `list` budget with nothing; the reload it triggers on the *other* clients goes through the existing `EncounterRefreshPlanner` (at most one `listPresent` per 5 s and client), so the 60-per-minute `list` budget is not
+loaded more than before.
+
+=== The seat nudge
+
+After a successful change the client sends a content-free data-channel packet on `lapis-encounter-seat` (`{"s":1}`, 7 bytes). Receivers *decode nothing*: they check the length (more than 8 bytes is dropped unread), accept only an
+SDK-verified identity that is in their `listPresent`, wait a random 0 to 1000 ms and ask the refresh planner for a reload. The server stays the authority; a missing nudge only means the others see the change at the next 20 s refresh.
+A seat change is *never announced*.
+
+=== The room
+
+* The seat plan is a `group` "Sitzplan" of real `<button type="button">` seats, minimum 44 x 44 px (also on a phone: 6 x 44 + 4 x 4 + 16 = 296 px). A seat's accessible name is row, position, state and the *initials spelled letter by letter* ("Reihe 1, Platz 3,
+  besetzt, M S", plus ", Hand erhoben" and ", Reaktion: Amen" while they show); there is no name and no `title`. The viewer's own seat has a double ring *and* the visible word "Sie".
+* *Keyboard:* roving tabindex (exactly one tab stop: the own seat, else the first free one), Left/Right along the row over the aisle without wrapping, Up/Down to the same position in the neighbouring row, Home/End to the row ends. Enter and Space
+  are the native button activation; a taken seat (also the own one) is `aria-disabled` and does nothing. There is no focus trap. The cells are updated in place, so the focus survives every refresh.
+* *No optimistic picture:* the chosen seat shows as "pending" (`aria-busy`) until the server answered; the answer replaces the list. A lost race is the fixed sentence "Dieser Platz ist inzwischen besetzt ..." and a reload, a throttle the fixed sentence "Bitte warten Sie ...".
+  The client also allows one change per second.
+* *People without a seat* stand in the row "Noch ohne Platz" under the pews: initials, a hand badge and a reaction glyph, not operable, no name. *Reactions of such a person are admitted* (B2 dropped everything from a person without a seat, which would have swallowed
+  every hand and amen now that nobody is seated automatically) and shown at the seat or at the symbol in that row.
+* *List alternative (BR-E2):* "Platz über eine Liste wählen", a `<details>` in the "Anwesende" tab with one labelled button group per row of free seats (no names, no taken seats, at least 44 px), the own-seat status and "Platz freigeben". Not offered to office holders.
+* "Platz freigeben" is a secondary button (`ActionIcon.RELEASE_SEAT`), visible only while the viewer sits.
+* *Announcements:* the viewer's own result (seated, released, taken, busy) in a polite `status` region; a newcomer in the list is announced anonymously ("Eine Person ist hinzugekommen.", at most every 10 s, no name and no number).
+* *"spricht":* LiveKit's active-speaker signal is evaluated for the tiles of office holders only (3 px outline *and* the word "spricht"; volatile, nothing is stored).
+* Forced colours keep a `Highlight` outline, the initials, the word "Sie" and the glyphs; the one seat transition (120 ms) is in the single `prefers-reduced-motion` block.
+
+=== Data protection
+
+The *position is visible to everybody who is present*, and the initials can be matched to a name through the "Anwesende" list. That is new compared with B2, where the plan was a per-device drawing that said nothing. The state is in memory, per server instance, not
+exported, and dropped when the person leaves, when the session closes and on a restart. *The consent text (`EncounterConsentDisclaimer`, lines "Andere Anwesende sehen höchstens Ihren Namen") does not cover the shared seating position and was deliberately not changed: needs legal review.*
+
+=== Known limitations of stage 2a
+
+* No load test (the precondition of stage 2 in the vault, about 20 people, is not met).
+* Seats live in the memory of one server instance; several instances would not share them (a deployment with more than one instance per Lapis instance is not supported for this feature).
+* A silenced person's nudge is dropped by LiveKit; others see the change within 20 s.
+* After a page reload the person is without a seat (by design).
+* Translations of the new texts are agent-made, not checked by native speakers.
+* The seat plan has no "sit anonymously" option (initials are always shown); noted for the legal review.
+
 == Open questions (for the product owner and legal)
 
 . The wording of the Art. 9 consent (`EncounterConsentDisclaimer`, version `2026-10-06.v1`) -- a draft, legal review required.
@@ -541,3 +601,4 @@ The remaining line "Mail delivered: purpose=encounter-entry-notice to=(withheld)
 . The wording of the assembly consent (`EncounterAssemblyConsentDisclaimer`, version `2026-10-07.assembly.v1`) -- a draft, legal review required. Until then an operator may keep assembly rooms on `MEMBERS_ONLY`.
 . (V1.9.76) Whether a first newcomer who arrives while all office holders are present should still use up the `FIRST_GUEST` claim (as now: the rule is "the first person of the session"), or only a mail that was actually sent.
 . (V1.9.76) Whether the setting `notifyMode` should be visible to everybody who may see the room (as now: transparency towards the participants, Art. 13) or only to BOARD/ADMIN and office holders.
+. (V1.9.79) Whether the Art. 9 consent texts must name the shared seating position (see <<stage-2a>>), and whether an option to sit without initials is needed.

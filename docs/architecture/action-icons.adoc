@@ -37,6 +37,7 @@ Font Awesome 7, bundled by webpack through `kvision-fontawesome` (no CDN, no new
 | `RECORD` | `fa-circle-dot` | V1.9.66: start/stop a conference recording (conference bar only)
 | `END_FOR_ALL` | `fa-power-off` | V1.9.66: end the meeting for everyone; deliberately NOT `LEAVE` (own exit) and NOT `CLOSE_DOORS` (encounter room). V1.9.72: it now sits directly before "Verlassen" in the exit group, so the different symbol (and the outline style) is one of the remaining slip protections; used in exactly three places (exit group, sheet twin, confirmation dialog)
 | `MORE` | `fa-ellipsis` | V1.9.74: open the "Mehr" sheet of the encounter-room bar (the controls that did not fit). The conference bar's own "Mehr" still uses the raw string.
+| `RELEASE_SEAT` | `fa-chair` | V1.9.79: give up one's own seat in the encounter room ("Platz freigeben"); in the seat area and in the seat list alternative, never in a table row.
 | `PROTECTED` | `fa-shield-halved` | V1.9.57: geschützt -- the reason text next to a disabled control and the masked value of the admin peer protection; marks a state, never an action; NOT `LOCK`, NOT `ACCESS`
 |===
 

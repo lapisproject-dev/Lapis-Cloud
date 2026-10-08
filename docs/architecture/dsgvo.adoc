@@ -436,6 +436,8 @@ non-members; members: the performance of the organization's own purposes) and ar
 The contributor is `network.lapis.cloud.server.dsgvo.EncounterSpacePersonalData`. Removed and silenced people of a running session exist only in
 memory (`EncounterModerationState`) and vanish with the session or a restart.
 
+*Seat choice (V1.9.79, stage 2a).* The seat a person chose lives only in memory (`EncounterSeatState`), is not exported and is dropped when the person leaves, when the session closes, by the poller and on a restart; nothing is written to the database or the audit log. The position is visible to all present people, with the initials of the occupant (needs legal review: the consent text does not mention it).
+
 *The client (V1.9.62, wave B2).* The page adds no lasting trace either: the only browser storage is the key `lapis.encounter.sceneOff` (a choice, no room, no
 person, no time); the chat and the reactions live in memory for the visit and are never stored or sent anywhere but the LiveKit data channel; no time is shown
 (the chat wire field is sent as `0`); nothing about a person is written to the console or to telemetry (`ClientEncounterPrivacyTripwireTest`). The listing of the people present

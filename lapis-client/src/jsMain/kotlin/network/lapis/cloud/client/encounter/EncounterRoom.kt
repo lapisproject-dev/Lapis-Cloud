@@ -38,14 +38,19 @@ import network.lapis.cloud.shared.domain.EncounterPresentDto
 import network.lapis.cloud.shared.domain.EncounterReaction
 import network.lapis.cloud.shared.domain.EncounterReactionOption
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
+import network.lapis.cloud.shared.domain.encounterSeatPosition
+import network.lapis.cloud.shared.domain.encounterSeatRow
 import network.lapis.cloud.shared.domain.option
+import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IEncounterSpaceService
+import network.lapis.cloud.shared.rpc.ServiceBusyException
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLMediaElement
 import org.w3c.dom.Node
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
 import kotlin.js.Date
+import kotlin.random.Random
 
 /**
  * V1.9.62 Begegnungsraum (B2) -- the room a person is INSIDE: the stage with the pulpit and the pews, the controls, the side panel
@@ -59,11 +64,15 @@ import kotlin.js.Date
  * - The people: the list of `listPresent` (names, roles) -- refreshed at most every 5 s on a roster event and every 20 s by timer, only
  *   while the page is visible. Nothing is kept per person beyond this visit's memory: no time, nothing in storage (the only storage of
  *   the whole encounter client is the "scene off" key, [EncounterSceneToggle]).
- * - The pews: [EncounterSeating], per device; people from `listPresent` only (a LiveKit participant that is not listed -- an egress
- *   bot, a stranger -- never gets a seat). A seat never moves.
+ * - The pews (V1.9.79, stage 2a): [EncounterSeating] mirrors the `seat` field of `listPresent`; people from that list only (a LiveKit
+ *   participant that is not listed -- an egress bot, a stranger -- never gets a seat). Nobody is seated automatically: a seat exists
+ *   because its occupant CHOSE it ([chooseSeat] -> `selectSeat`, the server decides who wins a contested seat), and everybody else is in
+ *   the row "Noch ohne Platz". A content-free data-channel nudge only makes the others reload the list sooner. A seat never moves.
  * - Reactions: a hand is a state (renewed every 30 s by its owner, lapses after 90 s without a renewal); amen, applause and heart are
  *   events shown for 3 s at the seat and announced at most every 10 s as a fixed sentence, never as a count. The sender is always the SDK
  *   identity. Only the reactions the room allows ([EncounterSpaceDto.reactions], V1.9.67) get a button and are admitted when they arrive.
+ * - A reaction of any CONGREGATION person in the list is admitted (V1.9.79: sitting is no longer a precondition) and is shown at the
+ *   seat, or at the symbol in the row of people without a seat.
  * - Reactions are quiet: sender-side limits (events share one 5 s budget, hand 2 s), receiver-side limits (2 per second and sender).
  * - Stage mode (V1.9.67): the room fills the screen under the header, the bar sits below the stage, the side panel is a column (wide),
  *   an overlay (medium) or a sheet (narrow), and the whole room can go to the full screen ([EncounterFullscreen]).
@@ -74,6 +83,8 @@ internal class EncounterRoom(
     private val entry: EncounterEntryDto,
     private val viewer: EncounterViewerRights,
     private val clock: () -> Double = { Date.now() },
+    /** V1.9.79: random wait (0..1000 ms) before a seat nudge makes the room reload the list -- a seam for tests. */
+    private val seatNudgeDelayMs: () -> Int = { Random.nextInt(0, SEAT_NUDGE_JITTER_MS + 1) },
     private val onLeave: () -> Unit,
     private val onDoorsClosed: () -> Unit,
     private val onConnectionLost: (DisconnectCause) -> Unit,
@@ -85,6 +96,9 @@ internal class EncounterRoom(
     private val countText: Span = infoRow.span(className = "text-muted")
     private val liveBadge = EncounterLiveBadge(infoRow, terms, entry.join.roomId)
     private val eventLive: Div = root.div(className = "visually-hidden")
+
+    /** V1.9.79: the outcome of the viewer's OWN seat choice (seated, released, taken, busy) -- a fixed sentence, polite. */
+    private val seatLive: Div = root.div(className = "visually-hidden")
     private val handLive: Div? = if (viewer.canModerate) root.div(className = "visually-hidden") else null
     private val bands: Div = root.div(className = "lapis-encounter-bands")
     private val main: Div = root.div(className = "lapis-encounter-main")
@@ -111,7 +125,10 @@ internal class EncounterRoom(
         }
 
     private val seating = EncounterSeating()
-    private val seated = mutableSetOf<String>()
+    private val seatThrottle = EncounterSeatChoiceThrottle(clock)
+    private val joinAnnouncer = EncounterEventAnnouncer(clock)
+    private var pendingSeat: Int? = null
+    private var seatRequestRunning = false
     private val hands = EncounterRaisedHands(clock)
     private val sendThrottle = EncounterReactionSendThrottle(clock)
     private val receiveGuard = EncounterReactionReceiveGuard(clock)
@@ -122,6 +139,7 @@ internal class EncounterRoom(
     private val videoElements = HashMap<String, HTMLMediaElement>()
     private var present: Map<String, EncounterPresentDto> = emptyMap()
     private var rosterLoaded = false
+    private var lastServerRoster: Set<String> = emptySet()
     private var lastPulpitIds: List<String> = emptyList()
     private var lastStewardIds: List<String> = emptyList()
     private var ownHandUp = false
@@ -140,6 +158,9 @@ internal class EncounterRoom(
             raisedHands = { hands.ordered },
             onRoster = { people -> onRoster(people) },
             beforeDialog = { fullscreen.leaveIfActive() },
+            seatList = { seatListState() },
+            onChooseSeat = { seat -> chooseSeat(seat) },
+            onReleaseSeat = { chooseSeat(null) },
         )
     private val streamPanel: EncounterStreamPanel? =
         if (viewer.canModerate) {
@@ -185,6 +206,8 @@ internal class EncounterRoom(
             onRemoteTrack = { identity, _, track, publication -> onRemoteTrack(identity, track, publication) },
             onRemoteTrackGone = { identity, track, _ -> onRemoteTrackGone(identity, track) },
             onParticipantJoined = { _, _ -> requestPresentRefresh() },
+            onSeatNudge = { identity -> onSeatNudge(identity) },
+            onActiveSpeakers = { identities -> onActiveSpeakers(identities) },
             onParticipantLeft = { identity -> onParticipantLeft(identity) },
             onLocalVideoTrack = { track -> onLocalVideo(track) },
             onLocalTrackMuteChanged = { source, muted -> pulpitControls?.onMuteChanged(source, muted) },
@@ -202,6 +225,10 @@ internal class EncounterRoom(
     init {
         eventLive.setAttribute("role", "status")
         eventLive.setAttribute("aria-live", "polite")
+        seatLive.setAttribute("role", "status")
+        seatLive.setAttribute("aria-live", "polite")
+        layout.seats.onChoose = { seat -> chooseSeat(seat) }
+        layout.releaseSeatButton.onClick { chooseSeat(null) }
         handLive?.setAttribute("role", "status")
         handLive?.setAttribute("aria-live", "polite")
         buildBands()
@@ -462,48 +489,170 @@ internal class EncounterRoom(
 
     private fun onRoster(people: List<EncounterPresentDto>) {
         if (disposed) return
+        // Newcomers are measured against the previous SERVER list, not `present` (which onParticipantLeft shortens locally): a roster that
+        // still lists a person who just left (presence row not deleted yet) must not read as "somebody joined".
+        val before = lastServerRoster
+        val firstLoad = !rosterLoaded
         present = people.associateBy { it.memberId }
+        lastServerRoster = present.keys
         rosterLoaded = true
         countText.content = gettext("%1 anwesend", people.size)
-        syncSeats()
+        // V1.9.79: the pews are the SERVER's picture; the room only mirrors it.
+        seating.applyServer(people)
+        hands.ordered.filter { it !in present }.forEach { hands.lower(it) }
+        if (pendingSeat != null && !seatRequestRunning) pendingSeat = null
+        announceNewcomers(before = before, firstLoad = firstLoad)
+        renderSeats()
         syncTiles()
         presentPanel.rerender()
+    }
+
+    /** A person who is new in the list after the first load: one anonymous, throttled sentence (no name, no number). */
+    private fun announceNewcomers(
+        before: Set<String>,
+        firstLoad: Boolean,
+    ) {
+        if (firstLoad) return
+        val newcomers = present.keys.any { it !in before && it != viewer.selfIdentity }
+        if (!newcomers || !joinAnnouncer.onEvent()) return
+        eventLive.content = gettext("Eine Person ist hinzugekommen.")
+        later(LIVE_TEXT_MS) { eventLive.content = "" }
     }
 
     private fun onParticipantLeft(identity: String) {
         if (disposed) return
         present = present - identity
         hands.lower(identity)
-        if (seated.remove(identity)) seating.release(identity)
+        // Until `listPresent` answers, the person simply has no seat any more (the room never assigns one itself).
+        seating.forget(identity)
         renderSeats()
         requestPresentRefresh()
     }
 
-    private fun syncSeats() {
-        val congregation = present.values.filter { it.role == EncounterPresenceRole.CONGREGATION }.sortedBy { it.displayName }
-        val ids = congregation.map { it.memberId }.toSet()
-        seated.filter { it !in ids }.forEach {
-            seating.release(it)
-            seated.remove(it)
-            hands.lower(it)
-        }
-        // The people already there sit down in NAME order (the order of arrival must not be readable from the pews); later arrivals take the
-        // first free seat.
-        congregation.forEach { person -> if (seated.add(person.memberId)) seating.assign(person.memberId) }
-        renderSeats()
+    private fun renderSeats() {
+        val self = viewer.selfIdentity
+        val canChoose = viewer.presenceRole == EncounterPresenceRole.CONGREGATION
+        val slots =
+            (0 until seating.gridSize).map { seat ->
+                val identity = seating.occupantOf(seat)
+                val name = identity?.let { present[it]?.displayName }
+                SeatSlot(
+                    initials = name?.let { encounterInitials(it) },
+                    handUp = identity != null && hands.contains(identity),
+                    own = identity != null && identity == self,
+                    pending = seat == pendingSeat,
+                    offered = seating.isChoosable(seat),
+                )
+            }
+        layout.seats.render(SeatGridModel(slots = slots, choosable = canChoose))
+        layout.unseated.render(seating.unseated().map { person -> person.memberId to person.displayName }) { hands.contains(it) }
+        val mine = seating.seatOf(self)
+        layout.setSeatHintVisible(canChoose && mine == null)
+        layout.setReleaseVisible(canChoose && mine != null)
     }
 
-    private fun renderSeats() {
-        layout.seats.ensureSeats(seating.seatCount)
-        for (seat in 0 until seating.seatCount) {
-            val identity = seating.occupantOf(seat)
-            layout.seats.update(
-                seat = seat,
-                name = identity?.let { present[it]?.displayName },
-                handUp =
-                    identity != null && hands.contains(identity),
-            )
+    /** The list alternative's view of the seats; `null` for an office holder (who cannot sit). */
+    private fun seatListState(): EncounterSeatListState? {
+        if (viewer.presenceRole != EncounterPresenceRole.CONGREGATION) return null
+        return EncounterSeatListState(ownSeat = seating.seatOf(viewer.selfIdentity), freeSeats = seating.freeSeats())
+    }
+
+    // ── choosing a seat (V1.9.79) ───────────────────────────────────────────
+
+    /**
+     * The viewer chose [seat] (`null` = give the own seat up). One request at a time, at most one change per second. There is NO optimistic
+     * picture: the seat shows as "pending" until the server answered, and the server's list is the new truth (a lost race is a fixed
+     * sentence, never a jumping seat).
+     */
+    private fun chooseSeat(seat: Int?) {
+        if (disposed || viewer.presenceRole != EncounterPresenceRole.CONGREGATION) return
+        if (seatRequestRunning || !seatThrottle.tryChoose()) return
+        val previous = seating.seatOf(viewer.selfIdentity)
+        if (seat != null && seat == previous) return
+        seatRequestRunning = true
+        pendingSeat = seat
+        renderSeats()
+        AppScope.launch {
+            val outcome =
+                guarded {
+                    try {
+                        SeatOutcome.Done(rpcService<IEncounterSpaceService>().selectSeat(space.id, seat))
+                    } catch (e: ConflictException) {
+                        SeatOutcome.Taken
+                    } catch (e: ServiceBusyException) {
+                        SeatOutcome.Busy
+                    }
+                }
+            seatRequestRunning = false
+            pendingSeat = null
+            if (disposed) return@launch
+            when (outcome) {
+                is SeatOutcome.Done -> onSeatChosen(outcome.people, requested = seat, previous = previous)
+                SeatOutcome.Taken -> {
+                    announceSeat(terms.seatTakenAnnouncement())
+                    renderSeats()
+                    requestPresentRefresh()
+                }
+                SeatOutcome.Busy -> {
+                    announceSeat(gettext("Bitte warten Sie einen Moment und versuchen Sie es erneut."))
+                    renderSeats()
+                }
+                // another failure: `guarded` already told the person; the picture goes back to what the server says
+                null -> {
+                    renderSeats()
+                    requestPresentRefresh()
+                }
+            }
         }
+    }
+
+    private fun onSeatChosen(
+        people: List<EncounterPresentDto>,
+        requested: Int?,
+        previous: Int?,
+    ) {
+        presentPanel.replace(people)
+        val mine = seating.seatOf(viewer.selfIdentity)
+        if (mine != null) {
+            announceSeat(terms.seatedAnnouncement(encounterSeatRow(mine), encounterSeatPosition(mine)))
+            layout.seats.focusSeat(mine)
+        } else {
+            announceSeat(terms.seatReleasedAnnouncement())
+            if (requested == null) previous?.let { seat -> layout.seats.focusSeat(seat) }
+        }
+        // Tell the others to reload the list (content-free; the server stays the authority).
+        AppScope.launch { session?.sendSeatNudge() }
+    }
+
+    /** A fixed sentence from the vocabulary (never data of a person) into the polite region of the viewer's own seat choice. */
+    private fun announceSeat(sentence: String) {
+        seatLive.content = sentence
+    }
+
+    private sealed interface SeatOutcome {
+        class Done(
+            val people: List<EncounterPresentDto>,
+        ) : SeatOutcome
+
+        data object Taken : SeatOutcome
+
+        data object Busy : SeatOutcome
+    }
+
+    /**
+     * A seat nudge arrived. Only a person who is in the list can nudge (anything else is dropped unread); the reload goes through the
+     * refresh planner (at most every 5 s) after a random wait of up to a second, so twenty people do not all ask at the same instant.
+     */
+    private fun onSeatNudge(identity: String) {
+        if (disposed || identity !in present) return
+        later(seatNudgeDelayMs().coerceIn(0, SEAT_NUDGE_JITTER_MS)) { requestPresentRefresh() }
+    }
+
+    /** LiveKit says who speaks right now: only the tiles of office holders show it. Nothing is kept. */
+    private fun onActiveSpeakers(identities: List<String>) {
+        if (disposed) return
+        val speaking = identities.toSet()
+        tiles.forEach { (identity, tile) -> tile.setSpeaking(identity in speaking) }
     }
 
     private fun syncTiles() {
@@ -593,8 +742,9 @@ internal class EncounterRoom(
         if (disposed || !receiveGuard.admit(identity)) return
         // Only the reactions the room allows (HAND_LOWERED belongs to the hand and always passes); anything else is dropped silently.
         if (!admitReaction(reaction, allowedReactions)) return
-        // Only people who SIT (the congregation from `listPresent`) react: anybody else's packet is dropped unread.
-        val seat = seating.seatOf(identity) ?: return
+        // Only the congregation from `listPresent` reacts (V1.9.79: sitting is no precondition -- nobody is seated automatically any
+        // more): anybody else's packet is dropped unread.
+        if (!seating.isCongregation(identity)) return
         when (reaction) {
             EncounterReaction.HAND -> {
                 val wasUp = hands.contains(identity)
@@ -602,17 +752,19 @@ internal class EncounterRoom(
                 if (!wasUp) announceHand(identity)
             }
             EncounterReaction.HAND_LOWERED -> hands.lower(identity)
-            EncounterReaction.AMEN, EncounterReaction.APPLAUSE, EncounterReaction.HEART -> showEvent(seat, reaction.option())
+            EncounterReaction.AMEN, EncounterReaction.APPLAUSE, EncounterReaction.HEART -> showEvent(identity, reaction.option())
         }
         renderSeats()
         presentPanel.rerender()
     }
 
+    /** Shows the symbol at the person's seat, or at the symbol in the row of people without a seat. */
     private fun showEvent(
-        seat: Int,
+        identity: String,
         option: EncounterReactionOption,
     ) {
-        layout.seats.showEvent(seat, option)
+        val seat = seating.seatOf(identity)
+        if (seat != null) layout.seats.showEvent(seat, option) else layout.unseated.showEvent(identity, option)
         if (eventAnnouncer.onEvent()) {
             // a fixed sentence from the vocabulary (never data of a person)
             val sentence = terms.reactionFromAudience(option)
@@ -642,7 +794,7 @@ internal class EncounterRoom(
 
     private fun sendEvent(option: EncounterReactionOption) {
         if (option !in allowedReactions || !sendThrottle.tryEvent()) return
-        seating.seatOf(viewer.selfIdentity)?.let { showEvent(it, option) }
+        if (seating.isCongregation(viewer.selfIdentity)) showEvent(viewer.selfIdentity, option)
         // The three event reactions share one budget: all of them wait together.
         eventButtons.values.forEach { it.disabled = true }
         eventWaitNote.show()
@@ -812,6 +964,7 @@ internal class EncounterRoom(
     // ── test access (the DOM tests drive the room through these, never through a private member) ──────
 
     internal val seatGrid: EncounterSeatGrid get() = layout.seats
+    internal val unseatedRow: EncounterUnseatedRow get() = layout.unseated
     internal val sidePanel: EncounterSidePanel get() = side
     internal val raisedHandIds: List<String> get() = hands.ordered
     internal val sceneRoot: Div get() = layout.root
@@ -829,5 +982,6 @@ internal class EncounterRoom(
         const val PRESENT_POLL_MS = 20_000
         const val LIVE_POLL_MS = 30_000
         const val LIVE_TEXT_MS = 4_000
+        const val SEAT_NUDGE_JITTER_MS = 1_000
     }
 }

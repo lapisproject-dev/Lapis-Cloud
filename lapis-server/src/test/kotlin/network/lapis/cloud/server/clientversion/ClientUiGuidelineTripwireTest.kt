@@ -1873,8 +1873,9 @@ class ClientUiGuidelineTripwireTest :
         }
 
         test(
-            "R54 names exactly the seven known transitions today (V1.9.62: the hand and event symbols of the encounter room; " +
-                "V1.9.71: the floating conference window -- an inventory change, not a raised budget, still <= 200 ms and off under reduce)",
+            "R54 names exactly the eight known transitions today (V1.9.62: the hand and event symbols of the encounter room; " +
+                "V1.9.71: the floating conference window; V1.9.79: the encounter seat button's colour change -- an inventory change, " +
+                "not a raised budget, still <= 200 ms and off under reduce)",
         ) {
             val css = THEME_CSS.readText()
             val reduced = parseCssRules(css).filter { REDUCED_MOTION in it.atRules }.flatMap { selectorsOf(it) }.toSet()
@@ -1884,6 +1885,7 @@ class ClientUiGuidelineTripwireTest :
                     ".lapis-conference-controls-row",
                     ".lapis-conference-background-preview",
                     ".lapis-busy",
+                    ".lapis-encounter-seat",
                     ".lapis-encounter-seat-hand",
                     ".lapis-encounter-seat-event",
                     ".lapis-conference-float",

@@ -1,61 +1,107 @@
 package network.lapis.cloud.client.encounter
 
+import network.lapis.cloud.shared.domain.EncounterPresenceRole
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** V1.9.62 -- the stable pew plan: nobody ever moves, new people fill the first free seat. */
+/**
+ * V1.9.79 -- the seat plan is the SERVER's picture. This replaces the B2 tests of the local fill order ("assign", "release", "the plan
+ * grows by one row"): the room no longer assigns anything, so there is nothing to fill or to release locally.
+ */
 class EncounterSeatingTest {
+    private fun person(
+        id: String,
+        name: String = "Person $id",
+        seat: Int? = null,
+        role: EncounterPresenceRole = EncounterPresenceRole.CONGREGATION,
+    ) = testPerson(id, role, name, seat = seat)
+
     @Test
-    fun theFillOrder_alternatesBetweenTheTwoBlocks_frontToBack() {
+    fun applyServer_mirrorsTheSeatsTheServerReports_andNothingElse() {
         val seating = EncounterSeating()
-        // row 0: left block seat 0, right block seat 3, left 1, right 4, left 2, right 5
-        val seats = (0 until 6).map { seating.assign("p$it") }
-        assertEquals(listOf(0, 3, 1, 4, 2, 5), seats)
-        assertEquals(6, seating.assign("p6"), "the second row starts at seat 6")
+        seating.applyServer(listOf(person("a", seat = 3), person("b", seat = 0), person("c")))
+        assertEquals(3, seating.seatOf("a"))
+        assertEquals(0, seating.seatOf("b"))
+        assertNull(seating.seatOf("c"), "nobody is seated without a choice")
+        assertEquals("a", seating.occupantOf(3))
+        assertNull(seating.occupantOf(1))
     }
 
     @Test
-    fun aLeavingPerson_leavesAnEmptySeat_andNobodyMoves() {
+    fun anOfficeHolder_neverSits_evenIfAWrongSeatArrives() {
         val seating = EncounterSeating()
-        val first = (0 until 6).associate { "p$it" to seating.assign("p$it") }
-        seating.release("p1")
-        first.filterKeys { it != "p1" }.forEach { (id, seat) -> assertEquals(seat, seating.seatOf(id), "$id must not move") }
-        assertNull(seating.seatOf("p1"))
-        assertNull(seating.occupantOf(first.getValue("p1")))
-        // the next arrival takes the first FREE seat in the fill order -- the gap, not a new seat at the back
-        assertEquals(first.getValue("p1"), seating.assign("newcomer"))
+        seating.applyServer(listOf(person("p", seat = 2, role = EncounterPresenceRole.PULPIT), person("a", seat = 2)))
+        assertNull(seating.seatOf("p"))
+        assertEquals("a", seating.occupantOf(2))
+        assertFalse(seating.isCongregation("p"))
+        assertTrue(seating.isCongregation("a"))
     }
 
     @Test
-    fun aKnownPerson_keepsTheSeat_whenAssignedAgain() {
+    fun aSeatClaimedTwice_belongsToTheFirstByName_theOtherIsUnseated() {
         val seating = EncounterSeating()
-        val seat = seating.assign("anna")
-        assertEquals(seat, seating.assign("anna"))
-        assertEquals(1, (0 until seating.seatCount).count { seating.occupantOf(it) == "anna" })
+        seating.applyServer(listOf(person("z", name = "Zeno", seat = 5), person("a", name = "Anna", seat = 5)))
+        assertEquals("a", seating.occupantOf(5))
+        assertEquals(listOf("z"), seating.unseated().map { it.memberId })
     }
 
     @Test
-    fun whenAllSeatsAreTaken_theRoomGrowsByOneRowOfSix_andNeverShrinks() {
+    fun unseated_isSortedByName_andFreeSeatsExcludeTheTakenOnes() {
         val seating = EncounterSeating()
-        assertEquals(24, seating.seatCount)
-        (0 until 24).forEach { seating.assign("p$it") }
-        assertEquals(24, seating.seatCount)
-        val extra = seating.assign("p24")
-        assertEquals(30, seating.seatCount)
-        assertTrue(extra in 24 until 30, "the new seat is in the new row")
-        (0 until 25).forEach { seating.release("p$it") }
-        assertEquals(30, seating.seatCount, "the plan never shrinks")
+        seating.applyServer(listOf(person("b", name = "Berta"), person("a", name = "Anna"), person("c", name = "Carl", seat = 1)))
+        assertEquals(listOf("Anna", "Berta"), seating.unseated().map { it.displayName })
+        assertFalse(1 in seating.freeSeats())
+        assertTrue(0 in seating.freeSeats())
     }
 
     @Test
-    fun noSeatIsEverGivenTwice() {
+    fun gridSize_isTheCapacityInWholeRows_andNeverCutsAnOccupiedSeat() {
         val seating = EncounterSeating()
-        val seats = (0 until 40).map { seating.assign("p$it") }
-        assertEquals(40, seats.toSet().size)
-        assertNotEquals(seats[0], seats[1])
+        seating.applyServer(emptyList())
+        assertEquals(24, seating.gridSize, "the minimum is four rows")
+        seating.applyServer((0 until 30).map { person("p$it") })
+        assertEquals(36, seating.gridSize, "30 people: five rows plus one spare row")
+        // the capacity shrinks when people leave, but somebody still sits at seat 40: the grid keeps showing that seat
+        seating.applyServer(listOf(person("far", seat = 40)))
+        assertEquals(42, seating.gridSize)
+        assertEquals("far", seating.occupantOf(40))
+    }
+
+    @Test
+    fun seatsBeyondTheShrunkenCapacity_areDrawn_butNotChoosable_andNotFree() {
+        val seating = EncounterSeating()
+        // 14 people: capacity 24; somebody still sits at seat 35, so the grid keeps 36 seats
+        seating.applyServer((0 until 13).map { person("p$it") } + person("far", seat = 35))
+        assertEquals(36, seating.gridSize)
+        assertTrue(seating.isChoosable(23))
+        assertFalse(seating.isChoosable(24))
+        assertFalse(24 in seating.freeSeats())
+        assertEquals((0 until 24).toList(), seating.freeSeats())
+    }
+
+    @Test
+    fun forget_dropsThePersonLocally_untilTheNextList() {
+        val seating = EncounterSeating()
+        seating.applyServer(listOf(person("a", seat = 2), person("b")))
+        seating.forget("a")
+        assertNull(seating.seatOf("a"))
+        assertNull(seating.occupantOf(2))
+        assertFalse(seating.isCongregation("a"))
+        assertEquals(listOf("b"), seating.unseated().map { it.memberId })
+    }
+
+    @Test
+    fun theChoiceThrottle_allowsOneChangePerSecond() {
+        var now = 10_000.0
+        val throttle = EncounterSeatChoiceThrottle({ now })
+        assertTrue(throttle.tryChoose())
+        now += 999
+        assertFalse(throttle.tryChoose(), "within the second: nothing happens")
+        now += 2
+        assertTrue(throttle.tryChoose())
     }
 
     @Test

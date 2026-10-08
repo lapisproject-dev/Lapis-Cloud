@@ -91,6 +91,7 @@ import network.lapis.cloud.server.embed.EmbedConfig
 import network.lapis.cloud.server.encounter.EncounterEntryNoticeState
 import network.lapis.cloud.server.encounter.EncounterEntryNotifier
 import network.lapis.cloud.server.encounter.EncounterModerationState
+import network.lapis.cloud.server.encounter.EncounterSeatState
 import network.lapis.cloud.server.encounter.EncounterSpacePoller
 import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.events.EventRegistrationSubmission
@@ -388,6 +389,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 fun main() {
     // V1.4.35 Wiederkehrende Veranstaltungen: ical4j system properties, set before the library is
@@ -985,6 +987,8 @@ internal fun Application.module(
     // empty on every request (the EncounterSpaceService constructor therefore has no defaults for them). The in-memory moderation state
     // (blocked / silenced people of a running session) is shared with the EncounterSpacePoller started further below.
     val encounterModerationState = EncounterModerationState()
+    // V1.9.79: the in-memory seat plan of the running sessions (never persisted, see EncounterSeatState); shared with the poller.
+    val encounterSeatState = EncounterSeatState()
 
     // Welle V1.9.76 -- the anonymous entry notice for office holders: ONE notifier (its in-memory state must outlive a request) with its
     // own flush ticker. mailDispatcher is defined far above; with SMTP unconfigured the mailer is disabled and the notifier does no work.
@@ -1006,6 +1010,8 @@ internal fun Application.module(
     val encounterOpenCloseRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val encounterModerationRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     val encounterConfigRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    // V1.9.79: at most one seat change per second and member (a distinct limiter: selectSeat maps a throttle to ServiceBusyException).
+    val encounterSeatRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 1.seconds)
 
     // V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- ConferenceRecordingConfig.load()
     // is pure string parsing (no I/O, see that class's own KDoc), so it is safe to call
@@ -1222,6 +1228,7 @@ internal fun Application.module(
         EncounterSpacePoller(
             liveKitAdminClient = liveKitAdminClient,
             moderationState = encounterModerationState,
+            seatState = encounterSeatState,
             entryNotifier = encounterEntryNotifier,
             liveKitEnabled = conferenceConfig.enabled,
         )
@@ -2059,6 +2066,7 @@ internal fun Application.module(
                 call = call,
                 liveKitAdminClient = liveKitAdminClient,
                 moderationState = encounterModerationState,
+                seatState = encounterSeatState,
                 entryNotifier = encounterEntryNotifier,
                 listRateLimiter = encounterListRateLimiter,
                 enterRateLimiter = encounterEnterRateLimiter,
@@ -2066,6 +2074,7 @@ internal fun Application.module(
                 openCloseRateLimiter = encounterOpenCloseRateLimiter,
                 moderationRateLimiter = encounterModerationRateLimiter,
                 configRateLimiter = encounterConfigRateLimiter,
+                seatRateLimiter = encounterSeatRateLimiter,
                 config = conferenceConfig,
             )
         }

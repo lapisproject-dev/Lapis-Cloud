@@ -40,7 +40,7 @@ class EncounterControlBarDomTest {
     }
 
     private var clock = 1_000_000.0
-    private val sixPeople = (1..6).map { testPerson("c$it", name = "Gast $it") }
+    private val sixPeople = seatedCrowd()
 
     private fun steward(): Pair<EncounterEntryDto, List<EncounterPresentDto>> =
         testEntry(role = EncounterPresenceRole.STEWARD) to

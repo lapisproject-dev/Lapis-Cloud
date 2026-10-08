@@ -112,4 +112,7 @@ enum class ActionIcon(
 
     /** V1.9.74: show the "Mehr" sheet -- the controls of an encounter-room bar that did not fit. (The conference bar's own "Mehr" keeps its raw string.) */
     MORE("fas fa-ellipsis"),
+
+    /** V1.9.79: give up one's own seat in the encounter room ("Platz freigeben"). Used once, in the room's seat area. */
+    RELEASE_SEAT("fas fa-chair"),
 }

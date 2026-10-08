@@ -37,7 +37,7 @@ class EncounterStageModeDomTest {
     }
 
     private var clock = 1_000_000.0
-    private val sixPeople = (1..6).map { testPerson("c$it", name = "Gast $it") }
+    private val sixPeople = seatedCrowd()
 
     private suspend fun withRoom(
         profile: EncounterProfile,
@@ -52,8 +52,6 @@ class EncounterStageModeDomTest {
     )
 
     private fun HTMLElement.buttonLabels(): List<String> = allOf("button").map { it.textContent.orEmpty().trim() }
-
-    private fun HTMLElement.occupied(): Int = seats().count { it.getAttribute("role") == "listitem" }
 
     // ── the reaction set drives the bar ───────────────────────────────────────────
 

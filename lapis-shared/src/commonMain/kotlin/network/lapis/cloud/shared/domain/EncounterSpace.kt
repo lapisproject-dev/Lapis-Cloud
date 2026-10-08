@@ -206,4 +206,34 @@ data class EncounterPresentDto(
     val displayName: String,
     val role: EncounterPresenceRole,
     val isGuest: Boolean,
+    /** V1.9.79: the seat this CONGREGATION person chose (0-based), `null` = not seated. Last + default = wire compatible both ways. */
+    val seat: Int? = null,
 )
+
+/** V1.9.79: seats per row -- two blocks of three with the aisle between position 3 and 4. */
+const val ENCOUNTER_SEATS_PER_ROW = 6
+
+/** V1.9.79: hard upper bound of seats per session (40 rows). */
+const val ENCOUNTER_SEAT_MAX = 240
+
+/** V1.9.79: data-channel topic of the content-free "seats changed, reload the list" nudge. The receiver decodes nothing. */
+const val ENCOUNTER_SEAT_NUDGE_TOPIC = "lapis-encounter-seat"
+
+/** V1.9.79: largest accepted seat nudge payload in bytes (`{"s":1}` is 7). Anything longer is dropped unread. */
+const val ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES = 8
+
+/** V1.9.79: seats a session offers for [congregationCount] people: whole rows, at least 24, one spare row, capped at [ENCOUNTER_SEAT_MAX]. */
+fun encounterSeatCapacity(congregationCount: Int): Int =
+    minOf(ENCOUNTER_SEAT_MAX, maxOf(24, ((congregationCount.coerceAtLeast(0) + 5) / 6 + 1) * 6))
+
+/** V1.9.79: grid size the client renders: the capacity, but never cutting off an occupied seat (capacity may shrink when people leave). */
+fun encounterSeatGridSize(
+    congregationCount: Int,
+    occupied: Collection<Int>,
+): Int = minOf(ENCOUNTER_SEAT_MAX, maxOf(encounterSeatCapacity(congregationCount), (occupied.maxOrNull() ?: -1) + 1))
+
+/** V1.9.79: 1-based row of [seat]. */
+fun encounterSeatRow(seat: Int): Int = seat / ENCOUNTER_SEATS_PER_ROW + 1
+
+/** V1.9.79: 1-based position within the row of [seat]. */
+fun encounterSeatPosition(seat: Int): Int = seat % ENCOUNTER_SEATS_PER_ROW + 1

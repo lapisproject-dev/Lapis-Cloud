@@ -68,9 +68,7 @@ class EncounterRoomDomTest {
         }
     }
 
-    private fun HTMLElement.occupied(): Int = seats().count { it.getAttribute("role") == "listitem" }
-
-    private val sixPeople = (1..6).map { testPerson("c$it", name = "Gast $it") }
+    private val sixPeople = seatedCrowd()
 
     // ── listen-only ──────────────────────────────────────────────────────────────
 
@@ -146,8 +144,12 @@ class EncounterRoomDomTest {
 
     // ── pews ─────────────────────────────────────────────────────────────────────
 
+    // V1.9.79 (stage 2a) replaces the B2 pews tests: a seat used to be a non-interactive listitem with the NAME as `title`, assigned
+    // automatically by this device. Now it is a real button of the group "Sitzplan", chosen by its occupant and reported by the server.
+    // The new checks are stricter than the old ones (no name anywhere in the label, exactly one tab stop, no local assignment).
+
     @Test
-    fun theCongregationSitsInThePews_withInitialsAndAccessibleNames_theOfficesDoNot(): Promise<Unit> =
+    fun theSeatedCongregation_isShownWithInitialsAndNoName_theOfficesDoNotSit(): Promise<Unit> =
         formTest {
             val people =
                 sixPeople +
@@ -155,40 +157,72 @@ class EncounterRoomDomTest {
                     testPerson("s1", EncounterPresenceRole.STEWARD, "Steward Sven")
             withRoom(testEntry(), people) { _, element ->
                 awaitUntil("six seats occupied") { element.occupied() == 6 }
-                val benches = assertNotNull(element.querySelector(".lapis-encounter-benches") as? HTMLElement)
-                assertEquals("list", benches.getAttribute("role"))
-                assertEquals("Gemeinde", benches.getAttribute("aria-label"))
-                val seat = element.seats().first { it.getAttribute("role") == "listitem" }
+                val plan = assertNotNull(element.querySelector(".lapis-encounter-benches") as? HTMLElement)
+                assertEquals("group", plan.getAttribute("role"))
+                assertEquals("Sitzplan", plan.getAttribute("aria-label"))
+                val described = assertNotNull(element.querySelector("#${plan.getAttribute("aria-describedby")}") as? HTMLElement)
+                assertEquals("Die Mikrofone der Gemeinde sind aus.", described.textContent.orEmpty().trim())
+                val seat = element.seats().first { it.classList.contains("lapis-encounter-seat--taken") }
+                assertEquals("BUTTON", seat.tagName)
+                assertEquals("button", seat.getAttribute("type"))
                 assertEquals("true", seat.querySelector(".lapis-encounter-seat-hand")?.getAttribute("aria-hidden"))
-                assertNull(seat.querySelector("button"), "a seat is no button")
-                assertNull(seat.getAttribute("tabindex"), "a seat is no tab stop")
-                assertEquals(6, element.seatNames().filterNotNull().size)
                 assertEquals("GA", seat.querySelector(".lapis-encounter-seat-initials")?.textContent?.trim())
+                assertNull(seat.getAttribute("title"), "no tooltip: the name of a person is nowhere on a seat")
+                element.seats().forEach { cell ->
+                    val label = cell.getAttribute("aria-label").orEmpty()
+                    assertFalse(label.contains("Gast"), "a seat's name has no person's name: $label")
+                    assertFalse(label.contains("Pfarrer") || label.contains("Sven"), label)
+                }
+                assertEquals("Reihe 1, Platz 1, besetzt, G A", element.seatLabels()[0], "row, position, state and the spelled initials")
                 val pulpit = assertNotNull(element.querySelector(".lapis-encounter-pulpit") as? HTMLElement)
                 assertEquals("Kanzel: Pfarrer Paul", pulpit.getAttribute("aria-label"))
                 assertTrue(element.textContent.orEmpty().contains("Steward Sven"), "the steward has a tile")
+                assertTrue(element.seats().none { it.hasAttribute("title") })
             }
         }
 
     @Test
-    fun whenSomeoneLeaves_theirSeatIsEmpty_nobodyElseMoves_andAStrangerGetsNoSeat(): Promise<Unit> =
+    fun nobodyIsSeatedAutomatically_thePeopleWithoutAChoiceStandInTheirOwnRow(): Promise<Unit> =
+        formTest {
+            val people =
+                (1..4).map { testPerson("c$it", name = "Gast $it") } + testPerson("s1", EncounterPresenceRole.STEWARD, "Steward Sven")
+            withRoom(testEntry(), people) { _, element ->
+                val row = assertNotNull(element.querySelector(".lapis-encounter-unseated") as? HTMLElement)
+                awaitUntil("the row of people without a seat is shown") { row.isShown() }
+                assertEquals("Noch ohne Platz", row.getAttribute("aria-label"))
+                assertEquals(0, element.occupied(), "no seat is taken without a choice")
+                assertEquals(4, row.querySelectorAll(".lapis-encounter-unseated-item").length)
+                // not operable and no name
+                assertEquals(0, row.querySelectorAll("button, a, [tabindex]").length)
+                row.querySelectorAll(".lapis-encounter-unseated-item").let { items ->
+                    for (i in 0 until items.length) {
+                        val label = (items.item(i) as HTMLElement).getAttribute("aria-label").orEmpty()
+                        assertFalse(label.contains("Gast"), label)
+                    }
+                }
+            }
+        }
+
+    @Test
+    fun whenSomeoneLeaves_theirSeatIsFree_nobodyElseMoves_andAStrangerGetsNoSeat(): Promise<Unit> =
         formTest {
             var people = sixPeople
             withEncounterRoom(entry = testEntry(), peopleOf = { people }, clock = { clock }) { rig, element ->
                 awaitUntil("six seats occupied") { element.occupied() == 6 }
-                val before = element.seatNames()
+                val before = element.seatLabels()
                 people = people.filter { it.memberId != "c3" } // the server no longer lists the person
                 rig.room.callbacks.onParticipantLeft("c3")
-                awaitUntil("one seat is empty") { element.occupied() == 5 }
-                val after = element.seatNames()
+                awaitUntil("one seat is free") { element.occupied() == 5 }
+                val after = element.seatLabels()
                 val changed = before.indices.filter { before[it] != after[it] }
-                assertEquals(1, changed.size, "exactly the leaving person's seat changed: $changed")
-                assertNull(after[changed.single()])
+                assertEquals(listOf(2), changed, "exactly the leaving person's seat changed: $changed")
+                assertTrue(after[2].contains("frei"), after[2])
                 assertEquals(before.size, after.size, "the pews did not shrink or shift")
-                // a LiveKit participant that `listPresent` does not list (an egress bot) never gets a seat
+                // a LiveKit participant that `listPresent` does not list (an egress bot) never gets a seat or a place in the row
                 rig.room.callbacks.onParticipantJoined("egress-bot", "Egress")
                 delay(150)
                 assertEquals(5, element.occupied())
+                assertEquals(0, element.querySelectorAll(".lapis-encounter-unseated-item").length)
             }
         }
 
@@ -201,7 +235,7 @@ class EncounterRoomDomTest {
                 awaitUntil("six seats occupied") { element.occupied() == 6 }
                 rig.room.callbacks.onReaction("c2", EncounterReaction.HAND)
                 awaitUntil("the hand is up") { element.querySelectorAll(".lapis-encounter-seat-hand.is-on").length == 1 }
-                val seat = element.seats().first { it.getAttribute("title") == "Gast 2" }
+                val seat = element.seats()[1]
                 assertTrue(seat.getAttribute("aria-label").orEmpty().contains("Hand erhoben"))
                 assertEquals(listOf("c2"), rig.room.raisedHandIds)
                 rig.room.callbacks.onReaction("c2", EncounterReaction.HAND_LOWERED)
@@ -210,7 +244,7 @@ class EncounterRoomDomTest {
         }
 
     @Test
-    fun aReactionFromSomebodyWhoDoesNotSit_isDropped(): Promise<Unit> =
+    fun aReactionFromSomebodyNotInTheList_isDropped(): Promise<Unit> =
         formTest {
             withRoom(testEntry(), sixPeople) { rig, element ->
                 awaitUntil("six seats occupied") { element.occupied() == 6 }
@@ -218,6 +252,29 @@ class EncounterRoomDomTest {
                 rig.room.callbacks.onReaction("unknown-identity", EncounterReaction.AMEN)
                 assertEquals(0, element.querySelectorAll(".lapis-encounter-seat-hand.is-on, .lapis-encounter-seat-event.is-on").length)
                 assertTrue(rig.room.raisedHandIds.isEmpty())
+            }
+        }
+
+    @Test
+    fun aReactionFromAPersonWithoutASeat_isShownAtTheirSymbol_notDropped(): Promise<Unit> =
+        formTest {
+            // V1.9.79: nobody is seated automatically, so "only people who sit react" would have swallowed every hand and amen.
+            val people = listOf(testPerson("c1", name = "Anna Unplatziert"), testPerson("c2", name = "Ben Sitzend", seat = 4))
+            withRoom(testEntry(), people) { rig, element ->
+                awaitUntil("the row without a seat is shown") { element.querySelectorAll(".lapis-encounter-unseated-item").length == 1 }
+                rig.room.callbacks.onReaction("c1", EncounterReaction.HAND)
+                rig.room.callbacks.onReaction("c1", EncounterReaction.AMEN)
+                awaitUntil("the hand and the amen show at the symbol") {
+                    element.querySelectorAll(".lapis-encounter-unseated .lapis-encounter-seat-hand.is-on").length == 1 &&
+                        element.querySelectorAll(".lapis-encounter-unseated .lapis-encounter-seat-event.is-on").length == 1
+                }
+                assertEquals(listOf("c1"), rig.room.raisedHandIds)
+                val label =
+                    rig.room.unseatedRow
+                        .labels()
+                        .single()
+                assertTrue(label.contains("Hand erhoben") && label.contains("Reaktion"), label)
+                assertFalse(label.contains("Anna"), label)
             }
         }
 

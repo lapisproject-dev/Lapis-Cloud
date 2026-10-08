@@ -13,6 +13,7 @@ import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
 import network.lapis.cloud.client.mountedForm
 import network.lapis.cloud.client.routeOf
 import network.lapis.cloud.client.rpcService
+import network.lapis.cloud.client.serviceExceptionResult
 import network.lapis.cloud.client.withFetchStub
 import network.lapis.cloud.shared.domain.ConferenceJoinTokenDto
 import network.lapis.cloud.shared.domain.ConferenceRole
@@ -93,7 +94,11 @@ internal fun testPerson(
     role: EncounterPresenceRole = EncounterPresenceRole.CONGREGATION,
     name: String = "Person $id",
     isGuest: Boolean = false,
-) = EncounterPresentDto(memberId = id, displayName = name, role = role, isGuest = isGuest)
+    seat: Int? = null,
+) = EncounterPresentDto(memberId = id, displayName = name, role = role, isGuest = isGuest, seat = seat)
+
+/** V1.9.79: [count] congregation people who have already chosen the seats 0 until [count] ("Gast 1" sits at seat 0, ...). */
+internal fun seatedCrowd(count: Int = 6) = (1..count).map { testPerson("c$it", name = "Gast $it", seat = it - 1) }
 
 internal fun testRights(
     entry: EncounterEntryDto,
@@ -113,6 +118,7 @@ internal open class FakeListenerSession(
 ) : EncounterListenerSession {
     val reactions = mutableListOf<EncounterReaction>()
     val chats = mutableListOf<String>()
+    var seatNudges = 0
     var connects = 0
     var disconnects = 0
     var audioStarts = 0
@@ -131,6 +137,12 @@ internal open class FakeListenerSession(
     override suspend fun sendChat(text: String): Boolean {
         if (!dataAllowed) return false
         chats += text
+        return true
+    }
+
+    override suspend fun sendSeatNudge(): Boolean {
+        if (!dataAllowed) return false
+        seatNudges++
         return true
     }
 
@@ -166,17 +178,11 @@ internal fun HTMLElement.seats(): List<HTMLElement> =
         (0 until list.length).map { list.item(it) as HTMLElement }
     }
 
-/** The accessible names of the OCCUPIED seats, `null` for an empty seat, in DOM order. */
-internal fun HTMLElement.seatNames(): List<String?> =
-    seats().map { seat ->
-        if (seat.getAttribute("role") ==
-            "listitem"
-        ) {
-            seat.getAttribute("title")
-        } else {
-            null
-        }
-    }
+/** V1.9.79: the accessible name of every seat, in DOM order (index = seat index). */
+internal fun HTMLElement.seatLabels(): List<String> = seats().map { it.getAttribute("aria-label").orEmpty() }
+
+/** V1.9.79: how many seats are taken (a free seat is a button too, so counting buttons says nothing). */
+internal fun HTMLElement.occupied(): Int = seats().count { it.classList.contains("lapis-encounter-seat--taken") }
 
 /** The buttons of the control bar (not of the "Mehr" sheet) in DOM order. */
 internal fun HTMLElement.barButtons(): List<HTMLElement> = allOf(".lapis-encounter-controls button")
@@ -211,17 +217,27 @@ internal suspend fun withEncounterRoom(
     privileged: Boolean = false,
     session: FakeListenerSession = FakeListenerSession(dataAllowed = entry.canPublishData),
     extraRespond: (RecordedRequest) -> StubResponse? = { null },
+    /** V1.9.79: the server's answer to `selectSeat`; default = the roster with the viewer sitting where the request says. */
+    selectSeatAnswer: (RecordedRequest) -> StubResponse = { request -> defaultSeatAnswer(request, entry, peopleOf) },
     space: EncounterSpaceDto = testSpace(),
+    seatNudgeDelayMs: () -> Int = { 0 },
+    /** How long the stub server takes to answer `listPresent` (the roster is read when the request ARRIVES, so a slow answer is a stale one). */
+    presentDelayMs: () -> Int = { 0 },
     onLeave: () -> Unit = {},
     onDoorsClosed: () -> Unit = {},
     block: suspend (EncounterRoomRig, HTMLElement) -> Unit,
 ) {
     val presentRoute = routeOf { rpcService<IEncounterSpaceService>().listPresent("space-1") }
+    val selectSeatRoute = routeOf { rpcService<IEncounterSpaceService>().selectSeat("space-1", 1) }
     withFetchStub(
         respond = { request ->
             when {
-                request.isRpc && request.rpcRoute == presentRoute ->
-                    request.answerWith(jsonOf(ListSerializer(EncounterPresentDto.serializer()), peopleOf()))
+                request.isRpc && request.rpcRoute == presentRoute -> {
+                    val answer = request.answerWith(jsonOf(ListSerializer(EncounterPresentDto.serializer()), peopleOf()))
+                    val delay = presentDelayMs()
+                    if (delay > 0) StubResponse(text = answer.text, delayMs = delay) else answer
+                }
+                request.isRpc && request.rpcRoute == selectSeatRoute -> selectSeatAnswer(request)
                 request.isRpc -> extraRespond(request) ?: StubResponse()
                 else -> StubResponse()
             }
@@ -235,6 +251,7 @@ internal suspend fun withEncounterRoom(
                     entry = entry,
                     viewer = testRights(entry = entry, privileged = privileged),
                     clock = clock,
+                    seatNudgeDelayMs = seatNudgeDelayMs,
                     onLeave = onLeave,
                     onDoorsClosed = onDoorsClosed,
                     onConnectionLost = {},
@@ -250,4 +267,24 @@ internal suspend fun withEncounterRoom(
             }
         }
     }
+}
+
+/** The stub server's `selectSeat`: the roster, with the requester seated at the requested seat (or released for `null`). */
+internal fun defaultSeatAnswer(
+    request: RecordedRequest,
+    entry: EncounterEntryDto,
+    peopleOf: () -> List<EncounterPresentDto>,
+): StubResponse {
+    val seat = request.requestedSeat()
+    val people = peopleOf().map { if (it.memberId == entry.join.identity) it.copy(seat = seat) else it }
+    return request.answerWith(jsonOf(ListSerializer(EncounterPresentDto.serializer()), people))
+}
+
+/** The stub server refuses with an exception of [fqcn] (only its TYPE reaches the client). */
+internal fun RecordedRequest.refusedWith(fqcn: String): StubResponse = serviceExceptionResult(json.id as Int, fqcn)
+
+/** The seat a `selectSeat` request asks for (`null` = release). */
+internal fun RecordedRequest.requestedSeat(): Int? {
+    val param: dynamic = rpcParam(1)
+    return if (param == null) null else (param as Number).toInt()
 }

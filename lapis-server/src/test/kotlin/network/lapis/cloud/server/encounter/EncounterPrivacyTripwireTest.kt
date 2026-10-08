@@ -33,6 +33,10 @@ class EncounterPrivacyTripwireTest :
                 "enterSpace",
                 "leaveSpace",
                 "listPresent",
+                // V1.9.79: seat selection and the shared presence-list helpers
+                "selectSeat",
+                "presentViewInTx",
+                "presentDtos",
                 "removeFromSpace",
                 "silenceInSpace",
                 "moderate",
@@ -185,5 +189,41 @@ class EncounterPrivacyTripwireTest :
         test("the notifier class stores no person: its state is keyed by session/space ids only") {
             val code = SourceScan.blank(stateFile.readText())
             Regex("""memberId|identity|email|displayName""", RegexOption.IGNORE_CASE).containsMatchIn(code) shouldBe false
+        }
+
+        // ── Welle V1.9.79: the in-memory seat plan ────────────────────────
+
+        test("V1.9.79: the seat state is memory only -- no transaction, no table, no logger, no audit") {
+            val code = SourceScan.blank(EncounterSourceScan.mainFile("encounter/EncounterSeatState.kt").readText())
+            listOf("transaction", "Table", "logger", "KotlinLogging", "AuditLogRecorder", "println").forEach { forbidden ->
+                code.contains(forbidden) shouldBe false
+            }
+        }
+
+        test("V1.9.79: no migration and no generated schema file knows a seat; there is no V79 migration") {
+            val migrations =
+                File(SourceScan.mainRoot().parentFile, "resources/db/migration").listFiles()!!.filter { it.extension == "sql" }
+            (migrations.size > 70) shouldBe true // the scan is not vacuous
+            migrations.none { it.name.startsWith("V79__") } shouldBe true
+            // (V18 events legitimately has event seats; only the encounter migrations are in question)
+            val encounterMigrations = migrations.filter { it.name.contains("encounter", ignoreCase = true) }
+            (encounterMigrations.size >= 3) shouldBe true
+            encounterMigrations.none { Regex("""\bseat\b""", RegexOption.IGNORE_CASE).containsMatchIn(it.readText()) } shouldBe true
+            val generated = File(SourceScan.mainRoot(), "network/lapis/cloud/server/db/generated")
+            (generated.exists()) shouldBe true
+            generated.walkTopDown().filter { it.isFile && it.extension == "kt" && it.name.startsWith("Encounter") }.none {
+                Regex("""\bseat\b""", RegexOption.IGNORE_CASE).containsMatchIn(it.readText())
+            } shouldBe true
+        }
+
+        test("V1.9.79: selectSeat throttles with its own helper and ServiceBusyException, before any database access") {
+            val fn = EncounterSourceScan.functions(serviceFile).single { it.name == "selectSeat" }
+            fn.body shouldContain "requireSeatRate"
+            fn.body.contains("requireWithinRate") shouldBe false
+            fn.body.contains("logger") shouldBe false
+            (fn.body.indexOf("requireSeatRate") < fn.body.indexOf("transaction")) shouldBe true
+            // there is no member id parameter: nobody can put another person on a seat
+            fn.params.contains("memberId") shouldBe false
+            EncounterSourceScan.functions(serviceFile).single { it.name == "requireSeatRate" }.body shouldContain "ServiceBusyException"
         }
     })

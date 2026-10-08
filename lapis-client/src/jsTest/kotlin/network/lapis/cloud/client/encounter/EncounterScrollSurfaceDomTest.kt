@@ -30,7 +30,7 @@ class EncounterScrollSurfaceDomTest {
     }
 
     private var clock = 1_000_000.0
-    private val sixPeople = (1..6).map { testPerson("c$it", name = "Gast $it") }
+    private val sixPeople = seatedCrowd()
 
     private suspend fun withRoom(block: suspend (HTMLElement) -> Unit) =
         withEncounterRoom(
@@ -49,7 +49,7 @@ class EncounterScrollSurfaceDomTest {
         formTest {
             assertTrue(stylesLoaded)
             withRoom { element ->
-                awaitUntil("six seats") { element.allOf("[role=listitem]").size == 6 }
+                awaitUntil("six seats") { element.occupied() == 6 }
                 val room = element.q(".lapis-encounter-room")
                 assertFalse(element.q(".lapis-encounter-benches-frame").isScroller(), "the benches grow, the page scrolls")
                 assertFalse(element.q(".lapis-encounter-controls").let { window.getComputedStyle(it).overflowX == "auto" }, "the bar wraps")
@@ -94,7 +94,7 @@ class EncounterScrollSurfaceDomTest {
         formTest {
             assertTrue(stylesLoaded)
             withRoom { element ->
-                awaitUntil("six seats") { element.allOf("[role=listitem]").size == 6 }
+                awaitUntil("six seats") { element.occupied() == 6 }
                 val room = element.q(".lapis-encounter-room")
                 room.classList.add("is-pseudo-fullscreen")
                 delay(100)

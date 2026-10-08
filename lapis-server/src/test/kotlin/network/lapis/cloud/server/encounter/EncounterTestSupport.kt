@@ -202,6 +202,10 @@ internal class EncounterRig(
     val liveKit: FakeEncounterLiveKit = FakeEncounterLiveKit(),
     val config: ConferenceConfig = ENCOUNTER_CONFIG,
     val moderationState: EncounterModerationState = EncounterModerationState(),
+    /** V1.9.79: the in-memory seat plan -- ONE per test, like the moderation state. */
+    val seatState: EncounterSeatState = EncounterSeatState(),
+    /** V1.9.79: `null` = as permissive as every other throttle; a test of the 1-per-second throttle passes its own. */
+    seatLimiterOverride: FederationInboxRateLimiter? = null,
     private val limiter: () -> FederationInboxRateLimiter = { FederationInboxRateLimiter(maxRequests = 1_000, window = 1.minutes) },
 ) {
     /** V1.9.76: the entry notice -- ONE state and ONE fake mailer per test, like the moderation state. */
@@ -215,6 +219,7 @@ internal class EncounterRig(
     private val openClose = limiter()
     private val moderation = limiter()
     private val configLimiter = limiter()
+    private val seatLimiter = seatLimiterOverride ?: limiter()
 
     fun service(
         call: ApplicationCall,
@@ -223,6 +228,7 @@ internal class EncounterRig(
         call = call,
         liveKitAdminClient = liveKit,
         moderationState = moderationState,
+        seatState = seatState,
         entryNotifier = entryNotifier,
         listRateLimiter = list,
         enterRateLimiter = enter,
@@ -230,6 +236,7 @@ internal class EncounterRig(
         openCloseRateLimiter = openClose,
         moderationRateLimiter = moderation,
         configRateLimiter = configLimiter,
+        seatRateLimiter = seatLimiter,
         config = config,
     )
 
@@ -427,6 +434,18 @@ internal class EncounterFixtures {
                 it[role] = network.lapis.cloud.shared.domain.ConferenceRole.PARTICIPANT
                 it[ConferenceParticipationTable.joinedAt] = joinedAt
                 it[leftAt] = null
+            }
+        }
+    }
+
+    /** Removes one presence row directly (what the poller or a crashed client leaves behind). */
+    fun deleteParticipation(
+        roomId: Uuid,
+        memberId: Uuid,
+    ) {
+        transaction {
+            ConferenceParticipationTable.deleteWhere {
+                (ConferenceParticipationTable.roomId eq roomId) and (ConferenceParticipationTable.memberId eq memberId)
             }
         }
     }

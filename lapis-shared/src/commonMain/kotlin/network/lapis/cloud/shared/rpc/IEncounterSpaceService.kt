@@ -25,6 +25,7 @@ import network.lapis.cloud.shared.domain.EncounterSpaceRoleDto
  *   that may publish audio/video; BOARD/ADMIN without an office listen only (but may moderate).
  * - [leaveSpace]: every authenticated caller, for their own presence.
  * - [listPresent]: only a person who is currently present sees who is present -- BOARD/ADMIN who are not present see nothing.
+ * - [selectSeat]: only a CONGREGATION person who is present in the open session, for their OWN seat (no member id parameter).
  * - [removeFromSpace]/[silenceInSpace]: office holder or BOARD/ADMIN; a STEWARD may not act against a PULPIT/STEWARD/BOARD/ADMIN.
  *
  * Kilua transmits only the exception TYPE: [NotFoundException] unknown/invisible id, [ForbiddenException] not allowed,
@@ -86,6 +87,17 @@ interface IEncounterSpaceService {
 
     /** The people currently present; only for someone who is present themselves ([ForbiddenException] otherwise). */
     suspend fun listPresent(spaceId: String): List<EncounterPresentDto>
+
+    /**
+     * V1.9.79: sets (or with `null` releases) the caller's own seat. Only a CONGREGATION person present in the open session.
+     * [ConflictException] = seat taken; [ServiceBusyException] = throttled or seat table full; [BadRequestException] = seat out of
+     * range; [ForbiddenException] = not present / closed / office holder. Returns the presence list (as [listPresent]) with seats.
+     * Writes no audit entry and no log line (Art. 9).
+     */
+    suspend fun selectSeat(
+        spaceId: String,
+        seat: Int?,
+    ): List<EncounterPresentDto>
 
     /** Disconnects a person and blocks re-entry for the rest of this session. Writes no audit entry (Art. 9). */
     suspend fun removeFromSpace(

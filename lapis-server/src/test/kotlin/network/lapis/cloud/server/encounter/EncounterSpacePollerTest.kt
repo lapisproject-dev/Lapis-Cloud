@@ -37,6 +37,7 @@ class EncounterSpacePollerTest :
         class World(
             val liveKit: FakeEncounterLiveKit,
             val moderation: EncounterModerationState,
+            val seatState: EncounterSeatState = EncounterSeatState(),
             val space: Uuid,
             val steward: Uuid,
         ) {
@@ -44,6 +45,7 @@ class EncounterSpacePollerTest :
                 EncounterSpacePoller(
                     liveKitAdminClient = liveKit,
                     moderationState = moderation,
+                    seatState = seatState,
                     entryNotifier = EncounterEntryNotifier(state = EncounterEntryNoticeState(), mailer = FakeEncounterEntryNoticeMailer()),
                     liveKitEnabled = enabled,
                 )
@@ -87,6 +89,55 @@ class EncounterSpacePollerTest :
                         .map { it[network.lapis.cloud.server.db.generated.ConferenceParticipationTable.memberId] }
                         .toSet()
                 } shouldBe setOf(live, justJoined)
+            }
+        }
+
+        test("V1.9.79: the seat of a person whose stale presence row is deleted is released; closing a session clears the seat plan") {
+            runBlocking {
+                val w = world()
+                val room = w.liveSession()
+                val crashed = fx.createMember()
+                val live = fx.createMember()
+                fx.insertParticipation(roomId = room, memberId = crashed, joinedAt = ago(10.minutes))
+                fx.insertParticipation(roomId = room, memberId = live, joinedAt = ago(10.minutes))
+                w.liveKit.connect(room = fx.livekitName(room), identity = live.toString())
+                val present = setOf(crashed, live)
+                w.seatState.select(sessionRoomId = room, memberId = crashed, seat = 1, present = present)
+                w.seatState.select(sessionRoomId = room, memberId = live, seat = 2, present = present)
+                val poller = w.poller()
+                poller.tick()
+                poller.tick()
+                // the stale row is gone and its seat was released by the poller itself (snapshot would keep it for a "present" set
+                // that still contains the person -- it only prunes people who are NOT in that set)
+                w.seatState.snapshot(sessionRoomId = room, present = present) shouldBe mapOf(live to 2)
+            }
+        }
+
+        test("V1.9.79: a session closed by the poller (maximum duration) drops its seat plan") {
+            runBlocking {
+                val w = world()
+                val room = w.liveSession(age = (ENCOUNTER_MAX_SESSION_HOURS + 1).hours)
+                val sitter = fx.createMember()
+                w.seatState.select(sessionRoomId = room, memberId = sitter, seat = 3, present = setOf(sitter))
+                w.poller().tick()
+                fx.openSessionRoom(w.space) shouldBe null
+                w.seatState.trackedSessions() shouldBe 0
+            }
+        }
+
+        test("V1.9.79: seat state re-created for an ended session by a racing select is dropped on the next tick (also without LiveKit)") {
+            runBlocking {
+                val w = world()
+                val room = w.liveSession()
+                val sitter = fx.createMember()
+                val ended = Uuid.random()
+                w.seatState.select(sessionRoomId = room, memberId = sitter, seat = 1, present = setOf(sitter))
+                w.seatState.clear(ended)
+                w.seatState.select(sessionRoomId = ended, memberId = sitter, seat = 2, present = setOf(sitter))
+                w.seatState.trackedSessions() shouldBe 2
+                w.poller(enabled = false).tick()
+                w.seatState.trackedSessions() shouldBe 1
+                w.seatState.snapshot(sessionRoomId = room, present = setOf(sitter)) shouldBe mapOf(sitter to 1)
             }
         }
 

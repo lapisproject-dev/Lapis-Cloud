@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.clientversion
 
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
@@ -44,6 +45,14 @@ private val INNER_HTML = Regex("""\binnerHTML\b|\brich\s*=\s*true\b""")
 private val DEVICE_ACCESS = Regex("""\b(?:getUserMedia|mediaDevices|enumerateDevices|setCamera|setMicrophone|setScreenShare)\b""")
 private val TELEMETRY = Regex("""\bsendBeacon\b|\banalytics\b|\bgtag\b|(?<![A-Za-z0-9_.])fetch\(""")
 private val SENT_AT = Regex("""\bsentAtEpochMs\b""")
+
+private val LIVEKIT_SESSION =
+    File("../lapis-client/src/jsMain/kotlin/network/lapis/cloud/client/livekit/LiveKitRoomSession.kt")
+        .let { if (it.exists()) it else File("lapis-client/src/jsMain/kotlin/network/lapis/cloud/client/livekit/LiveKitRoomSession.kt") }
+
+private val SHARED_ENCOUNTER =
+    File("../lapis-shared/src/commonMain/kotlin/network/lapis/cloud/shared/domain/EncounterSpace.kt")
+        .let { if (it.exists()) it else File("lapis-shared/src/commonMain/kotlin/network/lapis/cloud/shared/domain/EncounterSpace.kt") }
 
 private val DEVICE_ALLOWED = setOf("EncounterMediaSession.kt", "EncounterPulpitControls.kt")
 
@@ -128,5 +137,52 @@ class ClientEncounterPrivacyTripwireTest :
             TELEMETRY.containsMatchIn("    fetch(url)") shouldBe true
             TELEMETRY.containsMatchIn("    navigator.sendBeacon(url)") shouldBe true
             SENT_AT.containsMatchIn("    message.sentAtEpochMs") shouldBe true
+        }
+
+        // ── Welle V1.9.79: seats ─────────────────────────────────────────────
+
+        test("V1.9.79: the seat nudge is never decoded -- its branch measures the length and reports the SDK identity, nothing else") {
+            val text = codeLines(LIVEKIT_SESSION).joinToString("\n")
+            val start = text.indexOf("ENCOUNTER_SEAT_NUDGE_TOPIC ->")
+            (start >= 0) shouldBe true
+            val branch = text.substring(start, text.indexOf("else -> return@onOwned", start))
+            listOf("decode", "Json", "TextDecoder", "serializer", "toString", "String(").forEach { forbidden ->
+                withClue("the seat nudge branch must not contain '$forbidden': $branch") { branch.contains(forbidden) shouldBe false }
+            }
+            branch.contains("payload.length > ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES") shouldBe true
+            branch.contains("participant.identity") shouldBe true
+        }
+
+        test("V1.9.79: the seat nudge payload limit is at most 8 bytes, and the topic is its own") {
+            val shared = SHARED_ENCOUNTER.readText()
+            val limit = Regex("""ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES\s*=\s*(\d+)""").find(shared)!!.groupValues[1].toInt()
+            (limit <= 8) shouldBe true
+            shared.contains("\"lapis-encounter-seat\"") shouldBe true
+            // the fixed body that is sent fits the limit
+            val body = Regex("""ENCOUNTER_SEAT_NUDGE_BODY\s*=\s*"((?:\\.|[^"\\])*)"""").find(LIVEKIT_SESSION.readText())!!.groupValues[1]
+            (body.replace("\\\"", "\"").length <= limit) shouldBe true
+        }
+
+        test("V1.9.79: no announcement of the room names a person -- the seat sentences carry row and position only") {
+            val room = encounterFiles().first { it.name == "EncounterRoom.kt" }
+            val announcing = codeLines(room).filter { Regex("""\bannounceSeat\(|\beventLive\.content\s*=""").containsMatchIn(it) }
+            (announcing.size >= 5) shouldBe true // the scan is not vacuous: seated, released, taken, busy, newcomer, reactions
+            announcing.filter { Regex("""displayName|\bname\b|\.name\b""", RegexOption.IGNORE_CASE).containsMatchIn(it) }.shouldBeEmpty()
+            // the vocabulary functions behind them take numbers only
+            val vocabulary = encounterFiles().first { it.name == "EncounterVocabulary.kt" }.readText()
+            listOf("seatedAnnouncement", "seatReleasedAnnouncement", "seatTakenAnnouncement").forEach { fn ->
+                val signature = Regex("""fun $fn\(([^)]*)\)""").find(vocabulary)!!.groupValues[1]
+                withClue("$fn($signature)") { signature.contains("String") shouldBe false }
+            }
+        }
+
+        test("V1.9.79: nothing about seats is stored in the browser, and the seat is never part of a URL") {
+            val seatCode =
+                encounterFiles().filter { it.name in setOf("EncounterSeating.kt", "EncounterSceneLayout.kt", "EncounterRoom.kt") }
+            seatCode.forEach { f ->
+                val code = codeLines(f).filterNot { it.trimStart().startsWith("import ") }
+                code.filter { STORAGE.containsMatchIn(it) }.shouldBeEmpty()
+                code.filter { Regex("""location\.(href|hash|search)|history\.(push|replace)State""").containsMatchIn(it) }.shouldBeEmpty()
+            }
         }
     })

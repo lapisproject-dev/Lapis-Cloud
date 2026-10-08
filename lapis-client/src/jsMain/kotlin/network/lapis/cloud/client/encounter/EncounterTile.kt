@@ -2,6 +2,9 @@ package network.lapis.cloud.client.encounter
 
 import io.kvision.core.Container
 import io.kvision.html.Div
+import io.kvision.html.Span
+import io.kvision.i18n.gettext
+import network.lapis.cloud.client.sanitizeUntrustedI18nText
 import network.lapis.cloud.client.untrustedContent
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLMediaElement
@@ -19,17 +22,54 @@ internal class EncounterTile(
     val root: Div = Div(className = if (large) "lapis-encounter-tile lapis-encounter-tile--large" else "lapis-encounter-tile")
     private val media = EncounterMediaHost("lapis-encounter-tile-media")
     private val label = Div(className = "lapis-encounter-tile-label")
+    private val speakingMark = Span(content = gettext("spricht"), className = "lapis-encounter-tile-speaking")
+    private var currentName: String = displayName
+    private var speaking = false
     private var video: HTMLElement? = null
     private var audio: HTMLElement? = null
 
     init {
         media.attachTo(root)
         root.add(label)
+        // The visible "spricht" is text, not only a colour (V1.9.79); it is also part of the tile's accessible name while it shows.
+        speakingMark.hide()
+        root.add(speakingMark)
         setName(displayName)
     }
 
     fun setName(displayName: String) {
+        currentName = displayName
         untrustedContent(label, displayName)
+        refreshAccessibleName()
+    }
+
+    /**
+     * V1.9.79: LiveKit reports this office holder as speaking right now. Volatile: only a class and a word, never stored or logged. The
+     * word "spricht" is visible and also part of the aria-label, so the signal does not depend on the colour of the outline.
+     */
+    fun setSpeaking(on: Boolean) {
+        if (on == speaking) return
+        speaking = on
+        if (on) {
+            root.addCssClass("lapis-encounter-tile--speaking")
+            speakingMark.show()
+        } else {
+            root.removeCssClass("lapis-encounter-tile--speaking")
+            speakingMark.hide()
+        }
+        refreshAccessibleName()
+    }
+
+    val isSpeaking: Boolean get() = speaking
+
+    private fun refreshAccessibleName() {
+        if (speaking) {
+            root.setAttribute("role", "group")
+            root.setAttribute("aria-label", gettext("%1, spricht", sanitizeUntrustedI18nText(currentName)))
+        } else {
+            root.removeAttribute("aria-label")
+            root.removeAttribute("role")
+        }
     }
 
     fun attachTo(container: Container) {

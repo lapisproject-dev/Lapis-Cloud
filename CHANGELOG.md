@@ -8,6 +8,23 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Encounter room, stage 2a: choose your seat, symbols in the room (V1.9.79, no migration).** The pews are no longer a per-device drawing: every person of the congregation can *choose* a free seat
+  (`IEncounterSpaceService.selectSeat(spaceId, seat)`, `null` releases it), the server decides who wins a contested seat, and everybody sees the seats as initials. Nobody is seated automatically; people without a
+  seat stand in a quiet row "Noch ohne Platz". The seat state is in memory only (`EncounterSeatState`: 64 sessions, 240 seats, one seat per person; released on leave, removal, close, by the poller and at every
+  entry) -- no table, no column, no log line, no audit entry. `EncounterPresentDto.seat` is the last field with a default (wire compatible both ways). `selectSeat` is throttled to one change per second
+  (`ServiceBusyException`, distinct from `ConflictException` = seat taken, because Kilua transmits only the type). A content-free data-channel nudge (`lapis-encounter-seat`, 7 bytes, never decoded) makes the others
+  reload the list through the existing refresh planner (random 0 to 1 s wait, at most one reload per 5 s, so the `list` budget is not loaded more); seat changes are never announced.
+  Client: a seat is a real 44 px button of the group "Sitzplan" (roving tab stop, arrow keys over the aisle, Home/End; a taken seat is `aria-disabled`); its name is row, position, state and the spelled initials, never a
+  person's name or a tooltip; the own seat has a double ring and the word "Sie"; the chosen seat shows as pending until the server answered (no optimistic picture); a lost race, a throttle, "seated" and "released" are fixed
+  sentences in a polite region; a newcomer in the list is announced anonymously and throttled. List alternative "Platz über eine Liste wählen" in the "Anwesende" tab (free seats only, no names). "Platz freigeben" is a secondary
+  button (`ActionIcon.RELEASE_SEAT`). Office holders' tiles show "spricht" (outline and word) from LiveKit's active-speaker signal. **Reactions of a person without a seat are now admitted** (B2 dropped them; with no automatic seating
+  they would all have been lost) and shown at the symbol in the row without a seat. The B2 pews tests (a seat is no button / no tab stop, `title` = name, automatic seating) were replaced by stricter ones. 39 new texts in all
+  seven catalogs. Docs: `encounter-space.adoc` (stage 2a), `dsgvo.adoc`, `action-icons.adoc`. Website, release, version bump, push and deploy are not part of this wave.
+  *Known limitations:* no load test; seats live in the memory of one server instance; a silenced person's nudge is dropped by LiveKit (others see the change within 20 s); after a page reload the person has no seat;
+  translations are agent-made and not checked by native speakers.
+  **Needs legal review:** `EncounterConsentDisclaimer` (lines 77 and 133, both profiles) says other people present see "at most your name" -- that does not cover the now shared seating position (visible to all present people, initials
+  matchable to a name through the "Anwesende" list). The text was deliberately *not* changed. There is also no "sit anonymously" option yet.
+
 - **Encounter room: anonymous entry notice for office holders (V1.9.76, migration V78, off by default).** BOARD/ADMIN can set per room (`encounter_space.notify_mode`) that the ACTIVE PULPIT/STEWARD
   office holders who are not in the room get an e-mail when a person without an office enters: *first newcomer* (one mail per opening of the room) or *every newcomer* (summarised in fixed five-minute
   slots, at most one mail per room per five minutes). The mail names the room, the time, the number of newcomers and the number present -- **never a name, address, id or role of the entrant**; German first,

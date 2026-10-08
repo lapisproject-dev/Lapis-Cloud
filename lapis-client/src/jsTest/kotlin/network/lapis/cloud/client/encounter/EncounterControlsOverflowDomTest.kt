@@ -43,7 +43,7 @@ class EncounterControlsOverflowDomTest {
     }
 
     private var clock = 1_000_000.0
-    private val crowd = (1..6).map { testPerson("c$it", name = "Gast $it") }
+    private val crowd = seatedCrowd()
 
     /** A pulpit person: moderation controls, microphone and camera, the reactions of a church service. */
     private suspend fun withPulpit(block: suspend (EncounterRoomRig, HTMLElement) -> Unit) =

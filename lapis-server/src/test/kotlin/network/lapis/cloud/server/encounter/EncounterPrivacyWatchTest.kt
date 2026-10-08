@@ -243,6 +243,7 @@ class EncounterPrivacyWatchTest :
                 EncounterSpacePoller(
                     liveKitAdminClient = FakeEncounterLiveKit(),
                     moderationState = EncounterModerationState(),
+                    seatState = EncounterSeatState(),
                     entryNotifier = EncounterEntryNotifier(state = EncounterEntryNoticeState(), mailer = FakeEncounterEntryNoticeMailer()),
                     liveKitEnabled = false,
                 )

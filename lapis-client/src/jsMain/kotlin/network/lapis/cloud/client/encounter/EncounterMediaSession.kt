@@ -34,6 +34,12 @@ internal interface EncounterListenerSession {
     /** Sends a chat line (the caller already trimmed and capped it); `false` when the person may not publish data. */
     suspend fun sendChat(text: String): Boolean
 
+    /**
+     * V1.9.79: tells the others to reload the seat list (content-free nudge, no seat, no name); `false` (nothing sent) when the person may
+     * not publish data. Not a media call: the listener/speaker type split is unaffected.
+     */
+    suspend fun sendSeatNudge(): Boolean
+
     /** Resumes audio blocked by the browser's autoplay policy (call from a click). */
     suspend fun startAudio()
 
@@ -64,6 +70,10 @@ internal class EncounterSessionCallbacks(
     val onReconnecting: () -> Unit,
     val onReconnected: () -> Unit,
     val onDisconnected: (DisconnectCause) -> Unit,
+    /** V1.9.79: a content-free "reload the seat list" packet; the identity is the SDK-verified sender. */
+    val onSeatNudge: (identity: String) -> Unit = {},
+    /** V1.9.79: the identities LiveKit currently reports as speaking (the room only looks at office holders' tiles). Volatile, never stored. */
+    val onActiveSpeakers: (identities: List<String>) -> Unit = {},
 )
 
 /** The factory seam of the room view (a `jsTest` hands over a fake). The real one is [openEncounterSession]. */
@@ -81,7 +91,7 @@ private fun defaultLiveKitFactory(
         onLocalVideoTrack = callbacks.onLocalVideoTrack,
         onLocalTrackMuteChanged = callbacks.onLocalTrackMuteChanged,
         onRecordingStatusChanged = {},
-        onActiveSpeakersChanged = {},
+        onActiveSpeakersChanged = callbacks.onActiveSpeakers,
         onActiveDeviceChanged = { _, _ -> },
         onMediaDevicesChanged = {},
         onMediaDevicesError = { _, _ -> },
@@ -95,6 +105,7 @@ private fun defaultLiveKitFactory(
         publishEnabled = publishEnabled,
         onEncounterReaction = callbacks.onReaction,
         onAudioPlaybackChanged = callbacks.onAudioPlaybackChanged,
+        onEncounterSeatNudge = callbacks.onSeatNudge,
     )
 
 /**
@@ -139,6 +150,12 @@ private open class ListenerSession(
                 sentAtEpochMs = 0L,
             ),
         )
+        return true
+    }
+
+    override suspend fun sendSeatNudge(): Boolean {
+        if (!entry.canPublishData) return false
+        liveKit.sendEncounterSeatNudge()
         return true
     }
 

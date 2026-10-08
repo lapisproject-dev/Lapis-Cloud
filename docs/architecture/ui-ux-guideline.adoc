@@ -2293,6 +2293,7 @@ rule that came out of it.
 * **Icons (R57):** four new verbs in `ActionIcon`: corner, size, collapse and "Als Fenster zeigen" (`fa-arrows-up-down-left-right`,
   `fa-up-right-and-down-left-from-center`, `fa-window-minimize`, `fa-window-restore`). The window's header buttons and the bar's "Als Fenster zeigen" are icon-only
   `actionButton`s with a tooltip and `aria-label`; the R58 ledger of `conferenceControlButton` is unchanged (the window reuses `conferenceDockBarControls`).
+* **R54 inventory (V1.9.79).** The encounter room's seat is a button now and fades its colour in 120 ms (`.lapis-encounter-seat`, free to taken); it is the eighth selector of the single `prefers-reduced-motion` block (`ClientUiGuidelineTripwireTest` names all eight), still <= 200 ms.
 
 *Not verified:* a real call on a real device, Safari and iOS.
 

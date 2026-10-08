@@ -7,6 +7,8 @@ import network.lapis.cloud.client.encounter.EncounterReactionWire
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
 import network.lapis.cloud.shared.domain.ConferenceTurnServer
 import network.lapis.cloud.shared.domain.ENCOUNTER_REACTION_TOPIC
+import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_TOPIC
 import network.lapis.cloud.shared.domain.EncounterReaction
 import network.lapis.cloud.shared.domain.NoteBlockBroadcastDto
 import network.lapis.cloud.shared.domain.WhiteboardStrokeWireDto
@@ -359,6 +361,12 @@ class LiveKitRoomSession(
     private val onEncounterReaction: (senderIdentity: String, reaction: EncounterReaction) -> Unit = { _, _ -> },
     /** V1.9.62 -- the browser's audio autoplay permission changed (`false` = blocked, show "Ton einschalten"); also seeded once after connect. */
     private val onAudioPlaybackChanged: (canPlay: Boolean) -> Unit = {},
+    /**
+     * V1.9.79 -- somebody announced "the seats changed, reload the list". The sender is ONLY the SDK-verified `participant.identity`; the
+     * payload is NEVER decoded (like the vote nudge): a packet over [ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES] is dropped, everything else
+     * only asks the caller to re-query the server, which stays the authority on who sits where.
+     */
+    private val onEncounterSeatNudge: (senderIdentity: String) -> Unit = {},
 ) {
     private var room: Room? = null
 
@@ -785,6 +793,11 @@ class LiveKitRoomSession(
                     runCatching {
                         EncounterReactionWire.decode(payload)?.let { onEncounterReaction(participant.identity, it) }
                     }
+                // V1.9.79 -- NO decode: only the length is looked at, the sender is the SDK-verified identity.
+                ENCOUNTER_SEAT_NUDGE_TOPIC -> {
+                    if (payload.length > ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES) return@onOwned
+                    onEncounterSeatNudge(participant.identity)
+                }
                 else -> return@onOwned
             }
         }
@@ -1038,6 +1051,21 @@ class LiveKitRoomSession(
         currentRoom.localParticipant.publishData(EncounterReactionWire.encode(reaction), options).await()
     }
 
+    /**
+     * V1.9.79 -- tells the others "the seats changed, reload the list": a RELIABLE data packet on [ENCOUNTER_SEAT_NUDGE_TOPIC] with the fixed
+     * 7-byte payload `{"s":1}` -- no seat, no name, no time. The server stays the authority (the receivers re-query it). A no-op without a
+     * room; a silenced person's packet is dropped by LiveKit (the others then see the change at the next 20 s refresh).
+     */
+    suspend fun sendEncounterSeatNudge() {
+        val currentRoom = room ?: return
+        val options =
+            obj<PublishDataOptions> {
+                reliable = true
+                topic = ENCOUNTER_SEAT_NUDGE_TOPIC
+            }
+        currentRoom.localParticipant.publishData(TextEncoder().encode(ENCOUNTER_SEAT_NUDGE_BODY), options).await()
+    }
+
     /** V1.9.62 -- resumes audio blocked by the browser's autoplay policy; call from a click handler. A no-op without a room. */
     suspend fun startAudio() {
         val currentRoom = room ?: return
@@ -1178,6 +1206,9 @@ class LiveKitRoomSession(
 
         /** V1.9.24 -- data-less "re-query the voting state" signal, see [sendVoteNudge] KDoc. */
         const val VOTE_NUDGE_TOPIC = "lapis-vote-nudge"
+
+        /** V1.9.79 -- the fixed body of the seat nudge (7 bytes, within [ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES]). */
+        internal const val ENCOUNTER_SEAT_NUDGE_BODY = "{\"s\":1}"
     }
 }
 

@@ -135,6 +135,117 @@ internal class EncounterTerms(
             EncounterReactionOption.HEART -> if (church) gettext("Herz aus der Gemeinde") else gettext("Herz von den Teilnehmenden")
         }
 
+    // ── V1.9.79 Stufe 2a: Sitzplatzwahl ────────────────────────────────────────────────────────────────
+
+    /** Accessible name of the whole seat plan (a group of buttons). */
+    fun seatPlanLabel(): String = gettext("Sitzplan")
+
+    /** Described-by sentence of the seat plan: the audience never has a microphone (listen-only). */
+    fun audienceMutedNote(): String =
+        if (church) gettext("Die Mikrofone der Gemeinde sind aus.") else gettext("Die Mikrofone der Teilnehmenden sind aus.")
+
+    /** A free seat: row, position and the invitation to take it. No name anywhere. */
+    fun freeSeatLabel(
+        row: Int,
+        position: Int,
+    ): String =
+        if (church) {
+            gettext("Reihe %1, Platz %2, frei. Diesen Platz wählen", row, position)
+        } else {
+            gettext("Reihe %1, Stuhl %2, frei. Diesen Stuhl wählen", row, position)
+        }
+
+    /** A free seat for somebody who cannot sit (an office holder): no invitation. */
+    fun freeSeatPlainLabel(
+        row: Int,
+        position: Int,
+    ): String = if (church) gettext("Reihe %1, Platz %2, frei", row, position) else gettext("Reihe %1, Stuhl %2, frei", row, position)
+
+    /** A taken seat: row, position and the INITIALS spelled letter by letter ("M S"), never the name. */
+    fun takenSeatLabel(
+        row: Int,
+        position: Int,
+        spelledInitials: String,
+    ): String =
+        if (church) {
+            gettext("Reihe %1, Platz %2, besetzt, %3", row, position, spelledInitials)
+        } else {
+            gettext("Reihe %1, Stuhl %2, besetzt, %3", row, position, spelledInitials)
+        }
+
+    /** The seat the viewer chose. */
+    fun ownSeatLabel(
+        row: Int,
+        position: Int,
+    ): String =
+        if (church) gettext("Reihe %1, Platz %2, Ihr Platz", row, position) else gettext("Reihe %1, Stuhl %2, Ihr Stuhl", row, position)
+
+    /** Appended to a taken seat's name while its occupant's hand is up. */
+    fun handRaisedSuffix(): String = gettext(", Hand erhoben")
+
+    /** Appended to a taken seat's name while a reaction is shown at it. */
+    fun reactionSuffix(option: EncounterReactionOption): String = gettext(", Reaktion: %1", reactionLabel(option))
+
+    /** The short visible marker at the viewer's own seat. */
+    fun ownSeatMarker(): String = gettext("Sie")
+
+    /** Polite sentence after the viewer chose a seat. */
+    fun seatedAnnouncement(
+        row: Int,
+        position: Int,
+    ): String =
+        if (church) {
+            gettext("Sie sitzen jetzt in Reihe %1, Platz %2.", row, position)
+        } else {
+            gettext("Sie sitzen jetzt in Reihe %1, auf Stuhl %2.", row, position)
+        }
+
+    fun seatReleasedAnnouncement(): String =
+        if (church) gettext("Sie haben Ihren Platz freigegeben.") else gettext("Sie haben Ihren Stuhl freigegeben.")
+
+    /** The chosen seat was taken by somebody else in the meantime. */
+    fun seatTakenAnnouncement(): String =
+        if (church) {
+            gettext("Dieser Platz ist inzwischen besetzt. Bitte wählen Sie einen anderen.")
+        } else {
+            gettext("Dieser Stuhl ist inzwischen besetzt. Bitte wählen Sie einen anderen.")
+        }
+
+    /** The hint above the pews for somebody who has no seat yet. */
+    fun chooseSeatHint(): String =
+        if (church) {
+            gettext("Tippen Sie auf einen freien Platz, um sich zu setzen.")
+        } else {
+            gettext("Tippen Sie auf einen freien Stuhl, um sich zu setzen.")
+        }
+
+    /** The row of people who have not chosen a seat. */
+    fun unseatedRowLabel(): String = gettext("Noch ohne Platz")
+
+    fun releaseSeatLabel(): String = if (church) gettext("Platz freigeben") else gettext("Stuhl freigeben")
+
+    /** The same label as widget content (`tr`), for the visible button. */
+    fun releaseSeatLabelContent(): String = if (church) tr("Platz freigeben") else tr("Stuhl freigeben")
+
+    /** The summary of the list alternative to the seat plan (for people who do not use the picture). */
+    fun chooseFromListSummary(): String = if (church) gettext("Platz über eine Liste wählen") else gettext("Stuhl über eine Liste wählen")
+
+    fun yourSeatStatus(
+        row: Int,
+        position: Int,
+    ): String =
+        if (church) gettext("Ihr Platz: Reihe %1, Platz %2", row, position) else gettext("Ihr Stuhl: Reihe %1, Stuhl %2", row, position)
+
+    fun noSeatYetStatus(): String = if (church) gettext("Sie haben noch keinen Platz.") else gettext("Sie haben noch keinen Stuhl.")
+
+    fun noFreeSeatNote(): String = if (church) gettext("Es ist kein Platz mehr frei.") else gettext("Es ist kein Stuhl mehr frei.")
+
+    /** A button of the list alternative: one free seat. */
+    fun listSeatButtonLabel(
+        row: Int,
+        position: Int,
+    ): String = if (church) gettext("Reihe %1, Platz %2 wählen", row, position) else gettext("Reihe %1, Stuhl %2 wählen", row, position)
+
     /** Accessible name of the list of the seats. */
     fun audienceName(): String = presenceRoleLabel(EncounterPresenceRole.CONGREGATION)
 

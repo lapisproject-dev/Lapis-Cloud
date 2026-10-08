@@ -3025,6 +3025,44 @@ html .form-select.is-invalid:focus {
   }
 }
 
+/* V1.9.79: erzwungene Farben -- Kontur in `Highlight`, die Initialen, das Wort "Sie" und die Glyphen bleiben sichtbar (Rahmen statt Fuellung). */
+@media (forced-colors: active) {
+  .lapis-encounter-seat,
+  .lapis-encounter-unseated-item {
+    border: 2px solid CanvasText;
+    forced-color-adjust: none;
+    background: Canvas;
+    color: CanvasText;
+  }
+
+  .lapis-encounter-seat--free,
+  .lapis-encounter-seat--pending {
+    border-style: dashed;
+  }
+
+  .lapis-encounter-seat--own {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .lapis-encounter-seat:focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 3px;
+  }
+
+  .lapis-encounter-seat-self,
+  .lapis-encounter-seat-hand,
+  .lapis-encounter-seat-event {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+
+  .lapis-encounter-tile--speaking {
+    outline: 3px solid Highlight;
+  }
+}
+
 .lapis-encounter-stage {
   position: relative;
   display: flex;
@@ -3098,6 +3136,23 @@ html .form-select.is-invalid:focus {
   object-fit: cover;
 }
 
+/* V1.9.79: "spricht" -- 3-px-Kontur UND das sichtbare Wort (nie Farbe allein). */
+.lapis-encounter-tile--speaking {
+  outline: 3px solid var(--lapis-fleck);
+  outline-offset: -3px;
+}
+
+.lapis-encounter-tile-speaking {
+  position: absolute;
+  right: 0.5rem;
+  top: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--lapis-media-overlay-text);
+  font-size: 0.75rem;
+}
+
 .lapis-encounter-tile-label {
   position: absolute;
   left: 0.5rem;
@@ -3140,23 +3195,138 @@ html .form-select.is-invalid:focus {
   gap: var(--lapis-enc-seat-gap);
 }
 
+/* V1.9.79 (Stufe 2a): ein Platz ist ein echter Knopf (`<button>`), mindestens 44 x 44 px. Frei = gestrichelter Kreis (Rahmen in der Textfarbe,
+   damit die Kontur gegen die Flaeche mindestens 3:1 hat), besetzt = gefuellter Kreis mit Initialen, eigener Platz = Doppelring plus das
+   sichtbare Wort "Sie" (nie Farbe allein), ausstehend = gestrichelter Ring. Fokus: eigener, kraeftiger Ring statt des goldenen
+   Standard-Rings (Gold auf Beige hat zu wenig Kontrast). */
 .lapis-encounter-seat {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
   width: var(--lapis-enc-seat);
   height: var(--lapis-enc-seat);
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid transparent;
   border-radius: 50%;
   background: var(--lapis-encounter-seat);
   color: var(--lapis-encounter-seat-text);
+  font: inherit;
   font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 120ms, border-color 120ms;
+}
+
+.lapis-encounter-seat--free {
+  background: transparent;
+  border: 2px dashed var(--lapis-encounter-seat-text);
+}
+
+.lapis-encounter-seat[aria-disabled="true"] {
+  cursor: default;
+}
+
+.lapis-encounter-seat--own {
+  box-shadow: 0 0 0 2px var(--lapis-encounter-surface), 0 0 0 4px var(--lapis-encounter-seat-text);
+}
+
+.lapis-encounter-seat--pending {
+  border: 2px dashed var(--lapis-encounter-seat-text);
+  cursor: progress;
+}
+
+.lapis-encounter-seat:focus-visible {
+  outline: 3px solid var(--lapis-encounter-seat-text);
+  outline-offset: 3px;
+}
+
+.lapis-encounter-seat-self {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 0.3rem;
+  border-radius: 0.5rem;
+  background: var(--lapis-encounter-seat-text);
+  color: var(--lapis-encounter-surface);
+  font-size: 0.625rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* "Noch ohne Platz": eine leise Zeile von Symbolen unter den Baenken (nicht bedienbar), umbrechend. */
+.lapis-encounter-unseated {
+  position: relative;
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.lapis-encounter-unseated-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--lapis-enc-seat-gap);
+}
+
+.lapis-encounter-unseated-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 36px;
+  height: 36px;
+  border: 2px dashed var(--lapis-encounter-seat-text);
+  border-radius: 50%;
+  background: var(--lapis-encounter-seat);
+  color: var(--lapis-encounter-seat-text);
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
-.lapis-encounter-seat--empty {
-  background: transparent;
-  border: 2px dashed var(--lapis-encounter-seat);
+.lapis-encounter-seat-hint,
+.lapis-encounter-seat-note {
+  position: relative;
+  margin: 0 0 0.5rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--lapis-encounter-seat-text);
+}
+
+.lapis-encounter-seat-release {
+  position: relative;
+  display: block;
+  margin: 0.75rem auto 0;
+}
+
+/* Die Liste ohne Bild (Seitenleiste "Anwesende"): je Reihe eine Gruppe von Knoepfen, jeder mindestens 44 x 44 px. */
+.lapis-encounter-seat-list {
+  margin-bottom: 0.75rem;
+}
+
+.lapis-encounter-seat-list summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.lapis-encounter-seat-list-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0.25rem 0;
+}
+
+.lapis-encounter-seat-list-button {
+  min-width: 44px;
+  min-height: 44px;
 }
 
 /* Hand und Ereignis (Amen, Applaus, Herz): kleine, leise Zeichen am Platz (nie eine Zahl; ein Ereignis-Platz je Sitz). Ein- und Ausblenden
@@ -3392,10 +3562,11 @@ html .form-select.is-invalid:focus {
   /* Schmaler Bildschirm: sechs Plaetze je Reihe fast ohne Gang, die Kanzel in voller Breite. Die Leiste zeigt nur Symbole (der Text bleibt als
      zugaenglicher Name im DOM). Kachel der Szene: 256 x 44. */
   .lapis-encounter {
-    --lapis-enc-seat: 36px;
-    --lapis-enc-aisle: 8px;
-    --lapis-enc-row-w: 256px;
-    --lapis-enc-row-h: 44px;
+    --lapis-enc-seat: 44px;
+    --lapis-enc-seat-gap: 4px;
+    --lapis-enc-aisle: 16px;
+    --lapis-enc-row-w: 296px;
+    --lapis-enc-row-h: 48px;
   }
 
   .lapis-encounter-seat {
@@ -3818,6 +3989,7 @@ html.lapis-has-dock {
   .lapis-conference-controls-row,
   .lapis-conference-background-preview,
   .lapis-busy,
+  .lapis-encounter-seat,
   .lapis-encounter-seat-hand,
   .lapis-encounter-seat-event,
   .lapis-conference-float {
