@@ -435,18 +435,25 @@ internal fun renderTemporaryPasswordReceipt(
             }
     }
     body.div(tr("Wird nicht erneut angezeigt.")) { addCssClasses("fw-bold mt-2") }
-    val notificationLine =
-        when (memberNotified) {
-            MailDeliveryState.HANDED_TO_SMTP -> tr("Das Mitglied wurde per E-Mail informiert.")
-            MailDeliveryState.NOT_CONFIGURED -> tr("Kein SMTP konfiguriert — das Mitglied wurde nicht benachrichtigt.")
-            MailDeliveryState.RATE_LIMITED -> tr("Benachrichtigung übersprungen (Versandlimit).")
-        }
+    val notificationLine = temporaryPasswordNotificationLine(memberNotified)
     body.div {
         addCssClasses("text-muted small mt-2")
         span(gettext("%1 Sitzung(en) beendet.", revokedSessionCount))
         span(" $notificationLine")
     }
 }
+
+/**
+ * The sentence that tells whether the member was notified by e-mail. `gettext`, not `tr`: the receipt joins it into a longer
+ * string, and a `tr()` marker in the MIDDLE of a string is never resolved -- the raw `###KvI18nS###` showed up in front of the
+ * sentence in the dialog. Pure, so a test can pin that no state carries the marker.
+ */
+internal fun temporaryPasswordNotificationLine(memberNotified: MailDeliveryState): String =
+    when (memberNotified) {
+        MailDeliveryState.HANDED_TO_SMTP -> gettext("Das Mitglied wurde per E-Mail informiert.")
+        MailDeliveryState.NOT_CONFIGURED -> gettext("Kein SMTP konfiguriert — das Mitglied wurde nicht benachrichtigt.")
+        MailDeliveryState.RATE_LIMITED -> gettext("Benachrichtigung übersprungen (Versandlimit).")
+    }
 
 /**
  * D6-Muster (siehe `EmbedIntegrationScreen.copyToClipboard`): kein Toast, kein Dialog, keine
