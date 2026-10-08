@@ -10375,7 +10375,7 @@ msgid "Das aktuelle Signaturgeheimnis für den Webhook von „%1“ wird sofort 
 msgstr "Het huidige ondertekeningsgeheim voor de webhook van \"%1\" wordt direct ongeldig -- lopende integraties werken niet meer totdat ze zijn bijgewerkt."
 
 msgid "Neu erzeugen"
-msgstr "Opnieuw genereren"
+msgstr "Vernieuwen"
 
 msgid "Webhook entfernen bestätigen"
 msgstr "Bevestig het verwijderen van de webhook"

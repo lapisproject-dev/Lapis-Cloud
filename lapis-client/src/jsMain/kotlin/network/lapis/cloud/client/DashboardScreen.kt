@@ -1,7 +1,7 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.FlexWrap
 import io.kvision.html.Autocomplete
-import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -203,7 +203,7 @@ internal fun renderChangePassword(root: SimplePanel) {
     val confirm =
         form.passwordField(label = tr("Neues Passwort bestätigen"), required = true, autocomplete = Autocomplete.NEW_PASSWORD)
     form.crossFieldRule(field = confirm) { FormRules.passwordsMatch(password = next.value, confirmation = confirm.value) }
-    val save = Button(tr("Passwort ändern"), style = ButtonStyle.PRIMARY)
+    val save = newActionButton(ActionIcon.PASSWORD, tr("Passwort ändern"), ButtonStyle.PRIMARY)
     val cancel = newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.PRIMARY)
     form.buttons(primary = save, cancel = cancel)
     cancel.onClick { listOf(current, next, confirm).forEach { it.reset() } }
@@ -219,9 +219,10 @@ internal fun renderChangePassword(root: SimplePanel) {
 }
 
 internal fun renderAccountActions(root: SimplePanel) {
-    val actionRow = root.hPanel(spacing = 8)
+    // V1.9.75: the row may wrap on a narrow phone (two buttons with icon and text).
+    val actionRow = root.hPanel(spacing = 8, wrap = FlexWrap.WRAP)
 
-    val logoutButton = actionRow.button(tr("Abmelden"), style = ButtonStyle.SECONDARY)
+    val logoutButton = actionRow.actionButton(ActionIcon.LEAVE, tr("Abmelden"), ButtonStyle.SECONDARY)
     logoutButton.onClick {
         AppScope.launch {
             AuthHttp.logout()

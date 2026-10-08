@@ -418,8 +418,9 @@ finance forms) reuse the same building blocks.
 | The stream key and the temporary password generated for ANOTHER person: `autocomplete="off"` plus
   `data-1p-ignore`, `data-lpignore`, `data-form-type="other"`, `spellcheck="false"`, `autocapitalize="off"`. Honest
   limit: browsers may ignore `autocomplete="off"` on password fields and the `data-*` attributes are a request to the
-  password managers, not a guarantee. The temporary password has a reveal toggle (`aria-pressed`, `title` and
-  `aria-label` in the same call, the name changes between "Passwort anzeigen" and "Passwort verbergen"); the value
+  password managers, not a guarantee. A reveal toggle shows visible text next to the eye ("Anzeigen" / "Verbergen", V1.9.75); symbol,
+  text, `title` and `aria-label` change together ("Passwort anzeigen" / "Passwort verbergen" -- the long name contains the visible text, WCAG 2.5.3),
+  and there is deliberately no `aria-pressed` (a changing name plus a pressed state contradict each other); the value
   never appears in an attribute, a title or an error message (`SecretFieldDomTest`).
 
 | Consent checkboxes

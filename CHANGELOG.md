@@ -61,6 +61,17 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **Password buttons with symbols and text (V1.9.75).** "Passwort ändern" now carries a key (`ActionIcon.PASSWORD`, `fa-key`), "Abmelden" the exit symbol (`ActionIcon.LEAVE`, the same picture
+  as leaving a room, now also the source of the menu entry's symbol in `App.kt`); the account action row may wrap on a narrow phone. The reveal toggle of a password field shows the
+  eye together with the text "Anzeigen" / "Verbergen" instead of a bare symbol; symbol, text, `title` and `aria-label` change together and the long name ("Passwort anzeigen" /
+  "Passwort verbergen") contains the visible text (WCAG 2.5.3). **`aria-pressed` was removed from the reveal toggle** (APG: a changing name and a pressed state contradict each other, a
+  screen reader would say "hide password, pressed"). "Neu erzeugen" of the temporary password now has visible text and uses `ActionIcon.REFRESH`, so its glyph changes from `fa-rotate` to
+  `fa-arrows-rotate` (one picture for "refresh"); this was not named in the task and is a deliberate scope extension. The field's action row stays in one line (`nowrap`, no overflow rule:
+  R59 is untouched). Correction: there never was an R58 exception for the eye -- the R58 list is unchanged. Italian "Passwort anzeigen" and Dutch "Neu erzeugen" ("Vernieuwen") were
+  adjusted (label in name, width budget); these are agent translations, not checked by native speakers. Client only; no server, RPC or database change.
+  Open: login, registration and password reset still have no reveal toggle (a product decision that touches autofill, not part of this wave). The request to send a conference stream to
+  YouTube or record it to disk as a variant of the same pipeline is not part of this wave and goes onto the roadmap.
+
 - **"Für alle beenden" now sits at the very end of the conference bar, directly next to "Verlassen" (V1.9.72).** On explicit request of the project owner; this **reverses the V1.9.66
   safeguard** that kept the two apart (the old text in `ui-ux-guideline.adoc` is marked as superseded, not rewritten). The bar's exit group is [Zurück zum Hauptraum, breakout only]
   [Für alle beenden, moderator in the main room only] [Verlassen, always last] with 12 px between the controls and no divider; the moderation group keeps only recording and

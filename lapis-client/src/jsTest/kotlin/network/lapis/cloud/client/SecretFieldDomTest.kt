@@ -20,6 +20,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -86,7 +87,7 @@ class SecretFieldDomTest {
         }
 
     @Test
-    fun aRevealToggle_isAToggleButton_andKeepsTheValue() {
+    fun aRevealToggle_showsItsVerbAsText_swapsSymbolTextAndName_andKeepsTheValue() {
         withMountedRoot("secret-reveal") { root, element ->
             val form = root.lapisForm()
             form.passwordField(label = tr("Temporäres Passwort"), value = "abcd-efgh", suppressManagers = true, reveal = true)
@@ -94,21 +95,34 @@ class SecretFieldDomTest {
             val input = element().all("input").first() as HTMLInputElement
             assertRequestsNoManagerHelp(input)
             val toggle = assertNotNull(element().querySelector(".lapis-field-actions button") as? HTMLElement, "no reveal toggle")
+            // V1.9.75: visible text next to the eye; the long name contains the visible text (WCAG 2.5.3).
+            assertEquals("Anzeigen", toggle.textContent?.trim())
+            assertNotNull(toggle.querySelector("i.fa-eye"), "no eye symbol: ${toggle.outerHTML}")
             assertEquals("Passwort anzeigen", toggle.getAttribute("title"))
             assertEquals("Passwort anzeigen", toggle.getAttribute("aria-label"))
-            assertEquals("false", toggle.getAttribute("aria-pressed"))
+            assertTrue(toggle.getAttribute("aria-label")!!.lowercase().contains(toggle.textContent!!.trim().lowercase()))
+            assertFalse(toggle.hasAttribute("aria-pressed"), "name and state would contradict each other")
             assertFalse(toggle.outerHTML.contains("###KvI18nS###"))
 
             toggle.click()
             assertEquals("text", input.type)
             assertEquals("abcd-efgh", input.value, "revealing must keep the value")
-            assertEquals("true", toggle.getAttribute("aria-pressed"))
+            assertEquals("Verbergen", toggle.textContent?.trim())
+            assertNotNull(toggle.querySelector("i.fa-eye-slash"), "no crossed-out eye: ${toggle.outerHTML}")
+            assertNull(toggle.querySelector("i.fa-eye:not(.fa-eye-slash)"))
+            assertEquals("true", toggle.querySelector("i")?.getAttribute("aria-hidden"), "the swapped symbol stays decoration")
+            assertFalse(toggle.hasAttribute("aria-pressed"))
             assertEquals("Passwort verbergen", toggle.getAttribute("aria-label"))
             assertEquals("Passwort verbergen", toggle.getAttribute("title"))
+            assertTrue(toggle.getAttribute("aria-label")!!.lowercase().contains(toggle.textContent!!.trim().lowercase()))
 
             toggle.click()
             assertEquals("password", input.type)
-            assertEquals("false", toggle.getAttribute("aria-pressed"))
+            assertEquals("Anzeigen", toggle.textContent?.trim())
+            assertNotNull(toggle.querySelector("i.fa-eye"))
+            assertNull(toggle.querySelector("i.fa-eye-slash"))
+            assertFalse(toggle.hasAttribute("aria-pressed"))
+            assertEquals("Passwort anzeigen", toggle.getAttribute("aria-label"))
         }
     }
 
@@ -166,14 +180,42 @@ class SecretFieldDomTest {
                 val actions = assertNotNull(host.querySelector(".modal .lapis-field-actions") as? HTMLElement)
                 val buttons = actions.all("button")
                 assertEquals(2, buttons.size, "reveal toggle + regenerate")
-                buttons.forEach {
-                    assertTrue(
-                        it.hasAttribute("title") && it.hasAttribute("aria-label"),
-                        "icon-only button needs title AND aria-label: ${it.outerHTML}",
-                    )
-                }
-                assertEquals("Neu erzeugen", buttons[1].getAttribute("aria-label"))
+                // V1.9.75: both buttons carry visible text; the reveal toggle keeps its longer name, "Neu erzeugen" is its own name.
+                assertEquals("Anzeigen", buttons[0].textContent?.trim())
+                assertEquals("Neu erzeugen", buttons[1].textContent?.trim())
+                assertNotNull(buttons[1].querySelector("i.fa-arrows-rotate"), "regenerate uses ActionIcon.REFRESH")
+                buttons.forEach { assertTrue(it.textContent!!.isNotBlank(), "no icon-only button: ${it.outerHTML}") }
                 assertFalse(scope.innerHTML.contains("###KvI18nS###"))
+            }
+        }
+
+    @Test
+    fun theTemporaryPasswordDialog_keepsOneRowAt312px(): Promise<Unit> =
+        test {
+            withMountedRoot("secret-narrow") { _, _ ->
+                openMemberPasswordResetDialog(
+                    row =
+                        MemberAdminRowDto(
+                            id = "00000000-0000-0000-0000-000000000097",
+                            displayName = "Narrow Mitglied",
+                            email = "narrow@example.org",
+                            status = MemberStatus.ACTIVE,
+                            role = AccountRole.MEMBER,
+                            joinedAt = LocalDate(2026, 1, 1),
+                            anonymized = false,
+                        ),
+                    onChanged = {},
+                )
+                val modal = (document.body as HTMLElement).all(".modal").last() as HTMLElement
+                val actions = assertNotNull(modal.querySelector(".lapis-field-actions") as? HTMLElement)
+                (actions.parentElement as HTMLElement).style.width = "312px"
+                val buttons = actions.all("button").map { it as HTMLElement }
+                assertEquals(2, buttons.size)
+                awaitUntil("dialog laid out") { buttons.all { it.offsetHeight > 0 } }
+                assertTrue(actions.scrollWidth <= actions.clientWidth, "row overflows: ${actions.scrollWidth} > ${actions.clientWidth}")
+                assertEquals(buttons[0].offsetTop, buttons[1].offsetTop, "the buttons must share one row")
+                // The 44 px target is the theme rule for coarse pointers (`@media (pointer: coarse)`), not measurable with a mouse.
+                assertEquals(buttons[0].offsetHeight, buttons[1].offsetHeight, "both buttons are equally high")
             }
         }
 

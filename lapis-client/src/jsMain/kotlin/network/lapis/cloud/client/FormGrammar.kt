@@ -95,8 +95,8 @@ fun Container.lapisForm(
 
 private var fieldIdCounter = 0
 
-private const val REVEAL_ICON = "fas fa-eye"
 private const val HIDE_ICON = "fas fa-eye-slash"
+private const val REVEAL_STATE_ICON_EXTRA = "fa-fw lapis-action-icon"
 
 /** Die Attribute, die Passwortmanager bitten, ein Geheimnisfeld in Ruhe zu lassen. Eine Bitte, keine Garantie. */
 private val SECRET_FIELD_ATTRIBUTES: Map<String, String> =
@@ -718,21 +718,23 @@ class LapisForm internal constructor(
     private fun revealToggle(control: Password): Button {
         val showLabel = tr("Passwort anzeigen")
         val hideLabel = tr("Passwort verbergen")
-        val toggle =
-            Button("", icon = REVEAL_ICON, style = ButtonStyle.OUTLINESECONDARY) {
-                title = showLabel
-                setAttribute("aria-label", resolvedAttributeText(showLabel))
-                setAttribute("aria-pressed", "false")
-            }
+        // V1.9.75: visible text next to the eye ("Anzeigen" / "Verbergen"); the title and aria-label carry the longer name that
+        // CONTAINS the visible text (WCAG 2.5.3 label in name). No aria-pressed: a changing name AND a pressed state contradict
+        // each other (a screen reader would say "hide password, pressed"), so name and symbol change together instead.
+        val showText = tr("Anzeigen")
+        val hideText = tr("Verbergen")
+        val toggle = newActionButton(ActionIcon.VIEW, showText, ButtonStyle.OUTLINESECONDARY)
+        toggle.title = showLabel
+        toggle.setAttribute("aria-label", resolvedAttributeText(showLabel))
         var revealed = false
         toggle.onClick {
             revealed = !revealed
             control.type = if (revealed) InputType.TEXT else InputType.PASSWORD
-            val next = if (revealed) hideLabel else showLabel
-            toggle.icon = if (revealed) HIDE_ICON else REVEAL_ICON
-            toggle.title = next
-            toggle.setAttribute("aria-label", resolvedAttributeText(next))
-            toggle.setAttribute("aria-pressed", revealed.toString())
+            val nextLabel = if (revealed) hideLabel else showLabel
+            toggle.icon = if (revealed) "$HIDE_ICON $REVEAL_STATE_ICON_EXTRA" else actionIconClasses(ActionIcon.VIEW)
+            toggle.text = if (revealed) hideText else showText
+            toggle.title = nextLabel
+            toggle.setAttribute("aria-label", resolvedAttributeText(nextLabel))
         }
         return toggle
     }

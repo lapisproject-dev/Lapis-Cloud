@@ -628,7 +628,7 @@ internal fun refreshNavbar(
                 ddLink(
                     tr("Abmelden"),
                     url = "javascript:void(0)",
-                    icon = "fas fa-right-from-bracket",
+                    icon = ActionIcon.LEAVE.css,
                     dataNavigo = false,
                 )
             logoutLink.onClick {

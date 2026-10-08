@@ -11,6 +11,7 @@ package network.lapis.cloud.client
 enum class ActionIcon(
     val css: String,
 ) {
+    /** Refresh a view; V1.9.75: also "generate a fresh value" (the temporary password's "Neu erzeugen"). */
     REFRESH("fas fa-arrows-rotate"),
     EDIT("fas fa-pen"),
     DELETE("fas fa-trash"),
@@ -40,6 +41,9 @@ enum class ActionIcon(
 
     /** Change who may see an object (visibility / access level). NOT [LOCK] (reserved). */
     ACCESS("fas fa-user-lock"),
+
+    /** V1.9.75: change one's own password / set a member's password. NOT [LOCK] (reserved), NOT [ACCESS]. */
+    PASSWORD("fas fa-key"),
     EXPORT("fas fa-file-export"),
     SETTINGS("fas fa-gear"),
     UNDO("fas fa-rotate-left"),
@@ -58,6 +62,8 @@ enum class ActionIcon(
      * right to send, [BROADCAST] start/stop the transmission of the pulpit, [OFFICES] who holds which office of a room, [PEOPLE] the list of the people present, [MICROPHONE]/[CAMERA] the office holder's own devices.
      */
     ENTER("fas fa-right-to-bracket"),
+
+    /** Leave a room (V1.9.62) or leave the whole app = sign out (V1.9.75); one verb, one picture. */
     LEAVE("fas fa-right-from-bracket"),
     OPEN_DOORS("fas fa-door-open"),
     CLOSE_DOORS("fas fa-door-closed"),

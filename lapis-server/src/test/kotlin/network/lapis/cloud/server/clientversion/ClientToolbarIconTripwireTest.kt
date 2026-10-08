@@ -225,9 +225,6 @@ private const val REASON_DOMAIN_ICON_6 =
 private const val REASON_DOMAIN_ICON_7 =
     "DOMAIN_ICON: 'Statistik' (chart) toggles the statistics block of a list row"
 
-private const val REASON_DOMAIN_ICON_8 =
-    "DOMAIN_ICON: icon-only 'Neu erzeugen' (generate a new temporary password), not a refresh of data"
-
 private const val REASON_DOMAIN_ICON_9 =
     "DOMAIN_ICON: the chevron of the searchable select (a combobox control, not an action)"
 
@@ -260,7 +257,6 @@ private val R57_LEDGER: Map<String, LedgerEntry> =
         "S3:ConferenceVotePanel.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_5),
         "S3:DocumentsScreen.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_6),
         "S3:MailingListRows.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_7),
-        "S3:MemberPasswordResetDialog.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_8),
         "S3:SearchableSelect.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_9),
     )
 
@@ -774,5 +770,26 @@ class ClientToolbarIconTripwireTest :
             withClue("every document listener of the sheet has a removal") { removals shouldBe sheetListeners }
             room.contains("overflow.dispose()") shouldBe true
             codeLines(room).any { it.contains("addAfterInsertHook") } shouldBe false
+        }
+
+        test("V1.9.75: the reveal toggle and the password buttons carry visible text -- no icon-only button, no aria-pressed") {
+            // The R58 list (chat composer, conference bar, encounter bar) stays unchanged: the eye never was an R58 exception, it was a
+            // plain `Button("", icon = ...)`. From V1.9.75 it is a labelled actionButton; these two files may not fall back.
+            listOf("FormGrammar.kt", "MemberPasswordResetDialog.kt").forEach { name ->
+                val code = codeLines(clientFiles().first { it.name == name }.readText()).joinToString("\n")
+                withClue("$name must not build an icon-only button") {
+                    code.contains("newIconOnlyActionButton") shouldBe false
+                    Regex("""iconOnly\s*=\s*true""").containsMatchIn(code) shouldBe false
+                    Regex("""\bButton\(\s*""\s*,""").containsMatchIn(code) shouldBe false
+                    Regex("""\.button\(\s*""\s*,""").containsMatchIn(code) shouldBe false
+                }
+            }
+            val grammar = codeLines(clientFiles().first { it.name == "FormGrammar.kt" }.readText()).joinToString("\n")
+            withClue("a reveal toggle with a changing name must not also set aria-pressed (the name and the state contradict)") {
+                grammar.contains("\"aria-pressed\"") shouldBe false
+            }
+            val dashboard = codeLines(clientFiles().first { it.name == "DashboardScreen.kt" }.readText()).joinToString("\n")
+            dashboard.contains("ActionIcon.PASSWORD") shouldBe true
+            dashboard.contains("ActionIcon.LEAVE") shouldBe true
         }
     })

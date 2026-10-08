@@ -13015,7 +13015,7 @@ msgstr "Inserire un numero intero tra %1 e %2."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FormGrammar.kt
 msgid "Passwort anzeigen"
-msgstr "Mostra password"
+msgstr "Visualizza password"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FormGrammar.kt
 msgid "Passwort verbergen"

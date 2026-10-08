@@ -279,6 +279,8 @@ class FormGrammarI18nCatalogTest :
                 "Bitte korrigieren Sie diese Felder: %1.",
                 "Passwort anzeigen",
                 "Passwort verbergen",
+                "Anzeigen",
+                "Verbergen",
                 "Bitte eine gültige E-Mail-Adresse eingeben.",
                 "Die E-Mail-Adresse ist zu lang (höchstens %1 Zeichen).",
                 "Bitte eine ganze Zahl zwischen %1 und %2 eingeben.",
@@ -330,6 +332,26 @@ class FormGrammarI18nCatalogTest :
             languages.forEach { lang ->
                 (catalogs.getValue(lang).getValue("Passwort anzeigen") != catalogs.getValue(lang).getValue("Passwort verbergen")) shouldBe
                     true
+            }
+        }
+
+        test("V1.9.75: the long name of the reveal toggle contains its visible text in every catalog (WCAG 2.5.3 label in name)") {
+            languages.forEach { lang ->
+                val catalog = catalogs.getValue(lang)
+                listOf("Passwort anzeigen" to "Anzeigen", "Passwort verbergen" to "Verbergen").forEach { (long, short) ->
+                    val longText = catalog.getValue(long).lowercase()
+                    val shortText = catalog.getValue(short).lowercase()
+                    (longText.contains(shortText)) shouldBe true
+                }
+            }
+        }
+
+        test("V1.9.75: the visible text of the reveal toggle and of the regenerate button fit one row at 312 px in every catalog") {
+            // Width budget in characters (the Karma test measures the real pixels): one row of two buttons, 312 px host.
+            languages.forEach { lang ->
+                val catalog = catalogs.getValue(lang)
+                val widest = maxOf(catalog.getValue("Anzeigen").length, catalog.getValue("Verbergen").length)
+                (widest + catalog.getValue("Neu erzeugen").length <= 24) shouldBe true
             }
         }
 

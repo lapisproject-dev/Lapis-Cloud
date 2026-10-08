@@ -2887,6 +2887,17 @@ html .form-select.is-invalid:focus {
   margin-inline-end: 0;
 }
 
+/* V1.9.75: the action row of a secret field ("Anzeigen" + "Neu erzeugen"): labelled buttons stay in ONE row and are never squeezed or
+   cut; the visible texts are short by contract (FormGrammarI18nCatalogTest). No overflow rule: R59 (one scroll surface) is untouched. */
+.lapis-field-actions {
+  flex-wrap: nowrap;
+}
+
+.lapis-field-actions .btn {
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
 /* ── V1.9.62 Begegnungsraum (B2) ──────────────────────────────────────────────────────────────────────────────────────
    Zwei Ebenen: `.lapis-encounter-scene` (Ebene 0, Maske, aria-hidden) und `.lapis-encounter-stage` (Ebene 1). Die Buehne selbst ist
    durchsichtig; ihre FLAECHEN (Kanzel, Ordnerleiste, Plaetze, Beschriftungen) sind deckend -- darauf steht jeder Text. */

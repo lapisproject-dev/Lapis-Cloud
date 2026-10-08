@@ -196,14 +196,7 @@ internal fun openMemberPasswordResetDialog(
             reveal = true,
             rule = { FormRules.newPassword(value = it, email = row.email) },
             actions = { actionsRow ->
-                actionsRow.button(
-                    "",
-                    icon = "fas fa-rotate",
-                    style = ButtonStyle.OUTLINESECONDARY,
-                ) {
-                    val regenerateLabel = tr("Neu erzeugen")
-                    title = regenerateLabel
-                    setAttribute("aria-label", resolvedAttributeText(regenerateLabel))
+                actionsRow.actionButton(ActionIcon.REFRESH, tr("Neu erzeugen"), ButtonStyle.OUTLINESECONDARY) {
                     onClick {
                         // Über das LapisField, nicht am Control vorbei: KVisions `value`-Setter löst kein DOM-`input` aus, ein
                         // schon angezeigter Feldfehler (rote Umrandung, `aria-invalid`) bliebe sonst am neuen, gültigen Wert stehen.
