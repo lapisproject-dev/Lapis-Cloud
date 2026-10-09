@@ -21119,3 +21119,81 @@ msgstr "Kansel luider"
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Podium lauter"
 msgstr "Podium luider"
+
+msgid "unter 1 Minute"
+msgstr "minder dan 1 minuut"
+
+msgid "ca. %1 Min."
+msgstr "ca. %1 min."
+
+msgid "ca. %1 Std. %2 Min."
+msgstr "ca. %1 u %2 min."
+
+msgid "%1 Empfänger"
+msgstr "%1 ontvangers"
+
+msgid "%1 Empfänger · Stundenbudget für Rundschreiben: %2 pro Stunde · Dauer %3"
+msgstr "%1 ontvangers · uurbudget voor mailinglijstverzendingen: %2 per uur · duur %3"
+
+msgid "Der Versand wird auf mehrere Stunden verteilt."
+msgstr "De verzending wordt over meerdere uren gespreid."
+
+msgid "Wird versendet: %1 von %2 · noch %3"
+msgstr "Wordt verzonden: %1 van %2 · nog %3"
+
+msgid "pausiert bis ca. %1 (Anbieter hat verzögert)"
+msgstr "gepauzeerd tot ca. %1 (aanbieder heeft uitgesteld)"
+
+msgid "pausiert bis ca. %1 (Stundenbudget)"
+msgstr "gepauzeerd tot ca. %1 (uurbudget)"
+
+msgid "%1 unklar (Unterbrechung)"
+msgstr "%1 onduidelijk (onderbreking)"
+
+msgid "%1 fehlgeschlagen"
+msgstr "%1 mislukt"
+
+msgid "E-Mail-Versand"
+msgstr "E-mailverzending"
+
+msgid "Zustand des E-Mail-Versands: Stundenbudget, wartende System-E-Mails und Fehlschläge der letzten 7 Tage. Es werden nur Zahlen angezeigt, nie Adressen oder Inhalte."
+msgstr "Status van de e-mailverzending: uurbudget, wachtende systeem-e-mails en storingen van de afgelopen 7 dagen. Er worden alleen cijfers getoond, nooit adressen of inhoud."
+
+msgid "Stundenbudget"
+msgstr "Uurbudget"
+
+msgid "%1 / %2 (Reserve %3)"
+msgstr "%1 / %2 (reserve %3)"
+
+msgid "Gezählt werden die E-Mails der letzten 60 Minuten."
+msgstr "Er worden de e-mails van de afgelopen 60 minuten geteld."
+
+msgid "Kein Stundenbudget eingerichtet."
+msgstr "Geen uurbudget ingesteld."
+
+msgid "Rundschreiben pausiert bis ca. %1 (Anbieter hat verzögert)"
+msgstr "Verzendingen naar mailinglijsten gepauzeerd tot ca. %1 (aanbieder heeft uitgesteld)"
+
+msgid "Warteschlange"
+msgstr "Wachtrij"
+
+msgid "Wartend: %1"
+msgstr "Wachtend: %1"
+
+msgid "Älteste Wartezeit: %1"
+msgstr "Langste wachttijd: %1"
+
+msgid "Dauerhafte Warteschlange nicht aktiv (kein Verschlüsselungsschlüssel eingerichtet)."
+msgstr "Duurzame wachtrij niet actief (geen versleutelingssleutel ingesteld)."
+
+msgid "Fehlgeschlagen (7 Tage)"
+msgstr "Mislukt (7 dagen)"
+
+msgid "Abgelaufen, ohne gesendet zu werden (7 Tage)"
+msgstr "Verlopen zonder te zijn verzonden (7 dagen)"
+
+msgid "Keine."
+msgstr "Geen."
+
+msgid "Die E-Mail kann einige Minuten brauchen."
+msgstr "De e-mail kan enkele minuten duren."

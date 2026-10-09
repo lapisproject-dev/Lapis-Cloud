@@ -21109,3 +21109,81 @@ msgstr "Кафедру громче"
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Podium lauter"
 msgstr "Подиум громче"
+
+msgid "unter 1 Minute"
+msgstr "менее 1 минуты"
+
+msgid "ca. %1 Min."
+msgstr "прибл. %1 мин."
+
+msgid "ca. %1 Std. %2 Min."
+msgstr "прибл. %1 ч %2 мин."
+
+msgid "%1 Empfänger"
+msgstr "Получателей: %1"
+
+msgid "%1 Empfänger · Stundenbudget für Rundschreiben: %2 pro Stunde · Dauer %3"
+msgstr "Получателей: %1 · часовой лимит для рассылок: %2 в час · длительность: %3"
+
+msgid "Der Versand wird auf mehrere Stunden verteilt."
+msgstr "Отправка будет растянута на несколько часов."
+
+msgid "Wird versendet: %1 von %2 · noch %3"
+msgstr "Отправка: %1 из %2 · осталось %3"
+
+msgid "pausiert bis ca. %1 (Anbieter hat verzögert)"
+msgstr "приостановлено до прибл. %1 (поставщик отложил)"
+
+msgid "pausiert bis ca. %1 (Stundenbudget)"
+msgstr "приостановлено до прибл. %1 (часовой лимит)"
+
+msgid "%1 unklar (Unterbrechung)"
+msgstr "%1 неясно (прерывание)"
+
+msgid "%1 fehlgeschlagen"
+msgstr "не удалось: %1"
+
+msgid "E-Mail-Versand"
+msgstr "Отправка e-mail"
+
+msgid "Zustand des E-Mail-Versands: Stundenbudget, wartende System-E-Mails und Fehlschläge der letzten 7 Tage. Es werden nur Zahlen angezeigt, nie Adressen oder Inhalte."
+msgstr "Состояние отправки e-mail: часовой лимит, ожидающие системные письма и сбои за последние 7 дней. Показываются только числа, никогда адреса или содержимое."
+
+msgid "Stundenbudget"
+msgstr "Часовой лимит"
+
+msgid "%1 / %2 (Reserve %3)"
+msgstr "%1 / %2 (резерв %3)"
+
+msgid "Gezählt werden die E-Mails der letzten 60 Minuten."
+msgstr "Учитываются письма за последние 60 минут."
+
+msgid "Kein Stundenbudget eingerichtet."
+msgstr "Часовой лимит не настроен."
+
+msgid "Rundschreiben pausiert bis ca. %1 (Anbieter hat verzögert)"
+msgstr "Рассылки приостановлены до прибл. %1 (поставщик отложил)"
+
+msgid "Warteschlange"
+msgstr "Очередь"
+
+msgid "Wartend: %1"
+msgstr "Ожидает: %1"
+
+msgid "Älteste Wartezeit: %1"
+msgstr "Самое долгое ожидание: %1"
+
+msgid "Dauerhafte Warteschlange nicht aktiv (kein Verschlüsselungsschlüssel eingerichtet)."
+msgstr "Постоянная очередь не активна (ключ шифрования не настроен)."
+
+msgid "Fehlgeschlagen (7 Tage)"
+msgstr "Сбои (7 дней)"
+
+msgid "Abgelaufen, ohne gesendet zu werden (7 Tage)"
+msgstr "Истекли без отправки (7 дней)"
+
+msgid "Keine."
+msgstr "Нет."
+
+msgid "Die E-Mail kann einige Minuten brauchen."
+msgstr "Письмо может идти несколько минут."

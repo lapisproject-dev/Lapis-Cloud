@@ -341,6 +341,15 @@ internal object LegalHtml {
             }
             li {
                 +(
+                    "Versand von System-E-Mails (z. B. Passwort zurücksetzen, Bestätigungen, Hinweise): Ist die " +
+                        "Zustellung nicht sofort möglich, wird die E-Mail verschlüsselt zwischengespeichert, bis sie " +
+                        "zugestellt ist; sicherheitsrelevante E-Mails verfallen nach 30 Minuten ungesendet. Nach " +
+                        "Abschluss bleiben nur Zweck, Status und Zeitpunkte ohne Adresse und Inhalt erhalten " +
+                        "(7 bzw. 30 Tage) — Art. 6 Abs. 1 lit. b bzw. lit. f DSGVO."
+                )
+            }
+            li {
+                +(
                     "Buchhaltung, Beitrags-/Spendenkonto, Prüfpfad, Zahlungsverkehr, interne Verrechnung, " +
                         "Umsatzsteuer-Voranmeldung (Nachweishilfe) und Auktionen — Art. 6 Abs. 1 lit. c DSGVO " +
                         "(handels-/steuerrechtliche Aufbewahrungspflichten, GoBD/HGB/AO; bei politischen " +

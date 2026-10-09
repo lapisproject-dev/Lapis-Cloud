@@ -911,6 +911,59 @@ before deploying. In `log` mode a missing key falls back to an ephemeral key (li
 restart; nothing leaves the server in that mode anyway). **Keep the key stable**: rotating it invalidates
 every already-sent tracking link (they answer 404). The key is never logged.
 
+== Hourly send budget and durable outbox (V1.9.81, optional)
+
+A shared mailbox at a hosting provider is rate limited (netcup: 250 mails per hour and mailbox). Exceeding the limit gets the mailbox blocked -- and with it the
+password-reset and e-mail-change mails. Since V1.9.81 the server can count every mail it hands to the relay in a sliding one-hour window, keep a **reserve** for
+system mails, and queue system mails **durably and encrypted** instead of in a 64-slot memory channel. Full design: `docs/architecture/mail-delivery-budget-and-outbox.adoc`.
+
+[cols="2,3", options="header"]
+|===
+| Variable | Meaning
+| `LAPIS_MAIL_MAX_PER_HOUR` | `10..10000`. Unset = no budget, no throttling. For netcup use `250` -- or a little less (for example `230`) when the mailbox is also used by hand.
+| `LAPIS_MAIL_RESERVE_PER_HOUR` | `1..max-1`, default `max(1, ceil(0.2 * max))` (250 -> 50). A mailing-list send may use `max - reserve` per hour, a system mail all of `max`.
+|===
+
+**These two variables are deliberately NOT forwarded by `docker-compose.yml`** (same posture as `LAPIS_MCP_*`, `LAPIS_AI_*`, `LAPIS_KEYCLOAK_*`; a tripwire test pins it).
+A line in `.env` alone therefore does nothing. To enable the budget, add to the `environment:` block of the server service:
+
+[source,yaml]
+----
+      LAPIS_MAIL_MAX_PER_HOUR: ${LAPIS_MAIL_MAX_PER_HOUR:-}
+      LAPIS_MAIL_RESERVE_PER_HOUR: ${LAPIS_MAIL_RESERVE_PER_HOUR:-}
+----
+
+and put the values in `.env` (see the commented lines in `.env.example`).
+
+**The budget is counted per instance (per database), not per mailbox.** If PdV, ELB and Staging send through the same SMTP account, the provider's limit has to be
+split between them -- three instances on one netcup mailbox: about a third each (for example `75`) -- otherwise the provider blocks the mailbox although every
+instance stays within its own budget. Please confirm which instance uses which mailbox before choosing the numbers. Several instances sharing one database share one
+budget and need synchronised clocks (NTP).
+
+**Dependency on `LAPIS_SECRET_ENCRYPTION_KEY`.** The durable queue encrypts every queued mail with this key (the same variable the webhook secrets use):
+
+[cols="1,1,2,3", options="header"]
+|===
+| SMTP | Budget | Key | Result
+| no | no | any | no queue; the no-op transport writes nothing
+| no | yes | any | start fails
+| yes | no | unset | in-memory queue as before + a start WARN "durable queue inactive"
+| yes | yes | unset | start fails
+| yes | any | invalid | start fails
+| yes | any | valid | durable queue active
+|===
+
+Rotating the key makes queued (open) rows unreadable: they end `FAILED/DECRYPT` instead of being sent -- rotate it when the queue is empty (admin card "E-Mail-Versand").
+
+**Upgrade to V1.9.81.** Migration `V80__mail_budget_and_outbox.sql` is purely additive and leaves `V1__baseline.sql` untouched: **no `flywayRepair` is needed**. Take a backup first, as
+before every migration. Existing `PENDING` mailing-list rows keep working (`claimed_at` NULL = not started). New tables: `mail_outbox`, `mail_send_slot`, `mail_budget_lock`
+(all excluded from the whole-organization backup). Afterwards check the new ADMIN card **System > E-Mail-Versand**: budget use, queue depth, oldest waiting age and the failures
+and expiries of the last 7 days per purpose -- counts only, no addresses.
+
+Behaviour worth knowing: security mails (password reset, e-mail change, ...) expire unsent after 30 minutes; a system mail whose delivery is *uncertain* after a timeout is retried
+and can therefore arrive twice; a mailing-list send that is interrupted by a restart continues for the recipients not yet started, while a recipient that was already being sent is
+shown as "unclear" and is **not** mailed again.
+
 == White-Label-Branding (optional)
 
 `LAPIS_BRAND_TITLE`, `LAPIS_BRAND_LOGO_PATH` -- **both optional, independent of each other**

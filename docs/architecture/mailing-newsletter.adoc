@@ -59,7 +59,7 @@ sequenceDiagram(name = "Mailing send -- async delivery") {
     message(from = service, to = db, label = "D3 filter: active subscription AND status=ACTIVE AND anonymized_at IS NULL AND date_of_death IS NULL")
     message(from = service, to = db, label = "INSERT mailing_delivery_log rows, deliveryStatus=PENDING, one per eligible recipient")
     message(from = service, to = board, label = "MailingMessageDto(status=QUEUED) -- returns BEFORE any recipient is actually mailed")
-    message(from = service, to = worker, label = "enqueue(messageId) -- own bounded queue, own single worker coroutine")
+    message(from = service, to = worker, label = "enqueue(messageId) -- wakes the single worker; the queue is the mailing_message table")
     message(from = worker, to = db, label = "load message + re-sanitize stored body_html (defense in depth) + PENDING rows")
     message(from = worker, to = transport, label = "send(to, subject, plainText, html) -- SMTP mode only, LOG mode skips this call")
     message(from = transport, to = worker, label = "Sent / Failed / Skipped")
@@ -68,16 +68,30 @@ sequenceDiagram(name = "Mailing send -- async delivery") {
 }
 ----
 
-== Crash recovery (D2)
+== Crash recovery (D2, rewritten in V1.9.81)
 
-`MailingDeliveryWorker.recoverInterrupted()` runs once at startup, before the server accepts any
-request. Every leftover `PENDING` delivery-log row (an interrupted send) becomes `FAILED`; every
-still-`QUEUED` message is closed out as `SENT` (if at least one recipient row is `SENT`) or `FAILED`
-otherwise. There is deliberately **no automatic re-send** -- retrying an interrupted bulk send
-risks mailing real members twice, which this wave treats as strictly worse than a manual re-check
-by the board. Because the V1 baseline's inline `CHECK` on `delivery_status` was widened alongside
-the named constraint in `V53`, an already-migrated instance needs a `flyway repair` before this
-version starts (see `bootstrap/FlywayRepair.kt` and `deploy/example/README.adoc`).
+Since V1.9.81 a send is **resumable and at most once** -- see link:mail-delivery-budget-and-outbox.adoc[mail-delivery-budget-and-outbox.adoc] for the full
+account. In short: a recipient row is *claimed* (`mailing_delivery_log.claimed_at`) before it is sent, after its hourly budget slot was reserved.
+`MailingDeliveryWorker.recoverInterrupted()` runs once at startup, before the server accepts any request:
+
+* a `PENDING` row *with* a claim becomes the new status `INTERRUPTED` (the outcome is unknown, the mail may already have reached the relay) and is **never** sent
+  again -- mailing real members twice is still treated as strictly worse than a manual re-check by the board;
+* a `PENDING` row *without* a claim stays `PENDING` and is sent after the restart, exactly once; a `QUEUED` message stays `QUEUED` and the worker is woken;
+* a `QUEUED` message whose rows are all final is closed: `SENT` if at least one recipient row is `SENT`, otherwise `FAILED` (`INTERRUPTED` does not count as reached).
+
+Before V1.9.81 every leftover `PENDING` row became `FAILED` on a restart, including the recipients that had not been touched yet.
+
+The send queue is no longer an in-memory channel of 16 message ids (which could be "saturated"): it is the `mailing_message` table, ordered by the new column `queued_at`,
+and `MailingDeliveryWorker.enqueue` only wakes the worker. `enqueue` now throws `ConflictException` only when the worker has been shut down; `sendMailingMessage` then rolls
+its queuing back as before.
+
+*Retry.* A clear SMTP 4xx reply or a connection failure before anything was sent releases the claim and schedules the next attempt after 5, 15 and 60 minutes
+(at most three retries; `attempt_count`, `next_attempt_at`) and pauses the whole bulk lane for 10 minutes. 5xx, authentication failures and a timeout *after* the data
+transfer began are final (`FAILED`). The hourly budget (`LAPIS_MAIL_MAX_PER_HOUR`, lane BULK) holds the worker back *before* the claim.
+
+*Display.* `mailingSendEstimate` (before sending: count, hourly budget, duration) and `mailingSendProgress` (while `QUEUED`: counts, pause with reason, ETA) -- both
+BOARD/ADMIN only and limited to 60 calls per minute and member. `DeliveryStatus` gained `INTERRUPTED` (`V80` widens the `delivery_status` CHECK constraint; the unnamed
+inline CHECK of `V1__baseline.sql` is dropped by its generated H2 name inside `V80`, so `V1` stays untouched and **no `flywayRepair` is needed**).
 
 == Content model
 

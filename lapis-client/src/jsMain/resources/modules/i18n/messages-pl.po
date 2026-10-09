@@ -21118,3 +21118,81 @@ msgstr "Ambona głośniej"
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Podium lauter"
 msgstr "Podium głośniej"
+
+msgid "unter 1 Minute"
+msgstr "mniej niż 1 minuta"
+
+msgid "ca. %1 Min."
+msgstr "ok. %1 min"
+
+msgid "ca. %1 Std. %2 Min."
+msgstr "ok. %1 godz. %2 min"
+
+msgid "%1 Empfänger"
+msgstr "odbiorców: %1"
+
+msgid "%1 Empfänger · Stundenbudget für Rundschreiben: %2 pro Stunde · Dauer %3"
+msgstr "odbiorców: %1 · budżet godzinowy dla wysyłek do list: %2 na godzinę · czas: %3"
+
+msgid "Der Versand wird auf mehrere Stunden verteilt."
+msgstr "Wysyłka zostanie rozłożona na kilka godzin."
+
+msgid "Wird versendet: %1 von %2 · noch %3"
+msgstr "Wysyłanie: %1 z %2 · pozostało %3"
+
+msgid "pausiert bis ca. %1 (Anbieter hat verzögert)"
+msgstr "wstrzymano do ok. %1 (dostawca opóźnił)"
+
+msgid "pausiert bis ca. %1 (Stundenbudget)"
+msgstr "wstrzymano do ok. %1 (budżet godzinowy)"
+
+msgid "%1 unklar (Unterbrechung)"
+msgstr "%1 niejasnych (przerwanie)"
+
+msgid "%1 fehlgeschlagen"
+msgstr "%1 nie powiodło się"
+
+msgid "E-Mail-Versand"
+msgstr "Wysyłka e-maili"
+
+msgid "Zustand des E-Mail-Versands: Stundenbudget, wartende System-E-Mails und Fehlschläge der letzten 7 Tage. Es werden nur Zahlen angezeigt, nie Adressen oder Inhalte."
+msgstr "Stan wysyłki e-maili: budżet godzinowy, oczekujące e-maile systemowe i błędy z ostatnich 7 dni. Wyświetlane są tylko liczby, nigdy adresy ani treści."
+
+msgid "Stundenbudget"
+msgstr "Budżet godzinowy"
+
+msgid "%1 / %2 (Reserve %3)"
+msgstr "%1 / %2 (rezerwa %3)"
+
+msgid "Gezählt werden die E-Mails der letzten 60 Minuten."
+msgstr "Liczone są e-maile z ostatnich 60 minut."
+
+msgid "Kein Stundenbudget eingerichtet."
+msgstr "Nie skonfigurowano budżetu godzinowego."
+
+msgid "Rundschreiben pausiert bis ca. %1 (Anbieter hat verzögert)"
+msgstr "Wysyłki do list wstrzymano do ok. %1 (dostawca opóźnił)"
+
+msgid "Warteschlange"
+msgstr "Kolejka"
+
+msgid "Wartend: %1"
+msgstr "Oczekuje: %1"
+
+msgid "Älteste Wartezeit: %1"
+msgstr "Najdłuższe oczekiwanie: %1"
+
+msgid "Dauerhafte Warteschlange nicht aktiv (kein Verschlüsselungsschlüssel eingerichtet)."
+msgstr "Trwała kolejka nieaktywna (nie skonfigurowano klucza szyfrowania)."
+
+msgid "Fehlgeschlagen (7 Tage)"
+msgstr "Nieudane (7 dni)"
+
+msgid "Abgelaufen, ohne gesendet zu werden (7 Tage)"
+msgstr "Wygasłe bez wysłania (7 dni)"
+
+msgid "Keine."
+msgstr "Brak."
+
+msgid "Die E-Mail kann einige Minuten brauchen."
+msgstr "E-mail może dotrzeć dopiero po kilku minutach."

@@ -21071,3 +21071,81 @@ msgstr "Pulpit louder"
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Podium lauter"
 msgstr "Podium louder"
+
+msgid "unter 1 Minute"
+msgstr "under 1 minute"
+
+msgid "ca. %1 Min."
+msgstr "approx. %1 min."
+
+msgid "ca. %1 Std. %2 Min."
+msgstr "approx. %1 h %2 min."
+
+msgid "%1 Empfänger"
+msgstr "%1 recipients"
+
+msgid "%1 Empfänger · Stundenbudget für Rundschreiben: %2 pro Stunde · Dauer %3"
+msgstr "%1 recipients · hourly budget for mailing-list sends: %2 per hour · duration %3"
+
+msgid "Der Versand wird auf mehrere Stunden verteilt."
+msgstr "The send will be spread over several hours."
+
+msgid "Wird versendet: %1 von %2 · noch %3"
+msgstr "Sending: %1 of %2 · %3 left"
+
+msgid "pausiert bis ca. %1 (Anbieter hat verzögert)"
+msgstr "paused until approx. %1 (provider deferred)"
+
+msgid "pausiert bis ca. %1 (Stundenbudget)"
+msgstr "paused until approx. %1 (hourly budget)"
+
+msgid "%1 unklar (Unterbrechung)"
+msgstr "%1 unclear (interrupted)"
+
+msgid "%1 fehlgeschlagen"
+msgstr "%1 failed"
+
+msgid "E-Mail-Versand"
+msgstr "Email delivery"
+
+msgid "Zustand des E-Mail-Versands: Stundenbudget, wartende System-E-Mails und Fehlschläge der letzten 7 Tage. Es werden nur Zahlen angezeigt, nie Adressen oder Inhalte."
+msgstr "State of email delivery: hourly budget, waiting system emails and failures of the last 7 days. Only figures are shown, never addresses or contents."
+
+msgid "Stundenbudget"
+msgstr "Hourly budget"
+
+msgid "%1 / %2 (Reserve %3)"
+msgstr "%1 / %2 (reserve %3)"
+
+msgid "Gezählt werden die E-Mails der letzten 60 Minuten."
+msgstr "The emails of the last 60 minutes are counted."
+
+msgid "Kein Stundenbudget eingerichtet."
+msgstr "No hourly budget configured."
+
+msgid "Rundschreiben pausiert bis ca. %1 (Anbieter hat verzögert)"
+msgstr "Mailing-list sends paused until approx. %1 (provider deferred)"
+
+msgid "Warteschlange"
+msgstr "Queue"
+
+msgid "Wartend: %1"
+msgstr "Waiting: %1"
+
+msgid "Älteste Wartezeit: %1"
+msgstr "Longest wait: %1"
+
+msgid "Dauerhafte Warteschlange nicht aktiv (kein Verschlüsselungsschlüssel eingerichtet)."
+msgstr "Durable queue not active (no encryption key configured)."
+
+msgid "Fehlgeschlagen (7 Tage)"
+msgstr "Failed (7 days)"
+
+msgid "Abgelaufen, ohne gesendet zu werden (7 Tage)"
+msgstr "Expired without being sent (7 days)"
+
+msgid "Keine."
+msgstr "None."
+
+msgid "Die E-Mail kann einige Minuten brauchen."
+msgstr "The email can take a few minutes."

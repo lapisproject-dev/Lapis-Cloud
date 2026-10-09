@@ -187,6 +187,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.DUNNING_SETTINGS,
                 Routes.RECEIVABLE_DUNNING_SETTINGS,
                 Routes.EMBED_INTEGRATION,
+                Routes.MAIL_DELIVERY,
             ),
     )
 
@@ -605,6 +606,8 @@ fun buildSidebar(
             // `fa-bell` ist in `lapis-client` noch frei.
             sidebarLink(Routes.RECEIVABLE_DUNNING_SETTINGS, tr("Forderungs-Mahnstufen"), "fas fa-bell", toggle)
             sidebarLink(Routes.EMBED_INTEGRATION, tr("Website-Integration"), "fas fa-code", toggle)
+            // Welle V1.9.81 -- ADMIN-Gesundheitskarte des E-Mail-Versands; `fa-envelopes-bulk` ist in `lapis-client` noch frei.
+            sidebarLink(Routes.MAIL_DELIVERY, tr("E-Mail-Versand"), "fas fa-envelopes-bulk", toggle)
         }
     }
 

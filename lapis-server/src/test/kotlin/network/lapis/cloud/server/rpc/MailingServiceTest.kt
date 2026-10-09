@@ -18,19 +18,18 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.server.db.generated.MailBudgetLockTable
+import network.lapis.cloud.server.db.generated.MailSendSlotTable
 import network.lapis.cloud.server.db.generated.MailingDeliveryLogTable
 import network.lapis.cloud.server.db.generated.MailingLinkClickTable
 import network.lapis.cloud.server.db.generated.MailingListSubscriptionTable
@@ -38,16 +37,19 @@ import network.lapis.cloud.server.db.generated.MailingListTable
 import network.lapis.cloud.server.db.generated.MailingMessageLinkTable
 import network.lapis.cloud.server.db.generated.MailingMessageTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailBranding
-import network.lapis.cloud.server.mail.MailSendOutcome
-import network.lapis.cloud.server.mail.MailTransport
+import network.lapis.cloud.server.mail.MailBudgetConfig
 import network.lapis.cloud.server.mail.NoOpMailTransport
+import network.lapis.cloud.server.mail.budget.MailBudgetStore
 import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
 import network.lapis.cloud.server.mail.newsletter.TEST_TRACKING_BASE_URL
 import network.lapis.cloud.server.mail.newsletter.TrackingFixture
 import network.lapis.cloud.server.mail.newsletter.testTrackingToken
+import network.lapis.cloud.server.mail.plusDuration
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.DeliveryStatus
 import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.MailingHtmlPolicy
 import network.lapis.cloud.shared.domain.MailingMessageStatsDto
@@ -60,12 +62,15 @@ import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
 /**
@@ -183,6 +188,8 @@ class MailingServiceTest :
         fun testApp(
             mode: MailingDeliveryMode = MailingDeliveryMode.LOG,
             worker: MailingDeliveryWorker? = null,
+            budget: MailBudgetStore = MailBudgetStore(null),
+            limiter: FederationInboxRateLimiter? = null,
             block: suspend io.ktor.client.HttpClient.() -> Unit,
         ) {
             testApplication {
@@ -210,7 +217,23 @@ class MailingServiceTest :
                                 deliveryWorker = worker ?: noOpWorker(mode),
                                 deliveryMode = mode,
                                 branding = MailBranding.notConfigured(),
+                                budget = budget,
+                                sendDelay = 250.milliseconds,
+                                sendDisplayRateLimiter = limiter ?: FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
                             )
+                        get("/test/estimate/{id}") {
+                            val dto = service(call).mailingSendEstimate(call.parameters["id"]!!)
+                            call.respondText(
+                                "${dto.recipientCount}|${dto.bulkBudgetPerHour}|${dto.estimatedSeconds}|${dto.spansMultipleHours}",
+                            )
+                        }
+                        get("/test/progress/{id}") {
+                            val dto = service(call).mailingSendProgress(call.parameters["id"]!!)
+                            call.respondText(
+                                "${dto.total}|${dto.sent}|${dto.failed}|${dto.interrupted}|${dto.skipped}|${dto.pending}|" +
+                                    "${dto.pausedUntil}|${dto.pauseReason}|${dto.remainingSeconds}",
+                            )
+                        }
                         post("/test/draft") {
                             val q = call.request.queryParameters
                             val dto =
@@ -526,26 +549,13 @@ class MailingServiceTest :
 
         test(
             "sendMailingMessage rolls the message back to DRAFT (and deletes its PENDING rows) when enqueue fails after commit " +
-                "(review finding #2)",
+                "(review finding #2; since V1.9.81 enqueue fails only when the worker has been shut down)",
         ) {
-            val started = CompletableDeferred<Unit>()
-            val gate = CompletableDeferred<Unit>()
-            val hangingTransport =
-                object : MailTransport {
-                    override suspend fun send(
-                        to: String,
-                        subject: String,
-                        plainTextBody: String,
-                        htmlBody: String,
-                    ): MailSendOutcome {
-                        started.complete(Unit)
-                        gate.await()
-                        return MailSendOutcome.Sent
-                    }
-                }
-            val saturatedWorker =
+            // V1.9.81: the send queue is the database, so it can no longer be "saturated". The one remaining way for enqueue to
+            // fail after the queuing transaction committed is a worker that was shut down -- same rollback contract.
+            val deadWorker =
                 MailingDeliveryWorker(
-                    transport = hangingTransport,
+                    transport = NoOpMailTransport(),
                     branding = MailBranding.notConfigured(),
                     mode = MailingDeliveryMode.SMTP,
                     trackingToken = testTrackingToken(),
@@ -553,87 +563,34 @@ class MailingServiceTest :
                     scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
                     sendDelay = 0.milliseconds,
                 )
-            var blockerMessageId: Uuid? = null
-            try {
-                testApp(mode = MailingDeliveryMode.SMTP, worker = saturatedWorker) {
-                    val blockerListId = createList(createdBy = boardId)
-                    val blockerMemberId = createMember(email = "blocker-${Uuid.random()}@example.org")
-                    subscribe(listId = blockerListId, memberId = blockerMemberId)
-                    val blockerDraftId =
-                        post("/test/draft?listId=$blockerListId&subject=Blocker&body=Text") {
-                            header("X-Member-Id", boardId.toString())
-                        }.bodyAsText()
-                    blockerMessageId = Uuid.parse(blockerDraftId)
-                    // Sends the blocker straight through the real worker (bypassing the queue
-                    // saturation this test is about) -- once its own single coroutine is stuck
-                    // awaiting `gate`, it stops draining the channel entirely.
-                    post("/test/send/$blockerDraftId") { header("X-Member-Id", boardId.toString()) }
-                    withTimeout(5_000) { started.await() }
-                    repeat(MailingDeliveryWorker.QUEUE_CAPACITY) { saturatedWorker.enqueue(Uuid.random()) }
+            deadWorker.shutdown()
+            testApp(mode = MailingDeliveryMode.SMTP, worker = deadWorker) {
+                val listId = createList(createdBy = boardId)
+                val subscriber = createMember(email = "rollback-${Uuid.random()}@example.org")
+                subscribe(listId = listId, memberId = subscriber)
+                val draftId =
+                    post(
+                        "/test/draft-html?listId=$listId&subject=Betreff&bodyHtml=" +
+                            java.net.URLEncoder.encode("<p><a href=\"https://example.org/r\">r</a></p>", "UTF-8"),
+                    ) {
+                        header("X-Member-Id", boardId.toString())
+                    }.bodyAsText().substringBefore("|")
 
-                    val listId = createList(createdBy = boardId)
-                    val subscriber = createMember(email = "rollback-${Uuid.random()}@example.org")
-                    subscribe(listId = listId, memberId = subscriber)
-                    val draftId =
-                        post(
-                            "/test/draft-html?listId=$listId&subject=Betreff&bodyHtml=" +
-                                java.net.URLEncoder.encode("<p><a href=\"https://example.org/r\">r</a></p>", "UTF-8"),
-                        ) {
-                            header("X-Member-Id", boardId.toString())
-                        }.bodyAsText().substringBefore("|")
-
-                    val response = post("/test/send/$draftId") { header("X-Member-Id", boardId.toString()) }
-                    response.bodyAsText().let { it.startsWith("CONFLICT") } shouldBe true
-                    // V1.9.15: the frozen link rows are rolled back too, so the retry can capture them again.
-                    transaction {
-                        MailingMessageLinkTable
-                            .selectAll()
-                            .where {
-                                MailingMessageLinkTable.mailingMessageId eq
-                                    Uuid.parse(
-                                        draftId,
-                                    )
-                            }.count()
-                    } shouldBe 0
-
-                    transaction {
-                        MailingMessageTable
-                            .selectAll()
-                            .where { MailingMessageTable.id eq Uuid.parse(draftId) }
-                            .single()[MailingMessageTable.status]
-                    } shouldBe MailingMessageStatus.DRAFT
-                    transaction {
-                        MailingDeliveryLogTable
-                            .selectAll()
-                            .where { MailingDeliveryLogTable.mailingMessageId eq Uuid.parse(draftId) }
-                            .count()
-                    } shouldBe 0
-                }
-            } finally {
-                gate.complete(Unit)
-                // Let the (now-unblocked) blocker message actually finish before tearing the
-                // worker down -- otherwise afterSpec's cleanup can race a still-in-flight UPDATE
-                // on rows it is about to delete.
-                blockerMessageId?.let { id ->
-                    runCatching {
-                        runBlocking {
-                            withTimeout(5_000) {
-                                while (
-                                    transaction {
-                                        MailingMessageTable
-                                            .selectAll()
-                                            .where { MailingMessageTable.id eq id }
-                                            .singleOrNull()
-                                            ?.get(MailingMessageTable.status)
-                                    } == MailingMessageStatus.QUEUED
-                                ) {
-                                    delay(20)
-                                }
-                            }
-                        }
-                    }
-                }
-                saturatedWorker.shutdown()
+                val response = post("/test/send/$draftId") { header("X-Member-Id", boardId.toString()) }
+                response.bodyAsText().let { it.startsWith("CONFLICT") } shouldBe true
+                // V1.9.15: the frozen link rows are rolled back too, so the retry can capture them again.
+                transaction {
+                    MailingMessageLinkTable.selectAll().where { MailingMessageLinkTable.mailingMessageId eq Uuid.parse(draftId) }.count()
+                } shouldBe 0
+                transaction {
+                    MailingMessageTable
+                        .selectAll()
+                        .where { MailingMessageTable.id eq Uuid.parse(draftId) }
+                        .single()[MailingMessageTable.status]
+                } shouldBe MailingMessageStatus.DRAFT
+                transaction {
+                    MailingDeliveryLogTable.selectAll().where { MailingDeliveryLogTable.mailingMessageId eq Uuid.parse(draftId) }.count()
+                } shouldBe 0
             }
         }
 
@@ -938,6 +895,242 @@ class MailingServiceTest :
                 kotlinx.serialization.json.Json
                     .decodeFromString(MailingMessageStatsDto.serializer(), json)
                     .retentionExpired shouldBe true
+            }
+        }
+        // ── Welle V1.9.81: send estimate and progress ──────────────────────────────────────────────
+
+        fun resetBudget() {
+            transaction {
+                MailSendSlotTable.deleteWhere { MailSendSlotTable.id neq Uuid.random() }
+                MailBudgetLockTable.update({ MailBudgetLockTable.id eq 1.toShort() }) { it[bulkPausedUntil] = null }
+            }
+        }
+
+        fun insertDelivery(
+            messageId: Uuid,
+            memberId: Uuid,
+            status: DeliveryStatus,
+            nextAttemptAt: kotlinx.datetime.LocalDateTime? = null,
+        ) {
+            transaction {
+                MailingDeliveryLogTable.insert {
+                    it[id] = Uuid.random()
+                    it[mailingMessageId] = messageId
+                    it[MailingDeliveryLogTable.memberId] = memberId
+                    it[deliveredAt] =
+                        network.lapis.cloud.server.db.DbClock
+                            .nowLocalDateTime()
+                    it[deliveryStatus] = status
+                    it[MailingDeliveryLogTable.nextAttemptAt] = nextAttemptAt
+                }
+            }
+        }
+
+        test("mailingSendEstimate counts EXACTLY the recipients sendMailingMessage then queues, and applies the bulk budget") {
+            testApp(budget = MailBudgetStore(MailBudgetConfig.Enabled(maxPerHour = 10, reservePerHour = 2))) {
+                val listId = createList(createdBy = boardId)
+                // 3 eligible, plus every kind of member the send filter drops
+                repeat(3) { subscribe(listId, createMember(email = "est-ok-${Uuid.random()}@example.org")) }
+                subscribe(listId, createMember(email = "est-gone-${Uuid.random()}@example.org", status = MemberStatus.WITHDRAWN))
+                subscribe(
+                    listId,
+                    createMember(
+                        email = "est-anon-${Uuid.random()}@example.org",
+                        anonymizedAt =
+                            network.lapis.cloud.server.db.DbClock
+                                .nowLocalDateTime(),
+                    ),
+                )
+                val unsubscribed = createMember(email = "est-unsub-${Uuid.random()}@example.org")
+                subscribe(listId, unsubscribed)
+                transaction {
+                    MailingListSubscriptionTable.update({ MailingListSubscriptionTable.memberId eq unsubscribed }) {
+                        it[unsubscribedAt] =
+                            network.lapis.cloud.server.db.DbClock
+                                .nowLocalDateTime()
+                    }
+                }
+                val draftId =
+                    post(
+                        "/test/draft?listId=$listId&subject=Betreff&body=Text",
+                    ) { header("X-Member-Id", boardId.toString()) }.bodyAsText()
+
+                val estimate = get("/test/estimate/$draftId") { header("X-Member-Id", boardId.toString()) }.bodyAsText().split("|")
+                estimate[0] shouldBe "3"
+                estimate[1] shouldBe "8" // max 10 - reserve 2
+                // 3 <= 8 per hour: a free sliding window sends them as one burst at the delay rate, ceil(3 * 250 ms) = 1 s
+                estimate[2] shouldBe "1"
+                estimate[3] shouldBe "false"
+
+                post("/test/send/$draftId") { header("X-Member-Id", boardId.toString()) }
+                transaction {
+                    MailingDeliveryLogTable.selectAll().where { MailingDeliveryLogTable.mailingMessageId eq Uuid.parse(draftId) }.count()
+                } shouldBe 3
+            }
+        }
+
+        test(
+            "mailingSendEstimate: more recipients than one budget hour -> spansMultipleHours; without a budget only the minimum delay counts",
+        ) {
+            testApp(budget = MailBudgetStore(MailBudgetConfig.Enabled(maxPerHour = 10, reservePerHour = 2))) {
+                val listId = createList(createdBy = boardId)
+                repeat(9) { subscribe(listId, createMember(email = "span-${Uuid.random()}@example.org")) }
+                val draftId =
+                    post(
+                        "/test/draft?listId=$listId&subject=Betreff&body=Text",
+                    ) { header("X-Member-Id", boardId.toString()) }.bodyAsText()
+                get("/test/estimate/$draftId") { header("X-Member-Id", boardId.toString()) }.bodyAsText().split("|")[3] shouldBe "true"
+            }
+            testApp {
+                val listId = createList(createdBy = boardId)
+                repeat(4) { subscribe(listId, createMember(email = "nobudget-${Uuid.random()}@example.org")) }
+                val draftId =
+                    post(
+                        "/test/draft?listId=$listId&subject=Betreff&body=Text",
+                    ) { header("X-Member-Id", boardId.toString()) }.bodyAsText()
+                val estimate = get("/test/estimate/$draftId") { header("X-Member-Id", boardId.toString()) }.bodyAsText().split("|")
+                estimate[0] shouldBe "4"
+                estimate[1] shouldBe "null"
+                estimate[2] shouldBe "1" // 4 * 250 ms
+                estimate[3] shouldBe "false"
+            }
+        }
+
+        test("mailingSendEstimate and mailingSendProgress: BOARD/ADMIN only, unknown message is NOT_FOUND") {
+            testApp {
+                val listId = createList(createdBy = boardId)
+                val draftId =
+                    post(
+                        "/test/draft?listId=$listId&subject=Betreff&body=Text",
+                    ) { header("X-Member-Id", boardId.toString()) }.bodyAsText()
+                get("/test/estimate/$draftId") { header("X-Member-Id", plainMemberId.toString()) }.bodyAsText() shouldBe "FORBIDDEN"
+                get("/test/progress/$draftId") { header("X-Member-Id", plainMemberId.toString()) }.bodyAsText() shouldBe "FORBIDDEN"
+                get("/test/estimate/${Uuid.random()}") { header("X-Member-Id", boardId.toString()) }.bodyAsText() shouldBe "NOT_FOUND"
+                get("/test/progress/${Uuid.random()}") { header("X-Member-Id", boardId.toString()) }.bodyAsText() shouldBe "NOT_FOUND"
+            }
+        }
+
+        test("the two display RPCs are rate limited per member (the 3rd call within the window is refused)") {
+            testApp(limiter = FederationInboxRateLimiter(maxRequests = 2, window = 1.minutes)) {
+                val listId = createList(createdBy = boardId)
+                val draftId =
+                    post(
+                        "/test/draft?listId=$listId&subject=Betreff&body=Text",
+                    ) { header("X-Member-Id", boardId.toString()) }.bodyAsText()
+                get("/test/estimate/$draftId") { header("X-Member-Id", boardId.toString()) }.bodyAsText().startsWith("0|") shouldBe true
+                get("/test/progress/$draftId") { header("X-Member-Id", boardId.toString()) }.bodyAsText().startsWith("0|") shouldBe true
+                get("/test/estimate/$draftId") { header("X-Member-Id", boardId.toString()) }.bodyAsText().startsWith("CONFLICT") shouldBe
+                    true
+            }
+        }
+
+        test("mailingSendProgress counts every delivery state; INTERRUPTED is reported separately and is never 'sent'") {
+            resetBudget()
+            testApp {
+                val listId = createList(createdBy = boardId)
+                val draftId =
+                    post(
+                        "/test/draft?listId=$listId&subject=Betreff&body=Text",
+                    ) { header("X-Member-Id", boardId.toString()) }.bodyAsText()
+                val messageId = Uuid.parse(draftId)
+                val m = createMember(email = "prog-${Uuid.random()}@example.org")
+                transaction {
+                    MailingMessageTable.update(
+                        { MailingMessageTable.id eq messageId },
+                    ) { it[status] = MailingMessageStatus.QUEUED }
+                }
+                repeat(2) { insertDelivery(messageId, m, DeliveryStatus.SENT) }
+                insertDelivery(messageId, m, DeliveryStatus.FAILED)
+                insertDelivery(messageId, m, DeliveryStatus.BOUNCED)
+                repeat(2) { insertDelivery(messageId, m, DeliveryStatus.INTERRUPTED) }
+                insertDelivery(messageId, m, DeliveryStatus.SKIPPED_NO_ADDRESS)
+                insertDelivery(messageId, m, DeliveryStatus.SKIPPED_UNSUBSCRIBED)
+                repeat(3) { insertDelivery(messageId, m, DeliveryStatus.PENDING) }
+
+                val p = get("/test/progress/$draftId") { header("X-Member-Id", boardId.toString()) }.bodyAsText().split("|")
+                p[0] shouldBe "11" // total
+                p[1] shouldBe "2" // sent
+                p[2] shouldBe "2" // failed (FAILED + BOUNCED)
+                p[3] shouldBe "2" // interrupted
+                p[4] shouldBe "2" // skipped
+                p[5] shouldBe "3" // pending
+                p[6] shouldBe "null" // not paused: no budget, nothing deferred
+                p[7] shouldBe "null"
+                p[8] shouldBe "1" // 3 * 250 ms, rounded up
+            }
+        }
+
+        test("mailingSendProgress reports why a send stands still: hourly budget, then provider pause / deferral") {
+            resetBudget()
+            val budget = MailBudgetStore(MailBudgetConfig.Enabled(maxPerHour = 10, reservePerHour = 2))
+            testApp(budget = budget) {
+                val listId = createList(createdBy = boardId)
+                val draftId =
+                    post(
+                        "/test/draft?listId=$listId&subject=Betreff&body=Text",
+                    ) { header("X-Member-Id", boardId.toString()) }.bodyAsText()
+                val messageId = Uuid.parse(draftId)
+                val m = createMember(email = "pause-${Uuid.random()}@example.org")
+                transaction {
+                    MailingMessageTable.update(
+                        { MailingMessageTable.id eq messageId },
+                    ) { it[status] = MailingMessageStatus.QUEUED }
+                }
+                insertDelivery(messageId, m, DeliveryStatus.PENDING)
+
+                // 8 bulk slots used just now -> the bulk budget is exhausted
+                val now =
+                    network.lapis.cloud.server.db.DbClock
+                        .nowLocalDateTime()
+                transaction {
+                    repeat(8) {
+                        MailSendSlotTable.insert {
+                            it[id] = Uuid.random()
+                            it[reservedAt] = now
+                            it[lane] = "BULK"
+                        }
+                    }
+                }
+                val budgetPause = get("/test/progress/$draftId") { header("X-Member-Id", boardId.toString()) }.bodyAsText().split("|")
+                budgetPause[7] shouldBe "HOURLY_BUDGET"
+                budgetPause[6] shouldBe
+                    now.let { budget.peek(lane = network.lapis.cloud.server.mail.budget.MailLane.BULK, now = it) }.let {
+                        (it as network.lapis.cloud.server.mail.budget.BudgetDecision.WaitUntil).at.toString()
+                    }
+
+                // a provider pause wins over the budget
+                budget.pauseBulk(now.plusDuration(10.minutes))
+                val providerPause = get("/test/progress/$draftId") { header("X-Member-Id", boardId.toString()) }.bodyAsText().split("|")
+                providerPause[7] shouldBe "PROVIDER_DEFERRAL"
+                providerPause[6] shouldBe now.plusDuration(10.minutes).toString()
+            }
+            resetBudget()
+        }
+
+        test("mailingSendProgress: a deferred recipient (next attempt in the future, nothing else due) is a provider deferral") {
+            resetBudget()
+            testApp {
+                val listId = createList(createdBy = boardId)
+                val draftId =
+                    post(
+                        "/test/draft?listId=$listId&subject=Betreff&body=Text",
+                    ) { header("X-Member-Id", boardId.toString()) }.bodyAsText()
+                val messageId = Uuid.parse(draftId)
+                val m = createMember(email = "defer-${Uuid.random()}@example.org")
+                transaction {
+                    MailingMessageTable.update(
+                        { MailingMessageTable.id eq messageId },
+                    ) { it[status] = MailingMessageStatus.QUEUED }
+                }
+                val later =
+                    network.lapis.cloud.server.db.DbClock
+                        .nowLocalDateTime()
+                        .plusDuration(5.minutes)
+                insertDelivery(messageId, m, DeliveryStatus.PENDING, nextAttemptAt = later)
+
+                val p = get("/test/progress/$draftId") { header("X-Member-Id", boardId.toString()) }.bodyAsText().split("|")
+                p[7] shouldBe "PROVIDER_DEFERRAL"
+                p[6] shouldBe later.toString()
             }
         }
     })

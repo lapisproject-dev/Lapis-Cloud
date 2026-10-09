@@ -22,6 +22,9 @@ public object MailingMessageTable : Table("mailing_message") {
     public val sentBy: Column<Uuid> = reference("sent_by", MemberTable.id)
     public val sentAt: Column<LocalDateTime?> = datetime("sent_at").nullable()
     public val status: Column<MailingMessageStatus> = enumerationByName<MailingMessageStatus>("status", 6)
+
+    /** Welle V1.9.81 (V80): when the message entered the send queue (FIFO order of the worker). */
+    public val queuedAt: Column<LocalDateTime?> = datetime("queued_at").nullable()
     public val mailingListId: Column<Uuid> = reference("mailing_list_id", MailingListTable.id)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)

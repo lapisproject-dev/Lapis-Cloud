@@ -7,6 +7,8 @@ import network.lapis.cloud.shared.domain.MailingListSubscriptionDto
 import network.lapis.cloud.shared.domain.MailingMessageDto
 import network.lapis.cloud.shared.domain.MailingMessageStatsDto
 import network.lapis.cloud.shared.domain.MailingPreviewDto
+import network.lapis.cloud.shared.domain.MailingSendEstimateDto
+import network.lapis.cloud.shared.domain.MailingSendProgressDto
 
 @RpcService
 interface IMailingService {
@@ -117,4 +119,17 @@ interface IMailingService {
      * [network.lapis.cloud.shared.domain.MailingHtmlPolicy.MIN_CONSENTS_FOR_STATS]). Role: Board/Admin.
      */
     suspend fun mailingMessageStats(messageId: String): MailingMessageStatsDto
+
+    /**
+     * Welle V1.9.81 -- how many recipients [sendMailingMessage] would reach, and how long that takes under the hourly send budget. The
+     * recipient criteria are exactly those of the send (one shared function on the server), so the confirmation never disagrees with the
+     * send. Rate limited (60 per minute and member). Role: Board/Admin.
+     */
+    suspend fun mailingSendEstimate(messageId: String): MailingSendEstimateDto
+
+    /**
+     * Welle V1.9.81 -- progress of a send: sent / failed / unclear (interrupted) / pending counts, a pause with its reason, and an ETA.
+     * Rate limited (60 per minute and member). Role: Board/Admin.
+     */
+    suspend fun mailingSendProgress(messageId: String): MailingSendProgressDto
 }

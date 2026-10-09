@@ -55,6 +55,18 @@ object OrganizationSchemaCatalog {
                 "must not become a way to read an unpublished self-description. Restore targets an " +
                 "empty database, so the table simply stays empty and members write the text again " +
                 "(see docs/architecture/public-profiles.adoc, \"Backup\").",
+            "mail_outbox" to
+                "Welle V1.9.81. Transient operational state of the mail pipeline: open rows hold queued system mails sealed under THIS " +
+                "instance's LAPIS_SECRET_ENCRYPTION_KEY (a restore elsewhere could not open them, and re-sending a stale security mail " +
+                "after a restore would be wrong), final rows hold nothing but a purpose and a status. Nothing organizational, and the " +
+                "whole-organization backup must not carry other people's queued mail (see docs/architecture/mail-delivery-budget-and-outbox.adoc).",
+            "mail_send_slot" to
+                "Welle V1.9.81. The sliding one-hour window of the hourly send budget -- runtime state of the mailbox, meaningless on " +
+                "another server and expired within two hours anyway.",
+            "mail_budget_lock" to
+                "Welle V1.9.81. Singleton row (id = 1, seeded by V80) that serialises slot reservation and holds the global bulk " +
+                "pause -- runtime state, not organizational data. Excluded so a restore target keeps its own seeded row and still " +
+                "counts as empty.",
         )
 
     data class ColumnMetadata(

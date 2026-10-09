@@ -352,6 +352,7 @@ class LegalHtmlTest :
                     "privilegedActions" to "Vier-Augen-Freigabe",
                     "memberStatusHistory" to "Mitgliederstatistik",
                     "encounterSpace" to "Begegnungsräume",
+                    "mailOutbox" to "System-E-Mails",
                 )
 
             // Deliberately NOT matched by their own keyword: these three LTR-economy

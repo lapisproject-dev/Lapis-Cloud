@@ -8,6 +8,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import network.lapis.cloud.server.mail.outbox.MailOutbox
+import network.lapis.cloud.server.mail.outbox.OutboundMail
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -61,6 +63,12 @@ private val logger = KotlinLogging.logger {}
  * retry -- a mail dropped once the queue itself is full is still gone for good, logged as before;
  * it only shrinks the window in which a short-lived relay stall causes a drop at all.
  *
+ * **Durable outbox (Welle V1.9.81).** When an [outbox] is given (SMTP configured AND a valid `LAPIS_SECRET_ENCRYPTION_KEY`, see
+ * `network.lapis.cloud.server.mail.outbox.MailOutboxConfig`), [enqueue] does nothing but hand the mail to [MailOutbox.offer] -- still
+ * non-blocking, still no database work on the caller's thread, so the timing argument above holds unchanged. The mail is then persisted
+ * (encrypted), sent within the hourly budget and retried; the in-memory queue and its workers are not used at all. Without an outbox
+ * (`null`, the default) every line of the in-memory behaviour described above is exactly as before.
+ *
  * **Lifecycle**: the caller (`Application.module()`) is responsible for calling [shutdown] from an
  * `ApplicationStopping` hook so the underlying [scope] is cancelled deliberately at shutdown
  * instead of leaking for the life of the JVM (relevant for tests and hot-reload alike, since a
@@ -73,6 +81,7 @@ class MailDispatcher(
     maxConcurrentSends: Int = DEFAULT_MAX_CONCURRENT_SENDS,
     queueCapacity: Int = DEFAULT_QUEUE_CAPACITY,
     private val perSendTimeout: Duration = DEFAULT_PER_SEND_TIMEOUT,
+    private val outbox: MailOutbox? = null,
 ) {
     private data class QueuedMail(
         val to: String,
@@ -90,10 +99,12 @@ class MailDispatcher(
         // sending one mail at a time off `queue` -- the worker COUNT itself is the concurrency
         // bound, replacing Round 1's Semaphore.tryAcquire()/Job.invokeOnCompletion { release() }
         // pair with something that has no separate permit-leak surface to reason about at all.
-        repeat(maxConcurrentSends) {
-            scope.launch {
-                for (mail in queue) {
-                    sendOne(mail)
+        if (outbox == null) {
+            repeat(maxConcurrentSends) {
+                scope.launch {
+                    for (mail in queue) {
+                        sendOne(mail)
+                    }
                 }
             }
         }
@@ -119,6 +130,18 @@ class MailDispatcher(
         // like "password-reset"/"friend-email-verification" on every request would otherwise turn
         // the server log into a standing "who reset a password / joined as FRIEND when" record.
         val maskedTo = if (logRecipient) maskEmailForLogging(to) else WITHHELD_RECIPIENT
+        if (outbox != null) {
+            return outbox.offer(
+                OutboundMail(
+                    to = to,
+                    subject = subject,
+                    plainTextBody = plainTextBody,
+                    htmlBody = htmlBody,
+                    purpose = purpose,
+                    logRecipient = logRecipient,
+                ),
+            )
+        }
         val mail =
             QueuedMail(
                 to = to,
@@ -135,6 +158,30 @@ class MailDispatcher(
             logger.error { "Mail dropped, dispatcher saturated: purpose=$purpose to=$maskedTo" }
         }
         return result.isSuccess
+    }
+
+    /**
+     * Persists all [mails] atomically in ONE transaction, directly into the durable outbox (no hand-off channel). For callers that mail
+     * MANY recipients at once and have no timing side channel to protect -- e.g. an event cancellation -- where the bounded channel would
+     * drop the overflow. **Never** from the password-reset / registration paths (`MailPurposeRegistryTripwireTest`). Without an
+     * outbox it falls back to [enqueue] per mail (the in-memory queue's old behaviour, including its overflow limit).
+     */
+    suspend fun enqueueAll(mails: List<OutboundMail>) {
+        if (mails.isEmpty()) return
+        if (outbox == null) {
+            mails.forEach {
+                enqueue(
+                    to = it.to,
+                    subject = it.subject,
+                    plainTextBody = it.plainTextBody,
+                    htmlBody = it.htmlBody,
+                    purpose = it.purpose,
+                    logRecipient = it.logRecipient,
+                )
+            }
+            return
+        }
+        outbox.persistAll(mails)
     }
 
     private suspend fun sendOne(mail: QueuedMail) {
@@ -192,6 +239,7 @@ class MailDispatcher(
      */
     fun shutdown() {
         queue.close()
+        outbox?.shutdown()
         scope.cancel()
     }
 

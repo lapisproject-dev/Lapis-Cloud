@@ -117,6 +117,8 @@ classDiagram(name = "Communication") {
         literal(name = "PENDING")
         literal(name = "FAILED")
         literal(name = "SKIPPED_NO_ADDRESS")
+        // Welle V1.9.81 -- claimed by the worker, outcome unknown after a crash; never re-sent (V80).
+        literal(name = "INTERRUPTED")
     }
 
     val mailingList = classOf(name = "MailingList") {
@@ -227,6 +229,11 @@ classDiagram(name = "Communication") {
         attribute(name = "status", type = mailingMessageStatus) {
             stereotype("Column") { "columnName" to "status"; "enumType" to "network.lapis.cloud.shared.domain.MailingMessageStatus" }
         }
+        // Welle V1.9.81 (V80) -- when the message entered the send queue; the worker takes QUEUED messages in this order (FIFO). Class A.
+        attribute(name = "queuedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "queued_at" }
+        }
     }
 
     // mailing_message.mailing_list_id -> mailing_list (id): the association-derived default name
@@ -283,6 +290,19 @@ classDiagram(name = "Communication") {
         attribute(name = "openCount", type = "Int") {
             defaultValue = "0"
             stereotype("Column") { "columnName" to "open_count" }
+        }
+        // Welle V1.9.81 (V80) -- claim before send (at-most-once), attempt counter and next retry; all class A where temporal.
+        attribute(name = "claimedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "claimed_at" }
+        }
+        attribute(name = "attemptCount", type = "Int") {
+            defaultValue = "0"
+            stereotype("Column") { "columnName" to "attempt_count" }
+        }
+        attribute(name = "nextAttemptAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "next_attempt_at" }
         }
     }
 

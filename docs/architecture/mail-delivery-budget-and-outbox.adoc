@@ -1,0 +1,225 @@
+= Mail delivery: hourly budget and durable outbox (V1.9.81)
+:toc:
+
+== Purpose
+
+A shared mailbox at a hosting provider is rate limited (netcup: 250 mails per hour and mailbox). Before V1.9.81 nothing in Lapis Cloud knew that:
+a mailing-list send to a few hundred members used the whole hour in minutes, the provider then blocked the mailbox -- and with it the password-reset
+mails, the e-mail-change confirmations and everything else. System mails also lived only in a 64 slot in-memory channel, so a restart, a stalled relay
+or a full channel lost them silently, and a restart in the middle of a mailing-list send marked every recipient that was still open as failed.
+
+V1.9.81 adds three things:
+
+* an **hourly send budget** (`LAPIS_MAIL_MAX_PER_HOUR`) that counts every mail handed to the relay in a sliding 3600 second window and keeps a **reserve**
+  for system mails, so a mailing-list send can never lock a person out of a password reset;
+* a **durable, encrypted outbox** for system mails (`mail_outbox`): written to the database, delivered by a poller within the budget, retried with a
+  backoff, expired when it is too old to be useful;
+* a **resumable, at-most-once mailing-list delivery**: a restart continues where the send stopped, a recipient whose outcome is unknown is never
+  mailed twice, and the board sees an estimate before it sends and the progress while it runs.
+
+NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+== Configuration
+
+[cols="3,5", options="header"]
+|===
+| Variable | Meaning
+| `LAPIS_MAIL_MAX_PER_HOUR` | Integer `10..10000`. Unset or empty: no budget, no throttling (the mail path behaves as before). Recommended for netcup: `250` -- or a little less when the mailbox is also used by hand (for example `230`).
+| `LAPIS_MAIL_RESERVE_PER_HOUR` | Integer `1..max-1`. Default `max(1, ceil(0.2 * max))` (10 -> 2, 11 -> 3, 250 -> 50). A mailing-list send may use `max - reserve`, a system mail may use all of `max`. Setting it without `LAPIS_MAIL_MAX_PER_HOUR` fails the start.
+| `LAPIS_SECRET_ENCRYPTION_KEY` | The existing 32 byte base64 key (also used for webhook secrets, SEPA, ...). The outbox encrypts queued mail with it; without it there is no durable queue.
+|===
+
+Invalid values fail the start and the message names only the variable, never its value.
+
+The compose files of `deploy/example` and `deploy/local` deliberately do **not** forward the two budget variables (same posture as `LAPIS_MCP_*`,
+`LAPIS_AI_*` and `LAPIS_KEYCLOAK_*`; `MailBudgetEnvNotForwardedInComposeTest` pins that). An operator adds them to the `environment:` block of the
+server service on purpose -- see the README of `deploy/example`.
+
+=== What starts, depending on SMTP, budget and key
+
+[cols="1,1,2,4", options="header"]
+|===
+| SMTP | Budget | `LAPIS_SECRET_ENCRYPTION_KEY` | Result
+| no | no | any | No outbox. The no-op transport writes no row.
+| no | yes | any | The start fails: a budget without a relay is a misconfiguration.
+| yes | no | unset | Today's in-memory path plus a start WARN "durable queue inactive". Open outbox rows of an earlier run are closed as `FAILED/OUTBOX_DISABLED`.
+| yes | yes | unset | The start fails: the budget makes mail wait, and waiting needs a durable queue.
+| yes | any | set but invalid | The start fails.
+| yes | any | valid | Outbox active.
+|===
+
+== The budget
+
+The window is a sliding, half-open interval `(now - 3600 s, now]`: a slot reserved at exactly `now - 3600 s` is already outside. Every reserved slot counts for
+both lanes -- the maximum is a property of the mailbox, not of a lane; the lanes differ only in the limit a new reservation is checked against:
+
+* lane **SYSTEM**: up to `max`;
+* lane **BULK** (mailing-list sends and the event-cancellation mail): up to `max - reserve`.
+
+`MailBudget.decide` is a pure function; `MailBudgetStore.reserve` is the database part. It runs in its own short transaction, serialised by `SELECT ... FOR
+UPDATE` on the singleton row of `mail_budget_lock`, counts the slots, decides, and inserts one slot when allowed. It never waits long for the lock
+(`SET LOCAL lock_timeout = 2000`, statement and idle-in-transaction timeouts 5000) and treats a timeout or any database error as "exhausted for 5 seconds" --
+the budget errs on the side of *not* sending. No SMTP, no `delay`, no `runBlocking` happens in the transaction.
+
+When the budget is exhausted, `WaitUntil` is the instant the releasing slot is one hour old. Only that one timestamp is loaded
+(`ORDER BY reserved_at LIMIT 1 OFFSET used - limit`), never up to 10000.
+
+*Reserve before claim.* A worker that first claimed a row and then waited up to an hour for budget would leave a mail marked `SENDING` if the process died in
+that hour. The outbox and the mailing-list worker therefore reserve the slot **first** and claim afterwards; if the claim fails the slot is released, and if
+that fails it simply stays used -- conservative and harmless.
+
+=== Several instances, one mailbox
+
+The budget is counted **per database**, that is per instance. Instances that send through the same SMTP account (PdV, ELB and Staging all run on one host)
+must split the provider's limit between them, otherwise the provider blocks the mailbox although each instance stays within its own budget: with three
+instances on one netcup mailbox set `LAPIS_MAIL_MAX_PER_HOUR` to about a third of the limit each (for example `75`). Several instances sharing ONE database
+share one budget and need synchronised clocks (NTP), because slot times come from `DbClock`.
+
+== The outbox
+
+[source,kuml,name="mail-outbox-status"]
+----
+stateDiagram(name = "Mail outbox row, status") {
+    val start = initialState()
+    val queued = state(name = "QUEUED")
+    val sending = state(name = "SENDING")
+    val sent = state(name = "SENT")
+    val failed = state(name = "FAILED")
+    val expired = state(name = "EXPIRED")
+
+    transition(source = start, target = queued) { trigger = "persist (hand-off channel or enqueueAll)" }
+    transition(source = queued, target = sending) { trigger = "budget slot reserved, then claim (SKIP LOCKED / conditional UPDATE)" }
+    transition(source = sending, target = sent) { trigger = "relay accepted" }
+    transition(source = sending, target = queued) { trigger = "transient failure, attempt < 5: backoff 1/5/15/60 min" }
+    transition(source = sending, target = failed) { trigger = "permanent failure, attempt 5, decrypt failure, reaper (INTERRUPTED)" }
+    transition(source = queued, target = expired) { trigger = "expires_at reached (priority 0: 30 minutes)" }
+    transition(source = sending, target = expired) { trigger = "expires_at reached just before the send" }
+}
+----
+
+=== Writing: the caller is never slowed down
+
+`MailDispatcher.enqueue` with an outbox only calls `MailOutbox.offer`, which is a `trySend` into a bounded hand-off channel of 256 slots: no database work, no
+encryption on the caller's thread. That keeps the timing of `POST /api/auth/password-reset/request` independent of whether the address is registered (the
+timing side channel `MailDispatcher` documents). One persister coroutine drains the channel in batches of up to 50 and writes them in one transaction;
+the cap is 5000 `QUEUED` rows (more are dropped with an ERROR, as the in-memory queue always did). A failed write is retried three times with a short
+backoff and then the batch is dropped with an ERROR.
+
+`MailDispatcher.enqueueAll(mails)` writes a whole batch directly and atomically. It exists for callers that mail many people at once and have no timing
+side channel to protect -- the event cancellation to every registrant, which the 256-slot channel would drop beyond the 256th. It is **never** used on the
+password-reset or registration paths (`MailPurposeRegistryTripwireTest`). The purpose `event-cancelled` draws from the BULK lane, so a cancellation to 300 people
+can not starve a password reset of the reserve.
+
+=== Encryption at rest
+
+Recipient, subject, plain-text body and HTML body exist only as AES-256-GCM ciphertext (`SecretBox`, AAD `mail_outbox:<id>:<column>`, so a ciphertext copied
+to another row or column does not open), and only while the row is open. *Every* final state (`SENT`, `FAILED`, `EXPIRED`) clears all four payload
+columns and the lookup hash in the same `UPDATE` as the status; two CHECK constraints in V80 make anything else impossible at schema level. A final row holds a
+purpose, a status and instants -- no personal data.
+
+`recipient_lookup_hash` is `HMAC-SHA256(subKey, lower-case(trim(address)))` with `subKey = HMAC-SHA256(key, "lapis-mail-outbox-lookup-v1")` (domain separation).
+It lets the data-subject paths find *open* rows without decrypting anything -- see <<Data protection>>.
+
+=== Priorities, expiry, retry
+
+* *Priority 0* (`password-reset`, the four `email-change-*`, `friend-email-verification`, `admin-password-reset-notice`, `keycloak-member-provisioned`) is delivered
+  before priority 1 and expires after 30 minutes -- a reset link that arrives an hour late is useless. The registry is `MailPurpose`; a tripwire pins the exact set.
+* Transient failures (an SMTP 4xx reply, a connection failure, a timeout) are re-queued with a backoff of 1, 5, 15 and 60 minutes; five attempts in all.
+  A 4xx reply also pauses the BULK lane globally for 10 minutes (`mail_budget_lock.bulk_paused_until`, only ever extended, never shortened).
+* A timeout *after the data transfer began* is `deliveryUncertain`. System mails are retried anyway, so a **duplicate is possible** -- the documented price of
+  never losing a password reset.
+* Everything else (5xx, authentication, unknown) is final at once.
+
+=== Reaper, fence, retention
+
+A row that stays `SENDING` for more than 10 minutes (a crash mid-send) becomes `FAILED/INTERRUPTED` and is *never* sent again: the relay may have
+accepted the mail. The final state of a normal send is written fenced (`WHERE status = 'SENDING' AND attempt_count = <claimed value>`), so a send that
+finishes after the reaper cannot overwrite its verdict. `SENT`/`EXPIRED` rows are deleted after 7 days, `FAILED` rows after 30 days, budget slots after 2 hours.
+
+=== Claim
+
+PostgreSQL: `SELECT ... ORDER BY priority, created_at LIMIT 1 FOR UPDATE SKIP LOCKED` followed by a conditional `UPDATE`, so two pollers neither block each
+other nor take the same row. H2 (tests, dev): the conditional `UPDATE ... WHERE status = 'QUEUED'` alone decides (`updated == 1`). A blocked BULK mail at the head
+of the queue does not hold back system mails behind it (the claim is retried excluding BULK purposes).
+
+== Mailing-list delivery
+
+The send queue is the `mailing_message` table itself (`QUEUED`, ordered by `queued_at`): it cannot be "saturated" and it survives a restart.
+
+[source,kuml,name="mailing-delivery-row"]
+----
+stateDiagram(name = "Mailing delivery row, status") {
+    val start = initialState()
+    val pending = state(name = "PENDING")
+    val claimed = state(name = "PENDING + claimed_at")
+    val sent = state(name = "SENT")
+    val failed = state(name = "FAILED")
+    val interrupted = state(name = "INTERRUPTED")
+    val skipped = state(name = "SKIPPED_NO_ADDRESS")
+
+    transition(source = start, target = pending) { trigger = "sendMailingMessage (one row per eligible recipient)" }
+    transition(source = pending, target = claimed) { trigger = "bulk pause over, BULK slot reserved, claim (conditional UPDATE)" }
+    transition(source = claimed, target = sent) { trigger = "relay accepted (or LOG mode)" }
+    transition(source = claimed, target = pending) { trigger = "clear 4xx / connection failure, retry 1..3: next_attempt_at +5/+15/+60 min" }
+    transition(source = claimed, target = failed) { trigger = "5xx, authentication, unclear timeout, retries exhausted" }
+    transition(source = claimed, target = skipped) { trigger = "no valid mailbox address" }
+    transition(source = claimed, target = interrupted) { trigger = "server restart (recoverInterrupted): outcome unknown" }
+}
+----
+
+*At most once.* The row is claimed **before** the send. After a restart (`recoverInterrupted`, assuming one server instance like the webhook poller):
+
+* a `PENDING` row *with* `claimed_at` becomes `INTERRUPTED` and is never sent again -- the mail may already have reached the relay;
+* a `PENDING` row *without* a claim stays `PENDING` and is sent after the restart, exactly once; `QUEUED` messages stay `QUEUED`;
+* a message whose rows are all final is closed (`SENT` when at least one recipient was reached, else `FAILED`; `INTERRUPTED` does not count as reached).
+
+Only a clear 4xx reply or a connection failure before anything was sent is retried (at most three retries). A timeout after the data transfer began is `FAILED`:
+unlike a system mail, a mailing-list mail has *no* exception to "at most once". An erased delivery row (Art. 17 during a send) makes the claim update 0 rows and
+the row is skipped. A message stays `QUEUED` while it runs -- `mailing_message.status` is `VARCHAR(6)`, so no new status was introduced.
+
+=== What the board sees
+
+* Before sending, `mailingSendEstimate` returns the recipient count (computed by the *same* function the send uses, `eligibleRecipientIds`), the hourly bulk budget and
+  an estimate: the budget is a sliding window that allows a burst, so up to `bulkPerHour` mails are estimated at the minimum delay and each further full batch adds one hour (`(batches - 1) * 3600 s` plus the delay part of the last batch). The confirmation dialog states them.
+* While a message is `QUEUED`, `mailingSendProgress` (polled every 15 s) returns the counts, a pause with its reason (`HOURLY_BUDGET`, `PROVIDER_DEFERRAL`) and
+  an ETA. Both RPCs are limited to 60 calls per minute and member.
+* ADMIN only: the card "E-Mail-Versand" (`IMailDeliveryStatusService`) shows budget use, queue depth, the oldest waiting age and failures/expiries of the last
+  7 days per purpose -- counts and the closed purpose vocabulary only.
+
+== Failure classification
+
+`JakartaMailTransport.classify` walks the cause chain and `MessagingException.nextException`. Angus is a `runtimeOnly` dependency (licence decision of 2026-08-21), so the
+numeric reply code is read reflectively from `getReturnCode()`; only if no element has one, a leading `NNN` of a message is used -- *solely to extract the number*.
+
+[cols="3,2,2,2", options="header"]
+|===
+| Failure | Kind | `errorClass` | Notes
+| SMTP 4xx | `TRANSIENT` | `SMTP_<code>` | pauses the BULK lane for 10 minutes
+| SMTP 5xx | `PERMANENT` | `SMTP_<code>` |
+| connection failure before anything was sent (`MailConnectException`, `ConnectException`, unknown host) | `TRANSIENT` | `CONNECT` | unambiguous: nothing was delivered
+| `SocketTimeoutException` outside the connect phase | `TRANSIENT`, `deliveryUncertain` | `TIMEOUT` | system mail: retried; mailing-list mail: `FAILED`
+| authentication failure | `PERMANENT` | `AUTH` |
+| anything else | `PERMANENT` | `UNKNOWN` | never retried on a guess
+|===
+
+`errorClass` is filtered to `[A-Z0-9_]` and 64 characters. The message of an SMTP exception can echo an address, so it is **never** stored or logged -- the log carries the
+purpose, the masked address (or `(withheld)`), the outbox id and the error class (`MailDeliveryLogPrivacyTest`).
+
+== Data protection
+
+`MailOutboxPersonalData` is registered *first* in `PersonalDataRegistry` (erasure anonymizes `member.email`; this contributor finds open mail by that address).
+Export (Art. 15) lists purpose, status and creation time of the subject's open rows; erasure (Art. 17) deletes them. The addresses tried are the member's current one,
+the pending address of an open e-mail change, and a CRM contact's. Known gap, documented in `PersonalDataRegistry.knownUncoveredSubjectRoots`: a guest who is neither a
+member nor a CRM contact has no subject root, hence no Art. 15/17 path for this table -- mitigated by encryption at rest, the 30 minute expiry of security mails and the
+clearing of every final row. The outbox, the slots and the lock are excluded from the whole-organization backup (`OrganizationSchemaCatalog.EXCLUDED_TABLES`).
+
+== Guarantees and limits
+
+* *Mailing list*: at most once per recipient; a restart continues the send; no recipient is ever marked failed merely because the server restarted.
+* *System mails*: at least once while the database is up -- except that a mail accepted by `offer` but not yet written (milliseconds, longer if the database is down) is lost on a
+  crash, and a batch is dropped after three failed writes. A relay limit reported as 5xx instead of 4xx is not retried. Timeout duplicates are possible.
+* *Assumptions*: one instance runs the recovery and the retention; several instances are only correct for the budget; clocks are synchronised.
+* *Not stored*: a template plus parameters -- the outbox keeps the finished mail, so a mail queued before a template fix is sent as it was.
+* *Single worker*: one worker processes the messages one after another (FIFO). While every remaining recipient of a message is deferred (4xx / connection failure, back-off 5/15/60 minutes, up to about 80 minutes in total), the worker waits for it and the messages queued behind it wait too, even if budget is free.
+* *Transient database errors* while a message is being sent do not end it: the worker logs, waits and carries on. A claimed row whose outcome could not be written (database down at that moment) becomes `INTERRUPTED` and is never re-sent.
+* The total duration shown to the board is an estimate: it ignores mail other senders put in front and assumes the budget is free.

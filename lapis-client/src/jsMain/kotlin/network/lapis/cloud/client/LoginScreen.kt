@@ -218,6 +218,9 @@ private fun renderForgotPasswordToggle(parent: SimplePanel) {
         )
     val requestButton = Button(tr("Zurücksetzen anfordern"), style = ButtonStyle.OUTLINEPRIMARY)
     requestForm.buttons(primary = requestButton)
+    // V1.9.81: the mail can wait in the send queue (hourly budget, a busy relay). ALWAYS the same sentence -- it must never depend on
+    // whether the address is registered or on the state of the budget (that would be an account-enumeration oracle).
+    panel.div(tr("Die E-Mail kann einige Minuten brauchen."), className = "text-muted small")
     requestButton.onClick {
         requestForm.submit(requestButton) {
             val error = AuthHttp.requestPasswordReset(resetEmail.value.trim())

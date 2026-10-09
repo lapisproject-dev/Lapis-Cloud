@@ -21084,3 +21084,81 @@ msgstr "Púlpito más alto"
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Podium lauter"
 msgstr "Podio más alto"
+
+msgid "unter 1 Minute"
+msgstr "menos de 1 minuto"
+
+msgid "ca. %1 Min."
+msgstr "aprox. %1 min"
+
+msgid "ca. %1 Std. %2 Min."
+msgstr "aprox. %1 h %2 min"
+
+msgid "%1 Empfänger"
+msgstr "%1 destinatarios"
+
+msgid "%1 Empfänger · Stundenbudget für Rundschreiben: %2 pro Stunde · Dauer %3"
+msgstr "%1 destinatarios · presupuesto horario para envíos a listas: %2 por hora · duración %3"
+
+msgid "Der Versand wird auf mehrere Stunden verteilt."
+msgstr "El envío se repartirá en varias horas."
+
+msgid "Wird versendet: %1 von %2 · noch %3"
+msgstr "Enviando: %1 de %2 · faltan %3"
+
+msgid "pausiert bis ca. %1 (Anbieter hat verzögert)"
+msgstr "en pausa hasta aprox. las %1 (el proveedor ha aplazado)"
+
+msgid "pausiert bis ca. %1 (Stundenbudget)"
+msgstr "en pausa hasta aprox. las %1 (presupuesto horario)"
+
+msgid "%1 unklar (Unterbrechung)"
+msgstr "%1 sin confirmar (interrupción)"
+
+msgid "%1 fehlgeschlagen"
+msgstr "%1 fallidos"
+
+msgid "E-Mail-Versand"
+msgstr "Envío de correo"
+
+msgid "Zustand des E-Mail-Versands: Stundenbudget, wartende System-E-Mails und Fehlschläge der letzten 7 Tage. Es werden nur Zahlen angezeigt, nie Adressen oder Inhalte."
+msgstr "Estado del envío de correo: presupuesto horario, correos del sistema en espera y fallos de los últimos 7 días. Solo se muestran cifras, nunca direcciones ni contenidos."
+
+msgid "Stundenbudget"
+msgstr "Presupuesto horario"
+
+msgid "%1 / %2 (Reserve %3)"
+msgstr "%1 / %2 (reserva %3)"
+
+msgid "Gezählt werden die E-Mails der letzten 60 Minuten."
+msgstr "Se cuentan los correos de los últimos 60 minutos."
+
+msgid "Kein Stundenbudget eingerichtet."
+msgstr "No hay presupuesto horario configurado."
+
+msgid "Rundschreiben pausiert bis ca. %1 (Anbieter hat verzögert)"
+msgstr "Envíos a listas en pausa hasta aprox. las %1 (el proveedor ha aplazado)"
+
+msgid "Warteschlange"
+msgstr "Cola"
+
+msgid "Wartend: %1"
+msgstr "En espera: %1"
+
+msgid "Älteste Wartezeit: %1"
+msgstr "Espera más larga: %1"
+
+msgid "Dauerhafte Warteschlange nicht aktiv (kein Verschlüsselungsschlüssel eingerichtet)."
+msgstr "Cola persistente no activa (no hay clave de cifrado configurada)."
+
+msgid "Fehlgeschlagen (7 Tage)"
+msgstr "Fallidos (7 días)"
+
+msgid "Abgelaufen, ohne gesendet zu werden (7 Tage)"
+msgstr "Caducados sin enviarse (7 días)"
+
+msgid "Keine."
+msgstr "Ninguno."
+
+msgid "Die E-Mail kann einige Minuten brauchen."
+msgstr "El correo puede tardar unos minutos."

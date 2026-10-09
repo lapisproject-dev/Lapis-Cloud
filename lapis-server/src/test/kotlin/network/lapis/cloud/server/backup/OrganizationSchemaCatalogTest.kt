@@ -33,12 +33,22 @@ class OrganizationSchemaCatalogTest :
                 "only documented exclusions, and all are genuinely absent from the result",
         ) {
             OrganizationSchemaCatalog.EXCLUDED_TABLES.keys shouldBe
-                setOf("flyway_schema_history", "conference_background_image", "member_photo", "member_public_bio")
+                setOf(
+                    "flyway_schema_history",
+                    "conference_background_image",
+                    "member_photo",
+                    "member_public_bio",
+                    // Welle V1.9.81 -- transient operational state of the mail pipeline
+                    "mail_outbox",
+                    "mail_send_slot",
+                    "mail_budget_lock",
+                )
             val names = transaction { OrganizationSchemaCatalog.exportableTables(this).map { it.tableName } }
             ("flyway_schema_history" in names) shouldBe false
             ("conference_background_image" in names) shouldBe false
             ("member_photo" in names) shouldBe false
             ("member_public_bio" in names) shouldBe false
+            listOf("mail_outbox", "mail_send_slot", "mail_budget_lock").forEach { ((it in names)) shouldBe false }
         }
 
         test("every returned table has at least one primary key column") {

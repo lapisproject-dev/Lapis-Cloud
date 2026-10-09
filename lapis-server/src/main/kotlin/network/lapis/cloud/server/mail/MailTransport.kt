@@ -4,6 +4,9 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
 
+/** Whether a failed send is worth retrying later (see [MailSendOutcome.Failed]). */
+enum class MailFailureKind { TRANSIENT, PERMANENT }
+
 /**
  * Result of one [MailTransport.send] attempt. Formgleich zu
  * `network.lapis.cloud.server.postal.PostalDispatchOutcome` (V0.4.2) -- same sealed-interface
@@ -18,10 +21,36 @@ sealed interface MailSendOutcome {
      * exception's simple class name (see [JakartaMailTransport] KDoc "Error handling"). **Never**
      * the raw exception message (an `AuthenticationFailedException` carries the SMTP server's
      * response line, which can echo the username), **never** the mail body, **never** a token.
+     *
+     * Welle V1.9.81 classification (all defaults keep older fakes compiling; an unknown failure is conservatively
+     * [MailFailureKind.PERMANENT] -- never retried, so a mail is never sent twice on a guess):
+     * - [kind] [MailFailureKind.TRANSIENT]: worth retrying later (an SMTP 4xx reply, a connection failure before anything was
+     *   sent, a timeout). [MailFailureKind.PERMANENT]: do not retry (5xx, authentication, anything unknown).
+     * - [smtpReplyCode] the numeric reply code when the relay gave one, else `null`.
+     * - [deliveryUncertain] `true` when the connection timed out AFTER the data transfer may have begun: the relay may or may not
+     *   have accepted the mail. A system mail is retried anyway (a duplicate is possible and documented); a mailing-list mail is
+     *   NOT, so that it is delivered at most once.
+     * - [errorClass] a closed vocabulary (`SMTP_451`, `SMTP_550`, `CONNECT`, `TIMEOUT`, `AUTH`, `UNKNOWN`, ...), filtered to
+     *   `[A-Z0-9_]` and at most [MAX_ERROR_CLASS_LENGTH] characters. It is what ends up in the log and in `last_error_class`.
      */
     data class Failed(
         val sanitizedErrorMessage: String,
-    ) : MailSendOutcome
+        val kind: MailFailureKind = MailFailureKind.PERMANENT,
+        val smtpReplyCode: Int? = null,
+        val deliveryUncertain: Boolean = false,
+        val errorClass: String = "UNKNOWN",
+    ) : MailSendOutcome {
+        companion object {
+            const val MAX_ERROR_CLASS_LENGTH = 64
+
+            /** Reduces [raw] to the allowed alphabet and length; an empty result becomes `UNKNOWN`. */
+            fun sanitizeErrorClass(raw: String): String =
+                raw
+                    .filter { it in 'A'..'Z' || it in '0'..'9' || it == '_' }
+                    .take(MAX_ERROR_CLASS_LENGTH)
+                    .ifEmpty { "UNKNOWN" }
+        }
+    }
 
     /**
      * [NoOpMailTransport]'s outcome -- deliberately distinct from [Sent] so [MailDispatcher] never

@@ -14,11 +14,16 @@ import network.lapis.cloud.server.db.generated.MailingListTable
 import network.lapis.cloud.server.db.generated.MailingMessageLinkTable
 import network.lapis.cloud.server.db.generated.MailingMessageTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailBranding
+import network.lapis.cloud.server.mail.budget.BudgetDecision
+import network.lapis.cloud.server.mail.budget.MailBudgetStore
+import network.lapis.cloud.server.mail.budget.MailLane
 import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
 import network.lapis.cloud.server.mail.newsletter.MailingHtmlSanitizer
 import network.lapis.cloud.server.mail.newsletter.MailingMailRenderer
 import network.lapis.cloud.server.mail.newsletter.MailingTrackingData
+import network.lapis.cloud.server.mail.secondsUntil
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -27,6 +32,7 @@ import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.DeliveryStatus
 import network.lapis.cloud.shared.domain.MailingDeliveryMode
+import network.lapis.cloud.shared.domain.MailingEta
 import network.lapis.cloud.shared.domain.MailingHtmlPolicy
 import network.lapis.cloud.shared.domain.MailingLinkStatsDto
 import network.lapis.cloud.shared.domain.MailingListDto
@@ -34,7 +40,10 @@ import network.lapis.cloud.shared.domain.MailingListSubscriptionDto
 import network.lapis.cloud.shared.domain.MailingMessageDto
 import network.lapis.cloud.shared.domain.MailingMessageStatsDto
 import network.lapis.cloud.shared.domain.MailingMessageStatus
+import network.lapis.cloud.shared.domain.MailingPauseReason
 import network.lapis.cloud.shared.domain.MailingPreviewDto
+import network.lapis.cloud.shared.domain.MailingSendEstimateDto
+import network.lapis.cloud.shared.domain.MailingSendProgressDto
 import network.lapis.cloud.shared.domain.MailingTrackingConsentSnapshot
 import network.lapis.cloud.shared.domain.MemberChangeSnapshot
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -47,7 +56,10 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.lessEq
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.sum
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -55,9 +67,18 @@ import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
 private val BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
+
+/**
+ * V1.9.81 -- ONE per-member limiter for the two send-display RPCs ([MailingService.mailingSendEstimate], [MailingService.mailingSendProgress]),
+ * defined at module level: [MailingService] is built per call, so a limiter created per instance would never see a second request.
+ * 60 calls per minute and member -- the progress panel polls every 15 s.
+ */
+private val SEND_DISPLAY_RATE_LIMITER = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
 
 /**
  * **V0.11.0 security fix**: [listMailingLists]/[subscribe]/[unsubscribe] previously had NO
@@ -83,6 +104,11 @@ class MailingService(
     private val deliveryWorker: MailingDeliveryWorker,
     private val deliveryMode: MailingDeliveryMode,
     private val branding: MailBranding,
+    /** V1.9.81 -- the hourly send budget, for the confirmation estimate and the progress display (no budget = no throttling). */
+    private val budget: MailBudgetStore = MailBudgetStore(null),
+    /** V1.9.81 -- the worker's minimum gap between two recipients, an input of the estimate. */
+    private val sendDelay: Duration = MailingDeliveryWorker.DEFAULT_SEND_DELAY,
+    private val sendDisplayRateLimiter: FederationInboxRateLimiter = SEND_DISPLAY_RATE_LIMITER,
 ) : IMailingService {
     override suspend fun listMailingLists(): List<MailingListDto> {
         val current = resolveCurrentMember(call)
@@ -584,6 +610,7 @@ class MailingService(
                         { (MailingMessageTable.id eq id) and (MailingMessageTable.status eq MailingMessageStatus.DRAFT) },
                     ) {
                         it[status] = MailingMessageStatus.QUEUED
+                        it[queuedAt] = now
                     }
                 if (updated == 0) {
                     val exists = MailingMessageTable.selectAll().where { MailingMessageTable.id eq id }.count() > 0
@@ -601,17 +628,8 @@ class MailingService(
 
                 // D3 (plan): only ACTIVE, non-anonymized, non-deceased members with a still-active
                 // subscription. Members who fall out of this filter get no delivery-log row at all --
-                // see IMailingService.sendMailingMessage KDoc.
-                val eligibleRecipients =
-                    (MailingListSubscriptionTable innerJoin MemberTable)
-                        .selectAll()
-                        .where {
-                            (MailingListSubscriptionTable.mailingListId eq listId) and
-                                (MailingListSubscriptionTable.unsubscribedAt.isNull()) and
-                                (MemberTable.status eq MemberStatus.ACTIVE) and
-                                (MemberTable.anonymizedAt.isNull()) and
-                                (MemberTable.dateOfDeath.isNull())
-                        }.map { it[MailingListSubscriptionTable.memberId] }
+                // see IMailingService.sendMailingMessage KDoc. ONE shared function with the send estimate.
+                val eligibleRecipients = eligibleRecipientIds(listId)
 
                 if (eligibleRecipients.size > MailingHtmlPolicy.MAX_RECIPIENTS) {
                     // Throwing here rolls back the whole transaction, including the DRAFT->QUEUED
@@ -668,7 +686,164 @@ class MailingService(
         }
         return queuedSnapshot
     }
+
+    override suspend fun mailingSendEstimate(messageId: String): MailingSendEstimateDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*BOARD_ROLES)
+        requireWithinSendDisplayRate(current.memberId)
+        val id = Uuid.parse(messageId)
+        val recipients =
+            transaction {
+                val message =
+                    MailingMessageTable.selectAll().where { MailingMessageTable.id eq id }.singleOrNull()
+                        ?: throw NotFoundException("MailingMessage $messageId not found")
+                if (message[MailingMessageTable.status] == MailingMessageStatus.DRAFT) {
+                    // EXACTLY the recipients sendMailingMessage would queue.
+                    eligibleRecipientIds(message[MailingMessageTable.mailingListId]).size
+                } else {
+                    // Already queued / finished: what is still to do.
+                    countDeliveries(messageId = id, status = DeliveryStatus.PENDING)
+                }
+            }
+        val bulkPerHour = budget.bulkPerHour
+        return MailingSendEstimateDto(
+            recipientCount = recipients,
+            bulkBudgetPerHour = bulkPerHour,
+            estimatedSeconds =
+                MailingEta.estimateSeconds(
+                    remaining = recipients,
+                    minDelayMs = sendDelay.inWholeMilliseconds,
+                    bulkPerHour = bulkPerHour,
+                ),
+            spansMultipleHours = bulkPerHour != null && recipients > bulkPerHour,
+        )
+    }
+
+    override suspend fun mailingSendProgress(messageId: String): MailingSendProgressDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*BOARD_ROLES)
+        requireWithinSendDisplayRate(current.memberId)
+        val id = Uuid.parse(messageId)
+        val now = DbClock.nowLocalDateTime()
+        val counts =
+            transaction {
+                MailingMessageTable.selectAll().where { MailingMessageTable.id eq id }.singleOrNull()
+                    ?: throw NotFoundException("MailingMessage $messageId not found")
+                DeliveryStatus.entries.associateWith { countDeliveries(messageId = id, status = it) }
+            }
+
+        fun count(vararg statuses: DeliveryStatus): Int = statuses.sumOf { counts.getValue(it) }
+        val pending = count(DeliveryStatus.PENDING)
+        var pausedUntil: kotlinx.datetime.LocalDateTime? = null
+        var reason: MailingPauseReason? = null
+        if (pending > 0) {
+            val providerPause = budget.bulkPausedUntil()?.takeIf { it > now }
+            val deferral = earliestDeferral(messageId = id, now = now)
+            val budgetDecision = budget.peek(lane = MailLane.BULK, now = now)
+            when {
+                providerPause != null -> {
+                    pausedUntil = providerPause
+                    reason = MailingPauseReason.PROVIDER_DEFERRAL
+                }
+                budgetDecision is BudgetDecision.WaitUntil -> {
+                    pausedUntil = budgetDecision.at
+                    reason = MailingPauseReason.HOURLY_BUDGET
+                }
+                deferral != null && !hasDueRow(messageId = id, now = now) -> {
+                    pausedUntil = deferral
+                    reason = MailingPauseReason.PROVIDER_DEFERRAL
+                }
+            }
+        }
+        val estimate =
+            MailingEta.estimateSeconds(remaining = pending, minDelayMs = sendDelay.inWholeMilliseconds, bulkPerHour = budget.bulkPerHour)
+        val extraWait =
+            if (reason == MailingPauseReason.PROVIDER_DEFERRAL &&
+                pausedUntil != null
+            ) {
+                now.secondsUntil(pausedUntil).coerceAtLeast(0)
+            } else {
+                0L
+            }
+        return MailingSendProgressDto(
+            messageId = messageId,
+            total = counts.values.sum(),
+            sent = count(DeliveryStatus.SENT),
+            failed = count(DeliveryStatus.FAILED, DeliveryStatus.BOUNCED),
+            interrupted = count(DeliveryStatus.INTERRUPTED),
+            skipped = count(DeliveryStatus.SKIPPED_NO_ADDRESS, DeliveryStatus.SKIPPED_UNSUBSCRIBED),
+            pending = pending,
+            pausedUntil = pausedUntil,
+            pauseReason = reason,
+            remainingSeconds = if (pending > 0) estimate + extraWait else null,
+        )
+    }
+
+    private fun requireWithinSendDisplayRate(memberId: Uuid) {
+        if (!sendDisplayRateLimiter.checkAndRecord("member:$memberId")) {
+            throw ConflictException("Zu viele Anfragen -- bitte später erneut versuchen.")
+        }
+    }
+
+    private fun countDeliveries(
+        messageId: Uuid,
+        status: DeliveryStatus,
+    ): Int =
+        MailingDeliveryLogTable
+            .selectAll()
+            .where { (MailingDeliveryLogTable.mailingMessageId eq messageId) and (MailingDeliveryLogTable.deliveryStatus eq status) }
+            .count()
+            .toInt()
+
+    private fun earliestDeferral(
+        messageId: Uuid,
+        now: kotlinx.datetime.LocalDateTime,
+    ): kotlinx.datetime.LocalDateTime? =
+        transaction {
+            MailingDeliveryLogTable
+                .selectAll()
+                .where {
+                    (MailingDeliveryLogTable.mailingMessageId eq messageId) and
+                        (MailingDeliveryLogTable.deliveryStatus eq DeliveryStatus.PENDING) and
+                        MailingDeliveryLogTable.nextAttemptAt.isNotNull() and
+                        (MailingDeliveryLogTable.nextAttemptAt greater now)
+                }.map { it[MailingDeliveryLogTable.nextAttemptAt] }
+                .filterNotNull()
+                .minOrNull()
+        }
+
+    private fun hasDueRow(
+        messageId: Uuid,
+        now: kotlinx.datetime.LocalDateTime,
+    ): Boolean =
+        transaction {
+            MailingDeliveryLogTable
+                .selectAll()
+                .where {
+                    (MailingDeliveryLogTable.mailingMessageId eq messageId) and
+                        (MailingDeliveryLogTable.deliveryStatus eq DeliveryStatus.PENDING) and
+                        MailingDeliveryLogTable.claimedAt.isNull() and
+                        (MailingDeliveryLogTable.nextAttemptAt.isNull() or (MailingDeliveryLogTable.nextAttemptAt lessEq now))
+                }.limit(1)
+                .count() > 0
+        }
 }
+
+/**
+ * The recipients of a send to mailing list [listId]: ACTIVE, non-anonymized, non-deceased members with a still-active subscription.
+ * The single definition behind BOTH `sendMailingMessage` (which queues exactly these) and `mailingSendEstimate` (which shows how many
+ * they are) -- the confirmation dialog can never disagree with the send. Must run inside a transaction.
+ */
+internal fun eligibleRecipientIds(listId: Uuid): List<Uuid> =
+    (MailingListSubscriptionTable innerJoin MemberTable)
+        .selectAll()
+        .where {
+            (MailingListSubscriptionTable.mailingListId eq listId) and
+                (MailingListSubscriptionTable.unsubscribedAt.isNull()) and
+                (MemberTable.status eq MemberStatus.ACTIVE) and
+                (MemberTable.anonymizedAt.isNull()) and
+                (MemberTable.dateOfDeath.isNull())
+        }.map { it[MailingListSubscriptionTable.memberId] }
 
 private fun requireMailingListExists(mailingListId: String) {
     val listId = Uuid.parse(mailingListId)

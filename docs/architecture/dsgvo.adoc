@@ -490,6 +490,18 @@ Two opt-in processing steps of the Keycloak login (`keycloak-login.adoc`, "Just-
   and still belongs to the Keycloak group, a **new** active member is created -- the operator removes the person from the group first.
   A block list of erased identities would itself be a personal-data store that contradicts the erasure.
 
+== Mail outbox (`mail_outbox`, V1.9.81)
+
+The durable system-mail outbox keeps the finished mail (recipient, subject, text and HTML body) **encrypted** (AES-256-GCM, `SecretBox`) and only while the row is open
+(`QUEUED`/`SENDING`). Purpose and legal basis: delivering the mail the person asked for or must receive (Art. 6(1)(b), security mails Art. 6(1)(f)). Retention: a security mail
+(priority 0: password reset, e-mail change, friend verification, ...) expires unsent after **30 minutes**; every final row (`SENT`, `FAILED`, `EXPIRED`) clears the payload and the
+lookup hash in the same statement (DB CHECK) and keeps only purpose, status and instants for **7 days** (`SENT`/`EXPIRED`) or **30 days** (`FAILED`).
+
+`MailOutboxPersonalData` finds *open* rows without decrypting, through `recipient_lookup_hash` (HMAC of the lower-cased address under a purpose-separated sub-key): export lists
+purpose, status and creation time; erasure deletes them. Addresses tried: `member.email`, the pending address of an open `member_email_change`, a CRM contact's e-mail. It is
+registered **first** in `PersonalDataRegistry` because erasure anonymizes `member.email`. The table is also in `knownUncoveredSubjectRoots` / `nonMemberPiiTables`: a guest who is
+neither a member nor a CRM contact has no subject root and therefore no Art. 15/17 path -- visible, not closed (see link:mail-delivery-budget-and-outbox.adoc[mail-delivery-budget-and-outbox.adoc]).
+
 == See also
 
 * `network.lapis.cloud.server.dsgvo.MemberPhotoPersonalData` — hard-delete contributor for `member_photo`, export with

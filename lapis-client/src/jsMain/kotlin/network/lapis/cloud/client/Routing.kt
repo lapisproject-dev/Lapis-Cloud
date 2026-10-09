@@ -550,6 +550,10 @@ object Routes {
     // Lebt in der Verwaltung-Dropdown, direkt nach der Mitgliederkarte. Kein Query-Parameter.
     const val MEMBER_STATISTICS = "/member-statistics"
 
+    // Welle V1.9.81 "E-Mail-Stundenbudget" -- ADMIN only, verifiziert gegen MailDeliveryStatusService.kt: requireRole(ADMIN) als erste
+    // Anweisung. Lebt in der System-Gruppe. Nur Zaehler und die geschlossenen Zweck-Namen, keine Adressen; kein Query-Parameter.
+    const val MAIL_DELIVERY = "/mail-delivery"
+
     // Welle V1.4.5.1.1 "Kontoauszuege" -- TREASURER/BOARD/ADMIN auf Routenebene, verifiziert gegen
     // `BankStatementService.kt`s `BANK_STATEMENT_READ_ROLES`. Die engere TREASURER/ADMIN-Stufe
     // (`BANK_STATEMENT_WRITE_ROLES` = `BankStatementRoutes.BANK_STATEMENT_UPLOAD_ROLES`) wird
@@ -1128,6 +1132,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.MEMBER_STATISTICS) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.MEMBER_STATISTICS, ::renderMemberStatisticsScreen)
+        }
+    }
+    routing.kvOn(Routes.MAIL_DELIVERY) {
+        requireRole(routing, AccountRole.ADMIN) {
+            show(Routes.MAIL_DELIVERY, ::renderMailDeliveryStatusScreen)
         }
     }
     routing.kvOn(Routes.BANK_IMPORT) {

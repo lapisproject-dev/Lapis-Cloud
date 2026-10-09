@@ -25,6 +25,11 @@ public object MailingDeliveryLogTable : Table("mailing_delivery_log") {
     public val clickTracked: Column<Boolean> = bool("click_tracked").default(false)
     public val firstOpenedAt: Column<LocalDateTime?> = datetime("first_opened_at").nullable()
     public val openCount: Column<Int> = integer("open_count").default(0)
+
+    /** Welle V1.9.81 (V80): claim before send (at-most-once); a claimed PENDING row that survives a restart becomes INTERRUPTED. */
+    public val claimedAt: Column<LocalDateTime?> = datetime("claimed_at").nullable()
+    public val attemptCount: Column<Int> = integer("attempt_count").default(0)
+    public val nextAttemptAt: Column<LocalDateTime?> = datetime("next_attempt_at").nullable()
     public val mailingMessageId: Column<Uuid> = reference("mailing_message_id", MailingMessageTable.id)
     public val memberId: Column<Uuid> = reference("member_id", MemberTable.id)
 

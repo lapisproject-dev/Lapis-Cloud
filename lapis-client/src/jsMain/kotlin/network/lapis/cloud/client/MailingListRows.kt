@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.MailingListSubscriptionDto
 import network.lapis.cloud.shared.domain.MailingMessageDto
 import network.lapis.cloud.shared.domain.MailingMessageStatus
+import network.lapis.cloud.shared.domain.MailingSendEstimateDto
 import network.lapis.cloud.shared.rpc.IMailingService
 
 // V1.9.49: the subscriber row and the message row of the mailing-list detail moved out of `CommunicationScreen.kt` unchanged (the screen
@@ -78,38 +79,60 @@ internal fun renderMailingMessageRow(
         }
     }
 
+    // V1.9.81: a send that is still running shows its progress (and why it may stand still) and refreshes the list when it is done.
+    if (message.status == MailingMessageStatus.QUEUED) {
+        row.mailingSendProgress(message.id, onFinished = onChanged)
+    }
+
     if (message.status == MailingMessageStatus.DRAFT) {
         val sendButton = row.actionButton(ActionIcon.SEND, tr("Senden"), style = ButtonStyle.OUTLINEDANGER)
         sendButton.onClick {
-            confirmDialog(
-                title = tr("Nachricht senden"),
-                // Security audit follow-up (untrusted-text sanitization gaps): message.subject and listName are
-                // sender-/admin-editable free text composed into this gettext(...) string, which confirmDialog
-                // hands straight to modal.div(message) -- sanitize the whole composed result.
-                message =
-                    sanitizeUntrustedI18nText(
-                        gettext(
-                            "Die Nachricht \"%1\" wird an alle aktiven Abonnenten der " +
-                                "Mailingliste \"%2\" verschickt. Dieser Schritt kann nicht rückgängig gemacht werden.",
-                            message.subject,
-                            listName,
-                        ),
-                    ),
-                confirmLabel = tr("Senden"),
-            ) {
-                sendButton.disabled = true
-                AppScope.launch {
-                    val result = guarded { rpcService<IMailingService>().sendMailingMessage(message.id) }
-                    sendButton.disabled = false
-                    if (result != null) {
-                        // Review fix (finding #6, W-SuperMailer round 1): sendMailingMessage only
-                        // QUEUES the message now (V1.9.7 async rewrite) -- the actual send happens
-                        // later, off this RPC call, and in `smtp` mode can take minutes and can end
-                        // FAILED. "wurde gesendet" (has been sent) overclaims what just happened.
-                        notifySuccess(gettext("Nachricht \"%1\" wurde in die Versand-Warteschlange gestellt.", message.subject))
-                        onChanged()
-                    }
-                }
+            // V1.9.81: ask the server how many recipients the send reaches and how long it takes under the hourly budget BEFORE the
+            // confirmation, so the dialog states the real figures (the server computes them with the very filter the send uses).
+            runGuardedAction(sendButton) {
+                val estimate = guarded { rpcService<IMailingService>().mailingSendEstimate(message.id) } ?: return@runGuardedAction
+                confirmMailingSend(sendButton, message, listName, estimate, onChanged)
+            }
+        }
+    }
+}
+
+/** The confirmation of a mailing-list send, with the figures of [estimate] as extra lines. */
+private fun confirmMailingSend(
+    sendButton: io.kvision.html.Button,
+    message: MailingMessageDto,
+    listName: String,
+    estimate: MailingSendEstimateDto,
+    onChanged: () -> Unit,
+) {
+    confirmDialog(
+        title = tr("Nachricht senden"),
+        // Security audit follow-up (untrusted-text sanitization gaps): message.subject and listName are
+        // sender-/admin-editable free text composed into this gettext(...) string, which confirmDialog
+        // hands straight to modal.div(message) -- sanitize the whole composed result.
+        message =
+            sanitizeUntrustedI18nText(
+                gettext(
+                    "Die Nachricht \"%1\" wird an alle aktiven Abonnenten der " +
+                        "Mailingliste \"%2\" verschickt. Dieser Schritt kann nicht rückgängig gemacht werden.",
+                    message.subject,
+                    listName,
+                ),
+            ),
+        confirmLabel = tr("Senden"),
+        extraLines = mailingSendSummaryLines(estimate),
+    ) {
+        sendButton.disabled = true
+        AppScope.launch {
+            val result = guarded { rpcService<IMailingService>().sendMailingMessage(message.id) }
+            sendButton.disabled = false
+            if (result != null) {
+                // Review fix (finding #6, W-SuperMailer round 1): sendMailingMessage only
+                // QUEUES the message now (V1.9.7 async rewrite) -- the actual send happens
+                // later, off this RPC call, and in `smtp` mode can take minutes and can end
+                // FAILED. "wurde gesendet" (has been sent) overclaims what just happened.
+                notifySuccess(gettext("Nachricht \"%1\" wurde in die Versand-Warteschlange gestellt.", message.subject))
+                onChanged()
             }
         }
     }

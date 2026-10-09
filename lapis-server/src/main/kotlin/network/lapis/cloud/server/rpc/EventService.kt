@@ -36,6 +36,7 @@ import network.lapis.cloud.server.events.series.RecurrenceSentence
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.htmlEscape
+import network.lapis.cloud.server.mail.outbox.OutboundMail
 import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -83,6 +84,10 @@ import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
 import java.time.ZoneId
 import kotlin.uuid.Uuid
+
+private val logger =
+    io.github.oshai.kotlinlogging.KotlinLogging
+        .logger {}
 
 private val EVENT_MANAGE_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
 private val EVENT_INVOICE_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.ADMIN)
@@ -372,7 +377,7 @@ class EventService(
                 val fresh = EventStore.getEventOrThrow(eventId).toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl)
                 fresh to notices
             }
-        notices.forEach { notice -> mailEventCancelled(notice = notice, eventTitle = dto.title, reason = reason) }
+        mailEventCancelledAll(notices = notices, eventTitle = dto.title, reason = reason)
         return dto
     }
 
@@ -848,13 +853,11 @@ class EventService(
                     title,
                 )
             }
-        notices.forEach { notice ->
-            mailEventCancelled(
-                notice = EventCancellationNotice(to = notice.to, recipientName = notice.recipientName),
-                eventTitle = eventTitle,
-                reason = reason,
-            )
-        }
+        mailEventCancelledAll(
+            notices = notices.map { notice -> EventCancellationNotice(to = notice.to, recipientName = notice.recipientName) },
+            eventTitle = eventTitle,
+            reason = reason,
+        )
         return dtoResult
     }
 
@@ -1154,24 +1157,43 @@ class EventService(
         val recipientName: String,
     )
 
-    private fun mailEventCancelled(
-        notice: EventCancellationNotice,
+    /**
+     * One cancellation notice per registrant. A cancellation can reach hundreds of people at once, so the whole batch goes through
+     * [MailDispatcher.enqueueAll] (ONE transaction straight into the durable outbox -- the 256-slot hand-off channel would drop the
+     * overflow). Safe here: the caller is an authenticated BOARD/ADMIN, there is no timing side channel to protect. Purpose
+     * `event-cancelled` draws from the BULK budget lane, so a big cancellation can never starve a password-reset mail of the reserve.
+     */
+    private suspend fun mailEventCancelledAll(
+        notices: List<EventCancellationNotice>,
         eventTitle: String,
         reason: String,
     ) {
+        if (notices.isEmpty()) return
         val subject = "Abgesagt: $eventTitle"
         val body = "Die Veranstaltung \"$eventTitle\" wurde abgesagt.\n\nBegründung: $reason"
         // Security-Review MINOR fix: `eventTitle`/`reason` are BOARD/ADMIN-supplied free text
         // (see `htmlEscape` KDoc "Fehlerszenario B") -- htmlEscape() both before they reach every
         // registrant's `htmlBody`.
         val bodyHtml = "Die Veranstaltung \"${htmlEscape(eventTitle)}\" wurde abgesagt.\n\nBegründung: ${htmlEscape(reason)}"
-        mailDispatcher.enqueue(
-            to = notice.to,
-            subject = subject,
-            plainTextBody = "Hallo ${notice.recipientName},\n\n$body\n",
-            htmlBody = "<p>Hallo ${htmlEscape(notice.recipientName)},</p><p>${bodyHtml.replace("\n", "<br>")}</p>",
-            purpose = "event-cancelled",
-        )
+        // The cancellation is already committed: a failing outbox write must not turn it into an RPC error (a retry would fail, the
+        // event being cancelled already). Log and carry on, like `offer()` does.
+        try {
+            mailDispatcher.enqueueAll(
+                notices.map { notice ->
+                    OutboundMail(
+                        to = notice.to,
+                        subject = subject,
+                        plainTextBody = "Hallo ${notice.recipientName},\n\n$body\n",
+                        htmlBody = "<p>Hallo ${htmlEscape(notice.recipientName)},</p><p>${bodyHtml.replace("\n", "<br>")}</p>",
+                        purpose = "event-cancelled",
+                    )
+                },
+            )
+        } catch (c: kotlinx.coroutines.CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            logger.error { "Event cancellation mails could not be queued (${t::class.simpleName}): ${notices.size} notice(s) lost" }
+        }
     }
 }
 

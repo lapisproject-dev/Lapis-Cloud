@@ -21182,3 +21182,81 @@ msgstr "Chaire plus fort"
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Podium lauter"
 msgstr "Podium plus fort"
+
+msgid "unter 1 Minute"
+msgstr "moins d'une minute"
+
+msgid "ca. %1 Min."
+msgstr "env. %1 min"
+
+msgid "ca. %1 Std. %2 Min."
+msgstr "env. %1 h %2 min"
+
+msgid "%1 Empfänger"
+msgstr "%1 destinataires"
+
+msgid "%1 Empfänger · Stundenbudget für Rundschreiben: %2 pro Stunde · Dauer %3"
+msgstr "%1 destinataires · budget horaire pour les envois de liste : %2 par heure · durée %3"
+
+msgid "Der Versand wird auf mehrere Stunden verteilt."
+msgstr "L'envoi sera étalé sur plusieurs heures."
+
+msgid "Wird versendet: %1 von %2 · noch %3"
+msgstr "Envoi en cours : %1 sur %2 · reste %3"
+
+msgid "pausiert bis ca. %1 (Anbieter hat verzögert)"
+msgstr "en pause jusqu'à env. %1 (le fournisseur a différé)"
+
+msgid "pausiert bis ca. %1 (Stundenbudget)"
+msgstr "en pause jusqu'à env. %1 (budget horaire)"
+
+msgid "%1 unklar (Unterbrechung)"
+msgstr "%1 incertains (interruption)"
+
+msgid "%1 fehlgeschlagen"
+msgstr "%1 en échec"
+
+msgid "E-Mail-Versand"
+msgstr "Envoi d'e-mails"
+
+msgid "Zustand des E-Mail-Versands: Stundenbudget, wartende System-E-Mails und Fehlschläge der letzten 7 Tage. Es werden nur Zahlen angezeigt, nie Adressen oder Inhalte."
+msgstr "État de l'envoi d'e-mails : budget horaire, e-mails système en attente et échecs des 7 derniers jours. Seuls des chiffres sont affichés, jamais d'adresses ni de contenus."
+
+msgid "Stundenbudget"
+msgstr "Budget horaire"
+
+msgid "%1 / %2 (Reserve %3)"
+msgstr "%1 / %2 (réserve %3)"
+
+msgid "Gezählt werden die E-Mails der letzten 60 Minuten."
+msgstr "Les e-mails des 60 dernières minutes sont comptés."
+
+msgid "Kein Stundenbudget eingerichtet."
+msgstr "Aucun budget horaire configuré."
+
+msgid "Rundschreiben pausiert bis ca. %1 (Anbieter hat verzögert)"
+msgstr "Envois de liste en pause jusqu'à env. %1 (le fournisseur a différé)"
+
+msgid "Warteschlange"
+msgstr "File d'attente"
+
+msgid "Wartend: %1"
+msgstr "En attente : %1"
+
+msgid "Älteste Wartezeit: %1"
+msgstr "Attente la plus longue : %1"
+
+msgid "Dauerhafte Warteschlange nicht aktiv (kein Verschlüsselungsschlüssel eingerichtet)."
+msgstr "File d'attente durable inactive (aucune clé de chiffrement configurée)."
+
+msgid "Fehlgeschlagen (7 Tage)"
+msgstr "Échecs (7 jours)"
+
+msgid "Abgelaufen, ohne gesendet zu werden (7 Tage)"
+msgstr "Expirés sans avoir été envoyés (7 jours)"
+
+msgid "Keine."
+msgstr "Aucun."
+
+msgid "Die E-Mail kann einige Minuten brauchen."
+msgstr "L'e-mail peut prendre quelques minutes."

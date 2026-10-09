@@ -102,6 +102,21 @@ deleted or a key column changed; does another transaction insert children withou
 . *Escalation inside one transaction.* No path that holds `forMemberUpdate()` calls the card issuance or the number allocator afterwards
   (verified by reading the callers); that would raise the lock to `FOR UPDATE`.
 
+== Mail pipeline locks (V1.9.81)
+
+Two locks of the mail pipeline, neither on `member` (details in link:mail-delivery-budget-and-outbox.adoc[mail-delivery-budget-and-outbox.adoc]):
+
+*`mail_budget_lock` singleton serialization.* `MailBudgetStore.reserve` takes `SELECT ... FOR UPDATE` on the one row (`id = 1`) of `mail_budget_lock`, counts the slots in the
+window, and inserts one slot when allowed. It is a plain `FOR UPDATE` on a table nothing else references, so the foreign-key interaction that makes a `member` lock
+dangerous does not exist here. Safety: the transaction is single-attempt (`maxAttempts = 1`, Exposed would otherwise repeat the block on any `SQLException`), runs under
+`SET LOCAL lock_timeout = 2000`, `statement_timeout = 5000`, `idle_in_transaction_session_timeout = 5000`, contains no SMTP call, no `delay`, no `runBlocking`, and
+a timeout is read as "exhausted for 5 seconds" -- the caller is never blocked. The row is also where the global bulk pause lives (`bulk_paused_until`, only extended).
+
+*`mail_outbox` SKIP LOCKED claim.* The poller claims with `SELECT ... FOR UPDATE SKIP LOCKED` (ordered by priority and age, limit 1) plus a conditional `UPDATE` to
+`SENDING` in one single-attempt transaction. Two pollers never block each other and never take the same row; on H2 the conditional `UPDATE` alone decides. The final
+state is written fenced (`status = 'SENDING' AND attempt_count = <claimed>`). No lock on `member` is ever taken -- the outbox stores addresses, it does not read them from
+`member` -- and the data-subject path reads `member`/`member_email_change` without `forUpdate`.
+
 == E-mail change (known limitation)
 
 `EmailChangeStore.lockMember` (V1.9.57) takes `forMemberUpdate()` and the same transaction later applies `UPDATE member SET email`, a key

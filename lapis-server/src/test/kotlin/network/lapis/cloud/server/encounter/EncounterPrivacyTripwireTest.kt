@@ -213,7 +213,8 @@ class EncounterPrivacyTripwireTest :
             Regex("""ADD COLUMN IF NOT EXISTS (\w+)""").findAll(v79Code).map { it.groupValues[1] }.toList() shouldBe
                 listOf("tables_enabled", "table_count", "table_seats")
             Regex("""\b(member|person|identity|seat|participant)\b""", RegexOption.IGNORE_CASE).containsMatchIn(v79Code) shouldBe false
-            migrations.none { it.name.startsWith("V80__") } shouldBe true
+            // (V80 is the mail-pipeline migration of V1.9.81 -- no further ENCOUNTER migration exists)
+            migrations.none { it.name.startsWith("V80__") && it.name.contains("encounter", ignoreCase = true) } shouldBe true
             // (V18 events legitimately has event seats; only the encounter migrations are in question)
             val encounterMigrations = migrations.filter { it.name.contains("encounter", ignoreCase = true) }
             (encounterMigrations.size >= 4) shouldBe true

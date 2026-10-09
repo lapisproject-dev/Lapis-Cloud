@@ -1,7 +1,9 @@
 package network.lapis.cloud.server.mail
 
+import jakarta.mail.AuthenticationFailedException
 import jakarta.mail.Authenticator
 import jakarta.mail.Message
+import jakarta.mail.MessagingException
 import jakarta.mail.PasswordAuthentication
 import jakarta.mail.Session
 import jakarta.mail.Transport
@@ -11,6 +13,10 @@ import jakarta.mail.internet.MimeMessage
 import jakarta.mail.internet.MimeMultipart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.net.ConnectException
+import java.net.NoRouteToHostException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.Properties
 
 /**
@@ -73,7 +79,7 @@ class JakartaMailTransport(
                 // KDoc "Error handling". jakarta.mail.AuthenticationFailedException in particular
                 // carries the SMTP server's raw response line, which can echo back the configured
                 // username; that must never reach a log, a DTO, or an exception rethrown further up.
-                MailSendOutcome.Failed(sanitizedErrorMessage = "SMTP send failed (${e::class.simpleName ?: "unknown error"})")
+                classify(e)
             }
         }
     }
@@ -111,6 +117,87 @@ class JakartaMailTransport(
     private fun containsLineBreak(value: String): Boolean = value.contains('\r') || value.contains('\n')
 
     companion object {
+        private val SMTP_CODE_PREFIX = Regex("""^\s*([245]\d\d)[ -]""")
+        private const val MAX_CHAIN = 16
+
+        /**
+         * Welle V1.9.81 -- classifies a send failure into [MailSendOutcome.Failed] (see its KDoc). Walks the cause chain AND
+         * `MessagingException.nextException` (a rejected recipient arrives as a `SendFailedException` whose next exception carries
+         * the code). Angus is `runtimeOnly` (licence decision 2026-08-21), so the numeric reply code is read reflectively from
+         * `getReturnCode()`; only if no element has one, a leading `NNN ` of a message is used -- **solely to extract the number**:
+         * the message itself is never stored, logged or returned (it can echo addresses).
+         */
+        internal fun classify(e: Throwable): MailSendOutcome.Failed {
+            val chain = throwableChain(e)
+            val simpleNames = chain.map { it::class.simpleName.orEmpty() }
+            val fallbackName = e::class.simpleName ?: "unknown error"
+            val message = "SMTP send failed ($fallbackName)"
+            if (chain.any { it is AuthenticationFailedException }) {
+                return MailSendOutcome.Failed(sanitizedErrorMessage = message, kind = MailFailureKind.PERMANENT, errorClass = "AUTH")
+            }
+            val code = chain.firstNotNullOfOrNull { reflectReturnCode(it) } ?: chain.firstNotNullOfOrNull { codeFromMessage(it.message) }
+            if (code != null && code in 400..599) {
+                val errorClass = MailSendOutcome.Failed.sanitizeErrorClass("SMTP_$code")
+                return if (code < 500) {
+                    MailSendOutcome.Failed(
+                        sanitizedErrorMessage = message,
+                        kind = MailFailureKind.TRANSIENT,
+                        smtpReplyCode = code,
+                        errorClass = errorClass,
+                    )
+                } else {
+                    MailSendOutcome.Failed(
+                        sanitizedErrorMessage = message,
+                        kind = MailFailureKind.PERMANENT,
+                        smtpReplyCode = code,
+                        errorClass = errorClass,
+                    )
+                }
+            }
+            val connectPhase =
+                "MailConnectException" in simpleNames ||
+                    chain.any { it is ConnectException || it is UnknownHostException || it is NoRouteToHostException }
+            if (connectPhase) {
+                // Nothing was sent: unambiguous.
+                return MailSendOutcome.Failed(sanitizedErrorMessage = message, kind = MailFailureKind.TRANSIENT, errorClass = "CONNECT")
+            }
+            if (chain.any { it is SocketTimeoutException }) {
+                return MailSendOutcome.Failed(
+                    sanitizedErrorMessage = message,
+                    kind = MailFailureKind.TRANSIENT,
+                    deliveryUncertain = true,
+                    errorClass = "TIMEOUT",
+                )
+            }
+            return MailSendOutcome.Failed(sanitizedErrorMessage = message, kind = MailFailureKind.PERMANENT, errorClass = "UNKNOWN")
+        }
+
+        private fun throwableChain(e: Throwable): List<Throwable> {
+            val seen = LinkedHashSet<Throwable>()
+            val queue = ArrayDeque<Throwable>()
+            queue.add(e)
+            while (queue.isNotEmpty() && seen.size < MAX_CHAIN) {
+                val t = queue.removeFirst()
+                if (!seen.add(t)) continue
+                t.cause?.let(queue::add)
+                if (t is MessagingException) t.nextException?.let(queue::add)
+            }
+            return seen.toList()
+        }
+
+        private fun reflectReturnCode(t: Throwable): Int? =
+            runCatching {
+                val method = t.javaClass.getMethod("getReturnCode")
+                if (method.returnType == Int::class.javaPrimitiveType) method.invoke(t) as Int else null
+            }.getOrNull()?.takeIf { it in 100..599 }
+
+        private fun codeFromMessage(message: String?): Int? =
+            message
+                ?.let { SMTP_CODE_PREFIX.find(it) }
+                ?.groupValues
+                ?.get(1)
+                ?.toIntOrNull()
+
         /**
          * Builds a fresh [Session] from [config] every call -- see class KDoc "Never
          * Session.getDefaultInstance". All Jakarta Mail properties are set as [String] values

@@ -155,6 +155,11 @@ class CommunicationSchemaDriftTest :
             real.foreignKeys["member_id"] shouldBe "member"
             model.entityNameOf(entity.attributeByName("mailing_message_id")?.foreignKey?.targetEntityId ?: "") shouldBe "mailing_message"
             model.entityNameOf(entity.attributeByName("member_id")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
+            // V80 (V1.9.81): claim / retry columns of the resumable delivery
+            real.columns.getValue("claimed_at").nullable shouldBe true
+            real.columns.getValue("next_attempt_at").nullable shouldBe true
+            real.columns.getValue("attempt_count").nullable shouldBe false
+            transaction { introspectCommunicationTable("mailing_message") }.columns.getValue("queued_at").nullable shouldBe true
         }
 
         test("mailing_message_link table shape matches the real migrated schema") {
@@ -306,7 +311,7 @@ class CommunicationSchemaDriftTest :
             deliveryStatus?.type shouldBe
                 ErmDataType.Enum(
                     name = "DeliveryStatus",
-                    values = listOf("SENT", "BOUNCED", "SKIPPED_UNSUBSCRIBED", "PENDING", "FAILED", "SKIPPED_NO_ADDRESS"),
+                    values = listOf("SENT", "BOUNCED", "SKIPPED_UNSUBSCRIBED", "PENDING", "FAILED", "SKIPPED_NO_ADDRESS", "INTERRUPTED"),
                     externalFqName = "network.lapis.cloud.shared.domain.DeliveryStatus",
                 )
         }

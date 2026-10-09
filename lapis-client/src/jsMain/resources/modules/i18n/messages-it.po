@@ -21164,3 +21164,81 @@ msgstr "Pulpito più forte"
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Podium lauter"
 msgstr "Podio più forte"
+
+msgid "unter 1 Minute"
+msgstr "meno di 1 minuto"
+
+msgid "ca. %1 Min."
+msgstr "ca. %1 min"
+
+msgid "ca. %1 Std. %2 Min."
+msgstr "ca. %1 h %2 min"
+
+msgid "%1 Empfänger"
+msgstr "%1 destinatari"
+
+msgid "%1 Empfänger · Stundenbudget für Rundschreiben: %2 pro Stunde · Dauer %3"
+msgstr "%1 destinatari · budget orario per gli invii alle liste: %2 all'ora · durata %3"
+
+msgid "Der Versand wird auf mehrere Stunden verteilt."
+msgstr "L'invio sarà distribuito su più ore."
+
+msgid "Wird versendet: %1 von %2 · noch %3"
+msgstr "Invio in corso: %1 di %2 · mancano %3"
+
+msgid "pausiert bis ca. %1 (Anbieter hat verzögert)"
+msgstr "in pausa fino a circa le %1 (il provider ha rimandato)"
+
+msgid "pausiert bis ca. %1 (Stundenbudget)"
+msgstr "in pausa fino a circa le %1 (budget orario)"
+
+msgid "%1 unklar (Unterbrechung)"
+msgstr "%1 incerti (interruzione)"
+
+msgid "%1 fehlgeschlagen"
+msgstr "%1 non riusciti"
+
+msgid "E-Mail-Versand"
+msgstr "Invio e-mail"
+
+msgid "Zustand des E-Mail-Versands: Stundenbudget, wartende System-E-Mails und Fehlschläge der letzten 7 Tage. Es werden nur Zahlen angezeigt, nie Adressen oder Inhalte."
+msgstr "Stato dell'invio e-mail: budget orario, e-mail di sistema in attesa ed errori degli ultimi 7 giorni. Vengono mostrati solo numeri, mai indirizzi o contenuti."
+
+msgid "Stundenbudget"
+msgstr "Budget orario"
+
+msgid "%1 / %2 (Reserve %3)"
+msgstr "%1 / %2 (riserva %3)"
+
+msgid "Gezählt werden die E-Mails der letzten 60 Minuten."
+msgstr "Vengono conteggiate le e-mail degli ultimi 60 minuti."
+
+msgid "Kein Stundenbudget eingerichtet."
+msgstr "Nessun budget orario configurato."
+
+msgid "Rundschreiben pausiert bis ca. %1 (Anbieter hat verzögert)"
+msgstr "Invii alle liste in pausa fino a circa le %1 (il provider ha rimandato)"
+
+msgid "Warteschlange"
+msgstr "Coda"
+
+msgid "Wartend: %1"
+msgstr "In attesa: %1"
+
+msgid "Älteste Wartezeit: %1"
+msgstr "Attesa più lunga: %1"
+
+msgid "Dauerhafte Warteschlange nicht aktiv (kein Verschlüsselungsschlüssel eingerichtet)."
+msgstr "Coda persistente non attiva (nessuna chiave di cifratura configurata)."
+
+msgid "Fehlgeschlagen (7 Tage)"
+msgstr "Non riusciti (7 giorni)"
+
+msgid "Abgelaufen, ohne gesendet zu werden (7 Tage)"
+msgstr "Scaduti senza essere inviati (7 giorni)"
+
+msgid "Keine."
+msgstr "Nessuno."
+
+msgid "Die E-Mail kann einige Minuten brauchen."
+msgstr "L'e-mail può richiedere alcuni minuti."

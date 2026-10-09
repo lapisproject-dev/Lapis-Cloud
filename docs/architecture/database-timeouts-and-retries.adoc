@@ -104,6 +104,13 @@ scans the sources and fails on any new violation (the allowlist starts empty and
 
 Known grey area, not changed: `archiveGeneratedBytes` writes a file inside a transaction; a re-run leaves an orphaned file, no double effect.
 
+== The mail budget reservation (V1.9.81)
+
+`MailBudgetStore.reserve` is the one place where a lock wait must NOT multiply by Exposed's retry: it runs `transaction { maxAttempts = 1; relaxSessionTimeouts(statementTimeoutMs =
+5000, idleInTransactionTimeoutMs = 5000, lockTimeoutMs = 2000); ... }`, so a held `mail_budget_lock` row costs at most about 2 seconds, once. A lock timeout or any other
+database error is *caught* and returned as `WaitUntil(now + 5 s)` -- the mail path never waits on it and never throws into a request. `MailBudgetReservationScenarios` pins
+this (a held lock turns into a `WaitUntil` within seconds, the pool stays usable afterwards). The outbox claim is single-attempt as well.
+
 == Known limitations
 
 * The single flight is process-local. A second server instance would not serialize; the provider key derivation then deduplicates

@@ -7,8 +7,36 @@ import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.time.Clock
 import kotlin.time.Instant
 
+/** A settable [Clock] (V1.9.81): lets a test advance the server clock while a background worker is waiting on it. */
+internal class MutableTestClock(
+    initial: String,
+) : Clock {
+    @Volatile
+    var current: Instant = Instant.parse(initial)
+
+    fun advance(duration: kotlin.time.Duration) {
+        current += duration
+    }
+
+    override fun now(): Instant = current
+}
+
 /** Test fixtures of the V1.9.38 time-zone work: pin the server clock, switch the organization zone, always restore. */
 internal object TimeTestSupport {
+    /** Runs [block] with `ServerClock` set to [clock] and restores the real clock afterwards. */
+    inline fun <T> withMutableServerClock(
+        clock: MutableTestClock,
+        block: () -> T,
+    ): T {
+        val original = ServerClock.source
+        ServerClock.source = clock
+        try {
+            return block()
+        } finally {
+            ServerClock.source = original
+        }
+    }
+
     fun fixedClock(instant: String): Clock =
         object : Clock {
             override fun now(): Instant = Instant.parse(instant)

@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 62 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 67 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -69,7 +69,8 @@ class DomainModelMergerTest :
             // Welle V1.9.57 "Admin-Peer-Schutz" -- was 63, now 64 with the addition of 63-privileged-action-request.kuml.kts.
             // Welle V1.9.59 "Mitgliederzahlen ueber Zeit" -- was 64, now 65 with the addition of 64-member-status-history.kuml.kts.
             // Welle V1.9.61 "Begegnungsraum" -- was 65, now 66 with the addition of 65-encounter-space.kuml.kts.
-            scriptFiles shouldHaveSize 66
+            // Welle V1.9.81 "E-Mail-Stundenbudget" -- was 66, now 67 with the addition of 66-mail-outbox.kuml.kts.
+            scriptFiles shouldHaveSize 67
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -525,7 +526,9 @@ class DomainModelMergerTest :
             // Welle V1.9.61 "Begegnungsraum" adds 65-encounter-space.kuml.kts's THREE new real tables (encounter_space,
             // encounter_space_role, encounter_consent_acknowledgment); the Member stub there and the EncounterSpace stub added to
             // 27-conference.kuml.kts both dedup into their real counterparts -- net +3 (181 -> 184).
-            val distinctTableNames = 184
+            // Welle V1.9.81 "E-Mail-Stundenbudget" adds 66-mail-outbox.kuml.kts's THREE new real tables (mail_outbox, mail_send_slot,
+            // mail_budget_lock), with no cross-domain stub at all (no FK to member) -- net +3 (184 -> 187).
+            val distinctTableNames = 187
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -856,6 +859,10 @@ class DomainModelMergerTest :
                     "EncounterSpaceTable.kt",
                     "EncounterSpaceRoleTable.kt",
                     "EncounterConsentAcknowledgmentTable.kt",
+                    // Welle V1.9.81 "E-Mail-Stundenbudget" -- THREE new real tables.
+                    "MailOutboxTable.kt",
+                    "MailSendSlotTable.kt",
+                    "MailBudgetLockTable.kt",
                 )
         }
 

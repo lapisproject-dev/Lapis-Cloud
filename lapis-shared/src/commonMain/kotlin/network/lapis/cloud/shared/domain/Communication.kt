@@ -11,9 +11,12 @@ enum class MailingMessageStatus { DRAFT, QUEUED, SENT, FAILED }
  * intermediate/terminal states [MailingDeliveryWorker] (server) writes. See
  * `network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker` KDoc "D1"/"D2"/"D3" for the
  * full state-machine rationale. [SENT]/[BOUNCED]/[SKIPPED_UNSUBSCRIBED] are pre-existing.
+ *
+ * [INTERRUPTED] (V1.9.81): the worker had claimed the row (and so may already have handed the mail to the relay) when the process died.
+ * The outcome is unknown, so the row is NEVER sent again -- "at most once" for mailing-list delivery.
  */
 @Serializable
-enum class DeliveryStatus { SENT, BOUNCED, SKIPPED_UNSUBSCRIBED, PENDING, FAILED, SKIPPED_NO_ADDRESS }
+enum class DeliveryStatus { SENT, BOUNCED, SKIPPED_UNSUBSCRIBED, PENDING, FAILED, SKIPPED_NO_ADDRESS, INTERRUPTED }
 
 @Serializable
 data class MailingListDto(
@@ -164,3 +167,91 @@ data class MailingMessageStatsDto(
     /** `true` once the retention period ([MailingHtmlPolicy.RETENTION_DAYS]) has passed and the raw events were erased. */
     val retentionExpired: Boolean,
 )
+
+/**
+ * Welle V1.9.81 -- what the board sees in the send confirmation, before a mailing-list message is sent.
+ *
+ * [bulkBudgetPerHour] is what a mailing-list send may use per hour (`max - reserve` of the hourly mail budget), `null` without a configured
+ * budget. [estimatedSeconds] is an ESTIMATE: it ignores mails other senders put in front of this one and assumes the budget is free.
+ * [spansMultipleHours] is `true` when the send cannot fit into one budget hour.
+ */
+@Serializable
+data class MailingSendEstimateDto(
+    val recipientCount: Int,
+    val bulkBudgetPerHour: Int?,
+    val estimatedSeconds: Long,
+    val spansMultipleHours: Boolean,
+)
+
+/** Why a running send is currently not progressing. */
+@Serializable
+enum class MailingPauseReason {
+    /** The hourly send budget for mailing lists is used up; the send resumes by itself when a slot frees up. */
+    HOURLY_BUDGET,
+
+    /** The mail provider asked us to slow down (SMTP 4xx) or a recipient was deferred; the send resumes by itself. */
+    PROVIDER_DEFERRAL,
+}
+
+/**
+ * Welle V1.9.81 -- progress of one mailing-list send. Counts only (never a member id). [interrupted] is the number of recipients for whom
+ * the outcome is UNKNOWN because the server was interrupted while sending; they are never sent again. [pausedUntil] is a class-A system
+ * timestamp.
+ */
+@Serializable
+data class MailingSendProgressDto(
+    val messageId: String,
+    val total: Int,
+    val sent: Int,
+    val failed: Int,
+    val interrupted: Int,
+    val skipped: Int,
+    val pending: Int,
+    val pausedUntil: LocalDateTime?,
+    val pauseReason: MailingPauseReason?,
+    val remainingSeconds: Long?,
+)
+
+/**
+ * Welle V1.9.81 -- ADMIN-only health card of the mail pipeline. Counts and class-A timestamps only: **no address, no subject, no
+ * per-row instant** (a closed set of purpose strings is the only text, see `MailPurpose`).
+ */
+@Serializable
+data class MailDeliveryStatusDto(
+    val budgetEnabled: Boolean,
+    val maxPerHour: Int?,
+    val reservePerHour: Int?,
+    val usedInWindow: Int?,
+    val outboxEnabled: Boolean,
+    val queuedCount: Int,
+    val oldestQueuedAgeSeconds: Long?,
+    val failedLast7DaysByPurpose: Map<String, Int>,
+    val expiredLast7DaysByPurpose: Map<String, Int>,
+    val bulkPausedUntil: LocalDateTime?,
+)
+
+/**
+ * Estimate for a mailing-list send (pure, shared by server and tests). The budget is a SLIDING window that allows bursts, so with a free
+ * window the first [bulkPerHour] mails go out at the per-recipient minimum delay; every further full batch has to wait one hour. Model:
+ * `(batches - 1) * 3600 s` plus the delay part of the last (partial) batch, never less than the pure delay time. [bulkPerHour] `null` = no budget.
+ * This is a best case that assumes the budget is free; a window already in use makes the real time longer.
+ */
+object MailingEta {
+    fun estimateSeconds(
+        remaining: Int,
+        minDelayMs: Long,
+        bulkPerHour: Int?,
+    ): Long {
+        if (remaining <= 0) return 0
+        val byDelay = delaySeconds(count = remaining.toLong(), minDelayMs = minDelayMs)
+        if (bulkPerHour == null || bulkPerHour <= 0 || remaining <= bulkPerHour) return byDelay
+        val batches = (remaining.toLong() + bulkPerHour - 1) / bulkPerHour
+        val lastBatch = remaining.toLong() - (batches - 1) * bulkPerHour
+        return maxOf(byDelay, (batches - 1) * 3600 + delaySeconds(count = lastBatch, minDelayMs = minDelayMs))
+    }
+
+    private fun delaySeconds(
+        count: Long,
+        minDelayMs: Long,
+    ): Long = (count * minDelayMs + 999) / 1000
+}

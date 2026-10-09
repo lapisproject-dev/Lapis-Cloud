@@ -94,6 +94,15 @@ Column values and detail values are never printed, not even partially.
 Kilua RPC cannot be driven wire-level from a JVM test in this codebase (its JVM client stub is a no-op). The test therefore
 reproduces the Kilua call (`LOG.error(e.getMessage(), e)` on `dev.kilua.rpc.RpcServiceManager`); the call shape was read from the bytecode.
 
+== The mail pipeline logs error classes, never SMTP messages (V1.9.81)
+
+A failed send used to log the exception's simple class name; the durable outbox, the mailing-list worker and the transport now log and store a **closed error class**
+(`SMTP_451`, `SMTP_550`, `CONNECT`, `TIMEOUT`, `AUTH`, `UNKNOWN`, `INTERRUPTED`, `DECRYPT`, `OUTBOX_DISABLED`, `SKIPPED`; filtered to `[A-Z0-9_]`, at most 64 characters) and, where
+useful, the numeric reply code. The text of an SMTP exception is never stored or logged because servers echo the recipient address in it; `JakartaMailTransport.classify`
+reads the code from the exception (reflectively, Angus is runtime-only) or from a leading `NNN` of the message and discards the message. A log line carries the purpose, the masked
+address or `(withheld)`, the outbox id and the class. `MailDeliveryLogPrivacyTest` captures every log event of the pipeline over success, every failure class, a drop, an expiry,
+the reaper and a mailing-list send, and fails if the address, its local part, the subject or a token of a body appears.
+
 == Limits
 
 * The filter is heuristic for a message that has no throwable (marker cut). A hand-written message that contains personal data is

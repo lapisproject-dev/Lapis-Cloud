@@ -20,6 +20,8 @@ package network.lapis.cloud.server.dsgvo
 object PersonalDataRegistry {
     val contributors: List<PersonalDataContributor> =
         listOf(
+            // FIRST on purpose: erasure anonymizes member.email, and this contributor finds open mail by the member's address.
+            MailOutboxPersonalData,
             FoundationPersonalData,
             ContributionPersonalData,
             DocumentPersonalData,
@@ -118,6 +120,14 @@ object PersonalDataRegistry {
                 "abgedeckt -- das betrifft nur den Akteur, nicht die Gegenpartei). GoBD-/AO-" +
                 "Aufbewahrung (10 Jahre) steht einer Loeschung ohnehin entgegen -- wortgleiche " +
                 "Begruendung wie bank_statement_line. Sichtbar gemacht, nicht geschlossen.",
+            "mail_outbox" to
+                "Welle V1.9.81. Die dauerhafte System-Mail-Warteschlange traegt Empfaenger-Adressen auch von " +
+                "Nicht-Mitgliedern (z. B. ein Gast, der sich fuer eine Veranstaltung anmeldet), hat keinen member-FK " +
+                "und keine Subjekt-Wurzel fuer Gaeste -- MailOutboxPersonalData deckt Mitglieder und CRM-Kontakte ab " +
+                "(Hash-Abgleich, nur OFFENE Zeilen), nicht aber einen Gast ohne Mitgliedschaft. Gemildert durch " +
+                "Verschluesselung im Ruhezustand, 30 Minuten Verfallsdauer der Sicherheits-Mails und Loeschung von " +
+                "Payload und Hash beim Abschluss jeder Zeile. Ein Gast-Auskunfts-/Loeschpfad ist nicht vorgesehen. " +
+                "Sichtbar gemacht, nicht geschlossen.",
         )
 
     /**
@@ -127,7 +137,7 @@ object PersonalDataRegistry {
      * beiden, niemals in keinem (siehe `PersonalDataCoverageTest`'s Test C).
      */
     internal val nonMemberPiiTables: Set<String> =
-        setOf("external_donor", "crm_contact", "event_registration", "bank_statement_line", "open_item")
+        setOf("external_donor", "crm_contact", "event_registration", "bank_statement_line", "open_item", "mail_outbox")
 
     /**
      * Tables that are not covered by a [PersonalDataContributor] on purpose, each with a written

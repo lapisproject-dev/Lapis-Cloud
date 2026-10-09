@@ -77,9 +77,11 @@ import network.lapis.cloud.server.conference.StreamPoller
 import network.lapis.cloud.server.contribution.ContributionReliefRedactionPoller
 import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.DatabaseConfig
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.StagingSeedData
 import network.lapis.cloud.server.db.dbFailureKind
+import network.lapis.cloud.server.dsgvo.MailOutboxPersonalData
 import network.lapis.cloud.server.economy.oracle.OracleSourceConfig
 import network.lapis.cloud.server.economy.oracle.PriceOracleOrchestrator
 import network.lapis.cloud.server.economy.oracle.PriceOracleSnapshotConfig
@@ -116,6 +118,7 @@ import network.lapis.cloud.server.mail.FriendVerificationMailer
 import network.lapis.cloud.server.mail.JakartaMailTransport
 import network.lapis.cloud.server.mail.KeycloakLinkNotificationMailer
 import network.lapis.cloud.server.mail.MailBranding
+import network.lapis.cloud.server.mail.MailBudgetConfig
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.MailTransport
 import network.lapis.cloud.server.mail.NoOpMailTransport
@@ -133,11 +136,14 @@ import network.lapis.cloud.server.mail.SmtpKeycloakProvisioningMailer
 import network.lapis.cloud.server.mail.SmtpPasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpPeerNotificationMailer
 import network.lapis.cloud.server.mail.SmtpStartupCheck
+import network.lapis.cloud.server.mail.budget.MailBudgetStore
 import network.lapis.cloud.server.mail.newsletter.MailingDeliveryConfig
 import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
 import network.lapis.cloud.server.mail.newsletter.MailingTrackingConfig
 import network.lapis.cloud.server.mail.newsletter.MailingTrackingRetentionPoller
 import network.lapis.cloud.server.mail.newsletter.MailingTrackingToken
+import network.lapis.cloud.server.mail.outbox.MailOutbox
+import network.lapis.cloud.server.mail.outbox.MailOutboxConfig
 import network.lapis.cloud.server.mcp.config.McpConfig
 import network.lapis.cloud.server.mcp.config.McpStartupCheck
 import network.lapis.cloud.server.mcp.ratelimit.McpToolCallRateLimiter
@@ -268,6 +274,7 @@ import network.lapis.cloud.server.rpc.FederationService
 import network.lapis.cloud.server.rpc.GovernanceService
 import network.lapis.cloud.server.rpc.KeycloakLinkService
 import network.lapis.cloud.server.rpc.LtrLedgerService
+import network.lapis.cloud.server.rpc.MailDeliveryStatusService
 import network.lapis.cloud.server.rpc.MailingService
 import network.lapis.cloud.server.rpc.McpAccessService
 import network.lapis.cloud.server.rpc.MemberAnniversaryService
@@ -353,6 +360,7 @@ import network.lapis.cloud.shared.rpc.IFederationService
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.IKeycloakLinkService
 import network.lapis.cloud.shared.rpc.ILtrLedgerService
+import network.lapis.cloud.shared.rpc.IMailDeliveryStatusService
 import network.lapis.cloud.shared.rpc.IMailingService
 import network.lapis.cloud.shared.rpc.IMcpAccessService
 import network.lapis.cloud.shared.rpc.IMemberAnniversaryService
@@ -693,7 +701,40 @@ internal fun Application.module(
     // high-frequency read.
     val paymentCheckoutCreateRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
 
-    val mailDispatcher = MailDispatcher(transport = mailTransport)
+    // Welle V1.9.81 -- hourly send budget + durable, encrypted outbox for system mails. The decision matrix (SMTP / budget /
+    // LAPIS_SECRET_ENCRYPTION_KEY) lives in MailOutboxConfig.load; a combination that cannot work fails the startup.
+    val mailBudgetConfig = MailBudgetConfig.load()
+    val mailBudgetStore = MailBudgetStore((mailBudgetConfig as? MailBudgetConfig.Enabled))
+    val mailOutboxSetup =
+        MailOutboxConfig.load(
+            smtpConfigured = smtpConfigState is SmtpConfigState.Configured,
+            budgetEnabled = mailBudgetConfig is MailBudgetConfig.Enabled,
+        )
+    val mailOutbox: MailOutbox? =
+        mailOutboxSetup?.let { setup ->
+            MailOutboxPersonalData.install(setup.lookupHasher)
+            MailOutbox(
+                secretBox = setup.secretBox,
+                lookupHasher = setup.lookupHasher,
+                budget = mailBudgetStore,
+                transport = mailTransport,
+            )
+        }
+    if (mailOutbox == null) {
+        // No outbox: rows an earlier run left open can never be delivered -- close them (payload erased) so the data-subject paths
+        // never see an open row.
+        MailOutboxPersonalData.install(null)
+        val orphaned = MailOutbox.closeOrphanedRows(DbClock.nowLocalDateTime())
+        if (orphaned >
+            0
+        ) {
+            applicationLogger.warn {
+                "Closed $orphaned orphaned mail outbox row(s) as FAILED/OUTBOX_DISABLED (no durable queue configured)"
+            }
+        }
+    }
+    val mailDispatcher = MailDispatcher(transport = mailTransport, outbox = mailOutbox)
+    mailOutbox?.start()
     // Bind mailDispatcher's dedicated CoroutineScope to Ktor's own lifecycle -- without this hook
     // the scope is never cancelled deliberately (see MailDispatcher KDoc "Lifecycle"), which lets
     // its worker coroutines and any in-flight/queued sends dangle past shutdown instead of being
@@ -726,6 +767,7 @@ internal fun Application.module(
     // Welle V1.9.15 -- HMAC key for click/open tracking tokens. Fail-fast in smtp mode without a
     // valid LAPIS_MAILING_TRACKING_KEY (MailingTrackingConfig); LOG mode falls back to an ephemeral key.
     val mailingTrackingToken = MailingTrackingToken(MailingTrackingConfig.loadKey(mode = mailingDeliveryMode))
+    val mailingSendDelay = MailingDeliveryConfig.loadSendDelay()
     val mailingDeliveryWorker =
         MailingDeliveryWorker(
             transport = mailTransport,
@@ -733,7 +775,8 @@ internal fun Application.module(
             mode = mailingDeliveryMode,
             trackingToken = mailingTrackingToken,
             baseUrl = mailBranding.publicBaseUrl.trimEnd('/'),
-            sendDelay = MailingDeliveryConfig.loadSendDelay(),
+            sendDelay = mailingSendDelay,
+            budget = mailBudgetStore,
         )
     // D2 (plan) -- close out anything an earlier process instance left mid-send BEFORE this
     // instance serves any request, see MailingDeliveryWorker.recoverInterrupted KDoc.
@@ -1893,7 +1936,18 @@ internal fun Application.module(
         registerService(IMemberFamilyService::class) { call -> MemberFamilyService(call = call) }
         registerService(IDocumentService::class) { call -> DocumentService(call) }
         registerService(IMailingService::class) { call ->
-            MailingService(call = call, deliveryWorker = mailingDeliveryWorker, deliveryMode = mailingDeliveryMode, branding = mailBranding)
+            MailingService(
+                call = call,
+                deliveryWorker = mailingDeliveryWorker,
+                deliveryMode = mailingDeliveryMode,
+                branding = mailBranding,
+                budget = mailBudgetStore,
+                sendDelay = mailingSendDelay,
+            )
+        }
+        // Welle V1.9.81 -- ADMIN-only health card of the mail pipeline.
+        registerService(IMailDeliveryStatusService::class) { call ->
+            MailDeliveryStatusService(call = call, budget = mailBudgetStore, outboxEnabled = mailOutbox != null)
         }
         registerService(IDirectMessageService::class) { call -> DirectMessageService(call) }
         registerService(ICarpoolService::class) { call -> CarpoolService(call) }
