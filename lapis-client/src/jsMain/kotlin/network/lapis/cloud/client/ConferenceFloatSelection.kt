@@ -23,6 +23,11 @@ internal data class FloatMediaSource(
     val lastSpokeAtMs: Long,
     /** `null` for the own picture and for shares. */
     val setQuality: ((Int) -> Unit)?,
+    /**
+     * V1.9.85: carries the active-speaker mark right now. Display only: [info] / [floatSelectionOf] never read it, so the mark cannot
+     * change which picture is the big one. Shares are never marked (they have no speaker identity).
+     */
+    val speakingMarked: Boolean = false,
 )
 
 /** The DOM-free view of a [FloatMediaSource] for the selection. */

@@ -281,6 +281,42 @@ main room, "Zurück zum Hauptraum", the manual resume) passes the last wish of t
 the last `Live` snapshot only, never from what stopping tracks report during a hand-over). Before V1.9.70 every re-entry switched
 both devices on again; with the view undocked that would have been an invisible re-activation of a camera the person had switched off.
 
+== Active-speaker mark (V1.9.85)
+
+The call marks who is speaking right now: in the tile grid, in the cells of the floating window and, as a small symbol, in the participant
+list. It is client only and volatile: no server, no schema, no log, no storage, no network call. The state lives in the browser tab.
+
+*Set plus trailing window, not a timestamp of the last push.* LiveKit reports `ActiveSpeakersChanged` only when the **set** of speakers
+changes (`LiveKitRoomSession` relays it unchanged). A person who talks for twenty seconds causes one report. A mark that lasted "1.5 s after
+the last push" would therefore go out in the middle of a sentence. `SpeakingMarkState` (`ConferenceSpeakingMark.kt`, no DOM) marks whoever
+is in the current set, or left it less than `CONFERENCE_SPEAKING_MARK_WINDOW_MS` (1500 ms) ago. While anybody is marked, a 250 ms beat
+(`touch`) keeps the members of the current set fresh; the beat is an interval that exists only while a mark is shown and stops itself
+(`hasActive`), on leave, on "end for all", on terminate and when the connection has ended. A report applies the marks synchronously, the
+beat only lets them expire.
+
+*Independent of D3 and of the floating window's choice.* `SpeakingMarkState` is its own object; it neither reads nor writes the `lastSpokeAtMs`
+map that drives the grid reflow (D3) and never calls `applyConferenceGridReflow`. `FloatMediaSource.speakingMarked` is display only:
+`FloatSourceInfo` and `floatSelectionOf` do not see it, so the mark cannot change which picture is the big one. The floating window gets
+its marks from `ConferenceFloatController.refreshSpeakingMarks()` (only classes and display values; the one-second tick is too coarse for
+"at once" and `renderFloat` is not needed).
+
+*Contrast and non-colour signal.* Ring of 3 px in `--lapis-fleck` with a black hairline inside and outside, plus the symbol and the word
+"spricht" (never colour alone, 1.4.1). The tile is dark in every theme: gold (`#C9A227` light, `#D8B84A` dark) against black is about 8.7:1 and
+11:1; the hairline guarantees 3:1 against any video picture (1.4.11). In forced colors the ring is `Highlight` and the plaque `Canvas`/`CanvasText`.
+Small cells (strip, inset, filmstrip) show the symbol only; the word is hidden by CSS, not removed. The roster symbol uses the text color
+(gold on a light page is below 3:1) and only adds to the name row. No `animation`, no `transition` on any of these selectors (pinned by a test).
+
+*Screen readers.* The plaque is `aria-hidden`, has no role and there is no live region: a hidden announcement would re-read the name of a
+focused tile at every change of speaker, several times per second. The tile's `aria-label` is not touched. The encounter room carries the state in its label
+and is not aligned yet.
+
+*Nodes are never replaced.* The plaque is built once per tile and cell; a change flips a class and a `display` value (early return when
+nothing changed). `refreshRoster()` rebuilds the list on every microphone change, so a mark written only at rebuild time would go stale;
+the row's symbol is therefore kept on the tile entry and toggled by `applySpeakingMarks`, which never rebuilds the list. Screen shares have
+no speaker identity and are never marked.
+
+*Mini bar.* `conferenceDockBar()` shows no participants (no names, no tiles; see "The mini bar"), so there is nothing to mark there.
+
 == The mini bar
 
 `conferenceDockBar()` is built once and mounted as a direct child of the shell. It shows only what a person must know and may do from

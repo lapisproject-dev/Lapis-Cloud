@@ -128,4 +128,10 @@ enum class ActionIcon(
 
     /** V1.9.80: a moderator sends a person from a table back to the plenum ("Ins Plenum setzen"); NOT [REMOVE] (the person stays in the room). */
     SEND_TO_PLENUM("fas fa-people-roof"),
+
+    /**
+     * V1.9.85: the active-speaker mark of the video conference (tile, floating window, roster). A state display, NEVER the face of a
+     * button (R58) -- it is not an action. Not [LIFT_QUIET] (a button there) although the glyph is the same.
+     */
+    SPEAKING("fas fa-volume-high"),
 }

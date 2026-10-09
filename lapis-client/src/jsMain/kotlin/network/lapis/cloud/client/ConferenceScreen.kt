@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import io.kvision.core.Container
+import io.kvision.core.Display
 import io.kvision.core.Widget
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.Select
@@ -10,10 +11,12 @@ import io.kvision.form.text.text
 import io.kvision.form.text.textArea
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.TAG
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.span
+import io.kvision.html.tag
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
@@ -1033,10 +1036,19 @@ private class ConferenceTileEntry(
      * server's unclamped `name` claim. Hidden by default, shown/populated by `setTileGuest`.
      */
     val guestBadgeEl: HTMLElement,
+    /**
+     * V1.9.85 -- the active-speaker plaque (symbol + the word "spricht"), built ONCE in `buildTile`, hidden by default, only toggled
+     * by `setTileSpeaking`; `aria-hidden`, no role, no live region (see `conference-dock.adoc`, "Active-speaker mark").
+     */
+    val speakingBadge: HTMLElement,
     var hasCamera: Boolean = false,
     var hasMic: Boolean = false,
     /** V1.9.71: the one `<video>` of this tile (created by `setTileVideo`), for the floating window to lend; `null` without a camera picture. */
     var video: org.w3c.dom.HTMLVideoElement? = null,
+    /** V1.9.85: whether the tile currently carries the active-speaker mark (the setter returns early on no change). */
+    var speaking: Boolean = false,
+    /** V1.9.85: the symbol in this identity's CURRENT roster row (the list is rebuilt by `refreshRoster`; this is re-set each time). */
+    var rosterSpeakingMark: Widget? = null,
 )
 
 /** Wave 4, D3 -- which zone a tile's DOM styling currently reflects. [FLAT] is the <= threshold,
@@ -1157,6 +1169,10 @@ private fun enterCall(
     // EVERY `onActiveSpeakersChanged` push, but deliberately never itself triggers a reflow (see file
     // KDoc "D3" for why the periodic sweep, not this map's mutation, is the sole trigger).
     val lastSpokeAtMs = mutableMapOf<String, Long>()
+    // V1.9.85: the active-speaker mark. A SEPARATE object -- it never reads or writes `lastSpokeAtMs` above, so a mark can never reorder
+    // the grid (D3) or influence the choice of the floating window.
+    val speakingMark = SpeakingMarkState()
+    var speakingTickHandle: Int? = null
     var activeScreenShare: Pair<String, Track>? = null
     // V1.9.71: what the floating window needs of the foreign share (its element and the finished label), and the camera publications
     // whose requested quality it may lower (identity -> publication).
@@ -3391,6 +3407,14 @@ private fun enterCall(
             row.div(
                 if (entry.isLocal) gettext("%1 (Sie)", entry.displayName) else entry.displayName,
             ) { addCssClasses("flex-grow-1 small") }
+            // V1.9.85: the speaking symbol of the roster -- a decorative symbol (no text, `aria-hidden`), set from the mark state right
+            // away and afterwards only toggled by `applySpeakingMarks` (a list rebuild per change would cost ~4 per second).
+            val markedNow = speakingMark.isMarked(entry.identity, Clock.System.now().toEpochMilliseconds())
+            row.tag(TAG.I, className = "${ActionIcon.SPEAKING.css} lapis-roster-speaking") {
+                setAttribute("aria-hidden", "true")
+                display = if (markedNow) null else Display.NONE
+                entry.rosterSpeakingMark = this
+            }
             if (entry.identity == room.createdByMemberId) {
                 row.statusBadge(tr("Moderator"), "primary")
             }
@@ -3492,6 +3516,54 @@ private fun enterCall(
         refreshRoster()
     }
 
+    // V1.9.85 -- sets the mark on one tile. Early return on no change; otherwise ONLY a class and a display value flip: no
+    // `refreshRoster()`, no reordering, no change of aria-label or role.
+    fun setTileSpeaking(
+        entry: ConferenceTileEntry,
+        on: Boolean,
+    ) {
+        if (entry.speaking == on) return
+        entry.speaking = on
+        toggleSpeakingMark(entry.element, entry.speakingBadge, on)
+    }
+
+    fun applySpeakingMarks(now: Long = Clock.System.now().toEpochMilliseconds()) {
+        for (entry in tiles.values) {
+            val marked = speakingMark.isMarked(entry.identity, now)
+            setTileSpeaking(entry, marked)
+            // the roster symbol is re-read from the entry every time: `refreshRoster` replaces the widget, never the entry
+            entry.rosterSpeakingMark?.let { mark ->
+                val wanted = if (marked) null else Display.NONE
+                if (mark.display != wanted) mark.display = wanted
+            }
+        }
+        // the floating window repaints only the marks (no ledger operation, no picture is moved)
+        ConferenceFloatController.refreshSpeakingMarks()
+    }
+
+    fun stopSpeakingTick() {
+        speakingTickHandle?.let { window.clearInterval(it) }
+        speakingTickHandle = null
+    }
+
+    // V1.9.85 -- the beat of the mark. Deviation from the module's `AppScope.launch { while … delay }` sweeps: it must run ONLY while a
+    // mark is shown ("the interval stops without an active mark"), hence an interval with a lossless teardown (every leave path calls
+    // `stopSpeakingTick`; the beat also stops itself once the connection has ended).
+    fun ensureSpeakingTick() {
+        if (speakingTickHandle != null) return
+        if (!speakingMark.hasActive(Clock.System.now().toEpochMilliseconds())) return
+        speakingTickHandle =
+            window.setInterval({
+                val now = Clock.System.now().toEpochMilliseconds()
+                if (connectionState is ConferenceConnectionState.Ended) {
+                    speakingMark.clear()
+                }
+                speakingMark.touch(now)
+                applySpeakingMarks(now)
+                if (!speakingMark.hasActive(now)) stopSpeakingTick()
+            }, CONFERENCE_SPEAKING_MARK_TICK_MS.toInt())
+    }
+
     fun buildTile(
         identity: String,
         displayName: String,
@@ -3553,10 +3625,16 @@ private fun enterCall(
         guestBadgeEl.appendChild(guestLabel)
         tile.appendChild(guestBadgeEl)
 
+        // V1.9.85 -- the active-speaker plaque, bottom right (top right = micBadge, top left = guest pill, bottom left = name). Symbol AND
+        // the word, so the signal is never colour alone. `gettext`, not `tr()` (KvI18n marker in `textContent`, see micBadge above).
+        // Purely decorative for assistive technology: no role, no live region, the tile's accessible name is untouched.
+        val speakingBadge = createSpeakingBadge()
+        tile.appendChild(speakingBadge)
+
         // Wave 4, D3: NO LONGER appends to `gridElement` here -- placement into the priority/compact
         // zone is [applyConferenceGridReflow]'s job now, called by [ensureTile] right after this
         // returns (see file KDoc "D3").
-        return ConferenceTileEntry(identity, displayName, isLocal, tile, mediaSlot, nameBadge, micBadge, guestBadgeEl)
+        return ConferenceTileEntry(identity, displayName, isLocal, tile, mediaSlot, nameBadge, micBadge, guestBadgeEl, speakingBadge)
     }
 
     /**
@@ -3616,6 +3694,7 @@ private fun enterCall(
 
     fun removeTile(identity: String) {
         val entry = tiles.remove(identity) ?: return
+        speakingMark.forget(identity)
         ConferenceDock.videoLedger.reclaimSlot(entry.mediaSlot)
         remoteCameraPublications.remove(identity)
         entry.element.parentNode?.removeChild(entry.element)
@@ -4235,6 +4314,10 @@ private fun enterCall(
             onActiveSpeakersChanged = { identities ->
                 val now = Clock.System.now().toEpochMilliseconds()
                 identities.forEach { identity -> lastSpokeAtMs[identity] = now }
+                // V1.9.85: the mark is applied synchronously (no wait for the beat) and has its own state, see `speakingMark`
+                speakingMark.onReport(identities, now)
+                applySpeakingMarks(now)
+                ensureSpeakingTick()
             },
             // V1.3.x Geräteauswahl -- nur UI-Sync (das Dropdown zeigt an, was LiveKit selbst gerade
             // aktiv hat), NIEMALS `localStorage` schreiben hier -- das passiert ausschließlich im
@@ -4840,6 +4923,8 @@ private fun enterCall(
         leaving = true
         leaveButton.disabled = true
         transition(ConferenceConnectionEvent.UserLeft)
+        speakingMark.clear()
+        stopSpeakingTick()
         AppScope.launch {
             // Audit-Befund B1: Trennen zuerst, Hintergrundeffekt-Aufräumen danach (siehe
             // `disposeBackgroundEffects`) -- nie umgekehrt, sonst sendet die Kamera weiter.
@@ -4880,6 +4965,8 @@ private fun enterCall(
             endButton?.disabled = true
             endTwin?.disabled = true
             transition(ConferenceConnectionEvent.UserLeft)
+            speakingMark.clear()
+            stopSpeakingTick()
             AppScope.launch {
                 // Audit-Befund B1: Trennen zuerst, Hintergrundeffekt-Aufräumen danach.
                 guarded { session.disconnect() }
@@ -4923,6 +5010,7 @@ private fun enterCall(
                             home = stage,
                             lastSpokeAtMs = 0L,
                             setQuality = null,
+                            speakingMarked = false,
                         ),
                     )
                 }
@@ -4938,6 +5026,7 @@ private fun enterCall(
                         video = entry.video,
                         home = entry.mediaSlot,
                         lastSpokeAtMs = lastSpokeAtMs[entry.identity] ?: 0L,
+                        speakingMarked = speakingMark.isMarked(entry.identity, Clock.System.now().toEpochMilliseconds()),
                         setQuality = publication?.let { pub -> { quality: Int -> requestRemoteVideoQuality(pub, quality) } },
                     ),
                 )
@@ -4970,6 +5059,8 @@ private fun enterCall(
                 // hard, no question, no `leaveRoom` (the participation of the member may be alive on another device)
                 leaving = true
                 transition(ConferenceConnectionEvent.UserLeft)
+                speakingMark.clear()
+                stopSpeakingTick()
                 runCatching { session.disconnect() }
                 disposeBackgroundEffects()
                 setActiveSession(null)

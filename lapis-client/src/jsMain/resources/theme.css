@@ -4142,6 +4142,72 @@ html.lapis-has-dock {
   }
 }
 
+/* V1.9.85: Sprechermarkierung der Videokonferenz (Kachel, schwebendes Fenster; die Teilnehmerliste hat nur das Symbol).
+   Signal: 3-px-Ring in Gold UND schwarze Haarlinie (sichert 3:1 gegen jedes Videobild; Gold gegen Schwarz ca. 8,7:1 hell / ca. 11:1 dunkel,
+   die Kachel ist in jedem Theme dunkel) UND Symbol + das Wort "spricht" -- nie Farbe allein (1.4.1, 1.4.11).
+   Bewusst OHNE animation/transition (Tripwire in ConferenceSpeakingMarkDomTest). Zustandsanzeige, kein Bedienelement: kein Cursor, kein role. */
+/* kein `position` hier: die Kachel ist inline `relative`, die Zellen des schwebenden Fensters sind `relative` bzw. (Inset) `absolute` */
+.lapis-conference-tile--speaking::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  border: 3px solid var(--lapis-fleck);
+  box-shadow: inset 0 0 0 1px #000, 0 0 0 1px #000;
+}
+
+.lapis-conference-speaking-badge {
+  position: absolute;
+  right: 0.375rem;
+  bottom: 0.375rem;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--lapis-media-overlay-text);
+  font-size: 0.8125rem;
+  pointer-events: none;
+}
+
+/* kleine Flaechen: nur das Symbol, das Wort wird ausgeblendet (nicht entfernt) */
+.lapis-float-strip-cell .lapis-conference-speaking-text,
+.lapis-float-inset .lapis-conference-speaking-text,
+.lapis-conference-filmstrip .lapis-conference-speaking-text {
+  display: none;
+}
+
+.lapis-float-strip-cell .lapis-conference-speaking-badge,
+.lapis-float-inset .lapis-conference-speaking-badge {
+  right: 2px;
+  bottom: 2px;
+  padding: 1px 4px;
+  font-size: 0.6875rem;
+}
+
+/* Teilnehmerliste: nur ein Symbol hinter dem Namen, in der Textfarbe (Gold waere auf hellem Grund unter 3:1) */
+.lapis-roster-speaking {
+  font-size: 0.8rem;
+  color: currentColor;
+}
+
+@media (forced-colors: active) {
+  .lapis-conference-tile--speaking::after {
+    border-color: Highlight;
+    box-shadow: none;
+  }
+
+  .lapis-conference-speaking-badge {
+    background: Canvas;
+    color: CanvasText;
+    border: 1px solid CanvasText;
+    forced-color-adjust: none;
+  }
+}
+
 /* never on a phone: the mini bar stays (the controller does not show the window there either) */
 @media (max-width: 767.98px) {
   .lapis-conference-float {

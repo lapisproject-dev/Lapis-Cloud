@@ -20787,6 +20787,7 @@ msgstr "Ha entrado una persona."
 msgid "Bitte warten Sie einen Moment und versuchen Sie es erneut."
 msgstr "Espere un momento e inténtelo de nuevo."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceSpeakingBadge.kt
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTile.kt
 msgid "spricht"
 msgstr "hablando"

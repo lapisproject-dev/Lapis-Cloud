@@ -20809,6 +20809,7 @@ msgstr "A person has joined."
 msgid "Bitte warten Sie einen Moment und versuchen Sie es erneut."
 msgstr "Please wait a moment and try again."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceSpeakingBadge.kt
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterTile.kt
 msgid "spricht"
 msgstr "speaking"

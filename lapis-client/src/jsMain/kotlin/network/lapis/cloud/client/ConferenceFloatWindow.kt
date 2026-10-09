@@ -125,6 +125,10 @@ private class FloatCell(
     val el: HTMLElement,
 ) {
     private val label = rawDiv("lapis-float-label")
+
+    // V1.9.85: the active-speaker plaque, built once (symbol + word; the word is hidden by CSS in the small cells, never removed)
+    private val speakingBadge = createSpeakingBadge()
+    private var speakingShown = false
     private var fallback: HTMLElement? = null
     private var shownLabel = ""
     var assignedKey: String? = null
@@ -132,6 +136,14 @@ private class FloatCell(
 
     init {
         el.appendChild(label)
+        el.appendChild(speakingBadge)
+    }
+
+    /** Only a class and a display value; early return on no change. */
+    fun setSpeaking(on: Boolean) {
+        if (speakingShown == on) return
+        speakingShown = on
+        toggleSpeakingMark(el, speakingBadge, on)
     }
 
     fun show(
@@ -161,9 +173,11 @@ private class FloatCell(
             if (tile.textContent != labelText) tile.textContent = labelText
         }
         assignedKey = source.key
+        setSpeaking(source.speakingMarked)
     }
 
     fun hide() {
+        setSpeaking(false)
         el.style.display = "none"
         fallback?.let { it.parentNode?.removeChild(it) }
         fallback = null
@@ -232,6 +246,15 @@ internal class FloatStage {
         if (resolvingNow) {
             val text = resolvedAttributeText(tr("Verbindung wird gewechselt …"))
             if (resolving.textContent != text) resolving.textContent = text
+        }
+    }
+
+    /** V1.9.85: re-sets only the marks of the cells that show something (no ledger operation, no picture moves, no node is replaced). */
+    fun applySpeaking(sources: List<FloatMediaSource>) {
+        val byKey = sources.associateBy { it.key }
+        for (cell in listOf(mainCell) + stripCells + insetCell) {
+            val key = cell.assignedKey ?: continue
+            cell.setSpeaking(byKey[key]?.speakingMarked == true)
         }
     }
 
@@ -425,6 +448,12 @@ internal object ConferenceFloatController {
     /** The call's media changed (tile, picture, share): repaint the pictures. */
     fun onMediaChanged() {
         if (presentation == DockPresentation.FLOAT) renderFloat()
+    }
+
+    /** V1.9.85: the call's active-speaker marks changed -- repaint only the marks (the one-second tick is too coarse for "at once"). */
+    fun refreshSpeakingMarks() {
+        if (presentation != DockPresentation.FLOAT || !stage.root.isConnected) return
+        stage.applySpeaking(ConferenceDock.session?.floatMedia().orEmpty())
     }
 
     private fun reevaluate(state: DockState = ConferenceDock.state) {
