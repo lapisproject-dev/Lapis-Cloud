@@ -16,6 +16,8 @@ import org.w3c.dom.HTMLElement
  */
 internal class EncounterMediaHost(
     className: String,
+    /** V1.9.91: the room's speaker choice; every element added here gets the chosen output device (only the two audio hosts pass it). */
+    private val audioOutput: EncounterAudioOutput? = null,
 ) {
     val widget: Div = Div(className = className)
     private val live = mutableListOf<HTMLElement>()
@@ -29,6 +31,7 @@ internal class EncounterMediaHost(
         if (element in live) return
         live += element
         widget.getElement()?.appendChild(element)
+        audioOutput?.apply(element)
     }
 
     fun remove(element: HTMLElement) {

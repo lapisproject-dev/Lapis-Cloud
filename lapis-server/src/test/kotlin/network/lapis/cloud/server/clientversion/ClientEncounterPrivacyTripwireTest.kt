@@ -13,12 +13,15 @@ import java.io.File
  * is a floor, not a proof -- it only sees spellings; the rules it pins:
  *
  * - **Text is text**: no `innerHTML`, no `rich = true` (a chat line, a name, a notice must never become markup).
- * - **One storage key, nothing else**: `localStorage`/`sessionStorage`/`indexedDB` appear only in `EncounterSceneToggle.kt`, and every use there
- *   names `ENCOUNTER_SCENE_OFF_KEY` (the "scene off" choice: no room, no person, no time).
+ * - **Two storage keys, nothing else**: `localStorage`/`sessionStorage`/`indexedDB` appear only in `EncounterSceneToggle.kt` (every use names
+ *   `ENCOUNTER_SCENE_OFF_KEY`: the "scene off" choice, no room, no person, no time) and `EncounterDevicePicker.kt` (V1.9.91: every use names
+ *   `conferenceDeviceStorageKey(`, the key the video conference already uses; one writer, one remover, device ids only).
  * - **Nothing in the console**: no `console.` at all, so no identity, name, room id or URL can reach a log from this package.
  * - **No exception text**: `.message` of a caught exception is never read (the server's wording is no UI text, see `AppState.guarded`).
- * - **Listen-only**: `getUserMedia`, `mediaDevices`, `enumerateDevices`, `setCamera`, `setMicrophone`, `setScreenShare` appear only in
- *   `EncounterMediaSession.kt` (the typed lock) and `EncounterPulpitControls.kt` (the office holder's own devices).
+ * - **Listen-only**: `getUserMedia`, `mediaDevices`, `enumerateDevices`, `setCamera`, `setMicrophone`, `setScreenShare` (and since V1.9.91 the
+ *   device calls `listDevices`, `switchDevice`, `setSinkId`, `devicechange`, `listMicrophones`, `switchMicrophone`) appear only in
+ *   `EncounterMediaSession.kt` (the typed lock), `EncounterPulpitControls.kt` (the office holder's own devices), `EncounterAudioOutput.kt`
+ *   (the speaker: the only place of `setSinkId`/`enumerateDevices`/`devicechange`) and `EncounterDevicePicker.kt` (the panel).
  * - **No telemetry**: no `sendBeacon`, `analytics`, `gtag`, direct `fetch(`.
  * - **No time trail**: `sentAtEpochMs` appears only in `EncounterMediaSession.kt`, where it is sent as `0L`; no chat/seat rendering shows a time.
  *
@@ -42,7 +45,20 @@ private val STORAGE = Regex("""\b(?:localStorage|sessionStorage|indexedDB)\b""")
 private val CONSOLE = Regex("""\bconsole\s*\.""")
 private val EXCEPTION_MESSAGE = Regex("""\.message\b""")
 private val INNER_HTML = Regex("""\binnerHTML\b|\brich\s*=\s*true\b""")
-private val DEVICE_ACCESS = Regex("""\b(?:getUserMedia|mediaDevices|enumerateDevices|setCamera|setMicrophone|setScreenShare)\b""")
+private val DEVICE_ACCESS =
+    Regex(
+        """\b(?:getUserMedia|mediaDevices|enumerateDevices|setCamera|setMicrophone|setScreenShare|""" +
+            """listDevices|switchDevice|setSinkId|devicechange|listMicrophones|switchMicrophone)\b""",
+    )
+private val DEVICE_IDENTIFIERS = Regex("""\b(?:deviceId|rawLabel|ConferenceDeviceOption)\b""")
+private val SINK_AND_LIST = Regex("""\b(?:setSinkId|enumerateDevices|devicechange)\b""")
+private val FORBIDDEN_OUTPUT_CALLS = Regex("""\b(?:selectAudioOutput|switchActiveDevice)\b|"audiooutput"""")
+private val NO_LEAK_CHANNELS =
+    Regex(
+        """\bconsole\s*\.|\blogger\b|\bpublishData\b|(?<![A-Za-z0-9_.])fetch\(|\bRpc\b|\brpcService\b|\bsend(?:Chat|Reaction|SeatNudge)\b|\baudit\b|\btelemetry\b""",
+    )
+private val DEVICE_CALLS_IN_SESSION =
+    Regex("""\b(?:listDevices|switchDevice|activeDeviceId|listMicrophones|switchMicrophone|activeMicrophoneId)\b""")
 private val TELEMETRY = Regex("""\bsendBeacon\b|\banalytics\b|\bgtag\b|(?<![A-Za-z0-9_.])fetch\(""")
 private val SENT_AT = Regex("""\bsentAtEpochMs\b""")
 
@@ -54,7 +70,8 @@ private val SHARED_ENCOUNTER =
     File("../lapis-shared/src/commonMain/kotlin/network/lapis/cloud/shared/domain/EncounterSpace.kt")
         .let { if (it.exists()) it else File("lapis-shared/src/commonMain/kotlin/network/lapis/cloud/shared/domain/EncounterSpace.kt") }
 
-private val DEVICE_ALLOWED = setOf("EncounterMediaSession.kt", "EncounterPulpitControls.kt")
+private val DEVICE_ALLOWED =
+    setOf("EncounterMediaSession.kt", "EncounterPulpitControls.kt", "EncounterAudioOutput.kt", "EncounterDevicePicker.kt")
 
 private fun findings(
     pattern: Regex,
@@ -85,12 +102,40 @@ class ClientEncounterPrivacyTripwireTest :
             findings(pattern = INNER_HTML).shouldBeEmpty()
         }
 
-        test("browser storage is used in EncounterSceneToggle.kt only, and only for the scene-off key") {
-            findings(pattern = STORAGE, allowedFiles = setOf("EncounterSceneToggle.kt")).shouldBeEmpty()
+        test("browser storage is used in EncounterSceneToggle.kt (scene key) and EncounterDevicePicker.kt (device keys) only") {
+            findings(pattern = STORAGE, allowedFiles = setOf("EncounterSceneToggle.kt", "EncounterDevicePicker.kt")).shouldBeEmpty()
             val toggle = encounterFiles().first { it.name == "EncounterSceneToggle.kt" }
             val uses = codeLines(toggle).filter { STORAGE.containsMatchIn(it) && !it.trimStart().startsWith("import ") }
             (uses.size >= 2) shouldBe true
             uses.filterNot { it.contains("ENCOUNTER_SCENE_OFF_KEY") }.shouldBeEmpty()
+        }
+
+        test("V1.9.91: the device picker's storage use is one reader, one writer, one remover -- all on the shared device key, ids only") {
+            val picker = encounterFiles().first { it.name == "EncounterDevicePicker.kt" }
+            val code = codeLines(picker).filterNot { it.trimStart().startsWith("import ") }
+            val uses = code.filter { STORAGE.containsMatchIn(it) }
+            withClue("every storage line names the shared key function: $uses") {
+                (uses.size == 3) shouldBe true
+                uses.filterNot { it.contains("conferenceDeviceStorageKey(") }.shouldBeEmpty()
+            }
+            code.count { it.contains(".setItem(") } shouldBe 1
+            code.count { it.contains(".removeItem(") } shouldBe 1
+            // writer and remover live inside the one function that is called after a person's own choice
+            val text = code.joinToString("\n")
+            val writer = text.substring(text.indexOf("fun encounterRememberDevice("), text.indexOf("fun encounterRememberDevice(") + 600)
+            writer.contains(".setItem(") shouldBe true
+            writer.contains(".removeItem(") shouldBe true
+            // no key of the encounter room says "encounter ... device" (that would record that this browser visited a room)
+            encounterFiles().forEach { f ->
+                codeLines(f)
+                    .filter { Regex("""\bconst\s+val\s+\w*KEY\w*\s*=""", RegexOption.IGNORE_CASE).containsMatchIn(it) }
+                    .filter { it.contains("encounter", ignoreCase = true) && it.contains("device", ignoreCase = true) }
+                    .shouldBeEmpty()
+            }
+            // the scene rule stays word for word true for the room and the tables
+            encounterFiles().filter { it.name in setOf("EncounterRoom.kt", "EncounterTables.kt") }.forEach { f ->
+                codeLines(f).filterNot { it.trimStart().startsWith("import ") }.filter { STORAGE.containsMatchIn(it) }.shouldBeEmpty()
+            }
         }
 
         test("nothing from the encounter client reaches the console") {
@@ -137,6 +182,18 @@ class ClientEncounterPrivacyTripwireTest :
             TELEMETRY.containsMatchIn("    fetch(url)") shouldBe true
             TELEMETRY.containsMatchIn("    navigator.sendBeacon(url)") shouldBe true
             SENT_AT.containsMatchIn("    message.sentAtEpochMs") shouldBe true
+            DEVICE_ACCESS.containsMatchIn("    session.listDevices(kind)") shouldBe true
+            DEVICE_ACCESS.containsMatchIn("    element.setSinkId(id)") shouldBe true
+            DEVICE_ACCESS.containsMatchIn("    val listed = devices.size") shouldBe false
+            DEVICE_IDENTIFIERS.containsMatchIn("    val id = option.deviceId") shouldBe true
+            DEVICE_IDENTIFIERS.containsMatchIn("    val device = 1") shouldBe false
+            FORBIDDEN_OUTPUT_CALLS.containsMatchIn("    room.switchActiveDevice(kind, id)") shouldBe true
+            FORBIDDEN_OUTPUT_CALLS.containsMatchIn("    devices.selectAudioOutput()") shouldBe true
+            FORBIDDEN_OUTPUT_CALLS.containsMatchIn("    if (d.kind == \"audiooutput\")") shouldBe true
+            FORBIDDEN_OUTPUT_CALLS.containsMatchIn("    val k = jsKind") shouldBe false
+            NO_LEAK_CHANNELS.containsMatchIn("    console.log(label)") shouldBe true
+            NO_LEAK_CHANNELS.containsMatchIn("    rpcService<X>().send(id)") shouldBe true
+            NO_LEAK_CHANNELS.containsMatchIn("    val label = option.rawLabel") shouldBe false
         }
 
         // ── Welle V1.9.79: seats ─────────────────────────────────────────────
@@ -228,5 +285,86 @@ class ClientEncounterPrivacyTripwireTest :
                 .filter { Regex("""announceTable\(""").containsMatchIn(it) && !it.contains("private fun") }
                 .filter { Regex("""displayName|\.name\b""", RegexOption.IGNORE_CASE).containsMatchIn(it) }
                 .shouldBeEmpty()
+        }
+        // ── Welle V1.9.91: device selection ─────────────────────────────────────
+
+        test("V1.9.91: setSinkId, enumerateDevices and devicechange exist in EncounterAudioOutput.kt only") {
+            findings(pattern = SINK_AND_LIST, allowedFiles = setOf("EncounterAudioOutput.kt")).shouldBeEmpty()
+            val output = encounterFiles().first { it.name == "EncounterAudioOutput.kt" }
+            val code = codeLines(output)
+            SINK_AND_LIST.let { re ->
+                listOf("setSinkId", "enumerateDevices", "devicechange").all { w -> code.any { it.contains(w) } }
+            } shouldBe
+                true
+            // exactly one place sets a sink
+            code.count { it.contains(".setSinkId(") } shouldBe 1
+        }
+
+        test("V1.9.91: no output-selection API of the permission kind and no device-kind literal outside the audio output") {
+            findings(pattern = FORBIDDEN_OUTPUT_CALLS).shouldBeEmpty()
+            encounterFiles().filter { it.name in setOf("EncounterAudioOutput.kt", "EncounterDevicePicker.kt") }.forEach { f ->
+                withClue("${f.name} must never ask for a permission") {
+                    codeLines(f).filter { Regex("""\bgetUserMedia\b""").containsMatchIn(it) }.shouldBeEmpty()
+                }
+            }
+        }
+
+        test(
+            "V1.9.91: a device id or label stays inside the session lock, the audio output and the picker -- and never meets a remote call or a log",
+        ) {
+            val allowed = setOf("EncounterMediaSession.kt", "EncounterAudioOutput.kt", "EncounterDevicePicker.kt")
+            findings(pattern = DEVICE_IDENTIFIERS, allowedFiles = allowed).shouldBeEmpty()
+            listOf("EncounterAudioOutput.kt", "EncounterDevicePicker.kt").forEach { name ->
+                val file = encounterFiles().first { it.name == name }
+                withClue("$name must not touch a log, the network, the audit or the data channel") {
+                    codeLines(file).filter { NO_LEAK_CHANNELS.containsMatchIn(it) }.shouldBeEmpty()
+                }
+            }
+            // in the session file the device calls are delegations to the underlying LiveKit session (or declarations), nothing else
+            val media = encounterFiles().first { it.name == "EncounterMediaSession.kt" }
+            codeLines(media)
+                .filter { DEVICE_CALLS_IN_SESSION.containsMatchIn(it) }
+                .filterNot { it.contains("fun ") || it.contains("liveKit.") }
+                .shouldBeEmpty()
+            // the room and the tables hand objects on; they never name a device identifier or a device call
+            listOf("EncounterRoom.kt", "EncounterTables.kt").forEach { name ->
+                val file = encounterFiles().first { it.name == name }
+                withClue("$name must not name a device identifier") {
+                    codeLines(
+                        file,
+                    ).filter { DEVICE_IDENTIFIERS.containsMatchIn(it) || DEVICE_CALLS_IN_SESSION.containsMatchIn(it) }.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("V1.9.91: the table's microphone devices are a narrow interface of their own -- list, switch, read, nothing else") {
+            val media = encounterFiles().first { it.name == "EncounterMediaSession.kt" }
+            val text = codeLines(media).joinToString("\n")
+            val start = text.indexOf("internal interface EncounterTableMicrophoneDevices")
+            (start >= 0) shouldBe true
+            val body = text.substring(start, text.indexOf("\n}\n", start))
+            Regex("""fun (\w+)""").findAll(body).map { it.groupValues[1] }.toList() shouldBe
+                listOf("listMicrophones", "switchMicrophone", "activeMicrophoneId")
+            listOf("Camera", "Screen", "Data", "Speaker", "audiooutput", "send").forEach { forbidden ->
+                withClue("EncounterTableMicrophoneDevices must not mention '$forbidden'") { body.contains(forbidden) shouldBe false }
+            }
+            // and the V1.9.80 three-member lock is untouched
+            val lock = text.substring(text.indexOf("internal interface EncounterTableSession"))
+            Regex("""suspend fun (\w+)""").findAll(lock.substring(0, lock.indexOf("\n}\n"))).map { it.groupValues[1] }.toList() shouldBe
+                listOf("connect", "microphone", "disconnect")
+        }
+
+        test(
+            "V1.9.91: the speaker can only come out of the <audio> elements -- webAudioMix is never switched on, and every audio host feeds the output",
+        ) {
+            codeLines(LIVEKIT_SESSION).filter { it.contains("webAudioMix") }.shouldBeEmpty()
+            val host = encounterFiles().first { it.name == "EncounterMediaHost.kt" }
+            val text = codeLines(host).joinToString("\n")
+            val add = text.substring(text.indexOf("fun add("), text.indexOf("fun remove("))
+            add.contains("audioOutput?.apply(") shouldBe true
+            val room = encounterFiles().first { it.name == "EncounterRoom.kt" }
+            val hosts = codeLines(room).filter { it.contains("EncounterMediaHost(") && !it.contains("class ") }
+            hosts.size shouldBe 2
+            hosts.all { it.contains("audioOutput") } shouldBe true
         }
     })

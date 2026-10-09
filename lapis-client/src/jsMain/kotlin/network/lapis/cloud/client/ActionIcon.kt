@@ -126,6 +126,9 @@ enum class ActionIcon(
     /** V1.9.80: a person at a table turns the pulpit's sound up again ("Kanzel lauter"); the pulpit is quieter while one sits at a table. */
     PULPIT_LOUDER("fas fa-bullhorn"),
 
+    /** V1.9.91: choose the devices (microphone, camera, speaker) in the encounter room. Used once, in the room's devices group. */
+    AUDIO_DEVICES("fas fa-headphones"),
+
     /** V1.9.80: a moderator sends a person from a table back to the plenum ("Ins Plenum setzen"); NOT [REMOVE] (the person stays in the room). */
     SEND_TO_PLENUM("fas fa-people-roof"),
 

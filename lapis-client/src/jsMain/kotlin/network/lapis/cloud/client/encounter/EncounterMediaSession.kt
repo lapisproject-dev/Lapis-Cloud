@@ -2,6 +2,8 @@ package network.lapis.cloud.client.encounter
 
 import network.lapis.cloud.client.livekit.ConferenceConnectFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
+import network.lapis.cloud.client.livekit.ConferenceDeviceKind
+import network.lapis.cloud.client.livekit.ConferenceDeviceOption
 import network.lapis.cloud.client.livekit.DisconnectCause
 import network.lapis.cloud.client.livekit.LiveKitRoomSession
 import network.lapis.cloud.client.livekit.Room
@@ -54,6 +56,21 @@ internal interface EncounterSpeakerSession : EncounterListenerSession {
     suspend fun setCamera(enabled: Boolean): ConferenceDeviceFailure?
 
     suspend fun setMicrophone(enabled: Boolean): ConferenceDeviceFailure?
+
+    /**
+     * V1.9.91: the input devices ([ConferenceDeviceKind.MICROPHONE], [ConferenceDeviceKind.CAMERA]) the browser shows; empty for
+     * [ConferenceDeviceKind.SPEAKER] (the speaker is the `<audio>` elements' business, see `EncounterAudioOutput`), and empty while no room exists.
+     */
+    suspend fun listDevices(kind: ConferenceDeviceKind): List<ConferenceDeviceOption>
+
+    /** V1.9.91: switches the active input device; `null` = switched. A refusal for the speaker. */
+    suspend fun switchDevice(
+        kind: ConferenceDeviceKind,
+        id: String,
+    ): ConferenceDeviceFailure?
+
+    /** V1.9.91: the id of the active input device, `null` if none is known. */
+    fun activeDeviceId(kind: ConferenceDeviceKind): String?
 }
 
 /**
@@ -175,6 +192,24 @@ private class SpeakerSession(
     override suspend fun setCamera(enabled: Boolean): ConferenceDeviceFailure? = liveKit.setCamera(enabled)
 
     override suspend fun setMicrophone(enabled: Boolean): ConferenceDeviceFailure? = liveKit.setMicrophone(enabled)
+
+    // `runCatching`, NOT `guarded {}`: `switchDevice` answers success with `null`, which `guarded {}` also yields for a thrown exception;
+    // and the underlying calls throw while no room exists.
+    override suspend fun listDevices(kind: ConferenceDeviceKind): List<ConferenceDeviceOption> =
+        if (kind == ConferenceDeviceKind.SPEAKER) emptyList() else runCatching { liveKit.listDevices(kind) }.getOrDefault(emptyList())
+
+    override suspend fun switchDevice(
+        kind: ConferenceDeviceKind,
+        id: String,
+    ): ConferenceDeviceFailure? =
+        if (kind == ConferenceDeviceKind.SPEAKER) {
+            ConferenceDeviceFailure.OTHER
+        } else {
+            runCatching { liveKit.switchDevice(kind, id) }.getOrElse { ConferenceDeviceFailure.OTHER }
+        }
+
+    override fun activeDeviceId(kind: ConferenceDeviceKind): String? =
+        if (kind == ConferenceDeviceKind.SPEAKER) null else runCatching { liveKit.activeDeviceId(kind) }.getOrNull()
 }
 
 // ── V1.9.80 Stage 2b: the audio session of a TABLE ─────────────────────────────────────────────────────────────────────
@@ -195,6 +230,22 @@ internal interface EncounterTableSession {
 
     /** Leaves the table room and stops the local audio track. */
     suspend fun disconnect()
+}
+
+/**
+ * V1.9.91 -- the table session's microphone devices, a SEPARATE narrow interface (the three-member [EncounterTableSession] stays as it
+ * is, pinned by `ClientEncounterPrivacyTripwireTest`): list, switch and read the microphone of the table room, nothing else -- no
+ * camera, no speaker (the speaker is the room's `<audio>` elements), no data. [TableAudioSession] implements both.
+ */
+internal interface EncounterTableMicrophoneDevices {
+    /** The microphones the browser shows; empty while the table is quieted (the session may not publish) or not connected. */
+    suspend fun listMicrophones(): List<ConferenceDeviceOption>
+
+    /** Switches the active microphone; `null` = switched. */
+    suspend fun switchMicrophone(id: String): ConferenceDeviceFailure?
+
+    /** The id of the active microphone, `null` if none is known. */
+    fun activeMicrophoneId(): String?
 }
 
 /** What the table view wants to hear: audio tracks only (a video track is dropped unread), the speakers, and the end of the connection. */
@@ -259,11 +310,20 @@ internal fun openEncounterTableSession(
 private class TableAudioSession(
     private val liveKit: LiveKitRoomSession,
     private val token: EncounterTableTokenDto,
-) : EncounterTableSession {
+) : EncounterTableSession,
+    EncounterTableMicrophoneDevices {
     override suspend fun connect(): ConferenceConnectFailure? =
         liveKit.connect(token.join.serverUrl, token.join.token, token.join.turnServers)
 
     override suspend fun microphone(on: Boolean): ConferenceDeviceFailure? = liveKit.setMicrophone(on)
 
     override suspend fun disconnect() = liveKit.disconnect()
+
+    override suspend fun listMicrophones(): List<ConferenceDeviceOption> =
+        runCatching { liveKit.listDevices(ConferenceDeviceKind.MICROPHONE) }.getOrDefault(emptyList())
+
+    override suspend fun switchMicrophone(id: String): ConferenceDeviceFailure? =
+        runCatching { liveKit.switchDevice(ConferenceDeviceKind.MICROPHONE, id) }.getOrElse { ConferenceDeviceFailure.OTHER }
+
+    override fun activeMicrophoneId(): String? = runCatching { liveKit.activeDeviceId(ConferenceDeviceKind.MICROPHONE) }.getOrNull()
 }

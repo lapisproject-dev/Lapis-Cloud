@@ -669,6 +669,50 @@ The consent texts were *not* changed. *Needs legal review:* (1) the table member
 * `room.auto_create: false` in the LiveKit production configuration would be extra hardening but is not needed (the rotation makes stale tokens harmless); not changed here.
 * Translations of the new texts are agent-made, not checked by native speakers.
 
+== Device selection (V1.9.91)
+
+A person in the room can choose the devices they use, locally and without a server round trip. Client only: no migration (the schema stays at V81), no DTO, no RPC.
+
+=== Who can choose what
+
+[cols="2,1,1,1",options="header"]
+|===
+| Role | Microphone | Camera | Speaker
+| Office holder (pulpit, steward) | yes | yes | yes
+| Congregation, at a table | the table microphone | no | yes
+| Congregation, no table | no | no | yes
+|===
+
+The control is one icon-only bar button (`ActionIcon.AUDIO_DEVICES`, headphones), the *last* control of the devices group; it never moves into the "Mehr" sheet. Its accessible name says what can be chosen ("Geräte wählen", "Mikrofon und Lautsprecher wählen", "Lautsprecher wählen"). It exists only while at least one field is a real, enabled choice, so a person who can choose nothing sees no dead control. It opens a panel (`role="group"`, no dialog, no focus trap): a popover above the bar from 768 px, a sheet from below under 768 px (the guideline's one breakpoint). Escape closes and returns the focus to the button, a click outside or Tab out of the panel closes it, and the "Mehr" sheet and the panel are never open together. Every field has a visible label and a line "Aktiv: ..." (linked with `aria-describedby`).
+
+=== Where the speaker lives
+
+A congregation member's LiveKit session has `publishEnabled = false`, so `LiveKitRoomSession.listDevices`/`switchDevice` answer nothing for them. The sound of the room comes out of the `<audio>` elements of the two media hosts (pulpit and table). The speaker is therefore set on those elements (`HTMLMediaElement.setSinkId`), the same way for everybody, in one class: `EncounterAudioOutput`. `EncounterMediaHost.add` hands every new audio element to it, so the table audio keeps the chosen device across a rotation. Switching is all-or-nothing: if one element refuses, every element goes back to the previous device, and if that fails too, to the system default; two elements never end on different devices. The speaker field exists only with the `setSinkId` API and at least two usable outputs (the Chrome alias `default` and blank ids do not count); the first entry is "Standard des Systems" (`setSinkId("")`). Without the API (Safari) an office holder or a table person sees a plain sentence instead. `webAudioMix` must stay off (it is, and a tripwire pins it): with it the sound would not come from the elements and the choice would do nothing.
+
+=== What is remembered, and why under the conference's key
+
+Only the device id of a choice the person made on purpose, and only after it worked, is written to the browser, under the same key the video conference already uses (`lapis-cloud-device-<kind>`, `conferenceDeviceStorageKey`). The key has no room id, no person and no time. A key of its own with "encounter" in its name would additionally record that this browser visited an encounter room, which the "nothing is stored about the room" promise excludes. The side effect is intended: the choice also holds in the next video conference. Listing, opening the panel, a plug event, a failed switch and the quiet restore never write. "Standard des Systems" removes the speaker key. The single reader, writer and remover are `encounterStoredDevice`/`encounterRememberDevice` in `EncounterDevicePicker.kt`; the tripwire pins one `setItem`, one `removeItem` and that every storage line names the shared key function.
+
+On the next visit the remembered device is applied *quietly* when the device is switched on (office holder: after the microphone or camera went on; table: after the table microphone went on, also after a rotation; speaker: after connecting). A remembered device that is not there is not applied and not deleted; the open panel says "Ihr gemerktes Gerät ist gerade nicht angeschlossen. Es wird das Standardgerät verwendet." Between switching on and the quiet switch the default microphone briefly records, as for any device choice.
+
+=== Plug and unplug
+
+The picker listens to `devicechange` (through `EncounterDeviceEnvironment`, removed again on dispose). A field that has the focus is not rebuilt under the person's hands; it catches up on blur, and the focus never moves. If the active device vanished, the picker switches to the first device of the list (not remembered) and the polite region says once "Das Mikrofon ist nicht mehr verfügbar. Es wird das Standardgerät verwendet." -- it names the *kind* of device, never the device (a label is often a person's name).
+
+=== Data protection
+
+A device id or name never leaves the browser: no RPC, no data-channel packet, no log line, no audit entry, no telemetry, no live-region sentence, no error message. The picker asks for no permission (no `getUserMedia`, no `selectAudioOutput`). The room and table files hand objects on and never name a device identifier (`ClientEncounterPrivacyTripwireTest`: identifiers only in `EncounterMediaSession.kt`, `EncounterAudioOutput.kt`, `EncounterDevicePicker.kt`; `setSinkId`/`enumerateDevices`/`devicechange` only in `EncounterAudioOutput.kt`; the table's microphone devices are a narrow interface of their own with exactly three members, the V1.9.80 three-member table session is untouched).
+
+=== Known limitations of device selection
+
+* Safari (macOS, iOS) has no `setSinkId`: no speaker field, only the sentence for office holders and table people; the congregation without a table sees no control there at all.
+* Chrome and Firefox usually list no output devices (or only blank ids) for a congregation member who never allowed the microphone, because the room asks for no permission. Such a person sees no control until a list is available; that is deliberate.
+* The output choice on Android depends on the browser.
+* There is no test tone.
+* The choice is shared with the video conference (same key).
+* The breakpoint is 768 px (the guideline's only one), not 600 px.
+* The help page `gathering-room` is updated at rollout.
+
 == Open questions (for the product owner and legal)
 
 . The wording of the Art. 9 consent (`EncounterConsentDisclaimer`, version `2026-10-06.v1`) -- a draft, legal review required.

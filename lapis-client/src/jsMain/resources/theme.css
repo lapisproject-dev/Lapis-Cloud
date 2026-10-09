@@ -3720,6 +3720,39 @@ html .form-select.is-invalid:focus {
   border-top: 1px solid var(--lapis-border-strong);
 }
 
+/* V1.9.91: the device panel of the encounter room (microphone, camera, speaker). Same surface and border as the "Mehr" sheet, but it
+   NEVER scrolls (R59: no scroll surface; at most three short rows). Wide screens: a popover above the bar at the left edge, where the
+   devices group sits. Narrow screens (the guideline's one breakpoint, 768 px): a sheet from below across the full width. */
+.lapis-encounter-device-panel {
+  position: absolute;
+  bottom: var(--lapis-encounter-bar-h);
+  inset-inline-start: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: min(320px, 100%);
+  padding: 12px;
+  background-color: var(--lapis-surface);
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.lapis-encounter-device-panel select,
+.lapis-encounter-device-panel .form-select {
+  width: 100%;
+  min-height: 44px;
+}
+
+@media (max-width: 767.98px) {
+  .lapis-encounter-device-panel {
+    inset-inline-start: 16px;
+    inset-inline-end: 16px;
+    width: auto;
+  }
+}
+
 @media (min-width: 768px) and (max-width: 1199.98px) {
   .lapis-encounter-side {
     position: absolute;

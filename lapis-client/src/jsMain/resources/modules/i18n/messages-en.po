@@ -21299,3 +21299,36 @@ msgstr "Slug already exists, will not be changed."
 
 msgid "Veranstaltungsimport"
 msgstr "Event import"
+
+msgid "Geräte wählen"
+msgstr "Choose devices"
+
+msgid "Mikrofon und Lautsprecher wählen"
+msgstr "Choose microphone and speaker"
+
+msgid "Lautsprecher wählen"
+msgstr "Choose speaker"
+
+msgid "Standard des Systems"
+msgstr "System default"
+
+msgid "Aktiv: %1"
+msgstr "Active: %1"
+
+msgid "Die Gerätenamen zeigt der Browser erst, wenn Sie Mikrofon oder Kamera einmal eingeschaltet haben."
+msgstr "The browser shows device names only after you have switched on the microphone or camera once."
+
+msgid "Den Lautsprecher wählen Sie in diesem Browser über die Einstellungen Ihres Geräts."
+msgstr "In this browser, you choose the speaker in your device's settings."
+
+msgid "Ihr gemerktes Gerät ist gerade nicht angeschlossen. Es wird das Standardgerät verwendet."
+msgstr "Your remembered device is not connected right now. The default device is used."
+
+msgid "%1 ist nicht mehr verfügbar. Es wird das Standardgerät verwendet."
+msgstr "%1 is no longer available. The default device is used."
+
+msgid "Der Lautsprecher konnte nicht gewechselt werden. Es bleibt das bisherige Gerät."
+msgstr "The speaker could not be changed. The previous device remains."
+
+msgid "Ihr Tisch ist gerade beruhigt."
+msgstr "Your table is currently quieted."

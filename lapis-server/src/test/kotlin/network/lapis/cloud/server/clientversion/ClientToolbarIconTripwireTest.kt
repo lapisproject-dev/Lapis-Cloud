@@ -679,7 +679,7 @@ class ClientToolbarIconTripwireTest :
         }
         // ── V1.9.74: the encounter room's icon bar (R58 named exception c), the exit group, the sheet ────────────────────────────
 
-        test("V1.9.74: encounterControlButton is built only by the encounter room's three files, with fixed counts") {
+        test("V1.9.74: encounterControlButton is built only by the encounter room's four files, with fixed counts") {
             val actual =
                 clientFiles()
                     .associate {
@@ -697,8 +697,55 @@ class ClientToolbarIconTripwireTest :
                         "EncounterRoom.kt" to 11,
                         // V1.9.90: the named R58 group "encounter devices (microphone and camera)"
                         "EncounterPulpitControls.kt" to 2,
+                        // V1.9.91: the named R58 group "encounter device picker (headphones)": exactly one icon-only button
+                        "EncounterDevicePicker.kt" to 1,
                     )
             }
+        }
+
+        test(
+            "V1.9.91 (R58 named group 'encounter device picker (headphones)'): one icon-only button, no labelled button, listeners paired",
+        ) {
+            val picker = clientFiles().first { it.name == "EncounterDevicePicker.kt" }.readText()
+            val code = codeLines(picker).joinToString("\n")
+            withClue("ActionIcon.AUDIO_DEVICES is used once in the whole client (outside its declaration), in the picker") {
+                val users =
+                    clientFiles()
+                        .filter { it.name != "ActionIcon.kt" }
+                        .associate {
+                            it.name to
+                                codeLines(it.readText()).sumOf { l -> Regex("""ActionIcon\.AUDIO_DEVICES""").findAll(l).count() }
+                        }.filterValues { it > 0 }
+                users shouldBe mapOf("EncounterDevicePicker.kt" to 1)
+            }
+            withClue("the picker has no labelled action button") {
+                Regex("""\bactionButton\(|\bnewActionButton\(|\bnewIconOnlyActionButton\(""").containsMatchIn(code) shouldBe false
+            }
+            withClue("every document listener has a removal, per event") {
+                for (event in listOf("keydown", "click", "focusout")) {
+                    Regex("""addEventListener\("$event"""").findAll(code).count() shouldBe
+                        Regex("""removeEventListener\("$event"""").findAll(code).count()
+                }
+                (Regex("""addEventListener\(""").findAll(code).count() >= 3) shouldBe true
+            }
+            val room = clientFiles().first { it.name == "EncounterRoom.kt" }.readText()
+            withClue("the picker is disposed with the room") { room.contains("devicePicker?.dispose()") shouldBe true }
+        }
+
+        test("V1.9.91: the device panel never scrolls (R59), keeps 44 px targets, and has one breakpoint (the guideline's 768 px)") {
+            val css = THEME_CSS.readText()
+            val rule = Regex("""\.lapis-encounter-device-panel\s*\{[^}]*\}""").find(css)?.value ?: ""
+            withClue("theme.css .lapis-encounter-device-panel: $rule") {
+                (rule.isNotEmpty()) shouldBe true
+                rule.contains("position: absolute") shouldBe true
+                Regex("""overflow(?:-[xy])?:\s*(auto|scroll)""").containsMatchIn(rule) shouldBe false
+                rule.contains("max-height") shouldBe false
+            }
+            val selects = Regex("""\.lapis-encounter-device-panel select[^{]*\{[^}]*\}""").find(css)?.value ?: ""
+            withClue("selects: $selects") { selects.contains("min-height: 44px") shouldBe true }
+            val mobile = Regex("""@media \(max-width: 767\.98px\)\s*\{\s*\.lapis-encounter-device-panel""").containsMatchIn(css)
+            withClue("the sheet-from-below variant uses the guideline's one breakpoint") { mobile shouldBe true }
+            css.contains("max-width: 599") shouldBe false
         }
 
         test(

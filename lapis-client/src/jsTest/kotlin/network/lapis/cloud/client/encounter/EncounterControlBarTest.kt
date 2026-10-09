@@ -25,6 +25,7 @@ class EncounterControlBarTest {
         assertEquals(EncounterControlGroup.REACTIONS, encounterControlGroup(EncounterControlSlot.Reaction(EncounterReactionOption.AMEN)))
         assertEquals(EncounterControlGroup.DEVICES, encounterControlGroup(EncounterControlSlot.Mic))
         assertEquals(EncounterControlGroup.DEVICES, encounterControlGroup(EncounterControlSlot.Camera))
+        assertEquals(EncounterControlGroup.DEVICES, encounterControlGroup(EncounterControlSlot.AudioDevices))
         assertEquals(EncounterControlGroup.PANELS, encounterControlGroup(EncounterControlSlot.Chat))
         assertEquals(EncounterControlGroup.PANELS, encounterControlGroup(EncounterControlSlot.More))
         assertEquals(EncounterControlGroup.VIEW, encounterControlGroup(EncounterControlSlot.Scene))
@@ -87,8 +88,19 @@ class EncounterControlBarTest {
         assertTrue(devicesAreFirst(listOf(mic, camera, hand, reaction, EncounterControlSlot.Chat, leave)))
         assertTrue(devicesAreFirst(listOf(hand, EncounterControlSlot.Chat, leave)), "no devices at all is fine")
         assertTrue(devicesAreFirst(listOf(EncounterControlSlot.TableMic, EncounterControlSlot.PulpitLouder, hand, leave)))
+        assertTrue(
+            devicesAreFirst(listOf(mic, camera, EncounterControlSlot.AudioDevices, hand, leave)),
+            "the device picker closes the devices group",
+        )
+        assertFalse(devicesAreFirst(listOf(mic, hand, EncounterControlSlot.AudioDevices, leave)), "and never stands behind another group")
         assertFalse(devicesAreFirst(listOf(hand, mic, camera, leave)))
         assertFalse(devicesAreFirst(listOf(mic, hand, camera, leave)))
+    }
+
+    @Test
+    fun theDevicePicker_isNeverMovedIntoTheSheet() {
+        val order = encounterOverflowOrder(EncounterReactionOption.entries.toSet())
+        assertFalse(EncounterControlSlot.AudioDevices in order)
     }
 
     @Test

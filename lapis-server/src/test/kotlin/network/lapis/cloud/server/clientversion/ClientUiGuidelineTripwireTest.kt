@@ -660,6 +660,9 @@ private val R24_STRICT_WITHOUT_FORM: Set<String> =
         // V1.9.36: the reply form extracted from the inbox row (born on the form grammar: `lapisForm`, `textAreaField`, `submit`); the
         // partner list and the conversation view have no field and write only through `runGuardedAction`.
         "DirectMessageReplyForm.kt",
+        // V1.9.91 device picker of the encounter room: no form at all -- three choice fields that apply themselves on change (an immediate
+        // switch, justified in R24B_JUSTIFIED); nothing is submitted and nothing goes over the wire (device ids stay in the browser).
+        "EncounterDevicePicker.kt",
     )
 
 /** The one reason every entry of [R24_JUSTIFIED] shares: a filter is not a form. */
@@ -841,6 +844,8 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
         // list below shows -- never submitted, same reason as CommunicationScreen.kt's listSelect above.
         "PoliticianScreen.kt" to listOf("listControlsRow.select( [label \"Anzeige\"]"),
         // IMMEDIATE SWITCH (saves by itself, no submit)
+        // V1.9.91: the three device fields of the encounter room's picker apply themselves on change (no form, no submit, nothing sent).
+        "EncounterDevicePicker.kt" to listOf("val select: Select = wrapper.select(options = emptyList(), value = \"\", label = label)"),
         "StatuteQaScreen.kt" to
             listOf("consentPanel.checkBox( [label \"Ich stimme zu, dass meine Fragen von einer KI beantwortet werden\"]"),
         // W4d (this batch): the Kleinunternehmer-Regelung checkbox saves itself on change -- no surrounding

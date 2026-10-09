@@ -32,6 +32,8 @@ import network.lapis.cloud.client.setAttrIfChanged
 internal class EncounterPulpitControls(
     toolbar: Container,
     private val session: EncounterSpeakerSession,
+    /** V1.9.91: a device was switched ON successfully (the picker then applies the person's remembered choice, quietly). */
+    private val onDeviceOn: (ConferenceDeviceKind) -> Unit = {},
 ) {
     internal val micButton: Button = toolbar.encounterControlButton(ActionIcon.MICROPHONE, tr("Mikrofon"))
     internal val cameraButton: Button = toolbar.encounterControlButton(ActionIcon.CAMERA, tr("Kamera"))
@@ -78,6 +80,7 @@ internal class EncounterPulpitControls(
         report(ConferenceDeviceKind.MICROPHONE, failure)
         if (failure == null) micOn = enabled
         render()
+        if (failure == null && enabled) onDeviceOn(ConferenceDeviceKind.MICROPHONE)
     }
 
     private suspend fun setCamera(enabled: Boolean) {
@@ -85,6 +88,7 @@ internal class EncounterPulpitControls(
         report(ConferenceDeviceKind.CAMERA, failure)
         if (failure == null) cameraOn = enabled
         render()
+        if (failure == null && enabled) onDeviceOn(ConferenceDeviceKind.CAMERA)
     }
 
     private fun report(

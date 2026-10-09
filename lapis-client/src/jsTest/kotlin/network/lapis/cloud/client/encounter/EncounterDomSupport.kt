@@ -10,6 +10,8 @@ import network.lapis.cloud.client.awaitUntil
 import network.lapis.cloud.client.jsonOf
 import network.lapis.cloud.client.livekit.ConferenceConnectFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
+import network.lapis.cloud.client.livekit.ConferenceDeviceKind
+import network.lapis.cloud.client.livekit.ConferenceDeviceOption
 import network.lapis.cloud.client.mountedForm
 import network.lapis.cloud.client.routeOf
 import network.lapis.cloud.client.rpcService
@@ -144,10 +146,28 @@ internal fun testTableToken(
 internal class FakeTableSession(
     private val canPublish: Boolean = true,
     private val connectFailure: ConferenceConnectFailure? = null,
-) : EncounterTableSession {
+) : EncounterTableSession,
+    EncounterTableMicrophoneDevices {
     var connects = 0
     var disconnects = 0
     val microphoneCalls = mutableListOf<Boolean>()
+
+    /** V1.9.91: the microphones the table session shows (empty = none), the active one, and every switch the picker asked for. */
+    var microphones: List<ConferenceDeviceOption> = emptyList()
+    var activeMicrophone: String? = null
+    val microphoneSwitches = mutableListOf<String>()
+    var switchFailure: ConferenceDeviceFailure? = null
+
+    override suspend fun listMicrophones(): List<ConferenceDeviceOption> = if (canPublish) microphones else emptyList()
+
+    override suspend fun switchMicrophone(id: String): ConferenceDeviceFailure? {
+        if (switchFailure != null) return switchFailure
+        microphoneSwitches += id
+        activeMicrophone = id
+        return null
+    }
+
+    override fun activeMicrophoneId(): String? = activeMicrophone
 
     override suspend fun connect(): ConferenceConnectFailure? {
         connects++
@@ -243,6 +263,26 @@ internal class FakeSpeakerSession :
     var cameraCalls = mutableListOf<Boolean>()
     var microphoneCalls = mutableListOf<Boolean>()
 
+    /** V1.9.91: the devices the session shows per kind (empty = none), the active ids and every switch the picker asked for. */
+    val devices = mutableMapOf<ConferenceDeviceKind, List<ConferenceDeviceOption>>()
+    val activeDevices = mutableMapOf<ConferenceDeviceKind, String?>()
+    val deviceSwitches = mutableListOf<Pair<ConferenceDeviceKind, String>>()
+    var switchFailure: ConferenceDeviceFailure? = null
+
+    override suspend fun listDevices(kind: ConferenceDeviceKind): List<ConferenceDeviceOption> = devices[kind].orEmpty()
+
+    override suspend fun switchDevice(
+        kind: ConferenceDeviceKind,
+        id: String,
+    ): ConferenceDeviceFailure? {
+        if (switchFailure != null) return switchFailure
+        deviceSwitches += kind to id
+        activeDevices[kind] = id
+        return null
+    }
+
+    override fun activeDeviceId(kind: ConferenceDeviceKind): String? = activeDevices[kind]
+
     override suspend fun setCamera(enabled: Boolean): ConferenceDeviceFailure? {
         cameraCalls += enabled
         return null
@@ -251,6 +291,54 @@ internal class FakeSpeakerSession :
     override suspend fun setMicrophone(enabled: Boolean): ConferenceDeviceFailure? {
         microphoneCalls += enabled
         return null
+    }
+}
+
+/**
+ * V1.9.91: the browser's device list and speaker setter, in the hands of the test. No device by default (so the bar of every older test
+ * stays as it was); records every `setSink` call; a sink can be made to fail; `fireDeviceChange()` plays a plug/unplug event.
+ */
+internal class FakeDeviceEnvironment(
+    var sinkApi: Boolean = true,
+    var outputs: List<ConferenceDeviceOption> = emptyList(),
+) : EncounterDeviceEnvironment {
+    val sinkCalls = mutableListOf<Pair<HTMLElement, String>>()
+    val failSinkFor = mutableSetOf<String>()
+
+    /** When not empty, [failSinkFor] fails only for these elements (one stubborn element); empty = for every element. */
+    val failElements = mutableListOf<HTMLElement>()
+    val listeners = mutableListOf<() -> Unit>()
+    var removedListeners = 0
+
+    override fun sinkApiAvailable(): Boolean = sinkApi
+
+    /** While true, [listOutputs] does not answer (a slow `enumerateDevices`): a refresh stays in flight. */
+    var holdOutputs = false
+
+    override suspend fun listOutputs(): List<ConferenceDeviceOption> {
+        while (holdOutputs) kotlinx.coroutines.delay(10)
+        return outputs
+    }
+
+    override suspend fun setSink(
+        element: HTMLElement,
+        sinkId: String,
+    ): Boolean {
+        if (sinkId in failSinkFor && (failElements.isEmpty() || failElements.any { it === element })) return false
+        sinkCalls += element to sinkId
+        return true
+    }
+
+    override fun onDeviceChange(listener: () -> Unit): () -> Unit {
+        listeners += listener
+        return {
+            listeners.remove(listener)
+            removedListeners++
+        }
+    }
+
+    fun fireDeviceChange() {
+        listeners.toList().forEach { it() }
     }
 }
 
@@ -309,6 +397,8 @@ internal suspend fun withEncounterRoom(
     presentDelayMs: () -> Int = { 0 },
     onLeave: () -> Unit = {},
     onDoorsClosed: () -> Unit = {},
+    /** V1.9.91: the browser's devices (none by default, whatever the machine running the test has). */
+    deviceEnv: EncounterDeviceEnvironment = FakeDeviceEnvironment(),
     block: suspend (EncounterRoomRig, HTMLElement) -> Unit,
 ) {
     val presentRoute = routeOf { rpcService<IEncounterSpaceService>().listPresent("space-1") }
@@ -340,6 +430,7 @@ internal suspend fun withEncounterRoom(
                     onDoorsClosed = onDoorsClosed,
                     onConnectionLost = {},
                     tableSessionOpener = tableSessionOpener,
+                    deviceEnv = deviceEnv,
                 )
             room.bind(session)
             room.afterConnected()

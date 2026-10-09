@@ -90,6 +90,8 @@ internal class EncounterRoom(
     private val onConnectionLost: (DisconnectCause) -> Unit,
     /** V1.9.80: the factory of the table's audio session -- a seam for tests. */
     private val tableSessionOpener: EncounterTableSessionOpener = ::openEncounterTableSession,
+    /** V1.9.91: the browser's device list and speaker setter -- a seam for tests (a fake never depends on the machine's real devices). */
+    private val deviceEnv: EncounterDeviceEnvironment = browserDeviceEnvironment(),
 ) {
     private val terms: EncounterTerms = termsFor(space.profile)
     private val allowedReactions: Set<EncounterReactionOption> = EncounterReactionOption.normalize(space.reactions).toSet()
@@ -105,6 +107,9 @@ internal class EncounterRoom(
 
     /** V1.9.80: the outcome of the viewer's OWN table events (sat down, got up, quieted, back in the plenum) -- fixed sentences, polite. */
     private val tableLive: Div = root.div(className = "visually-hidden")
+
+    /** V1.9.91: "the speaker/microphone/camera is no longer available" -- a fixed sentence naming the KIND of device, never its name; polite. */
+    private val deviceLive: Div = root.div(className = "visually-hidden")
     private val bands: Div = root.div(className = "lapis-encounter-bands")
     private val main: Div = root.div(className = "lapis-encounter-main")
     private val layout = EncounterSceneLayout(main, terms)
@@ -112,7 +117,18 @@ internal class EncounterRoom(
     // ── tables (V1.9.80, stage 2b): assembly profile with tables enabled only ──
     private val tablesOn: Boolean = space.tables.enabled // the server reports it only for the assembly profile
     private val tableView: EncounterTablesView? = if (tablesOn) EncounterTablesView(layout.tablesHost) else null
-    private val tableAudioSink = EncounterMediaHost("lapis-encounter-table-audio-sink")
+
+    /**
+     * V1.9.91: the room's speaker choice, one sink id for both audio hosts. Declared BEFORE the hosts (they take it); the lambda reads the
+     * hosts' elements only when it is called.
+     */
+    private val audioOutput: EncounterAudioOutput =
+        EncounterAudioOutput(
+            env = deviceEnv,
+            elements = { audioSink.elements + tableAudioSink.elements },
+            onFellBack = { devicePicker?.speakerGone() },
+        )
+    private val tableAudioSink = EncounterMediaHost("lapis-encounter-table-audio-sink", audioOutput)
     private val tableThrottle = EncounterSeatChoiceThrottle(clock, minGapMs = TABLE_CHOICE_GAP_MS)
     private var quietedTables: Set<Int> = emptySet()
     private var pulpitLouder = false
@@ -139,6 +155,10 @@ internal class EncounterRoom(
                     override fun addTableAudio(element: HTMLElement) = tableAudioSink.add(element)
 
                     override fun removeTableAudio(element: HTMLElement) = tableAudioSink.remove(element)
+
+                    override suspend fun tableMicrophoneOn(devices: EncounterTableMicrophoneDevices) {
+                        devicePicker?.tableMicrophoneOn(devices)
+                    }
                 },
         )
     private val tabs =
@@ -172,7 +192,7 @@ internal class EncounterRoom(
     private val receiveGuard = EncounterReactionReceiveGuard(clock)
     private val eventAnnouncer = EncounterEventAnnouncer(clock)
     private val refreshPlanner = EncounterRefreshPlanner(clock)
-    private val audioSink = EncounterMediaHost("lapis-encounter-audio-sink")
+    private val audioSink = EncounterMediaHost("lapis-encounter-audio-sink", audioOutput)
     private val tiles = LinkedHashMap<String, EncounterTile>()
     private val videoElements = HashMap<String, HTMLMediaElement>()
     private var present: Map<String, EncounterPresentDto> = emptyMap()
@@ -184,6 +204,7 @@ internal class EncounterRoom(
     private var disposed = false
     private var session: EncounterListenerSession? = null
     private var pulpitControls: EncounterPulpitControls? = null
+    private var devicePicker: EncounterDevicePicker? = null
     private val cleanups = mutableListOf<() -> Unit>()
 
     private val chat = EncounterChatPanel(side.hostOf(EncounterSideTab.CHAT), terms) { text -> sendChat(text) }
@@ -271,6 +292,8 @@ internal class EncounterRoom(
         layout.seats.onChoose = { seat -> chooseSeat(seat) }
         tableLive.setAttribute("role", "status")
         tableLive.setAttribute("aria-live", "polite")
+        deviceLive.setAttribute("role", "status")
+        deviceLive.setAttribute("aria-live", "polite")
         tableView?.let { view ->
             view.onChoose = { table, seat -> chooseTableSeat(table, seat) }
             view.onLeave = { leaveTable() }
@@ -482,6 +505,8 @@ internal class EncounterRoom(
 
     private fun openSheet() {
         if (sheetOpen || disposed) return
+        // the two panels never stand open together
+        devicePicker?.close(returnFocus = false)
         // The twins mirror the state of their primaries only when the overflow is recomputed: do it before the sheet is shown.
         overflow.recompute()
         sheetOpen = true
@@ -536,13 +561,41 @@ internal class EncounterRoom(
         this.session = session
         if (session is EncounterSpeakerSession && entry.canPublish) {
             val created =
-                EncounterPulpitControls(toolbar = controlBar.group(EncounterControlGroup.DEVICES), session = session)
+                EncounterPulpitControls(
+                    toolbar = controlBar.group(EncounterControlGroup.DEVICES),
+                    session = session,
+                    onDeviceOn = { kind -> devicePicker?.let { picker -> AppScope.launch { picker.deviceSwitchedOn(kind) } } },
+                )
             pulpitControls = created
             // The device controls never move into the sheet, but they take room in the bar: they have to be measured.
             registerBarSlot(ControlBarSlot(EncounterControlSlot.Mic, created.micButton, null))
             registerBarSlot(ControlBarSlot(EncounterControlSlot.Camera, created.cameraButton, null))
-            overflow.recompute()
         }
+        // V1.9.91: the device picker is the LAST control of the devices group, for every role (the speaker can be chosen by all).
+        val speakerSession = (session as? EncounterSpeakerSession)?.takeIf { entry.canPublish }
+        val picker =
+            EncounterDevicePicker(
+                devicesGroup = controlBar.group(EncounterControlGroup.DEVICES),
+                panelParent = root,
+                role = {
+                    when {
+                        speakerSession != null -> EncounterDeviceRole.OFFICE_HOLDER
+                        tables.position != null -> EncounterDeviceRole.CONGREGATION_AT_TABLE
+                        else -> EncounterDeviceRole.CONGREGATION
+                    }
+                },
+                speaker = speakerSession,
+                tableMic = { tables.microphoneDevices },
+                tableQuieted = { tables.quieted },
+                output = audioOutput,
+                env = deviceEnv,
+                announce = { sentence -> deviceLive.content = sentence },
+                onBeforeOpen = { closeSheet(returnFocus = false) },
+                onVisibilityChanged = { if (::overflow.isInitialized) overflow.recompute() },
+            )
+        devicePicker = picker
+        registerBarSlot(ControlBarSlot(EncounterControlSlot.AudioDevices, picker.button, null))
+        overflow.recompute()
     }
 
     /**
@@ -553,6 +606,8 @@ internal class EncounterRoom(
         if (disposed) return
         overflow.ensureObserving()
         if (viewer.presenceRole == EncounterPresenceRole.PULPIT) pulpitControls?.startCamera()
+        if (disposed) return
+        devicePicker?.restoreOutput()
         if (disposed) return
         layout.focusPulpit()
         announceMicOffOnEntry()
@@ -995,6 +1050,8 @@ internal class EncounterRoom(
         applyPlenumVolume()
         renderSeats()
         presentPanel.rerender()
+        // the table microphone field comes and goes with the seat
+        devicePicker?.let { picker -> AppScope.launch { picker.refresh() } }
     }
 
     /** At a table the pulpit is turned down to 30 % (the "Kanzel lauter" control lifts it); a device that ignores `volume` (iOS Safari) keeps full sound. */
@@ -1228,6 +1285,7 @@ internal class EncounterRoom(
         tiles.values.forEach { it.dispose() }
         tiles.clear()
         tables.dispose()
+        devicePicker?.dispose()
         tableAudioSink.clear()
         audioSink.clear()
         videoElements.clear()

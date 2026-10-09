@@ -20392,3 +20392,36 @@ msgstr ""
 
 msgid "Veranstaltungsimport"
 msgstr ""
+
+msgid "Geräte wählen"
+msgstr ""
+
+msgid "Mikrofon und Lautsprecher wählen"
+msgstr ""
+
+msgid "Lautsprecher wählen"
+msgstr ""
+
+msgid "Standard des Systems"
+msgstr ""
+
+msgid "Aktiv: %1"
+msgstr ""
+
+msgid "Die Gerätenamen zeigt der Browser erst, wenn Sie Mikrofon oder Kamera einmal eingeschaltet haben."
+msgstr ""
+
+msgid "Den Lautsprecher wählen Sie in diesem Browser über die Einstellungen Ihres Geräts."
+msgstr ""
+
+msgid "Ihr gemerktes Gerät ist gerade nicht angeschlossen. Es wird das Standardgerät verwendet."
+msgstr ""
+
+msgid "%1 ist nicht mehr verfügbar. Es wird das Standardgerät verwendet."
+msgstr ""
+
+msgid "Der Lautsprecher konnte nicht gewechselt werden. Es bleibt das bisherige Gerät."
+msgstr ""
+
+msgid "Ihr Tisch ist gerade beruhigt."
+msgstr ""

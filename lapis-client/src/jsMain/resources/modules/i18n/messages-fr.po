@@ -21410,3 +21410,36 @@ msgstr "Le slug existe déjà, il ne sera pas modifié."
 
 msgid "Veranstaltungsimport"
 msgstr "Importation d'événements"
+
+msgid "Geräte wählen"
+msgstr "Choisir les appareils"
+
+msgid "Mikrofon und Lautsprecher wählen"
+msgstr "Choisir le microphone et le haut-parleur"
+
+msgid "Lautsprecher wählen"
+msgstr "Choisir le haut-parleur"
+
+msgid "Standard des Systems"
+msgstr "Par défaut du système"
+
+msgid "Aktiv: %1"
+msgstr "Actif : %1"
+
+msgid "Die Gerätenamen zeigt der Browser erst, wenn Sie Mikrofon oder Kamera einmal eingeschaltet haben."
+msgstr "Le navigateur n'affiche les noms des appareils qu'après que vous avez activé une fois le microphone ou la caméra."
+
+msgid "Den Lautsprecher wählen Sie in diesem Browser über die Einstellungen Ihres Geräts."
+msgstr "Dans ce navigateur, vous choisissez le haut-parleur dans les réglages de votre appareil."
+
+msgid "Ihr gemerktes Gerät ist gerade nicht angeschlossen. Es wird das Standardgerät verwendet."
+msgstr "Votre appareil mémorisé n'est pas connecté pour le moment. L'appareil par défaut est utilisé."
+
+msgid "%1 ist nicht mehr verfügbar. Es wird das Standardgerät verwendet."
+msgstr "%1 n'est plus disponible. L'appareil par défaut est utilisé."
+
+msgid "Der Lautsprecher konnte nicht gewechselt werden. Es bleibt das bisherige Gerät."
+msgstr "Le haut-parleur n'a pas pu être changé. L'appareil précédent est conservé."
+
+msgid "Ihr Tisch ist gerade beruhigt."
+msgstr "Votre table est actuellement apaisée."

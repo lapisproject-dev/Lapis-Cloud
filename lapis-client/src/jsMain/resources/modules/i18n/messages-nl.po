@@ -21347,3 +21347,36 @@ msgstr "Slug bestaat al en wordt niet gewijzigd."
 
 msgid "Veranstaltungsimport"
 msgstr "Evenementenimport"
+
+msgid "Geräte wählen"
+msgstr "Apparaten kiezen"
+
+msgid "Mikrofon und Lautsprecher wählen"
+msgstr "Microfoon en luidspreker kiezen"
+
+msgid "Lautsprecher wählen"
+msgstr "Luidspreker kiezen"
+
+msgid "Standard des Systems"
+msgstr "Systeemstandaard"
+
+msgid "Aktiv: %1"
+msgstr "Actief: %1"
+
+msgid "Die Gerätenamen zeigt der Browser erst, wenn Sie Mikrofon oder Kamera einmal eingeschaltet haben."
+msgstr "De browser toont de apparaatnamen pas nadat u de microfoon of camera eenmaal hebt ingeschakeld."
+
+msgid "Den Lautsprecher wählen Sie in diesem Browser über die Einstellungen Ihres Geräts."
+msgstr "In deze browser kiest u de luidspreker in de instellingen van uw apparaat."
+
+msgid "Ihr gemerktes Gerät ist gerade nicht angeschlossen. Es wird das Standardgerät verwendet."
+msgstr "Uw onthouden apparaat is momenteel niet aangesloten. Het standaardapparaat wordt gebruikt."
+
+msgid "%1 ist nicht mehr verfügbar. Es wird das Standardgerät verwendet."
+msgstr "%1 is niet meer beschikbaar. Het standaardapparaat wordt gebruikt."
+
+msgid "Der Lautsprecher konnte nicht gewechselt werden. Es bleibt das bisherige Gerät."
+msgstr "De luidspreker kon niet worden gewisseld. Het vorige apparaat blijft actief."
+
+msgid "Ihr Tisch ist gerade beruhigt."
+msgstr "Uw tafel is momenteel tot rust gebracht."

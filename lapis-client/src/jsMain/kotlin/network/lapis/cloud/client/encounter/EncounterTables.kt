@@ -372,6 +372,12 @@ internal interface EncounterTableHost {
     fun addTableAudio(element: HTMLElement)
 
     fun removeTableAudio(element: HTMLElement)
+
+    /**
+     * V1.9.91: the table microphone was switched on (also after a rotation: a new session) -- the device picker applies the person's
+     * remembered choice. The room hands the object on; this file never sees a device.
+     */
+    suspend fun tableMicrophoneOn(devices: EncounterTableMicrophoneDevices) {}
 }
 
 /**
@@ -407,6 +413,9 @@ internal class EncounterTableController(
         private set
 
     private var session: EncounterTableSession? = null
+
+    /** V1.9.91: the microphone devices of the CURRENT table session (a new object after every rotation); `null` while not at a table. */
+    val microphoneDevices: EncounterTableMicrophoneDevices? get() = session as? EncounterTableMicrophoneDevices
     private var serial = 0
     private var closing = false
     private var busy = false
@@ -516,6 +525,7 @@ internal class EncounterTableController(
             },
         )
         host.tablesChanged()
+        if (micOn) (current as? EncounterTableMicrophoneDevices)?.let { host.tableMicrophoneOn(it) }
     }
 
     /** The server's list says the viewer sits nowhere, although this class believes so (and nothing was done meanwhile): back to the plenum. */
@@ -591,6 +601,7 @@ internal class EncounterTableController(
             host.announce(gettext("Die Beruhigung wurde aufgehoben."))
         }
         host.tablesChanged()
+        if (micOn && mine == serial) (opened as? EncounterTableMicrophoneDevices)?.let { host.tableMicrophoneOn(it) }
     }
 
     private var reconnecting = false

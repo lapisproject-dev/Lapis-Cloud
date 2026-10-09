@@ -44,6 +44,9 @@ internal sealed interface EncounterControlSlot {
     /** V1.9.80: "Kanzel lauter" (profile word: "Podium lauter" in an assembly) -- turns the pulpit up again while the viewer sits at a table. */
     data object PulpitLouder : EncounterControlSlot
 
+    /** V1.9.91: the device picker (headphones) -- the LAST control of the devices group; never moved into the sheet. */
+    data object AudioDevices : EncounterControlSlot
+
     data object Chat : EncounterControlSlot
 
     data object More : EncounterControlSlot
@@ -62,7 +65,9 @@ internal sealed interface EncounterControlSlot {
 internal fun encounterControlGroup(slot: EncounterControlSlot): EncounterControlGroup =
     when (slot) {
         EncounterControlSlot.Hand, is EncounterControlSlot.Reaction -> EncounterControlGroup.REACTIONS
-        EncounterControlSlot.Mic, EncounterControlSlot.Camera, EncounterControlSlot.TableMic, EncounterControlSlot.PulpitLouder ->
+        EncounterControlSlot.Mic, EncounterControlSlot.Camera, EncounterControlSlot.TableMic, EncounterControlSlot.PulpitLouder,
+        EncounterControlSlot.AudioDevices,
+        ->
             EncounterControlGroup.DEVICES
         EncounterControlSlot.Chat, EncounterControlSlot.More -> EncounterControlGroup.PANELS
         EncounterControlSlot.Scene, EncounterControlSlot.Fullscreen -> EncounterControlGroup.VIEW
@@ -73,7 +78,7 @@ internal fun encounterControlGroup(slot: EncounterControlSlot): EncounterControl
 /**
  * The order in which controls move into the "Mehr" sheet, the first one first: full screen, scene, transmission, then the event
  * reactions (the last of the canonical order first), then "Türen schließen" and last of all the chat. Never moved: hand (the only reaction with a state; a hand-raise must never need a second tap), microphone,
- * camera, "Mehr" and "Verlassen". Built at run time because the event reactions differ per room profile.
+ * camera, the device picker (V1.9.91), "Mehr" and "Verlassen". Built at run time because the event reactions differ per room profile.
  */
 internal fun encounterOverflowOrder(allowed: Collection<EncounterReactionOption>): List<EncounterControlSlot> =
     buildList {

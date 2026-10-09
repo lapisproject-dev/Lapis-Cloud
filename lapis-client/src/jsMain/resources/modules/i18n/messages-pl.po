@@ -21346,3 +21346,36 @@ msgstr "Slug już istnieje i nie zostanie zmieniony."
 
 msgid "Veranstaltungsimport"
 msgstr "Import wydarzeń"
+
+msgid "Geräte wählen"
+msgstr "Wybierz urządzenia"
+
+msgid "Mikrofon und Lautsprecher wählen"
+msgstr "Wybierz mikrofon i głośnik"
+
+msgid "Lautsprecher wählen"
+msgstr "Wybierz głośnik"
+
+msgid "Standard des Systems"
+msgstr "Domyślne urządzenie systemu"
+
+msgid "Aktiv: %1"
+msgstr "Aktywne: %1"
+
+msgid "Die Gerätenamen zeigt der Browser erst, wenn Sie Mikrofon oder Kamera einmal eingeschaltet haben."
+msgstr "Przeglądarka pokazuje nazwy urządzeń dopiero po jednorazowym włączeniu mikrofonu lub kamery."
+
+msgid "Den Lautsprecher wählen Sie in diesem Browser über die Einstellungen Ihres Geräts."
+msgstr "W tej przeglądarce głośnik wybiera się w ustawieniach urządzenia."
+
+msgid "Ihr gemerktes Gerät ist gerade nicht angeschlossen. Es wird das Standardgerät verwendet."
+msgstr "Zapamiętane urządzenie nie jest teraz podłączone. Używane jest urządzenie domyślne."
+
+msgid "%1 ist nicht mehr verfügbar. Es wird das Standardgerät verwendet."
+msgstr "Urządzenie (%1) jest już niedostępne. Używane jest urządzenie domyślne."
+
+msgid "Der Lautsprecher konnte nicht gewechselt werden. Es bleibt das bisherige Gerät."
+msgstr "Nie udało się zmienić głośnika. Pozostaje poprzednie urządzenie."
+
+msgid "Ihr Tisch ist gerade beruhigt."
+msgstr "Twój stół jest teraz wyciszony."

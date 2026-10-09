@@ -41,6 +41,7 @@ Font Awesome 7, bundled by webpack through `kvision-fontawesome` (no CDN, no new
 | `LEAVE_TABLE` | `fa-users-slash` | V1.9.80: get up from a table of the encounter room ("Tisch verlassen"); the person stays in the room, in the plenum
 | `LIFT_QUIET` | `fa-volume-high` | V1.9.80: a moderator lifts the quiet of a table ("Beruhigung aufheben"); the opposite of `SILENCE` at table level
 | `PULPIT_LOUDER` | `fa-bullhorn` | V1.9.80: a person at a table turns the pulpit's sound up ("Kanzel lauter", icon-only bar control with a sheet twin of the same name)
+| `AUDIO_DEVICES` | `fa-headphones` | V1.9.91: choose the devices (microphone, camera, speaker) in the encounter room; icon-only bar control, the last control of the devices group, never moved into the sheet (R58 named exception c)
 | `SEND_TO_PLENUM` | `fa-people-roof` | V1.9.80: a moderator sends a person from a table back to the plenum ("Ins Plenum setzen"); NOT `REMOVE` (the person stays in the room)
 | `PROTECTED` | `fa-shield-halved` | V1.9.57: geschützt -- the reason text next to a disabled control and the masked value of the admin peer protection; marks a state, never an action; NOT `LOCK`, NOT `ACCESS`
 |===

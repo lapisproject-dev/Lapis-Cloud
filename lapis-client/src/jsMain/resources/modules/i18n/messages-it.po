@@ -21392,3 +21392,36 @@ msgstr "Lo slug esiste già e non verrà modificato."
 
 msgid "Veranstaltungsimport"
 msgstr "Importazione eventi"
+
+msgid "Geräte wählen"
+msgstr "Scegli i dispositivi"
+
+msgid "Mikrofon und Lautsprecher wählen"
+msgstr "Scegli microfono e altoparlante"
+
+msgid "Lautsprecher wählen"
+msgstr "Scegli l'altoparlante"
+
+msgid "Standard des Systems"
+msgstr "Predefinito del sistema"
+
+msgid "Aktiv: %1"
+msgstr "Attivo: %1"
+
+msgid "Die Gerätenamen zeigt der Browser erst, wenn Sie Mikrofon oder Kamera einmal eingeschaltet haben."
+msgstr "Il browser mostra i nomi dei dispositivi solo dopo che ha attivato una volta il microfono o la fotocamera."
+
+msgid "Den Lautsprecher wählen Sie in diesem Browser über die Einstellungen Ihres Geräts."
+msgstr "In questo browser l'altoparlante si sceglie nelle impostazioni del suo dispositivo."
+
+msgid "Ihr gemerktes Gerät ist gerade nicht angeschlossen. Es wird das Standardgerät verwendet."
+msgstr "Il dispositivo memorizzato non è collegato in questo momento. Viene utilizzato il dispositivo predefinito."
+
+msgid "%1 ist nicht mehr verfügbar. Es wird das Standardgerät verwendet."
+msgstr "%1 non è più disponibile. Viene utilizzato il dispositivo predefinito."
+
+msgid "Der Lautsprecher konnte nicht gewechselt werden. Es bleibt das bisherige Gerät."
+msgstr "Non è stato possibile cambiare l'altoparlante. Rimane il dispositivo precedente."
+
+msgid "Ihr Tisch ist gerade beruhigt."
+msgstr "Il suo tavolo è attualmente calmato."
