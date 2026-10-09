@@ -74,7 +74,9 @@ jobs:
     # disposable container, not a secret; it is only handed to the lane step below.
     services:
       postgres:
-        image: postgres:17
+        # Docker's official image, mirrored by AWS (public ECR): the shared GitHub runners hit Docker Hub's anonymous pull
+        # rate limit (toomanyrequests) and the lane failed before a single test ran (2026-10-09). Same image, no registry login.
+        image: public.ecr.aws/docker/library/postgres:17
         env:
           POSTGRES_USER: lapis_test
           POSTGRES_PASSWORD: lapis-ci-throwaway
