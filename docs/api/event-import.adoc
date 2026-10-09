@@ -1,0 +1,100 @@
+= Import of past events
+:toc:
+
+Wave V1.9.82. A board member or administrator can import a list of **past** events from a JSON file, for example the events
+of an earlier website. The imported events are shown on their own public pages and in the archive feed
+(<<embed-widgets.adoc#events-past-feed,Past events (archive)>>). The screen is `#/events/import`, reached from the button
+"Importieren" on the events screen (BOARD and ADMIN only).
+
+== What the import does and does not do
+
+* **Dry run first.** "Vorschau prüfen" parses and validates the file and shows, per entry, whether it will be created, skipped or
+  is an error. Nothing is written.
+* **All or nothing.** The confirmation writes every valid entry in **one** transaction. One error in the file blocks the whole
+  import; fix the file and run the preview again.
+* **Existing slugs are skipped, never updated.** An entry whose `slug` already exists is reported as skipped and left exactly as it is.
+* **Only events that are over.** `endsAt` (or `startsAt` when `endsAt` is missing) must not be later than "now" in the organization zone.
+  An event in the future is an error; create it with the normal form instead.
+* **Fixed result.** An imported event is created as `PUBLISHED` and `PUBLIC`, free of charge (EUR 0.00), without capacity, without a room and
+  not part of a series. `createdBy` is the importing member. Registration is closed (`registrationClosesAt = startsAt`).
+* **No images.** Cover images are not imported; upload them by hand in the edit form afterwards (and add the image description).
+* **No series.** A recurring appointment (for example a weekly video call) belongs in the normal form as a series, not in the archive.
+* **Editable afterwards.** An imported event can be edited like any other (the start stays unchanged, so the "no start in the past" rule
+  does not trigger). It is marked "Importiert" in the list. The flag cannot be changed by any edit.
+
+== File format
+
+A JSON **array** of objects, at most **200** entries and **2 MiB** (UTF-8). Every object may contain **only** the keys below; any other key
+(for example `status`, `visibility`, `fee`, `createdBy`, `imported`) makes the entry invalid.
+
+[cols="2,1,4"]
+|===
+|Key |Required |Meaning
+
+|`slug` |yes |Address of the page, `/veranstaltung/<slug>`. Lowercase letters, digits and single hyphens; at most 120 characters. Must be unique in the file.
+|`title` |yes |At most 200 characters.
+|`description` |yes |**Plain text**, at most 8000 characters. Paragraphs separated by an empty line.
+|`startsAt` |yes |Local time `yyyy-MM-ddTHH:mm`.
+|`endsAt` |no |Local time `yyyy-MM-ddTHH:mm`. When missing it equals `startsAt` and the preview says "Ende fehlt, gleich Beginn gesetzt.".
+|`locationText` |one of the two |At most 500 characters.
+|`onlineUrl` |one of the two |`https://` only, at most 2048 characters. The same rule as the normal form: a place or an online link is required, otherwise a later edit through the form would fail.
+|`onlineUrlPublic` |no |`true` shows the online link on the event page and in the feed, but only until the event has ended; the link of a past event is never published (page and archive feed alike). Default `false`; only valid with an `https://` link.
+|`summary` |no |Teaser, one line, at most 300 characters.
+|`coverImageAlt` |no |Alt text for a cover image you add later, at most 500 characters.
+|===
+
+Text values are cleaned before the limits are checked: Unicode NFC, `\r\n` to `\n`, control characters (NUL, ESC, bidi overrides) removed, runs of
+blank lines collapsed. **HTML and Markdown are not interpreted.** `<b>` stays literally `<b>` and `**bold**` stays literally `**bold**` (the preview
+only warns "Enthält HTML-ähnliche Zeichen, wird als Text angezeigt."). Convert Markdown to plain text before the import (for example a link
+`[text](url)` to `text (url)`), otherwise the markers appear on the page.
+
+=== Time
+
+`startsAt` and `endsAt` are **local times of the organization zone** (shown above the input field) and are stored exactly as typed. A time with an
+offset or `Z`, with seconds, or a date that does not exist (30 February) is an error. See `docs/architecture/time-and-timezones.adoc`.
+
+=== Example
+
+[source,json]
+----
+[
+  {
+    "slug": "stammtisch-berlin-2025-03",
+    "title": "Stammtisch Berlin",
+    "description": "Wir treffen uns zum Austausch.\n\nAlle sind willkommen.",
+    "locationText": "Gaststätte Musterhaus, Berlin",
+    "startsAt": "2025-03-01T19:00",
+    "endsAt": "2025-03-01T22:00",
+    "summary": "Offener Stammtisch in Berlin"
+  }
+]
+----
+
+== Preview, confirmation and the checksum
+
+The preview returns a SHA-256 over the UTF-8 bytes of the exact text it received. The confirmation sends the same text and that hash; if
+they differ (the text was changed in between) the server answers with a conflict and writes nothing. The client therefore sends the text
+unchanged (no trimming, no normalization). **This checksum protects against an accidental change between preview and confirmation. It is not a
+security boundary** (it proves nothing about who produced the text); authorization is the role check on both calls.
+
+== Limits and protection
+
+* Role: BOARD or ADMIN on **both** RPC methods (checked before anything else); 10 previews and 5 confirmations per minute and member.
+* The request body is limited **before** it is parsed: a request to `/rpc/routeEventImportServiceManager*` without `Content-Length` or
+  above 2.5 MiB is answered with `413` and never read.
+* The importer opens no network connection of any kind: an online link is only checked for its shape and never fetched.
+* Error texts name the entry number and the field and never repeat content of the file.
+
+== Audit
+
+Every created event gets one audit entry (`entityType = EVENT`, `action = CREATE`, `after = {"imported":true,"slug":"..."}`), and each run that
+created at least one event gets one summary entry (`entityType = EVENT_IMPORT`, `after = {"created":n,"skipped":m,"payloadSha256":"..."}`). The
+actor is the importing member. No title or other text of the file is written to the audit log. Creating an event through the normal form is still
+**not** audited (a separate matter).
+
+== Database
+
+Migration `V81__event_public_feed_and_import.sql` adds `event.summary`, `event.cover_image_alt`, `event.online_url_public`, `event.imported`,
+the index `idx_event_public_archive` and widens the audit-log entity-type check by `EVENT` and `EVENT_IMPORT`. It is purely additive and leaves
+`V1__baseline.sql` untouched (like V80, the unnamed H2 check is dropped by its generated name; no `flywayRepair` is needed). Take a backup before
+deploying.

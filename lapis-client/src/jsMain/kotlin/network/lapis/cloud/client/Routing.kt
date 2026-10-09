@@ -459,6 +459,10 @@ object Routes {
     // als Sekundärlinks verlinkt (kein parametrisiertes Sub-Routing in dieser Welle).
     const val EVENT_MANAGEMENT = "/events"
 
+    // Welle V1.9.82 "Veranstaltungs-Feed, Archiv und Import" -- BOARD/ADMIN, `IEventImportService` calls
+    // `current.requireRole(BOARD, ADMIN)` first in both methods. Reached from a secondary button on [EVENT_MANAGEMENT].
+    const val EVENT_IMPORT = "/events/import"
+
     // Welle V1.4.3.2 "Veranstaltungen: Ticketing/QR-Codes" -- BOARD/ADMIN, verified against
     // `EventService.kt`: `openCheckIn`/`checkInByCode`/`checkInRegistration`/`reissueTicket` all
     // call `current.requireRole(*EVENT_MANAGE_ROLES)` where `EVENT_MANAGE_ROLES = [BOARD, ADMIN]` --
@@ -1065,6 +1069,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.EVENT_MANAGEMENT) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.EVENT_MANAGEMENT, ::renderEventsScreen)
+        }
+    }
+    routing.kvOn(Routes.EVENT_IMPORT) {
+        requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
+            show(Routes.EVENT_IMPORT, ::renderEventImportScreen)
         }
     }
     routing.kvOn(Routes.EVENT_CHECKIN) {

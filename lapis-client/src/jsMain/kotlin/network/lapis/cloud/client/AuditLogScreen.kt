@@ -568,6 +568,10 @@ fun decodeAuditSnapshot(
             // decode/render pair (same posture as above) -- falls through to the raw-text display.
             AuditEntityType.POLL -> null
             AuditEntityType.ENCOUNTER_SPACE -> null
+            // Welle V1.9.82 -- EventImporter writes small hand-built JSON objects (imported flag + slug, resp. counts + payload checksum),
+            // no snapshot class: falls through to the raw-text display.
+            AuditEntityType.EVENT -> null
+            AuditEntityType.EVENT_IMPORT -> null
         }
     }.getOrNull()
 

@@ -69,7 +69,9 @@ for their `OPTIONS` CORS preflight — see <<anonymous-donation-widget>> and
 preflight budget) — see <<cors-and-csp-contract>>. `/api/embed/v1/events` (60/min, same budget
 class as `/api/embed/v1/session`/`lapis-widgets.js`) shares its `OPTIONS` preflight's rate limit
 with the *event-registration* widget's own preflight budget, not a dedicated limiter — see
-<<events-list-widget>>. `/api/embed/v1/articles` has its own dedicated 60/min `GET` limiter, but
+<<events-list-widget>>. `/api/embed/v1/events/past` (the archive, V1.9.82) has its **own** dedicated 60/min `GET` limiter, so paging the
+archive never uses up the budget of `/api/embed/v1/events`; its `OPTIONS` preflight shares the same preflight budget — see
+<<events-past-feed>>. `/api/embed/v1/articles` has its own dedicated 60/min `GET` limiter, but
 — like `/api/embed/v1/events` — shares its `OPTIONS` preflight's rate limit with the
 *event-registration* widget's own preflight budget rather than a dedicated one — see
 <<articles-list-widget>>.
@@ -608,7 +610,11 @@ Response (`200`):
       "full": false,
       "feeAmount": "0.00",
       "feeCurrency": "EUR",
-      "coverImageUrl": "https://verein.example/veranstaltung/mitgliederversammlung-2026/bild?v=a1b2c3d4"
+      "coverImageUrl": "https://verein.example/veranstaltung/mitgliederversammlung-2026/bild?v=a1b2c3d4",
+      "coverImageAlt": "Plakat der Mitgliederversammlung",
+      "summary": "Wir wählen den neuen Vorstand.",
+      "description": "Liebe Mitglieder,\nwir laden Sie herzlich ein.\n\nTagesordnung: ...",
+      "onlineUrl": "https://meet.verein.example/mv-2026"
     }
   ]
 }
@@ -633,6 +639,23 @@ Response (`200`):
 * `coverImageUrl` — `null` if the event has no cover image set; otherwise the same absolute URL
   shape <<event-cover-image,the cover-image feature>> already documents.
 
+* `description` (V1.9.82) — always present, the **full text** of the event. It is **plain text**: no Markdown, no HTML.
+  Paragraphs are separated by one empty line (`\n\n`), a single `\n` is a line break inside a paragraph; the server
+  normalizes the text on output (Unicode NFC, `\r\n` and `\r` to `\n`, control and format characters such as NUL, ESC and
+  bidi overrides removed, three or more line breaks collapsed to one empty line, trailing whitespace trimmed).
+  **A consuming website MUST render it as text** (`textContent`, an escaped template) and **never as HTML**; Markdown
+  characters appear literally. The field is at most 8000 characters.
+* `summary` (V1.9.82) — optional single-line teaser (at most 300 characters), omitted when not set. Plain text as well.
+* `coverImageAlt` (V1.9.82) — optional alt text of the cover image (at most 500 characters), only present together with
+  `coverImageUrl`. Plain text.
+* `onlineUrl` (V1.9.82) — only present when **all three** hold: an administrator explicitly ticked "show the online link
+  publicly" for this event, the link is an `https://` URL, and the event is not cancelled. Otherwise the key is omitted;
+  the link is never published automatically. The archive feed never carries it.
+* There is **no `seriesId`** on purpose: nobody needs it, and a stable public series key would make all dates of a
+  series permanently linkable — an interface that cannot be taken back later.
+* No person data of any kind is part of the response (no creator, no registrations, no participant counts; `full` is a
+  boolean only). A test pins the set of allowed keys.
+
 Errors:
 
 [cols="1,3"]
@@ -643,6 +666,30 @@ Errors:
 |`429` (no body, `Retry-After` header) |Rate limit exceeded (60/min).
 |`500` (no body) |Unhandled server-side exception — never leaves a bare, header-less response.
 |===
+
+[[events-past-feed]]
+=== Past events (archive), wave V1.9.82
+
+`GET /api/embed/v1/events/past` — the same public events after they ended, newest first, for an "earlier events" page.
+Same CORS posture as the list above (a request without `Origin` is answered, a foreign `Origin` gets `403`), its **own**
+rate limit of 60/min (paging through the archive never uses up the budget of the list), `Cache-Control: no-store`.
+
+[source]
+----
+GET /api/embed/v1/events/past?page=1&limit=20
+----
+
+* `page` — whole number `1`..`100` (default `1`), `limit` — whole number `1`..`50` (default `20`). Anything else
+  (not a number, `0`, above the maximum, a fractional or negative value) is answered with `400` and the fixed body
+  `{"error":"invalid_parameter"}`. At most 5000 entries are reachable (100 pages of 50); paging uses `OFFSET`.
+* Scope: `visibility=PUBLIC AND status=PUBLISHED AND endsAt <= now`, ordered by `endsAt` descending, then by an internal id
+  so the order is stable across page boundaries. An event ending exactly "now" belongs to the archive and no longer to the
+  list above (`endsAt > now`): no gap and no duplicate. Members-only, draft and cancelled events never appear.
+* Response (`200`): `{"events": [...], "page": 1, "limit": 20, "hasMore": true}`. `hasMore` is derived from one extra row
+  that is read and not returned; there is no total count. An item has the fields of the list above **without** `full`
+  (an ended event has no seats) and **without** `onlineUrl` (the meeting link of a past event is never published).
+* `registrationUrl` points to the public event page, which says "Diese Veranstaltung hat stattgefunden." and offers no
+  registration form.
 
 `Cache-Control: no-store` is present on every response — this is a **read-only, non-personalized**
 endpoint, but it shares the same `applyEmbedCors` helper every other endpoint on this surface uses,

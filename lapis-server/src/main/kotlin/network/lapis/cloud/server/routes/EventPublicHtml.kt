@@ -6,6 +6,7 @@ import kotlinx.html.FlowContent
 import kotlinx.html.FormMethod
 import kotlinx.html.a
 import kotlinx.html.body
+import kotlinx.html.br
 import kotlinx.html.div
 import kotlinx.html.emailInput
 import kotlinx.html.form
@@ -24,6 +25,7 @@ import kotlinx.html.submitInput
 import kotlinx.html.textArea
 import kotlinx.html.textInput
 import kotlinx.html.title
+import network.lapis.cloud.server.events.EventText
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventTicketCode
 
@@ -60,6 +62,10 @@ internal object EventPublicHtml {
         val registrationOpen: Boolean,
         /** Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- additive. Absolute URL, non-null iff the event has a cover image set. See `EventCoverPolicy.coverImageUrl`. */
         val coverImageUrl: String? = null,
+        /** V1.9.82 -- alt text of the cover image; falls back to the title when null. */
+        val coverImageAlt: String? = null,
+        /** V1.9.82 -- `true` once the event is over (`endsAt <= wallNow`): the page then says so and offers no registration form. */
+        val hasEnded: Boolean = false,
     )
 
     fun eventPage(
@@ -68,19 +74,32 @@ internal object EventPublicHtml {
     ): String =
         skeleton(brandTitle = brandTitle, heading = view.title, ogImage = view.coverImageUrl) {
             if (view.coverImageUrl != null) {
-                img(src = view.coverImageUrl, alt = view.title, classes = "event-cover")
+                img(src = view.coverImageUrl, alt = view.coverImageAlt ?: view.title, classes = "event-cover")
             }
-            p { +view.description }
+            // Plain text only: one <p> per paragraph (empty line), single line breaks become <br>. Text nodes are escaped by kotlinx.html.
+            for (paragraph in EventText.paragraphs(EventText.normalizeMultiline(view.description))) {
+                p {
+                    paragraph.forEachIndexed { index, line ->
+                        if (index > 0) br()
+                        +line
+                    }
+                }
+            }
             if (view.locationText != null) p { +"Ort: ${view.locationText}" }
+            // Only set by the route when the administrator ticked "show the online link publicly" AND it is an https link (F1).
             if (view.onlineUrl != null) p { +"Online: ${view.onlineUrl}" }
             p { +"Beginn: ${view.startsAt}" }
             p { +"Ende: ${view.endsAt}" }
             p { +"Teilnahmegebühr: ${view.feeLabel}" }
-            p { +(if (view.full) "Plätze frei: Nein (Warteliste möglich)" else "Plätze frei: Ja") }
-            if (!view.registrationOpen) {
-                p { +"Die Anmeldung ist für diese Veranstaltung derzeit nicht möglich." }
+            if (view.hasEnded) {
+                p { +"Diese Veranstaltung hat stattgefunden." }
             } else {
-                registrationForm(view.slug)
+                p { +(if (view.full) "Plätze frei: Nein (Warteliste möglich)" else "Plätze frei: Ja") }
+                if (!view.registrationOpen) {
+                    p { +"Die Anmeldung ist für diese Veranstaltung derzeit nicht möglich." }
+                } else {
+                    registrationForm(view.slug)
+                }
             }
         }
 

@@ -122,6 +122,12 @@ internal object EventStore {
         // Dritte Folgewelle -- additive, defaulted so no pre-existing caller/test breaks.
         seriesId: Uuid? = null,
         seriesOriginalStart: LocalDateTime? = null,
+        // V1.9.82 -- additive, defaulted so no pre-existing caller/test breaks.
+        summary: String? = null,
+        coverImageAlt: String? = null,
+        onlineUrlPublic: Boolean = false,
+        // `true` ONLY from EventImporter (a tripwire test pins that) -- events created by the admin import of past events.
+        imported: Boolean = false,
     ) {
         EventTable.insert {
             it[EventTable.id] = id
@@ -144,6 +150,10 @@ internal object EventStore {
             it[EventTable.roomId] = roomId
             it[EventTable.seriesId] = seriesId
             it[EventTable.seriesOriginalStart] = seriesOriginalStart
+            it[EventTable.summary] = summary
+            it[EventTable.coverImageAlt] = coverImageAlt
+            it[EventTable.onlineUrlPublic] = onlineUrlPublic
+            it[EventTable.imported] = imported
         }
     }
 
@@ -162,6 +172,10 @@ internal object EventStore {
         registrationClosesAt: LocalDateTime?,
         // Welle V1.4.3.4 "Raumverwaltung" -- additive, defaulted so no pre-existing caller/test breaks.
         roomId: Uuid? = null,
+        // V1.9.82 -- deliberately WITHOUT defaults: every caller must pass them consciously, otherwise a series edit would silently reset them.
+        summary: String?,
+        coverImageAlt: String?,
+        onlineUrlPublic: Boolean,
     ) {
         EventTable.update({ EventTable.id eq id }) {
             it[EventTable.title] = title
@@ -176,6 +190,9 @@ internal object EventStore {
             it[EventTable.visibility] = visibility
             it[EventTable.registrationClosesAt] = registrationClosesAt
             it[EventTable.roomId] = roomId
+            it[EventTable.summary] = summary
+            it[EventTable.coverImageAlt] = coverImageAlt
+            it[EventTable.onlineUrlPublic] = onlineUrlPublic
         }
     }
 

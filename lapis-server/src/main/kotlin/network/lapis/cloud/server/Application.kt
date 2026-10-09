@@ -267,6 +267,7 @@ import network.lapis.cloud.server.rpc.DsgvoService
 import network.lapis.cloud.server.rpc.DunningService
 import network.lapis.cloud.server.rpc.ElectionService
 import network.lapis.cloud.server.rpc.EncounterSpaceService
+import network.lapis.cloud.server.rpc.EventImportService
 import network.lapis.cloud.server.rpc.EventRoomService
 import network.lapis.cloud.server.rpc.EventService
 import network.lapis.cloud.server.rpc.EventVolunteerService
@@ -308,6 +309,7 @@ import network.lapis.cloud.server.rpc.TrustAnchorService
 import network.lapis.cloud.server.rpc.VatService
 import network.lapis.cloud.server.rpc.VolunteerAllowanceService
 import network.lapis.cloud.server.rpc.WebhookService
+import network.lapis.cloud.server.rpc.installEventImportBodyLimit
 import network.lapis.cloud.server.rpc.installRpcErrorSanitizer
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.social.PostDraftRetentionPoller
@@ -353,6 +355,7 @@ import network.lapis.cloud.shared.rpc.IDsgvoService
 import network.lapis.cloud.shared.rpc.IDunningService
 import network.lapis.cloud.shared.rpc.IElectionService
 import network.lapis.cloud.shared.rpc.IEncounterSpaceService
+import network.lapis.cloud.shared.rpc.IEventImportService
 import network.lapis.cloud.shared.rpc.IEventRoomService
 import network.lapis.cloud.shared.rpc.IEventService
 import network.lapis.cloud.shared.rpc.IEventVolunteerService
@@ -1727,7 +1730,12 @@ internal fun Application.module(
     // registerEmbedEventsFeedRoutes' own KDoc), 60/min consistent with the OTHER read/no-write embed
     // endpoints above (embedAssetRateLimiter/embedSessionRateLimiter), not the strict 5-30/hour
     // budgets reserved for money/write paths below.
+    // V1.9.82 -- per-member budgets for the event import (10 previews / 5 commits per minute).
+    val eventImportPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes, maxTrackedKeys = 1_000)
+    val eventImportCommitRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 1.minutes, maxTrackedKeys = 1_000)
     val embedEventsFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+    // V1.9.82 -- the archive feed's own budget (paging the archive must not use up the main feed's 60/min).
+    val embedEventsPastFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
     // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- same posture as embedEventsFeedRateLimiter above.
     val embedArticlesFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
     // Welle V1.9.20 -- ONE shared budget for the three read-only profile feeds (board/politicians/chapters).
@@ -1866,6 +1874,8 @@ internal fun Application.module(
 
     // V1.9.55: must precede initRpc (see RpcErrorSanitizer KDoc).
     installRpcErrorSanitizer()
+    // V1.9.82: 413 before Kilua reads the body of the event-import route (size guard, see EventImportBodyLimit).
+    installEventImportBodyLimit()
 
     // initRpc installs its own ContentNegotiation (JSON) plugin internally, configured for the
     // RPC serializers module — installing another one ourselves would collide with it
@@ -2269,6 +2279,14 @@ internal fun Application.module(
         registerService(IReceivableDunningService::class) { call -> ReceivableDunningService(call) }
         // Welle V1.4.3.4 "Raumverwaltung für Veranstaltungen".
         registerService(IEventRoomService::class) { call -> EventRoomService(call) }
+        // Welle V1.9.82 "Veranstaltungs-Feed, Archiv und Import" -- BOARD/ADMIN import of past events.
+        registerService(IEventImportService::class) { call ->
+            EventImportService(
+                call = call,
+                previewRateLimiter = eventImportPreviewRateLimiter,
+                commitRateLimiter = eventImportCommitRateLimiter,
+            )
+        }
         // Welle V1.4.3.5 "Catering-Management für Veranstaltungen".
         registerService(ICateringService::class) { call -> CateringService(call) }
         // Welle V1.4.3.7 "Helfer-/Schichtplanung für Veranstaltungen".
@@ -2593,6 +2611,7 @@ internal fun Application.module(
             eventRegistrationRateLimiter = eventRegistrationRateLimiter,
             eventPageRateLimiter = eventPageRateLimiter,
             eventsFeedRateLimiter = embedEventsFeedRateLimiter,
+            eventsPastFeedRateLimiter = embedEventsPastFeedRateLimiter,
             articlesFeedRateLimiter = embedArticlesFeedRateLimiter,
             profilesFeedRateLimiter = embedProfilesFeedRateLimiter,
             brandTitle = resolvedBranding.title,

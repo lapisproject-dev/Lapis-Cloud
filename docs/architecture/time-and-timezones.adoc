@@ -90,6 +90,10 @@ classDiagram(name = "Time classes (V1.9.38)") {
 * *Daylight saving.* A wall-clock inside a spring-forward gap resolves forward (02:30 on 2026-03-29 is 01:30Z); an ambiguous wall-clock in the
   autumn overlap takes the earlier offset (02:30 on 2026-10-25 is 00:30Z). That is the kotlinx-datetime behaviour; `ServerClockTest` pins it
   so a library update cannot change it silently.
+* *Import of past events (V1.9.82).* `startsAt`/`endsAt` in the import file are *naive* class-B wall-clock values of the organization zone
+  (`yyyy-MM-ddTHH:mm`, no offset, no `Z`). They are stored exactly as typed and compared with `wallNow`; nothing is converted to UTC on import
+  (that happens only when a feed is rendered). A nonexistent (spring gap) or ambiguous (autumn overlap) local time is accepted as typed. See
+  `docs/api/event-import.adoc`.
 * *iCal feed.* A single event's `DTSTART`/`DTEND` are the UTC instants of the organization wall-clock. `DTSTAMP` is a class-A stamp and is
   formatted unchanged. A series master and its exceptions carry `;TZID=<event_series.timezone>` plus a generated `VTIMEZONE`
   (`DTSTART`, `DTEND`, `EXDATE`, `RECURRENCE-ID`): expressed in UTC, a weekly "19:00 Berlin" series would drift by an hour whenever the

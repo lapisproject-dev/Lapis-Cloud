@@ -33,6 +33,12 @@ object EventPolicy {
     /** Mirrors `event.online_url VARCHAR(2048)`. */
     const val MAX_ONLINE_URL_LENGTH = 2048
 
+    /** Mirrors `event.summary VARCHAR(300)` (V1.9.82). */
+    const val MAX_SUMMARY_LENGTH = 300
+
+    /** Mirrors `event.cover_image_alt VARCHAR(500)` (V1.9.82). */
+    const val MAX_COVER_IMAGE_ALT_LENGTH = 500
+
     /** Mirrors `event_registration.guest_name VARCHAR(300)`. */
     const val MAX_GUEST_NAME_LENGTH = 300
 
@@ -135,6 +141,17 @@ object EventPolicy {
         if (input.startsAt != existingStartsAt && input.startsAt < wallNow) {
             throw BadRequestException("Beginn darf nicht in der Vergangenheit liegen.")
         }
+        val summary = normalizedSummary(input.summary)
+        if (summary != null && summary.length > MAX_SUMMARY_LENGTH) {
+            throw BadRequestException("Kurztext ist zu lang (maximal $MAX_SUMMARY_LENGTH Zeichen).")
+        }
+        val coverImageAlt = normalizedCoverImageAlt(input.coverImageAlt)
+        if (coverImageAlt != null && coverImageAlt.length > MAX_COVER_IMAGE_ALT_LENGTH) {
+            throw BadRequestException("Bildbeschreibung ist zu lang (maximal $MAX_COVER_IMAGE_ALT_LENGTH Zeichen).")
+        }
+        if (input.onlineUrlPublic && !EventText.isHttpsUrl(onlineUrl)) {
+            throw BadRequestException("Online-Link kann nur öffentlich angezeigt werden, wenn er mit https:// beginnt.")
+        }
         val capacity = input.capacity
         if (capacity != null && capacity <= 0) throw BadRequestException("Kapazität muss positiv sein, wenn angegeben.")
         if (input.feeAmount.compareTo(BigDecimal.ZERO) < 0) throw BadRequestException("Teilnahmegebühr darf nicht negativ sein.")
@@ -145,6 +162,12 @@ object EventPolicy {
             throw BadRequestException("Anmeldeschluss darf nicht nach dem Veranstaltungsbeginn liegen.")
         }
     }
+
+    /** V1.9.82: stored form of [EventInput.summary] -- single-line plain text, blank becomes `null`. */
+    fun normalizedSummary(raw: String?): String? = raw?.let { EventText.normalizeSingleLine(it) }?.takeIf { it.isNotEmpty() }
+
+    /** V1.9.82: stored form of [EventInput.coverImageAlt] -- single-line plain text, blank becomes `null`. */
+    fun normalizedCoverImageAlt(raw: String?): String? = raw?.let { EventText.normalizeSingleLine(it) }?.takeIf { it.isNotEmpty() }
 
     /**
      * Derives a URL-safe slug from [title]: NFD-normalize, transliterate umlauts/ß, drop every

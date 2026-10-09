@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDecimal
+import io.kvision.form.check.CheckBox
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.Select
 import io.kvision.form.select.select
@@ -29,6 +30,7 @@ import kotlinx.browser.window
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EventDto
 import network.lapis.cloud.shared.domain.EventInput
 import network.lapis.cloud.shared.domain.EventQuery
@@ -82,6 +84,13 @@ fun renderEventsScreen(container: SimplePanel) {
     }
     secondaryLinksRow.button(tr("Check-in"), style = ButtonStyle.OUTLINESECONDARY) {
         onClick { navigateTo(Routes.EVENT_CHECKIN) }
+    }
+    // V1.9.82: import of past events -- BOARD/ADMIN only (the whole /events screen is gated the same way in Routing.kt; the explicit check
+    // keeps the button hidden should the screen ever be reachable by another role).
+    if (AppState.session?.role in setOf(AccountRole.BOARD, AccountRole.ADMIN)) {
+        secondaryLinksRow.button(tr("Importieren"), style = ButtonStyle.OUTLINESECONDARY) {
+            onClick { navigateTo(Routes.EVENT_IMPORT) }
+        }
     }
 
     renderEventRefundsSection(root) // V1.9.35, self-gated BOARD/ADMIN, invisible when empty
@@ -186,6 +195,7 @@ private fun renderEventListRow(
         }
         headerRow.eventStatusBadge(event.status)
         headerRow.eventVisibilityBadge(event.visibility)
+        if (event.imported) headerRow.div(tr("Importiert")) { addCssClasses("badge text-bg-secondary") }
 
         displayHolder.div(event.startsAt.toString()) { addCssClasses("text-muted small") }
         if (event.roomName != null) {
@@ -405,6 +415,12 @@ private class EventFormFieldRefs(
     val roomSelect: Select,
     /** Non-null only in the edit form when `!prefill.feeEditable` -- see [readEventForm]'s KDoc "feeEditable-Fallstrick". */
     val lockedFeeAmount: Decimal?,
+    /** V1.9.82 -- public teaser of the events feed. */
+    val summaryInput: Text,
+    /** V1.9.82 -- opt-in to show the online link on the public page and in the feed; only enabled for an `https://` link. */
+    val onlineUrlPublicCheck: CheckBox,
+    /** V1.9.82 -- alt text of the cover image; only exists in the edit form (a cover can only be added to a saved event). */
+    val coverImageAltInput: Text?,
 )
 
 private fun buildEventFormFields(
@@ -413,9 +429,40 @@ private fun buildEventFormFields(
     rooms: List<EventRoomDto>,
 ): EventFormFieldRefs {
     val titleInput = panel.text(label = tr("Titel")).apply { value = prefill?.title }
+    val summaryInput = panel.text(label = tr("Kurztext (optional)")).apply { value = prefill?.summary }
+    panel.div(tr("Erscheint auf der Webseite als Vorschautext. Öffentlich.")) { addCssClasses("text-muted small") }
+    val summaryCounter = panel.div("") { addCssClasses("small text-muted") }
+
+    fun updateSummaryCounter() {
+        val count =
+            summaryInput.value
+                .orEmpty()
+                .trim()
+                .length
+        summaryCounter.content = gettext("%1 / %2", count, EVENT_SUMMARY_MAX_LENGTH)
+        if (count > EVENT_SUMMARY_MAX_LENGTH) summaryCounter.addCssClass("text-danger") else summaryCounter.removeCssClass("text-danger")
+    }
+    updateSummaryCounter()
+    summaryInput.subscribe { updateSummaryCounter() }
     val descriptionInput = panel.textArea(label = tr("Beschreibung"), rows = 4).apply { value = prefill?.description }
+    panel.div(tr("Wird öffentlich angezeigt.")) { addCssClasses("text-muted small") }
     val locationTextInput = panel.text(label = tr("Ort (Adresse, optional)")).apply { value = prefill?.locationText }
+    panel.div(tr("Wird öffentlich angezeigt.")) { addCssClasses("text-muted small") }
     val onlineUrlInput = panel.text(label = tr("Online-Link (optional)")).apply { value = prefill?.onlineUrl }
+    val onlineUrlPublicCheck =
+        panel.checkBox(
+            value = prefill?.onlineUrlPublic == true,
+            label = tr("Online-Link öffentlich anzeigen (Webseite und Veranstaltungs-Feed)"),
+        )
+    panel.div(tr("Nur aktivieren, wenn der Link ohne Anmeldung geteilt werden darf.")) { addCssClasses("text-muted small") }
+
+    fun syncOnlineUrlPublicCheck() {
+        val usable = isHttpsLink(onlineUrlInput.value.orEmpty())
+        onlineUrlPublicCheck.disabled = !usable
+        if (!usable && onlineUrlPublicCheck.value) onlineUrlPublicCheck.value = false
+    }
+    syncOnlineUrlPublicCheck()
+    onlineUrlInput.subscribe { syncOnlineUrlPublicCheck() }
     val startsAtInput =
         panel.text(type = InputType.DATETIME_LOCAL, label = tr("Beginn")).apply { value = prefill?.startsAt?.toString() }
     val endsAtInput =
@@ -445,6 +492,20 @@ private fun buildEventFormFields(
             label = tr("Raum (optional)"),
         )
     val lockedFeeAmount = if (prefill != null && !prefill.feeEditable) prefill.feeAmount else null
+    var coverImageAltInput: Text? = null
+    if (prefill != null) {
+        val altInput = panel.text(label = tr("Bildbeschreibung (Alternativtext)")).apply { value = prefill.coverImageAlt }
+        coverImageAltInput = altInput
+        panel.div(tr("Beschreibt das Titelbild für Screenreader und Suchmaschinen. Öffentlich.")) { addCssClasses("text-muted small") }
+        val altWarning =
+            panel.div(tr("Für das Titelbild fehlt eine Bildbeschreibung.")) { addCssClasses("text-warning small") }
+
+        fun syncAltWarning() {
+            if (prefill.coverImageUrl != null && altInput.value.orEmpty().isBlank()) altWarning.show() else altWarning.hide()
+        }
+        syncAltWarning()
+        altInput.subscribe { syncAltWarning() }
+    }
     return EventFormFieldRefs(
         titleInput = titleInput,
         descriptionInput = descriptionInput,
@@ -458,6 +519,9 @@ private fun buildEventFormFields(
         visibilitySelect = visibilitySelect,
         roomSelect = roomSelect,
         lockedFeeAmount = lockedFeeAmount,
+        summaryInput = summaryInput,
+        onlineUrlPublicCheck = onlineUrlPublicCheck,
+        coverImageAltInput = coverImageAltInput,
     )
 }
 
@@ -508,6 +572,9 @@ private fun readEventForm(
             feeAmountRaw = feeAmountRaw,
             visibility = visibility,
             roomId = fields.roomSelect.value?.takeIf { it.isNotBlank() },
+            summary = fields.summaryInput.value.orEmpty(),
+            coverImageAlt = fields.coverImageAltInput?.value.orEmpty(),
+            onlineUrlPublic = fields.onlineUrlPublicCheck.value,
         )
     return when (val result = validateEventForm(raw, existingStartsAt)) {
         is EventFormResult.Ok -> result.input
@@ -601,6 +668,9 @@ private fun EventFormFieldRefs.snapshotValues(): List<String> =
         feeAmountInput.value,
         visibilitySelect.value,
         roomSelect.value,
+        summaryInput.value,
+        coverImageAltInput?.value,
+        if (onlineUrlPublicCheck.value) "1" else "0",
     ).map { it.orEmpty() }
 
 private fun renderEventEditForm(

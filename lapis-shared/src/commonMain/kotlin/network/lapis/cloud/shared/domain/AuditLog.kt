@@ -380,6 +380,21 @@ enum class AuditEntityType {
      * `audit_log_entry.entity_type` `VARCHAR(29)` width limit. Appended LAST, after `POLL`, additive only.
      */
     ENCOUNTER_SPACE,
+
+    /**
+     * Welle V1.9.82 "Veranstaltungs-Feed, Archiv und Import" -- one entry per event created by the admin import of past events
+     * (`EventImporter`), `action = CREATE`, `entityId` = the new `event` row's id, `after = {"imported":true,"slug":"..."}`. Never carries
+     * the title or any other text from the import payload. Normal `createEvent`/`publishEvent` are still NOT audited. 5 chars.
+     * Appended LAST, after `ENCOUNTER_SPACE`, additive only.
+     */
+    EVENT,
+
+    /**
+     * Welle V1.9.82 -- one summary entry per committed import run, `action = CREATE`, `entityId` = a fresh random id (the run has no row),
+     * `after = {"created":n,"skipped":m,"payloadSha256":"..."}`. 12 chars, fits within `audit_log_entry.entity_type` `VARCHAR(29)`.
+     * Appended LAST, additive only.
+     */
+    EVENT_IMPORT,
 }
 
 /**

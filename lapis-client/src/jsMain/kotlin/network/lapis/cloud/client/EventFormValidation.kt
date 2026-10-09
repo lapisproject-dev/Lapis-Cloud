@@ -44,10 +44,25 @@ data class EventFormRawInput(
     val feeAmountRaw: String,
     val visibility: EventVisibility,
     val roomId: String?,
+    /** V1.9.82 -- additive and defaulted, so no pre-existing caller breaks. */
+    val summary: String = "",
+    val coverImageAlt: String = "",
+    val onlineUrlPublic: Boolean = false,
 )
 
 private const val MAX_TITLE_LENGTH = 200
 private const val MAX_DESCRIPTION_LENGTH = 8000
+private const val MAX_SUMMARY_LENGTH = 300
+private const val MAX_COVER_IMAGE_ALT_LENGTH = 500
+
+/** V1.9.82 -- public teaser limit, shared with the live counter in the form. */
+const val EVENT_SUMMARY_MAX_LENGTH: Int = MAX_SUMMARY_LENGTH
+
+// Host: no whitespace, no userinfo (`@` before the first `/`, `?` or `#`) and only host characters (no `_`, which makes URI.host null on the server).
+private val HTTPS_LINK = Regex("^https://[A-Za-z0-9.\\-\\[\\]:]+([/?#]\\S*)?$", RegexOption.IGNORE_CASE)
+
+/** Shape check mirroring the server's `EventText.isHttpsUrl` (the server stays authoritative): an `https://` link with a plain host, no userinfo. */
+fun isHttpsLink(raw: String): Boolean = HTTPS_LINK.matches(raw.trim())
 
 /**
  * [existingStartsAt] gespiegelt aus `EventPolicy.validate`: die Vergangenheits-Prüfung greift nur,
@@ -77,6 +92,18 @@ fun validateEventForm(
     val onlineUrl = raw.onlineUrl.trim().takeIf { it.isNotBlank() }
     if (locationText == null && onlineUrl == null) {
         return EventFormResult.Error(tr("Mindestens ein Veranstaltungsort (Adresse oder Online-Link) ist erforderlich."))
+    }
+
+    val summary = raw.summary.trim().takeIf { it.isNotBlank() }
+    if (summary != null && summary.length > MAX_SUMMARY_LENGTH) {
+        return EventFormResult.Error(gettext("Kurztext ist zu lang (maximal %1 Zeichen).", MAX_SUMMARY_LENGTH))
+    }
+    val coverImageAlt = raw.coverImageAlt.trim().takeIf { it.isNotBlank() }
+    if (coverImageAlt != null && coverImageAlt.length > MAX_COVER_IMAGE_ALT_LENGTH) {
+        return EventFormResult.Error(gettext("Bildbeschreibung ist zu lang (maximal %1 Zeichen).", MAX_COVER_IMAGE_ALT_LENGTH))
+    }
+    if (raw.onlineUrlPublic && (onlineUrl == null || !isHttpsLink(onlineUrl))) {
+        return EventFormResult.Error(tr("Der Online-Link kann nur öffentlich angezeigt werden, wenn er mit https:// beginnt."))
     }
 
     val startsAt =
@@ -141,6 +168,9 @@ fun validateEventForm(
             visibility = raw.visibility,
             registrationClosesAt = registrationClosesAt,
             roomId = raw.roomId,
+            summary = summary,
+            coverImageAlt = coverImageAlt,
+            onlineUrlPublic = raw.onlineUrlPublic,
         ),
     )
 }

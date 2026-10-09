@@ -218,4 +218,17 @@ class EventFormValidationTest {
         assertEquals(EventVisibility.PUBLIC, input.visibility)
         assertEquals("room-1", input.roomId)
     }
+
+    @Test
+    fun isHttpsLinkMirrorsTheServerRule() {
+        assertTrue(isHttpsLink("https://meet.example/x"))
+        assertTrue(isHttpsLink("HTTPS://meet.example"))
+        assertTrue(isHttpsLink("https://meet.example:8443/x?y=1#z"))
+        assertTrue(!isHttpsLink("http://meet.example/x"))
+        assertTrue(!isHttpsLink("https://user@meet.example/x"))
+        assertTrue(!isHttpsLink("https://meet_room.example/x"))
+        assertTrue(!isHttpsLink("https://"))
+        assertTrue(!isHttpsLink("https:///x"))
+        assertTrue(!isHttpsLink("https://meet.example/a b"))
+    }
 }

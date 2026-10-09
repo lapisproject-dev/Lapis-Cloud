@@ -232,6 +232,9 @@ class EventService(
                 createdAt = now,
                 createdBy = current.memberId,
                 roomId = roomId,
+                summary = EventPolicy.normalizedSummary(input.summary),
+                coverImageAlt = EventPolicy.normalizedCoverImageAlt(input.coverImageAlt),
+                onlineUrlPublic = input.onlineUrlPublic,
             )
             EventStore.getEventOrThrow(id).toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl)
         }
@@ -299,6 +302,9 @@ class EventService(
                 visibility = input.visibility,
                 registrationClosesAt = input.registrationClosesAt,
                 roomId = roomId,
+                summary = EventPolicy.normalizedSummary(input.summary),
+                coverImageAlt = EventPolicy.normalizedCoverImageAlt(input.coverImageAlt),
+                onlineUrlPublic = input.onlineUrlPublic,
             )
             EventStore.getEventOrThrow(eventId).toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl)
         }
@@ -1264,6 +1270,10 @@ private fun ResultRow.toEventDto(
         roomId = roomId?.toString(),
         roomName = EventRoomStore.roomNameOrNull(roomId),
         coverImageUrl = EventCoverPolicy.coverImageUrl(baseUrl = baseUrl, slug = slug, coverImageId = this[EventTable.coverImageId]),
+        summary = this[EventTable.summary],
+        coverImageAlt = this[EventTable.coverImageAlt],
+        onlineUrlPublic = this[EventTable.onlineUrlPublic],
+        imported = this[EventTable.imported],
         seriesId = seriesId?.toString(),
         seriesDetached = seriesDetached,
         seriesRuleSummary = seriesRuleSummary,

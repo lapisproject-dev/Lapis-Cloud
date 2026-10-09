@@ -6,6 +6,8 @@
 // Welle V1.4.37 "Wiederkehrende Veranstaltungen, Folgewelle (Rest)" -- hand-edited, `seriesId`/
 // `seriesOriginalStart`/`seriesDetached` columns added, see 39-events.kuml.kts file header
 // addendum.
+// Welle V1.9.82 "Veranstaltungs-Feed, Archiv und Import" -- hand-edited, `summary`/`coverImageAlt`/
+// `onlineUrlPublic`/`imported` columns added, see 39-events.kuml.kts file header addendum.
 
 package network.lapis.cloud.server.db.generated
 
@@ -56,6 +58,12 @@ public object EventTable : Table("event") {
     public val seriesId: Column<Uuid?> = uuid("series_id").nullable()
     public val seriesOriginalStart: Column<LocalDateTime?> = datetime("series_original_start").nullable()
     public val seriesDetached: Column<Boolean> = bool("series_detached").default(false)
+
+    // V1.9.82 addendum -- see 39-events.kuml.kts file header.
+    public val summary: Column<String?> = varchar("summary", 300).nullable()
+    public val coverImageAlt: Column<String?> = varchar("cover_image_alt", 500).nullable()
+    public val onlineUrlPublic: Column<Boolean> = bool("online_url_public").default(false)
+    public val imported: Column<Boolean> = bool("imported").default(false)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

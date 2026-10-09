@@ -94,6 +94,12 @@ class EmbedEventsFeedRoutesTest :
             feeAmount: BigDecimal = BigDecimal("0.00"),
             status: EventStatus = EventStatus.PUBLISHED,
             visibility: EventVisibility = EventVisibility.PUBLIC,
+            description: String = "test",
+            summary: String? = null,
+            coverImageAlt: String? = null,
+            coverImageId: Uuid? = null,
+            onlineUrl: String? = null,
+            onlineUrlPublic: Boolean = false,
         ): Pair<Uuid, String> {
             val organizer = createMember()
             val id = Uuid.random()
@@ -103,9 +109,13 @@ class EmbedEventsFeedRoutesTest :
                     it[EventTable.id] = id
                     it[EventTable.slug] = slug
                     it[EventTable.title] = title
-                    it[description] = "test"
+                    it[EventTable.description] = description
                     it[EventTable.locationText] = locationText
-                    it[onlineUrl] = null
+                    it[EventTable.onlineUrl] = onlineUrl
+                    it[EventTable.summary] = summary
+                    it[EventTable.coverImageAlt] = coverImageAlt
+                    it[EventTable.coverImageId] = coverImageId
+                    it[EventTable.onlineUrlPublic] = onlineUrlPublic
                     it[EventTable.startsAt] = startsAt
                     it[EventTable.endsAt] = endsAt
                     it[EventTable.capacity] = capacity
@@ -159,6 +169,7 @@ class EmbedEventsFeedRoutesTest :
         suspend fun testApp(
             feedRateLimiter: FederationInboxRateLimiter = generousLimiter(),
             preflightRateLimiter: FederationInboxRateLimiter = generousLimiter(),
+            pastFeedRateLimiter: FederationInboxRateLimiter = generousLimiter(),
             block: suspend ApplicationTestBuilder.() -> Unit,
         ) {
             testApplication {
@@ -169,6 +180,7 @@ class EmbedEventsFeedRoutesTest :
                             baseUrl = "https://lapis.example",
                             feedRateLimiter = feedRateLimiter,
                             preflightRateLimiter = preflightRateLimiter,
+                            pastFeedRateLimiter = pastFeedRateLimiter,
                         )
                     }
                 }
@@ -319,6 +331,123 @@ class EmbedEventsFeedRoutesTest :
                 val response = client.get("/api/embed/v1/events") { header(HttpHeaders.Origin, "https://partei.example") }
                 response.status shouldBe HttpStatusCode.OK
                 Json.parseToJsonElement(response.bodyAsText()).jsonObject.containsKey("events") shouldBe true
+            }
+        }
+
+        // ── V1.9.82: full text, summary, alt text, online link -- and what must NOT leave the server ──
+
+        val allowedKeys =
+            setOf(
+                "slug",
+                "title",
+                "startsAt",
+                "endsAt",
+                "locationText",
+                "registrationUrl",
+                "full",
+                "feeAmount",
+                "feeCurrency",
+                "coverImageUrl",
+                "description",
+                "summary",
+                "coverImageAlt",
+                "onlineUrl",
+            )
+
+        test("V1.9.82: description is always present and normalized (CRLF, control characters, blank-line runs)") {
+            val (_, slug) = createEvent(description = "Erste Zeile\r\nZweite\u0000 Zeile\n\n\n\nAbsatz zwei  ")
+            testApp {
+                val item = eventsOf(client.get("/api/embed/v1/events").bodyAsText(), slug)
+                item["description"]!!.jsonPrimitive.content shouldBe "Erste Zeile\nZweite Zeile\n\nAbsatz zwei"
+            }
+        }
+
+        test("V1.9.82: summary is output single-line and omitted when absent") {
+            val (_, withSummary) = createEvent(summary = "Kurz\nund knapp")
+            val (_, without) = createEvent()
+            testApp {
+                val body = client.get("/api/embed/v1/events").bodyAsText()
+                eventsOf(body, withSummary)["summary"]!!.jsonPrimitive.content shouldBe "Kurz und knapp"
+                eventsOf(body, without).containsKey("summary") shouldBe false
+            }
+        }
+
+        test("V1.9.82: coverImageAlt only appears together with a cover image") {
+            val (_, withCover) = createEvent(coverImageId = Uuid.random(), coverImageAlt = "Ein Plakat")
+            val (_, noCover) = createEvent(coverImageAlt = "Ein Plakat ohne Bild")
+            testApp {
+                val body = client.get("/api/embed/v1/events").bodyAsText()
+                eventsOf(body, withCover)["coverImageAlt"]!!.jsonPrimitive.content shouldBe "Ein Plakat"
+                eventsOf(body, withCover)["coverImageUrl"] shouldNotBe null
+                eventsOf(body, noCover).containsKey("coverImageAlt") shouldBe false
+            }
+        }
+
+        test("V1.9.82: onlineUrl only with explicit opt-in AND https") {
+            val (_, optedIn) = createEvent(onlineUrl = "https://meet.example/abc", onlineUrlPublic = true)
+            val (_, notOptedIn) = createEvent(onlineUrl = "https://meet.example/secret", onlineUrlPublic = false)
+            val (_, httpOptedIn) = createEvent(onlineUrl = "http://meet.example/plain", onlineUrlPublic = true)
+            val (_, optedInNoLink) = createEvent(onlineUrl = null, onlineUrlPublic = true)
+            testApp {
+                val body = client.get("/api/embed/v1/events").bodyAsText()
+                eventsOf(body, optedIn)["onlineUrl"]!!.jsonPrimitive.content shouldBe "https://meet.example/abc"
+                eventsOf(body, notOptedIn).containsKey("onlineUrl") shouldBe false
+                eventsOf(body, httpOptedIn).containsKey("onlineUrl") shouldBe false
+                eventsOf(body, optedInNoLink).containsKey("onlineUrl") shouldBe false
+                body.contains("meet.example/secret") shouldBe false
+            }
+        }
+
+        test("V1.9.82: backward compatible -- every pre-existing key keeps its name and type, full stays mandatory") {
+            val (_, slug) = createEvent(feeAmount = BigDecimal("5.00"), coverImageId = Uuid.random())
+            testApp {
+                val item = eventsOf(client.get("/api/embed/v1/events").bodyAsText(), slug)
+                for (key in listOf(
+                    "slug",
+                    "title",
+                    "startsAt",
+                    "endsAt",
+                    "locationText",
+                    "registrationUrl",
+                    "feeAmount",
+                    "feeCurrency",
+                    "coverImageUrl",
+                )) {
+                    item[key]!!.jsonPrimitive.isString shouldBe true
+                }
+                item["full"]!!.jsonPrimitive.isString shouldBe false
+                item["full"]!!.jsonPrimitive.content shouldBe "false"
+            }
+        }
+
+        test("V1.9.82: privacy whitelist -- only known keys, no person data of any kind") {
+            val (eventId, slug) =
+                createEvent(
+                    summary = "s",
+                    coverImageId = Uuid.random(),
+                    coverImageAlt = "a",
+                    onlineUrl = "https://m.example/x",
+                    onlineUrlPublic = true,
+                )
+            confirmRegistration(eventId)
+            testApp {
+                val response = client.get("/api/embed/v1/events").bodyAsText()
+                val item = eventsOf(response, slug)
+                (item.keys - allowedKeys) shouldBe emptySet()
+                for (forbidden in listOf(
+                    "createdBy",
+                    "createdAt",
+                    "imported",
+                    "memberId",
+                    "email",
+                    "guestEmail",
+                    "roomId",
+                    "capacity",
+                    "status",
+                    "visibility",
+                )) {
+                    response.contains("\"$forbidden\"") shouldBe false
+                }
             }
         }
     })

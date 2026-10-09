@@ -120,6 +120,9 @@ fun Route.registerEmbedRoutes(
     // Limiter statt eines Paars; die OPTIONS-Preflight teilt sich eventPageRateLimiter (siehe
     // registerEmbedEventsFeedRoutes' eigene KDoc, OQ-2).
     eventsFeedRateLimiter: FederationInboxRateLimiter,
+    // V1.9.82 -- the archive feed (`/api/embed/v1/events/past`) gets its OWN limiter so paging the archive never uses up the main feed's budget.
+    eventsPastFeedRateLimiter: FederationInboxRateLimiter =
+        FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000),
     // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- articles-list feed widget, same
     // read-only/public-by-design posture as eventsFeedRateLimiter above (Q5: opt-in behind
     // LAPIS_EMBED_ENABLED, unlike the always-on /aktuelles/* public page/cover routes -- see
@@ -193,6 +196,7 @@ fun Route.registerEmbedRoutes(
         baseUrl = baseUrl,
         feedRateLimiter = eventsFeedRateLimiter,
         preflightRateLimiter = eventPageRateLimiter,
+        pastFeedRateLimiter = eventsPastFeedRateLimiter,
     )
 
     // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- Artikelliste als Embed-Widget.

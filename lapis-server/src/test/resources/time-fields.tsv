@@ -819,3 +819,5 @@ col:EncounterSpaceTable.createdAt	A	stamped by the server clock (DbClock/ServerC
 col:EncounterSpaceTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:EncounterSpaceTable.archivedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:EncounterConsentAcknowledgmentTable.acknowledgedOn	D	EncounterSpaceService.recordConsent: OrganizationTimeZone.today() -- a DATE on purpose, never a timestamp (Art. 9: no time of attendance)
+dto:EventImportPreviewRowDto.startsAt	B	EventImporter: naive wall-clock typed in the import payload, never converted
+dto:EventImportPreviewRowDto.endsAt	B	EventImporter: naive wall-clock typed in the import payload, never converted

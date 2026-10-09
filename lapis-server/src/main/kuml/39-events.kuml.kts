@@ -202,6 +202,13 @@
 // recomputable at render time by re-expanding the rule and diffing against the persisted
 // `event.seriesOriginalStart` rows. See `network.lapis.cloud.server.events.series
 // .RecurrenceExpander` KDoc and `docs/architecture/event-series.adoc` for the render-side detail.
+//
+// **Welle V1.9.82 "Veranstaltungs-Feed, Archiv und Import" addendum** (`V81__event_public_feed_and_import.sql`) adds four `event`
+// columns and one index: `summary` (<= 300 chars, public teaser), `coverImageAlt` (<= 500 chars, alt text of the cover image),
+// `onlineUrlPublic` (Boolean, default false -- the online link is public only after an explicit opt-in) and `imported` (Boolean, default
+// false -- TRUE only for events created by `EventImporter`). `idx_event_public_archive (status, visibility, ends_at, id)` is a plain
+// composite index, not the partial index the design sketched, because H2 cannot build partial indexes. Import and (only for imported
+// events) their creation are audited via `AuditEntityType.EVENT`/`EVENT_IMPORT`; ordinary create/publish stays unaudited.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -319,6 +326,10 @@ classDiagram(name = "Events") {
             "unique" to true
         }
         stereotype("Index") { "columns" to listOf("series_id", "starts_at"); "name" to "idx_event_series_starts" }
+        stereotype("Index") {
+            "columns" to listOf("status", "visibility", "ends_at", "id")
+            "name" to "idx_event_public_archive"
+        }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -417,6 +428,26 @@ classDiagram(name = "Events") {
         attribute(name = "seriesDetached", type = "Boolean") {
             defaultValue = "false"
             stereotype("Column") { "columnName" to "series_detached" }
+        }
+        // V1.9.82 addendum (see file header). Public teaser text for the events feed.
+        attribute(name = "summary", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "summary"; "sqlType" to "VARCHAR(300)" }
+        }
+        // V1.9.82 addendum. Alt text of the cover image (public).
+        attribute(name = "coverImageAlt", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "cover_image_alt"; "sqlType" to "VARCHAR(500)" }
+        }
+        // V1.9.82 addendum. The online link is public (page + feed) only when this is explicitly TRUE.
+        attribute(name = "onlineUrlPublic", type = "Boolean") {
+            defaultValue = "false"
+            stereotype("Column") { "columnName" to "online_url_public" }
+        }
+        // V1.9.82 addendum. TRUE only for events created by EventImporter; never changeable via updateEvent.
+        attribute(name = "imported", type = "Boolean") {
+            defaultValue = "false"
+            stereotype("Column") { "columnName" to "imported" }
         }
     }
 

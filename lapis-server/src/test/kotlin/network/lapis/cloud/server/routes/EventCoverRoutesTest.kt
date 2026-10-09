@@ -585,6 +585,9 @@ class EventCoverRoutesTest :
                         feeCurrency = null,
                         visibility = EventVisibility.MEMBERS_ONLY,
                         registrationClosesAt = null,
+                        summary = null,
+                        coverImageAlt = null,
+                        onlineUrlPublic = false,
                     )
                 }
                 val coverIdAfter =

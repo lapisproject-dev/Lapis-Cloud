@@ -93,6 +93,13 @@ internal object EventSeriesMaterializer {
                 status = EventStatus.PUBLISHED,
                 seriesId = seriesId,
                 seriesOriginalStart = occurrenceStart,
+                summary =
+                    network.lapis.cloud.server.events.EventPolicy
+                        .normalizedSummary(template.summary),
+                coverImageAlt =
+                    network.lapis.cloud.server.events.EventPolicy
+                        .normalizedCoverImageAlt(template.coverImageAlt),
+                onlineUrlPublic = template.onlineUrlPublic,
             )
             ids += id
         }
@@ -163,6 +170,13 @@ internal object EventSeriesMaterializer {
                 visibility = newTemplate.visibility,
                 registrationClosesAt = newTemplate.registrationClosesAt,
                 roomId = roomId,
+                summary =
+                    network.lapis.cloud.server.events.EventPolicy
+                        .normalizedSummary(newTemplate.summary),
+                coverImageAlt =
+                    network.lapis.cloud.server.events.EventPolicy
+                        .normalizedCoverImageAlt(newTemplate.coverImageAlt),
+                onlineUrlPublic = newTemplate.onlineUrlPublic,
             )
             affectedIds += eventId
         }

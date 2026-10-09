@@ -165,6 +165,9 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.POLL -> gettext("Umfrage")
         // Welle V1.9.61 "Begegnungsraum"
         AuditEntityType.ENCOUNTER_SPACE -> gettext("Begegnungsraum")
+        // Welle V1.9.82 "Veranstaltungs-Feed, Archiv und Import"
+        AuditEntityType.EVENT -> gettext("Veranstaltung")
+        AuditEntityType.EVENT_IMPORT -> gettext("Veranstaltungsimport")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -265,6 +268,9 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // Welle V1.9.30 -- a non-binding opinion poll: informational, no money or access rights involved.
         AuditEntityType.POLL -> "info"
         AuditEntityType.ENCOUNTER_SPACE -> "info"
+        // Welle V1.9.82 -- an import of past events: informational, no money or access rights involved.
+        AuditEntityType.EVENT -> "info"
+        AuditEntityType.EVENT_IMPORT -> "info"
     }
 
 // ------------------------------------------------------------------------------------------------

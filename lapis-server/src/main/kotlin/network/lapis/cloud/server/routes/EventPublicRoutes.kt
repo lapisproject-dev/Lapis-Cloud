@@ -32,6 +32,7 @@ import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.server.events.EventRegistrationResult
 import network.lapis.cloud.server.events.EventRegistrationSubmission
 import network.lapis.cloud.server.events.EventStore
+import network.lapis.cloud.server.events.EventText
 import network.lapis.cloud.server.events.EventTicketPolicy
 import network.lapis.cloud.server.events.QrCodeEncoder
 import network.lapis.cloud.server.events.mailPromotion
@@ -746,17 +747,25 @@ private fun loadPublicEventView(
                 startsAt = row[EventTable.startsAt],
                 wallNow = OrganizationTimeZone.wallNowOf(now),
             )
+        val wallNow = OrganizationTimeZone.wallNowOf(now)
         EventPublicHtml.View(
             title = row[EventTable.title],
             slug = row[EventTable.slug],
             description = row[EventTable.description],
             locationText = row[EventTable.locationText],
-            onlineUrl = row[EventTable.onlineUrl],
+            // V1.9.82 (F1): the online link appears on the public page ONLY after an explicit opt-in, only as https, and only
+            // while the event has not ended (same rule as the feeds: a past event's meeting link is never published).
+            onlineUrl =
+                row[EventTable.onlineUrl]?.takeIf {
+                    row[EventTable.onlineUrlPublic] && EventText.isHttpsUrl(it) && row[EventTable.endsAt] > wallNow
+                },
             startsAt = row[EventTable.startsAt],
             endsAt = row[EventTable.endsAt],
             feeLabel = feeLabel,
             full = full,
             registrationOpen = registrationOpen,
+            hasEnded = row[EventTable.endsAt] <= wallNow,
+            coverImageAlt = row[EventTable.coverImageAlt],
             coverImageUrl =
                 EventCoverPolicy.coverImageUrl(
                     baseUrl = baseUrl,

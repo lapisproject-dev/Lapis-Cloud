@@ -38,6 +38,61 @@ class EventPolicyTest :
             registrationClosesAt = null,
         )
 
+        // ── V1.9.82: summary, cover image alt text, public online link ───────────────────
+
+        test("validate accepts a summary of exactly 300 characters and rejects 301") {
+            EventPolicy.validate(input = baseInput().copy(summary = "a".repeat(300)), wallNow = now)
+            shouldThrow<BadRequestException> {
+                EventPolicy.validate(input = baseInput().copy(summary = "a".repeat(301)), wallNow = now)
+            }
+        }
+
+        test("validate measures the summary in its stored (normalized) form") {
+            // 300 letters + a line break + trailing spaces normalize to 300 characters -> accepted.
+            EventPolicy.validate(input = baseInput().copy(summary = "a".repeat(300) + "\n   "), wallNow = now)
+        }
+
+        test("validate rejects a cover image alt text above 500 characters") {
+            EventPolicy.validate(input = baseInput().copy(coverImageAlt = "a".repeat(500)), wallNow = now)
+            shouldThrow<BadRequestException> {
+                EventPolicy.validate(input = baseInput().copy(coverImageAlt = "a".repeat(501)), wallNow = now)
+            }
+        }
+
+        test("validate accepts a public online link only for https") {
+            EventPolicy.validate(
+                input = baseInput().copy(onlineUrl = "https://example.org/stream", onlineUrlPublic = true),
+                wallNow = now,
+            )
+            shouldThrow<BadRequestException> {
+                EventPolicy.validate(
+                    input = baseInput().copy(onlineUrl = "http://example.org/stream", onlineUrlPublic = true),
+                    wallNow = now,
+                )
+            }
+            shouldThrow<BadRequestException> {
+                EventPolicy.validate(input = baseInput().copy(onlineUrl = null, onlineUrlPublic = true), wallNow = now)
+            }
+            // not public -> any link shape stays as permissive as before
+            EventPolicy.validate(input = baseInput().copy(onlineUrl = "http://example.org/stream", onlineUrlPublic = false), wallNow = now)
+        }
+
+        test("validate still rejects a start in the past for a normal event (the import has its own rule)") {
+            shouldThrow<BadRequestException> {
+                EventPolicy.validate(
+                    input = baseInput(startsAt = LocalDateTime(2020, 1, 1, 10, 0), endsAt = LocalDateTime(2020, 1, 1, 12, 0)),
+                    wallNow = now,
+                )
+            }
+        }
+
+        test("normalizedSummary and normalizedCoverImageAlt are single-line plain text, blank becomes null") {
+            EventPolicy.normalizedSummary("  a\nb  ") shouldBe "a b"
+            EventPolicy.normalizedSummary("   ") shouldBe null
+            EventPolicy.normalizedSummary(null) shouldBe null
+            EventPolicy.normalizedCoverImageAlt(" Bild \r\n Text ") shouldBe "Bild Text"
+        }
+
         // ── validate ──────────────────────────────────────────────────────────────────
 
         test("validate accepts a well-formed input") {

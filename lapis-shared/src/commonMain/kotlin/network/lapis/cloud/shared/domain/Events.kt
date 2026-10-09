@@ -51,6 +51,12 @@ data class EventInput(
     val registrationClosesAt: LocalDateTime? = null,
     /** Welle V1.4.3.4 "Raumverwaltung" -- additive, defaulted so no pre-existing caller/test breaks. Server-validated: must reference an ACTIVE `EventRoom` with no overlapping booking (see `EventRoomCollisionGuard`). */
     val roomId: String? = null,
+    /** V1.9.82 -- public teaser text (<= 300 chars, single line), shown in the public events feed. Server-normalized. */
+    val summary: String? = null,
+    /** V1.9.82 -- alt text of the cover image (<= 500 chars), public. Server-normalized. */
+    val coverImageAlt: String? = null,
+    /** V1.9.82 -- when `true` the online link is shown on the public page and in the feed (only valid with an `https://` link). Default off. */
+    val onlineUrlPublic: Boolean = false,
 )
 
 @Serializable
@@ -108,6 +114,14 @@ data class EventDto(
     val ownRefundMarkedAt: LocalDateTime? = null,
     /** V1.9.35: the amount actually paid for that newest own registration (sum of COMPLETED sessions), null if unpaid. */
     val ownPaidAmount: Decimal? = null,
+    /** V1.9.82 -- mirrors [EventInput.summary]. */
+    val summary: String? = null,
+    /** V1.9.82 -- mirrors [EventInput.coverImageAlt]. */
+    val coverImageAlt: String? = null,
+    /** V1.9.82 -- mirrors [EventInput.onlineUrlPublic]. */
+    val onlineUrlPublic: Boolean = false,
+    /** V1.9.82 -- `true` for events created by the admin import of past events. */
+    val imported: Boolean = false,
 )
 
 /** V1.9.35 -- one paid-but-withdrawn registration whose refund the board still has to pay outside Lapis Cloud. */

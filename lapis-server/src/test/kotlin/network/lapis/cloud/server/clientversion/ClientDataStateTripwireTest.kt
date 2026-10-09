@@ -64,10 +64,15 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * row, a calm "Status wird aktualisiert" line replaces the toast a `dataErrorState` would be); the booth load is a one-shot action whose
  * failure is a plain inline note and whose success replaces the whole overview. Same accepted shape as the badge reads above.
  * 151 -> 153.
+ * Welle V1.9.82 "Veranstaltungs-Feed, Archiv und Import" adds ONE more, in the new `EventImportScreen.kt` (a new file, hence 46 -> 47 files
+ * too): the "Vorschau prüfen" action calls `previewEventImport(` on demand. Same accepted shape as `MailingHtmlEditor.kt`'s `previewMailingHtml(`
+ * above: a user-triggered, stateless dry run with no list to load, so no loading/empty/error state to present -- a failure already toasts
+ * through `guarded` and the screen simply stays in the editor. (The method name starts with "preview", which [READ_CALL] counts as a read.)
+ * 153 -> 154.
  * The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 153
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 46
+private const val READ_OUTSIDE_STATE_REGION_MAX = 154
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 47
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

@@ -8,6 +8,18 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Public events feed with full text, archive feed and import of past events (V1.9.82, migration V81).** *Feed* `GET /api/embed/v1/events`: new optional fields `description` (the full text, always present, **plain text** with paragraphs separated by an empty line,
+  normalized on output; a consuming website must render it as text, never as HTML), `summary` (teaser), `coverImageAlt` (only with a cover image) and `onlineUrl` (only when an administrator explicitly ticked "show the online link publicly", the link is
+  `https://` and the event is not cancelled). All additions are optional keys, `full` stays mandatory; a test pins the set of allowed keys (no person data) and a second one the unchanged old keys. No `seriesId` on purpose (a stable public series key cannot be
+  taken back). *Archive feed* `GET /api/embed/v1/events/past?page=1&limit=20` (own rate limit of 60/min, same CORS posture): `PUBLIC`+`PUBLISHED` events with `endsAt <= now`, newest first, ties broken by id, `page` 1..100, `limit` 1..50, anything else `400
+  {"error":"invalid_parameter"}`, answer `{events, page, limit, hasMore}` (one extra row is read for `hasMore`, no `COUNT`, no per-row query), without `full` and without `onlineUrl`; an event ending exactly now belongs to the archive and no longer to the
+  list. *Import* (`IEventImportService`, BOARD/ADMIN, screen `#/events/import`): a JSON array (at most 200 entries, 2 MiB) of **past** events, strict key whitelist (no `status`/`visibility`/fees/`imported`), naive organization wall-clock times (class B,
+  stored as typed), dry-run preview (errors first, status as symbol and word) and one all-or-nothing transaction on confirmation (hash of the previewed text must match; an existing slug is skipped, never updated; `PUBLISHED`, `PUBLIC`, free,
+  `registrationClosesAt = startsAt`, `imported = true`); audit: one `EVENT`/`CREATE` entry per event plus one `EVENT_IMPORT` summary (no payload text). The request body is size-limited (413) **before** Kilua reads it. *Form and page:* summary with live
+  counter, checkbox "Online-Link öffentlich anzeigen" (off by default, only for `https://`), alt text of the cover image with a non-blocking warning, "Wird öffentlich angezeigt." hints, an "Importiert" badge; the public event page now renders paragraphs
+  and line breaks, uses the alt text, and says "Diese Veranstaltung hat stattgefunden." without a registration form once the event is over. New texts in all seven catalogs (agent-made translations). Docs: `docs/api/event-import.adoc` (new),
+  `docs/api/embed-widgets.adoc`, `docs/architecture/time-and-timezones.adoc`. **V81 is purely additive and leaves `V1__baseline.sql` untouched (like V80: the unnamed H2 check on `audit_log_entry.entity_type` is dropped by its generated name `CONSTRAINT_407`;
+  no `flywayRepair` is needed). Take a backup before deploying.** Website, release, version bump, push and deploy are not part of this wave.
 - **E-mail hourly budget and durable outbox (V1.9.81, migration V80, budget off by default).** A shared mailbox at a hosting provider is limited (netcup: 250 mails per hour); exceeding it blocks the mailbox
   including password-reset mails. New optional `LAPIS_MAIL_MAX_PER_HOUR` (10..10000) and `LAPIS_MAIL_RESERVE_PER_HOUR` (default `max(1, ceil(0.2 * max))`): a sliding 3600 s window counts every mail handed to the
   relay; a mailing-list send (lane BULK) may use `max - reserve`, a system mail (lane SYSTEM) all of `max`. The slot is reserved in its own short transaction behind `SELECT ... FOR UPDATE` on the singleton row of
@@ -144,6 +156,9 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **The online link of an event is no longer shown on the public page `/veranstaltung/{slug}` unless an administrator ticked "Online-Link öffentlich anzeigen" (V1.9.82, behaviour change).** Before, the link of every public, published event was printed there. Existing
+  events lose the line on the page until the box is ticked in the edit form (the link itself stays in the event; the ticket page for a ticket holder still shows it). The iCal feed and the embed widgets never carried it.
+
 - **Password reveal toggle on every own-password field (V1.9.78).** Login (also the emergency-admin login), the reset-confirmation form, registration, friend registration, the password-reset
   deep link, the e-mail-change confirmation (with password), both password prompts of the e-mail card and "Passwort ändern" now have the "Anzeigen"/"Verbergen" eye. The confirmation field shares
   the eye of its main field (new also for "Passwort ändern"); `aria-controls` names the input(s), the button is `type="button"`, and the inputs get `spellcheck="false"`, `autocapitalize="off"`,
@@ -210,6 +225,11 @@ All notable changes to this project are documented here. Format follows
 - The profile sync never changes the address of a BOARD / TREASURER / ADMIN account, never overtakes an open change (V1.9.56 / V1.9.57), and keeps the link keyed on the subject.
 
 ### Known limitations
+
+- **Events feed / import (V1.9.82).** Cover images are not imported (upload them by hand afterwards). No `seriesId` in any feed. Creating or publishing an event through the normal form is still not audited (only imported events are). The archive feed pages with
+  `OFFSET` and reaches at most 5000 entries (100 pages of 50); `Cache-Control: no-store` rules out caching of both feeds. The import creates no series. The size guard of the import route needs a `Content-Length` header (a chunked request is answered with 413);
+  it matches the Kilua route name by prefix (`/rpc/routeEventImportServiceManager*`, pinned by a full-application test). The SHA-256 of the import is a checksum against accidental edits, not a security boundary. On H2 with a non-UTC process zone a nonexistent
+  local time (spring gap) can be shifted by the test database driver; production runs with `TZ=UTC` and stores the value as typed. Translations are agent-made and not checked by native speakers.
 
 - **Keycloak provisioning / sync (V1.9.73): not tested against a real Keycloak or WABEO** -- only against a simulated identity provider (a mock token endpoint and JWKS, real RSA signatures).
 - Provisioning reads only top-level claims; a nested claim path (`realm_access.roles`) is not supported. A group is matched exactly; sub-groups do not match.
