@@ -250,7 +250,11 @@ class McpClaudeCodeLoopbackFlowTest :
                         )
                     }
                 tokenResponse.status shouldBe HttpStatusCode.OK
-                val dto = JSON.decodeFromString(OidcTokenResponseDto.serializer(), tokenResponse.bodyAsText())
+                val tokenBody = tokenResponse.bodyAsText()
+                // The MCP TypeScript SDK parses the token response strictly: no key may carry null (V1.9.88), and a token response is never cached.
+                tokenBody shouldNotContain ":null"
+                tokenResponse.headers["Cache-Control"] shouldBe "no-store"
+                val dto = JSON.decodeFromString(OidcTokenResponseDto.serializer(), tokenBody)
                 dto.scope shouldBe "mcp:member_read"
 
                 // 9. /mcp with the token

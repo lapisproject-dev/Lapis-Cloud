@@ -269,7 +269,12 @@ class OidcMcpLoopbackRoutesTest :
                     }
                 response.status shouldBe HttpStatusCode.Created
                 val body = response.bodyAsText()
-                body shouldContain "\"client_secret\":null"
+                // A public client gets NO client_secret key at all (never "client_secret":null): the MCP TypeScript SDK of Claude Code
+                // rejects a null here and aborts the sign-in after the registration (V1.9.88).
+                body shouldNotContain "client_secret\""
+                body shouldNotContain ":null"
+                body shouldContain "\"client_secret_expires_at\":0"
+                body shouldContain "\"token_endpoint_auth_method\":\"none\""
                 createdClientIds += Regex("\"client_id\":\"([^\"]+)\"").find(body)!!.groupValues[1]
             }
         }

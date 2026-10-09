@@ -3,6 +3,7 @@ package network.lapis.cloud.server.mcp
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -127,7 +128,8 @@ class McpEndToEndTest :
                 }
             response.status shouldBe HttpStatusCode.Created
             val body = response.bodyAsText()
-            body shouldContain "\"client_secret\":null"
+            body shouldNotContain "client_secret\""
+            body shouldNotContain ":null"
             val clientId = Regex("\"client_id\":\"([^\"]+)\"").find(body)!!.groupValues[1]
             createdClientIds += clientId
             return clientId

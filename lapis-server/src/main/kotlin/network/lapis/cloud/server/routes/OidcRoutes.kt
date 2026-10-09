@@ -7,6 +7,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.Cookie
 import io.ktor.http.CookieEncoding
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
 import io.ktor.http.isSuccess
@@ -15,6 +16,7 @@ import io.ktor.server.plugins.origin
 import io.ktor.server.request.receiveParameters
 import io.ktor.server.request.receiveText
 import io.ktor.server.request.uri
+import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondRedirect
 import io.ktor.server.response.respondText
@@ -86,6 +88,18 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
 
 private val OIDC_JSON = Json { ignoreUnknownKeys = true }
+
+/**
+ * JSON for the success bodies of the registration and token endpoints that third-party OAuth clients parse with strict schemas
+ * (V1.9.88): a key whose value is `null` must be ABSENT, never `"key":null` -- the MCP TypeScript SDK (Claude Code) rejects
+ * `"client_secret":null` of a public client ("expected string, received null") and aborts the sign-in after a successful
+ * registration. `encodeDefaults` keeps the fields with defaults (`token_type`, `client_secret_expires_at`) on the wire.
+ */
+private val OAUTH_RESPONSE_JSON =
+    Json {
+        explicitNulls = false
+        encodeDefaults = true
+    }
 
 internal const val DCR_ERR_REDIRECT_URIS =
     "redirect_uris must use https; plain http is allowed only for public clients (token_endpoint_auth_method=none) " +
@@ -640,18 +654,23 @@ fun Route.registerOidcRoutes(
                 }
             }
         }
-        call.respond(
-            HttpStatusCode.Created,
-            OidcDynamicClientRegistrationResponse(
-                client_id = newClientId,
-                client_secret = if (isPublicClient) null else rawClientSecret,
-                client_id_issued_at = now.toInstant(TimeZone.UTC).epochSeconds,
-                client_secret_expires_at = 0,
-                redirect_uris = body.redirect_uris,
-                grant_types = listOf("authorization_code", "refresh_token"),
-                response_types = listOf("code"),
-                token_endpoint_auth_method = authMethod,
-            ),
+        call.respondText(
+            text =
+                OAUTH_RESPONSE_JSON.encodeToString(
+                    OidcDynamicClientRegistrationResponse.serializer(),
+                    OidcDynamicClientRegistrationResponse(
+                        client_id = newClientId,
+                        client_secret = if (isPublicClient) null else rawClientSecret,
+                        client_id_issued_at = now.toInstant(TimeZone.UTC).epochSeconds,
+                        client_secret_expires_at = 0,
+                        redirect_uris = body.redirect_uris,
+                        grant_types = listOf("authorization_code", "refresh_token"),
+                        response_types = listOf("code"),
+                        token_endpoint_auth_method = authMethod,
+                    ),
+                ),
+            contentType = io.ktor.http.ContentType.Application.Json,
+            status = HttpStatusCode.Created,
         )
     }
 
@@ -1561,15 +1580,22 @@ private suspend fun issueTokens(
         }
     }
     OidcLoginAuditRecorder.record(eventType = OidcLoginEventType.ISSUER_TOKEN_ISSUED, memberId = memberId, remoteParty = clientId)
-    call.respond(
-        OidcTokenResponseDto(
-            access_token = rawAccessToken,
-            token_type = "Bearer",
-            expires_in = ACCESS_TOKEN_TTL.inWholeSeconds,
-            refresh_token = rawRefreshToken,
-            id_token = idToken,
-            scope = scope,
-        ),
+    call.response.header(HttpHeaders.CacheControl, "no-store")
+    call.response.header(HttpHeaders.Pragma, "no-cache")
+    call.respondText(
+        text =
+            OAUTH_RESPONSE_JSON.encodeToString(
+                OidcTokenResponseDto.serializer(),
+                OidcTokenResponseDto(
+                    access_token = rawAccessToken,
+                    token_type = "Bearer",
+                    expires_in = ACCESS_TOKEN_TTL.inWholeSeconds,
+                    refresh_token = rawRefreshToken,
+                    id_token = idToken,
+                    scope = scope,
+                ),
+            ),
+        contentType = io.ktor.http.ContentType.Application.Json,
     )
 }
 
