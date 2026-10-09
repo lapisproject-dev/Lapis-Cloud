@@ -128,23 +128,12 @@ internal fun Route.registerMcpRoutes(
 
         when (request.method) {
             "initialize" -> {
-                // Same hard pin as the MCP-Protocol-Version HEADER check above (line ~84) --
-                // `initialize`'s own params.protocolVersion is the OTHER place a client states its
-                // version, and a mismatch there must be rejected the same way, never silently
-                // accepted (see class KDoc + MCP_PROTOCOL_VERSION KDoc).
-                val requestedProtocolVersion =
-                    ((request.params as? JsonObject)?.get("protocolVersion") as? JsonPrimitive)?.contentOrNull
-                if (requestedProtocolVersion != null && requestedProtocolVersion != MCP_PROTOCOL_VERSION) {
-                    call.respondText(
-                        errorResponse(
-                            id = request.id,
-                            code = McpJsonRpcErrorCode.INVALID_PARAMS,
-                            message = "Unsupported protocolVersion: $requestedProtocolVersion",
-                        ),
-                        contentType = ContentType.Application.Json,
-                    )
-                    return@post
-                }
+                // Version negotiation (MCP lifecycle): the client states the newest version IT supports in
+                // `initialize`'s params.protocolVersion; the server answers with the version it speaks
+                // (MCP_PROTOCOL_VERSION) and the client decides whether it can continue. Rejecting an unknown
+                // version here would break every client that offers a newer revision (V1.9.87). After the
+                // handshake the client sends the negotiated version in the MCP-Protocol-Version header, which
+                // the check above still pins exactly.
                 call.respondText(
                     successResponse(id = request.id, result = mcpInitializeResult()),
                     contentType = ContentType.Application.Json,

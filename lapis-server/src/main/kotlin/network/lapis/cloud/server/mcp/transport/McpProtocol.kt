@@ -6,10 +6,11 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
 /**
- * Hard-pinned MCP protocol version -- this server implements exactly one revision, never
- * negotiates down/up. A client sending a different `MCP-Protocol-Version` header (or a different
- * `protocolVersion` inside `initialize`'s own params) is rejected, never silently accepted -- see
- * `routes.McpRoutes` KDoc.
+ * The one MCP protocol revision this server implements. `initialize` negotiates per the MCP lifecycle: whatever
+ * version the client offers, the server answers with this one and the client decides whether it can continue
+ * (V1.9.87; before, an unknown offered version was rejected, which broke clients that offer a newer revision).
+ * After the handshake a client sending a different `MCP-Protocol-Version` header is rejected (400), never
+ * silently accepted -- see `routes.McpRoutes` KDoc.
  */
 internal const val MCP_PROTOCOL_VERSION = "2025-06-18"
 

@@ -266,35 +266,26 @@ class McpConformanceTest :
         }
 
         test(
-            "initialize's own params.protocolVersion is pinned exactly like the header -- a mismatch " +
-                "is rejected, never silently accepted",
+            "initialize negotiates: an unknown or newer params.protocolVersion is answered with the server's own " +
+                "version, never rejected (MCP lifecycle, V1.9.87)",
         ) {
             testApplication {
                 val noRedirectClient = createClient { followRedirects = false }
                 application { module(aiConfig = AiConfig.load { null }, mcpConfig = conformanceMcpConfig()) }
                 val accessToken = grantFreshToken(client, noRedirectClient, "http://127.0.0.1:19701/cb")
 
-                // No header at all -- only params.protocolVersion states a (wrong) version.
-                val response =
-                    mcpCall(
-                        client = client,
-                        accessToken = accessToken,
-                        body = """{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}""",
-                        protocolVersionHeader = null,
-                    )
-                val json = CONFORMANCE_JSON.parseToJsonElement(response.bodyAsText()).jsonObject
-                json.containsKey("error") shouldBe true
-                json["error"]!!.jsonObject["code"]!!.jsonPrimitive.content shouldBe "-32602"
-
-                // The matching version, in params only, is accepted.
-                val ok =
-                    mcpCall(
-                        client = client,
-                        accessToken = accessToken,
-                        body = """{"jsonrpc":"2.0","id":2,"method":"initialize","params":{"protocolVersion":"$MCP_PROTOCOL_VERSION"}}""",
-                        protocolVersionHeader = null,
-                    )
-                ok.bodyAsText() shouldContain "\"result\""
+                for ((id, offered) in listOf(1 to "2025-11-25", 2 to "2024-11-05", 3 to MCP_PROTOCOL_VERSION)) {
+                    val response =
+                        mcpCall(
+                            client = client,
+                            accessToken = accessToken,
+                            body = """{"jsonrpc":"2.0","id":$id,"method":"initialize","params":{"protocolVersion":"$offered"}}""",
+                            protocolVersionHeader = null,
+                        )
+                    val json = CONFORMANCE_JSON.parseToJsonElement(response.bodyAsText()).jsonObject
+                    json.containsKey("error") shouldBe false
+                    json["result"]!!.jsonObject["protocolVersion"]!!.jsonPrimitive.content shouldBe MCP_PROTOCOL_VERSION
+                }
             }
         }
 

@@ -535,9 +535,9 @@ after 7 days / `RELEASED` rows after 90 days. See xref:dsgvo.adoc[dsgvo.adoc].
 * **Claude Code (V1.9.86) was not tested against the real client.** The requests of `McpClaudeCodeLoopbackFlowTest`
   are reconstructed from the MCP authorization specification and the SDK's behaviour, not captured from a real
   client. The real test is done after the rollout on PdV and ELB. Not supported: `client_secret_basic` at `/token`
-  and Client ID Metadata Documents. `initialize` still accepts only the pinned protocol version `2025-06-18`
-  (see `McpProtocol.kt`); a client that offers only a newer version is rejected after a successful sign-in. The
-  help page `ai-assistant-mcp` gets a Claude Code guide after the rollout.
+  and Client ID Metadata Documents. `initialize` negotiates the protocol version since V1.9.87: whatever version the client offers,
+  the server answers with its own `2025-06-18` (MCP lifecycle) and the client decides whether it can continue; a
+  client that supports only newer revisions will still disconnect after the handshake. The help page `ai-assistant-mcp` gets a Claude Code guide after the rollout.
 * **Manual conformance verification against a real MCP client (Claude Desktop) was not performed** --
   it needs a running instance with `LAPIS_MCP_ENABLED=true` and a publicly-reachable HTTPS origin
   (a local agent and a loopback redirect tolerate `localhost:8080` only partially); this is the single
