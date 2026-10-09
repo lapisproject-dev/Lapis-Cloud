@@ -106,8 +106,18 @@ class EncounterRoomDomTest {
 
     // ── office holders ───────────────────────────────────────────────────────────
 
+    /** V1.9.90: the text of all polite status regions of the room (fixed sentences only). */
+    private fun HTMLElement.liveTexts(): List<String> =
+        allOf(".visually-hidden[role=status][aria-live=polite]").map { it.textContent.orEmpty().trim() }
+
+    private fun HTMLElement.micOffAnnouncements(): Int = liveTexts().count { it == "Ihr Mikrofon ist aus." }
+
+    private fun HTMLElement.barGroups(): List<HTMLElement> = allOf(".lapis-encounter-control-group")
+
+    private fun HTMLElement.shownBarButtons(): List<HTMLElement> = barButtons().filter { it.isShown() }
+
     @Test
-    fun aPulpitPerson_getsTheCameraOnEntering_theMicrophoneStaysOff_andAStatusBandSaysSo(): Promise<Unit> =
+    fun aPulpitPerson_getsTheCameraOnEntering_theMicrophoneStaysOff_noBand_andItIsAnnouncedOnce(): Promise<Unit> =
         formTest {
             val session = FakeSpeakerSession()
             val entry = testEntry(role = EncounterPresenceRole.PULPIT)
@@ -118,27 +128,100 @@ class EncounterRoomDomTest {
             ) { _, element ->
                 assertEquals(listOf(true), session.cameraCalls, "the camera is switched on once, in the entering chain")
                 assertTrue(session.microphoneCalls.isEmpty(), "the microphone stays off")
-                val band = assertNotNull(element.querySelector(".lapis-encounter-mic-band") as? HTMLElement, "the standing mic band")
-                assertEquals("status", band.getAttribute("role"))
-                assertTrue(band.textContent.orEmpty().contains("Ihr Mikrofon ist aus."))
+                assertNull(element.querySelector(".lapis-encounter-mic-band"), "no standing band any more")
+                assertFalse(element.allOf("button").any { it.textContent.orEmpty().trim() == "Einschalten" }, "no second switch-on button")
                 val names = element.barControlNames()
                 assertTrue("Mikrofon" in names && "Kamera" in names, "the pulpit controls: $names")
-                // switching the microphone on is the one explicit click
-                band.buttonNamed("Einschalten").click()
+                assertEquals(0.0, (element.querySelector(".lapis-encounter-bands") as HTMLElement).getBoundingClientRect().height)
+                val mic = element.barControl("Mikrofon")
+                val camera = element.barControl("Kamera")
+                assertEquals("false", mic.getAttribute("aria-pressed"))
+                assertTrue(mic.classList.contains("btn-outline-danger"), "microphone off is the red outline")
+                assertEquals("true", camera.getAttribute("aria-pressed"))
+                assertFalse(camera.classList.contains("btn-outline-danger"))
+                // the room announces "off" once, a little after entering
+                awaitUntil("the one-time announcement") { element.micOffAnnouncements() == 1 }
+                // switching the microphone on is the one explicit click; nothing is announced for it
+                mic.click()
                 awaitUntil("the microphone was switched on") { session.microphoneCalls == listOf(true) }
-                awaitUntil("the band is gone") { !band.isShown() }
+                awaitUntil("the microphone shows its state") { mic.getAttribute("aria-pressed") == "true" }
+                assertTrue(mic.classList.contains("btn-primary"))
+                assertFalse(mic.classList.contains("btn-outline-danger"))
+                assertTrue(
+                    mic
+                        .querySelector("i,span")
+                        ?.className
+                        .orEmpty()
+                        .contains("fa-microphone") ||
+                        mic.innerHTML.contains("fa-microphone"),
+                )
+                assertFalse(mic.innerHTML.contains("fa-microphone-slash"))
             }
         }
 
     @Test
-    fun aSteward_startsWithCameraAndMicrophoneOff(): Promise<Unit> =
+    fun aPulpitPerson_hasTheDevicesFirstAndLeaveLast_inTheBar(): Promise<Unit> =
+        formTest {
+            withRoom(
+                testEntry(role = EncounterPresenceRole.PULPIT),
+                listOf(testPerson("me", EncounterPresenceRole.PULPIT, "Ich Selbst")) + sixPeople,
+                session = FakeSpeakerSession(),
+            ) { _, element ->
+                val groups = element.barGroups()
+                assertTrue(groups.first().classList.contains("lapis-encounter-control-group--devices"), "devices first")
+                assertTrue(groups.last().classList.contains("lapis-encounter-control-group--exit"), "exit last")
+                assertEquals("Geräte", groups.first().getAttribute("aria-label"))
+                assertEquals("group", groups.first().getAttribute("role"))
+                val names = element.shownBarButtons().map { it.barName() }
+                assertEquals(listOf("Mikrofon", "Kamera"), names.take(2), "microphone before camera, both at the left edge: $names")
+                assertEquals("Verlassen", names.last(), "leave at the right edge: $names")
+            }
+        }
+
+    @Test
+    fun aMicrophoneThatIsAlreadyOn_isNotAnnounced_andLeavingBeforeTheTimerAnnouncesNothing(): Promise<Unit> =
+        formTest {
+            val session = FakeSpeakerSession()
+            withRoom(testEntry(role = EncounterPresenceRole.STEWARD), sixPeople, session = session) { _, element ->
+                // a steward starts with microphone off: announced once
+                awaitUntil("announced") { element.micOffAnnouncements() == 1 }
+            }
+            val early = FakeSpeakerSession()
+            var announcedAtExit = -1
+            withRoom(testEntry(role = EncounterPresenceRole.STEWARD), sixPeople, session = early) { _, element ->
+                announcedAtExit = element.micOffAnnouncements()
+            }
+            assertEquals(0, announcedAtExit, "nothing is announced before the delay has passed")
+        }
+
+    @Test
+    fun aSteward_startsWithCameraAndMicrophoneOff_noBand_bothButtonsShowTheirState(): Promise<Unit> =
         formTest {
             val session = FakeSpeakerSession()
             val entry = testEntry(role = EncounterPresenceRole.STEWARD)
             withRoom(entry, sixPeople, session = session) { _, element ->
                 assertTrue(session.cameraCalls.isEmpty(), "a steward does not start any device")
                 assertTrue(session.microphoneCalls.isEmpty())
-                assertNotNull(element.querySelector(".lapis-encounter-mic-band"))
+                assertNull(element.querySelector(".lapis-encounter-mic-band"))
+                val mic = element.barControl("Mikrofon")
+                val camera = element.barControl("Kamera")
+                assertEquals("false", mic.getAttribute("aria-pressed"))
+                assertEquals("false", camera.getAttribute("aria-pressed"))
+                assertTrue(mic.classList.contains("btn-outline-danger"))
+                assertFalse(camera.classList.contains("btn-outline-danger"))
+                val groups = element.barGroups()
+                assertTrue(groups.first().classList.contains("lapis-encounter-control-group--devices"))
+                assertTrue(groups.last().classList.contains("lapis-encounter-control-group--exit"))
+            }
+        }
+
+    @Test
+    fun theCongregationWithoutATable_hasNoVisibleDeviceGroup_andNothingIsAnnounced(): Promise<Unit> =
+        formTest {
+            withRoom(testEntry(), sixPeople) { _, element ->
+                val devices = element.barGroups().first { it.classList.contains("lapis-encounter-control-group--devices") }
+                assertEquals(0, devices.childElementCount, "no device control for a listener (the empty group is hidden by `:empty`)")
+                assertEquals(0, element.micOffAnnouncements())
             }
         }
 

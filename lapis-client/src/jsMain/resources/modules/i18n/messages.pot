@@ -19606,9 +19606,6 @@ msgstr ""
 msgid "Ihr Mikrofon ist aus."
 msgstr ""
 
-msgid "Einschalten"
-msgstr ""
-
 msgid "Raum-Bereiche"
 msgstr ""
 
@@ -19852,6 +19849,10 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterControlBar.kt
 msgid "Reaktionen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterControlBar.kt
+msgid "Geräte"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt

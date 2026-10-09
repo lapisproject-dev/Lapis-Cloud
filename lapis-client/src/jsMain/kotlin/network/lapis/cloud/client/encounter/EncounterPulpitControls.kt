@@ -3,13 +3,10 @@ package network.lapis.cloud.client.encounter
 import io.kvision.core.Container
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
-import io.kvision.html.Div
-import io.kvision.html.div
 import io.kvision.i18n.tr
 import kotlinx.coroutines.launch
 import network.lapis.cloud.client.ActionIcon
 import network.lapis.cloud.client.AppScope
-import network.lapis.cloud.client.actionButton
 import network.lapis.cloud.client.conferenceDeviceEnableErrorMessage
 import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceKind
@@ -22,27 +19,26 @@ import network.lapis.cloud.client.setAttrIfChanged
  * congregation member has no such session, so for them this class cannot even be constructed.
  *
  * Defaults (design review): on entering, the camera of a pulpit person is switched on (in the click that entered, so Safari's gesture
- * rule is met), the MICROPHONE stays OFF -- a standing status band ("Ihr Mikrofon ist aus", with a switch-on button, `role="status"`)
- * says so, so nobody speaks into a muted microphone or sits unaware in an unmuted one. A steward starts with both off.
+ * rule is met), the MICROPHONE stays OFF. V1.9.90: there is no standing band any more -- the state lives on the button alone. Norman: the
+ * frequent error is "speaking into a muted microphone", so the OFF state is the amplified one (red outline, slashed symbol, never colour
+ * alone) and the room announces it once, politely, on entering (`EncounterRoom`). A steward starts with both off.
+ *
+ * The buttons stand in the left group of the bar ("Geräte"). Microphone/camera and the table microphone/"Kanzel lauter" of a seated
+ * congregation person never occur together: the pulpit controls exist only with `canPublish`, `buildTableControls` only for the congregation.
  *
  * The toggle buttons carry their state in `aria-pressed` and a filled style, not in a changing label. The state follows the SDK's mute
  * events ([onMuteChanged]); a click flips it at once when the device call succeeded.
  */
 internal class EncounterPulpitControls(
     toolbar: Container,
-    band: Container,
     private val session: EncounterSpeakerSession,
 ) {
     internal val micButton: Button = toolbar.encounterControlButton(ActionIcon.MICROPHONE, tr("Mikrofon"))
     internal val cameraButton: Button = toolbar.encounterControlButton(ActionIcon.CAMERA, tr("Kamera"))
-    private val micBand: Div = band.div(className = "lapis-encounter-mic-band d-flex align-items-center gap-2")
     private var micOn = false
     private var cameraOn = false
 
     init {
-        micBand.setAttribute("role", "status")
-        micBand.div(tr("Ihr Mikrofon ist aus."))
-        micBand.actionButton(ActionIcon.MICROPHONE, tr("Einschalten"), style = ButtonStyle.OUTLINEPRIMARY).onClick { toggleMic() }
         micButton.onClick { toggleMic() }
         cameraButton.onClick { toggleCamera() }
         render()
@@ -102,14 +98,12 @@ internal class EncounterPulpitControls(
         // The label stays ("Mikrofon", "Kamera"); the state is `aria-pressed`, the filled style and the slash symbol (never colour alone).
         micButton.setAttrIfChanged("aria-pressed", micOn.toString())
         cameraButton.setAttrIfChanged("aria-pressed", cameraOn.toString())
-        micButton.style = if (micOn) ButtonStyle.PRIMARY else ButtonStyle.OUTLINESECONDARY
+        micButton.style = if (micOn) ButtonStyle.PRIMARY else ButtonStyle.OUTLINEDANGER
         cameraButton.style = if (cameraOn) ButtonStyle.PRIMARY else ButtonStyle.OUTLINESECONDARY
         val micIcon = if (micOn) "fas fa-microphone" else "fas fa-microphone-slash"
         val cameraIcon = if (cameraOn) "fas fa-video" else "fas fa-video-slash"
         if (micButton.icon != micIcon) micButton.icon = micIcon
         if (cameraButton.icon != cameraIcon) cameraButton.icon = cameraIcon
-        if (micOn) micButton.removeCssClass("text-danger") else micButton.addCssClass("text-danger")
         if (cameraOn) cameraButton.removeCssClass("text-danger") else cameraButton.addCssClass("text-danger")
-        if (micOn) micBand.hide() else micBand.show()
     }
 }

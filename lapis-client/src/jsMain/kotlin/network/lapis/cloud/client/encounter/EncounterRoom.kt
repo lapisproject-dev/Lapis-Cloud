@@ -536,7 +536,7 @@ internal class EncounterRoom(
         this.session = session
         if (session is EncounterSpeakerSession && entry.canPublish) {
             val created =
-                EncounterPulpitControls(toolbar = controlBar.group(EncounterControlGroup.DEVICES), band = bands, session = session)
+                EncounterPulpitControls(toolbar = controlBar.group(EncounterControlGroup.DEVICES), session = session)
             pulpitControls = created
             // The device controls never move into the sheet, but they take room in the bar: they have to be measured.
             registerBarSlot(ControlBarSlot(EncounterControlSlot.Mic, created.micButton, null))
@@ -555,6 +555,7 @@ internal class EncounterRoom(
         if (viewer.presenceRole == EncounterPresenceRole.PULPIT) pulpitControls?.startCamera()
         if (disposed) return
         layout.focusPulpit()
+        announceMicOffOnEntry()
         presentPanel.load()
         if (disposed) return
         refreshTables(startedAt = tables.generation)
@@ -701,6 +702,18 @@ internal class EncounterRoom(
         }
         // Tell the others to reload the list (content-free; the server stays the authority).
         AppScope.launch { session?.sendSeatNudge() }
+    }
+
+    /**
+     * V1.9.90: the standing "microphone is off" band is gone; the state stays on the button (red outline), and an office holder hears it
+     * ONCE on entering (fixed sentence, polite region). Not on later toggles. Delayed so it does not collide with the focus announcement.
+     */
+    private fun announceMicOffOnEntry() {
+        val controls = pulpitControls ?: return
+        if (controls.isMicOn) return
+        window.setTimeout({
+            if (!disposed) announceSeat(tr("Ihr Mikrofon ist aus."))
+        }, MIC_OFF_ANNOUNCE_DELAY_MS)
     }
 
     /** A fixed sentence from the vocabulary (never data of a person) into the polite region of the viewer's own seat choice. */
@@ -1239,6 +1252,7 @@ internal class EncounterRoom(
     private companion object {
         const val OVERFLOWED_CLASS = "lapis-encounter-control-overflowed"
         const val ENCOUNTER_MORE_SHEET_ID = "lapis-encounter-more-sheet"
+        const val MIC_OFF_ANNOUNCE_DELAY_MS = 750
         const val HAND_EXPIRY_TICK_MS = 5_000
         const val HAND_RENEW_MS = 30_000
         const val PRESENT_POLL_MS = 20_000

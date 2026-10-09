@@ -33,6 +33,7 @@ class EncounterControlBarTest {
         assertEquals(EncounterControlGroup.EXIT, encounterControlGroup(doors))
         assertEquals(EncounterControlGroup.EXIT, encounterControlGroup(leave))
         assertEquals(EncounterControlGroup.EXIT, EncounterControlGroup.entries.last(), "the exit group is the last group of the DOM")
+        assertEquals(EncounterControlGroup.DEVICES, EncounterControlGroup.entries.first(), "the devices are the first group of the DOM")
     }
 
     @Test
@@ -76,6 +77,37 @@ class EncounterControlBarTest {
         // a transmission that stands next to a reaction is the slip the layout avoids
         assertFalse(moderationNeverAdjacentToReactions(listOf(hand, broadcast, leave)))
         assertFalse(moderationNeverAdjacentToReactions(listOf(broadcast, reaction, leave)))
+    }
+
+    @Test
+    fun devicesAreFirst_positiveAndNegative() {
+        val reaction = EncounterControlSlot.Reaction(EncounterReactionOption.AMEN)
+        val mic = EncounterControlSlot.Mic
+        val camera = EncounterControlSlot.Camera
+        assertTrue(devicesAreFirst(listOf(mic, camera, hand, reaction, EncounterControlSlot.Chat, leave)))
+        assertTrue(devicesAreFirst(listOf(hand, EncounterControlSlot.Chat, leave)), "no devices at all is fine")
+        assertTrue(devicesAreFirst(listOf(EncounterControlSlot.TableMic, EncounterControlSlot.PulpitLouder, hand, leave)))
+        assertFalse(devicesAreFirst(listOf(hand, mic, camera, leave)))
+        assertFalse(devicesAreFirst(listOf(mic, hand, camera, leave)))
+    }
+
+    @Test
+    fun devicesAndLeave_frameTheBar_inAFullPulpitList() {
+        val full =
+            listOf(
+                EncounterControlSlot.Mic,
+                EncounterControlSlot.Camera,
+                hand,
+                EncounterControlSlot.Reaction(EncounterReactionOption.AMEN),
+                EncounterControlSlot.Chat,
+                EncounterControlSlot.More,
+                EncounterControlSlot.Scene,
+                broadcast,
+                doors,
+                leave,
+            )
+        assertTrue(devicesAreFirst(full) && encounterLeaveIsLast(full) && doorsImmediatelyBeforeLeave(full))
+        assertTrue(moderationNeverAdjacentToReactions(full))
     }
 
     // ── the arithmetic at phone widths: 46 px controls, the bar's gap 4 px below 768 px, 16 px padding ───────────────────────

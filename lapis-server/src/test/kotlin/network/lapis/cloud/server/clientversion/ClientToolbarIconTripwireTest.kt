@@ -695,7 +695,7 @@ class ClientToolbarIconTripwireTest :
                         // V1.9.80: + the table microphone and "Kanzel lauter" (devices group, shown while one sits at a table)
                         // V1.9.84: + the hand and the event reactions loop (reaction group)
                         "EncounterRoom.kt" to 11,
-                        // microphone and camera
+                        // V1.9.90: the named R58 group "encounter devices (microphone and camera)"
                         "EncounterPulpitControls.kt" to 2,
                     )
             }
@@ -796,6 +796,24 @@ class ClientToolbarIconTripwireTest :
             val bar = codeLines(clientFiles().first { it.name == "EncounterControlBar.kt" }.readText()).joinToString("\n")
             withClue("the reaction group is labelled for assistive technology") {
                 bar.contains("EncounterControlGroup.REACTIONS -> gettext(\"Reaktionen\")") shouldBe true
+            }
+            withClue("V1.9.90: the device group is labelled for assistive technology") {
+                bar.contains("EncounterControlGroup.DEVICES -> gettext(\"Geräte\")") shouldBe true
+            }
+        }
+
+        test("V1.9.90: devices come first and exit last in the enum; the mic band and its text button are gone") {
+            val bar = codeLines(clientFiles().first { it.name == "EncounterControlBar.kt" }.readText()).joinToString("\n")
+            withClue("DEVICES is the first, EXIT the last group of the DOM") {
+                Regex("""enum class EncounterControlGroup \{\s*DEVICES,[^}]*,\s*EXIT\s*\}""").containsMatchIn(bar) shouldBe true
+            }
+            val pulpit = codeLines(clientFiles().first { it.name == "EncounterPulpitControls.kt" }.readText()).joinToString("\n")
+            withClue("no text button in the device controls (R58 group, icon-only factory only)") {
+                Regex("""\bactionButton\(""").findAll(pulpit).count() shouldBe 0
+                pulpit.contains("lapis-encounter-mic-band") shouldBe false
+            }
+            withClue("theme.css carries no rule for the removed band") {
+                THEME_CSS.readText().contains(".lapis-encounter-mic-band") shouldBe false
             }
         }
 

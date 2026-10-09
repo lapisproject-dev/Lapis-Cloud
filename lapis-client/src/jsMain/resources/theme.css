@@ -3549,13 +3549,6 @@ html .form-select.is-invalid:focus {
   color: var(--lapis-text);
 }
 
-.lapis-encounter-mic-band {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--lapis-border-strong);
-  border-radius: 0.375rem;
-  background: var(--lapis-surface-sunken);
-}
-
 /* V1.9.74: the dot sits on the corner of the chat symbol and takes no room of its own (the overflow handler measures controls only). */
 .lapis-encounter-unread {
   position: absolute;
@@ -3662,6 +3655,25 @@ html .form-select.is-invalid:focus {
   border-inline-start: 1px solid var(--lapis-border);
 }
 
+/* V1.9.90: the device group (microphone, camera) stands at the left edge and carries the divider itself; the next group takes none (same
+   specificity as the generic rule, later in the file). An empty or spent device group leaves no stray divider at the left edge. */
+.lapis-encounter-control-group--devices {
+  padding-inline-end: 0.5rem;
+  border-inline-end: 1px solid var(--lapis-border);
+}
+
+.lapis-encounter-control-group--devices + .lapis-encounter-control-group:not(:empty),
+.lapis-encounter-control-group--devices:empty + .lapis-encounter-control-group:not(:empty),
+.lapis-encounter-control-group--devices.lapis-encounter-control-group--spent + .lapis-encounter-control-group:not(:empty) {
+  padding-inline-start: 0;
+  border-inline-start: 0;
+}
+
+/* Two automatic margins (reactions and exit) share the free room: the middle stands in the free room between devices and exit. */
+.lapis-encounter-control-group--reactions {
+  margin-inline-start: auto;
+}
+
 .lapis-encounter-controls .btn {
   min-height: 44px;
   min-width: 44px;
@@ -3755,6 +3767,17 @@ html .form-select.is-invalid:focus {
 
   .lapis-encounter-control-group + .lapis-encounter-control-group:not(:empty) {
     padding-inline-start: 4px;
+  }
+
+  .lapis-encounter-control-group--devices {
+    padding-inline-end: 4px;
+  }
+
+  .lapis-encounter-control-group--devices + .lapis-encounter-control-group:not(:empty),
+  .lapis-encounter-control-group--devices:empty + .lapis-encounter-control-group:not(:empty),
+  .lapis-encounter-control-group--devices.lapis-encounter-control-group--spent + .lapis-encounter-control-group:not(:empty) {
+    padding-inline-start: 0;
+    border-inline-start: 0;
   }
 
   .lapis-encounter-controls .btn {

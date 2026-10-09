@@ -20568,9 +20568,6 @@ msgstr "Tutti i presenti lasceranno la sala."
 msgid "Ihr Mikrofon ist aus."
 msgstr "Il suo microfono è spento."
 
-msgid "Einschalten"
-msgstr "Attiva"
-
 msgid "Raum-Bereiche"
 msgstr "Sezioni della sala"
 
@@ -20853,6 +20850,10 @@ msgstr "Uscita"
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterControlBar.kt
 msgid "Reaktionen"
 msgstr "Reazioni"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterControlBar.kt
+msgid "Geräte"
+msgstr "Dispositivi"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
 msgid "Weitere Bedienelemente"

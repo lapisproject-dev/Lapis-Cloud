@@ -313,8 +313,17 @@ zuerst."). Becoming a second kind of dock session is a follow-up, not started.
 . *The runtime flag*: `LiveKitRoomSession(publishEnabled = entry.canPublish)`. With `false`, `setCamera`/`setMicrophone`/`setScreenShare` return at once without touching the SDK, and
   device listing, switching and enumeration are empty or refused (some browsers answer an enumeration with a permission heuristic). The conference keeps the default `true`.
 
-A pulpit person's camera is switched on in the same click chain that entered (so Safari's gesture rule is met); the microphone stays off, with a standing status band "Ihr Mikrofon ist aus." (`role="status"`).
+A pulpit person's camera is switched on in the same click chain that entered (so Safari's gesture rule is met); the microphone stays off.
+Since V1.9.90 there is no standing status band any more: the state lives on the microphone button alone (red outline `btn-outline-danger`, slashed symbol, `aria-pressed`; on: filled primary, plain symbol).
+Because the frequent error is speaking into a muted microphone, the room announces "Ihr Mikrofon ist aus." once, 750 ms after entering, in the polite `role="status"` region of the room (a fixed sentence, no personal data); toggling later announces nothing.
 A steward starts with both off.
+
+==== Control bar layout (V1.9.90)
+
+The bar has one line and the group order (DOM and tab order) is: *devices* (microphone and camera; for a seated congregation person the table microphone and "Pulpit louder"), reactions, panels (chat, "Mehr"), view, moderation, exit ("Türen schließen", "Verlassen").
+Devices stand at the left edge, exit at the right edge, the middle takes the free room (two automatic margins on the reactions and the exit group).
+The devices group has the accessible name "Geräte" and carries the divider itself. Microphone and camera are never moved into the "Mehr" sheet; what does not fit leaves the middle first (see `encounterOverflowOrder`).
+The pure invariant `devicesAreFirst` pins the order in tests.
 
 === Scene, pews, reactions
 

@@ -126,7 +126,9 @@ class EncounterControlBarDomTest {
                 fun group(name: String) = assertNotNull(element.querySelector(".lapis-encounter-control-group--$name") as? HTMLElement)
                 assertEquals("group", group("reactions").getAttribute("role"))
                 assertEquals("Reaktionen", group("reactions").getAttribute("aria-label"))
-                listOf("devices", "panels", "view").forEach { name ->
+                assertEquals("Geräte", group("devices").getAttribute("aria-label"))
+                assertEquals("group", group("devices").getAttribute("role"))
+                listOf("panels", "view").forEach { name ->
                     assertNull(group(name).getAttribute("aria-label"), "$name stays unlabelled")
                 }
             }
@@ -282,7 +284,7 @@ class EncounterControlBarDomTest {
                     "order of groups: $groups",
                 )
                 assertEquals(
-                    listOf("reactions", "devices", "panels", "view", "moderation", "exit"),
+                    listOf("devices", "reactions", "panels", "view", "moderation", "exit"),
                     groups.distinct(),
                     "the groups keep their order",
                 )

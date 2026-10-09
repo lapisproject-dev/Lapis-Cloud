@@ -97,6 +97,11 @@ class EncounterControlsOverflowDomTest {
                     assertTrue(tops.all { abs(it - tops.first()) <= 1.0 }, "width $width: one row $tops")
                     assertTrue(bar.scrollWidth <= bar.clientWidth + 1, "width $width: clipped, ${bar.scrollWidth} > ${bar.clientWidth}")
                     assertEquals("Verlassen", shown.last().barName(), "width $width: Verlassen is last: ${shown.map { it.barName() }}")
+                    assertEquals(
+                        listOf("Mikrofon", "Kamera"),
+                        shown.take(2).map { it.barName() },
+                        "width $width: the devices stand at the left edge: ${shown.map { it.barName() }}",
+                    )
                     for (fixed in listOf("Hand heben", "Mikrofon", "Kamera")) {
                         assertTrue(shown.any { it.barName() == fixed }, "width $width: $fixed stays")
                     }
@@ -125,6 +130,7 @@ class EncounterControlsOverflowDomTest {
                 val names = element.sheet()!!.allOf("button").map { it.textContent.orEmpty().trim() }
                 assertTrue("Chat" in names, "the chat's twin: $names")
                 assertFalse("Verlassen" in names, "Verlassen never sits in the sheet: $names")
+                assertFalse("Mikrofon" in names || "Kamera" in names, "the devices never sit in the sheet: $names")
             }
         }
 

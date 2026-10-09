@@ -13,17 +13,18 @@ import network.lapis.cloud.client.resolvedAttributeText
 import network.lapis.cloud.shared.domain.EncounterReactionOption
 
 /**
- * The groups of the control bar of the encounter room, in DOM order. A divider (CSS only) separates two non-empty groups.
+ * The groups of the control bar of the encounter room, in DOM order (V1.9.90: own devices left, the middle, exit right). A divider (CSS
+ * only) separates two non-empty groups.
  *
+ * - [DEVICES]: first, at the left edge: microphone and camera -- only an office holder's session fills this group; since V1.9.80 also the table microphone and
+ *   "Kanzel lauter" of a congregation person who sits at a table (the two sets never occur together).
  * - [REACTIONS]: the configured reactions of the room (hand always first, then the allowed events) -- the only controls with a word.
- * - [DEVICES]: microphone and camera -- only an office holder's session fills this group; since V1.9.80 also the table microphone and
- *   "Kanzel lauter" of a congregation person who sits at a table.
  * - [PANELS]: the side panel (chat) and "Mehr" (the sheet with what did not fit).
  * - [VIEW]: scene on/off and the full screen.
  * - [MODERATION]: the transmission (people who moderate); never next to the reactions, so a slip does not trigger a reaction.
  * - [EXIT] (V1.9.74): "Türen schließen" (people who moderate) and "Verlassen", pushed to the end of the bar, 12 px apart.
  */
-internal enum class EncounterControlGroup { REACTIONS, DEVICES, PANELS, VIEW, MODERATION, EXIT }
+internal enum class EncounterControlGroup { DEVICES, REACTIONS, PANELS, VIEW, MODERATION, EXIT }
 
 /** A control of the bar that the overflow handler knows about ("Mehr" itself is the sheet's opener and never moves). */
 internal sealed interface EncounterControlSlot {
@@ -86,6 +87,13 @@ internal fun encounterOverflowOrder(allowed: Collection<EncounterReactionOption>
         add(EncounterControlSlot.CloseDoors)
         add(EncounterControlSlot.Chat)
     }
+
+/** Pure invariant (V1.9.90): every device control stands before every control of another group. */
+internal fun devicesAreFirst(shownInOrder: List<EncounterControlSlot>): Boolean {
+    val groups = shownInOrder.map { encounterControlGroup(it) }
+    val lastDevice = groups.indexOfLast { it == EncounterControlGroup.DEVICES }
+    return groups.take(lastDevice + 1).all { it == EncounterControlGroup.DEVICES }
+}
 
 /** Pure invariant: "Verlassen" is the last shown control of the bar. */
 internal fun encounterLeaveIsLast(shownInOrder: List<EncounterControlSlot>): Boolean =
@@ -153,6 +161,7 @@ internal class EncounterControlBar(
             EncounterControlGroup.MODERATION -> gettext("Moderation")
             EncounterControlGroup.EXIT -> gettext("Ausgang")
             EncounterControlGroup.REACTIONS -> gettext("Reaktionen")
+            EncounterControlGroup.DEVICES -> gettext("Geräte")
             else -> null
         }
 
