@@ -115,7 +115,7 @@ private fun renderEmailPasswordLoginForm(parent: SimplePanel) {
             autocomplete = Autocomplete.CURRENT_PASSWORD,
             reveal = true,
         )
-    val loginButton = Button(tr("Anmelden"), style = ButtonStyle.PRIMARY)
+    val loginButton = newActionButton(ActionIcon.ENTER, tr("Anmelden"), ButtonStyle.PRIMARY)
     form.buttons(primary = loginButton, enterSubmits = true)
     loginButton.onClick {
         form.submit(loginButton) {

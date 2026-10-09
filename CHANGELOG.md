@@ -8,6 +8,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Added
 
+- **Sign-in icon (V1.9.83).** The primary "Anmelden" button of the login form and the "Anmelden" link of the anonymous navbar now carry the existing `ActionIcon.ENTER` icon (`fa-right-to-bracket`, the counterpart of `LEAVE` for sign-out); the icon is decorative (`aria-hidden`), the accessible name is unchanged. Pinned by `SignInIconDomTest`. No server, schema or catalog change.
 - **Public events feed with full text, archive feed and import of past events (V1.9.82, migration V81).** *Feed* `GET /api/embed/v1/events`: new optional fields `description` (the full text, always present, **plain text** with paragraphs separated by an empty line,
   normalized on output; a consuming website must render it as text, never as HTML), `summary` (teaser), `coverImageAlt` (only with a cover image) and `onlineUrl` (only when an administrator explicitly ticked "show the online link publicly", the link is
   `https://` and the event is not cancelled). All additions are optional keys, `full` stays mandatory; a test pins the set of allowed keys (no person data) and a second one the unchanged old keys. No `seriesId` on purpose (a stable public series key cannot be

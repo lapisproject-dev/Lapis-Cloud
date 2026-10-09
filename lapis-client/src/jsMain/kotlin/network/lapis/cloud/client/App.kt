@@ -12,6 +12,8 @@ import io.kvision.dropdown.dropDown
 import io.kvision.dropdown.separator
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Link
+import io.kvision.html.TAG
+import io.kvision.html.Tag
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.span
@@ -22,7 +24,6 @@ import io.kvision.navbar.Nav
 import io.kvision.navbar.Navbar
 import io.kvision.navbar.NavbarExpand
 import io.kvision.navbar.nav
-import io.kvision.navbar.navLink
 import io.kvision.navbar.navbar
 import io.kvision.offcanvas.OffPlacement
 import io.kvision.offcanvas.OffResponsiveType
@@ -576,7 +577,14 @@ internal fun refreshNavbar(
         // this is a real, sustained anonymous state, not a theoretical millisecond window, and
         // deserves a real way back into a session. Deliberately NOT [NavHighlight]-registered --
         // see this function's own KDoc.
-        rightNav.navLink(tr("Anmelden"), url = "#${Routes.LOGIN}", icon = "fas fa-right-to-bracket")
+        // A plain rich anchor instead of `navLink(icon = ...)`: KVision renders a link icon as `<i>` WITHOUT `aria-hidden` and its
+        // after-insert hook does not reach the link's icon, so the decorative icon is written into the markup (same pattern as
+        // NavbarUnreadIndicator). Same classes as `navLink`; the label is escaped and resolved with `gettext` (a `tr` marker would leak into rich
+        // content; a language switch rebuilds the navbar anyway).
+        val signIn = Tag(TAG.A, rich = true, className = "nav-item nav-link")
+        signIn.setAttribute("href", "#${Routes.LOGIN}")
+        signIn.content = """<i class="${ActionIcon.ENTER.css}" aria-hidden="true"></i> ${escapeHtmlText(gettext("Anmelden"))}"""
+        rightNav.add(signIn)
         return
     }
 

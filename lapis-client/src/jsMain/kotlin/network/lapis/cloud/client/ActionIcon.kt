@@ -60,6 +60,7 @@ enum class ActionIcon(
      * (also the "open this room" link), [OPEN_DOORS]/[CLOSE_DOORS] the room itself, [ARCHIVE] a room away, [HAND] raise or lower the
      * hand, [AMEN] the one reaction, [CHAT] show the chat, [SCENE] show or hide the decorative scene, [SILENCE] withdraw a person's
      * right to send, [BROADCAST] start/stop the transmission of the pulpit, [OFFICES] who holds which office of a room, [PEOPLE] the list of the people present, [MICROPHONE]/[CAMERA] the office holder's own devices.
+     * V1.9.83: [ENTER] is also "sign in" (login button, navbar link) -- the counterpart of [LEAVE] (sign out).
      */
     ENTER("fas fa-right-to-bracket"),
 
