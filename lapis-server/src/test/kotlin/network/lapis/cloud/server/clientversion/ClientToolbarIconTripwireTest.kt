@@ -693,7 +693,8 @@ class ClientToolbarIconTripwireTest :
                         "EncounterControlBar.kt" to 1,
                         // chat, more (panels), scene, full screen (view), transmission (moderation), doors, leave (exit);
                         // V1.9.80: + the table microphone and "Kanzel lauter" (devices group, shown while one sits at a table)
-                        "EncounterRoom.kt" to 9,
+                        // V1.9.84: + the hand and the event reactions loop (reaction group)
+                        "EncounterRoom.kt" to 11,
                         // microphone and camera
                         "EncounterPulpitControls.kt" to 2,
                     )
@@ -771,6 +772,31 @@ class ClientToolbarIconTripwireTest :
             withClue("every document listener of the sheet has a removal") { removals shouldBe sheetListeners }
             room.contains("overflow.dispose()") shouldBe true
             codeLines(room).any { it.contains("addAfterInsertHook") } shouldBe false
+        }
+
+        test("V1.9.84 (R58 named exception group 'reaction group'): reactions are symbol-only, their sheet twins keep the word") {
+            val room = codeLines(clientFiles().first { it.name == "EncounterRoom.kt" }.readText()).joinToString("\n")
+            withClue("exactly two reaction call sites (hand, event loop) use the icon-only factory") {
+                Regex("""\breactions\.encounterControlButton\(""").findAll(room).count() shouldBe 2
+            }
+            withClue("the reaction group must not fall back to a labelled actionButton") {
+                room.contains("reactions.actionButton(") shouldBe false
+            }
+            withClue("the label function is used exactly three times: hand button, event button, sheet twin") {
+                Regex("""\breactionLabelContent\(""").findAll(room).count() shouldBe 3
+            }
+            withClue("the hand has no sheet twin (a hand-raise never needs a second tap)") {
+                room.contains("ControlBarSlot(EncounterControlSlot.Hand, handButton, null)") shouldBe true
+            }
+            val css = THEME_CSS.readText()
+            withClue("theme.css must not bring the word of the reactions back (no white-space / font-size rule on the group)") {
+                val wordRule = Regex("""\.lapis-encounter-control-group--reactions[^{]*\{[^}]*(white-space|font-size)""")
+                wordRule.containsMatchIn(css) shouldBe false
+            }
+            val bar = codeLines(clientFiles().first { it.name == "EncounterControlBar.kt" }.readText()).joinToString("\n")
+            withClue("the reaction group is labelled for assistive technology") {
+                bar.contains("EncounterControlGroup.REACTIONS -> gettext(\"Reaktionen\")") shouldBe true
+            }
         }
 
         test("V1.9.75: the reveal toggle and the password buttons carry visible text -- no icon-only button, no aria-pressed") {

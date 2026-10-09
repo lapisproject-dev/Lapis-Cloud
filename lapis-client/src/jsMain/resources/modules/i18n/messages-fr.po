@@ -20864,6 +20864,10 @@ msgstr "Votre propre image"
 msgid "Ausgang"
 msgstr "Sortie"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterControlBar.kt
+msgid "Reaktionen"
+msgstr "Réactions"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
 msgid "Weitere Bedienelemente"
 msgstr "Autres commandes"

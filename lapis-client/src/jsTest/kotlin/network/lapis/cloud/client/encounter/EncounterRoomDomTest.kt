@@ -297,7 +297,7 @@ class EncounterRoomDomTest {
     fun theHandButton_togglesAriaPressed_sendsTheState_andAFastSecondClickIsIgnored(): Promise<Unit> =
         formTest {
             withRoom(testEntry(), sixPeople + testPerson("me", name = "Ich Selbst")) { rig, element ->
-                val button = element.buttonNamed("Hand heben")
+                val button = element.barControl("Hand heben")
                 assertEquals("false", button.getAttribute("aria-pressed"))
                 button.click()
                 awaitUntil("the hand state is sent") { rig.session.reactions == listOf(EncounterReaction.HAND) }
@@ -319,7 +319,7 @@ class EncounterRoomDomTest {
     fun theAmenButton_waitsFiveSeconds_withAVisibleHint(): Promise<Unit> =
         formTest {
             withRoom(testEntry(), sixPeople + testPerson("me", name = "Ich Selbst")) { rig, element ->
-                val button = element.buttonNamed("Amen")
+                val button = element.barControl("Amen")
                 button.click()
                 awaitUntil("the amen is sent") { rig.session.reactions == listOf(EncounterReaction.AMEN) }
                 assertTrue(button.hasAttribute("disabled"), "disabled while the limit holds")
@@ -333,8 +333,8 @@ class EncounterRoomDomTest {
             val entry = testEntry(canPublishData = false)
             withRoom(entry, sixPeople) { rig, element ->
                 element.openChat()
-                assertTrue(element.buttonNamed("Hand heben").hasAttribute("disabled"))
-                assertTrue(element.buttonNamed("Amen").hasAttribute("disabled"))
+                assertTrue(element.barControl("Hand heben").hasAttribute("disabled"))
+                assertTrue(element.barControl("Amen").hasAttribute("disabled"))
                 assertTrue(element.sendButton().hasAttribute("disabled"))
                 val field = assertNotNull(element.querySelector("input[aria-label='Nachricht']") as? HTMLInputElement)
                 assertTrue(field.disabled)

@@ -19846,6 +19846,10 @@ msgstr ""
 msgid "Ausgang"
 msgstr ""
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterControlBar.kt
+msgid "Reaktionen"
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
 msgid "Weitere Bedienelemente"
 msgstr ""

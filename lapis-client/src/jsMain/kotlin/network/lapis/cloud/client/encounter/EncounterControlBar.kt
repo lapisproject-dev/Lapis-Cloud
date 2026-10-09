@@ -71,7 +71,7 @@ internal fun encounterControlGroup(slot: EncounterControlSlot): EncounterControl
 
 /**
  * The order in which controls move into the "Mehr" sheet, the first one first: full screen, scene, transmission, then the event
- * reactions (the last of the canonical order first), then "Türen schließen" and last of all the chat. Never moved: hand, microphone,
+ * reactions (the last of the canonical order first), then "Türen schließen" and last of all the chat. Never moved: hand (the only reaction with a state; a hand-raise must never need a second tap), microphone,
  * camera, "Mehr" and "Verlassen". Built at run time because the event reactions differ per room profile.
  */
 internal fun encounterOverflowOrder(allowed: Collection<EncounterReactionOption>): List<EncounterControlSlot> =
@@ -109,8 +109,7 @@ internal fun moderationNeverAdjacentToReactions(shownInOrder: List<EncounterCont
 
 /**
  * V1.9.74 (R58 named exception c): the ONLY icon-only factory of the encounter room. At least 44 x 44 px through theme.css. [label]
- * becomes `title`, `aria-label` and `data-label`; the button never shows a word, in no width. The reactions keep their word and are
- * built with `actionButton`.
+ * becomes `title`, `aria-label` and `data-label`; the button never shows a word, in no width. V1.9.84: the reactions too (hand and events).
  */
 internal fun Container.encounterControlButton(
     kind: ActionIcon,
@@ -124,13 +123,13 @@ internal fun Container.encounterControlButton(
 }
 
 /**
- * V1.9.67 -- the bar under the stage (stage mode); V1.9.74: icon bar. Grouped controls, targets of at least 44 px, SYMBOLS ONLY except
- * the reactions (hand and events), which keep a word from 768 px on. It never wraps and never scrolls: what does not fit moves into the
+ * V1.9.67 -- the bar under the stage (stage mode); V1.9.74: icon bar. Grouped controls, targets of at least 44 px, SYMBOLS ONLY, the
+ * reactions (hand and events) included (V1.9.84). It never wraps and never scrolls: what does not fit moves into the
  * "Mehr" sheet (`ControlBarOverflow`). "Türen schließen" and "Verlassen" sit in their own exit group at the far end, "Verlassen" always
  * last.
  *
- * This class only owns the structure; the controls are built by the owner (`encounterControlButton` for the symbols, `actionButton`
- * for the reactions), so the guideline rules (R57 icons, R58 icon-only) keep applying to each button.
+ * This class only owns the structure; the controls are built by the owner (`encounterControlButton`), so the guideline rules
+ * (R57 icons, R58 icon-only) keep applying to each button.
  */
 internal class EncounterControlBar(
     parent: Container,
@@ -153,6 +152,7 @@ internal class EncounterControlBar(
         when (group) {
             EncounterControlGroup.MODERATION -> gettext("Moderation")
             EncounterControlGroup.EXIT -> gettext("Ausgang")
+            EncounterControlGroup.REACTIONS -> gettext("Reaktionen")
             else -> null
         }
 

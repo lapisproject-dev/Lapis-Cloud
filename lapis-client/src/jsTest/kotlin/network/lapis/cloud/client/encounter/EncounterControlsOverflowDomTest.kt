@@ -152,6 +152,28 @@ class EncounterControlsOverflowDomTest {
         }
 
     @Test
+    fun theHand_neverOverflows_andHasNoTwin_whileTheEventReactionsMoveWithTheirWord(): Promise<Unit> =
+        formTest {
+            assertTrue(stylesLoaded)
+            withPulpit { _, element ->
+                for (width in listOf(320, 360, 1280)) {
+                    element.settleAt(width)
+                    val hand = element.barControl("Hand heben")
+                    assertFalse(hand.classList.contains("lapis-encounter-control-overflowed"), "width $width: the hand stays in the bar")
+                    assertTrue(hand.offsetWidth > 0, "width $width: the hand is shown")
+                }
+                element.settleAt(320)
+                val amen = element.barControl("Amen")
+                assertTrue(amen.classList.contains("lapis-encounter-control-overflowed"), "320 px: the event reaction sits in the sheet")
+                element.barControl("Mehr").click()
+                awaitUntil("the sheet is open") { element.sheet() != null }
+                val names = element.sheet()!!.allOf("button").map { it.textContent.orEmpty().trim() }
+                assertTrue("Amen" in names, "the twin keeps the word: $names")
+                assertFalse("Hand heben" in names, "the hand has no twin: $names")
+            }
+        }
+
+    @Test
     fun theSheet_closesOnEscape_andGivesTheFocusBackToMehr(): Promise<Unit> =
         formTest {
             assertTrue(stylesLoaded)

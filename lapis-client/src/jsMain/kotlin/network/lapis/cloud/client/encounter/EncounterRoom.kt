@@ -329,14 +329,17 @@ internal class EncounterRoom(
         moreSheet.hide()
         val reactions = controlBar.group(EncounterControlGroup.REACTIONS)
         handButton =
-            reactions.actionButton(reactionActionIcon(EncounterReactionOption.HAND), reactionLabelContent(EncounterReactionOption.HAND))
+            reactions.encounterControlButton(
+                reactionActionIcon(EncounterReactionOption.HAND),
+                reactionLabelContent(EncounterReactionOption.HAND),
+            )
         handButton.setAttribute("aria-pressed", "false")
         handButton.disabled = !entry.canPublishData
         handButton.onClick { toggleHand() }
         barSlots += ControlBarSlot(EncounterControlSlot.Hand, handButton, null)
-        // The event reactions of the room in canonical order (HAND is the button above, always present). They keep their word.
+        // The event reactions of the room in canonical order (HAND is the button above, always present). Symbol only; the word lives in title/aria-label and on the sheet twin.
         EncounterReactionOption.entries.filter { it != EncounterReactionOption.ALWAYS_ON && it in allowedReactions }.forEach { option ->
-            val button = reactions.actionButton(reactionActionIcon(option), reactionLabelContent(option))
+            val button = reactions.encounterControlButton(reactionActionIcon(option), reactionLabelContent(option))
             button.disabled = !entry.canPublishData
             button.onClick { sendEvent(option) }
             eventButtons[option] = button

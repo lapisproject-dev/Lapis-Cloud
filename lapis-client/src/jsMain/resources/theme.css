@@ -3667,13 +3667,6 @@ html .form-select.is-invalid:focus {
   min-width: 44px;
 }
 
-/* From 768 px the reactions show symbol and word; the word never breaks into a second line. */
-@media (min-width: 768px) {
-  .lapis-encounter-control-group--reactions .btn {
-    white-space: nowrap;
-  }
-}
-
 /* The "Mehr" sheet: a sibling of the bar, anchored above it; it scrolls itself (R59 ledger E1). */
 .lapis-encounter-more-sheet {
   position: absolute;

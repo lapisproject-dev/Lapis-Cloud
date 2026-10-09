@@ -5,7 +5,6 @@ import kotlinx.browser.window
 import kotlinx.coroutines.delay
 import network.lapis.cloud.client.allOf
 import network.lapis.cloud.client.awaitUntil
-import network.lapis.cloud.client.buttonNamed
 import network.lapis.cloud.client.formTest
 import network.lapis.cloud.shared.domain.EncounterPresenceRole
 import network.lapis.cloud.shared.domain.EncounterProfile
@@ -51,7 +50,7 @@ class EncounterStageModeDomTest {
         block = block,
     )
 
-    private fun HTMLElement.buttonLabels(): List<String> = allOf("button").map { it.textContent.orEmpty().trim() }
+    private fun HTMLElement.buttonLabels(): List<String> = allOf("button").map { it.barName() }
 
     // ── the reaction set drives the bar ───────────────────────────────────────────
 
@@ -84,7 +83,7 @@ class EncounterStageModeDomTest {
                 reactions = listOf(EncounterReactionOption.HEART, EncounterReactionOption.APPLAUSE, EncounterReactionOption.HAND),
             ) { _, element ->
                 val group = assertNotNull(element.querySelector(".lapis-encounter-control-group--reactions") as? HTMLElement)
-                val labels = group.allOf("button").map { it.textContent.orEmpty().trim() }
+                val labels = group.allOf("button").map { it.barName() }
                 assertEquals(listOf("Hand heben", "Applaus", "Herz"), labels)
             }
         }
@@ -145,12 +144,12 @@ class EncounterStageModeDomTest {
                 EncounterProfile.ASSEMBLY,
                 reactions = listOf(EncounterReactionOption.HAND, EncounterReactionOption.APPLAUSE, EncounterReactionOption.HEART),
             ) { rig, element ->
-                element.buttonNamed("Applaus").click()
+                element.barControl("Applaus").click()
                 awaitUntil("the applause was sent") { rig.session.reactions == listOf(EncounterReaction.APPLAUSE) }
-                assertTrue(element.buttonNamed("Applaus").hasAttribute("disabled"))
-                assertTrue(element.buttonNamed("Herz").hasAttribute("disabled"), "the heart waits with the applause")
-                assertFalse(element.buttonNamed("Hand heben").hasAttribute("disabled"), "asking for the floor is never blocked")
-                element.buttonNamed("Hand heben").click()
+                assertTrue(element.barControl("Applaus").hasAttribute("disabled"))
+                assertTrue(element.barControl("Herz").hasAttribute("disabled"), "the heart waits with the applause")
+                assertFalse(element.barControl("Hand heben").hasAttribute("disabled"), "asking for the floor is never blocked")
+                element.barControl("Hand heben").click()
                 awaitUntil("the hand was sent") {
                     rig.session.reactions == listOf(EncounterReaction.APPLAUSE, EncounterReaction.HAND)
                 }

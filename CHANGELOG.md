@@ -157,6 +157,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Changed
 
+- **Reaction buttons are symbol only (V1.9.84).** In the encounter room's bar the hand and the event reactions (Amen, Applaus, Herz) now use the same icon-only factory as every other control (`encounterControlButton`); name and tooltip stay in `title` / `aria-label`. The group is announced as "Reaktionen" (`role="group"`, new text in all seven catalogs). The rule "from 768 px the reactions show a word" and its CSS block are removed. The hand keeps a stable name and shows its state through `aria-pressed`, the filled style and the ring; it never moves into the "Mehr" sheet and has no twin. The sheet twins of the event reactions keep their word. Pinned by an extended `ClientToolbarIconTripwireTest` (11 factory calls in `EncounterRoom.kt`) and by DOM tests. Client only: no server, schema or migration change. The help page `gathering-room` must be updated at rollout.
 - **The online link of an event is no longer shown on the public page `/veranstaltung/{slug}` unless an administrator ticked "Online-Link öffentlich anzeigen" (V1.9.82, behaviour change).** Before, the link of every public, published event was printed there. Existing
   events lose the line on the page until the box is ticked in the edit form (the link itself stays in the event; the ticket page for a ticket holder still shows it). The iCal feed and the embed widgets never carried it.
 
@@ -227,6 +228,7 @@ All notable changes to this project are documented here. Format follows
 
 ### Known limitations
 
+- **Reaction buttons (V1.9.84).** On touch devices there is no tooltip; the name of a reaction is available to screen readers only. `fa-hand` may be read as "stop" (documented, not solved; a change would go together with the seat rendering). Whether a browser shows the tooltip on a disabled reaction button is browser dependent.
 - **Events feed / import (V1.9.82).** Cover images are not imported (upload them by hand afterwards). No `seriesId` in any feed. Creating or publishing an event through the normal form is still not audited (only imported events are). The archive feed pages with
   `OFFSET` and reaches at most 5000 entries (100 pages of 50); `Cache-Control: no-store` rules out caching of both feeds. The import creates no series. The size guard of the import route needs a `Content-Length` header (a chunked request is answered with 413);
   it matches the Kilua route name by prefix (`/rpc/routeEventImportServiceManager*`, pinned by a full-application test). The SHA-256 of the import is a checksum against accidental edits, not a security boundary. On H2 with a non-UTC process zone a nonexistent

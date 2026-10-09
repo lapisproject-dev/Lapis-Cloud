@@ -352,7 +352,7 @@ The server's `list` budget (60 per minute and member) is shared by `listSpaces`,
 
 Controls are real buttons with names; the hand button carries `aria-pressed` (fixed label); the pulpit is a `group` named "Kanzel: <name>" and receives the focus after entering (`tabindex=-1`); two polite live
 regions (amen bundling for everybody, "<name> hebt die Hand" for office holders only); no single-letter shortcuts (stage 2a: the seat plan is one tab stop with arrow-key navigation, see <<stage-2a>>); the side panel is closed by default, Escape closes it, below 768 px it is a full-screen sheet
-(`role="dialog"`, `aria-modal`, focus trap, focus returns to the opener); amen fades in and out in 200 ms, switched off under `prefers-reduced-motion`; the control bar shows symbols only (names and tooltips stay) and keeps a word for the reactions from 768 px on; see "The control bar" below.
+(`role="dialog"`, `aria-modal`, focus trap, focus returns to the opener); amen fades in and out in 200 ms, switched off under `prefers-reduced-motion`; the control bar shows symbols only, the reactions included (names and tooltips stay); see "The control bar" below.
 
 === Browser storage
 
@@ -437,7 +437,7 @@ The church text and its hash are unchanged, so existing consents stay valid. *Th
 
 === The control bar (V1.9.74)
 
-The bar under the stage shows *symbols only*, except the reactions (hand and the room's event reactions), which keep their word from 768 px on. Every symbol button has an accessible
+The bar under the stage shows *symbols only*; since V1.9.84 this holds for the reactions (hand and the room's event reactions) too. Every symbol button has an accessible
 name, a tooltip (`title`) and a stable label; the state of a toggle is carried by `aria-pressed` (hand, scene, full screen, microphone, camera) or `aria-expanded` (chat, transmission,
 "Mehr") together with a ring and, for microphone and camera, the slash symbol -- never by colour alone and never by a changing label ("Szene ausblenden" is pressed while the scene is
 hidden; "Vollbild" changes its symbol, not its name).
@@ -449,6 +449,15 @@ leaves once. The leave button of the page header is gone (the room owns the only
 
 "Türen schließen" is guarded by the confirmation dialog, not by distance: the focus starts on "Abbrechen", the dialog fires once (`ConfirmOnce`), a full-screen room is left first, and the
 control in the bar and its twin in the sheet call the *same* function (`askCloseDoors`), so there is exactly one path to `closeSpace`. The server still decides who may close.
+
+==== Reaction buttons (V1.9.84)
+
+* Symbol only in every width; the name stands in `title`, `aria-label` and `data-label`. The group is a `role="group"` named "Reaktionen". There is no media-query rule any more that brings a word back.
+* The hand is the only reaction with a state: `aria-pressed` plus the filled style and the double ring, with a *stable* name (ARIA: either the name changes or `aria-pressed` is used, never both).
+* The hand never overflows into the sheet and has no twin: a request to speak must never need a second tap. The event reactions overflow into the sheet like before, and their twins keep the word (the sheet is a menu).
+* Trade-off (Kare / Atkinson): `fa-hand` may be read as "stop". It is kept because the seat shows the same glyph (button equals seat feedback). A different symbol is only allowed together with the seat rendering.
+* Touch devices have no tooltip; there the name of a reaction is available to screen readers only.
+* An optional first-visit hint was not built: without persistence it would reappear on every page load, and `localStorage` is ruled out by the promise of no lasting trace of participation.
 
 *Overflow.* The bar never wraps and never scrolls sideways (R59). What does not fit moves into the "Mehr" sheet, measured by the shared `ControlBarOverflow` (also behind the conference bar).
 The order is: full screen, scene, transmission, the event reactions (the last of the canonical order first), "Türen schließen", and last of all the chat. Never moved: the hand, microphone,

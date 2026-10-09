@@ -20753,6 +20753,10 @@ msgstr "Your own picture"
 msgid "Ausgang"
 msgstr "Exit"
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterControlBar.kt
+msgid "Reaktionen"
+msgstr "Reactions"
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoom.kt
 msgid "Weitere Bedienelemente"
 msgstr "More controls"

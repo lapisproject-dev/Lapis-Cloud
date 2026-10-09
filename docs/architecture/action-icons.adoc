@@ -189,6 +189,7 @@ is in the ledger `R57_LEDGER` of `ClientToolbarIconTripwireTest`, each entry wit
 * The sheet twins of "Bildschirm teilen" and "Abstimmen" are deliberately text-only (their bar icons are domain strings, see the S3 ledger); the twin of the participants
   control uses `PEOPLE`, the others use their own bar icon.
 * The send button of the chat composer uses `SEND` and is the one icon-only button outside a table row besides the bar (R58 named exceptions, see the guideline, V1.9.66).
+* V1.9.84: the reaction group of the encounter bar (hand and event reactions, glyphs as set in `reactionActionIcon`) is built with the same icon-only factory (R58 exception c); the former rule "the reactions keep a word" is gone. The sheet twins of the event reactions keep their word.
 
 == Known limitations
 
