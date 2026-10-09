@@ -3,6 +3,7 @@ package network.lapis.cloud.server.mcp
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.server.federation.OidcRedirectUriMatcher
 import network.lapis.cloud.server.mcp.tools.McpToolCatalog
 import java.io.File
 
@@ -10,6 +11,14 @@ private val mcpSourceDir: File =
     File("src/main/kotlin/network/lapis/cloud/server/mcp").let {
         if (it.exists()) it else File("lapis-server/src/main/kotlin/network/lapis/cloud/server/mcp")
     }
+
+private val serverSourceDir: File = mcpSourceDir.parentFile
+
+private fun serverSource(relative: String): String =
+    File(serverSourceDir, relative)
+        .also {
+            check(it.isFile) { "missing ${it.path}" }
+        }.readText()
 
 private fun sources(): List<Pair<String, String>> {
     check(mcpSourceDir.isDirectory) { "MCP source dir not found: ${mcpSourceDir.absolutePath}" }
@@ -143,5 +152,26 @@ class McpStructureTest :
                         }
                     }.map { it.first }
             createPostOffenders.shouldBeEmpty()
+        }
+
+        test("V1.9.86 tripwire: the accepted loopback hosts are exactly 127.0.0.1, [::1] and localhost") {
+            OidcRedirectUriMatcher.LOOPBACK_HOSTS shouldBe setOf("127.0.0.1", "[::1]", "localhost")
+        }
+
+        test("V1.9.86 tripwire: the DCR loopback exception is tied to isPublicClient, port flexibility only for public clients") {
+            val oidc = serverSource("routes/OidcRoutes.kt")
+            oidc.contains("isPublicClient && OidcRedirectUriMatcher.isLoopbackRedirectUri(uri)") shouldBe true
+            val matchesCalls = Regex("OidcRedirectUriMatcher\\.matches\\(").findAll(oidc).count()
+            matchesCalls shouldBe 2
+            Regex("allowLoopbackPortFlexibility = isPublicClient").findAll(oidc).count() shouldBe 2
+        }
+
+        test("V1.9.86 tripwire: PKCE stays S256-only and the MCP token auth keeps its resource check") {
+            val oidc = serverSource("routes/OidcRoutes.kt")
+            oidc.contains("codeChallengeMethod != \"S256\"") shouldBe true
+            // 'plain' may be mentioned in comments/messages, but never as an accepted comparison value
+            oidc.contains("codeChallengeMethod == \"plain\"") shouldBe false
+            oidc.contains("== \"plain\"") shouldBe false
+            serverSource("mcp/auth/McpTokenAuth.kt").contains("!= expectedResource") shouldBe true
         }
     })

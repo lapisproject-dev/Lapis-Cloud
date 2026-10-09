@@ -84,7 +84,7 @@ Outside `mcp/`: `routes.McpRoutes` (`POST /mcp`, the well-known Protected Resour
 document), `routes.McpConsentPage`, `rpc.McpAccessService`/`DisabledMcpAccessService` (the member-facing
 switch/connection-list RPC surface), `dsgvo.McpPersonalData`, and the MCP-specific additions inside
 `routes.OidcRoutes` (the `mcp:member_read` branch of `/authorize`, public-client support at `/token`,
-`OidcRedirectUriMatcher` for loopback redirect flexibility).
+`OidcRedirectUriMatcher` for loopback redirect flexibility, `localhost` included since V1.9.86).
 
 === Boundary rules R1-R5 (tested by `McpStructureTest`)
 
@@ -189,11 +189,48 @@ TLS certificate for its own OS-assigned ephemeral loopback port. Two additions, 
   `client_secret`; PKCE alone authenticates the grant at `/token`, which is exactly the OAuth 2.1
   construction this repository's pre-existing, already-correct PKCE implementation was building
   toward. A confidential (`client_secret_post`) client is completely unchanged.
-* `OidcRedirectUriMatcher` allows the *port* of a registered loopback (`127.0.0.1`/`[::1]`, **never**
-  `localhost` -- a DNS name, not a loopback literal, and therefore not trustworthy for this purpose)
-  redirect URI to differ at `/authorize`-time from what was registered at DCR-time (RFC 8252 §7.3),
-  while scheme/host/path/query/fragment must still match exactly. A confidential client gets no such
-  relaxation.
+* `OidcRedirectUriMatcher` allows the *port* of a registered loopback redirect URI to differ at
+  `/authorize`-time from what was registered at DCR-time (RFC 8252 §7.3). The accepted hosts are, exactly and
+  case-sensitively, `127.0.0.1`, `[::1]` and (since V1.9.86) `localhost`. Only the scheme `http` is
+  accepted for this exception, with no userinfo and no fragment (not even an empty one); host, path and
+  query must still match exactly, and `localhost` is *not* equivalent to `127.0.0.1` or `[::1]`. A
+  confidential client gets no such relaxation and cannot register a plain-HTTP loopback URI at all.
+
+*Why `localhost` is accepted (V1.9.86).* Claude Code and many other local MCP clients register
+`+http://localhost:<port>/callback+`; refusing the name makes the sign-in impossible. RFC 8252 §8.3
+advises against `localhost` because name resolution can be manipulated (hosts file, a local resolver).
+The residual risk is mitigated by:
+
+* S256 PKCE is mandatory: `plain` is rejected, the challenge must be well-formed, and without the
+  `code_verifier` an intercepted code is worthless.
+* The authorization code lives 60 seconds and is single-use; it is bound to the client and to the exact
+  `redirect_uri` presented at `/authorize`.
+* The consent page shows the agent's self-declared name explicitly as unverified.
+* The `resource` binding is checked at `/authorize`, at the consent POST, at `/token` (code and refresh
+  grant, `invalid_target` on a mismatch) and in `McpTokenAuth` on every call.
+* The member can revoke the connection and flip the kill switch at any time.
+
+An attacker who can already execute code or manipulate name resolution on the member's own machine is
+outside the threat model of this construction.
+
+=== Default scope and nonce for MCP grants
+
+`nonce` is an OpenID Connect concept. It stays mandatory for guest federation, but an MCP request
+(OAuth 2.1 style, as sent by Claude Code) may omit it; the code row then stores `NULL` (never an empty
+string) and the ID token carries no `nonce` claim. If an MCP client sends no `scope` at all but names
+the correct `resource`, the request is treated as `mcp:member_read` (least privilege); the consent page
+carries the normalized scope. Without `scope` and without the matching `resource` the request is a 400.
+Write access is never granted by default. The `401` challenge of `/mcp` names
+`scope="mcp:member_read"`, and the protected-resource metadata lists `mcp:member_write` in
+`scopes_supported` only when write is operational on the instance.
+
+=== DCR error messages
+
+`/federation/oidc/register` answers with distinct plain-text messages and never echoes submitted values:
+redirect URIs that are not HTTPS (and not an allowed loopback URI), a plain-HTTP loopback URI from a
+client that did not ask for `token_endpoint_auth_method=none` (a client that omits the field gets our
+default `client_secret_post`), a non-HTTPS `backchannel_logout_uri`, and more than 10 redirect URIs or
+a URI longer than 2048 characters.
 
 == Data model
 
@@ -495,6 +532,12 @@ after 7 days / `RELEASED` rows after 90 days. See xref:dsgvo.adoc[dsgvo.adoc].
 
 == What doesn't work yet (this wave)
 
+* **Claude Code (V1.9.86) was not tested against the real client.** The requests of `McpClaudeCodeLoopbackFlowTest`
+  are reconstructed from the MCP authorization specification and the SDK's behaviour, not captured from a real
+  client. The real test is done after the rollout on PdV and ELB. Not supported: `client_secret_basic` at `/token`
+  and Client ID Metadata Documents. `initialize` still accepts only the pinned protocol version `2025-06-18`
+  (see `McpProtocol.kt`); a client that offers only a newer version is rejected after a successful sign-in. The
+  help page `ai-assistant-mcp` gets a Claude Code guide after the rollout.
 * **Manual conformance verification against a real MCP client (Claude Desktop) was not performed** --
   it needs a running instance with `LAPIS_MCP_ENABLED=true` and a publicly-reachable HTTPS origin
   (a local agent and a loopback redirect tolerate `localhost:8080` only partially); this is the single

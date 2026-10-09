@@ -16,4 +16,9 @@ object OidcPkce {
         val digest = MessageDigest.getInstance("SHA-256").digest(codeVerifier.toByteArray(Charsets.UTF_8))
         return Base64.getUrlEncoder().withoutPadding().encodeToString(digest)
     }
+
+    private val S256_CHALLENGE = Regex("^[A-Za-z0-9_-]{43}$")
+
+    /** An S256 challenge is the unpadded Base64URL of a 32-byte digest: exactly 43 URL-safe chars. */
+    fun isWellFormedS256Challenge(codeChallenge: String): Boolean = S256_CHALLENGE.matches(codeChallenge)
 }

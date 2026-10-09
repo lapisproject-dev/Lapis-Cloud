@@ -56,6 +56,9 @@ import kotlin.uuid.Uuid
 
 private val TEST_JSON = Json { ignoreUnknownKeys = true }
 
+/** A real, well-formed S256 challenge (V1.9.86 validates the shape at /authorize). */
+private val TEST_CHALLENGE = OidcPkce.codeChallengeS256("oidc-routes-test-verifier-padding-padding-1234567890")
+
 /**
  * Exercises the V0.8.2 OIDC Issuer surface (`/.well-known/openid-configuration`,
  * `/federation/oidc/jwks`, `/federation/oidc/authorize`, `/federation/oidc/authorize/consent`,
@@ -283,7 +286,7 @@ class OidcRoutesTest :
                 val response =
                     client.get(
                         "/federation/oidc/authorize?response_type=code&client_id=unknown-client&redirect_uri=" +
-                            "https://rp.example/callback&scope=openid&state=s1&code_challenge=c1&code_challenge_method=S256&nonce=n1",
+                            "https://rp.example/callback&scope=openid&state=s1&code_challenge=$TEST_CHALLENGE&code_challenge_method=S256&nonce=n1",
                     )
                 response.status shouldBe HttpStatusCode.BadRequest
             }
@@ -297,7 +300,7 @@ class OidcRoutesTest :
                 val response =
                     client.get(
                         "/federation/oidc/authorize?response_type=code&client_id=${dto.client_id}&redirect_uri=" +
-                            "https://attacker.example/steal&scope=openid&state=s1&code_challenge=c1&code_challenge_method=S256&nonce=n1",
+                            "https://attacker.example/steal&scope=openid&state=s1&code_challenge=$TEST_CHALLENGE&code_challenge_method=S256&nonce=n1",
                     )
                 response.status shouldBe HttpStatusCode.BadRequest
             }
@@ -311,7 +314,7 @@ class OidcRoutesTest :
                 val response =
                     client.get(
                         "/federation/oidc/authorize?response_type=code&client_id=${dto.client_id}&redirect_uri=" +
-                            "https://rp.example/callback&scope=openid&state=s1&code_challenge=c1&code_challenge_method=plain&nonce=n1",
+                            "https://rp.example/callback&scope=openid&state=s1&code_challenge=$TEST_CHALLENGE&code_challenge_method=plain&nonce=n1",
                     )
                 response.status shouldBe HttpStatusCode.BadRequest
             }
@@ -325,12 +328,135 @@ class OidcRoutesTest :
 
                 val authorizeUrl =
                     "/federation/oidc/authorize?response_type=code&client_id=${dto.client_id}&redirect_uri=" +
-                        "https://rp.example/callback&scope=openid&state=s1&code_challenge=c1&code_challenge_method=S256&nonce=n1"
+                        "https://rp.example/callback&scope=openid&state=s1&code_challenge=$TEST_CHALLENGE&code_challenge_method=S256&nonce=n1"
                 val response = noRedirectClient.get(authorizeUrl)
                 response.status shouldBe HttpStatusCode.Found
                 val location = requireNotNull(response.headers[HttpHeaders.Location])
                 location shouldContain "/app#/login"
                 location shouldContain "returnTo="
+            }
+        }
+
+        test("GET /authorize rejects a malformed code_challenge (wrong length / charset) with 400, never 500") {
+            testApplication {
+                application { module() }
+                val dto = registerDcrClient(client, "Malformed Challenge RP ${Uuid.random()}")
+                listOf("c1", "a".repeat(129), TEST_CHALLENGE.dropLast(1) + "+").forEach { bad ->
+                    val response =
+                        client.get(
+                            "/federation/oidc/authorize?response_type=code&client_id=${dto.client_id}&redirect_uri=" +
+                                "https://rp.example/callback&scope=openid&state=s1&code_challenge=$bad&code_challenge_method=S256&nonce=n1",
+                        )
+                    response.status shouldBe HttpStatusCode.BadRequest
+                }
+            }
+        }
+
+        test("GET /authorize without code_challenge, or without code_challenge_method, is rejected") {
+            testApplication {
+                application { module() }
+                val dto = registerDcrClient(client, "Missing PKCE RP ${Uuid.random()}")
+                val base =
+                    "/federation/oidc/authorize?response_type=code&client_id=${dto.client_id}&redirect_uri=" +
+                        "https://rp.example/callback&scope=openid&state=s1&nonce=n1"
+                client.get("$base&code_challenge_method=S256").status shouldBe HttpStatusCode.BadRequest
+                client.get("$base&code_challenge=$TEST_CHALLENGE").status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
+        test("GET /authorize for guest federation (openid) without nonce stays a 400 -- nonce is only optional for MCP") {
+            testApplication {
+                application { module() }
+                val dto = registerDcrClient(client, "No Nonce RP ${Uuid.random()}")
+                val response =
+                    client.get(
+                        "/federation/oidc/authorize?response_type=code&client_id=${dto.client_id}&redirect_uri=" +
+                            "https://rp.example/callback&scope=openid&state=s1&code_challenge=$TEST_CHALLENGE&code_challenge_method=S256",
+                    )
+                response.status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
+        test("POST /authorize/consent for guest federation without nonce is rejected") {
+            testApplication {
+                val noRedirectClient = createClient { followRedirects = false }
+                application { module() }
+                val dto = registerDcrClient(client, "Consent No Nonce RP ${Uuid.random()}")
+                val (_, rawSession) = createTestMember("oidc-consent-no-nonce-${Uuid.random()}@example.org")
+                val response =
+                    noRedirectClient.post("/federation/oidc/authorize/consent") {
+                        header(HttpHeaders.Cookie, "lapis_session=$rawSession")
+                        contentType(ContentType.Application.FormUrlEncoded)
+                        setBody(
+                            Parameters
+                                .build {
+                                    append("decision", "allow")
+                                    append("client_id", dto.client_id)
+                                    append("redirect_uri", "https://rp.example/callback")
+                                    append("scope", "openid")
+                                    append("state", "s1")
+                                    append("code_challenge", TEST_CHALLENGE)
+                                }.formUrlEncode(),
+                        )
+                    }
+                response.status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
+        test("POST /register with 11 redirect_uris or a 2049-char redirect_uri is a 400, not a 500") {
+            testApplication {
+                application { module() }
+                val many = (1..11).joinToString(",") { "\"https://rp.example/cb$it\"" }
+                val r1 =
+                    client.post("/federation/oidc/register") {
+                        contentType(ContentType.Application.Json)
+                        setBody("""{"client_name":"Many","redirect_uris":[$many]}""")
+                    }
+                r1.status shouldBe HttpStatusCode.BadRequest
+                r1.bodyAsText() shouldBe DCR_ERR_TOO_MANY_REDIRECTS
+                val longUri = "https://rp.example/" + "a".repeat(2049 - "https://rp.example/".length)
+                val r2 =
+                    client.post("/federation/oidc/register") {
+                        contentType(ContentType.Application.Json)
+                        setBody("""{"client_name":"Long","redirect_uris":["$longUri"]}""")
+                    }
+                r2.status shouldBe HttpStatusCode.BadRequest
+                r2.bodyAsText() shouldBe DCR_ERR_TOO_MANY_REDIRECTS
+            }
+        }
+
+        test("POST /register: http localhost redirect for a confidential client gets the dedicated message, without echoing the URI") {
+            testApplication {
+                application { module() }
+                val r =
+                    client.post("/federation/oidc/register") {
+                        contentType(ContentType.Application.Json)
+                        setBody("""{"client_name":"Conf","redirect_uris":["http://localhost:5555/secret-path-marker"]}""")
+                    }
+                r.status shouldBe HttpStatusCode.BadRequest
+                r.bodyAsText() shouldBe DCR_ERR_LOOPBACK_REQUIRES_PUBLIC
+            }
+        }
+
+        test("POST /register: non-loopback http redirect gets the generic redirect message; http backchannel gets its own") {
+            testApplication {
+                application { module() }
+                val r1 =
+                    client.post("/federation/oidc/register") {
+                        contentType(ContentType.Application.Json)
+                        setBody("""{"client_name":"X","redirect_uris":["http://insecure.example/marker"]}""")
+                    }
+                r1.status shouldBe HttpStatusCode.BadRequest
+                r1.bodyAsText() shouldBe DCR_ERR_REDIRECT_URIS
+                val r2 =
+                    client.post("/federation/oidc/register") {
+                        contentType(ContentType.Application.Json)
+                        setBody(
+                            """{"client_name":"X","redirect_uris":["https://rp.example/cb"],"backchannel_logout_uri":"http://rp.example/bc-marker"}""",
+                        )
+                    }
+                r2.status shouldBe HttpStatusCode.BadRequest
+                r2.bodyAsText() shouldBe DCR_ERR_BACKCHANNEL
             }
         }
 

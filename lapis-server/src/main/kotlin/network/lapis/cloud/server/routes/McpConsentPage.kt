@@ -48,7 +48,7 @@ internal fun mcpConsentPageHtml(
     scopeParam: String,
     state: String,
     codeChallenge: String,
-    nonce: String,
+    nonce: String?,
     resource: String,
 ): String {
     val safeClientName = htmlEscape(clientName.filterNot { it.isISOControl() }.take(80))
@@ -89,7 +89,7 @@ internal fun mcpConsentPageHtml(
           <input type="hidden" name="scope" value="${htmlEscape(scopeParam)}">
           <input type="hidden" name="state" value="${htmlEscape(state)}">
           <input type="hidden" name="code_challenge" value="${htmlEscape(codeChallenge)}">
-          <input type="hidden" name="nonce" value="${htmlEscape(nonce)}">
+          ${if (nonce != null) """<input type="hidden" name="nonce" value="${htmlEscape(nonce)}">""" else ""}
           <input type="hidden" name="resource" value="${htmlEscape(resource)}">
           <label for="connection_label">Name dieser Verbindung (frei wählbar, z. B. &bdquo;Claude Desktop&ldquo;)</label>
           <input id="connection_label" name="connection_label" required maxlength="60">

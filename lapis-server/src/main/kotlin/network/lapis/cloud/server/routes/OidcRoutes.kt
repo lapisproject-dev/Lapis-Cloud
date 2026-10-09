@@ -87,6 +87,16 @@ import kotlin.uuid.Uuid
 
 private val OIDC_JSON = Json { ignoreUnknownKeys = true }
 
+internal const val DCR_ERR_REDIRECT_URIS =
+    "redirect_uris must use https; plain http is allowed only for public clients (token_endpoint_auth_method=none) " +
+        "on the loopback hosts 127.0.0.1, [::1] or localhost, without userinfo or fragment"
+internal const val DCR_ERR_LOOPBACK_REQUIRES_PUBLIC = "plain-http loopback redirect_uris require token_endpoint_auth_method=none"
+internal const val DCR_ERR_BACKCHANNEL = "backchannel_logout_uri must use https"
+internal const val DCR_ERR_TOO_MANY_REDIRECTS = "too many redirect_uris or a redirect_uri is too long"
+
+private const val DCR_MAX_REDIRECT_URIS = 10
+private const val DCR_MAX_REDIRECT_URI_LENGTH = 2048
+
 private val AUTHORIZATION_CODE_TTL = 60.seconds
 private val RP_LOGIN_ATTEMPT_TTL = 10.minutes
 private val ACCESS_TOKEN_TTL = 1.hours
@@ -193,8 +203,7 @@ fun Route.registerOidcRoutes(
             clientId.isNullOrBlank() ||
             redirectUri.isNullOrBlank() ||
             state.isNullOrBlank() ||
-            codeChallenge.isNullOrBlank() ||
-            nonce.isNullOrBlank()
+            codeChallenge.isNullOrBlank()
         ) {
             call.respond(HttpStatusCode.BadRequest, "Missing or invalid required authorize parameter(s)")
             return@get
@@ -203,7 +212,21 @@ fun Route.registerOidcRoutes(
             call.respond(HttpStatusCode.BadRequest, "code_challenge_method must be S256")
             return@get
         }
-        val requestedScopes = scopeParam.split(" ").filter { it.isNotBlank() }.toSet()
+        if (!OidcPkce.isWellFormedS256Challenge(codeChallenge)) {
+            call.respond(HttpStatusCode.BadRequest, "code_challenge is malformed")
+            return@get
+        }
+        val resourceParam = params["resource"]
+        // V1.9.86 -- a client that sends no scope (OAuth 2.1 style, e.g. Claude Code) but targets
+        // the MCP resource gets the least-privilege default: read only.
+        val requestedScopes =
+            scopeParam
+                .split(" ")
+                .filter { it.isNotBlank() }
+                .toSet()
+                .ifEmpty {
+                    if (mcpEnabled && resourceParam == McpResource.expected()) setOf(OidcScopes.MCP_MEMBER_READ) else emptySet()
+                }
         if (requestedScopes.isEmpty() || !requestedScopes.all { it in OidcScopes.ALL }) {
             call.respond(HttpStatusCode.BadRequest, "Missing or unknown scope")
             return@get
@@ -215,7 +238,12 @@ fun Route.registerOidcRoutes(
         // matching RFC 8707 resource parameter. See routes.OidcRoutes class KDoc addendum below,
         // OidcScopes.isMcpScopeSet KDoc, and McpTokenAuth KDoc for the resource-server side.
         val isMcpRequest = requestedScopes.any { it == OidcScopes.MCP_MEMBER_READ || it == OidcScopes.MCP_MEMBER_WRITE }
-        val resourceParam = params["resource"]
+        // V1.9.86 -- nonce is an OIDC concept: mandatory for guest federation, optional for MCP.
+        if (!isMcpRequest && nonce.isNullOrBlank()) {
+            call.respond(HttpStatusCode.BadRequest, "Missing or invalid required authorize parameter(s)")
+            return@get
+        }
+        val normalizedNonce = nonce?.takeUnless { it.isBlank() }
         if (isMcpRequest) {
             if (!mcpEnabled) {
                 call.respond(HttpStatusCode.BadRequest, "MCP access is not enabled on this instance")
@@ -277,10 +305,10 @@ fun Route.registerOidcRoutes(
                     clientName = clientRow[OidcClientRegistrationTable.clientName],
                     clientId = clientId,
                     redirectUri = redirectUri,
-                    scopeParam = scopeParam,
+                    scopeParam = requestedScopes.joinToString(" "),
                     state = state,
                     codeChallenge = codeChallenge,
-                    nonce = nonce,
+                    nonce = normalizedNonce,
                     resource = resourceParam.orEmpty(),
                 ),
                 contentType = io.ktor.http.ContentType.Text.Html,
@@ -294,10 +322,10 @@ fun Route.registerOidcRoutes(
                 scopes = requestedScopes,
                 clientId = clientId,
                 redirectUri = redirectUri,
-                scopeParam = scopeParam,
+                scopeParam = requestedScopes.joinToString(" "),
                 state = state,
                 codeChallenge = codeChallenge,
-                nonce = nonce,
+                nonce = nonce.orEmpty(),
             ),
             contentType = io.ktor.http.ContentType.Text.Html,
         )
@@ -316,12 +344,16 @@ fun Route.registerOidcRoutes(
         val scope = form["scope"] ?: ""
         val state = form["state"]
         val codeChallenge = form["code_challenge"]
-        val nonce = form["nonce"]
+        val nonce = form["nonce"]?.trim()?.takeUnless { it.isBlank() }
         val resource = form["resource"]?.trim()?.takeUnless { it.isBlank() }
         val connectionLabelRaw = form["connection_label"]?.filterNot { it.isISOControl() }?.trim()?.take(60)
 
         if (clientId.isNullOrBlank() || redirectUri.isNullOrBlank() || state.isNullOrBlank() || codeChallenge.isNullOrBlank()) {
             call.respond(HttpStatusCode.BadRequest, "Missing consent parameter(s)")
+            return@post
+        }
+        if (!OidcPkce.isWellFormedS256Challenge(codeChallenge)) {
+            call.respond(HttpStatusCode.BadRequest, "code_challenge is malformed")
             return@post
         }
 
@@ -335,6 +367,11 @@ fun Route.registerOidcRoutes(
         // unrevokable, invisible MCP-scoped grant (see the finding this comment documents).
         val requestedScopes = scope.split(" ").filter { it.isNotBlank() }.toSet()
         val isMcpRequest = requestedScopes.any { it == OidcScopes.MCP_MEMBER_READ || it == OidcScopes.MCP_MEMBER_WRITE }
+        // V1.9.86 -- mirrors GET /authorize: nonce is mandatory for every non-MCP (guest federation) grant.
+        if (!isMcpRequest && nonce == null) {
+            call.respond(HttpStatusCode.BadRequest, "Missing consent parameter(s)")
+            return@post
+        }
         if (isMcpRequest) {
             // Defense in depth: the GET /authorize handler above already refuses to even RENDER
             // the consent page when MCP is off, but this POST endpoint is independently reachable
@@ -552,20 +589,29 @@ fun Route.registerOidcRoutes(
         val isPublicClient = authMethod == "none"
         // HTTPS-only gate -- see class KDoc: this is the root defense against ever sending an
         // authorization code to a plain-HTTP (interceptable) redirect target. The ONE exception
-        // (Welle V1.8.1): a PUBLIC client may register a loopback (127.0.0.1/[::1], NEVER
-        // "localhost" -- see OidcRedirectUriMatcher.isLoopbackRedirectUri KDoc) plain-HTTP
-        // redirect_uri, RFC 8252 §7.3 -- a local CLI/desktop agent cannot obtain a certificate for
+        // (Welle V1.8.1, widened V1.9.86): a PUBLIC client may register a plain-HTTP loopback
+        // redirect_uri on 127.0.0.1, [::1] or localhost (RFC 8252 §7.3; localhost per
+        // OidcRedirectUriMatcher KDoc) -- a local CLI/desktop agent cannot obtain a certificate for
         // its own OS-assigned ephemeral loopback port. backchannel_logout_uri remains HTTPS-only,
-        // unconditionally, for every client.
+        // unconditionally, for every client. Error messages never echo the submitted values.
+        if (body.redirect_uris.size > DCR_MAX_REDIRECT_URIS || body.redirect_uris.any { it.length > DCR_MAX_REDIRECT_URI_LENGTH }) {
+            call.respond(HttpStatusCode.BadRequest, DCR_ERR_TOO_MANY_REDIRECTS)
+            return@post
+        }
+        if (body.redirect_uris.any { !it.startsWith("https://") && !isPublicClient && OidcRedirectUriMatcher.isLoopbackRedirectUri(it) }) {
+            call.respond(HttpStatusCode.BadRequest, DCR_ERR_LOOPBACK_REQUIRES_PUBLIC)
+            return@post
+        }
         val redirectUrisOk =
             body.redirect_uris.all { uri ->
                 uri.startsWith("https://") || (isPublicClient && OidcRedirectUriMatcher.isLoopbackRedirectUri(uri))
             }
-        if (!redirectUrisOk || (body.backchannel_logout_uri != null && !body.backchannel_logout_uri.startsWith("https://"))) {
-            call.respond(
-                HttpStatusCode.BadRequest,
-                "redirect_uris must be HTTPS (loopback HTTP only for public clients) and backchannel_logout_uri must be HTTPS",
-            )
+        if (!redirectUrisOk) {
+            call.respond(HttpStatusCode.BadRequest, DCR_ERR_REDIRECT_URIS)
+            return@post
+        }
+        if (body.backchannel_logout_uri != null && !body.backchannel_logout_uri.startsWith("https://")) {
+            call.respond(HttpStatusCode.BadRequest, DCR_ERR_BACKCHANNEL)
             return@post
         }
 
@@ -1252,6 +1298,24 @@ private suspend fun handleAuthorizationCodeGrant(
         return
     }
 
+    // V1.9.86 (RFC 8707): a resource indicator presented at the token endpoint must equal the one
+    // bound at authorization time. The code is already consumed -- a failed attempt burns it.
+    val requestedResource = form["resource"]?.trim()?.takeUnless { it.isBlank() }
+    if (requestedResource != null && requestedResource != consumedRow[OidcAuthorizationCodeTable.resource]) {
+        OidcLoginAuditRecorder.record(
+            eventType = OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
+            memberId = consumedRow[OidcAuthorizationCodeTable.memberId],
+            remoteParty = clientId,
+            reason = "RESOURCE_MISMATCH",
+        )
+        call.respondText(
+            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "invalid_target")),
+            contentType = io.ktor.http.ContentType.Application.Json,
+            status = HttpStatusCode.BadRequest,
+        )
+        return
+    }
+
     val memberId = consumedRow[OidcAuthorizationCodeTable.memberId]
     val scope = consumedRow[OidcAuthorizationCodeTable.scope]
     val nonce = consumedRow[OidcAuthorizationCodeTable.nonce]
@@ -1351,6 +1415,24 @@ private suspend fun handleRefreshTokenGrant(
         )
         call.respondText(
             OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "invalid_grant")),
+            contentType = io.ktor.http.ContentType.Application.Json,
+            status = HttpStatusCode.BadRequest,
+        )
+        return
+    }
+
+    // V1.9.86 (RFC 8707): a presented resource must match the grant's bound resource. Checked
+    // before rotation so a mismatching request neither rotates nor revokes anything.
+    val requestedResource = form["resource"]?.trim()?.takeUnless { it.isBlank() }
+    if (requestedResource != null && requestedResource != existing[OidcIssuedTokenTable.resource]) {
+        OidcLoginAuditRecorder.record(
+            eventType = OidcLoginEventType.ISSUER_TOKEN_ISSUE_FAILED,
+            memberId = existing[OidcIssuedTokenTable.memberId],
+            remoteParty = clientId,
+            reason = "RESOURCE_MISMATCH",
+        )
+        call.respondText(
+            OIDC_JSON.encodeToString(OidcTokenErrorDto.serializer(), OidcTokenErrorDto(error = "invalid_target")),
             contentType = io.ktor.http.ContentType.Application.Json,
             status = HttpStatusCode.BadRequest,
         )

@@ -89,10 +89,7 @@ internal fun Route.registerMcpRoutes(
 
         val resolution = McpTokenAuth.resolve(call = call, expectedResource = McpResource.expected())
         if (resolution !is McpTokenAuth.Resolution.Valid) {
-            call.response.header(
-                HttpHeaders.WWWAuthenticate,
-                "Bearer resource_metadata=\"${FederationConfig.publicBaseUrl}/.well-known/oauth-protected-resource/mcp\", error=\"invalid_token\"",
-            )
+            call.response.header(HttpHeaders.WWWAuthenticate, mcpWwwAuthenticate())
             call.respond(HttpStatusCode.Unauthorized)
             return@post
         }
@@ -187,7 +184,7 @@ internal fun Route.registerMcpRoutes(
                     putJsonArray("authorization_servers") { add(JsonPrimitive(FederationConfig.publicBaseUrl)) }
                     putJsonArray("scopes_supported") {
                         add(JsonPrimitive("mcp:member_read"))
-                        add(JsonPrimitive("mcp:member_write"))
+                        if (config.isWriteOperational) add(JsonPrimitive("mcp:member_write"))
                     }
                     putJsonArray("bearer_methods_supported") { add(JsonPrimitive("header")) }
                 }.toString(),
@@ -364,3 +361,11 @@ private fun errorResponse(
             if (data != null) put("data", data)
         }
     }.toString()
+
+/**
+ * V1.9.86 -- 401 challenge. `scope="mcp:member_read"` is the least-privilege default a client that
+ * follows the challenge will request; write access is never suggested by the server.
+ */
+private fun mcpWwwAuthenticate(): String =
+    "Bearer resource_metadata=\"${FederationConfig.publicBaseUrl}/.well-known/oauth-protected-resource/mcp\", " +
+        "error=\"invalid_token\", scope=\"mcp:member_read\""
