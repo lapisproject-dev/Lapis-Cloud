@@ -13,6 +13,7 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.perc
 import io.kvision.utils.px
+import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.IAuthService
 
 /**
@@ -37,6 +38,11 @@ fun renderLoginScreen(container: SimplePanel) {
         // Screen behält dafür ein eigenes, screenspezifisches h1 (Design-Team-Review V1.4.7).
         brandLockup()
         pageHeader(tr("Anmelden"))
+
+        // V1.9.89: only when a valid returnTo is present; static text, never the URL or a client name.
+        if (currentReturnTo() != null) {
+            p(tr("Nach der Anmeldung geht es mit der Verbindung Ihres Assistenten weiter."))
+        }
 
         // V1.7.2 sub-wave 2b "Keycloak als externe Benutzerverwaltung -- UI": read BEFORE any RPC
         // round-trip, same as `Branding.title`/`logoUrl` -- see `Branding.keycloakMode` KDoc.
@@ -117,8 +123,10 @@ private fun renderEmailPasswordLoginForm(parent: SimplePanel) {
         )
     val loginButton = newActionButton(ActionIcon.ENTER, tr("Anmelden"), ButtonStyle.PRIMARY)
     form.buttons(primary = loginButton, enterSubmits = true)
+    // V1.9.89: true once the page is being left for the consent page -- the button then stays disabled until the browser navigates.
+    var leaving = false
     loginButton.onClick {
-        form.submit(loginButton) {
+        form.submit(loginButton, restoreDisabled = { leaving }) {
             val email = emailField.value.trim()
             val pw = passwordField.value
             val loginError = AuthHttp.login(email, pw)
@@ -129,15 +137,31 @@ private fun renderEmailPasswordLoginForm(parent: SimplePanel) {
             }
             val session = guarded { rpcService<IAuthService>().getSessionInfo() }
             if (session != null) {
-                AppState.setSession(session)
-                notifySuccess(gettext("Willkommen, %1.", session.displayName))
-                navigateTo(Routes.DASHBOARD)
+                leaving = completeLogin(session)
             } else {
                 form.showFormError(tr("Anmeldung erfolgreich, aber Sitzungsdaten konnten nicht geladen werden."))
             }
         }
     }
 }
+
+/**
+ * V1.9.89: the single success path of every password login (classic form AND the emergency-admin form, which reuses
+ * [renderEmailPasswordLoginForm]). With a valid `returnTo` (an OAuth authorize URL, see `safeReturnTo`) the browser jumps
+ * there by a full-page `location.replace` -- no toast (it would flash and vanish), no dashboard. Otherwise: toast and dashboard, as always.
+ * `true` = the page is being left. Known limitation: `aria-busy` returns to `false` in `runBusy`'s `finally` before the page changes.
+ */
+internal fun completeLogin(session: SessionInfoDto): Boolean {
+    AppState.setSession(session)
+    val returnTo = currentReturnTo()
+    if (returnTo != null && navigateToReturnTo(returnTo)) return true
+    notifySuccess(gettext("Willkommen, %1.", session.displayName))
+    navigateTo(Routes.DASHBOARD)
+    return false
+}
+
+/** Binds to the JS global `encodeURIComponent` -- no Kotlin/JS stdlib wrapper (cf. `decodeURIComponent` in Routing.kt). */
+private external fun encodeURIComponent(value: String): String
 
 /**
  * V1.7.2 sub-wave 2b "Keycloak als externe Benutzerverwaltung -- UI" -- the Keycloak-mode branch of
@@ -160,7 +184,8 @@ private fun renderKeycloakLoginPanel(parent: SimplePanel) {
     parent.p(tr("Bitte melden Sie sich über Ihre Organisation an."))
     parent.link(
         gettext("Mit %1 anmelden", Branding.title),
-        url = "/auth/keycloak/start",
+        // V1.9.89: carry a valid returnTo through the SSO round trip (the server keeps it in a short-lived cookie).
+        url = currentReturnTo()?.let { "/auth/keycloak/start?returnTo=" + encodeURIComponent(it) } ?: "/auth/keycloak/start",
         dataNavigo = false,
     ) {
         addCssClasses("btn btn-primary")

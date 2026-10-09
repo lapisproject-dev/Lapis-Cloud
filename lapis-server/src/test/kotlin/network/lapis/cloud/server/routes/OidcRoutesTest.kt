@@ -334,6 +334,28 @@ class OidcRoutesTest :
                 val location = requireNotNull(response.headers[HttpHeaders.Location])
                 location shouldContain "/app#/login"
                 location shouldContain "returnTo="
+                // V1.9.89: the Location carries exactly the request URI, URL-encoded once, and it passes the allowlist.
+                location.startsWith("/app#/login?returnTo=") shouldBe true
+                val carried = java.net.URLDecoder.decode(location.removePrefix("/app#/login?returnTo="), "UTF-8")
+                carried shouldBe authorizeUrl
+                network.lapis.cloud.shared.auth
+                    .safeReturnTo(carried) shouldBe authorizeUrl
+            }
+        }
+
+        test("GET /authorize with no session and a double-encoded query (%25XX) redirects to the plain login page (fail-closed returnTo)") {
+            testApplication {
+                val noRedirectClient = createClient { followRedirects = false }
+                application { module() }
+                val dto = registerDcrClient(client, "Double Encoded RP ${Uuid.random()}")
+
+                val response =
+                    noRedirectClient.get(
+                        "/federation/oidc/authorize?response_type=code&client_id=${dto.client_id}&redirect_uri=" +
+                            "https://rp.example/callback&scope=openid&state=s%252F1&code_challenge=$TEST_CHALLENGE&code_challenge_method=S256&nonce=n1",
+                    )
+                response.status shouldBe HttpStatusCode.Found
+                response.headers[HttpHeaders.Location] shouldBe "/app#/login"
             }
         }
 

@@ -67,6 +67,7 @@ import network.lapis.cloud.server.security.SESSION_COOKIE_NAME
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.SessionTokens
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.shared.auth.safeReturnTo
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.OidcLoginEventType
 import org.jetbrains.exposed.v1.core.and
@@ -306,10 +307,14 @@ fun Route.registerOidcRoutes(
 
         val current = runCatching { resolveCurrentMember(call) }.getOrNull()
         if (current == null) {
-            val returnTo = URLEncoder.encode(call.request.uri, "UTF-8")
+            // V1.9.89: same allowlist as the client and the Keycloak cookie; an unsafe URI (e.g. a double-encoded
+            // redirect_uri) is not carried -- the plain login page then ends on the dashboard as before.
+            val target = safeReturnTo(call.request.uri)
             // Welle V1.4.6: "/app" prefix -- the member SPA no longer lives at "/", see
             // PublicLandingRoutes KDoc.
-            call.respondRedirect("/app#/login?returnTo=$returnTo")
+            call.respondRedirect(
+                if (target != null) "/app#/login?returnTo=" + URLEncoder.encode(target, "UTF-8") else "/app#/login",
+            )
             return@get
         }
 

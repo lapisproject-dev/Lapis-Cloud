@@ -159,6 +159,36 @@ A `state` row consumed successfully but with a binding-cookie mismatch is reject
 `BROWSER_BINDING_MISMATCH` -- a distinct, auditable reason (`KEYCLOAK_LOGIN_FAILED` event), not
 silently folded into a generic error.
 
+=== Return-to cookie (V1.9.89)
+
+When an OAuth client sent the member to the login page (`/app#/login?returnTo=...`), the SSO button carries the value to
+`/auth/keycloak/start?returnTo=...` so the member reaches the consent page after Keycloak instead of the dashboard.
+
+[cols="1,3"]
+|===
+| Property | Value
+
+| Name
+| `+__Host-lapis_keycloak_return_to+` (`KEYCLOAK_LOGIN_RETURN_TO_COOKIE_NAME`)
+
+| Attributes
+| `HttpOnly`, `Secure`, `Path=/`, `SameSite=Lax` (the callback is a cross-site top-level `GET`), `Max-Age` = 10 minutes
+
+| Value
+| The `returnTo` target, accepted only if `safeReturnTo` allows it (an OAuth authorize URL). Set only when the URI-encoded value is at most
+  3800 bytes: browsers drop larger cookies silently and `URI_ENCODING` turns each `%` into `%25`; above the limit the login ends on the dashboard.
+
+| Checked
+| Re-validated with `safeReturnTo` when read on `/callback`; a tampered value falls back to `/app#/dashboard`.
+
+| Deleted
+| First thing in every `/callback` request, before any of its roughly twenty exits.
+|===
+
+It is deliberately *not signed*: the `+__Host-+` prefix stops a sibling subdomain from planting it, the value is validated on
+write and on read, and the only reachable target is this server's own consent page, which still requires an explicit click. A
+forged cookie can do no more than a direct link to that page. The value is never logged.
+
 === Sequence
 
 [source,kuml,name="keycloak-login-flow"]

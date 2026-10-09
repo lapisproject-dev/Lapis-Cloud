@@ -550,10 +550,11 @@ class LapisForm internal constructor(
      */
     fun submit(
         button: Button,
+        restoreDisabled: () -> Boolean = { false },
         action: suspend () -> Unit,
     ) {
         if (!validateAndReport()) return
-        runBusy(button, action = action)
+        runBusy(button, restoreDisabled, action)
     }
 
     /**

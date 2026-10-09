@@ -43,6 +43,7 @@ import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.SESSION_COOKIE_NAME
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.server.security.SessionTokens
+import network.lapis.cloud.shared.auth.safeReturnTo
 import network.lapis.cloud.shared.domain.OidcLoginEventType
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -77,6 +78,22 @@ private val KEYCLOAK_LOGIN_ATTEMPT_TTL = 10.minutes
  * server's real cookie.
  */
 internal const val KEYCLOAK_LOGIN_BINDING_COOKIE_NAME = "__Host-lapis_keycloak_binding"
+
+/**
+ * V1.9.89 -- carries the validated `returnTo` (an OAuth authorize URL, see `safeReturnTo`) across the Keycloak round trip, so
+ * an assistant's consent page is reached after SSO instead of the dashboard. Deliberately **unsigned**: the `__Host-` prefix keeps a
+ * sibling subdomain from planting it, the value is re-validated against the same allowlist both when it is set (`/start`) and when it is
+ * read (`/callback`), and the only reachable target is this server's own consent page, which still needs an explicit click. A forged
+ * cookie therefore cannot do more than a direct link to that page. Never logged. Short-lived (same TTL as the login attempt) and deleted
+ * at the very start of every `/callback` request.
+ */
+internal const val KEYCLOAK_LOGIN_RETURN_TO_COOKIE_NAME = "__Host-lapis_keycloak_return_to"
+
+/**
+ * Upper bound for the URI-encoded cookie value. Browsers silently drop cookies of about 4096 bytes or more, and `URI_ENCODING` turns each
+ * `%` into `%25`; above this size the cookie is not set and the login ends on the dashboard as before.
+ */
+internal const val KEYCLOAK_RETURN_TO_COOKIE_MAX_ENCODED = 3800
 
 /**
  * Security-audit fix (MAJOR 2a, V1.7.1b) -- how far back an opportunistic `/start` cleanup sweep
@@ -294,10 +311,20 @@ internal fun Route.registerKeycloakAuthRoutes(
                 extensions = mapOf("SameSite" to "Lax"),
             ),
         )
+        // V1.9.89: remember a valid returnTo for the callback (or clear a stale one). `call.parameters` decodes exactly once.
+        val returnTo = safeReturnTo(call.parameters["returnTo"])
+        if (returnTo != null && URLEncoder.encode(returnTo, "UTF-8").length <= KEYCLOAK_RETURN_TO_COOKIE_MAX_ENCODED) {
+            setReturnToCookie(call = call, value = returnTo)
+        } else {
+            expireReturnToCookie(call)
+        }
         call.respondRedirect(authorizeUrl)
     }
 
     get("/auth/keycloak/callback") {
+        // V1.9.89: read and delete the return-to cookie before ANY exit (there are ~20), so it never outlives the callback.
+        val returnToCookie = call.request.cookies[KEYCLOAK_LOGIN_RETURN_TO_COOKIE_NAME]
+        expireReturnToCookie(call)
         if (!config.isOperational) {
             call.respond(HttpStatusCode.NotFound)
             return@get
@@ -729,7 +756,7 @@ internal fun Route.registerKeycloakAuthRoutes(
         logger.info { "Keycloak login succeeded for memberId=$memberId" }
         // "/app#/dashboard" is the literal, hardcoded redirect target -- deliberately no
         // `redirect_to` query param support this wave (open-redirect prevention, see class KDoc).
-        call.respondRedirect("/app#/dashboard")
+        call.respondRedirect(safeReturnTo(returnToCookie) ?: "/app#/dashboard")
     }
 
     post("/auth/keycloak/logout-redirect") {
@@ -831,6 +858,39 @@ private fun minusDuration(
  * `maxAge = 0` is the "expire now" idiom, rather than relying on a `ResponseCookies.appendExpired`
  * extension not otherwise used in this codebase).
  */
+private fun setReturnToCookie(
+    call: io.ktor.server.application.ApplicationCall,
+    value: String,
+) {
+    call.response.cookies.append(
+        Cookie(
+            name = KEYCLOAK_LOGIN_RETURN_TO_COOKIE_NAME,
+            value = value,
+            encoding = CookieEncoding.URI_ENCODING,
+            maxAge = KEYCLOAK_LOGIN_ATTEMPT_TTL.inWholeSeconds.toInt(),
+            path = "/",
+            secure = true,
+            httpOnly = true,
+            extensions = mapOf("SameSite" to "Lax"),
+        ),
+    )
+}
+
+private fun expireReturnToCookie(call: io.ktor.server.application.ApplicationCall) {
+    call.response.cookies.append(
+        Cookie(
+            name = KEYCLOAK_LOGIN_RETURN_TO_COOKIE_NAME,
+            value = "",
+            encoding = CookieEncoding.URI_ENCODING,
+            maxAge = 0,
+            path = "/",
+            secure = true,
+            httpOnly = true,
+            extensions = mapOf("SameSite" to "Lax"),
+        ),
+    )
+}
+
 private fun expireBindingCookie(call: io.ktor.server.application.ApplicationCall) {
     call.response.cookies.append(
         Cookie(

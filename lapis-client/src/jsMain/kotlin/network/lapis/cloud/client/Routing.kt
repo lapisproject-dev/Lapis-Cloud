@@ -5,6 +5,7 @@ import io.kvision.panel.SimplePanel
 import io.kvision.routing.Routing
 import network.lapis.cloud.client.encounter.renderEncounterServiceView
 import network.lapis.cloud.client.encounter.renderEncounterSpaceScreen
+import network.lapis.cloud.shared.auth.safeReturnTo
 import network.lapis.cloud.shared.domain.AccountRole
 
 /**
@@ -725,7 +726,8 @@ fun initRouting(pageContainer: SimplePanel) {
 
     routing.kvOn(Routes.LOGIN) {
         if (AppState.isAuthenticated) {
-            routing.navigate(Routes.DASHBOARD)
+            // V1.9.89: an already signed-in caller who followed an OAuth authorize link goes on to the consent page.
+            if (!continueToReturnTo()) routing.navigate(Routes.DASHBOARD)
         } else {
             show(Routes.LOGIN, ::renderLoginScreen)
         }
@@ -1287,6 +1289,42 @@ internal fun parseHashQueryParam(
     }
     return null
 }
+
+/**
+ * V1.9.89: strict variant of [parseHashQueryParam] for security-relevant values (`returnTo`). Unlike the lenient
+ * parser it never falls back to the raw value: a decode error yields `null`, and so does a duplicated key (an
+ * ambiguity is treated fail-closed). The lenient parser and [jsDecodeUriComponent] stay untouched (other deep links rely on them).
+ */
+internal fun parseHashQueryParamStrict(
+    hash: String,
+    name: String,
+): String? {
+    val queryStart = hash.indexOf('?')
+    if (queryStart < 0) return null
+    var found: String? = null
+    var count = 0
+    for (pair in hash.substring(queryStart + 1).split("&")) {
+        val eq = pair.indexOf('=')
+        if (eq < 0 || pair.substring(0, eq) != name) continue
+        count++
+        found = pair.substring(eq + 1)
+    }
+    if (count != 1) return null
+    return try {
+        decodeURIComponent(found!!)
+    } catch (e: Throwable) {
+        null
+    }
+}
+
+/** Leaves the login route for the validated `returnTo` of the current hash, if there is one. `true` = the page is being left. */
+internal fun continueToReturnTo(): Boolean {
+    val returnTo = currentReturnTo() ?: return false
+    return navigateToReturnTo(returnTo)
+}
+
+/** The validated `returnTo` of the current hash (decoded exactly once), or `null`. */
+internal fun currentReturnTo(): String? = safeReturnTo(parseHashQueryParamStrict(kotlinx.browser.window.location.hash, "returnTo"))
 
 /** Binds to the JS global `decodeURIComponent` -- there is no Kotlin/JS stdlib wrapper for it. */
 private external fun decodeURIComponent(encodedURI: String): String

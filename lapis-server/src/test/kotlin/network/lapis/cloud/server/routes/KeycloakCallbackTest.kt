@@ -918,4 +918,171 @@ class KeycloakCallbackTest :
                 failedRows.single()[OidcGuestLoginEventTable.reason] shouldBe "PROVIDER_ERROR_OTHER"
             }
         }
+
+        // ── V1.9.89: return-to cookie (login -> consent page round trip) ──────────────────────
+
+        val authorizeTarget =
+            "/federation/oidc/authorize?response_type=code&client_id=abc&redirect_uri=http%3A%2F%2F127.0.0.1%3A53682%2Fcallback" +
+                "&code_challenge=E9Melhoe2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256&scope=mcp%3Amember_read&state=xyz"
+
+        fun returnToSetCookies(response: io.ktor.client.statement.HttpResponse): List<io.ktor.http.Cookie> =
+            response.headers
+                .getAll(HttpHeaders.SetCookie)
+                .orEmpty()
+                .map { io.ktor.http.parseServerSetCookieHeader(it) }
+                .filter { it.name == KEYCLOAK_LOGIN_RETURN_TO_COOKIE_NAME }
+
+        fun returnToCookieHeader(value: String): String =
+            "$KEYCLOAK_LOGIN_RETURN_TO_COOKIE_NAME=${java.net.URLEncoder.encode(value, "UTF-8")}"
+
+        /** Runs a full successful callback, optionally with a return-to cookie attached, and returns the callback's own response. */
+        suspend fun successfulCallback(returnToCookie: String?): io.ktor.client.statement.HttpResponse {
+            val nonce = "nonce-return-to-${Uuid.random()}"
+            val email = "keycloak-return-to-${Uuid.random()}@example.org"
+            createMember(email)
+            lateinit var idToken: String
+            lateinit var response: io.ktor.client.statement.HttpResponse
+            testApplication {
+                application {
+                    routing {
+                        registerKeycloakAuthRoutes(
+                            config = testConfig(),
+                            metadata = mockMetadata(),
+                            startRateLimiter = LoginRateLimiter(),
+                            tokenHttpClientFactory = tokenEndpointClientFactory(idTokenProvider = { idToken }),
+                        )
+                    }
+                }
+                idToken = signIdToken(claimsBuilder(email = email, nonce = nonce))
+                val fixture = createLoginAttempt(nonce = nonce)
+                val noRedirectClient = createClient { followRedirects = false }
+                response =
+                    noRedirectClient.get("/auth/keycloak/callback?state=${fixture.state}&code=whatever") {
+                        val binding = "$KEYCLOAK_LOGIN_BINDING_COOKIE_NAME=${fixture.bindingCookieValue}"
+                        header(HttpHeaders.Cookie, if (returnToCookie == null) binding else "$binding; $returnToCookie")
+                    }
+            }
+            return response
+        }
+
+        test("/start with a valid returnTo sets the HttpOnly Secure SameSite=Lax return-to cookie, value round-trips") {
+            testApplication {
+                application {
+                    routing {
+                        registerKeycloakAuthRoutes(config = testConfig(), metadata = mockMetadata(), startRateLimiter = LoginRateLimiter())
+                    }
+                }
+                val noRedirectClient = createClient { followRedirects = false }
+                val response =
+                    noRedirectClient.get("/auth/keycloak/start") {
+                        url { parameters.append("returnTo", authorizeTarget) }
+                    }
+                response.status shouldBe HttpStatusCode.Found
+                val cookie = returnToSetCookies(response).single()
+                cookie.value shouldBe authorizeTarget
+                cookie.maxAge shouldBe 600
+                cookie.httpOnly shouldBe true
+                cookie.secure shouldBe true
+                cookie.path shouldBe "/"
+                cookie.extensions["SameSite"] shouldBe "Lax"
+            }
+        }
+
+        test("/start with an unsafe, double-encoded or missing returnTo sets no return-to value, only an expiry") {
+            testApplication {
+                application {
+                    routing {
+                        registerKeycloakAuthRoutes(config = testConfig(), metadata = mockMetadata(), startRateLimiter = LoginRateLimiter())
+                    }
+                }
+                val noRedirectClient = createClient { followRedirects = false }
+                val candidates =
+                    listOf(
+                        "//evil.example",
+                        "https://evil.example",
+                        "/federation/oidc/authorize?x=%252F",
+                        null,
+                    )
+                candidates.forEach { candidate ->
+                    val response =
+                        noRedirectClient.get("/auth/keycloak/start") {
+                            if (candidate != null) url { parameters.append("returnTo", candidate) }
+                        }
+                    response.status shouldBe HttpStatusCode.Found
+                    val cookie = returnToSetCookies(response).single()
+                    cookie.maxAge shouldBe 0
+                    cookie.value shouldBe ""
+                }
+            }
+        }
+
+        test("/start with a valid returnTo whose encoded form exceeds the cookie budget sets no value") {
+            testApplication {
+                application {
+                    routing {
+                        registerKeycloakAuthRoutes(config = testConfig(), metadata = mockMetadata(), startRateLimiter = LoginRateLimiter())
+                    }
+                }
+                // Valid and within 4096 characters, but the "%3A" escapes are re-encoded to "%253A" in the cookie: 4000 chars -> 3x.
+                val big = "/federation/oidc/authorize?x=" + "%3A".repeat(1300)
+                (big.length <= 4096) shouldBe true
+                val noRedirectClient = createClient { followRedirects = false }
+                val response =
+                    noRedirectClient.get("/auth/keycloak/start") {
+                        url { parameters.append("returnTo", big) }
+                    }
+                response.status shouldBe HttpStatusCode.Found
+                returnToSetCookies(response).single().maxAge shouldBe 0
+            }
+        }
+
+        test("/callback success with a valid return-to cookie redirects to exactly that URL and expires the cookie") {
+            val response = successfulCallback(returnToCookieHeader(authorizeTarget))
+            response.status shouldBe HttpStatusCode.Found
+            response.headers[HttpHeaders.Location] shouldBe authorizeTarget
+            returnToSetCookies(response).single().maxAge shouldBe 0
+        }
+
+        test("/callback success with a tampered return-to cookie falls back to the dashboard") {
+            listOf("//evil.example", "https://evil.example", "/app#/x").forEach { tampered ->
+                val response = successfulCallback(returnToCookieHeader(tampered))
+                response.status shouldBe HttpStatusCode.Found
+                response.headers[HttpHeaders.Location] shouldBe "/app#/dashboard"
+                returnToSetCookies(response).single().maxAge shouldBe 0
+            }
+        }
+
+        test("/callback success without a return-to cookie goes to the dashboard as before") {
+            val response = successfulCallback(null)
+            response.status shouldBe HttpStatusCode.Found
+            response.headers[HttpHeaders.Location] shouldBe "/app#/dashboard"
+        }
+
+        test("/callback failure paths still delete the return-to cookie (missing state, unknown state, wrong binding)") {
+            testApplication {
+                application {
+                    routing {
+                        registerKeycloakAuthRoutes(config = testConfig(), metadata = mockMetadata(), startRateLimiter = LoginRateLimiter())
+                    }
+                }
+                val cookieHeader = returnToCookieHeader(authorizeTarget)
+                val missingState =
+                    client.get("/auth/keycloak/callback?code=x") { header(HttpHeaders.Cookie, cookieHeader) }
+                missingState.status shouldBe HttpStatusCode.Unauthorized
+                returnToSetCookies(missingState).single().maxAge shouldBe 0
+
+                val unknownState =
+                    client.get("/auth/keycloak/callback?state=never-issued&code=x") { header(HttpHeaders.Cookie, cookieHeader) }
+                unknownState.status shouldBe HttpStatusCode.Unauthorized
+                returnToSetCookies(unknownState).single().maxAge shouldBe 0
+
+                val fixture = createLoginAttempt()
+                val wrongBinding =
+                    client.get("/auth/keycloak/callback?state=${fixture.state}&code=x") {
+                        header(HttpHeaders.Cookie, "$KEYCLOAK_LOGIN_BINDING_COOKIE_NAME=wrong; $cookieHeader")
+                    }
+                wrongBinding.status shouldBe HttpStatusCode.Unauthorized
+                returnToSetCookies(wrongBinding).single().maxAge shouldBe 0
+            }
+        }
     })

@@ -3273,6 +3273,10 @@ msgstr ""
 msgid "Bitte melden Sie sich mit Ihrer E-Mail-Adresse an."
 msgstr "Please sign in with your email address."
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:96
+msgid "Nach der Anmeldung geht es mit der Verbindung Ihres Assistenten weiter."
+msgstr "After signing in, you will continue connecting your assistant."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:918
 msgid "Bitte mindestens 2 unterschiedliche Optionen angeben."
 msgstr "Please provide at least 2 different options."

@@ -380,6 +380,23 @@ class OidcMcpLoopbackRoutesTest :
             }
         }
 
+        test("/authorize: without a session, a real loopback request is carried to the login page as a valid returnTo (V1.9.89)") {
+            testApplication {
+                application { module(aiConfig = AiConfig.load { null }, mcpConfig = mcpOn()) }
+                val noRedirectClient = createClient { followRedirects = false }
+                val clientId = register(client, "http://localhost:53682/callback")
+                val url = authorizeUrl(clientId, "http://localhost:53682/callback", challenge)
+                val response = noRedirectClient.get(url)
+                response.status shouldBe HttpStatusCode.Found
+                val location = requireNotNull(response.headers[HttpHeaders.Location])
+                location.startsWith("/app#/login?returnTo=") shouldBe true
+                val carried = java.net.URLDecoder.decode(location.removePrefix("/app#/login?returnTo="), "UTF-8")
+                carried shouldBe url
+                network.lapis.cloud.shared.auth
+                    .safeReturnTo(carried) shouldBe url
+            }
+        }
+
         test("/authorize: localhost vs 127.0.0.1 are not interchangeable in either direction") {
             testApplication {
                 application { module(aiConfig = AiConfig.load { null }, mcpConfig = mcpOn()) }

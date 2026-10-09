@@ -157,6 +157,43 @@ counterpart for a different reason: an agent connection is meant to persist, but
 re-checks the member's block state and organization-membership status on every use, so a longer TTL
 does not weaken the kill switch).
 
+== Login to consent round trip (V1.9.89)
+
+An agent opens `/federation/oidc/authorize?...` in the member's browser. A member who is not signed in used to land on
+the dashboard after logging in, and the consent page was never reached. The authorize URL now travels through the
+login as a `returnTo` value and the browser continues there afterwards.
+
+[source,kuml,name="mcp-login-return-to"]
+----
+sequenceDiagram(name = "Login to consent round trip") {
+    val browser = lifeline(name = "Member (browser)")
+    val issuer = lifeline(name = "Issuer (authorize)")
+    val login = lifeline(name = "Login screen (SPA)")
+    val sso = lifeline(name = "Keycloak start/callback")
+
+    message(from = browser, to = issuer, label = "GET authorize (no session)")
+    message(from = issuer, to = browser, label = "302 /app#/login?returnTo=authorize-url")
+    message(from = browser, to = login, label = "password: POST /api/auth/login")
+    message(from = login, to = browser, label = "location.replace(returnTo) after safeReturnTo")
+    message(from = browser, to = sso, label = "SSO: start?returnTo= sets short-lived cookie")
+    message(from = sso, to = browser, label = "callback: 302 to the validated cookie value")
+    message(from = browser, to = issuer, label = "GET authorize (session) shows consent")
+}
+----
+
+*Allowlist.* One function, `safeReturnTo` (`lapis-shared`, identical on the JVM and in the browser), decides what may be
+carried: printable ASCII only, at most 4096 characters, no backslash and no `#`, and the value must start with
+`/federation/oidc/authorize?` (case-sensitive). Single-encoded escapes such as `redirect_uri=http%3A%2F%2F...` are fine;
+a malformed escape (`%zz`) or a double-encoded one (`%252F`) is refused. Everything else, including `//host`, `https:` and
+`javascript:`, yields `null` and the login ends on the dashboard as before. The check runs at four points: when
+`/authorize` builds the login redirect, when the client reads the hash (strict parser: no raw-value fallback, a duplicated
+key is refused), again at the point of the jump, and, for Keycloak, when the cookie is set and when it is read.
+
+*Why `location.replace`.* With `assign` the login page would stay in the history; pressing "Back" on the consent page would
+land on a login screen that immediately jumps forward again (a back-button trap).
+
+*Keycloak.* The value rides in the `+__Host-lapis_keycloak_return_to+` cookie (see `keycloak-login.adoc`), not in a database column.
+
 == Scopes
 
 [cols="1,3"]
