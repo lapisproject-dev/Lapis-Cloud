@@ -1200,7 +1200,7 @@ contribution status, LTR balance, statute passages (full-text search, no externa
 events, and own cast ballots. Since V1.8.2, a SECOND, additional OAuth scope (`mcp:member_write`,
 never granted alone) additionally allows the agent to register the member for a GEBÜHRENFREIE event
 and create an unpublished post draft -- publishing that draft remains exclusively the member's own
-action in the web UI. **Registering for a fee-bearing event is not possible through an agent at
+action in the web UI. Since V1.9.100 a member with editorial rights (board or administration) can also let the agent create an unpublished article draft; submitting stays with the member and approval, as for every article, with another board member. **Registering for a fee-bearing event is not possible through an agent at
 all** (Welle V1.8.2b closed that path -- the tool rejects it outright as `event_requires_payment`
 rather than starting a checkout); a member wanting to attend a paid event still uses the web UI.
 Enabling MCP write access is an operator decision, independent of the AI-assistance switch above --
@@ -1215,7 +1215,7 @@ To enable it, add the variables to the `lapis-server` service's `environment:` b
       # ... existing entries ...
       LAPIS_MCP_ENABLED: "${LAPIS_MCP_ENABLED:-}"
       # Welle V1.8.2b -- a SECOND, independent switch: LAPIS_MCP_ENABLED alone only ever exposes
-      # the five READING tools. The two WRITING tools (register_for_event, create_post_draft)
+      # the six READING tools. The three WRITING tools (register_for_event, create_post_draft, create_article_draft)
       # additionally require this to be exactly "true" (default off, same posture as every other
       # LAPIS_MCP_* variable). While off: the tools never appear in tools/list, mcp:member_write is
       # never granted (an /authorize request naming it is rejected outright, not silently
@@ -1237,6 +1237,10 @@ To enable it, add the variables to the `lapis-server` service's `environment:` b
       # LAPIS_MCP_WRITE_RATE_DRAFT_TOKEN_HOUR: "3"
       # LAPIS_MCP_WRITE_RATE_DRAFT_MEMBER_DAY: "10"
       # LAPIS_MCP_WRITE_RATE_DRAFT_SERVER_DAY: "1000"
+      # V1.9.100 create_article_draft quota (editorial members only):
+      # LAPIS_MCP_WRITE_RATE_ARTICLE_TOKEN_HOUR: "3"
+      # LAPIS_MCP_WRITE_RATE_ARTICLE_MEMBER_DAY: "10"
+      # LAPIS_MCP_WRITE_RATE_ARTICLE_SERVER_DAY: "500"
 ----
 
 The feature is on only when `LAPIS_MCP_ENABLED` is exactly `true`; anything else means "off" and the

@@ -214,6 +214,13 @@ internal class McpToolDispatcher(
                 code = "draft_limit_reached",
                 data = buildJsonObject { put("openDraftCount", e.openDraftCount) },
             )
+        } catch (e: McpArticleDraftLimitReachedException) {
+            // Welle V1.9.100 -- same non-opaque ToolError treatment as draft_limit_reached above.
+            audit(principal = principal, toolName = name, outcome = McpToolCallOutcome.ERROR, startedAt = startedAt)
+            McpToolCallResult.ToolError(
+                code = "article_draft_limit_reached",
+                data = buildJsonObject { put("openDraftCount", e.openDraftCount) },
+            )
         } catch (e: McpEventRequiresPaymentException) {
             // Welle V1.8.2b -- "No payment through MCP" (see RegisterForEventTool KDoc). Same
             // non-opaque-ToolError treatment as draft_limit_reached above; `data` deliberately empty
@@ -247,6 +254,8 @@ internal class McpToolDispatcher(
             "get_my_ballots" -> GetMyBallotsTool.execute(principal = principal, arguments = arguments)
             "register_for_event" -> registerForEventTool.execute(principal = principal, arguments = arguments)
             "create_post_draft" -> CreatePostDraftTool.execute(principal = principal, arguments = arguments)
+            "create_article_draft" -> CreateArticleDraftTool.execute(principal = principal, arguments = arguments)
+            "list_my_articles" -> ListMyArticlesTool.execute(principal = principal, arguments = arguments)
             else -> throw IllegalStateException("Unreachable -- tool name '$name' was already validated against McpToolCatalog")
         }
 

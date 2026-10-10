@@ -64,3 +64,42 @@ internal fun <T> JsonObject.requiredEnumArg(
         throw McpInvalidToolArgumentsException("'$key' has an unknown value: $safeRaw")
     }
 }
+
+/**
+ * Welle V1.9.100 -- rejects any argument key outside [allowed]. Only the two article tools use it
+ * (the older tools stay lenient, unchanged). The message never echoes the offending key.
+ */
+internal fun JsonObject.rejectUnknownArgs(allowed: Set<String>) {
+    if (keys.any { it !in allowed }) throw McpInvalidToolArgumentsException("unknown argument")
+}
+
+/**
+ * Welle V1.9.100 -- reads an optional string argument named [key], trimmed, at most [maxLength]
+ * characters. Absent or JSON `null` yields `""`; any non-string value is invalid.
+ */
+internal fun JsonObject.optionalStringArg(
+    key: String,
+    maxLength: Int,
+): String {
+    val element = this[key] ?: return ""
+    if (element is kotlinx.serialization.json.JsonNull) return ""
+    val primitive = element as? JsonPrimitive
+    if (primitive == null || !primitive.isString) throw McpInvalidToolArgumentsException("'$key' must be a string")
+    val trimmed = primitive.content.trim()
+    if (trimmed.length > maxLength) throw McpInvalidToolArgumentsException("'$key' must be at most $maxLength characters")
+    return trimmed
+}
+
+/**
+ * Welle V1.9.100 -- refuses control characters before they reach the database (PostgreSQL rejects
+ * `\u0000` in a TEXT column, which would otherwise surface as an internal error). With
+ * [allowNewlines] only `\n`, `\r` and `\t` are tolerated; otherwise every ISO control character is refused.
+ */
+internal fun String.requireNoControlChars(
+    key: String,
+    allowNewlines: Boolean,
+): String {
+    val bad = any { c -> c.isISOControl() && !(allowNewlines && (c == '\n' || c == '\r' || c == '\t')) }
+    if (bad) throw McpInvalidToolArgumentsException("'$key' contains forbidden control characters")
+    return this
+}

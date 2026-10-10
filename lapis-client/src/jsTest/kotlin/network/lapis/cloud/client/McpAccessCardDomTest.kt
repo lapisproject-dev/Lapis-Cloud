@@ -135,6 +135,19 @@ class McpAccessCardDomTest {
         }
 
     @Test
+    fun theCard_namesTheArticleDraftsAndTheEditorialRestriction(): Promise<Unit> {
+        val rpc = FakeMcpRpc(state())
+        return withCard(rpc, id = "mcp-article-sentence") { card, element, _, _ ->
+            assertTrue(card.root.visible)
+            val text = element().text()
+            assertTrue(text.contains("Vorstand oder Administration"), "the editorial restriction is named")
+            assertTrue(text.contains("Artikel-Entwürfe anlegen"), "article drafts are named")
+            assertTrue(text.contains("durch ein anderes Vorstandsmitglied"), "approval is by another board member")
+            assertFalse(text.contains("veröffentlichen können nur Sie"), "no wrong claim about who publishes")
+        }
+    }
+
+    @Test
     fun featureDisabledException_hidesTheCardSilently(): Promise<Unit> {
         val rpc = FakeMcpRpc(state()).apply { getFailure = McpFeatureDisabledException() }
         return withCard(rpc, id = "mcp-disabled-ex") { card, _, _, toasts ->

@@ -58,7 +58,7 @@ private val CONFORMANCE_JSON = Json { ignoreUnknownKeys = true }
 private const val CONFORMANCE_MCP_RESOURCE = "http://localhost:8080/mcp"
 
 // Welle V1.8.2b (S1) -- ENV_WRITE_ENABLED must be "true" here too, or every pre-existing
-// write-capable test in this file (e.g. "tools/list ... sees all 7 catalog entries" below) goes
+// write-capable test in this file (e.g. "tools/list ... sees all 9 catalog entries" below) goes
 // red the instant McpConfig.writeEnabled defaults to false: writeEnabled=false now ALSO
 // suppresses the two writing tools from tools/list, on top of principal.canWrite.
 private fun conformanceMcpConfig(): McpConfig =
@@ -304,7 +304,7 @@ class McpConformanceTest :
             }
         }
 
-        test("tools/list: every one of the five catalog entries carries name/title/description/inputSchema") {
+        test("tools/list: every one of the six catalog entries carries name/title/description/inputSchema") {
             testApplication {
                 val noRedirectClient = createClient { followRedirects = false }
                 application { module(aiConfig = AiConfig.load { null }, mcpConfig = conformanceMcpConfig()) }
@@ -313,7 +313,7 @@ class McpConformanceTest :
                 val response = mcpCall(client, accessToken, """{"jsonrpc":"2.0","id":1,"method":"tools/list"}""")
                 val tools = CONFORMANCE_JSON.parseToJsonElement(response.bodyAsText()).jsonObject["result"]!!.jsonObject["tools"]
                 val toolArray = tools as JsonArray
-                toolArray.size shouldBe 5
+                toolArray.size shouldBe 6
                 toolArray.forEach { tool ->
                     val obj = tool.jsonObject
                     obj["name"]!!.jsonPrimitive.content.shouldNotBeBlank()
@@ -328,8 +328,8 @@ class McpConformanceTest :
         // coverage for "the tools/list catalog filtering by write scope" that did not actually
         // exist anywhere -- `toolsListResult` (routes.McpRoutes) is `private`, so only an
         // end-to-end HTTP call like this one can exercise it. This test, together with the
-        // read-only one above (5 entries), is what that KDoc's claim now actually points to.
-        test("tools/list: a write-capable principal (mcp:member_read + mcp:member_write) sees all 7 catalog entries") {
+        // read-only one above (6 entries), is what that KDoc's claim now actually points to.
+        test("tools/list: a write-capable principal (mcp:member_read + mcp:member_write) sees all 9 catalog entries") {
             testApplication {
                 val noRedirectClient = createClient { followRedirects = false }
                 application { module(aiConfig = AiConfig.load { null }, mcpConfig = conformanceMcpConfig()) }
@@ -344,7 +344,7 @@ class McpConformanceTest :
                 val response = mcpCall(client, accessToken, """{"jsonrpc":"2.0","id":1,"method":"tools/list"}""")
                 val tools = CONFORMANCE_JSON.parseToJsonElement(response.bodyAsText()).jsonObject["result"]!!.jsonObject["tools"]
                 val toolArray = tools as JsonArray
-                toolArray.size shouldBe 7
+                toolArray.size shouldBe 9
                 val names = toolArray.map { it.jsonObject["name"]!!.jsonPrimitive.content }.toSet()
                 names shouldBe
                     setOf(
@@ -355,6 +355,8 @@ class McpConformanceTest :
                         "get_my_ballots",
                         "register_for_event",
                         "create_post_draft",
+                        "list_my_articles",
+                        "create_article_draft",
                     )
             }
         }
@@ -375,7 +377,7 @@ class McpConformanceTest :
         // .resolve]), not tied to the app instance that issued it, so this is the same "grant once,
         // call from wherever" persistence every other test in this file relies on implicitly by
         // sharing one H2 database across all of a spec's `testApplication` blocks.
-        test("tools/list: a write-capable principal sees only the 5 reading tools once writing is disabled") {
+        test("tools/list: a write-capable principal sees only the 6 reading tools once writing is disabled") {
             lateinit var accessToken: String
             testApplication {
                 val noRedirectClient = createClient { followRedirects = false }
@@ -394,7 +396,7 @@ class McpConformanceTest :
                 val response = mcpCall(client, accessToken, """{"jsonrpc":"2.0","id":1,"method":"tools/list"}""")
                 val tools = CONFORMANCE_JSON.parseToJsonElement(response.bodyAsText()).jsonObject["result"]!!.jsonObject["tools"]
                 val toolArray = tools as JsonArray
-                toolArray.size shouldBe 5
+                toolArray.size shouldBe 6
                 val names = toolArray.map { it.jsonObject["name"]!!.jsonPrimitive.content }.toSet()
                 names.contains("register_for_event") shouldBe false
                 names.contains("create_post_draft") shouldBe false

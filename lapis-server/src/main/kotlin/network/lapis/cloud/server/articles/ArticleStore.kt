@@ -174,6 +174,35 @@ internal object ArticleStore {
         return id
     }
 
+    /**
+     * Welle V1.9.100 -- the ONLY insert `McpArticleDraftStore` uses. `status` is hard-wired to
+     * `DRAFT`; `slug`, `coverImageId`, `submittedAt` and `publishedAt` are never touched.
+     * [agentLabel] is a snapshot of the MCP connection label and stays on the row for good:
+     * [insertDraft]/[updateDraft] never write `mcp_agent_label`, so a manual edit does not clear it.
+     */
+    fun insertMcpDraft(
+        authorId: Uuid,
+        title: String,
+        excerpt: String,
+        body: String,
+        agentLabel: String,
+        now: LocalDateTime,
+    ): Uuid {
+        val id = Uuid.random()
+        ArticleTable.insert {
+            it[ArticleTable.id] = id
+            it[ArticleTable.title] = title
+            it[ArticleTable.excerpt] = excerpt
+            it[ArticleTable.body] = body
+            it[ArticleTable.authorId] = authorId
+            it[status] = ArticleStatus.DRAFT
+            it[mcpAgentLabel] = agentLabel
+            it[createdAt] = now
+            it[updatedAt] = now
+        }
+        return id
+    }
+
     fun updateDraft(
         id: Uuid,
         input: ArticleDraftInput,

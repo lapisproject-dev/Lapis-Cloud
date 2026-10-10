@@ -58,7 +58,7 @@ import kotlin.uuid.Uuid
  * `tools/list` catalog filtering by write scope as covered in THIS file, which was false: that
  * filtering lives in `routes.McpRoutes`' `private fun toolsListResult`, unreachable from a
  * dispatcher-only unit test): see [network.lapis.cloud.server.mcp.McpConformanceTest]'s two
- * `tools/list` tests (5 entries for a read-only principal, all 7 for a write-capable one) instead.
+ * `tools/list` tests (6 entries for a read-only principal, all 9 for a write-capable one) instead.
  */
 class McpWriteToolsDispatcherTest :
     FunSpec({
@@ -160,10 +160,10 @@ class McpWriteToolsDispatcherTest :
                 writeEnabled = writeEnabled,
             )
 
-        test("McpToolCatalog: TOOLS has 7 entries, 2 writing, 5 reading") {
-            McpToolCatalog.TOOLS.size shouldBe 7
-            McpToolCatalog.TOOLS.count { it.writing } shouldBe 2
-            McpToolCatalog.TOOLS.count { !it.writing } shouldBe 5
+        test("McpToolCatalog: TOOLS has 9 entries, 3 writing, 6 reading") {
+            McpToolCatalog.TOOLS.size shouldBe 9
+            McpToolCatalog.TOOLS.count { it.writing } shouldBe 3
+            McpToolCatalog.TOOLS.count { !it.writing } shouldBe 6
             McpToolCatalog.TOOLS.map { it.name }.toSet() shouldBe
                 setOf(
                     "get_my_contribution_status",
@@ -173,6 +173,8 @@ class McpWriteToolsDispatcherTest :
                     "get_my_ballots",
                     "register_for_event",
                     "create_post_draft",
+                    "list_my_articles",
+                    "create_article_draft",
                 )
         }
 

@@ -21350,3 +21350,7 @@ msgstr "Suena en el toque de campana y en la bendición."
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Glockenton einstellen"
 msgstr "Ajustar el sonido de la campana"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/McpAccessCard.kt
+msgid "Nur wenn Sie Redaktionsrechte haben (Vorstand oder Administration): Agenten können außerdem Artikel-Entwürfe anlegen. Der Agent legt nur Entwürfe an; einreichen können nur Sie selbst, freigegeben wird wie jeder Artikel durch ein anderes Vorstandsmitglied."
+msgstr "Solo si tiene derechos de redacción (junta directiva o administración): los agentes también pueden crear borradores de artículos. El agente solo crea borradores; solo usted puede enviarlos y, como cualquier artículo, los aprueba otro miembro de la junta directiva."

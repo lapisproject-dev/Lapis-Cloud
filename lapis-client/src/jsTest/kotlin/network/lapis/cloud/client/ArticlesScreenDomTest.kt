@@ -40,6 +40,12 @@ class ArticlesScreenDomTest {
         updatedAt = LocalDateTime(2026, 9, 28, 10, 0),
     )
 
+    private fun articleFromAgent(
+        id: String,
+        title: String,
+        label: String?,
+    ) = article(id, title).copy(mcpAgentLabel = label)
+
     private fun HTMLElement.shows(text: String): Boolean = textContent.orEmpty().contains(text)
 
     private fun HTMLElement.newButtons(): List<HTMLElement> = allOf("button").filter { it.textContent?.trim() == "Neuer Artikel" }
@@ -76,6 +82,33 @@ class ArticlesScreenDomTest {
                     assertEquals(listOf("Neuer Artikel"), screen.headerSlotButtons(), "the one primary action sits in the title row")
                     assertEquals(1, screen.newButtons().size, "no second, list-bound button")
                     assertTrue(calls.toRoute(listMine).isNotEmpty())
+                }
+            }
+        }
+
+    @Test
+    fun anAgentDraft_showsTheMutedOriginLine_andTheUntrustedNameAsTextNotAsHtml(): Promise<Unit> =
+        formTest {
+            withArticleStub(mine = listOf(articleFromAgent("a9", "Agenten Entwurf", "<b>x</b>"))) { _, _ ->
+                mountedForm("v19100-articles-agent-label") { root, element ->
+                    renderArticlesScreen(root)
+                    awaitUntil("the list is shown") { element().shows("Agenten Entwurf") }
+                    val screen = element()
+                    assertTrue(screen.shows("Entworfen von Agent"))
+                    assertTrue(screen.shows("<b>x</b>"), "the name is shown as literal text")
+                    assertEquals(null, screen.querySelector("b"), "and never parsed as HTML")
+                }
+            }
+        }
+
+    @Test
+    fun aManualArticle_hasNoOriginLine(): Promise<Unit> =
+        formTest {
+            withArticleStub(mine = listOf(article("a8", "Manueller Entwurf"))) { _, _ ->
+                mountedForm("v19100-articles-no-label") { root, element ->
+                    renderArticlesScreen(root)
+                    awaitUntil("the list is shown") { element().shows("Manueller Entwurf") }
+                    assertFalse(element().shows("Entworfen von Agent"))
                 }
             }
         }

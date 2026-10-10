@@ -12,6 +12,7 @@ agent ever seeing another member's data. **The feature is off by default.** V1.8
 foundation: five tools, no writes. **V1.8.2 adds exactly two write tools**
 (`register_for_event`/`create_post_draft`, see "Write tools" below), gated behind a SECOND,
 additional OAuth scope -- an existing V1.8.1 token never gains write access retroactively.
+**V1.9.100 adds two article tools** (`list_my_articles` reading, `create_article_draft` writing, see "Article drafts" below), nine tools in total.
 
 Operator instructions (variables, defaults) live in `deploy/example/README.adoc`, the section "MCP
 access for AI agents".
@@ -76,7 +77,7 @@ later wave, not attempted here.
 | `optin`      | `McpMemberBlockStore` -- the per-member kill switch (opposite polarity of `AiMemberOptInStore`, see below)
 | `ratelimit`  | three-tier sliding-window limiter (per token / per member / per server)
 | `audit`      | `McpToolCallAuditRecorder` -- metadata only, never arguments or results
-| `tools`      | the seven tool definitions (five reading, two writing since V1.8.2), their dispatcher, and the catalog
+| `tools`      | the nine tool definitions (six reading, three writing since V1.9.100), their dispatcher, and the catalog
 | `transport`  | JSON-RPC 2.0 wire types, protocol version constant, capped body reading
 |===
 
@@ -98,7 +99,7 @@ switch/connection-list RPC surface), `dsgvo.McpPersonalData`, and the MCP-specif
 * **R3** -- no Exposed write happens anywhere under `mcp/` outside `optin/McpMemberBlockStore`,
   `audit/McpToolCallAuditRecorder`, and the two narrowly-scoped writes in `auth/McpTokenAuth`
   (`last_used_at` only) and `auth/McpTokenRevoker` (`revoked_at` only).
-* **R4** -- the tool catalog has exactly seven entries (five reading, two writing); no tool signature
+* **R4** -- the tool catalog has exactly nine entries (six reading, three writing); no tool signature
   accepts a caller-supplied `memberId` -- identity always comes from the resolved `McpPrincipal`.
 * **R5** -- `mcp/` never imports `ai/qa` or `ai/llm`. The one deliberate exception is
   `ai.retrieval.KnowledgeRetriever`/`PostgresFullTextKnowledgeRetriever`, reused directly by
@@ -200,23 +201,23 @@ land on a login screen that immediately jumps forward again (a back-button trap)
 |===
 | Scope | Grants
 
-| `mcp:member_read` | The five reading tools. Required in every MCP grant -- writing without reading has no meaning for either write tool.
-| `mcp:member_write` | ADDITIONALLY `register_for_event` and `create_post_draft`. Never granted alone. Never implied retroactively by a pre-existing `mcp:member_read`-only token -- `McpTokenAuth.resolve` derives `McpPrincipal.canWrite` from the ACTUAL stored scope string on each token, never a blanket upgrade.
+| `mcp:member_read` | The six reading tools. Required in every MCP grant -- writing without reading has no meaning for either write tool.
+| `mcp:member_write` | ADDITIONALLY `register_for_event`, `create_post_draft` and `create_article_draft`. Never granted alone. Never implied retroactively by a pre-existing `mcp:member_read`-only token -- `McpTokenAuth.resolve` derives `McpPrincipal.canWrite` from the ACTUAL stored scope string on each token, never a blanket upgrade.
 |===
 
 MCP scopes are never part of guest federation: the guest-login RP requests only `OidcScopes.FEDERATION`, and the Issuer rejects any request mixing MCP and federation scopes. See xref:oidc-guest-federation.adoc[OIDC guest federation].
 
 A token issued before `mcp:member_write` existed, or one whose holder only ever requested
 `mcp:member_read`, stays read-only forever. The consent screen (`routes.McpConsentPage`) renders a
-second, explicit block naming the two write effects only when `mcp:member_write` is being requested,
+second, explicit block naming the write effects only when `mcp:member_write` is being requested,
 and its "what the agent cannot do" paragraph says "nicht veröffentlichen" (a released draft still
 needs the member's own release action in the web UI) rather than the V1.8.1 wording's "nichts
 ändern" -- that older wording would have become a standing lie the moment write tools existed
 server-side at all, even for a read-only grant, so it was corrected unconditionally, not only for
 write-scoped requests.
 
-`tools/list` filters the seven-entry catalog down to the five reading tools for a read-only
-principal -- an agent is never offered a tool it could not successfully call.
+`tools/list` filters the nine-entry catalog down to the six reading tools for a read-only
+principal -- an agent is never offered a tool it could not successfully call. It deliberately has **no role filter** for the two article tools (see "Article drafts").
 
 == Public (PKCE-only) clients and loopback redirects
 
@@ -367,6 +368,48 @@ release dialog (`McpPostDraftReleaseInput.initialWeightLtr`) -- exactly the same
 .initialWeightLtr` being a mandatory, financially-binding field with no sensible default an agent
 could supply on the member's behalf.
 
+== Article drafts (Welle V1.9.100)
+
+Two tools let an editorial member's agent work on the member's OWN articles. The article module itself is unchanged: an
+article is still submitted by its author and approved by ANOTHER board member (`ArticleService.requireNotOwnArticle`).
+
+[cols="1,3,2"]
+|===
+| Tool | What it does | Hard rule
+
+| `list_my_articles` | Reading. The caller's own articles: `articleId`, `title`, `status`, `updatedAt`, `createdViaAssistant`. `limit` 1 to 50, default 20. | Never body, excerpt or the connection label; only own rows.
+| `create_article_draft` | Writing. `{ title, body, excerpt? }` creates an `article` row with `status = DRAFT`. | Cannot submit, approve or publish; no status or cover parameter exists; unknown arguments are rejected.
+|===
+
+* **Who is editorial staff.** The member must be `ACTIVE` and the account role `BOARD` or `ADMIN` -- one definition,
+  `articles.ArticleEditorialAccess`, which `ArticleService` uses for its review roles too. The role is read fresh from
+  the database at every call, never from the token, and a refusal is the same opaque `Forbidden` as everywhere else
+  (no role name in the answer).
+* **No role filter in `tools/list`.** The list is built without a database query, clients cache it, and a role can
+  change mid-session; a role-filtered list would be a second, ageing source of authority. `create_article_draft` is
+  therefore advertised to every token with write scope and refused at call time. Only the call-time check counts.
+* **DRAFT only.** All writes live in `articles.McpArticleDraftStore` (R3 forbids Exposed writes under `mcp/`), and
+  `McpStructureTest` R7 forbids any source under `mcp/` from referencing `ArticleStatus.SUBMITTED/PUBLISHED/REJECTED`,
+  `submitArticle`, `approveArticle`, `ArticleStore.updateDraft` or the columns `published_at`, `slug`, `status`.
+* **Limits.** Title 1 to 140, body 1 to 20 000 (harder than the 100 000 of the article module), excerpt 0 to 300
+  characters. Control characters are refused (title: all; body and excerpt: everything except `\n`, `\r`, `\t`), because
+  PostgreSQL rejects `\u0000` in TEXT. At most 10 open MCP articles per member (`status <> PUBLISHED` with a label, so
+  submitting and withdrawing cannot be used to get round it), and the module's own cap of 100 editable articles per
+  author still applies; both are reported as `article_draft_limit_reached` with `openDraftCount`. Quota 3 per token and
+  hour, 10 per member and day, 500 per server and day.
+* **Duplicate detection.** The same title, excerpt and body as an existing MCP-created `DRAFT` of the same member returns
+  that article with `duplicate = true` instead of a second row. The title is compared in SQL, body and excerpt in
+  Kotlin (H2 cannot compare TEXT columns). The member row is locked (`forMemberUpdate`) so duplicate check, cap and
+  insert cannot interleave.
+* **Marker.** Migration `V82` adds `article.mcp_agent_label VARCHAR(60) NULL`, a snapshot of the connection label.
+  It is never written by the manual save path, so the marker survives editing. The web UI shows it as the muted
+  line "Entworfen von Agent „Name“" (untrusted text, never bold, never a badge); it is part of the author and board DTOs
+  and of the DSGVO export, and it is overwritten with `Agent` on erasure. It never appears in a public output
+  (`ArticlePublicRoutes`, `EmbedArticlesFeedRoutes`, `PublicArticlesOverviewRoutes`; pinned by a test).
+* **Audit and logs.** The audit table holds metadata only; neither it nor any log line contains title, excerpt or body.
+* **Not included.** No author attribution and no consent to it (the module names no authors), no cover image and no
+  alt text over MCP.
+
 == No payment through MCP (Welle V1.8.2b)
 
 `register_for_event` never opens a payment flow. A fee-bearing event (`event.fee_amount != 0`,
@@ -423,10 +466,10 @@ switch, only new `create_post_draft`/`register_for_event` calls are.
 
 `LAPIS_MCP_ENABLED` and `LAPIS_MCP_WRITE_ENABLED` are independent, both default OFF:
 
-* `LAPIS_MCP_ENABLED` alone exposes only the five READING tools -- `POST /mcp` itself is not even
+* `LAPIS_MCP_ENABLED` alone exposes only the six READING tools -- `POST /mcp` itself is not even
   registered while it is off (see "Kill switch and configuration" below).
 * `LAPIS_MCP_WRITE_ENABLED` additionally requires `LAPIS_MCP_ENABLED` (`McpConfig
-  .isWriteOperational = enabled && writeEnabled`) and gates the two WRITING tools at FOUR
+  .isWriteOperational = enabled && writeEnabled`) and gates the three WRITING tools at FOUR
   independent points: the `tools/list` catalog filter (`routes.McpRoutes`, advertising only), the
   actual enforcement gate (`McpToolDispatcher.dispatch` -- a write-capable token minted before the
   switch flipped off loses its effect on its very next call, without needing a revoke),
@@ -518,11 +561,12 @@ top of those three:
 
 | `register_for_event` | 5/hour | 20/day | 2 000/day
 | `create_post_draft`  | 3/hour | 10/day | 1 000/day
+| `create_article_draft` (V1.9.100) | 3/hour | 10/day | 500/day
 |===
 
-All six defaults are configurable (`LAPIS_MCP_WRITE_RATE_EVENT_TOKEN_HOUR`,
+All nine defaults are configurable (`LAPIS_MCP_WRITE_RATE_EVENT_TOKEN_HOUR`,
 `..._EVENT_MEMBER_DAY`, `..._EVENT_SERVER_DAY`, `..._DRAFT_TOKEN_HOUR`, `..._DRAFT_MEMBER_DAY`,
-`..._DRAFT_SERVER_DAY`), same "never fail startup, invalid value falls back to the default"
+`..._DRAFT_SERVER_DAY`, `..._ARTICLE_TOKEN_HOUR`, `..._ARTICLE_MEMBER_DAY`, `..._ARTICLE_SERVER_DAY`), same "never fail startup, invalid value falls back to the default"
 posture as every other `McpConfig` variable.
 
 `withTimeout` around each tool call is a documented, **not yet closed**, limitation: it cancels the

@@ -1693,6 +1693,13 @@ internal fun Application.module(
                             perMemberPerDay = mcpConfig.postDraftPerMemberPerDay,
                             perServerPerDay = mcpConfig.postDraftPerServerPerDay,
                         ),
+                    // Welle V1.9.100 -- article drafts, editorial members only (checked at call time).
+                    "create_article_draft" to
+                        McpToolCallRateLimiter.WriteQuota(
+                            perTokenPerHour = mcpConfig.articleDraftPerTokenPerHour,
+                            perMemberPerDay = mcpConfig.articleDraftPerMemberPerDay,
+                            perServerPerDay = mcpConfig.articleDraftPerServerPerDay,
+                        ),
                 ),
         )
     // Welle V1.8.2 -- a SECOND EventRegistrationSubmission instance, same constructor arguments as

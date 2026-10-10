@@ -38,6 +38,10 @@ internal class McpConfig private constructor(
     val postDraftPerServerPerDay: Int,
     /** Names of the `LAPIS_MCP_*` variables whose value was rejected -- for startup logging only, never a reason to throw. */
     val invalid: List<String>,
+    /** Welle V1.9.100 -- `create_article_draft`'s own three-tier quota. Defaulted so existing constructor call sites keep compiling. */
+    val articleDraftPerTokenPerHour: Int = DEFAULT_WRITE_RATE_ARTICLE_TOKEN_HOUR,
+    val articleDraftPerMemberPerDay: Int = DEFAULT_WRITE_RATE_ARTICLE_MEMBER_DAY,
+    val articleDraftPerServerPerDay: Int = DEFAULT_WRITE_RATE_ARTICLE_SERVER_DAY,
 ) {
     val isOperational: Boolean get() = enabled
 
@@ -65,6 +69,11 @@ internal class McpConfig private constructor(
         const val ENV_WRITE_RATE_DRAFT_MEMBER_DAY = "LAPIS_MCP_WRITE_RATE_DRAFT_MEMBER_DAY"
         const val ENV_WRITE_RATE_DRAFT_SERVER_DAY = "LAPIS_MCP_WRITE_RATE_DRAFT_SERVER_DAY"
 
+        // Welle V1.9.100 -- `create_article_draft` quota variables.
+        const val ENV_WRITE_RATE_ARTICLE_TOKEN_HOUR = "LAPIS_MCP_WRITE_RATE_ARTICLE_TOKEN_HOUR"
+        const val ENV_WRITE_RATE_ARTICLE_MEMBER_DAY = "LAPIS_MCP_WRITE_RATE_ARTICLE_MEMBER_DAY"
+        const val ENV_WRITE_RATE_ARTICLE_SERVER_DAY = "LAPIS_MCP_WRITE_RATE_ARTICLE_SERVER_DAY"
+
         const val DEFAULT_RATE_TOKEN_MINUTE = 20
         const val DEFAULT_RATE_MEMBER_HOUR = 300
         const val DEFAULT_RATE_SERVER_DAY = 20_000
@@ -78,6 +87,9 @@ internal class McpConfig private constructor(
         const val DEFAULT_WRITE_RATE_DRAFT_TOKEN_HOUR = 3
         const val DEFAULT_WRITE_RATE_DRAFT_MEMBER_DAY = 10
         const val DEFAULT_WRITE_RATE_DRAFT_SERVER_DAY = 1_000
+        const val DEFAULT_WRITE_RATE_ARTICLE_TOKEN_HOUR = 3
+        const val DEFAULT_WRITE_RATE_ARTICLE_MEMBER_DAY = 10
+        const val DEFAULT_WRITE_RATE_ARTICLE_SERVER_DAY = 500
 
         /**
          * Pure string/number validation, no I/O. Never throws. With `LAPIS_MCP_ENABLED` unset or
@@ -134,6 +146,10 @@ internal class McpConfig private constructor(
             val draftMemberDay = intVar(ENV_WRITE_RATE_DRAFT_MEMBER_DAY, DEFAULT_WRITE_RATE_DRAFT_MEMBER_DAY, 1..1_000)
             val draftServerDay = intVar(ENV_WRITE_RATE_DRAFT_SERVER_DAY, DEFAULT_WRITE_RATE_DRAFT_SERVER_DAY, 1..1_000_000)
 
+            val articleTokenHour = intVar(ENV_WRITE_RATE_ARTICLE_TOKEN_HOUR, DEFAULT_WRITE_RATE_ARTICLE_TOKEN_HOUR, 1..100)
+            val articleMemberDay = intVar(ENV_WRITE_RATE_ARTICLE_MEMBER_DAY, DEFAULT_WRITE_RATE_ARTICLE_MEMBER_DAY, 1..1_000)
+            val articleServerDay = intVar(ENV_WRITE_RATE_ARTICLE_SERVER_DAY, DEFAULT_WRITE_RATE_ARTICLE_SERVER_DAY, 1..1_000_000)
+
             return McpConfig(
                 enabled = enabled,
                 writeEnabled = writeEnabled,
@@ -150,6 +166,9 @@ internal class McpConfig private constructor(
                 postDraftPerMemberPerDay = draftMemberDay,
                 postDraftPerServerPerDay = draftServerDay,
                 invalid = invalid.toList(),
+                articleDraftPerTokenPerHour = articleTokenHour,
+                articleDraftPerMemberPerDay = articleMemberDay,
+                articleDraftPerServerPerDay = articleServerDay,
             )
         }
 

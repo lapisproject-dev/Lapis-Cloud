@@ -2,7 +2,7 @@ package network.lapis.cloud.server.mcp
 
 /**
  * Welle V1.8.1 "MCP-Server für Mitglieder-Agenten (Fundament, lesend)" -- optional MCP resource
- * server, **default OFF**. Exposes exactly five read-only tools over a bespoke JSON-RPC 2.0
+ * server, **default OFF**. Exposes five read-only tools (nine tools in total since V1.9.100, see R4) over a bespoke JSON-RPC 2.0
  * transport (`POST /mcp`, protocol version hard-pinned to `2025-06-18`), authenticated by its OWN
  * bearer-token resource-server path -- see `auth.McpTokenAuth` KDoc -- never by the caller's
  * browser session and never by an `X-Member-Id`/API-key/AI-assistant credential.
@@ -32,8 +32,8 @@ package network.lapis.cloud.server.mcp
  * - **R3** -- no Exposed write happens anywhere under `mcp/` outside `optin/McpMemberBlockStore`,
  *   `audit/McpToolCallAuditRecorder`, and the two narrow, explicitly-scoped writes in
  *   `auth/McpTokenAuth` (`last_used_at` only) and `auth/McpTokenRevoker` (`revoked_at` only).
- * - **R4** -- `tools/McpToolCatalog.TOOLS` has exactly seven entries (five reading, two writing,
- *   Welle V1.8.2), and no tool signature accepts a caller-supplied `memberId` -- identity comes
+ * - **R4** -- `tools/McpToolCatalog.TOOLS` has exactly nine entries (six reading, three writing,
+ *   Welle V1.8.2 / V1.9.100), and no tool signature accepts a caller-supplied `memberId` -- identity comes
  *   exclusively from the resolved `McpPrincipal`.
  * - **R5** -- `mcp/` never imports `server.ai.qa`/`server.ai.llm`; the one named exception is
  *   `ai.retrieval.KnowledgeRetriever`/`PostgresFullTextKnowledgeRetriever` for `search_statute`.
@@ -46,5 +46,9 @@ package network.lapis.cloud.server.mcp
  *   there is no DRAFT state in SocialPostState". `domain.SocialPostVisibility` is a DELIBERATE,
  *   named exception (it is `create_post_draft`'s own input type, a shared-domain enum with no
  *   write capability of its own) -- without that exception R6 would be unsatisfiable.
+ * - **R7** (Welle V1.9.100) -- no source under `mcp/` can submit, approve, publish or otherwise move an article
+ *   past `DRAFT`: it never references `ArticleStatus.SUBMITTED/PUBLISHED/REJECTED`, `submitArticle`, `approveArticle`,
+ *   `ArticleStore.updateDraft`, `ArticleTable.publishedAt/slug/status`. `ArticleStatus` itself may only appear as a
+ *   type whose `.name` is output by `list_my_articles`. Article writes live in `articles.McpArticleDraftStore`.
  */
 internal object McpLayerBoundary

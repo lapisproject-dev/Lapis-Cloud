@@ -21420,3 +21420,7 @@ msgstr "Klinkt bij de oproep en bij de zegen."
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Glockenton einstellen"
 msgstr "Klokgeluid instellen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/McpAccessCard.kt
+msgid "Nur wenn Sie Redaktionsrechte haben (Vorstand oder Administration): Agenten können außerdem Artikel-Entwürfe anlegen. Der Agent legt nur Entwürfe an; einreichen können nur Sie selbst, freigegeben wird wie jeder Artikel durch ein anderes Vorstandsmitglied."
+msgstr "Alleen als u redactierechten heeft (bestuur of beheer): agenten kunnen ook conceptartikelen aanmaken. De agent maakt alleen concepten aan; alleen u kunt ze indienen en, net als elk artikel, worden ze goedgekeurd door een ander bestuurslid."

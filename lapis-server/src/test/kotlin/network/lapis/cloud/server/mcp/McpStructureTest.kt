@@ -91,9 +91,9 @@ class McpStructureTest :
             offenders.shouldBeEmpty()
         }
 
-        test("R4: the tool catalog has exactly seven entries (five reading, two writing), and no tool file declares a memberId parameter") {
-            McpToolCatalog.TOOLS.size shouldBe 7
-            McpToolCatalog.TOOLS.count { it.writing } shouldBe 2
+        test("R4: the tool catalog has exactly nine entries (six reading, three writing), and no tool file declares a memberId parameter") {
+            McpToolCatalog.TOOLS.size shouldBe 9
+            McpToolCatalog.TOOLS.count { it.writing } shouldBe 3
             val memberIdParam = Regex("""fun\s+execute\s*\([^)]*memberId\s*:""")
             val offenders =
                 sources()
@@ -152,6 +152,30 @@ class McpStructureTest :
                         }
                     }.map { it.first }
             createPostOffenders.shouldBeEmpty()
+        }
+
+        test("R7 (Welle V1.9.100): mcp/ never references article state transitions or publication columns on a non-comment line") {
+            val forbidden =
+                listOf(
+                    "ArticleStatus.SUBMITTED",
+                    "ArticleStatus.PUBLISHED",
+                    "ArticleStatus.REJECTED",
+                    "submitArticle",
+                    "approveArticle",
+                    "ArticleStore.updateDraft",
+                    "ArticleTable.publishedAt",
+                    "ArticleTable.slug",
+                    "ArticleTable.status",
+                )
+            val offenders =
+                sources().flatMap { (path, text) ->
+                    text
+                        .lines()
+                        .filter { line -> !line.trimStart().startsWith("*") && !line.trimStart().startsWith("//") }
+                        .filter { line -> forbidden.any { line.contains(it) } }
+                        .map { "$path: ${it.trim()}" }
+                }
+            offenders.shouldBeEmpty()
         }
 
         test("V1.9.86 tripwire: the accepted loopback hosts are exactly 127.0.0.1, [::1] and localhost") {

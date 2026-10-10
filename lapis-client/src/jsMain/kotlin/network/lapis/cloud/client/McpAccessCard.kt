@@ -143,6 +143,12 @@ internal class McpAccessCard(
                     "Veröffentlicht wird erst, wenn Sie einen Entwurf selbst freigeben.",
             ),
         ) { addCssClasses("text-muted small") }
+        root.div(
+            tr(
+                "Nur wenn Sie Redaktionsrechte haben (Vorstand oder Administration): Agenten können außerdem Artikel-Entwürfe anlegen. " +
+                    "Der Agent legt nur Entwürfe an; einreichen können nur Sie selbst, freigegeben wird wie jeder Artikel durch ein anderes Vorstandsmitglied.",
+            ),
+        ) { addCssClasses("text-muted small") }
     }
 
     internal val reloadHost: SimplePanel = root.simplePanel()

@@ -37,6 +37,11 @@ data class ArticleDto(
     val rejectionReason: String?,
     val publishedAt: LocalDateTime?,
     val updatedAt: LocalDateTime,
+    /**
+     * Welle V1.9.100 -- `null` for a manually created article, otherwise the (untrusted, member-chosen)
+     * label of the MCP connection that created the draft. Never part of any public feed.
+     */
+    val mcpAgentLabel: String? = null,
 )
 
 /** Create-or-update input for [network.lapis.cloud.shared.rpc.IArticleService.saveDraft]. */
@@ -71,6 +76,8 @@ data class ArticleSummaryDto(
     val authorIsSelf: Boolean,
     val publishedAt: LocalDateTime? = null,
     val slug: String? = null,
+    /** Welle V1.9.100 -- see [ArticleDto.mcpAgentLabel]. */
+    val mcpAgentLabel: String? = null,
 )
 
 /**
@@ -104,4 +111,6 @@ data class ArticleReviewDto(
     val coverImageUrl: String?,
     val submittedAt: LocalDateTime?,
     val authorIsSelf: Boolean,
+    /** Welle V1.9.100 -- see [ArticleDto.mcpAgentLabel]. */
+    val mcpAgentLabel: String? = null,
 )

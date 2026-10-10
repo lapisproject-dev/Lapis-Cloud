@@ -21419,3 +21419,7 @@ msgstr "Rozbrzmiewa przy wezwaniu i przy błogosławieństwie."
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Glockenton einstellen"
 msgstr "Ustaw dźwięk dzwonu"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/McpAccessCard.kt
+msgid "Nur wenn Sie Redaktionsrechte haben (Vorstand oder Administration): Agenten können außerdem Artikel-Entwürfe anlegen. Der Agent legt nur Entwürfe an; einreichen können nur Sie selbst, freigegeben wird wie jeder Artikel durch ein anderes Vorstandsmitglied."
+msgstr "Tylko jeśli masz uprawnienia redakcyjne (zarząd lub administracja): agenci mogą także tworzyć szkice artykułów. Agent tworzy wyłącznie szkice; zgłosić je możesz tylko ty, a zatwierdza je, jak każdy artykuł, inny członek zarządu."

@@ -32,6 +32,11 @@ public object ArticleTable : Table("article") {
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
     public val updatedAt: Column<LocalDateTime> = datetime("updated_at")
 
+    // Hand-edited, V1.9.100 (V82__article_mcp_agent_label.sql) -- NULL = created manually, otherwise a
+    // snapshot of the MCP connection label that created this draft. Same hand-edit convention as
+    // EventTable.kt; the matching attribute lives in 55-articles.kuml.kts.
+    public val mcpAgentLabel: Column<String?> = varchar("mcp_agent_label", 60).nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 2 index(es) declared on this entity are not emitted —

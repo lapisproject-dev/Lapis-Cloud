@@ -46,6 +46,12 @@
 // explicit «Column».fkEntity tag above, same mechanism 44-contribution-relief.kuml.kts's and
 // 45-travel-expense.kuml.kts's own file headers document for why a redundant `association(...)`
 // block would synthesize a SECOND, independently-named FK column.
+//
+// **Welle V1.9.100 "MCP-Artikelentwürfe" addendum** (`V82__article_mcp_agent_label.sql`) adds one nullable column,
+// `mcpAgentLabel` (VARCHAR(60)): NULL for a manually created article, otherwise a snapshot of the MCP connection label
+// that created the draft via `create_article_draft`. No index (H2 cannot build a partial one; `idx_article_author_updated_at`
+// already covers the author lookups). The column is never written by `ArticleStore.insertDraft`/`updateDraft`, so the
+// marker survives manual editing.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -143,6 +149,11 @@ classDiagram(name = "Articles") {
         }
         attribute(name = "updatedAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "updated_at" }
+        }
+        // V1.9.100 -- see file header addendum.
+        attribute(name = "mcpAgentLabel", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "mcp_agent_label"; "sqlType" to "VARCHAR(60)" }
         }
     }
 }

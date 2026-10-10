@@ -112,8 +112,7 @@ private fun renderDraftCard(
     // Kares Regel: die Agenten-Herkunft ist niemals eine Überschrift, niemals fett, niemals ein
     // `title`-Attribut -- ein selbst gewählter, ungeprüfter Name darf nie wie eine vertrauenswürdige
     // Kennzeichnung wirken.
-    headerRow.span(tr("Entworfen von Agent")) { addCssClasses("text-muted small") }
-    headerRow.untrustedSpan("„${draft.agentLabel}“", className = "text-muted small text-truncate") { maxWidth = 240.px }
+    headerRow.agentOriginLine(draft.agentLabel)
 
     card.untrustedDiv(draft.content, className = "small")
 

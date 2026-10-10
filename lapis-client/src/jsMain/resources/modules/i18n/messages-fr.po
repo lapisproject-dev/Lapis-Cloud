@@ -21483,3 +21483,7 @@ msgstr "Retentit lors de l'appel et de la bénédiction."
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Glockenton einstellen"
 msgstr "Régler le son de la cloche"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/McpAccessCard.kt
+msgid "Nur wenn Sie Redaktionsrechte haben (Vorstand oder Administration): Agenten können außerdem Artikel-Entwürfe anlegen. Der Agent legt nur Entwürfe an; einreichen können nur Sie selbst, freigegeben wird wie jeder Artikel durch ein anderes Vorstandsmitglied."
+msgstr "Uniquement si vous disposez de droits de rédaction (conseil d'administration ou administration) : les agents peuvent aussi créer des brouillons d'articles. L'agent ne crée que des brouillons ; vous seul pouvez les soumettre et, comme tout article, ils sont validés par un autre membre du conseil d'administration."

@@ -73,6 +73,9 @@ fun renderArticleEditor(
         }
     headerRow.h2(headerTitle, className = "h5") // R7: h5 size class literal on the same line as h2(
     val statusText = headerRow.div("") { addCssClasses("text-muted small") }
+    initial?.mcpAgentLabel?.let { label ->
+        root.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }.agentOriginLine(label)
+    }
     val retryButton =
         headerRow.actionButton(ActionIcon.REFRESH, tr("Erneut versuchen"), style = ButtonStyle.OUTLINEDANGER) { hide() }
 

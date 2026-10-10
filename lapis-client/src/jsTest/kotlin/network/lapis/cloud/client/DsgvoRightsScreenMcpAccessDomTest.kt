@@ -52,6 +52,7 @@ class DsgvoRightsScreenMcpAccessDomTest {
                 awaitUntil("card rendered") { element().textContent.orEmpty().contains("KI-Zugang") }
                 val text = element().textContent.orEmpty()
                 assertTrue(text.indexOf("Vorheriger Abschnitt") < text.indexOf("KI-Zugang"))
+                assertTrue(text.contains("Vorstand oder Administration"), "the editorial restriction of the article tools is shown")
                 assertEquals(1, rpc.reads)
             }
         }

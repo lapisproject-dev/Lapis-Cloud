@@ -555,6 +555,54 @@ class ArticleServiceTest :
             }
         }
 
+        test(
+            "V1.9.100: mcpAgentLabel travels through listMyArticles, the review queue, the review view and the published list, and stays null for a manual article",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installArticleExceptionHandlers() }
+                    routing { registerArticleTestRoutes() }
+                }
+                val author = createTestMember("article-mcp-label@example.org")
+                val now =
+                    network.lapis.cloud.server.db.DbClock
+                        .nowLocalDateTime()
+                val mcpId =
+                    transaction {
+                        ArticleStore.insertMcpDraft(
+                            authorId = author,
+                            title = "Label Artikel",
+                            excerpt = "Auszug",
+                            body = "Inhalt",
+                            agentLabel = "Mein Agent",
+                            now = now,
+                        )
+                    }
+                val manualId =
+                    transaction {
+                        ArticleStore.insertDraft(
+                            authorId = author,
+                            input = ArticleDraftInput(title = "Manueller Artikel", excerpt = "Auszug", body = "Inhalt"),
+                            now = now,
+                        )
+                    }
+                createdArticleIds += listOf(mcpId, manualId)
+
+                val mine = client.get("/test/list-mine-labels") { header("X-Member-Id", author.toString()) }.bodyAsText()
+                mine.contains("$mcpId:Mein Agent") shouldBe true
+                mine.contains("$manualId:null") shouldBe true
+
+                client.post("/test/submit/$mcpId") { header("X-Member-Id", author.toString()) }
+                val queue = client.get("/test/list-submitted-labels") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                queue.contains("$mcpId:Mein Agent") shouldBe true
+                client.get("/test/review-label/$mcpId") { header("X-Member-Id", BOARD_ID) }.bodyAsText() shouldBe "Mein Agent"
+
+                client.post("/test/approve/$mcpId") { header("X-Member-Id", BOARD_ID) }
+                val published = client.get("/test/list-published-labels") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                published.contains("$mcpId:Mein Agent") shouldBe true
+            }
+        }
+
         test("previewArticle: the 31st call within the window throws RateLimitedException (429)") {
             testApplication {
                 val limiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
@@ -877,6 +925,18 @@ private fun Route.registerArticleTestRoutes(
     get("/test/list-published") {
         val list = service(call).listPublishedArticles()
         call.respondText(list.joinToString(",") { "${it.id}:${it.authorIsSelf}:${it.slug}" })
+    }
+    get("/test/list-mine-labels") {
+        call.respondText(service(call).listMyArticles().joinToString(",") { "${it.id}:${it.mcpAgentLabel}" })
+    }
+    get("/test/list-submitted-labels") {
+        call.respondText(service(call).listSubmittedArticles().joinToString(",") { "${it.id}:${it.mcpAgentLabel}" })
+    }
+    get("/test/list-published-labels") {
+        call.respondText(service(call).listPublishedArticles().joinToString(",") { "${it.id}:${it.mcpAgentLabel}" })
+    }
+    get("/test/review-label/{id}") {
+        call.respondText(service(call).getArticleForReview(call.parameters["id"]!!).mcpAgentLabel.toString())
     }
     get("/test/list-mine") {
         val list = service(call).listMyArticles()

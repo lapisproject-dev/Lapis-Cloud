@@ -154,6 +154,7 @@ private fun renderMyArticleCard(
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.statusBadge(ArticleLabels.label(displayStatus), ArticleLabels.colorHex(displayStatus))
     headerRow.untrustedCardTitle(article.title)
+    article.mcpAgentLabel?.let { headerRow.agentOriginLine(it) }
     card.untrustedDiv(article.excerpt) { addCssClasses("text-muted small") }
     if (article.status == ArticleStatus.REJECTED && article.rejectionReason != null) {
         card.untrustedDiv(gettext("Begründung: %1", article.rejectionReason), className = "text-muted small")
@@ -245,6 +246,7 @@ private fun renderReviewSummaryCard(
     val card = panel.vPanel(spacing = 6) { addCssClass("lapis-data-card") }
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.untrustedCardTitle(summary.title)
+    summary.mcpAgentLabel?.let { headerRow.agentOriginLine(it) }
     card.untrustedDiv(summary.excerpt) { addCssClasses("text-muted small") }
 
     if (summary.authorIsSelf) {
@@ -268,6 +270,9 @@ private fun renderReviewSummaryCard(
         AppScope.launch {
             val review = guarded { rpcService<IArticleService>().getArticleForReview(summary.id) }
             if (review == null) return@launch
+            review.mcpAgentLabel?.let { label ->
+                detailPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }.agentOriginLine(label)
+            }
             articlePreviewFrame(detailPanel, review.title, review.excerpt, review.coverImageUrl, review.renderedBodyHtml)
             val actionRow = detailPanel.hPanel(spacing = 8)
             val approveButton = actionRow.actionButton(ActionIcon.APPROVE, tr("Genehmigen"), style = ButtonStyle.SUCCESS)
@@ -346,6 +351,7 @@ private fun renderPublishedSummaryCard(
     if (summary.slug != null) {
         headerRow.untrustedLink(tr("Ansehen"), url = "/aktuelles/${summary.slug}", target = "_blank", className = "small")
     }
+    summary.mcpAgentLabel?.let { headerRow.agentOriginLine(it) }
     card.untrustedDiv(summary.excerpt) { addCssClasses("text-muted small") }
 
     val unpublishButton = card.actionButton(ActionIcon.REVOKE, tr("Depublizieren"), style = ButtonStyle.OUTLINEDANGER)

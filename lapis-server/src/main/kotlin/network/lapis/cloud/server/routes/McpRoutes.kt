@@ -273,12 +273,17 @@ private fun applyMcpHeaders(call: ApplicationCall) {
 }
 
 /**
- * Welle V1.8.2 -- a read-only [principal] (`canWrite = false`) sees only the five reading tools:
+ * Welle V1.8.2 -- a read-only [principal] (`canWrite = false`) sees only the six reading tools:
  * an agent must never be offered a tool it can never successfully call. **Welle V1.8.2b**:
  * [writeEnabled] (`McpConfig.isWriteOperational`) joins that same filter -- an operator who has
- * switched writing off must never advertise the two writing tools either, even to a principal whose
+ * switched writing off must never advertise the three writing tools either, even to a principal whose
  * token still carries write scope. This is advertising only, never the enforcement point itself --
  * see `McpToolDispatcher.dispatch` KDoc for the actual gate.
+ *
+ * **Welle V1.9.100 -- deliberately NO role filter** for the two article tools: `tools/list` runs
+ * without a database query, clients cache the list, and a role can change mid-session, so a role-
+ * filtered list would become a second, ageing source of authority. The only authority is the
+ * editorial check at call time (`ArticleEditorialAccess.requireEditorialMember`).
  */
 private fun toolsListResult(
     principal: McpPrincipal,

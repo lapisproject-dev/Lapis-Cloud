@@ -21410,3 +21410,7 @@ msgstr "Звучит при призыве и при благословении.
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Glockenton einstellen"
 msgstr "Настроить звук колокола"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/McpAccessCard.kt
+msgid "Nur wenn Sie Redaktionsrechte haben (Vorstand oder Administration): Agenten können außerdem Artikel-Entwürfe anlegen. Der Agent legt nur Entwürfe an; einreichen können nur Sie selbst, freigegeben wird wie jeder Artikel durch ein anderes Vorstandsmitglied."
+msgstr "Только если у вас есть права редактора (правление или администрация): агенты могут также создавать черновики статей. Агент создаёт только черновики; отправить их на утверждение можете только вы, а утверждает их, как и любую статью, другой член правления."

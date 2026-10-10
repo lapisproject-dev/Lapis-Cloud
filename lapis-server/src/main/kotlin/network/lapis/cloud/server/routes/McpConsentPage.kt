@@ -62,6 +62,9 @@ internal fun mcpConsentPageHtml(
               <li>Sich selbst für eine <strong>gebührenfreie</strong> Veranstaltung anmelden --
               kostenpflichtige Anmeldungen sind über einen Agenten nicht möglich</li>
               <li>Einen unveröffentlichten Beitrags-Entwurf anlegen</li>
+              <li>Einen unveröffentlichten Artikel-Entwurf anlegen -- nur wenn Sie Redaktionsrechte haben
+              (Vorstand oder Administration). Einreichen können nur Sie selbst; freigegeben wird wie jeder
+              Artikel durch ein anderes Vorstandsmitglied.</li>
             </ul>
             """.trimIndent()
         } else {
@@ -80,6 +83,7 @@ internal fun mcpConsentPageHtml(
           <li>Satzung und veröffentlichte Dokumente (Volltextsuche)</li>
           <li>Bevorstehende Veranstaltungen</li>
           <li>Eigene abgegebene Stimmzettel</li>
+          <li>Eigene Artikel (nur Titel und Status) -- nur wenn Sie Redaktionsrechte haben (Vorstand oder Administration)</li>
         </ul>
         $writeBlock
         <p><strong>Was der Agent nicht kann:</strong> nicht veröffentlichen (jeder Entwurf braucht Ihre Freigabe in der Weboberfläche), nicht abstimmen, keine Daten anderer Mitglieder sehen, keine Stimmgewichte berechnen.</p>

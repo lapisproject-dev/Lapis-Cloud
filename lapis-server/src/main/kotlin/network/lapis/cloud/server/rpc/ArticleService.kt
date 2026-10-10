@@ -3,6 +3,7 @@ package network.lapis.cloud.server.rpc
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import network.lapis.cloud.server.articles.ArticleCoverPolicy
+import network.lapis.cloud.server.articles.ArticleEditorialAccess
 import network.lapis.cloud.server.articles.ArticleMarkdown
 import network.lapis.cloud.server.articles.ArticlePolicy
 import network.lapis.cloud.server.articles.ArticleStore
@@ -17,7 +18,6 @@ import network.lapis.cloud.server.mail.ArticleReviewNotificationMailer
 import network.lapis.cloud.server.mail.ArticleReviewOutcome
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
-import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ArticleDraftInput
 import network.lapis.cloud.shared.domain.ArticleDto
 import network.lapis.cloud.shared.domain.ArticleReviewDto
@@ -41,7 +41,7 @@ import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
 
-private val ARTICLE_REVIEW_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
+private val ARTICLE_REVIEW_ROLES = ArticleEditorialAccess.REVIEW_ROLES.toTypedArray()
 
 /**
  * Welle V1.4.34 "Nachrichten-/Artikel-Modul mit redaktionellem Workflow", erweitert Welle V1.4.36
@@ -254,6 +254,7 @@ internal class ArticleService(
                         row[ArticleTable.submittedAt]
                             ?: error("SUBMITTED article ${row[ArticleTable.id]} has no submittedAt"),
                     authorIsSelf = row[ArticleTable.authorId] == current.memberId,
+                    mcpAgentLabel = row[ArticleTable.mcpAgentLabel],
                 )
             }
         }
@@ -278,6 +279,7 @@ internal class ArticleService(
                     authorIsSelf = row[ArticleTable.authorId] == current.memberId,
                     publishedAt = row[ArticleTable.publishedAt],
                     slug = row[ArticleTable.slug],
+                    mcpAgentLabel = row[ArticleTable.mcpAgentLabel],
                 )
             }
         }
@@ -305,6 +307,7 @@ internal class ArticleService(
                     ),
                 submittedAt = row[ArticleTable.submittedAt],
                 authorIsSelf = row[ArticleTable.authorId] == current.memberId,
+                mcpAgentLabel = row[ArticleTable.mcpAgentLabel],
             )
         }
     }
@@ -545,6 +548,7 @@ internal class ArticleService(
             rejectionReason = this[ArticleTable.rejectionReason],
             publishedAt = this[ArticleTable.publishedAt],
             updatedAt = this[ArticleTable.updatedAt],
+            mcpAgentLabel = this[ArticleTable.mcpAgentLabel],
         )
 
     private fun nowLocalDateTime() = DbClock.nowLocalDateTime()
