@@ -401,6 +401,13 @@ internal suspend fun withEncounterRoom(
     deviceEnv: EncounterDeviceEnvironment = FakeDeviceEnvironment(),
     /** V1.9.95: the timers of the blessing display (the real browser timers by default). */
     blessingScheduler: EncounterBlessingScheduler = browserBlessingScheduler,
+    /** V1.9.96: the timers of the bell sign and the bell button's lock (the real browser timers by default). */
+    bellScheduler: EncounterBlessingScheduler = browserBlessingScheduler,
+    /** V1.9.96: the bell's sound; by default a silent fake (a real AudioContext would depend on the machine running the test). */
+    bellSound: EncounterBellSound = FakeBellSound(),
+    audioContextFactory: EncounterAudioContextFactory = EncounterAudioContextFactory { null },
+    bellPageVisible: () -> Boolean = { true },
+    bellReducedMotion: () -> Boolean = { false },
     block: suspend (EncounterRoomRig, HTMLElement) -> Unit,
 ) {
     val presentRoute = routeOf { rpcService<IEncounterSpaceService>().listPresent("space-1") }
@@ -434,6 +441,11 @@ internal suspend fun withEncounterRoom(
                     tableSessionOpener = tableSessionOpener,
                     deviceEnv = deviceEnv,
                     blessingScheduler = blessingScheduler,
+                    bellScheduler = bellScheduler,
+                    bellSoundOverride = bellSound,
+                    audioContextFactory = audioContextFactory,
+                    bellPageVisible = bellPageVisible,
+                    bellReducedMotion = bellReducedMotion,
                 )
             room.bind(session)
             room.afterConnected()
@@ -497,4 +509,28 @@ internal class ManualBlessingScheduler : EncounterBlessingScheduler {
     }
 
     fun pending(ms: Int): Int = tasks.count { it.ms == ms && !it.cancelled }
+}
+
+/** V1.9.96: a bell sound that only counts what the room asks of it. */
+internal class FakeBellSound : EncounterBellSound {
+    var primes = 0
+    var rings = 0
+    var probes = 0
+    var disposed = false
+
+    override fun prime() {
+        primes++
+    }
+
+    override fun ring() {
+        rings++
+    }
+
+    override fun probe() {
+        probes++
+    }
+
+    override fun dispose() {
+        disposed = true
+    }
 }

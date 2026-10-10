@@ -139,4 +139,11 @@ enum class ActionIcon(
 
     /** V1.9.95: the blessing of the pulpit in the encounter room (church profile, PULPIT office only); symbol only, liturgy group. Assigned to this purpose only. */
     BLESSING("fas fa-cross"),
+
+    /**
+     * V1.9.96: the bell of the pulpit in the encounter room (church profile, PULPIT office only); symbol only, liturgy group. Assigned to
+     * this purpose only in the encounter room's bar (the same symbol also stands for the entry notice and for the dunning levels elsewhere,
+     * see `docs/architecture/action-icons.adoc`).
+     */
+    BELL("fas fa-bell"),
 }

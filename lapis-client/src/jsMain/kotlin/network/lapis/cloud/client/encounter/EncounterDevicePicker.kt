@@ -1,11 +1,15 @@
 package network.lapis.cloud.client.encounter
 
 import io.kvision.core.Container
+import io.kvision.core.onEvent
 import io.kvision.form.select.Select
 import io.kvision.form.select.select
 import io.kvision.html.Button
 import io.kvision.html.Div
+import io.kvision.html.TAG
+import io.kvision.html.Tag
 import io.kvision.html.div
+import io.kvision.html.tag
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import kotlinx.browser.document
@@ -28,6 +32,7 @@ import network.lapis.cloud.client.setAttrIfChanged
 import network.lapis.cloud.client.untrustedContent
 import network.lapis.cloud.client.untrustedOptions
 import org.w3c.dom.HTMLElement
+import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.Node
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.FocusEvent
@@ -128,9 +133,14 @@ internal fun encounterDeviceFields(
     }
 }
 
-/** The button exists while at least one field is a real, enabled choice. A hint alone is no reason for a control in the bar. */
-internal fun encounterDeviceButtonVisible(fields: List<EncounterDeviceField>): Boolean =
-    fields.any { it is EncounterDeviceField.Choice && !it.disabled }
+/**
+ * The button exists while at least one field is a real, enabled choice. A hint alone is no reason for a control in the bar. V1.9.96: the
+ * bell sound switch ([bellSwitch], church-service rooms only) is a reason of its own, so the gear is always there for the congregation too.
+ */
+internal fun encounterDeviceButtonVisible(
+    fields: List<EncounterDeviceField>,
+    bellSwitch: Boolean = false,
+): Boolean = bellSwitch || fields.any { it is EncounterDeviceField.Choice && !it.disabled }
 
 /** The sentence "choose the speaker in your device's settings": only where the person has an input device field and no speaker field is possible. */
 internal fun encounterSpeakerNoteVisible(
@@ -142,7 +152,10 @@ internal fun encounterSpeakerNoteVisible(
 internal fun encounterDeviceButtonLabel(
     role: EncounterDeviceRole,
     fields: List<EncounterDeviceField>,
+    bellOnly: String? = null,
 ): String {
+    // V1.9.96: no device to choose, only the bell sound switch: the button says so.
+    if (bellOnly != null && fields.none { it is EncounterDeviceField.Choice && !it.disabled }) return bellOnly
     val speaker = fields.any { it.kind == ConferenceDeviceKind.SPEAKER && it is EncounterDeviceField.Choice }
     val microphone = fields.any { it.kind == ConferenceDeviceKind.MICROPHONE && it is EncounterDeviceField.Choice }
     return when {
@@ -214,6 +227,20 @@ internal fun encounterRememberDevice(
 }
 
 /**
+ * V1.9.96 -- what the picker needs to show the bell sound switch: the words (from the room's terms), the two storage functions
+ * (`EncounterSceneToggle.kt`) as lambdas, and what to do synchronously when the person turns the sound ON (the probe strike, which a
+ * browser only allows inside the gesture). `null` in the picker = no bell in this room: the switch is not even in the DOM.
+ */
+internal class EncounterBellSwitchModel(
+    val label: String,
+    val hint: String,
+    val buttonLabel: String,
+    val read: () -> Boolean,
+    val write: (Boolean) -> Unit,
+    val onTurnedOn: () -> Unit,
+)
+
+/**
  * The panel and its bar button. One row per kind of device; the rows are created once and only updated, so a refresh never replaces a
  * widget the person is using. The panel is not a dialog and has no focus trap: Escape, a click outside or Tab out of it closes it.
  */
@@ -229,6 +256,8 @@ internal class EncounterDevicePicker(
     private val announce: (String) -> Unit,
     private val onBeforeOpen: () -> Unit,
     private val onVisibilityChanged: () -> Unit,
+    /** V1.9.96: the bell sound switch; `null` outside church-service rooms. */
+    private val bellSwitch: EncounterBellSwitchModel? = null,
 ) {
     /** Icon-only (R58 named exception c, the bar's own factory): the name is set per role in [refresh]. */
     val button: Button = devicesGroup.encounterControlButton(ActionIcon.SETTINGS, tr("Geräte wählen"))
@@ -236,6 +265,8 @@ internal class EncounterDevicePicker(
     private val rows: Map<ConferenceDeviceKind, Row>
     private val speakerNote: Div
     private val rememberedNote: Div
+    private var bellRow: Div? = null
+    private var bellInput: Tag? = null
     private var isOpen = false
     private var disposed = false
     private var applying = false
@@ -275,8 +306,46 @@ internal class EncounterDevicePicker(
         rememberedNote = panel.div(className = "text-muted small")
         rememberedNote.setAttribute("role", "status")
         rememberedNote.hide()
+        bellSwitch?.let { buildBellRow(it) }
         panel.hide()
         stopDeviceChange = env.onDeviceChange { if (!disposed) AppScope.launch { refresh(preserveFocus = true) } }
+    }
+
+    /**
+     * V1.9.96 -- the bell sound switch: a native checkbox with `role="switch"` (Space toggles it), its own label and a hint it is described
+     * by. Opening or redrawing only READS the stored choice; a write happens only in the `change` handler, after the person's own action.
+     */
+    private fun buildBellRow(model: EncounterBellSwitchModel) {
+        val row = panel.div(className = "lapis-encounter-bell-row form-check form-switch")
+        val input = row.tag(TAG.INPUT, className = "form-check-input")
+        input.setAttribute("type", "checkbox")
+        input.setAttribute("role", "switch")
+        input.setAttribute("id", BELL_SWITCH_ID)
+        input.setAttribute("aria-checked", "false")
+        input.setAttribute("aria-describedby", BELL_HINT_ID)
+        row.tag(TAG.LABEL, content = model.label, className = "form-check-label").setAttribute("for", BELL_SWITCH_ID)
+        row.div(model.hint, className = "text-muted small").setAttribute("id", BELL_HINT_ID)
+        input.onEvent {
+            change = {
+                val on = (input.getElement() as? HTMLInputElement)?.checked == true
+                input.setAttrIfChanged("aria-checked", on.toString())
+                model.write(on)
+                // synchronous, inside the gesture: a browser only lets a sound start there
+                if (on) model.onTurnedOn()
+            }
+        }
+        bellRow = row
+        bellInput = input
+    }
+
+    /** Reads (never writes) the stored choice into the switch. */
+    private fun syncBellSwitch() {
+        val model = bellSwitch ?: return
+        val input = bellInput ?: return
+        val on = runCatching { model.read() }.getOrDefault(false)
+        input.setAttrIfChanged("aria-checked", on.toString())
+        (input.getElement() as? HTMLInputElement)?.let { if (it.checked != on) it.checked = on }
+        if (on) input.setAttrIfChanged("checked", "") else input.removeAttribute("checked")
     }
 
     private inner class Row(
@@ -394,7 +463,12 @@ internal class EncounterDevicePicker(
         }
         AppScope.launch {
             refresh()
-            if (isOpen) later(0) { rows.values.firstOrNull { it.usable }?.focus() }
+            if (isOpen) {
+                later(0) {
+                    val firstRow = rows.values.firstOrNull { it.usable }
+                    if (firstRow != null) firstRow.focus() else (bellInput?.getElement() as? HTMLElement)?.focus()
+                }
+            }
         }
     }
 
@@ -480,11 +554,12 @@ internal class EncounterDevicePicker(
         } else {
             rememberedNote.hide()
         }
-        val name = encounterDeviceButtonLabel(currentRole, fields)
+        syncBellSwitch()
+        val name = encounterDeviceButtonLabel(currentRole, fields, bellOnly = bellSwitch?.buttonLabel)
         button.setAttrIfChanged("aria-label", name)
-        button.setAttrIfChanged("title", name)
+        if (button.title != name) button.title = name
         button.setAttrIfChanged("data-label", name)
-        wantVisible = encounterDeviceButtonVisible(fields)
+        wantVisible = encounterDeviceButtonVisible(fields, bellSwitch = bellSwitch != null)
         applyButtonVisibility()
     }
 
@@ -757,5 +832,7 @@ internal class EncounterDevicePicker(
         const val PANEL_ID = "lapis-encounter-device-panel"
         const val HEADING_ID = "lapis-encounter-device-heading"
         const val ACTIVE_ID_PREFIX = "lapis-encounter-device-active-"
+        const val BELL_SWITCH_ID = "lapis-encounter-bell-switch"
+        const val BELL_HINT_ID = "lapis-encounter-bell-hint"
     }
 }

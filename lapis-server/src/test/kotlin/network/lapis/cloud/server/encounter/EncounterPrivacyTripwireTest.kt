@@ -45,7 +45,9 @@ class EncounterPrivacyTripwireTest :
                 "recordConsent",
                 // V1.9.95: the blessing
                 "blessSpace",
-                "blessingTargetInTx",
+                "liturgyTargetInTx",
+                // V1.9.96: the bell
+                "ringBell",
             ).forEach { name ->
                 val fn = fns[name] ?: error("function $name not found -- the tripwire must not run empty")
                 (fn.body.contains("AuditLogRecorder")) shouldBe false
@@ -336,11 +338,11 @@ class EncounterPrivacyTripwireTest :
 
         test("V1.9.95: the blessing path writes nothing (no insert/update/delete/upsert, no audit) and logs exactly one fixed DEBUG line") {
             val fns = EncounterSourceScan.functions(serviceFile).associateBy { it.name }
-            listOf("blessSpace", "blessingTargetInTx").forEach { name ->
+            listOf("blessSpace", "liturgyTargetInTx").forEach { name ->
                 val body = SourceScan.blank(fns.getValue(name).body)
                 Regex("""\b(insert|update|deleteWhere|upsert|batchInsert|AuditLogRecorder)\b""").containsMatchIn(body) shouldBe false
             }
-            val bless = fns.getValue("blessSpace").body + fns.getValue("blessingTargetInTx").body
+            val bless = fns.getValue("blessSpace").body + fns.getValue("liturgyTargetInTx").body
             Regex("""logger\.""").findAll(bless).count() shouldBe 1
             bless shouldContain """logger.debug { "blessing send failed" }"""
             // the external call stays outside the transaction lambda
@@ -378,5 +380,85 @@ class EncounterPrivacyTripwireTest :
                 code.contains(it) shouldBe false
             }
             (encounterFiles.any { it.name == "EncounterBlessingState.kt" }) shouldBe true // inside the log-line scan above
+        }
+
+        // ── Welle V1.9.96: the bell ───────────────────────────────────────
+
+        test("V1.9.96: the bell path writes nothing (no insert/update/delete/upsert, no audit) and logs exactly one fixed DEBUG line") {
+            val fns = EncounterSourceScan.functions(serviceFile).associateBy { it.name }
+            listOf("ringBell", "liturgyTargetInTx").forEach { name ->
+                val body = SourceScan.blank(fns.getValue(name).body)
+                Regex("""\b(insert|update|deleteWhere|upsert|batchInsert|AuditLogRecorder)\b""").containsMatchIn(body) shouldBe false
+            }
+            val bell = fns.getValue("ringBell").body + fns.getValue("liturgyTargetInTx").body
+            Regex("""logger\.""").findAll(bell).count() shouldBe 1
+            bell shouldContain """logger.debug { "bell send failed" }"""
+            val raw = SourceScan.blank(fns.getValue("ringBell").body)
+            Regex("""transaction\s*\{""").findAll(raw).forEach { m ->
+                var depth = 0
+                var end = m.range.last
+                for (i in m.range.last until raw.length) {
+                    if (raw[i] == '{') depth++
+                    if (raw[i] == '}') {
+                        depth--
+                        if (depth == 0) {
+                            end = i
+                            break
+                        }
+                    }
+                }
+                raw.substring(m.range.first, end + 1).contains("sendData") shouldBe false
+            }
+        }
+
+        test("V1.9.96: the bell state is memory only and names no person") {
+            val code = SourceScan.blank(EncounterSourceScan.mainFile("encounter/EncounterBellState.kt").readText())
+            listOf(
+                "memberId",
+                "identity",
+                "Logger",
+                "logger",
+                "KotlinLogging",
+                "transaction",
+                "Table",
+                "AuditLogRecorder",
+                "println",
+            ).forEach {
+                code.contains(it) shouldBe false
+            }
+            (encounterFiles.any { it.name == "EncounterBellState.kt" }) shouldBe true
+        }
+
+        test("V1.9.96: the blessing and the bell share ONE rights helper and check neither profile nor role themselves") {
+            val fns = EncounterSourceScan.functions(serviceFile).associateBy { it.name }
+            listOf("blessSpace", "ringBell").forEach { name ->
+                val body = fns.getValue(name).body
+                body shouldContain "liturgyTargetInTx("
+                body.contains("profileOf") shouldBe false
+                body.contains("roleOf") shouldBe false
+            }
+            // rights come BEFORE the throttle, so an unauthorised caller cannot probe the throttle state
+            val ring = fns.getValue("ringBell").body
+            (ring.indexOf("liturgyTargetInTx(") < ring.indexOf("bellState.tryAcquire")) shouldBe true
+        }
+
+        test("V1.9.96: the bell topic literal exists exactly once in the shared module and its payload fits the limit") {
+            val shared = java.io.File("../lapis-shared/src").takeIf { it.exists() } ?: java.io.File("lapis-shared/src")
+            val hits =
+                shared
+                    .walkTopDown()
+                    .filter { it.isFile && it.extension == "kt" }
+                    .sumOf { Regex(""""lapis-encounter-bell"""").findAll(it.readText()).count() }
+            hits shouldBe 1
+            (
+                network.lapis.cloud.shared.domain.ENCOUNTER_BELL_PAYLOAD.length <=
+                    network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
+            ) shouldBe
+                true
+            (
+                network.lapis.cloud.shared.domain.ENCOUNTER_BELL_PAYLOAD.length <=
+                    network.lapis.cloud.shared.domain.ENCOUNTER_BELL_MAX_PAYLOAD_BYTES
+            ) shouldBe
+                true
         }
     })

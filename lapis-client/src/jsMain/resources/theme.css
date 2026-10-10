@@ -3163,6 +3163,21 @@ html .form-select.is-invalid:focus {
   position: relative;
 }
 
+/* V1.9.96 -- the holder of the two quiet signs of the liturgy (the bell on the left, the blessing on the right): one place over the pulpit
+   area, so the two never lie on top of each other. It never takes a click; on a narrow screen the signs wrap under each other. */
+.lapis-encounter-signs {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
 /* V1.9.95 -- the blessing: a quiet cross with one word over the pulpit area, visible to everybody in the room, for seven seconds.
    No accent colour, no scaling, no animation (only a short opacity fade, switched off by reduced motion), no sound; it never takes a click
    (pointer-events: none). The panel is the encounter surface at 80 % over the picture, so the text keeps its contrast whatever the video
@@ -3170,11 +3185,6 @@ html .form-select.is-invalid:focus {
      light: --lapis-text #14181E on 80 % of #F4EFE6 = about #C3BFB8   -> 9,7:1
      dark:  --lapis-text #E8E6E0 on 80 % of #232933 over white = about #4F545C -> 6,1:1 */
 .lapis-encounter-blessing {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3204,6 +3214,55 @@ html .form-select.is-invalid:focus {
 .lapis-encounter-blessing-word {
   font-size: 1rem;
   line-height: 1.25;
+}
+
+/* V1.9.96 -- the bell: a chip with the bell symbol and one word, visible to everybody in the room for five seconds. Same surface as the
+   blessing (the encounter surface at 80 % over the picture, theme tokens only, no accent colour), no scaling, no animation (only a short
+   opacity fade, switched off by reduced motion); it never takes a click. A second line "Ton aus" appears only while the sound is off. */
+.lapis-encounter-bell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 20px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--lapis-encounter-surface) 80%, transparent);
+  color: var(--lapis-text);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.lapis-encounter-bell[hidden] {
+  display: none;
+}
+
+.lapis-encounter-bell--visible {
+  opacity: 1;
+}
+
+.lapis-encounter-bell i {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.lapis-encounter-bell-word {
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.lapis-encounter-bell-mute {
+  font-size: 0.875rem;
+  line-height: 1.25;
+}
+
+.lapis-encounter-bell-mute[hidden] {
+  display: none;
+}
+
+/* The bell button while it is locked (ten seconds after a ring): a little weaker, still focusable (aria-disabled, never disabled). */
+.lapis-encounter-bell-locked {
+  opacity: 0.6;
 }
 
 .lapis-encounter-pulpit-tiles {
@@ -4392,6 +4451,7 @@ html.lapis-has-dock {
   .lapis-encounter-seat-hand,
   .lapis-encounter-seat-event,
   .lapis-encounter-blessing,
+  .lapis-encounter-bell,
   .lapis-conference-float {
     transition: none;
   }

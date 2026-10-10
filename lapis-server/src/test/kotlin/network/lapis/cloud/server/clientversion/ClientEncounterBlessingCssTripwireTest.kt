@@ -64,4 +64,16 @@ class ClientEncounterBlessingCssTripwireTest :
             base.contains("color: var(--lapis-text)") shouldBe true
             Regex("""#[0-9A-Fa-f]{3,8}\b""").containsMatchIn(base) shouldBe false
         }
+
+        test("V1.9.96: the display sits in the common holder of the signs, which is positioned in the pulpit area and takes no click") {
+            val holder = Regex("""(?m)^\.lapis-encounter-signs\s*\{([^}]*)}""").find(css)!!.groupValues[1]
+            withClue(holder) {
+                holder.contains("position: absolute") shouldBe true
+                holder.contains("pointer-events: none") shouldBe true
+            }
+            // the display itself no longer positions itself
+            val base = Regex("""(?m)^\.lapis-encounter-blessing\s*\{([^}]*)}""").find(css)!!.groupValues[1]
+            base.contains("position:") shouldBe false
+            base.contains("transform:") shouldBe false
+        }
     })

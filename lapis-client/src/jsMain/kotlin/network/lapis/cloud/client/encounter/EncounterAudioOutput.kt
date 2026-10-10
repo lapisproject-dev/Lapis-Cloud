@@ -117,7 +117,37 @@ internal class EncounterAudioOutput(
 
     private val mutex = Mutex()
 
+    /** V1.9.96: the bell's audio context, when the room registered one; it follows the chosen speaker like the `<audio>` elements. */
+    private var bellContext: dynamic = null
+
     val available: Boolean get() = env.sinkApiAvailable()
+
+    /**
+     * V1.9.96 -- best effort: points the bell's [ctx] (an `AudioContext`) at the chosen speaker, when the browser's `AudioContext` has
+     * `setSinkId` (Chrome; not Safari). Without the API, or without a choice, the sound plays on the system default. Never throws.
+     */
+    fun applyToContext(ctx: dynamic) {
+        bellContext = ctx
+        val chosen = sinkId ?: return
+        pushToContext(chosen)
+    }
+
+    /** The bell's context is gone (the room is closing): forget it. */
+    fun detachContext() {
+        bellContext = null
+    }
+
+    private fun pushToContext(target: String) {
+        val ctx = bellContext
+        if (ctx == null || ctx == undefined) return
+        try {
+            if (ctx.setSinkId == undefined) return
+            val pending = ctx.setSinkId(target)
+            if (pending != null && pending != undefined) pending["catch"]({ _: dynamic -> })
+        } catch (e: Throwable) {
+            // the bell then plays on the system default
+        }
+    }
 
     /** The usable output devices; empty without the sink API. */
     suspend fun listOutputs(): List<ConferenceDeviceOption> = if (!available) emptyList() else encounterUsableOutputs(env.listOutputs())
@@ -165,6 +195,7 @@ internal class EncounterAudioOutput(
 
     /** Applies [target] to every element, also to elements that arrive while this runs. `true` = every element accepted it. */
     private suspend fun applyToAll(target: String): Boolean {
+        pushToContext(target)
         val done = mutableListOf<HTMLElement>()
         var allOk = true
         while (true) {

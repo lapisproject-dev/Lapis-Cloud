@@ -160,4 +160,11 @@ interface IEncounterSpaceService {
      * silently swallowed (Unit). A failed delivery is not reported.
      */
     suspend fun blessSpace(spaceId: String)
+
+    /**
+     * V1.9.96 -- the bell: exactly the rights of [blessSpace] (ACTIVE PULPIT office holder, present, open CHURCH_SERVICE space). Nothing
+     * is stored, counted or audited. [ForbiddenException] (one message for every refusal) otherwise. A second bell within 10 s per
+     * session is silently swallowed (Unit). A failed delivery is not reported.
+     */
+    suspend fun ringBell(spaceId: String)
 }

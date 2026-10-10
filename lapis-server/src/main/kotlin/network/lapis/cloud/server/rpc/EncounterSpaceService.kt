@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.generated.EncounterSpaceTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.db.withSavepoint
+import network.lapis.cloud.server.encounter.EncounterBellState
 import network.lapis.cloud.server.encounter.EncounterBlessingState
 import network.lapis.cloud.server.encounter.EncounterConsentText
 import network.lapis.cloud.server.encounter.EncounterEntryNotifier
@@ -51,6 +52,8 @@ import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.ConferenceJoinTokenDto
 import network.lapis.cloud.shared.domain.ConferenceRole
 import network.lapis.cloud.shared.domain.ConferenceTurnServer
+import network.lapis.cloud.shared.domain.ENCOUNTER_BELL_PAYLOAD
+import network.lapis.cloud.shared.domain.ENCOUNTER_BELL_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_PAYLOAD
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_MAX
@@ -159,7 +162,7 @@ private const val SPACE_CLOSED_MESSAGE = "The encounter space is not open"
  * - **Entry notice (V1.9.76)**: when a person WITHOUT an office is newly admitted, [entryNotifier] may send the office holders an
  *   anonymous e-mail -- called only AFTER the entry transaction committed, never throwing, never writing a trace.
  *
- * Constructed per RPC request (see `Application.module`'s `registerService`), therefore EVERY throttle, [moderationState], [blessingState] and
+ * Constructed per RPC request (see `Application.module`'s `registerService`), therefore EVERY throttle, [moderationState], [blessingState], [bellState] and
  * [entryNotifier] are constructor parameters WITHOUT a default and come from module-scoped singletons -- a default would silently give
  * every request a fresh, empty limiter or notice state (the lesson of `conferenceMeetingBindRateLimiter`).
  */
@@ -171,6 +174,7 @@ class EncounterSpaceService(
     private val tableState: EncounterTableState,
     private val entryNotifier: EncounterEntryNotifier,
     private val blessingState: EncounterBlessingState,
+    private val bellState: EncounterBellState,
     private val listRateLimiter: FederationInboxRateLimiter,
     private val enterRateLimiter: FederationInboxRateLimiter,
     private val leaveRateLimiter: FederationInboxRateLimiter,
@@ -629,6 +633,7 @@ class EncounterSpaceService(
             }
             moderationState.clear(roomId)
             blessingState.clear(roomId)
+            bellState.clear(roomId)
             seatState.clear(roomId)
             EncounterTableRooms.deleteAll(liveKit = liveKitAdminClient, rooms = tableState.clear(roomId))
             entryNotifier.clearSession(roomId)
@@ -647,7 +652,7 @@ class EncounterSpaceService(
             transaction {
                 val status = requireConferenceEligibleMembership(memberId = current.memberId)
                 val space = loadVisibleSpace(spaceId = id, current = current, status = status)
-                blessingTargetInTx(space = space, spaceId = id, memberId = current.memberId)
+                liturgyTargetInTx(space = space, spaceId = id, memberId = current.memberId)
             }
         if (!blessingState.tryAcquire(target.roomId)) return
         // Outside the transaction: an external call must never run inside transaction {}.
@@ -662,12 +667,38 @@ class EncounterSpaceService(
         }
     }
 
-    /** Every refusal is the SAME bare ForbiddenException(): wrong profile, no PULPIT office, office not ACTIVE, not present, closed. */
-    private fun blessingTargetInTx(
+    // ── Bell (V1.9.96) ────────────────────────────────────────────────────
+
+    override suspend fun ringBell(spaceId: String) {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        requireWithinRate(limiter = moderationRateLimiter, memberId = current.memberId)
+        val id = spaceId.toSpaceUuid()
+        val target =
+            transaction {
+                val status = requireConferenceEligibleMembership(memberId = current.memberId)
+                val space = loadVisibleSpace(spaceId = id, current = current, status = status)
+                liturgyTargetInTx(space = space, spaceId = id, memberId = current.memberId)
+            }
+        if (!bellState.tryAcquire(target.roomId)) return
+        // Outside the transaction: an external call must never run inside transaction {}.
+        try {
+            liveKitAdminClient.sendData(
+                room = target.livekitRoomName,
+                topic = ENCOUNTER_BELL_TOPIC,
+                payload = ENCOUNTER_BELL_PAYLOAD.encodeToByteArray(),
+            )
+        } catch (e: LiveKitAdminException) {
+            logger.debug { "bell send failed" }
+        }
+    }
+
+    /** Shared by the blessing and the bell (one place for the rights). Every refusal is the SAME bare ForbiddenException(): wrong profile, no PULPIT office, office not ACTIVE, not present, closed. */
+    private fun liturgyTargetInTx(
         space: ResultRow,
         spaceId: Uuid,
         memberId: Uuid,
-    ): BlessingTarget {
+    ): LiturgyTarget {
         if (profileOf(space) != EncounterProfile.CHURCH_SERVICE) throw ForbiddenException()
         if (EncounterRoles.roleOf(spaceId = spaceId, memberId = memberId) != EncounterSpaceRole.PULPIT) throw ForbiddenException()
         val session = EncounterSessions.openSession(spaceId = spaceId) ?: throw ForbiddenException()
@@ -679,10 +710,10 @@ class EncounterSpaceService(
                 .limit(1)
                 .any()
         if (!present) throw ForbiddenException()
-        return BlessingTarget(roomId = roomId, livekitRoomName = session[ConferenceRoomTable.livekitRoomName])
+        return LiturgyTarget(roomId = roomId, livekitRoomName = session[ConferenceRoomTable.livekitRoomName])
     }
 
-    private data class BlessingTarget(
+    private data class LiturgyTarget(
         val roomId: Uuid,
         val livekitRoomName: String,
     )

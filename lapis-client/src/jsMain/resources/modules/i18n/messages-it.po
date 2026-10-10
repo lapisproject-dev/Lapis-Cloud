@@ -21433,3 +21433,31 @@ msgstr "Benedizione"
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Der Segen wird gesprochen"
 msgstr "La benedizione viene pronunciata"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Glocke läuten"
+msgstr "Suonare la campana"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Glocke"
+msgstr "Campana"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Die Glocke läutet"
+msgstr "La campana suona"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Ton aus"
+msgstr "Audio disattivato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Glockenton"
+msgstr "Suono della campana"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Gilt nur für diesen Browser."
+msgstr "Vale solo per questo browser."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Glockenton einstellen"
+msgstr "Imposta il suono della campana"

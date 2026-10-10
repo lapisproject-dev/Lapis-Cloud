@@ -76,6 +76,27 @@ internal class EncounterTerms(
     /** V1.9.95 -- the word under the cross in the display. */
     fun blessingWord(): String = tr("Segen")
 
+    /** V1.9.96 -- the bell exists in the church profile only; `null` = no bell (assembly). The ONE place that decides whether a room has it. */
+    fun bellLabel(): String? = if (church) tr("Glocke läuten") else null
+
+    /** V1.9.96 -- the word next to the bell symbol in the sign. */
+    fun bellWord(): String = tr("Glocke")
+
+    /** V1.9.96 -- the one fixed sentence a screen reader hears when the bell rings. */
+    fun bellAnnouncement(): String = tr("Die Glocke läutet")
+
+    /** V1.9.96 -- the second line of the sign while this browser's bell sound is off. */
+    fun bellSoundOffNote(): String = tr("Ton aus")
+
+    /** V1.9.96 -- the label of the bell sound switch in the device panel. */
+    fun bellSoundSwitchLabel(): String = tr("Glockenton")
+
+    /** V1.9.96 -- the hint under the switch: the choice is local. */
+    fun bellSoundSwitchHint(): String = tr("Gilt nur für diesen Browser.")
+
+    /** V1.9.96 -- the name of the gear button when the bell switch is all it holds. */
+    fun bellDeviceButtonLabel(): String = gettext("Glockenton einstellen")
+
     fun emptyStageContent(): String = if (church) tr("Die Kanzel ist noch leer.") else tr("Das Podium ist noch leer.")
 
     fun emptyStage(): String = if (church) gettext("Die Kanzel ist noch leer.") else gettext("Das Podium ist noch leer.")

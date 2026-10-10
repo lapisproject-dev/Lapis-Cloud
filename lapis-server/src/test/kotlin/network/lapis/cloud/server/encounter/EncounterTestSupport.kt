@@ -223,6 +223,8 @@ internal class EncounterRig(
     val moderationState: EncounterModerationState = EncounterModerationState(),
     /** V1.9.95: the in-memory blessing throttle -- ONE per test. */
     val blessingState: EncounterBlessingState = EncounterBlessingState(),
+    /** V1.9.96: the in-memory bell throttle -- ONE per test. */
+    val bellState: EncounterBellState = EncounterBellState(),
     /** V1.9.79: the in-memory seat plan -- ONE per test, like the moderation state. */
     val seatState: EncounterSeatState = EncounterSeatState(),
     /** V1.9.79: `null` = as permissive as every other throttle; a test of the 1-per-second throttle passes its own. */
@@ -257,6 +259,7 @@ internal class EncounterRig(
         liveKitAdminClient = liveKit,
         moderationState = moderationState,
         blessingState = blessingState,
+        bellState = bellState,
         seatState = seatState,
         tableState = tableState,
         entryNotifier = entryNotifier,

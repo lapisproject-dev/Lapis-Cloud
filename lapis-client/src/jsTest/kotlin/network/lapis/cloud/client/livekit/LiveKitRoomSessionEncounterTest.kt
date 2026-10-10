@@ -3,6 +3,9 @@ package network.lapis.cloud.client.livekit
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.promise
 import network.lapis.cloud.client.encounter.EncounterReactionWire
+import network.lapis.cloud.shared.domain.ENCOUNTER_BELL_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_BELL_PAYLOAD
+import network.lapis.cloud.shared.domain.ENCOUNTER_BELL_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_PAYLOAD
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_TOPIC
@@ -113,6 +116,7 @@ class LiveKitRoomSessionEncounterTest {
         val playback = mutableListOf<Boolean>()
         val seatNudges = mutableListOf<String>()
         var blessings = 0
+        var bells = 0
         var chats = 0
 
         val session =
@@ -141,6 +145,7 @@ class LiveKitRoomSessionEncounterTest {
                 onAudioPlaybackChanged = { playback += it },
                 onEncounterSeatNudge = { seatNudges += it },
                 onEncounterBlessing = { blessings++ },
+                onEncounterBell = { bells++ },
             )
     }
 
@@ -329,4 +334,42 @@ class LiveKitRoomSessionEncounterTest {
         assertTrue(!encounterBlessingPacketAccepted(fromParticipant = false, payloadLength = 0))
         assertTrue(!encounterBlessingPacketAccepted(fromParticipant = false, payloadLength = ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES + 1))
     }
+
+    // ── V1.9.96: the bell is accepted from the server only, and never mixes with the blessing ───────────────────────────────────
+
+    @Test
+    fun aBell_withoutAParticipant_reachesTheCallbackOnce_andNothingOfItsPayloadIsRead() =
+        GlobalScope.promise {
+            val h = Harness(publishEnabled = false)
+            h.session.connect("wss://example.invalid", "token")
+            h.fake.emitServerData(bytesOf(ENCOUNTER_BELL_PAYLOAD), ENCOUNTER_BELL_TOPIC)
+            assertEquals(1, h.bells)
+            h.fake.emitServerData(bytesOf("not json"), ENCOUNTER_BELL_TOPIC)
+            assertEquals(2, h.bells, "the content is irrelevant")
+            assertEquals(0, h.blessings, "a bell is never a blessing")
+        }
+
+    @Test
+    fun aBell_fromAParticipant_orOfTheWrongSize_isNeverAccepted() =
+        GlobalScope.promise {
+            val h = Harness(publishEnabled = false)
+            h.session.connect("wss://example.invalid", "token")
+            h.fake.emitData(bytesOf(ENCOUNTER_BELL_PAYLOAD), ENCOUNTER_BELL_TOPIC, identity = "the-pulpit")
+            h.fake.emitServerData(Uint8Array(0), ENCOUNTER_BELL_TOPIC)
+            h.fake.emitServerData(Uint8Array(ENCOUNTER_BELL_MAX_PAYLOAD_BYTES + 1), ENCOUNTER_BELL_TOPIC)
+            assertEquals(0, h.bells)
+        }
+
+    @Test
+    fun theBlessingTopic_doesNotRingTheBell_andTheBellTopicDoesNotBless() =
+        GlobalScope.promise {
+            val h = Harness(publishEnabled = false)
+            h.session.connect("wss://example.invalid", "token")
+            h.fake.emitServerData(bytesOf(ENCOUNTER_BLESSING_PAYLOAD), ENCOUNTER_BLESSING_TOPIC)
+            assertEquals(0, h.bells)
+            assertEquals(1, h.blessings)
+            h.fake.emitServerData(bytesOf(ENCOUNTER_BELL_PAYLOAD), ENCOUNTER_BELL_TOPIC)
+            assertEquals(1, h.bells)
+            assertEquals(1, h.blessings)
+        }
 }

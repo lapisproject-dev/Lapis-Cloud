@@ -14,7 +14,7 @@ import java.io.File
  *
  * - **Text is text**: no `innerHTML`, no `rich = true` (a chat line, a name, a notice must never become markup).
  * - **Two storage keys, nothing else**: `localStorage`/`sessionStorage`/`indexedDB` appear only in `EncounterSceneToggle.kt` (every use names
- *   `ENCOUNTER_SCENE_OFF_KEY`: the "scene off" choice, no room, no person, no time) and `EncounterDevicePicker.kt` (V1.9.91: every use names
+ *   `ENCOUNTER_SCENE_OFF_KEY` -- the "scene off" choice -- or, V1.9.96, `ENCOUNTER_BELL_SOUND_ON_KEY` -- the "bell sound on" choice; no room, no person, no time) and `EncounterDevicePicker.kt` (V1.9.91: every use names
  *   `conferenceDeviceStorageKey(`, the key the video conference already uses; one writer, one remover, device ids only).
  * - **Nothing in the console**: no `console.` at all, so no identity, name, room id or URL can reach a log from this package.
  * - **No exception text**: `.message` of a caught exception is never read (the server's wording is no UI text, see `AppState.guarded`).
@@ -85,7 +85,7 @@ class ClientEncounterPrivacyTripwireTest :
     FunSpec({
         test("the scan sees the encounter client (not vacuous): every part of the room is a file of the package") {
             val names = encounterFiles().map { it.name }.toSet()
-            names.size shouldBeGreaterThanOrEqual 14
+            names.size shouldBeGreaterThanOrEqual 16
             listOf(
                 "EncounterRoom.kt",
                 "EncounterMediaSession.kt",
@@ -95,6 +95,8 @@ class ClientEncounterPrivacyTripwireTest :
                 "EncounterChatPanel.kt",
                 "EncounterPresentPanel.kt",
                 "EncounterStreamPanel.kt",
+                "EncounterBell.kt",
+                "EncounterBellSound.kt",
             ).forEach { (it in names) shouldBe true }
         }
 
@@ -107,7 +109,7 @@ class ClientEncounterPrivacyTripwireTest :
             val toggle = encounterFiles().first { it.name == "EncounterSceneToggle.kt" }
             val uses = codeLines(toggle).filter { STORAGE.containsMatchIn(it) && !it.trimStart().startsWith("import ") }
             (uses.size >= 2) shouldBe true
-            uses.filterNot { it.contains("ENCOUNTER_SCENE_OFF_KEY") }.shouldBeEmpty()
+            uses.filterNot { it.contains("ENCOUNTER_SCENE_OFF_KEY") || it.contains("ENCOUNTER_BELL_SOUND_ON_KEY") }.shouldBeEmpty()
         }
 
         test("V1.9.91: the device picker's storage use is one reader, one writer, one remover -- all on the shared device key, ids only") {
@@ -120,6 +122,8 @@ class ClientEncounterPrivacyTripwireTest :
             }
             code.count { it.contains(".setItem(") } shouldBe 1
             code.count { it.contains(".removeItem(") } shouldBe 1
+            // V1.9.96: the picker's bell switch stores nothing itself -- it only calls the model's functions
+            code.none { it.contains("ENCOUNTER_BELL_SOUND_ON_KEY") } shouldBe true
             // writer and remover live inside the one function that is called after a person's own choice
             val text = code.joinToString("\n")
             val writer = text.substring(text.indexOf("fun encounterRememberDevice("), text.indexOf("fun encounterRememberDevice(") + 600)
@@ -296,8 +300,8 @@ class ClientEncounterPrivacyTripwireTest :
                 listOf("setSinkId", "enumerateDevices", "devicechange").all { w -> code.any { it.contains(w) } }
             } shouldBe
                 true
-            // exactly one place sets a sink
-            code.count { it.contains(".setSinkId(") } shouldBe 1
+            // exactly two places set a sink: the `<audio>` elements and (V1.9.96, best effort) the bell's AudioContext
+            code.count { it.contains(".setSinkId(") } shouldBe 2
         }
 
         test("V1.9.91: no output-selection API of the permission kind and no device-kind literal outside the audio output") {
@@ -419,5 +423,117 @@ class ClientEncounterPrivacyTripwireTest :
             // the room hands the packet on without any data
             val room = encounterFiles().first { it.name == "EncounterRoom.kt" }
             codeLines(room).any { it.contains("onBlessing = { blessingDisplay.onBlessing() }") } shouldBe true
+        }
+
+        // ── Welle V1.9.96: the bell ──────────────────────────────────────────────
+
+        test("V1.9.96: the bell packet is accepted before the participant check and is never decoded") {
+            val text = codeLines(LIVEKIT_SESSION).joinToString("\n")
+            val start = text.indexOf("if (p3 == ENCOUNTER_BELL_TOPIC)")
+            (start >= 0) shouldBe true
+            val participantCheck = text.indexOf("val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@onOwned")
+            withClue("the bell branch must stand BEFORE the line that drops participant-less packets") {
+                (start in 0 until participantCheck) shouldBe true
+            }
+            val branch = text.substring(start, participantCheck)
+            listOf("decode", "Json", "TextDecoder", "serializer", "toString", "String(", "identity").forEach { forbidden ->
+                withClue("the bell branch must not contain '$forbidden': $branch") { branch.contains(forbidden) shouldBe false }
+            }
+            branch.contains("encounterBellPacketAccepted(") shouldBe true
+            branch.contains("payload.length") shouldBe true
+            text.contains("!fromParticipant && payloadLength in 1..ENCOUNTER_BELL_MAX_PAYLOAD_BYTES") shouldBe true
+        }
+
+        test("V1.9.96: the bell topic is its own, the payload limit is at most 16 bytes and the fixed body fits it") {
+            val shared = SHARED_ENCOUNTER.readText()
+            val limit = Regex("""ENCOUNTER_BELL_MAX_PAYLOAD_BYTES\s*=\s*(\d+)""").find(shared)!!.groupValues[1].toInt()
+            (limit <= 16) shouldBe true
+            shared.contains("\"lapis-encounter-bell\"") shouldBe true
+            val payload = Regex("""ENCOUNTER_BELL_PAYLOAD\s*=\s*\"\"\"(.*?)\"\"\"""").find(shared)!!.groupValues[1]
+            payload shouldBe """{"v":1}"""
+            (payload.length <= limit) shouldBe true
+            Regex("\"lapis-encounter-bell\"").findAll(shared).count() shouldBe 1
+        }
+
+        test("V1.9.96: only the two known keys exist under lapis.encounter., and neither names a room, a space, a member or an id") {
+            val literals =
+                encounterFiles()
+                    .flatMap { f ->
+                        codeLines(f).flatMap {
+                            Regex(""""(lapis\.encounter\.[^"]*)"""")
+                                .findAll(it)
+                                .map { m ->
+                                    m.groupValues[1]
+                                }.toList()
+                        }
+                    }.toSet()
+            literals shouldBe setOf("lapis.encounter.sceneOff", "lapis.encounter.bellSoundOn")
+            literals.forEach { key ->
+                key.contains("$") shouldBe false
+                Regex(
+                    """room|space|member|\bid\b""",
+                    RegexOption.IGNORE_CASE,
+                ).containsMatchIn(key.removePrefix("lapis.encounter.")) shouldBe
+                    false
+            }
+        }
+
+        test(
+            "V1.9.96: the bell sound is stored in one function, removed in the same one, and that function is written only after the person's own change",
+        ) {
+            val toggle = encounterFiles().first { it.name == "EncounterSceneToggle.kt" }
+            val text = codeLines(toggle).joinToString("\n")
+            val writer = text.substring(text.indexOf("fun storeEncounterBellSoundOn("))
+            writer.contains(".setItem(ENCOUNTER_BELL_SOUND_ON_KEY") shouldBe true
+            writer.contains(".removeItem(ENCOUNTER_BELL_SOUND_ON_KEY") shouldBe true
+            codeLines(toggle).count { it.contains(".setItem(ENCOUNTER_BELL_SOUND_ON_KEY") } shouldBe 1
+            // the writer is named in exactly one other place (the wiring of the switch model) -- never called by a refresh or an open
+            val named = encounterFiles().filter { f -> codeLines(f).any { it.contains("storeEncounterBellSoundOn") } }.map { it.name }
+            named.toSet() shouldBe setOf("EncounterSceneToggle.kt", "EncounterRoom.kt")
+            codeLines(encounterFiles().first { it.name == "EncounterRoom.kt" })
+                .filter { it.contains("storeEncounterBellSoundOn") }
+                .all { it.contains("write = ::storeEncounterBellSoundOn") } shouldBe true
+            // the picker calls the model's writer only inside its `change` handler
+            val picker = codeLines(encounterFiles().first { it.name == "EncounterDevicePicker.kt" }).joinToString("\n")
+            Regex("""model\.write\(""").findAll(picker).count() shouldBe 1
+            val change = picker.substring(picker.indexOf("change = {"))
+            (change.indexOf("model.write(") in 0..300) shouldBe true
+            // reading in refresh/open never writes: the sync function reads only
+            val sync = picker.substring(picker.indexOf("private fun syncBellSwitch()"), picker.indexOf("private inner class Row("))
+            sync.contains("write(") shouldBe false
+        }
+
+        test("V1.9.96: the bell sign and the bell sound keep no storage, no console, no network, no counter, no name and no time of day") {
+            val forbiddenCalls =
+                Regex(
+                    """(?<![A-Za-z0-9_.])fetch\(|\bAudio\(|"audio"|\bcreateElement\b|\bdecodeAudioData\b|""" +
+                        """\bMediaRecorder\b|\bgetUserMedia\b|""" +
+                        """\bcreateMediaStreamDestination\b|\bcreateMediaElementSource\b|\bcaptureStream\b|\brpcService\b""" +
+                        """|\bconsole\s*\.|\blogger\b""",
+                )
+            val identity =
+                Regex("""\bcount\w*\b|\+\+|displayName|identity|memberId|Date\(|Date\.now|toLocale|\.name\b""", RegexOption.IGNORE_CASE)
+            listOf("EncounterBell.kt", "EncounterBellSound.kt").forEach { name ->
+                val code = codeLines(encounterFiles().first { it.name == name }).filterNot { it.trimStart().startsWith("import ") }
+                withClue("$name must not touch the network, the console, a log, a media capture or an element of its own") {
+                    code.filter { forbiddenCalls.containsMatchIn(it) }.shouldBeEmpty()
+                }
+                code.filter { STORAGE.containsMatchIn(it) || NO_LEAK_CHANNELS.containsMatchIn(it) }.shouldBeEmpty()
+                withClue(
+                    "$name must not keep a counter, a name or a time of day",
+                ) { code.filter { identity.containsMatchIn(it) }.shouldBeEmpty() }
+            }
+            // the room hands the packet on without any data
+            val room = encounterFiles().first { it.name == "EncounterRoom.kt" }
+            codeLines(room).any { it.contains("onBell = { bellDisplay?.onBell() }") } shouldBe true
+        }
+
+        test("V1.9.96: AudioContext lives in EncounterBellSound.kt only, and the sink of the speaker only in EncounterAudioOutput.kt") {
+            findings(
+                pattern = Regex("""\bAudioContext\b|\bwebkitAudioContext\b"""),
+                allowedFiles = setOf("EncounterBellSound.kt"),
+            ).shouldBeEmpty()
+            codeLines(encounterFiles().first { it.name == "EncounterBellSound.kt" }).any { it.contains("AudioContext") } shouldBe true
+            findings(pattern = SINK_AND_LIST, allowedFiles = setOf("EncounterAudioOutput.kt")).shouldBeEmpty()
         }
     })

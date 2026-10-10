@@ -21340,3 +21340,31 @@ msgstr "Blessing"
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Der Segen wird gesprochen"
 msgstr "The blessing is being spoken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Glocke läuten"
+msgstr "Ring the bell"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Glocke"
+msgstr "Bell"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Die Glocke läutet"
+msgstr "The bell is ringing"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Ton aus"
+msgstr "Sound off"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Glockenton"
+msgstr "Bell sound"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Gilt nur für diesen Browser."
+msgstr "Applies to this browser only."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Glockenton einstellen"
+msgstr "Set the bell sound"

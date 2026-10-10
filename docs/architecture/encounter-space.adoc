@@ -365,8 +365,8 @@ regions (amen bundling for everybody, "<name> hebt die Hand" for office holders 
 
 === Browser storage
 
-The only storage of the encounter client is the key `lapis.encounter.sceneOff` (value `1`): no room, no person, no time (`EncounterSceneToggle.kt`). Reading or writing it is wrapped in `try`/`catch`; a blocked
-storage means "scene on". `ClientEncounterPrivacyTripwireTest` pins this together with the other privacy rules (no `innerHTML`, no console, no exception text, devices only in the two allowed files, no telemetry).
+The encounter client has exactly two storage keys of its own (both in `EncounterSceneToggle.kt`; the device picker additionally writes the device ids of the video conference's keys, see "Device selection"): `lapis.encounter.sceneOff` (value `1`) and, since V1.9.96, `lapis.encounter.bellSoundOn` (value `1`, see "Bell"). Neither has a room, a person or a time. Reading or writing them is wrapped in `try`/`catch`; a blocked
+storage means "scene on" and "bell sound off". `ClientEncounterPrivacyTripwireTest` pins this together with the other privacy rules (no `innerHTML`, no console, no exception text, devices only in the two allowed files, no telemetry).
 
 [[client-mobile]]
 === Mobile bridge
@@ -683,7 +683,7 @@ A person in the room can choose the devices they use, locally and without a serv
 | Congregation, no table | no | no | yes
 |===
 
-The control is one icon-only bar button (`ActionIcon.SETTINGS`, gear), the *last* control of the devices group; it never moves into the "Mehr" sheet. Its accessible name says what can be chosen ("Geräte wählen", "Mikrofon und Lautsprecher wählen", "Lautsprecher wählen"). It exists only while at least one field is a real, enabled choice, so a person who can choose nothing sees no dead control. It opens a panel (`role="group"`, no dialog, no focus trap): a popover above the bar from 768 px, a sheet from below under 768 px (the guideline's one breakpoint). Escape closes and returns the focus to the button, a click outside or Tab out of the panel closes it, and the "Mehr" sheet and the panel are never open together. Every field has a visible label and a line "Aktiv: ..." (linked with `aria-describedby`).
+The control is one icon-only bar button (`ActionIcon.SETTINGS`, gear), the *last* control of the devices group; it never moves into the "Mehr" sheet. Its accessible name says what can be chosen ("Geräte wählen", "Mikrofon und Lautsprecher wählen", "Lautsprecher wählen"). It exists only while at least one field is a real, enabled choice, so a person who can choose nothing sees no dead control. (V1.9.96: in a church-service room it also exists for the bell sound switch, see "Bell"; it is then named "Glockenton einstellen" when there is nothing else to choose.) It opens a panel (`role="group"`, no dialog, no focus trap): a popover above the bar from 768 px, a sheet from below under 768 px (the guideline's one breakpoint). Escape closes and returns the focus to the button, a click outside or Tab out of the panel closes it, and the "Mehr" sheet and the panel are never open together. Every field has a visible label and a line "Aktiv: ..." (linked with `aria-describedby`).
 
 === Where the speaker lives
 
@@ -756,6 +756,55 @@ No accent colour, no scaling, no sound. The only motion is an opacity transition
 * A failed delivery is not reported to the pulpit.
 * A person who loses the office during the session keeps the button until the next reload; the server refuses the call.
 * The help page `gathering-room` is updated at rollout.
+
+== Bell (V1.9.96)
+
+The pulpit of a church-service room can ring a bell: one button, one quiet sign for everybody in the room for five seconds and, if the person chose so, a synthesised bell sound. Like the blessing it comes from the room and belongs to the liturgy, not to a person; it is *not* a reaction.
+
+=== Who may ring (decided by the server)
+
+`IEncounterSpaceService.ringBell(spaceId)` has *exactly* the rights of `blessSpace`: both call the same private helper `liturgyTargetInTx` (so the permission is structurally identical, not copied): `CHURCH_SERVICE` profile, an `ACTIVE` `PULPIT` office holder, an open space, the caller present. Every refusal is the same bare `ForbiddenException`. The permission check runs *before* the throttle, so an unauthorised caller cannot probe the throttle state.
+
+=== How it travels
+
+One LiveKit `SendData` after the transaction (topic `lapis-encounter-bell`, fixed payload `{"v":1}`, no sender). The client accepts the topic only without a participant and with 1..16 bytes (`encounterBellPacketAccepted`) and never decodes the payload; the branch stands *before* the participant check, like the blessing's. A participant who publishes the topic arrives with a participant and is dropped. An old client ignores the unknown topic (the packet has no participant, so it is dropped before any topic switch); a new client against an old server fails the call, which is swallowed silently. No client version gate is needed.
+
+The throttle `EncounterBellState` is a separate in-memory class (room id -> instant, nothing else; at most one bell per session room and 10 s, swallowed silently; capped at 10 000 entries; cleared when the session closes). The blessing and the bell never throttle each other. The pulpit's button also locks itself for 10 s (`aria-disabled`, still focusable, no number).
+
+=== The sign
+
+A chip with the bell symbol and the word "Glocke" in the pulpit area, in the same holder as the blessing's cross (`.lapis-encounter-signs`: the bell on the left, the blessing on the right, wrapping under each other on a narrow screen), `aria-hidden`, `pointer-events: none`, visible to everybody in the room for 5 s; a second packet restarts the window and neither opens a second sign nor rings again. While this browser's sound is off, a second line says "Ton aus". Its own persistent polite region (separate from the blessing's, so one never clears the other's sentence) receives the fixed sentence "Die Glocke läutet" and is cleared one second later. Nothing in the sign can be operated (WCAG 2.2.1). The sign is set *before* the sound is tried; a failing sound never keeps it away. Same surface and motion rules as the blessing (opacity transition of at most 200 ms, off under reduced motion; `ClientEncounterBellCssTripwireTest`).
+
+=== The sound
+
+Synthesised with WebAudio, no sound file: no third-party asset (no licence or provenance question), 0 bytes in the bundle, nothing fetched or decoded (no network artefact that could be linked to a visit). A strike is seven sine partials (ratios 0.5, 1, 1.2, 1.5, 2, 2.5, 3 of 440 Hz, amplitudes normalised to a sum of 1), each with a 5 ms attack and an exponential decay of 2.5 s, summed into one master gain of 0.25 (never above 1); a ring is three strikes 1.2 s apart (4.9 s). It never sounds in a background tab, and never without the person's own switch.
+
+*Autoplay.* A browser only lets a sound start after a user activation. The switch's `change` handler plays one probe strike synchronously (no `await`, no `launch` before it: Safari). After a reload with the sound remembered as on, the first pointer or key press anywhere primes the audio context silently (one `once` listener pair, removed on dispose); a bell that rang before that is not played afterwards. Without a prior activation no `AudioContext` is created at all (it would only earn a console warning). Every `resume()`/`close()` promise has a `catch`, so a refusal is never an unhandled rejection.
+
+*Speaker.* If the browser's `AudioContext` has `setSinkId`, the context follows the speaker chosen in the device panel (through a lambda; the room never sees a device id, `EncounterAudioOutput` stays the only place with the sink logic). Without it (Safari) the sound plays on the system default.
+
+=== The switch
+
+The gear (device picker) holds a "Glockenton" switch (`role="switch"` on a native checkbox, its own label, the hint "Gilt nur für diesen Browser."). It exists only in church-service rooms and for *every* role. Default off. Because the switch lives in the gear, the gear is now always in the bar of a church-service room (also for the congregation, whose gear used to be hidden without a choice of devices); it then says "Glockenton einstellen". That costs one permanent place in the bar, also at 360 px.
+
+=== What is remembered
+
+Exactly the second storage key `lapis.encounter.bellSoundOn` (value `1`), written only by the person's own change of the switch (`storeEncounterBellSoundOn`, called through the switch model's `write`), removed when switched off; opening and redrawing the panel only read. *Honest limit:* the key exists only after somebody chose the sound in a church-service room, so its existence is a local hint that this browser has been in one (see `dsgvo.adoc`). Rejected alternatives: remember nothing (a sound switch that forgets itself is unusable) and a neutral key name (does not change that the key arises only from such a room).
+
+=== Data protection
+
+Nothing is stored on the server, nothing counted, no audit entry (it would permanently record that somebody took part in the liturgy), one fixed `DEBUG` text ("bell send failed"). `EncounterPrivacyTripwireTest` and `ClientEncounterPrivacyTripwireTest` pin all of it (no write in the bell path, one log line, memory-only state, no decode, the two storage keys and where they are written, no network/console/counter in the sign and the sound).
+
+=== Known limitations of the bell
+
+* Never tried against a real LiveKit server with `SendData`.
+* The autoplay rule can keep the first sound after a reload from playing until the next gesture in the room.
+* Without `AudioContext.setSinkId` (Safari, partly Firefox) the sound uses the system default, not the chosen speaker.
+* No call outside the room (a push notification is a follow-up wave) and no automatic bell with the blessing (follow-up wave).
+* The existence of the storage key is a local hint of a church-service visit.
+* The symbol `fa-bell` has two other meanings elsewhere (see `action-icons.adoc`).
+* The throttle is in memory and per server instance; a failed delivery is not reported; a person who loses the office keeps the button until the next reload (the server refuses).
+* The website and the help page `gathering-room` are not changed in this wave and are updated at rollout.
 
 == Open questions (for the product owner and legal)
 

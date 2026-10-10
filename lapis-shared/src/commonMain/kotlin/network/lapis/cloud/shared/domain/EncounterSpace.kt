@@ -104,6 +104,18 @@ const val ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES = 16
 /** At most one blessing per session room per this interval; a second one is swallowed silently. */
 const val ENCOUNTER_BLESSING_MIN_INTERVAL_MS = 10_000L
 
+/** V1.9.96 -- sent ONLY by the server (LiveKit RoomService/SendData, no participant); clients accept it only without a participant. */
+const val ENCOUNTER_BELL_TOPIC = "lapis-encounter-bell"
+
+/** Fixed payload {"v":1}: no identity, no time, no counter. */
+const val ENCOUNTER_BELL_PAYLOAD = """{"v":1}"""
+
+/** Upper bound the client accepts for a bell packet (the fixed payload is 7 bytes). */
+const val ENCOUNTER_BELL_MAX_PAYLOAD_BYTES = 16
+
+/** At most one bell per session room per this interval; a second one is swallowed silently. */
+const val ENCOUNTER_BELL_MIN_INTERVAL_MS = 10_000L
+
 /**
  * V1.9.76 -- anonymous e-mail notice to the room's office holders when a person WITHOUT an office enters. [NONE] = off (default),
  * [FIRST_GUEST] = at most one notice per opening of the room, [EVERY_GUEST] = at most one notice per five minutes (entries summarised).

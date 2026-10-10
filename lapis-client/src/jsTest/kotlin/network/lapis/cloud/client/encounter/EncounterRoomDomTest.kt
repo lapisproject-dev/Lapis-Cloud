@@ -42,6 +42,7 @@ class EncounterRoomDomTest {
         people: List<EncounterPresentDto>,
         privileged: Boolean = false,
         session: FakeListenerSession = FakeListenerSession(dataAllowed = entry.canPublishData),
+        space: network.lapis.cloud.shared.domain.EncounterSpaceDto = testSpace(),
         block: suspend (EncounterRoomRig, HTMLElement) -> Unit,
     ) = withEncounterRoom(
         entry = entry,
@@ -49,6 +50,7 @@ class EncounterRoomDomTest {
         clock = { clock },
         privileged = privileged,
         session = session,
+        space = space,
         block = block,
     )
 
@@ -218,9 +220,19 @@ class EncounterRoomDomTest {
     @Test
     fun theCongregationWithoutATable_hasNoVisibleDeviceGroup_andNothingIsAnnounced(): Promise<Unit> =
         formTest {
-            withRoom(testEntry(), sixPeople) { _, element ->
+            // V1.9.96: a church room has the gear for everybody (the bell sound switch); a room without a bell has no device control for a listener
+            withRoom(
+                testEntry(),
+                sixPeople,
+                space = testSpace(profile = network.lapis.cloud.shared.domain.EncounterProfile.ASSEMBLY),
+            ) { _, element ->
                 val devices = element.barGroups().first { it.classList.contains("lapis-encounter-control-group--devices") }
                 assertEquals(0, devices.childElementCount, "no device control for a listener (the empty group is hidden by `:empty`)")
+                assertEquals(0, element.micOffAnnouncements())
+            }
+            withRoom(testEntry(), sixPeople) { _, element ->
+                val devices = element.barGroups().first { it.classList.contains("lapis-encounter-control-group--devices") }
+                assertEquals(1, devices.childElementCount, "a church room: only the gear for the bell sound switch")
                 assertEquals(0, element.micOffAnnouncements())
             }
         }

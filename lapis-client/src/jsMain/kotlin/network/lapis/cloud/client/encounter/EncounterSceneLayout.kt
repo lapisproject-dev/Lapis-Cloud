@@ -53,6 +53,9 @@ internal class EncounterSceneLayout(
     /** The pulpit region; the keyboard focus lands here after entering (`tabindex=-1`: focusable by script, not a tab stop). */
     val pulpit: Div = stage.div(className = "lapis-encounter-pulpit")
     private val pulpitTiles: Div = pulpit.div(className = "lapis-encounter-pulpit-tiles")
+
+    /** V1.9.96: the common holder of the two quiet signs of the liturgy (the bell, then the blessing); never takes a click. */
+    val signs: Div = pulpit.div(className = "lapis-encounter-signs")
     private val pulpitEmpty: Div = pulpit.div(terms.emptyStageContent(), className = "lapis-encounter-pulpit-empty")
     private val stewards: Div = stage.div(className = "lapis-encounter-stewards")
 

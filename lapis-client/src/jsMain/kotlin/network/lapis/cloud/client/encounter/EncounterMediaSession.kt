@@ -96,6 +96,8 @@ internal class EncounterSessionCallbacks(
     val onActiveSpeakers: (identities: List<String>) -> Unit = {},
     /** V1.9.95: the server sent the blessing (a packet without a participant). No data, no sender. */
     val onBlessing: () -> Unit = {},
+    /** V1.9.96: the server sent the bell (a packet without a participant). No data, no sender. */
+    val onBell: () -> Unit = {},
 )
 
 /** The factory seam of the room view (a `jsTest` hands over a fake). The real one is [openEncounterSession]. */
@@ -129,6 +131,7 @@ private fun defaultLiveKitFactory(
         onAudioPlaybackChanged = callbacks.onAudioPlaybackChanged,
         onEncounterSeatNudge = callbacks.onSeatNudge,
         onEncounterBlessing = callbacks.onBlessing,
+        onEncounterBell = callbacks.onBell,
     )
 
 /**

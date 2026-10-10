@@ -12,7 +12,7 @@ import java.io.File
  * A source scan over the `.kt` files of `client/encounter/` (the DOM tests prove the behaviour; this keeps the next change from quietly hard-coding a
  * word again):
  *
- * - **No profile word as a string literal** outside the vocabulary file: "Kanzel", "Ordner", "Gemeinde", "Amen", "Gottesdienst", "Segen" (V1.9.95). The scope is
+ * - **No profile word as a string literal** outside the vocabulary file: "Kanzel", "Ordner", "Gemeinde", "Amen", "Gottesdienst", "Segen" (V1.9.95), "Glocke" (V1.9.96). The scope is
  *   `client/encounter/` only -- elsewhere "Ordner" means "folder" (the documents screens). Comment lines are exempt.
  * - **No branching on the profile** outside the vocabulary file and the scene layout: no `if`/`when` over `EncounterProfile` or
  *   `.profile`. Everything else asks `EncounterTerms`.
@@ -31,7 +31,7 @@ private val THEME_CSS =
 private const val ONLY_FILE = "EncounterVocabulary.kt"
 
 /** The words of the church profile; a string literal containing one of them (as a word start) is a hard-coded profile word. */
-private val PROFILE_WORD_LITERAL = Regex(""""[^"\n]*\b(?:Kanzel|Ordner|Gemeinde|Gottesdienst|Segen|Amen\b)[^"\n]*"""")
+private val PROFILE_WORD_LITERAL = Regex(""""[^"\n]*\b(?:Kanzel|Ordner|Gemeinde|Gottesdienst|Segen|Glocke|Amen\b)[^"\n]*"""")
 
 /** `if (... profile ...)` / `when (... profile ...)` / `when (...EncounterProfile...)` on one line. */
 private val PROFILE_BRANCH = Regex("""\b(?:if|when)\s*\([^)]*(?:\.profile\b|\bprofile\b|EncounterProfile)""")
@@ -90,6 +90,7 @@ class ClientEncounterVocabularyTripwireTest :
                 "label = \"Amen\"",
                 "text(\"Gemeinde\")",
                 "tr(\"Der Segen wird gesprochen\")",
+                "tr(\"Glocke läuten\")",
             ).forEach { PROFILE_WORD_LITERAL.containsMatchIn(it) shouldBe true }
             listOf(
                 "EncounterReaction.AMEN -> showEvent(seat)",
@@ -98,6 +99,7 @@ class ClientEncounterVocabularyTripwireTest :
                 "tr(\"Dokumentenordner\")",
                 "gettext(\"Teilnehmende\")",
                 "val x = Segensreich",
+                "tr(\"Rathausglocke\")",
             ).forEach { PROFILE_WORD_LITERAL.containsMatchIn(it) shouldBe false }
             listOf(
                 "if (space.profile == EncounterProfile.ASSEMBLY) 1 else 2",

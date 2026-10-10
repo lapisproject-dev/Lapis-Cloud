@@ -19,6 +19,7 @@ import network.lapis.cloud.client.livekit.TrackPublication
 import network.lapis.cloud.client.routeOf
 import network.lapis.cloud.client.rpcService
 import network.lapis.cloud.shared.domain.EncounterPresenceRole
+import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterTableTokenAnswer
 import network.lapis.cloud.shared.domain.EncounterTableTokenDto
 import network.lapis.cloud.shared.rpc.IEncounterSpaceService
@@ -129,6 +130,7 @@ class EncounterDevicePickerDomTest {
     private suspend fun withSteward(
         session: FakeSpeakerSession,
         env: FakeDeviceEnvironment,
+        profile: EncounterProfile = EncounterProfile.CHURCH_SERVICE,
         block: suspend (EncounterRoomRig, HTMLElement) -> Unit,
     ) = withEncounterRoom(
         entry = testEntry(role = EncounterPresenceRole.STEWARD),
@@ -136,17 +138,20 @@ class EncounterDevicePickerDomTest {
         clock = { clock },
         session = session,
         deviceEnv = env,
+        space = testSpace(profile = profile),
         block = block,
     )
 
     private suspend fun withMember(
         env: FakeDeviceEnvironment,
+        profile: EncounterProfile = EncounterProfile.CHURCH_SERVICE,
         block: suspend (EncounterRoomRig, HTMLElement) -> Unit,
     ) = withEncounterRoom(
         entry = testEntry(),
         peopleOf = { listOf(testPerson("me", name = "Ich Selbst")) + crowd },
         clock = { clock },
         deviceEnv = env,
+        space = testSpace(profile = profile),
         block = block,
     )
 
@@ -307,17 +312,29 @@ class EncounterDevicePickerDomTest {
                 assertEquals("Lautsprecher wählen", element.pickerButton()!!.getAttribute("aria-label"))
                 assertEquals(listOf("Lautsprecher"), element.rowLabels())
             }
-            withMember(FakeDeviceEnvironment(outputs = options("spk", "s1"))) { _, element ->
+            // V1.9.96: a church room always has the gear (bell sound switch); "no control" holds where there is no switch: the assembly
+            withMember(FakeDeviceEnvironment(outputs = options("spk", "s1")), profile = EncounterProfile.ASSEMBLY) { _, element ->
                 delay(150)
                 assertNull(element.pickerButton(), "the alias plus one device is no choice")
             }
-            withMember(FakeDeviceEnvironment(sinkApi = false, outputs = options("spk", "s1", "s2"))) { _, element ->
+            withMember(
+                FakeDeviceEnvironment(sinkApi = false, outputs = options("spk", "s1", "s2")),
+                profile = EncounterProfile.ASSEMBLY,
+            ) { _, element ->
                 delay(150)
                 assertNull(element.pickerButton(), "no sink API (Safari): no dead control")
             }
-            withMember(FakeDeviceEnvironment()) { _, element ->
+            withMember(FakeDeviceEnvironment(), profile = EncounterProfile.ASSEMBLY) { _, element ->
                 delay(150)
                 assertNull(element.pickerButton(), "no devices at all: no control")
+            }
+            withMember(FakeDeviceEnvironment()) { _, element ->
+                delay(150)
+                assertEquals(
+                    "Glockenton einstellen",
+                    element.pickerButton()?.getAttribute("aria-label"),
+                    "a church room: the gear holds the bell switch",
+                )
             }
         }
 
@@ -326,7 +343,7 @@ class EncounterDevicePickerDomTest {
         formTest {
             clearKeys()
             val session = steward(micIds = emptyList(), camIds = emptyList())
-            withSteward(session, FakeDeviceEnvironment()) { _, element ->
+            withSteward(session, FakeDeviceEnvironment(), profile = EncounterProfile.ASSEMBLY) { _, element ->
                 delay(150)
                 assertNull(element.pickerButton(), "a hint alone is no reason for a control in the bar")
             }

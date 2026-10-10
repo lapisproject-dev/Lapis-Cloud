@@ -21388,3 +21388,31 @@ msgstr "Zegen"
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Der Segen wird gesprochen"
 msgstr "De zegen wordt uitgesproken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Glocke läuten"
+msgstr "De klok luiden"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Glocke"
+msgstr "Klok"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Die Glocke läutet"
+msgstr "De klok luidt"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Ton aus"
+msgstr "Geluid uit"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Glockenton"
+msgstr "Klokgeluid"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Gilt nur für diesen Browser."
+msgstr "Geldt alleen voor deze browser."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Glockenton einstellen"
+msgstr "Klokgeluid instellen"

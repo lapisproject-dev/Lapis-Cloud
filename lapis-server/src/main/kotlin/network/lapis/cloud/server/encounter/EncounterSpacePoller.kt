@@ -79,6 +79,7 @@ class EncounterSpacePoller(
     private val liveKitAdminClient: LiveKitAdminClient,
     private val moderationState: EncounterModerationState,
     private val blessingState: EncounterBlessingState,
+    private val bellState: EncounterBellState,
     private val seatState: EncounterSeatState,
     private val tableState: EncounterTableState,
     private val entryNotifier: EncounterEntryNotifier,
@@ -291,6 +292,7 @@ class EncounterSpacePoller(
         }
         moderationState.clear(session.roomId)
         blessingState.clear(session.roomId)
+        bellState.clear(session.roomId)
         seatState.clear(session.roomId)
         EncounterTableRooms.deleteAll(liveKit = liveKitAdminClient, rooms = tableState.clear(session.roomId))
         entryNotifier.clearSession(session.roomId)

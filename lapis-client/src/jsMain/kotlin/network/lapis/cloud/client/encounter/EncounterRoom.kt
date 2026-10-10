@@ -64,7 +64,7 @@ import kotlin.random.Random
  * ## What the room holds, and what it never does
  * - The people: the list of `listPresent` (names, roles) -- refreshed at most every 5 s on a roster event and every 20 s by timer, only
  *   while the page is visible. Nothing is kept per person beyond this visit's memory: no time, nothing in storage (the only storage of
- *   the whole encounter client is the "scene off" key, [EncounterSceneToggle]).
+ *   the whole encounter client are the two keys of [EncounterSceneToggle]: "scene off" and (V1.9.96) "bell sound on").
  * - The pews (V1.9.79, stage 2a): [EncounterSeating] mirrors the `seat` field of `listPresent`; people from that list only (a LiveKit
  *   participant that is not listed -- an egress bot, a stranger -- never gets a seat). Nobody is seated automatically: a seat exists
  *   because its occupant CHOSE it ([chooseSeat] -> `selectSeat`, the server decides who wins a contested seat), and everybody else is in
@@ -95,6 +95,16 @@ internal class EncounterRoom(
     private val deviceEnv: EncounterDeviceEnvironment = browserDeviceEnvironment(),
     /** V1.9.95: the timers of the blessing display -- a seam for tests. */
     private val blessingScheduler: EncounterBlessingScheduler = browserBlessingScheduler,
+    /** V1.9.96: the timers of the bell sign and of the bell button's lock -- a seam for tests. */
+    private val bellScheduler: EncounterBlessingScheduler = browserBlessingScheduler,
+    /** V1.9.96: the bell's sound -- a seam for tests (`null` = the WebAudio synthesis, built from [audioContextFactory]). */
+    bellSoundOverride: EncounterBellSound? = null,
+    /** V1.9.96: the audio context factory of the real bell sound -- a seam for tests. */
+    private val audioContextFactory: EncounterAudioContextFactory = browserAudioContextFactory,
+    /** V1.9.96: whether the page is visible (the bell never sounds in a background tab) -- a seam for tests. */
+    private val bellPageVisible: () -> Boolean = { (document.asDynamic().visibilityState as? String) != "hidden" },
+    /** V1.9.96: whether the person asked for reduced motion (the sign is then hidden without a fade) -- a seam for tests. */
+    private val bellReducedMotion: () -> Boolean = { window.matchMedia("(prefers-reduced-motion: reduce)").matches },
 ) {
     private val terms: EncounterTerms = termsFor(space.profile)
     private val allowedReactions: Set<EncounterReactionOption> = EncounterReactionOption.normalize(space.reactions).toSet()
@@ -116,14 +126,66 @@ internal class EncounterRoom(
 
     /** V1.9.95: the one fixed sentence "the blessing is spoken" -- a PERSISTENT polite region (a region created together with its text is not announced). */
     private val blessingLive: Div = root.div(className = "visually-hidden")
+
+    /** V1.9.96: the one fixed sentence "the bell rings" -- its OWN persistent polite region, so the bell and the blessing never clear each other's sentence. */
+    private val bellLive: Div = root.div(className = "visually-hidden")
     private val bands: Div = root.div(className = "lapis-encounter-bands")
     private val main: Div = root.div(className = "lapis-encounter-main")
     private val layout = EncounterSceneLayout(main, terms)
 
+    /** V1.9.96: the label of the bell button; `null` = the viewer gets no bell (not a pulpit, or a room without one). The server decides again. */
+    private val bellLabel: String? = terms.bellLabel()?.takeIf { viewer.presenceRole == EncounterPresenceRole.PULPIT }
+    private var bellInFlight = false
+    private var bellLocked = false
+    private var cancelBellLock: (() -> Unit)? = null
+    private var bellButton: Button? = null
+    private var bellTwin: Button? = null
+
+    /**
+     * V1.9.96: the bell's sound; only a room with a bell has one. It is pointed at the chosen speaker through a lambda (the room never
+     * sees a device id, [EncounterAudioOutput] does).
+     */
+    private val bellSound: EncounterBellSound? =
+        if (terms.bellLabel() == null) {
+            null
+        } else {
+            bellSoundOverride
+                ?: BrowserEncounterBellSound(factory = audioContextFactory, applySink = { ctx -> audioOutput.applyToContext(ctx) })
+        }
+
+    /** V1.9.96: the sign of the bell (left of the blessing in the common holder), visible to everybody in a room that has a bell. */
+    private val bellDisplay: EncounterBellDisplay? =
+        bellSound?.let { sound ->
+            EncounterBellDisplay(
+                host = layout.signs,
+                terms = terms,
+                live = bellLive,
+                timer = EncounterBellTimer(now = clock),
+                soundOn = ::encounterBellSoundOnStored,
+                sound = sound,
+                scheduler = bellScheduler,
+                reducedMotion = bellReducedMotion,
+                visible = bellPageVisible,
+            )
+        }
+
+    /** V1.9.96: the bell sound switch of the device panel (church-service rooms only). */
+    private val bellSwitchModel: EncounterBellSwitchModel? =
+        terms.bellLabel()?.let {
+            EncounterBellSwitchModel(
+                label = terms.bellSoundSwitchLabel(),
+                hint = terms.bellSoundSwitchHint(),
+                buttonLabel = terms.bellDeviceButtonLabel(),
+                read = ::encounterBellSoundOnStored,
+                write = ::storeEncounterBellSoundOn,
+                onTurnedOn = { bellSound?.probe() },
+            )
+        }
+
     /** V1.9.95: the quiet cross over the pulpit area, visible to everybody in the room. */
     private val blessingDisplay =
         EncounterBlessingDisplay(
-            host = layout.pulpit,
+            host = layout.signs,
             terms = terms,
             live = blessingLive,
             timer = EncounterBlessingTimer(now = clock),
@@ -188,7 +250,7 @@ internal class EncounterRoom(
             if (viewer.canModerate) add(EncounterSideTab.STREAM)
         }
     private val side = EncounterSidePanel(main, tabs) { tab -> onTabShown(tab) }
-    private val controlBar = EncounterControlBar(root, liturgy = blessingLabel != null)
+    private val controlBar = EncounterControlBar(root, liturgy = blessingLabel != null || bellLabel != null)
     private val controls: Div get() = controlBar.root
 
     /**
@@ -290,6 +352,7 @@ internal class EncounterRoom(
             onParticipantJoined = { _, _ -> requestPresentRefresh() },
             onSeatNudge = { identity -> onSeatNudge(identity) },
             onBlessing = { blessingDisplay.onBlessing() },
+            onBell = { bellDisplay?.onBell() },
             onActiveSpeakers = { identities -> onActiveSpeakers(identities) },
             onParticipantLeft = { identity -> onParticipantLeft(identity) },
             onLocalVideoTrack = { track -> onLocalVideo(track) },
@@ -317,6 +380,8 @@ internal class EncounterRoom(
         deviceLive.setAttribute("aria-live", "polite")
         blessingLive.setAttribute("role", "status")
         blessingLive.setAttribute("aria-live", "polite")
+        bellLive.setAttribute("role", "status")
+        bellLive.setAttribute("aria-live", "polite")
         tableView?.let { view ->
             view.onChoose = { table, seat -> chooseTableSeat(table, seat) }
             view.onLeave = { leaveTable() }
@@ -397,6 +462,16 @@ internal class EncounterRoom(
         eventWaitNote.setAttribute("role", "status")
         eventWaitNote.hide()
         if (tablesOn && viewer.presenceRole == EncounterPresenceRole.CONGREGATION) buildTableControls()
+        // V1.9.96: the bell -- the first control of the liturgy group, only for the pulpit of a room that has one (the server checks it again).
+        bellLabel?.let { label ->
+            val icon = ActionIcon.BELL
+            val button = controlBar.group(EncounterControlGroup.LITURGY).encounterControlButton(icon, label)
+            button.onClick { ringBell() }
+            val twin = sheetTwin(icon, label) { ringBell() }
+            bellButton = button
+            bellTwin = twin
+            barSlots += ControlBarSlot(EncounterControlSlot.Bell, button, twin)
+        }
         // V1.9.95: the blessing -- the liturgy group exists only for the pulpit of a room that has one (the server checks it again).
         blessingLabel?.let { label ->
             val icon = ActionIcon.BLESSING
@@ -478,7 +553,7 @@ internal class EncounterRoom(
                 slots = barSlots,
                 dividers = emptyList(),
                 groupOf = { encounterControlGroup(it).ordinal },
-                order = encounterOverflowOrder(allowedReactions, blessing = blessingLabel != null),
+                order = encounterOverflowOrder(allowedReactions, blessing = blessingLabel != null, bell = bellLabel != null),
                 exitGroup = EncounterControlGroup.EXIT.ordinal,
                 overflowedClass = OVERFLOWED_CLASS,
                 onChanged = { onOverflowChanged() },
@@ -622,6 +697,7 @@ internal class EncounterRoom(
                 announce = { sentence -> deviceLive.content = sentence },
                 onBeforeOpen = { closeSheet(returnFocus = false) },
                 onVisibilityChanged = { if (::overflow.isInitialized) overflow.recompute() },
+                bellSwitch = bellSwitchModel,
             )
         devicePicker = picker
         registerBarSlot(ControlBarSlot(EncounterControlSlot.AudioDevices, picker.button, null))
@@ -639,6 +715,7 @@ internal class EncounterRoom(
         if (disposed) return
         devicePicker?.restoreOutput()
         if (disposed) return
+        primeBellOnFirstGesture()
         layout.focusPulpit()
         announceMicOffOnEntry()
         presentPanel.load()
@@ -1323,6 +1400,76 @@ internal class EncounterRoom(
         }
     }
 
+    /**
+     * V1.9.96: the pulpit rings the bell. One call per press; the button (and its twin in the sheet) is locked for ten seconds at once
+     * (`aria-disabled`, still focusable), so a second press does nothing. A refusal or an error is neither shown nor logged (the server
+     * swallows a second bell within ten seconds on its own, and a failed delivery is no concern of the pulpit). The text of a caught
+     * exception is never read.
+     */
+    private fun ringBell() {
+        if (disposed || bellInFlight || bellLocked) return
+        bellInFlight = true
+        lockBell()
+        AppScope.launch {
+            try {
+                rpcService<IEncounterSpaceService>().ringBell(space.id)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                // nothing to report
+            } finally {
+                bellInFlight = false
+            }
+        }
+    }
+
+    private fun lockBell() {
+        bellLocked = true
+        listOfNotNull(bellButton, bellTwin).forEach {
+            it.setAttribute("aria-disabled", "true")
+            it.addCssClass(BELL_LOCKED_CLASS)
+        }
+        cancelBellLock?.invoke()
+        cancelBellLock = bellScheduler.schedule(ENCOUNTER_BELL_CLIENT_LOCK_MS) { unlockBell() }
+    }
+
+    private fun unlockBell() {
+        if (disposed) return
+        bellLocked = false
+        cancelBellLock = null
+        listOfNotNull(bellButton, bellTwin).forEach {
+            it.removeAttribute("aria-disabled")
+            it.removeCssClass(BELL_LOCKED_CLASS)
+        }
+    }
+
+    /**
+     * V1.9.96: after a reload with the sound remembered as "on", the browser has no user activation yet and would keep the audio context
+     * suspended. The first pointer or key press anywhere primes it (silently); a bell that rang before that is not played afterwards.
+     */
+    private fun primeBellOnFirstGesture() {
+        val sound = bellSound ?: return
+        if (!encounterBellSoundOnStored()) return
+        var armed = true
+        lateinit var onGesture: (Event) -> Unit
+        val disarm = {
+            if (armed) {
+                armed = false
+                document.removeEventListener("pointerdown", onGesture, true)
+                document.removeEventListener("keydown", onGesture, true)
+            }
+        }
+        onGesture = {
+            if (armed) {
+                disarm()
+                sound.prime()
+            }
+        }
+        document.addEventListener("pointerdown", onGesture, true)
+        document.addEventListener("keydown", onGesture, true)
+        cleanups += disarm
+    }
+
     /** Ends every timer and listener, drops the media elements and leaves the widgets to the owner (which removes the panel). */
     fun dispose() {
         if (disposed) return
@@ -1332,6 +1479,11 @@ internal class EncounterRoom(
         sheetCleanup = null
         overflow.dispose()
         blessingDisplay.dispose()
+        cancelBellLock?.invoke()
+        cancelBellLock = null
+        bellDisplay?.dispose()
+        bellSound?.dispose()
+        audioOutput.detachContext()
         layout.dispose()
         fullscreen.dispose()
         tiles.values.forEach { it.dispose() }
@@ -1361,6 +1513,7 @@ internal class EncounterRoom(
 
     private companion object {
         const val OVERFLOWED_CLASS = "lapis-encounter-control-overflowed"
+        const val BELL_LOCKED_CLASS = "lapis-encounter-bell-locked"
         const val ENCOUNTER_MORE_SHEET_ID = "lapis-encounter-more-sheet"
         const val MIC_OFF_ANNOUNCE_DELAY_MS = 750
         const val HAND_EXPIRY_TICK_MS = 5_000

@@ -47,6 +47,7 @@ class EncounterSpacePollerTest :
                     liveKitAdminClient = liveKit,
                     moderationState = moderation,
                     blessingState = EncounterBlessingState(),
+                    bellState = EncounterBellState(),
                     seatState = seatState,
                     tableState = tableState,
                     entryNotifier = EncounterEntryNotifier(state = EncounterEntryNoticeState(), mailer = FakeEncounterEntryNoticeMailer()),

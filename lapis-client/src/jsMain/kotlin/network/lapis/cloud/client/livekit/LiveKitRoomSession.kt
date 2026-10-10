@@ -6,6 +6,8 @@ import kotlinx.serialization.json.Json
 import network.lapis.cloud.client.encounter.EncounterReactionWire
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
 import network.lapis.cloud.shared.domain.ConferenceTurnServer
+import network.lapis.cloud.shared.domain.ENCOUNTER_BELL_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_BELL_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_REACTION_TOPIC
@@ -376,6 +378,11 @@ class LiveKitRoomSession(
      * `docs/architecture/encounter-space.adoc` "Blessing".
      */
     private val onEncounterBlessing: () -> Unit = {},
+    /**
+     * V1.9.96 -- the pulpit's bell arrived. Same rule as the blessing: carries NO data, accepted only WITHOUT a participant and with a
+     * length of at most [ENCOUNTER_BELL_MAX_PAYLOAD_BYTES]; the payload is never decoded.
+     */
+    private val onEncounterBell: () -> Unit = {},
 ) {
     private var room: Room? = null
 
@@ -757,6 +764,13 @@ class LiveKitRoomSession(
                 val fromParticipant = p1.unsafeCast<RemoteParticipant?>() != null
                 val accepted = encounterBlessingPacketAccepted(fromParticipant = fromParticipant, payloadLength = payload.length)
                 if (accepted) onEncounterBlessing()
+                return@onOwned
+            }
+            // V1.9.96 -- the bell: the same rule, a branch of its own, also BEFORE the participant check.
+            if (p3 == ENCOUNTER_BELL_TOPIC) {
+                val fromParticipant = p1.unsafeCast<RemoteParticipant?>() != null
+                val accepted = encounterBellPacketAccepted(fromParticipant = fromParticipant, payloadLength = payload.length)
+                if (accepted) onEncounterBell()
                 return@onOwned
             }
             val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@onOwned
@@ -1260,3 +1274,12 @@ internal fun encounterBlessingPacketAccepted(
     fromParticipant: Boolean,
     payloadLength: Int,
 ): Boolean = !fromParticipant && payloadLength in 1..ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
+
+/**
+ * V1.9.96 -- the pure acceptance rule of a bell packet: it must come from the server (no participant) and be 1..[ENCOUNTER_BELL_MAX_PAYLOAD_BYTES]
+ * bytes long. Nothing of the payload is read, so a participant cannot forge the bell.
+ */
+internal fun encounterBellPacketAccepted(
+    fromParticipant: Boolean,
+    payloadLength: Int,
+): Boolean = !fromParticipant && payloadLength in 1..ENCOUNTER_BELL_MAX_PAYLOAD_BYTES

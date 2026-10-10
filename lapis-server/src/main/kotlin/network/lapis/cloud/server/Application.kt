@@ -90,6 +90,7 @@ import network.lapis.cloud.server.economy.oracle.PriceOracleStartupCheck
 import network.lapis.cloud.server.economy.oracle.defaultOracleSources
 import network.lapis.cloud.server.embed.EmbedAssets
 import network.lapis.cloud.server.embed.EmbedConfig
+import network.lapis.cloud.server.encounter.EncounterBellState
 import network.lapis.cloud.server.encounter.EncounterBlessingState
 import network.lapis.cloud.server.encounter.EncounterEntryNoticeState
 import network.lapis.cloud.server.encounter.EncounterEntryNotifier
@@ -1038,6 +1039,8 @@ internal fun Application.module(
     val encounterModerationState = EncounterModerationState()
     // V1.9.95: the in-memory blessing throttle (room id -> last instant, nothing else); shared with the poller.
     val encounterBlessingState = EncounterBlessingState()
+    // V1.9.96: the bell throttle (same shape, deliberately separate from the blessing).
+    val encounterBellState = EncounterBellState()
     // V1.9.79: the in-memory seat plan of the running sessions (never persisted, see EncounterSeatState); shared with the poller.
     val encounterSeatState = EncounterSeatState()
     // V1.9.80: the in-memory table plan (who sits at which table, which LiveKit room carries which table); shared with the poller and the reconciler.
@@ -1285,6 +1288,7 @@ internal fun Application.module(
             liveKitAdminClient = liveKitAdminClient,
             moderationState = encounterModerationState,
             blessingState = encounterBlessingState,
+            bellState = encounterBellState,
             seatState = encounterSeatState,
             tableState = encounterTableState,
             entryNotifier = encounterEntryNotifier,
@@ -2153,6 +2157,7 @@ internal fun Application.module(
                 liveKitAdminClient = liveKitAdminClient,
                 moderationState = encounterModerationState,
                 blessingState = encounterBlessingState,
+                bellState = encounterBellState,
                 seatState = encounterSeatState,
                 tableState = encounterTableState,
                 entryNotifier = encounterEntryNotifier,
