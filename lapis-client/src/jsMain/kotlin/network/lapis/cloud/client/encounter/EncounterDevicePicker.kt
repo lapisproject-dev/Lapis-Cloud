@@ -9,6 +9,7 @@ import io.kvision.html.Div
 import io.kvision.html.TAG
 import io.kvision.html.Tag
 import io.kvision.html.div
+import io.kvision.html.span
 import io.kvision.html.tag
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -234,10 +235,14 @@ internal fun encounterRememberDevice(
 internal class EncounterBellSwitchModel(
     val label: String,
     val hint: String,
+    /** V1.9.97: what the switch does ("sounds at the call and at the blessing"); shown above [hint], both described by the same id. */
+    val effect: String,
     val buttonLabel: String,
     val read: () -> Boolean,
     val write: (Boolean) -> Unit,
     val onTurnedOn: () -> Unit,
+    /** V1.9.97: what to do when the person turns the sound OFF (fade out a voice that is sounding). */
+    val onTurnedOff: () -> Unit,
 )
 
 /**
@@ -324,14 +329,18 @@ internal class EncounterDevicePicker(
         input.setAttribute("aria-checked", "false")
         input.setAttribute("aria-describedby", BELL_HINT_ID)
         row.tag(TAG.LABEL, content = model.label, className = "form-check-label").setAttribute("for", BELL_SWITCH_ID)
-        row.div(model.hint, className = "text-muted small").setAttribute("id", BELL_HINT_ID)
+        // one description with one id: the effect and below it the hint (two lines of the same element)
+        val description = row.div(className = "text-muted small")
+        description.setAttribute("id", BELL_HINT_ID)
+        description.span(model.effect, className = "lapis-encounter-bell-effect d-block")
+        description.span(model.hint, className = "lapis-encounter-bell-hint d-block")
         input.onEvent {
             change = {
                 val on = (input.getElement() as? HTMLInputElement)?.checked == true
                 input.setAttrIfChanged("aria-checked", on.toString())
                 model.write(on)
                 // synchronous, inside the gesture: a browser only lets a sound start there
-                if (on) model.onTurnedOn()
+                if (on) model.onTurnedOn() else runCatching { model.onTurnedOff() }
             }
         }
         bellRow = row

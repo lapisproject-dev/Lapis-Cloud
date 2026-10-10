@@ -1,58 +1,64 @@
 package network.lapis.cloud.client.encounter
 
+import kotlinx.browser.document
 import kotlinx.browser.window
 
 /**
- * V1.9.96 -- the bell's sound, synthesised with WebAudio: NO sound file. So there is no third-party asset (no licence or provenance
- * question), the bundle grows by 0 bytes, and nothing is fetched or decoded -- no network artefact that could be linked to a visit.
+ * V1.9.97 -- the sound of the bell (the call) and of the blessing: two short RECORDINGS (CC0, provenance in
+ * `lapis-client/src/jsMain/webAssets/encounter-sounds-v1/PROVENANCE.adoc`), played through WebAudio. They replace the synthesis of V1.9.96.
  *
- * A strike is seven sine partials of a bell-like spectrum (ratios and amplitudes below, the amplitudes normalised to a sum of 1), each
- * with its own envelope (a 5 ms attack, an exponential decay of [ENCOUNTER_BELL_DECAY_S]), summed into ONE master gain of at most
- * [ENCOUNTER_BELL_PEAK_GAIN]. A ring is [ENCOUNTER_BELL_STRIKES] strikes [ENCOUNTER_BELL_STRIKE_GAP_S] apart, a little under five seconds.
+ * Why WebAudio and not an `<audio>` element: the speaker the person chose acts on exactly ONE audio context (`EncounterAudioOutput`), a
+ * second sink path would clash with its all-or-nothing selection; an element with a `src` could be pre-loaded by the browser before the
+ * person switched the sound on; and a gain node caps the level deterministically.
  *
- * The sound is quiet by construction: it is never louder than the fixed peak gain, never played in a hidden tab (the display decides),
- * never without a user's own switch, and an exception or a refused promise of the browser can never keep the visible sign away.
+ * The files are loaded ONLY after the person's own decision: in [BrowserEncounterBellSound.probe] (the click that switches the sound on)
+ * or in [BrowserEncounterBellSound.prime] (the first gesture after a reload with the switch remembered as "on"). A ring never starts a load.
+ * Nothing is loaded in a room without a bell, for a person with the sound off, or before a user activation.
+ *
+ * The sound is quiet by construction: the fixed gains below cap the level (the recordings peak at -2.2 / -2.7 dBFS), at most ONE voice sounds
+ * per room, a second call of the same kind is ignored, a different kind fades the running voice out first, nothing ever starts in a
+ * hidden tab, and an exception or a refused promise of the browser can never keep the visible sign away.
  */
 internal const val ENCOUNTER_BELL_PEAK_GAIN = 0.25
 
-/** The fundamental of the bell, in hertz. */
-internal const val ENCOUNTER_BELL_BASE_HZ = 440.0
+/** Gain of the blessing (one low strike, a little quieter than the call). */
+internal const val ENCOUNTER_BLESSING_GAIN = 0.18
 
-/** Frequency ratios of the partials (the minor-third "hum" tone, the fundamental, the tierce, the fifth and the upper partials). */
-internal val ENCOUNTER_BELL_PARTIAL_RATIOS: DoubleArray = doubleArrayOf(0.5, 1.0, 1.2, 1.5, 2.0, 2.5, 3.0)
+/** Seconds a running voice needs to fade out when it is replaced or silenced. */
+internal const val ENCOUNTER_SOUND_FADE_S = 0.25
 
-/** Relative amplitudes of the partials (normalised by their sum when a strike is built). */
-internal val ENCOUNTER_BELL_PARTIAL_AMPLITUDES: DoubleArray = doubleArrayOf(0.6, 1.0, 0.5, 0.35, 0.45, 0.2, 0.15)
+/** Length in seconds of the sample that confirms the switch (the blessing strike, cut short). */
+internal const val ENCOUNTER_PROBE_LENGTH_S = 3.0
 
-/** Strikes per ring. */
-internal const val ENCOUNTER_BELL_STRIKES = 3
+/** Seconds of the fade-out at the end of the sample. */
+internal const val ENCOUNTER_PROBE_FADE_S = 0.5
 
-/** Seconds between two strikes. */
-internal const val ENCOUNTER_BELL_STRIKE_GAP_S = 1.2
+/** A sound that is ready later than this many milliseconds after it was asked for is dropped (it would no longer match the sign). */
+internal const val ENCOUNTER_SOUND_MAX_LATENESS_MS = 1500
 
-/** Seconds from the attack to the end of the audible decay of one strike. */
-internal const val ENCOUNTER_BELL_DECAY_S = 2.5
-
-/** Seconds from the start of the first strike to the end of the last audible decay (under five seconds, like the sign). */
-internal fun encounterBellTotalSeconds(): Double = (ENCOUNTER_BELL_STRIKES - 1) * ENCOUNTER_BELL_STRIKE_GAP_S + ENCOUNTER_BELL_DECAY_S
-
-private const val ATTACK_S = 0.005
-private const val SILENCE = 0.0001
 private const val START_DELAY_S = 0.02
-private const val STOP_MARGIN_S = 0.1
 
-/** The sound of the bell as the room sees it. Every method is safe to call at any time and never throws. */
+/** What is played. [PROBE] is the short sample of the switch. */
+internal enum class EncounterSoundKind { CALL, BLESSING, PROBE }
+
+/** The sound of the room as it sees it. Every method is safe to call at any time and never throws. */
 internal interface EncounterBellSound {
-    /** Creates / resumes the audio context without a sound (called from a user's own gesture after a reload). */
+    /** Creates / resumes the audio context and starts loading the recordings (called from a user's own gesture after a reload). */
     fun prime()
 
-    /** The full ring (three strikes). */
-    fun ring()
-
-    /** One strike, played synchronously inside the click that switched the sound on (a browser gesture rule). */
+    /** In the click that switched the sound on: the context synchronously, the loading (one new attempt after a failure), then the sample. */
     fun probe()
 
-    /** Closes the audio context. */
+    /** The call (the bell rung from the pulpit). */
+    fun ringCall()
+
+    /** The blessing. */
+    fun ringBlessing()
+
+    /** Fades the running voice out and forgets a waiting request (hidden tab, switch turned off); the loaded recordings stay. */
+    fun silence()
+
+    /** Stops at once, closes the audio context and drops the recordings. */
     fun dispose()
 }
 
@@ -91,6 +97,29 @@ private fun swallow(promise: dynamic) {
     }
 }
 
+private enum class SlotState { IDLE, LOADING, READY, FAILED }
+
+/** One recording: where it is in its life and, once ready, the decoded buffer. */
+private class Slot(
+    val url: String,
+) {
+    var state: SlotState = SlotState.IDLE
+    var buffer: dynamic = null
+}
+
+/** The one voice that sounds (or fades). */
+private class Voice(
+    val kind: EncounterSoundKind,
+    val source: dynamic,
+    val gain: dynamic,
+)
+
+/** The one request that waits for a recording that is still loading. */
+private class WaitingRequest(
+    val kind: EncounterSoundKind,
+    val requestedAt: Double,
+)
+
 /**
  * The browser implementation: ONE audio context per room, created lazily and only after a user activation. [applySink] gives the room the
  * chance to point the context at the speaker the person chose (best effort; the room hands over a lambda, never a device id).
@@ -99,9 +128,16 @@ internal class BrowserEncounterBellSound(
     private val factory: EncounterAudioContextFactory = browserAudioContextFactory,
     private val applySink: (dynamic) -> Unit = {},
     private val hasBeenActive: () -> Boolean = ::browserHasBeenActive,
+    private val loader: EncounterSoundLoader = browserEncounterSoundLoader,
+    private val now: () -> Double = { window.performance.now() },
+    private val pageVisible: () -> Boolean = { (document.asDynamic().visibilityState as? String) != "hidden" },
 ) : EncounterBellSound {
     private var context: dynamic = null
     private var disposed = false
+    private val callSlot = Slot(ENCOUNTER_CALL_BELL_URL)
+    private val blessingSlot = Slot(ENCOUNTER_BLESSING_BELL_URL)
+    private var current: Voice? = null
+    private var waiting: WaitingRequest? = null
 
     private fun readyContext(): dynamic {
         if (disposed) return null
@@ -137,54 +173,202 @@ internal class BrowserEncounterBellSound(
 
     override fun prime() {
         try {
-            readyContext()
+            val ctx = readyContext()
+            if (present(ctx)) startLoading(ctx)
         } catch (e: Throwable) {
             // silent
         }
     }
 
-    override fun ring() = play(ENCOUNTER_BELL_STRIKES)
-
-    override fun probe() = play(1)
-
-    private fun play(strikes: Int) {
+    override fun probe() {
         try {
+            // synchronous inside the click (a browser only lets a sound start there): the context first, before anything is awaited
             val ctx = readyContext()
             if (!present(ctx)) return
-            val master = ctx.createGain()
-            master.gain.value = ENCOUNTER_BELL_PEAK_GAIN
-            master.connect(ctx.destination)
-            val start = (ctx.currentTime as Double) + START_DELAY_S
-            for (k in 0 until strikes) strike(ctx, master, start + k * ENCOUNTER_BELL_STRIKE_GAP_S)
+            // exactly one new attempt after a failure
+            if (callSlot.state == SlotState.FAILED) callSlot.state = SlotState.IDLE
+            if (blessingSlot.state == SlotState.FAILED) blessingSlot.state = SlotState.IDLE
+            startLoading(ctx)
+            play(EncounterSoundKind.PROBE)
+        } catch (e: Throwable) {
+            // silent
+        }
+    }
+
+    override fun ringCall() = play(EncounterSoundKind.CALL)
+
+    override fun ringBlessing() = play(EncounterSoundKind.BLESSING)
+
+    private fun slotOf(kind: EncounterSoundKind): Slot = if (kind == EncounterSoundKind.CALL) callSlot else blessingSlot
+
+    private fun startLoading(ctx: dynamic) {
+        load(callSlot, ctx)
+        load(blessingSlot, ctx)
+    }
+
+    private fun load(
+        slot: Slot,
+        ctx: dynamic,
+    ) {
+        if (slot.state != SlotState.IDLE) return
+        slot.state = SlotState.LOADING
+        val pending =
+            try {
+                loader.load(ctx, slot.url)
+            } catch (e: Throwable) {
+                null
+            }
+        if (!present(pending)) {
+            slot.state = SlotState.FAILED
+            return
+        }
+        // the derived promise of `then` gets its own handler, so neither a refusal nor an exception here is ever unhandled
+        swallow(
+            pending!!.then(
+                { buffer: dynamic -> onLoaded(slot, buffer) },
+                { _: Throwable -> onFailed(slot) },
+            ),
+        )
+    }
+
+    private fun onFailed(slot: Slot) {
+        if (disposed) return
+        slot.state = SlotState.FAILED
+    }
+
+    private fun onLoaded(
+        slot: Slot,
+        buffer: dynamic,
+    ) {
+        try {
+            if (disposed) return
+            if (!present(buffer)) {
+                slot.state = SlotState.FAILED
+                return
+            }
+            slot.buffer = buffer
+            slot.state = SlotState.READY
+            val request = waiting ?: return
+            if (slotOf(request.kind) !== slot) return
+            waiting = null
+            val onTime = now() - request.requestedAt <= ENCOUNTER_SOUND_MAX_LATENESS_MS
+            if (onTime && pageVisible()) start(request.kind, slot)
+        } catch (e: Throwable) {
+            slot.state = SlotState.FAILED
+        }
+    }
+
+    private fun play(kind: EncounterSoundKind) {
+        try {
+            if (disposed || !pageVisible()) return
+            // a second call of the kind that already sounds is ignored
+            if (current?.kind == kind) return
+            val slot = slotOf(kind)
+            when (slot.state) {
+                SlotState.READY -> start(kind, slot)
+                // the one waiting request: a newer one replaces the older
+                SlotState.LOADING -> waiting = WaitingRequest(kind, now())
+                // never loaded (the sound is off) or failed: stay quiet, never retry on a ring
+                SlotState.IDLE, SlotState.FAILED -> Unit
+            }
         } catch (e: Throwable) {
             // a failing sound never takes anything else down
         }
     }
 
-    private fun strike(
-        ctx: dynamic,
-        master: dynamic,
-        at: Double,
+    private fun gainOf(kind: EncounterSoundKind): Double =
+        if (kind ==
+            EncounterSoundKind.BLESSING
+        ) {
+            ENCOUNTER_BLESSING_GAIN
+        } else {
+            ENCOUNTER_BELL_PEAK_GAIN
+        }
+
+    private fun start(
+        kind: EncounterSoundKind,
+        slot: Slot,
     ) {
-        val sum = ENCOUNTER_BELL_PARTIAL_AMPLITUDES.sum()
-        for (i in ENCOUNTER_BELL_PARTIAL_RATIOS.indices) {
-            val oscillator = ctx.createOscillator()
-            oscillator.type = "sine"
-            oscillator.frequency.value = ENCOUNTER_BELL_BASE_HZ * ENCOUNTER_BELL_PARTIAL_RATIOS[i]
-            val envelope = ctx.createGain()
-            envelope.gain.setValueAtTime(SILENCE, at)
-            envelope.gain.linearRampToValueAtTime(ENCOUNTER_BELL_PARTIAL_AMPLITUDES[i] / sum, at + ATTACK_S)
-            envelope.gain.exponentialRampToValueAtTime(SILENCE, at + ENCOUNTER_BELL_DECAY_S)
-            oscillator.connect(envelope)
-            envelope.connect(master)
-            oscillator.start(at)
-            oscillator.stop(at + ENCOUNTER_BELL_DECAY_S + STOP_MARGIN_S)
+        val ctx = readyContext()
+        if (!present(ctx)) return
+        val t = ctx.currentTime as Double
+        val running = current
+        var begin = t + START_DELAY_S
+        if (running != null) {
+            // one voice at a time: the running one fades out first, the new one starts after it
+            fadeOut(running, t)
+            begin += ENCOUNTER_SOUND_FADE_S
+        }
+        val level = gainOf(kind)
+        val gain = ctx.createGain()
+        gain.gain.value = level
+        gain.connect(ctx.destination)
+        val source = ctx.createBufferSource()
+        source.buffer = slot.buffer
+        source.connect(gain)
+        val voice = Voice(kind, source, gain)
+        val ended: () -> Unit = { if (current === voice) current = null }
+        source.onended = ended
+        if (kind == EncounterSoundKind.PROBE) {
+            val fadeAt = begin + ENCOUNTER_PROBE_LENGTH_S
+            gain.gain.setValueAtTime(level, fadeAt)
+            gain.gain.linearRampToValueAtTime(0.0, fadeAt + ENCOUNTER_PROBE_FADE_S)
+        }
+        current = voice
+        source.start(begin)
+        if (kind == EncounterSoundKind.PROBE) stopQuietly(source, begin + ENCOUNTER_PROBE_LENGTH_S + ENCOUNTER_PROBE_FADE_S)
+    }
+
+    private fun fadeOut(
+        voice: Voice,
+        t: Double,
+    ) {
+        try {
+            val param = voice.gain.gain
+            param.cancelScheduledValues(t)
+            param.setValueAtTime(param.value, t)
+            param.linearRampToValueAtTime(0.0, t + ENCOUNTER_SOUND_FADE_S)
+        } catch (e: Throwable) {
+            // the voice is stopped anyway
+        }
+        stopQuietly(voice.source, t + ENCOUNTER_SOUND_FADE_S)
+    }
+
+    /** `stop` throws an `InvalidStateError` for a source that was never started or already stopped. */
+    private fun stopQuietly(
+        source: dynamic,
+        at: Double? = null,
+    ) {
+        try {
+            if (at == null) source.stop() else source.stop(at)
+        } catch (e: Throwable) {
+            // already stopped
+        }
+    }
+
+    override fun silence() {
+        try {
+            waiting = null
+            val running = current ?: return
+            current = null
+            val ctx = context
+            fadeOut(running, if (present(ctx)) ctx.currentTime as Double else 0.0)
+        } catch (e: Throwable) {
+            // silent
         }
     }
 
     override fun dispose() {
         if (disposed) return
         disposed = true
+        waiting = null
+        val running = current
+        current = null
+        if (running != null) stopQuietly(running.source)
+        for (slot in listOf(callSlot, blessingSlot)) {
+            slot.state = SlotState.IDLE
+            slot.buffer = null
+        }
         val ctx = context
         context = null
         try {

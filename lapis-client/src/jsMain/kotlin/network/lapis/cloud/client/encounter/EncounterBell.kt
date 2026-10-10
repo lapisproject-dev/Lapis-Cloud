@@ -110,7 +110,7 @@ internal class EncounterBellDisplay(
             root.removeAttribute("hidden")
             root.addCssClass(CLASS_ON)
             announce()
-            if (wantSound) runCatching { sound.ring() }
+            if (wantSound) runCatching { sound.ringCall() }
         }
         cancelHide = scheduler.schedule(ENCOUNTER_BELL_DISPLAY_MS) { fadeOut() }
     }

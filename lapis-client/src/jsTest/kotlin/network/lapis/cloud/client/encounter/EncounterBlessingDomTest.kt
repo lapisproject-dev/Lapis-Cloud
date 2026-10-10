@@ -1,6 +1,7 @@
 package network.lapis.cloud.client.encounter
 
 import kotlinx.browser.document
+import kotlinx.browser.localStorage
 import kotlinx.coroutines.delay
 import network.lapis.cloud.client.StubResponse
 import network.lapis.cloud.client.allOf
@@ -37,6 +38,7 @@ class EncounterBlessingDomTest {
                 js("require('./theme.css')")
                 true
             }
+        const val SOUND_KEY = "lapis.encounter.bellSoundOn"
     }
 
     private var clock = 1_000_000.0
@@ -50,6 +52,8 @@ class EncounterBlessingDomTest {
         profile: EncounterProfile = EncounterProfile.CHURCH_SERVICE,
         privileged: Boolean = false,
         blessingScheduler: EncounterBlessingScheduler = browserBlessingScheduler,
+        sound: EncounterBellSound = FakeBellSound(),
+        pageVisible: () -> Boolean = { true },
         extraRespond: (network.lapis.cloud.client.RecordedRequest) -> StubResponse? = { null },
         block: suspend (EncounterRoomRig, HTMLElement) -> Unit,
     ) {
@@ -62,6 +66,8 @@ class EncounterBlessingDomTest {
             session = if (role == EncounterPresenceRole.CONGREGATION) FakeListenerSession() else FakeSpeakerSession(),
             space = testSpace(profile = profile),
             blessingScheduler = blessingScheduler,
+            bellSound = sound,
+            bellPageVisible = pageVisible,
             extraRespond = extraRespond,
             block = block,
         )
@@ -282,6 +288,105 @@ class EncounterBlessingDomTest {
                 assertTrue(scheduler.tasks.any { !it.cancelled })
                 rig.room.dispose()
                 assertTrue(scheduler.tasks.all { it.cancelled }, "every timer is cancelled by dispose")
+            }
+        }
+
+    private fun soundStored(on: Boolean) {
+        if (on) localStorage.setItem(SOUND_KEY, "1") else localStorage.removeItem(SOUND_KEY)
+    }
+
+    @Test
+    fun theFirstBlessingOfAWindow_sounds_withTheSwitchOnAndAVisibleTab_anExtensionNeverDoes_andItNeverRingsTheCall(): Promise<Unit> =
+        formTest {
+            assertTrue(stylesLoaded)
+            soundStored(true)
+            try {
+                val sound = FakeBellSound()
+                withRoom(EncounterPresenceRole.CONGREGATION, blessingScheduler = ManualBlessingScheduler(), sound = sound) { rig, element ->
+                    rig.room.callbacks.onBlessing()
+                    awaitUntil("shown") { element.display()?.hasAttribute("hidden") == false }
+                    assertEquals(1, sound.blessings, "the blessing sounds once")
+                    clock += 1_000.0
+                    rig.room.callbacks.onBlessing()
+                    delay(50)
+                    assertEquals(1, sound.blessings, "an extending packet does not sound")
+                    assertEquals(0, sound.calls, "the blessing never rings the call")
+                }
+            } finally {
+                soundStored(false)
+            }
+        }
+
+    @Test
+    fun theBlessing_isSilent_withTheSwitchOff_inAHiddenTab_andInARoomWithoutABell(): Promise<Unit> =
+        formTest {
+            assertTrue(stylesLoaded)
+            val off = FakeBellSound()
+            withRoom(EncounterPresenceRole.CONGREGATION, blessingScheduler = ManualBlessingScheduler(), sound = off) { rig, element ->
+                rig.room.callbacks.onBlessing()
+                awaitUntil("shown") { element.display()?.hasAttribute("hidden") == false }
+                assertEquals(0, off.blessings, "the switch is off")
+            }
+            soundStored(true)
+            try {
+                val hidden = FakeBellSound()
+                withRoom(
+                    EncounterPresenceRole.CONGREGATION,
+                    blessingScheduler = ManualBlessingScheduler(),
+                    sound = hidden,
+                    pageVisible = { false },
+                ) { rig, element ->
+                    rig.room.callbacks.onBlessing()
+                    awaitUntil("shown in a hidden tab too") { element.display()?.hasAttribute("hidden") == false }
+                    assertEquals(0, hidden.blessings, "never a sound in a background tab")
+                }
+                val assembly = FakeBellSound()
+                withRoom(
+                    EncounterPresenceRole.CONGREGATION,
+                    profile = EncounterProfile.ASSEMBLY,
+                    blessingScheduler = ManualBlessingScheduler(),
+                    sound = assembly,
+                ) { rig, _ ->
+                    rig.room.callbacks.onBlessing()
+                    delay(50)
+                    assertEquals(0, assembly.blessings, "a room without a bell has no sound")
+                }
+            } finally {
+                soundStored(false)
+            }
+        }
+
+    @Test
+    fun aBlessingSoundThatFails_neverKeepsTheDisplayAway(): Promise<Unit> =
+        formTest {
+            assertTrue(stylesLoaded)
+            soundStored(true)
+            val failing =
+                object : EncounterBellSound {
+                    override fun prime() = Unit
+
+                    override fun ringCall() = Unit
+
+                    override fun ringBlessing() = throw IllegalStateException("no audio")
+
+                    override fun probe() = Unit
+
+                    override fun silence() = Unit
+
+                    override fun dispose() = Unit
+                }
+            try {
+                withRoom(
+                    EncounterPresenceRole.CONGREGATION,
+                    blessingScheduler = ManualBlessingScheduler(),
+                    sound = failing,
+                ) { rig, element ->
+                    rig.room.callbacks.onBlessing()
+                    awaitUntil("the display is there although the sound threw") { element.display()?.hasAttribute("hidden") == false }
+                    assertTrue(element.allOf("[role=status]").any { it.textContent.orEmpty().contains("Segen") })
+                }
+            } finally {
+                soundStored(false)
             }
         }
 }

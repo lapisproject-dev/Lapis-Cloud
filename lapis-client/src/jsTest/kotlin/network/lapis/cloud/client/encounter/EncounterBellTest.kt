@@ -10,7 +10,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-/** V1.9.96 -- the pure parts of the bell: the window timer, the sound decision, the packet rule, the bar order and the WebAudio recipe. */
+/** V1.9.96 -- the pure parts of the bell: the window timer, the sound decision, the packet rule, the bar order and the sound constants. */
 class EncounterBellTest {
     @Test
     fun theTimer_showsFirst_extendsInsideTheWindow_andShowsAgainAfterIt() {
@@ -78,12 +78,19 @@ class EncounterBellTest {
     }
 
     @Test
-    fun theWebAudioRecipe_isQuietAndShort() {
-        assertTrue(ENCOUNTER_BELL_PEAK_GAIN > 0.0 && ENCOUNTER_BELL_PEAK_GAIN <= 1.0, "never louder than full scale")
-        assertEquals(ENCOUNTER_BELL_PARTIAL_RATIOS.size, ENCOUNTER_BELL_PARTIAL_AMPLITUDES.size)
-        assertTrue(encounterBellTotalSeconds() < 5.0, "shorter than the sign: ${encounterBellTotalSeconds()}")
-        assertTrue(encounterBellTotalSeconds() > 4.0)
-        assertTrue(ENCOUNTER_BELL_PARTIAL_AMPLITUDES.all { it > 0.0 })
+    fun theSoundConstants_keepTheLevelQuiet_andTheFileUrlsPlain() {
+        assertTrue(ENCOUNTER_BELL_PEAK_GAIN > 0.0 && ENCOUNTER_BELL_PEAK_GAIN <= 0.25, "never louder than the synthesis was")
+        assertTrue(ENCOUNTER_BLESSING_GAIN > 0.0 && ENCOUNTER_BLESSING_GAIN < ENCOUNTER_BELL_PEAK_GAIN, "the blessing is quieter")
+        assertEquals(0.25, ENCOUNTER_SOUND_FADE_S)
+        assertEquals(1500, ENCOUNTER_SOUND_MAX_LATENESS_MS)
+        assertTrue(ENCOUNTER_PROBE_LENGTH_S > 0.0 && ENCOUNTER_PROBE_FADE_S > 0.0)
+        assertTrue(ENCOUNTER_SOUND_MAX_BYTES in 100_000..1_000_000, "a limit that holds the 48 KB files and stops a large answer")
+        listOf(ENCOUNTER_CALL_BELL_URL, ENCOUNTER_BLESSING_BELL_URL).forEach { url ->
+            assertTrue(url.startsWith("/assets/encounter-sounds-v1/"), url)
+            assertFalse('?' in url || '#' in url, "no query and no fragment: $url")
+            assertTrue(url.endsWith(".mp3"), url)
+        }
+        assertEquals(2, setOf(ENCOUNTER_CALL_BELL_URL, ENCOUNTER_BLESSING_BELL_URL).size)
     }
 
     @Test

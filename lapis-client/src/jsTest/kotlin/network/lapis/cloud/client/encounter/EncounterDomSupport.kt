@@ -34,6 +34,7 @@ import network.lapis.cloud.shared.domain.EncounterTablesConfig
 import network.lapis.cloud.shared.domain.EncounterTheme
 import network.lapis.cloud.shared.rpc.IEncounterSpaceService
 import org.w3c.dom.HTMLElement
+import kotlin.js.Promise
 import kotlin.test.assertNotNull
 
 /** Shared fixtures of the encounter DOM tests (V1.9.62). */
@@ -404,8 +405,12 @@ internal suspend fun withEncounterRoom(
     /** V1.9.96: the timers of the bell sign and the bell button's lock (the real browser timers by default). */
     bellScheduler: EncounterBlessingScheduler = browserBlessingScheduler,
     /** V1.9.96: the bell's sound; by default a silent fake (a real AudioContext would depend on the machine running the test). */
-    bellSound: EncounterBellSound = FakeBellSound(),
+    bellSound: EncounterBellSound? = FakeBellSound(),
     audioContextFactory: EncounterAudioContextFactory = EncounterAudioContextFactory { null },
+    /** V1.9.97: the loader of the two recorded sounds (a real request would depend on the machine running the test; the default loads nothing). */
+    soundLoader: EncounterSoundLoader = EncounterSoundLoader { _, _ -> Promise.reject(IllegalStateException("no sound in a test")) },
+    /** V1.9.97: whether the browser reports a user activation (a headless run reports none before a real gesture). */
+    soundHasBeenActive: () -> Boolean = { true },
     bellPageVisible: () -> Boolean = { true },
     bellReducedMotion: () -> Boolean = { false },
     block: suspend (EncounterRoomRig, HTMLElement) -> Unit,
@@ -444,6 +449,8 @@ internal suspend fun withEncounterRoom(
                     bellScheduler = bellScheduler,
                     bellSoundOverride = bellSound,
                     audioContextFactory = audioContextFactory,
+                    soundLoader = soundLoader,
+                    soundHasBeenActive = soundHasBeenActive,
                     bellPageVisible = bellPageVisible,
                     bellReducedMotion = bellReducedMotion,
                 )
@@ -511,10 +518,12 @@ internal class ManualBlessingScheduler : EncounterBlessingScheduler {
     fun pending(ms: Int): Int = tasks.count { it.ms == ms && !it.cancelled }
 }
 
-/** V1.9.96: a bell sound that only counts what the room asks of it. */
+/** V1.9.96/97: a bell sound that only counts what the room asks of it. */
 internal class FakeBellSound : EncounterBellSound {
     var primes = 0
-    var rings = 0
+    var calls = 0
+    var blessings = 0
+    var silences = 0
     var probes = 0
     var disposed = false
 
@@ -522,12 +531,20 @@ internal class FakeBellSound : EncounterBellSound {
         primes++
     }
 
-    override fun ring() {
-        rings++
+    override fun ringCall() {
+        calls++
+    }
+
+    override fun ringBlessing() {
+        blessings++
     }
 
     override fun probe() {
         probes++
+    }
+
+    override fun silence() {
+        silences++
     }
 
     override fun dispose() {

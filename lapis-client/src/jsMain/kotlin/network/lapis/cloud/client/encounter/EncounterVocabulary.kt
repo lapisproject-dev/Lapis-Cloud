@@ -94,6 +94,9 @@ internal class EncounterTerms(
     /** V1.9.96 -- the hint under the switch: the choice is local. */
     fun bellSoundSwitchHint(): String = tr("Gilt nur für diesen Browser.")
 
+    /** V1.9.97 -- what the switch does, above the hint. */
+    fun bellSoundSwitchEffect(): String = tr("Erklingt beim Ruf und beim Segen.")
+
     /** V1.9.96 -- the name of the gear button when the bell switch is all it holds. */
     fun bellDeviceButtonLabel(): String = gettext("Glockenton einstellen")
 

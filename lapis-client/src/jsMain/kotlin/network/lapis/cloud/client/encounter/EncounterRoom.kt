@@ -97,10 +97,14 @@ internal class EncounterRoom(
     private val blessingScheduler: EncounterBlessingScheduler = browserBlessingScheduler,
     /** V1.9.96: the timers of the bell sign and of the bell button's lock -- a seam for tests. */
     private val bellScheduler: EncounterBlessingScheduler = browserBlessingScheduler,
-    /** V1.9.96: the bell's sound -- a seam for tests (`null` = the WebAudio synthesis, built from [audioContextFactory]). */
+    /** V1.9.96: the bell's sound -- a seam for tests (`null` = the recorded sounds played through WebAudio, built from [audioContextFactory]). */
     bellSoundOverride: EncounterBellSound? = null,
     /** V1.9.96: the audio context factory of the real bell sound -- a seam for tests. */
     private val audioContextFactory: EncounterAudioContextFactory = browserAudioContextFactory,
+    /** V1.9.97: the loader of the two recorded sounds -- a seam for tests. */
+    private val soundLoader: EncounterSoundLoader = browserEncounterSoundLoader,
+    /** V1.9.97: whether the browser reports a user activation (the audio context is only made after one) -- a seam for tests. */
+    private val soundHasBeenActive: () -> Boolean = ::browserHasBeenActive,
     /** V1.9.96: whether the page is visible (the bell never sounds in a background tab) -- a seam for tests. */
     private val bellPageVisible: () -> Boolean = { (document.asDynamic().visibilityState as? String) != "hidden" },
     /** V1.9.96: whether the person asked for reduced motion (the sign is then hidden without a fade) -- a seam for tests. */
@@ -150,7 +154,13 @@ internal class EncounterRoom(
             null
         } else {
             bellSoundOverride
-                ?: BrowserEncounterBellSound(factory = audioContextFactory, applySink = { ctx -> audioOutput.applyToContext(ctx) })
+                ?: BrowserEncounterBellSound(
+                    factory = audioContextFactory,
+                    applySink = { ctx -> audioOutput.applyToContext(ctx) },
+                    hasBeenActive = soundHasBeenActive,
+                    loader = soundLoader,
+                    pageVisible = bellPageVisible,
+                )
         }
 
     /** V1.9.96: the sign of the bell (left of the blessing in the common holder), visible to everybody in a room that has a bell. */
@@ -175,10 +185,12 @@ internal class EncounterRoom(
             EncounterBellSwitchModel(
                 label = terms.bellSoundSwitchLabel(),
                 hint = terms.bellSoundSwitchHint(),
+                effect = terms.bellSoundSwitchEffect(),
                 buttonLabel = terms.bellDeviceButtonLabel(),
                 read = ::encounterBellSoundOnStored,
                 write = ::storeEncounterBellSoundOn,
                 onTurnedOn = { bellSound?.probe() },
+                onTurnedOff = { bellSound?.silence() },
             )
         }
 
@@ -190,6 +202,9 @@ internal class EncounterRoom(
             live = blessingLive,
             timer = EncounterBlessingTimer(now = clock),
             scheduler = blessingScheduler,
+            soundOn = ::encounterBellSoundOnStored,
+            sound = bellSound,
+            pageVisible = bellPageVisible,
         )
 
     /** V1.9.95: the label of the blessing button; `null` = the viewer gets no blessing (not a pulpit, or a room without one). The server decides again. */
@@ -1336,6 +1351,8 @@ internal class EncounterRoom(
                 requestPresentRefresh()
                 AppScope.launch { liveBadge.poll() }
             }
+            // V1.9.97: a voice never goes on sounding in a background tab
+            if (!disposed && !bellPageVisible()) bellSound?.silence()
         }
         document.addEventListener("visibilitychange", onVisible)
         cleanups += { document.removeEventListener("visibilitychange", onVisible) }

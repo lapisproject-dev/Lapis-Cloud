@@ -743,7 +743,7 @@ The server sends one LiveKit `RoomService/SendData` (RELIABLE, topic `lapis-enco
 
 A latin cross (outline, drawn with `createElementNS`, never parsed from text) and the word "Segen" in the pulpit area, `aria-hidden`, `pointer-events: none`, visible to *everybody* in the room (also with "Szene ausblenden" and in the full screen, because it lives in the pulpit area, not in the scene layer). A second packet while it is on restarts the 7 s window and opens no second display. A persistent polite live region (created with the room, so it is announced) receives the fixed sentence when the display opens and is cleared one second later, so a later blessing is announced again; an extension is not announced.
 
-No accent colour, no scaling, no sound. The only motion is an opacity transition of 200 ms that `prefers-reduced-motion` switches off (the display is then hidden at once). Contrast, worst case (text on the panel, panel = encounter surface at 80 % over pure black in the light theme, over pure white in the dark theme): light `#14181E` on about `#C3BFB8` = 9.7:1; dark `#E8E6E0` on about `#4F545C` = 6.1:1 -- both above 4.5:1. `ClientEncounterBlessingCssTripwireTest` pins the CSS facts, because Karma cannot emulate the media query reliably.
+No accent colour, no scaling. Since V1.9.97 the first blessing of a window also sounds a recorded low bell in a room with a bell, under the rules of "Bell and blessing sound" below (switch on, page visible; an extension never sounds); the display itself does not change and has no "Ton aus" line. The only motion is an opacity transition of 200 ms that `prefers-reduced-motion` switches off (the display is then hidden at once). Contrast, worst case (text on the panel, panel = encounter surface at 80 % over pure black in the light theme, over pure white in the dark theme): light `#14181E` on about `#C3BFB8` = 9.7:1; dark `#E8E6E0` on about `#4F545C` = 6.1:1 -- both above 4.5:1. `ClientEncounterBlessingCssTripwireTest` pins the CSS facts, because Karma cannot emulate the media query reliably.
 
 === The control
 
@@ -757,9 +757,9 @@ No accent colour, no scaling, no sound. The only motion is an opacity transition
 * A person who loses the office during the session keeps the button until the next reload; the server refuses the call.
 * The help page `gathering-room` is updated at rollout.
 
-== Bell (V1.9.96)
+== Bell and blessing sound (V1.9.96 / V1.9.97)
 
-The pulpit of a church-service room can ring a bell: one button, one quiet sign for everybody in the room for five seconds and, if the person chose so, a synthesised bell sound. Like the blessing it comes from the room and belongs to the liturgy, not to a person; it is *not* a reaction.
+The pulpit of a church-service room can ring a bell: one button, one quiet sign for everybody in the room for five seconds and, if the person chose so, a recorded bell sound (since V1.9.97 also for the blessing). Like the blessing it comes from the room and belongs to the liturgy, not to a person; it is *not* a reaction.
 
 === Who may ring (decided by the server)
 
@@ -777,15 +777,42 @@ A chip with the bell symbol and the word "Glocke" in the pulpit area, in the sam
 
 === The sound
 
-Synthesised with WebAudio, no sound file: no third-party asset (no licence or provenance question), 0 bytes in the bundle, nothing fetched or decoded (no network artefact that could be linked to a visit). A strike is seven sine partials (ratios 0.5, 1, 1.2, 1.5, 2, 2.5, 3 of 440 Hz, amplitudes normalised to a sum of 1), each with a 5 ms attack and an exponential decay of 2.5 s, summed into one master gain of 0.25 (never above 1); a ring is three strikes 1.2 s apart (4.9 s). It never sounds in a background tab, and never without the person's own switch.
+Two recordings, played through WebAudio (V1.9.97; V1.9.96 synthesised the sound, which is gone for good). Both are CC0 (Creative Commons 0 1.0, confirmed on 2026-10-10); provenance, processing and hashes are in `lapis-client/src/jsMain/webAssets/encounter-sounds-v1/PROVENANCE.adoc`. Pixabay recordings were deliberately not used (the licence forbids passing a file on unchanged).
 
-*Autoplay.* A browser only lets a sound start after a user activation. The switch's `change` handler plays one probe strike synchronously (no `await`, no `launch` before it: Safari). After a reload with the sound remembered as on, the first pointer or key press anywhere primes the audio context silently (one `once` listener pair, removed on dispose); a bell that rang before that is not played afterwards. Without a prior activation no `AudioContext` is created at all (it would only earn a console warning). Every `resume()`/`close()` promise has a `catch`, so a refusal is never an unhandled rejection.
+[cols="1,2,2,1"]
+|===
+| File | Source | Used for | Level
+
+| `call-bell.mp3`
+| "Church bells Pont Barer, la Drôme", MJPtack, Freesound 753412
+| the call: a peal of several strikes, 8 s
+| gain 0.25
+
+| `blessing-bell.mp3`
+| "bec low bell solo.wav", HMTSCCSound (Bethesda Church, Saratoga Springs NY), Freesound 554655
+| the blessing: one low strike, 8 s
+| gain 0.18
+|===
+
+Both are MP3, mono, 44.1 kHz, 8.0 s, 48 kbit/s (48690 and 48713 bytes; SHA-256 `b41a4b3e...4405` and `7eebd9ed...d267`, pinned in `EncounterSoundAssetsTest` and, on the staging and on the webpack copy, in `VerifyVideoEffectAssets` of `lapis-client/build.gradle.kts`). The sample peaks are -2.2 and -2.7 dBFS (ffmpeg `volumedetect`), so the decoded peak is at most 1.0 and the output peak at most 0.25 x 0.78 (call) and 0.18 x 0.73 (blessing): never above the 0.25 the synthesis had. The switch's confirmation sample is the blessing strike at gain 0.25, cut after 3.0 s with a 0.5 s fade-out.
+
+*Delivery.* `/assets/encounter-sounds-v1/` is served by its own route in `ClientAssetRoutes.kt` (registered before the generic `/assets` prefix): `Content-Type: audio/mpeg`, `Cache-Control: public, max-age=31536000, immutable`, no listing, no logging. The directory is versioned: if the bytes ever change, it becomes `encounter-sounds-v2` in the three places that name it (client constant `ENCOUNTER_SOUNDS_DIR`, `ENCOUNTER_SOUNDS_ASSET_DIR`, Gradle `into(...)`; `EncounterSoundAssetsTest` keeps them together).
+
+*Loading.* Only after the person's own decision, never earlier: in the switch's `change` handler (`probe()`) or, after a reload with the switch remembered as on, in the first pointer or key press (`prime()`); both need a user activation (without one no context and no request exist). Both files load in parallel, once; a ring never starts a load, a room without a bell and a person with the sound off never load anything. A failed load is silent and not retried automatically; switching the sound on again makes exactly one new attempt. The request (`EncounterSoundFetch.kt`, the only file with `fetch` and `decodeAudioData`) is same-origin with `credentials: "omit"`, `referrerPolicy: "no-referrer"`, `mode: "same-origin"`, `redirect: "error"`; the answer must be `ok`, of an `audio/...` content type (the catch-all route could answer an unknown path with a page and status 200) and at most 256 KiB. The URLs are the two constants, without query, fragment, room or person.
+
+*Why WebAudio and not an `<audio>` element.* The chosen speaker acts on exactly one audio context (`EncounterAudioOutput.applyToContext`); a second sink path through an element would clash with the all-or-nothing selection of the picker. An element with a `src` could be pre-loaded by the browser before the person switched the sound on. A gain node caps the level deterministically and allows exact stopping and fading.
+
+*One voice.* At most one voice sounds per room. A second call of the kind that is sounding is ignored; a call of the other kind fades the running voice out over 0.25 s and starts after it. A recording that is still loading when it is asked for is remembered as the one waiting request (a newer one replaces it) and played only if it is ready within 1500 ms and the page is still visible; later it would no longer match the sign. Nothing ever starts in a hidden tab, `silence()` (hidden tab, switch turned off) fades the voice out and forgets the waiting request, and `dispose()` stops at once, closes the context and drops the buffers.
+
+The call sounds with the sign (first packet of a window only), the blessing with its display (likewise, only in a room with a bell, i.e. the church profile); an extension of a window never sounds. It never sounds without the person's own switch.
+
+*Autoplay.* A browser only lets a sound start after a user activation. The switch's `change` handler creates / resumes the context and starts the loading synchronously, then plays the probe sample (no `await`, no `launch` before it: Safari). After a reload with the sound remembered as on, the first pointer or key press anywhere primes the audio context silently (one `once` listener pair, removed on dispose); a bell that rang before that is not played afterwards. Without a prior activation no `AudioContext` is created at all (it would only earn a console warning). Every `resume()`/`close()` promise has a `catch`, so a refusal is never an unhandled rejection.
 
 *Speaker.* If the browser's `AudioContext` has `setSinkId`, the context follows the speaker chosen in the device panel (through a lambda; the room never sees a device id, `EncounterAudioOutput` stays the only place with the sink logic). Without it (Safari) the sound plays on the system default.
 
 === The switch
 
-The gear (device picker) holds a "Glockenton" switch (`role="switch"` on a native checkbox, its own label, the hint "Gilt nur für diesen Browser."). It exists only in church-service rooms and for *every* role. Default off. Because the switch lives in the gear, the gear is now always in the bar of a church-service room (also for the congregation, whose gear used to be hidden without a choice of devices); it then says "Glockenton einstellen". That costs one permanent place in the bar, also at 360 px.
+The gear (device picker) holds a "Glockenton" switch (`role="switch"` on a native checkbox, its own label, and a description with two lines under one id: "Erklingt beim Ruf und beim Segen." (what it does) and "Gilt nur für diesen Browser." (the hint)). Turning it on starts the loading and the sample, turning it off silences a sounding voice. It exists only in church-service rooms and for *every* role. Default off. Because the switch lives in the gear, the gear is now always in the bar of a church-service room (also for the congregation, whose gear used to be hidden without a choice of devices); it then says "Glockenton einstellen". That costs one permanent place in the bar, also at 360 px.
 
 === What is remembered
 
@@ -793,7 +820,7 @@ Exactly the second storage key `lapis.encounter.bellSoundOn` (value `1`), writte
 
 === Data protection
 
-Nothing is stored on the server, nothing counted, no audit entry (it would permanently record that somebody took part in the liturgy), one fixed `DEBUG` text ("bell send failed"). `EncounterPrivacyTripwireTest` and `ClientEncounterPrivacyTripwireTest` pin all of it (no write in the bell path, one log line, memory-only state, no decode, the two storage keys and where they are written, no network/console/counter in the sign and the sound).
+Nothing is stored on the server, nothing counted, no audit entry (it would permanently record that somebody took part in the liturgy), one fixed `DEBUG` text ("bell send failed"). `EncounterPrivacyTripwireTest` and `ClientEncounterPrivacyTripwireTest` pin all of it (no write in the bell path, one log line, memory-only state, no decode of the packet, the two storage keys and where they are written, no console/counter in the sign and the sound, and -- V1.9.97 -- the one network request of the whole encounter client is the sound loader `EncounterSoundFetch.kt` with its fixed options).
 
 === Known limitations of the bell
 
@@ -805,6 +832,10 @@ Nothing is stored on the server, nothing counted, no audit entry (it would perma
 * The symbol `fa-bell` has two other meanings elsewhere (see `action-icons.adoc`).
 * The throttle is in memory and per server instance; a failed delivery is not reported; a person who loses the office keeps the button until the next reload (the server refuses).
 * The website and the help page `gathering-room` are not changed in this wave and are updated at rollout.
+* V1.9.97: the sound can ring on for up to 8 s, longer than the 5 s sign (intended: a bell fades away).
+* V1.9.97: the blessing sounds only in a room with a bell (church profile) and only under the bell's switch; an assembly's blessing stays silent.
+* V1.9.97: on a slow network the sample of the first switch-on is dropped if the files take longer than 1500 ms (the same lateness rule as for the call and the blessing); the switch is on nevertheless and the next call sounds once the files are there.
+* V1.9.97: the server's and the proxy's access logs see IP, time, user agent and the path of the recording; the path name is itself a hint of a use in a church-service room (see `dsgvo.adoc`). The HTTP cache entry (immutable, one year) is a further local trace of the same kind as the storage key.
 
 == Open questions (for the product owner and legal)
 

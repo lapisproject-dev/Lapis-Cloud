@@ -64,10 +64,14 @@ private const val SVG_NS = "http://www.w3.org/2000/svg"
 
 /**
  * V1.9.95 -- the quiet cross over the pulpit area: an own latin cross (outline, drawn with the DOM API, never parsed from text), the
- * word of [EncounterTerms.blessingWord] under it. No accent colour, no scaling, no sound; shown for [ENCOUNTER_BLESSING_DISPLAY_MS] and
+ * word of [EncounterTerms.blessingWord] under it. No accent colour, no scaling; shown for [ENCOUNTER_BLESSING_DISPLAY_MS] and
  * visible to EVERYBODY in the room (the congregation and the stewards too). The visual part is `aria-hidden`; a persistent polite region
  * ([live], created by the room BEFORE the first blessing -- a region that appears together with its text is not announced) receives the
  * one fixed sentence when the display opens, and is cleared again a moment later.
+ *
+ * V1.9.97: in a room with a bell (the church profile), the first packet of a window also sounds the recorded blessing -- only when this
+ * browser's bell sound is on and the page is visible (the same rule as the bell, [encounterBellShouldSound]); an extension of the window
+ * never sounds. There is no visual change and no "sound off" line for the blessing.
  *
  * Holds no name, no time of day and no counter; the only state is "is the display on" and the two timers, which [dispose] cancels.
  */
@@ -78,6 +82,12 @@ internal class EncounterBlessingDisplay(
     private val timer: EncounterBlessingTimer,
     private val scheduler: EncounterBlessingScheduler = browserBlessingScheduler,
     private val reducedMotion: () -> Boolean = { window.matchMedia("(prefers-reduced-motion: reduce)").matches },
+    /** V1.9.97: whether this browser's bell sound is switched on (the blessing sounds only then). */
+    private val soundOn: () -> Boolean = { false },
+    /** V1.9.97: the sound of the room; `null` in a room without a bell (the blessing is then silent). */
+    private val sound: EncounterBellSound? = null,
+    /** V1.9.97: whether the page is visible (the blessing never sounds in a background tab). */
+    private val pageVisible: () -> Boolean = { (document.asDynamic().visibilityState as? String) != "hidden" },
 ) {
     private val root: Div =
         host.addWithLifecycle(
@@ -110,9 +120,18 @@ internal class EncounterBlessingDisplay(
             root.removeAttribute("hidden")
             root.addCssClass(CLASS_ON)
             announce()
+            // the sign and the announcement come first; a sound that fails can never keep them away
+            val bell = sound
+            if (bell != null && encounterBellShouldSound(soundOn = readSoundOn(), pageVisible = readVisible())) {
+                runCatching { bell.ringBlessing() }
+            }
         }
         cancelHide = scheduler.schedule(ENCOUNTER_BLESSING_DISPLAY_MS) { fadeOut() }
     }
+
+    private fun readSoundOn(): Boolean = runCatching { soundOn() }.getOrDefault(false)
+
+    private fun readVisible(): Boolean = runCatching { pageVisible() }.getOrDefault(false)
 
     private fun announce() {
         val sentence = terms.blessingAnnouncement()

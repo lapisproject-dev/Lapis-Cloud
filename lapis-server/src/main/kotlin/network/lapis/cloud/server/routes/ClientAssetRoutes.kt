@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.routes
 
 import io.ktor.http.CacheControl
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.server.http.content.staticFiles
 import io.ktor.server.response.header
@@ -15,6 +16,13 @@ import java.io.File
  * `verifyMediaPipeVersion` asserts the installed package matches. Keep all three in step.
  */
 internal const val MEDIAPIPE_TASKS_VISION_VERSION = "0.10.14"
+
+/**
+ * V1.9.97 -- directory of the two recorded bells (call and blessing) under `/assets`. Third occurrence of this name (after the
+ * client constant `ENCOUNTER_SOUNDS_DIR` in `EncounterSoundFetch.kt` and `into("encounter-sounds-v1")` in `lapis-client/build.gradle.kts`);
+ * `EncounterSoundAssetsTest` keeps all three together. The path is versioned: if the bytes ever change, the directory becomes `-v2`.
+ */
+internal const val ENCOUNTER_SOUNDS_ASSET_DIR = "encounter-sounds-v1"
 
 internal const val CLIENT_ASSETS_ONE_YEAR_SECONDS = 31_536_000
 internal const val CLIENT_ASSETS_ONE_DAY_SECONDS = 86_400
@@ -60,6 +68,12 @@ internal fun Route.registerClientAssetRoutes(clientDistRoot: File) {
         // CLIENT_ASSETS_IMMUTABLE_CACHE_CONTROL). Ktors Default fuer `cacheControl` ist `{ emptyList() }`,
         // deshalb entsteht hier genau EIN Cache-Control-Header, kein doppelter.
         modify { _, call -> call.response.header(HttpHeaders.CacheControl, CLIENT_ASSETS_IMMUTABLE_CACHE_CONTROL) }
+    }
+    // V1.9.97: the two recorded bells. Versioned path -> immutable, like the WASM; explicit `audio/mpeg` (not left to Ktor's table), no listing.
+    // Registered before the generic `/assets` prefix. No logging here (the access path is the only trace, see dsgvo.adoc).
+    staticFiles("/assets/$ENCOUNTER_SOUNDS_ASSET_DIR", File(clientAssetsRoot, ENCOUNTER_SOUNDS_ASSET_DIR)) {
+        modify { _, call -> call.response.header(HttpHeaders.CacheControl, CLIENT_ASSETS_IMMUTABLE_CACHE_CONTROL) }
+        contentType { ContentType.Audio.MPEG }
     }
     staticFiles("/assets", clientAssetsRoot) {
         // Modell und Hintergrundbilder liegen unter einem UNVERSIONIERTEN Praefix -- hier waere `immutable`

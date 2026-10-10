@@ -60,6 +60,9 @@ class EncounterBellDomTest {
         bellScheduler: EncounterBlessingScheduler = browserBlessingScheduler,
         blessingScheduler: EncounterBlessingScheduler = browserBlessingScheduler,
         sound: FakeBellSound = FakeBellSound(),
+        /** V1.9.97: `true` = the real [BrowserEncounterBellSound] of the room (with a fake context and the given loader) instead of [sound]. */
+        realSound: Boolean = false,
+        soundLoader: EncounterSoundLoader = EncounterSoundLoader { _, _ -> Promise.reject(IllegalStateException("no sound in a test")) },
         pageVisible: () -> Boolean = { true },
         reducedMotion: () -> Boolean = { false },
         extraRespond: (network.lapis.cloud.client.RecordedRequest) -> StubResponse? = { null },
@@ -76,7 +79,9 @@ class EncounterBellDomTest {
                 space = testSpace(profile = profile),
                 bellScheduler = bellScheduler,
                 blessingScheduler = blessingScheduler,
-                bellSound = sound,
+                bellSound = if (realSound) null else sound,
+                audioContextFactory = EncounterAudioContextFactory { fakeSoundContext(false) },
+                soundLoader = soundLoader,
                 bellPageVisible = pageVisible,
                 bellReducedMotion = reducedMotion,
                 extraRespond = extraRespond,
@@ -268,7 +273,7 @@ class EncounterBellDomTest {
                             .getComputedStyle(sign)
                             .getPropertyValue("pointer-events"),
                     )
-                    assertEquals(0, sound.rings, "$role: the sound is off, nothing rings")
+                    assertEquals(0, sound.calls, "$role: the sound is off, nothing rings")
                 }
             }
         }
@@ -325,7 +330,7 @@ class EncounterBellDomTest {
             withRoom(EncounterPresenceRole.CONGREGATION, bellScheduler = scheduler, sound = on) { rig, element ->
                 rig.room.callbacks.onBell()
                 awaitUntil("shown") { element.sign()?.hasAttribute("hidden") == false }
-                assertEquals(1, on.rings)
+                assertEquals(1, on.calls)
                 assertTrue(
                     element.sign()!!.querySelector(".lapis-encounter-bell-mute")!!.hasAttribute("hidden"),
                     "no note while the sound is on",
@@ -333,7 +338,7 @@ class EncounterBellDomTest {
                 clock += 1_000.0
                 rig.room.callbacks.onBell()
                 delay(50)
-                assertEquals(1, on.rings, "an extending packet does not ring")
+                assertEquals(1, on.calls, "an extending packet does not ring")
             }
             // switch on, tab hidden: no sound, but the sign appears
             soundStored(true)
@@ -343,7 +348,7 @@ class EncounterBellDomTest {
             }) { rig, element ->
                 rig.room.callbacks.onBell()
                 awaitUntil("the sign appears in a hidden tab too") { element.sign()?.hasAttribute("hidden") == false }
-                assertEquals(0, hidden.rings, "never a sound in a background tab")
+                assertEquals(0, hidden.calls, "never a sound in a background tab")
             }
         }
 
@@ -356,9 +361,13 @@ class EncounterBellDomTest {
                 object : EncounterBellSound {
                     override fun prime() = Unit
 
-                    override fun ring() = throw IllegalStateException("no audio")
+                    override fun ringCall() = throw IllegalStateException("no audio")
+
+                    override fun ringBlessing() = Unit
 
                     override fun probe() = Unit
+
+                    override fun silence() = Unit
 
                     override fun dispose() = Unit
                 }
@@ -449,6 +458,80 @@ class EncounterBellDomTest {
                 rig.room.dispose()
                 assertTrue(scheduler.tasks.all { it.cancelled }, "every timer is cancelled by dispose")
                 assertTrue(sound.disposed, "the audio context is closed")
+            }
+        }
+
+    @Test
+    fun withTheSoundRemembered_theRecordingsAreLoadedByTheFirstGestureOnly_neverBeforeAndNeverWithoutTheKey(): Promise<Unit> =
+        formTest {
+            assertTrue(stylesLoaded)
+            soundStored(true)
+            val urls = mutableListOf<String>()
+            val loader =
+                EncounterSoundLoader { _, url ->
+                    urls.add(url)
+                    Promise.reject(IllegalStateException("refused"))
+                }
+            withRoom(EncounterPresenceRole.CONGREGATION, realSound = true, soundLoader = loader) { _, _ ->
+                delay(100)
+                assertEquals(emptyList(), urls, "nothing is loaded before a gesture")
+                document.dispatchEvent(Event("keydown"))
+                assertEquals(listOf(ENCOUNTER_CALL_BELL_URL, ENCOUNTER_BLESSING_BELL_URL), urls, "the first gesture loads both")
+                document.dispatchEvent(Event("pointerdown"))
+                document.dispatchEvent(Event("keydown"))
+                delay(50)
+                assertEquals(2, urls.size, "and only once")
+            }
+            soundStored(false)
+            val untouched = mutableListOf<String>()
+            val none =
+                EncounterSoundLoader { _, url ->
+                    untouched.add(url)
+                    Promise.reject(IllegalStateException("refused"))
+                }
+            withRoom(EncounterPresenceRole.CONGREGATION, realSound = true, soundLoader = none) { _, _ ->
+                document.dispatchEvent(Event("keydown"))
+                document.dispatchEvent(Event("pointerdown"))
+                delay(100)
+                assertEquals(emptyList(), untouched, "without the key the room never loads a sound")
+            }
+        }
+
+    @Test
+    fun aRoomWithoutABell_loadsNoSound_evenWithTheKeyStored(): Promise<Unit> =
+        formTest {
+            assertTrue(stylesLoaded)
+            soundStored(true)
+            val urls = mutableListOf<String>()
+            val loader =
+                EncounterSoundLoader { _, url ->
+                    urls.add(url)
+                    Promise.reject(IllegalStateException("refused"))
+                }
+            withRoom(
+                EncounterPresenceRole.CONGREGATION,
+                profile = EncounterProfile.ASSEMBLY,
+                realSound = true,
+                soundLoader = loader,
+            ) { _, _ ->
+                document.dispatchEvent(Event("keydown"))
+                delay(100)
+                assertEquals(emptyList(), urls)
+            }
+        }
+
+    @Test
+    fun whenThePageBecomesHidden_aSoundingVoiceIsSilenced(): Promise<Unit> =
+        formTest {
+            assertTrue(stylesLoaded)
+            var visible = true
+            val sound = FakeBellSound()
+            withRoom(EncounterPresenceRole.CONGREGATION, sound = sound, pageVisible = { visible }) { _, _ ->
+                document.dispatchEvent(Event("visibilitychange"))
+                assertEquals(0, sound.silences, "a visible page keeps its voice")
+                visible = false
+                document.dispatchEvent(Event("visibilitychange"))
+                assertEquals(1, sound.silences, "hidden: the voice fades out")
             }
         }
 }

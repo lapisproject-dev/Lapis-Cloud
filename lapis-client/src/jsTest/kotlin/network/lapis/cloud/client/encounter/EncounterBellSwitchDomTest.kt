@@ -19,8 +19,8 @@ import kotlin.test.assertTrue
 
 /**
  * V1.9.96 -- the bell sound switch in the device panel: only in a church-service room, for every role; default off; opening and redrawing
- * only READ the storage; the person's own change writes the key (and removes it again); turning it on plays exactly one probe strike,
- * turning it off none; a storage that throws means "off"; and the gear is there for the congregation even without a device to choose.
+ * only READ the storage; the person's own change writes the key (and removes it again); turning it on plays exactly one probe, turning it off
+ * silences the voice and plays nothing; a storage that throws means "off"; and the gear is there for the congregation even without a device to choose.
  */
 class EncounterBellSwitchDomTest {
     private companion object {
@@ -88,7 +88,10 @@ class EncounterBellSwitchDomTest {
                     val label = assertNotNull(element.querySelector("label[for=lapis-encounter-bell-switch]"))
                     assertEquals("Glockenton", label.textContent.orEmpty().trim())
                     val hint = assertNotNull(element.querySelector("#${input.getAttribute("aria-describedby")}"))
-                    assertEquals("Gilt nur für diesen Browser.", hint.textContent.orEmpty().trim())
+                    val described = hint.textContent.orEmpty()
+                    assertTrue("Erklingt beim Ruf und beim Segen." in described, "the effect: $described")
+                    assertTrue("Gilt nur für diesen Browser." in described, "the hint: $described")
+                    assertEquals(1, element.allOf("#lapis-encounter-bell-hint").size, "one description, one id")
                     assertEquals("false", input.getAttribute("aria-checked"), "$role: default off")
                     assertFalse(input.checked)
                 }
@@ -142,7 +145,9 @@ class EncounterBellSwitchDomTest {
                 assertNull(localStorage.getItem(SOUND_KEY), "the key is gone again")
                 assertEquals("false", input.getAttribute("aria-checked"))
                 assertEquals(1, sound.probes, "turning it off plays nothing")
-                assertEquals(0, sound.rings)
+                assertEquals(1, sound.silences, "turning it off fades a sounding voice out")
+                assertEquals(0, sound.calls)
+                assertEquals(0, sound.blessings)
             }
         }
 

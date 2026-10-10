@@ -59,7 +59,7 @@ private val NO_LEAK_CHANNELS =
     )
 private val DEVICE_CALLS_IN_SESSION =
     Regex("""\b(?:listDevices|switchDevice|activeDeviceId|listMicrophones|switchMicrophone|activeMicrophoneId)\b""")
-private val TELEMETRY = Regex("""\bsendBeacon\b|\banalytics\b|\bgtag\b|(?<![A-Za-z0-9_.])fetch\(""")
+private val TELEMETRY = Regex("""\bsendBeacon\b|\banalytics\b|\bgtag\b|\bfetch\b""")
 private val SENT_AT = Regex("""\bsentAtEpochMs\b""")
 
 private val LIVEKIT_SESSION =
@@ -97,6 +97,7 @@ class ClientEncounterPrivacyTripwireTest :
                 "EncounterStreamPanel.kt",
                 "EncounterBell.kt",
                 "EncounterBellSound.kt",
+                "EncounterSoundFetch.kt",
             ).forEach { (it in names) shouldBe true }
         }
 
@@ -161,8 +162,118 @@ class ClientEncounterPrivacyTripwireTest :
             }
         }
 
-        test("no telemetry and no direct fetch in the encounter client") {
-            findings(pattern = TELEMETRY).shouldBeEmpty()
+        test("no telemetry, and the one network request of the encounter client is the sound loader (V1.9.97)") {
+            // `fetch` counts in every spelling (`fetch(`, `window.fetch(`, `.fetch(`, `["fetch"]`); the only allowed place is the sound loader
+            findings(pattern = TELEMETRY, allowedFiles = setOf("EncounterSoundFetch.kt")).shouldBeEmpty()
+            val loaderFile = encounterFiles().first { it.name == "EncounterSoundFetch.kt" }
+            val loaderCode = codeLines(loaderFile).filterNot { it.trimStart().startsWith("import ") }
+            withClue("exactly one request in the whole package: $loaderCode") {
+                loaderCode.filter { TELEMETRY.containsMatchIn(it) }.size shouldBe 1
+            }
+            // it stands inside the real loader and is made with the fixed, minimal options
+            val text = loaderCode.joinToString("\n")
+            val loader = text.substring(text.indexOf("val browserEncounterSoundLoader"), text.indexOf("private fun readSoundBody("))
+            Regex("""\bfetch\b""").findAll(loader).count() shouldBe 1
+            listOf(
+                "init.credentials = \"omit\"",
+                "init.referrerPolicy = \"no-referrer\"",
+                "init.mode = \"same-origin\"",
+                "init.redirect = \"error\"",
+            ).forEach { option -> withClue("the loader must set $option") { loader.contains(option) shouldBe true } }
+            // the url argument is the parameter of the loader, nothing built at the call
+            loader.contains(".fetch(url, init)") shouldBe true
+            // the callers hand over only the two constants (and never a built string)
+            val callers =
+                encounterFiles()
+                    .filter { it.name != "EncounterSoundFetch.kt" }
+                    .flatMap { f -> codeLines(f).filter { it.contains("loader.load(") }.map { "${f.name}: ${it.trim()}" } }
+            callers.size shouldBe 1
+            callers.single().contains("loader.load(ctx, slot.url)") shouldBe true
+            val bellSound = codeLines(encounterFiles().first { it.name == "EncounterBellSound.kt" }).joinToString("\n")
+            bellSound.contains("Slot(ENCOUNTER_CALL_BELL_URL)") shouldBe true
+            bellSound.contains("Slot(ENCOUNTER_BLESSING_BELL_URL)") shouldBe true
+            Regex("""\bSlot\(""").findAll(bellSound.replace("private class Slot(", "")).count() shouldBe 2
+        }
+
+        test("V1.9.97: the sound url literals are the two constants of one directory -- no query, no fragment, no room or person token") {
+            val literals =
+                encounterFiles().flatMap { f ->
+                    codeLines(f).filter { it.contains("encounter-sounds") }.map { "${f.name}: ${it.trim()}" }
+                }
+            // only the directory constant mentions the path; the two file urls are built from that constant
+            literals.size shouldBe 1
+            literals.single().contains("ENCOUNTER_SOUNDS_DIR = \"/assets/encounter-sounds-v1\"") shouldBe true
+            val fetchCode = codeLines(encounterFiles().first { it.name == "EncounterSoundFetch.kt" })
+            val urlLines = fetchCode.filter { it.contains("_URL =") || it.contains("ENCOUNTER_SOUNDS_DIR =") }
+            urlLines.size shouldBe 3
+            urlLines.forEach { line ->
+                line.contains('?') shouldBe false
+                line.contains('#') shouldBe false
+                Regex("""\$(?!ENCOUNTER_SOUNDS_DIR/)""").containsMatchIn(line) shouldBe false
+                Regex("""spaceId|roomId|identity|memberId|sessionId|displayName""", RegexOption.IGNORE_CASE).containsMatchIn(line) shouldBe
+                    false
+            }
+        }
+
+        test("V1.9.97: a recording is loaded only from probe() and prime() -- never from a ring or from play()") {
+            val sound = encounterFiles().first { it.name == "EncounterBellSound.kt" }
+            val text = codeLines(sound).joinToString("\n")
+            Regex("""loader\.load\(""").findAll(text).count() shouldBe 1
+            // the loading starts in one function, which only prime() and probe() call
+            val callers = Regex("""startLoading\(""").findAll(text).count()
+            callers shouldBe 3 // the definition and the two calls
+
+            fun body(name: String): String {
+                // the implementation (`override fun` / `private fun`), not the interface declaration
+                val start = listOf("override fun $name(", "private fun $name(").map { text.indexOf(it) }.firstOrNull { it >= 0 } ?: -1
+                (start >= 0) shouldBe true
+                return text.substring(start, text.indexOf("\n    }\n", start))
+            }
+            body("prime").contains("startLoading(") shouldBe true
+            body("probe").contains("startLoading(") shouldBe true
+            listOf("play", "start", "onLoaded", "silence", "dispose").forEach { name ->
+                withClue("$name must not start a load") { body(name).contains("startLoading(") shouldBe false }
+            }
+            text.contains("override fun ringCall() = play(") shouldBe true
+            text.contains("override fun ringBlessing() = play(") shouldBe true
+            // a ring never resets a failure (only probe may)
+            Regex("""SlotState\.FAILED\) \w+Slot\.state = SlotState\.IDLE""").findAll(text).count() shouldBe 2
+            body("probe").contains("SlotState.IDLE") shouldBe true
+        }
+
+        test("V1.9.97: no audio element anywhere in the encounter client, and decoding exists in the sound loader only") {
+            val audioElement = Regex("""(?<![A-Za-z0-9_])Audio\(|\bHTMLAudioElement\b""")
+            findings(pattern = audioElement).shouldBeEmpty()
+            findings(pattern = Regex("""\bdecodeAudioData\b"""), allowedFiles = setOf("EncounterSoundFetch.kt")).shouldBeEmpty()
+            codeLines(encounterFiles().first { it.name == "EncounterSoundFetch.kt" }).any { it.contains("decodeAudioData") } shouldBe true
+            // detector self-check: `startAudio(` is no audio element
+            audioElement.containsMatchIn("    val a = Audio(url)") shouldBe true
+            audioElement.containsMatchIn("    startAudio(track)") shouldBe false
+            audioElement.containsMatchIn("    val e: HTMLAudioElement") shouldBe true
+        }
+
+        test("V1.9.97: the synthesis is gone for good -- no oscillator and none of its constants in the client, main or test") {
+            val synthesis =
+                Regex(
+                    """\bcreateOscillator\b|\bOscillatorNode\b|\bENCOUNTER_BELL_PARTIAL\w*|\bENCOUNTER_BELL_BASE_HZ\b|""" +
+                        """\bENCOUNTER_BELL_STRIKE\w*|\bENCOUNTER_BELL_DECAY_S\b|\bencounterBellTotalSeconds\b""",
+                )
+            // .../src/jsMain/kotlin/network/lapis/cloud/client/encounter: five levels up is `kotlin` of jsMain, its sibling tree is jsTest
+            val jsMainKotlin = generateSequence(ENCOUNTER_DIR.absoluteFile) { it.parentFile }.drop(5).first()
+            val roots = listOf(jsMainKotlin, File(jsMainKotlin.parentFile.parentFile, "jsTest/kotlin"))
+            val hits =
+                roots.flatMap { root ->
+                    withClue("${root.path} exists") { root.isDirectory shouldBe true }
+                    root
+                        .walkTopDown()
+                        .filter { it.isFile && it.extension == "kt" }
+                        .flatMap { f ->
+                            codeLines(f).filter { synthesis.containsMatchIn(it) }.map { "${f.name}: ${it.trim()}" }.toList()
+                        }.toList()
+                }
+            hits.shouldBeEmpty()
+            synthesis.containsMatchIn("    ctx.createOscillator()") shouldBe true
+            synthesis.containsMatchIn("    val unrelated = 1") shouldBe false
         }
 
         test("the chat time field is sent as zero and never rendered") {
@@ -182,8 +293,11 @@ class ClientEncounterPrivacyTripwireTest :
             INNER_HTML.containsMatchIn("    div(text, rich = true)") shouldBe true
             DEVICE_ACCESS.containsMatchIn("    session.setCamera(true)") shouldBe true
             DEVICE_ACCESS.containsMatchIn("    session.sendChat(text)") shouldBe false
-            TELEMETRY.containsMatchIn("    window.fetch(url)") shouldBe false
+            TELEMETRY.containsMatchIn("    window.fetch(url)") shouldBe true
+            TELEMETRY.containsMatchIn("    window.asDynamic().fetch(url, init)") shouldBe true
+            TELEMETRY.containsMatchIn("    window[\"fetch\"](url)") shouldBe true
             TELEMETRY.containsMatchIn("    fetch(url)") shouldBe true
+            TELEMETRY.containsMatchIn("    val prefetchHint = 1") shouldBe false
             TELEMETRY.containsMatchIn("    navigator.sendBeacon(url)") shouldBe true
             SENT_AT.containsMatchIn("    message.sentAtEpochMs") shouldBe true
             DEVICE_ACCESS.containsMatchIn("    session.listDevices(kind)") shouldBe true
@@ -522,6 +636,35 @@ class ClientEncounterPrivacyTripwireTest :
                 withClue(
                     "$name must not keep a counter, a name or a time of day",
                 ) { code.filter { identity.containsMatchIn(it) }.shouldBeEmpty() }
+            }
+            // V1.9.97: the blessing display may now sound, but never reaches the network, an audio element or a decoder itself
+            val blessing =
+                codeLines(
+                    encounterFiles().first { it.name == "EncounterBlessing.kt" },
+                ).filterNot { it.trimStart().startsWith("import ") }
+            blessing
+                .filter { Regex("""\bfetch\b|(?<![A-Za-z0-9_])Audio\(|\bdecodeAudioData\b""").containsMatchIn(it) }
+                .shouldBeEmpty()
+            // V1.9.97: the loader file is the one place of the network and the decoder -- but holds no storage, console, log, name, counter or time
+            val loader =
+                codeLines(
+                    encounterFiles().first { it.name == "EncounterSoundFetch.kt" },
+                ).filterNot { it.trimStart().startsWith("import ") }
+            withClue("EncounterSoundFetch.kt must keep no storage, console, log, identity, counter or time of day") {
+                loader
+                    .filter {
+                        STORAGE.containsMatchIn(
+                            it,
+                        ) ||
+                            NO_LEAK_CHANNELS.containsMatchIn(it) ||
+                            identity.containsMatchIn(it)
+                    }.shouldBeEmpty()
+                loader
+                    .filter {
+                        Regex(
+                            """\bcreateElement\b|\bMediaRecorder\b|\bgetUserMedia\b|\brpcService\b""",
+                        ).containsMatchIn(it)
+                    }.shouldBeEmpty()
             }
             // the room hands the packet on without any data
             val room = encounterFiles().first { it.name == "EncounterRoom.kt" }

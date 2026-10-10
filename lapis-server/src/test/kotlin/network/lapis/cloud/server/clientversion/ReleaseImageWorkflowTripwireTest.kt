@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.clientversion
 
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainAll
@@ -9,6 +10,8 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import java.io.File
+import java.nio.file.FileSystems
+import java.nio.file.Paths
 
 /**
  * V1.9.93 "Published container image instead of server-side builds": text-level tripwires over the release
@@ -239,6 +242,42 @@ class ReleaseImageWorkflowTripwireTest :
             // Needed by the build: a hidden lockfile directory and a tracked resource must never be excluded.
             lines.none { it.contains(".kotlin-js-store") || it.contains("geodata") } shouldBe true
             lines.filter { it.contains("backup") } shouldBe listOf("**/backups/")
+        }
+
+        test(
+            "V1.9.97: the recorded bells reach the image -- no .dockerignore exclusion matches them, the bundle is copied whole, nothing removes them",
+        ) {
+            val soundFiles =
+                listOf("call-bell.mp3", "blessing-bell.mp3").map { "lapis-client/src/jsMain/webAssets/encounter-sounds-v1/$it" }
+            val exclusions =
+                readRepoFile(".dockerignore")
+                    .lines()
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() && !it.startsWith("#") && !it.startsWith("!") && it != "*" }
+                    .map { it.trimEnd('/') }
+            soundFiles.forEach { path ->
+                val parts = path.split('/')
+                // the file itself and every parent directory (an excluded directory excludes its content)
+                (1..parts.size).map { parts.take(it).joinToString("/") }.forEach { candidate ->
+                    exclusions.forEach { pattern ->
+                        val matcher = FileSystems.getDefault().getPathMatcher("glob:$pattern")
+                        withClue("the pattern '$pattern' must not exclude '$candidate'") {
+                            matcher.matches(Paths.get(candidate)) shouldBe false
+                        }
+                    }
+                }
+                File(IMAGE_SCAN_ROOT, path).isFile shouldBe true
+            }
+            val dockerfile = readCode("Dockerfile")
+            dockerfile shouldContain
+                "COPY --from=build /workspace/lapis-client/build/kotlin-webpack/js/productionExecutable ./client"
+            dockerfile
+                .lines()
+                .filter { it.trim().startsWith("RUN rm") }
+                .forEach { line ->
+                    line shouldNotContain "assets"
+                    line shouldNotContain ".mp3"
+                }
         }
 
         test("Dockerfile: digest-pinned bases, no blanket COPY, no ADD, no secret-looking ARG/ENV") {

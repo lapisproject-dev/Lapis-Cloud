@@ -21413,5 +21413,9 @@ msgid "Gilt nur für diesen Browser."
 msgstr "Dotyczy tylko tej przeglądarki."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Erklingt beim Ruf und beim Segen."
+msgstr "Rozbrzmiewa przy wezwaniu i przy błogosławieństwie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
 msgid "Glockenton einstellen"
 msgstr "Ustaw dźwięk dzwonu"

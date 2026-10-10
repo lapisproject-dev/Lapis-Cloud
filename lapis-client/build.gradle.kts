@@ -10,6 +10,8 @@
 // `verifyDetektCoverage` fails if a NEW module ever ends up unanalysed by
 // accident. Its source files must be kept named-argument-clean by review; if
 // this module ever grows a jvm() target, remove this exemption.
+import java.security.MessageDigest
+
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.kvision)
@@ -168,6 +170,8 @@ private class VerifyVideoEffectAssets(
     private val taskName: String,
     private val assetsDir: File,
     private val expectedRelativePaths: List<String>,
+    // V1.9.97: relative path -> expected SHA-256 (hex) of own binary assets that are served `immutable`. Plain strings only (Config-Cache safe).
+    private val expectedSha256: Map<String, String> = emptyMap(),
 ) : Action<Task> {
     override fun execute(task: Task) {
         val missing = expectedRelativePaths.filter { !File(assetsDir, it).isFile }
@@ -181,6 +185,18 @@ private class VerifyVideoEffectAssets(
         val empty = expectedRelativePaths.filter { File(assetsDir, it).length() == 0L }
         check(empty.isEmpty()) {
             "$taskName: leere Asset-Datei(en) unter ${assetsDir.path} -- ${empty.joinToString()}."
+        }
+        // V1.9.97: a corrupted copy of an `immutable` asset would stay in browsers for a year, so the build breaks instead.
+        val corrupt =
+            expectedSha256.filter { (path, expected) ->
+                // a fresh MessageDigest per call (not thread-safe to share)
+                val digest = MessageDigest.getInstance("SHA-256")
+                val actual = digest.digest(File(assetsDir, path).readBytes()).joinToString("") { "%02x".format(it) }
+                actual != expected
+            }
+        check(corrupt.isEmpty()) {
+            "$taskName: SHA-256 mismatch for ${corrupt.keys.joinToString()} under ${assetsDir.path}. " +
+                "These files are served immutable; change the bytes only together with a new directory version (encounter-sounds-v2)."
         }
     }
 }
@@ -201,7 +217,16 @@ val videoEffectStagedPaths =
         "mediapipe/selfie_segmenter.tflite",
     ) + videoEffectBackgroundIds.map { "video-backgrounds/$it.webp" } +
         // V1.9.67 Begegnungsraum: the decorative floor-plan scenes (CSS masks, see theme.css `.lapis-encounter-scene-front`/`-rows`) ride the same staging.
-        listOf("church", "hall").flatMap { theme -> listOf("front", "row").map { part -> "encounter-themes/$theme/$part.svg" } }
+        listOf("church", "hall").flatMap { theme -> listOf("front", "row").map { part -> "encounter-themes/$theme/$part.svg" } } +
+        // V1.9.97: the two recorded bells (served immutable under the versioned path `encounter-sounds-v1`).
+        listOf("encounter-sounds-v1/call-bell.mp3", "encounter-sounds-v1/blessing-bell.mp3")
+
+// V1.9.97: SHA-256 of the two recorded bells; checked on the staging AND on the webpack copy.
+val videoEffectExpectedSha256 =
+    mapOf(
+        "encounter-sounds-v1/call-bell.mp3" to "b41a4b3e8a6bc490c815a3398767bf2b9a39ec9048692587f174398430434405",
+        "encounter-sounds-v1/blessing-bell.mp3" to "7eebd9ed890b21ea230dfa9c3cec8ace23e728e77c1c8d8438abd22b4d91d267",
+    )
 
 val videoEffectStagingDir = layout.buildDirectory.dir("video-effect-assets")
 
@@ -222,6 +247,11 @@ val stageVideoEffectAssets by tasks.registering(Sync::class) {
         into("encounter-themes")
         exclude("PROVENANCE.adoc")
     }
+    // V1.9.97: the recorded bells of the bell and the blessing.
+    from(layout.projectDirectory.dir("src/jsMain/webAssets/encounter-sounds-v1")) {
+        into("encounter-sounds-v1")
+        exclude("PROVENANCE.adoc")
+    }
     from(nodeModulesDir.map { it.dir("@mediapipe/tasks-vision/wasm") }) {
         into("mediapipe/tasks-vision-$mediaPipeTasksVisionVersion/wasm")
     }
@@ -231,6 +261,7 @@ val stageVideoEffectAssets by tasks.registering(Sync::class) {
             taskName = "stageVideoEffectAssets",
             assetsDir = videoEffectStagingDir.get().asFile,
             expectedRelativePaths = videoEffectStagedPaths,
+            expectedSha256 = videoEffectExpectedSha256,
         ),
     )
 }
@@ -254,6 +285,7 @@ val copyVideoEffectAssetsToWebpack by tasks.registering(Sync::class) {
             taskName = "copyVideoEffectAssetsToWebpack",
             assetsDir = videoEffectWebpackAssetsDir.get().asFile,
             expectedRelativePaths = videoEffectStagedPaths,
+            expectedSha256 = videoEffectExpectedSha256,
         ),
     )
 }
