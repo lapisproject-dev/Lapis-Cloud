@@ -147,7 +147,7 @@ still wrong.
 [source,bash]
 ----
 cd deploy/example
-cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.31.0) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
+cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.31.1) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
 docker compose pull
 docker compose up -d
 docker compose logs -f lapis-server
@@ -336,12 +336,12 @@ Postgres database name in the commands below.
 
 [CAUTION]
 ====
-**`v0.31.0` is the first release published as an image, and that pipeline has not run yet.** The image
-`ghcr.io/lapisproject-dev/lapis-cloud:0.31.0` exists only after the tag `v0.31.0` was pushed and the "Release image" workflow
+**`v0.31.1` is the first release published as an image, and that pipeline has not run yet.** The image
+`ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` exists only after the tag `v0.31.1` was pushed and the "Release image" workflow
 (`.github/workflows/release-image.yml`) finished green, and `docker compose pull` works without a token only after the package was set to Public once
-(GitHub package settings, project owner). Check `docker buildx imagetools inspect ghcr.io/lapisproject-dev/lapis-cloud:0.31.0` before switching
+(GitHub package settings, project owner). Check `docker buildx imagetools inspect ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` before switching
 an instance; an instance on the old server-side build keeps working until it is switched (see "Switching a real instance from server-side builds to the
-published image" below). Example: `LAPIS_IMAGE_TAG=0.31.0` (no `v`; the git tag is `v0.31.0`, the image tag is `0.31.0`).
+published image" below). Example: `LAPIS_IMAGE_TAG=0.31.1` (no `v`; the git tag is `v0.31.1`, the image tag is `0.31.1`).
 ====
 
 Since V1.9.93 the server is **not built on the host any more**: CI builds the image once per release tag and publishes it, the host sets
@@ -361,7 +361,7 @@ to run at all on any of these three already-migrated instances until `flywayRepa
 each of them -- see the CHANGELOG "Operator notes" entry for this wave for the full mechanism and
 the exact command. Run it once per instance before rebuilding that instance below.
 
-Upgrading to `v0.31.0` adds five additive migrations (`V77` to `V81`; the reported migration count goes up by exactly five) and needs no `flywayRepair` of its own
+Upgrading to `v0.31.1` (the content of `v0.31.0` plus the image-build fix) adds five additive migrations (`V77` to `V81`; the reported migration count goes up by exactly five) and needs no `flywayRepair` of its own
 (`V1__baseline.sql` is untouched since `v0.30.0`). Optional new settings of that release, all off by default: Keycloak provisioning/sync
 (`LAPIS_KEYCLOAK_AUTO_PROVISION`, `LAPIS_KEYCLOAK_SYNC_PROFILE`) and the hourly mail budget (`LAPIS_MAIL_MAX_PER_HOUR`); see the sections below.
 

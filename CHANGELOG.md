@@ -6,6 +6,15 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.31.1] — 2026-10-10
+
+Release fix for the image pipeline; **contains everything of `[0.31.0]` below** (the same waves V1.9.69 -- V1.9.97).
+
+- **The tag `v0.31.0` was pushed, but its image build failed** in the webpack step (`ERR_WORKER_OUT_OF_MEMORY` at a Node heap of 4096 MB: the client bundle outgrew the old cap with the encounter-room waves). Nothing was published for `0.31.0`: **there is no image `0.31.0`**, and no instance was switched to it. `v0.31.1` is the first release published as an image.
+- **Fix:** the Node heap of the production webpack step is a build argument now (`ARG NODE_MAX_OLD_SPACE_MB`, default 6144 in the `Dockerfile`; the release workflow passes 8192 to both image builds so the push build reuses every cached layer). A tripwire test pins it (`ReleaseImageWorkflowTripwireTest`). The image tag in all examples is `0.31.1`.
+- **Operators who build the image on their own host** (the old way): a host with less than about 8 GB of free memory may need `--build-arg NODE_MAX_OLD_SPACE_MB=8192` or more headroom; the old cap of 4096 MB no longer suffices for this bundle.
+- **Known limitation:** the image pipeline's push stage (GHCR, provenance, SBOM) has still never run; this tag is its next attempt.
+
 ## [0.31.0] — 2026-10-10
 
 Release summary (the detail is in the sections below, grouped by wave V1.9.69 -- V1.9.97):
@@ -18,7 +27,7 @@ Release summary (the detail is in the sections below, grouped by wave V1.9.69 --
 - **Operator notes**:
   - **Take a backup first** (`deploy/example/backup.sh`). **Five additive migrations `V77` to `V81`** run automatically (the reported Flyway count goes up by exactly five). None of them touches `V1__baseline.sql`: **no `flywayRepair` is needed for this release** (an instance still on `v0.29.0` or older needs it once, see `[0.30.0]`).
   - **New optional variables, all off or unset by default**: `LAPIS_KEYCLOAK_AUTO_PROVISION`, `_PROVISION_CLAIM`, `_PROVISION_GROUP`, `_PROVISION_RATE_PER_HOUR`, `LAPIS_KEYCLOAK_SYNC_PROFILE` (V1.9.73), `LAPIS_MAIL_MAX_PER_HOUR`, `LAPIS_MAIL_RESERVE_PER_HOUR` (V1.9.81). **New required variable for the image-based compose file: `LAPIS_IMAGE_TAG`** (an exact version without `v`, for example `0.31.0`; never `latest`).
-  - **Servers no longer build the sources (V1.9.93).** CI publishes the image `ghcr.io/lapisproject-dev/lapis-cloud:0.31.0` for each `vX.Y.Z` tag; the host pulls it. **This pipeline has not run yet: the first real run is the push of the tag `v0.31.0`.** Until the package exists and was set to Public once (project owner, GitHub package settings), `docker compose pull` fails; an instance on the old server-side build keeps working. See `deploy/example/README.adoc` ("Updating an existing deployment", "Switching a real instance from server-side builds to the published image") and `docs/architecture/ci-pipeline.adoc`.
+  - **Servers no longer build the sources (V1.9.93).** CI publishes the image `ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` for each `vX.Y.Z` tag; the host pulls it. **This pipeline has not run yet: the first real run is the push of the tag `v0.31.1`.** Until the package exists and was set to Public once (project owner, GitHub package settings), `docker compose pull` fails; an instance on the old server-side build keeps working. See `deploy/example/README.adoc` ("Updating an existing deployment", "Switching a real instance from server-side builds to the published image") and `docs/architecture/ci-pipeline.adoc`.
 - **Encounter room**: icon-only control bar with exit group and "Mehr" sheet (V1.9.74, V1.9.84, V1.9.90), anonymous entry notice for office holders (V1.9.76), server-authoritative seat choice (V1.9.79), discussion tables with their own audio group (V1.9.80, off by default), device selection with a gear button (V1.9.91, V1.9.94), blessing (V1.9.95) and bell (V1.9.96) for the pulpit of a church-service room, both with recorded CC0 sounds (V1.9.97).
 - **Video conference**: the conference dock keeps a call running across pages, with mini bar and a free-floating window from 768 px (V1.9.69 -- V1.9.71), active-speaker mark (V1.9.85), full-width call page with a best-fit tile grid (V1.9.92).
 - **Events**: public events feed with full text, past-event archive feed and import of past events from the static site (V1.9.82).

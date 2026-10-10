@@ -80,7 +80,7 @@ this repository. This README describes only the technical scope.
   between the KVision client and the Ktor server)
 * **AI assistance / agentic layer**: https://koog.ai[Koog] (JetBrains, Kotlin-native agent framework,
   multi-LLM without lock-in)
-* **Deployment**: Docker Compose (`deploy/example/`). Since `v0.31.0` (V1.9.93) the server image is built once per release tag by CI and
+* **Deployment**: Docker Compose (`deploy/example/`). Since `v0.31.1` (V1.9.93) the server image is built once per release tag by CI and
   published to GHCR (`ghcr.io/lapisproject-dev/lapis-cloud:<version>`); hosts pull it instead of compiling the sources
   (`LAPIS_IMAGE_TAG` in `.env`, rollback = previous tag). **Untested until the first tag push** -- see `docs/architecture/ci-pipeline.adoc`
   and `deploy/example/README.adoc`. A local source build stays available through `docker-compose.build.yml`.
@@ -575,7 +575,7 @@ Operators: take a backup, then **run `flywayRepair` once on every instance that 
 `V1__baseline.sql`), then deploy; migrations `V73` to `V76` are additive; no new environment variable -- see `CHANGELOG.md` `[0.30.0]`
 and `deploy/example/README.adoc`.
 
-**`v0.31.0`** spans the waves V1.9.69 through V1.9.97 (thirty-odd commits); see `CHANGELOG.md` `[0.31.0]`, whose release summary lists the
+**`v0.31.1`** is `v0.31.0` plus a fix for the image build (the tag `v0.31.0` has no published image, see `CHANGELOG.md` `[0.31.1]`). **`v0.31.0`** spans the waves V1.9.69 through V1.9.97 (thirty-odd commits); see `CHANGELOG.md` `[0.31.0]`, whose release summary lists the
 **behaviour changes** first. **The video conference** survives navigation (conference dock with mini bar and a free-floating window from 768 px, a
 guard against the endless loop of a second sign-in with the same account), shows the active speaker and uses the full page width with a best-fit tile
 grid. **The encounter room** gets an icon-only bar, a server-authoritative seat choice, discussion tables for the assembly profile, an anonymous entry
@@ -584,9 +584,9 @@ a public feed with the full text, a past-event archive feed and an import of pas
 shown on the public page unless an administrator ticks it. **Mail**: an optional hourly send budget with a resumable outbox. **MCP access for
 member agents** works with OAuth (protocol `2025-06-18`; Claude Code signs in; write tools remain behind the operator's `LAPIS_MCP_WRITE_ENABLED`).
 **Keycloak** can create a member on the first login and sync the profile, both opt-in and off by default. **Servers no longer build the sources:**
-a tag-triggered workflow (`release-image.yml`) publishes the server image to GHCR as `ghcr.io/lapisproject-dev/lapis-cloud:0.31.0` (no `v`, no
+a tag-triggered workflow (`release-image.yml`) publishes the server image to GHCR as `ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` (no `v`, no
 `latest`), and the compose file takes it from `LAPIS_IMAGE_TAG`; see `deploy/example/README.adoc` and `docs/architecture/ci-pipeline.adoc`. **Not verified:**
-the image pipeline has never run (its first run is the push of the tag `v0.31.0`, and the package must then be set to Public once); the blessing and
+the image pipeline has never run (its first run is the push of the tag `v0.31.1`, and the package must then be set to Public once); the blessing and
 the bell were never tried against a real LiveKit server with `SendData`; Safari has no speaker choice; the conference dock and floating window were not
 tried with real participants or on a real device, and the Keycloak provisioning not against a real Keycloak. Operators: take a backup, set
 `LAPIS_IMAGE_TAG`, deploy; migrations `V77` to `V81` are additive, `V1__baseline.sql` is untouched (no `flywayRepair` for this release; instances on
