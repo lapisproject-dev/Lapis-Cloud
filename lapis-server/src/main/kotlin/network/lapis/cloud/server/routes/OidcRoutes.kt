@@ -48,6 +48,7 @@ import network.lapis.cloud.server.federation.OidcDiscoveryDocument
 import network.lapis.cloud.server.federation.OidcDiscoveryDto
 import network.lapis.cloud.server.federation.OidcDynamicClientRegistrationRequest
 import network.lapis.cloud.server.federation.OidcDynamicClientRegistrationResponse
+import network.lapis.cloud.server.federation.OidcGuestAuthorizeRequest
 import network.lapis.cloud.server.federation.OidcGuestClaims
 import network.lapis.cloud.server.federation.OidcGuestMemberStore
 import network.lapis.cloud.server.federation.OidcJwks
@@ -114,6 +115,14 @@ private const val DCR_MAX_REDIRECT_URI_LENGTH = 2048
 
 private val AUTHORIZATION_CODE_TTL = 60.seconds
 private val RP_LOGIN_ATTEMPT_TTL = 10.minutes
+
+/**
+ * V1.9.99 -- browser binding for the guest-federation RP flow (login-CSRF defense), same idea as
+ * `KEYCLOAK_LOGIN_BINDING_COOKIE_NAME`. The `__Host-` prefix is mandatory: sibling subdomains of one
+ * registrable domain must not be able to plant it. Value == the raw `state`; an attacker cannot set
+ * this cookie in the victim's browser, which is what gives the check its force.
+ */
+internal const val OIDC_RP_BINDING_COOKIE_NAME = "__Host-lapis_oidc_rp_binding"
 private val ACCESS_TOKEN_TTL = 1.hours
 private val REFRESH_TOKEN_TTL = 30.days
 
@@ -385,6 +394,11 @@ fun Route.registerOidcRoutes(
         // exact-equality check here let a mixed-scope request skip all five and mint an
         // unrevokable, invisible MCP-scoped grant (see the finding this comment documents).
         val requestedScopes = scope.split(" ").filter { it.isNotBlank() }.toSet()
+        // V1.9.99 -- defense in depth: same known-scope check as GET /authorize (a direct POST must not mint a code with an unknown scope).
+        if (requestedScopes.isEmpty() || !requestedScopes.all { it in OidcScopes.ALL }) {
+            call.respond(HttpStatusCode.BadRequest, "Missing or unknown scope")
+            return@post
+        }
         val isMcpRequest = requestedScopes.any { it == OidcScopes.MCP_MEMBER_READ || it == OidcScopes.MCP_MEMBER_WRITE }
         // V1.9.86 -- mirrors GET /authorize: nonce is mandatory for every non-MCP (guest federation) grant.
         if (!isMcpRequest && nonce == null) {
@@ -684,6 +698,15 @@ fun Route.registerOidcRoutes(
     }
 
     post("/federation/oidc/rp/login") {
+        // V1.9.99 (B2) -- a foreign page must not be able to start this flow in the visitor's browser.
+        if (!isSameOriginRequest(
+                headers = call.request.headers,
+                canonicalOrigin = runCatching { URI(FederationConfig.publicBaseUrl) }.getOrNull(),
+            )
+        ) {
+            call.respond(HttpStatusCode.Forbidden, "Cross-origin request rejected")
+            return@post
+        }
         val form = call.receiveParameters()
         val rawInput = form["home_server"]?.trim()
         if (rawInput.isNullOrBlank()) {
@@ -827,19 +850,17 @@ fun Route.registerOidcRoutes(
             }
         }
 
-        val scope = OidcScopes.ALL.joinToString(" ")
         val authorizeUrl =
-            buildString {
-                append(registration[OidcHomeServerRegistrationTable.authorizationEndpoint])
-                append("?response_type=code")
-                append("&client_id=").append(URLEncoder.encode(registration[OidcHomeServerRegistrationTable.clientId], "UTF-8"))
-                append("&redirect_uri=").append(URLEncoder.encode(redirectUri, "UTF-8"))
-                append("&scope=").append(URLEncoder.encode(scope, "UTF-8"))
-                append("&state=").append(URLEncoder.encode(state, "UTF-8"))
-                append("&code_challenge=").append(URLEncoder.encode(codeChallenge, "UTF-8"))
-                append("&code_challenge_method=S256")
-                append("&nonce=").append(URLEncoder.encode(nonce, "UTF-8"))
-            }
+            OidcGuestAuthorizeRequest.buildAuthorizeUrl(
+                authorizationEndpoint = registration[OidcHomeServerRegistrationTable.authorizationEndpoint],
+                clientId = registration[OidcHomeServerRegistrationTable.clientId],
+                redirectUri = redirectUri,
+                state = state,
+                codeChallenge = codeChallenge,
+                nonce = nonce,
+            )
+        // V1.9.99 (B1) -- bind this browser to the attempt; checked at /rp/callback.
+        appendRpBindingCookie(call = call, state = state)
         call.respondRedirect(authorizeUrl)
     }
 
@@ -896,6 +917,26 @@ fun Route.registerOidcRoutes(
                     }.single()
             }
         val homeServerIssuer = registration[OidcHomeServerRegistrationTable.issuerUrl]
+
+        // V1.9.99 (B1) -- the state row is genuine, but that alone does not prove THIS browser started
+        // the attempt (login CSRF). The binding cookie (value == state) is expired in every case.
+        val bindingCookie = call.request.cookies[OIDC_RP_BINDING_COOKIE_NAME]
+        val bindingOk =
+            bindingCookie != null && MessageDigest.isEqual(bindingCookie.toByteArray(), state.toByteArray())
+        expireRpBindingCookie(call)
+        if (!bindingOk) {
+            OidcLoginAuditRecorder.record(
+                eventType = OidcLoginEventType.RP_LOGIN_FAILED,
+                remoteParty = homeServerIssuer,
+                reason = "BROWSER_BINDING_MISMATCH",
+            )
+            call.respondText(
+                errorPageHtml("Invalid or expired login attempt."),
+                contentType = io.ktor.http.ContentType.Text.Html,
+                status = HttpStatusCode.Unauthorized,
+            )
+            return@get
+        }
 
         if (error != null || code.isNullOrBlank()) {
             OidcLoginAuditRecorder.record(
@@ -1053,13 +1094,8 @@ fun Route.registerOidcRoutes(
         // returned that this server also recognizes is honored; "pzb:comment"/"pzb:post_paid" are
         // recognized as scope literals but NOT wired into any write path yet, so granting them here
         // has no economic/posting effect this wave regardless).
-        val grantedScope =
-            tokenResponse.scope
-                .split(" ")
-                .filter {
-                    it in OidcScopes.ALL
-                }.joinToString(" ")
-                .ifBlank { OidcScopes.ALWAYS_GRANTED.joinToString(" ") }
+        // V1.9.99: MCP scopes are never honored for a guest (see OidcScopes.FEDERATION); the result is de-duplicated and length-bounded.
+        val grantedScope = OidcGuestAuthorizeRequest.grantedScope(tokenResponse.scope)
 
         // Review finding N5 fix (round 2): `resolveOrCreateGuestMember` can throw
         // `GuestIdentityBoundToNonGuestMemberException` for the rare "identity already bound to a
@@ -1693,6 +1729,40 @@ private fun errorPageHtml(message: String): String =
     <html><head><meta charset="utf-8"><title>Anmeldung fehlgeschlagen</title></head>
     <body><h1>Anmeldung fehlgeschlagen</h1><p>${htmlEscape(message)}</p></body></html>
     """.trimIndent()
+
+private fun appendRpBindingCookie(
+    call: io.ktor.server.application.ApplicationCall,
+    state: String,
+) {
+    // SameSite=Lax, not Strict: the callback is a cross-site top-level GET from the home server.
+    call.response.cookies.append(
+        Cookie(
+            name = OIDC_RP_BINDING_COOKIE_NAME,
+            value = state,
+            encoding = CookieEncoding.URI_ENCODING,
+            maxAge = RP_LOGIN_ATTEMPT_TTL.inWholeSeconds.toInt(),
+            path = "/",
+            secure = true,
+            httpOnly = true,
+            extensions = mapOf("SameSite" to "Lax"),
+        ),
+    )
+}
+
+private fun expireRpBindingCookie(call: io.ktor.server.application.ApplicationCall) {
+    call.response.cookies.append(
+        Cookie(
+            name = OIDC_RP_BINDING_COOKIE_NAME,
+            value = "",
+            encoding = CookieEncoding.URI_ENCODING,
+            maxAge = 0,
+            path = "/",
+            secure = true,
+            httpOnly = true,
+            extensions = mapOf("SameSite" to "Lax"),
+        ),
+    )
+}
 
 private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime(TimeZone.UTC)
 

@@ -45,4 +45,16 @@ class OidcScopesTest :
         test("mcp:member_read + mcp:member_write mixed with a guest-federation scope is REJECTED too") {
             OidcScopes.isMcpScopeSet(setOf(OidcScopes.OPENID, OidcScopes.MCP_MEMBER_READ, OidcScopes.MCP_MEMBER_WRITE)) shouldBe false
         }
+
+        test("V1.9.99: FEDERATION is ALL minus every MCP scope, in ALL's order") {
+            OidcScopes.FEDERATION shouldBe
+                OidcScopes.ALL.filterNot { it == OidcScopes.MCP_MEMBER_READ || it == OidcScopes.MCP_MEMBER_WRITE }
+        }
+
+        test("V1.9.99: FEDERATION carries no mcp: scope, includes ALWAYS_GRANTED, and is never an MCP scope set") {
+            OidcScopes.FEDERATION.none { it.startsWith("mcp:") } shouldBe true
+            OidcScopes.FEDERATION.containsAll(OidcScopes.ALWAYS_GRANTED) shouldBe true
+            OidcScopes.isMcpScopeSet(OidcScopes.FEDERATION.toSet()) shouldBe false
+            OidcScopes.ALL.filter { it.startsWith(OidcScopes.MCP_SCOPE_PREFIX) }.none { it in OidcScopes.FEDERATION } shouldBe true
+        }
     })

@@ -1,0 +1,55 @@
+= OIDC guest federation
+:toc:
+
+A member of one Lapis Cloud server (the _home server_) can sign in as a guest on another one (the _relying party_, RP).
+Each server is both: its Issuer half answers `/federation/oidc/authorize`, `/token` and `/jwks`; its RP half starts the
+login at `/federation/oidc/rp/login` and finishes it at `/federation/oidc/rp/callback`.
+
+== Flow
+
+. *RP start.* `POST /federation/oidc/rp/login` takes the home server address. The request must be same-origin (see <<Browser binding and same-origin start>>).
+. *Discovery.* The RP fetches `/.well-known/openid-configuration` of the home server (SSRF-guarded transport).
+. *Registration (DCR).* On first contact the RP registers itself with `POST /federation/oidc/register` and stores the result in `oidc_home_server_registration`.
+. *Authorize.* The RP stores a one-time attempt (`oidc_rp_login_attempt`: state hash, PKCE verifier, nonce) and redirects the browser to the home server's `/authorize` with PKCE S256, `state` and `nonce`.
+. *Login.* Without a session, the home server sends the browser to its login page with a `returnTo`.
+. *Consent.* The member allows the guest access on the home server.
+. *Token.* The RP exchanges the code at the home server's `/token` endpoint.
+. *ID token.* The RP fetches the home server's JWKS and verifies signature, `iss`, `aud`, expiry and `nonce`.
+. *Guest account.* The RP creates or resolves a `GUEST` member for `(issuer, subject)` and stores the granted scope in `oidc_guest_profile`.
+. *Session.* The RP opens a session and redirects into the app.
+
+== Scopes
+
+The RP asks for `OidcScopes.FEDERATION` only. MCP scopes are for MCP clients; the Issuer rejects any request that mixes
+MCP and federation scopes, on purpose (`OidcScopes.isMcpScopeSet`). `FEDERATION` is derived as the full scope list
+minus every scope with the `mcp:` prefix, so a future MCP scope can never slip into the guest request.
+
+Until V1.9.99 the RP asked for the full list. Every home server answered HTTP 400 ("MCP access is not enabled" or "MCP
+scope requests may only combine ..."), so guest federation never completed after V1.8.2.
+
+The RP also reduces the scope the home server reports back: it keeps only `FEDERATION` scopes, removes duplicates, and
+falls back to `ALWAYS_GRANTED` when nothing is left. The result is at most about 75 characters, well inside the
+`varchar(500)` column.
+
+`POST /federation/oidc/authorize/consent` validates the scope against the known scopes, like the GET handler (defense in depth).
+
+== Browser binding and same-origin start
+
+* *Binding cookie.* `/rp/login` sets `+__Host-lapis_oidc_rp_binding+` (value: the `state`; `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain`). `/rp/callback` compares it in constant time after the attempt has been consumed and before any outgoing fetch, and always expires it. A mismatch ends in HTTP 401 with the audit reason `BROWSER_BINDING_MISMATCH`. This closes login CSRF: a link carrying someone else's `code` and `state` no longer signs the victim in as the attacker's guest. `SameSite=Lax` is required because the callback is a cross-site top-level GET. Two parallel guest logins in two tabs overwrite each other's cookie.
+* *Same-origin start.* `POST /rp/login` rejects cross-origin requests (`Sec-Fetch-Site`, `Origin`) with HTTP 403, so a foreign page cannot start the flow in a visitor's browser.
+
+== Tests
+
+* `OidcGuestAuthorizeRequestTest`, `OidcScopesTest`: URL contents and scope derivation.
+* `OidcGuestFederationFlowTest`: the RP's real authorize URL against the Issuer in all four MCP configurations, through consent, token and ID-token verification to a `GUEST` member; negative scope cases; binding cookie and same-origin checks.
+* `OidcFederationScopeTripwireTest`: source scan, fails if the RP request builds its scope from the full list again.
+
+== Known limitations
+
+* The RP's HTTP transport hop (Discovery, DCR, token and JWKS fetch) is not covered in-process. The federation client is fixed to CIO and the SSRF guard blocks loopback and plain HTTP on purpose; a test switch in that transport would be a security risk.
+* Not verified in production with real guests as of V1.9.99.
+* `iss` is `LAPIS_PUBLIC_BASE_URL` as written; the RP compares it with the normalized origin. A trailing slash or a path in that variable breaks the login with `ISSUER_MISMATCH`.
+* The cached home-server registration is never refreshed. If the home server's database is reset (for example the nightly demo reset), the RP keeps a stale `client_id` and gets `Unknown client_id`.
+* The Issuer's session cookie is `SameSite=Strict`. When Issuer and RP are on different registrable domains, the browser omits it on the jump to `/authorize`, and the guest has to sign in on the home server again (`returnTo` is kept).
+* The RP still requests `pzb:comment` and `pzb:post_paid`, which have no effect yet; the consent page shows the raw scope names.
+* Any HTTPS server can act as a home server (design decision of V0.8).

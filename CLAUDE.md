@@ -108,6 +108,10 @@ Details: `docs/architecture/logging-privacy.adoc`. Kurzregeln:
   Personendaten (Kilua loggt jede Exposed-Ausnahme mit Meldung und Ursachenkette). Ein Tripwire-Test prüft die Appender-Patterns.
 - Kein `logback-test.xml` anlegen (die Tests müssen die Produktionskonfiguration laden); Logger `Exposed` bleibt mindestens INFO.
 
+## Gast-Föderation (V1.9.99)
+
+- Gast-Föderation: Die RP fordert ausschließlich `OidcScopes.FEDERATION` an; `OidcScopes.ALL` nur für Issuer/Discovery (Tripwire `OidcFederationScopeTripwireTest`). Details: `docs/architecture/oidc-guest-federation.adoc`.
+
 ## Buchhaltungs-Export (V1.9.65)
 
 Details: `docs/architecture/accounting-export-idempotency.adoc`. Jeder Schreibzugriff nach einem `claim` trägt das Fencing-Token (`claim_generation`, nie zurückgesetzt) und liefert `FencedWrite`; neue

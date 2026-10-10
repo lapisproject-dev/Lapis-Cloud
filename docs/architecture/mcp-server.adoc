@@ -204,6 +204,8 @@ land on a login screen that immediately jumps forward again (a back-button trap)
 | `mcp:member_write` | ADDITIONALLY `register_for_event` and `create_post_draft`. Never granted alone. Never implied retroactively by a pre-existing `mcp:member_read`-only token -- `McpTokenAuth.resolve` derives `McpPrincipal.canWrite` from the ACTUAL stored scope string on each token, never a blanket upgrade.
 |===
 
+MCP scopes are never part of guest federation: the guest-login RP requests only `OidcScopes.FEDERATION`, and the Issuer rejects any request mixing MCP and federation scopes. See xref:oidc-guest-federation.adoc[OIDC guest federation].
+
 A token issued before `mcp:member_write` existed, or one whose holder only ever requested
 `mcp:member_read`, stays read-only forever. The consent screen (`routes.McpConsentPage`) renders a
 second, explicit block naming the two write effects only when `mcp:member_write` is being requested,

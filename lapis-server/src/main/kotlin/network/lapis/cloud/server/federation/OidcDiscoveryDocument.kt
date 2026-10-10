@@ -74,6 +74,17 @@ object OidcScopes {
     /** The full family of MCP scopes -- see [isMcpScopeSet]. */
     private val MCP_SCOPES = setOf(MCP_MEMBER_READ, MCP_MEMBER_WRITE)
 
+    /** Prefix every MCP scope literal carries -- the structural marker [FEDERATION] excludes. */
+    const val MCP_SCOPE_PREFIX = "mcp:"
+
+    /**
+     * V1.9.99 -- the ONLY scopes a Relying Party may ask a home server for in a guest-federation
+     * /authorize request: [ALL] minus every MCP scope. Derived, never hand-listed, so a future MCP
+     * scope can never slip into the guest request again. [ALL] stays the Issuer's/Discovery's set.
+     * (Declared after [ALL] and [MCP_SCOPES] on purpose -- object initialization order.)
+     */
+    val FEDERATION: List<String> = ALL.filterNot { it in MCP_SCOPES || it.startsWith(MCP_SCOPE_PREFIX) }
+
     /**
      * Welle V1.8.2 -- replaces the old `MCP_MEMBER_READ in requestedScopes && requestedScopes.size
      * == 1` "must be requested alone" check. `true` iff [scopes] is non-empty, consists EXCLUSIVELY
