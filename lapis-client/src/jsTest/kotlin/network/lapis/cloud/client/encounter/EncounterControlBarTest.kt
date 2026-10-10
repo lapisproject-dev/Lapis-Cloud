@@ -26,6 +26,7 @@ class EncounterControlBarTest {
         assertEquals(EncounterControlGroup.DEVICES, encounterControlGroup(EncounterControlSlot.Mic))
         assertEquals(EncounterControlGroup.DEVICES, encounterControlGroup(EncounterControlSlot.Camera))
         assertEquals(EncounterControlGroup.DEVICES, encounterControlGroup(EncounterControlSlot.AudioDevices))
+        assertEquals(EncounterControlGroup.LITURGY, encounterControlGroup(EncounterControlSlot.Blessing))
         assertEquals(EncounterControlGroup.PANELS, encounterControlGroup(EncounterControlSlot.Chat))
         assertEquals(EncounterControlGroup.PANELS, encounterControlGroup(EncounterControlSlot.More))
         assertEquals(EncounterControlGroup.VIEW, encounterControlGroup(EncounterControlSlot.Scene))
@@ -179,5 +180,78 @@ class EncounterControlBarTest {
             assertFalse(leave in moved, "width $width: Verlassen stays")
         }
         assertTrue(widest > 0.0)
+    }
+
+    // ── V1.9.95: the blessing ──────────────────────────────────────────────────────────────────────────────────────────────────
+
+    private val blessing = EncounterControlSlot.Blessing
+
+    @Test
+    fun theGroupsStandInOrder_theLiturgyGroupBetweenTheReactionsAndThePanels() {
+        assertEquals(
+            listOf(
+                EncounterControlGroup.DEVICES,
+                EncounterControlGroup.REACTIONS,
+                EncounterControlGroup.LITURGY,
+                EncounterControlGroup.PANELS,
+                EncounterControlGroup.VIEW,
+                EncounterControlGroup.MODERATION,
+                EncounterControlGroup.EXIT,
+            ),
+            EncounterControlGroup.entries,
+        )
+    }
+
+    @Test
+    fun theOverflowOrder_putsTheBlessingAfterTheDoorsAndBeforeTheChat_onlyWhenThereIsOne() {
+        val withBlessing = encounterOverflowOrder(EncounterReactionOption.entries.toSet(), blessing = true)
+        val withoutBlessing = encounterOverflowOrder(EncounterReactionOption.entries.toSet(), blessing = false)
+        assertEquals(listOf(doors, blessing, EncounterControlSlot.Chat), withBlessing.takeLast(3))
+        assertFalse(blessing in withoutBlessing)
+        assertEquals(withoutBlessing, withBlessing.filterNot { it == blessing })
+        assertFalse(blessing in encounterOverflowOrder(emptySet()), "the default is no blessing")
+    }
+
+    @Test
+    fun theBlessingNeverStandsNextToTheModeration_positiveAndNegative() {
+        val reaction = EncounterControlSlot.Reaction(EncounterReactionOption.AMEN)
+        val chat = EncounterControlSlot.Chat
+        assertTrue(blessingNeverAdjacentToModeration(listOf(hand, reaction, blessing, chat, broadcast, doors, leave)))
+        assertFalse(blessingNeverAdjacentToModeration(listOf(hand, blessing, broadcast, leave)))
+        assertFalse(blessingNeverAdjacentToModeration(listOf(hand, broadcast, blessing, leave)))
+    }
+
+    @Test
+    fun theOldInvariants_holdOnAPulpitListWithTheBlessing() {
+        val full =
+            listOf(
+                EncounterControlSlot.Mic,
+                EncounterControlSlot.Camera,
+                EncounterControlSlot.AudioDevices,
+                hand,
+                EncounterControlSlot.Reaction(EncounterReactionOption.AMEN),
+                blessing,
+                EncounterControlSlot.Chat,
+                EncounterControlSlot.More,
+                EncounterControlSlot.Scene,
+                broadcast,
+                doors,
+                leave,
+            )
+        assertTrue(devicesAreFirst(full) && encounterLeaveIsLast(full) && doorsImmediatelyBeforeLeave(full))
+        assertTrue(moderationNeverAdjacentToReactions(full))
+        assertTrue(blessingNeverAdjacentToModeration(full))
+    }
+
+    @Test
+    fun at320px_aPulpitPerson_losesTheBlessingBeforeTheChat_andNeverHandOrLeave() {
+        val shown = pulpitPerson.dropLast(1) + listOf(blessing, leave)
+        val order = encounterOverflowOrder(emptySet(), blessing = true)
+        for (width in 300..900 step 10) {
+            val moved = overflowAt(width.toDouble(), shown, order)
+            if (EncounterControlSlot.Chat in moved) assertTrue(blessing in moved, "width $width: the blessing goes before the chat")
+            assertFalse(leave in moved, "width $width: Verlassen stays")
+            assertFalse(hand in moved, "width $width: the hand stays")
+        }
     }
 }

@@ -21379,3 +21379,11 @@ msgstr "Nie udało się zmienić głośnika. Pozostaje poprzednie urządzenie."
 
 msgid "Ihr Tisch ist gerade beruhigt."
 msgstr "Twój stół jest teraz wyciszony."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Segen"
+msgstr "Błogosławieństwo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Der Segen wird gesprochen"
+msgstr "Wypowiadane jest błogosławieństwo"

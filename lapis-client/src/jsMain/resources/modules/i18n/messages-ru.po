@@ -21370,3 +21370,11 @@ msgstr "Не удалось сменить динамик. Остаётся пр
 
 msgid "Ihr Tisch ist gerade beruhigt."
 msgstr "Ваш стол сейчас приглушён."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Segen"
+msgstr "Благословение"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Der Segen wird gesprochen"
+msgstr "Звучит благословение"

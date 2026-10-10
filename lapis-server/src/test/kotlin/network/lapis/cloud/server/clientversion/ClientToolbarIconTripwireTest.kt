@@ -694,7 +694,8 @@ class ClientToolbarIconTripwireTest :
                         // chat, more (panels), scene, full screen (view), transmission (moderation), doors, leave (exit);
                         // V1.9.80: + the table microphone and "Kanzel lauter" (devices group, shown while one sits at a table)
                         // V1.9.84: + the hand and the event reactions loop (reaction group)
-                        "EncounterRoom.kt" to 11,
+                        // V1.9.95: + the blessing (liturgy group, pulpit of a church-service room only)
+                        "EncounterRoom.kt" to 12,
                         // V1.9.90: the named R58 group "encounter devices (microphone and camera)"
                         "EncounterPulpitControls.kt" to 2,
                         // V1.9.91: the named R58 group "encounter device picker (gear)": exactly one icon-only button
@@ -778,6 +779,21 @@ class ClientToolbarIconTripwireTest :
                 sheet.contains("position: absolute") shouldBe true
                 sheet.contains("overflow: auto") shouldBe true
             }
+        }
+
+        test(
+            "V1.9.95: ActionIcon.BLESSING is used once in the whole client outside its declaration -- in EncounterRoom, via one variable",
+        ) {
+            val users =
+                clientFiles()
+                    .filter { it.name != "ActionIcon.kt" }
+                    .associate { it.name to codeLines(it.readText()).sumOf { l -> Regex("""ActionIcon\.BLESSING""").findAll(l).count() } }
+                    .filterValues { it > 0 }
+            users shouldBe mapOf("EncounterRoom.kt" to 1)
+            val room = clientFiles().first { it.name == "EncounterRoom.kt" }.readText()
+            // bar button and sheet twin share the variable (one picture for one verb), and the button is built only from the liturgy group
+            codeLines(room).count { Regex("""\(icon, label\)""").containsMatchIn(it) || it.contains("sheetTwin(icon, label)") } shouldBe 2
+            room.contains("controlBar.group(EncounterControlGroup.LITURGY)") shouldBe true
         }
 
         test(

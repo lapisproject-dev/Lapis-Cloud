@@ -148,11 +148,12 @@ class EncounterControlsOverflowDomTest {
                 val twins = element.sheet()!!.allOf("button")
                 val names = twins.map { it.textContent.orEmpty().trim() }
                 assertEquals(
-                    listOf("Amen", "Chat", "Szene ausblenden", "Vollbild", "Übertragung", "Türen schließen"),
+                    // V1.9.95: the pulpit of a church room also has the blessing (liturgy group, right after the reactions)
+                    listOf("Amen", "Segen", "Chat", "Szene ausblenden", "Vollbild", "Übertragung", "Türen schließen"),
                     names,
                     "bar order, doors last",
                 )
-                assertEquals("true", twins[2].getAttribute("aria-pressed"), "the scene twin mirrors the state")
+                assertEquals("true", twins[3].getAttribute("aria-pressed"), "the scene twin mirrors the state")
                 assertTrue(twins.last().classList.contains("lapis-encounter-twin-end"))
             }
         }

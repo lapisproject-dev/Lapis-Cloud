@@ -21332,3 +21332,11 @@ msgstr "The speaker could not be changed. The previous device remains."
 
 msgid "Ihr Tisch ist gerade beruhigt."
 msgstr "Your table is currently quieted."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Segen"
+msgstr "Blessing"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Der Segen wird gesprochen"
+msgstr "The blessing is being spoken"

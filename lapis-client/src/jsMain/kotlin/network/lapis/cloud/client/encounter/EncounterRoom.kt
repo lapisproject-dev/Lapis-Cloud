@@ -12,6 +12,7 @@ import io.kvision.i18n.tr
 import io.kvision.panel.vPanel
 import kotlinx.browser.document
 import kotlinx.browser.window
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import network.lapis.cloud.client.ActionIcon
 import network.lapis.cloud.client.AppScope
@@ -92,6 +93,8 @@ internal class EncounterRoom(
     private val tableSessionOpener: EncounterTableSessionOpener = ::openEncounterTableSession,
     /** V1.9.91: the browser's device list and speaker setter -- a seam for tests (a fake never depends on the machine's real devices). */
     private val deviceEnv: EncounterDeviceEnvironment = browserDeviceEnvironment(),
+    /** V1.9.95: the timers of the blessing display -- a seam for tests. */
+    private val blessingScheduler: EncounterBlessingScheduler = browserBlessingScheduler,
 ) {
     private val terms: EncounterTerms = termsFor(space.profile)
     private val allowedReactions: Set<EncounterReactionOption> = EncounterReactionOption.normalize(space.reactions).toSet()
@@ -110,9 +113,26 @@ internal class EncounterRoom(
 
     /** V1.9.91: "the speaker/microphone/camera is no longer available" -- a fixed sentence naming the KIND of device, never its name; polite. */
     private val deviceLive: Div = root.div(className = "visually-hidden")
+
+    /** V1.9.95: the one fixed sentence "the blessing is spoken" -- a PERSISTENT polite region (a region created together with its text is not announced). */
+    private val blessingLive: Div = root.div(className = "visually-hidden")
     private val bands: Div = root.div(className = "lapis-encounter-bands")
     private val main: Div = root.div(className = "lapis-encounter-main")
     private val layout = EncounterSceneLayout(main, terms)
+
+    /** V1.9.95: the quiet cross over the pulpit area, visible to everybody in the room. */
+    private val blessingDisplay =
+        EncounterBlessingDisplay(
+            host = layout.pulpit,
+            terms = terms,
+            live = blessingLive,
+            timer = EncounterBlessingTimer(now = clock),
+            scheduler = blessingScheduler,
+        )
+
+    /** V1.9.95: the label of the blessing button; `null` = the viewer gets no blessing (not a pulpit, or a room without one). The server decides again. */
+    private val blessingLabel: String? = terms.blessingLabel()?.takeIf { viewer.presenceRole == EncounterPresenceRole.PULPIT }
+    private var blessingInFlight = false
 
     // ── tables (V1.9.80, stage 2b): assembly profile with tables enabled only ──
     private val tablesOn: Boolean = space.tables.enabled // the server reports it only for the assembly profile
@@ -168,7 +188,7 @@ internal class EncounterRoom(
             if (viewer.canModerate) add(EncounterSideTab.STREAM)
         }
     private val side = EncounterSidePanel(main, tabs) { tab -> onTabShown(tab) }
-    private val controlBar = EncounterControlBar(root)
+    private val controlBar = EncounterControlBar(root, liturgy = blessingLabel != null)
     private val controls: Div get() = controlBar.root
 
     /**
@@ -269,6 +289,7 @@ internal class EncounterRoom(
             onRemoteTrackGone = { identity, track, _ -> onRemoteTrackGone(identity, track) },
             onParticipantJoined = { _, _ -> requestPresentRefresh() },
             onSeatNudge = { identity -> onSeatNudge(identity) },
+            onBlessing = { blessingDisplay.onBlessing() },
             onActiveSpeakers = { identities -> onActiveSpeakers(identities) },
             onParticipantLeft = { identity -> onParticipantLeft(identity) },
             onLocalVideoTrack = { track -> onLocalVideo(track) },
@@ -294,6 +315,8 @@ internal class EncounterRoom(
         tableLive.setAttribute("aria-live", "polite")
         deviceLive.setAttribute("role", "status")
         deviceLive.setAttribute("aria-live", "polite")
+        blessingLive.setAttribute("role", "status")
+        blessingLive.setAttribute("aria-live", "polite")
         tableView?.let { view ->
             view.onChoose = { table, seat -> chooseTableSeat(table, seat) }
             view.onLeave = { leaveTable() }
@@ -374,6 +397,13 @@ internal class EncounterRoom(
         eventWaitNote.setAttribute("role", "status")
         eventWaitNote.hide()
         if (tablesOn && viewer.presenceRole == EncounterPresenceRole.CONGREGATION) buildTableControls()
+        // V1.9.95: the blessing -- the liturgy group exists only for the pulpit of a room that has one (the server checks it again).
+        blessingLabel?.let { label ->
+            val icon = ActionIcon.BLESSING
+            val blessingButton = controlBar.group(EncounterControlGroup.LITURGY).encounterControlButton(icon, label)
+            blessingButton.onClick { bless() }
+            barSlots += ControlBarSlot(EncounterControlSlot.Blessing, blessingButton, sheetTwin(icon, label) { bless() })
+        }
         val panels = controlBar.group(EncounterControlGroup.PANELS)
         chatButton = panels.encounterControlButton(ActionIcon.CHAT, tr("Chat"))
         chatButton.setAttribute("aria-expanded", "false")
@@ -448,7 +478,7 @@ internal class EncounterRoom(
                 slots = barSlots,
                 dividers = emptyList(),
                 groupOf = { encounterControlGroup(it).ordinal },
-                order = encounterOverflowOrder(allowedReactions),
+                order = encounterOverflowOrder(allowedReactions, blessing = blessingLabel != null),
                 exitGroup = EncounterControlGroup.EXIT.ordinal,
                 overflowedClass = OVERFLOWED_CLASS,
                 onChanged = { onOverflowChanged() },
@@ -1272,6 +1302,27 @@ internal class EncounterRoom(
         cleanups += cleanup
     }
 
+    /**
+     * V1.9.95: the pulpit speaks the blessing. One call per click (a double click while the call is out is ignored); a refusal or an error
+     * is neither shown nor logged (the server swallows a second blessing within ten seconds on its own, and a failed delivery is no concern
+     * of the pulpit). The text of a caught exception is never read.
+     */
+    private fun bless() {
+        if (disposed || blessingInFlight) return
+        blessingInFlight = true
+        AppScope.launch {
+            try {
+                rpcService<IEncounterSpaceService>().blessSpace(space.id)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                // nothing to report
+            } finally {
+                blessingInFlight = false
+            }
+        }
+    }
+
     /** Ends every timer and listener, drops the media elements and leaves the widgets to the owner (which removes the panel). */
     fun dispose() {
         if (disposed) return
@@ -1280,6 +1331,7 @@ internal class EncounterRoom(
         cleanups.clear()
         sheetCleanup = null
         overflow.dispose()
+        blessingDisplay.dispose()
         layout.dispose()
         fullscreen.dispose()
         tiles.values.forEach { it.dispose() }

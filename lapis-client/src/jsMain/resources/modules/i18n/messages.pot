@@ -20425,3 +20425,11 @@ msgstr ""
 
 msgid "Ihr Tisch ist gerade beruhigt."
 msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Segen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Der Segen wird gesprochen"
+msgstr ""

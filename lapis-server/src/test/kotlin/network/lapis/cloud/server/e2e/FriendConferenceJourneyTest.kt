@@ -53,6 +53,12 @@ import kotlin.uuid.Uuid
 
 /** Same hermetic fake as [network.lapis.cloud.server.rpc.ConferenceServiceTest]'s own -- duplicated here because that one is file-private, mirroring [FederationGuestJourneyTest]'s own `E2eFakeLiveKitAdminClient`. */
 private class FriendJourneyFakeLiveKitAdminClient : LiveKitAdminClient {
+    override suspend fun sendData(
+        room: String,
+        topic: String,
+        payload: ByteArray,
+    ): Unit = throw UnsupportedOperationException("sendData is not used by this fake")
+
     private val rooms = mutableMapOf<String, LiveKitRoomInfo>()
     private val participantsByRoom = mutableMapOf<String, MutableList<LiveKitParticipantInfo>>()
 

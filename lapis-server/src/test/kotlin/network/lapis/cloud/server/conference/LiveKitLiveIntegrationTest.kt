@@ -84,4 +84,16 @@ class LiveKitLiveIntegrationTest :
 
             client.listRooms().none { it.name == roomName } shouldBe true
         }
+
+        test(
+            "SendData to an existing room is accepted by a real LiveKit (V1.9.95; skipped without LAPIS_LIVEKIT_IT)",
+        ).config(enabled = liveItEnabled) {
+            val roomName = "lc-it-${Uuid.random()}"
+            client.createRoom(name = roomName, maxParticipants = 5, emptyTimeoutSeconds = 60)
+            try {
+                client.sendData(room = roomName, topic = "lapis-encounter-blessing", payload = """{"b":1}""".encodeToByteArray())
+            } finally {
+                client.deleteRoom(roomName)
+            }
+        }
     })

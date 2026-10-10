@@ -136,4 +136,7 @@ enum class ActionIcon(
      * button (R58) -- it is not an action. Not [LIFT_QUIET] (a button there) although the glyph is the same.
      */
     SPEAKING("fas fa-volume-high"),
+
+    /** V1.9.95: the blessing of the pulpit in the encounter room (church profile, PULPIT office only); symbol only, liturgy group. Assigned to this purpose only. */
+    BLESSING("fas fa-cross"),
 }

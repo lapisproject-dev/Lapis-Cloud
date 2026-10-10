@@ -47,6 +47,12 @@ private const val FAKE_ROOM_NAME_PREFIX = "lc-poller-test-"
 
 /** Records every call for assertions; only [listParticipants] is ever invoked by [RecordingPoller] -- see that class's own KDoc. */
 private class FakeLiveKitAdminClient : LiveKitAdminClient {
+    override suspend fun sendData(
+        room: String,
+        topic: String,
+        payload: ByteArray,
+    ): Unit = throw UnsupportedOperationException("sendData is not used by this fake")
+
     val participantsByRoom = mutableMapOf<String, List<LiveKitParticipantInfo>>()
 
     override suspend fun createRoom(

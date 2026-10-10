@@ -3,6 +3,9 @@ package network.lapis.cloud.client.livekit
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.promise
 import network.lapis.cloud.client.encounter.EncounterReactionWire
+import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_PAYLOAD
+import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_REACTION_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_TOPIC
@@ -90,6 +93,15 @@ class LiveKitRoomSessionEncounterTest {
             participant.name = "Remote"
             listeners.getValue(RoomEvent.DataReceived)(payload, participant, null, topic)
         }
+
+        /** V1.9.95: a packet WITHOUT a participant (what the server's SendData looks like to the SDK: `undefined`). */
+        fun emitServerData(
+            payload: Uint8Array,
+            topic: String,
+            participant: dynamic = undefined,
+        ) {
+            listeners.getValue(RoomEvent.DataReceived)(payload, participant, null, topic)
+        }
     }
 
     private class Harness(
@@ -100,6 +112,7 @@ class LiveKitRoomSessionEncounterTest {
         val reactions = mutableListOf<Pair<String, EncounterReaction>>()
         val playback = mutableListOf<Boolean>()
         val seatNudges = mutableListOf<String>()
+        var blessings = 0
         var chats = 0
 
         val session =
@@ -127,6 +140,7 @@ class LiveKitRoomSessionEncounterTest {
                 onEncounterReaction = { sender, reaction -> reactions += sender to reaction },
                 onAudioPlaybackChanged = { playback += it },
                 onEncounterSeatNudge = { seatNudges += it },
+                onEncounterBlessing = { blessings++ },
             )
     }
 
@@ -268,4 +282,51 @@ class LiveKitRoomSessionEncounterTest {
             assertEquals(ENCOUNTER_SEAT_NUDGE_TOPIC, topic)
             assertTrue(length <= ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES, "the nudge fits the receiver's size limit: $length")
         }
+
+    // ── V1.9.95: the blessing is accepted from the server only ────────────────────────────────────────────────────────────────
+
+    @Test
+    fun aBlessing_withoutAParticipant_isAccepted_andNothingOfItsPayloadIsRead() =
+        GlobalScope.promise {
+            val h = Harness(publishEnabled = false)
+            h.session.connect("wss://example.invalid", "token")
+            h.fake.emitServerData(bytesOf(ENCOUNTER_BLESSING_PAYLOAD), ENCOUNTER_BLESSING_TOPIC)
+            // the content is irrelevant: any 1..16 byte packet from the server counts, even one that is no JSON at all
+            h.fake.emitServerData(bytesOf("not json"), ENCOUNTER_BLESSING_TOPIC)
+            h.fake.emitServerData(bytesOf("x"), ENCOUNTER_BLESSING_TOPIC, participant = null)
+            assertEquals(3, h.blessings)
+        }
+
+    @Test
+    fun aBlessing_fromAParticipant_isNeverAccepted_whoeverTheSenderIs() =
+        GlobalScope.promise {
+            val h = Harness(publishEnabled = false)
+            h.session.connect("wss://example.invalid", "token")
+            h.fake.emitData(bytesOf(ENCOUNTER_BLESSING_PAYLOAD), ENCOUNTER_BLESSING_TOPIC, identity = "a-congregation-member")
+            h.fake.emitData(bytesOf(ENCOUNTER_BLESSING_PAYLOAD), ENCOUNTER_BLESSING_TOPIC, identity = "the-pulpit")
+            assertEquals(0, h.blessings)
+        }
+
+    @Test
+    fun aBlessing_ofTheWrongSize_orOnAnotherTopic_isDropped() =
+        GlobalScope.promise {
+            val h = Harness(publishEnabled = false)
+            h.session.connect("wss://example.invalid", "token")
+            h.fake.emitServerData(Uint8Array(0), ENCOUNTER_BLESSING_TOPIC)
+            h.fake.emitServerData(Uint8Array(ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES + 1), ENCOUNTER_BLESSING_TOPIC)
+            h.fake.emitServerData(bytesOf(ENCOUNTER_BLESSING_PAYLOAD), "lapis-encounter-other")
+            h.fake.emitServerData(bytesOf(ENCOUNTER_BLESSING_PAYLOAD), ENCOUNTER_REACTION_TOPIC)
+            assertEquals(0, h.blessings)
+            assertTrue(h.reactions.isEmpty())
+        }
+
+    @Test
+    fun theAcceptanceRule_isPure() {
+        assertTrue(encounterBlessingPacketAccepted(fromParticipant = false, payloadLength = 7))
+        assertTrue(encounterBlessingPacketAccepted(fromParticipant = false, payloadLength = 1))
+        assertTrue(encounterBlessingPacketAccepted(fromParticipant = false, payloadLength = ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES))
+        assertTrue(!encounterBlessingPacketAccepted(fromParticipant = true, payloadLength = 7))
+        assertTrue(!encounterBlessingPacketAccepted(fromParticipant = false, payloadLength = 0))
+        assertTrue(!encounterBlessingPacketAccepted(fromParticipant = false, payloadLength = ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES + 1))
+    }
 }

@@ -92,6 +92,18 @@ fun EncounterReaction.option(): EncounterReactionOption =
 /** LiveKit data-channel topic of [EncounterReaction] messages (B2, informational only: the server has no path that reads it). */
 const val ENCOUNTER_REACTION_TOPIC = "lapis-encounter-reaction"
 
+/** V1.9.95 -- sent ONLY by the server (LiveKit RoomService/SendData, no participant); clients accept it only without a participant. */
+const val ENCOUNTER_BLESSING_TOPIC = "lapis-encounter-blessing"
+
+/** Fixed payload {"b":1}: no identity, no time, no counter. */
+const val ENCOUNTER_BLESSING_PAYLOAD = """{"b":1}"""
+
+/** Upper bound the client accepts for a blessing packet (the fixed payload is 7 bytes). */
+const val ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES = 16
+
+/** At most one blessing per session room per this interval; a second one is swallowed silently. */
+const val ENCOUNTER_BLESSING_MIN_INTERVAL_MS = 10_000L
+
 /**
  * V1.9.76 -- anonymous e-mail notice to the room's office holders when a person WITHOUT an office enters. [NONE] = off (default),
  * [FIRST_GUEST] = at most one notice per opening of the room, [EVERY_GUEST] = at most one notice per five minutes (entries summarised).

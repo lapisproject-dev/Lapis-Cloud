@@ -356,6 +356,12 @@ private fun StatusPagesConfig.installDeniedExceptionHandlers() {
 }
 
 private class NoopLiveKitAdminClient : LiveKitAdminClient {
+    override suspend fun sendData(
+        room: String,
+        topic: String,
+        payload: ByteArray,
+    ): Unit = throw UnsupportedOperationException("sendData is not used by this fake")
+
     override suspend fun createRoom(
         name: String,
         maxParticipants: Int,

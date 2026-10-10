@@ -67,6 +67,12 @@ private val NOTES_TEARDOWN_ENABLED_CONFIG =
 
 /** Minimal fake -- only the methods [ConferenceService.endRoom]/[ConferenceService.getRoom] actually call. Mirrors [ConferenceWhiteboardTeardownTest]'s own fake. */
 private class NotesTeardownFakeLiveKitAdminClient : LiveKitAdminClient {
+    override suspend fun sendData(
+        room: String,
+        topic: String,
+        payload: ByteArray,
+    ): Unit = throw UnsupportedOperationException("sendData is not used by this fake")
+
     private val rooms = mutableMapOf<String, LiveKitRoomInfo>()
 
     override suspend fun createRoom(

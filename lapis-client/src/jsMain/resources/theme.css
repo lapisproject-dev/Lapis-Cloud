@@ -3160,6 +3160,50 @@ html .form-select.is-invalid:focus {
   border-radius: 0.5rem;
   background: var(--lapis-encounter-surface);
   color: var(--lapis-text);
+  position: relative;
+}
+
+/* V1.9.95 -- the blessing: a quiet cross with one word over the pulpit area, visible to everybody in the room, for seven seconds.
+   No accent colour, no scaling, no animation (only a short opacity fade, switched off by reduced motion), no sound; it never takes a click
+   (pointer-events: none). The panel is the encounter surface at 80 % over the picture, so the text keeps its contrast whatever the video
+   shows. Worst case, text on the panel over pure black (light theme) or pure white (dark theme), WCAG 1.4.3 calculated:
+     light: --lapis-text #14181E on 80 % of #F4EFE6 = about #C3BFB8   -> 9,7:1
+     dark:  --lapis-text #E8E6E0 on 80 % of #232933 over white = about #4F545C -> 6,1:1 */
+.lapis-encounter-blessing {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 20px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--lapis-encounter-surface) 80%, transparent);
+  color: var(--lapis-text);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.lapis-encounter-blessing[hidden] {
+  display: none;
+}
+
+.lapis-encounter-blessing--visible {
+  opacity: 1;
+}
+
+.lapis-encounter-blessing svg {
+  width: 64px;
+  height: auto;
+}
+
+.lapis-encounter-blessing-word {
+  font-size: 1rem;
+  line-height: 1.25;
 }
 
 .lapis-encounter-pulpit-tiles {
@@ -3878,6 +3922,10 @@ html .form-select.is-invalid:focus {
     font-size: 0;
   }
 
+  .lapis-encounter-blessing svg {
+    width: 48px;
+  }
+
   .lapis-encounter-controls .btn .lapis-action-icon {
     margin-inline-end: 0;
     font-size: 1rem;
@@ -4343,6 +4391,7 @@ html.lapis-has-dock {
   .lapis-encounter-seat,
   .lapis-encounter-seat-hand,
   .lapis-encounter-seat-event,
+  .lapis-encounter-blessing,
   .lapis-conference-float {
     transition: none;
   }

@@ -713,6 +713,50 @@ A device id or name never leaves the browser: no RPC, no data-channel packet, no
 * The breakpoint is 768 px (the guideline's only one), not 600 px.
 * The help page `gathering-room` is updated at rollout.
 
+== Blessing (V1.9.95)
+
+The pulpit of a church-service room can speak the blessing: one button, one quiet cross for everybody in the room for seven seconds. It is deliberately *not* a reaction (a reaction comes from a person and is shown at a seat; the blessing comes from the room and belongs to the liturgy).
+
+=== Who may bless (decided by the server)
+
+`IEncounterSpaceService.blessSpace(spaceId)` succeeds only when *all* of this holds, re-read from the database at every call (no cache, no bypass for BOARD/ADMIN):
+
+. the space has the `CHURCH_SERVICE` profile (an assembly has no blessing),
+. the caller holds the office `PULPIT` and is an `ACTIVE` member (`EncounterRoles.roleOf`; a steward, the congregation, and BOARD/ADMIN without an office are refused),
+. the space is open,
+. the caller is present (a presence row of the open session exists).
+
+Every refusal is the *same* bare `ForbiddenException`, so the answer does not tell which condition failed. The client hides the button for everybody else as well, but that is a courtesy, not the lock: the lock is the server.
+
+=== How it travels
+
+The server sends one LiveKit `RoomService/SendData` (RELIABLE, topic `lapis-encounter-blessing`, fixed payload `{"b":1}`, no destination identities, 16 random nonce bytes) after the transaction has ended (an external call never runs inside `transaction {}`). A packet sent this way has *no sender*, so receivers see it without a participant. The client accepts the topic only in that case (`encounterBlessingPacketAccepted`: no participant, 1..16 bytes) and never decodes the payload; the branch stands *before* the participant check that drops participant-less packets. A congregation member with a data channel who publishes the same topic arrives *with* a participant and is dropped.
+
+=== Data protection
+
+* Nothing is stored: no table, no audit entry (the audit log is hash-chained and cannot be erased, so an entry would permanently record that somebody took part in the liturgy and was present, with no protective gain -- misuse is prevented by the permission check and the throttle), no counter, no log line above one fixed `DEBUG` text ("blessing send failed", no room, no person).
+* The throttle `EncounterBlessingState` lives in memory per server instance: session room id -> instant of the last blessing, nothing else (no member, no count). At most one blessing per session room and 10 s; a second one is swallowed silently (the call returns normally). Entries expire lazily, the map is capped at 10 000 entries (oldest first) and an entry is dropped when the session closes. A per-member flood guard (the moderation limiter, answering with a `ConflictException` like the other encounter throttles) comes first.
+* `ClientEncounterPrivacyTripwireTest` / `EncounterPrivacyTripwireTest` pin all of it: no write and no `AuditLogRecorder` in the blessing path, exactly one logger call, no `memberId`/`identity`/logger in the throttle, no decode and no storage in the client.
+* The announcement is one fixed sentence ("Der Segen wird gesprochen"); it names nobody.
+
+=== The display
+
+A latin cross (outline, drawn with `createElementNS`, never parsed from text) and the word "Segen" in the pulpit area, `aria-hidden`, `pointer-events: none`, visible to *everybody* in the room (also with "Szene ausblenden" and in the full screen, because it lives in the pulpit area, not in the scene layer). A second packet while it is on restarts the 7 s window and opens no second display. A persistent polite live region (created with the room, so it is announced) receives the fixed sentence when the display opens and is cleared one second later, so a later blessing is announced again; an extension is not announced.
+
+No accent colour, no scaling, no sound. The only motion is an opacity transition of 200 ms that `prefers-reduced-motion` switches off (the display is then hidden at once). Contrast, worst case (text on the panel, panel = encounter surface at 80 % over pure black in the light theme, over pure white in the dark theme): light `#14181E` on about `#C3BFB8` = 9.7:1; dark `#E8E6E0` on about `#4F545C` = 6.1:1 -- both above 4.5:1. `ClientEncounterBlessingCssTripwireTest` pins the CSS facts, because Karma cannot emulate the media query reliably.
+
+=== The control
+
+`ActionIcon.BLESSING` (`fa-cross`), icon-only, 44 x 44 px, in its own `LITURGY` group between the reactions and the panels; the group does not exist in the DOM for anybody but the pulpit of a church room. It has a labelled twin in the "Mehr" sheet and leaves the bar late (after "Türen schließen", before the chat). One press = one call (a press while the call is out is ignored); a refusal or an error is neither shown nor logged.
+
+=== Known limitations of the blessing
+
+* The client recognises "from the server" by *no participant*. The SDK also reports no participant for a sender it does not know yet (during the join race or after a full reconnect that cleared its event buffer). A member who may publish data could, in that narrow window, show the cross to single receivers for 7 s. The damage is brief and nameless; checking the raw packet identity would depend on an internal SDK API and is not done.
+* The throttle is in memory and per server instance: a restart resets it.
+* A failed delivery is not reported to the pulpit.
+* A person who loses the office during the session keeps the button until the next reload; the server refuses the call.
+* The help page `gathering-room` is updated at rollout.
+
 == Open questions (for the product owner and legal)
 
 . The wording of the Art. 9 consent (`EncounterConsentDisclaimer`, version `2026-10-06.v1`) -- a draft, legal review required.

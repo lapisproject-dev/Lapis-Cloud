@@ -97,6 +97,20 @@ internal class FakeEncounterLiveKit : LiveKitAdminClient {
 
     @Volatile var failRemoveParticipant = false
 
+    /** V1.9.95: every `sendData` call (room, topic, payload), in order. */
+    val sentData: MutableList<Triple<String, String, ByteArray>> = java.util.Collections.synchronizedList(mutableListOf())
+
+    @Volatile var failSendData = false
+
+    override suspend fun sendData(
+        room: String,
+        topic: String,
+        payload: ByteArray,
+    ) {
+        if (failSendData || failAll) throw LiveKitAdminException(message = "simulated SendData failure")
+        sentData += Triple(room, topic, payload)
+    }
+
     /** Milliseconds `createRoom` sleeps -- widens the race window of a concurrent open. */
     @Volatile var createDelayMillis = 0L
 
@@ -207,6 +221,8 @@ internal class EncounterRig(
     val liveKit: FakeEncounterLiveKit = FakeEncounterLiveKit(),
     val config: ConferenceConfig = ENCOUNTER_CONFIG,
     val moderationState: EncounterModerationState = EncounterModerationState(),
+    /** V1.9.95: the in-memory blessing throttle -- ONE per test. */
+    val blessingState: EncounterBlessingState = EncounterBlessingState(),
     /** V1.9.79: the in-memory seat plan -- ONE per test, like the moderation state. */
     val seatState: EncounterSeatState = EncounterSeatState(),
     /** V1.9.79: `null` = as permissive as every other throttle; a test of the 1-per-second throttle passes its own. */
@@ -240,6 +256,7 @@ internal class EncounterRig(
         call = call,
         liveKitAdminClient = liveKit,
         moderationState = moderationState,
+        blessingState = blessingState,
         seatState = seatState,
         tableState = tableState,
         entryNotifier = entryNotifier,

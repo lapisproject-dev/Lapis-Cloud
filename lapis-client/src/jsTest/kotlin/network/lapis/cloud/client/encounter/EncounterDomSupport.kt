@@ -399,6 +399,8 @@ internal suspend fun withEncounterRoom(
     onDoorsClosed: () -> Unit = {},
     /** V1.9.91: the browser's devices (none by default, whatever the machine running the test has). */
     deviceEnv: EncounterDeviceEnvironment = FakeDeviceEnvironment(),
+    /** V1.9.95: the timers of the blessing display (the real browser timers by default). */
+    blessingScheduler: EncounterBlessingScheduler = browserBlessingScheduler,
     block: suspend (EncounterRoomRig, HTMLElement) -> Unit,
 ) {
     val presentRoute = routeOf { rpcService<IEncounterSpaceService>().listPresent("space-1") }
@@ -431,6 +433,7 @@ internal suspend fun withEncounterRoom(
                     onConnectionLost = {},
                     tableSessionOpener = tableSessionOpener,
                     deviceEnv = deviceEnv,
+                    blessingScheduler = blessingScheduler,
                 )
             room.bind(session)
             room.afterConnected()
@@ -463,4 +466,35 @@ internal fun RecordedRequest.refusedWith(fqcn: String): StubResponse = serviceEx
 internal fun RecordedRequest.requestedSeat(): Int? {
     val param: dynamic = rpcParam(1)
     return if (param == null) null else (param as Number).toInt()
+}
+
+/** V1.9.95: a scheduler in the hands of the test -- nothing runs until [fire] is called for a delay. */
+internal class ManualBlessingScheduler : EncounterBlessingScheduler {
+    class Task(
+        val ms: Int,
+        val block: () -> Unit,
+    ) {
+        var cancelled = false
+    }
+
+    val tasks = mutableListOf<Task>()
+
+    override fun schedule(
+        ms: Int,
+        block: () -> Unit,
+    ): () -> Unit {
+        val task = Task(ms, block)
+        tasks += task
+        return { task.cancelled = true }
+    }
+
+    /** Runs every pending task that was scheduled for [ms]. */
+    fun fire(ms: Int) {
+        tasks.filter { it.ms == ms && !it.cancelled }.forEach {
+            it.cancelled = true
+            it.block()
+        }
+    }
+
+    fun pending(ms: Int): Int = tasks.count { it.ms == ms && !it.cancelled }
 }

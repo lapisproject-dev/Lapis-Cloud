@@ -190,6 +190,7 @@ abstract class EncounterSpaceConcurrencyScenarios(
                     EncounterSpacePoller(
                         liveKitAdminClient = rig.liveKit,
                         moderationState = rig.moderationState,
+                        blessingState = rig.blessingState,
                         seatState = rig.seatState,
                         tableState = rig.tableState,
                         entryNotifier = rig.entryNotifier,

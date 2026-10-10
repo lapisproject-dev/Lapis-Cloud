@@ -21443,3 +21443,11 @@ msgstr "Le haut-parleur n'a pas pu être changé. L'appareil précédent est con
 
 msgid "Ihr Tisch ist gerade beruhigt."
 msgstr "Votre table est actuellement apaisée."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Segen"
+msgstr "Bénédiction"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Der Segen wird gesprochen"
+msgstr "La bénédiction est prononcée"

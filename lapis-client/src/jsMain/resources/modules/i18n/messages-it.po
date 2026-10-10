@@ -21425,3 +21425,11 @@ msgstr "Non è stato possibile cambiare l'altoparlante. Rimane il dispositivo pr
 
 msgid "Ihr Tisch ist gerade beruhigt."
 msgstr "Il suo tavolo è attualmente calmato."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Segen"
+msgstr "Benedizione"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Der Segen wird gesprochen"
+msgstr "La benedizione viene pronunciata"

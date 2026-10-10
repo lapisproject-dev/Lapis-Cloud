@@ -199,6 +199,49 @@ class LiveKitAdminClientTest :
             grant["room"] shouldBe ROOM_NAME
         }
 
+        test(
+            "sendData POSTs the SendData path with room, Base64 data, RELIABLE kind, topic and a fresh nonce, and scopes the token to the room",
+        ) {
+            val bodies = mutableListOf<String>()
+            var capturedUrl = ""
+            var capturedToken = ""
+            val client =
+                mockClient { request ->
+                    capturedUrl = request.url.toString()
+                    capturedToken = bearerToken(request)
+                    bodies += bodyText(request)
+                    jsonResponse("{}")
+                }
+            val admin = HttpLiveKitAdminClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
+
+            admin.sendData(room = ROOM_NAME, topic = "lapis-encounter-blessing", payload = """{"b":1}""".encodeToByteArray())
+            admin.sendData(room = ROOM_NAME, topic = "lapis-encounter-blessing", payload = """{"b":1}""".encodeToByteArray())
+
+            capturedUrl shouldBe "$API_URL/twirp/livekit.RoomService/SendData"
+            bodies[0] shouldContain "\"room\":\"$ROOM_NAME\""
+            bodies[0] shouldContain "\"data\":\"eyJiIjoxfQ==\""
+            bodies[0] shouldContain "\"kind\":\"RELIABLE\""
+            bodies[0] shouldContain "\"topic\":\"lapis-encounter-blessing\""
+            bodies[0] shouldContain "\"nonce\":\""
+            val nonce = Regex(""""nonce":"([^"]+)"""")
+            (nonce.find(bodies[0])!!.groupValues[1] == nonce.find(bodies[1])!!.groupValues[1]) shouldBe false
+            SignedJWT.parse(capturedToken).jwtClaimsSet.getJSONObjectClaim("video")["room"] shouldBe ROOM_NAME
+        }
+
+        test("sendData refuses an oversized payload and maps a non-2xx status to an exception without the body text") {
+            val admin =
+                HttpLiveKitAdminClient(
+                    apiUrl = API_URL,
+                    apiKey = API_KEY,
+                    apiSecret = API_SECRET,
+                    httpClient = mockClient { _ -> respondError(HttpStatusCode.Forbidden, "secret-body-text") },
+                )
+            shouldThrow<IllegalArgumentException> { admin.sendData(room = ROOM_NAME, topic = "t", payload = ByteArray(17)) }
+            val exception = shouldThrow<LiveKitAdminException> { admin.sendData(room = ROOM_NAME, topic = "t", payload = ByteArray(7)) }
+            exception.message shouldContain "403"
+            exception.message?.shouldNotContain("secret-body-text")
+        }
+
         test("a non-2xx HTTP status maps to LiveKitAdminException naming the status code, without leaking the apiSecret") {
             val client = mockClient { _ -> respondError(HttpStatusCode.Unauthorized, "invalid authorization token") }
             val admin = HttpLiveKitAdminClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)

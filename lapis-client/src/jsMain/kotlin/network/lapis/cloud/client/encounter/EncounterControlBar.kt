@@ -19,12 +19,13 @@ import network.lapis.cloud.shared.domain.EncounterReactionOption
  * - [DEVICES]: first, at the left edge: microphone and camera -- only an office holder's session fills this group; since V1.9.80 also the table microphone and
  *   "Kanzel lauter" of a congregation person who sits at a table (the two sets never occur together).
  * - [REACTIONS]: the configured reactions of the room (hand always first, then the allowed events) -- the only controls with a word.
+ * - [LITURGY] (V1.9.95): the blessing -- ONLY in a church-service room and ONLY for the pulpit; the group does not exist in the DOM otherwise.
  * - [PANELS]: the side panel (chat) and "Mehr" (the sheet with what did not fit).
  * - [VIEW]: scene on/off and the full screen.
  * - [MODERATION]: the transmission (people who moderate); never next to the reactions, so a slip does not trigger a reaction.
  * - [EXIT] (V1.9.74): "Türen schließen" (people who moderate) and "Verlassen", pushed to the end of the bar, 12 px apart.
  */
-internal enum class EncounterControlGroup { DEVICES, REACTIONS, PANELS, VIEW, MODERATION, EXIT }
+internal enum class EncounterControlGroup { DEVICES, REACTIONS, LITURGY, PANELS, VIEW, MODERATION, EXIT }
 
 /** A control of the bar that the overflow handler knows about ("Mehr" itself is the sheet's opener and never moves). */
 internal sealed interface EncounterControlSlot {
@@ -46,6 +47,9 @@ internal sealed interface EncounterControlSlot {
 
     /** V1.9.91: the device picker (gear) -- the LAST control of the devices group; never moved into the sheet. */
     data object AudioDevices : EncounterControlSlot
+
+    /** V1.9.95: the pulpit's blessing (church profile only). */
+    data object Blessing : EncounterControlSlot
 
     data object Chat : EncounterControlSlot
 
@@ -69,6 +73,7 @@ internal fun encounterControlGroup(slot: EncounterControlSlot): EncounterControl
         EncounterControlSlot.AudioDevices,
         ->
             EncounterControlGroup.DEVICES
+        EncounterControlSlot.Blessing -> EncounterControlGroup.LITURGY
         EncounterControlSlot.Chat, EncounterControlSlot.More -> EncounterControlGroup.PANELS
         EncounterControlSlot.Scene, EncounterControlSlot.Fullscreen -> EncounterControlGroup.VIEW
         EncounterControlSlot.Broadcast -> EncounterControlGroup.MODERATION
@@ -77,10 +82,13 @@ internal fun encounterControlGroup(slot: EncounterControlSlot): EncounterControl
 
 /**
  * The order in which controls move into the "Mehr" sheet, the first one first: full screen, scene, transmission, then the event
- * reactions (the last of the canonical order first), then "Türen schließen" and last of all the chat. Never moved: hand (the only reaction with a state; a hand-raise must never need a second tap), microphone,
+ * reactions (the last of the canonical order first), then "Türen schließen", the blessing (V1.9.95, [blessing] only: it stays in the bar as long as possible) and last of all the chat. Never moved: hand (the only reaction with a state; a hand-raise must never need a second tap), microphone,
  * camera, the device picker (V1.9.91), "Mehr" and "Verlassen". Built at run time because the event reactions differ per room profile.
  */
-internal fun encounterOverflowOrder(allowed: Collection<EncounterReactionOption>): List<EncounterControlSlot> =
+internal fun encounterOverflowOrder(
+    allowed: Collection<EncounterReactionOption>,
+    blessing: Boolean = false,
+): List<EncounterControlSlot> =
     buildList {
         add(EncounterControlSlot.Fullscreen)
         add(EncounterControlSlot.Scene)
@@ -90,6 +98,7 @@ internal fun encounterOverflowOrder(allowed: Collection<EncounterReactionOption>
             .reversed()
             .forEach { add(EncounterControlSlot.Reaction(it)) }
         add(EncounterControlSlot.CloseDoors)
+        if (blessing) add(EncounterControlSlot.Blessing)
         add(EncounterControlSlot.Chat)
     }
 
@@ -120,6 +129,13 @@ internal fun moderationNeverAdjacentToReactions(shownInOrder: List<EncounterCont
             (ga == EncounterControlGroup.MODERATION && gb == EncounterControlGroup.REACTIONS)
     }
 
+/** Pure invariant (V1.9.95): the blessing never stands directly next to a moderation control (a slip must not hit the transmission). */
+internal fun blessingNeverAdjacentToModeration(shownInOrder: List<EncounterControlSlot>): Boolean =
+    shownInOrder.zipWithNext().none { (a, b) ->
+        (a == EncounterControlSlot.Blessing && encounterControlGroup(b) == EncounterControlGroup.MODERATION) ||
+            (b == EncounterControlSlot.Blessing && encounterControlGroup(a) == EncounterControlGroup.MODERATION)
+    }
+
 /**
  * V1.9.74 (R58 named exception c): the ONLY icon-only factory of the encounter room. At least 44 x 44 px through theme.css. [label]
  * becomes `title`, `aria-label` and `data-label`; the button never shows a word, in no width. V1.9.84: the reactions too (hand and events).
@@ -146,10 +162,12 @@ internal fun Container.encounterControlButton(
  */
 internal class EncounterControlBar(
     parent: Container,
+    /** V1.9.95: `true` only for the pulpit of a church-service room; otherwise the liturgy group is not even built. */
+    liturgy: Boolean,
 ) {
     val root: Div = parent.lapisToolbar { addCssClass("lapis-encounter-controls") }
     private val groups: Map<EncounterControlGroup, Div> =
-        EncounterControlGroup.entries.associateWith { group ->
+        EncounterControlGroup.entries.filter { it != EncounterControlGroup.LITURGY || liturgy }.associateWith { group ->
             root.div(className = "lapis-encounter-control-group lapis-encounter-control-group--${group.name.lowercase()}").also {
                 labelOf(group)?.let { label ->
                     it.setAttribute("role", "group")
@@ -158,7 +176,7 @@ internal class EncounterControlBar(
             }
         }
 
-    /** The container of [group]; add the group's buttons there. */
+    /** The container of [group]; add the group's buttons there. Throws for [EncounterControlGroup.LITURGY] when the bar was built without it (on purpose). */
     fun group(group: EncounterControlGroup): Div = groups.getValue(group)
 
     private fun labelOf(group: EncounterControlGroup): String? =

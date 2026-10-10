@@ -140,6 +140,12 @@ private val ENABLED_CONFIG_WITH_TURN_AND_TURNS =
  * if `endRoom` is invoked twice on an already-ended room).
  */
 private class FakeLiveKitAdminClient : LiveKitAdminClient {
+    override suspend fun sendData(
+        room: String,
+        topic: String,
+        payload: ByteArray,
+    ): Unit = throw UnsupportedOperationException("sendData is not used by this fake")
+
     private val rooms = mutableMapOf<String, LiveKitRoomInfo>()
     private val participantsByRoom = mutableMapOf<String, MutableList<LiveKitParticipantInfo>>()
     var deleteRoomCallCount = 0

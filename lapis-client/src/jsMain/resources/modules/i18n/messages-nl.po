@@ -21380,3 +21380,11 @@ msgstr "De luidspreker kon niet worden gewisseld. Het vorige apparaat blijft act
 
 msgid "Ihr Tisch ist gerade beruhigt."
 msgstr "Uw tafel is momenteel tot rust gebracht."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Segen"
+msgstr "Zegen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Der Segen wird gesprochen"
+msgstr "De zegen wordt uitgesproken"

@@ -39,8 +39,9 @@ internal val ALLOWED_SCROLLER_SELECTORS =
  * reported -- minus the allowed ones ([ALLOWED_SCROLLER_SELECTORS]). Returns a readable description per offender.
  */
 internal fun forbiddenScrollers(root: HTMLElement): List<String> =
-    root
-        .allOf("*")
+    // V1.9.95: `*` also matches SVG elements (the blessing's cross), which are no HTMLElement and never a scroller of their own.
+    (0 until root.querySelectorAll("*").length)
+        .mapNotNull { root.querySelectorAll("*").item(it) as? HTMLElement }
         .filter { element ->
             val overflowY = window.getComputedStyle(element).overflowY
             (overflowY == "auto" || overflowY == "scroll") &&

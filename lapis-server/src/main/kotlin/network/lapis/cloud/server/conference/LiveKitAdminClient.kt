@@ -17,6 +17,9 @@ import io.ktor.utils.io.readAvailable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
+import java.security.SecureRandom
+import kotlin.io.encoding.Base64
 
 private val logger = KotlinLogging.logger {}
 
@@ -71,6 +74,17 @@ interface LiveKitAdminClient {
     suspend fun removeParticipant(
         room: String,
         identity: String,
+    )
+
+    /**
+     * `POST .../SendData` (V1.9.95) -- RELIABLE data packet to everybody in [room] (no destination identities); the packet carries NO
+     * sender, so receivers see it as "from the server". Gated on `roomAdmin`/`roomSend`-style room-scoped admin token (same scoping
+     * requirement as [listParticipants]). No default implementation on purpose: a silent no-op would hide a missing override.
+     */
+    suspend fun sendData(
+        room: String,
+        topic: String,
+        payload: ByteArray,
     )
 }
 
@@ -154,6 +168,27 @@ class HttpLiveKitAdminClient(
         )
     }
 
+    override suspend fun sendData(
+        room: String,
+        topic: String,
+        payload: ByteArray,
+    ) {
+        require(payload.size <= ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES) { "SendData payload too large" }
+        val nonce = ByteArray(NONCE_BYTES).also { SecureRandom().nextBytes(it) }
+        call<LiveKitSendDataRequest, LiveKitEmptyResponse>(
+            method = "SendData",
+            room = room,
+            request =
+                LiveKitSendDataRequest(
+                    room = room,
+                    data = Base64.Default.encode(payload),
+                    kind = "RELIABLE",
+                    topic = topic,
+                    nonce = Base64.Default.encode(nonce),
+                ),
+        )
+    }
+
     /**
      * One Twirp call: mint a fresh admin token scoped to [room] (see [LiveKitAdminClient] method
      * KDocs for which calls actually need the scoping vs. which ignore it), POST [request] as JSON
@@ -195,6 +230,8 @@ class HttpLiveKitAdminClient(
         }
     }
 }
+
+private const val NONCE_BYTES = 16
 
 internal fun defaultLiveKitAdminHttpClient(): HttpClient =
     HttpClient(CIO) {
@@ -333,6 +370,16 @@ internal data class LiveKitRoomIdentifier(
 internal data class LiveKitRoomParticipantIdentity(
     val room: String,
     val identity: String,
+)
+
+/** `SendData` request shape (protojson: `data` is Base64 of the bytes; `nonce` is 16 random bytes, Base64 -- server-side dedup, not a counter). */
+@Serializable
+internal data class LiveKitSendDataRequest(
+    val room: String,
+    val data: String,
+    val kind: String,
+    val topic: String,
+    val nonce: String,
 )
 
 /** `ListRooms` takes an empty request body (`{}`) -- an optional `names` filter exists on the real proto but this wave always lists every room, matching the "lazy reconciliation" use case a future wave's `ConferenceService` needs. */

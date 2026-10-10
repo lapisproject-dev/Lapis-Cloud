@@ -153,4 +153,11 @@ interface IEncounterSpaceService {
         spaceId: String,
         memberId: String,
     )
+
+    /**
+     * V1.9.95 -- the blessing: only an ACTIVE PULPIT office holder who is present, in an open CHURCH_SERVICE space. Nothing is stored,
+     * counted or audited. [ForbiddenException] (one message for every refusal) otherwise. A second blessing within 10 s per session is
+     * silently swallowed (Unit). A failed delivery is not reported.
+     */
+    suspend fun blessSpace(spaceId: String)
 }

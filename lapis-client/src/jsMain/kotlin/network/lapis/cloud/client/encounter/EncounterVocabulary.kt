@@ -67,6 +67,15 @@ internal class EncounterTerms(
 
     fun enterAsStewardLabel(): String = if (church) gettext("Eintreten als Ordner") else gettext("Eintreten als Moderation")
 
+    /** V1.9.95 -- the blessing exists in the church profile only; `null` = no blessing (assembly). */
+    fun blessingLabel(): String? = if (church) tr("Segen") else null
+
+    /** V1.9.95 -- the one fixed sentence a screen reader hears when the blessing is spoken. */
+    fun blessingAnnouncement(): String = tr("Der Segen wird gesprochen")
+
+    /** V1.9.95 -- the word under the cross in the display. */
+    fun blessingWord(): String = tr("Segen")
+
     fun emptyStageContent(): String = if (church) tr("Die Kanzel ist noch leer.") else tr("Das Podium ist noch leer.")
 
     fun emptyStage(): String = if (church) gettext("Die Kanzel ist noch leer.") else gettext("Das Podium ist noch leer.")

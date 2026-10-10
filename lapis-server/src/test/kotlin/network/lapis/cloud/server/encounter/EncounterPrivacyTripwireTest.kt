@@ -43,6 +43,9 @@ class EncounterPrivacyTripwireTest :
                 "prepareEntry",
                 "admitInTx",
                 "recordConsent",
+                // V1.9.95: the blessing
+                "blessSpace",
+                "blessingTargetInTx",
             ).forEach { name ->
                 val fn = fns[name] ?: error("function $name not found -- the tripwire must not run empty")
                 (fn.body.contains("AuditLogRecorder")) shouldBe false
@@ -327,5 +330,53 @@ class EncounterPrivacyTripwireTest :
             // there is no member id parameter: nobody can put another person on a seat
             fn.params.contains("memberId") shouldBe false
             EncounterSourceScan.functions(serviceFile).single { it.name == "requireSeatRate" }.body shouldContain "ServiceBusyException"
+        }
+
+        // ── Welle V1.9.95: the blessing ───────────────────────────────────
+
+        test("V1.9.95: the blessing path writes nothing (no insert/update/delete/upsert, no audit) and logs exactly one fixed DEBUG line") {
+            val fns = EncounterSourceScan.functions(serviceFile).associateBy { it.name }
+            listOf("blessSpace", "blessingTargetInTx").forEach { name ->
+                val body = SourceScan.blank(fns.getValue(name).body)
+                Regex("""\b(insert|update|deleteWhere|upsert|batchInsert|AuditLogRecorder)\b""").containsMatchIn(body) shouldBe false
+            }
+            val bless = fns.getValue("blessSpace").body + fns.getValue("blessingTargetInTx").body
+            Regex("""logger\.""").findAll(bless).count() shouldBe 1
+            bless shouldContain """logger.debug { "blessing send failed" }"""
+            // the external call stays outside the transaction lambda
+            val raw = SourceScan.blank(fns.getValue("blessSpace").body)
+            Regex("""transaction\s*\{""").findAll(raw).forEach { m ->
+                var depth = 0
+                var end = m.range.last
+                for (i in m.range.last until raw.length) {
+                    if (raw[i] == '{') depth++
+                    if (raw[i] == '}') {
+                        depth--
+                        if (depth == 0) {
+                            end = i
+                            break
+                        }
+                    }
+                }
+                raw.substring(m.range.first, end + 1).contains("sendData") shouldBe false
+            }
+        }
+
+        test("V1.9.95: the blessing state is memory only and names no person") {
+            val code = SourceScan.blank(EncounterSourceScan.mainFile("encounter/EncounterBlessingState.kt").readText())
+            listOf(
+                "memberId",
+                "identity",
+                "Logger",
+                "logger",
+                "KotlinLogging",
+                "transaction",
+                "Table",
+                "AuditLogRecorder",
+                "println",
+            ).forEach {
+                code.contains(it) shouldBe false
+            }
+            (encounterFiles.any { it.name == "EncounterBlessingState.kt" }) shouldBe true // inside the log-line scan above
         }
     })

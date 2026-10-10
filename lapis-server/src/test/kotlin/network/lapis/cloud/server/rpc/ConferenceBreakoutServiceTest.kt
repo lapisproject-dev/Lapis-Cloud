@@ -107,6 +107,12 @@ private val BREAKOUT_ENABLED_CONFIG_WITH_TURN_AND_TURNS =
  * visibility").
  */
 private class FakeBreakoutLiveKitAdminClient : LiveKitAdminClient {
+    override suspend fun sendData(
+        room: String,
+        topic: String,
+        payload: ByteArray,
+    ): Unit = throw UnsupportedOperationException("sendData is not used by this fake")
+
     private val rooms = mutableMapOf<String, LiveKitRoomInfo>()
     private val participantsByRoom = mutableMapOf<String, MutableList<LiveKitParticipantInfo>>()
     var createRoomCallCount = 0

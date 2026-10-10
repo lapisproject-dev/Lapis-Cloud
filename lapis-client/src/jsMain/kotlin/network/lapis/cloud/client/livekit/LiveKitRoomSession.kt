@@ -6,6 +6,8 @@ import kotlinx.serialization.json.Json
 import network.lapis.cloud.client.encounter.EncounterReactionWire
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
 import network.lapis.cloud.shared.domain.ConferenceTurnServer
+import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_REACTION_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_TOPIC
@@ -367,6 +369,13 @@ class LiveKitRoomSession(
      * only asks the caller to re-query the server, which stays the authority on who sits where.
      */
     private val onEncounterSeatNudge: (senderIdentity: String) -> Unit = {},
+    /**
+     * V1.9.95 -- the pulpit's blessing arrived. Carries NO data: the packet is accepted only when it has NO participant (it comes from
+     * the server's SendData, which stamps no sender) and a length of at most [ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES]; the payload is
+     * never decoded. Known gap: the SDK also reports `undefined` for a sender it does not know yet (join race / full reconnect), see
+     * `docs/architecture/encounter-space.adoc` "Blessing".
+     */
+    private val onEncounterBlessing: () -> Unit = {},
 ) {
     private var room: Room? = null
 
@@ -742,6 +751,14 @@ class LiveKitRoomSession(
         room.onOwned(RoomEvent.AudioPlaybackStatusChanged) { p0, _, _, _ -> onAudioPlaybackChanged(p0.unsafeCast<Boolean>()) }
         room.onOwned(RoomEvent.DataReceived) { p0, p1, _, p3 ->
             val payload = p0.unsafeCast<org.khronos.webgl.Uint8Array?>() ?: return@onOwned
+            // V1.9.95 -- the blessing is accepted ONLY from the server (a packet WITHOUT a participant); the payload is never decoded,
+            // only its length is looked at. This branch must stay BEFORE the participant check below, which drops participant-less packets.
+            if (p3 == ENCOUNTER_BLESSING_TOPIC) {
+                val fromParticipant = p1.unsafeCast<RemoteParticipant?>() != null
+                val accepted = encounterBlessingPacketAccepted(fromParticipant = fromParticipant, payloadLength = payload.length)
+                if (accepted) onEncounterBlessing()
+                return@onOwned
+            }
             val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@onOwned
             val topic = p3
             when (topic) {
@@ -1234,3 +1251,12 @@ internal fun requestRemoteVideoQuality(
     if (jsTypeOf(publication.asDynamic().setVideoQuality) != "function") return false
     return runCatching { publication.unsafeCast<RemoteVideoQualityControl>().setVideoQuality(quality) }.isSuccess
 }
+
+/**
+ * V1.9.95 -- the pure acceptance rule of a blessing packet: it must come from the server (no participant) and be 1..[ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES]
+ * bytes long. Nothing of the payload is read.
+ */
+internal fun encounterBlessingPacketAccepted(
+    fromParticipant: Boolean,
+    payloadLength: Int,
+): Boolean = !fromParticipant && payloadLength in 1..ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES

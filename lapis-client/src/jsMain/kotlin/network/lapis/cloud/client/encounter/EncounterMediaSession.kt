@@ -94,6 +94,8 @@ internal class EncounterSessionCallbacks(
     val onSeatNudge: (identity: String) -> Unit = {},
     /** V1.9.79: the identities LiveKit currently reports as speaking (the room only looks at office holders' tiles). Volatile, never stored. */
     val onActiveSpeakers: (identities: List<String>) -> Unit = {},
+    /** V1.9.95: the server sent the blessing (a packet without a participant). No data, no sender. */
+    val onBlessing: () -> Unit = {},
 )
 
 /** The factory seam of the room view (a `jsTest` hands over a fake). The real one is [openEncounterSession]. */
@@ -126,6 +128,7 @@ private fun defaultLiveKitFactory(
         onEncounterReaction = callbacks.onReaction,
         onAudioPlaybackChanged = callbacks.onAudioPlaybackChanged,
         onEncounterSeatNudge = callbacks.onSeatNudge,
+        onEncounterBlessing = callbacks.onBlessing,
     )
 
 /**

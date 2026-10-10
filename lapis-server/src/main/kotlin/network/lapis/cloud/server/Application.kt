@@ -90,6 +90,7 @@ import network.lapis.cloud.server.economy.oracle.PriceOracleStartupCheck
 import network.lapis.cloud.server.economy.oracle.defaultOracleSources
 import network.lapis.cloud.server.embed.EmbedAssets
 import network.lapis.cloud.server.embed.EmbedConfig
+import network.lapis.cloud.server.encounter.EncounterBlessingState
 import network.lapis.cloud.server.encounter.EncounterEntryNoticeState
 import network.lapis.cloud.server.encounter.EncounterEntryNotifier
 import network.lapis.cloud.server.encounter.EncounterModerationState
@@ -1035,6 +1036,8 @@ internal fun Application.module(
     // empty on every request (the EncounterSpaceService constructor therefore has no defaults for them). The in-memory moderation state
     // (blocked / silenced people of a running session) is shared with the EncounterSpacePoller started further below.
     val encounterModerationState = EncounterModerationState()
+    // V1.9.95: the in-memory blessing throttle (room id -> last instant, nothing else); shared with the poller.
+    val encounterBlessingState = EncounterBlessingState()
     // V1.9.79: the in-memory seat plan of the running sessions (never persisted, see EncounterSeatState); shared with the poller.
     val encounterSeatState = EncounterSeatState()
     // V1.9.80: the in-memory table plan (who sits at which table, which LiveKit room carries which table); shared with the poller and the reconciler.
@@ -1281,6 +1284,7 @@ internal fun Application.module(
         EncounterSpacePoller(
             liveKitAdminClient = liveKitAdminClient,
             moderationState = encounterModerationState,
+            blessingState = encounterBlessingState,
             seatState = encounterSeatState,
             tableState = encounterTableState,
             entryNotifier = encounterEntryNotifier,
@@ -2148,6 +2152,7 @@ internal fun Application.module(
                 call = call,
                 liveKitAdminClient = liveKitAdminClient,
                 moderationState = encounterModerationState,
+                blessingState = encounterBlessingState,
                 seatState = encounterSeatState,
                 tableState = encounterTableState,
                 entryNotifier = encounterEntryNotifier,

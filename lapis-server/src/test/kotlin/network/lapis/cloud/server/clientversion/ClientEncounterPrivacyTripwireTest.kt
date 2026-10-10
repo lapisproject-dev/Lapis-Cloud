@@ -367,4 +367,57 @@ class ClientEncounterPrivacyTripwireTest :
             hosts.size shouldBe 2
             hosts.all { it.contains("audioOutput") } shouldBe true
         }
+
+        // ── Welle V1.9.95: the blessing ──────────────────────────────────────────
+
+        test("V1.9.95: the blessing packet is accepted before the participant check and is never decoded") {
+            val text = codeLines(LIVEKIT_SESSION).joinToString("\n")
+            val start = text.indexOf("if (p3 == ENCOUNTER_BLESSING_TOPIC)")
+            (start >= 0) shouldBe true
+            val participantCheck = text.indexOf("val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@onOwned")
+            withClue("the blessing branch must stand BEFORE the line that drops participant-less packets") {
+                (start in 0 until participantCheck) shouldBe true
+            }
+            val branch = text.substring(start, participantCheck)
+            listOf("decode", "Json", "TextDecoder", "serializer", "toString", "String(", "identity").forEach { forbidden ->
+                withClue("the blessing branch must not contain '$forbidden': $branch") { branch.contains(forbidden) shouldBe false }
+            }
+            branch.contains("encounterBlessingPacketAccepted(") shouldBe true
+            branch.contains("payload.length") shouldBe true
+            // the acceptance rule itself: no participant, 1..MAX bytes
+            text.contains("!fromParticipant && payloadLength in 1..ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES") shouldBe true
+        }
+
+        test("V1.9.95: the blessing topic is its own, the payload limit is at most 16 bytes and the fixed body fits it") {
+            val shared = SHARED_ENCOUNTER.readText()
+            val limit = Regex("""ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES\s*=\s*(\d+)""").find(shared)!!.groupValues[1].toInt()
+            (limit <= 16) shouldBe true
+            shared.contains("\"lapis-encounter-blessing\"") shouldBe true
+            val payload = Regex("""ENCOUNTER_BLESSING_PAYLOAD\s*=\s*\"\"\"(.*?)\"\"\"""").find(shared)!!.groupValues[1]
+            payload shouldBe """{"b":1}"""
+            (payload.length <= limit) shouldBe true
+            // the topic string exists exactly once in the shared module and nowhere else as a literal
+            Regex("\"lapis-encounter-blessing\"").findAll(shared).count() shouldBe 1
+        }
+
+        test("V1.9.95: the blessing display keeps no storage, no console, no counter, no name and no time of day") {
+            val file = encounterFiles().first { it.name == "EncounterBlessing.kt" }
+            val code = codeLines(file).filterNot { it.trimStart().startsWith("import ") }
+            code
+                .filter {
+                    STORAGE.containsMatchIn(
+                        it,
+                    ) ||
+                        CONSOLE.containsMatchIn(it) ||
+                        NO_LEAK_CHANNELS.containsMatchIn(it)
+                }.shouldBeEmpty()
+            code
+                .filter {
+                    Regex("""\bcount\w*\b|\+\+|displayName|identity|memberId|Date\(|Date\.now|toLocale|\.name\b""", RegexOption.IGNORE_CASE)
+                        .containsMatchIn(it)
+                }.shouldBeEmpty()
+            // the room hands the packet on without any data
+            val room = encounterFiles().first { it.name == "EncounterRoom.kt" }
+            codeLines(room).any { it.contains("onBlessing = { blessingDisplay.onBlessing() }") } shouldBe true
+        }
     })
