@@ -265,6 +265,24 @@ class EncounterDevicePickerDomTest {
         }
 
     @Test
+    fun theDeviceButton_showsTheGear_notTheHeadphones(): Promise<Unit> =
+        formTest {
+            assertTrue(stylesLoaded)
+            clearKeys()
+            val env = FakeDeviceEnvironment(outputs = options("spk", "s1", "s2"))
+            withSteward(steward(), env) { _, element ->
+                awaitUntil("the device button is shown") { element.pickerButton() != null }
+                val button = element.pickerButton()!!
+                assertEquals("Geräte wählen", button.getAttribute("aria-label"))
+                val icon = assertNotNull(button.querySelector("i") as? HTMLElement, "the button carries an icon element")
+                assertTrue(icon.classList.contains("fas"), icon.className)
+                assertTrue(icon.classList.contains("fa-gear"), icon.className)
+                assertNull(button.querySelector(".fa-headphones"), "no headphones in the button")
+                assertNull(element.querySelector(".fa-headphones"), "no headphones anywhere in the room")
+            }
+        }
+
+    @Test
     fun withoutTheSinkApi_thereAreTwoFields_andAPlainSentenceAboutTheSpeaker(): Promise<Unit> =
         formTest {
             clearKeys()

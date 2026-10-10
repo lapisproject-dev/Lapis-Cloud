@@ -697,26 +697,35 @@ class ClientToolbarIconTripwireTest :
                         "EncounterRoom.kt" to 11,
                         // V1.9.90: the named R58 group "encounter devices (microphone and camera)"
                         "EncounterPulpitControls.kt" to 2,
-                        // V1.9.91: the named R58 group "encounter device picker (headphones)": exactly one icon-only button
+                        // V1.9.91: the named R58 group "encounter device picker (gear)": exactly one icon-only button
                         "EncounterDevicePicker.kt" to 1,
                     )
             }
         }
 
         test(
-            "V1.9.91 (R58 named group 'encounter device picker (headphones)'): one icon-only button, no labelled button, listeners paired",
+            "V1.9.94 (R58 named group 'encounter device picker (gear)'): one icon-only button, no labelled button, listeners paired",
         ) {
             val picker = clientFiles().first { it.name == "EncounterDevicePicker.kt" }.readText()
             val code = codeLines(picker).joinToString("\n")
-            withClue("ActionIcon.AUDIO_DEVICES is used once in the whole client (outside its declaration), in the picker") {
+            withClue("ActionIcon.SETTINGS is used once in the whole client (outside its declaration), in the picker") {
                 val users =
                     clientFiles()
                         .filter { it.name != "ActionIcon.kt" }
                         .associate {
                             it.name to
-                                codeLines(it.readText()).sumOf { l -> Regex("""ActionIcon\.AUDIO_DEVICES""").findAll(l).count() }
+                                codeLines(it.readText()).sumOf { l -> Regex("""ActionIcon\.SETTINGS""").findAll(l).count() }
                         }.filterValues { it > 0 }
                 users shouldBe mapOf("EncounterDevicePicker.kt" to 1)
+            }
+            withClue("V1.9.94: the headphones icon and ActionIcon.AUDIO_DEVICES are gone from the whole client (comments excluded)") {
+                val leftovers =
+                    clientFiles()
+                        .associate {
+                            it.name to
+                                codeLines(it.readText()).count { l -> l.contains("AUDIO_DEVICES") || l.contains("fa-headphones") }
+                        }.filterValues { it > 0 }
+                leftovers shouldBe emptyMap()
             }
             withClue("the picker has no labelled action button") {
                 Regex("""\bactionButton\(|\bnewActionButton\(|\bnewIconOnlyActionButton\(""").containsMatchIn(code) shouldBe false

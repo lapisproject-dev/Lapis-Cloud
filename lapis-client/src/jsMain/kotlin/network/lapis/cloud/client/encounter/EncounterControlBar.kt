@@ -44,7 +44,7 @@ internal sealed interface EncounterControlSlot {
     /** V1.9.80: "Kanzel lauter" (profile word: "Podium lauter" in an assembly) -- turns the pulpit up again while the viewer sits at a table. */
     data object PulpitLouder : EncounterControlSlot
 
-    /** V1.9.91: the device picker (headphones) -- the LAST control of the devices group; never moved into the sheet. */
+    /** V1.9.91: the device picker (gear) -- the LAST control of the devices group; never moved into the sheet. */
     data object AudioDevices : EncounterControlSlot
 
     data object Chat : EncounterControlSlot
