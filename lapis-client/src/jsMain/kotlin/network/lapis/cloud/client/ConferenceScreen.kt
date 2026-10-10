@@ -25,7 +25,6 @@ import io.kvision.panel.VPanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.perc
-import io.kvision.utils.px
 import kotlinx.browser.document
 import kotlinx.browser.localStorage
 import kotlinx.browser.window
@@ -45,6 +44,7 @@ import network.lapis.cloud.client.livekit.LocalVideoTrack
 import network.lapis.cloud.client.livekit.Track
 import network.lapis.cloud.client.livekit.TrackPublication
 import network.lapis.cloud.client.livekit.requestRemoteVideoQuality
+import network.lapis.cloud.client.maplibre.ResizeObserver
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceBreakoutAssignmentDto
 import network.lapis.cloud.shared.domain.ConferenceBreakoutAssignmentInput
@@ -502,10 +502,11 @@ internal fun Container.conferenceScreenRoot(onTeardown: () -> Unit): VPanel =
             // statt `width` für die feste Obergrenze, `width = 100.perc` für den Schrumpf auf schmale
             // Viewports. Dieselbe hartcodierte-Breite-ohne-Fallback-Falle besteht auf elf weiteren Screens
             // (Dashboard etc.) -- bewusst NICHT Teil dieser Welle, siehe CHANGELOG.md.
-            addCssClass("mx-auto")
-            maxWidth = 960.px
+            // V1.9.92: the 960 px column and its centring now live in the class `lapis-conference-root` (theme.css), NOT inline:
+            // an inline `max-width` beats every class, so the call view could never widen. While a call is on screen the class
+            // `lapis-conference-wide` (see `:has(.lapis-conference-call-active)`) lifts the cap; the lobby stays narrow.
+            addCssClass("lapis-conference-root")
             width = 100.perc
-            marginTop = 24.px
         },
         onDestroy = onTeardown,
     )
@@ -1059,7 +1060,6 @@ private enum class ConferenceTileZone { FLAT, PRIORITY_REFLOWED, COMPACT }
 /** Wave 4, D3 -- the concrete pixel/padding values [enterCall]'s `setTileZoneStyle` applies per
  * [ConferenceTileZone], per the design review's own "Decided" sizing table. */
 private data class ConferenceTileZoneStyle(
-    val minHeightPx: Int,
     val initialsFontPx: Int,
     val badgeFontPx: Int,
     val badgePadding: String,
@@ -1086,6 +1086,8 @@ private fun enterCall(
     setConferenceLobbyVisible(lobbyPanel, false)
     callPanel.removeAll()
     callPanel.show()
+    // V1.9.92: while a call is on screen the page column is full width (theme.css `lapis-conference-wide`); the lobby stays narrow
+    callPanel.addCssClass(CONFERENCE_CALL_ACTIVE_CLASS)
 
     // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- every IConferenceService/
     // IConferenceRecordingService/IConferenceStreamingService call below targets the PARENT room's
@@ -2693,6 +2695,111 @@ private fun enterCall(
     // V1.9.25 -- what a guest or friend sees while ballots run in the room: no panel, one calm line above the tiles.
     val guestVoteLine = if (!votingMember) renderGuestVotingStatusLine(videoArea) else null
 
+    // --- V1.9.92 Best-Fit-Kachelraster ------------------------------------------------------------------------------
+    // The tile size is no longer a CSS auto-fit guess but the answer of the pure `computeConferenceTileGrid` for the free area. This
+    // function only MEASURES and WRITES THREE NUMBERS as CSS variables on existing elements (`--lapis-tile-w`, `--lapis-tile-h`,
+    // `--lapis-tiles-max-w` on the priority zone, `--lapis-rail-inset` on the area). It never creates, moves or removes a node
+    // (V1.4.19: a <video> that leaves the document pauses) and never touches the speaking mark. H comes from window values only,
+    // never from the area's own height (it grows when `scrolls`, which would feed back into itself).
+    var compactLabelElement: HTMLElement? = null
+    var tileGridColumns: Int? = null
+    var tileGridDisposed = false
+    var tileGridFramePending = false
+    var lastTileInputs: List<Double>? = null
+
+    fun applyTileGrid(force: Boolean = false) {
+        if (tileGridDisposed) return
+        val priority = priorityZoneElement ?: return
+        val area = gridElement ?: return
+        if (!priority.isConnected || !area.isConnected) return
+        val count = priority.childElementCount
+        if (count == 0) return
+
+        val areaStyle = window.getComputedStyle(area)
+        val padY =
+            conferenceCssPx(areaStyle.paddingTop) + conferenceCssPx(areaStyle.paddingBottom) +
+                conferenceCssPx(areaStyle.borderTopWidth) + conferenceCssPx(areaStyle.borderBottomWidth)
+        val railVisible = panelState.rosterVisible() || panelState.chatVisible() || panelState.votingVisible()
+        val inset = conferenceRailInset(railVisible, panelState.fullscreen, window.innerWidth.toDouble())
+        // the inset becomes padding of the area (theme.css): write it BEFORE measuring, so the measured width is already net of the rail
+        val insetValue = "${inset}px"
+        if (area.style.getPropertyValue("--lapis-rail-inset") != insetValue) area.style.setProperty("--lapis-rail-inset", insetValue)
+        val width = area.clientWidth - conferenceCssPx(areaStyle.paddingLeft) - conferenceCssPx(areaStyle.paddingRight)
+
+        val viewport = window.asDynamic().visualViewport
+        val viewportHeight = (viewport?.height as? Double) ?: window.innerHeight.toDouble()
+        val areaRect = area.getBoundingClientRect()
+        val scrolled = if (panelState.fullscreen) (callPanel.getElement()?.scrollTop ?: 0.0) else window.scrollY
+        // the call panel reserves `56px + safe-area + 12px` below its content for the fixed control bar (theme.css): the computed
+        // padding is the one place the resolved `env(safe-area-inset-bottom)` can be read in pixels
+        val reservedBelow = callPanel.getElement()?.let { conferenceCssPx(window.getComputedStyle(it).paddingBottom) } ?: 0.0
+        val bottomBar = if (reservedBelow >= 12.0) reservedBelow - 12.0 else 56.0
+        val strip = compactZoneElement?.takeIf { it.style.display != "none" }
+        val stripHeight = if (strip != null) strip.offsetHeight + (compactLabelElement?.offsetHeight ?: 0) + 12 else 0
+        val height =
+            conferenceTileAreaHeight(
+                viewportHeight = viewportHeight,
+                areaTop = areaRect.top + scrolled,
+                barHeight = bottomBar,
+                bottomPad = 12.0,
+            ) - padY - stripHeight
+
+        val inputs = listOf(count.toDouble(), width, height, inset)
+        val previous = lastTileInputs
+        val unchanged =
+            previous != null &&
+                previous[0] == inputs[0] &&
+                previous[3] == inputs[3] &&
+                kotlin.math.abs(previous[1] - width) <= 2.0 &&
+                kotlin.math.abs(previous[2] - height) <= 2.0
+        if (!force && unchanged) return
+        lastTileInputs = inputs
+
+        val grid = computeConferenceTileGrid(count, width, height, previousColumns = tileGridColumns)
+        if (grid.columns == 0) return
+        tileGridColumns = grid.columns
+        val widthValue = "${grid.tileWidth}px"
+        val heightValue = "${grid.tileHeight}px"
+        val maxWidthValue = "${grid.columns * grid.tileWidth + CONFERENCE_TILE_GAP_PX * (grid.columns - 1)}px"
+        if (priority.style.getPropertyValue("--lapis-tile-w") != widthValue) priority.style.setProperty("--lapis-tile-w", widthValue)
+        if (priority.style.getPropertyValue("--lapis-tile-h") != heightValue) priority.style.setProperty("--lapis-tile-h", heightValue)
+        if (priority.style.getPropertyValue("--lapis-tiles-max-w") != maxWidthValue) {
+            priority.style.setProperty("--lapis-tiles-max-w", maxWidthValue)
+        }
+        // when the floor took effect the area is taller than the window: it may grow, the page scrolls (R59: no scroller of its own)
+        if (grid.scrolls) area.style.setProperty("min-height", "${height + padY}px") else area.style.removeProperty("min-height")
+        val small = grid.tileWidth < CONFERENCE_TILE_SMALL_WIDTH_PX
+        var child = priority.firstElementChild
+        while (child != null) {
+            if (child.classList.contains(CONFERENCE_TILE_SMALL_CLASS) != small) child.classList.toggle(CONFERENCE_TILE_SMALL_CLASS)
+            child = child.nextElementSibling
+        }
+    }
+
+    /** At most one recomputation per frame, however many resize events a drag of the window fires. */
+    fun scheduleTileGrid() {
+        if (tileGridDisposed || tileGridFramePending) return
+        tileGridFramePending = true
+        window.requestAnimationFrame {
+            tileGridFramePending = false
+            applyTileGrid()
+        }
+    }
+
+    val tileGridObserver = ResizeObserver { _, _ -> scheduleTileGrid() }
+    val tileGridResizeListener: (Event) -> Unit = { scheduleTileGrid() }
+    window.addEventListener("resize", tileGridResizeListener)
+    window.asDynamic().visualViewport?.addEventListener("resize", tileGridResizeListener)
+    narrowQuery.asDynamic().addEventListener("change", tileGridResizeListener)
+
+    fun disposeTileGrid() {
+        tileGridDisposed = true
+        tileGridObserver.disconnect()
+        window.removeEventListener("resize", tileGridResizeListener)
+        window.asDynamic().visualViewport?.removeEventListener("resize", tileGridResizeListener)
+        narrowQuery.asDynamic().removeEventListener("change", tileGridResizeListener)
+    }
+
     // --- Screen-share stage (hidden until a "screen_share"-sourced track subscribes) --------------
     val stageDiv =
         videoArea.div {
@@ -2703,6 +2810,8 @@ private fun enterCall(
         val newStage = (vnode.elm as? HTMLElement) ?: return@addAfterInsertHook
         val previousStage = stageElement
         stageElement = newStage
+        // a shown or hidden screen share moves the tile area: the observer watches the stage as well
+        tileGridObserver.observe(newStage)
         if (previousStage != null && previousStage !== newStage) {
             // V1.4.19 -- der Container wurde von einem Re-Render ersetzt: den laufenden Screen-Share
             // (`<video>` + Label) SYNCHRON im selben Task übernehmen (sonst pausiert Chrome das Video)
@@ -2718,7 +2827,7 @@ private fun enterCall(
     // --- Video tile grid (responsive CSS grid, D3) -------------------------------------------------
     val gridDiv =
         videoArea.div {
-            addCssClasses("border rounded p-2 lapis-conference-grid")
+            addCssClasses("border rounded lapis-conference-grid")
         }
     // Wave 4, D3: `gridElement` now holds TWO sub-containers, built ONCE here (never recreated by
     // `applyConferenceGridReflow` below -- same "grab once, mutate forever" discipline this file
@@ -2726,7 +2835,6 @@ private fun enterCall(
     // reflow threshold, `priorityZoneElement` alone renders every tile in the ORIGINAL
     // `minmax(200px, 1fr)` flat grid -- byte-for-byte Wave 1-3 behaviour -- and `compactZoneElement`
     // stays empty/hidden.
-    var compactLabelElement: HTMLElement? = null
     gridDiv.addAfterInsertHook { vnode ->
         val root = (vnode.elm as? HTMLElement) ?: return@addAfterInsertHook
         val previousRoot = gridElement
@@ -2739,12 +2847,21 @@ private fun enterCall(
             // Task ausgehängt ist).
             conferenceAdoptChildren(oldRoot = previousRoot, newRoot = root)
             resumeStalledVideos(root)
+            // the variables live on the adopted priority zone; the new area needs its own observer and the rail variable at once
+            tileGridObserver.observe(root)
+            lastTileInputs = null
+            applyTileGrid(force = true)
             return@addAfterInsertHook
         }
         val priority = document.createElement("div") as HTMLElement
-        priority.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px;"
+        // V1.9.92: a centred, wrapping flex row (the last row sits in the middle); the tile size comes from `applyTileGrid`
+        priority.className = "lapis-conference-tiles"
+        priority.style.cssText = "display:flex;flex-wrap:wrap;justify-content:center;align-content:center;gap:8px;"
+        priority.style.setProperty("--lapis-tile-w", "320px")
+        priority.style.setProperty("--lapis-tile-h", "180px")
         root.appendChild(priority)
         priorityZoneElement = priority
+        tileGridObserver.observe(root)
 
         val compactLabel = document.createElement("div") as HTMLElement
         compactLabel.style.cssText = "font-size:12px;color:var(--lapis-muted);margin-top:8px;display:none;"
@@ -2766,17 +2883,27 @@ private fun enterCall(
         return lastSpokeAtMs.filterValues { now - it <= CONFERENCE_SPEAKING_PRIORITY_WINDOW_MS }.keys + joinToken.identity
     }
 
+    var lastReflowed = false
+
     fun setTileZoneStyle(
         entry: ConferenceTileEntry,
         zone: ConferenceTileZone,
     ) {
-        val (minHeightPx, initialsFontPx, badgeFontPx, badgePadding) =
+        val (initialsFontPx, badgeFontPx, badgePadding) =
             when (zone) {
-                ConferenceTileZone.COMPACT -> ConferenceTileZoneStyle(82, 16, 10, "1px 4px")
-                ConferenceTileZone.PRIORITY_REFLOWED -> ConferenceTileZoneStyle(195, 28, 12, "2px 6px")
-                ConferenceTileZone.FLAT -> ConferenceTileZoneStyle(150, 28, 12, "2px 6px")
+                ConferenceTileZone.COMPACT -> ConferenceTileZoneStyle(16, 10, "1px 4px")
+                ConferenceTileZone.PRIORITY_REFLOWED -> ConferenceTileZoneStyle(28, 12, "2px 6px")
+                ConferenceTileZone.FLAT -> ConferenceTileZoneStyle(28, 12, "2px 6px")
             }
-        entry.element.style.setProperty("min-height", "${minHeightPx}px")
+        // V1.9.92: the filmstrip has no best-fit variables, its tiles keep the fixed thumbnail size (146 x 82, 16:9)
+        if (zone == ConferenceTileZone.COMPACT) {
+            entry.element.style.setProperty("width", "${CONFERENCE_FILMSTRIP_TILE_WIDTH_PX}px")
+            entry.element.style.setProperty("height", "${CONFERENCE_FILMSTRIP_TILE_HEIGHT_PX}px")
+            entry.element.classList.remove(CONFERENCE_TILE_SMALL_CLASS)
+        } else {
+            entry.element.style.setProperty("width", "var(--lapis-tile-w,100%)")
+            entry.element.style.setProperty("height", "var(--lapis-tile-h,auto)")
+        }
         entry.mediaSlot.style.setProperty("font-size", "${initialsFontPx}px")
         entry.nameBadge.style.setProperty("font-size", "${badgeFontPx}px")
         entry.nameBadge.style.setProperty("padding", badgePadding)
@@ -2803,15 +2930,11 @@ private fun enterCall(
         val label = compactLabelElement ?: return
         val layout = conferenceGridLayout(tiles.keys.toList(), currentPriorityIdentities())
         if (layout.reflowed) {
-            priority.style.setProperty("grid-template-columns", "repeat(auto-fit, minmax(260px, 1fr))")
             compact.style.setProperty("display", "flex")
             label.style.setProperty("display", "block")
             label.textContent = gettext("Weitere Teilnehmende (%1)", layout.compactIdentities.size)
         } else {
-            // Required change 2 (design review): the <= threshold case stays BYTE-FOR-BYTE Wave 1-3's
-            // original single flat grid -- reset to the ORIGINAL minmax(200px, 1fr) rule, never left
-            // at the larger reflowed-priority size.
-            priority.style.setProperty("grid-template-columns", "repeat(auto-fit, minmax(200px, 1fr))")
+            // V1.9.92: the tile size of BOTH cases is the best-fit answer of `applyTileGrid` (the zone only decides who is shown).
             compact.style.setProperty("display", "none")
             label.style.setProperty("display", "none")
         }
@@ -2834,6 +2957,9 @@ private fun enterCall(
         }
         // V1.4.19 -- ein frisch (wieder) eingehängtes Tile: pausierte Videos sofort anstossen.
         if (moved) resumeStalledVideos(priority.parentElement ?: priority)
+        // V1.9.92: ONCE at the end, and only for the tile grid (the observer triggers `applyTileGrid`, never this function)
+        applyTileGrid(force = moved || layout.reflowed != lastReflowed)
+        lastReflowed = layout.reflowed
     }
 
     // Required change 1 (design review): the SOLE trigger for `applyConferenceGridReflow` on a
@@ -2854,7 +2980,10 @@ private fun enterCall(
         // immediately and keeps correcting the grid for the whole call.
         while (connectionState !is ConferenceConnectionState.Ended) {
             delay(CONFERENCE_GRID_REFLOW_SWEEP_INTERVAL_MS)
-            if (connectionState.isLive()) applyConferenceGridReflow()
+            if (connectionState.isLive()) {
+                applyConferenceGridReflow()
+                applyTileGrid() // V1.9.92: safety net for a missed resize / a changed header height
+            }
         }
     }
     AppScope.launch { sweepGridReflow() }
@@ -3129,6 +3258,8 @@ private fun enterCall(
         callPanel.getElement()?.classList?.let { classList ->
             if (panelState.fullscreen) classList.add("lapis-conference-fullscreen") else classList.remove("lapis-conference-fullscreen")
         }
+        // V1.9.92: a rail panel opened or closed, full screen entered or left: the free width changed
+        applyTileGrid()
 
         // V1.2.9, review fix -- CHANGELOG.md's own claim ("Whiteboard und geteilte Notizen sind im
         // Vollbild bewusst nicht verfügbar -- ihre Schalter werden dort ausgeblendet statt
@@ -3377,6 +3508,7 @@ private fun enterCall(
         // V1.9.25: the ballot poll, the receipt hook and the viewport listener end with the call, on every way out of it
         ConferenceVoteRuntime.disposeActive()
         overflow.dispose()
+        disposeTileGrid()
         document.removeEventListener("fullscreenchange", fullscreenChangeListener)
         document.removeEventListener("webkitfullscreenchange", fullscreenChangeListener)
         document.removeEventListener("pointermove", onControlsActivity)
@@ -3570,17 +3702,16 @@ private fun enterCall(
         isLocal: Boolean,
     ): ConferenceTileEntry {
         val tile = document.createElement("div") as HTMLElement
-        // ELB-Test-Fix 2026-09-27 (Befund 6, "Kacheln brechen ein, sobald ein Mobil-Teilnehmer
-        // beitritt"): the tile's height is now FIXED by `aspect-ratio: 16 / 9` (floored by the zone's
-        // `min-height`), never by the intrinsic size of the <video> inside it. Before, a portrait
-        // 9:16 phone stream (`height: 100%` in an auto-height flex tile resolves to the video's own
-        // aspect ratio) made its tile roughly twice as tall as a landscape one, the CSS grid row
-        // stretched EVERY tile in that row to that height, and `object-fit: cover` then cropped all
-        // landscape streams down to a face-only band. See `conferenceVideoObjectFit` for how a
-        // portrait stream is rendered inside the now-landscape tile.
+        // ELB-Test-Fix 2026-09-27 (Befund 6, "Kacheln brechen ein, sobald ein Mobil-Teilnehmer beitritt"): the tile's size is
+        // FIXED, never given by the intrinsic size of the <video> inside it (a portrait 9:16 phone stream would make its tile twice as
+        // tall and `object-fit: cover` would then crop every landscape stream to a face-only band). Since V1.9.92 the fixed size is
+        // the best-fit answer of `computeConferenceTileGrid`, written by `applyTileGrid` as the two variables `--lapis-tile-w` /
+        // `--lapis-tile-h` on the priority zone (compact tiles get their own pixel size in `setTileZoneStyle`). See
+        // `conferenceVideoObjectFit` for how a portrait stream is rendered inside the now-landscape tile.
         tile.style.cssText =
             "position:relative;background:var(--lapis-tile-bg);border:1px solid var(--lapis-tile-border);border-radius:6px;" +
-            "overflow:hidden;min-height:150px;aspect-ratio:16 / 9;display:flex;align-items:center;justify-content:center;"
+            "overflow:hidden;flex:0 0 auto;width:var(--lapis-tile-w,100%);height:var(--lapis-tile-h,auto);" +
+            "display:flex;align-items:center;justify-content:center;"
 
         val mediaSlot = document.createElement("div") as HTMLElement
         mediaSlot.style.cssText =
@@ -3592,7 +3723,7 @@ private fun enterCall(
         val nameBadge = document.createElement("div") as HTMLElement
         nameBadge.style.cssText =
             "position:absolute;left:6px;bottom:6px;background:rgba(0,0,0,0.55);color:var(--lapis-media-overlay-text);" +
-            "font-size:12px;padding:2px 6px;border-radius:3px;max-width:85%;overflow:hidden;" +
+            "font-size:12px;padding:2px 6px;border-radius:3px;max-width:var(--lapis-name-max,85%);overflow:hidden;" +
             "text-overflow:ellipsis;white-space:nowrap;"
         tile.appendChild(nameBadge)
 
@@ -5201,6 +5332,7 @@ private fun returnToLobby(
     onBeforeReturn()
     setActiveSession(null)
     callPanel.removeAll()
+    callPanel.removeCssClass(CONFERENCE_CALL_ACTIVE_CLASS)
     val showLobby = ConferenceLobbyPort.current
     if (ConferenceDock.isAttached && showLobby != null) {
         callPanel.hide()

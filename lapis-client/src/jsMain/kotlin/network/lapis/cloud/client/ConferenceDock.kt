@@ -426,6 +426,7 @@ internal object ConferenceDock {
         announcedFirstDetach = false
         pendingFocusFromBar = false
         callPanel.removeAll()
+        callPanel.removeCssClass(CONFERENCE_CALL_ACTIVE_CLASS)
         callPanel.hide()
         audioContainer.let { container -> while (container.firstChild != null) container.removeChild(container.firstChild!!) }
     }

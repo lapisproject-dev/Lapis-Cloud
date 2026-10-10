@@ -2246,4 +2246,55 @@ class ClientUiGuidelineTripwireTest :
             code.contains("newActionButton(ActionIcon.VIEW") shouldBe true
             Regex("""fun validateAndReport\(\): Boolean \{\s*(//[^\n]*\s*)*concealAll\(\)""").containsMatchIn(grammar) shouldBe true
         }
+
+        test("V1.9.92: the conference tile grid: no fixed tile floor in the tile, no motion, 8 px gap, full-width call, pure function") {
+            val screen = codeOnly(clientKotlinFiles().first { it.name == "ConferenceScreen.kt" }.readText())
+            val buildTile = screen.substringAfter("fun buildTile(").substringBefore("return ConferenceTileEntry(")
+            buildTile.contains("min-height:150px") shouldBe false
+            buildTile.contains("aspect-ratio") shouldBe false
+            buildTile.contains("var(--lapis-tile-w") shouldBe true
+            buildTile.contains("var(--lapis-tile-h") shouldBe true
+            screen.contains("gap:8px") shouldBe true
+            screen.contains("minmax(200px") shouldBe false
+            screen.contains("minmax(260px") shouldBe false
+            // the 960 px column is a class (an inline max-width would beat the wide-call rule), the lobby keeps it
+            val root = screen.substringAfter("internal fun Container.conferenceScreenRoot(").substringBefore("onDestroy = onTeardown")
+            root.contains("maxWidth") shouldBe false
+            root.contains("lapis-conference-root") shouldBe true
+
+            val gridSource = codeOnly(clientKotlinFiles().first { it.name == "ConferenceTileGrid.kt" }.readText())
+            gridSource.contains("document.") shouldBe false
+            gridSource.contains("window.") shouldBe false
+            gridSource.contains("CONFERENCE_TILE_GAP_PX = 8.0") shouldBe true
+            gridSource.contains("CONFERENCE_TILE_MIN_WIDTH_PX = 160.0") shouldBe true
+
+            val css = parseCssRules(THEME_CSS.readText())
+            val mine =
+                css.filter { rule ->
+                    listOf("lapis-conference-grid", "lapis-conference-tiles", "lapis-conference-tile--small", "lapis-conference-root").any {
+                        rule.selector.contains(it)
+                    }
+                }
+            (mine.size >= 6) shouldBe true
+            for (rule in mine) {
+                withClue(rule.selector) {
+                    rule.body.contains("transition") shouldBe false
+                    rule.body.contains("animation") shouldBe false
+                }
+            }
+            val padding = css.first { it.selector == ".lapis-conference-grid" && it.atRules.isEmpty() }.body
+            padding.contains("padding: 8px") shouldBe true
+            css.any {
+                it.selector == ".lapis-conference-grid" &&
+                    it.atRules.any { a -> a.contains("min-width: 768px") } &&
+                    it.body.contains("padding: 16px")
+            } shouldBe
+                true
+            css.any {
+                it.selector.contains("lapis-conference-root:has(.lapis-conference-call-active)") &&
+                    it.body.contains("max-width: none")
+            } shouldBe
+                true
+            css.first { it.selector == ".lapis-conference-root" }.body.contains("max-width: 960px") shouldBe true
+        }
     })

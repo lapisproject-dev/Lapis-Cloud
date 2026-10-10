@@ -837,10 +837,62 @@ body {
 /* D11: Maße aus ConferenceScreen.kt's Inline-Styles übernommen, unverändert im Normalmodus. Kein
    !important -- dieses Projekt erlaubt !important nur gegen Bootstrap-Klassen, nicht als
    Gewohnheit. */
+/* V1.9.92: Seitenspalte der Konferenzseite. Die 960-px-Spalte (vorher Inline-Stil, der jede Klasse schlägt) liegt jetzt hier; solange ein
+   Anruf auf dem Bildschirm steht (`.lapis-conference-call-active` auf dem Anrufbereich), fällt die Obergrenze: die Kacheln bekommen die volle
+   Breite, die Lobby bleibt schmal. Ohne `:has` (ältere Browser) bleibt die Spalte schmal -- das Raster rechnet trotzdem mit der echten Breite. */
+.lapis-conference-root {
+  max-width: 960px;
+  margin: 24px auto 0;
+}
+
+.lapis-conference-root:has(.lapis-conference-call-active) {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+  margin-top: 0;
+}
+
 .lapis-conference-grid {
   min-height: 220px;
+  /* V1.9.92 (Rams): der Außenrand ist größer als der Kachelabstand (8 px), ab 768 px 16 px. */
+  padding: 8px;
   /* V1.9.68 (R59, one scroll surface): no max-height, no own scrollbar -- the grid grows with its
      tiles and the page scrolls. */
+}
+
+@media (min-width: 768px) {
+  .lapis-conference-grid {
+    padding: 16px;
+  }
+
+  /* Vollbild mit sichtbarer Seitenschiene: das Raster hört links von der Schiene auf (Breite kommt als Zahl aus applyTileGrid). */
+  .lapis-conference-fullscreen .lapis-conference-grid {
+    padding-right: calc(16px + var(--lapis-rail-inset, 0px));
+  }
+}
+
+/* V1.9.92: die Kachelzone. Größe aus dem Best-Fit-Raster (`--lapis-tile-w`/`--lapis-tile-h` auf dieser Zone, geschrieben von applyTileGrid);
+   `--lapis-tiles-max-w` hält die berechnete Spaltenzahl ein, auch wenn mehr Kacheln in eine Zeile passen würden. Kein transition/animation:
+   eine Größenänderung springt, die Kacheln selbst werden nie umgehängt. */
+.lapis-conference-tiles {
+  max-width: var(--lapis-tiles-max-w, none);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* sehr kleine Kacheln: nur das Symbol der Sprechermarkierung, das Namensschild lässt dem Symbol Platz */
+.lapis-conference-tile--small {
+  --lapis-name-max: calc(100% - 44px);
+}
+
+.lapis-conference-tile--small .lapis-conference-speaking-text {
+  display: none;
+}
+
+.lapis-conference-tile--small .lapis-conference-speaking-badge {
+  right: 4px;
+  bottom: 4px;
+  padding: 1px 4px;
 }
 
 /* D9: Einrichtungs-Zeilen (Gastzugang, Sitzungsverknüpfung, Breakout-Verwaltung, Rollenzeile) --
@@ -1341,6 +1393,15 @@ body {
     right: 0;
     width: auto;
     border-radius: 8px 8px 0 0;
+  }
+}
+
+/* V1.9.92: in der vollen Breite sitzt der Knopf "Mehr" in der Mitte des Fensters, nicht mehr am Rand einer 960-px-Spalte -- das Blatt wird
+   über der Mitte verankert (420 px breit, also 210 px nach links). */
+@media (min-width: 768px) {
+  .lapis-conference-root:has(.lapis-conference-call-active) .lapis-conference-more-sheet {
+    right: auto;
+    left: max(8px, calc(50vw - 210px));
   }
 }
 

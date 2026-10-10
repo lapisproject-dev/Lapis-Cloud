@@ -16,5 +16,7 @@ external class ResizeObserver(
 ) {
     fun observe(target: Element)
 
+    fun unobserve(target: Element)
+
     fun disconnect()
 }

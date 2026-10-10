@@ -117,4 +117,20 @@ class ClientConferenceSpeakingMarkTripwireTest :
                 }
             }
         }
+
+        test("V1.9.92: the best-fit tile grid never reads or writes the speaking mark") {
+            val grid = code("ConferenceTileGrid.kt")
+            grid shouldNotContain "speaking"
+            grid shouldNotContain "toggleSpeakingMark"
+            val screen = code("ConferenceScreen.kt")
+            val apply = screen.substringAfter("fun applyTileGrid").substringBefore("fun scheduleTileGrid")
+            apply shouldNotContain "toggleSpeakingMark"
+            apply shouldNotContain "SPEAKING_TILE_CLASS"
+            apply shouldNotContain "speakingMark"
+            apply shouldNotContain ".speaking"
+            apply shouldNotContain "lastSpokeAtMs"
+            withClue("the mark stays out of the reflow, and the grid recomputation is not called from the mark") {
+                screen.substringAfter("fun applySpeakingMarks").substringBefore("fun stopSpeakingTick") shouldNotContain "applyTileGrid"
+            }
+        }
     })

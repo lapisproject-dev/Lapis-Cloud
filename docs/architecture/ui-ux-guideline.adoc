@@ -2348,3 +2348,17 @@ speakers); "Szene aus" / "Szene ein" were replaced by the stable "Szene ausblend
   The microphone of the *conference* still changes its label with its state (older debt); not touched here.
 
 *Not verified:* real devices, Safari and iOS, a real finger on the 44 px targets, a screen reader. The width model counts conservatively (it uses the bar's gap for the gaps inside a group).
+
+== V1.9.92 -- Conference tile grid
+
+Client only. Architecture: `conference-dock.adoc`, "Best-fit tile grid (V1.9.92)".
+
+* **Full width in a call.** The conference page is the one place where the 960 px reading column is wrong: the pictures are the content. While a call is
+  on screen the column is as wide as the window; the lobby keeps 960 px (R2 is untouched: no fixed width is introduced, the column is `max-width` in a class).
+* **Spacing.** 8 px between tiles; the outer margin of the tile area is larger than the gap (8 px, from 768 px 16 px).
+* **Floor.** A tile is never narrower than 160 px. Below that the area grows and the page scrolls (R59: no scroller of its own).
+* **No layout animation.** A resize jumps to the new size; no `transition` or `animation` on the area, the zone or the tiles (R54 ledger unchanged).
+* **Tiles are never re-parented.** A size change writes numbers only: `--lapis-tile-w` and `--lapis-tile-h` on the priority zone are the single write place
+  for a tile's size (the filmstrip keeps its own 146 x 82 px). Focus, the speaking mark and the running video survive every resize.
+* **Small tiles.** Below 220 px the speaker badge shows only its symbol (the word is hidden, not removed) and the name leaves room for it.
+

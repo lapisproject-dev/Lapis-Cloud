@@ -418,6 +418,53 @@ no RPC; its ledger of 153/46 cannot move). Karma: `ConferenceFloatGeometryTest`,
 `ConferenceFloatSelectionTest`, `ConferenceDockPresentationTest`, `ConferenceVideoLedgerDomTest`, `ConferenceFloatWindowDomTest`,
 `RemoteVideoQualityTest`.
 
+== Best-fit tile grid (V1.9.92)
+
+Client only; no server, RPC, schema or catalog change (no new text: the call view's live region already announces who joins and leaves, a column
+announcement on every resize would only be noise).
+
+*Full width.* While a call is on screen the page column is no longer 960 px wide. The 960 px and the centring moved from inline styles
+(`maxWidth`/`mx-auto`, which beat every class) into the class `lapis-conference-root` (`theme.css`); `enterCall` puts the marker
+`lapis-conference-call-active` on the call panel and `returnToLobby` / the dock reset remove it, and
+`.lapis-conference-root:has(.lapis-conference-call-active)` lifts the cap. The lobby, which shares the root, stays narrow. A browser without
+`:has` keeps the narrow column; the grid still measures the real width. The "Mehr" sheet was anchored to the right edge of the 960 px column,
+so in the wide call it is anchored over the middle of the window (where the control bar centres its button).
+
+*The computation.* `ConferenceTileGrid.kt` is pure arithmetic (no DOM; a tripwire pins that). `computeConferenceTileGrid(count, width, height)` tries
+every column count from 1 to `count` and takes the one with the largest 16:9 tile (`min` of the width bound and the height bound, 8 px gap). A tie
+goes to fewer empty cells, then fewer columns. Hysteresis: the previous column count stays unless the best layout is at least 6 % larger (no
+flicker at the edge). Floor: a tile never gets narrower than 160 px; the columns that fit the width stay, `scrolls = true` and the area grows beyond
+the given height. Degenerate input (zero count, zero/negative/NaN/infinite area) answers an empty grid and never throws.
+
+*The measurement.* `applyTileGrid` (a local function of `enterCall`) takes the width from the area (client width minus padding) and the height only
+from window values: `conferenceTileAreaHeight(visualViewport height, distance of the area from the top of the scrolled content, bar height + safe area,
+12 px)` minus the area's padding and the filmstrip. It never reads the area's own height (that grows when `scrolls` and would feed back into itself).
+In full screen with a visible rail panel (roster, chat or voting, from 768 px) `conferenceRailInset` gives the rail width; it is written as
+`--lapis-rail-inset` and is padding of the area, so the measured width is already net of the rail.
+
+*What is written.* Only numbers, as CSS variables on existing elements: `--lapis-tile-w`, `--lapis-tile-h`, `--lapis-tiles-max-w` (the zone's cap, which
+keeps the computed column count even when more tiles would fit a row) and `--lapis-rail-inset`; plus `min-height` of the area while `scrolls`, and
+the class `lapis-conference-tile--small` (below 220 px: only the symbol of the speaker badge, shorter name). No node is created, moved or removed
+(V1.4.19: a `<video>` outside the document pauses) and the speaking mark is never touched. The priority zone is a centred wrapping flex row, so the
+last row sits in the middle. Filmstrip tiles keep their own fixed 146 x 82 px.
+
+*Triggers.* A `ResizeObserver` on the area and the stage (re-attached in the same task when a re-render replaces the container), `window` and
+`visualViewport` resize, the narrow-viewport media query, `applyPanelVisibility`, the end of the D3 reflow (once; the grid never calls the reflow, so
+there is no loop) and the 2 s sweep as a safety net. Resize events are coalesced to one computation per animation frame, and inputs that differ by
+at most 2 px are skipped (a page scrollbar appearing changes the width by about 15 px, which hysteresis absorbs). `cleanupFullscreen` (every way out
+of a call) disconnects the observer and removes the three listeners.
+
+*Deviations from the design review.* (A1) The review asked for the tile area to scroll vertically below 160 px. `ScrollSurfaceTripwireTest` allows only
+shrinking its scroll ledger (R59, one scroll surface), so the area instead grows and the page scrolls (in full screen the call panel, ledger class E0).
+The effect for the person is the same. (A2) `ConferenceTileGrid` carries an extra field `scrolls` for exactly this. (A3) The wide column is a marker class
+plus a `:has` rule instead of removing the cap, so the lobby stays narrow. (A4) The "Mehr" sheet anchor changed (see above). (A5) In the normal view
+the roster, chat and voting panels still sit below the tiles; a side column was not built (a CSS grid cannot stack several rail panels in one column
+without wrapping them, which would move raw nodes). Only full screen, where the rail already overlays the right edge, makes room for it.
+
+Tests: `ConferenceTileGridTest` (arithmetic), `ConferenceTileGridDomTest` (real stylesheet: sizes and rows, column cap, centred last row, no node moved,
+focus and speaking mark kept, small tiles, floor, no motion, padding, wide root, "Mehr" sheet), source scans in `ClientConferenceDockTripwireTest`,
+`ClientConferenceSpeakingMarkTripwireTest` and `ClientUiGuidelineTripwireTest`. `ScrollSurfaceTripwireTest` is unchanged.
+
 == Known limits
 
 * **Not tested on a real device.** A real call with real participants over a route change, the real effect of `setVideoQuality` on the
@@ -439,3 +486,7 @@ no RPC; its ledger of 153/46 cannot move). Karma: `ConferenceFloatGeometryTest`,
 * `adaptiveStream` is off, so hidden remote videos keep loading (bandwidth); dynacast and the subscription logic are unchanged.
 * The narrow two-row bar is covered by a view-model test and a CSS review, not by a 360 px browser test (Karma runs at a fixed width).
 * The new texts in the seven catalogs come from an agent and are not checked by native speakers.
+* **Tile grid (V1.9.92).** Not tried in a real call at 25 participants, on real phones or in Safari; Karma checks the arithmetic, the CSS and that no
+  node moves, not the whole call screen. 16:9 is forced even on a phone held upright. Bottom sheets below 768 px still cover the tiles instead of
+  displacing them, and in the normal view the side panels still sit below them. Below a 160 px tile the page scrolls. There is no pinned main tile
+  (the screen-share stage stays above the grid; the grid uses the height below it). The help page `video-conferencing` is updated at rollout.

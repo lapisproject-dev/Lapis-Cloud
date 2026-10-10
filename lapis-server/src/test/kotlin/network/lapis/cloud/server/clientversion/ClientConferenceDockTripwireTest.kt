@@ -290,4 +290,63 @@ class ClientConferenceDockTripwireTest :
             val window = code(source("ConferenceFloatWindow.kt"))
             Regex("""addWithLifecycle\(""").findAll(window).count() shouldBe 2
         }
+
+        test("V1.9.92: applyTileGrid measures and writes numbers only, never moves a node") {
+            val screen = code(source("ConferenceScreen.kt"))
+            val apply = screen.between(start = "fun applyTileGrid(", end = "fun scheduleTileGrid(")
+            for (forbidden in listOf(
+                "appendChild",
+                "removeChild",
+                "replaceChild",
+                "insertBefore",
+                "insertAdjacent",
+                "innerHTML",
+                "removeAll",
+                "remove()",
+            )) {
+                withClue(forbidden) { apply shouldNotContain forbidden }
+            }
+            val written = Regex("""setProperty\("([^"]+)"""").findAll(apply).map { it.groupValues[1] }.toSet()
+            withClue("the only properties the function writes") {
+                written shouldBe setOf("--lapis-rail-inset", "--lapis-tile-w", "--lapis-tile-h", "--lapis-tiles-max-w", "min-height")
+            }
+            apply shouldContain "computeConferenceTileGrid("
+            apply shouldContain "conferenceTileAreaHeight("
+            apply shouldContain "conferenceRailInset("
+            withClue("no name or identity reaches a CSS variable: the values are formatted numbers") {
+                apply shouldNotContain "displayName"
+                apply shouldNotContain "identity"
+                apply shouldNotContain "console"
+                apply shouldNotContain "println"
+                apply shouldNotContain "logger"
+            }
+        }
+
+        test("V1.9.92: the tile grid is pure arithmetic, has one rAF-coalesced trigger and ends with the call") {
+            val grid = code(source("ConferenceTileGrid.kt"))
+            for (forbidden in listOf("document.", "window.", "kotlinx.browser", "org.w3c", "localStorage")) {
+                withClue(forbidden) { grid shouldNotContain forbidden }
+            }
+            val screen = code(source("ConferenceScreen.kt"))
+            val schedule = screen.between(start = "fun scheduleTileGrid(", end = "val tileGridObserver")
+            schedule shouldContain "requestAnimationFrame"
+            schedule shouldContain "tileGridFramePending"
+            val dispose = screen.between(start = "fun disposeTileGrid(", end = "val stageDiv =")
+            dispose shouldContain "tileGridObserver.disconnect()"
+            Regex("""removeEventListener""").findAll(dispose).count() shouldBe 3
+            screen.between(start = "fun cleanupFullscreen()", end = "fun refreshRoster()") shouldContain "disposeTileGrid()"
+            withClue("the observer is re-attached to a replaced container in the same task as the adoption") {
+                screen.between(
+                    start = "conferenceAdoptChildren(oldRoot = previousRoot, newRoot = root)",
+                    end = "val priority = document.createElement",
+                ) shouldContain
+                    "tileGridObserver.observe(root)"
+            }
+            withClue("the reflow calls the grid ONCE, at its end; the grid never calls the reflow (no loop)") {
+                screen
+                    .between(start = "fun applyConferenceGridReflow()", end = "suspend fun sweepGridReflow()")
+                    .let { Regex("""applyTileGrid\(""").findAll(it).count() shouldBe 1 }
+                screen.between(start = "fun applyTileGrid(", end = "fun scheduleTileGrid(") shouldNotContain "applyConferenceGridReflow"
+            }
+        }
     })
