@@ -1,0 +1,41 @@
+= Member map ("Vorstands-Karte", V1.9.5-V1.9.9)
+:toc:
+
+A BOARD/ADMIN-only aggregate view of where the organization's members live, at postal-code
+granularity -- no member id, name, street, city or date of any kind crosses the wire, only
+postal-code-bucketed counts (five aggregate categories: mapped, unresolvable-but-German, missing
+postal code, foreign, and the raw total). V1.9.5 built the server-side aggregation
+(`BoardMemberMapService.getMemberMap`) and the PMTiles basemap HTTP route; V1.9.6 added the
+`lapis-client` screen ("Mitgliederkarte" in the Verwaltung/Administration sidebar group, BOARD/ADMIN
+route guard) -- a MapLibre/PMTiles vector map with weighted, clustered postal-code markers next to an
+always-visible table of the exact same numbers. Full architecture, the privacy boundary, the
+country/postal-code classification rules and the recorded Q1-Q12 decisions:
+`docs/architecture/member-map.adoc`.
+
+Three fast-follow waves closed real board feedback on the initial map. **V1.9.8 "Orientierung"**
+added DOM-based Bundesland/Nachbarland labels (shown/hidden by zoom band, since the bundled basemap
+style has no glyph-serving route for a real MapLibre text layer) and a hover tooltip on
+points/clusters, and fixed a cluster click that never zoomed in (a `Promise`-vs-callback API
+mismatch against the pinned `maplibre-gl` version). **V1.9.9 "Details & Suche"** made country/state
+borders actually visible (dedicated high-contrast map tokens, replacing UI-divider tokens that
+were nearly invisible against the map background), added the 16 Landeshauptstadt (state capital)
+markers that had been missing, rendered small-locality labels once zoomed in by querying the
+already-bundled vector tiles directly (`map.querySourceFeatures`, still no glyph-serving route
+stood up), and added an in-map Ortssuche (place search) that flies to a searched place and shows
+member counts within 5/10/25 km -- computed entirely client-side from data already on the board
+member's screen, no second server round-trip and no new member data transmitted. See
+`docs/architecture/member-map.adoc`'s Q8-Q12 decision log for the full reasoning behind each of
+these.
+
+The basemap file itself (~190 MB, extracted from a public Protomaps build) is an optional,
+operator-provisioned deployment artifact, never part of this repository -- see
+`deploy/example/README.adoc`, section "Member map (optional)", for how to provision it. The
+postal-code centroid lookup (place names + coordinates) ships bundled with `lapis-server` already
+(GeoNames, CC-BY-4.0).
+
+== Third-party data
+
+* Postal code data (c) link:https://www.geonames.org[GeoNames.org], CC-BY-4.0 -- see
+  `lapis-server/src/main/resources/geodata/LICENSE-GeoNames.txt`.
+* Basemap tiles (c) link:https://www.openstreetmap.org/copyright[OpenStreetMap contributors], ODbL
+  (via a https://protomaps.com[Protomaps] build, BSD-3-Clause build tooling).

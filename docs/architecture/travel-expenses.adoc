@@ -8,7 +8,7 @@ Any authenticated member can file a self-service travel expense report for a boa
 trip -- "board and functionaries" describes the real usage this wave was built for, not a
 technical restriction: nothing in `TravelExpenseService` checks a caller's committee role. This
 is a deliberate departure from the V1.4.10 "Beitragsvergünstigungen" wave, which has no dedicated
-architecture document of its own (see that domain's own README section) -- the design team asked
+architecture document of its own (see link:../features/contribution-relief.adoc[that domain's own feature document]) -- the design team asked
 for one here, and `bank-statement-import.adoc`/`datev-export.adoc` are the established
 counter-precedent for a domain complex enough to warrant it.
 
@@ -232,7 +232,7 @@ there is no automatic redaction sweep here: there is no special-category free te
 
 == What doesn't work yet (this wave)
 
-See the README's own "Travel expense reimbursement" section for the full list of deliberate
+See the own link:../features/travel-expenses.adoc["Travel expense reimbursement" feature document] for the full list of deliberate
 scope boundaries (no Verpflegungsmehraufwand reduction rules, no payout/payment run, no
 line-by-line partial approval, no Übungsleiter-/Ehrenamtspauschale integration, hardcoded sphere,
 no inline receipt preview).

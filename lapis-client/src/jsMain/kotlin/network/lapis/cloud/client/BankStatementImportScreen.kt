@@ -481,7 +481,7 @@ private fun renderLineRow(
         cell {
             untrustedDiv(line.purpose.orEmpty())
             // Known gap, NOT part of this wave's i18n coverage (Review finding, Welle V1.4.5.1.1
-            // Runde 2, see README.adoc "Bank Statement Import" > "What doesn't work yet"):
+            // Runde 2, see docs/features/bank-statement-import.adoc "Bank Statement Import" > "What doesn't work yet"):
             // `matchExplanation` embeds per-line dynamic data (member names, amounts, dates,
             // reference codes) computed AND PERSISTED server-side in `BankStatementMatcher` --
             // unlike the fixed `BankStatementImportWarningCode`/`BankStatementRejectionCode`

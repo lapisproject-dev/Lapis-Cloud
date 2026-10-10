@@ -1,0 +1,61 @@
+= Contribution relief (deferral, exemption, reduction) (V1.4.10)
+:toc:
+
+Members can request one of three contribution relief measures: **deferral** (a new due date for
+one specific contribution line), **exemption** (temporarily or permanently excluded from future
+contribution generation), or **reduction** (moved to a cheaper membership tier). Requests go
+through a full state machine (`REQUESTED -> APPROVED/REJECTED/EXECUTED/WITHDRAWN`,
+`ContributionReliefService`/`ContributionReliefExecution`) with a BOARD/ADMIN decision step
+(Vier-Augen-Prinzip: no self-approval, a decision note is mandatory to approve) that decides and
+executes in one transaction — a failed under-lock recheck (e.g. the target contribution was paid
+between request and decision) leaves the request `APPROVED` with a recorded `executionError`
+instead of losing the approval, retryable via a dedicated RPC method.
+`ContributionService.generateContributionsForPeriod` skips a member exempt for the full period
+(`ContributionExemptionRules.isExemptForPeriod`). The (potentially Art. 9 DSGVO special-category)
+free-text reason is field-redacted for every viewer except BOARD/ADMIN/the subject, and
+automatically nulled 12 months after the request reaches a terminal state
+(`ContributionReliefRedaction`), independent of any DSGVO erasure request. See
+`docs/architecture/dsgvo.adoc`'s own "Contribution relief" section for the full erasure/export
+contract.
+
+== Self-service UI and board queue (V1.4.10.1)
+
+Members request a deferral directly from their own contribution table in the "Beitragsübersicht"
+screen (`ContributionsScreen.kt`) — a "Stundung beantragen" button appears next to every
+`DEFERRABLE` (OPEN/OVERDUE) row, hidden rather than merely disabled once an open DEFERRAL request
+already blocks a new one (`activeBlockingDeferralRequest`), with a single notice above the table
+and a badge on the specific blocked row instead of graying out every button on the page. The same
+screen carries a second self-service panel for exemption/reduction requests plus the member's own
+request list (step tracker, effect description, withdraw while `REQUESTED`). BOARD/ADMIN review
+and decide requests in a dedicated queue at `/contribution-relief` — **note the narrower gate**:
+BOARD/ADMIN only, not TREASURER, unlike almost every other Finance-group route, mirroring
+`IContributionReliefService.listReliefRequests`'s own role check. The queue enforces the
+Vier-Augen-Prinzip client-side too (`reliefDecisionBlockedBySelf` hides the decision panel on a
+board member's own request before a click can ever reach the server's `ForbiddenException`), and
+surfaces the `APPROVED`-with-`executionError` retry path as a distinct "Ausführung
+wiederholen"/"Ablehnen" pair — the only card state with two buttons instead of a plain
+approve/reject choice, since `EXECUTED` never carries an `executionError` (`chk_crr_execution_error_state`).
+A sidebar badge on the Finance group's new entry shows the number of `REQUESTED` requests awaiting
+decision (capped display at "200+", mirroring the RPC's own page-size cap), fetched only for
+BOARD/ADMIN and failing silently (no toast) if the call errors, so a TREASURER building the same
+sidebar never sees a stray 403.
+
+== What doesn't work yet (this wave)
+
+No deferral for `IN_DUNNING`/`RETURNED` contributions (would additionally
+need a dunning-level reset, deliberately deferred, not a design decision); no anteilige
+(partial-period) exemption; a granted exemption does **not** retroactively waive contribution lines
+already generated before the exemption took effect (the board's existing waive path still applies
+to those, manually); exemption data is not exposed on `MemberDto`; no reminder/automation for
+`review_due_on` (Wiedervorlage) — it is stored and filterable (`listReliefRequests(reviewDueOnly =
+true)` returns requests whose review date has actually arrived, i.e. `review_due_on <= today`, not
+merely requests that have one set), but nothing acts on it once it passes; **reduction is not
+applicable to a member with no membership tier of their own** (a family dependent billed through
+the family's payer, see `MemberFamilyService.addFamilyMember`) and is rejected with 400 rather than
+billing them directly in addition to the family invoice; **an unbounded (open-ended) exemption
+cannot be ended or shortened once executed** — there is no RPC path that later sets or clears
+`member.contribution_exempt_until` on an already-`EXECUTED` request (a fresh EXEMPTION request can
+only move it forward, never back), so a board wanting to end someone's permanent exemption has no
+self-service way to do so yet. Its potentially Art. 9 DSGVO free-text reason is still redacted 12
+months after execution regardless (the redaction anchor falls back to `executed_at` when
+`exemptionUntil` is null), even though the exemption's own effect keeps running.

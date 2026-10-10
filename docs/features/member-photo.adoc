@@ -1,0 +1,15 @@
+= Member photo and public profiles (V1.9.19-V1.9.21)
+:toc:
+
+Every active member can upload a **voluntary photo** (JPEG/PNG, cropped square, scaled, all metadata
+removed); board members and appointed (listed) politicians can additionally write a **short
+introduction**. Both are private until the person gives a versioned consent for publication, and
+withdrawing it takes effect immediately (the public URL answers 404). The public
+site gains `/vorstand`, `/politiker` and `/landesverbaende` with matching embed feeds
+(`/api/embed/v1/board|politicians|chapters`, behind `LAPIS_EMBED_ENABLED` and the origin allowlist):
+only explicitly allow-listed fields, never ids or e-mail addresses. Regional chapters get a crest --
+JPEG, PNG or a strictly sanitized SVG (element and attribute allowlist, the stored file is a fresh
+serialization) -- and a description. Member photos are **not** part of the in-app organization backup
+(ADMIN bundle) and must be uploaded again after a restore; crests (and event and article covers) are, since bundle format 2
+(V1.9.65, `v0.30.0`). The operator backup `deploy/example/backup.sh` covers all uploaded files. See `docs/architecture/member-photo.adoc`,
+`docs/architecture/public-profiles.adoc` and `docs/architecture/regional-chapters.adoc`.

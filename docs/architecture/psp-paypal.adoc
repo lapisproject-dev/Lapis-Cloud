@@ -22,8 +22,8 @@ field-for-field rather than extending them — this codebase keeps `SmtpConfig`/
 `SepaConfig`/`DunningConfig`/`FinTsConfig` as separate single-purpose objects even where their
 shape is identical, and PayPal's config follows the same convention.
 
-See the README's link:../../README.adoc#_payment_service_providers_stripe_paypal[Payment service
-providers (Stripe + PayPal)] section for operator-facing setup (environment variables, dashboard
+See the link:../features/payment-providers.adoc[Payment service
+providers (Stripe + PayPal)] feature document for operator-facing setup (environment variables, dashboard
 webhook registration, current scope). This document covers the design rationale and mechanics
 behind that setup.
 
@@ -176,7 +176,7 @@ currently exists for a stale row to leak from, so nothing is actually orphaned i
 * `network.lapis.cloud.server.routes.PaypalWebhookRoutes.kt` — the 11-step (+1 opportunistic sweep)
   webhook route skeleton, and why it stays a separate file from `PspWebhookRoutes.kt` rather than
   merging with it.
-* README `Payment service providers (Stripe + PayPal)` — operator-facing setup and current scope.
+* link:../features/payment-providers.adoc[Feature document `Payment service providers (Stripe + PayPal)`] — operator-facing setup and current scope.
 
 == Idempotency keys (V1.9.55)
 

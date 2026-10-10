@@ -1,0 +1,622 @@
+= Lapis Cloud: Release History
+:toc:
+
+`CHANGELOG.md` is the authoritative release history. This file is the long-form narrative that used to be the "Status" section of the
+root `README.adoc`; it is kept unchanged for reference. Feature documentation lives in link:features/index.adoc[docs/features/].
+
+NOTE: This text was moved here unchanged from the former single `README.adoc`. Where it says "below" or "above" and names a feature section (for example "Public REST API" or "Democratic elections"), that section now lives in its own file; see link:features/index.adoc[the feature index].
+
+== Release history
+
+As of tag `v0.10.0`, eight major waves are complete (see `CHANGELOG.md` for full detail). `v0.9.0`
+itself is a hardening/retrofit release, not a new numbered wave: it closes the V0.7.2 ANTRAG
+membership-gate audit's disclosed gaps (including the `addCommitteeMember`/`appointElectionBoard`/
+`tally` root cause and a related session-revocation gap in `rejectApplication`), a DNS-rebinding
+TOCTOU gap in the federation SSRF guard, a GoBD hash-chain timestamp-precision bug, and adds two
+retrofits to earlier waves — Änderungsantrag (amendment motion) support for Governance (V0.2.6)
+and the V0.6.4 guest/Gast rating-basket closure (Politician Guest Rating, V0.8.5). See
+`CHANGELOG.md` `[0.9.0]` for full detail on every item.
+
+* **V0.1 — Project foundation & standard membership management**: Gradle multi-module structure,
+  Ktor server, KVision client, Kilua RPC wiring, CI/CD, member master data, join/leave workflow,
+  membership tiers, contribution management, document storage, communication (mailing lists,
+  direct messages), GDPR basics.
+* **V0.2 — Governance foundation**: committee/working-group and meeting management (agenda,
+  motions, resolution log), meritocratic voting, democratic elections, and Systemisches
+  Konsensieren (systemic consensus-building) as voting modes.
+* **V0.3 — Accounting core**: SKR42 chart of accounts with double-entry bookkeeping, GuV/Bilanz/
+  Jahresabschluss derivation, the four-sphere Gemeinnützigkeit (non-profit) separation, §55/§62 AO
+  Mittelverwendungsrechnung and Rücklagenbildung, a GoBD-informed Kassenbuch, and cost-center
+  accounting.
+* **V0.4 — Mail-merge & postal mail**: a PDF mail-merge engine (membership dues invoices, §50 EStDV
+  donation receipts, invitations) and a Letterxpress-based postal-dispatch path for members without
+  email.
+* **V0.5 — Compliance bundle**: a §25 PartG donation-acceptance check for political parties, §20
+  GwG Transparenzregister board-change reminders with a beneficial-owner data completeness report,
+  a hash-chained GoBD audit log, full-organization backup/restore/export, and the DSGVO-Vollausbau
+  (AVV register, TOM documentation, DPIA template, data-breach-incident workflow).
+* **V0.6 — LTR economy (complete, tag `v0.6.0`)**: a real, ledger-backed LTR balance
+  (`LtrLedgerEntry`, replacing the earlier balance stub), Internes Crowdfunding (member-submitted,
+  board-reviewed projects with a silence-is-approval clock, Like/Dislike-driven monthly EUR
+  donation-pool distribution), an English proxy-bid LTR auction (disabled by default, requires an
+  ADMIN to acknowledge a versioned legal-risk disclaimer before enabling — see "Auction opt-in"
+  below), direct member-to-member LTR peer transfers (with a board/admin arbitration-correction
+  path), Politiker-Profile und Politiker-Ranking (member-only Like/Dislike trust weighting of
+  granted politician status, computed as a single shared LTR pool apportioned proportionally across
+  all active politicians), and a Price-Oracle for the anchor-asset peg with a load-bearing donation
+  → LTR conversion boundary.
+* **V0.7 — Authentication, membership & usable UI (complete, tag `v0.7.1`)**: real password login
+  and server-side revocable sessions (bcrypt, `HttpOnly`+`Secure`+`SameSite=Strict` cookies),
+  replacing the `X-Member-Id` header stand-in every prior version ran on. Self-registration with
+  board approval (a real Beitrittsvertrag/Satzungs-acceptance step, never silence-is-approval),
+  admin-side direct member creation, a member-initiated exit workflow (`AUSGETRETEN`), and a real
+  password-reset token mechanism (email delivery honestly not wired to any real SMTP transport —
+  see "What doesn't work yet"). A real multi-screen web UI (login, registration, dashboard, member
+  administration, contributions, documents, mailing/direct-messages) replacing the previous
+  four-service tech demo, served same-origin from the Ktor server.
+* **V0.8 — Federation (complete, tag `v0.8.0`)**: server-to-server content-federation protocol
+  Grundgerüst (ActivityPub-hybrid core + a namespaced `lapis:` JSON-LD extension vocabulary for
+  Meritokratie-specific data, HTTP-Signature-verified inbox/outbox, no content type wired in yet);
+  OIDC-based individual-member guest access (every server is both an OIDC Issuer for its own
+  members and a Relying Party for guests from other instances, Authorization Code Flow with PKCE,
+  Dynamic Client Registration as the open default — a guest is represented as a real
+  `Member(status = GAST)` row, closing the identity-model gap the V0.6.4 note below used to flag);
+  Trust-Anchor-Governance (a deliberately single-level OpenID Federation 1.0 subset — explicitly a
+  UX-comfort layer, never a security gate for federation/guest-login/DCR); and a navbar guest badge
+  (violet indicator + hover/focus/tap popover disclosing the guest's home server, WCAG-AA
+  contrast-verified, screen-reader accessible). Content/Timeline-level guest marking is not built —
+  this codebase has no "Timeline"/"Post" content entity yet, see "What doesn't work yet".
+
+**`v0.10.0`** is a UI-only release, closing the two highest-priority items a V1.0-readiness review
+found with this project's two real pilot organizations: 13 backend domains had zero client UI,
+reachable only via Kilua RPC / raw HTTP — a treasurer or board member without developer access
+could not use any of them. The pilots picked Governance and Accounting as the two highest-priority
+gaps to close first. Both are done: a **Governance UI** (committees/working-group membership,
+meeting management with a live-recalculated quorum display and a printable protocol/Beschlussbuch
+draft, and the full motion/amendment/voting workflow) and an **Accounting UI** (the SKR42 chart of
+accounts and journal with a draft-then-post workflow, GuV/Bilanz/Jahresabschluss, the four-sphere
+Gemeinnützigkeit report and the §55/§62 AO Mittelverwendungsrechnung, cost centers, and external
+donors/§50 EStDV donation-duty reporting) — both real KVision screens over the already-tested RPC
+backends, both went through this project's mandatory UI/UX-Design-Team review before
+implementation. See `CHANGELOG.md` `[0.10.0]` for full detail on both waves.
+
+Every wave went through this project's mandatory plan → implement → independent review →
+independent security audit pipeline before merging — the V0.8 waves additionally went through a
+dedicated adversarial live-attack phase each, given the project's own "most security-critical
+version in the backlog" classification for federation work; V0.8.1's pass found and fixed a real
+IPv6 Unique-Local-Address SSRF gap live. Known limitations (Letterxpress wire format and the
+oracle's price-source wire formats not verified against live docs, no Sammelbestätigung
+aggregation, no full GoBD tamper-evidence/TSE, no persistent oracle halt-queue, no guest/Gast
+participation in the LTR economy yet) are tracked in `CHANGELOG.md`. The DNS-rebinding TOCTOU gap
+in the federation SSRF guard, disclosed in this list until `v0.9.0`, is now closed — see
+`CHANGELOG.md` `[0.9.0]`. See link:architecture/domain-model.adoc[domain model
+documentation] (covers the V0.1.5 Contributions/Documents/Communication slice, the V0.3 accounting
+slices, the V0.4.1 mail-merge slice, and the V0.6.5 Price-Oracle slice — not updated for every wave
+since) and `CLAUDE.md` for further detail.
+
+NOTE: The V0.6.4 guest/Gast rating basket cut (`PoliticianProfileDto` exposed `memberTrustWeight`
+only, not the concept's three-way Mitglieder-/Gäste-/Gesamtbewertung) was accepted scope
+(product-owner sign-off 2026-07-22) for as long as no operational Gast identity model existed in
+this codebase. **Closed**: once V0.8.2 gave every guest a real `Member(status = GAST)` row, the
+guest/combined rating basket was implemented (`guestTrustWeight`/`combinedTrustWeight`, a
+deliberately unweighted vote-count mechanic for the guest side — see `CHANGELOG.md` for why an
+LTR-weighted guest pool isn't possible yet, since no guest LTR-earning mechanism exists). No
+client UI for Politician Profiles exists yet (backend/RPC-only, unchanged from V0.6.4). See
+`CHANGELOG.md` `[0.6.0]` for the original scope-cut reasoning and `[0.9.0]` for the closure.
+
+Twenty-one further tags have shipped since `v0.10.0`, two of them (`v0.16.0`/`v0.17.0`) cut back to back
+in the same release session: `v0.16.0` was placed at the historical commit boundary matching an
+already-published website release-notes page for that version, and `v0.17.0` immediately after it
+for the newer work.
+
+**`v0.11.0`** releases the complete **Videokonferenzen (Kleinsitzung)** module in one tag — Wave 1
+(basic real-time audio/video/screen-share/chat, described below under "Videokonferenzen") together
+with seven further waves, built sequentially and shipped together: server-side recording via LiveKit
+Track Egress with asynchronous ffmpeg gallery composition (Wave 2); RTMP-composited external
+live-streaming to YouTube/Twitch/PeerTube/generic RTMP destinations, protected by this codebase's
+first at-rest-encryption primitive for stored stream keys (Wave 3); UI polish closing three items
+deferred from Wave 1's own design review — single-button room creation, a camera/microphone
+permission preflight, and a named connection-state machine (Wave 4); federated OIDC guest join under
+a versioned, two-layer DSGVO consent flow (Wave 5); moderator-driven breakout rooms (Wave 6); a
+shared live whiteboard (Wave 7); and shared, block-structured collaborative meeting notes with
+per-block optimistic-concurrency control (Wave 8). Every wave went through the mandatory review/
+security pipeline plus live-browser verification against a real running LiveKit stack — the latter is
+how several real client bugs invisible to review/security passes (neither mounts real DOM) were found
+and fixed. See `CHANGELOG.md` `[0.11.0]` for full wave-by-wave detail.
+
+**`v0.12.0`** is a production-infrastructure and internationalization release: an 8-language navbar
+switcher (German source plus English, French, Spanish, Italian, Dutch, Polish, Russian) via a custom
+`I18nCatalogManager`, written because KVision's own `kvision-i18n` module crashed the app on load
+against this project's Kotlin/JS toolchain; a two-stage Docker production deployment (root
+`Dockerfile` + `deploy/example/docker-compose.yml`) replacing the earlier bare-JVM/systemd/
+native-PostgreSQL setup, migrated end to end on the project's test VPS with the prior installation
+fully uninstalled; Videokonferenzen Wave 1 wired into that Docker stack and live-verified against a
+real external network; and a redesigned, role-gated dropdown navbar with Lapis Cloud branding
+(a "faceted gem" mark matching the marketing site), replacing a 20-entry flat list that had begun
+overflowing the viewport. A real IP-spoofing gap behind the reverse proxy was also found and closed —
+every IP-keyed rate limiter now uses Ktor's `useLastProxy()` instead of the spoofable
+`useFirstProxy()` default, verified live against a forged `X-Forwarded-For` header.
+
+**`v0.13.0`** adds `MemberStatus.FRIEND` (wave "V0.11.0" in the project's own wave numbering, released
+in this tag) — a self-registerable, board-approval-free account scoped strictly to per-room opt-in
+video-conference access, with no membership, governance, accounting, or LTR rights (see "What doesn't
+work yet" below for how far this reaches into the LTR economy). Building it surfaced and closed
+several pre-existing authorization gaps, the most severe being that OIDC federation token issuance
+had no organization-membership gate at all — any authenticated caller, including the new self-service
+FRIEND, could obtain a federation ID token asserting membership to a partner server — plus missing
+membership-status gates on direct messages, mailing-list subscriptions, and document-folder listing.
+All five `MemberStatus` literals were also renamed from German to English (`ANTRAG`→`APPLICATION`,
+`AKTIV`→`ACTIVE`, `GAST`→`GUEST`, `AUSGETRETEN`→`WITHDRAWN`, `ABGELEHNT`→`REJECTED`) — a breaking
+change for any external integration that pattern-matched the old wire values. This release also
+closes out Videokonferenzen Wave 9 "Stream-Pause bei geheimen Abstimmungen" (automatic live-stream
+pausing while a secret ballot is open, hardened across six cascading security-audit rounds against
+the same finding class — a finalizing write trusting a status flag instead of the specific confirmed
+LiveKit egress id), migrates the pilot's reverse proxy from Apache to Caddy, and fixes several
+production Videokonferenzen infrastructure bugs (GRID/SPEAKER egress hairpin-NAT and shared-memory
+failures). See `CHANGELOG.md` `[0.13.0]` for full detail.
+
+**`v0.14.0` and `v0.15.0`** deliver **Soziales Netzwerk (V1.1)**, the platform's first public
+social-posting layer, across five sub-waves. V1.1.1 adds the post core: a member composes a post with
+a positive LTR stake bound from their own free balance across three visibility tiers (`PUBLIC`/
+`MEMBERS_ONLY`/`MEMBERS_AND_EXTERNAL`), decaying 10%/day; a post is immutable once published and can
+only be hidden — never edited or refunded — by its own author. V1.1.2 adds threaded comments (full
+posts in their own right, depth-capped at 64), monetary "boosts", and recursive total-weight
+aggregation as the timeline's sort key, computed in pure Kotlin rather than SQL to keep the decay math
+off the database. V1.1.3 opens the first unauthenticated HTML read path in this codebase (`GET /s`,
+`GET /s/{id}`, a sitemap, `robots.txt`) — server-rendered, with its own stricter size caps, ETag/CSP/
+security headers, and IP-keyed rate limiting, SEO-indexable by design. V1.1.4 widens posting,
+commenting, boosting, and LTR self-service to the new `FRIEND` status via a new `LTR_ELIGIBLE`
+capability set — deliberately narrow, every other LTR-gated domain (governance, crowdfunding,
+elections, peer-transfer sending, conferencing) stays `ACTIVE`-only — under an explicit, user-confirmed
+legal-coupling condition that **V1.1.5 would ship immediately next, with nothing in between**, given
+the DSA/liability exposure of letting identity-unverified accounts publish public, search-indexed
+content. V1.1.5 honors that commitment: legal removal (`REMOVED_LEGAL`, RFC 7725 `451` responses with
+a public reason and no original content), a DSA Art. 16 report mechanism reachable both from an
+authenticated RPC and a plain, JavaScript-free public HTML form, and a post-level DSGVO Art. 17
+erasure request/decision workflow independent of the existing member-wide erasure path. See
+`CHANGELOG.md` `[0.14.0]` and `[0.15.0]` for full detail on all five sub-waves.
+
+**`v0.16.0`** is a backfill/consolidation release, not a single new numbered wave — it bundles what
+had accumulated since `v0.15.0`, plus several client-UI-only follow-ups and one earlier wave
+revisited: SEPA direct-debit mandate management and collection runs with `pain.008.001.08` file
+generation (V1.2.2, building on the V1.2.1 posting-bridge foundation that first let a manually-marked-
+paid contribution actually reach the ledger); automated dunning with a configurable escalation ladder,
+poller-driven issuance, and optional postal dispatch of PDF reminders (V1.2.7); the platform's first
+real outgoing SMTP transport for password-reset and FRIEND email verification, replacing logging-only
+stubs in place since V0.7.2/V0.11.0 (V1.2.3); a public transparency landing page with two
+independently revocable, DSGVO-consented public rankings (top LTR holders, top donors) behind a
+minimum-cohort-of-5 floor (V1.3.0); a rebuilt member administration (privileged paginated/searchable
+roster, full editing across three separately-authorized RPCs, race-safe last-admin protection) plus a
+one-time operator-run CSV import of the PdV membership CRM export and the ability to grant an existing
+CSV-imported member a login account after the fact (V1.2.11–13); white-label branding
+(deployment-configurable title/logo with a permanently unremovable "Powered by Lapis Cloud"
+attribution) and a second, fully independent Lapis Cloud instance for the ELB pilot, co-located on the
+same host (V1.2.5/V1.2.6); video-conferencing full-screen mode and a mobile-optimized icon-only
+control bar with auto-hide and bottom-sheet panels (V1.2.9/V1.2.10 — an unrelated wave from the
+payment-checkout V1.2.9 landing in `v0.17.0`, see the numbering note below); and gold (`GOLD_XAU`) and
+fiat EUR price-oracle anchors alongside the existing Bitcoin anchor, which also closed two latent
+Price-Oracle orchestrator bugs that would only have surfaced once a second anchor existed (V0.6.6).
+See `CHANGELOG.md` `[0.16.0]` for full detail on every item.
+
+NOTE: This project's own wave numbering has a documented collision — two unrelated pieces of work
+both landed the label "V1.2.9": the video-conferencing full-screen mode above (bundled into
+`v0.16.0`) and an unrelated Stripe checkout UX-hardening pass (bundled into `v0.17.0`, see below).
+Both are named here purely to avoid confusion when cross-referencing `CHANGELOG.md`.
+
+**`v0.17.0`** adds a public, read-only REST API for third-party integration (V1.3.1 "API-Fundament,
+lesend", see "Public REST API" below) and the platform's first PSP integration: online card payments
+via a Stripe-hosted checkout for contributions and donations, which post themselves into the ledger
+through the existing `ContributionPostingBridge`/a new `DonationPostingBridge`, webhook-verified and
+idempotent against redelivery (V1.2.8, GitHub issue #6, see "Payment service provider" below). A
+follow-up checkout-UX-hardening pass fixes a maximum-donation-amount gate that had wrongly also
+blocked large legitimate contributions, and closes a security-audit finding that neither checkout-
+creation RPC was rate-limited despite each triggering a real outbound Stripe API call (V1.2.9, the
+payment-checkout wave — see the numbering note above). See `CHANGELOG.md` `[0.17.0]` for full detail.
+
+**`v0.18.0`** adds outbound webhooks for the V1.3.1 REST API (V1.3.2, see "Outbound Webhooks"
+below); the "Öffentliche Website-Integration" pair — an embeddable login/join widget with a
+same-origin popup so no session cookie ever crosses the partner site's origin (V1.4.1a), and an
+anonymous, unauthenticated donation widget on the same infrastructure (V1.4.1b, see "Website
+Integration" below); and a standalone Interessenten-/Sympathisanten-CRM for people who are not
+members, which extends the DSGVO erasure/export framework beyond members for the first time rather
+than repeating the `external_donor` gap (V1.4.2, see "Interessenten-/Sympathisanten-CRM" below). See
+`CHANGELOG.md` `[0.18.0]` for full detail.
+
+**`v0.19.0`** completes V1.4 "Externer Auftritt, CRM, Veranstaltungen, Mitgliederlebenszyklus,
+Buchhaltungs-Integration" and adds a fifth public route family plus a navigation redesign. Events
+(V1.4.3): a public, unauthenticated event-registration flow with optional fees (settled through the
+existing Stripe checkout bridge) and capacity/waitlist handling under row-level locking (V1.4.3.1),
+followed by hashed ticket codes with SVG/PDF QR delivery and a door-scan check-in screen (V1.4.3.2).
+Mitgliederlebenszyklus (V1.4.4): a per-member contribution/donation history view (V1.4.4.1); a
+board-only upcoming-birthdays-and-anniversaries list with leap-day handling (V1.4.4.2); honors/
+merit-award tracking with self-honoring-safe DSGVO erasure counting (V1.4.4.3); family memberships
+with exactly one payer and any number of dues-free dependents, plus an upcoming-majority worklist
+(V1.4.4.4); and a § 38 BGB deceased-member workflow — deliberately declaratory, not constitutive,
+with no notification automation and no automatic write-off of a deceased member's outstanding dues
+(V1.4.4.5). Bank/accounting integration (V1.4.5): CSV/MT940 bank-statement import with four
+match-then-post rules, an IBAN-checksum payment-reference code printed on every invoice, and
+encrypted-at-rest counterparty IBANs (V1.4.5.1); a byte-verified DATEV-EXTF Buchungsstapel export
+for the Steuerberater with an all-or-nothing blocker model (V1.4.5.2); and live, incremental
+accounting-export bridges to both Lexware Office/lexoffice and sevDesk behind one provider-neutral
+adapter interface (V1.4.5.3/V1.4.5.4; since V1.9.65 the lexoffice side looks a voucher number up before creating it and
+reconciles uncertain items automatically -- lexoffice has no server-side idempotency key, so this protection is client-side). Public presence (V1.4.6/V1.4.7): `GET /` is now a
+server-rendered, SEO-indexable landing page (member/LTR/post counters plus top-post teasers) — the
+member SPA moved from `/` to `/app` as a **breaking change** for any bookmarked `/#/...` link or
+embedded website snippet, softened by a same-origin hash-bridge redirect for already-circulating
+links; `GET /impressum` and `GET /datenschutz` render the statutory German Impressum/
+Datenschutzerklärung from operator-supplied `LAPIS_LEGAL_*` configuration, degrading to an
+operator-addressed notice (never a 500, never a misleadingly empty page) when unset; and all three
+unauthenticated public route families (`/`, `/s`, `/transparenz`) now share one chrome component
+with an 8-language switcher. Icon navigation + overviews (V1.9.11): the shared chrome's nav switched
+from text links to icon-only links (CSS-class-bound, a CSS-only tooltip via `aria-label`), and two
+new, conditional tabs — `GET /aktuelles` and `GET /veranstaltungen`, server-rendered `index,follow`
+overviews of published articles / upcoming public events — appear only once there is something to
+show (`PublicNavAvailabilityProvider`, a 30-second process cache). Navigation (2026-09-08/09): the six role-gated navbar dropdowns became
+a persistent, collapsible desktop sidebar / mobile offcanvas drawer — a wave that surfaced and fixed
+four real KVision/Bootstrap-Offcanvas integration bugs across three follow-up rounds, the last of
+which (sidebar disappearing after navigating to any page but the Dashboard) was live-reported by a
+real pilot admin, initially misdiagnosed as fixed against a stale dev-server bundle, and only
+confirmed fixed after a second live reproduction against a properly reloaded build. The Startseiten
+`<h1>` now shows the operator's own organization name (`branding.title`) instead of a generic
+tagline, closing a gap where an installation with a configured logo showed that name nowhere as
+readable text on its own landing page. See `CHANGELOG.md` `[0.19.0]` for full wave-by-wave detail.
+
+**`v0.20.0`** closes three items. An admin-triggered password reset for a member who already has a
+login account (V1.4.9) — two deliberately distinct paths: an immediate, session-revoking "set a
+temporary password" action, and a non-revoking "send reset email" action that reuses the existing
+unauthenticated token mechanism, both ADMIN-only and never usable on the admin's own row. A
+Bedienoberfläche (`/bank-import`) plus full 7-language i18n for the bank-statement import feature
+that had shipped server-only in `v0.19.0`'s V1.4.5.1 (V1.4.5.1.1) — upload, per-line status
+filtering/pagination, manual assignment of an open line to a contribution or donation, and
+structured rejection/warning codes instead of raw server prose. And a fourth embed widget,
+event registration (V1.4.3.3, see "Website Integration" below), closing the gap the V1.4.3.1 wave
+had deliberately deferred: `POST /api/embed/v1/event/{slug}/registration` collapses the full
+registration-outcome type down to four visitor-facing outcomes only, specifically to avoid opening
+a membership-enumeration oracle over guest email addresses. See `CHANGELOG.md` `[0.20.0]` for full
+detail.
+
+**`v0.21.0`** is a broad feature release. PayPal joins Stripe as a second payment service provider
+(V1.2.8b, see "Payment service providers"); accounting gains payables/receivables with open-item
+matching and a debtor dunning run (V1.4.15; the client screens for open items, netting and debtor
+dunning followed in V1.4.21), several bank
+accounts per organization with file import per account plus read-only FinTS/HBCI live retrieval (never
+verified against a real bank, see `docs/architecture/bank-account.adoc`) and a bank-accounts management screen (V1.4.14, waves 1 and 2; the FinTS poller is off by default), and a
+VAT pre-return helper (V1.4.13); membership dues can be deferred, waived or
+reduced (V1.4.10), and board members can claim travel expenses (V1.4.11) and the volunteer/instructor
+allowance (V1.4.12). The event toolkit gains rooms, catering, external invoicing and volunteer shifts
+(V1.4.3.4 to V1.4.3.7) plus a subscribable iCal calendar feed. Video conferencing gets a TURN relay
+fallback. Server-side support for the mobile companion app (V1.5.1; its bridge routes were later found
+vulnerable to session fixation and are switched off by default since `v0.22.0`), a dark mode, a
+configurable upload limit with progress display and footer links round it out. See `CHANGELOG.md`
+`[0.21.0]` for full wave-by-wave detail.
+
+**`v0.22.0`** adds a downloadable PDF **membership card** in credit-card format with a QR code that opens
+a rate-limited public check page (Flyway `V43`, member numbers like `M-2026-00001`); the documents screen
+gets file icons, sizes, a download counter, folder counts and search (Flyway `V40`), and TREASURER
+now has BOARD-level document rights for folders, uploads and deletions (releasing a document into the
+AI knowledge base stays BOARD/ADMIN); three additional Vorstand titles (Flyway `V42`); a stored
+Price-Oracle history with an hourly snapshot poller and a price chart (Flyway `V41`; the poller is off by
+default and must be enabled on at most one instance, see `deploy/example/README.adoc`, "Price-Oracle
+Snapshot Poller"); a BOARD/ADMIN screen for creating and managing events; and support for a dedicated
+staging deployment with fictitious seed data only (see `deploy/example/README.adoc`, "Staging seed
+mechanism"; since V1.9.63 a full 24-month demo: members, finance, governance with a closed and a running election, community). **V1.6.1 optional AI assistance**
+(statute Q&A, Flyway `V44`) ships **off by default** and is not enabled on any shipped deployment, see
+"AI assistance" below. For the companion app, the server has a generic WebView bridge
+(`/api/mobile/v1/webview-session`) that is header-authenticated (the token is never in a URL) and
+**disabled by default** behind `LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED`, whose `section` keys are a closed server-side allowlist (`MOBILE_SECTION_TARGETS`; `my-events`, the member events page, was added in V1.9.52, and an app newer than the server gets `400` for unknown keys, which is expected -- the app should treat it as "server too old"), forwarded by `deploy/example/docker-compose.yml` since 2026-09-27 (previously it wasn't -- shipped instances from before that date need the same line added to their own compose file, see `deploy/example/docker-compose.yml`).
+The switch and the header-only design close a session-fixation weakness in the bridge routes shipped in
+`v0.21.0`; companion apps built before V1.5.2 (which send `?token=`) no longer work against a server with
+the bridge switched on. Security: a disabled AI route now answers a typed error instead of HTTP 500, the
+server-wide AI opt-in default was removed so no member is pre-consented, and a lock-order deadlock in
+family-member removal was fixed. Fixes: the camera picture froze after clicking "More" in a video
+conference, empty device ids were offered and persisted, 50 screens overflowed narrow viewports, and the
+participants list covered the video on phones. See `CHANGELOG.md` `[0.22.0]` for full detail.
+
+**`v0.23.0`** is dominated by a full UI/UX overhaul of every screen against the project's own written
+guideline (`docs/architecture/ui-ux-guideline.adoc`): six waves put the hot list screens on real
+data tables (V1.4.25 to V1.4.27), moved every form onto one shared form grammar with field-level errors,
+consistent required-field marking and double-click guards (V1.4.28 to V1.4.30, completed for the last
+seven screens in this release), unified empty/loading/error states and page headers (V1.4.31), and made
+money amounts render in the viewer's own locale and compute in whole cents rather than doubles. Video conferences gain
+background blur and virtual backgrounds (V1.4.23), computed locally in the browser with no CDN — model,
+WASM and images are served from the instance itself — and they also work in the Android WebView of the
+companion app (V1.4.24); **iOS WKWebView and third-party in-app browsers stay blocked, and weaker phones
+are untested.** The accounting side gets the client screens for open items, netting and debtor dunning
+that `v0.21.0` had shipped server-only (V1.4.21/V1.4.22), and long-lived browser tabs are told when a
+newer client bundle is live (V1.4.20).
+
+**Keycloak can take over authentication** as an optional, per-deployment replacement for the internal
+login (V1.7.1 to V1.7.3, Flyway `V45` to `V48`): roles and membership status stay in the Lapis Cloud
+database, accounts are matched by email with an ADMIN screen for manual linking, and an emergency ADMIN
+login always remains. It ships **off on every instance**; switching an already-running instance over is
+only supported along the cutover runbook in `deploy/example/README.adoc`. Security: an app-wide
+widget-content forgery path was closed, where any server- or member-controlled string beginning with
+KVision's i18n marker could render as arbitrary text — including a freely invented monetary amount.
+Infrastructure and documentation: the per-instance `deploy/production*/` directories were replaced by a
+single generic `deploy/example/` template with the real deployment data moved to the private
+`Lapis-Cloud-Ops` companion repo, the AsciiDoc documentation now renders its `[kuml]` blocks through the
+real kUML toolchain (which exposed invalid DSL in 10 diagrams), and the public API reference was
+verified statement by statement against the code. See `CHANGELOG.md` `[0.23.0]` for full detail.
+
+**`v0.24.0`** opens the server to **MCP-capable AI agents of the member's own choosing** -- an agent
+reads and acts on that one member's own data, never anyone else's. Authentication extends the OIDC
+provider this server has run since V0.8 rather than inventing a second, weaker identity model.
+PKCE did not have to be invented: the provider's existing implementation was verified and reused
+unchanged, and the gap this wave actually closed was the missing resource-server validation path
+(`oidc_issued_token.access_token_hash` had no reader anywhere in the codebase before). A member
+flow now sits beside the existing guest flow (Flyway `V49`/`V50`). Five read-only tools ship first (contribution status,
+LTR balance, statute search, upcoming events, own ballots), then two write tools: registering for
+an event and drafting a post. **Everything is off by default**: the endpoint needs
+`LAPIS_MCP_ENABLED`, and the write tools additionally need `LAPIS_MCP_WRITE_ENABLED`. No agent
+gets access until the member authorizes that specific connection on a dedicated consent screen; on
+top of that an all-or-nothing per-member kill switch (`mcp_member_block` -- no row means *not*
+blocked, the deliberate opposite polarity of `ai_member_opt_in`) always wins and revokes every live
+token the moment it is flipped. Its member-facing screen followed in V1.9.29 (the "KI-Zugang" card,
+tag `v0.27.0`); at the time of `v0.24.0` only the RPC backend existed.
+
+Two boundaries are worth naming because they were deliberate decisions, not oversights.
+**An agent cannot spend money**: registering for a *paid* event is rejected outright, so no
+checkout session is created through MCP and no payment link is ever handed to the agent's model
+provider -- paid registration stays in the web UI. **An agent cannot publish**: a drafted post
+lands in a separate draft store that is not a post at all, invisible to feeds, LTR weighting,
+moderation and the public pages, and only the member releasing it in the new "KI-Entwürfe" screen
+creates a real post -- which then carries a label visible to every reader, in the app and on the
+public post pages alike. Drafts a member discards are removed on a retention schedule instead of
+being kept forever. No tool path reaches vote weighting, LTR minting or burning, auctions,
+crowdfunding distribution, election tallies, politician rating or timeline ordering.
+
+This release also fixes **"Cluster A"**, five long-standing client-test failures that turned out to
+be test-order pollution rather than a timing margin: one test class left a modal open, and in
+Karma's single browser page it covered every class that ran after it. Four of the five are fixed;
+the remaining one is named in `CHANGELOG.md` and still fails. See `CHANGELOG.md` `[0.24.0]` and
+`docs/architecture/mcp-server.adoc` for full detail.
+
+**`v0.25.0`** covers two intense days of work across a dozen-plus numbered waves (V1.9.1 through
+V1.9.14, plus the remaining V1.4.32-V1.4.37 recurring-events/date-formatting/article-module
+follow-ups) -- this section groups them by theme rather than listing each one; see `CHANGELOG.md`
+`[0.25.0]` for full wave-by-wave detail. **Document/folder access control** gains a per-folder
+`DocumentAccessLevel` (V1.9.1) enforced as the most restrictive level along a folder's own ancestor
+chain, plus a folder-creation default that follows the creating role's own most-restrictive
+visibility (V1.9.2). **App-wide date/time display and i18n follow-ups** (V1.4.32 W7, three
+review-fix rounds; V1.9.3) close a long tail of raw-ISO-date leaks and a German-plural-shown-for-
+singular bug on the SEPA batch screen. **Video conferencing** gets a round of real-pilot fixes from
+an ELB test session (no wave number of their own, dated 2026-09-27 in `CHANGELOG.md`) --
+persisted device choice, portrait-tile letterboxing, roster resync on reconnect, egress error
+logging, recording-start-gap elimination and two rounds of A/V-sync correction (see
+"Videokonferenzen" above) -- plus private per-conference background images (V1.9.4). **Recurring
+events** ("Wiederkehrende Veranstaltungen") complete across three
+follow-up waves: an RRULE recurrence library, RPC wiring against the event/event-series tables, and
+finally the admin UI plus an RRULE-aware iCal feed (V1.4.35-V1.4.37). **Content and publishing**
+gain an editorial article/news module with a four-eyes approval gate (V1.4.34/V1.4.36, see "Article
+Module" below), an event cover-image upload, an events-list embed widget (V1.4.33), and two new
+public overview pages plus icon-only navigation across every public route (V1.9.11). **The
+Vorstands-Karte (member map)** ships end to end -- privacy-preserving postal-code aggregate view,
+PMTiles basemap, then three fast-follow waves closing real board feedback: orientation labels and a
+hover tooltip, then border contrast, state-capital labels, small-locality labels and a place search
+(V1.9.5-V1.9.9, see "Member map" below). **SuperMailer** adds HTML-authored mailing content and a
+real asynchronous send path, replacing a newsletter send that previously never called any transport
+at all (V1.9.7). Board can now **toggle the public member count** on the homepage/transparency page
+off (V1.9.10, opt-out default). Members get a **Mitfahrerzentrale** (carpooling bulletin board,
+V1.9.12, see "Mitfahrerzentrale" below) and an optional **Gliederungsverwaltung** (regional chapters,
+V1.9.13/V1.9.14, see "Regional chapters" below). Finally, a **16-file untrusted-text sanitization
+sweep** closes the remaining gaps in the app-wide "W6b security-härtung" XSS-class hardening effort,
+and a **production build fix** raises the client webpack step's Node heap cap after the bundle grew
+past the old ceiling -- see `CHANGELOG.md` `[0.25.0]` for both.
+
+**`v0.26.0`** spans nine numbered waves (V1.9.15 through V1.9.23) plus small fixes; see `CHANGELOG.md`
+`[0.26.0]` for the wave-by-wave detail. **Democratic elections finally have a web client** (V1.9.22,
+see "Democratic elections" below): the list and detail screen, opening an election from a scheduled
+motion, the election committee, candidacies, a voting booth with a one-time receipt for secret
+ballots, count approvals, the result and a receipt check. The same release **hardens the server**
+(V1.9.23): the four ways to decide a motion -- election, meritocratic vote, systemic consensus and
+the quorum resolution -- now exclude each other, a tally can no longer overwrite a decision,
+required majorities are exact fractions (two thirds, three quarters), and a secret ballot no longer
+carries a time. **Active members can add a voluntary photo, and board members and listed politicians a short
+introduction**, each with its own versioned consent that is withdrawn immediately and everywhere
+(V1.9.19/V1.9.20), and the public
+site gains `/vorstand`, `/politiker` and `/landesverbaende` with matching embed feeds (see "Member
+photo and public profiles" below). **Regional-chapter crests** may be JPEG, PNG or a strictly
+sanitized SVG (V1.9.21). **SuperMailer** gets its rich-text editor and opt-in click/open tracking
+with consent (V1.9.15). A **membership tier administration** screen replaces the missing UI for
+a backend that had been complete for a long time (V1.9.18), **searchable person pickers and list
+filters** replace plain dropdowns (V1.9.16), and V1.9.17 closes the table-cell text-spoofing gap
+and several small UI issues. Operators: this release edits `V1__baseline.sql` once more (run
+`flywayRepair`), adds migrations `V60` to `V64`, and needs the `LAPIS_MAILING_*` variables forwarded
+in the compose file -- they never were; see `CHANGELOG.md` `[0.26.0]` "Operator actions" and "Operator notes -- V1.9.23".
+
+**`v0.27.0`** spans eight numbered waves (V1.9.24 through V1.9.31) plus a test-only stability fix; see
+`CHANGELOG.md` `[0.27.0]` for the wave-by-wave detail. **Voting moves into the video conference**
+(V1.9.24-V1.9.27, see "Voting in the conference room" below): an "Abstimmen" panel lists the open and
+recently decided elections and meritocratic votes of the room's Sitzung and embeds the real voting
+booth, operators can open, close and count elections from the room, and a secret election locks the
+cast button until the streams of the Sitzung are paused. **Systemic consensus gets its web client**
+(V1.9.28, see "Systemic consensus" below). Members get the **"KI-Zugang" card** on "Meine Daten" to
+switch MCP agent access on or off and revoke connections (V1.9.29) -- visible only where the operator
+has enabled MCP. **Non-binding opinion polls** weighted by LTR balance arrive with server and web UI
+(V1.9.30/V1.9.31, see "Opinion polls" below). None of the new conference, consensus or poll flows has
+been run end to end on Staging yet; the test plans are written. Operators: this release edits
+`V1__baseline.sql` once more (take a backup and run `flywayRepair` on every existing instance before deploying) and adds migration
+`V65`; MCP stays off unless `LAPIS_MCP_ENABLED=true` is added to the compose file by hand -- see
+`CHANGELOG.md` `[0.27.0]`.
+
+**`v0.28.0`** spans eighteen numbered waves (V1.9.32 through V1.9.49) plus a test-only stability fix; see
+`CHANGELOG.md` `[0.28.0]` for the wave-by-wave detail. **Times follow the organization's time zone**
+(V1.9.38): a new ADMIN setting "Zeitzone der Organisation" (default `Europe/Berlin`), system timestamps
+shown in that zone, typed-in times shown as typed; this fixes the iCal feed, poll deadlines, event end
+times, letter dates and the 72-hour data-breach deadline, which were off by one or two hours.
+**Systemic consensus follows the practice more closely** (V1.9.32, V1.9.39, V1.9.41, V1.9.42): the
+consensus is part of the conference room panel, the status quo option is listed first, the real options
+carry numbers, a proposal can carry a rationale, the strong-objection hint follows the scale, and opinion
+polls gain two consensus modes (decision and priority ranking) with an optional explanation per option.
+An anonymous consensus with fewer than five ratings discloses no figures. **Single ballots of secret
+votes are never delivered** -- neither the rating vectors of an anonymous consensus nor the anonymised
+ballots of a secret election (V1.9.44, V1.9.46; both are API behaviour changes, see the CHANGELOG);
+members therefore can no longer recount a secret election themselves, the result counts and the
+receipt check remain. **Create forms are collapsed behind a button in the title row** on all screens the R36B scan
+knows (V1.9.40, V1.9.45, V1.9.47-V1.9.49; exceptions such as the article editor are named in `collapsible-forms.adoc`), action buttons carry standard icons and toolbar buttons line up
+with their fields (V1.9.43). **Members** can maintain their address and GwG data, block a lost
+membership card and register for events themselves (V1.9.33), direct messages gain conversations and
+paging, and the board can mark event refunds as paid outside Lapis Cloud (V1.9.34-V1.9.36). A
+**Postgres test lane** runs the engine-dependent tests against a real PostgreSQL 17, also in CI
+(V1.9.37; its own parallel CI job since V1.9.58), and found three code paths that were only correct on H2. The staging test plans of these
+waves are written but were not executed. Operators: take a backup and apply migrations `V66` to `V69`;
+`V1__baseline.sql` is unchanged, so no `flywayRepair` is needed. Open polls close and running events end
+up to two hours earlier than before (at the typed-in local time) -- deploy while no vote is running --
+see `CHANGELOG.md` `[0.28.0]`.
+
+**`v0.29.0`** spans eleven numbered waves (V1.9.50 through V1.9.60) plus test-only stability fixes; see
+`CHANGELOG.md` `[0.29.0]`, whose release summary lists the **API behaviour changes** first. **Administrators are
+protected from each other** (V1.9.57): a temporary password, taking the ADMIN role away or blocking the login of another
+administrator needs the approval of a second administrator, and the board no longer reads an administrator's address and
+GwG data. **The e-mail address of a member changes only through a safe change process** (V1.9.56: own change with the
+password, or a proposal / ownership proof plus a 72 hour warning period). **Secret elections** disclose no figures below
+five ballots, and a receipt no longer proves the choice (V1.9.53/V1.9.54; the public resolutions API returns `null`
+figures with `figuresWithheld`). **"Mitgliederentwicklung"** shows the members per status over time from a new
+status history (V1.9.59). PostgreSQL session timeouts, sanitized database errors and idempotent payment paths (V1.9.55),
+deadlock-free member-row locks (V1.9.60), a three-job CI (V1.9.58), UI stragglers and the conference lobby (V1.9.50/V1.9.51)
+and the mobile section key `my-events` (V1.9.52) complete the release. No wave was played through by users on Staging
+yet. Operators: take a backup and apply migrations `V70` to `V72` (`V1__baseline.sql` unchanged, no `flywayRepair`);
+check the number of administrators per instance (an approval needs at least three, the approver at least 7 days in the
+role); third-party e-mail changes and temporary-password requests against administrators need `LAPIS_SMTP_*`; the new
+`LAPIS_DB_*_TIMEOUT_MS` variables default to 10 s / 60 s / 120 s -- see `CHANGELOG.md` `[0.29.0]`.
+
+**`v0.30.0`** spans eight numbered waves (V1.9.61 through V1.9.68) plus a test-only stability fix; see `CHANGELOG.md`
+`[0.30.0]`, whose release summary lists the **API behaviour changes** first. **The encounter space ("Begegnungsraum")** arrives
+for the ELB pilot: a standing room with a pulpit and a listening congregation on the LiveKit stack, without a lasting record of who
+attended (Art. 9 GDPR; V1.9.61), with a web client (V1.9.62) and, in stage 1, two room profiles (church service and assembly) with
+their own words, floor-plan scene and consent text, configurable reactions, a stage mode and full screen (V1.9.67); see
+"Encounter space" under "What doesn't work yet" below. **The conference bar** carries recording, live stream and "Für alle beenden"
+as a moderation group and no longer wraps (V1.9.66). **Operations are hardened** (V1.9.65): SQL text and personal data no longer
+reach the server log, the lexoffice export looks a voucher up before creating it and reconciles uncertain items, and
+`deploy/example/backup.sh` / `restore.sh` back up database, uploaded files and branding. The page is the one scroll surface
+(V1.9.68), the staging/demo seed covers 24 months of a fictitious association (V1.9.63), and the receipt text of secret votes no longer
+claims the code is stored nowhere (V1.9.64). The encounter space was rolled out on Staging, PdV and ELB but has not been used by a
+real congregation; LiveKit's enforcement of listen-only tokens and the behaviour on real devices and iOS/Safari are not verified.
+Operators: take a backup, then **run `flywayRepair` once on every instance that ran `v0.29.0` or older** (V1.9.61 edited
+`V1__baseline.sql`), then deploy; migrations `V73` to `V76` are additive; no new environment variable -- see `CHANGELOG.md` `[0.30.0]`
+and `deploy/example/README.adoc`.
+
+**`v0.31.1`** is `v0.31.0` plus a fix for the image build (the tag `v0.31.0` has no published image, see `CHANGELOG.md` `[0.31.1]`). **`v0.31.0`** spans the waves V1.9.69 through V1.9.97 (thirty-odd commits); see `CHANGELOG.md` `[0.31.0]`, whose release summary lists the
+**behaviour changes** first. **The video conference** survives navigation (conference dock with mini bar and a free-floating window from 768 px, a
+guard against the endless loop of a second sign-in with the same account), shows the active speaker and uses the full page width with a best-fit tile
+grid. **The encounter room** gets an icon-only bar, a server-authoritative seat choice, discussion tables for the assembly profile, an anonymous entry
+notice for office holders, device selection, and, for the pulpit of a church-service room, a blessing and a bell with recorded CC0 sounds. **Events**:
+a public feed with the full text, a past-event archive feed and an import of past events from a static site; the online link of an event is no longer
+shown on the public page unless an administrator ticks it. **Mail**: an optional hourly send budget with a resumable outbox. **MCP access for
+member agents** works with OAuth (protocol `2025-06-18`; Claude Code signs in; write tools remain behind the operator's `LAPIS_MCP_WRITE_ENABLED`).
+**Keycloak** can create a member on the first login and sync the profile, both opt-in and off by default. **Servers no longer build the sources:**
+a tag-triggered workflow (`release-image.yml`) publishes the server image to GHCR as `ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` (no `v`, no
+`latest`), and the compose file takes it from `LAPIS_IMAGE_TAG`; see `deploy/example/README.adoc` and `docs/architecture/ci-pipeline.adoc`. **Not verified:**
+the image pipeline has never run (its first run is the push of the tag `v0.31.1`, and the package must then be set to Public once; **superseded: verified green on 2026-10-10, the package is Public, four instances run on the image, see `CHANGELOG.md` `[0.31.1]`**); the blessing and
+the bell were never tried against a real LiveKit server with `SendData`; Safari has no speaker choice; the conference dock and floating window were not
+tried with real participants or on a real device, and the Keycloak provisioning not against a real Keycloak. Operators: take a backup, set
+`LAPIS_IMAGE_TAG`, deploy; migrations `V77` to `V81` are additive, `V1__baseline.sql` is untouched (no `flywayRepair` for this release; instances on
+`v0.29.0` or older still need it once, see `[0.30.0]`) -- see `CHANGELOG.md` `[0.31.0]` and `deploy/example/README.adoc`.
+
+=== Auction opt-in (V0.6.2)
+
+The legal classification of an LTR-for-goods marketplace (payment-services supervision, trade law,
+tax law, consumer protection, party-donation law, anti-money-laundering law) depends on
+jurisdiction and organization type — no single blanket legal review can resolve this for every
+future Lapis Cloud deployment. The auction ships **disabled by default**
+(`OrganizationSettings.auctionEnabled = false`); an ADMIN must call `enableAuction` with the
+SHA-256 hash of the currently displayed, versioned legal-risk disclaimer before it activates.
+Enabling it is an operational decision for each organization's own operator, informed by their own
+legal counsel — not something this project can decide once for everyone. See `CHANGELOG.md`
+`[0.6.0]` and the disclaimer text in `AuctionComplianceDisclaimer.kt` for detail.
+
+=== What doesn't work yet
+
+* **Real email delivery exists (V1.2.3) but is optional and off by default.** Password-reset
+  tokens are real (hash-only-persisted, single-use, short-TTL); `SmtpPasswordResetMailer` sends a
+  real message via Jakarta Mail/Eclipse Angus whenever `LAPIS_SMTP_*` is configured
+  (`deploy/example/README.adoc` "E-Mail-Versand (SMTP, optional)"), and falls back to the same
+  honestly-disclosed `NoOpMailTransport` log-only stub `MailingService.sendMailingMessage` has had
+  since V0.4/V0.1.5 when it is not. Bulk mailings are a separate switch: since V1.9.7 they are sent for
+  real when `LAPIS_MAILING_DELIVERY=smtp` is set (see "SuperMailer" below), otherwise they stay in the
+  log-only mode; this wave only wired up the two single-recipient transactional mailers.
+  **Verify outbound connectivity before relying on this in production**: some hosting providers
+  silently drop outbound connections on SMTP ports (25/465/587) regardless of local firewall
+  configuration — a correct `LAPIS_SMTP_*` configuration and a genuinely reachable relay are two
+  separate things to confirm.
+* **Member counts over time (V1.9.59).** Every change of a member's status is appended to an append-only log (`member_status_history`, migration `V72`),
+  so "how many members did we have at the end of each month / quarter / year" has a historically correct answer instead of today's rows counted backwards.
+  The screen "Mitgliederentwicklung" (Verwaltung group, BOARD/ADMIN only, `/member-statistics`) shows a stacked bar chart per status, the same figures in a
+  table, a CSV export and a note where a period rests on a reconstruction. **The past before V72 is reconstructed, not known**: from the audit log,
+  acknowledgments, `reviewed_at`, `date_of_death`; a voluntary withdrawal leaves no trace, so earlier ACTIVE counts are slightly under-estimated; a member
+  with no earlier evidence counts from the earliest date that proves the current status. Such periods are drawn pale. From the day V72 runs, every change is
+  recorded live. Only counts per period leave the server, never a member id. See `docs/architecture/member-status-history.adoc`.
+* **Encounter space / "Begegnungsraum" (V1.9.61 server side, V1.9.62 client).** A standing room with a pulpit and a listening congregation (first theme: a church
+  service) on top of the LiveKit conference stack: offices `PULPIT` / `STEWARD` per space, only an office holder may speak, everybody else listens. Because
+  attending a service can reveal religious belief (Art. 9 GDPR) no lasting record of who attended is kept: the presence row is deleted on leave and when the
+  session ends, nothing about entering or leaving reaches the audit log, the consent of a non-member is stored with a date only. The ordinary conference API cannot
+  open, join, record or list such a session. **Client (V1.9.62, wave B2, released in `v0.30.0`)**: room list ("Begegnungsräume", `#/begegnung`), entry notice,
+  the room view with stable pews, hand and reactions, chat, moderation, transmission of the pulpit only, a mobile bridge route and
+  translations in seven languages. **Stage 1 (V1.9.67)**: a room is a church service or an assembly (own vocabulary, floor-plan scene, default reactions and
+  consent text), reactions are configurable per room (hand, amen, applause, heart), stage mode with full screen. **Not yet verified**: the room has not been used
+  by a real congregation; LiveKit's enforcement of the listen-only token was not checked against a live LiveKit server
+  (`docs/architecture/encounter-space-staging-test.adoc`, checks 1-28, written, not run); not tested on a real device or in Safari/iOS (audio echo without
+  headphones); the consent texts are drafts without legal review; the translations are not reviewed by native speakers. Migrations `V73` and `V76`;
+  **`flywayRepair` needed before the first deploy on an instance from `v0.29.0` or older**. Since `v0.31.0` (V1.9.74 -- V1.9.97): icon-only bar, seat choice,
+  discussion tables for the assembly profile (off by default), anonymous entry notice for office holders, device selection, and a blessing and a bell (recorded
+  CC0 sounds) for the pulpit of a church-service room (migrations `V78`, `V79`). **Also not verified**: the blessing and the bell were never tried against a real LiveKit
+  server with `SendData`; without `AudioContext.setSinkId` (Safari, partly Firefox) there is no speaker choice. See `docs/architecture/encounter-space.adoc`.
+* **Administrator accounts are protected from each other (V1.9.57).** A temporary password, taking the ADMIN role away or blocking the login of *another
+  administrator* needs the approval of a second administrator (one who held the role for 7 days; request, approval, for a password a 24 hour objection
+  period of the target, generation once by the requester); the emergency e-mail path, the manual Keycloak link and GDPR erasure are refused against another
+  administrator, the board no longer sees an administrator's address data, the target and the other administrators are notified. With one or two
+  administrators no approval is possible -- the reset mail, actions on oneself and the operator console (`set-role`, `set-status`, `reset-password`) stay
+  available. `IAuthService.changePassword` limits wrong current passwords. See `docs/architecture/admin-peer-protection.adoc`.
+* **Changing a member's e-mail address needs outbound mail (V1.9.56).** The address is the login
+  identity, so it no longer changes in one call: members change their own with the password (works
+  without SMTP); a board member or administrator *proposes* a change that the member accepts with the
+  password -- or, for a member without a usable password and on the administrator's emergency path,
+  that takes effect after proof of ownership of the new address and a 72 hour warning period in which
+  the old address can reject. Without `LAPIS_SMTP_*` those third-party paths are refused (the UI shows
+  why). See `docs/architecture/member-email-change.adoc`.
+* **FRIEND email verification now has a working delivery path AND a client landing screen (V1.2.3),
+  but enforcement is still off.** `MemberStatus.FRIEND` (V0.11.0) is a self-registerable status
+  (`/register-friend`, no board approval, no identity check) scoped strictly to video-conference
+  access on a per-room opt-in basis — it is not membership in the organization, carries no
+  Beitragspflicht/governance/accounting/LTR rights, and no `PUBLIC_MEMBERS` document access. The
+  `friend_email_verification_token` mechanics, the real mail (`SmtpFriendVerificationMailer`), and
+  the `#/verify-email?token=...` client deep link (`renderVerifyEmailScreen`) all exist end to end
+  now; `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` (default `false`) stays off regardless — activating
+  hard enforcement is a separate, later operational decision, not something this wave flips
+  automatically.
+* **UI coverage has grown substantially since `v0.10.0`, but is still not complete.** Governance,
+  Accounting, SEPA direct debit (V1.2.2), automated dunning (V1.2.7), member administration
+  (V1.2.12/V1.2.13), the Stripe checkout (V1.2.8), and open items with netting and debtor dunning
+  (V1.4.21) all now have real client screens. So do the Compliance domains this sentence used to
+  list as missing — audit log (`/audit-log`), backup/restore (`/backup`), DSGVO compliance and
+  member DSGVO rights (`/dsgvo-compliance`, `/dsgvo-rights`), §20 GwG Transparenzregister
+  (`/board-membership`), §25 PartG donation duty (`/donors`) — as well as the postal-dispatch audit
+  trail (`/postal-mail`) and all four original LTR economy domains (`/crowdfunding`, `/auction`,
+  peer transfer on `/ltr-ledger`, `/politicians`). **Democratic elections** gained their client in
+  V1.9.22 (`/elections`, see "Democratic elections" below), **systemisches Konsensieren** in V1.9.28
+  (`/consensus`), and the member-facing MCP access switch (`IMcpAccessService`) in V1.9.29 (the
+  "KI-Zugang" card on "Meine Daten"). One domain is genuinely still reachable only via Kilua RPC /
+  raw HTTP: **federation/trust-anchor administration** (`IFederationService`/`ITrustAnchorService`)
+  -- it has no route and no screen. It is of lower day-to-day usage frequency per the pilots' own
+  prioritization and is not yet scheduled as a numbered wave.
+* **No content type is actually federated yet.** V0.8.1 built the ActivityPub-hybrid protocol
+  layer; no existing content type (crowdfunding projects, politician profiles, governance
+  resolutions, or the Soziales Netzwerk posts added in V1.1) is wired into outbound federation. A
+  future wave's own explicit product decision.
+* **Social-network moderation has a legal-notification gap.** DSA Art. 16 Abs. 4/5 (acknowledgment
+  and decision notices to whoever filed a report) has no automated mail yet — the real SMTP
+  transport added in V1.2.3 covers password-reset and FRIEND email verification only, not report
+  notifications. There is also no NetzDG transparency-report mechanism and no DSA Art. 20 dispute
+  procedure (small-business exception) — both deliberately out of scope so far. See `CHANGELOG.md`
+  `[0.15.0]`.
+* **No guest participation in the LTR economy.** A federated guest (V0.8.2) is authenticated and
+  represented, but not wired into LTR staking/posting/earning — that mechanics is deliberately not
+  built yet, a separate scope decision from identity itself. `FRIEND` (V0.11.0, tag `v0.13.0`) is a
+  different, non-federated status and is not covered by this gap: since Soziales Netzwerk V1.1.4 a
+  FRIEND can stake, post, comment, boost, and self-serve its own LTR balance within the
+  social-network domain specifically, while every other LTR-gated domain (governance, crowdfunding,
+  elections, peer-transfer sending, conferencing) remains `ACTIVE`-only. See `CHANGELOG.md`
+  `[0.14.0]`.
+
+None of this is a secret gap. See the project vault's Lapis Cloud roadmap for the up-to-date wave
+plan.

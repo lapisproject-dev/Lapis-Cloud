@@ -336,12 +336,14 @@ Postgres database name in the commands below.
 
 [CAUTION]
 ====
-**`v0.31.1` is the first release published as an image, and that pipeline has not run yet.** The image
-`ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` exists only after the tag `v0.31.1` was pushed and the "Release image" workflow
-(`.github/workflows/release-image.yml`) finished green, and `docker compose pull` works without a token only after the package was set to Public once
-(GitHub package settings, project owner). Check `docker buildx imagetools inspect ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` before switching
-an instance; an instance on the old server-side build keeps working until it is switched (see "Switching a real instance from server-side builds to the
-published image" below). Example: `LAPIS_IMAGE_TAG=0.31.1` (no `v`; the git tag is `v0.31.1`, the image tag is `0.31.1`).
+**`v0.31.1` is the first release published as an image, and that pipeline is verified.** The image
+`ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` was published by the "Release image" workflow (`.github/workflows/release-image.yml`)
+on 2026-10-10 (the tag `v0.31.0` has no image: its first build ran out of heap, see `CHANGELOG.md` `[0.31.1]`). The package is Public, so
+`docker compose pull` works without a token. If you fork the project and publish your own image, the package has to be set to Public once
+(GitHub package settings; an organisation must allow public packages first). Check
+`docker buildx imagetools inspect ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` before switching an instance; an instance on the old server-side build
+keeps working until it is switched (see "Switching a real instance from server-side builds to the published image" below). Example:
+`LAPIS_IMAGE_TAG=0.31.1` (no `v`; the git tag is `v0.31.1`, the image tag is `0.31.1`).
 ====
 
 Since V1.9.93 the server is **not built on the host any more**: CI builds the image once per release tag and publishes it, the host sets
@@ -1125,8 +1127,8 @@ zoom in some regions -- this is a known limitation, not a bug, and no re-extract
 the rest of the feature (borders, state capitals, Ortssuche) to work correctly.
 
 **Third-party data and attribution** -- shown to the reader directly on the screen (the map's own
-attribution control, Q2 in `docs/architecture/member-map.adoc`); this file (and `README.adoc`'s
-"Third-party data" section) also documents it for operators who never open the screen:
+attribution control, Q2 in `docs/architecture/member-map.adoc`); this file (and the
+"Third-party data" section of `docs/features/member-map.adoc`) also documents it for operators who never open the screen:
 
 * Postal code data (c) link:https://www.geonames.org[GeoNames.org], CC-BY-4.0.
 * Basemap tiles (c) link:https://www.openstreetmap.org/copyright[OpenStreetMap contributors], ODbL.
@@ -1137,7 +1139,7 @@ attribution control, Q2 in `docs/architecture/member-map.adoc`); this file (and 
 Satzung") sends a member's question **and the retrieved document excerpts to an external AI
 provider**. Enabling it is a data-protection decision of the operator, not a technical default.
 Architecture: xref:../../docs/architecture/ai-assistant.adoc[ai-assistant.adoc]; variable reference:
-`README.adoc` in the repository root, section "AI assistance".
+`docs/features/ai-assistance.adoc`, section "AI assistance".
 
 To enable it, add the variables to the service's `environment:` block yourself (copy-paste template;
 the `${...:-}` form keeps the value in `.env`, out of the compose file):

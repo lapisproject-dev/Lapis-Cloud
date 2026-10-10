@@ -8,7 +8,7 @@
 // (ContributionReliefKind: DEFERRAL/EXEMPTION/REDUCTION) and its board decision lifecycle
 // (ContributionReliefStatus: REQUESTED/APPROVED/REJECTED/EXECUTED/WITHDRAWN). See
 // `network.lapis.cloud.server.rpc.ContributionReliefService` KDoc for the full state machine and
-// README.adoc's "Contribution relief" section for the fachlich rationale (there is no dedicated
+// docs/features/contribution-relief.adoc's "Contribution relief" section for the fachlich rationale (there is no dedicated
 // docs/architecture/contribution-relief.adoc -- this domain's rationale lives in the README).
 //
 // K-1 (no partial unique index): the whole test suite runs H2 in MODE=PostgreSQL

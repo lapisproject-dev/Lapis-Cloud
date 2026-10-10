@@ -1,0 +1,10 @@
+= Membership tiers (V1.9.18)
+:toc:
+
+A TREASURER/ADMIN screen (`/membership-tiers`) to create and edit tiers -- name, description,
+amount, interval, payment term and "selectable for new assignments" -- with the number of active
+members per tier. The server validates (name unique case-insensitively, amount with at most two
+decimals) and every change leaves an audit entry, because a tier's amount decides what members are
+invoiced. A tier is *closed*, never deleted: closing stops new assignments only and keeps invoicing
+the members already on it. Changing an amount never rewrites an existing contribution. No tier exists
+on a fresh instance; the treasurer creates them. See `docs/architecture/membership-tiers.adoc`.

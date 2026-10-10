@@ -1,0 +1,36 @@
+= Lapis Cloud: Feature Documentation
+:toc:
+
+Operator- and developer-facing documentation per feature. Each document was split out of the former long root `README.adoc` and is unchanged in wording.
+Architecture background lives in link:../architecture/[docs/architecture/]; the authoritative per-release history is `CHANGELOG.md`.
+
+[cols="2,3",options="header"]
+|===
+|Feature |Description
+|link:video-conferencing.adoc[Videokonferenzen (V1.0 Wave 1)] |Video conferencing, LiveKit-based, for committee sessions
+|link:payment-providers.adoc[Payment service providers (Stripe + PayPal)] |Card and PayPal checkout for contributions and donations, with webhook handling
+|link:public-rest-api.adoc[Public REST API (V1.3.1)] |Read-only machine-to-machine REST API under `/api/v1` with API keys
+|link:webhooks.adoc[Outbound Webhooks (V1.3.2)] |Signed outbound webhooks for fixed domain events
+|link:website-integration.adoc[Website Integration (V1.4.1a/V1.4.1b/V1.4.3.3)] |Embeddable script for partner websites: login, join link, donation and event registration
+|link:article-module.adoc[Article Module (V1.4.34/V1.4.36)] |Editorial article/news workflow with an approval gate
+|link:crm.adoc[Interessenten-/Sympathisanten-CRM (V1.4.2)] |Contact management for prospects and supporters who are not members
+|link:bank-statement-import.adoc[Bank Statement Import (V1.4.5.1 / V1.4.5.1.1)] |CSV and MT940 bank statement upload with matching against open contributions
+|link:datev-export.adoc[DATEV Export (V1.4.5.2)] |DATEV-EXTF Buchungsstapel export of posted journal entries
+|link:contribution-relief.adoc[Contribution relief (deferral, exemption, reduction) (V1.4.10)] |Member requests for deferral, exemption or reduction of contributions
+|link:travel-expenses.adoc[Travel expense reimbursement (V1.4.11)] |Self-service travel expense reports with mileage, per diem and receipts
+|link:volunteer-allowance.adoc[Volunteer/instructor allowance (V1.4.12)] |Tax-privileged volunteer and instructor payments with annual caps
+|link:ai-assistance.adoc[AI assistance (optional, default off) (V1.6.1)] |Optional statute Q&A with verified citations (off by default)
+|link:member-map.adoc[Member map ("Vorstands-Karte", V1.9.5-V1.9.9)] |Board-only aggregate map of member postal-code distribution
+|link:member-counts.adoc[Member counts over time (V1.9.59)] |Member count history per status
+|link:supermailer.adoc[SuperMailer (V1.9.7/V1.9.15)] |HTML mailing content and asynchronous send path
+|link:public-member-count.adoc[Public member count toggle (V1.9.10)] |Setting to show or hide the active member count on public pages
+|link:public-icon-navigation.adoc[Public icon navigation + overview pages (V1.9.11)] |Icon navigation and overview pages for the public site
+|link:mitfahrerzentrale.adoc[Mitfahrerzentrale (V1.9.12)] |Carpooling bulletin board for members
+|link:regional-chapters.adoc[Regional chapters ("Gliederungsverwaltung", Landesverbände) (V1.9.13/V1.9.14)] |Optional regional chapters with chapter-scoped officer access
+|link:membership-tiers.adoc[Membership tiers (V1.9.18)] |Management of membership tiers and their amounts
+|link:member-photo.adoc[Member photo and public profiles (V1.9.19-V1.9.21)] |Voluntary member photos and public profiles with consent
+|link:elections.adoc[Democratic elections (V1.9.22/V1.9.23)] |Election lifecycle screen: committee, candidacies, voting booth, results
+|link:conference-voting.adoc[Voting in the conference room (V1.9.24-V1.9.27)] |Voting panel inside the video-conference room
+|link:systemic-consensus.adoc[Systemic consensus web client (V1.9.28)] |Web client for systemic consensus (Konsensieren)
+|link:polls.adoc[Opinion polls (V1.9.30/V1.9.31)] |Non-binding anonymous opinion polls
+|===

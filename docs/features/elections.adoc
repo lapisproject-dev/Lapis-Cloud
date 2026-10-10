@@ -1,0 +1,27 @@
+= Democratic elections (V1.9.22/V1.9.23)
+:toc:
+
+The `/elections` screen drives the whole election lifecycle that `IElectionService` has offered since
+V0.2.4: opening an election from a scheduled motion (yes/no, single or multiple choice; secret or
+open; an exact required majority such as two thirds), the election committee (at least three
+members, never members of the target executive board), candidacies, the voting booth (review before
+casting, exactly one request however often the button is clicked), a one-time receipt for secret
+ballots, the four-eyes count approval (only real committee members, no admin bypass), the result and
+a receipt check. Since V1.9.46 the single ballots of a secret election are never delivered, in any
+status and to any role; open-ballot elections keep their named list. A secret election with fewer than five ballots
+shows no vote counts (V1.9.53, since `v0.29.0`; API behaviour change). V1.9.23 hardened the server: the four ways to decide a motion exclude each other
+(`MotionDecisionLock`), a tally requires the motion to still be scheduled, and the ballot of a secret
+election carries no time and no order. See `docs/architecture/elections-ui.adoc` and
+`docs/architecture/elections-integrity.adoc`.
+
+== What doesn't work yet
+
+A real end-to-end election run with several accounts on Staging is still outstanding. The concurrency tests run on H2 and, since V1.9.37, also on PostgreSQL (the Postgres test lane). List and ranked-choice
+elections are rejected by the server. Who approved a tally is visible only as a count.
+`recordResolution` and `withdrawMotion` still check only the election, not a running vote or consensus. (Until V1.9.54 this
+section also listed races of `castVoteBallot` and `castResistanceBallot` against closing; both now lock the vote or consensus
+row before their status check.) Members cannot
+recount a secret election themselves (a deliberate consequence of V1.9.46). Since V1.9.53 a secret election
+with fewer than five ballots discloses no vote counts (since `v0.29.0`; see `docs/architecture/elections-integrity.adoc`,
+"Minimum participation"); from five ballots on, or for an open election, the counts are delivered, so with a unanimous
+result the votes are known. The receipt check tells the holder of a receipt code only that the ballot arrived and was counted, never the chosen option.

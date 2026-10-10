@@ -1,0 +1,19 @@
+= Public icon navigation + overview pages (V1.9.11)
+:toc:
+
+The shared header chrome across all seven unauthenticated public pages (`/`, `/s`, `/transparenz`,
+`/impressum`, `/datenschutz`, and the two new ones below) switched from text links to icon-only
+links with a pure-CSS hover/focus tooltip (`aria-label`-driven, so every link stays fully
+accessible with no silent icon-only trap). Two new, server-rendered overview pages, `GET /aktuelles`
+(published articles) and `GET /veranstaltungen` (upcoming public events), link out to the existing
+detail pages -- previously the only public way to browse them was the (opt-in, CORS-gated) embed
+feeds or a bookmarked direct link. Both new tabs appear in the navigation only when there is
+actually something to show (`PublicNavAvailabilityProvider`, a 30-second process-wide cache over
+two lightweight existence checks) and never appear on an error page, so a broken/rate-limited
+request never triggers an extra database lookup.
+
+== What doesn't work yet (this wave)
+
+Neither the article detail page (`/aktuelles/{slug}`) nor the event detail page carries its own
+header/navigation chrome -- there is still no link back to the site's public navigation from a
+detail page itself. Tracked as a known limitation, open for a follow-up wave.

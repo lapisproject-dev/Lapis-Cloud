@@ -55,7 +55,7 @@ Notizen/Changelogs außerhalb dieses Repos (Daily Notes, Wellen-Tabellen) erst d
 
 Kotlin · Ktor (Server) · Exposed (DB-Zugriff) · Flyway (Migrationen) · KVision (Web-UI,
 Kotlin/JS) · Kilua RPC (typsichere Client-Server-Kommunikation) · Koog (Multi-LLM-Agent-Layer,
-JetBrains) — Details und Architektur-Hintergrund siehe `README.adoc`.
+JetBrains) — Details und Architektur-Hintergrund siehe `README.adoc` und `docs/features/`.
 
 > **Koog-Notiz (V1.6.1):** Die erste KI-Welle (`network.lapis.cloud.server.ai`, Satzungs-Q&A) baut
 > bewusst **ohne** Koog auf einem eigenen minimalen `LlmClient` (zwei schmale Ktor-Clients). Koog 1.2.0

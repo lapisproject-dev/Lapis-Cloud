@@ -1,0 +1,15 @@
+= Public member count toggle (V1.9.10)
+:toc:
+
+Board can now decide, per organization setting, whether the number of active members appears on
+the public homepage (`/`) and the transparency page (`/transparenz`). The new
+`showPublicMemberCount` field on `organization_settings` defaults to `TRUE` -- the only Boolean on
+that table that is an opt-*out* rather than an opt-*in*, so no existing organization experiences a
+behaviour change on upgrade. Hiding it is structural, not cosmetic: `PublicTransparencyReader
+.loadStats` does not even query the count when the flag is off, and the homepage's own empty-state
+guard deliberately stops counting a hidden member count towards "is there anything to show" -- so
+the mere presence or absence of the stats block cannot itself leak whether the count is hidden.
+Setting it is ADMIN-only (the generic settings-update RPC replaces the whole settings object,
+including IBAN/DATEV fields, so a BOARD write right here would have given BOARD those fields too);
+TREASURER/BOARD see the current state read-only. The change takes effect within a few minutes,
+riding the existing 30-second in-memory cache on both public routes.

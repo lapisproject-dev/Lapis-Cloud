@@ -71,7 +71,7 @@ data class BankStatementImportResultDto(
  * "code instead of German prose" idiom [BankStatementRejectionCode] already established for
  * rejections. Unlike [BankStatementLineDto.matchExplanation] (which embeds per-line dynamic data --
  * member names, amounts, dates -- and is persisted, so a structured replacement needs its own
- * migration and is a deliberately deferred, documented gap, see README.adoc "What doesn't work yet
+ * migration and is a deliberately deferred, documented gap, see docs/features/bank-statement-import.adoc "What doesn't work yet
  * (this wave)"), these warnings are always one of a small, fixed set of German sentences with no
  * dynamic parts, so a plain enum is enough here -- no follow-up wave needed.
  */

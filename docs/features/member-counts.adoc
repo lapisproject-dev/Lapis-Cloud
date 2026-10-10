@@ -1,0 +1,7 @@
+= Member counts over time (V1.9.59)
+:toc:
+
+BOARD/ADMIN-only history of the number of members per status: `IMemberStatisticsService.getMemberCountHistory` over the append-only
+`member_status_history` log, the screen "Mitgliederentwicklung" (stacked bars, table, CSV export), calendar periods of the organization time zone, at most
+240 periods per request. The data model, the V72 backfill with its limits, the privacy decision (counts only, rows are kept on GDPR erasure) and
+what is not done: `docs/architecture/member-status-history.adoc`.

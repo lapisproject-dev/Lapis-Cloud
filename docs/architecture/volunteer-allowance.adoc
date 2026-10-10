@@ -10,7 +10,7 @@ independent annual cap) or `HONORARY` (§3 Nr. 26a EStG Ehrenamtspauschale, its 
 annual cap). The category is fixed once a payment is created -- no dropdown, `updateDraft` will
 not accept a different one. This wave is the second "money out" bridge in this codebase (after
 `TravelExpensePostingBridge`), and closes the "no integration with the Übungsleiter-/
-Ehrenamtspauschale" scope boundary that wave's own README section named as a deliberate gap --
+Ehrenamtspauschale" scope boundary that wave's own link:../features/travel-expenses.adoc[feature document] named as a deliberate gap --
 deliberately as its own, separate bridge, not a shared abstraction with travel expenses (the two
 domains' booking shapes and legal constraints differ enough that forcing them together would cost
 more clarity than it would save).
@@ -256,7 +256,7 @@ member/category/calendar-year still exists, in which case it remains as that pay
 
 == What doesn't work yet (this wave)
 
-See the README's own "Volunteer/instructor allowance" section for the full list of deliberate scope
+See the own link:../features/volunteer-allowance.adoc["Volunteer/instructor allowance" feature document] for the full list of deliberate scope
 boundaries (no configurable/jahresbezogene Deckel, no automated Lohnsteuer withholding for the
 exceeding portion, no cross-organization cap awareness, no payout/payment run, single EXPENSE
 account for both categories).

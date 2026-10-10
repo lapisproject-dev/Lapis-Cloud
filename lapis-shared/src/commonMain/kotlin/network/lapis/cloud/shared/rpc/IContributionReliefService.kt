@@ -11,7 +11,7 @@ import network.lapis.cloud.shared.domain.ContributionReliefStatus
 /**
  * Welle V1.4.10 "Beitragsvergünstigungen" (Stundung / Befreiung / Sozialermäßigung). See
  * `network.lapis.cloud.server.rpc.ContributionReliefService` KDoc for the full state machine,
- * README.adoc's "Contribution relief" section for the fachlich rationale (there is no dedicated
+ * docs/features/contribution-relief.adoc's "Contribution relief" section for the fachlich rationale (there is no dedicated
  * docs/architecture/contribution-relief.adoc -- this domain's rationale lives in the README), and
  * this interface's KDoc "Art. 9 DSGVO" note for the special-category-data handling of
  * [ContributionReliefRequestDto.reasonText].

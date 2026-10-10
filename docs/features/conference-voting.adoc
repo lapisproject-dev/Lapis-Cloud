@@ -1,0 +1,25 @@
+= Voting in the conference room (V1.9.24-V1.9.27)
+:toc:
+
+The video-conference room gains an "Abstimmen" panel. `IConferenceService.getRoomVotingState(roomId)`
+tells a participant which elections and meritocratic votes of the room's Sitzung are open or were
+decided within the last 12 hours (at most 20), with only the caller's own eligibility and status --
+never counters, choices, receipts, amounts or other members' ids. The Sitzung comes from the room on
+the server, never from the client. A payload-free data-channel signal (`lapis-vote-nudge`) makes the
+other clients ask the server again after open, close and tally; besides that the panel polls. The
+real voting booth is embedded in the panel; election board members and BOARD/ADMIN can open prepared
+elections, close and count from the room; approving the count stays with named election board members
+(no BOARD/ADMIN bypass). While a secret election is open, the cast button
+stays locked as long as a stream of the Sitzung is still being paused (the server checks the same).
+For a meritocratic vote, a first bid, opening a Yes/No vote and closing it work from the room; a
+changed bid, custom options and aborting stay on the motion page. See
+`docs/architecture/conference-voting.adoc`.
+
+== What doesn't work yet
+
+The staging test (`docs/architecture/conference-voting-staging-test.adoc`) was written but not run,
+so the nudge between real clients, the stream pause before the first ballot and a hanging pause are
+not verified in a real LiveKit room. Recordings are not paused for a secret ballot, and a room without
+a Sitzung never has its stream paused. **Vote stakes stay bound after a vote closes** -- there is no
+release path yet. The committee leadership without an election-board seat cannot open, close or count
+(a server rule). Systemic consensus joined the room panel in V1.9.32 (see the next section).

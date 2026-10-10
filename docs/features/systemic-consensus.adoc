@@ -1,0 +1,22 @@
+= Systemic consensus web client (V1.9.28)
+:toc:
+
+The "Konsensieren" screen (`/consensus`, `/consensus/:id`) drives `ISystemicConsensusService`, which
+had no client before: a list with status filter, a detail view with the phase actions (freeze options,
+close rating, evaluate, revote, abort), adding and removing options (the status-quo option is permanent
+and, since V1.9.39, listed first with the plaque P; the real options carry the numbers 1..n and may carry
+a rationale), and opening a consensus from a scheduled motion -- anonymous or open, advisory or
+binding. The resistance booth rates every option from 0 to 10, shows a review step and submits once;
+an anonymous consensus shows a receipt once, which can be checked later. The result ranks the options
+by mean resistance and states the group conflict in words. Four additive read RPCs back the screen; no
+migration. Since V1.9.32 the consensus is also part of the conference room panel (card, compact booth,
+operator steps). Since V1.9.42 an anonymous consensus with fewer than five ratings in the current round
+shows no figures, only the verdict in words, and since V1.9.44 its single ballots are never delivered.
+See `docs/architecture/consensus-ui.adoc`.
+
+== What doesn't work yet
+
+The staging test (`docs/architecture/consensus-staging-test.adoc`) is written, not run. A binding
+consensus has exactly one round; results of earlier rounds are not retrievable after a revote; an
+anonymous consensus discloses figures from five ratings on, with the residual risks named in
+`consensus-ui.adoc` ("Minimum participation"). The room shows no results distribution.

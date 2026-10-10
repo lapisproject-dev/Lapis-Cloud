@@ -1,0 +1,111 @@
+= Payment service providers (Stripe + PayPal)
+:toc:
+
+Welle V1.2.8 (GitHub Issue #6) let members pay contributions and leave donations through a
+Stripe-hosted Checkout (card only, EUR). Welle V1.2.8b (GitHub Issue #6, follow-up) added **PayPal
+as a full second provider** — `enablePaymentGateway(PAYPAL, ...)` is accepted exactly like `STRIPE`
+now (only `MANUAL` is still rejected), and PayPal has a real checkout-creation/webhook/capture flow
+of its own, not a stub. `PspCheckoutGateway` is the provider-neutral abstraction every checkout
+call site depends on (`createCheckout`/`maxCheckoutAmountEur`/`checkoutTtlMinutes`/
+`sessionLifetimeCap`); `StripeCheckoutClient` and `PaypalOrdersClient` are its two implementations.
+Design rationale, the capture-flow sequence, and two provider-specific gaps are documented in
+`docs/architecture/psp-paypal.adoc` — this section covers operator-facing setup and scope.
+
+One PayPal-specific mechanical difference from Stripe worth calling out here: capture is
+**webhook-triggered**, in the `CHECKOUT.ORDER.APPROVED` handler, never in the return-flow request
+itself — robust against a payer who approves and then closes the tab, and it needs no new RPC
+method or client change (`PaymentReturnScreen`'s webhook-authoritative polling works unmodified for
+both providers).
+
+== Three independent gates
+
+MINOR fix (code review, Welle V1.2.8) — this list previously named the ledger-account mapping as a
+third checked gate; it is not one of `requirePaymentGatewayUsable()`'s checks (see
+`IPaymentGatewayService` KDoc, "The three-part usability gate", the authoritative source this list
+now mirrors). Payment acceptance is only possible when **all three** hold — checked both at
+checkout creation and again when the webhook arrives, so a gate flipped off mid-flight stops the
+posting:
+
+1. **`organization_settings.payment_gateway_enabled`** — an ADMIN acknowledges a versioned
+   legal-risk disclaimer (`PaymentGatewayComplianceDisclaimer`) via `enablePaymentGateway`/
+   `disablePaymentGateway`, same auditable acknowledgment mechanism as the auction opt-in above.
+2. **The CURRENT disclaimer version was acknowledged** — same "stale acknowledgment blocks writes"
+   posture `SepaService.requireSepaUsable` already establishes for SEPA; a newly published
+   disclaimer version blocks writes again until re-acknowledged.
+3. **Deployment secrets present for the CONFIGURED provider** — for `STRIPE`:
+   `LAPIS_STRIPE_SECRET_KEY`/`LAPIS_STRIPE_WEBHOOK_SIGNING_SECRET` both set and well-formed
+   (`PspConfigState.Configured`); for `PAYPAL`: `LAPIS_PAYPAL_CLIENT_ID`/
+   `LAPIS_PAYPAL_CLIENT_SECRET`/`LAPIS_PAYPAL_WEBHOOK_ID` all set and well-formed
+   (`PaypalConfigState.Configured`) — AND `organization_settings.payment_gateway_provider` matches
+   whichever provider is actually configured (`MANUAL` is the only literal `enablePaymentGateway`
+   still rejects).
+
+A **complete ledger-account mapping** (`paymentBankAccountId`/`contributionIncomeAccountId`/
+`donationIncomeAccountId`/`paymentFeeAccountId`, the fee account only mattering once a provider fee
+is ever captured, which this wave does not do) is configured via the ordinary
+`updateOrganizationSettings` RPC, but is **not** one of the three gates above — an incomplete
+mapping instead degrades a webhook-confirmed payment to an `UNPOSTED` row in the treasurer's
+`Zahlungseingänge` reconciliation queue rather than losing it silently, and rather than blocking
+checkout creation up front.
+
+== Environment variables — secrets are ENV-ONLY, never persisted
+
+Same discipline as `LAPIS_SMTP_*` above: `PspConfig.load()`/`PaypalConfig.load()` are the ONLY
+places any of these are read, never persisted to the database, never `SecretBox`-sealed (that
+mechanism is reserved for credentials that live in a database row — a PSP API key is a single
+org-wide deployment credential, not per-row data). All-or-nothing **per provider**: either all of
+`LAPIS_STRIPE_SECRET_KEY`/`LAPIS_STRIPE_WEBHOOK_SIGNING_SECRET` are set, or neither; either all of
+`LAPIS_PAYPAL_CLIENT_ID`/`LAPIS_PAYPAL_CLIENT_SECRET`/`LAPIS_PAYPAL_WEBHOOK_ID` are set, or none —
+a half configuration for either provider fails the server's startup with an explicit
+`IllegalStateException` naming the missing/invalid variable by NAME ONLY, never its value. Three
+numeric knobs (`LAPIS_PSP_WEBHOOK_TOLERANCE_SECONDS`/`LAPIS_PSP_MAX_CHECKOUT_AMOUNT_EUR`/
+`LAPIS_PSP_CHECKOUT_TTL_MINUTES`) are **shared** across both providers — they are Stripe's own
+opt-in signal and deliberately do NOT count as a PayPal opt-in signal, so a Stripe-only deployment
+that sets one of them is never mistaken for an incomplete PayPal configuration (see
+`PaypalConfigState.Incomplete` KDoc). `LAPIS_PAYPAL_API_BASE_URL` is optional (defaults to the live
+PayPal API; set it to PayPal's sandbox base URL for testing). See
+`deploy/example/.env.example` for the full block.
+
+There is **no RPC that writes these secrets** — `getPspConfigStatus()` (ADMIN-only) reports only
+whether each is present as a boolean, never a prefix/suffix/length/value.
+
+== Stripe dashboard webhook configuration
+
+Register this URL in the Stripe dashboard for **both** the `checkout.session.completed` event
+**and** the `checkout.session.expired` event. Neither is optional: `checkout.session.expired`
+is the only hook that ever cleans up an abandoned anonymous-donation checkout (the placeholder
+`external_donor` row and the `payment_checkout_session` row it left behind) — see
+`PspWebhookIngestion.ingestCheckoutExpired`. Skipping it means every abandoned widget checkout
+leaves orphaned rows behind forever:
+
+----
+<LAPIS_PUBLIC_BASE_URL>/api/webhooks/stripe
+----
+
+Copy the signing secret Stripe displays there (`whsec_...`) into `LAPIS_STRIPE_WEBHOOK_SIGNING_SECRET`.
+
+== PayPal dashboard webhook configuration
+
+Register this URL in the PayPal Developer Dashboard (Live or Sandbox app, matching whichever
+`LAPIS_PAYPAL_API_BASE_URL` is configured) for the `CHECKOUT.ORDER.APPROVED`,
+`PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.DENIED`, and `CHECKOUT.ORDER.VOIDED` events. Unlike
+Stripe's self-contained HMAC signature, PayPal signature verification is a live outbound call to
+PayPal's own `POST /v1/notifications/verify-webhook-signature` API — see
+`docs/architecture/psp-paypal.adoc` for why that call, not local certificate-chain validation, was
+chosen, and for the `503`-retry contract when that API itself is unreachable:
+
+----
+<LAPIS_PUBLIC_BASE_URL>/api/webhooks/paypal
+----
+
+Copy the Webhook ID the PayPal Developer Dashboard assigns to this webhook into
+`LAPIS_PAYPAL_WEBHOOK_ID` — every delivery is verified against it via the API call above, so the
+value must match exactly.
+
+== What doesn't work yet (this wave)
+
+Deliberately out of scope, see `CHANGELOG.md` for the full list: refunds/chargebacks, capturing the
+PSP's own transaction fee (the full gross amount posts to the bank/income accounts),
+recurring/subscription billing, currencies other than EUR, and PayPal support for the anonymous
+embed-widget donation path (`/api/embed/v1/donation/checkout` stays Stripe-only — the widget itself
+offers an anonymous donor no provider choice).

@@ -1,0 +1,25 @@
+= Opinion polls (V1.9.30/V1.9.31)
+:toc:
+
+Non-binding opinion polls ("Umfragen", `/polls`): a question, an optional description, 2..10 options and
+an optional deadline. ADMIN/BOARD or a recording seat in an active committee may create one; every ACTIVE
+member may answer once. A poll is never a resolution, is bound to no motion or meeting and moves no
+LTR: the responder's free balance is only read as a weight snapshot. Answers are anonymous by table
+separation (who answered and what was answered share no key, no time is stored). Results appear only
+after the close -- by head count and LTR-weighted side by side, in whole percents. The head count needs
+at least 5 answers; the weighted result additionally needs at least 5 answers with weight above zero
+and at least 3 weighted answers for every option that has any, otherwise it is withheld with a reason.
+Migration `V65` adds the four poll tables and the audit entity type `POLL`; because `V1__baseline.sql`
+was also widened in place, run `flywayRepair` (after a backup, from the v0.27.0 checkout after the code
+sync and before the build/restart) before deploying on an existing instance. See
+`docs/architecture/polls.adoc`.
+
+== What doesn't work yet
+
+The staging test (`docs/architecture/polls-staging-test.adoc`) was not executed. Whoever can read the
+database or its backups sees option and weight per answer and could try to match weights against the
+LTR ledger -- this is a table separation, not cryptography. The concurrency tests run on H2 and, since V1.9.37, on PostgreSQL as well. There
+is no participation rate. Since V1.9.41 a poll can also be a consensus poll (`SK_DECISION` with the passive
+option "Keine Änderung", or `SK_PRIORITY` as a ranking), rated 0..10 per option without any LTR; below
+five answers only the response count is shown. Since V1.9.38 the deadline is a wall-clock in the
+organization's time zone.

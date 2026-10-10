@@ -1,0 +1,44 @@
+= SuperMailer (V1.9.7/V1.9.15)
+:toc:
+
+HTML-authored mailing content and a real asynchronous send path for the newsletter/mailing-list
+feature, plus the data-model foundation for open-/click-tracking (built this wave, not yet
+consumed by any code path). This wave also fixed a pre-existing correctness bug:
+`MailingService.sendMailingMessage` previously never called any real transport at all -- it wrote a
+`SENT` delivery-log row per active subscriber inside the same transaction that flipped a message to
+`SENT`, with no recipient-eligibility filtering. `sendMailingMessage` is now a bounded
+`DRAFT -> QUEUED` transition handed off to a dedicated `MailingDeliveryWorker` (its own bounded
+queue, separate from the transactional-mail dispatcher so a mailing run can never starve
+password-reset/FRIEND-verification mail); `LAPIS_MAILING_DELIVERY` (default `log`) controls whether
+it genuinely calls `MailTransport.send` or runs the full sanitize/render/queue pipeline without the
+transport call, the same honest-non-delivery posture the rest of this codebase's mail paths follow.
+Only active, non-anonymized subscribers get queued at all -- previously every non-unsubscribed
+subscription row was mailed regardless of the member's current status.
+
+The compose screen gained a second, HTML-authoring RPC (`createDraftMessageHtml`) alongside the
+existing plain-text one, backed by an allowlist-based sanitizer (`MailingHtmlSanitizer`, jsoup) and
+a shared render path (`MailingMailRenderer`) that both the async send and the preview RPCs go
+through, so a preview can never drift from what actually gets sent.
+
+V1.9.15 added the parts the original plan left open. The compose screen's textarea became a
+`contenteditable` rich-text editor (no new dependency: paste is plain text only and the server
+sanitizer stays the authority). **Tracking is strictly opt-in**, per member and per list, default
+off, with a consent timestamp and a snapshot taken for every delivery at send time: a click URL
+`/m/c/{token}` answers a 302 to a target that is read only from the database, and an open pixel
+`/m/o/{token}.gif` counts opens; both use HMAC-signed tokens (`LAPIS_MAILING_TRACKING_KEY`, **required**
+when `LAPIS_MAILING_DELIVERY=smtp`), re-check the consent on every hit, never count `HEAD` requests
+(link scanners) and are rate limited. Statistics (`mailingMessageStats`) are aggregates only with a
+minimum cohort of five; raw events are erased after 180 days, and withdrawing consent erases what
+was already collected. See `docs/architecture/mailing-newsletter.adoc`.
+
+**Operator note:** `LAPIS_MAILING_DELIVERY`, `LAPIS_MAILING_SEND_DELAY_MS` and
+`LAPIS_MAILING_TRACKING_KEY` must be forwarded in your compose file (the example now does); until
+then an instance stays in `log` mode and mailings never leave the server. Real sending needs
+`LAPIS_MAILING_DELIVERY=smtp`, `LAPIS_MAILING_TRACKING_KEY` **and** a complete `LAPIS_SMTP_*`
+configuration -- the server refuses to start in `smtp` mode otherwise.
+
+== What doesn't work yet
+
+Click and open counting has not yet been exercised end to end with a real delivered mail. Already saved drafts are not editable (no update RPC). The 200-link limit counts all links, not
+distinct ones. The public 404/429 page of the click route is German only, like every public server
+page. A privacy-statement and footer notice for the counting is left to each organization.

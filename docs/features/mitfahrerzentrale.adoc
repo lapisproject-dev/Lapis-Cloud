@@ -1,0 +1,22 @@
+= Mitfahrerzentrale (V1.9.12)
+:toc:
+
+A carpooling bulletin board for members: any `ACTIVE` member can offer a ride (`OFFER`, 1-8 free
+seats) or ask for one (`REQUEST`) between two free-text places on a given date, up to 180 days
+out, capped at 10 future postings per member. Contacting a posting's author routes through the
+existing direct-message mechanism rather than a bespoke messaging system -- `CarpoolPostingDto`
+deliberately carries no author id the client could address directly; the server alone resolves the
+recipient from the posting. Building this exposed two real gaps in that pre-existing mechanism,
+both closed as part of this wave: direct messages had never had a client UI at all before (the
+"Kommunikation" screen was upgraded from a bare unread-counter to a real message list with an
+inline reply form), and `sendDirectMessage` had never validated for an empty body or a message to
+oneself. A posting drops out of the public feed the day after its departure date but is only hard-
+deleted seven days later (`CarpoolRetentionPoller`), so an author can still see and duplicate a
+just-expired trip of their own. Full design, the RPC surface, and the direct-message-reuse
+decision: `docs/architecture/carpool.adoc`.
+
+== What doesn't work yet (this wave)
+
+No seat reservation/booking/acceptance workflow -- a posting is a bulletin-board entry, not a
+matched ride. No structured place data (no postal code, no map, no distance calculation) and no
+notification when a new posting matching a member's interest appears.
