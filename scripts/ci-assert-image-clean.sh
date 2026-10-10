@@ -37,7 +37,7 @@ done
 # findings. Its exit status is judged on purpose: 0 and 1 are tolerated (errors on single entries), anything above is a
 # real failure of the scan itself. Findings are taken from stdout.
 scan_out="$(find / -xdev \
-  \( -path /proc -o -path /sys -o -path /etc/ssl -o -path /usr/share/ca-certificates -o -path /opt/java \) -prune -o \
+  \( -path /proc -o -path /sys -o -path /etc/ssl -o -path /usr/lib/ssl -o -path /usr/share/ca-certificates -o -path /opt/java \) -prune -o \
   \( -name ".env" -o -name ".env.*" -o -name "*.env" -o -name "*.pem" -o -name "*.key" -o -name "*.p12" \
      -o -name "*.pfx" -o -name "*.jks" -o -name "*.keystore" -o -name "*.pmtiles" -o -name "*.dump" \
      -o -name "*.dump.gz" -o -name "*.sql.gz" -o -name "*.hprof" -o -name ".git" -o -name "deploy" \) \
