@@ -49,7 +49,11 @@ RUN ./gradlew --no-daemon :lapis-server:installDist
 # Raised from 3 GB (2026-09-29): the bundle outgrew the old cap after a heavy day of client-side
 # waves (Gliederungsverwaltung, Mitfahrerzentrale, an untrusted-text sanitization pass across 16
 # files) -- observed ERR_WORKER_OUT_OF_MEMORY on pdv2 (31 GB host, plenty of headroom) at 3072 MB.
-RUN NODE_OPTIONS=--max-old-space-size=4096 ./gradlew --no-daemon :lapis-client:jsBrowserProductionWebpack
+# Raised again for V1.9.97 (2026-10-10): the first CI image build of the tag v0.31.0 failed with ERR_WORKER_OUT_OF_MEMORY at 4096 MB
+# (the bundle grew with the encounter-room waves V1.9.90 -- V1.9.97). The cap is a build argument now: 6144 MB is the default, the
+# release workflow passes 8192 MB (a GitHub-hosted runner has 16 GB). Only a heap ceiling, not a reservation.
+ARG NODE_MAX_OLD_SPACE_MB=6144
+RUN NODE_OPTIONS=--max-old-space-size=${NODE_MAX_OLD_SPACE_MB} ./gradlew --no-daemon :lapis-client:jsBrowserProductionWebpack
 
 FROM public.ecr.aws/docker/library/eclipse-temurin:25-jre@sha256:fcd7fd7b387f94bb2ac461478a7436ad8e349924c374ea8313919624dceae636 AS runtime
 

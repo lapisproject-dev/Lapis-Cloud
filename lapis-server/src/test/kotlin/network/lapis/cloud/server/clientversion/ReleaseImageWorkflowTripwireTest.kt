@@ -298,6 +298,14 @@ class ReleaseImageWorkflowTripwireTest :
             lines.filter { it.startsWith("ARG ") || it.startsWith("ENV ") }.forEach { secretLike.containsMatchIn(it) shouldBe false }
         }
 
+        test("both image builds pass the same Node heap build argument, so the push build reuses every cached layer") {
+            val workflow = readCode(".github/workflows/release-image.yml")
+            Regex("NODE_MAX_OLD_SPACE_MB=8192").findAll(workflow).count() shouldBe 2
+            val dockerfile = readCode("Dockerfile")
+            dockerfile shouldContain "ARG NODE_MAX_OLD_SPACE_MB="
+            dockerfile shouldContain "--max-old-space-size=\${NODE_MAX_OLD_SPACE_MB}"
+        }
+
         test("example compose pulls the published image; the build override has its own local image name") {
             val compose = readCode("deploy/example/docker-compose.yml")
             val server = serviceBlock(compose = compose, service = "lapis-server")

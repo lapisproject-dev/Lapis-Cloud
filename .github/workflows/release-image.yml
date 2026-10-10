@@ -87,6 +87,8 @@ jobs:
           load: true
           push: false
           platforms: linux/amd64
+          build-args: |
+            NODE_MAX_OLD_SPACE_MB=8192
           tags: lapis-cloud-candidate:${{ steps.meta.outputs.version }}
           cache-from: type=gha,scope=lapis-image
           # Written here so the push build below reuses every layer instead of compiling a second time.
@@ -104,6 +106,8 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64
+          build-args: |
+            NODE_MAX_OLD_SPACE_MB=8192
           provenance: mode=max
           sbom: true
           tags: |
