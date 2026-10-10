@@ -6,6 +6,8 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+- **V1.9.98 -- the blessing sign shows "Ton aus" too.** In a room with a bell, the blessing sign now shows the same second line "Ton aus" as the bell sign while this browser's sound is off. Purely visual: `aria-hidden`, no additional announcement, read once when the sign opens (not on an extension), no line in a room without a bell. Client only: no migration, no new catalog text (the text already exists), no new storage key. The website help page `gathering-room` may still say that nothing is shown for the blessing; check at rollout.
+
 ## [0.31.1] — 2026-10-10
 
 Release fix for the image pipeline; **contains everything of `[0.31.0]` below** (the same waves V1.9.69 -- V1.9.97).

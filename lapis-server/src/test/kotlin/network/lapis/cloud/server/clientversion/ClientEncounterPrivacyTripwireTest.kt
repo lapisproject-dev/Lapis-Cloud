@@ -539,6 +539,17 @@ class ClientEncounterPrivacyTripwireTest :
             codeLines(room).any { it.contains("onBlessing = { blessingDisplay.onBlessing() }") } shouldBe true
         }
 
+        test("V1.9.98: the sound-off line is one text literal, a span with a text node, and the blessing adds no storage key") {
+            val vocabulary = encounterFiles().first { it.name == "EncounterVocabulary.kt" }
+            codeLines(vocabulary).count { it.contains("tr(\"Ton aus\")") } shouldBe 1
+            val code =
+                codeLines(encounterFiles().first { it.name == "EncounterBlessing.kt" })
+                    .filterNot { it.trimStart().startsWith("import ") }
+            code.filter { STORAGE.containsMatchIn(it) || INNER_HTML.containsMatchIn(it) }.shouldBeEmpty()
+            code.count { it.contains("lapis-encounter-blessing-mute") } shouldBe 1
+            code.any { it.contains("terms.soundOffNote()") } shouldBe true
+        }
+
         // ── Welle V1.9.96: the bell ──────────────────────────────────────────────
 
         test("V1.9.96: the bell packet is accepted before the participant check and is never decoded") {

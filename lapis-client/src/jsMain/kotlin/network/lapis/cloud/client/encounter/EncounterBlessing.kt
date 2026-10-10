@@ -2,6 +2,7 @@ package network.lapis.cloud.client.encounter
 
 import io.kvision.core.Container
 import io.kvision.html.Div
+import io.kvision.html.Span
 import io.kvision.html.span
 import kotlinx.browser.document
 import kotlinx.browser.window
@@ -71,7 +72,11 @@ private const val SVG_NS = "http://www.w3.org/2000/svg"
  *
  * V1.9.97: in a room with a bell (the church profile), the first packet of a window also sounds the recorded blessing -- only when this
  * browser's bell sound is on and the page is visible (the same rule as the bell, [encounterBellShouldSound]); an extension of the window
- * never sounds. There is no visual change and no "sound off" line for the blessing.
+ * never sounds.
+ *
+ * V1.9.98: in a room with a bell, a second line "Ton aus" (the same text as the bell's) appears while this browser's sound is off, read
+ * when the sign opens; it is aria-hidden, adds no announcement and is not rebuilt on an extension. A room without a bell shows no such
+ * line.
  *
  * Holds no name, no time of day and no counter; the only state is "is the display on" and the two timers, which [dispose] cancels.
  */
@@ -94,6 +99,7 @@ internal class EncounterBlessingDisplay(
             Div(className = "lapis-encounter-blessing"),
             onInsert = { vnode -> (vnode.elm as? Element)?.let { ensureCross(it) } },
         )
+    private var muteLine: Span? = null
     private var cancelHide: (() -> Unit)? = null
     private var cancelFade: (() -> Unit)? = null
     private var cancelClear: (() -> Unit)? = null
@@ -104,10 +110,16 @@ internal class EncounterBlessingDisplay(
         root.setAttribute("hidden", "")
         // the word under the cross is a text node of its own (never markup)
         root.span(terms.blessingWord(), className = "lapis-encounter-blessing-word")
+        if (sound != null) {
+            muteLine = root.span(terms.soundOffNote(), className = "lapis-encounter-blessing-mute").also { it.setAttribute("hidden", "") }
+        }
     }
 
     /** `true` while the display is in the picture (test aid). */
     val visible: Boolean get() = root.getAttribute("hidden") == null
+
+    /** `true` while the "Ton aus" line is in the picture (test aid; `false` in a room without a bell). */
+    val soundOffNoteVisible: Boolean get() = muteLine?.let { it.getAttribute("hidden") == null } ?: false
 
     /** A blessing packet arrived (accepted by the session): show, or extend the window. */
     fun onBlessing() {
@@ -117,12 +129,15 @@ internal class EncounterBlessingDisplay(
         cancelFade?.invoke()
         cancelFade = null
         if (outcome == EncounterBlessingOutcome.SHOW) {
+            // the switch is read once per window, before the sign opens; the same value decides the line and the sound
+            val on = readSoundOn()
+            muteLine?.let { if (on) it.setAttribute("hidden", "") else it.removeAttribute("hidden") }
             root.removeAttribute("hidden")
             root.addCssClass(CLASS_ON)
             announce()
             // the sign and the announcement come first; a sound that fails can never keep them away
             val bell = sound
-            if (bell != null && encounterBellShouldSound(soundOn = readSoundOn(), pageVisible = readVisible())) {
+            if (bell != null && encounterBellShouldSound(soundOn = on, pageVisible = readVisible())) {
                 runCatching { bell.ringBlessing() }
             }
         }

@@ -85,8 +85,11 @@ internal class EncounterTerms(
     /** V1.9.96 -- the one fixed sentence a screen reader hears when the bell rings. */
     fun bellAnnouncement(): String = tr("Die Glocke läutet")
 
-    /** V1.9.96 -- the second line of the sign while this browser's bell sound is off. */
-    fun bellSoundOffNote(): String = tr("Ton aus")
+    /** V1.9.98 -- neutral: the second line of the bell sign and of the blessing sign while this browser's sound is off. */
+    fun soundOffNote(): String = tr("Ton aus")
+
+    /** V1.9.96 -- the second line of the bell sign while this browser's bell sound is off (V1.9.98: delegates to [soundOffNote]). */
+    fun bellSoundOffNote(): String = soundOffNote()
 
     /** V1.9.96 -- the label of the bell sound switch in the device panel. */
     fun bellSoundSwitchLabel(): String = tr("Glockenton")

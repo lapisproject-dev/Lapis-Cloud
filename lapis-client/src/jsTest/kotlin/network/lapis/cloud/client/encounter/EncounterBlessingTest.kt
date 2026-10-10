@@ -45,4 +45,12 @@ class EncounterBlessingTest {
         assertEquals(7_000, ENCOUNTER_BLESSING_DISPLAY_MS)
         assertTrue(ENCOUNTER_BLESSING_DISPLAY_MS in 6_000..8_000)
     }
+
+    @Test
+    fun theSoundOffNote_isOneTextForTheBellAndTheBlessing() {
+        val terms = EncounterTerms(network.lapis.cloud.shared.domain.EncounterProfile.CHURCH_SERVICE)
+        // a unit test has no catalog: the i18n marker may precede the text
+        assertTrue(terms.soundOffNote().endsWith("Ton aus"))
+        assertEquals(terms.soundOffNote(), terms.bellSoundOffNote())
+    }
 }

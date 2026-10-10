@@ -3183,7 +3183,8 @@ html .form-select.is-invalid:focus {
    (pointer-events: none). The panel is the encounter surface at 80 % over the picture, so the text keeps its contrast whatever the video
    shows. Worst case, text on the panel over pure black (light theme) or pure white (dark theme), WCAG 1.4.3 calculated:
      light: --lapis-text #14181E on 80 % of #F4EFE6 = about #C3BFB8   -> 9,7:1
-     dark:  --lapis-text #E8E6E0 on 80 % of #232933 over white = about #4F545C -> 6,1:1 */
+     dark:  --lapis-text #E8E6E0 on 80 % of #232933 over white = about #4F545C -> 6,1:1
+   V1.9.98: in a room with a bell a second line "Ton aus" appears while this browser's sound is off (rules next to the bell's, below). */
 .lapis-encounter-blessing {
   display: flex;
   flex-direction: column;
@@ -3251,12 +3252,14 @@ html .form-select.is-invalid:focus {
   line-height: 1.25;
 }
 
-.lapis-encounter-bell-mute {
+.lapis-encounter-bell-mute,
+.lapis-encounter-blessing-mute {
   font-size: 0.875rem;
   line-height: 1.25;
 }
 
-.lapis-encounter-bell-mute[hidden] {
+.lapis-encounter-bell-mute[hidden],
+.lapis-encounter-blessing-mute[hidden] {
   display: none;
 }
 

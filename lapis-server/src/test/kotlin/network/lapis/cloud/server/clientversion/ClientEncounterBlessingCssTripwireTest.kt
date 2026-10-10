@@ -76,4 +76,28 @@ class ClientEncounterBlessingCssTripwireTest :
             base.contains("position:") shouldBe false
             base.contains("transform:") shouldBe false
         }
+
+        test(
+            "V1.9.98: the second line shares the bell line's rules, is hidden by [hidden], and has no opacity, animation or colour of its own",
+        ) {
+            val rules = blessingRules(css).filter { it.contains(".lapis-encounter-blessing-mute") }
+            withClue(rules.joinToString("\n")) { rules.size shouldBe 2 }
+            val plain = rules.first { !it.contains("[hidden]") }
+            val hidden = rules.first { it.contains("[hidden]") }
+            listOf(plain, hidden).forEach { rule ->
+                val selectors = rule.substringBefore("{")
+                withClue(rule) {
+                    selectors.contains(".lapis-encounter-bell-mute") shouldBe true
+                    selectors.contains(".lapis-encounter-blessing-mute") shouldBe true
+                }
+            }
+            plain.contains("font-size: 0.875rem") shouldBe true
+            plain.contains("line-height: 1.25") shouldBe true
+            hidden.contains("display: none") shouldBe true
+            rules.joinToString("\n").let { all ->
+                listOf("opacity", "animation", "transition", "color", "#").forEach { forbidden ->
+                    withClue("the mute rules must not contain '$forbidden'") { all.contains(forbidden) shouldBe false }
+                }
+            }
+        }
     })

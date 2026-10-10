@@ -1,5 +1,6 @@
 package network.lapis.cloud.client.encounter
 
+import io.kvision.html.Div
 import kotlinx.browser.document
 import kotlinx.browser.localStorage
 import kotlinx.coroutines.delay
@@ -220,7 +221,17 @@ class EncounterBlessingDomTest {
                     val display = assertNotNull(element.display())
                     assertEquals("true", display.getAttribute("aria-hidden"), "the picture is decoration, the live region speaks")
                     assertNotNull(display.querySelector("svg"), "the cross")
-                    assertEquals("Segen", display.textContent.orEmpty().trim(), "the word under the cross, nothing else")
+                    assertEquals(
+                        "Segen",
+                        (display.querySelector(".lapis-encounter-blessing-word") as HTMLElement).textContent.orEmpty().trim(),
+                        "the word under the cross",
+                    )
+                    // V1.9.98: with the (default) switch off, the only other text is the second line "Ton aus"
+                    assertEquals(
+                        "SegenTonaus",
+                        display.textContent.orEmpty().replace(Regex("\\s+"), ""),
+                        "the word, then the second line, nothing else",
+                    )
                     assertNotNull(display.closest(".lapis-encounter-pulpit"), "inside the pulpit area")
                     assertEquals("none", window_pointerEvents(display), "never takes a click")
                     assertEquals(1, element.allOf(".lapis-encounter-blessing").size)
@@ -387,6 +398,164 @@ class EncounterBlessingDomTest {
                 }
             } finally {
                 soundStored(false)
+            }
+        }
+
+    private fun HTMLElement.muteLine(): HTMLElement? = querySelector(".lapis-encounter-blessing-mute") as? HTMLElement
+
+    @Test
+    fun withTheSwitchOff_inARoomWithABell_theBlessingShowsTonAus_asADecorativeSecondLine(): Promise<Unit> =
+        formTest {
+            assertTrue(stylesLoaded)
+            soundStored(false)
+            withRoom(EncounterPresenceRole.CONGREGATION, blessingScheduler = ManualBlessingScheduler()) { rig, element ->
+                assertTrue(element.muteLine()?.hasAttribute("hidden") == true, "hidden until a blessing arrives")
+                rig.room.callbacks.onBlessing()
+                awaitUntil("shown") { element.display()?.hasAttribute("hidden") == false }
+                val line = assertNotNull(element.muteLine())
+                assertFalse(line.hasAttribute("hidden"), "the line is in the picture")
+                assertEquals("Ton aus", line.textContent.orEmpty().trim())
+                assertEquals("true", assertNotNull(line.closest(".lapis-encounter-blessing") as? HTMLElement).getAttribute("aria-hidden"))
+                assertEquals("none", window_pointerEvents(assertNotNull(element.display())), "never takes a click")
+                assertEquals(1, element.allOf(".lapis-encounter-blessing-mute").size)
+            }
+        }
+
+    @Test
+    fun withTheSwitchOn_theLineStaysHidden_andTheBlessingStillSoundsOnce(): Promise<Unit> =
+        formTest {
+            assertTrue(stylesLoaded)
+            soundStored(true)
+            try {
+                val sound = FakeBellSound()
+                withRoom(EncounterPresenceRole.CONGREGATION, blessingScheduler = ManualBlessingScheduler(), sound = sound) { rig, element ->
+                    rig.room.callbacks.onBlessing()
+                    awaitUntil("shown") { element.display()?.hasAttribute("hidden") == false }
+                    assertTrue(assertNotNull(element.muteLine()).hasAttribute("hidden"), "sound is on: no line")
+                    assertEquals(1, sound.blessings)
+                }
+            } finally {
+                soundStored(false)
+            }
+        }
+
+    @Test
+    fun aRoomWithoutABell_hasNoSoundOffLine(): Promise<Unit> =
+        formTest {
+            assertTrue(stylesLoaded)
+            soundStored(false)
+            withRoom(
+                EncounterPresenceRole.CONGREGATION,
+                profile = EncounterProfile.ASSEMBLY,
+                blessingScheduler = ManualBlessingScheduler(),
+            ) { rig, element ->
+                rig.room.callbacks.onBlessing()
+                delay(50)
+                assertNull(element.muteLine(), "no line in a room without a bell")
+            }
+        }
+
+    @Test
+    fun aSwitchThatCannotBeRead_showsTheLine_andNeverSounds(): Promise<Unit> =
+        formTest {
+            val sound = FakeBellSound()
+            val display =
+                EncounterBlessingDisplay(
+                    host = Div(),
+                    terms = EncounterTerms(EncounterProfile.CHURCH_SERVICE),
+                    live = Div(),
+                    timer = EncounterBlessingTimer(now = { clock }),
+                    scheduler = ManualBlessingScheduler(),
+                    soundOn = { throw IllegalStateException("storage blocked") },
+                    sound = sound,
+                    pageVisible = { true },
+                )
+            display.onBlessing()
+            assertTrue(display.visible)
+            assertTrue(display.soundOffNoteVisible, "the line shows when the switch cannot be read")
+            assertEquals(0, sound.blessings)
+        }
+
+    @Test
+    fun theSwitchIsReadOncePerWindow_anExtensionNeitherReadsItNorChangesTheLine(): Promise<Unit> =
+        formTest {
+            var reads = 0
+            var on = false
+            val display =
+                EncounterBlessingDisplay(
+                    host = Div(),
+                    terms = EncounterTerms(EncounterProfile.CHURCH_SERVICE),
+                    live = Div(),
+                    timer = EncounterBlessingTimer(now = { clock }),
+                    scheduler = ManualBlessingScheduler(),
+                    soundOn = {
+                        reads++
+                        on
+                    },
+                    sound = FakeBellSound(),
+                    pageVisible = { true },
+                )
+            display.onBlessing()
+            assertEquals(1, reads)
+            assertTrue(display.soundOffNoteVisible)
+            on = true
+            clock += 1_000.0
+            display.onBlessing()
+            assertEquals(1, reads, "an extension does not read the switch again")
+            assertTrue(display.soundOffNoteVisible, "and the line does not flicker")
+        }
+
+    @Test
+    fun aNewWindowAfterTheHide_readsTheSwitchAgain(): Promise<Unit> =
+        formTest {
+            assertTrue(stylesLoaded)
+            soundStored(false)
+            try {
+                val scheduler = ManualBlessingScheduler()
+                withRoom(EncounterPresenceRole.CONGREGATION, blessingScheduler = scheduler) { rig, element ->
+                    rig.room.callbacks.onBlessing()
+                    awaitUntil("line shown") { element.muteLine()?.hasAttribute("hidden") == false }
+                    scheduler.fire(ENCOUNTER_BLESSING_DISPLAY_MS)
+                    scheduler.fire(ENCOUNTER_BLESSING_FADE_MS)
+                    awaitUntil("hidden again") { element.display()?.hasAttribute("hidden") == true }
+                    assertNotNull(element.muteLine(), "the node stays inside the hidden sign")
+                    soundStored(true)
+                    clock += 20_000.0
+                    rig.room.callbacks.onBlessing()
+                    awaitUntil("shown again") { element.display()?.hasAttribute("hidden") == false }
+                    assertTrue(assertNotNull(element.muteLine()).hasAttribute("hidden"), "sound is on now: the line is gone")
+                }
+            } finally {
+                soundStored(false)
+            }
+        }
+
+    @Test
+    fun theSoundOffLine_addsNoAnnouncement(): Promise<Unit> =
+        formTest {
+            assertTrue(stylesLoaded)
+            soundStored(false)
+            withRoom(EncounterPresenceRole.CONGREGATION, blessingScheduler = ManualBlessingScheduler()) { rig, element ->
+                rig.room.callbacks.onBlessing()
+                awaitUntil("announced") { element.allOf("[role=status]").any { it.textContent.orEmpty().contains("Segen") } }
+                val spoken = element.allOf("[role=status]").filter { it.textContent.orEmpty().isNotBlank() }
+                assertEquals(1, spoken.size, "one announcement per window")
+                assertFalse(
+                    spoken
+                        .single()
+                        .textContent
+                        .orEmpty()
+                        .contains("Ton aus"),
+                )
+                assertEquals(
+                    "Der Segen wird gesprochen",
+                    spoken
+                        .single()
+                        .textContent
+                        .orEmpty()
+                        .trim(),
+                )
+                assertNull(spoken.single().closest(".lapis-encounter-blessing"), "the live region is not the sign")
             }
         }
 }
