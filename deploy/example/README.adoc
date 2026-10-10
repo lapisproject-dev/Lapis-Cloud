@@ -100,6 +100,9 @@ user before opening that file for real. Fix: `rm` the stale root-owned log file 
 == Prerequisites
 
 * Docker Engine + `docker compose` v2 on the host.
+* **No registry login.** Since V1.9.93 the server image is published by CI to `ghcr.io/lapisproject-dev/lapis-cloud` (public package,
+  see `docs/architecture/ci-pipeline.adoc`); the host pulls it and does not build. Set `LAPIS_IMAGE_TAG` in `.env` (an exact version
+  without the `v`). Building from source instead needs at least 8 GB of RAM with no other heavy load, see "Quick start".
 * A `.env` file in this directory (copy `.env.example`, fill in real secrets -- see that file's own
   comments). Never committed; the repo's `.gitignore` already excludes `.env*`.
 * **If the host has a hand-written nftables ruleset with a restrictive `forward` chain policy**
@@ -144,9 +147,19 @@ still wrong.
 [source,bash]
 ----
 cd deploy/example
-cp .env.example .env   # fill in LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
-docker compose up -d --build
+cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.31.0) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
+docker compose pull
+docker compose up -d
 docker compose logs -f lapis-server
+----
+
+Alternative, build the image from this checkout instead of pulling it (needs at least 8 GB of RAM; the local image is named
+`lapis-cloud-local:<tag>` so it cannot be mistaken for the published one). `LAPIS_IMAGE_TAG` must be set in `.env` for this too
+(it only names the local image; `LAPIS_IMAGE_TAG=dev` is fine):
+
+[source,bash]
+----
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build lapis-server
 ----
 
 == Migrating from a prior bare-JVM + native-PostgreSQL deployment
@@ -236,7 +249,7 @@ docker run --rm -v lapis-cloud_lapis-document-storage:/target -v /tmp:/backup \
 +
 [source,bash]
 ----
-docker compose up -d --build lapis-server
+docker compose up -d lapis-server     # the image comes from `docker compose pull`; add the build override (see "Quick start") to build locally
 docker compose logs -f lapis-server   # Flyway should report "Successfully validated N migrations"
                                        # against the RESTORED schema, not a fresh baseline
 ----
@@ -315,13 +328,17 @@ volume to your backup.
 
 == Updating an existing deployment
 
-This is the routine used to deploy a new `master` commit to an already-running instance -- unlike
+This is the routine used to deploy a new release to an already-running instance -- unlike
 "Migrating from a prior bare-JVM + native-PostgreSQL deployment" above (a one-time cutover), this
 runs on **every release**. It applies unchanged to any additional co-located instance (see "Running
 more than one instance on the same host" below): substitute that instance's own directory and
 Postgres database name in the commands below.
 
-**Order matters: back up before syncing, sync before rebuilding.** A backup taken after the new
+Since V1.9.93 the server is **not built on the host any more**: CI builds the image once per release tag and publishes it, the host sets
+`LAPIS_IMAGE_TAG` and pulls. Wherever the steps below say "rebuild", read "pull the published image" (the build override in "Quick start"
+remains available for a source build).
+
+**Order matters: back up before syncing, sync before switching the image.** A backup taken after the new
 code is already live would capture the schema the new code expects, not the one that was actually
 running when something went wrong -- it defends against nothing. The order below keeps a restorable
 snapshot of the pre-deploy state at every step until the new version is verified working.
@@ -351,6 +368,25 @@ LAPIS_DB_USER='<db-user>' \
 LAPIS_DB_PASSWORD='<db-password>' \
 ./gradlew :lapis-server:flywayRepair
 ----
+
+Without Gradle on the host, run the same tool from the published image (the database settings come from the compose `environment:`
+of the service; `--no-deps` keeps the other services untouched):
+
+[source,bash]
+----
+docker compose run --rm --no-deps --entrypoint java lapis-server \
+  -cp '/app/server/lib/*' network.lapis.cloud.server.bootstrap.FlywayRepairKt
+----
+
+The first admin of a fresh instance is created the same way (`LAPIS_BOOTSTRAP_ADMIN_EMAIL` and `LAPIS_BOOTSTRAP_ADMIN_PASSWORD`, plus
+`LAPIS_BOOTSTRAP_ADMIN_DISPLAY_NAME` on a genuinely fresh deployment, passed with `-e`):
+
+[source,bash]
+----
+docker compose run --rm --no-deps --entrypoint java \
+  -e LAPIS_BOOTSTRAP_ADMIN_EMAIL -e LAPIS_BOOTSTRAP_ADMIN_PASSWORD \
+  lapis-server -cp '/app/server/lib/*' network.lapis.cloud.server.bootstrap.AdminBootstrapKt
+----
 ====
 
 . **Back up** with `./backup.sh` (see "Backup and restore" above): it covers the database AND the uploaded files, which a plain
@@ -365,7 +401,7 @@ docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB
 gzip -t ~/backups/lapiscloud-pre-deploy-*.dump.gz   # verify the archive isn't truncated
 ----
 
-. **Sync the new code**, from a local clone with the target commit checked out, using an explicit
+. **Sync the new code**, from a local clone with the target tag checked out (with the published image only `deploy/example/`, its scripts and templates, is needed on the host; the full sync below still works and is harmless), using an explicit
   file list rather than a blanket directory copy. `git ls-files` only lists files this repo
   actually tracks, so this is inherently safe against touching a real instance's own
   `deploy/production*/` directory (real `.env`, rendered configs, certs) -- those live in a
@@ -404,14 +440,15 @@ ownership quirk of that directory (root-owned certs) and not a sign the sync fai
 md5sum "$REMOTE_ROOT/deploy/example/.env"   # compare against the value from before the sync
 ----
 
-. **Rebuild and restart only `lapis-server`**, from inside this directory on the host -- `postgres`
+. **Switch to the new image and restart only `lapis-server`**, from inside this directory on the host -- `postgres`
   and the other long-running services (LiveKit, coturn, redis, egress) are untouched by a routine
-  app release:
+  app release. Set `LAPIS_IMAGE_TAG` in `.env` to the new exact version (no `v`, never `latest`) first:
 +
 [source,bash]
 ----
 cd "$REMOTE_ROOT/deploy/example"
-docker compose up -d --build lapis-server
+docker compose pull lapis-server
+docker compose up -d lapis-server
 ----
 
 . **Verify.** Flyway must report the same migration count as before (a routine release rarely adds
@@ -423,6 +460,16 @@ docker compose up -d --build lapis-server
 docker compose logs --tail 300 lapis-server | grep -Ei 'error|exception|responding|validated'
 curl -s -o /dev/null -w '%{http_code}\n' https://<the instance's public URL>/
 ----
++
+Also confirm the container really runs the intended image (a green start does not prove the container was recreated):
++
+[source,bash]
+----
+docker compose images lapis-server
+docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' lapis-cloud-server
+----
++
+The tag shown must be `LAPIS_IMAGE_TAG` and the revision label must be the commit of that release tag (`git rev-parse v<version>^{commit}`).
 +
 `Successfully validated N migrations` and `Responding at http://0.0.0.0:8080` in the log, plus a
 `200` (or `401` on an instance behind HTTP basic auth, e.g. staging) from `curl`, confirm the new
@@ -437,10 +484,15 @@ Since V1.9.55 the server also refuses to start on an invalid `LAPIS_DB_LOCK_TIME
 10000 / 60000 / 120000; an unset variable also means the default, but an EMPTY one (e.g. `${VAR:-}` without a default) stops the start. See
 `docs/architecture/database-timeouts-and-retries.adoc`.
 
+. **Rollback.** Set the previous version in `LAPIS_IMAGE_TAG`, then `docker compose pull lapis-server` and `docker compose up -d lapis-server`.
+  **This only works while the new release applied no migration.** Flyway has no down migrations: a rollback across a migration needs the
+  restore from the pre-deploy backup (`./restore.sh`, or the dump route below) together with the old image. Check the CHANGELOG of the
+  release for migrations before relying on a plain tag switch.
+
 . **If something goes wrong after this point**, the pre-deploy dump from step 1 is the way back:
 stop `lapis-server`, restore the dump into `postgres` (see "Migrating from a prior bare-JVM +
 native-PostgreSQL deployment" above for the `pg_restore --single-transaction` invocation and its
-row-count spot-check), `git checkout` the prior commit locally and re-sync, then bring
+row-count spot-check), set the prior `LAPIS_IMAGE_TAG`, then bring
 `lapis-server` back up. This has not been needed in practice as of this writing -- every release so
 far has verified clean at step 5 -- but the dump exists precisely so this path is available without
 improvising it under pressure.
@@ -523,8 +575,8 @@ the main app's vhost.
 `ffmpeg` (needed to compose Wave 2's raw per-track recordings into one gallery video) is baked into
 the `lapis-server` image itself (see repo-root `Dockerfile`) -- nothing extra to install on the
 host. A startup WARN from `ConferenceRecordingConfig` ("ffmpeg probe failed") after a rebuild means
-the image wasn't actually rebuilt (stale container still running the pre-Wave-2 image) -- re-run
-`docker compose up -d --build lapis-server`.
+the image wasn't actually rebuilt (stale container still running the pre-Wave-2 image) -- pull a current image and recreate
+the container (`docker compose pull lapis-server`, `docker compose up -d lapis-server`).
 
 **Shared `lapis-egress-output` volume needs a self-healing ACL fix, not just a default ACL.**
 `egress` (raw-track writer, uid 1001, primary gid 0/root) and `lapis-server` (`ffmpeg` composer,
@@ -1524,7 +1576,8 @@ LAPIS_DB_PASSWORD='<db-password>' \
 ./gradlew :lapis-server:flywayRepair
 
 cd "$REMOTE_ROOT/deploy/example"
-docker compose up -d --build lapis-server
+docker compose pull lapis-server
+docker compose up -d lapis-server
 ----
 +
 Verify as in "Updating an existing deployment", step 5 (migration count, `Responding at ...`, HTTP
@@ -1641,13 +1694,45 @@ independent safeguards before a real letter can ever be issued (poller flag, DB 
 acknowledgment, an active level, and -- for postal dispatch -- the third flag above). See
 `network.lapis.cloud.server.payment.dunning.DunningConfig`/`DunningPoller` KDoc.
 
+== Image provenance (V1.9.93)
+
+Every release tag `vX.Y.Z` is built exactly once by `.github/workflows/release-image.yml` (after the full CI pipeline) and published as
+`ghcr.io/lapisproject-dev/lapis-cloud:X.Y.Z` and `...:X.Y.Z-<short-sha>`. There is deliberately no `latest` tag. Check what you pull:
+
+[source,bash]
+----
+docker buildx imagetools inspect ghcr.io/lapisproject-dev/lapis-cloud:<version> --format '{{json .Provenance}}'
+docker buildx imagetools inspect ghcr.io/lapisproject-dev/lapis-cloud:<version> --format '{{json .SBOM}}'
+docker buildx imagetools inspect ghcr.io/lapisproject-dev/lapis-cloud:<version>   # top-level Digest
+----
+
+Compare the digest with the "Summary" of the release workflow run. To pin an instance to the exact bytes, use
+`image: ghcr.io/lapisproject-dev/lapis-cloud@sha256:<digest>` instead of the tag. The image carries no cryptographic signature or
+GitHub attestation (see `docs/architecture/ci-pipeline.adoc`, known limitations).
+
+== Switching a real instance from server-side builds to the published image
+
+Runbook only: it changes nothing by itself. Do it per instance, in this order: staging first, then the production instances, a separate
+test instance such as Apolda last. Prerequisite: the package is public (one-time step by the project owner, see
+`docs/architecture/ci-pipeline.adoc`), otherwise `docker compose pull` fails without a token.
+
+. In the private operations repository, in the instance's compose file, replace the `build:` block of `lapis-server` by
+  `image: ghcr.io/lapisproject-dev/lapis-cloud:${LAPIS_IMAGE_TAG:?LAPIS_IMAGE_TAG must be set in .env}` (compare `docker-compose.yml` here).
+. Set `LAPIS_IMAGE_TAG` in the instance's `.env` to the released version (no `v`).
+. Back up (`./backup.sh`).
+. `docker compose pull lapis-server`
+. `docker compose up -d lapis-server`
+. Verify: `docker compose images lapis-server`, the `org.opencontainers.image.revision` label, the Flyway line `Successfully validated N migrations`
+  (same N as before unless the release adds migrations), `Responding at ...`, and an HTTP check of the public URL.
+. Only after that remove the old locally built image (`docker image ls`, then `docker image rm <old image>`), and the now unneeded source checkout if you like.
+
 == Running more than one instance on the same host
 
 You can co-locate several fully independent instances (their own Postgres, their own
 `lapis-server`/LiveKit/coturn/redis/egress containers, their own named volumes) on one physical
 host -- for example a production instance plus a staging/test instance, or separate instances for
 separate organizations. Copy this whole directory, set it up exactly like this one (`cp
-.env.example .env`, fill in real values, `./render-secrets.sh`, `docker compose up -d --build`),
+.env.example .env`, fill in real values, `./render-secrets.sh`, `docker compose pull`, `docker compose up -d`),
 then add its own Caddy vhost blocks (see "Reverse proxy" above) for its own subdomain(s).
 
 **Every host-visible port has to move** to avoid colliding with the first instance's own -- copy

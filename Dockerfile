@@ -1,4 +1,5 @@
-# Lapis Cloud -- production image for lapis-server, with the lapis-client production bundle baked
+# Lapis Cloud -- production image for lapis-server (V1.9.93: built once per release tag by CI --
+# .github/workflows/release-image.yml -- and published to ghcr.io; the servers pull it and no longer build), with the lapis-client production bundle baked
 # in (served by the server itself via LAPIS_CLIENT_DIST_ROOT, same convention the pre-Docker
 # systemd deployment already used -- see deploy/production/README.adoc).
 #
@@ -9,8 +10,13 @@
 # BeitragsrechnungPdfGenerator), which needs AWT font/rendering support that is unreliable on
 # musl-based images without extra fontconfig plumbing -- not worth the risk for a document-
 # generation feature this app actually depends on in production.
+#
+# Base images come from AWS's public ECR mirror of Docker's official images (Docker Hub's anonymous pull rate
+# limit already broke the Postgres CI lane once, 2026-10-09) and are pinned by digest of the multi-arch index.
+# To update: `docker buildx imagetools inspect public.ecr.aws/docker/library/eclipse-temurin:25-jdk` (and `25-jre`),
+# copy the top-level Digest into the two FROM lines below, rebuild. There is no automatic update.
 
-FROM eclipse-temurin:25-jdk AS build
+FROM public.ecr.aws/docker/library/eclipse-temurin:25-jdk@sha256:8c0a84ea11c8f6ed52600fc19f1040121f2a162998e9f50a5faebbbad9172dcc AS build
 WORKDIR /workspace
 
 # Copy build configuration first (Gradle wrapper, settings, version catalog, per-module
@@ -45,7 +51,7 @@ RUN ./gradlew --no-daemon :lapis-server:installDist
 # files) -- observed ERR_WORKER_OUT_OF_MEMORY on pdv2 (31 GB host, plenty of headroom) at 3072 MB.
 RUN NODE_OPTIONS=--max-old-space-size=4096 ./gradlew --no-daemon :lapis-client:jsBrowserProductionWebpack
 
-FROM eclipse-temurin:25-jre AS runtime
+FROM public.ecr.aws/docker/library/eclipse-temurin:25-jre@sha256:fcd7fd7b387f94bb2ac461478a7436ad8e349924c374ea8313919624dceae636 AS runtime
 
 # V1.0 Videokonferenzen, Wave 2 "Aufzeichnung": ConferenceRecordingConfig.probeFfmpegAvailable
 # shells out to a plain `ffmpeg` on PATH to compose the raw per-track Egress recordings into a

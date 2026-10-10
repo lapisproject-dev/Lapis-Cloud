@@ -1,4 +1,4 @@
-= CI pipeline (V1.9.58)
+= CI pipeline (V1.9.58, release image V1.9.93)
 :toc:
 
 == Purpose
@@ -162,3 +162,63 @@ Never set `LAPIS_DB_URL`. Per-class times come from `lapis-server/build/test-res
 * The H2 concurrency doubles still take minutes; ElectionIntegrityTest is the critical path of the `check` job.
 * The measured CI times rest on two runs (see "CI times: estimate and measurement"); without the build cache the 10 to 12 minute estimate is
   narrowly missed (about 13.5 minutes).
+
+== Release image pipeline (V1.9.93)
+
+Until V1.9.92 every server compiled the sources itself (`docker compose up -d --build`): Gradle plus the Kotlin/JS webpack bundle on the production
+host, with the full toolchain and source tree there. Since V1.9.93 CI builds the image once per release tag and publishes it to GHCR; the servers
+only pull it. Workflow: `.github/workflows/release-image.yml`.
+
+=== Flow
+
+. Trigger: a push of a tag `vX.Y.Z`, nothing else (no branch, pull request, manual, scheduled or `workflow_run` trigger).
+. Job `ci` runs `ci.yml` as a reusable workflow (`check`, `postgres`, `browser`). Tags do not trigger `ci.yml`, so the pipeline of the master commit runs
+  once more (about 15 minutes). That duplication is accepted on purpose; reusing the master run would need a lookup of its result.
+. Job `image` (the only job with `packages: write`):
+  .. validates the tag (`vX.Y.Z`), requires `version` in `build.gradle.kts` to equal the tag (the kUML v0.53.0 incident: a tag with an old version string) and the tagged commit to be an ancestor of `origin/master`;
+  .. builds a candidate image locally, without pushing, and inspects it with `scripts/ci-assert-image-clean.sh` (no env files, keys, private geodata, dumps, `.git`, `deploy/`, source maps; application files present; user `lapiscloud`);
+  .. (the script scans as root, `docker run --user 0:0`, because the image user cannot read root-only directories; `scripts/test-ci-assert-image-clean.sh` tests its logic with a stub `docker`, and the `image` job of `ci.yml` runs the real check on every pull request);
+  .. builds again from the layer cache and pushes with provenance (`mode=max`) and an SBOM.
+
+=== Tags and digests
+
+`ghcr.io/lapisproject-dev/lapis-cloud:X.Y.Z` and `...:X.Y.Z-<short-sha>`. There is no `latest`: the servers pin an exact version, and `latest` would invite
+unreviewed upgrades. The digest appears in the step summary of the run. Platform: `linux/amd64` only.
+
+=== Provenance and verification
+
+OCI labels (`source`, `revision`, `version`, `created` = commit time, `licenses`, `title`, `description`), buildx provenance and SBOM attestations in the
+registry. Verify with `docker buildx imagetools inspect <image>:<version> --format '{{json .Provenance}}'` (or `.SBOM`) and compare the digest with the run summary.
+Optionally pin by digest. There is no cosign signature and no GitHub artifact attestation, see the limitations.
+
+=== Rollout and rollback
+
+See `deploy/example/README.adoc` ("Updating an existing deployment", "Switching a real instance from server-side builds to the published image").
+Rollback is `LAPIS_IMAGE_TAG` back to the old version, `pull`, `up -d` -- but across a migration it needs the restore from the backup, because Flyway has no down migrations.
+
+=== Supply-chain trade-offs
+
+* The image is public, so no token ever lives on a server. Only CI writes, with the short-lived `GITHUB_TOKEN`, and only in the `image` job.
+* All actions in `ci.yml` and `release-image.yml` are pinned to full commit SHAs (version in the comment). Base images come from the AWS public ECR mirror, pinned by digest.
+* Untrusted values (tag name) reach shell code only through `env:` and are validated by regular expression.
+* `.dockerignore` is an allowlist; the Dockerfile has no `COPY .`, no `ADD`, no build arguments and no secrets.
+* The gha build cache (`mode=max`, repository-internal, not public) also holds build-stage layers. The build context is a fresh checkout, so it holds no `.env` or `deploy/production*`.
+* Test sources stay in the build context (public, and not in the runtime image: only `installDist` and the client bundle are copied).
+
+=== One-time setup by the project owner (manual)
+
+After the first image push, under `github.com/orgs/lapisproject-dev/packages` -> `lapis-cloud` -> Package settings:
+
+. set the visibility to **Public** (without it every server pull without a token fails; check that the organization allows public packages);
+. check that the package is linked to the repository `Lapis-Cloud` (should happen through the `org.opencontainers.image.source` label);
+. under "Manage Actions access" give the repository `Lapis-Cloud` role **Write**.
+
+=== Known limitations
+
+* `linux/amd64` only (all instances run on amd64; arm64 would need a native runner matrix and has no test target).
+* Not bit-reproducible: `ffmpeg` comes unpinned from apt, Gradle and npm dependencies have no dependency verification, labels and provenance contain times. Guaranteed: one build per tag, every server gets the same digest.
+* The tests ran on the same commit, but the image compiles again; the tested bytes are not the shipped bytes. There is no smoke start of the image against a database in CI (follow-up).
+* The CI lanes run twice for a release (master push and tag).
+* Base-image digests age; there is no automatic update, a security update needs a manual digest bump.
+* No signature or GitHub attestation: only labels, provenance and a digest comparison.
+* Existing instances are not switched by this wave (runbook only, manual work in the private operations repository and on the servers).

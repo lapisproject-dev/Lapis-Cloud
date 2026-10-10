@@ -1,13 +1,14 @@
 # Lapis Cloud -- PRODUCTION deployment. Replaces the earlier bare-JVM + systemd + native-PostgreSQL
 # setup (see the PROD_HOST server's own infrastructure notes for that prior state) with a self-contained
-# containerized stack: lapis-server (built from the repo-root Dockerfile, client bundle baked in)
+# containerized stack: lapis-server (published image ghcr.io/lapisproject-dev/lapis-cloud, client bundle baked in;
+# to build it from the repo-root Dockerfile instead see docker-compose.build.yml)
 # + PostgreSQL. Apache on the host stays exactly as it was -- it still reverse-proxies
 # `https://<domain>/` to `127.0.0.1:8080`, which this compose file publishes the same way the old
 # systemd unit did, so no Apache vhost change is needed for this cutover.
 #
 # Usage (from this directory):
 #   cp .env.example .env   # fill in real secrets, never commit .env
-#   docker compose up -d --build
+#   docker compose pull && docker compose up -d
 #   docker compose logs -f lapis-server
 #
 # All secrets (DB password, LiveKit/coturn keys once the video-conferencing stack is added) live
@@ -53,9 +54,10 @@ services:
     restart: unless-stopped
 
   lapis-server:
-    build:
-      context: ../..
-      dockerfile: Dockerfile
+    # V1.9.93: the server pulls the image CI published for a release tag instead of compiling the sources itself.
+    # LAPIS_IMAGE_TAG is an exact version without the leading `v` (never `latest`); rollback = set the old value.
+    # To build from source instead, add the override file: see docker-compose.build.yml.
+    image: ghcr.io/lapisproject-dev/lapis-cloud:${LAPIS_IMAGE_TAG:?LAPIS_IMAGE_TAG must be set in .env (e.g. 0.31.0)}
     container_name: lapis-cloud-server
     depends_on:
       postgres:
@@ -229,7 +231,7 @@ services:
       # the same switch since v0.22.0) stays disabled no matter what .env says.
       LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED: ${LAPIS_MOBILE_WEBVIEW_BRIDGE_ENABLED:-}
     volumes:
-      # Named volumes, not bind mounts -- survive `docker compose up -d --build` image rebuilds/
+      # Named volumes, not bind mounts -- survive image updates (`docker compose pull` + `up -d`) and rebuilds/
       # recreations, which a container's own writable layer would not. lapis-document-storage
       # matches LAPIS_DOCUMENT_STORAGE_ROOT baked into the Dockerfile (/app/document-storage);
       # lapis-egress-output is the shared raw-recording volume (see environment: above).

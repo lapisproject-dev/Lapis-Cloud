@@ -1,0 +1,16 @@
+# Lapis Cloud -- OPTIONAL override: build lapis-server from this checkout instead of pulling the published image.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build lapis-server
+#
+# The image gets its OWN local name on purpose. Without an `image:` here Compose would tag the local build as
+# ghcr.io/lapisproject-dev/lapis-cloud:<tag>, and a locally built image would look exactly like the official one.
+# LAPIS_IMAGE_TAG is required here too: docker-compose.yml interpolates it as well, so Compose stops when it is empty.
+# For a source build any label works (it only names the local image), e.g. LAPIS_IMAGE_TAG=dev.
+# The build needs at least 8 GB of RAM (Gradle + Kotlin/JS webpack) and no other heavy load on the host.
+services:
+  lapis-server:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: lapis-cloud-local:${LAPIS_IMAGE_TAG:?LAPIS_IMAGE_TAG must be set in .env (any label, e.g. dev, for a source build)}
+    pull_policy: build
