@@ -413,6 +413,20 @@ enum class AuditEntityType {
      * `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
      */
     ARTICLE_IMPORT,
+
+    /**
+     * Welle V1.9.106 -- ONE entry per bulk approval of imported articles that approved at least one (`ArticleBulkApprover`), `action = UPDATE`,
+     * `entityId` = a fresh random id, `after = {"approvedCount":n,"skippedCount":m,...,"approvedArticleIds":[...]}`. Never carries a title or
+     * text. 21 chars, fits within `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    ARTICLE_BULK_APPROVED,
+
+    /**
+     * Welle V1.9.106 -- ONE entry per image commit of an article import run that applied at least one cover (`ArticleImportImages`), `action =
+     * UPDATE`, `entityId` = the import batch id, `after` = counts + article ids, never a file name. 29 chars: fills `audit_log_entry.entity_type`
+     * `VARCHAR(29)` exactly (a test pins length <= 29). Appended LAST, additive only.
+     */
+    ARTICLE_IMPORT_IMAGES_APPLIED,
 }
 
 /**

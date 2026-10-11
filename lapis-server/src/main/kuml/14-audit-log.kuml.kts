@@ -212,6 +212,8 @@ classDiagram(name = "AuditLog") {
         literal(name = "EVENT_IMPORT") // Welle V1.9.82 -- one summary entry per committed import run (after = counts + payload SHA-256); 12 chars, fits within VARCHAR(29)
         literal(name = "COMMITTEE_MEMBERSHIP") // Welle V1.9.102 "Gremien, Welle B" -- CommitteeSeatLifecycle writes one UPDATE entry per committee seat ended automatically by a member status change (system actor, ids/enums/dates only); Welle V1.9.103 "election succession" also writes CREATE (seat started by an election) and UPDATE (seat ended by an election) entries, no new literal; 20 chars, fits within VARCHAR(29)
         literal(name = "ARTICLE_IMPORT") // Welle V1.9.105 "Artikel-Import" -- ArticleImporter writes one summary entry per committed import run (after = counts + payload SHA-256; single articles are audited as ARTICLE/CREATE); never carries text or bylines; 14 chars, fits within VARCHAR(29)
+        literal(name = "ARTICLE_BULK_APPROVED") // Welle V1.9.106 "Artikel-Import, Nachbesserung" -- ArticleBulkApprover writes ONE entry per bulk approval call that approved at least one article (after = counts + batch ids + approved article ids; never a title or text); 21 chars, fits within VARCHAR(29)
+        literal(name = "ARTICLE_IMPORT_IMAGES_APPLIED") // Welle V1.9.106 -- ArticleImportImages writes ONE entry per image commit that applied at least one cover (entityId = import batch id; after = counts + article ids; never a file name); exactly 29 chars = VARCHAR(29), the longest literal
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

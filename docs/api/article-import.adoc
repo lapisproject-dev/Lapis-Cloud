@@ -14,8 +14,10 @@ importieren" on the articles screen (BOARD and ADMIN only).
 * **Fixed result.** An imported article is created as `SUBMITTED` (never published directly: the four-eyes principle applies, a DIFFERENT board member approves it in the normal review list), keeps the original publication date when approved, the author line of kind `IMPORTED` (if the file has one)
   and **without a cover image**. It is attributed to nobody: the importing member is only stored as the person who executed the import
   (`article.imported = TRUE`), see `docs/architecture/article.adoc#import`.
-* **No images, no network.** There is no image field (an entry with `coverImage` or `image` is invalid) and the server never opens a connection to anything in the
-  file. Upload the cover images one by one afterwards (JPEG or PNG, at least 800x600 pixels, at most 5 MB); the published list marks articles without a cover.
+* **No image field, no network.** There is no image field in the JSON (an entry with `coverImage` or `image` is invalid) and the server never opens a connection to anything in the
+  file. Cover images come as a separate **image ZIP** (see <<image-zip>>) or are uploaded one by one afterwards; the list marks articles without a cover.
+* **One import run, one batch id.** Every commit call draws one random `importBatchId`; all articles it creates carry it (`article.import_batch_id`) and the result returns it
+  (`null` if nothing was created). The image commit and the bulk approval address articles of a run through it.
 * **Not editable afterwards.** An imported article has no author in Lapis, so its text cannot be changed through the author path, and after it was depublished there
   is no way to publish it again (see the known limitations in the changelog). The board can change or clear its author line and depublish it.
 
@@ -76,17 +78,96 @@ confirmation; it is not a security boundary.** Authorization is the role check o
 * The importer opens no network connection of any kind and sends no mail.
 * Error texts name the entry number and the field and never repeat content of the file.
 
+[[bulk-approval]]
+== Bulk approval
+
+`IArticleImportService.approveImportedArticles(articleIds)` approves many imported, still `SUBMITTED` articles in **one transaction** (same four-eyes rule as `approveArticle`,
+through the same predicate `ArticleEditorialAccess.isOwnArticleForReview`, evaluated on the freshly row-locked row).
+
+* BOARD/ADMIN only (checked first), 5 calls per minute and member (a budget of its own: `approveArticle` itself has no rate limit).
+* **At most 100 ids** per call (`400` for more, never truncated), duplicates ignored, an invalid id is `400`. The client sends exactly the articles its button names.
+* Per id the result lists one of: approved, or skipped with a reason: `OWN_IMPORT` (the caller ran that import), `NOT_IMPORTED` (an ordinary article is never touched),
+  `NOT_SUBMITTED` (already decided, also: lost a race), `NOT_FOUND`. Skips are no error; `title` of a skipped article is returned to the caller only.
+* The historic `published_at` of the legacy article stays. **No mail** is sent per article.
+* Rows are locked in ascending id order, so two parallel calls over overlapping ids approve each id exactly once without a deadlock.
+* Audit: **one** entry `ARTICLE_BULK_APPROVED` / `UPDATE` per call that approved at least one article (a repeated call is silent): `approvedCount`, `skippedCount`,
+  `importBatchCount`, `importBatchIds` (only up to 10) and `approvedArticleIds`. Never a title, text or byline.
+* `ArticleSummaryDto.importedBySelf` (response only) tells the review screen which imported articles the caller ran themselves.
+
+[[image-zip]]
+== Image ZIP
+
+An optional ZIP of cover images accompanies the import. Two multipart routes (not Kilua RPC) under `/api/articles/import/images/`; both BOARD/ADMIN, same-origin only.
+
+[cols="2,3,3"]
+|===
+|Route |Fields |Answer
+
+|`POST .../preview` |`zip` (file), `slugs` (JSON array of the preview's slugs, at most 100) |`ArticleImportImagesPreviewDto`: one row per requested slug, the unmatched file names, the count of ignored system files. **Writes nothing.**
+|`POST .../commit` |`zip` (file), `importBatchId` (the id the commit returned) |`ArticleImportImagesResultDto`: `applied`, `rejected`, one row per article of the run.
+|===
+
+Row statuses: `OK` (with the stored width/height), `TOO_SMALL` (with the oriented original's size), `INVALID_FORMAT`, `MISSING`, `IGNORED_EXISTING_ARTICLE`, `DUPLICATE`.
+Status codes: `403` (cross-origin, wrong role), `400` (unknown field, bad `slugs`/`importBatchId`), `413` (see below), `422` (the ZIP is refused, fixed German sentence without any file name),
+`429` (preview 3, commit 5 per minute and member, with `Retry-After`).
+
+=== Size guard
+
+A `POST` to these routes **without `Content-Length` or above 25 MiB + 128 KiB** is answered with `413` before authentication and before any byte is read. The ZIP part itself is cut
+off at 25 MiB while streaming. **A reverse proxy in front of the server must let at least this much through** (Caddy: no smaller `request_body max_size`).
+
+=== What a ZIP may contain
+
+Flat `slug.jpg`, `slug.jpeg` or `slug.png` (the slug rules of the JSON import, lowercase stem), nothing else. The ZIP is read **entirely in memory and never touches the file system**.
+
+[cols="2,3"]
+|===
+|Limit |Value
+
+|Entries (incl. `+__MACOSX/+` and `.DS_Store`) |100, checked from the central directory before anything is inflated
+|One image, inflated |5 MiB (the cover upload cap)
+|All images, inflated |64 MiB, counted on the bytes actually produced
+|Compression ratio |at most 100:1 per entry (declared); stored entries must be exactly as large as declared
+|Names |printable ASCII only; no folders, `/`, `\`, `:`, `..`; no `.zip`/`.gz`/`.tar`/`.7z`/`.rar`/`.jar`
+|Refused outright |symlinks, encrypted entries, ZIP64 and multi-disk archives, methods other than stored/deflated, local headers that disagree with the central directory, overlapping entries, a wrong CRC-32
+|Ignored (counted, never inflated) |`+__MACOSX/+` entries, `.DS_Store`
+|===
+
+Two files for one slug (`a.jpg` + `a.png`, or the same name twice) are **both** `DUPLICATE`; nothing is guessed.
+
+=== Image rules
+
+Every image runs through the same pipeline as a manual cover upload (magic-byte sniffing, decompression-bomb guard, EXIF orientation, metadata-free re-encode, long edge at most
+1600 px). For **imported articles only** the minimum is relaxed (Variante 1): **width at least 300 px, height at least 150 px, width/height between 1:2 and 4:1, measured after the EXIF
+rotation, never enlarged**. Ordinary articles and events keep 800x600. The relaxation is structural: `ArticleCoverPolicy.limitsForArticle(imported)` is the only factory and its
+argument always comes from the database row (`imported` is written once, at import, and never changes); no request field can set it.
+
+=== Commit semantics
+
+The commit only touches articles of **that** batch (`import_batch_id = batchId AND imported = TRUE`); an unknown or foreign id applies nothing and writes no audit entry. It **never replaces**
+an existing cover. Files are written before the database transaction, the decision which files stay is taken from its result afterwards; on an error every file of the call is removed.
+One audit entry `ARTICLE_IMPORT_IMAGES_APPLIED` (`entityId` = the batch id; counts and article ids, never a file name) per call that applied at least one cover.
+A failing image step never undoes the imported articles; the call is idempotent (only articles without a cover are touched), so the client offers "Bilder erneut übernehmen".
+
+=== Helper script
+
+`scripts/prepare-article-images.py` turns a directory of JPEG/PNG/WebP/SVG files into a ZIP that passes these rules, see `scripts/README-article-images.adoc`.
+
 == Audit
 
+Further audit entries of the follow-up wave (V1.9.106) are described in <<bulk-approval>> and <<image-zip>>.
+
 Every created article gets one audit entry (`entityType = ARTICLE`, `action = CREATE`, `after = {"imported":true,"slug":"..."}`), and each run that created at least one
-article gets one summary entry (`entityType = ARTICLE_IMPORT`, `after = {"created":n,"skipped":m,"payloadSha256":"..."}`). The actor is the importing member. No title, text
+article gets one summary entry (`entityType = ARTICLE_IMPORT`, `after = {"created":n,"skipped":m,"payloadSha256":"...","importBatchId":"..."}`). The actor is the importing member. No title, text
 or byline of the file is written to the audit log.
 
 == Database
 
 Migration `V85__article_byline_and_import.sql` adds `article.byline`, `byline_kind`, `byline_consent_at`, `byline_set_by`, `byline_set_at` and `imported`, the CHECK constraints for
 the byline pair, the kind and the consent, the index `idx_article_published_archive` and widens the audit-log entity-type check by `ARTICLE_IMPORT`. It is purely additive;
-`V1`..`V84` are untouched. Take a backup before deploying.
+`V1`..`V84` are untouched. Migration `V86__article_import_batch.sql` (V1.9.106) adds `article.import_batch_id` (CHECK: only imported rows), the index
+`idx_article_imported_status_batch` and the audit types `ARTICLE_BULK_APPROVED` and `ARTICLE_IMPORT_IMAGES_APPLIED` (29 characters, fills `VARCHAR(29)` exactly); `V1`..`V85` are untouched.
+Take a backup before deploying.
 
 == Data quality (not a code matter)
 

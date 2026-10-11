@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.articles
 
 import network.lapis.cloud.server.db.generated.ArticleTable
+import network.lapis.cloud.server.events.CoverImageLimits
 import network.lapis.cloud.shared.domain.ArticleStatus
 import org.jetbrains.exposed.v1.core.ResultRow
 import kotlin.uuid.Uuid
@@ -57,4 +58,12 @@ internal object ArticleCoverPolicy {
             authenticatedCoverImageUrl(baseUrl = baseUrl, articleId = row[ArticleTable.id], coverImageId = coverImageId)
         }
     }
+
+    /**
+     * Welle V1.9.106 -- the ONLY place that picks an article's cover size limits. Imported articles (legacy website images are often small) accept
+     * images from 300 px width ([CoverImageLimits.IMPORTED_ARTICLE_COVER]); every other article keeps the event limits.
+     * [imported] must come from the DB row (`ArticleTable.imported`, immutable after `ArticleStore.insertImported`), never from a request.
+     */
+    fun limitsForArticle(imported: Boolean): CoverImageLimits =
+        if (imported) CoverImageLimits.IMPORTED_ARTICLE_COVER else CoverImageLimits.EVENT_COVER
 }

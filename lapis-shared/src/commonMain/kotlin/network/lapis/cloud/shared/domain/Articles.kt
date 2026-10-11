@@ -113,6 +113,11 @@ data class ArticleSummaryDto(
     val imported: Boolean = false,
     /** Welle V1.9.105 -- `false` if no title image is stored (the board sees which imported articles still need one). */
     val hasCover: Boolean = false,
+    /**
+     * Welle V1.9.106 -- `true` iff the article is imported AND the calling member ran that import (`authorIsSelf` is always `false` for imports).
+     * The bulk approval needs it: a member cannot approve what they imported themselves (four-eyes). Response-only, never read from a request.
+     */
+    val importedBySelf: Boolean = false,
 )
 
 /**

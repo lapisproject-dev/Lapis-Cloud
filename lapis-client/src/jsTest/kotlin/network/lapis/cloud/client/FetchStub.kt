@@ -32,6 +32,18 @@ internal class RecordedRequest(
     fun rpcParam(index: Int): dynamic = JSON.parse<dynamic>(json.params[index] as String)
 }
 
+/** `{"field":"value", ...}` of a `FormData`; a file value is written as `<file:name:size>`. */
+private fun formDataText(formData: dynamic): String {
+    val out = js("({})")
+    val entries = js("Array.from(formData.entries())")
+    for (entry in entries.unsafeCast<Array<dynamic>>()) {
+        val key = entry[0] as String
+        val value = entry[1]
+        out[key] = if (jsTypeOf(value) == "string") value else "<file:${value.name}:${value.size}>"
+    }
+    return "formdata:" + JSON.stringify(out)
+}
+
 /** What the stub answers. For an RPC call use [rpcResult]; for a plain route a status and a text body. */
 internal class StubResponse(
     val status: Int = 200,
@@ -154,7 +166,13 @@ internal suspend fun <T> withFetchStub(
             }
         } else {
             val rawBody: dynamic = init?.body
-            val bodyText = if (jsTypeOf(rawBody) == "string") rawBody as String else "<blob>"
+            val bodyText =
+                when {
+                    jsTypeOf(rawBody) == "string" -> rawBody as String
+                    // A multipart upload: the text fields in full, a file as "<file:name:size>" (so a test can assert what was sent).
+                    rawBody is org.w3c.xhr.FormData -> formDataText(rawBody)
+                    else -> "<blob>"
+                }
             val request = RecordedRequest(input.toString(), (init?.method ?: "GET") as String, bodyText)
             recorded += request
             answer(respond(request), isOpen)

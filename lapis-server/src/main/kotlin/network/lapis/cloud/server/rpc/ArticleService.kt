@@ -352,7 +352,7 @@ internal class ArticleService(
         val now = nowLocalDateTime()
         return transaction {
             val row = ArticleStore.lockForUpdateOrThrow(articleId)
-            requireNotOwnArticle(row = row, current = current)
+            ArticleEditorialAccess.requireNotOwnArticle(row = row, memberId = current.memberId)
             val status = row[ArticleTable.status]
             if (status != ArticleStatus.SUBMITTED && status != ArticleStatus.PUBLISHED) {
                 throw ConflictException("Article $articleId has no editable byline in status $status")
@@ -445,6 +445,7 @@ internal class ArticleService(
                     bylineKind = row[ArticleTable.bylineKind],
                     imported = row[ArticleTable.imported],
                     hasCover = row[ArticleTable.coverImageId] != null,
+                    importedBySelf = row[ArticleTable.imported] && row[ArticleTable.authorId] == current.memberId,
                 )
             }
         }
@@ -525,7 +526,7 @@ internal class ArticleService(
         val (dto, notification) =
             transaction {
                 val row = ArticleStore.lockForUpdateOrThrow(articleId)
-                requireNotOwnArticle(row = row, current = current)
+                ArticleEditorialAccess.requireNotOwnArticle(row = row, memberId = current.memberId)
                 if (row[ArticleTable.status] != ArticleStatus.SUBMITTED) {
                     throw ConflictException("Article $articleId is not awaiting review (status ${row[ArticleTable.status]})")
                 }
@@ -585,7 +586,7 @@ internal class ArticleService(
         val (dto, notification) =
             transaction {
                 val row = ArticleStore.lockForUpdateOrThrow(articleId)
-                requireNotOwnArticle(row = row, current = current)
+                ArticleEditorialAccess.requireNotOwnArticle(row = row, memberId = current.memberId)
                 if (row[ArticleTable.status] != ArticleStatus.SUBMITTED) {
                     throw ConflictException("Article $articleId is not awaiting review (status ${row[ArticleTable.status]})")
                 }
@@ -654,7 +655,7 @@ internal class ArticleService(
         val (dto, notification) =
             transaction {
                 val row = ArticleStore.lockForUpdateOrThrow(articleId)
-                requireNotOwnArticle(row = row, current = current)
+                ArticleEditorialAccess.requireNotOwnArticle(row = row, memberId = current.memberId)
                 if (row[ArticleTable.status] != ArticleStatus.PUBLISHED) {
                     throw ConflictException("Article $articleId is not published (status ${row[ArticleTable.status]})")
                 }
@@ -726,19 +727,6 @@ internal class ArticleService(
             .onFailure { e ->
                 logger.warn(e) { "article review notice failed: articleId=${notification.articleId} kind=${notification.outcome}" }
             }
-    }
-
-    private fun requireNotOwnArticle(
-        row: ResultRow,
-        current: network.lapis.cloud.server.security.CurrentMember,
-    ) {
-        // V1.9.105: an imported article has no human author in Lapis -- the importing member only executed the import, so the four-eyes rule
-        // does not apply (otherwise they could neither depublish nor adjust the byline of their own imports).
-        // Exception ONLY once published: while an imported article is still SUBMITTED the importer must not approve/reject it (four-eyes).
-        if (row[ArticleTable.imported] && row[ArticleTable.status] != ArticleStatus.SUBMITTED) return
-        if (row[ArticleTable.authorId] == current.memberId) {
-            throw ForbiddenException("Eigene Artikel gibt ein anderes Vorstandsmitglied frei.")
-        }
     }
 
     private fun ResultRow.toDto(): ArticleDto =

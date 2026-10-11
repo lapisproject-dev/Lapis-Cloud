@@ -41,19 +41,85 @@ enum class CoverImageFormat(
  * every caller. [EVENT_COVER] is the default and reproduces the pre-V1.9.20 behaviour exactly;
  * [CHAPTER_CREST] admits small logos (a crest is legitimately tiny) and stores up to 1024 px.
  */
+internal sealed interface CoverDimensionRule {
+    /** Orientation-independent: `max(w,h) >= minLongEdgePx && min(w,h) >= minShortEdgePx` (the pre-V1.9.106 behaviour, unchanged). */
+    data class LongShortEdge(
+        val minLongEdgePx: Int,
+        val minShortEdgePx: Int,
+    ) : CoverDimensionRule
+
+    /** Width/height AFTER the EXIF orientation: `w >= minWidthPx`, `h >= minHeightPx` and `w/h` within [[minAspect], [maxAspect]]. */
+    data class WidthAndAspect(
+        val minWidthPx: Int,
+        val minHeightPx: Int,
+        val minAspect: Double,
+        val maxAspect: Double,
+    ) : CoverDimensionRule
+}
+
 internal data class CoverImageLimits(
-    val minLongEdgePx: Int,
-    val minShortEdgePx: Int,
+    val rule: CoverDimensionRule,
     val targetLongEdgePx: Int,
 ) {
+    /** Convenience constructor for the orientation-independent [CoverDimensionRule.LongShortEdge] rule (event covers, chapter crests). */
+    constructor(minLongEdgePx: Int, minShortEdgePx: Int, targetLongEdgePx: Int) :
+        this(CoverDimensionRule.LongShortEdge(minLongEdgePx = minLongEdgePx, minShortEdgePx = minShortEdgePx), targetLongEdgePx)
+
+    /** Only meaningful for [CoverDimensionRule.LongShortEdge]; `0` for any other rule. */
+    val minLongEdgePx: Int get() = (rule as? CoverDimensionRule.LongShortEdge)?.minLongEdgePx ?: 0
+
+    /** Only meaningful for [CoverDimensionRule.LongShortEdge]; `0` for any other rule. */
+    val minShortEdgePx: Int get() = (rule as? CoverDimensionRule.LongShortEdge)?.minShortEdgePx ?: 0
+
+    /** `true` iff an image of [orientedWidth] x [orientedHeight] (AFTER the EXIF orientation) satisfies the rule. */
+    fun accepts(
+        orientedWidth: Int,
+        orientedHeight: Int,
+    ): Boolean =
+        when (val r = rule) {
+            is CoverDimensionRule.LongShortEdge ->
+                maxOf(orientedWidth, orientedHeight) >= r.minLongEdgePx && minOf(orientedWidth, orientedHeight) >= r.minShortEdgePx
+            is CoverDimensionRule.WidthAndAspect -> {
+                val aspect = orientedWidth.toDouble() / orientedHeight.toDouble()
+                orientedWidth >= r.minWidthPx && orientedHeight >= r.minHeightPx && aspect >= r.minAspect && aspect <= r.maxAspect
+            }
+        }
+
+    /** The German "what is the minimum" fragment for the 422 message, e.g. `mindestens 800x600px, je nach Ausrichtung`. */
+    fun describeMinimumDe(): String =
+        when (val r = rule) {
+            is CoverDimensionRule.LongShortEdge -> "mindestens ${r.minLongEdgePx}x${r.minShortEdgePx}px, je nach Ausrichtung"
+            is CoverDimensionRule.WidthAndAspect ->
+                "mindestens ${r.minWidthPx} px breit und ${r.minHeightPx} px hoch, Seitenverhältnis zwischen 1:2 und 4:1"
+        }
+
     companion object {
         val EVENT_COVER =
             CoverImageLimits(
-                minLongEdgePx = EventCoverPolicy.MIN_LONG_EDGE_PX,
-                minShortEdgePx = EventCoverPolicy.MIN_SHORT_EDGE_PX,
+                rule =
+                    CoverDimensionRule.LongShortEdge(
+                        minLongEdgePx = EventCoverPolicy.MIN_LONG_EDGE_PX,
+                        minShortEdgePx = EventCoverPolicy.MIN_SHORT_EDGE_PX,
+                    ),
                 targetLongEdgePx = EventCoverPolicy.TARGET_LONG_EDGE_PX,
             )
         val CHAPTER_CREST = CoverImageLimits(minLongEdgePx = 64, minShortEdgePx = 64, targetLongEdgePx = 1024)
+
+        /**
+         * Welle V1.9.106 -- covers of IMPORTED articles only (legacy website images are often small): width >= 300 px, height >= 150 px, aspect
+         * 1:2..4:1, never upscaled. Picked exclusively by `ArticleCoverPolicy.limitsForArticle` from the DB row's `imported` flag.
+         */
+        val IMPORTED_ARTICLE_COVER =
+            CoverImageLimits(
+                rule =
+                    CoverDimensionRule.WidthAndAspect(
+                        minWidthPx = 300,
+                        minHeightPx = 150,
+                        minAspect = 0.5,
+                        maxAspect = 4.0,
+                    ),
+                targetLongEdgePx = EventCoverPolicy.TARGET_LONG_EDGE_PX,
+            )
     }
 }
 
@@ -74,8 +140,14 @@ sealed interface CoverProcessingResult {
     /** The source image's declared dimensions exceed [EventCoverPolicy.MAX_EDGE_PX]/[EventCoverPolicy.MAX_PIXELS] -- rejected BEFORE a single pixel is decoded (decompression-bomb guard). */
     data object DimensionsTooLarge : CoverProcessingResult
 
-    /** `max(w,h) < MIN_LONG_EDGE_PX || min(w,h) < MIN_SHORT_EDGE_PX` -- see `EventCoverPolicy` KDoc "F4", orientation-independent. */
-    data object DimensionsTooSmall : CoverProcessingResult
+    /**
+     * The limits' dimension rule is not met. [width]/[height] are the dimensions of the ORIENTED original (after the EXIF rotation, so a
+     * phone portrait photo reports its visible shape), not of any re-encoded image.
+     */
+    data class DimensionsTooSmall(
+        val width: Int,
+        val height: Int,
+    ) : CoverProcessingResult
 
     /** No `ImageReader` accepted the bytes, or decoding threw (truncated file, CMYK JPEG ImageIO's bundled decoder cannot read, ...). */
     data object Undecodable : CoverProcessingResult
@@ -208,12 +280,16 @@ internal object EventCoverImageProcessor {
 
                 if (width <= 0 || height <= 0) return@withPermit CoverProcessingResult.Undecodable
                 val longEdge = maxOf(width, height)
-                val shortEdge = minOf(width, height)
                 if (longEdge > EventCoverPolicy.MAX_EDGE_PX || width.toLong() * height.toLong() > EventCoverPolicy.MAX_PIXELS) {
                     return@withPermit CoverProcessingResult.DimensionsTooLarge
                 }
-                if (longEdge < limits.minLongEdgePx || shortEdge < limits.minShortEdgePx) {
-                    return@withPermit CoverProcessingResult.DimensionsTooSmall
+                // The EXIF orientation is read BEFORE the minimum check: orientations 5..8 swap width and height, which matters for any rule
+                // that looks at the width or the aspect ratio (the long/short-edge rule is symmetric and unaffected).
+                val orientation = if (format == CoverImageFormat.JPEG) readExifOrientation(bytes) else 1
+                val orientedWidth = if (orientation in 5..8) height else width
+                val orientedHeight = if (orientation in 5..8) width else height
+                if (!limits.accepts(orientedWidth = orientedWidth, orientedHeight = orientedHeight)) {
+                    return@withPermit CoverProcessingResult.DimensionsTooSmall(width = orientedWidth, height = orientedHeight)
                 }
 
                 val subsample = (longEdge / (2 * limits.targetLongEdgePx)).coerceAtLeast(1)
@@ -228,7 +304,6 @@ internal object EventCoverImageProcessor {
                         return@withPermit CoverProcessingResult.Undecodable
                     }
 
-                val orientation = if (format == CoverImageFormat.JPEG) readExifOrientation(bytes) else 1
                 val oriented = applyOrientation(image = decoded, orientation = orientation)
                 val resized = downscaleToTarget(source = oriented, targetLongEdge = limits.targetLongEdgePx)
 

@@ -115,6 +115,9 @@ internal object ArticleImporter {
         }
         val entries = checks.filterIsInstance<ArticleImportPolicy.EntryCheck.Valid>().map { it.entry }
 
+        // V1.9.106 -- ONE batch id per commit call, drawn OUTSIDE the transaction block so a re-run of the block (Exposed retries on SQLException)
+        // reuses it: the image commit addresses exactly the articles of this run through it.
+        val batchId = Uuid.random()
         val outcome =
             try {
                 transaction {
@@ -149,6 +152,7 @@ internal object ArticleImporter {
                             body = entry.body,
                             publishedAt = publishedAtUtc,
                             byline = entry.byline,
+                            importBatchId = batchId,
                             now = now,
                         )
                         created += id to entry.slug
@@ -181,6 +185,7 @@ internal object ArticleImporter {
                                     put("created", created.size)
                                     put("skipped", skipped.size)
                                     put("payloadSha256", payloadSha256)
+                                    put("importBatchId", batchId.toString())
                                 }.toString(),
                             occurredAt = now,
                         )
@@ -194,7 +199,12 @@ internal object ArticleImporter {
                 }
                 throw e
             }
-        return ArticleImportResultDto(created = outcome.created, skipped = outcome.skippedSlugs.size, skippedSlugs = outcome.skippedSlugs)
+        return ArticleImportResultDto(
+            created = outcome.created,
+            skipped = outcome.skippedSlugs.size,
+            skippedSlugs = outcome.skippedSlugs,
+            importBatchId = if (outcome.created > 0) batchId.toString() else null,
+        )
     }
 
     private class ImportOutcome(

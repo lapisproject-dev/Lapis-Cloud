@@ -103,7 +103,7 @@ internal fun Route.registerArticleCoverRoutes(
                 call.respond(HttpStatusCode.Conflict, "Article $articleId is not editable in status ${denial.status}")
                 return@post
             }
-            is ArticleSetCoverOutcome.Set -> Unit
+            ArticleSetCoverOutcome.Changed, is ArticleSetCoverOutcome.Set -> Unit
         }
 
         val contentLength = call.request.headers[HttpHeaders.ContentLength]?.toLongOrNull()
@@ -111,7 +111,10 @@ internal fun Route.registerArticleCoverRoutes(
             call.respond(HttpStatusCode.PayloadTooLarge, "Max upload size is ${EventCoverPolicy.MAX_UPLOAD_BYTES} bytes")
             return@post
         }
-        val ok = call.receiveSingleCoverUpload() ?: return@post
+        // Welle V1.9.106 -- the minimum image size depends on the DB row's `imported` flag, never on anything the request says. The pre-check row
+        // is non-null here (coverEditDenial answered NotFound for null above); `imported` is immutable, see ArticleStore.insertImported.
+        val importedAtPreCheck = preCheck!![ArticleTable.imported]
+        val ok = call.receiveSingleCoverUpload(ArticleCoverPolicy.limitsForArticle(preCheck[ArticleTable.imported])) ?: return@post
 
         val newId = Uuid.random()
         storage.write(id = newId, format = ok.format, bytes = ok.bytes)
@@ -121,6 +124,7 @@ internal fun Route.registerArticleCoverRoutes(
                 transaction {
                     val locked = ArticleStore.lockForUpdate(articleId)
                     coverEditDenial(row = locked, isPrivileged = current.isPrivileged, memberId = current.memberId)
+                        ?: importedFlagChanged(locked = locked, importedAtPreCheck = importedAtPreCheck)
                         ?: ArticleSetCoverOutcome
                             .Set(ArticleStore.setCoverImageId(id = articleId, coverImageId = newId))
                             .also { auditImportedCoverChange(row = locked, articleId = articleId, current = current, change = "set") }
@@ -139,6 +143,11 @@ internal fun Route.registerArticleCoverRoutes(
                 is ArticleSetCoverOutcome.WrongStatus -> {
                     storage.delete(newId)
                     call.respond(HttpStatusCode.Conflict, "Article $articleId is not editable in status ${setOutcome.status}")
+                    return@post
+                }
+                ArticleSetCoverOutcome.Changed -> {
+                    storage.delete(newId)
+                    call.respond(HttpStatusCode.Conflict, "Article $articleId changed while the cover was processed")
                     return@post
                 }
                 is ArticleSetCoverOutcome.Set -> setOutcome.previousCoverImageId
@@ -198,6 +207,10 @@ internal fun Route.registerArticleCoverRoutes(
                 call.respond(HttpStatusCode.Conflict, "Article $articleId is not editable in status ${setOutcome.status}")
                 return@delete
             }
+            ArticleSetCoverOutcome.Changed -> {
+                call.respond(HttpStatusCode.Conflict, "Article $articleId changed")
+                return@delete
+            }
             is ArticleSetCoverOutcome.Set -> {
                 if (setOutcome.previousCoverImageId != null) storage.delete(setOutcome.previousCoverImageId)
             }
@@ -249,15 +262,31 @@ internal sealed interface ArticleSetCoverOutcome {
         val status: ArticleStatus,
     ) : ArticleSetCoverOutcome
 
+    /** V1.9.106 -- defence in depth: the `imported` flag differs between the pre-check and the locked row (it is immutable, so this never happens in practice). */
+    data object Changed : ArticleSetCoverOutcome
+
     data class Set(
         val previousCoverImageId: Uuid?,
     ) : ArticleSetCoverOutcome
 }
 
+private fun importedFlagChanged(
+    locked: ResultRow?,
+    importedAtPreCheck: Boolean,
+): ArticleSetCoverOutcome? =
+    if (locked != null &&
+        locked[ArticleTable.imported] != importedAtPreCheck
+    ) {
+        ArticleSetCoverOutcome.Changed
+    } else {
+        null
+    }
+
 /**
  * Welle V1.9.105 -- who may change the cover of [row] right now; `null` = allowed. An ordinary article: its author, while `DRAFT`/`REJECTED` (unchanged).
- * An IMPORTED article has no human author in Lapis (the importing member only executed the import) and is published at once, so its cover -- which the
- * import cannot bring along -- is added by any BOARD/ADMIN member in any status; everybody else gets the identical `NotFound`.
+ * An IMPORTED article has no human author in Lapis (the importing member only executed the import) and waits for approval as `SUBMITTED` (V1.9.105
+ * security fix; before that it was published at once), so its cover -- which the JSON import cannot bring along -- is added by any BOARD/ADMIN member in
+ * any status; everybody else gets the identical `NotFound`.
  */
 internal fun coverEditDenial(
     row: ResultRow?,

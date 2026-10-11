@@ -167,10 +167,11 @@ internal object ArticleStore {
     }
 
     /**
-     * Welle V1.9.105 -- the ONLY place that writes `imported = true` (a source-scanning tripwire pins that). The row is `PUBLISHED` right away
-     * with the original [publishedAt] (UTC system timestamp), the author line of kind `IMPORTED` (if any), and NO cover. [importerId] is the
-     * importing board member: stored as `author_id`/`reviewed_by`/`byline_set_by` only because the schema needs a member -- they executed the
-     * import, they did not write the article.
+     * Welle V1.9.105 -- the ONLY place that writes `imported = true` (a source-scanning tripwire pins that). The row is `SUBMITTED` (four-eyes: a
+     * DIFFERENT board member approves it; it is never published directly) with the original [publishedAt] (UTC system timestamp), the author line
+     * of kind `IMPORTED` (if any), and NO cover. [importerId] is the importing board member: stored as `author_id`/`byline_set_by` only because the
+     * schema needs a member -- they executed the import, they did not write the article. Every row of one import call shares [importBatchId]
+     * (V1.9.106), which the image commit and the audit use to address exactly that run.
      */
     fun insertImported(
         id: Uuid,
@@ -181,6 +182,7 @@ internal object ArticleStore {
         body: String,
         publishedAt: LocalDateTime,
         byline: String?,
+        importBatchId: Uuid,
         now: LocalDateTime,
     ) {
         ArticleTable.insert {
@@ -204,8 +206,39 @@ internal object ArticleStore {
             it[bylineSetBy] = if (byline != null) importerId else null
             it[bylineSetAt] = if (byline != null) now else null
             it[imported] = true
+            it[ArticleTable.importBatchId] = importBatchId
         }
     }
+
+    /** One imported article of an import run, as the image commit sees it. */
+    data class ImportBatchTarget(
+        val id: Uuid,
+        val slug: String,
+        val imported: Boolean,
+        val hasCover: Boolean,
+    )
+
+    /**
+     * Welle V1.9.106 -- the articles of ONE import run (`import_batch_id`), imported rows only (an unknown or foreign batch id yields an empty
+     * list, which the image commit treats as "nothing to do"). Capped, ordered by id (the lock order of the commit).
+     */
+    fun importBatchTargets(batchId: Uuid): List<ImportBatchTarget> =
+        ArticleTable
+            .selectAll()
+            .where { (ArticleTable.importBatchId eq batchId) and (ArticleTable.imported eq true) }
+            .orderBy(ArticleTable.id)
+            .limit(MAX_PAGE_SIZE * 5)
+            .mapNotNull { row ->
+                row[ArticleTable.slug]?.let {
+                    ImportBatchTarget(
+                        id = row[ArticleTable.id],
+                        slug = it,
+                        // the ONLY source of the flag that picks the cover limits of a batch target (a tripwire pins it)
+                        imported = row[ArticleTable.imported],
+                        hasCover = row[ArticleTable.coverImageId] != null,
+                    )
+                }
+            }
 
     /** Welle V1.9.105 -- writes the five byline columns of [id] (all `null` = no byline). Caller holds the row lock. */
     fun updateByline(

@@ -185,8 +185,10 @@ import network.lapis.cloud.server.payment.sepa.SepaBatchPoller
 import network.lapis.cloud.server.payment.sepa.SepaConfig
 import network.lapis.cloud.server.postal.LetterxpressPostalMailProvider
 import network.lapis.cloud.server.routes.PublicNavAvailabilityProvider
+import network.lapis.cloud.server.routes.installArticleImportImagesBodyLimit
 import network.lapis.cloud.server.routes.mobileWebviewBridgeEnabled
 import network.lapis.cloud.server.routes.registerArticleCoverRoutes
+import network.lapis.cloud.server.routes.registerArticleImportImageRoutes
 import network.lapis.cloud.server.routes.registerArticlePublicRoutes
 import network.lapis.cloud.server.routes.registerAuthRoutes
 import network.lapis.cloud.server.routes.registerBackupRoutes
@@ -1754,6 +1756,11 @@ internal fun Application.module(
     // V1.9.105: same budgets for the article import.
     val articleImportPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes, maxTrackedKeys = 1_000)
     val articleImportCommitRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 1.minutes, maxTrackedKeys = 1_000)
+    // V1.9.106: image ZIP of the article import (preview is the CPU-heavy one: it decodes every image).
+    val articleImportImagesPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 3, window = 1.minutes, maxTrackedKeys = 1_000)
+    val articleImportImagesCommitRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 1.minutes, maxTrackedKeys = 1_000)
+    // V1.9.106: bulk approval of imported articles (approveArticle itself has no rate limit; this is deliberately its own budget).
+    val articleBulkApproveRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 1.minutes, maxTrackedKeys = 1_000)
     val embedEventsFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
     // V1.9.82 -- the archive feed's own budget (paging the archive must not use up the main feed's 60/min).
     val embedEventsPastFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
@@ -1899,6 +1906,8 @@ internal fun Application.module(
     installEventImportBodyLimit()
     // V1.9.105: same 413-before-Kilua guard for the article-import route.
     installArticleImportBodyLimit()
+    // V1.9.106: the same, before authentication, for the two multipart image-ZIP routes of the article import.
+    installArticleImportImagesBodyLimit()
 
     // initRpc installs its own ContentNegotiation (JSON) plugin internally, configured for the
     // RPC serializers module — installing another one ourselves would collide with it
@@ -2338,6 +2347,7 @@ internal fun Application.module(
                 call = call,
                 previewRateLimiter = articleImportPreviewRateLimiter,
                 commitRateLimiter = articleImportCommitRateLimiter,
+                bulkApproveRateLimiter = articleBulkApproveRateLimiter,
             )
         }
     }
@@ -2621,6 +2631,13 @@ internal fun Application.module(
             baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
             writeRateLimiter = articleCoverWriteRateLimiter,
             readRateLimiter = articleCoverReadRateLimiter,
+        )
+        // Welle V1.9.106 -- multipart image ZIP of the article import (BOARD/ADMIN, own body-size guard installed above).
+        registerArticleImportImageRoutes(
+            storage = articleCoverStorage,
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+            previewRateLimiter = articleImportImagesPreviewRateLimiter,
+            commitRateLimiter = articleImportImagesCommitRateLimiter,
         )
         // Welle V1.4.1a "Öffentliche Website-Integration" -- literale Routen (/embed/v1/*,
         // /api/embed/v1/*), dieselbe "literal schlägt catch-all"-Begründung wie bei

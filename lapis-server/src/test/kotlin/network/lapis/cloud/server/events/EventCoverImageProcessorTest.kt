@@ -123,7 +123,8 @@ class EventCoverImageProcessorTest :
 
         test("process: 799x600 -> DimensionsTooSmall") {
             val bytes = renderPng(width = 799, height = 600)
-            EventCoverImageProcessor.process(bytes = bytes, format = CoverImageFormat.PNG) shouldBe CoverProcessingResult.DimensionsTooSmall
+            EventCoverImageProcessor.process(bytes = bytes, format = CoverImageFormat.PNG) shouldBe
+                CoverProcessingResult.DimensionsTooSmall(width = 799, height = 600)
         }
 
         test("process: 600x800 portrait (long edge >= 800, short edge >= 600) -> Ok, orientation-independent per design decision F4") {

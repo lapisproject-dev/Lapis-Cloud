@@ -59,6 +59,10 @@
 // PERSONAL, GDPR Art. 6(1)(a)), `bylineSetBy`/`bylineSetAt` (who last changed the byline, also who revoked) and `imported` (TRUE only for
 // rows written by the admin import; their author_id is the importing board member, who only executed the import). New index
 // `idx_article_published_archive` backs the embed archive feed.
+//
+// **Welle V1.9.106 "Artikel-Import, Nachbesserung" addendum** (`V86__article_import_batch.sql`) adds `importBatchId` (UUID, nullable): the
+// id of the import run that created the row (one random id per committed import call). It addresses exactly the articles of one run when the
+// images ZIP is committed, and the bulk approval reports it in the audit. NULL for every non-imported article (CHECK) and every V85 row.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -197,6 +201,11 @@ classDiagram(name = "Articles") {
         }
         attribute(name = "imported", type = "Boolean") {
             stereotype("Column") { "columnName" to "imported" }
+        }
+        // V1.9.106 -- see file header addendum.
+        attribute(name = "importBatchId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "import_batch_id" }
         }
     }
 }

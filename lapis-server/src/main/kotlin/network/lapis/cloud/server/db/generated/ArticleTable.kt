@@ -46,6 +46,9 @@ public object ArticleTable : Table("article") {
     public val bylineSetAt: Column<LocalDateTime?> = datetime("byline_set_at").nullable()
     public val imported: Column<Boolean> = bool("imported").default(false)
 
+    // Hand-edited, V1.9.106 (V86__article_import_batch.sql) -- see the "V1.9.106" addendum in 55-articles.kuml.kts.
+    public val importBatchId: Column<Uuid?> = uuid("import_batch_id").nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 2 index(es) declared on this entity are not emitted —

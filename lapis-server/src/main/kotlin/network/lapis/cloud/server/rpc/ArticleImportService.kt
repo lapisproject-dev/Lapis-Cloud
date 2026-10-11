@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
+import network.lapis.cloud.server.articles.ArticleBulkApprover
 import network.lapis.cloud.server.articles.ArticleImporter
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -8,8 +9,10 @@ import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.ArticleBulkApproveResultDto
 import network.lapis.cloud.shared.domain.ArticleImportPreviewDto
 import network.lapis.cloud.shared.domain.ArticleImportResultDto
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IArticleImportService
 import kotlin.uuid.Uuid
@@ -24,6 +27,7 @@ class ArticleImportService(
     private val call: ApplicationCall,
     private val previewRateLimiter: FederationInboxRateLimiter,
     private val commitRateLimiter: FederationInboxRateLimiter,
+    private val bulkApproveRateLimiter: FederationInboxRateLimiter,
 ) : IArticleImportService {
     override suspend fun previewArticleImport(
         json: String,
@@ -57,6 +61,27 @@ class ArticleImportService(
             now = now,
             wallNow = OrganizationTimeZone.wallNowOf(now),
             orgZone = OrganizationTimeZone.current(),
+        )
+    }
+
+    override suspend fun approveImportedArticles(articleIds: List<String>): ArticleBulkApproveResultDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.BOARD, AccountRole.ADMIN)
+        requireWithinRate(limiter = bulkApproveRateLimiter, memberId = current.memberId)
+        if (articleIds.isEmpty()) throw BadRequestException("Keine Artikel angegeben.")
+        // Counted BEFORE duplicates are removed and never truncated: a client that sends more than it can show is a bug, not something to hide.
+        if (articleIds.size > ArticleBulkApprover.MAX_IDS_PER_CALL) {
+            throw BadRequestException("Höchstens ${ArticleBulkApprover.MAX_IDS_PER_CALL} Artikel je Aufruf.")
+        }
+        val ids =
+            articleIds
+                .map { raw -> runCatching { Uuid.parse(raw) }.getOrElse { throw BadRequestException("Ungültige Artikelkennung.") } }
+                .distinct()
+        return ArticleBulkApprover.approve(
+            ids = ids,
+            actorMemberId = current.memberId,
+            actorRole = current.role,
+            now = DbClock.nowLocalDateTime(),
         )
     }
 

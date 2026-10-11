@@ -457,6 +457,69 @@ abstract class ArticleImportScenarios(
             page.take(2) shouldContainExactly listOf("${slugPrefix}2", "${slugPrefix}1")
         }
 
+        test(
+            "V1.9.106: every article of one commit shares one import batch id, two commits differ, a commit that creates nothing returns none",
+        ) {
+            val first = commit(payload(entry(1), entry(2)))
+            val second = commit(payload(entry(3)))
+            val empty = commit(payload(entry(1)))
+            val firstId = first.importBatchId!!
+            firstId shouldBe rowOf(1)[ArticleTable.importBatchId].toString()
+            rowOf(2)[ArticleTable.importBatchId].toString() shouldBe firstId
+            rowOf(3)[ArticleTable.importBatchId].toString() shouldBe second.importBatchId
+            (second.importBatchId != firstId) shouldBe true
+            empty.created shouldBe 0
+            empty.importBatchId shouldBe null
+        }
+
+        test(
+            "V1.9.106: the batch id is stable when the transaction block runs again (drawn outside the block) and is part of the summary audit",
+        ) {
+            val runs = AtomicInteger(0)
+            val racing = "${slugPrefix}2"
+            val result =
+                commit(payload(entry(1), entry(2), entry(3))) {
+                    if (runs.incrementAndGet() == 1) {
+                        val thread =
+                            Thread {
+                                transaction {
+                                    ArticleTable.insert {
+                                        it[id] = Uuid.random()
+                                        it[slug] = racing
+                                        it[title] = "Gleichzeitig angelegt"
+                                        it[excerpt] = "x"
+                                        it[body] = "y"
+                                        it[authorId] = board
+                                        it[status] = ArticleStatus.DRAFT
+                                        it[createdAt] = DbClock.nowLocalDateTime()
+                                        it[updatedAt] = DbClock.nowLocalDateTime()
+                                    }
+                                }
+                            }
+                        thread.start()
+                        thread.join()
+                    }
+                }
+            (runs.get() >= 2) shouldBe true
+            val batch = result.importBatchId!!
+            rowOf(1)[ArticleTable.importBatchId].toString() shouldBe batch
+            rowOf(3)[ArticleTable.importBatchId].toString() shouldBe batch
+            // the racing row is a plain draft: no batch id
+            rowOf(2)[ArticleTable.importBatchId] shouldBe null
+            val summary =
+                transaction {
+                    AuditLogEntryTable
+                        .selectAll()
+                        .where { AuditLogEntryTable.entityType eq AuditEntityType.ARTICLE_IMPORT }
+                        .orderBy(AuditLogEntryTable.sequenceNumber to SortOrder.DESC)
+                        .first()[AuditLogEntryTable.afterSnapshot]
+                }
+            Json
+                .parseToJsonElement(summary!!)
+                .jsonObject["importBatchId"]!!
+                .jsonPrimitive.content shouldBe batch
+        }
+
         test("the set of imported slugs is exactly what the payload said") {
             commit(payload(entry(5), entry(6), entry(7)))
             transaction {

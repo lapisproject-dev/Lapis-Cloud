@@ -152,6 +152,8 @@ verbatim so the two upload families never silently drift apart on limits.
   (every status except `DRAFT`, since an unsubmitted draft is not theirs to look at yet).
   `Cache-Control: private, no-store`.
 
+(Imported articles accept smaller covers than ordinary ones, see <<cover-limits>>.)
+
 Both cover routes (`GET`, and the author-only `POST`/`DELETE /api/articles/{id}/cover` upload/
 remove routes) apply existence-oracle discipline: an unknown id, a foreign member's article, and a
 genuinely missing cover all render the identical `404`, never a `401`/`403` -- a failing session
@@ -332,8 +334,64 @@ BOARD/ADMIN can import a JSON list of earlier articles (`IArticleImportService`,
   column; `approveArticle` keeps it for imported articles instead of stamping "now"), byline kind `IMPORTED` if the payload had one, no cover image.
 * *Cover changes of imported articles are audited:* every cover set/removal on an imported article writes an `ARTICLE`/`UPDATE` audit entry
   `{"cover":"set|removed"}` (no image content).
-* *No image field and no network access:* the importer never fetches a URL (no SSRF, no DNS rebinding); covers are uploaded afterwards through the
-  normal pipeline (JPEG/PNG, at least 800x600).
+* *No image field and no network access:* the importer never fetches a URL (no SSRF, no DNS rebinding); covers come afterwards, either one by one through the
+  normal pipeline or as an image ZIP (<<import-images>>, relaxed minimum size for imported articles, see <<cover-limits>>).
+* *One batch id per run (V1.9.106):* `ArticleImporter.commit` draws one random `importBatchId` OUTSIDE the transaction block (a retry of the block reuses it), stores it in
+  `article.import_batch_id` and in the summary audit entry, and returns it. The image commit and the audit of the bulk approval address a run through it.
+
+[kuml, article-import-flow, svg]
+----
+sequenceDiagram(name = "Article import: import, images, bulk approval (V1.9.106)") {
+    val importer = participant(name = "Board member A (importer)")
+    val server = participant(name = "Lapis Cloud")
+    val reviewer = participant(name = "Board member B")
+
+    message(from = importer, to = server, text = "previewArticleImport / commitArticleImport(json, hash)")
+    message(from = server, to = importer, text = "created as SUBMITTED, importBatchId")
+    message(from = importer, to = server, text = "POST /api/articles/import/images/preview (zip, slugs): nothing is written")
+    message(from = importer, to = server, text = "POST /api/articles/import/images/commit (zip, importBatchId): covers of THAT run, never overwritten")
+    message(from = reviewer, to = server, text = "approveImportedArticles(ids, at most 100)")
+    message(from = server, to = reviewer, text = "approved + skipped with reasons (own import, already decided, ...), one audit entry, no mail")
+}
+----
+
+[[import-bulk-approval]]
+=== Bulk approval of imported articles -- V1.9.106
+
+`IArticleImportService.approveImportedArticles` (`ArticleBulkApprover`) approves up to 100 imported, `SUBMITTED` articles in one transaction. It is deliberately NOT a loop over `approveArticle`:
+
+* *Same four-eyes rule, one source of truth.* `ArticleEditorialAccess.isOwnArticleForReview` is the predicate `approveArticle`, `rejectArticle` and the byline change refuse on (`requireNotOwnArticle`, extracted from
+  `ArticleService` with the same text and the same behaviour) and the bulk approval skips on (`OWN_IMPORT`). It is evaluated against the freshly row-locked row.
+* *Lock order.* `ORDER BY id ... FOR UPDATE` over the requested ids: two parallel calls cannot deadlock; the loser finds the rows `PUBLISHED` and reports `NOT_SUBMITTED`.
+* *Only imported rows.* `NOT_IMPORTED` rows are never touched, whatever their status; the `UPDATE` itself repeats `status = SUBMITTED AND imported = TRUE` as a guard.
+* *No external effect.* No mail per article (a tripwire pins that the file references no notifier), no webhook. The audit entry `ARTICLE_BULK_APPROVED` is written last (chain lock) and only if something was approved;
+  it carries counts, batch ids (up to 10) and the approved article ids, never a title.
+* *Honest numbers in the UI.* The list of submitted articles is capped at 200 and one call at 100; the button names exactly the articles it sends ("Die ersten ... (100)" when more wait) and the result lists every skipped article in plain words.
+
+[[import-images]]
+=== Image ZIP of the import -- V1.9.106
+
+Two multipart routes (`registerArticleImportImageRoutes`), BOARD/ADMIN, API in `docs/api/article-import.adoc`. Design:
+
+* *The ZIP is hostile input.* `ArticleImportZipReader` works in two passes, entirely in memory, and never lets a name near the file system (stored files get `Uuid.random()` names from `EventCoverStorage`; a tripwire forbids `File`, `Files`,
+  paths, `ZipInputStream` and `ZipFile` in these files). Pass 1 is a strict central-directory parser (whitelist: end record in the last 64 KiB and closing the file exactly, entry count <= 100 before anything is read, no ZIP64/multi-disk,
+  stored/deflated only, no encryption, no symlink or directory attribute, printable-ASCII names matching `slug.jpg|jpeg|png`, declared sizes and ratio within the limits). Pass 2 cross-checks every local header against the central entry
+  (name, method), refuses overlapping data ranges, inflates with a hard counter on the bytes actually produced (a lying header cannot get past it) and compares size and CRC-32. Only entries that are used are inflated.
+  `java.util.zip.Inflater` with raw input replaces `ZipInputStream`/`ZipFile` so no name decoding or attribute handling has to be re-validated.
+* *Size before everything.* `installArticleImportImagesBodyLimit` answers `413` for a POST without `Content-Length` or above 25 MiB + 128 KiB before authentication; the handler repeats the check after authorization and the ZIP part is cut off while streaming.
+* *Preview is honest.* It performs the full image processing, so "OK (1200 x 800)" is the size that would really be stored. It writes nothing; the CPU cost is bounded by the decode semaphore and a 3 per minute budget.
+* *Commit is scoped and idempotent.* Targets are read from `import_batch_id = batch AND imported = TRUE`; an existing cover is never replaced. Files are written before the transaction, the transaction locks the targets in id order and re-checks
+  batch, flag and "no cover yet" under the lock, the decision to keep or delete a file is taken from the transaction's result afterwards, and an exception deletes every file of the call (Exposed may run the block again, so no file operation is inside it).
+  One audit entry per call; no per-article `ARTICLE`/`UPDATE` entry (that would double the count).
+* *A failure of the image step never undoes the articles.* The screen offers "Bilder erneut übernehmen"; the commit is idempotent.
+
+[[cover-limits]]
+=== Cover size limits of imported articles -- V1.9.106
+
+Legacy website images are often small, so an IMPORTED article accepts covers from **300 px width** (height at least 150 px, aspect 1:2 to 4:1 after the EXIF rotation, never enlarged); every other article and every event keeps 800x600.
+`CoverImageLimits` now carries a rule (`LongShortEdge` for events and chapter crests, bit-identical to before; `WidthAndAspect` for imported articles). The ONLY factory is `ArticleCoverPolicy.limitsForArticle(imported)`, and its
+argument is always the DB row's `imported` flag (the cover route uses the pre-check row and re-checks the locked row; the image commit uses the batch target read from the table). `imported` is written once by `ArticleStore.insertImported`,
+no request DTO has such a property and no multipart field is read for it; tripwires pin all of this.
 
 == DSGVO / personal-data handling
 

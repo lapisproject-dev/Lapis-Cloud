@@ -63,7 +63,12 @@ class ArticleImportServiceRpcTest :
 
         fun Route.importRoutes(limiter: FederationInboxRateLimiter) {
             fun serviceFor(call: ApplicationCall) =
-                ArticleImportService(call = call, previewRateLimiter = limiter, commitRateLimiter = limiter)
+                ArticleImportService(
+                    call = call,
+                    previewRateLimiter = limiter,
+                    commitRateLimiter = limiter,
+                    bulkApproveRateLimiter = limiter,
+                )
             post("/test/import/preview") {
                 val labels =
                     call.request.queryParameters["labels"]
@@ -80,6 +85,15 @@ class ArticleImportServiceRpcTest :
                         payloadSha256 = call.request.queryParameters["hash"].orEmpty(),
                     )
                 call.respondText("${result.created}/${result.skipped}")
+            }
+            post("/test/import/approve") {
+                val ids =
+                    call.request.queryParameters["ids"]
+                        .orEmpty()
+                        .split(',')
+                        .filter { it.isNotEmpty() }
+                val result = serviceFor(call).approveImportedArticles(articleIds = ids)
+                call.respondText("${result.approvedCount}/${result.skipped.size}")
             }
         }
 
@@ -203,6 +217,69 @@ class ArticleImportServiceRpcTest :
                         header("X-Member-Id", board.toString())
                         setBody(payload)
                     }.status shouldBe HttpStatusCode.Conflict
+            }
+        }
+
+        test(
+            "approveImportedArticles: MEMBER and TREASURER are forbidden before anything else, even with garbage ids and an exhausted rate limit",
+        ) {
+            val member = seeded(AccountRole.MEMBER)
+            val treasurer = seeded(AccountRole.TREASURER)
+            testApplication {
+                application {
+                    install(StatusPages) {
+                        exception<ForbiddenException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Forbidden) }
+                        exception<ConflictException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
+                        exception<BadRequestException> {
+                            call,
+                            cause,
+                            ->
+                            call.respondText(cause.message, status = HttpStatusCode.BadRequest)
+                        }
+                    }
+                    routing { importRoutes(FederationInboxRateLimiter(maxRequests = 1, window = 1.minutes)) }
+                }
+                for (who in listOf(member, treasurer, member)) {
+                    client
+                        .post("/test/import/approve?ids=garbage") {
+                            header("X-Member-Id", who.toString())
+                        }.status shouldBe HttpStatusCode.Forbidden
+                }
+            }
+        }
+
+        test(
+            "approveImportedArticles: empty list, more than 100 ids and an invalid id are 400 and change nothing; the call is rate limited",
+        ) {
+            val board = seeded(AccountRole.BOARD)
+            testApplication {
+                application {
+                    install(StatusPages) {
+                        exception<ConflictException> { call, cause -> call.respondText(cause.message, status = HttpStatusCode.Conflict) }
+                        exception<BadRequestException> {
+                            call,
+                            cause,
+                            ->
+                            call.respondText(cause.message, status = HttpStatusCode.BadRequest)
+                        }
+                    }
+                    routing { importRoutes(FederationInboxRateLimiter(maxRequests = 4, window = 1.minutes)) }
+                }
+                client.post("/test/import/approve") { header("X-Member-Id", board.toString()) }.status shouldBe HttpStatusCode.BadRequest
+                val tooMany = (1..101).joinToString(",") { Uuid.random().toString() }
+                val tooManyResponse = client.post("/test/import/approve?ids=$tooMany") { header("X-Member-Id", board.toString()) }
+                tooManyResponse.status shouldBe HttpStatusCode.BadRequest
+                tooManyResponse.bodyAsText() shouldBe "Höchstens 100 Artikel je Aufruf."
+                client.post("/test/import/approve?ids=nope") { header("X-Member-Id", board.toString()) }.status shouldBe
+                    HttpStatusCode.BadRequest
+                // exactly 100 distinct unknown ids are fine (all NOT_FOUND)
+                val hundred = (1..100).joinToString(",") { Uuid.random().toString() }
+                client
+                    .post("/test/import/approve?ids=$hundred") { header("X-Member-Id", board.toString()) }
+                    .bodyAsText() shouldBe "0/100"
+                client
+                    .post("/test/import/approve?ids=$hundred") { header("X-Member-Id", board.toString()) }
+                    .status shouldBe HttpStatusCode.Conflict
             }
         }
     })

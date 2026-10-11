@@ -49,7 +49,7 @@ class CoverImageLimitsTest :
                 EventCoverImageProcessor.process(bytes = source, format = CoverImageFormat.PNG, limits = CoverImageLimits.EVENT_COVER)
             (implicit as CoverProcessingResult.Ok).bytes.toList() shouldBe (explicit as CoverProcessingResult.Ok).bytes.toList()
             EventCoverImageProcessor.process(bytes = png(width = 100, height = 100), format = CoverImageFormat.PNG) shouldBe
-                CoverProcessingResult.DimensionsTooSmall
+                CoverProcessingResult.DimensionsTooSmall(width = 100, height = 100)
             // The event cover still downsizes to 1600 px.
             val big = decode(EventCoverImageProcessor.process(bytes = png(width = 3200, height = 1600), format = CoverImageFormat.PNG))
             big.width shouldBe 1600
@@ -64,9 +64,9 @@ class CoverImageLimitsTest :
                 (it is CoverProcessingResult.Ok) shouldBe true
             }
             EventCoverImageProcessor.process(bytes = png(width = 63, height = 200), format = CoverImageFormat.PNG, limits = crest) shouldBe
-                CoverProcessingResult.DimensionsTooSmall
+                CoverProcessingResult.DimensionsTooSmall(width = 63, height = 200)
             EventCoverImageProcessor.process(bytes = png(width = 200, height = 63), format = CoverImageFormat.PNG, limits = crest) shouldBe
-                CoverProcessingResult.DimensionsTooSmall
+                CoverProcessingResult.DimensionsTooSmall(width = 200, height = 63)
             // The decompression-bomb guard is shared and independent of the limits.
             EventCoverImageProcessor.process(bytes = png(width = 8001, height = 70), format = CoverImageFormat.PNG, limits = crest) shouldBe
                 CoverProcessingResult.DimensionsTooLarge

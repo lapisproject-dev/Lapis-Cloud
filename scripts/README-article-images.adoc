@@ -1,0 +1,65 @@
+= prepare-article-images.py
+:toc:
+
+Prepares the **image ZIP** for the article import of Lapis Cloud (`#/articles/import`, field "Bilder (ZIP, optional)"): it turns a directory of images into a flat ZIP
+whose entries are named `<slug>.jpg` or `<slug>.png`, exactly what the server accepts (see `docs/api/article-import.adoc`, section "Image ZIP").
+
+== Requirements
+
+* Python 3.9 or newer
+* https://python-pillow.org/[Pillow] (`pip install pillow`; the tests use 11.3.0)
+* only for SVG input: `rsvg-convert` (librsvg) or ImageMagick (`magick`) on the `PATH`
+
+== Usage
+
+----
+scripts/prepare-article-images.py INPUT_DIR -o OUT.zip [--mapping map.csv] [--quiet]
+----
+
+`INPUT_DIR` is read flat (no sub-directories). Symbolic links are never followed, hidden files and unknown file types are skipped with a warning.
+
+By default the **file name without its extension, in lowercase, is the slug** (`Mein-Artikel.JPG` becomes `mein-artikel`). A slug follows the server's rule: lowercase letters and digits,
+separated by single `-` or `_`, at most 120 characters. For files whose name is not the slug, pass a CSV file with the columns `filename,slug` (an optional header row and `#` comment lines are ignored):
+
+----
+filename,slug
+IMG_2041.jpg,parteitag-bericht
+Titelbild (final).png,jahresrueckblick-2024
+----
+
+== What it does to each image
+
+[cols="1,3"]
+|===
+|Input |Result
+
+|JPEG, PNG |keeps its format (`.jpg`, `.png`); the EXIF rotation is applied first, all metadata is dropped
+|WebP |becomes a JPEG (quality 88); transparency is flattened onto white; an animation keeps only its first frame and is reported
+|SVG |is rendered to a PNG, 1600 px wide
+|===
+
+* The long edge is reduced to **1600 px**; a smaller image is never enlarged.
+* A JPEG above 5 MB is re-encoded with a lower quality (88, 82, 76, 70). A PNG above 5 MB is optimized; if it is still too big it is skipped and reported (it is deliberately **not** turned into a JPEG: that would lose transparency and change the name).
+* The server's minimums are checked here too: width at least 300 px, height at least 150 px, width/height between 1:2 and 4:1. Images outside are **skipped and reported**, not guessed.
+* Source images above 40 megapixels are refused (a decompression-bomb guard).
+* The ZIP is flat, stores its entries without compression (images are compressed already, and a stored entry can never trip the server's compression-ratio guard), has fixed timestamps (the same input gives the same ZIP) and holds at most 100 images and 25 MiB.
+
+== Exit codes
+
+[cols="1,3"]
+|===
+|Code |Meaning
+
+|0 |every image went into the ZIP
+|1 |a ZIP was written, but images were skipped or changed with a warning (see stderr)
+|2 |fatal: nothing written (bad arguments, no usable image, two files for one slug, a name that is no slug, more than 100 images, ZIP above 25 MiB) -- or SVG files were present but no SVG renderer is installed (the ZIP then holds the other images)
+|===
+
+== Tests
+
+----
+python3 -B -m unittest discover -s scripts -p 'test_prepare_article_images.py'
+----
+
+The fixtures are drawn at run time into a temporary directory; no image is stored in the repository. (`python3 -I` would ignore a user-site installation of Pillow; use it inside a virtual environment.)
+The SVG test is skipped when no renderer is installed. Run the tests on Python 3.9: the script avoids newer syntax.

@@ -14,6 +14,7 @@ import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.readAvailable
+import network.lapis.cloud.server.events.CoverImageLimits
 import network.lapis.cloud.server.events.CoverProcessingResult
 import network.lapis.cloud.server.events.EventCoverImageProcessor
 import network.lapis.cloud.server.events.EventCoverPolicy
@@ -101,7 +102,9 @@ internal data class ProcessedCoverUpload(
  * extraction, and returns `null` -- the caller's own handler must `return@post`/`return@put`
  * immediately in that case, exactly as the pre-extraction inline code did.
  */
-internal suspend fun ApplicationCall.receiveSingleCoverUpload(): ProcessedCoverUpload? {
+internal suspend fun ApplicationCall.receiveSingleCoverUpload(
+    limits: CoverImageLimits = CoverImageLimits.EVENT_COVER,
+): ProcessedCoverUpload? {
     val bytes: ByteArray =
         when (val received = receiveSingleUploadBytes(EventCoverPolicy.MAX_UPLOAD_BYTES)) {
             SingleUploadReceive.TooLarge -> {
@@ -125,17 +128,14 @@ internal suspend fun ApplicationCall.receiveSingleCoverUpload(): ProcessedCoverU
         return null
     }
 
-    val result = EventCoverImageProcessor.process(bytes = bytes, format = format)
+    val result = EventCoverImageProcessor.process(bytes = bytes, format = format, limits = limits)
     when (result) {
         CoverProcessingResult.DimensionsTooLarge -> {
             respond(HttpStatusCode.UnprocessableEntity, "Das Bild ist zu gross (maximal ${EventCoverPolicy.MAX_EDGE_PX}px Kantenlaenge).")
             return null
         }
-        CoverProcessingResult.DimensionsTooSmall -> {
-            respond(
-                HttpStatusCode.UnprocessableEntity,
-                "Das Bild ist zu klein (mindestens ${EventCoverPolicy.MIN_LONG_EDGE_PX}x${EventCoverPolicy.MIN_SHORT_EDGE_PX}px, je nach Ausrichtung).",
-            )
+        is CoverProcessingResult.DimensionsTooSmall -> {
+            respond(HttpStatusCode.UnprocessableEntity, "Das Bild ist zu klein (${limits.describeMinimumDe()}).")
             return null
         }
         CoverProcessingResult.Undecodable -> {

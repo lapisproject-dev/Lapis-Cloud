@@ -171,6 +171,9 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // Welle V1.9.102 "Gremien, Welle B"
         AuditEntityType.COMMITTEE_MEMBERSHIP -> gettext("Gremienmitgliedschaft")
         AuditEntityType.ARTICLE_IMPORT -> gettext("Artikelimport")
+        // Welle V1.9.106 "Artikel-Import, Nachbesserung"
+        AuditEntityType.ARTICLE_BULK_APPROVED -> gettext("Sammelfreigabe von Artikeln")
+        AuditEntityType.ARTICLE_IMPORT_IMAGES_APPLIED -> gettext("Bilder-Import für Artikel")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -277,6 +280,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // Welle V1.9.102 -- an automatic end of a committee seat: informational (the status change itself is audited separately).
         AuditEntityType.COMMITTEE_MEMBERSHIP -> "info"
         AuditEntityType.ARTICLE_IMPORT -> "info"
+        AuditEntityType.ARTICLE_BULK_APPROVED -> "info"
+        AuditEntityType.ARTICLE_IMPORT_IMAGES_APPLIED -> "info"
     }
 
 // ------------------------------------------------------------------------------------------------

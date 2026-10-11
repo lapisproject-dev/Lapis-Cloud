@@ -576,6 +576,9 @@ fun decodeAuditSnapshot(
             AuditEntityType.COMMITTEE_MEMBERSHIP -> null
             // Welle V1.9.105 -- ArticleImporter writes one small hand-built JSON object (counts + payload checksum), no snapshot class: raw text.
             AuditEntityType.ARTICLE_IMPORT -> null
+            // Welle V1.9.106 -- small hand-built JSON objects (counts + ids), no snapshot class: raw text.
+            AuditEntityType.ARTICLE_BULK_APPROVED -> null
+            AuditEntityType.ARTICLE_IMPORT_IMAGES_APPLIED -> null
         }
     }.getOrNull()
 

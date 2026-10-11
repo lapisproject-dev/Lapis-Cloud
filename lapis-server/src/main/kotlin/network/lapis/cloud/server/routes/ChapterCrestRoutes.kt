@@ -132,7 +132,7 @@ internal fun Route.registerChapterCrestRoutes(
                             limits = CoverImageLimits.CHAPTER_CREST,
                         )
                 ) {
-                    CoverProcessingResult.DimensionsTooSmall -> {
+                    is CoverProcessingResult.DimensionsTooSmall -> {
                         call.respondCrestError(status = HttpStatusCode.UnprocessableEntity, error = ChapterCrestUploadError.TOO_SMALL)
                         return@post
                     }

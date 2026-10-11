@@ -94,7 +94,7 @@ class ArticleImportTripwireTest :
             val service = code(File(root, "network/lapis/cloud/server/rpc/ArticleImportService.kt"))
             val methods =
                 Regex("""override suspend fun (\w+)\([^)]*\)[^{]*\{(.*?)\n    }""", RegexOption.DOT_MATCHES_ALL).findAll(service).toList()
-            methods.map { it.groupValues[1] } shouldBe listOf("previewArticleImport", "commitArticleImport")
+            methods.map { it.groupValues[1] } shouldBe listOf("previewArticleImport", "commitArticleImport", "approveImportedArticles")
             for (method in methods) {
                 val statements =
                     method.groupValues[2]
@@ -115,6 +115,7 @@ class ArticleImportTripwireTest :
                     "network/lapis/cloud/server/articles/ArticleImportText.kt",
                     "network/lapis/cloud/server/articles/ArticleBylinePolicy.kt",
                     "network/lapis/cloud/server/rpc/ArticleImportService.kt",
+                    "network/lapis/cloud/server/articles/ArticleBulkApprover.kt",
                 )
             val forbidden =
                 listOf(
@@ -150,6 +151,16 @@ class ArticleImportTripwireTest :
                     service.indexOf("override suspend fun listSubmittedArticles("),
                 )
             bylinePart.contains("logger") shouldBe false
+        }
+
+        test("V1.9.106: the bulk approver sends no mail per article and never logs; the four-eyes check is the shared predicate") {
+            val approver = code(File(root, "network/lapis/cloud/server/articles/ArticleBulkApprover.kt"))
+            listOf("reviewNotifier", "Notification", "Mailer", "logger", "println").forEach { approver.contains(it) shouldBe false }
+            approver.contains("ArticleEditorialAccess.isOwnArticleForReview(") shouldBe true
+            // ArticleService must use the same shared helper, not a private copy
+            val service = code(File(root, "network/lapis/cloud/server/rpc/ArticleService.kt"))
+            service.contains("private fun requireNotOwnArticle") shouldBe false
+            service.contains("ArticleEditorialAccess.requireNotOwnArticle(") shouldBe true
         }
 
         test("the import has no image field: coverImage/image appear in no import source as an accepted key") {

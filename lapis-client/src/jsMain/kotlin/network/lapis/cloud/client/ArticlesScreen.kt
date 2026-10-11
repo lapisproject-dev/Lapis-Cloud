@@ -2,9 +2,13 @@ package network.lapis.cloud.client
 
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.Div
+import io.kvision.html.TAG
+import io.kvision.html.Tag
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.p
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
@@ -13,10 +17,12 @@ import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.ArticleBulkSkipReason
 import network.lapis.cloud.shared.domain.ArticleBylineKind
 import network.lapis.cloud.shared.domain.ArticleDto
 import network.lapis.cloud.shared.domain.ArticleStatus
 import network.lapis.cloud.shared.domain.ArticleSummaryDto
+import network.lapis.cloud.shared.rpc.IArticleImportService
 import network.lapis.cloud.shared.rpc.IArticleService
 
 private enum class ArticlesTab { MINE, REVIEW, PUBLISHED }
@@ -234,16 +240,27 @@ private fun renderMyArticleCard(
 // -- "Freigabe" (BOARD/ADMIN) --
 
 private fun renderReviewTab(panel: SimplePanel) {
+    // The live region is part of the page from the first render on (a region inserted together with its message is often not announced) and is
+    // never cleared by a reload of the queue.
+    val liveRegion =
+        panel.div {
+            addCssClasses("small")
+            setAttribute("role", "status")
+            setAttribute("aria-live", "polite")
+        }
+    val bulkPanel = panel.simplePanel()
     val listPanel = panel.simplePanel { addCssClass("lapis-card-list") }
 
     fun load() {
         listPanel.removeAll()
+        bulkPanel.removeAll()
         AppScope.launch {
             val queue = guarded { rpcService<IArticleService>().listSubmittedArticles() }
             if (queue == null) {
                 listPanel.dataErrorState(onRetry = ::load)
                 return@launch
             }
+            renderBulkApproval(bulkPanel, queue, liveRegion, ::load)
             if (queue.isEmpty()) {
                 listPanel.p(tr("Keine Artikel zur Freigabe.")) { addCssClasses("text-muted") }
                 return@launch
@@ -253,6 +270,125 @@ private fun renderReviewTab(panel: SimplePanel) {
     }
     load()
 }
+
+/** Mirrors `ArticleBulkApprover.MAX_IDS_PER_CALL`: the call refuses more, so the client sends exactly what it shows. */
+internal const val ARTICLE_BULK_APPROVE_MAX = 100
+
+/** The imported articles of [queue] that the calling member may approve in bulk: imported, and not imported by themselves (four-eyes). */
+internal fun bulkApprovable(queue: List<ArticleSummaryDto>): List<ArticleSummaryDto> = queue.filter { it.imported && !it.importedBySelf }
+
+/**
+ * Welle V1.9.106 -- the bulk approval of imported articles above the review list. Shown only while imported articles wait. The member who ran
+ * the import sees no button, only the reason; everybody else gets one button for AT MOST [ARTICLE_BULK_APPROVE_MAX] articles -- exactly the
+ * ones the button names, oldest first -- and a confirmation that says so. The server skips what it must (own import, already decided) and
+ * reports it: the result is announced in [liveRegion] and every skipped article is listed in plain words.
+ */
+private fun renderBulkApproval(
+    host: SimplePanel,
+    queue: List<ArticleSummaryDto>,
+    liveRegion: Div,
+    onChanged: () -> Unit,
+) {
+    val imported = queue.filter { it.imported }
+    if (imported.isEmpty()) return
+    val approvable = bulkApprovable(queue)
+    val own = imported.size - approvable.size
+    val region =
+        host.vPanel(spacing = 6) {
+            addCssClass("lapis-data-card")
+            setAttribute("role", "region")
+            setAttribute("aria-labelledby", "article-bulk-heading")
+        }
+    region.div(gettext("Importierte Artikel zur Freigabe: %1", imported.size)) {
+        setAttribute("id", "article-bulk-heading")
+        addCssClasses("fw-bold")
+    }
+    if (approvable.isEmpty()) {
+        region.div(
+            tr("Diese Artikel haben Sie importiert. Ein anderes Vorstandsmitglied muss sie freigeben."),
+        ) { addCssClasses("text-muted") }
+        return
+    }
+    val batch = approvable.take(ARTICLE_BULK_APPROVE_MAX)
+    val count = batch.size
+    val moreThanShown = approvable.size > ARTICLE_BULK_APPROVE_MAX
+    val button =
+        region.actionButton(
+            ActionIcon.APPROVE,
+            if (moreThanShown) {
+                gettext(
+                    "Die ersten importierten Artikel freigeben (%1)",
+                    count,
+                )
+            } else {
+                gettext("Alle importierten Artikel freigeben (%1)", count)
+            },
+            style = ButtonStyle.OUTLINESUCCESS,
+        )
+    button.setStyle("min-height", "44px")
+    if (moreThanShown) {
+        region.div(gettext("Weitere folgen nach dieser Freigabe: %1", approvable.size - count)) { addCssClasses("text-muted small") }
+    }
+    if (own > 0) {
+        region.div(gettext("Von Ihnen importiert und deshalb nicht von Ihnen freigebbar: %1", own)) { addCssClasses("text-muted small") }
+    }
+    button.onClick {
+        confirmDialog(
+            title = tr("Importierte Artikel freigeben?"),
+            message =
+                tr(
+                    "Die Artikel erscheinen öffentlich mit ihrem ursprünglichen Datum. Sie können einzelne Artikel später depublizieren.",
+                ),
+            confirmLabel = gettext("Freigeben (%1)", count),
+            confirmIcon = ActionIcon.APPROVE,
+            confirmStyle = ButtonStyle.SUCCESS,
+            extraLines = listOf(gettext("Anzahl der Artikel: %1", count)),
+            focusCancel = true,
+        ) {
+            // The button stays out of reach until the call is answered (a double click must not send the same ids twice).
+            button.disabled = true
+            AppScope.launch {
+                val result = guarded { rpcService<IArticleImportService>().approveImportedArticles(batch.map { it.id }) }
+                if (result == null) {
+                    button.disabled = false
+                    return@launch
+                }
+                liveRegion.removeAll()
+                liveRegion.div(gettext("Freigegeben: %1, übersprungen: %2.", result.approvedCount, result.skipped.size))
+                if (result.skipped.isNotEmpty()) {
+                    val details = Tag(TAG.DETAILS)
+                    details.add(Tag(TAG.SUMMARY, content = tr("Übersprungene Artikel anzeigen")))
+                    val list = SimplePanel()
+                    result.skipped.forEach { skip ->
+                        // The title is untrusted text, the reason a translated sentence: two elements, never one glued string.
+                        val line = list.div { addCssClasses("text-muted") }
+                        skip.title?.takeIf { it.isNotBlank() }?.let {
+                            line.untrustedSpan(it)
+                            line.span(" – ")
+                        }
+                        line.span(bulkSkipReasonText(skip.reason))
+                    }
+                    details.add(list)
+                    liveRegion.add(details)
+                }
+                if (result.approvedCount >
+                    0
+                ) {
+                    notifySuccess(gettext("Freigegeben: %1, übersprungen: %2.", result.approvedCount, result.skipped.size))
+                }
+                onChanged()
+            }
+        }
+    }
+}
+
+private fun bulkSkipReasonText(reason: ArticleBulkSkipReason): String =
+    when (reason) {
+        ArticleBulkSkipReason.OWN_IMPORT -> tr("Von Ihnen importiert")
+        ArticleBulkSkipReason.NOT_IMPORTED -> tr("Kein importierter Artikel")
+        ArticleBulkSkipReason.NOT_SUBMITTED -> tr("Bereits entschieden")
+        ArticleBulkSkipReason.NOT_FOUND -> tr("Nicht mehr vorhanden")
+    }
 
 private fun renderReviewSummaryCard(
     panel: SimplePanel,
