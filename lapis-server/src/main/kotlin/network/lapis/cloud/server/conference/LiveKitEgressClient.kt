@@ -173,6 +173,24 @@ interface LiveKitEgressClient {
         addUrls: List<String> = emptyList(),
         removeUrls: List<String> = emptyList(),
     ): LiveKitEgressInfo
+
+    /**
+     * V1.9.110 -- `POST .../StartParticipantEgress` with an [EncodedFileOutput] (MP4) instead of an RTMP stream: the recording's opt-in
+     * per-person mode. LiveKit composites ONE participant's audio and video into ONE file on ONE pipeline clock -- which is exactly
+     * what Track Egress cannot do (separate files per track, no RTCP sender-report synchronisation, a measured 5.3 s audio/video
+     * offset on the ELB recording `d08d4205`). [identity] is the LiveKit participant identity, [outputFilepath] the ABSOLUTE path
+     * inside the egress container INCLUDING the `.mp4` extension (an `EncodedFileOutput` is written exactly there, unlike Track Egress
+     * which appends the extension itself). The shape of this request is NOT live-verified (see
+     * `LiveKitParticipantFileEgressLiveIntegrationTest` and the staging runbook in `docs/architecture/conference-recording.adoc`).
+     *
+     * Throws [IllegalArgumentException] BEFORE any network call when [outputFilepath] is not an absolute `.mp4` path without `..`
+     * segments, backslashes or control characters, or when [identity] is blank or longer than 64 characters.
+     */
+    suspend fun startParticipantFileEgress(
+        roomName: String,
+        identity: String,
+        outputFilepath: String,
+    ): LiveKitEgressInfo
 }
 
 /**
@@ -324,6 +342,34 @@ class HttpLiveKitEgressClient(
             request = LiveKitUpdateStreamRequest(egressId = egressId, addOutputUrls = addUrls, removeOutputUrls = removeUrls),
         )
 
+    override suspend fun startParticipantFileEgress(
+        roomName: String,
+        identity: String,
+        outputFilepath: String,
+    ): LiveKitEgressInfo {
+        require(identity.isNotEmpty() && identity.length <= MAX_PARTICIPANT_IDENTITY_LENGTH) {
+            "participant identity must be 1..$MAX_PARTICIPANT_IDENTITY_LENGTH characters"
+        }
+        require(isSafeEgressOutputPath(outputFilepath)) {
+            "participant file egress output must be an absolute .mp4 path without '..', backslashes or control characters"
+        }
+        return call(
+            method = "StartParticipantEgress",
+            room = roomName,
+            request =
+                LiveKitStartParticipantFileEgressRequest(
+                    roomName = roomName,
+                    identity = identity,
+                    screenShare = false,
+                    advanced = RECORDING_PARTICIPANT_ENCODING_OPTIONS,
+                    fileOutputs =
+                        listOf(
+                            LiveKitEncodedFileOutput(fileType = "MP4", filepath = outputFilepath, disableManifest = true),
+                        ),
+                ),
+        )
+    }
+
     /**
      * Mirrors [HttpLiveKitAdminClient]'s own private `call` helper byte-for-byte (same timeout/
      * capped-read/exception-mapping discipline), except the token mint calls
@@ -397,6 +443,35 @@ internal val LOW_LATENCY_ENCODING_OPTIONS =
         audioBitrate = 128,
         keyFrameInterval = 1,
     )
+
+/** Longest participant identity accepted for a file egress -- matches the `participant_identity` VARCHAR(64) column. */
+internal const val MAX_PARTICIPANT_IDENTITY_LENGTH = 64
+
+/**
+ * V1.9.110 -- the encoding of a recorded person file (`StartParticipantEgress` with a file output): 1280x720, 30 fps, H.264 main
+ * 2500 kbit/s, AAC 128 kbit/s, a keyframe every 2 s. The keyframe interval also bounds how exactly a switched-off camera is detected
+ * ([RecordingBlankVideoDetector] reads keyframes only). Unlike Track Egress this RE-ENCODES, so every person costs real encoder CPU;
+ * on a small host 960x540 is the lever to pull.
+ */
+internal val RECORDING_PARTICIPANT_ENCODING_OPTIONS =
+    LiveKitEncodingOptions(
+        width = 1280,
+        height = 720,
+        framerate = 30,
+        videoCodec = "H264_MAIN",
+        videoBitrate = 2500,
+        audioCodec = "AAC",
+        audioBitrate = 128,
+        keyFrameInterval = 2,
+    )
+
+/** `true` iff [path] is an absolute `.mp4` path without a `..` segment, backslash or control character -- see [HttpLiveKitEgressClient.startParticipantFileEgress]. */
+internal fun isSafeEgressOutputPath(path: String): Boolean =
+    path.startsWith("/") &&
+        path.endsWith(".mp4") &&
+        '\\' !in path &&
+        path.none { it.isISOControl() } &&
+        path.split('/').none { it == ".." }
 
 // ── Wire shapes -- verified against a live LiveKit v1.13.5 + egress v1.13.0 instance, see
 // HttpLiveKitEgressClient KDoc ──
@@ -591,6 +666,32 @@ internal data class LiveKitStartParticipantEgressAdvancedRequest(
     val identity: String,
     val advanced: LiveKitEncodingOptions,
     @SerialName("stream_outputs") val streamOutputs: List<LiveKitStreamOutput>,
+)
+
+/**
+ * `livekit.EncodedFileOutput` (V1.9.110): [fileType] is always `"MP4"` here, [filepath] the absolute path inside the egress container.
+ * NOT live-verified, transcribed from `livekit_egress.proto`.
+ */
+@Serializable
+internal data class LiveKitEncodedFileOutput(
+    @SerialName("file_type") val fileType: String,
+    val filepath: String,
+    @SerialName("disable_manifest") val disableManifest: Boolean,
+)
+
+/**
+ * `StartParticipantEgress` request with a FILE output (V1.9.110). Only the `advanced` branch of the `preset`/`advanced` oneof exists on
+ * this type, so the oneof constraint holds by construction (see [HttpLiveKitEgressClient] KDoc "preset/advanced is a protobuf oneof").
+ * [screenShare] is always `false` and written explicitly: the person file carries the camera and the microphone, screen shares are
+ * recorded by Track Egress.
+ */
+@Serializable
+internal data class LiveKitStartParticipantFileEgressRequest(
+    @SerialName("room_name") val roomName: String,
+    val identity: String,
+    @SerialName("screen_share") val screenShare: Boolean,
+    val advanced: LiveKitEncodingOptions,
+    @SerialName("file_outputs") val fileOutputs: List<LiveKitEncodedFileOutput>,
 )
 
 /**

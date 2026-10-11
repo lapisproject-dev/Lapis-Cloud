@@ -31,6 +31,15 @@ enum class ConferenceRecordingStatus { RECORDING, STOPPING, PROCESSING, READY, F
 enum class ConferenceRecordingFailureCode { COMPOSE_FAILED, EGRESS_TIMEOUT, NO_TRACKS, NO_TRACK_STORED }
 
 /**
+ * V1.9.110 -- how the raw files of a recording are produced, and (on a track row) which kind of egress produced a file.
+ * [TRACK]: one Track Egress per published track (the behaviour up to V1.9.109). [PARTICIPANT]: one Participant Egress per person, audio
+ * and video muxed by LiveKit on one clock (opt-in, `LAPIS_RECORDING_EGRESS_MODE=participant`). Stored on `conference_recording.egress_mode`
+ * (fixed at start) and `conference_recording_track.egress_kind`. Literal order is load-bearing (`ConferenceRecordingSchemaDriftTest`).
+ */
+@Serializable
+enum class ConferenceRecordingEgressMode { TRACK, PARTICIPANT }
+
+/**
  * Mirrors LiveKit's own `livekit.proto` `TrackSource` enum -- see
  * `network.lapis.cloud.server.conference.LiveKitTrackInfo` KDoc for which literals are empirically
  * wire-verified against a live container (`CAMERA` only, as of this wave) versus transcribed from

@@ -5,6 +5,7 @@ package network.lapis.cloud.server.db.generated
 
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode
 import network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
@@ -36,6 +37,8 @@ public object ConferenceRecordingTable : Table("conference_recording") {
     public val recomputedAt: Column<LocalDateTime?> = datetime("recomputed_at").nullable()
     public val lastRecomputeFailureCode: Column<ConferenceRecordingFailureCode?> =
         enumerationByName<ConferenceRecordingFailureCode>("last_recompute_failure_code", 32).nullable()
+    public val egressMode: Column<ConferenceRecordingEgressMode> =
+        enumerationByName<ConferenceRecordingEgressMode>("egress_mode", 11).default(ConferenceRecordingEgressMode.TRACK)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

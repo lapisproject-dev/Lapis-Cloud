@@ -162,3 +162,9 @@ switched off and on within a second changes the layout twice. Picture and sound 
 A moderator can compose a finished recording anew with **Neu berechnen** (left of "Löschen" in the recordings list). The current video stays available until the new one is finished and then replaces it; the previous version remains in the document
 store as an earlier version. This needs the raw tracks: on instances that delete them after a successful composition (the default, `LAPIS_RECORDING_KEEP_RAW=false`) the button is disabled and says "Die Rohspuren sind nicht mehr vorhanden." The same budget as
 "Umkodierung neu starten" applies (at least 15 minutes between two attempts, 3 per 24 hours per recording). See link:../architecture/conference-recording.adoc[conference-recording.adoc].
+
+== Recordings per person (V1.9.110, opt-in)
+
+By default a recording captures every camera and microphone as a separate file, and those files can drift apart: on one real recording the picture was 5.3 seconds behind the sound. An operator can switch a different capture mode on (`LAPIS_RECORDING_EGRESS_MODE=participant`):
+then every person is recorded as ONE file in which picture and sound are kept together by LiveKit. The mode applies to recordings started afterwards; a recording that is already running keeps the mode it started with. Screen shares are still recorded separately and can be slightly offset against the voice.
+The mode needs noticeably more server CPU (every person is re-encoded) and has not yet been tried with a real browser participant: use the staging checks in link:../architecture/conference-recording.adoc[conference-recording.adoc] before relying on it. Recordings that were made earlier cannot be repaired.

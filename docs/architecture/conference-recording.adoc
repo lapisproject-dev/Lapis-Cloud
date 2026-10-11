@@ -1,4 +1,4 @@
-= Conference recording: composition, layout, sync, repair and recompute (V1.9.107, V1.9.109)
+= Conference recording: composition, layout, sync, repair, recompute and per-person egress (V1.9.107, V1.9.109, V1.9.110)
 :toc:
 
 NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs` Gradle task.
@@ -12,6 +12,8 @@ the audio ran far ahead of the video, and the video chain ran for about 8000 s i
 
 V1.9.109 replaces the one-big-filter-graph composition by a *segmented* one (a new layout that follows who is actually in the picture, A/V sync that holds over a long meeting) and adds "Neu berechnen":
 a moderator can compose a READY recording anew from its raw tracks. Both are described below; the section marked _(V1.9.107)_ describes the retry, which the new composer keeps.
+
+V1.9.110 adds an opt-in second way to capture the raw files, *Participant Egress* (one file per person with audio and video on one clock), because Track Egress cannot keep a person's audio and video in sync; see <<Participant egress mode (V1.9.110, opt-in)>>.
 
 == State machine
 
@@ -128,6 +130,117 @@ file both are within 150 ms of their nominal time and of each other (measured: w
 (`atempo`), a camera that lost every 20th frame, and a 20 s hole in the microphone's timeline. Length: `LAPIS_RECORDING_SYNC_TEST_MINUTES` (default 6), directory `LAPIS_RECORDING_SYNC_TEST_DIR`.
 The 70 minute proof was run by hand on 2026-10-11 (case base, 640 x 360, `LAPIS_RECORDING_SYNC_TEST_MINUTES=70`): passed, 4200.0 s, exact frame count, 121 MB, 3 min 7 s including the generation of the inputs.
 
+== Participant egress mode (V1.9.110, opt-in)
+
+=== Problem
+
+Track Egress writes every published track into its own file, and nothing synchronises those files with each other: LiveKit's Track Egress has no RTCP sender-report (SR) synchronisation between audio and video.
+Measured on the ELB recording `d08d4205` (2026-10-11): a hand clap is in the audio at 277.0 s and in the raw video at 282.3 s, an offset of 5.3 s that no later step can reconstruct.
+Existing recordings made in this mode are therefore not repairable; a recompute re-uses the very same raw files.
+
+`LAPIS_RECORDING_EGRESS_MODE=participant` records every person with `StartParticipantEgress` and an `EncodedFileOutput` instead: LiveKit's SDK pipeline muxes the person's microphone and camera into ONE MP4 on one pipeline clock.
+
+[kuml, conference-recording-participant-mode, svg]
+----
+activityDiagram(name = "Participant egress mode") {
+    val start = initialNode()
+    val list = action(name = "tick: ListParticipants of the room")
+    edge(from = start, to = list)
+    val gone = action(name = "person gone (SID no longer in the room): ONE StopEgress, refresh the row from ListEgress")
+    edge(from = list, to = gone)
+    val person = decision(name = "person")
+    edge(from = gone, to = person)
+    val startFile = action(name = "StartParticipantEgress, MP4 file p-<row uuid>.mp4; row egress_kind = PARTICIPANT, track_source = CAMERA, livekit_track_id = participant SID")
+    edge(from = person, to = startFile, guard = "camera or microphone track, participant SID unknown")
+    val share = decision(name = "share")
+    edge(from = person, to = share, guard = "otherwise")
+    edge(from = startFile, to = share)
+    val trackEgress = action(name = "StartTrackEgress as before; row egress_kind = TRACK")
+    edge(from = share, to = trackEgress, guard = "screen share track not yet recorded")
+    edge(from = trackEgress, to = finalNode())
+    edge(from = share, to = finalNode(), guard = "otherwise")
+}
+----
+
+=== What is decided, and why
+
+* *Opt-in, per recording.* `LAPIS_RECORDING_EGRESS_MODE` is `track` (default) or `participant` (trimmed, case-insensitive; anything else is `track` plus one warning). The mode is written to `conference_recording.egress_mode` (V90) when the recording starts. A server
+  restart with another value never changes a running recording: a person would otherwise have a Participant Egress AND per-track egresses, i.e. doubled audio.
+* *A separate column instead of a new `track_source`.* `conference_recording_track.egress_kind` (`TRACK`/`PARTICIPANT`, V90) marks a person file. The CHECK constraint on `track_source` is unnamed in V1; Postgres names it automatically, H2 generates its own name, so the usual
+  `DROP CONSTRAINT IF EXISTS` pair cannot remove it on H2. For a person file `track_source` is `CAMERA` (the picture's main source), so `rawFilesAvailable`, the egress timeout and every "has video" check stay valid; `livekit_track_id` holds the participant SID (`PA_...`).
+* *The path never contains the identity.* `RecordingEgressPaths.participantFile` builds `<container dir>/<recording uuid>/p-<row uuid>.mp4` from configuration and two server-generated UUIDs only; the row id is generated before the call. `HttpLiveKitEgressClient.startParticipantFileEgress` additionally
+  refuses (before any network call) a path that is not an absolute `.mp4` path, or contains `..`, a backslash or a control character, and an identity that is empty or longer than 64 characters. The identity is only serialised into the JSON body. Track-Egress file names
+  still contain the identity; both modes skip a participant whose identity is not `[A-Za-z0-9_.@:-]{1,64}` (warning once per participant).
+* *Encoding.* 1280 x 720, 30 fps, H.264 main 2500 kbit/s, AAC 128 kbit/s, a keyframe every 2 s (`RECORDING_PARTICIPANT_ENCODING_OPTIONS`; only the `advanced` branch of the `preset`/`advanced` oneof exists on the request type, `screen_share` is written explicitly as `false`).
+  The keyframe interval also bounds how exactly a switched-off camera is found (below). *CPU:* unlike Track Egress this RE-ENCODES, so every person is real encoder load; on a small host 960 x 540 is the lever to pull (edit the constant).
+* *Screen shares stay on Track Egress* (`SCREEN_SHARE`, `SCREEN_SHARE_AUDIO`; the person egress is started with `screen_share: false`). A screen share can therefore be offset against the person's voice, as before. Acceptable for slides, not for lip-sync.
+* *A person who leaves.* LiveKit hands out a new SID on every join. A person who comes back is a new row, a new file and a new picture in the layout. When a Participant-Egress row's SID is no longer in the room, the poller sends ONE `StopEgress` (remembered in memory until the
+  recording leaves STOPPING; remembered only after a SUCCESSFUL call, so a failed one is tried again) and refreshes that row from `ListEgress`.
+* *A refused start is not silently replaced.* If LiveKit refuses `StartParticipantEgress` (for instance because no egress CPU is left), the poller logs a warning (recording id, no identity) and tries again on the next tick. There is deliberately NO fallback to Track Egress: that would bring the
+  offset back unnoticed. The consequence is that the person is missing from the recording until capacity is free.
+* `maxTracks` counts every row, person files included.
+
+=== Composition: per-stream offsets, no `atempo`
+
+`ParticipantFileInputs.build` turns one person file into one video input and one audio input that point at the same file. `FfmpegSegmentedComposer` remuxes `0:v:0` and `0:a:0` into separate files, so media time 0 of each stream is *its own first packet*.
+In a real egress file the two streams do not start together: measured on a real `livekit/egress:v1.13.0` file (2026-10-11) video started 1.2 to 1.7 s after the audio. Giving both inputs the file's offset would therefore put the person 1.2 to 1.7 s out of sync inside the file.
+
+* `fileZero = min(videoStart, audioStart)` (`ffprobe stream.start_time`, `RecordingMediaProber.probeStreamStartTimes`); `videoOffset = fileOffset + (videoStart - fileZero)`, `audioOffset = fileOffset + (audioStart - fileZero)`. Only the difference counts, so a common shift or the AAC priming
+  (about -0.02 s) changes nothing. A stream whose start could not be measured is taken to start with the file (and a warning says so when neither could be measured).
+* The audio input has no wall-clock duration, so the composer never applies `atempo`: stretching only the audio would destroy the synchronicity the muxer created inside the file; the egress already resamples onto its pipeline clock.
+* The file's `file_results[].started_at` (relative to the recording's earliest track) is the file offset; `t0` and the output length are computed as before, so recordings that mix person files and screen shares need no special case.
+* *Who is in the picture.* The video ranges are the packet ranges of the video stream (gaps of at least 1 s) minus the black stretches (below). A file without a video stream contributes audio only; a picture that is black throughout contributes no video input at all
+  (an empty range list would mean "not measured, visible throughout" to the composer). If nothing visible is left in the whole recording the composition ends with `COMPOSE_FAILED`, as in the track mode.
+* *Recompute needs no special case.* `RecordingPoller.buildSpec` decides per ROW (`egress_kind`), not by the current configuration: a TRACK recording can be recomputed on an instance that now runs in participant mode and vice versa.
+
+=== Detecting "camera off"
+
+A person file is ONE continuous video stream, so a switched-off camera is not a gap in the packets any more. Two detections run, because the behaviour is expected but only partly confirmed:
+
+. *Packet gaps* of at least 1 s (as before). Covers an egress that writes nothing for a muted camera.
+. *Black pictures* (`FfmpegBlankVideoDetector`): `ffmpeg -copyts -skip_frame nokey -i <file> -map 0:v:0 -an -vf scale=160:-2,blackdetect=d=1.5:pic_th=0.98:pix_th=0.08 -f null -`. Only keyframes are decoded (one 720p picture every 2 s, a fraction of real time), so the accuracy is one keyframe interval.
+  Argument list without a shell, a constant filter string (the path appears only as the `-i` argument), stderr read with a line and byte cap and a hard timeout, the raw output never leaves the class. The times are container timestamps minus the video stream's start time. A black stretch that
+  ends within 2.5 s of the end of the picture runs to the end (the last keyframe closes it, so it would otherwise end up to one interval early).
+
+*Confirmed on a real egress file (2026-10-11, local `livekit-server` 1.13.5 + `egress` 1.13.0, a `livekit-cli` demo publisher whose video track was muted by `MutePublishedTrack` ten seconds in):* the egress keeps writing CONTINUOUS BLACK pictures (30 fps, luma 16, no packet gap, no freeze) from the moment of the mute;
+`blackdetect` on the keyframes reported the stretch within one keyframe interval. This is a synthetic Go publisher with a server-side mute, not a browser camera; the browser case is in the staging runbook.
+
+*Limits, not hidden.* A very dark REAL picture can count as "off" (`pix_th=0.08`). A frozen last picture would not be recognised (a possible follow-up: `freezedetect`); the real egress did not freeze. A camera that flickers for less than 1.5 s is ignored.
+
+=== Verified, and not verified
+
+* *Verified with a real `ffmpeg`* (`RecordingParticipantSyncIntegrationTest`): per-person MP4 files (H.264 + AAC) whose video starts 0.4 s after the audio go through the real prober, the real blank detector, `ParticipantFileInputs` and the real composer. In the composed file every flash and every beep of the 10 s pattern is within 150 ms
+  of its nominal time and of each other over all segments (two persons, one joining at 45 s and leaving at 135 s, a 20 s black stretch, the 120 s forced cut), the frame count is exact, and the detector finds the black stretch within the keyframe accuracy. The second case generates the picture 0.4 s later
+  than the sound INSIDE the file: the result keeps exactly that offset (0.4 s +- 0.15 s) -- the composer neither corrects nor adds anything within a file. Removing the per-stream offset makes both cases fail (flash 0.4 s early; checked by hand). Length: `LAPIS_RECORDING_PARTICIPANT_TEST_SECONDS`
+  (default 240). The inputs are synthetic, NOT written by a LiveKit egress.
+* *Verified against a real stack* (`LiveKitParticipantFileEgressLiveIntegrationTest`, `LAPIS_LIVEKIT_IT=true`, run on 2026-10-11 with the local compose stack and a `livekit-cli --publish-demo` participant): the request is accepted, the egress reaches `EGRESS_ACTIVE`, `StopEgress` ends it with `EGRESS_COMPLETE`, `file_results[0].filename` is exactly the path that was
+  sent (including `.mp4`), the file exists and has an AAC audio and an H.264 video stream (1280 x 720, 30 fps) with different start times, as described above. A participant that published only a video track still got an audio stream.
+* *NOT verified:* behaviour with a real browser participant (camera mute, spec "camera off" in a browser); a camera switched on LATE (a person who joined with the microphone only and enabled the camera after the egress started: whether the file then contains the camera is unknown -- if it does not, a follow-up wave must restart the egress when a new
+  source appears); whether LiveKit ends the egress by itself when the person leaves (the poller does not depend on it); the synchronicity of a person's voice and picture in a real recording (see the runbook, step 7); the CPU cost under load; the screen-share offset.
+* The local run used 2 CPUs and 3.8 GiB (Colima): LiveKit did not refuse the one egress started there. `egress.yaml` has `cpu_cost.participant_cpu_cost` and `max_cpu_utilization` (both keys confirmed in the v1.13.0 binary); the default values were not read -- read them from the egress startup log, do not assume them.
+
+=== Staging runbook (one person, real browser)
+
+Not run yet: it needs a deployed instance and a real browser. Run it before turning the mode on for a meeting that matters.
+
+. In `.env` set `LAPIS_RECORDING_EGRESS_MODE=participant` and `LAPIS_RECORDING_KEEP_RAW=true`, then `docker compose up -d lapis-server`. The log must show `ConferenceRecordingConfig(... egressMode=PARTICIPANT ...)`.
+. One person: start a recording, after 10 s clap clearly three times with 5 s between; switch the camera off for 20 s, switch it on, clap again; share the screen for 20 s; leave the room, join again, clap, stop the recording. Extra case: join with the camera off (microphone only) and switch the camera on after 30 s.
+. List the raw files: `docker compose exec lapis-server ls -la /app/egress-out/<recordingId>/` (expected: `p-<uuid>.mp4` per join and the screen-share files).
+. Check the streams: `ffprobe -v error -show_entries stream=index,codec_type,codec_name,start_time,duration -of compact p-<uuid>.mp4`
+. Claps in the audio: `ffmpeg -hide_banner -nostats -copyts -i p-<uuid>.mp4 -map 0:a:0 -af "asetnsamples=n=480,astats=metadata=1:reset=1,ametadata=mode=print:key=lavfi.astats.Overall.Peak_level:file=audio.txt" -f null -`,
+  then `awk -F'[: =]' '/pts_time/{t=$NF} /Peak_level/{if ($NF+0 > -6) print t}' audio.txt` (peaks above -6 dBFS).
+. Claps in the picture: `ffmpeg -hide_banner -nostats -copyts -i p-<uuid>.mp4 -map 0:v:0 -vf "scale=320:-2,format=gray,tblend=all_mode=difference,signalstats,metadata=mode=print:key=lavfi.signalstats.YAVG:file=video.txt" -f null -`,
+  then `awk -F'[: =]' '/pts_time/{t=$NF} /YAVG/{if ($NF+0 > 12) print t}' video.txt`. Calibrate the threshold on the resting value.
+. Acceptance: for every clap |t_video - t_audio| < 0.15 s (the Track-Egress value of the ELB recording on 2026-10-11 was 5.3 s).
+. The same measurement on the finished MP4 from the document store: also < 0.15 s. Note the offset of the screen share against the voice separately (known limit).
+. What does the egress write while the camera is off? Gap: `ffprobe -v error -select_streams v:0 -show_entries packet=pts_time -of csv=p=0 p-<uuid>.mp4 | awk 'NR>1 && $1-p>1 {print p" -> "$1} {p=$1}'`.
+  Black: `ffmpeg -hide_banner -nostats -copyts -skip_frame nokey -i p-<uuid>.mp4 -map 0:v:0 -an -vf "scale=160:-2,blackdetect=d=1.5:pic_th=0.98:pix_th=0.08" -f null - 2>&1 | grep black_start`.
+  Neither: probably a frozen last picture -- report it back.
+. Camera switched on late (extra case of step 2): does the file contain the camera from about 30 s on? If not, a follow-up wave is needed.
+. A person who left and came back: two `p-*.mp4`; the first egress is `EGRESS_COMPLETE` (server log or `lk egress list --room <livekitRoom>`).
+. CPU: `docker stats` of the egress container with at least three people; search the egress log for refused requests.
+. Trigger "Neu berechnen": a new document version; repeat step 8 on it.
+
 == Worker and poller
 
 Since V1.9.109 a composition no longer runs inside the poller's `tick()`. `tick()` collects the PROCESSING recordings and the READY recordings with a recompute marker and starts ONE worker coroutine for them, only when the single-slot semaphore is free
@@ -205,6 +318,7 @@ The segmented composition is slower than the single graph: one remux of each fil
 
 == Known limitations
 
+* *Participant egress mode is not verified with a real browser participant* and re-encodes (CPU), see <<Participant egress mode (V1.9.110, opt-in)>>: a late camera, the browser camera-off behaviour, the screen-share offset and the CPU cost are open; there is no fallback to Track Egress when LiveKit refuses a start; recordings made before V1.9.110 (Track Egress) keep their audio/video offset and cannot be repaired.
 * *Raw files are usually gone.* `LAPIS_RECORDING_KEEP_RAW` defaults to `false`, and the poller deletes the raw tracks after a successful composition: for such recordings "Neu berechnen" is disabled (with that reason). Only instances that set `KEEP_RAW=true` can recompute.
   No retention period was added in this wave.
 * *No name tag in the recording.* The composed video shows pictures only, no participant names.
@@ -215,7 +329,7 @@ The segmented composition is slower than the single graph: one remux of each fil
 * *The previous version stays* in the document store after a recompute (space).
 * *`-bf 0`* makes the video 5-10 % larger.
 * *Slower than before:* the composition is sequential (a remux of every file, then one `ffmpeg` run per segment and stream), one composition at a time system-wide.
-* *Gradle tests that need the `ffmpeg` binary* (`FfmpegCompositionIntegrationTest`, `RecordingSyncIntegrationTest`) run only where `ffmpeg` with `libx264`, `aac`, `libvpx` and `libopus` is installed (the Docker image's Ubuntu `ffmpeg` 6.1 and the CI runner's `ffmpeg` have them).
+* *Gradle tests that need the `ffmpeg` binary* (`FfmpegCompositionIntegrationTest`, `RecordingSyncIntegrationTest`; `RecordingParticipantSyncIntegrationTest` needs only `libx264` and `aac`) run only where `ffmpeg` with `libx264`, `aac`, `libvpx` and `libopus` is installed (the Docker image's Ubuntu `ffmpeg` 6.1 and the CI runner's `ffmpeg` have them).
 * After a successful retry with `LAPIS_RECORDING_KEEP_RAW=true` the raw files stay on disk; cleaning them up is an operator decision.
 * The backfill of V87 also classifies the cases "room gone while STOPPING" and "no resolvable video track" as `COMPOSE_FAILED` (same text); the raw-file check protects, but the classification is not exact.
 * There is no real progress, only an estimate; the estimate ignores a queue.

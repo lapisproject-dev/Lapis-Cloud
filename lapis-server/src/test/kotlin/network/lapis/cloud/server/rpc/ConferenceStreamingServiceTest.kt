@@ -1630,6 +1630,12 @@ private class FakeLiveKitEgressClient(
         return LiveKitEgressInfo(egressId = "EG_fake_${counter.incrementAndGet()}", status = "EGRESS_STARTING")
     }
 
+    override suspend fun startParticipantFileEgress(
+        roomName: String,
+        identity: String,
+        outputFilepath: String,
+    ): LiveKitEgressInfo = error("not used by this fake")
+
     override suspend fun updateStream(
         roomName: String,
         egressId: String,

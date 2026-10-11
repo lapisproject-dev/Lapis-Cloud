@@ -3,6 +3,12 @@ package network.lapis.cloud.server.conference
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonObject
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -55,6 +61,19 @@ data class PacketRanges(
     val mediaDurationSeconds: Double,
 )
 
+/**
+ * V1.9.110 -- where the video and the audio stream of one file start INSIDE the container (`stream.start_time`), and whether the file has
+ * such a stream at all. A per-person Participant-Egress file usually has audio and video starting at slightly different times (the first
+ * keyframe arrives after the first audio packet); [ParticipantFileInputs] needs exactly that difference. [videoSeconds]/[audioSeconds] are
+ * `null` when the stream is missing OR its start time is not a number (`N/A`) -- [hasVideo]/[hasAudio] tell which.
+ */
+data class StreamStartTimes(
+    val videoSeconds: Double?,
+    val audioSeconds: Double?,
+    val hasVideo: Boolean = videoSeconds != null,
+    val hasAudio: Boolean = audioSeconds != null,
+)
+
 /** What a finished composition looks like from outside -- see [RecordingMediaProber.probeOutput]. */
 data class RecordingOutputProbe(
     val hasVideo: Boolean,
@@ -92,6 +111,12 @@ interface RecordingMediaProber {
         kind: StreamKind,
         gapThresholdSeconds: Double,
     ): PacketRanges? = null
+
+    /**
+     * V1.9.110: the start time of the first video and the first audio stream of [file] (see [StreamStartTimes]), or `null` if they
+     * could not be determined (binary missing, timeout, unparseable output). NEVER throws.
+     */
+    suspend fun probeStreamStartTimes(file: File): StreamStartTimes? = null
 
     /** V1.9.109: stream presence and duration of a finished composition, or `null` when it cannot be determined. NEVER throws. */
     suspend fun probeOutput(file: File): RecordingOutputProbe? = null
@@ -240,6 +265,51 @@ class FfprobeMediaProber(
             collector.toRanges(gapThresholdSeconds)
         }
 
+    /** `ffprobe -show_entries stream=codec_type,start_time -of json`: where each stream of [file] starts inside the container. */
+    override suspend fun probeStreamStartTimes(file: File): StreamStartTimes? =
+        withContext(Dispatchers.IO) {
+            val command =
+                listOf(
+                    ffprobePath,
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "stream=codec_type,start_time",
+                    "-of",
+                    "json",
+                    file.absolutePath,
+                )
+            val process =
+                try {
+                    ProcessBuilder(command).redirectErrorStream(true).start()
+                } catch (e: IOException) {
+                    logger.warn { "ffprobe could not be started (${e::class.simpleName ?: "unknown error"}, path='$ffprobePath')" }
+                    return@withContext null
+                }
+            val watchdog = startWatchdog(process = process, seconds = timeoutSeconds)
+            val output =
+                try {
+                    // Bounded: a stream listing is a few hundred bytes; anything beyond the cap is not ours to read.
+                    process.inputStream.use { it.readNBytes(MAX_STREAM_PROBE_BYTES).decodeToString() }
+                } catch (_: IOException) {
+                    null
+                } finally {
+                    watchdog.interrupt()
+                }
+            if (output == null || watchdog.timedOut) {
+                process.destroyForcibly()
+                logger.warn { "ffprobe stream listing of ${file.name} did not complete" }
+                return@withContext null
+            }
+            val finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
+            if (!finished) process.destroyForcibly()
+            if (!finished || process.exitValue() != 0) {
+                logger.warn { "ffprobe stream listing of ${file.name} exited abnormally" }
+                return@withContext null
+            }
+            parseStreamStartTimes(output)
+        }
+
     /** `ffprobe -show_entries stream=codec_type:format=duration` of a finished composition. */
     override suspend fun probeOutput(file: File): RecordingOutputProbe? =
         withContext(Dispatchers.IO) {
@@ -306,6 +376,45 @@ class FfprobeMediaProber(
 
         /** Hard cap on the packet lines read (a 70 minute 60 fps screen share is about 250 000). */
         const val MAX_PACKET_LINES = 5_000_000
+
+        /** Upper bound of the bytes read from a stream listing. */
+        const val MAX_STREAM_PROBE_BYTES = 64 * 1024
+
+        /**
+         * Parses [probeStreamStartTimes]' JSON (`{"streams":[{"codec_type":"video","start_time":"0.040000"}, ...]}`): the FIRST
+         * stream of each type counts. `start_time` may be a small negative number (AAC priming) and is kept whenever it is finite;
+         * `N/A` or a missing value yields `null` for that stream while the stream still counts as present. Anything unparseable yields `null`.
+         */
+        fun parseStreamStartTimes(json: String): StreamStartTimes? {
+            val streams =
+                try {
+                    (Json.parseToJsonElement(json).jsonObject["streams"] as? JsonArray) ?: return null
+                } catch (_: Exception) {
+                    return null
+                }
+
+            fun firstOf(type: String): JsonObject? =
+                streams.firstOrNull {
+                    (it as? JsonObject)?.get("codec_type")?.let { v ->
+                        (v as? JsonPrimitive)?.content
+                    } == type
+                } as? JsonObject
+
+            fun startOf(stream: JsonObject?): Double? =
+                (
+                    stream?.get(
+                        "start_time",
+                    ) as? JsonPrimitive
+                )?.let { it.content.toDoubleOrNull() ?: it.doubleOrNull }?.takeIf { it.isFinite() }
+            val video = firstOf("video")
+            val audio = firstOf("audio")
+            return StreamStartTimes(
+                videoSeconds = startOf(video),
+                audioSeconds = startOf(audio),
+                hasVideo = video != null,
+                hasAudio = audio != null,
+            )
+        }
 
         /** Parses [probeOutput]'s `default=noprint_wrappers=1` text. */
         fun parseOutputProbe(output: String): RecordingOutputProbe {

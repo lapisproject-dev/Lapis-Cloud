@@ -4,6 +4,7 @@
 package network.lapis.cloud.server.db.generated
 
 import kotlin.uuid.Uuid
+import network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackSource
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackStatus
 import org.jetbrains.exposed.v1.core.Column
@@ -23,6 +24,8 @@ public object ConferenceRecordingTrackTable : Table("conference_recording_track"
     public val fileName: Column<String?> = varchar("file_name", 512).nullable()
     public val durationMs: Column<Long?> = long("duration_ms").nullable()
     public val sizeBytes: Column<Long?> = long("size_bytes").nullable()
+    public val egressKind: Column<ConferenceRecordingEgressMode> =
+        enumerationByName<ConferenceRecordingEgressMode>("egress_kind", 11).default(ConferenceRecordingEgressMode.TRACK)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

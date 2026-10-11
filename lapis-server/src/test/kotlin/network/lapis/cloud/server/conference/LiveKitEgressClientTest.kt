@@ -20,6 +20,11 @@ import io.ktor.content.TextContent
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import network.lapis.cloud.shared.domain.ConferenceStreamLatencyMode
 import network.lapis.cloud.shared.domain.ConferenceStreamLayout
 import java.io.IOException
@@ -420,5 +425,119 @@ class LiveKitEgressClientTest :
                 )
 
             info.status shouldBe "EGRESS_ENDING"
+        }
+
+        // ── V1.9.110 -- startParticipantFileEgress (Participant Egress with a file output) ─────────────────
+
+        val personFile = "/out/6d1b6b3a-2d7e-4a7c-8f63-0d7b2f5c9a11/p-0b0f1c6e-7f3a-4a53-9c1b-6f2f0a6b5d41.mp4"
+
+        test(
+            "startParticipantFileEgress POSTs exactly the StartParticipantEgress file shape: advanced encoding, MP4 file output, no preset/stream output",
+        ) {
+            var capturedUrl = ""
+            var capturedBody = ""
+            var capturedToken = ""
+            val client =
+                mockClient { request ->
+                    capturedUrl = request.url.toString()
+                    capturedBody = bodyText(request)
+                    capturedToken = bearerToken(request)
+                    jsonResponse("""{"egress_id":"$EGRESS_ID","room_name":"$ROOM_NAME","status":"EGRESS_STARTING"}""")
+                }
+            val egress = HttpLiveKitEgressClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
+
+            val info = egress.startParticipantFileEgress(roomName = ROOM_NAME, identity = "member-1", outputFilepath = personFile)
+
+            capturedUrl shouldBe "$API_URL/twirp/livekit.Egress/StartParticipantEgress"
+            val json =
+                kotlinx.serialization.json.Json
+                    .parseToJsonElement(capturedBody)
+                    .jsonObject
+            json.keys shouldBe setOf("room_name", "identity", "screen_share", "advanced", "file_outputs")
+            json.getValue("room_name").jsonPrimitive.content shouldBe ROOM_NAME
+            json.getValue("identity").jsonPrimitive.content shouldBe "member-1"
+            json.getValue("screen_share").jsonPrimitive.boolean shouldBe false
+            val advanced = json.getValue("advanced").jsonObject
+            advanced.getValue("width").jsonPrimitive.int shouldBe 1280
+            advanced.getValue("height").jsonPrimitive.int shouldBe 720
+            advanced.getValue("framerate").jsonPrimitive.int shouldBe 30
+            advanced.getValue("video_codec").jsonPrimitive.content shouldBe "H264_MAIN"
+            advanced.getValue("video_bitrate").jsonPrimitive.int shouldBe 2500
+            advanced.getValue("audio_codec").jsonPrimitive.content shouldBe "AAC"
+            advanced.getValue("audio_bitrate").jsonPrimitive.int shouldBe 128
+            advanced.getValue("key_frame_interval").jsonPrimitive.int shouldBe 2
+            val outputs = json.getValue("file_outputs").jsonArray
+            outputs shouldHaveSize 1
+            val output = outputs.single().jsonObject
+            output.getValue("file_type").jsonPrimitive.content shouldBe "MP4"
+            output.getValue("filepath").jsonPrimitive.content shouldBe personFile
+            output.getValue("disable_manifest").jsonPrimitive.boolean shouldBe true
+            capturedBody shouldNotContain "preset"
+            capturedBody shouldNotContain "stream_outputs"
+
+            info.egressId shouldBe EGRESS_ID
+            info.status shouldBe "EGRESS_STARTING"
+
+            val grant = SignedJWT.parse(capturedToken).jwtClaimsSet.getJSONObjectClaim("video")
+            grant["roomRecord"] shouldBe true
+            grant["room"] shouldBe ROOM_NAME
+            grant.containsKey("roomAdmin") shouldBe false
+        }
+
+        test("startParticipantFileEgress rejects unsafe paths and identities BEFORE any network call") {
+            var calls = 0
+            val client =
+                mockClient { _ ->
+                    calls++
+                    jsonResponse("{}")
+                }
+            val egress = HttpLiveKitEgressClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
+
+            val badPaths =
+                listOf(
+                    "relative/p-1.mp4",
+                    "/out/../etc/p-1.mp4",
+                    "/out/a/p-1.webm",
+                    "/out/a/p-1",
+                    "/out\\a/p-1.mp4",
+                    "/out/a\u0000/p-1.mp4",
+                    "/out/a\n/p-1.mp4",
+                    "",
+                )
+            for (path in badPaths) {
+                shouldThrow<IllegalArgumentException> {
+                    egress.startParticipantFileEgress(roomName = ROOM_NAME, identity = "member-1", outputFilepath = path)
+                }
+            }
+            for (identity in listOf("", "x".repeat(65))) {
+                shouldThrow<IllegalArgumentException> {
+                    egress.startParticipantFileEgress(roomName = ROOM_NAME, identity = identity, outputFilepath = personFile)
+                }
+            }
+            calls shouldBe 0
+        }
+
+        test("startParticipantFileEgress maps HTTP errors and unparseable bodies to LiveKitAdminException without leaking the body") {
+            val refused =
+                mockClient { _ -> respondError(HttpStatusCode.PreconditionFailed, "secret internal detail: cpu exhausted") }
+            val egressA = HttpLiveKitEgressClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = refused)
+            val e1 =
+                shouldThrow<LiveKitAdminException> {
+                    egressA.startParticipantFileEgress(roomName = ROOM_NAME, identity = "member-1", outputFilepath = personFile)
+                }
+            e1.message!! shouldContain "412"
+            e1.message!! shouldNotContain "secret internal detail"
+
+            val garbage = mockClient { _ -> jsonResponse("not json at all") }
+            val egressB = HttpLiveKitEgressClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = garbage)
+            shouldThrow<LiveKitAdminException> {
+                egressB.startParticipantFileEgress(roomName = ROOM_NAME, identity = "member-1", outputFilepath = personFile)
+            }
+
+            val broken = mockClient { _ -> throw IOException("connection reset") }
+            val egressC = HttpLiveKitEgressClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = broken)
+            shouldThrow<LiveKitAdminException> {
+                egressC.startParticipantFileEgress(roomName = ROOM_NAME, identity = "member-1", outputFilepath = personFile)
+            }
         }
     })

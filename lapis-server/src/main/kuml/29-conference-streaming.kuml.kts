@@ -83,6 +83,9 @@
 // .SecretBallotStreamGuard` (this same wave) are the only writers of this new vocabulary; this file
 // itself carries no Election/SystemicConsensus knowledge, only the enum/column shapes their callers
 // need.
+//
+// Cross-reference (V1.9.110): StartParticipantEgress is ALSO used with a FILE output for the recording's opt-in per-person mode
+// (see 28-conference-recording.kuml.kts `egress_mode`/`egress_kind`); that use writes no row in this file's tables.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile

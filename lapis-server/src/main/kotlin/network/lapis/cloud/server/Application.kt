@@ -65,6 +65,7 @@ import network.lapis.cloud.server.conference.ConferenceRecordingConfig
 import network.lapis.cloud.server.conference.ConferenceStreamingConfig
 import network.lapis.cloud.server.conference.ConferenceWhiteboardState
 import network.lapis.cloud.server.conference.DefaultSecretBallotStreamGuard
+import network.lapis.cloud.server.conference.FfmpegBlankVideoDetector
 import network.lapis.cloud.server.conference.FfmpegSegmentedComposer
 import network.lapis.cloud.server.conference.FfprobeMediaProber
 import network.lapis.cloud.server.conference.HttpLiveKitAdminClient
@@ -1139,8 +1140,13 @@ internal fun Application.module(
             documentStorageRoot = documentStorageRoot,
             composer = recordingComposer,
             prober = recordingMediaProber,
+            // V1.9.110: finds the camera-off stretches (black pictures) of per-person files; only used in the opt-in participant mode.
+            blankDetector = FfmpegBlankVideoDetector(ffmpegPath = conferenceRecordingConfig.ffmpegPath),
         )
     if (conferenceRecordingConfig.enabled) {
+        // V1.9.110: the mode (track/participant) is the one setting an operator must be able to read off the log (staging runbook);
+        // the config holds no secret (see ConferenceRecordingConfig.toString).
+        applicationLogger.info { "Conference recording enabled: $conferenceRecordingConfig" }
         recordingPoller.start()
     }
 

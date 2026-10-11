@@ -40,6 +40,7 @@ import network.lapis.cloud.server.time.MutableTestClock
 import network.lapis.cloud.server.time.TimeTestSupport
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceRecordingDto
+import network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode
 import network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode
 import network.lapis.cloud.shared.domain.ConferenceRecordingListQuery
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
@@ -122,10 +123,14 @@ abstract class ConferenceRecordingRecomputeScenarios(
             db.deactivate()
         }
 
+        /** [egressMode] is the CONFIGURED mode of the (re)started server -- a recording keeps the mode it was recorded in, see the V1.9.110 scenarios. */
+        var configuredEgressMode = ConferenceRecordingEgressMode.TRACK
+
         fun recordingConfig(): ConferenceRecordingConfig =
             ConferenceRecordingConfig.load { key ->
                 when (key) {
                     "LAPIS_RECORDING_ENABLED" -> "true"
+                    "LAPIS_RECORDING_EGRESS_MODE" -> configuredEgressMode.name.lowercase()
                     "LAPIS_EGRESS_OUTPUT_HOST_DIR" -> hostRawRoot.path
                     "LAPIS_EGRESS_OUTPUT_CONTAINER_DIR" -> "/out"
                     else -> null
@@ -187,6 +192,7 @@ abstract class ConferenceRecordingRecomputeScenarios(
             code: ConferenceRecordingFailureCode? = ConferenceRecordingFailureCode.COMPOSE_FAILED,
             accessLevel: DocumentAccessLevel = DocumentAccessLevel.BOARD_ONLY,
             withFiles: Boolean = true,
+            egressMode: ConferenceRecordingEgressMode = ConferenceRecordingEgressMode.TRACK,
         ): Uuid {
             val id = Uuid.random()
             val now = DbClock.nowLocalDateTime()
@@ -209,6 +215,16 @@ abstract class ConferenceRecordingRecomputeScenarios(
                 } else {
                     null
                 }
+            // TRACK: a camera and a microphone file. PARTICIPANT (V1.9.110): ONE person file (audio+video, row source CAMERA) and a screen share.
+            val files =
+                if (egressMode == ConferenceRecordingEgressMode.PARTICIPANT) {
+                    listOf(
+                        ConferenceRecordingTrackSource.CAMERA to "person.mp4",
+                        ConferenceRecordingTrackSource.SCREEN_SHARE to "share.mp4",
+                    )
+                } else {
+                    listOf(ConferenceRecordingTrackSource.CAMERA to "cam.mp4", ConferenceRecordingTrackSource.MICROPHONE to "mic.ogg")
+                }
             transaction {
                 ConferenceRecordingTable.insert {
                     it[ConferenceRecordingTable.id] = id
@@ -227,8 +243,9 @@ abstract class ConferenceRecordingRecomputeScenarios(
                         if (status == ConferenceRecordingStatus.FAILED) "Die Aufzeichnung konnte nicht zusammengesetzt werden." else null
                     it[failureCode] = if (status == ConferenceRecordingStatus.FAILED) code else null
                     it[composeAttempts] = 5
+                    it[ConferenceRecordingTable.egressMode] = egressMode
                 }
-                listOf(ConferenceRecordingTrackSource.CAMERA to "cam.mp4", ConferenceRecordingTrackSource.MICROPHONE to "mic.ogg")
+                files
                     .forEach { (source, name) ->
                         ConferenceRecordingTrackTable.insert {
                             it[ConferenceRecordingTrackTable.id] = Uuid.random()
@@ -243,13 +260,20 @@ abstract class ConferenceRecordingRecomputeScenarios(
                             it[fileName] = name
                             it[durationMs] = 5_000L
                             it[sizeBytes] = null
+                            it[ConferenceRecordingTrackTable.egressKind] =
+                                if (egressMode == ConferenceRecordingEgressMode.PARTICIPANT &&
+                                    source == ConferenceRecordingTrackSource.CAMERA
+                                ) {
+                                    ConferenceRecordingEgressMode.PARTICIPANT
+                                } else {
+                                    ConferenceRecordingEgressMode.TRACK
+                                }
                         }
                     }
             }
             if (withFiles) {
                 val dir = hostRawRoot.resolve(id.toString()).apply { mkdirs() }
-                dir.resolve("cam.mp4").writeBytes(byteArrayOf(1, 2, 3))
-                dir.resolve("mic.ogg").writeBytes(byteArrayOf(4, 5))
+                files.forEachIndexed { index, (_, name) -> dir.resolve(name).writeBytes(byteArrayOf(1, 2, 3).copyOf(2 + index % 2)) }
             }
             return id
         }
@@ -381,6 +405,58 @@ abstract class ConferenceRecordingRecomputeScenarios(
             audit.size shouldBe 1
             audit.single()[AuditLogEntryTable.afterSnapshot] shouldBe "recompute requested"
             audit.single()[AuditLogEntryTable.beforeSnapshot] shouldBe "status=READY"
+        }
+
+        // ── V1.9.110: recordings made with Participant Egress ──────────────────
+
+        test("a person-file recording (PARTICIPANT) recomputes like any other: raw files count as available, marker set, poller woken") {
+            val starter = createMember("starter-participant")
+            val id = seedRecording(starter, egressMode = ConferenceRecordingEgressMode.PARTICIPANT)
+            withRoutes { client ->
+                val before = client.dtoFor(row(id)[ConferenceRecordingTable.roomId], starter)
+                before.canRecompute shouldBe true
+                before.rawFilesAvailable shouldBe true
+                val dto = parse(client.recompute(id, starter))
+                dto.status shouldBe ConferenceRecordingStatus.READY
+                dto.recomputeInProgress shouldBe true
+            }
+            row(id)[ConferenceRecordingTable.egressMode] shouldBe ConferenceRecordingEgressMode.PARTICIPANT
+            (row(id)[ConferenceRecordingTable.recomputeStartedAt] != null) shouldBe true
+            wakeUps.get() shouldBe 1
+            val kinds =
+                transaction {
+                    ConferenceRecordingTrackTable.selectAll().where { ConferenceRecordingTrackTable.recordingId eq id }.map {
+                        it[ConferenceRecordingTrackTable.egressKind]
+                    }
+                }
+            kinds.toSet() shouldBe setOf(ConferenceRecordingEgressMode.PARTICIPANT, ConferenceRecordingEgressMode.TRACK)
+        }
+
+        test(
+            "a person-file recording with a missing person file is RecordingRawFilesMissingException (the PARTICIPANT row counts as video)",
+        ) {
+            val starter = createMember("starter-participant-missing")
+            val id = seedRecording(starter, withFiles = false, egressMode = ConferenceRecordingEgressMode.PARTICIPANT)
+            withRoutes { client -> client.recompute(id, starter) shouldBe err(RecordingRawFilesMissingException::class) }
+            row(id)[ConferenceRecordingTable.recomputeStartedAt] shouldBe null
+        }
+
+        test(
+            "a TRACK recording can be recomputed on a server that is now configured for participant mode (and the stored mode stays TRACK)",
+        ) {
+            val starter = createMember("starter-track-on-participant-server")
+            val id = seedRecording(starter)
+            configuredEgressMode = ConferenceRecordingEgressMode.PARTICIPANT
+            try {
+                withRoutes { client ->
+                    val dto = parse(client.recompute(id, starter))
+                    dto.recomputeInProgress shouldBe true
+                }
+            } finally {
+                configuredEgressMode = ConferenceRecordingEgressMode.TRACK
+            }
+            row(id)[ConferenceRecordingTable.egressMode] shouldBe ConferenceRecordingEgressMode.TRACK
+            (row(id)[ConferenceRecordingTable.recomputeStartedAt] != null) shouldBe true
         }
 
         test("the audit entry carries no path and no title") {

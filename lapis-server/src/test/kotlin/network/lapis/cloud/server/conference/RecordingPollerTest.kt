@@ -26,6 +26,7 @@ import network.lapis.cloud.server.db.generated.DocumentVersionTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.routes.archiveGeneratedFile
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode
 import network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackSource
@@ -108,6 +109,12 @@ internal class FakeLiveKitEgressClient(
     private val failListEgress: Boolean = false,
 ) : LiveKitEgressClient {
     val started = mutableListOf<Triple<String, String, String>>() // (roomName, trackId, outputPath)
+
+    /** V1.9.110: (roomName, identity, outputFilepath) of every StartParticipantEgress with a file output. */
+    val participantFileStarts = mutableListOf<Triple<String, String, String>>()
+
+    /** V1.9.110: while `true`, startParticipantFileEgress is refused like LiveKit does when it has no egress CPU left. */
+    var failParticipantFileStart = false
     val stoppedEgressIds = mutableListOf<String>()
     val egressInfoByEgressId = mutableMapOf<String, LiveKitEgressInfo>()
 
@@ -122,6 +129,19 @@ internal class FakeLiveKitEgressClient(
         // across tests.
         val egressId = "EG_fake-${Uuid.random()}"
         started += Triple(roomName, trackId, outputFilepathWithoutExtension)
+        val info = LiveKitEgressInfo(egressId = egressId, roomName = roomName, status = "EGRESS_STARTING")
+        egressInfoByEgressId[egressId] = info
+        return info
+    }
+
+    override suspend fun startParticipantFileEgress(
+        roomName: String,
+        identity: String,
+        outputFilepath: String,
+    ): LiveKitEgressInfo {
+        if (failParticipantFileStart) throw LiveKitAdminException(message = "StartParticipantEgress refused (simulated)")
+        val egressId = "EG_fake-${Uuid.random()}"
+        participantFileStarts += Triple(roomName, identity, outputFilepath)
         val info = LiveKitEgressInfo(egressId = egressId, roomName = roomName, status = "EGRESS_STARTING")
         egressInfoByEgressId[egressId] = info
         return info
@@ -307,6 +327,7 @@ class RecordingPollerTest :
             startedAt: LocalDateTime = DbClock.nowLocalDateTime(),
             stoppedAt: LocalDateTime? = null,
             composeAttempts: Int = 0,
+            egressMode: ConferenceRecordingEgressMode = ConferenceRecordingEgressMode.TRACK,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -325,6 +346,7 @@ class RecordingPollerTest :
                     it[fileSizeBytes] = null
                     it[failureReason] = null
                     it[ConferenceRecordingTable.composeAttempts] = composeAttempts
+                    it[ConferenceRecordingTable.egressMode] = egressMode
                 }
             }
             createdRecordingIds += id
@@ -340,6 +362,7 @@ class RecordingPollerTest :
             fileName: String? = null,
             startedAtEpochNanos: Long? = null,
             durationMs: Long? = null,
+            egressKind: ConferenceRecordingEgressMode = ConferenceRecordingEgressMode.TRACK,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -356,6 +379,7 @@ class RecordingPollerTest :
                     it[ConferenceRecordingTrackTable.fileName] = fileName
                     it[ConferenceRecordingTrackTable.durationMs] = durationMs
                     it[sizeBytes] = null
+                    it[ConferenceRecordingTrackTable.egressKind] = egressKind
                 }
             }
             return id
@@ -379,6 +403,8 @@ class RecordingPollerTest :
             clock: () -> LocalDateTime = { DbClock.nowLocalDateTime() },
             composeTimeoutMinutes: Long? = null,
             diskSpace: (File) -> Long = { Long.MAX_VALUE / 4 },
+            egressMode: ConferenceRecordingEgressMode = ConferenceRecordingEgressMode.TRACK,
+            blankDetector: RecordingBlankVideoDetector = RecordingBlankVideoDetector.None,
         ): RecordingPoller {
             val config =
                 ConferenceRecordingConfig.load { key ->
@@ -389,6 +415,7 @@ class RecordingPollerTest :
                         "LAPIS_RECORDING_MAX_DURATION_MINUTES" -> maxDurationMinutes.toString()
                         "LAPIS_RECORDING_EGRESS_TIMEOUT_MINUTES" -> egressTimeoutMinutes.toString()
                         "LAPIS_RECORDING_KEEP_RAW" -> keepRaw.toString()
+                        "LAPIS_RECORDING_EGRESS_MODE" -> egressMode.name.lowercase()
                         "LAPIS_RECORDING_COMPOSE_TIMEOUT_MINUTES" -> composeTimeoutMinutes?.toString()
                         "LAPIS_EGRESS_OUTPUT_HOST_DIR" -> hostRawRoot.path
                         "LAPIS_EGRESS_OUTPUT_CONTAINER_DIR" -> "/out"
@@ -402,6 +429,7 @@ class RecordingPollerTest :
                 documentStorageRoot = documentStorageRoot,
                 composer = composer,
                 prober = prober,
+                blankDetector = blankDetector,
                 clock = clock,
                 diskSpace = diskSpace,
             )
@@ -1817,6 +1845,742 @@ class RecordingPollerTest :
                 // no ended_at stored in this fixture: the reported duration is the wall duration
                 spec.audioInputs.single().wallDurationSeconds shouldBe (60.4 plusOrMinus 1e-9)
                 recordingRow(recordingId)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        // ── V1.9.110: Participant Egress mode ───────────────────────────────────
+
+        fun trackRowsOf(recordingId: Uuid) =
+            transaction {
+                ConferenceRecordingTrackTable.selectAll().where { ConferenceRecordingTrackTable.recordingId eq recordingId }.toList()
+            }
+
+        fun person(
+            sid: String,
+            identity: String,
+            vararg tracks: LiveKitTrackInfo,
+        ) = LiveKitParticipantInfo(sid = sid, identity = identity, tracks = tracks.toList())
+
+        fun cam(
+            sid: String,
+            muted: Boolean = false,
+        ) = LiveKitTrackInfo(sid = sid, type = "VIDEO", source = "CAMERA", muted = muted)
+
+        fun mic(
+            sid: String,
+            muted: Boolean = false,
+        ) = LiveKitTrackInfo(sid = sid, type = "AUDIO", source = "MICROPHONE", muted = muted)
+
+        test("PARTICIPANT mode (a): in TRACK mode StartParticipantEgress is never used, however many people are present") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pe-trackmode@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                createRecording(roomId, member, ConferenceRecordingStatus.RECORDING)
+                val adminClient = FakeLiveKitAdminClient()
+                adminClient.participantsByRoom[livekitRoomName] = listOf(person("PA_1", "alice", cam("TR_c1"), mic("TR_m1")))
+                val egressClient = FakeLiveKitEgressClient()
+                buildPoller(adminClient, egressClient, FakeRecordingComposer(), hostRawRoot, documentStorageRoot).tickAndSettle()
+
+                egressClient.participantFileStarts shouldHaveSize 0
+                egressClient.started shouldHaveSize 2
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test(
+            "PARTICIPANT mode (b): one egress per person with a camera OR a microphone (a muted one counts), none for a person without tracks",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pe-b@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                val recordingId =
+                    createRecording(
+                        roomId,
+                        member,
+                        ConferenceRecordingStatus.RECORDING,
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+                val adminClient = FakeLiveKitAdminClient()
+                adminClient.participantsByRoom[livekitRoomName] =
+                    listOf(
+                        person("PA_alice", "alice", cam("TR_c1"), mic("TR_m1")),
+                        person("PA_bob", "bob", mic("TR_m2", muted = true)),
+                        person("PA_carol", "carol"),
+                    )
+                val egressClient = FakeLiveKitEgressClient()
+                val poller =
+                    buildPoller(
+                        adminClient,
+                        egressClient,
+                        FakeRecordingComposer(),
+                        hostRawRoot,
+                        documentStorageRoot,
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+
+                poller.tickAndSettle()
+                poller.tickAndSettle() // idempotent: nothing new on the second pass
+
+                egressClient.started shouldHaveSize 0
+                egressClient.participantFileStarts.map { it.second } shouldBe listOf("alice", "bob")
+                egressClient.participantFileStarts.all { it.first == livekitRoomName } shouldBe true
+                val rows = trackRowsOf(recordingId)
+                rows shouldHaveSize 2
+                rows.all { it[ConferenceRecordingTrackTable.egressKind] == ConferenceRecordingEgressMode.PARTICIPANT } shouldBe true
+                rows.all { it[ConferenceRecordingTrackTable.trackSource] == ConferenceRecordingTrackSource.CAMERA } shouldBe true
+                rows.map { it[ConferenceRecordingTrackTable.livekitTrackId] }.toSet() shouldBe setOf("PA_alice", "PA_bob")
+                rows.map { it[ConferenceRecordingTrackTable.participantIdentity] }.toSet() shouldBe setOf("alice", "bob")
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test(
+            "PARTICIPANT mode (c): screen share and screen-share audio still run as Track Egress (egress_kind TRACK), a muted share is skipped",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pe-c@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                val recordingId =
+                    createRecording(
+                        roomId,
+                        member,
+                        ConferenceRecordingStatus.RECORDING,
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+                val adminClient = FakeLiveKitAdminClient()
+                adminClient.participantsByRoom[livekitRoomName] =
+                    listOf(
+                        person(
+                            "PA_alice",
+                            "alice",
+                            cam("TR_c1"),
+                            LiveKitTrackInfo(sid = "TR_share", type = "VIDEO", source = "SCREEN_SHARE", muted = false),
+                            LiveKitTrackInfo(sid = "TR_shareaudio", type = "AUDIO", source = "SCREEN_SHARE_AUDIO", muted = false),
+                            LiveKitTrackInfo(sid = "TR_share2", type = "VIDEO", source = "SCREEN_SHARE", muted = true),
+                        ),
+                    )
+                val egressClient = FakeLiveKitEgressClient()
+                buildPoller(
+                    adminClient,
+                    egressClient,
+                    FakeRecordingComposer(),
+                    hostRawRoot,
+                    documentStorageRoot,
+                    egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                ).tickAndSettle()
+
+                egressClient.started.map { it.second } shouldBe listOf("TR_share", "TR_shareaudio")
+                egressClient.participantFileStarts shouldHaveSize 1
+                val rows = trackRowsOf(recordingId)
+                rows shouldHaveSize 3
+                val byTrackId = rows.associateBy { it[ConferenceRecordingTrackTable.livekitTrackId] }
+                byTrackId.getValue("TR_share")[ConferenceRecordingTrackTable.egressKind] shouldBe ConferenceRecordingEgressMode.TRACK
+                byTrackId.getValue("TR_share")[ConferenceRecordingTrackTable.trackSource] shouldBe
+                    ConferenceRecordingTrackSource.SCREEN_SHARE
+                byTrackId.getValue("TR_shareaudio")[ConferenceRecordingTrackTable.trackSource] shouldBe
+                    ConferenceRecordingTrackSource.SCREEN_SHARE_AUDIO
+                byTrackId.getValue("PA_alice")[ConferenceRecordingTrackTable.egressKind] shouldBe ConferenceRecordingEgressMode.PARTICIPANT
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("PARTICIPANT mode (d): a person who comes back with a NEW participant SID gets a second row and a second file") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pe-d@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                val recordingId =
+                    createRecording(
+                        roomId,
+                        member,
+                        ConferenceRecordingStatus.RECORDING,
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+                val adminClient = FakeLiveKitAdminClient()
+                val egressClient = FakeLiveKitEgressClient()
+                val poller =
+                    buildPoller(
+                        adminClient,
+                        egressClient,
+                        FakeRecordingComposer(),
+                        hostRawRoot,
+                        documentStorageRoot,
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+                adminClient.participantsByRoom[livekitRoomName] = listOf(person("PA_first", "alice", cam("TR_c1")))
+                poller.tickAndSettle()
+                adminClient.participantsByRoom[livekitRoomName] = listOf(person("PA_second", "alice", cam("TR_c2")))
+                poller.tickAndSettle()
+
+                egressClient.participantFileStarts shouldHaveSize 2
+                val rows = trackRowsOf(recordingId)
+                rows.map { it[ConferenceRecordingTrackTable.livekitTrackId] }.toSet() shouldBe setOf("PA_first", "PA_second")
+                rows.map { it[ConferenceRecordingTrackTable.egressId] }.toSet() shouldHaveSize 2
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test(
+            "PARTICIPANT mode (e): a person who leaves gets exactly ONE StopEgress, the row is refreshed, the next tick does not repeat it",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pe-e@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                val recordingId =
+                    createRecording(
+                        roomId,
+                        member,
+                        ConferenceRecordingStatus.RECORDING,
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+                val adminClient = FakeLiveKitAdminClient()
+                val egressClient = FakeLiveKitEgressClient()
+                val poller =
+                    buildPoller(
+                        adminClient,
+                        egressClient,
+                        FakeRecordingComposer(),
+                        hostRawRoot,
+                        documentStorageRoot,
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+                adminClient.participantsByRoom[livekitRoomName] =
+                    listOf(person("PA_alice", "alice", cam("TR_c1")), person("PA_bob", "bob", cam("TR_c2")))
+                poller.tickAndSettle()
+                val myEgressIds = trackRowsOf(recordingId).map { it[ConferenceRecordingTrackTable.egressId] }.toSet()
+                val aliceEgressId =
+                    trackRowsOf(recordingId)
+                        .single { it[ConferenceRecordingTrackTable.livekitTrackId] == "PA_alice" }[ConferenceRecordingTrackTable.egressId]
+                // LiveKit finished alice's egress on its own account by the time the poller looks.
+                egressClient.egressInfoByEgressId[aliceEgressId] =
+                    LiveKitEgressInfo(
+                        egressId = aliceEgressId,
+                        roomName = livekitRoomName,
+                        status = "EGRESS_COMPLETE",
+                        startedAtEpochNanos = "1000000000",
+                        endedAtEpochNanos = "9000000000",
+                        fileResults =
+                            listOf(
+                                LiveKitEgressFileInfo(
+                                    filename = "/out/$recordingId/p-x.mp4",
+                                    startedAtEpochNanos = "1000000000",
+                                    duration = "8000000000",
+                                    size = "123",
+                                ),
+                            ),
+                    )
+
+                adminClient.participantsByRoom[livekitRoomName] = listOf(person("PA_bob", "bob", cam("TR_c2")))
+                poller.tickAndSettle()
+                // (the shared test database may hold other specs' recordings: only this recording's egresses count)
+                egressClient.stoppedEgressIds.filter { it in myEgressIds } shouldBe listOf(aliceEgressId)
+                val alice = trackRowsOf(recordingId).single { it[ConferenceRecordingTrackTable.livekitTrackId] == "PA_alice" }
+                alice[ConferenceRecordingTrackTable.status] shouldBe ConferenceRecordingTrackStatus.COMPLETE
+                alice[ConferenceRecordingTrackTable.durationMs] shouldBe 8_000L
+                alice[ConferenceRecordingTrackTable.fileName] shouldBe "/out/$recordingId/p-x.mp4"
+
+                poller.tickAndSettle()
+                poller.tickAndSettle()
+                egressClient.stoppedEgressIds.filter { it in myEgressIds } shouldBe listOf(aliceEgressId)
+                // bob is still there: never stopped, never restarted
+                egressClient.participantFileStarts shouldHaveSize 2
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("PARTICIPANT mode (e2): a StopEgress that fails is tried again on the next tick (not remembered as done)") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pe-e2@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                createRecording(roomId, member, ConferenceRecordingStatus.RECORDING, egressMode = ConferenceRecordingEgressMode.PARTICIPANT)
+                val adminClient = FakeLiveKitAdminClient()
+                var failStop = true
+                val stopCallsAll = mutableListOf<String>()
+                val inner = FakeLiveKitEgressClient()
+                val egressClient =
+                    object : LiveKitEgressClient by inner {
+                        override suspend fun stopEgress(
+                            roomName: String,
+                            egressId: String,
+                        ): LiveKitEgressInfo {
+                            stopCallsAll += egressId
+                            if (failStop) throw LiveKitAdminException(message = "StopEgress failed (simulated)")
+                            return inner.stopEgress(roomName = roomName, egressId = egressId)
+                        }
+                    }
+                val poller =
+                    buildPoller(
+                        adminClient,
+                        egressClient,
+                        FakeRecordingComposer(),
+                        hostRawRoot,
+                        documentStorageRoot,
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+                adminClient.participantsByRoom[livekitRoomName] = listOf(person("PA_alice", "alice", cam("TR_c1")))
+                poller.tickAndSettle()
+                val aliceEgressId = inner.egressInfoByEgressId.keys.single()
+                val stopCalls =
+                    object {
+                        val size get() = stopCallsAll.count { it == aliceEgressId }
+                    }
+                adminClient.participantsByRoom[livekitRoomName] = emptyList()
+                poller.tickAndSettle()
+                stopCalls.size shouldBe 1
+                failStop = false
+                poller.tickAndSettle()
+                stopCalls.size shouldBe 2
+                poller.tickAndSettle()
+                stopCalls.size shouldBe 2
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("PARTICIPANT mode (f): person rows count against maxTracks") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pe-f@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                createRecording(roomId, member, ConferenceRecordingStatus.RECORDING, egressMode = ConferenceRecordingEgressMode.PARTICIPANT)
+                val adminClient = FakeLiveKitAdminClient()
+                adminClient.participantsByRoom[livekitRoomName] =
+                    listOf(
+                        person("PA_1", "alice", cam("TR_c1")),
+                        person("PA_2", "bob", cam("TR_c2")),
+                        person("PA_3", "carol", cam("TR_c3")),
+                    )
+                val egressClient = FakeLiveKitEgressClient()
+                val poller =
+                    buildPoller(
+                        adminClient,
+                        egressClient,
+                        FakeRecordingComposer(),
+                        hostRawRoot,
+                        documentStorageRoot,
+                        maxTracks = 2,
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+                poller.tickAndSettle()
+                poller.tickAndSettle()
+
+                egressClient.participantFileStarts.map { it.second } shouldBe listOf("alice", "bob")
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("PARTICIPANT mode (g): the path holds the row UUID only -- never the identity; an unusable identity is not recorded at all") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pe-g@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                val recordingId =
+                    createRecording(
+                        roomId,
+                        member,
+                        ConferenceRecordingStatus.RECORDING,
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+                val adminClient = FakeLiveKitAdminClient()
+                adminClient.participantsByRoom[livekitRoomName] =
+                    listOf(
+                        person("PA_evil", "../x", cam("TR_c1"), LiveKitTrackInfo(sid = "TR_s1", source = "SCREEN_SHARE")),
+                        person("PA_long", "y".repeat(65), mic("TR_m2")),
+                        person("PA_ok", "alice", mic("TR_m3")),
+                    )
+                val egressClient = FakeLiveKitEgressClient()
+                buildPoller(
+                    adminClient,
+                    egressClient,
+                    FakeRecordingComposer(),
+                    hostRawRoot,
+                    documentStorageRoot,
+                    egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                ).tickAndSettle()
+
+                egressClient.participantFileStarts shouldHaveSize 1
+                egressClient.started shouldHaveSize 0
+                val rows = trackRowsOf(recordingId)
+                rows shouldHaveSize 1
+                val rowId = rows.single()[ConferenceRecordingTrackTable.id]
+                egressClient.participantFileStarts.single().third shouldBe "/out/$recordingId/p-$rowId.mp4"
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test(
+            "PARTICIPANT mode (h): the mode is per recording -- a running PARTICIPANT recording stays PARTICIPANT after the configuration changed to TRACK",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pe-h@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                val recordingId =
+                    createRecording(
+                        roomId,
+                        member,
+                        ConferenceRecordingStatus.RECORDING,
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+                val adminClient = FakeLiveKitAdminClient()
+                adminClient.participantsByRoom[livekitRoomName] = listOf(person("PA_alice", "alice", cam("TR_c1"), mic("TR_m1")))
+                val egressClient = FakeLiveKitEgressClient()
+                // The poller of this "restarted" server is configured for TRACK ...
+                buildPoller(
+                    adminClient,
+                    egressClient,
+                    FakeRecordingComposer(),
+                    hostRawRoot,
+                    documentStorageRoot,
+                    egressMode = ConferenceRecordingEgressMode.TRACK,
+                ).tickAndSettle()
+
+                // ... but this recording keeps the mode it started with: one person egress, no per-track egress (no doubled audio).
+                egressClient.participantFileStarts shouldHaveSize 1
+                egressClient.started shouldHaveSize 0
+                trackRowsOf(recordingId).single()[ConferenceRecordingTrackTable.egressKind] shouldBe
+                    ConferenceRecordingEgressMode.PARTICIPANT
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("PARTICIPANT mode (k): a refused start is logged and retried next tick -- no fallback to Track Egress, no row") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pe-k@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                val recordingId =
+                    createRecording(
+                        roomId,
+                        member,
+                        ConferenceRecordingStatus.RECORDING,
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+                val adminClient = FakeLiveKitAdminClient()
+                adminClient.participantsByRoom[livekitRoomName] = listOf(person("PA_alice", "alice", cam("TR_c1"), mic("TR_m1")))
+                val egressClient = FakeLiveKitEgressClient()
+                egressClient.failParticipantFileStart = true
+                val poller =
+                    buildPoller(
+                        adminClient,
+                        egressClient,
+                        FakeRecordingComposer(),
+                        hostRawRoot,
+                        documentStorageRoot,
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+
+                poller.tickAndSettle()
+                poller.tickAndSettle()
+                egressClient.started shouldHaveSize 0
+                egressClient.participantFileStarts shouldHaveSize 0
+                trackRowsOf(recordingId) shouldHaveSize 0
+
+                egressClient.failParticipantFileStart = false
+                poller.tickAndSettle()
+                egressClient.participantFileStarts shouldHaveSize 1
+                egressClient.started shouldHaveSize 0
+                trackRowsOf(recordingId) shouldHaveSize 1
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test(
+            "PARTICIPANT mode (i)+(j): composition of person files plus a screen share -- per-stream offsets, no wall duration, one file feeds a video AND an audio input",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pe-compose@example.org")
+                val (roomId, _) = createRoom(member)
+                val recordingId =
+                    createRecording(
+                        roomId,
+                        member,
+                        ConferenceRecordingStatus.PROCESSING,
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+                val rawDir = hostRawRoot.resolve(recordingId.toString()).apply { mkdirs() }
+                val aliceFile = rawDir.resolve("p-alice.mp4").apply { writeBytes(byteArrayOf(1)) }
+                val bobFile = rawDir.resolve("p-bob.mp4").apply { writeBytes(byteArrayOf(1)) }
+                val shareFile = rawDir.resolve("alice__SCREEN_SHARE__TR_s.mp4").apply { writeBytes(byteArrayOf(1)) }
+                val t0 = 1_000_000_000_000L
+                val aliceRow =
+                    createTrack(
+                        recordingId,
+                        "EG_a-$recordingId",
+                        "PA_alice",
+                        ConferenceRecordingTrackStatus.COMPLETE,
+                        ConferenceRecordingTrackSource.CAMERA,
+                        aliceFile.name,
+                        t0,
+                        60_000L,
+                        ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+                createTrack(
+                    recordingId,
+                    "EG_b-$recordingId",
+                    "PA_bob",
+                    ConferenceRecordingTrackStatus.COMPLETE,
+                    ConferenceRecordingTrackSource.CAMERA,
+                    bobFile.name,
+                    t0 + 10_000_000_000L,
+                    40_000L,
+                    ConferenceRecordingEgressMode.PARTICIPANT,
+                )
+                createTrack(
+                    recordingId,
+                    "EG_s-$recordingId",
+                    "TR_s",
+                    ConferenceRecordingTrackStatus.COMPLETE,
+                    ConferenceRecordingTrackSource.SCREEN_SHARE,
+                    shareFile.name,
+                    t0 + 20_000_000_000L,
+                    15_000L,
+                )
+                val prober =
+                    object : RecordingMediaProber {
+                        override suspend fun probeDurationSeconds(file: File): Double? = null
+
+                        override suspend fun probeStreamStartTimes(file: File): StreamStartTimes? =
+                            if (file.name == "p-alice.mp4") StreamStartTimes(videoSeconds = 0.40, audioSeconds = 0.0) else null
+
+                        override suspend fun probePacketRanges(
+                            file: File,
+                            kind: StreamKind,
+                            gapThresholdSeconds: Double,
+                        ): PacketRanges? =
+                            if (kind == StreamKind.VIDEO) {
+                                PacketRanges(ranges = listOf(TimeRange(startSeconds = 0.0, endSeconds = 60.0)), mediaDurationSeconds = 60.0)
+                            } else {
+                                PacketRanges(ranges = listOf(TimeRange(startSeconds = 0.0, endSeconds = 60.4)), mediaDurationSeconds = 60.4)
+                            }
+                    }
+                val blankDetector =
+                    object : RecordingBlankVideoDetector {
+                        val seen = mutableListOf<Pair<String, Double>>()
+
+                        override suspend fun detectBlankRanges(
+                            file: File,
+                            videoStreamStartSeconds: Double,
+                            minSeconds: Double,
+                        ): List<TimeRange>? {
+                            seen += file.name to videoStreamStartSeconds
+                            return if (file.name ==
+                                "p-alice.mp4"
+                            ) {
+                                listOf(TimeRange(startSeconds = 20.0, endSeconds = 35.0))
+                            } else {
+                                emptyList()
+                            }
+                        }
+                    }
+                var captured: RecordingComposeSpec? = null
+                val composer =
+                    FakeRecordingComposer { spec, outputFile ->
+                        captured = spec
+                        outputFile.writeBytes(byteArrayOf(1))
+                    }
+                buildPoller(
+                    FakeLiveKitAdminClient(),
+                    FakeLiveKitEgressClient(),
+                    composer,
+                    hostRawRoot,
+                    documentStorageRoot,
+                    prober = prober,
+                    blankDetector = blankDetector,
+                ).tickAndSettle()
+
+                val spec = captured ?: error("composer was not invoked")
+                val aliceVideo = spec.videoInputs.single { it.file.name == "p-alice.mp4" }
+                val aliceAudio = spec.audioInputs.single { it.file.name == "p-alice.mp4" }
+                aliceVideo.trackId shouldBe aliceRow.toString()
+                aliceVideo.offsetSeconds shouldBe (0.40 plusOrMinus 1e-9) // file offset 0 (earliest) + 0.40 start difference
+                aliceAudio.offsetSeconds shouldBe (0.0 plusOrMinus 1e-9)
+                aliceVideo.ranges shouldBe
+                    listOf(TimeRange(startSeconds = 0.0, endSeconds = 20.0), TimeRange(startSeconds = 35.0, endSeconds = 60.0))
+                aliceAudio.wallDurationSeconds shouldBe null
+                aliceAudio.ranges shouldBe listOf(TimeRange(startSeconds = 0.0, endSeconds = 60.4))
+                val bobVideo = spec.videoInputs.single { it.file.name == "p-bob.mp4" }
+                val bobAudio = spec.audioInputs.single { it.file.name == "p-bob.mp4" }
+                bobVideo.offsetSeconds shouldBe (10.0 plusOrMinus 1e-9) // unmeasured start times: both streams start with the file
+                bobAudio.offsetSeconds shouldBe (10.0 plusOrMinus 1e-9)
+                bobVideo.ranges shouldBe listOf(TimeRange(startSeconds = 0.0, endSeconds = 60.0))
+                // the screen share stays a plain video input (no audio input of its own in this fixture)
+                val share = spec.videoInputs.single { it.isScreenShare }
+                share.file.name shouldBe shareFile.name
+                share.offsetSeconds shouldBe (20.0 plusOrMinus 1e-9)
+                spec.videoInputs shouldHaveSize 3
+                spec.audioInputs shouldHaveSize 2
+                // the blank scan ran for the person files only, with the measured start of the video stream (0.40 / not measured -> 0)
+                blankDetector.seen.toSet() shouldBe setOf("p-alice.mp4" to 0.40, "p-bob.mp4" to 0.0)
+                // reported duration: the longest file offset + duration governs the output length (bob: 10 + 40, alice: 0 + 60, share: 20 + 15)
+                spec.outputDurationSeconds shouldBe (60.0 plusOrMinus 1e-9)
+                recordingRow(recordingId)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test(
+            "PARTICIPANT mode: STOPPING -> PROCESSING works for person rows (stops them, refreshes from ListEgress, then every row is terminal)",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pe-stopping@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                val recordingId =
+                    createRecording(
+                        roomId,
+                        member,
+                        ConferenceRecordingStatus.STOPPING,
+                        stoppedAt = DbClock.nowLocalDateTime(),
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+                val egressId = "EG_p-$recordingId"
+                createTrack(
+                    recordingId,
+                    egressId,
+                    "PA_alice",
+                    ConferenceRecordingTrackStatus.ACTIVE,
+                    ConferenceRecordingTrackSource.CAMERA,
+                    egressKind = ConferenceRecordingEgressMode.PARTICIPANT,
+                )
+                val egressClient = FakeLiveKitEgressClient()
+                egressClient.egressInfoByEgressId[egressId] =
+                    LiveKitEgressInfo(
+                        egressId = egressId,
+                        roomName = livekitRoomName,
+                        status = "EGRESS_COMPLETE",
+                        startedAtEpochNanos = "5",
+                        fileResults =
+                            listOf(
+                                LiveKitEgressFileInfo(
+                                    filename = "/out/$recordingId/p-a.mp4",
+                                    startedAtEpochNanos = "5",
+                                    duration = "2000000000",
+                                ),
+                            ),
+                    )
+                buildPoller(
+                    FakeLiveKitAdminClient(),
+                    egressClient,
+                    FakeRecordingComposer(),
+                    hostRawRoot,
+                    documentStorageRoot,
+                    egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                ).tickAndSettle()
+
+                egressClient.stoppedEgressIds.filter { it == egressId } shouldBe listOf(egressId)
+                recordingRow(recordingId)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.PROCESSING
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test(
+            "PARTICIPANT mode: a person file whose picture is black throughout leaves no video at all -> NoVideo -> COMPOSE_FAILED, never an all-black 'visible' tile",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pe-allblack@example.org")
+                val (roomId, _) = createRoom(member)
+                val recordingId =
+                    createRecording(
+                        roomId,
+                        member,
+                        ConferenceRecordingStatus.PROCESSING,
+                        composeAttempts = MAX_COMPOSE_ATTEMPTS - 1,
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+                val rawDir = hostRawRoot.resolve(recordingId.toString()).apply { mkdirs() }
+                val file = rawDir.resolve("p-alice.mp4").apply { writeBytes(byteArrayOf(1)) }
+                createTrack(
+                    recordingId,
+                    "EG_a-$recordingId",
+                    "PA_alice",
+                    ConferenceRecordingTrackStatus.COMPLETE,
+                    ConferenceRecordingTrackSource.CAMERA,
+                    file.name,
+                    1_000_000_000L,
+                    30_000L,
+                    ConferenceRecordingEgressMode.PARTICIPANT,
+                )
+                val prober =
+                    object : RecordingMediaProber {
+                        override suspend fun probeDurationSeconds(file: File): Double? = null
+
+                        override suspend fun probePacketRanges(
+                            file: File,
+                            kind: StreamKind,
+                            gapThresholdSeconds: Double,
+                        ): PacketRanges? =
+                            PacketRanges(ranges = listOf(TimeRange(startSeconds = 0.0, endSeconds = 30.0)), mediaDurationSeconds = 30.0)
+                    }
+                val blankDetector =
+                    object : RecordingBlankVideoDetector {
+                        override suspend fun detectBlankRanges(
+                            file: File,
+                            videoStreamStartSeconds: Double,
+                            minSeconds: Double,
+                        ): List<TimeRange> = listOf(TimeRange(startSeconds = 0.0, endSeconds = FfmpegBlankVideoDetector.OPEN_END_SECONDS))
+                    }
+                val composer = FakeRecordingComposer()
+                buildPoller(
+                    FakeLiveKitAdminClient(),
+                    FakeLiveKitEgressClient(),
+                    composer,
+                    hostRawRoot,
+                    documentStorageRoot,
+                    prober = prober,
+                    blankDetector = blankDetector,
+                ).tickAndSettle()
+
+                composer.callCount shouldBe 0
+                val row = recordingRow(recordingId)
+                row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.FAILED
+                row[ConferenceRecordingTable.failureCode] shouldBe ConferenceRecordingFailureCode.COMPOSE_FAILED
             } finally {
                 hostRawRoot.deleteRecursively()
                 documentStorageRoot.deleteRecursively()

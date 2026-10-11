@@ -161,6 +161,13 @@ classDiagram(name = "ConferenceRecording") {
         literal(name = "ABORTED")
     }
 
+    // V1.9.110 (V90): literal order is load-bearing, matching network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode. One enum serves
+    // both conference_recording.egress_mode (how the recording's raw files are produced) and conference_recording_track.egress_kind.
+    val conferenceRecordingEgressMode = enumOf(name = "ConferenceRecordingEgressMode") {
+        literal(name = "TRACK")
+        literal(name = "PARTICIPANT")
+    }
+
     val conferenceRecording = classOf(name = "ConferenceRecording") {
         stereotype("Entity") { "tableName" to "conference_recording"; "kotlinObjectName" to "ConferenceRecordingTable" }
         stereotype("Index") { "columns" to listOf("room_id"); "name" to "idx_conference_recording_room" }
@@ -295,6 +302,15 @@ classDiagram(name = "ConferenceRecording") {
                 "enumType" to "network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode"
             }
         }
+        // V1.9.110 (V90): how this recording's raw files are produced -- fixed when the recording starts (TRACK = one Track Egress per
+        // published track, PARTICIPANT = one Participant Egress per person). Stored so a restart with a changed env value cannot mix modes.
+        attribute(name = "egressMode", type = conferenceRecordingEgressMode) {
+            defaultValue = "TRACK"
+            stereotype("Column") {
+                "columnName" to "egress_mode"
+                "enumType" to "network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode"
+            }
+        }
     }
 
     val conferenceRecordingTrack = classOf(name = "ConferenceRecordingTrack") {
@@ -329,7 +345,7 @@ classDiagram(name = "ConferenceRecording") {
             stereotype("Column") { "columnName" to "egress_id"; "sqlType" to "VARCHAR(64)" }
         }
         // LiveKit's own `TR_...` track id (network.lapis.cloud.server.conference.LiveKitTrackInfo
-        // .sid) -- NOT unique on its own (the SAME track could in principle be the target of a
+        // .sid), or the participant SID (`PA_...`) when egress_kind = PARTICIPANT (V1.9.110) -- NOT unique on its own (the SAME track could in principle be the target of a
         // second StartTrackEgress after a first one FAILED/ABORTED and the poller retries a fresh
         // egress for it; egress_id, not livekit_track_id, is this table's real dedup key).
         attribute(name = "livekitTrackId", type = "String") {
@@ -387,6 +403,14 @@ classDiagram(name = "ConferenceRecording") {
         attribute(name = "sizeBytes", type = "Long") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "size_bytes" }
+        }
+        // V1.9.110 (V90): TRACK = single-track file, PARTICIPANT = per-person file with audio AND video (then track_source = CAMERA).
+        attribute(name = "egressKind", type = conferenceRecordingEgressMode) {
+            defaultValue = "TRACK"
+            stereotype("Column") {
+                "columnName" to "egress_kind"
+                "enumType" to "network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode"
+            }
         }
     }
 }

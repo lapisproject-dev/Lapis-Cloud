@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.booleans.shouldBeFalse
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode
 
 private fun envOf(vararg pairs: Pair<String, String>): (String) -> String? {
     val map = pairs.toMap()
@@ -32,6 +33,38 @@ class ConferenceRecordingConfigTest :
             config.composeTimeoutMinutes shouldBe 120L
             config.maxTracks shouldBe 60
             config.keepRaw.shouldBeFalse()
+            config.egressMode shouldBe ConferenceRecordingEgressMode.TRACK
+        }
+
+        test("LAPIS_RECORDING_EGRESS_MODE: unset, blank and 'track' -> TRACK") {
+            ConferenceRecordingConfig.load(envOf()).egressMode shouldBe ConferenceRecordingEgressMode.TRACK
+            ConferenceRecordingConfig.load(envOf("LAPIS_RECORDING_EGRESS_MODE" to "  ")).egressMode shouldBe
+                ConferenceRecordingEgressMode.TRACK
+            ConferenceRecordingConfig.load(envOf("LAPIS_RECORDING_EGRESS_MODE" to "track")).egressMode shouldBe
+                ConferenceRecordingEgressMode.TRACK
+        }
+
+        test("LAPIS_RECORDING_EGRESS_MODE: participant, any case, surrounding blanks -> PARTICIPANT") {
+            for (raw in listOf("participant", "PARTICIPANT", " Participant ")) {
+                ConferenceRecordingConfig.load(envOf("LAPIS_RECORDING_EGRESS_MODE" to raw)).egressMode shouldBe
+                    ConferenceRecordingEgressMode.PARTICIPANT
+            }
+        }
+
+        test("LAPIS_RECORDING_EGRESS_MODE: an unknown value falls back to TRACK, never throws") {
+            ConferenceRecordingConfig.load(envOf("LAPIS_RECORDING_EGRESS_MODE" to "room")).egressMode shouldBe
+                ConferenceRecordingEgressMode.TRACK
+            ConferenceRecordingConfig.load(envOf("LAPIS_RECORDING_EGRESS_MODE" to "participants")).egressMode shouldBe
+                ConferenceRecordingEgressMode.TRACK
+        }
+
+        test("toString names the egress mode") {
+            ConferenceRecordingConfig
+                .load(
+                    envOf("LAPIS_RECORDING_EGRESS_MODE" to "participant"),
+                ).toString()
+                .contains("egressMode=PARTICIPANT") shouldBe
+                true
         }
 
         test("LAPIS_RECORDING_ENABLED=true -> enabled") {
@@ -128,7 +161,7 @@ class ConferenceRecordingConfigTest :
             config.toString() shouldBe
                 "ConferenceRecordingConfig(enabled=true, outputContainerDir='/out', " +
                 "outputHostDir='deploy/local/egress-out', ffmpegPath='/opt/ffmpeg', ffprobePath='/opt/ffprobe', pollIntervalSeconds=10, " +
-                "egressTimeoutMinutes=30, maxDurationMinutes=240, composeTimeoutMinutes=120, maxTracks=60, keepRaw=false)"
+                "egressTimeoutMinutes=30, maxDurationMinutes=240, composeTimeoutMinutes=120, maxTracks=60, keepRaw=false, egressMode=TRACK)"
         }
 
         // ── probeFfmpegAvailable (real process spawn -- limited, environment-tolerant assertions) ──

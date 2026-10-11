@@ -2864,6 +2864,12 @@ private class ControllableFakeLiveKitEgressClient(
         rtmpUrls: List<String>,
     ): LiveKitEgressInfo = error("not used by SecretBallotStreamPauseTest")
 
+    override suspend fun startParticipantFileEgress(
+        roomName: String,
+        identity: String,
+        outputFilepath: String,
+    ): LiveKitEgressInfo = error("not used by this fake")
+
     override suspend fun updateStream(
         roomName: String,
         egressId: String,

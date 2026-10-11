@@ -81,6 +81,14 @@ class ConferenceRecordingSchemaDriftTest :
             entity.attributeByName("recompute_started_at")?.nullable shouldBe true
             entity.attributeByName("recomputed_at")?.nullable shouldBe true
             entity.attributeByName("last_recompute_failure_code")?.nullable shouldBe true
+            // V1.9.110 (V90): the egress mode a recording runs in; literal order is load-bearing.
+            entity.attributeByName("egress_mode")?.nullable shouldBe false
+            entity.attributeByName("egress_mode")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "ConferenceRecordingEgressMode",
+                    values = listOf("TRACK", "PARTICIPANT"),
+                    externalFqName = "network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode",
+                )
             entity.attributeByName("failure_code")?.type shouldBe
                 ErmDataType.Enum(
                     name = "ConferenceRecordingFailureCode",
@@ -133,6 +141,14 @@ class ConferenceRecordingSchemaDriftTest :
             entity.attributeByName("file_name")?.nullable shouldBe true
             entity.attributeByName("duration_ms")?.nullable shouldBe true
             entity.attributeByName("size_bytes")?.nullable shouldBe true
+            // V1.9.110 (V90): which kind of egress produced the file.
+            entity.attributeByName("egress_kind")?.nullable shouldBe false
+            entity.attributeByName("egress_kind")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "ConferenceRecordingEgressMode",
+                    values = listOf("TRACK", "PARTICIPANT"),
+                    externalFqName = "network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode",
+                )
 
             real.uniqueConstraints shouldContainExactlyInAnyOrder listOf(setOf("egress_id"))
 

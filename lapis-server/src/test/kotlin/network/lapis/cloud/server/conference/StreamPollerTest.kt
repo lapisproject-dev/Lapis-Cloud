@@ -137,6 +137,12 @@ private class StreamPollerFakeEgressClient(
         rtmpUrls: List<String>,
     ): LiveKitEgressInfo = error("not used by StreamPollerTest")
 
+    override suspend fun startParticipantFileEgress(
+        roomName: String,
+        identity: String,
+        outputFilepath: String,
+    ): LiveKitEgressInfo = error("not used by this fake")
+
     override suspend fun updateStream(
         roomName: String,
         egressId: String,
@@ -1259,6 +1265,12 @@ class StreamPollerTest :
                         latencyMode: ConferenceStreamLatencyMode,
                         rtmpUrls: List<String>,
                     ) = error("not used")
+
+                    override suspend fun startParticipantFileEgress(
+                        roomName: String,
+                        identity: String,
+                        outputFilepath: String,
+                    ): LiveKitEgressInfo = error("not used by this fake")
 
                     override suspend fun updateStream(
                         roomName: String,

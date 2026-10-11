@@ -108,4 +108,37 @@ class RecordingMediaProberTest :
                 RecordingMediaProber.None.probeOutput(java.io.File("/nonexistent")) shouldBe null
             }
         }
+
+        // ── V1.9.110: stream start times of a per-person file ──────────────────
+
+        test("parseStreamStartTimes reads the first video and the first audio stream") {
+            val times =
+                FfprobeMediaProber.parseStreamStartTimes(
+                    """{"streams":[{"codec_type":"video","start_time":"0.400000"},{"codec_type":"audio","start_time":"-0.021000"},""" +
+                        """{"codec_type":"audio","start_time":"9.0"}]}""",
+                )!!
+            times.videoSeconds shouldBe (0.4 plusOrMinus 1e-9)
+            times.audioSeconds shouldBe (-0.021 plusOrMinus 1e-9)
+            times.hasVideo shouldBe true
+            times.hasAudio shouldBe true
+        }
+
+        test("parseStreamStartTimes: a missing stream is reported as absent, N/A keeps the stream but has no time") {
+            val onlyAudio = FfprobeMediaProber.parseStreamStartTimes("""{"streams":[{"codec_type":"audio","start_time":"0.0"}]}""")!!
+            onlyAudio.hasVideo shouldBe false
+            onlyAudio.videoSeconds shouldBe null
+            onlyAudio.hasAudio shouldBe true
+
+            val unknown = FfprobeMediaProber.parseStreamStartTimes("""{"streams":[{"codec_type":"video","start_time":"N/A"}]}""")!!
+            unknown.hasVideo shouldBe true
+            unknown.videoSeconds shouldBe null
+            unknown.hasAudio shouldBe false
+        }
+
+        test("parseStreamStartTimes: unparseable output yields null, never throws") {
+            FfprobeMediaProber.parseStreamStartTimes("") shouldBe null
+            FfprobeMediaProber.parseStreamStartTimes("not json") shouldBe null
+            FfprobeMediaProber.parseStreamStartTimes("""{"other":1}""") shouldBe null
+            FfprobeMediaProber.parseStreamStartTimes("""{"streams":"x"}""") shouldBe null
+        }
     })

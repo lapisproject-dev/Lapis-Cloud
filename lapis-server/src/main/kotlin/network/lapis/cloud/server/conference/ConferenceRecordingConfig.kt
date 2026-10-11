@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.conference
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode
 
 private val logger = KotlinLogging.logger {}
 
@@ -64,6 +65,13 @@ class ConferenceRecordingConfig private constructor(
     val maxTracks: Int,
     /** `true` iff raw per-track files are KEPT after a successful compose (default `false` -- deleted once the composed file is archived as a document). Independent of the poller's FAILED-branch retention, which always keeps raw files regardless of this flag -- see that class's own KDoc "raw-file fate on FAILED". */
     val keepRaw: Boolean,
+    /**
+     * V1.9.110: `LAPIS_RECORDING_EGRESS_MODE` -- [ConferenceRecordingEgressMode.TRACK] (default; one Track Egress per track) or
+     * [ConferenceRecordingEgressMode.PARTICIPANT] (opt-in; one Participant Egress per person, audio and video on one clock). The mode
+     * applies PER RECORDING from the moment it starts (stored in `conference_recording.egress_mode`): changing this value affects only
+     * recordings started afterwards, never one that is already running.
+     */
+    val egressMode: ConferenceRecordingEgressMode,
 ) {
     /** Deliberately omits nothing secret -- this class carries no credentials of its own (see class KDoc), so every field is safe to log as-is. Kept for symmetry with [ConferenceConfig.toString] regardless. */
     override fun toString(): String =
@@ -71,7 +79,7 @@ class ConferenceRecordingConfig private constructor(
             "outputHostDir='$outputHostDir', ffmpegPath='$ffmpegPath', ffprobePath='$ffprobePath', " +
             "pollIntervalSeconds=$pollIntervalSeconds, " +
             "egressTimeoutMinutes=$egressTimeoutMinutes, maxDurationMinutes=$maxDurationMinutes, " +
-            "composeTimeoutMinutes=$composeTimeoutMinutes, maxTracks=$maxTracks, keepRaw=$keepRaw)"
+            "composeTimeoutMinutes=$composeTimeoutMinutes, maxTracks=$maxTracks, keepRaw=$keepRaw, egressMode=$egressMode)"
 
     companion object {
         private const val DEFAULT_OUTPUT_CONTAINER_DIR = "/out"
@@ -88,7 +96,7 @@ class ConferenceRecordingConfig private constructor(
          * `LAPIS_EGRESS_OUTPUT_HOST_DIR`/`LAPIS_FFMPEG_PATH`/`LAPIS_RECORDING_POLL_INTERVAL_SECONDS`/
          * `LAPIS_RECORDING_EGRESS_TIMEOUT_MINUTES`/`LAPIS_RECORDING_MAX_DURATION_MINUTES`/
          * `LAPIS_RECORDING_COMPOSE_TIMEOUT_MINUTES`/`LAPIS_RECORDING_MAX_TRACKS`/
-         * `LAPIS_RECORDING_KEEP_RAW` via [env] (defaults to [System.getenv]). Pure string parsing,
+         * `LAPIS_RECORDING_KEEP_RAW`/`LAPIS_RECORDING_EGRESS_MODE` via [env] (defaults to [System.getenv]). Pure string parsing,
          * no I/O -- see class KDoc. Unparseable numeric values silently fall back to their default
          * rather than throwing (same "degrade to a sane default, never crash config load over a
          * malformed number" posture [ConferenceConfig.load]'s own TTL/max-participants parsing
@@ -111,7 +119,26 @@ class ConferenceRecordingConfig private constructor(
                     env("LAPIS_RECORDING_COMPOSE_TIMEOUT_MINUTES")?.trim()?.toLongOrNull() ?: DEFAULT_COMPOSE_TIMEOUT_MINUTES,
                 maxTracks = env("LAPIS_RECORDING_MAX_TRACKS")?.trim()?.toIntOrNull() ?: DEFAULT_MAX_TRACKS,
                 keepRaw = env("LAPIS_RECORDING_KEEP_RAW")?.trim().equals("true", ignoreCase = true),
+                egressMode = parseEgressMode(env("LAPIS_RECORDING_EGRESS_MODE")),
             )
+        }
+
+        /**
+         * `track` / `participant` (trimmed, case-insensitive); blank means [ConferenceRecordingEgressMode.TRACK]; any other value
+         * also yields TRACK plus ONE warning -- the same "bad input falls back to the default, never crashes config load" posture as
+         * the numeric values above.
+         */
+        internal fun parseEgressMode(raw: String?): ConferenceRecordingEgressMode {
+            val value = raw?.trim().orEmpty()
+            if (value.isEmpty()) return ConferenceRecordingEgressMode.TRACK
+            return when (value.lowercase(java.util.Locale.ROOT)) {
+                "track" -> ConferenceRecordingEgressMode.TRACK
+                "participant" -> ConferenceRecordingEgressMode.PARTICIPANT
+                else -> {
+                    logger.warn { "LAPIS_RECORDING_EGRESS_MODE has an unknown value -- using 'track' (allowed: track, participant)" }
+                    ConferenceRecordingEgressMode.TRACK
+                }
+            }
         }
 
         /**

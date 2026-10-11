@@ -25,6 +25,7 @@ import network.lapis.cloud.server.routes.archiveNewVersionOfFile
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode
 import network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackSource
@@ -42,6 +43,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
@@ -70,6 +72,18 @@ private const val VIDEO_GAP_SECONDS = 1.0
 
 /** V1.9.109: audio gaps of at least this many seconds are silence rather than a lost packet. */
 private const val AUDIO_GAP_SECONDS = 0.5
+
+/** V1.9.110: black pictures shorter than this many seconds in a per-person file are a flicker, not a switched-off camera. */
+private const val BLANK_MIN_SECONDS = 1.5
+
+/** Bound of [RecordingPoller]'s "already warned" set -- a hostile stream of identities must not grow it without limit. */
+private const val MAX_WARNED_SIDS = 1000
+
+/** LiveKit `TrackSource` strings that belong to the person file of a per-person (Participant Egress) recording. */
+private val PERSON_SOURCES = setOf("CAMERA", "MICROPHONE")
+
+/** LiveKit `TrackSource` strings recorded by Track Egress even in the per-person mode (the egress's `screen_share` flag is `false`). */
+private val SCREEN_SHARE_SOURCES = setOf("SCREEN_SHARE", "SCREEN_SHARE_AUDIO")
 
 private val TERMINAL_TRACK_STATUSES =
     setOf(ConferenceRecordingTrackStatus.COMPLETE, ConferenceRecordingTrackStatus.FAILED, ConferenceRecordingTrackStatus.ABORTED)
@@ -155,6 +169,16 @@ private val FAILURE_TEXT_BY_CODE =
  * [network.lapis.cloud.shared.rpc.IConferenceRecordingService] KDoc and the wave plan's own "What
  * we give up by not using webhooks").
  *
+ * ## Participant egress mode (V1.9.110, opt-in)
+ *
+ * A recording started with `LAPIS_RECORDING_EGRESS_MODE=participant` (stored per recording in `conference_recording.egress_mode`, so a
+ * restart with another value never mixes modes) records ONE file per person with a Participant Egress -- audio and video muxed by LiveKit on
+ * one clock -- instead of one file per track, because Track Egress has no RTCP sender-report synchronisation between its separate files (a
+ * measured 5.3 s audio/video offset on the ELB recording `d08d4205`). See [handleRecordingParticipantMode]. Screen shares stay on Track
+ * Egress. Composition: [ParticipantFileInputs] turns each person file into one video and one audio input with PER-STREAM offsets, no
+ * `atempo`; a switched-off camera shows as a packet gap or as black pictures ([RecordingBlankVideoDetector]). A refused start is retried
+ * and never falls back to Track Egress. Recompute needs no special case: [buildSpec] decides per ROW (`egress_kind`), not by configuration.
+ *
  * ## STOPPING
  *
  * Zero [network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable] rows for this
@@ -233,6 +257,8 @@ class RecordingPoller(
     private val documentStorageRoot: File,
     private val composer: RecordingComposer,
     private val prober: RecordingMediaProber = RecordingMediaProber.None,
+    /** V1.9.110: finds the black stretches (camera switched off) of a per-person file; a test seam, [RecordingBlankVideoDetector.None] measures nothing. */
+    private val blankDetector: RecordingBlankVideoDetector = RecordingBlankVideoDetector.None,
     private val clock: () -> LocalDateTime = { DbClock.nowLocalDateTime() },
     /** V1.9.109: free-space probe of the recompute's pre-flight check; a test seam. */
     private val diskSpace: (File) -> Long = { it.usableSpace },
@@ -252,6 +278,15 @@ class RecordingPoller(
     /** Recordings the worker has been handed but has not finished yet (the current one included); the tick must never fail those. */
     @Volatile
     private var workerPendingIds: Set<Uuid> = emptySet()
+
+    /**
+     * V1.9.110: Participant-Egress rows for which a `StopEgress` was already sent because the person left the room -- keeps the
+     * leave handling from repeating the call every tick. In memory only: after a restart at most one repetition happens, and StopEgress is idempotent.
+     */
+    private val stopRequestedEgressIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /** V1.9.110: participant SIDs already reported as having an unusable identity (logged once, not every tick). */
+    private val warnedUnusableParticipantSids: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     /** See class KDoc "requestTick". Conflated: at most one pending wake-up, never a queue. */
     private val wake = Channel<Unit>(Channel.CONFLATED)
@@ -373,18 +408,28 @@ class RecordingPoller(
                 return
             }
 
-        val existingTrackIds =
+        val existingRows =
             transaction {
                 ConferenceRecordingTrackTable
                     .selectAll()
                     .where { ConferenceRecordingTrackTable.recordingId eq row.id }
-                    .map { it[ConferenceRecordingTrackTable.livekitTrackId] }
-                    .toSet()
+                    .map { it.toTrackRow() }
             }
+        if (row.egressMode == ConferenceRecordingEgressMode.PARTICIPANT) {
+            handleRecordingParticipantMode(
+                row = row,
+                livekitRoomName = livekitRoomName,
+                participants = participants,
+                existingRows = existingRows,
+            )
+            return
+        }
+        val existingTrackIds = existingRows.mapTo(HashSet()) { it.livekitTrackId }
         var slotsRemaining = recordingConfig.maxTracks - existingTrackIds.size
         if (slotsRemaining <= 0) return
 
         for (participant in participants) {
+            if (!usableIdentity(participant)) continue
             for (track in participant.tracks) {
                 if (slotsRemaining <= 0) return
                 if (track.sid in existingTrackIds || track.muted) continue
@@ -404,22 +449,188 @@ class RecordingPoller(
                         continue
                     }
                 slotsRemaining--
-                transaction {
-                    ConferenceRecordingTrackTable.insert {
-                        it[id] = Uuid.random()
-                        it[recordingId] = row.id
-                        it[egressId] = egressInfo.egressId
-                        it[livekitTrackId] = track.sid
-                        it[participantIdentity] = participant.identity
-                        it[trackSource] = mapTrackSource(track.source)
-                        it[status] = mapEgressStatus(egressInfo.status)
-                        it[startedAtEpochNanos] = egressInfo.startedAtEpochNanos.toLongOrNull()?.takeIf { it != 0L }
-                        it[endedAtEpochNanos] = null
-                        it[fileName] = null
-                        it[durationMs] = null
-                        it[sizeBytes] = null
+                insertTrackRow(
+                    recordingId = row.id,
+                    rowId = Uuid.random(),
+                    egressInfo = egressInfo,
+                    livekitId = track.sid,
+                    identity = participant.identity,
+                    source = mapTrackSource(track.source),
+                    kind = ConferenceRecordingEgressMode.TRACK,
+                )
+            }
+        }
+    }
+
+    /**
+     * V1.9.110 -- the discovery pass of a recording in [ConferenceRecordingEgressMode.PARTICIPANT] mode: ONE Participant Egress per
+     * person (audio and video muxed by LiveKit on one clock, written to `p-<rowUuid>.mp4`), Track Egress only for screen shares.
+     *
+     *  1. A person who has published a camera or a microphone track (muted is fine -- unlike Track Egress this egress follows the
+     *     person, not the track) and whose participant SID is not yet known gets a `StartParticipantEgress` and a row
+     *     (`egress_kind = PARTICIPANT`, `track_source = CAMERA`, `livekit_track_id` = the participant SID).
+     *  2. LiveKit hands out a new SID on every join: a person who leaves and comes back gets a new row, a new file and, in the
+     *     composition, a new picture.
+     *  3. Screen shares (`SCREEN_SHARE`, `SCREEN_SHARE_AUDIO`) run exactly as in the track mode.
+     *  4. A person who is gone from the room gets ONE `StopEgress` (deterministic, whether or not LiveKit ends the egress on its own),
+     *     followed by a refresh of the rows.
+     *  5. A refused start (e.g. LiveKit has no egress CPU left) is logged and tried again on the next tick -- there is deliberately NO
+     *     fallback to Track Egress, which would silently bring the audio/video offset back.
+     * Every row counts against [ConferenceRecordingConfig.maxTracks].
+     */
+    private suspend fun handleRecordingParticipantMode(
+        row: RecordingRow,
+        livekitRoomName: String,
+        participants: List<LiveKitParticipantInfo>,
+        existingRows: List<TrackRow>,
+    ) {
+        val knownIds = existingRows.mapTo(HashSet()) { it.livekitTrackId }
+        stopEgressOfDepartedParticipants(row = row, livekitRoomName = livekitRoomName, participants = participants, rows = existingRows)
+
+        var slotsRemaining = recordingConfig.maxTracks - existingRows.size
+        for (participant in participants) {
+            for (track in participant.tracks) {
+                if (slotsRemaining <= 0) return
+                if (track.source !in SCREEN_SHARE_SOURCES || track.sid in knownIds || track.muted) continue
+                if (!usableIdentity(participant)) continue
+                val outputPath =
+                    "${recordingConfig.outputContainerDir}/${row.rawDir}/${participant.identity}__${track.source}__${track.sid}"
+                val egressInfo =
+                    try {
+                        liveKitEgressClient.startTrackEgress(
+                            roomName = livekitRoomName,
+                            trackId = track.sid,
+                            outputFilepathWithoutExtension = outputPath,
+                        )
+                    } catch (e: LiveKitAdminException) {
+                        logger.warn {
+                            "RecordingPoller: StartTrackEgress failed for track ${track.sid} (recording ${row.id}): ${e.message}"
+                        }
+                        continue
                     }
+                slotsRemaining--
+                insertTrackRow(
+                    recordingId = row.id,
+                    rowId = Uuid.random(),
+                    egressInfo = egressInfo,
+                    livekitId = track.sid,
+                    identity = participant.identity,
+                    source = mapTrackSource(track.source),
+                    kind = ConferenceRecordingEgressMode.TRACK,
+                )
+            }
+            if (slotsRemaining <= 0) return
+            val hasPersonTrack = participant.tracks.any { it.source in PERSON_SOURCES }
+            if (!hasPersonTrack || participant.sid.isBlank() || participant.sid in knownIds) continue
+            if (!usableIdentity(participant)) continue
+            val rowId = Uuid.random()
+            val outputPath =
+                RecordingEgressPaths.participantFile(
+                    containerDir = recordingConfig.outputContainerDir,
+                    rawDir = row.rawDir,
+                    rowId = rowId,
+                )
+            val egressInfo =
+                try {
+                    liveKitEgressClient.startParticipantFileEgress(
+                        roomName = livekitRoomName,
+                        identity = participant.identity,
+                        outputFilepath = outputPath,
+                    )
+                } catch (e: LiveKitAdminException) {
+                    // No identity in the message (data protection); the row id would only exist after success -- the recording id is enough.
+                    logger.warn {
+                        "RecordingPoller: StartParticipantEgress failed for a participant of recording ${row.id} (retried next tick): ${e.message}"
+                    }
+                    continue
                 }
+            slotsRemaining--
+            insertTrackRow(
+                recordingId = row.id,
+                rowId = rowId,
+                egressInfo = egressInfo,
+                livekitId = participant.sid,
+                identity = participant.identity,
+                source = ConferenceRecordingTrackSource.CAMERA,
+                kind = ConferenceRecordingEgressMode.PARTICIPANT,
+            )
+        }
+    }
+
+    /**
+     * Sends ONE `StopEgress` for every still-running Participant-Egress row whose person is no longer in [participants] (see
+     * [handleRecordingParticipantMode] item 4), then refreshes those rows from `ListEgress`.
+     */
+    private suspend fun stopEgressOfDepartedParticipants(
+        row: RecordingRow,
+        livekitRoomName: String,
+        participants: List<LiveKitParticipantInfo>,
+        rows: List<TrackRow>,
+    ) {
+        val presentSids = participants.mapTo(HashSet()) { it.sid }
+        val departed =
+            rows.filter {
+                it.egressKind == ConferenceRecordingEgressMode.PARTICIPANT &&
+                    (it.status == ConferenceRecordingTrackStatus.STARTING || it.status == ConferenceRecordingTrackStatus.ACTIVE) &&
+                    it.livekitTrackId !in presentSids &&
+                    it.egressId !in stopRequestedEgressIds
+            }
+        if (departed.isEmpty()) return
+        var stopped = false
+        for (t in departed) {
+            try {
+                liveKitEgressClient.stopEgress(roomName = livekitRoomName, egressId = t.egressId)
+                stopRequestedEgressIds += t.egressId
+                stopped = true
+            } catch (e: LiveKitAdminException) {
+                // Not remembered: the next tick tries again. If LiveKit already ended the egress, the refresh below makes the row terminal.
+                logger.warn { "RecordingPoller: StopEgress failed for ${t.egressId} (recording ${row.id}): ${e.message}" }
+            }
+        }
+        if (!stopped) return
+        val egressInfos =
+            try {
+                liveKitEgressClient.listEgress(livekitRoomName)
+            } catch (e: LiveKitAdminException) {
+                logger.warn { "RecordingPoller: ListEgress failed for recording ${row.id}: ${e.message}" }
+                return
+            }
+        refreshTrackRows(row = row, egressInfos = egressInfos, trackRows = departed)
+    }
+
+    /** `false` (and ONE warning per participant) for an identity that does not fit the column / is not a harmless file-name part, see [RecordingEgressPaths.isAcceptableIdentity]. */
+    private fun usableIdentity(participant: LiveKitParticipantInfo): Boolean {
+        if (RecordingEgressPaths.isAcceptableIdentity(participant.identity)) return true
+        if (warnedUnusableParticipantSids.size < MAX_WARNED_SIDS && warnedUnusableParticipantSids.add(participant.sid)) {
+            logger.warn { "RecordingPoller: a participant with an unusable identity (length or characters) is not recorded" }
+        }
+        return false
+    }
+
+    private fun insertTrackRow(
+        recordingId: Uuid,
+        rowId: Uuid,
+        egressInfo: LiveKitEgressInfo,
+        livekitId: String,
+        identity: String,
+        source: ConferenceRecordingTrackSource,
+        kind: ConferenceRecordingEgressMode,
+    ) {
+        transaction {
+            ConferenceRecordingTrackTable.insert {
+                it[id] = rowId
+                it[ConferenceRecordingTrackTable.recordingId] = recordingId
+                it[egressId] = egressInfo.egressId
+                it[livekitTrackId] = livekitId
+                it[participantIdentity] = identity
+                it[trackSource] = source
+                it[egressKind] = kind
+                it[status] = mapEgressStatus(egressInfo.status)
+                it[startedAtEpochNanos] = egressInfo.startedAtEpochNanos.toLongOrNull()?.takeIf { it != 0L }
+                it[endedAtEpochNanos] = null
+                it[fileName] = null
+                it[durationMs] = null
+                it[sizeBytes] = null
             }
         }
     }
@@ -483,6 +694,34 @@ class RecordingPoller(
                 applyEgressTimeout(row = row, now = now, tracks = trackRows)
                 return
             }
+        refreshTrackRows(row = row, egressInfos = egressInfos, trackRows = trackRows)
+
+        val refreshedTracks =
+            transaction {
+                ConferenceRecordingTrackTable
+                    .selectAll()
+                    .where { ConferenceRecordingTrackTable.recordingId eq row.id }
+                    .map { it.toTrackRow() }
+            }
+        val allTerminal = refreshedTracks.isNotEmpty() && refreshedTracks.all { it.status in TERMINAL_TRACK_STATUSES }
+        if (allTerminal) {
+            stopRequestedEgressIds.removeAll(refreshedTracks.mapTo(HashSet()) { it.egressId })
+            transitionToProcessing(row.id)
+            return
+        }
+
+        applyEgressTimeout(row = row, now = now, tracks = refreshedTracks)
+    }
+
+    /**
+     * Updates [trackRows] (status, file name, duration, size, start/end) from the authoritative `EgressInfo`s of `ListEgress`. Shared by
+     * [handleStopping] (all rows) and the leave handling of the per-person mode (the departed person's rows only).
+     */
+    private fun refreshTrackRows(
+        row: RecordingRow,
+        egressInfos: List<LiveKitEgressInfo>,
+        trackRows: List<TrackRow>,
+    ) {
         val byEgressId = egressInfos.associateBy { it.egressId }
 
         transaction {
@@ -535,21 +774,6 @@ class RecordingPoller(
                 }
             }
         }
-
-        val refreshedTracks =
-            transaction {
-                ConferenceRecordingTrackTable
-                    .selectAll()
-                    .where { ConferenceRecordingTrackTable.recordingId eq row.id }
-                    .map { it.toTrackRow() }
-            }
-        val allTerminal = refreshedTracks.isNotEmpty() && refreshedTracks.all { it.status in TERMINAL_TRACK_STATUSES }
-        if (allTerminal) {
-            transitionToProcessing(row.id)
-            return
-        }
-
-        applyEgressTimeout(row = row, now = now, tracks = refreshedTracks)
     }
 
     /**
@@ -705,26 +929,23 @@ class RecordingPoller(
             }
 
         val t0 = resolved.mapNotNull { it.track.startedAtEpochNanos }.minOrNull() ?: 0L
-        val videoResolved = resolved.filter { it.track.trackSource in VIDEO_TRACK_SOURCES }
         if (completedTracks.isEmpty()) return SpecResult.NoTrackStored
+        // A per-person file (V1.9.110) has a video stream when its row says CAMERA, as every video check relies on.
+        val videoResolved = resolved.filter { it.track.trackSource in VIDEO_TRACK_SOURCES }
         if (videoResolved.isEmpty()) return SpecResult.NoVideo
-        val audioResolved = resolved.filter { it.track.trackSource in AUDIO_TRACK_SOURCES }
 
         data class Measured(
             val offset: Double,
             val probe: RecordingMediaProbe,
             val ranges: PacketRanges?,
+            /** Only for a per-person file: the per-stream measurements [ParticipantFileInputs] turns into one video and one audio input. */
+            val person: ParticipantStreamMeasurements?,
         )
         val measured =
             resolved.associate { r ->
                 val probe = prober.probe(r.file)
+                val isPerson = r.track.egressKind == ConferenceRecordingEgressMode.PARTICIPANT
                 val isVideo = r.track.trackSource in VIDEO_TRACK_SOURCES
-                val ranges =
-                    prober.probePacketRanges(
-                        file = r.file,
-                        kind = if (isVideo) StreamKind.VIDEO else StreamKind.AUDIO,
-                        gapThresholdSeconds = if (isVideo) VIDEO_GAP_SECONDS else AUDIO_GAP_SECONDS,
-                    )
                 val offset =
                     RecordingTrackAlignment.offsetSeconds(
                         startedAtEpochNanos = r.track.startedAtEpochNanos,
@@ -735,6 +956,26 @@ class RecordingPoller(
                         reportedDurationMs = r.track.durationMs,
                         probedDurationSeconds = probe.durationSeconds,
                     )
+                if (isPerson) {
+                    val person = measurePersonFile(file = r.file, probe = probe, reportedDurationMs = r.track.durationMs)
+                    logger.info {
+                        "RecordingPoller: recording ${row.id} person file '${r.file.name}': " +
+                            "fileOffsetApplied=${formatSeconds(offset)}s; streams: " +
+                            "videoStartS=${person.videoStartSeconds?.let(::formatSeconds) ?: "n/a"}, " +
+                            "audioStartS=${person.audioStartSeconds?.let(::formatSeconds) ?: "n/a"}, " +
+                            "videoRanges=${person.videoPacketRanges?.ranges?.size ?: "n/a"}, " +
+                            "audioRanges=${person.audioPacketRanges?.ranges?.size ?: "n/a"}, " +
+                            "blankRanges=${person.blankVideoRanges?.size ?: "n/a"}; " +
+                            "probedDurationS=${probe.durationSeconds?.let(::formatSeconds) ?: "n/a"}"
+                    }
+                    return@associate r.track.id to Measured(offset, probe, null, person)
+                }
+                val ranges =
+                    prober.probePacketRanges(
+                        file = r.file,
+                        kind = if (isVideo) StreamKind.VIDEO else StreamKind.AUDIO,
+                        gapThresholdSeconds = if (isVideo) VIDEO_GAP_SECONDS else AUDIO_GAP_SECONDS,
+                    )
                 logger.info {
                     "RecordingPoller: recording ${row.id} track ${r.track.trackSource} '${r.file.name}': " +
                         "offsetApplied=${formatSeconds(offset)}s (started_at relative to earliest track); diagnostics: " +
@@ -744,13 +985,23 @@ class RecordingPoller(
                         "reportedMinusProbedS=${discrepancy?.let(::formatSeconds) ?: "n/a"} (not applied); " +
                         "dataRanges=${ranges?.ranges?.size ?: "n/a"}"
                 }
-                r.track.id to Measured(offset, probe, ranges)
+                r.track.id to Measured(offset, probe, ranges, null)
             }
 
         /** The best known media length of a track: measured packets, then container, then what the egress reported. */
         fun mediaSeconds(r: Resolved): Double? {
             val m = measured.getValue(r.track.id)
-            return m.ranges?.mediaDurationSeconds ?: m.probe.durationSeconds ?: r.track.durationMs?.let { it / 1000.0 }
+            val personDuration =
+                m.person?.let {
+                    maxOf(
+                        it.videoPacketRanges?.mediaDurationSeconds ?: 0.0,
+                        it.audioPacketRanges?.mediaDurationSeconds ?: 0.0,
+                    )
+                }
+            return personDuration?.takeIf { it > 0.0 }
+                ?: m.ranges?.mediaDurationSeconds
+                ?: m.probe.durationSeconds
+                ?: r.track.durationMs?.let { it / 1000.0 }
         }
 
         // The length of the output is governed by the start offsets and the durations the egress REPORTED (they include the 0.1-0.4 s
@@ -761,40 +1012,95 @@ class RecordingPoller(
                 .maxOf { r -> measured.getValue(r.track.id).offset + (r.track.durationMs?.let { it / 1000.0 } ?: mediaSeconds(r) ?: 0.0) }
                 .coerceAtLeast(1.0)
 
-        val spec =
+        val videoInputs = ArrayList<RecordingComposeVideoInput>()
+        val audioInputs = ArrayList<RecordingComposeAudioInput>()
+        for (r in resolved) {
+            val m = measured.getValue(r.track.id)
+            val person = m.person
+            if (person != null) {
+                val (video, audio) =
+                    ParticipantFileInputs.build(
+                        file = r.file,
+                        trackId = r.track.id.toString(),
+                        fileOffsetSeconds = m.offset,
+                        m = person,
+                    )
+                video?.let { videoInputs += it }
+                audio?.let { audioInputs += it }
+            } else if (r.track.trackSource in VIDEO_TRACK_SOURCES) {
+                videoInputs +=
+                    RecordingComposeVideoInput(
+                        file = r.file,
+                        offsetSeconds = m.offset,
+                        isScreenShare = r.track.trackSource == ConferenceRecordingTrackSource.SCREEN_SHARE,
+                        trackId = r.track.id.toString(),
+                        ranges = m.ranges?.ranges.orEmpty(),
+                        durationSeconds = mediaSeconds(r),
+                    )
+            } else if (r.track.trackSource in AUDIO_TRACK_SOURCES) {
+                val wall =
+                    if (r.track.startedAtEpochNanos != null && r.track.endedAtEpochNanos != null) {
+                        (r.track.endedAtEpochNanos - r.track.startedAtEpochNanos) / 1_000_000_000.0
+                    } else {
+                        r.track.durationMs?.let { it / 1000.0 }
+                    }
+                audioInputs +=
+                    RecordingComposeAudioInput(
+                        file = r.file,
+                        offsetSeconds = m.offset,
+                        ranges = m.ranges?.ranges.orEmpty(),
+                        mediaDurationSeconds = mediaSeconds(r),
+                        wallDurationSeconds = wall,
+                    )
+            }
+        }
+        // A per-person file whose picture is black throughout contributes no video input; with no picture left anywhere there is nothing to compose.
+        if (videoInputs.isEmpty()) return SpecResult.NoVideo
+        return SpecResult.Ready(
             RecordingComposeSpec(
-                videoInputs =
-                    videoResolved.map { r ->
-                        val m = measured.getValue(r.track.id)
-                        RecordingComposeVideoInput(
-                            file = r.file,
-                            offsetSeconds = m.offset,
-                            isScreenShare = r.track.trackSource == ConferenceRecordingTrackSource.SCREEN_SHARE,
-                            trackId = r.track.id.toString(),
-                            ranges = m.ranges?.ranges.orEmpty(),
-                            durationSeconds = mediaSeconds(r),
-                        )
-                    },
-                audioInputs =
-                    audioResolved.map { r ->
-                        val m = measured.getValue(r.track.id)
-                        val wall =
-                            if (r.track.startedAtEpochNanos != null && r.track.endedAtEpochNanos != null) {
-                                (r.track.endedAtEpochNanos - r.track.startedAtEpochNanos) / 1_000_000_000.0
-                            } else {
-                                r.track.durationMs?.let { it / 1000.0 }
-                            }
-                        RecordingComposeAudioInput(
-                            file = r.file,
-                            offsetSeconds = m.offset,
-                            ranges = m.ranges?.ranges.orEmpty(),
-                            mediaDurationSeconds = mediaSeconds(r),
-                            wallDurationSeconds = wall,
-                        )
-                    },
+                videoInputs = videoInputs,
+                audioInputs = audioInputs,
                 outputDurationSeconds = outputDurationSeconds,
-            )
-        return SpecResult.Ready(spec)
+            ),
+        )
+    }
+
+    /**
+     * V1.9.110 -- measures the video and the audio stream of one per-person file separately (start times, packet ranges, black
+     * stretches); everything that cannot be measured stays `null` and [ParticipantFileInputs] degrades to "whole duration" for it.
+     */
+    private suspend fun measurePersonFile(
+        file: File,
+        probe: RecordingMediaProbe,
+        reportedDurationMs: Long?,
+    ): ParticipantStreamMeasurements {
+        val times = prober.probeStreamStartTimes(file)
+        val hasVideo = times?.hasVideo ?: true
+        val hasAudio = times?.hasAudio ?: true
+        val videoRanges =
+            if (hasVideo) prober.probePacketRanges(file = file, kind = StreamKind.VIDEO, gapThresholdSeconds = VIDEO_GAP_SECONDS) else null
+        val audioRanges =
+            if (hasAudio) prober.probePacketRanges(file = file, kind = StreamKind.AUDIO, gapThresholdSeconds = AUDIO_GAP_SECONDS) else null
+        val blank =
+            if (hasVideo) {
+                blankDetector.detectBlankRanges(
+                    file = file,
+                    videoStreamStartSeconds = times?.videoSeconds ?: 0.0,
+                    minSeconds = BLANK_MIN_SECONDS,
+                )
+            } else {
+                null
+            }
+        return ParticipantStreamMeasurements(
+            hasVideo = hasVideo,
+            hasAudio = hasAudio,
+            videoStartSeconds = times?.videoSeconds,
+            audioStartSeconds = times?.audioSeconds,
+            videoPacketRanges = videoRanges,
+            audioPacketRanges = audioRanges,
+            blankVideoRanges = blank,
+            reportedDurationSeconds = reportedDurationMs?.let { it / 1000.0 } ?: probe.durationSeconds,
+        )
     }
 
     private suspend fun composeOne(row: RecordingRow) {
@@ -1137,12 +1443,15 @@ private data class RecordingRow(
     val durationSeconds: Long?,
     val fileSizeBytes: Long?,
     val recomputeStartedAt: LocalDateTime?,
+    val egressMode: ConferenceRecordingEgressMode,
 )
 
 /** Plain data snapshot of a `conference_recording_track` row -- same "never a live ResultRow across suspension" reasoning as [RecordingRow]. */
 private data class TrackRow(
     val id: Uuid,
     val egressId: String,
+    val livekitTrackId: String,
+    val egressKind: ConferenceRecordingEgressMode,
     val status: ConferenceRecordingTrackStatus,
     val trackSource: ConferenceRecordingTrackSource,
     val fileName: String?,
@@ -1166,12 +1475,15 @@ private fun ResultRow.toRecordingRow() =
         durationSeconds = this[ConferenceRecordingTable.durationSeconds],
         fileSizeBytes = this[ConferenceRecordingTable.fileSizeBytes],
         recomputeStartedAt = this[ConferenceRecordingTable.recomputeStartedAt],
+        egressMode = this[ConferenceRecordingTable.egressMode],
     )
 
 private fun ResultRow.toTrackRow() =
     TrackRow(
         id = this[ConferenceRecordingTrackTable.id],
         egressId = this[ConferenceRecordingTrackTable.egressId],
+        livekitTrackId = this[ConferenceRecordingTrackTable.livekitTrackId],
+        egressKind = this[ConferenceRecordingTrackTable.egressKind],
         status = this[ConferenceRecordingTrackTable.status],
         trackSource = this[ConferenceRecordingTrackTable.trackSource],
         fileName = this[ConferenceRecordingTrackTable.fileName],

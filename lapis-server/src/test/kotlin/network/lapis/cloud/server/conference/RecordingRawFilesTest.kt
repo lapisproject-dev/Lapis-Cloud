@@ -180,6 +180,30 @@ class RecordingRawFilesTest :
             }
         }
 
+        test(
+            "rawFilesAvailable (V1.9.110): a Participant-Egress person file (row source CAMERA) counts as the video track, with a screen share next to it",
+        ) {
+            val root = freshHostRawRoot()
+            try {
+                val person = "p-0b0f1c6e-7f3a-4a53-9c1b-6f2f0a6b5d41.mp4"
+                val id = rawDirWith(root, person to byteArrayOf(1), "alice__SCREEN_SHARE__TR_s.mp4" to byteArrayOf(2))
+                RecordingRawFiles.rawFilesAvailable(
+                    hostRawRoot = root,
+                    rawDir = id,
+                    completedTracks =
+                        listOf(
+                            camera to person,
+                            ConferenceRecordingTrackSource.SCREEN_SHARE to "alice__SCREEN_SHARE__TR_s.mp4",
+                        ),
+                ) shouldBe true
+                // the person file resolves like every other raw file (container path -> basename below the recording's directory)
+                RecordingRawFiles.resolveWithin(hostRawRoot = root, recordingId = id, reportedFilename = "/out/$id/$person") shouldBe
+                    root.resolve(id).resolve(person).canonicalFile
+            } finally {
+                root.deleteRecursively()
+            }
+        }
+
         test("rawFilesAvailable: zero COMPLETE tracks, or no video track -> false") {
             val root = freshHostRawRoot()
             try {

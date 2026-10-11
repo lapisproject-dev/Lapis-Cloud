@@ -44,6 +44,7 @@ import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.ConferenceRecordingAvailabilityDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingDto
+import network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode
 import network.lapis.cloud.shared.domain.ConferenceRecordingListQuery
 import network.lapis.cloud.shared.domain.ConferenceRecordingSnapshot
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
@@ -382,6 +383,51 @@ class ConferenceRecordingServiceTest :
                 row[ConferenceRecordingTable.rawDir] shouldBe dto.id
                 row[ConferenceRecordingTable.composeAttempts] shouldBe 0
             }
+        }
+
+        test(
+            "startRecording (V1.9.110): the egress mode of the configuration is stored on the row -- TRACK by default, PARTICIPANT when configured",
+        ) {
+            suspend fun startWith(
+                config: ConferenceRecordingConfig,
+                email: String,
+            ): ConferenceRecordingEgressMode {
+                var stored: ConferenceRecordingEgressMode? = null
+                testApplication {
+                    application {
+                        install(StatusPages) { installConferenceRecordingExceptionHandlers() }
+                        routing { registerConferenceRecordingTestRoutes(recordingConfig = config) }
+                    }
+                    val creator = createTestMember(email)
+                    val roomId = createTestRoom(creator, "Egress-Modus-Test")
+                    val response =
+                        client.post("/test/start-recording?roomId=$roomId&accessLevel=BOARD_ONLY") {
+                            header("X-Member-Id", creator.toString())
+                        }
+                    response.status shouldBe HttpStatusCode.OK
+                    val id = Uuid.parse(response.bodyAsText().toDto().id)
+                    stored =
+                        transaction {
+                            ConferenceRecordingTable
+                                .selectAll()
+                                .where {
+                                    ConferenceRecordingTable.id eq id
+                                }.single()[ConferenceRecordingTable.egressMode]
+                        }
+                }
+                return stored!!
+            }
+
+            startWith(ENABLED_RECORDING_CONFIG, "rec-egress-mode-default@example.org") shouldBe ConferenceRecordingEgressMode.TRACK
+            val participantConfig =
+                ConferenceRecordingConfig.load { key ->
+                    when (key) {
+                        "LAPIS_RECORDING_ENABLED" -> "true"
+                        "LAPIS_RECORDING_EGRESS_MODE" -> "participant"
+                        else -> null
+                    }
+                }
+            startWith(participantConfig, "rec-egress-mode-participant@example.org") shouldBe ConferenceRecordingEgressMode.PARTICIPANT
         }
 
         test("startRecording: allowed for a global BOARD account even though it did not create the room") {

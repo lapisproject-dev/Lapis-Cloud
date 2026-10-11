@@ -279,6 +279,8 @@ class ConferenceRecordingService(
             it[fileSizeBytes] = null
             it[failureReason] = null
             it[composeAttempts] = 0
+            // V1.9.110: the egress mode is fixed for the whole recording at this moment (see conference_recording.egress_mode).
+            it[egressMode] = recordingConfig.egressMode
         }
         // AuditLogRecorder.record must be the LAST lock-taking operation in this transaction --
         // see that object's KDoc "deadlock-avoidance contract".

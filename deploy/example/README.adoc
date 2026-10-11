@@ -596,6 +596,21 @@ host. A startup WARN from `ConferenceRecordingConfig` ("ffmpeg probe failed") af
 the image wasn't actually rebuilt (stale container still running the pre-Wave-2 image) -- pull a current image and recreate
 the container (`docker compose pull lapis-server`, `docker compose up -d lapis-server`).
 
+**Per-person recording (optional, V1.9.110): `LAPIS_RECORDING_EGRESS_MODE=participant`.** By default every camera and microphone is recorded as its own file (Track Egress) and
+the files can drift apart (one real recording: the picture 5.3 seconds behind the sound). With `LAPIS_RECORDING_EGRESS_MODE=participant` in `.env` (forwarded by `docker-compose.yml`,
+`docker compose up -d lapis-server` to apply) every person is recorded as ONE MP4 by LiveKit (`StartParticipantEgress`), with picture and sound on one clock; screen shares are still
+recorded per track and can be slightly offset against the voice. What to know before switching it on:
+
+* *CPU.* Track Egress copies the encoded media; Participant Egress DECODES AND RE-ENCODES every person (1280 x 720, 30 fps, H.264 2500 kbit/s, keyframe every 2 s). That is real load on the `egress`
+  container and on the host. LiveKit's egress reserves CPU per request (`cpu_cost.participant_cpu_cost`, together with `max_cpu_utilization` in `egress.yaml`; both keys exist in `livekit/egress:v1.13.0`,
+  read the default values from the egress startup log of your host instead of assuming them) and REFUSES a request when no CPU is left. Size the host for the largest meeting you record, and watch
+  `docker stats` during the first meetings. On a small host 960 x 540 is the lever to pull (`RECORDING_PARTICIPANT_ENCODING_OPTIONS` in the source).
+* *A refused request is not hidden.* The server logs a warning and retries on its next tick; it does NOT fall back to the per-track mode (that would bring the offset back unnoticed). The person is missing
+  from the recording until the egress has capacity again.
+* *The mode is fixed per recording* when the recording starts. A restart with another value changes only recordings started afterwards. Recordings of the old mode can be recomputed in either mode, but their offset cannot be repaired.
+* *First test:* set `LAPIS_RECORDING_KEEP_RAW=true` as well and follow the staging checks in `docs/architecture/conference-recording.adoc` ("Staging runbook"); the mode has been tried against the real egress with a synthetic
+  participant, not yet with a browser participant.
+
 **Shared `lapis-egress-output` volume needs a self-healing ACL fix, not just a default ACL.**
 `egress` (raw-track writer, uid 1001, primary gid 0/root) and `lapis-server` (`ffmpeg` composer,
 uid 999/`lapiscloud`, own gid 999 -- NOT a member of `root`) run as different, unrelated users but
