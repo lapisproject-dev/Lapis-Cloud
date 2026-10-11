@@ -169,6 +169,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.CRM,
                 Routes.EVENT_MANAGEMENT,
                 Routes.EVENT_IMPORT,
+                Routes.ARTICLE_IMPORT,
                 Routes.EVENT_CHECKIN,
                 Routes.EVENT_ROOMS,
                 Routes.CATERING,

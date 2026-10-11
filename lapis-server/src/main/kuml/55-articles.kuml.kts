@@ -52,6 +52,13 @@
 // that created the draft via `create_article_draft`. No index (H2 cannot build a partial one; `idx_article_author_updated_at`
 // already covers the author lookups). The column is never written by `ArticleStore.insertDraft`/`updateDraft`, so the
 // marker survives manual editing.
+//
+// **Welle V1.9.105 "Artikel-Byline und -Import" addendum** (`V85__article_byline_and_import.sql`) adds six columns: `byline`
+// (VARCHAR(120)) + `bylineKind` (PERSONAL = the author's own name, shown only with consent; ORGANIZATION = an organization/editorial
+// label set by the board; IMPORTED = taken over from the legacy website) as a pair (both NULL = no byline), `bylineConsentAt` (set iff
+// PERSONAL, GDPR Art. 6(1)(a)), `bylineSetBy`/`bylineSetAt` (who last changed the byline, also who revoked) and `imported` (TRUE only for
+// rows written by the admin import; their author_id is the importing board member, who only executed the import). New index
+// `idx_article_published_archive` backs the embed archive feed.
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -82,11 +89,19 @@ classDiagram(name = "Articles") {
         literal(name = "REJECTED")
     }
 
+    // V1.9.105 -- append-only, never reorder (mirrors `article.byline_kind VARCHAR(12)`, V85).
+    val articleBylineKind = enumOf(name = "ArticleBylineKind") {
+        literal(name = "PERSONAL")
+        literal(name = "ORGANIZATION")
+        literal(name = "IMPORTED")
+    }
+
     val article = classOf(name = "Article") {
         stereotype("Entity") { "tableName" to "article"; "kotlinObjectName" to "ArticleTable" }
 
         stereotype("Index") { "columns" to listOf("status", "published_at"); "name" to "idx_article_status_published_at" }
         stereotype("Index") { "columns" to listOf("author_id", "updated_at"); "name" to "idx_article_author_updated_at" }
+        stereotype("Index") { "columns" to listOf("status", "published_at", "id"); "name" to "idx_article_published_archive" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -154,6 +169,34 @@ classDiagram(name = "Articles") {
         attribute(name = "mcpAgentLabel", type = "String") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "mcp_agent_label"; "sqlType" to "VARCHAR(60)" }
+        }
+        // V1.9.105 -- see file header addendum.
+        attribute(name = "byline", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "byline"; "sqlType" to "VARCHAR(120)" }
+        }
+        attribute(name = "bylineKind", type = articleBylineKind) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") {
+                "columnName" to "byline_kind"
+                "sqlType" to "VARCHAR(12)"
+                "enumType" to "network.lapis.cloud.shared.domain.ArticleBylineKind"
+            }
+        }
+        attribute(name = "bylineConsentAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "byline_consent_at" }
+        }
+        attribute(name = "bylineSetBy", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "byline_set_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "bylineSetAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "byline_set_at" }
+        }
+        attribute(name = "imported", type = "Boolean") {
+            stereotype("Column") { "columnName" to "imported" }
         }
     }
 }

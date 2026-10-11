@@ -21661,3 +21661,127 @@ msgstr "Objęte w drodze wyborów dnia %1: %2, %3, %4"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
 msgid "Beendet durch Nachfolgewahl am %1: %2, %3, %4"
 msgstr "Zakończone przez wybory następcze dnia %1: %2, %3, %4"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile: bitte zuerst einmal speichern (geschieht automatisch beim Tippen)."
+msgstr "Podpis autora: najpierw zapisz raz (dzieje się to automatycznie podczas pisania)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Frühere Artikel importieren"
+msgstr "Importuj wcześniejsze artykuły"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Namensnennung widerrufen"
+msgstr "Wycofaj zgodę na podanie nazwiska"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile ändern"
+msgstr "Zmień podpis autora"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Ohne Titelbild"
+msgstr "Bez obrazu tytułowego"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile gespeichert."
+msgstr "Podpis autora zapisany."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Artikelimport"
+msgstr "Import artykułów"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Wird nicht genannt."
+msgstr "Autor nie jest wymieniony."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Wird als „%1“ genannt."
+msgstr "Wymieniony jako „%1”."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile"
+msgstr "Podpis autora"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Mich als Autor nennen"
+msgstr "Podaj mnie jako autora"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Wenn Sie zustimmen, steht Ihr Name mit dem Artikel auf der Webseite. Ohne Ihre Zustimmung wird kein Autor genannt. Sie können die Zustimmung jederzeit widerrufen; Ihr Name verschwindet dann sofort aus Lapis. Eine statische Webseite zeigt die Änderung erst nach ihrer nächsten Aktualisierung."
+msgstr "Jeśli wyrazisz zgodę, Twoje nazwisko pojawi się przy artykule na stronie internetowej. Bez Twojej zgody żaden autor nie jest wymieniany. Zgodę możesz wycofać w dowolnym momencie; Twoje nazwisko natychmiast zniknie z Lapis. Statyczna strona internetowa pokaże zmianę dopiero po swojej następnej aktualizacji."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "So möchte ich genannt werden"
+msgstr "Tak chcę być wymieniony"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "z. B. Max Muster"
+msgstr "np. Max Muster"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Möchten Sie Ihre Zustimmung zur Namensnennung bei diesem Artikel widerrufen?"
+msgstr "Czy chcesz wycofać zgodę na podanie Twojego nazwiska przy tym artykule?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Ihr Name wird in Lapis nicht mehr angezeigt. Eine statische Webseite zeigt die Änderung erst nach ihrer nächsten Aktualisierung."
+msgstr "Twoje nazwisko nie jest już wyświetlane w Lapis. Statyczna strona internetowa pokaże zmianę dopiero po swojej następnej aktualizacji."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Beibehalten: „%1“"
+msgstr "Zachowaj: „%1”"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Nicht nennen"
+msgstr "Nie wymieniaj nikogo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Organisation oder Redaktion"
+msgstr "Organizacja lub redakcja"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Kein Personenname."
+msgstr "To nie jest nazwisko osoby."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Bitte geben Sie eine Organisation oder Redaktion an."
+msgstr "Podaj organizację lub redakcję."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Fügen Sie eine JSON-Liste früherer Artikel ein. Vor dem Import sehen Sie eine Vorschau, es wird noch nichts gespeichert."
+msgstr "Wklej listę JSON wcześniejszych artykułów. Przed importem zobaczysz podgląd; nic nie jest jeszcze zapisywane."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Veröffentlichungsdaten in Ortszeit (%1). Titelbilder werden nicht importiert."
+msgstr "Daty publikacji w czasie lokalnym (%1). Obrazy tytułowe nie są importowane."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Organisationsnamen als Autorenzeile (durch Komma getrennt, höchstens 5)"
+msgstr "Nazwy organizacji akceptowane jako podpis autora (oddzielone przecinkami, maksymalnie 5)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "%1 Artikel importieren"
+msgstr "Importuj artykuły: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "%1 Artikel angelegt, %2 übersprungen."
+msgstr "Utworzono artykułów: %1, pominięto: %2."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Bitte höchstens 5 Organisationsnamen mit jeweils höchstens 120 Zeichen angeben."
+msgstr "Podaj najwyżej 5 nazw organizacji, każda do 120 znaków."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Veröffentlicht am"
+msgstr "Opublikowano"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Ohne Titelbild – nach dem Import einzeln hochladen."
+msgstr "Bez obrazu tytułowego – prześlij go osobno po imporcie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile ist kein Organisationsname – Einwilligung klären."
+msgstr "Podpis autora nie jest nazwą organizacji – wyjaśnij kwestię zgody."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Enthält HTML – wird als Text angezeigt."
+msgstr "Zawiera HTML – wyświetlane jako tekst."

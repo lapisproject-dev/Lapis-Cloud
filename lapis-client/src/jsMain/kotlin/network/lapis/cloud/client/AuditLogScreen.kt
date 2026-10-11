@@ -574,6 +574,8 @@ fun decodeAuditSnapshot(
             AuditEntityType.EVENT_IMPORT -> null
             // Welle V1.9.102 -- CommitteeSeatLifecycle writes CommitteeMembershipAuditSnapshot; no client-side decoder, raw-text display.
             AuditEntityType.COMMITTEE_MEMBERSHIP -> null
+            // Welle V1.9.105 -- ArticleImporter writes one small hand-built JSON object (counts + payload checksum), no snapshot class: raw text.
+            AuditEntityType.ARTICLE_IMPORT -> null
         }
     }.getOrNull()
 

@@ -21707,3 +21707,127 @@ msgstr "Assunto tramite elezione il %1: %2, %3, %4"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
 msgid "Beendet durch Nachfolgewahl am %1: %2, %3, %4"
 msgstr "Terminato da elezione di successione il %1: %2, %3, %4"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile: bitte zuerst einmal speichern (geschieht automatisch beim Tippen)."
+msgstr "Riga dell’autore: salvare prima una volta (avviene automaticamente mentre si scrive)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Frühere Artikel importieren"
+msgstr "Importa articoli precedenti"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Namensnennung widerrufen"
+msgstr "Revoca la menzione del nome"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile ändern"
+msgstr "Modifica la riga dell’autore"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Ohne Titelbild"
+msgstr "Senza immagine del titolo"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile gespeichert."
+msgstr "Riga dell’autore salvata."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Artikelimport"
+msgstr "Importazione di articoli"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Wird nicht genannt."
+msgstr "Nessun autore viene indicato."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Wird als „%1“ genannt."
+msgstr "Indicato come «%1»."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile"
+msgstr "Riga dell’autore"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Mich als Autor nennen"
+msgstr "Indicarmi come autore"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Wenn Sie zustimmen, steht Ihr Name mit dem Artikel auf der Webseite. Ohne Ihre Zustimmung wird kein Autor genannt. Sie können die Zustimmung jederzeit widerrufen; Ihr Name verschwindet dann sofort aus Lapis. Eine statische Webseite zeigt die Änderung erst nach ihrer nächsten Aktualisierung."
+msgstr "Se acconsente, il suo nome compare con l’articolo sul sito web. Senza il suo consenso non viene indicato alcun autore. Può revocare il consenso in qualsiasi momento; il suo nome scompare allora subito da Lapis. Un sito web statico mostra la modifica solo dopo il suo prossimo aggiornamento."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "So möchte ich genannt werden"
+msgstr "Così desidero essere indicato"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "z. B. Max Muster"
+msgstr "ad es. Max Muster"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Möchten Sie Ihre Zustimmung zur Namensnennung bei diesem Artikel widerrufen?"
+msgstr "Vuole revocare il suo consenso alla menzione del nome per questo articolo?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Ihr Name wird in Lapis nicht mehr angezeigt. Eine statische Webseite zeigt die Änderung erst nach ihrer nächsten Aktualisierung."
+msgstr "Il suo nome non viene più mostrato in Lapis. Un sito web statico mostra la modifica solo dopo il suo prossimo aggiornamento."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Beibehalten: „%1“"
+msgstr "Mantieni: «%1»"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Nicht nennen"
+msgstr "Non indicare nessuno"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Organisation oder Redaktion"
+msgstr "Organizzazione o redazione"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Kein Personenname."
+msgstr "Non è il nome di una persona."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Bitte geben Sie eine Organisation oder Redaktion an."
+msgstr "Indichi un’organizzazione o una redazione."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Fügen Sie eine JSON-Liste früherer Artikel ein. Vor dem Import sehen Sie eine Vorschau, es wird noch nichts gespeichert."
+msgstr "Incolli un elenco JSON di articoli precedenti. Prima dell’importazione vede un’anteprima; non viene ancora salvato nulla."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Veröffentlichungsdaten in Ortszeit (%1). Titelbilder werden nicht importiert."
+msgstr "Date di pubblicazione in ora locale (%1). Le immagini del titolo non vengono importate."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Organisationsnamen als Autorenzeile (durch Komma getrennt, höchstens 5)"
+msgstr "Nomi di organizzazione accettati come riga dell’autore (separati da virgole, al massimo 5)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "%1 Artikel importieren"
+msgstr "Importa %1 articoli"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "%1 Artikel angelegt, %2 übersprungen."
+msgstr "%1 articoli creati, %2 saltati."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Bitte höchstens 5 Organisationsnamen mit jeweils höchstens 120 Zeichen angeben."
+msgstr "Indichi al massimo 5 nomi di organizzazione di al massimo 120 caratteri ciascuno."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Veröffentlicht am"
+msgstr "Pubblicato il"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Ohne Titelbild – nach dem Import einzeln hochladen."
+msgstr "Senza immagine del titolo: caricarla singolarmente dopo l’importazione."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile ist kein Organisationsname – Einwilligung klären."
+msgstr "La riga dell’autore non è il nome di un’organizzazione: chiarire il consenso."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Enthält HTML – wird als Text angezeigt."
+msgstr "Contiene HTML: viene mostrato come testo."

@@ -11,6 +11,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.articles.ArticlePolicy
 import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.DatabaseConfig
@@ -19,6 +20,7 @@ import network.lapis.cloud.server.db.generated.ArticleTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.shared.domain.ArticleBylineKind
 import network.lapis.cloud.shared.domain.ArticleStatus
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.inList
@@ -71,6 +73,7 @@ class ArticlePublicRoutesTest :
             status: ArticleStatus = ArticleStatus.PUBLISHED,
             slug: String? = null,
             coverImageId: Uuid? = null,
+            byline: String? = null,
         ): Pair<Uuid, String?> {
             val author = createMember()
             val id = Uuid.random()
@@ -93,6 +96,8 @@ class ArticlePublicRoutesTest :
                     it[ArticleTable.publishedAt] = if (status == ArticleStatus.PUBLISHED) LocalDateTime(2030, 9, 28, 10, 0) else null
                     it[ArticleTable.createdAt] = now
                     it[ArticleTable.updatedAt] = now
+                    it[ArticleTable.byline] = byline
+                    it[ArticleTable.bylineKind] = if (byline != null) ArticleBylineKind.IMPORTED else null
                 }
             }
             createdArticleIds += id
@@ -262,5 +267,43 @@ class ArticlePublicRoutesTest :
                 val noV = client.get("/aktuelles/$slug/bild")
                 noV.headers[HttpHeaders.CacheControl] shouldBe "public, max-age=300"
             }
+        }
+
+        test("V1.9.105: the meta line reads 'Von {byline} · Veröffentlicht am ...' only with a byline; without one it is unchanged") {
+            val (_, withByline) = createArticle(byline = "Max Muster")
+            val (_, without) = createArticle()
+            testApp {
+                val html = client.get("/aktuelles/$withByline").bodyAsText()
+                html.contains("Von Max Muster · Veröffentlicht am ") shouldBe true
+                val plain = client.get("/aktuelles/$without").bodyAsText()
+                plain.contains("Von ") shouldBe false
+                plain.contains("Veröffentlicht am ") shouldBe true
+            }
+        }
+
+        test("V1.9.105: the byline is escaped text -- a <script> in it never becomes a tag; no author meta tag, no link") {
+            val (_, slug) = createArticle(byline = "<script>alert(1)</script> & Co")
+            testApp {
+                val html = client.get("/aktuelles/$slug").bodyAsText()
+                html.contains("<script>alert(1)</script>") shouldBe false
+                html.contains("&lt;script&gt;alert(1)&lt;/script&gt; &amp; Co") shouldBe true
+                html.contains("name=\"author\"") shouldBe false
+                html.contains("property=\"article:author\"") shouldBe false
+            }
+        }
+
+        test(
+            "V1.9.105: slugs with an underscore (two legacy articles) serve the page and the cover; an event-style slug rule is untouched",
+        ) {
+            val coverId = Uuid.random()
+            val (_, slug) = createArticle(slug = "dankeschoen_eu-wahl-${Uuid.random().toString().take(6)}", coverImageId = coverId)
+            testApp {
+                client.get("/aktuelles/$slug").status shouldBe HttpStatusCode.OK
+                // the cover route accepts the slug as well (the file itself is not on disk here, so not a 404 from the slug check but from the storage)
+                client.get("/aktuelles/$slug/bild?v=${coverId.toString().take(8)}").status shouldBe HttpStatusCode.NotFound
+            }
+            ArticlePolicy.PUBLIC_SLUG_PATTERN.matches("freiheitszentrum_eroeffnung") shouldBe true
+            ArticlePolicy.PUBLIC_SLUG_PATTERN.matches("Gross") shouldBe false
+            COVER_SLUG_PATTERN.matches("freiheitszentrum_eroeffnung") shouldBe false
         }
     })

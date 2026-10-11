@@ -74,7 +74,8 @@ archive never uses up the budget of `/api/embed/v1/events`; its `OPTIONS` prefli
 <<events-past-feed>>. `/api/embed/v1/articles` has its own dedicated 60/min `GET` limiter, but
 — like `/api/embed/v1/events` — shares its `OPTIONS` preflight's rate limit with the
 *event-registration* widget's own preflight budget rather than a dedicated one — see
-<<articles-list-widget>>.
+<<articles-list-widget>>. `/api/embed/v1/articles/archive` (V1.9.105) has its **own** 60/min `GET` limiter, so paging the archive never uses up the budget of
+`/api/embed/v1/articles`; its preflight shares the common preflight budget -- see <<articles-archive-feed>>.
 
 [[no-js-fallback-contract]]
 == No-JS fallback contract
@@ -740,11 +741,20 @@ Response (`200`):
       "excerpt": "Ein Rückblick auf ein ereignisreiches Jahr.",
       "url": "https://verein.example/aktuelles/jahresbericht-2026",
       "coverImageUrl": "https://verein.example/aktuelles/jahresbericht-2026/bild?v=a1b2c3d4",
-      "publishedAt": "2026-09-28T09:00:00Z"
+      "publishedAt": "2026-09-28T09:00:00Z",
+      "byline": "Partei der Vernunft",
+      "body": "Erster Absatz mit **Markdown**.\n\nZweiter Absatz."
     }
   ]
 }
 ----
+
+* `byline` (V1.9.105) -- the author line, **only present if one is set**: a personal name only because the author consented, otherwise an organization
+  label or a line taken over from a legacy site. Never the kind, never a consent moment, never an internal id.
+* `body` (V1.9.105) -- the **full text as raw Markdown**, exactly as stored (including Markdown hard line breaks, "two spaces and a newline"). It is
+  **not** rendered HTML. **Consumers must render it with a safe Markdown renderer that does not pass raw HTML through** (or show it as text): the
+  text is author-written and can contain `<script>` characters, which `GET /aktuelles/{slug}` escapes but this feed hands out untouched. A page with
+  20 articles of the maximum length (100 000 characters) can reach about 2 MB; use `limit` accordingly.
 
 * `url` — the public, human-facing article page (`/aktuelles/{slug}`), the same URL the RPC-facing
   `ArticleDto` cover-URL family and the embed feed's own `coverImageUrl` are built from
@@ -758,7 +768,7 @@ Response (`200`):
 
 `EmbedArticleListItemDto` is a deliberate, explicit field-by-field allowlist mapping — it does
 **not** reuse `network.lapis.cloud.shared.domain.ArticleDto` — so the wire JSON can never contain
-`body`, `authorId`, `reviewedBy`, `id`, or `rejectionReason`, checked at the raw-JSON-string level
+`authorId`, `reviewedBy`, `id`, `rejectionReason`, `bylineKind`, `bylineConsentAt`, `bylineSetBy`, `imported` or `mcpAgentLabel`, checked at the raw-JSON-string level
 by `EmbedArticlesFeedRoutesTest`, not merely "the DTO type has no such field". A `PUBLISHED` row
 whose `slug`/`publishedAt` is unexpectedly `null` (cannot happen by construction —
 `ArticleService.approveArticle` always sets both together in the same `UPDATE`) is skipped (logged
@@ -784,6 +794,24 @@ it unconditionally before any handler-specific logic runs.
 There is no bundled `data-lapis-widget="articles"` hydration script (unlike the four snippet-based
 widgets at the top of this document, and like the events list widget above) — a partner site
 fetches this JSON endpoint directly with its own rendering.
+
+[[articles-archive-feed]]
+=== Articles archive, wave V1.9.105
+
+`GET /api/embed/v1/articles/archive?page=1&limit=10` -- all `PUBLISHED` articles, newest first (`published_at DESC, id DESC`, stable on equal
+timestamps), paged. Same CORS posture, `nosniff` and item format as `GET /api/embed/v1/articles` (one shared mapping), but **strict parameters**,
+like `events/past`: `page` 1..100 (default 1), `limit` 1..20 (default 10); anything else (`0`, `101`, `21`, text, an empty value) is answered with
+`400 {"error":"invalid_parameter"}`, never silently clamped.
+
+[source,json]
+----
+{ "articles": [ { "slug": "...", "title": "...", "excerpt": "...", "url": "...", "publishedAt": "...", "byline": "...", "body": "..." } ],
+  "page": 1, "limit": 10, "hasMore": true }
+----
+
+`hasMore` is exact (the server reads `limit + 1` rows). The endpoint has its **own** 60/min `GET` limiter (paging the archive never uses up the budget of
+`/api/embed/v1/articles`); its `OPTIONS` preflight shares the common preflight budget. Opt-in behind `LAPIS_EMBED_ENABLED` like every endpoint on
+this page. Imported articles (<<../architecture/article.adoc#import,V1.9.105 import>>) are in the archive like any other.
 
 See also: `docs/architecture/article.adoc` for the full article state machine, the four-eyes
 review-approval principle, and the shared Markdown-rendering pipeline this feed's public

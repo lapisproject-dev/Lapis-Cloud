@@ -30,6 +30,7 @@ dto:ArticleDto.submittedAt	A	stamped by the server clock (DbClock/ServerClock) o
 dto:ArticleDto.reviewedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:ArticleDto.publishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:ArticleDto.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ArticleDto.bylineConsentAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:ArticleSummaryDto.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:ArticleSummaryDto.publishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:ArticleReviewDto.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
@@ -460,6 +461,8 @@ col:ArticleTable.reviewedAt	A	stamped by the server clock (DbClock/ServerClock) 
 col:ArticleTable.publishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ArticleTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ArticleTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ArticleTable.bylineConsentAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ArticleTable.bylineSetAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AttendanceTable.recordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AuctionBidTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AuctionComplianceAcknowledgmentTable.acknowledgedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

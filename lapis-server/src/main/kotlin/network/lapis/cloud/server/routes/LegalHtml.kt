@@ -511,8 +511,15 @@ internal object LegalHtml {
                     "Von Mitgliedern verfasste und vom Vorstand freigegebene Artikel (redaktioneller " +
                         "Nachrichten-Workflow): Titel, Auszug und Inhalt Ihres Entwurfs sind bis zur " +
                         "Freigabe nur Ihnen selbst sowie dem Vorstand sichtbar; nach der Veröffentlichung " +
-                        "wird der Artikelinhalt öffentlich, Ihr Name als Autor jedoch nicht angezeigt — " +
-                        "Art. 6 Abs. 1 lit. b DSGVO."
+                        "wird der Artikelinhalt öffentlich — Art. 6 Abs. 1 lit. b DSGVO. Ihr Name wird als " +
+                        "Autor nur angezeigt, wenn Sie dem beim Verfassen des Artikels ausdrücklich zustimmen " +
+                        "(Art. 6 Abs. 1 lit. a DSGVO); ohne Ihre Einwilligung wird kein Autorenname angezeigt. " +
+                        "Sie können die Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen " +
+                        "(Art. 7 Abs. 3 DSGVO); danach entfernen wir die Namensnennung sofort aus Lapis. " +
+                        "Wird der Artikel zusätzlich auf einer statischen Webseite veröffentlicht, zeigt diese " +
+                        "die Änderung erst nach ihrer nächsten Aktualisierung. Eine Organisationsangabe " +
+                        "(z. B. der Name der Partei) als Autorenzeile setzt der Vorstand; sie ist kein " +
+                        "Personenname."
                 )
             }
             li {

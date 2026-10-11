@@ -2,6 +2,7 @@ package network.lapis.cloud.server.rpc
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
+import network.lapis.cloud.server.articles.ArticleBylinePolicy
 import network.lapis.cloud.server.articles.ArticleCoverPolicy
 import network.lapis.cloud.server.articles.ArticleEditorialAccess
 import network.lapis.cloud.server.articles.ArticleMarkdown
@@ -18,6 +19,7 @@ import network.lapis.cloud.server.mail.ArticleReviewNotificationMailer
 import network.lapis.cloud.server.mail.ArticleReviewOutcome
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.shared.domain.ArticleBylineKind
 import network.lapis.cloud.shared.domain.ArticleDraftInput
 import network.lapis.cloud.shared.domain.ArticleDto
 import network.lapis.cloud.shared.domain.ArticleReviewDto
@@ -25,6 +27,8 @@ import network.lapis.cloud.shared.domain.ArticleStatus
 import network.lapis.cloud.shared.domain.ArticleSummaryDto
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.BoardBylineInput
+import network.lapis.cloud.shared.domain.BoardBylineMode
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -239,6 +243,188 @@ internal class ArticleService(
         return ArticleMarkdown.render(body)
     }
 
+    // -- Welle V1.9.105: author line (byline) with consent --
+
+    override suspend fun setOwnByline(
+        id: String,
+        consent: Boolean,
+        text: String?,
+    ): ArticleDto {
+        val current = resolveCurrentMember(call)
+        if (!draftUpdateRateLimiter.checkAndRecord("member:${current.memberId}")) throw RateLimitedException()
+        val articleId = id.toArticleUuid()
+        // Validate BEFORE the transaction: a missing/oversized text stores nothing and never takes a row lock.
+        val normalized =
+            if (consent) {
+                ArticleBylinePolicy.normalize(text.orEmpty()).also { ArticleBylinePolicy.requireValid(it) }
+            } else {
+                null
+            }
+        val now = nowLocalDateTime()
+        return transaction {
+            requireActiveMembership(memberId = current.memberId)
+            val row = ArticleStore.requireOwnedRowForUpdate(id = articleId, authorId = current.memberId)
+            val status = row[ArticleTable.status]
+            if (status != ArticleStatus.DRAFT && status != ArticleStatus.REJECTED) {
+                throw ConflictException("Article $articleId is not editable in status $status")
+            }
+            val currentKind = row[ArticleTable.bylineKind]
+            if (normalized != null) {
+                // Same text again: no new consent moment, no audit entry.
+                if (currentKind == ArticleBylineKind.PERSONAL && row[ArticleTable.byline] == normalized) {
+                    return@transaction row.toDto()
+                }
+                ArticleStore.updateByline(
+                    id = articleId,
+                    byline = normalized,
+                    kind = ArticleBylineKind.PERSONAL,
+                    consentAt = now,
+                    setBy = current.memberId,
+                    now = now,
+                )
+                recordBylineAudit(
+                    current = current,
+                    articleId = articleId,
+                    before = currentKind,
+                    after = ArticleBylineKind.PERSONAL,
+                    consent = true,
+                )
+            } else if (currentKind == ArticleBylineKind.PERSONAL) {
+                // Withdrawing the consent of the author. A line the BOARD set (organization/imported) is not the author's to withdraw.
+                ArticleStore.updateByline(
+                    id = articleId,
+                    byline = null,
+                    kind = null,
+                    consentAt = null,
+                    setBy = current.memberId,
+                    now = now,
+                )
+                recordBylineAudit(current = current, articleId = articleId, before = currentKind, after = null, consent = false)
+            }
+            ArticleStore.getOrThrow(articleId).toDto()
+        }
+    }
+
+    /**
+     * Withdrawing a consent must be at least as easy as giving it (GDPR Art. 7(3)): no draft rate limit, no status restriction, and -- unlike
+     * the other author paths -- no active-membership requirement (a member who left may still withdraw). Idempotent.
+     */
+    override suspend fun revokeOwnByline(id: String): ArticleDto {
+        val current = resolveCurrentMember(call)
+        val articleId = id.toArticleUuid()
+        val now = nowLocalDateTime()
+        return transaction {
+            val row = ArticleStore.requireOwnedRowForUpdate(id = articleId, authorId = current.memberId)
+            val currentKind = row[ArticleTable.bylineKind]
+            when (currentKind) {
+                null -> Unit
+                ArticleBylineKind.PERSONAL -> {
+                    ArticleStore.updateByline(
+                        id = articleId,
+                        byline = null,
+                        kind = null,
+                        consentAt = null,
+                        setBy = current.memberId,
+                        now = now,
+                    )
+                    recordBylineAudit(current = current, articleId = articleId, before = currentKind, after = null, consent = false)
+                }
+                ArticleBylineKind.ORGANIZATION, ArticleBylineKind.IMPORTED ->
+                    throw ForbiddenException("Diese Autorenzeile hat der Vorstand gesetzt und entscheidet darüber.")
+            }
+            ArticleStore.getOrThrow(articleId).toDto()
+        }
+    }
+
+    override suspend fun setBylineAsBoard(
+        id: String,
+        input: BoardBylineInput,
+    ): ArticleSummaryDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*ARTICLE_REVIEW_ROLES)
+        val articleId = id.toArticleUuid()
+        val organizationLine =
+            when (input.mode) {
+                BoardBylineMode.NONE -> null
+                BoardBylineMode.ORGANIZATION ->
+                    ArticleBylinePolicy.normalize(input.text.orEmpty()).also { ArticleBylinePolicy.requireValid(it) }
+            }
+        val now = nowLocalDateTime()
+        return transaction {
+            val row = ArticleStore.lockForUpdateOrThrow(articleId)
+            requireNotOwnArticle(row = row, current = current)
+            val status = row[ArticleTable.status]
+            if (status != ArticleStatus.SUBMITTED && status != ArticleStatus.PUBLISHED) {
+                throw ConflictException("Article $articleId has no editable byline in status $status")
+            }
+            val currentKind = row[ArticleTable.bylineKind]
+            if (organizationLine == null) {
+                if (currentKind != null) {
+                    ArticleStore.updateByline(
+                        id = articleId,
+                        byline = null,
+                        kind = null,
+                        consentAt = null,
+                        setBy = current.memberId,
+                        now = now,
+                    )
+                    recordBylineAudit(current = current, articleId = articleId, before = currentKind, after = null, consent = false)
+                }
+            } else if (currentKind != ArticleBylineKind.ORGANIZATION || row[ArticleTable.byline] != organizationLine) {
+                // The board can only ever write an ORGANIZATION line: a personal name needs the author's own consent (no API path for it here).
+                ArticleStore.updateByline(
+                    id = articleId,
+                    byline = organizationLine,
+                    kind = ArticleBylineKind.ORGANIZATION,
+                    consentAt = null,
+                    setBy = current.memberId,
+                    now = now,
+                )
+                recordBylineAudit(
+                    current = current,
+                    articleId = articleId,
+                    before = currentKind,
+                    after = ArticleBylineKind.ORGANIZATION,
+                    consent = false,
+                )
+            }
+            val fresh = ArticleStore.getOrThrow(articleId)
+            ArticleSummaryDto(
+                id = fresh[ArticleTable.id].toString(),
+                title = fresh[ArticleTable.title],
+                excerpt = fresh[ArticleTable.excerpt],
+                submittedAt = fresh[ArticleTable.submittedAt] ?: fresh[ArticleTable.publishedAt] ?: fresh[ArticleTable.createdAt],
+                authorIsSelf = fresh[ArticleTable.authorId] == current.memberId && !fresh[ArticleTable.imported],
+                publishedAt = fresh[ArticleTable.publishedAt],
+                slug = fresh[ArticleTable.slug],
+                mcpAgentLabel = fresh[ArticleTable.mcpAgentLabel],
+                byline = fresh[ArticleTable.byline],
+                bylineKind = fresh[ArticleTable.bylineKind],
+                imported = fresh[ArticleTable.imported],
+                hasCover = fresh[ArticleTable.coverImageId] != null,
+            )
+        }
+    }
+
+    /** Audit entry for a byline change: kinds and the consent flag only -- NEVER the text (the append-only chain could not erase a name again). */
+    private fun recordBylineAudit(
+        current: network.lapis.cloud.server.security.CurrentMember,
+        articleId: Uuid,
+        before: ArticleBylineKind?,
+        after: ArticleBylineKind?,
+        consent: Boolean,
+    ) {
+        AuditLogRecorder.record(
+            actorMemberId = current.memberId,
+            actorRole = current.role,
+            entityType = AuditEntityType.ARTICLE,
+            entityId = articleId,
+            action = AuditAction.UPDATE,
+            before = "{\"bylineKind\":\"${before?.name ?: "NONE"}\"}",
+            after = "{\"bylineKind\":\"${after?.name ?: "NONE"}\",\"consent\":$consent}",
+        )
+    }
+
     // -- Vorstand --
 
     override suspend fun listSubmittedArticles(): List<ArticleSummaryDto> {
@@ -253,8 +439,12 @@ internal class ArticleService(
                     submittedAt =
                         row[ArticleTable.submittedAt]
                             ?: error("SUBMITTED article ${row[ArticleTable.id]} has no submittedAt"),
-                    authorIsSelf = row[ArticleTable.authorId] == current.memberId,
+                    authorIsSelf = row[ArticleTable.authorId] == current.memberId && !row[ArticleTable.imported],
                     mcpAgentLabel = row[ArticleTable.mcpAgentLabel],
+                    byline = row[ArticleTable.byline],
+                    bylineKind = row[ArticleTable.bylineKind],
+                    imported = row[ArticleTable.imported],
+                    hasCover = row[ArticleTable.coverImageId] != null,
                 )
             }
         }
@@ -276,10 +466,14 @@ internal class ArticleService(
                         row[ArticleTable.submittedAt]
                             ?: row[ArticleTable.publishedAt]
                             ?: error("PUBLISHED article ${row[ArticleTable.id]} has neither submittedAt nor publishedAt"),
-                    authorIsSelf = row[ArticleTable.authorId] == current.memberId,
+                    authorIsSelf = row[ArticleTable.authorId] == current.memberId && !row[ArticleTable.imported],
                     publishedAt = row[ArticleTable.publishedAt],
                     slug = row[ArticleTable.slug],
                     mcpAgentLabel = row[ArticleTable.mcpAgentLabel],
+                    byline = row[ArticleTable.byline],
+                    bylineKind = row[ArticleTable.bylineKind],
+                    imported = row[ArticleTable.imported],
+                    hasCover = row[ArticleTable.coverImageId] != null,
                 )
             }
         }
@@ -306,8 +500,11 @@ internal class ArticleService(
                         coverImageId = row[ArticleTable.coverImageId],
                     ),
                 submittedAt = row[ArticleTable.submittedAt],
-                authorIsSelf = row[ArticleTable.authorId] == current.memberId,
+                authorIsSelf = row[ArticleTable.authorId] == current.memberId && !row[ArticleTable.imported],
                 mcpAgentLabel = row[ArticleTable.mcpAgentLabel],
+                byline = row[ArticleTable.byline],
+                bylineKind = row[ArticleTable.bylineKind],
+                imported = row[ArticleTable.imported],
             )
         }
     }
@@ -344,7 +541,8 @@ internal class ArticleService(
                         it[ArticleTable.slug] = slug
                         it[reviewedBy] = current.memberId
                         it[reviewedAt] = now
-                        it[publishedAt] = now
+                        // An imported article keeps its historic publication date (set at import time).
+                        if (!row[ArticleTable.imported] || row[ArticleTable.publishedAt] == null) it[publishedAt] = now
                         it[updatedAt] = now
                     }
                 if (updated == 0) throw ConflictException("Article $articleId was concurrently decided -- retry")
@@ -484,20 +682,25 @@ internal class ArticleService(
                     after = "{\"status\":\"REJECTED\"}",
                 )
                 val fresh = ArticleStore.getOrThrow(articleId)
-                val authorEmail = authorEmailOf(fresh[ArticleTable.authorId])
                 val dto = fresh.toDto()
+                // An import has no human author in Lapis: author_id is merely the importing board member, who must not get a mail
+                // that reads as if they had written (and lost) the article.
                 val notification =
-                    ArticleReviewNotification(
-                        articleId = articleId,
-                        authorEmail = authorEmail,
-                        title = fresh[ArticleTable.title],
-                        outcome = ArticleReviewOutcome.UNPUBLISHED,
-                        reason = reason,
-                        publicUrl = null,
-                    )
+                    if (fresh[ArticleTable.imported]) {
+                        null
+                    } else {
+                        ArticleReviewNotification(
+                            articleId = articleId,
+                            authorEmail = authorEmailOf(fresh[ArticleTable.authorId]),
+                            title = fresh[ArticleTable.title],
+                            outcome = ArticleReviewOutcome.UNPUBLISHED,
+                            reason = reason,
+                            publicUrl = null,
+                        )
+                    }
                 dto to notification
             }
-        notifyAfterCommit(notification)
+        notification?.let { notifyAfterCommit(it) }
         return dto
     }
 
@@ -529,6 +732,10 @@ internal class ArticleService(
         row: ResultRow,
         current: network.lapis.cloud.server.security.CurrentMember,
     ) {
+        // V1.9.105: an imported article has no human author in Lapis -- the importing member only executed the import, so the four-eyes rule
+        // does not apply (otherwise they could neither depublish nor adjust the byline of their own imports).
+        // Exception ONLY once published: while an imported article is still SUBMITTED the importer must not approve/reject it (four-eyes).
+        if (row[ArticleTable.imported] && row[ArticleTable.status] != ArticleStatus.SUBMITTED) return
         if (row[ArticleTable.authorId] == current.memberId) {
             throw ForbiddenException("Eigene Artikel gibt ein anderes Vorstandsmitglied frei.")
         }
@@ -549,6 +756,10 @@ internal class ArticleService(
             publishedAt = this[ArticleTable.publishedAt],
             updatedAt = this[ArticleTable.updatedAt],
             mcpAgentLabel = this[ArticleTable.mcpAgentLabel],
+            byline = this[ArticleTable.byline],
+            bylineKind = this[ArticleTable.bylineKind],
+            bylineConsentAt = this[ArticleTable.bylineConsentAt],
+            imported = this[ArticleTable.imported],
         )
 
     private fun nowLocalDateTime() = DbClock.nowLocalDateTime()

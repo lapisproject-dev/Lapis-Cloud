@@ -25,6 +25,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.embed.EmbedConfig
 import network.lapis.cloud.server.embed.EmbedOriginAllowlist
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import network.lapis.cloud.shared.domain.ArticleBylineKind
 import network.lapis.cloud.shared.domain.ArticleStatus
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.inList
@@ -78,6 +79,9 @@ class EmbedArticlesFeedRoutesTest :
             publishedAt: LocalDateTime? = farFuturePublishedAt,
             slug: String? = null,
             coverImageId: Uuid? = null,
+            byline: String? = null,
+            bylineKind: ArticleBylineKind? = if (byline != null) ArticleBylineKind.IMPORTED else null,
+            imported: Boolean = false,
         ): Pair<Uuid, String?> {
             val author = createMember()
             val id = Uuid.random()
@@ -100,6 +104,10 @@ class EmbedArticlesFeedRoutesTest :
                     it[ArticleTable.publishedAt] = publishedAt
                     it[ArticleTable.createdAt] = now
                     it[ArticleTable.updatedAt] = now
+                    it[ArticleTable.byline] = byline
+                    it[ArticleTable.bylineKind] = bylineKind
+                    it[ArticleTable.bylineConsentAt] = if (bylineKind == ArticleBylineKind.PERSONAL) now else null
+                    it[ArticleTable.imported] = imported
                 }
             }
             createdArticleIds += id
@@ -191,18 +199,42 @@ class EmbedArticlesFeedRoutesTest :
             }
         }
 
-        test("WICHTIG: the JSON string never contains body/authorId/author/reviewedBy/id/rejectionReason") {
-            createArticle(body = "Geheimer Fliesstext, der niemals im Feed erscheinen darf")
+        test(
+            "WICHTIG: the JSON string carries only the allowlisted fields -- never authorId/author/reviewedBy/id/rejectionReason/byline internals",
+        ) {
+            val (_, slug) = createArticle(body = "Voller Fliesstext", byline = "Max Muster")
             testApp {
                 val response = client.get("/api/embed/v1/articles") { header(HttpHeaders.Origin, "https://partei.example") }
                 val raw = response.bodyAsText()
-                raw.contains("\"body\"") shouldBe false
                 raw.contains("\"authorId\"") shouldBe false
                 raw.contains("\"author\"") shouldBe false
                 raw.contains("\"reviewedBy\"") shouldBe false
                 raw.contains("\"id\"") shouldBe false
                 raw.contains("\"rejectionReason\"") shouldBe false
-                raw.contains("Geheimer Fliesstext") shouldBe false
+                raw.contains("\"bylineKind\"") shouldBe false
+                raw.contains("\"bylineConsentAt\"") shouldBe false
+                raw.contains("\"bylineSetBy\"") shouldBe false
+                raw.contains("\"imported\"") shouldBe false
+                raw.contains("\"mcpAgentLabel\"") shouldBe false
+                val allowed = setOf("slug", "title", "excerpt", "url", "coverImageUrl", "publishedAt", "byline", "body")
+                articlesOf(raw).forEach { (it.jsonObject.keys - allowed) shouldBe emptySet() }
+                articlesOf(raw, slug!!).keys shouldBe setOf("slug", "title", "excerpt", "url", "publishedAt", "byline", "body")
+            }
+        }
+
+        test("body is the unchanged Markdown (no rendered HTML, hard line breaks survive); byline appears only when set") {
+            val markdown = "# Titel\n\nErste Zeile  \nZweite Zeile mit **fett** und <b>HTML</b>\n\n- Punkt"
+            val (_, withByline) = createArticle(body = markdown, byline = "Partei der Vernunft")
+            val (_, withoutByline) = createArticle(body = "Nur Text")
+            testApp {
+                val raw = client.get("/api/embed/v1/articles") { header(HttpHeaders.Origin, "https://partei.example") }.bodyAsText()
+                val a = articlesOf(raw, withByline!!)
+                a["body"]!!.jsonPrimitive.content shouldBe markdown
+                a["body"]!!.jsonPrimitive.content.contains("<p>") shouldBe false
+                a["byline"]!!.jsonPrimitive.content shouldBe "Partei der Vernunft"
+                val b = articlesOf(raw, withoutByline!!)
+                b["byline"] shouldBe null
+                b["body"]!!.jsonPrimitive.content shouldBe "Nur Text"
             }
         }
 

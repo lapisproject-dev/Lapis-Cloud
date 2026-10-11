@@ -384,4 +384,16 @@ class LegalHtmlTest :
                 }
             }
         }
+
+        test(
+            "V1.9.105: the privacy text names the consent for the author line (lit. a, revocation, static website) and no longer says the name is never shown",
+        ) {
+            val text = privacy(completeLegalConfig())
+            text shouldContain "freigegebene Artikel"
+            text shouldContain "Art. 6 Abs. 1 lit. a DSGVO"
+            text shouldContain "Art. 7 Abs. 3 DSGVO"
+            text shouldContain "statischen Webseite"
+            text shouldContain "ohne Ihre Einwilligung wird kein Autorenname angezeigt"
+            text shouldNotContain "Ihr Name als Autor jedoch nicht angezeigt"
+        }
     })

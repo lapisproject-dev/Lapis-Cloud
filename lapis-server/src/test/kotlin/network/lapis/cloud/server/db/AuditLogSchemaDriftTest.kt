@@ -168,6 +168,7 @@ class AuditLogSchemaDriftTest :
                             "EVENT",
                             "EVENT_IMPORT",
                             "COMMITTEE_MEMBERSHIP",
+                            "ARTICLE_IMPORT",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

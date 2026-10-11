@@ -5,6 +5,7 @@ import network.lapis.cloud.shared.domain.ArticleDraftInput
 import network.lapis.cloud.shared.domain.ArticleDto
 import network.lapis.cloud.shared.domain.ArticleReviewDto
 import network.lapis.cloud.shared.domain.ArticleSummaryDto
+import network.lapis.cloud.shared.domain.BoardBylineInput
 
 /**
  * Welle V1.4.34 "Nachrichten-/Artikel-Modul mit redaktionellem Workflow" -- the AUTHENTICATED RPC
@@ -86,4 +87,26 @@ interface IArticleService {
         id: String,
         reason: String,
     ): ArticleDto
+
+    // -- Welle V1.9.105: author line (byline) with consent --
+
+    /**
+     * Author only, `DRAFT`/`REJECTED` only. [consent] `true` + non-blank [text] stores a PERSONAL byline and stamps the consent moment; [consent]
+     * `true` without text is a `BadRequestException` (nothing is stored); [consent] `false` clears the byline. Deliberately NOT part of
+     * [saveDraft]: auto-save fires while typing and would otherwise create a consent record per keystroke.
+     */
+    suspend fun setOwnByline(
+        id: String,
+        consent: Boolean,
+        text: String?,
+    ): ArticleDto
+
+    /** Author only, any status, idempotent: withdraws the consent and clears a PERSONAL byline immediately. `ForbiddenException` for an ORGANIZATION/IMPORTED line (the board decides there). */
+    suspend fun revokeOwnByline(id: String): ArticleDto
+
+    /** BOARD/ADMIN, `SUBMITTED`/`PUBLISHED` only: no byline, or an organization label. Never a personal name. Own articles only via the author path (not for imported articles). */
+    suspend fun setBylineAsBoard(
+        id: String,
+        input: BoardBylineInput,
+    ): ArticleSummaryDto
 }

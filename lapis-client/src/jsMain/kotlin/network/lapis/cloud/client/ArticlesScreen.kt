@@ -13,6 +13,7 @@ import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.ArticleBylineKind
 import network.lapis.cloud.shared.domain.ArticleDto
 import network.lapis.cloud.shared.domain.ArticleStatus
 import network.lapis.cloud.shared.domain.ArticleSummaryDto
@@ -44,6 +45,12 @@ fun renderArticlesScreen(container: SimplePanel) {
     newButton.onClick { openNewEditor?.invoke() }
 
     val isBoard = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
+    // V1.9.105: secondary action of the page, BOARD/ADMIN only (the route itself is gated the same way).
+    if (isBoard) {
+        root.actionButton(ActionIcon.UPLOAD, tr("Frühere Artikel importieren"), style = ButtonStyle.OUTLINESECONDARY) {
+            onClick { navigateTo(Routes.ARTICLE_IMPORT) }
+        }
+    }
 
     val tabRow =
         root.hPanel(spacing = 8) {
@@ -156,11 +163,20 @@ private fun renderMyArticleCard(
     headerRow.untrustedCardTitle(article.title)
     article.mcpAgentLabel?.let { headerRow.agentOriginLine(it) }
     card.untrustedDiv(article.excerpt) { addCssClasses("text-muted small") }
+    card.articleBylineLine(article.byline)
     if (article.status == ArticleStatus.REJECTED && article.rejectionReason != null) {
         card.untrustedDiv(gettext("Begründung: %1", article.rejectionReason), className = "text-muted small")
     }
 
     val buttonRow = card.hPanel(spacing = 8)
+    // V1.9.105: once the article can no longer be edited, the author's consent is withdrawn from here (while editing, un-ticking does it).
+    if (article.bylineKind == ArticleBylineKind.PERSONAL &&
+        (article.status == ArticleStatus.SUBMITTED || article.status == ArticleStatus.PUBLISHED)
+    ) {
+        buttonRow.actionButton(ActionIcon.REVOKE, tr("Namensnennung widerrufen"), style = ButtonStyle.OUTLINEDANGER) {
+            onClick { confirmRevokeOwnByline(article.id, onRevoked = onChanged) }
+        }
+    }
     when (article.status) {
         ArticleStatus.DRAFT, ArticleStatus.REJECTED -> {
             val editButton = buttonRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINEPRIMARY)
@@ -248,6 +264,7 @@ private fun renderReviewSummaryCard(
     headerRow.untrustedCardTitle(summary.title)
     summary.mcpAgentLabel?.let { headerRow.agentOriginLine(it) }
     card.untrustedDiv(summary.excerpt) { addCssClasses("text-muted small") }
+    card.articleBylineLine(summary.byline)
 
     if (summary.authorIsSelf) {
         card.div(tr("Eigener Artikel — Freigabe durch ein anderes Vorstandsmitglied.")) {
@@ -277,12 +294,17 @@ private fun renderReviewSummaryCard(
             val actionRow = detailPanel.hPanel(spacing = 8)
             val approveButton = actionRow.actionButton(ActionIcon.APPROVE, tr("Genehmigen"), style = ButtonStyle.SUCCESS)
             val rejectButton = actionRow.actionButton(ActionIcon.REJECT, tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
+            actionRow.actionButton(ActionIcon.EDIT, tr("Autorenzeile ändern"), style = ButtonStyle.OUTLINESECONDARY) {
+                onClick { changeBylineAsBoard(summary, onChanged) }
+            }
             approveButton.onClick {
                 confirmDialog(
                     title = tr("Artikel genehmigen"),
                     message = tr("Möchten Sie diesen Artikel wirklich veröffentlichen?"),
                     confirmLabel = tr("Genehmigen"),
                     confirmIcon = ActionIcon.APPROVE,
+                    // The author line goes public with the article: the approver sees exactly what will be shown.
+                    extraLines = listOf(sanitizeUntrustedI18nText(articleBylineSummary(summary.byline))),
                 ) {
                     AppScope.launch {
                         val result = guarded { rpcService<IArticleService>().approveArticle(summary.id) }
@@ -348,12 +370,32 @@ private fun renderPublishedSummaryCard(
     val card = panel.vPanel(spacing = 6) { addCssClass("lapis-data-card") }
     val headerRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
     headerRow.untrustedCardTitle(summary.title)
+    if (summary.imported) headerRow.typeBadge(tr("Importiert"), "secondary")
     if (summary.slug != null) {
         headerRow.untrustedLink(tr("Ansehen"), url = "/aktuelles/${summary.slug}", target = "_blank", className = "small")
     }
     summary.mcpAgentLabel?.let { headerRow.agentOriginLine(it) }
     card.untrustedDiv(summary.excerpt) { addCssClasses("text-muted small") }
+    card.articleBylineLine(summary.byline)
+    if (!summary.hasCover) {
+        card.div(tr("Ohne Titelbild")) { addCssClasses("text-muted small") }
+    }
 
+    // V1.9.105: the import brings no image along -- the board adds it here, one by one (same upload card as the editor).
+    if (summary.imported) {
+        val coverHost = card.div { hide() }
+        var coverBuilt = false
+        card.actionButton(ActionIcon.UPLOAD, tr("Titelbild"), style = ButtonStyle.OUTLINESECONDARY) {
+            onClick {
+                if (!coverBuilt) {
+                    coverBuilt = true
+                    val publicUrl = if (summary.hasCover) "/aktuelles/${summary.slug}/bild" else null
+                    renderArticleCoverCard(coverHost, summary.id, publicUrl, summary.title) { onChanged() }
+                }
+                if (coverHost.visible) coverHost.hide() else coverHost.show()
+            }
+        }
+    }
     val unpublishButton = card.actionButton(ActionIcon.REVOKE, tr("Depublizieren"), style = ButtonStyle.OUTLINEDANGER)
     if (summary.authorIsSelf) {
         unpublishButton.disabled = true
@@ -361,6 +403,9 @@ private fun renderPublishedSummaryCard(
             addCssClasses("text-muted small fst-italic")
         }
         return
+    }
+    card.actionButton(ActionIcon.EDIT, tr("Autorenzeile ändern"), style = ButtonStyle.OUTLINESECONDARY) {
+        onClick { changeBylineAsBoard(summary, onChanged) }
     }
     unpublishButton.onClick {
         confirmWithReasonDialog(
@@ -381,6 +426,22 @@ private fun renderPublishedSummaryCard(
                     notifySuccess(tr("Artikel depubliziert."))
                     onChanged()
                 }
+            }
+        }
+    }
+}
+
+/** V1.9.105: the board's author-line dialog -> `setBylineAsBoard`, then reload the list so the card shows the new line. */
+private fun changeBylineAsBoard(
+    summary: ArticleSummaryDto,
+    onChanged: () -> Unit,
+) {
+    articleBylineBoardDialog(currentByline = summary.byline, currentKind = summary.bylineKind) { input ->
+        AppScope.launch {
+            val result = guarded { rpcService<IArticleService>().setBylineAsBoard(summary.id, input) }
+            if (result != null) {
+                notifySuccess(tr("Autorenzeile gespeichert."))
+                onChanged()
             }
         }
     }

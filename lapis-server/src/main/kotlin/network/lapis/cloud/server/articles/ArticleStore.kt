@@ -2,6 +2,7 @@ package network.lapis.cloud.server.articles
 
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.generated.ArticleTable
+import network.lapis.cloud.shared.domain.ArticleBylineKind
 import network.lapis.cloud.shared.domain.ArticleDraftInput
 import network.lapis.cloud.shared.domain.ArticleStatus
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -9,9 +10,11 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
@@ -75,7 +78,9 @@ internal object ArticleStore {
         authorId: Uuid,
     ): ResultRow {
         val row = lockForUpdateOrThrow(id)
-        if (row[ArticleTable.authorId] != authorId) throw NotFoundException("Article $id not found")
+        // V1.9.105: an imported article has no human author in Lapis (author_id is the importing board member, who only executed the import) --
+        // it is never "own", so it can neither be edited nor submitted through the author path.
+        if (row[ArticleTable.authorId] != authorId || row[ArticleTable.imported]) throw NotFoundException("Article $id not found")
         return row
     }
 
@@ -99,7 +104,7 @@ internal object ArticleStore {
     fun listByAuthor(authorId: Uuid): List<ResultRow> =
         ArticleTable
             .selectAll()
-            .where { ArticleTable.authorId eq authorId }
+            .where { (ArticleTable.authorId eq authorId) and (ArticleTable.imported eq false) }
             .orderBy(ArticleTable.updatedAt to SortOrder.DESC)
             .limit(MAX_PAGE_SIZE)
             .toList()
@@ -114,7 +119,8 @@ internal object ArticleStore {
         ArticleTable
             .selectAll()
             .where {
-                (ArticleTable.authorId eq authorId) and (ArticleTable.status neq ArticleStatus.PUBLISHED)
+                (ArticleTable.authorId eq authorId) and (ArticleTable.status neq ArticleStatus.PUBLISHED) and
+                    (ArticleTable.imported eq false)
             }.count()
 
     /** Welle V1.4.36 -- deckelt auf [MAX_PAGE_SIZE], gleiche Disziplin wie [listPublishedNewestFirst] (vorher unbegrenzt). */
@@ -133,6 +139,92 @@ internal object ArticleStore {
             .orderBy(ArticleTable.publishedAt to SortOrder.DESC)
             .limit(limit.coerceIn(1, MAX_PAGE_SIZE))
             .toList()
+
+    /**
+     * Welle V1.9.105 -- one page of the public archive feed: PUBLISHED only, newest first, stable on equal `published_at` through `id`.
+     * Returns up to `limit + 1` rows (the caller uses the extra row for `hasMore`). [limit] and [offset] are bounded by the caller.
+     */
+    fun listPublishedArchivePage(
+        limit: Int,
+        offset: Long,
+    ): List<ResultRow> =
+        ArticleTable
+            .selectAll()
+            .where { ArticleTable.status eq ArticleStatus.PUBLISHED }
+            .orderBy(ArticleTable.publishedAt to SortOrder.DESC, ArticleTable.id to SortOrder.DESC)
+            .limit(limit.coerceIn(1, MAX_PAGE_SIZE) + 1)
+            .offset(offset.coerceAtLeast(0L))
+            .toList()
+
+    /** Welle V1.9.105 -- slugs that exist in ANY status (a draft or rejected article blocks its slug too). One batched lookup. */
+    fun existingSlugs(slugs: Collection<String>): Set<String> {
+        if (slugs.isEmpty()) return emptySet()
+        return ArticleTable
+            .select(ArticleTable.slug)
+            .where { ArticleTable.slug inList slugs.toList() }
+            .mapNotNull { it[ArticleTable.slug] }
+            .toSet()
+    }
+
+    /**
+     * Welle V1.9.105 -- the ONLY place that writes `imported = true` (a source-scanning tripwire pins that). The row is `PUBLISHED` right away
+     * with the original [publishedAt] (UTC system timestamp), the author line of kind `IMPORTED` (if any), and NO cover. [importerId] is the
+     * importing board member: stored as `author_id`/`reviewed_by`/`byline_set_by` only because the schema needs a member -- they executed the
+     * import, they did not write the article.
+     */
+    fun insertImported(
+        id: Uuid,
+        importerId: Uuid,
+        slug: String,
+        title: String,
+        excerpt: String,
+        body: String,
+        publishedAt: LocalDateTime,
+        byline: String?,
+        now: LocalDateTime,
+    ) {
+        ArticleTable.insert {
+            it[ArticleTable.id] = id
+            it[ArticleTable.slug] = slug
+            it[ArticleTable.title] = title
+            it[ArticleTable.excerpt] = excerpt
+            it[ArticleTable.body] = body
+            it[authorId] = importerId
+            // Four-eyes: an import NEVER publishes directly. It lands as SUBMITTED; a DIFFERENT board member approves it through the normal
+            // review flow (`approveArticle` keeps the historic published_at of an imported article).
+            it[status] = ArticleStatus.SUBMITTED
+            it[submittedAt] = now
+            it[reviewedBy] = null
+            it[reviewedAt] = null
+            it[ArticleTable.publishedAt] = publishedAt
+            it[createdAt] = now
+            it[updatedAt] = now
+            it[ArticleTable.byline] = byline
+            it[bylineKind] = if (byline != null) ArticleBylineKind.IMPORTED else null
+            it[bylineSetBy] = if (byline != null) importerId else null
+            it[bylineSetAt] = if (byline != null) now else null
+            it[imported] = true
+        }
+    }
+
+    /** Welle V1.9.105 -- writes the five byline columns of [id] (all `null` = no byline). Caller holds the row lock. */
+    fun updateByline(
+        id: Uuid,
+        byline: String?,
+        kind: ArticleBylineKind?,
+        consentAt: LocalDateTime?,
+        setBy: Uuid,
+        now: LocalDateTime,
+    ) {
+        ArticleTable.update({ ArticleTable.id eq id }) {
+            it[ArticleTable.byline] = byline
+            it[bylineKind] = kind
+            it[bylineConsentAt] = consentAt
+            it[bylineSetBy] = setBy
+            it[bylineSetAt] = now
+            it[updatedAt] = now
+        }
+    }
 
     fun getPublishedBySlugOrNull(slug: String): ResultRow? =
         ArticleTable

@@ -405,7 +405,7 @@ private suspend fun ApplicationCall.withEmbedEventsFeedErrorHandling(handler: su
 }
 
 /** Strictly decimal digits only: `null` (absent) yields [default], anything non-numeric or outside [min]..[max] yields `null` = invalid. */
-private fun parseBoundedInt(
+internal fun parseBoundedInt(
     raw: String?,
     default: Int,
     min: Int,

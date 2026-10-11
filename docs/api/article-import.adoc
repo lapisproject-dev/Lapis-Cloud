@@ -1,0 +1,94 @@
+= Import of earlier articles
+:toc:
+
+Wave V1.9.105. A board member or administrator can import a list of **earlier articles** from a JSON file, for example the news of an earlier
+website. The imported articles appear on their own public pages (`/aktuelles/{slug}`), in the overview and in the embed feeds
+(<<embed-widgets.adoc#articles-archive-feed,Articles archive>>). The screen is `#/articles/import`, reached from the button "Frühere Artikel
+importieren" on the articles screen (BOARD and ADMIN only).
+
+== What the import does and does not do
+
+* **Dry run first.** "Vorschau prüfen" parses and validates the file and shows, per entry, whether it will be created, skipped or is an error. Nothing is written.
+* **All or nothing.** The confirmation writes every valid entry in **one** transaction. One error in the file blocks the whole import; fix the file and run the preview again.
+* **Existing slugs are skipped, never updated** -- whatever the status of the existing article (a draft or a rejected article blocks its slug too).
+* **Fixed result.** An imported article is created as `SUBMITTED` (never published directly: the four-eyes principle applies, a DIFFERENT board member approves it in the normal review list), keeps the original publication date when approved, the author line of kind `IMPORTED` (if the file has one)
+  and **without a cover image**. It is attributed to nobody: the importing member is only stored as the person who executed the import
+  (`article.imported = TRUE`), see `docs/architecture/article.adoc#import`.
+* **No images, no network.** There is no image field (an entry with `coverImage` or `image` is invalid) and the server never opens a connection to anything in the
+  file. Upload the cover images one by one afterwards (JPEG or PNG, at least 800x600 pixels, at most 5 MB); the published list marks articles without a cover.
+* **Not editable afterwards.** An imported article has no author in Lapis, so its text cannot be changed through the author path, and after it was depublished there
+  is no way to publish it again (see the known limitations in the changelog). The board can change or clear its author line and depublish it.
+
+== File format
+
+A JSON **array** of objects, at most **100** entries and **2 MiB** (UTF-8), nesting at most three levels deep. Every object may contain **only** the keys below;
+any other key (for example `status`, `authorId`, `imported`, `coverImage`) makes the entry invalid.
+
+[cols="2,1,4"]
+|===
+|Key |Required |Meaning
+
+|`slug` |yes |Address of the page, `/aktuelles/<slug>`. Lowercase letters and digits, separated by single `-` or `_`; at most 120 characters. Unique in the file. (Underscores are allowed because two legacy articles have them; the app itself only generates hyphens.)
+|`title` |yes |5 to 140 characters, one line.
+|`excerpt` |yes |1 to 300 characters, one line. A longer teaser is an error and is **never shortened automatically**.
+|`body` |yes |Markdown, 1 to 100 000 characters. Line breaks are kept exactly, including Markdown hard line breaks ("two spaces and a newline") and tabs; only control and bidi characters are removed and empty lines at the start and end are trimmed.
+|`publishedAt` |yes |`yyyy-MM-dd` (means 00:00) or `yyyy-MM-ddTHH:mm`, in the local time of the organization zone (shown on the screen), not in the future. No offset, no `Z`, no seconds.
+|`byline` |no |The author line as it stands on the old site, at most 120 characters. Taken over unchanged as kind `IMPORTED`.
+|===
+
+HTML in a text is not interpreted (the preview only warns "Enthält HTML – wird als Text angezeigt.").
+
+=== Example
+
+[source,json]
+----
+[
+  {
+    "slug": "parteitag-bericht",
+    "title": "Bericht vom Parteitag",
+    "excerpt": "Ein kurzer Rückblick.",
+    "body": "Erster Absatz.  \nZweite Zeile.\n\nZweiter Absatz.",
+    "publishedAt": "2024-05-05",
+    "byline": "PdV"
+  }
+]
+----
+
+== Organization names and the byline hint
+
+The preview call carries up to five **organization names** (1 to 120 characters each; the screen pre-fills the organization's own name from the branding). A byline
+that equals none of them (compared exactly, case-insensitive -- no heuristic) gets the hint "Autorenzeile ist kein Organisationsname – Einwilligung klären.":
+it may be a personal name, which is held without a consent record in Lapis. Add the abbreviation the old site used (for example "PdV") to the list to avoid
+false hints. The list only steers the hint; it never changes what is stored.
+
+== Preview, confirmation and the checksum
+
+The preview returns a SHA-256 over the UTF-8 bytes of the exact text it received. The confirmation sends the same text and that hash; if they differ the server
+answers with a conflict and writes nothing. The client therefore sends the text unchanged. **This checksum protects against an accidental change between preview and
+confirmation; it is not a security boundary.** Authorization is the role check on both calls.
+
+== Limits and protection
+
+* Role: BOARD or ADMIN on **both** RPC methods (checked first, before parsing or rate-limit bookkeeping); 10 previews and 5 confirmations per minute and member.
+* The request body is limited **before** it is parsed: a request to `/rpc/routeArticleImportServiceManager*` without `Content-Length` or above 8.5 MiB (four times the
+  payload for the double JSON escaping plus 512 KiB) is answered with `413` and never read. The prefix does not overlap with `routeArticleServiceManager`, the
+  ordinary article service is not limited by this guard.
+* The importer opens no network connection of any kind and sends no mail.
+* Error texts name the entry number and the field and never repeat content of the file.
+
+== Audit
+
+Every created article gets one audit entry (`entityType = ARTICLE`, `action = CREATE`, `after = {"imported":true,"slug":"..."}`), and each run that created at least one
+article gets one summary entry (`entityType = ARTICLE_IMPORT`, `after = {"created":n,"skipped":m,"payloadSha256":"..."}`). The actor is the importing member. No title, text
+or byline of the file is written to the audit log.
+
+== Database
+
+Migration `V85__article_byline_and_import.sql` adds `article.byline`, `byline_kind`, `byline_consent_at`, `byline_set_by`, `byline_set_at` and `imported`, the CHECK constraints for
+the byline pair, the kind and the consent, the index `idx_article_published_archive` and widens the audit-log entity-type check by `ARTICLE_IMPORT`. It is purely additive;
+`V1`..`V84` are untouched. Take a backup before deploying.
+
+== Data quality (not a code matter)
+
+The import takes over what the file says. Dates on an old website can be wrong (for example a report on a 2014 party conference carrying the date of 2024); check the file
+before the import.

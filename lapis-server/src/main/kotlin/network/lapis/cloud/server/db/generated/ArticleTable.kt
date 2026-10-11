@@ -6,6 +6,7 @@ package network.lapis.cloud.server.db.generated
 
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.ArticleBylineKind
 import network.lapis.cloud.shared.domain.ArticleStatus
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
@@ -36,6 +37,14 @@ public object ArticleTable : Table("article") {
     // snapshot of the MCP connection label that created this draft. Same hand-edit convention as
     // EventTable.kt; the matching attribute lives in 55-articles.kuml.kts.
     public val mcpAgentLabel: Column<String?> = varchar("mcp_agent_label", 60).nullable()
+
+    // Hand-edited, V1.9.105 (V85__article_byline_and_import.sql) -- see the "V1.9.105" addendum in 55-articles.kuml.kts.
+    public val byline: Column<String?> = varchar("byline", 120).nullable()
+    public val bylineKind: Column<ArticleBylineKind?> = enumerationByName<ArticleBylineKind>("byline_kind", 12).nullable()
+    public val bylineConsentAt: Column<LocalDateTime?> = datetime("byline_consent_at").nullable()
+    public val bylineSetBy: Column<Uuid?> = reference("byline_set_by", MemberTable.id).nullable()
+    public val bylineSetAt: Column<LocalDateTime?> = datetime("byline_set_at").nullable()
+    public val imported: Column<Boolean> = bool("imported").default(false)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

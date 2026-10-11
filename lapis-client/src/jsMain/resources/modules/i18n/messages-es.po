@@ -21592,3 +21592,127 @@ msgstr "Asumido por elección el %1: %2, %3, %4"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
 msgid "Beendet durch Nachfolgewahl am %1: %2, %3, %4"
 msgstr "Finalizado por elección sucesoria el %1: %2, %3, %4"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile: bitte zuerst einmal speichern (geschieht automatisch beim Tippen)."
+msgstr "Firma del autor: guarde primero una vez (ocurre automáticamente al escribir)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Frühere Artikel importieren"
+msgstr "Importar artículos anteriores"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Namensnennung widerrufen"
+msgstr "Revocar la mención del nombre"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile ändern"
+msgstr "Cambiar la firma del autor"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Ohne Titelbild"
+msgstr "Sin imagen de portada"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile gespeichert."
+msgstr "Firma del autor guardada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Artikelimport"
+msgstr "Importación de artículos"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Wird nicht genannt."
+msgstr "No se nombra a ningún autor."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Wird als „%1“ genannt."
+msgstr "Se nombra como «%1»."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile"
+msgstr "Firma del autor"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Mich als Autor nennen"
+msgstr "Nombrarme como autor"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Wenn Sie zustimmen, steht Ihr Name mit dem Artikel auf der Webseite. Ohne Ihre Zustimmung wird kein Autor genannt. Sie können die Zustimmung jederzeit widerrufen; Ihr Name verschwindet dann sofort aus Lapis. Eine statische Webseite zeigt die Änderung erst nach ihrer nächsten Aktualisierung."
+msgstr "Si acepta, su nombre aparecerá junto al artículo en el sitio web. Sin su consentimiento no se nombra a ningún autor. Puede retirar su consentimiento en cualquier momento; su nombre desaparecerá entonces de inmediato de Lapis. Un sitio web estático muestra el cambio solo tras su próxima actualización."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "So möchte ich genannt werden"
+msgstr "Así quiero que me nombren"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "z. B. Max Muster"
+msgstr "p. ej., Max Muster"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Möchten Sie Ihre Zustimmung zur Namensnennung bei diesem Artikel widerrufen?"
+msgstr "¿Desea retirar su consentimiento para que se mencione su nombre en este artículo?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Ihr Name wird in Lapis nicht mehr angezeigt. Eine statische Webseite zeigt die Änderung erst nach ihrer nächsten Aktualisierung."
+msgstr "Su nombre ya no se muestra en Lapis. Un sitio web estático muestra el cambio solo tras su próxima actualización."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Beibehalten: „%1“"
+msgstr "Mantener: «%1»"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Nicht nennen"
+msgstr "No nombrar a nadie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Organisation oder Redaktion"
+msgstr "Organización o redacción"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Kein Personenname."
+msgstr "No es un nombre de persona."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Bitte geben Sie eine Organisation oder Redaktion an."
+msgstr "Indique una organización o redacción."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Fügen Sie eine JSON-Liste früherer Artikel ein. Vor dem Import sehen Sie eine Vorschau, es wird noch nichts gespeichert."
+msgstr "Pegue una lista JSON de artículos anteriores. Antes de importar verá una vista previa; todavía no se guarda nada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Veröffentlichungsdaten in Ortszeit (%1). Titelbilder werden nicht importiert."
+msgstr "Fechas de publicación en hora local (%1). Las imágenes de portada no se importan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Organisationsnamen als Autorenzeile (durch Komma getrennt, höchstens 5)"
+msgstr "Nombres de organización aceptados como firma (separados por comas, máximo 5)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "%1 Artikel importieren"
+msgstr "Importar %1 artículos"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "%1 Artikel angelegt, %2 übersprungen."
+msgstr "%1 artículos creados, %2 omitidos."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Bitte höchstens 5 Organisationsnamen mit jeweils höchstens 120 Zeichen angeben."
+msgstr "Indique como máximo 5 nombres de organización de 120 caracteres como máximo cada uno."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Veröffentlicht am"
+msgstr "Publicado el"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Ohne Titelbild – nach dem Import einzeln hochladen."
+msgstr "Sin imagen de portada: súbala individualmente después de importar."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile ist kein Organisationsname – Einwilligung klären."
+msgstr "La firma no es el nombre de una organización: aclare el consentimiento."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Enthält HTML – wird als Text angezeigt."
+msgstr "Contiene HTML: se muestra como texto."

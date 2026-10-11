@@ -405,6 +405,14 @@ enum class AuditEntityType {
      * `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
      */
     COMMITTEE_MEMBERSHIP,
+
+    /**
+     * Welle V1.9.105 "Artikel-Import" -- one summary entry per committed import run of legacy articles (`ArticleImporter`), `action = CREATE`,
+     * `entityId` = a fresh random id (the run has no row), `after = {"created":n,"skipped":m,"payloadSha256":"..."}`. The single articles are
+     * audited as `ARTICLE`/`CREATE` (`{"imported":true,"slug":"..."}`). Never carries a title, text or byline. 14 chars, fits within
+     * `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    ARTICLE_IMPORT,
 }
 
 /**

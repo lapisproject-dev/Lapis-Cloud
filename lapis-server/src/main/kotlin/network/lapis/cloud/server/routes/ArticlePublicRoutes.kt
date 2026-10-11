@@ -16,6 +16,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.datetime.toInstant
 import network.lapis.cloud.server.articles.ArticleCoverPolicy
 import network.lapis.cloud.server.articles.ArticleMarkdown
+import network.lapis.cloud.server.articles.ArticlePolicy
 import network.lapis.cloud.server.articles.ArticleStore
 import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.generated.ArticleTable
@@ -27,7 +28,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 private val logger = KotlinLogging.logger {}
 
-private val ARTICLE_SLUG_PATTERN = COVER_SLUG_PATTERN
+private val ARTICLE_SLUG_PATTERN = ArticlePolicy.PUBLIC_SLUG_PATTERN
 
 /**
  * Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- the unauthenticated public reading
@@ -102,6 +103,7 @@ internal fun Route.registerArticlePublicRoutes(
                     // class-A stamp shown as a date: in the organization zone (V1.9.38); the ISO form below stays the UTC instant
                     publishedAt = ServerClock.systemToWall(utc = publishedAt, orgZone = OrganizationTimeZone.current()),
                     publishedAtIso = publishedAt.toInstant(ServerClock.zone).toString(),
+                    byline = row[ArticleTable.byline],
                 )
             call.response.header(HttpHeaders.CacheControl, "no-store")
             applyArticlePageSecurityHeaders(call)

@@ -227,6 +227,22 @@ fun renderArticleEditor(
     }
     renderCoverSection()
 
+    // V1.9.105: the author line with its consent. Needs an article id like the cover; rebuilt when the first auto-save delivers one.
+    val bylineSection = writePanel.div { }
+
+    fun renderBylineSection() {
+        bylineSection.removeAll()
+        val id = articleId
+        if (id == null) {
+            bylineSection.div(tr("Autorenzeile: bitte zuerst einmal speichern (geschieht automatisch beim Tippen).")) {
+                addCssClasses("text-muted small")
+            }
+            return
+        }
+        renderArticleBylineCard(bylineSection, id, initial)
+    }
+    renderBylineSection()
+
     // -- Auto-save --
     val realSchedule =
         ArticleAutoSaveSchedule { delayMs, action ->
@@ -256,6 +272,7 @@ fun renderArticleEditor(
                         if (newId != null && newId != articleId) {
                             articleId = newId
                             renderCoverSection()
+                            renderBylineSection()
                         }
                     }
                     is ArticleAutoSaveController.SaveState.Failed -> {
@@ -335,7 +352,7 @@ private suspend fun rpcServiceSaveDraft(
  * can keep their own copy in sync instead of showing a stale cover -- this card only keeps
  * [currentUrl] locally otherwise.
  */
-private fun renderArticleCoverCard(
+internal fun renderArticleCoverCard(
     panel: SimplePanel,
     articleId: String,
     initialCoverUrl: String?,

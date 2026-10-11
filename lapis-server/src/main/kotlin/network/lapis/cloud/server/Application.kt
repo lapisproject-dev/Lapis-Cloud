@@ -238,6 +238,7 @@ import network.lapis.cloud.server.rpc.AccountingExportService
 import network.lapis.cloud.server.rpc.AccountingService
 import network.lapis.cloud.server.rpc.AiAssistantService
 import network.lapis.cloud.server.rpc.ApiKeyService
+import network.lapis.cloud.server.rpc.ArticleImportService
 import network.lapis.cloud.server.rpc.ArticleService
 import network.lapis.cloud.server.rpc.AuctionService
 import network.lapis.cloud.server.rpc.AuditLogService
@@ -311,6 +312,7 @@ import network.lapis.cloud.server.rpc.TrustAnchorService
 import network.lapis.cloud.server.rpc.VatService
 import network.lapis.cloud.server.rpc.VolunteerAllowanceService
 import network.lapis.cloud.server.rpc.WebhookService
+import network.lapis.cloud.server.rpc.installArticleImportBodyLimit
 import network.lapis.cloud.server.rpc.installEventImportBodyLimit
 import network.lapis.cloud.server.rpc.installRpcErrorSanitizer
 import network.lapis.cloud.server.security.LoginRateLimiter
@@ -328,6 +330,7 @@ import network.lapis.cloud.shared.rpc.IAccountingExportService
 import network.lapis.cloud.shared.rpc.IAccountingService
 import network.lapis.cloud.shared.rpc.IAiAssistantService
 import network.lapis.cloud.shared.rpc.IApiKeyService
+import network.lapis.cloud.shared.rpc.IArticleImportService
 import network.lapis.cloud.shared.rpc.IArticleService
 import network.lapis.cloud.shared.rpc.IAuctionService
 import network.lapis.cloud.shared.rpc.IAuditLogService
@@ -1748,6 +1751,9 @@ internal fun Application.module(
     // V1.9.82 -- per-member budgets for the event import (10 previews / 5 commits per minute).
     val eventImportPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes, maxTrackedKeys = 1_000)
     val eventImportCommitRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 1.minutes, maxTrackedKeys = 1_000)
+    // V1.9.105: same budgets for the article import.
+    val articleImportPreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes, maxTrackedKeys = 1_000)
+    val articleImportCommitRateLimiter = FederationInboxRateLimiter(maxRequests = 5, window = 1.minutes, maxTrackedKeys = 1_000)
     val embedEventsFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
     // V1.9.82 -- the archive feed's own budget (paging the archive must not use up the main feed's 60/min).
     val embedEventsPastFeedRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
@@ -1891,6 +1897,8 @@ internal fun Application.module(
     installRpcErrorSanitizer()
     // V1.9.82: 413 before Kilua reads the body of the event-import route (size guard, see EventImportBodyLimit).
     installEventImportBodyLimit()
+    // V1.9.105: same 413-before-Kilua guard for the article-import route.
+    installArticleImportBodyLimit()
 
     // initRpc installs its own ContentNegotiation (JSON) plugin internally, configured for the
     // RPC serializers module — installing another one ourselves would collide with it
@@ -2322,6 +2330,14 @@ internal fun Application.module(
                 draftUpdateRateLimiter = articleDraftUpdateRateLimiter,
                 reviewNotifier = articleReviewNotificationMailer,
                 coverStorage = articleCoverStorage,
+            )
+        }
+        // Welle V1.9.105 "Artikel-Import" -- BOARD/ADMIN import of legacy articles.
+        registerService(IArticleImportService::class) { call ->
+            ArticleImportService(
+                call = call,
+                previewRateLimiter = articleImportPreviewRateLimiter,
+                commitRateLimiter = articleImportCommitRateLimiter,
             )
         }
     }

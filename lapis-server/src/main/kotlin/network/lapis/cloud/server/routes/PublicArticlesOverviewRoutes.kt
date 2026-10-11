@@ -5,6 +5,7 @@ import io.ktor.server.application.call
 import io.ktor.server.plugins.origin
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import network.lapis.cloud.server.articles.ArticlePolicy
 import network.lapis.cloud.server.articles.ArticleStore
 import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.generated.ArticleTable
@@ -47,7 +48,7 @@ private data class CachedOverviewBody(
  * miss, ONE short `transaction {}` via [ArticleStore.listPublishedNewestFirst] -> transaction CLOSED
  * -> render OUTSIDE of it ([PublicOverviewHtml.articlesPage]) -> ETag/304.
  *
- * A row whose `slug`/`publishedAt` is `null`, or whose `slug` does not match [COVER_SLUG_PATTERN], is
+ * A row whose `slug`/`publishedAt` is `null`, or whose `slug` does not match [ArticlePolicy.PUBLIC_SLUG_PATTERN], is
  * SKIPPED (logged at `warn`, id only -- never title/slug, see [applyPublicPageHeaders] logging
  * discipline) rather than rendered -- defense in depth: these columns are nullable at the DB layer,
  * but a `PUBLISHED` article's application-level invariant is that both are always set.
@@ -119,7 +120,7 @@ private fun renderCachedArticlesBody(
 private fun ResultRow.toArticleItem(): PublicOverviewHtml.ArticleItem? {
     val slug = this[ArticleTable.slug]
     val publishedAt = this[ArticleTable.publishedAt]
-    if (slug == null || publishedAt == null || !COVER_SLUG_PATTERN.matches(slug)) {
+    if (slug == null || publishedAt == null || !ArticlePolicy.PUBLIC_SLUG_PATTERN.matches(slug)) {
         logger.warn { "Skipping article ${this[ArticleTable.id]} on /aktuelles: missing/invalid slug or publishedAt" }
         return null
     }

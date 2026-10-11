@@ -268,13 +268,85 @@ article) removes a row from this count, by moving it to `PUBLISHED`.
 `previewArticle` has its own, separate `previewRateLimiter` (30/min per member, per
 `IArticleService.previewArticle` KDoc).
 
+[[byline]]
+== Author line (byline) with consent -- V1.9.105
+
+Since V1.9.105 a published article may name its author, **only because the author consented**. Nothing else changed about the
+anonymity default: no consent means no name (Design-Team decision "keine Namen nach außen" still holds as the default).
+
+*Model* (`V85__article_byline_and_import.sql`, `ArticleBylineKind`): the pair `byline` (VARCHAR(120)) + `byline_kind` is either both `NULL`
+(nobody is named, the state of every existing row) or both set (CHECK). `byline_kind`:
+
+[cols="1,3", options="header"]
+|===
+| Kind | Meaning
+
+| `PERSONAL` | The author's own name. Requires `byline_consent_at` (CHECK: set if and only if `PERSONAL`). GDPR Art. 6(1)(a), revocable.
+| `ORGANIZATION` | An organization or editorial label set by the board (for example the party's name). Never a personal name; this is held up by the
+  preview hint and the audit log, not technically (a board member could type a person into the field).
+| `IMPORTED` | Taken over unchanged from a legacy website by the admin import (see <<import>>). No consent is held in Lapis.
+|===
+
+`byline_set_by`/`byline_set_at` record who changed the line last (also who withdrew it). They carry no consent.
+
+*Who may do what* (`ArticleBylinePolicy`, `ArticleService`):
+
+* `setOwnByline(id, consent, text)` -- the author, `DRAFT`/`REJECTED` only. `consent = true` needs a text (1..120 characters after normalization:
+  NFC, control and bidi characters removed, one line); without a text nothing is stored (`400`). The same text again changes nothing (no new consent
+  moment, no audit entry). `consent = false` clears a `PERSONAL` line; a line the board set is not the author's to withdraw (no-op).
+* `revokeOwnByline(id)` -- the author, **any status**, idempotent, no active-membership requirement and no draft rate limit: withdrawing a consent
+  must be at least as easy as giving it (Art. 7(3)). `Forbidden` for `ORGANIZATION`/`IMPORTED` lines.
+* `setBylineAsBoard(id, BoardBylineInput)` -- BOARD/ADMIN, `SUBMITTED`/`PUBLISHED` only; `NONE` clears, `ORGANIZATION` writes an organization label.
+  **There is no API path for the board to write a `PERSONAL` line.** The four-eyes rule applies (`requireNotOwnArticle`) except for imported articles.
+* The byline is deliberately **not** part of `ArticleDraftInput`: the auto-save (every 2 seconds while typing) would otherwise create a consent record
+  and an audit entry per keystroke, and the MCP draft tool (`create_article_draft`) would have a way to name somebody. The editor saves the text on
+  `change` (blur/Enter), un-ticking saves at once.
+* Status transitions (submit, withdraw, approve, reject, unpublish) never touch the byline columns.
+
+*Audit:* every change is an `ARTICLE`/`UPDATE` entry with `before = {"bylineKind":...}` and `after = {"bylineKind":...,"consent":bool}` --
+**never the text** (the hash-chained log cannot erase a name again). A tripwire test (`ArticleImportTripwireTest`) pins this.
+
+*Where it shows:* the public page `/aktuelles/{slug}` ("Von {byline} · Veröffentlicht am ... · {organization}") as escaped text, no link, no chip and
+**no `<meta name="author">`** (that would be a further distribution to crawlers the author did not agree to); the embed feeds (`byline` only if set, never
+the kind or the consent). The privacy text (`LegalHtml`) describes the consent, the revocation and the static-website delay.
+
+*Honest limit:* a revocation takes effect in Lapis, the feeds and the page at once. A static website that copied the name shows the change only after
+its next update; the UI says so.
+
+[[import]]
+== Admin import of legacy articles -- V1.9.105
+
+BOARD/ADMIN can import a JSON list of earlier articles (`IArticleImportService`, screen `#/articles/import`); the format and the limits are in
+`docs/api/article-import.adoc`. Design decisions worth knowing:
+
+* *No human author.* The schema needs `author_id`; the project has deliberately no system member (a placeholder would count in quorums, elections and
+  contributions). The importing board member is stored as `author_id`/`reviewed_by`/`byline_set_by`, and the flag `article.imported = TRUE` (written
+  only by `ArticleStore.insertImported`, called only by `ArticleImporter`; a tripwire pins both) marks that they merely executed the import.
+  Imported articles are therefore excluded from "my articles", from the draft cap, from the author paths (`requireOwnedRowForUpdate` answers `NotFound`),
+  from the Art. 15 `authoredArticles` list and from the retained-rows count of the erasure.
+* *Four eyes applies to the publication itself:* an import NEVER publishes. Every imported article lands as `SUBMITTED` (`reviewed_by`/`reviewed_at`
+  empty) and a DIFFERENT BOARD/ADMIN member approves or rejects it through the normal review flow (`requireNotOwnArticle` refuses the importer while the
+  article is `SUBMITTED`). A batch approval is just a series of approvals. Only AFTER publication the importer may adjust the byline of or depublish
+  their own import (the early return for `imported` applies to non-`SUBMITTED` rows only).
+* *Result:* `SUBMITTED`, `published_at` = the original date (organization wall-clock converted to the UTC system stamp, `published_at` is a class-A
+  column; `approveArticle` keeps it for imported articles instead of stamping "now"), byline kind `IMPORTED` if the payload had one, no cover image.
+* *Cover changes of imported articles are audited:* every cover set/removal on an imported article writes an `ARTICLE`/`UPDATE` audit entry
+  `{"cover":"set|removed"}` (no image content).
+* *No image field and no network access:* the importer never fetches a URL (no SSRF, no DNS rebinding); covers are uploaded afterwards through the
+  normal pipeline (JPEG/PNG, at least 800x600).
+
 == DSGVO / personal-data handling
 
 `ArticlePersonalData` (`network.lapis.cloud.server.dsgvo`) registers `ArticleTable` as a
 `MemberPersonalDataContributor` (`sectionKey = "articles"`, `displayName = "Artikel"`). Its export
-(`exportMember`) returns two JSON arrays for a given member: `authoredArticles` (id/title/status/
-createdAt for every article they authored) and `reviewedArticles` (id/title/status for every
-article they reviewed, i.e. `reviewedBy == memberId`).
+(`exportMember`) returns: `authoredArticles` (id/title/status/createdAt for every article they authored, plus -- since V1.9.105 --
+`byline`, `bylineKind` and `bylineConsentAt`; **imported articles are not listed**), `reviewedArticles` (id/title/status for every
+article they reviewed, i.e. `reviewedBy == memberId`, again without imported ones), `bylineChangesMade` (id, slug and resulting kind of the
+articles where the member is `byline_set_by` -- never the text) and `articleImportsExecuted` (the number of imported articles whose
+`author_id` is the member: an Art. 15 notice that they ran imports, without calling it authorship).
+
+On erasure a `PERSONAL` byline (text, kind, consent moment) of the member's articles is **deleted** -- it is their own name, shown only on
+consent. `ORGANIZATION` and `IMPORTED` lines are not the member's personal data and stay.
 
 On erasure (`eraseMember`), rows are **retained**, not deleted: a published article is
 organizational content (the party's own public communication), not purely the author's/
@@ -285,8 +357,8 @@ Freigabe-Zeiger zeigt nach der Anonymisierung auf den anonymisierten Mitgliedsda
 anonymization, `author_id`/`reviewed_by` continue to point at the now-anonymized member row rather
 than being nulled out or the article being deleted.
 
-Neither the author's name nor the internal article/member id is ever exposed to an
-unauthenticated reader: `ArticleDto` and `ArticleReviewDto` deliberately carry no `authorId`/
+Neither the author's account name nor the internal article/member id is ever exposed to an
+unauthenticated reader (the only name that can appear is the consented byline, see <<byline>>): `ArticleDto` and `ArticleReviewDto` deliberately carry no `authorId`/
 `reviewedBy` field at all, and `ArticlePublicHtml`'s rendered page carries no author name and no
 internal id anywhere in its markup -- a client only ever learns whether it may act on its *own*
 article via the RPC surface's own role/ownership checks, never by comparing ids client-side.
@@ -300,8 +372,10 @@ documented in `docs/api/embed-widgets.adoc#events-list-widget[the sibling events
 section]`'s article counterpart -- see that document's "Articles list widget" section.
 
 In short: `EmbedArticleListItemDto` is an explicit field-by-field allowlist mapping, deliberately
-*not* a reuse of `ArticleDto` -- the wire JSON must never contain `body`/`authorId`/
-`reviewedBy`/`id`/`rejectionReason`. A `PUBLISHED` row whose `slug`/`publishedAt` is unexpectedly
+*not* a reuse of `ArticleDto` -- the wire JSON must never contain `authorId`/`reviewedBy`/`id`/`rejectionReason`/`bylineKind`/
+`bylineConsentAt`/`imported`. Since V1.9.105 it carries the full text as `body` (raw Markdown, NOT rendered HTML) and the `byline` if one is set,
+and a second endpoint `GET /api/embed/v1/articles/archive?page=&limit=` pages through all published articles (strict parameters, own rate limiter);
+both are built by one function (`ResultRow.toEmbedArticleItem`) so there is exactly one field format. A `PUBLISHED` row whose `slug`/`publishedAt` is unexpectedly
 `null` (which cannot happen by construction, since `approveArticle` always sets both together in
 the same `UPDATE`) is skipped and logged rather than failing the whole feed with a `500` -- the
 same "never throw on a single data inconsistency" stance `ArticlePublicRoutes`' own `/aktuelles/
@@ -312,8 +386,7 @@ same "never throw on a single data inconsistency" stance `ArticlePublicRoutes`' 
 * No pagination on the author's own article list, the board's review/published queues, or the
   public `/aktuelles` overview -- all are hard-capped (`MAX_PAGE_SIZE` / `MAX_ARTICLES`) rather
   than paginated.
-* No public byline/author name anywhere (Design-Team decision "keine Namen nach außen") -- see
-  "DSGVO / personal-data handling" above.
+* No public author name **without consent** (Design-Team decision "keine Namen nach außen"; since V1.9.105 an author can consent, see <<byline>>).
 * The public detail page (`/aktuelles/{slug}`) itself carries no header/navigation chrome (no way
   back to the site navigation from there) -- flagged as a known limitation in the V1.9.11
   CHANGELOG entry, open for a follow-up wave.

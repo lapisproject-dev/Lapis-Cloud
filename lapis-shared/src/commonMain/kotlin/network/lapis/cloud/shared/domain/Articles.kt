@@ -18,6 +18,28 @@ import kotlinx.serialization.Serializable
 enum class ArticleStatus { DRAFT, SUBMITTED, PUBLISHED, REJECTED }
 
 /**
+ * Welle V1.9.105 -- what the author line ([ArticleDto.byline]) of an article means. Literal order load-bearing (mirrors
+ * `article.byline_kind VARCHAR(12)`, `V85__article_byline_and_import.sql`) -- append-only, never reorder.
+ *
+ * - [PERSONAL]: the author's own name, shown ONLY because the author consented (GDPR Art. 6(1)(a)); revocable at any time.
+ * - [ORGANIZATION]: an organization/editorial label set by the board; deliberately never a personal name.
+ * - [IMPORTED]: taken over unchanged from the legacy website by the admin import; no consent is held in Lapis.
+ */
+@Serializable
+enum class ArticleBylineKind { PERSONAL, ORGANIZATION, IMPORTED }
+
+/** Welle V1.9.105 -- board decision for [network.lapis.cloud.shared.rpc.IArticleService.setBylineAsBoard]: no author line, or an organization label. A personal name cannot be set by the board. */
+@Serializable
+enum class BoardBylineMode { NONE, ORGANIZATION }
+
+/** Welle V1.9.105 -- input of [network.lapis.cloud.shared.rpc.IArticleService.setBylineAsBoard]. [text] is required for [BoardBylineMode.ORGANIZATION] and ignored for [BoardBylineMode.NONE]. */
+@Serializable
+data class BoardBylineInput(
+    val mode: BoardBylineMode,
+    val text: String? = null,
+)
+
+/**
  * The author-facing / board-review wire shape. Deliberately carries NO `authorId`/`reviewedBy` --
  * author identity stays server-internal (Design-Team decision "keine Namen nach aussen", see
  * `55-articles.kuml.kts` file header) -- a client only ever learns whether it may act on its OWN
@@ -42,6 +64,13 @@ data class ArticleDto(
      * label of the MCP connection that created the draft. Never part of any public feed.
      */
     val mcpAgentLabel: String? = null,
+    /** Welle V1.9.105 -- the author line (see [ArticleBylineKind]); `null` = no author is named. */
+    val byline: String? = null,
+    val bylineKind: ArticleBylineKind? = null,
+    /** Moment of the author's consent, only set for [ArticleBylineKind.PERSONAL]. */
+    val bylineConsentAt: LocalDateTime? = null,
+    /** TRUE for an article taken over by the admin import (no human author in Lapis). */
+    val imported: Boolean = false,
 )
 
 /** Create-or-update input for [network.lapis.cloud.shared.rpc.IArticleService.saveDraft]. */
@@ -78,6 +107,12 @@ data class ArticleSummaryDto(
     val slug: String? = null,
     /** Welle V1.9.100 -- see [ArticleDto.mcpAgentLabel]. */
     val mcpAgentLabel: String? = null,
+    /** Welle V1.9.105 -- see [ArticleDto.byline]. */
+    val byline: String? = null,
+    val bylineKind: ArticleBylineKind? = null,
+    val imported: Boolean = false,
+    /** Welle V1.9.105 -- `false` if no title image is stored (the board sees which imported articles still need one). */
+    val hasCover: Boolean = false,
 )
 
 /**
@@ -113,4 +148,8 @@ data class ArticleReviewDto(
     val authorIsSelf: Boolean,
     /** Welle V1.9.100 -- see [ArticleDto.mcpAgentLabel]. */
     val mcpAgentLabel: String? = null,
+    /** Welle V1.9.105 -- see [ArticleDto.byline]. */
+    val byline: String? = null,
+    val bylineKind: ArticleBylineKind? = null,
+    val imported: Boolean = false,
 )

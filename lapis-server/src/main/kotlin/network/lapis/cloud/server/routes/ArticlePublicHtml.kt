@@ -33,9 +33,10 @@ import network.lapis.cloud.server.branding.ResolvedBranding
  * flows through `kotlinx.html`'s ordinary, auto-escaping text-node/attribute API, same discipline
  * [EventPublicHtml]/[SocialPublicHtml] already establish.
  *
- * **Carries no author name and no internal id** -- Design-Team decision "keine Namen nach aussen"
- * (see `ArticleReviewDto` KDoc), applied here too: nothing in this page's HTML lets a reader learn
- * WHO wrote the article, only what it says.
+ * **Carries no internal id and no author identity -- except the byline.** Design-Team decision "keine Namen nach aussen"
+ * (see `ArticleReviewDto` KDoc) still holds; since V1.9.105 the page shows the article's byline if one is set. A personal name appears
+ * ONLY because the author consented (GDPR Art. 6(1)(a), revocable); otherwise it is an organization label or an imported legacy line.
+ * It is plain escaped text (no link, no `<meta name="author">`: that would be a further distribution to crawlers the author did not agree to).
  */
 internal object ArticlePublicHtml {
     /** One published article's publicly-safe view -- assembled by the route handler OUTSIDE any transaction (Slowloris rule, see [registerArticlePublicRoutes] KDoc). */
@@ -49,6 +50,8 @@ internal object ArticlePublicHtml {
         val publishedAt: LocalDateTime,
         /** ISO-8601 with an explicit UTC offset, for `article:published_time` -- see [articlePage]'s own meta-tag block. */
         val publishedAtIso: String,
+        /** Welle V1.9.105 -- the author line (consented personal name, organization label or imported line); `null` = nobody is named. Rendered as escaped text, no link, no chip, no `<meta name="author">`. */
+        val byline: String? = null,
     )
 
     /**
@@ -76,7 +79,9 @@ internal object ArticlePublicHtml {
             }
             h1 { +view.title }
             p(classes = "lapis-article-meta") {
-                +"Veröffentlicht am ${germanDate(view.publishedAt)} · ${branding.title}"
+                val byline = view.byline
+                val prefix = if (byline != null) "Von $byline · " else ""
+                +"${prefix}Veröffentlicht am ${germanDate(view.publishedAt)} · ${branding.title}"
             }
             p(classes = "lapis-article-lead") { +view.excerpt }
             article(classes = "lapis-article-body") {

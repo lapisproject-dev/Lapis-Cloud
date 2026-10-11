@@ -21662,3 +21662,127 @@ msgstr "Overgenomen door verkiezing op %1: %2, %3, %4"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
 msgid "Beendet durch Nachfolgewahl am %1: %2, %3, %4"
 msgstr "Beëindigd door opvolgingsverkiezing op %1: %2, %3, %4"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile: bitte zuerst einmal speichern (geschieht automatisch beim Tippen)."
+msgstr "Auteursregel: sla eerst één keer op (dit gebeurt automatisch tijdens het typen)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Frühere Artikel importieren"
+msgstr "Eerdere artikelen importeren"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Namensnennung widerrufen"
+msgstr "Naamsvermelding intrekken"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile ändern"
+msgstr "Auteursregel wijzigen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Ohne Titelbild"
+msgstr "Zonder titelafbeelding"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile gespeichert."
+msgstr "Auteursregel opgeslagen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Artikelimport"
+msgstr "Artikelimport"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Wird nicht genannt."
+msgstr "Er wordt geen auteur genoemd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Wird als „%1“ genannt."
+msgstr "Genoemd als ‘%1’."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile"
+msgstr "Auteursregel"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Mich als Autor nennen"
+msgstr "Mij als auteur noemen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Wenn Sie zustimmen, steht Ihr Name mit dem Artikel auf der Webseite. Ohne Ihre Zustimmung wird kein Autor genannt. Sie können die Zustimmung jederzeit widerrufen; Ihr Name verschwindet dann sofort aus Lapis. Eine statische Webseite zeigt die Änderung erst nach ihrer nächsten Aktualisierung."
+msgstr "Als u toestemming geeft, verschijnt uw naam bij het artikel op de website. Zonder uw toestemming wordt geen auteur genoemd. U kunt uw toestemming op elk moment intrekken; uw naam verdwijnt dan direct uit Lapis. Een statische website toont de wijziging pas na de eerstvolgende update."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "So möchte ich genannt werden"
+msgstr "Zo wil ik genoemd worden"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "z. B. Max Muster"
+msgstr "bijv. Max Muster"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Möchten Sie Ihre Zustimmung zur Namensnennung bei diesem Artikel widerrufen?"
+msgstr "Wilt u uw toestemming voor de naamsvermelding bij dit artikel intrekken?"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Ihr Name wird in Lapis nicht mehr angezeigt. Eine statische Webseite zeigt die Änderung erst nach ihrer nächsten Aktualisierung."
+msgstr "Uw naam wordt in Lapis niet meer getoond. Een statische website toont de wijziging pas na de eerstvolgende update."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Beibehalten: „%1“"
+msgstr "Behouden: ‘%1’"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Nicht nennen"
+msgstr "Niemand noemen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Organisation oder Redaktion"
+msgstr "Organisatie of redactie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Kein Personenname."
+msgstr "Geen persoonsnaam."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Bitte geben Sie eine Organisation oder Redaktion an."
+msgstr "Geef een organisatie of redactie op."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Fügen Sie eine JSON-Liste früherer Artikel ein. Vor dem Import sehen Sie eine Vorschau, es wird noch nichts gespeichert."
+msgstr "Plak een JSON-lijst met eerdere artikelen. Vóór de import ziet u een voorbeeld; er wordt nog niets opgeslagen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Veröffentlichungsdaten in Ortszeit (%1). Titelbilder werden nicht importiert."
+msgstr "Publicatiedata in lokale tijd (%1). Titelafbeeldingen worden niet geïmporteerd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Organisationsnamen als Autorenzeile (durch Komma getrennt, höchstens 5)"
+msgstr "Organisatienamen die als auteursregel gelden (kommagescheiden, maximaal 5)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "%1 Artikel importieren"
+msgstr "%1 artikelen importeren"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "%1 Artikel angelegt, %2 übersprungen."
+msgstr "%1 artikelen aangemaakt, %2 overgeslagen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Bitte höchstens 5 Organisationsnamen mit jeweils höchstens 120 Zeichen angeben."
+msgstr "Geef maximaal 5 organisatienamen op van elk maximaal 120 tekens."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Veröffentlicht am"
+msgstr "Gepubliceerd op"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt
+msgid "Ohne Titelbild – nach dem Import einzeln hochladen."
+msgstr "Zonder titelafbeelding – na de import afzonderlijk uploaden."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Autorenzeile ist kein Organisationsname – Einwilligung klären."
+msgstr "De auteursregel is geen organisatienaam – toestemming verduidelijken."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleBylineUi.kt
+msgid "Enthält HTML – wird als Text angezeigt."
+msgstr "Bevat HTML – wordt als tekst getoond."

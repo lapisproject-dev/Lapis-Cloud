@@ -134,7 +134,7 @@ internal object McpArticleDraftStore {
                     ArticleTable.status,
                     ArticleTable.updatedAt,
                     ArticleTable.mcpAgentLabel,
-                ).where { ArticleTable.authorId eq memberId }
+                ).where { (ArticleTable.authorId eq memberId) and (ArticleTable.imported eq false) }
                 .orderBy(ArticleTable.updatedAt to SortOrder.DESC)
                 .limit(limit.coerceIn(1, MAX_LIST_LIMIT))
                 .map {

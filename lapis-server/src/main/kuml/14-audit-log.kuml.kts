@@ -211,6 +211,7 @@ classDiagram(name = "AuditLog") {
         literal(name = "EVENT") // Welle V1.9.82 "Veranstaltungs-Feed, Archiv und Import" -- EventImporter writes one EVENT/CREATE entry per imported event (after = {"imported":true,"slug":...}); normal createEvent is NOT audited; 5 chars, fits within VARCHAR(29)
         literal(name = "EVENT_IMPORT") // Welle V1.9.82 -- one summary entry per committed import run (after = counts + payload SHA-256); 12 chars, fits within VARCHAR(29)
         literal(name = "COMMITTEE_MEMBERSHIP") // Welle V1.9.102 "Gremien, Welle B" -- CommitteeSeatLifecycle writes one UPDATE entry per committee seat ended automatically by a member status change (system actor, ids/enums/dates only); Welle V1.9.103 "election succession" also writes CREATE (seat started by an election) and UPDATE (seat ended by an election) entries, no new literal; 20 chars, fits within VARCHAR(29)
+        literal(name = "ARTICLE_IMPORT") // Welle V1.9.105 "Artikel-Import" -- ArticleImporter writes one summary entry per committed import run (after = counts + payload SHA-256; single articles are audited as ARTICLE/CREATE); never carries text or bylines; 14 chars, fits within VARCHAR(29)
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

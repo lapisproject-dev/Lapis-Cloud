@@ -11,17 +11,23 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import network.lapis.cloud.server.articles.ArticleCoverPolicy
 import network.lapis.cloud.server.articles.ArticleStore
+import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.generated.ArticleTable
 import network.lapis.cloud.server.events.EventCoverPolicy
 import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.rpc.requireActiveMembership
+import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.ArticleCoverResultDto
 import network.lapis.cloud.shared.domain.ArticleStatus
+import network.lapis.cloud.shared.domain.AuditAction
+import network.lapis.cloud.shared.domain.AuditEntityType
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.net.URI
@@ -87,13 +93,17 @@ internal fun Route.registerArticleCoverRoutes(
 
         // Cheap pre-check BEFORE the slow upload -- see class KDoc "Two-step ownership/status check".
         val preCheck = transaction { ArticleStore.getOrNull(articleId) }
-        if (preCheck == null || preCheck[ArticleTable.authorId] != current.memberId) {
-            call.respond(HttpStatusCode.NotFound)
-            return@post
-        }
-        if (preCheck[ArticleTable.status] != ArticleStatus.DRAFT && preCheck[ArticleTable.status] != ArticleStatus.REJECTED) {
-            call.respond(HttpStatusCode.Conflict, "Article $articleId is not editable in status ${preCheck[ArticleTable.status]}")
-            return@post
+        when (val denial = coverEditDenial(row = preCheck, isPrivileged = current.isPrivileged, memberId = current.memberId)) {
+            null -> Unit
+            ArticleSetCoverOutcome.NotFound -> {
+                call.respond(HttpStatusCode.NotFound)
+                return@post
+            }
+            is ArticleSetCoverOutcome.WrongStatus -> {
+                call.respond(HttpStatusCode.Conflict, "Article $articleId is not editable in status ${denial.status}")
+                return@post
+            }
+            is ArticleSetCoverOutcome.Set -> Unit
         }
 
         val contentLength = call.request.headers[HttpHeaders.ContentLength]?.toLongOrNull()
@@ -110,12 +120,10 @@ internal fun Route.registerArticleCoverRoutes(
             try {
                 transaction {
                     val locked = ArticleStore.lockForUpdate(articleId)
-                    when {
-                        locked == null || locked[ArticleTable.authorId] != current.memberId -> ArticleSetCoverOutcome.NotFound
-                        locked[ArticleTable.status] != ArticleStatus.DRAFT && locked[ArticleTable.status] != ArticleStatus.REJECTED ->
-                            ArticleSetCoverOutcome.WrongStatus(locked[ArticleTable.status])
-                        else -> ArticleSetCoverOutcome.Set(ArticleStore.setCoverImageId(id = articleId, coverImageId = newId))
-                    }
+                    coverEditDenial(row = locked, isPrivileged = current.isPrivileged, memberId = current.memberId)
+                        ?: ArticleSetCoverOutcome
+                            .Set(ArticleStore.setCoverImageId(id = articleId, coverImageId = newId))
+                            .also { auditImportedCoverChange(row = locked, articleId = articleId, current = current, change = "set") }
                 }
             } catch (e: Exception) {
                 storage.delete(newId)
@@ -176,12 +184,10 @@ internal fun Route.registerArticleCoverRoutes(
         val setOutcome =
             transaction {
                 val locked = ArticleStore.lockForUpdate(articleId)
-                when {
-                    locked == null || locked[ArticleTable.authorId] != current.memberId -> ArticleSetCoverOutcome.NotFound
-                    locked[ArticleTable.status] != ArticleStatus.DRAFT && locked[ArticleTable.status] != ArticleStatus.REJECTED ->
-                        ArticleSetCoverOutcome.WrongStatus(locked[ArticleTable.status])
-                    else -> ArticleSetCoverOutcome.Set(ArticleStore.setCoverImageId(id = articleId, coverImageId = null))
-                }
+                coverEditDenial(row = locked, isPrivileged = current.isPrivileged, memberId = current.memberId)
+                    ?: ArticleSetCoverOutcome
+                        .Set(ArticleStore.setCoverImageId(id = articleId, coverImageId = null))
+                        .also { auditImportedCoverChange(row = locked, articleId = articleId, current = current, change = "removed") }
             }
         when (setOutcome) {
             ArticleSetCoverOutcome.NotFound -> {
@@ -236,7 +242,7 @@ internal fun Route.registerArticleCoverRoutes(
 }
 
 /** Mirrors `EventCoverRoutes`' own `SetCoverOutcome`, extended with a [WrongStatus] arm (the article family additionally re-checks status, not just existence/ownership, under the lock -- see class KDoc). */
-private sealed interface ArticleSetCoverOutcome {
+internal sealed interface ArticleSetCoverOutcome {
     data object NotFound : ArticleSetCoverOutcome
 
     data class WrongStatus(
@@ -246,4 +252,44 @@ private sealed interface ArticleSetCoverOutcome {
     data class Set(
         val previousCoverImageId: Uuid?,
     ) : ArticleSetCoverOutcome
+}
+
+/**
+ * Welle V1.9.105 -- who may change the cover of [row] right now; `null` = allowed. An ordinary article: its author, while `DRAFT`/`REJECTED` (unchanged).
+ * An IMPORTED article has no human author in Lapis (the importing member only executed the import) and is published at once, so its cover -- which the
+ * import cannot bring along -- is added by any BOARD/ADMIN member in any status; everybody else gets the identical `NotFound`.
+ */
+internal fun coverEditDenial(
+    row: ResultRow?,
+    isPrivileged: Boolean,
+    memberId: Uuid,
+): ArticleSetCoverOutcome? =
+    when {
+        row == null -> ArticleSetCoverOutcome.NotFound
+        row[ArticleTable.imported] -> if (isPrivileged) null else ArticleSetCoverOutcome.NotFound
+        row[ArticleTable.authorId] != memberId -> ArticleSetCoverOutcome.NotFound
+        row[ArticleTable.status] != ArticleStatus.DRAFT && row[ArticleTable.status] != ArticleStatus.REJECTED ->
+            ArticleSetCoverOutcome.WrongStatus(row[ArticleTable.status])
+        else -> null
+    }
+
+/**
+ * An imported article is public and has no human author, so a cover swap/removal on it must leave a trace in the hash-chained audit log
+ * (never the image itself). Must run inside the transaction that holds the row lock. No-op for ordinary (non-public-yet) articles.
+ */
+internal fun auditImportedCoverChange(
+    row: ResultRow?,
+    articleId: Uuid,
+    current: CurrentMember,
+    change: String,
+) {
+    if (row == null || !row[ArticleTable.imported]) return
+    AuditLogRecorder.record(
+        actorMemberId = current.memberId,
+        actorRole = current.role,
+        entityType = AuditEntityType.ARTICLE,
+        entityId = articleId,
+        action = AuditAction.UPDATE,
+        after = buildJsonObject { put("cover", change) }.toString(),
+    )
 }

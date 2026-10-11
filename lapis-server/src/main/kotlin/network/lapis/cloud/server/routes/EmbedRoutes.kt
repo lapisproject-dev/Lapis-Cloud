@@ -128,6 +128,10 @@ fun Route.registerEmbedRoutes(
     // LAPIS_EMBED_ENABLED, unlike the always-on /aktuelles/* public page/cover routes -- see
     // registerArticlePublicRoutes KDoc).
     articlesFeedRateLimiter: FederationInboxRateLimiter,
+    // V1.9.105 -- the article archive feed (`/api/embed/v1/articles/archive`) gets its OWN limiter so paging the archive never uses up the
+    // main article feed's budget (same reasoning as eventsPastFeedRateLimiter).
+    articlesArchiveFeedRateLimiter: FederationInboxRateLimiter =
+        FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000),
     // Welle V1.9.20 "Öffentliche Seiten" -- board/politicians/chapters feed widgets, same read-only,
     // public-by-design posture as articlesFeedRateLimiter (opt-in behind LAPIS_EMBED_ENABLED). ONE
     // shared limiter for the three feeds; the OPTIONS preflights share eventPageRateLimiter.
@@ -205,6 +209,7 @@ fun Route.registerEmbedRoutes(
         baseUrl = baseUrl,
         feedRateLimiter = articlesFeedRateLimiter,
         preflightRateLimiter = eventPageRateLimiter,
+        archiveRateLimiter = articlesArchiveFeedRateLimiter,
     )
 
     // Welle V1.9.20 "Öffentliche Seiten" -- Vorstand/Politiker/Landesverbände als Embed-Feeds.

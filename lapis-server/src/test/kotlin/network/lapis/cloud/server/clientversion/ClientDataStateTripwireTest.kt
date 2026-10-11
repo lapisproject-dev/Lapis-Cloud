@@ -80,10 +80,13 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * supplementary hint above the committee list, not the screen's content: a failed load toasts through `guarded` and the band simply stays
  * hidden, so there is no loading/empty/error state to show (an empty notice is deliberately invisible). Same accepted shape as the badge
  * reads above. 156 -> 157.
+ * Welle V1.9.105 "Artikel-Import" adds ONE more, in the new `ArticleImportScreen.kt` (a new file, hence 48 -> 49 files): the "Vorschau prüfen"
+ * action calls `previewArticleImport(` on demand -- the same accepted shape as `EventImportScreen.kt`'s `previewEventImport(` above (a
+ * user-triggered, stateless dry run: a failure toasts through `guarded` and the screen stays in the editor). 157 -> 158.
  * The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 157
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 48
+private const val READ_OUTSIDE_STATE_REGION_MAX = 158
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 49
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

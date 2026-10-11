@@ -26,7 +26,9 @@ import network.lapis.cloud.server.embed.applyEmbedCors
 import network.lapis.cloud.server.embed.respondEmbedForbiddenOrigin
 import network.lapis.cloud.server.embed.respondEmbedPreflight
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
+import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import kotlin.time.Duration.Companion.minutes
 
 private val logger = KotlinLogging.logger {}
 
@@ -52,6 +54,11 @@ internal object EmbedArticlesFeedLimits {
         if (parsed == null || parsed <= 0) return DEFAULT_ARTICLES
         return parsed.coerceAtMost(MAX_ARTICLES)
     }
+
+    /** V1.9.105 archive feed bounds -- strict (`parseBoundedInt`), unlike the lenient [parseLimit] of the main feed. */
+    const val ARCHIVE_MAX_PAGE = 100
+    const val ARCHIVE_MAX_LIMIT = 20
+    const val ARCHIVE_DEFAULT_LIMIT = 10
 }
 
 @Serializable
@@ -62,12 +69,55 @@ internal data class EmbedArticleListItemDto(
     val url: String,
     val coverImageUrl: String? = null,
     val publishedAt: String,
+    /** V1.9.105 -- the author line, only present if one is set (consented personal name, organization label or imported line). Never its kind, consent or origin. */
+    val byline: String? = null,
+    /** V1.9.105 -- the article's full text as the author wrote it: raw Markdown, NOT rendered HTML. Consumers MUST render it with a safe Markdown renderer that does not pass raw HTML through. */
+    val body: String? = null,
 )
 
 @Serializable
 internal data class EmbedArticleListResponse(
     val articles: List<EmbedArticleListItemDto>,
 )
+
+/** V1.9.105 -- one page of the article archive. */
+@Serializable
+internal data class EmbedArticleArchiveResponse(
+    val articles: List<EmbedArticleListItemDto>,
+    val page: Int,
+    val limit: Int,
+    val hasMore: Boolean,
+)
+
+/**
+ * V1.9.105 -- the ONE place that maps a PUBLISHED article row to the public feed item, shared by the main feed and the archive so both have
+ * exactly one field format. `null` (logged) for a row without `slug`/`publishedAt`, which cannot happen by construction but must never 500 a feed.
+ */
+internal fun ResultRow.toEmbedArticleItem(baseUrl: String): EmbedArticleListItemDto? {
+    val slug = this[ArticleTable.slug]
+    val publishedAt = this[ArticleTable.publishedAt]
+    if (slug == null || publishedAt == null) {
+        logger.warn {
+            "Skipping inconsistent PUBLISHED article ${this[ArticleTable.id]} from the embed feed (slug=$slug, publishedAt=$publishedAt)"
+        }
+        return null
+    }
+    return EmbedArticleListItemDto(
+        slug = slug,
+        title = this[ArticleTable.title],
+        excerpt = this[ArticleTable.excerpt],
+        url = "$baseUrl/aktuelles/$slug",
+        coverImageUrl =
+            ArticleCoverPolicy.publicCoverImageUrl(
+                baseUrl = baseUrl,
+                slug = slug,
+                coverImageId = this[ArticleTable.coverImageId],
+            ),
+        publishedAt = embedFeedUtcFromSystem(publishedAt),
+        byline = this[ArticleTable.byline],
+        body = this[ArticleTable.body],
+    )
+}
 
 /**
  * Registers `GET /api/embed/v1/articles` and its `OPTIONS` preflight. Called from
@@ -86,7 +136,7 @@ internal data class EmbedArticleListResponse(
  * **Allowlist mapping, not a DTO reuse.** [EmbedArticleListItemDto] deliberately does NOT reuse
  * `network.lapis.cloud.shared.domain.ArticleDto` -- an explicit field-by-field allowlist mapping is
  * the load-bearing property `EmbedArticlesFeedRoutesTest` asserts on (the wire JSON must never
- * contain `body`/`authorId`/`author`/`reviewedBy`/`id`/`rejectionReason`, checked at the raw-STRING
+ * contain `authorId`/`author`/`reviewedBy`/`id`/`rejectionReason`/`bylineKind`/`imported`, checked at the raw-STRING
  * level, not merely "the type doesn't have that field" -- see that test's own KDoc).
  */
 internal fun Route.registerEmbedArticlesFeedRoutes(
@@ -94,6 +144,9 @@ internal fun Route.registerEmbedArticlesFeedRoutes(
     baseUrl: String,
     feedRateLimiter: FederationInboxRateLimiter,
     preflightRateLimiter: FederationInboxRateLimiter,
+    // V1.9.105 -- own budget for the archive feed (see registerEmbedRoutes); default keeps older call sites compiling.
+    archiveRateLimiter: FederationInboxRateLimiter =
+        FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000),
 ) {
     get("/api/embed/v1/articles") {
         call.withEmbedArticlesFeedErrorHandling {
@@ -116,37 +169,8 @@ internal fun Route.registerEmbedArticlesFeedRoutes(
             val limit = EmbedArticlesFeedLimits.parseLimit(call.request.queryParameters["limit"])
             val items =
                 transaction {
-                    // Defensive: a PUBLISHED row without `slug`/`publishedAt` cannot happen by
-                    // construction (`ArticleService.approveArticle` sets both together), but this
-                    // route must never throw on a single such data inconsistency -- one bad row
-                    // would otherwise 500 the ENTIRE partner feed. Skip just that row (logged) and
-                    // keep serving the rest, same "never throw on a data inconsistency" stance
-                    // `ArticlePublicRoutes`' own `/aktuelles/{slug}` route already takes (there it
-                    // renders a 404 for the one affected article instead of failing the whole page).
-                    ArticleStore.listPublishedNewestFirst(limit).mapNotNull { row ->
-                        val slug = row[ArticleTable.slug]
-                        val publishedAt = row[ArticleTable.publishedAt]
-                        if (slug == null || publishedAt == null) {
-                            logger.warn {
-                                "Skipping inconsistent PUBLISHED article ${row[ArticleTable.id]} from the embed feed " +
-                                    "(slug=$slug, publishedAt=$publishedAt)"
-                            }
-                            return@mapNotNull null
-                        }
-                        EmbedArticleListItemDto(
-                            slug = slug,
-                            title = row[ArticleTable.title],
-                            excerpt = row[ArticleTable.excerpt],
-                            url = "$baseUrl/aktuelles/$slug",
-                            coverImageUrl =
-                                ArticleCoverPolicy.publicCoverImageUrl(
-                                    baseUrl = baseUrl,
-                                    slug = slug,
-                                    coverImageId = row[ArticleTable.coverImageId],
-                                ),
-                            publishedAt = embedFeedUtcFromSystem(publishedAt),
-                        )
-                    }
+                    // Defensive: see toEmbedArticleItem -- one inconsistent row is skipped (logged), the rest is still served.
+                    ArticleStore.listPublishedNewestFirst(limit).mapNotNull { row -> row.toEmbedArticleItem(baseUrl) }
                 }
 
             call.respondText(
@@ -154,6 +178,76 @@ internal fun Route.registerEmbedArticlesFeedRoutes(
                 contentType = EMBED_ARTICLES_FEED_JSON_CONTENT_TYPE,
                 status = HttpStatusCode.OK,
             )
+        }
+    }
+
+    // V1.9.105 archive feed -- same CORS posture and ordering as the main feed (CORS, rate limit, nosniff), its OWN rate limiter, strict
+    // parameters (invalid -> 400, never silently clamped), `hasMore` from a `limit + 1` read.
+    get("/api/embed/v1/articles/archive") {
+        call.withEmbedArticlesFeedErrorHandling {
+            val cors = call.applyEmbedCors(allowlist = config.allowlist, allowInsecure = config.allowInsecureOrigins)
+            if (cors is EmbedCorsResult.Rejected) {
+                call.respondEmbedForbiddenOrigin()
+                return@withEmbedArticlesFeedErrorHandling
+            }
+            val rateLimitKey = rateLimitKeyFor(remoteHost = call.request.origin.remoteHost)
+            if (!archiveRateLimiter.checkAndRecord(rateLimitKey)) {
+                call.response.header(HttpHeaders.RetryAfter, archiveRateLimiter.retryAfterSeconds(rateLimitKey).toString())
+                call.respond(HttpStatusCode.TooManyRequests)
+                return@withEmbedArticlesFeedErrorHandling
+            }
+            call.response.header("X-Content-Type-Options", "nosniff")
+
+            val page =
+                parseBoundedInt(
+                    raw = call.request.queryParameters["page"],
+                    default = 1,
+                    min = 1,
+                    max = EmbedArticlesFeedLimits.ARCHIVE_MAX_PAGE,
+                )
+            val limit =
+                parseBoundedInt(
+                    raw = call.request.queryParameters["limit"],
+                    default = EmbedArticlesFeedLimits.ARCHIVE_DEFAULT_LIMIT,
+                    min = 1,
+                    max = EmbedArticlesFeedLimits.ARCHIVE_MAX_LIMIT,
+                )
+            if (page == null || limit == null) {
+                call.respondText(
+                    text = """{"error":"invalid_parameter"}""",
+                    contentType = EMBED_ARTICLES_FEED_JSON_CONTENT_TYPE,
+                    status = HttpStatusCode.BadRequest,
+                )
+                return@withEmbedArticlesFeedErrorHandling
+            }
+
+            // One short read-only transaction; the DTO projection happens outside it (no pool connection held while building strings).
+            val rows = transaction { ArticleStore.listPublishedArchivePage(limit = limit, offset = (page - 1).toLong() * limit) }
+            val hasMore = rows.size > limit
+            val items = rows.take(limit).mapNotNull { row -> row.toEmbedArticleItem(baseUrl) }
+            call.respondText(
+                text =
+                    EMBED_ARTICLES_FEED_JSON.encodeToString(
+                        EmbedArticleArchiveResponse.serializer(),
+                        EmbedArticleArchiveResponse(articles = items, page = page, limit = limit, hasMore = hasMore),
+                    ),
+                contentType = EMBED_ARTICLES_FEED_JSON_CONTENT_TYPE,
+                status = HttpStatusCode.OK,
+            )
+        }
+    }
+
+    options("/api/embed/v1/articles/archive") {
+        if (!preflightRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
+            call.response.header(HttpHeaders.CacheControl, "no-store")
+            call.respond(HttpStatusCode.TooManyRequests)
+            return@options
+        }
+        val cors = call.applyEmbedCors(allowlist = config.allowlist, allowInsecure = config.allowInsecureOrigins)
+        if (cors is EmbedCorsResult.Rejected) {
+            call.respondEmbedForbiddenOrigin()
+        } else {
+            call.respondEmbedPreflight(allowedMethods = "GET, OPTIONS")
         }
     }
 

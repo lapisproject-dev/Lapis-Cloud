@@ -30,6 +30,15 @@ only through an authenticated route restricted to the author and BOARD/ADMIN rev
 "Website Integration" above and `docs/api/embed-widgets.adoc`). No new environment variable is
 needed beyond the existing `LAPIS_EMBED_*` family.
 
+== Author line and import (V1.9.105)
+
+An author can consent to be named: the editor has a checkbox "Mich als Autor nennen" (off by default) and, when ticked, a field for the name. The name is
+shown on the public page and in the embed feeds only with that consent, and can be withdrawn at any time (in the editor by un-ticking, afterwards with
+"Namensnennung widerrufen"). The board can set an organization/editorial line instead ("Autorenzeile ändern") but never a personal name. The board can
+also import earlier articles from a JSON file (`#/articles/import`, `docs/api/article-import.adoc`); imported articles carry the original date and a
+byline taken over from the file, no cover image, and are not attributed to the person who ran the import. The feeds carry the full text and a paged
+archive endpoint (`docs/api/embed-widgets.adoc`). Details and limits: `docs/architecture/article.adoc`.
+
 == What doesn't work yet (this wave)
 
 The public article detail page (`/aktuelles/{slug}`) carries no header/navigation chrome of its
