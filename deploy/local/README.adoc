@@ -606,7 +606,7 @@ What was verified live, all in a single moderator session unless noted:
   (see "Troubleshooting" above), a second recording reached `READY` with a real, playable 49-second,
   ≈4.29 MB (4,490,513 bytes) H.264/AAC MP4: `RecordingPoller` discovered the livekit-cli participant's
   published track and started `StartTrackEgress` within one poll tick; `StopEgress` on the stop
-  request produced a real finalized file; `FfmpegGalleryComposer` composed it (single-cell gallery
+  request produced a real finalized file; `FfmpegGalleryComposer` (since V1.9.109: `FfmpegSegmentedComposer`) composed it (single-cell gallery
   layout, since only one track existed) into a new file of the exact byte size later served back;
   `DocumentArchiving.archiveGeneratedFile` created a real `document`/`document_version` row under a
   real, auto-created "Aufzeichnungen" `DocumentFolder`, confirmed by navigating to

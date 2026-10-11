@@ -152,3 +152,13 @@ anderen Gerät verbunden" with "Hier fortsetzen" / "Zur Übersicht" instead of r
 **Not verified**: no test with a real call, real participants, two real devices, Safari/iOS or a real phone; no picture-in-picture and no
 chat in the floating window; the new texts are agent translations not checked by native speakers. See
 link:../architecture/conference-dock.adoc[conference-dock.adoc].
+
+== Recordings: layout, sync and "Neu berechnen" (V1.9.109)
+
+The composed recording now shows who is actually in the picture: a person who leaves disappears from the grid, a person who joins late does not squeeze everybody from the first second, and the grid is the same best-fit grid the call itself uses
+(1 person full picture, 2 side by side, 3-4 as 2 x 2, 5-6 as 3 x 2, and so on); with a shared screen it is large with the cameras in a row below it. A camera that is switched off leaves the picture; there is no grace period, a camera that is
+switched off and on within a second changes the layout twice. Picture and sound are kept in step over a long meeting (the recording is built in segments of at most two minutes, so a mistake cannot grow).
+
+A moderator can compose a finished recording anew with **Neu berechnen** (left of "Löschen" in the recordings list). The current video stays available until the new one is finished and then replaces it; the previous version remains in the document
+store as an earlier version. This needs the raw tracks: on instances that delete them after a successful composition (the default, `LAPIS_RECORDING_KEEP_RAW=false`) the button is disabled and says "Die Rohspuren sind nicht mehr vorhanden." The same budget as
+"Umkodierung neu starten" applies (at least 15 minutes between two attempts, 3 per 24 hours per recording). See link:../architecture/conference-recording.adoc[conference-recording.adoc].

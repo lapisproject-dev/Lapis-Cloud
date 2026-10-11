@@ -22218,3 +22218,55 @@ msgid "%1 Person stummgeschaltet."
 msgid_plural "%1 Personen stummgeschaltet."
 msgstr[0] "%1 personne rendue muette."
 msgstr[1] "%1 personnes rendues muettes."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neu berechnen"
+msgstr "Recalculer"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neu berechnen: %1"
+msgstr "Recalculer : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Rohspuren sind nicht mehr vorhanden."
+msgstr "Les pistes brutes n'existent plus."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" wird aus den Rohspuren neu berechnet (voraussichtlich bis zu %2 Minuten). Das bisherige Video bleibt bis dahin abrufbar und wird danach ersetzt; die bisherige Fassung bleibt als frühere Version in der Dokumentenablage."
+msgstr "L'enregistrement de \"%1\" sera recalculé à partir des pistes brutes (jusqu'à %2 minutes environ). La vidéo actuelle reste disponible jusque-là et sera remplacée ensuite ; l'ancienne version est conservée comme version antérieure dans les archives de documents."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" wird aus den Rohspuren neu berechnet. Das bisherige Video bleibt bis dahin abrufbar und wird danach ersetzt; die bisherige Fassung bleibt als frühere Version in der Dokumentenablage."
+msgstr "L'enregistrement de \"%1\" sera recalculé à partir des pistes brutes. La vidéo actuelle reste disponible jusque-là et sera remplacée ensuite ; l'ancienne version est conservée comme version antérieure dans les archives de documents."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung wird bereits neu berechnet."
+msgstr "L'enregistrement est déjà en cours de recalcul."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Zu viele Neuberechnungen – bitte später erneut versuchen."
+msgstr "Trop de recalculs – veuillez réessayer plus tard."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Zu wenig Speicherplatz für die Neuberechnung."
+msgstr "Espace de stockage insuffisant pour le recalcul."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Diese Aufzeichnung kann nicht neu berechnet werden."
+msgstr "Cet enregistrement ne peut pas être recalculé."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neuberechnung gestartet."
+msgstr "Recalcul démarré."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Wird neu berechnet …"
+msgstr "Recalcul en cours…"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neuberechnung fehlgeschlagen – die bisherige Datei ist unverändert."
+msgstr "Le recalcul a échoué – le fichier précédent est inchangé."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neuberechnung abgeschlossen."
+msgstr "Recalcul terminé."

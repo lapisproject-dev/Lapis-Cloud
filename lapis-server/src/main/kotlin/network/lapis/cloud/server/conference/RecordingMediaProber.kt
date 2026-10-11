@@ -36,6 +36,32 @@ data class RecordingMediaProbe(
     }
 }
 
+/** Which stream of a raw per-track file [RecordingMediaProber.probePacketRanges] reads. */
+enum class StreamKind(
+    val selector: String,
+) {
+    VIDEO("v:0"),
+    AUDIO("a:0"),
+}
+
+/**
+ * The stretches of a track's own media timeline in which packets actually exist (V1.9.109): [ranges] start at 0 (the first packet of the
+ * stream) and are separated by every gap of at least the requested threshold; [mediaDurationSeconds] is the span from the first packet to
+ * the end of the last one. A muted LiveKit track does not end -- it stops sending, so the file continues with a gap -- which is exactly
+ * what this makes visible to the layout.
+ */
+data class PacketRanges(
+    val ranges: List<TimeRange>,
+    val mediaDurationSeconds: Double,
+)
+
+/** What a finished composition looks like from outside -- see [RecordingMediaProber.probeOutput]. */
+data class RecordingOutputProbe(
+    val hasVideo: Boolean,
+    val hasAudio: Boolean,
+    val durationSeconds: Double?,
+)
+
 /**
  * Pluggable boundary around measuring a raw per-track egress file with `ffprobe`. Same
  * pluggable-boundary pattern as [RecordingComposer]: the poller depends on this interface, tests use
@@ -56,6 +82,19 @@ interface RecordingMediaProber {
      */
     suspend fun probe(file: File): RecordingMediaProbe =
         RecordingMediaProbe(durationSeconds = probeDurationSeconds(file), startTimeSeconds = null)
+
+    /**
+     * V1.9.109: the data ranges of the [kind] stream of [file] (see [PacketRanges]), or `null` if they could not be determined (binary
+     * missing, timeout, unreadable or empty file). The caller then falls back to one range covering the reported duration. NEVER throws.
+     */
+    suspend fun probePacketRanges(
+        file: File,
+        kind: StreamKind,
+        gapThresholdSeconds: Double,
+    ): PacketRanges? = null
+
+    /** V1.9.109: stream presence and duration of a finished composition, or `null` when it cannot be determined. NEVER throws. */
+    suspend fun probeOutput(file: File): RecordingOutputProbe? = null
 
     /** Always empty -- for deployments/tests without a probe; the poller then logs `n/a` for the diagnostics. */
     object None : RecordingMediaProber {
@@ -122,8 +161,166 @@ class FfprobeMediaProber(
             parsed
         }
 
+    /**
+     * `ffprobe -select_streams <kind> -show_entries packet=pts_time,duration_time -of csv=p=0`. The output (one line per packet, a
+     * 70 minute recording is a few hundred thousand lines) is PARSED AS A STREAM, never held as text; the number of lines and the run
+     * time are bounded.
+     */
+    override suspend fun probePacketRanges(
+        file: File,
+        kind: StreamKind,
+        gapThresholdSeconds: Double,
+    ): PacketRanges? =
+        withContext(Dispatchers.IO) {
+            val command =
+                listOf(
+                    ffprobePath,
+                    "-v",
+                    "error",
+                    "-select_streams",
+                    kind.selector,
+                    "-show_entries",
+                    "packet=pts_time,duration_time",
+                    "-of",
+                    "csv=p=0",
+                    file.absolutePath,
+                )
+            val process =
+                try {
+                    ProcessBuilder(command).redirectErrorStream(false).start()
+                } catch (e: IOException) {
+                    logger.warn { "ffprobe could not be started (${e::class.simpleName ?: "unknown error"}, path='$ffprobePath')" }
+                    return@withContext null
+                }
+            // stderr is drained (and discarded) so the child can never block on a full pipe
+            val errDrain =
+                Thread { runCatching { process.errorStream.copyTo(java.io.OutputStream.nullOutputStream()) } }
+                    .apply {
+                        isDaemon = true
+                        start()
+                    }
+            val collector = PacketCollector()
+            // The deadline must hold even when ffprobe hangs WITHOUT writing: readLine() would block forever, so a watchdog
+            // kills the process (readLine then ends with EOF/IOException) independently of the reading below.
+            val watchdog = startWatchdog(process = process, seconds = PACKET_PROBE_TIMEOUT_SECONDS)
+            val deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(PACKET_PROBE_TIMEOUT_SECONDS)
+            var tooLong = false
+            try {
+                process.inputStream.bufferedReader().use { reader ->
+                    while (true) {
+                        if (System.nanoTime() > deadlineNanos || collector.lineCount > MAX_PACKET_LINES) {
+                            tooLong = true
+                            break
+                        }
+                        val line = reader.readLine() ?: break
+                        collector.accept(line)
+                    }
+                }
+            } catch (_: IOException) {
+                tooLong = true
+            } finally {
+                watchdog.interrupt()
+            }
+            if (watchdog.timedOut) tooLong = true
+            if (tooLong) process.destroyForcibly()
+            val finished = tooLong || process.waitFor(PACKET_PROBE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            if (!finished) process.destroyForcibly()
+            errDrain.join(2_000)
+            if (tooLong || !finished || process.exitValue() != 0) {
+                logger.warn {
+                    "ffprobe packet scan of ${file.name} did not complete (timeout, line cap or exit ${if (finished && !tooLong) {
+                        process
+                            .exitValue()
+                    } else {
+                        -1
+                    }})"
+                }
+                return@withContext null
+            }
+            collector.toRanges(gapThresholdSeconds)
+        }
+
+    /** `ffprobe -show_entries stream=codec_type:format=duration` of a finished composition. */
+    override suspend fun probeOutput(file: File): RecordingOutputProbe? =
+        withContext(Dispatchers.IO) {
+            val command =
+                listOf(
+                    ffprobePath,
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "stream=codec_type:format=duration",
+                    "-of",
+                    "default=noprint_wrappers=1",
+                    file.absolutePath,
+                )
+            val process =
+                try {
+                    ProcessBuilder(command).redirectErrorStream(true).start()
+                } catch (e: IOException) {
+                    logger.warn { "ffprobe could not be started (${e::class.simpleName ?: "unknown error"}, path='$ffprobePath')" }
+                    return@withContext null
+                }
+            val output = process.inputStream.bufferedReader().use { it.readText() }
+            if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+                return@withContext null
+            }
+            if (process.exitValue() != 0) return@withContext null
+            parseOutputProbe(output)
+        }
+
+    /** Daemon thread that destroys [process] after [seconds] unless interrupted first; [Watchdog.timedOut] tells which happened. */
+    private class Watchdog(
+        private val process: Process,
+        private val seconds: Long,
+    ) : Thread("ffprobe-watchdog") {
+        @Volatile
+        var timedOut = false
+
+        init {
+            isDaemon = true
+        }
+
+        override fun run() {
+            try {
+                sleep(TimeUnit.SECONDS.toMillis(seconds))
+                timedOut = true
+                process.destroyForcibly()
+            } catch (_: InterruptedException) {
+                // finished in time
+            }
+        }
+    }
+
+    private fun startWatchdog(
+        process: Process,
+        seconds: Long,
+    ): Watchdog = Watchdog(process = process, seconds = seconds).also { it.start() }
+
     companion object {
         const val DEFAULT_TIMEOUT_SECONDS = 30L
+
+        /** A packet scan of a 70 minute track takes seconds; this is a safety bound, not an expected time. */
+        const val PACKET_PROBE_TIMEOUT_SECONDS = 120L
+
+        /** Hard cap on the packet lines read (a 70 minute 60 fps screen share is about 250 000). */
+        const val MAX_PACKET_LINES = 5_000_000
+
+        /** Parses [probeOutput]'s `default=noprint_wrappers=1` text. */
+        fun parseOutputProbe(output: String): RecordingOutputProbe {
+            val lines = output.lineSequence().map { it.trim() }.toList()
+            return RecordingOutputProbe(
+                hasVideo = lines.any { it == "codec_type=video" },
+                hasAudio = lines.any { it == "codec_type=audio" },
+                durationSeconds =
+                    lines
+                        .firstOrNull { it.startsWith("duration=") }
+                        ?.substringAfter('=')
+                        ?.toDoubleOrNull()
+                        ?.takeIf { it.isFinite() && it >= 0.0 },
+            )
+        }
 
         /**
          * `ffprobe` lives next to `ffmpeg` in every packaging this project targets -- derive its
@@ -158,5 +355,76 @@ class FfprobeMediaProber(
             val startTime = values["start_time"]?.takeIf { it.isFinite() }
             return RecordingMediaProbe(durationSeconds = duration, startTimeSeconds = startTime)
         }
+    }
+}
+
+/**
+ * Streaming accumulator for the `packet=pts_time,duration_time` CSV lines of [FfprobeMediaProber.probePacketRanges]. Lines look like
+ * `0.000000,0.033000`; an unparseable line (`N/A`, empty, a stray warning) is skipped. Packets arrive in decode order, so the
+ * presentation times are sorted before the gaps are looked for.
+ */
+internal class PacketCollector {
+    private var pts = DoubleArray(INITIAL_CAPACITY)
+    private var durations = DoubleArray(INITIAL_CAPACITY)
+    private var size = 0
+
+    /** Every line offered, parseable or not -- the cap of the caller counts these. */
+    var lineCount = 0
+        private set
+
+    fun accept(line: String) {
+        lineCount++
+        val comma = line.indexOf(',')
+        val ptsText = (if (comma < 0) line else line.substring(0, comma)).trim()
+        val durationText = if (comma < 0) "" else line.substring(comma + 1).trim().trimEnd(',')
+        val p = ptsText.toDoubleOrNull() ?: return
+        if (!p.isFinite()) return
+        if (size == pts.size) {
+            pts = pts.copyOf(size * 2)
+            durations = durations.copyOf(size * 2)
+        }
+        pts[size] = p
+        durations[size] = durationText.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 } ?: Double.NaN
+        size++
+    }
+
+    /**
+     * The ranges relative to the first packet. A gap is a distance between two consecutive presentation times of at least
+     * [gapThresholdSeconds]; a range ends at its last packet plus that packet's duration (at most the threshold; unknown durations use
+     * the median spacing of the stream, 0.04 s without one).
+     */
+    fun toRanges(gapThresholdSeconds: Double): PacketRanges? {
+        if (size == 0) return null
+        val order = (0 until size).sortedBy { pts[it] }
+        val first = pts[order.first()]
+        val deltas =
+            DoubleArray(
+                order.size - 1,
+            ) { pts[order[it + 1]] - pts[order[it]] }.filter { it > 0.0 && it < gapThresholdSeconds }.sorted()
+        val fallbackDuration = if (deltas.isEmpty()) DEFAULT_PACKET_SECONDS else deltas[deltas.size / 2]
+
+        fun endOf(index: Int): Double {
+            val d = durations[index]
+            val duration = if (d.isNaN() || d <= 0.0) fallbackDuration else minOf(d, gapThresholdSeconds)
+            return pts[index] + duration
+        }
+        val ranges = ArrayList<TimeRange>()
+        var start = pts[order.first()]
+        var last = order.first()
+        for (k in 1 until order.size) {
+            val current = order[k]
+            if (pts[current] - pts[last] >= gapThresholdSeconds) {
+                ranges += TimeRange(startSeconds = start - first, endSeconds = endOf(last) - first)
+                start = pts[current]
+            }
+            last = current
+        }
+        ranges += TimeRange(startSeconds = start - first, endSeconds = endOf(last) - first)
+        return PacketRanges(ranges = ranges, mediaDurationSeconds = endOf(order.last()) - first)
+    }
+
+    private companion object {
+        const val INITIAL_CAPACITY = 4096
+        const val DEFAULT_PACKET_SECONDS = 0.04
     }
 }

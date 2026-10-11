@@ -22157,3 +22157,55 @@ msgid_plural "%1 Personen stummgeschaltet."
 msgstr[0] "%1 osoba wyciszona."
 msgstr[1] "%1 osoby wyciszone."
 msgstr[2] "%1 osób wyciszonych."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neu berechnen"
+msgstr "Przelicz ponownie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neu berechnen: %1"
+msgstr "Przelicz ponownie: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Rohspuren sind nicht mehr vorhanden."
+msgstr "Surowe ścieżki nie są już dostępne."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" wird aus den Rohspuren neu berechnet (voraussichtlich bis zu %2 Minuten). Das bisherige Video bleibt bis dahin abrufbar und wird danach ersetzt; die bisherige Fassung bleibt als frühere Version in der Dokumentenablage."
+msgstr "Nagranie \"%1\" zostanie ponownie przeliczone z surowych ścieżek (przewidywany czas do %2 minut). Dotychczasowe wideo pozostaje do tego czasu dostępne i zostanie potem zastąpione; poprzednia wersja zostaje w archiwum dokumentów jako wcześniejsza wersja."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" wird aus den Rohspuren neu berechnet. Das bisherige Video bleibt bis dahin abrufbar und wird danach ersetzt; die bisherige Fassung bleibt als frühere Version in der Dokumentenablage."
+msgstr "Nagranie \"%1\" zostanie ponownie przeliczone z surowych ścieżek. Dotychczasowe wideo pozostaje do tego czasu dostępne i zostanie potem zastąpione; poprzednia wersja zostaje w archiwum dokumentów jako wcześniejsza wersja."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung wird bereits neu berechnet."
+msgstr "Nagranie jest już przeliczane ponownie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Zu viele Neuberechnungen – bitte später erneut versuchen."
+msgstr "Zbyt wiele ponownych przeliczeń – spróbuj ponownie później."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Zu wenig Speicherplatz für die Neuberechnung."
+msgstr "Za mało miejsca na dysku na ponowne przeliczenie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Diese Aufzeichnung kann nicht neu berechnet werden."
+msgstr "Tego nagrania nie można przeliczyć ponownie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neuberechnung gestartet."
+msgstr "Ponowne przeliczanie rozpoczęte."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Wird neu berechnet …"
+msgstr "Trwa ponowne przeliczanie …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neuberechnung fehlgeschlagen – die bisherige Datei ist unverändert."
+msgstr "Ponowne przeliczanie nie powiodło się – dotychczasowy plik pozostał bez zmian."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neuberechnung abgeschlossen."
+msgstr "Ponowne przeliczanie zakończone."

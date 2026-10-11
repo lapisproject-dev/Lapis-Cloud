@@ -22155,3 +22155,55 @@ msgid "%1 Person stummgeschaltet."
 msgid_plural "%1 Personen stummgeschaltet."
 msgstr[0] "%1 persoon gedempt."
 msgstr[1] "%1 personen gedempt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neu berechnen"
+msgstr "Opnieuw berekenen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neu berechnen: %1"
+msgstr "Opnieuw berekenen: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Rohspuren sind nicht mehr vorhanden."
+msgstr "De ruwe sporen zijn niet meer beschikbaar."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" wird aus den Rohspuren neu berechnet (voraussichtlich bis zu %2 Minuten). Das bisherige Video bleibt bis dahin abrufbar und wird danach ersetzt; die bisherige Fassung bleibt als frühere Version in der Dokumentenablage."
+msgstr "De opname van \"%1\" wordt opnieuw berekend uit de ruwe sporen (naar verwachting tot %2 minuten). De huidige video blijft tot dan beschikbaar en wordt daarna vervangen; de vorige versie blijft als eerdere versie in het documentenarchief bewaard."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" wird aus den Rohspuren neu berechnet. Das bisherige Video bleibt bis dahin abrufbar und wird danach ersetzt; die bisherige Fassung bleibt als frühere Version in der Dokumentenablage."
+msgstr "De opname van \"%1\" wordt opnieuw berekend uit de ruwe sporen. De huidige video blijft tot dan beschikbaar en wordt daarna vervangen; de vorige versie blijft als eerdere versie in het documentenarchief bewaard."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung wird bereits neu berechnet."
+msgstr "De opname wordt al opnieuw berekend."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Zu viele Neuberechnungen – bitte später erneut versuchen."
+msgstr "Te veel herberekeningen – probeer het later opnieuw."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Zu wenig Speicherplatz für die Neuberechnung."
+msgstr "Onvoldoende opslagruimte voor de herberekening."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Diese Aufzeichnung kann nicht neu berechnet werden."
+msgstr "Deze opname kan niet opnieuw worden berekend."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neuberechnung gestartet."
+msgstr "Herberekening gestart."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Wird neu berechnet …"
+msgstr "Wordt opnieuw berekend …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neuberechnung fehlgeschlagen – die bisherige Datei ist unverändert."
+msgstr "Herberekening mislukt – het vorige bestand is ongewijzigd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neuberechnung abgeschlossen."
+msgstr "Herberekening voltooid."

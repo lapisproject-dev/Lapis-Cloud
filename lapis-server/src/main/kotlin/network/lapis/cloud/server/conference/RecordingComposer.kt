@@ -11,14 +11,14 @@ import java.io.File
  * binary" already gives -- mirrors [LiveKitAdminClient]/[LiveKitEgressClient]/
  * [network.lapis.cloud.server.postal.PostalMailProvider]'s own pluggable-boundary pattern.
  * [network.lapis.cloud.server.conference.RecordingPoller] depends on this interface, never on
- * [FfmpegGalleryComposer] directly.
+ * [FfmpegSegmentedComposer] directly.
  */
 interface RecordingComposer {
     /**
      * Composes [spec] into [outputFile] (created, or overwritten if it already exists). Throws
      * [RecordingComposeException] on ANY failure -- process could not start, non-zero exit, or
      * wall-clock timeout (the implementer's responsibility to enforce and to
-     * `Process.destroyForcibly()` on timeout, see [FfmpegGalleryComposer] KDoc) -- never a raw
+     * `Process.destroyForcibly()` on timeout, see [FfmpegSegmentedComposer] KDoc) -- never a raw
      * process/IO exception, so [network.lapis.cloud.server.conference.RecordingPoller] has exactly
      * one exception type to catch.
      */
@@ -30,7 +30,7 @@ interface RecordingComposer {
 
 /**
  * See [RecordingComposer.compose] KDoc. [message] is always a short, generic description -- NEVER
- * raw ffmpeg stderr (see [FfmpegGalleryComposer] KDoc "stderr never reaches the exception
+ * raw ffmpeg stderr (see [FfmpegSegmentedComposer] KDoc "stderr never reaches the exception
  * message"), matching the same "never trust that a subprocess's own output cannot contain
  * something sensitive" discipline
  * [network.lapis.cloud.server.conference.LiveKitAdminException] KDoc establishes for its own
@@ -47,36 +47,44 @@ class RecordingComposeException(
  * [network.lapis.cloud.server.conference.RecordingPoller] from
  * [network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable.startedAtEpochNanos]) --
  * NEVER relative to wall-clock time directly, so the composed output always starts at `t=0`
- * regardless of when the underlying meeting actually began. [isScreenShare] switches
- * [FfmpegArgumentBuilder]'s layout from the default gallery grid to a presentation layout (this
- * track full-frame, the remaining video inputs rendered as a camera strip below) -- see that
- * object's KDoc "Gallery grid vs. presentation layout".
+ * regardless of when the underlying meeting actually began. [isScreenShare] switches the layout of
+ * the segments this track is visible in from the gallery grid to the presentation layout (this track
+ * large, the other visible tracks as a row below) -- see [RecordingEditDecisionList].
+ *
+ * [ranges] are the stretches of the track's OWN media timeline (start 0 = its first packet) in which it carries pictures
+ * ([RecordingMediaProber.probePacketRanges]); a camera that was switched off leaves a gap. Empty means "not measured": the whole
+ * [durationSeconds] counts as one range. [durationSeconds] is the media or, failing that, the reported duration; `null` and no ranges
+ * mean the track is visible until the end of the recording.
  */
 data class RecordingComposeVideoInput(
     val file: File,
     val offsetSeconds: Double,
     val isScreenShare: Boolean,
-)
-
-/** One decoded audio track -- same [offsetSeconds] semantics as [RecordingComposeVideoInput]. */
-data class RecordingComposeAudioInput(
-    val file: File,
-    val offsetSeconds: Double,
+    val trackId: String = file.name,
+    val ranges: List<TimeRange> = emptyList(),
+    val durationSeconds: Double? = null,
 )
 
 /**
- * The full input to one composition -- see [FfmpegArgumentBuilder.build] for how this becomes an
- * actual `ffmpeg` argument list.
+ * One decoded audio track -- same [offsetSeconds] semantics as [RecordingComposeVideoInput]. [ranges] are the data stretches of the
+ * file's own media timeline (empty = not measured, the whole [mediaDurationSeconds] counts), [mediaDurationSeconds] the measured media
+ * length and [wallDurationSeconds] the duration the egress reported (start to end on the wall clock); the pair decides about `atempo`
+ * ([AudioTempo]).
+ */
+data class RecordingComposeAudioInput(
+    val file: File,
+    val offsetSeconds: Double,
+    val ranges: List<TimeRange> = emptyList(),
+    val mediaDurationSeconds: Double? = null,
+    val wallDurationSeconds: Double? = null,
+)
+
+/**
+ * The full input to one composition -- see [FfmpegSegmentedComposer] for how this becomes a series of `ffmpeg` runs.
  *
- * [outputDurationSeconds] bounds the two synthetic `lavfi` sources
- * ([FfmpegArgumentBuilder]'s black-canvas base, and the silent-audio fallback used when
- * [audioInputs] is empty) -- both are otherwise INFINITE ffmpeg sources (`color=`/`anullsrc=` with
- * no fixed duration), and an infinite base overlaid with finite real tracks stays infinite
- * (`overlay` simply passes the base stream through unchanged once the finite second input ends,
- * per ffmpeg's own documented `overlay` semantics) -- `-shortest` alone does not reliably truncate
- * that for a filtered, multi-input graph like this one. [outputDurationSeconds] is therefore
- * computed up front by [network.lapis.cloud.server.conference.RecordingPoller] from the real
- * tracks' own known offsets+durations, rather than left for ffmpeg to infer.
+ * [outputDurationSeconds] is the length of the composed output: it is computed up front by
+ * [network.lapis.cloud.server.conference.RecordingPoller] from the real tracks' own known offsets and durations, rather than left for
+ * ffmpeg to infer from a graph with infinite synthetic sources.
  */
 data class RecordingComposeSpec(
     val videoInputs: List<RecordingComposeVideoInput>,

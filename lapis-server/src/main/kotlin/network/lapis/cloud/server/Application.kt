@@ -65,7 +65,7 @@ import network.lapis.cloud.server.conference.ConferenceRecordingConfig
 import network.lapis.cloud.server.conference.ConferenceStreamingConfig
 import network.lapis.cloud.server.conference.ConferenceWhiteboardState
 import network.lapis.cloud.server.conference.DefaultSecretBallotStreamGuard
-import network.lapis.cloud.server.conference.FfmpegGalleryComposer
+import network.lapis.cloud.server.conference.FfmpegSegmentedComposer
 import network.lapis.cloud.server.conference.FfprobeMediaProber
 import network.lapis.cloud.server.conference.HttpLiveKitAdminClient
 import network.lapis.cloud.server.conference.HttpLiveKitEgressClient
@@ -1118,17 +1118,19 @@ internal fun Application.module(
             apiKey = conferenceConfig.apiKey,
             apiSecret = conferenceConfig.apiSecret,
         )
+    // A/V-sync fix (2026-09-27): ffprobe measures each raw track file's real media duration (diagnostic) and, since V1.9.109, the
+    // stretches in which a track carries data (the layout of the recording follows them) and the finished file (verification). Lives
+    // in the same Debian `ffmpeg` package as the composer's binary (Dockerfile), derived from the same path unless LAPIS_FFPROBE_PATH
+    // says otherwise.
+    val recordingMediaProber: RecordingMediaProber = FfprobeMediaProber(ffprobePath = conferenceRecordingConfig.ffprobePath)
     val recordingComposer: RecordingComposer =
-        FfmpegGalleryComposer(
+        FfmpegSegmentedComposer(
             ffmpegPath = conferenceRecordingConfig.ffmpegPath,
             timeoutMinutes = conferenceRecordingConfig.composeTimeoutMinutes,
+            prober = recordingMediaProber,
         )
-    // A/V-sync fix (2026-09-27): ffprobe measures each raw track file's real media duration so the
-    // poller can re-align a head LiveKit received but the muxer never wrote -- see
-    // RecordingTrackAlignment KDoc. Lives in the same Debian `ffmpeg` package as the composer's
-    // binary (Dockerfile), derived from the same path unless LAPIS_FFPROBE_PATH says otherwise.
-    val recordingMediaProber: RecordingMediaProber = FfprobeMediaProber(ffprobePath = conferenceRecordingConfig.ffprobePath)
     val recordingRetryRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    val recordingRecomputeRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val recordingPoller =
         RecordingPoller(
             liveKitAdminClient = liveKitAdminClient,
@@ -2262,6 +2264,10 @@ internal fun Application.module(
                 // V1.9.107: process-wide limiter (the service itself is constructed per call) and poller wake-up after a manual retry.
                 retryCompositionRateLimiter = recordingRetryRateLimiter,
                 onCompositionRetried = { recordingPoller.requestTick() },
+                // V1.9.109: "Neu berechnen" -- process-wide limiter, the document store's volume for the disk check, poller wake-up.
+                recomputeRateLimiter = recordingRecomputeRateLimiter,
+                documentStorageRoot = documentStorageRoot,
+                onRecomputeRequested = { recordingPoller.requestTick() },
             )
         }
         registerService(IConferenceWhiteboardService::class) { call ->

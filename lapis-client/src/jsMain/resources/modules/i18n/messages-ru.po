@@ -22148,3 +22148,55 @@ msgid_plural "%1 Personen stummgeschaltet."
 msgstr[0] "Звук отключён у %1 человека."
 msgstr[1] "Звук отключён у %1 человек."
 msgstr[2] "Звук отключён у %1 человек."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neu berechnen"
+msgstr "Пересчитать"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neu berechnen: %1"
+msgstr "Пересчитать: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Rohspuren sind nicht mehr vorhanden."
+msgstr "Исходные дорожки больше недоступны."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" wird aus den Rohspuren neu berechnet (voraussichtlich bis zu %2 Minuten). Das bisherige Video bleibt bis dahin abrufbar und wird danach ersetzt; die bisherige Fassung bleibt als frühere Version in der Dokumentenablage."
+msgstr "Запись \"%1\" будет заново пересчитана из исходных дорожек (ожидается до %2 мин.). До тех пор текущее видео остаётся доступным, затем оно будет заменено; прежняя версия сохранится в архиве документов как более ранняя версия."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" wird aus den Rohspuren neu berechnet. Das bisherige Video bleibt bis dahin abrufbar und wird danach ersetzt; die bisherige Fassung bleibt als frühere Version in der Dokumentenablage."
+msgstr "Запись \"%1\" будет заново пересчитана из исходных дорожек. До тех пор текущее видео остаётся доступным, затем оно будет заменено; прежняя версия сохранится в архиве документов как более ранняя версия."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung wird bereits neu berechnet."
+msgstr "Запись уже пересчитывается."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Zu viele Neuberechnungen – bitte später erneut versuchen."
+msgstr "Слишком много пересчётов – повторите попытку позже."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Zu wenig Speicherplatz für die Neuberechnung."
+msgstr "Недостаточно места для пересчёта."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Diese Aufzeichnung kann nicht neu berechnet werden."
+msgstr "Эту запись нельзя пересчитать."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neuberechnung gestartet."
+msgstr "Пересчёт запущен."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Wird neu berechnet …"
+msgstr "Идёт пересчёт …"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neuberechnung fehlgeschlagen – die bisherige Datei ist unverändert."
+msgstr "Пересчёт не удался – прежний файл не изменён."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neuberechnung abgeschlossen."
+msgstr "Пересчёт завершён."

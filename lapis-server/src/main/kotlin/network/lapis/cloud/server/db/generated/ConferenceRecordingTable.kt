@@ -32,6 +32,10 @@ public object ConferenceRecordingTable : Table("conference_recording") {
     public val manualRetryCount: Column<Int> = integer("manual_retry_count").default(0)
     public val manualRetryWindowStartedAt: Column<LocalDateTime?> = datetime("manual_retry_window_started_at").nullable()
     public val lastManualRetryAt: Column<LocalDateTime?> = datetime("last_manual_retry_at").nullable()
+    public val recomputeStartedAt: Column<LocalDateTime?> = datetime("recompute_started_at").nullable()
+    public val recomputedAt: Column<LocalDateTime?> = datetime("recomputed_at").nullable()
+    public val lastRecomputeFailureCode: Column<ConferenceRecordingFailureCode?> =
+        enumerationByName<ConferenceRecordingFailureCode>("last_recompute_failure_code", 32).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

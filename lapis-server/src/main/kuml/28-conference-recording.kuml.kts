@@ -278,6 +278,23 @@ classDiagram(name = "ConferenceRecording") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "last_manual_retry_at" }
         }
+        // V1.9.109 (V89): "Neu berechnen" of a READY recording. recomputeStartedAt is set while a recompute is queued/running and doubles as
+        // the fencing value of the poller's conditional updates (V89 CHECK: only while status = READY).
+        attribute(name = "recomputeStartedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "recompute_started_at" }
+        }
+        attribute(name = "recomputedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "recomputed_at" }
+        }
+        attribute(name = "lastRecomputeFailureCode", type = conferenceRecordingFailureCode) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") {
+                "columnName" to "last_recompute_failure_code"
+                "enumType" to "network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode"
+            }
+        }
     }
 
     val conferenceRecordingTrack = classOf(name = "ConferenceRecordingTrack") {

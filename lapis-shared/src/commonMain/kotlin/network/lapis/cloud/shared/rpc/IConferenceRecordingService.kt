@@ -220,4 +220,25 @@ interface IConferenceRecordingService {
      * Audited as an UPDATE of the CONFERENCE_RECORDING entity without paths or titles.
      */
     suspend fun retryRecordingComposition(recordingId: String): ConferenceRecordingDto
+
+    /**
+     * V1.9.109 "Neu berechnen". Same caller rules as [retryRecordingComposition] (MEMBER+, ACTIVE, moderator of the recording's room or
+     * privileged, `ConferenceRecordingAccess.mayAccess` for the recording's access level AND the archived document's level), applied to a
+     * recording that is READY and whose raw per-track files are still on disk: the video is composed anew from them (new layout, new sync
+     * pipeline) and replaces the file atomically. A FAILED recording with COMPOSE_FAILED is handled exactly like
+     * [retryRecordingComposition] (same path, same counter).
+     *
+     * The READY recording stays fully usable while the recompute runs; only when the new file is complete (and verified) does the
+     * document's current version switch, in ONE transaction, fenced against a concurrent request or deletion. A failed recompute leaves
+     * the previous file untouched and is reported as [ConferenceRecordingDto.lastRecomputeFailed]. The previous version stays in the
+     * document history. Raw files are never deleted by a recompute, whatever `LAPIS_RECORDING_KEEP_RAW` says.
+     *
+     * Returns the fresh DTO ([ConferenceRecordingDto.recomputeInProgress] = `true`). Errors: [RecordingRecomputeNotAllowedException]
+     * (wrong status), [RecordingRecomputeInProgressException] (already running or lost a race), [RecordingRawFilesMissingException]
+     * (raw files gone or incomplete), [RecordingRecomputeInsufficientDiskException] (not enough free space for the work files and the
+     * new copy), [RecordingRecomputeRateLimitedException] (10 calls per minute per member; per recording the budget of
+     * [retryRecordingComposition] is SHARED: at least 15 minutes between two attempts, at most 3 per 24 hours). Audited as an UPDATE of
+     * the CONFERENCE_RECORDING entity without paths or titles (request, completion and failure).
+     */
+    suspend fun recomputeRecording(recordingId: String): ConferenceRecordingDto
 }

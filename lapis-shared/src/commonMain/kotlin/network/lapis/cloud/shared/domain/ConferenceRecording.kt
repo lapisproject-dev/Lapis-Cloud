@@ -101,10 +101,18 @@ data class ConferenceRecordingDto(
     val failureCode: ConferenceRecordingFailureCode? = null,
     /** V1.9.107: `true` iff THIS caller may press "Umkodierung neu starten" right now (FAILED + COMPOSE_FAILED + rights + raw files present; rate limits not included). */
     val canRetryComposition: Boolean = false,
-    /** V1.9.107: only set for FAILED + COMPOSE_FAILED and only if the caller would have the rights -- never leaks file system state to others. */
+    /** V1.9.107: only set for FAILED + COMPOSE_FAILED and only if the caller would have the rights -- never leaks file system state to others. V1.9.109: also for READY rows ("Neu berechnen"), under the same rule. */
     val rawFilesAvailable: Boolean? = null,
     /** V1.9.107: when the manual retry started (UTC system timestamp), only while PROCESSING -- the client derives an estimate from it. */
     val compositionRetryStartedAt: LocalDateTime? = null,
+    /** V1.9.109: `true` iff THIS caller may press "Neu berechnen" right now (READY + moderator + access + raw files present + no recompute running; rate limits not included). */
+    val canRecompute: Boolean = false,
+    /** V1.9.109: a recompute of this READY recording is queued or running -- the old file stays playable until the new one replaces it. Only for callers who may recompute. */
+    val recomputeInProgress: Boolean = false,
+    /** V1.9.109: the last recompute failed (the file shown is the previous, unchanged one). Only for callers who may recompute. */
+    val lastRecomputeFailed: Boolean = false,
+    /** V1.9.109: when the last recompute finished (UTC system timestamp), `null` if there never was one. */
+    val recomputedAt: LocalDateTime? = null,
 )
 
 /**

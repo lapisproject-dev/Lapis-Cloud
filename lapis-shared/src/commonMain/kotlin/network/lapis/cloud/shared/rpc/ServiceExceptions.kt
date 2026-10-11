@@ -596,3 +596,27 @@ class RecordingRawFilesMissingException(
 class RecordingRetryRateLimitedException(
     override val message: String = "Too many composition retries, try again later",
 ) : AbstractServiceException()
+
+/** V1.9.109 -- `IConferenceRecordingService.recomputeRecording` refused: the recording is neither READY nor a repairable FAILED one. */
+@RpcServiceException
+class RecordingRecomputeNotAllowedException(
+    override val message: String = "This recording cannot be recomputed",
+) : AbstractServiceException()
+
+/** V1.9.109 -- a recompute was refused by a rate limit (per-member call rate, or the per-recording budget shared with the composition retry). */
+@RpcServiceException
+class RecordingRecomputeRateLimitedException(
+    override val message: String = "Too many recomputations, try again later",
+) : AbstractServiceException()
+
+/** V1.9.109 -- a recompute of this recording is already queued or running (or another caller started it first). */
+@RpcServiceException
+class RecordingRecomputeInProgressException(
+    override val message: String = "This recording is already being recomputed",
+) : AbstractServiceException()
+
+/** V1.9.109 -- not enough free disk space for the work files and the new copy; nothing was started. */
+@RpcServiceException
+class RecordingRecomputeInsufficientDiskException(
+    override val message: String = "Not enough free disk space to recompute this recording",
+) : AbstractServiceException()

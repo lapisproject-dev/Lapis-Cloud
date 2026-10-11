@@ -438,9 +438,9 @@ the middle of the window (where the control bar centres its button), under the s
 real width, so the grid follows the wider column without an extra call. Tripwires: `ClientUiGuidelineTripwireTest` (no inline width on the host,
 only the dock sets the class, the old marker is gone); Karma: `ConferenceFullWidthDomTest` (real page structure at a fixed 1400 px stage).
 
-*The computation.* `ConferenceTileGrid.kt` is pure arithmetic (no DOM; a tripwire pins that). `computeConferenceTileGrid(count, width, height)` tries
+*The computation.* `computeConferenceTileGrid` is pure arithmetic (no DOM; a tripwire pins that). Since V1.9.109 it lives in `lapis-shared` (`TileGrid.kt`), because the recording composition on the server lays its pictures out with the same function (see link:conference-recording.adoc[conference-recording.adoc]); `ConferenceTileGrid.kt` of the client keeps the live view's own parameters (8 px gap, 160 px floor), which the call site passes explicitly. `computeConferenceTileGrid(count, width, height, gap, previousColumns, minTileWidth)` tries
 every column count from 1 to `count` and takes the one with the largest 16:9 tile (`min` of the width bound and the height bound, 8 px gap). A tie
-goes to fewer empty cells, then fewer columns. Hysteresis: the previous column count stays unless the best layout is at least 6 % larger (no
+goes to fewer empty cells, then (V1.9.109, was: fewer columns) more columns -- with the live view's 8 px gap no such tie occurs in practice, with the recording's gap of 0 they do (2x1 / 1x2, 3x2 / 2x3). Hysteresis: the previous column count stays unless the best layout is at least 6 % larger (no
 flicker at the edge). Floor: a tile never gets narrower than 160 px; the columns that fit the width stay, `scrolls = true` and the area grows beyond
 the given height. Degenerate input (zero count, zero/negative/NaN/infinite area) answers an empty grid and never throws.
 
@@ -469,7 +469,7 @@ instead of removing the cap for good, so the lobby stays narrow. (A4) The "Mehr"
 the roster, chat and voting panels still sit below the tiles; a side column was not built (a CSS grid cannot stack several rail panels in one column
 without wrapping them, which would move raw nodes). Only full screen, where the rail already overlays the right edge, makes room for it.
 
-Tests: `ConferenceTileGridTest` (arithmetic), `ConferenceTileGridDomTest` (real stylesheet: sizes and rows, column cap, centred last row, no node moved,
+Tests: `TileGridTest` in `lapis-shared` (the arithmetic, moved there in V1.9.109), `ConferenceTileGridTest` (area height and rail inset), `ConferenceTileGridDomTest` (real stylesheet: sizes and rows, column cap, centred last row, no node moved,
 focus and speaking mark kept, small tiles, floor, no motion, padding, wide root, "Mehr" sheet), source scans in `ClientConferenceDockTripwireTest`,
 `ClientConferenceSpeakingMarkTripwireTest` and `ClientUiGuidelineTripwireTest`. `ScrollSurfaceTripwireTest` is unchanged.
 

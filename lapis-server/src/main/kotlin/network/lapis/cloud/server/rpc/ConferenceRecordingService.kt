@@ -10,6 +10,7 @@ import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceRecordingAccess
 import network.lapis.cloud.server.conference.ConferenceRecordingConfig
 import network.lapis.cloud.server.conference.MAX_COMPOSE_ATTEMPTS
+import network.lapis.cloud.server.conference.RecordingDiskBudget
 import network.lapis.cloud.server.conference.RecordingRawFiles
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
@@ -43,6 +44,10 @@ import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.RecordingRawFilesMissingException
+import network.lapis.cloud.shared.rpc.RecordingRecomputeInProgressException
+import network.lapis.cloud.shared.rpc.RecordingRecomputeInsufficientDiskException
+import network.lapis.cloud.shared.rpc.RecordingRecomputeNotAllowedException
+import network.lapis.cloud.shared.rpc.RecordingRecomputeRateLimitedException
 import network.lapis.cloud.shared.rpc.RecordingRetryNotAllowedException
 import network.lapis.cloud.shared.rpc.RecordingRetryRateLimitedException
 import org.jetbrains.exposed.v1.core.Op
@@ -51,6 +56,7 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -166,6 +172,15 @@ class ConferenceRecordingService(
         FederationInboxRateLimiter(maxRequests = DEFAULT_RETRY_RATE_MAX, window = DEFAULT_ACTION_RATE_WINDOW),
     /** V1.9.107: invoked once after a successful [retryRecordingComposition] COMMIT -- wired to `RecordingPoller.requestTick()`. Never called inside the transaction. */
     private val onCompositionRetried: () -> Unit = {},
+    /** V1.9.109: per-member call-rate guard of [recomputeRecording]; wired as a process-wide singleton in `Application.module`. */
+    private val recomputeRateLimiter: FederationInboxRateLimiter =
+        FederationInboxRateLimiter(maxRequests = DEFAULT_RETRY_RATE_MAX, window = DEFAULT_ACTION_RATE_WINDOW),
+    /** V1.9.109: the document store's root, for the free-space check of a recompute (`null` skips that half of the check). */
+    private val documentStorageRoot: File? = null,
+    /** V1.9.109: the free-space probe; a test seam. */
+    private val diskSpace: (File) -> Long = { it.usableSpace },
+    /** V1.9.109: invoked once after a successful [recomputeRecording] COMMIT -- wired to `RecordingPoller.requestTick()`. Never called inside the transaction. */
+    private val onRecomputeRequested: () -> Unit = {},
 ) : IConferenceRecordingService {
     override suspend fun getRecordingAvailability(): ConferenceRecordingAvailabilityDto {
         resolveCurrentMember(call)
@@ -560,83 +575,285 @@ class ConferenceRecordingService(
         requireRecordingEnabled()
         if (!retryCompositionRateLimiter.checkAndRecord("member:${current.memberId}")) throw RecordingRetryRateLimitedException()
         val recordingUuid = recordingId.toRecordingUuid()
-        val hostRawRoot = File(recordingConfig.outputHostDir)
         val dto =
             transaction {
-                val row =
-                    ConferenceRecordingTable
-                        .selectAll()
-                        .where { ConferenceRecordingTable.id eq recordingUuid }
-                        .forUpdate()
-                        .singleOrNull()
-                        ?: throw NotFoundException("Conference recording $recordingUuid not found")
-                val room =
-                    ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq row[ConferenceRecordingTable.roomId] }.singleOrNull()
-                        ?: throw NotFoundException("Conference room for recording $recordingUuid not found")
-                requireModeratorOrPrivileged(room = room, current = current)
-                // No document exists for a FAILED row, so only the recording's own tier (plus the starter carve-out) applies.
-                if (!ConferenceRecordingAccess.mayAccess(
-                        current = current,
-                        accessLevel = row[ConferenceRecordingTable.accessLevel],
-                        startedByMemberId = row[ConferenceRecordingTable.startedByMemberId],
-                    )
-                ) {
-                    throw ForbiddenException()
-                }
+                val (row, room) = lockModeratedRecording(recordingUuid = recordingUuid, current = current)
                 if (row[ConferenceRecordingTable.status] != ConferenceRecordingStatus.FAILED ||
                     row[ConferenceRecordingTable.failureCode] != ConferenceRecordingFailureCode.COMPOSE_FAILED
                 ) {
                     throw RecordingRetryNotAllowedException()
                 }
-                if (!rawFilesAvailable(row = row, hostRawRoot = hostRawRoot)) throw RecordingRawFilesMissingException()
-
-                val now = nowLocalDateTime()
-                val lastRetry = row[ConferenceRecordingTable.lastManualRetryAt]
-                if (lastRetry != null && now.toInstant(ServerClock.zone) - lastRetry.toInstant(ServerClock.zone) < RETRY_MIN_SPACING) {
-                    throw RecordingRetryRateLimitedException()
-                }
-                val windowStart = row[ConferenceRecordingTable.manualRetryWindowStartedAt]
-                val windowOpen =
-                    windowStart != null && now.toInstant(ServerClock.zone) - windowStart.toInstant(ServerClock.zone) < RETRY_WINDOW
-                val previousCount = row[ConferenceRecordingTable.manualRetryCount]
-                if (windowOpen && previousCount >= RETRY_MAX_PER_WINDOW) throw RecordingRetryRateLimitedException()
-                val newCount = if (windowOpen) previousCount + 1 else 1
-                val newWindowStart = if (windowOpen) windowStart else now
-
-                val updated =
-                    ConferenceRecordingTable.update({
-                        (ConferenceRecordingTable.id eq recordingUuid) and
-                            (ConferenceRecordingTable.status eq ConferenceRecordingStatus.FAILED) and
-                            (ConferenceRecordingTable.failureCode eq ConferenceRecordingFailureCode.COMPOSE_FAILED)
-                    }) {
-                        it[status] = ConferenceRecordingStatus.PROCESSING
-                        it[composeAttempts] = MAX_COMPOSE_ATTEMPTS - 1
-                        it[failureReason] = null
-                        it[failureCode] = null
-                        it[manualRetryCount] = newCount
-                        it[manualRetryWindowStartedAt] = newWindowStart
-                        it[lastManualRetryAt] = now
-                    }
-                if (updated == 0) throw RecordingRetryNotAllowedException()
-
-                // Must be the LAST lock-taking operation -- see AuditLogRecorder KDoc "deadlock-avoidance contract". No path, no title.
-                AuditLogRecorder.record(
-                    actorMemberId = current.memberId,
-                    actorRole = current.role,
-                    entityType = AuditEntityType.CONFERENCE_RECORDING,
-                    entityId = recordingUuid,
-                    action = AuditAction.UPDATE,
-                    before = "status=FAILED",
-                    after = "status=PROCESSING (manual composition retry #$newCount)",
-                    occurredAt = now,
+                restartFailedComposition(
+                    row = row,
+                    room = room,
+                    current = current,
+                    afterText = "status=PROCESSING (manual composition retry #%d)",
+                    notAllowed = { RecordingRetryNotAllowedException() },
+                    rateLimited = { RecordingRetryRateLimitedException() },
                 )
-                val fresh = ConferenceRecordingTable.selectAll().where { ConferenceRecordingTable.id eq recordingUuid }.single()
-                rowToDto(row = fresh, roomTitle = room[ConferenceRoomTable.title], current = current)
             }
         // Only after the commit: a tick woken earlier would not see the PROCESSING row.
         onCompositionRetried()
         return dto
     }
+
+    /**
+     * See [IConferenceRecordingService.recomputeRecording]. Implementation facts:
+     *
+     * - **A FAILED + COMPOSE_FAILED row** takes exactly the path of [retryRecordingComposition] ([restartFailedComposition]: the same flip,
+     *   the same counter), with a recompute audit text.
+     * - **A READY row** is NOT touched except for its bookkeeping: `recompute_started_at` is set by a conditional
+     *   `UPDATE ... WHERE status = READY AND recompute_started_at IS NULL` (0 rows = somebody else was first = [RecordingRecomputeInProgressException]),
+     *   which is both the "queued" marker the poller looks for and the fencing value it finishes with. The document, the media URL and the
+     *   playback of the existing file are unchanged until the poller commits the new version.
+     * - The free-space check reads the file system and therefore runs BEFORE the transaction (no external effect inside the block); it is
+     *   advisory here and repeated by the poller right before it starts working.
+     * - The manual budget (`manual_retry_*`) is the SAME one the composition retry uses, so a person cannot get around the limit by
+     *   alternating the two actions.
+     * - The poller is woken ([onRecomputeRequested]) strictly after the commit.
+     */
+    override suspend fun recomputeRecording(recordingId: String): ConferenceRecordingDto {
+        val current = resolveCurrentMember(call)
+        requireRecordingEnabled()
+        if (!recomputeRateLimiter.checkAndRecord("member:${current.memberId}")) throw RecordingRecomputeRateLimitedException()
+        val recordingUuid = recordingId.toRecordingUuid()
+        val hostRawRoot = File(recordingConfig.outputHostDir)
+        requireDiskSpaceForRecompute(recordingUuid = recordingUuid, hostRawRoot = hostRawRoot)
+        val dto =
+            transaction {
+                val (row, room) = lockModeratedRecording(recordingUuid = recordingUuid, current = current)
+                val status = row[ConferenceRecordingTable.status]
+                when {
+                    status == ConferenceRecordingStatus.FAILED &&
+                        row[ConferenceRecordingTable.failureCode] == ConferenceRecordingFailureCode.COMPOSE_FAILED ->
+                        restartFailedComposition(
+                            row = row,
+                            room = room,
+                            current = current,
+                            afterText = "recompute requested (failed recording)",
+                            notAllowed = { RecordingRecomputeNotAllowedException() },
+                            rateLimited = { RecordingRecomputeRateLimitedException() },
+                        )
+                    status == ConferenceRecordingStatus.READY -> startReadyRecompute(row = row, room = room, current = current)
+                    else -> throw RecordingRecomputeNotAllowedException()
+                }
+            }
+        // Only after the commit: a tick woken earlier would not see the queued recompute.
+        onRecomputeRequested()
+        return dto
+    }
+
+    /**
+     * The shared first half of the retry and the recompute: loads and locks (`FOR UPDATE`) the recording, loads its room and applies the
+     * caller rules (moderator of the room or privileged, the recording's own access tier). The archived document's tier is applied by the
+     * READY path itself ([startReadyRecompute]). Must run inside a transaction.
+     */
+    private fun lockModeratedRecording(
+        recordingUuid: Uuid,
+        current: CurrentMember,
+    ): Pair<ResultRow, ResultRow> {
+        val row =
+            ConferenceRecordingTable
+                .selectAll()
+                .where { ConferenceRecordingTable.id eq recordingUuid }
+                .forUpdate()
+                .singleOrNull()
+                ?: throw NotFoundException("Conference recording $recordingUuid not found")
+        val room =
+            ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq row[ConferenceRecordingTable.roomId] }.singleOrNull()
+                ?: throw NotFoundException("Conference room for recording $recordingUuid not found")
+        requireModeratorOrPrivileged(room = room, current = current)
+        // No document exists for a FAILED row, so only the recording's own tier (plus the starter carve-out) applies.
+        if (!ConferenceRecordingAccess.mayAccess(
+                current = current,
+                accessLevel = row[ConferenceRecordingTable.accessLevel],
+                startedByMemberId = row[ConferenceRecordingTable.startedByMemberId],
+            )
+        ) {
+            throw ForbiddenException()
+        }
+        return row to room
+    }
+
+    /**
+     * The manual budget of one recording after one more manual attempt at [now], or `null` when it is exhausted: at least
+     * [RETRY_MIN_SPACING] since the last attempt, at most [RETRY_MAX_PER_WINDOW] per rolling [RETRY_WINDOW]. Shared by the composition retry
+     * and the recompute.
+     */
+    private fun nextManualBudget(
+        row: ResultRow,
+        now: LocalDateTime,
+    ): ManualBudget? {
+        val lastRetry = row[ConferenceRecordingTable.lastManualRetryAt]
+        if (lastRetry != null && now.toInstant(ServerClock.zone) - lastRetry.toInstant(ServerClock.zone) < RETRY_MIN_SPACING) return null
+        val windowStart = row[ConferenceRecordingTable.manualRetryWindowStartedAt]
+        val windowOpen = windowStart != null && now.toInstant(ServerClock.zone) - windowStart.toInstant(ServerClock.zone) < RETRY_WINDOW
+        val previousCount = row[ConferenceRecordingTable.manualRetryCount]
+        if (windowOpen && previousCount >= RETRY_MAX_PER_WINDOW) return null
+        return ManualBudget(count = if (windowOpen) previousCount + 1 else 1, windowStart = if (windowOpen) windowStart!! else now)
+    }
+
+    private data class ManualBudget(
+        val count: Int,
+        val windowStart: LocalDateTime,
+    )
+
+    /** The FAILED + COMPOSE_FAILED -> PROCESSING flip shared by [retryRecordingComposition] and [recomputeRecording]; [afterText] receives the new counter. Inside a transaction. */
+    private fun restartFailedComposition(
+        row: ResultRow,
+        room: ResultRow,
+        current: CurrentMember,
+        afterText: String,
+        notAllowed: () -> Exception,
+        rateLimited: () -> Exception,
+    ): ConferenceRecordingDto {
+        val recordingUuid = row[ConferenceRecordingTable.id]
+        if (!rawFilesAvailable(row = row, hostRawRoot = File(recordingConfig.outputHostDir))) throw RecordingRawFilesMissingException()
+        val now = nowLocalDateTime()
+        val budget = nextManualBudget(row = row, now = now) ?: throw rateLimited()
+        val updated =
+            ConferenceRecordingTable.update({
+                (ConferenceRecordingTable.id eq recordingUuid) and
+                    (ConferenceRecordingTable.status eq ConferenceRecordingStatus.FAILED) and
+                    (ConferenceRecordingTable.failureCode eq ConferenceRecordingFailureCode.COMPOSE_FAILED)
+            }) {
+                it[status] = ConferenceRecordingStatus.PROCESSING
+                it[composeAttempts] = MAX_COMPOSE_ATTEMPTS - 1
+                it[failureReason] = null
+                it[failureCode] = null
+                it[manualRetryCount] = budget.count
+                it[manualRetryWindowStartedAt] = budget.windowStart
+                it[lastManualRetryAt] = now
+            }
+        if (updated == 0) throw notAllowed()
+
+        // Must be the LAST lock-taking operation -- see AuditLogRecorder KDoc "deadlock-avoidance contract". No path, no title.
+        AuditLogRecorder.record(
+            actorMemberId = current.memberId,
+            actorRole = current.role,
+            entityType = AuditEntityType.CONFERENCE_RECORDING,
+            entityId = recordingUuid,
+            action = AuditAction.UPDATE,
+            before = "status=FAILED",
+            after = afterText.format(budget.count),
+            occurredAt = now,
+        )
+        val fresh = ConferenceRecordingTable.selectAll().where { ConferenceRecordingTable.id eq recordingUuid }.single()
+        return rowToDto(row = fresh, roomTitle = room[ConferenceRoomTable.title], current = current)
+    }
+
+    /** The READY half of [recomputeRecording] -- see there. Inside a transaction, [row] locked. */
+    private fun startReadyRecompute(
+        row: ResultRow,
+        room: ResultRow,
+        current: CurrentMember,
+    ): ConferenceRecordingDto {
+        val recordingUuid = row[ConferenceRecordingTable.id]
+        // The archived document's own tier (a folder tightened after the recording was made) applies on top, like for the media URL.
+        val documentAccessLevel = documentAccessLevelOf(row[ConferenceRecordingTable.documentId])
+        if (!ConferenceRecordingAccess.mayAccess(
+                current = current,
+                accessLevel = row[ConferenceRecordingTable.accessLevel],
+                startedByMemberId = row[ConferenceRecordingTable.startedByMemberId],
+                documentAccessLevel = documentAccessLevel,
+            )
+        ) {
+            throw ForbiddenException()
+        }
+        if (row[ConferenceRecordingTable.recomputeStartedAt] != null) throw RecordingRecomputeInProgressException()
+        if (!rawFilesAvailable(row = row, hostRawRoot = File(recordingConfig.outputHostDir))) throw RecordingRawFilesMissingException()
+
+        val now = nowLocalDateTime()
+        val budget = nextManualBudget(row = row, now = now) ?: throw RecordingRecomputeRateLimitedException()
+        val updated =
+            ConferenceRecordingTable.update({
+                (ConferenceRecordingTable.id eq recordingUuid) and
+                    (ConferenceRecordingTable.status eq ConferenceRecordingStatus.READY) and
+                    ConferenceRecordingTable.recomputeStartedAt.isNull()
+            }) {
+                it[recomputeStartedAt] = now
+                it[lastRecomputeFailureCode] = null
+                it[manualRetryCount] = budget.count
+                it[manualRetryWindowStartedAt] = budget.windowStart
+                it[lastManualRetryAt] = now
+            }
+        if (updated == 0) throw RecordingRecomputeInProgressException()
+
+        // Must be the LAST lock-taking operation -- see AuditLogRecorder KDoc "deadlock-avoidance contract". No path, no title.
+        AuditLogRecorder.record(
+            actorMemberId = current.memberId,
+            actorRole = current.role,
+            entityType = AuditEntityType.CONFERENCE_RECORDING,
+            entityId = recordingUuid,
+            action = AuditAction.UPDATE,
+            before = "status=READY",
+            after = "recompute requested",
+            occurredAt = now,
+        )
+        val fresh = ConferenceRecordingTable.selectAll().where { ConferenceRecordingTable.id eq recordingUuid }.single()
+        return rowToDto(row = fresh, roomTitle = room[ConferenceRoomTable.title], current = current)
+    }
+
+    /**
+     * The advisory free-space refusal of [recomputeRecording], BEFORE its transaction (it reads the file system). Unknown recordings and
+     * statuses that never recompute are left to the transaction's own, more specific refusal. See [RecordingDiskBudget].
+     */
+    private fun requireDiskSpaceForRecompute(
+        recordingUuid: Uuid,
+        hostRawRoot: File,
+    ) {
+        val facts =
+            transaction {
+                val row =
+                    ConferenceRecordingTable.selectAll().where { ConferenceRecordingTable.id eq recordingUuid }.singleOrNull()
+                        ?: return@transaction null
+                val status = row[ConferenceRecordingTable.status]
+                if (status != ConferenceRecordingStatus.READY && status != ConferenceRecordingStatus.FAILED) return@transaction null
+                val names =
+                    ConferenceRecordingTrackTable
+                        .selectAll()
+                        .where {
+                            (ConferenceRecordingTrackTable.recordingId eq recordingUuid) and
+                                (ConferenceRecordingTrackTable.status eq ConferenceRecordingTrackStatus.COMPLETE)
+                        }.map { it[ConferenceRecordingTrackTable.fileName] }
+                DiskFacts(
+                    rawDir = row[ConferenceRecordingTable.rawDir],
+                    fileNames = names,
+                    durationSeconds = row[ConferenceRecordingTable.durationSeconds] ?: 0L,
+                    currentFileBytes = row[ConferenceRecordingTable.fileSizeBytes],
+                )
+            } ?: return
+        val rawBytes = RecordingRawFiles.totalBytes(hostRawRoot = hostRawRoot, rawDir = facts.rawDir, fileNames = facts.fileNames)
+        if (rawBytes == 0L) return // no raw files: the transaction answers RecordingRawFilesMissingException
+        if (!RecordingDiskBudget.hasRoom(
+                workRoot = hostRawRoot,
+                documentRoot = documentStorageRoot,
+                rawBytes = rawBytes,
+                durationSeconds = facts.durationSeconds,
+                currentFileBytes = facts.currentFileBytes,
+                diskSpace = diskSpace,
+            )
+        ) {
+            throw RecordingRecomputeInsufficientDiskException()
+        }
+    }
+
+    private data class DiskFacts(
+        val rawDir: String,
+        val fileNames: List<String?>,
+        val durationSeconds: Long,
+        val currentFileBytes: Long?,
+    )
+
+    /** The archived document's current access level, `null` for no document. Inside a transaction. */
+    private fun documentAccessLevelOf(documentId: Uuid?): DocumentAccessLevel? =
+        documentId?.let { id ->
+            DocumentTable
+                .select(DocumentTable.accessLevel)
+                .where { DocumentTable.id eq id }
+                .singleOrNull()
+                ?.get(DocumentTable.accessLevel)
+        }
 
     // ── Internal helpers ──────────────────────────────────────────────────
 
@@ -838,14 +1055,14 @@ class ConferenceRecordingService(
         // offered -- the route would reject it anyway, but handing out a URL that 403s is exactly the
         // kind of divergence the "one predicate, three call sites" rule exists to prevent. One extra
         // single-row lookup per READY recording, in the same shape as the `trackCount` count above.
-        val documentAccessLevel: DocumentAccessLevel? =
+        val documentRow =
             documentId?.let { id ->
                 DocumentTable
-                    .select(DocumentTable.accessLevel)
+                    .select(DocumentTable.accessLevel, DocumentTable.currentVersionId)
                     .where { DocumentTable.id eq id }
                     .singleOrNull()
-                    ?.get(DocumentTable.accessLevel)
             }
+        val documentAccessLevel: DocumentAccessLevel? = documentRow?.get(DocumentTable.accessLevel)
         val mediaUrl: String? =
             if (status == ConferenceRecordingStatus.READY &&
                 ConferenceRecordingAccess.mayAccess(
@@ -855,23 +1072,43 @@ class ConferenceRecordingService(
                     documentAccessLevel = documentAccessLevel,
                 )
             ) {
-                "/api/conference/recordings/$recordingId/media"
+                // V1.9.109: the current document version is part of the URL (`?v=`; the media route ignores it). After a recompute the same
+                // recording has a new file under the same path -- without this, a browser cache or a range request resumed from the old
+                // URL could mix old and new bytes.
+                val version = documentRow?.get(DocumentTable.currentVersionId)
+                "/api/conference/recordings/$recordingId/media" + (if (version != null) "?v=$version" else "")
             } else {
                 null
             }
         val failureCode = row[ConferenceRecordingTable.failureCode]
+        val isModerator =
+            (
+                (status == ConferenceRecordingStatus.FAILED && failureCode == ConferenceRecordingFailureCode.COMPOSE_FAILED) ||
+                    status == ConferenceRecordingStatus.READY
+            ) &&
+                roomRowFor(row)?.let { ConferenceModeratorAuthority.isModerator(row = it, current = current) } == true
         // Only for FAILED + COMPOSE_FAILED AND only when this caller would be allowed to retry -- never leak file system state to others.
         val mayRetry =
-            status == ConferenceRecordingStatus.FAILED &&
-                failureCode == ConferenceRecordingFailureCode.COMPOSE_FAILED &&
-                roomRowFor(row)?.let { ConferenceModeratorAuthority.isModerator(row = it, current = current) } == true &&
+            isModerator &&
+                status == ConferenceRecordingStatus.FAILED &&
                 ConferenceRecordingAccess.mayAccess(
                     current = current,
                     accessLevel = row[ConferenceRecordingTable.accessLevel],
                     startedByMemberId = startedByMemberId,
                 )
+        // V1.9.109: the same for READY ("Neu berechnen"), where the archived document's tier counts as well.
+        val mayRecompute =
+            isModerator &&
+                status == ConferenceRecordingStatus.READY &&
+                ConferenceRecordingAccess.mayAccess(
+                    current = current,
+                    accessLevel = row[ConferenceRecordingTable.accessLevel],
+                    startedByMemberId = startedByMemberId,
+                    documentAccessLevel = documentAccessLevel,
+                )
         val rawAvailable: Boolean? =
-            if (mayRetry) rawFilesAvailable(row = row, hostRawRoot = File(recordingConfig.outputHostDir)) else null
+            if (mayRetry || mayRecompute) rawFilesAvailable(row = row, hostRawRoot = File(recordingConfig.outputHostDir)) else null
+        val recomputeRunning = row[ConferenceRecordingTable.recomputeStartedAt] != null
         return ConferenceRecordingDto(
             id = recordingId.toString(),
             roomId = row[ConferenceRecordingTable.roomId].toString(),
@@ -894,6 +1131,10 @@ class ConferenceRecordingService(
             rawFilesAvailable = rawAvailable,
             compositionRetryStartedAt =
                 if (status == ConferenceRecordingStatus.PROCESSING) row[ConferenceRecordingTable.lastManualRetryAt] else null,
+            canRecompute = mayRecompute && rawAvailable == true && !recomputeRunning,
+            recomputeInProgress = mayRecompute && recomputeRunning,
+            lastRecomputeFailed = mayRecompute && row[ConferenceRecordingTable.lastRecomputeFailureCode] != null,
+            recomputedAt = if (status == ConferenceRecordingStatus.READY) row[ConferenceRecordingTable.recomputedAt] else null,
         )
     }
 

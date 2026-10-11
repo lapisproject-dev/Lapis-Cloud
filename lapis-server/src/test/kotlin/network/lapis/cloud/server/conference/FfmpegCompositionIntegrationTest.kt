@@ -3,21 +3,20 @@ package network.lapis.cloud.server.conference
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
 /**
- * A/V-sync round 3 (2026-09-27) -- runs the REAL `ffmpeg` binary against the argument list
- * [FfmpegArgumentBuilder.build] produces and measures, in the composed MP4, where audio actually
- * starts to sound and where video actually starts to show. [FfmpegArgumentBuilderTest] can only pin
- * the filter-graph STRING; it cannot tell whether `aresample=async=1:first_pts=0` pads silence up
- * to the offset (correct, what ffmpeg does) or snaps the first frame to pts 0 and swallows the
- * offset (the round-3 suspicion) -- only a real run can, which is what this test exists for.
+ * A/V-sync round 3 (2026-09-27), ported to the segmented composition in V1.9.109 -- runs the REAL `ffmpeg` binary through
+ * [FfmpegSegmentedComposer] and measures, in the composed MP4, where audio actually starts to sound and where video actually starts to
+ * show. [SegmentArgumentBuilderTest] can only pin the filter-graph STRING; only a real run can tell whether a track's offset survives
+ * the whole pipeline (remux, seek, resample, concat, AAC), which is what this test exists for.
  *
  * **Skips itself** (`enabled = false`) when no usable `ffmpeg` is on the `PATH` (or at
- * `LAPIS_TEST_FFMPEG_PATH`) or its build lacks the `libx264`/`aac` encoders the production
- * argument list requires. GitHub's `ubuntu-latest` runner ships a full ffmpeg, so CI runs it; a
+ * `LAPIS_TEST_FFMPEG_PATH`) or its build lacks the encoders the production pipeline requires
+ * (`libx264`, `aac`, and for the sync test `libvpx`, `libopus`). GitHub's `ubuntu-latest` runner ships a full ffmpeg, so CI runs it; a
  * developer machine without ffmpeg still gets a green `./gradlew clean check`.
  *
  * Inputs are synthetic `lavfi` sources with a hard, measurable event at t = 2.0 s in the file's
@@ -75,7 +74,7 @@ class FfmpegCompositionIntegrationTest :
             return mic to cam
         }
 
-        /** Composes via the production argument builder, then returns (video event time, audio event time) in the output. */
+        /** Composes through the production composer, then returns (video event time, audio event time) in the output. */
         fun composeAndMeasure(
             videoOffset: Double,
             audioOffset: Double,
@@ -85,11 +84,19 @@ class FfmpegCompositionIntegrationTest :
             val out = File(workDir, "$name.mp4")
             val spec =
                 RecordingComposeSpec(
-                    videoInputs = listOf(RecordingComposeVideoInput(file = cam, offsetSeconds = videoOffset, isScreenShare = false)),
-                    audioInputs = listOf(RecordingComposeAudioInput(file = mic, offsetSeconds = audioOffset)),
+                    videoInputs =
+                        listOf(
+                            RecordingComposeVideoInput(
+                                file = cam,
+                                offsetSeconds = videoOffset,
+                                isScreenShare = false,
+                                durationSeconds = 6.0,
+                            ),
+                        ),
+                    audioInputs = listOf(RecordingComposeAudioInput(file = mic, offsetSeconds = audioOffset, mediaDurationSeconds = 6.0)),
                     outputDurationSeconds = 7.0,
                 )
-            FfmpegForTests.run(ffmpeg = ffmpeg!!, args = FfmpegArgumentBuilder.build(spec = spec, outputPath = out.absolutePath))
+            composeWith(ffmpeg = ffmpeg!!, spec = spec, out = out)
 
             val blackdetect =
                 FfmpegForTests.run(
@@ -157,7 +164,7 @@ class FfmpegCompositionIntegrationTest :
                         audioInputs = listOf(RecordingComposeAudioInput(file = mic, offsetSeconds = 0.0)),
                         outputDurationSeconds = 3.0,
                     )
-                FfmpegForTests.run(ffmpeg = ffmpeg!!, args = FfmpegArgumentBuilder.build(spec = spec, outputPath = out.absolutePath))
+                composeWith(ffmpeg = ffmpeg!!, spec = spec, out = out)
                 probeDuration(out, "v:0") shouldBe (3.0 plusOrMinus 0.1)
                 probeDuration(out, "a:0") shouldBe (3.0 plusOrMinus 0.1)
             }
@@ -172,17 +179,32 @@ class FfmpegCompositionIntegrationTest :
                         audioInputs = listOf(RecordingComposeAudioInput(file = mic, offsetSeconds = 0.0)),
                         outputDurationSeconds = 2.0,
                     )
-                FfmpegForTests.run(ffmpeg = ffmpeg!!, args = FfmpegArgumentBuilder.build(spec = spec, outputPath = out.absolutePath))
+                composeWith(ffmpeg = ffmpeg!!, spec = spec, out = out)
                 probeDuration(out, "v:0") shouldBe (2.0 plusOrMinus 0.1)
                 probeDuration(out, "a:0") shouldBe (2.0 plusOrMinus 0.1)
             }
     })
 
+/** Composes [spec] into [out] with the REAL [FfmpegSegmentedComposer] (ffprobe verification included). */
+internal fun composeWith(
+    ffmpeg: String,
+    spec: RecordingComposeSpec,
+    out: File,
+) {
+    val composer =
+        FfmpegSegmentedComposer(
+            ffmpegPath = ffmpeg,
+            timeoutMinutes = 20,
+            prober = FfprobeMediaProber(ffprobePath = FfprobeMediaProber.deriveFfprobePath(ffmpeg)),
+        )
+    runBlocking { composer.compose(spec = spec, outputFile = out) }
+}
+
 /** Locates and runs a real `ffmpeg` for integration tests -- see [FfmpegCompositionIntegrationTest]. */
 internal object FfmpegForTests {
     /**
      * `LAPIS_TEST_FFMPEG_PATH` if set, else `ffmpeg` on the `PATH`; `null` when the binary cannot be
-     * started or its build lacks `libx264`/`aac` (both required by [FfmpegArgumentBuilder.build]).
+     * started or its build lacks `libx264`/`aac` (the production pipeline) or `libvpx`/`libopus` (the LiveKit-like inputs of the sync test).
      */
     fun locate(): String? {
         val candidate = System.getenv("LAPIS_TEST_FFMPEG_PATH")?.takeIf { it.isNotBlank() } ?: "ffmpeg"
@@ -193,7 +215,7 @@ internal object FfmpegForTests {
                 return null
             }
         val hasEncoder = { name: String -> Regex("""^\s*\S+\s+$name\s""", RegexOption.MULTILINE).containsMatchIn(encoders) }
-        return candidate.takeIf { hasEncoder("libx264") && hasEncoder("aac") }
+        return candidate.takeIf { hasEncoder("libx264") && hasEncoder("aac") && hasEncoder("libvpx") && hasEncoder("libopus") }
     }
 
     /** The first decimal number directly following [marker] in [output] (ffmpeg's `blackdetect`/`silencedetect` log format), or `null`. */
@@ -205,16 +227,17 @@ internal object FfmpegForTests {
         return match.groupValues[1].toDoubleOrNull()
     }
 
-    /** Runs `ffmpeg` with [args], returning combined stdout+stderr; throws on non-zero exit or a 120 s timeout. */
+    /** Runs `ffmpeg` with [args], returning combined stdout+stderr; throws on non-zero exit or when [timeoutSeconds] (default 120 s) pass. */
     fun run(
         ffmpeg: String,
         args: List<String>,
+        timeoutSeconds: Long = 120,
     ): String {
         val process = ProcessBuilder(listOf(ffmpeg) + args).redirectErrorStream(true).start()
         val output = process.inputStream.bufferedReader().use { it.readText() }
-        check(process.waitFor(120, TimeUnit.SECONDS)) {
+        check(process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
             process.destroyForcibly()
-            "ffmpeg did not finish within 120 s: ${args.joinToString(" ")}"
+            "ffmpeg did not finish within $timeoutSeconds s: ${args.joinToString(" ")}"
         }
         check(process.exitValue() == 0) {
             "ffmpeg exited with ${process.exitValue()} for: ${args.joinToString(" ")}\n${output.lines().takeLast(30).joinToString("\n")}"

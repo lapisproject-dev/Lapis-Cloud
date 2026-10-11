@@ -66,6 +66,29 @@ object RecordingRawFiles {
     }
 
     /**
+     * The summed size in bytes of the files [fileNames] resolve to under `{hostRawRoot}/{rawDir}/` (unresolvable ones count 0). Never throws;
+     * used for the free-space check of a recompute.
+     */
+    fun totalBytes(
+        hostRawRoot: File,
+        rawDir: String,
+        fileNames: List<String?>,
+    ): Long =
+        try {
+            fileNames.sumOf { name ->
+                if (name ==
+                    null
+                ) {
+                    0L
+                } else {
+                    resolveWithin(hostRawRoot = hostRawRoot, recordingId = rawDir, reportedFilename = name)?.length() ?: 0L
+                }
+            }
+        } catch (_: Exception) {
+            0L
+        }
+
+    /**
      * `true` iff the raw files of a recording are all still on disk, so a composition can be retried: [rawDir] parses as a [Uuid]
      * (the "raw_dir is always the recording's own UUID" invariant), its canonical directory lies below the canonical [hostRawRoot],
      * there is at least one COMPLETE video track (CAMERA/SCREEN_SHARE) and EVERY COMPLETE track has a file name that

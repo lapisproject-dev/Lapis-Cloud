@@ -25,6 +25,7 @@ import network.lapis.cloud.server.conference.FakeLiveKitEgressClient
 import network.lapis.cloud.server.conference.FakeRecordingComposer
 import network.lapis.cloud.server.conference.RecordingComposeException
 import network.lapis.cloud.server.conference.RecordingPoller
+import network.lapis.cloud.server.conference.tickAndSettle
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
@@ -382,7 +383,7 @@ abstract class ConferenceRecordingRetryScenarios(
             val composer = FakeRecordingComposer()
             val poller = pollerWith(composer)
             val processing = parkOtherProcessing(keep = id)
-            runBlocking { poller.tick() }
+            runBlocking { poller.tickAndSettle() }
             composer.callCount shouldBe processing
             val r = row(id)
             r[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.READY
@@ -396,8 +397,8 @@ abstract class ConferenceRecordingRetryScenarios(
             val composer = FakeRecordingComposer(behavior = { _, _ -> throw RecordingComposeException(message = "simulated") })
             val poller = pollerWith(composer)
             val processing = parkOtherProcessing(keep = id)
-            runBlocking { poller.tick() }
-            runBlocking { poller.tick() }
+            runBlocking { poller.tickAndSettle() }
+            runBlocking { poller.tickAndSettle() }
             composer.callCount shouldBe processing
             val r = row(id)
             r[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.FAILED

@@ -46,6 +46,7 @@ import network.lapis.cloud.client.livekit.Track
 import network.lapis.cloud.client.livekit.TrackPublication
 import network.lapis.cloud.client.livekit.requestRemoteVideoQuality
 import network.lapis.cloud.client.maplibre.ResizeObserver
+import network.lapis.cloud.shared.conference.computeConferenceTileGrid
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceBreakoutAssignmentDto
 import network.lapis.cloud.shared.domain.ConferenceBreakoutAssignmentInput
@@ -2832,7 +2833,15 @@ private fun enterCall(
         if (!force && unchanged) return
         lastTileInputs = inputs
 
-        val grid = computeConferenceTileGrid(count, width, height, previousColumns = tileGridColumns)
+        val grid =
+            computeConferenceTileGrid(
+                count,
+                width,
+                height,
+                gap = CONFERENCE_TILE_GAP_PX,
+                previousColumns = tileGridColumns,
+                minTileWidth = CONFERENCE_TILE_MIN_WIDTH_PX,
+            )
         if (grid.columns == 0) return
         tileGridColumns = grid.columns
         val widthValue = "${grid.tileWidth}px"

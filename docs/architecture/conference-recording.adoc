@@ -1,14 +1,17 @@
-= Conference recording: composition, repair and retry (V1.9.107)
+= Conference recording: composition, layout, sync, repair and recompute (V1.9.107, V1.9.109)
 :toc:
 
 NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs` Gradle task.
 
 == Purpose
 
-A conference recording is captured as raw per-track files (LiveKit Track Egress), then composed into one MP4 by `ffmpeg` (`FfmpegGalleryComposer`, driven by `RecordingPoller`).
+A conference recording is captured as raw per-track files (LiveKit Track Egress), then composed into one MP4 by `ffmpeg` (`FfmpegSegmentedComposer`, driven by `RecordingPoller`).
 V1.9.107 fixes a composition that never ended on a real recording and adds a moderator action to repair a recording whose composition failed.
 Operating context: the ELB recording `bacce4ae-a65c-4f3d-9266-33fcfd309e25` (68 minutes) stayed `FAILED` although all raw files were on disk; `ffmpeg` 8 aborted with `-shortest` when
 the audio ran far ahead of the video, and the video chain ran for about 8000 s instead of 4100 s.
+
+V1.9.109 replaces the one-big-filter-graph composition by a *segmented* one (a new layout that follows who is actually in the picture, A/V sync that holds over a long meeting) and adds "Neu berechnen":
+a moderator can compose a READY recording anew from its raw tracks. Both are described below; the section marked _(V1.9.107)_ describes the retry, which the new composer keeps.
 
 == State machine
 
@@ -29,8 +32,12 @@ stateDiagram(name = "Conference recording") {
     transition(source = processing, target = ready) { trigger = "composition archived" }
     transition(source = processing, target = failed) { trigger = "NO_TRACK_STORED, COMPOSE_FAILED (attempts exhausted)" }
     transition(source = failed, target = processing) {
-        trigger = "retryRecordingComposition (moderator): attempts = MAX - 1"
+        trigger = "retryRecordingComposition / recomputeRecording (moderator): attempts = MAX - 1"
         guard = "[failure_code = COMPOSE_FAILED, raw files present]"
+    }
+    transition(source = ready, target = ready) {
+        trigger = "recomputeRecording (moderator): recompute_started_at set, new document version, marker cleared"
+        guard = "[raw files present, no recompute running]"
     }
 }
 ----
@@ -38,27 +45,118 @@ stateDiagram(name = "Conference recording") {
 `conference_recording.failure_code` (V87) says why a row is `FAILED`: `COMPOSE_FAILED`, `EGRESS_TIMEOUT`, `NO_TRACKS`, `NO_TRACK_STORED`. It is only set while the status is `FAILED` (CHECK) and is written together
 with the fixed German `failure_reason` text by `RecordingPoller.markFailed`. The client renders its own text per code and never the server's `failure_reason`.
 
-== Bounding the composition
+A READY recording that is being recomputed is still READY: `recompute_started_at` (V89) is a sub-state of READY, see <<Recompute>>.
 
-`FfmpegArgumentBuilder.build` formats `outputDurationSeconds` once (`formatOutputDuration`: finite and greater than zero, rounded half-up to three decimals, locale-free) and uses that single literal in five places:
+== Edit decision list
 
-* the `-t` of the black canvas source and of the silent `anullsrc` source,
-* a final `trim=end=D` on the video chain (`[vout]` to `[vfinal]`) and a final `atrim=end=D` on the audio chain (`[aout]` to `[afinal]`),
-* the output option `-t D`, the second to last argument pair before the output path.
+`RecordingEditDecisionList.build(tracks, totalSeconds, fps, canvasW, canvasH)` is pure arithmetic: it cuts the output into *segments of constant layout*.
 
-Why not `-shortest`: with `ffmpeg` 8 a stream pair whose audio runs far ahead of the video aborts the run. The explicit bound replaces it.
+[kuml, conference-recording-composition, svg]
+----
+activityDiagram(name = "Segmented composition") {
+    val start = initialNode()
+    val probe = action(name = "ffprobe packet ranges per track (video gap >= 1.0 s, audio gap >= 0.5 s)")
+    edge(from = start, to = probe)
+    val edl = action(name = "edit decision list: cut points, visible tracks, shared best-fit grid, stable slots")
+    edge(from = probe, to = edl)
+    val remux = action(name = "remux every raw file once (-c copy -copyts, Matroska with an index)")
+    edge(from = edl, to = remux)
+    val video = action(name = "per segment: video segment (seek, fps, scale, overlay, x264, no B-frames)")
+    edge(from = remux, to = video)
+    val audio = action(name = "per segment: audio segment (sample-exact PCM, amix, limiter)")
+    edge(from = video, to = audio)
+    val more = decision(name = "more segments?")
+    edge(from = audio, to = more)
+    edge(from = more, to = video, guard = "yes")
+    val mux = action(name = "concat without re-encoding, audio to AAC once, MP4 +faststart")
+    edge(from = more, to = mux, guard = "no")
+    val verify = action(name = "ffprobe: video and audio stream, duration within 1 s")
+    edge(from = mux, to = verify)
+    val switch = action(name = "first composition: archive document; recompute: new version, switch current version in ONE transaction (fenced)")
+    edge(from = verify, to = switch)
+    edge(from = switch, to = finalNode())
+}
+----
 
-Why the video chain can run past the recording at all: `overlay` without `shortest=1` and with `eof_action=repeat` keeps producing frames until its longest input ends, also after the canvas ended.
-The trailing `trim` sends EOF backwards through the graph, so the cascade stops computing (CPU time).
+*Cut points* are every start and end of a track's data range, rounded to an *absolute* frame (`round(t * fps)`, never a sum of rounded lengths, so the segments always add up to the total), plus 0 and the last frame, plus a forced cut every
+`MAX_SEGMENT_SECONDS = 120`. The forced cuts are what gives the promise "a mistake never grows beyond the end of its own segment" a meaning for a 70 minute meeting in which nobody joins or leaves. Segments shorter than
+`MIN_CUT_FRAMES = 2` are merged into their predecessor (the first one into its successor); if a flapping camera still produces more than `MAX_SEGMENTS = 1500` segments the minimum length doubles until it does not, with a warning in the log.
 
-Why not `shortest=1` on each overlay: it would end the output at the first input that stops early (a participant leaves) and destroy the video.
+*Visibility.* A track is in a segment when one of its ranges covers the middle of the segment. There is no grace period: whoever switches the camera off and on within a second leaves and re-enters the layout (a data gap of less than the threshold
+does not count at all). A muted LiveKit track does not end, it stops sending, so the layout is derived from the *data* (`RecordingMediaProber.probePacketRanges`: `ffprobe -show_entries packet=pts_time,duration_time`, parsed as a stream, at most 5 million lines and 120 s),
+not from the file's start and end.
 
-No `setpts`/`asetpts` follows `trim`/`atrim`: both chains start at 0 and only the tail is cut, so synchronicity is untouched.
+== Grid and slots (shared with the live view)
 
-An invalid duration cannot reach `ffmpeg`: `FfmpegGalleryComposer` turns the `IllegalArgumentException` of the builder into a `RecordingComposeException` ("invalid composition spec"), so the poller's usual failure path applies and the raw files stay.
-(In practice the poller clamps the duration to at least one second; this is defence in depth.)
+The grid is the live call's own function. `computeConferenceTileGrid` (V1.9.92) moved from `lapis-client` to `lapis-shared` (`network.lapis.cloud.shared.conference`), and the recording calls it with `gap = 0`, no hysteresis and no minimum tile width;
+the live view passes its 8 px gap, 160 px floor and previous column count explicitly. Every column count is tried, the largest 16:9 tile wins, a tie goes to fewer empty cells and then to *more* columns (V1.9.109; with a gap of 0 and a 16:9 area, 2x1 / 1x2, 3x2 / 2x3
+and 4x3 / 3x4 are equal; the live view with its 8 px gap is not affected, `TileGridTest.liveView_withTheGap_isNotAffectedByTheTieRule`). Only the algorithm is shared, no BigBlueButton code is used.
 
-== Manual retry
+At 1920 x 1080: 1 person 1x1, 2 people 2x1, 3-4 people 2x2, 5-6 people 3x2, 7-9 people 3x3, 10-12 people 4x3, 13-16 people 4x4.
+
+`gridCellRects` places the cells (gap 0, the largest 16:9 cell that fits, even sizes for yuv420p, the block centred, an incomplete last row centred on its own); `assignSlots` keeps a picture in its slot while the shape stays the same
+(a new picture takes the lowest free slot, a changed shape redistributes in first-seen order). With a screen share the earliest share is shown large in the upper 72 % of the canvas and the other visible tracks in one row below it (`singleRowGrid`).
+
+== Per-segment composition and A/V sync
+
+`SegmentArgumentBuilder` (pure, `SegmentArgumentBuilderTest`) builds one `ffmpeg` run per segment and stream; `FfmpegSegmentedComposer` runs them one after the other (`FfmpegProcessRunner`: argument list only, no shell, stderr only in the log, timeout and
+`destroyForcibly`). Each run has its own timeout, `max(60 s, 4 x segment length)`, additionally bounded by what is left of `LAPIS_RECORDING_COMPOSE_TIMEOUT_MINUTES` for the whole composition.
+
+*Video.* A black `color` source of exactly the segment's frames, every visible track seeked (`-ss` before `-i`, on the remuxed file), `fps=...:start_time=0` (a picture that arrives a fraction of a frame late is not a black frame),
+`scale` + `pad` into its cell, `overlay=eof_action=repeat`. Every segment is encoded with identical parameters (`libx264 -preset veryfast -crf 23 -profile:v high -g 60 -bf 0`): closed GOPs and *no B-frames* make the lossless join free of DTS overlaps
+(the files are 5-10 % larger). The segments are MP4, not MPEG-TS: `ffprobe`, and with it the `concat` demuxer, cannot open a two- or three-frame MPEG-TS written by x264 (found by the sync test with a 2-frame first segment).
+
+*Audio.* Each segment is rendered to PCM WAV, never to AAC: AAC per segment would add the encoder priming delay (about 21 ms) at every seam. The segment holds exactly `frames * 48000 / fps` samples (1600 per frame at 30 fps), counted with `atrim=end_sample` and
+`apad=whole_len`, never in seconds, so rounding cannot accumulate. Every source contributes one input per data range that overlaps the segment (`-ss`, `-t`, `aformat` to 48 kHz stereo, `aresample=async=480:first_pts=0`, `adelay=<samples>S`);
+without any input the segment is silence (`anullsrc`). The mix is `amix=normalize=0` followed by `alimiter=limit=0.891:attack=0.1:level=0`. The limiter's default 5 ms look-ahead would delay every segment by 240 samples against the video, so the attack is the minimum
+(0.1 ms, measured: 3 samples). The audio is encoded to AAC *once*, in the final mux.
+
+*Remux with `-copyts`.* LiveKit's WebM/OGG files have no cue points, so every `-ss` would scan from the file's start (quadratic I/O). Each raw file is therefore remuxed once with `-c copy` into Matroska. `-copyts` is essential:
+OGG is a format with timestamp discontinuities, and without it `ffmpeg` closes every gap of more than 10 s in the file's own timeline (a muted microphone) by shifting all later packets, so the data ranges would no longer match the audio.
+Ranges are relative to the first packet of the stream, which is what `ffmpeg`'s own `-ss` is relative to.
+
+*`atempo`.* A microphone's media can be a little shorter than the wall-clock span it covers (sender clock drift). `AudioTempo.ratioFor(media, wall)` stretches it only when `0.95 < media / (wall - 0.4 s) < 0.997` *and* `wall - media > 1 s`: the reported wall duration contains
+the egress's EOS flush tail of 0.1 to 0.4 s (see `RecordingTrackAlignment`), which must not be mistaken for drift. A corrected track is followed by `asetpts=N/SR/TB`.
+
+*Bounded without `-shortest`* (V1.9.107, since `ffmpeg` 8 aborts with it when the audio runs far ahead of the video): every video segment has an exact frame count (`color=...:duration` and `-frames:v`), every audio segment an exact sample count, so the total is exactly `round(total * fps)` frames. An invalid spec (no video track, a duration that is not finite and positive) becomes a `RecordingComposeException`, so the poller's usual failure path applies and the raw files stay.
+
+*Verification.* The finished file is probed (`RecordingMediaProber.probeOutput`): a video and an audio stream and a duration within one second of the expected length, else `RecordingComposeException("output verification failed")` and the usual failure path.
+If `ffprobe` cannot be run the verification is skipped with a warning.
+
+*What the sync test proves* (`RecordingSyncIntegrationTest`, real `ffmpeg`, LiveKit-like WebM/VP8 and OGG/Opus inputs with their own timelines): a beep in the microphone and a one-frame flash in a camera are the same wall-clock event every 10 s; in the composed
+file both are within 150 ms of their nominal time and of each other (measured: within 1 ms for the beeps and exactly on the frame for the flashes), the frame count is exactly `round(total * 30)`, in four cases: base (cameras joining and leaving, forced cuts), a drifting microphone
+(`atempo`), a camera that lost every 20th frame, and a 20 s hole in the microphone's timeline. Length: `LAPIS_RECORDING_SYNC_TEST_MINUTES` (default 6), directory `LAPIS_RECORDING_SYNC_TEST_DIR`.
+The 70 minute proof was run by hand on 2026-10-11 (case base, 640 x 360, `LAPIS_RECORDING_SYNC_TEST_MINUTES=70`): passed, 4200.0 s, exact frame count, 121 MB, 3 min 7 s including the generation of the inputs.
+
+== Worker and poller
+
+Since V1.9.109 a composition no longer runs inside the poller's `tick()`. `tick()` collects the PROCESSING recordings and the READY recordings with a recompute marker and starts ONE worker coroutine for them, only when the single-slot semaphore is free
+(`tryAcquire`); the worker walks them one after the other and re-reads each row before it starts. Before this, no `StartTrackEgress` was issued for any meeting that was recording at the same time while a composition ran, so somebody who joined then was never recorded.
+Tests wait with `RecordingPoller.awaitCompositionIdleForTest()`. `stop()` cancels the worker (the child process is destroyed; a recompute marker is left in place and the next boot starts it again).
+
+== Recompute
+
+`IConferenceRecordingService.recomputeRecording(recordingId)` ("Neu berechnen"):
+
+* *Callers.* As for the retry (moderator or BOARD/ADMIN, `mayAccess` for the recording's tier), and for a READY recording the archived document's own tier counts as well (a folder tightened afterwards).
+* *READY.* Raw files must be present. The per-recording budget is the one of the retry (`manual_retry_*`, shared: 15 minutes spacing, 3 per 24 hours), 10 calls per minute per member. A conditional
+  `UPDATE ... WHERE status = READY AND recompute_started_at IS NULL` sets `recompute_started_at` (V89; CHECK: only while READY). Zero rows is `RecordingRecomputeInProgressException`. Audit `UPDATE`, `status=READY` to `recompute requested`.
+  The recording stays fully usable: document, media URL and playback are unchanged until the new version is committed.
+* *FAILED + COMPOSE_FAILED.* Exactly the retry path (same flip, same counter), audit text `recompute requested (failed recording)`.
+* *Disk.* `RecordingDiskBudget`: the work volume needs `max(1.5 x raw + 1 GiB, raw + pcm + 2 x file + 1 GiB)` (pcm = 192 000 bytes per second of recording), the document volume `file + 512 MiB`. Checked in the RPC (before the transaction, it reads the file system;
+  `RecordingRecomputeInsufficientDiskException`) and again by the poller right before the work starts (the answer is minutes old).
+* *The work.* The worker composes into `<raw dir>/recompute-<uuid>.mp4.part`, then `archiveNewVersionOfFile` copies it as a NEW `document_version` (`max + 1`) *outside* any transaction (streamed, SHA-256) and then, in ONE transaction, (1) runs the *fencing update*
+  `UPDATE conference_recording SET file_size_bytes, duration_seconds, recomputed_at, recompute_started_at = NULL WHERE id = ? AND status = READY AND recompute_started_at = <the marker this worker was started with>` (it takes the recording's lock first, the order every other path uses),
+  (2) locks the document row, inserts the version and switches `document.current_version_id`, (3) writes the audit entry (the last lock-taking operation). Zero rows in (1), or a deleted document, rolls everything back and removes the new blob:
+  a deletion or a newer request in between can never leave an orphan version or overwrite a newer state. The same holds for the failure write (`last_recompute_failure_code = COMPOSE_FAILED`, marker cleared, audit `recompute failed (COMPOSE_FAILED)`).
+* *The previous version stays* in the document history (blob and row): no data loss, the price is the doubled space. Raw files are never deleted by a recompute, whatever `LAPIS_RECORDING_KEEP_RAW` says.
+* *Stale and restart.* A marker older than twice the composition timeout with no worker on it is declared failed; a marker found after a restart starts the recompute again.
+* *Media URL.* `ConferenceRecordingDto.mediaUrl` carries the current document version (`/api/conference/recordings/<id>/media?v=<versionId>`; the route ignores `v`), so a browser cache or a resumed range request cannot mix old and new bytes after the switch.
+* *Typed errors.* `RecordingRecomputeNotAllowedException`, `RecordingRecomputeInProgressException`, `RecordingRecomputeRateLimitedException`, `RecordingRecomputeInsufficientDiskException`, and `RecordingRawFilesMissingException`.
+
+Who is told what: `canRecompute`, `recomputeInProgress`, `lastRecomputeFailed` and `rawFilesAvailable` (now also for READY) are only set for a caller who may recompute; `recomputedAt` is general information.
+
+== Manual retry _(V1.9.107)_
 
 `IConferenceRecordingService.retryRecordingComposition(recordingId)`:
 
@@ -67,8 +165,8 @@ An invalid duration cannot reach `ffmpeg`: `FfmpegGalleryComposer` turns the `Il
 * *One transaction, one lock.* The row is locked `FOR UPDATE`; the state is checked; the raw files are checked (read-only, repeatable); the rate limits are checked; a conditional `UPDATE ... WHERE status = FAILED AND failure_code = COMPOSE_FAILED`
   flips it to `PROCESSING` with `compose_attempts = MAX_COMPOSE_ATTEMPTS - 1` and clears the failure fields. Zero updated rows means another caller won (`RecordingRetryNotAllowedException`).
   The audit entry (`CONFERENCE_RECORDING`, `UPDATE`, `status=FAILED` to `status=PROCESSING (manual composition retry #n)`, no path, no title) is the last lock-taking operation.
-* *The poller is untouched.* It sees `PROCESSING` with four attempts, makes exactly one attempt (number five) and ends in `READY` or again `FAILED`/`COMPOSE_FAILED`; raw files are kept on failure. The service wakes it with `requestTick()`
-  strictly after the commit.
+* *The poller's state machine is untouched.* It sees `PROCESSING` with four attempts, makes exactly one attempt (number five) and ends in `READY` or again `FAILED`/`COMPOSE_FAILED`; raw files are kept on failure. The service wakes it with `requestTick()`
+  strictly after the commit. (V1.9.109: the attempt runs on the worker, see <<Worker and poller>>; the bookkeeping and the rights moved into helpers shared with the recompute.)
 * *Raw-file check* (`RecordingRawFiles.rawFilesAvailable`): `raw_dir` parses as a UUID and its canonical directory lies below the canonical raw root; at least one COMPLETE video track; every COMPLETE track has a file name that
   `resolveWithin` accepts (no traversal, no symlink out) and the file is larger than zero bytes. Paths come from the database row, never from the client.
 * *Typed errors.* `RecordingRetryNotAllowedException` (wrong status or code, lost race), `RecordingRawFilesMissingException`, `RecordingRetryRateLimitedException`. They are separate types because the message of a `ConflictException`
@@ -79,8 +177,8 @@ An invalid duration cannot reach `ffmpeg`: `FfmpegGalleryComposer` turns the `Il
 [cols="2,3", options="header"]
 |===
 | Limit | Value
-| Spacing per recording | at least 15 minutes between two retries (`last_manual_retry_at`)
-| Cap per recording | 3 retries per rolling 24 hours (`manual_retry_window_started_at`, `manual_retry_count`); an expired window starts again at 1
+| Spacing per recording | at least 15 minutes between two retries or recomputes (`last_manual_retry_at`)
+| Cap per recording | 3 retries or recomputes per rolling 24 hours (`manual_retry_window_started_at`, `manual_retry_count`); an expired window starts again at 1
 | Calls per member | 10 per minute (process-wide `FederationInboxRateLimiter`, counts refused calls too)
 |===
 
@@ -88,10 +186,13 @@ All timestamps are UTC system stamps (`DbClock`, class A in `time-fields.tsv`).
 
 == DTO
 
-`ConferenceRecordingDto` gained four defaulted fields: `failureCode`, `canRetryComposition` (the caller may press the button right now: FAILED, `COMPOSE_FAILED`, moderator, access, raw files present; the rate limits do not enter),
+`ConferenceRecordingDto` gained four defaulted fields in V1.9.107 and four more in V1.9.109 (`canRecompute`, `recomputeInProgress`, `lastRecomputeFailed`, `recomputedAt`; see <<Recompute>>). The V1.9.107 fields: `failureCode`, `canRetryComposition` (the caller may press the button right now: FAILED, `COMPOSE_FAILED`, moderator, access, raw files present; the rate limits do not enter),
 `rawFilesAvailable` (only set when the caller would have the rights, so nobody else learns anything about the file system) and `compositionRetryStartedAt` (only while `PROCESSING`; the client derives its estimate from it).
 
 == Client
+
+V1.9.109: READY rows offer "Neu berechnen" the same way (`ConferenceRecordingsPanel`: only when `canRecompute`, or disabled with the visible reason "Die Rohspuren sind nicht mehr vorhanden." tied to the button by `aria-describedby` when the caller may recompute but the raw tracks are gone; left of "Löschen", 44 x 44 px; one action per row, a FAILED row only offers the retry). A running recompute shows "Wird neu berechnet …" with the download still offered, a failed one "Neuberechnung fehlgeschlagen – die bisherige Datei ist unverändert."; the panel polls while one runs and announces its end in the live region. The V1.9.107 behaviour:
+
 
 The lobby panel shows "Umkodierung neu starten" (only when `canRetryComposition`, left of "Löschen", at least 44 x 44 px, accessible name with the room title) behind a confirmation that names the expected minutes
 (half the recording length, rounded up). A `PROCESSING` row shows "Voraussichtlich fertig gegen HH:MM Uhr (Schätzung)". While any row is `PROCESSING` the panel reloads every 30 s (visible tab only, one `setTimeout` re-planned each time,
@@ -99,13 +200,22 @@ dropped when the panel is re-rendered or removed, at most 150 minutes) and annou
 
 == Runtime and timeout
 
-The composition takes roughly 0.25 to 0.5 times the recording length (ELB replay: 15:32 minutes for 68 minutes; about 30 minutes in operation). `LAPIS_RECORDING_COMPOSE_TIMEOUT_MINUTES` stays at 120, so the timeout starts to matter at about four hours of recording.
+The segmented composition is slower than the single graph: one remux of each file and one `ffmpeg` run per segment and stream. Measured on the sync test (6 minutes, 640 x 360, Apple silicon): see the CHANGELOG entry V1.9.109.
+`LAPIS_RECORDING_COMPOSE_TIMEOUT_MINUTES` stays at 120 and now bounds the whole composition across all of its runs.
 
 == Known limitations
 
-* There is no real progress, only an estimate; the estimate ignores a queue (one composition at a time system-wide, a semaphore).
-* The CI `ffmpeg` of `ubuntu-latest` is not version 8; the original `-shortest` abort is only reproduced in the ELB replay. Locally `ffmpeg` 9.0.2 is installed. The integration tests run only where `ffmpeg` is installed.
-* Lip synchronicity of the ELB result was not listened to.
-* A participant who left stays as a frozen last tile (`eof_action=repeat`), unchanged.
+* *Raw files are usually gone.* `LAPIS_RECORDING_KEEP_RAW` defaults to `false`, and the poller deletes the raw tracks after a successful composition: for such recordings "Neu berechnen" is disabled (with that reason). Only instances that set `KEEP_RAW=true` can recompute.
+  No retention period was added in this wave.
+* *No name tag in the recording.* The composed video shows pictures only, no participant names.
+* *No grace period.* A camera switched off and on again within a second changes the layout twice; only a data gap of at least the probe threshold (1.0 s video, 0.5 s audio) counts as "off".
+* *`atempo` only corrects small drift* (ratio between 0.95 and 0.997 and more than one second difference); everything else is left alone.
+* *The sync proof is synthetic* (generated WebM/OGG inputs shaped like LiveKit's). The real ELB recordings were not listened to.
+* *The budget is shared.* Retry and recompute draw on the same 3 per 24 hours of one recording.
+* *The previous version stays* in the document store after a recompute (space).
+* *`-bf 0`* makes the video 5-10 % larger.
+* *Slower than before:* the composition is sequential (a remux of every file, then one `ffmpeg` run per segment and stream), one composition at a time system-wide.
+* *Gradle tests that need the `ffmpeg` binary* (`FfmpegCompositionIntegrationTest`, `RecordingSyncIntegrationTest`) run only where `ffmpeg` with `libx264`, `aac`, `libvpx` and `libopus` is installed (the Docker image's Ubuntu `ffmpeg` 6.1 and the CI runner's `ffmpeg` have them).
 * After a successful retry with `LAPIS_RECORDING_KEEP_RAW=true` the raw files stay on disk; cleaning them up is an operator decision.
 * The backfill of V87 also classifies the cases "room gone while STOPPING" and "no resolvable video track" as `COMPOSE_FAILED` (same text); the raw-file check protects, but the classification is not exact.
+* There is no real progress, only an estimate; the estimate ignores a queue.

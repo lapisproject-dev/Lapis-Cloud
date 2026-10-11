@@ -77,6 +77,10 @@ class ConferenceRecordingSchemaDriftTest :
             entity.attributeByName("manual_retry_count")?.nullable shouldBe false
             entity.attributeByName("manual_retry_window_started_at")?.nullable shouldBe true
             entity.attributeByName("last_manual_retry_at")?.nullable shouldBe true
+            // V1.9.109 (V89): recompute of a READY recording.
+            entity.attributeByName("recompute_started_at")?.nullable shouldBe true
+            entity.attributeByName("recomputed_at")?.nullable shouldBe true
+            entity.attributeByName("last_recompute_failure_code")?.nullable shouldBe true
             entity.attributeByName("failure_code")?.type shouldBe
                 ErmDataType.Enum(
                     name = "ConferenceRecordingFailureCode",

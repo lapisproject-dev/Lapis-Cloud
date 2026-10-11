@@ -4494,6 +4494,18 @@ html.lapis-has-dock {
   }
 }
 
+/* V1.9.109: "Neu berechnen" -- same target size as the retry, full width on a phone; the hint explaining a disabled button is plain text. */
+.lapis-recording-recompute {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+@media (max-width: 575.98px) {
+  .lapis-recording-recompute {
+    width: 100%;
+  }
+}
+
 /* ==========================================================================================
    V1.9.108 -- Moderation: Mikrofone stummschalten, sperren, bitten.
    Farben ausschließlich über die Tokens (Hell und Dunkel). Alle Ziele mindestens 44 px, bei 360 px bricht die Zeile um,

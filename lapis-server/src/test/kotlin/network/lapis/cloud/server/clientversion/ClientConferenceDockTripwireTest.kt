@@ -324,8 +324,26 @@ class ClientConferenceDockTripwireTest :
 
         test("V1.9.92: the tile grid is pure arithmetic, has one rAF-coalesced trigger and ends with the call") {
             val grid = code(source("ConferenceTileGrid.kt"))
-            for (forbidden in listOf("document.", "window.", "kotlinx.browser", "org.w3c", "localStorage")) {
-                withClue(forbidden) { grid shouldNotContain forbidden }
+            // V1.9.109: the arithmetic itself lives in lapis-shared now (the recording composition uses it too) -- same purity invariant there
+            val shared =
+                code(
+                    File("../lapis-shared/src/commonMain/kotlin/network/lapis/cloud/shared/conference/TileGrid.kt")
+                        .let {
+                            if (it.exists()) {
+                                it
+                            } else {
+                                File(
+                                    "lapis-shared/src/commonMain/kotlin/network/lapis/cloud/shared/conference/TileGrid.kt",
+                                )
+                            }
+                        }.readText(),
+                )
+            shared shouldContain "fun computeConferenceTileGrid("
+            for (forbidden in listOf("document.", "window.", "kotlinx.browser", "org.w3c", "localStorage", "java.io", "println")) {
+                withClue(forbidden) {
+                    grid shouldNotContain forbidden
+                    shared shouldNotContain forbidden
+                }
             }
             val screen = code(source("ConferenceScreen.kt"))
             val schedule = screen.between(start = "fun scheduleTileGrid(", end = "val tileGridObserver")

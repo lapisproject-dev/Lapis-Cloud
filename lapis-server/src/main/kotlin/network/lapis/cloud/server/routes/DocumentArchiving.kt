@@ -8,7 +8,9 @@ import network.lapis.cloud.server.documents.FolderAccessLevels
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.moreRestrictive
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.max
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
@@ -260,4 +262,109 @@ fun archiveGeneratedFile(
 
         documentId
     }
+}
+
+/** Thrown inside [archiveNewVersionOfFile]'s transaction to roll it back when the caller's fence refuses; never leaves that function. */
+private class VersionCommitRefused : RuntimeException("version commit refused", null, false, false)
+
+/**
+ * Adds ONE NEW VERSION to the existing document [documentId] from [sourceFile] (V1.9.109, the recompute of a READY recording): the
+ * streaming copy of [archiveGeneratedFile] (outside any transaction, SHA-256 computed on the way, the partial blob removed on a
+ * failure), then ONE short transaction that
+ *
+ * 1. runs [fence] FIRST -- the caller's conditional update of its own row (for a recording: `WHERE id = ? AND status = READY AND
+ *    recompute_started_at = <fence value>`), which also takes that row's lock BEFORE the document is touched (the order every other
+ *    path uses: recording, then document); a `false` answer means the situation changed meanwhile (recording deleted, a newer recompute
+ *    started) and everything is rolled back, the blob removed, `null` returned;
+ * 2. locks the document row, refuses a missing or soft-deleted document (same rollback), inserts the version as `max(versionNumber) + 1`
+ *    and switches `currentVersionId` to it.
+ *
+ * That last switch is the atomic replacement: a reader sees the old version until the commit and the new one after it, never a mix.
+ * The previous version row and blob stay (the document history). [fence] receives the new version's id and its size in bytes; [finalize]
+ * runs last inside the same transaction (the audit entry, see `AuditLogRecorder`'s deadlock-avoidance contract).
+ *
+ * Returns the new version's id, or `null` when the fence or the document refused (nothing changed, no blob left behind).
+ */
+fun archiveNewVersionOfFile(
+    storageRoot: File,
+    documentId: Uuid,
+    sourceFile: File,
+    fileName: String,
+    mimeType: String,
+    uploadedBy: Uuid,
+    changeNote: String,
+    fence: (versionId: Uuid, sizeBytes: Long) -> Boolean,
+    finalize: () -> Unit = {},
+): Uuid? {
+    val now = DbClock.nowLocalDateTime()
+    val versionId = Uuid.random()
+    val storageKey = "$documentId/$versionId.bin"
+    val targetFile = storageRoot.resolve(storageKey)
+    targetFile.parentFile.mkdirs()
+
+    val digest = MessageDigest.getInstance("SHA-256")
+    var sizeBytes = 0L
+    try {
+        sourceFile.inputStream().use { input ->
+            targetFile.outputStream().use { output ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read == -1) break
+                    digest.update(buffer, 0, read)
+                    output.write(buffer, 0, read)
+                    sizeBytes += read
+                }
+            }
+        }
+    } catch (e: IOException) {
+        targetFile.delete()
+        throw e
+    }
+    val checksum = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xFF) }
+
+    try {
+        transaction {
+            if (!fence(versionId, sizeBytes)) throw VersionCommitRefused()
+            val document =
+                DocumentTable
+                    .selectAll()
+                    .where { DocumentTable.id eq documentId }
+                    .forUpdate()
+                    .singleOrNull()
+            if (document == null || document[DocumentTable.isDeleted]) throw VersionCommitRefused()
+            val maxColumn = DocumentVersionTable.versionNumber.max()
+            val maxNumber =
+                DocumentVersionTable
+                    .select(maxColumn)
+                    .where { DocumentVersionTable.documentId eq documentId }
+                    .singleOrNull()
+                    ?.get(maxColumn) ?: 0
+            DocumentVersionTable.insert {
+                it[id] = versionId
+                it[DocumentVersionTable.documentId] = documentId
+                it[versionNumber] = maxNumber + 1
+                it[DocumentVersionTable.fileName] = fileName
+                it[DocumentVersionTable.mimeType] = mimeType
+                it[fileSizeBytes] = sizeBytes
+                it[DocumentVersionTable.storageKey] = storageKey
+                it[checksumSha256] = checksum
+                it[DocumentVersionTable.uploadedBy] = uploadedBy
+                it[uploadedAt] = now
+                it[DocumentVersionTable.changeNote] = changeNote
+            }
+            DocumentTable.update({ DocumentTable.id eq documentId }) {
+                it[currentVersionId] = versionId
+            }
+            // The caller's last step (the audit entry): it takes the audit chain's lock and must therefore be the LAST lock-taking operation.
+            finalize()
+        }
+    } catch (_: VersionCommitRefused) {
+        targetFile.delete()
+        return null
+    } catch (e: Throwable) {
+        targetFile.delete()
+        throw e
+    }
+    return versionId
 }

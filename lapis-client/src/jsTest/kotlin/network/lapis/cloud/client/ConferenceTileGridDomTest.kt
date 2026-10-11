@@ -2,6 +2,8 @@ package network.lapis.cloud.client
 
 import kotlinx.browser.document
 import kotlinx.browser.window
+import network.lapis.cloud.shared.conference.ConferenceTileGrid
+import network.lapis.cloud.shared.conference.computeConferenceTileGrid
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.MutationObserver
 import org.w3c.dom.MutationObserverInit
@@ -93,7 +95,15 @@ class ConferenceTileGridDomTest {
     ): ConferenceTileGrid {
         val style = window.getComputedStyle(a.area)
         val width = a.area.clientWidth - conferenceCssPx(style.paddingLeft) - conferenceCssPx(style.paddingRight)
-        val grid = computeConferenceTileGrid(a.tiles.size, width, height, previousColumns = previousColumns)
+        val grid =
+            computeConferenceTileGrid(
+                a.tiles.size,
+                width,
+                height,
+                gap = CONFERENCE_TILE_GAP_PX,
+                previousColumns = previousColumns,
+                minTileWidth = CONFERENCE_TILE_MIN_WIDTH_PX,
+            )
         a.priority.style.setProperty("--lapis-tile-w", "${grid.tileWidth}px")
         a.priority.style.setProperty("--lapis-tile-h", "${grid.tileHeight}px")
         a.priority.style.setProperty(

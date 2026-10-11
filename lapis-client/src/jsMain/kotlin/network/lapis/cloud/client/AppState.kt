@@ -27,6 +27,10 @@ import network.lapis.cloud.shared.rpc.MemberPublicBioValidationException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.RateLimitedException
 import network.lapis.cloud.shared.rpc.RecordingRawFilesMissingException
+import network.lapis.cloud.shared.rpc.RecordingRecomputeInProgressException
+import network.lapis.cloud.shared.rpc.RecordingRecomputeInsufficientDiskException
+import network.lapis.cloud.shared.rpc.RecordingRecomputeNotAllowedException
+import network.lapis.cloud.shared.rpc.RecordingRecomputeRateLimitedException
 import network.lapis.cloud.shared.rpc.RecordingRetryNotAllowedException
 import network.lapis.cloud.shared.rpc.RecordingRetryRateLimitedException
 import network.lapis.cloud.shared.rpc.SearchRateLimitedException
@@ -185,6 +189,11 @@ private fun handleGuardedFailure(e: Throwable) {
         is RecordingRawFilesMissingException ->
             notifyError(tr("Die Rohaufnahmen sind nicht mehr vorhanden. Eine erneute Verarbeitung ist nicht möglich."))
         is RecordingRetryRateLimitedException -> notifyError(tr("Bitte versuchen Sie es später erneut."))
+        // Welle V1.9.109 "Neu berechnen" -- the same typed refusals as fixed toasts (the recordings panel handles them itself first).
+        is RecordingRecomputeInProgressException -> notifyError(tr("Die Aufzeichnung wird bereits neu berechnet."))
+        is RecordingRecomputeRateLimitedException -> notifyError(tr("Zu viele Neuberechnungen – bitte später erneut versuchen."))
+        is RecordingRecomputeInsufficientDiskException -> notifyError(tr("Zu wenig Speicherplatz für die Neuberechnung."))
+        is RecordingRecomputeNotAllowedException -> notifyError(tr("Diese Aufzeichnung kann nicht neu berechnet werden."))
         else -> {
             val message = e.message?.takeIf { it.isNotBlank() } ?: tr("Unbekannter Fehler")
             if (message.contains("Unauthorized")) {

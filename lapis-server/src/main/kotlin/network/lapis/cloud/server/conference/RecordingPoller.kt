@@ -1,14 +1,17 @@
 package network.lapis.cloud.server.conference
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toInstant
@@ -18,6 +21,7 @@ import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.routes.archiveGeneratedFile
+import network.lapis.cloud.server.routes.archiveNewVersionOfFile
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
@@ -26,10 +30,13 @@ import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackSource
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -57,6 +64,12 @@ private val logger = KotlinLogging.logger {}
  * exceeds the timer's 30s worst case regardless of the configured poll interval.
  */
 internal const val MAX_COMPOSE_ATTEMPTS = 5
+
+/** V1.9.109: a gap of at least this many seconds between two packets of a video track means "not visible there" (camera switched off, see [RecordingMediaProber.probePacketRanges]). */
+private const val VIDEO_GAP_SECONDS = 1.0
+
+/** V1.9.109: audio gaps of at least this many seconds are silence rather than a lost packet. */
+private const val AUDIO_GAP_SECONDS = 0.5
 
 private val TERMINAL_TRACK_STATUSES =
     setOf(ConferenceRecordingTrackStatus.COMPLETE, ConferenceRecordingTrackStatus.FAILED, ConferenceRecordingTrackStatus.ABORTED)
@@ -167,12 +180,31 @@ private val FAILURE_TEXT_BY_CODE =
  * ([requestTick]); the poller itself is unchanged: it sees PROCESSING with 4 attempts, makes exactly ONE attempt (number 5) and
  * ends in READY or again FAILED/`COMPOSE_FAILED` (raw files are kept on failure).
  *
+ * ## Worker (V1.9.109)
+ *
+ * A composition (or recompute) of a long meeting takes many minutes. Until V1.9.108 it ran INSIDE [tick], and while it did no
+ * `StartTrackEgress` was issued for any meeting that was recording at the same time -- somebody who joined then was never recorded.
+ * Since V1.9.109 the work runs on its own coroutine ([launchWorker]); [tick] only starts it, and only when [composeSemaphore] (capacity 1,
+ * non-blocking `tryAcquire`) is free, so at most one `ffmpeg` composition runs system-wide at any moment and `RECORDING`/`STOPPING`
+ * handling of every room continues meanwhile. The worker re-reads its row when it starts (the tick's snapshot may be older than the
+ * previous worker's last write). Tests wait with [awaitCompositionIdleForTest].
+ *
+ * ## Recompute (V1.9.109)
+ *
+ * `ConferenceRecordingService.recomputeRecording` marks a READY recording with `recompute_started_at`; the tick finds those rows
+ * ([acceptRecompute]) and the worker composes the raw tracks anew into `recompute-<uuid>.mp4.part`, then
+ * `archiveNewVersionOfFile` adds the result as a NEW version of the recording's document and switches `currentVersionId` in ONE
+ * transaction -- the atomic replacement. The marker doubles as the fencing value: every write of the recompute is conditional on
+ * `status = READY AND recompute_started_at = <marker>`, so a deletion, a newer request or a stale worker can never write over a newer
+ * state (nothing is committed then, and the new blob is removed). A failure clears the marker and records `COMPOSE_FAILED`; the
+ * previous file is untouched in every case, raw files are never deleted, the previous version stays in the document history. A marker
+ * older than twice the composition timeout without a worker is declared failed (a crash must not leave a recording "being recomputed"
+ * for ever); a marker found after a restart simply starts the recompute again.
+ *
  * ## PROCESSING
  *
- * A single [composeSemaphore] (capacity 1) ensures at most one `ffmpeg` composition runs
- * system-wide at any moment -- a non-blocking [Semaphore.tryAcquire]; if another composition is
- * already running, this tick simply skips PROCESSING-status recordings and retries them next tick,
- * so a long composition never starves `RECORDING`/`STOPPING` handling for OTHER rooms.
+ * See "Worker": at most one composition runs at a time; if the worker is busy this tick simply skips PROCESSING-status recordings and
+ * retries them next tick.
  * `compose_attempts` is incremented BEFORE each attempt (so a crash mid-attempt still counts) and
  * capped at [MAX_COMPOSE_ATTEMPTS]. On success: [archiveGeneratedFile] creates the `document`/
  * `document_version` row under `documentStorageRoot`'s `"Aufzeichnungen"` folder, the recording row
@@ -202,10 +234,24 @@ class RecordingPoller(
     private val composer: RecordingComposer,
     private val prober: RecordingMediaProber = RecordingMediaProber.None,
     private val clock: () -> LocalDateTime = { DbClock.nowLocalDateTime() },
+    /** V1.9.109: free-space probe of the recompute's pre-flight check; a test seam. */
+    private val diskSpace: (File) -> Long = { it.usableSpace },
 ) {
     private val composeSemaphore = Semaphore(1)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var loopJob: Job? = null
+
+    /** V1.9.109: the ONE running composition/recompute (see class KDoc "Worker"); `null` while idle. */
+    @Volatile
+    private var workerJob: Job? = null
+
+    /** The recording the worker is busy with, so the stale-recompute rule never fails a live job. */
+    @Volatile
+    private var workerRecordingId: Uuid? = null
+
+    /** Recordings the worker has been handed but has not finished yet (the current one included); the tick must never fail those. */
+    @Volatile
+    private var workerPendingIds: Set<Uuid> = emptySet()
 
     /** See class KDoc "requestTick". Conflated: at most one pending wake-up, never a queue. */
     private val wake = Channel<Unit>(Channel.CONFLATED)
@@ -238,6 +284,15 @@ class RecordingPoller(
     fun stop() {
         loopJob?.cancel()
         loopJob = null
+        workerJob?.cancel()
+    }
+
+    /**
+     * Suspends until the composition/recompute worker has finished (returns at once while idle) -- a TEST SEAM: since V1.9.109 a
+     * composition no longer runs inside [tick] (see class KDoc "Worker"), so a test that wants the outcome of one waits here.
+     */
+    suspend fun awaitCompositionIdleForTest() {
+        workerJob?.join()
     }
 
     /**
@@ -250,25 +305,47 @@ class RecordingPoller(
                 transaction {
                     ConferenceRecordingTable
                         .selectAll()
-                        .where { ConferenceRecordingTable.status inList NON_TERMINAL_STATUSES }
-                        .map { it.toRecordingRow() }
+                        .where {
+                            (ConferenceRecordingTable.status inList NON_TERMINAL_STATUSES) or
+                                (
+                                    (ConferenceRecordingTable.status eq ConferenceRecordingStatus.READY) and
+                                        ConferenceRecordingTable.recomputeStartedAt.isNotNull()
+                                )
+                        }.map { it.toRecordingRow() }
                 }
+            val workQueue = ArrayList<WorkItem>()
             for (row in rows) {
                 try {
                     when (row.status) {
                         ConferenceRecordingStatus.RECORDING -> handleRecording(row)
                         ConferenceRecordingStatus.STOPPING -> handleStopping(row)
-                        ConferenceRecordingStatus.PROCESSING -> handleProcessing(row)
+                        ConferenceRecordingStatus.PROCESSING ->
+                            if (acceptProcessing(row)) {
+                                workQueue +=
+                                    WorkItem(recordingId = row.id, recompute = false)
+                            }
+                        ConferenceRecordingStatus.READY ->
+                            if (acceptRecompute(row)) {
+                                workQueue +=
+                                    WorkItem(recordingId = row.id, recompute = true)
+                            }
                         else -> Unit
                     }
                 } catch (e: Throwable) {
                     logger.warn(e) { "RecordingPoller: tick failed for recording ${row.id} (status ${row.status})" }
                 }
             }
+            if (workQueue.isNotEmpty()) launchWorker(workQueue)
         } catch (e: Throwable) {
             logger.warn(e) { "RecordingPoller: tick failed" }
         }
     }
+
+    /** One recording the worker has to compose (PROCESSING) or recompute (READY with a marker). */
+    private data class WorkItem(
+        val recordingId: Uuid,
+        val recompute: Boolean,
+    )
 
     // ── RECORDING ────────────────────────────────────────────────────────
 
@@ -499,30 +576,105 @@ class RecordingPoller(
         }
     }
 
+    // ── Worker (V1.9.109) ────────────────────────────────────────────────
+
+    /**
+     * Starts THE worker for [items], if no other composition/recompute is running ([composeSemaphore], non-blocking `tryAcquire`; a
+     * tick that finds the worker busy simply tries again next time). The worker walks the items one after the other, exactly as the
+     * tick used to, but on its own coroutine, NOT inside the tick: a composition of a long meeting takes many minutes, and while it ran
+     * inline no `StartTrackEgress` was issued for meetings that were recording at the same time (a person who joined then was never
+     * recorded). See class KDoc "Worker".
+     */
+    private fun launchWorker(items: List<WorkItem>) {
+        if (!composeSemaphore.tryAcquire()) return
+        workerPendingIds = items.mapTo(HashSet()) { it.recordingId }
+        workerJob =
+            scope.launch {
+                try {
+                    for (item in items) {
+                        workerRecordingId = item.recordingId
+                        try {
+                            // The tick's snapshot may be older than this moment (the previous item or an earlier worker may have changed
+                            // the row): decide on the current row, never on the snapshot.
+                            val fresh = loadRow(item.recordingId) ?: continue
+                            if (item.recompute) {
+                                if (fresh.status == ConferenceRecordingStatus.READY && fresh.recomputeStartedAt != null) recomputeOne(fresh)
+                            } else if (fresh.status == ConferenceRecordingStatus.PROCESSING &&
+                                fresh.composeAttempts < MAX_COMPOSE_ATTEMPTS
+                            ) {
+                                composeOne(fresh)
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Throwable) {
+                            logger.warn(e) { "RecordingPoller: worker failed for recording ${item.recordingId}" }
+                        } finally {
+                            workerRecordingId = null
+                        }
+                    }
+                } finally {
+                    workerPendingIds = emptySet()
+                    composeSemaphore.release()
+                }
+            }
+    }
+
     // ── PROCESSING ───────────────────────────────────────────────────────
 
-    private suspend fun handleProcessing(row: RecordingRow) {
+    /** `true` iff [row] should be composed by the worker; a row at the attempt ceiling is failed on the spot instead. */
+    private fun acceptProcessing(row: RecordingRow): Boolean {
+        // The worker is composing this row right now (or has it queued): its attempt counter is already raised, but that is NOT a crash.
+        if (workerRecordingId == row.id || row.id in workerPendingIds) return false
         if (row.composeAttempts >= MAX_COMPOSE_ATTEMPTS) {
             // Restart reconciliation: composition crashed mid-attempt after the counter was
             // already incremented -- never attempt a third time, see class KDoc.
             markFailed(recordingId = row.id, code = ConferenceRecordingFailureCode.COMPOSE_FAILED)
-            return
+            return false
         }
-        if (!composeSemaphore.tryAcquire()) return
-        try {
-            composeOne(row)
-        } finally {
-            composeSemaphore.release()
-        }
+        return true
     }
 
-    private suspend fun composeOne(row: RecordingRow) {
-        val attemptNumber = row.composeAttempts + 1
+    private fun loadRow(recordingId: Uuid): RecordingRow? =
         transaction {
-            ConferenceRecordingTable.update({ ConferenceRecordingTable.id eq row.id }) { it[composeAttempts] = attemptNumber }
+            ConferenceRecordingTable
+                .selectAll()
+                .where { ConferenceRecordingTable.id eq recordingId }
+                .singleOrNull()
+                ?.toRecordingRow()
         }
 
-        val hostRawRoot = File(recordingConfig.outputHostDir)
+    /** What [buildSpec] found: a spec to compose, or the reason there is none. */
+    private sealed interface SpecResult {
+        data class Ready(
+            val spec: RecordingComposeSpec,
+        ) : SpecResult
+
+        /** Not a single track egress completed (see [FAILURE_NO_TRACK_STORED]). */
+        data object NoTrackStored : SpecResult
+
+        /** Tracks exist but no video track of them could be resolved on disk. */
+        data object NoVideo : SpecResult
+    }
+
+    /**
+     * Resolves the COMPLETE tracks of [row] on disk, aligns them on one timeline and measures them -- everything the composer needs,
+     * shared by the first composition ([composeOne]) and the recompute ([recomputeOne]).
+     *
+     * **Per-track alignment** -- each track's `offsetSeconds` is [RecordingTrackAlignment.offsetSeconds]: its file-level `started_at`
+     * (receive time of the track's first RTP packet) relative to the recording's earliest track, and nothing else. The [prober]'s
+     * `ffprobe` numbers (media duration, the file's own `start_time`, and the reported-minus-probed duration difference) are
+     * DIAGNOSTICS logged at INFO next to the applied offset -- round 1 of the 2026-09-27 fix applied that difference as a "head loss"
+     * and thereby introduced a spurious 0.285 s audio-vs-video shift on the first real ELB recording; see [RecordingTrackAlignment].
+     *
+     * **Data ranges (V1.9.109)** -- additionally the stretches in which a track really carries packets
+     * ([RecordingMediaProber.probePacketRanges]; video gaps of at least [VIDEO_GAP_SECONDS], audio gaps of at least
+     * [AUDIO_GAP_SECONDS]). They decide who is in the picture and where audio is silence. A failed probe yields no ranges and the
+     * composer then treats the whole reported duration as one range.
+     */
+    private suspend fun buildSpec(
+        row: RecordingRow,
+        hostRawRoot: File,
+    ): SpecResult {
         val completedTracks =
             transaction {
                 ConferenceRecordingTrackTable
@@ -554,29 +706,25 @@ class RecordingPoller(
 
         val t0 = resolved.mapNotNull { it.track.startedAtEpochNanos }.minOrNull() ?: 0L
         val videoResolved = resolved.filter { it.track.trackSource in VIDEO_TRACK_SOURCES }
-        if (completedTracks.isEmpty()) {
-            // ELB-Test-Fix 2026-09-27 (Befund 3): not a composition problem at all -- see
-            // FAILURE_NO_TRACK_STORED. Reached via STOPPING -> PROCESSING when every track row went
-            // terminal without a single COMPLETE among them.
-            logger.warn {
-                "RecordingPoller: no track egress of recording ${row.id} completed -- FAILED (check egress output volume permissions)"
-            }
-            markFailed(recordingId = row.id, code = ConferenceRecordingFailureCode.NO_TRACK_STORED)
-            return
-        }
-        if (videoResolved.isEmpty()) {
-            logger.warn { "RecordingPoller: no resolvable video track for recording ${row.id} -- FAILED" }
-            markFailed(recordingId = row.id, code = ConferenceRecordingFailureCode.COMPOSE_FAILED)
-            return
-        }
+        if (completedTracks.isEmpty()) return SpecResult.NoTrackStored
+        if (videoResolved.isEmpty()) return SpecResult.NoVideo
         val audioResolved = resolved.filter { it.track.trackSource in AUDIO_TRACK_SOURCES }
 
-        // A/V-sync fix round 2 (2026-09-27): per-track offset = started_at offset ONLY -- see class
-        // KDoc "Per-track alignment" and RecordingTrackAlignment's own KDoc. The probe is logged
-        // for diagnosis of the next real recording and never changes the offset.
-        val offsetByTrackId =
+        data class Measured(
+            val offset: Double,
+            val probe: RecordingMediaProbe,
+            val ranges: PacketRanges?,
+        )
+        val measured =
             resolved.associate { r ->
                 val probe = prober.probe(r.file)
+                val isVideo = r.track.trackSource in VIDEO_TRACK_SOURCES
+                val ranges =
+                    prober.probePacketRanges(
+                        file = r.file,
+                        kind = if (isVideo) StreamKind.VIDEO else StreamKind.AUDIO,
+                        gapThresholdSeconds = if (isVideo) VIDEO_GAP_SECONDS else AUDIO_GAP_SECONDS,
+                    )
                 val offset =
                     RecordingTrackAlignment.offsetSeconds(
                         startedAtEpochNanos = r.track.startedAtEpochNanos,
@@ -593,37 +741,89 @@ class RecordingPoller(
                         "reportedDurationMs=${r.track.durationMs}, " +
                         "probedDurationS=${probe.durationSeconds?.let(::formatSeconds) ?: "n/a"}, " +
                         "probedStartTimeS=${probe.startTimeSeconds?.let(::formatSeconds) ?: "n/a"}, " +
-                        "reportedMinusProbedS=${discrepancy?.let(::formatSeconds) ?: "n/a"} (not applied)"
+                        "reportedMinusProbedS=${discrepancy?.let(::formatSeconds) ?: "n/a"} (not applied); " +
+                        "dataRanges=${ranges?.ranges?.size ?: "n/a"}"
                 }
-                r.track.id to offset
+                r.track.id to Measured(offset, probe, ranges)
             }
 
+        /** The best known media length of a track: measured packets, then container, then what the egress reported. */
+        fun mediaSeconds(r: Resolved): Double? {
+            val m = measured.getValue(r.track.id)
+            return m.ranges?.mediaDurationSeconds ?: m.probe.durationSeconds ?: r.track.durationMs?.let { it / 1000.0 }
+        }
+
+        // The length of the output is governed by the start offsets and the durations the egress REPORTED (they include the 0.1-0.4 s
+        // flush tail after the last packet, see RecordingTrackAlignment) -- the old, tested behaviour; the measured media length only
+        // feeds the composer's per-track ranges.
         val outputDurationSeconds =
             resolved
-                .maxOf { r ->
-                    RecordingTrackAlignment.startOffsetSeconds(startedAtEpochNanos = r.track.startedAtEpochNanos, t0EpochNanos = t0) +
-                        (r.track.durationMs?.let { it / 1000.0 } ?: 0.0)
-                }.coerceAtLeast(1.0)
+                .maxOf { r -> measured.getValue(r.track.id).offset + (r.track.durationMs?.let { it / 1000.0 } ?: mediaSeconds(r) ?: 0.0) }
+                .coerceAtLeast(1.0)
 
         val spec =
             RecordingComposeSpec(
                 videoInputs =
                     videoResolved.map { r ->
+                        val m = measured.getValue(r.track.id)
                         RecordingComposeVideoInput(
                             file = r.file,
-                            offsetSeconds = offsetByTrackId.getValue(r.track.id),
+                            offsetSeconds = m.offset,
                             isScreenShare = r.track.trackSource == ConferenceRecordingTrackSource.SCREEN_SHARE,
+                            trackId = r.track.id.toString(),
+                            ranges = m.ranges?.ranges.orEmpty(),
+                            durationSeconds = mediaSeconds(r),
                         )
                     },
                 audioInputs =
                     audioResolved.map { r ->
+                        val m = measured.getValue(r.track.id)
+                        val wall =
+                            if (r.track.startedAtEpochNanos != null && r.track.endedAtEpochNanos != null) {
+                                (r.track.endedAtEpochNanos - r.track.startedAtEpochNanos) / 1_000_000_000.0
+                            } else {
+                                r.track.durationMs?.let { it / 1000.0 }
+                            }
                         RecordingComposeAudioInput(
                             file = r.file,
-                            offsetSeconds = offsetByTrackId.getValue(r.track.id),
+                            offsetSeconds = m.offset,
+                            ranges = m.ranges?.ranges.orEmpty(),
+                            mediaDurationSeconds = mediaSeconds(r),
+                            wallDurationSeconds = wall,
                         )
                     },
                 outputDurationSeconds = outputDurationSeconds,
             )
+        return SpecResult.Ready(spec)
+    }
+
+    private suspend fun composeOne(row: RecordingRow) {
+        val attemptNumber = row.composeAttempts + 1
+        transaction {
+            ConferenceRecordingTable.update({ ConferenceRecordingTable.id eq row.id }) { it[composeAttempts] = attemptNumber }
+        }
+
+        val hostRawRoot = File(recordingConfig.outputHostDir)
+        val spec =
+            when (val built = buildSpec(row = row, hostRawRoot = hostRawRoot)) {
+                is SpecResult.Ready -> built.spec
+                SpecResult.NoTrackStored -> {
+                    // ELB-Test-Fix 2026-09-27 (Befund 3): not a composition problem at all -- see
+                    // FAILURE_NO_TRACK_STORED. Reached via STOPPING -> PROCESSING when every track row went
+                    // terminal without a single COMPLETE among them.
+                    logger.warn {
+                        "RecordingPoller: no track egress of recording ${row.id} completed -- FAILED (check egress output volume permissions)"
+                    }
+                    markFailed(recordingId = row.id, code = ConferenceRecordingFailureCode.NO_TRACK_STORED)
+                    return
+                }
+                SpecResult.NoVideo -> {
+                    logger.warn { "RecordingPoller: no resolvable video track for recording ${row.id} -- FAILED" }
+                    markFailed(recordingId = row.id, code = ConferenceRecordingFailureCode.COMPOSE_FAILED)
+                    return
+                }
+            }
+        val outputDurationSeconds = spec.outputDurationSeconds
 
         val outputFile = File(hostRawRoot, "${row.rawDir}/composed-$attemptNumber.mp4")
         outputFile.parentFile.mkdirs()
@@ -669,6 +869,8 @@ class RecordingPoller(
                     }
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.warn(e) { "RecordingPoller: composition/archiving failed for recording ${row.id} (attempt $attemptNumber)" }
             if (attemptNumber >= MAX_COMPOSE_ATTEMPTS) {
@@ -677,6 +879,172 @@ class RecordingPoller(
             // else: stays PROCESSING, retried on a later tick.
         } finally {
             outputFile.delete()
+        }
+    }
+
+    // ── RECOMPUTE of a READY recording (V1.9.109) ───────────────────────
+
+    /** `true` iff the worker should recompute [row]; a stale marker (nobody works on it, far older than any composition) is failed on the spot instead. */
+    private fun acceptRecompute(row: RecordingRow): Boolean {
+        val fence = row.recomputeStartedAt ?: return false
+        if (workerRecordingId == row.id) return false
+        if (elapsed(from = fence, to = clock()) > recordingConfig.composeTimeoutMinutes.minutes * 2) {
+            // Nobody is working on it and it is far older than any composition may take (a crash, or a queue that never drained).
+            logger.warn { "RecordingPoller: recompute of recording ${row.id} is stale -- marking it failed" }
+            failRecompute(recordingId = row.id, fence = fence)
+            return false
+        }
+        return true
+    }
+
+    /**
+     * Recomputes the composed file of the READY recording [row] from its raw per-track files and replaces it -- see class KDoc "Recompute".
+     * Any failure leaves the previous file untouched and ends in [failRecompute]; the raw files are NEVER deleted here, whatever
+     * [ConferenceRecordingConfig.keepRaw] says (that flag guards the first composition only).
+     */
+    private suspend fun recomputeOne(row: RecordingRow) {
+        val fence = row.recomputeStartedAt ?: return
+        val documentId = row.documentId
+        val hostRawRoot = File(recordingConfig.outputHostDir)
+        if (documentId == null) {
+            logger.warn { "RecordingPoller: recompute of recording ${row.id} has no archived document -- failing it" }
+            failRecompute(recordingId = row.id, fence = fence)
+            return
+        }
+
+        // The pre-flight check again: the RPC's answer is minutes old, the disk may have filled up since.
+        val fileNames =
+            transaction {
+                ConferenceRecordingTrackTable
+                    .selectAll()
+                    .where {
+                        (ConferenceRecordingTrackTable.recordingId eq row.id) and
+                            (ConferenceRecordingTrackTable.status eq ConferenceRecordingTrackStatus.COMPLETE)
+                    }.map { it[ConferenceRecordingTrackTable.fileName] }
+            }
+        val rawBytes = RecordingRawFiles.totalBytes(hostRawRoot = hostRawRoot, rawDir = row.rawDir, fileNames = fileNames)
+        if (rawBytes == 0L ||
+            !RecordingDiskBudget.hasRoom(
+                workRoot = hostRawRoot,
+                documentRoot = documentStorageRoot,
+                rawBytes = rawBytes,
+                durationSeconds = row.durationSeconds ?: 0L,
+                currentFileBytes = row.fileSizeBytes,
+                diskSpace = diskSpace,
+            )
+        ) {
+            logger.warn { "RecordingPoller: recompute of recording ${row.id} refused -- raw files missing or not enough free disk space" }
+            failRecompute(recordingId = row.id, fence = fence)
+            return
+        }
+
+        val rawDirFile = File(hostRawRoot, row.rawDir)
+        rawDirFile.listFiles { f -> f.isFile && f.name.startsWith("recompute-") && f.name.endsWith(".part") }?.forEach { it.delete() }
+        val partFile = File(rawDirFile, "recompute-${Uuid.random()}.mp4.part")
+        try {
+            val spec =
+                when (val built = buildSpec(row = row, hostRawRoot = hostRawRoot)) {
+                    is SpecResult.Ready -> built.spec
+                    else -> {
+                        logger.warn { "RecordingPoller: recompute of recording ${row.id} found no usable tracks -- failing it" }
+                        failRecompute(recordingId = row.id, fence = fence)
+                        return
+                    }
+                }
+            composer.compose(spec = spec, outputFile = partFile)
+
+            val now = clock()
+            val newVersion =
+                archiveNewVersionOfFile(
+                    storageRoot = documentStorageRoot,
+                    documentId = documentId,
+                    sourceFile = partFile,
+                    fileName = "aufzeichnung-${row.id}.mp4",
+                    mimeType = "video/mp4",
+                    uploadedBy = row.startedByMemberId,
+                    changeNote = "Neu berechnet (V1.9.109)",
+                    fence = { _, sizeBytes ->
+                        // The fencing update: only the request this worker belongs to may finish. A deletion, a newer request or a
+                        // failure marker in between makes it match nothing -> the whole version switch rolls back.
+                        ConferenceRecordingTable.update({ fencedRecompute(recordingId = row.id, fence = fence) }) {
+                            it[fileSizeBytes] = sizeBytes
+                            it[durationSeconds] = spec.outputDurationSeconds.toLong()
+                            it[recomputedAt] = now
+                            it[recomputeStartedAt] = null
+                            it[lastRecomputeFailureCode] = null
+                        } > 0
+                    },
+                    finalize = {
+                        // System-initiated, no acting member. LAST lock-taking operation -- see AuditLogRecorder KDoc.
+                        AuditLogRecorder.record(
+                            actorMemberId = null,
+                            actorRole = null,
+                            entityType = AuditEntityType.CONFERENCE_RECORDING,
+                            entityId = row.id,
+                            action = AuditAction.UPDATE,
+                            before = "status=READY",
+                            after = "recompute completed",
+                            occurredAt = now,
+                        )
+                    },
+                )
+            if (newVersion == null) {
+                logger.warn {
+                    "RecordingPoller: recompute of recording ${row.id} was superseded (deleted, replaced or its document is gone)"
+                }
+                failRecompute(recordingId = row.id, fence = fence)
+            } else {
+                logger.info { "RecordingPoller: recompute of recording ${row.id} finished (new document version $newVersion)" }
+            }
+        } catch (e: CancellationException) {
+            // Shutdown: the marker stays, the next boot starts the recompute again.
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "RecordingPoller: recompute of recording ${row.id} failed" }
+            failRecompute(recordingId = row.id, fence = fence)
+        } finally {
+            withContext(NonCancellable) { partFile.delete() }
+        }
+    }
+
+    /** The row filter of every fenced recompute write: READY and still carrying exactly the marker this recompute was started with. */
+    private fun fencedRecompute(
+        recordingId: Uuid,
+        fence: LocalDateTime,
+    ): Op<Boolean> =
+        (ConferenceRecordingTable.id eq recordingId) and
+            (ConferenceRecordingTable.status eq ConferenceRecordingStatus.READY) and
+            (ConferenceRecordingTable.recomputeStartedAt eq fence)
+
+    /**
+     * Ends the recompute marked by [fence] as failed: remembers the code, clears the marker, audits. A fenced update -- if the recording
+     * was deleted or a newer recompute replaced the marker meanwhile this matches nothing and writes nothing. The previous file is not
+     * touched in any case.
+     */
+    private fun failRecompute(
+        recordingId: Uuid,
+        fence: LocalDateTime,
+    ) {
+        val now = clock()
+        transaction {
+            val updated =
+                ConferenceRecordingTable.update({ fencedRecompute(recordingId = recordingId, fence = fence) }) {
+                    it[recomputeStartedAt] = null
+                    it[lastRecomputeFailureCode] = ConferenceRecordingFailureCode.COMPOSE_FAILED
+                }
+            if (updated > 0) {
+                // System-initiated, no acting member. LAST lock-taking operation -- see AuditLogRecorder KDoc.
+                AuditLogRecorder.record(
+                    actorMemberId = null,
+                    actorRole = null,
+                    entityType = AuditEntityType.CONFERENCE_RECORDING,
+                    entityId = recordingId,
+                    action = AuditAction.UPDATE,
+                    before = "status=READY",
+                    after = "recompute failed (COMPOSE_FAILED)",
+                    occurredAt = now,
+                )
+            }
         }
     }
 
@@ -728,7 +1096,10 @@ class RecordingPoller(
     ) {
         val reason = FAILURE_TEXT_BY_CODE.getValue(code)
         transaction {
-            ConferenceRecordingTable.update({ ConferenceRecordingTable.id eq recordingId }) {
+            // Only a non-terminal row may fail: a stale snapshot must never overwrite a READY/FAILED row the worker just wrote.
+            ConferenceRecordingTable.update({
+                (ConferenceRecordingTable.id eq recordingId) and (ConferenceRecordingTable.status inList NON_TERMINAL_STATUSES)
+            }) {
                 it[status] = ConferenceRecordingStatus.FAILED
                 it[failureReason] = reason
                 it[failureCode] = code
@@ -762,6 +1133,10 @@ private data class RecordingRow(
     val accessLevel: DocumentAccessLevel,
     val rawDir: String,
     val composeAttempts: Int,
+    val documentId: Uuid?,
+    val durationSeconds: Long?,
+    val fileSizeBytes: Long?,
+    val recomputeStartedAt: LocalDateTime?,
 )
 
 /** Plain data snapshot of a `conference_recording_track` row -- same "never a live ResultRow across suspension" reasoning as [RecordingRow]. */
@@ -772,6 +1147,7 @@ private data class TrackRow(
     val trackSource: ConferenceRecordingTrackSource,
     val fileName: String?,
     val startedAtEpochNanos: Long?,
+    val endedAtEpochNanos: Long?,
     val durationMs: Long?,
 )
 
@@ -786,6 +1162,10 @@ private fun ResultRow.toRecordingRow() =
         accessLevel = this[ConferenceRecordingTable.accessLevel],
         rawDir = this[ConferenceRecordingTable.rawDir],
         composeAttempts = this[ConferenceRecordingTable.composeAttempts],
+        documentId = this[ConferenceRecordingTable.documentId],
+        durationSeconds = this[ConferenceRecordingTable.durationSeconds],
+        fileSizeBytes = this[ConferenceRecordingTable.fileSizeBytes],
+        recomputeStartedAt = this[ConferenceRecordingTable.recomputeStartedAt],
     )
 
 private fun ResultRow.toTrackRow() =
@@ -796,6 +1176,7 @@ private fun ResultRow.toTrackRow() =
         trackSource = this[ConferenceRecordingTrackTable.trackSource],
         fileName = this[ConferenceRecordingTrackTable.fileName],
         startedAtEpochNanos = this[ConferenceRecordingTrackTable.startedAtEpochNanos],
+        endedAtEpochNanos = this[ConferenceRecordingTrackTable.endedAtEpochNanos],
         durationMs = this[ConferenceRecordingTrackTable.durationMs],
     )
 

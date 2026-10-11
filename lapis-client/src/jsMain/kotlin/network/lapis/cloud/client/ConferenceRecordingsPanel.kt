@@ -26,6 +26,10 @@ import network.lapis.cloud.shared.domain.ConferenceRecordingPageDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.RecordingRawFilesMissingException
+import network.lapis.cloud.shared.rpc.RecordingRecomputeInProgressException
+import network.lapis.cloud.shared.rpc.RecordingRecomputeInsufficientDiskException
+import network.lapis.cloud.shared.rpc.RecordingRecomputeNotAllowedException
+import network.lapis.cloud.shared.rpc.RecordingRecomputeRateLimitedException
 import network.lapis.cloud.shared.rpc.RecordingRetryNotAllowedException
 import network.lapis.cloud.shared.rpc.RecordingRetryRateLimitedException
 import org.w3c.dom.HTMLElement
@@ -111,6 +115,8 @@ fun renderConferenceRecordingsPanel(panel: SimplePanel) {
     liveRegion.setAttribute("role", "status")
     liveRegion.setAttribute("aria-live", "polite")
     val statusById = mutableMapOf<String, ConferenceRecordingStatus>()
+    // V1.9.109: which rows were being recomputed at the last render -- the live region announces the end of a recompute.
+    val recomputeById = mutableMapOf<String, Boolean>()
     var pollTimer: Int? = null
     var pollStartedAtMs: Double? = null
     val listPanel = panel.vPanel(spacing = 8)
@@ -130,7 +136,7 @@ fun renderConferenceRecordingsPanel(panel: SimplePanel) {
         pollTimer?.let { window.clearTimeout(it) }
         pollTimer = null
         if (!RecordingsPolling.isCurrent(generation)) return
-        if (rows.none { it.status == ConferenceRecordingStatus.PROCESSING }) {
+        if (rows.none { it.status == ConferenceRecordingStatus.PROCESSING || it.recomputeInProgress }) {
             // The 150-min cap is per processing phase, not per panel render.
             pollStartedAtMs = null
             return
@@ -176,8 +182,23 @@ fun renderConferenceRecordingsPanel(panel: SimplePanel) {
                         else -> null
                     }
                 }
-        rows.forEach { statusById[it.id] = it.status }
-        if (message != null) liveRegion.content = message
+        // V1.9.109: the end of a "Neu berechnen" -- the status stays READY, so it is announced from its own flag.
+        val recomputeMessage =
+            rows
+                .firstNotNullOfOrNull { row ->
+                    if (recomputeById[row.id] != true || row.recomputeInProgress) return@firstNotNullOfOrNull null
+                    if (row.lastRecomputeFailed) {
+                        gettext("Neuberechnung fehlgeschlagen – die bisherige Datei ist unverändert.")
+                    } else {
+                        gettext("Neuberechnung abgeschlossen.")
+                    }
+                }
+        rows.forEach {
+            statusById[it.id] = it.status
+            recomputeById[it.id] = it.recomputeInProgress
+        }
+        val announcement = message ?: recomputeMessage
+        if (announcement != null) liveRegion.content = announcement
     }
 
     fun renderPage(page: ConferenceRecordingPageDto) {
@@ -291,6 +312,17 @@ private fun renderConferenceRecordingRow(
     if (recording.canRetryComposition) {
         renderConferenceRecordingRetryButton(row = headerRow, recording = recording, onChanged = onChanged)
     }
+    // V1.9.109: "Neu berechnen" sits left of "Löschen" as well (READY rows; disabled with a visible reason when the raw tracks are gone).
+    val recomputeHintId = "lapis-recording-recompute-hint-${recording.id}"
+    if (conferenceRecordingShowsRecompute(recording)) {
+        renderConferenceRecordingRecomputeButton(
+            row = headerRow,
+            card = card,
+            recording = recording,
+            hintId = recomputeHintId,
+            onChanged = onChanged,
+        )
+    }
     if (conferenceRecordingCanDelete(
             recording = recording,
             localMemberId = AppState.session?.memberId,
@@ -314,6 +346,14 @@ private fun renderConferenceRecordingRow(
 
     if (recording.status == ConferenceRecordingStatus.PROCESSING) {
         conferenceRecordingEstimateLine(recording)?.let { line -> card.div(line) { addCssClasses("text-muted small") } }
+    }
+
+    if (recording.recomputeInProgress) {
+        card.div(tr("Wird neu berechnet …")) { addCssClasses("text-muted small lapis-recording-recompute-state") }
+    } else if (recording.lastRecomputeFailed) {
+        card.div(tr("Neuberechnung fehlgeschlagen – die bisherige Datei ist unverändert.")) {
+            addCssClasses("text-danger small lapis-recording-recompute-state")
+        }
     }
 
     val mediaUrl = recording.mediaUrl
@@ -396,6 +436,116 @@ private fun renderConferenceRecordingRetryButton(
                 }
             }
         }
+    }
+}
+
+/**
+ * V1.9.109: does this row offer "Neu berechnen" at all -- READY, no recompute running, and either allowed right now or (for a caller who
+ * may recompute) merely missing its raw tracks, in which case the button is shown DISABLED with the reason next to it.
+ * [ConferenceRecordingDto.rawFilesAvailable] is only ever set for callers who may recompute, so other callers see nothing.
+ */
+internal fun conferenceRecordingShowsRecompute(recording: ConferenceRecordingDto): Boolean =
+    recording.status == ConferenceRecordingStatus.READY &&
+        !recording.recomputeInProgress &&
+        (recording.canRecompute || recording.rawFilesAvailable == false)
+
+/**
+ * V1.9.109 "Neu berechnen": the same shape as [renderConferenceRecordingRetryButton] -- [ButtonStyle.OUTLINEPRIMARY], 44 x 44 px, a
+ * [confirmDialog] first, then `recomputeRecording` through [guarded]. Without raw tracks the button is DISABLED (`disabled`, a `title`) and
+ * the reason is visible text next to it, tied to the button with `aria-describedby` (a title alone is invisible on a touch screen). The
+ * typed refusals get their own toast and refresh the list (the state changed under the caller).
+ */
+private fun renderConferenceRecordingRecomputeButton(
+    row: SimplePanel,
+    card: SimplePanel,
+    recording: ConferenceRecordingDto,
+    hintId: String,
+    onChanged: () -> Unit,
+) {
+    val button = row.actionButton(ActionIcon.REFRESH, tr("Neu berechnen"), style = ButtonStyle.OUTLINEPRIMARY)
+    button.addCssClass("lapis-recording-recompute")
+    button.setStyle("min-height", "44px")
+    button.setStyle("min-width", "44px")
+    button.setAttribute("aria-label", gettext("Neu berechnen: %1", sanitizeUntrustedI18nText(recording.roomTitle)))
+    if (!recording.canRecompute) {
+        val reason = gettext("Die Rohspuren sind nicht mehr vorhanden.")
+        button.disabled = true
+        button.setAttribute("title", reason)
+        button.setAttribute("aria-describedby", hintId)
+        card.div(reason) {
+            setAttribute("id", hintId)
+            addCssClasses("text-muted small lapis-recording-recompute-hint")
+        }
+        return
+    }
+    button.onClick {
+        confirmDialog(
+            title = tr("Neu berechnen"),
+            message = conferenceRecordingRecomputeConfirmText(recording),
+            confirmLabel = tr("Neu starten"),
+            confirmIcon = ActionIcon.REFRESH,
+            confirmStyle = ButtonStyle.PRIMARY,
+        ) {
+            button.disabled = true
+            AppScope.launch {
+                var refused = false
+                val started =
+                    guarded {
+                        try {
+                            rpcService<IConferenceRecordingService>().recomputeRecording(recording.id)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: RecordingRecomputeInProgressException) {
+                            refused = true
+                            notifyError(tr("Die Aufzeichnung wird bereits neu berechnet."))
+                            null
+                        } catch (e: RecordingRecomputeRateLimitedException) {
+                            refused = true
+                            notifyError(tr("Zu viele Neuberechnungen – bitte später erneut versuchen."))
+                            null
+                        } catch (e: RecordingRecomputeInsufficientDiskException) {
+                            refused = true
+                            notifyError(tr("Zu wenig Speicherplatz für die Neuberechnung."))
+                            null
+                        } catch (e: RecordingRecomputeNotAllowedException) {
+                            refused = true
+                            notifyError(tr("Diese Aufzeichnung kann nicht neu berechnet werden."))
+                            null
+                        } catch (e: RecordingRawFilesMissingException) {
+                            refused = true
+                            notifyError(tr("Die Rohaufnahmen sind nicht mehr vorhanden. Eine erneute Verarbeitung ist nicht möglich."))
+                            null
+                        }
+                    }
+                button.disabled = false
+                if (started != null) {
+                    notifySuccess(tr("Neuberechnung gestartet."))
+                    onChanged()
+                } else if (refused) {
+                    onChanged()
+                }
+            }
+        }
+    }
+}
+
+/** The recompute confirmation: the old video stays available until the new one is ready; with the time estimate when it is known. */
+internal fun conferenceRecordingRecomputeConfirmText(recording: ConferenceRecordingDto): String {
+    val title = sanitizeUntrustedI18nText(recording.roomTitle)
+    val minutes = conferenceRecordingEstimateMinutes(recording)
+    return if (minutes != null) {
+        gettext(
+            "Die Aufzeichnung von \"%1\" wird aus den Rohspuren neu berechnet (voraussichtlich bis zu %2 Minuten). " +
+                "Das bisherige Video bleibt bis dahin abrufbar und wird danach ersetzt; die bisherige Fassung bleibt als frühere Version in der Dokumentenablage.",
+            title,
+            minutes.toString(),
+        )
+    } else {
+        gettext(
+            "Die Aufzeichnung von \"%1\" wird aus den Rohspuren neu berechnet. " +
+                "Das bisherige Video bleibt bis dahin abrufbar und wird danach ersetzt; die bisherige Fassung bleibt als frühere Version in der Dokumentenablage.",
+            title,
+        )
     }
 }
 

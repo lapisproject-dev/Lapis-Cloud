@@ -5,6 +5,7 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
 import kotlinx.datetime.LocalDate
@@ -23,6 +24,7 @@ import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.routes.archiveGeneratedFile
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
@@ -166,6 +168,15 @@ internal class FakeLiveKitEgressClient(
         addUrls: List<String>,
         removeUrls: List<String>,
     ): LiveKitEgressInfo = error("not used by RecordingPoller (Wave 2) -- see FakeLiveKitEgressClient KDoc")
+}
+
+/**
+ * V1.9.109: a composition no longer runs inside `tick()` but on the poller's worker coroutine -- a test that wants its outcome ticks AND
+ * waits for the worker (a no-op for every tick that started none).
+ */
+internal suspend fun RecordingPoller.tickAndSettle() {
+    tick()
+    awaitCompositionIdleForTest()
 }
 
 /** [behavior] defaults to writing a few bytes to [outputFile] -- override to simulate a failure via [RecordingComposeException]. */
@@ -366,6 +377,8 @@ class RecordingPollerTest :
             pollIntervalSeconds: Long = 10,
             prober: RecordingMediaProber = RecordingMediaProber.None,
             clock: () -> LocalDateTime = { DbClock.nowLocalDateTime() },
+            composeTimeoutMinutes: Long? = null,
+            diskSpace: (File) -> Long = { Long.MAX_VALUE / 4 },
         ): RecordingPoller {
             val config =
                 ConferenceRecordingConfig.load { key ->
@@ -376,6 +389,7 @@ class RecordingPollerTest :
                         "LAPIS_RECORDING_MAX_DURATION_MINUTES" -> maxDurationMinutes.toString()
                         "LAPIS_RECORDING_EGRESS_TIMEOUT_MINUTES" -> egressTimeoutMinutes.toString()
                         "LAPIS_RECORDING_KEEP_RAW" -> keepRaw.toString()
+                        "LAPIS_RECORDING_COMPOSE_TIMEOUT_MINUTES" -> composeTimeoutMinutes?.toString()
                         "LAPIS_EGRESS_OUTPUT_HOST_DIR" -> hostRawRoot.path
                         "LAPIS_EGRESS_OUTPUT_CONTAINER_DIR" -> "/out"
                         else -> null
@@ -389,6 +403,7 @@ class RecordingPollerTest :
                 composer = composer,
                 prober = prober,
                 clock = clock,
+                diskSpace = diskSpace,
             )
         }
 
@@ -492,7 +507,7 @@ class RecordingPollerTest :
                 val egressClient = FakeLiveKitEgressClient()
                 val poller = buildPoller(adminClient, egressClient, FakeRecordingComposer(), hostRawRoot, documentStorageRoot)
 
-                poller.tick()
+                poller.tickAndSettle()
 
                 egressClient.started shouldHaveSize 1
                 egressClient.started.single().second shouldBe "TR_cam"
@@ -532,7 +547,7 @@ class RecordingPollerTest :
                 val egressClient = FakeLiveKitEgressClient()
                 val poller = buildPoller(adminClient, egressClient, FakeRecordingComposer(), hostRawRoot, documentStorageRoot)
 
-                poller.tick()
+                poller.tickAndSettle()
 
                 egressClient.started shouldHaveSize 0
             } finally {
@@ -562,7 +577,7 @@ class RecordingPollerTest :
                 val poller =
                     buildPoller(adminClient, egressClient, FakeRecordingComposer(), hostRawRoot, documentStorageRoot, maxTracks = 1)
 
-                poller.tick()
+                poller.tickAndSettle()
 
                 egressClient.started shouldHaveSize 0
             } finally {
@@ -587,7 +602,7 @@ class RecordingPollerTest :
                         hostRawRoot,
                         documentStorageRoot,
                     )
-                poller.tick()
+                poller.tickAndSettle()
 
                 val row = recordingRow(recordingId)
                 row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.STOPPING
@@ -623,7 +638,7 @@ class RecordingPollerTest :
                         maxDurationMinutes = 10,
                         clock = { fakeNow },
                     )
-                poller.tick()
+                poller.tickAndSettle()
 
                 recordingRow(recordingId)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.STOPPING
             } finally {
@@ -665,7 +680,7 @@ class RecordingPollerTest :
                     )
                 val poller = buildPoller(FakeLiveKitAdminClient(), egressClient, FakeRecordingComposer(), hostRawRoot, documentStorageRoot)
 
-                poller.tick()
+                poller.tickAndSettle()
 
                 egressClient.stoppedEgressIds shouldContain egA
                 recordingRow(recordingId)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.PROCESSING
@@ -723,7 +738,7 @@ class RecordingPollerTest :
                         egressTimeoutMinutes = 30,
                         clock = { fakeNow },
                     )
-                poller.tick()
+                poller.tickAndSettle()
 
                 recordingRow(recordingId)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.PROCESSING
             } finally {
@@ -764,7 +779,7 @@ class RecordingPollerTest :
                         egressTimeoutMinutes = 30,
                         clock = { fakeNow },
                     )
-                poller.tick()
+                poller.tickAndSettle()
 
                 val row = recordingRow(recordingId)
                 row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.FAILED
@@ -805,7 +820,7 @@ class RecordingPollerTest :
                         // the assertion below would catch it.
                         clock = { stoppedAt.toJavaLocalDateTimeShiftedMinutes(0) },
                     )
-                poller.tick()
+                poller.tickAndSettle()
 
                 val row = recordingRow(recordingId)
                 row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.FAILED
@@ -867,7 +882,7 @@ class RecordingPollerTest :
                         egressTimeoutMinutes = 30,
                         clock = { fakeNow },
                     )
-                poller.tick()
+                poller.tickAndSettle()
 
                 val row = recordingRow(recordingId)
                 row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.FAILED
@@ -910,7 +925,7 @@ class RecordingPollerTest :
                         egressTimeoutMinutes = 30,
                         clock = { fakeNow },
                     )
-                poller.tick()
+                poller.tickAndSettle()
 
                 recordingRow(recordingId)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.PROCESSING
             } finally {
@@ -951,7 +966,7 @@ class RecordingPollerTest :
                         egressTimeoutMinutes = 30,
                         clock = { fakeNow },
                     )
-                poller.tick()
+                poller.tickAndSettle()
 
                 recordingRow(recordingId)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.STOPPING
             } finally {
@@ -985,7 +1000,7 @@ class RecordingPollerTest :
                 val composer = FakeRecordingComposer()
                 val poller = buildPoller(FakeLiveKitAdminClient(), FakeLiveKitEgressClient(), composer, hostRawRoot, documentStorageRoot)
 
-                poller.tick()
+                poller.tickAndSettle()
 
                 composer.callCount shouldBe 1
                 val row = recordingRow(recordingId)
@@ -1072,7 +1087,7 @@ class RecordingPollerTest :
                         prober = prober,
                     )
 
-                poller.tick()
+                poller.tickAndSettle()
 
                 val spec = captured ?: error("composer was not invoked")
                 prober.probedFileNames.toSet() shouldBe setOf(micFile.name, camFile.name, shareFile.name)
@@ -1122,7 +1137,7 @@ class RecordingPollerTest :
                         documentStorageRoot,
                         keepRaw = true,
                     )
-                poller.tick()
+                poller.tickAndSettle()
 
                 val row = recordingRow(recordingId)
                 row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.READY
@@ -1161,13 +1176,65 @@ class RecordingPollerTest :
                     FakeRecordingComposer(behavior = { _, _ -> throw RecordingComposeException(message = "simulated ffmpeg failure") })
                 val poller = buildPoller(FakeLiveKitAdminClient(), FakeLiveKitEgressClient(), composer, hostRawRoot, documentStorageRoot)
 
-                poller.tick()
+                poller.tickAndSettle()
 
                 val row = recordingRow(recordingId)
                 row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.PROCESSING
                 row[ConferenceRecordingTable.composeAttempts] shouldBe 1
                 rawDir.exists() shouldBe true
                 trackFile.exists() shouldBe true
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("WORKER: a second tick while the LAST attempt is composing neither fails the row nor loses the READY result") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-last-attempt-running@example.org")
+                val (roomId, _) = createRoom(member)
+                val recordingId =
+                    createRecording(roomId, member, ConferenceRecordingStatus.PROCESSING, composeAttempts = MAX_COMPOSE_ATTEMPTS - 1)
+                val rawDir = hostRawRoot.resolve(recordingId.toString()).apply { mkdirs() }
+                val trackFile = rawDir.resolve("alice__CAMERA__TR_a.mp4").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+                createTrack(
+                    recordingId,
+                    egressId = "EG_a-$recordingId",
+                    livekitTrackId = "TR_a",
+                    status = ConferenceRecordingTrackStatus.COMPLETE,
+                    trackSource = ConferenceRecordingTrackSource.CAMERA,
+                    fileName = trackFile.name,
+                    startedAtEpochNanos = 0L,
+                    durationMs = 5_000L,
+                )
+                val gate = CompletableDeferred<Unit>()
+                val entered = CompletableDeferred<Unit>()
+                val composer =
+                    object : RecordingComposer {
+                        override suspend fun compose(
+                            spec: RecordingComposeSpec,
+                            outputFile: File,
+                        ) {
+                            entered.complete(Unit)
+                            gate.await()
+                            outputFile.writeBytes(ByteArray(10) { 1 })
+                        }
+                    }
+                val poller = buildPoller(FakeLiveKitAdminClient(), FakeLiveKitEgressClient(), composer, hostRawRoot, documentStorageRoot)
+
+                withTimeout(10_000) { poller.tick() }
+                withTimeout(10_000) { entered.await() }
+                // the counter is now at the ceiling, but the worker is composing: the next tick must leave the row alone
+                withTimeout(10_000) { poller.tick() }
+                recordingRow(recordingId)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.PROCESSING
+
+                gate.complete(Unit)
+                withTimeout(10_000) { poller.awaitCompositionIdleForTest() }
+                val ready = recordingRow(recordingId)
+                ready[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.READY
+                ready[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
             } finally {
                 hostRawRoot.deleteRecursively()
                 documentStorageRoot.deleteRecursively()
@@ -1207,7 +1274,7 @@ class RecordingPollerTest :
                         keepRaw = false,
                     )
 
-                poller.tick()
+                poller.tickAndSettle()
 
                 val row = recordingRow(recordingId)
                 row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.FAILED
@@ -1233,7 +1300,7 @@ class RecordingPollerTest :
                 createTrack(recordingId, egressId = "EG_x-$recordingId", status = ConferenceRecordingTrackStatus.ABORTED)
 
                 val composer = FakeRecordingComposer()
-                buildPoller(FakeLiveKitAdminClient(), FakeLiveKitEgressClient(), composer, hostRawRoot, documentStorageRoot).tick()
+                buildPoller(FakeLiveKitAdminClient(), FakeLiveKitEgressClient(), composer, hostRawRoot, documentStorageRoot).tickAndSettle()
 
                 composer.callCount shouldBe 0
                 val row = recordingRow(recordingId)
@@ -1258,7 +1325,7 @@ class RecordingPollerTest :
                 val composer = FakeRecordingComposer()
                 val poller = buildPoller(FakeLiveKitAdminClient(), FakeLiveKitEgressClient(), composer, hostRawRoot, documentStorageRoot)
 
-                poller.tick()
+                poller.tickAndSettle()
 
                 composer.callCount shouldBe 0
                 recordingRow(recordingId)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.FAILED
@@ -1307,7 +1374,7 @@ class RecordingPollerTest :
                 val egressClient = FakeLiveKitEgressClient()
                 val poller = buildPoller(adminClient, egressClient, FakeRecordingComposer(), hostRawRoot, documentStorageRoot)
 
-                poller.tick()
+                poller.tickAndSettle()
 
                 // The healthy recording still made progress despite the broken one throwing in the same tick.
                 egressClient.started shouldHaveSize 1
@@ -1315,6 +1382,441 @@ class RecordingPollerTest :
                 // The broken recording is simply untouched -- still RECORDING, no crash propagated out of tick().
                 recordingRow(brokenRecordingId)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.RECORDING
                 recordingRow(healthyRecordingId)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.RECORDING
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        // ── RECOMPUTE of a READY recording (V1.9.109) ─────────────────────
+
+        /** READY recording with an archived document (version 1, a real blob), a camera + microphone track, raw files, and a recompute marker. */
+        class ReadyFixture(
+            val recordingId: Uuid,
+            val documentId: Uuid,
+            val rawDir: File,
+            val marker: LocalDateTime,
+            val firstVersionId: Uuid,
+        )
+
+        fun createReadyForRecompute(
+            member: Uuid,
+            documentStorageRoot: File,
+            hostRawRoot: File,
+            marker: LocalDateTime? = DbClock.nowLocalDateTime(),
+        ): ReadyFixture {
+            val (roomId, _) = createRoom(member)
+            val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.READY)
+            val source = Files.createTempFile("poller-first", ".mp4").toFile().apply { writeBytes(ByteArray(100) { 9 }) }
+            val documentId =
+                archiveGeneratedFile(
+                    storageRoot = documentStorageRoot,
+                    folderName = "Aufzeichnungen",
+                    fileName = "aufzeichnung-$recordingId.mp4",
+                    title = "Aufzeichnung $recordingId",
+                    sourceFile = source,
+                    mimeType = "video/mp4",
+                    uploadedBy = member,
+                    accessLevel = DocumentAccessLevel.BOARD_ONLY,
+                )
+            source.delete()
+            createdDocumentIds += documentId
+            val firstVersion =
+                transaction {
+                    DocumentTable.selectAll().where { DocumentTable.id eq documentId }.single()[DocumentTable.currentVersionId]!!
+                }
+            transaction {
+                ConferenceRecordingTable.update({ ConferenceRecordingTable.id eq recordingId }) {
+                    it[ConferenceRecordingTable.documentId] = documentId
+                    it[durationSeconds] = 5L
+                    it[fileSizeBytes] = 100L
+                    it[readyAt] = DbClock.nowLocalDateTime()
+                    it[recomputeStartedAt] = marker
+                }
+            }
+            val rawDir = hostRawRoot.resolve(recordingId.toString()).apply { mkdirs() }
+            val camFile = rawDir.resolve("alice__CAMERA__TR_a.mp4").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+            val micFile = rawDir.resolve("alice__MICROPHONE__TR_m.ogg").apply { writeBytes(byteArrayOf(4, 5)) }
+            createTrack(
+                recordingId,
+                egressId = "EG_a-$recordingId",
+                livekitTrackId = "TR_a",
+                status = ConferenceRecordingTrackStatus.COMPLETE,
+                trackSource = ConferenceRecordingTrackSource.CAMERA,
+                fileName = camFile.name,
+                startedAtEpochNanos = 0L,
+                durationMs = 5_000L,
+            )
+            createTrack(
+                recordingId,
+                egressId = "EG_m-$recordingId",
+                livekitTrackId = "TR_m",
+                status = ConferenceRecordingTrackStatus.COMPLETE,
+                trackSource = ConferenceRecordingTrackSource.MICROPHONE,
+                fileName = micFile.name,
+                startedAtEpochNanos = 0L,
+                durationMs = 5_000L,
+            )
+            val stored = recordingRow(recordingId)[ConferenceRecordingTable.recomputeStartedAt]
+            return ReadyFixture(recordingId, documentId, rawDir, stored ?: DbClock.nowLocalDateTime(), firstVersion)
+        }
+
+        fun versionsOf(documentId: Uuid) =
+            transaction { DocumentVersionTable.selectAll().where { DocumentVersionTable.documentId eq documentId }.toList() }
+
+        fun currentVersionOf(documentId: Uuid): Uuid =
+            transaction { DocumentTable.selectAll().where { DocumentTable.id eq documentId }.single()[DocumentTable.currentVersionId]!! }
+
+        fun recomputeAudit(recordingId: Uuid) =
+            transaction {
+                AuditLogEntryTable
+                    .selectAll()
+                    .where { AuditLogEntryTable.entityId eq recordingId }
+                    .map { it[AuditLogEntryTable.afterSnapshot] }
+            }
+
+        test("RECOMPUTE: success adds a NEW document version, switches the current one, keeps the old blob and the raw files") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-recompute-ok@example.org")
+                val fx = createReadyForRecompute(member, documentStorageRoot, hostRawRoot)
+                val oldStorageKey =
+                    versionsOf(fx.documentId).single()[DocumentVersionTable.storageKey]
+                var capturedSpec: RecordingComposeSpec? = null
+                val composer =
+                    FakeRecordingComposer { spec, outputFile ->
+                        capturedSpec = spec
+                        outputFile.writeBytes(ByteArray(777) { 3 })
+                    }
+                val poller =
+                    buildPoller(
+                        FakeLiveKitAdminClient(),
+                        FakeLiveKitEgressClient(),
+                        composer,
+                        hostRawRoot,
+                        documentStorageRoot,
+                        keepRaw = false,
+                    )
+
+                poller.tickAndSettle()
+
+                composer.callCount shouldBe 1
+                (capturedSpec != null) shouldBe true
+                val versions = versionsOf(fx.documentId).sortedBy { it[DocumentVersionTable.versionNumber] }
+                versions.map { it[DocumentVersionTable.versionNumber] } shouldBe listOf(1, 2)
+                val newVersion = versions.last()
+                currentVersionOf(fx.documentId) shouldBe newVersion[DocumentVersionTable.id]
+                newVersion[DocumentVersionTable.fileSizeBytes] shouldBe 777L
+                documentStorageRoot.resolve(newVersion[DocumentVersionTable.storageKey]).length() shouldBe 777L
+                // the previous version stays: row and bytes
+                documentStorageRoot.resolve(oldStorageKey).exists() shouldBe true
+                val row = recordingRow(fx.recordingId)
+                row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.READY
+                row[ConferenceRecordingTable.recomputeStartedAt] shouldBe null
+                (row[ConferenceRecordingTable.recomputedAt] != null) shouldBe true
+                row[ConferenceRecordingTable.lastRecomputeFailureCode] shouldBe null
+                row[ConferenceRecordingTable.fileSizeBytes] shouldBe 777L
+                row[ConferenceRecordingTable.documentId] shouldBe fx.documentId
+                // the raw files are NEVER deleted by a recompute, whatever keepRaw says
+                fx.rawDir.exists() shouldBe true
+                fx.rawDir.resolve("alice__CAMERA__TR_a.mp4").exists() shouldBe true
+                // no work files left behind
+                fx.rawDir.listFiles { f -> f.name.endsWith(".part") || f.name.startsWith(".work-") }!!.size shouldBe 0
+                recomputeAudit(fx.recordingId) shouldContain "recompute completed"
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test(
+            "RECOMPUTE: the composer fails -> the old version stays current and intact, COMPOSE_FAILED recorded, marker cleared, .part removed",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-recompute-fail@example.org")
+                val fx = createReadyForRecompute(member, documentStorageRoot, hostRawRoot)
+                val composer =
+                    FakeRecordingComposer { _, outputFile ->
+                        outputFile.writeBytes(byteArrayOf(1, 2, 3)) // a half-written result
+                        throw RecordingComposeException(message = "simulated failure")
+                    }
+                val poller = buildPoller(FakeLiveKitAdminClient(), FakeLiveKitEgressClient(), composer, hostRawRoot, documentStorageRoot)
+
+                poller.tickAndSettle()
+
+                versionsOf(fx.documentId).size shouldBe 1
+                currentVersionOf(fx.documentId) shouldBe fx.firstVersionId
+                val row = recordingRow(fx.recordingId)
+                row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.READY
+                row[ConferenceRecordingTable.recomputeStartedAt] shouldBe null
+                row[ConferenceRecordingTable.lastRecomputeFailureCode] shouldBe ConferenceRecordingFailureCode.COMPOSE_FAILED
+                row[ConferenceRecordingTable.fileSizeBytes] shouldBe 100L
+                fx.rawDir.listFiles { f -> f.name.endsWith(".part") }!!.size shouldBe 0
+                fx.rawDir.resolve("alice__CAMERA__TR_a.mp4").exists() shouldBe true
+                recomputeAudit(fx.recordingId) shouldContain "recompute failed (COMPOSE_FAILED)"
+                // a failed marker is not retried by the next tick
+                poller.tickAndSettle()
+                composer.callCount shouldBe 1
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("RECOMPUTE: the recording is deleted while the composer runs -> fencing: no orphan version, the new blob is removed") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-recompute-deleted@example.org")
+                val fx = createReadyForRecompute(member, documentStorageRoot, hostRawRoot)
+                val composer =
+                    FakeRecordingComposer { _, outputFile ->
+                        outputFile.writeBytes(ByteArray(500) { 1 })
+                        // what ConferenceRecordingService.deleteRecording does, in the middle of the composition
+                        transaction {
+                            ConferenceRecordingTrackTable.deleteWhere { ConferenceRecordingTrackTable.recordingId eq fx.recordingId }
+                            ConferenceRecordingTable.deleteWhere { ConferenceRecordingTable.id eq fx.recordingId }
+                        }
+                    }
+                val poller = buildPoller(FakeLiveKitAdminClient(), FakeLiveKitEgressClient(), composer, hostRawRoot, documentStorageRoot)
+                val blobsBefore = documentStorageRoot.resolve(fx.documentId.toString()).listFiles()!!.size
+
+                poller.tickAndSettle()
+
+                versionsOf(fx.documentId).size shouldBe 1
+                currentVersionOf(fx.documentId) shouldBe fx.firstVersionId
+                documentStorageRoot.resolve(fx.documentId.toString()).listFiles()!!.size shouldBe blobsBefore
+                transaction {
+                    ConferenceRecordingTable.selectAll().where { ConferenceRecordingTable.id eq fx.recordingId }.count()
+                } shouldBe
+                    0L
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("RECOMPUTE: a newer request replaced the marker while the composer ran -> the old worker writes nothing") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-recompute-superseded@example.org")
+                val fx = createReadyForRecompute(member, documentStorageRoot, hostRawRoot)
+                val newerMarker = fx.marker.toJavaLocalDateTimeShiftedMinutes(5)
+                val composer =
+                    FakeRecordingComposer { _, outputFile ->
+                        outputFile.writeBytes(ByteArray(500) { 1 })
+                        transaction {
+                            ConferenceRecordingTable.update({ ConferenceRecordingTable.id eq fx.recordingId }) {
+                                it[recomputeStartedAt] =
+                                    newerMarker
+                            }
+                        }
+                    }
+                val poller = buildPoller(FakeLiveKitAdminClient(), FakeLiveKitEgressClient(), composer, hostRawRoot, documentStorageRoot)
+
+                poller.tickAndSettle()
+
+                versionsOf(fx.documentId).size shouldBe 1
+                currentVersionOf(fx.documentId) shouldBe fx.firstVersionId
+                // the newer request's marker is untouched (the failure write of the old worker is fenced as well)
+                recordingRow(fx.recordingId)[ConferenceRecordingTable.recomputeStartedAt] shouldBe newerMarker
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("RECOMPUTE: a marker far older than twice the compose timeout with no worker is declared failed without composing") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-recompute-stale@example.org")
+                val old = DbClock.nowLocalDateTime().toJavaLocalDateTimeShiftedMinutes(-600)
+                val fx = createReadyForRecompute(member, documentStorageRoot, hostRawRoot, marker = old)
+                val composer = FakeRecordingComposer()
+                val poller =
+                    buildPoller(
+                        FakeLiveKitAdminClient(),
+                        FakeLiveKitEgressClient(),
+                        composer,
+                        hostRawRoot,
+                        documentStorageRoot,
+                        composeTimeoutMinutes = 120,
+                    )
+
+                poller.tickAndSettle()
+
+                composer.callCount shouldBe 0
+                val row = recordingRow(fx.recordingId)
+                row[ConferenceRecordingTable.recomputeStartedAt] shouldBe null
+                row[ConferenceRecordingTable.lastRecomputeFailureCode] shouldBe ConferenceRecordingFailureCode.COMPOSE_FAILED
+                versionsOf(fx.documentId).size shouldBe 1
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("RECOMPUTE: not enough free disk space right before the start fails the recompute without composing") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-recompute-disk@example.org")
+                val fx = createReadyForRecompute(member, documentStorageRoot, hostRawRoot)
+                val composer = FakeRecordingComposer()
+                val poller =
+                    buildPoller(
+                        FakeLiveKitAdminClient(),
+                        FakeLiveKitEgressClient(),
+                        composer,
+                        hostRawRoot,
+                        documentStorageRoot,
+                        diskSpace = { 1_000L },
+                    )
+
+                poller.tickAndSettle()
+
+                composer.callCount shouldBe 0
+                recordingRow(fx.recordingId)[ConferenceRecordingTable.lastRecomputeFailureCode] shouldBe
+                    ConferenceRecordingFailureCode.COMPOSE_FAILED
+                recordingRow(fx.recordingId)[ConferenceRecordingTable.recomputeStartedAt] shouldBe null
+                versionsOf(fx.documentId).size shouldBe 1
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("WORKER: a long composition does not block the tick -- a RECORDING meeting still gets its egress started meanwhile") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-worker-nonblocking@example.org")
+                val fx = createReadyForRecompute(member, documentStorageRoot, hostRawRoot)
+                val (liveRoomId, liveRoomName) = createRoom(member)
+                createRecording(liveRoomId, member, ConferenceRecordingStatus.RECORDING)
+                val adminClient = FakeLiveKitAdminClient()
+                adminClient.participantsByRoom[liveRoomName] =
+                    listOf(
+                        LiveKitParticipantInfo(
+                            identity = member.toString(),
+                            tracks = listOf(LiveKitTrackInfo(sid = "TR_late_joiner", type = "VIDEO", source = "CAMERA", muted = false)),
+                        ),
+                    )
+                val egressClient = FakeLiveKitEgressClient()
+                val gate = CompletableDeferred<Unit>()
+                val entered = CompletableDeferred<Unit>()
+                val composer =
+                    object : RecordingComposer {
+                        override suspend fun compose(
+                            spec: RecordingComposeSpec,
+                            outputFile: File,
+                        ) {
+                            entered.complete(Unit)
+                            gate.await()
+                            outputFile.writeBytes(ByteArray(10) { 1 })
+                        }
+                    }
+                val poller = buildPoller(adminClient, egressClient, composer, hostRawRoot, documentStorageRoot)
+
+                // the first tick starts the worker and returns at once, with the composition still hanging
+                withTimeout(10_000) { poller.tick() }
+                withTimeout(10_000) { entered.await() }
+                // the egress of the live meeting was started in THIS tick already, although the composer has not finished
+                egressClient.started.map { it.second } shouldContain "TR_late_joiner"
+                // a second tick while the worker is busy neither blocks nor starts a second composition
+                withTimeout(10_000) { poller.tick() }
+                (recordingRow(fx.recordingId)[ConferenceRecordingTable.recomputeStartedAt] != null) shouldBe true
+
+                gate.complete(Unit)
+                withTimeout(10_000) { poller.awaitCompositionIdleForTest() }
+                versionsOf(fx.documentId).size shouldBe 2
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("WORKER: composeOne with ranges from the prober: the spec carries the data ranges, media durations and the wall duration") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-ranges@example.org")
+                val (roomId, _) = createRoom(member)
+                val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.PROCESSING)
+                val rawDir = hostRawRoot.resolve(recordingId.toString()).apply { mkdirs() }
+                val camFile = rawDir.resolve("a__CAMERA__TR_a.webm").apply { writeBytes(byteArrayOf(1)) }
+                val micFile = rawDir.resolve("a__MICROPHONE__TR_m.ogg").apply { writeBytes(byteArrayOf(2)) }
+                createTrack(
+                    recordingId,
+                    "EG_a-$recordingId",
+                    "TR_a",
+                    ConferenceRecordingTrackStatus.COMPLETE,
+                    ConferenceRecordingTrackSource.CAMERA,
+                    camFile.name,
+                    1_000_000_000L,
+                    60_000L,
+                )
+                createTrack(
+                    recordingId,
+                    "EG_m-$recordingId",
+                    "TR_m",
+                    ConferenceRecordingTrackStatus.COMPLETE,
+                    ConferenceRecordingTrackSource.MICROPHONE,
+                    micFile.name,
+                    1_000_000_000L,
+                    60_400L,
+                )
+                val prober =
+                    object : RecordingMediaProber {
+                        override suspend fun probeDurationSeconds(file: File): Double? = null
+
+                        override suspend fun probePacketRanges(
+                            file: File,
+                            kind: StreamKind,
+                            gapThresholdSeconds: Double,
+                        ): PacketRanges? =
+                            if (kind == StreamKind.VIDEO) {
+                                PacketRanges(
+                                    ranges =
+                                        listOf(
+                                            TimeRange(startSeconds = 0.0, endSeconds = 20.0),
+                                            TimeRange(startSeconds = 30.0, endSeconds = 60.0),
+                                        ),
+                                    mediaDurationSeconds = 60.0,
+                                )
+                            } else {
+                                PacketRanges(ranges = listOf(TimeRange(startSeconds = 0.0, endSeconds = 60.0)), mediaDurationSeconds = 59.5)
+                            }
+                    }
+                var captured: RecordingComposeSpec? = null
+                val composer =
+                    FakeRecordingComposer { spec, outputFile ->
+                        captured = spec
+                        outputFile.writeBytes(byteArrayOf(1))
+                    }
+                buildPoller(
+                    FakeLiveKitAdminClient(),
+                    FakeLiveKitEgressClient(),
+                    composer,
+                    hostRawRoot,
+                    documentStorageRoot,
+                    prober = prober,
+                ).tickAndSettle()
+
+                val spec = captured ?: error("composer was not invoked")
+                spec.videoInputs.single().ranges shouldBe
+                    listOf(TimeRange(startSeconds = 0.0, endSeconds = 20.0), TimeRange(startSeconds = 30.0, endSeconds = 60.0))
+                spec.videoInputs.single().durationSeconds shouldBe 60.0
+                spec.audioInputs.single().ranges shouldBe listOf(TimeRange(startSeconds = 0.0, endSeconds = 60.0))
+                spec.audioInputs.single().mediaDurationSeconds shouldBe 59.5
+                // no ended_at stored in this fixture: the reported duration is the wall duration
+                spec.audioInputs.single().wallDurationSeconds shouldBe (60.4 plusOrMinus 1e-9)
+                recordingRow(recordingId)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
             } finally {
                 hostRawRoot.deleteRecursively()
                 documentStorageRoot.deleteRecursively()
