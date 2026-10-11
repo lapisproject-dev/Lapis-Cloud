@@ -32,6 +32,7 @@ import network.lapis.cloud.server.conference.LiveKitAdminException
 import network.lapis.cloud.server.conference.LiveKitEgressClient
 import network.lapis.cloud.server.conference.LiveKitEgressInfo
 import network.lapis.cloud.server.conference.LiveKitParticipantInfo
+import network.lapis.cloud.server.conference.LiveKitParticipantPermissionUpdate
 import network.lapis.cloud.server.conference.LiveKitRoomInfo
 import network.lapis.cloud.server.conference.NoOpSecretBallotStreamGuard
 import network.lapis.cloud.server.conference.SecretBallotStreamGuard
@@ -2878,6 +2879,25 @@ private class ControllableFakeLiveKitEgressClient(
 
 /** Only [ConferenceService.setRoomMeeting] is ever exercised through this client in this file -- no LiveKit admin call is on that path, so every method here is unreachable. */
 private object StubLiveKitAdminClient : LiveKitAdminClient {
+    override suspend fun muteMicrophone(
+        room: String,
+        identity: String,
+        trackSid: String,
+    ): Unit = throw UnsupportedOperationException("muteMicrophone is not used by this fake")
+
+    override suspend fun updateParticipantPermission(
+        room: String,
+        identity: String,
+        permission: LiveKitParticipantPermissionUpdate,
+    ): Unit = throw UnsupportedOperationException("updateParticipantPermission is not used by this fake")
+
+    override suspend fun sendDataTo(
+        room: String,
+        topic: String,
+        payload: ByteArray,
+        destinationIdentities: List<String>,
+    ): Unit = throw UnsupportedOperationException("sendDataTo is not used by this fake")
+
     override suspend fun sendData(
         room: String,
         topic: String,

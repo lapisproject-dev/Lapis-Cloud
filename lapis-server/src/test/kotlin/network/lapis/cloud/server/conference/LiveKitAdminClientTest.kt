@@ -295,4 +295,185 @@ class LiveKitAdminClientTest :
             val secondJti = SignedJWT.parse(tokens[1]).jwtClaimsSet.jwtid
             (firstJti == secondJti) shouldBe false
         }
+
+        // -- V1.9.108: moderator audio controls ---------------------------------------------------------------------------
+
+        test(
+            "muteMicrophone POSTs MutePublishedTrack with EXACTLY room, identity, track_sid and muted:true, and scopes the token to the room",
+        ) {
+            var capturedUrl = ""
+            var capturedBody = ""
+            var capturedToken = ""
+            val client =
+                mockClient { request ->
+                    capturedUrl = request.url.toString()
+                    capturedBody = bodyText(request)
+                    capturedToken = bearerToken(request)
+                    jsonResponse("""{"track":{"sid":"TR_x","muted":true}}""")
+                }
+            val admin = HttpLiveKitAdminClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
+
+            admin.muteMicrophone(room = ROOM_NAME, identity = "member-1", trackSid = "TR_abc")
+
+            capturedUrl shouldBe "$API_URL/twirp/livekit.RoomService/MutePublishedTrack"
+            // Pitfall S1: the default value must be on the wire, otherwise LiveKit reads muted=false and the mute silently does nothing.
+            capturedBody shouldBe """{"room":"$ROOM_NAME","identity":"member-1","track_sid":"TR_abc","muted":true}"""
+            val video = SignedJWT.parse(capturedToken).jwtClaimsSet.getJSONObjectClaim("video")
+            video["room"] shouldBe ROOM_NAME
+            video["roomAdmin"] shouldBe true
+        }
+
+        test("a MutePublishedTrack request can never be constructed as an unmute") {
+            shouldThrow<IllegalArgumentException> {
+                LiveKitMutePublishedTrackRequest(room = ROOM_NAME, identity = "member-1", trackSid = "TR_abc", muted = false)
+            }
+        }
+
+        test("updateParticipantPermission POSTs UpdateParticipant with the COMPLETE permission and nothing else") {
+            var capturedBody = ""
+            var capturedUrl = ""
+            val client =
+                mockClient { request ->
+                    capturedUrl = request.url.toString()
+                    capturedBody = bodyText(request)
+                    jsonResponse("""{"identity":"member-1"}""")
+                }
+            val admin = HttpLiveKitAdminClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
+
+            admin.updateParticipantPermission(
+                room = ROOM_NAME,
+                identity = "member-1",
+                permission = conferencePermission(microphoneAllowed = false),
+            )
+
+            capturedUrl shouldBe "$API_URL/twirp/livekit.RoomService/UpdateParticipant"
+            capturedBody shouldBe
+                """{"room":"$ROOM_NAME","identity":"member-1","permission":{"can_subscribe":true,""" +
+                """"can_publish":true,"can_publish_data":true,""" +
+                """"can_publish_sources":["CAMERA","SCREEN_SHARE","SCREEN_SHARE_AUDIO"]}}"""
+            capturedBody shouldNotContain "metadata"
+            capturedBody shouldNotContain "attributes"
+            capturedBody shouldNotContain "\"name\""
+        }
+
+        test("conferencePermission lists the microphone only when it is allowed, and always keeps subscribe, publish and publish-data") {
+            conferencePermission(microphoneAllowed = true).canPublishSources shouldBe
+                listOf("CAMERA", "SCREEN_SHARE", "SCREEN_SHARE_AUDIO", "MICROPHONE")
+            conferencePermission(microphoneAllowed = false).canPublishSources shouldBe
+                listOf("CAMERA", "SCREEN_SHARE", "SCREEN_SHARE_AUDIO")
+            listOf(true, false).forEach {
+                val permission = conferencePermission(microphoneAllowed = it)
+                permission.canSubscribe shouldBe true
+                permission.canPublish shouldBe true
+                permission.canPublishData shouldBe true
+            }
+        }
+
+        test("sendDataTo adds destination_identities; the broadcast sendData still omits the key") {
+            val bodies = mutableListOf<String>()
+            val client =
+                mockClient { request ->
+                    bodies += bodyText(request)
+                    jsonResponse("{}")
+                }
+            val admin = HttpLiveKitAdminClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
+            val payload = """{"v":1,"k":"muted"}""".encodeToByteArray()
+
+            admin.sendDataTo(
+                room = ROOM_NAME,
+                topic = "lapis-conference-moderation",
+                payload = payload,
+                destinationIdentities = listOf("a", "b"),
+            )
+            admin.sendData(room = ROOM_NAME, topic = "lapis-conference-moderation", payload = payload)
+
+            bodies[0] shouldContain "\"destination_identities\":[\"a\",\"b\"]"
+            bodies[0] shouldContain "\"topic\":\"lapis-conference-moderation\""
+            bodies[1] shouldNotContain "destination_identities"
+        }
+
+        test("sendDataTo refuses no destination (it would mean everybody), too many destinations and an oversized payload") {
+            val admin =
+                HttpLiveKitAdminClient(
+                    apiUrl = API_URL,
+                    apiKey = API_KEY,
+                    apiSecret = API_SECRET,
+                    httpClient = mockClient { _ -> jsonResponse("{}") },
+                )
+            val small = """{"v":1}""".encodeToByteArray()
+            shouldThrow<IllegalArgumentException> {
+                admin.sendDataTo(
+                    room = ROOM_NAME,
+                    topic = "lapis-conference-moderation",
+                    payload = small,
+                    destinationIdentities = emptyList(),
+                )
+            }
+            shouldThrow<IllegalArgumentException> {
+                admin.sendDataTo(
+                    room = ROOM_NAME,
+                    topic = "lapis-conference-moderation",
+                    payload = small,
+                    destinationIdentities =
+                        List(
+                            MAX_SEND_DATA_DESTINATIONS + 1,
+                        ) { "m$it" },
+                )
+            }
+            shouldThrow<IllegalArgumentException> {
+                admin.sendDataTo(
+                    room = ROOM_NAME,
+                    topic = "lapis-conference-moderation",
+                    payload = ByteArray(129),
+                    destinationIdentities = listOf("a"),
+                )
+            }
+            // other topics keep the small blessing cap
+            shouldThrow<IllegalArgumentException> {
+                admin.sendDataTo(room = ROOM_NAME, topic = "other", payload = ByteArray(17), destinationIdentities = listOf("a"))
+            }
+        }
+
+        test("the three new calls map failures to LiveKitAdminException without the response body") {
+            val admin =
+                HttpLiveKitAdminClient(
+                    apiUrl = API_URL,
+                    apiKey = API_KEY,
+                    apiSecret = API_SECRET,
+                    httpClient = mockClient { _ -> respondError(HttpStatusCode.Forbidden, "secret-body-text") },
+                )
+            listOf(
+                suspend { admin.muteMicrophone(room = ROOM_NAME, identity = "m", trackSid = "TR_1") },
+                suspend { admin.updateParticipantPermission(room = ROOM_NAME, identity = "m", permission = conferencePermission(false)) },
+                suspend {
+                    admin.sendDataTo(
+                        room = ROOM_NAME,
+                        topic = "lapis-conference-moderation",
+                        payload = """{"v":1}""".encodeToByteArray(),
+                        destinationIdentities = listOf("m"),
+                    )
+                },
+            ).forEach { call ->
+                val exception = shouldThrow<LiveKitAdminException> { call() }
+                exception.message shouldContain "403"
+                exception.message?.shouldNotContain("secret-body-text")
+            }
+        }
+
+        test("the participant permission DTO reads can_publish_sources and can_subscribe from a ListParticipants response") {
+            val client =
+                mockClient { _ ->
+                    jsonResponse(
+                        """{"participants":[{"sid":"PA_1","identity":"m","tracks":[],"permission":{"can_subscribe":true,""" +
+                            """"can_publish":true,""" +
+                            """"can_publish_data":true,"can_publish_sources":["CAMERA","MICROPHONE"]}}]}""",
+                    )
+                }
+            val admin = HttpLiveKitAdminClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
+
+            val permission = admin.listParticipants(ROOM_NAME).single().permission!!
+
+            permission.canSubscribe shouldBe true
+            permission.canPublishSources shouldBe listOf("CAMERA", "MICROPHONE")
+        }
     })

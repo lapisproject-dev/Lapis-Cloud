@@ -6,6 +6,35 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Moderation can mute microphones; the call page loses its title bar in full screen (V1.9.108, server, client, one migration `V88`).** In a running video conference the room creator and `BOARD`/`ADMIN` can mute one person (`muteParticipant`), mute everybody (`muteAll`, with a confirmation that names the count and puts the focus on "Abbrechen"), ask a person to switch the microphone on (`requestUnmute`, "Bitten") and set two room options in a "Moderation" disclosure: **join muted** (`mute_on_join`) and **lock the microphones** (`participants_may_unmute = false`). A lock is enforced by the server: the join token of a non-moderator carries no `MICROPHONE` publish source, `UpdateParticipant` replaces the permission of everybody present (and mutes open microphones), and a new `ConferenceAudioPolicyReconciler` (every 5 s, only locked rooms) closes the gap of a reconnect with an old token. "Bitten" in a locked room additionally releases that one person (in memory). The participant list shows Kare's symbol with its words ("Mikrofon an", "Stumm", "Von der Moderation stummgeschaltet") from the real `TrackMuted` signal (not the old "does a track exist" guess); the affected person gets a calm band and a live-region announcement; a locked microphone button is disabled with the reason. In full screen the heading row paints nothing, the heading stays in the accessibility tree and "Bearbeiten" leaves the tab order. Details: `docs/architecture/conference-moderation-audio.adoc`.
+  - **No forced unmute, by construction:** a moderator can only ask. `LiveKitAdminClient.muteMicrophone` always sends `muted = true` (the request type cannot be built with `false`; `@EncodeDefault(ALWAYS)` because the LiveKit JSON codec omits defaults), and `ConferenceNoForcedUnmuteTripwireTest` fails the build if a forced-unmute path appears.
+  - *Privacy:* the audit entry (`CONFERENCE_ROOM`, `UPDATE`) carries actor, action, room and a count, **never the people affected**; every refusal is the same `ForbiddenException`; logs name counts only. The moderators present learn who was muted (`muted_peer`), everybody else sees plain "Stumm". Peer rule: somebody without `BOARD`/`ADMIN` cannot mute or ask a `BOARD`/`ADMIN`.
+
+### API / behaviour changes
+
+- New RPC service `IConferenceModerationService` (`muteParticipant`, `muteAll`, `estimateMuteAll`, `requestUnmute`, `setRoomAudioPolicy`).
+- `ConferenceRoomDto` and `ConferenceRoomInput` gain `muteOnJoin` (default `false`) and `participantsMayUnmute` (default `true`), appended with defaults: an older client reads a newer server and the other way round without a version gate (`ConferenceModerationWireCompatTest`).
+- A participant token of a LOCKED room carries `canPublishSources = [camera, screen_share, screen_share_audio]` for a participant who is not a moderator and was not individually released; every other token is byte-for-byte as before. `LiveKitAccessToken.mintParticipantToken` has a new required parameter `microphoneAllowed`.
+- New LiveKit data topic `lapis-conference-moderation` (server to client only, at most 128 bytes).
+
+### Operator notes
+
+- **Migration `V88__conference_room_audio_policy.sql`** (two additive columns of `conference_room`, `mute_on_join` and `participants_may_unmute`) runs automatically; `V1__baseline.sql` is untouched, **no `flywayRepair`**. The reported Flyway count goes up by one.
+- **`enable_remote_unmute` must stay off** in every LiveKit configuration (it would let an API call switch a microphone on); the shipped configs are checked by `LiveKitConfigNoRemoteUnmuteTest`. Check the operator-owned configs of the real instances (private ops repo) by hand.
+- The help page `video-conferencing` is brought up to date at rollout.
+
+### Known limitations (V1.9.108)
+
+- **Verified against a real LiveKit 1.13.5 on 2026-10-11** with a real `MICROPHONE` publisher: `MutePublishedTrack` mutes it, `UpdateParticipant` with `MICROPHONE` among `can_publish_sources` is accepted, and LiveKit itself removes a published microphone when the source leaves the permission. **Not verified:** the `canPublishSources` claim of the participant JWT against a real browser join, the client behaviour (`TrackMuted` of a server-muted local track, `ParticipantPermissionsChanged`) in a real browser call, TalkBack or VoiceOver in the mobile WebView. The reconciler is the safety net for the first.
+- Recording and stream contain silence while a microphone is muted.
+- "Join muted" without the lock is only a default; the server does not enforce it.
+- Individual releases ("Bitten" in a locked room) are in memory and disappear on a server restart.
+- Breakout rooms are not covered (a person in a breakout room is not in the LiveKit main room; breakout tokens carry no lock); the lock is applied when the person returns to the main room.
+- After unlocking, a participant who reconnects with an old locked token stays without the microphone permission until they re-enter.
+- There is no "raise hand" in the video conference (only in the encounter room): **open**, outside this wave.
+
 ## [0.31.2] — 2026-10-11
 
 Patch release on top of `[0.31.1]`: repairs the recording composition and guest federation, makes the conference call page really full width, and adds committee, article and MCP waves (V1.9.98 -- V1.9.107). Grouped by topic below; the per-wave detail follows in the sections underneath.

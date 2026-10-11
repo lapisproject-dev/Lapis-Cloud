@@ -1,0 +1,170 @@
+= Conference moderation: mute, ask, lock the microphones (V1.9.108)
+:toc:
+
+NOTE: The `[kuml]` blocks of this document are rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+== Purpose
+
+In a running video conference the moderation (the room creator, or a member with the account role `BOARD` or `ADMIN`) can
+
+* **mute** one person or **everybody** (`muteParticipant`, `muteAll`),
+* **ask** a person to switch the microphone on (`requestUnmute`, the button reads "Bitten"),
+* **lock** the room's microphones (`participants_may_unmute = false`) so participants cannot switch themselves on, and let participants **join muted**
+  (`mute_on_join`).
+
+The call page also loses its title bar in full screen (the heading stays in the accessibility tree, "Bearbeiten" leaves the tab order).
+
+The service is `IConferenceModerationService` / `ConferenceModerationService` (a separate service like breakout, whiteboard, recording and streaming:
+`ConferenceService` is already over 1600 lines). The authority is the shared `ConferenceModeratorAuthority`, always re-derived from the database.
+
+== There is no way to switch a microphone on for somebody
+
+A moderator can only *ask*. The server has no method that unmutes: `LiveKitAdminClient.muteMicrophone` always sends `muted = true` (the request type
+cannot even be constructed with `false`, and `@EncodeDefault(ALWAYS)` puts the value on the wire, because the LiveKit JSON codec does not encode
+defaults), and `enable_remote_unmute` must stay off in every LiveKit configuration. Three tests pin this:
+`ConferenceNoForcedUnmuteTripwireTest` (no `muted = false` in any spelling, no "unmute" identifier other than the allow-listed ask / lock names, no
+`muted` argument to the request type), `LiveKitConfigNoRemoteUnmuteTest` (the shipped configs) and `LiveKitAdminClientTest` (the exact request body).
+
+== Rights and the uniform refusal
+
+Every call follows three phases (LiveKit is never called inside a `transaction {}`, because Exposed repeats the whole block on a `SQLException`):
+
+[kuml, conference-moderation-mute-all, svg]
+----
+sequenceDiagram(name = "Alle stummschalten") {
+    val moderator = lifeline(name = "Moderator client")
+    val service = lifeline(name = "ConferenceModerationService")
+    val db = lifeline(name = "Database")
+    val livekit = lifeline(name = "LiveKit Room Service")
+    val people = lifeline(name = "Muted people and moderators")
+
+    message(from = moderator, to = service, label = "estimateMuteAll(roomId): the count for the confirmation")
+    message(from = moderator, to = service, label = "muteAll(roomId) after the confirmation")
+    message(from = service, to = db, label = "phase 1: room active, no encounter session, caller moderates")
+    message(from = service, to = livekit, label = "phase 2: ListParticipants")
+    message(from = service, to = db, label = "BOARD/ADMIN among the live members (read only)")
+    message(from = service, to = livekit, label = "MutePublishedTrack (muted = true) per open microphone, in turn")
+    message(from = service, to = people, label = "SendData: muted (to the person), muted_peer (to the moderators)")
+    message(from = service, to = db, label = "phase 3: one audit entry, last operation")
+    message(from = service, to = moderator, label = "number of people actually muted")
+}
+----
+
+Every refusal of the five calls is the **same** `ForbiddenException` (`MODERATION_DENIED`; Kilua transmits only the exception type, so the client cannot
+tell the cases apart and no existence or role oracle arises): no authority, unknown / ended / malformed room id, an encounter session, a target that is not
+in the room, the room creator or oneself, and the peer rule. Rate-limit and "conference off" refusals keep their own `ConflictException`.
+
+*Peer rule.* Somebody without `BOARD`/`ADMIN` (the room creator as an ordinary member) cannot mute or ask a `BOARD`/`ADMIN`. `BOARD` against `ADMIN`
+and `ADMIN` against `ADMIN` are allowed: the four-eyes mechanism of V1.9.57 (`PeerGuard`) protects against account takeover; a mute is a reversible
+order measure, not an account change. Consequence: a member who moderates a round while a board member talks in cannot do anything about it. This is a
+deliberate difference to `removeParticipant`, which has no such rule (open point for a later wave). The client does not know who is privileged (the
+participant list must not become a role oracle): it shows the button and the server refuses uniformly.
+
+*Muting everybody* skips the room creator, the caller, `BOARD`/`ADMIN` and every LiveKit identity that is not a member UUID (egress, recorder).
+
+== The three microphone states
+
+[kuml, conference-mic-states, svg]
+----
+stateDiagram(name = "Microphone of a participant") {
+    val start = initialState()
+    val open = state(name = "Open")
+    val muted = state(name = "Muted")
+    val moderated = state(name = "Muted by the moderators")
+    val locked = state(name = "Locked (cannot switch on)")
+
+    transition(source = start, target = open)
+    transition(source = open, target = muted) { trigger = "the person mutes" }
+    transition(source = muted, target = open) { trigger = "the person unmutes" }
+    transition(source = open, target = moderated) { trigger = "muteParticipant / muteAll" }
+    transition(source = moderated, target = open) { trigger = "the person unmutes (never anybody else)" }
+    transition(source = open, target = locked) { trigger = "lock on: permission without MICROPHONE, microphone muted" }
+    transition(source = locked, target = muted) { trigger = "lock off, or requestUnmute releases this one person" }
+}
+----
+
+LiveKit reports only "track muted", not by whom. The server therefore sends data packets (see below): the person learns "muted by the moderation" about
+themselves, the moderators present learn it about the person (`muted_peer`); everybody else sees plain "Stumm". Nobody is exposed publicly (Ive: an
+order measure, not a punishment). The moderation mark is lifted by the person's next unmute.
+
+== Lock: token, permission and reconciler
+
+The lock has three layers, because no single one is enough:
+
+. **Token.** `LiveKitAccessToken.mintParticipantToken(microphoneAllowed = ...)` (a required parameter, so the compiler forces every call site to decide)
+  adds `canPublishSources = [camera, screen_share, screen_share_audio]` when the room is locked and the holder is neither a moderator nor individually
+  released. Used by `ConferenceService.joinRoom` and `ConferenceBreakoutService.rejoinMainRoomToken` through one function
+  (`ConferenceAudioPolicy.microphoneAllowedFor`); otherwise "enter a breakout room, come back" would be a way around the lock. Breakout tokens themselves
+  stay without lock (known limitation).
+. **UpdateParticipant.** Switching the lock changes the permission of everybody present (`conferencePermission(microphoneAllowed)`: the COMPLETE
+  permission, because LiveKit replaces it as a whole, a missing field would take sound, camera or screen share away) and, on locking, mutes open
+  microphones of non-moderators. Verified against a real LiveKit 1.13.5 on 2026-10-11: LiveKit itself removes an already published microphone track when
+  `MICROPHONE` leaves `can_publish_sources`.
+. **`ConferenceAudioPolicyReconciler`** (every 5 s, only locked, active, ordinary rooms). The SDK reconnects with the ORIGINAL token, so a person who
+  joined before the lock would get the microphone back on a reconnect. The reconciler corrects a permission that still names `MICROPHONE` (or lists no
+  source at all, which LiveKit reads as "every source") and mutes an open microphone, for everybody who is not a moderator and has no release. It skips
+  non-UUID identities, never throws, and its logs name counts only.
+
+*Asking in a locked room.* "Bitten" additionally releases that ONE person (`ConferenceAudioGrantState`, in memory, at most `max_participants` per room): the
+permission is replaced WITH `MICROPHONE`, and the person switches on themselves. A release is dropped when the lock changes, the person leaves, the room
+ends, and on a server restart.
+
+*Join muted* (`mute_on_join`) is a client default for non-moderators. Without the lock the server does not enforce it.
+
+== Data packets (server to client)
+
+Topic `lapis-conference-moderation` (the house pattern `lapis-...`), JSON, at most 128 bytes, kinds `muted`, `muted_peer` (with the member UUID),
+`unmute_request`, `lock`, `unlock`. Participants hold `can_publish_data`, so the client accepts a packet **only if it has no sending participant** (a packet
+sent through `SendData` carries none), and that branch sits before the participant check. `conferenceModerationPacket` decodes strictly: exactly `{"v":1,"k":...}`
+(plus `id` for `muted_peer`), an unknown kind, an extra key or a malformed UUID gives `null`. A packet informs the UI only. The truth for the state of the
+microphone button is the participant's permission (`ParticipantPermissionsChanged`), not a packet. An old client discards packets without a participant before
+it looks at the topic.
+
+== Audit and privacy
+
+One audit entry per action (`CONFERENCE_ROOM`, `UPDATE`): `{"moderation":"mute_all","count":7}`; the closed set of values is `mute_one`, `mute_all`,
+`unmute_request`, `audio_policy` (with the two flags). It names the actor (the audit actor columns), the room and a count, **never the people affected**
+(decision F1; if "whom" is ever wanted: the member UUID only, never a name). Logs and exceptions contain no identity, name or room id.
+
+== Rate limits
+
+Process-wide singletons (`Application.module`; Kilua builds the service per RPC call, so a constructor default would be fresh and empty every time):
+
+[cols="2,2,2"]
+|===
+| Action | Key | Limit
+
+| `muteAll` | room | 1 per 10 s
+| `muteParticipant` | moderator | 20 per minute
+| `requestUnmute` | room and person | 1 per 30 s
+| `setRoomAudioPolicy` | room | 1 per 5 s
+| `estimateMuteAll` | moderator | 30 per minute
+|===
+
+The per-room budgets are consumed only AFTER the caller has been authorized, so an outsider cannot use up a moderator's budget.
+
+== User interface
+
+* Participant list: Kare's symbol with its words ("Mikrofon an", "Stumm", "Von der Moderation stummgeschaltet"); for moderators a FIXED action slot per row
+  ("Stummschalten" with an open microphone, "Bitten" otherwise, or an empty placeholder of the same width); "Alle stummschalten" at the head of the list, the
+  confirmation shows the server's count and puts the focus on "Abbrechen".
+* The "Moderation" disclosure (in the "Mehr" sheet, next to the guest-access row) holds the two switches. The room form of the lobby does not exist (design
+  decision D4, "one button, no form"), so the options are set inside the running room; `ConferenceRoomInput` carries the two fields for API completeness.
+* The affected person gets a calm info band (never error red; a 44 px close button) and a live-region announcement; a request is a band without focus
+  change with the person's OWN toggle as its first button. A locked microphone button is disabled with the lock symbol and the reason as label and tooltip.
+* Full screen: the heading row paints nothing (`.lapis-conference-fullscreen .lapis-conference-title-row`), the `h2` stays (clip pattern), "Bearbeiten" is
+  `display:none`. The region keeps its `aria-label` "Besprechung" (not switched to `aria-labelledby`: that would change the behaviour outside full screen).
+
+== Known limitations
+
+* The room lock was verified against a real LiveKit 1.13.5 with a real MICROPHONE publisher for `MutePublishedTrack` and `UpdateParticipant` (see
+  `LiveKitLiveIntegrationTest`, env `LAPIS_LIVEKIT_IT`, `LAPIS_LIVEKIT_IT_LK`, `LAPIS_LIVEKIT_IT_OGG`). The `canPublishSources` claim of the participant JWT
+  (lower-case names) was NOT verified against a real browser join; the reconciler covers a token that does not enforce it.
+* Recording and stream contain silence while a microphone is muted.
+* Breakout rooms are not covered: a person in a breakout room is not in the LiveKit main room (the moderators cannot reach them there), and breakout
+  tokens carry no lock. The lock is applied when the person returns (`rejoinMainRoomToken`).
+* After UNLOCKING, a participant who reconnects with an old, locked token stays without the microphone permission until they re-enter (the reconciler only
+  watches locked rooms).
+* Individual releases are in memory and disappear on a server restart.
+* There is no "raise hand" in the video conference (only in the encounter room), so there is no interplay to document. OPEN, outside this wave.
+* The mobile WebView is not tested with TalkBack or VoiceOver.

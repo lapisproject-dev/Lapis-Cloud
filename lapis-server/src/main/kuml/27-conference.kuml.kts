@@ -208,6 +208,17 @@ classDiagram(name = "Conference") {
             defaultValue = "FALSE"
             stereotype("Column") { "columnName" to "allow_federation_guests" }
         }
+        // V1.9.108 -- V88. Moderator audio policy of the room (see docs/architecture/conference-moderation-audio.adoc). muteOnJoin: non-moderators
+        // join with the microphone off (client-side default only). participantsMayUnmute = FALSE: the room is "locked" -- a non-moderator token
+        // carries no MICROPHONE publish source (server enforced). Defaults keep every room created before V88 exactly as it was.
+        attribute(name = "muteOnJoin", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "mute_on_join" }
+        }
+        attribute(name = "participantsMayUnmute", type = "Boolean") {
+            defaultValue = "TRUE"
+            stereotype("Column") { "columnName" to "participants_may_unmute" }
+        }
         // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" addition -- see
         // file header "Wave 9 addition". NULL means this room is not bound to any Sitzung (the
         // default for every existing and newly-created room). Deliberately NOT unique -- several

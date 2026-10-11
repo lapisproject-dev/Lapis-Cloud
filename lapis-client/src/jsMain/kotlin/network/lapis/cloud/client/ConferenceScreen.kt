@@ -38,6 +38,7 @@ import kotlinx.datetime.number
 import network.lapis.cloud.client.livekit.ConferenceConnectFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceKind
+import network.lapis.cloud.client.livekit.ConferenceModerationSignal
 import network.lapis.cloud.client.livekit.DisconnectCause
 import network.lapis.cloud.client.livekit.LiveKitRoomSession
 import network.lapis.cloud.client.livekit.LocalVideoTrack
@@ -75,6 +76,7 @@ import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.rpc.IConferenceBackgroundService
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
+import network.lapis.cloud.shared.rpc.IConferenceModerationService
 import network.lapis.cloud.shared.rpc.IConferenceNotesService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.IConferenceService
@@ -1044,6 +1046,13 @@ private class ConferenceTileEntry(
     val speakingBadge: HTMLElement,
     var hasCamera: Boolean = false,
     var hasMic: Boolean = false,
+    /** V1.9.108: LiveKit reports this person's published microphone as muted (the real `TrackMuted` signal; the local tile uses `hasMic` alone). */
+    var micMuted: Boolean = false,
+    /**
+     * V1.9.108: a server packet said a moderator muted this microphone (only the person themselves and the moderators are told). Lifted by
+     * the next unmute of this person; shown as "Von der Moderation stummgeschaltet".
+     */
+    var mutedByModeration: Boolean = false,
     /** V1.9.71: the one `<video>` of this tile (created by `setTileVideo`), for the floating window to lend; `null` without a camera picture. */
     var video: org.w3c.dom.HTMLVideoElement? = null,
     /** V1.9.85: whether the tile currently carries the active-speaker mark (the setter returns early on no change). */
@@ -1182,7 +1191,16 @@ private fun enterCall(
     // Wave 4, D10: replaces the Wave 1-3 ad-hoc `leftCall` boolean entirely -- see file KDoc "D10"
     // and [ConferenceConnectionState]/[conferenceConnectionReduce].
     var connectionState: ConferenceConnectionState = ConferenceConnectionState.Disconnected
-    var micEnabled = initialDevices.mic
+    // V1.9.108: "stumm beitreten" (never in a breakout call, the room option belongs to the main room) -- a person who is not moderating
+    // starts with the microphone off and can switch it on themselves. Only a client default: without the lock the server does not enforce it.
+    var micEnabled = initialDevices.mic && !(!isBreakout && room.muteOnJoin && !canModerate)
+    // V1.9.108: the state of the room's microphone policy as the server last said it, and what the OWN permission allows (the truth for the
+    // mic button; seeded after connect and on every permission change).
+    var roomMuteOnJoin = room.muteOnJoin
+    var roomMayUnmute = room.participantsMayUnmute
+    var microphonePermitted = true
+    var moderationPanel: ConferenceModerationPanel? = null
+    var toggleMicRef: () -> Unit = {}
     var cameraEnabled = initialDevices.camera
     var screenShareEnabled = false
     var chatOpen = false
@@ -1218,7 +1236,7 @@ private fun enterCall(
     // access immediately inside the widget call) but is later handed straight to `titleRow.h2(roomTitle)`
     // below -- sanitize once here, at the point of computation, so every downstream use stays safe.
     var roomTitle = sanitizeUntrustedI18nText(if (isBreakout) gettext("%1 – %2", room.title, breakoutLabel.orEmpty()) else room.title)
-    val titleRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+    val titleRow = callPanel.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap $CONFERENCE_TITLE_ROW_CLASS") }
     val roleLine =
         callPanel.div(
             when {
@@ -1252,6 +1270,9 @@ private fun enterCall(
     actionStatusLine.setAttribute("role", "status")
     actionStatusLine.setAttribute("aria-live", "polite")
     actionStatusLine.hide()
+    // V1.9.108: what the person is told when a moderator mutes them / asks them to switch on -- a calm band above the control bar and two
+    // live regions; never a focus change, never an error colour.
+    val notices = ConferenceModerationNotices(callPanel)
     val controlsRow =
         callPanel.hPanel(spacing = 6) { addCssClasses("align-items-center lapis-conference-controls-row") }
     val micButton = controlsRow.button("", icon = "fas fa-microphone", style = ButtonStyle.OUTLINESECONDARY)
@@ -1814,6 +1835,64 @@ private fun enterCall(
         renderBreakoutOverview()
     }
 
+    // V1.9.108 -- "Moderation" disclosure (mute on join, lock the microphones), next to the guest-access row. Only the moderation sees it;
+    // the server re-checks every call. The room form of the lobby does not exist (D4), so the options live here, inside the running room.
+    if (canModerate) {
+        fun applyAudioPolicy(
+            muteOnJoin: Boolean,
+            mayUnmute: Boolean,
+            revert: () -> Unit,
+        ) {
+            moderationPanel?.setBusy(true)
+            AppScope.launch {
+                val result = guarded { rpcService<IConferenceModerationService>().setRoomAudioPolicy(room.id, muteOnJoin, mayUnmute) }
+                moderationPanel?.setBusy(false)
+                if (result != null) {
+                    roomMuteOnJoin = result.muteOnJoin
+                    roomMayUnmute = result.participantsMayUnmute
+                    moderationPanel?.setState(roomMuteOnJoin, roomMayUnmute)
+                    refreshRosterRef()
+                } else {
+                    revert()
+                    // The server stores the policy first and only then talks to LiveKit, so a failed call can still have changed the row.
+                    // Never keep a local guess: re-read the room and show the stored state (otherwise the next switch would send a stale
+                    // "may unmute" and silently lock or unlock the room).
+                    val stored = guarded { rpcService<IConferenceService>().getRoom(room.id) }
+                    val resynced =
+                        conferenceAudioPolicyResync(
+                            local = ConferenceAudioPolicyState(roomMuteOnJoin, roomMayUnmute),
+                            stored = stored?.let { ConferenceAudioPolicyState(it.muteOnJoin, it.participantsMayUnmute) },
+                        )
+                    roomMuteOnJoin = resynced.muteOnJoin
+                    roomMayUnmute = resynced.participantsMayUnmute
+                    moderationPanel?.setState(roomMuteOnJoin, roomMayUnmute)
+                }
+            }
+        }
+        moderationPanel =
+            ConferenceModerationPanel(
+                parent = moreSheet,
+                muteOnJoin = roomMuteOnJoin,
+                participantsMayUnmute = roomMayUnmute,
+                onMuteOnJoin = { value, revert -> applyAudioPolicy(muteOnJoin = value, mayUnmute = roomMayUnmute, revert = revert) },
+                onLock = { locked, revert ->
+                    if (locked) {
+                        // The switch is put back at once; it only moves when the server has confirmed the lock (after the question).
+                        revert()
+                        AppScope.launch {
+                            val openMicrophones =
+                                guarded { rpcService<IConferenceModerationService>().estimateMuteAll(room.id) } ?: return@launch
+                            conferenceLockDialog(openMicrophones) {
+                                applyAudioPolicy(muteOnJoin = roomMuteOnJoin, mayUnmute = false, revert = {})
+                            }
+                        }
+                    } else {
+                        applyAudioPolicy(muteOnJoin = roomMuteOnJoin, mayUnmute = true, revert = revert)
+                    }
+                },
+            )
+    }
+
     if (canModerate) {
         // V1.2.10 -- Empfänger `moreSheet` statt `callPanel`, siehe guestAccessRow oben.
         val breakoutRow = moreSheet.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap lapis-conference-config-row") }
@@ -2029,17 +2108,17 @@ private fun enterCall(
     // assigned once, right after `renderTitleEditMode` is declared, below.
     lateinit var showTitleEditMode: () -> Unit
 
+    // V1.9.108: true while the rename field is up -- entering full screen then returns to the view state first (the field would be
+    // hidden together with its focus otherwise, see `applyPanelVisibility`).
+    var titleEditing = false
+
     fun renderTitleViewMode() {
-        titleRow.removeAll()
-        titleRow.h2(roomTitle) { addCssClass("h5") }
-        if (canModerate) {
-            val editButton = titleRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
-            editButton.addCssClass("btn-sm")
-            editButton.onClick { showTitleEditMode() }
-        }
+        titleEditing = false
+        titleRow.renderConferenceTitleView(roomTitle = roomTitle, canModerate = canModerate, onEdit = { showTitleEditMode() })
     }
 
     fun renderTitleEditMode() {
+        titleEditing = true
         titleRow.removeAll()
         // `submitRename` needs `editInput`/`saveButton`, which do not exist yet when the input's Enter hook is
         // wired -- hence the indirection (the hook must be registered BEFORE the input is added, see
@@ -3004,6 +3083,32 @@ private fun enterCall(
     // Bestandsnutzer verliert beim Update schweigend eine Information, die er seit V1.0 hat).
     val rosterPanel = videoArea.vPanel(spacing = 4) { addCssClass("lapis-conference-roster") }
     rosterPanel.h2(tr("Teilnehmende")) { addCssClasses("h6 mt-2") }
+    // V1.9.108: "Alle stummschalten" at the head of the roster, always there for the moderation (disabled with a reason while nobody has
+    // an open microphone). The confirmation shows the SERVER's count (it knows who is BOARD/ADMIN); the roster only enables the button.
+    val muteAllControl =
+        if (canModerate) {
+            ConferenceMuteAllControl(rosterPanel) {
+                AppScope.launch {
+                    val count = guarded { rpcService<IConferenceModerationService>().estimateMuteAll(room.id) } ?: return@launch
+                    if (count == 0) {
+                        notifySuccess(tr("Niemand hat ein offenes Mikrofon."))
+                        return@launch
+                    }
+                    conferenceMuteAllDialog(count) {
+                        AppScope.launch {
+                            val muted = guarded { rpcService<IConferenceModerationService>().muteAll(room.id) }
+                            if (muted !=
+                                null
+                            ) {
+                                notifySuccess(ngettext("%1 Person stummgeschaltet.", "%1 Personen stummgeschaltet.", muted, muted))
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            null
+        }
     val rosterList = rosterPanel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
 
     // --- Collapsible chat side panel (D7: off by default) ------------------------------------------
@@ -3253,6 +3358,9 @@ private fun enterCall(
 
         // D6/Stolperfalle 7: KVision-Widgets kennen addCssClass/removeCssClass NUR auf sich selbst --
         // callPanel.getElement() liefert das rohe org.w3c.dom.HTMLElement, dort gilt classList.add/remove.
+        // V1.9.108: the heading row is not painted in full screen -- a rename in progress is ended (back to the view state) BEFORE that,
+        // otherwise the field would vanish together with the focus that sits in it.
+        if (conferenceTitleReturnsToView(fullscreen = panelState.fullscreen, editing = titleEditing)) renderTitleViewMode()
         callPanel.getElement()?.classList?.let { classList ->
             if (panelState.fullscreen) classList.add("lapis-conference-fullscreen") else classList.remove("lapis-conference-fullscreen")
         }
@@ -3413,9 +3521,13 @@ private fun enterCall(
     // resolves and applies (or queues) the CURRENT label, so it works identically for a label that
     // changes on every call. Reused here rather than duplicated.
     fun updateMicButtonState() {
-        micButton.icon = if (micEnabled) "fas fa-microphone" else "fas fa-microphone-slash"
-        if (micEnabled) micButton.removeCssClass("text-danger") else micButton.addCssClass("text-danger")
-        micButton.setStaticA11yLabel(if (micEnabled) tr("Mikrofon ausschalten") else tr("Mikrofon einschalten"))
+        // V1.9.108: while the moderators have locked the room's microphones for this person the button says so (lock symbol, label and
+        // tooltip) instead of failing with a device error: the permission, not a data packet, is the truth.
+        val view = conferenceMicButtonView(micEnabled = micEnabled, permitted = microphonePermitted)
+        micButton.icon = view.iconCss
+        if (view.danger) micButton.addCssClass("text-danger") else micButton.removeCssClass("text-danger")
+        micButton.disabled = view.disabled
+        micButton.setStaticA11yLabel(view.label)
         publishDock()
     }
 
@@ -3518,6 +3630,36 @@ private fun enterCall(
         }
     }
 
+    // V1.9.108: the moderation's one action of a roster row, in a FIXED slot (the row never jumps). The client cannot know whether another
+    // person is BOARD/ADMIN (no role oracle): it shows the button and the server refuses uniformly.
+    fun addRosterModerationSlot(
+        row: Container,
+        entry: ConferenceTileEntry,
+        micState: ConferenceMicState,
+    ) {
+        if (!canModerate) return
+        val action =
+            conferenceModerationRowAction(
+                canModerate = canModerate,
+                targetId = entry.identity,
+                localId = localMemberId,
+                creatorId = room.createdByMemberId,
+                targetPrivileged = null,
+                callerPrivileged = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN),
+                micState = micState,
+            )
+        row.conferenceRosterActionSlot(action, entry.displayName) {
+            AppScope.launch {
+                if (action == ConferenceRosterAction.MUTE) {
+                    guarded { rpcService<IConferenceModerationService>().muteParticipant(room.id, entry.identity) }
+                } else {
+                    val asked = guarded { rpcService<IConferenceModerationService>().requestUnmute(room.id, entry.identity) }
+                    if (asked != null) notifySuccess(gettext("%1 wurde gebeten, das Mikrofon einzuschalten.", entry.displayName))
+                }
+            }
+        }
+    }
+
     fun refreshRoster() {
         rosterList.removeAll()
         if (tiles.isEmpty()) {
@@ -3548,7 +3690,11 @@ private fun enterCall(
             if (entry.identity == room.createdByMemberId) {
                 row.statusBadge(tr("Moderator"), "primary")
             }
-            row.div(if (entry.hasMic) tr("Mikro an") else tr("Stumm")) { addCssClasses("text-muted small") }
+            // V1.9.108: Kare's symbol WITH its words ("Mikrofon an" / "Stumm" / "Von der Moderation stummgeschaltet"); the real mute state of
+            // the person's track, not the old "does a track exist" guess. The person's own row also says when the room's lock is why.
+            val micState = conferenceMicState(entry.hasMic, entry.micMuted, entry.mutedByModeration)
+            row.conferenceMicStateIndicator(micState, lockedForMe = entry.isLocal && !microphonePermitted)
+            addRosterModerationSlot(row, entry, micState)
             if (conferenceCanRemove(entry.identity, localMemberId, room.createdByMemberId, canModerate)) {
                 val removeButton = row.actionButton(ActionIcon.REMOVE, tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
                 removeButton.addCssClass("btn-sm")
@@ -3599,6 +3745,13 @@ private fun enterCall(
                 }
             }
         }
+        muteAllControl?.update(
+            conferenceMuteAllCandidates(
+                micStates = tiles.mapValues { (_, e) -> conferenceMicState(e.hasMic, e.micMuted, e.mutedByModeration) },
+                creatorId = room.createdByMemberId,
+                localId = localMemberId,
+            ),
+        )
         updateRosterToggleBadge()
     }
     refreshRosterRef = ::refreshRoster
@@ -3642,7 +3795,20 @@ private fun enterCall(
         hasMic: Boolean,
     ) {
         entry.hasMic = hasMic
-        entry.micBadge.style.display = if (hasMic) "none" else "block"
+        // V1.9.108: a moderation mark never outlives the person's own unmute (the local tile switches here, remote ones on `TrackUnmuted`)
+        if (hasMic && entry.isLocal) entry.mutedByModeration = false
+        entry.micBadge.style.display = if (hasMic && !entry.micMuted) "none" else "block"
+        refreshRoster()
+    }
+
+    // V1.9.108 -- the real mute state of ANOTHER person's microphone (`TrackMuted`/`TrackUnmuted`); an unmute also lifts the moderation mark.
+    fun setRemoteMicMuted(
+        entry: ConferenceTileEntry,
+        muted: Boolean,
+    ) {
+        entry.micMuted = muted
+        if (!muted) entry.mutedByModeration = false
+        entry.micBadge.style.display = if (entry.hasMic && !muted) "none" else "block"
         refreshRoster()
     }
 
@@ -4338,8 +4504,61 @@ private fun enterCall(
         )
     }
 
+    // V1.9.108 -- the server's moderation signals. They only INFORM: nothing here switches a microphone on, and the lock itself is
+    // read from the permission (`onLocalMicrophonePermission`), not from a packet.
+    fun handleModerationSignal(signal: ConferenceModerationSignal) {
+        when (signal) {
+            ConferenceModerationSignal.Muted -> {
+                tiles[joinToken.identity]?.let { local ->
+                    local.mutedByModeration = true
+                    // mirror the server's mute right away (the track-muted event normally arrives as well)
+                    micEnabled = false
+                    setTileMic(local, false)
+                    local.mutedByModeration = true
+                    refreshRoster()
+                }
+                updateMicButtonState()
+                notices.showMuted()
+            }
+            is ConferenceModerationSignal.MutedPeer ->
+                if (canModerate) {
+                    tiles[signal.memberId]?.let { entry ->
+                        entry.mutedByModeration = true
+                        refreshRoster()
+                    }
+                }
+            ConferenceModerationSignal.UnmuteRequest ->
+                // never forced: the band offers the person's OWN toggle; a microphone that is on already needs no request
+                if (!micEnabled && microphonePermitted) notices.showUnmuteRequest { if (!micEnabled) toggleMicRef() }
+            ConferenceModerationSignal.Lock, ConferenceModerationSignal.Unlock -> {
+                roomMayUnmute = signal == ConferenceModerationSignal.Unlock
+                moderationPanel?.setState(roomMuteOnJoin, roomMayUnmute)
+                if (!canModerate) conferenceModerationAnnouncement(signal)?.let { notices.announce(it, assertive = false) }
+                refreshRoster()
+            }
+        }
+    }
+
     session =
         LiveKitRoomSession(
+            onRemoteTrackMuteChanged = { identity, source, muted ->
+                if (source == "microphone") tiles[identity]?.let { setRemoteMicMuted(it, muted) }
+            },
+            onModerationSignal = { signal -> handleModerationSignal(signal) },
+            onLocalMicrophonePermission = { allowed ->
+                val before = microphonePermitted
+                microphonePermitted = allowed
+                if (!allowed && micEnabled) {
+                    micEnabled = false
+                    tiles[joinToken.identity]?.let { setTileMic(it, false) }
+                }
+                updateMicButtonState()
+                refreshRoster()
+                if (allowed && !before) notices.announce(tr("Sie können Ihr Mikrofon wieder einschalten."), assertive = false)
+                if (!allowed && before && !canModerate) {
+                    notices.announce(tr("Die Moderation hat das Einschalten der Mikrofone gesperrt."), assertive = false)
+                }
+            },
             onRemoteTrack = { identity, displayName, track, publication ->
                 // ELB-Test-Fix 2026-09-27 (Befund 7): idempotent -- `track.attach()` without an
                 // argument creates a NEW media element on every call and keeps every earlier one in
@@ -4362,6 +4581,8 @@ private fun enterCall(
                             // V1.9.70: a media element pauses when it leaves the document. The audio lives in the permanent container
                             // outside the KVision root, not in the tile, so it keeps playing while the view is undocked.
                             ConferenceDock.audioContainer.appendChild(mediaElement)
+                            // V1.9.108: the real mute state at subscription (`TrackMuted` events follow)
+                            entry.micMuted = publication.isMuted
                             setTileMic(entry, true)
                         }
                     }
@@ -4376,7 +4597,10 @@ private fun enterCall(
                         if (track.kind == "video") remoteCameraPublications.remove(identity)
                         if (entry != null) {
                             if (track.kind == "video") setTileVideo(entry, null)
-                            if (track.kind == "audio") setTileMic(entry, false)
+                            if (track.kind == "audio") {
+                                entry.micMuted = false
+                                setTileMic(entry, false)
+                            }
                         }
                     }
                 }
@@ -4773,6 +4997,12 @@ private fun enterCall(
         // silent now.
         // V1.9.70: only what the person wants is switched on (an automatic re-entry carries their last wish), and never once the call was
         // ended hard in the meantime -- every `await` above is a place where a sign-out or a language change can have happened.
+        // V1.9.108: a locked room's token has no microphone source -- the button already says so, no device error for it
+        if (!microphonePermitted && micEnabled) {
+            micEnabled = false
+            setTileMic(tiles.getValue(joinToken.identity), micEnabled)
+            updateMicButtonState()
+        }
         val micFailure =
             if (micEnabled && ConferenceDock.isCurrent(dockGeneration)) guarded { session.setMicrophone(true) } else null
         val cameraFailure =
@@ -4827,6 +5057,7 @@ private fun enterCall(
         }
     }
     micButton.onClick { toggleMic() }
+    toggleMicRef = ::toggleMic
 
     fun toggleCamera() {
         cameraButton.disabled = true
@@ -5259,7 +5490,7 @@ private fun resolvedA11yText(text: String): String = text.removePrefix("###KvI18
  * `theme.css`'s `.lapis-conference-controls-row .btn::after{content:attr(data-label)}` (the
  * under-icon text shown at >=768px); it is harmless-but-unused on buttons living in `.lapis-
  * conference-more-sheet`, which render real KVision button text instead. */
-private fun Button.setStaticA11yLabel(label: String) {
+internal fun Button.setStaticA11yLabel(label: String) {
     val resolved = resolvedA11yText(label)
     getElement()?.let { el ->
         el.title = resolved

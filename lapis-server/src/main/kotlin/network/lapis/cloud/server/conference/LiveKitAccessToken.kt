@@ -83,6 +83,10 @@ object LiveKitAccessToken {
      *   upon: `hidden` is never set.)
      * @param canPublishData whether the holder may send data-channel messages (chat, reactions). REQUIRED for the same reason; `false`
      *   for a person a steward silenced.
+     * @param microphoneAllowed (V1.9.108) REQUIRED, no default, so the compiler forces every call site to decide. `true` leaves the grant
+     *   byte-for-byte as before (no `canPublishSources` key = every source). `false` adds `canPublishSources = [camera, screen_share,
+     *   screen_share_audio]` -- the microphone of a participant in a room the moderators locked. (JWT grants use the lower-case source
+     *   names, `UpdateParticipant` uses the enum names, see [LiveKitAdminClient.updateParticipantPermission].)
      */
     fun mintParticipantToken(
         apiKey: String,
@@ -93,6 +97,7 @@ object LiveKitAccessToken {
         ttl: Duration,
         canPublish: Boolean,
         canPublishData: Boolean,
+        microphoneAllowed: Boolean,
         now: Instant = Clock.System.now(),
     ): ParticipantToken {
         val expiresAt = now + ttl
@@ -105,6 +110,7 @@ object LiveKitAccessToken {
                 "canPublishData" to canPublishData,
                 "canUpdateOwnMetadata" to false,
             )
+        if (!microphoneAllowed) videoGrant["canPublishSources"] = listOf("camera", "screen_share", "screen_share_audio")
         val claims =
             JWTClaimsSet
                 .Builder()

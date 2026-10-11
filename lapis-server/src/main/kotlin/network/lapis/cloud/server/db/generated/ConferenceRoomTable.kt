@@ -33,6 +33,17 @@ public object ConferenceRoomTable : Table("conference_room") {
     public val allowFederationGuests: Column<Boolean> = bool("allow_federation_guests").default(false)
 
     /**
+     * V1.9.108 -- V88. `true`: non-moderators join with the microphone off (a client-side default). The Exposed default is deliberate (same
+     * reasoning as [allowFederationGuests]); ConferenceService.createRoom writes the value explicitly anyway.
+     */
+    public val muteOnJoin: Column<Boolean> = bool("mute_on_join").default(false)
+
+    /**
+     * V1.9.108 -- V88. `false`: the room is "locked", a non-moderator cannot publish the microphone (server enforced). Default `true`.
+     */
+    public val participantsMayUnmute: Column<Boolean> = bool("participants_may_unmute").default(true)
+
+    /**
      * V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- see
      * 27-conference.kuml.kts. `null` means this room is not bound to any Sitzung (the default for
      * every existing and newly-created room). Set from INSIDE a running room via

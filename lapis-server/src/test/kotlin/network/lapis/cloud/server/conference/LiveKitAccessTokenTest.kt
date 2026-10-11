@@ -44,6 +44,7 @@ class LiveKitAccessTokenTest :
                     ttl = 240.minutes,
                     canPublish = true,
                     canPublishData = true,
+                    microphoneAllowed = true,
                     now = now,
                 )
 
@@ -68,6 +69,34 @@ class LiveKitAccessTokenTest :
             grant.containsKey("roomCreate").shouldBeFalse()
             grant.containsKey("roomAdmin").shouldBeFalse()
             grant.containsKey("roomList").shouldBeFalse()
+        }
+
+        test(
+            "V1.9.108: microphoneAllowed=false adds exactly the three non-microphone publish sources; true leaves the grant without the key",
+        ) {
+            fun mint(microphoneAllowed: Boolean) =
+                videoGrant(
+                    verify(
+                        LiveKitAccessToken
+                            .mintParticipantToken(
+                                apiKey = API_KEY,
+                                apiSecret = API_SECRET,
+                                roomName = ROOM_NAME,
+                                identity = MEMBER_ID,
+                                displayName = DISPLAY_NAME,
+                                ttl = 240.minutes,
+                                canPublish = true,
+                                canPublishData = true,
+                                microphoneAllowed = microphoneAllowed,
+                            ).jwt,
+                    ),
+                )
+            val locked = mint(microphoneAllowed = false)
+            locked["canPublishSources"] shouldBe listOf("camera", "screen_share", "screen_share_audio")
+            locked["canPublish"] shouldBe true
+            locked["canPublishData"] shouldBe true
+            locked["canSubscribe"] shouldBe true
+            mint(microphoneAllowed = true).containsKey("canPublishSources").shouldBeFalse()
         }
 
         test("mintAdminToken without a room: no room claim, all three admin grants, never roomJoin") {
@@ -159,6 +188,7 @@ class LiveKitAccessTokenTest :
                     ttl = 240.minutes,
                     canPublish = true,
                     canPublishData = true,
+                    microphoneAllowed = true,
                 )
             val parts = minted.jwt.split(".")
             val tamperedSignature = parts[2].reversed()
@@ -178,6 +208,7 @@ class LiveKitAccessTokenTest :
                     ttl = 240.minutes,
                     canPublish = true,
                     canPublishData = true,
+                    microphoneAllowed = true,
                 )
             val parts = minted.jwt.split(".")
             // Attempt to smuggle in an admin grant by editing the (unsigned) payload segment --
@@ -202,6 +233,7 @@ class LiveKitAccessTokenTest :
                     ttl = 240.minutes,
                     canPublish = true,
                     canPublishData = true,
+                    microphoneAllowed = true,
                 )
             val wrongSecret = "wrong-secret-but-still-at-least-32-bytes-long!!"
             SignedJWT.parse(minted.jwt).verify(MACVerifier(wrongSecret.toByteArray(Charsets.UTF_8))).shouldBeFalse()
@@ -227,6 +259,7 @@ class LiveKitAccessTokenTest :
                     ttl = 5.minutes,
                     canPublish = true,
                     canPublishData = true,
+                    microphoneAllowed = true,
                     now = fixedNow,
                 )
             minted.expiresAt shouldBe Instant.fromEpochMilliseconds(0) + 5.minutes
@@ -258,6 +291,7 @@ class LiveKitAccessTokenTest :
                     ttl = 240.minutes,
                     canPublish = true,
                     canPublishData = true,
+                    microphoneAllowed = true,
                 )
             minted.jwt.shouldNotContain(API_SECRET)
         }
@@ -278,6 +312,7 @@ class LiveKitAccessTokenTest :
                         ttl = 15.minutes,
                         canPublish = false,
                         canPublishData = true,
+                        microphoneAllowed = true,
                     ).jwt
             val grant = videoGrant(verify(jwt))
             grant["room"] shouldBe ROOM_NAME
@@ -305,6 +340,7 @@ class LiveKitAccessTokenTest :
                                 ttl = 15.minutes,
                                 canPublish = false,
                                 canPublishData = false,
+                                microphoneAllowed = true,
                             ).jwt,
                     ),
                 )
@@ -328,6 +364,7 @@ class LiveKitAccessTokenTest :
                                 ttl = 240.minutes,
                                 canPublish = true,
                                 canPublishData = true,
+                                microphoneAllowed = true,
                                 now = now,
                             ).jwt,
                     ),

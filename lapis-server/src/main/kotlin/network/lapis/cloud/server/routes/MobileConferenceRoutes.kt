@@ -7,6 +7,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import network.lapis.cloud.server.conference.ConferenceAudioGrantState
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceNotesState
 import network.lapis.cloud.server.conference.ConferenceWhiteboardState
@@ -49,6 +50,7 @@ fun Route.registerMobileConferenceRoutes(
     conferenceNotesState: ConferenceNotesState,
     conferenceMeetingBindRateLimiter: FederationInboxRateLimiter,
     roomVotingStateRateLimiter: FederationInboxRateLimiter,
+    audioGrantState: ConferenceAudioGrantState = ConferenceAudioGrantState(),
     config: ConferenceConfig = ConferenceConfig.load(),
 ) {
     fun buildService(call: ApplicationCall) =
@@ -66,6 +68,7 @@ fun Route.registerMobileConferenceRoutes(
             notesState = conferenceNotesState,
             conferenceMeetingBindRateLimiter = conferenceMeetingBindRateLimiter,
             roomVotingStateRateLimiter = roomVotingStateRateLimiter,
+            audioGrantState = audioGrantState,
         )
 
     get("/api/mobile/v1/conference/availability") {

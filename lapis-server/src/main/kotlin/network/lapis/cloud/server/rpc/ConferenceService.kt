@@ -6,6 +6,8 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.conference.ConferenceAudioGrantState
+import network.lapis.cloud.server.conference.ConferenceAudioPolicy
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceNotesState
 import network.lapis.cloud.server.conference.ConferenceWhiteboardState
@@ -154,6 +156,8 @@ private data class JoinPrep(
     val guestHomeserverUrl: String? = null,
     /** Wave 5 -- snapshotted alongside [isNonMember], see [ConferenceGuestConsentAcknowledgmentTable] KDoc. */
     val guestOrganizationName: String? = null,
+    /** V1.9.108 -- whether the minted token may publish the microphone (room not locked, or the caller moderates it / was released). */
+    val microphoneAllowed: Boolean = true,
 )
 
 /**
@@ -287,6 +291,13 @@ class ConferenceService(
      * per RPC call (`registerService` builds a new service per request).
      */
     private val roomVotingStateRateLimiter: FederationInboxRateLimiter,
+    /**
+     * V1.9.108 -- the individually released microphones of a locked room (see [ConferenceAudioGrantState]). [joinRoom] reads it (a person
+     * a moderator released gets the microphone back on re-entry), [endRoom]/[leaveRoom]/[removeParticipant]/the lazy reconciliation drop
+     * entries. Defaulted like [whiteboardState] purely so pre-existing test call sites keep compiling, and FAIL-SAFE: an always-empty
+     * per-call state can only ever withhold a release, never grant one. `Application.module` threads the real singleton.
+     */
+    private val audioGrantState: ConferenceAudioGrantState = ConferenceAudioGrantState(),
 ) : IConferenceService {
     override suspend fun getAvailability(): ConferenceAvailabilityDto {
         resolveCurrentMember(call)
@@ -380,6 +391,8 @@ class ConferenceService(
                 it[endedAt] = null
                 it[maxParticipants] = config.maxParticipants
                 it[ConferenceRoomTable.allowFederationGuests] = input.allowFederationGuests
+                it[ConferenceRoomTable.muteOnJoin] = input.muteOnJoin
+                it[ConferenceRoomTable.participantsMayUnmute] = input.participantsMayUnmute
             }
             val row = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.single()
             rowToDto(row = row, callerId = current.memberId, liveRooms = mapOf(newRoomName to liveKitRoom.numParticipants))
@@ -462,6 +475,13 @@ class ConferenceService(
                     isNonMember = status in MemberStatusSets.NON_MEMBER,
                     guestHomeserverUrl = guestHomeserver,
                     guestOrganizationName = guestOrganizationName,
+                    microphoneAllowed =
+                        ConferenceAudioPolicy.microphoneAllowedFor(
+                            row = row,
+                            memberId = current.memberId,
+                            isModerator = ConferenceModeratorAuthority.isModerator(row = row, current = current),
+                            grants = audioGrantState,
+                        ),
                 )
             }
         val now = nowLocalDateTime()
@@ -482,6 +502,7 @@ class ConferenceService(
                 ttl = effectiveTtl.minutes,
                 canPublish = true,
                 canPublishData = true,
+                microphoneAllowed = prep.microphoneAllowed,
             )
         // Audit-round-1 fix: mint a fresh, short-lived TURN credential alongside the JWT, same TTL
         // -- see TurnCredentialMinter KDoc. Empty iff TURN is unconfigured (config.turnEnabled ==
@@ -621,6 +642,8 @@ class ConferenceService(
             }
             closeOpenParticipationsFor(roomId = id, memberId = current.memberId, now = now)
         }
+        // V1.9.108: a release of a locked room never outlives the person's stay.
+        audioGrantState.revoke(roomId = id, memberId = current.memberId)
     }
 
     override suspend fun endRoom(roomId: String): ConferenceRoomDto {
@@ -683,6 +706,8 @@ class ConferenceService(
             // V1.0 Wave 8 "Geteilte Notizen" -- same reasoning as whiteboardState.clear immediately
             // above, see ConferenceNotesState KDoc "clear".
             notesState.clear(id)
+            // V1.9.108 -- same reasoning: plain in-memory removal of the individually released microphones.
+            audioGrantState.clear(id)
         }
         return transaction {
             val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
@@ -791,6 +816,7 @@ class ConferenceService(
         transaction {
             closeOpenParticipationsFor(roomId = id, memberId = targetId, now = now)
         }
+        audioGrantState.revoke(roomId = id, memberId = targetId)
     }
 
     /**
@@ -1521,6 +1547,7 @@ class ConferenceService(
         // V1.0 Wave 8 "Geteilte Notizen" -- same reasoning as whiteboardState.clear immediately
         // above, see ConferenceNotesState KDoc "clear".
         notesState.clear(id)
+        audioGrantState.clear(id)
         return ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
     }
 
@@ -1578,37 +1605,15 @@ class ConferenceService(
         row: ResultRow,
         callerId: Uuid,
         liveRooms: Map<String, Int>,
-    ): ConferenceRoomDto {
-        val creatorId = row[ConferenceRoomTable.createdByMemberId]
-        return ConferenceRoomDto(
-            id = row[ConferenceRoomTable.id].toString(),
-            title = row[ConferenceRoomTable.title],
-            description = row[ConferenceRoomTable.description],
-            livekitRoomName = row[ConferenceRoomTable.livekitRoomName],
-            createdByMemberId = creatorId.toString(),
-            createdByDisplayName = memberDisplayName(creatorId),
-            createdAt = row[ConferenceRoomTable.createdAt],
-            endedAt = row[ConferenceRoomTable.endedAt],
-            active = row[ConferenceRoomTable.endedAt] == null,
-            maxParticipants = row[ConferenceRoomTable.maxParticipants],
+    ): ConferenceRoomDto =
+        ConferenceRoomDtoMapper.toDto(
+            row = row,
+            callerId = callerId,
             liveParticipantCount = liveRooms[row[ConferenceRoomTable.livekitRoomName]] ?: 0,
-            myRole = if (creatorId == callerId) ConferenceRole.MODERATOR else ConferenceRole.PARTICIPANT,
-            allowFederationGuests = row[ConferenceRoomTable.allowFederationGuests],
-            meetingId = row[ConferenceRoomTable.meetingId]?.toString(),
-            meetingTitle = row[ConferenceRoomTable.meetingId]?.let { meetingTitle(it) },
         )
-    }
 
     private fun memberDisplayName(memberId: Uuid): String =
         MemberTable.selectAll().where { MemberTable.id eq memberId }.single()[MemberTable.displayName]
-
-    /** V1.0 Videokonferenzen, Wave 9 -- follow-up lookup for [rowToDto]'s `meetingTitle`, same idiom as [memberDisplayName] above. */
-    private fun meetingTitle(meetingId: Uuid): String? =
-        MeetingTable
-            .selectAll()
-            .where { MeetingTable.id eq meetingId }
-            .singleOrNull()
-            ?.get(MeetingTable.title)
 
     private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime()
 

@@ -879,7 +879,11 @@ class ServiceIntegrationTest :
                 response.status shouldBe HttpStatusCode.OK
 
                 val entries = response.bodyAsText().split(",")
-                entries.size shouldBe 4
+                // Count the four SEED members, not every row: specs share one H2 per test JVM and some earlier spec of the same JVM may
+                // leave members behind (ConferenceRecordingRetryScenarios does not remove its "Retry Test ..." members). Which specs share a JVM
+                // changes whenever a spec is added, so an exact table-wide count made this test depend on that distribution (V1.9.108).
+                val seedIds = DevSeedData.demoMembers.map { it.id.toString() }.toSet()
+                entries.count { it.substringBefore(":") in seedIds } shouldBe 4
                 (entries.any { it.startsWith("$MEMBER_ID:") }) shouldBe true
             }
         }

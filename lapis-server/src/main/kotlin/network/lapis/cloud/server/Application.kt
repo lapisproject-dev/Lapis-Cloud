@@ -57,6 +57,8 @@ import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.carpool.CarpoolRetentionPoller
 import network.lapis.cloud.server.chapters.ChapterCrestStorage
 import network.lapis.cloud.server.clientversion.ClientShell
+import network.lapis.cloud.server.conference.ConferenceAudioGrantState
+import network.lapis.cloud.server.conference.ConferenceAudioPolicyReconciler
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceNotesState
 import network.lapis.cloud.server.conference.ConferenceRecordingConfig
@@ -254,6 +256,7 @@ import network.lapis.cloud.server.rpc.CarpoolService
 import network.lapis.cloud.server.rpc.CateringService
 import network.lapis.cloud.server.rpc.ConferenceBackgroundService
 import network.lapis.cloud.server.rpc.ConferenceBreakoutService
+import network.lapis.cloud.server.rpc.ConferenceModerationService
 import network.lapis.cloud.server.rpc.ConferenceNotesService
 import network.lapis.cloud.server.rpc.ConferenceRecordingService
 import network.lapis.cloud.server.rpc.ConferenceService
@@ -346,6 +349,7 @@ import network.lapis.cloud.shared.rpc.ICarpoolService
 import network.lapis.cloud.shared.rpc.ICateringService
 import network.lapis.cloud.shared.rpc.IConferenceBackgroundService
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
+import network.lapis.cloud.shared.rpc.IConferenceModerationService
 import network.lapis.cloud.shared.rpc.IConferenceNotesService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.IConferenceService
@@ -994,6 +998,18 @@ internal fun Application.module(
     // singleton for the same per-request-service-construction reason as every limiter above.
     val roomVotingStateRateLimiter = FederationInboxRateLimiter(maxRequests = 90, window = 1.minutes)
 
+    // V1.9.108 "Moderation kann Mikrofone stummschalten" -- module-scoped singletons, NOT left to a service default: Kilua builds the
+    // service per RPC call, so a default limiter/state would be fresh and empty on every call and silently defeat the throttling and the
+    // per-person releases of a locked room. Budgets: muteAll fans out to up to max_participants LiveKit calls (1 per room per 10 s);
+    // a single mute 20/min per moderator; "Bitten" 1 per room+person per 30 s; the room policy 1 per room per 5 s; the dialog's count
+    // preview 30/min per moderator.
+    val conferenceAudioGrantState = ConferenceAudioGrantState()
+    val conferenceMuteAllRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 10.seconds)
+    val conferenceMuteOneRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
+    val conferenceRequestUnmuteRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 30.seconds)
+    val conferencePolicyRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 5.seconds)
+    val conferenceMutePreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+
     // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- same "constructed here, NOT left to the
     // service's own constructor default" reasoning as conferenceGuestAccessRateLimiter above (the
     // registerService factory lambda below constructs a brand-new ConferenceBreakoutService on
@@ -1312,6 +1328,16 @@ internal fun Application.module(
         )
     encounterTableReconciler.start()
     monitor.subscribe(ApplicationStopping) { encounterTableReconciler.stop() }
+    // V1.9.108 -- makes the lock of a conference room real even if LiveKit does not enforce a permission taken away from a published
+    // track, and closes the stale-token reconnect gap (see ConferenceAudioPolicyReconciler KDoc).
+    val conferenceAudioPolicyReconciler =
+        ConferenceAudioPolicyReconciler(
+            liveKitAdminClient = liveKitAdminClient,
+            grants = conferenceAudioGrantState,
+            liveKitEnabled = conferenceConfig.enabled,
+        )
+    conferenceAudioPolicyReconciler.start()
+    monitor.subscribe(ApplicationStopping) { conferenceAudioPolicyReconciler.stop() }
 
     // Welle V1.9.15 -- erases raw mailing open/click events after MailingHtmlPolicy.RETENTION_DAYS.
     val mailingTrackingRetentionPoller = MailingTrackingRetentionPoller()
@@ -2174,6 +2200,20 @@ internal fun Application.module(
                 notesState = conferenceNotesState,
                 conferenceMeetingBindRateLimiter = conferenceMeetingBindRateLimiter,
                 roomVotingStateRateLimiter = roomVotingStateRateLimiter,
+                audioGrantState = conferenceAudioGrantState,
+            )
+        }
+        registerService(IConferenceModerationService::class) { call ->
+            ConferenceModerationService(
+                call = call,
+                liveKitAdminClient = liveKitAdminClient,
+                config = conferenceConfig,
+                audioGrantState = conferenceAudioGrantState,
+                muteAllRateLimiter = conferenceMuteAllRateLimiter,
+                muteOneRateLimiter = conferenceMuteOneRateLimiter,
+                requestUnmuteRateLimiter = conferenceRequestUnmuteRateLimiter,
+                policyRateLimiter = conferencePolicyRateLimiter,
+                previewRateLimiter = conferenceMutePreviewRateLimiter,
             )
         }
         registerService(IEncounterSpaceService::class) { call ->
@@ -2207,6 +2247,7 @@ internal fun Application.module(
                 assignRateLimiter = conferenceBreakoutAssignRateLimiter,
                 recallRateLimiter = conferenceBreakoutRecallRateLimiter,
                 tokenRateLimiter = conferenceBreakoutTokenRateLimiter,
+                audioGrantState = conferenceAudioGrantState,
             )
         }
         registerService(IConferenceRecordingService::class) { call ->
@@ -2446,6 +2487,7 @@ internal fun Application.module(
             conferenceNotesState = conferenceNotesState,
             conferenceMeetingBindRateLimiter = conferenceMeetingBindRateLimiter,
             roomVotingStateRateLimiter = roomVotingStateRateLimiter,
+            audioGrantState = conferenceAudioGrantState,
             config = conferenceConfig,
         )
         // Security mitigation 2026-09-19: the WebView session bridge is opt-in (default OFF) until it

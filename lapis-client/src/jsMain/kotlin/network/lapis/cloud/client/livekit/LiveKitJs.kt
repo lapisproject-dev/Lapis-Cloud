@@ -184,6 +184,13 @@ external class LocalParticipant {
     val identity: String
     val name: String?
 
+    /**
+     * V1.9.108 -- `Participant.permissions` (`ParticipantPermission` of @livekit/protocol; `undefined` until the join response arrived).
+     * `dynamic` because it is a protocol class: read `canPublish` and `canPublishSources` (numeric `TrackSource` values, MICROPHONE = 2,
+     * an EMPTY list means "every source" -- both pinned by [microphoneAllowedByPermission]'s tests).
+     */
+    val permissions: dynamic
+
     fun setCameraEnabled(enabled: Boolean): Promise<dynamic>
 
     fun setMicrophoneEnabled(enabled: Boolean): Promise<dynamic>
@@ -252,6 +259,9 @@ external interface TrackPublication {
      * [track] for the publication (`RemoteTrackPublication.isSubscribed` in `livekit-client` 2.21.0).
      * Read only by [network.lapis.cloud.client.livekit.LiveKitRoomSession.resyncRoster]. */
     val isSubscribed: Boolean
+
+    /** V1.9.108 -- `TrackPublication.isMuted` of livekit-client 2.21.0: the publisher's mute state as the server knows it (also true for a remote publication). */
+    val isMuted: Boolean
 }
 
 /**
@@ -302,6 +312,13 @@ external object RoomEvent {
 
     /** See [TrackMuted] KDoc -- same event, opposite direction. */
     val TrackUnmuted: String
+
+    /**
+     * V1.9.108 -- fires `(prevPermissions, participant)` when a participant's permission changed (the server called `UpdateParticipant`).
+     * Verified against livekit-client 2.21.0's `events.d.ts`. `LiveKitRoomSession.wireEvents` reads only the LOCAL participant's
+     * `permissions` afterwards, the arguments themselves are ignored.
+     */
+    val ParticipantPermissionsChanged: String
 
     /** V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- see [Room.isRecording] KDoc.
      * Fires with a single JS `boolean` argument (`(isRecording: boolean) => void`), unlike this

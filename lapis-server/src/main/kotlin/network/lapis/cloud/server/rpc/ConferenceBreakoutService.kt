@@ -5,6 +5,8 @@ import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.conference.ConferenceAudioGrantState
+import network.lapis.cloud.server.conference.ConferenceAudioPolicy
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.LiveKitAccessToken
 import network.lapis.cloud.server.conference.LiveKitAdminClient
@@ -163,6 +165,12 @@ class ConferenceBreakoutService(
         FederationInboxRateLimiter(maxRequests = DEFAULT_RECALL_RATE_MAX, window = DEFAULT_ACTION_RATE_WINDOW),
     private val tokenRateLimiter: FederationInboxRateLimiter =
         FederationInboxRateLimiter(maxRequests = DEFAULT_TOKEN_RATE_MAX, window = DEFAULT_ACTION_RATE_WINDOW),
+    /**
+     * V1.9.108 -- [rejoinMainRoomToken] must honour a lock of the main room (otherwise "enter a breakout room, come back" would be a way
+     * around it) and therefore reads the individually released microphones. Defaulted and FAIL-SAFE like
+     * [ConferenceService]'s `audioGrantState` (an empty state can only withhold a release); `Application.module` passes the singleton.
+     */
+    private val audioGrantState: ConferenceAudioGrantState = ConferenceAudioGrantState(),
 ) : IConferenceBreakoutService {
     override suspend fun createBreakoutRooms(
         roomId: String,
@@ -617,6 +625,9 @@ class ConferenceBreakoutService(
             displayName = prep.displayName,
             role = ConferenceRole.PARTICIPANT,
             isNonMember = prep.isNonMember,
+            // V1.9.108: breakout rooms are not covered by the lock (the participant is not in the main LiveKit room, the moderators cannot
+            // reach them there) -- documented in the known limitations. Rejoining the MAIN room does honour the lock, see below.
+            microphoneAllowed = true,
         )
     }
 
@@ -680,6 +691,13 @@ class ConferenceBreakoutService(
                     isNonMember = currentMemberIsNonMember(current.memberId),
                     displayName = memberDisplayName(current.memberId),
                     role = role,
+                    microphoneAllowed =
+                        ConferenceAudioPolicy.microphoneAllowedFor(
+                            row = row,
+                            memberId = current.memberId,
+                            isModerator = ConferenceModeratorAuthority.isModerator(row = row, current = current),
+                            grants = audioGrantState,
+                        ),
                 )
             }
 
@@ -690,6 +708,7 @@ class ConferenceBreakoutService(
             displayName = prep.displayName,
             role = prep.role,
             isNonMember = prep.isNonMember,
+            microphoneAllowed = prep.microphoneAllowed,
         )
     }
 
@@ -706,6 +725,7 @@ class ConferenceBreakoutService(
         val isNonMember: Boolean,
         val displayName: String,
         val role: ConferenceRole,
+        val microphoneAllowed: Boolean,
     )
 
     /** See [IConferenceBreakoutService] KDoc "deliberately NOT duplicated" -- reuses the exact same conference-enabled gate [ConferenceService] applies, no independent availability toggle. */
@@ -786,6 +806,7 @@ class ConferenceBreakoutService(
         displayName: String,
         role: ConferenceRole,
         isNonMember: Boolean,
+        microphoneAllowed: Boolean,
     ): ConferenceJoinTokenDto {
         val effectiveTtl = if (isNonMember) config.guestTokenTtlMinutes else config.tokenTtlMinutes
         val minted =
@@ -798,6 +819,7 @@ class ConferenceBreakoutService(
                 ttl = effectiveTtl.minutes,
                 canPublish = true,
                 canPublishData = true,
+                microphoneAllowed = microphoneAllowed,
             )
         // Uses config.allTurnUrls (not config.turnUrls) so an optionally-configured `turns:` endpoint
         // travels in the SAME credential entry -- see ConferenceConfig.turnsUrls KDoc.

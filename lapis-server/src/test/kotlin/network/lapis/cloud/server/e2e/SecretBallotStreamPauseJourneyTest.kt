@@ -21,6 +21,7 @@ import network.lapis.cloud.server.conference.LiveKitAdminClient
 import network.lapis.cloud.server.conference.LiveKitEgressClient
 import network.lapis.cloud.server.conference.LiveKitEgressInfo
 import network.lapis.cloud.server.conference.LiveKitParticipantInfo
+import network.lapis.cloud.server.conference.LiveKitParticipantPermissionUpdate
 import network.lapis.cloud.server.conference.LiveKitRoomInfo
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
@@ -518,6 +519,25 @@ private fun streamStatusAndRestartCountOf(streamId: Uuid): Pair<ConferenceStream
  * class is `private` to its own file.
  */
 private class E2e9FakeLiveKitAdminClient : LiveKitAdminClient {
+    override suspend fun muteMicrophone(
+        room: String,
+        identity: String,
+        trackSid: String,
+    ): Unit = throw UnsupportedOperationException("muteMicrophone is not used by this fake")
+
+    override suspend fun updateParticipantPermission(
+        room: String,
+        identity: String,
+        permission: LiveKitParticipantPermissionUpdate,
+    ): Unit = throw UnsupportedOperationException("updateParticipantPermission is not used by this fake")
+
+    override suspend fun sendDataTo(
+        room: String,
+        topic: String,
+        payload: ByteArray,
+        destinationIdentities: List<String>,
+    ): Unit = throw UnsupportedOperationException("sendDataTo is not used by this fake")
+
     override suspend fun sendData(
         room: String,
         topic: String,

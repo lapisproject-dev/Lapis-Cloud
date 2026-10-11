@@ -14,9 +14,13 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readAvailable
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
 import java.security.SecureRandom
 import kotlin.io.encoding.Base64
@@ -86,7 +90,60 @@ interface LiveKitAdminClient {
         topic: String,
         payload: ByteArray,
     )
+
+    /**
+     * `POST .../MutePublishedTrack` (V1.9.108) -- mutes one published track of [identity]. **Always `muted = true`**: there is
+     * deliberately no parameter and no other method that could switch a microphone on (a moderator may only ask, never force).
+     * Gated on `roomAdmin`, room-scoped token like [listParticipants].
+     */
+    suspend fun muteMicrophone(
+        room: String,
+        identity: String,
+        trackSid: String,
+    )
+
+    /**
+     * `POST .../UpdateParticipant` (V1.9.108) -- replaces the WHOLE permission of [identity] (LiveKit does not merge), so [permission]
+     * is always complete; build it with [conferencePermission]. Never touches metadata, attributes or the name.
+     */
+    suspend fun updateParticipantPermission(
+        room: String,
+        identity: String,
+        permission: LiveKitParticipantPermissionUpdate,
+    )
+
+    /**
+     * `POST .../SendData` with `destination_identities` (V1.9.108) -- like [sendData] but only [destinationIdentities] receive the packet
+     * (1..[MAX_SEND_DATA_DESTINATIONS], never empty: an empty list would mean "everybody" in LiveKit's API).
+     */
+    suspend fun sendDataTo(
+        room: String,
+        topic: String,
+        payload: ByteArray,
+        destinationIdentities: List<String>,
+    )
 }
+
+/** Most destination identities of one targeted `SendData` call. */
+const val MAX_SEND_DATA_DESTINATIONS = 50
+
+/** The publish sources of an ordinary conference participant WITHOUT the microphone (LiveKit's protojson enum names). */
+private val CONFERENCE_SOURCES_WITHOUT_MICROPHONE = listOf("CAMERA", "SCREEN_SHARE", "SCREEN_SHARE_AUDIO")
+
+/**
+ * The one place that builds a participant permission for [LiveKitAdminClient.updateParticipantPermission]: always subscribe + publish +
+ * publish-data (what an ordinary participant token grants), with the microphone listed in `can_publish_sources` only if
+ * [microphoneAllowed]. Every value is explicit -- `UpdateParticipant` replaces the whole permission, so a missing field would silently
+ * take sound, camera or screen share away from the person.
+ */
+fun conferencePermission(microphoneAllowed: Boolean): LiveKitParticipantPermissionUpdate =
+    LiveKitParticipantPermissionUpdate(
+        canSubscribe = true,
+        canPublish = true,
+        canPublishData = true,
+        canPublishSources =
+            if (microphoneAllowed) CONFERENCE_SOURCES_WITHOUT_MICROPHONE + "MICROPHONE" else CONFERENCE_SOURCES_WITHOUT_MICROPHONE,
+    )
 
 /**
  * `HttpClient`-backed [LiveKitAdminClient] -- a thin Twirp-over-HTTP/JSON client, not a generated
@@ -173,7 +230,15 @@ class HttpLiveKitAdminClient(
         topic: String,
         payload: ByteArray,
     ) {
-        require(payload.size <= ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES) { "SendData payload too large" }
+        val limit =
+            if (topic ==
+                CONFERENCE_MODERATION_TOPIC
+            ) {
+                CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES
+            } else {
+                ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
+            }
+        require(payload.size <= limit) { "SendData payload too large" }
         val nonce = ByteArray(NONCE_BYTES).also { SecureRandom().nextBytes(it) }
         call<LiveKitSendDataRequest, LiveKitEmptyResponse>(
             method = "SendData",
@@ -185,6 +250,63 @@ class HttpLiveKitAdminClient(
                     kind = "RELIABLE",
                     topic = topic,
                     nonce = Base64.Default.encode(nonce),
+                ),
+        )
+    }
+
+    override suspend fun muteMicrophone(
+        room: String,
+        identity: String,
+        trackSid: String,
+    ) {
+        call<LiveKitMutePublishedTrackRequest, LiveKitEmptyResponse>(
+            method = "MutePublishedTrack",
+            room = room,
+            request = LiveKitMutePublishedTrackRequest(room = room, identity = identity, trackSid = trackSid),
+        )
+    }
+
+    override suspend fun updateParticipantPermission(
+        room: String,
+        identity: String,
+        permission: LiveKitParticipantPermissionUpdate,
+    ) {
+        call<LiveKitUpdateParticipantRequest, LiveKitEmptyResponse>(
+            method = "UpdateParticipant",
+            room = room,
+            request = LiveKitUpdateParticipantRequest(room = room, identity = identity, permission = permission),
+        )
+    }
+
+    override suspend fun sendDataTo(
+        room: String,
+        topic: String,
+        payload: ByteArray,
+        destinationIdentities: List<String>,
+    ) {
+        require(destinationIdentities.isNotEmpty()) { "SendData needs at least one destination (an empty list would address everybody)" }
+        require(destinationIdentities.size <= MAX_SEND_DATA_DESTINATIONS) { "SendData has too many destinations" }
+        val limit =
+            if (topic ==
+                CONFERENCE_MODERATION_TOPIC
+            ) {
+                CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES
+            } else {
+                ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
+            }
+        require(payload.size <= limit) { "SendData payload too large" }
+        val nonce = ByteArray(NONCE_BYTES).also { SecureRandom().nextBytes(it) }
+        call<LiveKitSendDataRequest, LiveKitEmptyResponse>(
+            method = "SendData",
+            room = room,
+            request =
+                LiveKitSendDataRequest(
+                    room = room,
+                    data = Base64.Default.encode(payload),
+                    kind = "RELIABLE",
+                    topic = topic,
+                    nonce = Base64.Default.encode(nonce),
+                    destinationIdentities = destinationIdentities,
                 ),
         )
     }
@@ -328,6 +450,9 @@ data class LiveKitParticipantInfo(
 data class LiveKitParticipantPermission(
     @SerialName("can_publish") val canPublish: Boolean = false,
     @SerialName("can_publish_data") val canPublishData: Boolean = false,
+    @SerialName("can_subscribe") val canSubscribe: Boolean = false,
+    /** LiveKit's protojson enum names (`CAMERA`, `MICROPHONE`, ...). Empty = "all sources allowed" in LiveKit's semantics. */
+    @SerialName("can_publish_sources") val canPublishSources: List<String> = emptyList(),
 )
 
 /**
@@ -372,7 +497,10 @@ internal data class LiveKitRoomParticipantIdentity(
     val identity: String,
 )
 
-/** `SendData` request shape (protojson: `data` is Base64 of the bytes; `nonce` is 16 random bytes, Base64 -- server-side dedup, not a counter). */
+/**
+ * `SendData` request shape (protojson: `data` is Base64 of the bytes; `nonce` is 16 random bytes, Base64 -- server-side dedup, not a
+ * counter). [destinationIdentities] `null` (omitted) = broadcast, exactly as before V1.9.108.
+ */
 @Serializable
 internal data class LiveKitSendDataRequest(
     val room: String,
@@ -380,6 +508,45 @@ internal data class LiveKitSendDataRequest(
     val kind: String,
     val topic: String,
     val nonce: String,
+    @SerialName("destination_identities") val destinationIdentities: List<String>? = null,
+)
+
+/**
+ * `MutePublishedTrack` request shape. **Pitfall S1:** [LIVEKIT_JSON] does not encode default values, so a plain `muted = true` default would
+ * be OMITTED and LiveKit would read `false` -- the mute would silently do nothing. `@EncodeDefault(ALWAYS)` forces it onto the wire, and
+ * `init { require(muted) }` makes an "unmute" request impossible to construct at all.
+ */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+internal data class LiveKitMutePublishedTrackRequest(
+    val room: String,
+    val identity: String,
+    @SerialName("track_sid") val trackSid: String,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS) val muted: Boolean = true,
+) {
+    init {
+        require(muted) { "A forced unmute is never sent" }
+    }
+}
+
+/**
+ * `livekit.ParticipantPermission` as SENT by `UpdateParticipant`. LiveKit replaces the permission as a whole, so every field is explicit and
+ * has no default (pitfall S2). Build via [conferencePermission].
+ */
+@Serializable
+data class LiveKitParticipantPermissionUpdate(
+    @SerialName("can_subscribe") val canSubscribe: Boolean,
+    @SerialName("can_publish") val canPublish: Boolean,
+    @SerialName("can_publish_data") val canPublishData: Boolean,
+    @SerialName("can_publish_sources") val canPublishSources: List<String>,
+)
+
+/** `UpdateParticipant` request shape -- carries ONLY the permission (never metadata, attributes or name). */
+@Serializable
+internal data class LiveKitUpdateParticipantRequest(
+    val room: String,
+    val identity: String,
+    val permission: LiveKitParticipantPermissionUpdate,
 )
 
 /** `ListRooms` takes an empty request body (`{}`) -- an optional `names` filter exists on the real proto but this wave always lists every room, matching the "lazy reconciliation" use case a future wave's `ConferenceService` needs. */

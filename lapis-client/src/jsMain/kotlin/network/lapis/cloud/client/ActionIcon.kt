@@ -149,4 +149,14 @@ enum class ActionIcon(
      * see `docs/architecture/action-icons.adoc`).
      */
     BELL("fas fa-bell"),
+
+    /**
+     * V1.9.108: the three microphone states a moderator sees in the conference roster, STATE displays next to their text (never the face
+     * of a button): [MIC_OFF] the person is muted, [MIC_MODERATION] the moderators muted them (a CSS badge sets it apart from [MIC_OFF]),
+     * [MIC_LOCKED] the moderators locked the room's microphones. [MIC_LOCKED] uses the glyph that [LOCK] reserves; [LOCK] itself stays
+     * unused.
+     */
+    MIC_OFF("fas fa-microphone-slash"),
+    MIC_MODERATION("fas fa-microphone-lines-slash"),
+    MIC_LOCKED("fas fa-lock"),
 }

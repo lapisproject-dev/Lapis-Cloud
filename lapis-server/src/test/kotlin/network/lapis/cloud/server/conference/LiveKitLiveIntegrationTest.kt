@@ -96,4 +96,106 @@ class LiveKitLiveIntegrationTest :
                 client.deleteRoom(roomName)
             }
         }
+
+        test(
+            "V1.9.108: UpdateParticipant replaces a live participant's permission, and MutePublishedTrack mutes a real MICROPHONE track " +
+                "(needs the livekit-cli `lk` and an opus .ogg: LAPIS_LIVEKIT_IT_LK, LAPIS_LIVEKIT_IT_OGG)",
+        ).config(enabled = liveItEnabled) {
+            val lkCommand = System.getenv("LAPIS_LIVEKIT_IT_LK") ?: "lk"
+            val ogg = System.getenv("LAPIS_LIVEKIT_IT_OGG")
+            val lkAvailable =
+                runCatching {
+                    ProcessBuilder(
+                        lkCommand,
+                        "--version",
+                    ).redirectErrorStream(true).start().also { it.inputStream.readBytes() }.waitFor() ==
+                        0
+                }.getOrDefault(false)
+            if (!lkAvailable || ogg == null) {
+                // Honest note instead of a silent pass: this part of the wave was NOT verified against a real LiveKit in this run.
+                println("Audio-Mute live nicht geprueft: lk CLI ($lkCommand) oder LAPIS_LIVEKIT_IT_OGG fehlt.")
+                return@config
+            }
+            val roomName = "lc-it-${Uuid.random()}"
+            client.createRoom(name = roomName, maxParticipants = 5, emptyTimeoutSeconds = 60)
+            val publisher =
+                ProcessBuilder(
+                    lkCommand,
+                    "room",
+                    "join",
+                    "--url",
+                    apiUrl.replace("http", "ws"),
+                    "--api-key",
+                    apiKey,
+                    "--api-secret",
+                    apiSecret,
+                    "--identity",
+                    "probe",
+                    "--publish",
+                    ogg,
+                    roomName,
+                ).redirectErrorStream(true).start()
+            try {
+                suspend fun waitFor(condition: (LiveKitParticipantInfo?) -> Boolean): LiveKitParticipantInfo? {
+                    repeat(40) {
+                        val probe = client.listParticipants(roomName).firstOrNull { it.identity == "probe" }
+                        if (condition(probe)) return probe
+                        kotlinx.coroutines.delay(500)
+                    }
+                    return client.listParticipants(roomName).firstOrNull { it.identity == "probe" }
+                }
+                val joined = waitFor { p -> p?.tracks?.any { it.source == "MICROPHONE" } == true }
+                val microphone = joined!!.tracks.single { it.source == "MICROPHONE" }
+                microphone.muted shouldBe false
+
+                // (A) MutePublishedTrack with muted=true (and nothing else) really mutes a real MICROPHONE track.
+                client.muteMicrophone(room = roomName, identity = "probe", trackSid = microphone.sid)
+                val muted = waitFor { p -> p?.tracks?.firstOrNull { it.source == "MICROPHONE" }?.muted == true }
+                muted!!.tracks.first { it.source == "MICROPHONE" }.muted shouldBe true
+
+                // (B) Taking MICROPHONE out of the permission of a participant who already publishes it: is the track stopped by LiveKit
+                // itself? Recorded, not asserted -- ConferenceAudioPolicyReconciler covers the case where it is not.
+                client.updateParticipantPermission(
+                    room = roomName,
+                    identity = "probe",
+                    permission = conferencePermission(microphoneAllowed = false),
+                )
+                val afterUpdate = waitFor { true }!!
+                afterUpdate.permission!!.canPublish shouldBe true
+                afterUpdate.permission!!.canSubscribe shouldBe true
+                afterUpdate.permission!!.canPublishData shouldBe true
+                afterUpdate.permission!!
+                    .canPublishSources
+                    .map { it.uppercase() }
+                    .contains("MICROPHONE") shouldBe false
+                println(
+                    "LIVE V1.9.108: after UpdateParticipant(without MICROPHONE) the published microphone track is " +
+                        (
+                            afterUpdate.tracks.firstOrNull { it.source == "MICROPHONE" }?.let { "STILL PRESENT (muted=${it.muted})" }
+                                ?: "REMOVED by LiveKit"
+                        ),
+                )
+
+                // (C) A permission WITH the microphone is accepted again, and a targeted data packet is accepted.
+                client.updateParticipantPermission(
+                    room = roomName,
+                    identity = "probe",
+                    permission = conferencePermission(microphoneAllowed = true),
+                )
+                val restored = waitFor { true }!!
+                restored.permission!!
+                    .canPublishSources
+                    .map { it.uppercase() }
+                    .contains("MICROPHONE") shouldBe true
+                client.sendDataTo(
+                    room = roomName,
+                    topic = "lapis-conference-moderation",
+                    payload = """{"v":1,"k":"muted"}""".encodeToByteArray(),
+                    destinationIdentities = listOf("probe"),
+                )
+            } finally {
+                publisher.destroy()
+                client.deleteRoom(roomName)
+            }
+        }
     })

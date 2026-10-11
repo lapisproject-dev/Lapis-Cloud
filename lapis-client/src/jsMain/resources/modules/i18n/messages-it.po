@@ -22098,3 +22098,105 @@ msgstr "Prevista pronta verso le %1 (stima)."
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
 msgid "Die Rohaufnahmen sind nicht mehr vorhanden."
 msgstr "Le registrazioni originali non sono più disponibili."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Stumm, Einschalten gesperrt"
+msgstr "Muto, attivazione bloccata"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Von der Moderation stummgeschaltet"
+msgstr "Silenziato dalla moderazione"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Die Moderation hat das Einschalten gesperrt"
+msgstr "La moderazione ha bloccato l'attivazione"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Mikrofon von %1 stummschalten"
+msgstr "Silenzia il microfono di %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Bitten"
+msgstr "Chiedi"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "%1 bitten, das Mikrofon einzuschalten"
+msgstr "Chiedi a %1 di attivare il microfono"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Alle stummschalten"
+msgstr "Silenzia tutti"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Niemand hat ein offenes Mikrofon."
+msgstr "Nessuno ha il microfono aperto."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Mikrofone sperren"
+msgstr "Blocca i microfoni"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Teilnehmende können ihr Mikrofon dann nicht mehr selbst einschalten. Wen Sie bitten, kann es wieder einschalten."
+msgstr "I partecipanti non potranno più attivare da soli il proprio microfono. Chi viene invitato da lei potrà riattivarlo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Ihr Mikrofon wurde von der Moderation stummgeschaltet."
+msgstr "Il suo microfono è stato silenziato dalla moderazione."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Die Moderation bittet Sie, Ihr Mikrofon einzuschalten."
+msgstr "La moderazione le chiede di attivare il microfono."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Nicht jetzt"
+msgstr "Non ora"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Hinweis schließen"
+msgstr "Chiudi avviso"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Die Moderation hat das Einschalten der Mikrofone gesperrt."
+msgstr "La moderazione ha bloccato l'attivazione dei microfoni."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Sie können Ihr Mikrofon wieder einschalten."
+msgstr "Può di nuovo attivare il microfono."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Teilnehmende stumm beitreten lassen"
+msgstr "Fai entrare i partecipanti silenziati"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Wer beitritt, startet mit ausgeschaltetem Mikrofon und kann es selbst einschalten."
+msgstr "Chi entra inizia con il microfono spento e può accenderlo da solo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Teilnehmende dürfen sich nicht selbst einschalten"
+msgstr "I partecipanti non possono attivarsi da soli"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Nur Sie und die Menschen, die Sie bitten, können das Mikrofon dann einschalten."
+msgstr "Allora solo lei e le persone che lei invita potranno attivare il microfono."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "%1 wurde gebeten, das Mikrofon einzuschalten."
+msgstr "A %1 è stato chiesto di attivare il microfono."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "%1 Person stummschalten? Moderatoren sind ausgenommen."
+msgid_plural "%1 Personen stummschalten? Moderatoren sind ausgenommen."
+msgstr[0] "Silenziare %1 persona? I moderatori sono esclusi."
+msgstr[1] "Silenziare %1 persone? I moderatori sono esclusi."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Das offene Mikrofon von %1 Person wird stummgeschaltet."
+msgid_plural "Die offenen Mikrofone von %1 Personen werden stummgeschaltet."
+msgstr[0] "Il microfono aperto di %1 persona verrà silenziato."
+msgstr[1] "I microfoni aperti di %1 persone verranno silenziati."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "%1 Person stummgeschaltet."
+msgid_plural "%1 Personen stummgeschaltet."
+msgstr[0] "%1 persona silenziata."
+msgstr[1] "%1 persone silenziate."

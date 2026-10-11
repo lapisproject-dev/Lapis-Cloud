@@ -4,6 +4,8 @@ import io.kvision.utils.obj
 import kotlinx.coroutines.await
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.client.encounter.EncounterReactionWire
+import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_TOPIC
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
 import network.lapis.cloud.shared.domain.ConferenceTurnServer
 import network.lapis.cloud.shared.domain.ENCOUNTER_BELL_MAX_PAYLOAD_BYTES
@@ -18,6 +20,7 @@ import network.lapis.cloud.shared.domain.NoteBlockBroadcastDto
 import network.lapis.cloud.shared.domain.WhiteboardStrokeWireDto
 import network.lapis.cloud.shared.domain.isStructurallyValid
 import org.khronos.webgl.Uint8Array
+import org.khronos.webgl.get
 import kotlin.js.unsafeCast
 
 private external interface PublishDataOptions {
@@ -383,6 +386,23 @@ class LiveKitRoomSession(
      * length of at most [ENCOUNTER_BELL_MAX_PAYLOAD_BYTES]; the payload is never decoded.
      */
     private val onEncounterBell: () -> Unit = {},
+    /**
+     * V1.9.108 -- the mute state of ANOTHER participant's track changed (`RoomEvent.TrackMuted`/`TrackUnmuted` for a remote participant;
+     * until now only the local ones were relayed). [source] is the publication source (`"microphone"`, ...). Replaces the "does a
+     * subscribed track exist" approximation `ConferenceScreen.kt` used for the roster's microphone state. The initial state of a track
+     * comes from `TrackPublication.isMuted` at subscription.
+     */
+    private val onRemoteTrackMuteChanged: (identity: String, source: String, muted: Boolean) -> Unit = { _, _, _ -> },
+    /**
+     * V1.9.108 -- a moderation signal of the SERVER ([ConferenceModerationSignal]); see [conferenceModerationPacket] for the strict
+     * acceptance rule (never from a participant). It informs the UI only.
+     */
+    private val onModerationSignal: (ConferenceModerationSignal) -> Unit = {},
+    /**
+     * V1.9.108 -- whether the OWN permission lets this person publish a microphone ([microphoneAllowedByPermission]); fired once after
+     * connect and on every `ParticipantPermissionsChanged` of the local participant. The truth for the microphone button of a locked room.
+     */
+    private val onLocalMicrophonePermission: (allowed: Boolean) -> Unit = {},
 ) {
     private var room: Room? = null
 
@@ -635,6 +655,7 @@ class LiveKitRoomSession(
                 onRecordingStatusChanged(newRoom.isRecording)
                 seedRoster(newRoom)
                 onAudioPlaybackChanged(newRoom.canPlaybackAudio)
+                onLocalMicrophonePermission(localMicrophoneAllowed(newRoom))
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Throwable) {
@@ -700,12 +721,26 @@ class LiveKitRoomSession(
             // p1's static shape doesn't matter -- LocalParticipant/RemoteParticipant both carry
             // `identity` at runtime, see this class's own KDoc "Local mute state is event-driven".
             val identity = p1.unsafeCast<RemoteParticipant>().identity
-            if (identity == room.localParticipant.identity) onLocalTrackMuteChanged(publication.source, true)
+            if (identity == room.localParticipant.identity) {
+                onLocalTrackMuteChanged(publication.source, true)
+            } else {
+                onRemoteTrackMuteChanged(identity, publication.source, true)
+            }
         }
         room.onOwned(RoomEvent.TrackUnmuted) { p0, p1, _, _ ->
             val publication = p0.unsafeCast<TrackPublication>()
             val identity = p1.unsafeCast<RemoteParticipant>().identity
-            if (identity == room.localParticipant.identity) onLocalTrackMuteChanged(publication.source, false)
+            if (identity == room.localParticipant.identity) {
+                onLocalTrackMuteChanged(publication.source, false)
+            } else {
+                onRemoteTrackMuteChanged(identity, publication.source, false)
+            }
+        }
+        // V1.9.108 -- the server changed a permission (room lock). Only the LOCAL participant's own permission matters to this client;
+        // it is re-read from the SDK rather than trusted from the event arguments.
+        room.onOwned(RoomEvent.ParticipantPermissionsChanged) { _, p1, _, _ ->
+            val identity = p1.unsafeCast<RemoteParticipant>().identity
+            if (identity == room.localParticipant.identity) onLocalMicrophonePermission(localMicrophoneAllowed(room))
         }
         room.onOwned(RoomEvent.LocalTrackPublished) { p0, _, _, _ ->
             val publication = p0.unsafeCast<TrackPublication>()
@@ -771,6 +806,16 @@ class LiveKitRoomSession(
                 val fromParticipant = p1.unsafeCast<RemoteParticipant?>() != null
                 val accepted = encounterBellPacketAccepted(fromParticipant = fromParticipant, payloadLength = payload.length)
                 if (accepted) onEncounterBell()
+                return@onOwned
+            }
+            // V1.9.108 -- moderation signals: accepted ONLY from the server (a packet WITHOUT a participant), so this branch too sits
+            // BEFORE the participant check below (which would drop exactly the packets this branch wants). The strict decode never
+            // throws; the length is checked before the bytes are copied.
+            if (p3 == CONFERENCE_MODERATION_TOPIC) {
+                val fromParticipant = p1.unsafeCast<RemoteParticipant?>() != null
+                if (fromParticipant || payload.length !in 1..CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES) return@onOwned
+                val bytes = ByteArray(payload.length) { index -> payload[index] }
+                conferenceModerationPacket(fromParticipant = false, payload = bytes)?.let(onModerationSignal)
                 return@onOwned
             }
             val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@onOwned
@@ -1283,3 +1328,17 @@ internal fun encounterBellPacketAccepted(
     fromParticipant: Boolean,
     payloadLength: Int,
 ): Boolean = !fromParticipant && payloadLength in 1..ENCOUNTER_BELL_MAX_PAYLOAD_BYTES
+
+/**
+ * V1.9.108 -- reads the OWN permission off the SDK and applies [microphoneAllowedByPermission]. An unknown permission (not yet received)
+ * counts as allowed: the button must not be locked on a guess, and the server still enforces the lock.
+ */
+private fun localMicrophoneAllowed(room: Room): Boolean {
+    val permissions: dynamic = room.localParticipant.permissions
+    if (permissions == null || permissions == undefined) return true
+    val canPublish = permissions.canPublish.unsafeCast<Boolean?>() == true
+    val rawSources: dynamic = permissions.canPublishSources
+    val sources: List<Int> =
+        if (rawSources == null || rawSources == undefined) emptyList() else rawSources.unsafeCast<Array<Int>>().toList()
+    return microphoneAllowedByPermission(canPublish = canPublish, publishSources = sources)
+}

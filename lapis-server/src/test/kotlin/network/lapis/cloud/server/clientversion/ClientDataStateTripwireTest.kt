@@ -83,9 +83,12 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * Welle V1.9.105 "Artikel-Import" adds ONE more, in the new `ArticleImportScreen.kt` (a new file, hence 48 -> 49 files): the "Vorschau prüfen"
  * action calls `previewArticleImport(` on demand -- the same accepted shape as `EventImportScreen.kt`'s `previewEventImport(` above (a
  * user-triggered, stateless dry run: a failure toasts through `guarded` and the screen stays in the editor). 157 -> 158.
+ * Welle V1.9.108 review fix adds ONE more, in `ConferenceScreen.kt` (no new file): after a FAILED moderation policy call the panel re-reads the
+ * room (`getRoom(`) so it shows the stored state, not a local guess -- a one-off recovery read inside an existing action, failures toast
+ * through `guarded` and the panel keeps its state. 158 -> 159.
  * The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 158
+private const val READ_OUTSIDE_STATE_REGION_MAX = 159
 private const val FILES_OUTSIDE_STATE_REGION_MAX = 49
 
 /**

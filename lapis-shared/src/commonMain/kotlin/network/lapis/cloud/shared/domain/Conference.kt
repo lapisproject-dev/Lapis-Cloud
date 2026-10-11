@@ -40,6 +40,13 @@ data class ConferenceRoomInput(
      * toggle in the client.
      */
     val allowFederationGuests: Boolean = false,
+    /**
+     * V1.9.108 -- non-moderators join with the microphone off. Part of the API for completeness (like [allowFederationGuests]); the client
+     * never sets it at creation time (design decision D4 "one button, no form") but from the "Moderation" disclosure inside a running room.
+     */
+    val muteOnJoin: Boolean = false,
+    /** V1.9.108 -- `false` locks the room's microphones: only moderators (and individually released people) may switch theirs on. */
+    val participantsMayUnmute: Boolean = true,
 )
 
 /**
@@ -79,6 +86,10 @@ data class ConferenceRoomDto(
      * <Titel>" without a second round-trip. `null` whenever [meetingId] is `null`.
      */
     val meetingTitle: String? = null,
+    /** V1.9.108 -- see [ConferenceRoomInput.muteOnJoin]. Appended last with a default so an older client/server pairing stays wire compatible. */
+    val muteOnJoin: Boolean = false,
+    /** V1.9.108 -- see [ConferenceRoomInput.participantsMayUnmute]. */
+    val participantsMayUnmute: Boolean = true,
 )
 
 /**
@@ -338,3 +349,36 @@ data class ConferenceBreakoutAssignmentDto(
     val breakoutRoomLabel: String,
     val assignedAt: LocalDateTime,
 )
+
+/**
+ * V1.9.108 -- LiveKit data-packet topic of the moderation signals (server -> client only). Named like the other `lapis-...` topics
+ * (`lapis-chat`, `lapis-encounter-bell`). A packet is accepted by a client ONLY if it carries no sending participant (a packet the server
+ * sent through `SendData`); participants hold `can_publish_data`, so anything with a sender on this topic is a forgery and is dropped.
+ */
+const val CONFERENCE_MODERATION_TOPIC = "lapis-conference-moderation"
+
+/** Hard cap of a moderation payload in bytes (the largest one, `muted_peer` with a UUID, is about 70 bytes). */
+const val CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES = 128
+
+/** Moderation signal kinds (`{"v":1,"k":"<kind>"}`): the person was muted by a moderator. */
+const val CONFERENCE_MODERATION_KIND_MUTED = "muted"
+
+/** Sent to the moderators only: `{"v":1,"k":"muted_peer","id":"<member uuid>"}` -- who was muted (shown in the roster of moderators only). */
+const val CONFERENCE_MODERATION_KIND_MUTED_PEER = "muted_peer"
+
+/** A moderator asks this person to switch the microphone on. The person does it themselves; nothing is ever forced. */
+const val CONFERENCE_MODERATION_KIND_UNMUTE_REQUEST = "unmute_request"
+
+/** Broadcast: the room's microphones were locked / released. */
+const val CONFERENCE_MODERATION_KIND_LOCK = "lock"
+const val CONFERENCE_MODERATION_KIND_UNLOCK = "unlock"
+
+/** The closed set of accepted `k` values -- shared by the server (what it may send) and the client (what it accepts). */
+val CONFERENCE_MODERATION_KINDS: Set<String> =
+    setOf(
+        CONFERENCE_MODERATION_KIND_MUTED,
+        CONFERENCE_MODERATION_KIND_MUTED_PEER,
+        CONFERENCE_MODERATION_KIND_UNMUTE_REQUEST,
+        CONFERENCE_MODERATION_KIND_LOCK,
+        CONFERENCE_MODERATION_KIND_UNLOCK,
+    )

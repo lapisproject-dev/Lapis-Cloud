@@ -20,10 +20,14 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.LiveKitAdminClient
 import network.lapis.cloud.server.conference.LiveKitAdminException
 import network.lapis.cloud.server.conference.LiveKitParticipantInfo
+import network.lapis.cloud.server.conference.LiveKitParticipantPermissionUpdate
 import network.lapis.cloud.server.conference.LiveKitRoomInfo
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
@@ -62,6 +66,7 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
@@ -107,6 +112,25 @@ private val BREAKOUT_ENABLED_CONFIG_WITH_TURN_AND_TURNS =
  * visibility").
  */
 private class FakeBreakoutLiveKitAdminClient : LiveKitAdminClient {
+    override suspend fun muteMicrophone(
+        room: String,
+        identity: String,
+        trackSid: String,
+    ): Unit = throw UnsupportedOperationException("muteMicrophone is not used by this fake")
+
+    override suspend fun updateParticipantPermission(
+        room: String,
+        identity: String,
+        permission: LiveKitParticipantPermissionUpdate,
+    ): Unit = throw UnsupportedOperationException("updateParticipantPermission is not used by this fake")
+
+    override suspend fun sendDataTo(
+        room: String,
+        topic: String,
+        payload: ByteArray,
+        destinationIdentities: List<String>,
+    ): Unit = throw UnsupportedOperationException("sendDataTo is not used by this fake")
+
     override suspend fun sendData(
         room: String,
         topic: String,
@@ -920,6 +944,47 @@ class ConferenceBreakoutServiceTest :
             countAfter shouldBe countBefore
         }
 
+        test(
+            "V1.9.108: rejoinMainRoomToken honours the lock of the main room (no microphone source for a participant, none withheld from the moderator), and an unlocked room is unchanged",
+        ) {
+            val fake = FakeBreakoutLiveKitAdminClient()
+            val moderator = createTestMember("bo-rejoin-lock-mod@example.org")
+            val participant = createTestMember("bo-rejoin-lock-part@example.org")
+            val (lockedRoomId, _) = createTestParentRoom(fake, moderator, listOf(participant))
+            val (openRoomId, _) = createTestParentRoom(fake, moderator, listOf(participant))
+            transaction {
+                ConferenceRoomTable.update({ ConferenceRoomTable.id eq lockedRoomId }) { it[participantsMayUnmute] = false }
+            }
+
+            fun claims(jwt: String): Map<String, Any?> {
+                val payload =
+                    String(
+                        java.util.Base64
+                            .getUrlDecoder()
+                            .decode(jwt.split('.')[1]),
+                    )
+                val video = Json.parseToJsonElement(payload).jsonObject["video"]!!.jsonObject
+                return video.mapValues { (_, v) ->
+                    if (v is kotlinx.serialization.json.JsonArray) v.map { it.jsonPrimitive.content } else v.jsonPrimitive.content
+                }
+            }
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
+                    routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
+                }
+
+                suspend fun token(
+                    room: Uuid,
+                    member: Uuid,
+                ) = client.post("/test/rejoin-main-room-token-jwt?roomId=$room") { header("X-Member-Id", member.toString()) }.bodyAsText()
+                claims(token(lockedRoomId, participant))["canPublishSources"] shouldBe
+                    listOf("camera", "screen_share", "screen_share_audio")
+                claims(token(lockedRoomId, moderator)).containsKey("canPublishSources") shouldBe false
+                claims(token(openRoomId, participant)).containsKey("canPublishSources") shouldBe false
+            }
+        }
+
         test("rejoinMainRoomToken: rejected with Forbidden for a caller with no open participation in the room") {
             val fake = FakeBreakoutLiveKitAdminClient()
             val moderator = createTestMember("bo-rejoin-forbid-mod@example.org")
@@ -1104,6 +1169,9 @@ private fun Route.registerConferenceBreakoutTestRoutes(
         val q = call.request.queryParameters
         service.returnToMainRoom(q["breakoutRoomId"]!!)
         call.respondText("ok")
+    }
+    post("/test/rejoin-main-room-token-jwt") {
+        call.respondText(service(call).rejoinMainRoomToken(call.request.queryParameters["roomId"]!!).token)
     }
     post("/test/rejoin-main-room-token") {
         val service = service(call)

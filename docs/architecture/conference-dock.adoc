@@ -498,3 +498,8 @@ focus and speaking mark kept, small tiles, floor, no motion, padding, wide root,
   node moves, not the whole call screen. 16:9 is forced even on a phone held upright. Bottom sheets below 768 px still cover the tiles instead of
   displacing them, and in the normal view the side panels still sit below them. Below a 160 px tile the page scrolls. There is no pinned main tile
   (the screen-share stage stays above the grid; the grid uses the height below it). The help page `video-conferencing` is updated at rollout.
+
+== See also
+
+* link:conference-moderation-audio.adoc[Conference moderation: mute, ask, lock the microphones (V1.9.108)] -- muting, locking and the full-screen
+  heading, which are part of the call view this document describes.

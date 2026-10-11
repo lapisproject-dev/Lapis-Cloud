@@ -22053,3 +22053,105 @@ msgstr "Naar verwachting klaar rond %1 (schatting)."
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
 msgid "Die Rohaufnahmen sind nicht mehr vorhanden."
 msgstr "De ruwe opnames zijn niet meer beschikbaar."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Stumm, Einschalten gesperrt"
+msgstr "Gedempt, inschakelen vergrendeld"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Von der Moderation stummgeschaltet"
+msgstr "Gedempt door de moderatie"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Die Moderation hat das Einschalten gesperrt"
+msgstr "De moderatie heeft het inschakelen vergrendeld"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Mikrofon von %1 stummschalten"
+msgstr "Microfoon van %1 dempen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Bitten"
+msgstr "Vragen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "%1 bitten, das Mikrofon einzuschalten"
+msgstr "%1 vragen de microfoon aan te zetten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Alle stummschalten"
+msgstr "Iedereen dempen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Niemand hat ein offenes Mikrofon."
+msgstr "Niemand heeft een open microfoon."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Mikrofone sperren"
+msgstr "Microfoons vergrendelen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Teilnehmende können ihr Mikrofon dann nicht mehr selbst einschalten. Wen Sie bitten, kann es wieder einschalten."
+msgstr "Deelnemers kunnen hun microfoon dan niet meer zelf aanzetten. Wie u vraagt, kan hem weer aanzetten."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Ihr Mikrofon wurde von der Moderation stummgeschaltet."
+msgstr "Uw microfoon is gedempt door de moderatie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Die Moderation bittet Sie, Ihr Mikrofon einzuschalten."
+msgstr "De moderatie vraagt u uw microfoon aan te zetten."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Nicht jetzt"
+msgstr "Niet nu"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Hinweis schließen"
+msgstr "Melding sluiten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Die Moderation hat das Einschalten der Mikrofone gesperrt."
+msgstr "De moderatie heeft het inschakelen van de microfoons vergrendeld."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Sie können Ihr Mikrofon wieder einschalten."
+msgstr "U kunt uw microfoon weer aanzetten."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Teilnehmende stumm beitreten lassen"
+msgstr "Deelnemers gedempt laten binnenkomen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Wer beitritt, startet mit ausgeschaltetem Mikrofon und kann es selbst einschalten."
+msgstr "Wie binnenkomt, begint met een uitgeschakelde microfoon en kan die zelf aanzetten."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Teilnehmende dürfen sich nicht selbst einschalten"
+msgstr "Deelnemers mogen zichzelf niet inschakelen"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Nur Sie und die Menschen, die Sie bitten, können das Mikrofon dann einschalten."
+msgstr "Dan kunnen alleen u en de mensen die u vraagt de microfoon aanzetten."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "%1 wurde gebeten, das Mikrofon einzuschalten."
+msgstr "%1 is gevraagd de microfoon aan te zetten."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "%1 Person stummschalten? Moderatoren sind ausgenommen."
+msgid_plural "%1 Personen stummschalten? Moderatoren sind ausgenommen."
+msgstr[0] "%1 persoon dempen? Moderatoren zijn uitgezonderd."
+msgstr[1] "%1 personen dempen? Moderatoren zijn uitgezonderd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "Das offene Mikrofon von %1 Person wird stummgeschaltet."
+msgid_plural "Die offenen Mikrofone von %1 Personen werden stummgeschaltet."
+msgstr[0] "De open microfoon van %1 persoon wordt gedempt."
+msgstr[1] "De open microfoons van %1 personen worden gedempt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceModerationAudio.kt:1
+msgid "%1 Person stummgeschaltet."
+msgid_plural "%1 Personen stummgeschaltet."
+msgstr[0] "%1 persoon gedempt."
+msgstr[1] "%1 personen gedempt."

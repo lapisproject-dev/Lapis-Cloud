@@ -910,6 +910,32 @@ html.lapis-conference-call-visible .lapis-conference-dock-host {
   display: none;
 }
 
+/* V1.9.108: in full screen the call shows faces, not a title bar. The heading row paints nothing -- but the h2 stays in the
+   accessibility tree (clip pattern, not display:none) so the "Besprechung" landmark keeps its name, and "Bearbeiten" is display:none,
+   which also takes it out of the tab order. The class sits on the call panel (the dock host child), never on the page root. */
+.lapis-conference-fullscreen .lapis-conference-title-row > :not(.lapis-conference-title) {
+  display: none;
+}
+
+.lapis-conference-fullscreen .lapis-conference-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.lapis-conference-fullscreen .lapis-conference-title-row {
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  gap: 0;
+}
+
 /* D11 fullscreen override: Grid darf den ganzen verfügbaren Platz einnehmen. */
 .lapis-conference-fullscreen .lapis-conference-grid {
   flex: 1 1 auto;
@@ -4466,6 +4492,125 @@ html.lapis-has-dock {
   .lapis-recording-retry {
     width: 100%;
   }
+}
+
+/* ==========================================================================================
+   V1.9.108 -- Moderation: Mikrofone stummschalten, sperren, bitten.
+   Farben ausschließlich über die Tokens (Hell und Dunkel). Alle Ziele mindestens 44 px, bei 360 px bricht die Zeile um,
+   die Handlung bleibt in der Zeile.
+   ========================================================================================== */
+
+/* Mikrofonzustand in der Teilnehmerliste: Symbol (dekorativ) + Text. */
+.lapis-conference-mic-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lapis-conference-mic-state-icon {
+  position: relative;
+}
+
+/* "Von der Moderation stummgeschaltet" bekommt ein Abzeichen und die Akzentfarbe, damit es nicht mit "Stumm" verwechselt wird. */
+.lapis-conference-mic-state--moderation {
+  color: var(--lapis-text) !important;
+}
+
+.lapis-conference-mic-state--moderation .lapis-conference-mic-state-icon {
+  color: var(--lapis-accent);
+}
+
+.lapis-conference-mic-state--moderation .lapis-conference-mic-state-icon::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  top: -2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lapis-accent);
+  border: 1px solid var(--lapis-surface);
+}
+
+.lapis-conference-mic-state--locked .lapis-conference-mic-state-icon {
+  color: var(--lapis-muted);
+}
+
+/* Fester Platz der Handlung: gleiche Breite, ob "Stummschalten", "Bitten" oder nichts -- die Zeile springt nicht. */
+.lapis-roster-action-slot {
+  flex: 0 0 auto;
+  min-width: 9rem;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.lapis-roster-action-slot .btn {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.lapis-conference-mute-all .btn {
+  min-height: 44px;
+}
+
+@media (max-width: 400px) {
+  /* ab 360 px darf die Zeile umbrechen; der Platz schrumpft, die Handlung bleibt in der Zeile. */
+  .lapis-roster-action-slot {
+    min-width: 0;
+  }
+}
+
+/* Ruhiges Hinweisband beim Betroffenen: Info-Farbe, kein Fehlerrot. */
+.lapis-conference-moderation-band {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--lapis-accent);
+  border-radius: 6px;
+  background: var(--lapis-accent-soft);
+  color: var(--lapis-text);
+}
+
+.lapis-conference-moderation-band-text {
+  flex: 1 1 12rem;
+}
+
+.lapis-conference-moderation-band .btn {
+  min-height: 44px;
+}
+
+.lapis-conference-moderation-band-close {
+  min-width: 44px;
+}
+
+/* Moderation (Ausklappbereich im Mehr-Blatt). */
+.lapis-conference-moderation-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lapis-conference-moderation-toggle {
+  align-self: flex-start;
+  min-height: 44px;
+}
+
+.lapis-conference-moderation-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lapis-conference-moderation-switch {
+  min-height: 44px;
+}
+
+.lapis-conference-moderation-switch .form-check-input {
+  min-width: 2.5rem;
+  min-height: 1.5rem;
 }
 
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle vier `transition:`-Deklarationen dieser
