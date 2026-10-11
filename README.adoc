@@ -83,12 +83,12 @@ this repository. This README describes only the technical scope.
 * **Deployment**: Docker Compose (`deploy/example/`). Since `v0.31.1` (V1.9.93) the server image is built once per release tag by CI and
   published to GHCR (`ghcr.io/lapisproject-dev/lapis-cloud:<version>`); hosts pull it instead of compiling the sources
   (`LAPIS_IMAGE_TAG` in `.env`, rollback = previous tag). The pipeline has run and is verified: the published image
-  `ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` is public and all four instances run on it -- see `docs/architecture/ci-pipeline.adoc`
+  `ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` (the first image; `0.31.2` follows the same route) is public and all four instances run on `0.31.1` until they are switched -- see `docs/architecture/ci-pipeline.adoc`
   and `deploy/example/README.adoc`. A local source build stays available through `docker-compose.build.yml`.
 
 == Status
 
-Current release: *v0.31.1* (database schema *V81*). Lapis Cloud contains standard membership management (members, contributions, events, communication, GDPR, accounting),
+Current release: *v0.31.2* (database schema *V87*; patch release on `v0.31.1`: recording composition repaired with a manual retry (the fix is proven on a real server only after the rollout), guest federation repaired, the conference call page really full width, MCP article drafts, committee seat automation and election succession, article author lines, feeds and legacy import -- see `CHANGELOG.md` `[0.31.2]`). Lapis Cloud contains standard membership management (members, contributions, events, communication, GDPR, accounting),
 the meritocratic governance layer (voting, elections, systemic consensus, LTR economy), federation, video conferencing and many optional modules.
 
 * `CHANGELOG.md` is the authoritative release history; the long-form narrative is in link:docs/release-history.adoc[docs/release-history.adoc].
