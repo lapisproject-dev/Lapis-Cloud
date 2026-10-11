@@ -13,6 +13,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.testdb.PostgresConfigured
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.ElectionStatus
 import network.lapis.cloud.shared.domain.IncumbentPolicy
@@ -30,8 +31,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.uuid.Uuid
 
 private const val ROUNDS = 6
-private val LEAVE_STICHTAG = LocalDate(2026, 10, 11)
-private val LEAVE_NOW = LocalDateTime(2026, 10, 11, 10, 0)
+
+// the tally takes its stichtag from the organisation's clock, so the racing leave must use the same day (a fixed date broke at midnight)
+private val LEAVE_STICHTAG: LocalDate = OrganizationTimeZone.today()
+private val LEAVE_NOW: LocalDateTime = LocalDateTime(LEAVE_STICHTAG, kotlinx.datetime.LocalTime(10, 0))
 
 /**
  * Welle V1.9.103 -- the succession under real concurrency (H2 and PostgreSQL run the same assertions). Lock order of the tally: motion,
