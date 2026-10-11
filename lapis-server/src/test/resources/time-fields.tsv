@@ -109,6 +109,7 @@ dto:ConferenceBreakoutAssignmentDto.assignedAt	A	stamped by the server clock (Db
 dto:ConferenceRecordingDto.startedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:ConferenceRecordingDto.stoppedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:ConferenceRecordingDto.readyAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:ConferenceRecordingDto.compositionRetryStartedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:ConferenceStreamDestinationDto.streamKeySetAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:ConferenceStreamDto.startedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:ConferenceStreamDto.pausedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
@@ -508,6 +509,8 @@ col:ConferenceParticipationTable.leftAt	A	stamped by the server clock (DbClock/S
 col:ConferenceRecordingTable.startedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ConferenceRecordingTable.stoppedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ConferenceRecordingTable.readyAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceRecordingTable.manualRetryWindowStartedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ConferenceRecordingTable.lastManualRetryAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ConferenceRoomTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ConferenceRoomTable.endedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ConferenceStreamDestinationTable.streamKeySetAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

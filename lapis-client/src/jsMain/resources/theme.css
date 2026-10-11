@@ -4456,6 +4456,18 @@ html.lapis-has-dock {
   }
 }
 
+/* V1.9.107: "Umkodierung neu starten" in the recordings list -- a 44x44 px target at every pointer type, full width on a phone. */
+.lapis-recording-retry {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+@media (max-width: 575.98px) {
+  .lapis-recording-retry {
+    width: 100%;
+  }
+}
+
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle vier `transition:`-Deklarationen dieser
    Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau, `.lapis-busy` der Offene-Posten-Liste, schwebendes Konferenzfenster).
    Wer eine neue Transition ergaenzt, ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */

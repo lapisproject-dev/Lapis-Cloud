@@ -3,6 +3,7 @@ package network.lapis.cloud.server.conference
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import java.io.File
@@ -47,14 +48,14 @@ class FfmpegArgumentBuilderTest :
             joined shouldContain "setpts=PTS+5.000/TB"
             joined shouldContain "enable='gte(t,0.000)'"
             joined shouldContain "enable='gte(t,5.000)'"
-            joined shouldContain "[vout]"
-            joined shouldContain "-map [vout] -map [aout]"
+            joined shouldContain "[vout]trim=end=42.000[vfinal]"
+            joined shouldContain "-map [vfinal] -map [afinal]"
             joined shouldContain "-c:v libx264"
             joined shouldContain "-crf 23"
             joined shouldContain "-pix_fmt yuv420p"
             joined shouldContain "-c:a aac"
             joined shouldContain "-movflags +faststart"
-            joined shouldContain "-shortest"
+            joined shouldNotContain "-shortest"
             joined shouldNotContain "xstack"
         }
 
@@ -69,6 +70,7 @@ class FfmpegArgumentBuilderTest :
 
             joined shouldContain "anullsrc=r=48000:cl=stereo"
             joined shouldContain "anull[aout]"
+            joined shouldContain "[aout]atrim=end=10.000[afinal]"
             joined shouldNotContain "amix"
         }
 
@@ -208,5 +210,61 @@ class FfmpegArgumentBuilderTest :
 
             joined shouldContain "setpts=PTS+0.000/TB"
             joined shouldNotContain "-3.000"
+        }
+
+        fun simpleSpec(duration: Double) =
+            RecordingComposeSpec(
+                videoInputs = listOf(RecordingComposeVideoInput(file = File("cam1.mp4"), offsetSeconds = 0.0, isScreenShare = false)),
+                audioInputs = listOf(RecordingComposeAudioInput(file = File("mic1.ogg"), offsetSeconds = 0.0)),
+                outputDurationSeconds = duration,
+            )
+
+        test("one duration literal bounds canvas, video chain, audio chain and the output; -t is the second to last pair") {
+            val built = FfmpegArgumentBuilder.build(spec = simpleSpec(4100.7664), outputPath = "/tmp/out.mp4")
+            val d = "4100.766"
+            built[built.size - 3] shouldBe "-t"
+            built[built.size - 2] shouldBe d
+            built.last() shouldBe "/tmp/out.mp4"
+            built[built.indexOf("-i") - 1] shouldBe d // canvas source `-t` directly before its `-i`
+            val graph = built[built.indexOf("-filter_complex") + 1]
+            graph shouldContain "[vout]trim=end=$d[vfinal]"
+            graph shouldContain "[aout]atrim=end=$d[afinal]"
+            graph shouldNotContain "setpts=PTS-STARTPTS+$d"
+        }
+
+        test("the silent-audio path also ends in atrim and carries the same -t on anullsrc") {
+            val spec =
+                RecordingComposeSpec(
+                    videoInputs = listOf(RecordingComposeVideoInput(file = File("cam1.mp4"), offsetSeconds = 0.0, isScreenShare = false)),
+                    audioInputs = emptyList(),
+                    outputDurationSeconds = 12.5,
+                )
+            val joined = args(spec)
+            joined shouldContain "-t 12.500 -i anullsrc=r=48000:cl=stereo"
+            joined shouldContain "[aout]atrim=end=12.500[afinal]"
+        }
+
+        test("duration rounding: 4100.7664 -> 4100.766, 0.0005 -> 0.001, 1.0 -> 1.000") {
+            args(simpleSpec(4100.7664)) shouldContain "-t 4100.766 "
+            args(simpleSpec(0.0005)) shouldContain "trim=end=0.001[vfinal]"
+            args(simpleSpec(1.0)) shouldContain "trim=end=1.000[vfinal]"
+        }
+
+        test("duration formatting is locale-free under Locale.GERMANY") {
+            val previous = Locale.getDefault()
+            try {
+                Locale.setDefault(Locale.GERMANY)
+                val joined = args(simpleSpec(4100.7664))
+                joined shouldContain "trim=end=4100.766[vfinal]"
+                joined shouldNotContain "4100,766"
+            } finally {
+                Locale.setDefault(previous)
+            }
+        }
+
+        listOf(0.0, -1.0, 0.0004, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY).forEach { bad ->
+            test("an invalid output duration ($bad) is rejected with IllegalArgumentException") {
+                shouldThrow<IllegalArgumentException> { FfmpegArgumentBuilder.build(spec = simpleSpec(bad), outputPath = "/tmp/out.mp4") }
+            }
         }
     })

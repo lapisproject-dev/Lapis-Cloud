@@ -1712,7 +1712,7 @@ msgstr "Peso actual (decaimiento del 10 %/día)"
 msgid "Aktuelles Passwort"
 msgstr "Contraseña actual"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:142
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:145
 msgid "Aktuelles Passwort ist falsch."
 msgstr "La contraseña actual es incorrecta."
 
@@ -2234,7 +2234,7 @@ msgstr "La grabación se está finalizando."
 msgid "Aufzeichnung wird zusammengeführt …"
 msgstr "Combinando la grabación…"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:91
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:109
 msgid "Aufzeichnungen"
 msgstr "Grabaciones"
 
@@ -3936,15 +3936,6 @@ msgstr ""
 "impacto relativa a la protección de datos es realmente necesaria lo decide "
 "exclusivamente usted en el campo \"EIPD necesaria\"; este sistema no lo "
 "calcula."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:207
-msgid ""
-"Die Rohaufnahmen bleiben erhalten -- wenden Sie sich an eine Administratorin "
-"oder einen Administrator, falls die Aufzeichnung wiederhergestellt werden "
-"soll."
-msgstr ""
-"Las grabaciones originales se conservan -- póngase en contacto con una "
-"persona administradora si desea que se restaure la grabación."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:802
 msgid ""
@@ -21888,3 +21879,83 @@ msgstr "No se admiten archivos ZIP muy grandes o de varias partes."
 
 msgid "Das ZIP ist beschädigt oder widersprüchlich aufgebaut."
 msgstr "El ZIP está dañado o tiene una estructura contradictoria."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Umkodierung neu starten"
+msgstr "Reiniciar la recodificación"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Umkodierung neu starten: %1"
+msgstr "Reiniciar la recodificación: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neu starten"
+msgstr "Reiniciar"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Umkodierung gestartet."
+msgstr "Recodificación iniciada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Diese Aufzeichnung kann nicht neu verarbeitet werden. Bitte Ansicht aktualisieren."
+msgstr "Esta grabación no se puede volver a procesar. Actualice la vista."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Rohaufnahmen sind nicht mehr vorhanden. Eine erneute Verarbeitung ist nicht möglich."
+msgstr "Las grabaciones originales ya no existen. No es posible volver a procesarlas."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Bitte versuchen Sie es später erneut."
+msgstr "Inténtelo de nuevo más tarde."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" wird verarbeitet."
+msgstr "La grabación de \"%1\" se está procesando."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" ist fertig."
+msgstr "La grabación de \"%1\" está lista."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" ist fehlgeschlagen."
+msgstr "La grabación de \"%1\" ha fallado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Wenden Sie sich an die Administration."
+msgstr "Póngase en contacto con la administración."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung wurde vollständig aufgenommen, konnte aber nicht zu einem Video zusammengesetzt werden."
+msgstr "La grabación se registró por completo, pero no se pudo componer un vídeo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Rohaufnahmen sind erhalten."
+msgstr "Las grabaciones originales se conservan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Der Aufzeichnungsdienst hat die Spuren nicht rechtzeitig abgeschlossen."
+msgstr "El servicio de grabación no terminó las pistas a tiempo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Es wurde keine Audio- oder Videospur aufgezeichnet."
+msgstr "No se grabó ninguna pista de audio ni de vídeo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Der Aufzeichnungsdienst konnte keine Spur speichern."
+msgstr "El servicio de grabación no pudo guardar ninguna pista."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" wird erneut zu einem Video zusammengesetzt (voraussichtlich bis zu %2 Minuten). Die Rohaufnahmen bleiben dabei erhalten."
+msgstr "La grabación de \"%1\" se volverá a componer en un vídeo (previsiblemente hasta %2 minutos). Las grabaciones originales se conservan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" wird erneut zu einem Video zusammengesetzt. Die Rohaufnahmen bleiben dabei erhalten."
+msgstr "La grabación de \"%1\" se volverá a componer en un vídeo. Las grabaciones originales se conservan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Voraussichtlich fertig gegen %1 Uhr (Schätzung)."
+msgstr "Previsiblemente lista hacia las %1 (estimación)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Rohaufnahmen sind nicht mehr vorhanden."
+msgstr "Las grabaciones originales ya no existen."

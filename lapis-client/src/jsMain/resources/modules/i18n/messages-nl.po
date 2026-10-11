@@ -1712,7 +1712,7 @@ msgstr "Huidig gewicht (10 %/dag verval)"
 msgid "Aktuelles Passwort"
 msgstr "Huidig wachtwoord"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:142
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:145
 msgid "Aktuelles Passwort ist falsch."
 msgstr "Huidig wachtwoord is onjuist."
 
@@ -2229,7 +2229,7 @@ msgstr "Opname wordt beëindigd."
 msgid "Aufzeichnung wird zusammengeführt …"
 msgstr "Opname wordt samengevoegd …"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:91
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:109
 msgid "Aufzeichnungen"
 msgstr "Opnamen"
 
@@ -3804,7 +3804,7 @@ msgstr "Diagnose: huidige koers"
 msgid "Dick"
 msgstr "Dik"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:140
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:143
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdminGuard.kt:200
 msgid ""
 "Die Aktion steht im Konflikt mit dem aktuellen Zustand -- bitte Ansicht "
@@ -3827,7 +3827,7 @@ msgstr ""
 "meldingstijdstip. Bij een daadwerkelijk incident: raadpleeg een functionaris "
 "gegevensbescherming of jurist."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:204
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:392
 msgid "Die Aufzeichnung ist fehlgeschlagen."
 msgstr "De opname is mislukt."
 
@@ -3924,15 +3924,6 @@ msgstr ""
 "gegevensbeschermingseffectbeoordeling daadwerkelijk vereist is, legt "
 "uitsluitend u vast in het veld \"DPIA vereist\"; dit systeem berekent dat "
 "niet."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:206
-msgid ""
-"Die Rohaufnahmen bleiben erhalten -- wenden Sie sich an eine Administratorin "
-"oder einen Administrator, falls die Aufzeichnung wiederhergestellt werden "
-"soll."
-msgstr ""
-"De ruwe opnamen blijven bewaard -- neem contact op met een beheerder als de "
-"opname moet worden hersteld."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:423
 msgid ""
@@ -4907,7 +4898,7 @@ msgstr ""
 "zonder geboortedatum en/of nationaliteit."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:584
-#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt:311
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt:312
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventImportScreen.kt:155
 #: src/jsMain/kotlin/network/lapis/cloud/client/Notify.kt:23
 msgid "Fehler"
@@ -5456,7 +5447,7 @@ msgstr "Haatzaaien"
 msgid "Hauptbuch"
 msgstr "Grootboek"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:230
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:307
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt:99
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningCasesScreen.kt:461
 msgid "Herunterladen"
@@ -5956,7 +5947,7 @@ msgstr "Geen contributies aanwezig."
 msgid "Keine berechtigten Mitglieder gefunden."
 msgstr "Geen gerechtigde leden gevonden."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:138
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:141
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusGuard.kt:36
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt:57
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionGuard.kt:39
@@ -6504,8 +6495,8 @@ msgstr "Verwijderingsverzoek ingediend."
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:182
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:181
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:190
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:267
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:290
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:485
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:508
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:160
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:170
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsRowActions.kt:23
@@ -7251,7 +7242,7 @@ msgstr "Nieuw wachtwoord (min. %1 tekens)"
 msgid "Neues Passwort bestätigen"
 msgstr "Nieuw wachtwoord bevestigen"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:144
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:147
 msgid ""
 "Neues Passwort erfüllt nicht die Anforderungen (mind. 12, max. 128 Zeichen, "
 "nicht die E-Mail-Adresse)."
@@ -7276,7 +7267,7 @@ msgstr "Nieuw streamdoel aanmaken"
 msgid "Nicht festgelegt"
 msgstr "Niet vastgelegd"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:139
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:142
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusGuard.kt:39
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt:60
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionGuard.kt:42
@@ -7341,7 +7332,7 @@ msgstr "Nog geen aanwezigheid geregistreerd."
 msgid "Noch keine API-Schlüssel ausgestellt."
 msgstr "Nog geen API-sleutels uitgegeven."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:102
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:177
 msgid "Noch keine Aufzeichnungen."
 msgstr "Nog geen opnames."
 
@@ -8587,7 +8578,7 @@ msgstr "Vergadering \"%1\" is aangemaakt."
 msgid "Sitzung (ID)"
 msgstr "Vergadering (ID)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:192
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:201
 msgid "Sitzung abgelaufen -- bitte erneut anmelden."
 msgstr "Sessie verlopen -- meld u opnieuw aan."
 
@@ -8913,7 +8904,7 @@ msgstr "Startprijs (LTR)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:435
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:584
-#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt:305
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt:306
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCard.kt:284
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:632
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:680
@@ -9213,7 +9204,7 @@ msgid "Timeline"
 msgstr "Tijdlijn"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt:175
-#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt:330
+#: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt:331
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionCreateListingForm.kt:36
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuditLogScreen.kt:666
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusScreen.kt:129
@@ -9334,7 +9325,7 @@ msgstr "Overdracht verzonden"
 msgid "Üble Nachrede/Verleumdung"
 msgstr "Smaad/laster"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:180
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:189
 msgid "Unbekannter Fehler"
 msgstr "Onbekende fout"
 
@@ -9357,7 +9348,7 @@ msgstr "Onverwachte fout (HTTP %1): %2"
 msgid "Ungelesene Nachrichten: %1"
 msgstr "Ongelezen berichten: %1"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:141
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusGuard.kt:46
 #: src/jsMain/kotlin/network/lapis/cloud/client/DunningGuard.kt:66
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionGuard.kt:51
@@ -9949,7 +9940,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:319
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:347
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:351
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:134
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:209
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1541
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:410
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:601
@@ -21982,3 +21973,83 @@ msgstr "Zeer grote of meerdelige ZIP-archieven worden niet ondersteund."
 
 msgid "Das ZIP ist beschädigt oder widersprüchlich aufgebaut."
 msgstr "De ZIP is beschadigd of tegenstrijdig opgebouwd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Umkodierung neu starten"
+msgstr "Hercodering opnieuw starten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Umkodierung neu starten: %1"
+msgstr "Hercodering opnieuw starten: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Neu starten"
+msgstr "Opnieuw starten"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Umkodierung gestartet."
+msgstr "Hercodering gestart."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Diese Aufzeichnung kann nicht neu verarbeitet werden. Bitte Ansicht aktualisieren."
+msgstr "Deze opname kan niet opnieuw worden verwerkt. Vernieuw de weergave."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Rohaufnahmen sind nicht mehr vorhanden. Eine erneute Verarbeitung ist nicht möglich."
+msgstr "De ruwe opnames zijn niet meer beschikbaar. Opnieuw verwerken is niet mogelijk."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Bitte versuchen Sie es später erneut."
+msgstr "Probeer het later opnieuw."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" wird verarbeitet."
+msgstr "De opname van \"%1\" wordt verwerkt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" ist fertig."
+msgstr "De opname van \"%1\" is klaar."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" ist fehlgeschlagen."
+msgstr "De opname van \"%1\" is mislukt."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Wenden Sie sich an die Administration."
+msgstr "Neem contact op met de administratie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung wurde vollständig aufgenommen, konnte aber nicht zu einem Video zusammengesetzt werden."
+msgstr "De opname is volledig vastgelegd, maar kon niet tot een video worden samengesteld."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Rohaufnahmen sind erhalten."
+msgstr "De ruwe opnames zijn bewaard."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Der Aufzeichnungsdienst hat die Spuren nicht rechtzeitig abgeschlossen."
+msgstr "De opnamedienst heeft de sporen niet op tijd afgerond."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Es wurde keine Audio- oder Videospur aufgezeichnet."
+msgstr "Er is geen audio- of videospoor opgenomen."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Der Aufzeichnungsdienst konnte keine Spur speichern."
+msgstr "De opnamedienst kon geen spoor opslaan."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" wird erneut zu einem Video zusammengesetzt (voraussichtlich bis zu %2 Minuten). Die Rohaufnahmen bleiben dabei erhalten."
+msgstr "De opname van \"%1\" wordt opnieuw tot een video samengesteld (naar verwachting tot %2 minuten). De ruwe opnames blijven bewaard."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Aufzeichnung von \"%1\" wird erneut zu einem Video zusammengesetzt. Die Rohaufnahmen bleiben dabei erhalten."
+msgstr "De opname van \"%1\" wordt opnieuw tot een video samengesteld. De ruwe opnames blijven bewaard."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Voraussichtlich fertig gegen %1 Uhr (Schätzung)."
+msgstr "Naar verwachting klaar rond %1 (schatting)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:1
+msgid "Die Rohaufnahmen sind nicht mehr vorhanden."
+msgstr "De ruwe opnames zijn niet meer beschikbaar."

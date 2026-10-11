@@ -21,6 +21,7 @@ import network.lapis.cloud.server.routes.archiveGeneratedFile
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackSource
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackStatus
@@ -55,7 +56,7 @@ private val logger = KotlinLogging.logger {}
  * seconds away. Raised so the total retry window (attempts - 1) * pollIntervalSeconds comfortably
  * exceeds the timer's 30s worst case regardless of the configured poll interval.
  */
-private const val MAX_COMPOSE_ATTEMPTS = 5
+internal const val MAX_COMPOSE_ATTEMPTS = 5
 
 private val TERMINAL_TRACK_STATUSES =
     setOf(ConferenceRecordingTrackStatus.COMPLETE, ConferenceRecordingTrackStatus.FAILED, ConferenceRecordingTrackStatus.ABORTED)
@@ -74,6 +75,15 @@ private const val FAILURE_NO_TRACKS = "Es wurde keine Audio- oder Videospur aufg
  * case too and misdirected the diagnosis towards ffmpeg. Still sanitized: the raw egress error only
  * ever reaches the server log (see `handleStopping`), never this string. */
 private const val FAILURE_NO_TRACK_STORED = "Der Aufzeichnungsdienst konnte keine Spur speichern (Server-Konfiguration prüfen)."
+
+/** Code -> fixed German text. The two are always written together by [RecordingPoller.markFailed]; V87 backfills the code from exactly these strings. */
+private val FAILURE_TEXT_BY_CODE =
+    mapOf(
+        ConferenceRecordingFailureCode.COMPOSE_FAILED to FAILURE_COMPOSE_FAILED,
+        ConferenceRecordingFailureCode.EGRESS_TIMEOUT to FAILURE_COMPOSE_TIMEOUT,
+        ConferenceRecordingFailureCode.NO_TRACKS to FAILURE_NO_TRACKS,
+        ConferenceRecordingFailureCode.NO_TRACK_STORED to FAILURE_NO_TRACK_STORED,
+    )
 
 /**
  * V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- the single application-scoped
@@ -149,6 +159,13 @@ private const val FAILURE_NO_TRACK_STORED = "Der Aufzeichnungsdienst konnte kein
  * elapsed: composes from whatever tracks ARE [ConferenceRecordingTrackStatus.COMPLETE] if at least
  * one VIDEO track (`CAMERA`/`SCREEN_SHARE`) among them is complete, else `FAILED`
  * ([FAILURE_COMPOSE_TIMEOUT]).
+ *
+ * ## Manual retry (V1.9.107)
+ *
+ * A moderator can restart a FAILED/`COMPOSE_FAILED` recording (`ConferenceRecordingService.retryRecordingComposition`). That
+ * action only flips the row back to PROCESSING with `compose_attempts = MAX_COMPOSE_ATTEMPTS - 1` and wakes this poller
+ * ([requestTick]); the poller itself is unchanged: it sees PROCESSING with 4 attempts, makes exactly ONE attempt (number 5) and
+ * ends in READY or again FAILED/`COMPOSE_FAILED` (raw files are kept on failure).
  *
  * ## PROCESSING
  *
@@ -337,7 +354,7 @@ class RecordingPoller(
         val roomRow = transaction { ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq row.roomId }.singleOrNull() }
         if (roomRow == null) {
             logger.warn { "RecordingPoller: room ${row.roomId} for recording ${row.id} no longer exists while STOPPING -- marking FAILED" }
-            markFailed(recordingId = row.id, reason = FAILURE_COMPOSE_FAILED)
+            markFailed(recordingId = row.id, code = ConferenceRecordingFailureCode.COMPOSE_FAILED)
             return
         }
         val livekitRoomName = roomRow[ConferenceRoomTable.livekitRoomName]
@@ -362,7 +379,7 @@ class RecordingPoller(
         // round trips too, since there is nothing to stop or list.
         if (trackRows.isEmpty()) {
             logger.warn { "RecordingPoller: recording ${row.id} stopped with zero published tracks -- FAILED immediately" }
-            markFailed(recordingId = row.id, reason = FAILURE_NO_TRACKS)
+            markFailed(recordingId = row.id, code = ConferenceRecordingFailureCode.NO_TRACKS)
             return
         }
 
@@ -478,7 +495,7 @@ class RecordingPoller(
         if (completedVideoCount >= 1) {
             transitionToProcessing(row.id)
         } else {
-            markFailed(recordingId = row.id, reason = FAILURE_COMPOSE_TIMEOUT)
+            markFailed(recordingId = row.id, code = ConferenceRecordingFailureCode.EGRESS_TIMEOUT)
         }
     }
 
@@ -488,7 +505,7 @@ class RecordingPoller(
         if (row.composeAttempts >= MAX_COMPOSE_ATTEMPTS) {
             // Restart reconciliation: composition crashed mid-attempt after the counter was
             // already incremented -- never attempt a third time, see class KDoc.
-            markFailed(recordingId = row.id, reason = FAILURE_COMPOSE_FAILED)
+            markFailed(recordingId = row.id, code = ConferenceRecordingFailureCode.COMPOSE_FAILED)
             return
         }
         if (!composeSemaphore.tryAcquire()) return
@@ -544,12 +561,12 @@ class RecordingPoller(
             logger.warn {
                 "RecordingPoller: no track egress of recording ${row.id} completed -- FAILED (check egress output volume permissions)"
             }
-            markFailed(recordingId = row.id, reason = FAILURE_NO_TRACK_STORED)
+            markFailed(recordingId = row.id, code = ConferenceRecordingFailureCode.NO_TRACK_STORED)
             return
         }
         if (videoResolved.isEmpty()) {
             logger.warn { "RecordingPoller: no resolvable video track for recording ${row.id} -- FAILED" }
-            markFailed(recordingId = row.id, reason = FAILURE_COMPOSE_FAILED)
+            markFailed(recordingId = row.id, code = ConferenceRecordingFailureCode.COMPOSE_FAILED)
             return
         }
         val audioResolved = resolved.filter { it.track.trackSource in AUDIO_TRACK_SOURCES }
@@ -655,7 +672,7 @@ class RecordingPoller(
         } catch (e: Exception) {
             logger.warn(e) { "RecordingPoller: composition/archiving failed for recording ${row.id} (attempt $attemptNumber)" }
             if (attemptNumber >= MAX_COMPOSE_ATTEMPTS) {
-                markFailed(recordingId = row.id, reason = FAILURE_COMPOSE_FAILED)
+                markFailed(recordingId = row.id, code = ConferenceRecordingFailureCode.COMPOSE_FAILED)
             }
             // else: stays PROCESSING, retried on a later tick.
         } finally {
@@ -707,12 +724,14 @@ class RecordingPoller(
 
     private fun markFailed(
         recordingId: Uuid,
-        reason: String,
+        code: ConferenceRecordingFailureCode,
     ) {
+        val reason = FAILURE_TEXT_BY_CODE.getValue(code)
         transaction {
             ConferenceRecordingTable.update({ ConferenceRecordingTable.id eq recordingId }) {
                 it[status] = ConferenceRecordingStatus.FAILED
                 it[failureReason] = reason
+                it[failureCode] = code
             }
         }
         logger.warn { "RecordingPoller: recording $recordingId marked FAILED: $reason" }

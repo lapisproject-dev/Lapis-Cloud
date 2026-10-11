@@ -26,6 +26,9 @@ import network.lapis.cloud.shared.rpc.MemberPublicBioRateLimitedException
 import network.lapis.cloud.shared.rpc.MemberPublicBioValidationException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.RateLimitedException
+import network.lapis.cloud.shared.rpc.RecordingRawFilesMissingException
+import network.lapis.cloud.shared.rpc.RecordingRetryNotAllowedException
+import network.lapis.cloud.shared.rpc.RecordingRetryRateLimitedException
 import network.lapis.cloud.shared.rpc.SearchRateLimitedException
 import network.lapis.cloud.shared.rpc.ServiceBusyException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
@@ -176,6 +179,12 @@ private fun handleGuardedFailure(e: Throwable) {
         is EmailChangeAlreadyCurrentException -> notifyError(tr("Das ist bereits die aktuelle E-Mail-Adresse."))
         is EmailChangePendingNotFoundException -> notifyError(tr("Diese Änderung ist nicht mehr offen -- bitte Ansicht aktualisieren."))
         is EmailChangeRateLimitedException -> notifyError(tr("Zu viele Versuche. Bitte später erneut versuchen."))
+        // Welle V1.9.107 "Umkodierung neu starten" -- typed, fixed toasts (see ConferenceRecordingsPanel, which handles the same three itself).
+        is RecordingRetryNotAllowedException ->
+            notifyError(tr("Diese Aufzeichnung kann nicht neu verarbeitet werden. Bitte Ansicht aktualisieren."))
+        is RecordingRawFilesMissingException ->
+            notifyError(tr("Die Rohaufnahmen sind nicht mehr vorhanden. Eine erneute Verarbeitung ist nicht möglich."))
+        is RecordingRetryRateLimitedException -> notifyError(tr("Bitte versuchen Sie es später erneut."))
         else -> {
             val message = e.message?.takeIf { it.isNotBlank() } ?: tr("Unbekannter Fehler")
             if (message.contains("Unauthorized")) {

@@ -72,6 +72,17 @@ class ConferenceRecordingSchemaDriftTest :
             entity.attributeByName("failure_reason")?.nullable shouldBe true
             entity.attributeByName("raw_dir")?.nullable shouldBe false
             entity.attributeByName("compose_attempts")?.nullable shouldBe false
+            // V1.9.107 (V87): failure code and manual-retry bookkeeping.
+            entity.attributeByName("failure_code")?.nullable shouldBe true
+            entity.attributeByName("manual_retry_count")?.nullable shouldBe false
+            entity.attributeByName("manual_retry_window_started_at")?.nullable shouldBe true
+            entity.attributeByName("last_manual_retry_at")?.nullable shouldBe true
+            entity.attributeByName("failure_code")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "ConferenceRecordingFailureCode",
+                    values = listOf("COMPOSE_FAILED", "EGRESS_TIMEOUT", "NO_TRACKS", "NO_TRACK_STORED"),
+                    externalFqName = "network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode",
+                )
 
             // Literal order is load-bearing -- see 28-conference-recording.kuml.kts file header.
             entity.attributeByName("status")?.type shouldBe

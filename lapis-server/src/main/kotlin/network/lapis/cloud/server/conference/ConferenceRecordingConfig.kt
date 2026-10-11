@@ -58,7 +58,7 @@ class ConferenceRecordingConfig private constructor(
     val egressTimeoutMinutes: Long,
     /** Hard auto-stop ceiling from `startedAt` -- disk guard against a recording nobody ever stops. */
     val maxDurationMinutes: Long,
-    /** Wall-clock kill threshold for the `ffmpeg` composition subprocess (`Process.destroyForcibly()` beyond this). */
+    /** Wall-clock kill threshold for the `ffmpeg` composition subprocess (`Process.destroyForcibly()` beyond this). Runtime is roughly 0.25-0.5 x the recording duration (ELB replay: 15:32 min for 68 min; about 30 min in operation), so the default of 120 minutes is reached at about 4 hours of recording. */
     val composeTimeoutMinutes: Long,
     /** DoS cap on simultaneous track egresses per recording (a 25-participant Kleinsitzung ceiling x2 tracks each, plus headroom for screen shares). */
     val maxTracks: Int,

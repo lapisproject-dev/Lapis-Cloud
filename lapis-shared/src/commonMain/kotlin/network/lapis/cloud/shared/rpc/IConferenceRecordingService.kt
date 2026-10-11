@@ -204,4 +204,20 @@ interface IConferenceRecordingService {
      * are a request, not a promise -- and the applied values are echoed back on the page DTO.
      */
     suspend fun listRecordings(query: ConferenceRecordingListQuery): ConferenceRecordingPageDto
+
+    /**
+     * V1.9.107 "Umkodierung neu starten". Role: MEMBER+, ACTIVE, and the caller must be a moderator of the recording's room (or
+     * privileged) AND pass `ConferenceRecordingAccess.mayAccess` for the recording's access level (stricter than deleting a FAILED
+     * row, which has no document); otherwise [ForbiddenException]. [NotFoundException] for an unknown [recordingId].
+     *
+     * Repairs exactly one situation: status FAILED with [network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode.COMPOSE_FAILED]
+     * whose raw per-track files are still on disk. The row goes back to PROCESSING with `compose_attempts = MAX - 1`, so the
+     * poller makes exactly ONE more attempt and ends in READY or again FAILED (raw files are kept on failure). Returns the fresh DTO.
+     *
+     * Errors: [RecordingRetryNotAllowedException] (wrong status/code, or lost a race against another caller),
+     * [RecordingRawFilesMissingException] (raw files gone or incomplete), [RecordingRetryRateLimitedException] (at least 15 minutes
+     * between two retries of one recording, at most 3 per 24 hours, at most 10 calls per minute per member).
+     * Audited as an UPDATE of the CONFERENCE_RECORDING entity without paths or titles.
+     */
+    suspend fun retryRecordingComposition(recordingId: String): ConferenceRecordingDto
 }

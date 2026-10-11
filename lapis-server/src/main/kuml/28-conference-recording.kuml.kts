@@ -127,6 +127,14 @@ classDiagram(name = "ConferenceRecording") {
         literal(name = "FAILED")
     }
 
+    // Literal order is load-bearing, matching network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode (V1.9.107).
+    val conferenceRecordingFailureCode = enumOf(name = "ConferenceRecordingFailureCode") {
+        literal(name = "COMPOSE_FAILED")
+        literal(name = "EGRESS_TIMEOUT")
+        literal(name = "NO_TRACKS")
+        literal(name = "NO_TRACK_STORED")
+    }
+
     // Literal order is load-bearing (see above), matching
     // network.lapis.cloud.shared.domain.ConferenceRecordingTrackSource. Mirrors LiveKit's own
     // `livekit.proto` TrackSource enum (see network.lapis.cloud.server.conference.LiveKitTrackInfo
@@ -242,12 +250,33 @@ classDiagram(name = "ConferenceRecording") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "failure_reason"; "sqlType" to "VARCHAR(500)" }
         }
-        // Incremented before each compose attempt, capped at 2 by a later wave's RecordingPoller --
-        // see that class's own KDoc "compose_attempts capped at 2" for why (a deterministically-
+        // Incremented before each compose attempt, capped at 5 (MAX_COMPOSE_ATTEMPTS) by RecordingPoller --
+        // see that class's own KDoc "PROCESSING" for why (a deterministically-
         // broken input must never loop forever).
         attribute(name = "composeAttempts", type = "Int") {
             defaultValue = "0"
             stereotype("Column") { "columnName" to "compose_attempts" }
+        }
+        // V1.9.107: machine-readable failure reason, only set while status = FAILED (V87 CHECK).
+        attribute(name = "failureCode", type = conferenceRecordingFailureCode) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") {
+                "columnName" to "failure_code"
+                "enumType" to "network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode"
+            }
+        }
+        // V1.9.107: bookkeeping of the manual "retryRecordingComposition" action (rate limit + UI estimate).
+        attribute(name = "manualRetryCount", type = "Int") {
+            defaultValue = "0"
+            stereotype("Column") { "columnName" to "manual_retry_count" }
+        }
+        attribute(name = "manualRetryWindowStartedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "manual_retry_window_started_at" }
+        }
+        attribute(name = "lastManualRetryAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "last_manual_retry_at" }
         }
     }
 

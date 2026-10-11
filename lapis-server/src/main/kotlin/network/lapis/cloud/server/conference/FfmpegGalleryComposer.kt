@@ -36,7 +36,12 @@ class FfmpegGalleryComposer(
         spec: RecordingComposeSpec,
         outputFile: File,
     ) {
-        val args = FfmpegArgumentBuilder.build(spec = spec, outputPath = outputFile.absolutePath)
+        val args =
+            try {
+                FfmpegArgumentBuilder.build(spec = spec, outputPath = outputFile.absolutePath)
+            } catch (e: IllegalArgumentException) {
+                throw RecordingComposeException(message = "invalid composition spec", cause = e)
+            }
         val command = listOf(ffmpegPath) + args
         val process =
             try {

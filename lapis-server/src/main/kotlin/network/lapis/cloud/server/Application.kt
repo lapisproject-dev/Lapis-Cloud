@@ -1112,6 +1112,7 @@ internal fun Application.module(
     // RecordingTrackAlignment KDoc. Lives in the same Debian `ffmpeg` package as the composer's
     // binary (Dockerfile), derived from the same path unless LAPIS_FFPROBE_PATH says otherwise.
     val recordingMediaProber: RecordingMediaProber = FfprobeMediaProber(ffprobePath = conferenceRecordingConfig.ffprobePath)
+    val recordingRetryRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
     val recordingPoller =
         RecordingPoller(
             liveKitAdminClient = liveKitAdminClient,
@@ -2217,6 +2218,9 @@ internal fun Application.module(
                 // Wake the poller right after a recording row is committed -- see RecordingPoller
                 // KDoc "requestTick" (ELB finding 2026-09-27: first seconds missing).
                 onRecordingStarted = { recordingPoller.requestTick() },
+                // V1.9.107: process-wide limiter (the service itself is constructed per call) and poller wake-up after a manual retry.
+                retryCompositionRateLimiter = recordingRetryRateLimiter,
+                onCompositionRetried = { recordingPoller.requestTick() },
             )
         }
         registerService(IConferenceWhiteboardService::class) { call ->

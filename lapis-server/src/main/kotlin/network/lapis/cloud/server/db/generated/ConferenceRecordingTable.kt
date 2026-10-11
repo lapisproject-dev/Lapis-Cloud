@@ -5,6 +5,7 @@ package network.lapis.cloud.server.db.generated
 
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import org.jetbrains.exposed.v1.core.Column
@@ -26,6 +27,11 @@ public object ConferenceRecordingTable : Table("conference_recording") {
     public val fileSizeBytes: Column<Long?> = long("file_size_bytes").nullable()
     public val failureReason: Column<String?> = varchar("failure_reason", 500).nullable()
     public val composeAttempts: Column<Int> = integer("compose_attempts").default(0)
+    public val failureCode: Column<ConferenceRecordingFailureCode?> =
+        enumerationByName<ConferenceRecordingFailureCode>("failure_code", 32).nullable()
+    public val manualRetryCount: Column<Int> = integer("manual_retry_count").default(0)
+    public val manualRetryWindowStartedAt: Column<LocalDateTime?> = datetime("manual_retry_window_started_at").nullable()
+    public val lastManualRetryAt: Column<LocalDateTime?> = datetime("last_manual_retry_at").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

@@ -3,11 +3,14 @@ package network.lapis.cloud.server.rpc
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.toInstant
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceRecordingAccess
 import network.lapis.cloud.server.conference.ConferenceRecordingConfig
+import network.lapis.cloud.server.conference.MAX_COMPOSE_ATTEMPTS
+import network.lapis.cloud.server.conference.RecordingRawFiles
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
@@ -22,20 +25,26 @@ import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.canAccessRecordingAtLevel
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.ConferenceRecordingAvailabilityDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingDto
+import network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode
 import network.lapis.cloud.shared.domain.ConferenceRecordingListQuery
 import network.lapis.cloud.shared.domain.ConferenceRecordingPageDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingSnapshot
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
+import network.lapis.cloud.shared.domain.ConferenceRecordingTrackStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.RecordingRawFilesMissingException
+import network.lapis.cloud.shared.rpc.RecordingRetryNotAllowedException
+import network.lapis.cloud.shared.rpc.RecordingRetryRateLimitedException
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -50,6 +59,7 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.io.File
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
@@ -79,6 +89,14 @@ private const val DEFAULT_STOP_RATE_MAX = 30
  */
 private const val DEFAULT_DELETE_RATE_MAX = 10
 private const val DEFAULT_READ_RATE_MAX = 60
+
+/** Manual composition retry: at most this many calls per minute per member (cheap guard in front of the per-recording limits). */
+private const val DEFAULT_RETRY_RATE_MAX = 10
+
+/** Manual composition retry, per recording: minimum spacing between two retries, and the cap per rolling window. */
+private val RETRY_MIN_SPACING = 15.minutes
+private val RETRY_WINDOW = 24.hours
+private const val RETRY_MAX_PER_WINDOW = 3
 
 /**
  * V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- see [IConferenceRecordingService]
@@ -143,6 +161,11 @@ class ConferenceRecordingService(
      * THIS class -- it only pokes the poller, which remains the sole egress caller.
      */
     private val onRecordingStarted: () -> Unit = {},
+    /** V1.9.107: per-member call-rate guard of [retryRecordingComposition]; wired as a process-wide singleton in `Application.module`. */
+    private val retryCompositionRateLimiter: FederationInboxRateLimiter =
+        FederationInboxRateLimiter(maxRequests = DEFAULT_RETRY_RATE_MAX, window = DEFAULT_ACTION_RATE_WINDOW),
+    /** V1.9.107: invoked once after a successful [retryRecordingComposition] COMMIT -- wired to `RecordingPoller.requestTick()`. Never called inside the transaction. */
+    private val onCompositionRetried: () -> Unit = {},
 ) : IConferenceRecordingService {
     override suspend fun getRecordingAvailability(): ConferenceRecordingAvailabilityDto {
         resolveCurrentMember(call)
@@ -520,7 +543,121 @@ class ConferenceRecordingService(
         }
     }
 
+    /**
+     * See [IConferenceRecordingService.retryRecordingComposition]. Implementation facts:
+     *
+     * - The row is locked (`FOR UPDATE`) for the whole check-and-flip, and the flip itself is a conditional `UPDATE ... WHERE
+     *   status = FAILED AND failure_code = COMPOSE_FAILED`, so two concurrent callers produce exactly one state change, one audit
+     *   entry and one counter increment; the loser gets [RecordingRetryNotAllowedException].
+     * - The raw-file check is read-only and repeatable, hence compatible with the transaction rules (no external effect inside the block).
+     *   Paths come from the database row only.
+     * - The poller is woken ([onCompositionRetried]) strictly AFTER the commit, never inside the block (Exposed repeats the block on a
+     *   `SQLException`; the counter is therefore computed only inside the block).
+     * - `compose_attempts = MAX - 1` makes the poller do exactly one more attempt.
+     */
+    override suspend fun retryRecordingComposition(recordingId: String): ConferenceRecordingDto {
+        val current = resolveCurrentMember(call)
+        requireRecordingEnabled()
+        if (!retryCompositionRateLimiter.checkAndRecord("member:${current.memberId}")) throw RecordingRetryRateLimitedException()
+        val recordingUuid = recordingId.toRecordingUuid()
+        val hostRawRoot = File(recordingConfig.outputHostDir)
+        val dto =
+            transaction {
+                val row =
+                    ConferenceRecordingTable
+                        .selectAll()
+                        .where { ConferenceRecordingTable.id eq recordingUuid }
+                        .forUpdate()
+                        .singleOrNull()
+                        ?: throw NotFoundException("Conference recording $recordingUuid not found")
+                val room =
+                    ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq row[ConferenceRecordingTable.roomId] }.singleOrNull()
+                        ?: throw NotFoundException("Conference room for recording $recordingUuid not found")
+                requireModeratorOrPrivileged(room = room, current = current)
+                // No document exists for a FAILED row, so only the recording's own tier (plus the starter carve-out) applies.
+                if (!ConferenceRecordingAccess.mayAccess(
+                        current = current,
+                        accessLevel = row[ConferenceRecordingTable.accessLevel],
+                        startedByMemberId = row[ConferenceRecordingTable.startedByMemberId],
+                    )
+                ) {
+                    throw ForbiddenException()
+                }
+                if (row[ConferenceRecordingTable.status] != ConferenceRecordingStatus.FAILED ||
+                    row[ConferenceRecordingTable.failureCode] != ConferenceRecordingFailureCode.COMPOSE_FAILED
+                ) {
+                    throw RecordingRetryNotAllowedException()
+                }
+                if (!rawFilesAvailable(row = row, hostRawRoot = hostRawRoot)) throw RecordingRawFilesMissingException()
+
+                val now = nowLocalDateTime()
+                val lastRetry = row[ConferenceRecordingTable.lastManualRetryAt]
+                if (lastRetry != null && now.toInstant(ServerClock.zone) - lastRetry.toInstant(ServerClock.zone) < RETRY_MIN_SPACING) {
+                    throw RecordingRetryRateLimitedException()
+                }
+                val windowStart = row[ConferenceRecordingTable.manualRetryWindowStartedAt]
+                val windowOpen =
+                    windowStart != null && now.toInstant(ServerClock.zone) - windowStart.toInstant(ServerClock.zone) < RETRY_WINDOW
+                val previousCount = row[ConferenceRecordingTable.manualRetryCount]
+                if (windowOpen && previousCount >= RETRY_MAX_PER_WINDOW) throw RecordingRetryRateLimitedException()
+                val newCount = if (windowOpen) previousCount + 1 else 1
+                val newWindowStart = if (windowOpen) windowStart else now
+
+                val updated =
+                    ConferenceRecordingTable.update({
+                        (ConferenceRecordingTable.id eq recordingUuid) and
+                            (ConferenceRecordingTable.status eq ConferenceRecordingStatus.FAILED) and
+                            (ConferenceRecordingTable.failureCode eq ConferenceRecordingFailureCode.COMPOSE_FAILED)
+                    }) {
+                        it[status] = ConferenceRecordingStatus.PROCESSING
+                        it[composeAttempts] = MAX_COMPOSE_ATTEMPTS - 1
+                        it[failureReason] = null
+                        it[failureCode] = null
+                        it[manualRetryCount] = newCount
+                        it[manualRetryWindowStartedAt] = newWindowStart
+                        it[lastManualRetryAt] = now
+                    }
+                if (updated == 0) throw RecordingRetryNotAllowedException()
+
+                // Must be the LAST lock-taking operation -- see AuditLogRecorder KDoc "deadlock-avoidance contract". No path, no title.
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.CONFERENCE_RECORDING,
+                    entityId = recordingUuid,
+                    action = AuditAction.UPDATE,
+                    before = "status=FAILED",
+                    after = "status=PROCESSING (manual composition retry #$newCount)",
+                    occurredAt = now,
+                )
+                val fresh = ConferenceRecordingTable.selectAll().where { ConferenceRecordingTable.id eq recordingUuid }.single()
+                rowToDto(row = fresh, roomTitle = room[ConferenceRoomTable.title], current = current)
+            }
+        // Only after the commit: a tick woken earlier would not see the PROCESSING row.
+        onCompositionRetried()
+        return dto
+    }
+
     // ── Internal helpers ──────────────────────────────────────────────────
+
+    /** Read-only raw-file check of [row]; the COMPLETE tracks and `raw_dir` come from the database only. Must run inside a transaction. */
+    private fun rawFilesAvailable(
+        row: ResultRow,
+        hostRawRoot: File,
+    ): Boolean {
+        val tracks =
+            ConferenceRecordingTrackTable
+                .selectAll()
+                .where {
+                    (ConferenceRecordingTrackTable.recordingId eq row[ConferenceRecordingTable.id]) and
+                        (ConferenceRecordingTrackTable.status eq ConferenceRecordingTrackStatus.COMPLETE)
+                }.map { it[ConferenceRecordingTrackTable.trackSource] to it[ConferenceRecordingTrackTable.fileName] }
+        return RecordingRawFiles.rawFilesAvailable(
+            hostRawRoot = hostRawRoot,
+            rawDir = row[ConferenceRecordingTable.rawDir],
+            completedTracks = tracks,
+        )
+    }
 
     /** See [IConferenceRecordingService] KDoc "A second, independent availability gate". */
     private fun requireRecordingEnabled() {
@@ -722,6 +859,19 @@ class ConferenceRecordingService(
             } else {
                 null
             }
+        val failureCode = row[ConferenceRecordingTable.failureCode]
+        // Only for FAILED + COMPOSE_FAILED AND only when this caller would be allowed to retry -- never leak file system state to others.
+        val mayRetry =
+            status == ConferenceRecordingStatus.FAILED &&
+                failureCode == ConferenceRecordingFailureCode.COMPOSE_FAILED &&
+                roomRowFor(row)?.let { ConferenceModeratorAuthority.isModerator(row = it, current = current) } == true &&
+                ConferenceRecordingAccess.mayAccess(
+                    current = current,
+                    accessLevel = row[ConferenceRecordingTable.accessLevel],
+                    startedByMemberId = startedByMemberId,
+                )
+        val rawAvailable: Boolean? =
+            if (mayRetry) rawFilesAvailable(row = row, hostRawRoot = File(recordingConfig.outputHostDir)) else null
         return ConferenceRecordingDto(
             id = recordingId.toString(),
             roomId = row[ConferenceRecordingTable.roomId].toString(),
@@ -739,8 +889,16 @@ class ConferenceRecordingService(
             fileSizeBytes = row[ConferenceRecordingTable.fileSizeBytes],
             trackCount = trackCount,
             failureReason = row[ConferenceRecordingTable.failureReason],
+            failureCode = failureCode,
+            canRetryComposition = mayRetry && rawAvailable == true,
+            rawFilesAvailable = rawAvailable,
+            compositionRetryStartedAt =
+                if (status == ConferenceRecordingStatus.PROCESSING) row[ConferenceRecordingTable.lastManualRetryAt] else null,
         )
     }
+
+    private fun roomRowFor(row: ResultRow): ResultRow? =
+        ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq row[ConferenceRecordingTable.roomId] }.singleOrNull()
 
     /**
      * The `before` payload of [deleteRecording]'s audit entry -- see that method's own KDoc for why

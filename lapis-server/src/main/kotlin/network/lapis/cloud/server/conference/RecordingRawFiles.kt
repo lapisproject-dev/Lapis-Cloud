@@ -1,7 +1,9 @@
 package network.lapis.cloud.server.conference
 
+import network.lapis.cloud.shared.domain.ConferenceRecordingTrackSource
 import java.io.File
 import java.io.IOException
+import kotlin.uuid.Uuid
 
 /**
  * V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- the ONE way a LiveKit-reported
@@ -62,4 +64,37 @@ object RecordingRawFiles {
         val canonicalRecordingDir = recordingDir.canonicalFile.toPath().normalize()
         return if (realCandidate.normalize().startsWith(canonicalRecordingDir)) realCandidate.toFile() else null
     }
+
+    /**
+     * `true` iff the raw files of a recording are all still on disk, so a composition can be retried: [rawDir] parses as a [Uuid]
+     * (the "raw_dir is always the recording's own UUID" invariant), its canonical directory lies below the canonical [hostRawRoot],
+     * there is at least one COMPLETE video track (CAMERA/SCREEN_SHARE) and EVERY COMPLETE track has a file name that
+     * [resolveWithin] resolves (which rejects traversal and symlinks out of the directory) with more than 0 bytes.
+     * [completedTracks] pairs the track source with its stored file name. Never throws; the inputs come from the database row only,
+     * never from a client.
+     */
+    fun rawFilesAvailable(
+        hostRawRoot: File,
+        rawDir: String,
+        completedTracks: List<Pair<ConferenceRecordingTrackSource, String?>>,
+    ): Boolean =
+        try {
+            val rawDirUuid = runCatching { Uuid.parse(rawDir) }.getOrNull()
+            val videoSources = setOf(ConferenceRecordingTrackSource.CAMERA, ConferenceRecordingTrackSource.SCREEN_SHARE)
+            if (rawDirUuid == null || completedTracks.none { it.first in videoSources }) {
+                false
+            } else {
+                val canonicalRoot = hostRawRoot.canonicalFile.toPath().normalize()
+                val canonicalDir = File(hostRawRoot, rawDir).canonicalFile.toPath().normalize()
+                canonicalDir.startsWith(canonicalRoot) &&
+                    canonicalDir != canonicalRoot &&
+                    completedTracks.all { (_, fileName) ->
+                        fileName != null &&
+                            resolveWithin(hostRawRoot = hostRawRoot, recordingId = rawDir, reportedFilename = fileName)
+                                ?.let { it.isFile && it.length() > 0L } == true
+                    }
+            }
+        } catch (_: Exception) {
+            false
+        }
 }

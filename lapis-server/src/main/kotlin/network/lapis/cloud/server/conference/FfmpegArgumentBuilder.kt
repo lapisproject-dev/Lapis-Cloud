@@ -1,5 +1,7 @@
 package network.lapis.cloud.server.conference
 
+import java.math.BigDecimal
+import java.math.RoundingMode
 import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.sqrt
@@ -36,6 +38,23 @@ import kotlin.math.sqrt
  * [Locale.ROOT] explicitly -- `String.format`'s default locale would render `1.5` as `"1,500"` on a
  * JVM whose default locale uses a comma decimal separator (a real risk in this codebase's own
  * German-language deployment context), which `ffmpeg`'s filter-graph parser cannot parse at all.
+ *
+ * ## Output duration: ONE value, bounded in three places (V1.9.107)
+ *
+ * [RecordingComposeSpec.outputDurationSeconds] is formatted once ([formatOutputDuration]) and that
+ * single literal is used by the canvas source `-t`, the silent-audio source `-t`, the final
+ * `trim=end=` of the video chain, the final `atrim=end=` of the audio chain and the output option
+ * `-t`. No `-shortest`: ffmpeg 8 aborts with `-shortest` when the audio runs far ahead of the
+ * video (ELB recording `bacce4ae`, see the roadmap section "Aufzeichnung wird nicht zusammengesetzt"),
+ * so the bound is explicit instead.
+ *
+ * Why the video chain can run past the recording duration at all: `overlay` without `shortest=1`
+ * and with `eof_action=repeat` keeps producing frames until its LONGEST input ends, also after the
+ * canvas has ended. The trailing `trim` sends EOF backwards through the graph, so the overlay
+ * cascade stops computing (saves CPU time). `shortest=1` per overlay is deliberately NOT used: it
+ * would end the output at the first input that stops early (someone leaving the meeting) and
+ * destroy the video. No `setpts`/`asetpts` follows `trim`/`atrim`: both chains start at 0 and only
+ * the tail is cut, so synchronicity is preserved.
  */
 object FfmpegArgumentBuilder {
     /** Fraction of [RecordingComposeSpec.outputHeight] the camera strip occupies in presentation layout. */
@@ -54,7 +73,7 @@ object FfmpegArgumentBuilder {
             spec.videoInputs.isNotEmpty(),
         ) { "RecordingComposeSpec.videoInputs must not be empty -- composition needs at least one video" }
 
-        val durationStr = formatSeconds(spec.outputDurationSeconds)
+        val durationStr = formatOutputDuration(spec.outputDurationSeconds)
         val args = mutableListOf("-y")
         args +=
             listOf(
@@ -73,8 +92,8 @@ object FfmpegArgumentBuilder {
         }
 
         val cells = layoutCells(spec)
-        args += listOf("-filter_complex", buildFilterGraph(spec = spec, cells = cells))
-        args += listOf("-map", "[vout]", "-map", "[aout]")
+        args += listOf("-filter_complex", buildFilterGraph(spec = spec, cells = cells, durationStr = durationStr))
+        args += listOf("-map", "[vfinal]", "-map", "[afinal]")
         args +=
             listOf(
                 "-c:v",
@@ -91,10 +110,9 @@ object FfmpegArgumentBuilder {
                 "128k",
                 "-movflags",
                 "+faststart",
-                // Safety net on top of the explicit -t bounds above -- if a real input somehow runs
-                // longer than its own recorded duration, still never exceed the shortest mapped
-                // output stream.
-                "-shortest",
+                // Output bound (V1.9.107) -- see class KDoc "Output duration". Must stay the second to last pair.
+                "-t",
+                durationStr,
             )
         args += outputPath
         return args
@@ -147,6 +165,7 @@ object FfmpegArgumentBuilder {
     private fun buildFilterGraph(
         spec: RecordingComposeSpec,
         cells: List<Cell>,
+        durationStr: String,
     ): String {
         val parts = mutableListOf<String>()
         var previousLabel = "0:v" // input 0 is always the black-canvas base.
@@ -215,9 +234,22 @@ object FfmpegArgumentBuilder {
             parts += "${audioLabels.joinToString("")}amix=inputs=${audioLabels.size}:dropout_transition=0:normalize=0[aout]"
         }
 
+        parts += "[vout]trim=end=$durationStr[vfinal]"
+        parts += "[aout]atrim=end=$durationStr[afinal]"
         return parts.joinToString(";")
     }
 
     /** Always [Locale.ROOT] -- see class KDoc "Locale". Never negative (a track's own offset is always >= 0 relative to `t0`). */
     private fun formatSeconds(seconds: Double): String = String.format(Locale.ROOT, "%.3f", seconds.coerceAtLeast(0.0))
+
+    /**
+     * Output duration literal -- locale-free, three decimals, always > 0. Throws
+     * [IllegalArgumentException] for a non-finite, non-positive or rounds-to-zero value.
+     */
+    private fun formatOutputDuration(seconds: Double): String {
+        require(seconds.isFinite() && seconds > 0.0) { "output duration must be > 0" }
+        val rounded = BigDecimal.valueOf(seconds).setScale(3, RoundingMode.HALF_UP)
+        require(rounded.signum() > 0) { "output duration must be > 0" }
+        return rounded.toPlainString()
+    }
 }

@@ -11,15 +11,27 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import kotlinx.browser.document
+import kotlinx.browser.window
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceRecordingDto
+import network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode
 import network.lapis.cloud.shared.domain.ConferenceRecordingListQuery
 import network.lapis.cloud.shared.domain.ConferenceRecordingPageDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
+import network.lapis.cloud.shared.rpc.RecordingRawFilesMissingException
+import network.lapis.cloud.shared.rpc.RecordingRetryNotAllowedException
+import network.lapis.cloud.shared.rpc.RecordingRetryRateLimitedException
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLVideoElement
+import kotlin.math.ceil
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- the Lobby's "Aufzeichnungen"
@@ -39,9 +51,13 @@ import org.w3c.dom.HTMLVideoElement
  *   download, and vice versa.
  * - **D12 -- FAILED is not just listed, it is prominent.** [conferenceRecordingListSorted]
  *   (`ConferenceScreen.kt`) pins every FAILED recording to the TOP of the list, ahead of
- *   chronological order, with a visible red border and the sanitized `failureReason` plus a concrete
- *   next step ("Wenden Sie sich an eine Administratorin oder einen Administrator") -- never a bare
- *   red label a moderator could miss while scrolling past successful recordings.
+ *   chronological order, with a visible red border and a fixed text per [ConferenceRecordingFailureCode]
+ *   ([conferenceRecordingFailureText], V1.9.107 -- the server's `failureReason` text is no longer shown) plus a
+ *   concrete next step -- never a bare red label a moderator could miss while scrolling past successful recordings.
+ * - **V1.9.107 -- "Umkodierung neu starten".** A FAILED recording whose composition failed (`COMPOSE_FAILED`) and whose raw
+ *   files are still on disk offers the moderator a retry ([ConferenceRecordingDto.canRetryComposition], decided by the
+ *   server). While a row is PROCESSING the panel polls every [RecordingsPolling.intervalMs] (visible tab only, capped at
+ *   [RecordingsPolling.maxDurationMs]) and announces status changes in a polite live region.
  * - **D13's raw-file-retention-on-FAILED promise is a SERVER-side guarantee** (this wave's poller
  *   step, `RecordingPoller.kt` KDoc "PROCESSING") -- this file's own contribution is making that
  *   promise legible: the FAILED row's copy explicitly says raw footage may still be recoverable via
@@ -86,18 +102,91 @@ import org.w3c.dom.HTMLVideoElement
  */
 fun renderConferenceRecordingsPanel(panel: SimplePanel) {
     panel.removeAll()
+    // The panel is re-rendered from three places in ConferenceScreen -- a newer render invalidates this one's poll timer.
+    val generation = RecordingsPolling.nextGeneration()
     // Stays hidden until availability is confirmed `enabled` below -- D14, see file KDoc.
     panel.hide()
     panel.h2(tr("Aufzeichnungen")) { addCssClass("h5") }
+    val liveRegion = panel.div("") { addCssClasses("visually-hidden") }
+    liveRegion.setAttribute("role", "status")
+    liveRegion.setAttribute("aria-live", "polite")
+    val statusById = mutableMapOf<String, ConferenceRecordingStatus>()
+    var pollTimer: Int? = null
+    var pollStartedAtMs: Double? = null
     val listPanel = panel.vPanel(spacing = 8)
     val pagerRow = panel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
 
     var offset = 0
-    lateinit var loadPage: () -> Unit
+    // `silent = true` is the background poll: it never clears the list before the response arrives and
+    // re-renders only on a real change, so an inline <video>/keyboard focus survives a poll tick.
+    lateinit var loadPage: (Boolean) -> Unit
+    // `lastPage` is the page currently DISPLAYED (null once a non-silent load cleared the panel); `lastRows` survives
+    // such a clear so a failed poll can still schedule the next tick.
+    var lastPage: ConferenceRecordingPageDto? = null
+    var lastRows: List<ConferenceRecordingDto> = emptyList()
+    var requestSeq = 0
+
+    fun schedulePoll(rows: List<ConferenceRecordingDto>) {
+        pollTimer?.let { window.clearTimeout(it) }
+        pollTimer = null
+        if (!RecordingsPolling.isCurrent(generation)) return
+        if (rows.none { it.status == ConferenceRecordingStatus.PROCESSING }) {
+            // The 150-min cap is per processing phase, not per panel render.
+            pollStartedAtMs = null
+            return
+        }
+        val startedAt = pollStartedAtMs ?: RecordingsPolling.nowMs().also { pollStartedAtMs = it }
+        if (RecordingsPolling.nowMs() - startedAt > RecordingsPolling.maxDurationMs) return
+        pollTimer =
+            window.setTimeout({
+                pollTimer = null
+                // A removed/disposed panel has no connected element any more -- stop for good.
+                if (!RecordingsPolling.isCurrent(generation) || panel.getElement()?.isConnected != true) return@setTimeout
+                if (RecordingsPolling.isTabVisible()) {
+                    loadPage(true)
+                } else {
+                    // Hidden tab: no request, but keep the single timer alive so polling resumes on return (still capped).
+                    schedulePoll(rows)
+                }
+            }, RecordingsPolling.intervalMs.toInt())
+    }
+
+    fun announceChanges(rows: List<ConferenceRecordingDto>) {
+        val message =
+            rows
+                .firstNotNullOfOrNull { row ->
+                    val before = statusById[row.id] ?: return@firstNotNullOfOrNull null
+                    if (before == row.status) return@firstNotNullOfOrNull null
+                    when (row.status) {
+                        ConferenceRecordingStatus.PROCESSING ->
+                            gettext(
+                                "Die Aufzeichnung von \"%1\" wird verarbeitet.",
+                                sanitizeUntrustedI18nText(row.roomTitle),
+                            )
+                        ConferenceRecordingStatus.READY ->
+                            gettext(
+                                "Die Aufzeichnung von \"%1\" ist fertig.",
+                                sanitizeUntrustedI18nText(row.roomTitle),
+                            )
+                        ConferenceRecordingStatus.FAILED ->
+                            gettext(
+                                "Die Aufzeichnung von \"%1\" ist fehlgeschlagen.",
+                                sanitizeUntrustedI18nText(row.roomTitle),
+                            )
+                        else -> null
+                    }
+                }
+        rows.forEach { statusById[it.id] = it.status }
+        if (message != null) liveRegion.content = message
+    }
 
     fun renderPage(page: ConferenceRecordingPageDto) {
+        lastPage = page
+        lastRows = page.rows
         listPanel.removeAll()
         pagerRow.removeAll()
+        announceChanges(page.rows)
+        schedulePoll(page.rows)
         if (page.rows.isEmpty()) {
             listPanel.div(tr("Noch keine Aufzeichnungen.")) { addCssClasses("text-muted small") }
         } else {
@@ -105,7 +194,7 @@ fun renderConferenceRecordingsPanel(panel: SimplePanel) {
                 // No offset fix-up here any more -- an emptied page is recovered centrally in
                 // `loadPage` below, which covers strictly more cases than the "I just deleted the
                 // last row of this page" special case that used to live here (see its comment).
-                renderConferenceRecordingRow(panel = listPanel, recording = recording) { loadPage() }
+                renderConferenceRecordingRow(panel = listPanel, recording = recording) { loadPage(false) }
             }
         }
         // Deliberately rendered even for an empty page, matching `MemberAdministrationScreen.kt`'s
@@ -117,27 +206,38 @@ fun renderConferenceRecordingsPanel(panel: SimplePanel) {
         backButton.disabled = page.offset <= 0
         backButton.onClick {
             offset = (offset - page.limit).coerceAtLeast(0)
-            loadPage()
+            loadPage(false)
         }
         val nextButton = pagerRow.button(tr("Weiter ›"), style = ButtonStyle.OUTLINESECONDARY)
         nextButton.disabled = page.offset + page.rows.size >= page.totalCount
         nextButton.onClick {
             offset += page.limit
-            loadPage()
+            loadPage(false)
         }
     }
 
-    loadPage = {
+    loadPage = { silent ->
+        val seq = ++requestSeq
         AppScope.launch {
-            listPanel.removeAll()
-            pagerRow.removeAll()
-            listPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+            if (!silent) {
+                lastPage = null
+                listPanel.removeAll()
+                pagerRow.removeAll()
+                listPanel.div(tr("Wird geladen …")) { addCssClasses("text-muted small") }
+            }
             val page =
                 guarded {
                     rpcService<IConferenceRecordingService>().listRecordings(ConferenceRecordingListQuery(offset = offset))
                 }
+            // A newer request (paging, retry, delete) supersedes this one -- never render a stale response.
+            if (seq != requestSeq || !RecordingsPolling.isCurrent(generation)) return@launch
             if (page == null) {
-                listPanel.removeAll()
+                if (silent) {
+                    // Transient poll failure: keep the last rendered page and try again on the next tick.
+                    schedulePoll(lastRows)
+                } else {
+                    listPanel.removeAll()
+                }
                 return@launch
             }
             // An empty page while rows demonstrably exist means this offset is past the end -- the
@@ -149,7 +249,11 @@ fun renderConferenceRecordingsPanel(panel: SimplePanel) {
             val lastPageStart = ((page.totalCount - 1) / page.limit) * page.limit
             if (page.rows.isEmpty() && page.totalCount > 0 && page.offset > lastPageStart) {
                 offset = lastPageStart
-                loadPage()
+                loadPage(false)
+                return@launch
+            }
+            if (silent && page == lastPage) {
+                schedulePoll(page.rows)
                 return@launch
             }
             renderPage(page)
@@ -163,14 +267,14 @@ fun renderConferenceRecordingsPanel(panel: SimplePanel) {
             return@launch
         }
         panel.show()
-        loadPage()
+        loadPage(false)
     }
 }
 
 private fun renderConferenceRecordingRow(
     panel: SimplePanel,
     recording: ConferenceRecordingDto,
-    onDeleted: () -> Unit,
+    onChanged: () -> Unit,
 ) {
     val failed = recording.status == ConferenceRecordingStatus.FAILED
     val card =
@@ -183,13 +287,17 @@ private fun renderConferenceRecordingRow(
     headerRow.untrustedCardTitle(recording.roomTitle)
     headerRow.div(conferenceRecordingDurationLabel(recording.durationSeconds)) { addCssClasses("text-muted small") }
 
+    // V1.9.107: the retry sits LEFT of "Löschen" (rendered after it in the DOM order below).
+    if (recording.canRetryComposition) {
+        renderConferenceRecordingRetryButton(row = headerRow, recording = recording, onChanged = onChanged)
+    }
     if (conferenceRecordingCanDelete(
             recording = recording,
             localMemberId = AppState.session?.memberId,
             isBoardOrAdmin = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN),
         )
     ) {
-        renderConferenceRecordingDeleteButton(row = headerRow, recording = recording, onDeleted = onDeleted)
+        renderConferenceRecordingDeleteButton(row = headerRow, recording = recording, onDeleted = onChanged)
     }
 
     card.div(conferenceRecordingStartedLabel(recording.startedByDisplayName, recording.startedAt)) {
@@ -197,17 +305,15 @@ private fun renderConferenceRecordingRow(
     }
 
     if (failed) {
-        // D12: FAILED is interrupting, not buried -- sanitized failureReason (never raw ffmpeg/Twirp
-        // text, per ConferenceRecordingDto.failureReason's own KDoc "a security boundary") plus a
-        // concrete next step. D13: raw footage is retained server-side on failure, so this copy can
-        // honestly point at recovery rather than implying total loss.
-        card.div(recording.failureReason ?: tr("Die Aufzeichnung ist fehlgeschlagen.")) { addCssClasses("text-danger small fw-bold") }
-        card.div(
-            tr(
-                "Die Rohaufnahmen bleiben erhalten -- wenden Sie sich an eine Administratorin oder einen " +
-                    "Administrator, falls die Aufzeichnung wiederhergestellt werden soll.",
-            ),
-        ) { addCssClasses("text-muted small") }
+        // D12: FAILED is interrupting, not buried. V1.9.107: fixed text per failure code -- the server's `failureReason`
+        // is no longer rendered (it could never carry more than the code does, and the code is translatable).
+        val lines = conferenceRecordingFailureText(recording)
+        card.div(lines.first()) { addCssClasses("text-danger small fw-bold") }
+        lines.drop(1).forEach { line -> card.div(line) { addCssClasses("text-muted small") } }
+    }
+
+    if (recording.status == ConferenceRecordingStatus.PROCESSING) {
+        conferenceRecordingEstimateLine(recording)?.let { line -> card.div(line) { addCssClasses("text-muted small") } }
     }
 
     val mediaUrl = recording.mediaUrl
@@ -231,6 +337,147 @@ private fun renderConferenceRecordingRow(
         recording.fileSizeBytes?.let { size ->
             downloadRow.div(conferenceRecordingFileSizeLabel(size)) { addCssClasses("text-muted small") }
         }
+    }
+}
+
+/**
+ * V1.9.107 "Umkodierung neu starten": [ButtonStyle.OUTLINEPRIMARY] with the refresh icon, a [confirmDialog] stating roughly how long the
+ * composition takes, then `retryRecordingComposition` through [guarded]. The three typed refusals get their own toast and refresh the list
+ * (the state changed under the caller); everything else goes through the central [guarded] mapping. The accessible name carries the room
+ * title ([gettext] result via `setAttribute` -- never a raw `tr()` into the DOM, see the file KDoc).
+ */
+private fun renderConferenceRecordingRetryButton(
+    row: SimplePanel,
+    recording: ConferenceRecordingDto,
+    onChanged: () -> Unit,
+) {
+    val retryButton = row.actionButton(ActionIcon.REFRESH, tr("Umkodierung neu starten"), style = ButtonStyle.OUTLINEPRIMARY)
+    retryButton.addCssClass("lapis-recording-retry")
+    // 44 x 44 px at every pointer type (theme.css only guarantees it for a coarse pointer); the phone-width rule lives in `.lapis-recording-retry`.
+    retryButton.setStyle("min-height", "44px")
+    retryButton.setStyle("min-width", "44px")
+    retryButton.setAttribute("aria-label", gettext("Umkodierung neu starten: %1", sanitizeUntrustedI18nText(recording.roomTitle)))
+    retryButton.onClick {
+        confirmDialog(
+            title = tr("Umkodierung neu starten"),
+            message = conferenceRecordingRetryConfirmText(recording),
+            confirmLabel = tr("Neu starten"),
+            confirmIcon = ActionIcon.REFRESH,
+            confirmStyle = ButtonStyle.PRIMARY,
+        ) {
+            retryButton.disabled = true
+            AppScope.launch {
+                var refused = false
+                val started =
+                    guarded {
+                        try {
+                            rpcService<IConferenceRecordingService>().retryRecordingComposition(recording.id)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: RecordingRetryNotAllowedException) {
+                            refused = true
+                            notifyError(tr("Diese Aufzeichnung kann nicht neu verarbeitet werden. Bitte Ansicht aktualisieren."))
+                            null
+                        } catch (e: RecordingRawFilesMissingException) {
+                            refused = true
+                            notifyError(tr("Die Rohaufnahmen sind nicht mehr vorhanden. Eine erneute Verarbeitung ist nicht möglich."))
+                            null
+                        } catch (e: RecordingRetryRateLimitedException) {
+                            notifyError(tr("Bitte versuchen Sie es später erneut."))
+                            null
+                        }
+                    }
+                retryButton.disabled = false
+                if (started != null) {
+                    notifySuccess(tr("Umkodierung gestartet."))
+                    onChanged()
+                } else if (refused) {
+                    onChanged()
+                }
+            }
+        }
+    }
+}
+
+/** Fixed, translated lines for a FAILED recording, keyed by [ConferenceRecordingDto.failureCode] -- never the server's `failureReason` text. */
+internal fun conferenceRecordingFailureText(recording: ConferenceRecordingDto): List<String> {
+    val administration = gettext("Wenden Sie sich an die Administration.")
+    return when (recording.failureCode) {
+        ConferenceRecordingFailureCode.COMPOSE_FAILED ->
+            listOf(
+                gettext("Die Aufzeichnung wurde vollständig aufgenommen, konnte aber nicht zu einem Video zusammengesetzt werden."),
+                when (recording.rawFilesAvailable) {
+                    true -> gettext("Die Rohaufnahmen sind erhalten.")
+                    false -> gettext("Die Rohaufnahmen sind nicht mehr vorhanden.")
+                    null -> administration
+                },
+            )
+        ConferenceRecordingFailureCode.EGRESS_TIMEOUT ->
+            listOf(gettext("Der Aufzeichnungsdienst hat die Spuren nicht rechtzeitig abgeschlossen."), administration)
+        ConferenceRecordingFailureCode.NO_TRACKS ->
+            listOf(gettext("Es wurde keine Audio- oder Videospur aufgezeichnet."), administration)
+        ConferenceRecordingFailureCode.NO_TRACK_STORED ->
+            listOf(gettext("Der Aufzeichnungsdienst konnte keine Spur speichern."), administration)
+        null -> listOf(gettext("Die Aufzeichnung ist fehlgeschlagen."))
+    }
+}
+
+/** Minutes the composition roughly takes: half the recording length, rounded up; `null` when start or stop is unknown. */
+internal fun conferenceRecordingEstimateMinutes(recording: ConferenceRecordingDto): Int? {
+    val stoppedAt = recording.stoppedAt ?: return null
+    val length = stoppedAt.toInstant(TimeZone.UTC) - recording.startedAt.toInstant(TimeZone.UTC)
+    if (length <= 0.minutes) return null
+    return ceil(length.inWholeSeconds / 120.0).toInt().coerceAtLeast(1)
+}
+
+/** The retry confirmation: with the time estimate in parentheses when both timestamps are known, without otherwise. */
+internal fun conferenceRecordingRetryConfirmText(recording: ConferenceRecordingDto): String {
+    val title = sanitizeUntrustedI18nText(recording.roomTitle)
+    val minutes = conferenceRecordingEstimateMinutes(recording)
+    return if (minutes != null) {
+        gettext(
+            "Die Aufzeichnung von \"%1\" wird erneut zu einem Video zusammengesetzt (voraussichtlich bis zu %2 Minuten). " +
+                "Die Rohaufnahmen bleiben dabei erhalten.",
+            title,
+            minutes.toString(),
+        )
+    } else {
+        gettext(
+            "Die Aufzeichnung von \"%1\" wird erneut zu einem Video zusammengesetzt. Die Rohaufnahmen bleiben dabei erhalten.",
+            title,
+        )
+    }
+}
+
+/** "Voraussichtlich fertig gegen HH:MM Uhr (Schätzung)." for a PROCESSING row after a manual retry; `null` without a start or a length. */
+internal fun conferenceRecordingEstimateLine(recording: ConferenceRecordingDto): String? {
+    val startedAt: LocalDateTime = recording.compositionRetryStartedAt ?: return null
+    val minutes = conferenceRecordingEstimateMinutes(recording) ?: return null
+    val done = (startedAt.toInstant(TimeZone.UTC) + minutes.minutes).toLocalDateTime(resolveZone(OrganizationTime.zoneId))
+    return gettext("Voraussichtlich fertig gegen %1 Uhr (Schätzung).", formatTimeComponents(done.hour, done.minute))
+}
+
+/**
+ * Poll settings of the Lobby's recordings panel while a row is PROCESSING -- an object (not constants) so tests can inject a short
+ * interval, the tab visibility and the clock (same seam shape as [UnreadMessages]). [generation] invalidates the timer of a panel that
+ * was re-rendered (three call sites in `ConferenceScreen`).
+ */
+internal object RecordingsPolling {
+    var intervalMs: Double = 30_000.0
+    var maxDurationMs: Double = 150 * 60_000.0
+    var isTabVisible: () -> Boolean = { document.asDynamic().visibilityState == "visible" }
+    var nowMs: () -> Double = { kotlin.js.Date.now() }
+    private var generation = 0
+
+    fun nextGeneration(): Int = ++generation
+
+    fun isCurrent(value: Int): Boolean = value == generation
+
+    fun resetForTest() {
+        intervalMs = 30_000.0
+        maxDurationMs = 150 * 60_000.0
+        isTabVisible = { document.asDynamic().visibilityState == "visible" }
+        nowMs = { kotlin.js.Date.now() }
     }
 }
 

@@ -130,6 +130,52 @@ class FfmpegCompositionIntegrationTest :
                 video shouldBe (2.055 plusOrMinus videoTolerance)
                 audio shouldBe (2.0 plusOrMinus audioTolerance)
             }
+
+        fun probeDuration(
+            file: File,
+            stream: String,
+        ): Double {
+            val out =
+                FfmpegForTests.run(
+                    ffmpeg = ffmpeg!!,
+                    args = listOf("-nostats", "-i", file.absolutePath, "-map", "0:$stream", "-c", "copy", "-f", "null", "-"),
+                )
+            // The last "time=HH:MM:SS.xx" of the null muxer is the stream's own length.
+            val time = Regex("""time=(\d+):(\d+):([0-9.]+)""").findAll(out).last()
+            val (h, m, sec) = time.destructured
+            return h.toInt() * 3600 + m.toInt() * 60 + sec.toDouble()
+        }
+
+        test("audio running far past the video: both streams are cut to outputDurationSeconds (no -shortest abort)")
+            .config(enabled = enabled) {
+                // Video file is 6 s long but placed at offset 6 s; audio is 6 s long at offset 0; the recording lasts 3 s.
+                val (mic, cam) = generateInputs()
+                val out = File(workDir, "bounded.mp4")
+                val spec =
+                    RecordingComposeSpec(
+                        videoInputs = listOf(RecordingComposeVideoInput(file = cam, offsetSeconds = 6.0, isScreenShare = false)),
+                        audioInputs = listOf(RecordingComposeAudioInput(file = mic, offsetSeconds = 0.0)),
+                        outputDurationSeconds = 3.0,
+                    )
+                FfmpegForTests.run(ffmpeg = ffmpeg!!, args = FfmpegArgumentBuilder.build(spec = spec, outputPath = out.absolutePath))
+                probeDuration(out, "v:0") shouldBe (3.0 plusOrMinus 0.1)
+                probeDuration(out, "a:0") shouldBe (3.0 plusOrMinus 0.1)
+            }
+
+        test("a video input longer than the recording does not stretch the output; the graph ends at outputDurationSeconds")
+            .config(enabled = enabled) {
+                val (mic, cam) = generateInputs() // both 6 s
+                val out = File(workDir, "bounded-long-video.mp4")
+                val spec =
+                    RecordingComposeSpec(
+                        videoInputs = listOf(RecordingComposeVideoInput(file = cam, offsetSeconds = 0.0, isScreenShare = false)),
+                        audioInputs = listOf(RecordingComposeAudioInput(file = mic, offsetSeconds = 0.0)),
+                        outputDurationSeconds = 2.0,
+                    )
+                FfmpegForTests.run(ffmpeg = ffmpeg!!, args = FfmpegArgumentBuilder.build(spec = spec, outputPath = out.absolutePath))
+                probeDuration(out, "v:0") shouldBe (2.0 plusOrMinus 0.1)
+                probeDuration(out, "a:0") shouldBe (2.0 plusOrMinus 0.1)
+            }
     })
 
 /** Locates and runs a real `ffmpeg` for integration tests -- see [FfmpegCompositionIntegrationTest]. */

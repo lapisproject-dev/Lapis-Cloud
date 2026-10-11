@@ -23,6 +23,14 @@ import kotlinx.serialization.Serializable
 enum class ConferenceRecordingStatus { RECORDING, STOPPING, PROCESSING, READY, FAILED }
 
 /**
+ * V1.9.107 -- machine-readable reason of a [ConferenceRecordingStatus.FAILED] recording, so the UI never parses
+ * the German `failureReason` text. Literal order is load-bearing (`ConferenceRecordingSchemaDriftTest`).
+ * Only [COMPOSE_FAILED] can be repaired by the moderator action `retryRecordingComposition`.
+ */
+@Serializable
+enum class ConferenceRecordingFailureCode { COMPOSE_FAILED, EGRESS_TIMEOUT, NO_TRACKS, NO_TRACK_STORED }
+
+/**
  * Mirrors LiveKit's own `livekit.proto` `TrackSource` enum -- see
  * `network.lapis.cloud.server.conference.LiveKitTrackInfo` KDoc for which literals are empirically
  * wire-verified against a live container (`CAMERA` only, as of this wave) versus transcribed from
@@ -89,6 +97,14 @@ data class ConferenceRecordingDto(
      * near this field. `null` unless [status] is [ConferenceRecordingStatus.FAILED].
      */
     val failureReason: String?,
+    /** V1.9.107: machine-readable reason, `null` unless [status] is FAILED (and for rows that predate V87 with unknown text). */
+    val failureCode: ConferenceRecordingFailureCode? = null,
+    /** V1.9.107: `true` iff THIS caller may press "Umkodierung neu starten" right now (FAILED + COMPOSE_FAILED + rights + raw files present; rate limits not included). */
+    val canRetryComposition: Boolean = false,
+    /** V1.9.107: only set for FAILED + COMPOSE_FAILED and only if the caller would have the rights -- never leaks file system state to others. */
+    val rawFilesAvailable: Boolean? = null,
+    /** V1.9.107: when the manual retry started (UTC system timestamp), only while PROCESSING -- the client derives an estimate from it. */
+    val compositionRetryStartedAt: LocalDateTime? = null,
 )
 
 /**

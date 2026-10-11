@@ -1,0 +1,111 @@
+= Conference recording: composition, repair and retry (V1.9.107)
+:toc:
+
+NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+== Purpose
+
+A conference recording is captured as raw per-track files (LiveKit Track Egress), then composed into one MP4 by `ffmpeg` (`FfmpegGalleryComposer`, driven by `RecordingPoller`).
+V1.9.107 fixes a composition that never ended on a real recording and adds a moderator action to repair a recording whose composition failed.
+Operating context: the ELB recording `bacce4ae-a65c-4f3d-9266-33fcfd309e25` (68 minutes) stayed `FAILED` although all raw files were on disk; `ffmpeg` 8 aborted with `-shortest` when
+the audio ran far ahead of the video, and the video chain ran for about 8000 s instead of 4100 s.
+
+== State machine
+
+[kuml, conference-recording-states, svg]
+----
+stateDiagram(name = "Conference recording") {
+    val start = initialState()
+    val recording = state(name = "RECORDING")
+    val stopping = state(name = "STOPPING")
+    val processing = state(name = "PROCESSING")
+    val ready = state(name = "READY")
+    val failed = state(name = "FAILED (failure_code)")
+
+    transition(source = start, target = recording)
+    transition(source = recording, target = stopping) { trigger = "stopRecording, room ended, maximum duration" }
+    transition(source = stopping, target = processing) { trigger = "all tracks terminal, or egress timeout with a video track" }
+    transition(source = stopping, target = failed) { trigger = "NO_TRACKS, EGRESS_TIMEOUT" }
+    transition(source = processing, target = ready) { trigger = "composition archived" }
+    transition(source = processing, target = failed) { trigger = "NO_TRACK_STORED, COMPOSE_FAILED (attempts exhausted)" }
+    transition(source = failed, target = processing) {
+        trigger = "retryRecordingComposition (moderator): attempts = MAX - 1"
+        guard = "[failure_code = COMPOSE_FAILED, raw files present]"
+    }
+}
+----
+
+`conference_recording.failure_code` (V87) says why a row is `FAILED`: `COMPOSE_FAILED`, `EGRESS_TIMEOUT`, `NO_TRACKS`, `NO_TRACK_STORED`. It is only set while the status is `FAILED` (CHECK) and is written together
+with the fixed German `failure_reason` text by `RecordingPoller.markFailed`. The client renders its own text per code and never the server's `failure_reason`.
+
+== Bounding the composition
+
+`FfmpegArgumentBuilder.build` formats `outputDurationSeconds` once (`formatOutputDuration`: finite and greater than zero, rounded half-up to three decimals, locale-free) and uses that single literal in five places:
+
+* the `-t` of the black canvas source and of the silent `anullsrc` source,
+* a final `trim=end=D` on the video chain (`[vout]` to `[vfinal]`) and a final `atrim=end=D` on the audio chain (`[aout]` to `[afinal]`),
+* the output option `-t D`, the second to last argument pair before the output path.
+
+Why not `-shortest`: with `ffmpeg` 8 a stream pair whose audio runs far ahead of the video aborts the run. The explicit bound replaces it.
+
+Why the video chain can run past the recording at all: `overlay` without `shortest=1` and with `eof_action=repeat` keeps producing frames until its longest input ends, also after the canvas ended.
+The trailing `trim` sends EOF backwards through the graph, so the cascade stops computing (CPU time).
+
+Why not `shortest=1` on each overlay: it would end the output at the first input that stops early (a participant leaves) and destroy the video.
+
+No `setpts`/`asetpts` follows `trim`/`atrim`: both chains start at 0 and only the tail is cut, so synchronicity is untouched.
+
+An invalid duration cannot reach `ffmpeg`: `FfmpegGalleryComposer` turns the `IllegalArgumentException` of the builder into a `RecordingComposeException` ("invalid composition spec"), so the poller's usual failure path applies and the raw files stay.
+(In practice the poller clamps the duration to at least one second; this is defence in depth.)
+
+== Manual retry
+
+`IConferenceRecordingService.retryRecordingComposition(recordingId)`:
+
+* *Rights.* The room's moderator (`ConferenceModeratorAuthority`) or BOARD/ADMIN, and `ConferenceRecordingAccess.mayAccess` for the recording's own tier (no document exists for a failed row). This is stricter than deleting a failed row:
+  a room creator without access to an `ADMIN_ONLY` recording can delete it but not restart it.
+* *One transaction, one lock.* The row is locked `FOR UPDATE`; the state is checked; the raw files are checked (read-only, repeatable); the rate limits are checked; a conditional `UPDATE ... WHERE status = FAILED AND failure_code = COMPOSE_FAILED`
+  flips it to `PROCESSING` with `compose_attempts = MAX_COMPOSE_ATTEMPTS - 1` and clears the failure fields. Zero updated rows means another caller won (`RecordingRetryNotAllowedException`).
+  The audit entry (`CONFERENCE_RECORDING`, `UPDATE`, `status=FAILED` to `status=PROCESSING (manual composition retry #n)`, no path, no title) is the last lock-taking operation.
+* *The poller is untouched.* It sees `PROCESSING` with four attempts, makes exactly one attempt (number five) and ends in `READY` or again `FAILED`/`COMPOSE_FAILED`; raw files are kept on failure. The service wakes it with `requestTick()`
+  strictly after the commit.
+* *Raw-file check* (`RecordingRawFiles.rawFilesAvailable`): `raw_dir` parses as a UUID and its canonical directory lies below the canonical raw root; at least one COMPLETE video track; every COMPLETE track has a file name that
+  `resolveWithin` accepts (no traversal, no symlink out) and the file is larger than zero bytes. Paths come from the database row, never from the client.
+* *Typed errors.* `RecordingRetryNotAllowedException` (wrong status or code, lost race), `RecordingRawFilesMissingException`, `RecordingRetryRateLimitedException`. They are separate types because the message of a `ConflictException`
+  does not reliably reach the client (see link:typed-conflict-errors.adoc[typed-conflict-errors.adoc]).
+
+=== Rate limits
+
+[cols="2,3", options="header"]
+|===
+| Limit | Value
+| Spacing per recording | at least 15 minutes between two retries (`last_manual_retry_at`)
+| Cap per recording | 3 retries per rolling 24 hours (`manual_retry_window_started_at`, `manual_retry_count`); an expired window starts again at 1
+| Calls per member | 10 per minute (process-wide `FederationInboxRateLimiter`, counts refused calls too)
+|===
+
+All timestamps are UTC system stamps (`DbClock`, class A in `time-fields.tsv`).
+
+== DTO
+
+`ConferenceRecordingDto` gained four defaulted fields: `failureCode`, `canRetryComposition` (the caller may press the button right now: FAILED, `COMPOSE_FAILED`, moderator, access, raw files present; the rate limits do not enter),
+`rawFilesAvailable` (only set when the caller would have the rights, so nobody else learns anything about the file system) and `compositionRetryStartedAt` (only while `PROCESSING`; the client derives its estimate from it).
+
+== Client
+
+The lobby panel shows "Umkodierung neu starten" (only when `canRetryComposition`, left of "Löschen", at least 44 x 44 px, accessible name with the room title) behind a confirmation that names the expected minutes
+(half the recording length, rounded up). A `PROCESSING` row shows "Voraussichtlich fertig gegen HH:MM Uhr (Schätzung)". While any row is `PROCESSING` the panel reloads every 30 s (visible tab only, one `setTimeout` re-planned each time,
+dropped when the panel is re-rendered or removed, at most 150 minutes) and announces status changes in a polite live region.
+
+== Runtime and timeout
+
+The composition takes roughly 0.25 to 0.5 times the recording length (ELB replay: 15:32 minutes for 68 minutes; about 30 minutes in operation). `LAPIS_RECORDING_COMPOSE_TIMEOUT_MINUTES` stays at 120, so the timeout starts to matter at about four hours of recording.
+
+== Known limitations
+
+* There is no real progress, only an estimate; the estimate ignores a queue (one composition at a time system-wide, a semaphore).
+* The CI `ffmpeg` of `ubuntu-latest` is not version 8; the original `-shortest` abort is only reproduced in the ELB replay. Locally `ffmpeg` 9.0.2 is installed. The integration tests run only where `ffmpeg` is installed.
+* Lip synchronicity of the ELB result was not listened to.
+* A participant who left stays as a frozen last tile (`eof_action=repeat`), unchanged.
+* After a successful retry with `LAPIS_RECORDING_KEEP_RAW=true` the raw files stay on disk; cleaning them up is an operator decision.
+* The backfill of V87 also classifies the cases "room gone while STOPPING" and "no resolvable video track" as `COMPOSE_FAILED` (same text); the raw-file check protects, but the classification is not exact.

@@ -574,3 +574,25 @@ class PrivilegedActionStateException(
 class SearchRateLimitedException(
     override val message: String = "Too many search requests",
 ) : AbstractServiceException()
+
+/**
+ * V1.9.107 -- `IConferenceRecordingService.retryRecordingComposition` refused: the recording is not in a repairable state
+ * (not FAILED, not COMPOSE_FAILED, or another caller already restarted it). Typed instead of [ConflictException] because
+ * a conflict's message does not reliably reach the client, see `docs/architecture/typed-conflict-errors.adoc`.
+ */
+@RpcServiceException
+class RecordingRetryNotAllowedException(
+    override val message: String = "This recording cannot be re-processed",
+) : AbstractServiceException()
+
+/** V1.9.107 -- the raw per-track files of a FAILED recording are no longer (completely) on disk, so a retry cannot work. */
+@RpcServiceException
+class RecordingRawFilesMissingException(
+    override val message: String = "The raw recordings are no longer available",
+) : AbstractServiceException()
+
+/** V1.9.107 -- a manual composition retry was refused by one of the rate limits (spacing, per-24h cap, per-member call rate). */
+@RpcServiceException
+class RecordingRetryRateLimitedException(
+    override val message: String = "Too many composition retries, try again later",
+) : AbstractServiceException()

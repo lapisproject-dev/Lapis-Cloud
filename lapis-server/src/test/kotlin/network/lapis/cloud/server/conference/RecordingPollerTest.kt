@@ -24,6 +24,7 @@ import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackSource
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackStatus
@@ -46,7 +47,7 @@ import kotlin.uuid.Uuid
 private const val FAKE_ROOM_NAME_PREFIX = "lc-poller-test-"
 
 /** Records every call for assertions; only [listParticipants] is ever invoked by [RecordingPoller] -- see that class's own KDoc. */
-private class FakeLiveKitAdminClient : LiveKitAdminClient {
+internal class FakeLiveKitAdminClient : LiveKitAdminClient {
     override suspend fun sendData(
         room: String,
         topic: String,
@@ -82,7 +83,7 @@ private class FakeLiveKitAdminClient : LiveKitAdminClient {
  * are deliberately unaffected by this flag -- the finding this fixes is specifically about
  * `ListEgress` failing while the room is already STOPPING.
  */
-private class FakeLiveKitEgressClient(
+internal class FakeLiveKitEgressClient(
     private val failListEgress: Boolean = false,
 ) : LiveKitEgressClient {
     val started = mutableListOf<Triple<String, String, String>>() // (roomName, trackId, outputPath)
@@ -149,7 +150,7 @@ private class FakeLiveKitEgressClient(
 }
 
 /** [behavior] defaults to writing a few bytes to [outputFile] -- override to simulate a failure via [RecordingComposeException]. */
-private class FakeRecordingComposer(
+internal class FakeRecordingComposer(
     private val behavior: (RecordingComposeSpec, File) -> Unit = { _, outputFile -> outputFile.writeBytes(byteArrayOf(1, 2, 3, 4)) },
 ) : RecordingComposer {
     var callCount = 0
@@ -749,6 +750,7 @@ class RecordingPollerTest :
                 val row = recordingRow(recordingId)
                 row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.FAILED
                 row[ConferenceRecordingTable.failureReason] shouldBe "Zeitüberschreitung beim Abschluss der Aufzeichnung."
+                row[ConferenceRecordingTable.failureCode] shouldBe ConferenceRecordingFailureCode.EGRESS_TIMEOUT
             } finally {
                 hostRawRoot.deleteRecursively()
                 documentStorageRoot.deleteRecursively()
@@ -789,6 +791,7 @@ class RecordingPollerTest :
                 val row = recordingRow(recordingId)
                 row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.FAILED
                 row[ConferenceRecordingTable.failureReason] shouldBe "Es wurde keine Audio- oder Videospur aufgezeichnet."
+                row[ConferenceRecordingTable.failureCode] shouldBe ConferenceRecordingFailureCode.NO_TRACKS
                 // No track row exists for THIS recording, so no egressId belonging to it could ever
                 // appear in stoppedEgressIds regardless -- not asserted directly since tick() also
                 // processes any other non-terminal recording left over from earlier tests sharing this
@@ -850,6 +853,7 @@ class RecordingPollerTest :
                 val row = recordingRow(recordingId)
                 row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.FAILED
                 row[ConferenceRecordingTable.failureReason] shouldBe "Zeitüberschreitung beim Abschluss der Aufzeichnung."
+                row[ConferenceRecordingTable.failureCode] shouldBe ConferenceRecordingFailureCode.EGRESS_TIMEOUT
             } finally {
                 hostRawRoot.deleteRecursively()
                 documentStorageRoot.deleteRecursively()
@@ -1189,10 +1193,33 @@ class RecordingPollerTest :
                 val row = recordingRow(recordingId)
                 row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.FAILED
                 row[ConferenceRecordingTable.failureReason] shouldBe "Die Aufzeichnung konnte nicht zusammengesetzt werden."
+                row[ConferenceRecordingTable.failureCode] shouldBe ConferenceRecordingFailureCode.COMPOSE_FAILED
                 row[ConferenceRecordingTable.composeAttempts] shouldBe 5
                 // The critical D13 assertion: raw files survive a FAILED terminal state even though keepRaw=false.
                 rawDir.exists() shouldBe true
                 trackFile.exists() shouldBe true
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("PROCESSING: no COMPLETE track at all -> FAILED with NO_TRACK_STORED") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-no-track-stored@example.org")
+                val (roomId, _) = createRoom(member)
+                val recordingId = createRecording(roomId, member, ConferenceRecordingStatus.PROCESSING, composeAttempts = 0)
+                createTrack(recordingId, egressId = "EG_x-$recordingId", status = ConferenceRecordingTrackStatus.ABORTED)
+
+                val composer = FakeRecordingComposer()
+                buildPoller(FakeLiveKitAdminClient(), FakeLiveKitEgressClient(), composer, hostRawRoot, documentStorageRoot).tick()
+
+                composer.callCount shouldBe 0
+                val row = recordingRow(recordingId)
+                row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.FAILED
+                row[ConferenceRecordingTable.failureCode] shouldBe ConferenceRecordingFailureCode.NO_TRACK_STORED
             } finally {
                 hostRawRoot.deleteRecursively()
                 documentStorageRoot.deleteRecursively()
@@ -1216,6 +1243,7 @@ class RecordingPollerTest :
 
                 composer.callCount shouldBe 0
                 recordingRow(recordingId)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.FAILED
+                recordingRow(recordingId)[ConferenceRecordingTable.failureCode] shouldBe ConferenceRecordingFailureCode.COMPOSE_FAILED
             } finally {
                 hostRawRoot.deleteRecursively()
                 documentStorageRoot.deleteRecursively()

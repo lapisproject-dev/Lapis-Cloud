@@ -2,7 +2,9 @@ package network.lapis.cloud.server.conference
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.shared.domain.ConferenceRecordingTrackSource
 import java.nio.file.Files
+import kotlin.uuid.Uuid
 
 /**
  * [RecordingRawFiles.resolveWithin] -- see that object's own KDoc "the single highest-value
@@ -141,6 +143,132 @@ class RecordingRawFilesTest :
                     null
             } finally {
                 hostRawRoot.deleteRecursively()
+            }
+        }
+
+        // ── rawFilesAvailable ────────────────────────────────────────────
+
+        val camera = ConferenceRecordingTrackSource.CAMERA
+        val microphone = ConferenceRecordingTrackSource.MICROPHONE
+
+        fun rawDirWith(
+            root: java.io.File,
+            vararg files: Pair<String, ByteArray>,
+        ): String {
+            val id = Uuid.random().toString()
+            val dir = root.resolve(id).apply { mkdirs() }
+            files.forEach { (name, bytes) -> dir.resolve(name).writeBytes(bytes) }
+            return id
+        }
+
+        test("rawFilesAvailable: all COMPLETE tracks present and non-empty, with a video track -> true") {
+            val root = freshHostRawRoot()
+            try {
+                val id = rawDirWith(root, "cam.mp4" to byteArrayOf(1), "mic.ogg" to byteArrayOf(2))
+                RecordingRawFiles.rawFilesAvailable(
+                    hostRawRoot = root,
+                    rawDir = id,
+                    completedTracks =
+                        listOf(
+                            camera to "cam.mp4",
+                            microphone to "mic.ogg",
+                        ),
+                ) shouldBe
+                    true
+            } finally {
+                root.deleteRecursively()
+            }
+        }
+
+        test("rawFilesAvailable: zero COMPLETE tracks, or no video track -> false") {
+            val root = freshHostRawRoot()
+            try {
+                val id = rawDirWith(root, "mic.ogg" to byteArrayOf(2))
+                RecordingRawFiles.rawFilesAvailable(hostRawRoot = root, rawDir = id, completedTracks = emptyList()) shouldBe false
+                RecordingRawFiles.rawFilesAvailable(
+                    hostRawRoot = root,
+                    rawDir = id,
+                    completedTracks = listOf(microphone to "mic.ogg"),
+                ) shouldBe
+                    false
+            } finally {
+                root.deleteRecursively()
+            }
+        }
+
+        test("rawFilesAvailable: missing file, empty file or null fileName -> false") {
+            val root = freshHostRawRoot()
+            try {
+                val id = rawDirWith(root, "cam.mp4" to byteArrayOf(1), "empty.ogg" to byteArrayOf())
+                RecordingRawFiles.rawFilesAvailable(
+                    hostRawRoot = root,
+                    rawDir = id,
+                    completedTracks =
+                        listOf(
+                            camera to "cam.mp4",
+                            microphone to "gone.ogg",
+                        ),
+                ) shouldBe
+                    false
+                RecordingRawFiles.rawFilesAvailable(
+                    hostRawRoot = root,
+                    rawDir = id,
+                    completedTracks =
+                        listOf(
+                            camera to "cam.mp4",
+                            microphone to "empty.ogg",
+                        ),
+                ) shouldBe
+                    false
+                RecordingRawFiles.rawFilesAvailable(
+                    hostRawRoot = root,
+                    rawDir = id,
+                    completedTracks =
+                        listOf(
+                            camera to "cam.mp4",
+                            microphone to null,
+                        ),
+                ) shouldBe
+                    false
+            } finally {
+                root.deleteRecursively()
+            }
+        }
+
+        test("rawFilesAvailable: raw_dir that is not a UUID or escapes the root -> false") {
+            val root = freshHostRawRoot()
+            try {
+                rawDirWith(root, "cam.mp4" to byteArrayOf(1))
+                RecordingRawFiles.rawFilesAvailable(
+                    hostRawRoot = root,
+                    rawDir = "../etc",
+                    completedTracks = listOf(camera to "cam.mp4"),
+                ) shouldBe
+                    false
+                RecordingRawFiles.rawFilesAvailable(hostRawRoot = root, rawDir = "", completedTracks = listOf(camera to "cam.mp4")) shouldBe
+                    false
+                RecordingRawFiles.rawFilesAvailable(
+                    hostRawRoot = root,
+                    rawDir = "not-a-uuid",
+                    completedTracks = listOf(camera to "cam.mp4"),
+                ) shouldBe
+                    false
+            } finally {
+                root.deleteRecursively()
+            }
+        }
+
+        test("rawFilesAvailable: a fileName that is a symlink out of the directory -> false") {
+            val root = freshHostRawRoot()
+            val outside = Files.createTempFile("outside-secret", ".txt").toFile().apply { writeText("x") }
+            try {
+                val id = rawDirWith(root)
+                Files.createSymbolicLink(root.resolve(id).resolve("cam.mp4").toPath(), outside.toPath())
+                RecordingRawFiles.rawFilesAvailable(hostRawRoot = root, rawDir = id, completedTracks = listOf(camera to "cam.mp4")) shouldBe
+                    false
+            } finally {
+                outside.delete()
+                root.deleteRecursively()
             }
         }
     })
