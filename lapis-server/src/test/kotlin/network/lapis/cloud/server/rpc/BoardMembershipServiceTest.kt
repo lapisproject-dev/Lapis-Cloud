@@ -33,6 +33,7 @@ import network.lapis.cloud.server.db.generated.ElectionCandidacyTable
 import network.lapis.cloud.server.db.generated.ElectionEligibleVoterTable
 import network.lapis.cloud.server.db.generated.ElectionOptionTable
 import network.lapis.cloud.server.db.generated.ElectionParticipationTable
+import network.lapis.cloud.server.db.generated.ElectionSeatOutcomeTable
 import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.db.generated.ElectionTallyApprovalTable
 import network.lapis.cloud.server.db.generated.MeetingTable
@@ -48,6 +49,7 @@ import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.ElectionOpenInput
 import network.lapis.cloud.shared.domain.ElectionType
+import network.lapis.cloud.shared.domain.IncumbentPolicy
 import network.lapis.cloud.shared.domain.MeetingFormat
 import network.lapis.cloud.shared.domain.MeetingStatus
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -213,7 +215,7 @@ class BoardMembershipServiceTest :
                 client
                     .post(
                         "/test/open-election/$motionId/SINGLE_CHOICE" +
-                            "?targetCommitteeId=$targetCommitteeId&targetRole=CHAIR&tallyThreshold=2",
+                            "?targetCommitteeId=$targetCommitteeId&targetRole=CHAIR&incumbentPolicy=REPLACE&tallyThreshold=2",
                     ) { header("X-Member-Id", adminId.toString()) }
                     .bodyAsText()
             val electionId = opened.substringBefore(":")
@@ -446,7 +448,7 @@ class BoardMembershipServiceTest :
                 }
 
                 val admin = createTestMember("bms-tally-admin@example.org", role = AccountRole.ADMIN)
-                val hostCommittee = createTestCommittee("BoardMembership Host", CommitteeType.WORKING_GROUP)
+                val hostCommittee = createTestCommittee("BoardMembership Host", CommitteeType.GENERAL_ASSEMBLY)
                 val electionBoardMembers = (1..3).map { createTestMember("bms-tally-wv$it@example.org") }
 
                 val executiveBoardCommittee = createTestCommittee("BoardMembership Executive", CommitteeType.EXECUTIVE_BOARD)
@@ -573,6 +575,7 @@ private fun Route.registerBoardMembershipElectionTestRoutes() {
                     seatCount = 1,
                     targetCommitteeId = q["targetCommitteeId"],
                     targetRole = q["targetRole"]?.let { CommitteeRole.valueOf(it) },
+                    incumbentPolicy = q["incumbentPolicy"]?.let { IncumbentPolicy.valueOf(it) },
                     requiredMajorityPercent = 50,
                     tallyThreshold = q["tallyThreshold"]?.toInt() ?: 2,
                 ),
@@ -679,6 +682,15 @@ private fun cleanUpBoardMembershipTestData(
             ElectionBoardMemberTable.deleteWhere { ElectionBoardMemberTable.electionId inList electionIds }
             ElectionOptionTable.deleteWhere { ElectionOptionTable.electionId inList electionIds }
             ElectionCandidacyTable.deleteWhere { ElectionCandidacyTable.electionId inList electionIds }
+            ElectionSeatOutcomeTable.deleteWhere { ElectionSeatOutcomeTable.electionId inList electionIds }
+            CommitteeMembershipTable.update({ CommitteeMembershipTable.startedByElectionId inList electionIds }) {
+                it[startedByElectionId] =
+                    null
+            }
+            CommitteeMembershipTable.update({ CommitteeMembershipTable.endedByElectionId inList electionIds }) {
+                it[endedByElectionId] =
+                    null
+            }
             ElectionTable.deleteWhere { ElectionTable.id inList electionIds }
         }
 

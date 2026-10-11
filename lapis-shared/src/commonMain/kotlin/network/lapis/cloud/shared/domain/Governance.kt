@@ -211,6 +211,26 @@ data class CommitteeAutoEndNoticeDto(
     val recentAutoEnds: List<CommitteeAutoEndEntryDto>,
     val vacantMandatoryRoles: List<VacantMandatoryRoleDto>,
     val openSeatsWithoutMembership: List<CommitteeOpenSeatDto>,
+    /** V1.9.103: seats an election started or ended (see [CommitteeSeatChangeKind]); the status-change ends stay in [recentAutoEnds]. */
+    val electionSeatChanges: List<CommitteeElectionSeatChangeDto> = emptyList(),
+)
+
+/** Welle V1.9.103 -- what changed a seat. [STATUS_CHANGE] is listed for completeness; those entries live in `recentAutoEnds`. */
+@Serializable
+enum class CommitteeSeatChangeKind { STATUS_CHANGE, ELECTION_SEATED, ELECTION_ENDED }
+
+/** Welle V1.9.103 -- one seat started or ended by an election tally, for the board notice. [kind] is ELECTION_SEATED or ELECTION_ENDED. */
+@Serializable
+data class CommitteeElectionSeatChangeDto(
+    val kind: CommitteeSeatChangeKind,
+    val electionId: String,
+    val committeeId: String,
+    val committeeName: String,
+    val membershipId: String,
+    val memberId: String,
+    val memberDisplayName: String,
+    val role: CommitteeRole,
+    val effectiveOn: LocalDate,
 )
 
 @Serializable

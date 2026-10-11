@@ -14,6 +14,7 @@ import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import kotlin.uuid.Uuid
@@ -52,6 +53,25 @@ fun requireMembershipStatusIn(
     if (status == null || status !in allowed) throw ForbiddenException()
     return status
 }
+
+/**
+ * V1.9.103 -- the non-throwing sibling of [requireMembershipStatusIn] for a SET of members: locks their `member` rows (`forMemberUpdate`,
+ * ordered by id so two concurrent callers cannot deadlock on each other) and returns the freshly-read status per member id. A member
+ * that does not exist is simply absent from the result. The caller decides what a status means (`ElectionSeatSuccession` skips a winner
+ * whose status is outside [MemberStatusSets.ORGANIZATION_MEMBER] instead of failing the whole tally). Must run inside an open transaction.
+ */
+internal fun lockedMemberStatuses(memberIds: Collection<Uuid>): Map<Uuid, MemberStatus> {
+    if (memberIds.isEmpty()) return emptyMap()
+    return MemberTable
+        .selectAll()
+        .where { MemberTable.id inList memberIds.toSet() }
+        .orderBy(MemberTable.id)
+        .forMemberUpdate()
+        .associate { it[MemberTable.id] to it[MemberTable.status] }
+}
+
+/** V1.9.103 -- single-member form of [lockedMemberStatuses]; `null` if the member does not exist. */
+internal fun lockedMemberStatus(memberId: Uuid): MemberStatus? = lockedMemberStatuses(listOf(memberId))[memberId]
 
 /**
  * Extracted from [CrowdfundingService]'s own originally-private `requireActiveMembership` (V0.6.1)

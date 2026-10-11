@@ -38,6 +38,7 @@ import network.lapis.cloud.server.db.generated.ElectionCandidacyTable
 import network.lapis.cloud.server.db.generated.ElectionEligibleVoterTable
 import network.lapis.cloud.server.db.generated.ElectionOptionTable
 import network.lapis.cloud.server.db.generated.ElectionParticipationTable
+import network.lapis.cloud.server.db.generated.ElectionSeatOutcomeTable
 import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.db.generated.ElectionTallyApprovalTable
 import network.lapis.cloud.server.db.generated.MeetingTable
@@ -57,6 +58,7 @@ import network.lapis.cloud.shared.domain.ElectionBallotInput
 import network.lapis.cloud.shared.domain.ElectionOpenInput
 import network.lapis.cloud.shared.domain.ElectionStatus
 import network.lapis.cloud.shared.domain.ElectionType
+import network.lapis.cloud.shared.domain.IncumbentPolicy
 import network.lapis.cloud.shared.domain.MeetingFormat
 import network.lapis.cloud.shared.domain.MeetingStatus
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -333,7 +335,7 @@ class ElectionServiceTest :
                 val opened =
                     client
                         .post(
-                            "/test/open-election/$motionId/SINGLE_CHOICE?targetCommitteeId=$targetCommittee&seatCount=1",
+                            "/test/open-election/$motionId/SINGLE_CHOICE?targetCommitteeId=$targetCommittee&seatCount=1&targetRole=MEMBER&incumbentPolicy=KEEP",
                         ) { header("X-Member-Id", chair.toString()) }
                         .bodyAsText()
                 val electionId = opened.substringBefore(":")
@@ -464,7 +466,7 @@ class ElectionServiceTest :
                 val opened =
                     client
                         .post(
-                            "/test/open-election/$motionId/SINGLE_CHOICE?targetCommitteeId=$targetCommittee&seatCount=1&secret=false",
+                            "/test/open-election/$motionId/SINGLE_CHOICE?targetCommitteeId=$targetCommittee&seatCount=1&secret=false&targetRole=MEMBER&incumbentPolicy=KEEP",
                         ) { header("X-Member-Id", chair.toString()) }
                         .bodyAsText()
                 val electionId = opened.substringBefore(":")
@@ -655,7 +657,9 @@ class ElectionServiceTest :
                 val motionId = createTerminierterMotion(hostCommittee, meetingId, chair)
                 val electionId =
                     client
-                        .post("/test/open-election/$motionId/SINGLE_CHOICE?targetCommitteeId=$targetExecutiveBoard&seatCount=1") {
+                        .post(
+                            "/test/open-election/$motionId/SINGLE_CHOICE?targetCommitteeId=$targetExecutiveBoard&seatCount=1&targetRole=MEMBER&incumbentPolicy=KEEP",
+                        ) {
                             header("X-Member-Id", chair.toString())
                         }.bodyAsText()
                         .substringBefore(":")
@@ -747,10 +751,15 @@ class ElectionServiceTest :
                 val opened =
                     client
                         .post(
-                            "/test/open-election/$motionId/SINGLE_CHOICE?targetCommitteeId=$targetCommittee&seatCount=1&secret=false",
+                            "/test/open-election/$motionId/SINGLE_CHOICE?targetCommitteeId=$targetCommittee&seatCount=1&secret=false&targetRole=MEMBER&incumbentPolicy=KEEP",
                         ) { header("X-Member-Id", chair.toString()) }
                         .bodyAsText()
                 val electionId = opened.substringBefore(":")
+                // The legacy path (incumbent_policy NULL, an election opened before V1.9.103) still refuses a winner who is no longer
+                // active; with a policy the same situation is a SKIPPED outcome instead (ElectionSeatSuccessionTest).
+                transaction {
+                    ElectionTable.update({ ElectionTable.id eq Uuid.parse(electionId) }) { it[incumbentPolicy] = null }
+                }
                 client.post("/test/appoint-election-board/$electionId?memberIds=${electionBoardMembers.joinToString(",")}") {
                     header("X-Member-Id", chair.toString())
                 }
@@ -1090,7 +1099,9 @@ class ElectionServiceTest :
 
                 val electionId =
                     client
-                        .post("/test/open-election/$motionId/SINGLE_CHOICE?targetCommitteeId=$targetCommittee&seatCount=1&secret=false") {
+                        .post(
+                            "/test/open-election/$motionId/SINGLE_CHOICE?targetCommitteeId=$targetCommittee&seatCount=1&secret=false&targetRole=MEMBER&incumbentPolicy=KEEP",
+                        ) {
                             header("X-Member-Id", chair.toString())
                         }.bodyAsText()
                         .substringBefore(":")
@@ -1194,7 +1205,7 @@ class ElectionServiceTest :
                 val opened =
                     client
                         .post(
-                            "/test/open-election/$motionId/SINGLE_CHOICE?targetCommitteeId=$targetCommittee&seatCount=1&targetRole=CHAIR&secret=false",
+                            "/test/open-election/$motionId/SINGLE_CHOICE?targetCommitteeId=$targetCommittee&seatCount=1&targetRole=CHAIR&incumbentPolicy=REPLACE&secret=false",
                         ) { header("X-Member-Id", chair.toString()) }
                         .bodyAsText()
                 val electionId = opened.substringBefore(":")
@@ -1321,7 +1332,9 @@ class ElectionServiceTest :
                 val motionId = createTerminierterMotion(host, meetingId, chair)
                 val electionId =
                     client
-                        .post("/test/open-election/$motionId/SINGLE_CHOICE?targetCommitteeId=$target") {
+                        .post(
+                            "/test/open-election/$motionId/SINGLE_CHOICE?targetCommitteeId=$target&targetRole=MEMBER&incumbentPolicy=KEEP",
+                        ) {
                             header("X-Member-Id", chair.toString())
                         }.bodyAsText()
                         .substringBefore(":")
@@ -1444,6 +1457,7 @@ private fun Route.registerElectionTestRoutes() {
                     seatCount = q["seatCount"]?.toInt() ?: 1,
                     targetCommitteeId = q["targetCommitteeId"],
                     targetRole = q["targetRole"]?.let { CommitteeRole.valueOf(it) },
+                    incumbentPolicy = q["incumbentPolicy"]?.let { IncumbentPolicy.valueOf(it) },
                     requiredMajorityPercent = q["requiredMajorityPercent"]?.toInt() ?: 50,
                     tallyThreshold = q["tallyThreshold"]?.toInt() ?: 2,
                 ),
@@ -1627,6 +1641,15 @@ private fun cleanUpElectionTestData(
             ElectionBoardMemberTable.deleteWhere { ElectionBoardMemberTable.electionId inList electionIds }
             ElectionOptionTable.deleteWhere { ElectionOptionTable.electionId inList electionIds }
             ElectionCandidacyTable.deleteWhere { ElectionCandidacyTable.electionId inList electionIds }
+            ElectionSeatOutcomeTable.deleteWhere { ElectionSeatOutcomeTable.electionId inList electionIds }
+            CommitteeMembershipTable.update({ CommitteeMembershipTable.startedByElectionId inList electionIds }) {
+                it[startedByElectionId] =
+                    null
+            }
+            CommitteeMembershipTable.update({ CommitteeMembershipTable.endedByElectionId inList electionIds }) {
+                it[endedByElectionId] =
+                    null
+            }
             ElectionTable.deleteWhere { ElectionTable.id inList electionIds }
         }
 

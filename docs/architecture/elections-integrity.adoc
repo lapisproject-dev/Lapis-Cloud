@@ -256,6 +256,16 @@ its rules. This adds no new reading place for the ballot tables: the allowlist o
 never names `ElectionBallotTable` or `ElectionBallotSelectionTable`. The seed draws its voters from the electoral roll independently of the planned answers
 and never stores or logs a (person, answer) pair.
 
+== Succession at the tally (V1.9.103)
+
+The votes, the counts, the frozen voter snapshots, the receipt rules and the resolution are unchanged by the succession: it only runs after the outcome is
+computed, inside the same transaction and under the same lock order (motion, election; then winner member rows, then the open seat rows; the audit
+entries last). An election opened before V1.9.103 has `incumbent_policy IS NULL` and keeps the old seating loop. `ElectionResultDto` gains three fields
+(`incumbentPolicy`, `seatOutcomes`, `pendingAdminReview`); `SKIPPED` and `PREDECESSOR_KEPT` rows, with their member ids and reasons, never leave the server
+for a caller without administration rights (pinned in `ServerElectionResultDisclosureTripwireTest`: `SeatOutcomeDto` is built only in
+`ElectionSeatOutcomes.load`, which filters before it maps). The election board that tallies always gets the full view. Details and the data model:
+`governance-committees.adoc` ("Election succession").
+
 == Known limitations and follow-ups
 
 * `recordResolution` (free-form resolution of an agenda item) and `withdrawMotion` still check only the election, not a vote or a consensus; `resolveMotion` is covered since V1.9.54.

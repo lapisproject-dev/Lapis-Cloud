@@ -14,6 +14,17 @@ shows no vote counts (V1.9.53, since `v0.29.0`; API behaviour change). V1.9.23 h
 election carries no time and no order. See `docs/architecture/elections-ui.adoc` and
 `docs/architecture/elections-integrity.adoc`.
 
+== From the result to an office (V1.9.103)
+
+A personnel election now says what happens to the previous holders of the role: "Enden mit der Auszählung (Neuwahl)" (the default) or "Bleiben
+im Amt (Nachwahl)". A sentence under the question states the consequence for the chosen committee, role and seat count before the election is
+opened. For a role with exactly one holder (chair, deputy chair, secretary, general secretary, press spokesperson, managing director) only "Neuwahl"
+and one seat are possible. The tally then seats the winners and, for "Neuwahl", ends the previous holders on the day of the count; the result shows
+an "Amtsübernahme" list (who is in office since when, who stays, whose seat ended). If a winner is no longer an active member, the tally still
+completes: that person is not seated, the previous holders stay, and the administration decides in the committee. Whether the elected persons
+accept the election is recorded outside the system. Elections opened before this version have no policy and behave as before. See
+`docs/architecture/governance-committees.adoc`.
+
 == What doesn't work yet
 
 A real end-to-end election run with several accounts on Staging is still outstanding. The concurrency tests run on H2 and, since V1.9.37, also on PostgreSQL (the Postgres test lane). List and ranked-choice

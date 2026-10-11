@@ -177,6 +177,24 @@ A secret election with fewer than five ballots is shown without figures; the ful
 (geheime Wahl mit weniger als 5 Stimmzetteln)" instead of the yes/no/abstain line, and the open form explains the rule under "Geheime Wahl". Four new msgids in all
 eight catalogs (the translations are by the agent, not by a native speaker).
 
+== Policy for the previous holders and the "Amtsübernahme" list (V1.9.103)
+
+*Form.* For a personnel election the form shows, below target committee and role, a real `fieldset` with the `legend` "Bisherige Inhaber dieser Rolle" and
+two radio buttons (one group, arrow keys): "Enden mit der Auszählung (Neuwahl)", preselected, and "Bleiben im Amt (Nachwahl)". The role is required and has
+no empty option. For a role with exactly one holder the second radio button is disabled (with an explanation linked by `aria-describedby`), the seat
+input is replaced by the fixed text "Zu besetzende Sitze: 1" and the choice is forced back to Neuwahl. The consequence sentence (`incumbentConsequenceText`,
+pure and unit-tested; singular and plural are separate texts, no gendering) sits in a `div` with `aria-live="polite"` and is rebuilt on every change
+of committee, role, seats and policy. Two checks mirror the server before any request: the general assembly has no `MEMBER` seats, and only the motion's
+own committee may be seated unless the motion belongs to the general assembly. A YES_NO election sends neither role nor policy.
+
+*Result.* `renderSeatSuccessionSection` shows the section only for an election with a policy (or with a log). Every line is a decorative sign (`aria-hidden`)
+plus a sentence, never colour alone: seated (check), continues (arrow), ended (circle), and -- administration only -- skipped / previous holder not ended
+(warning, with a button to the committee list). Without administration rights the server sends no such rows and the flag `pendingAdminReview`: the client shows
+only "Die Besetzung wird von der Verwaltung geprüft." A tie shows "Kein eindeutiges Ergebnis: Es wurde kein Amt übernommen.", and the acceptance sentence is
+always shown. Names are rendered through the `untrusted*` helpers. The notice band of the committee screen gains two line types, "Übernommen durch Wahl am ..."
+and "Beendet durch Nachfolgewahl am ...", each with a button to the election. 26 new messages in all eight catalogs (the translations are by the agent, not by a
+native speaker).
+
 == Conflicts
 
 A conflict on an election action, or when opening an election from a motion, now means that another decision path got there first

@@ -14,6 +14,7 @@ import network.lapis.cloud.server.db.generated.ElectionCandidacyTable
 import network.lapis.cloud.server.db.generated.ElectionEligibleVoterTable
 import network.lapis.cloud.server.db.generated.ElectionOptionTable
 import network.lapis.cloud.server.db.generated.ElectionParticipationTable
+import network.lapis.cloud.server.db.generated.ElectionSeatOutcomeTable
 import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.db.generated.ElectionTallyApprovalTable
 import network.lapis.cloud.server.testdb.PostgresConfigured
@@ -54,7 +55,7 @@ abstract class ElectionSchemaDriftScenarios(
         /** Resolves an `ErmForeignKey.targetEntityId` back to its entity name within [model]. */
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("model declares exactly the nine election entities plus the Member/Motion/Meeting/Committee/Resolution stubs") {
+        test("model declares exactly the ten election entities plus the Member/Motion/Meeting/Committee/Resolution stubs") {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
@@ -71,6 +72,7 @@ abstract class ElectionSchemaDriftScenarios(
                     "election_tally_approval",
                     "election_ballot",
                     "election_ballot_selection",
+                    "election_seat_outcome",
                 )
         }
 
@@ -317,6 +319,39 @@ abstract class ElectionSchemaDriftScenarios(
                 it.attributeIds.toSet() shouldBe
                     setOf(entity.attributeByName("election_id")!!.id, entity.attributeByName("member_id")!!.id)
             }
+        }
+
+        test("election_seat_outcome table shape matches the real migrated schema (V84)") {
+            val entity = model.entities.single { it.name == "election_seat_outcome" }
+            val real = transaction { introspectElectionTable("election_seat_outcome") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.forEach { attr ->
+                val col = real.columns.getValue(attr.name!!)
+                withClue(clue = "column '${attr.name}'") {
+                    col.nullable shouldBe attr.nullable
+                }
+            }
+            real.foreignKeys["election_id"] shouldBe "election"
+            real.foreignKeys["member_id"] shouldBe "member"
+            real.foreignKeys["committee_id"] shouldBe "committee"
+            model.entityNameOf(entity.attributeByName("election_id")?.foreignKey?.targetEntityId ?: "") shouldBe "election"
+            model.entityNameOf(entity.attributeByName("member_id")?.foreignKey?.targetEntityId ?: "") shouldBe "member"
+            model.entityNameOf(entity.attributeByName("committee_id")?.foreignKey?.targetEntityId ?: "") shouldBe "committee"
+        }
+
+        test("election.incumbent_policy is a nullable column of the model and of the real schema (V84)") {
+            val entity = model.entities.single { it.name == "election" }
+            val real = transaction { introspectElectionTable("election") }
+            real.columns.getValue("incumbent_policy").nullable shouldBe true
+            entity.attributeByName("incumbent_policy")?.nullable shouldBe true
+        }
+
+        test("election_seat_outcome entity column-name set matches the hand-written ElectionSeatOutcomeTable 1:1") {
+            model.entities
+                .single { it.name == "election_seat_outcome" }
+                .attributes
+                .map { it.name } shouldContainExactlyInAnyOrder ElectionSeatOutcomeTable.columns.map { it.name }
         }
 
         test("election_ballot_selection table shape matches the real migrated schema") {

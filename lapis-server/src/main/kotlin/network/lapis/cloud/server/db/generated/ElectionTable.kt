@@ -7,6 +7,7 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.ElectionStatus
 import network.lapis.cloud.shared.domain.ElectionType
+import network.lapis.cloud.shared.domain.IncumbentPolicy
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.datetime.datetime
@@ -19,6 +20,7 @@ public object ElectionTable : Table("election") {
     public val seatCount: Column<Int> = integer("seat_count")
     public val targetCommitteeId: Column<Uuid?> = optReference("target_committee_id", CommitteeTable.id)
     public val targetRole: Column<CommitteeRole?> = enumerationByName<CommitteeRole>("target_role", 20).nullable()
+    public val incumbentPolicy: Column<IncumbentPolicy?> = enumerationByName<IncumbentPolicy>("incumbent_policy", 8).nullable()
     public val requiredMajorityPercent: Column<Int> = integer("required_majority_percent")
     public val status: Column<ElectionStatus> = enumerationByName<ElectionStatus>("status", 23)
     public val openedBy: Column<Uuid> = reference("opened_by", MemberTable.id)

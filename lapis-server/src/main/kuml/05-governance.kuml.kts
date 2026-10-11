@@ -226,6 +226,8 @@ classDiagram(name = "Governance") {
         stereotype("Index") { "columns" to listOf("committee_id"); "name" to "idx_committee_membership_committee" }
         stereotype("Index") { "columns" to listOf("member_id"); "name" to "idx_committee_membership_member" }
         stereotype("Index") { "columns" to listOf("auto_end_reason", "until"); "name" to "idx_committee_membership_auto_end" }
+        stereotype("Index") { "columns" to listOf("started_by_election_id", "since"); "name" to "idx_committee_membership_started_by_election" }
+        stereotype("Index") { "columns" to listOf("ended_by_election_id", "until"); "name" to "idx_committee_membership_ended_by_election" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -245,6 +247,16 @@ classDiagram(name = "Governance") {
         attribute(name = "autoEndReason", type = memberStatus) {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "auto_end_reason"; "enumType" to "network.lapis.cloud.shared.domain.MemberStatus"; "sqlType" to "VARCHAR(16)" }
+        }
+        // Welle V1.9.103 -- the election that started / ended this seat (ElectionSeatSuccession); NULL otherwise. Real FKs -> election (id) exist in
+        // the database (V84) but are plain columns here, like resolution.election_id: this file has no Election stub (election <-> governance cycle).
+        attribute(name = "startedByElectionId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "started_by_election_id" }
+        }
+        attribute(name = "endedByElectionId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "ended_by_election_id" }
         }
     }
 

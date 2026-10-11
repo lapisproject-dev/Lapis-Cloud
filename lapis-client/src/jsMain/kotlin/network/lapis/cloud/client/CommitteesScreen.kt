@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.form.check.CheckBox
 import io.kvision.form.check.checkBox
 import io.kvision.html.Button
@@ -11,6 +12,7 @@ import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.icon
 import io.kvision.html.p
+import io.kvision.html.span
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
@@ -22,10 +24,12 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeDto
+import network.lapis.cloud.shared.domain.CommitteeElectionSeatChangeDto
 import network.lapis.cloud.shared.domain.CommitteeInput
 import network.lapis.cloud.shared.domain.CommitteeMembershipDto
 import network.lapis.cloud.shared.domain.CommitteeMembershipInput
 import network.lapis.cloud.shared.domain.CommitteeRole
+import network.lapis.cloud.shared.domain.CommitteeSeatChangeKind
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.rank
 import network.lapis.cloud.shared.rpc.IGovernanceService
@@ -695,7 +699,10 @@ internal fun renderCommitteeAutoEndNotice(host: SimplePanel): () -> Unit {
             host.removeAll()
             if (notice == null) return@launch
             val nothingToShow =
-                notice.recentAutoEnds.isEmpty() && notice.vacantMandatoryRoles.isEmpty() && notice.openSeatsWithoutMembership.isEmpty()
+                notice.recentAutoEnds.isEmpty() &&
+                    notice.vacantMandatoryRoles.isEmpty() &&
+                    notice.openSeatsWithoutMembership.isEmpty() &&
+                    notice.electionSeatChanges.isEmpty()
             if (nothingToShow) return@launch
             val band = host.vPanel(spacing = 4) { addCssClasses("alert alert-info mb-0") }
             band.setAttribute("role", "status")
@@ -722,6 +729,12 @@ internal fun renderCommitteeAutoEndNotice(host: SimplePanel): () -> Unit {
                     )
                 }
             }
+            if (notice.electionSeatChanges.isNotEmpty()) {
+                band.div(gettext("In den letzten 30 Tagen durch Wahl geändert: %1 Gremienzeiten", notice.electionSeatChanges.size)) {
+                    addCssClass("fw-bold")
+                }
+                notice.electionSeatChanges.forEach { change -> renderElectionSeatChange(band, change) }
+            }
             if (notice.openSeatsWithoutMembership.isNotEmpty()) {
                 band.div(
                     gettext(
@@ -747,4 +760,38 @@ internal fun renderCommitteeAutoEndNotice(host: SimplePanel): () -> Unit {
     }
     reload()
     return ::reload
+}
+
+/**
+ * V1.9.103 -- one line of the notice band for a seat an election started or ended, with a link to that election. The mark is a text glyph in an
+ * `aria-hidden` span; the sentence says what happened, so the mark is never the only signal.
+ */
+internal fun renderElectionSeatChange(
+    band: Container,
+    change: CommitteeElectionSeatChangeDto,
+) {
+    val seated = change.kind == CommitteeSeatChangeKind.ELECTION_SEATED
+    val row = band.div(className = "small d-flex align-items-baseline gap-2")
+    row.span(if (seated) "\u2713" else "\u25CB", className = "flex-shrink-0") { setAttribute("aria-hidden", "true") }
+    row.untrustedSpan(
+        if (seated) {
+            gettext(
+                "Übernommen durch Wahl am %1: %2, %3, %4",
+                formatDate(change.effectiveOn),
+                change.memberDisplayName,
+                change.committeeName,
+                committeeRoleLabel(change.role),
+            )
+        } else {
+            gettext(
+                "Beendet durch Nachfolgewahl am %1: %2, %3, %4",
+                formatDate(change.effectiveOn),
+                change.memberDisplayName,
+                change.committeeName,
+                committeeRoleLabel(change.role),
+            )
+        },
+        className = "flex-grow-1 text-break",
+    )
+    row.button(tr("Zur Wahl"), style = ButtonStyle.OUTLINESECONDARY).onClick { navigateTo("/elections/${change.electionId}") }
 }

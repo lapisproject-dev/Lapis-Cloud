@@ -1,4 +1,4 @@
-= Committees: the General Assembly (V1.9.101) and the automatic end of seats (V1.9.102)
+= Committees: the General Assembly (V1.9.101), the automatic end of seats (V1.9.102) and election succession (V1.9.103)
 :toc:
 
 == Scope
@@ -162,6 +162,75 @@ pins the three hook call sites and their `recordAudits()`, allowlists the files 
 (`GovernanceService`, `CommitteeSeatLifecycle`, `ElectionService` for the re-election of a winner, `StagingSeedGovernance`) and forbids raw SQL on
 the table.
 
+== Election succession: from an election result to an office (V1.9.103, "Welle C")
+
+Before V1.9.103 the tally seated the winners and touched nobody else. Now an election states what happens to the previous holders of the role it
+fills, and the tally carries that out in the same transaction.
+
+*Data model (migration V84, purely additive, no backfill).* `election.incumbent_policy` (`REPLACE` = "Neuwahl": the previous holders of the target role
+end with the tally; `KEEP` = "Nachwahl": they stay) is `NULL` for YES_NO elections and for **every election opened before this wave**; such an
+election keeps the old tally path unchanged, including its refusal of a winner who is no longer active. The policy, `target_role` and
+`target_committee_id` are immutable after opening (a tripwire pins that no `ElectionTable.update` writes them). `committee_membership` gains the
+provenance columns `started_by_election_id` / `ended_by_election_id` (real foreign keys; a seat has at most one end cause, the CHECK forbids
+`auto_end_reason` together with `ended_by_election_id`, and `ended_by_election_id` needs `until`). The new append-only table `election_seat_outcome`
+(one row per person and outcome: `SEATED`, `CONTINUED`, `ENDED`, `SKIPPED`, `PREDECESSOR_KEPT`, with a reason for the last two) is the succession log;
+its UNIQUE key `(election_id, member_id, outcome)` makes a second succession of the same election a programming error that rolls the transaction back.
+
+*Opening an election (`openElection`).* A personnel election (SINGLE_CHOICE/MULTI_CHOICE) needs a role and a policy (no silent `MEMBER` default for new
+elections); a YES_NO election must have neither. A role with exactly one holder (`SINGLE_HOLDER_COMMITTEE_ROLES`) needs `seatCount = 1` and `REPLACE`:
+`BoardMembershipEvents.recordBoardJoin` ends a displaced single holder anyway, so `KEEP` would make `committee_membership` and `BoardMembership`
+disagree. The general assembly has no `MEMBER` seats to fill (V1.9.101). An election may only seat its motion's own committee, unless the motion belongs
+to the general assembly -- otherwise a small working group could vote the executive board out.
+
+*The tally* (`ElectionSeatSuccession.apply`, called only from `tallyElectionLocked`):
+
+[kuml, election-seat-succession, svg]
+----
+sequenceDiagram(name = "Election succession at the tally (V1.9.103)") {
+    val board = participant(name = "Tally (election board)")
+    val core = participant(name = "tallyElectionLocked")
+    val succession = participant(name = "ElectionSeatSuccession")
+    val seats = participant(name = "committee_membership, BoardMembership, election_seat_outcome")
+    val audit = participant(name = "Audit log (phase 2)")
+
+    message(from = board, to = core, text = "tally(): motion lock, election lock, outcome computed")
+    message(from = core, to = succession, text = "policy set and a result exists: apply(winners, stichtag)")
+    message(from = succession, to = seats, text = "lock winners (member rows, by id), lock open seats (by id), skip inactive winners")
+    message(from = succession, to = seats, text = "REPLACE: end previous holders first (until = stichtag, ended_by_election_id, board cascade)")
+    message(from = succession, to = seats, text = "seat the winners (CONTINUED, role change, SEATED), write the succession log")
+    message(from = core, to = audit, text = "recordAudits(): COMMITTEE_MEMBERSHIP, BOARD_MEMBERSHIP, then the RESOLUTION entry")
+}
+----
+
+. The stichtag is the day of the tally in the organisation time zone. `until` stays inclusive: on the stichtag a predecessor and a winner both count,
+  from the next day only the winner (documented, not corrected; `until = stichtag - 1` would be retroactive).
+. Winner rows are locked first (`forMemberUpdate()`, ordered by id), then the open seat rows of the committee (`FOR UPDATE`, ordered by id). A winner
+  whose status is outside `ORGANIZATION_MEMBER`, or who already holds a seat that starts after the stichtag, is `SKIPPED`; the tally never fails for that
+  reason (it does for an election without a policy, as before).
+. `REPLACE` without a skipped winner ends every previous holder of the role who is not a winner and whose seat has started (`ENDED`); this happens
+  **before** the winners are seated, so the `BoardMembership` of an executive board is closed by the cascade (with its audit entry and its LEFT
+  reminder) and not silently by `recordBoardJoin`. A previous holder whose seat starts later is never touched (`PREDECESSOR_KEPT`, `SEAT_STARTS_LATER`).
+  With at least one skipped winner nobody is ended (`PREDECESSOR_KEPT`, `WINNER_SKIPPED`): the committee may temporarily have too many seats, never none.
+. A winner who already holds the role is `CONTINUED` (no new row, no seat audit, `BoardMembership` untouched). A winner who holds another seat in the
+  committee changes role: the old seat ends (`ended_by_election_id`), the new one starts, the executive board gets one JOINED and no LEFT reminder.
+. No result, no succession: a tie, a single-choice result without the required majority and a YES_NO election seat nobody and write no log row.
+. `AccountRole` and `member.role` are never written; a seat grants committee rights only.
+
+*Audit.* One `COMMITTEE_MEMBERSHIP` `CREATE` per started seat and one `UPDATE` per ended seat (trigger `ELECTION_SEATED`, `ELECTION_SUCCESSION` or
+`ELECTION_ROLE_CHANGE`; ids, enums and dates only, the tallying actor), written in phase 2 before the `RESOLUTION` entry. Every audit call comes
+after the updates of the motion and the election (the deadlock contract of `AuditLogRecorder`).
+
+*Reading.* `ElectionResultDto` carries `incumbentPolicy`, `seatOutcomes` and `pendingAdminReview`. `SKIPPED` and `PREDECESSOR_KEPT` rows (member
+status, reasons) are dropped on the server before mapping unless the caller is the election board, may manage the election or is BOARD/ADMIN; everybody
+else gets the flag `pendingAdminReview` instead (and can infer only that something is under review). The names of seated, continued and ended holders
+are exactly as visible as the committee roster, which every signed-in member may read. `CommitteeAutoEndNoticeDto.electionSeatChanges` lists seats
+started and ended by an election in the last 30 days (a role change is not reported as an ended seat). Ending such a seat by hand resets
+`ended_by_election_id`; that is also the way to handle a person who declines the election.
+
+*Tests.* `ElectionSeatSuccessionTest` (+ Postgres lane), `ElectionSeatSuccessionConcurrencyTest` (+ Postgres lane), `ElectionSeatSuccessionServiceTest`,
+`ElectionSeatSuccessionMigrationTest` (+ Postgres lane), the extended `CommitteeSeatLifecycleTripwireTest` and
+`ServerElectionResultDisclosureTripwireTest`, and three DOM tests.
+
 == Known limitations
 
 * *Inclusive end date.* `until` is inclusive everywhere in the eligibility code (`CommitteeEligibility`). A person whose seat ended automatically on
@@ -183,3 +252,8 @@ the table.
 * The server does not yet refuse a NEW `MEMBER` row at the assembly (`addCommitteeMember` is unchanged); the UI no longer offers it. The server-side
   refusal is deferred until after "Welle B".
 * The help pages of the website about committees and meetings are checked at rollout, not in this wave.
+* *Election succession (V1.9.103):* no term of office and no start in the future; the acceptance of the election by the elected persons is recorded
+  outside the system (assembly minutes) and nothing waits for it; no e-mail; with a skipped winner the committee can temporarily have too many seats;
+  on the stichtag predecessor and winner overlap (inclusive `until`); an old election without a policy with an inactive winner still aborts at the tally
+  (cancel the election instead); with fewer winners than seats and `REPLACE` the free seats stay free; an ordinary member can infer from
+  `pendingAdminReview` that something is under review, but never the reason.

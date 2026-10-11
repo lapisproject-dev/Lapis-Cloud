@@ -7,9 +7,11 @@ import kotlinx.serialization.builtins.ListSerializer
 import network.lapis.cloud.shared.domain.CommitteeAutoEndEntryDto
 import network.lapis.cloud.shared.domain.CommitteeAutoEndNoticeDto
 import network.lapis.cloud.shared.domain.CommitteeDto
+import network.lapis.cloud.shared.domain.CommitteeElectionSeatChangeDto
 import network.lapis.cloud.shared.domain.CommitteeMembershipDto
 import network.lapis.cloud.shared.domain.CommitteeOpenSeatDto
 import network.lapis.cloud.shared.domain.CommitteeRole
+import network.lapis.cloud.shared.domain.CommitteeSeatChangeKind
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.VacantMandatoryRoleDto
@@ -150,6 +152,88 @@ class CommitteeAutoEndNoticeDomTest {
                     awaitUntil("the band appears") { element().textContent.orEmpty().contains("automatisch beendet") }
                     assertNull(element().querySelector("img"), "no element created from the name")
                     assertNull(element().querySelector("b"), "no element created from the committee name")
+                    assertTrue(element().textContent.orEmpty().contains("<img src=x onerror=window.__pwned=1>"))
+                }
+            }
+        }
+
+    private fun seatChange(
+        kind: CommitteeSeatChangeKind,
+        name: String = "Erika Beispiel",
+    ) = CommitteeElectionSeatChangeDto(
+        kind = kind,
+        electionId = "e1",
+        committeeId = "c1",
+        committeeName = "Vorstand",
+        membershipId = "m1",
+        memberId = "p1",
+        memberDisplayName = name,
+        role = CommitteeRole.CHAIR,
+        effectiveOn = LocalDate(2026, 10, 11),
+    )
+
+    @Test
+    fun band_listsSeatsAnElectionStartedAndEnded_withALinkToTheElection(): Promise<Unit> =
+        formTest {
+            val route = routeOf { rpcService<IGovernanceService>().getCommitteeAutoEndNotice() }
+            val notice =
+                CommitteeAutoEndNoticeDto(
+                    recentAutoEnds = emptyList(),
+                    vacantMandatoryRoles = emptyList(),
+                    openSeatsWithoutMembership = emptyList(),
+                    electionSeatChanges =
+                        listOf(
+                            seatChange(CommitteeSeatChangeKind.ELECTION_SEATED, "Neu Gewählt"),
+                            seatChange(CommitteeSeatChangeKind.ELECTION_ENDED, "Bisherige Person"),
+                        ),
+                )
+            withFetchStub(respond = { r ->
+                if (r.isRpc &&
+                    r.rpcRoute == route
+                ) {
+                    r.answerWith(noticeJson(notice))
+                } else {
+                    StubResponse()
+                }
+            }) { _ ->
+                mountedForm("committee-notice-election") { root, element ->
+                    renderCommitteeAutoEndNotice(root)
+                    awaitUntil("the band appears") { element().textContent.orEmpty().contains("durch Wahl geändert") }
+                    val text = element().flatText()
+                    assertTrue(text.contains("In den letzten 30 Tagen durch Wahl geändert: 2 Gremienzeiten"), text)
+                    assertTrue(text.contains("Übernommen durch Wahl am 11.10.2026: Neu Gewählt, Vorstand, Vorsitz"), text)
+                    assertTrue(text.contains("Beendet durch Nachfolgewahl am 11.10.2026: Bisherige Person, Vorstand, Vorsitz"), text)
+                    assertEquals(2, element().allOf("button").count { it.textContent?.trim() == "Zur Wahl" })
+                    assertEquals("status", element().querySelector("[role=status]")?.getAttribute("role"))
+                    element().allOf("span[aria-hidden=true]").also { assertEquals(2, it.size, "one decorative sign per line") }
+                }
+            }
+        }
+
+    @Test
+    fun band_rendersElectionSeatChangeNamesAsText_neverAsMarkup(): Promise<Unit> =
+        formTest {
+            val route = routeOf { rpcService<IGovernanceService>().getCommitteeAutoEndNotice() }
+            val notice =
+                CommitteeAutoEndNoticeDto(
+                    emptyList(),
+                    emptyList(),
+                    emptyList(),
+                    listOf(seatChange(CommitteeSeatChangeKind.ELECTION_SEATED, "<img src=x onerror=window.__pwned=1>")),
+                )
+            withFetchStub(respond = { r ->
+                if (r.isRpc &&
+                    r.rpcRoute == route
+                ) {
+                    r.answerWith(noticeJson(notice))
+                } else {
+                    StubResponse()
+                }
+            }) { _ ->
+                mountedForm("committee-notice-election-xss") { root, element ->
+                    renderCommitteeAutoEndNotice(root)
+                    awaitUntil("the band appears") { element().textContent.orEmpty().contains("durch Wahl geändert") }
+                    assertNull(element().querySelector("img"))
                     assertTrue(element().textContent.orEmpty().contains("<img src=x onerror=window.__pwned=1>"))
                 }
             }

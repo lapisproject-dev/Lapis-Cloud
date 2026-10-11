@@ -48,6 +48,9 @@ internal data class CommitteeMembershipAuditSnapshot(
     val autoEndReason: MemberStatus?,
     val trigger: String? = null,
     val newMemberStatus: MemberStatus? = null,
+    /** V1.9.103: the election whose tally started / ended this seat (id only; omitted from the JSON when null). */
+    val startedByElectionId: String? = null,
+    val endedByElectionId: String? = null,
 )
 
 /**

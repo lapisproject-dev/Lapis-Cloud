@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.ElectionBoardMemberTable
 import network.lapis.cloud.server.db.generated.ElectionCandidacyTable
 import network.lapis.cloud.server.db.generated.ElectionEligibleVoterTable
 import network.lapis.cloud.server.db.generated.ElectionParticipationTable
+import network.lapis.cloud.server.db.generated.ElectionSeatOutcomeTable
 import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.db.generated.ElectionTallyApprovalTable
 import network.lapis.cloud.shared.domain.ErasureMode
@@ -47,6 +48,7 @@ object ElectionPersonalData : MemberPersonalDataContributor {
             ElectionParticipationTable,
             ElectionTallyApprovalTable,
             ElectionBallotTable,
+            ElectionSeatOutcomeTable,
         )
 
     override fun exportMember(memberId: Uuid) =
@@ -137,6 +139,24 @@ object ElectionPersonalData : MemberPersonalDataContributor {
                         )
                     }
             }
+            // V1.9.103 -- the succession log of the person's own elections; the reason is part of the person's own export only.
+            putJsonArray("electionSeatOutcomes") {
+                ElectionSeatOutcomeTable
+                    .selectAll()
+                    .where { ElectionSeatOutcomeTable.memberId eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("electionId", row[ElectionSeatOutcomeTable.electionId].toString())
+                                put("committeeId", row[ElectionSeatOutcomeTable.committeeId].toString())
+                                put("role", row[ElectionSeatOutcomeTable.role].name)
+                                put("outcome", row[ElectionSeatOutcomeTable.outcome].name)
+                                put("reason", row[ElectionSeatOutcomeTable.reason]?.name)
+                                put("effectiveOn", row[ElectionSeatOutcomeTable.effectiveOn].toString())
+                            },
+                        )
+                    }
+            }
             putJsonArray("ballotsNonSecret") {
                 // Only the non-secret path ever has a non-null member_id here -- a secret Election's
                 // ballots are unreachable from this export by design (see ElectionTable KDoc).
@@ -177,6 +197,8 @@ object ElectionPersonalData : MemberPersonalDataContributor {
 
         val ballotCount = ElectionBallotTable.selectAll().where { ElectionBallotTable.memberId eq memberId }.count()
 
+        val seatOutcomeCount = ElectionSeatOutcomeTable.selectAll().where { ElectionSeatOutcomeTable.memberId eq memberId }.count()
+
         // Kept deliberately terse (unlike GovernancePersonalData's longer prose): outcomeSummary
         // is JSON-encoded into ErasureRequestTable.outcomeSummary, a VARCHAR(4000) column shared
         // by every contributor's outcomes combined -- verbose per-table reasons here would risk
@@ -216,6 +238,11 @@ object ElectionPersonalData : MemberPersonalDataContributor {
                 table = "election_ballot",
                 rowsRetained = ballotCount.toInt(),
                 retentionReason = "The ballot is the core electoral artifact, analogous to vote_ballot.",
+            ),
+            TableErasureOutcome(
+                table = "election_seat_outcome",
+                rowsRetained = seatOutcomeCount.toInt(),
+                retentionReason = "Succession log of an election: which seats its tally started or ended.",
             ),
         )
     }

@@ -138,3 +138,7 @@ Details: `docs/architecture/time-and-timezones.adoc`. Kurzregeln:
   `CommitteeSeatLifecycle.endSeatsForStatusChange` (Phase 1) plus `recordAudits()` (Phase 2, direkt vor dem MEMBER-Audit). Wer `member.status`
   neu schreibt, muss in `CommitteeSeatLifecycleTripwireTest` klassifiziert werden (Hook-Aufruf oder "legt nur neue Mitglieder an"); wer
   `committee_membership.until`/`auto_end_reason` schreibt, braucht einen Allowlist-Eintrag mit Begründung.
+- **Gremiensitze durch Wahl (V1.9.103):** Eine Wahl mit `incumbent_policy` setzt Sitze nur über `ElectionSeatSuccession` (einziger Aufruf:
+  `tallyElectionLocked`); `started_by_election_id`/`ended_by_election_id` schreibt nur diese Klasse (die manuelle Beendigung setzt
+  `ended_by_election_id` auf null). Wahlen ohne Policy (vor V1.9.103) nehmen den alten Pfad. Policy, Rolle und Zielgremium sind nach dem Öffnen
+  unveränderlich; die Nachfolge schreibt nie `AccountRole`/`member.role`.

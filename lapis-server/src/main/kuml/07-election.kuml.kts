@@ -172,6 +172,27 @@ classDiagram(name = "Election") {
         literal(name = "MANAGING_DIRECTOR")
     }
 
+    // Welle V1.9.103 "Gremien, Welle C" -- what an election does to the previous holders of its target role (NULL = old behaviour, YES_NO).
+    val incumbentPolicy = enumOf(name = "IncumbentPolicy") {
+        literal(name = "REPLACE")
+        literal(name = "KEEP")
+    }
+
+    // Welle V1.9.103 -- the per-person outcome of the tally-time succession; literals identical to lapis-shared SeatOutcome / the SQL CHECK.
+    val seatOutcome = enumOf(name = "SeatOutcome") {
+        literal(name = "SEATED")
+        literal(name = "CONTINUED")
+        literal(name = "ENDED")
+        literal(name = "SKIPPED")
+        literal(name = "PREDECESSOR_KEPT")
+    }
+
+    val seatOutcomeReason = enumOf(name = "SeatOutcomeReason") {
+        literal(name = "MEMBER_NOT_ACTIVE")
+        literal(name = "WINNER_SKIPPED")
+        literal(name = "SEAT_STARTS_LATER")
+    }
+
     val election = classOf(name = "Election") {
         stereotype("Entity") { "tableName" to "election"; "kotlinObjectName" to "ElectionTable" }
         stereotype("Index") { "columns" to listOf("motion_id"); "name" to "idx_election_motion" }
@@ -207,6 +228,11 @@ classDiagram(name = "Election") {
         attribute(name = "targetRole", type = committeeRole) {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "target_role"; "enumType" to "network.lapis.cloud.shared.domain.CommitteeRole" }
+        }
+        // Welle V1.9.103: NULL for elections opened before the wave and for YES_NO; immutable after opening.
+        attribute(name = "incumbentPolicy", type = incumbentPolicy) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "incumbent_policy"; "enumType" to "network.lapis.cloud.shared.domain.IncumbentPolicy"; "sqlType" to "VARCHAR(8)" }
         }
         attribute(name = "requiredMajorityPercent", type = "Int") {
             stereotype("Column") { "columnName" to "required_majority_percent" }
@@ -432,6 +458,53 @@ classDiagram(name = "Election") {
     association(source = member, target = electionParticipation, id = "assoc-member-election-participation") {
         source { multiplicity("1") }
         target { multiplicity("0..*"); role = "memberId" }
+    }
+
+    // Welle V1.9.103 -- one row per person and outcome of the succession of one election (append-only, written by ElectionSeatSuccession).
+    val electionSeatOutcome = classOf(name = "ElectionSeatOutcome") {
+        stereotype("Entity") { "tableName" to "election_seat_outcome"; "kotlinObjectName" to "ElectionSeatOutcomeTable" }
+        stereotype("Index") {
+            "columns" to listOf("election_id", "member_id", "outcome")
+            "unique" to true
+            "name" to "uq_eso_election_member_outcome"
+        }
+        stereotype("Index") { "columns" to listOf("election_id"); "name" to "idx_election_seat_outcome_election" }
+        stereotype("Index") { "columns" to listOf("created_at"); "name" to "idx_election_seat_outcome_created" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "role", type = committeeRole) {
+            stereotype("Column") { "columnName" to "role"; "enumType" to "network.lapis.cloud.shared.domain.CommitteeRole"; "sqlType" to "VARCHAR(20)" }
+        }
+        attribute(name = "outcome", type = seatOutcome) {
+            stereotype("Column") { "columnName" to "outcome"; "enumType" to "network.lapis.cloud.shared.domain.SeatOutcome"; "sqlType" to "VARCHAR(16)" }
+        }
+        attribute(name = "reason", type = seatOutcomeReason) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "reason"; "enumType" to "network.lapis.cloud.shared.domain.SeatOutcomeReason"; "sqlType" to "VARCHAR(24)" }
+        }
+        attribute(name = "effectiveOn", type = "LocalDate") {
+            stereotype("Column") { "columnName" to "effective_on" }
+        }
+        attribute(name = "createdAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "created_at" }
+        }
+    }
+
+    // election_seat_outcome.election_id / member_id / committee_id: association-derived defaults match.
+    association(source = election, target = electionSeatOutcome, id = "assoc-election-seat-outcome") {
+        source { multiplicity("1") }
+        target { multiplicity("0..*"); role = "electionId" }
+    }
+    association(source = member, target = electionSeatOutcome, id = "assoc-member-election-seat-outcome") {
+        source { multiplicity("1") }
+        target { multiplicity("0..*"); role = "memberId" }
+    }
+    association(source = committee, target = electionSeatOutcome, id = "assoc-committee-election-seat-outcome") {
+        source { multiplicity("1") }
+        target { multiplicity("0..*"); role = "committeeId" }
     }
 
     val electionTallyApproval = classOf(name = "ElectionTallyApproval") {

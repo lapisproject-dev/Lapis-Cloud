@@ -42,6 +42,7 @@ import network.lapis.cloud.server.db.generated.ElectionCandidacyTable
 import network.lapis.cloud.server.db.generated.ElectionEligibleVoterTable
 import network.lapis.cloud.server.db.generated.ElectionOptionTable
 import network.lapis.cloud.server.db.generated.ElectionParticipationTable
+import network.lapis.cloud.server.db.generated.ElectionSeatOutcomeTable
 import network.lapis.cloud.server.db.generated.ElectionTable
 import network.lapis.cloud.server.db.generated.ElectionTallyApprovalTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
@@ -71,6 +72,7 @@ import network.lapis.cloud.shared.domain.ElectionBallotInput
 import network.lapis.cloud.shared.domain.ElectionOpenInput
 import network.lapis.cloud.shared.domain.ElectionStatus
 import network.lapis.cloud.shared.domain.ElectionType
+import network.lapis.cloud.shared.domain.IncumbentPolicy
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.MeetingFormat
 import network.lapis.cloud.shared.domain.MeetingStatus
@@ -627,10 +629,9 @@ abstract class ElectionIntegrityScenarios(
                         HttpStatusCode.Conflict
                 }
                 // plurality has no majority fraction
-                val target = createCommittee("Integrity majority-open target")
                 client
                     .post(
-                        "/test/open-election/${f.motionId}/MULTI_CHOICE?secret=false&targetCommitteeId=$target&seatCount=2&num=2&den=3",
+                        "/test/open-election/${f.motionId}/MULTI_CHOICE?secret=false&targetCommitteeId=${f.committeeId}&seatCount=2&num=2&den=3&targetRole=MEMBER&incumbentPolicy=KEEP",
                     ) {
                         header("X-Member-Id", chair)
                     }.status shouldBe HttpStatusCode.Conflict
@@ -834,10 +835,12 @@ abstract class ElectionIntegrityScenarios(
         test("concurrent releaseCandidateList calls create each option exactly once") {
             withApp {
                 val f = fixture("race-release-list")
-                val target = createCommittee("Integrity race-release-list target")
+                val target = f.committeeId // an election may only seat its motion's own Gremium (V1.9.103)
                 val electionId =
                     client
-                        .post("/test/open-election/${f.motionId}/SINGLE_CHOICE?secret=false&targetCommitteeId=$target") {
+                        .post(
+                            "/test/open-election/${f.motionId}/SINGLE_CHOICE?secret=false&targetCommitteeId=$target&targetRole=MEMBER&incumbentPolicy=KEEP",
+                        ) {
                             header("X-Member-Id", f.chair.toString())
                         }.bodyAsText()
                         .substringBefore(":")
@@ -1802,6 +1805,7 @@ private fun Route.registerIntegrityTestRoutes() {
                     seatCount = q["seatCount"]?.toInt() ?: 1,
                     targetCommitteeId = q["targetCommitteeId"],
                     targetRole = q["targetRole"]?.let { CommitteeRole.valueOf(it) },
+                    incumbentPolicy = q["incumbentPolicy"]?.let { IncumbentPolicy.valueOf(it) },
                     requiredMajorityPercent = q["requiredMajorityPercent"]?.toInt() ?: 50,
                     tallyThreshold = q["tallyThreshold"]?.toInt() ?: 2,
                     requiredMajorityNumerator = q["num"]?.toInt(),
@@ -2094,6 +2098,15 @@ private fun cleanUpIntegrityTestData(
             ElectionBoardMemberTable.deleteWhere { ElectionBoardMemberTable.electionId inList electionIds }
             ElectionOptionTable.deleteWhere { ElectionOptionTable.electionId inList electionIds }
             ElectionCandidacyTable.deleteWhere { ElectionCandidacyTable.electionId inList electionIds }
+            ElectionSeatOutcomeTable.deleteWhere { ElectionSeatOutcomeTable.electionId inList electionIds }
+            CommitteeMembershipTable.update({ CommitteeMembershipTable.startedByElectionId inList electionIds }) {
+                it[startedByElectionId] =
+                    null
+            }
+            CommitteeMembershipTable.update({ CommitteeMembershipTable.endedByElectionId inList electionIds }) {
+                it[endedByElectionId] =
+                    null
+            }
             ElectionTable.deleteWhere { ElectionTable.id inList electionIds }
         }
         if (voteIds.isNotEmpty()) {

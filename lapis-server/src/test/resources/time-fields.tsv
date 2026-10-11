@@ -251,6 +251,8 @@ dto:CommitteeMembershipDto.until	D	calendar date (LocalDate); never converted
 dto:CommitteeMembershipInput.since	D	calendar date (LocalDate); never converted
 dto:CommitteeAutoEndEntryDto.since	D	calendar date (LocalDate); never converted
 dto:CommitteeAutoEndEntryDto.until	D	calendar date (LocalDate); never converted -- the stichtag the hook wrote (organization-zone date of the status change)
+dto:SeatOutcomeDto.effectiveOn	D	calendar date (LocalDate); never converted -- the tally stichtag (organization-zone date of the tally)
+dto:CommitteeElectionSeatChangeDto.effectiveOn	D	calendar date (LocalDate); never converted -- since / until the election wrote (organization-zone date of the tally)
 dto:CommitteeOpenSeatDto.since	D	calendar date (LocalDate); never converted
 dto:CommitteeOpenSeatDto.until	D	calendar date (LocalDate); never converted
 dto:MeetingDto.scheduledAt	B	GovernanceService.createMeeting: input.scheduledAt typed in the meeting form; only its date is used
@@ -566,6 +568,8 @@ col:ElectionTable.votingOpenedAt	A	stamped by the server clock (DbClock/ServerCl
 col:ElectionTable.votingClosedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ElectionTable.tallyRunAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ElectionTallyApprovalTable.approvedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:ElectionSeatOutcomeTable.effectiveOn	D	calendar date (LocalDate); never converted -- the tally stichtag
+col:ElectionSeatOutcomeTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ErasureRequestTable.requestedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ErasureRequestTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:ErasureRequestTable.executedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

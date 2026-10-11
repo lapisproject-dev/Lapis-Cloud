@@ -1,5 +1,6 @@
 package network.lapis.cloud.shared.domain
 
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.Serializable
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -26,6 +27,38 @@ enum class ElectionType { YES_NO, SINGLE_CHOICE, MULTI_CHOICE, LIST_VOTE, RANKED
  */
 @Serializable
 enum class ElectionStatus { PREPARATION, CANDIDATE_LIST_RELEASED, OPEN, CLOSED, TALLIED, ABORTED }
+
+/**
+ * Welle V1.9.103 "Gremien, Welle C" -- what the tally of a personnel election does to the previous holders of its target role.
+ * [REPLACE] ("Neuwahl"): they end with the tally. [KEEP] ("Nachwahl"): they stay. `null` on [ElectionDto]/[ElectionOpenInput]: YES_NO
+ * elections and every election opened before this wave (old behaviour: winners are seated, nobody else is touched).
+ */
+@Serializable
+enum class IncumbentPolicy { REPLACE, KEEP }
+
+/** Welle V1.9.103 -- per-person outcome of the tally-time succession of one election. */
+@Serializable
+enum class SeatOutcome { SEATED, CONTINUED, ENDED, SKIPPED, PREDECESSOR_KEPT }
+
+/** Welle V1.9.103 -- why a winner was [SeatOutcome.SKIPPED] or a predecessor [SeatOutcome.PREDECESSOR_KEPT]. Only visible to administrators. */
+@Serializable
+enum class SeatOutcomeReason { MEMBER_NOT_ACTIVE, WINNER_SKIPPED, SEAT_STARTS_LATER }
+
+/**
+ * Welle V1.9.103 -- one line of the succession log of an election. [reason] is `null` unless [outcome] is [SeatOutcome.SKIPPED] or
+ * [SeatOutcome.PREDECESSOR_KEPT]; those two outcomes are only delivered to administrators (see [ElectionResultDto.pendingAdminReview]).
+ */
+@Serializable
+data class SeatOutcomeDto(
+    val memberId: String,
+    val memberDisplayName: String,
+    val committeeId: String,
+    val committeeName: String,
+    val role: CommitteeRole,
+    val outcome: SeatOutcome,
+    val reason: SeatOutcomeReason?,
+    val effectiveOn: LocalDate,
+)
 
 /** Ballot answer for [ElectionType.YES_NO] Electionen only -- personnel-type Electionen select option ids instead. */
 @Serializable
@@ -83,6 +116,8 @@ data class ElectionDto(
     /** Exact required majority as a reduced fraction; both `null` for elections created before V1.9.23. */
     val requiredMajorityNumerator: Int? = null,
     val requiredMajorityDenominator: Int? = null,
+    /** V1.9.103: what the tally does to the previous holders of [targetRole]; `null` for YES_NO and elections opened before the wave. */
+    val incumbentPolicy: IncumbentPolicy? = null,
     /**
      * V1.9.53: `true` iff the election is TALLIED, secret and has fewer than
      * [DisclosureRules.MIN_ANONYMOUS_RESPONSES] ballots -- every [ElectionOptionDto.voteCount] is then `0`
@@ -116,6 +151,11 @@ data class ElectionOpenInput(
      */
     val requiredMajorityNumerator: Int? = null,
     val requiredMajorityDenominator: Int? = null,
+    /**
+     * V1.9.103: REQUIRED (together with [targetRole]) for SINGLE_CHOICE/MULTI_CHOICE, forbidden for YES_NO. For a role with exactly one
+     * holder ([SINGLE_HOLDER_COMMITTEE_ROLES]) it must be [IncumbentPolicy.REPLACE] and [seatCount] must be 1. Immutable after opening.
+     */
+    val incumbentPolicy: IncumbentPolicy? = null,
 )
 
 @Serializable
@@ -209,6 +249,16 @@ data class ElectionResultDto(
      */
     val figuresWithheld: Boolean = false,
     val minimumResponses: Int = DisclosureRules.MIN_ANONYMOUS_RESPONSES,
+    /** V1.9.103: the election's [IncumbentPolicy]; `null` = old behaviour (no succession log). */
+    val incumbentPolicy: IncumbentPolicy? = null,
+    /**
+     * V1.9.103: what the tally did to the seats. Without administration rights ([pendingAdminReview]) only [SeatOutcome.SEATED],
+     * [SeatOutcome.CONTINUED] and [SeatOutcome.ENDED] are delivered -- never [SeatOutcome.SKIPPED]/[SeatOutcome.PREDECESSOR_KEPT], their
+     * member ids or reasons.
+     */
+    val seatOutcomes: List<SeatOutcomeDto> = emptyList(),
+    /** V1.9.103: `true` iff outcomes were withheld from this caller because they need an administrator's review. */
+    val pendingAdminReview: Boolean = false,
 )
 
 /**

@@ -210,7 +210,7 @@ classDiagram(name = "AuditLog") {
         literal(name = "ENCOUNTER_SPACE") // Welle V1.9.61 "Begegnungsraum" -- EncounterSpaceService/EncounterSpacePoller write configuration changes and open/close (actor = office holder or null for the poller); entering/leaving/removing is NEVER audited (Art. 9); 15 chars, fits within VARCHAR(29)
         literal(name = "EVENT") // Welle V1.9.82 "Veranstaltungs-Feed, Archiv und Import" -- EventImporter writes one EVENT/CREATE entry per imported event (after = {"imported":true,"slug":...}); normal createEvent is NOT audited; 5 chars, fits within VARCHAR(29)
         literal(name = "EVENT_IMPORT") // Welle V1.9.82 -- one summary entry per committed import run (after = counts + payload SHA-256); 12 chars, fits within VARCHAR(29)
-        literal(name = "COMMITTEE_MEMBERSHIP") // Welle V1.9.102 "Gremien, Welle B" -- CommitteeSeatLifecycle writes one UPDATE entry per committee seat ended automatically by a member status change (system actor, ids/enums/dates only); 20 chars, fits within VARCHAR(29)
+        literal(name = "COMMITTEE_MEMBERSHIP") // Welle V1.9.102 "Gremien, Welle B" -- CommitteeSeatLifecycle writes one UPDATE entry per committee seat ended automatically by a member status change (system actor, ids/enums/dates only); Welle V1.9.103 "election succession" also writes CREATE (seat started by an election) and UPDATE (seat ended by an election) entries, no new literal; 20 chars, fits within VARCHAR(29)
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

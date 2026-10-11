@@ -198,6 +198,35 @@ class ServerElectionResultDisclosureTripwireTest :
             verify.contains("toAuditLogEntryDtos") shouldBe false
         }
 
+        test(
+            "V1.9.103: the succession log reaches a client only through ElectionSeatOutcomes.load, which drops admin-only rows before mapping",
+        ) {
+            val sources = resultSources()
+            val successionFile = "rpc/ElectionSeatSuccession.kt"
+            // SeatOutcomeDto is built in exactly one place
+            constructionOutsideFindings(
+                sources = sources,
+                pattern = Regex("""\bSeatOutcomeDto\s*\("""),
+                allowed = setOf(successionFile),
+            ).shouldBeEmpty()
+            // the table is read for delivery only there
+            constructionOutsideFindings(
+                sources = sources.filter { it.first.startsWith("rpc/") },
+                pattern = Regex("""\bElectionSeatOutcomeTable\s*\.\s*(selectAll|select)\b"""),
+                allowed = setOf(successionFile),
+            ).shouldBeEmpty()
+            val reader = functionBody(text = sources.first { it.first == successionFile }.second, signature = "fun load(")
+            val filter = reader.indexOf("it[ElectionSeatOutcomeTable.outcome] !in adminOnly")
+            val mapping = reader.indexOf("visible.map")
+            (filter >= 0 && mapping > filter) shouldBe true
+            reader.contains("rows.map") shouldBe false
+            // the full view is requested with a literal only by the tally; getElectionResult decides per caller
+            val service = sources.first { it.first == ELECTION_SERVICE_FILE }.second
+            Regex("""ElectionSeatOutcomes\.load\(""").findAll(service).count() shouldBe 2
+            Regex("""fullView\s*=\s*true""").findAll(service).count() shouldBe 1
+            functionBody(text = service, signature = "internal fun tallyElectionLocked(").contains("fullView = true") shouldBe true
+        }
+
         test("the withheld rule itself") {
             val disclosure = resultSources().first { it.first == RESULT_DISCLOSURE_FILE }.second
             disclosure.contains("secret && ballotCount < DisclosureRules.MIN_ANONYMOUS_RESPONSES") shouldBe true

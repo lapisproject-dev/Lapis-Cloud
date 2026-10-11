@@ -15,7 +15,11 @@ import java.io.File
  *  2. the hook is called from exactly three places and every call is followed by its phase 2 (`recordAudits()`) in the same function;
  *  3. `committee_membership.until` / `auto_end_reason` are written only by an allowlisted set of files (with a reason each) -- the seat hook,
  *     the manual path, the election re-seating and the staging seed; `auto_end_reason` is set to a non-null value only by the hook;
- *  4. no raw SQL updates `committee_membership` in `src/main`.
+ *  4. no raw SQL updates `committee_membership` in `src/main`;
+ *  5. (V1.9.103) `started_by_election_id` / `ended_by_election_id` are written only by `ElectionSeatSuccession` (and reset to null by the
+ *     manual end in `GovernanceService`), `ElectionSeatSuccession.apply` is called from exactly one place (`tallyElectionLocked`), the
+ *     succession never writes an account or member role, and no `ElectionTable.update` ever changes `incumbent_policy`, `target_role` or
+ *     `target_committee_id` (immutable after opening).
  */
 class CommitteeSeatLifecycleTripwireTest :
     FunSpec({
@@ -40,7 +44,9 @@ class CommitteeSeatLifecycleTripwireTest :
                     "addCommitteeMember (insert) and the manual end (resets auto_end_reason)",
                 "network/lapis/cloud/server/rpc/CommitteeSeatLifecycle.kt" to "the automatic end",
                 "network/lapis/cloud/server/rpc/ElectionService.kt" to
-                    "closes the previous seat when a winner is re-elected (wave C will touch it)",
+                    "legacy path (elections without an incumbent policy): closes the previous seat when a winner is re-elected",
+                "network/lapis/cloud/server/rpc/ElectionSeatSuccession.kt" to
+                    "V1.9.103: the tally-time succession of an election with an incumbent policy",
                 "network/lapis/cloud/server/db/StagingSeedGovernance.kt" to "staging seed insert",
             )
         val hookCall = Regex("""CommitteeSeatLifecycle\s*\.\s*endSeatsForStatusChange\s*\(""")
@@ -124,6 +130,55 @@ class CommitteeSeatLifecycleTripwireTest :
                             withClueOf(path = path) { value shouldBe "null" }
                         }
                     }
+                }
+            }
+        }
+
+        test("V1.9.103: the election provenance columns are written only by the succession (and nulled by the manual end)") {
+            val provenance = Regex("""\[\s*(CommitteeMembershipTable\.)?(startedByElectionId|endedByElectionId)\s*]\s*=\s*([^\n]+)""")
+            val allowedWriters =
+                setOf("network/lapis/cloud/server/rpc/ElectionSeatSuccession.kt", "network/lapis/cloud/server/rpc/GovernanceService.kt")
+            sources().forEach { (path, code) ->
+                seatWrite.findAll(code).forEach { m ->
+                    val body = windowAfter(code, m.range.last).substringBefore("\n    }\n")
+                    provenance.findAll(body).forEach { assignment ->
+                        withClueOf(path = path) { (path in allowedWriters) shouldBe true }
+                        if (path.endsWith("GovernanceService.kt")) {
+                            withClueOf(path = path) { assignment.groupValues[3].trim() shouldBe "null" }
+                        }
+                    }
+                }
+            }
+            // the legacy loop and the staging seed never set them (they would be provenance claims without a succession log)
+            listOf("rpc/ElectionService.kt", "db/StagingSeedGovernance.kt").forEach {
+                provenance.containsMatchIn(sources().getValue("network/lapis/cloud/server/$it")) shouldBe false
+            }
+        }
+
+        test("V1.9.103: ElectionSeatSuccession.apply has one caller (tallyElectionLocked); the succession never touches roles") {
+            val call = Regex("""ElectionSeatSuccession\s*\.\s*apply\s*\(""")
+            val callers =
+                sources()
+                    .filterKeys { it != "network/lapis/cloud/server/rpc/ElectionSeatSuccession.kt" }
+                    .filter { (_, code) -> call.containsMatchIn(code) }
+            callers.keys.toList() shouldBe listOf("network/lapis/cloud/server/rpc/ElectionService.kt")
+            call.findAll(callers.values.single()).count() shouldBe 1
+            val tally = callers.values.single().let { it.substring(it.indexOf("internal fun tallyElectionLocked(")) }
+            call.containsMatchIn(tally) shouldBe true
+            val succession = sources().getValue("network/lapis/cloud/server/rpc/ElectionSeatSuccession.kt")
+            Regex("""(?<![A-Za-z0-9_])(AccountTable|MemberTable)\s*\.\s*(update|insert|upsert|replace|delete\w*|batch\w+)\b""")
+                .containsMatchIn(succession) shouldBe false
+            Regex("""AccountTable""").containsMatchIn(succession) shouldBe false
+        }
+
+        test("V1.9.103: an election's incumbent_policy, target_role and target_committee_id are immutable after opening") {
+            val immutableAssignment =
+                Regex("""\[\s*(ElectionTable\.)?(incumbentPolicy|targetRole|targetCommitteeId)\s*]\s*=""")
+            val electionUpdate = Regex("""(?<![A-Za-z0-9_])ElectionTable\.(update|upsert|replace|batchUpsert|batchReplace)\b""")
+            sources().forEach { (path, code) ->
+                electionUpdate.findAll(code).forEach { m ->
+                    val body = windowAfter(code, m.range.last).substringBefore("\n    }\n").substringBefore("\n        }\n")
+                    withClueOf(path = path) { immutableAssignment.containsMatchIn(body) shouldBe false }
                 }
             }
         }

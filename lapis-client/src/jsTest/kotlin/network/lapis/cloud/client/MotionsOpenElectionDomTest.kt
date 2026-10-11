@@ -340,6 +340,7 @@ class MotionsOpenElectionDomTest {
                     assertEquals(3, input.tallyThreshold as Int)
                     assertTrue(input.targetCommitteeId == null, "a yes/no election has no target committee")
                     assertTrue(input.targetRole == null)
+                    assertTrue(input.incumbentPolicy == null, "a yes/no election has no policy for previous holders")
                     awaitUntil("opened callback", 1500) { openedId == "e1" }
                 }
             }
@@ -360,16 +361,17 @@ class MotionsOpenElectionDomTest {
                     assertEquals(0, calls.toRoute(routes.openElection).size, "no target committee, no request")
                     awaitUntil("committee required", 1500) { element().flatText().contains("Bitte ein Zielgremium wählen.") }
                     el.chooseIn("Zielgremium", "c9")
-                    el.chooseIn("Rolle im Zielgremium", "CHAIR")
+                    el.chooseIn("Rolle im Zielgremium", "ASSESSOR")
                     el.buttonNamed("Wahl eröffnen").click()
                     awaitUntil("openElection sent", 1500) { calls.toRoute(routes.openElection).size == 1 }
                     val input = calls.singleCall(routes.openElection).rpcParam(0)
                     assertEquals("MULTI_CHOICE", input.electionType as String)
+                    assertEquals("REPLACE", input.incumbentPolicy as String, "Neuwahl is the preselected policy")
                     // secret = true and the neutral 50 percent are the defaults of ElectionOpenInput and are not encoded at all
                     assertTrue(input.secret == null || input.secret == true)
                     assertEquals(3, input.seatCount as Int)
                     assertEquals("c9", input.targetCommitteeId as String)
-                    assertEquals("CHAIR", input.targetRole as String)
+                    assertEquals("ASSESSOR", input.targetRole as String)
                     assertTrue(
                         input.requiredMajorityPercent == null || input.requiredMajorityPercent == 50,
                         "plurality sends the neutral 50",

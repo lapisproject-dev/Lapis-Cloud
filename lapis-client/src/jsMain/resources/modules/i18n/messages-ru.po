@@ -21548,3 +21548,107 @@ msgstr "%1: %2, %3, с %4 (%5)"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
 msgid "Gremienmitgliedschaft"
 msgstr "Членство в органе"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionOpenForm.kt
+msgid "(noch kein Gremium gewählt)"
+msgstr "(орган ещё не выбран)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionOpenForm.kt
+msgid "Nach der Auszählung übernimmt die gewählte Person die Rolle „%1“ im Gremium „%2“. Wer diese Rolle bisher innehat, endet am Tag der Auszählung."
+msgstr "После подсчёта избранное лицо принимает роль «%1» в органе «%2». Тот, кто занимал эту роль до сих пор, заканчивает полномочия в день подсчёта."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionOpenForm.kt
+msgid "Nach der Auszählung übernimmt die gewählte Person die Rolle „%1“ im Gremium „%2“. Wer diese Rolle bisher innehat, bleibt im Amt."
+msgstr "После подсчёта избранное лицо принимает роль «%1» в органе «%2». Тот, кто занимал эту роль до сих пор, остаётся в должности."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionOpenForm.kt
+msgid "Nach der Auszählung übernehmen die %1 Gewählten die Rolle „%2“ im Gremium „%3“. Wer diese Rolle bisher innehat und nicht wiedergewählt wird, endet am Tag der Auszählung."
+msgstr "После подсчёта %1 избранных лиц принимают роль «%2» в органе «%3». Те, кто занимал эту роль до сих пор и не переизбран, заканчивают полномочия в день подсчёта."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionOpenForm.kt
+msgid "Nach der Auszählung übernehmen die %1 Gewählten die Rolle „%2“ im Gremium „%3“. Wer diese Rolle bisher innehat, bleibt im Amt."
+msgstr "После подсчёта %1 избранных лиц принимают роль «%2» в органе «%3». Тот, кто занимал эту роль до сих пор, остаётся в должности."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionOpenForm.kt
+msgid "Enden mit der Auszählung (Neuwahl)"
+msgstr "Заканчиваются с подсчётом (новые выборы)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionOpenForm.kt
+msgid "Bleiben im Amt (Nachwahl)"
+msgstr "Остаются в должности (дополнительные выборы)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionOpenForm.kt
+msgid "Bisherige Inhaber dieser Rolle"
+msgstr "Нынешние обладатели этой роли"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionOpenForm.kt
+msgid "Bei einer Rolle mit genau einem Inhaber endet der bisherige Inhaber immer mit der Auszählung."
+msgstr "У роли с единственным обладателем прежний обладатель всегда заканчивает полномочия с подсчётом."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionOpenForm.kt
+msgid "Die Mitgliederversammlung hat keine Mitglieder-Sitze, die eine Wahl besetzen könnte."
+msgstr "В общем собрании нет мест участников, которые могли бы быть заняты по итогам выборов."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionOpenForm.kt
+msgid "Eine Wahl kann nur das Gremium des Antrags besetzen, außer der Antrag gehört zur Mitgliederversammlung."
+msgstr "Выборы могут заполнять только орган, которому адресована заявка, если только она не относится к общему собранию."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionResultUi.kt
+msgid "%1 ist seit %2 in der Rolle „%3“ im Gremium „%4“."
+msgstr "%1 с %2 занимает роль «%3» в органе «%4»."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionResultUi.kt
+msgid "%1 bleibt in der Rolle „%2“ im Gremium „%3“."
+msgstr "%1 остаётся в роли «%2» в органе «%3»."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionResultUi.kt
+msgid "%1: Rolle „%2“ im Gremium „%3“ beendet am %4 (Nachfolge durch Wahl)."
+msgstr "%1: роль «%2» в органе «%3» завершена %4 (преемственность по итогам выборов)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionResultUi.kt
+msgid "%1 wurde nicht übernommen: Im Gremium „%2“ besteht schon ein Sitz, der erst später beginnt. Bitte im Gremium entscheiden."
+msgstr "Место для %1 не назначено: в органе «%2» для этого лица уже есть место, которое начинается позже. Пожалуйста, примите решение в органе."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionResultUi.kt
+msgid "%1 wurde nicht übernommen: kein aktives Mitglied. Bitte im Gremium „%2“ entscheiden."
+msgstr "Место для %1 не назначено: нет активного членства. Пожалуйста, примите решение в органе «%2»."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionResultUi.kt
+msgid "%1 wurde nicht beendet: Der Sitz im Gremium „%2“ beginnt erst nach der Auszählung. Bitte im Gremium prüfen."
+msgstr "Место %1 не завершено: место в органе «%2» начинается только после подсчёта. Пожалуйста, проверьте в органе."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionResultUi.kt
+msgid "%1 wurde nicht beendet, weil eine gewählte Person übersprungen wurde. Bitte im Gremium „%2“ prüfen."
+msgstr "Место %1 не завершено, потому что избранное лицо было пропущено. Пожалуйста, проверьте в органе «%2»."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionResultUi.kt
+msgid "Amtsübernahme"
+msgstr "Вступление в должность"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionResultUi.kt
+msgid "Kein eindeutiges Ergebnis: Es wurde kein Amt übernommen."
+msgstr "Нет однозначного результата: никто не вступил в должность."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionResultUi.kt
+msgid "Zum Gremium"
+msgstr "К органу"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionResultUi.kt
+msgid "Die Besetzung wird von der Verwaltung geprüft."
+msgstr "Распределение мест проверяется администрацией."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ElectionResultUi.kt
+msgid "Ob die Gewählten die Wahl annehmen, wird außerhalb des Systems festgehalten, zum Beispiel im Versammlungsprotokoll. Lehnt jemand ab, beendet die Verwaltung den Sitz im Gremium von Hand."
+msgstr "Принятие результатов выборов избранными лицами фиксируется вне системы, например в протоколе собрания. Если кто-то отказывается, администрация завершает место в органе вручную."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "In den letzten 30 Tagen durch Wahl geändert: %1 Gremienzeiten"
+msgstr "Изменено по итогам выборов за последние 30 дней: %1 сроков в органах"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Übernommen durch Wahl am %1: %2, %3, %4"
+msgstr "Принято по итогам выборов %1: %2, %3, %4"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Beendet durch Nachfolgewahl am %1: %2, %3, %4"
+msgstr "Завершено выборами преемника %1: %2, %3, %4"

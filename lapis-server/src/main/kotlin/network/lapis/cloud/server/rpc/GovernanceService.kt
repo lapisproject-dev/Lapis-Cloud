@@ -40,11 +40,13 @@ import network.lapis.cloud.shared.domain.CommitteeAutoEndEntryDto
 import network.lapis.cloud.shared.domain.CommitteeAutoEndNoticeDto
 import network.lapis.cloud.shared.domain.CommitteeCandidateSearch
 import network.lapis.cloud.shared.domain.CommitteeDto
+import network.lapis.cloud.shared.domain.CommitteeElectionSeatChangeDto
 import network.lapis.cloud.shared.domain.CommitteeInput
 import network.lapis.cloud.shared.domain.CommitteeMembershipDto
 import network.lapis.cloud.shared.domain.CommitteeMembershipInput
 import network.lapis.cloud.shared.domain.CommitteeOpenSeatDto
 import network.lapis.cloud.shared.domain.CommitteeRole
+import network.lapis.cloud.shared.domain.CommitteeSeatChangeKind
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
@@ -315,6 +317,7 @@ class GovernanceService(
                 recentAutoEnds = recent,
                 vacantMandatoryRoles = vacant,
                 openSeatsWithoutMembership = openWithoutMembership,
+                electionSeatChanges = loadElectionSeatChanges(windowStart = windowStart),
             )
         }
     }
@@ -1896,6 +1899,8 @@ internal fun endCommitteeMembershipRow(
         CommitteeMembershipTable.update({ CommitteeMembershipTable.id eq id }) {
             it[CommitteeMembershipTable.until] = until
             it[autoEndReason] = null
+            // V1.9.103: a seat an administrator ends by hand is no longer "ended by an election" either (the CHECK allows only one cause).
+            it[endedByElectionId] = null
         }
     if (updated == 0) throw NotFoundException("CommitteeMembership $id not found")
     cascadeExecutiveBoardEnd(
@@ -1948,4 +1953,87 @@ internal fun cascadeExecutiveBoardEnd(
             actorRole = actorRole,
         )
     }
+}
+
+/**
+ * V1.9.103 -- seats an election tally started ([CommitteeSeatChangeKind.ELECTION_SEATED]) or ended ([CommitteeSeatChangeKind.ELECTION_ENDED]) in
+ * the notice window, newest first, at most [AUTO_END_NOTICE_LIMIT] of each kind. A seat that merely CHANGED ROLE (the same person got a new
+ * seat in the same Gremium from the same election) is no "ended by succession": it is not listed as ENDED.
+ */
+internal fun loadElectionSeatChanges(windowStart: LocalDate): List<CommitteeElectionSeatChangeDto> {
+    fun ResultRow.toChange(
+        kind: CommitteeSeatChangeKind,
+        electionId: Uuid,
+        effectiveOn: LocalDate,
+    ) = CommitteeElectionSeatChangeDto(
+        kind = kind,
+        electionId = electionId.toString(),
+        committeeId = this[CommitteeTable.id].toString(),
+        committeeName = this[CommitteeTable.name],
+        membershipId = this[CommitteeMembershipTable.id].toString(),
+        memberId = this[CommitteeMembershipTable.memberId].toString(),
+        memberDisplayName = this[MemberTable.displayName],
+        role = this[CommitteeMembershipTable.role],
+        effectiveOn = effectiveOn,
+    )
+
+    fun seats() =
+        (CommitteeMembershipTable innerJoin CommitteeTable)
+            .join(MemberTable, JoinType.INNER, CommitteeMembershipTable.memberId, MemberTable.id)
+            .selectAll()
+    val seated =
+        seats()
+            .where {
+                CommitteeMembershipTable.startedByElectionId.isNotNull() and (CommitteeMembershipTable.since greaterEq windowStart)
+            }.orderBy(CommitteeMembershipTable.since to SortOrder.DESC, CommitteeMembershipTable.id to SortOrder.ASC)
+            .limit(AUTO_END_NOTICE_LIMIT)
+            .map {
+                it.toChange(
+                    kind = CommitteeSeatChangeKind.ELECTION_SEATED,
+                    electionId = checkNotNull(it[CommitteeMembershipTable.startedByElectionId]),
+                    effectiveOn = it[CommitteeMembershipTable.since],
+                )
+            }
+    val endedRows =
+        seats()
+            .where {
+                CommitteeMembershipTable.endedByElectionId.isNotNull() and
+                    (CommitteeMembershipTable.until greaterEq windowStart)
+            }.orderBy(CommitteeMembershipTable.until to SortOrder.DESC, CommitteeMembershipTable.id to SortOrder.ASC)
+            .limit(AUTO_END_NOTICE_LIMIT * 4)
+            .toList()
+    val roleChanged =
+        if (endedRows.isEmpty()) {
+            emptySet()
+        } else {
+            CommitteeMembershipTable
+                .selectAll()
+                .where {
+                    CommitteeMembershipTable.startedByElectionId inList
+                        endedRows.mapNotNull { it[CommitteeMembershipTable.endedByElectionId] }.toSet()
+                }.map {
+                    Triple(
+                        it[CommitteeMembershipTable.startedByElectionId],
+                        it[CommitteeMembershipTable.committeeId],
+                        it[CommitteeMembershipTable.memberId],
+                    )
+                }.toSet()
+        }
+    val ended =
+        endedRows
+            .filter {
+                Triple(
+                    it[CommitteeMembershipTable.endedByElectionId],
+                    it[CommitteeMembershipTable.committeeId],
+                    it[CommitteeMembershipTable.memberId],
+                ) !in roleChanged
+            }.take(AUTO_END_NOTICE_LIMIT)
+            .map {
+                it.toChange(
+                    kind = CommitteeSeatChangeKind.ELECTION_ENDED,
+                    electionId = checkNotNull(it[CommitteeMembershipTable.endedByElectionId]),
+                    effectiveOn = checkNotNull(it[CommitteeMembershipTable.until]),
+                )
+            }
+    return seated + ended
 }

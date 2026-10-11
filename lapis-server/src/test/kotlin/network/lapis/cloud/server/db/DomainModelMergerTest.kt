@@ -528,7 +528,8 @@ class DomainModelMergerTest :
             // 27-conference.kuml.kts both dedup into their real counterparts -- net +3 (181 -> 184).
             // Welle V1.9.81 "E-Mail-Stundenbudget" adds 66-mail-outbox.kuml.kts's THREE new real tables (mail_outbox, mail_send_slot,
             // mail_budget_lock), with no cross-domain stub at all (no FK to member) -- net +3 (184 -> 187).
-            val distinctTableNames = 187
+            // Welle V1.9.103 "Wahl zum Amt" adds 07-election.kuml.kts's ONE new real table (election_seat_outcome) -- net +1 (187 -> 188).
+            val distinctTableNames = 188
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -586,6 +587,7 @@ class DomainModelMergerTest :
                     "ElectionTallyApprovalTable.kt",
                     "ElectionBallotTable.kt",
                     "ElectionBallotSelectionTable.kt",
+                    "ElectionSeatOutcomeTable.kt",
                     "LtrLedgerEntryTable.kt",
                     "SystemicConsensusTable.kt",
                     "SystemicConsensusOptionTable.kt",

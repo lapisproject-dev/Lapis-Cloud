@@ -16,12 +16,14 @@ public object CommitteeMembershipTable : Table("committee_membership") {
     public val since: Column<LocalDate> = date("since")
     public val until: Column<LocalDate?> = date("until").nullable()
     public val autoEndReason: Column<MemberStatus?> = enumerationByName<MemberStatus>("auto_end_reason", 16).nullable()
+    public val startedByElectionId: Column<Uuid?> = uuid("started_by_election_id").nullable()
+    public val endedByElectionId: Column<Uuid?> = uuid("ended_by_election_id").nullable()
     public val committeeId: Column<Uuid> = reference("committee_id", CommitteeTable.id)
     public val memberId: Column<Uuid> = reference("member_id", MemberTable.id)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
-    // Note: 3 index(es) declared on this entity are not emitted —
+    // Note: 5 index(es) declared on this entity are not emitted —
     // Exposed's index {} DSL needs typed column references, not wired up in this wave.
 
     // Note: 1 check constraint(s) declared on this entity are not

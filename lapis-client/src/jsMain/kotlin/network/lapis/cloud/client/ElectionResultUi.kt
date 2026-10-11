@@ -5,10 +5,13 @@ import io.kvision.core.Widget
 import io.kvision.html.Autocomplete
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.TAG
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.p
+import io.kvision.html.span
+import io.kvision.html.tag
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.panel.SimplePanel
@@ -20,6 +23,9 @@ import network.lapis.cloud.shared.domain.ElectionOptionDto
 import network.lapis.cloud.shared.domain.ElectionResultDto
 import network.lapis.cloud.shared.domain.ElectionStatus
 import network.lapis.cloud.shared.domain.ElectionType
+import network.lapis.cloud.shared.domain.SeatOutcome
+import network.lapis.cloud.shared.domain.SeatOutcomeDto
+import network.lapis.cloud.shared.domain.SeatOutcomeReason
 import network.lapis.cloud.shared.rpc.IElectionService
 
 /*
@@ -62,6 +68,8 @@ internal fun renderElectionResultSection(
     panel.h2(tr("Ergebnis")) { addCssClass("h5") }
     renderElectionResultCompact(panel, e, result, showHint = data.participation.ballotCount > 0)
 
+    renderSeatSuccessionSection(panel, result)
+
     val eligibleCount = data.participation.eligibleCount
     if (eligibleCount != null) {
         panel.div(gettext("Beteiligung: %1 von %2 Wahlberechtigten", data.participation.ballotCount, eligibleCount)) {
@@ -72,6 +80,124 @@ internal fun renderElectionResultSection(
         val link = panel.button(tr("Beschluss im Beschlussbuch"), style = ButtonStyle.OUTLINESECONDARY)
         link.onClick { navigateTo("/motions/${e.motionId}") }
     }
+}
+
+/**
+ * V1.9.103 -- one line of the "Amtsübernahme" list: a sign, the sentence, and (for the administration-only lines) the Gremium to go to. The
+ * sign is a text glyph in an `aria-hidden` span; the sentence carries the whole meaning, so colour and glyph are never the only signal.
+ */
+internal class SeatOutcomeLine(
+    val glyph: String,
+    val text: String,
+    val adminOnly: Boolean,
+    val committeeId: String?,
+)
+
+private const val GLYPH_SEATED = "\u2713"
+private const val GLYPH_CONTINUED = "\u2192"
+private const val GLYPH_ENDED = "\u25CB"
+private const val GLYPH_WARNING = "\u26A0"
+
+/** The sentence for one outcome. Names are untrusted text: the caller renders the result through an `untrusted*` helper. */
+internal fun seatOutcomeLine(outcome: SeatOutcomeDto): SeatOutcomeLine {
+    val role = committeeRoleLabel(outcome.role)
+    val name = outcome.memberDisplayName
+    val committee = outcome.committeeName
+    val date = formatDate(outcome.effectiveOn)
+    return when (outcome.outcome) {
+        SeatOutcome.SEATED ->
+            SeatOutcomeLine(
+                GLYPH_SEATED,
+                gettext("%1 ist seit %2 in der Rolle „%3“ im Gremium „%4“.", name, date, role, committee),
+                adminOnly = false,
+                committeeId = null,
+            )
+        SeatOutcome.CONTINUED ->
+            SeatOutcomeLine(
+                GLYPH_CONTINUED,
+                gettext("%1 bleibt in der Rolle „%2“ im Gremium „%3“.", name, role, committee),
+                adminOnly = false,
+                committeeId = null,
+            )
+        SeatOutcome.ENDED ->
+            SeatOutcomeLine(
+                GLYPH_ENDED,
+                gettext("%1: Rolle „%2“ im Gremium „%3“ beendet am %4 (Nachfolge durch Wahl).", name, role, committee, date),
+                adminOnly = false,
+                committeeId = null,
+            )
+        SeatOutcome.SKIPPED ->
+            SeatOutcomeLine(
+                GLYPH_WARNING,
+                if (outcome.reason == SeatOutcomeReason.SEAT_STARTS_LATER) {
+                    gettext(
+                        "%1 wurde nicht übernommen: Im Gremium „%2“ besteht schon ein Sitz, der erst später beginnt. " +
+                            "Bitte im Gremium entscheiden.",
+                        name,
+                        committee,
+                    )
+                } else {
+                    gettext("%1 wurde nicht übernommen: kein aktives Mitglied. Bitte im Gremium „%2“ entscheiden.", name, committee)
+                },
+                adminOnly = true,
+                committeeId = outcome.committeeId,
+            )
+        SeatOutcome.PREDECESSOR_KEPT ->
+            SeatOutcomeLine(
+                GLYPH_WARNING,
+                if (outcome.reason == SeatOutcomeReason.SEAT_STARTS_LATER) {
+                    gettext(
+                        "%1 wurde nicht beendet: Der Sitz im Gremium „%2“ beginnt erst nach der Auszählung. Bitte im Gremium prüfen.",
+                        name,
+                        committee,
+                    )
+                } else {
+                    gettext(
+                        "%1 wurde nicht beendet, weil eine gewählte Person übersprungen wurde. Bitte im Gremium „%2“ prüfen.",
+                        name,
+                        committee,
+                    )
+                },
+                adminOnly = true,
+                committeeId = outcome.committeeId,
+            )
+    }
+}
+
+/**
+ * V1.9.103 -- "Amtsübernahme": what the tally did to the seats of the target Gremium. Only for an election with an incumbent policy (or one
+ * that has a log); a legacy election shows nothing new. Without administration rights the server delivers only the seated / continued /
+ * ended lines and the flag [ElectionResultDto.pendingAdminReview]; then this shows one neutral sentence instead of any name or reason.
+ */
+internal fun renderSeatSuccessionSection(
+    panel: Container,
+    result: ElectionResultDto,
+) {
+    if (result.incumbentPolicy == null && result.seatOutcomes.isEmpty()) return
+    panel.h2(tr("Amtsübernahme")) { addCssClass("h5") }
+    if (result.tie) {
+        panel.p(tr("Kein eindeutiges Ergebnis: Es wurde kein Amt übernommen.")) { addCssClasses("alert alert-warning mb-0") }
+    } else if (result.seatOutcomes.isNotEmpty()) {
+        val list = panel.tag(TAG.UL, className = "list-unstyled mb-0")
+        result.seatOutcomes.map { seatOutcomeLine(it) }.forEach { line ->
+            val item = list.tag(TAG.LI, className = "d-flex align-items-baseline gap-2 py-1")
+            item.span(line.glyph, className = "flex-shrink-0") { setAttribute("aria-hidden", "true") }
+            item.untrustedSpan(line.text, className = "flex-grow-1 text-break")
+            val committeeId = line.committeeId
+            if (committeeId != null) {
+                item.button(tr("Zum Gremium"), style = ButtonStyle.OUTLINESECONDARY).onClick { navigateTo(Routes.COMMITTEES) }
+            }
+        }
+    }
+    if (result.pendingAdminReview) {
+        panel.p(tr("Die Besetzung wird von der Verwaltung geprüft.")) { addCssClasses("text-muted mb-0") }
+    }
+    panel.p(
+        tr(
+            "Ob die Gewählten die Wahl annehmen, wird außerhalb des Systems festgehalten, zum Beispiel im Versammlungsprotokoll. " +
+                "Lehnt jemand ab, beendet die Verwaltung den Sitz im Gremium von Hand.",
+        ),
+    ) { addCssClasses("text-muted small mb-0") }
 }
 
 /**

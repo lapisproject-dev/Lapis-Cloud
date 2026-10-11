@@ -27,6 +27,7 @@ import network.lapis.cloud.server.security.isElectionBoard
 import network.lapis.cloud.server.security.isElectionBoardMember
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CandidacyDto
 import network.lapis.cloud.shared.domain.CandidacyInput
 import network.lapis.cloud.shared.domain.CommitteeRole
@@ -43,11 +44,13 @@ import network.lapis.cloud.shared.domain.ElectionParticipationDto
 import network.lapis.cloud.shared.domain.ElectionResultDto
 import network.lapis.cloud.shared.domain.ElectionStatus
 import network.lapis.cloud.shared.domain.ElectionType
+import network.lapis.cloud.shared.domain.IncumbentPolicy
 import network.lapis.cloud.shared.domain.MotionStatus
 import network.lapis.cloud.shared.domain.ReceiptVerificationDto
 import network.lapis.cloud.shared.domain.ResolutionInput
 import network.lapis.cloud.shared.domain.ResolutionMode
 import network.lapis.cloud.shared.domain.ResolutionStatus
+import network.lapis.cloud.shared.domain.SINGLE_HOLDER_COMMITTEE_ROLES
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IElectionService
@@ -198,13 +201,24 @@ class ElectionService(
                     if (targetCommitteeId != null) {
                         throw ConflictException("targetCommitteeId must be null for ElectionType.YES_NO, which seats nobody")
                     }
+                    // V1.9.103: a YES_NO election seats nobody, so neither a role nor a policy for previous holders makes sense.
+                    if (input.incumbentPolicy != null || input.targetRole != null) {
+                        throw ConflictException("targetRole and incumbentPolicy must be null for ElectionType.YES_NO, which seats nobody")
+                    }
                 }
                 ElectionType.SINGLE_CHOICE, ElectionType.MULTI_CHOICE -> {
                     if (targetCommitteeId == null) {
                         throw ConflictException("targetCommitteeId is required for ElectionType.${input.electionType}")
                     }
-                    CommitteeTable.selectAll().where { CommitteeTable.id eq targetCommitteeId }.singleOrNull()
-                        ?: throw NotFoundException("Committee ${input.targetCommitteeId} not found")
+                    val targetCommitteeRow =
+                        CommitteeTable.selectAll().where { CommitteeTable.id eq targetCommitteeId }.singleOrNull()
+                            ?: throw NotFoundException("Committee ${input.targetCommitteeId} not found")
+                    requireSuccessionInputs(
+                        input = input,
+                        targetCommitteeId = targetCommitteeId,
+                        targetCommitteeType = targetCommitteeRow[CommitteeTable.type],
+                        motionCommitteeId = committeeId,
+                    )
                     if (input.electionType == ElectionType.SINGLE_CHOICE && input.seatCount != 1) {
                         throw ConflictException("seatCount must be 1 for ElectionType.SINGLE_CHOICE, got ${input.seatCount}")
                     }
@@ -231,6 +245,7 @@ class ElectionService(
                     it[seatCount] = input.seatCount
                     it[ElectionTable.targetCommitteeId] = targetCommitteeId
                     it[targetRole] = input.targetRole
+                    it[incumbentPolicy] = input.incumbentPolicy
                     it[requiredMajorityPercent] =
                         if (majorityFraction !=
                             null
@@ -844,18 +859,27 @@ class ElectionService(
     }
 
     override suspend fun getElectionResult(electionId: String): ElectionResultDto {
-        resolveCurrentMember(call)
+        val current = resolveCurrentMember(call)
         val wId = electionId.toUuidOrNotFound("Election")
         return transaction {
             val electionRow = requireElectionRow(wId)
             if (electionRow[ElectionTable.status] != ElectionStatus.TALLIED) {
                 throw ConflictException("Election $electionId is ${electionRow[ElectionTable.status]}, expected TALLIED")
             }
-            disclosedElectionResult(
-                figures = computeOutcome(electionRow = electionRow).figures,
-                secret = electionRow[ElectionTable.secret],
-                ballotCount = electionBallotCount(electionRow[ElectionTable.id]),
-            )
+            val disclosed =
+                disclosedElectionResult(
+                    figures = computeOutcome(electionRow = electionRow).figures,
+                    secret = electionRow[ElectionTable.secret],
+                    ballotCount = electionBallotCount(electionRow[ElectionTable.id]),
+                )
+            val incumbentPolicy = electionRow[ElectionTable.incumbentPolicy] ?: return@transaction disclosed
+            // Skipped winners / kept predecessors (member status, reasons) are administration data: only an administrator gets them.
+            val fullView =
+                current.isElectionBoard(wId) ||
+                    current.canManageElection(requireMotionCommitteeId(electionRow[ElectionTable.motionId])) ||
+                    current.role in COMMITTEE_ADMIN_ROLES
+            val (seatOutcomes, pendingAdminReview) = ElectionSeatOutcomes.load(electionId = wId, fullView = fullView)
+            disclosed.copy(incumbentPolicy = incumbentPolicy, seatOutcomes = seatOutcomes, pendingAdminReview = pendingAdminReview)
         }
     }
 
@@ -956,6 +980,7 @@ class ElectionService(
             requiredMajorityNumerator = this[ElectionTable.requiredMajorityNumerator],
             requiredMajorityDenominator = this[ElectionTable.requiredMajorityDenominator],
             figuresWithheld = figuresWithheld,
+            incumbentPolicy = this[ElectionTable.incumbentPolicy],
         )
     }
 
@@ -1167,6 +1192,44 @@ private fun generateUniqueReceiptCode(electionId: Uuid): String {
     )
 }
 
+/** Accounts that administer committees (same set as `GovernanceService`'s BOARD_ROLES). */
+private val COMMITTEE_ADMIN_ROLES = setOf(AccountRole.BOARD, AccountRole.ADMIN)
+
+/**
+ * V1.9.103 -- the inputs a personnel election needs for its succession: a role, a policy, and combinations that cannot corrupt the Gremium.
+ *  - role and policy are mandatory (no silent MEMBER default for new elections);
+ *  - a role with exactly one holder needs seatCount 1 and REPLACE (KEEP would leave `committee_membership` and `BoardMembership`
+ *    disagreeing, because `BoardMembershipEvents.recordBoardJoin` ends the displaced single holder anyway);
+ *  - the dynamic general assembly has no MEMBER seats to replace (V1.9.101);
+ *  - an election may only seat a Gremium other than its motion's own if the motion belongs to the general assembly: otherwise a small
+ *    working group could vote the executive board out.
+ */
+private fun requireSuccessionInputs(
+    input: ElectionOpenInput,
+    targetCommitteeId: Uuid,
+    targetCommitteeType: CommitteeType,
+    motionCommitteeId: Uuid,
+) {
+    val role = input.targetRole ?: throw ConflictException("targetRole is required for ElectionType.${input.electionType}")
+    val policy = input.incumbentPolicy ?: throw ConflictException("incumbentPolicy is required for ElectionType.${input.electionType}")
+    if (role in SINGLE_HOLDER_COMMITTEE_ROLES) {
+        if (input.seatCount != 1) throw ConflictException("seatCount must be 1 for the single-holder role $role, got ${input.seatCount}")
+        if (policy != IncumbentPolicy.REPLACE) {
+            throw ConflictException("incumbentPolicy must be REPLACE for the single-holder role $role")
+        }
+    }
+    if (targetCommitteeType == CommitteeType.GENERAL_ASSEMBLY && role == CommitteeRole.MEMBER) {
+        throw ConflictException("The general assembly is dynamic: an election cannot seat MEMBER seats there")
+    }
+    if (targetCommitteeId != motionCommitteeId) {
+        val motionCommitteeType =
+            CommitteeTable.selectAll().where { CommitteeTable.id eq motionCommitteeId }.single()[CommitteeTable.type]
+        if (motionCommitteeType != CommitteeType.GENERAL_ASSEMBLY) {
+            throw ConflictException("An election may only seat its motion's own Gremium unless the motion belongs to the general assembly")
+        }
+    }
+}
+
 private fun requireMotionCommitteeId(motionId: Uuid): Uuid =
     MotionTable.selectAll().where { MotionTable.id eq motionId }.single()[MotionTable.targetCommitteeId]
 
@@ -1310,6 +1373,9 @@ internal fun tallyElectionLocked(
     // V0.5.3 GoBD audit log: collected here, audited only at the very end of the
     // transaction -- see SeatedBoardMembership KDoc.
     val seatedBoardMemberships = mutableListOf<SeatedBoardMembership>()
+    // V1.9.103: elections with an incumbent policy seat through ElectionSeatSuccession; incumbentPolicy == null keeps the legacy loop below.
+    val incumbentPolicy = electionRow[ElectionTable.incumbentPolicy]
+    var succession: ElectionSeatSuccessionResult? = null
 
     if (electionType != ElectionType.YES_NO) {
         if (!effectiveTie && effectiveWinnerOptionIds.isNotEmpty()) {
@@ -1326,77 +1392,112 @@ internal fun tallyElectionLocked(
             val targetCommitteeType =
                 CommitteeTable.selectAll().where { CommitteeTable.id eq targetCommitteeId }.single()[CommitteeTable.type]
             val candidacyIdByOptionId = optionRows.associate { it[ElectionOptionTable.id] to it[ElectionOptionTable.candidacyId] }
-            val today = OrganizationTimeZone.today()
-            effectiveWinnerOptionIds.forEach { winnerOptionId ->
-                val candidacyId =
-                    candidacyIdByOptionId[winnerOptionId]
-                        ?: throw ConflictException("Winning option $winnerOptionId has no Candidacy")
-                val winnerMemberId =
-                    ElectionCandidacyTable
-                        .selectAll()
-                        .where { ElectionCandidacyTable.id eq candidacyId }
-                        .single()[ElectionCandidacyTable.memberId]
-                // ANTRAG membership-gate audit follow-up (2026-07-30), round-2 review
-                // finding: this winner-seating branch is a SEPARATE seat-creation path from
-                // GovernanceService.addCommitteeMember -- it writes CommitteeMembershipTable
-                // directly and was never routed through that method, so the addCommitteeMember
-                // root-cause fix above does NOT cover it despite comments elsewhere in this
-                // file (castElectionBallot) assuming Committee seats only ever originate
-                // there. canStandAsCandidate only re-checks ACTIVE at submitCandidacy time
-                // (ElectionAuthorization.kt); a candidate who was ACTIVE then but calls
-                // leaveMembership (-> WITHDRAWN) before tally() runs would otherwise be
-                // seated here with no live status recheck at all -- for an EXECUTIVE_BOARD
-                // targetCommittee that means a departed member becoming a real, audited
-                // Vorstand seat (BoardMembershipEvents.recordBoardJoin) below. Same gate,
-                // same semantics as addCommitteeMember: ACTIVE-only, applied to the winner
-                // being seated, not the caller (actor.isElectionBoard(wId) already gates
-                // the caller above). forUpdate = true (round-3 audit fix, 2026-07-30): this
-                // check gates a CommitteeMembershipTable insert a few lines below in this
-                // SAME transaction -- without the row lock, a concurrent leaveMembership()
-                // could commit in between, seating the winner from an already-stale status
-                // read. See requireActiveMembership KDoc "forUpdate".
-                requireActiveMembership(memberId = winnerMemberId, forUpdate = true)
-                // Guarded seat, mirroring the single-active-membership invariant
-                // GovernanceService.addCommitteeMember enforces (GovernanceService.kt
-                // ~200-212): an incumbent who wins re-election (or is elected into a new
-                // Role, e.g. a sitting MEMBER elected CHAIR) already has an active
-                // (until == null) row for this Committee. Closing it before inserting the
-                // fresh term -- instead of an unconditional insert -- prevents a second
-                // concurrent active membership row for the same member+Committee, which
-                // would silently corrupt membership history in a legally-relevant
-                // Vereins-/Parteiverwaltung (a later removeCommitteeMitglied/
-                // endCommitteeMembership closes only one row, leaving a phantom active
-                // membership behind).
-                CommitteeMembershipTable.update({
-                    (CommitteeMembershipTable.committeeId eq targetCommitteeId) and
-                        (CommitteeMembershipTable.memberId eq winnerMemberId) and
-                        (CommitteeMembershipTable.until.isNull())
-                }) {
-                    it[until] = today
-                }
-                CommitteeMembershipTable.insert {
-                    it[CommitteeMembershipTable.id] = Uuid.random()
-                    it[CommitteeMembershipTable.committeeId] = targetCommitteeId
-                    it[CommitteeMembershipTable.memberId] = winnerMemberId
-                    it[role] = targetRole
-                    it[since] = today
-                    it[until] = null
-                }
-                if (targetCommitteeType == CommitteeType.EXECUTIVE_BOARD) {
-                    val boardMembershipId =
-                        BoardMembershipEvents.recordBoardJoin(
-                            memberId = winnerMemberId,
-                            role = targetRole,
-                            startedAt = today,
-                            now = DbClock.nowLocalDateTime(),
-                        )
-                    seatedBoardMemberships +=
-                        SeatedBoardMembership(
-                            id = boardMembershipId,
-                            memberId = winnerMemberId,
-                            role = targetRole,
-                            startedAt = today,
-                        )
+            if (incumbentPolicy != null) {
+                val winnerMemberIds =
+                    effectiveWinnerOptionIds.map { winnerOptionId ->
+                        val candidacyId =
+                            candidacyIdByOptionId[winnerOptionId]
+                                ?: throw ConflictException("Winning option $winnerOptionId has no Candidacy")
+                        ElectionCandidacyTable
+                            .selectAll()
+                            .where { ElectionCandidacyTable.id eq candidacyId }
+                            .single()[ElectionCandidacyTable.memberId]
+                    }
+                val successionNow = DbClock.nowLocalDateTime()
+                val applied =
+                    ElectionSeatSuccession.apply(
+                        electionId = wId,
+                        committeeId = targetCommitteeId,
+                        committeeType = targetCommitteeType,
+                        role =
+                            checkNotNull(
+                                electionRow[ElectionTable.targetRole],
+                            ) { "Election $wId has an incumbent policy but no targetRole" },
+                        policy = incumbentPolicy,
+                        winnerMemberIds = winnerMemberIds,
+                        stichtag = OrganizationTimeZone.dateOf(successionNow),
+                        now = successionNow,
+                        actorMemberId = actor.memberId,
+                        actorRole = actor.role,
+                    )
+                succession = applied
+                seatedBoardMemberships +=
+                    applied.seatedBoardMemberships.map {
+                        SeatedBoardMembership(id = it.id, memberId = it.memberId, role = it.role, startedAt = it.startedAt)
+                    }
+            } else {
+                val today = OrganizationTimeZone.today()
+                effectiveWinnerOptionIds.forEach { winnerOptionId ->
+                    val candidacyId =
+                        candidacyIdByOptionId[winnerOptionId]
+                            ?: throw ConflictException("Winning option $winnerOptionId has no Candidacy")
+                    val winnerMemberId =
+                        ElectionCandidacyTable
+                            .selectAll()
+                            .where { ElectionCandidacyTable.id eq candidacyId }
+                            .single()[ElectionCandidacyTable.memberId]
+                    // ANTRAG membership-gate audit follow-up (2026-07-30), round-2 review
+                    // finding: this winner-seating branch is a SEPARATE seat-creation path from
+                    // GovernanceService.addCommitteeMember -- it writes CommitteeMembershipTable
+                    // directly and was never routed through that method, so the addCommitteeMember
+                    // root-cause fix above does NOT cover it despite comments elsewhere in this
+                    // file (castElectionBallot) assuming Committee seats only ever originate
+                    // there. canStandAsCandidate only re-checks ACTIVE at submitCandidacy time
+                    // (ElectionAuthorization.kt); a candidate who was ACTIVE then but calls
+                    // leaveMembership (-> WITHDRAWN) before tally() runs would otherwise be
+                    // seated here with no live status recheck at all -- for an EXECUTIVE_BOARD
+                    // targetCommittee that means a departed member becoming a real, audited
+                    // Vorstand seat (BoardMembershipEvents.recordBoardJoin) below. Same gate,
+                    // same semantics as addCommitteeMember: ACTIVE-only, applied to the winner
+                    // being seated, not the caller (actor.isElectionBoard(wId) already gates
+                    // the caller above). forUpdate = true (round-3 audit fix, 2026-07-30): this
+                    // check gates a CommitteeMembershipTable insert a few lines below in this
+                    // SAME transaction -- without the row lock, a concurrent leaveMembership()
+                    // could commit in between, seating the winner from an already-stale status
+                    // read. See requireActiveMembership KDoc "forUpdate".
+                    requireActiveMembership(memberId = winnerMemberId, forUpdate = true)
+                    // Guarded seat, mirroring the single-active-membership invariant
+                    // GovernanceService.addCommitteeMember enforces (GovernanceService.kt
+                    // ~200-212): an incumbent who wins re-election (or is elected into a new
+                    // Role, e.g. a sitting MEMBER elected CHAIR) already has an active
+                    // (until == null) row for this Committee. Closing it before inserting the
+                    // fresh term -- instead of an unconditional insert -- prevents a second
+                    // concurrent active membership row for the same member+Committee, which
+                    // would silently corrupt membership history in a legally-relevant
+                    // Vereins-/Parteiverwaltung (a later removeCommitteeMitglied/
+                    // endCommitteeMembership closes only one row, leaving a phantom active
+                    // membership behind).
+                    CommitteeMembershipTable.update({
+                        (CommitteeMembershipTable.committeeId eq targetCommitteeId) and
+                            (CommitteeMembershipTable.memberId eq winnerMemberId) and
+                            (CommitteeMembershipTable.until.isNull())
+                    }) {
+                        it[until] = today
+                    }
+                    CommitteeMembershipTable.insert {
+                        it[CommitteeMembershipTable.id] = Uuid.random()
+                        it[CommitteeMembershipTable.committeeId] = targetCommitteeId
+                        it[CommitteeMembershipTable.memberId] = winnerMemberId
+                        it[role] = targetRole
+                        it[since] = today
+                        it[until] = null
+                    }
+                    if (targetCommitteeType == CommitteeType.EXECUTIVE_BOARD) {
+                        val boardMembershipId =
+                            BoardMembershipEvents.recordBoardJoin(
+                                memberId = winnerMemberId,
+                                role = targetRole,
+                                startedAt = today,
+                                now = DbClock.nowLocalDateTime(),
+                            )
+                        seatedBoardMemberships +=
+                            SeatedBoardMembership(
+                                id = boardMembershipId,
+                                memberId = winnerMemberId,
+                                role = targetRole,
+                                startedAt = today,
+                            )
+                    }
                 }
             }
         }
@@ -1451,6 +1552,7 @@ internal fun tallyElectionLocked(
     // AuditLogRecorder's deadlock-avoidance contract -- see auditBoardMembershipCreate/
     // auditResolutionCreate KDoc for why these calls cannot happen earlier (inside the
     // seating loop / inside insertResolutionRow).
+    succession?.recordAudits()
     seatedBoardMemberships.forEach {
         auditBoardMembershipCreate(
             boardMembershipId = it.id,
@@ -1461,5 +1563,11 @@ internal fun tallyElectionLocked(
         )
     }
     auditResolutionCreate(resolution = resolution, current = actor)
-    return ergebnis
+    // The tallying actor is always an election board member or privileged: the full view of the succession log.
+    return if (incumbentPolicy == null) {
+        ergebnis
+    } else {
+        val (seatOutcomes, pendingAdminReview) = ElectionSeatOutcomes.load(electionId = wId, fullView = true)
+        ergebnis.copy(incumbentPolicy = incumbentPolicy, seatOutcomes = seatOutcomes, pendingAdminReview = pendingAdminReview)
+    }
 }
