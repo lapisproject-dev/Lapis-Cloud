@@ -1,7 +1,10 @@
 package network.lapis.cloud.server.rpc
 import io.ktor.server.application.ApplicationCall
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.containsLikePattern
 import network.lapis.cloud.server.db.generated.AgendaItemTable
@@ -26,17 +29,22 @@ import network.lapis.cloud.server.security.canRecordForMeeting
 import network.lapis.cloud.server.security.canSubmitMotion
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AgendaItemDto
 import network.lapis.cloud.shared.domain.AgendaItemInput
 import network.lapis.cloud.shared.domain.AttendanceDto
 import network.lapis.cloud.shared.domain.AttendanceInput
+import network.lapis.cloud.shared.domain.CommitteeAutoEndEntryDto
+import network.lapis.cloud.shared.domain.CommitteeAutoEndNoticeDto
 import network.lapis.cloud.shared.domain.CommitteeCandidateSearch
 import network.lapis.cloud.shared.domain.CommitteeDto
 import network.lapis.cloud.shared.domain.CommitteeInput
 import network.lapis.cloud.shared.domain.CommitteeMembershipDto
 import network.lapis.cloud.shared.domain.CommitteeMembershipInput
+import network.lapis.cloud.shared.domain.CommitteeOpenSeatDto
+import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
 import network.lapis.cloud.shared.domain.LtrLedgerReferenceType
@@ -47,6 +55,7 @@ import network.lapis.cloud.shared.domain.MeetingStatus
 import network.lapis.cloud.shared.domain.MemberPickDto
 import network.lapis.cloud.shared.domain.MemberPickPageDto
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.MotionDto
 import network.lapis.cloud.shared.domain.MotionInput
 import network.lapis.cloud.shared.domain.MotionResolutionInput
@@ -58,6 +67,7 @@ import network.lapis.cloud.shared.domain.ResolutionDto
 import network.lapis.cloud.shared.domain.ResolutionInput
 import network.lapis.cloud.shared.domain.ResolutionMode
 import network.lapis.cloud.shared.domain.ResolutionStatus
+import network.lapis.cloud.shared.domain.VacantMandatoryRoleDto
 import network.lapis.cloud.shared.domain.VoteBallotDto
 import network.lapis.cloud.shared.domain.VoteBallotInput
 import network.lapis.cloud.shared.domain.VoteDto
@@ -71,15 +81,19 @@ import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.SearchRateLimitedException
+import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.core.lowerCase
+import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
@@ -92,6 +106,10 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
 private val BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
+
+/** V1.9.102 -- look-back window (days) and row cap of [GovernanceService.getCommitteeAutoEndNotice]. */
+private const val AUTO_END_NOTICE_DAYS = 30
+private const val AUTO_END_NOTICE_LIMIT = 50
 
 /**
  * V1.9.101 -- process-wide limiter of the committee-candidate search (60 requests/minute per acting member).
@@ -209,15 +227,95 @@ class GovernanceService(
         committeeId: String,
         activeOnly: Boolean,
     ): List<CommitteeMembershipDto> {
-        resolveCurrentMember(call)
+        val current = resolveCurrentMember(call)
         val gId = committeeId.toCommitteeUuid()
+        val revealAutoEndReason = current.role in BOARD_ROLES
         return transaction {
             val conditions = mutableListOf<Op<Boolean>>(CommitteeMembershipTable.committeeId eq gId)
             if (activeOnly) conditions += CommitteeMembershipTable.until.isNull()
             (CommitteeMembershipTable innerJoin MemberTable)
                 .selectAll()
                 .where { conditions.reduce { a, b -> a and b } }
-                .map { it.toCommitteeMembershipDto() }
+                .map { it.toCommitteeMembershipDto(revealAutoEndReason = revealAutoEndReason) }
+        }
+    }
+
+    /**
+     * V1.9.102 -- see [IGovernanceService.getCommitteeAutoEndNotice]. All three lists are computed per call, nothing is stored. "Today" is
+     * the organisation-time-zone date. Vacancy is evaluated for TOMORROW: `until` is inclusive, so a chair whose seat ended today still
+     * counts today but already no longer from tomorrow on -- the board must see the gap on the day it arises.
+     */
+    override suspend fun getCommitteeAutoEndNotice(): CommitteeAutoEndNoticeDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*BOARD_ROLES)
+        return transaction {
+            val today = OrganizationTimeZone.dateOf(DbClock.nowLocalDateTime())
+            val windowStart = today.minus(AUTO_END_NOTICE_DAYS, DateTimeUnit.DAY)
+            val recent =
+                (CommitteeMembershipTable innerJoin CommitteeTable)
+                    .join(MemberTable, JoinType.INNER, CommitteeMembershipTable.memberId, MemberTable.id)
+                    .selectAll()
+                    .where {
+                        CommitteeMembershipTable.autoEndReason.isNotNull() and
+                            (CommitteeMembershipTable.until greaterEq windowStart)
+                    }.orderBy(CommitteeMembershipTable.until to SortOrder.DESC, CommitteeMembershipTable.id to SortOrder.ASC)
+                    .limit(AUTO_END_NOTICE_LIMIT)
+                    .map { row ->
+                        CommitteeAutoEndEntryDto(
+                            committeeId = row[CommitteeTable.id].toString(),
+                            committeeName = row[CommitteeTable.name],
+                            membershipId = row[CommitteeMembershipTable.id].toString(),
+                            memberId = row[CommitteeMembershipTable.memberId].toString(),
+                            memberDisplayName = row[MemberTable.displayName],
+                            role = row[CommitteeMembershipTable.role],
+                            since = row[CommitteeMembershipTable.since],
+                            until = checkNotNull(row[CommitteeMembershipTable.until]),
+                            reason = checkNotNull(row[CommitteeMembershipTable.autoEndReason]),
+                        )
+                    }
+            val chaired = CommitteeSeatLifecycle.chairedExecutiveBoardIds(today.plus(1, DateTimeUnit.DAY))
+            val vacant =
+                CommitteeTable
+                    .selectAll()
+                    .where { (CommitteeTable.type eq CommitteeType.EXECUTIVE_BOARD) and (CommitteeTable.active eq true) }
+                    .orderBy(CommitteeTable.name to SortOrder.ASC)
+                    .filter { it[CommitteeTable.id] !in chaired }
+                    .map {
+                        VacantMandatoryRoleDto(
+                            committeeId = it[CommitteeTable.id].toString(),
+                            committeeName = it[CommitteeTable.name],
+                            role = CommitteeRole.CHAIR,
+                        )
+                    }
+            val openWithoutMembership =
+                (CommitteeMembershipTable innerJoin CommitteeTable)
+                    .join(MemberTable, JoinType.INNER, CommitteeMembershipTable.memberId, MemberTable.id)
+                    .selectAll()
+                    .where {
+                        // a seat the hook has just ended (auto_end_reason set, until = today) is not "open legacy data"
+                        CommitteeMembershipTable.autoEndReason.isNull() and
+                            (CommitteeMembershipTable.until.isNull() or (CommitteeMembershipTable.until greaterEq today)) and
+                            (MemberTable.status inList MemberStatusSets.COMMITTEE_SEAT_ENDING.toList())
+                    }.orderBy(CommitteeMembershipTable.since to SortOrder.ASC, CommitteeMembershipTable.id to SortOrder.ASC)
+                    .limit(AUTO_END_NOTICE_LIMIT)
+                    .map { row ->
+                        CommitteeOpenSeatDto(
+                            committeeId = row[CommitteeTable.id].toString(),
+                            committeeName = row[CommitteeTable.name],
+                            membershipId = row[CommitteeMembershipTable.id].toString(),
+                            memberId = row[CommitteeMembershipTable.memberId].toString(),
+                            memberDisplayName = row[MemberTable.displayName],
+                            role = row[CommitteeMembershipTable.role],
+                            since = row[CommitteeMembershipTable.since],
+                            until = row[CommitteeMembershipTable.until],
+                            memberStatus = row[MemberTable.status],
+                        )
+                    }
+            CommitteeAutoEndNoticeDto(
+                recentAutoEnds = recent,
+                vacantMandatoryRoles = vacant,
+                openSeatsWithoutMembership = openWithoutMembership,
+            )
         }
     }
 
@@ -373,7 +471,7 @@ class GovernanceService(
                 .selectAll()
                 .where { CommitteeMembershipTable.id eq id }
                 .single()
-                .toCommitteeMembershipDto()
+                .toCommitteeMembershipDto(revealAutoEndReason = true)
         }
     }
 
@@ -390,14 +488,14 @@ class GovernanceService(
                     ?: throw NotFoundException("CommitteeMembership $membershipId not found")
             // V0.5.2 §20 GwG cascade (EXECUTIVE_BOARD -> BoardMembershipTable + audit log) lives in
             // the shared endCommitteeMembershipRow helper (V0.13.1 extraction) -- see its KDoc.
-            // RegistrationService.leaveMembership/rejectApplication reuse the EXACT SAME function for
-            // their own "stale roster" cleanup, see endAllOpenCommitteeMembershipsForMember KDoc.
+            // The AUTOMATIC end on a member status change (CommitteeSeatLifecycle, V1.9.102) shares the
+            // EXECUTIVE_BOARD cascade with this manual path via cascadeExecutiveBoardEnd.
             endCommitteeMembershipRow(membershipRow = membershipRow, until = until, current = current)
             (CommitteeMembershipTable innerJoin MemberTable)
                 .selectAll()
                 .where { CommitteeMembershipTable.id eq id }
                 .single()
-                .toCommitteeMembershipDto()
+                .toCommitteeMembershipDto(revealAutoEndReason = true)
         }
     }
 
@@ -1674,7 +1772,7 @@ internal fun ResultRow.toCommitteeDto(): CommitteeDto =
     )
 
 /** V1.3.1 -- hoisted to top-level, `internal`, see [memberDisplayName] KDoc for the reasoning. */
-internal fun ResultRow.toCommitteeMembershipDto(): CommitteeMembershipDto =
+internal fun ResultRow.toCommitteeMembershipDto(revealAutoEndReason: Boolean = false): CommitteeMembershipDto =
     CommitteeMembershipDto(
         id = this[CommitteeMembershipTable.id].toString(),
         committeeId = this[CommitteeMembershipTable.committeeId].toString(),
@@ -1683,6 +1781,8 @@ internal fun ResultRow.toCommitteeMembershipDto(): CommitteeMembershipDto =
         role = this[CommitteeMembershipTable.role],
         since = this[CommitteeMembershipTable.since],
         until = this[CommitteeMembershipTable.until],
+        // V1.9.102 -- the reason can be DECEASED/DONOR (personal data): only BOARD/ADMIN callers get it, everybody else sees null.
+        autoEndReason = if (revealAutoEndReason) this[CommitteeMembershipTable.autoEndReason] else null,
     )
 
 /**
@@ -1776,18 +1876,15 @@ internal fun ResultRow.toMotionDto(): MotionDto =
     )
 
 /**
- * Core of [GovernanceService.endCommitteeMembership] -- ends [membershipRow] (an already-loaded
- * [CommitteeMembershipTable] row): sets `until` and, if the row's Committee is EXECUTIVE_BOARD,
- * cascades onto [BoardMembershipTable] + the GoBD audit log exactly as
- * [GovernanceService.endCommitteeMembership] has always done -- see that method's own KDoc for the
- * §20 GwG Vorstandsaenderung reasoning it mirrors from [GovernanceService.addCommitteeMember].
- * Transaction-free by contract, same as [BoardMembershipEvents] -- must run inside the caller's own
- * already-open `transaction {}`.
+ * Core of [GovernanceService.endCommitteeMembership] (the MANUAL path) -- ends [membershipRow] (an already-loaded
+ * [CommitteeMembershipTable] row): sets `until`, resets `auto_end_reason` to null (a seat an administrator ends or re-ends by hand is no
+ * longer an automatic end, and the actor is a human again) and, if the row's Committee is EXECUTIVE_BOARD, cascades onto
+ * [BoardMembershipTable] + the GoBD audit log exactly as [GovernanceService.endCommitteeMembership] has always done -- see that method's
+ * own KDoc for the §20 GwG Vorstandsaenderung reasoning it mirrors from [GovernanceService.addCommitteeMember].
+ * Transaction-free by contract, same as [BoardMembershipEvents] -- must run inside the caller's own already-open `transaction {}`.
  *
- * Extracted (V0.13.1, "stale roster" fix) so [RegistrationService.leaveMembership]/
- * [RegistrationService.rejectApplication] can reuse the EXACT SAME ending logic for their own
- * cleanup (see [endAllOpenCommitteeMembershipsForMember]) instead of re-implementing a second,
- * inevitably-drifting copy of the EXECUTIVE_BOARD cascade.
+ * The AUTOMATIC end on a member status change lives in [CommitteeSeatLifecycle] (V1.9.102); both share [cascadeExecutiveBoardEnd], so
+ * there is exactly one copy of the EXECUTIVE_BOARD cascade.
  */
 internal fun endCommitteeMembershipRow(
     membershipRow: ResultRow,
@@ -1795,66 +1892,60 @@ internal fun endCommitteeMembershipRow(
     current: CurrentMember,
 ) {
     val id = membershipRow[CommitteeMembershipTable.id]
-    val updated = CommitteeMembershipTable.update({ CommitteeMembershipTable.id eq id }) { it[CommitteeMembershipTable.until] = until }
-    if (updated == 0) throw NotFoundException("CommitteeMembership $id not found")
-    val committeeType =
-        CommitteeTable
-            .selectAll()
-            .where { CommitteeTable.id eq membershipRow[CommitteeMembershipTable.committeeId] }
-            .single()[CommitteeTable.type]
-    if (committeeType == CommitteeType.EXECUTIVE_BOARD) {
-        val openBoardMembershipRow =
-            BoardMembershipTable
-                .selectAll()
-                .where {
-                    (BoardMembershipTable.memberId eq membershipRow[CommitteeMembershipTable.memberId]) and
-                        (BoardMembershipTable.endedAt.isNull())
-                }.singleOrNull()
-        if (openBoardMembershipRow != null) {
-            val openBoardMembershipId = openBoardMembershipRow[BoardMembershipTable.id]
-            BoardMembershipEvents.recordBoardLeave(
-                boardMembershipId = openBoardMembershipId,
-                endedAt = until,
-                now = DbClock.nowLocalDateTime(),
-            )
-            // V0.5.3 GoBD audit log: called last, after recordBoardLeave's own writes -- see
-            // auditBoardMembershipEnd KDoc for the full call-site rationale.
-            auditBoardMembershipEnd(
-                boardMembershipId = openBoardMembershipId,
-                memberId = openBoardMembershipRow[BoardMembershipTable.memberId],
-                committeeRole = openBoardMembershipRow[BoardMembershipTable.committeeRole],
-                startedAt = openBoardMembershipRow[BoardMembershipTable.startedAt],
-                endedAt = until,
-                current = current,
-            )
+    val updated =
+        CommitteeMembershipTable.update({ CommitteeMembershipTable.id eq id }) {
+            it[CommitteeMembershipTable.until] = until
+            it[autoEndReason] = null
         }
-    }
+    if (updated == 0) throw NotFoundException("CommitteeMembership $id not found")
+    cascadeExecutiveBoardEnd(
+        committeeId = membershipRow[CommitteeMembershipTable.committeeId],
+        memberId = membershipRow[CommitteeMembershipTable.memberId],
+        until = until,
+        now = DbClock.nowLocalDateTime(),
+        actorMemberId = current.memberId,
+        actorRole = current.role,
+    )?.write?.invoke()
 }
 
 /**
- * Ends every currently-open (`until == null`) [CommitteeMembershipTable] row for [memberId] -- see
- * [endCommitteeMembershipRow] for the per-row logic (including the EXECUTIVE_BOARD cascade).
- * Transaction-free, same contract -- must run inside the caller's own already-open `transaction {}`.
- *
- * Closes the "stale roster" gap (V0.13.1): [RegistrationService.leaveMembership]/
- * [RegistrationService.rejectApplication] flip [MemberTable.status] and revoke sessions, but
- * previously left any open Committee seat dangling -- a departed/rejected member kept showing up in
- * [GovernanceService.listCommitteeMembers]`(activeOnly=true)` (no security hole on its own,
- * [GovernanceService.castVoteBallot] independently re-checks live membership, but a genuine
- * correctness/observability bug). [current] is the ACTOR whose decision caused the ending -- the
- * departing member themself for `leaveMembership`, the deciding BOARD/ADMIN for
- * `rejectApplication` -- and is only used for [auditBoardMembershipEnd]'s attribution, mirroring
- * [GovernanceService.endCommitteeMembership]'s own use of its caller.
+ * The EXECUTIVE_BOARD cascade of ending a committee seat (§20 GwG Vorstandsaenderung): if [committeeId] is an EXECUTIVE_BOARD committee and
+ * [memberId] has an open [BoardMembershipTable] row, ends it via [BoardMembershipEvents.recordBoardLeave] and returns the prepared GoBD
+ * audit entry as a [PendingAudit] (null if there was nothing to cascade). The caller executes it -- the manual path immediately, the
+ * automatic path ([CommitteeSeatLifecycle]) at the very end of its transaction (audit lock order, see [AuditLogRecorder] KDoc).
+ * [actorMemberId]/[actorRole] are null for the system actor of the automatic path.
  */
-internal fun endAllOpenCommitteeMembershipsForMember(
+internal fun cascadeExecutiveBoardEnd(
+    committeeId: Uuid,
     memberId: Uuid,
     until: LocalDate,
-    current: CurrentMember,
-) {
-    val openRows =
-        CommitteeMembershipTable
+    now: LocalDateTime,
+    actorMemberId: Uuid?,
+    actorRole: AccountRole?,
+): PendingAudit? {
+    val committeeType =
+        CommitteeTable
             .selectAll()
-            .where { (CommitteeMembershipTable.memberId eq memberId) and (CommitteeMembershipTable.until.isNull()) }
-            .toList()
-    openRows.forEach { row -> endCommitteeMembershipRow(membershipRow = row, until = until, current = current) }
+            .where { CommitteeTable.id eq committeeId }
+            .single()[CommitteeTable.type]
+    if (committeeType != CommitteeType.EXECUTIVE_BOARD) return null
+    val openBoardMembershipRow =
+        BoardMembershipTable
+            .selectAll()
+            .where { (BoardMembershipTable.memberId eq memberId) and (BoardMembershipTable.endedAt.isNull()) }
+            .singleOrNull() ?: return null
+    val openBoardMembershipId = openBoardMembershipRow[BoardMembershipTable.id]
+    BoardMembershipEvents.recordBoardLeave(boardMembershipId = openBoardMembershipId, endedAt = until, now = now)
+    // V0.5.3 GoBD audit log: the caller invokes the returned write as the last locking operation -- see auditBoardMembershipEnd KDoc.
+    return PendingAudit {
+        auditBoardMembershipEnd(
+            boardMembershipId = openBoardMembershipId,
+            memberId = openBoardMembershipRow[BoardMembershipTable.memberId],
+            committeeRole = openBoardMembershipRow[BoardMembershipTable.committeeRole],
+            startedAt = openBoardMembershipRow[BoardMembershipTable.startedAt],
+            endedAt = until,
+            actorMemberId = actorMemberId,
+            actorRole = actorRole,
+        )
+    }
 }

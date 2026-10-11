@@ -72,6 +72,8 @@ object GovernancePersonalData : MemberPersonalDataContributor {
                                 put("role", row[CommitteeMembershipTable.role].name)
                                 put("since", row[CommitteeMembershipTable.since].toString())
                                 put("until", row[CommitteeMembershipTable.until]?.toString())
+                                // V1.9.102 -- the member status whose change ended the seat automatically (null: never ended automatically).
+                                put("autoEndReason", row[CommitteeMembershipTable.autoEndReason]?.name)
                             },
                         )
                     }

@@ -13634,9 +13634,6 @@ msgstr "décédé le %1"
 msgid "Die Mitgliedschaft endete mit dem Tod (§ 38 BGB). Dieser Eintrag hält das fest, er beendet sie nicht."
 msgstr "L'adhésion a pris fin avec le décès (§ 38 BGB). Cette inscription le constate, elle n'y met pas fin."
 
-msgid "Sitzungen werden beendet, offene Gremiensitze enden, ein aktives SEPA-Mandat wird widerrufen. Bereits offene Forderungen bleiben bestehen — sie sind eine Nachlassangelegenheit."
-msgstr "Les sessions sont terminées, les sièges ouverts dans les organes prennent fin et un mandat SEPA actif est révoqué. Les créances déjà ouvertes subsistent — elles relèvent de la succession."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1241
 msgid "Es wird niemand benachrichtigt."
 msgstr "Personne n'est notifié."
@@ -13644,9 +13641,6 @@ msgstr "Personne n'est notifié."
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1243
 msgid "Diese Person ist Beitragszahler einer Familie — die Angehörigen brauchen einen neuen Zahler."
 msgstr "Cette personne est le payeur des cotisations d'une famille — les proches ont besoin d'un nouveau payeur."
-
-msgid "Alle Sitzungen werden sofort beendet, offene Gremien-Mitgliedschaften werden beendet, ein aktives SEPA-Mandat wird widerrufen."
-msgstr "Toutes les sessions sont terminées immédiatement, les appartenances ouvertes à des organes prennent fin et un mandat SEPA actif est révoqué."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1253
 msgid "Der Login wird gesperrt. Kein Beitrag, keine Governance-Rechte."
@@ -21579,3 +21573,51 @@ msgstr "Ces entrées n'ont aucun effet sur la présence, le droit de vote ou le 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PostalMailScreen.kt
 msgid "%1 physische Briefe werden über Letterxpress an die im System hinterlegten Anschriften aller aktiven Mitglieder verschickt. Fehlt bei auch nur einer Person die vollständige Anschrift, wird der gesamte Versand abgelehnt -- kein Teilversand."
 msgstr "%1 lettres physiques seront envoyées via Letterxpress aux adresses enregistrées de tous les membres actifs. Si l'adresse complète manque pour ne serait-ce qu'une personne, l'ensemble de l'envoi est refusé -- pas d'envoi partiel."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Alle Sitzungen werden sofort beendet, offene Gremienzeiten enden automatisch zum heutigen Tag, ein aktives SEPA-Mandat wird widerrufen."
+msgstr "Toutes les sessions sont terminées immédiatement, les mandats ouverts dans les organes prennent fin automatiquement aujourd'hui et un mandat SEPA actif est révoqué."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Sitzungen werden beendet, offene Gremienzeiten enden automatisch zum heutigen Tag, ein aktives SEPA-Mandat wird widerrufen. Bereits offene Forderungen bleiben bestehen — sie sind eine Nachlassangelegenheit."
+msgstr "Les sessions sont terminées, les mandats ouverts dans les organes prennent fin automatiquement aujourd'hui et un mandat SEPA actif est révoqué. Les créances déjà ouvertes subsistent — elles relèvent de la succession."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Offene Gremienzeiten enden automatisch zum heutigen Tag."
+msgstr "Les mandats ouverts dans les organes prennent fin automatiquement aujourd'hui."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Gremienzeiten werden nicht automatisch wiederhergestellt."
+msgstr "Les mandats dans les organes ne sont pas rétablis automatiquement."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "nicht angetreten, automatisch beendet am %1"
+msgstr "non pris, terminé automatiquement le %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "automatisch beendet, Grund: %1"
+msgstr "terminé automatiquement, motif : %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "%1: Vorsitz ist unbesetzt."
+msgstr "%1 : la présidence est vacante."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "In den letzten 30 Tagen automatisch beendet: %1 Gremienzeiten"
+msgstr "Terminés automatiquement ces 30 derniers jours : %1 mandats dans des organes"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "%1: %2, %3, bis %4 (%5)"
+msgstr "%1 : %2, %3, jusqu'au %4 (%5)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Offene Gremienzeiten von Personen ohne Mitgliedschaft: %1 – bitte prüfen."
+msgstr "Mandats ouverts dans des organes de personnes sans adhésion : %1 – à vérifier."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "%1: %2, %3, seit %4 (%5)"
+msgstr "%1 : %2, %3, depuis le %4 (%5)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Gremienmitgliedschaft"
+msgstr "Appartenance à un organe"

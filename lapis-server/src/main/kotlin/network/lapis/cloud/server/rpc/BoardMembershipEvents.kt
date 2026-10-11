@@ -7,6 +7,7 @@ import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.generated.BoardMembershipTable
 import network.lapis.cloud.server.db.generated.TransparenzregisterReminderTable
 import network.lapis.cloud.server.security.CurrentMember
+import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.BoardChangeType
@@ -223,11 +224,12 @@ internal fun auditBoardMembershipEnd(
     committeeRole: CommitteeRole,
     startedAt: LocalDate,
     endedAt: LocalDate,
-    current: CurrentMember,
+    actorMemberId: Uuid?,
+    actorRole: AccountRole?,
 ) {
     AuditLogRecorder.record(
-        actorMemberId = current.memberId,
-        actorRole = current.role,
+        actorMemberId = actorMemberId,
+        actorRole = actorRole,
         entityType = AuditEntityType.BOARD_MEMBERSHIP,
         entityId = boardMembershipId,
         action = AuditAction.UPDATE,

@@ -9,7 +9,8 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.memberbio.MemberPublicBioStore
 import network.lapis.cloud.server.memberphoto.MemberPhotoStore
 import network.lapis.cloud.server.payment.sepa.revokeMandatesForEndedMembership
-import network.lapis.cloud.server.rpc.endAllOpenCommitteeMembershipsForMember
+import network.lapis.cloud.server.rpc.CommitteeSeatEndResult
+import network.lapis.cloud.server.rpc.CommitteeSeatLifecycle
 import network.lapis.cloud.server.rpc.requireRegionalChapterBeforeActivation
 import network.lapis.cloud.server.rpc.revokeActiveRegionalChapterOfficerGrant
 import network.lapis.cloud.server.security.CurrentMember
@@ -177,6 +178,24 @@ internal object MemberRoleStatusMutations {
         )
         val newDateOfDeath = if (newStatus == MemberStatus.DECEASED) dateOfDeath else null
 
+        // Welle V1.9.102 -- phase 1 of the automatic end of committee seats (see CommitteeSeatLifecycle): runs after every precondition check
+        // above (transition rules, admin-peer guard, self-change ban, death-date plausibility) and BEFORE the other revokes, but writes no
+        // audit; the audits follow in phase 2 below, after the last row-locking write. DONOR ends seats although it is not in MEMBERSHIP_ENDED.
+        val seatEnd =
+            if (newStatus in MemberStatusSets.COMMITTEE_SEAT_ENDING) {
+                CommitteeSeatLifecycle.endSeatsForStatusChange(
+                    memberId = targetId,
+                    newStatus = newStatus,
+                    reason = newStatus,
+                    stichtag = OrganizationTimeZone.dateOf(now),
+                    now = now,
+                    actorMemberId = actor?.memberId,
+                    actorRole = actor?.role,
+                )
+            } else {
+                CommitteeSeatEndResult.EMPTY
+            }
+
         if (fromStatus == MemberStatus.ACTIVE) {
             // The operator console (no actor) only ever re-activates: leaving ACTIVE needs a person to attribute the cleanup to.
             checkNotNull(actor) { "leaving ACTIVE needs a signed-in actor" }
@@ -206,11 +225,6 @@ internal object MemberRoleStatusMutations {
         }
         if (newStatus in MemberStatusSets.MEMBERSHIP_ENDED) {
             checkNotNull(actor) { "ending a membership needs a signed-in actor" }
-            endAllOpenCommitteeMembershipsForMember(
-                memberId = targetId,
-                until = OrganizationTimeZone.dateOf(now),
-                current = actor,
-            )
             revokeMandatesForEndedMembership(
                 memberId = targetId,
                 actorMemberId = actor.memberId,
@@ -233,6 +247,8 @@ internal object MemberRoleStatusMutations {
                 dateOfDeathChanged = newDateOfDeath != previousDateOfDeath,
                 peerAction = peerFacts,
             )
+        // Phase 2 of the seat hook: the seat/board audits (system actor), directly before the MEMBER audit that carries the human actor.
+        seatEnd.recordAudits()
         AuditLogRecorder.record(
             actorMemberId = actor?.memberId,
             actorRole = actor?.role,

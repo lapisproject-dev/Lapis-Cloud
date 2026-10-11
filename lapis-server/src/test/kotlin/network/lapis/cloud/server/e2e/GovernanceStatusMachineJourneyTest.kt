@@ -97,8 +97,8 @@ import kotlin.uuid.Uuid
  * (activeOnly = true)` kept listing the now-`AUSGETRETEN` member as an active seat holder on the
  * Committee they were validly seated on while `AKTIV`. [RegistrationService.leaveMembership] (and,
  * symmetrically, `RegistrationService.rejectApplication`) now call the shared
- * `endAllOpenCommitteeMembershipsForMember` helper (extracted from
- * [GovernanceService.endCommitteeMembership]'s own per-row ending logic) inside the SAME transaction
+ * `CommitteeSeatLifecycle.endSeatsForStatusChange` hook (V1.9.102; before that the `endAllOpenCommitteeMembershipsForMember`
+ * helper extracted from [GovernanceService.endCommitteeMembership]'s own per-row ending logic) inside the SAME transaction
  * as the status flip, so the member's open seat is ended (`until` set) atomically with `AKTIV ->
  * AUSGETRETEN`. Step 10 below now asserts the FIXED behavior through the REAL production read path
  * (`GovernanceService.listCommitteeMembers(activeOnly = true)`, via the `/e2e4/committee-members`

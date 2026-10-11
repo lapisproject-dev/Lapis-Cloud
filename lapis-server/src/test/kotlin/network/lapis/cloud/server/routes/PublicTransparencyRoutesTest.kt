@@ -127,10 +127,10 @@ class PublicTransparencyRoutesTest :
 
         /**
          * A fresh EXECUTIVE_BOARD [CommitteeTable] row plus one [CommitteeMembershipTable] seat for
-         * [memberId] with `until = null` (an OPEN seat, exactly the state [GovernanceService
-         * .endAllOpenCommitteeMembershipsForMember] leaves behind for a member whose status moves to
-         * anything outside `MemberStatusSets.MEMBERSHIP_ENDED` -- see Security-Fix finding this
-         * covers). Caller MUST call [cleanUpBoardFixture] before the test ends -- `committee`/
+         * [memberId] with `until = null` (an OPEN seat -- since V1.9.102 `CommitteeSeatLifecycle` ends
+         * the seats of every status in `MemberStatusSets.COMMITTEE_SEAT_ENDING` automatically, so this is
+         * the LEGACY state of a member whose status changed before that wave -- see Security-Fix finding
+         * this covers). Caller MUST call [cleanUpBoardFixture] before the test ends -- `committee`/
          * `committee_membership` are outside the shared `afterTest` cleanup this file already has,
          * and `committee_membership.member_id` is a plain (non-cascading) FK, so a stray row here
          * would otherwise block the shared `afterTest`'s `MemberTable.deleteWhere`.
@@ -355,8 +355,8 @@ class PublicTransparencyRoutesTest :
 
         test(
             "Security-Fix: an EXECUTIVE_BOARD seat with an OPEN membership (until = null) but a member " +
-                "status OUTSIDE ACTIVE (e.g. DONOR, after GovernanceService.endAllOpenCommitteeMembershipsForMember " +
-                "left the seat open because DONOR is not in MemberStatusSets.MEMBERSHIP_ENDED) never appears " +
+                "status OUTSIDE ACTIVE (legacy data, e.g. a member who became DONOR before V1.9.102 -- the automatic " +
+                "end of seats now covers DONOR via MemberStatusSets.COMMITTEE_SEAT_ENDING) never appears " +
                 "in the Vorstand section",
         ) {
             testApp {

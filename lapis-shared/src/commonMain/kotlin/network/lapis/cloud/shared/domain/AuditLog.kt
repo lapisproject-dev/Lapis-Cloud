@@ -395,6 +395,16 @@ enum class AuditEntityType {
      * Appended LAST, additive only.
      */
     EVENT_IMPORT,
+
+    /**
+     * Welle V1.9.102 "Gremien, Welle B" -- one entry per committee seat ended AUTOMATICALLY by a member status change
+     * (`CommitteeSeatLifecycle`), `action = UPDATE`, `entityId` = the `committee_membership` row id, before/after =
+     * `CommitteeMembershipAuditSnapshot` (ids, enums and dates only -- never a name, mail address or date of death). The actor is
+     * the human who triggered the status change (the deciding BOARD/ADMIN, or the leaving member) and is null only for the operator console;
+     * it is recorded on this entry itself because `rejectApplication` and `leaveMembership` write no `MEMBER` entry. 20 chars, fits within
+     * `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    COMMITTEE_MEMBERSHIP,
 }
 
 /**

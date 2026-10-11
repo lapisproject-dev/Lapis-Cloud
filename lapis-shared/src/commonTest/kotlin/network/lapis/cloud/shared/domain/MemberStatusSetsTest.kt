@@ -150,4 +150,49 @@ class MemberStatusSetsTest {
             assertFalse(it in MemberStatusSets.ANNIVERSARY_ELIGIBLE)
         }
     }
+
+    // ── Welle V1.9.102 "Gremien, Welle B": which status changes end committee seats ──
+
+    @Test
+    fun committeeSeatEnding_isExactlyWithdrawnRejectedDeceasedDonor() {
+        assertEquals(
+            setOf(MemberStatus.WITHDRAWN, MemberStatus.REJECTED, MemberStatus.DECEASED, MemberStatus.DONOR),
+            MemberStatusSets.COMMITTEE_SEAT_ENDING,
+        )
+    }
+
+    @Test
+    fun committeeSeatKeeping_isExactlyActiveApplicationFriendGuest() {
+        assertEquals(
+            setOf(MemberStatus.ACTIVE, MemberStatus.APPLICATION, MemberStatus.FRIEND, MemberStatus.GUEST),
+            MemberStatusSets.COMMITTEE_SEAT_KEEPING,
+        )
+    }
+
+    /** Every status is classified exactly once: a new MemberStatus literal fails here until somebody decides what it does to seats. */
+    @Test
+    fun committeeSeatSets_partitionAllStatuses() {
+        val ending = MemberStatusSets.COMMITTEE_SEAT_ENDING
+        val keeping = MemberStatusSets.COMMITTEE_SEAT_KEEPING
+        assertTrue((ending intersect keeping).isEmpty())
+        assertEquals(MemberStatus.entries.toSet(), ending union keeping)
+        MemberStatus.entries.forEach { status ->
+            // an exhaustive when: adding a literal without extending it does not compile
+            val endsSeats =
+                when (status) {
+                    MemberStatus.WITHDRAWN, MemberStatus.REJECTED, MemberStatus.DECEASED, MemberStatus.DONOR -> true
+                    MemberStatus.ACTIVE, MemberStatus.APPLICATION, MemberStatus.FRIEND, MemberStatus.GUEST -> false
+                }
+            assertEquals(endsSeats, status in ending, "$status")
+            assertEquals(!endsSeats, status in keeping, "$status")
+        }
+    }
+
+    /** DONOR ends seats but is NOT a membership end: that set also revokes SEPA mandates, and a donor keeps a running mandate. */
+    @Test
+    fun donor_endsSeats_butIsNotInMembershipEnded() {
+        assertTrue(MemberStatus.DONOR in MemberStatusSets.COMMITTEE_SEAT_ENDING)
+        assertFalse(MemberStatus.DONOR in MemberStatusSets.MEMBERSHIP_ENDED)
+        assertTrue(MemberStatusSets.MEMBERSHIP_ENDED.all { it in MemberStatusSets.COMMITTEE_SEAT_ENDING })
+    }
 }

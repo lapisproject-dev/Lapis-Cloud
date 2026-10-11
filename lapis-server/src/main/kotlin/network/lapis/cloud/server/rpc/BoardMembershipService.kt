@@ -111,7 +111,8 @@ class BoardMembershipService(
                 committeeRole = beforeRow[BoardMembershipTable.committeeRole],
                 startedAt = beforeRow[BoardMembershipTable.startedAt],
                 endedAt = endedAt,
-                current = current,
+                actorMemberId = current.memberId,
+                actorRole = current.role,
             )
             loadBoardMembership(id)
         }

@@ -371,6 +371,53 @@ class MemberAdministrationScreenTest {
         assertFalse(text.contains("SEPA-Mandat"))
     }
 
+    // ── Welle V1.9.102: the automatic end of committee seats is named in the dialog ──
+
+    private val seatEndSentence = "Offene Gremienzeiten enden automatisch zum heutigen Tag."
+    private val noRestoreSentence = "Gremienzeiten werden nicht automatisch wiederhergestellt."
+
+    @Test
+    fun statusChangeConsequence_toWithdrawnAndDeceased_nameTheAutomaticEndOfCommitteeTerms() {
+        listOf(MemberStatus.WITHDRAWN, MemberStatus.DECEASED).forEach { target ->
+            val text = statusChangeConsequence(MemberStatus.ACTIVE, target, hasAccount = true)
+            assertTrue(text.contains("offene Gremienzeiten enden automatisch zum heutigen Tag"), "$target: $text")
+        }
+    }
+
+    @Test
+    fun statusChangeConsequence_toDonorAndRejected_nameTheAutomaticEndOfCommitteeTerms() {
+        val donor = statusChangeConsequence(MemberStatus.ACTIVE, MemberStatus.DONOR, hasAccount = true)
+        assertTrue(donor.contains(seatEndSentence), donor)
+        assertTrue(donor.contains("Login"), donor)
+        val rejected = statusChangeConsequence(MemberStatus.APPLICATION, MemberStatus.REJECTED, hasAccount = true)
+        assertTrue(rejected.contains(seatEndSentence), rejected)
+    }
+
+    @Test
+    fun statusChangeConsequence_comingBackToActive_saysTermsAreNotRestored() {
+        listOf(MemberStatus.WITHDRAWN, MemberStatus.DONOR, MemberStatus.DECEASED, MemberStatus.REJECTED).forEach { from ->
+            assertTrue(statusChangeConsequence(from, MemberStatus.ACTIVE, hasAccount = true).contains(noRestoreSentence), "$from")
+            assertTrue(
+                statusChangeConsequence(from, MemberStatus.ACTIVE, hasAccount = false).contains(noRestoreSentence),
+                "$from (no account)",
+            )
+        }
+    }
+
+    @Test
+    fun statusChangeConsequence_otherChanges_mentionNeitherSentence() {
+        listOf(
+            Triple(MemberStatus.ACTIVE, MemberStatus.GUEST, true),
+            Triple(MemberStatus.FRIEND, MemberStatus.APPLICATION, true),
+            Triple(MemberStatus.APPLICATION, MemberStatus.ACTIVE, true),
+            Triple(MemberStatus.GUEST, MemberStatus.FRIEND, false),
+        ).forEach { (from, to, hasAccount) ->
+            val text = statusChangeConsequence(from, to, hasAccount)
+            assertFalse(text.contains(seatEndSentence), "$from -> $to: $text")
+            assertFalse(text.contains(noRestoreSentence), "$from -> $to: $text")
+        }
+    }
+
     @Test
     fun statusChangeConsequence_toActiveWithoutAccount_warnsNoLoginAndNoContribution() {
         val text = statusChangeConsequence(MemberStatus.DONOR, MemberStatus.ACTIVE, hasAccount = false)

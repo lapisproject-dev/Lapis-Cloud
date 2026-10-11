@@ -159,6 +159,58 @@ data class CommitteeMembershipDto(
     val role: CommitteeRole,
     val since: LocalDate,
     val until: LocalDate?,
+    /**
+     * Welle V1.9.102 -- the member status whose change ended this seat AUTOMATICALLY, or null (never ended automatically, or ended/re-ended
+     * by hand). Only ever filled for BOARD/ADMIN callers; for everybody else the server sends null (DECEASED/DONOR are personal data).
+     */
+    val autoEndReason: MemberStatus? = null,
+)
+
+/** Welle V1.9.102 -- one committee seat ended automatically by a member status change (see [CommitteeAutoEndNoticeDto]). */
+@Serializable
+data class CommitteeAutoEndEntryDto(
+    val committeeId: String,
+    val committeeName: String,
+    val membershipId: String,
+    val memberId: String,
+    val memberDisplayName: String,
+    val role: CommitteeRole,
+    val since: LocalDate,
+    val until: LocalDate,
+    val reason: MemberStatus,
+)
+
+/** Welle V1.9.102 -- an active executive board without any currently eligible CHAIR. Computed on every call, never stored. */
+@Serializable
+data class VacantMandatoryRoleDto(
+    val committeeId: String,
+    val committeeName: String,
+    val role: CommitteeRole,
+)
+
+/**
+ * Welle V1.9.102 -- a still-open committee seat of a person whose CURRENT member status is one of
+ * `MemberStatusSets.COMMITTEE_SEAT_ENDING` (legacy data from before the automatic end existed). Read-only: the board cleans these up by hand.
+ */
+@Serializable
+data class CommitteeOpenSeatDto(
+    val committeeId: String,
+    val committeeName: String,
+    val membershipId: String,
+    val memberId: String,
+    val memberDisplayName: String,
+    val role: CommitteeRole,
+    val since: LocalDate,
+    val until: LocalDate?,
+    val memberStatus: MemberStatus,
+)
+
+/** Welle V1.9.102 -- the board notice of [network.lapis.cloud.shared.rpc.IGovernanceService.getCommitteeAutoEndNotice]. */
+@Serializable
+data class CommitteeAutoEndNoticeDto(
+    val recentAutoEnds: List<CommitteeAutoEndEntryDto>,
+    val vacantMandatoryRoles: List<VacantMandatoryRoleDto>,
+    val openSeatsWithoutMembership: List<CommitteeOpenSeatDto>,
 )
 
 @Serializable

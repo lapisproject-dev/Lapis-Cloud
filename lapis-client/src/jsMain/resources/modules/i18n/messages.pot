@@ -12650,18 +12650,12 @@ msgstr ""
 msgid "Die Mitgliedschaft endete mit dem Tod (§ 38 BGB). Dieser Eintrag hält das fest, er beendet sie nicht."
 msgstr ""
 
-msgid "Sitzungen werden beendet, offene Gremiensitze enden, ein aktives SEPA-Mandat wird widerrufen. Bereits offene Forderungen bleiben bestehen — sie sind eine Nachlassangelegenheit."
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1241
 msgid "Es wird niemand benachrichtigt."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1243
 msgid "Diese Person ist Beitragszahler einer Familie — die Angehörigen brauchen einen neuen Zahler."
-msgstr ""
-
-msgid "Alle Sitzungen werden sofort beendet, offene Gremien-Mitgliedschaften werden beendet, ein aktives SEPA-Mandat wird widerrufen."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:1253
@@ -20560,4 +20554,52 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/PostalMailScreen.kt
 msgid "%1 physische Briefe werden über Letterxpress an die im System hinterlegten Anschriften aller aktiven Mitglieder verschickt. Fehlt bei auch nur einer Person die vollständige Anschrift, wird der gesamte Versand abgelehnt -- kein Teilversand."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Alle Sitzungen werden sofort beendet, offene Gremienzeiten enden automatisch zum heutigen Tag, ein aktives SEPA-Mandat wird widerrufen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Sitzungen werden beendet, offene Gremienzeiten enden automatisch zum heutigen Tag, ein aktives SEPA-Mandat wird widerrufen. Bereits offene Forderungen bleiben bestehen — sie sind eine Nachlassangelegenheit."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Offene Gremienzeiten enden automatisch zum heutigen Tag."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Gremienzeiten werden nicht automatisch wiederhergestellt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "nicht angetreten, automatisch beendet am %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "automatisch beendet, Grund: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "%1: Vorsitz ist unbesetzt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "In den letzten 30 Tagen automatisch beendet: %1 Gremienzeiten"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "%1: %2, %3, bis %4 (%5)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Offene Gremienzeiten von Personen ohne Mitgliedschaft: %1 – bitte prüfen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "%1: %2, %3, seit %4 (%5)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Gremienmitgliedschaft"
 msgstr ""

@@ -136,6 +136,19 @@ classDiagram(name = "Governance") {
         literal(name = "MANAGING_DIRECTOR")
     }
 
+    // Welle V1.9.102 -- local mirror of the foundation-owned MemberStatus enum (this file is self-contained, see the Member stub above); only
+    // committee_membership.auto_end_reason references it. Literals must stay identical to 00-foundation.kuml.kts / MemberStatus.
+    val memberStatus = enumOf(name = "MemberStatus") {
+        literal(name = "APPLICATION")
+        literal(name = "ACTIVE")
+        literal(name = "GUEST")
+        literal(name = "WITHDRAWN")
+        literal(name = "REJECTED")
+        literal(name = "FRIEND")
+        literal(name = "DONOR")
+        literal(name = "DECEASED")
+    }
+
     val meetingsFormat = enumOf(name = "MeetingFormat") {
         literal(name = "IN_PERSON")
         literal(name = "ONLINE")
@@ -212,6 +225,7 @@ classDiagram(name = "Governance") {
         stereotype("Entity") { "tableName" to "committee_membership"; "kotlinObjectName" to "CommitteeMembershipTable" }
         stereotype("Index") { "columns" to listOf("committee_id"); "name" to "idx_committee_membership_committee" }
         stereotype("Index") { "columns" to listOf("member_id"); "name" to "idx_committee_membership_member" }
+        stereotype("Index") { "columns" to listOf("auto_end_reason", "until"); "name" to "idx_committee_membership_auto_end" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -226,6 +240,11 @@ classDiagram(name = "Governance") {
         attribute(name = "until", type = "LocalDate") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "until" }
+        }
+        // Welle V1.9.102 -- the MemberStatus (WITHDRAWN/REJECTED/DECEASED/DONOR) whose change ended this seat automatically; NULL otherwise.
+        attribute(name = "autoEndReason", type = memberStatus) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "auto_end_reason"; "enumType" to "network.lapis.cloud.shared.domain.MemberStatus"; "sqlType" to "VARCHAR(16)" }
         }
     }
 

@@ -1735,36 +1735,54 @@ fun statusChangeConsequence(
     to: MemberStatus,
     hasAccount: Boolean,
     familyRole: FamilyMemberRole? = null,
-): String =
-    when {
-        to == MemberStatus.DECEASED ->
-            listOfNotNull(
-                tr("Die Mitgliedschaft endete mit dem Tod (§ 38 BGB). Dieser Eintrag hält das fest, er beendet sie nicht."),
+): String {
+    val base =
+        when {
+            to == MemberStatus.DECEASED ->
+                listOfNotNull(
+                    tr("Die Mitgliedschaft endete mit dem Tod (§ 38 BGB). Dieser Eintrag hält das fest, er beendet sie nicht."),
+                    tr(
+                        "Sitzungen werden beendet, offene Gremienzeiten enden automatisch zum heutigen Tag, ein " +
+                            "aktives SEPA-Mandat wird widerrufen. Bereits offene Forderungen bleiben bestehen — sie " +
+                            "sind eine Nachlassangelegenheit.",
+                    ),
+                    tr("Es wird niemand benachrichtigt."),
+                    if (familyRole == FamilyMemberRole.PAYER) {
+                        tr("Diese Person ist Beitragszahler einer Familie — die Angehörigen brauchen einen neuen Zahler.")
+                    } else {
+                        null
+                    },
+                ).joinToString(separator = " ")
+            to == MemberStatus.WITHDRAWN ->
                 tr(
-                    "Sitzungen werden beendet, offene Gremiensitze enden, ein aktives SEPA-Mandat wird " +
-                        "widerrufen. Bereits offene Forderungen bleiben bestehen — sie sind eine " +
-                        "Nachlassangelegenheit.",
-                ),
-                tr("Es wird niemand benachrichtigt."),
-                if (familyRole == FamilyMemberRole.PAYER) {
-                    tr("Diese Person ist Beitragszahler einer Familie — die Angehörigen brauchen einen neuen Zahler.")
-                } else {
-                    null
-                },
-            ).joinToString(separator = " ")
-        to == MemberStatus.WITHDRAWN ->
-            tr(
-                "Alle Sitzungen werden sofort beendet, offene Gremien-Mitgliedschaften werden beendet, " +
-                    "ein aktives SEPA-Mandat wird widerrufen.",
-            )
-        to == MemberStatus.DONOR -> tr("Der Login wird gesperrt. Kein Beitrag, keine Governance-Rechte.")
-        to == MemberStatus.ACTIVE && !hasAccount ->
-            tr(
-                "Dieses Mitglied hat kein Login-Konto -- ein Statuswechsel erzeugt keines. Ohne zugeordnete " +
-                    "Mitgliedschaftsstufe entstehen außerdem keine Beiträge.",
-            )
-        else -> gettext("Status wird von %1 auf %2 geändert.", memberStatusLabel(from), memberStatusLabel(to))
+                    "Alle Sitzungen werden sofort beendet, offene Gremienzeiten enden automatisch zum heutigen " +
+                        "Tag, ein aktives SEPA-Mandat wird widerrufen.",
+                )
+            // V1.9.102 -- a donor is no member: committee seats end (the SEPA mandate stays, hence no mandate sentence here).
+            to == MemberStatus.DONOR ->
+                listOf(
+                    tr("Der Login wird gesperrt. Kein Beitrag, keine Governance-Rechte."),
+                    tr("Offene Gremienzeiten enden automatisch zum heutigen Tag."),
+                ).joinToString(separator = " ")
+            to == MemberStatus.REJECTED ->
+                listOf(
+                    gettext("Status wird von %1 auf %2 geändert.", memberStatusLabel(from), memberStatusLabel(to)),
+                    tr("Offene Gremienzeiten enden automatisch zum heutigen Tag."),
+                ).joinToString(separator = " ")
+            to == MemberStatus.ACTIVE && !hasAccount ->
+                tr(
+                    "Dieses Mitglied hat kein Login-Konto -- ein Statuswechsel erzeugt keines. Ohne zugeordnete " +
+                        "Mitgliedschaftsstufe entstehen außerdem keine Beiträge.",
+                )
+            else -> gettext("Status wird von %1 auf %2 geändert.", memberStatusLabel(from), memberStatusLabel(to))
+        }
+    // V1.9.102 -- coming back from a seat-ending status never restores the seats that ended automatically.
+    return if (from in MemberStatusSets.COMMITTEE_SEAT_ENDING && to == MemberStatus.ACTIVE) {
+        listOf(base, tr("Gremienzeiten werden nicht automatisch wiederhergestellt.")).joinToString(separator = " ")
+    } else {
+        base
     }
+}
 
 /** Reine Funktion für das Pager-Label, z. B. "26–50 von 407". */
 fun pagerLabel(

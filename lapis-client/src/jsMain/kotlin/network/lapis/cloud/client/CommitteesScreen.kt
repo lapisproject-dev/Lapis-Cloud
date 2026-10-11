@@ -64,6 +64,8 @@ fun renderCommitteesScreen(container: SimplePanel) {
     val canManage = AppState.hasRole(AccountRole.BOARD, AccountRole.ADMIN)
     // V1.9.40 (R36B): the create form is collapsed; its button sits in the title row and the form opens right under the header.
     val createHost = if (canManage) root.vPanel(spacing = 6) else null
+    // V1.9.102: notice band (automatic ends, vacant chair, legacy open seats) -- BOARD/ADMIN only, reloaded after every seat change.
+    val reloadAutoEndNotice = if (canManage) renderCommitteeAutoEndNotice(root.vPanel(spacing = 4)) else ({})
 
     root.h2(tr("Übersicht")) { addCssClass("h5") }
     val filterRow = root.lapisToolbar()
@@ -75,7 +77,7 @@ fun renderCommitteesScreen(container: SimplePanel) {
     rosterPanel.p(tr("Gremium oben auswählen, um die Besetzung zu sehen."))
 
     fun selectCommittee(committee: CommitteeDto) {
-        renderCommitteeRoster(rosterPanel, committee, canManage)
+        renderCommitteeRoster(rosterPanel, committee, canManage, onSeatsChanged = reloadAutoEndNotice)
     }
 
     fun refreshCommittees() {
@@ -262,10 +264,11 @@ internal fun renderCommitteeRoster(
     rosterPanel: SimplePanel,
     committee: CommitteeDto,
     canManage: Boolean,
+    onSeatsChanged: () -> Unit = {},
 ) {
     rosterPanel.removeAll()
     if (committee.type == CommitteeType.GENERAL_ASSEMBLY) {
-        renderGeneralAssemblyRoster(rosterPanel, committee, canManage)
+        renderGeneralAssemblyRoster(rosterPanel, committee, canManage, onSeatsChanged)
         return
     }
     // Security audit follow-up (untrusted-text sanitization gaps): committee.name is admin-editable free text
@@ -281,6 +284,7 @@ internal fun renderCommitteeRoster(
     val addMemberPanel = if (canManage) rosterPanel.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") } else null
 
     var loadedMemberships: List<CommitteeMembershipDto> = emptyList()
+    lateinit var seatsChanged: () -> Unit
 
     fun refreshRoster() {
         rosterListPanel.removeAll()
@@ -290,17 +294,22 @@ internal fun renderCommitteeRoster(
                     rpcService<IGovernanceService>().listCommitteeMembers(committee.id, activeOnly = !includeEndedCheck.value)
                 } ?: return@launch
             loadedMemberships = memberships
-            renderRosterRows(rosterListPanel, rosterFilter, loadedMemberships, canManage, ::refreshRoster)
+            renderRosterRows(rosterListPanel, rosterFilter, loadedMemberships, canManage, seatsChanged)
         }
     }
-    rosterFilter.subscribe { renderRosterRows(rosterListPanel, rosterFilter, loadedMemberships, canManage, ::refreshRoster) }
+    // A seat added or ended by hand changes what the notice band shows (vacant chair), so the band reloads too.
+    seatsChanged = {
+        refreshRoster()
+        onSeatsChanged()
+    }
+    rosterFilter.subscribe { renderRosterRows(rosterListPanel, rosterFilter, loadedMemberships, canManage, seatsChanged) }
 
     val rosterRefreshButton = rosterFilterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     rosterRefreshButton.onClick { refreshRoster() }
     refreshRoster()
 
     if (canManage && addMemberPanel != null) {
-        renderAddCommitteeMemberForm(addMemberPanel, committee.id, ::refreshRoster)
+        renderAddCommitteeMemberForm(addMemberPanel, committee.id, seatsChanged)
     }
 }
 
@@ -318,6 +327,7 @@ internal fun renderGeneralAssemblyRoster(
     rosterPanel: SimplePanel,
     committee: CommitteeDto,
     canManage: Boolean,
+    onSeatsChanged: () -> Unit = {},
 ) {
     rosterPanel.h2(sanitizeUntrustedI18nText(gettext("Besetzung: %1", committee.name))) { addCssClass("h5") }
 
@@ -347,6 +357,8 @@ internal fun renderGeneralAssemblyRoster(
     val legacyHost = rosterPanel.vPanel(spacing = 4)
     val addOfficePanel = if (canManage) rosterPanel.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") } else null
 
+    lateinit var seatsChanged: () -> Unit
+
     fun refresh() {
         AppScope.launch {
             val memberships =
@@ -361,7 +373,7 @@ internal fun renderGeneralAssemblyRoster(
             if (offices.isEmpty() && canManage) {
                 officesList.p(tr("Noch keine Ämter besetzt.")) { addCssClasses("text-muted") }
             }
-            offices.forEach { renderRosterRow(officesList, it, canManage, ::refresh) }
+            offices.forEach { renderRosterRow(officesList, it, canManage, seatsChanged) }
             // c) earlier single entries: collapsed, read-only apart from ending the term, never deleted
             legacyHost.removeAll()
             if (legacy.isNotEmpty()) {
@@ -379,7 +391,7 @@ internal fun renderGeneralAssemblyRoster(
                     ),
                 )
                 val legacyRows = SimplePanel()
-                legacy.forEach { renderRosterRow(legacyRows, it, canManage, ::refresh) }
+                legacy.forEach { renderRosterRow(legacyRows, it, canManage, seatsChanged) }
                 details.add(legacyRows)
                 legacyHost.add(details)
             }
@@ -387,9 +399,13 @@ internal fun renderGeneralAssemblyRoster(
     }
     val refreshButton = includeEndedRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     refreshButton.onClick { refresh() }
+    seatsChanged = {
+        refresh()
+        onSeatsChanged()
+    }
     refresh()
 
-    if (addOfficePanel != null) renderAddCommitteeOfficeForm(addOfficePanel, committee.id, ::refresh)
+    if (addOfficePanel != null) renderAddCommitteeOfficeForm(addOfficePanel, committee.id, seatsChanged)
 }
 
 /**
@@ -483,6 +499,7 @@ private fun renderRosterRow(
             gettext("seit %1", formatDate(membership.since))
         }
     row.div(period) { addCssClasses("text-muted small") }
+    committeeSeatAutoEndNote(membership)?.let { note -> row.div(note) { addCssClasses("text-muted small fst-italic") } }
 
     if (canManage && membership.until == null) {
         val endButton = row.button(tr("Mitgliedschaft beenden"), style = ButtonStyle.OUTLINEDANGER)
@@ -650,3 +667,84 @@ fun committeeRoleColor(role: CommitteeRole): String =
         CommitteeRole.PRESS_SPOKESPERSON -> "secondary"
         CommitteeRole.MANAGING_DIRECTOR -> "dark"
     }
+
+/**
+ * V1.9.102 -- neutral note on a roster row whose seat was ended AUTOMATICALLY by a member status change (null otherwise). The server only
+ * sends `autoEndReason` to BOARD/ADMIN, so everybody else never sees it. A seat that ends before it began (`since > until`, an appointment
+ * in the future cancelled by the status change) reads "not taken up" instead of "ended". The reason is a member-status label, no free text.
+ */
+internal fun committeeSeatAutoEndNote(membership: CommitteeMembershipDto): String? {
+    val reason = membership.autoEndReason ?: return null
+    val until = membership.until ?: return null
+    return if (membership.since > until) {
+        gettext("nicht angetreten, automatisch beendet am %1", formatDate(until))
+    } else {
+        gettext("automatisch beendet, Grund: %1", memberStatusLabel(reason))
+    }
+}
+
+/**
+ * V1.9.102 -- the notice band above the committee list for BOARD/ADMIN: seats ended automatically in the last 30 days, active executive
+ * boards without a chair, and legacy open seats of persons whose status no longer permits one. Not dismissible; invisible while all three
+ * lists are empty or while the notice cannot be loaded. Returns the reload function (called after every seat change).
+ */
+internal fun renderCommitteeAutoEndNotice(host: SimplePanel): () -> Unit {
+    fun reload() {
+        AppScope.launch {
+            val notice = guarded { rpcService<IGovernanceService>().getCommitteeAutoEndNotice() }
+            host.removeAll()
+            if (notice == null) return@launch
+            val nothingToShow =
+                notice.recentAutoEnds.isEmpty() && notice.vacantMandatoryRoles.isEmpty() && notice.openSeatsWithoutMembership.isEmpty()
+            if (nothingToShow) return@launch
+            val band = host.vPanel(spacing = 4) { addCssClasses("alert alert-info mb-0") }
+            band.setAttribute("role", "status")
+            if (notice.vacantMandatoryRoles.isNotEmpty()) {
+                notice.vacantMandatoryRoles.forEach { vacant ->
+                    band.untrustedDiv(gettext("%1: Vorsitz ist unbesetzt.", vacant.committeeName), className = "fw-bold")
+                }
+            }
+            if (notice.recentAutoEnds.isNotEmpty()) {
+                band.div(gettext("In den letzten 30 Tagen automatisch beendet: %1 Gremienzeiten", notice.recentAutoEnds.size)) {
+                    addCssClass("fw-bold")
+                }
+                notice.recentAutoEnds.forEach { entry ->
+                    band.untrustedDiv(
+                        gettext(
+                            "%1: %2, %3, bis %4 (%5)",
+                            entry.memberDisplayName,
+                            entry.committeeName,
+                            committeeRoleLabel(entry.role),
+                            formatDate(entry.until),
+                            memberStatusLabel(entry.reason),
+                        ),
+                        className = "small",
+                    )
+                }
+            }
+            if (notice.openSeatsWithoutMembership.isNotEmpty()) {
+                band.div(
+                    gettext(
+                        "Offene Gremienzeiten von Personen ohne Mitgliedschaft: %1 – bitte prüfen.",
+                        notice.openSeatsWithoutMembership.size,
+                    ),
+                ) { addCssClass("fw-bold") }
+                notice.openSeatsWithoutMembership.forEach { seat ->
+                    band.untrustedDiv(
+                        gettext(
+                            "%1: %2, %3, seit %4 (%5)",
+                            seat.memberDisplayName,
+                            seat.committeeName,
+                            committeeRoleLabel(seat.role),
+                            formatDate(seat.since),
+                            memberStatusLabel(seat.memberStatus),
+                        ),
+                        className = "small",
+                    )
+                }
+            }
+        }
+    }
+    reload()
+    return ::reload
+}

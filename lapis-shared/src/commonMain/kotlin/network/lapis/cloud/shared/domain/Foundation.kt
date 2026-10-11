@@ -228,6 +228,20 @@ object MemberStatusSets {
      * "Beschriftung folgt Status".
      */
     val ANNIVERSARY_ELIGIBLE: Set<MemberStatus> = setOf(MemberStatus.ACTIVE, MemberStatus.DONOR)
+
+    /**
+     * Welle V1.9.102 "Gremien, Welle B" -- the statuses a member's change TO which ends every open committee seat automatically
+     * (`CommitteeSeatLifecycle`): WITHDRAWN, REJECTED, DECEASED and DONOR. A donor is not a member, so a committee seat (which presupposes
+     * membership) cannot continue. DONOR is deliberately NOT part of [MEMBERSHIP_ENDED]: that set also revokes SEPA mandates
+     * (`SepaBatchPoller`), and a donor keeps a running mandate. Hence this separate set, a strict superset of [MEMBERSHIP_ENDED].
+     * Also used by the client to word the confirmation dialog.
+     */
+    val COMMITTEE_SEAT_ENDING: Set<MemberStatus> =
+        setOf(MemberStatus.WITHDRAWN, MemberStatus.REJECTED, MemberStatus.DECEASED, MemberStatus.DONOR)
+
+    /** Welle V1.9.102 -- the complement of [COMMITTEE_SEAT_ENDING]: a change to one of these never ends a committee seat. */
+    val COMMITTEE_SEAT_KEEPING: Set<MemberStatus> =
+        setOf(MemberStatus.ACTIVE, MemberStatus.APPLICATION, MemberStatus.FRIEND, MemberStatus.GUEST)
 }
 
 /**

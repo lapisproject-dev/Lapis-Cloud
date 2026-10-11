@@ -5,6 +5,7 @@ package network.lapis.cloud.server.db.generated
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.CommitteeRole
+import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.datetime.date
@@ -14,12 +15,13 @@ public object CommitteeMembershipTable : Table("committee_membership") {
     public val role: Column<CommitteeRole> = enumerationByName<CommitteeRole>("role", 20)
     public val since: Column<LocalDate> = date("since")
     public val until: Column<LocalDate?> = date("until").nullable()
+    public val autoEndReason: Column<MemberStatus?> = enumerationByName<MemberStatus>("auto_end_reason", 16).nullable()
     public val committeeId: Column<Uuid> = reference("committee_id", CommitteeTable.id)
     public val memberId: Column<Uuid> = reference("member_id", MemberTable.id)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
-    // Note: 2 index(es) declared on this entity are not emitted —
+    // Note: 3 index(es) declared on this entity are not emitted —
     // Exposed's index {} DSL needs typed column references, not wired up in this wave.
 
     // Note: 1 check constraint(s) declared on this entity are not

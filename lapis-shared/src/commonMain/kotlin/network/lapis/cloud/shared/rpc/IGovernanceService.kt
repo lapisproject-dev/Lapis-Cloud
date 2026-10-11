@@ -6,6 +6,7 @@ import network.lapis.cloud.shared.domain.AgendaItemDto
 import network.lapis.cloud.shared.domain.AgendaItemInput
 import network.lapis.cloud.shared.domain.AttendanceDto
 import network.lapis.cloud.shared.domain.AttendanceInput
+import network.lapis.cloud.shared.domain.CommitteeAutoEndNoticeDto
 import network.lapis.cloud.shared.domain.CommitteeDto
 import network.lapis.cloud.shared.domain.CommitteeInput
 import network.lapis.cloud.shared.domain.CommitteeMembershipDto
@@ -106,6 +107,13 @@ interface IGovernanceService {
         membershipId: String,
         until: LocalDate,
     ): CommitteeMembershipDto
+
+    /**
+     * Welle V1.9.102 -- Role: BOARD/ADMIN. The notice band of the committee screen: seats ended automatically in the last 30 days (at
+     * most 50), active executive boards without an eligible CHAIR, and still-open seats of persons whose member status no longer permits
+     * a seat (legacy data, read-only).
+     */
+    suspend fun getCommitteeAutoEndNotice(): CommitteeAutoEndNoticeDto
 
     /**
      * V1.9.101 -- N for the General Assembly: exactly the predicate `computeQuorum` uses. 400 for a

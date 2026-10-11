@@ -134,3 +134,7 @@ Details: `docs/architecture/time-and-timezones.adoc`. Kurzregeln:
   Formatter aus `DateTime.kt`; "jetzt"/"heute" über `organizationNow()`/`organizationToday()`, nie über die Browser-Zone.
 - **Container:** `TZ=UTC`, nie ändern und nie auf eine lokale Zone setzen. Die Testsuite läuft in beiden Prozesszonen grün:
   `./gradlew clean :lapis-server:test -PtestTimeZone=Europe/Berlin` und `-PtestTimeZone=UTC`.
+- **Gremiensitze (V1.9.102):** Ein Statuswechsel nach `MemberStatusSets.COMMITTEE_SEAT_ENDING` beendet Gremiensitze nur über
+  `CommitteeSeatLifecycle.endSeatsForStatusChange` (Phase 1) plus `recordAudits()` (Phase 2, direkt vor dem MEMBER-Audit). Wer `member.status`
+  neu schreibt, muss in `CommitteeSeatLifecycleTripwireTest` klassifiziert werden (Hook-Aufruf oder "legt nur neue Mitglieder an"); wer
+  `committee_membership.until`/`auto_end_reason` schreibt, braucht einen Allowlist-Eintrag mit Begründung.

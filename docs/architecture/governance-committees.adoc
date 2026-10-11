@@ -1,4 +1,4 @@
-= The General Assembly, offices and the person search (V1.9.101)
+= Committees: the General Assembly (V1.9.101) and the automatic end of seats (V1.9.102)
 :toc:
 
 == Scope
@@ -100,8 +100,82 @@ chips, at most 1,000).
 * Anonymized records are never given a letter. They are still `ACTIVE` and therefore still count in N and the quorum (a separate question, left
   unchanged on purpose); the cover sheet names the number of letters actually produced.
 
+== Automatic end of committee seats on a status change (V1.9.102, "Welle B")
+
+When a member's status changes to `WITHDRAWN`, `REJECTED`, `DECEASED` or `DONOR` (`MemberStatusSets.COMMITTEE_SEAT_ENDING`), every open committee seat
+of that member ends automatically, in the same transaction as the status change. Before V1.9.102 this happened for the first three only (the set
+`MEMBERSHIP_ENDED`), through `endAllOpenCommitteeMembershipsForMember`, which wrote `until` but left no trace of why.
+
+*Trigger sets.* `COMMITTEE_SEAT_ENDING` is a strict superset of `MEMBERSHIP_ENDED`. `DONOR` is in the first but deliberately not in the second:
+`MEMBERSHIP_ENDED` also revokes SEPA mandates (`SepaBatchPoller`), and a donor keeps a running mandate. A donor is not a member, so a seat (which
+presupposes membership) cannot continue -- that is a product decision beyond "leaving". `COMMITTEE_SEAT_KEEPING` (`ACTIVE`, `APPLICATION`,
+`FRIEND`, `GUEST`) is the complement; a test pins that every status is in exactly one of the two sets. `rejectApplication` falls back to `FRIEND` for
+a former friend; the seats end there too, with the reason `REJECTED` (the hook takes an explicit `reason` that is separate from the target status).
+
+*The hook.* `CommitteeSeatLifecycle.endSeatsForStatusChange` is called from exactly three places (pinned by `CommitteeSeatLifecycleTripwireTest`):
+`MemberRoleStatusMutations.applyStatusChangeLocked` (admin UI, four-eyes execution, operator console), `RegistrationService.leaveMembership` and
+`RegistrationService.rejectApplication`. It runs after every permission check (transition rules, admin-peer guard, self-change ban, death-date
+plausibility), so none of those is weakened. Every seat of the member with `until IS NULL OR until > stichtag` gets `until = stichtag` and
+`auto_end_reason = reason` (migration V83). `stichtag` is the date of the status change in the organisation time zone, also for a death some days
+ago (the date of death stays on the member row and is not copied anywhere). Seats that ended on or before the stichtag are never touched, so the hook
+is idempotent. A seat that has not started yet (`since > stichtag`) gets the same `until`, which makes its interval empty: the person is eligible on
+no day, and the row is kept for the record. An EXECUTIVE_BOARD seat also closes the open `BoardMembership` (`cascadeExecutiveBoardEnd`, shared with
+the manual end) and creates the Transparenzregister reminder as before.
+
+[kuml, committee-seat-auto-end, svg]
+----
+sequenceDiagram(name = "Automatic end of committee seats (V1.9.102)") {
+    val caller = participant(name = "Status change (admin UI, exit, rejection)")
+    val checks = participant(name = "Permission and transition checks")
+    val hook = participant(name = "CommitteeSeatLifecycle phase 1")
+    val others = participant(name = "Mandates, photo/bio revokes, officer grant")
+    val audit = participant(name = "Audit log (phase 2)")
+
+    message(from = caller, to = checks, text = "peer guard, self-change ban, transition rules, death date")
+    message(from = checks, to = hook, text = "newStatus in COMMITTEE_SEAT_ENDING: end seats (until = stichtag, auto_end_reason), board cascade, no audit yet")
+    message(from = hook, to = others, text = "same transaction, remaining row-locking writes")
+    message(from = others, to = audit, text = "recordAudits(): one COMMITTEE_MEMBERSHIP entry per seat (triggering human as actor)")
+    message(from = audit, to = audit, text = "then the MEMBER entry of the status change (if the path writes one)")
+}
+----
+
+*Two phases, because of the audit lock.* `AuditLogRecorder.record` locks the single hash-chain row and must be the last row-locking write of a
+transaction. Phase 1 therefore writes seat and board rows but no audit and returns a `CommitteeSeatEndResult`; the caller does its other writes and
+then calls `recordAudits()` (phase 2), directly before its own `MEMBER` audit entry. The entries carry the triggering human as actor (the deciding BOARD/ADMIN, or the leaving member; null only for the operator console), `entity_type =
+COMMITTEE_MEMBERSHIP`, and snapshots with ids, enums and dates only (`CommitteeMembershipAuditSnapshot`): no name, no mail address, no date of
+death. The same actor is recorded on the cascaded `BOARD_MEMBERSHIP` end entry (section 20 GwG), because `rejectApplication` and `leaveMembership` write no `MEMBER` entry. Where one exists, the `MEMBER` entry of the same change links by `occurred_at` and member id. A manual end of a seat
+(`endCommitteeMembership`) resets `auto_end_reason` to null.
+
+*Failure policy.* A database error rolls the whole status change back: "withdrawn but still chair" must not exist. A retry is safe. An executive
+board left without a CHAIR is a business result, not an error: the status change succeeds, the result lists the board, it is logged (ids only) and
+shown in the notice band.
+
+*Notice band.* `IGovernanceService.getCommitteeAutoEndNotice` (BOARD/ADMIN only) returns (1) seats ended automatically in the last 30 days
+(at most 50, newest first), (2) active executive boards without an eligible CHAIR, computed on every call and evaluated for the following day (see
+the inclusive `until` below), and (3) a read-only list (at most 50) of still-open seats of persons whose current status is in
+`COMMITTEE_SEAT_ENDING` -- legacy data from before this wave. There is deliberately **no backfill**: changing old rows silently would be a
+retroactive change; the board cleans them up by hand. The reason (`autoEndReason`) is sent only to BOARD/ADMIN callers of `listCommitteeMembers`
+(`DECEASED` and `DONOR` are personal data); it is visible on a roster row only with "show ended". It is in the data export of the person concerned.
+
+*Tripwire.* `CommitteeSeatLifecycleTripwireTest` classifies every file that writes `member.status` (hook called or "inserts new members only"),
+pins the three hook call sites and their `recordAudits()`, allowlists the files that may write `committee_membership.until`/`auto_end_reason`
+(`GovernanceService`, `CommitteeSeatLifecycle`, `ElectionService` for the re-election of a winner, `StagingSeedGovernance`) and forbids raw SQL on
+the table.
+
 == Known limitations
 
+* *Inclusive end date.* `until` is inclusive everywhere in the eligibility code (`CommitteeEligibility`). A person whose seat ended automatically on
+  the stichtag still counts on that day (quorum, ballots, voter snapshots of an election opened that day) and no longer from the next day. This
+  deviates from "from the stichtag on, no longer counts"; changing the shared predicate was ruled out (it would alter every existing seat), and
+  `until = stichtag - 1` would rewrite the past for a same-day exit.
+* In the case of death the seat ends on the day of the status change, not on the date of death.
+* Frozen voter snapshots of elections already open, ballots cast, closed elections and earlier resolutions are not touched; only seat rows of the
+  member change.
+* The only mandatory role that is watched is CHAIR of an executive board; this is not configurable.
+* No e-mail to the board, only the notice band (30 days, at most 50 entries).
+* There is no separate status for an expulsion (it runs through `WITHDRAWN`).
+* Legacy seats are shown, not repaired (see above). Coming back to `ACTIVE` restores nothing; the confirmation dialog says so.
+* Without "show ended", the roster does not list ended seats, so the note "ended automatically" is only visible with that option.
 * N is the CURRENT member status, not the status at the date of the meeting (the same simplification as the quorum).
 * With more than 1,000 recipients the parts are separate requests: a member who joins between two downloads can shift the boundary (sorted by id;
   the cover sheet carries the as-of time). The drift is documented, not prevented.

@@ -76,9 +76,13 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * more for the assembly's own view), in `MeetingsScreen.kt` the same N for the invitation (`countGeneralAssemblyEligible(`, net the file went
  * 7 -> 6), and in the new `RemoteMemberPicker.kt` (a new file, hence 47 -> 48 files) the person search itself (`searchCommitteeCandidates(`: a
  * debounced, user-triggered dropdown whose empty/failed states live inside the list, a failure toasts through `guarded`). 154 -> 156.
+ * Welle V1.9.102 "Gremien, Welle B" adds ONE more in `CommitteesScreen.kt`: the notice band's `getCommitteeAutoEndNotice(` read. It is a
+ * supplementary hint above the committee list, not the screen's content: a failed load toasts through `guarded` and the band simply stays
+ * hidden, so there is no loading/empty/error state to show (an empty notice is deliberately invisible). Same accepted shape as the badge
+ * reads above. 156 -> 157.
  * The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 156
+private const val READ_OUTSIDE_STATE_REGION_MAX = 157
 private const val FILES_OUTSIDE_STATE_REGION_MAX = 48
 
 /**

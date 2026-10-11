@@ -249,6 +249,10 @@ dto:CommitteeDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) o
 dto:CommitteeMembershipDto.since	D	calendar date (LocalDate); never converted
 dto:CommitteeMembershipDto.until	D	calendar date (LocalDate); never converted
 dto:CommitteeMembershipInput.since	D	calendar date (LocalDate); never converted
+dto:CommitteeAutoEndEntryDto.since	D	calendar date (LocalDate); never converted
+dto:CommitteeAutoEndEntryDto.until	D	calendar date (LocalDate); never converted -- the stichtag the hook wrote (organization-zone date of the status change)
+dto:CommitteeOpenSeatDto.since	D	calendar date (LocalDate); never converted
+dto:CommitteeOpenSeatDto.until	D	calendar date (LocalDate); never converted
 dto:MeetingDto.scheduledAt	B	GovernanceService.createMeeting: input.scheduledAt typed in the meeting form; only its date is used
 dto:MeetingDto.calledAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:MeetingDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

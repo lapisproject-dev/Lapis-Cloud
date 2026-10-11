@@ -397,7 +397,7 @@ class RegistrationService internal constructor(
      * before. Sessions are still revoked either way -- see class KDoc.
      *
      * V0.13.1 "stale roster" fix: also ends every open [network.lapis.cloud.server.db.generated
-     * .CommitteeMembershipTable] row the applicant holds -- see [endAllOpenCommitteeMembershipsForMember]
+     * .CommitteeMembershipTable] row the applicant holds -- see [CommitteeSeatLifecycle]
      * KDoc. Runs for BOTH fallback branches (REJECTED and the FRIEND fallback above) -- an
      * APPLICATION applicant is not expected to already hold a Committee seat, but the cleanup is
      * applied defensively either way, same posture the FRIEND-fallback branch itself already takes
@@ -455,13 +455,21 @@ class RegistrationService internal constructor(
                         now = now,
                         source = MemberStatusHistorySource.LIVE,
                     )
-                    // See KDoc "stale roster" fix -- same transaction as the status flip above, so a
-                    // rejected applicant can never be observed still seated in a Committee.
-                    endAllOpenCommitteeMembershipsForMember(
-                        memberId = targetId,
-                        until = OrganizationTimeZone.dateOf(now),
-                        current = current,
-                    )
+                    // V0.13.1 "stale roster" fix / V1.9.102 -- same transaction as the status flip above, so a rejected applicant can never be
+                    // observed still seated in a Committee. The reason is ALWAYS REJECTED, independent of the fallback status: a rejected
+                    // former friend lands on FRIEND but must lose the seats exactly as before (decision F2).
+                    val seatEnd =
+                        CommitteeSeatLifecycle.endSeatsForStatusChange(
+                            memberId = targetId,
+                            newStatus = fallbackStatus,
+                            reason = MemberStatus.REJECTED,
+                            stichtag = OrganizationTimeZone.dateOf(now),
+                            now = now,
+                            actorMemberId = current.memberId,
+                            actorRole = current.role,
+                        )
+                    // Phase 2 (audits of the ended seats): the last write of this transaction.
+                    seatEnd.recordAudits()
                     loadMember(targetId)
                 }
             }
@@ -540,7 +548,7 @@ class RegistrationService internal constructor(
      *
      * V0.13.1 "stale roster" fix: also ends every open [network.lapis.cloud.server.db.generated
      * .CommitteeMembershipTable] row the leaving member holds -- see
-     * [endAllOpenCommitteeMembershipsForMember] KDoc. Without this, a member who left via this
+     * [CommitteeSeatLifecycle] KDoc. Without this, a member who left via this
      * self-service path kept showing up as an active Committee member in
      * [network.lapis.cloud.server.rpc.GovernanceService.listCommitteeMembers]`(activeOnly=true)`
      * despite no longer being a member at all.
@@ -566,13 +574,18 @@ class RegistrationService internal constructor(
                     now = now,
                     source = MemberStatusHistorySource.LIVE,
                 )
-                // See KDoc "stale roster" fix -- same transaction as the status flip above, so a
-                // withdrawn member can never be observed still seated in a Committee.
-                endAllOpenCommitteeMembershipsForMember(
-                    memberId = current.memberId,
-                    until = OrganizationTimeZone.dateOf(now),
-                    current = current,
-                )
+                // V0.13.1 "stale roster" fix / V1.9.102 -- same transaction as the status flip above, so a withdrawn member can never be
+                // observed still seated in a Committee. Phase 1 only here; the audits (phase 2) follow after the last row-locking write below.
+                val seatEnd =
+                    CommitteeSeatLifecycle.endSeatsForStatusChange(
+                        memberId = current.memberId,
+                        newStatus = MemberStatus.WITHDRAWN,
+                        reason = MemberStatus.WITHDRAWN,
+                        stichtag = OrganizationTimeZone.dateOf(now),
+                        now = now,
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                    )
                 // Welle V1.9.13, decision F1 -- see `revokeActiveRegionalChapterOfficerGrant` KDoc.
                 // Self-service leave: actor IS the leaving member.
                 revokeActiveRegionalChapterOfficerGrant(
@@ -598,6 +611,8 @@ class RegistrationService internal constructor(
                     actorRole = current.role,
                     now = now,
                 )
+                // Phase 2 of the seat hook -- the last audit writes of this transaction (AuditLogRecorder lock order).
+                seatEnd.recordAudits()
                 loadMember(current.memberId)
             }
         SessionStore.revokeAllForMember(memberId = current.memberId)
