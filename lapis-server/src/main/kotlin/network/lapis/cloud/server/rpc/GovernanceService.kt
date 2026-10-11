@@ -3,6 +3,7 @@ import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.containsLikePattern
 import network.lapis.cloud.server.db.generated.AgendaItemTable
 import network.lapis.cloud.server.db.generated.AttendanceTable
 import network.lapis.cloud.server.db.generated.BoardMembershipTable
@@ -18,6 +19,7 @@ import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.LtrBalanceProvider
+import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.routes.PUBLIC_API_MOTION_STATUSES
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.canRecordForMeeting
@@ -30,6 +32,7 @@ import network.lapis.cloud.shared.domain.AgendaItemDto
 import network.lapis.cloud.shared.domain.AgendaItemInput
 import network.lapis.cloud.shared.domain.AttendanceDto
 import network.lapis.cloud.shared.domain.AttendanceInput
+import network.lapis.cloud.shared.domain.CommitteeCandidateSearch
 import network.lapis.cloud.shared.domain.CommitteeDto
 import network.lapis.cloud.shared.domain.CommitteeInput
 import network.lapis.cloud.shared.domain.CommitteeMembershipDto
@@ -41,6 +44,9 @@ import network.lapis.cloud.shared.domain.MeetingDetailDto
 import network.lapis.cloud.shared.domain.MeetingDto
 import network.lapis.cloud.shared.domain.MeetingInput
 import network.lapis.cloud.shared.domain.MeetingStatus
+import network.lapis.cloud.shared.domain.MemberPickDto
+import network.lapis.cloud.shared.domain.MemberPickPageDto
+import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MotionDto
 import network.lapis.cloud.shared.domain.MotionInput
 import network.lapis.cloud.shared.domain.MotionResolutionInput
@@ -59,10 +65,12 @@ import network.lapis.cloud.shared.domain.VoteOpenInput
 import network.lapis.cloud.shared.domain.VoteOptionDto
 import network.lapis.cloud.shared.domain.VoteStatus
 import network.lapis.cloud.shared.domain.WebhookEventType
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.SearchRateLimitedException
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -70,6 +78,8 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.core.like
+import org.jetbrains.exposed.v1.core.lowerCase
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
@@ -78,9 +88,17 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
 import java.math.RoundingMode
+import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
 private val BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
+
+/**
+ * V1.9.101 -- process-wide limiter of the committee-candidate search (60 requests/minute per acting member).
+ * It MUST be a top-level `val`: `GovernanceService` is constructed anew for every RPC call, so a limiter held
+ * per service instance would never accumulate anything.
+ */
+private val COMMITTEE_CANDIDATE_SEARCH_RATE_LIMITER = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
 
 /** Meritokratische Voteen (V0.2.3): server-side floor, never trusted from a client. */
 private val MIN_STAKE_LTR: BigDecimal = BigDecimal("0.01")
@@ -121,6 +139,7 @@ private const val MAX_OPTION_LABEL_LENGTH = 200
 class GovernanceService(
     private val call: ApplicationCall,
     private val ltrBalanceProvider: LtrBalanceProvider = LedgerBackedLtrBalanceProvider(),
+    private val candidateSearchRateLimiter: FederationInboxRateLimiter = COMMITTEE_CANDIDATE_SEARCH_RATE_LIMITER,
 ) : IGovernanceService {
     override suspend fun listCommittees(activeOnly: Boolean): List<CommitteeDto> {
         resolveCurrentMember(call)
@@ -200,6 +219,76 @@ class GovernanceService(
                 .where { conditions.reduce { a, b -> a and b } }
                 .map { it.toCommitteeMembershipDto() }
         }
+    }
+
+    override suspend fun countGeneralAssemblyEligible(committeeId: String): Int {
+        resolveCurrentMember(call)
+        val gId = committeeId.toCommitteeUuid()
+        return transaction {
+            val type =
+                CommitteeTable
+                    .select(CommitteeTable.type)
+                    .where { CommitteeTable.id eq gId }
+                    .singleOrNull()
+                    ?.get(CommitteeTable.type)
+                    ?: throw NotFoundException("Committee $gId not found")
+            if (type != CommitteeType.GENERAL_ASSEMBLY) {
+                throw BadRequestException("Committee $gId is not the General Assembly")
+            }
+            // Same predicate as eligibleMemberIds/computeQuorum -- never a copy (see generalAssemblyCondition KDoc).
+            MemberTable
+                .selectAll()
+                .where { generalAssemblyCondition() }
+                .count()
+                .toInt()
+        }
+    }
+
+    override suspend fun searchCommitteeCandidates(
+        committeeId: String,
+        query: String,
+        page: Int,
+    ): MemberPickPageDto {
+        val current = resolveCurrentMember(call)
+        val gId = committeeId.toCommitteeUuid()
+        // Order matters: the right comes BEFORE any read of member data, the rate limit AFTER the right (an
+        // unauthorized caller must not burn budget, and must not learn which committee ids exist).
+        if (!current.canRecordForMeeting(gId)) throw ForbiddenException("Not authorized to search candidates for this committee")
+        transaction {
+            if (CommitteeTable.select(CommitteeTable.id).where { CommitteeTable.id eq gId }.empty()) {
+                throw NotFoundException("Committee $gId not found")
+            }
+        }
+        if (!candidateSearchRateLimiter.checkAndRecord("actor:${current.memberId}")) throw SearchRateLimitedException()
+        val q = query.trim()
+        if (q.length < CommitteeCandidateSearch.MIN_QUERY_LENGTH || q.length > CommitteeCandidateSearch.MAX_QUERY_LENGTH) {
+            throw BadRequestException(
+                "query must be ${CommitteeCandidateSearch.MIN_QUERY_LENGTH}..${CommitteeCandidateSearch.MAX_QUERY_LENGTH} characters",
+            )
+        }
+        if (page < 0 || page > CommitteeCandidateSearch.MAX_PAGE) {
+            throw BadRequestException("page must be 0..${CommitteeCandidateSearch.MAX_PAGE}")
+        }
+        // No logging of the search term or any name -- only id + display name leave this method.
+        val rows =
+            transaction {
+                // the pattern's escaping is dialect-aware, so it is built INSIDE the transaction
+                val pattern = containsLikePattern(q.lowercase())
+                MemberTable
+                    .select(MemberTable.id, MemberTable.displayName)
+                    .where {
+                        (MemberTable.status eq MemberStatus.ACTIVE) and
+                            MemberTable.anonymizedAt.isNull() and
+                            (MemberTable.displayName.lowerCase() like pattern)
+                    }.orderBy(MemberTable.displayName to SortOrder.ASC, MemberTable.id to SortOrder.ASC)
+                    .limit(CommitteeCandidateSearch.PAGE_SIZE + 1)
+                    .offset((page * CommitteeCandidateSearch.PAGE_SIZE).toLong())
+                    .map { MemberPickDto(id = it[MemberTable.id].toString(), displayName = it[MemberTable.displayName]) }
+            }
+        return MemberPickPageDto(
+            items = rows.take(CommitteeCandidateSearch.PAGE_SIZE),
+            hasMore = rows.size > CommitteeCandidateSearch.PAGE_SIZE,
+        )
     }
 
     override suspend fun addCommitteeMember(

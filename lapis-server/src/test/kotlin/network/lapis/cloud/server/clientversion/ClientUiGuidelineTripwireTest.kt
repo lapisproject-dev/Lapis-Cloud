@@ -803,6 +803,8 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
             listOf(
                 "val includeInactiveCheck = filterRow.checkBox(label = tr(\"Inaktive Gremien anzeigen\"))",
                 "val includeEndedCheck = rosterFilterRow.checkBox(label = tr(\"Ausgeschiedene anzeigen\"))",
+                // V1.9.101: the same filter on the roster of the General Assembly (it shows ended offices).
+                "val includeEndedCheck = includeEndedRow.checkBox(label = tr(\"Ausgeschiedene anzeigen\"))",
             ),
         "ContributionReliefQueueScreen.kt" to
             listOf(

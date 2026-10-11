@@ -250,6 +250,25 @@ internal fun chooseInCombobox(
     option.click()
 }
 
+/**
+ * Picks a person from a [RemoteMemberPicker] the way a person does: types [query] (the search is sent after the debounce), waits until
+ * the server's answer is listed, clicks the entry with id [id]. The stub must answer `searchCommitteeCandidates` with that entry.
+ */
+internal suspend fun HTMLElement.chooseRemote(
+    label: String,
+    query: String,
+    id: String,
+    nth: Int = 0,
+) {
+    val input = controlOf(label, nth) as HTMLInputElement
+    input.focus()
+    input.value = query
+    input.dispatchEvent(Event("input"))
+    val wrapper = assertNotNull(input.closest(".lapis-ssel") as? HTMLElement, "picker without .lapis-ssel wrapper")
+    awaitUntil("the remote option '$id' of '$label'") { wrapper.querySelector("[role=option][data-value='$id']") != null }
+    (wrapper.querySelector("[role=option][data-value='$id']") as HTMLElement).click()
+}
+
 internal fun HTMLElement.tick(
     label: String,
     nth: Int = 0,

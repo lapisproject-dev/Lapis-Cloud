@@ -7,6 +7,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.containsLikePattern
 import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberEmailChangeTable
@@ -86,7 +87,6 @@ import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.ColumnSet
 import org.jetbrains.exposed.v1.core.Expression
 import org.jetbrains.exposed.v1.core.JoinType
-import org.jetbrains.exposed.v1.core.LikePattern
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -547,7 +547,7 @@ class MemberService(
                         // Deliberately NOT externalReference here -- see
                         // `RegionalChapterVisibility` KDoc / Befund 7 (a match/no-match on that
                         // field would leak which PdV-CSV-Import person-number belongs to whom).
-                        val pattern = containsPattern(searchTerm)
+                        val pattern = containsLikePattern(searchTerm)
                         predicate =
                             predicate and
                             ((MemberTable.displayName.lowerCase() like pattern) or (MemberTable.email.lowerCase() like pattern))
@@ -560,7 +560,7 @@ class MemberService(
 
                 var predicate: Op<Boolean> = Op.TRUE
                 if (searchTerm != null) {
-                    val pattern = containsPattern(searchTerm)
+                    val pattern = containsLikePattern(searchTerm)
                     predicate =
                         predicate and
                         (
@@ -1692,18 +1692,6 @@ private fun loadMemberAdminRow(
         .where { MemberTable.id eq id }
         .single()
         .toMemberAdminRowDto(includeFamilyDetails = includeFamilyDetails)
-
-/**
- * `%`/`_` in the raw search text are LIKE metacharacters -- without escaping, a single `%` turns
- * every search into a full-table match on all rows (not a SQL-injection vector, Exposed
- * parameterizes the value, but a correctness/DoS sleeve at scale). Uses Exposed's own
- * [LikePattern.ofLiteral] (dialect-aware escaping) rather than a hand-rolled replace chain, then
- * wraps the escaped literal in unescaped `%` wildcards for a "contains" match.
- */
-private fun containsPattern(term: String): LikePattern {
-    val escaped = LikePattern.ofLiteral(term)
-    return LikePattern("%${escaped.pattern}%", escaped.escapeChar)
-}
 
 private fun String.toMemberUuidOrThrow(): Uuid =
     runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Member $this not found") }

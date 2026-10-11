@@ -26,6 +26,7 @@ import network.lapis.cloud.shared.rpc.MemberPublicBioRateLimitedException
 import network.lapis.cloud.shared.rpc.MemberPublicBioValidationException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.RateLimitedException
+import network.lapis.cloud.shared.rpc.SearchRateLimitedException
 import network.lapis.cloud.shared.rpc.ServiceBusyException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
 import network.lapis.cloud.shared.rpc.WeakPasswordException
@@ -147,6 +148,8 @@ private fun handleGuardedFailure(e: Throwable) {
         // Welle V1.9.55 -- synthesized by the server's RpcErrorSanitizer for DB lock/statement timeouts.
         is ServiceBusyException -> notifyError(tr("Der Server ist gerade ausgelastet. Bitte versuchen Sie es in einem Moment erneut."))
         is RateLimitedException -> notifyError(tr("Vorschau vorübergehend nicht verfügbar – bitte kurz warten."))
+        // Welle V1.9.101 -- the committee-candidate search's per-member rate limit (a typed exception: Kilua RPC has no HTTP 429).
+        is SearchRateLimitedException -> notifyError(tr("Zu viele Suchanfragen -- bitte kurz warten."))
         // Welle V1.9.19 "Mitglieder-Foto" -- typed, fixed toasts (Kilua RPC never transmits the server's own message).
         is MemberPhotoMissingException -> notifyError(tr("Bitte zuerst ein Foto hochladen."))
         is MemberPhotoNotEligibleException -> notifyError(tr("Nur Mitglieder können ein Foto hinterlegen."))

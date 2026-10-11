@@ -113,7 +113,10 @@ enum class ActionIcon(
     COLLAPSE("fas fa-window-minimize"),
     FLOAT_WINDOW("fas fa-window-restore"),
 
-    /** V1.9.74: show the "Mehr" sheet -- the controls of an encounter-room bar that did not fit. (The conference bar's own "Mehr" keeps its raw string.) */
+    /**
+     * V1.9.74: show the "Mehr" sheet -- the controls of an encounter-room bar that did not fit. (The conference bar's own "Mehr" keeps its raw string.)
+     * V1.9.101: also "Weitere anzeigen", the next page of the person search ([RemoteMemberPicker]) -- the same verb, "show more".
+     */
     MORE("fas fa-ellipsis"),
 
     /** V1.9.79: give up one's own seat in the encounter room ("Platz freigeben"). Used once, in the room's seat area. */

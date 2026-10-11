@@ -518,3 +518,40 @@ data class VoteBallotInput(
      */
     val createOnly: Boolean = false,
 )
+
+/**
+ * V1.9.101 -- minimal person pick for the remote member search: id and display name ONLY, so the
+ * search cannot be used to harvest contact data.
+ */
+@Serializable
+data class MemberPickDto(
+    val id: String,
+    val displayName: String,
+)
+
+/** One page of [MemberPickDto]; deliberately carries no total count, only [hasMore]. */
+@Serializable
+data class MemberPickPageDto(
+    val items: List<MemberPickDto>,
+    val hasMore: Boolean,
+)
+
+/** V1.9.101 -- bounds of `IGovernanceService.searchCommitteeCandidates` (server is authoritative). */
+object CommitteeCandidateSearch {
+    const val MIN_QUERY_LENGTH = 2
+    const val MAX_QUERY_LENGTH = 64
+    const val PAGE_SIZE = 20
+
+    /** Pages 0..9 => at most 200 hits per query. */
+    const val MAX_PAGE = 9
+}
+
+/** Mirror of `MailmergeRoutes.MAX_INVITATION_RECIPIENTS` (client convenience; the server stays authoritative). */
+const val MAX_INVITATION_PDF_PART_SIZE = 1_000
+
+/** Mirror of the postal-dispatch cap in `PostalMailService` (the server stays authoritative). */
+const val MAX_POSTAL_INVITATION_RECIPIENTS = 50
+
+/** V1.9.101 -- who an invitation goes to: an explicit selection, or all active members resolved server-side. */
+@Serializable
+enum class InvitationAudience { SELECTED, ALL_ACTIVE }

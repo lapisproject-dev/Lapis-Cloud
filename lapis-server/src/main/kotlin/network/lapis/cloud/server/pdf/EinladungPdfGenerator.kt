@@ -15,6 +15,10 @@ import network.lapis.cloud.shared.domain.OrganizationSettingsDto
  * postal address is NOT hard-failed here -- there is no legal requirement that an invitation be
  * mailable, so that recipient still gets a page, with a `"(Adresse nicht hinterlegt)"` placeholder
  * line, so one missing address never blocks the whole batch.
+ *
+ * V1.9.101: [generate] takes an optional [partNote]; when set, a cover sheet ("Versandübersicht", the part
+ * counter, the as-of time and the recipient count) precedes the letters of one slice of an "all active members"
+ * invitation. Server PDFs are fixed German (like "Termin:" and "Der Vorstand"), so the cover sheet is not `tr()`-ed.
  */
 object EinladungPdfGenerator {
     fun generate(
@@ -24,9 +28,17 @@ object EinladungPdfGenerator {
         bodyText: String,
         recipients: List<MemberDto>,
         organization: OrganizationSettingsDto,
+        partNote: String? = null,
     ): ByteArray {
         val builder = LetterPdfBuilder()
         val today = pdfIssueDate()
+        if (partNote != null) {
+            // V1.9.101 -- cover sheet for a "send to all active members" part; fixed German like the rest of this server PDF.
+            builder.letterhead(orgName = organization.name, orgAddressLines = organization.addressLines())
+            builder.heading("Einladung \u2013 Versand\u00fcbersicht")
+            builder.paragraph(partNote)
+            if (recipients.isNotEmpty()) builder.newPage()
+        }
         recipients.forEachIndexed { index, recipient ->
             if (index > 0) builder.newPage()
             builder.letterhead(orgName = organization.name, orgAddressLines = organization.addressLines())

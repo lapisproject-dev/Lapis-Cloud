@@ -20,6 +20,7 @@ import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
@@ -34,8 +35,10 @@ import network.lapis.cloud.server.postal.PostalDispatchOutcome
 import network.lapis.cloud.server.postal.PostalMailProvider
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BillingInterval
+import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.ContributionStatus
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
+import network.lapis.cloud.shared.domain.InvitationAudience
 import network.lapis.cloud.shared.domain.JournalEntryStatus
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -47,8 +50,10 @@ import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.notInList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -73,6 +78,7 @@ class PostalMailServiceTest :
         val createdContributionIds = mutableListOf<Uuid>()
         val createdLedgerAccountIds = mutableListOf<Uuid>()
         val createdJournalEntryIds = mutableListOf<Uuid>()
+        val createdCommitteeIds = mutableListOf<Uuid>()
 
         beforeSpec { DatabaseConfig.connect() }
 
@@ -90,6 +96,7 @@ class PostalMailServiceTest :
 
         afterSpec {
             transaction {
+                if (createdCommitteeIds.isNotEmpty()) CommitteeTable.deleteWhere { CommitteeTable.id inList createdCommitteeIds }
                 PostalDeliveryLogTable.deleteWhere { PostalDeliveryLogTable.recipientMemberId inList createdMemberIds }
                 if (createdJournalEntryIds.isNotEmpty()) {
                     PostingTable.deleteWhere { PostingTable.journalEntryId inList createdJournalEntryIds }
@@ -467,6 +474,229 @@ class PostalMailServiceTest :
             }
         }
 
+        // ── V1.9.101: Einladung an alle aktiven Mitglieder (audience = ALL_ACTIVE) ──────────────────────────
+
+        fun createCommittee(type: CommitteeType): Uuid {
+            val id = Uuid.random()
+            transaction {
+                CommitteeTable.insert {
+                    it[CommitteeTable.id] = id
+                    it[name] = "Postal Testgremium"
+                    it[CommitteeTable.type] = type
+                    it[description] = "Testgremium"
+                    it[active] = true
+                    it[quorumPercent] = 50
+                    it[createdAt] = KotlinLocalDateTime(2026, 1, 1, 0, 0)
+                }
+            }
+            createdCommitteeIds += id
+            return id
+        }
+
+        /** Runs [block] with exactly [keep] as the ACTIVE members (everybody else is parked as WITHDRAWN and restored afterwards). */
+        suspend fun withOnlyActive(
+            keep: List<Uuid>,
+            block: suspend () -> Unit,
+        ) {
+            val parked =
+                transaction {
+                    MemberTable
+                        .selectAll()
+                        .where { (MemberTable.status eq MemberStatus.ACTIVE) and (MemberTable.id notInList keep) }
+                        .map { it[MemberTable.id] }
+                }
+            transaction { MemberTable.update({ MemberTable.id inList parked }) { it[status] = MemberStatus.WITHDRAWN } }
+            try {
+                block()
+            } finally {
+                transaction { MemberTable.update({ MemberTable.id inList parked }) { it[status] = MemberStatus.ACTIVE } }
+            }
+        }
+
+        test("dispatchEinladungByPost ALL_ACTIVE: letters go to exactly the active members of the assembly, one provider call each") {
+            testApplication {
+                val provider = fakeProvider()
+                application {
+                    install(StatusPages) { installPostalMailExceptionHandlers() }
+                    routing { registerPostalMailTestRoutes(provider) }
+                }
+                enablePostalMail()
+                val assembly = createCommittee(CommitteeType.GENERAL_ASSEMBLY)
+                val board = createMember("postal-all-board-1@example.org", AccountRole.BOARD, withAddress = true, displayName = "AllBoard")
+                val r1 = createMember("postal-all-r1@example.org", AccountRole.MEMBER, withAddress = true, displayName = "AllEmpf1")
+                val r2 = createMember("postal-all-r2@example.org", AccountRole.MEMBER, withAddress = true, displayName = "AllEmpf2")
+
+                withOnlyActive(listOf(board, r1, r2)) {
+                    val logCountBefore = transaction { PostalDeliveryLogTable.selectAll().count() }
+                    val response =
+                        client.post(
+                            "/test/dispatch-einladung?title=Einladung&eventDateTime=2026-09-12T18:30:00" +
+                                "&location=Vereinsheim&bodyText=Text&audience=ALL_ACTIVE&committeeId=$assembly",
+                        ) { header("X-Member-Id", board.toString()) }
+                    response.status shouldBe HttpStatusCode.OK
+                    response.bodyAsText().split(";").size shouldBe 3
+                    provider.callCounter.get() shouldBe 3
+                    provider.dispatchedRecipients.toSet() shouldBe setOf("AllBoard", "AllEmpf1", "AllEmpf2")
+                    transaction { PostalDeliveryLogTable.selectAll().count() } shouldBe logCountBefore + 3
+                }
+            }
+        }
+
+        test("dispatchEinladungByPost ALL_ACTIVE: an anonymized record gets no letter even though it is still ACTIVE") {
+            testApplication {
+                val provider = fakeProvider()
+                application {
+                    install(StatusPages) { installPostalMailExceptionHandlers() }
+                    routing { registerPostalMailTestRoutes(provider) }
+                }
+                enablePostalMail()
+                val assembly = createCommittee(CommitteeType.GENERAL_ASSEMBLY)
+                val board = createMember("postal-anon-board@example.org", AccountRole.BOARD, withAddress = true, displayName = "AnonBoard")
+                val ghost = createMember("postal-anon-ghost@example.org", AccountRole.MEMBER, withAddress = true, displayName = "Ghost")
+                transaction { MemberTable.update({ MemberTable.id eq ghost }) { it[anonymizedAt] = KotlinLocalDateTime(2026, 2, 1, 0, 0) } }
+
+                withOnlyActive(listOf(board, ghost)) {
+                    val response =
+                        client.post(
+                            "/test/dispatch-einladung?title=Einladung&eventDateTime=2026-09-12T18:30:00" +
+                                "&location=Vereinsheim&bodyText=Text&audience=ALL_ACTIVE&committeeId=$assembly",
+                        ) { header("X-Member-Id", board.toString()) }
+                    response.status shouldBe HttpStatusCode.OK
+                    provider.dispatchedRecipients shouldBe listOf("AnonBoard")
+                }
+            }
+        }
+
+        test("dispatchEinladungByPost ALL_ACTIVE: more than 50 active members rejects with 400 BEFORE any provider call or log row") {
+            testApplication {
+                val callCount = AtomicInteger(0)
+                application {
+                    install(StatusPages) { installPostalMailExceptionHandlers() }
+                    routing {
+                        registerPostalMailTestRoutes(
+                            FakePostalMailProvider(callCounter = callCount) { PostalDispatchOutcome.Dispatched("ref") },
+                        )
+                    }
+                }
+                enablePostalMail()
+                val assembly = createCommittee(CommitteeType.GENERAL_ASSEMBLY)
+                val board = createMember("postal-over-board@example.org", AccountRole.BOARD, withAddress = true)
+                val others = (1..50).map { createMember("postal-over-$it@example.org", AccountRole.MEMBER, withAddress = true) }
+
+                withOnlyActive(listOf(board) + others) {
+                    val logCountBefore = transaction { PostalDeliveryLogTable.selectAll().count() }
+                    val response =
+                        client.post(
+                            "/test/dispatch-einladung?title=Einladung&eventDateTime=2026-09-12T18:30:00" +
+                                "&location=Vereinsheim&bodyText=Text&audience=ALL_ACTIVE&committeeId=$assembly",
+                        ) { header("X-Member-Id", board.toString()) }
+                    response.status shouldBe HttpStatusCode.BadRequest
+                    callCount.get() shouldBe 0
+                    transaction { PostalDeliveryLogTable.selectAll().count() } shouldBe logCountBefore
+                }
+            }
+        }
+
+        test("dispatchEinladungByPost ALL_ACTIVE: one incomplete address rejects the whole dispatch with 409, nothing is sent") {
+            testApplication {
+                val provider = fakeProvider()
+                application {
+                    install(StatusPages) { installPostalMailExceptionHandlers() }
+                    routing { registerPostalMailTestRoutes(provider) }
+                }
+                enablePostalMail()
+                val assembly = createCommittee(CommitteeType.GENERAL_ASSEMBLY)
+                val board = createMember("postal-409-board@example.org", AccountRole.BOARD, withAddress = true)
+                val noAddress = createMember("postal-409-noaddr@example.org", AccountRole.MEMBER, withAddress = false)
+
+                withOnlyActive(listOf(board, noAddress)) {
+                    val response =
+                        client.post(
+                            "/test/dispatch-einladung?title=Einladung&eventDateTime=2026-09-12T18:30:00" +
+                                "&location=Vereinsheim&bodyText=Text&audience=ALL_ACTIVE&committeeId=$assembly",
+                        ) { header("X-Member-Id", board.toString()) }
+                    response.status shouldBe HttpStatusCode.Conflict
+                    provider.callCounter.get() shouldBe 0
+                }
+            }
+        }
+
+        test("dispatchEinladungByPost ALL_ACTIVE: postalMailEnabled=false is a 409 before anything is resolved") {
+            testApplication {
+                val provider = fakeProvider()
+                application {
+                    install(StatusPages) { installPostalMailExceptionHandlers() }
+                    routing { registerPostalMailTestRoutes(provider) }
+                }
+                // postal mail stays disabled (beforeTest resets it); the committee id is bogus on purpose -- it must not even be looked at
+                val board = createMember("postal-off-board@example.org", AccountRole.BOARD, withAddress = true)
+                val response =
+                    client.post(
+                        "/test/dispatch-einladung?title=Einladung&eventDateTime=2026-09-12T18:30:00" +
+                            "&location=Vereinsheim&bodyText=Text&audience=ALL_ACTIVE&committeeId=${Uuid.random()}",
+                    ) { header("X-Member-Id", board.toString()) }
+                response.status shouldBe HttpStatusCode.Conflict
+                provider.callCounter.get() shouldBe 0
+            }
+        }
+
+        test(
+            "dispatchEinladungByPost ALL_ACTIVE: ids together with the audience, a missing or foreign committee and a non-assembly are all rejected",
+        ) {
+            testApplication {
+                val provider = fakeProvider()
+                application {
+                    install(StatusPages) { installPostalMailExceptionHandlers() }
+                    routing { registerPostalMailTestRoutes(provider) }
+                }
+                enablePostalMail()
+                val assembly = createCommittee(CommitteeType.GENERAL_ASSEMBLY)
+                val workingGroup = createCommittee(CommitteeType.WORKING_GROUP)
+                val board = createMember("postal-bad-board@example.org", AccountRole.BOARD, withAddress = true)
+                val recipient = createMember("postal-bad-r@example.org", AccountRole.MEMBER, withAddress = true)
+                val base = "/test/dispatch-einladung?title=Einladung&eventDateTime=2026-09-12T18:30:00&location=Vereinsheim&bodyText=Text"
+
+                client
+                    .post(
+                        "$base&audience=ALL_ACTIVE&committeeId=$assembly&recipientMemberIds=$recipient",
+                    ) { header("X-Member-Id", board.toString()) }
+                    .status shouldBe HttpStatusCode.BadRequest
+                client
+                    .post("$base&audience=ALL_ACTIVE") { header("X-Member-Id", board.toString()) }
+                    .status shouldBe HttpStatusCode.BadRequest
+                client
+                    .post("$base&audience=ALL_ACTIVE&committeeId=${Uuid.random()}") { header("X-Member-Id", board.toString()) }
+                    .status shouldBe HttpStatusCode.NotFound
+                client
+                    .post("$base&audience=ALL_ACTIVE&committeeId=$workingGroup") { header("X-Member-Id", board.toString()) }
+                    .status shouldBe HttpStatusCode.BadRequest
+                client
+                    .post("$base&committeeId=$assembly&recipientMemberIds=$recipient") { header("X-Member-Id", board.toString()) }
+                    .status shouldBe HttpStatusCode.BadRequest
+                provider.callCounter.get() shouldBe 0
+            }
+        }
+
+        test("dispatchEinladungByPost ALL_ACTIVE: a plain member and a treasurer are forbidden") {
+            testApplication {
+                val provider = fakeProvider()
+                application {
+                    install(StatusPages) { installPostalMailExceptionHandlers() }
+                    routing { registerPostalMailTestRoutes(provider) }
+                }
+                enablePostalMail()
+                val assembly = createCommittee(CommitteeType.GENERAL_ASSEMBLY)
+                val plain = createMember("postal-forb-member@example.org", AccountRole.MEMBER, withAddress = true)
+                val treasurer = createMember("postal-forb-treasurer@example.org", AccountRole.TREASURER, withAddress = true)
+                val url =
+                    "/test/dispatch-einladung?title=Einladung&eventDateTime=2026-09-12T18:30:00" +
+                        "&location=Vereinsheim&bodyText=Text&audience=ALL_ACTIVE&committeeId=$assembly"
+                client.post(url) { header("X-Member-Id", plain.toString()) }.status shouldBe HttpStatusCode.Forbidden
+                client.post(url) { header("X-Member-Id", treasurer.toString()) }.status shouldBe HttpStatusCode.Forbidden
+                provider.callCounter.get() shouldBe 0
+            }
+        }
+
         // ── Role checks ──────────────────────────────────────────────────
 
         test(
@@ -662,7 +892,9 @@ private fun Route.registerPostalMailTestRoutes(provider: PostalMailProvider) {
                 eventDateTime = kotlinx.datetime.LocalDateTime.parse(q["eventDateTime"]!!),
                 location = q["location"]!!,
                 bodyText = q["bodyText"]!!,
-                recipientMemberIds = q["recipientMemberIds"]!!.split(","),
+                recipientMemberIds = q["recipientMemberIds"]?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
+                audience = q["audience"]?.let { InvitationAudience.valueOf(it) } ?: InvitationAudience.SELECTED,
+                committeeId = q["committeeId"],
             )
         val dtos = service.dispatchEinladungByPost(input)
         call.respondText(dtos.joinToString(";") { "${it.status}:${it.recipientMemberId}" })

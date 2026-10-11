@@ -34,6 +34,8 @@ import io.kvision.panel.vPanel
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
+import network.lapis.cloud.shared.domain.MemberPickDto
+import network.lapis.cloud.shared.domain.MemberPickPageDto
 import org.w3c.dom.Element
 import org.w3c.dom.events.KeyboardEvent
 
@@ -408,6 +410,27 @@ class LapisForm internal constructor(
         init: ((SearchableSelect) -> Unit)? = null,
     ): LapisField {
         val control = host.searchableSelect(options = options, value = value, label = label, noneOption = noneOption, details = details)
+        init?.invoke(control)
+        return wire(control = control, label = label, required = required, hint = hint, requiredMessage = requiredMessage, rule = rule)
+    }
+
+    /**
+     * V1.9.101: [searchableSelectField]'s counterpart for places where the person list is too large to load -- the picker searches on
+     * the server ([RemoteMemberPicker]). Same slots, same `aria-required`/`aria-invalid`, same [LapisField] API; [LapisField.value] is
+     * `""` or the id of a person the server offered. [initial] pre-fills an edit form (id + name already known).
+     */
+    fun remoteMemberPickerField(
+        label: String,
+        search: suspend (query: String, page: Int) -> MemberPickPageDto?,
+        initial: MemberPickDto? = null,
+        required: Boolean = false,
+        hint: String? = null,
+        host: Container = panel,
+        requiredMessage: String? = null,
+        rule: (String) -> FieldCheck = { FieldCheck.Ok },
+        init: ((RemoteMemberPicker) -> Unit)? = null,
+    ): LapisField {
+        val control = host.remoteMemberPicker(search = search, initial = initial, label = label)
         init?.invoke(control)
         return wire(control = control, label = label, required = required, hint = hint, requiredMessage = requiredMessage, rule = rule)
     }

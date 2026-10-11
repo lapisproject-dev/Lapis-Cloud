@@ -14,6 +14,7 @@ import network.lapis.cloud.shared.domain.MeetingDetailDto
 import network.lapis.cloud.shared.domain.MeetingDto
 import network.lapis.cloud.shared.domain.MeetingInput
 import network.lapis.cloud.shared.domain.MeetingStatus
+import network.lapis.cloud.shared.domain.MemberPickPageDto
 import network.lapis.cloud.shared.domain.MotionDto
 import network.lapis.cloud.shared.domain.MotionInput
 import network.lapis.cloud.shared.domain.MotionResolutionInput
@@ -105,6 +106,23 @@ interface IGovernanceService {
         membershipId: String,
         until: LocalDate,
     ): CommitteeMembershipDto
+
+    /**
+     * V1.9.101 -- N for the General Assembly: exactly the predicate `computeQuorum` uses. 400 for a
+     * non-General-Assembly committee. Any authenticated member may ask.
+     */
+    suspend fun countGeneralAssemblyEligible(committeeId: String): Int
+
+    /**
+     * V1.9.101 -- paginated name search (id + name only) for the pickers of meeting chair/minute-taker,
+     * agenda presenter, attendance and committee offices. Requires `canRecordForMeeting(committeeId)`,
+     * a minimum query length and is rate limited (`SearchRateLimitedException`).
+     */
+    suspend fun searchCommitteeCandidates(
+        committeeId: String,
+        query: String,
+        page: Int,
+    ): MemberPickPageDto
 
     suspend fun listMeetings(
         committeeId: String? = null,

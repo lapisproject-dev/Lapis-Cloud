@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.containsLikePattern
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberFamilyLinkTable
 import network.lapis.cloud.server.db.generated.MemberFamilyTable
@@ -30,7 +31,6 @@ import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IMemberFamilyService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.JoinType
-import org.jetbrains.exposed.v1.core.LikePattern
 import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -92,7 +92,7 @@ class MemberFamilyService(
                 ?.takeIf { it.isNotBlank() }
 
         return transaction {
-            val nameCondition: Op<Boolean>? = searchTerm?.let { MemberFamilyTable.name.lowerCase() like containsPattern(it) }
+            val nameCondition: Op<Boolean>? = searchTerm?.let { MemberFamilyTable.name.lowerCase() like containsLikePattern(it) }
 
             val total =
                 (if (nameCondition != null) MemberFamilyTable.selectAll().where { nameCondition } else MemberFamilyTable.selectAll())
@@ -588,7 +588,7 @@ class MemberFamilyService(
      * purpose: without the lock, this read could race a concurrent `updateMemberRole` transaction
      * under READ COMMITTED and observe a stale (pre-escalation) role. `internal`, not `private` --
      * mirrors [MemberService]'s own copy rather than sharing one file for a five-line helper, same
-     * "no shared file for a three-line helper" precedent [containsPattern] already sets in this file.
+     * "no shared file for a three-line helper" precedent that held until V1.9.101 (the LIKE helper now lives in `db/LikePatterns.kt`).
      */
     private fun currentAccountRole(memberId: Uuid): AccountRole? =
         AccountTable
@@ -641,13 +641,3 @@ private fun ResultRow.toLinkDto(): MemberFamilyLinkDto =
         linkedAt = this[MemberFamilyLinkTable.linkedAt],
         linkedById = this[MemberFamilyLinkTable.linkedBy].toString(),
     )
-
-/**
- * `%`/`_` in the raw search text are LIKE metacharacters -- same escaping idiom
- * `MemberService.containsPattern` already establishes (each `rpc` file keeps its own private
- * copy, no shared file for a three-line helper).
- */
-private fun containsPattern(term: String): LikePattern {
-    val escaped = LikePattern.ofLiteral(term)
-    return LikePattern("%${escaped.pattern}%", escaped.escapeChar)
-}

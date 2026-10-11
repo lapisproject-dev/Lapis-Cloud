@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import kotlinx.browser.document
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.InvitationAudience
 import org.w3c.dom.HTMLFormElement
 import org.w3c.dom.HTMLInputElement
 
@@ -55,7 +56,31 @@ object MailmergeHttp {
         location: String,
         bodyText: String,
         recipientMemberIds: List<String>,
+        audience: InvitationAudience = InvitationAudience.SELECTED,
+        committeeId: String? = null,
+        part: Int? = null,
     ) {
+        val form = buildEinladungForm(title, eventDateTime, location, bodyText, recipientMemberIds, audience, committeeId, part)
+        document.body?.appendChild(form)
+        form.submit()
+        form.remove()
+    }
+
+    /**
+     * V1.9.101 -- the form of [submitEinladungPdfDownload], split off so a test can inspect the fields WITHOUT submitting (a submit
+     * opens a new browsing context). With [InvitationAudience.ALL_ACTIVE] no `recipientMemberId` field is sent at all: the server
+     * resolves the recipients ([committeeId] + [part], 0-based) itself.
+     */
+    internal fun buildEinladungForm(
+        title: String,
+        eventDateTime: LocalDateTime,
+        location: String,
+        bodyText: String,
+        recipientMemberIds: List<String>,
+        audience: InvitationAudience = InvitationAudience.SELECTED,
+        committeeId: String? = null,
+        part: Int? = null,
+    ): HTMLFormElement {
         val form = document.createElement("form") as HTMLFormElement
         form.method = "post"
         form.action = "/api/mailmerge/invitations"
@@ -77,10 +102,13 @@ object MailmergeHttp {
         hidden("eventDateTime", eventDateTime.toString())
         hidden("location", location)
         hidden("bodyText", bodyText)
-        recipientMemberIds.forEach { memberId -> hidden("recipientMemberId", memberId) }
-
-        document.body?.appendChild(form)
-        form.submit()
-        form.remove()
+        if (audience == InvitationAudience.ALL_ACTIVE) {
+            hidden("audience", audience.name)
+            committeeId?.let { hidden("committeeId", it) }
+            part?.let { hidden("part", it.toString()) }
+        } else {
+            recipientMemberIds.forEach { memberId -> hidden("recipientMemberId", memberId) }
+        }
+        return form
     }
 }

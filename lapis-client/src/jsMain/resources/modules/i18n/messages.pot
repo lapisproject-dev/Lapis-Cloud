@@ -12488,10 +12488,6 @@ msgstr ""
 msgid "Protokollführung"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:459
-msgid "Bitte mindestens eine Empfängerin/einen Empfänger auswählen."
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:578
 msgid "Vortragend"
 msgstr ""
@@ -20468,4 +20464,100 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/McpAccessCard.kt
 msgid "Nur wenn Sie Redaktionsrechte haben (Vorstand oder Administration): Agenten können außerdem Artikel-Entwürfe anlegen. Der Agent legt nur Entwürfe an; einreichen können nur Sie selbst, freigegeben wird wie jeder Artikel durch ein anderes Vorstandsmitglied."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RemoteMemberPicker.kt
+msgid "Weitere anzeigen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RemoteMemberPicker.kt
+msgid "Mindestens 2 Zeichen eingeben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RemoteMemberPicker.kt
+msgid "Bitte Suche verfeinern."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RemoteMemberPicker.kt
+msgid "%1 Treffer angezeigt"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
+msgid "Zu viele Suchanfragen -- bitte kurz warten."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "Bitte zuerst ein Gremium wählen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "Bitte mindestens einen Empfänger auswählen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "Einladungen werden als PDF oder per Brief erstellt; eine E-Mail wird nicht verschickt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "An alle aktiven Mitglieder (%1)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "An alle aktiven Mitglieder"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "Ausgewählte Mitglieder"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "Teil %1 von %2 herunterladen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "Höchstens %1 Empfänger je PDF -- bitte die Auswahl verkleinern oder \"An alle aktiven Mitglieder\" wählen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "Die Mitgliederzahl konnte nicht ermittelt werden -- heruntergeladen wird der erste Teil; der Server prüft die Teilzahl."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "Postversand ist auf %1 Empfänger begrenzt; die Mitgliederversammlung hat aktuell %2 -- bitte das PDF herunterladen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Alle aktiven Mitglieder (automatisch)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Alle aktiven Mitglieder (automatisch), aktuell %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Diese Zahl ist die Grundlage für Beschlussfähigkeit, Abstimmungen und Wahlen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Ämter der Versammlung"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Noch keine Ämter besetzt."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Frühere Einzeleinträge (%1)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Amt wurde vergeben."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Diese Einträge wirken nicht auf Teilnahme, Stimmrecht oder Beschlussfähigkeit; die Mitgliederversammlung umfasst automatisch alle aktiven Mitglieder."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PostalMailScreen.kt
+msgid "%1 physische Briefe werden über Letterxpress an die im System hinterlegten Anschriften aller aktiven Mitglieder verschickt. Fehlt bei auch nur einer Person die vollständige Anschrift, wird der gesamte Versand abgelehnt -- kein Teilversand."
 msgstr ""

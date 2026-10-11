@@ -33,4 +33,5 @@ Architecture background lives in link:../architecture/[docs/architecture/]; the 
 |link:conference-voting.adoc[Voting in the conference room (V1.9.24-V1.9.27)] |Voting panel inside the video-conference room
 |link:systemic-consensus.adoc[Systemic consensus web client (V1.9.28)] |Web client for systemic consensus (Konsensieren)
 |link:polls.adoc[Opinion polls (V1.9.30/V1.9.31)] |Non-binding anonymous opinion polls
+|link:../architecture/governance-committees.adoc[General Assembly, offices and person search (V1.9.101)] |Automatic assembly membership with N, offices, server-side person search, invitation to all active members (PDF in parts, postal cap 50)
 |===

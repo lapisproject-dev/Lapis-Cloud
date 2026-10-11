@@ -1,0 +1,111 @@
+= The General Assembly, offices and the person search (V1.9.101)
+:toc:
+
+== Scope
+
+The committee screens ("Gremien", "Sitzungen", "Anträge") treated the General Assembly (`CommitteeType.GENERAL_ASSEMBLY`, "Mitgliederversammlung")
+like any other committee: every screen loaded the whole member directory (`IMemberService.listMembers()`) to offer people in a picker, and the
+roster let a board member add single members to a group that, by definition, already contains every active member. V1.9.101 ("Welle A") removes both
+for the assembly. It changes **no** right, **no** quorum rule and **no** vote rule, and adds **no** migration (the schema stays at V82).
+
+== The assembly is automatic, with one predicate
+
+For a `GENERAL_ASSEMBLY` committee the eligible set is "every member with `MemberStatus.ACTIVE`", defined once, in `generalAssemblyCondition()`
+(`CommitteeEligibility.kt`, `internal` since V1.9.101, never copied). It is the single source for
+
+* N, the number shown to the user (`IGovernanceService.countGeneralAssemblyEligible`);
+* the quorum (`computeQuorum`, `checkQuorum`), the right to cast a ballot (`castVoteBallot`) and the voter snapshot of an election
+  (`ElectionService.openVoting`), through `eligibleMemberIds` and `isCommitteeEligible`;
+* the recipients of "invite all active members" (PDF and postal, see below).
+
+`countGeneralAssemblyEligible(committeeId)` is one `COUNT` over that predicate. Any authenticated member may ask: the directory itself was already
+visible to every member through `listMembers()`, and a single number reveals less. A committee of another type is answered with 400, an unknown
+id with 404. There is no cache.
+
+[kuml, governance-committees, svg]
+----
+sequenceDiagram(name = "Invite all active members (V1.9.101)") {
+    val browser = participant(name = "Invitation form (browser)")
+    val route = participant(name = "POST /api/mailmerge/invitations")
+    val predicate = participant(name = "generalAssemblyCondition()")
+    val pdf = participant(name = "EinladungPdfGenerator")
+
+    message(from = browser, to = route, text = "audience=ALL_ACTIVE, committeeId, part (no recipientMemberId)")
+    message(from = route, to = route, text = "right first: BOARD/ADMIN, then validate every field (400/404)")
+    message(from = route, to = predicate, text = "COUNT(N) -> parts = max(1, ceil(N / 1000)); part >= parts is a 400")
+    message(from = route, to = predicate, text = "ONE query: sorted by id, LIMIT 1000 OFFSET part * 1000, anonymized records left out")
+    message(from = route, to = pdf, text = "recipients + cover sheet (part k of K, as-of time, number of letters)")
+    message(from = pdf, to = browser, text = "Einladung-Teil-k-von-K.pdf")
+}
+----
+
+== Offices of the assembly
+
+The roster of the assembly ("Besetzung") shows the fact "all active members (automatic)" with the current N and the sentence that N is the basis of
+quorum, votes and elections. Below it:
+
+* **"Ämter der Versammlung"**: the committee rows whose role is **not** `MEMBER` (chair, deputy chair, secretary, ...). BOARD/ADMIN add one with the
+  person search (never the directory) through the unchanged `addCommitteeMember`; the role list offers every role except `MEMBER`. "Ausgeschiedene
+  anzeigen" belongs to this block.
+* **"Frühere Einzeleinträge (n)"**: the rows with role `MEMBER`. They are kept, collapsed (`<details>`, closed) and read only (a manager can still end
+  the term, there is no delete function and none was added). They have no effect on attendance, voting right or quorum; the sentence says so.
+
+[IMPORTANT]
+====
+An office row is a real committee row and **does** carry rights, exactly as before: `hasCommitteeRole` makes its holder able to record meetings
+(`canRecordForMeeting`: chair, deputy chair, secretary), and the committee roles feed polls and the conference-room binding. Only plain `MEMBER`
+rows are inert for the assembly. Adding an office is still BOARD/ADMIN only.
+====
+
+== The person search
+
+`IGovernanceService.searchCommitteeCandidates(committeeId, query, page)` replaces `listMembers()` in the pickers of chair, minute-taker, agenda
+presenter, attendance (person and representative) and committee office. It is built so that it cannot be used to harvest the directory:
+
+[cols="1,3", options="header"]
+|===
+| Rule | Detail
+| Right first | `canRecordForMeeting(committeeId)` (BOARD/ADMIN or chair/deputy chair/secretary of THAT committee), checked before any read of member data; an unauthorized caller gets 403 whether or not the committee exists
+| Rate limit | 60 requests per minute and acting member, in memory (`FederationInboxRateLimiter`, process wide: the service is built per call, a per-instance limiter would never count). Checked AFTER the right, so a refused caller spends no budget. The answer is the typed `SearchRateLimitedException` (Kilua RPC carries only the type and has no HTTP 429)
+| Minimum | at least 2 and at most 64 characters after trimming; `page` 0..9; 20 hits per page; so at most 200 hits per query
+| No total | the page carries `hasMore` only, never a count
+| Minimal fields | `MemberPickDto(id, displayName)` -- no e-mail, no address, no number
+| Candidates | ACTIVE and not anonymized, for every committee type (as `listMembers()` was); `committeeId` only decides the right
+| Matching | case-insensitive "contains" on the display name; `%` and `_` match literally (`containsLikePattern`, the single shared helper)
+| Logging | the search text and the names are never logged
+|===
+
+The client picker (`RemoteMemberPicker`) waits 300 ms after the last keystroke, sends nothing below 2 characters, discards answers that arrive after a
+newer query, and offers "Weitere anzeigen" for the next page (never endless scrolling, nothing beyond page 9: "Bitte Suche verfeinern."). It is an
+ARIA combobox (`role=combobox`, `aria-activedescendant`, a polite live region) and shows names only as plain text.
+
+The pickers outside the assembly (election board, the maintenance form of other committees, board membership screen, ...) still use `listMembers()`;
+they are named in the changelog as follow-up work, not silently dropped.
+
+== Invitation to the assembly
+
+For the assembly the invitation form offers "An alle aktiven Mitglieder (N)" (preselected) or "Ausgewählte Mitglieder" (searched, shown as removable
+chips, at most 1,000).
+
+* **PDF** (free): `POST /api/mailmerge/invitations` with `audience=ALL_ACTIVE`, `committeeId` and `part` (0-based). The server resolves the
+  recipients itself in one transaction and one query, sorted by id, 1,000 per part (`K = max(1, ceil(N / 1000))`, one download button per part;
+  a `part` beyond K is a 400). `audience` and `recipientMemberId` exclude each other; without `audience` (or `SELECTED`) the request is the old one,
+  byte for byte, and `committeeId`/`part` are refused. Every PDF of the "all" request starts with a cover sheet ("Versandübersicht": part k of K, as-of
+  time, number of letters); server PDFs are fixed German (like "Termin:" and "Der Vorstand"), so the cover sheet is not translated.
+* **Post** (paid, Letterxpress): `PostalInvitationDispatchInput(audience = ALL_ACTIVE, committeeId)`. The cap of 50 letters is checked on a single
+  `COUNT` before anything is loaded, PDF-rendered, logged or sent; the gate `postalMailEnabled` and the all-addresses-complete rule are unchanged
+  (one incomplete address rejects the whole dispatch with 409, nothing is sent). The client offers the button only while N is known and at most 50,
+  and confirms with the exact number (no names: they are not loaded).
+* **No e-mail** is ever sent for an invitation, so the hourly mail budget and the outbox of V1.9.81 are not involved.
+* Anonymized records are never given a letter. They are still `ACTIVE` and therefore still count in N and the quorum (a separate question, left
+  unchanged on purpose); the cover sheet names the number of letters actually produced.
+
+== Known limitations
+
+* N is the CURRENT member status, not the status at the date of the meeting (the same simplification as the quorum).
+* With more than 1,000 recipients the parts are separate requests: a member who joins between two downloads can shift the boundary (sorted by id;
+  the cover sheet carries the as-of time). The drift is documented, not prevented.
+* There is no mass postal dispatch above 50 letters.
+* The server does not yet refuse a NEW `MEMBER` row at the assembly (`addCommitteeMember` is unchanged); the UI no longer offers it. The server-side
+  refusal is deferred until after "Welle B".
+* The help pages of the website about committees and meetings are checked at rollout, not in this wave.

@@ -15,9 +15,12 @@ import network.lapis.cloud.server.routes.generateSpendenbescheinigung
 import network.lapis.cloud.server.routes.loadMailmergeMember
 import network.lapis.cloud.server.routes.loadOrganizationSettingsDto
 import network.lapis.cloud.server.routes.requireCompleteAddress
+import network.lapis.cloud.server.routes.resolveAllActivePostalRecipientIds
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.InvitationAudience
+import network.lapis.cloud.shared.domain.MAX_POSTAL_INVITATION_RECIPIENTS
 import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.PostalDeliveryLogDto
 import network.lapis.cloud.shared.domain.PostalDeliveryStatus
@@ -38,15 +41,15 @@ import kotlin.uuid.Uuid
 private val FINANCIAL_DISPATCH_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)
 private val GOVERNANCE_DISPATCH_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
 
-/**
- * Hard cap on [PostalInvitationDispatchInput.recipientMemberIds] per [dispatchEinladungByPost]
- * call -- deliberately much stricter than [network.lapis.cloud.server.routes.MailmergeRoutes]'
- * own `MAX_INVITATION_RECIPIENTS` (1,000, free PDF-only generation): postal dispatch costs real
- * money per letter and transfers PII to a third party (Letterxpress) for every recipient, so the
- * safe default bound here is far smaller. Exceeding it is rejected up front with
- * [BadRequestException] (400) -- no partial dispatch.
+/*
+ * Hard cap on the recipients of one [dispatchEinladungByPost] call -- the shared
+ * `network.lapis.cloud.shared.domain.MAX_POSTAL_INVITATION_RECIPIENTS` (50) -- deliberately much stricter
+ * than [network.lapis.cloud.server.routes.MailmergeRoutes]' own `MAX_INVITATION_RECIPIENTS` (1,000, free
+ * PDF-only generation): postal dispatch costs real money per letter and transfers PII to a third party
+ * (Letterxpress) for every recipient, so the safe default bound here is far smaller. Exceeding it is rejected
+ * up front with [BadRequestException] (400) -- no partial dispatch. V1.9.101: the same cap guards
+ * `audience=ALL_ACTIVE` (one COUNT before anything else happens).
  */
-private const val MAX_POSTAL_INVITATION_RECIPIENTS = 50
 
 /**
  * V0.4.2 Letterxpress postal-mail dispatch. Implements [IPostalMailService] -- see that
@@ -144,23 +147,43 @@ class PostalMailService(
         val current = resolveCurrentMember(call)
         current.requireRole(*GOVERNANCE_DISPATCH_ROLES)
         requirePostalMailEnabled()
-        if (input.recipientMemberIds.isEmpty()) {
-            throw BadRequestException("recipientMemberIds must not be empty")
-        }
-        if (input.recipientMemberIds.size > MAX_POSTAL_INVITATION_RECIPIENTS) {
-            throw BadRequestException(
-                "At most $MAX_POSTAL_INVITATION_RECIPIENTS recipientMemberIds are allowed per postal Einladung " +
-                    "dispatch (vs. the free PDF-only route's much larger cap) -- postal dispatch costs real money " +
-                    "per letter, got ${input.recipientMemberIds.size}",
-            )
-        }
+        // V1.9.101 -- both audiences converge on ONE id list handed to the single, unchanged dispatch path below.
+        val recipientMemberIds: List<String> =
+            when (input.audience) {
+                InvitationAudience.SELECTED -> {
+                    if (input.committeeId != null) {
+                        throw BadRequestException("committeeId is only allowed with audience=ALL_ACTIVE")
+                    }
+                    if (input.recipientMemberIds.isEmpty()) {
+                        throw BadRequestException("recipientMemberIds must not be empty")
+                    }
+                    if (input.recipientMemberIds.size > MAX_POSTAL_INVITATION_RECIPIENTS) {
+                        throw BadRequestException(
+                            "At most $MAX_POSTAL_INVITATION_RECIPIENTS recipientMemberIds are allowed per postal Einladung " +
+                                "dispatch (vs. the free PDF-only route's much larger cap) -- postal dispatch costs real money " +
+                                "per letter, got ${input.recipientMemberIds.size}",
+                        )
+                    }
+                    input.recipientMemberIds
+                }
+                InvitationAudience.ALL_ACTIVE -> {
+                    if (input.recipientMemberIds.isNotEmpty()) {
+                        throw BadRequestException("audience=ALL_ACTIVE and recipientMemberIds are mutually exclusive")
+                    }
+                    val committeeId =
+                        input.committeeId?.let { raw -> runCatching { Uuid.parse(raw) }.getOrNull() }
+                            ?: throw BadRequestException("audience=ALL_ACTIVE requires a valid committeeId")
+                    resolveAllActivePostalRecipientIds(committeeId = committeeId, maxRecipients = MAX_POSTAL_INVITATION_RECIPIENTS)
+                        .ifEmpty { throw ConflictException("The General Assembly has no recipients for a postal invitation") }
+                }
+            }
 
         // Resolve + validate ALL recipients before dispatching any of them -- fail-closed, no
         // partial dispatch if one recipient turns out to have an incomplete address.
         val (recipients, organization) =
             transaction {
                 val loaded =
-                    input.recipientMemberIds.map { raw ->
+                    recipientMemberIds.map { raw ->
                         val id = raw.toPostalUuid("Member")
                         val member = loadMailmergeMember(id) ?: throw NotFoundException("Member $id not found")
                         requireCompleteAddress(member)

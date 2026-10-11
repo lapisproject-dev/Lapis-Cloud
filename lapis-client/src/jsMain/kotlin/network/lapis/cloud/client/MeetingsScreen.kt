@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import io.kvision.core.Widget
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
+import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.P
 import io.kvision.html.button
@@ -28,11 +29,16 @@ import network.lapis.cloud.shared.domain.AttendanceStatus
 import network.lapis.cloud.shared.domain.CommitteeDto
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.DisclosureRules
+import network.lapis.cloud.shared.domain.InvitationAudience
+import network.lapis.cloud.shared.domain.MAX_INVITATION_PDF_PART_SIZE
+import network.lapis.cloud.shared.domain.MAX_POSTAL_INVITATION_RECIPIENTS
 import network.lapis.cloud.shared.domain.MeetingDetailDto
 import network.lapis.cloud.shared.domain.MeetingDto
 import network.lapis.cloud.shared.domain.MeetingFormat
 import network.lapis.cloud.shared.domain.MeetingInput
 import network.lapis.cloud.shared.domain.MeetingStatus
+import network.lapis.cloud.shared.domain.MemberPickDto
+import network.lapis.cloud.shared.domain.MemberPickPageDto
 import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.PostalDeliveryStatus
 import network.lapis.cloud.shared.domain.PostalInvitationDispatchInput
@@ -43,7 +49,6 @@ import network.lapis.cloud.shared.domain.ResolutionInput
 import network.lapis.cloud.shared.domain.ResolutionMode
 import network.lapis.cloud.shared.domain.ResolutionStatus
 import network.lapis.cloud.shared.rpc.IGovernanceService
-import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.IPostalMailService
 
 /**
@@ -70,17 +75,15 @@ import network.lapis.cloud.shared.rpc.IPostalMailService
  * The "Protokoll" section reflects this plainly rather than inventing a client-side-only
  * restriction the backend doesn't enforce (design decision D4) -- see [renderProtocolSection].
  *
- * Attendance/agenda-presenter member pickers (design: "per-eligible-member status recording")
- * are sourced from the same eligibility rule `computeQuorum`/`checkQuorum` use server-side
- * (`CommitteeEligibility.eligibleMemberIds`): for a [CommitteeType.GENERAL_ASSEMBLY] Committee,
- * every [network.lapis.cloud.shared.domain.MemberStatus.ACTIVE] member
- * (`IMemberService.listMembers()`, current status -- the server's own General-Assembly path is
- * date-blind too, see that function's KDoc); for any other Committee, that Committee's active
- * roster (`listCommitteeMembers`, reused for the [GovernanceAuthzUi] check above, so no extra
- * round trip). Not a perfect mirror of `eligibleMemberIds`'s date-scoped-to-`scheduledDate`
- * Committee branch (this uses "active as of today", not "active as of the meeting's date") -- an
- * accepted UI-picker simplification for typical near-term meetings, exactly the same simplification
- * `CommitteesScreen`'s own roster view already makes.
+ * Attendance/agenda-presenter member pickers (design: "per-eligible-member status recording"):
+ * for any Committee EXCEPT the General Assembly, they are sourced from that Committee's active roster
+ * (`listCommitteeMembers`, reused for the [GovernanceAuthzUi] check above, so no extra round trip) -- "active as
+ * of today", not "as of the meeting's date", an accepted simplification, exactly the one `CommitteesScreen`'s own
+ * roster view makes. V1.9.101: for a [CommitteeType.GENERAL_ASSEMBLY] Committee the screen NEVER loads the member
+ * directory: every active member belongs to it (`generalAssemblyCondition`, the one predicate behind the quorum), so
+ * the screen asks only for N (`countGeneralAssemblyEligible`, see [MeetingAudience]) and finds people through the
+ * server-side search ([RemoteMemberPicker], `searchCommitteeCandidates`). Attendance of the assembly is recorded
+ * person by person through ONE form that "Bearbeiten" pre-fills, not one mini form per member.
  *
  * Mail-merge/Postal-Dispatch UI wave, design decisions D5/D6: [renderEinladungSection] adds a free
  * PDF download ([MailmergeHttp.submitEinladungPdfDownload], `GOVERNANCE_DOC_ROLES`) and a real
@@ -89,8 +92,9 @@ import network.lapis.cloud.shared.rpc.IPostalMailService
  * own per-Committee `canManage` (which also admits CHAIR/DEPUTY_CHAIR/SECRETARY). The section only
  * renders at all when `canManage` is true (same gate as Agenda/Attendance/Resolution editing); a
  * Committee officer who can manage the meeting but is not globally BOARD/ADMIN sees a plain-language
- * explanation instead of a vanished control. Recipients are sourced from the same `eligibleMembers`
- * this screen already computes for attendance -- no new RPC call needed.
+ * explanation instead of a vanished control. Recipients are sourced from the same [MeetingAudience]
+ * this screen already computes for attendance -- no new RPC call needed (the assembly sends to "all active
+ * members" resolved on the server, or to a searched selection).
  */
 fun renderMeetingsScreen(container: SimplePanel) {
     val session = AppState.session
@@ -193,15 +197,15 @@ fun renderMeetingsScreen(container: SimplePanel) {
 
         // No permission: no button and no empty action area (R36B) -- the screen simply offers nothing to create.
         if (manageableCommittees.isNotEmpty()) {
-            val memberCandidates = guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
-            // The candidates are loaded with the page, as before: the form is built from data in hand when the button is pressed, and the
-            // button lives outside the list refresh, so reloading the list never throws away a form someone is filling in.
+            // V1.9.101: no member directory is loaded any more -- chair and minute-taker are found by the server-side search
+            // ([RemoteMemberPicker]), so the page does not carry every member just to offer two optional fields. The button lives
+            // outside the list refresh, so reloading the list never throws away a form someone is filling in.
             collapsibleCreateForm<Unit>(
                 actionSlot = header.actionSlot,
                 formHost = createHost,
                 buttonLabel = tr("Neue Sitzung"),
                 formId = "lapis-create-meeting",
-            ) { _, close -> renderMeetingCreationForm(this, manageableCommittees, memberCandidates, { refreshMeetings() }, close) }
+            ) { _, close -> renderMeetingCreationForm(this, manageableCommittees, { refreshMeetings() }, close) }
             canCreate = true
             emptyNote?.content = emptyText()
         }
@@ -236,7 +240,6 @@ private fun renderMeetingRow(
 internal fun renderMeetingCreationForm(
     panel: SimplePanel,
     committees: List<CommitteeDto>,
-    memberCandidates: List<MemberSummaryDto>,
     onCreated: () -> Unit,
     collapse: ((saved: Boolean) -> Unit)? = null,
 ): FormSnapshot {
@@ -257,9 +260,31 @@ internal fun renderMeetingCreationForm(
     val formatOptions = MeetingFormat.entries.map { it.name to meetingFormatLabel(it) }
     val formatField =
         form.selectField(label = tr("Format"), options = formatOptions, value = MeetingFormat.IN_PERSON.name, required = true)
-    val memberOptions = listOf("" to tr("-- keine --")) + untrustedOptions(memberCandidates.map { it.id to it.displayName })
-    val chairField = form.searchableSelectField(label = tr("Sitzungsleitung"), options = memberOptions, value = "")
-    val minuteTakerField = form.searchableSelectField(label = tr("Protokollführung"), options = memberOptions, value = "")
+    // V1.9.101: the people are searched on the server for the committee chosen ABOVE (the right to search is that committee's).
+    // Without a committee the pickers are off; changing the committee clears both choices (a person found for one committee
+    // is not a validated choice for another).
+    val searchChosenCommittee: suspend (String, Int) -> MemberPickPageDto? = { query, page ->
+        committeeField.value.takeIf { it.isNotBlank() }?.let { committeeCandidateSearch(it)(query, page) }
+    }
+    val chairField = form.remoteMemberPickerField(label = tr("Sitzungsleitung"), search = searchChosenCommittee)
+    val minuteTakerField = form.remoteMemberPickerField(label = tr("Protokollführung"), search = searchChosenCommittee)
+    var lastCommitteeId = committeeField.value
+
+    fun syncPickersToCommittee() {
+        val chosen = committeeField.value.isNotBlank()
+        val note = if (chosen) null else gettext("Bitte zuerst ein Gremium wählen.")
+        (chairField.control as RemoteMemberPicker).setUnavailable(note)
+        (minuteTakerField.control as RemoteMemberPicker).setUnavailable(note)
+    }
+    syncPickersToCommittee()
+    committeeField.subscribe { newCommitteeId ->
+        if (newCommitteeId != lastCommitteeId) {
+            lastCommitteeId = newCommitteeId
+            chairField.setValue("")
+            minuteTakerField.setValue("")
+            syncPickersToCommittee()
+        }
+    }
 
     val createButton = newActionButton(ActionIcon.ADD, tr("Sitzung anlegen"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = createButton, cancel = collapse?.let { collapseCancelButton(it) })
@@ -285,12 +310,30 @@ internal fun renderMeetingCreationForm(
                 titleField.reset()
                 scheduledAtField.reset()
                 locationField.reset()
+                chairField.reset()
+                minuteTakerField.reset()
                 onCreated()
                 collapse?.invoke(true)
             }
         }
     }
     return form.snapshot()
+}
+
+/**
+ * Who a meeting's forms offer as people (V1.9.101): a committee's own active roster (already in hand, a short list), or -- for the
+ * General Assembly -- every active member, which is never loaded: the screen knows only N and finds people by server-side search.
+ */
+internal sealed interface MeetingAudience {
+    data class Roster(
+        val members: List<MemberSummaryDto>,
+    ) : MeetingAudience
+
+    /** [eligibleCount] is `null` when the count could not be fetched. */
+    data class GeneralAssembly(
+        val committeeId: String,
+        val eligibleCount: Int?,
+    ) : MeetingAudience
 }
 
 /**
@@ -319,18 +362,26 @@ private fun renderMeetingDetail(
         val canManage =
             GovernanceAuthzUi.canRecordForMeeting(isBoardOrAdmin, currentMemberId, detail.meeting.committeeId, roster)
         val committee = committees.find { it.id == detail.meeting.committeeId }
-        val eligibleMembers: List<MemberSummaryDto> =
+        // V1.9.101: the General Assembly is every active member -- never load them all. Only N (a single number) is fetched; a
+        // failed count must not break the page, the invitation then says so instead of showing a figure.
+        val audience: MeetingAudience =
             if (committee?.type == CommitteeType.GENERAL_ASSEMBLY) {
-                guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
+                val count =
+                    runCatching {
+                        rpcService<IGovernanceService>().countGeneralAssemblyEligible(
+                            detail.meeting.committeeId,
+                        )
+                    }.getOrNull()
+                MeetingAudience.GeneralAssembly(committeeId = detail.meeting.committeeId, eligibleCount = count)
             } else {
-                roster.map { MemberSummaryDto(id = it.memberId, displayName = it.memberDisplayName) }
+                MeetingAudience.Roster(roster.map { MemberSummaryDto(id = it.memberId, displayName = it.memberDisplayName) })
             }
 
         panel.removeAll()
         renderMeetingMeta(panel, detail.meeting, canManage, onChanged)
-        renderEinladungSection(panel, detail.meeting, canManage, isBoardOrAdmin, eligibleMembers)
-        renderAgendaSection(panel, detail, canManage, eligibleMembers, onChanged)
-        renderAttendanceSection(panel, detail, canManage, eligibleMembers, onChanged)
+        renderEinladungSection(panel, detail.meeting, canManage, isBoardOrAdmin, audience)
+        renderAgendaSection(panel, detail, canManage, audience, onChanged)
+        renderAttendanceSection(panel, detail, canManage, audience, onChanged)
         renderResolutionSection(panel, detail, canManage, onChanged)
         renderProtocolSection(panel, detail.meeting.id)
     }
@@ -419,7 +470,7 @@ internal fun renderEinladungSection(
     meeting: MeetingDto,
     canManage: Boolean,
     isBoardOrAdminGlobal: Boolean,
-    eligibleMembers: List<MemberSummaryDto>,
+    audience: MeetingAudience,
 ) {
     if (!canManage) return
     panel.h2(tr("Einladung")) { addCssClass("h5") }
@@ -435,6 +486,17 @@ internal fun renderEinladungSection(
         return
     }
 
+    when (audience) {
+        is MeetingAudience.Roster -> renderRosterEinladungForm(panel, meeting, audience.members)
+        is MeetingAudience.GeneralAssembly -> renderGeneralAssemblyEinladungForm(panel, meeting, audience)
+    }
+}
+
+private fun renderRosterEinladungForm(
+    panel: SimplePanel,
+    meeting: MeetingDto,
+    eligibleMembers: List<MemberSummaryDto>,
+) {
     panel.div(
         tr(
             "Versand einer Einladung an ausgewählte Mitglieder -- als PDF zum Herunterladen (kostenlos, bis zu " +
@@ -487,7 +549,7 @@ internal fun renderEinladungSection(
     val recipientInputs = checkboxesByMember.values.mapNotNull { it.input as? Widget }
     form.crossFieldRule(focusOn = recipientInputs.firstOrNull(), watch = recipientInputs) {
         if (selectedRecipients().isEmpty()) {
-            FieldCheck.Invalid(gettext("Bitte mindestens eine Empfängerin/einen Empfänger auswählen."))
+            FieldCheck.Invalid(gettext("Bitte mindestens einen Empfänger auswählen."))
         } else {
             FieldCheck.Ok
         }
@@ -530,12 +592,12 @@ internal fun renderEinladungSection(
             val eventDateTime = LocalDateTime.parse(eventDateTimeField.value.trim())
             val location = locationField.value.trim()
             val bodyText = bodyTextField.value.trim()
-            if (recipients.size > MAX_POSTAL_INVITATION_RECIPIENTS_UI) {
+            if (recipients.size > MAX_POSTAL_INVITATION_RECIPIENTS) {
                 form.showFormError(
                     gettext(
                         "Postversand ist auf %1 Empfänger begrenzt (aktuell ausgewählt: %2) -- für mehr " +
                             "Empfänger bitte das PDF herunterladen und selbst verteilen.",
-                        MAX_POSTAL_INVITATION_RECIPIENTS_UI,
+                        MAX_POSTAL_INVITATION_RECIPIENTS,
                         recipients.size,
                     ),
                 )
@@ -579,17 +641,259 @@ internal fun renderEinladungSection(
 }
 
 /**
- * Client-side pre-check mirroring `PostalMailService`'s `MAX_POSTAL_INVITATION_RECIPIENTS` (50) --
- * the server remains authoritative; this only avoids submitting a request the caller can already
- * see will be rejected.
+ * V1.9.101 -- the invitation form of the General Assembly. Every active member is a possible recipient, so the people are never
+ * listed: "all active members" is resolved ON THE SERVER (the form sends only audience, committee and part), and an explicit
+ * selection is made with the server-side search ([RemoteMemberPicker]) and shown as removable chips.
+ *
+ *  - PDF: free; one download per part of at most [MAX_INVITATION_PDF_PART_SIZE] letters (`ceil(N / 1000)` buttons).
+ *  - Post: paid, only offered while N is known and at most [MAX_POSTAL_INVITATION_RECIPIENTS] (the server enforces the cap again).
+ *  - No e-mail is ever sent from here.
  */
-private const val MAX_POSTAL_INVITATION_RECIPIENTS_UI = 50
+private fun renderGeneralAssemblyEinladungForm(
+    panel: SimplePanel,
+    meeting: MeetingDto,
+    audience: MeetingAudience.GeneralAssembly,
+) {
+    val committeeId = audience.committeeId
+    val n = audience.eligibleCount
+    panel.div(tr("Einladungen werden als PDF oder per Brief erstellt; eine E-Mail wird nicht verschickt.")) {
+        addCssClasses("text-muted small")
+    }
+
+    val formPanel = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
+    val form = formPanel.lapisForm()
+    val titleField = form.textField(label = tr("Titel"), value = meeting.title, required = true)
+    val eventDateTimeField =
+        form.textField(
+            label = tr("Termin"),
+            value = meeting.scheduledAt.toString(),
+            required = true,
+            hint = gettext("Beispiel: 2026-08-15T18:00."),
+            rule = { FormRules.localDateTime(value = it) },
+        )
+    val locationField = form.textField(label = tr("Ort"), value = meeting.location.orEmpty(), required = true)
+    val bodyTextField = form.textAreaField(label = tr("Einladungstext"), rows = 4, required = true)
+
+    val allActiveLabel = if (n != null) gettext("An alle aktiven Mitglieder (%1)", n) else gettext("An alle aktiven Mitglieder")
+    val audienceField =
+        form.selectField(
+            label = tr("Empfänger"),
+            options =
+                listOf(
+                    InvitationAudience.ALL_ACTIVE.name to allActiveLabel,
+                    InvitationAudience.SELECTED.name to gettext("Ausgewählte Mitglieder"),
+                ),
+            value = InvitationAudience.ALL_ACTIVE.name,
+            required = true,
+        )
+
+    fun allActive(): Boolean = audienceField.value == InvitationAudience.ALL_ACTIVE.name
+
+    val picked = linkedMapOf<String, MemberPickDto>()
+    val pickerField =
+        form.remoteMemberPickerField(label = tr("Mitglied hinzufügen"), search = committeeCandidateSearch(committeeId))
+    val picker = pickerField.control as RemoteMemberPicker
+    val chipsPanel = form.panel.vPanel(spacing = 2)
+
+    // The download buttons are (re)built from the current choice into this row; the postal action sits below it.
+    val buttonRow = form.buttons(primary = null)
+    if (n == null) {
+        form.panel.div(
+            tr(
+                "Die Mitgliederzahl konnte nicht ermittelt werden -- heruntergeladen wird der erste Teil; " +
+                    "der Server prüft die Teilzahl.",
+            ),
+        ) { addCssClasses("text-muted small") }
+    }
+    val postalActionPanel = form.panel.vPanel(spacing = 4)
+    val postalLimitNote = form.panel.div { addCssClasses("text-muted small") }
+    var postalButton: Button? = null
+    val outcomePanel = form.panel.vPanel(spacing = 4)
+
+    fun refreshPostal() {
+        val button = postalButton
+        if (button == null) {
+            postalLimitNote.hide()
+            return
+        }
+        if (allActive()) {
+            if (n != null && n <= MAX_POSTAL_INVITATION_RECIPIENTS) {
+                button.show()
+                postalLimitNote.hide()
+            } else {
+                button.hide()
+                if (n != null) {
+                    postalLimitNote.content =
+                        gettext(
+                            "Postversand ist auf %1 Empfänger begrenzt; die Mitgliederversammlung hat aktuell %2 -- bitte das PDF herunterladen.",
+                            MAX_POSTAL_INVITATION_RECIPIENTS,
+                            n,
+                        )
+                    postalLimitNote.show()
+                } else {
+                    postalLimitNote.hide()
+                }
+            }
+        } else {
+            button.show()
+            postalLimitNote.hide()
+        }
+    }
+
+    fun downloadButton(
+        label: String,
+        part: Int?,
+    ): Button {
+        val button = buttonRow.actionButton(ActionIcon.DOWNLOAD, label, style = ButtonStyle.OUTLINEPRIMARY)
+        button.onClick {
+            if (!form.validateAndReport()) return@onClick
+            MailmergeHttp.submitEinladungPdfDownload(
+                title = titleField.value.trim(),
+                eventDateTime = LocalDateTime.parse(eventDateTimeField.value.trim()),
+                location = locationField.value.trim(),
+                bodyText = bodyTextField.value.trim(),
+                recipientMemberIds = if (allActive()) emptyList() else picked.keys.toList(),
+                audience = if (allActive()) InvitationAudience.ALL_ACTIVE else InvitationAudience.SELECTED,
+                committeeId = if (allActive()) committeeId else null,
+                part = if (allActive()) part ?: 0 else null,
+            )
+        }
+        return button
+    }
+
+    fun renderDownloadButtons() {
+        buttonRow.removeAll()
+        if (allActive()) {
+            val parts = if (n == null) 1 else maxOf(1, (n + MAX_INVITATION_PDF_PART_SIZE - 1) / MAX_INVITATION_PDF_PART_SIZE)
+            if (parts == 1) {
+                downloadButton(tr("Als PDF herunterladen"), part = 0)
+            } else {
+                for (k in 1..parts) downloadButton(gettext("Teil %1 von %2 herunterladen", k, parts), part = k - 1)
+            }
+        } else {
+            downloadButton(tr("Als PDF herunterladen"), part = null)
+        }
+    }
+
+    fun renderChips() {
+        chipsPanel.removeAll()
+        picked.values.forEach { pick ->
+            val chip = chipsPanel.hPanel(spacing = 6) { addCssClasses("align-items-center border rounded px-2") }
+            chip.untrustedDiv(pick.displayName, className = "flex-grow-1")
+            val remove = chip.actionButton(ActionIcon.REMOVE, gettext("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
+            remove.addCssClass("lapis-chip-remove")
+            remove.onClick {
+                picked.remove(pick.id)
+                renderChips()
+                form.onFieldStateChanged()
+            }
+        }
+    }
+
+    fun applyAudience() {
+        val explicit = !allActive()
+        pickerField.setVisible(explicit)
+        if (explicit) chipsPanel.show() else chipsPanel.hide()
+        renderDownloadButtons()
+        refreshPostal()
+        form.onFieldStateChanged()
+    }
+
+    // A person chosen in the search becomes a chip and the field is emptied for the next search.
+    pickerField.subscribe { id ->
+        if (id.isNotBlank()) {
+            picker.selectedPick?.let { picked[it.id] = it }
+            picker.clear()
+            renderChips()
+            form.onFieldStateChanged()
+        }
+    }
+    form.crossFieldRule(focusOn = picker.input, watch = listOfNotNull(audienceField.control.input as? Widget)) {
+        when {
+            allActive() -> FieldCheck.Ok
+            picked.isEmpty() -> FieldCheck.Invalid(gettext("Bitte mindestens einen Empfänger auswählen."))
+            picked.size > MAX_INVITATION_PDF_PART_SIZE ->
+                FieldCheck.Invalid(
+                    gettext(
+                        "Höchstens %1 Empfänger je PDF -- bitte die Auswahl verkleinern oder \"An alle aktiven Mitglieder\" wählen.",
+                        MAX_INVITATION_PDF_PART_SIZE,
+                    ),
+                )
+            else -> FieldCheck.Ok
+        }
+    }
+    audienceField.subscribe { applyAudience() }
+    applyAudience()
+
+    // D7: the postal-dispatch button is fetched-and-populated asynchronously (whether postalMailEnabled is true) -- the free-PDF
+    // download is never gated by this flag, since it never touches Letterxpress.
+    postalActionPanel.renderPostalMailGate { host ->
+        val button = host.actionButton(ActionIcon.SEND, tr("Per Post versenden"), style = ButtonStyle.OUTLINEDANGER)
+        postalButton = button
+        refreshPostal()
+        button.onClick {
+            if (!form.validateAndReport()) return@onClick
+            val title = titleField.value.trim()
+            val eventDateTime = LocalDateTime.parse(eventDateTimeField.value.trim())
+            val location = locationField.value.trim()
+            val bodyText = bodyTextField.value.trim()
+            val everyone = allActive()
+            val chosen = picked.values.toList()
+            val count = if (everyone) n else chosen.size
+            if (count == null || count > MAX_POSTAL_INVITATION_RECIPIENTS) {
+                form.showFormError(
+                    gettext(
+                        "Postversand ist auf %1 Empfänger begrenzt; die Mitgliederversammlung hat aktuell %2 -- bitte das PDF herunterladen.",
+                        MAX_POSTAL_INVITATION_RECIPIENTS,
+                        count ?: 0,
+                    ),
+                )
+                return@onClick
+            }
+            val confirmed: () -> Unit = {
+                outcomePanel.removeAll()
+                form.runBusy(button) {
+                    val results =
+                        guarded {
+                            rpcService<IPostalMailService>().dispatchEinladungByPost(
+                                PostalInvitationDispatchInput(
+                                    title = title,
+                                    eventDateTime = eventDateTime,
+                                    location = location,
+                                    bodyText = bodyText,
+                                    recipientMemberIds = if (everyone) emptyList() else chosen.map { it.id },
+                                    audience = if (everyone) InvitationAudience.ALL_ACTIVE else InvitationAudience.SELECTED,
+                                    committeeId = if (everyone) committeeId else null,
+                                ),
+                            )
+                        }
+                    if (results != null) {
+                        val sentCount = results.count { it.status == PostalDeliveryStatus.SENT }
+                        if (sentCount == results.size) {
+                            notifySuccess(gettext("%1 von %2 Briefen erfolgreich übergeben.", sentCount, results.size))
+                        } else {
+                            notifyError(
+                                gettext("%1 von %2 Briefen fehlgeschlagen -- Details unten.", results.size - sentCount, results.size),
+                            )
+                        }
+                        results.forEach { log -> outcomePanel.renderPostalDispatchOutcome(log) }
+                    }
+                }
+            }
+            if (everyone) {
+                postalEinladungDispatchConfirmDialogForCount(count, confirmed)
+            } else {
+                postalEinladungDispatchConfirmDialog(chosen.map { it.displayName }, confirmed)
+            }
+        }
+    }
+}
 
 private fun renderAgendaSection(
     panel: SimplePanel,
     detail: MeetingDetailDto,
     canManage: Boolean,
-    eligibleMembers: List<MemberSummaryDto>,
+    audience: MeetingAudience,
     onChanged: () -> Unit,
 ) {
     panel.h2(tr("Tagesordnung")) { addCssClass("h5") }
@@ -626,17 +930,35 @@ private fun renderAgendaSection(
     }
 
     if (canManage) {
-        renderAddAgendaItemForm(panel, detail.meeting.id, nextAgendaPosition(agenda), eligibleMembers, onChanged)
+        val presenterSource =
+            when (audience) {
+                is MeetingAudience.Roster -> PresenterSource.Options(audience.members)
+                is MeetingAudience.GeneralAssembly -> PresenterSource.Remote(audience.committeeId)
+            }
+        renderAddAgendaItemForm(panel, detail.meeting.id, nextAgendaPosition(agenda), presenterSource, onChanged)
     }
 }
 
 private fun nextAgendaPosition(agenda: List<AgendaItemDto>): Int = (agenda.maxOfOrNull { it.position } ?: 0) + 1
 
+/** Where the agenda form's "Vortragend" picker gets its people from (V1.9.101). */
+internal sealed interface PresenterSource {
+    /** A committee's own short roster, offered as a searchable list. */
+    data class Options(
+        val members: List<MemberSummaryDto>,
+    ) : PresenterSource
+
+    /** The General Assembly: searched on the server for [committeeId]. */
+    data class Remote(
+        val committeeId: String,
+    ) : PresenterSource
+}
+
 internal fun renderAddAgendaItemForm(
     panel: SimplePanel,
     meetingId: String,
     nextPosition: Int,
-    eligibleMembers: List<MemberSummaryDto>,
+    presenterSource: PresenterSource,
     onChanged: () -> Unit,
 ) {
     val formPanel = panel.vPanel(spacing = 4) { addCssClasses("border-top pt-2 mt-2") }
@@ -652,8 +974,16 @@ internal fun renderAddAgendaItemForm(
         )
     val titleField = form.textField(label = tr("Titel"), required = true)
     val descriptionField = form.textField(label = tr("Beschreibung"))
-    val presenterOptions = listOf("" to tr("-- kein --")) + untrustedOptions(eligibleMembers.map { it.id to it.displayName })
-    val presenterField = form.searchableSelectField(label = tr("Vortragend"), options = presenterOptions, value = "")
+    val presenterField =
+        when (presenterSource) {
+            is PresenterSource.Options -> {
+                val presenterOptions =
+                    listOf("" to tr("-- kein --")) + untrustedOptions(presenterSource.members.map { it.id to it.displayName })
+                form.searchableSelectField(label = tr("Vortragend"), options = presenterOptions, value = "")
+            }
+            is PresenterSource.Remote ->
+                form.remoteMemberPickerField(label = tr("Vortragend"), search = committeeCandidateSearch(presenterSource.committeeId))
+        }
 
     val addButton = newActionButton(ActionIcon.ADD, tr("Hinzufügen"), ButtonStyle.OUTLINEPRIMARY)
     form.buttons(primary = addButton)
@@ -680,14 +1010,17 @@ internal fun renderAddAgendaItemForm(
     }
 }
 
-private fun renderAttendanceSection(
+internal fun renderAttendanceSection(
     panel: SimplePanel,
     detail: MeetingDetailDto,
     canManage: Boolean,
-    eligibleMembers: List<MemberSummaryDto>,
+    audience: MeetingAudience,
     onChanged: () -> Unit,
 ) {
     panel.h2(tr("Anwesenheit")) { addCssClass("h5") }
+    // The assembly's form is built BELOW the rows, but each row's "Bearbeiten" must fill it: the callback is wired afterwards.
+    var prefill: ((AttendanceDto) -> Unit)? = null
+    val editable = canManage && audience is MeetingAudience.GeneralAssembly
     if (detail.attendance.isEmpty()) {
         panel.p(tr("Noch keine Anwesenheit erfasst."))
     } else {
@@ -701,13 +1034,108 @@ private fun renderAttendanceSection(
             attendance.note?.takeIf { it.isNotBlank() }?.let { note ->
                 row.div(note) { addCssClasses("text-muted small") }
             }
+            if (editable) {
+                val edit = row.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
+                edit.addCssClass("lapis-attendance-edit")
+                edit.onClick { prefill?.invoke(attendance) }
+            }
         }
     }
 
     renderQuorumRow(panel, detail.quorum)
 
     if (canManage) {
-        renderAttendanceRecordingForm(panel, detail.meeting.id, eligibleMembers, detail.attendance, onChanged)
+        when (audience) {
+            is MeetingAudience.Roster ->
+                renderAttendanceRecordingForm(panel, detail.meeting.id, audience.members, detail.attendance, onChanged)
+            is MeetingAudience.GeneralAssembly ->
+                prefill = renderGeneralAssemblyAttendanceForm(panel, detail.meeting.id, audience.committeeId, onChanged)
+        }
+    }
+}
+
+/**
+ * V1.9.101 -- the attendance form of the General Assembly: ONE form (never one per member -- there can be thousands of members).
+ * The person and the representative are found by server-side search; "Bearbeiten" on an existing row fills this same form
+ * (the returned function), saving goes through the unchanged `recordAttendance` (an upsert per member).
+ *
+ * @return the function that pre-fills the form from an existing attendance row.
+ */
+internal fun renderGeneralAssemblyAttendanceForm(
+    panel: SimplePanel,
+    meetingId: String,
+    committeeId: String,
+    onChanged: () -> Unit,
+): (AttendanceDto) -> Unit {
+    val formPanel = panel.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") }
+    formPanel.p(tr("Anwesenheit erfassen")) { addCssClass("fw-bold") }
+    val form = formPanel.lapisForm()
+    val search = committeeCandidateSearch(committeeId)
+    val memberField = form.remoteMemberPickerField(label = tr("Mitglied"), search = search, required = true)
+    val memberPicker = memberField.control as RemoteMemberPicker
+    val statusOptions = AttendanceStatus.entries.map { it.name to attendanceStatusLabel(it) }
+    val statusField =
+        form.selectField(
+            label = tr("Status"),
+            options = statusOptions,
+            value = AttendanceStatus.PRESENT.name,
+            required = true,
+        )
+    val representedByField =
+        form.remoteMemberPickerField(label = tr("Vertreten durch (nur bei \"Vertreten\")"), search = search)
+    val representedByPicker = representedByField.control as RemoteMemberPicker
+    val noteField = form.textField(label = tr("Notiz"))
+    form.crossFieldRule(
+        focusOn = representedByField.control.input as? Widget,
+        watch = listOfNotNull(statusField.control.input as? Widget),
+    ) {
+        if (statusField.value == AttendanceStatus.REPRESENTED.name && representedByField.value.isBlank()) {
+            FieldCheck.Invalid(gettext("Bitte bei \"Vertreten\" angeben, durch wen."))
+        } else {
+            FieldCheck.Ok
+        }
+    }
+    val saveButton = newActionButton(ActionIcon.SAVE, tr("Speichern"), ButtonStyle.OUTLINEPRIMARY)
+    form.buttons(primary = saveButton)
+    saveButton.onClick {
+        form.submit(saveButton) {
+            val status = parseOptionalEnum<AttendanceStatus>(statusField.value) ?: return@submit
+            val memberName = memberPicker.selectedPick?.displayName.orEmpty()
+            val result =
+                guarded {
+                    rpcService<IGovernanceService>().recordAttendance(
+                        meetingId,
+                        AttendanceInput(
+                            memberId = memberField.value,
+                            status = status,
+                            representedByMemberId = representedByField.value.takeIf { it.isNotBlank() },
+                            note = noteField.value.trim().takeIf { it.isNotBlank() },
+                        ),
+                    )
+                }
+            if (result != null) {
+                notifySuccess(gettext("Anwesenheit von %1 gespeichert.", memberName))
+                memberField.reset()
+                representedByField.reset()
+                noteField.reset()
+                statusField.setValue(AttendanceStatus.PRESENT.name)
+                onChanged()
+            }
+        }
+    }
+    return { attendance ->
+        memberPicker.offer(MemberPickDto(attendance.memberId, attendance.memberDisplayName))
+        memberField.setValue(attendance.memberId)
+        statusField.setValue(attendance.status.name)
+        val representedId = attendance.representedByMemberId
+        if (representedId != null) {
+            representedByPicker.offer(MemberPickDto(representedId, attendance.representedByDisplayName.orEmpty()))
+        }
+        representedByField.setValue(representedId)
+        noteField.setValue(attendance.note.orEmpty())
+        memberField.validate(force = false)
+        representedByField.validate(force = false)
+        formPanel.getElement()?.scrollIntoView()
     }
 }
 

@@ -13339,10 +13339,6 @@ msgstr "Presidencia de la sesión"
 msgid "Protokollführung"
 msgstr "Secretaría de actas"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:459
-msgid "Bitte mindestens eine Empfängerin/einen Empfänger auswählen."
-msgstr "Seleccione al menos un destinatario."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt:578
 msgid "Vortragend"
 msgstr "Ponente"
@@ -21354,3 +21350,99 @@ msgstr "Ajustar el sonido de la campana"
 #: src/jsMain/kotlin/network/lapis/cloud/client/McpAccessCard.kt
 msgid "Nur wenn Sie Redaktionsrechte haben (Vorstand oder Administration): Agenten können außerdem Artikel-Entwürfe anlegen. Der Agent legt nur Entwürfe an; einreichen können nur Sie selbst, freigegeben wird wie jeder Artikel durch ein anderes Vorstandsmitglied."
 msgstr "Solo si tiene derechos de redacción (junta directiva o administración): los agentes también pueden crear borradores de artículos. El agente solo crea borradores; solo usted puede enviarlos y, como cualquier artículo, los aprueba otro miembro de la junta directiva."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RemoteMemberPicker.kt
+msgid "Weitere anzeigen"
+msgstr "Mostrar más"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RemoteMemberPicker.kt
+msgid "Mindestens 2 Zeichen eingeben."
+msgstr "Introduzca al menos 2 caracteres."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RemoteMemberPicker.kt
+msgid "Bitte Suche verfeinern."
+msgstr "Por favor, afine la búsqueda."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/RemoteMemberPicker.kt
+msgid "%1 Treffer angezeigt"
+msgstr "%1 resultados mostrados"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/AppState.kt
+msgid "Zu viele Suchanfragen -- bitte kurz warten."
+msgstr "Demasiadas solicitudes de búsqueda -- espere un momento."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "Bitte zuerst ein Gremium wählen."
+msgstr "Primero elija un órgano."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "Bitte mindestens einen Empfänger auswählen."
+msgstr "Seleccione al menos un destinatario."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "Einladungen werden als PDF oder per Brief erstellt; eine E-Mail wird nicht verschickt."
+msgstr "Las invitaciones se crean como PDF o como carta; no se envía ningún correo electrónico."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "An alle aktiven Mitglieder (%1)"
+msgstr "A todos los miembros activos (%1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "An alle aktiven Mitglieder"
+msgstr "A todos los miembros activos"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "Ausgewählte Mitglieder"
+msgstr "Miembros seleccionados"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "Teil %1 von %2 herunterladen"
+msgstr "Descargar la parte %1 de %2"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "Höchstens %1 Empfänger je PDF -- bitte die Auswahl verkleinern oder \"An alle aktiven Mitglieder\" wählen."
+msgstr "Como máximo %1 destinatarios por PDF -- reduzca la selección o elija \"A todos los miembros activos\"."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "Die Mitgliederzahl konnte nicht ermittelt werden -- heruntergeladen wird der erste Teil; der Server prüft die Teilzahl."
+msgstr "No se pudo determinar el número de miembros -- se descargará la primera parte; el servidor comprueba el número de partes."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/MeetingsScreen.kt
+msgid "Postversand ist auf %1 Empfänger begrenzt; die Mitgliederversammlung hat aktuell %2 -- bitte das PDF herunterladen."
+msgstr "El envío postal está limitado a %1 destinatarios; la asamblea general tiene actualmente %2 -- descargue el PDF."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Alle aktiven Mitglieder (automatisch)"
+msgstr "Todos los miembros activos (automático)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Alle aktiven Mitglieder (automatisch), aktuell %1"
+msgstr "Todos los miembros activos (automático), actualmente %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Diese Zahl ist die Grundlage für Beschlussfähigkeit, Abstimmungen und Wahlen."
+msgstr "Este número es la base del quórum, las votaciones y las elecciones."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Ämter der Versammlung"
+msgstr "Cargos de la asamblea"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Noch keine Ämter besetzt."
+msgstr "Todavía no hay cargos asignados."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Frühere Einzeleinträge (%1)"
+msgstr "Entradas individuales anteriores (%1)"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Amt wurde vergeben."
+msgstr "El cargo ha sido asignado."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt
+msgid "Diese Einträge wirken nicht auf Teilnahme, Stimmrecht oder Beschlussfähigkeit; die Mitgliederversammlung umfasst automatisch alle aktiven Mitglieder."
+msgstr "Estas entradas no afectan a la asistencia, al derecho de voto ni al quórum; la asamblea general incluye automáticamente a todos los miembros activos."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/PostalMailScreen.kt
+msgid "%1 physische Briefe werden über Letterxpress an die im System hinterlegten Anschriften aller aktiven Mitglieder verschickt. Fehlt bei auch nur einer Person die vollständige Anschrift, wird der gesamte Versand abgelehnt -- kein Teilversand."
+msgstr "Se enviarán %1 cartas físicas a través de Letterxpress a las direcciones registradas de todos los miembros activos. Si falta la dirección completa de una sola persona, se rechaza todo el envío -- sin envío parcial."

@@ -4,9 +4,12 @@ import io.kvision.form.check.CheckBox
 import io.kvision.form.check.checkBox
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.TAG
+import io.kvision.html.Tag
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
+import io.kvision.html.icon
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -261,6 +264,10 @@ internal fun renderCommitteeRoster(
     canManage: Boolean,
 ) {
     rosterPanel.removeAll()
+    if (committee.type == CommitteeType.GENERAL_ASSEMBLY) {
+        renderGeneralAssemblyRoster(rosterPanel, committee, canManage)
+        return
+    }
     // Security audit follow-up (untrusted-text sanitization gaps): committee.name is admin-editable free text
     // composed into a gettext(...) string -- sanitize the whole composed result, same as the raw committee.name
     // rendering in renderCommitteeRow above in this same file.
@@ -294,6 +301,146 @@ internal fun renderCommitteeRoster(
 
     if (canManage && addMemberPanel != null) {
         renderAddCommitteeMemberForm(addMemberPanel, committee.id, ::refreshRoster)
+    }
+}
+
+/**
+ * V1.9.101 -- the "Besetzung" of the General Assembly. The assembly IS every active member (automatically, the one
+ * `generalAssemblyCondition` predicate behind the quorum, votes and elections), so this view
+ *  - shows that fact and the current number N instead of a member list,
+ *  - lists only the OFFICES of the assembly (chair, secretary ... -- every role except plain `MEMBER`) and lets BOARD/ADMIN add them
+ *    with the server-side person search (never the whole directory),
+ *  - keeps earlier single entries (role `MEMBER`) collapsed and read-only: they have no effect on attendance, voting right or
+ *    quorum any more. No delete function exists or is added.
+ * Offices are real committee rows and DO carry rights (`hasCommitteeRole`: recording meetings, polls, conference binding).
+ */
+internal fun renderGeneralAssemblyRoster(
+    rosterPanel: SimplePanel,
+    committee: CommitteeDto,
+    canManage: Boolean,
+) {
+    rosterPanel.h2(sanitizeUntrustedI18nText(gettext("Besetzung: %1", committee.name))) { addCssClass("h5") }
+
+    // a) the automatic membership and its size. A failed count must not become an error block: the sentence stands without a number.
+    val infoRow = rosterPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    infoRow.icon(ActionIcon.PEOPLE.css) { setAttribute("aria-hidden", "true") }
+    val infoText = infoRow.div(tr("Alle aktiven Mitglieder (automatisch)")) { addCssClass("text-body") }
+    infoText.setAttribute("aria-live", "polite")
+    val countNote =
+        rosterPanel.div(tr("Diese Zahl ist die Grundlage für Beschlussfähigkeit, Abstimmungen und Wahlen.")) {
+            addCssClasses("text-muted small")
+        }
+    countNote.hide()
+    AppScope.launch {
+        val count = runCatching { rpcService<IGovernanceService>().countGeneralAssemblyEligible(committee.id) }.getOrNull()
+        if (count != null) {
+            infoText.content = gettext("Alle aktiven Mitglieder (automatisch), aktuell %1", count)
+            infoText.addCssClass("lapis-tabular-nums")
+            countNote.show()
+        }
+    }
+
+    // b) offices of the assembly (rows with a role other than MEMBER); the switch for ended offices stays with them
+    val includeEndedRow = rosterPanel.lapisToolbar()
+    val includeEndedCheck = includeEndedRow.checkBox(label = tr("Ausgeschiedene anzeigen"))
+    val officesList = rosterPanel.vPanel(spacing = 4)
+    val legacyHost = rosterPanel.vPanel(spacing = 4)
+    val addOfficePanel = if (canManage) rosterPanel.vPanel(spacing = 6) { addCssClasses("border-top pt-2 mt-2") } else null
+
+    fun refresh() {
+        AppScope.launch {
+            val memberships =
+                guarded {
+                    rpcService<IGovernanceService>().listCommitteeMembers(committee.id, activeOnly = !includeEndedCheck.value)
+                } ?: return@launch
+            val (offices, legacy) = memberships.partition { it.role != CommitteeRole.MEMBER }
+            officesList.removeAll()
+            if (offices.isNotEmpty() || canManage) {
+                officesList.p(tr("Ämter der Versammlung")) { addCssClasses("fw-bold mb-1") }
+            }
+            if (offices.isEmpty() && canManage) {
+                officesList.p(tr("Noch keine Ämter besetzt.")) { addCssClasses("text-muted") }
+            }
+            offices.forEach { renderRosterRow(officesList, it, canManage, ::refresh) }
+            // c) earlier single entries: collapsed, read-only apart from ending the term, never deleted
+            legacyHost.removeAll()
+            if (legacy.isNotEmpty()) {
+                val details = Tag(TAG.DETAILS, className = "small")
+                details.add(Tag(TAG.SUMMARY, content = gettext("Frühere Einzeleinträge (%1)", legacy.size)))
+                details.add(
+                    Tag(
+                        TAG.P,
+                        content =
+                            tr(
+                                "Diese Einträge wirken nicht auf Teilnahme, Stimmrecht oder Beschlussfähigkeit; die " +
+                                    "Mitgliederversammlung umfasst automatisch alle aktiven Mitglieder.",
+                            ),
+                        className = "text-muted mt-2 mb-1",
+                    ),
+                )
+                val legacyRows = SimplePanel()
+                legacy.forEach { renderRosterRow(legacyRows, it, canManage, ::refresh) }
+                details.add(legacyRows)
+                legacyHost.add(details)
+            }
+        }
+    }
+    val refreshButton = includeEndedRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
+    refreshButton.onClick { refresh() }
+    refresh()
+
+    if (addOfficePanel != null) renderAddCommitteeOfficeForm(addOfficePanel, committee.id, ::refresh)
+}
+
+/**
+ * V1.9.101 -- adds an OFFICE to the General Assembly: every role except `MEMBER` (membership is automatic), the person found by
+ * the server-side search, the unchanged `addCommitteeMember` behind it.
+ */
+internal fun renderAddCommitteeOfficeForm(
+    panel: SimplePanel,
+    committeeId: String,
+    onAdded: () -> Unit,
+) {
+    panel.p(tr("Amt vergeben")) { addCssClass("fw-bold") }
+    val form = panel.lapisForm()
+    val roleOptions = (CommitteeRole.entries - CommitteeRole.MEMBER).sortedBy { it.rank }.map { it.name to committeeRoleLabel(it) }
+    val memberField =
+        form.remoteMemberPickerField(
+            label = tr("Mitglied"),
+            search = committeeCandidateSearch(committeeId),
+            required = true,
+            requiredMessage = gettext("Bitte ein Mitglied auswählen."),
+        )
+    val roleField = form.selectField(label = tr("Rolle"), options = roleOptions, value = CommitteeRole.CHAIR.name, required = true)
+    val sinceField =
+        form.textField(
+            label = tr("Seit"),
+            value = todayIso(),
+            required = true,
+            hint = gettext("Beispiel: 2026-03-14."),
+            rule = { FormRules.isoDate(value = it) },
+        )
+    val addButton = newActionButton(ActionIcon.ADD, tr("Amt vergeben"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = addButton)
+    addButton.onClick {
+        form.submit(addButton) {
+            val result =
+                guarded {
+                    rpcService<IGovernanceService>().addCommitteeMember(
+                        committeeId,
+                        CommitteeMembershipInput(
+                            memberId = memberField.value,
+                            role = CommitteeRole.valueOf(roleField.value),
+                            since = LocalDate.parse(sinceField.value.trim()),
+                        ),
+                    )
+                }
+            if (result != null) {
+                notifySuccess(tr("Amt wurde vergeben."))
+                memberField.reset()
+                onAdded()
+            }
+        }
     }
 }
 

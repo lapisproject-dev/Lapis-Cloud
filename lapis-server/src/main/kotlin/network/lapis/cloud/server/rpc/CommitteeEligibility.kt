@@ -79,7 +79,12 @@ internal fun isCommitteeEligible(
             .count() > 0
     }
 
-private fun generalAssemblyCondition(): Op<Boolean> = MemberTable.status eq MemberStatus.ACTIVE
+/**
+ * V1.9.101 -- the single source of truth for "who is part of the General Assembly": it feeds N
+ * (`countGeneralAssemblyEligible`), the quorum, the vote/election eligibility, the invitation to
+ * "all active members" and the recipient set of the postal invitation. Never copy this predicate.
+ */
+internal fun generalAssemblyCondition(): Op<Boolean> = MemberTable.status eq MemberStatus.ACTIVE
 
 private fun committeeMembershipCondition(
     committeeId: Uuid,

@@ -19,6 +19,8 @@ import network.lapis.cloud.shared.domain.MeetingDto
 import network.lapis.cloud.shared.domain.MeetingFormat
 import network.lapis.cloud.shared.domain.MeetingStatus
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
+import network.lapis.cloud.shared.domain.MemberPickDto
+import network.lapis.cloud.shared.domain.MemberPickPageDto
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.MotionDto
@@ -391,15 +393,21 @@ class FormSubmitBodyPart3DomTest {
                         ),
                     )
                 }
-            withFetchStub(respond = answering()) { calls ->
+            val search = routeOf { rpcService<IGovernanceService>().searchCommitteeCandidates("c", "ab", 0) }
+            val page =
+                jsonOf(
+                    MemberPickPageDto.serializer(),
+                    MemberPickPageDto(listOf(MemberPickDto("m2", "Kofi Mensah"), MemberPickDto("m3", "Lena Berg")), false),
+                )
+            withFetchStub(respond = answering(search to page)) { calls ->
                 mountedForm("p3-meeting") { root, element ->
-                    renderMeetingCreationForm(root, listOf(committee()), three, onCreated = {})
+                    renderMeetingCreationForm(root, listOf(committee()), onCreated = {})
                     element().typeInto("Titel", "  Vorstandssitzung  ")
                     element().typeInto("Termin", "  2026-08-15T18:00 ")
                     element().typeInto("Ort", "  Halle 3  ")
                     element().chooseIn("Format", "HYBRID")
-                    element().chooseIn("Sitzungsleitung", "m2")
-                    element().chooseIn("Protokollführung", "m3")
+                    element().chooseRemote("Sitzungsleitung", query = "ko", id = "m2")
+                    element().chooseRemote("Protokollführung", query = "le", id = "m3")
                     element().buttonNamed("Sitzung anlegen").click()
                     awaitUntil("createMeeting", timeoutMs = 800) { calls.toRoute(create).size == 1 }
                     val input = calls.singleCall(create).rpcParam(0)
@@ -411,7 +419,7 @@ class FormSubmitBodyPart3DomTest {
             }
             withFetchStub(respond = answering()) { calls ->
                 mountedForm("p3-meeting-blank") { root, element ->
-                    renderMeetingCreationForm(root, listOf(committee()), three, onCreated = {})
+                    renderMeetingCreationForm(root, listOf(committee()), onCreated = {})
                     element().typeInto("Titel", "Nur ein Titel")
                     element().typeInto("Termin", "2026-08-15T18:00")
                     element().typeInto("Ort", "   ")
@@ -438,7 +446,7 @@ class FormSubmitBodyPart3DomTest {
                 }
             withFetchStub(respond = answering()) { calls ->
                 mountedForm("p3-agenda") { root, element ->
-                    renderAddAgendaItemForm(root, "meeting-9", 3, three, onChanged = {})
+                    renderAddAgendaItemForm(root, "meeting-9", 3, PresenterSource.Options(three), onChanged = {})
                     element().typeInto("Position", " 7 ")
                     element().typeInto("Titel", "  Haushalt 2027  ")
                     element().typeInto("Beschreibung", "  Entwurf liegt vor  ")
@@ -456,7 +464,7 @@ class FormSubmitBodyPart3DomTest {
             }
             withFetchStub(respond = answering()) { calls ->
                 mountedForm("p3-agenda-blank") { root, element ->
-                    renderAddAgendaItemForm(root, "meeting-9", 3, three, onChanged = {})
+                    renderAddAgendaItemForm(root, "meeting-9", 3, PresenterSource.Options(three), onChanged = {})
                     element().typeInto("Titel", "Nur ein Titel")
                     element().typeInto("Beschreibung", "   ")
                     element().buttonNamed("Hinzufügen").click()
@@ -642,7 +650,13 @@ class FormSubmitBodyPart3DomTest {
             val settings = routeOf { rpcService<IOrganizationSettingsService>().getOrganizationSettings() }
             withFetchStub(respond = answering(settings to orgSettingsJson(postal = true), dispatch to "[]")) { calls ->
                 mountedForm("p3-postal") { root, element ->
-                    renderEinladungSection(root, meeting(), canManage = true, isBoardOrAdminGlobal = true, eligibleMembers = three)
+                    renderEinladungSection(
+                        root,
+                        meeting(),
+                        canManage = true,
+                        isBoardOrAdminGlobal = true,
+                        audience = MeetingAudience.Roster(three),
+                    )
                     awaitUntil("the postal button", timeoutMs = 1000) {
                         element().allOf("button").any {
                             it.textContent?.trim() ==

@@ -44,5 +44,9 @@ data class PostalInvitationDispatchInput(
     val eventDateTime: LocalDateTime,
     val location: String,
     val bodyText: String,
-    val recipientMemberIds: List<String>,
+    val recipientMemberIds: List<String> = emptyList(),
+    /** V1.9.101 -- [InvitationAudience.ALL_ACTIVE] resolves the General Assembly's recipients server-side. */
+    val audience: InvitationAudience = InvitationAudience.SELECTED,
+    /** V1.9.101 -- required (and only allowed) with [InvitationAudience.ALL_ACTIVE]. */
+    val committeeId: String? = null,
 )

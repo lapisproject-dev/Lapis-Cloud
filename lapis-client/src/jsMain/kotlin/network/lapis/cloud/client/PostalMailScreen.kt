@@ -301,7 +301,35 @@ fun postalEinladungDispatchConfirmDialog(
     // straight to div(...) with no sanitizing wrapper at all. Sanitize before rendering.
     recipientDisplayNames.forEach { name -> listPanel.untrustedDiv(name) }
     modal.div(tr("Maximal 50 Empfänger pro Versand.")) { addCssClasses("text-muted small") }
+    finishEinladungConfirm(modal, onConfirm)
+}
 
+/**
+ * V1.9.101: the same confirmation for "all active members" of the General Assembly, where the names are NOT loaded (the
+ * server resolves the recipients): it states the exact number [count] instead of listing people. Same irreversibility bar.
+ */
+fun postalEinladungDispatchConfirmDialogForCount(
+    count: Int,
+    onConfirm: () -> Unit,
+) {
+    val modal = Modal(caption = tr("Einladung per Post versenden"))
+    modal.div(tr("Dieser Versand ist ENDGÜLTIG und verursacht reale Kosten pro Brief.")) { addCssClasses("fw-bold text-danger") }
+    modal.div(
+        gettext(
+            "%1 physische Briefe werden über Letterxpress an die im System hinterlegten " +
+                "Anschriften aller aktiven Mitglieder verschickt. Fehlt bei auch nur einer Person die " +
+                "vollständige Anschrift, wird der gesamte Versand abgelehnt -- kein Teilversand.",
+            count,
+        ),
+    )
+    modal.div(tr("Maximal 50 Empfänger pro Versand.")) { addCssClasses("text-muted small mt-2") }
+    finishEinladungConfirm(modal, onConfirm)
+}
+
+private fun finishEinladungConfirm(
+    modal: Modal,
+    onConfirm: () -> Unit,
+) {
     modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     // Kostenpflichtig und endgültig: ein Doppelklick (oder ein Klick während das Modal noch ausgeblendet wird) darf nie ein
     // zweites Mal versenden -- siehe [ConfirmOnce].

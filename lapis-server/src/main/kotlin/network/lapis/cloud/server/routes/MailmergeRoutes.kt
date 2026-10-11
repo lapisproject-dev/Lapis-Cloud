@@ -16,7 +16,9 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.number
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.ContributionTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventTable
@@ -34,24 +36,32 @@ import network.lapis.cloud.server.pdf.EinladungPdfGenerator
 import network.lapis.cloud.server.pdf.EventInvoicePdfGenerator
 import network.lapis.cloud.server.pdf.SpendenbescheinigungPdfGenerator
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
+import network.lapis.cloud.server.rpc.generalAssemblyCondition
 import network.lapis.cloud.server.rpc.toOrganizationSettingsDto
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.ContributionDto
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import network.lapis.cloud.shared.domain.InvitationAudience
 import network.lapis.cloud.shared.domain.JournalEntryDto
 import network.lapis.cloud.shared.domain.JournalEntryStatus
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.MemberDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 import network.lapis.cloud.shared.domain.PostingSide
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNull
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
@@ -70,7 +80,7 @@ private val GOVERNANCE_DOC_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
  * `MAX_UPLOAD_BYTES` DoS-guard idiom, sized for the realistic case (a general-assembly invite to
  * an entire membership base), not for hypothetical bulk/batch mail-merge (out of scope this wave).
  */
-private const val MAX_INVITATION_RECIPIENTS = 1_000
+private const val MAX_INVITATION_RECIPIENTS = 1_000 // kept in sync with the shared MAX_INVITATION_PDF_PART_SIZE
 
 /** Hard cap on `bodyText` length -- generous for a real letter body, well below what would let a single request pin a JDBC/render thread pathologically long via [network.lapis.cloud.server.pdf.LetterPdfBuilder]'s hand-rolled word-wrap. */
 private const val MAX_BODY_TEXT_LENGTH = 20_000
@@ -190,6 +200,10 @@ fun Route.registerMailmergeRoutes(storageRoot: File) {
         var bodyText: String? = null
         val recipientMemberIdRaw = mutableListOf<String>()
         var recipientCapExceeded = false
+        // V1.9.101 -- "invite all active members": audience/committeeId/part (absent = the unchanged explicit-selection route).
+        var audienceRaw: String? = null
+        var committeeIdRaw: String? = null
+        var partRaw: String? = null
 
         call.receiveMultipart().forEachPart { part ->
             if (part is PartData.FormItem) {
@@ -198,6 +212,9 @@ fun Route.registerMailmergeRoutes(storageRoot: File) {
                     "eventDateTime" -> eventDateTimeRaw = part.value
                     "location" -> location = part.value
                     "bodyText" -> bodyText = part.value
+                    "audience" -> audienceRaw = part.value
+                    "committeeId" -> committeeIdRaw = part.value
+                    "part" -> partRaw = part.value
                     "recipientMemberId" ->
                         if (recipientMemberIdRaw.size < MAX_INVITATION_RECIPIENTS) {
                             recipientMemberIdRaw += part.value
@@ -213,6 +230,23 @@ fun Route.registerMailmergeRoutes(storageRoot: File) {
             part.release()
         }
 
+        val audience =
+            when (audienceRaw) {
+                null, InvitationAudience.SELECTED.name -> InvitationAudience.SELECTED
+                InvitationAudience.ALL_ACTIVE.name -> InvitationAudience.ALL_ACTIVE
+                else -> {
+                    call.respond(HttpStatusCode.BadRequest, "Unknown audience")
+                    return@post
+                }
+            }
+        if (audience == InvitationAudience.SELECTED && (committeeIdRaw != null || partRaw != null)) {
+            call.respond(HttpStatusCode.BadRequest, "committeeId and part are only allowed with audience=ALL_ACTIVE")
+            return@post
+        }
+        if (audience == InvitationAudience.ALL_ACTIVE && (recipientMemberIdRaw.isNotEmpty() || recipientCapExceeded)) {
+            call.respond(HttpStatusCode.BadRequest, "audience=ALL_ACTIVE and recipientMemberId are mutually exclusive")
+            return@post
+        }
         if (recipientCapExceeded) {
             call.respond(
                 HttpStatusCode.PayloadTooLarge,
@@ -236,9 +270,22 @@ fun Route.registerMailmergeRoutes(storageRoot: File) {
             call.respond(HttpStatusCode.BadRequest, "Missing required field(s): ${missing.joinToString(", ")}")
             return@post
         }
-        if (recipientMemberIdRaw.isEmpty()) {
+        if (audience == InvitationAudience.SELECTED && recipientMemberIdRaw.isEmpty()) {
             call.respond(HttpStatusCode.BadRequest, "At least one recipientMemberId is required")
             return@post
+        }
+        val allActiveCommitteeId: Uuid?
+        val allActivePart: Int?
+        if (audience == InvitationAudience.ALL_ACTIVE) {
+            allActiveCommitteeId = committeeIdRaw?.let { raw -> runCatching { Uuid.parse(raw) }.getOrNull() }
+            allActivePart = partRaw?.toIntOrNull()?.takeIf { it >= 0 }
+            if (allActiveCommitteeId == null || allActivePart == null) {
+                call.respond(HttpStatusCode.BadRequest, "audience=ALL_ACTIVE requires a valid committeeId and a part >= 0")
+                return@post
+            }
+        } else {
+            allActiveCommitteeId = null
+            allActivePart = null
         }
         val eventDateTime =
             runCatching { LocalDateTime.parse(eventDateTimeRaw!!) }.getOrElse {
@@ -247,17 +294,41 @@ fun Route.registerMailmergeRoutes(storageRoot: File) {
             }
 
         try {
-            val bytes =
-                generateEinladung(
-                    title = title!!,
-                    eventDateTime = eventDateTime,
-                    location = location!!,
-                    bodyText = bodyText!!,
-                    recipientMemberIdRaw = recipientMemberIdRaw,
+            if (allActiveCommitteeId != null && allActivePart != null) {
+                val invitationPart = resolveAllActiveInvitationPart(committeeId = allActiveCommitteeId, part = allActivePart)
+                val bytes =
+                    transaction {
+                        EinladungPdfGenerator.generate(
+                            title = title!!,
+                            eventDateTime = eventDateTime,
+                            location = location!!,
+                            bodyText = bodyText!!,
+                            recipients = invitationPart.recipients,
+                            organization = loadOrganizationSettingsDto(),
+                            partNote = invitationPart.partNote(),
+                        )
+                    }
+                call.respondPdf(
+                    bytes = bytes,
+                    fileName = "Einladung-Teil-${invitationPart.partIndex + 1}-von-${invitationPart.partCount}.pdf",
                 )
-            call.respondPdf(bytes = bytes, fileName = "Einladung.pdf")
+            } else {
+                val bytes =
+                    generateEinladung(
+                        title = title!!,
+                        eventDateTime = eventDateTime,
+                        location = location!!,
+                        bodyText = bodyText!!,
+                        recipientMemberIdRaw = recipientMemberIdRaw,
+                    )
+                call.respondPdf(bytes = bytes, fileName = "Einladung.pdf")
+            }
         } catch (e: NotFoundException) {
             call.respond(HttpStatusCode.NotFound, e.message)
+        } catch (e: BadRequestException) {
+            call.respond(HttpStatusCode.BadRequest, e.message)
+        } catch (e: ConflictException) {
+            call.respond(HttpStatusCode.Conflict, e.message)
         }
     }
 }
@@ -410,6 +481,108 @@ internal fun generateSpendenbescheinigung(
             accessLevel = DocumentAccessLevel.ADMIN_ONLY,
         )
         GeneratedMailmergeDocument(bytes = bytes, fileName = fileName, recipient = donor)
+    }
+
+/**
+ * V1.9.101 -- one slice of the "invite all active members" PDF. [partCount] is derived from the SAME N the
+ * client shows ([generalAssemblyCondition]); [totalRecipients] is the number of letters actually produced
+ * (anonymized records are excluded from letters but still count toward N, see the V1.9.101 documentation).
+ */
+internal data class InvitationPart(
+    val recipients: List<MemberDto>,
+    val partIndex: Int,
+    val partCount: Int,
+    val totalRecipients: Int,
+    val asOf: LocalDateTime,
+) {
+    /** German cover-sheet text (server PDFs are fixed German, like "Termin:" and "Der Vorstand"). */
+    fun partNote(): String =
+        "Teil ${partIndex + 1} von $partCount \u00b7 Stand " +
+            "%04d-%02d-%02d %02d:%02d".format(asOf.year, asOf.month.number, asOf.day, asOf.hour, asOf.minute) +
+            " \u00b7 insgesamt $totalRecipients Empf\u00e4nger"
+}
+
+/** Throws [NotFoundException] for an unknown committee, [BadRequestException] unless it is the General Assembly. */
+internal fun requireGeneralAssemblyCommittee(committeeId: Uuid) {
+    val type =
+        CommitteeTable
+            .selectAll()
+            .where { CommitteeTable.id eq committeeId }
+            .singleOrNull()
+            ?.get(CommitteeTable.type)
+            ?: throw NotFoundException("Committee $committeeId not found")
+    if (type != CommitteeType.GENERAL_ASSEMBLY) {
+        throw BadRequestException("Committee $committeeId is not the General Assembly")
+    }
+}
+
+/** Letters are never produced for anonymized records; N itself stays [generalAssemblyCondition] only. */
+private fun invitationRecipientCondition() = generalAssemblyCondition() and MemberTable.anonymizedAt.isNull()
+
+/**
+ * V1.9.101 -- resolves part [part] (0-based) of the "all active members" invitation, in ONE transaction and with
+ * ONE query for the recipients (no N+1 over [loadMailmergeMember]). Sorted by id so the slices are stable.
+ * [BadRequestException] when [part] is beyond the part count; [ConflictException] when the slice has no recipients.
+ */
+internal fun resolveAllActiveInvitationPart(
+    committeeId: Uuid,
+    part: Int,
+): InvitationPart =
+    transaction {
+        requireGeneralAssemblyCommittee(committeeId)
+        val total = MemberTable.selectAll().where { generalAssemblyCondition() }.count()
+        val partCount = maxOf(1L, (total + MAX_INVITATION_RECIPIENTS - 1) / MAX_INVITATION_RECIPIENTS).toInt()
+        if (part < 0 || part >= partCount) {
+            throw BadRequestException("part must be between 0 and ${partCount - 1}")
+        }
+        val recipients =
+            (MemberTable leftJoin AccountTable)
+                .selectAll()
+                .where { invitationRecipientCondition() }
+                .orderBy(MemberTable.id to SortOrder.ASC)
+                .limit(MAX_INVITATION_RECIPIENTS)
+                .offset(part.toLong() * MAX_INVITATION_RECIPIENTS)
+                .map { it.toMailmergeMemberDto() }
+        if (recipients.isEmpty()) {
+            throw ConflictException("No invitation recipients in part ${part + 1}")
+        }
+        val totalRecipients =
+            MemberTable
+                .selectAll()
+                .where { invitationRecipientCondition() }
+                .count()
+                .toInt()
+        InvitationPart(
+            recipients = recipients,
+            partIndex = part,
+            partCount = partCount,
+            totalRecipients = totalRecipients,
+            asOf = OrganizationTimeZone.wallNow(),
+        )
+    }
+
+/**
+ * V1.9.101 -- recipient ids for the POSTAL invitation to all active members. The cap is checked on a single
+ * COUNT, BEFORE any id is loaded, so an oversized assembly costs nothing (no PDF, no provider call, no log).
+ */
+internal fun resolveAllActivePostalRecipientIds(
+    committeeId: Uuid,
+    maxRecipients: Int,
+): List<String> =
+    transaction {
+        requireGeneralAssemblyCommittee(committeeId)
+        val count = MemberTable.selectAll().where { invitationRecipientCondition() }.count()
+        if (count > maxRecipients) {
+            throw BadRequestException(
+                "Postal dispatch to all active members is limited to $maxRecipients recipients, the General Assembly " +
+                    "currently has $count -- download the PDF instead",
+            )
+        }
+        MemberTable
+            .select(MemberTable.id)
+            .where { invitationRecipientCondition() }
+            .orderBy(MemberTable.id to SortOrder.ASC)
+            .map { it[MemberTable.id].toString() }
     }
 
 private fun generateEinladung(

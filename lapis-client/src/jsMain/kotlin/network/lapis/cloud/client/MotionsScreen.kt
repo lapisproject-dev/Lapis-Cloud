@@ -17,12 +17,13 @@ import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeDto
+import network.lapis.cloud.shared.domain.CommitteeMembershipDto
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.ElectionDto
 import network.lapis.cloud.shared.domain.ElectionStatus
 import network.lapis.cloud.shared.domain.MeetingDto
 import network.lapis.cloud.shared.domain.MeetingStatus
-import network.lapis.cloud.shared.domain.MemberSummaryDto
+import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MotionDto
 import network.lapis.cloud.shared.domain.MotionInput
 import network.lapis.cloud.shared.domain.MotionResolutionInput
@@ -72,8 +73,9 @@ import network.lapis.cloud.shared.rpc.IMemberService
  *   `manageableCommittees` computation), but a stale client-side cache is still gracefully
  *   surfaced as a `guarded()` 403 rather than crashing.
  * - `castVoteBallot`: any member in the Vote's underlying Meeting/Committee eligibility set (same
- *   rule [network.lapis.cloud.client.GovernanceAuthzUi] doesn't cover -- mirrors the Meetings
- *   screen's own `eligibleMembers` computation, see [renderVoteSection]).
+ *   rule [network.lapis.cloud.client.GovernanceAuthzUi] doesn't cover -- the Committee's active roster,
+ *   or, V1.9.101, for the General Assembly the caller's own `getCurrentMember()` status: every active member belongs to it
+ *   and the screen never loads the whole directory, see [renderVoteSection]).
  * - Every read (`listMotions`/`getMotion`/`getVote`/`listVotes`/`listVoteBallots`) requires no
  *   role at all server-side.
  *
@@ -390,12 +392,29 @@ internal fun renderMotionSubmissionForm(
 }
 
 /**
+ * V1.9.101: may the caller cast a ballot on a vote of [committee]? A committee: its active roster. The General Assembly is every
+ * active member, so only the caller's OWN record is asked for (never the whole directory); an own record that cannot be loaded
+ * counts as "not eligible", like an empty list did before. The server decides the vote in any case.
+ */
+internal suspend fun isEligibleToBallot(
+    committee: CommitteeDto?,
+    roster: List<CommitteeMembershipDto>,
+    currentMemberId: String,
+): Boolean =
+    if (committee?.type == CommitteeType.GENERAL_ASSEMBLY) {
+        guarded { rpcService<IMemberService>().getCurrentMember() }?.status == MemberStatus.ACTIVE
+    } else {
+        roster.any { it.memberId == currentMemberId }
+    }
+
+/**
  * Loads the Motion itself, its target Committee's roster (for [GovernanceAuthzUi]), its parent (if
  * it is an amendment) or its own amendments (if it is a main Motion), and any Vote opened against
  * it -- then dispatches the status-specific action sections. [onSelectMotion] lets a nested link
  * (the D1 parent callout, an amendment row, a D2 blocking-amendment link) reselect a different
  * Motion within this same screen without a route change.
  */
+
 private fun renderMotionDetail(
     panel: SimplePanel,
     motionId: String,
@@ -433,13 +452,6 @@ private fun renderMotionDetail(
             votes.find { it.status == VoteStatus.OPEN } ?: votes.find { it.status == VoteStatus.CLOSED }
 
         val committee = committees.find { it.id == motion.targetCommitteeId }
-        val eligibleMembers: List<MemberSummaryDto> =
-            if (committee?.type == CommitteeType.GENERAL_ASSEMBLY) {
-                guarded { rpcService<IMemberService>().listMembers() } ?: emptyList()
-            } else {
-                roster.map { MemberSummaryDto(id = it.memberId, displayName = it.memberDisplayName) }
-            }
-
         panel.removeAll()
         renderMotionMeta(panel, motion, canManage, isSubmitter, onChanged)
         if (parent != null) renderAmendmentContext(panel, parent, onSelectMotion)
@@ -468,8 +480,8 @@ private fun renderMotionDetail(
         }
 
         if (activeVote != null) {
-            val isEligibleToBallot = eligibleMembers.any { it.id == currentMemberId }
-            renderVoteSection(panel, activeVote, canManage, currentMemberId, isEligibleToBallot, onChanged)
+            val eligible = isEligibleToBallot(committee, roster, currentMemberId)
+            renderVoteSection(panel, activeVote, canManage, currentMemberId, eligible, onChanged)
         }
     }
 }

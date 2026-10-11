@@ -565,3 +565,12 @@ class NoSecondAdminException(
 class PrivilegedActionStateException(
     override val message: String = "The request is not in a state that allows this action",
 ) : AbstractServiceException()
+
+/**
+ * V1.9.101 -- the committee-candidate search was called too often. Kilua RPC transports only the
+ * exception type (not the message) and has no real HTTP 429, so the "429" of the spec is this type.
+ */
+@RpcServiceException
+class SearchRateLimitedException(
+    override val message: String = "Too many search requests",
+) : AbstractServiceException()

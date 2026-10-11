@@ -19,7 +19,6 @@ import network.lapis.cloud.shared.domain.MeetingFormat
 import network.lapis.cloud.shared.domain.MeetingInput
 import network.lapis.cloud.shared.domain.MemberAdminRowDto
 import network.lapis.cloud.shared.domain.MemberStatus
-import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.MotionDto
 import network.lapis.cloud.shared.domain.MotionResolutionInput
 import network.lapis.cloud.shared.domain.MotionStatus
@@ -503,7 +502,6 @@ class FormSubmitBodyPart2DomTest {
                     renderMeetingCreationForm(
                         panel = root,
                         committees = listOf(committee),
-                        memberCandidates = listOf(MemberSummaryDto(id = "m1", displayName = "Amara")),
                         onCreated = {},
                     )
                     val screen = element()

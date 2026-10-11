@@ -2412,6 +2412,13 @@ html .form-select.is-invalid:focus {
   .lapis-ssel-button { min-height: 44px; min-width: 44px; }
 }
 
+/* V1.9.101: the "Weitere anzeigen" button of the remote member picker, the chips of a selected invitation audience and the
+   "Bearbeiten" button of an attendance row: full-width / 44px touch targets, tokens only, no transition. */
+.lapis-ssel-more { width: 100%; min-height: 44px; margin-top: .25rem; }
+.lapis-chip-remove,
+.lapis-attendance-edit { min-height: 44px; }
+.lapis-tabular-nums { font-variant-numeric: tabular-nums; }
+
 /* V1.9.17: a list that is being refetched in place (open items after an action / "Aktualisieren") stays on screen,
    dimmed, instead of flashing a loading placeholder; `aria-busy="true"` is set on the same element. */
 .lapis-busy {

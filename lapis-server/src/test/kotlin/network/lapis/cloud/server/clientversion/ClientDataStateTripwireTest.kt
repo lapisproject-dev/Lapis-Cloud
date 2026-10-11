@@ -69,10 +69,17 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * above: a user-triggered, stateless dry run with no list to load, so no loading/empty/error state to present -- a failure already toasts
  * through `guarded` and the screen simply stays in the editor. (The method name starts with "preview", which [READ_CALL] counts as a read.)
  * 153 -> 154.
+ * Welle V1.9.101 "Mitgliederversammlung bereinigen" REMOVES two member-directory reads from `MeetingsScreen.kt` (`listMembers()` of the creation form
+ * and of the meeting detail; `MotionsScreen.kt` swaps its `listMembers()` for `getCurrentMember()`, net zero) and adds FOUR accepted ones: in
+ * `CommitteesScreen.kt` the stateless number N (`countGeneralAssemblyEligible(`, deliberately WITHOUT an error state: a failed count only drops the
+ * figure from the sentence) and the roster read of the new assembly view (`listCommitteeMembers(`, the same call the old roster made, now once
+ * more for the assembly's own view), in `MeetingsScreen.kt` the same N for the invitation (`countGeneralAssemblyEligible(`, net the file went
+ * 7 -> 6), and in the new `RemoteMemberPicker.kt` (a new file, hence 47 -> 48 files) the person search itself (`searchCommitteeCandidates(`: a
+ * debounced, user-triggered dropdown whose empty/failed states live inside the list, a failure toasts through `guarded`). 154 -> 156.
  * The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 154
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 47
+private const val READ_OUTSIDE_STATE_REGION_MAX = 156
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 48
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through
