@@ -236,6 +236,24 @@ class ConferenceDockLifecycleTest {
     }
 
     @Test
+    fun theFullWidthSwitch_followsTheHostVisibility_andResetForTestClearsIt() {
+        val html = document.documentElement!!
+        assertFalse(html.classList.contains(CONFERENCE_CALL_VISIBLE_CLASS))
+        ConferenceDock.bindHost(VPanel())
+        assertFalse(html.classList.contains(CONFERENCE_CALL_VISIBLE_CLASS), "idle: no switch")
+        startLiveCall()
+        assertTrue(html.classList.contains(CONFERENCE_CALL_VISIBLE_CLASS), "an attached call: the switch is set")
+        val screen = Any()
+        ConferenceDock.attachView(screen, fromBar = false)
+        ConferenceDock.detachView(screen)
+        assertFalse(html.classList.contains(CONFERENCE_CALL_VISIBLE_CLASS), "undocked: the host is hidden, the switch is off")
+        ConferenceDock.attachView(screen, fromBar = true)
+        assertTrue(html.classList.contains(CONFERENCE_CALL_VISIBLE_CLASS))
+        ConferenceDock.resetForTest()
+        assertFalse(html.classList.contains(CONFERENCE_CALL_VISIBLE_CLASS), "resetForTest must not leak the switch into the next test")
+    }
+
+    @Test
     fun theTitleMarker_isSetWhileRecordingOrStreaming_andRemovedWhenIdle() {
         assertEquals("Seite", ConferenceDock.decorateTitle("Seite"))
         startLiveCall()

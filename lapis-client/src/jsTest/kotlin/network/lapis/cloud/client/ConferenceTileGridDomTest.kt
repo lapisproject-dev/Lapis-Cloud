@@ -18,7 +18,7 @@ import kotlin.test.assertTrue
 /**
  * V1.9.92 -- the best-fit tile grid in a real DOM with the real stylesheet. A real LiveKit call cannot run in Karma, so `applyTileGrid` of the call
  * view (a local function of `enterCall`) is mirrored here by [apply]: the same measurements go into [computeConferenceTileGrid] and the same
- * variables are written. What is proven here is the CSS side (flex row, centred last row, column cap, small tiles, padding, wide root, "Mehr"-sheet)
+ * variables are written. What is proven here is the CSS side (flex row, centred last row, column cap, small tiles, padding, "Mehr"-sheet)
  * and that a recomputation moves no node and loses neither focus nor the speaking mark. The wiring of the real function is guarded as text
  * (`ClientConferenceDockTripwireTest`, `ClientUiGuidelineTripwireTest`).
  */
@@ -254,37 +254,27 @@ class ConferenceTileGridDomTest {
     }
 
     @Test
-    fun theRootColumn_isNarrowInTheLobby_andFullWidthInACall() {
-        val root = document.createElement("div") as HTMLElement
-        root.className = "lapis-conference-root"
-        host.appendChild(root)
-        assertEquals("960px", window.getComputedStyle(root).maxWidth)
-        val callPanel = document.createElement("div") as HTMLElement
-        callPanel.className = "lapis-conference-call-panel"
-        root.appendChild(callPanel)
-        assertEquals("960px", window.getComputedStyle(root).maxWidth, "a call panel without the marker is still the lobby")
-        callPanel.classList.add(CONFERENCE_CALL_ACTIVE_CLASS)
-        assertEquals("none", window.getComputedStyle(root).maxWidth)
-        assertEquals("0px", window.getComputedStyle(root).marginTop)
-        callPanel.classList.remove(CONFERENCE_CALL_ACTIVE_CLASS)
-        assertEquals("960px", window.getComputedStyle(root).maxWidth)
-    }
-
-    @Test
-    fun theMoreSheet_staysInsideTheViewport_inTheWideRoot() {
-        val root = document.createElement("div") as HTMLElement
-        root.className = "lapis-conference-root"
-        val callPanel = document.createElement("div") as HTMLElement
-        callPanel.className = "lapis-conference-call-panel $CONFERENCE_CALL_ACTIVE_CLASS"
-        val sheet = document.createElement("div") as HTMLElement
-        sheet.className = "lapis-conference-more-sheet"
-        sheet.textContent = "Mehr"
-        callPanel.appendChild(sheet)
-        root.appendChild(callPanel)
-        host.appendChild(root)
-        val rect = sheet.getBoundingClientRect()
-        assertTrue(rect.left >= -0.5, "left ${rect.left}")
-        assertTrue(rect.right <= window.innerWidth + 0.5, "right ${rect.right} vs ${window.innerWidth}")
-        assertNotEquals("0px", window.getComputedStyle(sheet).width)
+    fun theMoreSheet_staysInsideTheViewport_whileACallIsVisible() {
+        // V1.9.104: the switch is the `<html>` class the dock sets (the column rules themselves are proven in `ConferenceFullWidthDomTest`)
+        val html = document.documentElement!!
+        html.classList.add(CONFERENCE_CALL_VISIBLE_CLASS)
+        try {
+            val root = document.createElement("div") as HTMLElement
+            root.className = "lapis-conference-root"
+            val callPanel = document.createElement("div") as HTMLElement
+            callPanel.className = "lapis-conference-call-panel"
+            val sheet = document.createElement("div") as HTMLElement
+            sheet.className = "lapis-conference-more-sheet"
+            sheet.textContent = "Mehr"
+            callPanel.appendChild(sheet)
+            root.appendChild(callPanel)
+            host.appendChild(root)
+            val rect = sheet.getBoundingClientRect()
+            assertTrue(rect.left >= -0.5, "left ${rect.left}")
+            assertTrue(rect.right <= window.innerWidth + 0.5, "right ${rect.right} vs ${window.innerWidth}")
+            assertNotEquals("0px", window.getComputedStyle(sheet).width)
+        } finally {
+            html.classList.remove(CONFERENCE_CALL_VISIBLE_CLASS)
+        }
     }
 }

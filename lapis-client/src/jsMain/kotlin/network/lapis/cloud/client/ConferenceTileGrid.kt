@@ -163,9 +163,6 @@ internal fun conferenceRailInset(
 /** Class of a tile narrower than [CONFERENCE_TILE_SMALL_WIDTH_PX]: only the symbol of the speaker badge, a shorter name. */
 internal const val CONFERENCE_TILE_SMALL_CLASS = "lapis-conference-tile--small"
 
-/** Marker on the call panel while a call is on screen (the page column is full width then, see `theme.css`). */
-internal const val CONFERENCE_CALL_ACTIVE_CLASS = "lapis-conference-call-active"
-
 /** The fixed thumbnail of the filmstrip (16:9). */
 internal const val CONFERENCE_FILMSTRIP_TILE_WIDTH_PX = 146
 internal const val CONFERENCE_FILMSTRIP_TILE_HEIGHT_PX = 82

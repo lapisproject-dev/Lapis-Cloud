@@ -502,9 +502,9 @@ internal fun Container.conferenceScreenRoot(onTeardown: () -> Unit): VPanel =
             // statt `width` für die feste Obergrenze, `width = 100.perc` für den Schrumpf auf schmale
             // Viewports. Dieselbe hartcodierte-Breite-ohne-Fallback-Falle besteht auf elf weiteren Screens
             // (Dashboard etc.) -- bewusst NICHT Teil dieser Welle, siehe CHANGELOG.md.
-            // V1.9.92: the 960 px column and its centring now live in the class `lapis-conference-root` (theme.css), NOT inline:
-            // an inline `max-width` beats every class, so the call view could never widen. While a call is on screen the class
-            // `lapis-conference-wide` (see `:has(.lapis-conference-call-active)`) lifts the cap; the lobby stays narrow.
+            // V1.9.104: the 960 px column and its centring live in the class `lapis-conference-root` (theme.css), NOT inline: an inline
+            // `max-width` beats every class. While the call is visible, `html.lapis-conference-call-visible` (set by
+            // `ConferenceDock.applyHostVisibility`) lifts the cap.
             addCssClass("lapis-conference-root")
             width = 100.perc
         },
@@ -1086,8 +1086,6 @@ private fun enterCall(
     setConferenceLobbyVisible(lobbyPanel, false)
     callPanel.removeAll()
     callPanel.show()
-    // V1.9.92: while a call is on screen the page column is full width (theme.css `lapis-conference-wide`); the lobby stays narrow
-    callPanel.addCssClass(CONFERENCE_CALL_ACTIVE_CLASS)
 
     // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- every IConferenceService/
     // IConferenceRecordingService/IConferenceStreamingService call below targets the PARENT room's
@@ -5332,7 +5330,6 @@ private fun returnToLobby(
     onBeforeReturn()
     setActiveSession(null)
     callPanel.removeAll()
-    callPanel.removeCssClass(CONFERENCE_CALL_ACTIVE_CLASS)
     val showLobby = ConferenceLobbyPort.current
     if (ConferenceDock.isAttached && showLobby != null) {
         callPanel.hide()

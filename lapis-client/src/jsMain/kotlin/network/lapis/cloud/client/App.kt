@@ -34,8 +34,6 @@ import io.kvision.panel.root
 import io.kvision.panel.vPanel
 import io.kvision.remote.registerRemoteTypes
 import io.kvision.startApplication
-import io.kvision.utils.perc
-import io.kvision.utils.px
 import kotlinx.browser.document
 import kotlinx.browser.localStorage
 import kotlinx.browser.window
@@ -361,15 +359,8 @@ class App : Application() {
             // V1.9.70: the route outlet (cleared on every route change) and the permanent conference dock host sit side by side in the
             // landmark. The dock host carries the call view of a running conference; it is only shown and hidden, never cleared by routing.
             val pageContainer = contentPanel.vPanel(className = "lapis-route-outlet")
-            val dockHost =
-                contentPanel.vPanel(spacing = 14, className = "lapis-conference-dock-host mx-auto") {
-                    // same column as the conference screen's own root (`conferenceScreenRoot`): max 960 px, shrinks on narrow viewports
-                    maxWidth = 960.px
-                    width = 100.perc
-                    marginTop = 24.px
-                    // hidden by a class, never by `hide()`: a widget KVision does not render would drop the call view out of the document
-                    addCssClass(DOCK_HIDDEN_CLASS)
-                }
+            // same column as the conference screen's own root (theme.css `lapis-conference-dock-host`); `conferenceDockHost` is shared with the DOM tests
+            val dockHost = contentPanel.conferenceDockHost()
             ConferenceDock.bindHost(dockHost)
             // The mini bar: after the landmark in the DOM (and before the version banner `ClientVersionWatcher` appends last).
             shell.conferenceDockBar()

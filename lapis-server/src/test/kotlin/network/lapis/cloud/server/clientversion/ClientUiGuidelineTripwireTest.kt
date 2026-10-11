@@ -2276,9 +2276,13 @@ class ClientUiGuidelineTripwireTest :
             val css = parseCssRules(THEME_CSS.readText())
             val mine =
                 css.filter { rule ->
-                    listOf("lapis-conference-grid", "lapis-conference-tiles", "lapis-conference-tile--small", "lapis-conference-root").any {
-                        rule.selector.contains(it)
-                    }
+                    listOf(
+                        "lapis-conference-grid",
+                        "lapis-conference-tiles",
+                        "lapis-conference-tile--small",
+                        "lapis-conference-root",
+                        "lapis-conference-dock-host",
+                    ).any { rule.selector.contains(it) }
                 }
             (mine.size >= 6) shouldBe true
             for (rule in mine) {
@@ -2295,11 +2299,38 @@ class ClientUiGuidelineTripwireTest :
                     it.body.contains("padding: 16px")
             } shouldBe
                 true
+            // V1.9.104: the column is the class of the page root AND of the permanent dock host; the lifting switch sits on <html>
+            val themeText = THEME_CSS.readText()
+            themeText.contains(":has(.lapis-conference-call-active)") shouldBe false
+            themeText.contains("lapis-conference-call-active") shouldBe false
+            val column = css.first { it.atRules.isEmpty() && ".lapis-conference-root" in selectorsOf(it) }
+            selectorsOf(column).contains(".lapis-conference-dock-host") shouldBe true
+            column.body.contains("max-width: 960px") shouldBe true
+            val lifted =
+                css.first {
+                    it.atRules.isEmpty() &&
+                        "html.lapis-conference-call-visible .lapis-conference-root" in selectorsOf(it) &&
+                        "html.lapis-conference-call-visible .lapis-conference-dock-host" in selectorsOf(it)
+                }
+            lifted.body.contains("max-width: none") shouldBe true
             css.any {
-                it.selector.contains("lapis-conference-root:has(.lapis-conference-call-active)") &&
-                    it.body.contains("max-width: none")
-            } shouldBe
-                true
-            css.first { it.selector == ".lapis-conference-root" }.body.contains("max-width: 960px") shouldBe true
+                it.atRules.any { a -> a.contains("min-width: 768px") } &&
+                    selectorsOf(it) == listOf("html.lapis-conference-call-visible .lapis-conference-more-sheet") &&
+                    it.body.contains("right: auto")
+            } shouldBe true
+            // the dock host is a class, never an inline style (an inline max-width / margin beats the lifting rule)
+            val dockSource = codeOnly(clientKotlinFiles().first { it.name == "ConferenceDock.kt" }.readText())
+            val hostBuilder = dockSource.substringAfter("internal fun Container.conferenceDockHost()").substringBefore("\n\n")
+            hostBuilder.contains("CONFERENCE_DOCK_HOST_CLASS") shouldBe true
+            for (forbidden in listOf("maxWidth", "marginTop", "width =", "mx-auto")) hostBuilder.contains(forbidden) shouldBe false
+            val app = codeOnly(clientKotlinFiles().first { it.name == "App.kt" }.readText())
+            app.contains("conferenceDockHost()") shouldBe true
+            app.contains("lapis-conference-dock-host") shouldBe false
+            // ONLY the dock sets and removes the switch; the old panel marker is gone
+            val allClient = clientKotlinFiles().map { it.name to codeOnly(it.readText()) }
+            val switchUsers = allClient.filter { (_, text) -> text.contains("CONFERENCE_CALL_VISIBLE_CLASS") }.map { it.first }
+            (switchUsers - "ConferenceDock.kt") shouldBe emptyList()
+            val oldMarkerUsers = allClient.filter { (_, text) -> text.contains("CONFERENCE_CALL_ACTIVE_CLASS") }.map { it.first }
+            oldMarkerUsers shouldBe emptyList()
         }
     })

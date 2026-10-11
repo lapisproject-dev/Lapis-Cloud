@@ -423,12 +423,20 @@ no RPC; its ledger of 153/46 cannot move). Karma: `ConferenceFloatGeometryTest`,
 Client only; no server, RPC, schema or catalog change (no new text: the call view's live region already announces who joins and leaves, a column
 announcement on every resize would only be noise).
 
-*Full width.* While a call is on screen the page column is no longer 960 px wide. The 960 px and the centring moved from inline styles
-(`maxWidth`/`mx-auto`, which beat every class) into the class `lapis-conference-root` (`theme.css`); `enterCall` puts the marker
-`lapis-conference-call-active` on the call panel and `returnToLobby` / the dock reset remove it, and
-`.lapis-conference-root:has(.lapis-conference-call-active)` lifts the cap. The lobby, which shares the root, stays narrow. A browser without
-`:has` keeps the narrow column; the grid still measures the real width. The "Mehr" sheet was anchored to the right edge of the 960 px column,
-so in the wide call it is anchored over the middle of the window (where the control bar centres its button).
+*Full width (corrected in V1.9.104).* While a call is on screen the page column is no longer 960 px wide. The 960 px and the centring live in
+classes (`theme.css`), not in inline styles (which beat every class): `lapis-conference-root` on the page root and `lapis-conference-dock-host` on
+the permanent dock host. The call view sits in the dock host (since V1.9.70), not under the page root, so the V1.9.92 solution (a marker class on the
+call panel plus `.lapis-conference-root:has(.lapis-conference-call-active)`) never matched in the real app, and the host additionally carried an
+inline 960 px cap: the call page stayed narrow. Now `ConferenceDock.applyHostVisibility` sets the class `lapis-conference-call-visible` on `<html>`
+under the same condition that shows the host (state not idle and attached); `clearRun` and `resetForTest` remove it. The rules
+`html.lapis-conference-call-visible .lapis-conference-root` and `... .lapis-conference-dock-host` lift the cap. Page root and host are siblings in
+the landmark, so no `:has` over a page tree can work; the switch sits on the document and needs no `:has` at all. The top margin stays 24 px in both
+states (the heading does not jump), there is no transition, and there is deliberately no upper limit on very wide screens. The end card
+(`Stopped`) is full width as long as it is attached (one condition, no second jump when a call ends). The lobby, which shares the root, stays
+narrow whenever no call is visible. The "Mehr" sheet was anchored to the right edge of the 960 px column, so in the wide call it is anchored over
+the middle of the window (where the control bar centres its button), under the same `html` class. The tile area's `ResizeObserver` measures the
+real width, so the grid follows the wider column without an extra call. Tripwires: `ClientUiGuidelineTripwireTest` (no inline width on the host,
+only the dock sets the class, the old marker is gone); Karma: `ConferenceFullWidthDomTest` (real page structure at a fixed 1400 px stage).
 
 *The computation.* `ConferenceTileGrid.kt` is pure arithmetic (no DOM; a tripwire pins that). `computeConferenceTileGrid(count, width, height)` tries
 every column count from 1 to `count` and takes the one with the largest 16:9 tile (`min` of the width bound and the height bound, 8 px gap). A tie
@@ -456,8 +464,8 @@ of a call) disconnects the observer and removes the three listeners.
 
 *Deviations from the design review.* (A1) The review asked for the tile area to scroll vertically below 160 px. `ScrollSurfaceTripwireTest` allows only
 shrinking its scroll ledger (R59, one scroll surface), so the area instead grows and the page scrolls (in full screen the call panel, ledger class E0).
-The effect for the person is the same. (A2) `ConferenceTileGrid` carries an extra field `scrolls` for exactly this. (A3) The wide column is a marker class
-plus a `:has` rule instead of removing the cap, so the lobby stays narrow. (A4) The "Mehr" sheet anchor changed (see above). (A5) In the normal view
+The effect for the person is the same. (A2) `ConferenceTileGrid` carries an extra field `scrolls` for exactly this. (A3) The wide column is a switch on `<html>` (V1.9.104; V1.9.92 used a marker class plus a `:has` rule, which never matched)
+instead of removing the cap for good, so the lobby stays narrow. (A4) The "Mehr" sheet anchor changed (see above). (A5) In the normal view
 the roster, chat and voting panels still sit below the tiles; a side column was not built (a CSS grid cannot stack several rail panels in one column
 without wrapping them, which would move raw nodes). Only full screen, where the rail already overlays the right edge, makes room for it.
 

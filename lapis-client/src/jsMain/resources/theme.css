@@ -837,19 +837,26 @@ body {
 /* D11: Maße aus ConferenceScreen.kt's Inline-Styles übernommen, unverändert im Normalmodus. Kein
    !important -- dieses Projekt erlaubt !important nur gegen Bootstrap-Klassen, nicht als
    Gewohnheit. */
-/* V1.9.92: Seitenspalte der Konferenzseite. Die 960-px-Spalte (vorher Inline-Stil, der jede Klasse schlägt) liegt jetzt hier; solange ein
-   Anruf auf dem Bildschirm steht (`.lapis-conference-call-active` auf dem Anrufbereich), fällt die Obergrenze: die Kacheln bekommen die volle
-   Breite, die Lobby bleibt schmal. Ohne `:has` (ältere Browser) bleibt die Spalte schmal -- das Raster rechnet trotzdem mit der echten Breite. */
-.lapis-conference-root {
+/* V1.9.104: Seitenspalte der Konferenzseite. Die 960-px-Spalte steckt in den Klassen der Seite (`lapis-conference-root`) UND des
+   dauerhaften Dock-Hosts (`lapis-conference-dock-host`), in dem der Anruf seit V1.9.70 liegt -- beide stehen als Geschwister im
+   Landmark, deshalb taugt kein `:has` über dem Seitenbaum. Der Schalter sitzt am Dokument: `ConferenceDock.applyHostVisibility`
+   setzt `html.lapis-conference-call-visible`, solange der Anrufbereich sichtbar ist; dann fällt die Obergrenze. Der obere Rand bleibt
+   in beiden Zuständen gleich (die Überschrift springt nicht), und es gibt bewusst weder Übergang noch Breitendeckel. */
+.lapis-conference-root,
+.lapis-conference-dock-host {
   max-width: 960px;
   margin: 24px auto 0;
 }
 
-.lapis-conference-root:has(.lapis-conference-call-active) {
+.lapis-conference-dock-host {
+  width: 100%;
+}
+
+html.lapis-conference-call-visible .lapis-conference-root,
+html.lapis-conference-call-visible .lapis-conference-dock-host {
   max-width: none;
   margin-left: 0;
   margin-right: 0;
-  margin-top: 0;
 }
 
 .lapis-conference-grid {
@@ -1396,10 +1403,10 @@ body {
   }
 }
 
-/* V1.9.92: in der vollen Breite sitzt der Knopf "Mehr" in der Mitte des Fensters, nicht mehr am Rand einer 960-px-Spalte -- das Blatt wird
+/* V1.9.104: in der vollen Breite sitzt der Knopf "Mehr" in der Mitte des Fensters, nicht mehr am Rand einer 960-px-Spalte -- das Blatt wird
    über der Mitte verankert (420 px breit, also 210 px nach links). */
 @media (min-width: 768px) {
-  .lapis-conference-root:has(.lapis-conference-call-active) .lapis-conference-more-sheet {
+  html.lapis-conference-call-visible .lapis-conference-more-sheet {
     right: auto;
     left: max(8px, calc(50vw - 210px));
   }

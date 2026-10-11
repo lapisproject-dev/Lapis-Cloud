@@ -2355,6 +2355,7 @@ Client only. Architecture: `conference-dock.adoc`, "Best-fit tile grid (V1.9.92)
 
 * **Full width in a call.** The conference page is the one place where the 960 px reading column is wrong: the pictures are the content. While a call is
   on screen the column is as wide as the window; the lobby keeps 960 px (R2 is untouched: no fixed width is introduced, the column is `max-width` in a class).
+  *Correction (V1.9.104): this did not take effect in the real app, see the next section.*
 * **Spacing.** 8 px between tiles; the outer margin of the tile area is larger than the gap (8 px, from 768 px 16 px).
 * **Floor.** A tile is never narrower than 160 px. Below that the area grows and the page scrolls (R59: no scroller of its own).
 * **No layout animation.** A resize jumps to the new size; no `transition` or `animation` on the area, the zone or the tiles (R54 ledger unchanged).
@@ -2362,3 +2363,14 @@ Client only. Architecture: `conference-dock.adoc`, "Best-fit tile grid (V1.9.92)
   for a tile's size (the filmstrip keeps its own 146 x 82 px). Focus, the speaking mark and the running video survive every resize.
 * **Small tiles.** Below 220 px the speaker badge shows only its symbol (the word is hidden, not removed) and the name leaves room for it.
 
+== V1.9.104 -- Conference page full width
+
+Client only. Architecture: `conference-dock.adoc`, "Best-fit tile grid (V1.9.92)", paragraph "Full width".
+
+* **Why V1.9.92 did not work.** The call view lives in the permanent dock host (since V1.9.70), whose inline `maxWidth = 960` beat every class, and the
+  `:has` rule sat on the page root, which does not contain the call panel.
+* **The column is a class on both.** `lapis-conference-root` and `lapis-conference-dock-host` carry `max-width: 960px` and the centring; no inline width,
+  margin or `mx-auto` on either (tripwire).
+* **One switch, one condition.** While the call view is visible (state not idle and attached, the same condition that shows the host) `<html>` carries
+  `lapis-conference-call-visible`; the cap falls on both. No `:has`, no transition, no upper limit on very wide screens (deliberate).
+* **No jump.** The top margin is 24 px in the lobby and in the call. The end card is full width while attached.

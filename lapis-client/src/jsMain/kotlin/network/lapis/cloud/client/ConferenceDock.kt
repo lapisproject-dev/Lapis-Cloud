@@ -1,7 +1,9 @@
 package network.lapis.cloud.client
 
+import io.kvision.core.Container
 import io.kvision.i18n.gettext
 import io.kvision.panel.VPanel
+import io.kvision.panel.vPanel
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.CoroutineStart
@@ -269,6 +271,23 @@ internal const val DOCK_HIDDEN_CLASS = "d-none"
 /** `document.body` class that is set exactly while the mini bar is shown (reserves its space, see theme.css). */
 internal const val DOCK_BODY_CLASS = "lapis-has-dock"
 
+/** Class of the permanent dock host (theme.css: the 960 px column, like the conference page's own root). */
+internal const val CONFERENCE_DOCK_HOST_CLASS = "lapis-conference-dock-host"
+
+/**
+ * `<html>` class that is set exactly while the call view is visible in the page (state not idle and attached): theme.css lifts the 960 px
+ * cap of the page column and the dock host then. ONLY [ConferenceDock] sets and removes it.
+ */
+internal const val CONFERENCE_CALL_VISIBLE_CLASS = "lapis-conference-call-visible"
+
+/**
+ * The permanent dock host, hidden until a call is attached. No inline width / margin: an inline style beats every class (V1.9.104), the column
+ * is the class [CONFERENCE_DOCK_HOST_CLASS]. Hidden by a class, never by `hide()`: a widget KVision does not render would drop the call view
+ * out of the document.
+ */
+internal fun Container.conferenceDockHost(): VPanel =
+    vPanel(spacing = 14, className = CONFERENCE_DOCK_HOST_CLASS) { addCssClass(DOCK_HIDDEN_CLASS) }
+
 internal object ConferenceDock {
     /** The ONLY mutable state field. */
     var state: DockState = DockState.Idle
@@ -426,7 +445,7 @@ internal object ConferenceDock {
         announcedFirstDetach = false
         pendingFocusFromBar = false
         callPanel.removeAll()
-        callPanel.removeCssClass(CONFERENCE_CALL_ACTIVE_CLASS)
+        toggleCallVisibleClass(false)
         callPanel.hide()
         audioContainer.let { container -> while (container.firstChild != null) container.removeChild(container.firstChild!!) }
     }
@@ -462,10 +481,22 @@ internal object ConferenceDock {
     fun notifyMediaChanged() = ConferenceFloatController.onMediaChanged()
 
     private fun applyHostVisibility() {
-        val h = host ?: return
+        val h = host
+        if (h == null) {
+            toggleCallVisibleClass(false)
+            return
+        }
         // a CSS class, NOT `hide()`: KVision does not render a hidden widget, and a call view that is dropped from the document would lose
         // its video elements and its raw-DOM tiles -- the host must stay in the document, only invisible
-        if (state !is DockState.Idle && state.isAttached) h.removeCssClass(DOCK_HIDDEN_CLASS) else h.addCssClass(DOCK_HIDDEN_CLASS)
+        val visible = state !is DockState.Idle && state.isAttached
+        if (visible) h.removeCssClass(DOCK_HIDDEN_CLASS) else h.addCssClass(DOCK_HIDDEN_CLASS)
+        // the same condition drives the full-width switch (one truth)
+        toggleCallVisibleClass(visible)
+    }
+
+    private fun toggleCallVisibleClass(on: Boolean) {
+        val root = document.documentElement
+        if (on) root?.classList?.add(CONFERENCE_CALL_VISIBLE_CLASS) else root?.classList?.remove(CONFERENCE_CALL_VISIBLE_CLASS)
     }
 
     private fun toggleDocumentClass(on: Boolean) {
@@ -601,6 +632,7 @@ internal object ConferenceDock {
         unloadGuard.uninstall()
         ConferenceCallPresence.set(live = false)
         toggleDocumentClass(false)
+        toggleCallVisibleClass(false)
         callPanel.removeAll()
         host = null
         ConferenceFloatController.resetForTest()
