@@ -39,6 +39,7 @@ import network.lapis.cloud.shared.domain.PeerAction
 import network.lapis.cloud.shared.domain.PeerActionDecisionsDto
 import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.RegionalChapterRules
+import network.lapis.cloud.shared.rpc.DecisionNotificationOutcome
 import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.IMemberPhotoService
 import network.lapis.cloud.shared.rpc.IMemberPublicProfileService
@@ -202,24 +203,33 @@ private fun renderPendingApplicationActions(
     val actionsRow = actionsContainer.hPanel(spacing = 8)
     val approveButton = actionsRow.actionButton(ActionIcon.APPROVE, tr("Annehmen"), style = ButtonStyle.SUCCESS)
     approveButton.onClick {
-        AppScope.launch {
-            // Welle V1.9.14: RegionalChapterRequiredException is possible here when the enforcement
-            // flag is on and no chapter is assigned yet -- regionalChapterGuarded (not guarded) shows
-            // the right toast for that case too.
-            val result = regionalChapterGuarded { rpcService<IRegistrationService>().approveApplication(application.id) }
-            if (result != null) {
-                notifySuccess(gettext("%1 wurde aufgenommen.", application.displayName))
-                onChanged()
+        approveApplicationDialog(application.displayName) { notify, language ->
+            AppScope.launch {
+                // Welle V1.9.14: RegionalChapterRequiredException is possible here when the enforcement
+                // flag is on and no chapter is assigned yet -- regionalChapterGuarded (not guarded) shows
+                // the right toast for that case too. V1.9.118: all parameters are passed explicitly (no RPC defaults).
+                val result =
+                    regionalChapterGuarded {
+                        rpcService<IRegistrationService>().approveApplication(application.id, notify, language)
+                    }
+                if (result != null) {
+                    showDecisionToast(
+                        toast = decisionToast(name = application.displayName, outcome = result.notification, approved = true),
+                    )
+                    onChanged()
+                }
             }
         }
     }
     val rejectButton = actionsRow.actionButton(ActionIcon.REJECT, tr("Ablehnen"), style = ButtonStyle.OUTLINEDANGER)
     rejectButton.onClick {
-        rejectApplicationDialog(application.displayName) { reason ->
+        rejectApplicationDialog(application.displayName) { reason, notify, language ->
             AppScope.launch {
-                val result = guarded { rpcService<IRegistrationService>().rejectApplication(application.id, reason) }
+                val result = guarded { rpcService<IRegistrationService>().rejectApplication(application.id, reason, notify, language) }
                 if (result != null) {
-                    notifyInfo(gettext("%1 wurde abgelehnt.", application.displayName))
+                    showDecisionToast(
+                        toast = decisionToast(name = application.displayName, outcome = result.notification, approved = false),
+                    )
                     onChanged()
                 }
             }
@@ -246,16 +256,165 @@ private fun renderPendingApplicationActions(
     }
 }
 
+/** V1.9.118 -- how a decision toast is shown. */
+internal enum class DecisionToastKind { SUCCESS, INFO, WARNING }
+
+/** V1.9.118 -- the text and kind of the toast after a membership decision; one whole sentence per case (no stitched fragments). */
+internal data class DecisionToast(
+    val message: String,
+    val kind: DecisionToastKind,
+)
+
+/**
+ * V1.9.118 -- what the board is told after approving ([approved] = true) or rejecting an application. The decision always went
+ * through; the notification outcome only decides how it is reported: `QUEUED` is "in the outbox", never "delivered", and every
+ * outcome in which the person was NOT told is a warning, so the board knows to reach out another way.
+ */
+internal fun decisionToast(
+    name: String,
+    outcome: DecisionNotificationOutcome,
+    approved: Boolean,
+): DecisionToast =
+    if (approved) {
+        when (outcome) {
+            DecisionNotificationOutcome.QUEUED ->
+                DecisionToast(
+                    message = gettext("%1 wurde aufgenommen. Die Benachrichtigung ist unterwegs.", name),
+                    kind = DecisionToastKind.SUCCESS,
+                )
+            DecisionNotificationOutcome.NOT_REQUESTED ->
+                DecisionToast(
+                    message = gettext("%1 wurde aufgenommen.", name),
+                    kind = DecisionToastKind.SUCCESS,
+                )
+            DecisionNotificationOutcome.MAIL_DISABLED ->
+                DecisionToast(
+                    message =
+                        gettext(
+                            "%1 wurde aufgenommen. Es ist kein E-Mail-Versand eingerichtet, die Person wurde nicht benachrichtigt.",
+                            name,
+                        ),
+                    kind = DecisionToastKind.WARNING,
+                )
+            DecisionNotificationOutcome.NO_VALID_ADDRESS ->
+                DecisionToast(
+                    message =
+                        gettext(
+                            "%1 wurde aufgenommen. Es liegt keine gültige E-Mail-Adresse vor, die Person wurde nicht benachrichtigt.",
+                            name,
+                        ),
+                    kind = DecisionToastKind.WARNING,
+                )
+            DecisionNotificationOutcome.FAILED ->
+                DecisionToast(
+                    message = gettext("%1 wurde aufgenommen. Die Benachrichtigung konnte nicht versendet werden.", name),
+                    kind = DecisionToastKind.WARNING,
+                )
+        }
+    } else {
+        when (outcome) {
+            DecisionNotificationOutcome.QUEUED ->
+                DecisionToast(
+                    message = gettext("%1 wurde abgelehnt. Die Benachrichtigung ist unterwegs.", name),
+                    kind = DecisionToastKind.INFO,
+                )
+            DecisionNotificationOutcome.NOT_REQUESTED ->
+                DecisionToast(
+                    message = gettext("%1 wurde abgelehnt.", name),
+                    kind = DecisionToastKind.INFO,
+                )
+            DecisionNotificationOutcome.MAIL_DISABLED ->
+                DecisionToast(
+                    message =
+                        gettext(
+                            "%1 wurde abgelehnt. Es ist kein E-Mail-Versand eingerichtet, die Person wurde nicht benachrichtigt.",
+                            name,
+                        ),
+                    kind = DecisionToastKind.WARNING,
+                )
+            DecisionNotificationOutcome.NO_VALID_ADDRESS ->
+                DecisionToast(
+                    message =
+                        gettext(
+                            "%1 wurde abgelehnt. Es liegt keine gültige E-Mail-Adresse vor, die Person wurde nicht benachrichtigt.",
+                            name,
+                        ),
+                    kind = DecisionToastKind.WARNING,
+                )
+            DecisionNotificationOutcome.FAILED ->
+                DecisionToast(
+                    message = gettext("%1 wurde abgelehnt. Die Benachrichtigung konnte nicht versendet werden.", name),
+                    kind = DecisionToastKind.WARNING,
+                )
+        }
+    }
+
+private fun showDecisionToast(toast: DecisionToast) =
+    when (toast.kind) {
+        DecisionToastKind.SUCCESS -> notifySuccess(toast.message)
+        DecisionToastKind.INFO -> notifyInfo(toast.message)
+        DecisionToastKind.WARNING -> notifyWarning(toast.message)
+    }
+
+/** V1.9.118 -- the "notify the person by e-mail" tick box and the mail-language choice of a decision dialog. */
+internal class DecisionNotifyControls(
+    private val notifyField: LapisField,
+    private val languageField: LapisField,
+) {
+    /** Whether the person is to be told by e-mail. */
+    val notify: Boolean get() = notifyField.value == "true"
+
+    /** The language of the first mail block; `de` (the default) when nothing is chosen. */
+    val language: String get() = languageField.value.ifBlank { "de" }
+}
+
+/**
+ * V1.9.118 -- adds the notification fields to the decision [form]: a tick box (on by default, shown for every decision) with the
+ * one-line [help] text, and below it the language choice (only while ticked, default German -- members have no stored language).
+ * The language names are shown in their own language and never translated, like the language switcher.
+ */
+internal fun LapisForm.addDecisionNotifyControls(help: String): DecisionNotifyControls {
+    var languageSelect: Select? = null
+    val notifyField =
+        checkField(label = tr("Person per E-Mail benachrichtigen"), value = true, hint = help) { box ->
+            box.subscribe { checked -> if (checked) languageSelect?.show() else languageSelect?.hide() }
+        }
+    val languageField =
+        selectField(label = tr("Sprache der E-Mail"), options = SUPPORTED_LANGUAGES, value = "de") { languageSelect = it }
+    return DecisionNotifyControls(notifyField = notifyField, languageField = languageField)
+}
+
+/** V1.9.118 -- approving asks whether (and in which language) to tell the person; the decision itself needs no further input. */
+internal fun approveApplicationDialog(
+    applicantName: String,
+    onConfirm: (notify: Boolean, language: String) -> Unit,
+) {
+    // applicantName is a member display name, free text -- sanitize the composed caption like rejectApplicationDialog does.
+    val modal = Modal(caption = sanitizeUntrustedI18nText(gettext("Antrag von %1 annehmen", applicantName)))
+    val form = modal.lapisForm()
+    val controls = form.addDecisionNotifyControls(help = tr("Die Person erhält eine kurze Standardnachricht mit Anmeldelink."))
+    form.finish()
+    val approveButton = newActionButton(ActionIcon.APPROVE, tr("Annehmen"), ButtonStyle.SUCCESS)
+    approveButton.onClick {
+        modal.hide()
+        onConfirm(controls.notify, controls.language)
+    }
+    modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
+    modal.addButton(approveButton)
+    modal.show()
+}
+
 /** Reject requires a non-blank reason -- see `IRegistrationService.rejectApplication` KDoc, a real
- * modal input rather than a bare confirm, since [confirmDialog] has no input field of its own. */
+ * modal input rather than a bare confirm, since [confirmDialog] has no input field of its own.
+ * V1.9.118: also asks whether the person is told (a neutral mail without the reason) and in which language. */
 internal fun rejectApplicationDialog(
     applicantName: String,
-    onConfirm: (String) -> Unit,
+    onConfirm: (reason: String, notify: Boolean, language: String) -> Unit,
 ) {
     // Security audit follow-up (untrusted-text sanitization gaps): applicantName is a member display name, free
     // text -- Modal.caption is a widget-content sink like div/span/p, sanitize the whole composed result.
     val modal = Modal(caption = sanitizeUntrustedI18nText(gettext("Antrag von %1 ablehnen", applicantName)))
-    modal.p(tr("Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."))
+    modal.p(tr("Bitte geben Sie einen Ablehnungsgrund an. Er wird nur intern gespeichert und nicht an die Person gesendet."))
     // Formular-Grammatik (V1.4.29): das früher UNBESCHRIFTETE Pflichtfeld hat jetzt ein Label, einen Feldfehler und einen
     // Fokus dorthin. Die Serverregel (nicht leer) bleibt unverändert; die Regel hier spiegelt sie nur früher.
     val form = modal.lapisForm()
@@ -266,13 +425,14 @@ internal fun rejectApplicationDialog(
             required = true,
             requiredMessage = gettext("Bitte einen Grund angeben."),
         )
+    val controls = form.addDecisionNotifyControls(help = tr("Die Person erhält eine kurze, neutrale Nachricht ohne Begründung."))
     form.finish()
     val rejectButton = newActionButton(ActionIcon.REJECT, tr("Ablehnen"), ButtonStyle.DANGER)
     rejectButton.onClick {
         if (!form.validateAndReport()) return@onClick
         val reason = reasonField.value.trim()
         modal.hide()
-        onConfirm(reason)
+        onConfirm(reason, controls.notify, controls.language)
     }
     modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(rejectButton)

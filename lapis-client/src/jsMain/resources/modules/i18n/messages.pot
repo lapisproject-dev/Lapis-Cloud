@@ -3080,10 +3080,6 @@ msgstr ""
 msgid "Bitte Empfänger, einen positiven LTR-Betrag und eine Charakterisierung angeben."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:258
-msgid "Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceForms.kt:88
 msgid "Bitte gültige Datumsangaben (JJJJ-MM-TT) verwenden, oder das Feld leer lassen."
 msgstr ""
@@ -21822,4 +21818,46 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
 msgid "Gilt ab der nächsten Aufzeichnung bzw. dem nächsten Streamstart. Eine Bildschirmfreigabe wird immer groß gezeigt."
+msgstr ""
+
+msgid "Antrag von %1 annehmen"
+msgstr ""
+
+msgid "Person per E-Mail benachrichtigen"
+msgstr ""
+
+msgid "Sprache der E-Mail"
+msgstr ""
+
+msgid "Die Person erhält eine kurze Standardnachricht mit Anmeldelink."
+msgstr ""
+
+msgid "Die Person erhält eine kurze, neutrale Nachricht ohne Begründung."
+msgstr ""
+
+msgid "Bitte geben Sie einen Ablehnungsgrund an. Er wird nur intern gespeichert und nicht an die Person gesendet."
+msgstr ""
+
+msgid "%1 wurde aufgenommen. Die Benachrichtigung ist unterwegs."
+msgstr ""
+
+msgid "%1 wurde aufgenommen. Es ist kein E-Mail-Versand eingerichtet, die Person wurde nicht benachrichtigt."
+msgstr ""
+
+msgid "%1 wurde aufgenommen. Es liegt keine gültige E-Mail-Adresse vor, die Person wurde nicht benachrichtigt."
+msgstr ""
+
+msgid "%1 wurde aufgenommen. Die Benachrichtigung konnte nicht versendet werden."
+msgstr ""
+
+msgid "%1 wurde abgelehnt. Die Benachrichtigung ist unterwegs."
+msgstr ""
+
+msgid "%1 wurde abgelehnt. Es ist kein E-Mail-Versand eingerichtet, die Person wurde nicht benachrichtigt."
+msgstr ""
+
+msgid "%1 wurde abgelehnt. Es liegt keine gültige E-Mail-Adresse vor, die Person wurde nicht benachrichtigt."
+msgstr ""
+
+msgid "%1 wurde abgelehnt. Die Benachrichtigung konnte nicht versendet werden."
 msgstr ""

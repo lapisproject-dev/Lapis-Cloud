@@ -186,7 +186,7 @@ class ExitCascadeJourneyTest :
                                     memberId = call.parameters["id"]!!,
                                     reason = "E2E Scenario 5 -- deliberate rejection",
                                 )
-                            call.respondText(dto.status.name)
+                            call.respondText(dto.member.status.name)
                         }
                         post("/e2e5/approve/{id}") {
                             val dto =
@@ -198,8 +198,8 @@ class ExitCascadeJourneyTest :
                                     friendVerificationMailer = FakeFriendVerificationMailer(),
                                     // Review finding N6 fix: explicit disabled config -- see `FriendRegistrationTest.kt`.
                                     keycloakConfig = KeycloakConfig.load(env = { null }),
-                                ).approveApplication(call.parameters["id"]!!)
-                            call.respondText(dto.status.name)
+                                ).approveApplication(memberId = call.parameters["id"]!!)
+                            call.respondText(dto.member.status.name)
                         }
                         post("/e2e5/leave-membership") {
                             val dto =

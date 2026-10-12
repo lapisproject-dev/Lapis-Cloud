@@ -1,0 +1,74 @@
+= Notification mail on membership decisions (V1.9.118)
+:toc:
+
+When the board approves or rejects a pending membership application, it can now tell the applicant by e-mail. The mail is optional, short, in a
+language the board chooses per decision, and never contains the rejection reason.
+
+== Behaviour
+
+* **Approval** (`IRegistrationService.approveApplication`): a short standard mail says the application was accepted and links to the
+  login (`<public base URL>/app`, no parameters, no token).
+* **Rejection** (`IRegistrationService.rejectApplication`): a short neutral mail says the application was not accepted. There is no link, no
+  reason and no board member name. A former friend, who falls back to `FRIEND` instead of `REJECTED`, gets the variant that says the friend
+  access stays in place and links to the login. Both variants have the same subject.
+* The mail goes to the address stored on the application, and only to it.
+* The dialogs of the pending applications show a tick box "Person per E-Mail benachrichtigen", **on by default for every decision**, and a
+  language choice (default German). Members have no stored language, so the language is chosen per decision. The mail has the chosen language
+  first, followed by German (or by English when German was chosen). The subject is in the chosen language. An unknown language code is
+  treated as German.
+* The contact line is "reply to this e-mail" when a reply-to address is configured (`LAPIS_SMTP_REPLY_TO`), otherwise "contact the board".
+  The sender address is never named as a contact.
+
+[kuml, membership-decision-flow, svg]
+----
+sequenceDiagram(name = "Membership decision with notification (V1.9.118)") {
+    val board = participant(name = "Board member")
+    val rpc = participant(name = "RegistrationService")
+    val db = participant(name = "Database")
+    val outbox = participant(name = "Mail outbox")
+
+    message(from = board, to = rpc, text = "approveApplication / rejectApplication (notify, mailLanguage)")
+    message(from = rpc, to = db, text = "status change, history, webhook (one transaction)")
+    message(from = rpc, to = outbox, text = "mail, only after the commit")
+    message(from = rpc, to = board, text = "member + notification outcome")
+}
+----
+
+== Result of the RPC calls
+
+Both calls now return `MemberDecisionResultDto(member, notification)`. **This is an API change:** the return type used to be `MemberDto`.
+`notification` is a `DecisionNotificationOutcome`:
+
+[cols="1,3",options="header"]
+|===
+|Outcome |Meaning
+|`QUEUED` |The mail is in the outbox. This is **not** a delivery confirmation.
+|`NOT_REQUESTED` |The caller switched the notification off.
+|`MAIL_DISABLED` |SMTP is not configured on this server.
+|`NO_VALID_ADDRESS` |The stored address is blank or not a valid mailbox address.
+|`FAILED` |The outbox refused the mail (budget, discarded) or the mailer threw.
+|===
+
+The decision is committed whatever the outcome; a mail problem never undoes it. The board sees one toast sentence per outcome, and a
+warning (not a success) whenever the person was not told.
+
+== Privacy and robustness
+
+* The mail is sent after the commit, outside the member row lock. It is never part of the decision transaction.
+* The log carries only the outcome (`membership decision notification outcome=QUEUED`), never the address, the name or an exception message.
+* The rejection reason has no path into the mail: the template has no input for it. The hint in the rejection dialog says it is stored
+  internally and not sent.
+* A second decision on the same application fails with a conflict before anything is sent, so there is at most one mail per application.
+* The mail purposes `membership-approved` and `membership-rejected` are priority 1 (lane SYSTEM, no TTL) in `MailPurpose`.
+
+== Limitations
+
+* The language is chosen per decision and not stored.
+* The translations (de, en, es, fr, it, nl, pl, ru) were written by the model and have **not** been reviewed by native speakers.
+* No persistent record of the outcome: neither the audit log nor the status history carries it (`member_status_history` has no note column
+  and the approve/reject paths write no audit entry). The outcome is in the RPC result and in the one log line only.
+* Other status transitions send no mail.
+* `QUEUED` means "in the outbox", not "delivered".
+* The operator cannot change the text.
+* Not tested against a real SMTP server or real mailboxes.
+* In Keycloak mode a new applicant cannot sign in locally; the `/app` link leads to the Keycloak login, which is all this mail promises.

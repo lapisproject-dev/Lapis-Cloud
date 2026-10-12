@@ -116,7 +116,7 @@ internal const val LAPIS_GEM_MARK_SVG = """<svg width="22" height="22" viewBox="
  * never translated via [tr]. German has no translation catalog (see [initI18n]) -- its entry
  * here exists only so it appears as a selectable item in the switcher.
  */
-private val SUPPORTED_LANGUAGES =
+internal val SUPPORTED_LANGUAGES =
     listOf(
         "de" to "Deutsch",
         "en" to "English",

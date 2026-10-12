@@ -987,6 +987,123 @@ object MailTemplates {
         )
     }
 
+    /**
+     * V1.9.118 -- "your membership application was approved". Subject in [language]; body block in [language] first, then German
+     * (or English when [language] is German). Link: the plain `/app` URL, no parameters. Does not use [footer] (German only, and it
+     * would name the base URL as the contact when no reply-to exists) -- every block carries its own contact line.
+     */
+    fun membershipApproved(
+        displayName: String,
+        language: String,
+        branding: MailBranding,
+    ): RenderedMail {
+        val link = membershipLoginLink(branding)
+        return membershipDecision(language = language, branding = branding, link = link) { t ->
+            DecisionBlock(
+                subject = t.subjectApproved,
+                paragraphs =
+                    listOf(
+                        MembershipDecisionTexts.fill(template = t.greeting, name = displayName),
+                        MembershipDecisionTexts.fill(template = t.approvedBodyWithOrg, org = branding.fromDisplayName),
+                        t.approvedLogin,
+                    ),
+                linkLabel = t.loginLabelApproved,
+                withLink = true,
+            )
+        }
+    }
+
+    /**
+     * V1.9.118 -- neutral "your membership application was not approved" notice. Never contains the rejection reason or any board
+     * member's name. The [RejectionVariant.FRIEND] variant keeps the friend access visible and links to the login.
+     */
+    fun membershipRejected(
+        displayName: String,
+        variant: RejectionVariant,
+        language: String,
+        branding: MailBranding,
+    ): RenderedMail {
+        val link = membershipLoginLink(branding)
+        return membershipDecision(language = language, branding = branding, link = link) { t ->
+            val friend = variant == RejectionVariant.FRIEND
+            DecisionBlock(
+                subject = t.subjectRejected,
+                paragraphs =
+                    listOfNotNull(
+                        MembershipDecisionTexts.fill(template = t.greeting, name = displayName),
+                        MembershipDecisionTexts.fill(template = t.rejectedBodyWithOrg, org = branding.fromDisplayName),
+                        if (friend) t.friendKept else null,
+                    ),
+                linkLabel = t.loginLabelFriend,
+                withLink = friend,
+            )
+        }
+    }
+
+    private fun membershipLoginLink(branding: MailBranding): String = branding.publicBaseUrl.trimEnd('/') + "/app"
+
+    private class DecisionBlock(
+        val subject: String,
+        val paragraphs: List<String>,
+        val linkLabel: String,
+        val withLink: Boolean,
+    )
+
+    private fun membershipDecision(
+        language: String,
+        branding: MailBranding,
+        link: String,
+        block: (MembershipDecisionTexts) -> DecisionBlock,
+    ): RenderedMail {
+        val primary = MembershipDecisionTexts.normalize(language)
+        val secondary = if (primary == MembershipDecisionTexts.DEFAULT_LANGUAGE) "en" else MembershipDecisionTexts.DEFAULT_LANGUAGE
+        val sections =
+            listOf(primary, secondary).map { code ->
+                val texts = MembershipDecisionTexts.forLanguage(code)
+                val b = block(texts)
+                val contact =
+                    branding.replyTo?.let { MembershipDecisionTexts.fill(template = texts.contactReplyTo, address = it) }
+                        ?: texts.contactBoard
+                MailSection(
+                    heading = b.subject,
+                    paragraphs = b.paragraphs + contact,
+                    linkLabel = if (b.withLink) b.linkLabel else null,
+                    link = if (b.withLink) link else null,
+                )
+            }
+        val subject = sanitizeSubjectFragment(sections.first().heading)
+        return renderSections(subject = subject, sections = sections)
+    }
+
+    /** N language blocks, each with its own contact line, no shared footer -- plain text and HTML (auto-escaped) carry identical content. */
+    private fun renderSections(
+        subject: String,
+        sections: List<MailSection>,
+    ): RenderedMail {
+        fun plain(section: MailSection): String =
+            buildString {
+                append(section.heading).append("\n\n")
+                section.paragraphs.forEach { append(it).append("\n\n") }
+                if (section.link != null) append(section.linkLabel).append(":\n").append(section.link).append("\n\n")
+            }
+        val plainText = sections.joinToString("----\n\n") { plain(it) }
+        val html =
+            createHTML().html {
+                head { title { +subject } }
+                body {
+                    sections.forEachIndexed { index, section ->
+                        if (index > 0) hr()
+                        h1 { +section.heading }
+                        section.paragraphs.forEach { paragraph -> p { +paragraph } }
+                        if (section.link != null) {
+                            p { a(href = section.link) { +(section.linkLabel ?: section.link) } }
+                        }
+                    }
+                }
+            }
+        return RenderedMail(subject = subject, plainText = plainText, html = html)
+    }
+
     /** One language block of a bilingual mail ([link] and [linkLabel] are both set or both null). */
     private data class MailSection(
         val heading: String,

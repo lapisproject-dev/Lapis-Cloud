@@ -500,7 +500,7 @@ private fun Route.registerScenario6TestRoutes() {
             friendVerificationMailer = FakeFriendVerificationMailer(),
             // Review finding N6 fix: explicit disabled config -- see `FriendRegistrationTest.kt`.
             keycloakConfig = KeycloakConfig.load(env = { null }),
-        ).approveApplication(call.parameters["id"]!!)
+        ).approveApplication(memberId = call.parameters["id"]!!)
         call.respondText("OK")
     }
     post("/e2e6/add-committee-member/{committeeId}/{memberId}") {

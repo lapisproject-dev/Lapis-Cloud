@@ -157,10 +157,20 @@ class MemberStatusHistoryWritePathTest :
                 )
                 call.respondText("OK")
             }
-            post("/test/approve/{id}") { call.respondText(registration(call).approveApplication(call.parameters["id"]!!).status.name) }
+            post(
+                "/test/approve/{id}",
+            ) {
+                call.respondText(
+                    registration(call)
+                        .approveApplication(memberId = call.parameters["id"]!!)
+                        .member.status.name,
+                )
+            }
             post("/test/reject/{id}") {
                 call.respondText(
-                    registration(call).rejectApplication(memberId = call.parameters["id"]!!, reason = "nicht passend").status.name,
+                    registration(call)
+                        .rejectApplication(memberId = call.parameters["id"]!!, reason = "nicht passend")
+                        .member.status.name,
                 )
             }
             post("/test/create-direct") {

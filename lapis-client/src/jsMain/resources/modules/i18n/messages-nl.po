@@ -2054,7 +2054,7 @@ msgstr "Selecteer bovenaan een voorstel om details te zien."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:257
 msgid "Antrag von %1 ablehnen"
-msgstr "Voorstel van %1 afwijzen"
+msgstr "Aanvraag van %1 afwijzen"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:647
 msgid "Antrag vorläufig abgelehnt."
@@ -3243,11 +3243,6 @@ msgid ""
 "Bitte Empfänger, einen positiven LTR-Betrag und eine Charakterisierung "
 "angeben."
 msgstr "Geef ontvanger, een positief LTR-bedrag en een karakterisering op."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:258
-msgid ""
-"Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."
-msgstr "Geef een reden voor afwijzing op (wordt bij het lid opgeslagen)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceForms.kt:88
 msgid ""
@@ -22751,3 +22746,45 @@ msgstr "Weergave bij opname en stream"
 
 msgid "Gilt ab der nächsten Aufzeichnung bzw. dem nächsten Streamstart. Eine Bildschirmfreigabe wird immer groß gezeigt."
 msgstr "Geldt vanaf de volgende opname of de volgende streamstart. Een gedeeld scherm wordt altijd groot getoond."
+
+msgid "Antrag von %1 annehmen"
+msgstr "Aanvraag van %1 goedkeuren"
+
+msgid "Person per E-Mail benachrichtigen"
+msgstr "Persoon per e-mail op de hoogte stellen"
+
+msgid "Sprache der E-Mail"
+msgstr "Taal van de e-mail"
+
+msgid "Die Person erhält eine kurze Standardnachricht mit Anmeldelink."
+msgstr "De persoon ontvangt een kort standaardbericht met een inloglink."
+
+msgid "Die Person erhält eine kurze, neutrale Nachricht ohne Begründung."
+msgstr "De persoon ontvangt een kort, neutraal bericht zonder reden."
+
+msgid "Bitte geben Sie einen Ablehnungsgrund an. Er wird nur intern gespeichert und nicht an die Person gesendet."
+msgstr "Geef een reden voor de afwijzing op. Deze wordt alleen intern opgeslagen en niet naar de persoon verzonden."
+
+msgid "%1 wurde aufgenommen. Die Benachrichtigung ist unterwegs."
+msgstr "%1 is opgenomen. De melding is onderweg."
+
+msgid "%1 wurde aufgenommen. Es ist kein E-Mail-Versand eingerichtet, die Person wurde nicht benachrichtigt."
+msgstr "%1 is opgenomen. E-mailverzending is niet ingesteld, de persoon is niet op de hoogte gesteld."
+
+msgid "%1 wurde aufgenommen. Es liegt keine gültige E-Mail-Adresse vor, die Person wurde nicht benachrichtigt."
+msgstr "%1 is opgenomen. Er is geen geldig e-mailadres bekend, de persoon is niet op de hoogte gesteld."
+
+msgid "%1 wurde aufgenommen. Die Benachrichtigung konnte nicht versendet werden."
+msgstr "%1 is opgenomen. De melding kon niet worden verzonden."
+
+msgid "%1 wurde abgelehnt. Die Benachrichtigung ist unterwegs."
+msgstr "%1 is afgewezen. De melding is onderweg."
+
+msgid "%1 wurde abgelehnt. Es ist kein E-Mail-Versand eingerichtet, die Person wurde nicht benachrichtigt."
+msgstr "%1 is afgewezen. E-mailverzending is niet ingesteld, de persoon is niet op de hoogte gesteld."
+
+msgid "%1 wurde abgelehnt. Es liegt keine gültige E-Mail-Adresse vor, die Person wurde nicht benachrichtigt."
+msgstr "%1 is afgewezen. Er is geen geldig e-mailadres bekend, de persoon is niet op de hoogte gesteld."
+
+msgid "%1 wurde abgelehnt. Die Benachrichtigung konnte nicht versendet werden."
+msgstr "%1 is afgewezen. De melding kon niet worden verzonden."

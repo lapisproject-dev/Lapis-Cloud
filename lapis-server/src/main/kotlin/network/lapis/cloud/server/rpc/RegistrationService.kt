@@ -13,8 +13,11 @@ import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.keycloak.KeycloakConfig
 import network.lapis.cloud.server.mail.FriendVerificationMailer
+import network.lapis.cloud.server.mail.MembershipDecisionMailer
+import network.lapis.cloud.server.mail.NoOpMembershipDecisionMailer
 import network.lapis.cloud.server.mail.NoOpPeerNotificationMailer
 import network.lapis.cloud.server.mail.PeerNotificationMailer
+import network.lapis.cloud.server.mail.RejectionVariant
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.isValidMailboxAddress
 import network.lapis.cloud.server.member.MemberStatusHistory
@@ -22,6 +25,7 @@ import network.lapis.cloud.server.member.MemberStatusHistorySource
 import network.lapis.cloud.server.member.PeerNotifier
 import network.lapis.cloud.server.memberbio.MemberPublicBioStore
 import network.lapis.cloud.server.memberphoto.MemberPhotoStore
+import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.LoginRateLimiter
@@ -47,7 +51,9 @@ import network.lapis.cloud.shared.domain.RegistrationInput
 import network.lapis.cloud.shared.domain.WebhookEventType
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.DecisionNotificationOutcome
 import network.lapis.cloud.shared.rpc.IRegistrationService
+import network.lapis.cloud.shared.rpc.MemberDecisionResultDto
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.RegionalChapterRequiredException
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -186,6 +192,11 @@ class RegistrationService internal constructor(
      */
     peerNotificationMailer: PeerNotificationMailer = NoOpPeerNotificationMailer,
     peerSmtpConfigState: SmtpConfigState = SmtpConfigState.NotConfigured,
+    /**
+     * V1.9.118 -- the optional "your application was approved / not approved" mail. Default no-op (existing call sites/tests
+     * unchanged, outcome `MAIL_DISABLED`); `Application.kt` passes the SMTP implementation when SMTP is configured.
+     */
+    private val membershipDecisionMailer: MembershipDecisionMailer = NoOpMembershipDecisionMailer,
 ) : IRegistrationService {
     private val peerNotifier = PeerNotifier(mailer = peerNotificationMailer, smtpConfigState = peerSmtpConfigState)
 
@@ -332,13 +343,33 @@ class RegistrationService internal constructor(
         }
     }
 
-    override suspend fun approveApplication(memberId: String): MemberDto {
+    override suspend fun approveApplication(
+        memberId: String,
+        notify: Boolean,
+        mailLanguage: String,
+    ): MemberDecisionResultDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*REGISTRATION_BOARD_ROLES)
         val targetId = memberId.toMemberUuidOrThrow()
         val now = nowLocalDateTime()
-        return transaction {
-            requireApplicationRow(id = targetId, forUpdate = true)
+        val (member, recipient) =
+            approveInTransaction(targetId = targetId, memberId = memberId, now = now, current = current)
+        // After the commit, outside the member row lock: a mail problem can never undo or block the decision.
+        val outcome =
+            notifyDecision(notify = notify, recipient = recipient) { mailer ->
+                mailer.sendApproved(email = recipient.email, displayName = recipient.displayName, language = mailLanguage)
+            }
+        return MemberDecisionResultDto(member = member, notification = outcome)
+    }
+
+    private fun approveInTransaction(
+        targetId: Uuid,
+        memberId: String,
+        now: LocalDateTime,
+        current: CurrentMember,
+    ): Pair<MemberDto, DecisionRecipient> =
+        transaction {
+            val applicationRow = requireApplicationRow(id = targetId, forUpdate = true)
             // Welle V1.9.13 -- see `requireRegionalChapterBeforeActivation` KDoc. In practice
             // already satisfied by `registerApplication`'s own equivalent check for a
             // self-registered applicant -- this call is the backstop for every OTHER path onto
@@ -375,8 +406,41 @@ class RegistrationService internal constructor(
             // to MemberService.updateMemberStatus's own D8 comment, just for the other code path
             // that can produce the same transition.
             WebhookEventPublisher.publish(eventType = WebhookEventType.MEMBER_CREATED, entityId = targetId, occurredAt = now)
-            loadMember(targetId)
+            loadMember(targetId) to
+                DecisionRecipient(email = applicationRow[MemberTable.email], displayName = applicationRow[MemberTable.displayName])
         }
+
+    /** The applicant's own stored address and name, read inside the decision transaction. Never logged. */
+    private class DecisionRecipient(
+        val email: String,
+        val displayName: String,
+    )
+
+    /**
+     * V1.9.118 -- the notification step of a membership decision, run AFTER the commit. Order of checks: not requested, mail not
+     * configured, no valid address, then the send itself (a refused enqueue or any exception is `FAILED`). The decision is never
+     * affected. Logs only the outcome -- never the address, name or an exception message.
+     */
+    private fun notifyDecision(
+        notify: Boolean,
+        recipient: DecisionRecipient,
+        send: (MembershipDecisionMailer) -> Boolean,
+    ): DecisionNotificationOutcome {
+        val outcome =
+            when {
+                !notify -> DecisionNotificationOutcome.NOT_REQUESTED
+                !membershipDecisionMailer.deliveryConfigured -> DecisionNotificationOutcome.MAIL_DISABLED
+                recipient.email.isBlank() || !isValidMailboxAddress(recipient.email) -> DecisionNotificationOutcome.NO_VALID_ADDRESS
+                else ->
+                    try {
+                        if (send(membershipDecisionMailer)) DecisionNotificationOutcome.QUEUED else DecisionNotificationOutcome.FAILED
+                    } catch (e: Exception) {
+                        logger.error { "membership decision notification threw ${e::class.simpleName}" }
+                        DecisionNotificationOutcome.FAILED
+                    }
+            }
+        logger.info { "membership decision notification outcome=$outcome" }
+        return outcome
     }
 
     /**
@@ -406,7 +470,9 @@ class RegistrationService internal constructor(
     override suspend fun rejectApplication(
         memberId: String,
         reason: String,
-    ): MemberDto {
+        notify: Boolean,
+        mailLanguage: String,
+    ): MemberDecisionResultDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*REGISTRATION_BOARD_ROLES)
         if (reason.isBlank()) throw ConflictException("rejectApplication requires a non-blank reason")
@@ -436,6 +502,9 @@ class RegistrationService internal constructor(
                     }
                     val fallbackStatus =
                         if (applicationRow[MemberTable.friendSince] != null) MemberStatus.FRIEND else MemberStatus.REJECTED
+                    // V1.9.118: read INSIDE the transaction -- the applicant's address and name for the (later) notification.
+                    val recipient =
+                        DecisionRecipient(email = applicationRow[MemberTable.email], displayName = applicationRow[MemberTable.displayName])
                     val updated =
                         MemberTable.update({
                             (MemberTable.id eq targetId) and (MemberTable.status eq MemberStatus.APPLICATION)
@@ -470,11 +539,23 @@ class RegistrationService internal constructor(
                         )
                     // Phase 2 (audits of the ended seats): the last write of this transaction.
                     seatEnd.recordAudits()
-                    loadMember(targetId)
+                    Triple(loadMember(targetId), recipient, fallbackStatus)
                 }
             }
+        val (member, recipient, fallbackStatus) = result
         SessionStore.revokeAllForMember(memberId = targetId)
-        return result
+        // After the commit (and after the peer guard returned): a mail problem can never undo or block the decision.
+        val variant = if (fallbackStatus == MemberStatus.FRIEND) RejectionVariant.FRIEND else RejectionVariant.REJECTED
+        val outcome =
+            notifyDecision(notify = notify, recipient = recipient) { mailer ->
+                mailer.sendRejected(
+                    email = recipient.email,
+                    displayName = recipient.displayName,
+                    variant = variant,
+                    language = mailLanguage,
+                )
+            }
+        return MemberDecisionResultDto(member = member, notification = outcome)
     }
 
     override suspend fun createMemberDirect(input: AdminCreateMemberInput): MemberDto {

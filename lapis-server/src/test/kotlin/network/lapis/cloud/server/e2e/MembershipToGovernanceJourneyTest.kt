@@ -204,8 +204,8 @@ class MembershipToGovernanceJourneyTest :
                                     friendVerificationMailer = FakeFriendVerificationMailer(),
                                     // Review finding N6 fix: explicit disabled config -- see `FriendRegistrationTest.kt`.
                                     keycloakConfig = KeycloakConfig.load(env = { null }),
-                                ).approveApplication(call.parameters["id"]!!)
-                            call.respondText(dto.status.name)
+                                ).approveApplication(memberId = call.parameters["id"]!!)
+                            call.respondText(dto.member.status.name)
                         }
                         post("/e2e1/create-committee") {
                             val c =

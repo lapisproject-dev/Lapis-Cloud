@@ -360,12 +360,12 @@ private fun Route.registerRegistrationTestRoutes(rateLimiter: LoginRateLimiter) 
             keycloakConfig = KeycloakConfig.load(env = { null }),
         )
     post("/test/approve/{id}") {
-        val dto = registrationService(call).approveApplication(call.parameters["id"]!!)
-        call.respondText(dto.status.name)
+        val dto = registrationService(call).approveApplication(memberId = call.parameters["id"]!!)
+        call.respondText(dto.member.status.name)
     }
     post("/test/reject/{id}") {
         val reason = call.request.queryParameters["reason"] ?: ""
         val dto = registrationService(call).rejectApplication(memberId = call.parameters["id"]!!, reason = reason)
-        call.respondText(dto.status.name)
+        call.respondText(dto.member.status.name)
     }
 }

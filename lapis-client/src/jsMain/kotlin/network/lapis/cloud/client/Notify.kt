@@ -27,6 +27,11 @@ fun notifySuccess(message: String) {
     toastContainer?.showToast(message, title = tr("Erfolgreich"), className = "text-bg-success")
 }
 
+/** V1.9.118 -- the action went through but something around it needs the user's attention (e.g. a notification mail was not sent). */
+fun notifyWarning(message: String) {
+    toastContainer?.showToast(message, title = tr("Hinweis"), className = "text-bg-warning")
+}
+
 fun notifyInfo(message: String) {
     toastContainer?.showToast(message, className = "text-bg-info")
 }

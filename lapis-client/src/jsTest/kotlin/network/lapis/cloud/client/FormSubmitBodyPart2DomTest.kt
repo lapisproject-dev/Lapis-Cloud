@@ -327,7 +327,7 @@ class FormSubmitBodyPart2DomTest {
         test {
             mounted("body2-reject") { _, _ ->
                 var reason: String? = null
-                rejectApplicationDialog(applicantName = "Kofi", onConfirm = { reason = it })
+                rejectApplicationDialog(applicantName = "Kofi", onConfirm = { r, _, _ -> reason = r })
                 val modal = lastModal()
                 modal.type("Begründung", "  Passt nicht zur Satzung  ")
                 modal.button("Ablehnen").click()

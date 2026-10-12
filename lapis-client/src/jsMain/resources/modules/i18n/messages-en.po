@@ -2048,7 +2048,7 @@ msgstr "Select a motion above to see details."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:257
 msgid "Antrag von %1 ablehnen"
-msgstr "Reject motion from %1"
+msgstr "Reject application from %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:647
 msgid "Antrag vorläufig abgelehnt."
@@ -3236,11 +3236,6 @@ msgid ""
 "angeben."
 msgstr ""
 "Please provide a recipient, a positive LTR amount, and a characterization."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:258
-msgid ""
-"Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."
-msgstr "Please provide a reason for rejection (will be saved with the member)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceForms.kt:88
 msgid ""
@@ -22703,3 +22698,45 @@ msgstr "View for recording and stream"
 
 msgid "Gilt ab der nächsten Aufzeichnung bzw. dem nächsten Streamstart. Eine Bildschirmfreigabe wird immer groß gezeigt."
 msgstr "Applies from the next recording or stream start. A shared screen is always shown large."
+
+msgid "Antrag von %1 annehmen"
+msgstr "Accept application from %1"
+
+msgid "Person per E-Mail benachrichtigen"
+msgstr "Notify the person by e-mail"
+
+msgid "Sprache der E-Mail"
+msgstr "E-mail language"
+
+msgid "Die Person erhält eine kurze Standardnachricht mit Anmeldelink."
+msgstr "The person receives a short standard message with a sign-in link."
+
+msgid "Die Person erhält eine kurze, neutrale Nachricht ohne Begründung."
+msgstr "The person receives a short, neutral message without a reason."
+
+msgid "Bitte geben Sie einen Ablehnungsgrund an. Er wird nur intern gespeichert und nicht an die Person gesendet."
+msgstr "Please give a reason for the rejection. It is stored internally only and is not sent to the person."
+
+msgid "%1 wurde aufgenommen. Die Benachrichtigung ist unterwegs."
+msgstr "%1 was admitted. The notification is on its way."
+
+msgid "%1 wurde aufgenommen. Es ist kein E-Mail-Versand eingerichtet, die Person wurde nicht benachrichtigt."
+msgstr "%1 was admitted. No e-mail delivery is set up, so the person was not notified."
+
+msgid "%1 wurde aufgenommen. Es liegt keine gültige E-Mail-Adresse vor, die Person wurde nicht benachrichtigt."
+msgstr "%1 was admitted. There is no valid e-mail address on file, so the person was not notified."
+
+msgid "%1 wurde aufgenommen. Die Benachrichtigung konnte nicht versendet werden."
+msgstr "%1 was admitted. The notification could not be sent."
+
+msgid "%1 wurde abgelehnt. Die Benachrichtigung ist unterwegs."
+msgstr "%1 was rejected. The notification is on its way."
+
+msgid "%1 wurde abgelehnt. Es ist kein E-Mail-Versand eingerichtet, die Person wurde nicht benachrichtigt."
+msgstr "%1 was rejected. No e-mail delivery is set up, so the person was not notified."
+
+msgid "%1 wurde abgelehnt. Es liegt keine gültige E-Mail-Adresse vor, die Person wurde nicht benachrichtigt."
+msgstr "%1 was rejected. There is no valid e-mail address on file, so the person was not notified."
+
+msgid "%1 wurde abgelehnt. Die Benachrichtigung konnte nicht versendet werden."
+msgstr "%1 was rejected. The notification could not be sent."

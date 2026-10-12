@@ -6,6 +6,17 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Notification mail on approval and rejection (V1.9.118)
+
+The board can now tell an applicant by e-mail that the application was accepted or not. No migration (`V94` stays the last one). New feature page: `docs/features/membership-decision-notification.adoc`.
+
+- **BREAKING (RPC): `IRegistrationService.approveApplication` and `rejectApplication` now return `MemberDecisionResultDto(member, notification)` instead of `MemberDto`**, and take two new parameters `notify` (default `true`) and `mailLanguage` (default `"de"`). The generated client is rebuilt with the server; any other caller must read `.member`. The Kilua RPC calls in the client pass every parameter explicitly.
+- **Mail.** Approval: short standard mail with a link to `<public base URL>/app` (no parameters). Rejection: short neutral mail, no link, no reason, no board member name; a former friend (who falls back to `FRIEND`) gets a variant that says the friend access stays and links to the login. The subject is in the chosen language; the body has the chosen language first, then German (English when German is chosen). Eight languages (de, en, es, fr, it, nl, pl, ru); an unknown code means German. New mail purposes `membership-approved` / `membership-rejected` (priority 1, lane SYSTEM, no TTL). Contact line: reply-to when configured, otherwise "contact the board"; the sender address is never named.
+- **Outcome.** `DecisionNotificationOutcome`: `QUEUED`, `NOT_REQUESTED`, `MAIL_DISABLED` (no SMTP), `NO_VALID_ADDRESS`, `FAILED` (outbox refused or mailer threw). The decision is committed first and is never undone by a mail problem; the mail is sent after the commit, outside the row lock. A second decision conflicts before anything is sent. The log carries only the outcome, never address, name or exception message.
+- **Dialogs and toasts.** The approve action now opens a dialog (it used to act at once); both dialogs have the tick box "Person per E-Mail benachrichtigen" (on by default, every decision) and the language choice (default German, shown while ticked). The rejection hint now says the reason is stored internally and not sent. One whole toast sentence per outcome; a warning toast (new `notifyWarning`) whenever the person was not told. 14 new catalog entries in all eight catalogs; the old rejection hint entry was removed.
+- **Verified:** Kotest (new `MembershipDecisionNotificationTest`, `MembershipDecisionMailTemplatesTest`, `SmtpMembershipDecisionMailerTest`, extended existing registration tests; approve/reject callers updated) and Karma (new `MembershipDecisionDialogDomTest`).
+- **Not verified / limitations:** the language is chosen per decision and not stored (members have no language preference). **The translations were written by the model and not reviewed by native speakers.** No audit or history entry records the outcome (`member_status_history` has no note column and approve/reject write no audit entry); it is only in the RPC result and one log line. Other status transitions still send no mail. `QUEUED` means "in the outbox", not "delivered". The operator cannot change the text. Never run against a real SMTP server or real mailboxes.
+
 ### Conference full screen uses the full height (V1.9.117)
 
 In full screen the picture now gets the whole screen height. Client-only (CSS and `ConferenceScreen.kt`): no migration, no RPC, no new i18n text.

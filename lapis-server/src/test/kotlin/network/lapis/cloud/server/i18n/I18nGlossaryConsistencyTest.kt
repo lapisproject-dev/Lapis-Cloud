@@ -51,11 +51,13 @@ private fun parseGlossary(text: String): List<GlossaryTerm> {
 /**
  * Whole msgids that contain a glossary term in ANOTHER sense than the one the table fixes. Each is exempt for ALL languages, with its
  * reason. "Antrag" has three senses: a Governance motion, a workflow request (deletion request, contribution reduction) -- both are
- * in the table -- and an APPLICATION (membership application, "auf Antrag" of the tax law), which is what these two entries mean.
+ * in the table -- and an APPLICATION (membership application, "auf Antrag" of the tax law), which is what these entries mean.
  */
 private val GLOSSARY_EXEMPT_MSGIDS: Map<String, String> =
     mapOf(
         "Antrag" to "MemberStatus.APPLICATION: the status of a membership APPLICATION (Application/Domanda), not a motion or a request",
+        "Antrag von %1 annehmen" to "V1.9.118: decision dialog of a membership APPLICATION (accept), not a motion or a request",
+        "Antrag von %1 ablehnen" to "decision dialog of a membership APPLICATION (reject), not a motion or a request",
         "Eine Befreiung von der Voranmeldungspflicht ist nur auf Antrag und im Ermessen des Finanzamts möglich." to
             "tax law: an exemption 'on application' (auf Antrag), not a motion or a request",
     )

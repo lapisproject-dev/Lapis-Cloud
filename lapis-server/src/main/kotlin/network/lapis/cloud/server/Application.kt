@@ -129,7 +129,9 @@ import network.lapis.cloud.server.mail.MailBranding
 import network.lapis.cloud.server.mail.MailBudgetConfig
 import network.lapis.cloud.server.mail.MailDispatcher
 import network.lapis.cloud.server.mail.MailTransport
+import network.lapis.cloud.server.mail.MembershipDecisionMailer
 import network.lapis.cloud.server.mail.NoOpMailTransport
+import network.lapis.cloud.server.mail.NoOpMembershipDecisionMailer
 import network.lapis.cloud.server.mail.PasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpAdminPasswordResetNotificationMailer
 import network.lapis.cloud.server.mail.SmtpArticleReviewNotificationMailer
@@ -141,6 +143,7 @@ import network.lapis.cloud.server.mail.SmtpFinTsReauthNotificationMailer
 import network.lapis.cloud.server.mail.SmtpFriendVerificationMailer
 import network.lapis.cloud.server.mail.SmtpKeycloakLinkNotificationMailer
 import network.lapis.cloud.server.mail.SmtpKeycloakProvisioningMailer
+import network.lapis.cloud.server.mail.SmtpMembershipDecisionMailer
 import network.lapis.cloud.server.mail.SmtpPasswordResetMailer
 import network.lapis.cloud.server.mail.SmtpPeerNotificationMailer
 import network.lapis.cloud.server.mail.SmtpStartupCheck
@@ -825,6 +828,14 @@ internal fun Application.module(
     val friendEmailVerifyRateLimiter = LoginRateLimiter()
     val friendVerificationMailer: FriendVerificationMailer =
         SmtpFriendVerificationMailer(dispatcher = mailDispatcher, branding = mailBranding)
+
+    // V1.9.118 -- "application approved / not approved" mail; same dispatcher. Without SMTP the no-op mailer reports MAIL_DISABLED.
+    val membershipDecisionMailer: MembershipDecisionMailer =
+        if (smtpConfigState is SmtpConfigState.Configured) {
+            SmtpMembershipDecisionMailer(dispatcher = mailDispatcher, branding = mailBranding)
+        } else {
+            NoOpMembershipDecisionMailer
+        }
 
     // Welle V1.9.56 "E-Mail-Änderung absichern" -- `MemberService.updateMemberCoreData` no longer changes an address (the
     // address is the login identity, see EmailChangeService KDoc). The FRIEND verification mail that used to be re-sent
@@ -2218,6 +2229,7 @@ internal fun Application.module(
                 keycloakConfig = keycloakConfig,
                 peerNotificationMailer = peerNotificationMailer,
                 peerSmtpConfigState = smtpConfigState,
+                membershipDecisionMailer = membershipDecisionMailer,
             )
         }
         registerService(IFederationService::class) { call -> FederationService(call) }

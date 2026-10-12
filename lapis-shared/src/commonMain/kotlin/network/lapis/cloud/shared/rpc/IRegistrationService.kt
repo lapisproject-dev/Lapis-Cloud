@@ -82,8 +82,16 @@ interface IRegistrationService {
      * `RegistrationService` KDoc for the concurrency contract this shares with
      * `ICrowdfundingService.approveProject`. Throws a conflict if [memberId] is not currently
      * `APPLICATION` (already decided by a concurrent caller, or never was an application).
+     *
+     * V1.9.118: when [notify] is true a short standard mail (in [mailLanguage], followed by a second language block) tells the
+     * applicant the decision. The mail is sent after the commit; its outcome is in the result. `QUEUED` only means "in the outbox".
+     * An unknown [mailLanguage] falls back to `de`.
      */
-    suspend fun approveApplication(memberId: String): MemberDto
+    suspend fun approveApplication(
+        memberId: String,
+        notify: Boolean = true,
+        mailLanguage: String = "de",
+    ): MemberDecisionResultDto
 
     /**
      * Role: BOARD/ADMIN. `APPLICATION -> REJECTED` -- EXCEPT for a FRIEND-originated application
@@ -93,11 +101,16 @@ interface IRegistrationService {
      * documented rejection reason, retained on the member row -- never a silent/private rejection,
      * same discipline `ICrowdfundingService.rejectProject` already applies). Same locking/failure
      * conditions as [approveApplication].
+     *
+     * V1.9.118: [notify]/[mailLanguage] as for [approveApplication]. The [reason] is NEVER sent to the applicant; the mail is
+     * neutral. An unknown [mailLanguage] falls back to `de`.
      */
     suspend fun rejectApplication(
         memberId: String,
         reason: String,
-    ): MemberDto
+        notify: Boolean = true,
+        mailLanguage: String = "de",
+    ): MemberDecisionResultDto
 
     /**
      * Role: BOARD/ADMIN to create a `role=MEMBER` account; creating an ESCALATED role

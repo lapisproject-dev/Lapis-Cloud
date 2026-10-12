@@ -2059,7 +2059,7 @@ msgstr "Seleccione una moción arriba para ver los detalles."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:257
 msgid "Antrag von %1 ablehnen"
-msgstr "Rechazar la moción de %1"
+msgstr "Rechazar la solicitud de %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:647
 msgid "Antrag vorläufig abgelehnt."
@@ -3249,11 +3249,6 @@ msgid ""
 "angeben."
 msgstr ""
 "Indique el destinatario, un importe positivo en LTR y una caracterización."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:258
-msgid ""
-"Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."
-msgstr "Indique un motivo de rechazo (se guardará en el registro del miembro)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceForms.kt:88
 msgid ""
@@ -22642,3 +22637,45 @@ msgstr "Vista para grabación y transmisión"
 
 msgid "Gilt ab der nächsten Aufzeichnung bzw. dem nächsten Streamstart. Eine Bildschirmfreigabe wird immer groß gezeigt."
 msgstr "Se aplica a partir de la próxima grabación o del próximo inicio de transmisión. Una pantalla compartida siempre se muestra en grande."
+
+msgid "Antrag von %1 annehmen"
+msgstr "Aceptar la solicitud de %1"
+
+msgid "Person per E-Mail benachrichtigen"
+msgstr "Notificar a la persona por correo electrónico"
+
+msgid "Sprache der E-Mail"
+msgstr "Idioma del correo electrónico"
+
+msgid "Die Person erhält eine kurze Standardnachricht mit Anmeldelink."
+msgstr "La persona recibe un breve mensaje estándar con un enlace de inicio de sesión."
+
+msgid "Die Person erhält eine kurze, neutrale Nachricht ohne Begründung."
+msgstr "La persona recibe un mensaje breve y neutral, sin motivo."
+
+msgid "Bitte geben Sie einen Ablehnungsgrund an. Er wird nur intern gespeichert und nicht an die Person gesendet."
+msgstr "Indique un motivo del rechazo. Solo se guarda internamente y no se envía a la persona."
+
+msgid "%1 wurde aufgenommen. Die Benachrichtigung ist unterwegs."
+msgstr "%1 ha sido admitido. La notificación está en camino."
+
+msgid "%1 wurde aufgenommen. Es ist kein E-Mail-Versand eingerichtet, die Person wurde nicht benachrichtigt."
+msgstr "%1 ha sido admitido. No hay envío de correo configurado, por lo que no se notificó a la persona."
+
+msgid "%1 wurde aufgenommen. Es liegt keine gültige E-Mail-Adresse vor, die Person wurde nicht benachrichtigt."
+msgstr "%1 ha sido admitido. No hay una dirección de correo válida, por lo que no se notificó a la persona."
+
+msgid "%1 wurde aufgenommen. Die Benachrichtigung konnte nicht versendet werden."
+msgstr "%1 ha sido admitido. No se pudo enviar la notificación."
+
+msgid "%1 wurde abgelehnt. Die Benachrichtigung ist unterwegs."
+msgstr "%1 ha sido rechazado. La notificación está en camino."
+
+msgid "%1 wurde abgelehnt. Es ist kein E-Mail-Versand eingerichtet, die Person wurde nicht benachrichtigt."
+msgstr "%1 ha sido rechazado. No hay envío de correo configurado, por lo que no se notificó a la persona."
+
+msgid "%1 wurde abgelehnt. Es liegt keine gültige E-Mail-Adresse vor, die Person wurde nicht benachrichtigt."
+msgstr "%1 ha sido rechazado. No hay una dirección de correo válida, por lo que no se notificó a la persona."
+
+msgid "%1 wurde abgelehnt. Die Benachrichtigung konnte nicht versendet werden."
+msgstr "%1 ha sido rechazado. No se pudo enviar la notificación."

@@ -210,8 +210,8 @@ class FriendConferenceJourneyTest :
                             call.respondText(dto.status.name)
                         }
                         post("/friend-journey/approve/{id}") {
-                            val dto = registrationService(call).approveApplication(call.parameters["id"]!!)
-                            call.respondText(dto.status.name)
+                            val dto = registrationService(call).approveApplication(memberId = call.parameters["id"]!!)
+                            call.respondText(dto.member.status.name)
                         }
 
                         fun conferenceService(call: ApplicationCall) =

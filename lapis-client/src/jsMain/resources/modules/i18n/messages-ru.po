@@ -3245,11 +3245,6 @@ msgid ""
 "angeben."
 msgstr "Укажите получателя, положительную сумму в LTR и характеристику."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:258
-msgid ""
-"Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."
-msgstr "Укажите причину отклонения (будет сохранена у участника)."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceForms.kt:88
 msgid ""
 "Bitte gültige Datumsangaben (JJJJ-MM-TT) verwenden, oder das Feld leer "
@@ -22747,3 +22742,45 @@ msgstr "Вид записи и трансляции"
 
 msgid "Gilt ab der nächsten Aufzeichnung bzw. dem nächsten Streamstart. Eine Bildschirmfreigabe wird immer groß gezeigt."
 msgstr "Действует со следующей записи или запуска трансляции. Демонстрация экрана всегда показывается крупно."
+
+msgid "Antrag von %1 annehmen"
+msgstr "Одобрить заявку от %1"
+
+msgid "Person per E-Mail benachrichtigen"
+msgstr "Уведомить человека по электронной почте"
+
+msgid "Sprache der E-Mail"
+msgstr "Язык письма"
+
+msgid "Die Person erhält eine kurze Standardnachricht mit Anmeldelink."
+msgstr "Человек получит короткое стандартное сообщение со ссылкой для входа."
+
+msgid "Die Person erhält eine kurze, neutrale Nachricht ohne Begründung."
+msgstr "Человек получит короткое нейтральное сообщение без указания причины."
+
+msgid "Bitte geben Sie einen Ablehnungsgrund an. Er wird nur intern gespeichert und nicht an die Person gesendet."
+msgstr "Укажите причину отказа. Она сохраняется только внутри системы и не отправляется человеку."
+
+msgid "%1 wurde aufgenommen. Die Benachrichtigung ist unterwegs."
+msgstr "%1 принят(а). Уведомление отправлено в очередь."
+
+msgid "%1 wurde aufgenommen. Es ist kein E-Mail-Versand eingerichtet, die Person wurde nicht benachrichtigt."
+msgstr "%1 принят(а). Отправка e-mail не настроена, человек не был уведомлен."
+
+msgid "%1 wurde aufgenommen. Es liegt keine gültige E-Mail-Adresse vor, die Person wurde nicht benachrichtigt."
+msgstr "%1 принят(а). Нет действительного адреса e-mail, человек не был уведомлен."
+
+msgid "%1 wurde aufgenommen. Die Benachrichtigung konnte nicht versendet werden."
+msgstr "%1 принят(а). Не удалось отправить уведомление."
+
+msgid "%1 wurde abgelehnt. Die Benachrichtigung ist unterwegs."
+msgstr "%1 отклонено. Уведомление отправлено в очередь."
+
+msgid "%1 wurde abgelehnt. Es ist kein E-Mail-Versand eingerichtet, die Person wurde nicht benachrichtigt."
+msgstr "%1 отклонено. Отправка e-mail не настроена, человек не был уведомлен."
+
+msgid "%1 wurde abgelehnt. Es liegt keine gültige E-Mail-Adresse vor, die Person wurde nicht benachrichtigt."
+msgstr "%1 отклонено. Нет действительного адреса e-mail, человек не был уведомлен."
+
+msgid "%1 wurde abgelehnt. Die Benachrichtigung konnte nicht versendet werden."
+msgstr "%1 отклонено. Не удалось отправить уведомление."

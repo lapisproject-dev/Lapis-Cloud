@@ -426,7 +426,7 @@ class FormGrammarPart2DomTest {
         test {
             mounted("p2-aforeigndisplayname_inam") { _, _ ->
                 val payload = "<img src=x onerror=alert(1)>"
-                rejectApplicationDialog(applicantName = payload, onConfirm = {})
+                rejectApplicationDialog(applicantName = payload, onConfirm = { _, _, _ -> })
                 val modal = lastModal()
                 assertNull(modal.querySelector("img"), "the applicant name in the modal title must not become an element")
                 assertTrue(modal.textContent.orEmpty().contains(payload), "the payload is shown as text")

@@ -224,7 +224,7 @@ private fun Route.registerWebhookScopeTestRoutes() {
     }
     post("/test/approve/{id}") {
         val dto = registrationService(call).approveApplication(memberId = call.parameters["id"]!!)
-        call.respondText(dto.status.name)
+        call.respondText(dto.member.status.name)
     }
     post("/test/create-direct") {
         val email = call.request.queryParameters["email"]!!

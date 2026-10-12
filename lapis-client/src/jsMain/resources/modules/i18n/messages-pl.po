@@ -3241,11 +3241,6 @@ msgid ""
 "angeben."
 msgstr "Podaj odbiorcę, dodatnią kwotę LTR i charakterystykę."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:258
-msgid ""
-"Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."
-msgstr "Podaj powód odrzucenia (zostanie zapisany przy członku)."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceForms.kt:88
 msgid ""
 "Bitte gültige Datumsangaben (JJJJ-MM-TT) verwenden, oder das Feld leer "
@@ -22756,3 +22751,45 @@ msgstr "Widok nagrania i transmisji"
 
 msgid "Gilt ab der nächsten Aufzeichnung bzw. dem nächsten Streamstart. Eine Bildschirmfreigabe wird immer groß gezeigt."
 msgstr "Obowiązuje od następnego nagrania lub rozpoczęcia transmisji. Udostępniony ekran jest zawsze wyświetlany w dużym rozmiarze."
+
+msgid "Antrag von %1 annehmen"
+msgstr "Przyjmij wniosek od %1"
+
+msgid "Person per E-Mail benachrichtigen"
+msgstr "Powiadom osobę e-mailem"
+
+msgid "Sprache der E-Mail"
+msgstr "Język wiadomości e-mail"
+
+msgid "Die Person erhält eine kurze Standardnachricht mit Anmeldelink."
+msgstr "Osoba otrzyma krótką standardową wiadomość z linkiem do logowania."
+
+msgid "Die Person erhält eine kurze, neutrale Nachricht ohne Begründung."
+msgstr "Osoba otrzyma krótką, neutralną wiadomość bez uzasadnienia."
+
+msgid "Bitte geben Sie einen Ablehnungsgrund an. Er wird nur intern gespeichert und nicht an die Person gesendet."
+msgstr "Proszę podać powód odrzucenia. Jest on zapisywany wyłącznie wewnętrznie i nie jest wysyłany do tej osoby."
+
+msgid "%1 wurde aufgenommen. Die Benachrichtigung ist unterwegs."
+msgstr "%1 zostało przyjęte. Powiadomienie jest w drodze."
+
+msgid "%1 wurde aufgenommen. Es ist kein E-Mail-Versand eingerichtet, die Person wurde nicht benachrichtigt."
+msgstr "%1 zostało przyjęte. Wysyłka e-maili nie jest skonfigurowana, osoba nie została powiadomiona."
+
+msgid "%1 wurde aufgenommen. Es liegt keine gültige E-Mail-Adresse vor, die Person wurde nicht benachrichtigt."
+msgstr "%1 zostało przyjęte. Brak prawidłowego adresu e-mail, osoba nie została powiadomiona."
+
+msgid "%1 wurde aufgenommen. Die Benachrichtigung konnte nicht versendet werden."
+msgstr "%1 zostało przyjęte. Nie udało się wysłać powiadomienia."
+
+msgid "%1 wurde abgelehnt. Die Benachrichtigung ist unterwegs."
+msgstr "%1 zostało odrzucone. Powiadomienie jest w drodze."
+
+msgid "%1 wurde abgelehnt. Es ist kein E-Mail-Versand eingerichtet, die Person wurde nicht benachrichtigt."
+msgstr "%1 zostało odrzucone. Wysyłka e-maili nie jest skonfigurowana, osoba nie została powiadomiona."
+
+msgid "%1 wurde abgelehnt. Es liegt keine gültige E-Mail-Adresse vor, die Person wurde nicht benachrichtigt."
+msgstr "%1 zostało odrzucone. Brak prawidłowego adresu e-mail, osoba nie została powiadomiona."
+
+msgid "%1 wurde abgelehnt. Die Benachrichtigung konnte nicht versendet werden."
+msgstr "%1 zostało odrzucone. Nie udało się wysłać powiadomienia."

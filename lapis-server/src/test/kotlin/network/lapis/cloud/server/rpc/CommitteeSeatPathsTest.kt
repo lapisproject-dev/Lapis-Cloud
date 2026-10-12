@@ -120,12 +120,18 @@ class CommitteeSeatPathsTest :
                         call.respondText(
                             registrationService(
                                 call,
-                            ).rejectApplication(memberId = call.parameters["id"]!!, reason = "Testablehnung").status.name,
+                            ).rejectApplication(memberId = call.parameters["id"]!!, reason = "Testablehnung").member.status.name,
                         )
                     }
                     post(
                         "/t/approve/{id}",
-                    ) { call.respondText(registrationService(call).approveApplication(call.parameters["id"]!!).status.name) }
+                    ) {
+                        call.respondText(
+                            registrationService(call)
+                                .approveApplication(memberId = call.parameters["id"]!!)
+                                .member.status.name,
+                        )
+                    }
                     get("/t/members/{committee}") {
                         val all = call.request.queryParameters["all"] == "true"
                         val list =

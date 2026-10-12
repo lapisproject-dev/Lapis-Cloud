@@ -2057,7 +2057,7 @@ msgstr "Sélectionnez une motion ci-dessus pour afficher les détails."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:257
 msgid "Antrag von %1 ablehnen"
-msgstr "Rejeter la motion de %1"
+msgstr "Rejeter la demande de %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:647
 msgid "Antrag vorläufig abgelehnt."
@@ -3254,12 +3254,6 @@ msgid ""
 msgstr ""
 "Veuillez indiquer un destinataire, un montant LTR positif et une "
 "caractérisation."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberAdministrationScreen.kt:258
-msgid ""
-"Bitte geben Sie einen Ablehnungsgrund an (wird beim Mitglied gespeichert)."
-msgstr ""
-"Veuillez indiquer un motif de rejet (sera enregistré auprès du membre)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceForms.kt:88
 msgid ""
@@ -22814,3 +22808,45 @@ msgstr "Affichage pour l'enregistrement et la diffusion"
 
 msgid "Gilt ab der nächsten Aufzeichnung bzw. dem nächsten Streamstart. Eine Bildschirmfreigabe wird immer groß gezeigt."
 msgstr "S'applique à partir du prochain enregistrement ou du prochain démarrage de diffusion. Un écran partagé est toujours affiché en grand."
+
+msgid "Antrag von %1 annehmen"
+msgstr "Accepter la demande de %1"
+
+msgid "Person per E-Mail benachrichtigen"
+msgstr "Informer la personne par e-mail"
+
+msgid "Sprache der E-Mail"
+msgstr "Langue de l'e-mail"
+
+msgid "Die Person erhält eine kurze Standardnachricht mit Anmeldelink."
+msgstr "La personne reçoit un court message standard avec un lien de connexion."
+
+msgid "Die Person erhält eine kurze, neutrale Nachricht ohne Begründung."
+msgstr "La personne reçoit un court message neutre, sans motif."
+
+msgid "Bitte geben Sie einen Ablehnungsgrund an. Er wird nur intern gespeichert und nicht an die Person gesendet."
+msgstr "Veuillez indiquer un motif de refus. Il est enregistré uniquement en interne et n'est pas envoyé à la personne."
+
+msgid "%1 wurde aufgenommen. Die Benachrichtigung ist unterwegs."
+msgstr "%1 a été admis(e). La notification est en route."
+
+msgid "%1 wurde aufgenommen. Es ist kein E-Mail-Versand eingerichtet, die Person wurde nicht benachrichtigt."
+msgstr "%1 a été admis(e). Aucun envoi d'e-mails n'est configuré ; la personne n'a pas été informée."
+
+msgid "%1 wurde aufgenommen. Es liegt keine gültige E-Mail-Adresse vor, die Person wurde nicht benachrichtigt."
+msgstr "%1 a été admis(e). Aucune adresse e-mail valide n'est disponible ; la personne n'a pas été informée."
+
+msgid "%1 wurde aufgenommen. Die Benachrichtigung konnte nicht versendet werden."
+msgstr "%1 a été admis(e). La notification n'a pas pu être envoyée."
+
+msgid "%1 wurde abgelehnt. Die Benachrichtigung ist unterwegs."
+msgstr "%1 a été rejeté(e). La notification est en route."
+
+msgid "%1 wurde abgelehnt. Es ist kein E-Mail-Versand eingerichtet, die Person wurde nicht benachrichtigt."
+msgstr "%1 a été rejeté(e). Aucun envoi d'e-mails n'est configuré ; la personne n'a pas été informée."
+
+msgid "%1 wurde abgelehnt. Es liegt keine gültige E-Mail-Adresse vor, die Person wurde nicht benachrichtigt."
+msgstr "%1 a été rejeté(e). Aucune adresse e-mail valide n'est disponible ; la personne n'a pas été informée."
+
+msgid "%1 wurde abgelehnt. Die Benachrichtigung konnte nicht versendet werden."
+msgstr "%1 a été rejeté(e). La notification n'a pas pu être envoyée."
