@@ -24,6 +24,14 @@ internal const val MEDIAPIPE_TASKS_VISION_VERSION = "0.10.14"
  */
 internal const val ENCOUNTER_SOUNDS_ASSET_DIR = "encounter-sounds-v1"
 
+/**
+ * V1.9.114 -- directory of the optional microphone noise suppression (RNNoise worklet, two WebAssembly builds, licence notices) under
+ * `/assets`. Third occurrence of this name (after `NoiseSuppressionAssets.DIR` in the client's `ConferenceNoiseSuppression.kt` and
+ * `into("rnnoise-v1")` in `lapis-client/build.gradle.kts`); `RnnoiseAssetsTest` keeps all three together. Versioned: if the bytes ever
+ * change, the directory becomes `-v2`.
+ */
+internal const val RNNOISE_ASSET_DIR = "rnnoise-v1"
+
 internal const val CLIENT_ASSETS_ONE_YEAR_SECONDS = 31_536_000
 internal const val CLIENT_ASSETS_ONE_DAY_SECONDS = 86_400
 
@@ -55,6 +63,11 @@ internal const val CLIENT_ASSETS_IMMUTABLE_CACHE_CONTROL = "public, max-age=$CLI
  * Falls je eine SPA-weite CSP eingefuehrt wird (heute existiert keine globale): dieses Feature braucht
  * `script-src 'wasm-unsafe-eval'`, `worker-src 'self' blob:` und `img-src 'self'`.
  *
+ * V1.9.114 (Rauschunterdrueckung): die WebAssembly-Instanziierung laeuft im AudioWorklet-Scope und braucht ebenfalls
+ * `script-src 'wasm-unsafe-eval'`; `audioWorklet.addModule` laedt das Modul nach `script-src` (same-origin: `'self'`). Das Worklet wird
+ * deshalb von `/assets/rnnoise-v1/` geladen und nie als `blob:`. Dieser Server setzt bewusst KEINEN globalen CSP-Header
+ * (`ClientAssetRoutesTest` haelt das fest); wer einen einfuehrt, muss `docs/architecture/video-background-effects.adoc` mitziehen.
+ *
  * Muss VOR dem Catch-all `staticFiles("/", ...)` registriert werden (das spezifischere Praefix gewinnt im
  * Routing-Baum ohnehin, die Reihenfolge dokumentiert die Absicht).
  */
@@ -74,6 +87,19 @@ internal fun Route.registerClientAssetRoutes(clientDistRoot: File) {
     staticFiles("/assets/$ENCOUNTER_SOUNDS_ASSET_DIR", File(clientAssetsRoot, ENCOUNTER_SOUNDS_ASSET_DIR)) {
         modify { _, call -> call.response.header(HttpHeaders.CacheControl, CLIENT_ASSETS_IMMUTABLE_CACHE_CONTROL) }
         contentType { ContentType.Audio.MPEG }
+    }
+    // V1.9.114: the RNNoise worklet and its WebAssembly. Versioned path -> immutable; explicit content types (a worklet module must come as
+    // JavaScript, `WebAssembly.compile` of a fetched body needs no MIME but `application/wasm` keeps streaming compilation possible).
+    // Same-origin on purpose (not a `blob:` URL): a future CSP then needs only 'self' for the worklet. Registered before the generic prefix.
+    staticFiles("/assets/$RNNOISE_ASSET_DIR", File(clientAssetsRoot, RNNOISE_ASSET_DIR)) {
+        modify { _, call -> call.response.header(HttpHeaders.CacheControl, CLIENT_ASSETS_IMMUTABLE_CACHE_CONTROL) }
+        contentType { file ->
+            when (file.extension) {
+                "js" -> ContentType.Text.JavaScript
+                "wasm" -> ContentType("application", "wasm")
+                else -> ContentType.Text.Plain
+            }
+        }
     }
     staticFiles("/assets", clientAssetsRoot) {
         // Modell und Hintergrundbilder liegen unter einem UNVERSIONIERTEN Praefix -- hier waere `immutable`

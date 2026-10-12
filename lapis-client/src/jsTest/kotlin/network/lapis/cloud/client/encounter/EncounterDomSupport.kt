@@ -284,6 +284,11 @@ internal class FakeSpeakerSession :
 
     override fun activeDeviceId(kind: ConferenceDeviceKind): String? = activeDevices[kind]
 
+    /** V1.9.114: the filter chain of the own microphone (none by default: no microphone track yet). */
+    var noiseChain: network.lapis.cloud.client.NoiseSuppressionChain? = null
+
+    override fun noiseSuppressionChain(): network.lapis.cloud.client.NoiseSuppressionChain? = noiseChain
+
     override suspend fun setCamera(enabled: Boolean): ConferenceDeviceFailure? {
         cameraCalls += enabled
         return null

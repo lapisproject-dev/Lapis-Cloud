@@ -1301,6 +1301,61 @@ html.lapis-conference-call-visible .lapis-conference-dock-host {
   width: 100%;
 }
 
+/* V1.9.114 Rauschunterdrückung -- eine Zeile im Geräteblock: Beschriftung links, Schalter rechts, die Hinweiszeile darunter.
+   Bewusst nur Tokens, keine neue Farbe. Der Schalter ist ein <button role="switch">; die Zeile hat die Höhe der Auswahlfelder
+   darüber (38px). Der Zustand steht nie nur in der Farbe: der Knopf wandert (links = aus, rechts = an). */
+.lapis-noise-suppression-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lapis-noise-suppression-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 38px;
+}
+
+.lapis-noise-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 999px;
+  background: var(--lapis-surface-sunken);
+  cursor: pointer;
+}
+
+.lapis-noise-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(1.4rem - 8px);
+  height: calc(1.4rem - 8px);
+  border-radius: 50%;
+  background: var(--lapis-muted);
+}
+
+.lapis-noise-switch[aria-checked="true"] {
+  background: var(--lapis-accent);
+  border-color: var(--lapis-accent);
+}
+
+.lapis-noise-switch[aria-checked="true"]::after {
+  background: var(--lapis-surface);
+  transform: translateX(1.1rem);
+}
+
+.lapis-noise-switch[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* V1.4.23 Hintergrundeffekte -- bewusst KEINE `.lapis-conference-config-row`-Klasse (wie
    `deviceGroup`): die Gruppe soll den Vollbildmodus überleben. */
 .lapis-conference-background-group {

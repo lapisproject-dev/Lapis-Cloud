@@ -22616,3 +22616,24 @@ msgstr "A video conference can last at most %1 hours."
 
 msgid "Bitte bestätigen Sie den Hinweis."
 msgstr "Please confirm the notice."
+
+msgid "Rauschunterdrückung"
+msgstr "Noise suppression"
+
+msgid "Wird nur in diesem Browser verarbeitet. Gesang und Musik klingen damit verändert."
+msgstr "Processed in this browser only. Singing and music sound altered with it."
+
+msgid "Rauschunterdrückung aktiv."
+msgstr "Noise suppression on."
+
+msgid "Nicht verfügbar"
+msgstr "Not available"
+
+msgid "Nicht verfügbar – dieser Browser unterstützt AudioWorklet nicht. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "Not available – this browser does not support AudioWorklet. The browser's own noise reduction is used."
+
+msgid "Nicht verfügbar – dieser Browser unterstützt WebAssembly nicht. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "Not available – this browser does not support WebAssembly. The browser's own noise reduction is used."
+
+msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "Not available – noise suppression could not be loaded. The browser's own noise reduction is used."

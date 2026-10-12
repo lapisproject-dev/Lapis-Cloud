@@ -22669,3 +22669,24 @@ msgstr "Wideokonferencja może trwać maksymalnie %1 godz."
 
 msgid "Bitte bestätigen Sie den Hinweis."
 msgstr "Proszę potwierdzić informację."
+
+msgid "Rauschunterdrückung"
+msgstr "Tłumienie szumów"
+
+msgid "Wird nur in diesem Browser verarbeitet. Gesang und Musik klingen damit verändert."
+msgstr "Przetwarzane tylko w tej przeglądarce. Śpiew i muzyka brzmią wtedy zmienione."
+
+msgid "Rauschunterdrückung aktiv."
+msgstr "Tłumienie szumów włączone."
+
+msgid "Nicht verfügbar"
+msgstr "Niedostępne"
+
+msgid "Nicht verfügbar – dieser Browser unterstützt AudioWorklet nicht. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "Niedostępne – ta przeglądarka nie obsługuje AudioWorklet. Używane jest redukowanie szumów przeglądarki."
+
+msgid "Nicht verfügbar – dieser Browser unterstützt WebAssembly nicht. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "Niedostępne – ta przeglądarka nie obsługuje WebAssembly. Używane jest redukowanie szumów przeglądarki."
+
+msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "Niedostępne – nie udało się załadować tłumienia szumów. Używane jest redukowanie szumów przeglądarki."

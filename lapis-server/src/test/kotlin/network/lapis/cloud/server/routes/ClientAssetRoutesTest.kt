@@ -25,6 +25,11 @@ private val SOUNDS_SOURCE: File =
     File("../lapis-client/src/jsMain/webAssets/encounter-sounds-v1")
         .let { if (it.exists()) it else File("lapis-client/src/jsMain/webAssets/encounter-sounds-v1") }
 
+private val RNNOISE_FILES = listOf("rnnoise-worklet.js", "rnnoise.wasm", "rnnoise_simd.wasm", "LICENSES.txt")
+private val RNNOISE_SOURCE: File =
+    File("../lapis-client/src/jsMain/webAssets/rnnoise-v1")
+        .let { if (it.exists()) it else File("lapis-client/src/jsMain/webAssets/rnnoise-v1") }
+
 class ClientAssetRoutesTest :
     FunSpec({
         fun withAssetTree(block: (File) -> Unit) {
@@ -40,6 +45,12 @@ class ClientAssetRoutesTest :
                     File(root, "assets/$ENCOUNTER_SOUNDS_ASSET_DIR/$name")
                         .apply { parentFile.mkdirs() }
                         .writeBytes(File(SOUNDS_SOURCE, name).readBytes())
+                }
+                // V1.9.114: the REAL RNNoise files (worklet, both WebAssembly builds, licences)
+                RNNOISE_FILES.forEach { name ->
+                    File(root, "assets/$RNNOISE_ASSET_DIR/$name")
+                        .apply { parentFile.mkdirs() }
+                        .writeBytes(File(RNNOISE_SOURCE, name).readBytes())
                 }
                 block(root)
             } finally {
@@ -175,5 +186,72 @@ class ClientAssetRoutesTest :
                     (image.headers[HttpHeaders.CacheControl] ?: "") shouldNotContain "immutable"
                 }
             }
+        }
+
+        // ── V1.9.114: the RNNoise worklet and its WebAssembly ────────────────────────────────────────────────────
+
+        test(
+            "V1.9.114: the worklet is text/javascript, both WebAssembly builds application/wasm, licences text/plain; all immutable for a year, no cookie",
+        ) {
+            withAssetTree { root ->
+                testApplication {
+                    application { routing { registerClientAssetRoutes(clientDistRoot = root) } }
+                    val expectedTypes =
+                        mapOf(
+                            "rnnoise-worklet.js" to "text/javascript",
+                            "rnnoise.wasm" to "application/wasm",
+                            "rnnoise_simd.wasm" to "application/wasm",
+                            "LICENSES.txt" to "text/plain",
+                        )
+                    expectedTypes.forEach { (name, type) ->
+                        val response = client.get("/assets/$RNNOISE_ASSET_DIR/$name")
+                        response.status shouldBe HttpStatusCode.OK
+                        (response.headers[HttpHeaders.ContentType] ?: "") shouldContain type
+                        response.headers.getAll(HttpHeaders.CacheControl)?.size shouldBe 1
+                        response.headers[HttpHeaders.CacheControl] shouldBe "public, max-age=31536000, immutable"
+                        response.headers[HttpHeaders.SetCookie] shouldBe null
+                        MessageDigest.getInstance("SHA-256").digest(response.readRawBytes()).toList() shouldBe
+                            MessageDigest.getInstance("SHA-256").digest(File(RNNOISE_SOURCE, name).readBytes()).toList()
+                    }
+                }
+            }
+        }
+
+        test("V1.9.114: an unknown name under the RNNoise prefix is 404, there is no listing, and path traversal never yields a file") {
+            withAssetTree { root ->
+                File(root, "secret.txt").writeText("not for the browser")
+                testApplication {
+                    application { routing { registerClientAssetRoutes(clientDistRoot = root) } }
+                    client.get("/assets/$RNNOISE_ASSET_DIR/other.wasm").status shouldBe HttpStatusCode.NotFound
+                    client.get("/assets/$RNNOISE_ASSET_DIR/").status shouldBe HttpStatusCode.NotFound
+                    listOf(
+                        "/assets/$RNNOISE_ASSET_DIR/%2e%2e/%2e%2e/secret.txt",
+                        "/assets/$RNNOISE_ASSET_DIR/..%2f..%2fsecret.txt",
+                    ).forEach { path -> (client.get(path).status == HttpStatusCode.OK) shouldBe false }
+                }
+            }
+        }
+
+        test("V1.9.114: the asset routes set no Content-Security-Policy (there is no global CSP; the KDoc names what one would need)") {
+            withAssetTree { root ->
+                testApplication {
+                    application { routing { registerClientAssetRoutes(clientDistRoot = root) } }
+                    client.get("/assets/$RNNOISE_ASSET_DIR/rnnoise.wasm").headers["Content-Security-Policy"] shouldBe null
+                }
+            }
+            val routeSource =
+                File("src/main/kotlin/network/lapis/cloud/server/routes/ClientAssetRoutes.kt")
+                    .let {
+                        if (it.exists()) {
+                            it
+                        } else {
+                            File(
+                                "lapis-server/src/main/kotlin/network/lapis/cloud/server/routes/ClientAssetRoutes.kt",
+                            )
+                        }
+                    }.readText()
+            // whoever introduces a CSP must update the documented needs of the worklet (wasm-unsafe-eval, same-origin module)
+            routeSource shouldNotContain "Content-Security-Policy"
+            routeSource shouldContain "wasm-unsafe-eval"
         }
     })

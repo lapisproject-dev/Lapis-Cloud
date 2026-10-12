@@ -1685,6 +1685,18 @@ private fun enterCall(
     val deviceGroup = moreSheet.vPanel(spacing = 6) { addCssClasses("lapis-conference-device-group") }
     deviceGroup.div(tr("Geräte:")) { addCssClasses("text-muted small") }
     val micDeviceSelect = deviceGroup.select(options = loadingPlaceholder, value = "", label = tr("Mikrofon"))
+
+    // V1.9.114 -- optionale Rauschunterdrückung des eigenen Mikrofons (RNNoise, nur in diesem Browser): EINE Zeile direkt unter der Mikrofonauswahl,
+    // kein Aufklapper, kein Regler. Der Controller hält Zustand, Merkwert und Rückfall (siehe ConferenceNoiseSuppressionController); `session` ist
+    // hier noch nicht deklariert, die Kette wird deshalb über einen Zeiger geholt, der unten nach `lateinit var session` gesetzt wird.
+    var noiseChainProvider: () -> NoiseSuppressionChain? = { null }
+    val noiseSuppressionController =
+        ConferenceNoiseSuppressionController(
+            preference = LocalStorageNoiseSuppressionPreference(),
+            chain = { noiseChainProvider() },
+            capability = ::noiseSuppressionSupportInThisBrowser,
+        )
+    NoiseSuppressionSwitchRow(deviceGroup, noiseSuppressionController)
     val cameraDeviceSelect = deviceGroup.select(options = loadingPlaceholder, value = "", label = tr("Kamera"))
     // V1.3.x -- Lautsprecherauswahl nur, wenn der Browser `HTMLMediaElement.setSinkId` überhaupt
     // unterstützt (Safari nicht) -- Feature-Detection-Disziplin wie bei `screenShareButton`.
@@ -4298,6 +4310,7 @@ private fun enterCall(
     // nicht zugewiesen -- unproblematisch, da beide Funktionskörper `session` erst bei tatsächlichem
     // AUFRUF lesen, nicht bei ihrer eigenen Deklaration.
     lateinit var session: LiveKitRoomSession
+    noiseChainProvider = { runCatching { session.noiseSuppressionChain() }.getOrNull() }
 
     suspend fun refreshDeviceOptions(preserveFocusedSelect: Boolean = false) {
         // Doppelt dient als (a) einfache Mutex-Sperre gegen zwei überlappende Enumerationsläufe UND
@@ -4758,6 +4771,10 @@ private fun enterCall(
             // V1.4.23 -- Gürtel und Hosenträger: (Re-)Publish der eigenen Kamera (Reconnect, Geräte-Restart);
             // ein gesetzter Prozessor überlebt das ohnehin, die Anwendung ist idempotent. KEIN zweites
             // `attach()` -- die Selbstansicht bleibt allein bei `onLocalVideoTrack`.
+            // V1.9.114 -- the own microphone was (re-)published: the remembered noise suppression is applied again (idempotent).
+            onLocalMicrophoneTrackPublished = {
+                AppScope.launch { runCatching { noiseSuppressionController.onMicTrackPublished() } }
+            },
             onLocalCameraTrackPublished = { track ->
                 val live = track.unsafeCast<LocalVideoTrack>()
                 localCameraTrack = live

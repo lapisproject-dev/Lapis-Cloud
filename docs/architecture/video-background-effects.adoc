@@ -433,6 +433,40 @@ uploading actually means -- bytes DO reach the server, stripped of metadata, pri
 **Content-Security-Policy.** As with the rest of this feature, there is no global CSP today; if one is introduced,
 `img-src 'self'` is sufficient for the custom-background routes (no external image host is ever referenced).
 
+== Noise suppression assets (V1.9.114)
+
+The optional noise suppression of the own microphone (see link:../features/video-conferencing.adoc[video-conferencing.adoc], "Optional noise suppression") rides the same asset pipeline, with one difference: **no npm dependency**. The four files are checked in under `lapis-client/src/jsMain/webAssets/rnnoise-v1/` (copied byte for byte from `@sapphi-red/web-noise-suppressor` 0.4.1, MIT), so `yarn.lock` and `.kotlin-js-store` are untouched and the webpack bundle does not grow. The small `AudioWorkletNode` wrapper is written in Kotlin (`RnnoiseTrackProcessor.kt`).
+
+[cols="2,1,3", options="header"]
+|===
+| File | Bytes | SHA-256
+
+| `rnnoise-worklet.js` (the `AudioWorkletProcessor`, registered as `@sapphi-red/web-noise-suppressor/rnnoise`)
+| 64 483
+| `1e06facbb3d7459b89769aa4247cd4b71263e6662e4da0c54763f3bf06f5893b`
+
+| `rnnoise.wasm` (no SIMD)
+| 152 656
+| `8b60a2ab88fdae2d1a9f940249d0eb072f28ba8e796f7304347b4e07839c8853`
+
+| `rnnoise_simd.wasm` (SIMD)
+| 157 234
+| `378fd17c294db15ee4e818ba5ef072242a21c8ad7445b483f7f46d7dc4f2c253`
+
+| `LICENSES.txt` (MIT, BSD-3-Clause, Apache-2.0 notices, shipped next to the binaries)
+| 13 551
+| `042d729a8892f4cdb4d3984a8c1f2612ea5d5771a00372a6010bd2d6fcb6e9b2`
+|===
+
+The chain of origin is `@sapphi-red/web-noise-suppressor` -> `@shiguredo/rnnoise-wasm` (Apache-2.0) -> `xiph/rnnoise` (BSD-3-Clause); the licence texts were taken from the upstream repositories on 2026-10-12 (the npm package itself carries only the MIT file of the wrapper). `PROVENANCE.adoc` in the directory has the details.
+
+* *Served* by one more route in `registerClientAssetRoutes` (`/assets/rnnoise-v1`, `Cache-Control: public, max-age=31536000, immutable`, `text/javascript` for the worklet, `application/wasm` for both builds). *Versioned:* if the bytes ever change, the directory becomes `rnnoise-v2` in all three places (`NoiseSuppressionAssets.DIR`, `RNNOISE_ASSET_DIR`, `lapis-client/build.gradle.kts`); `RnnoiseAssetsTest` pins sizes, hashes and the three names.
+* *Verified by the build:* `VerifyVideoEffectAssets` knows all four paths and their SHA-256 on the staging directory AND on the webpack output, so an empty directory is a red build, not a green one with a broken production. Both WebAssembly builds are required: the browser decides with a 29-byte SIMD probe which one it loads.
+* *No source map* is shipped (`scripts/ci-assert-image-clean.sh` forbids `.map` in the client). The worklet ends with a `sourceMappingURL` comment pointing at a file that is not there; that is harmless (only DevTools ever asks).
+* *No third party.* The two loads (`addModule` of the worklet, `fetch` of the WebAssembly) use same-origin constants only, without cookies, referrer or redirects, with a size cap and an 8 second abort; the worklet is loaded from its URL, never from a `blob:` URL. `RnnoiseAssetsTest` scans the filter's client code for any absolute address or CDN host.
+
+**Content-Security-Policy.** There is no global CSP today (the asset routes set no header and `ClientAssetRoutesTest` pins that). If one is introduced, the filter needs: `script-src 'self' 'wasm-unsafe-eval'` (the worklet module comes from the own origin; WebAssembly is instantiated inside the worklet scope) and `connect-src 'self'` for the two same-origin fetches. Because the worklet is served from the own origin and not from a `blob:` URL, no `blob:` source is needed for this feature (the background effects still need `worker-src 'self' blob:`).
+
 == Manual test plan
 
 Karma cannot drive a camera or WASM, so these steps are manual: Chrome or Chromium with a real camera on HTTPS
@@ -515,3 +549,11 @@ there as part of M12.
   joined a call), join a conference: expect a SILENT fallback to "Aus" -- no error notice, no failed-to-load
   message, the stored preference is simply cleared. This is the `reconcileCustomImages`/`customListKnown` gate
   described in "Stumbling blocks" S3 of the implementation plan.
+
+* *N1 Noise suppression, privacy proof.* Network tab, switch "Rauschunterdrückung" on. Expect requests only to the own origin: `/assets/rnnoise-v1/rnnoise-worklet.js` and `/assets/rnnoise-v1/rnnoise_simd.wasm` or `rnnoise.wasm`, content types `text/javascript` and `application/wasm`. Nothing else, no third-party host. A second switch-on in the same page makes no new request for the WebAssembly.
+* *N2 Muted stays muted.* Mute the microphone, switch the filter on and off: the microphone never opens for a moment (check in a second browser), the mute button state does not change.
+* *N3 Device change.* With the filter on, pick another microphone: the filter stays, the sound keeps flowing, the worklet is not fetched again.
+* *N4 Reconnect.* With the filter on cut the network for about five seconds: after the reconnect the filter is still in the path (a second browser hears the cleaned signal).
+* *N5 Forced failure.* DevTools request blocking on `*rnnoise*`, switch the filter on: exactly one polite sentence ("Nicht verfügbar - ... konnte nicht geladen werden ..."), the switch is `aria-disabled`, the microphone keeps working with the browser's own reduction, no dialog. Reload with the block removed: the remembered choice is applied again.
+* *N6 Suspended context.* A page that has never had a click (autoplay policy) must either run the filter or fall back with the sentence; it must never deliver silence while the switch says "on".
+* *N7 Listening.* Speak with a fan or keyboard noise nearby, then sing: judge by ear whether the speech is cleaner and that singing is altered. This is the only test that says anything about quality.

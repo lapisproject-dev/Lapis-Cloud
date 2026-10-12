@@ -19,6 +19,8 @@ import kotlinx.browser.window
 import kotlinx.coroutines.launch
 import network.lapis.cloud.client.ActionIcon
 import network.lapis.cloud.client.AppScope
+import network.lapis.cloud.client.ConferenceNoiseSuppressionController
+import network.lapis.cloud.client.NoiseSuppressionSwitchRow
 import network.lapis.cloud.client.conferenceDeviceErrorMessage
 import network.lapis.cloud.client.conferenceDeviceOptionLabel
 import network.lapis.cloud.client.conferenceDeviceSelectionToApply
@@ -263,6 +265,8 @@ internal class EncounterDevicePicker(
     private val onVisibilityChanged: () -> Unit,
     /** V1.9.96: the bell sound switch; `null` outside church-service rooms. */
     private val bellSwitch: EncounterBellSwitchModel? = null,
+    /** V1.9.114: the optional noise suppression of the own microphone; the row exists only for an office holder (a [speaker] session). */
+    noiseSuppression: ConferenceNoiseSuppressionController? = null,
 ) {
     /** Icon-only (R58 named exception c, the bar's own factory): the name is set per role in [refresh]. */
     val button: Button = devicesGroup.encounterControlButton(ActionIcon.SETTINGS, tr("Geräte wählen"))
@@ -302,6 +306,8 @@ internal class EncounterDevicePicker(
                 ConferenceDeviceKind.CAMERA to tr("Kamera"),
                 ConferenceDeviceKind.SPEAKER to tr("Lautsprecher"),
             ).associate { (kind, label) -> kind to Row(kind, label) }
+        // V1.9.114: the noise suppression row stands under the device rows; there is none without a speaker session (the congregation never gets it).
+        if (speaker != null && noiseSuppression != null) NoiseSuppressionSwitchRow(panel, noiseSuppression)
         speakerNote =
             panel.div(
                 tr("Den Lautsprecher wählen Sie in diesem Browser über die Einstellungen Ihres Geräts."),

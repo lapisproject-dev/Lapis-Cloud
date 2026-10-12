@@ -196,7 +196,7 @@ private class VerifyVideoEffectAssets(
             }
         check(corrupt.isEmpty()) {
             "$taskName: SHA-256 mismatch for ${corrupt.keys.joinToString()} under ${assetsDir.path}. " +
-                "These files are served immutable; change the bytes only together with a new directory version (encounter-sounds-v2)."
+                "These files are served immutable; change the bytes only together with a new directory version (encounter-sounds-v2 or rnnoise-v2)."
         }
     }
 }
@@ -219,13 +219,20 @@ val videoEffectStagedPaths =
         // V1.9.67 Begegnungsraum: the decorative floor-plan scenes (CSS masks, see theme.css `.lapis-encounter-scene-front`/`-rows`) ride the same staging.
         listOf("church", "hall").flatMap { theme -> listOf("front", "row").map { part -> "encounter-themes/$theme/$part.svg" } } +
         // V1.9.97: the two recorded bells (served immutable under the versioned path `encounter-sounds-v1`).
-        listOf("encounter-sounds-v1/call-bell.mp3", "encounter-sounds-v1/blessing-bell.mp3")
+        listOf("encounter-sounds-v1/call-bell.mp3", "encounter-sounds-v1/blessing-bell.mp3") +
+        // V1.9.114: optional microphone noise suppression (RNNoise): the worklet, BOTH WebAssembly variants (SIMD or not is decided in the
+        // browser, a missing one is a silent failure on part of the devices) and the licence notices; served immutable under `rnnoise-v1`.
+        listOf("rnnoise-worklet.js", "rnnoise.wasm", "rnnoise_simd.wasm", "LICENSES.txt").map { "rnnoise-v1/$it" }
 
-// V1.9.97: SHA-256 of the two recorded bells; checked on the staging AND on the webpack copy.
+// V1.9.97: SHA-256 of the two recorded bells (V1.9.114: and of the RNNoise files); checked on the staging AND on the webpack copy.
 val videoEffectExpectedSha256 =
     mapOf(
         "encounter-sounds-v1/call-bell.mp3" to "b41a4b3e8a6bc490c815a3398767bf2b9a39ec9048692587f174398430434405",
         "encounter-sounds-v1/blessing-bell.mp3" to "7eebd9ed890b21ea230dfa9c3cec8ace23e728e77c1c8d8438abd22b4d91d267",
+        "rnnoise-v1/rnnoise-worklet.js" to "1e06facbb3d7459b89769aa4247cd4b71263e6662e4da0c54763f3bf06f5893b",
+        "rnnoise-v1/rnnoise.wasm" to "8b60a2ab88fdae2d1a9f940249d0eb072f28ba8e796f7304347b4e07839c8853",
+        "rnnoise-v1/rnnoise_simd.wasm" to "378fd17c294db15ee4e818ba5ef072242a21c8ad7445b483f7f46d7dc4f2c253",
+        "rnnoise-v1/LICENSES.txt" to "042d729a8892f4cdb4d3984a8c1f2612ea5d5771a00372a6010bd2d6fcb6e9b2",
     )
 
 val videoEffectStagingDir = layout.buildDirectory.dir("video-effect-assets")
@@ -250,6 +257,11 @@ val stageVideoEffectAssets by tasks.registering(Sync::class) {
     // V1.9.97: the recorded bells of the bell and the blessing.
     from(layout.projectDirectory.dir("src/jsMain/webAssets/encounter-sounds-v1")) {
         into("encounter-sounds-v1")
+        exclude("PROVENANCE.adoc")
+    }
+    // V1.9.114: the RNNoise worklet, its two WebAssembly builds and the licence notices.
+    from(layout.projectDirectory.dir("src/jsMain/webAssets/rnnoise-v1")) {
+        into("rnnoise-v1")
         exclude("PROVENANCE.adoc")
     }
     from(nodeModulesDir.map { it.dir("@mediapipe/tasks-vision/wasm") }) {

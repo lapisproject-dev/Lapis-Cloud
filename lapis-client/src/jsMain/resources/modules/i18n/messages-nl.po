@@ -22664,3 +22664,24 @@ msgstr "Een videoconferentie kan maximaal %1 uur duren."
 
 msgid "Bitte bestätigen Sie den Hinweis."
 msgstr "Bevestig de mededeling."
+
+msgid "Rauschunterdrückung"
+msgstr "Ruisonderdrukking"
+
+msgid "Wird nur in diesem Browser verarbeitet. Gesang und Musik klingen damit verändert."
+msgstr "Wordt alleen in deze browser verwerkt. Zang en muziek klinken er anders door."
+
+msgid "Rauschunterdrückung aktiv."
+msgstr "Ruisonderdrukking actief."
+
+msgid "Nicht verfügbar"
+msgstr "Niet beschikbaar"
+
+msgid "Nicht verfügbar – dieser Browser unterstützt AudioWorklet nicht. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "Niet beschikbaar – deze browser ondersteunt AudioWorklet niet. De ruisreductie van de browser wordt gebruikt."
+
+msgid "Nicht verfügbar – dieser Browser unterstützt WebAssembly nicht. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "Niet beschikbaar – deze browser ondersteunt WebAssembly niet. De ruisreductie van de browser wordt gebruikt."
+
+msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "Niet beschikbaar – de ruisonderdrukking kon niet worden geladen. De ruisreductie van de browser wordt gebruikt."

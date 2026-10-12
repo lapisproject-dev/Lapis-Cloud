@@ -21714,3 +21714,24 @@ msgstr ""
 
 msgid "Bitte bestätigen Sie den Hinweis."
 msgstr ""
+
+msgid "Rauschunterdrückung"
+msgstr ""
+
+msgid "Wird nur in diesem Browser verarbeitet. Gesang und Musik klingen damit verändert."
+msgstr ""
+
+msgid "Rauschunterdrückung aktiv."
+msgstr ""
+
+msgid "Nicht verfügbar"
+msgstr ""
+
+msgid "Nicht verfügbar – dieser Browser unterstützt AudioWorklet nicht. Es wird die Rauschminderung des Browsers verwendet."
+msgstr ""
+
+msgid "Nicht verfügbar – dieser Browser unterstützt WebAssembly nicht. Es wird die Rauschminderung des Browsers verwendet."
+msgstr ""
+
+msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
+msgstr ""

@@ -22555,3 +22555,24 @@ msgstr "Una videoconferencia puede durar como máximo %1 horas."
 
 msgid "Bitte bestätigen Sie den Hinweis."
 msgstr "Confirme el aviso."
+
+msgid "Rauschunterdrückung"
+msgstr "Supresión de ruido"
+
+msgid "Wird nur in diesem Browser verarbeitet. Gesang und Musik klingen damit verändert."
+msgstr "Se procesa solo en este navegador. El canto y la música suenan alterados con ella."
+
+msgid "Rauschunterdrückung aktiv."
+msgstr "Supresión de ruido activada."
+
+msgid "Nicht verfügbar"
+msgstr "No disponible"
+
+msgid "Nicht verfügbar – dieser Browser unterstützt AudioWorklet nicht. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "No disponible – este navegador no admite AudioWorklet. Se usa la reducción de ruido del navegador."
+
+msgid "Nicht verfügbar – dieser Browser unterstützt WebAssembly nicht. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "No disponible – este navegador no admite WebAssembly. Se usa la reducción de ruido del navegador."
+
+msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "No disponible – no se pudo cargar la supresión de ruido. Se usa la reducción de ruido del navegador."

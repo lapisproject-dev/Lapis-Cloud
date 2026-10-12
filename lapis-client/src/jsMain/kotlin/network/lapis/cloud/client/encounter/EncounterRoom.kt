@@ -372,6 +372,9 @@ internal class EncounterRoom(
             onParticipantLeft = { identity -> onParticipantLeft(identity) },
             onLocalVideoTrack = { track -> onLocalVideo(track) },
             onLocalTrackMuteChanged = { source, muted -> pulpitControls?.onMuteChanged(source, muted) },
+            onMicTrackPublished = {
+                pulpitControls?.noiseSuppression?.let { controller -> AppScope.launch { runCatching { controller.onMicTrackPublished() } } }
+            },
             onChat = { identity, name, text -> onChat(identity, name, text) },
             onReaction = { identity, reaction -> onReaction(identity, reaction) },
             onAudioPlaybackChanged = { canPlay -> if (canPlay) audioBand.hide() else audioBand.show() },
@@ -713,6 +716,7 @@ internal class EncounterRoom(
                 onBeforeOpen = { closeSheet(returnFocus = false) },
                 onVisibilityChanged = { if (::overflow.isInitialized) overflow.recompute() },
                 bellSwitch = bellSwitchModel,
+                noiseSuppression = pulpitControls?.noiseSuppression,
             )
         devicePicker = picker
         registerBarSlot(ControlBarSlot(EncounterControlSlot.AudioDevices, picker.button, null))

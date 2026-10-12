@@ -7,9 +7,14 @@ import io.kvision.i18n.tr
 import kotlinx.coroutines.launch
 import network.lapis.cloud.client.ActionIcon
 import network.lapis.cloud.client.AppScope
+import network.lapis.cloud.client.ConferenceNoiseSuppressionController
+import network.lapis.cloud.client.LocalStorageNoiseSuppressionPreference
+import network.lapis.cloud.client.NoiseSuppressionPreference
+import network.lapis.cloud.client.NoiseSuppressionUnavailable
 import network.lapis.cloud.client.conferenceDeviceEnableErrorMessage
 import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceKind
+import network.lapis.cloud.client.noiseSuppressionSupportInThisBrowser
 import network.lapis.cloud.client.notifyError
 import network.lapis.cloud.client.setAttrIfChanged
 
@@ -34,7 +39,20 @@ internal class EncounterPulpitControls(
     private val session: EncounterSpeakerSession,
     /** V1.9.91: a device was switched ON successfully (the picker then applies the person's remembered choice, quietly). */
     private val onDeviceOn: (ConferenceDeviceKind) -> Unit = {},
+    noisePreference: NoiseSuppressionPreference = LocalStorageNoiseSuppressionPreference(),
+    noiseCapability: () -> NoiseSuppressionUnavailable? = ::noiseSuppressionSupportInThisBrowser,
 ) {
+    /**
+     * V1.9.114: the state machine of the optional noise suppression of the own microphone. The switch itself stands in the device panel
+     * ([EncounterDevicePicker]), only for an office holder; the choice is the same key as in the video conference.
+     */
+    internal val noiseSuppression =
+        ConferenceNoiseSuppressionController(
+            preference = noisePreference,
+            chain = { session.noiseSuppressionChain() },
+            capability = noiseCapability,
+        )
+
     internal val micButton: Button = toolbar.encounterControlButton(ActionIcon.MICROPHONE, tr("Mikrofon"))
     internal val cameraButton: Button = toolbar.encounterControlButton(ActionIcon.CAMERA, tr("Kamera"))
     private var micOn = false

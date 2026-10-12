@@ -1,5 +1,6 @@
 package network.lapis.cloud.client.encounter
 
+import network.lapis.cloud.client.NoiseSuppressionChain
 import network.lapis.cloud.client.livekit.ConferenceConnectFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceKind
@@ -71,6 +72,12 @@ internal interface EncounterSpeakerSession : EncounterListenerSession {
 
     /** V1.9.91: the id of the active input device, `null` if none is known. */
     fun activeDeviceId(kind: ConferenceDeviceKind): String?
+
+    /**
+     * V1.9.114: the filter chain of the own microphone for the optional noise suppression, `null` while no microphone track exists. It puts a
+     * processor in front of the SAME track (no unpublish, no mute change) and never opens a device itself.
+     */
+    fun noiseSuppressionChain(): NoiseSuppressionChain? = null
 }
 
 /**
@@ -98,6 +105,8 @@ internal class EncounterSessionCallbacks(
     val onBlessing: () -> Unit = {},
     /** V1.9.96: the server sent the bell (a packet without a participant). No data, no sender. */
     val onBell: () -> Unit = {},
+    /** V1.9.114: the own microphone track was (re-)published; the remembered noise suppression is applied again (idempotent). */
+    val onMicTrackPublished: () -> Unit = {},
 )
 
 /** The factory seam of the room view (a `jsTest` hands over a fake). The real one is [openEncounterSession]. */
@@ -132,6 +141,7 @@ private fun defaultLiveKitFactory(
         onEncounterSeatNudge = callbacks.onSeatNudge,
         onEncounterBlessing = callbacks.onBlessing,
         onEncounterBell = callbacks.onBell,
+        onLocalMicrophoneTrackPublished = callbacks.onMicTrackPublished,
     )
 
 /**
@@ -216,6 +226,8 @@ private class SpeakerSession(
 
     override fun activeDeviceId(kind: ConferenceDeviceKind): String? =
         if (kind == ConferenceDeviceKind.SPEAKER) null else runCatching { liveKit.activeDeviceId(kind) }.getOrNull()
+
+    override fun noiseSuppressionChain(): NoiseSuppressionChain? = liveKit.noiseSuppressionChain()
 }
 
 // ── V1.9.80 Stage 2b: the audio session of a TABLE ─────────────────────────────────────────────────────────────────────

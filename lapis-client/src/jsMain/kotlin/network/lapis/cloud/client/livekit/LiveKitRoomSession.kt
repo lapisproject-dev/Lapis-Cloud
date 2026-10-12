@@ -1,8 +1,13 @@
 package network.lapis.cloud.client.livekit
 
 import io.kvision.utils.obj
+import kotlinx.browser.window
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.await
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.client.NoiseSuppressionAssets
+import network.lapis.cloud.client.NoiseSuppressionChain
+import network.lapis.cloud.client.NoiseSuppressionUnavailable
 import network.lapis.cloud.client.encounter.EncounterReactionWire
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_TOPIC
@@ -21,6 +26,7 @@ import network.lapis.cloud.shared.domain.WhiteboardStrokeWireDto
 import network.lapis.cloud.shared.domain.isStructurallyValid
 import org.khronos.webgl.Uint8Array
 import org.khronos.webgl.get
+import kotlin.js.Promise
 import kotlin.js.unsafeCast
 
 private external interface PublishDataOptions {
@@ -337,6 +343,9 @@ class LiveKitRoomSession(
      * dafuer ist [onLocalVideoTrack] weiterhin allein zustaendig, und es wird KEIN zweites `<video>` an
      * denselben Track gehaengt (Atkinson-Ruling K3). */
     private val onLocalCameraTrackPublished: (Track) -> Unit = {},
+    /** V1.9.114 -- relays [RoomEvent.LocalTrackPublished] for the own MICROPHONE (no track handed on: the filter chain reads it from the room). Zweck
+     * ausschliesslich: die gemerkte Rauschunterdrueckung auf den (re-)publizierten Mikrofon-Track anwenden (idempotent, wie bei der Kamera). */
+    private val onLocalMicrophoneTrackPublished: () -> Unit = {},
     /** Test seam (audit finding "Testabdeckung" -- [attemptConnect] previously hard-constructed
      * `Room(options)`, leaving [connect]'s own retry/orphan-guard/race-window orchestration
      * unreachable from a `jsTest` without a real browser/WebRTC stack). Defaults to the real
@@ -744,6 +753,10 @@ class LiveKitRoomSession(
         }
         room.onOwned(RoomEvent.LocalTrackPublished) { p0, _, _, _ ->
             val publication = p0.unsafeCast<TrackPublication>()
+            if (publication.source == "microphone") {
+                onLocalMicrophoneTrackPublished()
+                return@onOwned
+            }
             if (publication.source != "camera") return@onOwned
             val rawTrack = publication.track ?: return@onOwned
             val track = rawTrack.unsafeCast<Track>()
@@ -998,6 +1011,99 @@ class LiveKitRoomSession(
             null
         } catch (e: Throwable) {
             classifyDeviceFailure(e.asDynamic())
+        }
+    }
+
+    // ── V1.9.114: optional noise suppression of the own microphone ─────────────────────────────────────────
+
+    /** The session's OWN audio context for the filter (48 kHz). Created on the first switch-on, closed on [disconnect]. Never the room's `webAudioMix`. */
+    private var noiseAudioContext: dynamic = null
+
+    /** Test seam: builds the audio context (`null` = this browser has none). The real one asks for 48 kHz, which RNNoise needs. */
+    internal var noiseAudioContextFactory: () -> dynamic = ::browserNoiseAudioContext
+
+    /** Test seam: builds the LiveKit processor object ([asLiveKitProcessor] of a [RnnoiseTrackProcessor]). */
+    internal var noiseProcessorFactory: () -> dynamic = { RnnoiseTrackProcessor().asLiveKitProcessor() }
+
+    private fun localMicrophoneTrack(): LocalAudioTrack? {
+        val currentRoom = room ?: return null
+        val publication = currentRoom.localParticipant.asDynamic().getTrackPublication("microphone")
+        val track = publication?.track
+        return if (track == null || track == undefined) null else track.unsafeCast<LocalAudioTrack>()
+    }
+
+    /**
+     * The microphone's filter chain, or `null` while no microphone track exists (the filter is then only remembered, [onLocalMicrophoneTrackPublished]
+     * applies it). No `unpublish`, no mute change: the same track keeps being sent, a processor is put in front of it ([LocalAudioTrack.setProcessor]).
+     */
+    internal fun noiseSuppressionChain(): NoiseSuppressionChain? {
+        if (!publishEnabled) return null
+        localMicrophoneTrack() ?: return null
+        return SessionNoiseSuppressionChain()
+    }
+
+    private fun ensureNoiseAudioContext(): dynamic {
+        val existing = noiseAudioContext
+        if (existing != null && existing != undefined && existing.state != "closed") return existing
+        val created = runCatching { noiseAudioContextFactory() }.getOrNull()
+        noiseAudioContext = if (created == undefined) null else created
+        return noiseAudioContext
+    }
+
+    private fun closeNoiseAudioContext() {
+        val ctx = noiseAudioContext
+        noiseAudioContext = null
+        if (ctx != null && ctx != undefined) runCatching { ctx.close() }
+    }
+
+    private inner class SessionNoiseSuppressionChain : NoiseSuppressionChain {
+        override fun prepare() {
+            // inside the click: the context is created and resumed here so the browser's autoplay rule is met
+            val ctx = ensureNoiseAudioContext()
+            if (ctx != null && ctx != undefined) runCatching { ctx.resume() }
+        }
+
+        override suspend fun attach(): NoiseSuppressionUnavailable? {
+            val track = localMicrophoneTrack() ?: return null
+            val ctx = ensureNoiseAudioContext()
+            if (ctx == null || ctx == undefined) return NoiseSuppressionUnavailable.LOAD_FAILED
+            // a suspended context delivers SILENCE: the person would be muted without a word. So the state is checked, not hoped for.
+            runCatching { ctx.resume().unsafeCast<Promise<dynamic>>().await() }
+            if (ctx.state != "running" || ctx.sampleRate != NoiseSuppressionAssets.SAMPLE_RATE) {
+                return NoiseSuppressionUnavailable.LOAD_FAILED
+            }
+            track.setAudioContext(ctx)
+            val installed = track.getProcessor()
+            if (installed != null && installed != undefined && installed.name == RNNOISE_LIVEKIT_PROCESSOR_NAME) return null
+            return try {
+                track.setProcessor(noiseProcessorFactory()).await()
+                if (ctx.state != "running") {
+                    runCatching { track.stopProcessor().await() }
+                    NoiseSuppressionUnavailable.LOAD_FAILED
+                } else {
+                    null
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                runCatching { track.stopProcessor().await() }
+                NoiseSuppressionUnavailable.LOAD_FAILED
+            }
+        }
+
+        override suspend fun detach() {
+            val track = localMicrophoneTrack() ?: return
+            val installed = track.getProcessor()
+            if (installed == null || installed == undefined) return
+            track.stopProcessor().await()
+        }
+
+        override suspend fun setBrowserNoiseSuppression(enabled: Boolean) {
+            val track = localMicrophoneTrack() ?: return
+            val constraints: dynamic = js("({})")
+            constraints.noiseSuppression = enabled
+            // echoCancellation and autoGainControl are deliberately NOT in this object: they stay as they are
+            track.applyConstraints(constraints).await()
         }
     }
 
@@ -1260,6 +1366,7 @@ class LiveKitRoomSession(
             // leave, exactly as before this fix.
             currentRoom.disconnect().await()
             room = null
+            closeNoiseAudioContext()
             return
         }
         if (connectInFlight) {
@@ -1294,6 +1401,17 @@ class LiveKitRoomSession(
  * that are visible are rendered, nothing more).
  */
 internal const val FLOAT_ADAPTS_REMOTE_QUALITY = true
+
+/** V1.9.114 -- the real audio context of the noise suppression: 48 kHz (what RNNoise needs), low latency; `null` when the browser has none. */
+internal fun browserNoiseAudioContext(): dynamic {
+    val scope = window.asDynamic()
+    val constructor = scope.AudioContext ?: scope.webkitAudioContext
+    if (constructor == null || constructor == undefined) return null
+    val options: dynamic = js("({})")
+    options.sampleRate = NoiseSuppressionAssets.SAMPLE_RATE
+    options.latencyHint = "interactive"
+    return js("Reflect").construct(constructor, arrayOf(options))
+}
 
 /**
  * Asks the SFU for [quality] (0 = low, 1 = medium, 2 = high) of a SUBSCRIBED remote video [publication]. Only an `UpdateTrackSettings`

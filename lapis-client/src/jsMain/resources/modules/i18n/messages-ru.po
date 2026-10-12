@@ -22660,3 +22660,24 @@ msgstr "Видеоконференция может длиться не боле
 
 msgid "Bitte bestätigen Sie den Hinweis."
 msgstr "Подтвердите уведомление."
+
+msgid "Rauschunterdrückung"
+msgstr "Шумоподавление"
+
+msgid "Wird nur in diesem Browser verarbeitet. Gesang und Musik klingen damit verändert."
+msgstr "Обрабатывается только в этом браузере. Пение и музыка при этом звучат изменённо."
+
+msgid "Rauschunterdrückung aktiv."
+msgstr "Шумоподавление включено."
+
+msgid "Nicht verfügbar"
+msgstr "Недоступно"
+
+msgid "Nicht verfügbar – dieser Browser unterstützt AudioWorklet nicht. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "Недоступно – этот браузер не поддерживает AudioWorklet. Используется шумоподавление браузера."
+
+msgid "Nicht verfügbar – dieser Browser unterstützt WebAssembly nicht. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "Недоступно – этот браузер не поддерживает WebAssembly. Используется шумоподавление браузера."
+
+msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "Недоступно – не удалось загрузить шумоподавление. Используется шумоподавление браузера."
