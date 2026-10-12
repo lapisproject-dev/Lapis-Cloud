@@ -106,6 +106,12 @@ classDiagram(name = "Communication") {
         literal(name = "FAILED")
     }
 
+    // Welle V1.9.111 -- MANUAL = explicit subscriptions, DYNAMIC = a rule decides at send time. Immutable after creation.
+    val mailingListKind = enumOf(name = "MailingListKind") {
+        literal(name = "MANUAL")
+        literal(name = "DYNAMIC")
+    }
+
     val deliveryStatus = enumOf(name = "DeliveryStatus") {
         literal(name = "SENT")
         literal(name = "BOUNCED")
@@ -141,6 +147,56 @@ classDiagram(name = "Communication") {
         attribute(name = "createdBy", type = "UUID") {
             stereotype("Column") { "columnName" to "created_by"; "fkEntity" to "Member" }
         }
+        // Welle V1.9.111 (V91) "Dynamische Mailinglisten" -- kind/rule_json/mandatory are tied together by CHECKs
+        // (DYNAMIC <=> rule present, mandatory only for DYNAMIC); immutable after creation (no RPC writes them again).
+        attribute(name = "kind", type = mailingListKind) {
+            defaultValue = "MANUAL"
+            stereotype("Column") { "columnName" to "kind"; "enumType" to "network.lapis.cloud.shared.domain.MailingListKind" }
+        }
+        // Canonical JSON of a MemberRule (enums, committee ids, tier ids, a day count -- never a member id, name or address).
+        attribute(name = "ruleJson", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "rule_json"; "sqlType" to "VARCHAR(4096)" }
+        }
+        attribute(name = "mandatory", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "mandatory" }
+        }
+        // Class A (UTC): the last rule change.
+        attribute(name = "ruleUpdatedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "rule_updated_at" }
+        }
+    }
+
+    // Welle V1.9.111 -- a member's opt-out of a DYNAMIC (non-mandatory) list. mailing_list_id is ON DELETE CASCADE in the real schema.
+    val mailingListOptOut = classOf(name = "MailingListOptOut") {
+        stereotype("Entity") { "tableName" to "mailing_list_opt_out"; "kotlinObjectName" to "MailingListOptOutTable" }
+        stereotype("Index") {
+            "columns" to listOf("mailing_list_id", "member_id")
+            "unique" to true
+            "name" to "uq_mailing_list_opt_out_list_member"
+        }
+        stereotype("Index") { "columns" to listOf("member_id"); "name" to "idx_mailing_list_opt_out_member" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        // Class A (UTC).
+        attribute(name = "optedOutAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "opted_out_at" }
+        }
+    }
+
+    association(source = mailingList, target = mailingListOptOut, id = "assoc-mailing-list-opt-out") {
+        source { multiplicity("1") }
+        target { multiplicity("0..*"); role = "mailingListId" }
+    }
+
+    association(source = member, target = mailingListOptOut, id = "assoc-member-mailing-list-opt-out") {
+        source { multiplicity("1") }
+        target { multiplicity("0..*"); role = "memberId" }
     }
 
     val mailingListSubscription = classOf(name = "MailingListSubscription") {
@@ -233,6 +289,12 @@ classDiagram(name = "Communication") {
         attribute(name = "queuedAt", type = "LocalDateTime") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "queued_at" }
+        }
+        // Welle V1.9.111 (V91) -- set by the worker once the recipients of a message to a DYNAMIC list were resolved (idempotency marker;
+        // NULL = not resolved yet, the message must stay open). Class A.
+        attribute(name = "recipientsResolvedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "recipients_resolved_at" }
         }
     }
 

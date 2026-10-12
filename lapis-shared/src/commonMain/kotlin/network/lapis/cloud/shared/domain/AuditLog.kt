@@ -427,6 +427,21 @@ enum class AuditEntityType {
      * `VARCHAR(29)` exactly (a test pins length <= 29). Appended LAST, additive only.
      */
     ARTICLE_IMPORT_IMAGES_APPLIED,
+
+    /**
+     * Welle V1.9.111 "Dynamische Mailinglisten" -- `MailingService` writes `CREATE` (a list was created: kind, mandatory flag, rule) and
+     * `UPDATE` (the rule of a dynamic list changed, before/after) entries, `entityId` = the list id. Snapshot = [MailingListRuleSnapshot]
+     * (enums and committee/tier ids only, never a name or address). 12 chars, fits within `audit_log_entry.entity_type` `VARCHAR(29)`.
+     * Appended LAST, additive only.
+     */
+    MAILING_LIST,
+
+    /**
+     * Welle V1.9.111 -- `MailingDeliveryWorker` writes ONE `POST` entry when the recipients of a message to a DYNAMIC list were resolved at
+     * send time, `entityId` = the message id, `after` = [MailingDynamicSendSnapshot] (list id, rule, recipient COUNT, mandatory flag --
+     * never a member id, name or address). 15 chars, fits within `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    MAILING_MESSAGE,
 }
 
 /**
@@ -1190,4 +1205,28 @@ data class RegionalChapterOfficerSnapshot(
 @Serializable
 data class MemberRegionalChapterSnapshot(
     val regionalChapterId: String?,
+)
+
+/**
+ * Welle V1.9.111 -- before/after snapshot of a mailing list ([AuditEntityType.MAILING_LIST]). Only the kind, the mandatory flag and the
+ * canonical rule JSON, which itself contains nothing but enums, committee ids, tier ids and a day count -- never a list name, a member
+ * id, a name or an address.
+ */
+@Serializable
+data class MailingListRuleSnapshot(
+    val kind: MailingListKind,
+    val mandatory: Boolean,
+    val ruleJson: String? = null,
+)
+
+/**
+ * Welle V1.9.111 -- after-snapshot of the recipient resolution of a message to a DYNAMIC list ([AuditEntityType.MAILING_MESSAGE], `POST`).
+ * The recipient COUNT, never who.
+ */
+@Serializable
+data class MailingDynamicSendSnapshot(
+    val listId: String,
+    val ruleJson: String,
+    val recipientCount: Int,
+    val mandatory: Boolean,
 )

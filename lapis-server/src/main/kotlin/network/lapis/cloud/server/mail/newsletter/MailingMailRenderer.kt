@@ -11,6 +11,7 @@ import kotlinx.html.title
 import kotlinx.html.unsafe
 import network.lapis.cloud.server.mail.MailBranding
 import network.lapis.cloud.server.mail.MailTemplates
+import network.lapis.cloud.shared.domain.MailingNotice
 import org.jsoup.Jsoup
 
 /**
@@ -28,6 +29,12 @@ import org.jsoup.Jsoup
  * footer. `mailto:` links and unknown hrefs are never touched, the footer/unsubscribe line lives
  * outside the content and is never rewritten, and the previews pass `tracking = null` so a preview
  * can never contain (or mint) a tracking artifact.
+ *
+ * **Mandatory notice (V1.9.111).** With [MailingNotice.MANDATORY] the mail is visibly a mandatory notice of the association: the subject
+ * gets the [MANDATORY_SUBJECT_PREFIX], a framed banner (`role="note"`, first line of the plain text too) opens the content, and the
+ * footer explains why there is no unsubscribe link -- and contains none. The prefix is added HERE (never stored), so the previews and the
+ * delivery worker show exactly the same subject. A dynamic, non-mandatory list ([dynamicList]) gets an explicit "Abmelden" hint that
+ * points at the self-service page (there is no one-click token).
  *
  * **Plain-text NEVER carries HTML markup or a tracking artifact** (S10 in the plan) -- [content]'s
  * [SanitizedMailingHtml.plainText] is derived once, by [MailingHtmlSanitizer], from the UNREWRITTEN
@@ -47,23 +54,40 @@ object MailingMailRenderer {
         val pixelUrl: String?,
     )
 
+    /** Subject prefix of a mandatory notice. German only, like every mailing text (no per-member language yet). */
+    const val MANDATORY_SUBJECT_PREFIX = "[Pflichtmitteilung] "
+
+    const val MANDATORY_BANNER =
+        "Pflichtmitteilung des Vereins: Diese Nachricht geht an alle Mitglieder, die die Regel der Liste erfüllen, und kann nicht abbestellt werden."
+
     fun render(
         subject: String,
         content: SanitizedMailingHtml?,
         legacyBodyText: String,
         branding: MailBranding,
         tracking: RecipientTracking? = null,
+        notice: MailingNotice = MailingNotice.NONE,
+        dynamicList: Boolean = false,
     ): MailTemplates.RenderedMail {
+        val mandatory = notice == MailingNotice.MANDATORY
+        val renderedSubject = if (mandatory) MANDATORY_SUBJECT_PREFIX + subject else subject
         val plainBody = content?.plainText ?: legacyBodyText
-        val footerLine = footer(branding)
-        val plainText = "$plainBody\n\n$footerLine"
+        val footerLine = footer(branding = branding, mandatory = mandatory, dynamicList = dynamicList)
+        val plainText = (if (mandatory) "$MANDATORY_BANNER\n\n" else "") + "$plainBody\n\n$footerLine"
 
         val html =
             createHTML().html {
-                head { title { +subject } }
+                head { title { +renderedSubject } }
                 body {
                     div {
                         attributes["style"] = "max-width:${CONTENT_WIDTH_PX}px;margin:0 auto;font-family:sans-serif;line-height:1.5;"
+                        if (mandatory) {
+                            div {
+                                attributes["role"] = "note"
+                                attributes["style"] = "border:2px solid #444;padding:8px 12px;margin:0 0 16px 0;font-weight:bold;"
+                                +MANDATORY_BANNER
+                            }
+                        }
                         if (content != null) {
                             // Content is ALWAYS SanitizedMailingHtml.html -- output of
                             // MailingHtmlSanitizer.sanitize, never raw author input (type-enforced:
@@ -89,7 +113,7 @@ object MailingMailRenderer {
                     }
                 }
             }
-        return MailTemplates.RenderedMail(subject = subject, plainText = plainText, html = html)
+        return MailTemplates.RenderedMail(subject = renderedSubject, plainText = plainText, html = html)
     }
 
     private fun rewriteLinks(
@@ -110,8 +134,24 @@ object MailingMailRenderer {
         return if (rewritten) body.html() else html
     }
 
-    /** Same footer text/logic as [MailTemplates]' own private `footer` -- kept local since this renderer is not part of that object. */
-    private fun footer(branding: MailBranding): String =
-        branding.replyTo?.let { "Fragen? Antworten Sie einfach auf diese E-Mail ($it)." }
-            ?: "Diese Adresse wird nicht gelesen. Fragen: ${branding.publicBaseUrl}. Abbestellen: ${branding.publicBaseUrl}/app"
+    /**
+     * Same footer text/logic as [MailTemplates]' own private `footer` -- kept local since this renderer is not part of that object.
+     * Mandatory: contact line + the reason there is no unsubscribe link, never a link. Dynamic list: contact line + "Abmelden" hint.
+     */
+    private fun footer(
+        branding: MailBranding,
+        mandatory: Boolean,
+        dynamicList: Boolean,
+    ): String {
+        val contact =
+            branding.replyTo?.let { "Fragen? Antworten Sie einfach auf diese E-Mail ($it)." }
+                ?: "Diese Adresse wird nicht gelesen. Fragen: ${branding.publicBaseUrl}."
+        return when {
+            mandatory -> "$contact Dies ist eine Pflichtmitteilung des Vereins und kann nicht abbestellt werden."
+            dynamicList -> "$contact Abmelden: ${branding.publicBaseUrl}/app"
+            else ->
+                branding.replyTo?.let { "Fragen? Antworten Sie einfach auf diese E-Mail ($it)." }
+                    ?: "Diese Adresse wird nicht gelesen. Fragen: ${branding.publicBaseUrl}. Abbestellen: ${branding.publicBaseUrl}/app"
+        }
+    }
 }

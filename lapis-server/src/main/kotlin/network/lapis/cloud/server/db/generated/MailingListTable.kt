@@ -3,8 +3,11 @@
 package network.lapis.cloud.server.db.generated
 
 import kotlin.uuid.Uuid
+import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.MailingListKind
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.datetime.datetime
 
 public object MailingListTable : Table("mailing_list") {
     public val id: Column<Uuid> = uuid("id")
@@ -12,5 +15,20 @@ public object MailingListTable : Table("mailing_list") {
     public val description: Column<String?> = varchar("description", 1000).nullable()
     public val createdBy: Column<Uuid> = reference("created_by", MemberTable.id)
 
+    /** Welle V1.9.111 (V91): MANUAL (explicit subscriptions) or DYNAMIC (a rule decides at send time). Immutable after creation. */
+    public val kind: Column<MailingListKind> = enumerationByName<MailingListKind>("kind", 16)
+
+    /** Welle V1.9.111: canonical JSON of a MemberRule; NULL for MANUAL lists (CHECK-pinned). */
+    public val ruleJson: Column<String?> = varchar("rule_json", 4096).nullable()
+
+    /** Welle V1.9.111: mandatory list (no opt-out). DYNAMIC only, immutable after creation. */
+    public val mandatory: Column<Boolean> = bool("mandatory")
+
+    /** Welle V1.9.111: UTC stamp (class A) of the last rule change. */
+    public val ruleUpdatedAt: Column<LocalDateTime?> = datetime("rule_updated_at").nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
+
+    // Note: 3 check constraint(s) declared on this entity are not
+    // emitted — Exposed's check {} DSL needs a typed Op<Boolean>, not a raw SQL string.
 }

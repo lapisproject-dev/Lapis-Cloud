@@ -36,6 +36,8 @@ private val EXPECTED_PLURAL_MESSAGES: List<Pair<String, String>> =
         // Welle V1.9.14 "Gliederungsverwaltung (Landesverbände), Oberfläche" --
         // RegionalChaptersScreen.kt's "%1 Mitglieder ohne Landesverband" headline (plan §1 P6).
         "%1 Mitglied ohne Landesverband" to "%1 Mitglieder ohne Landesverband",
+        // Welle V1.9.111 "Dynamische Mailinglisten" -- MailingRuleBuilder.kt's live count of a rule ("%1 Empfänger wird erreicht").
+        "%1 Empfänger wird erreicht" to "%1 Empfänger werden erreicht",
     )
 
 /** `nplurals` per language, matching `PluralRules.kt`'s `pluralFormCount` (not importable here: `lapis-client` is a separate, jsMain-only module). */

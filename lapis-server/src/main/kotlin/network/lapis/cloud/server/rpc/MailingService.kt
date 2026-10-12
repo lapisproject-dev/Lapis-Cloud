@@ -2,44 +2,60 @@ package network.lapis.cloud.server.rpc
 
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.plus
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.MailingDeliveryLogTable
 import network.lapis.cloud.server.db.generated.MailingLinkClickTable
+import network.lapis.cloud.server.db.generated.MailingListOptOutTable
 import network.lapis.cloud.server.db.generated.MailingListSubscriptionTable
 import network.lapis.cloud.server.db.generated.MailingListTable
 import network.lapis.cloud.server.db.generated.MailingMessageLinkTable
 import network.lapis.cloud.server.db.generated.MailingMessageTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.db.generated.MembershipTierTable
+import network.lapis.cloud.server.db.isUniqueViolation
+import network.lapis.cloud.server.db.withSavepoint
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.MailBranding
 import network.lapis.cloud.server.mail.budget.BudgetDecision
 import network.lapis.cloud.server.mail.budget.MailBudgetStore
 import network.lapis.cloud.server.mail.budget.MailLane
+import network.lapis.cloud.server.mail.isValidMailboxAddress
 import network.lapis.cloud.server.mail.newsletter.MailingDeliveryWorker
 import network.lapis.cloud.server.mail.newsletter.MailingHtmlSanitizer
 import network.lapis.cloud.server.mail.newsletter.MailingMailRenderer
 import network.lapis.cloud.server.mail.newsletter.MailingTrackingData
+import network.lapis.cloud.server.mail.newsletter.resolveAmong
+import network.lapis.cloud.server.mail.newsletter.resolveDynamicRecipients
 import network.lapis.cloud.server.mail.secondsUntil
+import network.lapis.cloud.server.rules.LoadedMember
+import network.lapis.cloud.server.rules.MemberFactsLoader
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.DeliveryStatus
+import network.lapis.cloud.shared.domain.DynamicListExplanationDto
 import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.MailingEta
 import network.lapis.cloud.shared.domain.MailingHtmlPolicy
 import network.lapis.cloud.shared.domain.MailingLinkStatsDto
 import network.lapis.cloud.shared.domain.MailingListDto
+import network.lapis.cloud.shared.domain.MailingListKind
+import network.lapis.cloud.shared.domain.MailingListRuleSnapshot
 import network.lapis.cloud.shared.domain.MailingListSubscriptionDto
 import network.lapis.cloud.shared.domain.MailingMessageDto
 import network.lapis.cloud.shared.domain.MailingMessageStatsDto
 import network.lapis.cloud.shared.domain.MailingMessageStatus
+import network.lapis.cloud.shared.domain.MailingNotice
 import network.lapis.cloud.shared.domain.MailingPauseReason
 import network.lapis.cloud.shared.domain.MailingPreviewDto
 import network.lapis.cloud.shared.domain.MailingSendEstimateDto
@@ -47,6 +63,18 @@ import network.lapis.cloud.shared.domain.MailingSendProgressDto
 import network.lapis.cloud.shared.domain.MailingTrackingConsentSnapshot
 import network.lapis.cloud.shared.domain.MemberChangeSnapshot
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.RecipientPreviewDto
+import network.lapis.cloud.shared.domain.RuleExplanationItem
+import network.lapis.cloud.shared.domain.RuleExplanationKind
+import network.lapis.cloud.shared.domain.rules.InvalidMemberRuleException
+import network.lapis.cloud.shared.domain.rules.MailingRecipientGuard
+import network.lapis.cloud.shared.domain.rules.MemberFacts
+import network.lapis.cloud.shared.domain.rules.MemberRule
+import network.lapis.cloud.shared.domain.rules.MemberRuleCodec
+import network.lapis.cloud.shared.domain.rules.RecipientFacts
+import network.lapis.cloud.shared.domain.rules.RuleCondition
+import network.lapis.cloud.shared.domain.rules.RuleContext
+import network.lapis.cloud.shared.domain.rules.matches
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IMailingService
@@ -56,11 +84,13 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.sum
+import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
@@ -72,6 +102,9 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
 private val BOARD_ROLES = arrayOf(AccountRole.BOARD, AccountRole.ADMIN)
+
+private const val MAX_LIST_NAME_CHARS = 200
+private const val MAX_LIST_DESCRIPTION_CHARS = 1000
 
 /**
  * V1.9.81 -- ONE per-member limiter for the two send-display RPCs ([MailingService.mailingSendEstimate], [MailingService.mailingSendProgress]),
@@ -114,29 +147,71 @@ class MailingService(
         val current = resolveCurrentMember(call)
         return transaction {
             requireActiveMembership(memberId = current.memberId)
-            MailingListTable.selectAll().map { row ->
+            val isBoard = current.role in BOARD_ROLES
+            val today = OrganizationTimeZone.today()
+            val rows = MailingListTable.selectAll().toList()
+            val hasDynamic = rows.any { it[MailingListTable.kind] == MailingListKind.DYNAMIC }
+            // Loaded ONCE for all dynamic lists (no per-list queries): the caller's own facts, for the board every ACTIVE member, the
+            // committee/tier names for the explanations, and the opt-outs (all of them for the board, the caller's own otherwise).
+            val me = if (hasDynamic) MemberFactsLoader.loadOne(memberId = current.memberId, today = today) else null
+            val allMembers =
+                if (hasDynamic &&
+                    isBoard
+                ) {
+                    MemberFactsLoader.loadAll(today = today, statuses = setOf(MemberStatus.ACTIVE))
+                } else {
+                    null
+                }
+            val names = if (hasDynamic) loadRuleNames() else RuleNames(committees = emptyMap(), tiers = emptyMap())
+            val optOuts: Map<Uuid, Map<Uuid, LocalDateTime>> =
+                if (!hasDynamic) {
+                    emptyMap()
+                } else {
+                    MailingListOptOutTable
+                        .selectAll()
+                        .let { q -> if (isBoard) q else q.where { MailingListOptOutTable.memberId eq current.memberId } }
+                        .groupBy({ it[MailingListOptOutTable.mailingListId] }, {
+                            it[MailingListOptOutTable.memberId] to
+                                it[MailingListOptOutTable.optedOutAt]
+                        })
+                        .mapValues { it.value.toMap() }
+                }
+            rows.mapNotNull { row ->
                 val listId = row[MailingListTable.id]
-                val subscriberCount =
-                    MailingListSubscriptionTable
-                        .selectAll()
-                        .where {
-                            (MailingListSubscriptionTable.mailingListId eq listId) and
-                                (MailingListSubscriptionTable.unsubscribedAt.isNull())
-                        }.count()
-                val ownSubscription =
-                    MailingListSubscriptionTable
-                        .selectAll()
-                        .where {
-                            (MailingListSubscriptionTable.mailingListId eq listId) and
-                                (MailingListSubscriptionTable.memberId eq current.memberId) and
-                                (MailingListSubscriptionTable.unsubscribedAt.isNull())
-                        }.singleOrNull()
-                row.toMailingListDto(
-                    subscriberCount = subscriberCount.toInt(),
-                    isSubscribed = ownSubscription != null,
-                    openTrackingConsentedAt = ownSubscription?.get(MailingListSubscriptionTable.openTrackingConsentedAt),
-                    clickTrackingConsentedAt = ownSubscription?.get(MailingListSubscriptionTable.clickTrackingConsentedAt),
-                )
+                if (row[MailingListTable.kind] == MailingListKind.DYNAMIC) {
+                    dynamicListDto(
+                        row = row,
+                        isBoard = isBoard,
+                        me = me,
+                        allMembers = allMembers,
+                        names = names,
+                        optedOutOf = optOuts[listId].orEmpty(),
+                        currentMemberId = current.memberId,
+                        today = today,
+                    )
+                } else {
+                    val subscriberCount =
+                        MailingListSubscriptionTable
+                            .selectAll()
+                            .where {
+                                (MailingListSubscriptionTable.mailingListId eq listId) and
+                                    (MailingListSubscriptionTable.unsubscribedAt.isNull())
+                            }.count()
+                    val ownSubscription =
+                        MailingListSubscriptionTable
+                            .selectAll()
+                            .where {
+                                (MailingListSubscriptionTable.mailingListId eq listId) and
+                                    (MailingListSubscriptionTable.memberId eq current.memberId) and
+                                    (MailingListSubscriptionTable.unsubscribedAt.isNull())
+                            }.singleOrNull()
+                    row.toMailingListDto(
+                        subscriberCount = subscriberCount.toInt(),
+                        isSubscribed = ownSubscription != null,
+                        openTrackingConsentedAt = ownSubscription?.get(MailingListSubscriptionTable.openTrackingConsentedAt),
+                        clickTrackingConsentedAt = ownSubscription?.get(MailingListSubscriptionTable.clickTrackingConsentedAt),
+                    )
+                }
             }
         }
     }
@@ -155,11 +230,183 @@ class MailingService(
                 it[MailingListTable.description] = description
                 it[createdBy] = current.memberId
             }
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.MAILING_LIST,
+                entityId = id,
+                action = AuditAction.CREATE,
+                after = ruleSnapshotJson(kind = MailingListKind.MANUAL, mandatory = false, ruleJson = null),
+            )
             MailingListTable
                 .selectAll()
                 .where { MailingListTable.id eq id }
                 .single()
                 .toMailingListDto(subscriberCount = 0, isSubscribed = false)
+        }
+    }
+
+    override suspend fun createDynamicMailingList(
+        name: String,
+        description: String?,
+        ruleJson: String,
+        mandatory: Boolean,
+    ): MailingListDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*BOARD_ROLES)
+        val validName = name.trim()
+        if (validName.isEmpty()) throw BadRequestException("Name darf nicht leer sein.")
+        if (validName.length > MAX_LIST_NAME_CHARS) throw BadRequestException("Name zu lang (max. $MAX_LIST_NAME_CHARS Zeichen).")
+        val validDescription = description?.trim()?.takeIf { it.isNotEmpty() }
+        if (validDescription != null && validDescription.length > MAX_LIST_DESCRIPTION_CHARS) {
+            throw BadRequestException("Beschreibung zu lang (max. $MAX_LIST_DESCRIPTION_CHARS Zeichen).")
+        }
+        val rule = parseRuleOrBadRequest(ruleJson)
+        val canonical = MemberRuleCodec.encode(rule)
+        val now = DbClock.nowLocalDateTime()
+        return transaction {
+            requireRuleReferencesExist(rule)
+            val id = Uuid.random()
+            MailingListTable.insert {
+                it[MailingListTable.id] = id
+                it[MailingListTable.name] = validName
+                it[MailingListTable.description] = validDescription
+                it[createdBy] = current.memberId
+                it[kind] = MailingListKind.DYNAMIC
+                it[MailingListTable.ruleJson] = canonical
+                it[MailingListTable.mandatory] = mandatory
+                it[ruleUpdatedAt] = now
+            }
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.MAILING_LIST,
+                entityId = id,
+                action = AuditAction.CREATE,
+                after = ruleSnapshotJson(kind = MailingListKind.DYNAMIC, mandatory = mandatory, ruleJson = canonical),
+                occurredAt = now,
+            )
+            boardDtoOf(id = id, current = current)
+        }
+    }
+
+    override suspend fun updateMailingListRule(
+        mailingListId: String,
+        ruleJson: String,
+    ): MailingListDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*BOARD_ROLES)
+        val listId = Uuid.parse(mailingListId)
+        val rule = parseRuleOrBadRequest(ruleJson)
+        val canonical = MemberRuleCodec.encode(rule)
+        val now = DbClock.nowLocalDateTime()
+        return transaction {
+            requireRuleReferencesExist(rule)
+            // Locks the LIST row (never a member row); the audit chain lock is the last lock of this transaction.
+            val row =
+                MailingListTable
+                    .selectAll()
+                    .where { MailingListTable.id eq listId }
+                    .forUpdate()
+                    .singleOrNull()
+                    ?: throw NotFoundException("MailingList $mailingListId not found")
+            if (row[MailingListTable.kind] != MailingListKind.DYNAMIC) {
+                throw ConflictException("Nur automatische Listen haben eine Regel.")
+            }
+            val before = row[MailingListTable.ruleJson]
+            if (before != canonical) {
+                MailingListTable.update({ MailingListTable.id eq listId }) {
+                    it[MailingListTable.ruleJson] = canonical
+                    it[ruleUpdatedAt] = now
+                }
+                val mandatory = row[MailingListTable.mandatory]
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.MAILING_LIST,
+                    entityId = listId,
+                    action = AuditAction.UPDATE,
+                    before = ruleSnapshotJson(kind = MailingListKind.DYNAMIC, mandatory = mandatory, ruleJson = before),
+                    after = ruleSnapshotJson(kind = MailingListKind.DYNAMIC, mandatory = mandatory, ruleJson = canonical),
+                    occurredAt = now,
+                )
+            }
+            boardDtoOf(id = listId, current = current)
+        }
+    }
+
+    override suspend fun previewDynamicRecipients(
+        ruleJson: String,
+        mailingListId: String?,
+        mandatory: Boolean,
+    ): RecipientPreviewDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*BOARD_ROLES)
+        requireWithinSendDisplayRate(current.memberId)
+        val rule = parseRuleOrBadRequest(ruleJson)
+        val listId = mailingListId?.let { Uuid.parse(it) }
+        val today = OrganizationTimeZone.today()
+        return transaction {
+            // For an existing list the stored flag decides, never the caller's parameter.
+            val effectiveMandatory =
+                if (listId == null) {
+                    mandatory
+                } else {
+                    MailingListTable
+                        .selectAll()
+                        .where { MailingListTable.id eq listId }
+                        .singleOrNull()
+                        ?.get(MailingListTable.mandatory)
+                        ?: throw NotFoundException("MailingList $mailingListId not found")
+                }
+            val resolution = resolveDynamicRecipients(rule = rule, listId = listId, mandatory = effectiveMandatory, today = today)
+            RecipientPreviewDto(
+                eligible = resolution.recipientIds.size,
+                excludedOptedOut = resolution.excludedOptedOut,
+                excludedNoEmail = resolution.excludedNoEmail,
+            )
+        }
+    }
+
+    override suspend fun optOutOfDynamicList(mailingListId: String) {
+        val current = resolveCurrentMember(call)
+        val listId = parseListIdOrNotFound(mailingListId)
+        val now = DbClock.nowLocalDateTime()
+        transaction {
+            requireActiveMembership(memberId = current.memberId)
+            requireIncludedDynamicList(listId = listId, memberId = current.memberId, mailingListId = mailingListId)
+            val exists =
+                MailingListOptOutTable
+                    .selectAll()
+                    .where { (MailingListOptOutTable.mailingListId eq listId) and (MailingListOptOutTable.memberId eq current.memberId) }
+                    .count() > 0
+            if (!exists) {
+                try {
+                    withSavepoint(name = "mailing_opt_out") {
+                        MailingListOptOutTable.insert {
+                            it[id] = Uuid.random()
+                            it[MailingListOptOutTable.mailingListId] = listId
+                            it[memberId] = current.memberId
+                            it[optedOutAt] = now
+                        }
+                    }
+                } catch (e: ExposedSQLException) {
+                    // A concurrent identical opt-out: the postcondition holds, idempotent. Anything else is a real failure.
+                    if (!e.isUniqueViolation()) throw e
+                }
+            }
+        }
+    }
+
+    override suspend fun revokeOptOut(mailingListId: String) {
+        val current = resolveCurrentMember(call)
+        val listId = parseListIdOrNotFound(mailingListId)
+        transaction {
+            requireActiveMembership(memberId = current.memberId)
+            requireIncludedDynamicList(listId = listId, memberId = current.memberId, mailingListId = mailingListId)
+            MailingListOptOutTable.deleteWhere {
+                (MailingListOptOutTable.mailingListId eq listId) and (MailingListOptOutTable.memberId eq current.memberId)
+            }
         }
     }
 
@@ -169,6 +416,7 @@ class MailingService(
         val now = DbClock.nowLocalDateTime()
         transaction {
             requireActiveMembership(memberId = current.memberId)
+            requireManualListOrNotFound(listId)
             val existing =
                 MailingListSubscriptionTable
                     .selectAll()
@@ -204,6 +452,7 @@ class MailingService(
         val now = DbClock.nowLocalDateTime()
         transaction {
             requireActiveMembership(memberId = current.memberId)
+            requireManualListOrNotFound(listId)
             val existing =
                 MailingListSubscriptionTable
                     .selectAll()
@@ -256,6 +505,7 @@ class MailingService(
         val now = DbClock.nowLocalDateTime()
         return transaction {
             requireActiveMembership(memberId = current.memberId)
+            requireManualListOrNotFound(listId)
             val existing =
                 MailingListSubscriptionTable
                     .selectAll()
@@ -353,6 +603,13 @@ class MailingService(
         val targetMemberId = Uuid.parse(memberId)
         val now = DbClock.nowLocalDateTime()
         transaction {
+            val kind =
+                MailingListTable
+                    .selectAll()
+                    .where { MailingListTable.id eq listId }
+                    .singleOrNull()
+                    ?.get(MailingListTable.kind)
+            if (kind == MailingListKind.DYNAMIC) throw ConflictException("Automatische Listen haben keine festen Abonnenten.")
             val existing =
                 MailingListSubscriptionTable
                     .selectAll()
@@ -376,10 +633,21 @@ class MailingService(
         current.requireRole(*BOARD_ROLES)
         val listId = Uuid.parse(mailingListId)
         return transaction {
-            (MailingListSubscriptionTable innerJoin MemberTable)
-                .selectAll()
-                .where { MailingListSubscriptionTable.mailingListId eq listId }
-                .map { it.toMailingListSubscriptionDto() }
+            // A DYNAMIC list has no stored subscribers; its recipients are computed at send time and never listed by name.
+            val kind =
+                MailingListTable
+                    .selectAll()
+                    .where { MailingListTable.id eq listId }
+                    .singleOrNull()
+                    ?.get(MailingListTable.kind)
+            if (kind == MailingListKind.DYNAMIC) {
+                emptyList()
+            } else {
+                (MailingListSubscriptionTable innerJoin MemberTable)
+                    .selectAll()
+                    .where { MailingListSubscriptionTable.mailingListId eq listId }
+                    .map { it.toMailingListSubscriptionDto() }
+            }
         }
     }
 
@@ -451,10 +719,18 @@ class MailingService(
         val current = resolveCurrentMember(call)
         current.requireRole(*BOARD_ROLES)
         val id = Uuid.parse(messageId)
-        val message =
+        val (message, list) =
             transaction {
-                MailingMessageTable.selectAll().where { MailingMessageTable.id eq id }.singleOrNull()
-            } ?: throw NotFoundException("MailingMessage $messageId not found")
+                val row = MailingMessageTable.selectAll().where { MailingMessageTable.id eq id }.singleOrNull()
+                row to
+                    row?.let {
+                        MailingListTable
+                            .selectAll()
+                            .where { MailingListTable.id eq it[MailingMessageTable.mailingListId] }
+                            .singleOrNull()
+                    }
+            }
+        if (message == null) throw NotFoundException("MailingMessage $messageId not found")
         val sanitized = message[MailingMessageTable.bodyHtml]?.let { MailingHtmlSanitizer.sanitize(it) }
         val rendered =
             MailingMailRenderer.render(
@@ -462,6 +738,8 @@ class MailingService(
                 content = sanitized,
                 legacyBodyText = message[MailingMessageTable.bodyText],
                 branding = branding,
+                notice = if (list?.get(MailingListTable.mandatory) == true) MailingNotice.MANDATORY else MailingNotice.NONE,
+                dynamicList = list?.get(MailingListTable.kind) == MailingListKind.DYNAMIC,
             )
         return MailingPreviewDto(subject = rendered.subject, plainText = rendered.plainText, html = rendered.html)
     }
@@ -629,7 +907,25 @@ class MailingService(
                 // D3 (plan): only ACTIVE, non-anonymized, non-deceased members with a still-active
                 // subscription. Members who fall out of this filter get no delivery-log row at all --
                 // see IMailingService.sendMailingMessage KDoc. ONE shared function with the send estimate.
-                val eligibleRecipients = eligibleRecipientIds(listId)
+                val listRow = MailingListTable.selectAll().where { MailingListTable.id eq listId }.single()
+                val dynamic = listRow[MailingListTable.kind] == MailingListKind.DYNAMIC
+                // Defence in depth: a mandatory list can only ever be sent by Board/Admin (BOARD_ROLES already says so; this line keeps
+                // it true if the general send right is ever widened).
+                if (listRow[MailingListTable.mandatory]) current.requireRole(AccountRole.BOARD, AccountRole.ADMIN)
+                // V1.9.111: a DYNAMIC list writes NO delivery rows here -- its recipients are resolved by the worker at SEND time
+                // (MailingDeliveryWorker.resolveRecipientsIfNeeded). The size is only checked now for fail-fast feedback.
+                val eligibleRecipients =
+                    if (dynamic) {
+                        val rule = storedRuleOrConflict(listRow)
+                        resolveDynamicRecipients(
+                            rule = rule,
+                            listId = listId,
+                            mandatory = listRow[MailingListTable.mandatory],
+                            today = OrganizationTimeZone.today(),
+                        ).recipientIds
+                    } else {
+                        eligibleRecipientIds(listId)
+                    }
 
                 if (eligibleRecipients.size > MailingHtmlPolicy.MAX_RECIPIENTS) {
                     // Throwing here rolls back the whole transaction, including the DRAFT->QUEUED
@@ -639,7 +935,7 @@ class MailingService(
                     )
                 }
 
-                eligibleRecipients.forEach { subscriberId ->
+                (if (dynamic) emptyList() else eligibleRecipients).forEach { subscriberId ->
                     MailingDeliveryLogTable.insert {
                         it[MailingDeliveryLogTable.id] = Uuid.random()
                         it[MailingDeliveryLogTable.mailingMessageId] = id
@@ -697,7 +993,23 @@ class MailingService(
                 val message =
                     MailingMessageTable.selectAll().where { MailingMessageTable.id eq id }.singleOrNull()
                         ?: throw NotFoundException("MailingMessage $messageId not found")
-                if (message[MailingMessageTable.status] == MailingMessageStatus.DRAFT) {
+                val listRow =
+                    MailingListTable
+                        .selectAll()
+                        .where { MailingListTable.id eq message[MailingMessageTable.mailingListId] }
+                        .single()
+                val dynamic = listRow[MailingListTable.kind] == MailingListKind.DYNAMIC
+                val unresolved = message[MailingMessageTable.recipientsResolvedAt] == null
+                val status = message[MailingMessageTable.status]
+                if (dynamic && (status == MailingMessageStatus.DRAFT || (status == MailingMessageStatus.QUEUED && unresolved))) {
+                    // EXACTLY the recipients the worker would resolve right now (one shared function).
+                    resolveDynamicRecipients(
+                        rule = storedRuleOrConflict(listRow),
+                        listId = listRow[MailingListTable.id],
+                        mandatory = listRow[MailingListTable.mandatory],
+                        today = OrganizationTimeZone.today(),
+                    ).recipientIds.size
+                } else if (status == MailingMessageStatus.DRAFT) {
                     // EXACTLY the recipients sendMailingMessage would queue.
                     eligibleRecipientIds(message[MailingMessageTable.mailingListId]).size
                 } else {
@@ -725,10 +1037,22 @@ class MailingService(
         requireWithinSendDisplayRate(current.memberId)
         val id = Uuid.parse(messageId)
         val now = DbClock.nowLocalDateTime()
+        var awaitingResolution = false
         val counts =
             transaction {
-                MailingMessageTable.selectAll().where { MailingMessageTable.id eq id }.singleOrNull()
-                    ?: throw NotFoundException("MailingMessage $messageId not found")
+                val message =
+                    MailingMessageTable.selectAll().where { MailingMessageTable.id eq id }.singleOrNull()
+                        ?: throw NotFoundException("MailingMessage $messageId not found")
+                val dynamic =
+                    MailingListTable
+                        .selectAll()
+                        .where { MailingListTable.id eq message[MailingMessageTable.mailingListId] }
+                        .singleOrNull()
+                        ?.get(MailingListTable.kind) == MailingListKind.DYNAMIC
+                awaitingResolution =
+                    dynamic &&
+                    message[MailingMessageTable.status] == MailingMessageStatus.QUEUED &&
+                    message[MailingMessageTable.recipientsResolvedAt] == null
                 DeliveryStatus.entries.associateWith { countDeliveries(messageId = id, status = it) }
             }
 
@@ -776,6 +1100,7 @@ class MailingService(
             pausedUntil = pausedUntil,
             pauseReason = reason,
             remainingSeconds = if (pending > 0) estimate + extraWait else null,
+            awaitingRecipientResolution = awaitingResolution,
         )
     }
 
@@ -869,6 +1194,9 @@ private fun ResultRow.toMailingListDto(
     isSubscribed: Boolean,
     openTrackingConsentedAt: LocalDateTime? = null,
     clickTrackingConsentedAt: LocalDateTime? = null,
+    ruleJson: String? = null,
+    ruleExplanation: DynamicListExplanationDto? = null,
+    optedOutAt: LocalDateTime? = null,
 ): MailingListDto =
     MailingListDto(
         id = this[MailingListTable.id].toString(),
@@ -879,6 +1207,11 @@ private fun ResultRow.toMailingListDto(
         isSubscribedByCurrentMember = isSubscribed,
         currentMemberOpenTrackingConsentedAt = openTrackingConsentedAt,
         currentMemberClickTrackingConsentedAt = clickTrackingConsentedAt,
+        kind = this[MailingListTable.kind],
+        mandatory = this[MailingListTable.mandatory],
+        ruleJson = ruleJson,
+        ruleExplanation = ruleExplanation,
+        currentMemberOptedOutAt = optedOutAt,
     )
 
 private fun ResultRow.toMailingListSubscriptionDto(): MailingListSubscriptionDto =
@@ -901,4 +1234,256 @@ private fun ResultRow.toMailingMessageDto(): MailingMessageDto =
         sentBy = this[MailingMessageTable.sentBy].toString(),
         sentAt = this[MailingMessageTable.sentAt],
         status = this[MailingMessageTable.status],
+    )
+
+// ---------------------------------------------------------------------------------------------------------------------------------------
+// V1.9.111 "Dynamische Mailinglisten" -- helpers. Everything below that reads the database must run inside a caller's transaction.
+// ---------------------------------------------------------------------------------------------------------------------------------------
+
+/** Committee and tier names for the explanation sentences. Free text: the client must sanitise before showing. */
+private data class RuleNames(
+    val committees: Map<String, String>,
+    val tiers: Map<String, String>,
+)
+
+private fun loadRuleNames(): RuleNames =
+    RuleNames(
+        committees = CommitteeTable.selectAll().associate { it[CommitteeTable.id].toString() to it[CommitteeTable.name] },
+        tiers = MembershipTierTable.selectAll().associate { it[MembershipTierTable.id].toString() to it[MembershipTierTable.name] },
+    )
+
+/** The message never contains the rejected input -- only a fixed text. */
+private fun parseRuleOrBadRequest(ruleJson: String): MemberRule =
+    try {
+        MemberRuleCodec.parse(text = ruleJson, context = RuleContext.MAILING)
+    } catch (e: InvalidMemberRuleException) {
+        throw BadRequestException("Ungültige Regel.")
+    }
+
+private fun storedRuleOrNull(row: ResultRow): MemberRule? =
+    row[MailingListTable.ruleJson]?.let {
+        try {
+            MemberRuleCodec.parse(text = it, context = RuleContext.MAILING)
+        } catch (e: InvalidMemberRuleException) {
+            null
+        }
+    }
+
+internal fun storedRuleOrConflict(row: ResultRow): MemberRule =
+    storedRuleOrNull(row) ?: throw ConflictException("Die Regel dieser Liste ist ungültig.")
+
+/** Every committee must exist and be active, every tier must exist -- otherwise a typo would silently address nobody. */
+private fun requireRuleReferencesExist(rule: MemberRule) {
+    rule.conditions.forEach { condition ->
+        when (condition) {
+            is RuleCondition.Committee -> {
+                val ids = condition.committeeIds.map { Uuid.parse(it) }
+                val found =
+                    CommitteeTable
+                        .selectAll()
+                        .where { (CommitteeTable.id inList ids) and (CommitteeTable.active eq true) }
+                        .count()
+                if (found != ids.size.toLong()) throw BadRequestException("Ungültige Regel: unbekanntes oder inaktives Gremium.")
+            }
+            is RuleCondition.Tier -> {
+                val ids = condition.tierIds.map { Uuid.parse(it) }
+                val found = MembershipTierTable.selectAll().where { MembershipTierTable.id inList ids }.count()
+                if (found != ids.size.toLong()) throw BadRequestException("Ungültige Regel: unbekannte Mitgliedschaftsstufe.")
+            }
+            else -> Unit
+        }
+    }
+}
+
+private fun ruleSnapshotJson(
+    kind: MailingListKind,
+    mandatory: Boolean,
+    ruleJson: String?,
+): String =
+    Json.encodeToString(
+        MailingListRuleSnapshot.serializer(),
+        MailingListRuleSnapshot(kind = kind, mandatory = mandatory, ruleJson = ruleJson),
+    )
+
+private fun parseListIdOrNotFound(mailingListId: String): Uuid =
+    runCatching { Uuid.parse(mailingListId) }.getOrNull() ?: throw NotFoundException("MailingList $mailingListId not found")
+
+/** Self-service paths of MANUAL lists: a DYNAMIC list answers exactly like a list that does not exist (no way to probe its rule). */
+private fun requireManualListOrNotFound(listId: Uuid) {
+    val kind =
+        MailingListTable
+            .selectAll()
+            .where { MailingListTable.id eq listId }
+            .singleOrNull()
+            ?.get(MailingListTable.kind)
+    if (kind == MailingListKind.DYNAMIC) throw NotFoundException("MailingList $listId not found")
+}
+
+/**
+ * The opt-out paths: only when the list is DYNAMIC and its rule includes the caller right now; EVERYTHING else (unknown list, MANUAL list,
+ * rule does not include the caller) is the same generic [NotFoundException], so the call cannot be used to probe a rule. A mandatory list
+ * is refused only after that check ([BadRequestException]).
+ */
+private fun requireIncludedDynamicList(
+    listId: Uuid,
+    memberId: Uuid,
+    mailingListId: String,
+) {
+    fun notFound(): Nothing = throw NotFoundException("MailingList $mailingListId not found")
+    val row = MailingListTable.selectAll().where { MailingListTable.id eq listId }.singleOrNull() ?: notFound()
+    if (row[MailingListTable.kind] != MailingListKind.DYNAMIC) notFound()
+    val rule = storedRuleOrNull(row) ?: notFound()
+    val today = OrganizationTimeZone.today()
+    val me = MemberFactsLoader.loadOne(memberId = memberId, today = today) ?: notFound()
+    val mandatory = row[MailingListTable.mandatory]
+    if (!includes(rule = rule, member = me, mandatory = mandatory, today = today)) notFound()
+    if (mandatory) throw BadRequestException("Eine Pflichtliste kann nicht abbestellt werden.")
+}
+
+/** Whether the rule reaches [member] -- the guard WITHOUT the opt-out (an opted-out member still sees the list and can come back). */
+private fun includes(
+    rule: MemberRule,
+    member: LoadedMember,
+    mandatory: Boolean,
+    today: LocalDate,
+): Boolean =
+    rule.matches(facts = member.facts, today = today) &&
+        MailingRecipientGuard.eligible(
+            f =
+                RecipientFacts(
+                    member = member.facts,
+                    anonymised = member.anonymised,
+                    deceased = member.deceased,
+                    hasValidEmail = isValidMailboxAddress(member.email),
+                    optedOut = false,
+                ),
+            mandatory = mandatory,
+        )
+
+/** One DYNAMIC list as the caller may see it, or `null` if it must stay invisible to them. */
+private fun dynamicListDto(
+    row: ResultRow,
+    isBoard: Boolean,
+    me: LoadedMember?,
+    allMembers: List<LoadedMember>?,
+    names: RuleNames,
+    optedOutOf: Map<Uuid, LocalDateTime>,
+    currentMemberId: Uuid,
+    today: LocalDate,
+): MailingListDto? {
+    val mandatory = row[MailingListTable.mandatory]
+    val rule = storedRuleOrNull(row)
+    if (rule == null) {
+        // Unparseable stored rule (cannot happen through the API): the board sees the broken list, nobody else.
+        return if (isBoard) {
+            row.toMailingListDto(
+                subscriberCount = 0,
+                isSubscribed = false,
+                ruleJson = row[MailingListTable.ruleJson],
+            )
+        } else {
+            null
+        }
+    }
+    val included = me != null && includes(rule = rule, member = me, mandatory = mandatory, today = today)
+    if (!isBoard && !included) return null
+    val ownOptOut = if (mandatory) null else optedOutOf[currentMemberId]
+    val count =
+        if (isBoard && allMembers != null) {
+            resolveAmong(
+                members = allMembers,
+                rule = rule,
+                optedOut = optedOutOf.keys,
+                mandatory = mandatory,
+                today = today,
+            ).recipientIds.size
+        } else {
+            0
+        }
+    return row.toMailingListDto(
+        subscriberCount = count,
+        isSubscribed = included && ownOptOut == null,
+        ruleJson = if (isBoard) row[MailingListTable.ruleJson] else null,
+        // A member only gets the conditions THEY satisfy (no names of other committees); the board sees the whole rule.
+        ruleExplanation = explainRule(rule = rule, facts = if (isBoard) null else me?.facts, today = today, names = names),
+        optedOutAt = ownOptOut,
+    )
+}
+
+/** The board's view of one list right after a write (inside the writing transaction). */
+private fun boardDtoOf(
+    id: Uuid,
+    current: CurrentMember,
+): MailingListDto {
+    val today = OrganizationTimeZone.today()
+    val row = MailingListTable.selectAll().where { MailingListTable.id eq id }.single()
+    val optedOut =
+        MailingListOptOutTable
+            .selectAll()
+            .where { MailingListOptOutTable.mailingListId eq id }
+            .associate { it[MailingListOptOutTable.memberId] to it[MailingListOptOutTable.optedOutAt] }
+    return dynamicListDto(
+        row = row,
+        isBoard = true,
+        me = MemberFactsLoader.loadOne(memberId = current.memberId, today = today),
+        allMembers = MemberFactsLoader.loadAll(today = today, statuses = setOf(MemberStatus.ACTIVE)),
+        names = loadRuleNames(),
+        optedOutOf = optedOut,
+        currentMemberId = current.memberId,
+        today = today,
+    ) ?: row.toMailingListDto(subscriberCount = 0, isSubscribed = false)
+}
+
+/**
+ * Turns a rule into structured, localisable items. With [facts] only the conditions that member satisfies (and, per condition, only the
+ * values that satisfy it); with `null` the whole rule.
+ */
+private fun explainRule(
+    rule: MemberRule,
+    facts: MemberFacts?,
+    today: LocalDate,
+    names: RuleNames,
+): DynamicListExplanationDto =
+    DynamicListExplanationDto(
+        op = rule.op,
+        items =
+            rule.conditions.mapNotNull { condition ->
+                if (facts != null && !condition.matches(facts = facts, today = today)) return@mapNotNull null
+                when (condition) {
+                    is RuleCondition.Role ->
+                        RuleExplanationItem(
+                            kind = RuleExplanationKind.ROLE,
+                            labels =
+                                condition.values
+                                    .filter { facts == null || it in facts.roles }
+                                    .map { it.name }
+                                    .sorted(),
+                        )
+                    is RuleCondition.JoinedWithinDays ->
+                        RuleExplanationItem(
+                            kind = RuleExplanationKind.JOINED_WITHIN_DAYS,
+                            days = condition.days,
+                        )
+                    is RuleCondition.Committee ->
+                        RuleExplanationItem(
+                            kind = RuleExplanationKind.COMMITTEE,
+                            labels =
+                                condition.committeeIds
+                                    .filter { facts == null || it in facts.activeCommitteeIds }
+                                    .mapNotNull { names.committees[it] }
+                                    .sorted(),
+                        )
+                    is RuleCondition.Tier ->
+                        RuleExplanationItem(
+                            kind = RuleExplanationKind.TIER,
+                            labels =
+                                condition.tierIds
+                                    .filter { facts == null || it == facts.tierId }
+                                    .mapNotNull { names.tiers[it] }
+                                    .sorted(),
+                        )
+                    // Not offered in the MAILING context (the parser rejects it); never explained.
+                    is RuleCondition.Status -> null
+                }
+            },
     )

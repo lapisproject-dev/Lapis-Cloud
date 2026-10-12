@@ -227,12 +227,38 @@ classDiagram(name = "Lapis Cloud Domain Model — V0.1.5") {
         literal(name = "SKIPPED_UNSUBSCRIBED")
     }
 
+    // V1.9.111 "Dynamische Mailinglisten": MANUAL = explicit subscriptions, DYNAMIC = a rule decides at send time.
+    val mailingListKind = enumOf(name = "MailingListKind") {
+        literal(name = "MANUAL")
+        literal(name = "DYNAMIC")
+    }
+
     val mailingList = classOf(name = "MailingList") {
         attribute(name = "id", type = "UUID")
         attribute(name = "name", type = "String")
         attribute(name = "description", type = "String")
         attribute(name = "createdBy", type = "UUID")
+        attribute(name = "kind", type = mailingListKind, defaultValue = "MANUAL")
+        attribute(name = "ruleJson", type = "String")
+        attribute(name = "mandatory", type = "Boolean", defaultValue = "false")
+        attribute(name = "ruleUpdatedAt", type = "LocalDateTime")
     }
+
+    // V1.9.111: a member's opt-out of a DYNAMIC, non-mandatory list.
+    val mailingListOptOut = classOf(name = "MailingListOptOut") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "mailingListId", type = "UUID")
+        attribute(name = "memberId", type = "UUID")
+        attribute(name = "optedOutAt", type = "LocalDateTime")
+    }
+
+    association(source = mailingList, target = mailingListOptOut) {
+        aggregation = AggregationKind.COMPOSITE
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "0..*"); role = "optOuts" }
+    }
+
+    dependency(client = mailingListOptOut, supplier = member, name = "optedOutMember")
 
     val mailingListSubscription = classOf(name = "MailingListSubscription") {
         attribute(name = "id", type = "UUID")
@@ -258,6 +284,7 @@ classDiagram(name = "Lapis Cloud Domain Model — V0.1.5") {
         attribute(name = "sentBy", type = "UUID")
         attribute(name = "sentAt", type = "LocalDateTime")
         attribute(name = "status", type = mailingMessageStatus, defaultValue = "DRAFT")
+        attribute(name = "recipientsResolvedAt", type = "LocalDateTime")
     }
 
     association(source = mailingList, target = mailingMessage) {

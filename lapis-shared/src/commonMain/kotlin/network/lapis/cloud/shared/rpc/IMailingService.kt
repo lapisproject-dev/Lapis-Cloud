@@ -9,6 +9,7 @@ import network.lapis.cloud.shared.domain.MailingMessageStatsDto
 import network.lapis.cloud.shared.domain.MailingPreviewDto
 import network.lapis.cloud.shared.domain.MailingSendEstimateDto
 import network.lapis.cloud.shared.domain.MailingSendProgressDto
+import network.lapis.cloud.shared.domain.RecipientPreviewDto
 
 @RpcService
 interface IMailingService {
@@ -92,9 +93,11 @@ interface IMailingService {
      * `MailingDeliveryConfig`/`MailingDeliveryMode`) happens AFTER this call returns, one recipient
      * at a time, off the RPC handler's own coroutine. The returned [MailingMessageDto] therefore
      * reflects `QUEUED`, never yet `SENT`/`FAILED` — call [listMailingMessages] again to see the
-     * eventual outcome. Recipients are filtered ONCE, at queuing time, to active, non-anonymized,
+     * eventual outcome. For a MANUAL list the recipients are filtered ONCE, at queuing time, to active, non-anonymized,
      * non-deceased subscribers (everyone who fails that filter gets no delivery-log row at all) and
-     * capped at [network.lapis.cloud.shared.domain.MailingHtmlPolicy.MAX_RECIPIENTS]. A syntactically
+     * capped at [network.lapis.cloud.shared.domain.MailingHtmlPolicy.MAX_RECIPIENTS]. **For a DYNAMIC list (V1.9.111) nothing is decided here**:
+     * no delivery row is written, the size is only checked for fail-fast feedback, and the delivery worker resolves the recipients from the
+     * rule when it takes the message (and re-checks each one right before the mail). The size limit is applied again at that point. A syntactically
      * INVALID mailbox address is NOT part of that queuing-time filter -- such a recipient still gets
      * a delivery-log row (`PENDING`, then `DeliveryStatus.SKIPPED_NO_ADDRESS` once the worker gets to
      * it), because the address is only re-validated later, per recipient, by the worker itself.
@@ -132,4 +135,44 @@ interface IMailingService {
      * Rate limited (60 per minute and member). Role: Board/Admin.
      */
     suspend fun mailingSendProgress(messageId: String): MailingSendProgressDto
+
+    /**
+     * Welle V1.9.111 -- creates a DYNAMIC list: its recipients are computed from [ruleJson] (a `MemberRule`, strictly parsed, stored in its
+     * canonical form) when a message is SENT, not when the list is written. [mandatory] makes it a mandatory list (no opt-out); like the
+     * kind it cannot be changed afterwards. Role: Board/Admin. A rule that does not parse, or names an unknown/inactive committee or
+     * an unknown tier, is a `BadRequestException` without the input in the message.
+     */
+    suspend fun createDynamicMailingList(
+        name: String,
+        description: String?,
+        ruleJson: String,
+        mandatory: Boolean,
+    ): MailingListDto
+
+    /** Welle V1.9.111 -- replaces the rule of a DYNAMIC list (audited, before/after). A MANUAL list is a `ConflictException`. Role: Board/Admin. */
+    suspend fun updateMailingListRule(
+        mailingListId: String,
+        ruleJson: String,
+    ): MailingListDto
+
+    /**
+     * Welle V1.9.111 -- how many members a rule would reach right now (and how many are left out for a missing address or an opt-out).
+     * Numbers only. Pass [mailingListId] to count the opt-outs of that list, [mandatory] to ignore them. Rate limited (60 per minute and
+     * member). Role: Board/Admin.
+     */
+    suspend fun previewDynamicRecipients(
+        ruleJson: String,
+        mailingListId: String? = null,
+        mandatory: Boolean = false,
+    ): RecipientPreviewDto
+
+    /**
+     * Welle V1.9.111 -- self-service opt-out of a DYNAMIC list, only while the rule includes the caller; anything else (unknown list,
+     * MANUAL list, rule does not include the caller) is the same generic `NotFoundException`. A mandatory list is a `BadRequestException`.
+     * Idempotent.
+     */
+    suspend fun optOutOfDynamicList(mailingListId: String)
+
+    /** Welle V1.9.111 -- undoes [optOutOfDynamicList]. Same visibility rules, idempotent. */
+    suspend fun revokeOptOut(mailingListId: String)
 }

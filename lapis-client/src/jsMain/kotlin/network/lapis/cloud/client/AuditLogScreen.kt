@@ -579,6 +579,9 @@ fun decodeAuditSnapshot(
             // Welle V1.9.106 -- small hand-built JSON objects (counts + ids), no snapshot class: raw text.
             AuditEntityType.ARTICLE_BULK_APPROVED -> null
             AuditEntityType.ARTICLE_IMPORT_IMAGES_APPLIED -> null
+            // Welle V1.9.111 -- MailingListRuleSnapshot / MailingDynamicSendSnapshot (enums, ids and counts only): raw-text display.
+            AuditEntityType.MAILING_LIST -> null
+            AuditEntityType.MAILING_MESSAGE -> null
         }
     }.getOrNull()
 

@@ -21,6 +21,7 @@ import network.lapis.cloud.shared.domain.DirectMessageDto
 import network.lapis.cloud.shared.domain.MailingDeliveryMode
 import network.lapis.cloud.shared.domain.MailingHtmlPolicy
 import network.lapis.cloud.shared.domain.MailingListDto
+import network.lapis.cloud.shared.domain.MailingListKind
 import network.lapis.cloud.shared.domain.MailingListSubscriptionDto
 import network.lapis.cloud.shared.domain.MailingMessageStatsDto
 import network.lapis.cloud.shared.domain.MailingMessageStatus
@@ -91,6 +92,11 @@ private fun renderMailingLists(root: SimplePanel): () -> Unit {
                 return@launch
             }
             lists.forEach { list ->
+                // V1.9.111: an automatic list has no subscriber count and no tracking switches -- its own row.
+                if (list.kind == MailingListKind.DYNAMIC) {
+                    renderDynamicSelfServiceRow(panel, list, ::refresh)
+                    return@forEach
+                }
                 val row = panel.hPanel(spacing = 8) { addCssClass("align-items-center") }
                 // Security audit follow-up (untrusted-text sanitization gaps): list.name is member-/admin-editable
                 // free text composed into a gettext(...) string before it reaches widget content -- sanitize the
@@ -311,7 +317,17 @@ private fun renderManageListSelector(
             // Security audit follow-up (untrusted-text sanitization gaps): the option label carries the
             // member-/admin-editable list name -- sanitize via untrustedOptions like the memberSelect.options
             // assignment below in this same file.
-            listSelect.options = untrustedOptions(lists.map { it.id to gettext("%1 (%2 Abonnenten)", it.name, it.subscriberCount) })
+            listSelect.options =
+                untrustedOptions(
+                    lists.map {
+                        it.id to
+                            if (it.kind == MailingListKind.DYNAMIC) {
+                                gettext("%1 (automatisch)", it.name)
+                            } else {
+                                gettext("%1 (%2 Abonnenten)", it.name, it.subscriberCount)
+                            }
+                    },
+                )
             listSelect.value = selectId?.takeIf { id -> lists.any { it.id == id } } ?: lists.firstOrNull()?.id
         }
     }
@@ -344,7 +360,30 @@ internal fun renderMailingListDetail(
         detail.div(sanitizeUntrustedI18nText(description)) { addCssClasses("text-muted small") }
     }
 
-    // ---- Abonnenten ----------------------------------------------------------------------------
+    val dynamic = list.kind == MailingListKind.DYNAMIC
+    if (dynamic) {
+        // V1.9.111: nobody is subscribed by hand -- the rule decides at send time. After a saved rule both list panels are refreshed
+        // and this detail is built again from the server's current state.
+        renderDynamicListAdminBlock(detail, list) {
+            refreshSelfService()
+            AppScope.launch {
+                val updated = guarded { rpcService<IMailingService>().listMailingLists() }?.firstOrNull { it.id == list.id }
+                if (updated != null) renderMailingListDetail(panel, updated, refreshSelfService)
+            }
+        }
+    }
+
+    // ---- Abonnenten
+    if (!dynamic) renderManualSubscriberSection(detail, list, refreshSelfService)
+    renderMailingMessagesSection(detail, list)
+}
+
+/** The manual part of the detail (V1.9.111: split out of [renderMailingListDetail]): subscribers and "Mitglied hinzufügen". */
+private fun renderManualSubscriberSection(
+    detail: SimplePanel,
+    list: MailingListDto,
+    refreshSelfService: () -> Unit,
+) {
     detail.div(tr("Abonnenten")) { addCssClasses("fw-bold mt-2") }
     // Name filter over the fully loaded subscriber list (`listSubscribers` has no paging); hidden while the list is empty.
     val subscriberFilter = detail.listFilterField()
@@ -413,7 +452,13 @@ internal fun renderMailingListDetail(
             }
         }
     }
+}
 
+/** The messages part of the detail (compose, draft list, send) -- the same for manual and automatic lists. */
+private fun renderMailingMessagesSection(
+    detail: SimplePanel,
+    list: MailingListDto,
+) {
     // ---- Nachrichten -------------------------------------------------------------------------
     detail.div(tr("Nachrichten")) { addCssClasses("fw-bold mt-2") }
     val composePanel = detail.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
@@ -454,7 +499,16 @@ internal fun renderMailingListDetail(
                 messagesPanel.p(tr("Noch keine Nachrichten."))
                 return@launch
             }
-            messages.forEach { message -> renderMailingMessageRow(messagesPanel, message, list.name, ::refreshMessages) }
+            messages.forEach { message ->
+                renderMailingMessageRow(
+                    messagesPanel,
+                    message,
+                    list.name,
+                    ::refreshMessages,
+                    dynamic = list.kind == MailingListKind.DYNAMIC,
+                    mandatory = list.mandatory,
+                )
+            }
         }
     }
     refreshMessages()

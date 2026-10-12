@@ -214,6 +214,8 @@ classDiagram(name = "AuditLog") {
         literal(name = "ARTICLE_IMPORT") // Welle V1.9.105 "Artikel-Import" -- ArticleImporter writes one summary entry per committed import run (after = counts + payload SHA-256; single articles are audited as ARTICLE/CREATE); never carries text or bylines; 14 chars, fits within VARCHAR(29)
         literal(name = "ARTICLE_BULK_APPROVED") // Welle V1.9.106 "Artikel-Import, Nachbesserung" -- ArticleBulkApprover writes ONE entry per bulk approval call that approved at least one article (after = counts + batch ids + approved article ids; never a title or text); 21 chars, fits within VARCHAR(29)
         literal(name = "ARTICLE_IMPORT_IMAGES_APPLIED") // Welle V1.9.106 -- ArticleImportImages writes ONE entry per image commit that applied at least one cover (entityId = import batch id; after = counts + article ids; never a file name); exactly 29 chars = VARCHAR(29), the longest literal
+        literal(name = "MAILING_LIST") // Welle V1.9.111 "Dynamische Mailinglisten" -- MailingService writes CREATE (list created, kind + mandatory + rule) and UPDATE (rule changed) entries; snapshot = kind, mandatory flag and the rule JSON (enums and committee/tier ids only, never a name or address); 12 chars, fits within VARCHAR(29)
+        literal(name = "MAILING_MESSAGE") // Welle V1.9.111 -- MailingDeliveryWorker writes ONE POST entry when the recipients of a message to a DYNAMIC list were resolved (after = list id, rule JSON, recipient count, mandatory flag; never a member id, name or address); 15 chars, fits within VARCHAR(29)
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

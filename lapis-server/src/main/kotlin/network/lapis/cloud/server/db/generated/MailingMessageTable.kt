@@ -27,6 +27,12 @@ public object MailingMessageTable : Table("mailing_message") {
     public val queuedAt: Column<LocalDateTime?> = datetime("queued_at").nullable()
     public val mailingListId: Column<Uuid> = reference("mailing_list_id", MailingListTable.id)
 
+    /**
+     * Welle V1.9.111 (V91): set by the worker once the recipients of a message to a DYNAMIC list were resolved (class A, UTC) -- the
+     * idempotency marker; NULL = not resolved yet, the message must not be closed.
+     */
+    public val recipientsResolvedAt: Column<LocalDateTime?> = datetime("recipients_resolved_at").nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
     // Note: 1 index(es) declared on this entity are not emitted —

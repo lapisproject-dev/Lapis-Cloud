@@ -47,6 +47,10 @@ internal fun renderMailingMessageRow(
     message: MailingMessageDto,
     listName: String,
     onChanged: () -> Unit,
+    /** V1.9.111: the message goes to an automatic list (recipients are resolved at send time). */
+    dynamic: Boolean = false,
+    /** V1.9.111: ... and that list is a mandatory one (the mail carries the notice, nobody can opt out). */
+    mandatory: Boolean = false,
 ) {
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
@@ -91,7 +95,7 @@ internal fun renderMailingMessageRow(
             // confirmation, so the dialog states the real figures (the server computes them with the very filter the send uses).
             runGuardedAction(sendButton) {
                 val estimate = guarded { rpcService<IMailingService>().mailingSendEstimate(message.id) } ?: return@runGuardedAction
-                confirmMailingSend(sendButton, message, listName, estimate, onChanged)
+                confirmMailingSend(sendButton, message, listName, estimate, onChanged, dynamic = dynamic, mandatory = mandatory)
             }
         }
     }
@@ -104,6 +108,8 @@ private fun confirmMailingSend(
     listName: String,
     estimate: MailingSendEstimateDto,
     onChanged: () -> Unit,
+    dynamic: Boolean = false,
+    mandatory: Boolean = false,
 ) {
     confirmDialog(
         title = tr("Nachricht senden"),
@@ -112,15 +118,31 @@ private fun confirmMailingSend(
         // hands straight to modal.div(message) -- sanitize the whole composed result.
         message =
             sanitizeUntrustedI18nText(
-                gettext(
-                    "Die Nachricht \"%1\" wird an alle aktiven Abonnenten der " +
-                        "Mailingliste \"%2\" verschickt. Dieser Schritt kann nicht rückgängig gemacht werden.",
-                    message.subject,
-                    listName,
-                ),
+                if (dynamic) {
+                    gettext(
+                        "Die Nachricht \"%1\" wird an die Empfänger der automatischen Mailingliste \"%2\" verschickt. " +
+                            "Wer das ist, wird beim Versand nach der Regel ermittelt. Dieser Schritt kann nicht rückgängig gemacht werden.",
+                        message.subject,
+                        listName,
+                    )
+                } else {
+                    gettext(
+                        "Die Nachricht \"%1\" wird an alle aktiven Abonnenten der " +
+                            "Mailingliste \"%2\" verschickt. Dieser Schritt kann nicht rückgängig gemacht werden.",
+                        message.subject,
+                        listName,
+                    )
+                },
             ),
-        confirmLabel = tr("Senden"),
-        extraLines = mailingSendSummaryLines(estimate),
+        // An automatic list names the number on the button itself, so the person confirms exactly what they just read.
+        confirmLabel = if (dynamic) gettext("An %1 Empfänger senden", estimate.recipientCount) else tr("Senden"),
+        extraLines =
+            mailingSendSummaryLines(estimate) +
+                if (mandatory) {
+                    listOf(sanitizeUntrustedI18nText(gettext("Pflichtmitteilung: Die Empfänger können diese Nachricht nicht abbestellen.")))
+                } else {
+                    emptyList()
+                },
     ) {
         sendButton.disabled = true
         AppScope.launch {

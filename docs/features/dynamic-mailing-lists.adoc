@@ -1,0 +1,184 @@
+= Dynamic mailing lists and mandatory lists (V1.9.111)
+:toc:
+
+A mailing list can now be **automatic**: instead of members subscribing by hand, a small *rule* ("all members of committee X",
+"everybody who joined in the last 30 days", "the roles Vorstand or Schatzmeister") decides who is addressed -- and it decides at the
+moment the message is *sent*, not when the list is written. A list can also be **mandatory** (association notices such as the invitation to
+the general meeting): nobody can opt out of it. Manual lists work exactly as before.
+
+== What a board member sees
+
+In "Kommunikation" -> "Mailinglisten verwalten" -> "Neue Mailingliste" a segmented choice sits at the top: **Manuell** (the default, the old
+form) or **Automatisch (nach Regel)**. The type of a list can never be changed afterwards, and the form says so.
+
+For an automatic list the rule builder appears:
+
+* a sentence head: "Mitglieder, die *alle* / *mindestens eine* der folgenden Bedingungen erfüllen";
+* ready-made starting points ("Alle aktiven Mitglieder", "Vorstand" = the software roles Vorstand and Schatzmeister, "Ein Gremium",
+  "Neue Mitglieder (30 Tage)");
+* one row per condition (at most 8): a role (any of the four), joined within the last N days (1 to 3650), a committee, a membership tier --
+  the values are plain checkboxes or a number field;
+* the fixed line "Immer: nur aktive Mitglieder mit E-Mail-Adresse, ohne Abmeldung.";
+* a **live count** ("7 Empfänger werden erreicht", below it in small type how many are left out for an opt-out or a missing address). It
+  is computed by the server after a pause of 400 ms, announced politely to screen readers once per pause, and an answer that arrives
+  late for an older rule never overwrites the current one;
+* the **"Pflichtliste (keine Abmeldung möglich)"** switch with the warning that it is permanent.
+
+"Regel bearbeiten" in the list detail opens the same builder for a saved list. The detail of an automatic list has no subscriber list
+and no "Mitglied hinzufügen" -- nobody is subscribed by hand.
+
+== What a member sees
+
+An automatic list appears in the member's own overview only when its rule includes the member (a board member sees every list). The row
+carries the badges **Automatisch** and, for a mandatory list, **Pflichtliste** (always with text, never colour alone), one sentence saying
+*why* the list reaches them -- only the condition they meet themselves, never the names of other committees of the rule -- and either
+"Von der Liste abmelden" / "Wieder anmelden", or for a mandatory list "Pflichtliste: keine Abmeldung möglich". An opted-out member keeps seeing
+the list, so the opt-out can be undone. There is no subscriber count and no tracking switch (an automatic list is never tracked).
+
+== The rule
+
+A rule is JSON, parsed by a strict **whitelist** parser (`MemberRuleCodec`, `lapis-shared`):
+
+[cols="1,3", options="header"]
+|===
+| Part | Detail
+| `v` | always 1 (anything else is rejected)
+| `op` | `ALL` (every condition) or `ANY` (at least one); `ALL []` is "all active members", `ANY []` reaches nobody
+| `ROLE` | any of `MEMBER`, `BOARD`, `TREASURER`, `ADMIN` held by one of the member's accounts
+| `JOINED_WITHIN_DAYS` | 1 to 3650; today counts as 0 days ago, a join date in the future never matches
+| `COMMITTEE` | an active seat (`since <= today`, `until` empty or `>= today`) in one of the given committees; saved only for existing, active committees
+| `TIER` | the member's membership tier is one of the given tiers; saved only for existing tiers
+| `STATUS` | exists in the model for later waves, but is **not allowed** in the mailing context (a mailing always addresses ACTIVE members only)
+|===
+
+Limits: 4096 bytes, 8 conditions, 20 values per condition, ids must be lower-case UUIDs (upper case is normalised). Unknown fields, unknown
+types and every malformed input are rejected with a fixed reason; the exception text never contains the input. The server stores only
+`encode(parse(x))`, the canonical form with sorted values, so audit diffs are stable and nothing foreign reaches the database.
+
+[kuml, dynamic-mailing-rule-model, svg]
+----
+classDiagram(name = "Member rule model (V1.9.111)") {
+    val rule = classOf(name = "MemberRule") {
+        attribute(name = "v", type = "Int")
+        attribute(name = "op", type = "RuleOp")
+    }
+    val condition = interfaceOf(name = "RuleCondition")
+    val role = classOf(name = "Role") {
+        attribute(name = "values", type = "Set<AccountRole>")
+    }
+    val joined = classOf(name = "JoinedWithinDays") {
+        attribute(name = "days", type = "Int")
+    }
+    val committee = classOf(name = "Committee") {
+        attribute(name = "committeeIds", type = "Set<UUID>")
+    }
+    val tier = classOf(name = "Tier") {
+        attribute(name = "tierIds", type = "Set<UUID>")
+    }
+    val status = classOf(name = "Status (not in MAILING)") {
+        attribute(name = "values", type = "Set<MemberStatus>")
+    }
+    val guard = classOf(name = "MailingRecipientGuard") {
+        attribute(name = "mandatory", type = "Boolean")
+    }
+
+    association(source = rule, target = condition) {
+        source { multiplicity(spec = "1") }
+        target { multiplicity(spec = "0..8"); role = "conditions" }
+    }
+    realization(client = role, supplier = condition)
+    realization(client = joined, supplier = condition)
+    realization(client = committee, supplier = condition)
+    realization(client = tier, supplier = condition)
+    realization(client = status, supplier = condition)
+    dependency(client = rule, supplier = guard, name = "selects, the guard still filters")
+}
+----
+
+*Why a rule can never name a person.* There is no condition that takes a member id, name or address -- only enums, committee ids, tier ids and a
+day count. A stored rule, an audit snapshot of it and the explanation sentence therefore cannot leak personal data, and a rule cannot be used to
+address one individual.
+
+== The recipient guard
+
+Whoever the rule selects is still only mailed when `MailingRecipientGuard` agrees: status ACTIVE, not anonymised, not deceased, a valid mail
+address and -- unless the list is mandatory -- no opt-out. A mandatory list skips **only** the opt-out check. The guard lives in `lapis-shared`
+next to the rule, so a later wave (V1.9.112, committee rules) reuses both with another `RuleContext`.
+
+All callers go through one function, `resolveDynamicRecipients` (the live count, the send estimate, the list visibility via the shared core
+`resolveAmong`, and the delivery worker), so the number shown to the board can never disagree with what is sent. `MemberFactsLoader` loads
+the facts in three queries independent of the number of members (members, accounts with roles, active seats of active committees); "today" is
+always the organisation's calendar day (`OrganizationTimeZone.today()`), never the process zone.
+
+== Resolution at send time
+
+[kuml, dynamic-mailing-send, svg]
+----
+sequenceDiagram(name = "Send to an automatic list (V1.9.111)") {
+    val board = participant(name = "Board member")
+    val service = participant(name = "MailingService")
+    val worker = participant(name = "MailingDeliveryWorker")
+    val audit = participant(name = "Audit log")
+    val mail = participant(name = "Mail transport")
+
+    message(from = board, to = service, text = "sendMailingMessage: DRAFT -> QUEUED, links frozen, NO delivery rows")
+    message(from = service, to = service, text = "fail-fast: more than 5000 recipients -> BadRequest, message stays DRAFT")
+    message(from = service, to = worker, text = "enqueue (wake-up only)")
+    message(from = worker, to = worker, text = "ONE transaction: lock message row, skip if recipients_resolved_at is set")
+    message(from = worker, to = worker, text = "parse stored rule, resolve recipients, insert one PENDING row per recipient")
+    message(from = worker, to = audit, text = "MAILING_MESSAGE/POST: list id, rule JSON, recipient COUNT, mandatory flag")
+    message(from = worker, to = worker, text = "per recipient, just before the mail: still ACTIVE, not anonymised/deceased, not opted out?")
+    message(from = worker, to = mail, text = "send (outside any transaction); otherwise SKIPPED_UNSUBSCRIBED")
+}
+----
+
+`sendMailingMessage` therefore writes **no** delivery rows for an automatic list; the progress display says "Empfänger werden ermittelt …"
+(`awaitRecipientResolution`) until the worker has resolved them. Because a send can last hours under the hourly budget, every recipient is
+re-checked right before the mail; a member who left, was anonymised or opted out meanwhile becomes `SKIPPED_UNSUBSCRIBED`. The recipient count of
+the audit entry and the delivery rows refer to the moment of resolution; later exclusions appear as "skipped".
+
+Resolution is idempotent through `mailing_message.recipients_resolved_at`, and a QUEUED message of an automatic list that is not resolved
+yet is **never** closed as "empty" by `finishMessageIfDone` or `recoverInterrupted` -- without that rule, every restart between "Senden" and
+the first resolution would lose the send. More than 5000 recipients at resolution time close the message `FAILED` (the list may have grown since
+the board's confirmation); a rule that reaches nobody ends `FAILED` too, with an audit entry stating 0.
+
+== Mandatory lists
+
+A mandatory mail carries the notice in three places: the subject prefix `[Pflichtmitteilung]` (added when rendering, never stored, so the previews
+show the very same subject), a framed banner (`role="note"`, also the first line of the plain text) and a footer that explains why there is no
+unsubscribe link -- and contains none. Creating one, changing its rule and sending to it need BOARD or ADMIN (the send checks it explicitly, in
+addition to the general send right). The flag cannot be changed after creation, and an opt-out is refused (`BadRequestException`) -- but only
+for a caller the rule includes; everybody else gets the same generic not-found as for a list that does not exist.
+
+== No enumeration
+
+* Preview and estimate are board-only, rate limited (60 per minute and member, the limiter of the send display) and return numbers only.
+* `subscribe`, `unsubscribe` and `setTrackingConsent` on an automatic list answer like a missing list; `adminSubscribeMember` is a conflict;
+  `listSubscribers` returns nothing -- opted-out names are never shown.
+* `listMailingLists` shows a non-board member only the lists that include them, with `subscriberCount = 0`, no rule JSON, and an explanation
+  reduced to the conditions they meet themselves.
+
+== Permissions and audit
+
+[cols="2,1", options="header"]
+|===
+| Action | Role
+| `createDynamicMailingList`, `updateMailingListRule`, `previewDynamicRecipients` | BOARD, ADMIN
+| `optOutOfDynamicList`, `revokeOptOut` | the member, ACTIVE, only while the rule includes them
+|===
+
+Audit entries (`MAILING_LIST`, `MAILING_MESSAGE`) contain the kind, the mandatory flag, the rule JSON and the recipient count -- never a name, an
+address or a member id. A rule change records before and after; saving an unchanged rule writes nothing. Opt-outs are not audited (like an
+unsubscribe today). The opt-out table is part of the data export and the erasure of a member (`CommunicationPersonalData`).
+
+== Legal note
+
+The line between a mandatory association notice and advertising has **not** been legally reviewed. The operator (or a lawyer) must decide which
+mailings are really mandatory (convocations and other duties of the association) before using a mandatory list; the software only enforces what the
+board marks.
+
+== Not in this release
+
+Only one level of AND/OR, no NOT, at most 8 conditions. "Vorstand" in the preset means the software roles Vorstand and Schatzmeister, not the statutory
+body (a preset "Vorstandsgremium" on committees of type EXECUTIVE_BOARD is a possible follow-up). Mail texts, the subject prefix and the banner are German only,
+like every mailing text. Unsubscribing is done in the self-service page after login; there is no one-click link. See `CHANGELOG.md` for the full list.

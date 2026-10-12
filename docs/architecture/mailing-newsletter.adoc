@@ -39,6 +39,8 @@ only creates drafts), a server-side message catalog for the public 404/429 pages
   address is NOT part of this queuing-time filter: such a recipient still gets a delivery-log row
   (`PENDING`, then `SKIPPED_NO_ADDRESS` once the worker gets to it), because the address itself is
   only re-validated later, per recipient, by `MailingDeliveryWorker`.
+* **Exception since V1.9.111:** a message to an *automatic* (rule-based) list gets **no** rows at queuing time. `MailingDeliveryWorker.resolveRecipientsIfNeeded`
+  resolves the recipients when the worker takes the message (see link:../features/dynamic-mailing-lists.adoc[Dynamic and mandatory mailing lists]).
 * Follow-up wave V1.9.15 (<<tracking>>, <<editor>>) builds everything the V1.9.7 schema was prepared for;
   it needs no new migration.
 
@@ -67,6 +69,22 @@ sequenceDiagram(name = "Mailing send -- async delivery") {
     message(from = worker, to = db, label = "UPDATE mailing_message SET status=SENT|FAILED (SENT iff at least one recipient row is SENT)")
 }
 ----
+
+== Automatic lists in the worker (V1.9.111)
+
+For a message to a `DYNAMIC` list the worker starts with one extra step, *before* the per-recipient loop:
+
+. **One transaction**: lock the `mailing_message` row (never a `member` row), return if `recipients_resolved_at` is already set (idempotent), parse the
+  stored rule, resolve the recipients through `resolveDynamicRecipients` with the organisation's "today", insert one `PENDING` row per recipient, stamp
+  `recipients_resolved_at`, write one `MAILING_MESSAGE`/`POST` audit entry (list id, rule, recipient **count**, mandatory flag -- no member id, name or
+  address). The audit chain lock is the last lock of the transaction. No external effect is inside, so Exposed may retry the block.
+. More than `MailingHtmlPolicy.MAX_RECIPIENTS` recipients, or an unparsable stored rule, close the message `FAILED`; nothing is queued.
+. **Per recipient, just before rendering** (`prepareRecipient`): still `ACTIVE`, not anonymised, not deceased, and not opted out unless the list is mandatory --
+  otherwise the row becomes `SKIPPED_UNSUBSCRIBED` (an existing literal, so no CHECK change). Automatic lists are never tracked: no token, no pixel, no rewritten link.
+. `MailingMailRenderer` adds the notice of a mandatory list (subject prefix, banner, footer without an unsubscribe link) or the "Abmelden" hint of a normal automatic one.
+
+*Recovery exception.* A `QUEUED` message of an automatic list whose `recipients_resolved_at` is empty has no rows, so "nothing pending and nothing sent" does **not**
+mean "done": `finishMessageIfDone` and `recoverInterrupted` skip it (`awaitsResolution`) and the worker resolves and sends it after the restart.
 
 == Crash recovery (D2, rewritten in V1.9.81)
 

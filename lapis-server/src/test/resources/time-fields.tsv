@@ -838,3 +838,8 @@ col:EncounterSpaceTable.archivedAt	A	stamped by the server clock (DbClock/Server
 col:EncounterConsentAcknowledgmentTable.acknowledgedOn	D	EncounterSpaceService.recordConsent: OrganizationTimeZone.today() -- a DATE on purpose, never a timestamp (Art. 9: no time of attendance)
 dto:EventImportPreviewRowDto.startsAt	B	EventImporter: naive wall-clock typed in the import payload, never converted
 dto:EventImportPreviewRowDto.endsAt	B	EventImporter: naive wall-clock typed in the import payload, never converted
+dto:MailingListDto.currentMemberOptedOutAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MailingListTable.ruleUpdatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MailingListOptOutTable.optedOutAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MailingMessageTable.recipientsResolvedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MemberFacts.joinedOn	D	MemberFactsLoader: member.joined_at, a calendar DATE compared with OrganizationTimeZone.today() (never a timestamp, never converted)

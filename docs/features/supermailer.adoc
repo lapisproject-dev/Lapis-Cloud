@@ -37,6 +37,9 @@ then an instance stays in `log` mode and mailings never leave the server. Real s
 `LAPIS_MAILING_DELIVERY=smtp`, `LAPIS_MAILING_TRACKING_KEY` **and** a complete `LAPIS_SMTP_*`
 configuration -- the server refuses to start in `smtp` mode otherwise.
 
+V1.9.111 added automatic (rule-based) and mandatory lists whose recipients are resolved by the worker at send time; see
+link:dynamic-mailing-lists.adoc[Dynamic and mandatory mailing lists].
+
 == What doesn't work yet
 
 Click and open counting has not yet been exercised end to end with a real delivered mail. Already saved drafts are not editable (no update RPC). The 200-link limit counts all links, not

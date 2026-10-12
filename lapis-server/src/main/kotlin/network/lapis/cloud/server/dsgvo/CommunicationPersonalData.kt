@@ -6,6 +6,7 @@ import kotlinx.serialization.json.putJsonArray
 import network.lapis.cloud.server.db.generated.DirectMessageTable
 import network.lapis.cloud.server.db.generated.MailingDeliveryLogTable
 import network.lapis.cloud.server.db.generated.MailingLinkClickTable
+import network.lapis.cloud.server.db.generated.MailingListOptOutTable
 import network.lapis.cloud.server.db.generated.MailingListSubscriptionTable
 import network.lapis.cloud.server.db.generated.MailingListTable
 import network.lapis.cloud.server.db.generated.MailingMessageLinkTable
@@ -33,6 +34,8 @@ import kotlin.uuid.Uuid
  * owned here and exported/erased with the deliveries. [MailingMessageLinkTable] holds only message
  * content (target URLs), no member FK, and is deliberately NOT a covered table.
  *
+ * **V1.9.111**: [MailingListOptOutTable] (a member's opt-out of a dynamic list) is exported and hard-deleted with the member.
+ *
  * **Erasure**: [MailingListSubscriptionTable] and [MailingDeliveryLogTable] rows have no
  * retention duty and are hard-deleted regardless of [ErasureMode]. [MailingListTable] (creator)
  * and [MailingMessageTable] (sender) are retained — other members received/subscribed to them,
@@ -50,6 +53,7 @@ object CommunicationPersonalData : MemberPersonalDataContributor {
         setOf(
             MailingListTable,
             MailingListSubscriptionTable,
+            MailingListOptOutTable,
             MailingMessageTable,
             MailingDeliveryLogTable,
             MailingLinkClickTable,
@@ -83,6 +87,20 @@ object CommunicationPersonalData : MemberPersonalDataContributor {
                                 put("unsubscribedAt", row[MailingListSubscriptionTable.unsubscribedAt]?.toString())
                                 put("openTrackingConsentedAt", row[MailingListSubscriptionTable.openTrackingConsentedAt]?.toString())
                                 put("clickTrackingConsentedAt", row[MailingListSubscriptionTable.clickTrackingConsentedAt]?.toString())
+                            },
+                        )
+                    }
+            }
+            // Welle V1.9.111 -- opt-outs of dynamic lists (the list id and the instant; the rule that includes the member is not personal data).
+            putJsonArray("mailingListOptOuts") {
+                MailingListOptOutTable
+                    .selectAll()
+                    .where { MailingListOptOutTable.memberId eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("mailingListId", row[MailingListOptOutTable.mailingListId].toString())
+                                put("optedOutAt", row[MailingListOptOutTable.optedOutAt].toString())
                             },
                         )
                     }
@@ -170,6 +188,7 @@ object CommunicationPersonalData : MemberPersonalDataContributor {
     ): List<TableErasureOutcome> {
         val listsRetained = MailingListTable.selectAll().where { MailingListTable.createdBy eq memberId }.count()
         val subscriptionsDeleted = MailingListSubscriptionTable.deleteWhere { MailingListSubscriptionTable.memberId eq memberId }
+        val optOutsDeleted = MailingListOptOutTable.deleteWhere { MailingListOptOutTable.memberId eq memberId }
         // Welle V1.9.15 -- click rows reference the delivery log by FK (no CASCADE by repo
         // convention), so they MUST go first or the delivery-log delete below aborts on the FK.
         val ownDeliveryIds =
@@ -198,6 +217,7 @@ object CommunicationPersonalData : MemberPersonalDataContributor {
                 retentionReason = "Organisationsobjekt, andere Mitglieder haben abonniert",
             ),
             TableErasureOutcome(table = "mailing_list_subscription", rowsDeleted = subscriptionsDeleted),
+            TableErasureOutcome(table = "mailing_list_opt_out", rowsDeleted = optOutsDeleted),
             TableErasureOutcome(
                 table = "mailing_message",
                 rowsRetained = messagesRetained.toInt(),

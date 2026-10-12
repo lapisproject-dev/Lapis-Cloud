@@ -2,6 +2,7 @@ package network.lapis.cloud.shared.domain
 
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.Serializable
+import network.lapis.cloud.shared.domain.rules.RuleOp
 
 @Serializable
 enum class MailingMessageStatus { DRAFT, QUEUED, SENT, FAILED }
@@ -30,6 +31,57 @@ data class MailingListDto(
     val currentMemberOpenTrackingConsentedAt: LocalDateTime? = null,
     /** Welle V1.9.15 -- the CURRENT member's own click-tracking consent timestamp (self-service context only), `null` = no consent. */
     val currentMemberClickTrackingConsentedAt: LocalDateTime? = null,
+    /** Welle V1.9.111 -- [MailingListKind.MANUAL] (explicit subscriptions) or [MailingListKind.DYNAMIC] (a rule decides, at send time). */
+    val kind: MailingListKind = MailingListKind.MANUAL,
+    /** Welle V1.9.111 -- mandatory list: no opt-out possible. DYNAMIC only; fixed at creation. */
+    val mandatory: Boolean = false,
+    /** Welle V1.9.111 -- the canonical rule JSON of a DYNAMIC list; filled ONLY for Board/Admin, `null` for everybody else and for MANUAL lists. */
+    val ruleJson: String? = null,
+    /**
+     * Welle V1.9.111 -- a structured, localisable explanation of why a DYNAMIC list reaches the caller: for a member only the conditions
+     * the member satisfies themselves (no names of other committees), for Board/Admin the whole rule. `null` for MANUAL lists and for
+     * callers the rule does not include.
+     */
+    val ruleExplanation: DynamicListExplanationDto? = null,
+    /** Welle V1.9.111 -- the CURRENT member opted out of this DYNAMIC list (class A instant); `null` = not opted out. */
+    val currentMemberOptedOutAt: LocalDateTime? = null,
+)
+
+/** Welle V1.9.111 -- how the recipients of a mailing list are determined. Immutable after creation. */
+@Serializable
+enum class MailingListKind { MANUAL, DYNAMIC }
+
+/** Welle V1.9.111 -- the notice the mail carries ([MANDATORY]: a visible "mandatory notice" marker in subject, banner and footer). */
+@Serializable
+enum class MailingNotice { NONE, MANDATORY }
+
+/** Welle V1.9.111 -- which kind of rule condition an explanation item describes. */
+@Serializable
+enum class RuleExplanationKind { ROLE, JOINED_WITHIN_DAYS, COMMITTEE, TIER }
+
+/**
+ * Welle V1.9.111 -- one condition of a rule, for the client to turn into a sentence in the viewer's language. [labels] are role names
+ * (enum names), committee names or tier names depending on [kind]; [days] is set for `JOINED_WITHIN_DAYS`.
+ */
+@Serializable
+data class RuleExplanationItem(
+    val kind: RuleExplanationKind,
+    val labels: List<String> = emptyList(),
+    val days: Int? = null,
+)
+
+@Serializable
+data class DynamicListExplanationDto(
+    val op: RuleOp,
+    val items: List<RuleExplanationItem>,
+)
+
+/** Welle V1.9.111 -- live preview of a rule: counts only, never a name or an address. */
+@Serializable
+data class RecipientPreviewDto(
+    val eligible: Int,
+    val excludedOptedOut: Int,
+    val excludedNoEmail: Int,
 )
 
 @Serializable
@@ -210,6 +262,8 @@ data class MailingSendProgressDto(
     val pausedUntil: LocalDateTime?,
     val pauseReason: MailingPauseReason?,
     val remainingSeconds: Long?,
+    /** Welle V1.9.111 -- a send to a DYNAMIC list whose recipients the worker has not resolved yet (nothing is pending until it has). */
+    val awaitingRecipientResolution: Boolean = false,
 )
 
 /**

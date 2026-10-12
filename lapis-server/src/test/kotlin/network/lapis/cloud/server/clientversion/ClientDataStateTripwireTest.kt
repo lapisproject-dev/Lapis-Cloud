@@ -86,10 +86,17 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * Welle V1.9.108 review fix adds ONE more, in `ConferenceScreen.kt` (no new file): after a FAILED moderation policy call the panel re-reads the
  * room (`getRoom(`) so it shows the stored state, not a local guess -- a one-off recovery read inside an existing action, failures toast
  * through `guarded` and the panel keeps its state. 158 -> 159.
+ * Welle V1.9.111 "Dynamische Mailinglisten" adds SIX in three new files plus one existing one (hence 49 -> 52 files): the rule builder's live count (`MailingRuleBuilder.kt`,
+ * `previewDynamicRecipients(`, a debounced, stateless dry run whose failure shows its own "Vorschau nicht verfügbar" text -- the accepted shape
+ * of `previewEventImport(` above) and the two option loads that fill the builder's committee and tier checkboxes (`listCommittees(`,
+ * `listMembershipTiers(`) in `MailingListCreateForm.kt` and `DynamicMailingListRows.kt` (the edit form). A failed option load toasts through
+ * `guarded` and the builder simply offers no entries ("Es gibt noch keine aktiven Gremien."): there is no content region to put a loading/error state
+ * into. The sixth is `CommunicationScreen.kt`'s re-read of `listMailingLists(` after a saved rule, to rebuild the detail from the stored state (an action
+ * follow-up, no screen load). 159 -> 165.
  * The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 159
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 49
+private const val READ_OUTSIDE_STATE_REGION_MAX = 165
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 52
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

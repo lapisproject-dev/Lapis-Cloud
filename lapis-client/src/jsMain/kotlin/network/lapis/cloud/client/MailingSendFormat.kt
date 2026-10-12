@@ -68,6 +68,9 @@ internal data class MailingSendProgressTexts(
 )
 
 internal fun mailingSendProgressTexts(progress: MailingSendProgressDto): MailingSendProgressTexts {
+    if (progress.awaitingRecipientResolution) {
+        return MailingSendProgressTexts(headline = gettext("Empfänger werden ermittelt …"), pause = null, interrupted = null, failed = null)
+    }
     val done = (progress.total - progress.pending).coerceAtLeast(0)
     val headline =
         gettext(

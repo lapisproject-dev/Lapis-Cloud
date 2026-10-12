@@ -5,9 +5,11 @@ import dev.kuml.erm.model.ErmModel
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import network.lapis.cloud.server.db.generated.DirectMessageTable
 import network.lapis.cloud.server.db.generated.MailingDeliveryLogTable
 import network.lapis.cloud.server.db.generated.MailingLinkClickTable
+import network.lapis.cloud.server.db.generated.MailingListOptOutTable
 import network.lapis.cloud.server.db.generated.MailingListSubscriptionTable
 import network.lapis.cloud.server.db.generated.MailingListTable
 import network.lapis.cloud.server.db.generated.MailingMessageLinkTable
@@ -40,12 +42,13 @@ class CommunicationSchemaDriftTest :
         /** Resolves an `ErmForeignKey.targetEntityId` back to its entity name within [model]. */
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("model declares exactly the seven communication entities plus the Member stub") {
+        test("model declares exactly the eight communication entities plus the Member stub") {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
                     "mailing_list",
                     "mailing_list_subscription",
+                    "mailing_list_opt_out",
                     "mailing_message",
                     "mailing_delivery_log",
                     "mailing_message_link",
@@ -113,6 +116,52 @@ class CommunicationSchemaDriftTest :
                         entity.attributeByName("member_id")!!.id,
                     )
             }
+        }
+
+        test("mailing_list carries the V91 dynamic-list columns with the pinned nullability") {
+            val entity = model.entities.single { it.name == "mailing_list" }
+            val real = transaction { introspectCommunicationTable("mailing_list") }
+            listOf("kind", "rule_json", "mandatory", "rule_updated_at").forEach { name ->
+                withClue(clue = "column '$name'") { entity.attributeByName(name) shouldNotBe null }
+            }
+            real.columns.getValue("kind").nullable shouldBe false
+            real.columns.getValue("rule_json").nullable shouldBe true
+            real.columns.getValue("mandatory").nullable shouldBe false
+            real.columns.getValue("rule_updated_at").nullable shouldBe true
+            entity.attributeByName("kind")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "MailingListKind",
+                    values = listOf("MANUAL", "DYNAMIC"),
+                    externalFqName = "network.lapis.cloud.shared.domain.MailingListKind",
+                )
+        }
+
+        test("mailing_message.recipients_resolved_at is a nullable class-A column") {
+            val entity = model.entities.single { it.name == "mailing_message" }
+            val real = transaction { introspectCommunicationTable("mailing_message") }
+            entity.attributeByName("recipients_resolved_at") shouldNotBe null
+            real.columns.getValue("recipients_resolved_at").nullable shouldBe true
+        }
+
+        test("mailing_list_opt_out table shape matches the real migrated schema") {
+            val entity = model.entities.single { it.name == "mailing_list_opt_out" }
+            val real = transaction { introspectCommunicationTable("mailing_list_opt_out") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.forEach { attr ->
+                withClue(clue = "column '${attr.name}'") { real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable }
+            }
+            real.foreignKeys["mailing_list_id"] shouldBe "mailing_list"
+            real.foreignKeys["member_id"] shouldBe "member"
+            real.compositeUniqueConstraints shouldContainExactlyInAnyOrder listOf(setOf("mailing_list_id", "member_id"))
+            entity.indexes.single { it.name == "uq_mailing_list_opt_out_list_member" }.unique shouldBe true
+        }
+
+        test("mailing_list_opt_out entity column-name set matches the hand-written MailingListOptOutTable 1:1") {
+            model.entities
+                .single { it.name == "mailing_list_opt_out" }
+                .attributes
+                .map { it.name } shouldContainExactlyInAnyOrder MailingListOptOutTable.columns.map { it.name }
         }
 
         test("mailing_message table shape matches the real migrated schema") {

@@ -13,9 +13,14 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import kotlinx.datetime.LocalDateTime
+import kotlinx.serialization.json.Json
+import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MailingDeliveryLogTable
+import network.lapis.cloud.server.db.generated.MailingListOptOutTable
 import network.lapis.cloud.server.db.generated.MailingListSubscriptionTable
+import network.lapis.cloud.server.db.generated.MailingListTable
 import network.lapis.cloud.server.db.generated.MailingMessageTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.mail.MailBranding
@@ -29,9 +34,21 @@ import network.lapis.cloud.server.mail.isValidMailboxAddress
 import network.lapis.cloud.server.mail.maskEmailForLogging
 import network.lapis.cloud.server.mail.plusDuration
 import network.lapis.cloud.server.mail.secondsUntil
+import network.lapis.cloud.server.time.OrganizationTimeZone
+import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AuditAction
+import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.DeliveryStatus
 import network.lapis.cloud.shared.domain.MailingDeliveryMode
+import network.lapis.cloud.shared.domain.MailingDynamicSendSnapshot
+import network.lapis.cloud.shared.domain.MailingHtmlPolicy
+import network.lapis.cloud.shared.domain.MailingListKind
 import network.lapis.cloud.shared.domain.MailingMessageStatus
+import network.lapis.cloud.shared.domain.MailingNotice
+import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.rules.InvalidMemberRuleException
+import network.lapis.cloud.shared.domain.rules.MemberRuleCodec
+import network.lapis.cloud.shared.domain.rules.RuleContext
 import network.lapis.cloud.shared.rpc.ConflictException
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
@@ -41,6 +58,7 @@ import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.lessEq
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
@@ -83,11 +101,18 @@ private val logger = KotlinLogging.logger {}
  * The message queue is the `mailing_message` table itself (`QUEUED`, ordered by `queued_at`), not an in-memory channel: it can no
  * longer be "saturated", and it survives a restart. See `docs/architecture/mail-delivery-budget-and-outbox.adoc`.
  *
- * **D3 (plan) -- recipient eligibility is decided ONCE, at queuing time**, by
+ * **D3 (plan) -- recipient eligibility of a MANUAL list is decided ONCE, at queuing time**, by
  * `MailingService.sendMailingMessage` (active subscription, `MemberStatus.ACTIVE`, not anonymized,
  * not deceased) -- this worker only re-validates the mailbox ADDRESS shape per recipient (an
  * address can theoretically change between queuing and send, however small that window), never the
  * membership eligibility itself.
+ *
+ * **V1.9.111 -- a DYNAMIC list is the exception: its recipients are resolved HERE, at send time**
+ * ([resolveRecipientsIfNeeded], one transaction, idempotent through `mailing_message.recipients_resolved_at`, audited once with the COUNT
+ * only). `sendMailingMessage` writes no delivery rows for such a message. Because a send can last hours (hourly budget), every recipient
+ * of a DYNAMIC list is re-checked just before the mail is rendered (still ACTIVE, not anonymised, not deceased, not opted out unless the
+ * list is mandatory) and a member who left meanwhile becomes `SKIPPED_UNSUBSCRIBED`. Messages of a DYNAMIC list that are not resolved yet
+ * have no rows and must NEVER be closed or "recovered" as empty ([finishMessageIfDone], [recoverInterrupted]).
  *
  * **Never logs a raw email address, a raw body or a member id** -- only
  * [network.lapis.cloud.server.mail.maskEmailForLogging] and counts, same discipline
@@ -227,6 +252,7 @@ class MailingDeliveryWorker(
             logger.error { "processMessage: mailing message $messageId no longer exists, skipping" }
             return
         }
+        if (plan.dynamic && !resolveRecipientsWithRetry(messageId)) return
 
         while (true) {
             // A transient database error in any per-iteration call must not end a (possibly hours-long) send: log, wait, carry on.
@@ -308,6 +334,126 @@ class MailingDeliveryWorker(
         }
     }
 
+    /** [resolveRecipientsIfNeeded] with a few retries against a transient database error; a permanent failure is rethrown. */
+    private suspend fun resolveRecipientsWithRetry(messageId: Uuid): Boolean {
+        var attempt = 1
+        while (true) {
+            try {
+                return resolveRecipientsIfNeeded(messageId)
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                if (attempt >= LOAD_PLAN_ATTEMPTS) throw t
+                logger.warn { "Resolving the recipients failed (${t::class.simpleName}), attempt $attempt: messageId=$messageId" }
+                attempt++
+                delay(maxWait)
+            }
+        }
+    }
+
+    /**
+     * V1.9.111 -- resolves the recipients of a message to a DYNAMIC list, ONCE, at send time. One transaction: lock the message row,
+     * skip if it was resolved already (idempotent: a retry or a second pass never doubles the rows or the audit entry), parse the stored
+     * rule, resolve through the one shared function, insert one `PENDING` row per recipient, stamp `recipients_resolved_at` and write ONE
+     * audit entry with the COUNT. No external effect inside (Exposed may retry the block). More than [MailingHtmlPolicy.MAX_RECIPIENTS]
+     * closes the message `FAILED` (the list may have grown since the board's confirmation). Returns `false` if the message was closed.
+     * Logs only numbers and ids of the list/message, never a member id or an address.
+     */
+    internal fun resolveRecipientsIfNeeded(messageId: Uuid): Boolean =
+        transaction {
+            val message =
+                MailingMessageTable
+                    .selectAll()
+                    .where { MailingMessageTable.id eq messageId }
+                    .forUpdate()
+                    .singleOrNull()
+                    ?: return@transaction false
+            if (message[MailingMessageTable.status] != MailingMessageStatus.QUEUED) return@transaction false
+            if (message[MailingMessageTable.recipientsResolvedAt] != null) return@transaction true
+            val list =
+                MailingListTable.selectAll().where { MailingListTable.id eq message[MailingMessageTable.mailingListId] }.singleOrNull()
+                    ?: return@transaction false
+            if (list[MailingListTable.kind] != MailingListKind.DYNAMIC) return@transaction true
+            val mandatory = list[MailingListTable.mandatory]
+            val ruleJson = requireNotNull(list[MailingListTable.ruleJson]) { "DYNAMIC list without a rule" }
+            val rule =
+                try {
+                    MemberRuleCodec.parse(text = ruleJson, context = RuleContext.MAILING)
+                } catch (e: InvalidMemberRuleException) {
+                    logger.error { "Stored rule of a mailing list is invalid (${e.reason}), message FAILED: messageId=$messageId" }
+                    failUnresolved(messageId)
+                    return@transaction false
+                }
+            val resolution =
+                resolveDynamicRecipients(
+                    rule = rule,
+                    listId = list[MailingListTable.id],
+                    mandatory = mandatory,
+                    today = OrganizationTimeZone.today(),
+                )
+            val now = DbClock.nowLocalDateTime()
+            if (resolution.recipientIds.size > MailingHtmlPolicy.MAX_RECIPIENTS) {
+                logger.error {
+                    "Dynamic mailing list resolved to ${resolution.recipientIds.size} recipients " +
+                        "(max ${MailingHtmlPolicy.MAX_RECIPIENTS}), message FAILED: messageId=$messageId"
+                }
+                failUnresolved(messageId)
+                return@transaction false
+            }
+            resolution.recipientIds.forEach { recipientId ->
+                MailingDeliveryLogTable.insert {
+                    it[MailingDeliveryLogTable.id] = Uuid.random()
+                    it[MailingDeliveryLogTable.mailingMessageId] = messageId
+                    it[MailingDeliveryLogTable.memberId] = recipientId
+                    it[deliveredAt] = now
+                    it[deliveryStatus] = DeliveryStatus.PENDING
+                }
+            }
+            MailingMessageTable.update({ MailingMessageTable.id eq messageId }) { it[recipientsResolvedAt] = now }
+            val sender = message[MailingMessageTable.sentBy]
+            // Audit chain lock last. Actor: the sender of the message, with the role they hold now (null if they have no account).
+            AuditLogRecorder.record(
+                actorMemberId = sender,
+                actorRole = currentRoleOf(sender),
+                entityType = AuditEntityType.MAILING_MESSAGE,
+                entityId = messageId,
+                action = AuditAction.POST,
+                after =
+                    Json.encodeToString(
+                        MailingDynamicSendSnapshot.serializer(),
+                        MailingDynamicSendSnapshot(
+                            listId = list[MailingListTable.id].toString(),
+                            ruleJson = ruleJson,
+                            recipientCount = resolution.recipientIds.size,
+                            mandatory = mandatory,
+                        ),
+                    ),
+                occurredAt = now,
+            )
+            logger.info { "Dynamic mailing recipients resolved: ${resolution.recipientIds.size} (messageId=$messageId)" }
+            true
+        }
+
+    private fun failUnresolved(messageId: Uuid) {
+        val now = DbClock.nowLocalDateTime()
+        MailingMessageTable.update(
+            { (MailingMessageTable.id eq messageId) and (MailingMessageTable.status eq MailingMessageStatus.QUEUED) },
+        ) {
+            it[status] = MailingMessageStatus.FAILED
+            it[sentAt] = now
+        }
+    }
+
+    private fun currentRoleOf(memberId: Uuid): AccountRole? {
+        val roles =
+            AccountTable
+                .selectAll()
+                .where { AccountTable.memberId eq memberId }
+                .map { it[AccountTable.role] }
+                .toSet()
+        return listOf(AccountRole.ADMIN, AccountRole.BOARD, AccountRole.TREASURER, AccountRole.MEMBER).firstOrNull { it in roles }
+    }
+
     /** `PENDING` rows of the message that still carry `claimed_at` and have no running owner become `INTERRUPTED` (never re-sent). */
     private fun interruptOrphanedClaims(messageId: Uuid) {
         val count =
@@ -344,10 +490,15 @@ class MailingDeliveryWorker(
                     legacyBodyText = plan.legacyBodyText,
                     branding = branding,
                     tracking = recipient.tracking,
+                    notice = if (plan.mandatory) MailingNotice.MANDATORY else MailingNotice.NONE,
+                    dynamicList = plan.dynamic,
                 )
             var retryAfter: kotlin.time.Duration? = null
             val outcomeStatus =
-                if (email == null || !isValidMailboxAddress(email)) {
+                if (recipient.leftTheList) {
+                    // V1.9.111 -- left (or opted out of) a DYNAMIC list between resolution and this send: nothing is sent.
+                    DeliveryStatus.SKIPPED_UNSUBSCRIBED
+                } else if (email == null || !isValidMailboxAddress(email)) {
                     DeliveryStatus.SKIPPED_NO_ADDRESS
                 } else if (mode == MailingDeliveryMode.LOG) {
                     // LOG mode: the full pipeline (sanitize/render) already ran above -- only
@@ -531,6 +682,8 @@ class MailingDeliveryWorker(
      */
     private fun finishMessageIfDone(messageId: Uuid): Boolean =
         transaction {
+            // V1.9.111: a message to a DYNAMIC list whose recipients are not resolved yet has no rows -- that is NOT "done".
+            if (awaitsResolution(messageId)) return@transaction false
             val stillPending =
                 MailingDeliveryLogTable
                     .selectAll()
@@ -554,6 +707,17 @@ class MailingDeliveryWorker(
             } == 1
         }
 
+    /** Must run inside a transaction: `true` for a DYNAMIC-list message whose recipients were not resolved yet. */
+    private fun awaitsResolution(messageId: Uuid): Boolean {
+        val message = MailingMessageTable.selectAll().where { MailingMessageTable.id eq messageId }.singleOrNull() ?: return false
+        if (message[MailingMessageTable.recipientsResolvedAt] != null) return false
+        return MailingListTable
+            .selectAll()
+            .where { MailingListTable.id eq message[MailingMessageTable.mailingListId] }
+            .singleOrNull()
+            ?.get(MailingListTable.kind) == MailingListKind.DYNAMIC
+    }
+
     private data class PendingRow(
         val deliveryLogId: Uuid,
         val memberId: Uuid,
@@ -566,11 +730,17 @@ class MailingDeliveryWorker(
         val legacyBodyText: String,
         val listId: Uuid,
         val linkIndexByUrl: Map<String, Int>,
+        /** V1.9.111 -- the list is DYNAMIC (recipients resolved at send time, never tracked). */
+        val dynamic: Boolean,
+        /** V1.9.111 -- mandatory list: visible notice in subject/banner/footer, no opt-out. */
+        val mandatory: Boolean,
     )
 
     private data class RecipientContext(
         val email: String?,
         val tracking: MailingMailRenderer.RecipientTracking?,
+        /** V1.9.111 -- DYNAMIC list only: the member is no longer addressable (left, anonymised, deceased, opted out). */
+        val leftTheList: Boolean = false,
     )
 
     private fun loadSendPlan(messageId: Uuid): SendPlan? =
@@ -578,12 +748,19 @@ class MailingDeliveryWorker(
             val message =
                 MailingMessageTable.selectAll().where { MailingMessageTable.id eq messageId }.singleOrNull() ?: return@transaction null
             val sanitized = message[MailingMessageTable.bodyHtml]?.let { MailingHtmlSanitizer.sanitize(it) }
+            val list =
+                MailingListTable
+                    .selectAll()
+                    .where { MailingListTable.id eq message[MailingMessageTable.mailingListId] }
+                    .singleOrNull()
             SendPlan(
                 subject = message[MailingMessageTable.subject],
                 sanitized = sanitized,
                 legacyBodyText = message[MailingMessageTable.bodyText],
                 listId = message[MailingMessageTable.mailingListId],
                 linkIndexByUrl = if (sanitized != null) MailingTrackingData.linkIndexByUrl(messageId) else emptyMap(),
+                dynamic = list?.get(MailingListTable.kind) == MailingListKind.DYNAMIC,
+                mandatory = list?.get(MailingListTable.mandatory) == true,
             )
         }
 
@@ -600,12 +777,27 @@ class MailingDeliveryWorker(
         memberId: Uuid,
     ): RecipientContext =
         transaction {
-            val email =
-                MemberTable
-                    .selectAll()
-                    .where { MemberTable.id eq memberId }
-                    .singleOrNull()
-                    ?.get(MemberTable.email)
+            val memberRow = MemberTable.selectAll().where { MemberTable.id eq memberId }.singleOrNull()
+            val email = memberRow?.get(MemberTable.email)
+            if (plan.dynamic) {
+                // V1.9.111 -- re-check JUST before sending (a send can last hours): still ACTIVE, not anonymised, not deceased, and
+                // not opted out unless the list is mandatory. Never tracked (no token, no pixel, no rewritten links).
+                val stillAddressable =
+                    memberRow != null &&
+                        memberRow[MemberTable.status] == MemberStatus.ACTIVE &&
+                        memberRow[MemberTable.anonymizedAt] == null &&
+                        memberRow[MemberTable.dateOfDeath] == null &&
+                        (
+                            plan.mandatory ||
+                                MailingListOptOutTable
+                                    .selectAll()
+                                    .where {
+                                        (MailingListOptOutTable.mailingListId eq plan.listId) and
+                                            (MailingListOptOutTable.memberId eq memberId)
+                                    }.count() == 0L
+                        )
+                return@transaction RecipientContext(email = email, tracking = null, leftTheList = !stillAddressable)
+            }
             if (email == null || !isValidMailboxAddress(email) || plan.sanitized == null) {
                 return@transaction RecipientContext(email = email, tracking = null)
             }
@@ -668,6 +860,8 @@ class MailingDeliveryWorker(
                     .map { it[MailingMessageTable.id] }
             var closed = 0
             queuedMessageIds.forEach { messageId ->
+                // V1.9.111: an unresolved DYNAMIC message has no rows yet -- it resumes (the worker resolves it), it is not "empty".
+                if (awaitsResolution(messageId)) return@forEach
                 val stillPending =
                     MailingDeliveryLogTable
                         .selectAll()

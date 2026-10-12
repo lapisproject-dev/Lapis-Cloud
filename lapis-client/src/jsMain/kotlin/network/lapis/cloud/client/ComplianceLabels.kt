@@ -174,6 +174,9 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // Welle V1.9.106 "Artikel-Import, Nachbesserung"
         AuditEntityType.ARTICLE_BULK_APPROVED -> gettext("Sammelfreigabe von Artikeln")
         AuditEntityType.ARTICLE_IMPORT_IMAGES_APPLIED -> gettext("Bilder-Import für Artikel")
+        // Welle V1.9.111 "Dynamische Mailinglisten"
+        AuditEntityType.MAILING_LIST -> gettext("Mailingliste")
+        AuditEntityType.MAILING_MESSAGE -> gettext("Mailing-Versand")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -282,6 +285,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.ARTICLE_IMPORT -> "info"
         AuditEntityType.ARTICLE_BULK_APPROVED -> "info"
         AuditEntityType.ARTICLE_IMPORT_IMAGES_APPLIED -> "info"
+        AuditEntityType.MAILING_LIST -> "info"
+        AuditEntityType.MAILING_MESSAGE -> "info"
     }
 
 // ------------------------------------------------------------------------------------------------

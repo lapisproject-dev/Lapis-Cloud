@@ -23,6 +23,7 @@ Architecture background lives in link:../architecture/[docs/architecture/]; the 
 |link:member-map.adoc[Member map ("Vorstands-Karte", V1.9.5-V1.9.9)] |Board-only aggregate map of member postal-code distribution
 |link:member-counts.adoc[Member counts over time (V1.9.59)] |Member count history per status
 |link:supermailer.adoc[SuperMailer (V1.9.7/V1.9.15)] |HTML mailing content and asynchronous send path
+|link:dynamic-mailing-lists.adoc[Dynamic and mandatory mailing lists (V1.9.111)] |Mailing lists whose recipients are computed from a rule at send time; mandatory lists without opt-out
 |link:public-member-count.adoc[Public member count toggle (V1.9.10)] |Setting to show or hide the active member count on public pages
 |link:public-icon-navigation.adoc[Public icon navigation + overview pages (V1.9.11)] |Icon navigation and overview pages for the public site
 |link:mitfahrerzentrale.adoc[Mitfahrerzentrale (V1.9.12)] |Carpooling bulletin board for members

@@ -65,7 +65,9 @@ internal class MailingSendProgressPanel(
                     val progress = fetch(messageId)
                     if (progress != null) {
                         render(progress)
-                        if (progress.pending == 0) {
+                        // V1.9.111: a send to an automatic list has NO rows (pending = 0) until the worker resolved the recipients --
+                        // that is "not started", never "finished".
+                        if (progress.pending == 0 && !progress.awaitingRecipientResolution) {
                             finished = true
                             onFinished()
                             break
