@@ -543,6 +543,10 @@ private val R24_MIGRATED: Set<String> =
         // was moved onto `form.submit`/`form.runBusy` in the same wave so R29 does not rise when the file joins
         // this set.
         "TravelExpenseApprovalsScreen.kt",
+        // V1.9.122 (PdV form): the ADMIN settings page (tiers, percentages, rates, contact person, account mappings -- one form, held strictly from
+        // the start) and the day grid (one lapisForm hosting a fieldset per travel day; its only write goes through `form.submit`).
+        "TravelExpenseSettingsScreen.kt",
+        "TravelExpenseDayGrid.kt",
         // W4d batch 5 (VolunteerAllowanceScreen): Kategorie (required selectField, UNCHANGEABLE on an
         // existing payment) + Betrag/Tätigkeitsbeschreibung/Zahlungsdatum (required text-like fields),
         // one form used for both "Entwurf anlegen" and "Entwurf speichern" -- 1:1 nach

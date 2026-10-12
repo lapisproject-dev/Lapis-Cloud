@@ -398,6 +398,18 @@ dto:TravelExpenseReportDto.travelFrom	D	calendar date (LocalDate); never convert
 dto:TravelExpenseReportDto.travelTo	D	calendar date (LocalDate); never converted
 dto:TravelExpenseReportDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:TravelExpenseReportDto.submittedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TravelExpenseLineDto.dayDate	D	calendar date (LocalDate); never converted
+dto:TravelExpenseLineDto.timeFrom	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
+dto:TravelExpenseLineDto.timeTo	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
+dto:TravelExpenseLineInput.dayDate	D	calendar date (LocalDate); never converted
+dto:TravelExpenseDayInput.dayDate	D	calendar date (LocalDate); never converted
+dto:TravelExpenseDayInput.timeFrom	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
+dto:TravelExpenseDayInput.timeTo	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
+dto:TravelExpenseReportDto.submissionDeadline	D	calendar date (LocalDate); never converted
+dto:DayInput.date	D	calendar date (LocalDate); never converted
+dto:DayInput.timeFrom	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
+dto:DayInput.timeTo	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
+dto:DayResult.date	D	calendar date (LocalDate); never converted
 dto:TravelExpenseReportDto.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:TravelExpenseReportDto.executedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:TravelExpenseReportInput.travelFrom	D	calendar date (LocalDate); never converted
@@ -789,6 +801,9 @@ col:TechnicalOrganizationalMeasureTable.updatedAt	A	stamped by the server clock 
 col:TransparenzregisterReminderTable.triggeredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:TransparenzregisterReminderTable.resolvedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:TravelExpenseLineTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TravelExpenseLineTable.dayDate	D	calendar date (LocalDate); never converted
+col:TravelExpenseLineTable.timeFrom	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
+col:TravelExpenseLineTable.timeTo	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
 col:TravelExpenseReceiptTable.uploadedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:TravelExpenseReportTable.travelFrom	D	calendar date (LocalDate); never converted
 col:TravelExpenseReportTable.travelTo	D	calendar date (LocalDate); never converted

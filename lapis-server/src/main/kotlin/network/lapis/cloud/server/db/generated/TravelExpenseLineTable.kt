@@ -4,22 +4,44 @@ package network.lapis.cloud.server.db.generated
 
 import java.math.BigDecimal
 import kotlin.uuid.Uuid
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.TravelExpenseLineKind
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
+import org.jetbrains.exposed.v1.datetime.date
 import org.jetbrains.exposed.v1.datetime.datetime
+import org.jetbrains.exposed.v1.javatime.time
+import java.time.LocalTime
 
 public object TravelExpenseLineTable : Table("travel_expense_line") {
     public val id: Column<Uuid> = uuid("id")
     public val reportId: Column<Uuid> = reference("report_id", TravelExpenseReportTable.id)
-    public val kind: Column<TravelExpenseLineKind> = enumerationByName<TravelExpenseLineKind>("kind", 9)
+    public val kind: Column<TravelExpenseLineKind> = enumerationByName<TravelExpenseLineKind>("kind", 16)
     public val description: Column<String> = varchar("description", 200)
     public val kilometers: Column<BigDecimal?> = decimal("kilometers", 10, 2).nullable()
     public val days: Column<Int?> = integer("days").nullable()
     public val rateSnapshot: Column<BigDecimal?> = decimal("rate_snapshot", 10, 4).nullable()
     public val amount: Column<BigDecimal> = decimal("amount", 12, 2)
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
+    public val destination: Column<String?> = varchar("destination", 200).nullable()
+    public val dayDate: Column<LocalDate?> = date("day_date").nullable()
+
+    // ErmDataType.Time always emits java.time.LocalTime, see 57-carpool.kuml.kts file header.
+    public val timeFrom: Column<LocalTime?> = time("time_from").nullable()
+    public val timeTo: Column<LocalTime?> = time("time_to").nullable()
+    public val breakfastProvided: Column<Boolean> = bool("breakfast_provided")
+    // TODO default = "FALSE"
+    public val lunchProvided: Column<Boolean> = bool("lunch_provided")
+    // TODO default = "FALSE"
+    public val dinnerProvided: Column<Boolean> = bool("dinner_provided")
+    // TODO default = "FALSE"
+    public val passengerCount: Column<Int?> = integer("passenger_count").nullable()
+    public val breakfastIncluded: Column<Boolean?> = bool("breakfast_included").nullable()
+    public val computedMinutes: Column<Int?> = integer("computed_minutes").nullable()
+    public val baseAmount: Column<BigDecimal?> = decimal("base_amount", 12, 2).nullable()
+    public val deductionAmount: Column<BigDecimal> = decimal("deduction_amount", 12, 2)
+    // TODO default = "0"
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

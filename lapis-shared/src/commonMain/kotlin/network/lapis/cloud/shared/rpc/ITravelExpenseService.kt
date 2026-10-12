@@ -3,11 +3,13 @@ package network.lapis.cloud.shared.rpc
 import dev.kilua.rpc.annotations.RpcService
 import dev.kilua.rpc.types.Decimal
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.TravelExpenseDayInput
 import network.lapis.cloud.shared.domain.TravelExpenseLineInput
 import network.lapis.cloud.shared.domain.TravelExpenseRatesDto
 import network.lapis.cloud.shared.domain.TravelExpenseReportDto
 import network.lapis.cloud.shared.domain.TravelExpenseReportInput
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
+import network.lapis.cloud.shared.domain.TravelExpenseSettingsInput
 
 /**
  * Welle V1.4.11 "Reisekostenabrechnung für Vorstand und Funktionsträger". See
@@ -136,4 +138,30 @@ interface ITravelExpenseService {
      * hang off one report.
      */
     suspend fun retryPosting(reportId: String): TravelExpenseReportDto
+
+    // ── V1.9.122 "Reisekostenabrechnung nach PdV-Formular" -- appended, existing signatures untouched ──
+
+    /**
+     * Role: ADMIN. Writes every V1.9.122 setting (tiers, meal percentages, mileage/passenger rate,
+     * contact block, optional account mappings) in one call; the older [updateTravelExpenseRates]
+     * stays and writes only the two legacy rates. Writes an ORGANIZATION_SETTINGS audit entry that
+     * carries numbers and booleans only -- never the contact's name/e-mail/phone.
+     */
+    suspend fun updateTravelExpenseSettings(input: TravelExpenseSettingsInput): TravelExpenseRatesDto
+
+    /**
+     * DRAFT only, subject or requester. Replaces the per-day entries (times, meals, destination)
+     * of the travel period. Every amount is recomputed server-side by the shared
+     * `TravelExpenseCalculator`; the client never supplies a cent value for a day.
+     */
+    suspend fun saveDays(
+        reportId: String,
+        days: List<TravelExpenseDayInput>,
+    ): TravelExpenseReportDto
+
+    /** DRAFT only. Edits one NON-day line (kilometres, passengers, amount, nights, ...). */
+    suspend fun updateLine(
+        lineId: String,
+        input: TravelExpenseLineInput,
+    ): TravelExpenseReportDto
 }

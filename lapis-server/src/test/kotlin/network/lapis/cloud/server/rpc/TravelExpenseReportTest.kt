@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.rpc
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
@@ -28,6 +29,7 @@ import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.TravelExpenseLineKind
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
@@ -144,7 +146,7 @@ class TravelExpenseReportTest :
             }
         }
 
-        test("PER_DIEM happy path: 3 days * 14.00 = 42.00") {
+        test("PER_DIEM and RECEIPTED are legacy kinds: addLine refuses them (V1.9.122), day lines are saveDays-only") {
             testApplication {
                 application {
                     install(StatusPages) { installTravelExpenseExceptionHandlers() }
@@ -152,25 +154,67 @@ class TravelExpenseReportTest :
                 }
                 setRates(mileage = BigDecimal("0.3000"), perDiem = BigDecimal("14.00"))
                 val memberId = newMember()
-
                 val draftId =
                     client
                         .post("/test/travelexpense/create?subjectMemberId=$memberId&purpose=Klausur&from=2026-02-01&to=2026-02-03") {
                             header("X-Member-Id", memberId.toString())
                         }.bodyAsText()
                         .split("|")[0]
-
-                val afterLine =
+                listOf(
+                    "kind=PER_DIEM&description=Verpflegung&days=3",
+                    "kind=RECEIPTED&description=Beleg&amount=10.00",
+                    "kind=DAY_ALLOWANCE&description=Tag&amount=10.00",
+                ).forEach { query ->
                     client
-                        .post("/test/travelexpense/addline?reportId=$draftId&kind=PER_DIEM&description=Verpflegung&days=3") {
-                            header("X-Member-Id", memberId.toString())
-                        }.bodyAsText()
-                        .split("|")
-                afterLine[6] shouldBe "42.00"
+                        .post("/test/travelexpense/addline?reportId=$draftId&$query") { header("X-Member-Id", memberId.toString()) }
+                        .status shouldBe HttpStatusCode.BadRequest
+                }
             }
         }
 
-        test("RECEIPTED happy path: amount passes through, submit requires a receipt") {
+        test("a PER_DIEM line from before V1.9.122 stays submittable with the legacy flat rate (3 days * 14.00 = 42.00 + day lines)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installTravelExpenseExceptionHandlers() }
+                    routing { registerTravelExpenseTestRoutes() }
+                }
+                setRates(mileage = BigDecimal("0.3000"), perDiem = BigDecimal("14.00"))
+                val memberId = newMember()
+                val draftId =
+                    client
+                        .post("/test/travelexpense/create?subjectMemberId=$memberId&purpose=Klausur&from=2026-02-01&to=2026-02-01") {
+                            header("X-Member-Id", memberId.toString())
+                        }.bodyAsText()
+                        .split("|")[0]
+                transaction {
+                    TravelExpenseLineTable.insert {
+                        it[id] = Uuid.random()
+                        it[reportId] = Uuid.parse(draftId)
+                        it[kind] = TravelExpenseLineKind.PER_DIEM
+                        it[description] = "Verpflegung (Altzeile)"
+                        it[days] = 1
+                        it[rateSnapshot] = BigDecimal("14.0000")
+                        it[amount] = BigDecimal("14.00")
+                        it[createdAt] = LocalDateTime(2026, 2, 1, 12, 0, 0)
+                        it[breakfastProvided] = false
+                        it[lunchProvided] = false
+                        it[dinnerProvided] = false
+                        it[deductionAmount] = BigDecimal("0.00")
+                    }
+                }
+                val submitted =
+                    client
+                        .post(
+                            "/test/travelexpense/submit?id=$draftId",
+                        ) { header("X-Member-Id", memberId.toString()) }
+                        .bodyAsText()
+                        .split("|")
+                submitted[2] shouldBe TravelExpenseReportStatus.REQUESTED.name
+                submitted[6] shouldBe "14.00"
+            }
+        }
+
+        test("OTHER (receipted) happy path: amount passes through, submit requires a receipt") {
             testApplication {
                 application {
                     install(StatusPages) { installTravelExpenseExceptionHandlers() }
@@ -184,7 +228,7 @@ class TravelExpenseReportTest :
                         }.bodyAsText()
                         .split("|")[0]
                 client
-                    .post("/test/travelexpense/addline?reportId=$draftId&kind=RECEIPTED&description=Bahnticket&amount=87.40") {
+                    .post("/test/travelexpense/addline?reportId=$draftId&kind=OTHER&description=Bahnticket&amount=87.40") {
                         header("X-Member-Id", memberId.toString())
                     }.bodyAsText()
                     .split("|")[6] shouldBe "87.40"
@@ -196,13 +240,13 @@ class TravelExpenseReportTest :
             }
         }
 
-        test("rounding: 123.45 km * 0.3012 rounds HALF_UP to 37.18") {
+        test("whole kilometres only: 123 km * 0.30 = 36.90, 123.45 km is rejected, passengers add 2 ct/km each") {
             testApplication {
                 application {
                     install(StatusPages) { installTravelExpenseExceptionHandlers() }
                     routing { registerTravelExpenseTestRoutes() }
                 }
-                setRates(mileage = BigDecimal("0.3012"), perDiem = null)
+                setRates(mileage = BigDecimal("0.3000"), perDiem = null)
                 val memberId = newMember()
                 val draftId =
                     client
@@ -210,13 +254,21 @@ class TravelExpenseReportTest :
                             header("X-Member-Id", memberId.toString())
                         }.bodyAsText()
                         .split("|")[0]
-                val afterLine =
-                    client
-                        .post("/test/travelexpense/addline?reportId=$draftId&kind=MILEAGE&description=Anfahrt&kilometers=123.45") {
-                            header("X-Member-Id", memberId.toString())
-                        }.bodyAsText()
-                        .split("|")
-                afterLine[6] shouldBe "37.18"
+                client
+                    .post("/test/travelexpense/addline?reportId=$draftId&kind=MILEAGE&description=Anfahrt&kilometers=123.45") {
+                        header("X-Member-Id", memberId.toString())
+                    }.status shouldBe HttpStatusCode.BadRequest
+                client
+                    .post("/test/travelexpense/addline?reportId=$draftId&kind=MILEAGE&description=Anfahrt&kilometers=123") {
+                        header("X-Member-Id", memberId.toString())
+                    }.bodyAsText()
+                    .split("|")[6] shouldBe "36.90"
+                // 100 km, 2 passengers: 30.00 + 100*2*0.02 = 34.00 -> total 70.90
+                client
+                    .post("/test/travelexpense/addline?reportId=$draftId&kind=MILEAGE&description=Rueckfahrt&kilometers=100&passengers=2") {
+                        header("X-Member-Id", memberId.toString())
+                    }.bodyAsText()
+                    .split("|")[6] shouldBe "70.90"
             }
         }
 
@@ -248,48 +300,12 @@ class TravelExpenseReportTest :
         }
 
         test(
-            "review MAJOR fix: rate changed to an excessive value between addLine and submit -> submit " +
-                "rejects with BadRequest instead of freezing an amount beyond MAX_LINE_AMOUNT",
+            "V1.9.122: an excessive mileage rate can no longer reach submit -- chk_os_travel_mileage_max (<= 1.00 EUR/km) blocks it in the database",
         ) {
-            testApplication {
-                application {
-                    install(StatusPages) { installTravelExpenseExceptionHandlers() }
-                    routing { registerTravelExpenseTestRoutes() }
-                }
-                setRates(mileage = BigDecimal("0.3000"), perDiem = null)
-                val memberId = newMember()
-                val draftId =
-                    client
-                        .post("/test/travelexpense/create?subjectMemberId=$memberId&purpose=Fahrt&from=2026-07-01&to=2026-07-01") {
-                            header("X-Member-Id", memberId.toString())
-                        }.bodyAsText()
-                        .split("|")[0]
-                // 10,000 km (MAX_KILOMETERS) * 0.30 = 3,000.00 -- well within MAX_LINE_AMOUNT (100,000)
-                // at addLine time, so validateLine's own requireLineAmountInRange lets it through.
-                client.post("/test/travelexpense/addline?reportId=$draftId&kind=MILEAGE&description=Anfahrt&kilometers=10000") {
-                    header("X-Member-Id", memberId.toString())
-                }
-
-                // ADMIN mistypes the kilometer rate before the member submits -- 10,000 km * 99.9999
-                // = 999,999.00, ten times MAX_LINE_AMOUNT.
-                setRates(mileage = BigDecimal("99.9999"), perDiem = null)
-
-                val response =
-                    client.post("/test/travelexpense/submit?id=$draftId") { header("X-Member-Id", memberId.toString()) }
-                response.status shouldBe HttpStatusCode.BadRequest
-
-                val lineRow =
-                    transaction {
-                        TravelExpenseLineTable.selectAll().where { TravelExpenseLineTable.reportId eq Uuid.parse(draftId) }.single()
-                    }
-                // The failed submit must not have partially frozen the line at the excessive amount.
-                lineRow[TravelExpenseLineTable.amount] shouldBe BigDecimal("3000.00")
-                transaction {
-                    TravelExpenseReportTable.selectAll().where { TravelExpenseReportTable.id eq Uuid.parse(draftId) }.single()[
-                        TravelExpenseReportTable.status,
-                    ]
-                } shouldBe TravelExpenseReportStatus.DRAFT
-            }
+            shouldThrow<Exception> { setRates(mileage = BigDecimal("99.9999"), perDiem = null) }
+            // 5000 km (MAX_KM_PER_LINE) at the maximum rate stays far below MAX_LINE_AMOUNT.
+            setRates(mileage = BigDecimal("1.0000"), perDiem = null)
+            setRates(mileage = null, perDiem = null)
         }
 
         test("amount supplied for MILEAGE/PER_DIEM is rejected -- server computes it") {
@@ -381,7 +397,7 @@ class TravelExpenseReportTest :
             }
         }
 
-        test("PER_DIEM days exceeding the travel span -> BadRequestException") {
+        test("PER_DIEM (legacy) via addLine -> BadRequestException regardless of the span") {
             testApplication {
                 application {
                     install(StatusPages) { installTravelExpenseExceptionHandlers() }

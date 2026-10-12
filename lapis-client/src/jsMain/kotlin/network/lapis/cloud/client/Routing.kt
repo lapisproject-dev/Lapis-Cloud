@@ -641,6 +641,13 @@ object Routes {
     const val TRAVEL_EXPENSE_APPROVALS = "/travel-expense-approvals"
 
     /**
+     * Welle V1.9.122 -- the travel expense settings (tiers, meal percentages, mileage/passenger rate, the contact person for
+     * questions, optional account mappings). **ADMIN only**, same as the writer `ITravelExpenseService.updateTravelExpenseSettings`
+     * and the neighbouring configuration screens ([SEPA_SETTINGS], [DUNNING_SETTINGS]).
+     */
+    const val TRAVEL_EXPENSE_SETTINGS = "/travel-expense-settings"
+
+    /**
      * Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- Selbstbedienung, `requireAuth`
      * (jedes authentifizierte Mitglied), gleiche Grammatik wie [TRAVEL_EXPENSES]. Optionaler
      * Query-Parameter `?payment=<uuid>`.
@@ -1217,6 +1224,11 @@ fun initRouting(pageContainer: SimplePanel) {
     routing.kvOn(Routes.TRAVEL_EXPENSE_APPROVALS) {
         requireRole(routing, AccountRole.BOARD, AccountRole.ADMIN) {
             show(Routes.TRAVEL_EXPENSE_APPROVALS, ::renderTravelExpenseApprovalsScreen)
+        }
+    }
+    routing.kvOn(Routes.TRAVEL_EXPENSE_SETTINGS) {
+        requireRole(routing, AccountRole.ADMIN) {
+            show(Routes.TRAVEL_EXPENSE_SETTINGS, ::renderTravelExpenseSettingsScreen)
         }
     }
     routing.kvOn(Routes.VOLUNTEER_ALLOWANCES) {

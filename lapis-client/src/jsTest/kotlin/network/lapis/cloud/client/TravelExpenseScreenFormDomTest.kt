@@ -7,6 +7,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.builtins.ListSerializer
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.SessionInfoDto
+import network.lapis.cloud.shared.domain.TravelExpenseDefaults
 import network.lapis.cloud.shared.domain.TravelExpenseLineDto
 import network.lapis.cloud.shared.domain.TravelExpenseLineInput
 import network.lapis.cloud.shared.domain.TravelExpenseLineKind
@@ -47,6 +48,7 @@ class TravelExpenseScreenFormDomTest {
             perDiemRate = 28.0.toDecimal(),
             expenseAccountConfigured = true,
             bankAccountConfigured = true,
+            rateSet = TravelExpenseDefaults.pdvTemplate(mileageCentsPerKm = 30),
         )
 
     private fun draft(lines: List<TravelExpenseLineDto> = emptyList()) =
@@ -157,7 +159,7 @@ class TravelExpenseScreenFormDomTest {
         }
 
     @Test
-    fun addLineForm_mileage_sendsTheParsedKilometersAsADecimal(): Promise<Unit> =
+    fun addLineForm_mileage_sendsTheWholeKilometersAndThePassengerCount(): Promise<Unit> =
         formTest {
             AppState.setSession(memberSession)
             val ratesRoute = routeOf { rpcService<ITravelExpenseService>().getTravelExpenseRates() }
@@ -186,21 +188,29 @@ class TravelExpenseScreenFormDomTest {
                     element().buttonNamed("Fahrt hinzufügen").click()
                     delay(80)
                     element().typeInto("Beschreibung", "  Zugfahrt Hannover  ")
-                    element().typeInto("Kilometer", "  123,5  ")
+                    // Whole kilometres only: a comma value is refused on the field, nothing is sent.
+                    element().typeInto("Kilometer", "123,5")
+                    element().buttonNamed("Zeile hinzufügen").click()
+                    delay(60)
+                    assertEquals(0, calls.toRoute(addLineRoute).size, "no addLine for fractional kilometres")
+                    assertTrue(element().shownErrors().isNotEmpty())
+                    element().typeInto("Kilometer", "  123  ")
+                    element().typeInto("Mitfahrer", "2")
                     element().buttonNamed("Zeile hinzufügen").click()
                     awaitUntil("addLine", timeoutMs = 800) { calls.toRoute(addLineRoute).size == 1 }
                     val call = calls.singleCall(addLineRoute)
                     assertEquals("report-1", call.rpcParam(0) as String)
                     val input = call.rpcParam(1)
                     assertEquals("Zugfahrt Hannover", input.description as String, "the description is sent, trimmed")
-                    assertEquals(123.5, input.kilometers as Double, "the comma decimal is parsed and sent as a Decimal")
+                    assertEquals(123.0, input.kilometers as Double, "the whole kilometres are sent as a Decimal")
+                    assertEquals(2, input.passengerCount as Int, "the passenger count is sent")
                     assertTrue(element().shownErrors().isEmpty(), "no field error for a valid kilometer value")
                 }
             }
         }
 
     @Test
-    fun addLineForm_receiptedWithATooLargeAmount_sendsNothingAndShowsAFieldError(): Promise<Unit> =
+    fun addLineForm_otherWithATooLargeAmount_sendsNothingAndShowsAFieldError(): Promise<Unit> =
         formTest {
             AppState.setSession(memberSession)
             val ratesRoute = routeOf { rpcService<ITravelExpenseService>().getTravelExpenseRates() }
@@ -209,7 +219,7 @@ class TravelExpenseScreenFormDomTest {
                 routeOf {
                     rpcService<ITravelExpenseService>().addLine(
                         "x",
-                        TravelExpenseLineInput(kind = TravelExpenseLineKind.RECEIPTED, description = "x"),
+                        TravelExpenseLineInput(kind = TravelExpenseLineKind.OTHER, description = "x"),
                     )
                 }
             withFetchStub(
@@ -219,16 +229,16 @@ class TravelExpenseScreenFormDomTest {
                         listRoute to jsonOf(ListSerializer(TravelExpenseReportDto.serializer()), listOf(draft())),
                     ),
             ) { calls ->
-                mountedForm("travel-expense-add-line-receipted-invalid") { root, element ->
+                mountedForm("travel-expense-add-line-other-invalid") { root, element ->
                     renderTravelExpenseScreen(root, null)
-                    awaitUntil("receipted add button rendered", timeoutMs = 800) {
-                        element().allOf("button").any { it.textContent?.trim() == "Beleg-Kosten hinzufügen" }
+                    awaitUntil("other add button rendered", timeoutMs = 800) {
+                        element().allOf("button").any { it.textContent?.trim() == "Sonstiges hinzufügen" }
                     }
                     delay(80)
-                    element().buttonNamed("Beleg-Kosten hinzufügen").click()
+                    element().buttonNamed("Sonstiges hinzufügen").click()
                     delay(80)
                     element().typeInto("Beschreibung", "Taxiquittung")
-                    // Above TravelExpenseAmountRules.MAX_LINE_AMOUNT (100000) -- the field's own upper bound.
+                    // Above TravelExpenseAmountRules.MAX_RECEIPTED_CENTS (10 000,00 EUR) -- the field's own upper bound.
                     element().typeInto("Betrag", "999999999")
                     element().buttonNamed("Zeile hinzufügen").click()
                     delay(80)

@@ -3,17 +3,21 @@ package network.lapis.cloud.server.rpc
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.daysUntil
 import kotlinx.datetime.minus
+import kotlinx.datetime.toKotlinLocalTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.TravelExpenseLineTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReceiptTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
+import network.lapis.cloud.server.rpc.TravelExpenseLineRules.orBadRequest
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -22,10 +26,15 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.domain.MultiDayRule
 import network.lapis.cloud.shared.domain.TravelExpenseAmountRules
+import network.lapis.cloud.shared.domain.TravelExpenseCalculator
+import network.lapis.cloud.shared.domain.TravelExpenseDayInput
+import network.lapis.cloud.shared.domain.TravelExpenseDeadline
 import network.lapis.cloud.shared.domain.TravelExpenseLineDto
 import network.lapis.cloud.shared.domain.TravelExpenseLineInput
 import network.lapis.cloud.shared.domain.TravelExpenseLineKind
+import network.lapis.cloud.shared.domain.TravelExpenseRateSet
 import network.lapis.cloud.shared.domain.TravelExpenseRatesDto
 import network.lapis.cloud.shared.domain.TravelExpenseRatesSnapshot
 import network.lapis.cloud.shared.domain.TravelExpenseReceiptDto
@@ -33,6 +42,7 @@ import network.lapis.cloud.shared.domain.TravelExpenseReportDto
 import network.lapis.cloud.shared.domain.TravelExpenseReportInput
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatusSets
+import network.lapis.cloud.shared.domain.TravelExpenseSettingsInput
 import network.lapis.cloud.shared.domain.TravelExpenseSnapshot
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -47,6 +57,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNotNull
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -98,8 +109,8 @@ class TravelExpenseService(
     private val receiptStorageRoot: File,
 ) : ITravelExpenseService {
     override suspend fun getTravelExpenseRates(): TravelExpenseRatesDto {
-        resolveCurrentMember(call)
-        return transaction { loadRates().toDto() }
+        val current = resolveCurrentMember(call)
+        return transaction { TravelExpenseSettingsStore.load().toDto(isAdmin = current.role == AccountRole.ADMIN) }
     }
 
     override suspend fun updateTravelExpenseRates(
@@ -110,9 +121,11 @@ class TravelExpenseService(
         current.requireRole(AccountRole.ADMIN)
         if (mileageRatePerKm != null) {
             if (mileageRatePerKm <= BigDecimal.ZERO) throw BadRequestException("mileageRatePerKm must be positive")
-            if (mileageRatePerKm.scale() > MAX_MILEAGE_RATE_SCALE) {
+            // V1.9.122: the calculator works in whole cents, so a mileage rate must be a whole-cent value.
+            if (mileageRatePerKm.stripTrailingZeros().scale() > MAX_MILEAGE_RATE_SCALE) {
                 throw BadRequestException("mileageRatePerKm must have at most $MAX_MILEAGE_RATE_SCALE fractional digits")
             }
+            if (mileageRatePerKm > MAX_MILEAGE_RATE) throw BadRequestException("mileageRatePerKm must be at most $MAX_MILEAGE_RATE")
         }
         if (perDiemRate != null) {
             if (perDiemRate <= BigDecimal.ZERO) throw BadRequestException("perDiemRate must be positive")
@@ -121,27 +134,112 @@ class TravelExpenseService(
             }
         }
         return transaction {
-            val beforeRates = loadRates()
-            val before = TravelExpenseRatesSnapshot(mileageRatePerKm = beforeRates.mileage, perDiemRate = beforeRates.perDiem)
+            val before = TravelExpenseSettingsStore.load()
             OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
                 it[travelMileageRatePerKm] = mileageRatePerKm
                 it[travelPerDiemRate] = perDiemRate
             }
-            val after = TravelExpenseRatesSnapshot(mileageRatePerKm = mileageRatePerKm, perDiemRate = perDiemRate)
-            if (before != after) {
-                AuditLogRecorder.record(
-                    actorMemberId = current.memberId,
-                    actorRole = current.role,
-                    entityType = AuditEntityType.ORGANIZATION_SETTINGS,
-                    entityId = ORGANIZATION_SETTINGS_ID,
-                    action = AuditAction.UPDATE,
-                    before = Json.encodeToString(TravelExpenseRatesSnapshot.serializer(), before),
-                    after = Json.encodeToString(TravelExpenseRatesSnapshot.serializer(), after),
-                )
-            }
-            loadRates().toDto()
+            val after = TravelExpenseSettingsStore.load()
+            recordSettingsChange(current = current, before = before, after = after)
+            after.toDto(isAdmin = true)
         }
     }
+
+    override suspend fun updateTravelExpenseSettings(input: TravelExpenseSettingsInput): TravelExpenseRatesDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val valid = TravelExpenseLineRules.validateSettings(input)
+        val advanceAccountId = valid.advanceAccountId?.toTravelExpenseUuid("advanceAccountId")
+        val waiverAccountId = valid.donationWaiverAccountId?.toTravelExpenseUuid("donationWaiverAccountId")
+        return transaction {
+            listOfNotNull(advanceAccountId, waiverAccountId).forEach { accountId ->
+                val account = LedgerAccountTable.selectAll().where { LedgerAccountTable.id eq accountId }.singleOrNull()
+                if (account == null || !account[LedgerAccountTable.active]) {
+                    throw BadRequestException("ledger account $accountId does not exist or is inactive")
+                }
+            }
+            val before = TravelExpenseSettingsStore.load()
+            OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                it[travelTier1Hours] = valid.tierHours[0]
+                it[travelTier2Hours] = valid.tierHours[1]
+                it[travelTier3Hours] = valid.tierHours[2]
+                it[travelTier1Cents] = valid.tierCents[0].toInt()
+                it[travelTier2Cents] = valid.tierCents[1].toInt()
+                it[travelTier3Cents] = valid.tierCents[2].toInt()
+                it[travelBreakfastPct] = valid.breakfastPercent
+                it[travelLunchPct] = valid.lunchPercent
+                it[travelDinnerPct] = valid.dinnerPercent
+                it[travelPassengerCentsPerKm] = valid.passengerCentsPerKm.toInt()
+                it[travelMileageRatePerKm] = valid.mileageCentsPerKm?.centsToRate()
+                it[travelPerDiemRate] = valid.perDiemLegacyRate?.setScale(2, RoundingMode.UNNECESSARY)
+                it[travelContactName] = valid.contact.name
+                it[travelContactEmail] = valid.contact.email
+                it[travelContactPhone] = valid.contact.phone
+                it[travelContactHint] = valid.contact.hint
+                it[travelAdvanceAccountId] = advanceAccountId
+                it[travelDonationWaiverAccountId] = waiverAccountId
+            }
+            val after = TravelExpenseSettingsStore.load()
+            recordSettingsChange(current = current, before = before, after = after)
+            logger.info { "travel expense settings updated by ${current.memberId}" }
+            after.toDto(isAdmin = true)
+        }
+    }
+
+    /**
+     * Writes the ORGANIZATION_SETTINGS audit entry on an ACTUAL change only. The payload carries
+     * numbers/booleans only -- never the contact's name, e-mail or phone. A change of just the contact
+     * text still counts as a change (the booleans alone would not show it).
+     */
+    private fun recordSettingsChange(
+        current: CurrentMember,
+        before: TravelExpenseSettings,
+        after: TravelExpenseSettings,
+    ) {
+        val beforeSnapshot = before.toAuditSnapshot()
+        val afterSnapshot = after.toAuditSnapshot()
+        if (beforeSnapshot == afterSnapshot && before.contact == after.contact) return
+        AuditLogRecorder.record(
+            actorMemberId = current.memberId,
+            actorRole = current.role,
+            entityType = AuditEntityType.ORGANIZATION_SETTINGS,
+            entityId = ORGANIZATION_SETTINGS_ID,
+            action = AuditAction.UPDATE,
+            before = Json.encodeToString(TravelExpenseRatesSnapshot.serializer(), beforeSnapshot),
+            after = Json.encodeToString(TravelExpenseRatesSnapshot.serializer(), afterSnapshot),
+        )
+    }
+
+    private fun TravelExpenseSettings.toAuditSnapshot(): TravelExpenseRatesSnapshot =
+        TravelExpenseRatesSnapshot(
+            mileageRatePerKm = mileageRate,
+            perDiemRate = perDiemRate,
+            tierHours = rateSet.tierHours,
+            tierCents = rateSet.tierCents,
+            breakfastPercent = rateSet.breakfastPercent,
+            lunchPercent = rateSet.lunchPercent,
+            dinnerPercent = rateSet.dinnerPercent,
+            passengerCentsPerKm = rateSet.passengerCentsPerKm,
+            contactNameSet = contact.name != null,
+            contactEmailSet = contact.email != null,
+            contactPhoneSet = contact.phone != null,
+            contactHintSet = contact.hint != null,
+            advanceAccountConfigured = advanceAccountId != null,
+            donationWaiverAccountConfigured = donationWaiverAccountId != null,
+        )
+
+    private fun TravelExpenseSettings.toDto(isAdmin: Boolean): TravelExpenseRatesDto =
+        TravelExpenseRatesDto(
+            mileageRatePerKm = mileageRate,
+            perDiemRate = perDiemRate,
+            expenseAccountConfigured = expenseAccountId != null,
+            bankAccountConfigured = bankAccountId != null,
+            rateSet = rateSet,
+            contact = contact,
+            canEditSettings = isAdmin,
+            advanceAccountId = if (isAdmin) advanceAccountId?.toString() else null,
+            donationWaiverAccountId = if (isAdmin) donationWaiverAccountId?.toString() else null,
+        )
 
     override suspend fun createDraft(
         subjectMemberId: String,
@@ -189,7 +287,11 @@ class TravelExpenseService(
                 it[totalAmount] = BigDecimal.ZERO.setScale(AMOUNT_SCALE)
                 it[createdAt] = now
                 it[requestedBy] = current.memberId
+                it[advanceAmount] = (input.advanceCents ?: 0L).centsToAmount()
+                it[payoutChoice] = input.payoutChoice
             }
+            TravelExpenseDaySync.sync(reportId = id, travelFrom = input.travelFrom, travelTo = input.travelTo, now = now)
+            TravelExpenseDaySync.recomputeReport(reportId = id, rates = TravelExpenseSettingsStore.load().rateSet, strict = false)
             AuditLogRecorder.record(
                 actorMemberId = current.memberId,
                 actorRole = current.role,
@@ -208,6 +310,9 @@ class TravelExpenseService(
                             lineCount = 0,
                             lineKinds = emptyList(),
                             totalAmount = BigDecimal.ZERO.setScale(AMOUNT_SCALE),
+                            payoutChoice = input.payoutChoice,
+                            advanceCents = input.advanceCents ?: 0L,
+                            dayLineCount = MultiDayRule.travelDays(from = input.travelFrom, to = input.travelTo).size,
                         ),
                     ),
                 occurredAt = now,
@@ -227,11 +332,28 @@ class TravelExpenseService(
         requireValidReportHeader(input = input, now = now)
         return transaction {
             requireEditableRow(id = id, current = current)
+            // Accommodation lines carry their own dates: refuse a period change that would orphan one.
+            TravelExpenseLineTable
+                .selectAll()
+                .where { (TravelExpenseLineTable.reportId eq id) and (TravelExpenseLineTable.kind eq TravelExpenseLineKind.ACCOMMODATION) }
+                .forEach { row ->
+                    TravelExpenseLineRules.requireAccommodationInRange(
+                        firstNight = requireNotNull(row[TravelExpenseLineTable.dayDate]),
+                        nights = requireNotNull(row[TravelExpenseLineTable.days]),
+                        travelFrom = input.travelFrom,
+                        travelTo = input.travelTo,
+                    )
+                }
             TravelExpenseReportTable.update({ TravelExpenseReportTable.id eq id }) {
                 it[purpose] = input.purpose.trim()
                 it[travelFrom] = input.travelFrom
                 it[travelTo] = input.travelTo
+                // null == unchanged (see TravelExpenseReportInput KDoc)
+                if (input.advanceCents != null) it[advanceAmount] = input.advanceCents!!.centsToAmount()
+                if (input.payoutChoice != null) it[payoutChoice] = input.payoutChoice
             }
+            TravelExpenseDaySync.sync(reportId = id, travelFrom = input.travelFrom, travelTo = input.travelTo, now = now)
+            TravelExpenseDaySync.recomputeReport(reportId = id, rates = TravelExpenseSettingsStore.load().rateSet, strict = false)
             logger.info { "travel expense draft $id updated by ${current.memberId}" }
             loadDto(id)
         }
@@ -244,36 +366,101 @@ class TravelExpenseService(
         val current = resolveCurrentMember(call)
         val id = reportId.toTravelExpenseUuid("reportId")
         val now = DbClock.nowLocalDateTime()
-        requireLineShape(input)
+        requireAddableKind(input.kind)
         return transaction {
             val report = requireEditableRow(id = id, current = current)
-            val existingLineCount = TravelExpenseLineTable.selectAll().where { TravelExpenseLineTable.reportId eq id }.count()
-            if (existingLineCount >= TravelExpenseAmountRules.MAX_LINES_PER_REPORT) {
-                throw ConflictException("Report $reportId already has ${TravelExpenseAmountRules.MAX_LINES_PER_REPORT} lines")
+            val otherLineCount =
+                TravelExpenseLineTable
+                    .selectAll()
+                    .where {
+                        (TravelExpenseLineTable.reportId eq id) and
+                            (TravelExpenseLineTable.kind neq TravelExpenseLineKind.DAY_ALLOWANCE)
+                    }.count()
+            if (otherLineCount >= TravelExpenseAmountRules.MAX_OTHER_LINES) {
+                throw ConflictException("Report $reportId already has ${TravelExpenseAmountRules.MAX_OTHER_LINES} lines")
             }
-            val description = input.description.trim()
-            if (description.isEmpty()) throw BadRequestException("description must not be blank")
-            if (description.length > TravelExpenseAmountRules.MAX_DESCRIPTION_LENGTH) {
-                throw BadRequestException("description must be at most ${TravelExpenseAmountRules.MAX_DESCRIPTION_LENGTH} characters")
-            }
-            val rates = loadRates()
-            val travelSpanDays = travelSpanDaysOf(report)
-            val validated = validateLine(input = input, description = description, rates = rates, travelSpanDays = travelSpanDays)
+            val rates = TravelExpenseSettingsStore.load().rateSet
+            val validated = validateLine(input = input, rates = rates, report = report)
 
             val lineId = Uuid.random()
             TravelExpenseLineTable.insert {
                 it[TravelExpenseLineTable.id] = lineId
                 it[TravelExpenseLineTable.reportId] = report[TravelExpenseReportTable.id]
                 it[kind] = input.kind
-                it[TravelExpenseLineTable.description] = description
+                it[description] = validated.description
                 it[kilometers] = validated.kilometers
                 it[days] = validated.days
                 it[rateSnapshot] = validated.rateSnapshot
-                it[amount] = validated.amount
+                it[amount] = validated.amountCents.centsToAmount()
                 it[createdAt] = now
+                it[dayDate] = validated.dayDate
+                it[passengerCount] = validated.passengerCount
+                it[breakfastIncluded] = validated.breakfastIncluded
+                it[breakfastProvided] = false
+                it[lunchProvided] = false
+                it[dinnerProvided] = false
+                it[deductionAmount] = BigDecimal.ZERO.setScale(AMOUNT_SCALE)
             }
-            recomputeTotal(id)
+            TravelExpenseDaySync.recomputeReport(reportId = id, rates = rates, strict = false)
             logger.info { "travel expense line $lineId added to report $id by ${current.memberId} (kind=${input.kind})" }
+            loadDto(id)
+        }
+    }
+
+    override suspend fun updateLine(
+        lineId: String,
+        input: TravelExpenseLineInput,
+    ): TravelExpenseReportDto {
+        val current = resolveCurrentMember(call)
+        val lineUuid = lineId.toTravelExpenseUuid("lineId")
+        return transaction {
+            val lineRow =
+                TravelExpenseLineTable.selectAll().where { TravelExpenseLineTable.id eq lineUuid }.singleOrNull()
+                    ?: throw NotFoundException("TravelExpenseLine $lineId not found")
+            val reportId = lineRow[TravelExpenseLineTable.reportId]
+            val report = requireEditableRow(id = reportId, current = current)
+            val existingKind = lineRow[TravelExpenseLineTable.kind]
+            if (input.kind != existingKind) throw BadRequestException("the kind of an existing line cannot change")
+            if (existingKind == TravelExpenseLineKind.DAY_ALLOWANCE) {
+                throw BadRequestException("day lines are maintained via saveDays")
+            }
+            if (existingKind == TravelExpenseLineKind.PER_DIEM) throw BadRequestException("legacy_kind")
+            val rates = TravelExpenseSettingsStore.load().rateSet
+            val validated = validateLine(input = input, rates = rates, report = report)
+            TravelExpenseLineTable.update({ TravelExpenseLineTable.id eq lineUuid }) {
+                it[description] = validated.description
+                it[kilometers] = validated.kilometers
+                it[days] = validated.days
+                it[rateSnapshot] = validated.rateSnapshot
+                it[amount] = validated.amountCents.centsToAmount()
+                it[dayDate] = validated.dayDate
+                it[passengerCount] = validated.passengerCount
+                it[breakfastIncluded] = validated.breakfastIncluded
+            }
+            TravelExpenseDaySync.recomputeReport(reportId = reportId, rates = rates, strict = false)
+            logger.info { "travel expense line $lineUuid updated on report $reportId by ${current.memberId}" }
+            loadDto(reportId)
+        }
+    }
+
+    override suspend fun saveDays(
+        reportId: String,
+        days: List<TravelExpenseDayInput>,
+    ): TravelExpenseReportDto {
+        val current = resolveCurrentMember(call)
+        val id = reportId.toTravelExpenseUuid("reportId")
+        val now = DbClock.nowLocalDateTime()
+        return transaction {
+            val report = requireEditableRow(id = id, current = current)
+            TravelExpenseDaySync.saveDays(
+                reportId = id,
+                travelFrom = report[TravelExpenseReportTable.travelFrom],
+                travelTo = report[TravelExpenseReportTable.travelTo],
+                inputs = days,
+                now = now,
+            )
+            TravelExpenseDaySync.recomputeReport(reportId = id, rates = TravelExpenseSettingsStore.load().rateSet, strict = false)
+            logger.info { "travel expense days saved on report $id by ${current.memberId} (count=${days.size})" }
             loadDto(id)
         }
     }
@@ -287,13 +474,17 @@ class TravelExpenseService(
                     ?: throw NotFoundException("TravelExpenseLine $lineId not found")
             val reportId = lineRow[TravelExpenseLineTable.reportId]
             requireEditableRow(id = reportId, current = current)
+            if (lineRow[TravelExpenseLineTable.kind] == TravelExpenseLineKind.DAY_ALLOWANCE) {
+                throw BadRequestException("day lines cannot be removed individually -- change the travel period instead")
+            }
 
             val receiptRows =
                 TravelExpenseReceiptTable.selectAll().where { TravelExpenseReceiptTable.lineId eq lineUuid }.toList()
             receiptRows.forEach { receiptRow -> deleteReceiptFile(receiptRow[TravelExpenseReceiptTable.storageKey]) }
             TravelExpenseReceiptTable.deleteWhere { TravelExpenseReceiptTable.lineId eq lineUuid }
             TravelExpenseLineTable.deleteWhere { TravelExpenseLineTable.id eq lineUuid }
-            recomputeTotal(reportId)
+            // Removing an overnight stay can lift the breakfast deduction on a day: recompute, not just the total.
+            TravelExpenseDaySync.recomputeReport(reportId = reportId, rates = TravelExpenseSettingsStore.load().rateSet, strict = false)
             logger.info { "travel expense line $lineUuid removed from report $reportId by ${current.memberId}" }
             loadDto(reportId)
         }
@@ -327,8 +518,10 @@ class TravelExpenseService(
 
             val lineRows = TravelExpenseLineTable.selectAll().where { TravelExpenseLineTable.reportId eq id }.toList()
             if (lineRows.isEmpty()) throw BadRequestException("At least one line is required to submit a report")
+            if (report[TravelExpenseReportTable.payoutChoice] == null) throw BadRequestException("payout_choice_required")
 
-            val rates = loadRates()
+            val settings = TravelExpenseSettingsStore.load()
+            val rates = settings.rateSet
             val travelSpanDays = travelSpanDaysOf(report)
             val lineIds = lineRows.map { it[TravelExpenseLineTable.id] }
             val receiptCounts =
@@ -342,33 +535,15 @@ class TravelExpenseService(
             for (lineRow in lineRows) {
                 val kind = lineRow[TravelExpenseLineTable.kind]
                 val lineId = lineRow[TravelExpenseLineTable.id]
+                if (kind.requiresReceipt && (receiptCounts[lineId] ?: 0) == 0) {
+                    throw BadRequestException("Line $lineId ($kind) has no receipt attached")
+                }
                 when (kind) {
-                    TravelExpenseLineKind.RECEIPTED ->
-                        if ((receiptCounts[lineId] ?: 0) == 0) {
-                            throw BadRequestException("Line $lineId (RECEIPTED) has no receipt attached")
-                        }
-                    TravelExpenseLineKind.MILEAGE -> {
-                        val rate =
-                            rates.mileage ?: throw BadRequestException("travel_mileage_rate_per_km is not configured")
-                        val kilometers =
-                            requireNotNull(lineRow[TravelExpenseLineTable.kilometers]) {
-                                "MILEAGE line $lineId has no kilometers -- chk_tel_kind_shape violated?"
-                            }
-                        val amount = computeAmount(kind = kind, kilometers = kilometers, days = null, rate = rate)
-                        // Review MAJOR fix: the rate freeze re-derives `amount` from the THEN-
-                        // current rate, which addLine's own validateLine could not have seen at
-                        // the time the line was created -- an ADMIN raising the rate between
-                        // addLine and submitReport must not be able to silently freeze an amount
-                        // beyond MAX_LINE_AMOUNT (BadRequestException, same as addLine, never the
-                        // chk_tel_amount_positive/NUMERIC(12,2) DB constraint surfacing as a 500).
-                        requireLineAmountInRange(amount)
-                        TravelExpenseLineTable.update({ TravelExpenseLineTable.id eq lineId }) {
-                            it[rateSnapshot] = rate
-                            it[TravelExpenseLineTable.amount] = amount
-                        }
-                    }
+                    TravelExpenseLineKind.MILEAGE ->
+                        if (rates.mileageCentsPerKm == null) throw BadRequestException("travel_mileage_rate_per_km is not configured")
                     TravelExpenseLineKind.PER_DIEM -> {
-                        val rate = rates.perDiem ?: throw BadRequestException("travel_per_diem_rate is not configured")
+                        // Pre-V1.9.122 lines only: flat per-day rate, BigDecimal path exactly as before.
+                        val rate = settings.perDiemRate ?: throw BadRequestException("travel_per_diem_rate is not configured")
                         val days =
                             requireNotNull(lineRow[TravelExpenseLineTable.days]) {
                                 "PER_DIEM line $lineId has no days -- chk_tel_kind_shape violated?"
@@ -376,21 +551,42 @@ class TravelExpenseService(
                         if (days > travelSpanDays) {
                             throw BadRequestException("Line $lineId has $days days, but the travel period is only $travelSpanDays day(s)")
                         }
-                        val amount = computeAmount(kind = kind, kilometers = null, days = days, rate = rate)
-                        // Review MAJOR fix -- same reasoning as the MILEAGE branch above.
+                        val amount = rate.multiply(BigDecimal(days)).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP)
                         requireLineAmountInRange(amount)
                         TravelExpenseLineTable.update({ TravelExpenseLineTable.id eq lineId }) {
                             it[rateSnapshot] = rate
                             it[TravelExpenseLineTable.amount] = amount
                         }
                     }
+                    else -> Unit
                 }
             }
 
-            recomputeTotal(id)
+            // The ONE calculation path, strict: day lines and mileage are recomputed with the rates that are
+            // frozen below; an incomplete day or an unconfigured rate is a BadRequest, never a silent 0.
+            val total = TravelExpenseDaySync.recomputeReport(reportId = id, rates = rates, strict = true)
+            TravelExpenseLineTable
+                .selectAll()
+                .where { (TravelExpenseLineTable.reportId eq id) and (TravelExpenseLineTable.kind neq TravelExpenseLineKind.DAY_ALLOWANCE) }
+                .forEach { row ->
+                    // Review MAJOR fix (kept): the recomputed amount must still be in range at freeze time.
+                    requireLineAmountInRange(row[TravelExpenseLineTable.amount])
+                }
+            if (total <= BigDecimal.ZERO) throw BadRequestException("The total amount must be greater than 0")
+            val advance = report[TravelExpenseReportTable.advanceAmount]
+            if (advance > total) throw BadRequestException("advance_exceeds_total")
+
+            val membershipNumber =
+                MemberTable
+                    .selectAll()
+                    .where { MemberTable.id eq report[TravelExpenseReportTable.subjectMemberId] }
+                    .singleOrNull()
+                    ?.get(MemberTable.memberNumber)
             TravelExpenseReportTable.update({ TravelExpenseReportTable.id eq id }) {
                 it[TravelExpenseReportTable.status] = TravelExpenseReportStatus.REQUESTED
                 it[submittedAt] = now
+                it[ratesSnapshot] = travelExpenseSnapshotJson.encodeToString(TravelExpenseRateSet.serializer(), rates)
+                it[membershipNumberSnapshot] = membershipNumber
             }
             recordTransition(row = report, actor = current, newStatus = TravelExpenseReportStatus.REQUESTED)
             logger.info { "travel expense report $id submitted by ${current.memberId}" }
@@ -658,74 +854,131 @@ class TravelExpenseService(
             throw BadRequestException("purpose must be at most ${TravelExpenseAmountRules.MAX_PURPOSE_LENGTH} characters")
         }
         if (input.travelTo < input.travelFrom) throw BadRequestException("travelTo must not be before travelFrom")
+        if (input.travelFrom.daysUntil(input.travelTo) + 1 > TravelExpenseAmountRules.MAX_TRAVEL_SPAN_DAYS) {
+            throw BadRequestException("The travel period must not exceed ${TravelExpenseAmountRules.MAX_TRAVEL_SPAN_DAYS} days")
+        }
+        input.advanceCents?.let {
+            if (it < 0 || it > TravelExpenseAmountRules.MAX_ADVANCE_CENTS) {
+                throw BadRequestException("advanceCents must be between 0 and ${TravelExpenseAmountRules.MAX_ADVANCE_CENTS}")
+            }
+        }
     }
 
-    /** Exclusivity, mirrors `chk_tel_kind_shape`. `amount` is forbidden for MILEAGE/PER_DIEM (server computes it). */
-    private fun requireLineShape(input: TravelExpenseLineInput) {
-        when (input.kind) {
-            TravelExpenseLineKind.MILEAGE -> {
-                if (input.kilometers == null) throw BadRequestException("kilometers is required for kind=MILEAGE")
-                if (input.days != null) throw BadRequestException("days must not be set for kind=MILEAGE")
-                if (input.amount != null) throw BadRequestException("amount must not be set for kind=MILEAGE (server-computed)")
-            }
-            TravelExpenseLineKind.PER_DIEM -> {
-                if (input.days == null) throw BadRequestException("days is required for kind=PER_DIEM")
-                if (input.kilometers != null) throw BadRequestException("kilometers must not be set for kind=PER_DIEM")
-                if (input.amount != null) throw BadRequestException("amount must not be set for kind=PER_DIEM (server-computed)")
-            }
-            TravelExpenseLineKind.RECEIPTED -> {
-                if (input.kilometers != null || input.days != null) {
-                    throw BadRequestException("kilometers/days must not be set for kind=RECEIPTED")
-                }
-                if (input.amount == null) throw BadRequestException("amount is required for kind=RECEIPTED")
-            }
+    /** `addLine` refuses day lines (saveDays) and the two legacy kinds. */
+    private fun requireAddableKind(kind: TravelExpenseLineKind) {
+        if (kind == TravelExpenseLineKind.DAY_ALLOWANCE) {
+            throw BadRequestException("day lines are maintained via saveDays, not addLine")
+        }
+        if (kind == TravelExpenseLineKind.PER_DIEM || kind == TravelExpenseLineKind.RECEIPTED) {
+            throw BadRequestException("legacy_kind")
         }
     }
 
     private data class ValidatedLine(
+        val description: String,
         val kilometers: BigDecimal?,
         val days: Int?,
         val rateSnapshot: BigDecimal?,
-        val amount: BigDecimal,
+        val amountCents: Long,
+        val dayDate: LocalDate?,
+        val passengerCount: Int?,
+        val breakfastIncluded: Boolean?,
     )
 
+    /**
+     * Exclusivity (mirrors `chk_tel_kind_shape`) + value rules for one NON-day line, used by both
+     * `addLine` and `updateLine`. Stray fields of another kind are a [BadRequestException], never
+     * silently dropped (mass-assignment guard). `RECEIPTED` is accepted here only for `updateLine`
+     * of a pre-V1.9.122 line.
+     */
     private fun validateLine(
         input: TravelExpenseLineInput,
-        description: String,
-        rates: TravelExpenseRates,
-        travelSpanDays: Int,
-    ): ValidatedLine =
-        when (input.kind) {
+        rates: TravelExpenseRateSet,
+        report: ResultRow,
+    ): ValidatedLine {
+        val description = TravelExpenseLineRules.requireDescription(input)
+        return when (input.kind) {
             TravelExpenseLineKind.MILEAGE -> {
-                val kilometers = requireNotNull(input.kilometers)
-                if (kilometers <= BigDecimal.ZERO || kilometers > BigDecimal(TravelExpenseAmountRules.MAX_KILOMETERS)) {
-                    throw BadRequestException("kilometers must be between 0 and ${TravelExpenseAmountRules.MAX_KILOMETERS}")
+                val kmInput = input.kilometers ?: throw BadRequestException("kilometers is required for kind=MILEAGE")
+                if (input.days != null || input.nights != null || input.dayDate != null || input.breakfastIncluded != null) {
+                    throw BadRequestException("days/nights/dayDate/breakfastIncluded must not be set for kind=MILEAGE")
                 }
-                val rate = rates.mileage ?: throw BadRequestException("travel_mileage_rate_per_km is not configured")
-                val amount = computeAmount(kind = input.kind, kilometers = kilometers, days = null, rate = rate)
-                requireLineAmountInRange(amount)
-                ValidatedLine(kilometers = kilometers, days = null, rateSnapshot = rate, amount = amount)
-            }
-            TravelExpenseLineKind.PER_DIEM -> {
-                val days = requireNotNull(input.days)
-                if (days < 1 || days > TravelExpenseAmountRules.MAX_DAYS) {
-                    throw BadRequestException("days must be between 1 and ${TravelExpenseAmountRules.MAX_DAYS}")
+                if (input.amount != null || input.amountCents != null) {
+                    throw BadRequestException("amount must not be set for kind=MILEAGE (server-computed)")
                 }
-                if (days > travelSpanDays) {
-                    throw BadRequestException("days ($days) must not exceed the travel period ($travelSpanDays day(s))")
+                val km = TravelExpenseLineRules.wholeKilometers(kmInput)
+                val passengers = TravelExpenseLineRules.requirePassengerCount(input.passengerCount)
+                val rate = rates.mileageCentsPerKm ?: throw BadRequestException("travel_mileage_rate_per_km is not configured")
+                val cents = TravelExpenseCalculator.mileage(km = km, passengers = passengers, rates = rates).orBadRequest()
+                ValidatedLine(
+                    description = description,
+                    kilometers = BigDecimal.valueOf(km).setScale(2),
+                    days = null,
+                    rateSnapshot = rate.centsToRate(),
+                    amountCents = cents,
+                    dayDate = null,
+                    passengerCount = passengers,
+                    breakfastIncluded = null,
+                )
+            }
+            TravelExpenseLineKind.PUBLIC_TRANSPORT,
+            TravelExpenseLineKind.HOSPITALITY,
+            TravelExpenseLineKind.OTHER,
+            TravelExpenseLineKind.RECEIPTED,
+            -> {
+                if (input.kilometers != null ||
+                    input.days != null ||
+                    input.nights != null ||
+                    input.dayDate != null ||
+                    input.passengerCount != null ||
+                    input.breakfastIncluded != null
+                ) {
+                    throw BadRequestException(
+                        "kilometers/days/nights/dayDate/passengerCount/breakfastIncluded must not be set for kind=${input.kind}",
+                    )
                 }
-                val rate = rates.perDiem ?: throw BadRequestException("travel_per_diem_rate is not configured")
-                val amount = computeAmount(kind = input.kind, kilometers = null, days = days, rate = rate)
-                requireLineAmountInRange(amount)
-                ValidatedLine(kilometers = null, days = days, rateSnapshot = rate, amount = amount)
+                val cents = TravelExpenseCalculator.receipted(TravelExpenseLineRules.receiptedCents(input)).orBadRequest()
+                requireLineAmountInRange(cents.centsToAmount())
+                ValidatedLine(
+                    description = description,
+                    kilometers = null,
+                    days = null,
+                    rateSnapshot = null,
+                    amountCents = cents,
+                    dayDate = null,
+                    passengerCount = null,
+                    breakfastIncluded = null,
+                )
             }
-            TravelExpenseLineKind.RECEIPTED -> {
-                val amount = requireNotNull(input.amount).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP)
-                if (amount <= BigDecimal.ZERO) throw BadRequestException("amount must be positive")
-                requireLineAmountInRange(amount)
-                ValidatedLine(kilometers = null, days = null, rateSnapshot = null, amount = amount)
+            TravelExpenseLineKind.ACCOMMODATION -> {
+                if (input.kilometers != null || input.days != null || input.passengerCount != null) {
+                    throw BadRequestException("kilometers/days/passengerCount must not be set for kind=ACCOMMODATION")
+                }
+                val firstNight = input.dayDate ?: throw BadRequestException("dayDate (first night) is required for kind=ACCOMMODATION")
+                val nights = input.nights ?: throw BadRequestException("nights is required for kind=ACCOMMODATION")
+                TravelExpenseLineRules.requireAccommodationInRange(
+                    firstNight = firstNight,
+                    nights = nights,
+                    travelFrom = report[TravelExpenseReportTable.travelFrom],
+                    travelTo = report[TravelExpenseReportTable.travelTo],
+                )
+                val cents = TravelExpenseCalculator.receipted(TravelExpenseLineRules.receiptedCents(input)).orBadRequest()
+                requireLineAmountInRange(cents.centsToAmount())
+                ValidatedLine(
+                    description = description,
+                    kilometers = null,
+                    days = nights,
+                    rateSnapshot = null,
+                    amountCents = cents,
+                    dayDate = firstNight,
+                    passengerCount = null,
+                    breakfastIncluded =
+                        input.breakfastIncluded ?: false,
+                )
             }
+            TravelExpenseLineKind.PER_DIEM, TravelExpenseLineKind.DAY_ALLOWANCE -> throw BadRequestException("legacy_kind")
         }
+    }
 
     /**
      * Review MAJOR fix: now also enforces the LOWER bound (`amount > 0`), not just the upper one
@@ -742,18 +995,6 @@ class TravelExpenseService(
             throw BadRequestException("amount must be at most ${TravelExpenseAmountRules.MAX_LINE_AMOUNT}")
         }
     }
-
-    private fun computeAmount(
-        kind: TravelExpenseLineKind,
-        kilometers: BigDecimal?,
-        days: Int?,
-        rate: BigDecimal,
-    ): BigDecimal =
-        when (kind) {
-            TravelExpenseLineKind.MILEAGE -> requireNotNull(kilometers).multiply(rate).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP)
-            TravelExpenseLineKind.PER_DIEM -> rate.multiply(BigDecimal(requireNotNull(days))).setScale(AMOUNT_SCALE, RoundingMode.HALF_UP)
-            TravelExpenseLineKind.RECEIPTED -> error("computeAmount is never called for RECEIPTED")
-        }
 
     private fun travelSpanDaysOf(report: ResultRow): Int {
         val from = report[TravelExpenseReportTable.travelFrom]
@@ -792,51 +1033,7 @@ class TravelExpenseService(
         if (current.memberId != subjectId && current.memberId != requestedById) throw ForbiddenException()
     }
 
-    // ── Rates ───────────────────────────────────────────────────────────────────────────────
-
-    private data class TravelExpenseRates(
-        val mileage: BigDecimal?,
-        val perDiem: BigDecimal?,
-        val expenseAccountId: Uuid?,
-        val bankAccountId: Uuid?,
-    ) {
-        fun toDto(): TravelExpenseRatesDto =
-            TravelExpenseRatesDto(
-                mileageRatePerKm = mileage,
-                perDiemRate = perDiem,
-                expenseAccountConfigured = expenseAccountId != null,
-                bankAccountConfigured = bankAccountId != null,
-            )
-    }
-
-    private fun loadRates(): TravelExpenseRates {
-        val row =
-            OrganizationSettingsTable
-                .selectAll()
-                .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
-                .singleOrNull()
-        return TravelExpenseRates(
-            mileage = row?.get(OrganizationSettingsTable.travelMileageRatePerKm),
-            perDiem = row?.get(OrganizationSettingsTable.travelPerDiemRate),
-            expenseAccountId = row?.get(OrganizationSettingsTable.travelExpenseAccountId),
-            bankAccountId = row?.get(OrganizationSettingsTable.paymentBankAccountId),
-        )
-    }
-
     // ── Read / mapping helpers ─────────────────────────────────────────────────────────────
-
-    private fun recomputeTotal(reportId: Uuid): BigDecimal {
-        val total =
-            TravelExpenseLineTable
-                .selectAll()
-                .where { TravelExpenseLineTable.reportId eq reportId }
-                .toList()
-                .fold(BigDecimal.ZERO.setScale(AMOUNT_SCALE)) { acc, row -> acc + row[TravelExpenseLineTable.amount] }
-        TravelExpenseReportTable.update({ TravelExpenseReportTable.id eq reportId }) {
-            it[totalAmount] = total
-        }
-        return total
-    }
 
     private fun loadDto(id: Uuid): TravelExpenseReportDto =
         TravelExpenseReportTable
@@ -855,6 +1052,13 @@ class TravelExpenseService(
         val decidedById = this[TravelExpenseReportTable.decidedBy]
         val names = namesOverride ?: displayNamesOf(listOfNotNull(subjectId, requestedById, decidedById))
         val lines = linesOverride?.get(id) ?: linesOf(listOf(id))[id].orEmpty()
+        val advance = this[TravelExpenseReportTable.advanceAmount]
+        val totals =
+            TravelExpenseCalculator.totals(
+                lineNetCents = lines.map { it.amountCents },
+                deductionCents = lines.map { it.deductionCents },
+                advanceCents = advance.toCents(),
+            )
         return TravelExpenseReportDto(
             id = id.toString(),
             subjectMemberId = subjectId.toString(),
@@ -876,8 +1080,32 @@ class TravelExpenseService(
             executedAt = this[TravelExpenseReportTable.executedAt],
             postedJournalEntryId = this[TravelExpenseReportTable.postedJournalEntryId]?.toString(),
             executionError = this[TravelExpenseReportTable.executionError],
+            advanceCents = advance.toCents(),
+            payoutChoice = this[TravelExpenseReportTable.payoutChoice],
+            membershipNumber =
+                if (this[TravelExpenseReportTable.status] == TravelExpenseReportStatus.DRAFT) {
+                    // A draft shows the LIVE number; everything else the snapshot taken at submit.
+                    memberNumberOf(subjectId)
+                } else {
+                    this[TravelExpenseReportTable.membershipNumberSnapshot]
+                },
+            grossCents = totals.grossCents,
+            deductionCents = totals.deductionCents,
+            payoutCents = totals.payoutCents,
+            ratesSnapshot =
+                this[TravelExpenseReportTable.ratesSnapshot]?.let {
+                    runCatching { travelExpenseSnapshotJson.decodeFromString(TravelExpenseRateSet.serializer(), it) }.getOrNull()
+                },
+            submissionDeadline = TravelExpenseDeadline.deadlineFor(this[TravelExpenseReportTable.travelTo]),
         )
     }
+
+    private fun memberNumberOf(memberId: Uuid): String? =
+        MemberTable
+            .selectAll()
+            .where { MemberTable.id eq memberId }
+            .singleOrNull()
+            ?.get(MemberTable.memberNumber)
 
     /**
      * Batch mapper for [listReports]/[listMyReports] -- resolves every row's `displayName`/line/
@@ -915,21 +1143,59 @@ class TravelExpenseService(
                 .groupBy { it[TravelExpenseReceiptTable.lineId] }
         return lineRows
             .groupBy { it[TravelExpenseLineTable.reportId] }
-            .mapValues { (_, rows) -> rows.map { it.toLineDto(receipts = receiptsByLine[it[TravelExpenseLineTable.id]].orEmpty()) } }
+            .mapValues { (_, rows) ->
+                val forced = TravelExpenseDaySync.forcedBreakfastDatesOf(rows)
+                rows
+                    .sortedWith(
+                        compareBy<ResultRow>(
+                            { it[TravelExpenseLineTable.kind] != TravelExpenseLineKind.DAY_ALLOWANCE },
+                            { it[TravelExpenseLineTable.dayDate] },
+                            { it[TravelExpenseLineTable.createdAt] },
+                        ),
+                    ).map {
+                        it.toLineDto(
+                            receipts = receiptsByLine[it[TravelExpenseLineTable.id]].orEmpty(),
+                            forcedBreakfastDates = forced,
+                        )
+                    }
+            }
     }
 
-    private fun ResultRow.toLineDto(receipts: List<ResultRow>): TravelExpenseLineDto =
-        TravelExpenseLineDto(
+    private fun ResultRow.toLineDto(
+        receipts: List<ResultRow>,
+        forcedBreakfastDates: Set<LocalDate>,
+    ): TravelExpenseLineDto {
+        val kind = this[TravelExpenseLineTable.kind]
+        val dayDate = this[TravelExpenseLineTable.dayDate]
+        val amount = this[TravelExpenseLineTable.amount]
+        return TravelExpenseLineDto(
             id = this[TravelExpenseLineTable.id].toString(),
             reportId = this[TravelExpenseLineTable.reportId].toString(),
-            kind = this[TravelExpenseLineTable.kind],
+            kind = kind,
             description = this[TravelExpenseLineTable.description],
             kilometers = this[TravelExpenseLineTable.kilometers],
             days = this[TravelExpenseLineTable.days],
             rateSnapshot = this[TravelExpenseLineTable.rateSnapshot],
-            amount = this[TravelExpenseLineTable.amount],
+            amount = amount,
             receipts = receipts.map { it.toReceiptDto() },
+            destination = this[TravelExpenseLineTable.destination],
+            dayDate = dayDate,
+            timeFrom = this[TravelExpenseLineTable.timeFrom]?.toKotlinLocalTime(),
+            timeTo = this[TravelExpenseLineTable.timeTo]?.toKotlinLocalTime(),
+            breakfastProvided = this[TravelExpenseLineTable.breakfastProvided],
+            lunchProvided = this[TravelExpenseLineTable.lunchProvided],
+            dinnerProvided = this[TravelExpenseLineTable.dinnerProvided],
+            breakfastForcedByAccommodation =
+                kind == TravelExpenseLineKind.DAY_ALLOWANCE && dayDate != null && dayDate in forcedBreakfastDates,
+            passengerCount = this[TravelExpenseLineTable.passengerCount],
+            breakfastIncluded = this[TravelExpenseLineTable.breakfastIncluded],
+            nights = if (kind == TravelExpenseLineKind.ACCOMMODATION) this[TravelExpenseLineTable.days] else null,
+            computedMinutes = this[TravelExpenseLineTable.computedMinutes],
+            baseCents = this[TravelExpenseLineTable.baseAmount]?.toCents(),
+            deductionCents = this[TravelExpenseLineTable.deductionAmount].toCents(),
+            amountCents = amount.toCents(),
         )
+    }
 
     private fun ResultRow.toReceiptDto(): TravelExpenseReceiptDto =
         TravelExpenseReceiptDto(
@@ -1022,6 +1288,9 @@ class TravelExpenseService(
                 totalAmount = row[TravelExpenseReportTable.totalAmount],
                 postedJournalEntryId = row[TravelExpenseReportTable.postedJournalEntryId]?.toString(),
                 executionError = row[TravelExpenseReportTable.executionError],
+                payoutChoice = row[TravelExpenseReportTable.payoutChoice],
+                advanceCents = row[TravelExpenseReportTable.advanceAmount].toCents(),
+                dayLineCount = lineRows.count { it[TravelExpenseLineTable.kind] == TravelExpenseLineKind.DAY_ALLOWANCE },
             )
         val after =
             before.copy(
@@ -1042,7 +1311,8 @@ class TravelExpenseService(
 }
 
 private const val AMOUNT_SCALE = 2
-private const val MAX_MILEAGE_RATE_SCALE = 4
+private const val MAX_MILEAGE_RATE_SCALE = 2
+private val MAX_MILEAGE_RATE = BigDecimal("1.00")
 private const val MAX_PER_DIEM_RATE_SCALE = 2
 
 private fun String.toTravelExpenseUuid(paramName: String): Uuid =

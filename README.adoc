@@ -91,6 +91,7 @@ this repository. This README describes only the technical scope.
 Current release: *v0.32.0* (database schema *V94*; feature release on `v0.31.2`: video-conference moderation (mute, ask, lock the microphones), switchable views with a speaker layout, an optional local noise filter and recordings that follow who is in the picture, stay in sync and can be recomputed (opt-in recording per person), automatic and mandatory mailing lists, rule-based committees with a frozen electorate for every vote, and online participation in events -- none of it has been seen yet in a real call with several real participants; see `CHANGELOG.md` `[0.32.0]` for the behaviour changes, the seven migrations `V88` to `V94` and the honest limitations). Lapis Cloud contains standard membership management (members, contributions, events, communication, GDPR, accounting),
 the meritocratic governance layer (voting, elections, systemic consensus, LTR economy), federation, video conferencing and many optional modules.
 
+* Not yet released: `CHANGELOG.md` `[Unreleased]` lists the waves after `v0.32.0`; the latest is V1.9.122 (travel expense report following the PdV form, schema **V97**).
 * `CHANGELOG.md` is the authoritative release history; the long-form narrative is in link:docs/release-history.adoc[docs/release-history.adoc].
 * Website: https://cloud.lapisproject.dev
 * Feature documentation: link:docs/features/index.adoc[docs/features/index.adoc]
@@ -113,7 +114,7 @@ Each feature has its own document under `docs/features/`.
 |link:docs/features/bank-statement-import.adoc[Bank Statement Import (V1.4.5.1 / V1.4.5.1.1)] |CSV and MT940 bank statement upload with matching against open contributions
 |link:docs/features/datev-export.adoc[DATEV Export (V1.4.5.2)] |DATEV-EXTF Buchungsstapel export of posted journal entries
 |link:docs/features/contribution-relief.adoc[Contribution relief (deferral, exemption, reduction) (V1.4.10)] |Member requests for deferral, exemption or reduction of contributions
-|link:docs/features/travel-expenses.adoc[Travel expense reimbursement (V1.4.11)] |Self-service travel expense reports with mileage, per diem and receipts
+|link:docs/features/travel-expenses.adoc[Travel expense reimbursement (V1.4.11, PdV form V1.9.122)] |Self-service travel expense reports following the PdV form: a day grid with tiered day allowances and meal deductions, mileage with passengers, receipted costs, advance and payout or donation waiver
 |link:docs/features/volunteer-allowance.adoc[Volunteer/instructor allowance (V1.4.12)] |Tax-privileged volunteer and instructor payments with annual caps
 |link:docs/features/ai-assistance.adoc[AI assistance (optional, default off) (V1.6.1)] |Optional statute Q&A with verified citations (off by default)
 |link:docs/features/member-map.adoc[Member map ("Vorstands-Karte", V1.9.5-V1.9.9)] |Board-only aggregate map of member postal-code distribution

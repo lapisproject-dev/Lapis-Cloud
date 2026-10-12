@@ -11257,10 +11257,6 @@ msgid "%1 hinzufügen"
 msgstr "Aggiungi %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "%1 km × %2/km"
-msgstr "%1 km × %2/km"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "%1 Tage × %2"
 msgstr "%1 giorni × %2"
 
@@ -11292,14 +11288,6 @@ msgstr "Carica ricevuta"
 msgid "Beleg-Kosten"
 msgstr "Spesa documentata"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Beispiel: 0.30. Leer lassen, um den Satz zu löschen."
-msgstr "Esempio: 0.30. Lasciare vuoto per cancellare la tariffa."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Beispiel: 14.00. Leer lassen, um den Satz zu löschen."
-msgstr "Esempio: 14.00. Lasciare vuoto per cancellare la tariffa."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Bitte eine Beschreibung angeben."
 msgstr "Inserire una descrizione."
@@ -11307,10 +11295,6 @@ msgstr "Inserire una descrizione."
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
 msgid "Bitte eine gültige Tagespauschale angeben (z. B. 14.00)."
 msgstr "Inserire una diaria valida (ad es. 14.00)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Bitte einen gültigen Kilometersatz angeben (z. B. 0.30)."
-msgstr "Inserire una tariffa chilometrica valida (ad es. 0.30)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Buchung fehlgeschlagen"
@@ -11360,10 +11344,6 @@ msgstr "La registrazione non è riuscita (causa sconosciuta). Contattare l'ammin
 msgid "Die Datei ist zu groß (maximal 10 MB)."
 msgstr "Il file è troppo grande (massimo 10 MB)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Diese Sätze werden nicht automatisch an Gesetzesänderungen angepasst."
-msgstr "Queste tariffe non vengono adeguate automaticamente alle modifiche di legge."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Die Tagespauschale ist nicht konfiguriert."
 msgstr "L'indennità giornaliera non è configurata."
@@ -11371,10 +11351,6 @@ msgstr "L'indennità giornaliera non è configurata."
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Die Überweisung veranlasst die Kasse separat — dieser Antrag löst keine Zahlung aus."
 msgstr "La tesoreria dispone il bonifico separatamente — questa richiesta non genera alcun pagamento."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Ein Antrag ist möglich, aber die Buchung scheitert, bis eine Administratorin oder ein Administrator die Kontenzuordnung vervollständigt."
-msgstr "È possibile presentare una richiesta, ma la registrazione fallirà finché un amministratore non completa la mappatura dei conti."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Eines der zugeordneten Konten ist nicht mehr aktiv -- bitte einen ADMIN informieren."
@@ -11392,17 +11368,9 @@ msgstr "Salva bozza"
 msgid "Es liegt bereits ein Entwurf vor -- bitte diesen zuerst einreichen oder zurückziehen, bevor ein neuer Entwurf aus dieser Ablehnung kopiert wird."
 msgstr "Esiste già una bozza aperta -- inviarla o ritirarla prima di copiare una nuova bozza da questo rifiuto."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Es sind noch keine Sätze konfiguriert -- bitte eine Administratorin oder einen Administrator informieren."
-msgstr "Non è ancora stata configurata alcuna tariffa -- informare un amministratore."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Fahrt"
 msgstr "Viaggio"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Fahrtkosten: %1 · Tagespauschalen: %2 · Belegkosten: %3 · Gesamt: %4"
-msgstr "Chilometraggio: %1 · Diarie: %2 · Spese documentate: %3 · Totale: %4"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Für diese Buchung wird ein Belegverweis benötigt -- bitte einen ADMIN informieren."
@@ -11419,10 +11387,6 @@ msgstr "Ogni riga di spesa documentata richiede almeno una ricevuta."
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Kilometer"
 msgstr "Chilometri"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Kilometersatz: %1 · Tagespauschale: %2"
-msgstr "Tariffa chilometrica: %1 · Diaria: %2"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
 msgid "Kilometersatz (EUR/km)"
@@ -11453,10 +11417,6 @@ msgid "Noch keine eingereichten Anträge."
 msgstr "Nessuna richiesta inviata finora."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Noch keine Zeilen erfasst."
-msgstr "Nessuna riga registrata finora."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Reisekosten"
 msgstr "Spese di viaggio"
 
@@ -11468,14 +11428,6 @@ msgstr "Approvazioni spese di viaggio"
 msgid "Sätze"
 msgstr "Tariffe"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Sätze gespeichert."
-msgstr "Tariffe salvate."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Sätze speichern"
-msgstr "Salva tariffe"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Tage"
 msgstr "Giorni"
@@ -11483,14 +11435,6 @@ msgstr "Giorni"
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Tagespauschale"
 msgstr "Diaria"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Tagespauschale (EUR)"
-msgstr "Diaria (EUR)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Tagespauschale ist noch nicht konfiguriert."
-msgstr "L'indennità giornaliera non è ancora configurata."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Zeile entfernen"
@@ -16890,16 +16834,13 @@ msgstr "La risposta è stata inviata."
 msgid "Keine Straße, keine Hausnummer -- den genauen Treffpunkt vereinbaren Sie per Nachricht."
 msgstr "Niente via né numero civico -- concordate il punto d'incontro esatto tramite messaggio."
 
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:219
 msgid "Hallo, ich interessiere mich für Ihre Fahrt %1 → %2 am %3."
 msgstr "Salve, sono interessato al suo viaggio %1 → %2 il %3."
 
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:57
 msgid "Noch keine eigenen Einträge."
 msgstr "Nessuna voce propria ancora."
-
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:86
 msgid "Keine Fahrten der Art \"%1\"."
@@ -17240,12 +17181,10 @@ msgstr "Questo membro non è idoneo come dirigente della sezione regionale (lo s
 msgid "Landesverband wird noch verwendet -- bitte Ansicht aktualisieren."
 msgstr "La sezione regionale è ancora in uso -- aggiornare la visualizzazione."
 
-
 msgid "%1 Mitglied ohne Landesverband"
 msgid_plural "%1 Mitglieder ohne Landesverband"
 msgstr[0] "%1 membro senza sezione regionale"
 msgstr[1] "%1 membri senza sezione regionale"
-
 
 msgid "Auswertung der Nachrichten (freiwillig)"
 msgstr "Statistiche dei messaggi (facoltativo)"
@@ -18469,7 +18408,6 @@ msgstr "Mozioni preparate"
 
 msgid "Das Gebot übersteigt Ihr verfügbares Guthaben."
 msgstr "L'offerta supera il tuo saldo disponibile."
-
 
 msgid "Machen Sie Vorschläge: Jede Option, die hier steht, wird später von allen bewertet."
 msgstr "Fate delle proposte: ogni opzione elencata qui verrà poi valutata da tutti."
@@ -22956,3 +22894,367 @@ msgstr "Paese e cittadinanza riconciliati"
 
 msgid "Land und Staatsangehörigkeit abgeglichen. Land: %1 erkannt, %2 angewendet, %3 offen, %4 mehrdeutig. Staatsangehörigkeit: %5 erkannt, %6 angewendet, %7 offen, %8 mehrdeutig."
 msgstr "Paese e cittadinanza riconciliati. Paese: %1 riconosciuti, %2 applicati, %3 aperti, %4 ambigui. Cittadinanza: %5 riconosciuti, %6 applicati, %7 aperti, %8 ambigui."
+
+# Welle V1.9.122 "Reisekostenabrechnung nach PdV-Formular" -- angehaengt, nicht alphabetisch einsortiert.
+msgid "%1 Nächte ab %2%3"
+msgstr "%1 notti dal %2%3"
+
+msgid "%1 km × %2/km, %3 Mitfahrer"
+msgstr "%1 km × %2/km, %3 passeggeri"
+
+msgid ", mit Frühstück"
+msgstr ", con colazione"
+
+msgid "Abendessen (% von Stufe 3)"
+msgstr "Cena (% del livello 3)"
+
+msgid "Abendessen gestellt"
+msgstr "Cena fornita"
+
+msgid "Abfahrt (Uhrzeit)"
+msgstr "Partenza (ora)"
+
+msgid "Abzug für gestellte Mahlzeiten"
+msgstr "Detrazione per i pasti forniti"
+
+msgid "Abzüge"
+msgstr "Detrazioni"
+
+msgid "Alternativ: alte Excel-Vorlage oder E-Mail an den Finanzvorstand."
+msgstr "In alternativa: il vecchio modello Excel o un'e-mail al tesoriere."
+
+msgid "Ansprechpartner für Reisekosten"
+msgstr "Referente per le spese di viaggio"
+
+msgid "Anzahl der Mitfahrenden, 0 bis 8."
+msgstr "Numero di passeggeri, da 0 a 8."
+
+msgid "Auszahlen"
+msgstr "Pagare"
+
+msgid "Auszahlungsbetrag"
+msgstr "Importo da pagare"
+
+msgid "Basis"
+msgstr "Base"
+
+msgid "Beispiel: 0,02. Höchstens 0,20."
+msgstr "Esempio: 0,02. Massimo 0,20."
+
+msgid "Beispiel: 0,30. Leer lassen, wenn keine Kilometer abgerechnet werden. Höchstens 1,00."
+msgstr "Esempio: 0,30. Lasciare vuoto se non si rimborsano chilometri. Massimo 1,00."
+
+msgid "Bereits erhaltener Vorschuss (EUR)"
+msgstr "Anticipo già ricevuto (EUR)"
+
+msgid "Bewirtung"
+msgstr "Ospitalità"
+
+msgid "Bitte nur Ziffern, Leerzeichen und + ( ) / - verwenden."
+msgstr "Utilizzare solo cifre, spazi e + ( ) / -."
+
+msgid "Bitte prüfen Sie die Eingaben."
+msgstr "Controllare i dati inseriti."
+
+msgid "Bitte speichern Sie zuerst die Reisetage."
+msgstr "Salvare prima i giorni di viaggio."
+
+msgid "Bitte tragen Sie für jeden Reisetag die Uhrzeiten ein und speichern Sie."
+msgstr "Inserire gli orari di ogni giorno di viaggio e salvare."
+
+msgid "Bitte wählen Sie, ob ausgezahlt oder auf die Erstattung verzichtet werden soll."
+msgstr "Scegliere se ricevere il pagamento o rinunciare al rimborso."
+
+msgid "Bitte wählen Sie, wie abgerechnet werden soll (Auszahlung oder Spendenquittung)."
+msgstr "Scegliere come regolare (pagamento o ricevuta di donazione)."
+
+msgid "Das Ertragskonto für Aufwandsspenden ist noch nicht zugeordnet -- bitte einen ADMIN informieren."
+msgstr "Il conto di ricavo per le donazioni di spese non è ancora stato mappato -- informare un ADMIN."
+
+msgid "Das Konto für Aufwandsspenden hat den falschen Kontentyp -- bitte einen ADMIN informieren."
+msgstr "Il conto per le donazioni di spese ha un tipo di conto errato -- informare un ADMIN."
+
+msgid "Das Konto für bereits gezahlte Vorschüsse ist noch nicht zugeordnet -- bitte einen ADMIN informieren."
+msgstr "Il conto per gli anticipi già pagati non è ancora stato mappato -- informare un ADMIN."
+
+msgid "Dauer: "
+msgstr "Durata: "
+
+msgid "Der Kilometersatz ist noch nicht konfiguriert -- bitte die Verwaltung der Instanz informieren."
+msgstr "La tariffa chilometrica non è ancora configurata -- informare l'amministrazione dell'istanza."
+
+msgid "Der Vorschuss ist höher als die Abrechnung -- bitte wenden Sie sich an den Ansprechpartner."
+msgstr "L'anticipo è superiore al rendiconto -- contattare il referente."
+
+msgid "Der Vorschuss ist höher als die Abrechnung. Bitte wenden Sie sich an den Ansprechpartner."
+msgstr "L'anticipo è superiore al rendiconto. Contattare il referente."
+
+msgid "Die Beträge dürfen von Stufe zu Stufe nicht sinken."
+msgstr "Gli importi non possono diminuire da un livello all'altro."
+
+msgid "Die Frist für diese Reise (%1) ist überschritten. Sie können trotzdem einreichen -- die Verwaltung entscheidet."
+msgstr "Il termine per questo viaggio (%1) è scaduto. È comunque possibile inviare -- decide l'amministrazione."
+
+msgid "Die Rückkehr darf nicht vor der Abfahrt liegen."
+msgstr "Il ritorno non può essere precedente alla partenza."
+
+msgid "Die Standardwerte stammen aus der PdV-Vorlage (Reisekostenabrechnung 2024, Hinweise vom 23.07.2025) und sind vorläufig. Sie entsprechen nicht den gesetzlichen Pauschalen (14 € / 28 €). Bitte prüfen Sie sie, bevor Mitglieder abrechnen."
+msgstr "I valori predefiniti provengono dal modello del PdV (modulo spese di viaggio 2024, indicazioni del 23.07.2025) e sono provvisori. Non corrispondono ai forfait di legge (14 € / 28 €). Verificarli prima che i membri presentino i rendiconti."
+
+msgid "Die Stunden müssen von Stufe zu Stufe größer werden."
+msgstr "Le ore devono aumentare da un livello all'altro."
+
+msgid "Die Zuwendungsbestätigung wird außerhalb von Lapis ausgestellt."
+msgstr "La ricevuta di donazione viene emessa al di fuori di Lapis."
+
+msgid "Die Übernachtungen müssen innerhalb der Reise liegen."
+msgstr "I pernottamenti devono rientrare nel viaggio."
+
+msgid "Diese Angaben sehen alle Mitglieder auf der Seite Reisekosten."
+msgstr "Tutti i membri vedono questi dati nella pagina delle spese di viaggio."
+
+msgid "Ein Antrag ist möglich, aber die Buchung scheitert, bis die Verwaltung der Instanz die Kontenzuordnung vervollständigt."
+msgstr "È possibile presentare una richiesta, ma la registrazione non riuscirà finché l'amministrazione dell'istanza non completa l'assegnazione dei conti."
+
+msgid "Eine Reise darf höchstens %1 Tage umfassen."
+msgstr "Un viaggio può durare al massimo %1 giorni."
+
+msgid "Einreichen bis %1"
+msgstr "Da inviare entro il %1"
+
+msgid "Einstellungen gespeichert."
+msgstr "Impostazioni salvate."
+
+msgid "Erste Nacht (JJJJ-MM-TT)"
+msgstr "Prima notte (AAAA-MM-GG)"
+
+msgid "Ertragskonto für Aufwandsspenden"
+msgstr "Conto di ricavo per le donazioni di spese"
+
+msgid "Fahrtkosten"
+msgstr "Spese di trasporto"
+
+msgid "Frühstück (% von Stufe 3)"
+msgstr "Colazione (% del livello 3)"
+
+msgid "Frühstück gestellt"
+msgstr "Colazione fornita"
+
+msgid "Für Tage außerhalb des neuen Zeitraums sind bereits Angaben erfasst -- bitte zuerst leeren."
+msgstr "Esistono già dati per giorni al di fuori del nuovo periodo -- svuotarli prima."
+
+msgid "Für diese Reise gibt es keine Tage."
+msgstr "Questo viaggio non ha giorni."
+
+msgid "Ganze Kilometer, 1 bis 5000."
+msgstr "Chilometri interi, da 1 a 5000."
+
+msgid "Hilfe: Reisekosten abrechnen"
+msgstr "Aiuto: rendicontare le spese di viaggio"
+
+msgid "Hinweistext (Mehr erfahren)"
+msgstr "Testo informativo (Maggiori informazioni)"
+
+msgid "Ihr Ansprechpartner für Reisekosten"
+msgstr "Il suo referente per le spese di viaggio"
+
+msgid "In den Einstellungen eintragen"
+msgstr "Inserire nelle impostazioni"
+
+msgid "Kartennachweis hochladen (optional)"
+msgstr "Carica la prova del percorso (facoltativo)"
+
+msgid "Kontaktdaten werden noch ergänzt."
+msgstr "I dati di contatto verranno aggiunti a breve."
+
+msgid "Konto für bereits gezahlte Vorschüsse"
+msgstr "Conto per gli anticipi già pagati"
+
+msgid "Leer lassen, wenn Sie keinen Vorschuss erhalten haben. Beispiel: 50,00."
+msgstr "Lasciare vuoto se non ha ricevuto alcun anticipo. Esempio: 50,00."
+
+msgid "Mehr erfahren"
+msgstr "Maggiori informazioni"
+
+msgid "Mitfahrer"
+msgstr "Passeggeri"
+
+msgid "Mitgliedsnummer: %1"
+msgstr "Numero di socio: %1"
+
+msgid "Mitgliedsnummer: nicht hinterlegt"
+msgstr "Numero di socio: non registrato"
+
+msgid "Mittagessen (% von Stufe 3)"
+msgstr "Pranzo (% del livello 3)"
+
+msgid "Mittagessen gestellt"
+msgstr "Pranzo fornito"
+
+msgid "Noch keine weiteren Kosten erfasst."
+msgstr "Nessun altro costo registrato finora."
+
+msgid "Nur Ziffern, Leerzeichen und + ( ) / -."
+msgstr "Solo cifre, spazi e + ( ) / -."
+
+msgid "Nur für Anträge, die vor der Umstellung angelegt wurden. Leer lassen, wenn nicht benötigt."
+msgstr "Solo per le richieste create prima del passaggio. Lasciare vuoto se non necessario."
+
+msgid "Nächte"
+msgstr "Notti"
+
+msgid "Nötig, sobald ein Antrag einen Vorschuss enthält."
+msgstr "Necessario non appena una richiesta include un anticipo."
+
+msgid "Nötig, sobald ein Mitglied auf die Erstattung verzichtet."
+msgstr "Necessario non appena un membro rinuncia al rimborso."
+
+msgid "Reiner Text. Wird unter \"Mehr erfahren\" angezeigt."
+msgstr "Testo semplice. Mostrato sotto «Maggiori informazioni»."
+
+msgid "Reisekosten rechnen Sie vorrangig hier ab."
+msgstr "Rendiconti le spese di viaggio preferibilmente qui."
+
+msgid "Reisekosten-Einstellungen"
+msgstr "Impostazioni delle spese di viaggio"
+
+msgid "Reisekosten-Einstellungen öffnen"
+msgstr "Apri le impostazioni delle spese di viaggio"
+
+msgid "Reisetage"
+msgstr "Giorni di viaggio"
+
+msgid "Rückkehr (Uhrzeit)"
+msgstr "Ritorno (ora)"
+
+msgid "Spendenquittung (Aufwandsverzicht)"
+msgstr "Ricevuta di donazione (rinuncia al rimborso)"
+
+msgid "Spendenquittung gewünscht"
+msgstr "Ricevuta di donazione richiesta"
+
+msgid "Standardwerte der PdV-Vorlage übernehmen"
+msgstr "Applica i valori predefiniti del modello PdV"
+
+msgid "Standardwerte eingetragen. Zum Übernehmen bitte speichern."
+msgstr "Valori predefiniti inseriti. Salvare per applicarli."
+
+msgid "Stufe 1: Betrag (EUR)"
+msgstr "Livello 1: importo (EUR)"
+
+msgid "Stufe 1: ab (Stunden)"
+msgstr "Livello 1: da (ore)"
+
+msgid "Stufe 2: Betrag (EUR)"
+msgstr "Livello 2: importo (EUR)"
+
+msgid "Stufe 2: ab (Stunden)"
+msgstr "Livello 2: da (ore)"
+
+msgid "Stufe 3: Betrag (EUR)"
+msgstr "Livello 3: importo (EUR)"
+
+msgid "Stufe 3: ab (Stunden)"
+msgstr "Livello 3: da (ore)"
+
+msgid "Stunden"
+msgstr "Ore"
+
+msgid "Tage gespeichert."
+msgstr "Giorni salvati."
+
+msgid "Tage speichern"
+msgstr "Salva giorni"
+
+msgid "Tagegeld"
+msgstr "Indennità giornaliera"
+
+msgid "Tagegeld nach Abwesenheit"
+msgstr "Diaria in base all'assenza"
+
+msgid "Tagegeld: ab %1 Std. %2 · ab %3 Std. %4 · ab %5 Std. %6 · Kilometersatz: %7"
+msgstr "Diaria: da %1 h %2 · da %3 h %4 · da %5 h %6 · tariffa chilometrica: %7"
+
+msgid "Tagesbetrag: %1"
+msgstr "Importo del giorno: %1"
+
+msgid "Tagesbetrag: %1 (Abzüge: %2)"
+msgstr "Importo del giorno: %1 (detrazioni: %2)"
+
+msgid "Tagespauschale für Altanträge (EUR)"
+msgstr "Forfait giornaliero per le vecchie richieste (EUR)"
+
+msgid "Telefon"
+msgstr "Telefono"
+
+msgid "Unterkunft (Hotel, Ort)"
+msgstr "Alloggio (hotel, luogo)"
+
+msgid "Vorschau – nicht gespeichert"
+msgstr "Anteprima – non salvato"
+
+msgid "Vorschau, nicht gespeichert. %1"
+msgstr "Anteprima, non salvato. %1"
+
+msgid "Vorschuss"
+msgstr "Anticipo"
+
+msgid "Vorschuss und Auszahlung"
+msgstr "Anticipo e pagamento"
+
+msgid "Vorschuss und Auszahlung speichern"
+msgstr "Salva anticipo e pagamento"
+
+msgid "Vorschuss: %1 · Abzüge: %2 · Auszahlungsbetrag: %3"
+msgstr "Anticipo: %1 · Detrazioni: %2 · Importo da pagare: %3"
+
+msgid "Vorschuss: %1 · Auszahlungsbetrag: %2"
+msgstr "Anticipo: %1 · Importo da pagare: %2"
+
+msgid "Weitere Kosten"
+msgstr "Altri costi"
+
+msgid "Wie soll abgerechnet werden?"
+msgstr "Come deve essere regolato?"
+
+msgid "Zeile gespeichert."
+msgstr "Riga salvata."
+
+msgid "Zeile speichern"
+msgstr "Salva riga"
+
+msgid "Ziel / Zweck (optional)"
+msgstr "Destinazione / scopo (facoltativo)"
+
+msgid "Zuschlag je Mitfahrer (EUR/km)"
+msgstr "Supplemento per passeggero (EUR/km)"
+
+msgid "Zwischensumme"
+msgstr "Subtotale"
+
+msgid "Zwischensumme %1, Abzüge %2, Vorschuss %3, Auszahlungsbetrag %4."
+msgstr "Subtotale %1, detrazioni %2, anticipo %3, importo da pagare %4."
+
+msgid "ab 00:00"
+msgstr "dalle 00:00"
+
+msgid "bis 24:00"
+msgstr "fino alle 24:00"
+
+msgid "ganztägig (24 Std.)"
+msgstr "tutto il giorno (24 h)"
+
+msgid "gesetzt durch Übernachtung mit Frühstück"
+msgstr "impostato da un pernottamento con colazione"
+
+msgid "mit Frühstück"
+msgstr "con colazione"
+
+msgid "ÖPNV"
+msgstr "Trasporto pubblico"
+
+msgid "Übernachtung"
+msgstr "Pernottamento"
+
+msgid "− %1"
+msgstr "− %1"

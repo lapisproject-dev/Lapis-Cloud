@@ -79,6 +79,8 @@ class TravelExpensePostingBridgeTest :
                 OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
                     it[travelMileageRatePerKm] = null
                     it[travelPerDiemRate] = null
+                    it[travelAdvanceAccountId] = null
+                    it[travelDonationWaiverAccountId] = null
                 }
                 val reportIds =
                     if (createdMemberIds.isEmpty()) {
@@ -337,6 +339,191 @@ class TravelExpensePostingBridgeTest :
                             }.count()
                     }
                 auditCount shouldBe 1L
+            }
+        }
+
+        fun setExtraMapping(
+            advanceAccountId: Uuid?,
+            waiverAccountId: Uuid?,
+        ) {
+            transaction {
+                OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                    it[travelAdvanceAccountId] = advanceAccountId
+                    it[travelDonationWaiverAccountId] = waiverAccountId
+                }
+            }
+        }
+
+        suspend fun HttpClient.submittedReportWith(
+            subjectId: Uuid,
+            advanceCents: Long,
+            payout: String,
+        ): String {
+            val draftId =
+                post(
+                    "/test/travelexpense/create?subjectMemberId=$subjectId&purpose=Reise&from=2026-01-05&to=2026-01-05" +
+                        "&advance=$advanceCents&payout=$payout",
+                ) { header("X-Member-Id", subjectId.toString()) }.bodyAsText().split("|")[0]
+            post("/test/travelexpense/addline?reportId=$draftId&kind=MILEAGE&description=Fahrt&kilometers=100") {
+                header("X-Member-Id", subjectId.toString())
+            }
+            post("/test/travelexpense/submit?id=$draftId") { header("X-Member-Id", subjectId.toString()) }
+            return draftId
+        }
+
+        suspend fun HttpClient.decide(reportId: String): List<String> =
+            post("/test/travelexpense/decide?id=$reportId&approve=true&note=Genehmigt") { header("X-Member-Id", BOARD_ID) }
+                .bodyAsText()
+                .split("|")
+
+        fun creditsOf(journalEntryId: String): Map<Uuid, BigDecimal> =
+            transaction {
+                PostingTable
+                    .selectAll()
+                    .where { (PostingTable.journalEntryId eq Uuid.parse(journalEntryId)) and (PostingTable.side eq PostingSide.CREDIT) }
+                    .associate { it[PostingTable.ledgerAccountId] to it[PostingTable.amount] }
+            }
+
+        test("V1.9.122 advance: credit side splits into bank (total - advance) and advance account; debits still sum to the total") {
+            testApplication {
+                application {
+                    install(StatusPages) { installTravelExpenseExceptionHandlers() }
+                    routing { registerTravelExpenseTestRoutes() }
+                }
+                val expenseAccount = newLedgerAccount(LedgerAccountType.EXPENSE)
+                val bankAccount = newLedgerAccount(LedgerAccountType.ASSET)
+                val advanceAccount = newLedgerAccount(LedgerAccountType.ASSET)
+                setMapping(expenseAccount, bankAccount)
+                setExtraMapping(advanceAccount, null)
+                val subject = newMember()
+                val reportId = client.submittedReportWith(subject, advanceCents = 1000, payout = "PAYOUT")
+                val decided = client.decide(reportId)
+                decided[2] shouldBe TravelExpenseReportStatus.EXECUTED.name
+                val credits = creditsOf(decided[13])
+                credits shouldBe mapOf(bankAccount to BigDecimal("20.00"), advanceAccount to BigDecimal("10.00"))
+                val debitSum =
+                    transaction {
+                        PostingTable
+                            .selectAll()
+                            .where { (PostingTable.journalEntryId eq Uuid.parse(decided[13])) and (PostingTable.side eq PostingSide.DEBIT) }
+                            .sumOf { it[PostingTable.amount] }
+                    }
+                debitSum.compareTo(BigDecimal("30.00")) shouldBe 0
+                setExtraMapping(null, null)
+            }
+        }
+
+        test("V1.9.122 advance without a configured advance account -> travel_advance_account_not_configured, retry after config books") {
+            testApplication {
+                application {
+                    install(StatusPages) { installTravelExpenseExceptionHandlers() }
+                    routing { registerTravelExpenseTestRoutes() }
+                }
+                val expenseAccount = newLedgerAccount(LedgerAccountType.EXPENSE)
+                val bankAccount = newLedgerAccount(LedgerAccountType.ASSET)
+                setMapping(expenseAccount, bankAccount)
+                setExtraMapping(null, null)
+                val subject = newMember()
+                val reportId = client.submittedReportWith(subject, advanceCents = 1000, payout = "PAYOUT")
+                val decided = client.decide(reportId)
+                decided[2] shouldBe TravelExpenseReportStatus.APPROVED.name
+                decided[14] shouldBe "travel_advance_account_not_configured"
+                decided[13] shouldBe "-"
+
+                setExtraMapping(newLedgerAccount(LedgerAccountType.ASSET), null)
+                val retried =
+                    client.post("/test/travelexpense/retry?id=$reportId") { header("X-Member-Id", ADMIN_ID) }.bodyAsText().split("|")
+                retried[2] shouldBe TravelExpenseReportStatus.EXECUTED.name
+                setExtraMapping(null, null)
+            }
+        }
+
+        test("V1.9.122 advance == total: payout is 0, NO bank posting, the bank account is not even required") {
+            testApplication {
+                application {
+                    install(StatusPages) { installTravelExpenseExceptionHandlers() }
+                    routing { registerTravelExpenseTestRoutes() }
+                }
+                val expenseAccount = newLedgerAccount(LedgerAccountType.EXPENSE)
+                val advanceAccount = newLedgerAccount(LedgerAccountType.ASSET)
+                setMapping(expenseAccount, null)
+                setExtraMapping(advanceAccount, null)
+                val subject = newMember()
+                val reportId = client.submittedReportWith(subject, advanceCents = 3000, payout = "PAYOUT")
+                val decided = client.decide(reportId)
+                decided[2] shouldBe TravelExpenseReportStatus.EXECUTED.name
+                creditsOf(decided[13]) shouldBe mapOf(advanceAccount to BigDecimal("30.00"))
+                setExtraMapping(null, null)
+            }
+        }
+
+        test("V1.9.122 DONATION_WAIVER: credit goes to the income account, never to the bank (no money flows)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installTravelExpenseExceptionHandlers() }
+                    routing { registerTravelExpenseTestRoutes() }
+                }
+                val expenseAccount = newLedgerAccount(LedgerAccountType.EXPENSE)
+                val bankAccount = newLedgerAccount(LedgerAccountType.ASSET)
+                val waiverAccount = newLedgerAccount(LedgerAccountType.INCOME)
+                setMapping(expenseAccount, bankAccount)
+                setExtraMapping(null, waiverAccount)
+                val subject = newMember()
+                val reportId = client.submittedReportWith(subject, advanceCents = 0, payout = "DONATION_WAIVER")
+                val decided = client.decide(reportId)
+                decided[2] shouldBe TravelExpenseReportStatus.EXECUTED.name
+                creditsOf(decided[13]) shouldBe mapOf(waiverAccount to BigDecimal("30.00"))
+                setExtraMapping(null, null)
+            }
+        }
+
+        test("V1.9.122 DONATION_WAIVER without / with a wrong-typed waiver account -> degrading codes, then retry books") {
+            testApplication {
+                application {
+                    install(StatusPages) { installTravelExpenseExceptionHandlers() }
+                    routing { registerTravelExpenseTestRoutes() }
+                }
+                val expenseAccount = newLedgerAccount(LedgerAccountType.EXPENSE)
+                val bankAccount = newLedgerAccount(LedgerAccountType.ASSET)
+                setMapping(expenseAccount, bankAccount)
+                setExtraMapping(null, null)
+                val subject = newMember()
+                val reportId = client.submittedReportWith(subject, advanceCents = 0, payout = "DONATION_WAIVER")
+                val first = client.decide(reportId)
+                first[2] shouldBe TravelExpenseReportStatus.APPROVED.name
+                first[14] shouldBe "donation_waiver_account_not_configured"
+
+                setExtraMapping(null, newLedgerAccount(LedgerAccountType.EXPENSE))
+                val second =
+                    client.post("/test/travelexpense/retry?id=$reportId") { header("X-Member-Id", ADMIN_ID) }.bodyAsText().split("|")
+                second[2] shouldBe TravelExpenseReportStatus.APPROVED.name
+                second[14] shouldBe "donation_waiver_account_not_income_type"
+
+                setExtraMapping(null, newLedgerAccount(LedgerAccountType.INCOME))
+                val third =
+                    client.post("/test/travelexpense/retry?id=$reportId") { header("X-Member-Id", ADMIN_ID) }.bodyAsText().split("|")
+                third[2] shouldBe TravelExpenseReportStatus.EXECUTED.name
+                setExtraMapping(null, null)
+            }
+        }
+
+        test("V1.9.122 DONATION_WAIVER with an advance: advance account + waiver account, still balanced") {
+            testApplication {
+                application {
+                    install(StatusPages) { installTravelExpenseExceptionHandlers() }
+                    routing { registerTravelExpenseTestRoutes() }
+                }
+                val expenseAccount = newLedgerAccount(LedgerAccountType.EXPENSE)
+                val advanceAccount = newLedgerAccount(LedgerAccountType.ASSET)
+                val waiverAccount = newLedgerAccount(LedgerAccountType.INCOME)
+                setMapping(expenseAccount, null)
+                setExtraMapping(advanceAccount, waiverAccount)
+                val subject = newMember()
+                val reportId = client.submittedReportWith(subject, advanceCents = 1000, payout = "DONATION_WAIVER")
+                val decided = client.decide(reportId)
+                decided[2] shouldBe TravelExpenseReportStatus.EXECUTED.name
+                creditsOf(decided[13]) shouldBe mapOf(advanceAccount to BigDecimal("10.00"), waiverAccount to BigDecimal("20.00"))
+                setExtraMapping(null, null)
             }
         }
     })

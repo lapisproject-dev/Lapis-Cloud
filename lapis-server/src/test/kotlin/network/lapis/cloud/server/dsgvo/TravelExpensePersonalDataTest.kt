@@ -15,14 +15,18 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.TravelExpenseLineKind
+import network.lapis.cloud.shared.domain.TravelExpensePayoutChoice
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import java.math.BigDecimal
+import java.time.LocalTime
 import kotlin.uuid.Uuid
 
 /**
@@ -146,6 +150,66 @@ class TravelExpensePersonalDataTest :
             reportOutcome.rowsAnonymized shouldBe 1
             reportOutcome.rowsDeleted shouldBe 0
             reportOutcome.retentionReason.shouldNotBeBlank()
+        }
+
+        test(
+            "V1.9.122: export carries the new fields; erasing a REQUESTED report nulls destination and membership snapshot but keeps times, meals and amounts",
+        ) {
+            val subject = newMember()
+            val reportId =
+                newReport(subject, status = TravelExpenseReportStatus.REQUESTED, submittedAt = DbClock.nowLocalDateTime())
+            transaction {
+                TravelExpenseReportTable.update({ TravelExpenseReportTable.id eq reportId }) {
+                    it[advanceAmount] = BigDecimal("10.00")
+                    it[payoutChoice] = TravelExpensePayoutChoice.DONATION_WAIVER
+                    it[membershipNumberSnapshot] = "M-4711"
+                }
+                TravelExpenseLineTable.insert {
+                    it[TravelExpenseLineTable.id] = Uuid.random()
+                    it[TravelExpenseLineTable.reportId] = reportId
+                    it[kind] = TravelExpenseLineKind.DAY_ALLOWANCE
+                    it[description] = "Berlin"
+                    it[destination] = "Berlin"
+                    it[dayDate] = LocalDate(2026, 1, 5)
+                    it[timeFrom] = LocalTime.of(8, 0)
+                    it[timeTo] = LocalTime.of(17, 0)
+                    it[breakfastProvided] = true
+                    it[lunchProvided] = false
+                    it[dinnerProvided] = false
+                    it[computedMinutes] = 540
+                    it[baseAmount] = BigDecimal("6.00")
+                    it[deductionAmount] = BigDecimal("5.60")
+                    it[amount] = BigDecimal("0.40")
+                    it[createdAt] = DbClock.nowLocalDateTime()
+                }
+            }
+
+            val exported = transaction { TravelExpensePersonalData.exportMember(subject).toString() }
+            exported.contains("\"membershipNumberSnapshot\":\"M-4711\"") shouldBe true
+            exported.contains("\"payoutChoice\":\"DONATION_WAIVER\"") shouldBe true
+            exported.contains("\"destination\":\"Berlin\"") shouldBe true
+            exported.contains("\"breakfastProvided\":true") shouldBe true
+
+            transaction { TravelExpensePersonalData.eraseMember(memberId = subject, mode = ErasureMode.ANONYMIZE) }
+
+            val report = transaction { TravelExpenseReportTable.selectAll().where { TravelExpenseReportTable.id eq reportId }.single() }
+            report[TravelExpenseReportTable.membershipNumberSnapshot] shouldBe null
+            report[TravelExpenseReportTable.advanceAmount] shouldBe BigDecimal("10.00")
+            report[TravelExpenseReportTable.payoutChoice] shouldBe TravelExpensePayoutChoice.DONATION_WAIVER
+            val day =
+                transaction {
+                    TravelExpenseLineTable
+                        .selectAll()
+                        .where {
+                            (TravelExpenseLineTable.reportId eq reportId) and
+                                (TravelExpenseLineTable.kind eq TravelExpenseLineKind.DAY_ALLOWANCE)
+                        }.single()
+                }
+            day[TravelExpenseLineTable.destination] shouldBe null
+            day[TravelExpenseLineTable.description] shouldBe "[gelöscht]"
+            day[TravelExpenseLineTable.timeFrom] shouldBe LocalTime.of(8, 0)
+            day[TravelExpenseLineTable.breakfastProvided] shouldBe true
+            day[TravelExpenseLineTable.amount] shouldBe BigDecimal("0.40")
         }
 
         test(

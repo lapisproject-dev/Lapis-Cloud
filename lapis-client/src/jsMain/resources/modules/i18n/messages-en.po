@@ -11164,10 +11164,6 @@ msgid "%1 hinzufügen"
 msgstr "Add %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "%1 km × %2/km"
-msgstr "%1 km × %2/km"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "%1 Tage × %2"
 msgstr "%1 days × %2"
 
@@ -11199,14 +11195,6 @@ msgstr "Upload receipt"
 msgid "Beleg-Kosten"
 msgstr "Receipted expense"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Beispiel: 0.30. Leer lassen, um den Satz zu löschen."
-msgstr "Example: 0.30. Leave blank to clear the rate."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Beispiel: 14.00. Leer lassen, um den Satz zu löschen."
-msgstr "Example: 14.00. Leave blank to clear the rate."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Bitte eine Beschreibung angeben."
 msgstr "Please enter a description."
@@ -11214,10 +11202,6 @@ msgstr "Please enter a description."
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
 msgid "Bitte eine gültige Tagespauschale angeben (z. B. 14.00)."
 msgstr "Please enter a valid per diem (e.g. 14.00)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Bitte einen gültigen Kilometersatz angeben (z. B. 0.30)."
-msgstr "Please enter a valid mileage rate (e.g. 0.30)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Buchung fehlgeschlagen"
@@ -11267,10 +11251,6 @@ msgstr "The posting failed (unknown cause). Please contact the administration."
 msgid "Die Datei ist zu groß (maximal 10 MB)."
 msgstr "The file is too large (maximum 10 MB)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Diese Sätze werden nicht automatisch an Gesetzesänderungen angepasst."
-msgstr "These rates are not automatically adjusted to changes in the law."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Die Tagespauschale ist nicht konfiguriert."
 msgstr "The per-diem rate is not configured."
@@ -11278,10 +11258,6 @@ msgstr "The per-diem rate is not configured."
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Die Überweisung veranlasst die Kasse separat — dieser Antrag löst keine Zahlung aus."
 msgstr "The treasury arranges the transfer separately — this request does not trigger a payment."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Ein Antrag ist möglich, aber die Buchung scheitert, bis eine Administratorin oder ein Administrator die Kontenzuordnung vervollständigt."
-msgstr "A request is possible, but posting will fail until an administrator completes the account mapping."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Eines der zugeordneten Konten ist nicht mehr aktiv -- bitte einen ADMIN informieren."
@@ -11299,17 +11275,9 @@ msgstr "Save draft"
 msgid "Es liegt bereits ein Entwurf vor -- bitte diesen zuerst einreichen oder zurückziehen, bevor ein neuer Entwurf aus dieser Ablehnung kopiert wird."
 msgstr "There is already an open draft -- please submit or withdraw it first before copying a new draft from this rejection."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Es sind noch keine Sätze konfiguriert -- bitte eine Administratorin oder einen Administrator informieren."
-msgstr "No rates are configured yet -- please inform an administrator."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Fahrt"
 msgstr "Trip"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Fahrtkosten: %1 · Tagespauschalen: %2 · Belegkosten: %3 · Gesamt: %4"
-msgstr "Mileage: %1 · Per diems: %2 · Receipted expenses: %3 · Total: %4"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Für diese Buchung wird ein Belegverweis benötigt -- bitte einen ADMIN informieren."
@@ -11326,10 +11294,6 @@ msgstr "Every receipted-expense line needs at least one receipt."
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Kilometer"
 msgstr "Kilometers"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Kilometersatz: %1 · Tagespauschale: %2"
-msgstr "Mileage rate: %1 · Per diem: %2"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
 msgid "Kilometersatz (EUR/km)"
@@ -11360,10 +11324,6 @@ msgid "Noch keine eingereichten Anträge."
 msgstr "No submitted requests yet."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Noch keine Zeilen erfasst."
-msgstr "No lines recorded yet."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Reisekosten"
 msgstr "Travel expenses"
 
@@ -11375,14 +11335,6 @@ msgstr "Travel expense approvals"
 msgid "Sätze"
 msgstr "Rates"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Sätze gespeichert."
-msgstr "Rates saved."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Sätze speichern"
-msgstr "Save rates"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Tage"
 msgstr "Days"
@@ -11390,14 +11342,6 @@ msgstr "Days"
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Tagespauschale"
 msgstr "Per diem"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Tagespauschale (EUR)"
-msgstr "Per diem (EUR)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Tagespauschale ist noch nicht konfiguriert."
-msgstr "The per-diem rate is not configured yet."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Zeile entfernen"
@@ -16797,16 +16741,13 @@ msgstr "Reply has been sent."
 msgid "Keine Straße, keine Hausnummer -- den genauen Treffpunkt vereinbaren Sie per Nachricht."
 msgstr "No street, no house number -- arrange the exact meeting point by message."
 
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:219
 msgid "Hallo, ich interessiere mich für Ihre Fahrt %1 → %2 am %3."
 msgstr "Hello, I am interested in your ride %1 → %2 on %3."
 
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:57
 msgid "Noch keine eigenen Einträge."
 msgstr "No own entries yet."
-
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:86
 msgid "Keine Fahrten der Art \"%1\"."
@@ -17147,12 +17088,10 @@ msgstr "This member is not eligible as a regional chapter officer (status must b
 msgid "Landesverband wird noch verwendet -- bitte Ansicht aktualisieren."
 msgstr "Regional chapter is still in use -- please refresh the view."
 
-
 msgid "%1 Mitglied ohne Landesverband"
 msgid_plural "%1 Mitglieder ohne Landesverband"
 msgstr[0] "%1 member without a regional chapter"
 msgstr[1] "%1 members without a regional chapter"
-
 
 msgid "Auswertung der Nachrichten (freiwillig)"
 msgstr "Message statistics (optional)"
@@ -18376,7 +18315,6 @@ msgstr "Prepared motions"
 
 msgid "Das Gebot übersteigt Ihr verfügbares Guthaben."
 msgstr "The bid exceeds your available balance."
-
 
 msgid "Machen Sie Vorschläge: Jede Option, die hier steht, wird später von allen bewertet."
 msgstr "Make proposals: every option listed here will later be rated by everyone."
@@ -22863,3 +22801,367 @@ msgstr "Country and nationality reconciled"
 
 msgid "Land und Staatsangehörigkeit abgeglichen. Land: %1 erkannt, %2 angewendet, %3 offen, %4 mehrdeutig. Staatsangehörigkeit: %5 erkannt, %6 angewendet, %7 offen, %8 mehrdeutig."
 msgstr "Country and nationality reconciled. Country: %1 recognised, %2 applied, %3 open, %4 ambiguous. Nationality: %5 recognised, %6 applied, %7 open, %8 ambiguous."
+
+# Welle V1.9.122 "Reisekostenabrechnung nach PdV-Formular" -- angehaengt, nicht alphabetisch einsortiert.
+msgid "%1 Nächte ab %2%3"
+msgstr "%1 nights from %2%3"
+
+msgid "%1 km × %2/km, %3 Mitfahrer"
+msgstr "%1 km × %2/km, %3 passengers"
+
+msgid ", mit Frühstück"
+msgstr ", with breakfast"
+
+msgid "Abendessen (% von Stufe 3)"
+msgstr "Dinner (% of tier 3)"
+
+msgid "Abendessen gestellt"
+msgstr "Dinner provided"
+
+msgid "Abfahrt (Uhrzeit)"
+msgstr "Departure (time)"
+
+msgid "Abzug für gestellte Mahlzeiten"
+msgstr "Deduction for meals provided"
+
+msgid "Abzüge"
+msgstr "Deductions"
+
+msgid "Alternativ: alte Excel-Vorlage oder E-Mail an den Finanzvorstand."
+msgstr "Alternatively: the old Excel template or an e-mail to the treasurer."
+
+msgid "Ansprechpartner für Reisekosten"
+msgstr "Contact person for travel expenses"
+
+msgid "Anzahl der Mitfahrenden, 0 bis 8."
+msgstr "Number of passengers, 0 to 8."
+
+msgid "Auszahlen"
+msgstr "Pay out"
+
+msgid "Auszahlungsbetrag"
+msgstr "Payout amount"
+
+msgid "Basis"
+msgstr "Base"
+
+msgid "Beispiel: 0,02. Höchstens 0,20."
+msgstr "Example: 0.02. At most 0.20."
+
+msgid "Beispiel: 0,30. Leer lassen, wenn keine Kilometer abgerechnet werden. Höchstens 1,00."
+msgstr "Example: 0.30. Leave empty if no kilometres are claimed. At most 1.00."
+
+msgid "Bereits erhaltener Vorschuss (EUR)"
+msgstr "Advance already received (EUR)"
+
+msgid "Bewirtung"
+msgstr "Hospitality"
+
+msgid "Bitte nur Ziffern, Leerzeichen und + ( ) / - verwenden."
+msgstr "Please use only digits, spaces and + ( ) / -."
+
+msgid "Bitte prüfen Sie die Eingaben."
+msgstr "Please check your entries."
+
+msgid "Bitte speichern Sie zuerst die Reisetage."
+msgstr "Please save the travel days first."
+
+msgid "Bitte tragen Sie für jeden Reisetag die Uhrzeiten ein und speichern Sie."
+msgstr "Please enter the times for every travel day and save."
+
+msgid "Bitte wählen Sie, ob ausgezahlt oder auf die Erstattung verzichtet werden soll."
+msgstr "Please choose whether to be paid out or to waive the reimbursement."
+
+msgid "Bitte wählen Sie, wie abgerechnet werden soll (Auszahlung oder Spendenquittung)."
+msgstr "Please choose how to settle (payout or donation receipt)."
+
+msgid "Das Ertragskonto für Aufwandsspenden ist noch nicht zugeordnet -- bitte einen ADMIN informieren."
+msgstr "The income account for expense donations has not been mapped yet -- please inform an ADMIN."
+
+msgid "Das Konto für Aufwandsspenden hat den falschen Kontentyp -- bitte einen ADMIN informieren."
+msgstr "The account for expense donations has the wrong account type -- please inform an ADMIN."
+
+msgid "Das Konto für bereits gezahlte Vorschüsse ist noch nicht zugeordnet -- bitte einen ADMIN informieren."
+msgstr "The account for advances already paid has not been mapped yet -- please inform an ADMIN."
+
+msgid "Dauer: "
+msgstr "Duration: "
+
+msgid "Der Kilometersatz ist noch nicht konfiguriert -- bitte die Verwaltung der Instanz informieren."
+msgstr "The kilometre rate has not been configured yet -- please inform the administration of this instance."
+
+msgid "Der Vorschuss ist höher als die Abrechnung -- bitte wenden Sie sich an den Ansprechpartner."
+msgstr "The advance is higher than the claim -- please contact the contact person."
+
+msgid "Der Vorschuss ist höher als die Abrechnung. Bitte wenden Sie sich an den Ansprechpartner."
+msgstr "The advance is higher than the claim. Please contact the contact person."
+
+msgid "Die Beträge dürfen von Stufe zu Stufe nicht sinken."
+msgstr "The amounts must not decrease from tier to tier."
+
+msgid "Die Frist für diese Reise (%1) ist überschritten. Sie können trotzdem einreichen -- die Verwaltung entscheidet."
+msgstr "The deadline for this trip (%1) has passed. You can still submit -- the administration decides."
+
+msgid "Die Rückkehr darf nicht vor der Abfahrt liegen."
+msgstr "The return must not be before the departure."
+
+msgid "Die Standardwerte stammen aus der PdV-Vorlage (Reisekostenabrechnung 2024, Hinweise vom 23.07.2025) und sind vorläufig. Sie entsprechen nicht den gesetzlichen Pauschalen (14 € / 28 €). Bitte prüfen Sie sie, bevor Mitglieder abrechnen."
+msgstr "The default values come from the PdV template (travel expense form 2024, notes of 23.07.2025) and are provisional. They do not correspond to the statutory flat rates (€14 / €28). Please review them before members submit claims."
+
+msgid "Die Stunden müssen von Stufe zu Stufe größer werden."
+msgstr "The hours must increase from tier to tier."
+
+msgid "Die Zuwendungsbestätigung wird außerhalb von Lapis ausgestellt."
+msgstr "The donation receipt is issued outside Lapis."
+
+msgid "Die Übernachtungen müssen innerhalb der Reise liegen."
+msgstr "The overnight stays must lie within the trip."
+
+msgid "Diese Angaben sehen alle Mitglieder auf der Seite Reisekosten."
+msgstr "All members see these details on the travel expenses page."
+
+msgid "Ein Antrag ist möglich, aber die Buchung scheitert, bis die Verwaltung der Instanz die Kontenzuordnung vervollständigt."
+msgstr "A request is possible, but the booking will fail until the administration of this instance completes the account mapping."
+
+msgid "Eine Reise darf höchstens %1 Tage umfassen."
+msgstr "A trip may span at most %1 days."
+
+msgid "Einreichen bis %1"
+msgstr "Submit by %1"
+
+msgid "Einstellungen gespeichert."
+msgstr "Settings saved."
+
+msgid "Erste Nacht (JJJJ-MM-TT)"
+msgstr "First night (YYYY-MM-DD)"
+
+msgid "Ertragskonto für Aufwandsspenden"
+msgstr "Income account for expense donations"
+
+msgid "Fahrtkosten"
+msgstr "Travel costs"
+
+msgid "Frühstück (% von Stufe 3)"
+msgstr "Breakfast (% of tier 3)"
+
+msgid "Frühstück gestellt"
+msgstr "Breakfast provided"
+
+msgid "Für Tage außerhalb des neuen Zeitraums sind bereits Angaben erfasst -- bitte zuerst leeren."
+msgstr "Entries already exist for days outside the new period -- please clear them first."
+
+msgid "Für diese Reise gibt es keine Tage."
+msgstr "This trip has no days."
+
+msgid "Ganze Kilometer, 1 bis 5000."
+msgstr "Whole kilometres, 1 to 5000."
+
+msgid "Hilfe: Reisekosten abrechnen"
+msgstr "Help: submitting travel expenses"
+
+msgid "Hinweistext (Mehr erfahren)"
+msgstr "Notice text (Learn more)"
+
+msgid "Ihr Ansprechpartner für Reisekosten"
+msgstr "Your contact for travel expenses"
+
+msgid "In den Einstellungen eintragen"
+msgstr "Enter in the settings"
+
+msgid "Kartennachweis hochladen (optional)"
+msgstr "Upload route map proof (optional)"
+
+msgid "Kontaktdaten werden noch ergänzt."
+msgstr "Contact details are still to be added."
+
+msgid "Konto für bereits gezahlte Vorschüsse"
+msgstr "Account for advances already paid"
+
+msgid "Leer lassen, wenn Sie keinen Vorschuss erhalten haben. Beispiel: 50,00."
+msgstr "Leave empty if you have not received an advance. Example: 50.00."
+
+msgid "Mehr erfahren"
+msgstr "Learn more"
+
+msgid "Mitfahrer"
+msgstr "Passengers"
+
+msgid "Mitgliedsnummer: %1"
+msgstr "Membership number: %1"
+
+msgid "Mitgliedsnummer: nicht hinterlegt"
+msgstr "Membership number: not on file"
+
+msgid "Mittagessen (% von Stufe 3)"
+msgstr "Lunch (% of tier 3)"
+
+msgid "Mittagessen gestellt"
+msgstr "Lunch provided"
+
+msgid "Noch keine weiteren Kosten erfasst."
+msgstr "No further costs recorded yet."
+
+msgid "Nur Ziffern, Leerzeichen und + ( ) / -."
+msgstr "Digits, spaces and + ( ) / - only."
+
+msgid "Nur für Anträge, die vor der Umstellung angelegt wurden. Leer lassen, wenn nicht benötigt."
+msgstr "Only for requests created before the changeover. Leave empty if not needed."
+
+msgid "Nächte"
+msgstr "Nights"
+
+msgid "Nötig, sobald ein Antrag einen Vorschuss enthält."
+msgstr "Required as soon as a request includes an advance."
+
+msgid "Nötig, sobald ein Mitglied auf die Erstattung verzichtet."
+msgstr "Required as soon as a member waives the reimbursement."
+
+msgid "Reiner Text. Wird unter \"Mehr erfahren\" angezeigt."
+msgstr "Plain text. Shown under \"Learn more\"."
+
+msgid "Reisekosten rechnen Sie vorrangig hier ab."
+msgstr "Please submit your travel expenses here as a priority."
+
+msgid "Reisekosten-Einstellungen"
+msgstr "Travel expense settings"
+
+msgid "Reisekosten-Einstellungen öffnen"
+msgstr "Open travel expense settings"
+
+msgid "Reisetage"
+msgstr "Travel days"
+
+msgid "Rückkehr (Uhrzeit)"
+msgstr "Return (time)"
+
+msgid "Spendenquittung (Aufwandsverzicht)"
+msgstr "Donation receipt (waiver of reimbursement)"
+
+msgid "Spendenquittung gewünscht"
+msgstr "Donation receipt requested"
+
+msgid "Standardwerte der PdV-Vorlage übernehmen"
+msgstr "Apply the PdV template defaults"
+
+msgid "Standardwerte eingetragen. Zum Übernehmen bitte speichern."
+msgstr "Default values entered. Please save to apply them."
+
+msgid "Stufe 1: Betrag (EUR)"
+msgstr "Tier 1: amount (EUR)"
+
+msgid "Stufe 1: ab (Stunden)"
+msgstr "Tier 1: from (hours)"
+
+msgid "Stufe 2: Betrag (EUR)"
+msgstr "Tier 2: amount (EUR)"
+
+msgid "Stufe 2: ab (Stunden)"
+msgstr "Tier 2: from (hours)"
+
+msgid "Stufe 3: Betrag (EUR)"
+msgstr "Tier 3: amount (EUR)"
+
+msgid "Stufe 3: ab (Stunden)"
+msgstr "Tier 3: from (hours)"
+
+msgid "Stunden"
+msgstr "Hours"
+
+msgid "Tage gespeichert."
+msgstr "Days saved."
+
+msgid "Tage speichern"
+msgstr "Save days"
+
+msgid "Tagegeld"
+msgstr "Daily allowance"
+
+msgid "Tagegeld nach Abwesenheit"
+msgstr "Daily allowance by absence"
+
+msgid "Tagegeld: ab %1 Std. %2 · ab %3 Std. %4 · ab %5 Std. %6 · Kilometersatz: %7"
+msgstr "Daily allowance: from %1 h %2 · from %3 h %4 · from %5 h %6 · mileage rate: %7"
+
+msgid "Tagesbetrag: %1"
+msgstr "Day amount: %1"
+
+msgid "Tagesbetrag: %1 (Abzüge: %2)"
+msgstr "Day amount: %1 (deductions: %2)"
+
+msgid "Tagespauschale für Altanträge (EUR)"
+msgstr "Flat daily rate for old claims (EUR)"
+
+msgid "Telefon"
+msgstr "Phone"
+
+msgid "Unterkunft (Hotel, Ort)"
+msgstr "Accommodation (hotel, place)"
+
+msgid "Vorschau – nicht gespeichert"
+msgstr "Preview – not saved"
+
+msgid "Vorschau, nicht gespeichert. %1"
+msgstr "Preview, not saved. %1"
+
+msgid "Vorschuss"
+msgstr "Advance"
+
+msgid "Vorschuss und Auszahlung"
+msgstr "Advance and payout"
+
+msgid "Vorschuss und Auszahlung speichern"
+msgstr "Save advance and payout"
+
+msgid "Vorschuss: %1 · Abzüge: %2 · Auszahlungsbetrag: %3"
+msgstr "Advance: %1 · Deductions: %2 · Payout amount: %3"
+
+msgid "Vorschuss: %1 · Auszahlungsbetrag: %2"
+msgstr "Advance: %1 · Payout amount: %2"
+
+msgid "Weitere Kosten"
+msgstr "Further costs"
+
+msgid "Wie soll abgerechnet werden?"
+msgstr "How should this be settled?"
+
+msgid "Zeile gespeichert."
+msgstr "Line saved."
+
+msgid "Zeile speichern"
+msgstr "Save line"
+
+msgid "Ziel / Zweck (optional)"
+msgstr "Destination / purpose (optional)"
+
+msgid "Zuschlag je Mitfahrer (EUR/km)"
+msgstr "Surcharge per passenger (EUR/km)"
+
+msgid "Zwischensumme"
+msgstr "Subtotal"
+
+msgid "Zwischensumme %1, Abzüge %2, Vorschuss %3, Auszahlungsbetrag %4."
+msgstr "Subtotal %1, deductions %2, advance %3, payout amount %4."
+
+msgid "ab 00:00"
+msgstr "from 00:00"
+
+msgid "bis 24:00"
+msgstr "until 24:00"
+
+msgid "ganztägig (24 Std.)"
+msgstr "all day (24 h)"
+
+msgid "gesetzt durch Übernachtung mit Frühstück"
+msgstr "set by an overnight stay with breakfast"
+
+msgid "mit Frühstück"
+msgstr "with breakfast"
+
+msgid "ÖPNV"
+msgstr "Public transport"
+
+msgid "Übernachtung"
+msgstr "Accommodation"
+
+msgid "− %1"
+msgstr "− %1"

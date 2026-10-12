@@ -24,7 +24,9 @@ import network.lapis.cloud.server.db.generated.TravelExpenseLineTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.TravelExpenseLineKind
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.or
@@ -122,6 +124,12 @@ class TravelExpenseAuthzTest :
             post("/test/travelexpense/submit?id=$draftId") { header("X-Member-Id", actorHeader) }
             return draftId
         }
+
+        suspend fun post(
+            client: HttpClient,
+            url: String,
+            actor: Any,
+        ) = client.post(url) { header("X-Member-Id", actor.toString()) }
 
         // ── Role gates ─────────────────────────────────────────────────────────────
 
@@ -334,6 +342,97 @@ class TravelExpenseAuthzTest :
                     TravelExpenseLineTable.deleteWhere { TravelExpenseLineTable.reportId eq Uuid.parse(reportId) }
                     TravelExpenseReportTable.deleteWhere { TravelExpenseReportTable.id eq Uuid.parse(reportId) }
                 }
+            }
+        }
+
+        // ── V1.9.122 ────────────────────────────────────────────────────────────────
+
+        test("V1.9.122 IDOR: a foreign MEMBER gets 403 on saveDays and updateLine of someone else's DRAFT, the subject gets 200") {
+            testApplication {
+                application {
+                    install(StatusPages) { installTravelExpenseExceptionHandlers() }
+                    routing { registerTravelExpenseTestRoutes() }
+                }
+                val owner = newMember()
+                val stranger = newMember()
+                val draftId =
+                    post(client, "/test/travelexpense/create?subjectMemberId=$owner&purpose=Reise&from=2026-01-05&to=2026-01-05", owner)
+                        .bodyAsText()
+                        .split("|")[0]
+                post(client, "/test/travelexpense/addline?reportId=$draftId&kind=OTHER&description=Beleg&amountCents=500", owner)
+                val lineId =
+                    transaction {
+                        TravelExpenseLineTable
+                            .selectAll()
+                            .where {
+                                (TravelExpenseLineTable.reportId eq Uuid.parse(draftId)) and
+                                    (TravelExpenseLineTable.kind eq TravelExpenseLineKind.OTHER)
+                            }.single()[TravelExpenseLineTable.id]
+                    }
+                post(client, "/test/travelexpense/savedays?id=$draftId&days=2026-01-05@08:00-17:00", stranger).status shouldBe
+                    HttpStatusCode.Forbidden
+                post(
+                    client,
+                    "/test/travelexpense/updateline?lineId=$lineId&kind=OTHER&description=x&amountCents=900",
+                    stranger,
+                ).status shouldBe HttpStatusCode.Forbidden
+                // BOARD/ADMIN have NO bypass on someone else's DRAFT either.
+                post(client, "/test/travelexpense/savedays?id=$draftId&days=2026-01-05@08:00-17:00", BOARD_ID).status shouldBe
+                    HttpStatusCode.Forbidden
+                post(client, "/test/travelexpense/savedays?id=$draftId&days=2026-01-05@08:00-17:00", owner).status shouldBe
+                    HttpStatusCode.OK
+                post(
+                    client,
+                    "/test/travelexpense/updateline?lineId=$lineId&kind=OTHER&description=x&amountCents=900",
+                    owner,
+                ).status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test("V1.9.122 saveDays/updateLine on a SUBMITTED report -> 409, nothing is mutable after submit") {
+            testApplication {
+                application {
+                    install(StatusPages) { installTravelExpenseExceptionHandlers() }
+                    routing { registerTravelExpenseTestRoutes() }
+                }
+                val owner = newMember()
+                val reportId = client.createAndSubmit(owner, owner.toString())
+                post(client, "/test/travelexpense/savedays?id=$reportId&days=2026-01-05@08:00-17:00", owner).status shouldBe
+                    HttpStatusCode.Conflict
+            }
+        }
+
+        test("V1.9.122 updateTravelExpenseSettings: BOARD and TREASURER -> 403, ADMIN -> 200") {
+            testApplication {
+                application {
+                    install(StatusPages) { installTravelExpenseExceptionHandlers() }
+                    routing { registerTravelExpenseTestRoutes() }
+                }
+                val member = newMember()
+                listOf(member.toString(), BOARD_ID, TREASURER_ID).forEach { actor ->
+                    post(client, "/test/travelexpense/settings?mileage=30", actor).status shouldBe HttpStatusCode.Forbidden
+                }
+                post(client, "/test/travelexpense/settings?mileage=30", ADMIN_ID).status shouldBe HttpStatusCode.OK
+                setRates()
+            }
+        }
+
+        test("V1.9.122 mass assignment: client-supplied cent values for a mileage line are rejected, never trusted") {
+            testApplication {
+                application {
+                    install(StatusPages) { installTravelExpenseExceptionHandlers() }
+                    routing { registerTravelExpenseTestRoutes() }
+                }
+                val owner = newMember()
+                val draftId =
+                    post(client, "/test/travelexpense/create?subjectMemberId=$owner&purpose=Reise&from=2026-01-05&to=2026-01-05", owner)
+                        .bodyAsText()
+                        .split("|")[0]
+                post(
+                    client,
+                    "/test/travelexpense/addline?reportId=$draftId&kind=MILEAGE&description=Fahrt&kilometers=10&amountCents=999999",
+                    owner,
+                ).status shouldBe HttpStatusCode.BadRequest
             }
         }
     })

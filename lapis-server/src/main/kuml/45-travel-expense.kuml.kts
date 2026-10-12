@@ -72,10 +72,22 @@ classDiagram(name = "TravelExpense") {
     }
 
     // Literal order load-bearing, same reason as travelExpenseReportStatus.
+    // V1.9.122 appended the five literals after RECEIPTED (append only).
     val travelExpenseLineKind = enumOf(name = "TravelExpenseLineKind") {
         literal(name = "MILEAGE")
         literal(name = "PER_DIEM")
         literal(name = "RECEIPTED")
+        literal(name = "DAY_ALLOWANCE")
+        literal(name = "PUBLIC_TRANSPORT")
+        literal(name = "ACCOMMODATION")
+        literal(name = "HOSPITALITY")
+        literal(name = "OTHER")
+    }
+
+    // V1.9.122 -- literal order load-bearing, append only.
+    val travelExpensePayoutChoice = enumOf(name = "TravelExpensePayoutChoice") {
+        literal(name = "PAYOUT")
+        literal(name = "DONATION_WAIVER")
     }
 
     val travelExpenseReport = classOf(name = "TravelExpenseReport") {
@@ -155,12 +167,37 @@ classDiagram(name = "TravelExpense") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "execution_error"; "sqlType" to "VARCHAR(500)" }
         }
+        // ── V1.9.122 (V97__travel_expense_pdv_form.sql) ──
+        attribute(name = "advanceAmount", type = "BigDecimal") {
+            defaultValue = "0"
+            stereotype("Column") { "columnName" to "advance_amount"; "sqlType" to "NUMERIC(12,2)" }
+        }
+        // Mandatory at submit (application rule); NULL for drafts and pre-V97 reports.
+        attribute(name = "payoutChoice", type = travelExpensePayoutChoice) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") {
+                "columnName" to "payout_choice"
+                "enumType" to "network.lapis.cloud.shared.domain.TravelExpensePayoutChoice"
+            }
+        }
+        // Frozen at submit; cleared (NULL) by the DSGVO redaction, like member.member_number.
+        attribute(name = "membershipNumberSnapshot", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "membership_number_snapshot"; "sqlType" to "VARCHAR(16)" }
+        }
+        // JSON of TravelExpenseRateSet, frozen at submit.
+        attribute(name = "ratesSnapshot", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "rates_snapshot"; "sqlType" to "VARCHAR(2000)" }
+        }
     }
 
     val travelExpenseLine = classOf(name = "TravelExpenseLine") {
         stereotype("Entity") { "tableName" to "travel_expense_line"; "kotlinObjectName" to "TravelExpenseLineTable" }
 
         stereotype("Index") { "columns" to listOf("report_id"); "name" to "idx_tel_report" }
+        // V1.9.122 -- deliberately NOT unique, see V97 header ("one day line per day" is an application rule).
+        stereotype("Index") { "columns" to listOf("report_id", "day_date"); "name" to "idx_tel_report_day" }
 
         attribute(name = "id", type = "UUID") {
             stereotype("Id")
@@ -199,6 +236,60 @@ classDiagram(name = "TravelExpense") {
         }
         attribute(name = "createdAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "created_at" }
+        }
+        // ── V1.9.122 (V97__travel_expense_pdv_form.sql) ──
+        attribute(name = "destination", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "destination"; "sqlType" to "VARCHAR(200)" }
+        }
+        // DAY_ALLOWANCE: the travel day. ACCOMMODATION: the first night.
+        attribute(name = "dayDate", type = "LocalDate") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "day_date" }
+        }
+        // See 57-carpool.kuml.kts: ErmDataType.Time always emits java.time.LocalTime.
+        attribute(name = "timeFrom", type = "LocalTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "time_from" }
+        }
+        attribute(name = "timeTo", type = "LocalTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "time_to" }
+        }
+        attribute(name = "breakfastProvided", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "breakfast_provided" }
+        }
+        attribute(name = "lunchProvided", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "lunch_provided" }
+        }
+        attribute(name = "dinnerProvided", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "dinner_provided" }
+        }
+        // MILEAGE only.
+        attribute(name = "passengerCount", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "passenger_count" }
+        }
+        // ACCOMMODATION only; the number of nights lives in the existing `days` column.
+        attribute(name = "breakfastIncluded", type = "Boolean") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "breakfast_included" }
+        }
+        // DAY_ALLOWANCE only -- server-computed.
+        attribute(name = "computedMinutes", type = "Int") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "computed_minutes" }
+        }
+        attribute(name = "baseAmount", type = "BigDecimal") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "base_amount"; "sqlType" to "NUMERIC(12,2)" }
+        }
+        attribute(name = "deductionAmount", type = "BigDecimal") {
+            defaultValue = "0"
+            stereotype("Column") { "columnName" to "deduction_amount"; "sqlType" to "NUMERIC(12,2)" }
         }
     }
 

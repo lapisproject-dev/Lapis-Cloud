@@ -17,7 +17,7 @@ Architecture background lives in link:../architecture/[docs/architecture/]; the 
 |link:bank-statement-import.adoc[Bank Statement Import (V1.4.5.1 / V1.4.5.1.1)] |CSV and MT940 bank statement upload with matching against open contributions
 |link:datev-export.adoc[DATEV Export (V1.4.5.2)] |DATEV-EXTF Buchungsstapel export of posted journal entries
 |link:contribution-relief.adoc[Contribution relief (deferral, exemption, reduction) (V1.4.10)] |Member requests for deferral, exemption or reduction of contributions
-|link:travel-expenses.adoc[Travel expense reimbursement (V1.4.11)] |Self-service travel expense reports with mileage, per diem and receipts
+|link:travel-expenses.adoc[Travel expense reimbursement (V1.4.11, PdV form V1.9.122)] |Self-service travel expense reports following the PdV form: a day grid with tiered day allowances and meal deductions, mileage with passengers, receipted costs, advance and payout or donation waiver
 |link:volunteer-allowance.adoc[Volunteer/instructor allowance (V1.4.12)] |Tax-privileged volunteer and instructor payments with annual caps
 |link:ai-assistance.adoc[AI assistance (optional, default off) (V1.6.1)] |Optional statute Q&A with verified citations (off by default)
 |link:member-map.adoc[Member map ("Vorstands-Karte", V1.9.5-V1.9.9)] |Board-only aggregate map of member postal-code distribution

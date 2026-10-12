@@ -11212,10 +11212,6 @@ msgid "%1 hinzufügen"
 msgstr "%1 toevoegen"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "%1 km × %2/km"
-msgstr "%1 km × %2/km"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "%1 Tage × %2"
 msgstr "%1 dagen × %2"
 
@@ -11247,14 +11243,6 @@ msgstr "Bon uploaden"
 msgid "Beleg-Kosten"
 msgstr "Bonkosten"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Beispiel: 0.30. Leer lassen, um den Satz zu löschen."
-msgstr "Voorbeeld: 0.30. Laat leeg om het tarief te wissen."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Beispiel: 14.00. Leer lassen, um den Satz zu löschen."
-msgstr "Voorbeeld: 14.00. Laat leeg om het tarief te wissen."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Bitte eine Beschreibung angeben."
 msgstr "Voer een omschrijving in."
@@ -11262,10 +11250,6 @@ msgstr "Voer een omschrijving in."
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
 msgid "Bitte eine gültige Tagespauschale angeben (z. B. 14.00)."
 msgstr "Voer een geldige dagvergoeding in (bijv. 14.00)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Bitte einen gültigen Kilometersatz angeben (z. B. 0.30)."
-msgstr "Voer een geldig kilometertarief in (bijv. 0.30)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Buchung fehlgeschlagen"
@@ -11315,10 +11299,6 @@ msgstr "De boeking is mislukt (onbekende oorzaak). Neem contact op met de admini
 msgid "Die Datei ist zu groß (maximal 10 MB)."
 msgstr "Het bestand is te groot (maximaal 10 MB)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Diese Sätze werden nicht automatisch an Gesetzesänderungen angepasst."
-msgstr "Deze tarieven worden niet automatisch aangepast aan wetswijzigingen."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Die Tagespauschale ist nicht konfiguriert."
 msgstr "Het dagvergoedingstarief is niet geconfigureerd."
@@ -11326,10 +11306,6 @@ msgstr "Het dagvergoedingstarief is niet geconfigureerd."
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Die Überweisung veranlasst die Kasse separat — dieser Antrag löst keine Zahlung aus."
 msgstr "De penningmeester regelt de overboeking apart — deze aanvraag leidt niet tot een betaling."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Ein Antrag ist möglich, aber die Buchung scheitert, bis eine Administratorin oder ein Administrator die Kontenzuordnung vervollständigt."
-msgstr "Een aanvraag is mogelijk, maar de boeking mislukt totdat een beheerder de rekeningtoewijzing voltooit."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Eines der zugeordneten Konten ist nicht mehr aktiv -- bitte einen ADMIN informieren."
@@ -11347,17 +11323,9 @@ msgstr "Concept opslaan"
 msgid "Es liegt bereits ein Entwurf vor -- bitte diesen zuerst einreichen oder zurückziehen, bevor ein neuer Entwurf aus dieser Ablehnung kopiert wird."
 msgstr "Er is al een openstaand concept -- dien dit eerst in of trek het in voordat u een nieuw concept van deze afwijzing kopieert."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Es sind noch keine Sätze konfiguriert -- bitte eine Administratorin oder einen Administrator informieren."
-msgstr "Er zijn nog geen tarieven geconfigureerd -- informeer een beheerder."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Fahrt"
 msgstr "Rit"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Fahrtkosten: %1 · Tagespauschalen: %2 · Belegkosten: %3 · Gesamt: %4"
-msgstr "Kilometervergoeding: %1 · Dagvergoedingen: %2 · Bonkosten: %3 · Totaal: %4"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Für diese Buchung wird ein Belegverweis benötigt -- bitte einen ADMIN informieren."
@@ -11374,10 +11342,6 @@ msgstr "Elke bonkostenregel heeft ten minste één bon nodig."
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Kilometer"
 msgstr "Kilometers"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Kilometersatz: %1 · Tagespauschale: %2"
-msgstr "Kilometertarief: %1 · Dagvergoeding: %2"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
 msgid "Kilometersatz (EUR/km)"
@@ -11408,10 +11372,6 @@ msgid "Noch keine eingereichten Anträge."
 msgstr "Nog geen ingediende aanvragen."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Noch keine Zeilen erfasst."
-msgstr "Nog geen regels vastgelegd."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Reisekosten"
 msgstr "Reiskosten"
 
@@ -11423,14 +11383,6 @@ msgstr "Reiskostengoedkeuringen"
 msgid "Sätze"
 msgstr "Tarieven"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Sätze gespeichert."
-msgstr "Tarieven opgeslagen."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Sätze speichern"
-msgstr "Tarieven opslaan"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Tage"
 msgstr "Dagen"
@@ -11438,14 +11390,6 @@ msgstr "Dagen"
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Tagespauschale"
 msgstr "Dagvergoeding"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Tagespauschale (EUR)"
-msgstr "Dagvergoeding (EUR)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Tagespauschale ist noch nicht konfiguriert."
-msgstr "Het dagvergoedingstarief is nog niet geconfigureerd."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Zeile entfernen"
@@ -16845,16 +16789,13 @@ msgstr "Antwoord is verzonden."
 msgid "Keine Straße, keine Hausnummer -- den genauen Treffpunkt vereinbaren Sie per Nachricht."
 msgstr "Geen straat, geen huisnummer -- spreek de exacte ontmoetingsplek af via een bericht."
 
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:219
 msgid "Hallo, ich interessiere mich für Ihre Fahrt %1 → %2 am %3."
 msgstr "Hallo, ik ben geïnteresseerd in uw rit %1 → %2 op %3."
 
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:57
 msgid "Noch keine eigenen Einträge."
 msgstr "Nog geen eigen vermeldingen."
-
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:86
 msgid "Keine Fahrten der Art \"%1\"."
@@ -17195,12 +17136,10 @@ msgstr "Dit lid komt niet in aanmerking als regionaal bestuurslid (status moet a
 msgid "Landesverband wird noch verwendet -- bitte Ansicht aktualisieren."
 msgstr "Regionale afdeling wordt nog gebruikt -- ververs de weergave."
 
-
 msgid "%1 Mitglied ohne Landesverband"
 msgid_plural "%1 Mitglieder ohne Landesverband"
 msgstr[0] "%1 lid zonder regionale afdeling"
 msgstr[1] "%1 leden zonder regionale afdeling"
-
 
 msgid "Auswertung der Nachrichten (freiwillig)"
 msgstr "Statistieken van de berichten (vrijwillig)"
@@ -18424,7 +18363,6 @@ msgstr "Voorbereide voorstellen"
 
 msgid "Das Gebot übersteigt Ihr verfügbares Guthaben."
 msgstr "Het bod overschrijdt uw beschikbare saldo."
-
 
 msgid "Machen Sie Vorschläge: Jede Option, die hier steht, wird später von allen bewertet."
 msgstr "Doe voorstellen: elke optie die hier staat, wordt later door iedereen beoordeeld."
@@ -22911,3 +22849,367 @@ msgstr "Land en nationaliteit afgestemd"
 
 msgid "Land und Staatsangehörigkeit abgeglichen. Land: %1 erkannt, %2 angewendet, %3 offen, %4 mehrdeutig. Staatsangehörigkeit: %5 erkannt, %6 angewendet, %7 offen, %8 mehrdeutig."
 msgstr "Land en nationaliteit afgestemd. Land: %1 herkend, %2 toegepast, %3 open, %4 dubbelzinnig. Nationaliteit: %5 herkend, %6 toegepast, %7 open, %8 dubbelzinnig."
+
+# Welle V1.9.122 "Reisekostenabrechnung nach PdV-Formular" -- angehaengt, nicht alphabetisch einsortiert.
+msgid "%1 Nächte ab %2%3"
+msgstr "%1 nachten vanaf %2%3"
+
+msgid "%1 km × %2/km, %3 Mitfahrer"
+msgstr "%1 km × %2/km, %3 passagiers"
+
+msgid ", mit Frühstück"
+msgstr ", inclusief ontbijt"
+
+msgid "Abendessen (% von Stufe 3)"
+msgstr "Avondeten (% van niveau 3)"
+
+msgid "Abendessen gestellt"
+msgstr "Avondeten verstrekt"
+
+msgid "Abfahrt (Uhrzeit)"
+msgstr "Vertrek (tijd)"
+
+msgid "Abzug für gestellte Mahlzeiten"
+msgstr "Aftrek voor verstrekte maaltijden"
+
+msgid "Abzüge"
+msgstr "Aftrek"
+
+msgid "Alternativ: alte Excel-Vorlage oder E-Mail an den Finanzvorstand."
+msgstr "Alternatief: de oude Excel-sjabloon of een e-mail aan de penningmeester."
+
+msgid "Ansprechpartner für Reisekosten"
+msgstr "Contactpersoon voor reiskosten"
+
+msgid "Anzahl der Mitfahrenden, 0 bis 8."
+msgstr "Aantal passagiers, 0 tot 8."
+
+msgid "Auszahlen"
+msgstr "Uitbetalen"
+
+msgid "Auszahlungsbetrag"
+msgstr "Uit te betalen bedrag"
+
+msgid "Basis"
+msgstr "Basis"
+
+msgid "Beispiel: 0,02. Höchstens 0,20."
+msgstr "Voorbeeld: 0,02. Maximaal 0,20."
+
+msgid "Beispiel: 0,30. Leer lassen, wenn keine Kilometer abgerechnet werden. Höchstens 1,00."
+msgstr "Voorbeeld: 0,30. Leeg laten als er geen kilometers worden gedeclareerd. Maximaal 1,00."
+
+msgid "Bereits erhaltener Vorschuss (EUR)"
+msgstr "Reeds ontvangen voorschot (EUR)"
+
+msgid "Bewirtung"
+msgstr "Representatie"
+
+msgid "Bitte nur Ziffern, Leerzeichen und + ( ) / - verwenden."
+msgstr "Gebruik alleen cijfers, spaties en + ( ) / -."
+
+msgid "Bitte prüfen Sie die Eingaben."
+msgstr "Controleer uw invoer."
+
+msgid "Bitte speichern Sie zuerst die Reisetage."
+msgstr "Sla eerst de reisdagen op."
+
+msgid "Bitte tragen Sie für jeden Reisetag die Uhrzeiten ein und speichern Sie."
+msgstr "Vul voor elke reisdag de tijden in en sla op."
+
+msgid "Bitte wählen Sie, ob ausgezahlt oder auf die Erstattung verzichtet werden soll."
+msgstr "Kies of u wilt laten uitbetalen of afstand doet van de vergoeding."
+
+msgid "Bitte wählen Sie, wie abgerechnet werden soll (Auszahlung oder Spendenquittung)."
+msgstr "Kies hoe er wordt afgerekend (uitbetaling of schenkingsbewijs)."
+
+msgid "Das Ertragskonto für Aufwandsspenden ist noch nicht zugeordnet -- bitte einen ADMIN informieren."
+msgstr "De opbrengstrekening voor onkostenschenkingen is nog niet toegewezen -- informeer een ADMIN."
+
+msgid "Das Konto für Aufwandsspenden hat den falschen Kontentyp -- bitte einen ADMIN informieren."
+msgstr "De rekening voor onkostenschenkingen heeft het verkeerde rekeningtype -- informeer een ADMIN."
+
+msgid "Das Konto für bereits gezahlte Vorschüsse ist noch nicht zugeordnet -- bitte einen ADMIN informieren."
+msgstr "De rekening voor reeds betaalde voorschotten is nog niet toegewezen -- informeer een ADMIN."
+
+msgid "Dauer: "
+msgstr "Duur: "
+
+msgid "Der Kilometersatz ist noch nicht konfiguriert -- bitte die Verwaltung der Instanz informieren."
+msgstr "Het kilometertarief is nog niet ingesteld -- informeer het beheer van de instantie."
+
+msgid "Der Vorschuss ist höher als die Abrechnung -- bitte wenden Sie sich an den Ansprechpartner."
+msgstr "Het voorschot is hoger dan de declaratie -- neem contact op met de contactpersoon."
+
+msgid "Der Vorschuss ist höher als die Abrechnung. Bitte wenden Sie sich an den Ansprechpartner."
+msgstr "Het voorschot is hoger dan de declaratie. Neem contact op met de contactpersoon."
+
+msgid "Die Beträge dürfen von Stufe zu Stufe nicht sinken."
+msgstr "De bedragen mogen van niveau tot niveau niet dalen."
+
+msgid "Die Frist für diese Reise (%1) ist überschritten. Sie können trotzdem einreichen -- die Verwaltung entscheidet."
+msgstr "De termijn voor deze reis (%1) is verstreken. U kunt toch indienen -- het beheer beslist."
+
+msgid "Die Rückkehr darf nicht vor der Abfahrt liegen."
+msgstr "De terugkeer mag niet voor het vertrek liggen."
+
+msgid "Die Standardwerte stammen aus der PdV-Vorlage (Reisekostenabrechnung 2024, Hinweise vom 23.07.2025) und sind vorläufig. Sie entsprechen nicht den gesetzlichen Pauschalen (14 € / 28 €). Bitte prüfen Sie sie, bevor Mitglieder abrechnen."
+msgstr "De standaardwaarden komen uit de PdV-sjabloon (reiskostenformulier 2024, aanwijzingen van 23.07.2025) en zijn voorlopig. Ze komen niet overeen met de wettelijke forfaits (€ 14 / € 28). Controleer ze voordat leden declareren."
+
+msgid "Die Stunden müssen von Stufe zu Stufe größer werden."
+msgstr "De uren moeten van niveau tot niveau toenemen."
+
+msgid "Die Zuwendungsbestätigung wird außerhalb von Lapis ausgestellt."
+msgstr "Het schenkingsbewijs wordt buiten Lapis om uitgereikt."
+
+msgid "Die Übernachtungen müssen innerhalb der Reise liegen."
+msgstr "De overnachtingen moeten binnen de reis vallen."
+
+msgid "Diese Angaben sehen alle Mitglieder auf der Seite Reisekosten."
+msgstr "Alle leden zien deze gegevens op de pagina Reiskosten."
+
+msgid "Ein Antrag ist möglich, aber die Buchung scheitert, bis die Verwaltung der Instanz die Kontenzuordnung vervollständigt."
+msgstr "Een aanvraag is mogelijk, maar de boeking mislukt totdat het beheer van de instantie de rekeningtoewijzing heeft voltooid."
+
+msgid "Eine Reise darf höchstens %1 Tage umfassen."
+msgstr "Een reis mag maximaal %1 dagen duren."
+
+msgid "Einreichen bis %1"
+msgstr "Indienen vóór %1"
+
+msgid "Einstellungen gespeichert."
+msgstr "Instellingen opgeslagen."
+
+msgid "Erste Nacht (JJJJ-MM-TT)"
+msgstr "Eerste nacht (JJJJ-MM-DD)"
+
+msgid "Ertragskonto für Aufwandsspenden"
+msgstr "Opbrengstrekening voor onkostenschenkingen"
+
+msgid "Fahrtkosten"
+msgstr "Reiskosten (vervoer)"
+
+msgid "Frühstück (% von Stufe 3)"
+msgstr "Ontbijt (% van niveau 3)"
+
+msgid "Frühstück gestellt"
+msgstr "Ontbijt verstrekt"
+
+msgid "Für Tage außerhalb des neuen Zeitraums sind bereits Angaben erfasst -- bitte zuerst leeren."
+msgstr "Er zijn al gegevens voor dagen buiten de nieuwe periode -- leeg die eerst."
+
+msgid "Für diese Reise gibt es keine Tage."
+msgstr "Deze reis heeft geen dagen."
+
+msgid "Ganze Kilometer, 1 bis 5000."
+msgstr "Hele kilometers, 1 tot 5000."
+
+msgid "Hilfe: Reisekosten abrechnen"
+msgstr "Help: reiskosten declareren"
+
+msgid "Hinweistext (Mehr erfahren)"
+msgstr "Hinttekst (Meer informatie)"
+
+msgid "Ihr Ansprechpartner für Reisekosten"
+msgstr "Uw contactpersoon voor reiskosten"
+
+msgid "In den Einstellungen eintragen"
+msgstr "In de instellingen invullen"
+
+msgid "Kartennachweis hochladen (optional)"
+msgstr "Routebewijs uploaden (optioneel)"
+
+msgid "Kontaktdaten werden noch ergänzt."
+msgstr "De contactgegevens worden nog aangevuld."
+
+msgid "Konto für bereits gezahlte Vorschüsse"
+msgstr "Rekening voor reeds betaalde voorschotten"
+
+msgid "Leer lassen, wenn Sie keinen Vorschuss erhalten haben. Beispiel: 50,00."
+msgstr "Laat leeg als u geen voorschot hebt ontvangen. Voorbeeld: 50,00."
+
+msgid "Mehr erfahren"
+msgstr "Meer informatie"
+
+msgid "Mitfahrer"
+msgstr "Passagiers"
+
+msgid "Mitgliedsnummer: %1"
+msgstr "Lidnummer: %1"
+
+msgid "Mitgliedsnummer: nicht hinterlegt"
+msgstr "Lidnummer: niet vastgelegd"
+
+msgid "Mittagessen (% von Stufe 3)"
+msgstr "Lunch (% van niveau 3)"
+
+msgid "Mittagessen gestellt"
+msgstr "Lunch verstrekt"
+
+msgid "Noch keine weiteren Kosten erfasst."
+msgstr "Nog geen overige kosten vastgelegd."
+
+msgid "Nur Ziffern, Leerzeichen und + ( ) / -."
+msgstr "Alleen cijfers, spaties en + ( ) / -."
+
+msgid "Nur für Anträge, die vor der Umstellung angelegt wurden. Leer lassen, wenn nicht benötigt."
+msgstr "Alleen voor aanvragen die vóór de omschakeling zijn aangemaakt. Leeg laten indien niet nodig."
+
+msgid "Nächte"
+msgstr "Nachten"
+
+msgid "Nötig, sobald ein Antrag einen Vorschuss enthält."
+msgstr "Vereist zodra een aanvraag een voorschot bevat."
+
+msgid "Nötig, sobald ein Mitglied auf die Erstattung verzichtet."
+msgstr "Vereist zodra een lid afstand doet van de vergoeding."
+
+msgid "Reiner Text. Wird unter \"Mehr erfahren\" angezeigt."
+msgstr "Platte tekst. Wordt getoond onder \"Meer informatie\"."
+
+msgid "Reisekosten rechnen Sie vorrangig hier ab."
+msgstr "Declareer uw reiskosten bij voorkeur hier."
+
+msgid "Reisekosten-Einstellungen"
+msgstr "Instellingen reiskosten"
+
+msgid "Reisekosten-Einstellungen öffnen"
+msgstr "Instellingen reiskosten openen"
+
+msgid "Reisetage"
+msgstr "Reisdagen"
+
+msgid "Rückkehr (Uhrzeit)"
+msgstr "Terugkeer (tijd)"
+
+msgid "Spendenquittung (Aufwandsverzicht)"
+msgstr "Schenkingsbewijs (afstand van vergoeding)"
+
+msgid "Spendenquittung gewünscht"
+msgstr "Schenkingsbewijs gewenst"
+
+msgid "Standardwerte der PdV-Vorlage übernehmen"
+msgstr "Standaardwaarden van de PdV-sjabloon overnemen"
+
+msgid "Standardwerte eingetragen. Zum Übernehmen bitte speichern."
+msgstr "Standaardwaarden ingevuld. Sla op om ze toe te passen."
+
+msgid "Stufe 1: Betrag (EUR)"
+msgstr "Niveau 1: bedrag (EUR)"
+
+msgid "Stufe 1: ab (Stunden)"
+msgstr "Niveau 1: vanaf (uren)"
+
+msgid "Stufe 2: Betrag (EUR)"
+msgstr "Niveau 2: bedrag (EUR)"
+
+msgid "Stufe 2: ab (Stunden)"
+msgstr "Niveau 2: vanaf (uren)"
+
+msgid "Stufe 3: Betrag (EUR)"
+msgstr "Niveau 3: bedrag (EUR)"
+
+msgid "Stufe 3: ab (Stunden)"
+msgstr "Niveau 3: vanaf (uren)"
+
+msgid "Stunden"
+msgstr "Uren"
+
+msgid "Tage gespeichert."
+msgstr "Dagen opgeslagen."
+
+msgid "Tage speichern"
+msgstr "Dagen opslaan"
+
+msgid "Tagegeld"
+msgstr "Reisdagvergoeding"
+
+msgid "Tagegeld nach Abwesenheit"
+msgstr "Dagvergoeding naar afwezigheid"
+
+msgid "Tagegeld: ab %1 Std. %2 · ab %3 Std. %4 · ab %5 Std. %6 · Kilometersatz: %7"
+msgstr "Dagvergoeding: vanaf %1 u %2 · vanaf %3 u %4 · vanaf %5 u %6 · kilometertarief: %7"
+
+msgid "Tagesbetrag: %1"
+msgstr "Dagbedrag: %1"
+
+msgid "Tagesbetrag: %1 (Abzüge: %2)"
+msgstr "Dagbedrag: %1 (aftrek: %2)"
+
+msgid "Tagespauschale für Altanträge (EUR)"
+msgstr "Dagforfait voor oude aanvragen (EUR)"
+
+msgid "Telefon"
+msgstr "Telefoon"
+
+msgid "Unterkunft (Hotel, Ort)"
+msgstr "Accommodatie (hotel, plaats)"
+
+msgid "Vorschau – nicht gespeichert"
+msgstr "Voorbeeld – niet opgeslagen"
+
+msgid "Vorschau, nicht gespeichert. %1"
+msgstr "Voorbeeld, niet opgeslagen. %1"
+
+msgid "Vorschuss"
+msgstr "Voorschot"
+
+msgid "Vorschuss und Auszahlung"
+msgstr "Voorschot en uitbetaling"
+
+msgid "Vorschuss und Auszahlung speichern"
+msgstr "Voorschot en uitbetaling opslaan"
+
+msgid "Vorschuss: %1 · Abzüge: %2 · Auszahlungsbetrag: %3"
+msgstr "Voorschot: %1 · Aftrek: %2 · Uit te betalen bedrag: %3"
+
+msgid "Vorschuss: %1 · Auszahlungsbetrag: %2"
+msgstr "Voorschot: %1 · Uit te betalen bedrag: %2"
+
+msgid "Weitere Kosten"
+msgstr "Overige kosten"
+
+msgid "Wie soll abgerechnet werden?"
+msgstr "Hoe moet er worden afgerekend?"
+
+msgid "Zeile gespeichert."
+msgstr "Regel opgeslagen."
+
+msgid "Zeile speichern"
+msgstr "Regel opslaan"
+
+msgid "Ziel / Zweck (optional)"
+msgstr "Bestemming / doel (optioneel)"
+
+msgid "Zuschlag je Mitfahrer (EUR/km)"
+msgstr "Toeslag per passagier (EUR/km)"
+
+msgid "Zwischensumme"
+msgstr "Subtotaal"
+
+msgid "Zwischensumme %1, Abzüge %2, Vorschuss %3, Auszahlungsbetrag %4."
+msgstr "Subtotaal %1, aftrek %2, voorschot %3, uit te betalen bedrag %4."
+
+msgid "ab 00:00"
+msgstr "vanaf 00:00"
+
+msgid "bis 24:00"
+msgstr "tot 24:00"
+
+msgid "ganztägig (24 Std.)"
+msgstr "hele dag (24 u)"
+
+msgid "gesetzt durch Übernachtung mit Frühstück"
+msgstr "ingesteld door een overnachting met ontbijt"
+
+msgid "mit Frühstück"
+msgstr "inclusief ontbijt"
+
+msgid "ÖPNV"
+msgstr "Openbaar vervoer"
+
+msgid "Übernachtung"
+msgstr "Overnachting"
+
+msgid "− %1"
+msgstr "− %1"

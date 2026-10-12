@@ -42,13 +42,18 @@ internal fun renderReportHeaderForm(
             rule = { FormRules.isoDate(it) },
         )
     // Das Bis-Datum darf nicht vor dem Von-Datum liegen -- am Bis-Feld gezeigt, geprüft sobald beide echte Daten sind.
+    // V1.9.122: höchstens 31 Reisetage, und kein bereits ausgefüllter Reisetag darf aus dem Zeitraum fallen.
     form.crossFieldRule(field = toField) {
         val from = runCatching { LocalDate.parse(fromField.value.trim()) }.getOrNull()
         val to = runCatching { LocalDate.parse(toField.value.trim()) }.getOrNull()
-        if (from != null && to != null && to < from) {
-            FieldCheck.Invalid(gettext("Das Bis-Datum darf nicht vor dem Von-Datum liegen."))
-        } else {
-            FieldCheck.Ok
+        when {
+            from == null || to == null -> FieldCheck.Ok
+            to < from -> FieldCheck.Invalid(gettext("Das Bis-Datum darf nicht vor dem Von-Datum liegen."))
+            travelExpenseSpanDays(from, to) > TravelExpenseAmountRules.MAX_TRAVEL_SPAN_DAYS ->
+                FieldCheck.Invalid(gettext("Eine Reise darf höchstens %1 Tage umfassen.", TravelExpenseAmountRules.MAX_TRAVEL_SPAN_DAYS))
+            existing != null && travelExpenseDayLinesOutsideRange(existing, from, to) ->
+                FieldCheck.Invalid(gettext("Für Tage außerhalb des neuen Zeitraums sind bereits Angaben erfasst -- bitte zuerst leeren."))
+            else -> FieldCheck.Ok
         }
     }
     val saveButton =

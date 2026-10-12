@@ -1,7 +1,10 @@
 package network.lapis.cloud.client
 
 import io.kvision.i18n.tr
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.TravelExpenseLineKind
+import network.lapis.cloud.shared.domain.TravelExpensePayoutChoice
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
 
 /**
@@ -38,6 +41,11 @@ fun travelExpenseLineKindLabel(kind: TravelExpenseLineKind): String =
         TravelExpenseLineKind.MILEAGE -> tr("Fahrt")
         TravelExpenseLineKind.PER_DIEM -> tr("Tagespauschale")
         TravelExpenseLineKind.RECEIPTED -> tr("Beleg-Kosten")
+        TravelExpenseLineKind.DAY_ALLOWANCE -> tr("Tagegeld")
+        TravelExpenseLineKind.PUBLIC_TRANSPORT -> tr("ÖPNV")
+        TravelExpenseLineKind.ACCOMMODATION -> tr("Übernachtung")
+        TravelExpenseLineKind.HOSPITALITY -> tr("Bewirtung")
+        TravelExpenseLineKind.OTHER -> tr("Sonstiges")
     }
 
 fun travelExpenseLineKindColor(kind: TravelExpenseLineKind): String =
@@ -45,6 +53,11 @@ fun travelExpenseLineKindColor(kind: TravelExpenseLineKind): String =
         TravelExpenseLineKind.MILEAGE -> "info"
         TravelExpenseLineKind.PER_DIEM -> "warning"
         TravelExpenseLineKind.RECEIPTED -> "secondary"
+        TravelExpenseLineKind.DAY_ALLOWANCE -> "warning"
+        TravelExpenseLineKind.PUBLIC_TRANSPORT -> "info"
+        TravelExpenseLineKind.ACCOMMODATION -> "primary"
+        TravelExpenseLineKind.HOSPITALITY -> "secondary"
+        TravelExpenseLineKind.OTHER -> "secondary"
     }
 
 fun travelExpenseLineKindIcon(kind: TravelExpenseLineKind): String =
@@ -52,6 +65,40 @@ fun travelExpenseLineKindIcon(kind: TravelExpenseLineKind): String =
         TravelExpenseLineKind.MILEAGE -> "fas fa-car"
         TravelExpenseLineKind.PER_DIEM -> "fas fa-calendar-day"
         TravelExpenseLineKind.RECEIPTED -> "fas fa-file-invoice"
+        TravelExpenseLineKind.DAY_ALLOWANCE -> "fas fa-clock"
+        TravelExpenseLineKind.PUBLIC_TRANSPORT -> "fas fa-train"
+        TravelExpenseLineKind.ACCOMMODATION -> "fas fa-bed"
+        TravelExpenseLineKind.HOSPITALITY -> "fas fa-utensils"
+        TravelExpenseLineKind.OTHER -> "fas fa-ellipsis"
+    }
+
+/** The kinds a member can still ADD in the editor (V1.9.122): mileage plus the four receipted kinds -- never a day line, never the two legacy kinds. */
+internal val TRAVEL_EXPENSE_ADDABLE_KINDS: List<TravelExpenseLineKind> =
+    listOf(
+        TravelExpenseLineKind.MILEAGE,
+        TravelExpenseLineKind.PUBLIC_TRANSPORT,
+        TravelExpenseLineKind.ACCOMMODATION,
+        TravelExpenseLineKind.HOSPITALITY,
+        TravelExpenseLineKind.OTHER,
+    )
+
+/** The two settlement choices (V1.9.122) -- shown as a radio group WITHOUT a preselection. */
+fun travelExpensePayoutChoiceLabel(choice: TravelExpensePayoutChoice): String =
+    when (choice) {
+        TravelExpensePayoutChoice.PAYOUT -> tr("Auszahlen")
+        TravelExpensePayoutChoice.DONATION_WAIVER -> tr("Spendenquittung (Aufwandsverzicht)")
+    }
+
+/** Weekday name for the day-grid legend; reuses the weekday msgids that already exist for the recurring-event editor. */
+fun travelExpenseWeekdayLabel(day: LocalDate): String =
+    when (day.dayOfWeek) {
+        DayOfWeek.MONDAY -> tr("Montag")
+        DayOfWeek.TUESDAY -> tr("Dienstag")
+        DayOfWeek.WEDNESDAY -> tr("Mittwoch")
+        DayOfWeek.THURSDAY -> tr("Donnerstag")
+        DayOfWeek.FRIDAY -> tr("Freitag")
+        DayOfWeek.SATURDAY -> tr("Samstag")
+        DayOfWeek.SUNDAY -> tr("Sonntag")
     }
 
 /** Pflicht-Hinweiszeile unter JEDER EXECUTED-Karte (Jobs-Ruling: kein grüner Haken ohne sie). */
@@ -131,6 +178,9 @@ internal enum class TravelExpensePostingErrorCode(
     REPORT_NO_LONGER_CONSISTENT("report_no_longer_consistent"),
     CASH_REGISTER_BALANCE_INSUFFICIENT("cash_register_balance_insufficient"),
     CASH_VOUCHER_REQUIRED("cash_voucher_required"),
+    TRAVEL_ADVANCE_ACCOUNT_NOT_CONFIGURED("travel_advance_account_not_configured"),
+    DONATION_WAIVER_ACCOUNT_NOT_CONFIGURED("donation_waiver_account_not_configured"),
+    DONATION_WAIVER_ACCOUNT_NOT_INCOME_TYPE("donation_waiver_account_not_income_type"),
 }
 
 internal fun parseTravelExpensePostingErrorCode(raw: String): TravelExpensePostingErrorCode? =
@@ -155,5 +205,11 @@ fun travelExpensePostingErrorMessage(raw: String?): String {
             tr("Der Kassenbestand reicht derzeit nicht aus -- ein erneuter Versuch kann später erfolgreich sein.")
         TravelExpensePostingErrorCode.CASH_VOUCHER_REQUIRED ->
             tr("Für diese Buchung wird ein Belegverweis benötigt -- bitte einen ADMIN informieren.")
+        TravelExpensePostingErrorCode.TRAVEL_ADVANCE_ACCOUNT_NOT_CONFIGURED ->
+            tr("Das Konto für bereits gezahlte Vorschüsse ist noch nicht zugeordnet -- bitte einen ADMIN informieren.")
+        TravelExpensePostingErrorCode.DONATION_WAIVER_ACCOUNT_NOT_CONFIGURED ->
+            tr("Das Ertragskonto für Aufwandsspenden ist noch nicht zugeordnet -- bitte einen ADMIN informieren.")
+        TravelExpensePostingErrorCode.DONATION_WAIVER_ACCOUNT_NOT_INCOME_TYPE ->
+            tr("Das Konto für Aufwandsspenden hat den falschen Kontentyp -- bitte einen ADMIN informieren.")
     }
 }

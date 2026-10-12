@@ -1,5 +1,6 @@
 package network.lapis.cloud.client
 
+import io.kvision.i18n.I18n
 import kotlinx.browser.document
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -59,6 +60,15 @@ object Branding {
     const val DEFAULT_TITLE: String = "Lapis Cloud"
     const val PLATFORM_NAME: String = "Lapis Cloud"
     const val PLATFORM_URL: String = "https://cloud.lapisproject.dev"
+
+    /**
+     * V1.9.122 -- the public help page of the platform for [topic] (`travel-expenses`), in the UI language (`de` or `en`).
+     * Until the website release that carries the page the link answers 404 (stated in the CHANGELOG).
+     */
+    fun helpUrl(topic: String): String {
+        val language = if (I18n.language.substringBefore('-').lowercase() == "de") "de" else "en"
+        return "$PLATFORM_URL/$language/help/$topic"
+    }
 
     private const val ELEMENT_ID = "lapis-brand"
 

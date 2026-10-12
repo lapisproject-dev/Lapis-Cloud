@@ -13,6 +13,7 @@ import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
@@ -23,11 +24,14 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.db.generated.TravelExpenseLineTable
+import network.lapis.cloud.server.db.generated.TravelExpenseReceiptTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.PostingSide
+import network.lapis.cloud.shared.domain.TravelExpenseLineKind
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -167,6 +171,100 @@ class TravelExpenseStateMachineTest :
             transaction {
                 JournalEntryTable.selectAll().where { JournalEntryTable.description like "%$reportId%" }.count()
             }
+
+        test(
+            "V1.9.122: a report of the new line kinds walks the whole path -- zero day lines are not booked, double approval is a Conflict",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installTravelExpenseExceptionHandlers() }
+                    routing { registerTravelExpenseTestRoutes() }
+                }
+                val expenseAccount = newLedgerAccount(LedgerAccountType.EXPENSE)
+                val bankAccount = newLedgerAccount(LedgerAccountType.ASSET)
+                setMapping(expenseAccount, bankAccount)
+                val subject = newMember()
+                val draftId =
+                    client
+                        .post("/test/travelexpense/create?subjectMemberId=$subject&purpose=Reise&from=2026-01-05&to=2026-01-07") {
+                            header("X-Member-Id", subject.toString())
+                        }.bodyAsText()
+                        .split("|")[0]
+                listOf(
+                    "kind=ACCOMMODATION&description=Hotel&dayDate=2026-01-05&nights=2&breakfastIncluded=true&amountCents=9000",
+                    "kind=OTHER&description=Parken&amountCents=1500",
+                ).forEach { query ->
+                    client
+                        .post("/test/travelexpense/addline?reportId=$draftId&$query") { header("X-Member-Id", subject.toString()) }
+                        .status shouldBe HttpStatusCode.OK
+                }
+                val receiptLineIds =
+                    transaction {
+                        TravelExpenseLineTable
+                            .selectAll()
+                            .where {
+                                (TravelExpenseLineTable.reportId eq Uuid.parse(draftId)) and
+                                    (
+                                        TravelExpenseLineTable.kind inList
+                                            listOf(TravelExpenseLineKind.ACCOMMODATION, TravelExpenseLineKind.OTHER)
+                                    )
+                            }.map { it[TravelExpenseLineTable.id] }
+                    }
+                try {
+                    transaction {
+                        receiptLineIds.forEach { lineId ->
+                            TravelExpenseReceiptTable.insert {
+                                it[id] = Uuid.random()
+                                it[TravelExpenseReceiptTable.lineId] = lineId
+                                it[storageKey] = "test/${Uuid.random()}.bin"
+                                it[originalFilename] = "beleg.pdf"
+                                it[mimeType] = "application/pdf"
+                                it[sizeBytes] = 1024L
+                                it[sha256] = "b".repeat(64)
+                                it[uploadedBy] = subject
+                                it[uploadedAt] = LocalDateTime(2026, 1, 8, 12, 0, 0)
+                            }
+                        }
+                    }
+                    val submitted =
+                        client
+                            .post("/test/travelexpense/submit?id=$draftId") { header("X-Member-Id", subject.toString()) }
+                            .bodyAsText()
+                            .split("|")
+                    submitted[2] shouldBe TravelExpenseReportStatus.REQUESTED.name
+
+                    val decided =
+                        client
+                            .post("/test/travelexpense/decide?id=$draftId&approve=true&note=Genehmigt") { header("X-Member-Id", BOARD_ID) }
+                            .bodyAsText()
+                            .split("|")
+                    decided[2] shouldBe TravelExpenseReportStatus.EXECUTED.name
+                    // 3 day lines (first/last empty = 0 EUR, middle = 28.00 less the 20 % breakfast of the hotel stay) + hotel + parking.
+                    val postings =
+                        transaction {
+                            PostingTable.selectAll().where { PostingTable.journalEntryId eq Uuid.parse(decided[13]) }.toList()
+                        }
+                    postings.none { it[PostingTable.amount].signum() == 0 } shouldBe true
+                    val debitSum =
+                        postings.filter { it[PostingTable.side] == PostingSide.DEBIT }.sumOf { it[PostingTable.amount] }
+                    debitSum.compareTo(BigDecimal(decided[6])) shouldBe 0
+                    postings.filter { it[PostingTable.side] == PostingSide.CREDIT }.single()[PostingTable.amount].compareTo(
+                        BigDecimal(decided[6]),
+                    ) shouldBe
+                        0
+
+                    client
+                        .post("/test/travelexpense/decide?id=$draftId&approve=true&note=Nochmal") { header("X-Member-Id", BOARD_ID) }
+                        .status shouldBe HttpStatusCode.Conflict
+                    client
+                        .post("/test/travelexpense/withdraw?id=$draftId") { header("X-Member-Id", subject.toString()) }
+                        .status shouldBe HttpStatusCode.Conflict
+                    journalEntryCountFor(draftId) shouldBe 1L
+                } finally {
+                    transaction { TravelExpenseReceiptTable.deleteWhere { TravelExpenseReceiptTable.lineId inList receiptLineIds } }
+                }
+            }
+        }
 
         test("double decideReport(true) -> second call Conflict, exactly one journal_entry") {
             testApplication {
@@ -381,6 +479,26 @@ class TravelExpenseStateMachineTest :
 
                 val list = client.get("/test/travelexpense/list") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
                 list.contains(draftId) shouldBe false
+            }
+        }
+
+        test("withdrawReport from DRAFT whose advance exceeds its total succeeds (no 500)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installTravelExpenseExceptionHandlers() }
+                    routing { registerTravelExpenseTestRoutes() }
+                }
+                val subject = newMember()
+                val draftId =
+                    client
+                        .post(
+                            "/test/travelexpense/create?subjectMemberId=$subject&purpose=Reise&from=2026-01-10&to=2026-01-10&advance=5000",
+                        ) { header("X-Member-Id", subject.toString()) }
+                        .bodyAsText()
+                        .split("|")[0]
+                val response = client.post("/test/travelexpense/withdraw?id=$draftId") { header("X-Member-Id", subject.toString()) }
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText().split("|")[2] shouldBe TravelExpenseReportStatus.WITHDRAWN.name
             }
         }
     })

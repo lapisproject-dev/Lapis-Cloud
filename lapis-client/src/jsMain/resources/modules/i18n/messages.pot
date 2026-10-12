@@ -10297,10 +10297,6 @@ msgid "%1 hinzufügen"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "%1 km × %2/km"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "%1 Tage × %2"
 msgstr ""
 
@@ -10332,24 +10328,12 @@ msgstr ""
 msgid "Beleg-Kosten"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Beispiel: 0.30. Leer lassen, um den Satz zu löschen."
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Beispiel: 14.00. Leer lassen, um den Satz zu löschen."
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Bitte eine Beschreibung angeben."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
 msgid "Bitte eine gültige Tagespauschale angeben (z. B. 14.00)."
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Bitte einen gültigen Kilometersatz angeben (z. B. 0.30)."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
@@ -10400,20 +10384,12 @@ msgstr ""
 msgid "Die Datei ist zu groß (maximal 10 MB)."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Diese Sätze werden nicht automatisch an Gesetzesänderungen angepasst."
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Die Tagespauschale ist nicht konfiguriert."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Die Überweisung veranlasst die Kasse separat — dieser Antrag löst keine Zahlung aus."
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Ein Antrag ist möglich, aber die Buchung scheitert, bis eine Administratorin oder ein Administrator die Kontenzuordnung vervollständigt."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
@@ -10432,16 +10408,8 @@ msgstr ""
 msgid "Es liegt bereits ein Entwurf vor -- bitte diesen zuerst einreichen oder zurückziehen, bevor ein neuer Entwurf aus dieser Ablehnung kopiert wird."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Es sind noch keine Sätze konfiguriert -- bitte eine Administratorin oder einen Administrator informieren."
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Fahrt"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Fahrtkosten: %1 · Tagespauschalen: %2 · Belegkosten: %3 · Gesamt: %4"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
@@ -10458,10 +10426,6 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Kilometer"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Kilometersatz: %1 · Tagespauschale: %2"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
@@ -10493,10 +10457,6 @@ msgid "Noch keine eingereichten Anträge."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Noch keine Zeilen erfasst."
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Reisekosten"
 msgstr ""
 
@@ -10508,28 +10468,12 @@ msgstr ""
 msgid "Sätze"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Sätze gespeichert."
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Sätze speichern"
-msgstr ""
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Tage"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Tagespauschale"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Tagespauschale (EUR)"
-msgstr ""
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Tagespauschale ist noch nicht konfiguriert."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
@@ -15934,16 +15878,13 @@ msgstr ""
 msgid "Keine Straße, keine Hausnummer -- den genauen Treffpunkt vereinbaren Sie per Nachricht."
 msgstr ""
 
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:219
 msgid "Hallo, ich interessiere mich für Ihre Fahrt %1 → %2 am %3."
 msgstr ""
 
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:57
 msgid "Noch keine eigenen Einträge."
 msgstr ""
-
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:86
 msgid "Keine Fahrten der Art \"%1\"."
@@ -16284,12 +16225,10 @@ msgstr ""
 msgid "Landesverband wird noch verwendet -- bitte Ansicht aktualisieren."
 msgstr ""
 
-
 msgid "%1 Mitglied ohne Landesverband"
 msgid_plural "%1 Mitglieder ohne Landesverband"
 msgstr[0] ""
 msgstr[1] ""
-
 
 msgid "Auswertung der Nachrichten (freiwillig)"
 msgstr ""
@@ -17513,7 +17452,6 @@ msgstr ""
 
 msgid "Das Gebot übersteigt Ihr verfügbares Guthaben."
 msgstr ""
-
 
 msgid "Machen Sie Vorschläge: Jede Option, die hier steht, wird später von allen bewertet."
 msgstr ""
@@ -21983,4 +21921,368 @@ msgid "Land und Staatsangehörigkeit abgeglichen"
 msgstr ""
 
 msgid "Land und Staatsangehörigkeit abgeglichen. Land: %1 erkannt, %2 angewendet, %3 offen, %4 mehrdeutig. Staatsangehörigkeit: %5 erkannt, %6 angewendet, %7 offen, %8 mehrdeutig."
+msgstr ""
+
+# Welle V1.9.122 "Reisekostenabrechnung nach PdV-Formular" -- angehaengt, nicht alphabetisch einsortiert.
+msgid "%1 Nächte ab %2%3"
+msgstr ""
+
+msgid "%1 km × %2/km, %3 Mitfahrer"
+msgstr ""
+
+msgid ", mit Frühstück"
+msgstr ""
+
+msgid "Abendessen (% von Stufe 3)"
+msgstr ""
+
+msgid "Abendessen gestellt"
+msgstr ""
+
+msgid "Abfahrt (Uhrzeit)"
+msgstr ""
+
+msgid "Abzug für gestellte Mahlzeiten"
+msgstr ""
+
+msgid "Abzüge"
+msgstr ""
+
+msgid "Alternativ: alte Excel-Vorlage oder E-Mail an den Finanzvorstand."
+msgstr ""
+
+msgid "Ansprechpartner für Reisekosten"
+msgstr ""
+
+msgid "Anzahl der Mitfahrenden, 0 bis 8."
+msgstr ""
+
+msgid "Auszahlen"
+msgstr ""
+
+msgid "Auszahlungsbetrag"
+msgstr ""
+
+msgid "Basis"
+msgstr ""
+
+msgid "Beispiel: 0,02. Höchstens 0,20."
+msgstr ""
+
+msgid "Beispiel: 0,30. Leer lassen, wenn keine Kilometer abgerechnet werden. Höchstens 1,00."
+msgstr ""
+
+msgid "Bereits erhaltener Vorschuss (EUR)"
+msgstr ""
+
+msgid "Bewirtung"
+msgstr ""
+
+msgid "Bitte nur Ziffern, Leerzeichen und + ( ) / - verwenden."
+msgstr ""
+
+msgid "Bitte prüfen Sie die Eingaben."
+msgstr ""
+
+msgid "Bitte speichern Sie zuerst die Reisetage."
+msgstr ""
+
+msgid "Bitte tragen Sie für jeden Reisetag die Uhrzeiten ein und speichern Sie."
+msgstr ""
+
+msgid "Bitte wählen Sie, ob ausgezahlt oder auf die Erstattung verzichtet werden soll."
+msgstr ""
+
+msgid "Bitte wählen Sie, wie abgerechnet werden soll (Auszahlung oder Spendenquittung)."
+msgstr ""
+
+msgid "Das Ertragskonto für Aufwandsspenden ist noch nicht zugeordnet -- bitte einen ADMIN informieren."
+msgstr ""
+
+msgid "Das Konto für Aufwandsspenden hat den falschen Kontentyp -- bitte einen ADMIN informieren."
+msgstr ""
+
+msgid "Das Konto für bereits gezahlte Vorschüsse ist noch nicht zugeordnet -- bitte einen ADMIN informieren."
+msgstr ""
+
+msgid "Dauer: "
+msgstr ""
+
+msgid "Der Kilometersatz ist noch nicht konfiguriert -- bitte die Verwaltung der Instanz informieren."
+msgstr ""
+
+msgid "Der Vorschuss ist höher als die Abrechnung -- bitte wenden Sie sich an den Ansprechpartner."
+msgstr ""
+
+msgid "Der Vorschuss ist höher als die Abrechnung. Bitte wenden Sie sich an den Ansprechpartner."
+msgstr ""
+
+msgid "Die Beträge dürfen von Stufe zu Stufe nicht sinken."
+msgstr ""
+
+msgid "Die Frist für diese Reise (%1) ist überschritten. Sie können trotzdem einreichen -- die Verwaltung entscheidet."
+msgstr ""
+
+msgid "Die Rückkehr darf nicht vor der Abfahrt liegen."
+msgstr ""
+
+msgid "Die Standardwerte stammen aus der PdV-Vorlage (Reisekostenabrechnung 2024, Hinweise vom 23.07.2025) und sind vorläufig. Sie entsprechen nicht den gesetzlichen Pauschalen (14 € / 28 €). Bitte prüfen Sie sie, bevor Mitglieder abrechnen."
+msgstr ""
+
+msgid "Die Stunden müssen von Stufe zu Stufe größer werden."
+msgstr ""
+
+msgid "Die Zuwendungsbestätigung wird außerhalb von Lapis ausgestellt."
+msgstr ""
+
+msgid "Die Übernachtungen müssen innerhalb der Reise liegen."
+msgstr ""
+
+msgid "Diese Angaben sehen alle Mitglieder auf der Seite Reisekosten."
+msgstr ""
+
+msgid "Ein Antrag ist möglich, aber die Buchung scheitert, bis die Verwaltung der Instanz die Kontenzuordnung vervollständigt."
+msgstr ""
+
+msgid "Eine Reise darf höchstens %1 Tage umfassen."
+msgstr ""
+
+msgid "Einreichen bis %1"
+msgstr ""
+
+msgid "Einstellungen gespeichert."
+msgstr ""
+
+msgid "Erste Nacht (JJJJ-MM-TT)"
+msgstr ""
+
+msgid "Ertragskonto für Aufwandsspenden"
+msgstr ""
+
+msgid "Fahrtkosten"
+msgstr ""
+
+msgid "Frühstück (% von Stufe 3)"
+msgstr ""
+
+msgid "Frühstück gestellt"
+msgstr ""
+
+msgid "Für Tage außerhalb des neuen Zeitraums sind bereits Angaben erfasst -- bitte zuerst leeren."
+msgstr ""
+
+msgid "Für diese Reise gibt es keine Tage."
+msgstr ""
+
+msgid "Ganze Kilometer, 1 bis 5000."
+msgstr ""
+
+msgid "Hilfe: Reisekosten abrechnen"
+msgstr ""
+
+msgid "Hinweistext (Mehr erfahren)"
+msgstr ""
+
+msgid "Ihr Ansprechpartner für Reisekosten"
+msgstr ""
+
+msgid "In den Einstellungen eintragen"
+msgstr ""
+
+msgid "Kartennachweis hochladen (optional)"
+msgstr ""
+
+msgid "Kontaktdaten werden noch ergänzt."
+msgstr ""
+
+msgid "Konto für bereits gezahlte Vorschüsse"
+msgstr ""
+
+msgid "Leer lassen, wenn Sie keinen Vorschuss erhalten haben. Beispiel: 50,00."
+msgstr ""
+
+msgid "Mehr erfahren"
+msgstr ""
+
+msgid "Mitfahrer"
+msgstr ""
+
+msgid "Mitgliedsnummer: %1"
+msgstr ""
+
+msgid "Mitgliedsnummer: nicht hinterlegt"
+msgstr ""
+
+msgid "Mittagessen (% von Stufe 3)"
+msgstr ""
+
+msgid "Mittagessen gestellt"
+msgstr ""
+
+msgid "Noch keine weiteren Kosten erfasst."
+msgstr ""
+
+msgid "Nur Ziffern, Leerzeichen und + ( ) / -."
+msgstr ""
+
+msgid "Nur für Anträge, die vor der Umstellung angelegt wurden. Leer lassen, wenn nicht benötigt."
+msgstr ""
+
+msgid "Nächte"
+msgstr ""
+
+msgid "Nötig, sobald ein Antrag einen Vorschuss enthält."
+msgstr ""
+
+msgid "Nötig, sobald ein Mitglied auf die Erstattung verzichtet."
+msgstr ""
+
+msgid "Reiner Text. Wird unter \"Mehr erfahren\" angezeigt."
+msgstr ""
+
+msgid "Reisekosten rechnen Sie vorrangig hier ab."
+msgstr ""
+
+msgid "Reisekosten-Einstellungen"
+msgstr ""
+
+msgid "Reisekosten-Einstellungen öffnen"
+msgstr ""
+
+msgid "Reisetage"
+msgstr ""
+
+msgid "Rückkehr (Uhrzeit)"
+msgstr ""
+
+msgid "Spendenquittung (Aufwandsverzicht)"
+msgstr ""
+
+msgid "Spendenquittung gewünscht"
+msgstr ""
+
+msgid "Standardwerte der PdV-Vorlage übernehmen"
+msgstr ""
+
+msgid "Standardwerte eingetragen. Zum Übernehmen bitte speichern."
+msgstr ""
+
+msgid "Stufe 1: Betrag (EUR)"
+msgstr ""
+
+msgid "Stufe 1: ab (Stunden)"
+msgstr ""
+
+msgid "Stufe 2: Betrag (EUR)"
+msgstr ""
+
+msgid "Stufe 2: ab (Stunden)"
+msgstr ""
+
+msgid "Stufe 3: Betrag (EUR)"
+msgstr ""
+
+msgid "Stufe 3: ab (Stunden)"
+msgstr ""
+
+msgid "Stunden"
+msgstr ""
+
+msgid "Tage gespeichert."
+msgstr ""
+
+msgid "Tage speichern"
+msgstr ""
+
+msgid "Tagegeld"
+msgstr ""
+
+msgid "Tagegeld nach Abwesenheit"
+msgstr ""
+
+msgid "Tagegeld: ab %1 Std. %2 · ab %3 Std. %4 · ab %5 Std. %6 · Kilometersatz: %7"
+msgstr ""
+
+msgid "Tagesbetrag: %1"
+msgstr ""
+
+msgid "Tagesbetrag: %1 (Abzüge: %2)"
+msgstr ""
+
+msgid "Tagespauschale für Altanträge (EUR)"
+msgstr ""
+
+msgid "Telefon"
+msgstr ""
+
+msgid "Unterkunft (Hotel, Ort)"
+msgstr ""
+
+msgid "Vorschau – nicht gespeichert"
+msgstr ""
+
+msgid "Vorschau, nicht gespeichert. %1"
+msgstr ""
+
+msgid "Vorschuss"
+msgstr ""
+
+msgid "Vorschuss und Auszahlung"
+msgstr ""
+
+msgid "Vorschuss und Auszahlung speichern"
+msgstr ""
+
+msgid "Vorschuss: %1 · Abzüge: %2 · Auszahlungsbetrag: %3"
+msgstr ""
+
+msgid "Vorschuss: %1 · Auszahlungsbetrag: %2"
+msgstr ""
+
+msgid "Weitere Kosten"
+msgstr ""
+
+msgid "Wie soll abgerechnet werden?"
+msgstr ""
+
+msgid "Zeile gespeichert."
+msgstr ""
+
+msgid "Zeile speichern"
+msgstr ""
+
+msgid "Ziel / Zweck (optional)"
+msgstr ""
+
+msgid "Zuschlag je Mitfahrer (EUR/km)"
+msgstr ""
+
+msgid "Zwischensumme"
+msgstr ""
+
+msgid "Zwischensumme %1, Abzüge %2, Vorschuss %3, Auszahlungsbetrag %4."
+msgstr ""
+
+msgid "ab 00:00"
+msgstr ""
+
+msgid "bis 24:00"
+msgstr ""
+
+msgid "ganztägig (24 Std.)"
+msgstr ""
+
+msgid "gesetzt durch Übernachtung mit Frühstück"
+msgstr ""
+
+msgid "mit Frühstück"
+msgstr ""
+
+msgid "ÖPNV"
+msgstr ""
+
+msgid "Übernachtung"
+msgstr ""
+
+msgid "− %1"
 msgstr ""

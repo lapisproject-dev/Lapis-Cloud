@@ -20,6 +20,7 @@ import network.lapis.cloud.shared.domain.PostingInput
 import network.lapis.cloud.shared.domain.PostingSide
 import network.lapis.cloud.shared.domain.PostingSnapshot
 import network.lapis.cloud.shared.domain.TravelExpenseLineKind
+import network.lapis.cloud.shared.domain.TravelExpensePayoutChoice
 import network.lapis.cloud.shared.rpc.ConflictException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -48,6 +49,19 @@ private val logger = KotlinLogging.logger {}
  * ...                                                          carry the breakdown)
  * Haben <paymentBankAccountId>    <total_amount>
  * ```
+ * **V1.9.122 -- advance and donation waiver.** The credit side now splits up (every credit line is
+ * strictly positive, a zero part simply has no line; day lines with 0 EUR never reach this bridge):
+ * ```
+ * Soll  <travelExpenseAccountId>      <amount of each non-zero line>
+ * Haben <paymentBankAccountId>        <total - advance>   payoutChoice == PAYOUT
+ * Haben <travelDonationWaiverAccount> <total - advance>   payoutChoice == DONATION_WAIVER (no money flows)
+ * Haben <travelAdvanceAccount>        <advance>           when an advance was paid out earlier
+ * ```
+ * A member who waives the reimbursement (Aufwandsverzicht) receives no money -- booking it against
+ * the bank would be factually wrong (GoBD), hence the separate income account "Aufwandsspenden".
+ * The bank account is required (and the cash-register guards apply) ONLY when the bank is actually
+ * credited. New degrading codes: `travel_advance_account_not_configured`,
+ * `donation_waiver_account_not_configured`, `donation_waiver_account_not_income_type`.
  * **`posting` has NO memo/description column**, and adding one would mean changing a core
  * accounting table for this one wave. The breakdown therefore survives structurally as N debit
  * postings with their own amounts; the human-readable attribution lives in
@@ -87,12 +101,20 @@ internal object TravelExpensePostingBridge {
         actorMemberId: Uuid,
         actorRole: AccountRole,
         voucherReference: String? = null,
+        advanceAmount: BigDecimal = BigDecimal.ZERO,
+        payoutChoice: TravelExpensePayoutChoice = TravelExpensePayoutChoice.PAYOUT,
     ): TravelExpensePostingOutcome {
         require(lines.isNotEmpty()) { "lines must not be empty" }
         require(totalAmount > BigDecimal.ZERO) { "totalAmount must be positive, was $totalAmount" }
         require(lines.sumOf { it.amount }.compareTo(totalAmount) == 0) {
             "sum of lines (${lines.sumOf { it.amount }}) must equal totalAmount ($totalAmount)"
         }
+        require(advanceAmount.signum() >= 0 && advanceAmount <= totalAmount) { "advanceAmount must be within 0..totalAmount" }
+        require(lines.all { it.amount.signum() > 0 }) { "every posting line must be strictly positive" }
+        val payoutAmount = totalAmount.subtract(advanceAmount)
+        val creditsBank = payoutChoice == TravelExpensePayoutChoice.PAYOUT && payoutAmount.signum() > 0
+        val creditsWaiver = payoutChoice == TravelExpensePayoutChoice.DONATION_WAIVER && payoutAmount.signum() > 0
+        val creditsAdvance = advanceAmount.signum() > 0
 
         val settingsRow =
             OrganizationSettingsTable
@@ -101,23 +123,42 @@ internal object TravelExpensePostingBridge {
                 .singleOrNull()
         val expenseAccountId = settingsRow?.get(OrganizationSettingsTable.travelExpenseAccountId)
         val bankAccountId = settingsRow?.get(OrganizationSettingsTable.paymentBankAccountId)
+        val advanceAccountId = settingsRow?.get(OrganizationSettingsTable.travelAdvanceAccountId)
+        val waiverAccountId = settingsRow?.get(OrganizationSettingsTable.travelDonationWaiverAccountId)
+
+        fun degrade(
+            reason: String,
+            detail: String,
+        ): TravelExpensePostingOutcome {
+            logger.warn {
+                "TravelExpensePostingBridge: report $reportId (subject $subjectMemberId) approved, but $detail -- no journal entry was booked."
+            }
+            return TravelExpensePostingOutcome.Failed(reason)
+        }
 
         if (expenseAccountId == null) {
-            logger.warn {
-                "TravelExpensePostingBridge: report $reportId (subject $subjectMemberId) approved, but " +
-                    "OrganizationSettings.travelExpenseAccountId is not configured -- no journal entry was booked."
-            }
-            return TravelExpensePostingOutcome.Failed("travel_expense_account_not_configured")
+            return degrade("travel_expense_account_not_configured", "OrganizationSettings.travelExpenseAccountId is not configured")
         }
-        if (bankAccountId == null) {
-            logger.warn {
-                "TravelExpensePostingBridge: report $reportId (subject $subjectMemberId) approved, but " +
-                    "OrganizationSettings.paymentBankAccountId is not configured -- no journal entry was booked."
-            }
-            return TravelExpensePostingOutcome.Failed("payment_bank_account_not_configured")
+        if (creditsBank && bankAccountId == null) {
+            return degrade("payment_bank_account_not_configured", "OrganizationSettings.paymentBankAccountId is not configured")
+        }
+        if (creditsAdvance && advanceAccountId == null) {
+            return degrade("travel_advance_account_not_configured", "OrganizationSettings.travelAdvanceAccountId is not configured")
+        }
+        if (creditsWaiver && waiverAccountId == null) {
+            return degrade(
+                "donation_waiver_account_not_configured",
+                "OrganizationSettings.travelDonationWaiverAccountId is not configured",
+            )
         }
 
-        val referencedAccountIds = listOf(expenseAccountId, bankAccountId).distinct()
+        val referencedAccountIds =
+            listOfNotNull(
+                expenseAccountId,
+                bankAccountId.takeIf { creditsBank },
+                advanceAccountId.takeIf { creditsAdvance },
+                waiverAccountId.takeIf { creditsWaiver },
+            ).distinct()
         val accountRows =
             referencedAccountIds.associateWith { accountId ->
                 LedgerAccountTable.selectAll().where { LedgerAccountTable.id eq accountId }.singleOrNull()
@@ -128,24 +169,46 @@ internal object TravelExpensePostingBridge {
                     accountRows[it]?.get(LedgerAccountTable.active) == false
             }
         if (inactiveAccountIds.isNotEmpty()) {
-            logger.warn {
-                "TravelExpensePostingBridge: report $reportId approved, but the configured account mapping " +
-                    "references LedgerAccount(s) $inactiveAccountIds that are missing or deactivated -- no journal " +
-                    "entry was booked."
-            }
-            return TravelExpensePostingOutcome.Failed("ledger_account_inactive")
+            return degrade(
+                "ledger_account_inactive",
+                "the configured account mapping references LedgerAccount(s) $inactiveAccountIds that are missing or deactivated",
+            )
         }
         val expenseAccountType = accountRows.getValue(expenseAccountId)?.get(LedgerAccountTable.type)
         if (expenseAccountType != LedgerAccountType.EXPENSE) {
-            logger.warn {
-                "TravelExpensePostingBridge: report $reportId approved, but travelExpenseAccountId $expenseAccountId " +
-                    "is of type $expenseAccountType, not EXPENSE -- no journal entry was booked."
+            return degrade(
+                "travel_expense_account_not_expense_type",
+                "travelExpenseAccountId $expenseAccountId is of type $expenseAccountType, not EXPENSE",
+            )
+        }
+        if (creditsWaiver) {
+            val waiverType = accountRows.getValue(requireNotNull(waiverAccountId))?.get(LedgerAccountTable.type)
+            if (waiverType != LedgerAccountType.INCOME) {
+                return degrade(
+                    "donation_waiver_account_not_income_type",
+                    "travelDonationWaiverAccountId $waiverAccountId is of type $waiverType, not INCOME",
+                )
             }
-            return TravelExpensePostingOutcome.Failed("travel_expense_account_not_expense_type")
         }
 
         // V1.4.13: no `vatRate` set below on purpose -- this automated bridge makes no tax
         // classification, so postings stay VatRate.UNCLASSIFIED (the PostingInput default).
+        fun credit(
+            accountId: Uuid,
+            amount: BigDecimal,
+        ) = PostingInput(
+            ledgerAccountId = accountId.toString(),
+            side = PostingSide.CREDIT,
+            amount = amount,
+            sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
+        )
+
+        val creditInputs =
+            buildList {
+                if (creditsBank) add(credit(requireNotNull(bankAccountId), payoutAmount))
+                if (creditsWaiver) add(credit(requireNotNull(waiverAccountId), payoutAmount))
+                if (creditsAdvance) add(credit(requireNotNull(advanceAccountId), advanceAmount))
+            }
         val postingInputs =
             lines.map { line ->
                 PostingInput(
@@ -154,13 +217,7 @@ internal object TravelExpensePostingBridge {
                     amount = line.amount,
                     sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
                 )
-            } +
-                PostingInput(
-                    ledgerAccountId = bankAccountId.toString(),
-                    side = PostingSide.CREDIT,
-                    amount = totalAmount,
-                    sphere = GemeinnuetzigkeitSphere.IDEELLER_BEREICH,
-                )
+            } + creditInputs
 
         requireBalanced(postingInputs)
 
@@ -189,8 +246,9 @@ internal object TravelExpensePostingBridge {
         val journalEntryId = Uuid.random()
         val entryDate = decidedAt.date
         val mileageCount = lines.count { it.kind == TravelExpenseLineKind.MILEAGE }
-        val perDiemCount = lines.count { it.kind == TravelExpenseLineKind.PER_DIEM }
-        val receiptedCount = lines.count { it.kind == TravelExpenseLineKind.RECEIPTED }
+        // "Tagespauschale" counts the legacy flat per-day lines AND the V1.9.122 day lines that carry money.
+        val perDiemCount = lines.count { it.kind == TravelExpenseLineKind.PER_DIEM || it.kind == TravelExpenseLineKind.DAY_ALLOWANCE }
+        val receiptedCount = lines.count { it.kind != TravelExpenseLineKind.MILEAGE } - perDiemCount
         val description =
             "Reisekosten $purposeDigest ($mileageCount Fahrt / $perDiemCount Tagespauschale / $receiptedCount Beleg) Antrag $reportId"
                 .take(JOURNAL_ENTRY_DESCRIPTION_MAX_LENGTH)
@@ -237,7 +295,21 @@ internal object TravelExpensePostingBridge {
         }
 
         lines.forEach { line -> insertPosting(ledgerAccountId = expenseAccountId, side = PostingSide.DEBIT, amount = line.amount) }
-        insertPosting(ledgerAccountId = bankAccountId, side = PostingSide.CREDIT, amount = totalAmount)
+        if (creditsBank) insertPosting(ledgerAccountId = requireNotNull(bankAccountId), side = PostingSide.CREDIT, amount = payoutAmount)
+        if (creditsWaiver) {
+            insertPosting(
+                ledgerAccountId = requireNotNull(waiverAccountId),
+                side = PostingSide.CREDIT,
+                amount = payoutAmount,
+            )
+        }
+        if (creditsAdvance) {
+            insertPosting(
+                ledgerAccountId = requireNotNull(advanceAccountId),
+                side = PostingSide.CREDIT,
+                amount = advanceAmount,
+            )
+        }
 
         // Last locking operation, see class KDoc.
         AuditLogRecorder.record(

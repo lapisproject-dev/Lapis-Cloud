@@ -11201,10 +11201,6 @@ msgid "%1 hinzufügen"
 msgstr "Добавить %1"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "%1 km × %2/km"
-msgstr "%1 км × %2/км"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "%1 Tage × %2"
 msgstr "%1 дней × %2"
 
@@ -11236,14 +11232,6 @@ msgstr "Загрузить квитанцию"
 msgid "Beleg-Kosten"
 msgstr "Расход по квитанции"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Beispiel: 0.30. Leer lassen, um den Satz zu löschen."
-msgstr "Пример: 0.30. Оставьте пустым, чтобы удалить ставку."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Beispiel: 14.00. Leer lassen, um den Satz zu löschen."
-msgstr "Пример: 14.00. Оставьте пустым, чтобы удалить ставку."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Bitte eine Beschreibung angeben."
 msgstr "Укажите описание."
@@ -11251,10 +11239,6 @@ msgstr "Укажите описание."
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
 msgid "Bitte eine gültige Tagespauschale angeben (z. B. 14.00)."
 msgstr "Укажите корректные суточные (например, 14.00)."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Bitte einen gültigen Kilometersatz angeben (z. B. 0.30)."
-msgstr "Укажите корректную ставку за километр (например, 0.30)."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Buchung fehlgeschlagen"
@@ -11304,10 +11288,6 @@ msgstr "Проведение не удалось (причина неизвес�
 msgid "Die Datei ist zu groß (maximal 10 MB)."
 msgstr "Файл слишком большой (максимум 10 МБ)."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Diese Sätze werden nicht automatisch an Gesetzesänderungen angepasst."
-msgstr "Эти ставки не корректируются автоматически при изменении законодательства."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Die Tagespauschale ist nicht konfiguriert."
 msgstr "Суточная ставка не настроена."
@@ -11315,10 +11295,6 @@ msgstr "Суточная ставка не настроена."
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Die Überweisung veranlasst die Kasse separat — dieser Antrag löst keine Zahlung aus."
 msgstr "Перевод оформляет касса отдельно — эта заявка не запускает платёж."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Ein Antrag ist möglich, aber die Buchung scheitert, bis eine Administratorin oder ein Administrator die Kontenzuordnung vervollständigt."
-msgstr "Заявку можно подать, но проведение будет неуспешным, пока администратор не завершит сопоставление счетов."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Eines der zugeordneten Konten ist nicht mehr aktiv -- bitte einen ADMIN informieren."
@@ -11336,17 +11312,9 @@ msgstr "Сохранить черновик"
 msgid "Es liegt bereits ein Entwurf vor -- bitte diesen zuerst einreichen oder zurückziehen, bevor ein neuer Entwurf aus dieser Ablehnung kopiert wird."
 msgstr "Уже существует открытый черновик -- сначала отправьте его или отзовите, прежде чем копировать новый черновик из этого отказа."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Es sind noch keine Sätze konfiguriert -- bitte eine Administratorin oder einen Administrator informieren."
-msgstr "Ставки пока не настроены -- сообщите администратору."
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Fahrt"
 msgstr "Поездка"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Fahrtkosten: %1 · Tagespauschalen: %2 · Belegkosten: %3 · Gesamt: %4"
-msgstr "Километраж: %1 · Суточные: %2 · Расходы по квитанциям: %3 · Итого: %4"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Für diese Buchung wird ein Belegverweis benötigt -- bitte einen ADMIN informieren."
@@ -11363,10 +11331,6 @@ msgstr "Каждая строка расходов по квитанции тр�
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Kilometer"
 msgstr "Километры"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Kilometersatz: %1 · Tagespauschale: %2"
-msgstr "Ставка за километр: %1 · Суточные: %2"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
 msgid "Kilometersatz (EUR/km)"
@@ -11397,10 +11361,6 @@ msgid "Noch keine eingereichten Anträge."
 msgstr "Пока нет отправленных заявок."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Noch keine Zeilen erfasst."
-msgstr "Пока не добавлено ни одной строки."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Reisekosten"
 msgstr "Командировочные расходы"
 
@@ -11412,14 +11372,6 @@ msgstr "Согласование командировочных расходов
 msgid "Sätze"
 msgstr "Ставки"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Sätze gespeichert."
-msgstr "Ставки сохранены."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Sätze speichern"
-msgstr "Сохранить ставки"
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Tage"
 msgstr "Дни"
@@ -11427,14 +11379,6 @@ msgstr "Дни"
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseLabels.kt
 msgid "Tagespauschale"
 msgstr "Суточные"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseApprovalsScreen.kt
-msgid "Tagespauschale (EUR)"
-msgstr "Суточные (EUR)"
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
-msgid "Tagespauschale ist noch nicht konfiguriert."
-msgstr "Суточная ставка ещё не настроена."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
 msgid "Zeile entfernen"
@@ -16834,16 +16778,13 @@ msgstr "Ответ отправлен."
 msgid "Keine Straße, keine Hausnummer -- den genauen Treffpunkt vereinbaren Sie per Nachricht."
 msgstr "Без улицы и номера дома -- точное место встречи согласуйте в сообщении."
 
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:219
 msgid "Hallo, ich interessiere mich für Ihre Fahrt %1 → %2 am %3."
 msgstr "Здравствуйте, меня интересует ваша поездка %1 → %2 %3."
 
-
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:57
 msgid "Noch keine eigenen Einträge."
 msgstr "Пока нет собственных записей."
-
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:86
 msgid "Keine Fahrten der Art \"%1\"."
@@ -17184,13 +17125,11 @@ msgstr "Этот участник не подходит для роли пред
 msgid "Landesverband wird noch verwendet -- bitte Ansicht aktualisieren."
 msgstr "Региональное отделение всё ещё используется -- обновите страницу."
 
-
 msgid "%1 Mitglied ohne Landesverband"
 msgid_plural "%1 Mitglieder ohne Landesverband"
 msgstr[0] "%1 участник без регионального отделения"
 msgstr[1] "%1 участника без регионального отделения"
 msgstr[2] "%1 участников без регионального отделения"
-
 
 msgid "Auswertung der Nachrichten (freiwillig)"
 msgstr "Статистика сообщений (по желанию)"
@@ -18414,7 +18353,6 @@ msgstr "Подготовленные заявки"
 
 msgid "Das Gebot übersteigt Ihr verfügbares Guthaben."
 msgstr "Ставка превышает ваш доступный баланс."
-
 
 msgid "Machen Sie Vorschläge: Jede Option, die hier steht, wird später von allen bewertet."
 msgstr "Вносите предложения: каждый вариант из этого списка позже оценят все."
@@ -22907,3 +22845,367 @@ msgstr "Страна и гражданство сопоставлены"
 
 msgid "Land und Staatsangehörigkeit abgeglichen. Land: %1 erkannt, %2 angewendet, %3 offen, %4 mehrdeutig. Staatsangehörigkeit: %5 erkannt, %6 angewendet, %7 offen, %8 mehrdeutig."
 msgstr "Страна и гражданство сопоставлены. Страна: %1 распознано, %2 применено, %3 открыто, %4 неоднозначно. Гражданство: %5 распознано, %6 применено, %7 открыто, %8 неоднозначно."
+
+# Welle V1.9.122 "Reisekostenabrechnung nach PdV-Formular" -- angehaengt, nicht alphabetisch einsortiert.
+msgid "%1 Nächte ab %2%3"
+msgstr "%1 ночей с %2%3"
+
+msgid "%1 km × %2/km, %3 Mitfahrer"
+msgstr "%1 км × %2/км, пассажиров: %3"
+
+msgid ", mit Frühstück"
+msgstr ", с завтраком"
+
+msgid "Abendessen (% von Stufe 3)"
+msgstr "Ужин (% от ступени 3)"
+
+msgid "Abendessen gestellt"
+msgstr "Ужин предоставлен"
+
+msgid "Abfahrt (Uhrzeit)"
+msgstr "Отправление (время)"
+
+msgid "Abzug für gestellte Mahlzeiten"
+msgstr "Вычет за предоставленное питание"
+
+msgid "Abzüge"
+msgstr "Вычеты"
+
+msgid "Alternativ: alte Excel-Vorlage oder E-Mail an den Finanzvorstand."
+msgstr "Альтернатива: прежний шаблон Excel или письмо казначею."
+
+msgid "Ansprechpartner für Reisekosten"
+msgstr "Контактное лицо по командировочным расходам"
+
+msgid "Anzahl der Mitfahrenden, 0 bis 8."
+msgstr "Количество пассажиров, от 0 до 8."
+
+msgid "Auszahlen"
+msgstr "Выплатить"
+
+msgid "Auszahlungsbetrag"
+msgstr "Сумма к выплате"
+
+msgid "Basis"
+msgstr "База"
+
+msgid "Beispiel: 0,02. Höchstens 0,20."
+msgstr "Пример: 0,02. Не более 0,20."
+
+msgid "Beispiel: 0,30. Leer lassen, wenn keine Kilometer abgerechnet werden. Höchstens 1,00."
+msgstr "Пример: 0,30. Оставьте пустым, если километры не возмещаются. Не более 1,00."
+
+msgid "Bereits erhaltener Vorschuss (EUR)"
+msgstr "Уже полученный аванс (EUR)"
+
+msgid "Bewirtung"
+msgstr "Представительские расходы"
+
+msgid "Bitte nur Ziffern, Leerzeichen und + ( ) / - verwenden."
+msgstr "Используйте только цифры, пробелы и + ( ) / -."
+
+msgid "Bitte prüfen Sie die Eingaben."
+msgstr "Проверьте введённые данные."
+
+msgid "Bitte speichern Sie zuerst die Reisetage."
+msgstr "Сначала сохраните дни поездки."
+
+msgid "Bitte tragen Sie für jeden Reisetag die Uhrzeiten ein und speichern Sie."
+msgstr "Укажите время для каждого дня поездки и сохраните."
+
+msgid "Bitte wählen Sie, ob ausgezahlt oder auf die Erstattung verzichtet werden soll."
+msgstr "Выберите: выплата или отказ от возмещения."
+
+msgid "Bitte wählen Sie, wie abgerechnet werden soll (Auszahlung oder Spendenquittung)."
+msgstr "Выберите способ расчёта (выплата или подтверждение пожертвования)."
+
+msgid "Das Ertragskonto für Aufwandsspenden ist noch nicht zugeordnet -- bitte einen ADMIN informieren."
+msgstr "Счёт доходов для пожертвований в виде расходов ещё не сопоставлен -- сообщите администратору."
+
+msgid "Das Konto für Aufwandsspenden hat den falschen Kontentyp -- bitte einen ADMIN informieren."
+msgstr "У счёта для пожертвований в виде расходов неверный тип -- сообщите администратору."
+
+msgid "Das Konto für bereits gezahlte Vorschüsse ist noch nicht zugeordnet -- bitte einen ADMIN informieren."
+msgstr "Счёт для уже выплаченных авансов ещё не сопоставлен -- сообщите администратору."
+
+msgid "Dauer: "
+msgstr "Продолжительность: "
+
+msgid "Der Kilometersatz ist noch nicht konfiguriert -- bitte die Verwaltung der Instanz informieren."
+msgstr "Ставка за километр ещё не настроена -- сообщите администрации инстанса."
+
+msgid "Der Vorschuss ist höher als die Abrechnung -- bitte wenden Sie sich an den Ansprechpartner."
+msgstr "Аванс превышает сумму отчёта -- обратитесь к контактному лицу."
+
+msgid "Der Vorschuss ist höher als die Abrechnung. Bitte wenden Sie sich an den Ansprechpartner."
+msgstr "Аванс превышает сумму отчёта. Обратитесь к контактному лицу."
+
+msgid "Die Beträge dürfen von Stufe zu Stufe nicht sinken."
+msgstr "Суммы не должны уменьшаться от ступени к ступени."
+
+msgid "Die Frist für diese Reise (%1) ist überschritten. Sie können trotzdem einreichen -- die Verwaltung entscheidet."
+msgstr "Срок для этой поездки (%1) истёк. Вы всё равно можете подать отчёт -- решает администрация."
+
+msgid "Die Rückkehr darf nicht vor der Abfahrt liegen."
+msgstr "Возвращение не может быть раньше отправления."
+
+msgid "Die Standardwerte stammen aus der PdV-Vorlage (Reisekostenabrechnung 2024, Hinweise vom 23.07.2025) und sind vorläufig. Sie entsprechen nicht den gesetzlichen Pauschalen (14 € / 28 €). Bitte prüfen Sie sie, bevor Mitglieder abrechnen."
+msgstr "Значения по умолчанию взяты из шаблона PdV (форма отчёта о командировочных расходах 2024, указания от 23.07.2025) и являются предварительными. Они не соответствуют законным нормам (14 € / 28 €). Проверьте их, прежде чем члены начнут подавать отчёты."
+
+msgid "Die Stunden müssen von Stufe zu Stufe größer werden."
+msgstr "Количество часов должно возрастать от ступени к ступени."
+
+msgid "Die Zuwendungsbestätigung wird außerhalb von Lapis ausgestellt."
+msgstr "Подтверждение пожертвования выдаётся вне Lapis."
+
+msgid "Die Übernachtungen müssen innerhalb der Reise liegen."
+msgstr "Ночёвки должны приходиться на период поездки."
+
+msgid "Diese Angaben sehen alle Mitglieder auf der Seite Reisekosten."
+msgstr "Эти данные видят все члены на странице командировочных расходов."
+
+msgid "Ein Antrag ist möglich, aber die Buchung scheitert, bis die Verwaltung der Instanz die Kontenzuordnung vervollständigt."
+msgstr "Заявку подать можно, но проводка не удастся, пока администрация инстанса не завершит сопоставление счетов."
+
+msgid "Eine Reise darf höchstens %1 Tage umfassen."
+msgstr "Поездка может длиться не более %1 дн."
+
+msgid "Einreichen bis %1"
+msgstr "Подать до %1"
+
+msgid "Einstellungen gespeichert."
+msgstr "Настройки сохранены."
+
+msgid "Erste Nacht (JJJJ-MM-TT)"
+msgstr "Первая ночь (ГГГГ-ММ-ДД)"
+
+msgid "Ertragskonto für Aufwandsspenden"
+msgstr "Счёт доходов для пожертвований в виде расходов"
+
+msgid "Fahrtkosten"
+msgstr "Транспортные расходы"
+
+msgid "Frühstück (% von Stufe 3)"
+msgstr "Завтрак (% от ступени 3)"
+
+msgid "Frühstück gestellt"
+msgstr "Завтрак предоставлен"
+
+msgid "Für Tage außerhalb des neuen Zeitraums sind bereits Angaben erfasst -- bitte zuerst leeren."
+msgstr "Для дней вне нового периода уже введены данные -- сначала очистите их."
+
+msgid "Für diese Reise gibt es keine Tage."
+msgstr "У этой поездки нет дней."
+
+msgid "Ganze Kilometer, 1 bis 5000."
+msgstr "Целые километры, от 1 до 5000."
+
+msgid "Hilfe: Reisekosten abrechnen"
+msgstr "Справка: отчёт о командировочных расходах"
+
+msgid "Hinweistext (Mehr erfahren)"
+msgstr "Текст подсказки («Подробнее»)"
+
+msgid "Ihr Ansprechpartner für Reisekosten"
+msgstr "Ваше контактное лицо по командировочным расходам"
+
+msgid "In den Einstellungen eintragen"
+msgstr "Указать в настройках"
+
+msgid "Kartennachweis hochladen (optional)"
+msgstr "Загрузить подтверждение маршрута (необязательно)"
+
+msgid "Kontaktdaten werden noch ergänzt."
+msgstr "Контактные данные будут добавлены позже."
+
+msgid "Konto für bereits gezahlte Vorschüsse"
+msgstr "Счёт для уже выплаченных авансов"
+
+msgid "Leer lassen, wenn Sie keinen Vorschuss erhalten haben. Beispiel: 50,00."
+msgstr "Оставьте пустым, если вы не получали аванс. Пример: 50,00."
+
+msgid "Mehr erfahren"
+msgstr "Подробнее"
+
+msgid "Mitfahrer"
+msgstr "Пассажиры"
+
+msgid "Mitgliedsnummer: %1"
+msgstr "Номер члена: %1"
+
+msgid "Mitgliedsnummer: nicht hinterlegt"
+msgstr "Номер члена: не указан"
+
+msgid "Mittagessen (% von Stufe 3)"
+msgstr "Обед (% от ступени 3)"
+
+msgid "Mittagessen gestellt"
+msgstr "Обед предоставлен"
+
+msgid "Noch keine weiteren Kosten erfasst."
+msgstr "Других расходов пока нет."
+
+msgid "Nur Ziffern, Leerzeichen und + ( ) / -."
+msgstr "Только цифры, пробелы и + ( ) / -."
+
+msgid "Nur für Anträge, die vor der Umstellung angelegt wurden. Leer lassen, wenn nicht benötigt."
+msgstr "Только для заявок, созданных до перехода. Оставьте пустым, если не требуется."
+
+msgid "Nächte"
+msgstr "Ночи"
+
+msgid "Nötig, sobald ein Antrag einen Vorschuss enthält."
+msgstr "Требуется, как только в заявке есть аванс."
+
+msgid "Nötig, sobald ein Mitglied auf die Erstattung verzichtet."
+msgstr "Требуется, как только член отказывается от возмещения."
+
+msgid "Reiner Text. Wird unter \"Mehr erfahren\" angezeigt."
+msgstr "Простой текст. Отображается под «Подробнее»."
+
+msgid "Reisekosten rechnen Sie vorrangig hier ab."
+msgstr "Командировочные расходы в первую очередь оформляйте здесь."
+
+msgid "Reisekosten-Einstellungen"
+msgstr "Настройки командировочных расходов"
+
+msgid "Reisekosten-Einstellungen öffnen"
+msgstr "Открыть настройки командировочных расходов"
+
+msgid "Reisetage"
+msgstr "Дни поездки"
+
+msgid "Rückkehr (Uhrzeit)"
+msgstr "Возвращение (время)"
+
+msgid "Spendenquittung (Aufwandsverzicht)"
+msgstr "Подтверждение пожертвования (отказ от возмещения)"
+
+msgid "Spendenquittung gewünscht"
+msgstr "Запрошено подтверждение пожертвования"
+
+msgid "Standardwerte der PdV-Vorlage übernehmen"
+msgstr "Применить значения по умолчанию из шаблона PdV"
+
+msgid "Standardwerte eingetragen. Zum Übernehmen bitte speichern."
+msgstr "Значения по умолчанию внесены. Сохраните, чтобы применить их."
+
+msgid "Stufe 1: Betrag (EUR)"
+msgstr "Ступень 1: сумма (EUR)"
+
+msgid "Stufe 1: ab (Stunden)"
+msgstr "Ступень 1: от (часов)"
+
+msgid "Stufe 2: Betrag (EUR)"
+msgstr "Ступень 2: сумма (EUR)"
+
+msgid "Stufe 2: ab (Stunden)"
+msgstr "Ступень 2: от (часов)"
+
+msgid "Stufe 3: Betrag (EUR)"
+msgstr "Ступень 3: сумма (EUR)"
+
+msgid "Stufe 3: ab (Stunden)"
+msgstr "Ступень 3: от (часов)"
+
+msgid "Stunden"
+msgstr "Часы"
+
+msgid "Tage gespeichert."
+msgstr "Дни сохранены."
+
+msgid "Tage speichern"
+msgstr "Сохранить дни"
+
+msgid "Tagegeld"
+msgstr "Суточные за день"
+
+msgid "Tagegeld nach Abwesenheit"
+msgstr "Суточные по времени отсутствия"
+
+msgid "Tagegeld: ab %1 Std. %2 · ab %3 Std. %4 · ab %5 Std. %6 · Kilometersatz: %7"
+msgstr "Суточные: от %1 ч %2 · от %3 ч %4 · от %5 ч %6 · ставка за км: %7"
+
+msgid "Tagesbetrag: %1"
+msgstr "Сумма за день: %1"
+
+msgid "Tagesbetrag: %1 (Abzüge: %2)"
+msgstr "Сумма за день: %1 (вычеты: %2)"
+
+msgid "Tagespauschale für Altanträge (EUR)"
+msgstr "Суточные для старых заявок (EUR)"
+
+msgid "Telefon"
+msgstr "Телефон"
+
+msgid "Unterkunft (Hotel, Ort)"
+msgstr "Проживание (отель, место)"
+
+msgid "Vorschau – nicht gespeichert"
+msgstr "Предпросмотр – не сохранено"
+
+msgid "Vorschau, nicht gespeichert. %1"
+msgstr "Предпросмотр, не сохранено. %1"
+
+msgid "Vorschuss"
+msgstr "Аванс"
+
+msgid "Vorschuss und Auszahlung"
+msgstr "Аванс и выплата"
+
+msgid "Vorschuss und Auszahlung speichern"
+msgstr "Сохранить аванс и выплату"
+
+msgid "Vorschuss: %1 · Abzüge: %2 · Auszahlungsbetrag: %3"
+msgstr "Аванс: %1 · Вычеты: %2 · Сумма к выплате: %3"
+
+msgid "Vorschuss: %1 · Auszahlungsbetrag: %2"
+msgstr "Аванс: %1 · Сумма к выплате: %2"
+
+msgid "Weitere Kosten"
+msgstr "Прочие расходы"
+
+msgid "Wie soll abgerechnet werden?"
+msgstr "Как произвести расчёт?"
+
+msgid "Zeile gespeichert."
+msgstr "Строка сохранена."
+
+msgid "Zeile speichern"
+msgstr "Сохранить строку"
+
+msgid "Ziel / Zweck (optional)"
+msgstr "Пункт назначения / цель (необязательно)"
+
+msgid "Zuschlag je Mitfahrer (EUR/km)"
+msgstr "Надбавка за пассажира (EUR/км)"
+
+msgid "Zwischensumme"
+msgstr "Промежуточная сумма"
+
+msgid "Zwischensumme %1, Abzüge %2, Vorschuss %3, Auszahlungsbetrag %4."
+msgstr "Промежуточная сумма %1, вычеты %2, аванс %3, сумма к выплате %4."
+
+msgid "ab 00:00"
+msgstr "с 00:00"
+
+msgid "bis 24:00"
+msgstr "до 24:00"
+
+msgid "ganztägig (24 Std.)"
+msgstr "весь день (24 ч)"
+
+msgid "gesetzt durch Übernachtung mit Frühstück"
+msgstr "установлено ночёвкой с завтраком"
+
+msgid "mit Frühstück"
+msgstr "с завтраком"
+
+msgid "ÖPNV"
+msgstr "Общественный транспорт"
+
+msgid "Übernachtung"
+msgstr "Проживание"
+
+msgid "− %1"
+msgstr "− %1"

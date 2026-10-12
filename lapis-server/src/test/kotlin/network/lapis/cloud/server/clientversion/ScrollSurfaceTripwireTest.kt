@@ -274,9 +274,14 @@ class ScrollSurfaceTripwireTest :
             drawer.any { OVERSCROLL_CONTAIN.containsMatchIn(it.body) } shouldBe true
         }
 
-        test("R59: the only sticky elements are the transparency banner and (with room for it) the member map") {
+        test(
+            "R59: the only sticky elements are the transparency banner, (with room for it) the member map and the travel expense totals bar",
+        ) {
             val sticky = scrollCssRules(THEME_CSS.readText()).filter { Regex("""position\s*:\s*sticky""").containsMatchIn(it.body) }
-            sticky.map { it.selector }.toSet() shouldBe setOf(".lapis-conference-transparency-banner", ".lapis-member-map-panel")
+            // V1.9.122: `.lapis-te-totals` -- the totals bar of the travel expense editor (right column from 992px, bottom edge below). It is a
+            // small, non-scrolling summary (no overflow, no max-height), so it adds no scroll surface; the page's own scroll-padding is unaffected.
+            sticky.map { it.selector }.toSet() shouldBe
+                setOf(".lapis-conference-transparency-banner", ".lapis-member-map-panel", ".lapis-te-totals")
             val map = sticky.single { it.selector == ".lapis-member-map-panel" }
             withClue("the sticky map needs a viewport at least 760px high: ${map.atRules}") {
                 map.atRules.any { it.contains("min-height: 760px") } shouldBe true

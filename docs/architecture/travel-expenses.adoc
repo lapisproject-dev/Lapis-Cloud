@@ -1,4 +1,4 @@
-= Travel Expense Reimbursement (V1.4.11)
+= Travel Expense Reimbursement (V1.4.11, PdV form V1.9.122)
 
 NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs`
 Gradle task (see `docs-render/`), kept in sync by hand with
@@ -11,6 +11,11 @@ is a deliberate departure from the V1.4.10 "Beitragsvergünstigungen" wave, whic
 architecture document of its own (see link:../features/contribution-relief.adoc[that domain's own feature document]) -- the design team asked
 for one here, and `bank-statement-import.adoc`/`datev-export.adoc` are the established
 counter-precedent for a domain complex enough to warrant it.
+
+NOTE: V1.9.122 ("Reisekostenabrechnung nach PdV-Formular") adds the day grid, four receipted line kinds, an advance, the payout/waiver choice, a
+frozen rate set and a configurable contact person. The V1.4.11 sections below remain valid; the sections "PdV form: calculation core",
+"PdV form: data and synchronisation" and "PdV form: settings, booking, DSGVO" at the end describe the delta. See
+link:../features/travel-expenses.adoc[the feature document] for the rules in plain words and the list of deliberate limits.
 
 == Data shape
 
@@ -37,10 +42,16 @@ classDiagram(name = "Travel Expense Reimbursement — ERM excerpt") {
         attribute(name = "decisionNote", type = "String") // mandatory on approve AND reject
         attribute(name = "postedJournalEntryId", type = "UUID") // idempotency anchor, uq_ter_posted_journal_entry
         attribute(name = "executionError", type = "String") // non-null iff status == APPROVED
+        attribute(name = "advanceAmount", type = "BigDecimal") // V1.9.122, already received
+        attribute(name = "payoutChoice", type = "String") // V1.9.122, PAYOUT|DONATION_WAIVER, mandatory at submit
+        attribute(name = "ratesSnapshot", type = "String") // V1.9.122, JSON of the frozen rate set
     }
     val travelExpenseLine = classOf(name = "TravelExpenseLine") {
         attribute(name = "id", type = "UUID")
-        attribute(name = "kind", type = "String") // MILEAGE|PER_DIEM|RECEIPTED, immutable once created
+        attribute(name = "kind", type = "String") // MILEAGE|PER_DIEM|RECEIPTED|DAY_ALLOWANCE|PUBLIC_TRANSPORT|ACCOMMODATION|HOSPITALITY|OTHER, immutable once created
+        attribute(name = "dayDate", type = "LocalDate") // V1.9.122, DAY_ALLOWANCE: the day; ACCOMMODATION: the first night
+        attribute(name = "timeFrom", type = "LocalTime") // V1.9.122, wall clock, never converted
+        attribute(name = "timeTo", type = "LocalTime")
         attribute(name = "kilometers", type = "BigDecimal") // MILEAGE only
         attribute(name = "days", type = "Int") // PER_DIEM only
         attribute(name = "rateSnapshot", type = "BigDecimal") // frozen at submitReport time
@@ -236,3 +247,48 @@ See the own link:../features/travel-expenses.adoc["Travel expense reimbursement"
 scope boundaries (no Verpflegungsmehraufwand reduction rules, no payout/payment run, no
 line-by-line partial approval, no Übungsleiter-/Ehrenamtspauschale integration, hardcoded sphere,
 no inline receipt preview).
+
+== PdV form: calculation core (V1.9.122)
+
+`TravelExpenseCalculator` (`lapis-shared/src/commonMain/.../TravelExpenseCalculator.kt`) is a set of **pure functions in whole cents (`Long`) and
+whole minutes (`Int`)** -- there is no `Decimal` in the core, because the browser has no exact decimal type. **The client never calculates with
+code of its own**: the day grid, the totals bar and the server all call these functions; the server's result is the only one that is persisted.
+
+* `MultiDayRule` -- the **one** place that decides how the first / last / middle / single day counts (`positionOf`, `absenceMinutes`, `travelDays`).
+* `PerDiemTierRule` -- the **one** place for the tiers; inclusive ("ab"): `tierFor(minutes)` returns the highest tier whose threshold is reached.
+* `MealDeductionRule` -- percentage of the *third* tier per meal, **HALF_UP on whole cents per deduction**, the sum **capped at the day's allowance**.
+* `CalcResult` -- user errors are values (`CalcResult.Err(field, code)`), never exceptions. Multiplications go through `mulExact` (overflow -> error).
+* Bounds: kilometers 1..5000 (whole), passengers 0..8, receipted amount 1..1 000 000 cents, 31 travel days.
+
+Rounding is documented once and applies everywhere: half-up per deduction on cents; there is no second rounding step anywhere.
+
+== PdV form: data and synchronisation (V1.9.122)
+
+Migration `V97__travel_expense_pdv_form.sql` (additive; V29..V96 untouched). `travel_expense_line` gains `destination`, `day_date`, `time_from`/`time_to`
+(`LocalTime`, class-B wall clock, never converted), the three meal flags, `passenger_count`, `breakfast_included`, `computed_minutes`, `base_amount`,
+`deduction_amount`; `kind` widens to 16 characters and `chk_tel_kind` / `chk_tel_kind_shape` / `chk_tel_amount_positive` are recreated (a day line may be 0; every
+other line stays strictly positive). `travel_expense_report` gains `advance_amount`, `payout_choice`, `membership_number_snapshot`, `rates_snapshot`.
+`organization_settings` gains the tier/percentage/passenger columns (PdV-template defaults), the four contact columns and two optional account FKs.
+
+* **One day line per (report, day) is an application rule**, not a unique index (accommodation lines reuse `day_date`; a conditional unique index is not portable
+  between H2 and PostgreSQL). It is upheld by `SELECT ... FOR UPDATE` on the report row that `createDraft`/`updateDraft`/`saveDays` take before `TravelExpenseDaySync` touches
+  the day lines; `TravelExpenseConcurrencyScenarios` proves it with parallel requests on H2 and on real PostgreSQL (including "no deadlock").
+* `TravelExpenseDaySync.sync` is idempotent (Exposed may retry a transaction): it creates missing day lines, deletes **empty** ones outside the new period, refuses a
+  filled one (`day_lines_outside_range`, 409) and normalises the times of the rest to what their position allows.
+* `TravelExpenseDaySync.recomputeReport` is **the only path that writes amounts** -- live rates while a report is a draft, the frozen set at submit.
+* `chk_ter_advance_range` is DRAFT-tolerant (`advance <= total` only once submitted): a draft's total moves while it is edited.
+
+== PdV form: settings, booking, DSGVO (V1.9.122)
+
+* **Settings**: `ITravelExpenseService.updateTravelExpenseSettings` (ADMIN) validates every range before the database, writes one ORGANIZATION_SETTINGS audit entry on an
+  actual change -- the payload carries numbers and booleans **only**; the contact's name/e-mail/phone never enter the audit log (`TravelExpenseRatesSnapshot.contact*Set`).
+  `getTravelExpenseRates` (every member) returns the rate set and the contact block; account ids are returned to ADMIN only.
+* **Booking** (`TravelExpensePostingBridge`): debit per non-zero line; credit *bank* for `total − advance` (payout), *advance account* for the advance, *donation-waiver income account*
+  for the waived amount (no money flows -- booking it against the bank would be wrong under GoBD). The bank account (and the cash-register guards) apply only when the bank is actually
+  credited. New degrading codes: `travel_advance_account_not_configured`, `donation_waiver_account_not_configured`, `donation_waiver_account_not_income_type`; every posting line
+  stays strictly positive, zero day lines never reach the bridge.
+* **DSGVO**: the Art.-15 export carries every new field; erasing a retained (REQUESTED/APPROVED/EXECUTED) report sets `destination` and `membership_number_snapshot` to `NULL` and keeps
+  times, dates, meal flags, amounts, the advance and the payout choice (Buchungsbeleg, section 147 AO). The contact block in `organization_settings` is personal data of a contact
+  person **without a foreign key to `member`**: it is erased manually by the administration (clear the fields on `/travel-expense-settings`).
+* **Security**: `saveDays`/`updateLine` follow the draft rules (subject or requester, no BOARD/ADMIN bypass, DRAFT only); a client-supplied cent value for a mileage line is refused (mass
+  assignment); the contact hint is rendered as text, never as markup; `mailto:` is percent-encoded, `tel:` carries only `+` and digits.

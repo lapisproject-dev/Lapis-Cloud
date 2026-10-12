@@ -185,6 +185,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.BACKUP,
                 Routes.CONFERENCE_STREAM_DESTINATIONS,
                 Routes.SEPA_SETTINGS,
+                Routes.TRAVEL_EXPENSE_SETTINGS,
                 Routes.PAYMENT_GATEWAY_SETTINGS,
                 Routes.DUNNING_SETTINGS,
                 Routes.RECEIVABLE_DUNNING_SETTINGS,
@@ -597,6 +598,8 @@ fun buildSidebar(
             sidebarLink(Routes.BACKUP, tr("Backup & Wiederherstellung"), "fas fa-database", toggle)
             sidebarLink(Routes.CONFERENCE_STREAM_DESTINATIONS, tr("Stream-Ziele"), "fas fa-satellite-dish", toggle)
             sidebarLink(Routes.SEPA_SETTINGS, tr("SEPA-Konfiguration"), "fas fa-building-columns", toggle)
+            // Welle V1.9.122 -- steht in SYSTEM (wie SEPA_SETTINGS); `fa-sliders` ist in `lapis-client` noch frei.
+            sidebarLink(Routes.TRAVEL_EXPENSE_SETTINGS, tr("Reisekosten-Einstellungen"), "fas fa-sliders", toggle)
             sidebarLink(
                 Routes.PAYMENT_GATEWAY_SETTINGS,
                 tr("Zahlungs-Konfiguration"),

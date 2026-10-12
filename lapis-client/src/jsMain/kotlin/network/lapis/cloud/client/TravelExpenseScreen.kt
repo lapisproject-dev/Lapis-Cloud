@@ -3,6 +3,7 @@ package network.lapis.cloud.client
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDecimal
 import dev.kilua.rpc.types.toDouble
+import io.kvision.form.check.radioGroup
 import io.kvision.form.upload.upload
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -18,10 +19,20 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.plus
+import network.lapis.cloud.shared.domain.CalcResult
+import network.lapis.cloud.shared.domain.DayInput
 import network.lapis.cloud.shared.domain.TravelExpenseAmountRules
+import network.lapis.cloud.shared.domain.TravelExpenseCalculator
+import network.lapis.cloud.shared.domain.TravelExpenseDayInput
+import network.lapis.cloud.shared.domain.TravelExpenseDeadline
+import network.lapis.cloud.shared.domain.TravelExpenseDefaults
 import network.lapis.cloud.shared.domain.TravelExpenseLineDto
 import network.lapis.cloud.shared.domain.TravelExpenseLineInput
 import network.lapis.cloud.shared.domain.TravelExpenseLineKind
+import network.lapis.cloud.shared.domain.TravelExpensePayoutChoice
 import network.lapis.cloud.shared.domain.TravelExpenseRatesDto
 import network.lapis.cloud.shared.domain.TravelExpenseReportDto
 import network.lapis.cloud.shared.domain.TravelExpenseReportInput
@@ -59,6 +70,8 @@ fun renderTravelExpenseScreen(
     // The create button gets a slot of its own: it appears only after a successful load without an open draft.
     val draftButtonSlot = header.actionSlot.div().apply { hide() }
 
+    // V1.9.122: the contact person comes first -- a member with a question finds the answer before the form.
+    val contactPanel = root.vPanel(spacing = 4)
     val ratesBanner = root.vPanel(spacing = 4)
     val newDraftHost = root.vPanel(spacing = 10)
     val editorPanel = root.vPanel(spacing = 10)
@@ -79,6 +92,7 @@ fun renderTravelExpenseScreen(
             val rates = guarded { rpcService<ITravelExpenseService>().getTravelExpenseRates() }
             if (rates == null) {
                 ratesBanner.removeAll()
+                contactPanel.removeAll()
                 editorPanel.dataErrorState(onRetry = { reload() })
                 return@launch
             }
@@ -88,6 +102,8 @@ fun renderTravelExpenseScreen(
                 return@launch
             }
 
+            contactPanel.removeAll()
+            renderTravelExpenseContactBlock(contactPanel, rates)
             ratesBanner.removeAll()
             renderRatesBanner(ratesBanner, rates)
 
@@ -139,25 +155,31 @@ private fun renderRatesBanner(
     panel: SimplePanel,
     rates: TravelExpenseRatesDto,
 ) {
-    val mileage = rates.mileageRatePerKm
-    val perDiem = rates.perDiemRate
-    if (mileage == null && perDiem == null) {
-        panel.p(tr("Es sind noch keine Sätze konfiguriert -- bitte eine Administratorin oder einen Administrator informieren.")) {
+    val rateSet = rates.rateSet
+    val mileage = rateSet?.mileageCentsPerKm
+    if (mileage == null) {
+        panel.p(tr("Der Kilometersatz ist noch nicht konfiguriert -- bitte die Verwaltung der Instanz informieren.")) {
             addCssClasses("alert alert-warning")
         }
-    } else {
+    }
+    if (rateSet != null) {
         panel.p(
             gettext(
-                "Kilometersatz: %1 · Tagespauschale: %2",
-                mileage?.let { "${formatMoney(it)}/km" } ?: gettext("nicht konfiguriert"),
-                perDiem?.let { formatMoney(it) } ?: gettext("nicht konfiguriert"),
+                "Tagegeld: ab %1 Std. %2 · ab %3 Std. %4 · ab %5 Std. %6 · Kilometersatz: %7",
+                rateSet.tierHours[0],
+                formatMoney(centsToDecimal(rateSet.tierCents[0])),
+                rateSet.tierHours[1],
+                formatMoney(centsToDecimal(rateSet.tierCents[1])),
+                rateSet.tierHours[2],
+                formatMoney(centsToDecimal(rateSet.tierCents[2])),
+                mileage?.let { "${formatMoney(centsToDecimal(it))}/km" } ?: gettext("nicht konfiguriert"),
             ),
         ) { addCssClasses("text-muted small") }
     }
     if (!rates.expenseAccountConfigured || !rates.bankAccountConfigured) {
         panel.p(
             tr(
-                "Ein Antrag ist möglich, aber die Buchung scheitert, bis eine Administratorin oder ein Administrator die Kontenzuordnung vervollständigt.",
+                "Ein Antrag ist möglich, aber die Buchung scheitert, bis die Verwaltung der Instanz die Kontenzuordnung vervollständigt.",
             ),
         ) {
             addCssClasses("alert alert-warning")
@@ -173,6 +195,26 @@ private fun renderDraftEditor(
 ) {
     val card = panel.vPanel(spacing = 8) { addCssClasses("border rounded p-3") }
     card.div(tr("Entwurf")) { addCssClass("fw-bold") }
+
+    // Kopfdaten: the membership number is read-only (it comes from the member record, never typed in), the deadline is a hint that never blocks.
+    card.div(
+        draft.membershipNumber?.let { gettext("Mitgliedsnummer: %1", it) } ?: gettext("Mitgliedsnummer: nicht hinterlegt"),
+        className = "text-muted small",
+    )
+    if (travelExpenseDeadlineOverdue(draft, organizationToday())) {
+        card.div(
+            gettext(
+                "Die Frist für diese Reise (%1) ist überschritten. Sie können trotzdem einreichen -- die Verwaltung entscheidet.",
+                formatDate(TravelExpenseDeadline.deadlineFor(draft.travelTo)),
+            ),
+            className = "alert alert-warning mb-0",
+        )
+    } else {
+        card.div(
+            gettext("Einreichen bis %1", formatDate(TravelExpenseDeadline.deadlineFor(draft.travelTo))),
+            className = "text-muted small",
+        )
+    }
     renderReportHeaderForm(card, draft) { purpose, from, to ->
         val result =
             guarded {
@@ -187,9 +229,49 @@ private fun renderDraftEditor(
         }
     }
 
-    val addButtonsRow = card.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
-    val addLinePanel = card.vPanel(spacing = 6)
-    TravelExpenseLineKind.entries.forEach { kind ->
+    // Two columns on a desktop (the totals bar sticks on the right), one column on a phone (the bar sticks to the bottom edge).
+    val layout = card.div(className = "lapis-te-editor")
+    val main = layout.vPanel(spacing = 8)
+    val bar = TravelExpenseTotalsBar(layout)
+    var settlementAdvanceCents = draft.advanceCents
+    var dayHandle: TravelExpenseDayGrid? = null
+
+    fun refreshTotals() {
+        val entries = dayHandle?.entries() ?: emptyList()
+        val rateSet = rates.rateSet
+        if (rateSet == null) {
+            bar.show(
+                TravelExpenseCalculator.totals(
+                    draft.lines.map { it.amountCents },
+                    draft.lines.map { it.deductionCents },
+                    settlementAdvanceCents,
+                ),
+                dirty = false,
+            )
+            return
+        }
+        val preview = travelExpensePreview(draft, rateSet, entries, settlementAdvanceCents)
+        bar.show(preview.totals, dirty = (dayHandle?.isDirty() ?: false) || settlementAdvanceCents != draft.advanceCents)
+    }
+
+    // Tagesraster
+    val rateSet = rates.rateSet
+    if (rateSet != null) {
+        dayHandle =
+            renderTravelExpenseDayGrid(
+                panel = main,
+                draft = draft,
+                rates = rateSet,
+                onPreviewChanged = { refreshTotals() },
+                onSaved = onChanged,
+            )
+    }
+
+    // Weitere Kosten
+    main.h2(tr("Weitere Kosten")) { addCssClass("h6") }
+    val addButtonsRow = main.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
+    val addLinePanel = main.vPanel(spacing = 6)
+    TRAVEL_EXPENSE_ADDABLE_KINDS.forEach { kind ->
         val enabled = travelExpenseLineKindEnabled(kind, rates)
         val addButton =
             addButtonsRow.button(
@@ -198,40 +280,77 @@ private fun renderDraftEditor(
             ) {
                 icon = travelExpenseLineKindIcon(kind)
                 disabled = !enabled
-                if (!enabled) {
-                    title =
-                        when (kind) {
-                            TravelExpenseLineKind.MILEAGE -> tr("Kilometersatz ist noch nicht konfiguriert.")
-                            TravelExpenseLineKind.PER_DIEM -> tr("Tagespauschale ist noch nicht konfiguriert.")
-                            TravelExpenseLineKind.RECEIPTED -> ""
-                        }
-                }
+                if (!enabled && kind == TravelExpenseLineKind.MILEAGE) title = tr("Kilometersatz ist noch nicht konfiguriert.")
             }
-        addButton.onClick { renderAddLineForm(addLinePanel, draft.id, kind, onChanged) }
+        addButton.onClick { renderLineForm(addLinePanel, draft, kind, line = null, rates = rates, onChanged = onChanged) }
     }
-
-    if (draft.lines.isEmpty()) {
-        card.p(tr("Noch keine Zeilen erfasst.")) { addCssClasses("text-muted small") }
+    val otherLines = draft.lines.filter { it.kind != TravelExpenseLineKind.DAY_ALLOWANCE }
+    if (otherLines.isEmpty()) {
+        main.p(tr("Noch keine weiteren Kosten erfasst.")) { addCssClasses("text-muted small") }
     }
-    draft.lines.forEach { line -> renderLineCard(card, line, onChanged) }
+    otherLines.forEach { line -> renderLineCard(main, draft, line, rates, onChanged) }
 
-    val subtotals = travelExpenseSubtotals(draft)
-    card.div(
-        gettext(
-            "Fahrtkosten: %1 · Tagespauschalen: %2 · Belegkosten: %3 · Gesamt: %4",
-            formatMoney(subtotals[TravelExpenseLineKind.MILEAGE] ?: 0.0.toDecimal()),
-            formatMoney(subtotals[TravelExpenseLineKind.PER_DIEM] ?: 0.0.toDecimal()),
-            formatMoney(subtotals[TravelExpenseLineKind.RECEIPTED] ?: 0.0.toDecimal()),
-            formatMoney(draft.totalAmount),
-        ),
-    ) { addCssClasses("fw-bold") }
+    // Vorschuss und Auszahlung
+    main.h2(tr("Vorschuss und Auszahlung")) { addCssClass("h6") }
+    val settlementForm = main.lapisForm()
+    val advanceField =
+        settlementForm.textField(
+            label = tr("Bereits erhaltener Vorschuss (EUR)"),
+            value = if (draft.advanceCents > 0) travelExpenseCentsText(draft.advanceCents) else null,
+            hint = tr("Leer lassen, wenn Sie keinen Vorschuss erhalten haben. Beispiel: 50,00."),
+            rule = { travelExpenseAdvanceCheck(it) },
+        )
+    val payoutRadio =
+        settlementForm.panel.radioGroup(
+            options = TravelExpensePayoutChoice.entries.map { it.name to travelExpensePayoutChoiceLabel(it) },
+            // Deliberately NO preselection: the member decides consciously whether to be paid or to waive.
+            value = draft.payoutChoice?.name,
+            label = tr("Wie soll abgerechnet werden?"),
+        )
+    settlementForm.register(
+        control = payoutRadio,
+        label = tr("Wie soll abgerechnet werden?"),
+        required = true,
+        requiredMessage = tr("Bitte wählen Sie, ob ausgezahlt oder auf die Erstattung verzichtet werden soll."),
+    )
+    settlementForm.panel.div(tr("Die Zuwendungsbestätigung wird außerhalb von Lapis ausgestellt."), className = "text-muted small")
+    advanceField.subscribe {
+        settlementAdvanceCents = travelExpenseParseCents(it) ?: settlementAdvanceCents
+        refreshTotals()
+    }
+    val settlementSave = newActionButton(ActionIcon.SAVE, tr("Vorschuss und Auszahlung speichern"), ButtonStyle.PRIMARY)
+    settlementForm.buttons(primary = settlementSave)
+    settlementSave.onClick {
+        settlementForm.submit(settlementSave) {
+            val cents = travelExpenseParseCents(advanceField.value) ?: 0L
+            val choice = payoutRadio.value?.let { value -> TravelExpensePayoutChoice.entries.firstOrNull { it.name == value } }
+            val result =
+                guarded {
+                    rpcService<ITravelExpenseService>().updateDraft(
+                        draft.id,
+                        TravelExpenseReportInput(
+                            purpose = draft.purpose,
+                            travelFrom = draft.travelFrom,
+                            travelTo = draft.travelTo,
+                            advanceCents = cents,
+                            payoutChoice = choice,
+                        ),
+                    )
+                }
+            if (result != null) {
+                notifySuccess(tr("Entwurf gespeichert."))
+                onChanged()
+            }
+        }
+    }
+    refreshTotals()
 
-    val blockReason = travelExpenseSubmitBlockReason(draft, rates)
+    val blockReason = travelExpenseSubmitBlockReason(draft, rates, daysDirty = dayHandle?.isDirty() ?: false)
     if (blockReason != null) {
-        card.p(blockReason) { addCssClasses("text-muted small") }
+        main.p(blockReason) { addCssClasses("text-muted small") }
     }
     val submitButton =
-        card.actionButton(ActionIcon.SEND, tr("Zur Freigabe einreichen"), style = ButtonStyle.SUCCESS) {
+        main.actionButton(ActionIcon.SEND, tr("Zur Freigabe einreichen"), style = ButtonStyle.SUCCESS) {
             disabled =
                 blockReason != null
         }
@@ -246,12 +365,15 @@ private fun renderDraftEditor(
     }
 }
 
-// R24 (W4d): migrated to the form grammar -- Beschreibung (required text) plus exactly one of
-// Kilometer/Tage/Betrag depending on [kind] (same discriminated-flat-row idiom [TravelExpenseLineInput] uses).
-private fun renderAddLineForm(
+// R24 (W4d): migrated to the form grammar. V1.9.122: one form for adding AND editing a "weitere Kosten" line -- Beschreibung plus, depending on
+// [kind], Kilometer + Mitfahrer (mileage), Betrag (public transport / hospitality / other) or Erste Nacht + Nächte + Betrag + "mit Frühstück"
+// (accommodation). Money travels as whole cents; the server computes everything else.
+private fun renderLineForm(
     panel: SimplePanel,
-    reportId: String,
+    draft: TravelExpenseReportDto,
     kind: TravelExpenseLineKind,
+    line: TravelExpenseLineDto?,
+    rates: TravelExpenseRatesDto,
     onChanged: () -> Unit,
 ) {
     panel.removeAll()
@@ -259,7 +381,8 @@ private fun renderAddLineForm(
     val form = wrapper.lapisForm()
     val descriptionField =
         form.textField(
-            label = tr("Beschreibung"),
+            label = if (kind == TravelExpenseLineKind.ACCOMMODATION) tr("Unterkunft (Hotel, Ort)") else tr("Beschreibung"),
+            value = line?.description,
             required = true,
             requiredMessage = tr("Bitte eine Beschreibung angeben."),
             rule = { FormRules.maxLength(it, TravelExpenseAmountRules.MAX_DESCRIPTION_LENGTH) },
@@ -268,38 +391,91 @@ private fun renderAddLineForm(
         if (kind == TravelExpenseLineKind.MILEAGE) {
             form.textField(
                 label = tr("Kilometer"),
+                value =
+                    line
+                        ?.kilometers
+                        ?.toDouble()
+                        ?.toLong()
+                        ?.toString(),
                 required = true,
-                hint = tr("Beispiel: 1234,56."),
-                rule = { travelExpenseKilometersCheck(it) },
+                hint = tr("Ganze Kilometer, 1 bis 5000."),
+                rule = { FormRules.intInRange(it, 1, TravelExpenseAmountRules.MAX_KM_PER_LINE) },
             )
         } else {
             null
         }
-    val daysField =
-        if (kind == TravelExpenseLineKind.PER_DIEM) {
+    val passengersField =
+        if (kind == TravelExpenseLineKind.MILEAGE) {
             form.textField(
-                label = tr("Tage"),
+                label = tr("Mitfahrer"),
+                value = (line?.passengerCount ?: 0).toString(),
+                hint = tr("Anzahl der Mitfahrenden, 0 bis 8."),
+                rule = { FormRules.intInRange(it, 0, TravelExpenseAmountRules.MAX_PASSENGERS) },
+            )
+        } else {
+            null
+        }
+    val firstNightField =
+        if (kind == TravelExpenseLineKind.ACCOMMODATION) {
+            form.textField(
+                label = tr("Erste Nacht (JJJJ-MM-TT)"),
+                value = line?.dayDate?.toString() ?: draft.travelFrom.toString(),
                 required = true,
-                rule = { FormRules.intInRange(it, 1, TravelExpenseAmountRules.MAX_DAYS) },
+                hint = tr("Beispiel: 2026-03-14."),
+                rule = { travelExpenseFirstNightCheck(it, draft.travelFrom, draft.travelTo) },
+            )
+        } else {
+            null
+        }
+    val nightsField =
+        if (kind == TravelExpenseLineKind.ACCOMMODATION) {
+            form.textField(
+                label = tr("Nächte"),
+                value = line?.nights?.toString() ?: "1",
+                required = true,
+                rule = { FormRules.intInRange(it, 1, TravelExpenseAmountRules.MAX_NIGHTS) },
             )
         } else {
             null
         }
     val amountField =
-        if (kind == TravelExpenseLineKind.RECEIPTED) {
+        if (kind != TravelExpenseLineKind.MILEAGE) {
             form.textField(
                 label = tr("Betrag"),
+                value = line?.amountCents?.let { travelExpenseCentsText(it) },
                 required = true,
                 hint = tr("Beispiel: 1234,56."),
-                rule = { travelExpenseLineAmountCheck(it) },
+                rule = { travelExpenseCentsAmountCheck(it) },
             )
         } else {
             null
         }
-    val addButton = newActionButton(ActionIcon.ADD, tr("Zeile hinzufügen"), ButtonStyle.PRIMARY)
-    form.buttons(primary = addButton)
-    addButton.onClick {
-        form.submit(addButton) {
+    val breakfastField =
+        if (kind == TravelExpenseLineKind.ACCOMMODATION) {
+            form.checkField(label = tr("mit Frühstück"), value = line?.breakfastIncluded == true)
+        } else {
+            null
+        }
+    if (kind == TravelExpenseLineKind.ACCOMMODATION && nightsField != null && firstNightField != null) {
+        form.crossFieldRule(field = nightsField) {
+            val first = runCatching { LocalDate.parse(firstNightField.value.trim()) }.getOrNull()
+            val nights = nightsField.value.trim().toIntOrNull()
+            if (first != null && nights != null && !travelExpenseAccommodationFits(first, nights, draft.travelFrom, draft.travelTo)) {
+                FieldCheck.Invalid(gettext("Die Übernachtungen müssen innerhalb der Reise liegen."))
+            } else {
+                FieldCheck.Ok
+            }
+        }
+    }
+    val saveButton =
+        newActionButton(
+            if (line == null) ActionIcon.ADD else ActionIcon.SAVE,
+            if (line == null) tr("Zeile hinzufügen") else tr("Zeile speichern"),
+            ButtonStyle.PRIMARY,
+        )
+    form.buttons(primary = saveButton)
+    saveButton.onClick {
+        form.submit(saveButton) {
             val description = descriptionField.value.trim()
             val input =
                 when (kind) {
@@ -307,24 +483,46 @@ private fun renderAddLineForm(
                         TravelExpenseLineInput(
                             kind = kind,
                             description = description,
-                            kilometers = travelExpenseParseDecimal(checkNotNull(kilometersField).value),
+                            kilometers =
+                                checkNotNull(kilometersField)
+                                    .value
+                                    .trim()
+                                    .toInt()
+                                    .toDouble()
+                                    .toDecimal(),
+                            passengerCount =
+                                checkNotNull(passengersField)
+                                    .value
+                                    .trim()
+                                    .ifEmpty { "0" }
+                                    .toInt(),
                         )
-                    TravelExpenseLineKind.PER_DIEM ->
+                    TravelExpenseLineKind.ACCOMMODATION ->
                         TravelExpenseLineInput(
                             kind = kind,
                             description = description,
-                            days = checkNotNull(daysField).value.trim().toInt(),
+                            dayDate = LocalDate.parse(checkNotNull(firstNightField).value.trim()),
+                            nights = checkNotNull(nightsField).value.trim().toInt(),
+                            breakfastIncluded = checkNotNull(breakfastField).value == "true",
+                            amountCents = travelExpenseParseCents(checkNotNull(amountField).value),
                         )
-                    TravelExpenseLineKind.RECEIPTED ->
+                    else ->
                         TravelExpenseLineInput(
                             kind = kind,
                             description = description,
-                            amount = travelExpenseParseDecimal(checkNotNull(amountField).value),
+                            amountCents = travelExpenseParseCents(checkNotNull(amountField).value),
                         )
                 }
-            val result = guarded { rpcService<ITravelExpenseService>().addLine(reportId, input) }
+            val result =
+                guarded {
+                    if (line == null) {
+                        rpcService<ITravelExpenseService>().addLine(draft.id, input)
+                    } else {
+                        rpcService<ITravelExpenseService>().updateLine(line.id, input)
+                    }
+                }
             if (result != null) {
-                notifySuccess(tr("Zeile hinzugefügt."))
+                notifySuccess(if (line == null) tr("Zeile hinzugefügt.") else tr("Zeile gespeichert."))
                 onChanged()
             }
         }
@@ -333,7 +531,9 @@ private fun renderAddLineForm(
 
 private fun renderLineCard(
     panel: SimplePanel,
+    draft: TravelExpenseReportDto,
     line: TravelExpenseLineDto,
+    rates: TravelExpenseRatesDto,
     onChanged: () -> Unit,
 ) {
     val card = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
@@ -341,6 +541,11 @@ private fun renderLineCard(
     headerRow.typeBadge(travelExpenseLineKindLabel(line.kind), travelExpenseLineKindColor(line.kind))
     headerRow.untrustedDiv(line.description, className = "flex-grow-1")
     headerRow.div(formatMoney(line.amount)) { addCssClasses("fw-bold") }
+    if (line.kind in TRAVEL_EXPENSE_ADDABLE_KINDS) {
+        val editHolder = card.vPanel(spacing = 4)
+        val editButton = headerRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
+        editButton.onClick { renderLineForm(editHolder, draft, line.kind, line = line, rates = rates, onChanged = onChanged) }
+    }
     val removeButton = headerRow.actionButton(ActionIcon.REMOVE, tr("Zeile entfernen"), style = ButtonStyle.OUTLINEDANGER)
     removeButton.onClick {
         runGuardedAction(removeButton) {
@@ -352,9 +557,10 @@ private fun renderLineCard(
         TravelExpenseLineKind.MILEAGE ->
             card.div(
                 gettext(
-                    "%1 km × %2/km",
+                    "%1 km × %2/km, %3 Mitfahrer",
                     line.kilometers?.let { formatPlainAmountIn(I18n.language, it) } ?: "?",
                     line.rateSnapshot?.let { formatMoney(it) } ?: "?",
+                    line.passengerCount ?: 0,
                 ),
             ) {
                 addCssClasses("text-muted small")
@@ -363,52 +569,73 @@ private fun renderLineCard(
             card.div(gettext("%1 Tage × %2", line.days, line.rateSnapshot?.let { formatMoney(it) } ?: "?")) {
                 addCssClasses("text-muted small")
             }
-        TravelExpenseLineKind.RECEIPTED -> {
-            line.receipts.forEach { receipt ->
-                val receiptRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
-                receiptRow.icon(receiptIcon(receipt.mimeType))
-                receiptRow.untrustedLink(
-                    receipt.originalFilename,
-                    url = TravelExpenseHttp.receiptDownloadUrl(receipt.id),
-                    target = "_blank",
-                )
-                receiptRow.div(receiptSizeLabel(receipt.sizeBytes)) { addCssClasses("text-muted small") }
-                val deleteReceiptButton = receiptRow.actionButton(ActionIcon.REMOVE, tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
-                deleteReceiptButton.onClick {
-                    runGuardedAction(deleteReceiptButton) {
-                        val error = TravelExpenseHttp.deleteReceipt(receipt.id)
-                        if (error != null) notifyError(error) else onChanged()
-                    }
+        TravelExpenseLineKind.ACCOMMODATION ->
+            card.div(
+                gettext(
+                    "%1 Nächte ab %2%3",
+                    line.nights ?: 0,
+                    line.dayDate?.let { formatDate(it) } ?: "?",
+                    if (line.breakfastIncluded == true) gettext(", mit Frühstück") else "",
+                ),
+            ) {
+                addCssClasses("text-muted small")
+            }
+        else -> Unit
+    }
+    // Receipts: mandatory for the receipted kinds, an optional map proof for mileage. Day lines never carry one.
+    if (line.kind.requiresReceipt || line.kind == TravelExpenseLineKind.MILEAGE) {
+        line.receipts.forEach { receipt ->
+            val receiptRow = card.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap") }
+            receiptRow.icon(receiptIcon(receipt.mimeType))
+            receiptRow.untrustedLink(
+                receipt.originalFilename,
+                url = TravelExpenseHttp.receiptDownloadUrl(receipt.id),
+                target = "_blank",
+            )
+            receiptRow.div(receiptSizeLabel(receipt.sizeBytes)) { addCssClasses("text-muted small") }
+            val deleteReceiptButton = receiptRow.actionButton(ActionIcon.REMOVE, tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
+            deleteReceiptButton.onClick {
+                runGuardedAction(deleteReceiptButton) {
+                    val error = TravelExpenseHttp.deleteReceipt(receipt.id)
+                    if (error != null) notifyError(error) else onChanged()
                 }
             }
-            // R24 (W4d): migrated to the form grammar -- the raw Upload control registered via `register`
-            // (pattern `DocumentsScreen.kt`'s `renderVersionUpload`), same reason not Kilua RPC (see
-            // `TravelExpenseHttp` KDoc): receipt bytes travel over a dedicated HTTP route.
-            val uploadRow = card.vPanel(spacing = 4) { addCssClasses("border-top pt-2 mt-2") }
-            val uploadForm = uploadRow.lapisForm()
-            val fileUpload = uploadForm.panel.upload(label = tr("Beleg hochladen"))
+        }
+        // R24 (W4d): migrated to the form grammar -- the raw Upload control registered via `register`
+        // (pattern `DocumentsScreen.kt`'s `renderVersionUpload`), same reason not Kilua RPC (see
+        // `TravelExpenseHttp` KDoc): receipt bytes travel over a dedicated HTTP route.
+        val uploadLabel =
+            if (line.kind ==
+                TravelExpenseLineKind.MILEAGE
+            ) {
+                tr("Kartennachweis hochladen (optional)")
+            } else {
+                tr("Beleg hochladen")
+            }
+        val uploadRow = card.vPanel(spacing = 4) { addCssClasses("border-top pt-2 mt-2") }
+        val uploadForm = uploadRow.lapisForm()
+        val fileUpload = uploadForm.panel.upload(label = uploadLabel)
 
-            fun selectedNativeFile() = fileUpload.value?.firstOrNull()?.let { fileUpload.getNativeFile(it) }
-            val fileField =
-                uploadForm.register(
-                    fileUpload,
-                    label = tr("Beleg hochladen"),
-                    required = true,
-                    requiredMessage = tr("Bitte eine Datei auswählen."),
-                )
-            val uploadButton = newActionButton(ActionIcon.UPLOAD, tr("Hochladen"), ButtonStyle.PRIMARY)
-            uploadForm.buttons(primary = uploadButton)
-            uploadButton.onClick {
-                uploadForm.submit(uploadButton) {
-                    val nativeFile = selectedNativeFile() ?: return@submit
-                    val error = TravelExpenseHttp.uploadReceipt(line.id, nativeFile)
-                    if (error != null) {
-                        uploadForm.showFormError(error)
-                    } else {
-                        notifySuccess(tr("Beleg hochgeladen."))
-                        fileField.reset()
-                        onChanged()
-                    }
+        fun selectedNativeFile() = fileUpload.value?.firstOrNull()?.let { fileUpload.getNativeFile(it) }
+        val fileField =
+            uploadForm.register(
+                fileUpload,
+                label = uploadLabel,
+                required = true,
+                requiredMessage = tr("Bitte eine Datei auswählen."),
+            )
+        val uploadButton = newActionButton(ActionIcon.UPLOAD, tr("Hochladen"), ButtonStyle.PRIMARY)
+        uploadForm.buttons(primary = uploadButton)
+        uploadButton.onClick {
+            uploadForm.submit(uploadButton) {
+                val nativeFile = selectedNativeFile() ?: return@submit
+                val error = TravelExpenseHttp.uploadReceipt(line.id, nativeFile)
+                if (error != null) {
+                    uploadForm.showFormError(error)
+                } else {
+                    notifySuccess(tr("Beleg hochgeladen."))
+                    fileField.reset()
+                    onChanged()
                 }
             }
         }
@@ -432,6 +659,18 @@ private fun renderOwnReportCard(
     headerRow.untrustedCardTitle(report.purpose)
     headerRow.div(formatMoney(report.totalAmount))
     card.div(gettext("%1 bis %2", formatDate(report.travelFrom), formatDate(report.travelTo))) { addCssClasses("text-muted small") }
+    if (report.advanceCents > 0 || report.payoutChoice != null) {
+        card.div(
+            gettext(
+                "Vorschuss: %1 · Auszahlungsbetrag: %2",
+                formatMoney(centsToDecimal(report.advanceCents)),
+                formatMoney(centsToDecimal(report.payoutCents)),
+            ),
+        ) { addCssClasses("text-muted small") }
+    }
+    if (report.payoutChoice == TravelExpensePayoutChoice.DONATION_WAIVER) {
+        card.typeBadge(tr("Spendenquittung gewünscht"), "info")
+    }
     if (report.decisionNote != null) {
         card.div(gettext("Begründung: %1", report.decisionNote)) { addCssClasses("text-muted small") }
     }
@@ -474,24 +713,16 @@ private fun renderOwnReportCard(
                                 purpose = report.purpose,
                                 travelFrom = report.travelFrom,
                                 travelTo = report.travelTo,
+                                advanceCents = report.advanceCents,
+                                payoutChoice = report.payoutChoice,
                             ),
                         )
                     }
                 if (newDraft != null) {
-                    report.lines.forEach { line ->
-                        val input =
-                            when (line.kind) {
-                                TravelExpenseLineKind.MILEAGE ->
-                                    TravelExpenseLineInput(
-                                        kind = line.kind,
-                                        description = line.description,
-                                        kilometers = line.kilometers,
-                                    )
-                                TravelExpenseLineKind.PER_DIEM ->
-                                    TravelExpenseLineInput(kind = line.kind, description = line.description, days = line.days)
-                                TravelExpenseLineKind.RECEIPTED ->
-                                    TravelExpenseLineInput(kind = line.kind, description = line.description, amount = line.amount)
-                            }
+                    // The day grid of the copy starts from the times/meals of the original (the server created one empty line per day).
+                    val days = travelExpenseCopiedDays(report)
+                    if (days.isNotEmpty()) guarded { rpcService<ITravelExpenseService>().saveDays(newDraft.id, days) }
+                    travelExpenseCopiedLines(report).forEach { input ->
                         guarded { rpcService<ITravelExpenseService>().addLine(newDraft.id, input) }
                     }
                     notifySuccess(tr("Als neuer Entwurf kopiert. Belege müssen erneut hochgeladen werden."))
@@ -509,20 +740,32 @@ internal fun travelExpenseLineKindEnabled(
     rates: TravelExpenseRatesDto,
 ): Boolean =
     when (kind) {
-        TravelExpenseLineKind.MILEAGE -> rates.mileageRatePerKm != null
+        TravelExpenseLineKind.MILEAGE -> rates.rateSet?.mileageCentsPerKm != null
         TravelExpenseLineKind.PER_DIEM -> rates.perDiemRate != null
-        TravelExpenseLineKind.RECEIPTED -> true
+        else -> true
     }
 
+/**
+ * Why "Zur Freigabe einreichen" is still disabled, or `null`. Mirrors what `TravelExpenseService.submitReport` refuses (the server stays the
+ * authority): no payout choice, an advance above the total, unsaved day entries, a day whose times are not complete, a missing receipt, an
+ * unconfigured mileage rate.
+ */
 internal fun travelExpenseSubmitBlockReason(
     report: TravelExpenseReportDto,
     rates: TravelExpenseRatesDto,
+    daysDirty: Boolean = false,
 ): String? {
     if (report.lines.isEmpty()) return tr("Mindestens eine Zeile ist erforderlich.")
-    if (report.lines.any { it.kind == TravelExpenseLineKind.RECEIPTED && it.receipts.isEmpty() }) {
+    if (daysDirty) return tr("Bitte speichern Sie zuerst die Reisetage.")
+    if (report.payoutChoice == null) return tr("Bitte wählen Sie, wie abgerechnet werden soll (Auszahlung oder Spendenquittung).")
+    if (report.advanceCents > report.lines.sumOf { it.amountCents }) {
+        return tr("Der Vorschuss ist höher als die Abrechnung -- bitte wenden Sie sich an den Ansprechpartner.")
+    }
+    if (travelExpenseHasIncompleteDay(report)) return tr("Bitte tragen Sie für jeden Reisetag die Uhrzeiten ein und speichern Sie.")
+    if (report.lines.any { it.kind.requiresReceipt && it.receipts.isEmpty() }) {
         return tr("Jede Beleg-Kosten-Zeile benötigt mindestens einen Beleg.")
     }
-    if (report.lines.any { it.kind == TravelExpenseLineKind.MILEAGE } && rates.mileageRatePerKm == null) {
+    if (report.lines.any { it.kind == TravelExpenseLineKind.MILEAGE } && rates.rateSet?.mileageCentsPerKm == null) {
         return tr("Der Kilometersatz ist nicht konfiguriert.")
     }
     if (report.lines.any { it.kind == TravelExpenseLineKind.PER_DIEM } && rates.perDiemRate == null) {
@@ -530,6 +773,28 @@ internal fun travelExpenseSubmitBlockReason(
     }
     return null
 }
+
+/** `true` if a saved day line misses the times its position needs (the shared calculator says so -- no rule of its own here). */
+internal fun travelExpenseHasIncompleteDay(report: TravelExpenseReportDto): Boolean =
+    report.lines
+        .filter { it.kind == TravelExpenseLineKind.DAY_ALLOWANCE && it.dayDate != null }
+        .any { line ->
+            TravelExpenseCalculator.day(
+                input =
+                    DayInput(
+                        date = requireNotNull(line.dayDate),
+                        timeFrom = line.timeFrom,
+                        timeTo = line.timeTo,
+                        breakfastProvided = line.breakfastProvided,
+                        lunchProvided = line.lunchProvided,
+                        dinnerProvided = line.dinnerProvided,
+                    ),
+                travelFrom = report.travelFrom,
+                travelTo = report.travelTo,
+                forcedBreakfastDates = emptySet(),
+                rates = TravelExpenseDefaults.pdvTemplate(),
+            ) is CalcResult.Err
+        }
 
 internal fun travelExpenseSubtotals(report: TravelExpenseReportDto): Map<TravelExpenseLineKind, Decimal> =
     TravelExpenseLineKind.entries.associateWith { kind ->
@@ -546,40 +811,104 @@ internal fun travelExpenseCanCopyAsDraft(
     hasOpenDraft: Boolean,
 ): Boolean = report.status == TravelExpenseReportStatus.REJECTED && !hasOpenDraft
 
-/**
- * Feldregel für Kilometer/Betrag dieses Formulars: [parseAmountInput] OHNE Obergrenzen-Prüfung ([TravelExpenseAmountRules.MAX_KILOMETERS]
- * bleibt reine Server-Autorität, siehe `submitReport` KDoc) -- nur Form (Komma/Punkt, keine Tausendertrennzeichen) und Positivität werden
- * hier gespiegelt, dieselben bereits im Katalog vorhandenen Meldungen wie [openItemAmountCheck]. Kein eigener neuer Meldungstext, damit
- * diese Welle keine neuen `msgid`s über alle sieben Kataloge nachziehen muss, wo eine bestehende Meldung genügt.
- */
-internal fun travelExpenseKilometersCheck(value: String): FieldCheck =
-    when (val parsed = parseAmountInput(value, allowZero = false, enforceMaxAmount = false)) {
-        is AmountInput.Empty -> FieldCheck.Ok
-        is AmountInput.Invalid -> FieldCheck.Invalid(resolvedAttributeText(parsed.reason))
-        is AmountInput.Valid -> FieldCheck.Ok
-    }
+/** The day entries of a rejected report, as the day grid of its copy starts with them. */
+internal fun travelExpenseCopiedDays(report: TravelExpenseReportDto): List<TravelExpenseDayInput> =
+    report.lines
+        .filter { it.kind == TravelExpenseLineKind.DAY_ALLOWANCE && it.dayDate != null }
+        .map { line ->
+            TravelExpenseDayInput(
+                dayDate = requireNotNull(line.dayDate),
+                timeFrom = line.timeFrom,
+                timeTo = line.timeTo,
+                breakfastProvided = line.breakfastProvided,
+                lunchProvided = line.lunchProvided,
+                dinnerProvided = line.dinnerProvided,
+                destination = line.destination,
+            )
+        }
 
 /**
- * Feldregel für den Belegkosten-Betrag: [parseAmountInput] MIT der Obergrenze [TravelExpenseAmountRules.MAX_LINE_AMOUNT] (die Meldung ist
- * bereits im Katalog vorhanden, gleiches Muster wie [FormRules.postingAmount]/[FormRules.returnFee]).
+ * The non-day lines of a rejected report as the inputs of its copy. The two legacy kinds cannot be created any more: a legacy receipted line
+ * becomes "Sonstiges" (OTHER) with the same amount, a legacy flat per-day line is dropped (the day grid replaces it).
  */
-internal fun travelExpenseLineAmountCheck(value: String): FieldCheck =
-    when (val parsed = parseAmountInput(value, allowZero = false, enforceMaxAmount = false)) {
-        is AmountInput.Empty -> FieldCheck.Ok
-        is AmountInput.Invalid -> FieldCheck.Invalid(resolvedAttributeText(parsed.reason))
-        is AmountInput.Valid ->
-            if (parsed.value.toDouble() > TravelExpenseAmountRules.MAX_LINE_AMOUNT) {
-                FieldCheck.Invalid(
-                    gettext(
-                        "Der Betrag ist zu groß (höchstens %1).",
-                        formatMoney(TravelExpenseAmountRules.MAX_LINE_AMOUNT.toDouble().toDecimal()),
-                    ),
+internal fun travelExpenseCopiedLines(report: TravelExpenseReportDto): List<TravelExpenseLineInput> =
+    report.lines.mapNotNull { line ->
+        when (line.kind) {
+            TravelExpenseLineKind.DAY_ALLOWANCE, TravelExpenseLineKind.PER_DIEM -> null
+            TravelExpenseLineKind.MILEAGE ->
+                TravelExpenseLineInput(
+                    kind = line.kind,
+                    description = line.description,
+                    kilometers = line.kilometers,
+                    passengerCount = line.passengerCount,
                 )
-            } else {
-                FieldCheck.Ok
-            }
+            TravelExpenseLineKind.ACCOMMODATION ->
+                TravelExpenseLineInput(
+                    kind = line.kind,
+                    description = line.description,
+                    dayDate = line.dayDate,
+                    nights = line.nights,
+                    breakfastIncluded = line.breakfastIncluded,
+                    amountCents = line.amountCents,
+                )
+            TravelExpenseLineKind.RECEIPTED ->
+                TravelExpenseLineInput(kind = TravelExpenseLineKind.OTHER, description = line.description, amountCents = line.amountCents)
+            TravelExpenseLineKind.PUBLIC_TRANSPORT, TravelExpenseLineKind.HOSPITALITY, TravelExpenseLineKind.OTHER ->
+                TravelExpenseLineInput(kind = line.kind, description = line.description, amountCents = line.amountCents)
+        }
     }
 
-/** Wandelt einen bereits über [travelExpenseKilometersCheck]/[travelExpenseLineAmountCheck] geprüften Feldwert in seinen [Decimal] um. */
-internal fun travelExpenseParseDecimal(value: String): Decimal =
-    (parseAmountInput(value, allowZero = false, enforceMaxAmount = false) as AmountInput.Valid).value
+/** Feldregel für den Vorschuss (optional, leer = 0): ganze Cent, nicht negativ, höchstens [TravelExpenseAmountRules.MAX_ADVANCE_CENTS]. */
+internal fun travelExpenseAdvanceCheck(value: String): FieldCheck {
+    val cents = travelExpenseParseCents(value)
+    return when {
+        cents == null -> FieldCheck.Invalid(gettext("Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."))
+        cents > TravelExpenseAmountRules.MAX_ADVANCE_CENTS ->
+            FieldCheck.Invalid(
+                gettext("Der Betrag ist zu groß (höchstens %1).", formatMoney(centsToDecimal(TravelExpenseAmountRules.MAX_ADVANCE_CENTS))),
+            )
+        else -> FieldCheck.Ok
+    }
+}
+
+/**
+ * Feldregel für den Betrag einer Beleg-Zeile: ganze Cent, größer als 0, höchstens [TravelExpenseAmountRules.MAX_RECEIPTED_CENTS]
+ * (10 000,00 EUR). Leere behandelt `required`.
+ */
+internal fun travelExpenseCentsAmountCheck(value: String): FieldCheck {
+    val cents = travelExpenseParseCents(value)
+    return when {
+        cents == null -> FieldCheck.Invalid(gettext("Bitte einen Betrag wie 1234,56 eingeben (ohne Tausendertrennzeichen)."))
+        cents < 1 -> FieldCheck.Invalid(gettext("Der Betrag muss größer als 0 sein."))
+        cents > TravelExpenseAmountRules.MAX_RECEIPTED_CENTS ->
+            FieldCheck.Invalid(
+                gettext(
+                    "Der Betrag ist zu groß (höchstens %1).",
+                    formatMoney(centsToDecimal(TravelExpenseAmountRules.MAX_RECEIPTED_CENTS)),
+                ),
+            )
+        else -> FieldCheck.Ok
+    }
+}
+
+/** First night must be a date inside the travel period (the per-night range is the cross-field rule of the form). */
+internal fun travelExpenseFirstNightCheck(
+    value: String,
+    travelFrom: LocalDate,
+    travelTo: LocalDate,
+): FieldCheck {
+    val date = runCatching { LocalDate.parse(value.trim()) }.getOrNull() ?: return FormRules.isoDate(value)
+    return if (date < travelFrom || date > travelTo) {
+        FieldCheck.Invalid(gettext("Die Übernachtungen müssen innerhalb der Reise liegen."))
+    } else {
+        FieldCheck.Ok
+    }
+}
+
+/** Whether `nights` nights from [firstNight] end inside the travel period: the morning after the last night must be <= [travelTo]. */
+internal fun travelExpenseAccommodationFits(
+    firstNight: LocalDate,
+    nights: Int,
+    travelFrom: LocalDate,
+    travelTo: LocalDate,
+): Boolean = nights >= 1 && firstNight >= travelFrom && firstNight.plus(nights, DateTimeUnit.DAY) <= travelTo

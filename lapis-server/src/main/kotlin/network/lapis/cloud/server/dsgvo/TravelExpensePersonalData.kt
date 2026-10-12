@@ -52,6 +52,10 @@ private val receiptStorageRoot: File
  *   posted reimbursement IS a Buchungsbeleg; that and how much the organization paid a member
  *   must stay reconstructable for a Kassenprüfung. The free-text purpose/description is redacted,
  *   every amount/date/status value and the receipt metadata remain.
+ * - **V1.9.122**: for the retained states additionally `travel_expense_line.destination` (free text)
+ *   and `travel_expense_report.membership_number_snapshot` are set to `NULL`; times, dates, meal
+ *   flags, amounts, advance and settlement choice remain (Buchungsbeleg). The Art.-15 export carries
+ *   all of the new fields.
  * - **Receipt FILES for `REQUESTED`/`APPROVED`/`EXECUTED` are deliberately NOT removed** -- ONLY
  *   `EXECUTED` (`posted_journal_entry_id != null`, `chk_ter_posted_entry_state`) is actually a
  *   Buchungsbeleg (§147 AO); `REQUESTED`/`APPROVED` are still pending a final BOARD/ADMIN decision
@@ -117,6 +121,30 @@ object TravelExpensePersonalData : MemberPersonalDataContributor {
                                 put("travelTo", row[TravelExpenseReportTable.travelTo].toString())
                                 put("totalAmount", row[TravelExpenseReportTable.totalAmount].toPlainString())
                                 put("lineCount", lines.size)
+                                // V1.9.122: advance, settlement choice and the membership-number snapshot.
+                                put("advanceAmount", row[TravelExpenseReportTable.advanceAmount].toPlainString())
+                                put("payoutChoice", row[TravelExpenseReportTable.payoutChoice]?.name)
+                                put("membershipNumberSnapshot", row[TravelExpenseReportTable.membershipNumberSnapshot])
+                                putJsonArray("lines") {
+                                    lines.forEach { line ->
+                                        add(
+                                            buildJsonObject {
+                                                put("kind", line[TravelExpenseLineTable.kind].name)
+                                                put("amount", line[TravelExpenseLineTable.amount].toPlainString())
+                                                put("destination", line[TravelExpenseLineTable.destination])
+                                                put("dayDate", line[TravelExpenseLineTable.dayDate]?.toString())
+                                                put("timeFrom", line[TravelExpenseLineTable.timeFrom]?.toString())
+                                                put("timeTo", line[TravelExpenseLineTable.timeTo]?.toString())
+                                                put("breakfastProvided", line[TravelExpenseLineTable.breakfastProvided])
+                                                put("lunchProvided", line[TravelExpenseLineTable.lunchProvided])
+                                                put("dinnerProvided", line[TravelExpenseLineTable.dinnerProvided])
+                                                put("passengerCount", line[TravelExpenseLineTable.passengerCount])
+                                                put("breakfastIncluded", line[TravelExpenseLineTable.breakfastIncluded])
+                                                put("nights", line[TravelExpenseLineTable.days])
+                                            },
+                                        )
+                                    }
+                                }
                                 put("decisionNote", row[TravelExpenseReportTable.decisionNote])
                                 put("submittedAt", row[TravelExpenseReportTable.submittedAt]?.toString())
                                 put("decidedAt", row[TravelExpenseReportTable.decidedAt]?.toString())
@@ -205,9 +233,13 @@ object TravelExpensePersonalData : MemberPersonalDataContributor {
             } else {
                 TravelExpenseReportTable.update({ TravelExpenseReportTable.id eq reportId }) {
                     it[purpose] = REDACTED_PLACEHOLDER
+                    // V1.9.122: consistent with FoundationPersonalData, which also nulls member_number.
+                    it[membershipNumberSnapshot] = null
                 }
                 TravelExpenseLineTable.update({ TravelExpenseLineTable.reportId eq reportId }) {
                     it[description] = REDACTED_PLACEHOLDER
+                    // Free text ("Ziel/Zweck") is redacted; times, dates, amounts and meal flags REMAIN (Buchungsbeleg, §147 AO).
+                    it[destination] = null
                 }
                 reportsRedacted++
             }

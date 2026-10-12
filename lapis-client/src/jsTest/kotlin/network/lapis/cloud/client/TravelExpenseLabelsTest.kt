@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import network.lapis.cloud.shared.domain.TravelExpenseLineKind
+import network.lapis.cloud.shared.domain.TravelExpensePayoutChoice
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -141,5 +142,48 @@ class TravelExpenseLabelsTest {
         TravelExpensePostingErrorCode.entries.forEach { code ->
             assertTrue(travelExpensePostingErrorMessage(code.wireCode).isNotBlank())
         }
+    }
+
+    // ---- V1.9.122 -----------------------------------------------------------------------------
+
+    @Test
+    fun theAddableKinds_areMileageAndTheFourReceiptedKinds_neverDayOrLegacy() {
+        assertEquals(5, TRAVEL_EXPENSE_ADDABLE_KINDS.size)
+        assertFalse(TravelExpenseLineKind.DAY_ALLOWANCE in TRAVEL_EXPENSE_ADDABLE_KINDS)
+        assertFalse(TravelExpenseLineKind.PER_DIEM in TRAVEL_EXPENSE_ADDABLE_KINDS)
+        assertFalse(TravelExpenseLineKind.RECEIPTED in TRAVEL_EXPENSE_ADDABLE_KINDS)
+    }
+
+    @Test
+    fun everyKindHasADistinctLabelAndIcon() {
+        val kinds = TravelExpenseLineKind.entries
+        assertEquals(kinds.size, kinds.map { travelExpenseLineKindLabel(it) }.toSet().size)
+        assertEquals(kinds.size, kinds.map { travelExpenseLineKindIcon(it) }.toSet().size)
+    }
+
+    @Test
+    fun payoutChoiceLabels_areNonBlankAndDifferent() {
+        val labels = TravelExpensePayoutChoice.entries.map { travelExpensePayoutChoiceLabel(it) }
+        assertTrue(labels.all { it.isNotBlank() })
+        assertEquals(2, labels.toSet().size)
+    }
+
+    @Test
+    fun theThreeNewPostingErrorCodes_haveMessages_andMatchTheServerLiterals() {
+        listOf(
+            "travel_advance_account_not_configured",
+            "donation_waiver_account_not_configured",
+            "donation_waiver_account_not_income_type",
+        ).forEach { wire ->
+            assertTrue(parseTravelExpensePostingErrorCode(wire) != null, "$wire is a declared code")
+            assertTrue(travelExpensePostingErrorMessage(wire).isNotBlank())
+        }
+    }
+
+    @Test
+    fun weekdayLabels_coverTheWholeWeek() {
+        val week = (5..11).map { resolvedAttributeText(travelExpenseWeekdayLabel(kotlinx.datetime.LocalDate(2026, 1, it))) }
+        assertEquals(7, week.toSet().size)
+        assertEquals("Montag", week.first())
     }
 }

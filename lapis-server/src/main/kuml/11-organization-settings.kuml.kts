@@ -381,6 +381,79 @@ classDiagram(name = "OrganizationSettings") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "travel_per_diem_rate"; "sqlType" to "NUMERIC(12,2)" }
         }
+        // Welle V1.9.122 "Reisekostenabrechnung nach PdV-Formular" (V97__travel_expense_pdv_form.sql).
+        // Settable ONLY via ITravelExpenseService.updateTravelExpenseSettings (ADMIN), invisible to the
+        // generic update path -- same isolation as travelMileageRatePerKm above. The tier/percentage
+        // defaults are the PdV template (PROVISIONAL, not the statutory 14/28 EUR); the mileage rate
+        // above deliberately keeps NO default.
+        attribute(name = "travelTier1Hours", type = "Int") {
+            defaultValue = "8"
+            stereotype("Column") { "columnName" to "travel_tier1_hours" }
+        }
+        attribute(name = "travelTier2Hours", type = "Int") {
+            defaultValue = "14"
+            stereotype("Column") { "columnName" to "travel_tier2_hours" }
+        }
+        attribute(name = "travelTier3Hours", type = "Int") {
+            defaultValue = "24"
+            stereotype("Column") { "columnName" to "travel_tier3_hours" }
+        }
+        attribute(name = "travelTier1Cents", type = "Int") {
+            defaultValue = "600"
+            stereotype("Column") { "columnName" to "travel_tier1_cents" }
+        }
+        attribute(name = "travelTier2Cents", type = "Int") {
+            defaultValue = "1200"
+            stereotype("Column") { "columnName" to "travel_tier2_cents" }
+        }
+        attribute(name = "travelTier3Cents", type = "Int") {
+            defaultValue = "2800"
+            stereotype("Column") { "columnName" to "travel_tier3_cents" }
+        }
+        attribute(name = "travelBreakfastPct", type = "Int") {
+            defaultValue = "20"
+            stereotype("Column") { "columnName" to "travel_breakfast_pct" }
+        }
+        attribute(name = "travelLunchPct", type = "Int") {
+            defaultValue = "40"
+            stereotype("Column") { "columnName" to "travel_lunch_pct" }
+        }
+        attribute(name = "travelDinnerPct", type = "Int") {
+            defaultValue = "40"
+            stereotype("Column") { "columnName" to "travel_dinner_pct" }
+        }
+        attribute(name = "travelPassengerCentsPerKm", type = "Int") {
+            defaultValue = "2"
+            stereotype("Column") { "columnName" to "travel_passenger_cents_per_km" }
+        }
+        // Contact person for travel-expense questions: PERSONAL DATA without an FK to member
+        // (DSGVO: erased manually by the administration, see docs/architecture/travel-expenses.adoc).
+        attribute(name = "travelContactName", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "travel_contact_name"; "sqlType" to "VARCHAR(120)" }
+        }
+        attribute(name = "travelContactEmail", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "travel_contact_email"; "sqlType" to "VARCHAR(254)" }
+        }
+        attribute(name = "travelContactPhone", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "travel_contact_phone"; "sqlType" to "VARCHAR(40)" }
+        }
+        attribute(name = "travelContactHint", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "travel_contact_hint"; "sqlType" to "VARCHAR(1000)" }
+        }
+        // Optional account mappings: advance (credit side for an advance already paid) and
+        // donation waiver (income account "Aufwandsspenden"). See TravelExpensePostingBridge KDoc.
+        attribute(name = "travelAdvanceAccountId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "travel_advance_account_id"; "fkEntity" to "LedgerAccount" }
+        }
+        attribute(name = "travelDonationWaiverAccountId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "travel_donation_waiver_account_id"; "fkEntity" to "LedgerAccount" }
+        }
         // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale". Nullable FK -> ledger_account --
         // where an approved allowance payment's EXPENSE-side debit is booked. Part of the GENERIC
         // updateOrganizationSettings write-set, same treatment as travelExpenseAccountId above. See

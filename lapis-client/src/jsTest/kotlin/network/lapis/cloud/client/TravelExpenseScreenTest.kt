@@ -3,8 +3,11 @@ package network.lapis.cloud.client
 import dev.kilua.rpc.types.toDecimal
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
+import network.lapis.cloud.shared.domain.TravelExpenseDefaults
 import network.lapis.cloud.shared.domain.TravelExpenseLineDto
 import network.lapis.cloud.shared.domain.TravelExpenseLineKind
+import network.lapis.cloud.shared.domain.TravelExpensePayoutChoice
 import network.lapis.cloud.shared.domain.TravelExpenseRatesDto
 import network.lapis.cloud.shared.domain.TravelExpenseReportDto
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
@@ -18,6 +21,8 @@ import kotlin.test.assertTrue
  * scope posture as [ContributionReliefQueueScreenTest].
  */
 class TravelExpenseScreenTest {
+    private val ratesWithMileage = TravelExpenseDefaults.pdvTemplate(mileageCentsPerKm = 30)
+
     private fun sampleLine(
         kind: TravelExpenseLineKind,
         amount: Double = 10.0,
@@ -35,6 +40,8 @@ class TravelExpenseScreenTest {
         status: TravelExpenseReportStatus = TravelExpenseReportStatus.DRAFT,
         lines: List<TravelExpenseLineDto> = emptyList(),
         totalAmount: Double = 0.0,
+        payoutChoice: TravelExpensePayoutChoice? = TravelExpensePayoutChoice.PAYOUT,
+        advanceCents: Long = 0,
     ) = TravelExpenseReportDto(
         id = "report-1",
         subjectMemberId = "member-1",
@@ -48,6 +55,8 @@ class TravelExpenseScreenTest {
         createdAt = LocalDateTime(2026, 1, 1, 10, 0),
         requestedBy = "member-1",
         requestedByDisplayName = "Test Mitglied",
+        payoutChoice = payoutChoice,
+        advanceCents = advanceCents,
     )
 
     // ---- travelExpenseLineKindEnabled ---------------------------------------------------------
@@ -56,6 +65,8 @@ class TravelExpenseScreenTest {
     fun travelExpenseLineKindEnabled_receiptedIsAlwaysEnabled() {
         val rates = TravelExpenseRatesDto(mileageRatePerKm = null, perDiemRate = null)
         assertTrue(travelExpenseLineKindEnabled(TravelExpenseLineKind.RECEIPTED, rates))
+        assertTrue(travelExpenseLineKindEnabled(TravelExpenseLineKind.OTHER, rates))
+        assertTrue(travelExpenseLineKindEnabled(TravelExpenseLineKind.ACCOMMODATION, rates))
     }
 
     @Test
@@ -66,7 +77,7 @@ class TravelExpenseScreenTest {
         assertTrue(
             travelExpenseLineKindEnabled(
                 TravelExpenseLineKind.MILEAGE,
-                TravelExpenseRatesDto(mileageRatePerKm = 0.30.toDecimal(), perDiemRate = null),
+                TravelExpenseRatesDto(mileageRatePerKm = 0.30.toDecimal(), perDiemRate = null, rateSet = ratesWithMileage),
             ),
         )
     }
@@ -111,9 +122,97 @@ class TravelExpenseScreenTest {
 
     @Test
     fun travelExpenseSubmitBlockReason_allSatisfiedIsNull() {
-        val rates = TravelExpenseRatesDto(mileageRatePerKm = 0.30.toDecimal(), perDiemRate = 14.0.toDecimal())
+        val rates = TravelExpenseRatesDto(mileageRatePerKm = 0.30.toDecimal(), perDiemRate = 14.0.toDecimal(), rateSet = ratesWithMileage)
         val line = sampleLine(TravelExpenseLineKind.MILEAGE)
         assertEquals(null, travelExpenseSubmitBlockReason(sampleReport(lines = listOf(line)), rates))
+    }
+
+    @Test
+    fun travelExpenseSubmitBlockReason_noPayoutChoiceIsBlocked() {
+        val rates = TravelExpenseRatesDto(mileageRatePerKm = 0.30.toDecimal(), rateSet = ratesWithMileage)
+        val line = sampleLine(TravelExpenseLineKind.MILEAGE)
+        assertTrue(travelExpenseSubmitBlockReason(sampleReport(lines = listOf(line), payoutChoice = null), rates) != null)
+    }
+
+    @Test
+    fun travelExpenseSubmitBlockReason_unsavedDaysAndAnAdvanceAboveTheTotalAreBlocked() {
+        val rates = TravelExpenseRatesDto(mileageRatePerKm = 0.30.toDecimal(), rateSet = ratesWithMileage)
+        val line = sampleLine(TravelExpenseLineKind.MILEAGE, amount = 10.0).copy(amountCents = 1000)
+        assertTrue(travelExpenseSubmitBlockReason(sampleReport(lines = listOf(line)), rates, daysDirty = true) != null)
+        assertTrue(travelExpenseSubmitBlockReason(sampleReport(lines = listOf(line), advanceCents = 1001), rates) != null)
+        assertEquals(null, travelExpenseSubmitBlockReason(sampleReport(lines = listOf(line), advanceCents = 1000), rates))
+    }
+
+    @Test
+    fun travelExpenseSubmitBlockReason_aDayWithoutItsTimesIsBlocked() {
+        val rates = TravelExpenseRatesDto(mileageRatePerKm = 0.30.toDecimal(), rateSet = ratesWithMileage)
+        val day = sampleLine(TravelExpenseLineKind.DAY_ALLOWANCE).copy(dayDate = LocalDate(2026, 1, 5))
+        assertTrue(travelExpenseSubmitBlockReason(sampleReport(lines = listOf(day)), rates) != null)
+        val filled = day.copy(timeFrom = LocalTime(8, 0), timeTo = LocalTime(17, 0))
+        assertEquals(null, travelExpenseSubmitBlockReason(sampleReport(lines = listOf(filled)), rates))
+    }
+
+    @Test
+    fun travelExpenseSubmitBlockReason_everyReceiptedKindNeedsAReceipt() {
+        val rates = TravelExpenseRatesDto(mileageRatePerKm = 0.30.toDecimal(), rateSet = ratesWithMileage)
+        listOf(
+            TravelExpenseLineKind.PUBLIC_TRANSPORT,
+            TravelExpenseLineKind.ACCOMMODATION,
+            TravelExpenseLineKind.HOSPITALITY,
+            TravelExpenseLineKind.OTHER,
+        ).forEach { kind ->
+            assertTrue(
+                travelExpenseSubmitBlockReason(sampleReport(lines = listOf(sampleLine(kind))), rates) != null,
+                "$kind needs a receipt",
+            )
+        }
+        // Mileage's map proof is optional.
+        assertEquals(null, travelExpenseSubmitBlockReason(sampleReport(lines = listOf(sampleLine(TravelExpenseLineKind.MILEAGE))), rates))
+    }
+
+    // ---- copy as draft, field checks ----------------------------------------------------------
+
+    @Test
+    fun travelExpenseCopiedLines_mapsLegacyKindsAndSkipsDayLines() {
+        val lines =
+            listOf(
+                sampleLine(TravelExpenseLineKind.DAY_ALLOWANCE).copy(dayDate = LocalDate(2026, 1, 5)),
+                sampleLine(TravelExpenseLineKind.PER_DIEM),
+                sampleLine(TravelExpenseLineKind.RECEIPTED).copy(amountCents = 4550),
+                sampleLine(TravelExpenseLineKind.OTHER).copy(amountCents = 100),
+            )
+        val copied = travelExpenseCopiedLines(sampleReport(lines = lines))
+        assertEquals(listOf(TravelExpenseLineKind.OTHER, TravelExpenseLineKind.OTHER), copied.map { it.kind })
+        assertEquals(4550L, copied.first().amountCents)
+    }
+
+    @Test
+    fun travelExpenseCentsAmountCheck_wholeCentsPositiveAndCapped() {
+        assertEquals(FieldCheck.Ok, travelExpenseCentsAmountCheck("12,50"))
+        assertEquals(FieldCheck.Ok, travelExpenseCentsAmountCheck("10000"))
+        assertTrue(travelExpenseCentsAmountCheck("10000,01") is FieldCheck.Invalid)
+        assertTrue(travelExpenseCentsAmountCheck("0") is FieldCheck.Invalid)
+        assertTrue(travelExpenseCentsAmountCheck("1,234") is FieldCheck.Invalid)
+        assertTrue(travelExpenseCentsAmountCheck("abc") is FieldCheck.Invalid)
+        assertTrue(travelExpenseCentsAmountCheck("-5") is FieldCheck.Invalid)
+    }
+
+    @Test
+    fun travelExpenseAdvanceCheck_emptyMeansNoAdvance() {
+        assertEquals(FieldCheck.Ok, travelExpenseAdvanceCheck(""))
+        assertEquals(FieldCheck.Ok, travelExpenseAdvanceCheck("50,00"))
+        assertTrue(travelExpenseAdvanceCheck("-1") is FieldCheck.Invalid)
+        assertTrue(travelExpenseAdvanceCheck("1000000,01") is FieldCheck.Invalid)
+    }
+
+    @Test
+    fun travelExpenseAccommodationFits_theMorningAfterTheLastNightMustBeInsideTheTrip() {
+        val from = LocalDate(2026, 1, 10)
+        val to = LocalDate(2026, 1, 12)
+        assertTrue(travelExpenseAccommodationFits(from, 2, from, to))
+        assertFalse(travelExpenseAccommodationFits(from, 3, from, to))
+        assertFalse(travelExpenseAccommodationFits(LocalDate(2026, 1, 9), 1, from, to))
+        assertFalse(travelExpenseAccommodationFits(from, 0, from, to))
     }
 
     // ---- travelExpenseSubtotals ------------------------------------------------------------

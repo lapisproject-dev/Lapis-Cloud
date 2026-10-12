@@ -6,6 +6,7 @@ import java.math.BigDecimal
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.TravelExpensePayoutChoice
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
@@ -29,6 +30,11 @@ public object TravelExpenseReportTable : Table("travel_expense_report") {
     public val executedAt: Column<LocalDateTime?> = datetime("executed_at").nullable()
     public val postedJournalEntryId: Column<Uuid?> = optReference("posted_journal_entry_id", JournalEntryTable.id)
     public val executionError: Column<String?> = varchar("execution_error", 500).nullable()
+    public val advanceAmount: Column<BigDecimal> = decimal("advance_amount", 12, 2)
+    // TODO default = "0"
+    public val payoutChoice: Column<TravelExpensePayoutChoice?> = enumerationByName<TravelExpensePayoutChoice>("payout_choice", 15).nullable()
+    public val membershipNumberSnapshot: Column<String?> = varchar("membership_number_snapshot", 16).nullable()
+    public val ratesSnapshot: Column<String?> = varchar("rates_snapshot", 2000).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

@@ -41,7 +41,9 @@ import network.lapis.cloud.server.rpc.installTravelExpenseExceptionHandlers
 import network.lapis.cloud.server.rpc.registerTravelExpenseTestRoutes
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.TravelExpenseLineKind
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -133,14 +135,16 @@ class TravelExpenseReceiptRoutesTest :
                     header("X-Member-Id", subjectId.toString())
                 }.bodyAsText().split("|")[0]
             val afterLine =
-                post("/test/travelexpense/addline?reportId=$draftId&kind=RECEIPTED&description=Beleg&amount=10.00") {
+                post("/test/travelexpense/addline?reportId=$draftId&kind=OTHER&description=Beleg&amount=10.00") {
                     header("X-Member-Id", subjectId.toString())
                 }.bodyAsText()
             return transaction {
                 TravelExpenseLineTable
                     .selectAll()
-                    .where { TravelExpenseLineTable.reportId eq Uuid.parse(draftId) }
-                    .single()[
+                    .where {
+                        (TravelExpenseLineTable.reportId eq Uuid.parse(draftId)) and
+                            (TravelExpenseLineTable.kind eq TravelExpenseLineKind.OTHER)
+                    }.single()[
                     TravelExpenseLineTable.id,
                 ].toString()
             }.also { check(afterLine.isNotBlank()) }

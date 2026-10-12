@@ -81,6 +81,47 @@ class OrganizationSettingsSchemaDriftTest :
             entity.attributeByName("travel_per_diem_rate")?.nullable shouldBe true
         }
 
+        test("V1.9.122: tier/percentage columns are NOT NULL with PdV-template defaults, contact + account columns are nullable") {
+            val entity = model.entities.single { it.name == "organization_settings" }
+            val real = transaction { introspectOrganizationSettingsTable() }
+            listOf(
+                "travel_tier1_hours",
+                "travel_tier2_hours",
+                "travel_tier3_hours",
+                "travel_tier1_cents",
+                "travel_tier2_cents",
+                "travel_tier3_cents",
+                "travel_breakfast_pct",
+                "travel_lunch_pct",
+                "travel_dinner_pct",
+                "travel_passenger_cents_per_km",
+            ).forEach { name ->
+                withClue(clue = "column '$name'") {
+                    entity.attributeByName(name)?.nullable shouldBe false
+                    real.columns.getValue(name).nullable shouldBe false
+                }
+            }
+            listOf(
+                "travel_contact_name",
+                "travel_contact_email",
+                "travel_contact_phone",
+                "travel_contact_hint",
+                "travel_advance_account_id",
+                "travel_donation_waiver_account_id",
+            ).forEach { name ->
+                withClue(clue = "column '$name'") {
+                    entity.attributeByName(name)?.nullable shouldBe true
+                    real.columns.getValue(name).nullable shouldBe true
+                }
+            }
+            val row = transaction { OrganizationSettingsTable.selectAll().single() }
+            row[OrganizationSettingsTable.travelTier1Hours] shouldBe 8
+            row[OrganizationSettingsTable.travelTier3Cents] shouldBe 2800
+            row[OrganizationSettingsTable.travelBreakfastPct] shouldBe 20
+            // The mileage rate deliberately has NO default (V1.4.11 "no statutory date in code").
+            row[OrganizationSettingsTable.travelMileageRatePerKm] shouldBe null
+        }
+
         test("volunteer_allowance_account_id is nullable -- V1.4.12 addendum") {
             val entity = model.entities.single { it.name == "organization_settings" }
             entity.attributeByName("volunteer_allowance_account_id")?.nullable shouldBe true

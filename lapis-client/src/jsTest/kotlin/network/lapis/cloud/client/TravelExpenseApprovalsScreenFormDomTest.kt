@@ -4,9 +4,14 @@ import dev.kilua.rpc.types.toDecimal
 import kotlinx.coroutines.delay
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
 import kotlinx.serialization.builtins.ListSerializer
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.SessionInfoDto
+import network.lapis.cloud.shared.domain.TravelExpenseDefaults
+import network.lapis.cloud.shared.domain.TravelExpenseLineDto
+import network.lapis.cloud.shared.domain.TravelExpenseLineKind
+import network.lapis.cloud.shared.domain.TravelExpensePayoutChoice
 import network.lapis.cloud.shared.domain.TravelExpenseRatesDto
 import network.lapis.cloud.shared.domain.TravelExpenseReportDto
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
@@ -48,6 +53,7 @@ class TravelExpenseApprovalsScreenFormDomTest {
             perDiemRate = 28.0.toDecimal(),
             expenseAccountConfigured = true,
             bankAccountConfigured = true,
+            rateSet = TravelExpenseDefaults.pdvTemplate(mileageCentsPerKm = 30),
         )
 
     private fun requestedReport() =
@@ -182,43 +188,95 @@ class TravelExpenseApprovalsScreenFormDomTest {
         }
 
     @Test
-    fun ratesAdminForm_admin_savesTheParsedDotDecimalRatesAndRejectsAGermanComma(): Promise<Unit> =
+    fun ratesSection_admin_getsTheLinkToTheSettingsPage_boardDoesNot(): Promise<Unit> =
         formTest {
-            AppState.setSession(adminSession)
             val ratesRoute = routeOf { rpcService<ITravelExpenseService>().getTravelExpenseRates() }
             val listRoute =
                 routeOf { rpcService<ITravelExpenseService>().listReports(status = null, afterSubmittedAt = null, afterId = null) }
-            val updateRoute =
-                routeOf { rpcService<ITravelExpenseService>().updateTravelExpenseRates(0.3.toDecimal(), 28.0.toDecimal()) }
+            listOf(adminSession to true, boardSession to false).forEach { (session, expectsLink) ->
+                AppState.setSession(session)
+                withFetchStub(
+                    respond =
+                        answering(
+                            ratesRoute to jsonOf(TravelExpenseRatesDto.serializer(), rates),
+                            listRoute to jsonOf(ListSerializer(TravelExpenseReportDto.serializer()), emptyList()),
+                        ),
+                ) { _ ->
+                    mountedForm("travel-expense-approvals-rates-link-${session.role}") { root, element ->
+                        renderTravelExpenseApprovalsScreen(root)
+                        awaitUntil("rates summary rendered", timeoutMs = 800) {
+                            element().textContent.orEmpty().contains("Tagegeld: ab 8 Std.")
+                        }
+                        val hasLink = element().allOf("button").any { it.textContent?.trim() == "Reisekosten-Einstellungen öffnen" }
+                        assertEquals(expectsLink, hasLink, "the settings link is for the ADMIN only")
+                        // The old inline rates form is gone.
+                        assertTrue(element().allOf("button").none { it.textContent?.trim() == "Sätze speichern" })
+                    }
+                }
+            }
+        }
+
+    @Test
+    fun requestedCard_showsTheDayTableWithCaptionAndColumnScopes_theOtherCostsAndTheSettlement(): Promise<Unit> =
+        formTest {
+            AppState.setSession(boardSession)
+            val ratesRoute = routeOf { rpcService<ITravelExpenseService>().getTravelExpenseRates() }
+            val listRoute =
+                routeOf { rpcService<ITravelExpenseService>().listReports(status = null, afterSubmittedAt = null, afterId = null) }
+            val report =
+                requestedReport().copy(
+                    advanceCents = 1000,
+                    deductionCents = 560,
+                    payoutCents = 1500,
+                    payoutChoice = TravelExpensePayoutChoice.DONATION_WAIVER,
+                    membershipNumber = "M-4711",
+                    lines =
+                        listOf(
+                            TravelExpenseLineDto(
+                                id = "day-1",
+                                reportId = "report-1",
+                                kind = TravelExpenseLineKind.DAY_ALLOWANCE,
+                                description = "",
+                                amount = 6.4.toDecimal(),
+                                dayDate = LocalDate(2026, 3, 10),
+                                timeFrom = LocalTime(8, 0),
+                                timeTo = LocalTime(17, 0),
+                                computedMinutes = 540,
+                                baseCents = 600,
+                                deductionCents = 560,
+                                amountCents = 40,
+                            ),
+                            TravelExpenseLineDto(
+                                id = "line-2",
+                                reportId = "report-1",
+                                kind = TravelExpenseLineKind.OTHER,
+                                description = "Taxi",
+                                amount = 12.0.toDecimal(),
+                                amountCents = 1200,
+                            ),
+                        ),
+                )
             withFetchStub(
                 respond =
                     answering(
                         ratesRoute to jsonOf(TravelExpenseRatesDto.serializer(), rates),
-                        listRoute to jsonOf(ListSerializer(TravelExpenseReportDto.serializer()), emptyList()),
-                        updateRoute to jsonOf(TravelExpenseRatesDto.serializer(), rates),
+                        listRoute to jsonOf(ListSerializer(TravelExpenseReportDto.serializer()), listOf(report)),
                     ),
-            ) { calls ->
-                mountedForm("travel-expense-approvals-rates-admin") { root, element ->
+            ) { _ ->
+                mountedForm("travel-expense-approvals-day-table") { root, element ->
                     renderTravelExpenseApprovalsScreen(root)
-                    awaitUntil("rates form rendered", timeoutMs = 800) {
-                        element().allOf("button").any { it.textContent?.trim() == "Sätze speichern" }
-                    }
-                    delay(80)
-
-                    // a German decimal comma is rejected, never silently sent
-                    element().typeInto("Kilometersatz (EUR/km)", "0,35")
-                    element().buttonNamed("Sätze speichern").click()
-                    delay(60)
-                    assertEquals(0, calls.toRoute(updateRoute).size, "no update for an unparseable value")
-                    assertTrue(element().shownErrors().isNotEmpty())
-
-                    element().typeInto("Kilometersatz (EUR/km)", "0.30")
-                    element().typeInto("Tagespauschale (EUR)", "28.00")
-                    element().buttonNamed("Sätze speichern").click()
-                    awaitUntil("update", timeoutMs = 800) { calls.toRoute(updateRoute).size == 1 }
-                    val call = calls.singleCall(updateRoute)
-                    assertEquals(0.3, (call.rpcParam(0) as Double), "the mileage rate is sent as a Decimal")
-                    assertEquals(28.0, (call.rpcParam(1) as Double), "the per-diem rate is sent as a Decimal")
+                    awaitUntil("card rendered", timeoutMs = 800) { element().querySelector("table") != null }
+                    val table = element().allOf("table").single()
+                    assertEquals("Reisetage", table.querySelector("caption")?.textContent?.trim(), "the caption is the table's name")
+                    val headerScopes = table.allOf("th[scope=col]").map { it.textContent.orEmpty().trim() }
+                    assertEquals(listOf("Datum", "Zeit", "Stunden", "Basis", "Abzüge", "Betrag"), headerScopes)
+                    val text = element().textContent.orEmpty()
+                    assertTrue(text.contains("08:00 – 17:00"), "the stored times")
+                    assertTrue(text.contains("9:00"), "the stored minutes as hours")
+                    assertTrue(text.contains("Taxi"), "the other costs")
+                    assertTrue(text.contains("Spendenquittung gewünscht"), "the waiver flag")
+                    assertTrue(text.contains("Vorschuss"), "the advance")
+                    assertTrue(text.contains("Mitgliedsnummer: M-4711"))
                 }
             }
         }

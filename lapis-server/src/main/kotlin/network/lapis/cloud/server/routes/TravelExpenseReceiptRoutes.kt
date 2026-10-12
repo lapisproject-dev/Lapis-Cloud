@@ -24,6 +24,7 @@ import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.TravelExpenseAmountRules
+import network.lapis.cloud.shared.domain.TravelExpenseLineKind
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatusSets
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -114,6 +115,10 @@ fun Route.registerTravelExpenseReceiptRoutes(
             transaction {
                 val lineRow = TravelExpenseLineTable.selectAll().where { TravelExpenseLineTable.id eq lineId }.singleOrNull()
                 if (lineRow == null) return@transaction ReceiptUploadGate.NotFound
+                // V1.9.122: day-allowance lines are pure calculation rows and carry no receipt.
+                if (lineRow[TravelExpenseLineTable.kind] == TravelExpenseLineKind.DAY_ALLOWANCE) {
+                    return@transaction ReceiptUploadGate.DayLine
+                }
                 val reportId = lineRow[TravelExpenseLineTable.reportId]
                 val reportRow = TravelExpenseReportTable.selectAll().where { TravelExpenseReportTable.id eq reportId }.singleOrNull()
                 if (reportRow == null) return@transaction ReceiptUploadGate.NotFound
@@ -140,6 +145,10 @@ fun Route.registerTravelExpenseReceiptRoutes(
         when (gate) {
             ReceiptUploadGate.NotFound -> {
                 call.respond(HttpStatusCode.NotFound)
+                return@post
+            }
+            ReceiptUploadGate.DayLine -> {
+                call.respond(HttpStatusCode.BadRequest, "Day-allowance lines cannot carry receipts")
                 return@post
             }
             ReceiptUploadGate.NotEditable -> {
@@ -522,6 +531,8 @@ private object MultipleFilePartsRejected : RuntimeException(null, null, false, f
 
 private sealed interface ReceiptUploadGate {
     data object NotFound : ReceiptUploadGate
+
+    data object DayLine : ReceiptUploadGate
 
     data object NotEditable : ReceiptUploadGate
 

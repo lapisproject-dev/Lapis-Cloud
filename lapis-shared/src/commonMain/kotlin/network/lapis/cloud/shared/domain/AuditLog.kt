@@ -1151,6 +1151,20 @@ data class MemberMembershipTierSnapshot(
 data class TravelExpenseRatesSnapshot(
     val mileageRatePerKm: Decimal?,
     val perDiemRate: Decimal?,
+    // V1.9.122 -- defaults are not serialized, so every pre-V1.9.122 payload and its hash stay byte-identical.
+    val tierHours: List<Int> = emptyList(),
+    val tierCents: List<Long> = emptyList(),
+    val breakfastPercent: Int? = null,
+    val lunchPercent: Int? = null,
+    val dinnerPercent: Int? = null,
+    val passengerCentsPerKm: Long? = null,
+    /** Booleans ONLY -- name, e-mail and phone of the contact person never enter the audit log. */
+    val contactNameSet: Boolean = false,
+    val contactEmailSet: Boolean = false,
+    val contactPhoneSet: Boolean = false,
+    val contactHintSet: Boolean = false,
+    val advanceAccountConfigured: Boolean = false,
+    val donationWaiverAccountConfigured: Boolean = false,
 )
 
 /**

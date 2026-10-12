@@ -6,6 +6,7 @@ import network.lapis.cloud.server.db.generated.TravelExpenseReceiptTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.TravelExpenseLineKind
+import network.lapis.cloud.shared.domain.TravelExpensePayoutChoice
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
@@ -78,22 +79,34 @@ internal object TravelExpenseExecution {
         var sum = BigDecimal.ZERO
         for (row in lineRows) {
             val amount = row[TravelExpenseLineTable.amount]
-            if (amount <= BigDecimal.ZERO) return TravelExpensePostingOutcome.Failed(TRAVEL_EXPENSE_REASON_INCONSISTENT)
             val kind = row[TravelExpenseLineTable.kind]
-            if (kind == TravelExpenseLineKind.RECEIPTED && (receiptCounts[row[TravelExpenseLineTable.id]] ?: 0) == 0) {
+            // A day line may legitimately be 0 (below the first tier or fully deducted); every other line must be positive.
+            if (amount < BigDecimal.ZERO || (amount.signum() == 0 && kind != TravelExpenseLineKind.DAY_ALLOWANCE)) {
+                return TravelExpensePostingOutcome.Failed(TRAVEL_EXPENSE_REASON_INCONSISTENT)
+            }
+            if (kind.requiresReceipt && (receiptCounts[row[TravelExpenseLineTable.id]] ?: 0) == 0) {
                 return TravelExpensePostingOutcome.Failed(TRAVEL_EXPENSE_REASON_INCONSISTENT)
             }
             sum += amount
         }
         if (sum.compareTo(totalAmount) != 0) return TravelExpensePostingOutcome.Failed(TRAVEL_EXPENSE_REASON_INCONSISTENT)
+        val advance = report[TravelExpenseReportTable.advanceAmount]
+        val payoutChoice = report[TravelExpenseReportTable.payoutChoice] ?: TravelExpensePayoutChoice.PAYOUT
+        if (advance < BigDecimal.ZERO || advance > totalAmount) {
+            return TravelExpensePostingOutcome.Failed(TRAVEL_EXPENSE_REASON_INCONSISTENT)
+        }
 
+        // Zero day lines carry no money: JournalEntryBalance needs strictly positive postings.
         val postingLines =
-            lineRows.map { row ->
-                TravelExpensePostingBridge.PostingLine(
-                    kind = row[TravelExpenseLineTable.kind],
-                    amount = row[TravelExpenseLineTable.amount],
-                )
-            }
+            lineRows
+                .filter { it[TravelExpenseLineTable.amount].signum() > 0 }
+                .map { row ->
+                    TravelExpensePostingBridge.PostingLine(
+                        kind = row[TravelExpenseLineTable.kind],
+                        amount = row[TravelExpenseLineTable.amount],
+                    )
+                }
+        if (postingLines.isEmpty()) return TravelExpensePostingOutcome.Failed(TRAVEL_EXPENSE_REASON_INCONSISTENT)
         // Digest, not the raw purpose -- kept short and defensively truncated; the bridge's own
         // journal_entry.description carries it alongside the report id, never the raw member-
         // authored purpose beyond this excerpt.
@@ -105,6 +118,8 @@ internal object TravelExpenseExecution {
             purposeDigest = purposeDigest,
             lines = postingLines,
             totalAmount = totalAmount,
+            advanceAmount = advance,
+            payoutChoice = payoutChoice,
             decidedAt = now,
             actorMemberId = actor.memberId,
             actorRole = actor.role,

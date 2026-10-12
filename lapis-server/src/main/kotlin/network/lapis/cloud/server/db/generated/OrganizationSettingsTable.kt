@@ -53,6 +53,23 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     public val travelExpenseAccountId: Column<Uuid?> = optReference("travel_expense_account_id", LedgerAccountTable.id)
     public val travelMileageRatePerKm: Column<BigDecimal?> = decimal("travel_mileage_rate_per_km", 10, 4).nullable()
     public val travelPerDiemRate: Column<BigDecimal?> = decimal("travel_per_diem_rate", 12, 2).nullable()
+    // Welle V1.9.122 -- hand-edited, see 11-organization-settings.kuml.kts. Defaults live in V97 (DB side).
+    public val travelTier1Hours: Column<Int> = integer("travel_tier1_hours")
+    public val travelTier2Hours: Column<Int> = integer("travel_tier2_hours")
+    public val travelTier3Hours: Column<Int> = integer("travel_tier3_hours")
+    public val travelTier1Cents: Column<Int> = integer("travel_tier1_cents")
+    public val travelTier2Cents: Column<Int> = integer("travel_tier2_cents")
+    public val travelTier3Cents: Column<Int> = integer("travel_tier3_cents")
+    public val travelBreakfastPct: Column<Int> = integer("travel_breakfast_pct")
+    public val travelLunchPct: Column<Int> = integer("travel_lunch_pct")
+    public val travelDinnerPct: Column<Int> = integer("travel_dinner_pct")
+    public val travelPassengerCentsPerKm: Column<Int> = integer("travel_passenger_cents_per_km")
+    public val travelContactName: Column<String?> = varchar("travel_contact_name", 120).nullable()
+    public val travelContactEmail: Column<String?> = varchar("travel_contact_email", 254).nullable()
+    public val travelContactPhone: Column<String?> = varchar("travel_contact_phone", 40).nullable()
+    public val travelContactHint: Column<String?> = varchar("travel_contact_hint", 1000).nullable()
+    public val travelAdvanceAccountId: Column<Uuid?> = optReference("travel_advance_account_id", LedgerAccountTable.id)
+    public val travelDonationWaiverAccountId: Column<Uuid?> = optReference("travel_donation_waiver_account_id", LedgerAccountTable.id)
     // Welle V1.4.12 -- hand-edited, see 11-organization-settings.kuml.kts file header addendum.
     public val volunteerAllowanceAccountId: Column<Uuid?> = optReference("volunteer_allowance_account_id", LedgerAccountTable.id)
     // Welle V1.4.13 -- hand-edited, see 11-organization-settings.kuml.kts file header addendum.

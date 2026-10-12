@@ -94,9 +94,57 @@ class TravelExpenseSchemaDriftTest :
             lineEntity.attributeByName("kind")?.type shouldBe
                 ErmDataType.Enum(
                     name = "TravelExpenseLineKind",
-                    values = listOf("MILEAGE", "PER_DIEM", "RECEIPTED"),
+                    values =
+                        listOf(
+                            "MILEAGE",
+                            "PER_DIEM",
+                            "RECEIPTED",
+                            "DAY_ALLOWANCE",
+                            "PUBLIC_TRANSPORT",
+                            "ACCOMMODATION",
+                            "HOSPITALITY",
+                            "OTHER",
+                        ),
                     externalFqName = "network.lapis.cloud.shared.domain.TravelExpenseLineKind",
                 )
+        }
+
+        test("V1.9.122: payout_choice is a nullable real enum column, advance_amount is NOT NULL") {
+            val entity = model.entities.single { it.name == "travel_expense_report" }
+            entity.attributeByName("payout_choice")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "TravelExpensePayoutChoice",
+                    values = listOf("PAYOUT", "DONATION_WAIVER"),
+                    externalFqName = "network.lapis.cloud.shared.domain.TravelExpensePayoutChoice",
+                )
+            entity.attributeByName("payout_choice")?.nullable shouldBe true
+            entity.attributeByName("advance_amount")?.nullable shouldBe false
+            entity.attributeByName("membership_number_snapshot")?.nullable shouldBe true
+            entity.attributeByName("rates_snapshot")?.nullable shouldBe true
+        }
+
+        test("V1.9.122: new travel_expense_line columns have the modelled nullability") {
+            val entity = model.entities.single { it.name == "travel_expense_line" }
+            listOf(
+                "destination",
+                "day_date",
+                "time_from",
+                "time_to",
+                "passenger_count",
+                "breakfast_included",
+                "computed_minutes",
+                "base_amount",
+            ).forEach { name ->
+                withClue(clue = "column '$name'") { entity.attributeByName(name)?.nullable shouldBe true }
+            }
+            listOf("breakfast_provided", "lunch_provided", "dinner_provided", "deduction_amount").forEach { name ->
+                withClue(clue = "column '$name'") { entity.attributeByName(name)?.nullable shouldBe false }
+            }
+        }
+
+        test("V1.9.122: idx_tel_report_day is NOT a unique index (one-day-per-report is an application rule)") {
+            val lineReal = transaction { introspectTeTable("travel_expense_line") }
+            lineReal.uniqueSingleColumns shouldContainExactlyInAnyOrder emptyList()
         }
 
         test("subject_member_id/status/purpose/travel_from/travel_to/total_amount/created_at/requested_by are NOT NULL") {
