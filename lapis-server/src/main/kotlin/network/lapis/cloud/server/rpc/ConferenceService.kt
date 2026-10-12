@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgm
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.ElectionTable
+import network.lapis.cloud.server.db.generated.EventConferenceTable
 import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
@@ -30,6 +31,7 @@ import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
 import network.lapis.cloud.server.encounter.EncounterRoomGuard
+import network.lapis.cloud.server.events.EventConferenceGuard
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.LoginRateLimiter
@@ -64,14 +66,17 @@ import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IConferenceService
 import network.lapis.cloud.shared.rpc.NotFoundException
+import org.jetbrains.exposed.v1.core.Op
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.neq
+import org.jetbrains.exposed.v1.core.notInSubQuery
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -305,6 +310,7 @@ class ConferenceService(
             enabled = config.enabled,
             serverUrl = if (config.enabled) config.livekitUrl else null,
             maxParticipants = config.maxParticipants,
+            eventMaxParticipants = config.eventMaxParticipants,
         )
     }
 
@@ -319,7 +325,7 @@ class ConferenceService(
             reconcileActiveRooms(liveRooms = liveRooms, now = now)
             ConferenceRoomTable
                 .selectAll()
-                .where { ConferenceRoomTable.endedAt.isNull() and ConferenceRoomTable.encounterSpaceId.isNull() }
+                .where { ConferenceRoomTable.endedAt.isNull() and ConferenceRoomTable.encounterSpaceId.isNull() and notAnEventRoom() }
                 .orderBy(ConferenceRoomTable.createdAt, SortOrder.DESC)
                 .limit(MAX_LIST_RESULTS)
                 .map { row -> rowToDto(row = row, callerId = current.memberId, liveRooms = liveRooms) }
@@ -331,7 +337,23 @@ class ConferenceService(
         requireConferenceEnabled()
         requireWithinRate(limiter = listRateLimiter, memberId = current.memberId)
         val id = roomId.toConferenceUuid()
-        transaction { requireActiveMembership(memberId = current.memberId) }
+        transaction {
+            // V1.9.113: a GUEST/FRIEND who entered a public event room through joinEventOnline must be able to read that one room
+            // (the client needs the DTO to open the call). Every other room still requires an ACTIVE member.
+            val isEventRoom =
+                ConferenceRoomTable
+                    .selectAll()
+                    .where { ConferenceRoomTable.id eq id }
+                    .singleOrNull()
+                    ?.let { EventConferenceGuard.isEventRoom(it) } ?: false
+            if (isEventRoom) {
+                requireConferenceEligibleMembership(
+                    memberId = current.memberId,
+                )
+            } else {
+                requireActiveMembership(memberId = current.memberId)
+            }
+        }
         val liveRooms = fetchLiveRooms()
         val now = nowLocalDateTime()
         return transaction {
@@ -339,6 +361,8 @@ class ConferenceService(
                 ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                     ?: throw NotFoundException("Conference room $id not found")
             EncounterRoomGuard.requireNotEncounterRoom(row = row)
+            // V1.9.113: an event room is readable only by its moderators and by somebody who currently sits in it.
+            EventConferenceGuard.requireParticipantOrModerator(row = row, current = current)
             val fresh = reconcileRoomIfDue(row = row, liveRooms = liveRooms, now = now)
             rowToDto(row = fresh, callerId = current.memberId, liveRooms = liveRooms)
         }
@@ -421,6 +445,8 @@ class ConferenceService(
                         ?: throw NotFoundException("Conference room $roomUuid not found")
                 // V1.9.61: FIRST thing -- this method would mint a token with canPublish = true for an encounter session.
                 EncounterRoomGuard.requireNotEncounterRoom(row = row)
+                // V1.9.113: FIRST thing too -- an event room is entered only through IEventService.joinEventOnline (its registration rule).
+                EventConferenceGuard.requireNotEventRoom(row = row)
                 if (row[ConferenceRoomTable.endedAt] != null) {
                     throw ConflictException("Conference room $roomUuid has already ended")
                 }
@@ -554,6 +580,7 @@ class ConferenceService(
                     .singleOrNull()
                     ?: throw NotFoundException("Conference room $roomUuid not found")
             EncounterRoomGuard.requireNotEncounterRoom(row = freshRoomRow)
+            EventConferenceGuard.requireNotEventRoom(row = freshRoomRow)
             if (freshRoomRow[ConferenceRoomTable.endedAt] != null) {
                 throw ConflictException("Conference room $roomUuid has already ended")
             }
@@ -661,53 +688,22 @@ class ConferenceService(
             }
         val now = nowLocalDateTime()
         if (row[ConferenceRoomTable.endedAt] == null) {
-            liveKitCall { liveKitAdminClient.deleteRoom(row[ConferenceRoomTable.livekitRoomName]) }
-            // V1.0 Wave 6 "Breakout-Räume" -- best-effort, OUTSIDE any transaction (class KDoc
-            // "Transaction boundaries around the LiveKit network call"), delete every still-open
-            // breakout LiveKit room of this parent BEFORE the closing transaction below stamps
-            // their DB rows closed. Log-and-continue on failure (unlike ConferenceBreakoutService
-            // .recallAll's own fail-loud posture on a genuine error) -- ending the whole meeting
-            // must never be blocked by one stuck breakout LiveKit room; an orphaned breakout
-            // LiveKit room self-heals via LiveKit's own empty_timeout, see
-            // ConferenceBreakoutCoordinator KDoc "Belt-and-braces, not the only safety net".
-            val openBreakoutLiveKitNames = transaction { ConferenceBreakoutCoordinator.openLiveKitRoomNames(id) }
-            openBreakoutLiveKitNames.forEach { name ->
-                runCatching { liveKitCall { liveKitAdminClient.deleteRoom(name) } }
-                    .onFailure {
-                        logger.warn {
-                            "endRoom: failed to delete breakout LiveKit room $name for parent $id -- " +
-                                "will self-clean via LiveKit's own empty_timeout"
-                        }
-                    }
-            }
-            transaction {
-                ConferenceRoomTable.update({ ConferenceRoomTable.id eq id }) { it[endedAt] = now }
-                closeAllOpenParticipations(roomId = id, now = now)
-                // V1.0 Wave 6 "Breakout-Räume" -- server-internal bridge, NOT a new
-                // IConferenceBreakoutService method. Pure DB bookkeeping (the LiveKit deleteRoom
-                // calls already happened, best-effort, above) -- see ConferenceBreakoutCoordinator
-                // KDoc. Must run before ConferenceRecordingCoordinator's own call below, which must
-                // stay LAST per its own contract.
-                ConferenceBreakoutCoordinator.closeAllBreakoutRoomsForRoom(roomId = id, now = now)
-                // V1.0 Wave 2 "Aufzeichnung" -- server-internal bridge, NOT a new IConferenceService
-                // method. Must be the LAST statement in this transaction -- see
-                // ConferenceRecordingCoordinator KDoc "deadlock-avoidance contract".
-                ConferenceRecordingCoordinator.stopActiveRecordingsForRoom(
+            // V1.9.113: the teardown lives in ConferenceRoomCloser, shared with the event-conference poller (see its KDoc for the steps and
+            // for why every LiveKit call stays outside a transaction).
+            liveKitCall {
+                ConferenceRoomCloser(
+                    liveKitAdminClient = liveKitAdminClient,
+                    whiteboardState = whiteboardState,
+                    notesState = notesState,
+                    audioGrantState = audioGrantState,
+                ).close(
                     roomId = id,
+                    livekitRoomName = row[ConferenceRoomTable.livekitRoomName],
+                    now = now,
                     actorMemberId = current.memberId,
                     actorRole = current.role,
                 )
             }
-            // V1.0 Wave 7 "Whiteboard" -- plain, side-effect-free, thread-safe in-memory removal, no
-            // DB-transaction/deadlock-ordering discipline to respect (unlike the two coordinators
-            // above), so it deliberately runs OUTSIDE the transaction rather than squeezed into it --
-            // see ConferenceWhiteboardState KDoc "clear".
-            whiteboardState.clear(id)
-            // V1.0 Wave 8 "Geteilte Notizen" -- same reasoning as whiteboardState.clear immediately
-            // above, see ConferenceNotesState KDoc "clear".
-            notesState.clear(id)
-            // V1.9.108 -- same reasoning: plain in-memory removal of the individually released microphones.
-            audioGrantState.clear(id)
         }
         return transaction {
             val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
@@ -727,7 +723,9 @@ class ConferenceService(
                         ?: throw NotFoundException("Conference room $id not found")
                 // V1.9.61: the participant history would be exactly the attendance record an encounter session must not have.
                 EncounterRoomGuard.requireNotEncounterRoom(row = row)
-                val status = requireRoomEntryAuthorization(roomRow = row, current = current)
+                // V1.9.113: an event room's roster is for its moderators and for people who currently sit in it (members included).
+                EventConferenceGuard.requireParticipantOrModerator(row = row, current = current)
+                val status = requireRoomEntryAuthorization(roomRow = row, current = current, allowEventRoom = true)
                 // Wave 5: extra narrowing for a guest beyond the shared gate above -- see
                 // requireGuestHasJoinedRoom KDoc.
                 requireGuestHasJoinedRoom(roomId = id, current = current, status = status)
@@ -842,6 +840,8 @@ class ConferenceService(
                 ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                     ?: throw NotFoundException("Conference room $id not found")
             EncounterRoomGuard.requireNotEncounterRoom(row = existing)
+            // V1.9.113: the title of an event room is the event's title.
+            EventConferenceGuard.requireNotEventRoom(row = existing)
             requireModeratorOrPrivileged(row = existing, current = current)
             if (existing[ConferenceRoomTable.endedAt] != null) {
                 throw ConflictException("Cannot rename an ended room")
@@ -881,6 +881,7 @@ class ConferenceService(
                 ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                     ?: throw NotFoundException("Conference room $id not found")
             EncounterRoomGuard.requireNotEncounterRoom(row = row)
+            EventConferenceGuard.requireNotEventRoom(row = row)
             val creatorId = row[ConferenceRoomTable.createdByMemberId]
             ConferenceGuestJoinInfoDto(
                 roomId = id.toString(),
@@ -929,6 +930,8 @@ class ConferenceService(
                     ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.singleOrNull()
                         ?: throw NotFoundException("Conference room $id not found")
                 EncounterRoomGuard.requireNotEncounterRoom(row = existing)
+                // V1.9.113: who may enter an event room is decided by the event, never by a room toggle.
+                EventConferenceGuard.requireNotEventRoom(row = existing)
                 requireModeratorOrPrivileged(row = existing, current = current)
                 if (existing[ConferenceRoomTable.endedAt] != null) {
                     throw ConflictException("Cannot change guest access on an ended room")
@@ -1025,6 +1028,8 @@ class ConferenceService(
                     .singleOrNull()
                     ?: throw NotFoundException("Conference room $id not found")
             EncounterRoomGuard.requireNotEncounterRoom(row = existing)
+            // V1.9.113: an event room is never bound to a Sitzung (a Sitzung's secret ballot would pause a stream that cannot exist here).
+            EventConferenceGuard.requireNotEventRoom(row = existing)
             // Baseline gate, unchanged -- "is this caller the room's creator, or globally privileged"
             // is still necessary (though, see below, no longer SUFFICIENT) for either direction.
             requireModeratorOrPrivileged(row = existing, current = current)
@@ -1146,6 +1151,7 @@ class ConferenceService(
                         .count() > 0
                 if (row == null ||
                     EncounterRoomGuard.isEncounterRoom(row) ||
+                    EventConferenceGuard.isEventRoom(row) ||
                     row[ConferenceRoomTable.endedAt] != null ||
                     !hasOpenParticipation
                 ) {
@@ -1511,7 +1517,7 @@ class ConferenceService(
         // the presence rows (see EncounterSessionTeardown / EncounterSpacePoller).
         ConferenceRoomTable
             .selectAll()
-            .where { ConferenceRoomTable.endedAt.isNull() and ConferenceRoomTable.encounterSpaceId.isNull() }
+            .where { ConferenceRoomTable.endedAt.isNull() and ConferenceRoomTable.encounterSpaceId.isNull() and notAnEventRoom() }
             .toList()
             .forEach { row -> reconcileRoomIfDue(row = row, liveRooms = liveRooms, now = now) }
     }
@@ -1530,6 +1536,8 @@ class ConferenceService(
     ): ResultRow {
         if (row[ConferenceRoomTable.endedAt] != null) return row
         if (EncounterRoomGuard.isEncounterRoom(row)) return row
+        // V1.9.113: an event room's lifetime belongs to EventConferenceProvisioner/EventConferencePoller (its window), not to this lazy path.
+        if (EventConferenceGuard.isEventRoom(row)) return row
         if (row[ConferenceRoomTable.livekitRoomName] in liveRooms) return row
         if (!graceElapsed(createdAt = row[ConferenceRoomTable.createdAt], now = now)) return row
         val id = row[ConferenceRoomTable.id]
@@ -1550,6 +1558,13 @@ class ConferenceService(
         audioGrantState.clear(id)
         return ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
     }
+
+    /** V1.9.113 -- `true` for every room that does NOT belong to an event (the ordinary-room list and the lazy reconciliation never see event rooms). */
+    private fun notAnEventRoom(): Op<Boolean> =
+        ConferenceRoomTable.id notInSubQuery
+            EventConferenceTable
+                .select(EventConferenceTable.conferenceRoomId)
+                .where { EventConferenceTable.conferenceRoomId.isNotNull() }
 
     private fun graceElapsed(
         createdAt: LocalDateTime,

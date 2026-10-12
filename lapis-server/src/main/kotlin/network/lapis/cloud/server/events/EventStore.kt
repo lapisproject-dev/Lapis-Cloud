@@ -7,6 +7,7 @@ import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.PaymentCheckoutSessionTable
 import network.lapis.cloud.server.db.generated.PaymentTransactionTable
+import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventRegistrationStatusSets
 import network.lapis.cloud.shared.domain.EventStatus
@@ -78,12 +79,14 @@ internal object EventStore {
         wallNow: LocalDateTime,
         limit: Int,
         offset: Int,
+        slug: String? = null,
     ): Pair<List<ResultRow>, Int> {
         val effectiveLimit = limit.coerceIn(1, MAX_PAGE_SIZE)
         val effectiveOffset = offset.coerceAtLeast(0)
         var condition: Op<Boolean>? = null
         if (status != null) condition = (EventTable.status eq status).andWith(condition)
-        if (!includePast) condition = (EventTable.endsAt greater wallNow).andWith(condition)
+        if (slug != null) condition = (EventTable.slug eq slug).andWith(condition)
+        if (!includePast && slug == null) condition = (EventTable.endsAt greater wallNow).andWith(condition)
         val fixed = condition
 
         fun query() = if (fixed != null) EventTable.selectAll().where { fixed } else EventTable.selectAll()
@@ -128,6 +131,9 @@ internal object EventStore {
         onlineUrlPublic: Boolean = false,
         // `true` ONLY from EventImporter (a tripwire test pins that) -- events created by the admin import of past events.
         imported: Boolean = false,
+        // V1.9.113 -- defaulted from the link (a caller that only knows `onlineUrl`, e.g. the importer and the seeds, keeps its meaning).
+        onlineKind: EventOnlineKind = if (onlineUrl != null) EventOnlineKind.EXTERNAL_LINK else EventOnlineKind.NONE,
+        encounterSpaceId: Uuid? = null,
     ) {
         EventTable.insert {
             it[EventTable.id] = id
@@ -154,6 +160,8 @@ internal object EventStore {
             it[EventTable.coverImageAlt] = coverImageAlt
             it[EventTable.onlineUrlPublic] = onlineUrlPublic
             it[EventTable.imported] = imported
+            it[EventTable.onlineKind] = onlineKind
+            it[EventTable.encounterSpaceId] = encounterSpaceId
         }
     }
 
@@ -176,6 +184,9 @@ internal object EventStore {
         summary: String?,
         coverImageAlt: String?,
         onlineUrlPublic: Boolean,
+        // V1.9.113 -- like the three above, deliberately WITHOUT defaults: a series edit must not silently reset the online kind.
+        onlineKind: EventOnlineKind,
+        encounterSpaceId: Uuid?,
     ) {
         EventTable.update({ EventTable.id eq id }) {
             it[EventTable.title] = title
@@ -193,6 +204,8 @@ internal object EventStore {
             it[EventTable.summary] = summary
             it[EventTable.coverImageAlt] = coverImageAlt
             it[EventTable.onlineUrlPublic] = onlineUrlPublic
+            it[EventTable.onlineKind] = onlineKind
+            it[EventTable.encounterSpaceId] = encounterSpaceId
         }
     }
 
@@ -836,7 +849,11 @@ internal object EventStore {
      * have already established that count is zero, inside the SAME transaction, under the row
      * lock.
      */
-    fun deleteEventHard(id: Uuid): Int = EventTable.deleteWhere { EventTable.id eq id }
+    fun deleteEventHard(id: Uuid): Int {
+        // V1.9.113: the conference bookkeeping row references the event (foreign key); a running conference vetoes the delete.
+        EventOnlineLifecycle.beforeEventDeleted(id)
+        return EventTable.deleteWhere { EventTable.id eq id }
+    }
 }
 
 /** ANDs [this] onto [existing] (or returns [this] alone if [existing] is `null`) -- same idiom `CrmContactStore`'s own `andWith` establishes. */

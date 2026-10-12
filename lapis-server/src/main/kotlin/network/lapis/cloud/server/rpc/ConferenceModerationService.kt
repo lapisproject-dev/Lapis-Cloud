@@ -13,6 +13,7 @@ import network.lapis.cloud.server.conference.LiveKitAdminException
 import network.lapis.cloud.server.conference.LiveKitParticipantInfo
 import network.lapis.cloud.server.conference.MAX_SEND_DATA_DESTINATIONS
 import network.lapis.cloud.server.conference.conferencePermission
+import network.lapis.cloud.server.conference.isEventGuestIdentity
 import network.lapis.cloud.server.conference.liveKitIdentityAsMemberId
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
@@ -288,7 +289,11 @@ class ConferenceModerationService(
         // Direct call, NOT liveKitCall: the caller turns a LiveKitAdminException into "policy stored + audited, then report the failure".
         val participants = liveKitAdminClient.listParticipants(room.livekitRoomName)
         val moderators = moderatorIdentities(room = room, participants = participants).toSet()
-        val others = participants.filter { liveKitIdentityAsMemberId(it.identity) != null && it.identity !in moderators }
+        // Account-less event guests (`evg-...`) are ordinary non-moderators: the room-wide lock applies to them as well.
+        val others =
+            participants.filter {
+                (liveKitIdentityAsMemberId(it.identity) != null || isEventGuestIdentity(it.identity)) && it.identity !in moderators
+            }
         var failed = 0
         val muted = mutableListOf<String>()
         for (participant in others) {
@@ -341,10 +346,14 @@ class ConferenceModerationService(
             participants
                 .filter { participant ->
                     val memberId = liveKitIdentityAsMemberId(participant.identity)
-                    memberId != null &&
-                        memberId != current.memberId &&
-                        !isModerator(memberId = memberId, room = room, privileged = privileged) &&
-                        participant.openMicrophones().isNotEmpty()
+                    val eligible =
+                        if (memberId != null) {
+                            memberId != current.memberId && !isModerator(memberId = memberId, room = room, privileged = privileged)
+                        } else {
+                            // an account-less event guest is never a moderator
+                            isEventGuestIdentity(participant.identity)
+                        }
+                    eligible && participant.openMicrophones().isNotEmpty()
                 }.take(config.maxParticipants)
         return MutePlan(
             candidates = candidates,

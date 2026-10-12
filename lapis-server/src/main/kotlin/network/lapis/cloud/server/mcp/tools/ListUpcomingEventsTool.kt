@@ -64,6 +64,8 @@ internal object ListUpcomingEventsTool {
                             put("endsAt", event.endsAt.toString())
                             put("locationText", event.locationText)
                             put("onlineUrl", event.onlineUrl)
+                            // V1.9.113 -- the neutral fact only: a Lapis conference has no link to hand out (it is joined from the event page).
+                            put("online", event.online)
                             // Welle V1.8.2b -- see EventReads.UpcomingEventSummary.feeAmount KDoc:
                             // lets an agent filter out fee-bearing events before ever calling
                             // register_for_event, and closes the oracle that tool's own

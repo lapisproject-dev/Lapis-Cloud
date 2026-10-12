@@ -3,6 +3,7 @@ package network.lapis.cloud.server.rpc
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventTable
+import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventStatus
 import org.jetbrains.exposed.v1.core.SortOrder
@@ -21,6 +22,8 @@ internal data class UpcomingEventSummary(
     val endsAt: LocalDateTime,
     val locationText: String?,
     val onlineUrl: String?,
+    /** V1.9.113 -- `online_kind <> NONE` (a Lapis conference has no link, so this is the only online fact for it). */
+    val online: Boolean,
     /**
      * Welle V1.8.2b -- exposed so `list_upcoming_events` can advertise `feeAmount`/`requiresPayment`
      * (see `mcp.tools.ListUpcomingEventsTool`): an agent can filter out fee-bearing events BEFORE
@@ -76,6 +79,7 @@ internal object EventReads {
                     endsAt = it[EventTable.endsAt],
                     locationText = it[EventTable.locationText],
                     onlineUrl = it[EventTable.onlineUrl],
+                    online = it[EventTable.onlineKind] != EventOnlineKind.NONE,
                     feeAmount = it[EventTable.feeAmount],
                 )
             }

@@ -100,6 +100,7 @@ class EmbedEventsFeedRoutesTest :
             coverImageId: Uuid? = null,
             onlineUrl: String? = null,
             onlineUrlPublic: Boolean = false,
+            onlineKind: network.lapis.cloud.shared.domain.EventOnlineKind? = null,
         ): Pair<Uuid, String> {
             val organizer = createMember()
             val id = Uuid.random()
@@ -112,6 +113,14 @@ class EmbedEventsFeedRoutesTest :
                     it[EventTable.description] = description
                     it[EventTable.locationText] = locationText
                     it[EventTable.onlineUrl] = onlineUrl
+                    // V93: an event with an external link is of the kind EXTERNAL_LINK (chk_event_online_shape).
+                    it[EventTable.onlineKind] =
+                        onlineKind
+                            ?: if (onlineUrl != null) {
+                                network.lapis.cloud.shared.domain.EventOnlineKind.EXTERNAL_LINK
+                            } else {
+                                network.lapis.cloud.shared.domain.EventOnlineKind.NONE
+                            }
                     it[EventTable.summary] = summary
                     it[EventTable.coverImageAlt] = coverImageAlt
                     it[EventTable.coverImageId] = coverImageId
@@ -352,6 +361,8 @@ class EmbedEventsFeedRoutesTest :
                 "summary",
                 "coverImageAlt",
                 "onlineUrl",
+                // V1.9.113: the neutral fact that the event can be attended online -- never a link, a room or a token
+                "online",
             )
 
         test("V1.9.82: description is always present and normalized (CRLF, control characters, blank-line runs)") {
@@ -387,7 +398,8 @@ class EmbedEventsFeedRoutesTest :
             val (_, optedIn) = createEvent(onlineUrl = "https://meet.example/abc", onlineUrlPublic = true)
             val (_, notOptedIn) = createEvent(onlineUrl = "https://meet.example/secret", onlineUrlPublic = false)
             val (_, httpOptedIn) = createEvent(onlineUrl = "http://meet.example/plain", onlineUrlPublic = true)
-            val (_, optedInNoLink) = createEvent(onlineUrl = null, onlineUrlPublic = true)
+            // V93: "public without a link" is no longer a storable state (chk_event_online_shape) -- the closest storable shape is "no link".
+            val (_, optedInNoLink) = createEvent(onlineUrl = null, onlineUrlPublic = false)
             testApp {
                 val body = client.get("/api/embed/v1/events").bodyAsText()
                 eventsOf(body, optedIn)["onlineUrl"]!!.jsonPrimitive.content shouldBe "https://meet.example/abc"
@@ -448,6 +460,30 @@ class EmbedEventsFeedRoutesTest :
                 )) {
                     response.contains("\"$forbidden\"") shouldBe false
                 }
+            }
+        }
+
+        test(
+            "V1.9.113: an event that can be attended online says so (online=true) -- for a Lapis conference, an encounter entry and an external link alike -- and carries no link, room or token",
+        ) {
+            val (_, conference) =
+                createEvent(
+                    onlineKind = network.lapis.cloud.shared.domain.EventOnlineKind.LAPIS_CONFERENCE,
+                    locationText = null,
+                )
+            val (_, external) = createEvent(onlineUrl = "https://meet.example/secret", onlineUrlPublic = false)
+            val (_, onSite) = createEvent()
+            testApp {
+                val body = client.get("/api/embed/v1/events").bodyAsText()
+                eventsOf(body, conference)["online"]!!.jsonPrimitive.content shouldBe "true"
+                eventsOf(body, external)["online"]!!.jsonPrimitive.content shouldBe "true"
+                eventsOf(body, onSite).containsKey("online") shouldBe false
+                // the Lapis conference has no link at all; the private external link is never published
+                eventsOf(body, conference).containsKey("onlineUrl") shouldBe false
+                eventsOf(body, external).containsKey("onlineUrl") shouldBe false
+                body.contains("meet.example/secret") shouldBe false
+                body.contains("lc-") shouldBe false
+                body.contains("token") shouldBe false
             }
         }
     })

@@ -8,12 +8,15 @@
 // addendum.
 // Welle V1.9.82 "Veranstaltungs-Feed, Archiv und Import" -- hand-edited, `summary`/`coverImageAlt`/
 // `onlineUrlPublic`/`imported` columns added, see 39-events.kuml.kts file header addendum.
+// Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" -- hand-edited, `onlineKind`/`encounterSpaceId` columns added, see
+// 39-events.kuml.kts file header addendum.
 
 package network.lapis.cloud.server.db.generated
 
 import java.math.BigDecimal
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventVisibility
 import org.jetbrains.exposed.v1.core.Column
@@ -64,6 +67,11 @@ public object EventTable : Table("event") {
     public val coverImageAlt: Column<String?> = varchar("cover_image_alt", 500).nullable()
     public val onlineUrlPublic: Column<Boolean> = bool("online_url_public").default(false)
     public val imported: Column<Boolean> = bool("imported").default(false)
+
+    // V1.9.113 addendum -- see 39-events.kuml.kts file header. No `.references()` for encounterSpaceId (the seriesId posture: the FK
+    // lives in V93__event_online_participation.sql only).
+    public val onlineKind: Column<EventOnlineKind> = enumerationByName<EventOnlineKind>("online_kind", 32).default(EventOnlineKind.NONE)
+    public val encounterSpaceId: Column<Uuid?> = uuid("encounter_space_id").nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

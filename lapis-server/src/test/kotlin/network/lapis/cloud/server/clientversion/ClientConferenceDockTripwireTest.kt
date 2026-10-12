@@ -151,7 +151,8 @@ class ClientConferenceDockTripwireTest :
 
         test("every entry into a call goes through beginJoin, and an automatic re-entry passes the last device wish") {
             val screen = code(source("ConferenceScreen.kt"))
-            Regex("""ConferenceDock\.beginJoin\(""").findAll(screen).count() shouldBe 3
+            // three joins of a room (start now, a room card, the guest lobby) plus the V1.9.113 entry into the conference of an event
+            Regex("""ConferenceDock\.beginJoin\(""").findAll(screen).count() shouldBe 4
             // breakout, recall, "back to the main room" and the manual resume: four re-entries, none of them switches both devices on by default
             Regex("""conferenceInitialDevices\(ConferenceDock\.lastDeviceIntent\)""").findAll(screen).count() shouldBe 4
         }
@@ -252,8 +253,10 @@ class ClientConferenceDockTripwireTest :
             window shouldContain "setAttribute(\"role\", \"alert\")"
         }
 
-        test("every entry into a call still goes through beginJoin exactly three times -- the window adds none") {
-            clientFiles().sumOf { Regex("""ConferenceDock\.beginJoin\(""").findAll(code(it.readText())).count() } shouldBe 3
+        test(
+            "every entry into a call still goes through beginJoin exactly four times (V1.9.113: the event conference) -- the window adds none",
+        ) {
+            clientFiles().sumOf { Regex("""ConferenceDock\.beginJoin\(""").findAll(code(it.readText())).count() } shouldBe 4
         }
 
         test("the window's CSS is fixed, never transformed, clipped or above a dialog, and hidden below 768 px") {

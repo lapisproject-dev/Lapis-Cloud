@@ -44,11 +44,13 @@ import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.rpc.toOrganizationSettingsDto
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.time.OrganizationTimeZone
+import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventTicketCode
 import network.lapis.cloud.shared.domain.EventVisibility
 import network.lapis.cloud.shared.domain.PaymentProvider
+import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -474,6 +476,7 @@ internal fun Route.registerEventPublicRoutes(
                         rawCode = call.parameters["code"],
                         remoteKey = remoteKey,
                         failureLimiter = ticketCodeFailureLimiter,
+                        baseUrl = baseUrl,
                     )
             ) {
                 TicketResolution.TooManyRequests -> call.respondEventTooManyRequests(brandTitle)
@@ -512,6 +515,7 @@ internal fun Route.registerEventPublicRoutes(
                     rawCode = call.parameters["code"],
                     remoteKey = remoteKey,
                     failureLimiter = ticketCodeFailureLimiter,
+                    baseUrl = baseUrl,
                 )
             val ticket = resolution as? TicketResolution.Ticket
             if (resolution == TicketResolution.TooManyRequests) {
@@ -545,6 +549,7 @@ internal fun Route.registerEventPublicRoutes(
                     rawCode = call.parameters["code"],
                     remoteKey = remoteKey,
                     failureLimiter = ticketCodeFailureLimiter,
+                    baseUrl = baseUrl,
                 )
             if (resolution == TicketResolution.TooManyRequests) {
                 call.respondEventTicketBinaryStatus(HttpStatusCode.TooManyRequests)
@@ -575,7 +580,7 @@ internal fun Route.registerEventPublicRoutes(
                     startsAt = ticket.startsAt,
                     endsAt = ticket.endsAt,
                     locationText = ticket.locationText,
-                    onlineUrl = ticket.onlineUrl,
+                    onlineUrl = ticket.onlineUrl ?: ticket.onlineJoinUrl,
                     displayCode = EventTicketCode.formatForDisplay(ticket.canonicalCode),
                     qr = matrix,
                     organization = organization,
@@ -602,6 +607,8 @@ private sealed interface TicketResolution {
         val onlineUrl: String?,
         val slug: String,
         val canonicalCode: String,
+        /** V1.9.113 -- link to the online participation page for a Lapis online event, else null. */
+        val onlineJoinUrl: String? = null,
     ) : TicketResolution {
         fun toView(): EventPublicHtml.TicketView =
             EventPublicHtml.TicketView(
@@ -612,6 +619,7 @@ private sealed interface TicketResolution {
                 onlineUrl = onlineUrl,
                 slug = slug,
                 canonicalCode = canonicalCode,
+                onlineJoinUrl = onlineJoinUrl,
             )
     }
 
@@ -645,6 +653,7 @@ private fun resolveTicket(
     rawCode: String?,
     remoteKey: String,
     failureLimiter: LoginRateLimiter,
+    baseUrl: String,
 ): TicketResolution {
     if (!failureLimiter.checkAllowed(remoteKey)) return TicketResolution.TooManyRequests
     val canonical = EventTicketCode.extractAndCanonicalize(rawCode)
@@ -680,6 +689,7 @@ private fun resolveTicket(
             onlineUrl = event[EventTable.onlineUrl],
             slug = slug,
             canonicalCode = canonical,
+            onlineJoinUrl = onlineJoinUrlFor(row = event, baseUrl = baseUrl),
         )
     }
 }
@@ -765,6 +775,7 @@ private fun loadPublicEventView(
             full = full,
             registrationOpen = registrationOpen,
             hasEnded = row[EventTable.endsAt] <= wallNow,
+            onlineJoinUrl = if (row[EventTable.endsAt] > wallNow) onlineJoinUrlFor(row = row, baseUrl = baseUrl) else null,
             coverImageAlt = row[EventTable.coverImageAlt],
             coverImageUrl =
                 EventCoverPolicy.coverImageUrl(
@@ -866,3 +877,19 @@ private suspend fun ApplicationCall.withEventPublicErrorHandling(
         runCatching { respondEventServerError(brandTitle) }
     }
 }
+
+/**
+ * V1.9.113 -- the link to the SPA page that handles the online participation of a Lapis online event
+ * (`<base>/#/event-join/<slug>`), or `null` for an event without one. It is the PAGE (public, the slug is public anyway), never a
+ * room id, a token or an external meeting link -- who may enter and when is decided there and by the server.
+ */
+private fun onlineJoinUrlFor(
+    row: ResultRow,
+    baseUrl: String,
+): String? =
+    // Only LAPIS_CONFERENCE: the public guest page answers FORBIDDEN for every other kind (an encounter link would be a dead end).
+    if (row[EventTable.onlineKind] == EventOnlineKind.LAPIS_CONFERENCE && row[EventTable.status] == EventStatus.PUBLISHED) {
+        "${baseUrl.trimEnd('/')}/#/event-join/${row[EventTable.slug]}"
+    } else {
+        null
+    }

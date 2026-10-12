@@ -113,7 +113,7 @@ class EncounterRoomGuardTripwireTest :
         }
 
         test(
-            "every mintParticipantToken call names canPublish and canPublishData, and only the three known classes mint participant tokens",
+            "every mintParticipantToken call names canPublish and canPublishData, and only the four known classes mint participant tokens",
         ) {
             val callers = mutableSetOf<String>()
             val unnamed = mutableListOf<String>()
@@ -139,7 +139,8 @@ class EncounterRoomGuardTripwireTest :
                 }
             }
             unnamed.shouldBeEmpty()
-            callers shouldBe setOf("ConferenceService.kt", "ConferenceBreakoutService.kt", "EncounterSpaceService.kt")
+            // V1.9.113: EventOnlineJoin mints the tokens of an event conference (publishing members and guests of a CONFERENCE, never of an encounter session)
+            callers shouldBe setOf("ConferenceService.kt", "ConferenceBreakoutService.kt", "EncounterSpaceService.kt", "EventOnlineJoin.kt")
         }
 
         test(

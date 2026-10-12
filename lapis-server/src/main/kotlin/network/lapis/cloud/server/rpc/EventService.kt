@@ -8,6 +8,7 @@ import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.generated.EncounterSpaceTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventSeriesTable
 import network.lapis.cloud.server.db.generated.EventTable
@@ -16,6 +17,10 @@ import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.events.EventCapacityGuard
 import network.lapis.cloud.server.events.EventCheckIn
 import network.lapis.cloud.server.events.EventCoverPolicy
+import network.lapis.cloud.server.events.EventOnlineJoin
+import network.lapis.cloud.server.events.EventOnlineLifecycle
+import network.lapis.cloud.server.events.EventOnlineServices
+import network.lapis.cloud.server.events.EventOnlineWindow
 import network.lapis.cloud.server.events.EventParticipant
 import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.server.events.EventRefunds
@@ -41,17 +46,24 @@ import network.lapis.cloud.server.payment.psp.PspCheckoutGateway
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.AuditMarkers
+import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInput
 import network.lapis.cloud.shared.domain.CounterpartyKey
 import network.lapis.cloud.shared.domain.EventCheckInResultDto
 import network.lapis.cloud.shared.domain.EventCheckInRosterDto
 import network.lapis.cloud.shared.domain.EventCheckInRowDto
 import network.lapis.cloud.shared.domain.EventDto
+import network.lapis.cloud.shared.domain.EventEncounterSpaceOptionDto
+import network.lapis.cloud.shared.domain.EventGuestParticipantDto
 import network.lapis.cloud.shared.domain.EventInput
 import network.lapis.cloud.shared.domain.EventInvoiceRequestDto
+import network.lapis.cloud.shared.domain.EventOnlineJoinResultDto
+import network.lapis.cloud.shared.domain.EventOnlineKind
+import network.lapis.cloud.shared.domain.EventOnlineOutcome
 import network.lapis.cloud.shared.domain.EventPageDto
 import network.lapis.cloud.shared.domain.EventQuery
 import network.lapis.cloud.shared.domain.EventRefundDto
@@ -77,6 +89,7 @@ import network.lapis.cloud.shared.rpc.IEventService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -114,6 +127,9 @@ private const val MAX_BILLING_COUNTRY_LENGTH = 100
  */
 private const val MAX_SERIES_IMPACT_LOCK_ATTEMPTS = 5
 
+/** V1.9.113 -- DoS cap of the encounter-space picker of the event form. */
+private const val MAX_ENCOUNTER_SPACE_OPTIONS = 200
+
 private fun requireMaxLength(
     value: String?,
     max: Int,
@@ -150,6 +166,9 @@ class EventService(
     // admin UI's recurrence editor (client-debounced to 400ms, never trusted server-side to
     // enforce that), a much higher-frequency budget than ordinary event-management writes.
     private val seriesPreviewRateLimiter: FederationInboxRateLimiter,
+    // V1.9.113 "Online-Teilnahme" -- module-scoped bundle (provisioner, join coordinator, limiters); the default keeps every
+    // pre-V1.9.113 construction working: with conferencing unconfigured every online action answers UNAVAILABLE.
+    private val eventOnline: EventOnlineServices = EventOnlineServices.DISABLED,
 ) : IEventService {
     /** Fixed, per [EventSeriesLimits.SUPPORTED_TIMEZONES] -- see that object's KDoc "Frage F2"/"Zeitzone" for why this codebase does not (yet) offer a per-series timezone picker. */
     private val seriesZone: ZoneId = ZoneId.of(EventSeriesLimits.SUPPORTED_TIMEZONES.first())
@@ -175,6 +194,7 @@ class EventService(
                     wallNow = OrganizationTimeZone.wallNowOf(now),
                     limit = query.limit,
                     offset = query.offset,
+                    slug = query.slug,
                 )
             val dtos = rows.map { row -> row.toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl) }
             EventPageDto(rows = dtos, totalCount = total, limit = query.limit.coerceIn(1, 200), offset = query.offset.coerceAtLeast(0))
@@ -199,42 +219,50 @@ class EventService(
         current.requireRole(*EVENT_MANAGE_ROLES)
         requireWithinRate(current.memberId)
         val now = DbClock.nowLocalDateTime()
-        EventPolicy.validate(input = input, wallNow = OrganizationTimeZone.wallNowOf(now))
-        val roomId = input.roomId?.toEventUuid()
+        val normalized = EventPolicy.normalizedOnline(input)
+        EventPolicy.validate(input = normalized, wallNow = OrganizationTimeZone.wallNowOf(now))
+        requireLapisOnlineAvailable(kind = normalized.onlineKind)
+        val roomId = normalized.roomId?.toEventUuid()
         return transaction {
+            val encounterSpaceId = resolveEncounterSpace(input = normalized, existing = null)
             // Room-collision check, AFTER EventPolicy.validate, BEFORE the insert -- see
             // EventRoomCollisionGuard KDoc. No event-row lock exists yet to order against (this is
             // a brand-new event), so only the room row itself is locked here.
             if (roomId != null) {
                 EventRoomCollisionGuard.assertNoOverlap(
                     roomId = roomId,
-                    startsAt = input.startsAt,
-                    endsAt = input.endsAt,
+                    startsAt = normalized.startsAt,
+                    endsAt = normalized.endsAt,
                     excludingEventId = null,
                 )
             }
             val id = Uuid.random()
-            val slug = EventPolicy.slugFor(title = input.title) { candidate -> EventStore.slugTaken(slug = candidate, excludingId = null) }
+            val slug =
+                EventPolicy.slugFor(
+                    title = normalized.title,
+                ) { candidate -> EventStore.slugTaken(slug = candidate, excludingId = null) }
             EventStore.insertEvent(
                 id = id,
                 slug = slug,
-                title = input.title.trim(),
-                description = input.description.trim(),
-                locationText = input.locationText?.trim()?.takeIf { it.isNotBlank() },
-                onlineUrl = input.onlineUrl?.trim()?.takeIf { it.isNotBlank() },
-                startsAt = input.startsAt,
-                endsAt = input.endsAt,
-                capacity = input.capacity,
-                feeAmount = input.feeAmount,
-                feeCurrency = input.feeCurrency,
-                visibility = input.visibility,
-                registrationClosesAt = input.registrationClosesAt,
+                title = normalized.title.trim(),
+                description = normalized.description.trim(),
+                locationText = normalized.locationText?.trim()?.takeIf { it.isNotBlank() },
+                onlineUrl = normalized.onlineUrl?.trim()?.takeIf { it.isNotBlank() },
+                startsAt = normalized.startsAt,
+                endsAt = normalized.endsAt,
+                capacity = normalized.capacity,
+                feeAmount = normalized.feeAmount,
+                feeCurrency = normalized.feeCurrency,
+                visibility = normalized.visibility,
+                registrationClosesAt = normalized.registrationClosesAt,
                 createdAt = now,
                 createdBy = current.memberId,
                 roomId = roomId,
-                summary = EventPolicy.normalizedSummary(input.summary),
-                coverImageAlt = EventPolicy.normalizedCoverImageAlt(input.coverImageAlt),
-                onlineUrlPublic = input.onlineUrlPublic,
+                summary = EventPolicy.normalizedSummary(normalized.summary),
+                coverImageAlt = EventPolicy.normalizedCoverImageAlt(normalized.coverImageAlt),
+                onlineUrlPublic = normalized.onlineUrlPublic,
+                onlineKind = normalized.onlineKind,
+                encounterSpaceId = encounterSpaceId,
             )
             EventStore.getEventOrThrow(id).toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl)
         }
@@ -249,6 +277,7 @@ class EventService(
         requireWithinRate(current.memberId)
         val now = DbClock.nowLocalDateTime()
         val eventId = id.toEventUuid()
+        val normalized = EventPolicy.normalizedOnline(input)
         return transaction {
             // Row lock, FIRST operation (Review MINOR fix, same discipline `cancelEvent` already
             // established): without it, a concurrent `EventRegistrationSubmission.submit`/
@@ -262,19 +291,23 @@ class EventService(
             // past" -- see `EventPolicy.validate` KDoc. Passing the currently-stored `startsAt` here
             // (only obtainable once `existing` is loaded) makes that distinction possible.
             EventPolicy.validate(
-                input = input,
+                input = normalized,
                 wallNow = OrganizationTimeZone.wallNowOf(now),
                 existingStartsAt = existing[EventTable.startsAt],
             )
+            // Switching an event TO a Lapis online kind needs conferencing on this server; an event that already has one may still be edited.
+            if (normalized.onlineKind != existing[EventTable.onlineKind]) requireLapisOnlineAvailable(kind = normalized.onlineKind)
+            val encounterSpaceId = resolveEncounterSpace(input = normalized, existing = existing)
             val hasActiveRegistrations = EventStore.hasNonInactiveRegistration(eventId)
             val feeChanged =
-                input.feeAmount.compareTo(existing[EventTable.feeAmount]) != 0 || input.feeCurrency != existing[EventTable.feeCurrency]
+                normalized.feeAmount.compareTo(existing[EventTable.feeAmount]) != 0 ||
+                    normalized.feeCurrency != existing[EventTable.feeCurrency]
             if (hasActiveRegistrations && feeChanged) {
                 throw ConflictException(
                     "Die Teilnahmegebühr kann nicht mehr geändert werden -- es bestehen bereits Anmeldungen für diese Veranstaltung.",
                 )
             }
-            val roomId = input.roomId?.toEventUuid()
+            val roomId = normalized.roomId?.toEventUuid()
             // Room-collision check, AFTER EventPolicy.validate, BEFORE the update -- see
             // EventRoomCollisionGuard KDoc. The `event` row lock above is already held (this
             // function's very first operation) -- locking the room row here, AFTER it, follows the
@@ -283,28 +316,41 @@ class EventService(
             if (roomId != null) {
                 EventRoomCollisionGuard.assertNoOverlap(
                     roomId = roomId,
-                    startsAt = input.startsAt,
-                    endsAt = input.endsAt,
+                    startsAt = normalized.startsAt,
+                    endsAt = normalized.endsAt,
                     excludingEventId = eventId,
                 )
             }
             EventStore.updateEvent(
                 id = eventId,
-                title = input.title.trim(),
-                description = input.description.trim(),
-                locationText = input.locationText?.trim()?.takeIf { it.isNotBlank() },
-                onlineUrl = input.onlineUrl?.trim()?.takeIf { it.isNotBlank() },
-                startsAt = input.startsAt,
-                endsAt = input.endsAt,
-                capacity = input.capacity,
-                feeAmount = if (feeChanged) input.feeAmount else null,
-                feeCurrency = if (feeChanged) input.feeCurrency else null,
-                visibility = input.visibility,
-                registrationClosesAt = input.registrationClosesAt,
+                title = normalized.title.trim(),
+                description = normalized.description.trim(),
+                locationText = normalized.locationText?.trim()?.takeIf { it.isNotBlank() },
+                onlineUrl = normalized.onlineUrl?.trim()?.takeIf { it.isNotBlank() },
+                startsAt = normalized.startsAt,
+                endsAt = normalized.endsAt,
+                capacity = normalized.capacity,
+                feeAmount = if (feeChanged) normalized.feeAmount else null,
+                feeCurrency = if (feeChanged) normalized.feeCurrency else null,
+                visibility = normalized.visibility,
+                registrationClosesAt = normalized.registrationClosesAt,
                 roomId = roomId,
-                summary = EventPolicy.normalizedSummary(input.summary),
-                coverImageAlt = EventPolicy.normalizedCoverImageAlt(input.coverImageAlt),
-                onlineUrlPublic = input.onlineUrlPublic,
+                summary = EventPolicy.normalizedSummary(normalized.summary),
+                coverImageAlt = EventPolicy.normalizedCoverImageAlt(normalized.coverImageAlt),
+                onlineUrlPublic = normalized.onlineUrlPublic,
+                onlineKind = normalized.onlineKind,
+                encounterSpaceId = encounterSpaceId,
+            )
+            // V1.9.113: keep the event's conference in step (veto while it runs, window follows a rescheduling).
+            EventOnlineLifecycle.onEventSaved(
+                eventId = eventId,
+                kind = normalized.onlineKind,
+                startsAt = normalized.startsAt,
+                endsAt = normalized.endsAt,
+                previousVisibility = existing[EventTable.visibility],
+                newVisibility = normalized.visibility,
+                previousRegistrationClosesAt = existing[EventTable.registrationClosesAt],
+                newRegistrationClosesAt = normalized.registrationClosesAt,
             )
             EventStore.getEventOrThrow(eventId).toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl)
         }
@@ -384,6 +430,7 @@ class EventService(
                 fresh to notices
             }
         mailEventCancelledAll(notices = notices, eventTitle = dto.title, reason = reason)
+        endConferencesBestEffort(listOf(eventId))
         return dto
     }
 
@@ -729,8 +776,10 @@ class EventService(
         current.requireRole(*EVENT_MANAGE_ROLES)
         requireWithinRate(current.memberId)
         val now = DbClock.nowLocalDateTime()
-        EventPolicy.validate(input = input, wallNow = OrganizationTimeZone.wallNowOf(now))
-        val durationMinutes = minutesBetween(startsAt = input.startsAt, endsAt = input.endsAt)
+        val normalized = EventPolicy.normalizedOnline(input)
+        EventPolicy.validate(input = normalized, wallNow = OrganizationTimeZone.wallNowOf(now))
+        requireLapisOnlineAvailable(kind = normalized.onlineKind)
+        val durationMinutes = minutesBetween(startsAt = normalized.startsAt, endsAt = normalized.endsAt)
         if (durationMinutes <= 0 ||
             durationMinutes > network.lapis.cloud.server.events.series.EventSeriesLimits.MAX_INSTANCE_DURATION_MINUTES
         ) {
@@ -741,13 +790,14 @@ class EventService(
         }
         // Server re-validates the RRULE regardless of any prior previewSeries call -- never trust
         // a client-supplied raw string, only the typed RecurrenceRuleInput.
-        val built = RecurrenceRuleBuilder.build(rule = rule, dtstart = input.startsAt, zone = seriesZone)
+        val built = RecurrenceRuleBuilder.build(rule = rule, dtstart = normalized.startsAt, zone = seriesZone)
         val rrule =
             when (built) {
                 is RecurrenceRuleBuilder.Result.Invalid -> throw BadRequestException(built.messages.joinToString("; "))
                 is RecurrenceRuleBuilder.Result.Ok -> built.rrule
             }
         return transaction {
+            resolveEncounterSpace(input = normalized, existing = null)
             if (EventStore.countActiveSeries(OrganizationTimeZone.wallNowOf(now)) >=
                 network.lapis.cloud.server.events.series.EventSeriesLimits.MAX_ACTIVE_SERIES_PER_ORG
             ) {
@@ -760,7 +810,7 @@ class EventService(
             EventStore.insertSeries(
                 id = seriesId,
                 rrule = rrule,
-                dtstart = input.startsAt,
+                dtstart = normalized.startsAt,
                 timezone = seriesZone.id,
                 durationMinutes = durationMinutes,
                 splitFromSeriesId = null,
@@ -771,10 +821,10 @@ class EventService(
                 EventSeriesMaterializer.materialize(
                     seriesId = seriesId,
                     rrule = rrule,
-                    dtstart = input.startsAt,
+                    dtstart = normalized.startsAt,
                     zone = seriesZone,
                     durationMinutes = durationMinutes,
-                    template = input,
+                    template = normalized,
                     createdBy = current.memberId,
                     now = now,
                 )
@@ -813,17 +863,20 @@ class EventService(
         current.requireRole(*EVENT_MANAGE_ROLES)
         requireWithinRate(current.memberId)
         val now = DbClock.nowLocalDateTime()
-        EventPolicy.validate(input = input, wallNow = OrganizationTimeZone.wallNowOf(now))
+        val normalized = EventPolicy.normalizedOnline(input)
+        EventPolicy.validate(input = normalized, wallNow = OrganizationTimeZone.wallNowOf(now))
         val id = eventId.toEventUuid()
-        val durationMinutes = minutesBetween(startsAt = input.startsAt, endsAt = input.endsAt)
+        val durationMinutes = minutesBetween(startsAt = normalized.startsAt, endsAt = normalized.endsAt)
         return transaction {
+            resolveEncounterSpace(input = normalized, existing = null)
+            requireLapisOnlineAvailable(kind = normalized.onlineKind)
             val (_, scopePlan, seriesId) = computeSeriesImpact(id = id, scope = scope)
             val result =
                 EventSeriesMaterializer.applyEdit(
                     scope = scope,
                     scopePlan = scopePlan,
                     seriesId = seriesId,
-                    newTemplate = input,
+                    newTemplate = normalized,
                     durationMinutes = durationMinutes,
                     createdBy = current.memberId,
                     now = now,
@@ -846,25 +899,146 @@ class EventService(
         if (reason.isBlank()) throw BadRequestException("Begründung ist erforderlich.")
         val now = DbClock.nowLocalDateTime()
         val id = eventId.toEventUuid()
-        val (dtoResult, notices, eventTitle) =
+        val outcome =
             transaction {
                 val (_, scopePlan, seriesId, title) = computeSeriesImpact(id = id, scope = scope)
                 val result = EventSeriesMaterializer.deleteOrCancel(scope = scope, scopePlan = scopePlan, seriesId = seriesId, now = now)
-                Triple(
-                    EventSeriesEditResultDto(
-                        affectedEventCount = result.affectedEventIds.size,
-                        affectedRegistrationCount = result.notices.size,
-                    ),
-                    result.notices,
-                    title,
+                SeriesCancelOutcome(
+                    dto =
+                        EventSeriesEditResultDto(
+                            affectedEventCount = result.affectedEventIds.size,
+                            affectedRegistrationCount = result.notices.size,
+                        ),
+                    notices = result.notices,
+                    eventTitle = title,
+                    affectedEventIds = result.affectedEventIds,
                 )
             }
+        val dtoResult = outcome.dto
+        val notices = outcome.notices
+        val eventTitle = outcome.eventTitle
+        // V1.9.113: a cancelled occurrence ends its conference right now (a hard-deleted one has no conference row any more).
+        endConferencesBestEffort(outcome.affectedEventIds)
         mailEventCancelledAll(
             notices = notices.map { notice -> EventCancellationNotice(to = notice.to, recipientName = notice.recipientName) },
             eventTitle = eventTitle,
             reason = reason,
         )
         return dtoResult
+    }
+
+    // ── V1.9.113 "Online-Teilnahme an Veranstaltungen" ──────────────────────────────────────────────
+
+    override suspend fun joinEventOnline(
+        eventId: String,
+        guestConsent: ConferenceGuestConsentAcknowledgmentInput?,
+    ): EventOnlineJoinResultDto {
+        val current = resolveCurrentMember(call)
+        requireWithinOnlineRate(limiter = eventOnline.memberJoinRateLimiter, memberId = current.memberId)
+        val join = eventOnline.join ?: return EventOnlineJoinResultDto(outcome = EventOnlineOutcome.UNAVAILABLE)
+        // An unparsable id answers like any other event the caller may not enter -- never a different error shape.
+        val id = runCatching { Uuid.parse(eventId) }.getOrNull() ?: return EventOnlineJoinResultDto(outcome = EventOnlineOutcome.FORBIDDEN)
+        return join.joinMember(eventId = id, current = current, guestConsent = guestConsent, now = ServerClock.nowInstant())
+    }
+
+    override suspend fun listEventGuests(eventId: String): List<EventGuestParticipantDto> {
+        val current = resolveCurrentMember(call)
+        requireWithinOnlineRate(limiter = eventOnline.adminRateLimiter, memberId = current.memberId)
+        val id = eventId.toEventUuid()
+        transaction { EventOnlineJoin.requireEventModerator(eventRow = EventStore.getEventOrNull(id), current = current) }
+        val join = eventOnline.join ?: return emptyList()
+        return join.listGuests(id)
+    }
+
+    override suspend fun removeEventGuest(
+        eventId: String,
+        identity: String,
+    ) {
+        val current = resolveCurrentMember(call)
+        requireWithinOnlineRate(limiter = eventOnline.adminRateLimiter, memberId = current.memberId)
+        val id = eventId.toEventUuid()
+        transaction { EventOnlineJoin.requireEventModerator(eventRow = EventStore.getEventOrNull(id), current = current) }
+        val join = eventOnline.join ?: return
+        join.removeGuest(eventId = id, identity = identity)
+    }
+
+    override suspend fun listEncounterSpacesForEvents(): List<EventEncounterSpaceOptionDto> {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*EVENT_MANAGE_ROLES)
+        requireWithinRate(current.memberId)
+        return transaction {
+            EncounterSpaceTable
+                .selectAll()
+                .where { EncounterSpaceTable.archivedAt.isNull() }
+                .orderBy(EncounterSpaceTable.title)
+                .limit(MAX_ENCOUNTER_SPACE_OPTIONS)
+                .map { row ->
+                    EventEncounterSpaceOptionDto(
+                        id = row[EncounterSpaceTable.id].toString(),
+                        title = row[EncounterSpaceTable.title],
+                        membersOnly = row[EncounterSpaceTable.guestPolicy] == "MEMBERS_ONLY",
+                    )
+                }
+        }
+    }
+
+    private fun requireWithinOnlineRate(
+        limiter: FederationInboxRateLimiter,
+        memberId: Uuid,
+    ) {
+        if (!limiter.checkAndRecord("member:$memberId")) throw ConflictException("Zu viele Anfragen -- bitte später erneut versuchen.")
+    }
+
+    private data class SeriesCancelOutcome(
+        val dto: EventSeriesEditResultDto,
+        val notices: List<EventSeriesMaterializer.SeriesCancellationNotice>,
+        val eventTitle: String,
+        val affectedEventIds: List<Uuid>,
+    )
+
+    /**
+     * V1.9.113 -- a Lapis online kind (conference or encounter entry) needs conferencing on THIS server: without it nobody could ever
+     * join, so the event would silently promise something it cannot deliver.
+     */
+    private fun requireLapisOnlineAvailable(kind: EventOnlineKind) {
+        if (EventPolicy.isLapisOnline(kind) && !eventOnline.conferencesEnabled) {
+            throw BadRequestException(
+                "Videokonferenzen sind auf diesem Server nicht eingerichtet -- eine Online-Teilnahme über Lapis ist derzeit nicht möglich.",
+            )
+        }
+    }
+
+    /**
+     * V1.9.113 -- the encounter space an event of kind LAPIS_ENCOUNTER points to: must exist and not be archived. A space that is
+     * unchanged from [existing] is not re-checked, so an old event can still be edited after its space was archived. Runs inside a transaction.
+     */
+    private fun resolveEncounterSpace(
+        input: EventInput,
+        existing: ResultRow?,
+    ): Uuid? {
+        if (input.onlineKind != EventOnlineKind.LAPIS_ENCOUNTER) return null
+        val spaceId = Uuid.parse(checkNotNull(input.encounterSpaceId))
+        if (existing != null && existing[EventTable.encounterSpaceId] == spaceId) return spaceId
+        val usable =
+            EncounterSpaceTable
+                .selectAll()
+                .where { EncounterSpaceTable.id eq spaceId }
+                .singleOrNull()
+                ?.let { it[EncounterSpaceTable.archivedAt] == null } == true
+        if (!usable) throw BadRequestException("Der ausgewählte Begegnungsraum existiert nicht oder ist archiviert.")
+        return spaceId
+    }
+
+    /** Ends the conferences of cancelled events; a failure never fails the cancellation (the poller ends them at the latest after the window). */
+    private suspend fun endConferencesBestEffort(eventIds: List<Uuid>) {
+        val provisioner = eventOnline.provisioner ?: return
+        eventIds.forEach { eventId ->
+            try {
+                provisioner.endNow(eventId = eventId, now = ServerClock.nowInstant())
+            } catch (t: Exception) {
+                logger.warn { "Event conference could not be ended right away (${t::class.simpleName}) -- the poller will end it" }
+            }
+        }
     }
 
     /**
@@ -1233,6 +1407,11 @@ private fun ResultRow.toEventDto(
             null
         }
     val roomId = this[EventTable.roomId]
+    val onlineKind = this[EventTable.onlineKind]
+    val encounterSpace =
+        this[EventTable.encounterSpaceId]?.let { spaceId ->
+            EncounterSpaceTable.selectAll().where { EncounterSpaceTable.id eq spaceId }.singleOrNull()
+        }
     val seriesId = this[EventTable.seriesId]
     val seriesDetached = this[EventTable.seriesDetached]
     val seriesRuleSummary =
@@ -1274,6 +1453,22 @@ private fun ResultRow.toEventDto(
         coverImageAlt = this[EventTable.coverImageAlt],
         onlineUrlPublic = this[EventTable.onlineUrlPublic],
         imported = this[EventTable.imported],
+        onlineKind = onlineKind,
+        encounterSpaceId = encounterSpace?.get(EncounterSpaceTable.id)?.toString(),
+        encounterSpaceTitle = encounterSpace?.get(EncounterSpaceTable.title),
+        encounterSpaceMembersOnly = encounterSpace?.get(EncounterSpaceTable.guestPolicy) == "MEMBERS_ONLY",
+        onlineWindowOpensAt =
+            if (EventPolicy.isLapisOnline(onlineKind)) {
+                EventOnlineWindow.wallOpensAt(startsAt = this[EventTable.startsAt], orgZone = OrganizationTimeZone.current())
+            } else {
+                null
+            },
+        onlineWindowClosesAt =
+            if (EventPolicy.isLapisOnline(onlineKind)) {
+                EventOnlineWindow.wallClosesAt(endsAt = this[EventTable.endsAt], orgZone = OrganizationTimeZone.current())
+            } else {
+                null
+            },
         seriesId = seriesId?.toString(),
         seriesDetached = seriesDetached,
         seriesRuleSummary = seriesRuleSummary,

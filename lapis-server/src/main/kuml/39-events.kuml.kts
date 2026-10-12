@@ -209,6 +209,12 @@
 // false -- TRUE only for events created by `EventImporter`). `idx_event_public_archive (status, visibility, ends_at, id)` is a plain
 // composite index, not the partial index the design sketched, because H2 cannot build partial indexes. Import and (only for imported
 // events) their creation are audited via `AuditEntityType.EVENT`/`EVENT_IMPORT`; ordinary create/publish stays unaudited.
+// **Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" addendum** (`V93__event_online_participation.sql`) adds two `event` columns:
+// `onlineKind` (how the event takes place online, enum below -- an existing `onlineUrl` is backfilled to EXTERNAL_LINK) and
+// `encounterSpaceId` (nullable, set exactly for LAPIS_ENCOUNTER). The FK to `encounter_space` is SQL-only with no model stub, the
+// `seriesId` precedent -- it keeps this file's entity set unchanged (EventSeriesSchemaDriftTest/EventRoomSchemaDriftTest pin it). The
+// conference an event creates on the first join is its own entity in `67-event-online.kuml.kts`.
+//
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
 import dev.kuml.uml.dsl.applyProfile
@@ -272,6 +278,15 @@ classDiagram(name = "Events") {
         literal(name = "WAITLISTED")
         literal(name = "CANCELLED")
         literal(name = "EXPIRED")
+    }
+
+    // V1.9.113 addendum. Longest literal is 16 characters; the column is deliberately VARCHAR(32) (room for future kinds).
+    // Literal order matches network.lapis.cloud.shared.domain.EventOnlineKind.
+    val eventOnlineKind = enumOf(name = "EventOnlineKind") {
+        literal(name = "NONE")
+        literal(name = "EXTERNAL_LINK")
+        literal(name = "LAPIS_CONFERENCE")
+        literal(name = "LAPIS_ENCOUNTER")
     }
 
     // Welle V1.4.37 addendum (see file header). One row per recurring series -- the rule +
@@ -448,6 +463,21 @@ classDiagram(name = "Events") {
         attribute(name = "imported", type = "Boolean") {
             defaultValue = "false"
             stereotype("Column") { "columnName" to "imported" }
+        }
+        // V1.9.113 addendum (see file header). NONE unless an online way of taking part exists.
+        attribute(name = "onlineKind", type = eventOnlineKind) {
+            defaultValue = "NONE"
+            stereotype("Column") {
+                "columnName" to "online_kind"
+                "sqlType" to "VARCHAR(32)"
+                "enumType" to "network.lapis.cloud.shared.domain.EventOnlineKind"
+            }
+        }
+        // V1.9.113 addendum. Set exactly when onlineKind = LAPIS_ENCOUNTER (chk_event_online_shape, SQL-only). FK -> encounter_space is
+        // SQL-only (no stub, the seriesId precedent).
+        attribute(name = "encounterSpaceId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "encounter_space_id" }
         }
     }
 

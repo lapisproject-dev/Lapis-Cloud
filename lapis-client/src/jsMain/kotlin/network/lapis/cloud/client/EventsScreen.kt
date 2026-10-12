@@ -2,7 +2,6 @@ package network.lapis.cloud.client
 
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDecimal
-import io.kvision.form.check.CheckBox
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.Select
 import io.kvision.form.select.select
@@ -33,6 +32,7 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EventDto
 import network.lapis.cloud.shared.domain.EventInput
+import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventQuery
 import network.lapis.cloud.shared.domain.EventRoomDto
 import network.lapis.cloud.shared.domain.EventRoomStatus
@@ -225,6 +225,13 @@ private fun renderEventListRow(
                 }
         }
 
+        // V1.9.113: how the event can be attended online (a word) and, while the window of a conference is open, the moderator's view of the
+        // people who joined without an account.
+        if (event.onlineKind != EventOnlineKind.NONE) {
+            displayHolder.div(gettext("Online-Teilnahme: %1", eventOnlineKindLabel(event.onlineKind))) { addCssClasses("text-muted small") }
+        }
+        if (event.status == EventStatus.PUBLISHED) renderEventGuestsPanel(displayHolder, event)
+
         val actionRow = displayHolder.hPanel(spacing = 8)
         if (event.status != EventStatus.CANCELLED) {
             val editButton = actionRow.actionButton(ActionIcon.EDIT, tr("Bearbeiten"), style = ButtonStyle.OUTLINESECONDARY)
@@ -405,7 +412,8 @@ private class EventFormFieldRefs(
     val titleInput: Text,
     val descriptionInput: TextArea,
     val locationTextInput: Text,
-    val onlineUrlInput: Text,
+    /** V1.9.113 -- the "Online-Teilnahme" section: the kind, the external link (only for the external kind) and the encounter space. */
+    val online: EventOnlineKindRefs,
     val startsAtInput: Text,
     val endsAtInput: Text,
     val registrationClosesAtInput: Text,
@@ -417,8 +425,6 @@ private class EventFormFieldRefs(
     val lockedFeeAmount: Decimal?,
     /** V1.9.82 -- public teaser of the events feed. */
     val summaryInput: Text,
-    /** V1.9.82 -- opt-in to show the online link on the public page and in the feed; only enabled for an `https://` link. */
-    val onlineUrlPublicCheck: CheckBox,
     /** V1.9.82 -- alt text of the cover image; only exists in the edit form (a cover can only be added to a saved event). */
     val coverImageAltInput: Text?,
 )
@@ -448,21 +454,24 @@ private fun buildEventFormFields(
     panel.div(tr("Wird öffentlich angezeigt.")) { addCssClasses("text-muted small") }
     val locationTextInput = panel.text(label = tr("Ort (Adresse, optional)")).apply { value = prefill?.locationText }
     panel.div(tr("Wird öffentlich angezeigt.")) { addCssClasses("text-muted small") }
-    val onlineUrlInput = panel.text(label = tr("Online-Link (optional)")).apply { value = prefill?.onlineUrl }
-    val onlineUrlPublicCheck =
-        panel.checkBox(
-            value = prefill?.onlineUrlPublic == true,
-            label = tr("Online-Link öffentlich anzeigen (Webseite und Veranstaltungs-Feed)"),
+    // V1.9.113: the form fields the online section's warnings depend on are created further below; the section reads them through these holders.
+    var visibilityHolder: Select? = null
+    var registrationClosesHolder: Text? = null
+    var capacityHolder: Text? = null
+    val online =
+        buildEventOnlineKindSection(
+            panel = panel,
+            prefill = prefill,
+            context =
+                EventOnlineFormContext(
+                    visibility = {
+                        visibilityHolder?.value?.let { runCatching { EventVisibility.valueOf(it) }.getOrNull() }
+                            ?: prefill?.visibility ?: EventVisibility.MEMBERS_ONLY
+                    },
+                    hasRegistrationDeadline = { !registrationClosesHolder?.value.isNullOrBlank() },
+                    capacity = { capacityHolder?.value?.trim()?.toIntOrNull() },
+                ),
         )
-    panel.div(tr("Nur aktivieren, wenn der Link ohne Anmeldung geteilt werden darf.")) { addCssClasses("text-muted small") }
-
-    fun syncOnlineUrlPublicCheck() {
-        val usable = isHttpsLink(onlineUrlInput.value.orEmpty())
-        onlineUrlPublicCheck.disabled = !usable
-        if (!usable && onlineUrlPublicCheck.value) onlineUrlPublicCheck.value = false
-    }
-    syncOnlineUrlPublicCheck()
-    onlineUrlInput.subscribe { syncOnlineUrlPublicCheck() }
     val startsAtInput =
         panel.text(type = InputType.DATETIME_LOCAL, label = tr("Beginn")).apply { value = prefill?.startsAt?.toString() }
     val endsAtInput =
@@ -472,6 +481,10 @@ private fun buildEventFormFields(
             value = prefill?.registrationClosesAt?.toString()
         }
     val capacityInput = panel.text(label = tr("Kapazität (optional)")).apply { value = prefill?.capacity?.toString() }
+    capacityHolder = capacityInput
+    registrationClosesHolder = registrationClosesAtInput
+    capacityInput.subscribe { online.refresh() }
+    registrationClosesAtInput.subscribe { online.refresh() }
     val feeAmountInput =
         panel.text(label = tr("Teilnahmegebühr in EUR (0 für kostenlos)")).apply {
             value = (prefill?.feeAmount ?: 0.0.toDecimal()).toString()
@@ -485,6 +498,9 @@ private fun buildEventFormFields(
             value = (prefill?.visibility ?: EventVisibility.MEMBERS_ONLY).name,
             label = tr("Sichtbarkeit"),
         )
+    visibilityHolder = visibilitySelect
+    visibilitySelect.subscribe { online.refresh() }
+    online.refresh()
     val roomSelect =
         panel.select(
             options = eventRoomOptions(rooms, prefill?.roomId),
@@ -510,7 +526,7 @@ private fun buildEventFormFields(
         titleInput = titleInput,
         descriptionInput = descriptionInput,
         locationTextInput = locationTextInput,
-        onlineUrlInput = onlineUrlInput,
+        online = online,
         startsAtInput = startsAtInput,
         endsAtInput = endsAtInput,
         registrationClosesAtInput = registrationClosesAtInput,
@@ -520,7 +536,6 @@ private fun buildEventFormFields(
         roomSelect = roomSelect,
         lockedFeeAmount = lockedFeeAmount,
         summaryInput = summaryInput,
-        onlineUrlPublicCheck = onlineUrlPublicCheck,
         coverImageAltInput = coverImageAltInput,
     )
 }
@@ -564,7 +579,13 @@ private fun readEventForm(
             title = fields.titleInput.value.orEmpty(),
             description = fields.descriptionInput.value.orEmpty(),
             locationText = fields.locationTextInput.value.orEmpty(),
-            onlineUrl = fields.onlineUrlInput.value.orEmpty(),
+            onlineUrl =
+                if (fields.online.kind() == EventOnlineKind.EXTERNAL_LINK) {
+                    fields.online.onlineUrlInput.value
+                        .orEmpty()
+                } else {
+                    ""
+                },
             startsAtRaw = fields.startsAtInput.value.orEmpty(),
             endsAtRaw = fields.endsAtInput.value.orEmpty(),
             registrationClosesAtRaw = fields.registrationClosesAtInput.value.orEmpty(),
@@ -574,7 +595,9 @@ private fun readEventForm(
             roomId = fields.roomSelect.value?.takeIf { it.isNotBlank() },
             summary = fields.summaryInput.value.orEmpty(),
             coverImageAlt = fields.coverImageAltInput?.value.orEmpty(),
-            onlineUrlPublic = fields.onlineUrlPublicCheck.value,
+            onlineUrlPublic = fields.online.kind() == EventOnlineKind.EXTERNAL_LINK && fields.online.onlineUrlPublicCheck.value,
+            onlineKind = fields.online.kind(),
+            encounterSpaceId = fields.online.encounterSpaceId(),
         )
     return when (val result = validateEventForm(raw, existingStartsAt)) {
         is EventFormResult.Ok -> result.input
@@ -660,7 +683,9 @@ private fun EventFormFieldRefs.snapshotValues(): List<String> =
         titleInput.value,
         descriptionInput.value,
         locationTextInput.value,
-        onlineUrlInput.value,
+        online.onlineUrlInput.value,
+        online.kind().name,
+        online.encounterSpaceId(),
         startsAtInput.value,
         endsAtInput.value,
         registrationClosesAtInput.value,
@@ -670,7 +695,7 @@ private fun EventFormFieldRefs.snapshotValues(): List<String> =
         roomSelect.value,
         summaryInput.value,
         coverImageAltInput?.value,
-        if (onlineUrlPublicCheck.value) "1" else "0",
+        if (online.onlineUrlPublicCheck.value) "1" else "0",
     ).map { it.orEmpty() }
 
 private fun renderEventEditForm(
@@ -857,4 +882,46 @@ private fun renderEventCoverCard(
             removeButton.disabled = false
         }
     }
+}
+
+/**
+ * V1.9.113 -- the moderator's list of the people who joined an event's conference WITHOUT an account (identity `evg-...`), read from
+ * LiveKit on demand, each with "Entfernen". Shown only for a published Lapis conference whose window is open now; a person with an
+ * account is removed in the conference itself. The names are untrusted (they were typed by the guest).
+ */
+private fun renderEventGuestsPanel(
+    parent: SimplePanel,
+    event: EventDto,
+) {
+    if (event.onlineKind != EventOnlineKind.LAPIS_CONFERENCE) return
+    val state = eventOnlineButtonState(event, organizationNow())
+    if (state != EventOnlineButtonState.Open) return
+    val panel = parent.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
+    panel.div(tr("Gäste ohne Konto")) { addCssClasses("fw-bold small") }
+    val list = panel.vPanel(spacing = 2)
+
+    fun refresh() {
+        list.removeAll()
+        AppScope.launch {
+            val guests = guarded { rpcService<IEventService>().listEventGuests(event.id) } ?: return@launch
+            list.removeAll()
+            if (guests.isEmpty()) {
+                list.div(tr("Derzeit sind keine Gäste ohne Konto im Raum.")) { addCssClasses("text-muted small") }
+                return@launch
+            }
+            guests.forEach { guest ->
+                val row = list.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+                row.untrustedDiv(guest.displayName, className = "flex-grow-1")
+                val remove = row.actionButton(ActionIcon.REMOVE, tr("Entfernen"), style = ButtonStyle.OUTLINEDANGER)
+                remove.onClick {
+                    runGuardedAction(remove) {
+                        guarded { rpcService<IEventService>().removeEventGuest(event.id, guest.identity) }
+                        refresh()
+                    }
+                }
+            }
+        }
+    }
+    panel.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY).onClick { refresh() }
+    refresh()
 }

@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.generated.ConferenceStreamTargetTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
 import network.lapis.cloud.server.encounter.EncounterRoles
+import network.lapis.cloud.server.events.EventConferenceGuard
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.federation.isIpv6UniqueLocalAddress
 import network.lapis.cloud.server.security.CurrentMember
@@ -560,6 +561,8 @@ class ConferenceStreamingService(
                     throw ConflictException("Conference room $roomUuid has already ended -- cannot start a stream")
                 }
                 requireModeratorOrPrivileged(room = room, current = current)
+                // V1.9.113: an event room is never streamed (no consent of the people without an account could be proven).
+                EventConferenceGuard.requireNotEventRoom(row = room)
                 requireEncounterStreamIsPulpitOnly(room = room, layout = layout, participantIdentity = participantIdentity)
 
                 // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- hard-wired,
@@ -1250,7 +1253,7 @@ class ConferenceStreamingService(
             // badge too -- "everyone in the room has a legal right to know" applies to a guest
             // exactly as much as to an ACTIVE member. See requireRoomEntryAuthorization KDoc.
             // allowEncounterRoom: the "a stream is running" badge stays visible to everybody in an encounter session (legal right to know).
-            val status = requireRoomEntryAuthorization(roomRow = room, current = current, allowEncounterRoom = true)
+            val status = requireRoomEntryAuthorization(roomRow = room, current = current, allowEncounterRoom = true, allowEventRoom = true)
             requireGuestHasJoinedRoom(roomId = roomUuid, current = current, status = status)
             val row =
                 ConferenceStreamTable

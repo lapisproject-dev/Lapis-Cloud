@@ -100,6 +100,8 @@ class ConferenceConfig private constructor(
      * [apiSecret] documents.
      */
     val turnSharedSecret: String,
+    /** V1.9.113 -- hard ceiling of an event conference room (`LAPIS_EVENT_CONFERENCE_MAX_PARTICIPANTS`, default 100). */
+    val eventMaxParticipants: Int = DEFAULT_EVENT_MAX_PARTICIPANTS,
 ) {
     /** `true` iff [livekitUrl], [apiKey] and [apiSecret] are all non-blank -- see [load] KDoc "Startup behaviour" for what happens when only SOME are set (that state never reaches this property; [load] throws first). */
     val enabled: Boolean = livekitUrl.isNotBlank() && apiKey.isNotBlank() && apiSecret.isNotBlank()
@@ -127,7 +129,7 @@ class ConferenceConfig private constructor(
         return "ConferenceConfig(enabled=$enabled, livekitUrl='$livekitUrl', livekitApiUrl='$livekitApiUrl', " +
             "apiKey=$keyState, apiSecret=$secretState, " +
             "tokenTtlMinutes=$tokenTtlMinutes, guestTokenTtlMinutes=$guestTokenTtlMinutes, maxParticipants=$maxParticipants, " +
-            "maxNonMemberParticipants=$maxNonMemberParticipants, " +
+            "maxNonMemberParticipants=$maxNonMemberParticipants, eventMaxParticipants=$eventMaxParticipants, " +
             "turnEnabled=$turnEnabled, turnUrls=$turnUrls, turnsUrls=$turnsUrls, turnSharedSecret=$turnSecretState)"
     }
 
@@ -146,6 +148,9 @@ class ConferenceConfig private constructor(
         /** See [guestTokenTtlMinutes] KDoc -- deliberately short, bounding the post-revocation JWT-replay window to minutes, not hours. */
         private const val DEFAULT_GUEST_TOKEN_TTL_MINUTES = 15L
         private const val DEFAULT_MAX_PARTICIPANTS = 25
+
+        /** V1.9.113 -- default ceiling of an event conference room; an assumption, not a measured LiveKit capacity. */
+        const val DEFAULT_EVENT_MAX_PARTICIPANTS = 100
 
         /** See [maxNonMemberParticipants] KDoc (security-audit F4 fix) -- a fraction of [DEFAULT_MAX_PARTICIPANTS], not equal to it: a room's non-member share of the 25-seat "Kleinsitzung" ceiling should be a minority by default. */
         private const val DEFAULT_MAX_NON_MEMBER_PARTICIPANTS = 20
@@ -221,6 +226,9 @@ class ConferenceConfig private constructor(
             val maxParticipants = env("LAPIS_CONFERENCE_MAX_PARTICIPANTS")?.trim()?.toIntOrNull() ?: DEFAULT_MAX_PARTICIPANTS
             val maxNonMemberParticipants =
                 env("LAPIS_CONFERENCE_MAX_NON_MEMBER_PARTICIPANTS")?.trim()?.toIntOrNull() ?: DEFAULT_MAX_NON_MEMBER_PARTICIPANTS
+            val eventMax =
+                (env("LAPIS_EVENT_CONFERENCE_MAX_PARTICIPANTS")?.trim()?.toIntOrNull() ?: DEFAULT_EVENT_MAX_PARTICIPANTS)
+                    .coerceIn(2, 1000)
             val turnUrls =
                 env("LAPIS_TURN_URLS")
                     ?.split(",")
@@ -274,6 +282,7 @@ class ConferenceConfig private constructor(
                 turnUrls = turnUrls,
                 turnsUrls = turnsUrls,
                 turnSharedSecret = turnSharedSecret,
+                eventMaxParticipants = eventMax,
             )
         }
 

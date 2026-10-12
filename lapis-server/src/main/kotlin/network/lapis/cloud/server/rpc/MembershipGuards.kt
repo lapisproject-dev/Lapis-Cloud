@@ -5,6 +5,7 @@ import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.encounter.EncounterRoomGuard
+import network.lapis.cloud.server.events.EventConferenceGuard
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
@@ -275,11 +276,15 @@ fun requireRoomEntryAuthorization(
     roomRow: ResultRow,
     current: CurrentMember,
     allowEncounterRoom: Boolean = false,
+    allowEventRoom: Boolean = false,
 ): MemberStatus {
     // V1.9.61: an encounter session (a conference_room row with encounter_space_id) is NEVER entered or inspected through the ordinary
     // conference RPC surface -- see EncounterRoomGuard. Secure by default: only a caller that explicitly opts in (the read-only
     // getActiveStream badge) is let through.
     if (!allowEncounterRoom) EncounterRoomGuard.requireNotEncounterRoom(row = roomRow)
+    // V1.9.113: an event conference room is entered ONLY through IEventService.joinEventOnline (its registration rule is enforced there).
+    // Only a read-only caller that explicitly opts in (listParticipants, the recording/stream badges) is let through.
+    if (!allowEventRoom) EventConferenceGuard.requireNotEventRoom(row = roomRow)
     val status = requireConferenceEligibleMembership(memberId = current.memberId)
     if (status in MemberStatusSets.NON_MEMBER && !roomRow[ConferenceRoomTable.allowFederationGuests]) {
         throw ForbiddenException(

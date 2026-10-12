@@ -121,6 +121,8 @@ data class ConferenceJoinTokenDto(
     val role: ConferenceRole,
     val expiresAt: LocalDateTime,
     val turnServers: List<ConferenceTurnServer> = emptyList(),
+    /** V1.9.113 -- non-null iff this room belongs to an event: a re-join must then run through `IEventService.joinEventOnline`, never `joinRoom`. */
+    val eventId: String? = null,
 )
 
 /**
@@ -189,6 +191,8 @@ data class ConferenceAvailabilityDto(
     val enabled: Boolean,
     val serverUrl: String?,
     val maxParticipants: Int,
+    /** V1.9.113 -- the real ceiling of an event conference room (`LAPIS_EVENT_CONFERENCE_MAX_PARTICIPANTS`). */
+    val eventMaxParticipants: Int = 0,
 )
 
 /**

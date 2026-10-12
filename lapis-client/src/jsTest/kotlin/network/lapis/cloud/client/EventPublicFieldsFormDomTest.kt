@@ -125,6 +125,7 @@ class EventPublicFieldsFormDomTest {
                         Regex("Wird öffentlich angezeigt\\.").findAll(form.text()).count(),
                         "description and place carry the hint",
                     )
+                    form.tick("Externer Link")
                     assertTrue(form.text().contains("Nur aktivieren, wenn der Link ohne Anmeldung geteilt werden darf."))
                 }
             }
@@ -146,17 +147,18 @@ class EventPublicFieldsFormDomTest {
                     createFormButton(element(), "lapis-create-event").click()
                     awaitUntil("the form is built") { element().querySelector("[id='lapis-create-event'] label") != null }
                     val form = element().querySelector("[id='lapis-create-event']") as HTMLElement
+                    form.tick("Externer Link")
                     val check = form.controlOf("Online-Link öffentlich anzeigen") as HTMLInputElement
                     assertFalse(check.checked, "off by default")
                     assertTrue(check.disabled, "disabled while there is no link")
-                    form.typeInto("Online-Link (optional)", "http://meet.example/x")
+                    form.typeInto("Online-Link", "http://meet.example/x")
                     awaitUntil("still disabled for http") { check.disabled }
-                    form.typeInto("Online-Link (optional)", "https://meet.example/x")
+                    form.typeInto("Online-Link", "https://meet.example/x")
                     awaitUntil("enabled for https") { !check.disabled }
                     assertFalse(check.checked, "enabling it does not switch it on")
                     check.click()
                     assertTrue(check.checked)
-                    form.typeInto("Online-Link (optional)", "http://meet.example/x")
+                    form.typeInto("Online-Link", "http://meet.example/x")
                     awaitUntil("disabled again and switched off for http") { check.disabled && !check.checked }
                 }
             }
@@ -190,7 +192,8 @@ class EventPublicFieldsFormDomTest {
                     form.typeInto("Kurztext", "  Ein kurzer Teaser  ")
                     form.typeInto("Beschreibung", "Ein Abend für alle")
                     form.typeInto("Ort", "Vereinsheim")
-                    form.typeInto("Online-Link (optional)", "https://meet.example/x")
+                    form.tick("Externer Link")
+                    form.typeInto("Online-Link", "https://meet.example/x")
                     form.typeInto("Beginn", "2099-11-01T18:00")
                     form.typeInto("Ende", "2099-11-01T20:00")
                     form.tick("Online-Link öffentlich anzeigen")

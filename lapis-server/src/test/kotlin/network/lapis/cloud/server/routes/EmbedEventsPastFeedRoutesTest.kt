@@ -95,6 +95,15 @@ class EmbedEventsPastFeedRoutesTest :
                     it[description] = "Beschreibung\r\nmit Umbruch"
                     it[locationText] = "Archivort"
                     it[EventTable.onlineUrl] = onlineUrl
+                    // V93: an event with an external link is of the kind EXTERNAL_LINK (chk_event_online_shape).
+                    it[EventTable.onlineKind] =
+                        if (onlineUrl !=
+                            null
+                        ) {
+                            network.lapis.cloud.shared.domain.EventOnlineKind.EXTERNAL_LINK
+                        } else {
+                            network.lapis.cloud.shared.domain.EventOnlineKind.NONE
+                        }
                     it[EventTable.onlineUrlPublic] = onlineUrlPublic
                     it[startsAt] = endsAt
                     it[EventTable.endsAt] = endsAt

@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 67 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 68 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -70,7 +70,8 @@ class DomainModelMergerTest :
             // Welle V1.9.59 "Mitgliederzahlen ueber Zeit" -- was 64, now 65 with the addition of 64-member-status-history.kuml.kts.
             // Welle V1.9.61 "Begegnungsraum" -- was 65, now 66 with the addition of 65-encounter-space.kuml.kts.
             // Welle V1.9.81 "E-Mail-Stundenbudget" -- was 66, now 67 with the addition of 66-mail-outbox.kuml.kts.
-            scriptFiles shouldHaveSize 67
+            // Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" -- was 67, now 68 with the addition of 67-event-online.kuml.kts.
+            scriptFiles shouldHaveSize 68
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -531,7 +532,8 @@ class DomainModelMergerTest :
             // Welle V1.9.103 "Wahl zum Amt" adds 07-election.kuml.kts's ONE new real table (election_seat_outcome) -- net +1 (187 -> 188).
             // Welle V1.9.111 "Dynamische Mailinglisten" adds 03-communication.kuml.kts's ONE new real table (mailing_list_opt_out) -- net +1 (188 -> 189).
             // Welle V1.9.112 "regelbasierte Gremien" adds 06-vote.kuml.kts's ONE new real table (vote_eligible_voter) -- net +1 (189 -> 190).
-            val distinctTableNames = 190
+            // Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" adds 67-event-online.kuml.kts's ONE new table (event_conference) -- net +1 (190 -> 191).
+            val distinctTableNames = 191
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -869,6 +871,7 @@ class DomainModelMergerTest :
                     "MailOutboxTable.kt",
                     "MailSendSlotTable.kt",
                     "MailBudgetLockTable.kt",
+                    "EventConferenceTable.kt",
                 )
         }
 

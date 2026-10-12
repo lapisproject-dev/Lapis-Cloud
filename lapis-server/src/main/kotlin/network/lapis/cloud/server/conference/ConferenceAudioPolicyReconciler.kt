@@ -185,8 +185,11 @@ class ConferenceAudioPolicyReconciler(
         val privileged = transaction { ConferenceAudioPolicy.privilegedAmong(memberIds) }
         var corrected = 0
         for (participant in participants) {
-            val memberId = liveKitIdentityAsMemberId(participant.identity) ?: continue
-            if (ConferenceAudioPolicy.isModeratorIdentity(
+            val memberId = liveKitIdentityAsMemberId(participant.identity)
+            // An account-less event guest (`evg-...`) has no member id: never a moderator, never individually released.
+            if (memberId == null && !isEventGuestIdentity(participant.identity)) continue
+            if (memberId != null &&
+                ConferenceAudioPolicy.isModeratorIdentity(
                     identity = memberId,
                     creatorId = room.creatorId,
                     privileged = privileged,
@@ -226,8 +229,11 @@ class ConferenceAudioPolicyReconciler(
         var corrected = 0
         var muted = 0
         for (participant in participants) {
-            val memberId = liveKitIdentityAsMemberId(participant.identity) ?: continue
-            if (ConferenceAudioPolicy.isModeratorIdentity(
+            val memberId = liveKitIdentityAsMemberId(participant.identity)
+            // An account-less event guest (`evg-...`) has no member id: never a moderator, never individually released.
+            if (memberId == null && !isEventGuestIdentity(participant.identity)) continue
+            if (memberId != null &&
+                ConferenceAudioPolicy.isModeratorIdentity(
                     identity = memberId,
                     creatorId = room.creatorId,
                     privileged = privileged,
@@ -235,7 +241,7 @@ class ConferenceAudioPolicyReconciler(
             ) {
                 continue
             }
-            if (grants.isGranted(roomId = room.id, memberId = memberId)) continue
+            if (memberId != null && grants.isGranted(roomId = room.id, memberId = memberId)) continue
             if (mayPublishMicrophone(participant)) {
                 liveKitAdminClient.updateParticipantPermission(
                     room = room.livekitRoomName,

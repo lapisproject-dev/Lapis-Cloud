@@ -1,7 +1,9 @@
 package network.lapis.cloud.server.events
 
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.toJavaLocalDateTime
 import network.lapis.cloud.shared.domain.EventInput
+import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.rpc.BadRequestException
 import java.math.BigDecimal
@@ -29,6 +31,11 @@ object EventPolicy {
 
     /** Mirrors `event.location_text VARCHAR(500)`. */
     const val MAX_LOCATION_TEXT_LENGTH = 500
+
+    /** V1.9.113 -- the longest event a Lapis video conference may cover (a day-spanning event would pin a room; same idea as ENCOUNTER_MAX_SESSION_HOURS). */
+    const val MAX_LAPIS_CONFERENCE_HOURS = 12L
+
+    private const val MINUTES_PER_HOUR = 60L
 
     /** Mirrors `event.online_url VARCHAR(2048)`. */
     const val MAX_ONLINE_URL_LENGTH = 2048
@@ -107,6 +114,72 @@ object EventPolicy {
         wallNow: LocalDateTime,
         existingStartsAt: LocalDateTime? = null,
     ) {
+        validateOnline(input = normalizedOnline(input))
+        validateGeneral(input = normalizedOnline(input), wallNow = wallNow, existingStartsAt = existingStartsAt)
+    }
+
+    /**
+     * V1.9.113: the input in the form it is stored. A client that only knows the pre-V1.9.113 `onlineUrl` sends
+     * [EventOnlineKind.NONE] with a link -> [EventOnlineKind.EXTERNAL_LINK]; a link is trimmed and a blank one removed; an
+     * [EventOnlineKind.EXTERNAL_LINK] without a link degrades to [EventOnlineKind.NONE]. Idempotent.
+     */
+    fun normalizedOnline(input: EventInput): EventInput {
+        val link = input.onlineUrl?.trim()?.takeIf { it.isNotBlank() }
+        val kind =
+            when {
+                input.onlineKind == EventOnlineKind.NONE && link != null -> EventOnlineKind.EXTERNAL_LINK
+                input.onlineKind == EventOnlineKind.EXTERNAL_LINK && link == null -> EventOnlineKind.NONE
+                else -> input.onlineKind
+            }
+        val space = input.encounterSpaceId?.trim()?.takeIf { it.isNotBlank() }
+        return input.copy(onlineUrl = link, onlineKind = kind, encounterSpaceId = space)
+    }
+
+    /** `true` for the two kinds Lapis itself hosts (no external link). */
+    fun isLapisOnline(kind: EventOnlineKind): Boolean = kind == EventOnlineKind.LAPIS_CONFERENCE || kind == EventOnlineKind.LAPIS_ENCOUNTER
+
+    private fun validateOnline(input: EventInput) {
+        val kind = input.onlineKind
+        if (isLapisOnline(kind)) {
+            if (input.onlineUrl !=
+                null
+            ) {
+                throw BadRequestException("Bei einer Lapis-Online-Teilnahme darf kein externer Online-Link angegeben werden.")
+            }
+            if (input.onlineUrlPublic) {
+                throw BadRequestException(
+                    "Ein Online-Link kann nur öffentlich angezeigt werden, wenn er ein externer Link ist.",
+                )
+            }
+        }
+        if (kind == EventOnlineKind.LAPIS_ENCOUNTER) {
+            val space = input.encounterSpaceId ?: throw BadRequestException("Für den Begegnungsraum muss ein Raum ausgewählt werden.")
+            runCatching { Uuid.parse(space) }.getOrElse { throw BadRequestException("Der ausgewählte Begegnungsraum ist ungültig.") }
+            if (input.registrationClosesAt != null) {
+                throw BadRequestException(
+                    "Ein Begegnungsraum ist dauerhaft und kann nicht auf angemeldete Personen beschränkt werden -- " +
+                        "bitte ohne Anmeldefrist anlegen.",
+                )
+            }
+        } else if (input.encounterSpaceId != null) {
+            throw BadRequestException("Ein Begegnungsraum darf nur bei der Art Begegnungsraum angegeben werden.")
+        }
+        if (kind == EventOnlineKind.LAPIS_CONFERENCE) {
+            val minutes =
+                java.time.Duration
+                    .between(input.startsAt.toJavaLocalDateTime(), input.endsAt.toJavaLocalDateTime())
+                    .toMinutes()
+            if (minutes > MAX_LAPIS_CONFERENCE_HOURS * MINUTES_PER_HOUR) {
+                throw BadRequestException("Eine Videokonferenz kann höchstens $MAX_LAPIS_CONFERENCE_HOURS Stunden dauern.")
+            }
+        }
+    }
+
+    private fun validateGeneral(
+        input: EventInput,
+        wallNow: LocalDateTime,
+        existingStartsAt: LocalDateTime?,
+    ) {
         if (input.title.isBlank()) throw BadRequestException("Titel darf nicht leer sein.")
         if (input.title.length > MAX_TITLE_LENGTH) throw BadRequestException("Titel ist zu lang (maximal $MAX_TITLE_LENGTH Zeichen).")
         if (input.description.isBlank()) throw BadRequestException("Beschreibung darf nicht leer sein.")
@@ -115,7 +188,7 @@ object EventPolicy {
         }
         val locationText = input.locationText?.trim()?.takeIf { it.isNotBlank() }
         val onlineUrl = input.onlineUrl?.trim()?.takeIf { it.isNotBlank() }
-        if (locationText == null && onlineUrl == null) {
+        if (locationText == null && onlineUrl == null && !isLapisOnline(input.onlineKind)) {
             throw BadRequestException("Mindestens ein Veranstaltungsort (Adresse oder Online-Link) ist erforderlich.")
         }
         if (locationText != null && locationText.length > MAX_LOCATION_TEXT_LENGTH) {

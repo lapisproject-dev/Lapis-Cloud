@@ -71,6 +71,8 @@ import network.lapis.cloud.shared.domain.ConferenceStreamStatus
 import network.lapis.cloud.shared.domain.ConferenceStreamTargetDto
 import network.lapis.cloud.shared.domain.ConferenceStreamTargetStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import network.lapis.cloud.shared.domain.EventGuestNotice
+import network.lapis.cloud.shared.domain.EventOnlineOutcome
 import network.lapis.cloud.shared.domain.MeetingDto
 import network.lapis.cloud.shared.domain.MeetingStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
@@ -83,6 +85,7 @@ import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.IConferenceService
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
 import network.lapis.cloud.shared.rpc.IConferenceWhiteboardService
+import network.lapis.cloud.shared.rpc.IEventService
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
@@ -391,6 +394,9 @@ import kotlin.time.Clock
 fun renderConferenceScreen(
     container: SimplePanel,
     autoJoinRoomId: String? = null,
+    // V1.9.113 -- `#/conference-event/:eventId`: take part online in an EVENT's conference (the room is created on the first join and is
+    // never in the room list). `null` for every other route. See [joinEventAndEnterCall].
+    autoJoinEventId: String? = null,
 ) {
     // V1.9.70: the call lives in the conference dock, not in this screen. This screen is only ONE view on it: it shows the call view (the
     // dock's call panel) while it is mounted and hides it again when it goes -- leaving the route never ends the call.
@@ -466,6 +472,27 @@ fun renderConferenceScreen(
                 addCssClasses("alert alert-warning")
                 setAttribute("role", "status")
             }
+        }
+        return
+    }
+    if (autoJoinEventId != null) {
+        // V1.9.113: this route exists to enter ONE event's conference -- never a lobby first. Anything but a successful entry falls back to
+        // the normal lobby (the message of the outcome was shown), so the person is never left on an empty screen.
+        statusLine.hide()
+        val eventNotice = root.vPanel(spacing = 8)
+        AppScope.launch {
+            val entered =
+                joinEventAndEnterCall(
+                    eventId = autoJoinEventId,
+                    noticeHost = eventNotice,
+                    lobbyPanel = lobbyPanel,
+                    callPanel = callPanel,
+                    setActiveSession = setActiveSession,
+                    rejoinGuard = rejoinGuard,
+                    onReturnedToLobby = { ConferenceLobbyPort.current?.invoke() },
+                )
+            eventNotice.removeAll()
+            if (!entered) showLobby()
         }
         return
     }
@@ -749,6 +776,100 @@ private suspend fun joinConferenceRoomAndEnterCall(
     } else {
         ConferenceDock.dispatch(DockEvent.Terminated(DockTerminateReason.LEAVE))
     }
+}
+
+// ================================================================================================
+// Event conference entry: V1.9.113 "Online-Teilnahme an Veranstaltungen"
+// ================================================================================================
+
+/**
+ * The route `#/conference-event/:eventId`: asks the server to let the person into the online conference of an event
+ * ([network.lapis.cloud.shared.rpc.IEventService.joinEventOnline] -- the ONLY way into an event room; `joinRoom` refuses it) and, on
+ * [network.lapis.cloud.shared.domain.EventOnlineOutcome.JOINED], runs the SAME [enterCall] every other join uses.
+ *
+ * A GUEST/FRIEND account (not a member) first acknowledges the event notice ([EventGuestNotice]); a member needs nothing. A room that
+ * is still being created ([network.lapis.cloud.shared.domain.EventOnlineOutcome.PREPARING]) is asked again up to three times, one second
+ * apart. For an encounter-space event the answer is only the space id -- the person then continues in the encounter room (its own entry
+ * rules apply). Returns `true` iff a call was entered (or the person was sent on); on `false` the outcome was already announced.
+ */
+private suspend fun joinEventAndEnterCall(
+    eventId: String,
+    noticeHost: SimplePanel,
+    lobbyPanel: SimplePanel,
+    callPanel: SimplePanel,
+    setActiveSession: (LiveKitRoomSession?) -> Unit,
+    rejoinGuard: AutoRejoinGuard,
+    onReturnedToLobby: () -> Unit,
+): Boolean {
+    val nonMember = AppState.session?.let { it.isGuest || it.status in MemberStatusSets.NON_MEMBER } == true
+    val consent: ConferenceGuestConsentAcknowledgmentInput? =
+        if (nonMember) {
+            if (!awaitEventGuestNotice(noticeHost)) return false
+            ConferenceGuestConsentAcknowledgmentInput(consentVersion = EventGuestNotice.VERSION, consentSha256 = EventGuestNotice.SHA256)
+        } else {
+            null
+        }
+    // one conference per tab; a second click is a no-op
+    if (!ConferenceDock.beginJoin("event:$eventId")) return false
+    val generation = ConferenceDock.generation
+    var result = guarded { rpcService<IEventService>().joinEventOnline(eventId, consent) }
+    var attempts = 0
+    while (result?.outcome == EventOnlineOutcome.PREPARING && attempts < EVENT_PREPARING_RETRIES) {
+        attempts++
+        delay(EVENT_PREPARING_RETRY_MS)
+        if (!ConferenceDock.isCurrent(generation)) return false
+        result = guarded { rpcService<IEventService>().joinEventOnline(eventId, consent) }
+    }
+    if (result == null || result.outcome != EventOnlineOutcome.JOINED) {
+        result?.let { notifyError(eventOnlineOutcomeMessage(it.outcome, it.opensAt).orEmpty()) }
+        ConferenceDock.dispatch(DockEvent.Terminated(DockTerminateReason.LEAVE))
+        return false
+    }
+    val spaceId = result.encounterSpaceId
+    if (spaceId != null) {
+        ConferenceDock.dispatch(DockEvent.Terminated(DockTerminateReason.LEAVE))
+        navigateTo("${Routes.ENCOUNTER}/$spaceId")
+        return true
+    }
+    val token = result.token
+    val room = token?.let { guarded { rpcService<IConferenceService>().getRoom(it.roomId) } }
+    if (token == null || room == null) {
+        ConferenceDock.dispatch(DockEvent.Terminated(DockTerminateReason.LEAVE))
+        return false
+    }
+    // the call was ended hard (sign-out, language change) while the token was on its way: no device may be switched on
+    if (!ConferenceDock.isCurrent(generation)) return false
+    ConferenceDock.adoptRoomId(token.roomId)
+    enterCall(ConferenceCallTarget.MainRoom(room), token, lobbyPanel, callPanel, setActiveSession, rejoinGuard, onReturnedToLobby)
+    return true
+}
+
+private const val EVENT_PREPARING_RETRIES = 3
+private const val EVENT_PREPARING_RETRY_MS = 1000L
+
+/**
+ * Shows the event notice ([EventGuestNotice.TEXT]) with a confirmation box and a "Beitreten" button in [host] and suspends until the person
+ * confirms (`true`) or the host is torn down by a route change (never resumes then -- the coroutine ends with the screen). The button
+ * stays disabled until the box is ticked.
+ */
+private suspend fun awaitEventGuestNotice(host: SimplePanel): Boolean {
+    val decision = kotlinx.coroutines.CompletableDeferred<Boolean>()
+    host.removeAll()
+    // The form grammar: the box is REQUIRED, the button is busy-guarded, an unticked box shows its error at the box.
+    val form = host.lapisForm()
+    form.panel.div(tr("Ihr Name ist für alle Teilnehmenden sichtbar. Ihr Mikrofon ist zu Beginn aus. Es wird nichts aufgezeichnet.")) {
+        addCssClasses("alert alert-info mb-0")
+        setAttribute("role", "note")
+    }
+    form.checkField(
+        label = tr("Ich habe den Hinweis gelesen."),
+        required = true,
+        requiredMessage = tr("Bitte bestätigen Sie den Hinweis."),
+    )
+    val joinButton = Button(tr("Beitreten"), style = ButtonStyle.PRIMARY)
+    form.buttons(primary = joinButton)
+    joinButton.onClick { form.submit(joinButton) { decision.complete(true) } }
+    return decision.await()
 }
 
 // ================================================================================================

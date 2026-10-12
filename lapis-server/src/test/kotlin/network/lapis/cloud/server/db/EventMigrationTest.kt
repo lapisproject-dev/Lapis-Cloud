@@ -81,11 +81,13 @@ class EventMigrationTest :
         ): String {
             val locationSql = locationText?.let { "'$it'" } ?: "NULL"
             val onlineSql = onlineUrl?.let { "'$it'" } ?: "NULL"
+            // V93: a link implies the kind EXTERNAL_LINK (chk_event_online_shape).
+            val kindSql = if (onlineUrl != null) "EXTERNAL_LINK" else "NONE"
             val capacitySql = capacity?.toString() ?: "NULL"
-            return "INSERT INTO event (id, slug, title, description, location_text, online_url, starts_at, ends_at, " +
+            return "INSERT INTO event (id, slug, title, description, location_text, online_url, online_kind, starts_at, ends_at, " +
                 "capacity, fee_amount, fee_currency, status, visibility, registration_closes_at, created_at, " +
                 "created_by, cancelled_at) VALUES ('$id', 'probe-$id', 'Probe', 'Probe-Beschreibung', $locationSql, " +
-                "$onlineSql, TIMESTAMP '$startsAt', TIMESTAMP '$endsAt', $capacitySql, $feeAmount, 'EUR', '$status', " +
+                "$onlineSql, '$kindSql', TIMESTAMP '$startsAt', TIMESTAMP '$endsAt', $capacitySql, $feeAmount, 'EUR', '$status', " +
                 "'$visibility', NULL, TIMESTAMP '2026-01-01 00:00:00', '$ADMIN_UUID', NULL)"
         }
 

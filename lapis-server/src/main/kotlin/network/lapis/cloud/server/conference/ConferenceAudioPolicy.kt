@@ -4,6 +4,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
+import network.lapis.cloud.server.events.EVENT_GUEST_IDENTITY_PREFIX
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_LOCK
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_MUTED
@@ -64,6 +65,12 @@ internal object ConferenceAudioPolicy {
 
 /** Parses a LiveKit participant identity as a member UUID; `null` for anything else (egress/recorder participants). */
 internal fun liveKitIdentityAsMemberId(identity: String): Uuid? = runCatching { Uuid.parse(identity) }.getOrNull()
+
+/**
+ * `true` for the LiveKit identity of a person who joined an event WITHOUT an account (`evg-<uuid>`). Such a person is never a moderator and
+ * never individually released, but is subject to every room-wide audio rule (lock, mute all, the reconciler) like any non-moderator.
+ */
+internal fun isEventGuestIdentity(identity: String): Boolean = identity.startsWith(EVENT_GUEST_IDENTITY_PREFIX)
 
 /**
  * V1.9.108 -- the people a moderator released individually in a LOCKED room (the "Bitten" action of a locked room, see

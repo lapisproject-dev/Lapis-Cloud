@@ -143,3 +143,9 @@ Details: `docs/architecture/time-and-timezones.adoc`. Kurzregeln:
   `ended_by_election_id` auf null). Wahlen ohne Policy (vor V1.9.103) nehmen den alten Pfad. Policy, Rolle und Zielgremium sind nach dem Öffnen
   unveränderlich; die Nachfolge schreibt nie `AccountRole`/`member.role`.
 - **Regelgremien und eingefrorener Abstimmungskreis (V1.9.112):** Ein Gremium mit `membership_mode = RULE` hat nie offene Sitzzeilen; `CommitteeSeatLifecycle.endSeatsForRuleMode` ist der zweite (und letzte) Schreiber eines nicht-null `auto_end_reason` (`RULE_MODE`), in derselben allowlisteten Datei wie der Hook. Wer Stimmrecht oder den Nenner eines Quorums prüft, nutzt `frozenOrLiveElectorate` (Momentaufnahme `vote_eligible_voter` / `election_eligible_voter` / Konsensieren-Runde, sonst live), **nie** `eligibleMemberIds` direkt (Tripwire: `CommitteeElectorateTripwireTest`). Regeln dürfen nur manuelle Gremien referenzieren (`RuleReferences`, gemeinsam für Gremien- und Mailingregeln, sperrt Gremienzeilen in DB-`ORDER BY id`). Eine kaputte gespeicherte Regel ist ein `ConflictException`, nie eine leere Menge. Details: `docs/features/rule-based-committees.adoc`.
+
+## Veranstaltungs-Konferenzen (V1.9.113)
+
+- Eine Veranstaltungs-Konferenz wird ausschließlich über `IEventService.joinEventOnline` (Mitglieder) bzw. `POST /api/events/{slug}/online-guest` (Gäste ohne Konto) betreten. Die gewöhnlichen Konferenz-RPCs lehnen Veranstaltungsräume über `EventConferenceGuard` ab; neue `roomId`-Methoden in `ConferenceService` erzwingen eine Entscheidung (Tripwire `EventConferenceGuardTripwireTest`).
+- `event_conference` wird nur von `EventConferenceStore` geschrieben; LiveKit wird nie innerhalb von `transaction {}` aufgerufen (Claim-Protokoll mit `claim_token`). Das Zeitfenster berechnet nur `EventOnlineWindow`.
+- Gast-Identitäten tragen das Präfix `evg-`; Gäste werden nicht in die Teilnehmerhistorie geschrieben. Details: `docs/features/event-online-participation.adoc`.

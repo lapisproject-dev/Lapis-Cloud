@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
 import network.lapis.cloud.server.encounter.EncounterRoomGuard
+import network.lapis.cloud.server.events.EventConferenceGuard
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -664,6 +665,9 @@ class ConferenceBreakoutService(
                 if (row[ConferenceRoomTable.endedAt] != null) {
                     throw ConflictException("Conference room $roomUuid has already ended")
                 }
+                // V1.9.113: a return to the main room of an EVENT conference re-runs the full event authorization (a registration
+                // cancelled since the join, or a closed window, ends the stay).
+                EventConferenceGuard.requireStillEntitled(row = row, current = current)
                 val hasOpenParticipation =
                     ConferenceParticipationTable
                         .selectAll()

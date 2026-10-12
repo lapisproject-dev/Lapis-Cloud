@@ -844,3 +844,11 @@ col:MailingListOptOutTable.optedOutAt	A	stamped by the server clock (DbClock/Ser
 col:MailingMessageTable.recipientsResolvedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:MemberFacts.joinedOn	D	MemberFactsLoader: member.joined_at, a calendar DATE compared with OrganizationTimeZone.today() (never a timestamp, never converted)
 col:VoteTable.electorateFrozenAt	A	GovernanceService.openVote: DbClock.nowLocalDateTime() (UTC), the moment the electorate of the vote was frozen into vote_eligible_voter
+dto:EventDto.onlineWindowOpensAt	B	derived from event.starts_at (class B) by EventOnlineWindow; organization-zone wall clock, shown unconverted
+dto:EventDto.onlineWindowClosesAt	B	derived from event.ends_at (class B) by EventOnlineWindow; organization-zone wall clock, shown unconverted
+dto:EventOnlineJoinResultDto.opensAt	B	derived from event.starts_at (class B) by EventOnlineWindow; organization-zone wall clock, shown unconverted
+col:EventConferenceTable.claimedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventConferenceTable.windowOpensAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventConferenceTable.windowClosesAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventConferenceTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:EventConferenceTable.endedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

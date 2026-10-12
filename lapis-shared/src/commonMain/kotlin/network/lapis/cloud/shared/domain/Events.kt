@@ -16,6 +16,28 @@ enum class EventStatus { DRAFT, PUBLISHED, CANCELLED }
 @Serializable
 enum class EventVisibility { MEMBERS_ONLY, PUBLIC }
 
+/**
+ * V1.9.113 -- how an event takes place online. [NONE] = purely on site, [EXTERNAL_LINK] = the pre-existing free-text online link,
+ * [LAPIS_CONFERENCE] = a Lapis video conference created on the first join, [LAPIS_ENCOUNTER] = entry into a permanent encounter space.
+ * Literal names are persisted (`event.online_kind`) -- never rename.
+ */
+@Serializable
+enum class EventOnlineKind { NONE, EXTERNAL_LINK, LAPIS_CONFERENCE, LAPIS_ENCOUNTER }
+
+/** V1.9.113 -- the seat count of an event conference when the event has no capacity of its own (the server derives `min(capacity or this, ceiling)`). */
+const val EVENT_CONFERENCE_DEFAULT_CAPACITY: Int = 25
+
+/** V1.9.113 -- where the online participation window of an event currently stands. */
+@Serializable
+enum class EventOnlinePhase { NOT_YET, OPEN, ENDED }
+
+/**
+ * V1.9.113 -- outcome of an attempt to take part online. Typed instead of an exception for every fachlich state (the same posture as
+ * [EventCheckInOutcome]); every refusal for an unknown/hidden/unauthorized event is the SAME [FORBIDDEN] (no enumeration oracle).
+ */
+@Serializable
+enum class EventOnlineOutcome { JOINED, NOT_YET, ENDED, FORBIDDEN, FULL, PREPARING, UNAVAILABLE }
+
 @Serializable
 enum class EventRegistrationStatus { PENDING_PAYMENT, CONFIRMED, WAITLISTED, CANCELLED, EXPIRED }
 
@@ -57,6 +79,13 @@ data class EventInput(
     val coverImageAlt: String? = null,
     /** V1.9.82 -- when `true` the online link is shown on the public page and in the feed (only valid with an `https://` link). Default off. */
     val onlineUrlPublic: Boolean = false,
+    /**
+     * V1.9.113 -- additive. An old client sends only [onlineUrl]: the server then normalizes [EventOnlineKind.NONE] with a link to
+     * [EventOnlineKind.EXTERNAL_LINK].
+     */
+    val onlineKind: EventOnlineKind = EventOnlineKind.NONE,
+    /** V1.9.113 -- required for [EventOnlineKind.LAPIS_ENCOUNTER] (an active, non-archived encounter space), forbidden otherwise. */
+    val encounterSpaceId: String? = null,
 )
 
 @Serializable
@@ -122,6 +151,84 @@ data class EventDto(
     val onlineUrlPublic: Boolean = false,
     /** V1.9.82 -- `true` for events created by the admin import of past events. */
     val imported: Boolean = false,
+    /** V1.9.113 -- mirrors [EventInput.onlineKind]. */
+    val onlineKind: EventOnlineKind = EventOnlineKind.NONE,
+    /** V1.9.113 -- mirrors [EventInput.encounterSpaceId]. */
+    val encounterSpaceId: String? = null,
+    /** V1.9.113 -- denormalized title of the encounter space, server-computed. Null unless [onlineKind] is [EventOnlineKind.LAPIS_ENCOUNTER]. */
+    val encounterSpaceTitle: String? = null,
+    /** V1.9.113 -- `true` if the chosen encounter space admits members only (the client warns when the event is public). */
+    val encounterSpaceMembersOnly: Boolean = false,
+    /** V1.9.113 -- organization-zone wall clock (class B, derived from `startsAt`) at which online participation opens. Null unless a Lapis online kind. Never a room id or a token. */
+    val onlineWindowOpensAt: LocalDateTime? = null,
+    /** V1.9.113 -- organization-zone wall clock (class B, derived from `endsAt`) at which online participation closes. */
+    val onlineWindowClosesAt: LocalDateTime? = null,
+)
+
+/** V1.9.113 -- one selectable encounter space in the event form's picker (BOARD/ADMIN). */
+@Serializable
+data class EventEncounterSpaceOptionDto(
+    val id: String,
+    val title: String,
+    val membersOnly: Boolean,
+)
+
+/**
+ * V1.9.113 -- result of [network.lapis.cloud.shared.rpc.IEventService.joinEventOnline]. [token] is set for [EventOnlineOutcome.JOINED] of a
+ * conference; [encounterSpaceId] for [EventOnlineOutcome.JOINED] of an encounter space (the client then continues through the encounter
+ * service's own entry). [opensAt] accompanies [EventOnlineOutcome.NOT_YET].
+ */
+@Serializable
+data class EventOnlineJoinResultDto(
+    val outcome: EventOnlineOutcome,
+    val token: ConferenceJoinTokenDto? = null,
+    val opensAt: LocalDateTime? = null,
+    val encounterSpaceId: String? = null,
+)
+
+/** V1.9.113 -- body of `POST /api/events/{slug}/online-guest` (a join without an account). */
+@Serializable
+data class EventGuestJoinRequestDto(
+    val name: String,
+    val consentVersion: String,
+    val consentSha256: String,
+    /** Only for events with a registration deadline: the ticket code of the registration. Never sent as a URL parameter. */
+    val ticketCode: String? = null,
+)
+
+/** V1.9.113 -- response of the account-less join. Everything but [outcome] is null unless [EventOnlineOutcome.JOINED]. */
+@Serializable
+data class EventGuestJoinResponseDto(
+    val outcome: EventOnlineOutcome,
+    val serverUrl: String? = null,
+    val token: String? = null,
+    val identity: String? = null,
+    val displayName: String? = null,
+    val expiresAt: String? = null,
+    val turnServers: List<ConferenceTurnServer> = emptyList(),
+    val opensAt: String? = null,
+)
+
+/** V1.9.113 -- public, token-free state of an event's online window (`GET /api/events/{slug}/online-state`). */
+@Serializable
+data class EventOnlineStateDto(
+    val outcome: EventOnlineOutcome,
+    val title: String? = null,
+    /** ISO-8601 organization-zone wall clock (no offset), as text because a plain Ktor route carries no Kilua serializer module. */
+    val opensAt: String? = null,
+    val closesAt: String? = null,
+    /** `true` iff the event has a registration deadline: the guest must then present the ticket code of a confirmed registration. */
+    val requiresTicket: Boolean = false,
+    /** Always [EventGuestNotice.VERSION]/[EventGuestNotice.SHA256] when the event may be joined without an account. */
+    val noticeVersion: String? = null,
+    val noticeSha256: String? = null,
+)
+
+/** V1.9.113 -- one account-less participant of an event conference, for the moderator. [identity] always starts with `evg-`. */
+@Serializable
+data class EventGuestParticipantDto(
+    val identity: String,
+    val displayName: String,
 )
 
 /** V1.9.35 -- one paid-but-withdrawn registration whose refund the board still has to pay outside Lapis Cloud. */
@@ -262,6 +369,8 @@ data class EventQuery(
     val includePast: Boolean = false,
     val limit: Int = 50,
     val offset: Int = 0,
+    /** V1.9.113 -- resolves one event by its public slug (a link target); ignores [includePast] so a just-ended event is still found. */
+    val slug: String? = null,
 )
 
 /**
@@ -274,3 +383,15 @@ data class EventRegistrationResultDto(
     val registration: EventRegistrationDto,
     val checkoutRedirectUrl: String?,
 )
+
+/**
+ * V1.9.113 -- the notice a person without a member status (an account-less guest, or a GUEST/FRIEND account) acknowledges before taking part
+ * online in an event. Immutable: any edit of [TEXT] must bump [VERSION] AND [SHA256] (`EventGuestNoticeTest` recomputes the hash). The
+ * server only checks that the submitted version/hash equal these constants; for an account-less guest no proof is stored (nothing
+ * identifies the person -- the legal basis is Art. 6(1)(b)/(f) GDPR, see docs/features/event-online-participation.adoc).
+ */
+object EventGuestNotice {
+    const val VERSION: String = "2026-10-12.v1"
+    const val TEXT: String = "Ihr Name ist für alle Teilnehmenden sichtbar. Ihr Mikrofon ist zu Beginn aus. Es wird nichts aufgezeichnet."
+    const val SHA256: String = "13b27a7cecae57223f7ec03492aaee7080bc6ee7f9e5736200ca600e6b47b4d1"
+}

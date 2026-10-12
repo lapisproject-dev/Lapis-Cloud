@@ -588,6 +588,8 @@ class EventCoverRoutesTest :
                         summary = null,
                         coverImageAlt = null,
                         onlineUrlPublic = false,
+                        onlineKind = network.lapis.cloud.shared.domain.EventOnlineKind.NONE,
+                        encounterSpaceId = null,
                     )
                 }
                 val coverIdAfter =

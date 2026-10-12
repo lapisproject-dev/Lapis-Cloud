@@ -222,7 +222,7 @@ internal object EventIcsFeed {
         row[EventTable.description].takeIf { it.isNotBlank() }?.let {
             sb.append(foldLine("DESCRIPTION:${icsEscape(it)}"))
         }
-        row[EventTable.locationText]?.takeIf { it.isNotBlank() }?.let {
+        icsLocation(row)?.let {
             sb.append(foldLine("LOCATION:${icsEscape(it)}"))
         }
         sb.append(foldLine("URL:$baseUrl/veranstaltung/$slug"))
@@ -282,7 +282,7 @@ internal object EventIcsFeed {
         representative[EventTable.description].takeIf { it.isNotBlank() }?.let {
             sb.append(foldLine("DESCRIPTION:${icsEscape(it)}"))
         }
-        representative[EventTable.locationText]?.takeIf { it.isNotBlank() }?.let {
+        icsLocation(representative)?.let {
             sb.append(foldLine("LOCATION:${icsEscape(it)}"))
         }
         sb.append(foldLine("URL:$baseUrl/veranstaltung/${representative[EventTable.slug]}"))
@@ -321,7 +321,7 @@ internal object EventIcsFeed {
         row[EventTable.description].takeIf { it.isNotBlank() }?.let {
             sb.append(foldLine("DESCRIPTION:${icsEscape(it)}"))
         }
-        row[EventTable.locationText]?.takeIf { it.isNotBlank() }?.let {
+        icsLocation(row)?.let {
             sb.append(foldLine("LOCATION:${icsEscape(it)}"))
         }
         sb.append(foldLine("URL:$baseUrl/veranstaltung/${row[EventTable.slug]}"))
@@ -370,3 +370,11 @@ internal object EventIcsFeed {
         return sb.toString()
     }
 }
+
+/**
+ * V1.9.113 -- `LOCATION` of an iCal entry: the postal location text; for an event without one that can be attended online (any online
+ * kind) the neutral word "Online". Never an online link, a room or a token (the entry's `URL` is the public event page).
+ */
+private fun icsLocation(row: ResultRow): String? =
+    row[EventTable.locationText]?.takeIf { it.isNotBlank() }
+        ?: "Online".takeIf { row[EventTable.onlineKind] != network.lapis.cloud.shared.domain.EventOnlineKind.NONE }

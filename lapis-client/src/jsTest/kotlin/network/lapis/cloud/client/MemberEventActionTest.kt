@@ -28,6 +28,10 @@ internal fun testEvent(
     ownPaid: Boolean = false,
     ownPaidAmount: Double? = null,
     ownRefundMarkedAt: LocalDateTime? = null,
+    onlineKind: network.lapis.cloud.shared.domain.EventOnlineKind = network.lapis.cloud.shared.domain.EventOnlineKind.NONE,
+    encounterSpaceId: String? = null,
+    onlineWindowOpensAt: LocalDateTime? = null,
+    onlineWindowClosesAt: LocalDateTime? = null,
 ) = EventDto(
     id = id,
     slug = "slug-$id",
@@ -52,6 +56,10 @@ internal fun testEvent(
     ownPaid = ownPaid,
     ownRefundMarkedAt = ownRefundMarkedAt,
     ownPaidAmount = ownPaidAmount?.toDecimal(),
+    onlineKind = onlineKind,
+    encounterSpaceId = encounterSpaceId,
+    onlineWindowOpensAt = onlineWindowOpensAt,
+    onlineWindowClosesAt = onlineWindowClosesAt,
 )
 
 /** Welle V1.9.33 -- the pure decisions behind the member event screen. */

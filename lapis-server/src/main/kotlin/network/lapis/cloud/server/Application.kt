@@ -102,7 +102,9 @@ import network.lapis.cloud.server.encounter.EncounterSeatState
 import network.lapis.cloud.server.encounter.EncounterSpacePoller
 import network.lapis.cloud.server.encounter.EncounterTableReconciler
 import network.lapis.cloud.server.encounter.EncounterTableState
+import network.lapis.cloud.server.events.EventConferencePoller
 import network.lapis.cloud.server.events.EventCoverStorage
+import network.lapis.cloud.server.events.EventOnlineServices
 import network.lapis.cloud.server.events.EventRegistrationSubmission
 import network.lapis.cloud.server.federation.FederationActorKeyProvisioner
 import network.lapis.cloud.server.federation.FederationConfig
@@ -209,6 +211,7 @@ import network.lapis.cloud.server.routes.registerDunningRoutes
 import network.lapis.cloud.server.routes.registerEmailChangeRoutes
 import network.lapis.cloud.server.routes.registerEmbedRoutes
 import network.lapis.cloud.server.routes.registerEventCoverRoutes
+import network.lapis.cloud.server.routes.registerEventOnlineGuestRoutes
 import network.lapis.cloud.server.routes.registerEventPublicRoutes
 import network.lapis.cloud.server.routes.registerFederationRoutes
 import network.lapis.cloud.server.routes.registerKeycloakAuthRoutes
@@ -1488,6 +1491,30 @@ internal fun Application.module(
             maxRequests = network.lapis.cloud.server.events.series.EventSeriesLimits.PREVIEW_RATE_PER_MINUTE,
             window = 1.minutes,
         )
+    // Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" -- module-scoped singletons (EventService is built per RPC call, so a
+    // per-construction limiter would be empty on every request). The conference states are the SAME instances the conference services
+    // use, so closing an event room clears the real whiteboard / notes / released-microphone state.
+    val eventOnline =
+        EventOnlineServices.create(
+            config = conferenceConfig,
+            liveKitAdminClient = liveKitAdminClient,
+            whiteboardState = conferenceWhiteboardState,
+            notesState = conferenceNotesState,
+            audioGrantState = conferenceAudioGrantState,
+            memberJoinRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes),
+            adminRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes),
+        )
+    // The account-less join: 10/min per IP (IPv6 reduced to its /64) and 200/hour per event, before anything is read; the state read 60/min per IP.
+    val eventGuestJoinIpRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes, maxTrackedKeys = 50_000)
+    val eventGuestJoinEventRateLimiter = FederationInboxRateLimiter(maxRequests = 200, window = 1.hours, maxTrackedKeys = 50_000)
+    val eventGuestStateRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
+    // Welle V1.9.113 -- ends the video conferences of events once their window is over (also those a moderator ended early). Only
+    // started when conferencing is configured; one sweep right now (clears leftovers of a crash), then every 60 s.
+    eventOnline.provisioner?.let { provisioner ->
+        val eventConferencePoller = EventConferencePoller(provisioner = provisioner)
+        eventConferencePoller.start()
+        monitor.subscribe(ApplicationStopping) { eventConferencePoller.stop() }
+    }
     val eventTicketPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
     val eventTicketCodeFailureLimiter = LoginRateLimiter(maxFailures = 20, window = 15.minutes)
     // Welle V1.4.1c "iCal-Feed für öffentliche Veranstaltungen" -- soft per-IP budget for
@@ -2352,6 +2379,7 @@ internal fun Application.module(
                 writeRateLimiter = eventWriteRateLimiter,
                 checkInRateLimiter = eventCheckInRateLimiter,
                 seriesPreviewRateLimiter = eventSeriesPreviewRateLimiter,
+                eventOnline = eventOnline,
             )
         }
         // Welle V1.4.5.1 "Kontoauszugs-Import (CSV/MT940)".
@@ -2642,6 +2670,14 @@ internal fun Application.module(
             ticketPageRateLimiter = eventTicketPageRateLimiter,
             ticketCodeFailureLimiter = eventTicketCodeFailureLimiter,
             icsFeedRateLimiter = eventIcsFeedRateLimiter,
+        )
+        // Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" -- the two account-less literal routes (/api/events/{slug}/online-*).
+        registerEventOnlineGuestRoutes(
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+            eventOnline = eventOnline,
+            ipRateLimiter = eventGuestJoinIpRateLimiter,
+            eventRateLimiter = eventGuestJoinEventRateLimiter,
+            stateRateLimiter = eventGuestStateRateLimiter,
         )
         // Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- registered as its own, always-on
         // literal route family (NOT inside registerEmbedRoutes, which early-returns to

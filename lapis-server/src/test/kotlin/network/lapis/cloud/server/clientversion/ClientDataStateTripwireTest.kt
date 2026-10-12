@@ -101,10 +101,16 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * stateless dry run as the mailing one); in `CommitteesScreen.kt` the tier names for the rule sentence (`listMembershipTiers(`) and the count of the
  * rule committee's roster view (`countCommitteeEligible(`). `MeetingsScreen.kt` swaps `countGeneralAssemblyEligible(` for `countCommitteeEligible(`
  * (net zero). 165 -> 172.
+ * Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" adds FIVE reads in three fire-and-forget shapes the ledger already accepts: the event form's
+ * option loader (`EventOnlineKindSegment.kt`: the selectable encounter spaces and the conferencing availability -- filled into a select that has
+ * a usable empty default, no list with a loading/error state; a failure toasts through `guarded`), the member entry of the public join link
+ * (`EventGuestJoinScreen.kt`: one `listEvents` that only finds the event id to continue at), the moderator's refreshable list of guests without
+ * an account (`EventsScreen.kt`: `listEventGuests`, a button-triggered panel) and the `getRoom` that fetches the room of an event conference
+ * after the join (`ConferenceScreen.kt`, an action step of the join). Two new files, hence 53 -> 55 files. 172 -> 177.
  * The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 172
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 53
+private const val READ_OUTSIDE_STATE_REGION_MAX = 177
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 55
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

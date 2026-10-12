@@ -13,6 +13,9 @@ import io.kvision.utils.px
 import kotlinx.browser.window
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.EventDto
+import network.lapis.cloud.shared.domain.EventOnlineJoinResultDto
+import network.lapis.cloud.shared.domain.EventOnlineKind
+import network.lapis.cloud.shared.domain.EventOnlineOutcome
 import network.lapis.cloud.shared.domain.EventPageDto
 import network.lapis.cloud.shared.domain.EventQuery
 import network.lapis.cloud.shared.domain.EventRegistrationDto
@@ -31,6 +34,9 @@ internal interface MemberEventsRpc {
     suspend fun cancelOwnRegistration(eventId: String): EventRegistrationDto
 
     suspend fun resumeOwnEventPayment(eventId: String): EventRegistrationResultDto
+
+    /** V1.9.113 -- only used for an encounter-space event (a conference is entered through its own route, which joins by itself). */
+    suspend fun joinOnline(eventId: String): EventOnlineJoinResultDto = throw UnsupportedOperationException("joinOnline is not provided")
 }
 
 internal fun liveMemberEventsRpc(): MemberEventsRpc =
@@ -45,6 +51,8 @@ internal fun liveMemberEventsRpc(): MemberEventsRpc =
         override suspend fun cancelOwnRegistration(eventId: String) = rpcService<IEventService>().cancelOwnRegistration(eventId)
 
         override suspend fun resumeOwnEventPayment(eventId: String) = rpcService<IEventService>().resumeOwnEventPayment(eventId)
+
+        override suspend fun joinOnline(eventId: String) = rpcService<IEventService>().joinEventOnline(eventId, null)
     }
 
 /** The member list is capped, there is no paging here (documented limitation). */
@@ -144,6 +152,7 @@ fun renderMemberEventsScreen(container: SimplePanel) {
         rpc = liveMemberEventsRpc(),
         now = ::clientNow,
         navigate = { url -> window.location.assign(url) },
+        openRoute = { route -> navigateTo(route) },
     )
 }
 
@@ -164,6 +173,8 @@ internal fun renderMemberEventsScreenWith(
     confirm: MemberEventConfirm = liveMemberEventConfirm,
     toastError: (String) -> Unit = { notifyError(it) },
     toastSuccess: (String) -> Unit = { notifySuccess(it) },
+    // V1.9.113: in-app navigation to a route (the online participation); `navigate` above is the full-page redirect to a payment page.
+    openRoute: (String) -> Unit = { navigateTo(it) },
 ) {
     val screen =
         root.vPanel(spacing = 14) {
@@ -186,7 +197,7 @@ internal fun renderMemberEventsScreenWith(
             render = { panel, events ->
                 val list = panel.vPanel(spacing = 10)
                 events.forEach { e ->
-                    renderEventCard(list, e, rpc, now, navigate, confirm, toastError, toastSuccess) { section.reload() }
+                    renderEventCard(list, e, rpc, now, navigate, confirm, toastError, toastSuccess, openRoute) { section.reload() }
                 }
             },
         )
@@ -202,6 +213,7 @@ private fun renderEventCard(
     confirm: MemberEventConfirm,
     toastError: (String) -> Unit,
     toastSuccess: (String) -> Unit,
+    openRoute: (String) -> Unit,
     reload: () -> Unit,
 ) {
     val card = parent.vPanel(spacing = 4) { addCssClasses("border rounded p-3") }
@@ -211,12 +223,14 @@ private fun renderEventCard(
     val ownLabel = own?.let { ownStatusLabel(it) }
     if (own != null && ownLabel != null) header.statusBadge(ownLabel, ownStatusColor(own))
     if (e.full && !canCancelOwn(e)) header.statusBadge(gettext("Ausgebucht"), "secondary")
+    // V1.9.113: how the event can be attended online -- a word, never colour or a symbol alone.
+    if (e.onlineKind.isLapisHosted()) header.statusBadge(eventOnlineKindLabel(e.onlineKind), "info")
 
     card.div(formatDateTime(e.startsAt)) { addCssClasses("text-muted small") }
     val place = e.locationText?.takeIf { it.isNotBlank() } ?: e.roomName?.takeIf { it.isNotBlank() }
     if (place != null) {
         card.untrustedDiv(place) { addCssClasses("small") }
-    } else if (e.onlineUrl != null) {
+    } else if (e.onlineUrl != null || e.onlineKind.isLapisHosted()) {
         // never rendered as a link: the URL is untrusted
         card.div(tr("Online")) { addCssClasses("small") }
     }
@@ -234,6 +248,7 @@ private fun renderEventCard(
 
     val actions = card.hPanel(spacing = 8)
     renderResumePaymentButton(actions, e, rpc, navigate, toastError, reload)
+    renderOnlineJoin(actions, e, rpc, now, toastError, openRoute)
     val action = memberEventAction(e, now())
     if (action != MemberEventAction.None) {
         val label =
@@ -298,6 +313,40 @@ private fun renderEventCard(
                     reload()
                 }
             }
+        }
+    }
+}
+
+/**
+ * V1.9.113 -- offered when the event has a Lapis online kind AND the person may plausibly come in: with a registration deadline only a
+ * confirmed registration can, so nobody else is shown a button that must fail (the server decides anyway, with the same answer for every
+ * refusal). A conference is entered through its own route (which asks the server and starts the call); an encounter-space event asks the
+ * server first and then continues in the encounter room.
+ */
+private fun renderOnlineJoin(
+    actions: SimplePanel,
+    e: EventDto,
+    rpc: MemberEventsRpc,
+    now: () -> LocalDateTime,
+    toastError: (String) -> Unit,
+    openRoute: (String) -> Unit,
+) {
+    if (!e.onlineKind.isLapisHosted()) return
+    if (e.registrationClosesAt != null && e.ownRegistrationStatus != EventRegistrationStatus.CONFIRMED) return
+    actions.eventOnlineJoinButton(event = e, now = now) { button ->
+        when (e.onlineKind) {
+            EventOnlineKind.LAPIS_CONFERENCE -> openRoute("${Routes.EVENT_CONFERENCE_BASE}/${e.id}")
+            EventOnlineKind.LAPIS_ENCOUNTER ->
+                runGuardedAction(button) {
+                    val result = guarded { rpc.joinOnline(e.id) } ?: return@runGuardedAction
+                    val spaceId = result.encounterSpaceId
+                    if (result.outcome == EventOnlineOutcome.JOINED && spaceId != null) {
+                        openRoute("${Routes.ENCOUNTER}/$spaceId")
+                    } else {
+                        eventOnlineOutcomeMessage(result.outcome, result.opensAt)?.let(toastError)
+                    }
+                }
+            else -> Unit
         }
     }
 }

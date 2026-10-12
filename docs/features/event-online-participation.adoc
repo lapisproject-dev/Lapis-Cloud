@@ -1,0 +1,85 @@
+= Online participation in events (V1.9.113)
+:toc:
+
+An event can now be attended online *through Lapis itself*. The event form replaces the former single "Online-Link" field with
+one choice of four kinds (`EventOnlineKind`):
+
+[cols="1,3",options="header"]
+|===
+|Kind |Meaning
+|`NONE` |On-site only.
+|`EXTERNAL_LINK` |A link of your own (the behaviour before V1.9.113): optional https URL, optionally shown publicly.
+|`LAPIS_CONFERENCE` |Lapis creates a video conference when the first person joins (see below).
+|`LAPIS_ENCOUNTER` |Participants enter a permanent encounter space (`Begegnungsraum`) chosen on the event.
+|===
+
+A place and a Lapis conference can be combined: that is a hybrid event, there is no switch for it.
+
+== The window
+
+Access opens *15 minutes before* the start and closes *60 minutes after* the end (`EventOnlineWindow`, the only place
+that computes it). Both bounds are inclusive and are wall clocks of the organization zone (time class B); the stored
+`event_conference.window_*` columns are UTC (class A). A conference event may last at most 12 hours. Rescheduling an event moves the
+window; a conference that is already running vetoes a change that would remove its basis.
+
+== Who may enter
+
+`decideEventOnlineAccess` decides in this order: authorization first, then the window. An unauthorized caller always receives the same
+`FORBIDDEN` answer, so the call cannot be used to probe whether an event exists or what its window is.
+
+* *Members* join through `IEventService.joinEventOnline`. A registration (not waitlisted, not cancelled) or moderator role is required
+  for events with registration; public events without a registration deadline are open to anybody with the link.
+* *Guests without an account* use the public page `#/event-join/<slug>`. They confirm the guest notice
+  (`EventGuestNotice`, version and SHA-256 are checked server-side), enter a display name (normalized, suffix " (Gast)") and receive a
+  short-lived token with identity prefix `evg-`. Protection is a per-IP and per-event rate limit, an own-origin check, a 4 KiB body cap
+  and a uniform HTTP 200 answer. A moderator sees the guests of the event and can remove one.
+  Account-less guests are capped per room (the non-member ceiling) and a quarter of the room's seats stays reserved for members and
+  moderators. For events with a registration deadline the identity is derived from the ticket, so one confirmed ticket holds at most one
+  live connection (a second use replaces the first). Guests are subject to the room-wide audio rules (lock, mute all, reconciler) like
+  every other non-moderator.
+
+== Conference creation (claim protocol)
+
+The room is created exactly once, on the first successful join, by `EventConferenceProvisioner.ensureRoom`:
+
+[kuml, event-online-join, svg]
+----
+sequenceDiagram(name = "First join of an event conference (V1.9.113)") {
+    val person = participant(name = "Person")
+    val service = participant(name = "EventService")
+    val store = participant(name = "EventConferenceStore")
+    val livekit = participant(name = "LiveKit")
+
+    message(from = person, to = service, text = "joinEventOnline")
+    message(from = service, to = store, text = "insertPending, claim_token")
+    message(from = service, to = livekit, text = "createRoom, outside any transaction")
+    message(from = service, to = store, text = "activate, fenced by claim_token")
+    message(from = service, to = person, text = "join token")
+}
+----
+
+LiveKit is never called inside a database transaction. A concurrent joiner receives `PREPARING` and retries; a stale claim can be taken
+over, and `activate`/`markFailed` are fenced by the `claim_token`, so a slow first caller cannot overwrite the successor. The poller
+(`EventConferencePoller`, every 60 s) ends conferences whose window has closed and orphaned rooms.
+
+== Isolation from ordinary rooms
+
+An event room is entered *only* through `joinEventOnline`. `EventConferenceGuard` refuses the ordinary conference RPCs (join, rename,
+guest access, meeting binding, recording, streaming) for an event room, and the room lists never show it. Tripwire tests
+(`EventConferenceGuardTripwireTest`) force a decision for every new room-id method.
+
+== Configuration
+
+`LAPIS_EVENT_CONFERENCE_MAX_PARTICIPANTS` (default 100, clamped to 2..1000). Seats are `min(event capacity or 25, ceiling)`.
+`IConferenceService.getAvailability` reports the ceiling as `eventMaxParticipants`.
+
+== Known limits
+
+See the V1.9.113 entry of `CHANGELOG.md`: no load test was run, the ceiling of 100 is an assumption, the flow was not verified in a real
+browser against a real LiveKit, no recording, guests are not part of the participant history, guests cannot enter encounter spaces.
+
+* A removed account-less guest keeps a valid token for up to `guestTokenTtlMinutes` and LiveKit has no identity blocklist, so the person
+  can reconnect with the same token until it expires. Re-minting a token is bounded by the rate limits only.
+* A flood of join requests can still use up the per-event hourly budget of the route (rate limiting is per IP/prefix and per event).
+* While the conference runs, narrowing who may take part (visibility away from PUBLIC, a new or changed registration deadline) is refused;
+  the kind cannot change either.

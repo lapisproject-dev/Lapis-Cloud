@@ -453,4 +453,16 @@ class ConferenceConfigTest :
             config.turnUrls shouldBe
                 listOf("turn:203.0.113.10:3478?transport=udp", "turn:203.0.113.10:3478?transport=tcp")
         }
+
+        test("V1.9.113: the event ceiling defaults to 100, can be set per instance, and is kept in a sane range") {
+            ConferenceConfig.load(envOf()).eventMaxParticipants shouldBe 100
+            ConferenceConfig.load(envOf("LAPIS_EVENT_CONFERENCE_MAX_PARTICIPANTS" to "40")).eventMaxParticipants shouldBe 40
+            // unusable values fall back (not a number) or are clamped (1 seat is no conference; an absurd number is no ceiling)
+            ConferenceConfig.load(envOf("LAPIS_EVENT_CONFERENCE_MAX_PARTICIPANTS" to "many")).eventMaxParticipants shouldBe 100
+            ConferenceConfig.load(envOf("LAPIS_EVENT_CONFERENCE_MAX_PARTICIPANTS" to "1")).eventMaxParticipants shouldBe 2
+            ConferenceConfig.load(envOf("LAPIS_EVENT_CONFERENCE_MAX_PARTICIPANTS" to "999999")).eventMaxParticipants shouldBe 1000
+            // the ceiling is independent of the room-list default and shows in the redacted summary
+            ConferenceConfig.load(envOf()).maxParticipants shouldBe 25
+            ConferenceConfig.load(envOf()).toString() shouldContain "eventMaxParticipants=100"
+        }
     })

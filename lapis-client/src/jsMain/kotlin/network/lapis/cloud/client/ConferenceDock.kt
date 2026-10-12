@@ -384,6 +384,15 @@ internal object ConferenceDock {
 
     fun canJoin(): Boolean = state is DockState.Idle
 
+    /**
+     * V1.9.113 -- an EVENT conference is joined before the room id is known (the server creates the room on the first join), so
+     * [beginJoin] gets a placeholder; once the token names the room the real id replaces it (it is only ever compared with
+     * `#/conference/:roomId`, never shown). A no-op unless a join is in progress.
+     */
+    fun adoptRoomId(room: String) {
+        if (state !is DockState.Idle) roomId = room
+    }
+
     /** `false` if a call (or an end state) is already there: the second click of a double click, or a second join attempt. */
     fun beginJoin(room: String): Boolean {
         if (state !is DockState.Idle) return false

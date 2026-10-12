@@ -66,6 +66,12 @@ internal object EventPublicHtml {
         val coverImageAlt: String? = null,
         /** V1.9.82 -- `true` once the event is over (`endsAt <= wallNow`): the page then says so and offers no registration form. */
         val hasEnded: Boolean = false,
+        /**
+         * V1.9.113 -- the public link to the online participation page of this event (`<base>/#/event-join/<slug>`), non-null only for a
+         * Lapis online kind of a public, not yet ended event. It is the PAGE, never a room, a token or an external meeting link; the
+         * window and the authorization are decided there.
+         */
+        val onlineJoinUrl: String? = null,
     )
 
     fun eventPage(
@@ -88,6 +94,13 @@ internal object EventPublicHtml {
             if (view.locationText != null) p { +"Ort: ${view.locationText}" }
             // Only set by the route when the administrator ticked "show the online link publicly" AND it is an https link (F1).
             if (view.onlineUrl != null) p { +"Online: ${view.onlineUrl}" }
+            if (view.onlineJoinUrl != null) {
+                p {
+                    +"Online teilnehmen: "
+                    a(href = view.onlineJoinUrl) { +"Zur Online-Teilnahme" }
+                    +" (der Zugang öffnet kurz vor Beginn)"
+                }
+            }
             p { +"Beginn: ${view.startsAt}" }
             p { +"Ende: ${view.endsAt}" }
             p { +"Teilnahmegebühr: ${view.feeLabel}" }
@@ -239,6 +252,8 @@ internal object EventPublicHtml {
         val onlineUrl: String?,
         val slug: String,
         val canonicalCode: String,
+        /** V1.9.113 -- link to the online participation page of a Lapis online event (see [View.onlineJoinUrl]); null otherwise. */
+        val onlineJoinUrl: String? = null,
     )
 
     /**
@@ -255,6 +270,12 @@ internal object EventPublicHtml {
             p { +"Ende: ${view.endsAt}" }
             if (view.locationText != null) p { +"Ort: ${view.locationText}" }
             if (view.onlineUrl != null) p { +"Online: ${view.onlineUrl}" }
+            if (view.onlineJoinUrl != null) {
+                p {
+                    +"Online teilnehmen: "
+                    a(href = view.onlineJoinUrl) { +"Zur Online-Teilnahme" }
+                }
+            }
             img(src = "/veranstaltung/${view.slug}/ticket.svg?code=${view.canonicalCode}", alt = "QR-Code für den Einlass") {
                 attributes["width"] = "260"
                 attributes["height"] = "260"

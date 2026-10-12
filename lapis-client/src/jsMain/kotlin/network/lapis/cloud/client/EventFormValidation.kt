@@ -4,7 +4,10 @@ import dev.kilua.rpc.types.toDecimal
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import network.lapis.cloud.shared.domain.EventInput
+import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventVisibility
 
 /**
@@ -48,12 +51,19 @@ data class EventFormRawInput(
     val summary: String = "",
     val coverImageAlt: String = "",
     val onlineUrlPublic: Boolean = false,
+    /** V1.9.113 -- how the event takes place online; additive and defaulted (a caller that only fills [onlineUrl] means the external link). */
+    val onlineKind: EventOnlineKind = EventOnlineKind.NONE,
+    /** V1.9.113 -- the chosen encounter space, required for [EventOnlineKind.LAPIS_ENCOUNTER]. */
+    val encounterSpaceId: String? = null,
 )
 
 private const val MAX_TITLE_LENGTH = 200
 private const val MAX_DESCRIPTION_LENGTH = 8000
 private const val MAX_SUMMARY_LENGTH = 300
 private const val MAX_COVER_IMAGE_ALT_LENGTH = 500
+
+/** V1.9.113 -- mirrors `EventPolicy.MAX_LAPIS_CONFERENCE_HOURS`. */
+private const val MAX_LAPIS_CONFERENCE_HOURS = 12L
 
 /** V1.9.82 -- public teaser limit, shared with the live counter in the form. */
 const val EVENT_SUMMARY_MAX_LENGTH: Int = MAX_SUMMARY_LENGTH
@@ -90,8 +100,23 @@ fun validateEventForm(
 
     val locationText = raw.locationText.trim().takeIf { it.isNotBlank() }
     val onlineUrl = raw.onlineUrl.trim().takeIf { it.isNotBlank() }
-    if (locationText == null && onlineUrl == null) {
+    // Mirrors EventPolicy.normalizedOnline: a link without a kind means the external link; an external link kind without a link means none.
+    val kind =
+        when {
+            raw.onlineKind == EventOnlineKind.NONE && onlineUrl != null -> EventOnlineKind.EXTERNAL_LINK
+            raw.onlineKind == EventOnlineKind.EXTERNAL_LINK && onlineUrl == null -> EventOnlineKind.NONE
+            else -> raw.onlineKind
+        }
+    val lapisHosted = kind.isLapisHosted()
+    if (lapisHosted && onlineUrl != null) {
+        return EventFormResult.Error(tr("Bei einer Lapis-Online-Teilnahme darf kein externer Online-Link angegeben werden."))
+    }
+    if (locationText == null && onlineUrl == null && !lapisHosted) {
         return EventFormResult.Error(tr("Mindestens ein Veranstaltungsort (Adresse oder Online-Link) ist erforderlich."))
+    }
+    val encounterSpaceId = raw.encounterSpaceId?.trim()?.takeIf { it.isNotBlank() }
+    if (kind == EventOnlineKind.LAPIS_ENCOUNTER && encounterSpaceId == null) {
+        return EventFormResult.Error(tr("Bitte einen Begegnungsraum auswählen."))
     }
 
     val summary = raw.summary.trim().takeIf { it.isNotBlank() }
@@ -113,6 +138,11 @@ fun validateEventForm(
         runCatching { LocalDateTime.parse(raw.endsAtRaw.trim()) }.getOrNull()
             ?: return EventFormResult.Error(tr("Bitte ein gültiges Ende angeben."))
     if (endsAt < startsAt) return EventFormResult.Error(tr("Ende darf nicht vor dem Beginn liegen."))
+    if (kind == EventOnlineKind.LAPIS_CONFERENCE &&
+        (endsAt.toInstant(TimeZone.UTC) - startsAt.toInstant(TimeZone.UTC)).inWholeMinutes > MAX_LAPIS_CONFERENCE_HOURS * 60
+    ) {
+        return EventFormResult.Error(gettext("Eine Videokonferenz kann höchstens %1 Stunden dauern.", MAX_LAPIS_CONFERENCE_HOURS))
+    }
 
     // Mirrors EventPolicy.validate's `existingStartsAt` edit-exception exactly: the past-date check
     // only fires when startsAt is genuinely changing (or this is a brand-new event, existingStartsAt
@@ -132,6 +162,11 @@ fun validateEventForm(
                     ?: return EventFormResult.Error(tr("Bitte einen gültigen Anmeldeschluss angeben oder das Feld leer lassen."))
             if (parsed > startsAt) {
                 return EventFormResult.Error(tr("Anmeldeschluss darf nicht nach dem Veranstaltungsbeginn liegen."))
+            }
+            if (kind == EventOnlineKind.LAPIS_ENCOUNTER) {
+                return EventFormResult.Error(
+                    tr("Ein Begegnungsraum kann nicht auf angemeldete Personen beschränkt werden -- bitte ohne Anmeldeschluss anlegen."),
+                )
             }
             parsed
         }
@@ -171,6 +206,8 @@ fun validateEventForm(
             summary = summary,
             coverImageAlt = coverImageAlt,
             onlineUrlPublic = raw.onlineUrlPublic,
+            onlineKind = kind,
+            encounterSpaceId = if (kind == EventOnlineKind.LAPIS_ENCOUNTER) encounterSpaceId else null,
         ),
     )
 }

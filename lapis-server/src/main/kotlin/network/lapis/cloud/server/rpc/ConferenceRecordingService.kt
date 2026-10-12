@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
 import network.lapis.cloud.server.encounter.EncounterRoomGuard
+import network.lapis.cloud.server.events.EventConferenceGuard
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.LoginRateLimiter
@@ -248,6 +249,8 @@ class ConferenceRecordingService(
         }
         // V1.9.61: an encounter session is never recorded (a recording would be a lasting record of who was in a church service).
         EncounterRoomGuard.requireNotEncounterRoom(row = room)
+        // V1.9.113: an event room is never recorded -- a person without an account has given no recording consent that could be proven.
+        EventConferenceGuard.requireNotEventRoom(row = room)
         requireModeratorOrPrivileged(room = room, current = current)
 
         val alreadyActive =
@@ -485,7 +488,8 @@ class ConferenceRecordingService(
             // who is actually in the room (allowFederationGuests + has joined) can see the
             // recording badge too -- "everyone in the room has a legal right to know" applies to a
             // guest exactly as much as to an ACTIVE member. See requireRoomEntryAuthorization KDoc.
-            val status = requireRoomEntryAuthorization(roomRow = room, current = current)
+            // allowEventRoom: the (always empty) recording badge stays readable in an event room, nothing else.
+            val status = requireRoomEntryAuthorization(roomRow = room, current = current, allowEventRoom = true)
             requireGuestHasJoinedRoom(roomId = roomUuid, current = current, status = status)
             val row =
                 ConferenceRecordingTable

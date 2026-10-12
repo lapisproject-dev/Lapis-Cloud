@@ -30,6 +30,7 @@ import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.events.EventText
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.time.OrganizationTimeZone
+import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventStatus
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -74,6 +75,8 @@ internal data class EmbedEventListItemDto(
     val coverImageAlt: String? = null,
     /** V1.9.82 -- only when the administrator ticked "online link public", the link is https and the event is not cancelled. */
     val onlineUrl: String? = null,
+    /** V1.9.113 -- `true` iff the event can be attended online in some way. Only the NEUTRAL fact: never a link, a room id or a token (a Lapis conference is joined from the event page). Omitted when `false`. */
+    val online: Boolean = false,
 )
 
 /**
@@ -95,6 +98,8 @@ internal data class EmbedPastEventItemDto(
     val description: String? = null,
     val summary: String? = null,
     val coverImageAlt: String? = null,
+    /** V1.9.113 -- see [EmbedEventListItemDto.online]. */
+    val online: Boolean = false,
 )
 
 @Serializable
@@ -124,6 +129,8 @@ internal class EmbedEventCommonFields(
     val description: String,
     val summary: String?,
     val coverImageAlt: String?,
+    /** V1.9.113 -- `online_kind <> NONE`; the one online fact the public projection may carry. */
+    val online: Boolean,
 )
 
 internal fun ResultRow.toEmbedEventCommonFields(
@@ -155,6 +162,7 @@ internal fun ResultRow.toEmbedEventCommonFields(
             } else {
                 null
             },
+        online = this[EventTable.onlineKind] != EventOnlineKind.NONE,
     )
 }
 
@@ -261,6 +269,7 @@ internal fun Route.registerEmbedEventsFeedRoutes(
                                 summary = common.summary,
                                 coverImageAlt = common.coverImageAlt,
                                 onlineUrl = onlineUrl,
+                                online = common.online,
                             )
                         }
                 }
@@ -341,6 +350,7 @@ internal fun Route.registerEmbedEventsFeedRoutes(
                         description = common.description,
                         summary = common.summary,
                         coverImageAlt = common.coverImageAlt,
+                        online = common.online,
                     )
                 }
             call.respondText(

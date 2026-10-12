@@ -917,8 +917,11 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
  * 70 after Welle V1.9.82 "Veranstaltungs-Feed, Archiv und Import": `EventsScreen.kt` (outside the strict set, like `EventSeriesEditor.kt`
  * above) gains the checkbox "Online-Link öffentlich anzeigen" of the event form -- a genuine field that feeds `createEvent`/`updateEvent`
  * (not a filter), so it cannot be justified; moving the whole event form into the strict set is a separate migration. 69 -> 70.
+ * 71 after Welle V1.9.113 "Online-Teilnahme an Veranstaltungen": the same event form gains the picker of the encounter space (a select that
+ * feeds `createEvent`/`updateEvent`, shown only for the kind "Begegnungsraum"). Not a filter, so it cannot be justified; the new guest
+ * screens (`EventGuestJoinScreen.kt`, the notice of `ConferenceScreen.kt`) were built with the form grammar and add nothing here. 70 -> 71.
  */
-private const val R24B_REMAINING_MAX = 70
+private const val R24B_REMAINING_MAX = 71
 
 private fun r24bFindings(file: File): List<String> =
     labelledSelectFindings(file.readText()).minusMultiset(R24B_JUSTIFIED[file.name].orEmpty())

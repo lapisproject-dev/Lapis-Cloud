@@ -4,6 +4,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toKotlinLocalDateTime
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
+import network.lapis.cloud.server.events.EventOnlineLifecycle
 import network.lapis.cloud.server.events.EventRoomCollisionGuard
 import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.shared.domain.EventInput
@@ -100,6 +101,8 @@ internal object EventSeriesMaterializer {
                     network.lapis.cloud.server.events.EventPolicy
                         .normalizedCoverImageAlt(template.coverImageAlt),
                 onlineUrlPublic = template.onlineUrlPublic,
+                onlineKind = template.onlineKind,
+                encounterSpaceId = template.encounterSpaceId?.let { Uuid.parse(it) },
             )
             ids += id
         }
@@ -177,6 +180,19 @@ internal object EventSeriesMaterializer {
                     network.lapis.cloud.server.events.EventPolicy
                         .normalizedCoverImageAlt(newTemplate.coverImageAlt),
                 onlineUrlPublic = newTemplate.onlineUrlPublic,
+                onlineKind = newTemplate.onlineKind,
+                encounterSpaceId = newTemplate.encounterSpaceId?.let { Uuid.parse(it) },
+            )
+            // V1.9.113: the occurrence's conference follows the edit (veto while it runs, window follows the kind).
+            EventOnlineLifecycle.onEventSaved(
+                eventId = eventId,
+                kind = newTemplate.onlineKind,
+                startsAt = row[network.lapis.cloud.server.db.generated.EventTable.startsAt],
+                endsAt = row[network.lapis.cloud.server.db.generated.EventTable.startsAt].plusMinutesKt(durationMinutes),
+                previousVisibility = row[network.lapis.cloud.server.db.generated.EventTable.visibility],
+                newVisibility = newTemplate.visibility,
+                previousRegistrationClosesAt = row[network.lapis.cloud.server.db.generated.EventTable.registrationClosesAt],
+                newRegistrationClosesAt = newTemplate.registrationClosesAt,
             )
             affectedIds += eventId
         }

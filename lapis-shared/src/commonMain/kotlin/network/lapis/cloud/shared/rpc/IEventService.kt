@@ -2,11 +2,16 @@ package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInput
 import network.lapis.cloud.shared.domain.EventCheckInResultDto
 import network.lapis.cloud.shared.domain.EventCheckInRosterDto
 import network.lapis.cloud.shared.domain.EventDto
+import network.lapis.cloud.shared.domain.EventEncounterSpaceOptionDto
+import network.lapis.cloud.shared.domain.EventGuestParticipantDto
 import network.lapis.cloud.shared.domain.EventInput
 import network.lapis.cloud.shared.domain.EventInvoiceRequestDto
+import network.lapis.cloud.shared.domain.EventOnlineJoinResultDto
+import network.lapis.cloud.shared.domain.EventOnlineOutcome
 import network.lapis.cloud.shared.domain.EventPageDto
 import network.lapis.cloud.shared.domain.EventQuery
 import network.lapis.cloud.shared.domain.EventRefundDto
@@ -208,4 +213,27 @@ interface IEventService {
      * checkout. The amount comes from the server only. Every non-success is one [ConflictException].
      */
     suspend fun resumeOwnEventPayment(eventId: String): EventRegistrationResultDto
+
+    /**
+     * V1.9.113 -- take part online in [eventId]. Every refusal of an unknown, hidden, cancelled or unauthorized event is the identical
+     * [EventOnlineOutcome.FORBIDDEN]. For a Lapis conference the room is created on the FIRST successful call (exactly once, also under
+     * concurrent first joins); the returned token always comes from the room's server-side authorization re-check. [guestConsent] is
+     * required (and checked against `EventGuestNotice`) only for a GUEST/FRIEND account; ignored for a member.
+     */
+    suspend fun joinEventOnline(
+        eventId: String,
+        guestConsent: ConferenceGuestConsentAcknowledgmentInput?,
+    ): EventOnlineJoinResultDto
+
+    /** V1.9.113 -- moderator only (organizer, BOARD/ADMIN): the account-less participants currently in the event conference (read from LiveKit). */
+    suspend fun listEventGuests(eventId: String): List<EventGuestParticipantDto>
+
+    /** V1.9.113 -- moderator only: removes one account-less participant. [identity] must start with `evg-`, otherwise [BadRequestException]. */
+    suspend fun removeEventGuest(
+        eventId: String,
+        identity: String,
+    )
+
+    /** V1.9.113 -- BOARD/ADMIN: all active, non-archived encounter spaces for the event form's picker. */
+    suspend fun listEncounterSpacesForEvents(): List<EventEncounterSpaceOptionDto>
 }

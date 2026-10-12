@@ -73,6 +73,8 @@ class EventPublicDetailPageTest :
             coverImageId: Uuid? = null,
             coverImageAlt: String? = null,
             title: String = "Detailseiten-Test",
+            onlineKind: network.lapis.cloud.shared.domain.EventOnlineKind? = null,
+            locationText: String? = "Testort",
         ): String {
             val id = Uuid.random()
             val slug = "event-detail-page-test-$id"
@@ -82,8 +84,16 @@ class EventPublicDetailPageTest :
                     it[EventTable.slug] = slug
                     it[EventTable.title] = title
                     it[EventTable.description] = description
-                    it[locationText] = "Testort"
+                    it[EventTable.locationText] = locationText
                     it[EventTable.onlineUrl] = onlineUrl
+                    // V93: an event with an external link is of the kind EXTERNAL_LINK (chk_event_online_shape).
+                    it[EventTable.onlineKind] =
+                        onlineKind
+                            ?: if (onlineUrl != null) {
+                                network.lapis.cloud.shared.domain.EventOnlineKind.EXTERNAL_LINK
+                            } else {
+                                network.lapis.cloud.shared.domain.EventOnlineKind.NONE
+                            }
                     it[EventTable.onlineUrlPublic] = onlineUrlPublic
                     it[EventTable.coverImageId] = coverImageId
                     it[EventTable.coverImageAlt] = coverImageAlt
@@ -206,5 +216,56 @@ class EventPublicDetailPageTest :
             status shouldBe HttpStatusCode.OK
             ics shouldContain "BEGIN:VCALENDAR"
             ics shouldNotContain "meet.example"
+        }
+
+        test(
+            "V1.9.113: the page of a Lapis conference links to the online participation page of the SPA -- never a room, a token or an external link",
+        ) {
+            val conference =
+                createEvent(onlineKind = network.lapis.cloud.shared.domain.EventOnlineKind.LAPIS_CONFERENCE, locationText = null)
+            val onSite = createEvent()
+            val (status, html) = page(conference)
+            status shouldBe HttpStatusCode.OK
+            html shouldContain "href=\"https://example.org/#/event-join/$conference\""
+            html shouldContain "Zur Online-Teilnahme"
+            html shouldNotContain "lc-"
+            html shouldNotContain "token"
+            page(onSite).second shouldNotContain "event-join"
+        }
+
+        test("V1.9.113: an ended Lapis event offers no join link any more") {
+            val ended =
+                createEvent(
+                    onlineKind = network.lapis.cloud.shared.domain.EventOnlineKind.LAPIS_CONFERENCE,
+                    locationText = null,
+                    startsAt = LocalDateTime(2020, 1, 1, 18, 0),
+                    endsAt = LocalDateTime(2020, 1, 1, 22, 0),
+                )
+            page(ended).second shouldNotContain "event-join"
+        }
+
+        test(
+            "V1.9.113: the iCal export says LOCATION:Online for an online-only event, keeps a postal location, and never carries a link or a room",
+        ) {
+            val onlineOnly =
+                createEvent(
+                    onlineKind = network.lapis.cloud.shared.domain.EventOnlineKind.LAPIS_CONFERENCE,
+                    locationText = null,
+                    title = "Nur-Online-ICS",
+                )
+            val hybrid =
+                createEvent(
+                    onlineKind = network.lapis.cloud.shared.domain.EventOnlineKind.LAPIS_CONFERENCE,
+                    locationText = "Rathaus",
+                    title = "Hybrid-ICS",
+                )
+            val (_, ics) = fetch("/veranstaltung.ics")
+            val unfolded = ics.replace("\r\n ", "")
+            unfolded shouldContain "SUMMARY:Nur-Online-ICS"
+            unfolded shouldContain "LOCATION:Online"
+            unfolded shouldContain "LOCATION:Rathaus"
+            unfolded shouldNotContain "event-join"
+            unfolded shouldNotContain "lc-"
+            check(onlineOnly.isNotBlank() && hybrid.isNotBlank())
         }
     })

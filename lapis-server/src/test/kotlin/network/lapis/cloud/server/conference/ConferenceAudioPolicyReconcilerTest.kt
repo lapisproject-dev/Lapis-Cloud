@@ -171,6 +171,22 @@ class ConferenceAudioPolicyReconcilerTest :
             lk.mutes.shouldBeEmpty()
         }
 
+        test("an account-less event guest (evg- identity) in a locked room is corrected and muted like any non-moderator") {
+            val lk = ModerationFakeLiveKit()
+            val creator = member()
+            val (_, name) = room(creator)
+            val guest = "evg-${Uuid.random()}"
+            lk.add(room = name, participant = liveParticipant(identity = creator.toString()))
+            lk.add(room = name, participant = liveParticipant(identity = guest))
+            reconciler(lk).tick()
+            lk.permissionUpdates.map { it.identity } shouldContainExactly listOf(guest)
+            lk.permissionUpdates
+                .single()
+                .permission.canPublishSources shouldContainExactly
+                listOf("CAMERA", "SCREEN_SHARE", "SCREEN_SHARE_AUDIO")
+            lk.mutes.map { it.identity } shouldContainExactly listOf(guest)
+        }
+
         test("a person who is already correct (no microphone permission, microphone muted) is not touched") {
             val lk = ModerationFakeLiveKit()
             val creator = member()

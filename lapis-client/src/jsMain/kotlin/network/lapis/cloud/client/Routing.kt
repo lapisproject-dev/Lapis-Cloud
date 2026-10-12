@@ -260,6 +260,19 @@ object Routes {
     // already-gated `listActiveRooms`/`joinRoom` calls act on.
     const val CONFERENCE_ROOM = "/conference/:roomId"
 
+    // V1.9.113 "Online-Teilnahme an Veranstaltungen" -- the member's way into the online conference of an EVENT. The route only names the
+    // event; `IEventService.joinEventOnline` decides (window, registration, capacity) and creates the room on the first join. Same
+    // `requireAuth` gate as [CONFERENCE]. A conference of an event is never part of the room list, so it has no `/conference/:roomId` link.
+    const val EVENT_CONFERENCE = "/conference-event/:eventId"
+
+    /** The path without its parameter, for building a link. */
+    const val EVENT_CONFERENCE_BASE = "/conference-event"
+
+    // V1.9.113 -- the PUBLIC page of an event's online participation (`<base>/#/event-join/<slug>`, linked from the public event page and the
+    // ticket). No login: a person without an account joins here; a signed-in person is sent on to [EVENT_CONFERENCE]. Everything that
+    // decides who may enter happens on the server.
+    const val EVENT_JOIN = "/event-join/:slug"
+
     // V1.9.62 Begegnungsraum (B2) -- the list of the standing rooms and one room. German route word on purpose (design-team decision, see
     // docs/architecture/encounter-space.adoc "Client"); the Mobile bridge lands on `#/begegnung/<id>`. Same `requireAuth` gate as
     // [CONFERENCE]: who may see or enter a room is decided by `IEncounterSpaceService`, never by the route.
@@ -936,6 +949,22 @@ fun initRouting(pageContainer: SimplePanel) {
         requireAuth(routing) {
             show(Routes.CONFERENCE_ROOM) { container -> renderConferenceScreen(container, roomId) }
         }
+    }
+    // V1.9.113 -- the member's entry into an event's online conference (the server decides, see Routes.EVENT_CONFERENCE).
+    routing.kvOn(Routes.EVENT_CONFERENCE) { params ->
+        val eventId = params.asDynamic().data.eventId as? String
+        requireAuth(routing) {
+            if (eventId.isNullOrBlank()) {
+                routing.navigate(Routes.MY_EVENTS)
+            } else {
+                show(Routes.EVENT_CONFERENCE) { container -> renderConferenceScreen(container, autoJoinEventId = eventId) }
+            }
+        }
+    }
+    // V1.9.113 -- public (no requireAuth): the join page of an event for people with or without an account.
+    routing.kvOn(Routes.EVENT_JOIN) { params ->
+        val slug = params.asDynamic().data.slug as? String
+        show(Routes.EVENT_JOIN) { container -> renderEventJoinScreen(container, slug) }
     }
     // V1.9.62 -- the room route is registered BEFORE the list route (same order as the conference).
     routing.kvOn(Routes.ENCOUNTER_SPACE) { params ->

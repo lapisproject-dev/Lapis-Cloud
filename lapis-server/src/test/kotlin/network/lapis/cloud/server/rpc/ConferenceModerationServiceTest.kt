@@ -643,6 +643,41 @@ class ConferenceModerationServiceTest :
             }
         }
 
+        test("an account-less event guest (evg- identity) is locked and muted with everybody else, and counted by muteAll") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val a = newMember()
+            val room = newRoom(creator)
+            val guest = "evg-${Uuid.random()}"
+            listOf(creator, a).forEach { live(rig, room, it) }
+            rig.liveKit.add(room = room.name, participant = liveParticipant(identity = guest))
+            moderationApp(rig = rig) {
+                act(path = "/test/preview", caller = creator, "room" to room.id.toString()) shouldBe (HttpStatusCode.OK to "ok|2")
+                act(
+                    path = "/test/policy",
+                    caller = creator,
+                    "room" to room.id.toString(),
+                    "muteOnJoin" to "false",
+                    "mayUnmute" to "false",
+                ).first shouldBe HttpStatusCode.OK
+                rig.liveKit.permissionUpdates.map { it.identity } shouldContainExactlyInAnyOrder listOf(a.toString(), guest)
+                rig.liveKit.mutes.map { it.identity } shouldContainExactlyInAnyOrder listOf(a.toString(), guest)
+            }
+        }
+
+        test("muteAll mutes an open microphone of an account-less event guest") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = newRoom(creator)
+            val guest = "evg-${Uuid.random()}"
+            live(rig, room, creator)
+            rig.liveKit.add(room = room.name, participant = liveParticipant(identity = guest))
+            moderationApp(rig = rig) {
+                act(path = "/test/mute-all", caller = creator, "room" to room.id.toString()) shouldBe (HttpStatusCode.OK to "ok|1")
+                rig.liveKit.mutes.map { it.identity } shouldContainExactly listOf(guest)
+            }
+        }
+
         test("changing only muteOnJoin stores it and makes no LiveKit call; an unchanged lock value touches nobody") {
             val rig = ModerationRig()
             val creator = newMember()
