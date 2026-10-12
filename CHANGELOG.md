@@ -6,6 +6,16 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Conference full screen uses the full height (V1.9.117)
+
+In full screen the picture now gets the whole screen height. Client-only (CSS and `ConferenceScreen.kt`): no migration, no RPC, no new i18n text.
+
+- **No reserve below.** The call panel no longer keeps the 68 px (`56px + safe area + 12px`) free for the control bar in full screen. The bar is `position: fixed` and only fades (opacity/transform), so the picture never jumps. `applyTileGrid` had also subtracted that reserve a second time from the tile height; in full screen the stage now runs from the top of the tile area to the bottom of the panel (its own `clientHeight`, which also holds without the Fullscreen API).
+- **No title line.** The recording and stream detail lines (`lapis-conference-detail-line`) are visually hidden in full screen (1 px clip, still in the accessibility tree, like the heading). The red status bar stays visible but compact; the gaps between the panel's children are gone.
+- **No frame and no outer padding** top and bottom of the tile area; tiles keep their 8 px gap. A shared screen is limited by the tile height instead of a fixed `100dvh - 56px`.
+- **Known consequence:** when the control bar fades in it covers the name tags of the bottom row of tiles for a moment. Not changed: the rails (roster, chat, voting) sit inside the video area and already start below the status bar.
+- **Verified:** Karma/headless Chrome (5 new tests in `ConferenceFullscreenStageDomTest`, geometry at 1600x800, 360x640, 640x360). **Not verified:** real iOS/Safari without the Fullscreen API, real safe-area insets (0 in headless Chrome), and a screenshot against a running instance. Vertical centring of the tile zone when width-limited was not added.
+
 ### Participant Egress is now the default recording mode (V1.9.116)
 
 The owner decided on 2026-10-12, after a staging measurement, that the per-person recording mode becomes the default: it is clearly better than the per-track mode (picture about 0.1 to 0.2 s earlier than the sound instead of 5.3 s).

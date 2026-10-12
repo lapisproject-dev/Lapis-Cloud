@@ -44,6 +44,24 @@ internal fun conferenceTileAreaHeight(
 }
 
 /**
+ * V1.9.117: the stage height in full screen -- from the area's top to the bottom of the fullscreen box (the panel's client height);
+ * nothing is reserved below because the control bar fades over the picture. The area's offset inside the panel's scrolled content is
+ * `areaTopInViewport - panelTopInViewport + panelScrollTop`.
+ */
+internal fun conferenceFullscreenStageHeight(
+    panelClientHeight: Double,
+    areaTopInViewport: Double,
+    panelTopInViewport: Double,
+    panelScrollTop: Double,
+): Double =
+    conferenceTileAreaHeight(
+        viewportHeight = panelClientHeight,
+        areaTop = areaTopInViewport - panelTopInViewport + panelScrollTop,
+        barHeight = 0.0,
+        bottomPad = 0.0,
+    )
+
+/**
  * The width the full-screen side rail takes from the tile area. 0 without a visible panel, outside full screen (in the normal view the
  * panels sit below the tiles) and below 768 px (there they are bottom sheets over the tiles).
  */

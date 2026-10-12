@@ -917,7 +917,8 @@ html.lapis-conference-call-visible .lapis-conference-dock-host {
   display: none;
 }
 
-.lapis-conference-fullscreen .lapis-conference-title {
+.lapis-conference-fullscreen .lapis-conference-title,
+.lapis-conference-fullscreen .lapis-conference-detail-line {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -948,6 +949,59 @@ html.lapis-conference-call-visible .lapis-conference-dock-host {
   overscroll-behavior: contain;
 }
 
+/* V1.9.117: full screen gives the picture the whole height. The panel is a flex column of exactly the viewport height; the control bar
+   is `position: fixed` and fades in and out over the picture (opacity/transform only, so the picture never jumps), which is why no
+   room is reserved for it any more (the 68 px reserve of `.lapis-conference-call-panel` is dropped here). No gaps between the
+   panel's children (the detail lines are visually hidden, the red status bar is compact), no outer padding top/bottom, no frame:
+   tiles keep their own 8 px gap. The rails sit inside `.lapis-conference-video-area`, so `top: 0` is already below the status bar. */
+.lapis-conference-call-panel.lapis-conference-fullscreen {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  padding-bottom: 0;
+  row-gap: 0;
+}
+
+.lapis-conference-call-panel.lapis-conference-fullscreen > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.lapis-conference-call-panel.lapis-conference-fullscreen .lapis-conference-status-badges {
+  margin: 0;
+  gap: 0;
+  flex: none;
+  min-height: 24px;
+}
+
+.lapis-conference-call-panel.lapis-conference-fullscreen .lapis-conference-status-badges .badge {
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  line-height: 20px;
+  font-weight: 700;
+}
+
+.lapis-conference-call-panel.lapis-conference-fullscreen .lapis-conference-video-area {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  row-gap: 0;
+}
+
+/* the frame comes from Bootstrap's `.border`/`.rounded` (which carry !important) */
+.lapis-conference-call-panel.lapis-conference-fullscreen .lapis-conference-grid {
+  flex: 1 1 0;
+  min-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: calc(env(safe-area-inset-right, 0px) + var(--lapis-rail-inset, 0px));
+  border-width: 0 !important;
+  border-radius: 0 !important;
+}
+
 /* V1.9.68 (R59): the screen-share media and the recording player are media, not scrollers. */
 .lapis-conference-share-media {
   width: 100%;
@@ -962,7 +1016,8 @@ html.lapis-conference-call-visible .lapis-conference-dock-host {
   }
 
   .lapis-conference-fullscreen .lapis-conference-share-media {
-    max-height: calc(100dvh - 56px);
+    max-height: var(--lapis-tile-h, 100dvh);
+    object-fit: contain;
   }
 }
 

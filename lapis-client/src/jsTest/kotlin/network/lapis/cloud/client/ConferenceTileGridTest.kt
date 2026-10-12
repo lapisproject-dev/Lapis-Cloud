@@ -19,6 +19,28 @@ class ConferenceTileGridTest {
         assertEquals(240.0, conferenceTileAreaHeight(800.0, Double.POSITIVE_INFINITY, 0.0, 0.0))
     }
 
+    private fun stage(
+        panel: Double,
+        area: Double,
+        panelTop: Double,
+        scroll: Double,
+    ) = conferenceFullscreenStageHeight(panel, area, panelTop, scroll)
+
+    @Test
+    fun fullscreenStageHeight_runsFromAreaTopToPanelBottom() {
+        // unscrolled, area 100 px below the panel top: 900 - 100
+        assertEquals(800.0, stage(900.0, 100.0, 0.0, 0.0))
+        // panel itself offset in the viewport: only the relative offset counts
+        assertEquals(800.0, stage(900.0, 130.0, 30.0, 0.0))
+        // scrolled by 40: the area's rect moved up by 40, the content offset stays 100
+        assertEquals(800.0, stage(900.0, 60.0, 0.0, 40.0))
+        // area at the very top gets the full panel height
+        assertEquals(900.0, stage(900.0, 0.0, 0.0, 0.0))
+        // minimum applies; NaN falls back to it
+        assertEquals(240.0, stage(300.0, 200.0, 0.0, 0.0))
+        assertEquals(240.0, stage(Double.NaN, 0.0, 0.0, 0.0))
+    }
+
     @Test
     fun railInset_onlyInFullscreenWithRail_atLeast768() {
         assertEquals(0.0, conferenceRailInset(railVisible = false, fullscreen = true, viewportWidth = 1280.0))

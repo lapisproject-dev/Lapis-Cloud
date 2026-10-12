@@ -2102,11 +2102,11 @@ private fun enterCall(
     // D8/D3: a combined container for 0-2 badge rows (recording/streaming render as DISTINCT rows,
     // never merged), so the fix for finding 7 (LiveKit's active_recording flag is true for a
     // streaming-only egress too) has somewhere honest to render -- see [conferenceStatusBadgeRows].
-    val statusBadgesPanel = callPanel.vPanel(spacing = 4)
+    val statusBadgesPanel = callPanel.vPanel(spacing = 4) { addCssClass("lapis-conference-status-badges") }
     statusBadgesPanel.hide()
-    val recordingDetailLine = callPanel.div { addCssClasses("text-muted small") }
+    val recordingDetailLine = callPanel.div { addCssClasses("text-muted small lapis-conference-detail-line") }
     recordingDetailLine.hide()
-    val streamDetailLine = callPanel.div { addCssClasses("text-muted small") }
+    val streamDetailLine = callPanel.div { addCssClasses("text-muted small lapis-conference-detail-line") }
     streamDetailLine.hide()
     // D7: one row per destination, honest interim/terminal states -- see [updateStreamTargetsPanel].
     val streamTargetsPanel = callPanel.vPanel(spacing = 2) { addCssClasses("ms-2") }
@@ -2980,25 +2980,37 @@ private fun enterCall(
         val inset = writeRailInset(area)
         val width = area.clientWidth - conferenceCssPx(areaStyle.paddingLeft) - conferenceCssPx(areaStyle.paddingRight)
 
-        val viewport = window.asDynamic().visualViewport
-        val viewportHeight = (viewport?.height as? Double) ?: window.innerHeight.toDouble()
-        val areaRect = area.getBoundingClientRect()
-        val scrolled = if (panelState.fullscreen) (callPanel.getElement()?.scrollTop ?: 0.0) else window.scrollY
-        // the call panel reserves `56px + safe-area + 12px` below its content for the fixed control bar (theme.css): the computed
-        // padding is the one place the resolved `env(safe-area-inset-bottom)` can be read in pixels
-        val reservedBelow = callPanel.getElement()?.let { conferenceCssPx(window.getComputedStyle(it).paddingBottom) } ?: 0.0
-        val bottomBar = if (reservedBelow >= 12.0) reservedBelow - 12.0 else 56.0
         val pagerHeight = if (c.pager.style.display != "none") c.pager.offsetHeight + CONFERENCE_TILE_GAP_PX else 0.0
         val stripShown = bigMode && c.stripRow.style.display != "none"
         val stripTileHeight = conferenceFilmstripTileHeight(width).toDouble()
         val stripBand = if (stripShown) stripTileHeight + CONFERENCE_TILE_GAP_PX else 0.0
-        val height =
-            conferenceTileAreaHeight(
-                viewportHeight = viewportHeight,
-                areaTop = areaRect.top + scrolled,
-                barHeight = bottomBar,
-                bottomPad = 12.0,
-            ) - padY - pagerHeight - stripBand
+        val panelElement = callPanel.getElement()
+        val areaRect = area.getBoundingClientRect()
+        val stageHeight =
+            if (panelState.fullscreen && panelElement != null) {
+                // V1.9.117: full screen reserves nothing below -- the control bar fades over the picture. The stage runs from the area's
+                // top to the bottom of the fullscreen box (the panel's own client height, which also holds without the Fullscreen API).
+                conferenceFullscreenStageHeight(
+                    panelClientHeight = panelElement.clientHeight.toDouble(),
+                    areaTopInViewport = areaRect.top,
+                    panelTopInViewport = panelElement.getBoundingClientRect().top,
+                    panelScrollTop = panelElement.scrollTop,
+                )
+            } else {
+                val viewport = window.asDynamic().visualViewport
+                val viewportHeight = (viewport?.height as? Double) ?: window.innerHeight.toDouble()
+                // the call panel reserves `56px + safe-area + 12px` below its content for the fixed control bar (theme.css): the computed
+                // padding is the one place the resolved `env(safe-area-inset-bottom)` can be read in pixels
+                val reservedBelow = panelElement?.let { conferenceCssPx(window.getComputedStyle(it).paddingBottom) } ?: 0.0
+                val bottomBar = if (reservedBelow >= 12.0) reservedBelow - 12.0 else 56.0
+                conferenceTileAreaHeight(
+                    viewportHeight = viewportHeight,
+                    areaTop = areaRect.top + window.scrollY,
+                    barHeight = bottomBar,
+                    bottomPad = 12.0,
+                )
+            }
+        val height = stageHeight - padY - pagerHeight - stripBand
 
         val modeCode = (if (bigMode) 1.0 else 0.0) + (if (layout?.main?.screenShare == true) 2.0 else 0.0) + (if (stripShown) 4.0 else 0.0)
         val inputs = listOf(count.toDouble(), width, height, inset, modeCode, stripTileHeight)
