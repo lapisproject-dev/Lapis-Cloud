@@ -446,7 +446,7 @@ the given height. Degenerate input (zero count, zero/negative/NaN/infinite area)
 
 *The measurement.* `applyTileGrid` (a local function of `enterCall`) takes the width from the area (client width minus padding) and the height only
 from window values: `conferenceTileAreaHeight(visualViewport height, distance of the area from the top of the scrolled content, bar height + safe area,
-12 px)` minus the area's padding and the filmstrip. It never reads the area's own height (that grows when `scrolls` and would feed back into itself).
+12 px)` minus the area's padding and the filmstrip (_superseded by V1.9.115 (paged gallery): there is no filmstrip any more_). It never reads the area's own height (that grows when `scrolls` and would feed back into itself).
 In full screen with a visible rail panel (roster, chat or voting, from 768 px) `conferenceRailInset` gives the rail width; it is written as
 `--lapis-rail-inset` and is padding of the area, so the measured width is already net of the rail.
 

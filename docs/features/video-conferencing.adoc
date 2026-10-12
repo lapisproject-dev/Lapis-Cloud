@@ -133,12 +133,13 @@ written to the database, so it carries no GoBD/DSGVO retention obligation). The 
 review additionally flagged D1 (single-button room creation instead of today's title-entry form),
 D2 (a first-class, non-technical camera/microphone permission preflight screen), D3 (a
 speaking-priority reflow above ~12 participants) and D10 (a fully named client-side connection
-state machine) as still-open polish items for the next Videokonferenzen step — not yet built, see
-`ConferenceScreen.kt`'s own file KDoc.
+state machine) as polish items for the next Videokonferenzen step. D3 was built later and then
+removed again in v0.32.0 (V1.9.115) in favour of the paged gallery and the switchable views (see
+"Views" below); D2 and D10 are still open, see `ConferenceScreen.kt`'s own file KDoc.
 
 == A conference across navigation (V1.9.69-V1.9.71, released in v0.31.1)
 
-Client only, no server change; listed under `[Unreleased]` in `CHANGELOG.md`. **Navigating no longer ends the call** (V1.9.70): the call
+Client only, no server change; see `[0.31.1]` in `CHANGELOG.md`. **Navigating no longer ends the call** (V1.9.70): the call
 view is kept in a conference dock and only hidden, so microphone, camera, remote audio, chat, roster, running votes and a secret-ballot
 receipt keep running. While the call view is not on screen, a mini bar at the bottom of the page stands for it (status, recording /
 live-stream badges, "Abstimmung läuft", microphone, camera, stop sharing, "Verlassen", "Zur Konferenz"); from 768 px a small,

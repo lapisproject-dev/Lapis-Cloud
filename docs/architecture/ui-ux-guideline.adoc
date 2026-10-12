@@ -2200,7 +2200,7 @@ Allowed exceptions (each ledger entry must also say `overscroll-behavior: contai
 |E1 |A modal, overlay or bottom sheet that is fixed or absolute and bounded by the viewport (conference roster/chat/voting rail and sheets, the "Mehr" sheet, the encounter side panel as overlay and as sheet; Bootstrap's `.modal` and `.offcanvas-body`).
 |E2 |A popup list that opens over the page (searchable-select dropdown, member-map search results).
 |E3 |A log: a bounded, keyboard-focusable region that follows new messages (`tabindex="0"`, `role="log"`): the conference chat and the encounter chat.
-|E4h |A horizontal strip (`overflow-x` only; `overflow-y` is `hidden`, never a vertical scroller): the compact conference filmstrip.
+|E4h |A horizontal strip (`overflow-x` only; `overflow-y` is `hidden`, never a vertical scroller): the compact conference filmstrip (superseded by V1.9.115, the paged gallery: the filmstrip and the priority zone no longer exist; kept as history).
 |E5 |Anything else. Must stay empty.
 |===
 
@@ -2360,7 +2360,7 @@ Client only. Architecture: `conference-dock.adoc`, "Best-fit tile grid (V1.9.92)
 * **Floor.** A tile is never narrower than 160 px. Below that the area grows and the page scrolls (R59: no scroller of its own).
 * **No layout animation.** A resize jumps to the new size; no `transition` or `animation` on the area, the zone or the tiles (R54 ledger unchanged).
 * **Tiles are never re-parented.** A size change writes numbers only: `--lapis-tile-w` and `--lapis-tile-h` on the priority zone are the single write place
-  for a tile's size (the filmstrip keeps its own 146 x 82 px). Focus, the speaking mark and the running video survive every resize.
+  for a tile's size (the filmstrip keeps its own 146 x 82 px; _superseded by V1.9.115 (paged gallery): the priority zone and the filmstrip are gone, tile sizes now come from the page layout_). Focus, the speaking mark and the running video survive every resize.
 * **Small tiles.** Below 220 px the speaker badge shows only its symbol (the word is hidden, not removed) and the name leaves room for it.
 
 == V1.9.104 -- Conference page full width
