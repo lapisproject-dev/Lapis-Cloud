@@ -69,4 +69,22 @@ class AuditMarkerLabelsTest {
         assertNull(auditMarkerDescription(AuditEntityType.MEMBER, AuditMarkers.MEMBER_ADDRESS_READ + " "))
         assertEquals(auditActionLabel(AuditAction.CREATE), auditEntryActionLabel(entry(AuditEntityType.MEMBER, null, AuditAction.CREATE)))
     }
+
+    @Test
+    fun theCountryMappingMarker_isMatchedByPrefix_andShowsOnlyTheCounts() {
+        val raw = AuditMarkers.MEMBER_COUNTRY_LEGACY_MAPPED + " country=12/10/4/2 nationality=7/7/3/1"
+        val description = auditMarkerDescription(AuditEntityType.MEMBER, raw)
+        assertEquals(
+            "Land und Staatsangehörigkeit abgeglichen. Land: 12 erkannt, 10 angewendet, 4 offen, 2 mehrdeutig. " +
+                "Staatsangehörigkeit: 7 erkannt, 7 angewendet, 3 offen, 1 mehrdeutig.",
+            description,
+        )
+        // the entity type must fit, a stray prefix on another entity type is no marker, an unparsable tail keeps the short sentence
+        assertNull(auditMarkerDescription(AuditEntityType.JOURNAL_ENTRY, raw))
+        assertEquals(
+            "Land und Staatsangehörigkeit abgeglichen",
+            auditMarkerDescription(AuditEntityType.MEMBER, AuditMarkers.MEMBER_COUNTRY_LEGACY_MAPPED + " nonsense"),
+        )
+        assertNull(auditMarkerDescription(AuditEntityType.MEMBER, AuditMarkers.MEMBER_COUNTRY_LEGACY_MAPPED + "X"))
+    }
 }

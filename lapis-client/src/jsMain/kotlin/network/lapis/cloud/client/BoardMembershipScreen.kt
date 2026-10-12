@@ -416,12 +416,18 @@ fun beneficialOwnerGapDetail(gap: BeneficialOwnerDataGapDto): String {
             if (gap.missingDateOfBirth) add(gettext("Geburtsdatum"))
             if (gap.missingNationality) add(gettext("Staatsangehörigkeit"))
         }
-    return gettext(
-        "%1 (%2): fehlt %3",
-        gap.memberDisplayName,
-        committeeRoleLabel(gap.committeeRole),
-        missingFields.joinToString(", "),
-    )
+    // Welle V1.9.121: "ungeklärt" (code ZZ) is recorded but not settled -- named on its own, never as "missing".
+    if (missingFields.isEmpty() && gap.nationalityUnclear) {
+        return gettext("%1 (%2): Staatsangehörigkeit ungeklärt", gap.memberDisplayName, committeeRoleLabel(gap.committeeRole))
+    }
+    val missing =
+        gettext(
+            "%1 (%2): fehlt %3",
+            gap.memberDisplayName,
+            committeeRoleLabel(gap.committeeRole),
+            missingFields.joinToString(", "),
+        )
+    return if (gap.nationalityUnclear) missing + "; " + gettext("Staatsangehörigkeit ungeklärt") else missing
 }
 
 // ================================================================================================

@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import io.kvision.core.Container
+import io.kvision.core.Widget
 import io.kvision.core.onClick
 import io.kvision.core.onEvent
 import io.kvision.form.text.Text
@@ -73,9 +74,11 @@ class SearchableSelect(
         val value: String,
         val label: String,
         val detail: String?,
+        val separatorBefore: Boolean = false,
     )
 
     private val layer = Div(className = "lapis-ssel-layer")
+    private val lead = Div(className = "lapis-ssel-lead")
     private val dropdown = Div(className = "lapis-ssel-dropdown")
     private val listbox = Tag(TAG.UL, className = "lapis-ssel-list")
     private val hint = Div(className = "lapis-ssel-hint text-muted small")
@@ -120,6 +123,35 @@ class SearchableSelect(
             rebuildPrepared()
         }
 
+    /**
+     * V1.9.121: extra text per id that is SEARCHED but never shown (the English country name and the country code, so "germany" and "de"
+     * find "Deutschland").
+     */
+    var searchTexts: Map<String, String> = emptyMap()
+        set(newTexts) {
+            field = newTexts
+            rebuildPrepared()
+        }
+
+    /**
+     * V1.9.121: an optional decoration in front of every option's name (the flag of a country). It is built per row, must be
+     * decorative (`alt=""`, `aria-hidden`) -- the option's accessible name stays the label text -- and returns `null` for an entry without one.
+     */
+    var optionIcon: ((String) -> Widget?)? = null
+
+    /** V1.9.121: the same decoration in front of the SELECTED name inside the field (shown while the user is not typing). */
+    var leadingIcon: ((String) -> Widget?)? = null
+        set(newIcon) {
+            field = newIcon
+            if (constructed) syncLead()
+        }
+
+    /** V1.9.121: ids after which a divider line is drawn (only while the search is empty), e.g. the pinned country. */
+    var separatorAfter: Set<String> = emptySet()
+
+    /** V1.9.121: how many rows the list renders at most (default [MAX_SHOWN]; the country list has no cap). */
+    var maxShown: Int = MAX_SHOWN
+
     override var value: String?
         get() = selected
         set(newValue) {
@@ -160,6 +192,9 @@ class SearchableSelect(
         dropdown.swallowMouseDown()
         layer.add(dropdown)
         layer.add(status)
+        lead.setAttribute("aria-hidden", "true")
+        lead.hide()
+        layer.add(lead)
         actions.add(clearButton)
         actions.add(arrowButton)
         clearButton.swallowMouseDown()
@@ -213,7 +248,9 @@ class SearchableSelect(
         noneLabel = rawOptions.firstOrNull { it.first.isEmpty() }?.second
         prepared =
             prepareOptions(
-                rawOptions.filter { it.first.isNotEmpty() }.map { (id, text) -> SearchCandidate(id, text, details[id]) },
+                rawOptions
+                    .filter { it.first.isNotEmpty() }
+                    .map { (id, text) -> SearchCandidate(id, text, details[id], searchTexts[id]) },
             )
         if (constructed) {
             syncDisplay()
@@ -231,6 +268,22 @@ class SearchableSelect(
         if (input.value.orEmpty() != text) input.value = text
         placeholder = if (id.isEmpty()) noneLabel?.let { resolvedAttributeText(it) } ?: gettext("Tippen zum Suchen") else null
         updateClearButton()
+        syncLead()
+    }
+
+    /** Shows the decoration of the selected entry (the flag) in front of its name, or nothing while the user is typing. */
+    private fun syncLead() {
+        lead.removeAll()
+        val id = selected.orEmpty()
+        val icon = if (editing || id.isEmpty()) null else leadingIcon?.invoke(id)
+        if (icon != null) {
+            lead.add(icon)
+            lead.show()
+            addCssClass("lapis-ssel--lead")
+        } else {
+            lead.hide()
+            removeCssClass("lapis-ssel--lead")
+        }
     }
 
     private fun notifyObservers() {
@@ -268,6 +321,7 @@ class SearchableSelect(
         query = input.domInputText().orEmpty()
         editing = true
         arrowUsed = false
+        syncLead()
         openList()
     }
 
@@ -341,11 +395,20 @@ class SearchableSelect(
     }
 
     private fun renderList() {
-        val result = filterOptions(query, prepared, MAX_SHOWN)
+        val result = filterOptions(query, prepared, maxShown)
         val list = mutableListOf<Entry>()
         val noneEntry = noneLabel
         if (query.isBlank() && noneEntry != null) list += Entry("", resolvedAttributeText(noneEntry), null)
         result.shown.forEach { list += Entry(it.value, it.label, it.detail) }
+        if (query.isBlank() && separatorAfter.isNotEmpty()) {
+            for (i in 1 until list.size) {
+                if (list[i - 1].value in
+                    separatorAfter
+                ) {
+                    list[i] = Entry(list[i].value, list[i].label, list[i].detail, separatorBefore = true)
+                }
+            }
+        }
         entries = list
         listbox.removeAll()
         val widgets = mutableListOf<Tag>()
@@ -389,6 +452,8 @@ class SearchableSelect(
         option.setAttribute("role", "option")
         option.setAttribute("data-value", entry.value)
         option.setAttribute("aria-selected", if (entry.value == selected.orEmpty()) "true" else "false")
+        if (entry.separatorBefore) option.addCssClass("lapis-ssel-option--separated")
+        optionIcon?.invoke(entry.value)?.let { option.add(it) }
         option.untrustedSpan(entry.label, className = "lapis-ssel-label")
         if (entry.detail != null) option.untrustedSpan(entry.detail, className = "lapis-ssel-detail text-muted small")
         option.swallowMouseDown()

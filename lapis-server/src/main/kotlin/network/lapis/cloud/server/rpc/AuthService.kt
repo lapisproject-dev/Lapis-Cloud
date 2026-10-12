@@ -4,9 +4,11 @@ import io.ktor.server.application.ApplicationCall
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
+import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
 import network.lapis.cloud.server.federation.OidcBackChannelLogoutNotifier
 import network.lapis.cloud.server.keycloak.KeycloakConfig
+import network.lapis.cloud.server.member.LegacyCountryDictionary
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.PasswordPolicy
@@ -156,6 +158,16 @@ class AuthService internal constructor(
                     ownRegionalChapter = ownChapter,
                     chapterScope = resolveChapterScopeRef(visibility),
                     regionalChaptersExist = RegionalChapterTable.selectAll().count() > 0,
+                    organizationCountryCode =
+                        (
+                            LegacyCountryDictionary.resolveCountry(
+                                OrganizationSettingsTable
+                                    .selectAll()
+                                    .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+                                    .singleOrNull()
+                                    ?.get(OrganizationSettingsTable.country),
+                            ) as? LegacyCountryDictionary.Resolution.Recognised
+                        )?.codes?.singleOrNull(),
                 )
             }
         val displayName = sessionExtras.displayName
@@ -184,6 +196,7 @@ class AuthService internal constructor(
             ownRegionalChapter = sessionExtras.ownRegionalChapter,
             chapterScope = sessionExtras.chapterScope,
             organizationTimeZone = OrganizationTimeZone.current().id,
+            organizationCountryCode = sessionExtras.organizationCountryCode,
         )
     }
 }
@@ -195,4 +208,5 @@ private data class SessionExtras(
     val ownRegionalChapter: RegionalChapterRefDto?,
     val chapterScope: RegionalChapterRefDto?,
     val regionalChaptersExist: Boolean,
+    val organizationCountryCode: String?,
 )

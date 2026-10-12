@@ -16,6 +16,8 @@ internal data class SearchCandidate(
     val value: String,
     val label: String,
     val detail: String? = null,
+    /** V1.9.121: extra text that is searched but never shown (the English country name, the country code). */
+    val searchText: String? = null,
 )
 
 /** A candidate plus its pre-computed search keys: computed once per `options` assignment, never per keystroke. */
@@ -70,7 +72,7 @@ internal fun normalizeForSearch(text: String): List<String> {
 
 internal fun prepareOptions(options: List<SearchCandidate>): List<PreparedOption> =
     options.map { candidate ->
-        val keys = normalizeForSearch(listOfNotNull(candidate.label, candidate.detail).joinToString(" "))
+        val keys = normalizeForSearch(listOfNotNull(candidate.label, candidate.detail, candidate.searchText).joinToString(" "))
         PreparedOption(
             value = candidate.value,
             label = candidate.label,

@@ -88,6 +88,8 @@ data class BeneficialOwnerDataGapDto(
     val committeeRole: CommitteeRole,
     val missingDateOfBirth: Boolean,
     val missingNationality: Boolean,
+    /** Welle V1.9.121 -- the nationality is recorded as "unclear" (`ZZ`): not missing, but not settled either. */
+    val nationalityUnclear: Boolean = false,
 )
 
 /**

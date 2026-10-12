@@ -4,6 +4,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.geo.CountryDisplayNames
 import network.lapis.cloud.shared.domain.ErasureMode
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -49,6 +50,10 @@ object FoundationPersonalData : MemberPersonalDataContributor {
             put("postalCode", memberRow[MemberTable.postalCode])
             put("city", memberRow[MemberTable.city])
             put("country", memberRow[MemberTable.country])
+            // Welle V1.9.121 -- country chosen from the selection list: code, German display name and the legacy text (the legacy text
+            // stays in "country" above, exactly as stored). XS / ZZ are explained in the nationality section (MemberNationalityPersonalData).
+            put("countryCode", memberRow[MemberTable.countryCode])
+            put("countryName", memberRow[MemberTable.countryCode]?.let { CountryDisplayNames.germanName(it) })
             // V0.5.2 Transparenzregister beneficial-owner fields -- PII, exported alongside the
             // V0.4.1 postal address.
             put("dateOfBirth", memberRow[MemberTable.dateOfBirth]?.toString())
@@ -99,6 +104,9 @@ object FoundationPersonalData : MemberPersonalDataContributor {
                 it[postalCode] = null
                 it[city] = null
                 it[country] = null
+                // Welle V1.9.121 -- the selected country is personal data like the legacy text above. The member_nationality rows are
+                // deleted by MemberNationalityPersonalData.
+                it[countryCode] = null
                 // V0.5.2 Transparenzregister beneficial-owner fields -- PII, nulled out the same way.
                 it[dateOfBirth] = null
                 it[nationality] = null

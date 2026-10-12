@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 68 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 69 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -71,7 +71,8 @@ class DomainModelMergerTest :
             // Welle V1.9.61 "Begegnungsraum" -- was 65, now 66 with the addition of 65-encounter-space.kuml.kts.
             // Welle V1.9.81 "E-Mail-Stundenbudget" -- was 66, now 67 with the addition of 66-mail-outbox.kuml.kts.
             // Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" -- was 67, now 68 with the addition of 67-event-online.kuml.kts.
-            scriptFiles shouldHaveSize 68
+            // Welle V1.9.121 "Land und Staatsangehoerigkeit als Auswahlliste" -- was 68, now 69 with the addition of 68-member-nationality.kuml.kts.
+            scriptFiles shouldHaveSize 69
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -534,7 +535,9 @@ class DomainModelMergerTest :
             // Welle V1.9.112 "regelbasierte Gremien" adds 06-vote.kuml.kts's ONE new real table (vote_eligible_voter) -- net +1 (189 -> 190).
             // Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" adds 67-event-online.kuml.kts's ONE new table (event_conference) -- net +1 (190 -> 191).
             // Welle V1.9.115 "umschaltbare Ansichten" adds 28-conference-recording.kuml.kts's ONE new table (conference_recording_speaker_span) -- net +1 (191 -> 192).
-            val distinctTableNames = 192
+            // Welle V1.9.121 "Land und Staatsangehoerigkeit als Auswahlliste" adds 68-member-nationality.kuml.kts's ONE new table (member_nationality), with its own
+            // Member stub -- net +1 (192 -> 193); the new `country_code` attribute of `member` in 00-foundation adds no table.
+            val distinctTableNames = 193
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -874,6 +877,8 @@ class DomainModelMergerTest :
                     "MailSendSlotTable.kt",
                     "MailBudgetLockTable.kt",
                     "EventConferenceTable.kt",
+                    // Welle V1.9.121 "Land und Staatsangehoerigkeit als Auswahlliste" -- ONE new real table (member_nationality).
+                    "MemberNationalityTable.kt",
                 )
         }
 

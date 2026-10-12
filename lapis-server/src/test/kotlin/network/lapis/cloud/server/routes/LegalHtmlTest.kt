@@ -351,6 +351,7 @@ class LegalHtmlTest :
                     "regionalChapter" to "Landesverband",
                     "privilegedActions" to "Vier-Augen-Freigabe",
                     "memberStatusHistory" to "Mitgliederstatistik",
+                    "memberNationality" to "Staatsangehörigkeiten",
                     "encounterSpace" to "Begegnungsräume",
                     "mailOutbox" to "System-E-Mails",
                 )

@@ -26,6 +26,13 @@ private val SELF_SERVICE_FILES =
         "MemberEmailCard.kt",
         "MemberEmailChangeProposal.kt",
         "EmailChangeDeepLinkScreens.kt",
+        // V1.9.121: the country / nationality lists show and edit the member's country and nationalities (GwG data), the board card reads
+        // the free-text legacy values of every member.
+        "CountrySelect.kt",
+        "NationalityMultiSelect.kt",
+        "CountryNames.kt",
+        "CountryFlag.kt",
+        "CountryLegacyMappingCard.kt",
     )
 
 private val SOURCES =
@@ -37,7 +44,9 @@ private fun codeLines(file: File): List<String> =
 
 private fun sourceOf(name: String): File = SOURCES.walkTopDown().first { it.isFile && it.name == name }
 
-private val PII_FIELDS = "street|postalCode|city|country|dateOfBirth|nationality|memberNumber|newEmail|pendingEmail|newEmailMasked|email"
+private val PII_FIELDS =
+    "street|postalCode|city|country|countryCode|nationalityCodes|countryLegacy|nationalityLegacy|dateOfBirth|nationality|" +
+        "memberNumber|newEmail|pendingEmail|newEmailMasked|email"
 
 class ClientSelfServicePiiTripwireTest :
     FunSpec({

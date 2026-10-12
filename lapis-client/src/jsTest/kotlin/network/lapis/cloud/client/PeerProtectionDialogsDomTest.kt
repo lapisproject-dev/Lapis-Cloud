@@ -360,18 +360,22 @@ class PeerProtectionDialogsDomTest {
             )
         }
 
-        override suspend fun updateAddress(
+        override suspend fun updateStreetAddress(
             memberId: String,
             street: String?,
             postalCode: String?,
             city: String?,
-            country: String?,
         ) = error("never written")
 
-        override suspend fun updateBeneficialOwnerData(
+        override suspend fun updateCountry(
+            memberId: String,
+            countryCode: String?,
+        ) = error("never written")
+
+        override suspend fun updateNationalities(
             memberId: String,
             dateOfBirth: LocalDate?,
-            nationality: String?,
+            nationalityCodes: List<String>,
         ) = error("never written")
     }
 

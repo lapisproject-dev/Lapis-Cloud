@@ -22,7 +22,6 @@ import kotlin.test.assertTrue
 
 private val ADMIN_TODAY = LocalDate(2026, 10, 2)
 private const val SECRET_STREET = "Q7ZX-Hauptstrasse 1"
-private const val SECRET_NATIONALITY = "Q7ZX-deutsch"
 
 private fun adminRow(
     name: String = "Dana Keller",
@@ -44,16 +43,19 @@ private fun addressData() =
         street = SECRET_STREET,
         postalCode = "38100",
         city = "Braunschweig",
-        country = "DE",
+        country = "Deutschland",
         dateOfBirth = LocalDate(1980, 2, 3),
-        nationality = SECRET_NATIONALITY,
+        nationality = "Deutschland",
         dateOfDeath = null,
+        countryCode = "DE",
+        nationalityCodes = listOf("DE"),
     )
 
 private class FakeAdminRpc : MemberAddressAdminRpc {
     var data = addressData()
     var loadCalls = 0
     val addressCalls = mutableListOf<List<String?>>()
+    val countryCalls = mutableListOf<List<String?>>()
     var updateFailure: Throwable? = null
 
     override suspend fun loadForAdministration(memberId: String): MemberAddressDataDto {
@@ -61,25 +63,34 @@ private class FakeAdminRpc : MemberAddressAdminRpc {
         return data
     }
 
-    override suspend fun updateAddress(
+    override suspend fun updateStreetAddress(
         memberId: String,
         street: String?,
         postalCode: String?,
         city: String?,
-        country: String?,
     ): MemberDto {
-        addressCalls += listOf(memberId, street, postalCode, city, country)
+        addressCalls += listOf(memberId, street, postalCode, city)
         updateFailure?.let { throw it }
-        data = data.copy(street = street, postalCode = postalCode, city = city, country = country)
+        data = data.copy(street = street, postalCode = postalCode, city = city)
         return memberDto()
     }
 
-    override suspend fun updateBeneficialOwnerData(
+    override suspend fun updateCountry(
+        memberId: String,
+        countryCode: String?,
+    ): MemberDto {
+        countryCalls += listOf(memberId, countryCode)
+        updateFailure?.let { throw it }
+        data = data.copy(countryCode = countryCode, country = countryCode)
+        return memberDto()
+    }
+
+    override suspend fun updateNationalities(
         memberId: String,
         dateOfBirth: LocalDate?,
-        nationality: String?,
+        nationalityCodes: List<String>,
     ): MemberDto {
-        data = data.copy(dateOfBirth = dateOfBirth, nationality = nationality)
+        data = data.copy(dateOfBirth = dateOfBirth, nationalityCodes = nationalityCodes)
         return memberDto()
     }
 
@@ -98,6 +109,8 @@ private class FakeAdminRpc : MemberAddressAdminRpc {
             dateOfBirth = data.dateOfBirth,
             nationality = data.nationality,
             dateOfDeath = data.dateOfDeath,
+            countryCode = data.countryCode,
+            nationalityCodes = data.nationalityCodes,
         )
 }
 
@@ -203,7 +216,8 @@ class MemberAddressAdminDialogDomTest {
                 assertTrue(rpc.addressCalls.isEmpty(), "cancel path: nothing written before confirming")
                 ask.onConfirm()
                 awaitUntil("written") { rpc.addressCalls.size == 1 }
-                assertEquals(listOf<String?>("member-9", SECRET_STREET, "38100", "Wolfsburg", "DE"), rpc.addressCalls.single())
+                assertEquals(listOf<String?>("member-9", SECRET_STREET, "38100", "Wolfsburg"), rpc.addressCalls.single())
+                assertTrue(rpc.countryCalls.isEmpty(), "the country was not touched")
                 awaitUntil("toast") { successes.isNotEmpty() }
                 assertEquals(listOf("Gespeichert."), successes)
                 delay(120)

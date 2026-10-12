@@ -26,12 +26,15 @@ import network.lapis.cloud.server.mail.PeerExecutedEvent
 import network.lapis.cloud.server.mail.PeerNotificationMailer
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.isValidMailboxAddress
+import network.lapis.cloud.server.member.CountryLegacyMappingEngine
 import network.lapis.cloud.server.member.MemberCardIssuance
+import network.lapis.cloud.server.member.MemberCountryStore
 import network.lapis.cloud.server.member.MemberRoleStatusMutations
 import network.lapis.cloud.server.member.PeerNotifier
 import network.lapis.cloud.server.member.TemporaryPasswordMutation
 import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_ISSUED
 import network.lapis.cloud.server.routes.MEMBER_CARD_AUDIT_REISSUED
+import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.MemberVisibility
 import network.lapis.cloud.server.security.PasswordHasher
@@ -53,6 +56,9 @@ import network.lapis.cloud.shared.domain.AdminPasswordAction
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.AuditMarkers
+import network.lapis.cloud.shared.domain.CountryCodes
+import network.lapis.cloud.shared.domain.CountryLegacyMappingReportDto
+import network.lapis.cloud.shared.domain.CountryLegacyMappingResultDto
 import network.lapis.cloud.shared.domain.DeathDateRules
 import network.lapis.cloud.shared.domain.DeathDateViolation
 import network.lapis.cloud.shared.domain.MailDeliveryState
@@ -294,12 +300,30 @@ class MemberService(
                             )
                         notifyTargetAdmin = (decision as? PeerDecision.Allow)?.notifyTarget == true
                     }
+                    // Welle V1.9.121 (legacy RPC for cached browser tabs): the old client form shows and sends back the EFFECTIVE country
+                    // name. A text equal to the effective name of the current code means "unchanged" (the code stays); another text becomes
+                    // the legacy text and drops the code (last human value wins, no hidden counterpart); null clears both.
+                    val currentRow =
+                        MemberTable
+                            .selectAll()
+                            .where { MemberTable.id eq targetId }
+                            .forMemberUpdate()
+                            .singleOrNull()
+                            ?: throw NotFoundException("Member $memberId not found")
+                    val currentCode = currentRow[MemberTable.countryCode]
+                    val keepCode =
+                        currentCode != null &&
+                            normCountry != null &&
+                            normCountry == MemberCountryStore.effectiveCountry(code = currentCode, legacy = null)
                     val updated =
                         MemberTable.update({ MemberTable.id eq targetId }) {
                             it[MemberTable.street] = normStreet
                             it[MemberTable.postalCode] = normPostalCode
                             it[MemberTable.city] = normCity
-                            it[MemberTable.country] = normCountry
+                            if (!keepCode) {
+                                it[MemberTable.country] = normCountry
+                                it[MemberTable.countryCode] = null
+                            }
                         }
                     if (updated == 0) throw NotFoundException("Member $memberId not found")
                     AuditLogRecorder.record(
@@ -372,6 +396,7 @@ class MemberService(
                     nationality = null,
                     dateOfDeath = null,
                     protectedTarget = true,
+                    // Welle V1.9.121: the code fields stay at their empty defaults -- nothing of an ADMIN leaves for a BOARD caller.
                 )
             }
             if (decision is PeerDecision.Deny) throw ForbiddenException()
@@ -384,16 +409,22 @@ class MemberService(
                 after = MEMBER_ADDRESS_AUDIT_READ,
                 occurredAt = nowLocalDateTime(),
             )
+            val nationalityCodes = MemberCountryStore.loadNationalities(targetId)
+            val countryCode = row[MemberTable.countryCode]
             MemberAddressDataDto(
                 memberId = targetId.toString(),
                 displayName = row[MemberTable.displayName],
                 street = row[MemberTable.street],
                 postalCode = row[MemberTable.postalCode],
                 city = row[MemberTable.city],
-                country = row[MemberTable.country],
+                country = MemberCountryStore.effectiveCountry(code = countryCode, legacy = row[MemberTable.country]),
                 dateOfBirth = row[MemberTable.dateOfBirth],
-                nationality = row[MemberTable.nationality],
+                nationality = MemberCountryStore.effectiveNationality(codes = nationalityCodes, legacy = row[MemberTable.nationality]),
                 dateOfDeath = row[MemberTable.dateOfDeath],
+                countryCode = countryCode,
+                nationalityCodes = nationalityCodes,
+                countryLegacy = if (countryCode == null) row[MemberTable.country] else null,
+                nationalityLegacy = if (nationalityCodes.isEmpty()) row[MemberTable.nationality] else null,
             )
         }
     }
@@ -468,9 +499,21 @@ class MemberService(
                     ) {
                         throw ConflictException("Invalid beneficial owner data")
                     }
+                    // Welle V1.9.121 (legacy RPC for cached browser tabs): same rule as updateMemberAddress -- the effective nationality
+                    // text sent back unchanged keeps the codes; another text becomes the legacy text and drops the codes; null clears both.
+                    val currentCodes = MemberCountryStore.loadNationalities(targetId)
+                    val keepCodes =
+                        currentCodes.isNotEmpty() &&
+                            normNationality != null &&
+                            normNationality == MemberCountryStore.effectiveNationality(codes = currentCodes, legacy = null)
                     MemberTable.update({ MemberTable.id eq targetId }) {
                         it[MemberTable.dateOfBirth] = dateOfBirth
-                        it[MemberTable.nationality] = normNationality
+                        if (!keepCodes) it[MemberTable.nationality] = normNationality
+                    }
+                    if (!keepCodes &&
+                        currentCodes.isNotEmpty()
+                    ) {
+                        MemberCountryStore.replaceNationalities(memberId = targetId, codes = emptyList())
                     }
                     AuditLogRecorder.record(
                         actorMemberId = current.memberId,
@@ -490,6 +533,201 @@ class MemberService(
             }
         if (notifyTargetAdmin) peerNotifier.protectedDataChanged(targetId = targetId, actorId = current.memberId, occurredAt = now)
         return result
+    }
+
+    // ── Welle V1.9.121 -- Land und Staatsangehoerigkeit als Auswahlliste ──
+
+    private class LockedTarget(
+        val row: ResultRow,
+        val notifyTargetAdmin: Boolean,
+    )
+
+    /**
+     * Locks the target's member row (`forMemberUpdate`) and, for another person's data, takes the peer decision under the member and
+     * account locks (BOARD never writes an ADMIN's data, an ADMIN writing another ADMIN's data is allowed and the target is told) --
+     * the same sequence [updateMemberBeneficialOwnerData] uses. Must run inside the caller's transaction.
+     */
+    private fun lockTargetForProtectedWrite(
+        current: CurrentMember,
+        targetId: Uuid,
+        memberIdText: String,
+    ): LockedTarget {
+        val row =
+            MemberTable
+                .selectAll()
+                .where { MemberTable.id eq targetId }
+                .forMemberUpdate()
+                .singleOrNull() ?: throw NotFoundException("Member $memberIdText not found")
+        var notify = false
+        if (targetId != current.memberId) {
+            val facts = PeerGuard.lockFactsAfterMemberLock(targetId = targetId, memberRow = row, requesterId = current.memberId)
+            val decision =
+                PeerGuard.decideLocked(
+                    actor = current,
+                    targetId = targetId,
+                    action = PeerAction.WRITE_PROTECTED_DATA,
+                    mailConfigured = smtpConfigState is SmtpConfigState.Configured,
+                    facts = facts,
+                )
+            notify = (decision as? PeerDecision.Allow)?.notifyTarget == true
+        }
+        return LockedTarget(row = row, notifyTargetAdmin = notify)
+    }
+
+    override suspend fun updateMemberStreetAddress(
+        memberId: String,
+        street: String?,
+        postalCode: String?,
+        city: String?,
+    ): MemberDto {
+        val current = resolveCurrentMember(call)
+        val targetId = runCatching { Uuid.parse(memberId) }.getOrElse { throw NotFoundException("Member $memberId not found") }
+        if (targetId != current.memberId && !current.isPrivileged) throw ForbiddenException()
+        val normStreet = MemberAddressRules.normalize(street)
+        val normPostalCode = MemberAddressRules.normalize(postalCode)
+        val normCity = MemberAddressRules.normalize(city)
+        val violated =
+            MemberAddressRules.textViolation(field = MemberAddressField.STREET, normalized = normStreet) != null ||
+                MemberAddressRules.textViolation(field = MemberAddressField.POSTAL_CODE, normalized = normPostalCode) != null ||
+                MemberAddressRules.textViolation(field = MemberAddressField.CITY, normalized = normCity) != null
+        if (violated) throw ConflictException("Invalid address data")
+        var notifyTargetAdmin = false
+        val now = nowLocalDateTime()
+        val result =
+            peerGuarded(actor = current) {
+                transaction {
+                    notifyTargetAdmin =
+                        lockTargetForProtectedWrite(current = current, targetId = targetId, memberIdText = memberId).notifyTargetAdmin
+                    MemberTable.update({ MemberTable.id eq targetId }) {
+                        it[MemberTable.street] = normStreet
+                        it[MemberTable.postalCode] = normPostalCode
+                        it[MemberTable.city] = normCity
+                    }
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.MEMBER,
+                        entityId = targetId,
+                        action = AuditAction.UPDATE,
+                        after = MEMBER_ADDRESS_AUDIT_UPDATED,
+                        occurredAt = now,
+                    )
+                    (MemberTable innerJoin AccountTable)
+                        .selectAll()
+                        .where { MemberTable.id eq targetId }
+                        .single()
+                        .toMemberDto()
+                }
+            }
+        if (notifyTargetAdmin) peerNotifier.protectedDataChanged(targetId = targetId, actorId = current.memberId, occurredAt = now)
+        return result
+    }
+
+    override suspend fun updateMemberCountry(
+        memberId: String,
+        countryCode: String?,
+    ): MemberDto {
+        val current = resolveCurrentMember(call)
+        val targetId = runCatching { Uuid.parse(memberId) }.getOrElse { throw NotFoundException("Member $memberId not found") }
+        if (targetId != current.memberId && !current.isPrivileged) throw ForbiddenException()
+        // Validation AFTER authorization (Forbidden first), value-free rejection.
+        val blank = countryCode?.isBlank() != false
+        val code = if (blank) null else CountryCodes.normalizeCode(countryCode)
+        if (!blank && (code == null || CountryCodes.validateCountry(code) != null)) throw ConflictException("Invalid address data")
+        var notifyTargetAdmin = false
+        val now = nowLocalDateTime()
+        val result =
+            peerGuarded(actor = current) {
+                transaction {
+                    notifyTargetAdmin =
+                        lockTargetForProtectedWrite(current = current, targetId = targetId, memberIdText = memberId).notifyTargetAdmin
+                    MemberCountryStore.setCountry(memberId = targetId, code = code)
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.MEMBER,
+                        entityId = targetId,
+                        action = AuditAction.UPDATE,
+                        after = MEMBER_ADDRESS_AUDIT_UPDATED,
+                        occurredAt = now,
+                    )
+                    (MemberTable innerJoin AccountTable)
+                        .selectAll()
+                        .where { MemberTable.id eq targetId }
+                        .single()
+                        .toMemberDto()
+                }
+            }
+        if (notifyTargetAdmin) peerNotifier.protectedDataChanged(targetId = targetId, actorId = current.memberId, occurredAt = now)
+        return result
+    }
+
+    override suspend fun updateMemberNationalities(
+        memberId: String,
+        dateOfBirth: LocalDate?,
+        nationalityCodes: List<String>,
+    ): MemberDto {
+        val current = resolveCurrentMember(call)
+        val targetId = runCatching { Uuid.parse(memberId) }.getOrElse { throw NotFoundException("Member $memberId not found") }
+        if (targetId != current.memberId && !current.isPrivileged) throw ForbiddenException()
+        val validCodes =
+            when (val selection = CountryCodes.normalizeNationalities(nationalityCodes)) {
+                is CountryCodes.NationalitySelection.Valid -> selection.codes
+                is CountryCodes.NationalitySelection.Invalid -> throw ConflictException("Invalid beneficial owner data")
+            }
+        var notifyTargetAdmin = false
+        val now = nowLocalDateTime()
+        val result =
+            peerGuarded(actor = current) {
+                transaction {
+                    val locked = lockTargetForProtectedWrite(current = current, targetId = targetId, memberIdText = memberId)
+                    notifyTargetAdmin = locked.notifyTargetAdmin
+                    if (MemberAddressRules.birthDateViolation(
+                            dateOfBirth = dateOfBirth,
+                            dateOfDeath = locked.row[MemberTable.dateOfDeath],
+                            today = OrganizationTimeZone.dateOf(now),
+                        ) != null
+                    ) {
+                        throw ConflictException("Invalid beneficial owner data")
+                    }
+                    MemberTable.update({ MemberTable.id eq targetId }) { it[MemberTable.dateOfBirth] = dateOfBirth }
+                    MemberCountryStore.replaceNationalities(memberId = targetId, codes = validCodes)
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.MEMBER,
+                        entityId = targetId,
+                        action = AuditAction.UPDATE,
+                        after = MEMBER_BENEFICIAL_OWNER_AUDIT_UPDATED,
+                        occurredAt = now,
+                    )
+                    (MemberTable innerJoin AccountTable)
+                        .selectAll()
+                        .where { MemberTable.id eq targetId }
+                        .single()
+                        .toMemberDto()
+                }
+            }
+        if (notifyTargetAdmin) peerNotifier.protectedDataChanged(targetId = targetId, actorId = current.memberId, occurredAt = now)
+        return result
+    }
+
+    override suspend fun previewCountryLegacyMapping(): CountryLegacyMappingReportDto {
+        val current = resolveCurrentMember(call)
+        if (!current.isPrivileged) throw ForbiddenException()
+        if (!memberAddressAdminReadRateLimiter.checkAndRecord("country-mapping:${current.memberId}")) {
+            throw ConflictException("Too many requests")
+        }
+        return CountryLegacyMappingEngine.preview(current.memberId)
+    }
+
+    override suspend fun applyCountryLegacyMapping(fingerprint: String): CountryLegacyMappingResultDto {
+        val current = resolveCurrentMember(call)
+        if (!current.isPrivileged) throw ForbiddenException()
+        if (!memberAddressAdminReadRateLimiter.checkAndRecord("country-mapping:${current.memberId}")) {
+            throw ConflictException("Too many requests")
+        }
+        return CountryLegacyMappingEngine.apply(actor = current, expectedFingerprint = fingerprint, now = nowLocalDateTime())
     }
 
     // ── Welle V1.2.12 -- Mitgliederverwaltung: vollständige Bearbeitung + privilegiertes Roster ──
@@ -1696,7 +1934,13 @@ private fun loadMemberAdminRow(
 private fun String.toMemberUuidOrThrow(): Uuid =
     runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Member $this not found") }
 
-fun ResultRow.toMemberDto(): MemberDto =
+/**
+ * Welle V1.9.121 -- [MemberDto.country] / [MemberDto.nationality] carry the EFFECTIVE value (German name of the chosen code, else the
+ * legacy text); the raw legacy text is in [MemberDto.countryLegacy] / [MemberDto.nationalityLegacy] only while no code exists.
+ * [nationalityCodes] defaults to one query for this row; list callers pass the result of ONE batch query
+ * ([MemberCountryStore.loadNationalities]) to avoid an N+1.
+ */
+fun ResultRow.toMemberDto(nationalityCodes: List<String> = MemberCountryStore.loadNationalities(this[MemberTable.id])): MemberDto =
     MemberDto(
         id = this[MemberTable.id].toString(),
         displayName = this[MemberTable.displayName],
@@ -1707,15 +1951,19 @@ fun ResultRow.toMemberDto(): MemberDto =
         street = this[MemberTable.street],
         postalCode = this[MemberTable.postalCode],
         city = this[MemberTable.city],
-        country = this[MemberTable.country],
+        country = MemberCountryStore.effectiveCountry(code = this[MemberTable.countryCode], legacy = this[MemberTable.country]),
         dateOfBirth = this[MemberTable.dateOfBirth],
-        nationality = this[MemberTable.nationality],
+        nationality = MemberCountryStore.effectiveNationality(codes = nationalityCodes, legacy = this[MemberTable.nationality]),
         reviewedById = this[MemberTable.reviewedBy]?.toString(),
         reviewedAt = this[MemberTable.reviewedAt],
         rejectionReason = this[MemberTable.rejectionReason],
         friendSince = this[MemberTable.friendSince],
         dateOfDeath = this[MemberTable.dateOfDeath],
         regionalChapterId = this[MemberTable.regionalChapterId]?.toString(),
+        countryCode = this[MemberTable.countryCode],
+        nationalityCodes = nationalityCodes,
+        countryLegacy = if (this[MemberTable.countryCode] == null) this[MemberTable.country] else null,
+        nationalityLegacy = if (nationalityCodes.isEmpty()) this[MemberTable.nationality] else null,
     )
 
 /** Welle V1.9.36 -- upper bound of [MemberService.listMembersForSelection]. */

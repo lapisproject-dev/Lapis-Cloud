@@ -26,19 +26,23 @@ internal fun liveMemberAddressAdminRpc(): MemberAddressAdminRpc =
         override suspend fun loadForAdministration(memberId: String) =
             rpcService<IMemberService>().getMemberAddressForAdministration(memberId)
 
-        override suspend fun updateAddress(
+        override suspend fun updateStreetAddress(
             memberId: String,
             street: String?,
             postalCode: String?,
             city: String?,
-            country: String?,
-        ) = rpcService<IMemberService>().updateMemberAddress(memberId, street, postalCode, city, country)
+        ) = rpcService<IMemberService>().updateMemberStreetAddress(memberId, street, postalCode, city)
 
-        override suspend fun updateBeneficialOwnerData(
+        override suspend fun updateCountry(
+            memberId: String,
+            countryCode: String?,
+        ) = rpcService<IMemberService>().updateMemberCountry(memberId, countryCode)
+
+        override suspend fun updateNationalities(
             memberId: String,
             dateOfBirth: LocalDate?,
-            nationality: String?,
-        ) = rpcService<IMemberService>().updateMemberBeneficialOwnerData(memberId, dateOfBirth, nationality)
+            nationalityCodes: List<String>,
+        ) = rpcService<IMemberService>().updateMemberNationalities(memberId, dateOfBirth, nationalityCodes)
     }
 
 /**

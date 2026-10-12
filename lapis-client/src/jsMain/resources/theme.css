@@ -58,6 +58,8 @@
   /* V1.9.6 Vorstands-Karte: MapLibre-Wasserflaeche -- eigenes Token, weil kein bestehendes Token eine
      dezent bläuliche Wasserfarbe traegt (Border-/Muted-Toene sind neutral-grau). */
   --lapis-map-water:       #DCE3EC;
+  /* V1.9.121: haarfeine Umrandung der Laenderflaggen (weisse Flaggen auf weissem Grund) -- 15 % Schwarz, im Dunkelmodus 20 % Weiss. */
+  --lapis-flag-outline:    #00000026;
   /* V1.9.9 Vorstands-Karte: dedizierte, kontrastreichere Grenz-/Strassentoene fuer die Karte --
      die bisher wiederverwendeten Tokens (--lapis-border, --lapis-border-strong) sind fuer feine
      UI-Trennlinien auf WEISS kalibriert (bewusst zart), auf der hellgrauen Kartenflaeche
@@ -151,6 +153,7 @@
     --lapis-border:          #333A44;
     --lapis-border-strong:   #454D59;
     --lapis-map-water:       #1B2533;
+    --lapis-flag-outline:    #FFFFFF33;
     --lapis-map-border-country: #C7CCD4;
     --lapis-map-border-state:   #7C8493;
     --lapis-map-road:           #99A1AD;
@@ -217,6 +220,7 @@
   --lapis-border:          #333A44;
   --lapis-border-strong:   #454D59;
   --lapis-map-water:       #1B2533;
+  --lapis-flag-outline:    #FFFFFF33;
   --lapis-map-border-country: #C7CCD4;
   --lapis-map-border-state:   #7C8493;
   --lapis-map-road:           #99A1AD;
@@ -2549,6 +2553,34 @@ html .form-select.is-invalid:focus {
   padding: .375rem .75rem;
 }
 .lapis-ssel-hint:empty { display: none; }
+/* V1.9.121 Laender- und Staatsangehoerigkeitsliste: Flagge (4:3, nicht rund) links vom Namen, Trennlinie nach dem angehefteten Land,
+   Flagge im Feld vor dem gewaehlten Namen. Haarlinie ueber ein Token, damit weisse Flaggen auf hellem Grund sichtbar bleiben. */
+.lapis-flag {
+  box-shadow: inset 0 0 0 1px var(--lapis-flag-outline);
+  display: inline-block;
+  flex: none;
+  height: 15px;
+  object-fit: cover;
+  vertical-align: middle;
+  width: 20px;
+}
+.lapis-flag-spacer { display: inline-block; flex: none; width: 20px; }
+.lapis-ssel-option--separated { border-top: 1px solid var(--lapis-border); margin-top: .25rem; padding-top: .5rem; }
+.lapis-ssel-lead {
+  align-items: center;
+  bottom: 0;
+  display: flex;
+  height: var(--lapis-ssel-h);
+  left: .75rem;
+  pointer-events: none;
+  position: absolute;
+}
+.lapis-ssel--lead .form-control { padding-left: calc(.75rem + 20px + .5rem); }
+.lapis-ssel-option .lapis-flag,
+.lapis-ssel-option .lapis-flag-spacer { align-self: center; }
+.lapis-nationality-chips .lapis-chip { min-height: 2rem; }
+.lapis-nationality-chips .lapis-chip .lapis-chip-remove { padding: 0 .25rem; }
+.lapis-legacy-hint { overflow-wrap: anywhere; }
 @media (pointer: coarse) {
   .lapis-ssel { --lapis-ssel-h: 44px; }
   .lapis-ssel-option { min-height: 44px; }

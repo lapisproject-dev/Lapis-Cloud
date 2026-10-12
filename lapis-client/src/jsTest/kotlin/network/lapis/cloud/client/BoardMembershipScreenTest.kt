@@ -148,6 +148,26 @@ class BoardMembershipScreenTest {
         assertTrue(text.contains("Staatsangehörigkeit"))
     }
 
+    @Test
+    fun beneficialOwnerGapDetail_unclearNationality_isNamedOnItsOwn_notAsMissing() {
+        val onlyUnclear =
+            BeneficialOwnerDataGapDto(
+                memberId = "member-dora",
+                memberDisplayName = "Dora",
+                committeeRole = CommitteeRole.CHAIR,
+                missingDateOfBirth = false,
+                missingNationality = false,
+                nationalityUnclear = true,
+            )
+        val text = beneficialOwnerGapDetail(onlyUnclear)
+        assertTrue(text.contains("Dora"))
+        assertTrue(text.contains("Staatsangehörigkeit ungeklärt"), text)
+        assertTrue(!text.contains("fehlt"), text)
+        val withMissingDate = beneficialOwnerGapDetail(onlyUnclear.copy(missingDateOfBirth = true))
+        assertTrue(withMissingDate.contains("fehlt Geburtsdatum"), withMissingDate)
+        assertTrue(withMissingDate.contains("Staatsangehörigkeit ungeklärt"), withMissingDate)
+    }
+
     // ---- reminder resolution label/color ---------------------------------------------------
 
     @Test

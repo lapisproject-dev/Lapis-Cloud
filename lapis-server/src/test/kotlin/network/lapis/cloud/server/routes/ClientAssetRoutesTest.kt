@@ -250,8 +250,10 @@ class ClientAssetRoutesTest :
                             )
                         }
                     }.readText()
-            // whoever introduces a CSP must update the documented needs of the worklet (wasm-unsafe-eval, same-origin module)
-            routeSource shouldNotContain "Content-Security-Policy"
+            // whoever introduces a CSP must update the documented needs of the worklet (wasm-unsafe-eval, same-origin module).
+            // V1.9.121: the ONE exception is the flag route -- a CSP on a directly opened flag SVG (no global CSP, no other route).
+            Regex("\"Content-Security-Policy\"").findAll(routeSource).count() shouldBe 1
+            routeSource shouldContain "FLAG_ICONS_CONTENT_SECURITY_POLICY"
             routeSource shouldContain "wasm-unsafe-eval"
         }
     })

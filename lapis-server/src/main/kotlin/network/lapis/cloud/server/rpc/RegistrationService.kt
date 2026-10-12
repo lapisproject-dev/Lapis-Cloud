@@ -20,6 +20,7 @@ import network.lapis.cloud.server.mail.PeerNotificationMailer
 import network.lapis.cloud.server.mail.RejectionVariant
 import network.lapis.cloud.server.mail.SmtpConfigState
 import network.lapis.cloud.server.mail.isValidMailboxAddress
+import network.lapis.cloud.server.member.MemberCountryStore
 import network.lapis.cloud.server.member.MemberStatusHistory
 import network.lapis.cloud.server.member.MemberStatusHistorySource
 import network.lapis.cloud.server.member.PeerNotifier
@@ -339,7 +340,12 @@ class RegistrationService internal constructor(
                 .selectAll()
                 .where { MemberTable.status eq MemberStatus.APPLICATION }
                 .orderBy(MemberTable.joinedAt)
-                .map { it.toMemberDto() }
+                .toList()
+                .let { rows ->
+                    // Welle V1.9.121: one batch query for the nationality codes (no N+1).
+                    val nationalities = MemberCountryStore.loadNationalities(rows.map { it[MemberTable.id] })
+                    rows.map { it.toMemberDto(nationalities[it[MemberTable.id]].orEmpty()) }
+                }
         }
     }
 

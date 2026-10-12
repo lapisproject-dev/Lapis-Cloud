@@ -22838,3 +22838,81 @@ msgstr "Moderacja wyłączyła dźwięki w tym pokoju."
 
 msgid "Töne bei Beitritt und Verlassen in diesem Raum"
 msgstr "Dźwięki przy dołączaniu i wychodzeniu w tym pokoju"
+
+msgid "Kosovo"
+msgstr "Kosowo"
+
+msgid "staatenlos"
+msgstr "bezpaństwowiec"
+
+msgid "ungeklärt"
+msgstr "niewyjaśnione"
+
+msgid "Ersetzt: %1"
+msgstr "Zastąpiono: %1"
+
+msgid "%1 hinzugefügt."
+msgstr "Dodano: %1."
+
+msgid "%1 entfernt."
+msgstr "Usunięto: %1."
+
+msgid "Staatsangehörigkeit „%1“ entfernen"
+msgstr "Usuń obywatelstwo „%1”"
+
+msgid "Höchstens %1 Staatsangehörigkeiten."
+msgstr "Najwyżej %1 obywatelstw."
+
+msgid "Altwert: „%1“ – bitte aus der Liste auswählen."
+msgstr "Dawna wartość: „%1” – proszę wybrać z listy."
+
+msgid "%1 (%2): Staatsangehörigkeit ungeklärt"
+msgstr "%1 (%2): obywatelstwo niewyjaśnione"
+
+msgid "Staatsangehörigkeit ungeklärt"
+msgstr "Obywatelstwo niewyjaśnione"
+
+msgid "Land und Staatsangehörigkeit abgleichen"
+msgstr "Uzgodnij kraj i obywatelstwo"
+
+msgid "Frühere Freitexte zu Land und Staatsangehörigkeit werden mit der Auswahlliste abgeglichen. Der Trockenlauf ändert nichts. Beim Anwenden bleibt der alte Text neben dem neuen Eintrag erhalten. Konten von Administratoren und Texte, die keinem Land eindeutig zugeordnet werden können, bleiben unberührt und müssen einzeln bearbeitet werden."
+msgstr "Dawne teksty dowolne dotyczące kraju i obywatelstwa są porównywane z listą wyboru. Próba nie zmienia niczego. Po zastosowaniu stary tekst pozostaje obok nowego wpisu. Konta administratorów oraz teksty, których nie da się jednoznacznie przypisać do kraju, pozostają bez zmian i trzeba je edytować pojedynczo."
+
+msgid "Trockenlauf starten"
+msgstr "Uruchom próbę"
+
+msgid "Angewendet: Land %1 von %2 erkannten Einträgen, Staatsangehörigkeit %3 von %4. Offen: %5 beziehungsweise %6."
+msgstr "Zastosowano: kraj %1 z %2 rozpoznanych wpisów, obywatelstwo %3 z %4. Pozostało: odpowiednio %5 i %6."
+
+msgid "mehrdeutig"
+msgstr "niejednoznaczne"
+
+msgid "nicht erkannt"
+msgstr "nierozpoznane"
+
+msgid "Anwenden"
+msgstr "Zastosuj"
+
+msgid "Abgleich anwenden"
+msgstr "Zastosuj uzgodnienie"
+
+msgid "Es werden %1 Einträge für das Land und %2 Einträge für die Staatsangehörigkeit zugeordnet. Die alten Texte bleiben erhalten. Fortfahren?"
+msgstr "Zostanie przypisanych %1 wpisów dla kraju i %2 wpisów dla obywatelstwa. Stare teksty pozostaną. Kontynuować?"
+
+msgid "Der Abgleich wurde angewendet."
+msgstr "Uzgodnienie zostało zastosowane."
+
+msgid "Der Bericht ist veraltet. Bitte den Trockenlauf erneut starten."
+msgstr "Raport jest nieaktualny. Proszę ponownie uruchomić próbę."
+
+msgid "%1 Mitglieder mit altem Text: %2 erkannt, %3 mehrdeutig, %4 nicht erkannt. Geschützt übersprungen: %5."
+msgstr "%1 członków ze starym tekstem: %2 rozpoznanych, %3 niejednoznacznych, %4 nierozpoznanych. Pominięto jako chronione: %5."
+
+msgid "Seltene Werte (weniger als drei Mitglieder): %1 Mitglieder, davon %2 erkannt. Sie werden nicht einzeln angezeigt."
+msgstr "Rzadkie wartości (mniej niż trzech członków): %1 członków, z czego %2 rozpoznanych. Nie są wyświetlane pojedynczo."
+
+msgid "Land und Staatsangehörigkeit abgeglichen"
+msgstr "Kraj i obywatelstwo uzgodnione"
+
+msgid "Land und Staatsangehörigkeit abgeglichen. Land: %1 erkannt, %2 angewendet, %3 offen, %4 mehrdeutig. Staatsangehörigkeit: %5 erkannt, %6 angewendet, %7 offen, %8 mehrdeutig."
+msgstr "Kraj i obywatelstwo uzgodnione. Kraj: %1 rozpoznanych, %2 zastosowanych, %3 otwartych, %4 niejednoznacznych. Obywatelstwo: %5 rozpoznanych, %6 zastosowanych, %7 otwartych, %8 niejednoznacznych."

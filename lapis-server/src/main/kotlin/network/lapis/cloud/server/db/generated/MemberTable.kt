@@ -22,6 +22,10 @@ public object MemberTable : Table("member") {
     public val postalCode: Column<String?> = varchar("postal_code", 20).nullable()
     public val city: Column<String?> = varchar("city", 200).nullable()
     public val country: Column<String?> = varchar("country", 100).nullable()
+
+    // Welle V1.9.121 -- country chosen from the selection list (ISO 3166-1 alpha-2, or XK). The legacy free text above stays as a
+    // read-only legacy value; only MemberCountryStore (and the allowlisted callers) touch this column.
+    public val countryCode: Column<String?> = char("country_code", 2).nullable()
     public val dateOfBirth: Column<LocalDate?> = date("date_of_birth").nullable()
 
     // Welle V1.4.4.5 "Sterbefall-Workflow" -- § 38 BGB: die Mitgliedschaft erlischt automatisch mit

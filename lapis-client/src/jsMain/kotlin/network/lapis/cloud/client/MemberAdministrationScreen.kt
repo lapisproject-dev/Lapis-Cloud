@@ -94,6 +94,8 @@ private fun renderMemberAdministrationSections(
     var reloadRosterOfCard: () -> Unit = {}
     if (callerRole == AccountRole.ADMIN) reloadCard = renderPrivilegedActionsCard(root, onExecuted = { reloadRosterOfCard() })
     if (isBoardOrAdmin) renderPendingApplications(root, chapters)
+    // Welle V1.9.121: the reconciliation of the legacy country / nationality texts (self-gated: BOARD/ADMIN).
+    if (isBoardOrAdmin) renderCountryLegacyMappingCard(root)
     val reloadRoster = renderMemberRoster(root, chapters, afterChange = { reloadCard() })
     reloadRosterOfCard = reloadRoster
     // Built exactly once: the sections are assembled once, after the chapter options loaded (or fell back to an empty list).

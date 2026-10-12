@@ -88,4 +88,9 @@ data class SessionInfoDto(
      * between an old client and a new server and vice versa.
      */
     val organizationTimeZone: String = "Europe/Berlin",
+    /**
+     * Welle V1.9.121 -- ISO 3166-1 alpha-2 code of the organization's country (recognised from `OrganizationSettings.country`, `null` when
+     * the text names no single country). The country lists pin this country on top. Defaulted for old/new client and server compatibility.
+     */
+    val organizationCountryCode: String? = null,
 )

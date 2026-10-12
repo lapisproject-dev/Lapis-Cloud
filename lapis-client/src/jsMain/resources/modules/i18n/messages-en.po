@@ -22785,3 +22785,81 @@ msgstr "The moderators have switched the sounds off for this room."
 
 msgid "Töne bei Beitritt und Verlassen in diesem Raum"
 msgstr "Sounds when people join or leave in this room"
+
+msgid "Kosovo"
+msgstr "Kosovo"
+
+msgid "staatenlos"
+msgstr "stateless"
+
+msgid "ungeklärt"
+msgstr "unclear"
+
+msgid "Ersetzt: %1"
+msgstr "Replaced: %1"
+
+msgid "%1 hinzugefügt."
+msgstr "%1 added."
+
+msgid "%1 entfernt."
+msgstr "%1 removed."
+
+msgid "Staatsangehörigkeit „%1“ entfernen"
+msgstr "Remove nationality “%1”"
+
+msgid "Höchstens %1 Staatsangehörigkeiten."
+msgstr "At most %1 nationalities."
+
+msgid "Altwert: „%1“ – bitte aus der Liste auswählen."
+msgstr "Old value: “%1” – please choose from the list."
+
+msgid "%1 (%2): Staatsangehörigkeit ungeklärt"
+msgstr "%1 (%2): nationality unclear"
+
+msgid "Staatsangehörigkeit ungeklärt"
+msgstr "Nationality unclear"
+
+msgid "Land und Staatsangehörigkeit abgleichen"
+msgstr "Reconcile country and nationality"
+
+msgid "Frühere Freitexte zu Land und Staatsangehörigkeit werden mit der Auswahlliste abgeglichen. Der Trockenlauf ändert nichts. Beim Anwenden bleibt der alte Text neben dem neuen Eintrag erhalten. Konten von Administratoren und Texte, die keinem Land eindeutig zugeordnet werden können, bleiben unberührt und müssen einzeln bearbeitet werden."
+msgstr "Earlier free texts for country and nationality are matched against the selection list. The dry run changes nothing. When applied, the old text is kept next to the new entry. Administrator accounts and texts that cannot be assigned to a single country remain untouched and must be edited individually."
+
+msgid "Trockenlauf starten"
+msgstr "Start dry run"
+
+msgid "Angewendet: Land %1 von %2 erkannten Einträgen, Staatsangehörigkeit %3 von %4. Offen: %5 beziehungsweise %6."
+msgstr "Applied: country %1 of %2 recognised entries, nationality %3 of %4. Still open: %5 and %6 respectively."
+
+msgid "mehrdeutig"
+msgstr "ambiguous"
+
+msgid "nicht erkannt"
+msgstr "not recognised"
+
+msgid "Anwenden"
+msgstr "Apply"
+
+msgid "Abgleich anwenden"
+msgstr "Apply reconciliation"
+
+msgid "Es werden %1 Einträge für das Land und %2 Einträge für die Staatsangehörigkeit zugeordnet. Die alten Texte bleiben erhalten. Fortfahren?"
+msgstr "%1 entries for the country and %2 entries for the nationality will be assigned. The old texts are kept. Continue?"
+
+msgid "Der Abgleich wurde angewendet."
+msgstr "The reconciliation has been applied."
+
+msgid "Der Bericht ist veraltet. Bitte den Trockenlauf erneut starten."
+msgstr "The report is out of date. Please start the dry run again."
+
+msgid "%1 Mitglieder mit altem Text: %2 erkannt, %3 mehrdeutig, %4 nicht erkannt. Geschützt übersprungen: %5."
+msgstr "%1 members with an old text: %2 recognised, %3 ambiguous, %4 not recognised. Skipped as protected: %5."
+
+msgid "Seltene Werte (weniger als drei Mitglieder): %1 Mitglieder, davon %2 erkannt. Sie werden nicht einzeln angezeigt."
+msgstr "Rare values (fewer than three members): %1 members, %2 of them recognised. They are not shown individually."
+
+msgid "Land und Staatsangehörigkeit abgeglichen"
+msgstr "Country and nationality reconciled"
+
+msgid "Land und Staatsangehörigkeit abgeglichen. Land: %1 erkannt, %2 angewendet, %3 offen, %4 mehrdeutig. Staatsangehörigkeit: %5 erkannt, %6 angewendet, %7 offen, %8 mehrdeutig."
+msgstr "Country and nationality reconciled. Country: %1 recognised, %2 applied, %3 open, %4 ambiguous. Nationality: %5 recognised, %6 applied, %7 open, %8 ambiguous."

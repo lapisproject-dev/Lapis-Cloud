@@ -15,6 +15,12 @@ object AuditMarkers {
     /** V1.9.35: a BOARD/ADMIN read the address / GwG data of another member. */
     const val MEMBER_ADDRESS_READ = "ADDRESS_READ"
 
+    /**
+     * V1.9.121: a board/admin applied the country / nationality reconciliation. The audit entry's `after` text is this marker
+     * followed by COUNTS only ("MEMBER_COUNTRY_LEGACY_MAPPED country=r/a/o/m nationality=r/a/o/m") -- never a value or a member id.
+     */
+    const val MEMBER_COUNTRY_LEGACY_MAPPED = "MEMBER_COUNTRY_LEGACY_MAPPED"
+
     /** V1.9.35: the board recorded an event refund that was paid outside Lapis Cloud. */
     const val EVENT_REFUND_MARKED = "EVENT_REFUND_MARKED"
 }

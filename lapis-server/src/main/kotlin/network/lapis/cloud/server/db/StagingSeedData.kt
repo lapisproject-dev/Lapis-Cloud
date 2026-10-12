@@ -618,6 +618,8 @@ object StagingSeedData {
                 it[joinedAt] = joinedDay
                 it[membershipTierId] = seed.tierId
                 it[regionalChapterId] = chapterId
+                // Welle V1.9.121: demo and staging members show a flag in the country list (the legacy text stays empty).
+                it[countryCode] = "DE"
                 if (seed.status == MemberStatus.DECEASED) it[dateOfDeath] = clock.dayAgo(requireNotNull(seed.leftStep).daysAgo)
                 if (seed.status == MemberStatus.FRIEND) it[friendSince] = joinedDay
                 if (admissionStep != null) {

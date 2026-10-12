@@ -22895,3 +22895,81 @@ msgstr "La modération a désactivé les sons pour cette salle."
 
 msgid "Töne bei Beitritt und Verlassen in diesem Raum"
 msgstr "Sons à l'arrivée et au départ dans cette salle"
+
+msgid "Kosovo"
+msgstr "Kosovo"
+
+msgid "staatenlos"
+msgstr "apatride"
+
+msgid "ungeklärt"
+msgstr "non clarifié"
+
+msgid "Ersetzt: %1"
+msgstr "Remplacé : %1"
+
+msgid "%1 hinzugefügt."
+msgstr "%1 ajouté."
+
+msgid "%1 entfernt."
+msgstr "%1 retiré."
+
+msgid "Staatsangehörigkeit „%1“ entfernen"
+msgstr "Retirer la nationalité « %1 »"
+
+msgid "Höchstens %1 Staatsangehörigkeiten."
+msgstr "%1 nationalités au maximum."
+
+msgid "Altwert: „%1“ – bitte aus der Liste auswählen."
+msgstr "Ancienne valeur : « %1 » – veuillez choisir dans la liste."
+
+msgid "%1 (%2): Staatsangehörigkeit ungeklärt"
+msgstr "%1 (%2) : nationalité non clarifiée"
+
+msgid "Staatsangehörigkeit ungeklärt"
+msgstr "Nationalité non clarifiée"
+
+msgid "Land und Staatsangehörigkeit abgleichen"
+msgstr "Rapprocher le pays et la nationalité"
+
+msgid "Frühere Freitexte zu Land und Staatsangehörigkeit werden mit der Auswahlliste abgeglichen. Der Trockenlauf ändert nichts. Beim Anwenden bleibt der alte Text neben dem neuen Eintrag erhalten. Konten von Administratoren und Texte, die keinem Land eindeutig zugeordnet werden können, bleiben unberührt und müssen einzeln bearbeitet werden."
+msgstr "Les anciens textes libres sur le pays et la nationalité sont rapprochés de la liste de sélection. La simulation ne modifie rien. À l’application, l’ancien texte est conservé à côté de la nouvelle entrée. Les comptes d’administrateurs et les textes qui ne peuvent pas être attribués sans ambiguïté à un pays restent inchangés et doivent être modifiés individuellement."
+
+msgid "Trockenlauf starten"
+msgstr "Lancer une simulation"
+
+msgid "Angewendet: Land %1 von %2 erkannten Einträgen, Staatsangehörigkeit %3 von %4. Offen: %5 beziehungsweise %6."
+msgstr "Appliqué : pays %1 sur %2 entrées reconnues, nationalité %3 sur %4. Restent ouvertes : %5 et %6 respectivement."
+
+msgid "mehrdeutig"
+msgstr "ambigu"
+
+msgid "nicht erkannt"
+msgstr "non reconnu"
+
+msgid "Anwenden"
+msgstr "Appliquer"
+
+msgid "Abgleich anwenden"
+msgstr "Appliquer le rapprochement"
+
+msgid "Es werden %1 Einträge für das Land und %2 Einträge für die Staatsangehörigkeit zugeordnet. Die alten Texte bleiben erhalten. Fortfahren?"
+msgstr "%1 entrées pour le pays et %2 entrées pour la nationalité seront attribuées. Les anciens textes sont conservés. Continuer ?"
+
+msgid "Der Abgleich wurde angewendet."
+msgstr "Le rapprochement a été appliqué."
+
+msgid "Der Bericht ist veraltet. Bitte den Trockenlauf erneut starten."
+msgstr "Le rapport est périmé. Veuillez relancer la simulation."
+
+msgid "%1 Mitglieder mit altem Text: %2 erkannt, %3 mehrdeutig, %4 nicht erkannt. Geschützt übersprungen: %5."
+msgstr "%1 membres avec un ancien texte : %2 reconnus, %3 ambigus, %4 non reconnus. Ignorés car protégés : %5."
+
+msgid "Seltene Werte (weniger als drei Mitglieder): %1 Mitglieder, davon %2 erkannt. Sie werden nicht einzeln angezeigt."
+msgstr "Valeurs rares (moins de trois membres) : %1 membres, dont %2 reconnus. Elles ne sont pas affichées individuellement."
+
+msgid "Land und Staatsangehörigkeit abgeglichen"
+msgstr "Pays et nationalité rapprochés"
+
+msgid "Land und Staatsangehörigkeit abgeglichen. Land: %1 erkannt, %2 angewendet, %3 offen, %4 mehrdeutig. Staatsangehörigkeit: %5 erkannt, %6 angewendet, %7 offen, %8 mehrdeutig."
+msgstr "Pays et nationalité rapprochés. Pays : %1 reconnus, %2 appliqués, %3 ouverts, %4 ambigus. Nationalité : %5 reconnus, %6 appliqués, %7 ouverts, %8 ambigus."

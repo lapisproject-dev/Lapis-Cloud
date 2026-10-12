@@ -1,0 +1,25 @@
+= Flag icons: provenance
+
+V1.9.121 adds the country and nationality selection lists, which show a small flag next to every country name.
+The 250 flag files are copied byte for byte from the npm package `flag-icons` 7.5.0 (MIT, latest release on 2025-05-29, checked 2026-10-12).
+They are checked in as own assets (no npm dependency, no `yarn.lock` change) and are served from the same origin only; nothing is ever fetched from a third party, and no emoji flags are used (Windows does not render them).
+
+[cols="1,3"]
+|===
+| Package | `flag-icons` 7.5.0, https://github.com/lipis/flag-icons
+| Licence | MIT, copyright Panayiotis Lipiridis (see `LICENSES.txt`). The package bundles flag artwork from several sources; the licence of the individual images is stated here exactly as the package states it (one MIT licence for the package), without a legal claim of our own.
+| Tarball | `https://registry.npmjs.org/flag-icons/-/flag-icons-7.5.0.tgz`
+| Tarball SHA-256 | `c0b80bf0e08006a60f56621d6bc49f8c7131f4d1fef6737a165a673431f4b518`
+| npm integrity | `sha512-kd+MNXviFIg5hijH766tt+3x76ele1AXlo4zDdCxIvqWZhKt4T83bOtxUOOMlTx/EcFdUMH5yvQgYlFh1EqqFg==`
+| Extraction | the archive was unpacked into its own empty directory and only read; no file of it was executed
+| Subset | `flags/4x3/<code>.svg` for exactly the 250 selectable codes (the 249 ISO 3166-1 alpha-2 codes plus `xk` for Kosovo, see `CountryCodes.SELECTABLE`), out of 271 files of the package directory. NOT shipped: `1x1` (square), subdivisions (`es-ct`, `gb-eng`, `gb-sct`, `gb-wls`, `gb-nir` ...), `eu`, `un`, `xx`, `cp`, `dg`, `ic`, `pc`, the CSS and SASS files
+| Processing | none (bytes unchanged, no optimisation)
+| Total size | 1645762 bytes (about 1.6 MB) for the 250 files; a single file is at most about 180 KB (coats of arms)
+| Checksums | `MANIFEST.sha256` lists the SHA-256 of every shipped flag (`sha256sum`-style, relative to this directory); `FlagAssetsTest` checks it
+|===
+
+Content rules (checked by `FlagAssetsTest`): no `<script`, no event handler attribute, no `<foreignObject`, no external reference, no entity declaration, no source-map comment, no embedded raster `<image`.
+The flags are only ever used as `<img>` (never inline), always with an empty `alt` and `aria-hidden="true"`: the country name next to the flag is the accessible name.
+
+These files are served immutable for a year. If the bytes ever change, rename the directory to `flag-icons-v8`
+(`CountryFlag.DIR` in the client, `FLAG_ICONS_ASSET_DIR` in `ClientAssetRoutes.kt`, `lapis-client/build.gradle.kts`) and update `FlagAssetsTest`.

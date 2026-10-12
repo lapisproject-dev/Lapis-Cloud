@@ -71,10 +71,15 @@ abstract class EncounterSpaceMigrationScenarios(
         val roomColumns =
             "id, title, description, livekit_room_name, created_by_member_id, created_at, ended_at, max_participants, allow_federation_guests, meeting_id"
 
+        // V1.9.121: `member` gained a column (V96) long after this migration -- "byte-identical" means the columns it had at V72.
+        var memberColumns = "*"
+
         fun dump(
             table: String,
             columns: String = "*",
-        ) = rows("SELECT $columns FROM $table ORDER BY 1, 2").joinToString("\n")
+        ) = rows(
+            "SELECT ${if (table == "member" && columns == "*") memberColumns else columns} FROM $table ORDER BY 1, 2",
+        ).joinToString("\n")
 
         lateinit var roomBefore: String
         lateinit var participationBefore: String
@@ -84,6 +89,9 @@ abstract class EncounterSpaceMigrationScenarios(
         beforeSpec {
             h = newHarness()
             h.flyway("72").migrate()
+            memberColumns =
+                rows("SELECT column_name FROM information_schema.columns WHERE LOWER(table_name) = 'member' ORDER BY ordinal_position")
+                    .joinToString(", ") { it[0] }
             member(creator)
             member(other)
             exec(

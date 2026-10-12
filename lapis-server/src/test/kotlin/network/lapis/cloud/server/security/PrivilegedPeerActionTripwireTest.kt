@@ -13,10 +13,10 @@ import java.io.File
  * Sinks (scanned in `src/main/kotlin`, comments and string contents blanked, brace matching, no parser):
  * 1. `AccountTable.update/insert` assigning `passwordHash` or `role`;
  * 2. `PasswordResetTokenStore.createToken(` (a reset link is an account takeover for whoever reads the mailbox);
- * 3. `MemberTable.update` assigning `street`, `postalCode`, `city`, `country`, `dateOfBirth`, `nationality` or `status`;
+ * 3. `MemberTable.update` assigning `street`, `postalCode`, `city`, `country`, `countryCode`, `dateOfBirth`, `nationality` or `status`;
  * 4. `KeycloakAccountLinkTable.insert` (an identity-provider identity that may log in as the member);
  * 5. `.erase(subject` on the personal-data registry (GDPR erasure hard-deletes the account);
- * 6. reads of `MemberTable.street|postalCode|city|country|dateOfBirth|nationality` in `rpc/` and `routes/`;
+ * 6. reads of `MemberTable.street|postalCode|city|country|countryCode|dateOfBirth|nationality` (and `MemberNationalityTable`) in `rpc/` and `routes/`;
  * 7. raw SQL `UPDATE account SET ... password_hash|role`.
  *
  * Rule: a sink is either inside a FUNCTION whose body mentions `PeerGuard.`, `peerGuarded(` or `PeerPolicy.decide`, or its file is
@@ -43,6 +43,11 @@ class PrivilegedPeerActionTripwireTest :
             mapOf(
                 "network/lapis/cloud/server/member/MemberRoleStatusMutations.kt" to
                     "the ONE write of a role / status; every caller takes the peer decision first (checked by the call-site test below)",
+                "network/lapis/cloud/server/member/MemberCountryStore.kt" to
+                    "Welle V1.9.121: the ONE writer of member.country_code and member_nationality; every caller either took the peer " +
+                    "decision " +
+                    "first (MemberService.updateMemberCountry/updateMemberNationalities/legacy address RPCs) or skips ADMIN accounts " +
+                    "(CountryLegacyMappingEngine), or is erasure/import/seed (CountryCodeAccessTripwireTest pins the call sites)",
                 "network/lapis/cloud/server/member/TemporaryPasswordMutation.kt" to
                     "the ONE write of a temporary password; every caller takes the peer decision first (call-site test below)",
                 "network/lapis/cloud/server/rpc/AuthService.kt#changePassword" to
@@ -85,7 +90,7 @@ class PrivilegedPeerActionTripwireTest :
             )
 
         val guardMarker = Regex("""PeerGuard\.|peerGuarded\s*\(|PeerPolicy\.decide""")
-        val memberWriteColumns = "street|postalCode|city|country|dateOfBirth|nationality|status"
+        val memberWriteColumns = "street|postalCode|city|country|countryCode|dateOfBirth|nationality|status"
         val accountWrite = Regex("""(?<![A-Za-z0-9_])AccountTable\.(update|insert|upsert|replace|batchInsert|batchUpsert)\b""")
         val accountAssignment = Regex("""\[\s*(AccountTable\.)?(passwordHash|role)\s*]\s*=""")
         val memberWrite = Regex("""(?<![A-Za-z0-9_])MemberTable\.(update|upsert|replace|batchUpsert)\b""")
@@ -93,7 +98,10 @@ class PrivilegedPeerActionTripwireTest :
         val resetToken = Regex("""PasswordResetTokenStore\.createToken\s*\(""")
         val keycloakInsert = Regex("""KeycloakAccountLinkTable\.(insert|upsert|batchInsert)\b""")
         val erase = Regex("""\.erase\s*\(\s*subject\b""")
-        val addressRead = Regex("""(?<![A-Za-z0-9_])MemberTable\.(street|postalCode|city|country|dateOfBirth|nationality)\b""")
+        val addressRead =
+            Regex(
+                """(?<![A-Za-z0-9_])(?:MemberTable\.(street|postalCode|city|country|countryCode|dateOfBirth|nationality)|(MemberNationalityTable))\b""",
+            )
         val rawAccountSql = Regex("""(?is)update\s+"?account"?\s+set\b[^;]*?\b(password_hash|role)\b""")
         val mutationCall =
             Regex(
@@ -258,7 +266,7 @@ class PrivilegedPeerActionTripwireTest :
                         Finding(
                             file = relative,
                             function = innermost(spans, m.range.first)?.name ?: "<top level>",
-                            kind = "read MemberTable.${m.groupValues[1]}",
+                            kind = "read ${m.groupValues[2].ifEmpty { "MemberTable.${m.groupValues[1]}" }}",
                             line = SourceScan.lineOf(text = code, index = m.range.first),
                             guarded = innermostGuarded(code, spans, m.range.first),
                         )

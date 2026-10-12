@@ -550,6 +550,10 @@ neither a member nor a CRM contact has no subject root and therefore no Art. 15/
   *kept* in both erasure modes (`rowsRetained`, with the reason in the outcome) because they hold only a status and an instant, the member row itself is anonymized
   and never deleted, and deleting them would silently rewrite every past member count; the export lists the subject's own rows. There is no `changed_by`
   column, so the log adds no second personal reference. See `docs/architecture/member-status-history.adoc`.
+* `network.lapis.cloud.server.dsgvo.MemberNationalityPersonalData` — the contributor for `member_nationality` (Welle V1.9.121): nationality is GwG beneficial-owner data, so the rows
+  are *deleted* in every mode (no retention duty); the export lists code and German name per nationality, the legacy free text as stored and the explanation of the two internal codes
+  `XS` (stateless, ICAO `XXA`) and `ZZ` (unclear). The chosen country (`member.country_code`, with its German name in the `foundation` section of the export) is nulled by
+  `FoundationPersonalData` together with the legacy texts. See `docs/features/member-country-nationality.adoc`.
 * `network.lapis.cloud.server.dsgvo.EncounterSpacePersonalData` — the contributor for the three encounter-space tables (Welle V1.9.61): office rows are
   *deleted*, the space a member created and the consent proof are *retained with the reason*; presence rows are transient and never reach the export of a
   closed session. See `docs/architecture/encounter-space.adoc`.

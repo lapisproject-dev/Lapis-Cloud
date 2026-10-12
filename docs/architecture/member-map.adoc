@@ -179,7 +179,8 @@ V1.9.8. Q3 is a server+shared decision, implemented and tested since V1.9.5
   "contributors" in the bundled build, and would be an operator-controlled-HTML-into-DOM path if
   used directly). The map's vector source is configured *without* a TileJSON `url`, specifically so
   MapLibre never reads that embedded metadata attribution at all.
-* **Q3 -- what counts as "Germany"**: `member.country` is free text with no normalization. Blank/
+* **Q3 -- what counts as "Germany"** (since V1.9.121 the grouping key is `member.country_code ?: member.country`, so a member who chose a country from the list is classified by its code -- `DE` is German, any other
+  code is foreign -- even when the legacy text was cleared): `member.country` is free text with no normalization. Blank/
   unset counts as Germany -- the decisive rule (`MemberMapRules.isGermanCountry`): without it,
   almost every domestic member (whose `country` field was simply never filled in) would
   incorrectly land in the `foreign` bucket. Recognized spellings, case/whitespace-insensitive:

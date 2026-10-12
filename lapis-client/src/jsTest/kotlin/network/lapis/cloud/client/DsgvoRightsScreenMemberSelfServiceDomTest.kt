@@ -46,18 +46,22 @@ class DsgvoRightsScreenMemberSelfServiceDomTest {
                         )
                     }
 
-                    override suspend fun updateAddress(
+                    override suspend fun updateStreetAddress(
                         memberId: String,
                         street: String?,
                         postalCode: String?,
                         city: String?,
-                        country: String?,
                     ) = getCurrentMember()
 
-                    override suspend fun updateBeneficialOwnerData(
+                    override suspend fun updateCountry(
+                        memberId: String,
+                        countryCode: String?,
+                    ) = getCurrentMember()
+
+                    override suspend fun updateNationalities(
                         memberId: String,
                         dateOfBirth: LocalDate?,
-                        nationality: String?,
+                        nationalityCodes: List<String>,
                     ) = getCurrentMember()
                 }
             mountedForm("dsgvo-self-service") { root, element ->

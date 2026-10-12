@@ -307,6 +307,18 @@ data class MemberDto(
     val dateOfDeath: LocalDate? = null,
     /** Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)" -- `member.regional_chapter_id`. The client resolves the chapter's name from `IRegistrationService.listRegionalChapterOptions()`. */
     val regionalChapterId: String? = null,
+    /**
+     * Welle V1.9.121 -- ISO 3166-1 alpha-2 code (or `XK`) chosen from the country list, `null` while only a legacy free text
+     * exists. [country] stays the EFFECTIVE value (German country name when a code is set, otherwise the legacy text);
+     * [countryLegacy] carries the raw legacy text only when there is no code, so the client can show "old value" without guessing.
+     */
+    val countryCode: String? = null,
+    /** Welle V1.9.121 -- selected nationality codes (sorted; `XS` stateless / `ZZ` unclear stand alone). Empty = none chosen. */
+    val nationalityCodes: List<String> = emptyList(),
+    /** Welle V1.9.121 -- raw legacy `member.country` text, only while [countryCode] is `null`. */
+    val countryLegacy: String? = null,
+    /** Welle V1.9.121 -- raw legacy `member.nationality` text, only while [nationalityCodes] is empty. */
+    val nationalityLegacy: String? = null,
 )
 
 /**
@@ -360,4 +372,9 @@ data class MemberAddressDataDto(
      * field is `null`, no error is raised. The UI shows "geschuetzt" instead of dots.
      */
     val protectedTarget: Boolean = false,
+    /** Welle V1.9.121 -- see [MemberDto.countryCode]. [country] / [nationality] stay the effective values. */
+    val countryCode: String? = null,
+    val nationalityCodes: List<String> = emptyList(),
+    val countryLegacy: String? = null,
+    val nationalityLegacy: String? = null,
 )

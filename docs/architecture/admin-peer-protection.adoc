@@ -42,6 +42,10 @@ a takeover by one person without the second administrator every other path deman
 temporary password through the four-eyes path and changes the address themselves (path A); on an instance with at most two administrators
 the operator console does it.
 
+Since V1.9.121 the protected data also include the **country code and the nationality codes** (`updateMemberCountry`, `updateMemberNationalities`, `MemberAddressDataDto.countryCode`/`nationalityCodes`):
+they take the same `WRITE_PROTECTED_DATA` / `READ_PROTECTED_DATA` decisions as the address. The bulk reconciliation of the legacy texts (`applyCountryLegacyMapping`, BOARD/ADMIN) does not take a decision per row; it
+**skips every account with the ADMIN role other than the caller** (counted as "Geschützt übersprungen") and sends no notice -- an administrator's data is fixed individually, with the decision and the notice that go with it.
+
 *`READ_PROTECTED_DATA` masked* means: no error, `protectedTarget = true`, every value field `null`, *no* read-audit entry (nothing leaves)
 -- the UI shows the word "Geschützt" with a shield instead of dots. The matrix is a table of data in `PeerPolicyMatrixTest`, which walks the
 complete cross product (4 callers x 6 target kinds x 11 actions x 0/1/2 eligible approvers x mail on/off) and pins that no cell is missing.

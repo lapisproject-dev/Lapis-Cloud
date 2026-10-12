@@ -1,0 +1,136 @@
+= Country and nationality as selection lists (V1.9.121)
+:toc:
+
+Until V1.9.120 a member's country and nationality were free text (`member.country`, `member.nationality`, 100 characters each): "DE", "Deutschland", "deutsch",
+"Germany" and a typo all existed side by side. That text cannot be counted, cannot be sorted, cannot be sent to a postal provider as a stable value and is weak
+evidence for the beneficial-owner data of the Transparenzregister (§ 20 GwG). Both fields are now chosen from a **list of countries**, shown with a **flag**,
+and stored as a **code**.
+
+== What changes for a member
+
+* "Land" is a searchable list (an ARIA combobox, the same widget as the person pickers). The organization's own country stands on top, then everything alphabetically in the
+  language of the user interface. There is **no preselection**: the empty entry "— bitte wählen —" is the first row.
+* "Staatsangehörigkeit" takes **up to ten** nationalities, shown as chips (flag and name) above the search field. The list ends with a second group,
+  "staatenlos" and "ungeklärt" (no flag).
+* Search ignores case and accents and finds a country by its name in the interface language, by its English name and by its code ("poland", "polen", "pl").
+* A member who still has only the old free text sees it as a plain-text hint ("Altwert: ... -- bitte aus der Liste auswählen") below an empty list. The old text is never
+  the value of the field.
+* The address block saves street, postal code and city separately from the country; only the parts that changed are written.
+
+== Data model
+
+[kuml, member-country-data-model, svg]
+----
+classDiagram(name = "Country and nationality") {
+    val member = classOf(name = "member") {
+        attribute(name = "country", type = "VARCHAR(100)")
+        attribute(name = "country_code", type = "CHAR(2)")
+        attribute(name = "nationality", type = "VARCHAR(100)")
+    }
+    val nationality = classOf(name = "member_nationality") {
+        attribute(name = "member_id", type = "UUID")
+        attribute(name = "country_code", type = "CHAR(2)")
+    }
+    association(source = member, target = nationality, name = "0..10 nationalities")
+}
+----
+
+* `member.country_code` -- nullable `CHAR(2)`: the chosen country (ISO 3166-1 alpha-2, or `XK`). A CHECK pins the shape (two upper-case characters).
+* `member_nationality` -- one row per (member, code), primary key `(member_id, country_code)`, a CHECK on the shape, **no `ON DELETE CASCADE`** (house convention;
+  `MemberNationalityPersonalData` deletes the rows on erasure).
+* The legacy columns `member.country` and `member.nationality` **stay**. They are read-only legacy values from now on: a human choosing a code clears the legacy text; clearing
+  the code leaves it alone.
+* Migration `V96__member_country_and_nationality_codes.sql` is purely additive and idempotent; it rewrites no data. The kUML model is `68-member-nationality.kuml.kts` plus the new
+  `countryCode` attribute in `00-foundation.kuml.kts`.
+
+== The codes
+
+`network.lapis.cloud.shared.domain.CountryCodes` is the one list for server and client:
+
+* the **249** officially assigned ISO 3166-1 alpha-2 codes (hard-coded, sorted), plus **`XK`** (Kosovo; a user-assigned code every major data set uses) -- 250 selectable countries;
+* **`XS`** -- stateless. Internal value; the ICAO code of a machine-readable travel document is `XXA`. Nationality field only.
+* **`ZZ`** -- nationality unclear. Internal value. Nationality field only.
+* `XS` and `ZZ` are **exclusive**: choosing one replaces every other entry, choosing a country replaces such an entry (announced to screen readers). The country field rejects them.
+* At most **10** nationalities; duplicates collapse; codes are normalised (trim, upper case) and validated on the server -- the client list is a convenience, not the rule.
+
+Names for display come from the platform: the browser (`Intl.DisplayNames`, sort order `Intl.Collator`) for the lists, the JDK (`Locale`, CLDR) for letters and the Art. 15 export. They can differ slightly
+between browsers and JDK versions; nothing is stored under a name.
+
+== Writing
+
+[cols="2,3",options="header"]
+|===
+|RPC (`IMemberService`) |Behaviour
+|`updateMemberStreetAddress` |street, postal code, city only; the country is untouched
+|`updateMemberCountry` |one code or `null` (clears the code only)
+|`updateMemberNationalities` |date of birth and 0..10 codes in one call (the GwG card)
+|`previewCountryLegacyMapping` / `applyCountryLegacyMapping` |the reconciliation below (BOARD/ADMIN)
+|===
+
+Authorization comes first (self or BOARD/ADMIN), validation second -- a caller without permission can neither probe the rules nor learn whether a member exists. A rejected value is a value-free
+`ConflictException`. The peer protection applies exactly as for the address: BOARD may not write an ADMIN's data, an ADMIN writing another ADMIN's data is allowed and the target is told. Every write
+adds the existing value-free audit marker (`ADDRESS_UPDATED`, `BENEFICIAL_OWNER_DATA_UPDATED`); no code and no name ever appears in an audit entry.
+
+The only reader and writer of the new columns is `MemberCountryStore`; `CountryCodeAccessTripwireTest` pins every other file that may touch them (reconciliation, erasure contributor, CSV import, seed, the
+peer-guarded RPCs) and every caller of its writing functions. The 10-row cap and the `XS`/`ZZ` exclusivity are enforced there under the member row lock (a trigger or a CHECK with a subquery is not
+portable between H2 and PostgreSQL).
+
+== The legacy text and the reconciliation
+
+An instance has years of free text. A board member or administrator reconciles it in "Mitgliederverwaltung" ("Land und Staatsangehörigkeit abgleichen"):
+
+. **Dry run** (`previewCountryLegacyMapping`) -- a pure read. Per value: recognised (exactly one country, or one to ten countries for a nationality list), ambiguous ("Kongo", "Korea",
+  "Jugoslawien", "DDR" ...) or not recognised. Matching uses the names of all 250 countries in the eight interface languages, the codes (only when written in capitals, so "no" and "in" never match), and a
+  hand list of German and English adjectives and short forms (`LegacyCountryDictionary`). Lists are split at `,` `/` `;` `&` `+` and " und " / " and ".
+. **Apply** (`applyCountryLegacyMapping`) -- bound to the dry run by a SHA-256 fingerprint of the whole plan. A plan that changed in between is refused (`ConflictException`, nothing written). One transaction,
+  members in ascending id order, each row locked first and then written only if it still has no code and still carries exactly the legacy text the plan was made for (compare-and-set). At most
+  20 000 rows.
+
+What it deliberately does not do:
+
+* It never clears the legacy text; the code is added next to it.
+* It never touches a member whose account has the **ADMIN** role (other than the caller): peer protection. They are counted ("Geschützt übersprungen") and fixed one by one.
+* A value shared by **fewer than three** members never appears verbatim in the report (such a value is nearly an identifier): only counts. They must be corrected individually.
+* It sends no mail and logs no value; the audit entry reads `MEMBER_COUNTRY_LEGACY_MAPPED country=r/a/o/m nationality=r/a/o/m` (recognised / applied / open / ambiguous) -- counts only, entity = the caller.
+
+The CSV member import uses the same dictionary: an unambiguous text becomes a code (and is not stored as text), a doubtful one stays as legacy text.
+
+== Where the effective value is used
+
+`MemberDto.country` / `nationality` carry the **effective** value: the German name of the chosen code, otherwise the legacy text. `countryLegacy` / `nationalityLegacy` carry the raw old text, and only while
+there is no code. The client uses `countryCode` / `nationalityCodes`.
+
+* **Letters, dunning, postal mail.** `loadMailmergeMember` supplies the effective country, so the address block, the "complete address" checks and the dispatch provider see the German country name.
+  A member who chose a country by list and has an empty legacy column is therefore not "incomplete". The Letterxpress request carries the country name, as before. The line for the home country is still printed.
+* **Board map.** The code is the grouping key (`country_code ?: country`): `DE` is German, any other code is foreign. Clearing the legacy column no longer turns a Polish member into a German one.
+* **Transparenzregister report.** A nationality counts as given when the member has at least one code or a legacy text. `ZZ` is given but reported separately as "ungeklärt" (`nationalityUnclear`); `XS` is a settled answer.
+* **Art. 15 export** (`foundation`: `countryCode`, `countryName`; `memberNationality`: codes, names, the legacy text and the explanation of `XS` / `ZZ`) and **Art. 17 erasure** (the code is nulled, the rows deleted in every mode).
+* **Not changed:** the member list, CSV exports, webhooks and the public API do not carry a country or nationality (they never did).
+
+== Flags
+
+The 250 flags are `flags/4x3/<code>.svg` of the npm package `flag-icons` 7.5.0 (MIT), copied byte for byte into `lapis-client/src/jsMain/webAssets/flag-icons-v7/` (`PROVENANCE.adoc` names version, tarball hash,
+licence and the subset; `MANIFEST.sha256` lists every file). No CDN, no emoji, no third party learns anything. The files are staged like the other own assets, checked by SHA-256 in the Gradle build (staging
+and webpack copy) and in `FlagAssetsTest`, and served from `/assets/flag-icons-v7/` immutable for a year with `image/svg+xml`, `nosniff` and a restrictive CSP for a directly opened file. `FlagAssetsTest` also scans every SVG for
+scripts, event handlers, external references, entities, source maps and embedded rasters. The flags are only ever `<img>` elements, never inline SVG.
+
+* A flag is decoration: `alt=""` and `aria-hidden="true"`; the accessible name of a row is the country name alone, never "DE". It stands to the left of the name and never alone.
+* A hairline (`--lapis-flag-outline`, a token with a dark-mode value) keeps white flags visible on a light background; the aspect ratio is 4:3.
+* A missing file (404) makes the image disappear quietly.
+
+== Accessibility
+
+Keyboard: arrows open and move, Enter picks, Esc closes, Tab leaves (a second Esc restores). `aria-activedescendant` follows the active row. Every chip has its own remove button named
+"Staatsangehörigkeit „Deutschland“ entfernen"; **Backspace never removes a chip**. At ten entries the field is disabled and says why. Touch targets are 44 px on coarse pointers.
+
+== Compatibility of open browser tabs
+
+* The new DTO fields are appended with defaults (wire-compatible both ways, `MemberDtoWireCompatTest`, `MemberCountryWireCompatTest`).
+* The five new RPC methods are **appended at the end** of `IMemberService`: Kilua RPC numbers its routes by declaration order, so inserting earlier would have shifted every later route (a test pins this).
+* The old RPCs `updateMemberAddress(..., country)` and `updateMemberBeneficialOwnerData(..., nationality)` stay for a tab that has not been reloaded. They write the legacy text: the effective name sent back unchanged keeps the
+  code; another text becomes the legacy text and drops the code; an empty text clears both.
+
+== Known limits
+
+See the section in `CHANGELOG.md` (V1.9.121). In short: names depend on browser and JDK; `XK`, `XS`, `ZZ` are not ISO codes; registration, application and direct creation still do not ask for an address; the
+legacy columns stay; rare legacy values have to be corrected by hand; Letterxpress gets the name, not the code, and was not tested against the real counterpart.

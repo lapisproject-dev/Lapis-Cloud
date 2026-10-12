@@ -22829,3 +22829,81 @@ msgstr "Модерация отключила звуки для этой ком�
 
 msgid "Töne bei Beitritt und Verlassen in diesem Raum"
 msgstr "Звуки при входе и выходе в этой комнате"
+
+msgid "Kosovo"
+msgstr "Косово"
+
+msgid "staatenlos"
+msgstr "без гражданства"
+
+msgid "ungeklärt"
+msgstr "не выяснено"
+
+msgid "Ersetzt: %1"
+msgstr "Заменено: %1"
+
+msgid "%1 hinzugefügt."
+msgstr "Добавлено: %1."
+
+msgid "%1 entfernt."
+msgstr "Удалено: %1."
+
+msgid "Staatsangehörigkeit „%1“ entfernen"
+msgstr "Удалить гражданство «%1»"
+
+msgid "Höchstens %1 Staatsangehörigkeiten."
+msgstr "Не более %1 гражданств."
+
+msgid "Altwert: „%1“ – bitte aus der Liste auswählen."
+msgstr "Прежнее значение: «%1» – выберите из списка."
+
+msgid "%1 (%2): Staatsangehörigkeit ungeklärt"
+msgstr "%1 (%2): гражданство не выяснено"
+
+msgid "Staatsangehörigkeit ungeklärt"
+msgstr "Гражданство не выяснено"
+
+msgid "Land und Staatsangehörigkeit abgleichen"
+msgstr "Сопоставить страну и гражданство"
+
+msgid "Frühere Freitexte zu Land und Staatsangehörigkeit werden mit der Auswahlliste abgeglichen. Der Trockenlauf ändert nichts. Beim Anwenden bleibt der alte Text neben dem neuen Eintrag erhalten. Konten von Administratoren und Texte, die keinem Land eindeutig zugeordnet werden können, bleiben unberührt und müssen einzeln bearbeitet werden."
+msgstr "Прежние произвольные тексты о стране и гражданстве сопоставляются со списком выбора. Пробный прогон ничего не меняет. При применении старый текст сохраняется рядом с новой записью. Учётные записи администраторов и тексты, которые нельзя однозначно отнести к стране, остаются без изменений и требуют ручной правки."
+
+msgid "Trockenlauf starten"
+msgstr "Запустить пробный прогон"
+
+msgid "Angewendet: Land %1 von %2 erkannten Einträgen, Staatsangehörigkeit %3 von %4. Offen: %5 beziehungsweise %6."
+msgstr "Применено: страна %1 из %2 распознанных записей, гражданство %3 из %4. Осталось: %5 и %6 соответственно."
+
+msgid "mehrdeutig"
+msgstr "неоднозначно"
+
+msgid "nicht erkannt"
+msgstr "не распознано"
+
+msgid "Anwenden"
+msgstr "Применить"
+
+msgid "Abgleich anwenden"
+msgstr "Применить сопоставление"
+
+msgid "Es werden %1 Einträge für das Land und %2 Einträge für die Staatsangehörigkeit zugeordnet. Die alten Texte bleiben erhalten. Fortfahren?"
+msgstr "Будет присвоено %1 записей для страны и %2 записей для гражданства. Старые тексты сохранятся. Продолжить?"
+
+msgid "Der Abgleich wurde angewendet."
+msgstr "Сопоставление применено."
+
+msgid "Der Bericht ist veraltet. Bitte den Trockenlauf erneut starten."
+msgstr "Отчёт устарел. Запустите пробный прогон снова."
+
+msgid "%1 Mitglieder mit altem Text: %2 erkannt, %3 mehrdeutig, %4 nicht erkannt. Geschützt übersprungen: %5."
+msgstr "%1 участников со старым текстом: %2 распознано, %3 неоднозначно, %4 не распознано. Пропущено как защищённые: %5."
+
+msgid "Seltene Werte (weniger als drei Mitglieder): %1 Mitglieder, davon %2 erkannt. Sie werden nicht einzeln angezeigt."
+msgstr "Редкие значения (менее трёх участников): %1 участников, из них %2 распознано. Они не показываются по отдельности."
+
+msgid "Land und Staatsangehörigkeit abgeglichen"
+msgstr "Страна и гражданство сопоставлены"
+
+msgid "Land und Staatsangehörigkeit abgeglichen. Land: %1 erkannt, %2 angewendet, %3 offen, %4 mehrdeutig. Staatsangehörigkeit: %5 erkannt, %6 angewendet, %7 offen, %8 mehrdeutig."
+msgstr "Страна и гражданство сопоставлены. Страна: %1 распознано, %2 применено, %3 открыто, %4 неоднозначно. Гражданство: %5 распознано, %6 применено, %7 открыто, %8 неоднозначно."

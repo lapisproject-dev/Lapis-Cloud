@@ -196,6 +196,12 @@ classDiagram(name = "Foundation") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "country"; "sqlType" to "VARCHAR(100)" }
         }
+        // Welle V1.9.121 -- country chosen from the selection list (ISO 3166-1 alpha-2 or XK), see 68-member-nationality.kuml.kts and
+        // V96__member_country_and_nationality_codes.sql. The legacy free-text `country` above stays as a read-only legacy value.
+        attribute(name = "countryCode", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "country_code"; "sqlType" to "CHAR(2)" }
+        }
         // V0.5.2 Transparenzregister beneficial-owner fields -- see file header. Both nullable.
         attribute(name = "dateOfBirth", type = "LocalDate") {
             multiplicity = Multiplicity(0, 1)

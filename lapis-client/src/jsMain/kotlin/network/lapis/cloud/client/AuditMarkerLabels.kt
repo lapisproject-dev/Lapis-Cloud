@@ -12,7 +12,20 @@ import network.lapis.cloud.shared.domain.AuditMarkers
  */
 private fun markerOf(entry: AuditLogEntryDto): String? = entry.afterSnapshot?.takeIf { markerEntityType(it) == entry.entityType }
 
+/** V1.9.121: the reconciliation's entry is the marker followed by COUNTS ("... country=r/a/o/m nationality=r/a/o/m"): matched by prefix. */
+private val COUNTRY_MAPPING_COUNTS = Regex("""country=(\d+)/(\d+)/(\d+)/(\d+) nationality=(\d+)/(\d+)/(\d+)/(\d+)""")
+
+private fun isCountryMappingMarker(marker: String): Boolean =
+    marker == AuditMarkers.MEMBER_COUNTRY_LEGACY_MAPPED || marker.startsWith(AuditMarkers.MEMBER_COUNTRY_LEGACY_MAPPED + " ")
+
 private fun markerEntityType(marker: String): AuditEntityType? =
+    if (isCountryMappingMarker(marker)) {
+        AuditEntityType.MEMBER
+    } else {
+        exactMarkerEntityType(marker)
+    }
+
+private fun exactMarkerEntityType(marker: String): AuditEntityType? =
     when (marker) {
         AuditMarkers.MEMBER_ADDRESS_READ,
         AuditMarkers.MEMBER_ADDRESS_UPDATED,
@@ -35,6 +48,24 @@ internal fun auditMarkerDescription(
     raw: String,
 ): String? {
     if (markerEntityType(raw) != entityType) return null
+    if (isCountryMappingMarker(raw)) {
+        val counts = COUNTRY_MAPPING_COUNTS.find(raw)?.groupValues?.drop(1)
+        return if (counts == null) {
+            gettext("Land und Staatsangehörigkeit abgeglichen")
+        } else {
+            gettext(
+                "Land und Staatsangehörigkeit abgeglichen. Land: %1 erkannt, %2 angewendet, %3 offen, %4 mehrdeutig. Staatsangehörigkeit: %5 erkannt, %6 angewendet, %7 offen, %8 mehrdeutig.",
+                counts[0],
+                counts[1],
+                counts[2],
+                counts[3],
+                counts[4],
+                counts[5],
+                counts[6],
+                counts[7],
+            )
+        }
+    }
     return when (raw) {
         AuditMarkers.MEMBER_ADDRESS_READ -> gettext("Anschrift und GwG-Angaben eingesehen")
         AuditMarkers.MEMBER_ADDRESS_UPDATED -> gettext("Anschrift geändert")

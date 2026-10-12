@@ -22724,3 +22724,81 @@ msgstr "La moderación ha desactivado los sonidos en esta sala."
 
 msgid "Töne bei Beitritt und Verlassen in diesem Raum"
 msgstr "Sonidos al entrar o salir personas en esta sala"
+
+msgid "Kosovo"
+msgstr "Kosovo"
+
+msgid "staatenlos"
+msgstr "apátrida"
+
+msgid "ungeklärt"
+msgstr "sin aclarar"
+
+msgid "Ersetzt: %1"
+msgstr "Sustituido: %1"
+
+msgid "%1 hinzugefügt."
+msgstr "%1 añadido."
+
+msgid "%1 entfernt."
+msgstr "%1 eliminado."
+
+msgid "Staatsangehörigkeit „%1“ entfernen"
+msgstr "Quitar la nacionalidad «%1»"
+
+msgid "Höchstens %1 Staatsangehörigkeiten."
+msgstr "Como máximo %1 nacionalidades."
+
+msgid "Altwert: „%1“ – bitte aus der Liste auswählen."
+msgstr "Valor anterior: «%1» – elija de la lista."
+
+msgid "%1 (%2): Staatsangehörigkeit ungeklärt"
+msgstr "%1 (%2): nacionalidad sin aclarar"
+
+msgid "Staatsangehörigkeit ungeklärt"
+msgstr "Nacionalidad sin aclarar"
+
+msgid "Land und Staatsangehörigkeit abgleichen"
+msgstr "Conciliar país y nacionalidad"
+
+msgid "Frühere Freitexte zu Land und Staatsangehörigkeit werden mit der Auswahlliste abgeglichen. Der Trockenlauf ändert nichts. Beim Anwenden bleibt der alte Text neben dem neuen Eintrag erhalten. Konten von Administratoren und Texte, die keinem Land eindeutig zugeordnet werden können, bleiben unberührt und müssen einzeln bearbeitet werden."
+msgstr "Los textos libres anteriores sobre país y nacionalidad se concilian con la lista de selección. La simulación no cambia nada. Al aplicar, el texto antiguo se conserva junto a la nueva entrada. Las cuentas de administradores y los textos que no pueden asignarse con claridad a un país quedan intactos y deben editarse uno por uno."
+
+msgid "Trockenlauf starten"
+msgstr "Iniciar simulación"
+
+msgid "Angewendet: Land %1 von %2 erkannten Einträgen, Staatsangehörigkeit %3 von %4. Offen: %5 beziehungsweise %6."
+msgstr "Aplicado: país %1 de %2 entradas reconocidas, nacionalidad %3 de %4. Pendientes: %5 y %6 respectivamente."
+
+msgid "mehrdeutig"
+msgstr "ambiguo"
+
+msgid "nicht erkannt"
+msgstr "no reconocido"
+
+msgid "Anwenden"
+msgstr "Aplicar"
+
+msgid "Abgleich anwenden"
+msgstr "Aplicar la conciliación"
+
+msgid "Es werden %1 Einträge für das Land und %2 Einträge für die Staatsangehörigkeit zugeordnet. Die alten Texte bleiben erhalten. Fortfahren?"
+msgstr "Se asignarán %1 entradas para el país y %2 entradas para la nacionalidad. Los textos antiguos se conservan. ¿Continuar?"
+
+msgid "Der Abgleich wurde angewendet."
+msgstr "Se ha aplicado la conciliación."
+
+msgid "Der Bericht ist veraltet. Bitte den Trockenlauf erneut starten."
+msgstr "El informe está desactualizado. Inicie de nuevo la simulación."
+
+msgid "%1 Mitglieder mit altem Text: %2 erkannt, %3 mehrdeutig, %4 nicht erkannt. Geschützt übersprungen: %5."
+msgstr "%1 miembros con texto antiguo: %2 reconocidos, %3 ambiguos, %4 no reconocidos. Omitidos por estar protegidos: %5."
+
+msgid "Seltene Werte (weniger als drei Mitglieder): %1 Mitglieder, davon %2 erkannt. Sie werden nicht einzeln angezeigt."
+msgstr "Valores poco frecuentes (menos de tres miembros): %1 miembros, %2 de ellos reconocidos. No se muestran individualmente."
+
+msgid "Land und Staatsangehörigkeit abgeglichen"
+msgstr "País y nacionalidad conciliados"
+
+msgid "Land und Staatsangehörigkeit abgeglichen. Land: %1 erkannt, %2 angewendet, %3 offen, %4 mehrdeutig. Staatsangehörigkeit: %5 erkannt, %6 angewendet, %7 offen, %8 mehrdeutig."
+msgstr "País y nacionalidad conciliados. País: %1 reconocidos, %2 aplicados, %3 pendientes, %4 ambiguos. Nacionalidad: %5 reconocidos, %6 aplicados, %7 pendientes, %8 ambiguos."

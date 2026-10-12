@@ -10,6 +10,8 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.member.LegacyCountryDictionary
+import network.lapis.cloud.server.member.MemberCountryStore
 import network.lapis.cloud.server.member.MemberStatusHistory
 import network.lapis.cloud.server.member.MemberStatusHistorySource
 import network.lapis.cloud.server.rpc.MEMBER_DISPLAY_NAME_MAX_LENGTH
@@ -817,6 +819,12 @@ internal fun runImport(
                 // resolvable chapter column, or run a bulk `assignMemberToChapter` pass right
                 // after import.
                 val importedMemberId = Uuid.random()
+                // Welle V1.9.121: an unambiguous country / nationality text becomes a code (row) and the text is not stored;
+                // anything doubtful stays as the legacy text for a human (or the board's reconciliation) to settle.
+                val countryResolution = LegacyCountryDictionary.resolveCountry(member.country)
+                val countryCodeValue = (countryResolution as? LegacyCountryDictionary.Resolution.Recognised)?.codes?.single()
+                val nationalityResolution = LegacyCountryDictionary.resolveNationality(member.nationality)
+                val nationalityCodeValues = (nationalityResolution as? LegacyCountryDictionary.Resolution.Recognised)?.codes.orEmpty()
                 MemberTable.insert {
                     it[id] = importedMemberId
                     it[displayName] = member.displayName
@@ -827,10 +835,17 @@ internal fun runImport(
                     it[street] = member.street
                     it[postalCode] = member.postalCode
                     it[city] = member.city
-                    it[country] = member.country
+                    it[country] = if (countryCodeValue == null) member.country else null
+                    it[countryCode] = countryCodeValue
                     it[dateOfBirth] = member.dateOfBirth
-                    it[nationality] = member.nationality
+                    it[nationality] = if (nationalityCodeValues.isEmpty()) member.nationality else null
                     it[externalReference] = member.externalReference
+                }
+                if (nationalityCodeValues.isNotEmpty()) {
+                    MemberCountryStore.replaceNationalities(
+                        memberId = importedMemberId,
+                        codes = nationalityCodeValues,
+                    )
                 }
                 // Welle V1.9.59 -- the status history starts with the member row: IMPORT, effective from the start of the join day in
                 // the organization zone (capped at now), so the member counts from the day they joined.
@@ -957,7 +972,7 @@ internal fun writeReport(
             )
     }
 
-    val content = "﻿" + lines.joinToString("\r\n") + "\r\n"
+    val content = "" + lines.joinToString("\r\n") + "\r\n"
     val posixAttribute = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"))
     try {
         Files.createFile(path, posixAttribute)

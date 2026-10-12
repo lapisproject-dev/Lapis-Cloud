@@ -32,7 +32,17 @@ internal const val ENCOUNTER_SOUNDS_ASSET_DIR = "encounter-sounds-v1"
  */
 internal const val RNNOISE_ASSET_DIR = "rnnoise-v1"
 
+/**
+ * V1.9.121 -- directory of the country flags (flag-icons 7.5.0, 4x3 SVG, 250 files) and their licence notice under `/assets`. Third
+ * occurrence of this name (after `CountryFlag.DIR` in the client's `CountryFlag.kt` and `into("flag-icons-v7")` in
+ * `lapis-client/build.gradle.kts`); `FlagAssetsTest` keeps all three together. Versioned: if the bytes ever change, the directory becomes `-v8`.
+ */
+internal const val FLAG_ICONS_ASSET_DIR = "flag-icons-v7"
+
 internal const val CLIENT_ASSETS_ONE_YEAR_SECONDS = 31_536_000
+
+/** V1.9.121 -- CSP of a directly opened flag SVG: no script, no subresource, no framing of anything; inline `style` attributes stay allowed. */
+internal const val FLAG_ICONS_CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 internal const val CLIENT_ASSETS_ONE_DAY_SECONDS = 86_400
 
 /**
@@ -100,6 +110,17 @@ internal fun Route.registerClientAssetRoutes(clientDistRoot: File) {
                 else -> ContentType.Text.Plain
             }
         }
+    }
+    // V1.9.121: the country flags. Versioned path -> immutable. SVG is active content when somebody opens the URL directly, so the
+    // response says exactly what it is (`image/svg+xml`, `nosniff`) and a restrictive CSP that blocks scripts and every subresource. In the
+    // pages the flags are plain `<img>` elements, where a browser never runs script in an SVG anyway; the files are also scanned (FlagAssetsTest).
+    staticFiles("/assets/$FLAG_ICONS_ASSET_DIR", File(clientAssetsRoot, FLAG_ICONS_ASSET_DIR)) {
+        modify { _, call ->
+            call.response.header(HttpHeaders.CacheControl, CLIENT_ASSETS_IMMUTABLE_CACHE_CONTROL)
+            call.response.header("X-Content-Type-Options", "nosniff")
+            call.response.header("Content-Security-Policy", FLAG_ICONS_CONTENT_SECURITY_POLICY)
+        }
+        contentType { file -> if (file.extension == "svg") ContentType.Image.SVG else ContentType.Text.Plain }
     }
     staticFiles("/assets", clientAssetsRoot) {
         // Modell und Hintergrundbilder liegen unter einem UNVERSIONIERTEN Praefix -- hier waere `immutable`

@@ -206,6 +206,16 @@ private class VerifyVideoEffectAssets(
 val videoEffectBackgroundIds =
     listOf("bg-warm-grey", "bg-cool-blue", "bg-sage", "bg-sandstone", "bg-midnight", "bg-studio")
 
+// V1.9.121: `sha256  4x3/<code>.svg` per line (sha256sum style), the single source of truth for the shipped flag files.
+val flagIconManifest: List<Pair<String, String>> =
+    providers
+        .fileContents(layout.projectDirectory.file("src/jsMain/webAssets/flag-icons-v7/MANIFEST.sha256"))
+        .asText
+        .get()
+        .lines()
+        .filter { it.isNotBlank() }
+        .map { line -> line.substringAfter("  ").trim() to line.substringBefore("  ").trim() }
+
 // Beide WASM-Varianten: die Bibliothek entscheidet zur Laufzeit per SIMD-Probe, welche sie laedt -- ein 404
 // auf dem no-SIMD-Zweig waere ein stiller Ausfall auf aelteren Geraeten.
 val videoEffectStagedPaths =
@@ -222,7 +232,10 @@ val videoEffectStagedPaths =
         listOf("encounter-sounds-v1/call-bell.mp3", "encounter-sounds-v1/blessing-bell.mp3") +
         // V1.9.114: optional microphone noise suppression (RNNoise): the worklet, BOTH WebAssembly variants (SIMD or not is decided in the
         // browser, a missing one is a silent failure on part of the devices) and the licence notices; served immutable under `rnnoise-v1`.
-        listOf("rnnoise-worklet.js", "rnnoise.wasm", "rnnoise_simd.wasm", "LICENSES.txt").map { "rnnoise-v1/$it" }
+        listOf("rnnoise-worklet.js", "rnnoise.wasm", "rnnoise_simd.wasm", "LICENSES.txt").map { "rnnoise-v1/$it" } +
+        // V1.9.121: the licence notice and all 250 flags of the country selection lists (flag-icons 7.5.0), served immutable under `flag-icons-v7`.
+        // The flag list is the checked-in MANIFEST.sha256 (read through a tracked provider, so a change invalidates the configuration cache).
+        listOf("flag-icons-v7/LICENSES.txt") + flagIconManifest.map { (path, _) -> "flag-icons-v7/$path" }
 
 // V1.9.97: SHA-256 of the two recorded bells (V1.9.114: and of the RNNoise files); checked on the staging AND on the webpack copy.
 val videoEffectExpectedSha256 =
@@ -233,7 +246,9 @@ val videoEffectExpectedSha256 =
         "rnnoise-v1/rnnoise.wasm" to "8b60a2ab88fdae2d1a9f940249d0eb072f28ba8e796f7304347b4e07839c8853",
         "rnnoise-v1/rnnoise_simd.wasm" to "378fd17c294db15ee4e818ba5ef072242a21c8ad7445b483f7f46d7dc4f2c253",
         "rnnoise-v1/LICENSES.txt" to "042d729a8892f4cdb4d3984a8c1f2612ea5d5771a00372a6010bd2d6fcb6e9b2",
-    )
+        // V1.9.121: the licence notice (flag-icons 7.5.0) and every flag (a corrupted copy would stay in browsers for a year).
+        "flag-icons-v7/LICENSES.txt" to "8f1195d55a2fd315a07d812328470ca9ba2abb78c8d317ff19619d5125e00cea",
+    ) + flagIconManifest.associate { (path, sha) -> "flag-icons-v7/$path" to sha }
 
 val videoEffectStagingDir = layout.buildDirectory.dir("video-effect-assets")
 
@@ -263,6 +278,11 @@ val stageVideoEffectAssets by tasks.registering(Sync::class) {
     from(layout.projectDirectory.dir("src/jsMain/webAssets/rnnoise-v1")) {
         into("rnnoise-v1")
         exclude("PROVENANCE.adoc")
+    }
+    // V1.9.121: the flags of the country selection lists (4x3 only) and the licence notice; provenance and manifest stay in the repository.
+    from(layout.projectDirectory.dir("src/jsMain/webAssets/flag-icons-v7")) {
+        into("flag-icons-v7")
+        exclude("PROVENANCE.adoc", "MANIFEST.sha256")
     }
     from(nodeModulesDir.map { it.dir("@mediapipe/tasks-vision/wasm") }) {
         into("mediapipe/tasks-vision-$mediaPipeTasksVisionVersion/wasm")

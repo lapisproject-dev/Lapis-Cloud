@@ -162,7 +162,12 @@ abstract class MemberStatusHistoryMigrationScenarios(
                     "WHERE member_id = '$m' ORDER BY effective_from",
             ).map { r -> listOf(r[0].take(19), r[1], r[2], r[3], r[4]).joinToString(" | ") }
 
-        fun dump(table: String) = rows("SELECT * FROM $table ORDER BY 1, 2").joinToString("\n")
+        // V1.9.121: `member` gained a column (V96) long after this migration, so "byte-identical" means the columns the table had BEFORE it:
+        // captured at V71 and used for both dumps (any later additive column is not part of what V72 may touch).
+        var memberColumns = "*"
+
+        fun dump(table: String) =
+            rows("SELECT ${if (table == "member") memberColumns else "*"} FROM $table ORDER BY 1, 2").joinToString("\n")
 
         lateinit var memberBefore: String
         lateinit var auditBefore: String
@@ -170,6 +175,9 @@ abstract class MemberStatusHistoryMigrationScenarios(
         beforeSpec {
             h = newHarness()
             h.flyway("71").migrate()
+            memberColumns =
+                rows("SELECT column_name FROM information_schema.columns WHERE LOWER(table_name) = 'member' ORDER BY ordinal_position")
+                    .joinToString(", ") { it[0] }
             member(a, "ACTIVE", "2020-03-15")
             member(b, "ACTIVE", "2024-02-01", "reviewed_at=TIMESTAMP '2024-02-20 10:00:00'")
             agreementAck(b, "2024-02-10 09:00:00")

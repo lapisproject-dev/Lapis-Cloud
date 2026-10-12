@@ -3,6 +3,8 @@ package network.lapis.cloud.shared.rpc
 import dev.kilua.rpc.annotations.RpcService
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.CountryLegacyMappingReportDto
+import network.lapis.cloud.shared.domain.CountryLegacyMappingResultDto
 import network.lapis.cloud.shared.domain.MemberAccessPreflightDto
 import network.lapis.cloud.shared.domain.MemberAddressDataDto
 import network.lapis.cloud.shared.domain.MemberAdminPageDto
@@ -521,4 +523,49 @@ interface IMemberService {
      * anonymized members excluded, displayName ASC, id ASC, at most 5000.
      */
     suspend fun listMembersForSelection(): List<MemberSelectionDto>
+
+    // ── Welle V1.9.121 -- APPENDED at the END of the interface on purpose: Kilua RPC numbers its routes by declaration order, so
+    // inserting anywhere else would shift the route of every later method and break browser tabs that are still open on the old client.
+
+    /**
+     * Welle V1.9.121 -- street, postal code and city WITHOUT the country (which now has its own selection-list write path,
+     * [updateMemberCountry]). Same self-or-privileged authorization, normalisation, peer protection and value-free audit entry as
+     * [updateMemberAddress]; the legacy `country` text is left untouched.
+     */
+    suspend fun updateMemberStreetAddress(
+        memberId: String,
+        street: String?,
+        postalCode: String?,
+        city: String?,
+    ): MemberDto
+
+    /**
+     * Welle V1.9.121 -- sets (or clears) the country chosen from the selection list ([network.lapis.cloud.shared.domain.CountryCodes]).
+     * `null` clears the code. Authorization first (self or BOARD/ADMIN), validation second, so nobody can probe the list without
+     * permission; a rejection is a value-free `ConflictException`. Setting a code clears the legacy free text.
+     */
+    suspend fun updateMemberCountry(
+        memberId: String,
+        countryCode: String?,
+    ): MemberDto
+
+    /**
+     * Welle V1.9.121 -- sets the date of birth and the nationality selection (0..10 codes; `XS` stateless / `ZZ` unclear stand
+     * alone) in one call, because both are the GwG beneficial-owner data of the same card. Same authorization as
+     * [updateMemberCountry]. A non-empty list clears the legacy free text; an empty list clears the codes only.
+     */
+    suspend fun updateMemberNationalities(
+        memberId: String,
+        dateOfBirth: LocalDate?,
+        nationalityCodes: List<String>,
+    ): MemberDto
+
+    /** Welle V1.9.121 -- BOARD/ADMIN only. Read-only dry run of the legacy country / nationality reconciliation; writes nothing. */
+    suspend fun previewCountryLegacyMapping(): CountryLegacyMappingReportDto
+
+    /**
+     * Welle V1.9.121 -- BOARD/ADMIN only. Applies exactly the plan of a dry run ([fingerprint] from
+     * [CountryLegacyMappingReportDto.fingerprint]); a changed plan is refused with a `ConflictException` and nothing is written.
+     */
+    suspend fun applyCountryLegacyMapping(fingerprint: String): CountryLegacyMappingResultDto
 }

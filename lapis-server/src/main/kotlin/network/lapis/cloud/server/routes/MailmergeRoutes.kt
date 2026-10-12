@@ -30,6 +30,7 @@ import network.lapis.cloud.server.db.generated.OpenItemTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.events.EventStore
+import network.lapis.cloud.server.member.MemberCountryStore
 import network.lapis.cloud.server.payment.bankstatement.PaymentReferenceAllocator
 import network.lapis.cloud.server.pdf.BeitragsrechnungPdfGenerator
 import network.lapis.cloud.server.pdf.EinladungPdfGenerator
@@ -706,7 +707,9 @@ private fun ResultRow.toMailmergeMemberDto(): MemberDto =
         street = this[MemberTable.street],
         postalCode = this[MemberTable.postalCode],
         city = this[MemberTable.city],
-        country = this[MemberTable.country],
+        // Welle V1.9.121: the EFFECTIVE country (German name of the chosen code, else the legacy text) -- this is what feeds the letter
+        // address block, requireCompleteAddress, the dunning poller and the postal-mail dispatch.
+        country = MemberCountryStore.effectiveCountry(code = this[MemberTable.countryCode], legacy = this[MemberTable.country]),
     )
 
 /**

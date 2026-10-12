@@ -22878,3 +22878,81 @@ msgstr "La moderazione ha disattivato i suoni per questa stanza."
 
 msgid "Töne bei Beitritt und Verlassen in diesem Raum"
 msgstr "Suoni all'ingresso e all'uscita in questa stanza"
+
+msgid "Kosovo"
+msgstr "Kosovo"
+
+msgid "staatenlos"
+msgstr "apolide"
+
+msgid "ungeklärt"
+msgstr "non chiarita"
+
+msgid "Ersetzt: %1"
+msgstr "Sostituito: %1"
+
+msgid "%1 hinzugefügt."
+msgstr "%1 aggiunto."
+
+msgid "%1 entfernt."
+msgstr "%1 rimosso."
+
+msgid "Staatsangehörigkeit „%1“ entfernen"
+msgstr "Rimuovi la cittadinanza «%1»"
+
+msgid "Höchstens %1 Staatsangehörigkeiten."
+msgstr "Al massimo %1 cittadinanze."
+
+msgid "Altwert: „%1“ – bitte aus der Liste auswählen."
+msgstr "Valore precedente: «%1» – scegliere dalla lista."
+
+msgid "%1 (%2): Staatsangehörigkeit ungeklärt"
+msgstr "%1 (%2): cittadinanza non chiarita"
+
+msgid "Staatsangehörigkeit ungeklärt"
+msgstr "Cittadinanza non chiarita"
+
+msgid "Land und Staatsangehörigkeit abgleichen"
+msgstr "Riconciliare paese e cittadinanza"
+
+msgid "Frühere Freitexte zu Land und Staatsangehörigkeit werden mit der Auswahlliste abgeglichen. Der Trockenlauf ändert nichts. Beim Anwenden bleibt der alte Text neben dem neuen Eintrag erhalten. Konten von Administratoren und Texte, die keinem Land eindeutig zugeordnet werden können, bleiben unberührt und müssen einzeln bearbeitet werden."
+msgstr "I testi liberi precedenti su paese e cittadinanza vengono confrontati con l’elenco di selezione. La prova a secco non modifica nulla. Con l’applicazione il vecchio testo resta accanto alla nuova voce. Gli account degli amministratori e i testi non assegnabili con certezza a un paese restano invariati e vanno modificati singolarmente."
+
+msgid "Trockenlauf starten"
+msgstr "Avvia prova a secco"
+
+msgid "Angewendet: Land %1 von %2 erkannten Einträgen, Staatsangehörigkeit %3 von %4. Offen: %5 beziehungsweise %6."
+msgstr "Applicato: paese %1 su %2 voci riconosciute, cittadinanza %3 su %4. Ancora aperte: %5 e %6 rispettivamente."
+
+msgid "mehrdeutig"
+msgstr "ambiguo"
+
+msgid "nicht erkannt"
+msgstr "non riconosciuto"
+
+msgid "Anwenden"
+msgstr "Applica"
+
+msgid "Abgleich anwenden"
+msgstr "Applica la riconciliazione"
+
+msgid "Es werden %1 Einträge für das Land und %2 Einträge für die Staatsangehörigkeit zugeordnet. Die alten Texte bleiben erhalten. Fortfahren?"
+msgstr "Verranno assegnate %1 voci per il paese e %2 voci per la cittadinanza. I vecchi testi vengono conservati. Continuare?"
+
+msgid "Der Abgleich wurde angewendet."
+msgstr "La riconciliazione è stata applicata."
+
+msgid "Der Bericht ist veraltet. Bitte den Trockenlauf erneut starten."
+msgstr "Il rapporto non è aggiornato. Avviare di nuovo la prova a secco."
+
+msgid "%1 Mitglieder mit altem Text: %2 erkannt, %3 mehrdeutig, %4 nicht erkannt. Geschützt übersprungen: %5."
+msgstr "%1 membri con testo precedente: %2 riconosciuti, %3 ambigui, %4 non riconosciuti. Saltati perché protetti: %5."
+
+msgid "Seltene Werte (weniger als drei Mitglieder): %1 Mitglieder, davon %2 erkannt. Sie werden nicht einzeln angezeigt."
+msgstr "Valori rari (meno di tre membri): %1 membri, di cui %2 riconosciuti. Non vengono mostrati singolarmente."
+
+msgid "Land und Staatsangehörigkeit abgeglichen"
+msgstr "Paese e cittadinanza riconciliati"
+
+msgid "Land und Staatsangehörigkeit abgeglichen. Land: %1 erkannt, %2 angewendet, %3 offen, %4 mehrdeutig. Staatsangehörigkeit: %5 erkannt, %6 angewendet, %7 offen, %8 mehrdeutig."
+msgstr "Paese e cittadinanza riconciliati. Paese: %1 riconosciuti, %2 applicati, %3 aperti, %4 ambigui. Cittadinanza: %5 riconosciuti, %6 applicati, %7 aperti, %8 ambigui."

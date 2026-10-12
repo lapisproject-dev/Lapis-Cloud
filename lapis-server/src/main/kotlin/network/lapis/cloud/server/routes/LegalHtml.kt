@@ -298,6 +298,15 @@ internal object LegalHtml {
                         "Abs. 1 lit. b DSGVO (Vertrag bzw. vorvertragliche Maßnahme, hier: die Mitgliedschaft)."
                 )
             }
+            li {
+                +(
+                    "Land und Staatsangehörigkeiten: Das Land der Anschrift und bis zu zehn Staatsangehörigkeiten " +
+                        "werden aus einer Liste gewählt und als Länderkürzel gespeichert (für Briefpost, die " +
+                        "Vorstands-Karte und die Pflichtangaben nach dem Geldwäschegesetz) — Art. 6 Abs. 1 lit. b " +
+                        "DSGVO bzw. Art. 6 Abs. 1 lit. c DSGVO in Verbindung mit § 20 GwG; bei einer Löschung " +
+                        "werden sie gelöscht."
+                )
+            }
             li { +"Freund-/Fördererkonten — Art. 6 Abs. 1 lit. b DSGVO." }
             li {
                 +(

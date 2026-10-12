@@ -24,20 +24,28 @@ import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IMemberService
 import network.lapis.cloud.shared.rpc.NotFoundException
 
-/** The two writes [MemberAddressCard] needs -- shared by the self-service card and the board dialog (V1.9.35). Exceptions propagate. */
+/**
+ * The three writes [MemberAddressCard] needs -- shared by the self-service card and the board dialog (V1.9.35). Exceptions propagate.
+ * V1.9.121: street/postal code/city, the country (a code from the list) and the nationalities (codes) are separate calls; the card
+ * only calls the ones whose value changed.
+ */
 internal interface MemberAddressWriteRpc {
-    suspend fun updateAddress(
+    suspend fun updateStreetAddress(
         memberId: String,
         street: String?,
         postalCode: String?,
         city: String?,
-        country: String?,
     ): MemberDto
 
-    suspend fun updateBeneficialOwnerData(
+    suspend fun updateCountry(
+        memberId: String,
+        countryCode: String?,
+    ): MemberDto
+
+    suspend fun updateNationalities(
         memberId: String,
         dateOfBirth: LocalDate?,
-        nationality: String?,
+        nationalityCodes: List<String>,
     ): MemberDto
 }
 
@@ -46,22 +54,51 @@ internal interface MemberAddressRpc : MemberAddressWriteRpc {
     suspend fun getCurrentMember(): MemberDto
 }
 
-/** What [MemberAddressCard] renders -- built from a [MemberDto] (self-service) or a `MemberAddressDataDto` (board dialog). */
+/**
+ * What [MemberAddressCard] renders -- built from a [MemberDto] (self-service) or a `MemberAddressDataDto` (board dialog).
+ * V1.9.121: the country and nationalities are CODES; the legacy free texts ([countryLegacy], [nationalityLegacy]) exist only while no code
+ * does and are shown as a hint, never as a value of the field.
+ */
 internal data class MemberAddressFormData(
     val memberId: String,
     val street: String?,
     val postalCode: String?,
     val city: String?,
-    val country: String?,
+    val countryCode: String?,
+    val countryLegacy: String?,
     val dateOfBirth: LocalDate?,
-    val nationality: String?,
+    val nationalityCodes: List<String>,
+    val nationalityLegacy: String?,
     val dateOfDeath: LocalDate?,
 )
 
-internal fun MemberDto.toFormData() = MemberAddressFormData(id, street, postalCode, city, country, dateOfBirth, nationality, dateOfDeath)
+internal fun MemberDto.toFormData() =
+    MemberAddressFormData(
+        memberId = id,
+        street = street,
+        postalCode = postalCode,
+        city = city,
+        countryCode = countryCode,
+        countryLegacy = countryLegacy,
+        dateOfBirth = dateOfBirth,
+        nationalityCodes = nationalityCodes,
+        nationalityLegacy = nationalityLegacy,
+        dateOfDeath = dateOfDeath,
+    )
 
 internal fun MemberAddressDataDto.toFormData() =
-    MemberAddressFormData(memberId, street, postalCode, city, country, dateOfBirth, nationality, dateOfDeath)
+    MemberAddressFormData(
+        memberId = memberId,
+        street = street,
+        postalCode = postalCode,
+        city = city,
+        countryCode = countryCode,
+        countryLegacy = countryLegacy,
+        dateOfBirth = dateOfBirth,
+        nationalityCodes = nationalityCodes,
+        nationalityLegacy = nationalityLegacy,
+        dateOfDeath = dateOfDeath,
+    )
 
 /** Who the card is for: the member themselves (default) or a board/admin editing someone else's data. */
 internal enum class MemberAddressCardVariant { SELF, ADMINISTRATION }
@@ -70,19 +107,23 @@ internal fun liveMemberAddressRpc(): MemberAddressRpc =
     object : MemberAddressRpc {
         override suspend fun getCurrentMember() = rpcService<IMemberService>().getCurrentMember()
 
-        override suspend fun updateAddress(
+        override suspend fun updateStreetAddress(
             memberId: String,
             street: String?,
             postalCode: String?,
             city: String?,
-            country: String?,
-        ) = rpcService<IMemberService>().updateMemberAddress(memberId, street, postalCode, city, country)
+        ) = rpcService<IMemberService>().updateMemberStreetAddress(memberId, street, postalCode, city)
 
-        override suspend fun updateBeneficialOwnerData(
+        override suspend fun updateCountry(
+            memberId: String,
+            countryCode: String?,
+        ) = rpcService<IMemberService>().updateMemberCountry(memberId, countryCode)
+
+        override suspend fun updateNationalities(
             memberId: String,
             dateOfBirth: LocalDate?,
-            nationality: String?,
-        ) = rpcService<IMemberService>().updateMemberBeneficialOwnerData(memberId, dateOfBirth, nationality)
+            nationalityCodes: List<String>,
+        ) = rpcService<IMemberService>().updateMemberNationalities(memberId, dateOfBirth, nationalityCodes)
     }
 
 /**
@@ -204,16 +245,21 @@ internal class MemberAddressCard(
                 rule = textRule(MemberAddressField.CITY),
             )
         val country =
-            form.textField(
+            form.searchableSelectField(
                 label = tr("Land"),
-                value = dto.country.orEmpty(),
-                autocomplete = Autocomplete.COUNTRY_NAME,
-                rule = textRule(MemberAddressField.COUNTRY),
+                value = dto.countryCode.orEmpty(),
+                init = { it.configureAsCountryList(CountryListMode.COUNTRY) },
             )
-        val fields = listOf(street, postalCode, city, country)
-        val initial = listOf(dto.street, dto.postalCode, dto.city, dto.country).map { MemberAddressRules.normalize(it) }
+        legacyHint(form, dto.countryLegacy.takeIf { dto.countryCode == null })
+        val fields = listOf(street, postalCode, city)
+        val initial = listOf(dto.street, dto.postalCode, dto.city).map { MemberAddressRules.normalize(it) }
+        val initialCountry = dto.countryCode.orEmpty()
 
-        fun dirty() = fields.map { MemberAddressRules.normalize(it.value) } != initial
+        fun textChanged() = fields.map { MemberAddressRules.normalize(it.value) } != initial
+
+        fun countryChanged() = country.value != initialCountry
+
+        fun dirty() = textChanged() || countryChanged()
 
         fun valid() = fields.all { it.isValid() }
 
@@ -222,18 +268,39 @@ internal class MemberAddressCard(
         button.disabled = true
         addressButton = button
         form.buttons(primary = button)
-        fields.forEach { f -> f.subscribe { button.disabled = !canSave() } }
+        (fields + country).forEach { f -> f.subscribe { button.disabled = !canSave() } }
         button.onClick {
             if (!canSave()) return@onClick
             val values = fields.map { MemberAddressRules.normalize(it.value) }
+            val changeText = textChanged()
+            val changeCountry = countryChanged()
+            val newCountry = country.value.ifEmpty { null }
             confirmSave {
                 form.runBusy(button, restoreDisabled = { !canSave() }) {
                     save {
-                        rpc.updateAddress(dto.memberId, values[0], values[1], values[2], values[3])
+                        var written: MemberDto? = null
+                        if (changeText) written = rpc.updateStreetAddress(dto.memberId, values[0], values[1], values[2])
+                        if (changeCountry) written = rpc.updateCountry(dto.memberId, newCountry)
+                        checkNotNull(written)
                     }
                 }
             }
         }
+    }
+
+    /**
+     * The old free text of a member that has no code yet, shown as plain text under the list ("Altwert: ..."): the member is asked to
+     * choose from the list; the text is NEVER the value of the field. Untrusted text, rendered only through [untrustedDiv].
+     */
+    private fun legacyHint(
+        form: LapisForm,
+        legacy: String?,
+    ) {
+        val text = MemberAddressRules.normalize(legacy) ?: return
+        form.panel.untrustedDiv(
+            gettext("Altwert: „%1“ – bitte aus der Liste auswählen.", sanitizeUntrustedI18nText(text)),
+            className = "form-text lapis-legacy-hint",
+        )
     }
 
     private fun buildBeneficialOwnerForm(
@@ -250,33 +317,30 @@ internal class MemberAddressCard(
                 autocomplete = Autocomplete.BDAY,
                 rule = { raw -> birthDateCheck(raw.trim(), dto.dateOfDeath) },
             )
-        val nationality =
-            form.textField(
-                label = tr("Staatsangehörigkeit"),
-                value = dto.nationality.orEmpty(),
-                rule = textRule(MemberAddressField.NATIONALITY),
-            )
-        val initialNationality = MemberAddressRules.normalize(dto.nationality)
+        val nationality = form.panel.nationalityMultiSelect(label = tr("Staatsangehörigkeit"), initial = dto.nationalityCodes)
+        legacyHint(form, dto.nationalityLegacy.takeIf { dto.nationalityCodes.isEmpty() })
+        val initialCodes = dto.nationalityCodes.sorted()
 
         fun dateValue(): String? = dateOfBirth.value.trim().ifEmpty { null }
 
-        fun dirty() = dateValue() != initialDate || MemberAddressRules.normalize(nationality.value) != initialNationality
+        fun dirty() = dateValue() != initialDate || nationality.codes != initialCodes
 
-        fun valid() = dateOfBirth.isValid() && nationality.isValid()
+        fun valid() = dateOfBirth.isValid()
 
         fun canSave() = dirty() && valid()
         val button = newActionButton(ActionIcon.SAVE, tr("Angaben speichern"), ButtonStyle.PRIMARY)
         button.disabled = true
         beneficialOwnerButton = button
         form.buttons(primary = button)
-        listOf(dateOfBirth, nationality).forEach { f -> f.subscribe { button.disabled = !canSave() } }
+        dateOfBirth.subscribe { button.disabled = !canSave() }
+        nationality.subscribe { button.disabled = !canSave() }
         button.onClick {
             if (!canSave()) return@onClick
             val date = dateValue()?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-            val nat = MemberAddressRules.normalize(nationality.value)
+            val codes = nationality.codes
             confirmSave {
                 form.runBusy(button, restoreDisabled = { !canSave() }) {
-                    save { rpc.updateBeneficialOwnerData(dto.memberId, date, nat) }
+                    save { rpc.updateNationalities(dto.memberId, date, codes) }
                 }
             }
         }

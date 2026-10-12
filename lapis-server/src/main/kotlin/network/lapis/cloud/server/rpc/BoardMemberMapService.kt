@@ -50,14 +50,16 @@ class BoardMemberMapService(
         val current = resolveCurrentMember(call)
         current.requireRole(*MEMBER_MAP_READ_ROLES)
 
+        // Welle V1.9.121: the code (ISO alpha-2) is the key when set. MemberMapRules.isGermanCountry treats "DE" as German and any other code as
+        // foreign, so a member who chose Poland is never counted as German because the legacy text was cleared.
         val groups =
             transaction {
                 MemberTable
-                    .select(MemberTable.postalCode, MemberTable.country)
+                    .select(MemberTable.postalCode, MemberTable.country, MemberTable.countryCode)
                     .where {
                         (MemberTable.status inList MemberStatusSets.MEMBER_MAP_ELIGIBLE) and
                             MemberTable.anonymizedAt.isNull()
-                    }.map { row -> row[MemberTable.postalCode] to row[MemberTable.country] }
+                    }.map { row -> row[MemberTable.postalCode] to (row[MemberTable.countryCode] ?: row[MemberTable.country]) }
                     .groupingBy { it }
                     .eachCount()
                     .map { (key, count) -> AddressGroup(postalCode = key.first, country = key.second, count = count) }

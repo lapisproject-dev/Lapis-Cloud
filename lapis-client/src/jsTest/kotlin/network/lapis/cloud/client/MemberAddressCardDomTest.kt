@@ -24,6 +24,10 @@ private val TODAY = LocalDate(2026, 10, 2)
 private fun addressMember(
     street: String? = "Hauptstrasse 1",
     dateOfDeath: LocalDate? = null,
+    countryCode: String? = "DE",
+    countryLegacy: String? = null,
+    nationalityCodes: List<String> = listOf("DE"),
+    nationalityLegacy: String? = null,
 ) = MemberDto(
     id = "member-1",
     displayName = "Dana Keller",
@@ -34,18 +38,23 @@ private fun addressMember(
     street = street,
     postalCode = "38100",
     city = "Braunschweig",
-    country = "DE",
+    country = countryLegacy ?: countryCode,
     dateOfBirth = LocalDate(1980, 2, 3),
-    nationality = "deutsch",
+    nationality = nationalityLegacy ?: nationalityCodes.joinToString(", "),
     dateOfDeath = dateOfDeath,
+    countryCode = countryCode,
+    nationalityCodes = nationalityCodes,
+    countryLegacy = countryLegacy,
+    nationalityLegacy = nationalityLegacy,
 )
 
 private class FakeAddressRpc(
     var member: MemberDto,
 ) : MemberAddressRpc {
     var getCalls = 0
-    val addressCalls = mutableListOf<List<String?>>()
-    val gwgCalls = mutableListOf<List<String?>>()
+    val streetCalls = mutableListOf<List<String?>>()
+    val countryCalls = mutableListOf<List<String?>>()
+    val nationalityCalls = mutableListOf<List<Any?>>()
     var failWith: Throwable? = null
     var gate: CompletableDeferred<Unit>? = null
 
@@ -54,29 +63,39 @@ private class FakeAddressRpc(
         return member
     }
 
-    override suspend fun updateAddress(
+    override suspend fun updateStreetAddress(
         memberId: String,
         street: String?,
         postalCode: String?,
         city: String?,
-        country: String?,
     ): MemberDto {
-        addressCalls += listOf(memberId, street, postalCode, city, country)
+        streetCalls += listOf(memberId, street, postalCode, city)
         gate?.await()
         failWith?.let { throw it }
-        member = member.copy(street = street, postalCode = postalCode, city = city, country = country)
+        member = member.copy(street = street, postalCode = postalCode, city = city)
         return member
     }
 
-    override suspend fun updateBeneficialOwnerData(
+    override suspend fun updateCountry(
         memberId: String,
-        dateOfBirth: LocalDate?,
-        nationality: String?,
+        countryCode: String?,
     ): MemberDto {
-        gwgCalls += listOf(memberId, dateOfBirth?.toString(), nationality)
+        countryCalls += listOf(memberId, countryCode)
         gate?.await()
         failWith?.let { throw it }
-        member = member.copy(dateOfBirth = dateOfBirth, nationality = nationality)
+        member = member.copy(countryCode = countryCode, country = countryCode, countryLegacy = null)
+        return member
+    }
+
+    override suspend fun updateNationalities(
+        memberId: String,
+        dateOfBirth: LocalDate?,
+        nationalityCodes: List<String>,
+    ): MemberDto {
+        nationalityCalls += listOf(memberId, dateOfBirth?.toString(), nationalityCodes)
+        gate?.await()
+        failWith?.let { throw it }
+        member = member.copy(dateOfBirth = dateOfBirth, nationalityCodes = nationalityCodes, nationalityLegacy = null)
         return member
     }
 }
@@ -104,11 +123,13 @@ class MemberAddressCardDomTest {
         crossinline block: suspend (() -> HTMLElement) -> Unit,
     ): Promise<Unit> =
         formTest {
-            AppState.setSession(session)
-            mountedForm(id) { root, element ->
-                renderMemberAddressSection(root, rpc, { TODAY }, { errors += it }, { successes += it })
-                awaitUntil("card rendered") { element().textContent.orEmpty().contains("Anschrift speichern") }
-                block(element)
+            withFakeCountryNames {
+                AppState.setSession(session)
+                mountedForm(id) { root, element ->
+                    renderMemberAddressSection(root, rpc, { TODAY }, { errors += it }, { successes += it })
+                    awaitUntil("card rendered") { element().textContent.orEmpty().contains("Anschrift speichern") }
+                    block(element)
+                }
             }
         }
 
@@ -117,12 +138,14 @@ class MemberAddressCardDomTest {
         withCard(FakeAddressRpc(addressMember()), "addr-prefill") { el ->
             assertEquals("Hauptstrasse 1", el().input("Straße und Hausnummer").value)
             assertEquals("1980-02-03", el().input("Geburtsdatum").value)
+            assertEquals("Deutschland", el().input("Land").value, "the country is a list entry, shown by its name")
+            assertEquals(listOf("Deutschland"), el().allOf(".lapis-nationality-chips .lapis-chip").map { it.textContent.orEmpty().trim() })
             assertTrue(el().disabledButton("Anschrift speichern"))
             assertTrue(el().disabledButton("Angaben speichern"))
         }
 
     @Test
-    fun savingTheAddress_callsOnlyUpdateAddress_withTrimmedValues_andReloads(): Promise<Unit> {
+    fun savingTheAddress_callsOnlyUpdateStreetAddress_withTrimmedValues_andReloads(): Promise<Unit> {
         val rpc = FakeAddressRpc(addressMember())
         return withCard(rpc, "addr-save") { el ->
             el().typeInto("Ort", "  Wolfsburg  ")
@@ -130,23 +153,83 @@ class MemberAddressCardDomTest {
             assertFalse(el().disabledButton("Anschrift speichern"))
             el().buttonNamed("Anschrift speichern").click()
             awaitUntil("reloaded") { rpc.getCalls == 2 }
-            assertEquals(listOf(listOf<String?>("member-1", "Hauptstrasse 1", "38100", "Wolfsburg", "DE")), rpc.addressCalls)
-            assertTrue(rpc.gwgCalls.isEmpty())
+            assertEquals(listOf(listOf<String?>("member-1", "Hauptstrasse 1", "38100", "Wolfsburg")), rpc.streetCalls)
+            assertTrue(rpc.countryCalls.isEmpty(), "an unchanged country is not written")
+            assertTrue(rpc.nationalityCalls.isEmpty())
         }
     }
 
     @Test
-    fun savingTheGwgData_callsOnlyUpdateBeneficialOwnerData(): Promise<Unit> {
+    fun savingTheGwgData_callsOnlyUpdateNationalities_withTheChosenCodes(): Promise<Unit> {
         val rpc = FakeAddressRpc(addressMember())
         return withCard(rpc, "addr-gwg") { el ->
-            el().typeInto("Staatsangehörigkeit", "französisch")
+            el().chooseIn("Staatsangehörigkeit", "FR")
             delay(60)
             el().buttonNamed("Angaben speichern").click()
             awaitUntil("reloaded") { rpc.getCalls == 2 }
-            assertEquals(listOf(listOf<String?>("member-1", "1980-02-03", "französisch")), rpc.gwgCalls)
-            assertTrue(rpc.addressCalls.isEmpty())
+            assertEquals(listOf(listOf<Any?>("member-1", "1980-02-03", listOf("DE", "FR"))), rpc.nationalityCalls)
+            assertTrue(rpc.streetCalls.isEmpty())
+            assertTrue(rpc.countryCalls.isEmpty())
         }
     }
+
+    @Test
+    fun choosingAnotherCountry_callsOnlyUpdateCountry_withTheCode(): Promise<Unit> {
+        val rpc = FakeAddressRpc(addressMember())
+        return withCard(rpc, "addr-country") { el ->
+            assertTrue(el().disabledButton("Anschrift speichern"))
+            el().chooseIn("Land", "PL")
+            delay(60)
+            assertFalse(el().disabledButton("Anschrift speichern"))
+            el().buttonNamed("Anschrift speichern").click()
+            awaitUntil("reloaded") { rpc.getCalls == 2 }
+            assertEquals(listOf(listOf<String?>("member-1", "PL")), rpc.countryCalls)
+            assertTrue(rpc.streetCalls.isEmpty(), "street, postal code and city were not touched")
+        }
+    }
+
+    @Test
+    fun textAndCountryChanged_writeBothInOneSave_streetFirst(): Promise<Unit> {
+        val rpc = FakeAddressRpc(addressMember())
+        return withCard(rpc, "addr-both") { el ->
+            el().typeInto("Ort", "Wolfsburg")
+            el().chooseIn("Land", "AT")
+            delay(60)
+            el().buttonNamed("Anschrift speichern").click()
+            awaitUntil("reloaded") { rpc.getCalls == 2 }
+            assertEquals(1, rpc.streetCalls.size)
+            assertEquals(listOf(listOf<String?>("member-1", "AT")), rpc.countryCalls)
+        }
+    }
+
+    @Test
+    fun aMemberWithOnlyAnOldText_seesAnEmptyList_andTheOldTextAsPlainHint(): Promise<Unit> {
+        val rpc =
+            FakeAddressRpc(
+                addressMember(
+                    countryCode = null,
+                    countryLegacy = "<b>Polen</b>",
+                    nationalityCodes = emptyList(),
+                    nationalityLegacy = "polnisch",
+                ),
+            )
+        return withCard(rpc, "addr-legacy") { el ->
+            assertEquals("", el().input("Land").value, "the old text is never the value of the list")
+            val hints = el().allOf(".lapis-legacy-hint").map { it.textContent.orEmpty() }
+            assertEquals(2, hints.size)
+            assertTrue(hints[0].contains("Altwert") && hints[0].contains("<b>Polen</b>"), hints[0])
+            assertEquals(0, el().allOf(".lapis-legacy-hint b").size, "rendered as text, never as markup")
+            assertTrue(el().allOf(".lapis-nationality-chips .lapis-chip").isEmpty())
+            assertTrue(el().disabledButton("Anschrift speichern"), "nothing to save until a country is chosen")
+        }
+    }
+
+    @Test
+    fun theLegacyHint_neverAppearsOnceACodeExists(): Promise<Unit> =
+        withCard(FakeAddressRpc(addressMember(countryCode = "DE", countryLegacy = "Deutschland (alt)")), "addr-legacy-gone") { el ->
+            // a DTO that still carries the old text next to a code (should not happen from the server) shows no hint for the country
+            assertEquals(0, el().allOf(".lapis-legacy-hint").size)
+        }
 
     @Test
     fun anEmptyField_isSentAsNull(): Promise<Unit> {
@@ -156,7 +239,7 @@ class MemberAddressCardDomTest {
             delay(60)
             el().buttonNamed("Anschrift speichern").click()
             awaitUntil("reloaded") { rpc.getCalls == 2 }
-            assertEquals(null, rpc.addressCalls.single()[1])
+            assertEquals(null, rpc.streetCalls.single()[1])
         }
     }
 
@@ -215,7 +298,7 @@ class MemberAddressCardDomTest {
             delay(60)
             gate.complete(Unit)
             awaitUntil("reloaded") { rpc.getCalls == 2 }
-            assertEquals(1, rpc.addressCalls.size)
+            assertEquals(1, rpc.streetCalls.size)
         }
     }
 

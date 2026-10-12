@@ -6,12 +6,14 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.BoardMembershipTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.TransparenzregisterReminderTable
+import network.lapis.cloud.server.member.MemberCountryStore
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.BeneficialOwnerDataGapDto
 import network.lapis.cloud.shared.domain.BoardMembershipDto
 import network.lapis.cloud.shared.domain.BoardMembershipInput
+import network.lapis.cloud.shared.domain.CountryCodes
 import network.lapis.cloud.shared.domain.TransparenzregisterReminderDto
 import network.lapis.cloud.shared.domain.TransparenzregisterReportDto
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -135,11 +137,16 @@ class BoardMembershipService(
                     .toList()
             val currentBoard = currentBoardRows.map { it.toBoardMembershipDto() }
 
+            // Welle V1.9.121: one batch query for the nationality codes of the current board (no N+1). A legacy text OR at least one
+            // code counts as "given"; the code ZZ ("unclear") is given but flagged separately.
+            val nationalitiesByMember = MemberCountryStore.loadNationalities(currentBoardRows.map { it[BoardMembershipTable.memberId] })
             val beneficialOwnerDataGaps =
                 currentBoardRows.mapNotNull { row ->
                     val missingDateOfBirth = row[MemberTable.dateOfBirth] == null
-                    val missingNationality = row[MemberTable.nationality] == null
-                    if (!missingDateOfBirth && !missingNationality) {
+                    val codes = nationalitiesByMember[row[BoardMembershipTable.memberId]].orEmpty()
+                    val missingNationality = row[MemberTable.nationality] == null && codes.isEmpty()
+                    val nationalityUnclear = codes == listOf(CountryCodes.UNCLEAR)
+                    if (!missingDateOfBirth && !missingNationality && !nationalityUnclear) {
                         null
                     } else {
                         BeneficialOwnerDataGapDto(
@@ -148,6 +155,7 @@ class BoardMembershipService(
                             committeeRole = row[BoardMembershipTable.committeeRole],
                             missingDateOfBirth = missingDateOfBirth,
                             missingNationality = missingNationality,
+                            nationalityUnclear = nationalityUnclear,
                         )
                     }
                 }

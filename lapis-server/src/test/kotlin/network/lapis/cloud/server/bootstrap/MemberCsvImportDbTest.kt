@@ -7,6 +7,7 @@ import io.kotest.matchers.string.shouldContain
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.server.backup.TestDatabaseFactory
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.MemberNationalityTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.shared.domain.BillingInterval
@@ -93,7 +94,61 @@ class MemberCsvImportDbTest :
                 row[MemberTable.joinedAt] shouldBe LocalDate(2020, 1, 1)
                 row[MemberTable.street] shouldBe "Musterstrasse 1"
                 row[MemberTable.dateOfBirth] shouldBe LocalDate(1980, 5, 17)
-                row[MemberTable.nationality] shouldBe "DE"
+                // Welle V1.9.121: an unambiguous country / nationality text becomes a code and the text is not stored.
+                row[MemberTable.countryCode] shouldBe "DE"
+                row[MemberTable.country] shouldBe null
+                row[MemberTable.nationality] shouldBe null
+                MemberNationalityTable
+                    .selectAll()
+                    .where { MemberNationalityTable.memberId eq row[MemberTable.id] }
+                    .map { it[MemberNationalityTable.countryCode] } shouldBe listOf("DE")
+            }
+        }
+
+        test("V1.9.121: recognised texts become codes (nationality lists too), doubtful or unknown texts stay as legacy text") {
+            val db = TestDatabaseFactory.freshMigratedH2Database("member-csv-import-country-${Uuid.random()}")
+            val plan =
+                planOf(
+                    preparedMember(
+                        recordNumber = 1,
+                        externalReference = "C-1",
+                        email = "c1@example.org",
+                        country = "Polen",
+                        nationality = "polnisch, deutsch",
+                    ),
+                    preparedMember(
+                        recordNumber = 2,
+                        externalReference = "C-2",
+                        email = "c2@example.org",
+                        country = "Kongo",
+                        nationality = "Kongo",
+                    ),
+                    preparedMember(
+                        recordNumber = 3,
+                        externalReference = "C-3",
+                        email = "c3@example.org",
+                        country = "Wakanda",
+                        nationality = "staatenlos, deutsch",
+                    ),
+                )
+            runImport(plan = plan, commit = true, database = db)
+            transaction(db) {
+                fun row(ref: String) = MemberTable.selectAll().where { MemberTable.externalReference eq ref }.single()
+
+                fun codes(ref: String) =
+                    MemberNationalityTable
+                        .selectAll()
+                        .where { MemberNationalityTable.memberId eq row(ref)[MemberTable.id] }
+                        .map { it[MemberNationalityTable.countryCode] }
+                        .sorted()
+                row("C-1")[MemberTable.countryCode] shouldBe "PL"
+                codes("C-1") shouldBe listOf("DE", "PL")
+                listOf("C-2", "C-3").forEach {
+                    row(it)[MemberTable.countryCode] shouldBe null
+                    codes(it) shouldBe emptyList()
+                }
+                row("C-2")[MemberTable.country] shouldBe "Kongo"
+                row("C-3")[MemberTable.nationality] shouldBe "staatenlos, deutsch"
             }
         }
 

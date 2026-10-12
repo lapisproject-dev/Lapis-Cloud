@@ -22833,3 +22833,81 @@ msgstr "De moderatie heeft de geluiden voor deze ruimte uitgeschakeld."
 
 msgid "Töne bei Beitritt und Verlassen in diesem Raum"
 msgstr "Geluiden bij binnenkomen en vertrekken in deze ruimte"
+
+msgid "Kosovo"
+msgstr "Kosovo"
+
+msgid "staatenlos"
+msgstr "staatloos"
+
+msgid "ungeklärt"
+msgstr "onduidelijk"
+
+msgid "Ersetzt: %1"
+msgstr "Vervangen: %1"
+
+msgid "%1 hinzugefügt."
+msgstr "%1 toegevoegd."
+
+msgid "%1 entfernt."
+msgstr "%1 verwijderd."
+
+msgid "Staatsangehörigkeit „%1“ entfernen"
+msgstr "Nationaliteit ‘%1’ verwijderen"
+
+msgid "Höchstens %1 Staatsangehörigkeiten."
+msgstr "Maximaal %1 nationaliteiten."
+
+msgid "Altwert: „%1“ – bitte aus der Liste auswählen."
+msgstr "Oude waarde: ‘%1’ – kies uit de lijst."
+
+msgid "%1 (%2): Staatsangehörigkeit ungeklärt"
+msgstr "%1 (%2): nationaliteit onduidelijk"
+
+msgid "Staatsangehörigkeit ungeklärt"
+msgstr "Nationaliteit onduidelijk"
+
+msgid "Land und Staatsangehörigkeit abgleichen"
+msgstr "Land en nationaliteit afstemmen"
+
+msgid "Frühere Freitexte zu Land und Staatsangehörigkeit werden mit der Auswahlliste abgeglichen. Der Trockenlauf ändert nichts. Beim Anwenden bleibt der alte Text neben dem neuen Eintrag erhalten. Konten von Administratoren und Texte, die keinem Land eindeutig zugeordnet werden können, bleiben unberührt und müssen einzeln bearbeitet werden."
+msgstr "Eerdere vrije teksten over land en nationaliteit worden afgestemd op de keuzelijst. De proefrun verandert niets. Bij toepassen blijft de oude tekst naast de nieuwe invoer bewaard. Accounts van beheerders en teksten die niet eenduidig aan een land te koppelen zijn, blijven ongemoeid en moeten afzonderlijk worden bewerkt."
+
+msgid "Trockenlauf starten"
+msgstr "Proefrun starten"
+
+msgid "Angewendet: Land %1 von %2 erkannten Einträgen, Staatsangehörigkeit %3 von %4. Offen: %5 beziehungsweise %6."
+msgstr "Toegepast: land %1 van %2 herkende invoeren, nationaliteit %3 van %4. Nog open: %5 respectievelijk %6."
+
+msgid "mehrdeutig"
+msgstr "dubbelzinnig"
+
+msgid "nicht erkannt"
+msgstr "niet herkend"
+
+msgid "Anwenden"
+msgstr "Toepassen"
+
+msgid "Abgleich anwenden"
+msgstr "Afstemming toepassen"
+
+msgid "Es werden %1 Einträge für das Land und %2 Einträge für die Staatsangehörigkeit zugeordnet. Die alten Texte bleiben erhalten. Fortfahren?"
+msgstr "Er worden %1 invoeren voor het land en %2 invoeren voor de nationaliteit toegewezen. De oude teksten blijven bewaard. Doorgaan?"
+
+msgid "Der Abgleich wurde angewendet."
+msgstr "De afstemming is toegepast."
+
+msgid "Der Bericht ist veraltet. Bitte den Trockenlauf erneut starten."
+msgstr "Het rapport is verouderd. Start de proefrun opnieuw."
+
+msgid "%1 Mitglieder mit altem Text: %2 erkannt, %3 mehrdeutig, %4 nicht erkannt. Geschützt übersprungen: %5."
+msgstr "%1 leden met een oude tekst: %2 herkend, %3 dubbelzinnig, %4 niet herkend. Overgeslagen als beschermd: %5."
+
+msgid "Seltene Werte (weniger als drei Mitglieder): %1 Mitglieder, davon %2 erkannt. Sie werden nicht einzeln angezeigt."
+msgstr "Zeldzame waarden (minder dan drie leden): %1 leden, waarvan %2 herkend. Ze worden niet afzonderlijk getoond."
+
+msgid "Land und Staatsangehörigkeit abgeglichen"
+msgstr "Land en nationaliteit afgestemd"
+
+msgid "Land und Staatsangehörigkeit abgeglichen. Land: %1 erkannt, %2 angewendet, %3 offen, %4 mehrdeutig. Staatsangehörigkeit: %5 erkannt, %6 angewendet, %7 offen, %8 mehrdeutig."
+msgstr "Land en nationaliteit afgestemd. Land: %1 herkend, %2 toegepast, %3 open, %4 dubbelzinnig. Nationaliteit: %5 herkend, %6 toegepast, %7 open, %8 dubbelzinnig."
