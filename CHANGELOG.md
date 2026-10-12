@@ -6,6 +6,18 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Join and leave sounds (V1.9.120)
+
+A short, quiet two-tone sound when somebody joins (rising) or leaves (mirrored, falling) a conference, with a personal switch and a room option for the moderation. New migration **V95** (`conference_room.join_leave_sounds BOOLEAN NOT NULL DEFAULT TRUE`, so V94 is no longer the last one). Feature page: section "Join and leave sounds" in `docs/features/video-conferencing.adoc`.
+
+- **Rules.** Only when the room has at most 10 people before AND after the event (symmetric), never for yourself, never for the first roster or a resync, one sound per person per 5 seconds (join and leave share the window, a reconnect sounds once), at least 1 second between two sounds (dropped, never queued), silent between `Reconnecting` and `Reconnected` plus a 2 second grace window (an addition to the specification, to be confirmed), also in a hidden tab. Recorders (`EGRESS` kind, `EG_` prefix) are neither counted nor reported.
+- **Sound.** WebAudio synthesis, two sine oscillators per tone, peak gain 0.10 (join) and 0.05 (leave), leaves through the chosen speaker where `setSinkId` exists. No file, no network.
+- **Switches.** Personal: a `role="switch"` in the "Mehr" sheet below the noise suppression (on by default, `localStorage` key `lapis.conference.joinLeaveSounds`, only `off` is written, nothing announced, switching on plays the join sound once). Room: new switch in the "Moderation" disclosure, `IConferenceModerationService.setRoomJoinLeaveSounds` (same authority and single refusal as the audio policy, own rate limit, audit entry without names, no LiveKit call). `ConferenceRoomDto.joinLeaveSounds` is appended last with a default (wire compatible).
+- **Found by a test:** inside the `onClick` lambda of the personal switch a bare `refresh()` resolved to the Button's own `Widget.refresh()` and not to the row's `refresh()`, so the switch would never have changed its `aria-checked` after a click. Fixed with an explicit receiver.
+- **Verified:** Kotest (`ConferenceModerationServiceTest` 26 tests incl. 3 new, `ConferenceJoinLeaveSoundsMigrationTest` on H2 and the Postgres variant) and Karma/headless Chrome (decision rules at every boundary, gate, reconnect window, player against a fake audio context, switch DOM test, wire compatibility, session wiring with a fake room: first roster and resync fire nothing, counts, recorder filter, armed/reconnect flags).
+- **Not verified:** autoplay unlocking, `AudioContext.setSinkId` and the real sound in a real browser (only a fake audio context); how the egress participant appears to a client; the sound has not been listened to.
+- **Limits.** The room option reaches a running client only at its next join or reload (no push; the moderator sees it at once). The encounter room is not affected. A reconnect sounds once (the leave).
+
 ### Noise suppression: diagnosis and retry (V1.9.119)
 
 The owner saw "Nicht verfügbar" for the noise suppression without being able to tell why, and the state never recovered without reloading the page. Client only (`lapis-client`: `jsMain`/`jsTest`, i18n, docs): no server change, no DTO, no migration (`V94` stays the last one).

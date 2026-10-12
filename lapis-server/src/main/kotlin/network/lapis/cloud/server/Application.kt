@@ -1025,6 +1025,7 @@ internal fun Application.module(
     val conferenceRequestUnmuteRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 30.seconds)
     val conferencePolicyRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 5.seconds)
     val conferenceBroadcastViewRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 2.seconds)
+    val conferenceJoinLeaveSoundsRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 2.seconds)
     val conferenceMutePreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
 
     // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- same "constructed here, NOT left to the
@@ -2269,6 +2270,7 @@ internal fun Application.module(
                 requestUnmuteRateLimiter = conferenceRequestUnmuteRateLimiter,
                 policyRateLimiter = conferencePolicyRateLimiter,
                 broadcastViewRateLimiter = conferenceBroadcastViewRateLimiter,
+                joinLeaveSoundsRateLimiter = conferenceJoinLeaveSoundsRateLimiter,
                 previewRateLimiter = conferenceMutePreviewRateLimiter,
             )
         }

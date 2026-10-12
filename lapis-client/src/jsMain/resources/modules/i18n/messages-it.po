@@ -22866,3 +22866,15 @@ msgstr "%1 è stato respinto. Non è presente un indirizzo e-mail valido, la per
 
 msgid "%1 wurde abgelehnt. Die Benachrichtigung konnte nicht versendet werden."
 msgstr "%1 è stato respinto. Non è stato possibile inviare la notifica."
+
+msgid "Töne bei Beitritt und Verlassen"
+msgstr "Suoni all'ingresso e all'uscita"
+
+msgid "Ein leiser Ton, wenn jemand beitritt oder den Raum verlässt. Bei mehr als %1 Personen im Raum bleibt es still."
+msgstr "Un suono discreto quando qualcuno entra nella stanza o la lascia. Con più di %1 persone nella stanza resta silenzioso."
+
+msgid "Die Moderation hat die Töne für diesen Raum ausgeschaltet."
+msgstr "La moderazione ha disattivato i suoni per questa stanza."
+
+msgid "Töne bei Beitritt und Verlassen in diesem Raum"
+msgstr "Suoni all'ingresso e all'uscita in questa stanza"

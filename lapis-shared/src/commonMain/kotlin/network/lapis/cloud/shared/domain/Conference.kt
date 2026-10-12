@@ -100,6 +100,8 @@ data class ConferenceRoomDto(
     val participantsMayUnmute: Boolean = true,
     /** V1.9.115 -- see [ConferenceBroadcastView]. Appended last with a default so an older client/server pairing stays wire compatible. */
     val broadcastView: ConferenceBroadcastView = ConferenceBroadcastView.RASTER,
+    /** V1.9.120 -- join/leave tones enabled in this room (moderator option). Appended last with a default: wire compatible. */
+    val joinLeaveSounds: Boolean = true,
 )
 
 /**

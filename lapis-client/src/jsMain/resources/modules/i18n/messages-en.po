@@ -22773,3 +22773,15 @@ msgstr "%1 was rejected. There is no valid e-mail address on file, so the person
 
 msgid "%1 wurde abgelehnt. Die Benachrichtigung konnte nicht versendet werden."
 msgstr "%1 was rejected. The notification could not be sent."
+
+msgid "Töne bei Beitritt und Verlassen"
+msgstr "Sounds when people join or leave"
+
+msgid "Ein leiser Ton, wenn jemand beitritt oder den Raum verlässt. Bei mehr als %1 Personen im Raum bleibt es still."
+msgstr "A quiet tone when someone joins or leaves the room. With more than %1 people in the room it stays silent."
+
+msgid "Die Moderation hat die Töne für diesen Raum ausgeschaltet."
+msgstr "The moderators have switched the sounds off for this room."
+
+msgid "Töne bei Beitritt und Verlassen in diesem Raum"
+msgstr "Sounds when people join or leave in this room"

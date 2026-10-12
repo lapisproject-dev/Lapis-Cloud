@@ -21894,3 +21894,15 @@ msgstr ""
 
 msgid "%1 wurde abgelehnt. Die Benachrichtigung konnte nicht versendet werden."
 msgstr ""
+
+msgid "Töne bei Beitritt und Verlassen"
+msgstr ""
+
+msgid "Ein leiser Ton, wenn jemand beitritt oder den Raum verlässt. Bei mehr als %1 Personen im Raum bleibt es still."
+msgstr ""
+
+msgid "Die Moderation hat die Töne für diesen Raum ausgeschaltet."
+msgstr ""
+
+msgid "Töne bei Beitritt und Verlassen in diesem Raum"
+msgstr ""

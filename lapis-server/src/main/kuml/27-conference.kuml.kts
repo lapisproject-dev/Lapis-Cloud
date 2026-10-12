@@ -234,6 +234,11 @@ classDiagram(name = "Conference") {
                 "enumType" to "network.lapis.cloud.shared.domain.ConferenceBroadcastView"
             }
         }
+        // V1.9.120 -- V95. Join/leave sounds of the room (client-side presence tones); a moderator can switch them off for the whole room.
+        attribute(name = "joinLeaveSounds", type = "Boolean") {
+            defaultValue = "TRUE"
+            stereotype("Column") { "columnName" to "join_leave_sounds" }
+        }
         // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" addition -- see
         // file header "Wave 9 addition". NULL means this room is not bound to any Sitzung (the
         // default for every existing and newly-created room). Deliberately NOT unique -- several

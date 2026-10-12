@@ -22817,3 +22817,15 @@ msgstr "%1 отклонено. Нет действительного адрес�
 
 msgid "%1 wurde abgelehnt. Die Benachrichtigung konnte nicht versendet werden."
 msgstr "%1 отклонено. Не удалось отправить уведомление."
+
+msgid "Töne bei Beitritt und Verlassen"
+msgstr "Звуки при входе и выходе"
+
+msgid "Ein leiser Ton, wenn jemand beitritt oder den Raum verlässt. Bei mehr als %1 Personen im Raum bleibt es still."
+msgstr "Тихий сигнал, когда кто-то входит в комнату или выходит из неё. Если в комнате больше %1 человек, сигнала нет."
+
+msgid "Die Moderation hat die Töne für diesen Raum ausgeschaltet."
+msgstr "Модерация отключила звуки для этой комнаты."
+
+msgid "Töne bei Beitritt und Verlassen in diesem Raum"
+msgstr "Звуки при входе и выходе в этой комнате"

@@ -22826,3 +22826,15 @@ msgstr "%1 zostało odrzucone. Brak prawidłowego adresu e-mail, osoba nie zosta
 
 msgid "%1 wurde abgelehnt. Die Benachrichtigung konnte nicht versendet werden."
 msgstr "%1 zostało odrzucone. Nie udało się wysłać powiadomienia."
+
+msgid "Töne bei Beitritt und Verlassen"
+msgstr "Dźwięki przy dołączaniu i wychodzeniu"
+
+msgid "Ein leiser Ton, wenn jemand beitritt oder den Raum verlässt. Bei mehr als %1 Personen im Raum bleibt es still."
+msgstr "Cichy dźwięk, gdy ktoś dołącza do pokoju lub go opuszcza. Przy więcej niż %1 osobach w pokoju dźwięk jest wyłączony."
+
+msgid "Die Moderation hat die Töne für diesen Raum ausgeschaltet."
+msgstr "Moderacja wyłączyła dźwięki w tym pokoju."
+
+msgid "Töne bei Beitritt und Verlassen in diesem Raum"
+msgstr "Dźwięki przy dołączaniu i wychodzeniu w tym pokoju"

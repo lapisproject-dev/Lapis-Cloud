@@ -180,7 +180,7 @@ class ConferenceModerationNoticeDomTest {
     // -- the disclosure -----------------------------------------------------------------------------------------------------------------
 
     @Test
-    fun theDisclosure_hasTwoRealSwitches_aRealToggle_andOpensWhileLocked() {
+    fun theDisclosure_hasThreeRealSwitches_aRealToggle_andOpensWhileLocked() {
         assertTrue(stylesLoaded)
         withMountedRoot("moderation-panel") { root, element ->
             val panel =
@@ -200,14 +200,18 @@ class ConferenceModerationNoticeDomTest {
             toggle.click()
             assertEquals("true", toggle.getAttribute("aria-expanded"))
             val switches = element().all("input[type=checkbox][role=switch]")
-            assertEquals(2, switches.size)
+            assertEquals(3, switches.size, "mute on join, lock, and (V1.9.120) the join/leave tones")
             switches.forEach { input ->
                 val label = assertNotNull(document.querySelector("label[for='${input.id}']"), "a label for ${input.id}")
                 assertTrue(label.textContent.orEmpty().isNotBlank())
                 assertTrue(input.getAttribute("aria-describedby").orEmpty().isNotBlank(), "a hint")
             }
             assertEquals(
-                listOf("Teilnehmende stumm beitreten lassen", "Teilnehmende dürfen sich nicht selbst einschalten"),
+                listOf(
+                    "Teilnehmende stumm beitreten lassen",
+                    "Teilnehmende dürfen sich nicht selbst einschalten",
+                    "Töne bei Beitritt und Verlassen in diesem Raum",
+                ),
                 switches.map {
                     document
                         .querySelector("label[for='${it.id}']")!!
@@ -222,7 +226,7 @@ class ConferenceModerationNoticeDomTest {
             assertEquals("true", toggle.getAttribute("aria-expanded"))
             // the closed body was removed from the DOM, so the switches are new elements: read them again
             val reopened = element().all("input[type=checkbox][role=switch]")
-            assertEquals(2, reopened.size)
+            assertEquals(3, reopened.size)
             assertTrue((reopened[0] as HTMLInputElement).checked, "mute on join is on")
             assertTrue((reopened[1] as HTMLInputElement).checked, "locked = the second switch is on")
         }

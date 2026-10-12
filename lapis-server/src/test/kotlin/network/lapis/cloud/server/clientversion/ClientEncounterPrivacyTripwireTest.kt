@@ -81,6 +81,9 @@ private fun findings(
         .filter { it.name !in allowedFiles }
         .flatMap { file -> codeLines(file).filter { pattern.containsMatchIn(it) }.map { "${file.name}: ${it.trim()}" } }
 
+/** V1.9.120 -- the files of the conference join/leave tones, the only client files that may create an oscillator. */
+private val JOIN_LEAVE_SYNTHESIS_FILES = setOf("ConferenceJoinLeaveSound.kt", "ConferenceJoinLeaveSoundPlayerTest.kt")
+
 class ClientEncounterPrivacyTripwireTest :
     FunSpec({
         test("the scan sees the encounter client (not vacuous): every part of the room is a file of the package") {
@@ -253,6 +256,10 @@ class ClientEncounterPrivacyTripwireTest :
         }
 
         test("V1.9.97: the synthesis is gone for good -- no oscillator and none of its constants in the client, main or test") {
+            // V1.9.120: the ONLY exemption are the two files of the conference join/leave tones (a short synthesised blip by design, see
+            // ConferenceJoinLeaveSound.kt); the encounter room's bell stays a recording, and nothing in the encounter package may synthesise.
+            JOIN_LEAVE_SYNTHESIS_FILES shouldBe setOf("ConferenceJoinLeaveSound.kt", "ConferenceJoinLeaveSoundPlayerTest.kt")
+            encounterFiles().flatMap { f -> codeLines(f).filter { it.contains("createOscillator") }.toList() }.shouldBeEmpty()
             val synthesis =
                 Regex(
                     """\bcreateOscillator\b|\bOscillatorNode\b|\bENCOUNTER_BELL_PARTIAL\w*|\bENCOUNTER_BELL_BASE_HZ\b|""" +
@@ -266,7 +273,7 @@ class ClientEncounterPrivacyTripwireTest :
                     withClue("${root.path} exists") { root.isDirectory shouldBe true }
                     root
                         .walkTopDown()
-                        .filter { it.isFile && it.extension == "kt" }
+                        .filter { it.isFile && it.extension == "kt" && it.name !in JOIN_LEAVE_SYNTHESIS_FILES }
                         .flatMap { f ->
                             codeLines(f).filter { synthesis.containsMatchIn(it) }.map { "${f.name}: ${it.trim()}" }.toList()
                         }.toList()

@@ -400,6 +400,8 @@ internal class ConferenceModerationPanel(
     participantsMayUnmute: Boolean,
     broadcastView: ConferenceBroadcastView = ConferenceBroadcastView.RASTER,
     private val onBroadcastView: (view: ConferenceBroadcastView, revert: () -> Unit) -> Unit = { _, _ -> },
+    joinLeaveSounds: Boolean = true,
+    private val onJoinLeaveSounds: (enabled: Boolean, revert: () -> Unit) -> Unit = { _, _ -> },
     private val onMuteOnJoin: (value: Boolean, revert: () -> Unit) -> Unit,
     private val onLock: (locked: Boolean, revert: () -> Unit) -> Unit,
 ) {
@@ -428,6 +430,15 @@ internal class ConferenceModerationPanel(
             tr("Teilnehmende dürfen sich nicht selbst einschalten"),
             tr("Nur Sie und die Menschen, die Sie bitten, können das Mikrofon dann einschalten."),
         ) { lockState }
+
+    // V1.9.120 -- "Töne bei Beitritt und Verlassen in diesem Raum" (checked = the tones are on for the room)
+    private var joinLeaveSoundsState = joinLeaveSounds
+    val joinLeaveSoundsInput =
+        body.switchRow(
+            JOIN_LEAVE_SOUNDS_ID,
+            tr("Töne bei Beitritt und Verlassen in diesem Raum"),
+            joinLeaveSoundHint(),
+        ) { joinLeaveSoundsState }
     private var broadcastViewState = broadcastView
 
     // V1.9.115 -- "Ansicht bei Aufzeichnung und Stream": one of two radios. The state lives here (a closed body is not rendered).
@@ -454,6 +465,12 @@ internal class ConferenceModerationPanel(
             change = {
                 muteOnJoinState = muteOnJoinInput.isChecked()
                 onMuteOnJoin(muteOnJoinState) { putMuteOnJoin(!muteOnJoinState) }
+            }
+        }
+        joinLeaveSoundsInput.onEvent {
+            change = {
+                joinLeaveSoundsState = joinLeaveSoundsInput.isChecked()
+                onJoinLeaveSounds(joinLeaveSoundsState) { setJoinLeaveSounds(!joinLeaveSoundsState) }
             }
         }
         lockInput.onEvent {
@@ -497,6 +514,12 @@ internal class ConferenceModerationPanel(
         input.setAttribute("aria-checked", state().toString())
         row.tag(TAG.LABEL, content = label, className = "form-check-label").setAttribute("for", id)
         return input
+    }
+
+    /** Applies the server's setting of the room's tones (also the revert of a failed call). */
+    fun setJoinLeaveSounds(value: Boolean) {
+        joinLeaveSoundsState = value
+        joinLeaveSoundsInput.setChecked(value)
     }
 
     private fun putMuteOnJoin(value: Boolean) {
@@ -558,11 +581,13 @@ internal class ConferenceModerationPanel(
         speakerInput.getElement()?.let { (it as? HTMLInputElement)?.disabled = busy }
         muteOnJoinInput.getElement()?.let { (it as? HTMLInputElement)?.disabled = busy }
         lockInput.getElement()?.let { (it as? HTMLInputElement)?.disabled = busy }
+        joinLeaveSoundsInput.getElement()?.let { (it as? HTMLInputElement)?.disabled = busy }
     }
 
     private companion object {
         const val MUTE_ON_JOIN_ID = "lapis-conference-mute-on-join"
         const val LOCK_ID = "lapis-conference-lock-microphones"
+        const val JOIN_LEAVE_SOUNDS_ID = "lapis-conference-join-leave-sounds"
         const val BODY_ID = "lapis-conference-moderation-body"
         const val VIEW_RASTER_ID = "lapis-conference-broadcast-view-raster"
         const val VIEW_SPEAKER_ID = "lapis-conference-broadcast-view-speaker"

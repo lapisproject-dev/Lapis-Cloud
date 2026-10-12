@@ -674,6 +674,7 @@ private fun renderLobby(
     // requireActiveMembership-gated, see IConferenceService KDoc) -- no new, weaker RPC surface.
     // runGuardedAction: a second click while the first still runs is a no-op (exactly one room); `disabled` is restored in its finally.
     startButton.onClick {
+        ConferenceJoinLeaveSounds.unlockFromGesture()
         runGuardedAction(startButton) {
             // V1.9.70: one conference per tab -- no room is created while another call (or its end state) is still in the dock
             if (!ConferenceDock.canJoin()) return@runGuardedAction
@@ -742,6 +743,8 @@ private fun renderRoomCard(
     }
     val joinButton = card.button(tr("Beitreten"), style = ButtonStyle.PRIMARY)
     joinButton.onClick {
+        // V1.9.120: the tones need an audio context that was created inside a click, before the first await
+        ConferenceJoinLeaveSounds.unlockFromGesture()
         joinButton.disabled = true
         AppScope.launch {
             joinConferenceRoomAndEnterCall(room, lobbyPanel, callPanel, setActiveSession, rejoinGuard, onReturnedToLobby)
@@ -866,7 +869,10 @@ private suspend fun awaitEventGuestNotice(host: SimplePanel): Boolean {
     )
     val joinButton = Button(tr("Beitreten"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = joinButton)
-    joinButton.onClick { form.submit(joinButton) { decision.complete(true) } }
+    joinButton.onClick {
+        ConferenceJoinLeaveSounds.unlockFromGesture()
+        form.submit(joinButton) { decision.complete(true) }
+    }
     return decision.await()
 }
 
@@ -1320,6 +1326,39 @@ private fun enterCall(
     // a change made by another moderator, so this panel and the stream dialog's default layout can show a stale value until a rejoin.
     // Display-only: the server applies the stored value to the next recording.
     var roomBroadcastView = room.broadcastView
+    // V1.9.120: join/leave tones. The room option as the server last said it (read at join; a change by ANOTHER moderator reaches a running
+    // client only at its next join or reload -- nothing pushes it; the moderator who changes it sees it at once), the personal switch and the
+    // dedup gate of this call. The player is the tab's single one (its audio context was created inside the join click).
+    var roomJoinLeaveSounds = room.joinLeaveSounds
+    val joinLeaveSoundPlayer = ConferenceJoinLeaveSounds.player
+    val joinLeaveSoundPreference = ConferenceJoinLeaveSounds.preference
+    val joinLeaveSoundGate = PresenceSoundGate(clock = { window.performance.now() })
+    var joinLeaveSwitchRow: JoinLeaveSoundSwitchRow? = null
+    // an entry without a click of its own (automatic re-entry) is unlocked by the first gesture on the page
+    ConferenceJoinLeaveSounds.unlockOnNextGesture()
+
+    fun handlePresence(
+        kind: PresenceSoundKind,
+        event: PresenceEvent,
+    ) {
+        runCatching {
+            val play =
+                joinLeaveSoundGate.tryPlay(
+                    kind = kind,
+                    identity = event.identity,
+                    localIdentity = joinToken.identity,
+                    countBefore = event.countBefore,
+                    countAfter = event.countAfter,
+                    armed = event.armed,
+                    reconnectingLocally = event.reconnectingLocally,
+                    personalOn = joinLeaveSoundPreference.isOn(),
+                    roomOn = roomJoinLeaveSounds,
+                )
+            if (play) {
+                if (kind == PresenceSoundKind.JOIN) joinLeaveSoundPlayer.playJoin() else joinLeaveSoundPlayer.playLeave()
+            }
+        }
+    }
     var microphonePermitted = true
     var moderationPanel: ConferenceModerationPanel? = null
     var toggleMicRef: () -> Unit = {}
@@ -1702,6 +1741,14 @@ private fun enterCall(
             capability = ::noiseSuppressionSupportInThisBrowser,
         )
     NoiseSuppressionSwitchRow(deviceGroup, noiseSuppressionController)
+    // V1.9.120 -- personal switch of the join/leave tones, directly below the noise suppression (a sound setting of the same kind).
+    joinLeaveSwitchRow =
+        JoinLeaveSoundSwitchRow(
+            deviceGroup,
+            joinLeaveSoundPreference,
+            joinLeaveSoundPlayer,
+            roomEnabled = { roomJoinLeaveSounds },
+        )
     val cameraDeviceSelect = deviceGroup.select(options = loadingPlaceholder, value = "", label = tr("Kamera"))
     // V1.3.x -- Lautsprecherauswahl nur, wenn der Browser `HTMLMediaElement.setSinkId` überhaupt
     // unterstützt (Safari nicht) -- Feature-Detection-Disziplin wie bei `screenShareButton`.
@@ -2022,6 +2069,21 @@ private fun enterCall(
                         if (result != null) {
                             roomBroadcastView = result.broadcastView
                             moderationPanel?.setBroadcastView(roomBroadcastView)
+                        } else {
+                            revert()
+                        }
+                    }
+                },
+                joinLeaveSounds = roomJoinLeaveSounds,
+                onJoinLeaveSounds = { enabled, revert ->
+                    moderationPanel?.setBusy(true)
+                    AppScope.launch {
+                        val result = guarded { rpcService<IConferenceModerationService>().setRoomJoinLeaveSounds(room.id, enabled) }
+                        moderationPanel?.setBusy(false)
+                        if (result != null) {
+                            roomJoinLeaveSounds = result.joinLeaveSounds
+                            moderationPanel?.setJoinLeaveSounds(roomJoinLeaveSounds)
+                            joinLeaveSwitchRow?.refresh()
                         } else {
                             revert()
                         }
@@ -4589,6 +4651,8 @@ private fun enterCall(
         kind: ConferenceDeviceKind,
         deviceId: String,
     ) {
+        // V1.9.120: the tones leave through the speaker the person chose (best effort)
+        if (kind == ConferenceDeviceKind.SPEAKER) joinLeaveSoundPlayer.setSink(conferenceUsableDeviceId(deviceId))
         val select =
             when (kind) {
                 ConferenceDeviceKind.MICROPHONE -> micDeviceSelect
@@ -4922,6 +4986,8 @@ private fun enterCall(
                 scheduleGuestHomeserverRefresh()
             },
             onParticipantLeft = { identity -> removeTile(identity) },
+            onPresenceJoin = { event -> handlePresence(PresenceSoundKind.JOIN, event) },
+            onPresenceLeave = { event -> handlePresence(PresenceSoundKind.LEAVE, event) },
             onLocalVideoTrack = { track ->
                 val entry = ensureTile(joinToken.identity, joinToken.displayName, isLocal = true)
                 setTileVideo(entry, track?.attach())

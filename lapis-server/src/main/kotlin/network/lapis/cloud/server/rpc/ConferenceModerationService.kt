@@ -54,6 +54,7 @@ internal const val AUDIT_MUTE_ALL = "mute_all"
 internal const val AUDIT_UNMUTE_REQUEST = "unmute_request"
 internal const val AUDIT_AUDIO_POLICY = "audio_policy"
 internal const val AUDIT_BROADCAST_VIEW = "BROADCAST_VIEW"
+internal const val AUDIT_JOIN_LEAVE_SOUNDS = "JOIN_LEAVE_SOUNDS"
 
 /**
  * V1.9.108 -- see [IConferenceModerationService]. Every call follows the same three phases (pitfall S6: LiveKit is NEVER called inside a
@@ -85,6 +86,7 @@ class ConferenceModerationService(
     private val policyRateLimiter: FederationInboxRateLimiter,
     private val previewRateLimiter: FederationInboxRateLimiter,
     private val broadcastViewRateLimiter: FederationInboxRateLimiter,
+    private val joinLeaveSoundsRateLimiter: FederationInboxRateLimiter,
 ) : IConferenceModerationService {
     private data class RoomContext(
         val roomId: Uuid,
@@ -309,6 +311,42 @@ class ConferenceModerationService(
                 entityId = room.roomId,
                 action = AuditAction.UPDATE,
                 after = """{"moderation":"$AUDIT_BROADCAST_VIEW","view":"${view.name}"}""",
+            )
+            result
+        }
+    }
+
+    override suspend fun setRoomJoinLeaveSounds(
+        roomId: String,
+        enabled: Boolean,
+    ): ConferenceRoomDto {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        // Authorization first and from the database; every refusal (no authority, unknown/ended room, encounter session) is the same exception.
+        val room = transaction { authorizeRoom(roomId = roomId, current = current) }
+        requireWithinRate(limiter = joinLeaveSoundsRateLimiter, key = "room:${room.roomId}")
+        // No LiveKit call: the tones are a purely client-side matter, running clients learn the option at their next join or reload.
+        return transaction {
+            ConferenceRoomTable
+                .selectAll()
+                .where { ConferenceRoomTable.id eq room.roomId }
+                .forUpdate()
+                .singleOrNull()
+                ?.takeIf { it[ConferenceRoomTable.endedAt] == null }
+                ?: throw ForbiddenException(MODERATION_DENIED)
+            ConferenceRoomTable.update({ ConferenceRoomTable.id eq room.roomId }) {
+                it[ConferenceRoomTable.joinLeaveSounds] = enabled
+            }
+            val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq room.roomId }.single()
+            val result = ConferenceRoomDtoMapper.toDto(row = fresh, callerId = current.memberId, liveParticipantCount = 0)
+            // AuditLogRecorder.record must be the LAST lock-taking operation in this transaction. Metadata only -- no names.
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.CONFERENCE_ROOM,
+                entityId = room.roomId,
+                action = AuditAction.UPDATE,
+                after = """{"moderation":"$AUDIT_JOIN_LEAVE_SOUNDS","enabled":$enabled}""",
             )
             result
         }

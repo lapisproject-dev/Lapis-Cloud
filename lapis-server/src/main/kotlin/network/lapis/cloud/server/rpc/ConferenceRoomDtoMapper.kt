@@ -40,6 +40,7 @@ internal object ConferenceRoomDtoMapper {
             muteOnJoin = row[ConferenceRoomTable.muteOnJoin],
             participantsMayUnmute = row[ConferenceRoomTable.participantsMayUnmute],
             broadcastView = row[ConferenceRoomTable.broadcastView],
+            joinLeaveSounds = row[ConferenceRoomTable.joinLeaveSounds],
         )
     }
 

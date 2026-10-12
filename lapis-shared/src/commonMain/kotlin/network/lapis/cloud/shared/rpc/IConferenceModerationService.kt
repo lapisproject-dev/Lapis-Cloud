@@ -61,4 +61,14 @@ interface IConferenceModerationService {
         roomId: String,
         view: ConferenceBroadcastView,
     ): ConferenceRoomDto
+
+    /**
+     * V1.9.120 -- switches the join/leave tones of the room on or off for everybody (client-side tones; each person can additionally switch
+     * them off for themselves). Running clients learn the change at their next join or reload; the moderator sees it at once. Same authority
+     * and the same single `ForbiddenException` for every refusal as [setRoomAudioPolicy]; no LiveKit call.
+     */
+    suspend fun setRoomJoinLeaveSounds(
+        roomId: String,
+        enabled: Boolean,
+    ): ConferenceRoomDto
 }

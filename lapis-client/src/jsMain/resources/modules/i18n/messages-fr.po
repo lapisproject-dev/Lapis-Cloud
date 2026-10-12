@@ -22883,3 +22883,15 @@ msgstr "%1 a été rejeté(e). Aucune adresse e-mail valide n'est disponible ; l
 
 msgid "%1 wurde abgelehnt. Die Benachrichtigung konnte nicht versendet werden."
 msgstr "%1 a été rejeté(e). La notification n'a pas pu être envoyée."
+
+msgid "Töne bei Beitritt und Verlassen"
+msgstr "Sons à l'arrivée et au départ"
+
+msgid "Ein leiser Ton, wenn jemand beitritt oder den Raum verlässt. Bei mehr als %1 Personen im Raum bleibt es still."
+msgstr "Un son discret lorsque quelqu'un rejoint ou quitte la salle. Au-delà de %1 personnes dans la salle, il reste silencieux."
+
+msgid "Die Moderation hat die Töne für diesen Raum ausgeschaltet."
+msgstr "La modération a désactivé les sons pour cette salle."
+
+msgid "Töne bei Beitritt und Verlassen in diesem Raum"
+msgstr "Sons à l'arrivée et au départ dans cette salle"

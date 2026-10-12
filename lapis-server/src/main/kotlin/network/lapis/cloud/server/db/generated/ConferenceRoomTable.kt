@@ -52,6 +52,12 @@ public object ConferenceRoomTable : Table("conference_room") {
         enumerationByName<ConferenceBroadcastView>("broadcast_view", 7).default(ConferenceBroadcastView.RASTER)
 
     /**
+     * V1.9.120 -- V95. `true` (default): clients play the join/leave tones in this room; a moderator can switch them off for the room.
+     * Exposed default deliberate (same reasoning as [allowFederationGuests]).
+     */
+    public val joinLeaveSounds: Column<Boolean> = bool("join_leave_sounds").default(true)
+
+    /**
      * V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- see
      * 27-conference.kuml.kts. `null` means this room is not bound to any Sitzung (the default for
      * every existing and newly-created room). Set from INSIDE a running room via

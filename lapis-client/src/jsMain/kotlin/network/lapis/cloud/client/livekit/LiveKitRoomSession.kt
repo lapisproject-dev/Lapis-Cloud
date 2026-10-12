@@ -12,8 +12,11 @@ import network.lapis.cloud.client.NoiseSuppressionDiagnostics
 import network.lapis.cloud.client.NoiseSuppressionFailure
 import network.lapis.cloud.client.NoiseSuppressionStageException
 import network.lapis.cloud.client.NoiseSuppressionUnavailable
+import network.lapis.cloud.client.PresenceEvent
+import network.lapis.cloud.client.PresenceTracker
 import network.lapis.cloud.client.encounter.EncounterReactionWire
 import network.lapis.cloud.client.failureOf
+import network.lapis.cloud.client.isPresenceCountable
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_TOPIC
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
@@ -358,6 +361,13 @@ class LiveKitRoomSession(
      * `Room` is an `external class`, so any JS object exposing the same method/property names
      * works identically to the real thing at the call sites this class uses). */
     private val roomFactory: (RoomOptions) -> Room = { options -> Room(options) },
+    /** V1.9.120 -- a person (not the local one, not a recorder) joined / left: the counts include the local participant. NOT fired for the
+     * first roster ([seedRoster]) or a resync ([resyncRoster]); [PresenceEvent.armed] / [PresenceEvent.reconnectingLocally] tell the consumer
+     * whether a tone may sound. Never throws into the SDK (a consumer exception is swallowed). */
+    private val onPresenceJoin: (PresenceEvent) -> Unit = {},
+    private val onPresenceLeave: (PresenceEvent) -> Unit = {},
+    /** Test seam of the clock behind the reconnect grace window (milliseconds, monotonic). */
+    presenceClock: () -> Double = { window.performance.now() },
     /**
      * V1.9.24 -- fires at most once per 2 s after a peer's vote nudge. Carries NO data: the nudge payload
      * is peer-to-peer, unauthenticated and DISCARDED; the only allowed reaction is a server re-query
@@ -419,6 +429,9 @@ class LiveKitRoomSession(
     private val onLocalMicrophonePermission: (allowed: Boolean) -> Unit = {},
 ) {
     private var room: Room? = null
+
+    /** V1.9.120 -- when a join/leave tone may sound at all: armed after the first roster, silent while this client reconnects. */
+    private val presence = PresenceTracker(presenceClock)
 
     private val voteNudgeThrottle: VoteNudgeThrottle =
         (voteNudgeThrottleFactory ?: { onRefresh -> VoteNudgeThrottle(onRefresh = onRefresh) })(onVoteNudge)
@@ -642,6 +655,7 @@ class LiveKitRoomSession(
                         }
                 }
             }
+        presence.disarm()
         val newRoom = roomFactory(options)
         wireEvents(newRoom)
         room = newRoom
@@ -668,6 +682,8 @@ class LiveKitRoomSession(
             try {
                 onRecordingStatusChanged(newRoom.isRecording)
                 seedRoster(newRoom)
+                // the first roster is in: from here on a join or a leave is a real event
+                presence.arm()
                 onAudioPlaybackChanged(newRoom.canPlaybackAudio)
                 onLocalMicrophonePermission(localMicrophoneAllowed(newRoom))
             } catch (e: kotlinx.coroutines.CancellationException) {
@@ -713,10 +729,12 @@ class LiveKitRoomSession(
         room.onOwned(RoomEvent.ParticipantConnected) { p0, _, _, _ ->
             val participant = p0.unsafeCast<RemoteParticipant>()
             onParticipantJoined(participant.identity, participant.name ?: participant.identity)
+            reportPresence(room, participant, joined = true)
         }
         room.onOwned(RoomEvent.ParticipantDisconnected) { p0, _, _, _ ->
             val participant = p0.unsafeCast<RemoteParticipant>()
             onParticipantLeft(participant.identity)
+            reportPresence(room, participant, joined = false)
         }
         room.onOwned(RoomEvent.TrackSubscribed) { p0, p1, p2, _ ->
             val track = p0.unsafeCast<Track>()
@@ -768,9 +786,16 @@ class LiveKitRoomSession(
             if (track.kind != "video") return@onOwned
             onLocalCameraTrackPublished(track)
         }
-        room.onOwned(RoomEvent.Disconnected) { p0, _, _, _ -> onDisconnected(disconnectCauseOf(p0)) }
-        room.onOwned(RoomEvent.Reconnecting) { _, _, _, _ -> onReconnecting() }
-        room.onOwned(RoomEvent.Reconnected) { _, _, _, _ -> onReconnected() }
+        // V1.9.120: a disconnect disarms the presence tones; the cause is still handed on in the same expression (ClientConferenceRejoinTripwireTest)
+        room.onOwned(RoomEvent.Disconnected) { p0, _, _, _ -> onDisconnected(disconnectCauseOf(p0).also { presence.disarm() }) }
+        room.onOwned(RoomEvent.Reconnecting) { _, _, _, _ ->
+            presence.onReconnecting()
+            onReconnecting()
+        }
+        room.onOwned(RoomEvent.Reconnected) { _, _, _, _ ->
+            presence.onReconnected()
+            onReconnected()
+        }
         room.onOwned(RoomEvent.RecordingStatusChanged) { p0, _, _, _ ->
             // p0 is a raw JS boolean primitive here (LiveKit calls the listener with exactly one
             // argument), not one of this file's own `external interface` types -- see
@@ -946,6 +971,48 @@ class LiveKitRoomSession(
             kotlin.js.console.warn("LiveKit roster resync failed; connection stays up -- see resyncRoster KDoc")
         }
         return present
+    }
+
+    /**
+     * V1.9.120 -- tells the consumer about ONE real arrival or departure (never from [seedRoster] or [resyncRoster], which re-announce
+     * people who were already there). The counts come from the SDK's own roster, excluding the person the event is about, so they do not
+     * depend on whether the SDK has already updated its map: `others` includes the local participant and excludes recorders.
+     */
+    private fun reportPresence(
+        room: Room,
+        participant: RemoteParticipant,
+        joined: Boolean,
+    ) {
+        try {
+            val identity = participant.identity
+            if (!isPresenceCountable(kindOf(participant), identity)) return
+            var others = 1
+            val countCallback: (dynamic, dynamic) -> Unit = { value, _ ->
+                val other = value.unsafeCast<RemoteParticipant>()
+                if (other.identity != identity && isPresenceCountable(kindOf(other), other.identity)) others++
+            }
+            room.remoteParticipants.forEach(countCallback)
+            val event =
+                PresenceEvent(
+                    identity = identity,
+                    countBefore = if (joined) others else others + 1,
+                    countAfter = if (joined) others + 1 else others,
+                    armed = presence.armed,
+                    reconnectingLocally = presence.reconnectingLocally(),
+                )
+            if (joined) onPresenceJoin(event) else onPresenceLeave(event)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            // a failing tone must never disturb the call; static string only (see the other log lines of this class)
+            kotlin.js.console.warn("LiveKit presence report failed; connection stays up")
+        }
+    }
+
+    /** The SDK's participant kind as text (a number or a name), `null` when it reports none. */
+    private fun kindOf(participant: dynamic): String? {
+        val kind = participant.kind
+        return if (kind == null || kind == undefined) null else "$kind"
     }
 
     /** See class KDoc "Roster-seeding gotcha". */

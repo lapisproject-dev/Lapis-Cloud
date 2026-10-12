@@ -22712,3 +22712,15 @@ msgstr "%1 ha sido rechazado. No hay una dirección de correo válida, por lo qu
 
 msgid "%1 wurde abgelehnt. Die Benachrichtigung konnte nicht versendet werden."
 msgstr "%1 ha sido rechazado. No se pudo enviar la notificación."
+
+msgid "Töne bei Beitritt und Verlassen"
+msgstr "Sonidos al entrar o salir personas"
+
+msgid "Ein leiser Ton, wenn jemand beitritt oder den Raum verlässt. Bei mehr als %1 Personen im Raum bleibt es still."
+msgstr "Un tono suave cuando alguien entra en la sala o la abandona. Con más de %1 personas en la sala permanece en silencio."
+
+msgid "Die Moderation hat die Töne für diesen Raum ausgeschaltet."
+msgstr "La moderación ha desactivado los sonidos en esta sala."
+
+msgid "Töne bei Beitritt und Verlassen in diesem Raum"
+msgstr "Sonidos al entrar o salir personas en esta sala"

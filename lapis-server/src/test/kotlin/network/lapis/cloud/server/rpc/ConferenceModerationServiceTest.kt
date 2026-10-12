@@ -82,6 +82,7 @@ private class ModerationRig(
     val policy: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
     val preview: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
     val broadcastView: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
+    val joinLeaveSounds: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
 )
 
 private class RoomFx(
@@ -103,6 +104,7 @@ private fun Route.registerModerationRoutes(rig: ModerationRig) {
             policyRateLimiter = rig.policy,
             previewRateLimiter = rig.preview,
             broadcastViewRateLimiter = rig.broadcastView,
+            joinLeaveSoundsRateLimiter = rig.joinLeaveSounds,
         )
 
     fun conference(call: io.ktor.server.application.ApplicationCall) =
@@ -147,6 +149,11 @@ private fun Route.registerModerationRoutes(rig: ModerationRig) {
                 view = ConferenceBroadcastView.valueOf(q["view"]!!),
             )
         call.respondText("ok|${dto.broadcastView}|${dto.myRole}")
+    }
+    post("/test/join-leave-sounds") {
+        val q = call.request.queryParameters
+        val dto = service(call).setRoomJoinLeaveSounds(roomId = q["room"]!!, enabled = q["enabled"]!!.toBoolean())
+        call.respondText("ok|${dto.joinLeaveSounds}|${dto.myRole}")
     }
     post("/test/join") {
         call.respondText(conference(call).joinRoom(roomId = call.request.queryParameters["room"]!!, guestConsent = null).token)
@@ -999,6 +1006,72 @@ class ConferenceModerationServiceTest :
                 act(path = "/test/broadcast-view", caller = creator, "room" to r, "view" to "SPEAKER").first shouldBe HttpStatusCode.OK
                 act(path = "/test/broadcast-view", caller = creator, "room" to r, "view" to "RASTER").first shouldBe HttpStatusCode.Conflict
                 audits(room) shouldContainExactly listOf("""{"moderation":"BROADCAST_VIEW","view":"SPEAKER"}""")
+                audits(room).forEach { it shouldNotContain "Moderation Test" }
+            }
+        }
+
+        // -- V1.9.120: join/leave tones of the room -------------------------------------------------------------------------------
+
+        test("setRoomJoinLeaveSounds: new rooms default to on; creator and BOARD/ADMIN may set it, DTO and row carry it, no LiveKit call") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val board = newMember(AccountRole.BOARD)
+            val admin = newMember(AccountRole.ADMIN)
+            val room = newRoom(creator)
+            roomRow(room)[ConferenceRoomTable.joinLeaveSounds] shouldBe true
+            moderationApp(rig = rig) {
+                val r = room.id.toString()
+                act(path = "/test/join-leave-sounds", caller = creator, "room" to r, "enabled" to "false") shouldBe
+                    (HttpStatusCode.OK to "ok|false|MODERATOR")
+                roomRow(room)[ConferenceRoomTable.joinLeaveSounds] shouldBe false
+                act(path = "/test/join-leave-sounds", caller = board, "room" to r, "enabled" to "true") shouldBe
+                    (HttpStatusCode.OK to "ok|true|PARTICIPANT")
+                act(path = "/test/join-leave-sounds", caller = admin, "room" to r, "enabled" to "false").first shouldBe HttpStatusCode.OK
+                roomRow(room)[ConferenceRoomTable.joinLeaveSounds] shouldBe false
+                rig.liveKit.permissionUpdates.shouldBeEmpty()
+                rig.liveKit.packets.shouldBeEmpty()
+            }
+        }
+
+        test(
+            "setRoomJoinLeaveSounds: every refusal is the identical Forbidden -- no authority, a guest, unknown, ended, encounter, bad id",
+        ) {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val ordinary = newMember()
+            val guest = newMember(status = MemberStatus.GUEST)
+            val room = newRoom(creator)
+            val ended = newRoom(creator, ended = true)
+            val encounter = newRoom(creator, encounter = true)
+            moderationApp(rig = rig) {
+                val denied = HttpStatusCode.Forbidden to "forbidden"
+                act(path = "/test/join-leave-sounds", caller = ordinary, "room" to room.id.toString(), "enabled" to "false") shouldBe denied
+                act(path = "/test/join-leave-sounds", caller = guest, "room" to room.id.toString(), "enabled" to "false") shouldBe denied
+                act(path = "/test/join-leave-sounds", caller = creator, "room" to Uuid.random().toString(), "enabled" to "false") shouldBe
+                    denied
+                act(path = "/test/join-leave-sounds", caller = creator, "room" to ended.id.toString(), "enabled" to "false") shouldBe denied
+                act(path = "/test/join-leave-sounds", caller = creator, "room" to encounter.id.toString(), "enabled" to "false") shouldBe
+                    denied
+                act(path = "/test/join-leave-sounds", caller = creator, "room" to "not-a-uuid", "enabled" to "false") shouldBe denied
+                listOf(room, ended, encounter).forEach { roomRow(it)[ConferenceRoomTable.joinLeaveSounds] shouldBe true }
+            }
+        }
+
+        test("setRoomJoinLeaveSounds: audit entry holds metadata only (no name), and the limiter throttles per room") {
+            val rig = ModerationRig(joinLeaveSounds = FederationInboxRateLimiter(maxRequests = 1, window = 10.minutes))
+            val creator = newMember()
+            val outsider = newMember()
+            val room = newRoom(creator)
+            moderationApp(rig = rig) {
+                val r = room.id.toString()
+                repeat(3) {
+                    act(path = "/test/join-leave-sounds", caller = outsider, "room" to r, "enabled" to "false").first shouldBe
+                        HttpStatusCode.Forbidden
+                }
+                act(path = "/test/join-leave-sounds", caller = creator, "room" to r, "enabled" to "false").first shouldBe HttpStatusCode.OK
+                act(path = "/test/join-leave-sounds", caller = creator, "room" to r, "enabled" to "true").first shouldBe
+                    HttpStatusCode.Conflict
+                audits(room) shouldContainExactly listOf("""{"moderation":"JOIN_LEAVE_SOUNDS","enabled":false}""")
                 audits(room).forEach { it shouldNotContain "Moderation Test" }
             }
         }

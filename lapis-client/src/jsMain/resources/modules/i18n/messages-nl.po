@@ -22821,3 +22821,15 @@ msgstr "%1 is afgewezen. Er is geen geldig e-mailadres bekend, de persoon is nie
 
 msgid "%1 wurde abgelehnt. Die Benachrichtigung konnte nicht versendet werden."
 msgstr "%1 is afgewezen. De melding kon niet worden verzonden."
+
+msgid "Töne bei Beitritt und Verlassen"
+msgstr "Geluiden bij binnenkomen en vertrekken"
+
+msgid "Ein leiser Ton, wenn jemand beitritt oder den Raum verlässt. Bei mehr als %1 Personen im Raum bleibt es still."
+msgstr "Een zacht geluid wanneer iemand de ruimte binnenkomt of verlaat. Bij meer dan %1 personen in de ruimte blijft het stil."
+
+msgid "Die Moderation hat die Töne für diesen Raum ausgeschaltet."
+msgstr "De moderatie heeft de geluiden voor deze ruimte uitgeschakeld."
+
+msgid "Töne bei Beitritt und Verlassen in diesem Raum"
+msgstr "Geluiden bij binnenkomen en vertrekken in deze ruimte"
