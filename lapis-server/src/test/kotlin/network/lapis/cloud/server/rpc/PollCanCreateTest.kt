@@ -11,16 +11,14 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 /**
@@ -31,11 +29,8 @@ import kotlin.uuid.Uuid
 class PollCanCreateTest :
     FunSpec({
         val data = PollTestData()
-        val today: LocalDate =
-            Clock.System
-                .now()
-                .toLocalDateTime(TimeZone.currentSystemDefault())
-                .date
+        // the server judges terms by the organisation's day, not the machine's zone (CI runs in UTC)
+        val today: LocalDate by lazy { OrganizationTimeZone.today() }
 
         beforeSpec {
             DatabaseConfig.connect()

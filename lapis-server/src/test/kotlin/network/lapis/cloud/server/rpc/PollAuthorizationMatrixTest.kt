@@ -5,13 +5,12 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
-import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -22,7 +21,6 @@ import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
-import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
 /**
@@ -33,11 +31,8 @@ import kotlin.uuid.Uuid
 class PollAuthorizationMatrixTest :
     FunSpec({
         val data = PollTestData()
-        val today: LocalDate =
-            Clock.System
-                .now()
-                .toLocalDateTime(TimeZone.currentSystemDefault())
-                .date
+        // the server judges terms by the organisation's day, not the machine's zone (CI runs in UTC)
+        val today: LocalDate by lazy { OrganizationTimeZone.today() }
 
         beforeSpec {
             DatabaseConfig.connect()
