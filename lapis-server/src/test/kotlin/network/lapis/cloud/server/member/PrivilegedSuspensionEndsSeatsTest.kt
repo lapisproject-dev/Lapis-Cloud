@@ -8,6 +8,7 @@ import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.rpc.CommitteeSeatFixture
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.CommitteeRole
+import network.lapis.cloud.shared.domain.CommitteeSeatAutoEndReason
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.PrivilegedActionStatus
@@ -51,6 +52,6 @@ class PrivilegedSuspensionEndsSeatsTest :
 
             peer.statusOf(b) shouldBe MemberStatus.WITHDRAWN
             seats.seatRow(seat)[CommitteeMembershipTable.until] shouldBe OrganizationTimeZone.dateOf(DbClock.nowLocalDateTime())
-            seats.seatRow(seat)[CommitteeMembershipTable.autoEndReason] shouldBe MemberStatus.WITHDRAWN
+            seats.seatRow(seat)[CommitteeMembershipTable.autoEndReason] shouldBe CommitteeSeatAutoEndReason.WITHDRAWN
         }
     })

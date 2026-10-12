@@ -35,6 +35,7 @@ import network.lapis.cloud.server.mail.newsletter.resolveDynamicRecipients
 import network.lapis.cloud.server.mail.secondsUntil
 import network.lapis.cloud.server.rules.LoadedMember
 import network.lapis.cloud.server.rules.MemberFactsLoader
+import network.lapis.cloud.server.rules.RuleReferences
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -84,7 +85,6 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
-import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.lessEq
@@ -265,7 +265,7 @@ class MailingService(
         val canonical = MemberRuleCodec.encode(rule)
         val now = DbClock.nowLocalDateTime()
         return transaction {
-            requireRuleReferencesExist(rule)
+            RuleReferences.lockAndValidate(rule = rule, context = RuleContext.MAILING, selfCommitteeId = null)
             val id = Uuid.random()
             MailingListTable.insert {
                 it[MailingListTable.id] = id
@@ -301,7 +301,7 @@ class MailingService(
         val canonical = MemberRuleCodec.encode(rule)
         val now = DbClock.nowLocalDateTime()
         return transaction {
-            requireRuleReferencesExist(rule)
+            RuleReferences.lockAndValidate(rule = rule, context = RuleContext.MAILING, selfCommitteeId = null)
             // Locks the LIST row (never a member row); the audit chain lock is the last lock of this transaction.
             val row =
                 MailingListTable
@@ -1271,29 +1271,6 @@ private fun storedRuleOrNull(row: ResultRow): MemberRule? =
 
 internal fun storedRuleOrConflict(row: ResultRow): MemberRule =
     storedRuleOrNull(row) ?: throw ConflictException("Die Regel dieser Liste ist ungültig.")
-
-/** Every committee must exist and be active, every tier must exist -- otherwise a typo would silently address nobody. */
-private fun requireRuleReferencesExist(rule: MemberRule) {
-    rule.conditions.forEach { condition ->
-        when (condition) {
-            is RuleCondition.Committee -> {
-                val ids = condition.committeeIds.map { Uuid.parse(it) }
-                val found =
-                    CommitteeTable
-                        .selectAll()
-                        .where { (CommitteeTable.id inList ids) and (CommitteeTable.active eq true) }
-                        .count()
-                if (found != ids.size.toLong()) throw BadRequestException("Ungültige Regel: unbekanntes oder inaktives Gremium.")
-            }
-            is RuleCondition.Tier -> {
-                val ids = condition.tierIds.map { Uuid.parse(it) }
-                val found = MembershipTierTable.selectAll().where { MembershipTierTable.id inList ids }.count()
-                if (found != ids.size.toLong()) throw BadRequestException("Ungültige Regel: unbekannte Mitgliedschaftsstufe.")
-            }
-            else -> Unit
-        }
-    }
-}
 
 private fun ruleSnapshotJson(
     kind: MailingListKind,

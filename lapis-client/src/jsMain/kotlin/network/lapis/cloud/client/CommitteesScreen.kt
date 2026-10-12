@@ -28,10 +28,15 @@ import network.lapis.cloud.shared.domain.CommitteeElectionSeatChangeDto
 import network.lapis.cloud.shared.domain.CommitteeInput
 import network.lapis.cloud.shared.domain.CommitteeMembershipDto
 import network.lapis.cloud.shared.domain.CommitteeMembershipInput
+import network.lapis.cloud.shared.domain.CommitteeMembershipMode
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CommitteeSeatChangeKind
 import network.lapis.cloud.shared.domain.CommitteeType
+import network.lapis.cloud.shared.domain.MembershipTierDto
 import network.lapis.cloud.shared.domain.rank
+import network.lapis.cloud.shared.domain.rules.MemberRule
+import network.lapis.cloud.shared.domain.rules.RuleOp
+import network.lapis.cloud.shared.rpc.IContributionService
 import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.IMemberService
 
@@ -102,8 +107,15 @@ fun renderCommitteesScreen(container: SimplePanel) {
                 )
                 return@launch
             }
+            // V1.9.112: the names of tiers appear in the sentence of a rule committee (BOARD/ADMIN only, and only if there is one)
+            val tiers =
+                if (canManage && committees.any { it.membershipMode == CommitteeMembershipMode.RULE }) {
+                    guarded { rpcService<IContributionService>().listMembershipTiers() }.orEmpty()
+                } else {
+                    emptyList()
+                }
             committees.forEach { committee ->
-                renderCommitteeRow(committeePanel, committee, canManage, ::refreshCommittees, ::selectCommittee)
+                renderCommitteeRow(committeePanel, committee, canManage, committees, tiers, ::refreshCommittees, ::selectCommittee)
             }
         }
     }
@@ -126,6 +138,8 @@ private fun renderCommitteeRow(
     panel: SimplePanel,
     committee: CommitteeDto,
     canManage: Boolean,
+    committees: List<CommitteeDto>,
+    tiers: List<MembershipTierDto>,
     onChanged: () -> Unit,
     onSelect: (CommitteeDto) -> Unit,
 ) {
@@ -135,10 +149,14 @@ private fun renderCommitteeRow(
     // free text rendered as raw widget content -- sanitize before KVision can resolve a forged marker on render.
     headerRow.div(sanitizeUntrustedI18nText(committee.name)) { addCssClasses("flex-grow-1 fw-bold") }
     headerRow.typeBadge(committeeTypeLabel(committee.type), committeeTypeColor(committee.type))
+    if (committee.membershipMode == CommitteeMembershipMode.RULE) headerRow.ruleCommitteeBadge()
     headerRow.statusBadge(if (committee.active) tr("Aktiv") else tr("Inaktiv"), if (committee.active) "success" else "secondary")
 
     if (committee.description.isNotBlank()) row.p(sanitizeUntrustedI18nText(committee.description)) { addCssClass("mb-0") }
     row.div(gettext("Quorum: %1%", committee.quorumPercent)) { addCssClasses("text-muted small") }
+    if (committee.membershipMode == CommitteeMembershipMode.RULE) {
+        renderRuleCommitteeFacts(row = row, committee = committee, canManage = canManage, committees = committees, tiers = tiers)
+    }
 
     val actionRow = row.hPanel(spacing = 8)
     val showButton = actionRow.actionButton(ActionIcon.VIEW, tr("Mitglieder anzeigen"), style = ButtonStyle.OUTLINESECONDARY)
@@ -153,6 +171,11 @@ private fun renderCommitteeRow(
             if (editOpen) {
                 editPanel.removeAll()
                 renderCommitteeEditForm(editPanel, committee) {
+                    editPanel.hide()
+                    onChanged()
+                }
+                // V1.9.112: how the members are determined (manual / by rule) is its own step with its own confirmation
+                renderCommitteeMembershipSection(editPanel, committee) {
                     editPanel.hide()
                     onChanged()
                 }
@@ -232,6 +255,19 @@ internal fun renderCommitteeCreation(
             hint = gettext("%1 bis %2.", 0, 100),
             rule = { FormRules.intInRange(value = it, min = 0, max = 100) },
         )
+    // V1.9.112: manual or by rule; the choice follows the type (nothing for the General Assembly and the executive board)
+    val membership =
+        MembershipModeSection(
+            form = form,
+            host = form.panel,
+            selfId = null,
+            initialMode = CommitteeMembershipMode.MANUAL,
+            initialRule = MemberRule(op = RuleOp.ALL, conditions = emptyList()),
+        )
+    membership.setTypeAllowsRule(committeeTypeAllowsRule(CommitteeType.WORKING_GROUP))
+    typeField.subscribe { value ->
+        membership.setTypeAllowsRule(parseOptionalEnum<CommitteeType>(value)?.let { committeeTypeAllowsRule(it) } ?: true)
+    }
 
     val createButton = newActionButton(ActionIcon.ADD, tr("Gremium anlegen"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = createButton, cancel = collapse?.let { collapseCancelButton(it) })
@@ -248,6 +284,8 @@ internal fun renderCommitteeCreation(
                             description = descriptionField.value.trim(),
                             quorumPercent = quorumField.value.trim().toInt(),
                             active = true,
+                            membershipMode = membership.mode,
+                            ruleJson = membership.ruleJson(),
                         ),
                     )
                 }
@@ -256,6 +294,7 @@ internal fun renderCommitteeCreation(
                 nameField.reset()
                 descriptionField.reset()
                 quorumField.setValue("50")
+                membership.dispose()
                 onCreated()
                 collapse?.invoke(true)
             }
@@ -273,6 +312,11 @@ internal fun renderCommitteeRoster(
     rosterPanel.removeAll()
     if (committee.type == CommitteeType.GENERAL_ASSEMBLY) {
         renderGeneralAssemblyRoster(rosterPanel, committee, canManage, onSeatsChanged)
+        return
+    }
+    // V1.9.112: a rule committee has no roster, no "Mitglied hinzufügen" and no offices -- only the number and what that means
+    if (committee.membershipMode == CommitteeMembershipMode.RULE) {
+        renderRuleCommitteeRoster(rosterPanel, committee)
         return
     }
     // Security audit follow-up (untrusted-text sanitization gaps): committee.name is admin-editable free text
@@ -315,6 +359,29 @@ internal fun renderCommitteeRoster(
     if (canManage && addMemberPanel != null) {
         renderAddCommitteeMemberForm(addMemberPanel, committee.id, seatsChanged)
     }
+}
+
+/**
+ * V1.9.112 -- the "Besetzung" of a rule-based committee: nobody is listed (the members are whoever the rule selects at the moment it is asked),
+ * so the view says that plainly and shows the live number -- the basis of quorum, votes and elections, frozen when a vote opens.
+ */
+internal fun renderRuleCommitteeRoster(
+    rosterPanel: SimplePanel,
+    committee: CommitteeDto,
+) {
+    rosterPanel.h2(sanitizeUntrustedI18nText(gettext("Besetzung: %1", committee.name))) { addCssClass("h5") }
+    val infoRow = rosterPanel.hPanel(spacing = 8) { addCssClasses("align-items-center") }
+    infoRow.icon(ActionIcon.FILTER.css) { setAttribute("aria-hidden", "true") }
+    val infoText = infoRow.div(tr("Mitglieder ergeben sich aus der Regel.")) { addCssClass("text-body") }
+    infoText.setAttribute("aria-live", "polite")
+    AppScope.launch {
+        val n = runCatching { rpcService<IGovernanceService>().countCommitteeEligible(committee.id) }.getOrNull()
+        if (n != null) {
+            infoText.content = ngettext("%1 Mitglied gehört dazu", "%1 Mitglieder gehören dazu", n, n)
+            infoText.addCssClass("lapis-tabular-nums")
+        }
+    }
+    rosterPanel.div(tr("Bei einer Abstimmung wird der Kreis zum Start festgeschrieben.")) { addCssClasses("text-muted small") }
 }
 
 /**
@@ -683,7 +750,7 @@ internal fun committeeSeatAutoEndNote(membership: CommitteeMembershipDto): Strin
     return if (membership.since > until) {
         gettext("nicht angetreten, automatisch beendet am %1", formatDate(until))
     } else {
-        gettext("automatisch beendet, Grund: %1", memberStatusLabel(reason))
+        gettext("automatisch beendet, Grund: %1", committeeSeatEndReasonLabel(reason))
     }
 }
 
@@ -723,7 +790,7 @@ internal fun renderCommitteeAutoEndNotice(host: SimplePanel): () -> Unit {
                             entry.committeeName,
                             committeeRoleLabel(entry.role),
                             formatDate(entry.until),
-                            memberStatusLabel(entry.reason),
+                            committeeSeatEndReasonLabel(entry.reason),
                         ),
                         className = "small",
                     )

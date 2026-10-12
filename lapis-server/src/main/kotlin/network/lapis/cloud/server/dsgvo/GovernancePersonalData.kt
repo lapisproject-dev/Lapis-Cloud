@@ -11,6 +11,7 @@ import network.lapis.cloud.server.db.generated.MeetingTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.db.generated.VoteBallotTable
+import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.shared.domain.ErasureMode
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -56,6 +57,7 @@ object GovernancePersonalData : MemberPersonalDataContributor {
             MotionTable,
             VoteTable,
             VoteBallotTable,
+            VoteEligibleVoterTable,
         )
 
     override fun exportMember(memberId: Uuid) =
@@ -184,6 +186,20 @@ object GovernancePersonalData : MemberPersonalDataContributor {
                         )
                     }
             }
+            // V1.9.112 -- the votes whose frozen electorate (the circle of members who may vote) contains this member. Ids only.
+            putJsonArray("voteEligibilities") {
+                VoteEligibleVoterTable
+                    .selectAll()
+                    .where { VoteEligibleVoterTable.memberId eq memberId }
+                    .forEach { row ->
+                        add(
+                            buildJsonObject {
+                                put("id", row[VoteEligibleVoterTable.id].toString())
+                                put("voteId", row[VoteEligibleVoterTable.voteId].toString())
+                            },
+                        )
+                    }
+            }
         }
 
     override fun eraseMember(
@@ -220,6 +236,8 @@ object GovernancePersonalData : MemberPersonalDataContributor {
         val voteCount = VoteTable.selectAll().where { VoteTable.openedBy eq memberId }.count()
 
         val ballotCount = VoteBallotTable.selectAll().where { VoteBallotTable.memberId eq memberId }.count()
+
+        val voteEligibleVoterCount = VoteEligibleVoterTable.selectAll().where { VoteEligibleVoterTable.memberId eq memberId }.count()
 
         return listOf(
             TableErasureOutcome(
@@ -275,6 +293,11 @@ object GovernancePersonalData : MemberPersonalDataContributor {
                     "The staked and settled LTR amount is both the member's own property record " +
                         "and part of other members' Vickrey settlement -- erasing it would damage " +
                         "both. No field is erased.",
+            ),
+            TableErasureOutcome(
+                table = "vote_eligible_voter",
+                rowsRetained = voteEligibleVoterCount.toInt(),
+                retentionReason = "Frozen electorate of a Vote (quorum denominator), like election_eligible_voter.",
             ),
         )
     }

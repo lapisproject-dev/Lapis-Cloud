@@ -210,9 +210,17 @@ class ElectionService(
                     if (targetCommitteeId == null) {
                         throw ConflictException("targetCommitteeId is required for ElectionType.${input.electionType}")
                     }
+                    // V1.9.112: locked FOR UPDATE (motion row first, then this committee -- the rule switch only ever locks committees),
+                    // so an election cannot be opened against a committee at the very moment it is being switched to rule mode.
                     val targetCommitteeRow =
-                        CommitteeTable.selectAll().where { CommitteeTable.id eq targetCommitteeId }.singleOrNull()
+                        CommitteeTable
+                            .selectAll()
+                            .where { CommitteeTable.id eq targetCommitteeId }
+                            .forUpdate()
+                            .singleOrNull()
                             ?: throw NotFoundException("Committee ${input.targetCommitteeId} not found")
+                    // V1.9.112: a rule-based committee has no seats -- nobody can be elected into it.
+                    if (isRuleCommittee(targetCommitteeRow)) throw ConflictException(RULE_COMMITTEE_NO_ELECTION)
                     requireSuccessionInputs(
                         input = input,
                         targetCommitteeId = targetCommitteeId,
@@ -1389,8 +1397,11 @@ internal fun tallyElectionLocked(
             // beneficial-owner roster (BoardMembershipEvents.recordBoardJoin, see that
             // object's KDoc) in step with the real Vorstand. Gated on the targetCommittee's
             // type, NOT on isPoliticalParty -- §20 GwG applies to every Verein/Partei.
-            val targetCommitteeType =
-                CommitteeTable.selectAll().where { CommitteeTable.id eq targetCommitteeId }.single()[CommitteeTable.type]
+            val targetCommitteeRow = CommitteeTable.selectAll().where { CommitteeTable.id eq targetCommitteeId }.single()
+            // V1.9.112: fail-closed. openElection already refuses a rule-based target and the mode switch is blocked while an election
+            // targets the committee, so this is reachable only through a data race -- the tally then fails instead of writing seat rows.
+            if (isRuleCommittee(targetCommitteeRow)) throw ConflictException(RULE_COMMITTEE_NO_ELECTION)
+            val targetCommitteeType = targetCommitteeRow[CommitteeTable.type]
             val candidacyIdByOptionId = optionRows.associate { it[ElectionOptionTable.id] to it[ElectionOptionTable.candidacyId] }
             if (incumbentPolicy != null) {
                 val winnerMemberIds =

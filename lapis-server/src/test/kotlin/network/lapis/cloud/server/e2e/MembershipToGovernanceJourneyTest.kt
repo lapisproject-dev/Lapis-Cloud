@@ -465,10 +465,13 @@ class MembershipToGovernanceJourneyTest :
                 client
                     .post("/e2e1/schedule-motion/$motionId/$meetingId") { header("X-Member-Id", BOARD_ID) }
                     .bodyAsText() shouldBe MotionStatus.SCHEDULED.name
-                val openResponse = client.post("/e2e1/open-vote/$motionId") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
-                val voteId = openResponse.substringBefore(":")
-                val yesOptionId =
-                    openResponse
+                // V1.9.112: the electorate of a vote is frozen when it is opened -- this one is opened while the applicant is still ANTRAG, so he is
+                // NOT in it (step 5b shows that even after his approval the same session stays refused HERE); the vote he does vote in is opened after
+                // the approval (step 5c).
+                val earlyOpenResponse = client.post("/e2e1/open-vote/$motionId") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                val earlyVoteId = earlyOpenResponse.substringBefore(":")
+                val earlyYesOptionId =
+                    earlyOpenResponse
                         .substringAfter(":")
                         .split(";")
                         .first { it.endsWith("=YES") }
@@ -508,10 +511,10 @@ class MembershipToGovernanceJourneyTest :
                     client.post("/e2e1/cast-vote/${Uuid.random()}/${Uuid.random()}") { withSession(rawToken) }
                 forbiddenOnMissingVote.status shouldBe HttpStatusCode.Forbidden
 
-                val forbidden = client.post("/e2e1/cast-vote/$voteId/$yesOptionId") { withSession(rawToken) }
+                val forbidden = client.post("/e2e1/cast-vote/$earlyVoteId/$earlyYesOptionId") { withSession(rawToken) }
                 forbidden.status shouldBe HttpStatusCode.Forbidden
                 // The refusal must have been a refusal, not a silently-half-applied write.
-                ballotCountFor(voteId = voteId, memberId = applicantId) shouldBe 0
+                ballotCountFor(voteId = earlyVoteId, memberId = applicantId) shouldBe 0
                 ltrBalanceOf(applicantId) shouldBe BigDecimal("25.00")
 
                 // ── Step 5: BOARD approves (a DIFFERENT service, RegistrationService, in a ──
@@ -519,6 +522,28 @@ class MembershipToGovernanceJourneyTest :
                 val approved = client.post("/e2e1/approve/$applicantId") { header("X-Member-Id", BOARD_ID) }
                 approved.status shouldBe HttpStatusCode.OK
                 approved.bodyAsText() shouldBe "ACTIVE"
+
+                // ── Step 5b/5c (V1.9.112): the vote opened BEFORE the approval froze its electorate without the applicant -- he stays refused there ──
+                // ── (he was not a member when it opened); a vote opened AFTER the approval has him in its electorate. ─────────────────────────────
+                val stillForbidden = client.post("/e2e1/cast-vote/$earlyVoteId/$earlyYesOptionId") { withSession(rawToken) }
+                stillForbidden.status shouldBe HttpStatusCode.Forbidden
+                ballotCountFor(voteId = earlyVoteId, memberId = applicantId) shouldBe 0
+                // (a second meeting: the helper route schedules every motion at agenda position 1 of its meeting)
+                val meetingId2 = client.post("/e2e1/create-meeting/$committeeId") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                val motionId2 = client.post("/e2e1/submit-motion/$committeeId") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                client.post("/e2e1/review-motion/$motionId2") { header("X-Member-Id", BOARD_ID) }.bodyAsText() shouldBe
+                    MotionStatus.REVIEWED.name
+                client
+                    .post("/e2e1/schedule-motion/$motionId2/$meetingId2") { header("X-Member-Id", BOARD_ID) }
+                    .bodyAsText() shouldBe MotionStatus.SCHEDULED.name
+                val openResponse = client.post("/e2e1/open-vote/$motionId2") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                val voteId = openResponse.substringBefore(":")
+                val yesOptionId =
+                    openResponse
+                        .substringAfter(":")
+                        .split(";")
+                        .first { it.endsWith("=YES") }
+                        .substringBefore("=")
 
                 // ── Step 6: cross-domain seam #2 -- the SAME session cookie, no re-login, now ──
                 // ── succeeds: the status gate re-reads live DB status per call rather than ──────

@@ -36,7 +36,9 @@ import network.lapis.cloud.server.pdf.EinladungPdfGenerator
 import network.lapis.cloud.server.pdf.EventInvoicePdfGenerator
 import network.lapis.cloud.server.pdf.SpendenbescheinigungPdfGenerator
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
+import network.lapis.cloud.server.rpc.eligibleMemberIds
 import network.lapis.cloud.server.rpc.generalAssemblyCondition
+import network.lapis.cloud.server.rpc.isRuleCommittee
 import network.lapis.cloud.server.rpc.toOrganizationSettingsDto
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -60,6 +62,7 @@ import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
@@ -502,56 +505,83 @@ internal data class InvitationPart(
             " \u00b7 insgesamt $totalRecipients Empf\u00e4nger"
 }
 
-/** Throws [NotFoundException] for an unknown committee, [BadRequestException] unless it is the General Assembly. */
-internal fun requireGeneralAssemblyCommittee(committeeId: Uuid) {
-    val type =
+/**
+ * Throws [NotFoundException] for an unknown committee, [BadRequestException] unless its audience is DERIVED: the General Assembly or (V1.9.112)
+ * a rule-based committee -- both have no seat rows, so "all members of the committee" is a computed set. Returns the committee row.
+ */
+internal fun requireDerivedAudienceCommittee(committeeId: Uuid): ResultRow {
+    val row =
         CommitteeTable
             .selectAll()
             .where { CommitteeTable.id eq committeeId }
             .singleOrNull()
-            ?.get(CommitteeTable.type)
             ?: throw NotFoundException("Committee $committeeId not found")
-    if (type != CommitteeType.GENERAL_ASSEMBLY) {
-        throw BadRequestException("Committee $committeeId is not the General Assembly")
+    if (row[CommitteeTable.type] != CommitteeType.GENERAL_ASSEMBLY && !isRuleCommittee(row)) {
+        throw BadRequestException("Committee $committeeId has no derived membership")
     }
+    return row
 }
 
 /** Letters are never produced for anonymized records; N itself stays [generalAssemblyCondition] only. */
 private fun invitationRecipientCondition() = generalAssemblyCondition() and MemberTable.anonymizedAt.isNull()
 
 /**
+ * V1.9.112 -- the audience of a rule-based committee, sorted by id string (stable slices). It is the very set [eligibleMemberIds] yields, so
+ * it already excludes anonymised and deceased members; the General Assembly keeps its own SQL path.
+ */
+private fun ruleAudienceIds(committeeRow: ResultRow): List<Uuid> =
+    eligibleMemberIds(committeeRow = committeeRow, scheduledDate = OrganizationTimeZone.today()).sortedBy { it.toString() }
+
+/**
  * V1.9.101 -- resolves part [part] (0-based) of the "all active members" invitation, in ONE transaction and with
  * ONE query for the recipients (no N+1 over [loadMailmergeMember]). Sorted by id so the slices are stable.
  * [BadRequestException] when [part] is beyond the part count; [ConflictException] when the slice has no recipients.
+ * V1.9.112: also serves a rule-based committee (its rule is evaluated once, the slice is cut in Kotlin and loaded with ONE `inList` query
+ * of at most [MAX_INVITATION_RECIPIENTS] ids); the General Assembly path is unchanged.
  */
 internal fun resolveAllActiveInvitationPart(
     committeeId: Uuid,
     part: Int,
 ): InvitationPart =
     transaction {
-        requireGeneralAssemblyCommittee(committeeId)
-        val total = MemberTable.selectAll().where { generalAssemblyCondition() }.count()
+        val committeeRow = requireDerivedAudienceCommittee(committeeId)
+        val ruleIds = if (isRuleCommittee(committeeRow)) ruleAudienceIds(committeeRow) else null
+        val total = ruleIds?.size?.toLong() ?: MemberTable.selectAll().where { generalAssemblyCondition() }.count()
         val partCount = maxOf(1L, (total + MAX_INVITATION_RECIPIENTS - 1) / MAX_INVITATION_RECIPIENTS).toInt()
         if (part < 0 || part >= partCount) {
             throw BadRequestException("part must be between 0 and ${partCount - 1}")
         }
         val recipients =
-            (MemberTable leftJoin AccountTable)
-                .selectAll()
-                .where { invitationRecipientCondition() }
-                .orderBy(MemberTable.id to SortOrder.ASC)
-                .limit(MAX_INVITATION_RECIPIENTS)
-                .offset(part.toLong() * MAX_INVITATION_RECIPIENTS)
-                .map { it.toMailmergeMemberDto() }
+            if (ruleIds != null) {
+                val slice = ruleIds.drop(part * MAX_INVITATION_RECIPIENTS).take(MAX_INVITATION_RECIPIENTS)
+                if (slice.isEmpty()) {
+                    emptyList()
+                } else {
+                    (MemberTable leftJoin AccountTable)
+                        .selectAll()
+                        .where { MemberTable.id inList slice }
+                        .map { it.toMailmergeMemberDto() }
+                        .sortedBy { it.id }
+                }
+            } else {
+                (MemberTable leftJoin AccountTable)
+                    .selectAll()
+                    .where { invitationRecipientCondition() }
+                    .orderBy(MemberTable.id to SortOrder.ASC)
+                    .limit(MAX_INVITATION_RECIPIENTS)
+                    .offset(part.toLong() * MAX_INVITATION_RECIPIENTS)
+                    .map { it.toMailmergeMemberDto() }
+            }
         if (recipients.isEmpty()) {
             throw ConflictException("No invitation recipients in part ${part + 1}")
         }
         val totalRecipients =
-            MemberTable
-                .selectAll()
-                .where { invitationRecipientCondition() }
-                .count()
-                .toInt()
+            ruleIds?.size
+                ?: MemberTable
+                    .selectAll()
+                    .where { invitationRecipientCondition() }
+                    .count()
+                    .toInt()
         InvitationPart(
             recipients = recipients,
             partIndex = part,
@@ -564,25 +594,28 @@ internal fun resolveAllActiveInvitationPart(
 /**
  * V1.9.101 -- recipient ids for the POSTAL invitation to all active members. The cap is checked on a single
  * COUNT, BEFORE any id is loaded, so an oversized assembly costs nothing (no PDF, no provider call, no log).
+ * V1.9.112: a rule-based committee evaluates its rule once (a bounded id set) and applies the same cap.
  */
 internal fun resolveAllActivePostalRecipientIds(
     committeeId: Uuid,
     maxRecipients: Int,
 ): List<String> =
     transaction {
-        requireGeneralAssemblyCommittee(committeeId)
-        val count = MemberTable.selectAll().where { invitationRecipientCondition() }.count()
+        val committeeRow = requireDerivedAudienceCommittee(committeeId)
+        val ruleIds = if (isRuleCommittee(committeeRow)) ruleAudienceIds(committeeRow) else null
+        val count = ruleIds?.size?.toLong() ?: MemberTable.selectAll().where { invitationRecipientCondition() }.count()
         if (count > maxRecipients) {
             throw BadRequestException(
-                "Postal dispatch to all active members is limited to $maxRecipients recipients, the General Assembly " +
+                "Postal dispatch to all active members is limited to $maxRecipients recipients, the audience " +
                     "currently has $count -- download the PDF instead",
             )
         }
-        MemberTable
-            .select(MemberTable.id)
-            .where { invitationRecipientCondition() }
-            .orderBy(MemberTable.id to SortOrder.ASC)
-            .map { it[MemberTable.id].toString() }
+        ruleIds?.map { it.toString() }
+            ?: MemberTable
+                .select(MemberTable.id)
+                .where { invitationRecipientCondition() }
+                .orderBy(MemberTable.id to SortOrder.ASC)
+                .map { it[MemberTable.id].toString() }
     }
 
 private fun generateEinladung(

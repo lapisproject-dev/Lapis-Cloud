@@ -38,6 +38,10 @@ private val EXPECTED_PLURAL_MESSAGES: List<Pair<String, String>> =
         "%1 Mitglied ohne Landesverband" to "%1 Mitglieder ohne Landesverband",
         // Welle V1.9.111 "Dynamische Mailinglisten" -- MailingRuleBuilder.kt's live count of a rule ("%1 Empfänger wird erreicht").
         "%1 Empfänger wird erreicht" to "%1 Empfänger werden erreicht",
+        // Welle V1.9.112 "regelbasierte Gremien" -- CommitteeRuleUi.kt: the live count of members of a rule committee (also the builder's count) and
+        // the number of seats that end when a committee is switched to rule mode.
+        "%1 Mitglied gehört dazu" to "%1 Mitglieder gehören dazu",
+        "%1 offener Sitz endet heute." to "%1 offene Sitze enden heute.",
     )
 
 /** `nplurals` per language, matching `PluralRules.kt`'s `pluralFormCount` (not importable here: `lapis-client` is a separate, jsMain-only module). */

@@ -97,6 +97,7 @@ internal object ElectionSeatSuccession {
         check(TransactionManager.currentOrNull() != null) {
             "ElectionSeatSuccession.apply must run inside an already-open transaction {} block"
         }
+        requireNotRuleCommittee(committeeId)
         val winners = winnerMemberIds.distinct()
         val outcomes = mutableListOf<ElectionSeatOutcomeRow>()
         val audits = mutableListOf<PendingAudit>()

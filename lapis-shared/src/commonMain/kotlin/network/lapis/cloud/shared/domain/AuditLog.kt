@@ -442,6 +442,14 @@ enum class AuditEntityType {
      * never a member id, name or address). 15 chars, fits within `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
      */
     MAILING_MESSAGE,
+
+    /**
+     * Welle V1.9.112 "regelbasierte Gremien" -- `GovernanceService.setCommitteeMembershipRule` (and `createCommittee` for a rule-based
+     * committee) write one entry per change of a committee's membership mode or rule, `entityId` = the committee id, `before`/`after` = a
+     * [CommitteeRuleChangeSnapshot] (event, mode, canonical rule JSON, counts -- never a member id or a name). 9 chars. Appended LAST,
+     * additive only.
+     */
+    COMMITTEE,
 }
 
 /**
@@ -1229,4 +1237,18 @@ data class MailingDynamicSendSnapshot(
     val ruleJson: String,
     val recipientCount: Int,
     val mandatory: Boolean,
+)
+
+/**
+ * Welle V1.9.112 -- before/after snapshot of a committee's membership mode / rule ([AuditEntityType.COMMITTEE]). [event] is
+ * `COMMITTEE_MODE_CHANGED` or `COMMITTEE_RULE_SET`; [ruleJson] is the canonical rule (enums, committee/tier ids and a day count only);
+ * [eligibleCount] and [endedSeats] are counts. Never a member id, a name or an address.
+ */
+@Serializable
+data class CommitteeRuleChangeSnapshot(
+    val event: String,
+    val mode: CommitteeMembershipMode,
+    val ruleJson: String? = null,
+    val eligibleCount: Int? = null,
+    val endedSeats: Int? = null,
 )

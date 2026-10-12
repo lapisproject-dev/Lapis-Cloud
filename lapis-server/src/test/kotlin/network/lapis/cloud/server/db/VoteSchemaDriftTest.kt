@@ -40,7 +40,9 @@ class VoteSchemaDriftTest :
         /** Resolves an `ErmForeignKey.targetEntityId` back to its entity name within [model]. */
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("model declares exactly the three vote entities plus the Member/Motion/Meeting/Resolution stubs") {
+        test(
+            "model declares exactly the four vote entities (vote, vote_option, vote_ballot, vote_eligible_voter) plus the Member/Motion/Meeting/Resolution stubs",
+        ) {
             model.entities.map { it.name }.toSet() shouldBe
                 setOf(
                     "member",
@@ -50,6 +52,7 @@ class VoteSchemaDriftTest :
                     "vote",
                     "vote_option",
                     "vote_ballot",
+                    "vote_eligible_voter",
                 )
         }
 

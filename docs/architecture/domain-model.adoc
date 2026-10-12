@@ -1706,3 +1706,22 @@ Since V1.9.34 the badge is `secondary` when the quorum is reached and `warning` 
 Green means "a resolution was accepted" everywhere else in this screen, and a quorum is only a precondition for a vote, not a result. One
 always-visible sentence under the row says so ("Quorum heißt: ... Diese Anzeige ist keine rechtliche Bewertung."): it makes no legal statement,
 shows no time and has no button. The resolution result stays the only place that says whether a motion was carried.
+
+== V1.9.112 -- Rule-based committees and the frozen electorate of a vote
+
+Migration `V92__committee_rule.sql` (additive; `V1` ... `V91` are untouched). Models: `05-governance.kuml.kts`, `06-vote.kuml.kts`, `14-audit-log.kuml.kts`;
+the generated Exposed tables are in `server/db/generated/`.
+
+* `committee.membership_mode` -- `VARCHAR(16)`, `MANUAL` (default: explicit seat rows) or `RULE` (derived from `rule_json`).
+* `committee.rule_json` -- `VARCHAR(4096)` (= `MemberRuleCodec.MAX_BYTES`), the canonical rule; `NULL` for `MANUAL`. Holds only enums and committee/tier ids,
+  never a member id, a name or an address. Three CHECKs: `chk_committee_membership_mode`, `chk_committee_rule_matches_mode` (RULE exactly with a rule) and
+  `chk_committee_rule_type` (the General Assembly and the executive board can never be `RULE`).
+* `vote.electorate_frozen_at` -- class A (UTC) stamp, `NULL` for every vote opened before V1.9.112 (live electorate, no backfill). It is the marker that
+  tells an *empty* frozen electorate from "not frozen": the existence of rows never does.
+* `vote_eligible_voter` (`id`, `vote_id`, `member_id`) -- the frozen electorate, one row per eligible member, unique per (vote, member); the same shape as
+  `election_eligible_voter`. Part of the Art. 15 export and kept (with a reason) at Art. 17, like the election snapshot.
+* `committee_membership.auto_end_reason` additionally accepts `RULE_MODE` (the Kotlin type is `CommitteeSeatAutoEndReason`; the first four names equal the
+  member statuses that end a seat, so stored values and JSON of existing data are unchanged).
+* `audit_log_entry.entity_type` additionally accepts `COMMITTEE` (counts and ids of committees only).
+
+See link:../features/rule-based-committees.adoc[Rule-based committees] for the behaviour.

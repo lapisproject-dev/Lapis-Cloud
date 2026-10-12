@@ -88,10 +88,24 @@ internal fun computeQuorum(
     meetingId: Uuid,
     committeeId: Uuid,
     scheduledDate: LocalDate,
+    voteId: Uuid? = null,
+    electionId: Uuid? = null,
+    systemicConsensusId: Uuid? = null,
 ): QuorumResultDto {
     val committeeRow = CommitteeTable.selectAll().where { CommitteeTable.id eq committeeId }.single()
     val quorumPercent = committeeRow[CommitteeTable.quorumPercent]
-    val eligible = eligibleMemberIds(committeeRow = committeeRow, scheduledDate = scheduledDate)
+    // V1.9.112: N comes from the electorate frozen when the decision (or, for the meeting as a whole, its first vote) was opened; only
+    // meetings without any frozen decision use the live set. See frozenOrLiveElectorate.
+    val electorate =
+        frozenOrLiveElectorate(
+            meetingId = meetingId,
+            committeeRow = committeeRow,
+            scheduledDate = scheduledDate,
+            voteId = voteId,
+            electionId = electionId,
+            consensusId = systemicConsensusId,
+        )
+    val eligible = electorate.memberIds
     val presentCount =
         AttendanceTable
             .selectAll()
@@ -109,6 +123,7 @@ internal fun computeQuorum(
         requiredCount = requiredCount,
         quorumPercent = quorumPercent,
         met = presentCount >= requiredCount,
+        frozen = electorate.frozen,
     )
 }
 
@@ -161,7 +176,15 @@ internal fun insertResolutionRow(
     electionId: Uuid? = null,
     systemicConsensusId: Uuid? = null,
 ): ResolutionDto {
-    val quorum = computeQuorum(meetingId = sId, committeeId = committeeId, scheduledDate = scheduledDate)
+    val quorum =
+        computeQuorum(
+            meetingId = sId,
+            committeeId = committeeId,
+            scheduledDate = scheduledDate,
+            voteId = voteId,
+            electionId = electionId,
+            systemicConsensusId = systemicConsensusId,
+        )
     val committeeRow = CommitteeTable.selectAll().where { CommitteeTable.id eq committeeId }.single()
     val now = DbClock.nowLocalDateTime()
     val number =

@@ -15,15 +15,20 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeDto
+import network.lapis.cloud.shared.domain.CommitteeMembershipMode
+import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MembershipTierDto
-import network.lapis.cloud.shared.domain.RecipientPreviewDto
 import network.lapis.cloud.shared.domain.rules.MemberRule
 import network.lapis.cloud.shared.domain.rules.MemberRuleCodec
 import network.lapis.cloud.shared.domain.rules.RuleCondition
 import network.lapis.cloud.shared.domain.rules.RuleOp
+import network.lapis.cloud.shared.rpc.IGovernanceService
 import network.lapis.cloud.shared.rpc.IMailingService
 
-// V1.9.111 "Dynamische Mailinglisten" -- the rule builder of the create / edit form. Design-team decisions it implements: a sentence head
+// V1.9.111 "Dynamische Mailinglisten" -- the rule builder of the create / edit form. Since V1.9.112 ("regelbasierte Gremien") the SAME builder
+// serves the committee context too: what differs (the group's name, the fixed "always" line, the count sentence, the presets and where the
+// live count comes from) is passed in ([RuleBuilderWording], [previewer]); everything else -- rows, validation, debounce, announcements --
+// is shared, so the two forms can never drift apart. The file keeps its name (catalog references, ledgers). Design-team decisions it implements: a sentence head
 // ("Mitglieder, die alle / mindestens eine der folgenden Bedingungen erfüllen") instead of a query language, ready-made starting points
 // as chips, one row per condition with a kind select and plain checkboxes / a number field for its values, a fixed line saying who is
 // ALWAYS left out, and a live count of the people the rule reaches -- debounced, announced politely (one announcement per pause, not per
@@ -31,6 +36,87 @@ import network.lapis.cloud.shared.rpc.IMailingService
 
 /** The pause after the last change before the live count is asked for (a typing person produces one request, not one per key). */
 internal const val RULE_PREVIEW_DEBOUNCE_MS = 400L
+
+/**
+ * V1.9.112 -- what differs between the contexts. All texts are FINISHED strings (the caller builds them with gettext at render time, so
+ * the language is the current one). [countText] gets the number of the live count and returns the announced sentence (a plural text).
+ */
+internal class RuleBuilderWording(
+    val groupLabel: String,
+    val alwaysNote: String,
+    val computingText: String,
+    val extraNote: String? = null,
+    val presets: List<MailingRulePreset> = MailingRulePresets.ALL,
+    val countText: (Int) -> String,
+)
+
+/** One answer of the live count: the number and an optional second line (mailing: who is left out). `null` from the previewer = unavailable. */
+internal class RulePreview(
+    val count: Int,
+    val note: String = "",
+)
+
+/** The wording of the mailing-list form (V1.9.111, unchanged texts). */
+internal fun mailingRuleWording(): RuleBuilderWording =
+    RuleBuilderWording(
+        groupLabel = tr("Empfänger"),
+        alwaysNote = tr("Immer: nur aktive Mitglieder mit E-Mail-Adresse, ohne Abmeldung."),
+        computingText = gettext("Empfänger werden berechnet …"),
+        countText = { n -> ngettext("%1 Empfänger wird erreicht", "%1 Empfänger werden erreicht", n, n) },
+    )
+
+/** The live count of the mailing form: the list (if it exists) lets the server count its opt-outs, [mandatory] is read at preview time. */
+internal fun mailingPreviewer(
+    listId: String?,
+    mandatory: () -> Boolean,
+): suspend (String) -> RulePreview? =
+    { ruleJson ->
+        val result = rpcService<IMailingService>().previewDynamicRecipients(ruleJson, listId, mandatory())
+        RulePreview(
+            count = result.eligible,
+            note =
+                if (result.excludedOptedOut + result.excludedNoEmail > 0) {
+                    gettext("Nicht enthalten: %1 abgemeldet, %2 ohne E-Mail-Adresse", result.excludedOptedOut, result.excludedNoEmail)
+                } else {
+                    ""
+                },
+        )
+    }
+
+/** The live count of the committee form: a number only (the server never names a person). [committeeId] is `null` while creating. */
+internal fun committeePreviewer(committeeId: String?): suspend (String) -> RulePreview? =
+    { ruleJson -> RulePreview(count = rpcService<IGovernanceService>().previewCommitteeRule(committeeId, ruleJson).eligible) }
+
+/**
+ * The committees a rule may reference (V1.9.112): active, manual, not the General Assembly and not [selfId] -- the server refuses all
+ * others (a rule-based committee and the assembly have no seats, a reference would address nobody); the picker simply does not offer them.
+ * [keep] are ids an already stored rule references: they stay visible so the person can still take them out of the rule.
+ */
+internal fun committeesForRules(
+    committees: List<CommitteeDto>,
+    selfId: String? = null,
+    keep: Set<String> = emptySet(),
+): List<CommitteeDto> =
+    committees.filter {
+        it.id in keep ||
+            (
+                it.active &&
+                    it.type != CommitteeType.GENERAL_ASSEMBLY &&
+                    it.membershipMode == CommitteeMembershipMode.MANUAL &&
+                    it.id != selfId
+            )
+    }
+
+/** The wording of the committee form (V1.9.112): the fixed line says who is ALWAYS left out, the extra line what freezing means. */
+internal fun committeeRuleWording(): RuleBuilderWording =
+    RuleBuilderWording(
+        groupLabel = tr("Mitglieder"),
+        alwaysNote = tr("Immer: nur aktive Mitglieder, nicht anonymisiert, nicht verstorben."),
+        computingText = gettext("Mitglieder werden berechnet …"),
+        extraNote = tr("Bei einer Abstimmung wird der Kreis zum Start festgeschrieben."),
+        presets = listOf(MailingRulePreset.BOARD_ROLES, MailingRulePreset.COMMITTEE, MailingRulePreset.NEW_MEMBERS_30),
+        countText = { n -> ngettext("%1 Mitglied gehört dazu", "%1 Mitglieder gehören dazu", n, n) },
+    )
 
 private enum class ConditionKind { ROLE, JOINED_WITHIN_DAYS, COMMITTEE, TIER }
 
@@ -68,8 +154,8 @@ internal class RuleBuilderHandle(
 
 /**
  * Builds the rule builder into [host] and wires its fields into [form] (so a missing value blocks the submit like any other field).
- * [listId] is the list being edited (`null` while creating); it lets the preview count that list's opt-outs. [mandatoryProvider] is read
- * at preview time. [onChange] hears every REAL change of the rule.
+ * [previewer] asks the server for the live count of a canonical rule (the mailing form binds its list and mandatory flag into it, the
+ * committee form its committee id); [wording] carries every context-specific text. [onChange] hears every REAL change of the rule.
  */
 internal fun renderRuleBuilder(
     form: LapisForm,
@@ -77,8 +163,8 @@ internal fun renderRuleBuilder(
     initial: MemberRule,
     committees: List<CommitteeDto>,
     tiers: List<MembershipTierDto>,
-    listId: String?,
-    mandatoryProvider: () -> Boolean,
+    wording: RuleBuilderWording,
+    previewer: suspend (ruleJson: String) -> RulePreview?,
     onChange: (MemberRule) -> Unit = {},
 ): RuleBuilderHandle {
     var stopHook: () -> Unit = {}
@@ -99,7 +185,7 @@ internal fun renderRuleBuilder(
     // ---- sentence head -----------------------------------------------------------------------------------------------------------
     val opField =
         form.selectField(
-            label = tr("Empfänger"),
+            label = wording.groupLabel,
             options =
                 listOf(
                     RuleOp.ALL.name to gettext("Mitglieder, die alle folgenden Bedingungen erfüllen"),
@@ -119,7 +205,13 @@ internal fun renderRuleBuilder(
     val addHost = root.div()
     val limitHint = root.div(gettext("Höchstens %1 Bedingungen.", maxConditions)) { addCssClasses("text-muted small") }
     limitHint.hide()
-    root.div(tr("Immer: nur aktive Mitglieder mit E-Mail-Adresse, ohne Abmeldung.")) { addCssClasses("text-muted small") }
+    // The wording texts are finished gettext results of the caller (trusted), held in locals: no DTO field reaches a widget here.
+    val alwaysNote = wording.alwaysNote
+    val extraNote = wording.extraNote
+    val countText = wording.countText
+    val computingText = wording.computingText
+    root.div(alwaysNote) { addCssClasses("text-muted small") }
+    extraNote?.let { note -> root.div(note) { addCssClasses("text-muted small") } }
     val previewBox = root.div { addCssClasses("border rounded p-2") }
     previewBox.setAttribute("role", "status")
     previewBox.setAttribute("aria-live", "polite")
@@ -151,19 +243,16 @@ internal fun renderRuleBuilder(
     fun signature(): String = "${op.name}|" + rows.joinToString(";") { "${it.kind}:${it.roles}:${it.days}:${it.committees}:${it.tiers}" }
 
     // ---- live preview ----------------------------------------------------------------------------------------------------------------
-    fun showPreview(result: RecipientPreviewDto?) {
+    fun showPreview(result: RulePreview?) {
         if (result == null) {
             previewMain.content = gettext("Die Vorschau ist gerade nicht verfügbar.")
             previewSub.content = ""
             return
         }
-        previewMain.content = ngettext("%1 Empfänger wird erreicht", "%1 Empfänger werden erreicht", result.eligible, result.eligible)
-        previewSub.content =
-            if (result.excludedOptedOut + result.excludedNoEmail > 0) {
-                gettext("Nicht enthalten: %1 abgemeldet, %2 ohne E-Mail-Adresse", result.excludedOptedOut, result.excludedNoEmail)
-            } else {
-                ""
-            }
+        val count = result.count
+        val note = result.note
+        previewMain.content = countText(count)
+        previewSub.content = note
     }
 
     fun schedulePreview() {
@@ -176,16 +265,15 @@ internal fun renderRuleBuilder(
             return
         }
         val mine = sequence
-        previewMain.content = gettext("Empfänger werden berechnet …")
+        previewMain.content = computingText
         previewSub.content = ""
         val ruleJson = MemberRuleCodec.encode(currentRule())
-        val mandatory = mandatoryProvider()
         previewJob =
             AppScope.launch {
                 delay(RULE_PREVIEW_DEBOUNCE_MS)
                 val result =
                     try {
-                        rpcService<IMailingService>().previewDynamicRecipients(ruleJson, listId, mandatory)
+                        previewer(ruleJson)
                     } catch (c: CancellationException) {
                         throw c
                     } catch (_: Throwable) {
@@ -388,7 +476,7 @@ internal fun renderRuleBuilder(
         }
     }
 
-    MailingRulePresets.ALL.forEach { preset ->
+    wording.presets.forEach { preset ->
         val presetRule = MailingRulePresets.rule(preset, firstCommitteeId = committees.firstOrNull()?.id)
         if (presetRule != null) {
             val chip = chips.button(MailingRulePresets.label(preset), style = ButtonStyle.OUTLINESECONDARY)

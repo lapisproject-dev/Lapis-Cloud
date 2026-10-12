@@ -19,6 +19,9 @@ public object VoteTable : Table("vote") {
     public val closedAt: Column<LocalDateTime?> = datetime("closed_at").nullable()
     public val winnerOptionId: Column<Uuid?> = uuid("winner_option_id").nullable()
     public val secondPriceLtr: Column<BigDecimal?> = decimal("second_price_ltr", 18, 2).nullable()
+
+    /** Welle V1.9.112 (V92): UTC stamp (class A) of the moment the electorate was frozen; NULL = a vote opened before V1.9.112 (live electorate). */
+    public val electorateFrozenAt: Column<LocalDateTime?> = datetime("electorate_frozen_at").nullable()
     public val motionId: Column<Uuid> = reference("motion_id", MotionTable.id)
     public val meetingId: Column<Uuid> = reference("meeting_id", MeetingTable.id)
     public val resolutionId: Column<Uuid?> = optReference("resolution_id", ResolutionTable.id)

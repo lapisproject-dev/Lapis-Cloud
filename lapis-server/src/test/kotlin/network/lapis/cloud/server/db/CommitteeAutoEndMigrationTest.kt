@@ -73,8 +73,8 @@ abstract class CommitteeAutoEndMigrationScenarios(
             rows("SELECT auto_end_reason FROM committee_membership WHERE id = '$oldSeat'").single() shouldBe listOf("null")
         }
 
-        test("the column is nullable and accepts exactly the four ending statuses") {
-            listOf("WITHDRAWN", "REJECTED", "DECEASED", "DONOR").forEach {
+        test("the column is nullable and accepts exactly the four ending statuses (and, since V92, RULE_MODE)") {
+            listOf("WITHDRAWN", "REJECTED", "DECEASED", "DONOR", "RULE_MODE").forEach {
                 rejection(seatInsert(UUID.randomUUID(), it)) shouldBe null
             }
             rejection(seatInsert(UUID.randomUUID(), null)) shouldBe null

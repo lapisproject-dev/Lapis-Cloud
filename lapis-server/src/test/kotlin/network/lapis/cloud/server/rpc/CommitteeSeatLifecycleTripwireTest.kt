@@ -13,8 +13,9 @@ import java.io.File
  *     of times) or carries a reason why it never can hold a committee seat (it only inserts brand-new members). A new status writer fails
  *     here and forces the decision;
  *  2. the hook is called from exactly three places and every call is followed by its phase 2 (`recordAudits()`) in the same function;
- *  3. `committee_membership.until` / `auto_end_reason` are written only by an allowlisted set of files (with a reason each) -- the seat hook,
- *     the manual path, the election re-seating and the staging seed; `auto_end_reason` is set to a non-null value only by the hook;
+ *  3. `committee_membership.until` / `auto_end_reason` are written only by an allowlisted set of files (with a reason each) -- the seat hook
+ *     (member status change and, since V1.9.112, the switch to rule-based membership), the manual path, the election re-seating and the
+ *     staging seed; `auto_end_reason` is set to a non-null value only by `CommitteeSeatLifecycle`;
  *  4. no raw SQL updates `committee_membership` in `src/main`;
  *  5. (V1.9.103) `started_by_election_id` / `ended_by_election_id` are written only by `ElectionSeatSuccession` (and reset to null by the
  *     manual end in `GovernanceService`), `ElectionSeatSuccession.apply` is called from exactly one place (`tallyElectionLocked`), the
@@ -42,7 +43,8 @@ class CommitteeSeatLifecycleTripwireTest :
             mapOf(
                 "network/lapis/cloud/server/rpc/GovernanceService.kt" to
                     "addCommitteeMember (insert) and the manual end (resets auto_end_reason)",
-                "network/lapis/cloud/server/rpc/CommitteeSeatLifecycle.kt" to "the automatic end",
+                "network/lapis/cloud/server/rpc/CommitteeSeatLifecycle.kt" to
+                    "the automatic end (member status change) and, since V1.9.112, the end by the switch to rule-based membership (RULE_MODE)",
                 "network/lapis/cloud/server/rpc/ElectionService.kt" to
                     "legacy path (elections without an incumbent policy): closes the previous seat when a winner is re-elected",
                 "network/lapis/cloud/server/rpc/ElectionSeatSuccession.kt" to
@@ -137,13 +139,18 @@ class CommitteeSeatLifecycleTripwireTest :
         test("V1.9.103: the election provenance columns are written only by the succession (and nulled by the manual end)") {
             val provenance = Regex("""\[\s*(CommitteeMembershipTable\.)?(startedByElectionId|endedByElectionId)\s*]\s*=\s*([^\n]+)""")
             val allowedWriters =
-                setOf("network/lapis/cloud/server/rpc/ElectionSeatSuccession.kt", "network/lapis/cloud/server/rpc/GovernanceService.kt")
+                setOf(
+                    "network/lapis/cloud/server/rpc/ElectionSeatSuccession.kt",
+                    "network/lapis/cloud/server/rpc/GovernanceService.kt",
+                    // V1.9.112: endSeatsForRuleMode resets it to null (a seat has one end cause only)
+                    "network/lapis/cloud/server/rpc/CommitteeSeatLifecycle.kt",
+                )
             sources().forEach { (path, code) ->
                 seatWrite.findAll(code).forEach { m ->
                     val body = windowAfter(code, m.range.last).substringBefore("\n    }\n")
                     provenance.findAll(body).forEach { assignment ->
                         withClueOf(path = path) { (path in allowedWriters) shouldBe true }
-                        if (path.endsWith("GovernanceService.kt")) {
+                        if (path.endsWith("GovernanceService.kt") || path.endsWith("CommitteeSeatLifecycle.kt")) {
                             withClueOf(path = path) { assignment.groupValues[3].trim() shouldBe "null" }
                         }
                     }

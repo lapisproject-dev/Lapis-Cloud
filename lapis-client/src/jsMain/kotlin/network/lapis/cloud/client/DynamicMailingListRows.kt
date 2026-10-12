@@ -15,6 +15,7 @@ import network.lapis.cloud.shared.domain.MembershipTierDto
 import network.lapis.cloud.shared.domain.rules.InvalidMemberRuleException
 import network.lapis.cloud.shared.domain.rules.MemberRule
 import network.lapis.cloud.shared.domain.rules.MemberRuleCodec
+import network.lapis.cloud.shared.domain.rules.RuleCondition
 import network.lapis.cloud.shared.domain.rules.RuleContext
 import network.lapis.cloud.shared.domain.rules.RuleOp
 import network.lapis.cloud.shared.rpc.IContributionService
@@ -112,7 +113,6 @@ private suspend fun renderEditRuleForm(
     onSaved: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    val committees: List<CommitteeDto> = guarded { rpcService<IGovernanceService>().listCommittees(true) }.orEmpty()
     val tiers: List<MembershipTierDto> = guarded { rpcService<IContributionService>().listMembershipTiers() }.orEmpty()
     val initial: MemberRule =
         list.ruleJson?.let {
@@ -122,6 +122,13 @@ private suspend fun renderEditRuleForm(
                 null
             }
         } ?: MemberRule(op = RuleOp.ALL, conditions = emptyList())
+    val stored =
+        initial.conditions
+            .filterIsInstance<RuleCondition.Committee>()
+            .flatMap { it.committeeIds }
+            .toSet()
+    val committees: List<CommitteeDto> =
+        committeesForRules(guarded { rpcService<IGovernanceService>().listCommittees(true) }.orEmpty(), keep = stored)
     val panel = host.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
     val form = panel.lapisForm()
     val builder =
@@ -131,8 +138,8 @@ private suspend fun renderEditRuleForm(
             initial = initial,
             committees = committees,
             tiers = tiers,
-            listId = list.id,
-            mandatoryProvider = { list.mandatory },
+            wording = mailingRuleWording(),
+            previewer = mailingPreviewer(listId = list.id, mandatory = { list.mandatory }),
         )
     form.crossFieldRule { builder.validationError()?.let { FieldCheck.Invalid(it) } ?: FieldCheck.Ok }
     val saveButton = newActionButton(ActionIcon.SAVE, tr("Regel speichern"), ButtonStyle.PRIMARY)

@@ -130,6 +130,39 @@ enum class ResolutionStatus { ADOPTED, REJECTED, POSTPONED }
 @Serializable
 enum class ResolutionMode { COMMITTEE_QUORUM, MERITOCRATIC, DEMOCRATIC, SYSTEMIC_CONSENSUS }
 
+/**
+ * Welle V1.9.112 -- how the members of a committee are determined. [MANUAL]: explicit seat rows (the behaviour up to V1.9.111).
+ * [RULE]: derived from a [network.lapis.cloud.shared.domain.rules.MemberRule] at the moment it is asked for; such a committee never has
+ * seat rows. Not available for the General Assembly and the executive board.
+ */
+@Serializable
+enum class CommitteeMembershipMode { MANUAL, RULE }
+
+/** Welle V1.9.112 -- why the mode of a committee cannot be changed right now (see [CommitteeModeChangeImpactDto]). */
+@Serializable
+enum class CommitteeModeChangeBlock { MEETING_IN_PROGRESS, OPEN_DECISION, ELECTION_TARGETS_COMMITTEE, REFERENCED_BY_RULE, TYPE_NOT_ALLOWED }
+
+/** Welle V1.9.112 -- what switching a committee to [targetMode] would do: the open seats that would end, and why it is blocked (if so). */
+@Serializable
+data class CommitteeModeChangeImpactDto(
+    val openSeats: Int,
+    val blocked: CommitteeModeChangeBlock? = null,
+)
+
+/** Welle V1.9.112 -- the live preview of a committee rule: a number, never a name. */
+@Serializable
+data class CommitteeRulePreviewDto(
+    val eligible: Int,
+)
+
+/**
+ * Welle V1.9.112 -- why a committee seat ended automatically. The first four names are identical to the member statuses that end a seat
+ * (`MemberStatusSets.COMMITTEE_SEAT_ENDING`), so stored values and JSON of existing data stay unchanged; [RULE_MODE] marks a seat that
+ * ended because the board switched the committee to rule-based membership.
+ */
+@Serializable
+enum class CommitteeSeatAutoEndReason { WITHDRAWN, REJECTED, DECEASED, DONOR, RULE_MODE }
+
 @Serializable
 data class CommitteeDto(
     val id: String,
@@ -139,6 +172,10 @@ data class CommitteeDto(
     val active: Boolean,
     val quorumPercent: Int,
     val createdAt: LocalDateTime,
+    /** Welle V1.9.112 -- [CommitteeMembershipMode.MANUAL] for every committee that existed before. */
+    val membershipMode: CommitteeMembershipMode = CommitteeMembershipMode.MANUAL,
+    /** Welle V1.9.112 -- the canonical rule of a [CommitteeMembershipMode.RULE] committee; only ever filled for BOARD/ADMIN callers. */
+    val ruleJson: String? = null,
 )
 
 @Serializable
@@ -148,6 +185,10 @@ data class CommitteeInput(
     val description: String,
     val quorumPercent: Int = 50,
     val active: Boolean = true,
+    /** Welle V1.9.112 -- evaluated by `createCommittee` ONLY; `updateCommittee` ignores it (the mode changes via `setCommitteeMembershipRule`). */
+    val membershipMode: CommitteeMembershipMode = CommitteeMembershipMode.MANUAL,
+    /** Welle V1.9.112 -- the rule of a [CommitteeMembershipMode.RULE] committee at creation (ignored by `updateCommittee`). */
+    val ruleJson: String? = null,
 )
 
 @Serializable
@@ -163,7 +204,7 @@ data class CommitteeMembershipDto(
      * Welle V1.9.102 -- the member status whose change ended this seat AUTOMATICALLY, or null (never ended automatically, or ended/re-ended
      * by hand). Only ever filled for BOARD/ADMIN callers; for everybody else the server sends null (DECEASED/DONOR are personal data).
      */
-    val autoEndReason: MemberStatus? = null,
+    val autoEndReason: CommitteeSeatAutoEndReason? = null,
 )
 
 /** Welle V1.9.102 -- one committee seat ended automatically by a member status change (see [CommitteeAutoEndNoticeDto]). */
@@ -177,7 +218,7 @@ data class CommitteeAutoEndEntryDto(
     val role: CommitteeRole,
     val since: LocalDate,
     val until: LocalDate,
-    val reason: MemberStatus,
+    val reason: CommitteeSeatAutoEndReason,
 )
 
 /** Welle V1.9.102 -- an active executive board without any currently eligible CHAIR. Computed on every call, never stored. */
@@ -320,6 +361,8 @@ data class QuorumResultDto(
     val requiredCount: Int,
     val quorumPercent: Int,
     val met: Boolean,
+    /** Welle V1.9.112 -- true when [eligibleMemberCount] comes from the electorate frozen at the start of the first vote of the meeting. */
+    val frozen: Boolean = false,
 )
 
 @Serializable

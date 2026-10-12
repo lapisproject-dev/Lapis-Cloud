@@ -251,7 +251,7 @@ class GeneralAssemblyScreensDomTest {
             meeting(),
             canManage = true,
             isBoardOrAdminGlobal = true,
-            audience = MeetingAudience.GeneralAssembly(committeeId = "committee-1", eligibleCount = count),
+            audience = MeetingAudience.Derived(committeeId = "committee-1", eligibleCount = count),
         )
 
     @Test
@@ -504,7 +504,7 @@ class GeneralAssemblyScreensDomTest {
                         root,
                         detail,
                         canManage = true,
-                        audience = MeetingAudience.GeneralAssembly("committee-1", 100),
+                        audience = MeetingAudience.Derived("committee-1", 100),
                         onChanged = {},
                     )
                     assertEquals(1, element().allOf(".lapis-form").size, "ONE form, not one per person")

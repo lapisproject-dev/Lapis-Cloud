@@ -177,6 +177,7 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // Welle V1.9.111 "Dynamische Mailinglisten"
         AuditEntityType.MAILING_LIST -> gettext("Mailingliste")
         AuditEntityType.MAILING_MESSAGE -> gettext("Mailing-Versand")
+        AuditEntityType.COMMITTEE -> gettext("Gremium")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -287,6 +288,7 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.ARTICLE_IMPORT_IMAGES_APPLIED -> "info"
         AuditEntityType.MAILING_LIST -> "info"
         AuditEntityType.MAILING_MESSAGE -> "info"
+        AuditEntityType.COMMITTEE -> "info"
     }
 
 // ------------------------------------------------------------------------------------------------

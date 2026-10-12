@@ -15,6 +15,7 @@ import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.CommitteeRole
+import network.lapis.cloud.shared.domain.CommitteeSeatAutoEndReason
 import network.lapis.cloud.shared.domain.ElectionStatus
 import network.lapis.cloud.shared.domain.IncumbentPolicy
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -142,7 +143,7 @@ abstract class ElectionSeatSuccessionConcurrencyScenarios(
                     SeatOutcome.SEATED -> {
                         // the hook ran after the tally committed: the seat exists and ended on the stichtag with the reason
                         seats.size shouldBe 1
-                        seats.single()[CommitteeMembershipTable.autoEndReason] shouldBe MemberStatus.WITHDRAWN
+                        seats.single()[CommitteeMembershipTable.autoEndReason] shouldBe CommitteeSeatAutoEndReason.WITHDRAWN
                         seats.single()[CommitteeMembershipTable.until] shouldBe LEAVE_STICHTAG
                     }
                     else -> error("unexpected outcome $outcome")

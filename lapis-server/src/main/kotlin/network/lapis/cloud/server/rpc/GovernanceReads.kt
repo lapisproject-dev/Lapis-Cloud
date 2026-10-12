@@ -40,11 +40,12 @@ internal object GovernanceReads {
         activeOnly: Boolean,
         limit: Int? = null,
         offset: Int = 0,
+        revealRule: Boolean = false,
     ): List<CommitteeDto> {
         val baseQuery = CommitteeTable.selectAll()
         val query = if (activeOnly) baseQuery.where { CommitteeTable.active eq true } else baseQuery
         val paged = if (limit != null) query.limit(limit).offset(offset.toLong()) else query
-        return paged.map { it.toCommitteeDto() }
+        return paged.map { it.toCommitteeDto(revealRule = revealRule) }
     }
 
     fun countCommittees(activeOnly: Boolean): Long {

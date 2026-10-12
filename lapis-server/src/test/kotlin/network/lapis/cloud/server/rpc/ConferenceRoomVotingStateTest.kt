@@ -59,6 +59,7 @@ import network.lapis.cloud.server.db.generated.SystemicConsensusParticipationTab
 import network.lapis.cloud.server.db.generated.SystemicConsensusResistanceTable
 import network.lapis.cloud.server.db.generated.SystemicConsensusTable
 import network.lapis.cloud.server.db.generated.VoteBallotTable
+import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -166,6 +167,7 @@ class ConferenceRoomVotingStateTest :
                     SystemicConsensusOptionTable.deleteWhere { SystemicConsensusOptionTable.systemicConsensusId inList consensusIds }
                     SystemicConsensusTable.deleteWhere { SystemicConsensusTable.id inList consensusIds }
                 }
+                VoteEligibleVoterTable.deleteWhere { VoteEligibleVoterTable.voteId inList voteIds }
                 VoteBallotTable.deleteWhere { VoteBallotTable.voteId inList voteIds }
                 VoteOptionTable.deleteWhere { VoteOptionTable.voteId inList voteIds }
                 VoteTable.deleteWhere { VoteTable.id inList voteIds }

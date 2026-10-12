@@ -3,12 +3,15 @@ package network.lapis.cloud.server.security
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.rpc.isCommitteeEligible
+import network.lapis.cloud.server.rpc.isRuleCommittee
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.COMMITTEE_LEADERSHIP_ROLES
 import network.lapis.cloud.shared.domain.COMMITTEE_RECORDING_ROLES
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.rpc.ConflictException
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
@@ -53,7 +56,28 @@ fun CurrentMember.canRecordForMeeting(committeeId: Uuid): Boolean =
  * elected Vorstand seat.
  */
 fun CurrentMember.isActiveCommitteeMember(committeeId: Uuid): Boolean =
-    hasCommitteeRole(committeeId = committeeId, *CommitteeRole.entries.toTypedArray())
+    hasCommitteeRole(committeeId = committeeId, *CommitteeRole.entries.toTypedArray()) || isRuleCommitteeMember(committeeId)
+
+/**
+ * V1.9.112 -- membership of a rule-based committee is derived, not seated: true when [committeeId] is a rule-based committee whose rule
+ * selects this member TODAY (live, no snapshot -- this is an access check, not a decision). A stored rule that no longer parses grants
+ * nothing (false), it never throws out of an authorization predicate. Consumers: [isActiveCommitteeMember] (conference binding) and
+ * [canSubmitMotion]. Leadership checks ([canManageCommittee], [canRecordForMeeting]) deliberately stay seat/role based: a rule-based
+ * committee has no offices, so only BOARD/ADMIN lead its meetings.
+ */
+private fun CurrentMember.isRuleCommitteeMember(committeeId: Uuid): Boolean =
+    transaction {
+        val row = CommitteeTable.selectAll().where { CommitteeTable.id eq committeeId }.singleOrNull()
+        if (row == null || !isRuleCommittee(row)) {
+            false
+        } else {
+            try {
+                isCommitteeEligible(committeeRow = row, scheduledDate = OrganizationTimeZone.today(), memberId = memberId)
+            } catch (e: ConflictException) {
+                false
+            }
+        }
+    }
 
 /**
  * Motionsverwaltung (V0.2.2) submission rule. Asymmetric on purpose: submitting *to* the
@@ -81,7 +105,8 @@ fun CurrentMember.canSubmitMotion(targetCommitteeId: Uuid): Boolean {
                 .count() > 0
         }
     } else {
-        hasCommitteeRole(committeeId = targetCommitteeId, *CommitteeRole.entries.toTypedArray())
+        hasCommitteeRole(committeeId = targetCommitteeId, *CommitteeRole.entries.toTypedArray()) ||
+            isRuleCommitteeMember(targetCommitteeId)
     }
 }
 

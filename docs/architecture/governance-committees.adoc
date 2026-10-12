@@ -231,6 +231,19 @@ started and ended by an election in the last 30 days (a role change is not repor
 `ElectionSeatSuccessionMigrationTest` (+ Postgres lane), the extended `CommitteeSeatLifecycleTripwireTest` and
 `ServerElectionResultDisclosureTripwireTest`, and three DOM tests.
 
+== Rule-based committees and the frozen electorate (V1.9.112, "Welle D")
+
+Eligibility (`CommitteeEligibility.kt`) has a third branch: a committee with `membership_mode = RULE` has no seat rows, its members are whoever its stored rule
+selects today (`eligibleIdsForRule`, the one evaluator behind the live set, the count and the preview). Whoever decides a right to vote or a quorum asks
+`frozenOrLiveElectorate` (the snapshot taken when the decision was opened, otherwise live) and never `eligibleMemberIds` directly; the order of precedence and
+the new table are described in link:../features/rule-based-committees.adoc[Rule-based committees].
+
+*Lock order of the wave.* Committee rows in the database's own `ORDER BY id` (the own row plus every referenced one), then the seat rows (by id), the webhook
+outbox, and the `COMMITTEE` audit entry as the last locking operation. A member row is never locked by the rule switch; `addCommitteeMember` locks member, then
+committee, so the two cannot form a cycle. `openVote` locks the motion first and then the committee row (it freezes the electorate under it); `openElection`
+locks the target committee after the motion. `CommitteeSeatLifecycle.endSeatsForRuleMode` is the second (and last) writer of a non-null `auto_end_reason`
+(reason `RULE_MODE`); the notice band of V1.9.102 deliberately does not list these ends -- they are a board decision, not a surprise.
+
 == Known limitations
 
 * *Inclusive end date.* `until` is inclusive everywhere in the eligibility code (`CommitteeEligibility`). A person whose seat ended automatically on

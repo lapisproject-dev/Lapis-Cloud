@@ -843,3 +843,4 @@ col:MailingListTable.ruleUpdatedAt	A	stamped by the server clock (DbClock/Server
 col:MailingListOptOutTable.optedOutAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:MailingMessageTable.recipientsResolvedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:MemberFacts.joinedOn	D	MemberFactsLoader: member.joined_at, a calendar DATE compared with OrganizationTimeZone.today() (never a timestamp, never converted)
+col:VoteTable.electorateFrozenAt	A	GovernanceService.openVote: DbClock.nowLocalDateTime() (UTC), the moment the electorate of the vote was frozen into vote_eligible_voter

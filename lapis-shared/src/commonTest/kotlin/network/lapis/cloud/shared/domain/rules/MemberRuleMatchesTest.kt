@@ -84,7 +84,19 @@ class MemberRuleMatchesTest {
     @Test
     fun contextPolicyHidesStatusFromMailing() {
         assertFalse(RuleCondition.Status::class in RuleContextPolicy.allowed(RuleContext.MAILING))
-        assertTrue(RuleCondition.Status::class in RuleContextPolicy.allowed(RuleContext.COMMITTEE))
+        // V1.9.112: the CommitteeRuleGuard already restricts a rule-based committee to ACTIVE members -- no Status block there either
+        assertFalse(RuleCondition.Status::class in RuleContextPolicy.allowed(RuleContext.COMMITTEE))
         assertEquals(4, RuleContextPolicy.allowed(RuleContext.MAILING).size)
+        assertEquals(4, RuleContextPolicy.allowed(RuleContext.COMMITTEE).size)
+    }
+
+    @Test
+    fun committeeRuleGuardAdmitsOnlyActiveLivingNonAnonymisedMembers() {
+        assertTrue(CommitteeRuleGuard.eligible(member = facts(), anonymised = false, deceased = false))
+        MemberStatus.entries.filter { it != MemberStatus.ACTIVE }.forEach { status ->
+            assertFalse(CommitteeRuleGuard.eligible(member = facts(status = status), anonymised = false, deceased = false), "$status")
+        }
+        assertFalse(CommitteeRuleGuard.eligible(member = facts(), anonymised = true, deceased = false))
+        assertFalse(CommitteeRuleGuard.eligible(member = facts(), anonymised = false, deceased = true))
     }
 }

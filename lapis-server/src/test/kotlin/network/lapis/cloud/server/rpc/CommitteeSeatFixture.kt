@@ -14,6 +14,7 @@ import network.lapis.cloud.server.db.generated.TransparenzregisterReminderTable
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CommitteeRole
+import network.lapis.cloud.shared.domain.CommitteeSeatAutoEndReason
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -94,7 +95,7 @@ internal class CommitteeSeatFixture {
         role: CommitteeRole = CommitteeRole.MEMBER,
         since: LocalDate = LocalDate(2026, 1, 1),
         until: LocalDate? = null,
-        autoEndReason: MemberStatus? = null,
+        autoEndReason: CommitteeSeatAutoEndReason? = null,
     ): Uuid {
         val id = Uuid.random()
         transaction {

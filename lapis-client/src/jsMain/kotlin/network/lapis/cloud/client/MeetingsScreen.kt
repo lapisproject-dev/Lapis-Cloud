@@ -27,6 +27,7 @@ import network.lapis.cloud.shared.domain.AttendanceDto
 import network.lapis.cloud.shared.domain.AttendanceInput
 import network.lapis.cloud.shared.domain.AttendanceStatus
 import network.lapis.cloud.shared.domain.CommitteeDto
+import network.lapis.cloud.shared.domain.CommitteeMembershipMode
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.DisclosureRules
 import network.lapis.cloud.shared.domain.InvitationAudience
@@ -329,12 +330,19 @@ internal sealed interface MeetingAudience {
         val members: List<MemberSummaryDto>,
     ) : MeetingAudience
 
-    /** [eligibleCount] is `null` when the count could not be fetched. */
-    data class GeneralAssembly(
+    /**
+     * A DERIVED audience -- the General Assembly (every active member) or, since V1.9.112, a rule-based committee (whoever its rule selects):
+     * never listed, only counted. [eligibleCount] is `null` when the count could not be fetched.
+     */
+    data class Derived(
         val committeeId: String,
         val eligibleCount: Int?,
+        val kind: DerivedAudienceKind = DerivedAudienceKind.GENERAL_ASSEMBLY,
     ) : MeetingAudience
 }
+
+/** Which derived audience a [MeetingAudience.Derived] is (the invitation's wording differs). */
+internal enum class DerivedAudienceKind { GENERAL_ASSEMBLY, RULE }
 
 /**
  * Loads [MeetingDetailDto] plus this specific meeting's Committee roster (for the
@@ -364,15 +372,25 @@ private fun renderMeetingDetail(
         val committee = committees.find { it.id == detail.meeting.committeeId }
         // V1.9.101: the General Assembly is every active member -- never load them all. Only N (a single number) is fetched; a
         // failed count must not break the page, the invitation then says so instead of showing a figure.
+        // V1.9.112: a rule-based committee is derived as well (no roster is loaded for it -- the server lists nobody), counted the same way.
         val audience: MeetingAudience =
-            if (committee?.type == CommitteeType.GENERAL_ASSEMBLY) {
+            if (committee != null &&
+                (committee.type == CommitteeType.GENERAL_ASSEMBLY || committee.membershipMode == CommitteeMembershipMode.RULE)
+            ) {
                 val count =
                     runCatching {
-                        rpcService<IGovernanceService>().countGeneralAssemblyEligible(
-                            detail.meeting.committeeId,
-                        )
+                        rpcService<IGovernanceService>().countCommitteeEligible(detail.meeting.committeeId)
                     }.getOrNull()
-                MeetingAudience.GeneralAssembly(committeeId = detail.meeting.committeeId, eligibleCount = count)
+                MeetingAudience.Derived(
+                    committeeId = detail.meeting.committeeId,
+                    eligibleCount = count,
+                    kind =
+                        if (committee.type == CommitteeType.GENERAL_ASSEMBLY) {
+                            DerivedAudienceKind.GENERAL_ASSEMBLY
+                        } else {
+                            DerivedAudienceKind.RULE
+                        },
+                )
             } else {
                 MeetingAudience.Roster(roster.map { MemberSummaryDto(id = it.memberId, displayName = it.memberDisplayName) })
             }
@@ -488,7 +506,7 @@ internal fun renderEinladungSection(
 
     when (audience) {
         is MeetingAudience.Roster -> renderRosterEinladungForm(panel, meeting, audience.members)
-        is MeetingAudience.GeneralAssembly -> renderGeneralAssemblyEinladungForm(panel, meeting, audience)
+        is MeetingAudience.Derived -> renderGeneralAssemblyEinladungForm(panel, meeting, audience)
     }
 }
 
@@ -652,7 +670,7 @@ private fun renderRosterEinladungForm(
 private fun renderGeneralAssemblyEinladungForm(
     panel: SimplePanel,
     meeting: MeetingDto,
-    audience: MeetingAudience.GeneralAssembly,
+    audience: MeetingAudience.Derived,
 ) {
     val committeeId = audience.committeeId
     val n = audience.eligibleCount
@@ -674,7 +692,13 @@ private fun renderGeneralAssemblyEinladungForm(
     val locationField = form.textField(label = tr("Ort"), value = meeting.location.orEmpty(), required = true)
     val bodyTextField = form.textAreaField(label = tr("Einladungstext"), rows = 4, required = true)
 
-    val allActiveLabel = if (n != null) gettext("An alle aktiven Mitglieder (%1)", n) else gettext("An alle aktiven Mitglieder")
+    val allActiveLabel =
+        when {
+            audience.kind == DerivedAudienceKind.RULE && n != null -> gettext("An alle Mitglieder des Gremiums (%1)", n)
+            audience.kind == DerivedAudienceKind.RULE -> gettext("An alle Mitglieder des Gremiums")
+            n != null -> gettext("An alle aktiven Mitglieder (%1)", n)
+            else -> gettext("An alle aktiven Mitglieder")
+        }
     val audienceField =
         form.selectField(
             label = tr("Empfänger"),
@@ -724,11 +748,19 @@ private fun renderGeneralAssemblyEinladungForm(
                 button.hide()
                 if (n != null) {
                     postalLimitNote.content =
-                        gettext(
-                            "Postversand ist auf %1 Empfänger begrenzt; die Mitgliederversammlung hat aktuell %2 -- bitte das PDF herunterladen.",
-                            MAX_POSTAL_INVITATION_RECIPIENTS,
-                            n,
-                        )
+                        if (audience.kind == DerivedAudienceKind.RULE) {
+                            gettext(
+                                "Postversand ist auf %1 Empfänger begrenzt; das Gremium hat aktuell %2 -- bitte das PDF herunterladen.",
+                                MAX_POSTAL_INVITATION_RECIPIENTS,
+                                n,
+                            )
+                        } else {
+                            gettext(
+                                "Postversand ist auf %1 Empfänger begrenzt; die Mitgliederversammlung hat aktuell %2 -- bitte das PDF herunterladen.",
+                                MAX_POSTAL_INVITATION_RECIPIENTS,
+                                n,
+                            )
+                        }
                     postalLimitNote.show()
                 } else {
                     postalLimitNote.hide()
@@ -814,10 +846,17 @@ private fun renderGeneralAssemblyEinladungForm(
             picked.isEmpty() -> FieldCheck.Invalid(gettext("Bitte mindestens einen Empfänger auswählen."))
             picked.size > MAX_INVITATION_PDF_PART_SIZE ->
                 FieldCheck.Invalid(
-                    gettext(
-                        "Höchstens %1 Empfänger je PDF -- bitte die Auswahl verkleinern oder \"An alle aktiven Mitglieder\" wählen.",
-                        MAX_INVITATION_PDF_PART_SIZE,
-                    ),
+                    if (audience.kind == DerivedAudienceKind.RULE) {
+                        gettext(
+                            "Höchstens %1 Empfänger je PDF -- bitte die Auswahl verkleinern oder \"An alle Mitglieder des Gremiums\" wählen.",
+                            MAX_INVITATION_PDF_PART_SIZE,
+                        )
+                    } else {
+                        gettext(
+                            "Höchstens %1 Empfänger je PDF -- bitte die Auswahl verkleinern oder \"An alle aktiven Mitglieder\" wählen.",
+                            MAX_INVITATION_PDF_PART_SIZE,
+                        )
+                    },
                 )
             else -> FieldCheck.Ok
         }
@@ -933,7 +972,7 @@ private fun renderAgendaSection(
         val presenterSource =
             when (audience) {
                 is MeetingAudience.Roster -> PresenterSource.Options(audience.members)
-                is MeetingAudience.GeneralAssembly -> PresenterSource.Remote(audience.committeeId)
+                is MeetingAudience.Derived -> PresenterSource.Remote(audience.committeeId)
             }
         renderAddAgendaItemForm(panel, detail.meeting.id, nextAgendaPosition(agenda), presenterSource, onChanged)
     }
@@ -1020,7 +1059,7 @@ internal fun renderAttendanceSection(
     panel.h2(tr("Anwesenheit")) { addCssClass("h5") }
     // The assembly's form is built BELOW the rows, but each row's "Bearbeiten" must fill it: the callback is wired afterwards.
     var prefill: ((AttendanceDto) -> Unit)? = null
-    val editable = canManage && audience is MeetingAudience.GeneralAssembly
+    val editable = canManage && audience is MeetingAudience.Derived
     if (detail.attendance.isEmpty()) {
         panel.p(tr("Noch keine Anwesenheit erfasst."))
     } else {
@@ -1048,7 +1087,7 @@ internal fun renderAttendanceSection(
         when (audience) {
             is MeetingAudience.Roster ->
                 renderAttendanceRecordingForm(panel, detail.meeting.id, audience.members, detail.attendance, onChanged)
-            is MeetingAudience.GeneralAssembly ->
+            is MeetingAudience.Derived ->
                 prefill = renderGeneralAssemblyAttendanceForm(panel, detail.meeting.id, audience.committeeId, onChanged)
         }
     }
@@ -1480,6 +1519,8 @@ private fun renderQuorumRow(
             quorum.quorumPercent,
         ),
     )
+    // V1.9.112: once a vote of the meeting was opened the circle (the denominator) no longer moves
+    if (quorum.frozen) panel.div(tr("Festgeschrieben zum Start der ersten Abstimmung")) { addCssClasses("text-muted small") }
     panel.quorumExplanation()
 }
 

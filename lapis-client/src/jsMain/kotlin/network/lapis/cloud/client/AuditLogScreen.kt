@@ -582,6 +582,8 @@ fun decodeAuditSnapshot(
             // Welle V1.9.111 -- MailingListRuleSnapshot / MailingDynamicSendSnapshot (enums, ids and counts only): raw-text display.
             AuditEntityType.MAILING_LIST -> null
             AuditEntityType.MAILING_MESSAGE -> null
+            // Welle V1.9.112 -- CommitteeRuleChangeSnapshot (event, mode, canonical rule, counts; never a person): raw-text display.
+            AuditEntityType.COMMITTEE -> null
         }
     }.getOrNull()
 

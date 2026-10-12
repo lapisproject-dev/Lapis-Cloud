@@ -11,6 +11,9 @@ import network.lapis.cloud.shared.domain.CommitteeDto
 import network.lapis.cloud.shared.domain.CommitteeInput
 import network.lapis.cloud.shared.domain.CommitteeMembershipDto
 import network.lapis.cloud.shared.domain.CommitteeMembershipInput
+import network.lapis.cloud.shared.domain.CommitteeMembershipMode
+import network.lapis.cloud.shared.domain.CommitteeModeChangeImpactDto
+import network.lapis.cloud.shared.domain.CommitteeRulePreviewDto
 import network.lapis.cloud.shared.domain.MeetingDetailDto
 import network.lapis.cloud.shared.domain.MeetingDto
 import network.lapis.cloud.shared.domain.MeetingInput
@@ -120,6 +123,39 @@ interface IGovernanceService {
      * non-General-Assembly committee. Any authenticated member may ask.
      */
     suspend fun countGeneralAssemblyEligible(committeeId: String): Int
+
+    /**
+     * Welle V1.9.112 -- Role: BOARD/ADMIN. Switches a committee between [CommitteeMembershipMode.MANUAL] and [CommitteeMembershipMode.RULE]
+     * or changes the rule of a rule-based committee ([ruleJson] must be null for MANUAL). Switching to RULE ends every open seat (reason
+     * `RULE_MODE`); switching back leaves an empty committee. Refused (409) while a meeting is in progress, a decision is open, an
+     * election targets the committee or another rule references it. Writes a COMMITTEE audit entry (counts only, no member data).
+     */
+    suspend fun setCommitteeMembershipRule(
+        committeeId: String,
+        mode: CommitteeMembershipMode,
+        ruleJson: String?,
+    ): CommitteeDto
+
+    /** Welle V1.9.112 -- Role: BOARD/ADMIN. What switching to [targetMode] would do, without writing anything. */
+    suspend fun getCommitteeModeChangeImpact(
+        committeeId: String,
+        targetMode: CommitteeMembershipMode,
+    ): CommitteeModeChangeImpactDto
+
+    /**
+     * Welle V1.9.112 -- Role: BOARD/ADMIN, rate limited. The number of members a rule would select for [committeeId] (`null` = a committee
+     * not created yet). A number only, never a name.
+     */
+    suspend fun previewCommitteeRule(
+        committeeId: String?,
+        ruleJson: String,
+    ): CommitteeRulePreviewDto
+
+    /**
+     * Welle V1.9.112 -- N for a derived committee (the General Assembly or a rule-based one); 400 for a manual committee. Any authenticated
+     * member may ask. [countGeneralAssemblyEligible] delegates here.
+     */
+    suspend fun countCommitteeEligible(committeeId: String): Int
 
     /**
      * V1.9.101 -- paginated name search (id + name only) for the pickers of meeting chair/minute-taker,

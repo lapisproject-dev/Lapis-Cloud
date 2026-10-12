@@ -114,7 +114,8 @@ private suspend fun buildAutomaticPart(
     host: SimplePanel,
     onBuilt: (RuleBuilderHandle, LapisField) -> Unit,
 ) {
-    val committees: List<CommitteeDto> = guarded { rpcService<IGovernanceService>().listCommittees(true) }.orEmpty()
+    // V1.9.112: only committees a rule may reference are offered (manual ones); the server refuses the others
+    val committees: List<CommitteeDto> = committeesForRules(guarded { rpcService<IGovernanceService>().listCommittees(true) }.orEmpty())
     val tiers: List<MembershipTierDto> = guarded { rpcService<IContributionService>().listMembershipTiers() }.orEmpty()
     host.removeAll()
     // Read at preview time (the first preview is scheduled while the builder is still being built, before the switch exists).
@@ -126,8 +127,8 @@ private suspend fun buildAutomaticPart(
             initial = MemberRule(op = RuleOp.ALL, conditions = emptyList()),
             committees = committees,
             tiers = tiers,
-            listId = null,
-            mandatoryProvider = { mandatoryOn },
+            wording = mailingRuleWording(),
+            previewer = mailingPreviewer(listId = null, mandatory = { mandatoryOn }),
         )
     val mandatory =
         form.checkField(

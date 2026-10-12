@@ -35,6 +35,15 @@ carries the badges **Automatisch** and, for a mandatory list, **Pflichtliste** (
 "Von der Liste abmelden" / "Wieder anmelden", or for a mandatory list "Pflichtliste: keine Abmeldung möglich". An opted-out member keeps seeing
 the list, so the opt-out can be undone. There is no subscriber count and no tracking switch (an automatic list is never tracked).
 
+== One rule builder for lists and committees (V1.9.112)
+
+The rule builder is the same widget that configures a rule-based committee (link:rule-based-committees.adoc[Rule-based committees]): the group's name, the
+fixed "always" line, the count sentence, the presets and where the live count comes from are passed in, everything else is shared. Since V1.9.112 a rule
+saved for a list (or a committee) may reference only *manual* committees: a rule-based committee and the General Assembly have no seats, so such a reference
+would silently address nobody. The server refuses it (`COMMITTEE_REFERENCE_NOT_MANUAL`) and the picker no longer offers those committees; a rule saved
+earlier that still references one keeps it visible in the editor so it can be taken out. A committee that a list's rule references cannot be switched to a
+rule-based one.
+
 == The rule
 
 A rule is JSON, parsed by a strict **whitelist** parser (`MemberRuleCodec`, `lapis-shared`):

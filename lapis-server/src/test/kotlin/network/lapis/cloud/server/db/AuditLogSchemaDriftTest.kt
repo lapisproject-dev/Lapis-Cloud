@@ -173,6 +173,7 @@ class AuditLogSchemaDriftTest :
                             "ARTICLE_IMPORT_IMAGES_APPLIED",
                             "MAILING_LIST",
                             "MAILING_MESSAGE",
+                            "COMMITTEE",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

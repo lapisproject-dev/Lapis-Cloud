@@ -18,12 +18,14 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.db.generated.VoteBallotTable
+import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.economy.LedgerBackedLtrBalanceProvider
 import network.lapis.cloud.server.economy.LtrBalanceProvider
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.routes.PUBLIC_API_MOTION_STATUSES
+import network.lapis.cloud.server.rules.RuleReferences
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.canRecordForMeeting
 import network.lapis.cloud.server.security.canSubmitMotion
@@ -44,8 +46,12 @@ import network.lapis.cloud.shared.domain.CommitteeElectionSeatChangeDto
 import network.lapis.cloud.shared.domain.CommitteeInput
 import network.lapis.cloud.shared.domain.CommitteeMembershipDto
 import network.lapis.cloud.shared.domain.CommitteeMembershipInput
+import network.lapis.cloud.shared.domain.CommitteeMembershipMode
+import network.lapis.cloud.shared.domain.CommitteeModeChangeImpactDto
 import network.lapis.cloud.shared.domain.CommitteeOpenSeatDto
 import network.lapis.cloud.shared.domain.CommitteeRole
+import network.lapis.cloud.shared.domain.CommitteeRulePreviewDto
+import network.lapis.cloud.shared.domain.CommitteeSeatAutoEndReason
 import network.lapis.cloud.shared.domain.CommitteeSeatChangeKind
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.LtrLedgerEntryType
@@ -77,6 +83,9 @@ import network.lapis.cloud.shared.domain.VoteOpenInput
 import network.lapis.cloud.shared.domain.VoteOptionDto
 import network.lapis.cloud.shared.domain.VoteStatus
 import network.lapis.cloud.shared.domain.WebhookEventType
+import network.lapis.cloud.shared.domain.rules.MemberRule
+import network.lapis.cloud.shared.domain.rules.MemberRuleCodec
+import network.lapis.cloud.shared.domain.rules.RuleContext
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -95,7 +104,9 @@ import org.jetbrains.exposed.v1.core.isNotNull
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.core.lowerCase
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.or
+import org.jetbrains.exposed.v1.jdbc.batchInsert
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.select
@@ -119,6 +130,14 @@ private const val AUTO_END_NOTICE_LIMIT = 50
  * per service instance would never accumulate anything.
  */
 private val COMMITTEE_CANDIDATE_SEARCH_RATE_LIMITER = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+
+/**
+ * V1.9.112 -- process-wide limiters (top-level for the same reason as above): the rule preview (board only, 60/minute and member) and
+ * the eligible count of a derived committee (any member, 120/minute and member -- one call per committee card). Both are checked AFTER
+ * the permission check, so an unauthorised caller never burns budget.
+ */
+private val COMMITTEE_RULE_PREVIEW_RATE_LIMITER = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
+private val COMMITTEE_ELIGIBLE_COUNT_RATE_LIMITER = FederationInboxRateLimiter(maxRequests = 120, window = 1.minutes)
 
 /** Meritokratische Voteen (V0.2.3): server-side floor, never trusted from a client. */
 private val MIN_STAKE_LTR: BigDecimal = BigDecimal("0.01")
@@ -160,19 +179,35 @@ class GovernanceService(
     private val call: ApplicationCall,
     private val ltrBalanceProvider: LtrBalanceProvider = LedgerBackedLtrBalanceProvider(),
     private val candidateSearchRateLimiter: FederationInboxRateLimiter = COMMITTEE_CANDIDATE_SEARCH_RATE_LIMITER,
+    private val rulePreviewRateLimiter: FederationInboxRateLimiter = COMMITTEE_RULE_PREVIEW_RATE_LIMITER,
+    private val eligibleCountRateLimiter: FederationInboxRateLimiter = COMMITTEE_ELIGIBLE_COUNT_RATE_LIMITER,
 ) : IGovernanceService {
     override suspend fun listCommittees(activeOnly: Boolean): List<CommitteeDto> {
-        resolveCurrentMember(call)
+        val current = resolveCurrentMember(call)
         // V1.3.1 -- delegates to GovernanceReads (see that object's KDoc); byte-identical behavior,
         // limit/offset both stay at their "unbounded"/`0` defaults for this RPC call site.
-        return transaction { GovernanceReads.listCommittees(activeOnly = activeOnly) }
+        // V1.9.112: the rule text is only sent to BOARD/ADMIN.
+        return transaction { GovernanceReads.listCommittees(activeOnly = activeOnly, revealRule = current.role in BOARD_ROLES) }
     }
 
     override suspend fun createCommittee(input: CommitteeInput): CommitteeDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*BOARD_ROLES)
+        // V1.9.112: a rule-based committee is created with its rule (strict parse, canonical form stored); a manual one never carries a rule.
+        val rule: MemberRule? =
+            when (input.membershipMode) {
+                CommitteeMembershipMode.MANUAL -> {
+                    if (input.ruleJson != null) throw BadRequestException("Ein manuelles Gremium hat keine Regel.")
+                    null
+                }
+                CommitteeMembershipMode.RULE -> {
+                    CommitteeRuleOps.requireTypeAllowsRule(input.type)
+                    CommitteeRuleOps.parseOrBadRequest(input.ruleJson ?: throw BadRequestException("Ein Regelgremium braucht eine Regel."))
+                }
+            }
         val now = nowLocalDateTime()
         return transaction {
+            if (rule != null) RuleReferences.lockAndValidate(rule = rule, context = RuleContext.COMMITTEE, selfCommitteeId = null)
             val id = Uuid.random()
             CommitteeTable.insert {
                 it[CommitteeTable.id] = id
@@ -182,19 +217,27 @@ class GovernanceService(
                 it[active] = input.active
                 it[quorumPercent] = input.quorumPercent
                 it[createdAt] = now
+                it[membershipMode] = input.membershipMode
+                it[ruleJson] = rule?.let { r -> MemberRuleCodec.encode(r) }
             }
             // Welle V1.3.2 "Webhooks" (ausgehend) -- Thin event, D8-konform: GET /api/v1/committees/{id}
             // liefert dieses Gremium unmittelbar danach aus (kein Sichtbarkeitsfilter, siehe
             // PublicApiRoutes' /committees/{id}-Handler).
             WebhookEventPublisher.publish(eventType = WebhookEventType.COMMITTEE_CREATED, entityId = id, occurredAt = now)
+            // V1.9.112: only the rule-based case is audited (manual committees never were); the audit write is the last locking operation.
+            if (rule != null) CommitteeRuleOps.auditCreatedRuleCommittee(current = current, committeeId = id, rule = rule, now = now)
             CommitteeTable
                 .selectAll()
                 .where { CommitteeTable.id eq id }
                 .single()
-                .toCommitteeDto()
+                .toCommitteeDto(revealRule = true)
         }
     }
 
+    /**
+     * V1.9.112: the membership mode and rule are NOT changed here, whatever [CommitteeInput.membershipMode]/[CommitteeInput.ruleJson]
+     * contain -- they change only through [setCommitteeMembershipRule], which carries the preconditions, the seat handling and the audit.
+     */
     override suspend fun updateCommittee(
         id: String,
         input: CommitteeInput,
@@ -203,15 +246,27 @@ class GovernanceService(
         current.requireRole(*BOARD_ROLES)
         val committeeId = id.toCommitteeUuid()
         return transaction {
-            val updated =
-                CommitteeTable.update({ CommitteeTable.id eq committeeId }) {
-                    it[name] = input.name
-                    it[type] = input.type
-                    it[description] = input.description
-                    it[active] = input.active
-                    it[quorumPercent] = input.quorumPercent
-                }
-            if (updated == 0) throw NotFoundException("Committee $id not found")
+            val existing =
+                CommitteeTable
+                    .selectAll()
+                    .where { CommitteeTable.id eq committeeId }
+                    .forUpdate()
+                    .singleOrNull()
+                    ?: throw NotFoundException("Committee $id not found")
+            // a rule-based committee can never become the General Assembly or the executive board (the database CHECK would refuse
+            // it too, but as a raw SQL error)
+            if (existing[CommitteeTable.membershipMode] == CommitteeMembershipMode.RULE &&
+                input.type in setOf(CommitteeType.GENERAL_ASSEMBLY, CommitteeType.EXECUTIVE_BOARD)
+            ) {
+                throw ConflictException("Ein Regelgremium kann nicht zu diesem Gremientyp werden.")
+            }
+            CommitteeTable.update({ CommitteeTable.id eq committeeId }) {
+                it[name] = input.name
+                it[type] = input.type
+                it[description] = input.description
+                it[active] = input.active
+                it[quorumPercent] = input.quorumPercent
+            }
             WebhookEventPublisher.publish(
                 eventType = WebhookEventType.COMMITTEE_UPDATED,
                 entityId = committeeId,
@@ -221,7 +276,7 @@ class GovernanceService(
                 .selectAll()
                 .where { CommitteeTable.id eq committeeId }
                 .single()
-                .toCommitteeDto()
+                .toCommitteeDto(revealRule = true)
         }
     }
 
@@ -233,6 +288,9 @@ class GovernanceService(
         val gId = committeeId.toCommitteeUuid()
         val revealAutoEndReason = current.role in BOARD_ROLES
         return transaction {
+            // V1.9.112: a rule-based committee has no seat rows and nobody is enumerated -- its members are whoever the rule selects.
+            val mode = CommitteeTable.select(CommitteeTable.membershipMode).where { CommitteeTable.id eq gId }.singleOrNull()
+            if (mode?.get(CommitteeTable.membershipMode) == CommitteeMembershipMode.RULE) return@transaction emptyList()
             val conditions = mutableListOf<Op<Boolean>>(CommitteeMembershipTable.committeeId eq gId)
             if (activeOnly) conditions += CommitteeMembershipTable.until.isNull()
             (CommitteeMembershipTable innerJoin MemberTable)
@@ -259,6 +317,8 @@ class GovernanceService(
                     .selectAll()
                     .where {
                         CommitteeMembershipTable.autoEndReason.isNotNull() and
+                            // V1.9.112: a seat ended by the switch to rule mode is a deliberate board decision, not a surprise to list
+                            (CommitteeMembershipTable.autoEndReason neq CommitteeSeatAutoEndReason.RULE_MODE) and
                             (CommitteeMembershipTable.until greaterEq windowStart)
                     }.orderBy(CommitteeMembershipTable.until to SortOrder.DESC, CommitteeMembershipTable.id to SortOrder.ASC)
                     .limit(AUTO_END_NOTICE_LIMIT)
@@ -322,26 +382,67 @@ class GovernanceService(
         }
     }
 
-    override suspend fun countGeneralAssemblyEligible(committeeId: String): Int {
-        resolveCurrentMember(call)
+    override suspend fun countGeneralAssemblyEligible(committeeId: String): Int = countCommitteeEligible(committeeId)
+
+    override suspend fun countCommitteeEligible(committeeId: String): Int {
+        val current = resolveCurrentMember(call)
         val gId = committeeId.toCommitteeUuid()
+        if (!eligibleCountRateLimiter.checkAndRecord("actor:${current.memberId}")) throw SearchRateLimitedException()
         return transaction {
-            val type =
-                CommitteeTable
-                    .select(CommitteeTable.type)
-                    .where { CommitteeTable.id eq gId }
-                    .singleOrNull()
-                    ?.get(CommitteeTable.type)
+            val row =
+                CommitteeTable.selectAll().where { CommitteeTable.id eq gId }.singleOrNull()
                     ?: throw NotFoundException("Committee $gId not found")
-            if (type != CommitteeType.GENERAL_ASSEMBLY) {
-                throw BadRequestException("Committee $gId is not the General Assembly")
+            if (row[CommitteeTable.type] != CommitteeType.GENERAL_ASSEMBLY && !isRuleCommittee(row)) {
+                throw BadRequestException("Committee $gId has no derived membership")
             }
-            // Same predicate as eligibleMemberIds/computeQuorum -- never a copy (see generalAssemblyCondition KDoc).
-            MemberTable
-                .selectAll()
-                .where { generalAssemblyCondition() }
-                .count()
-                .toInt()
+            // Same evaluator as eligibleMemberIds/computeQuorum -- never a copy (see generalAssemblyCondition / eligibleIdsForRule KDoc).
+            countEligible(committeeRow = row)
+        }
+    }
+
+    override suspend fun setCommitteeMembershipRule(
+        committeeId: String,
+        mode: CommitteeMembershipMode,
+        ruleJson: String?,
+    ): CommitteeDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*BOARD_ROLES)
+        val gId = committeeId.toCommitteeUuid()
+        val rule: MemberRule? =
+            when (mode) {
+                CommitteeMembershipMode.MANUAL -> {
+                    if (ruleJson != null) throw BadRequestException("Ein manuelles Gremium hat keine Regel.")
+                    null
+                }
+                CommitteeMembershipMode.RULE ->
+                    CommitteeRuleOps.parseOrBadRequest(ruleJson ?: throw BadRequestException("Ein Regelgremium braucht eine Regel."))
+            }
+        return transaction { CommitteeRuleOps.setMembershipRule(current = current, committeeId = gId, mode = mode, rule = rule) }
+    }
+
+    override suspend fun getCommitteeModeChangeImpact(
+        committeeId: String,
+        targetMode: CommitteeMembershipMode,
+    ): CommitteeModeChangeImpactDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*BOARD_ROLES)
+        val gId = committeeId.toCommitteeUuid()
+        return transaction { CommitteeRuleOps.impact(committeeId = gId, targetMode = targetMode) }
+    }
+
+    override suspend fun previewCommitteeRule(
+        committeeId: String?,
+        ruleJson: String,
+    ): CommitteeRulePreviewDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*BOARD_ROLES)
+        if (!rulePreviewRateLimiter.checkAndRecord("actor:${current.memberId}")) throw SearchRateLimitedException()
+        val gId = committeeId?.toCommitteeUuid()
+        val rule = CommitteeRuleOps.parseOrBadRequest(ruleJson)
+        return transaction {
+            RuleReferences.validate(rule = rule, context = RuleContext.COMMITTEE, selfCommitteeId = gId)
+            // A number only -- never a name, never an id.
+            CommitteeRulePreviewDto(eligible = eligibleIdsForRule(rule = rule, today = OrganizationTimeZone.today()).size)
         }
     }
 
@@ -420,9 +521,16 @@ class GovernanceService(
             // INSERT, seating a member from a status read that was already stale. See
             // requireActiveMembership KDoc "forUpdate".
             requireActiveMembership(memberId = memberId, forUpdate = true)
+            // V1.9.112: lock order here is member (above), then committee; the rule switch only ever locks committees (then seats), so the
+            // two cannot deadlock. A rule-based committee takes no manual seat; checked on the LOCKED row so a switch in flight is seen.
             val committeeRow =
-                CommitteeTable.selectAll().where { CommitteeTable.id eq gId }.singleOrNull()
+                CommitteeTable
+                    .selectAll()
+                    .where { CommitteeTable.id eq gId }
+                    .forUpdate()
+                    .singleOrNull()
                     ?: throw NotFoundException("Committee $committeeId not found")
+            if (isRuleCommittee(committeeRow)) throw ConflictException("Regelgremien haben keine manuellen Sitze.")
             val activeExists =
                 CommitteeMembershipTable
                     .selectAll()
@@ -1156,6 +1264,7 @@ class GovernanceService(
                 it[winnerOptionId] = null
                 it[secondPriceLtr] = null
                 it[resolutionId] = null
+                it[electorateFrozenAt] = now
             }
             distinctLabels.forEachIndexed { index, label ->
                 VoteOptionTable.insert {
@@ -1165,6 +1274,10 @@ class GovernanceService(
                     it[position] = index
                 }
             }
+            // V1.9.112: the electorate is frozen NOW, in the same transaction and under the motion lock taken at the top -- the circle of
+            // voters (and the denominator of the quorum) can no longer change under a running vote. openVote takes no room lock, so there
+            // is nothing to hold across this insert. See frozenOrLiveElectorate.
+            freezeVoteElectorate(voteId = id, meetingId = sId, committeeId = committeeId)
             loadVote(id)
         }
     }
@@ -1217,11 +1330,23 @@ class GovernanceService(
                 .singleOrNull()
                 ?: throw NotFoundException("Option ${input.optionId} does not belong to Vote ${input.voteId}")
 
-            val meeting = loadMeeting(voteRow[VoteTable.meetingId])
-            val committeeRow =
-                CommitteeTable.selectAll().where { CommitteeTable.id eq meeting.committeeId.toCommitteeUuid() }.single()
-            val eligible = eligibleMemberIds(committeeRow = committeeRow, scheduledDate = meeting.scheduledAt.date)
-            if (current.memberId !in eligible) throw ForbiddenException()
+            // V1.9.112: a vote opened since V1.9.112 is decided against the electorate frozen when it was opened (point query on the
+            // snapshot); a vote from before has no marker and keeps the live set. requireActiveMembership above stays the live lower
+            // bound: somebody who left the association after the vote opened is still in the denominator but can no longer vote.
+            val eligibleToVote =
+                if (voteRow[VoteTable.electorateFrozenAt] != null) {
+                    VoteEligibleVoterTable
+                        .selectAll()
+                        .where { (VoteEligibleVoterTable.voteId eq abId) and (VoteEligibleVoterTable.memberId eq current.memberId) }
+                        .limit(1)
+                        .count() > 0
+                } else {
+                    val meeting = loadMeeting(voteRow[VoteTable.meetingId])
+                    val committeeRow =
+                        CommitteeTable.selectAll().where { CommitteeTable.id eq meeting.committeeId.toCommitteeUuid() }.single()
+                    current.memberId in eligibleMemberIds(committeeRow = committeeRow, scheduledDate = meeting.scheduledAt.date)
+                }
+            if (!eligibleToVote) throw ForbiddenException()
 
             val stake = input.stakeLtr
             if (stake.scale() > 2) throw ConflictException("stakeLtr must have at most 2 decimal places")
@@ -1581,6 +1706,30 @@ class GovernanceService(
         }
     }
 
+    /** V1.9.112 -- writes the frozen electorate of a freshly opened vote (one row per eligible member, batched). Same transaction as the insert. */
+    private fun freezeVoteElectorate(
+        voteId: Uuid,
+        meetingId: Uuid,
+        committeeId: Uuid,
+    ) {
+        val meetingRow = MeetingTable.selectAll().where { MeetingTable.id eq meetingId }.single()
+        // FOR UPDATE: the committee cannot be switched to rule mode between this read and the commit (the switch locks the same row; the
+        // motion lock taken first by openVote is never taken by the switch, so there is no lock cycle).
+        val committeeRow =
+            CommitteeTable
+                .selectAll()
+                .where { CommitteeTable.id eq committeeId }
+                .forUpdate()
+                .single()
+        val eligible = eligibleMemberIds(committeeRow = committeeRow, scheduledDate = meetingRow[MeetingTable.scheduledAt].date)
+        if (eligible.isEmpty()) return
+        VoteEligibleVoterTable.batchInsert(eligible.sortedBy { it.toString() }, shouldReturnGeneratedValues = false) { memberId ->
+            this[VoteEligibleVoterTable.id] = Uuid.random()
+            this[VoteEligibleVoterTable.voteId] = voteId
+            this[VoteEligibleVoterTable.memberId] = memberId
+        }
+    }
+
     private fun loadMeeting(id: Uuid): MeetingDto =
         (MeetingTable innerJoin CommitteeTable)
             .selectAll()
@@ -1763,7 +1912,7 @@ internal fun memberDisplayName(memberId: Uuid?): String? =
     }
 
 /** V1.3.1 -- hoisted to top-level, `internal`, see [memberDisplayName] KDoc for the reasoning. */
-internal fun ResultRow.toCommitteeDto(): CommitteeDto =
+internal fun ResultRow.toCommitteeDto(revealRule: Boolean = false): CommitteeDto =
     CommitteeDto(
         id = this[CommitteeTable.id].toString(),
         name = this[CommitteeTable.name],
@@ -1772,6 +1921,9 @@ internal fun ResultRow.toCommitteeDto(): CommitteeDto =
         active = this[CommitteeTable.active],
         quorumPercent = this[CommitteeTable.quorumPercent],
         createdAt = this[CommitteeTable.createdAt],
+        membershipMode = this[CommitteeTable.membershipMode],
+        // V1.9.112: the rule only ever reaches BOARD/ADMIN callers (the public REST API never calls with revealRule)
+        ruleJson = if (revealRule) this[CommitteeTable.ruleJson] else null,
     )
 
 /** V1.3.1 -- hoisted to top-level, `internal`, see [memberDisplayName] KDoc for the reasoning. */

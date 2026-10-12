@@ -216,6 +216,7 @@ classDiagram(name = "AuditLog") {
         literal(name = "ARTICLE_IMPORT_IMAGES_APPLIED") // Welle V1.9.106 -- ArticleImportImages writes ONE entry per image commit that applied at least one cover (entityId = import batch id; after = counts + article ids; never a file name); exactly 29 chars = VARCHAR(29), the longest literal
         literal(name = "MAILING_LIST") // Welle V1.9.111 "Dynamische Mailinglisten" -- MailingService writes CREATE (list created, kind + mandatory + rule) and UPDATE (rule changed) entries; snapshot = kind, mandatory flag and the rule JSON (enums and committee/tier ids only, never a name or address); 12 chars, fits within VARCHAR(29)
         literal(name = "MAILING_MESSAGE") // Welle V1.9.111 -- MailingDeliveryWorker writes ONE POST entry when the recipients of a message to a DYNAMIC list were resolved (after = list id, rule JSON, recipient count, mandatory flag; never a member id, name or address); 15 chars, fits within VARCHAR(29)
+        literal(name = "COMMITTEE") // Welle V1.9.112 -- GovernanceService.setCommitteeMembershipRule / createCommittee (rule mode): committee id, mode, canonical rule, counts -- never a member id or name; 9 chars, fits within VARCHAR(29)
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

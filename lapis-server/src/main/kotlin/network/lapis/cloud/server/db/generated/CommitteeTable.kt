@@ -4,6 +4,7 @@ package network.lapis.cloud.server.db.generated
 
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.CommitteeMembershipMode
 import network.lapis.cloud.shared.domain.CommitteeType
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
@@ -20,8 +21,14 @@ public object CommitteeTable : Table("committee") {
     // TODO default = "50"
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
 
+    /** Welle V1.9.112 (V92): MANUAL (seat rows) or RULE (derived from [ruleJson]). DB default MANUAL. */
+    public val membershipMode: Column<CommitteeMembershipMode> = enumerationByName<CommitteeMembershipMode>("membership_mode", 16)
+
+    /** Welle V1.9.112: canonical JSON of a MemberRule; NULL for MANUAL committees (CHECK-pinned). */
+    public val ruleJson: Column<String?> = varchar("rule_json", 4096).nullable()
+
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
-    // Note: 1 check constraint(s) declared on this entity are not
+    // Note: 4 check constraint(s) declared on this entity are not
     // emitted — Exposed's check {} DSL needs a typed Op<Boolean>, not a raw SQL string.
 }

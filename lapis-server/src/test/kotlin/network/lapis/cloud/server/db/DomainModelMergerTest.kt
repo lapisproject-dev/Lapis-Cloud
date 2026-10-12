@@ -530,7 +530,8 @@ class DomainModelMergerTest :
             // mail_budget_lock), with no cross-domain stub at all (no FK to member) -- net +3 (184 -> 187).
             // Welle V1.9.103 "Wahl zum Amt" adds 07-election.kuml.kts's ONE new real table (election_seat_outcome) -- net +1 (187 -> 188).
             // Welle V1.9.111 "Dynamische Mailinglisten" adds 03-communication.kuml.kts's ONE new real table (mailing_list_opt_out) -- net +1 (188 -> 189).
-            val distinctTableNames = 189
+            // Welle V1.9.112 "regelbasierte Gremien" adds 06-vote.kuml.kts's ONE new real table (vote_eligible_voter) -- net +1 (189 -> 190).
+            val distinctTableNames = 190
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -580,6 +581,7 @@ class DomainModelMergerTest :
                     "VoteTable.kt",
                     "VoteOptionTable.kt",
                     "VoteBallotTable.kt",
+                    "VoteEligibleVoterTable.kt",
                     "ElectionTable.kt",
                     "ElectionCandidacyTable.kt",
                     "ElectionOptionTable.kt",

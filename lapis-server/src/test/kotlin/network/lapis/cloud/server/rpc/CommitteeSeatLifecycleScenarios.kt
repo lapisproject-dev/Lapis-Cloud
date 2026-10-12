@@ -22,6 +22,7 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CommitteeRole
+import network.lapis.cloud.shared.domain.CommitteeSeatAutoEndReason
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -86,7 +87,7 @@ abstract class CommitteeSeatLifecycleScenarios(
             result.endedMembershipIds.toSet() shouldBe setOf(s1, s2, s3)
             listOf(s1, s2, s3).forEach {
                 fx.seatRow(it)[CommitteeMembershipTable.until] shouldBe STICHTAG
-                fx.seatRow(it)[CommitteeMembershipTable.autoEndReason] shouldBe MemberStatus.WITHDRAWN
+                fx.seatRow(it)[CommitteeMembershipTable.autoEndReason] shouldBe CommitteeSeatAutoEndReason.WITHDRAWN
             }
             fx.seatRow(otherSeat)[CommitteeMembershipTable.until] shouldBe null
             fx.seatRow(otherSeat)[CommitteeMembershipTable.autoEndReason] shouldBe null
@@ -97,7 +98,7 @@ abstract class CommitteeSeatLifecycleScenarios(
                 val member = fx.member()
                 val seat = fx.seat(committee = fx.committee(), member = member)
                 endSeats(memberId = member, reason = reason)
-                fx.seatRow(seat)[CommitteeMembershipTable.autoEndReason] shouldBe reason
+                fx.seatRow(seat)[CommitteeMembershipTable.autoEndReason] shouldBe CommitteeSeatAutoEndReason.valueOf(reason.name)
             }
         }
 
@@ -110,7 +111,7 @@ abstract class CommitteeSeatLifecycleScenarios(
                     member = member,
                     since = LocalDate(2025, 1, 1),
                     until = LocalDate(2026, 3, 1),
-                    autoEndReason = MemberStatus.DONOR,
+                    autoEndReason = CommitteeSeatAutoEndReason.DONOR,
                 )
             val onStichtag = fx.seat(committee = committee, member = member, since = LocalDate(2025, 1, 1), until = STICHTAG)
             val mark = fx.auditMark()
@@ -119,7 +120,7 @@ abstract class CommitteeSeatLifecycleScenarios(
 
             result.endedCount shouldBe 0
             fx.seatRow(past)[CommitteeMembershipTable.until] shouldBe LocalDate(2026, 3, 1)
-            fx.seatRow(past)[CommitteeMembershipTable.autoEndReason] shouldBe MemberStatus.DONOR
+            fx.seatRow(past)[CommitteeMembershipTable.autoEndReason] shouldBe CommitteeSeatAutoEndReason.DONOR
             fx.seatRow(onStichtag)[CommitteeMembershipTable.until] shouldBe STICHTAG
             fx.seatRow(onStichtag)[CommitteeMembershipTable.autoEndReason] shouldBe null
             fx.auditSince(mark = mark).shouldBeEmpty()
@@ -320,7 +321,7 @@ abstract class CommitteeSeatLifecycleScenarios(
                     committee = committee,
                     member = member,
                     until = LocalDate(2026, 9, 1),
-                    autoEndReason = MemberStatus.WITHDRAWN,
+                    autoEndReason = CommitteeSeatAutoEndReason.WITHDRAWN,
                 )
             val actor = fx.member(role = AccountRole.BOARD)
             transaction {

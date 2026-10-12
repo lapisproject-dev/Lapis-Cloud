@@ -110,7 +110,18 @@ object RuleContextPolicy {
             RuleCondition.Committee::class,
             RuleCondition.Tier::class,
         )
-    private val committee: Set<KClass<out RuleCondition>> = mailing + RuleCondition.Status::class
+
+    /**
+     * No `Status` block for a committee: [CommitteeRuleGuard] already restricts every rule-based committee to ACTIVE members, so the block
+     * would be without effect (and V1.9.111 never stored a committee rule).
+     */
+    private val committee: Set<KClass<out RuleCondition>> =
+        setOf(
+            RuleCondition.Role::class,
+            RuleCondition.JoinedWithinDays::class,
+            RuleCondition.Committee::class,
+            RuleCondition.Tier::class,
+        )
 
     fun allowed(ctx: RuleContext): Set<KClass<out RuleCondition>> =
         when (ctx) {
@@ -130,6 +141,9 @@ enum class InvalidRuleReason {
     INVALID_ID,
     DAYS_OUT_OF_RANGE,
     BLOCK_NOT_ALLOWED_IN_CONTEXT,
+
+    /** V1.9.112: a rule references a committee that is not a manual committee (itself, a rule-based one, or the General Assembly). */
+    COMMITTEE_REFERENCE_NOT_MANUAL,
 }
 
 class InvalidMemberRuleException(
@@ -236,6 +250,18 @@ object MemberRuleCodec {
                     }
                 },
         )
+}
+
+/**
+ * V1.9.112 -- the guard of a rule-based committee, separate from the rule: whoever the rule selects only belongs when ACTIVE
+ * ([network.lapis.cloud.shared.domain.MemberStatusSets.RULE_COMMITTEE]), not anonymised and not deceased.
+ */
+object CommitteeRuleGuard {
+    fun eligible(
+        member: MemberFacts,
+        anonymised: Boolean,
+        deceased: Boolean,
+    ): Boolean = member.status in network.lapis.cloud.shared.domain.MemberStatusSets.RULE_COMMITTEE && !anonymised && !deceased
 }
 
 /** Why a member is NOT addressed by a mailing, in the order the checks run. */

@@ -1,0 +1,138 @@
+= Rule-based committees and the frozen electorate of a vote (V1.9.112)
+:toc:
+
+Until V1.9.111 the members of a committee were explicit *seat rows* (`committee_membership`): somebody had to enter every member by hand and end every seat
+by hand. A committee can now be **rule-based**: a small rule ("everybody who joined in the last year", "the roles Vorstand or Schatzmeister", "all members
+of the working group X") decides who belongs, *at the moment the question is asked*. It reuses the rule model and the rule builder of the dynamic mailing
+lists (V1.9.111, link:dynamic-mailing-lists.adoc[Dynamic and mandatory mailing lists]).
+
+The wave also changes something for **every** committee: when a vote is opened, the circle of people who may vote is **frozen**. That is a behaviour change
+and it is described first, because it affects committees that never use a rule.
+
+== The electorate of a vote is frozen when the vote is opened
+
+`openVote` writes one row per eligible member into `vote_eligible_voter` and stamps `vote.electorate_frozen_at`, in the same transaction (under the motion
+lock, and with the committee row locked). From then on
+
+* **Who may vote** is decided against that snapshot (`castVoteBallot`; the conference room's participation card reads the same snapshot). Somebody who joins
+  the committee or the rule's circle *after* the opening cannot vote; somebody who leaves the circle *keeps* the right.
+* **The live membership guard still applies.** `requireActiveMembership` stays a lower bound: a member who has left the association since the opening is in the
+  denominator of the quorum but can no longer cast a ballot. This is deliberate and is documented in the code and the tests.
+* **The quorum's N does not move.** `computeQuorum` takes the electorate from `frozenOrLiveElectorate`: the vote's own snapshot for a resolution that a vote
+  produces; the election's snapshot for an election's tally; the snapshot of the latest round for a consensus; and, for the meeting as a whole
+  (`checkQuorum`, the meeting detail, the protocol draft), the snapshot of the **earliest frozen vote of the meeting, whatever its status** -- an aborted
+  first vote still fixes the circle. `QuorumResultDto.frozen` is true in these cases, and the meetings screen then says "Festgeschrieben zum Start der ersten
+  Abstimmung".
+* Only without any frozen vote is the live set used (`eligibleMemberIds`).
+* A vote opened *before* V1.9.112 has no marker and keeps the live set (nothing is backfilled).
+* A frozen electorate with zero members is still frozen: the marker, never the existence of rows, says so.
+
+Nobody should call `eligibleMemberIds` to decide a right to vote or a quorum; `CommitteeElectorateTripwireTest` pins every direct caller with the reason it
+is the right one.
+
+== What a rule-based committee is
+
+[kuml, rule-committee-mode, svg]
+----
+stateDiagram(name = "Committee membership mode") {
+    val start = initialState()
+    val manual = state(name = "MANUAL")
+    val rule = state(name = "RULE")
+
+    transition(source = start, target = manual)
+    transition(source = manual, target = rule) {
+        trigger = "setCommitteeMembershipRule"
+        guard = "[no blocking decision, not referenced, type allows]"
+    }
+    transition(source = rule, target = rule) { trigger = "change the rule [same checks]" }
+    transition(source = rule, target = manual) { trigger = "setCommitteeMembershipRule [same checks]" }
+}
+----
+
+* **The members** are whoever the stored rule selects *today* (the organisation's calendar day), restricted by an always-on guard (`CommitteeRuleGuard`):
+  ACTIVE, not anonymised, not deceased. The rule can use four blocks (role, joined within N days, seat in another committee, membership tier) combined with
+  *all of* or *at least one of*; the `Status` block does not exist for committees (the guard already says ACTIVE).
+* **No seat rows.** A rule committee never has an open seat row, no roster, no "Mitglied hinzufügen" and no offices. In this version offices such as the chair
+  exist only in manual committees. Consequently `canManageCommittee`/`canRecordForMeeting` (role based) are true for **BOARD and ADMIN only**: only they create
+  its meetings, open its votes and record its resolutions. A committee chair of another committee has no say here.
+* **Rights that follow membership** (`canSubmitMotion`, the conference binding `isActiveCommitteeMember`) consult the rule, live, with no snapshot -- they are
+  access checks, not decisions.
+* **Not available for the General Assembly and the executive board** (a database CHECK, a service refusal and no UI choice).
+
+== Switching and changing the rule
+
+`IGovernanceService.setCommitteeMembershipRule(committeeId, mode, ruleJson)` (BOARD/ADMIN) is the only way to change the mode or the rule;
+`updateCommittee` ignores both. `getCommitteeModeChangeImpact` shows what would happen without writing. In the UI the section "Mitglieder bestimmen" of the
+edit form asks for the impact first, shows it in a confirmation dialog ("%1 offene Sitze enden heute." / "Das Gremium ist danach leer.") and writes only
+after the confirmation.
+
+* **MANUAL to RULE** ends every open seat (`until = today - 1`, reason `RULE_MODE`; this includes seats whose term ends today, because authorization treats a seat as active while `until >= today`, so a seat ended today would keep its rights until midnight; for seats not yet started this gives `until < since`, the "did not take office" convention) in one transaction; the rows are kept for the record.
+* **RULE to MANUAL** leaves an empty committee; nothing is filled in.
+* **The switch is refused (409, the reason is one of five names)** while
+** a meeting of the committee has begun (`PLANNED` and `scheduledAt <= now`): `MEETING_IN_PROGRESS`;
+** a vote of the committee's meetings is `OPEN`, or an election or a consensus of its meetings is not finished: `OPEN_DECISION`;
+** an unfinished election targets the committee: `ELECTION_TARGETS_COMMITTEE`;
+** another rule (a rule committee or a dynamic mailing list) references it (only for the switch into rule mode): `REFERENCED_BY_RULE`;
+** the type is the General Assembly or the executive board: `TYPE_NOT_ALLOWED`.
+  A *future* meeting does not block (the board would otherwise have to cancel every planned meeting to switch). The same refusals apply to changing the rule.
+* **Idempotent:** the same rule again writes nothing.
+* **Audit:** one `COMMITTEE` entry per change (event `COMMITTEE_MODE_CHANGED` or `COMMITTEE_RULE_SET`, the canonical rule, the number of eligible members, the
+  number of ended seats). Never a member id, a name or an address. A rule committee that is created directly (`createCommittee` with `membershipMode = RULE`)
+  is audited as `CREATE`; manual committees are not audited at creation, as before.
+
+== What a rule may reference
+
+A rule that names a committee means "has an active *seat* in it". A rule committee and the General Assembly have no seat rows, so a reference to either would
+silently address nobody. One shared validator (`RuleReferences`) therefore rejects, **in both contexts, committee rules and mailing rules**, a reference to a
+committee that does not exist, is inactive, is rule-based or is the General Assembly (`COMMITTEE_REFERENCE_NOT_MANUAL`); and a committee rule may never
+reference its own committee. The validator locks the committee rows (own and referenced) in the database's `ORDER BY id` before it checks, so a concurrent
+switch cannot slip a reference past it (a race test on H2 and PostgreSQL pins that exactly one of "A is switched" and "B stores a rule on A" wins). Because rule
+committees never reference rule committees, evaluation is one level deep and acyclic.
+
+A stored rule that no longer parses is a `ConflictException`, **never an empty set** -- an empty electorate would make every quorum "met".
+
+== Elections and seats
+
+* An election cannot seat anybody in a rule committee: `openElection` refuses such a target, the tally and `ElectionSeatSuccession.apply` fail closed if it ever
+  happens (a data race), and the switch is blocked while an election targets the committee.
+* `addCommitteeMember` refuses a manual seat in a rule committee (the committee row is locked after the member row; the switch only ever locks committees and
+  then seats, so the two cannot deadlock).
+* An election *in a meeting of* a rule committee (for example a yes/no election) works: its electorate is evaluated from the rule when voting opens and
+  frozen in `election_eligible_voter`.
+
+== The invitation
+
+"All members of the committee" is a derived audience, like the General Assembly: the invitation (PDF in parts of at most 1000, and the postal dispatch with its
+cap) is addressed to exactly the eligible set; nobody is listed, nobody anonymised receives a letter. The audience of the meetings screen is
+`MeetingAudience.Derived` (`GENERAL_ASSEMBLY` or `RULE`) and offers "An alle Mitglieder des Gremiums (n)".
+
+== Visibility and data protection
+
+* The rule text reaches BOARD/ADMIN only (`CommitteeDto.ruleJson`); everybody else sees the mode and the number. `listCommitteeMembers` is empty for a rule
+  committee -- nobody is enumerated.
+* `previewCommitteeRule` (BOARD/ADMIN, 60 per minute and member) and `countCommitteeEligible` (any member, 120 per minute) return a number only; both limiters
+  are checked *after* the permission, so an unauthorised caller never burns budget and always gets the same answer.
+* `vote_eligible_voter` is in the Art. 15 export (`voteEligibilities`, ids only) and retained at Art. 17 with a reason (`GovernancePersonalData`).
+
+== Tests
+
+`RuleCommitteeEligibilityTest` (every block, ALL/ANY, the guard, a broken rule, set/point parity over the three branches, reference counting),
+`CommitteeRuleModeServiceTest` (rights, the seat end, audit content, every refusal, validation, create/update, visibility, seats, elections, rate limits),
+`VoteElectorateFreezeTest` (rule, manual and assembly committee; newcomer, leaver, withdrawn member, empty electorate, older votes, first-vote quorum,
+resolution quorum, participation card, election and consensus snapshots), `RuleCommitteeAudienceTest` (invitation, access checks, DSGVO),
+`CommitteeRuleRace*Test` (H2 and PostgreSQL), `CommitteeRuleMigration*Test` (H2 and PostgreSQL), `CommitteeElectorateTripwireTest`, the extended
+`CommitteeSeatLifecycleTripwireTest`, the i18n guards and `RuleCommitteeScreensDomTest`.
+
+== Known limitations
+
+* No hybrid mode (a rule plus hand-picked members) and no offices in a rule committee; only BOARD and ADMIN lead the meetings of a rule committee.
+* Rules reference manual committees only, one level deep; no per-condition breakdown ("why is this person in"), no transitive references.
+* The conference binding and the right to submit a motion consult the rule live, without a snapshot.
+* `requireActiveMembership` stays live (see above): the snapshot sets the upper bound of the circle and the denominator, not an unconditional right.
+* The single-person pickers of the meetings screen (the roster of a *manual* committee) and the candidate search are not filtered by the rule.
+* Polls (`PollAuthorization`, "in any active committee") do not count rule committees.
+* A deactivated committee in a rule addresses nobody (existing behaviour); an empty rule committee has N = 0 and therefore a met quorum (existing behaviour for an
+  empty manual committee).
+* The public REST API does not show the mode or the rule.
+* An election or consensus that is *opened* in the very moment a committee is switched is not locked against the switch (a vote and an election's target are);
+  the block is checked at the time of the switch.

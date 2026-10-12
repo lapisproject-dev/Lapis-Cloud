@@ -136,17 +136,20 @@ classDiagram(name = "Governance") {
         literal(name = "MANAGING_DIRECTOR")
     }
 
-    // Welle V1.9.102 -- local mirror of the foundation-owned MemberStatus enum (this file is self-contained, see the Member stub above); only
-    // committee_membership.auto_end_reason references it. Literals must stay identical to 00-foundation.kuml.kts / MemberStatus.
-    val memberStatus = enumOf(name = "MemberStatus") {
-        literal(name = "APPLICATION")
-        literal(name = "ACTIVE")
-        literal(name = "GUEST")
+    // Welle V1.9.112 -- why a seat ended automatically: the four MemberStatus literals of V1.9.102 (names unchanged, so stored values stay valid)
+    // plus RULE_MODE (the committee was switched to rule-based membership). Replaces the V1.9.102 local MemberStatus mirror.
+    val committeeSeatAutoEndReason = enumOf(name = "CommitteeSeatAutoEndReason") {
         literal(name = "WITHDRAWN")
         literal(name = "REJECTED")
-        literal(name = "FRIEND")
-        literal(name = "DONOR")
         literal(name = "DECEASED")
+        literal(name = "DONOR")
+        literal(name = "RULE_MODE")
+    }
+
+    // Welle V1.9.112 -- how the members of a committee are determined.
+    val committeeMembershipMode = enumOf(name = "CommitteeMembershipMode") {
+        literal(name = "MANUAL")
+        literal(name = "RULE")
     }
 
     val meetingsFormat = enumOf(name = "MeetingFormat") {
@@ -219,6 +222,16 @@ classDiagram(name = "Governance") {
         attribute(name = "createdAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "created_at" }
         }
+        // Welle V1.9.112 -- MANUAL (seat rows) or RULE (derived from ruleJson). Default MANUAL.
+        attribute(name = "membershipMode", type = committeeMembershipMode) {
+            defaultValue = "MANUAL"
+            stereotype("Column") { "columnName" to "membership_mode"; "enumType" to "network.lapis.cloud.shared.domain.CommitteeMembershipMode"; "sqlType" to "VARCHAR(16)" }
+        }
+        // Welle V1.9.112 -- canonical MemberRule JSON (NULL for MANUAL); enums and committee/tier ids only, never personal data.
+        attribute(name = "ruleJson", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "rule_json"; "sqlType" to "VARCHAR(4096)" }
+        }
     }
 
     val committeeMembership = classOf(name = "CommitteeMembership") {
@@ -243,10 +256,11 @@ classDiagram(name = "Governance") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "until" }
         }
-        // Welle V1.9.102 -- the MemberStatus (WITHDRAWN/REJECTED/DECEASED/DONOR) whose change ended this seat automatically; NULL otherwise.
-        attribute(name = "autoEndReason", type = memberStatus) {
+        // Welle V1.9.102 -- why this seat ended automatically (the MemberStatus WITHDRAWN/REJECTED/DECEASED/DONOR, since V1.9.112 also
+        // RULE_MODE); NULL otherwise.
+        attribute(name = "autoEndReason", type = committeeSeatAutoEndReason) {
             multiplicity = Multiplicity(0, 1)
-            stereotype("Column") { "columnName" to "auto_end_reason"; "enumType" to "network.lapis.cloud.shared.domain.MemberStatus"; "sqlType" to "VARCHAR(16)" }
+            stereotype("Column") { "columnName" to "auto_end_reason"; "enumType" to "network.lapis.cloud.shared.domain.CommitteeSeatAutoEndReason"; "sqlType" to "VARCHAR(16)" }
         }
         // Welle V1.9.103 -- the election that started / ended this seat (ElectionSeatSuccession); NULL otherwise. Real FKs -> election (id) exist in
         // the database (V84) but are plain columns here, like resolution.election_id: this file has no Election stub (election <-> governance cycle).

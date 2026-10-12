@@ -5,7 +5,7 @@ package network.lapis.cloud.server.db.generated
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.CommitteeRole
-import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.CommitteeSeatAutoEndReason
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.datetime.date
@@ -15,7 +15,7 @@ public object CommitteeMembershipTable : Table("committee_membership") {
     public val role: Column<CommitteeRole> = enumerationByName<CommitteeRole>("role", 20)
     public val since: Column<LocalDate> = date("since")
     public val until: Column<LocalDate?> = date("until").nullable()
-    public val autoEndReason: Column<MemberStatus?> = enumerationByName<MemberStatus>("auto_end_reason", 16).nullable()
+    public val autoEndReason: Column<CommitteeSeatAutoEndReason?> = enumerationByName<CommitteeSeatAutoEndReason>("auto_end_reason", 16).nullable()
     public val startedByElectionId: Column<Uuid?> = uuid("started_by_election_id").nullable()
     public val endedByElectionId: Column<Uuid?> = uuid("ended_by_election_id").nullable()
     public val committeeId: Column<Uuid> = reference("committee_id", CommitteeTable.id)

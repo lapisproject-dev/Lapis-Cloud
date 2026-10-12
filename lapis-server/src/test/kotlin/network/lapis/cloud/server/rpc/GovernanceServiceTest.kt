@@ -38,6 +38,7 @@ import network.lapis.cloud.server.db.generated.MotionTable
 import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.db.generated.TransparenzregisterReminderTable
 import network.lapis.cloud.server.db.generated.VoteBallotTable
+import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.dsgvo.GovernancePersonalData
@@ -2992,6 +2993,7 @@ private fun cleanUpGovernanceTestData(
         if (voteIds.isNotEmpty()) {
             VoteTable.update({ VoteTable.id inList voteIds }) { it[resolutionId] = null }
             ResolutionTable.update({ ResolutionTable.voteId inList voteIds }) { it[ResolutionTable.voteId] = null }
+            VoteEligibleVoterTable.deleteWhere { VoteEligibleVoterTable.voteId inList voteIds }
             VoteBallotTable.deleteWhere { VoteBallotTable.voteId inList voteIds }
             VoteOptionTable.deleteWhere { VoteOptionTable.voteId inList voteIds }
             VoteTable.deleteWhere { VoteTable.id inList voteIds }

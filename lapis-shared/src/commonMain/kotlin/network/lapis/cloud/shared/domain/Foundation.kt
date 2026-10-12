@@ -239,6 +239,12 @@ object MemberStatusSets {
     val COMMITTEE_SEAT_ENDING: Set<MemberStatus> =
         setOf(MemberStatus.WITHDRAWN, MemberStatus.REJECTED, MemberStatus.DECEASED, MemberStatus.DONOR)
 
+    /**
+     * Welle V1.9.112 -- the only member status that belongs to a rule-based committee (`CommitteeMembershipMode.RULE`): an ACTIVE member.
+     * Applied by the server on top of whatever the rule selects (see `CommitteeRuleGuard`), never configurable.
+     */
+    val RULE_COMMITTEE: Set<MemberStatus> = setOf(MemberStatus.ACTIVE)
+
     /** Welle V1.9.102 -- the complement of [COMMITTEE_SEAT_ENDING]: a change to one of these never ends a committee seat. */
     val COMMITTEE_SEAT_KEEPING: Set<MemberStatus> =
         setOf(MemberStatus.ACTIVE, MemberStatus.APPLICATION, MemberStatus.FRIEND, MemberStatus.GUEST)

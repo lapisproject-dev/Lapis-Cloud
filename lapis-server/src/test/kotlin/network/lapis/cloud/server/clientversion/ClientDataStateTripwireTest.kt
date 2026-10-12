@@ -93,10 +93,18 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * `guarded` and the builder simply offers no entries ("Es gibt noch keine aktiven Gremien."): there is no content region to put a loading/error state
  * into. The sixth is `CommunicationScreen.kt`'s re-read of `listMailingLists(` after a saved rule, to rebuild the detail from the stored state (an action
  * follow-up, no screen load). 159 -> 165.
+ * Welle V1.9.112 "regelbasierte Gremien" adds SEVEN in one new file plus two existing ones (hence 52 -> 53 files): in the new `CommitteeRuleUi.kt` the
+ * option loads of the rule builder (`listCommittees(`, `listMembershipTiers(` -- a failure toasts through `guarded`, the builder then offers no
+ * entries), the stateless member count of a rule committee's card (`countCommitteeEligible(`, deliberately WITHOUT an error state like the assembly's
+ * N above: a failed count only drops the figure from the sentence) and the impact read in front of a mode switch (`getCommitteeModeChangeImpact(`, a
+ * one-shot action step whose failure toasts); in `MailingRuleBuilder.kt` the committee form's live count (`previewCommitteeRule(`, the same debounced,
+ * stateless dry run as the mailing one); in `CommitteesScreen.kt` the tier names for the rule sentence (`listMembershipTiers(`) and the count of the
+ * rule committee's roster view (`countCommitteeEligible(`). `MeetingsScreen.kt` swaps `countGeneralAssemblyEligible(` for `countCommitteeEligible(`
+ * (net zero). 165 -> 172.
  * The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 165
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 52
+private const val READ_OUTSIDE_STATE_REGION_MAX = 172
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 53
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

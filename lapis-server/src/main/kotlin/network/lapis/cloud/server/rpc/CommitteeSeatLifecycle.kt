@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -14,6 +15,7 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CommitteeRole
+import network.lapis.cloud.shared.domain.CommitteeSeatAutoEndReason
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
@@ -45,7 +47,7 @@ internal data class CommitteeMembershipAuditSnapshot(
     val role: CommitteeRole,
     val since: LocalDate,
     val until: LocalDate?,
-    val autoEndReason: MemberStatus?,
+    val autoEndReason: CommitteeSeatAutoEndReason?,
     val trigger: String? = null,
     val newMemberStatus: MemberStatus? = null,
     /** V1.9.103: the election whose tally started / ended this seat (id only; omitted from the JSON when null). */
@@ -161,7 +163,7 @@ internal object CommitteeSeatLifecycle {
                         (CommitteeMembershipTable.until.isNull() or (CommitteeMembershipTable.until greater stichtag))
                 }) {
                     it[until] = stichtag
-                    it[autoEndReason] = reason
+                    it[autoEndReason] = reason.toSeatEndReason()
                 }
             if (updated == 0) continue // a parallel run already ended it
             endedIds += seatId
@@ -192,6 +194,48 @@ internal object CommitteeSeatLifecycle {
                 "boardsWithoutChair=${vacated.joinToString(",")}"
         }
         return CommitteeSeatEndResult(endedMembershipIds = endedIds, vacatedChairBoardIds = vacated, pendingAudits = audits)
+    }
+
+    /**
+     * V1.9.112 -- the second (and last) writer of `auto_end_reason`: switching a committee to [CommitteeMembershipMode.RULE] ends every open
+     * seat with reason `RULE_MODE`, because a rule-based committee never has seat rows. Seats with `until IS NULL OR until >= today` get
+     * `until = today - 1` (yesterday: authorization treats a seat as active while `until >= today`, so a seat ended today would stay
+     * active until midnight; for `since >= today` this gives `until < since`, the status hook's "nicht angetreten" convention; never later
+     * than before) and `ended_by_election_id = null` (one cause only); the
+     * rows are kept for the record. Locked in id order (deterministic, no deadlock with the status hook, which also orders by id). Returns the
+     * number of seats ended. No audit entry per seat: the caller writes ONE `COMMITTEE` audit with the count (no member data). Must run
+     * inside the caller's open `transaction {}`; an EXECUTIVE_BOARD committee can never be rule-based, so there is no board cascade.
+     */
+    fun endSeatsForRuleMode(
+        committeeId: Uuid,
+        today: LocalDate,
+    ): Int {
+        check(TransactionManager.currentOrNull() != null) {
+            "CommitteeSeatLifecycle.endSeatsForRuleMode must run inside an already-open transaction {} block"
+        }
+        val rows =
+            CommitteeMembershipTable
+                .selectAll()
+                .where {
+                    (CommitteeMembershipTable.committeeId eq committeeId) and
+                        (CommitteeMembershipTable.until.isNull() or (CommitteeMembershipTable.until greaterEq today))
+                }.orderBy(CommitteeMembershipTable.id)
+                .toList()
+        var ended = 0
+        for (row in rows) {
+            val seatId = row[CommitteeMembershipTable.id]
+            val endDate = today.minus(1, DateTimeUnit.DAY)
+            ended +=
+                CommitteeMembershipTable.update({
+                    (CommitteeMembershipTable.id eq seatId) and
+                        (CommitteeMembershipTable.until.isNull() or (CommitteeMembershipTable.until greaterEq today))
+                }) {
+                    it[until] = endDate
+                    it[autoEndReason] = CommitteeSeatAutoEndReason.RULE_MODE
+                    it[endedByElectionId] = null
+                }
+        }
+        return ended
     }
 
     /**
@@ -233,7 +277,7 @@ internal object CommitteeSeatLifecycle {
         val after =
             before.copy(
                 until = stichtag,
-                autoEndReason = reason,
+                autoEndReason = reason.toSeatEndReason(),
                 trigger = CommitteeSeatEndTrigger.MEMBER_STATUS_CHANGE.name,
                 newMemberStatus = newStatus,
             )
@@ -251,3 +295,6 @@ internal object CommitteeSeatLifecycle {
         }
     }
 }
+
+/** The seat-end reason of a member status change: the four statuses of [MemberStatusSets.COMMITTEE_SEAT_ENDING] share their name. */
+private fun MemberStatus.toSeatEndReason(): CommitteeSeatAutoEndReason = CommitteeSeatAutoEndReason.valueOf(name)

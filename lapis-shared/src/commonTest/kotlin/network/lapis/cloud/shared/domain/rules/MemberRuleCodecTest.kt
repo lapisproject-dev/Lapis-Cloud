@@ -1,7 +1,6 @@
 package network.lapis.cloud.shared.domain.rules
 
 import network.lapis.cloud.shared.domain.AccountRole
-import network.lapis.cloud.shared.domain.MemberStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -117,11 +116,10 @@ class MemberRuleCodecTest {
     }
 
     @Test
-    fun statusBlockOnlyInCommitteeContext() {
+    fun statusBlockIsAllowedInNeitherContext() {
         val json = """{"v":1,"op":"ALL","conditions":[{"type":"STATUS","values":["ACTIVE"]}]}"""
         assertEquals(InvalidRuleReason.BLOCK_NOT_ALLOWED_IN_CONTEXT, reasonOf(json = json, context = RuleContext.MAILING))
-        val rule = MemberRuleCodec.parse(text = json, context = RuleContext.COMMITTEE)
-        assertEquals(setOf(MemberStatus.ACTIVE), (rule.conditions.single() as RuleCondition.Status).values)
+        assertEquals(InvalidRuleReason.BLOCK_NOT_ALLOWED_IN_CONTEXT, reasonOf(json = json, context = RuleContext.COMMITTEE))
     }
 
     @Test

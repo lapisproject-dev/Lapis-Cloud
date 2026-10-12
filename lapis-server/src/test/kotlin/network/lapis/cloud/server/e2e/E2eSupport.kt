@@ -23,6 +23,7 @@ import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.db.generated.ResolutionTable
 import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.db.generated.VoteBallotTable
+import network.lapis.cloud.server.db.generated.VoteEligibleVoterTable
 import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.security.PasswordHasher
@@ -204,6 +205,7 @@ fun hardDeleteGovernanceAndMembershipFixtures(
             }
 
         if (voteIds.isNotEmpty()) {
+            VoteEligibleVoterTable.deleteWhere { VoteEligibleVoterTable.voteId inList voteIds }
             VoteBallotTable.deleteWhere { VoteBallotTable.voteId inList voteIds }
             // Break the Vote -> Resolution FK before the Resolution rows go, so the delete order
             // below does not depend on which of the two a given scenario happened to create first.

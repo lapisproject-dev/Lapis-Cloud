@@ -11,6 +11,7 @@ import network.lapis.cloud.shared.domain.CommitteeElectionSeatChangeDto
 import network.lapis.cloud.shared.domain.CommitteeMembershipDto
 import network.lapis.cloud.shared.domain.CommitteeOpenSeatDto
 import network.lapis.cloud.shared.domain.CommitteeRole
+import network.lapis.cloud.shared.domain.CommitteeSeatAutoEndReason
 import network.lapis.cloud.shared.domain.CommitteeSeatChangeKind
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MemberStatus
@@ -33,7 +34,7 @@ class CommitteeAutoEndNoticeDomTest {
     private fun entry(
         name: String = "Erika Beispiel",
         committee: String = "Vorstand",
-        reason: MemberStatus = MemberStatus.WITHDRAWN,
+        reason: CommitteeSeatAutoEndReason = CommitteeSeatAutoEndReason.WITHDRAWN,
     ) = CommitteeAutoEndEntryDto(
         committeeId = "c1",
         committeeName = committee,
@@ -265,7 +266,7 @@ class CommitteeAutoEndNoticeDomTest {
 
     private fun membership(
         until: LocalDate?,
-        reason: MemberStatus?,
+        reason: CommitteeSeatAutoEndReason?,
         since: LocalDate = LocalDate(2024, 1, 1),
     ) = CommitteeMembershipDto(
         id = "m",
@@ -280,9 +281,9 @@ class CommitteeAutoEndNoticeDomTest {
 
     @Test
     fun rowNote_forAnAutomaticEnd_namesTheReason() {
-        val note = committeeSeatAutoEndNote(membership(until = LocalDate(2026, 10, 11), reason = MemberStatus.WITHDRAWN))
+        val note = committeeSeatAutoEndNote(membership(until = LocalDate(2026, 10, 11), reason = CommitteeSeatAutoEndReason.WITHDRAWN))
         assertEquals("automatisch beendet, Grund: Ausgetreten", note)
-        val donor = committeeSeatAutoEndNote(membership(until = LocalDate(2026, 10, 11), reason = MemberStatus.DONOR))
+        val donor = committeeSeatAutoEndNote(membership(until = LocalDate(2026, 10, 11), reason = CommitteeSeatAutoEndReason.DONOR))
         assertTrue(donor.orEmpty().contains("Spender"), donor)
     }
 
@@ -290,7 +291,7 @@ class CommitteeAutoEndNoticeDomTest {
     fun rowNote_forASeatThatNeverStarted_saysNotTakenUp() {
         val note =
             committeeSeatAutoEndNote(
-                membership(until = LocalDate(2026, 10, 11), reason = MemberStatus.DECEASED, since = LocalDate(2026, 12, 1)),
+                membership(until = LocalDate(2026, 10, 11), reason = CommitteeSeatAutoEndReason.DECEASED, since = LocalDate(2026, 12, 1)),
             )
         assertTrue(note.orEmpty().startsWith("nicht angetreten, automatisch beendet am "), note)
     }
@@ -298,7 +299,7 @@ class CommitteeAutoEndNoticeDomTest {
     @Test
     fun rowNote_isNull_withoutAReason_orWithoutAnEnd() {
         assertNull(committeeSeatAutoEndNote(membership(until = LocalDate(2026, 10, 11), reason = null)))
-        assertNull(committeeSeatAutoEndNote(membership(until = null, reason = MemberStatus.WITHDRAWN)))
+        assertNull(committeeSeatAutoEndNote(membership(until = null, reason = CommitteeSeatAutoEndReason.WITHDRAWN)))
     }
 
     @Test
@@ -309,7 +310,7 @@ class CommitteeAutoEndNoticeDomTest {
                 jsonOf(
                     ListSerializer(CommitteeMembershipDto.serializer()),
                     listOf(
-                        membership(until = LocalDate(2026, 10, 11), reason = MemberStatus.WITHDRAWN),
+                        membership(until = LocalDate(2026, 10, 11), reason = CommitteeSeatAutoEndReason.WITHDRAWN),
                         membership(
                             until = LocalDate(2026, 9, 1),
                             reason = null,

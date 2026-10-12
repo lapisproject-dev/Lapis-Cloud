@@ -147,6 +147,12 @@ classDiagram(name = "Vote") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "second_price_ltr"; "sqlType" to "DECIMAL(18,2)" }
         }
+        // Welle V1.9.112 -- class A (UTC) stamp: the electorate of this vote was frozen into vote_eligible_voter when it was opened
+        // (GovernanceService.openVote). NULL = a vote opened before V1.9.112 (live electorate, no backfill).
+        attribute(name = "electorateFrozenAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "electorate_frozen_at" }
+        }
     }
 
     // vote.motion_id -> motion (id): association-derived default matches.
@@ -231,6 +237,35 @@ classDiagram(name = "Vote") {
     // vote_ballot.member_id -> member (id): association-derived default matches (no
     // competing member-FK on this entity).
     association(source = member, target = voteBallot, id = "assoc-member-vote-ballot") {
+        source { multiplicity("1") }
+        target { multiplicity("0..*"); role = "memberId" }
+    }
+
+    // Welle V1.9.112 -- the electorate of a vote, frozen when the vote is opened: one row per eligible member (same shape as
+    // election_eligible_voter). The marker vote.electorate_frozen_at -- not the existence of rows -- says whether a vote was frozen at all.
+    val voteEligibleVoter = classOf(name = "VoteEligibleVoter") {
+        stereotype("Entity") { "tableName" to "vote_eligible_voter"; "kotlinObjectName" to "VoteEligibleVoterTable" }
+        stereotype("Index") {
+            "columns" to listOf("vote_id", "member_id")
+            "unique" to true
+            "name" to "uq_vote_eligible_voter_member"
+        }
+        stereotype("Index") { "columns" to listOf("vote_id"); "name" to "idx_vote_eligible_voter_vote" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
+
+    // vote_eligible_voter.vote_id -> vote (id): association-derived default matches.
+    association(source = vote, target = voteEligibleVoter, id = "assoc-vote-eligible-voter") {
+        source { multiplicity("1") }
+        target { multiplicity("0..*"); role = "voteId" }
+    }
+
+    // vote_eligible_voter.member_id -> member (id): association-derived default matches.
+    association(source = member, target = voteEligibleVoter, id = "assoc-member-vote-eligible-voter") {
         source { multiplicity("1") }
         target { multiplicity("0..*"); role = "memberId" }
     }

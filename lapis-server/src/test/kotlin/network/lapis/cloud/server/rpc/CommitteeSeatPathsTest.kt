@@ -45,6 +45,7 @@ import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CommitteeAutoEndNoticeDto
 import network.lapis.cloud.shared.domain.CommitteeMembershipDto
 import network.lapis.cloud.shared.domain.CommitteeRole
+import network.lapis.cloud.shared.domain.CommitteeSeatAutoEndReason
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -172,7 +173,7 @@ class CommitteeSeatPathsTest :
                     // until is the day of the status change, also for a death some days ago
                     listOf(seatA, seatB).forEach {
                         fx.seatRow(it)[CommitteeMembershipTable.until] shouldBe today()
-                        fx.seatRow(it)[CommitteeMembershipTable.autoEndReason] shouldBe target
+                        fx.seatRow(it)[CommitteeMembershipTable.autoEndReason] shouldBe CommitteeSeatAutoEndReason.valueOf(target.name)
                     }
                     val seatAudits = fx.auditSince(mark = mark, type = AuditEntityType.COMMITTEE_MEMBERSHIP)
                     seatAudits shouldHaveSize 2
@@ -218,7 +219,7 @@ class CommitteeSeatPathsTest :
                 val mark = fx.auditMark()
                 client.post("/t/leave") { header("X-Member-Id", member.toString()) }.status shouldBe HttpStatusCode.OK
                 fx.seatRow(seat)[CommitteeMembershipTable.until] shouldBe today()
-                fx.seatRow(seat)[CommitteeMembershipTable.autoEndReason] shouldBe MemberStatus.WITHDRAWN
+                fx.seatRow(seat)[CommitteeMembershipTable.autoEndReason] shouldBe CommitteeSeatAutoEndReason.WITHDRAWN
                 val seatAudit = fx.auditSince(mark = mark, type = AuditEntityType.COMMITTEE_MEMBERSHIP).single()
                 seatAudit[AuditLogEntryTable.actorMemberId] shouldBe member
                 fx.chainProblemSince(mark) shouldBe null
@@ -241,7 +242,7 @@ class CommitteeSeatPathsTest :
 
                 listOf(plainSeat, formerSeat).forEach {
                     fx.seatRow(it)[CommitteeMembershipTable.until] shouldBe today()
-                    fx.seatRow(it)[CommitteeMembershipTable.autoEndReason] shouldBe MemberStatus.REJECTED
+                    fx.seatRow(it)[CommitteeMembershipTable.autoEndReason] shouldBe CommitteeSeatAutoEndReason.REJECTED
                 }
                 fx.auditSince(mark = mark, type = AuditEntityType.COMMITTEE_MEMBERSHIP) shouldHaveSize 2
                 fx.chainProblemSince(mark) shouldBe null
@@ -266,7 +267,7 @@ class CommitteeSeatPathsTest :
                     HttpStatusCode.OK
                 fx.seatsOf(applicant) shouldHaveSize 1
                 fx.seatRow(seat)[CommitteeMembershipTable.until] shouldBe today()
-                fx.seatRow(seat)[CommitteeMembershipTable.autoEndReason] shouldBe MemberStatus.WITHDRAWN
+                fx.seatRow(seat)[CommitteeMembershipTable.autoEndReason] shouldBe CommitteeSeatAutoEndReason.WITHDRAWN
             }
         }
 
@@ -320,14 +321,14 @@ class CommitteeSeatPathsTest :
                         committee = group,
                         member = left,
                         until = today().minus(2, DateTimeUnit.DAY),
-                        autoEndReason = MemberStatus.WITHDRAWN,
+                        autoEndReason = CommitteeSeatAutoEndReason.WITHDRAWN,
                     )
                 val old =
                     fx.seat(
                         committee = group,
                         member = left,
                         until = today().minus(31, DateTimeUnit.DAY),
-                        autoEndReason = MemberStatus.WITHDRAWN,
+                        autoEndReason = CommitteeSeatAutoEndReason.WITHDRAWN,
                     )
                 val manual = fx.seat(committee = group, member = left, until = today().minus(1, DateTimeUnit.DAY))
                 // a board that never had a chair / lost it counts as vacant, whatever the cause
@@ -387,7 +388,7 @@ class CommitteeSeatPathsTest :
                         committee = group,
                         member = left,
                         until = today().minus(1, DateTimeUnit.DAY),
-                        autoEndReason = MemberStatus.WITHDRAWN,
+                        autoEndReason = CommitteeSeatAutoEndReason.WITHDRAWN,
                     )
                 }
                 val notice =
@@ -404,7 +405,7 @@ class CommitteeSeatPathsTest :
                 application(routes())
                 val group = fx.committee()
                 val left = fx.member(status = MemberStatus.DECEASED)
-                fx.seat(committee = group, member = left, until = today(), autoEndReason = MemberStatus.DECEASED)
+                fx.seat(committee = group, member = left, until = today(), autoEndReason = CommitteeSeatAutoEndReason.DECEASED)
                 val plain = fx.member(role = AccountRole.MEMBER)
                 val board = fx.member(role = AccountRole.BOARD)
 
@@ -414,7 +415,7 @@ class CommitteeSeatPathsTest :
                 reasons(client.get("/t/members/$group?all=true") { header("X-Member-Id", plain.toString()) }.bodyAsText()) shouldBe
                     listOf(null)
                 reasons(client.get("/t/members/$group?all=true") { header("X-Member-Id", board.toString()) }.bodyAsText()) shouldBe
-                    listOf(MemberStatus.DECEASED)
+                    listOf(CommitteeSeatAutoEndReason.DECEASED)
                 // with activeOnly the ended row is not listed at all
                 reasons(client.get("/t/members/$group") { header("X-Member-Id", board.toString()) }.bodyAsText()).shouldBeEmpty()
             }
@@ -431,7 +432,7 @@ class CommitteeSeatPathsTest :
                         committee = group,
                         member = left,
                         until = today().minus(3, DateTimeUnit.DAY),
-                        autoEndReason = MemberStatus.WITHDRAWN,
+                        autoEndReason = CommitteeSeatAutoEndReason.WITHDRAWN,
                     )
                 client
                     .post(
