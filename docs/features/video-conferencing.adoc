@@ -176,11 +176,11 @@ The large tile does not strobe: it changes to a new speaker only after about 0.8
 
 A moderator also decides how **recordings** show the room ("Moderation" in the "Mehr" sheet, "Ansicht bei Aufzeichnung und Stream": *Raster* or *Sprecher groß*); the notice that a recording runs names the view. With *Sprecher groß* the server works out who is speaking from the recorded microphones (loudness, with the same smoothing as the live view) and stores that timeline until the raw files are deleted; it is not exposed anywhere. A shared screen is always shown large. For live streams the start dialog pre-selects the matching layout; the arrangement then comes from LiveKit's own template (its own switching, and whether it shows a shared screen large is not verified). Details and honest limits: link:../architecture/conference-views.adoc[conference-views.adoc] and link:../architecture/conference-recording.adoc[conference-recording.adoc].
 
-== Recordings per person (V1.9.110, opt-in)
+== Recordings per person (V1.9.110, default since V1.9.116)
 
-By default a recording captures every camera and microphone as a separate file, and those files can drift apart: on one real recording the picture was 5.3 seconds behind the sound. An operator can switch a different capture mode on (`LAPIS_RECORDING_EGRESS_MODE=participant`):
-then every person is recorded as ONE file in which picture and sound are kept together by LiveKit. The mode applies to recordings started afterwards; a recording that is already running keeps the mode it started with. Screen shares are still recorded separately and can be slightly offset against the voice.
-The mode needs noticeably more server CPU (every person is re-encoded) and has not yet been tried with a real browser participant: use the staging checks in link:../architecture/conference-recording.adoc[conference-recording.adoc] before relying on it. Recordings that were made earlier cannot be repaired.
+Since V1.9.116 a recording captures every person as ONE file in which picture and sound are kept together by LiveKit (`LAPIS_RECORDING_EGRESS_MODE` empty or `participant`). The older mode, in which every camera and microphone is a separate file that can drift apart (on one real recording the picture was 5.3 seconds behind the sound), is still available with `LAPIS_RECORDING_EGRESS_MODE=track`.
+The mode applies to recordings started afterwards; a recording that is already running keeps the mode it started with. Screen shares are still recorded separately and can be slightly offset against the voice.
+The default mode needs noticeably more server CPU (every person is re-encoded). On staging (2026-10-12, one person, a real browser) the picture was about 0.1 to 0.2 seconds earlier than the sound; not yet tried: a camera switched on late, several people, CPU under load (see link:../architecture/conference-recording.adoc[conference-recording.adoc]). Recordings that were made earlier cannot be repaired.
 
 == Optional noise suppression (V1.9.114)
 

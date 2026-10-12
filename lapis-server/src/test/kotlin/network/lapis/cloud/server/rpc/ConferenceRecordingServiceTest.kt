@@ -390,7 +390,7 @@ class ConferenceRecordingServiceTest :
         }
 
         test(
-            "startRecording (V1.9.110): the egress mode of the configuration is stored on the row -- TRACK by default, PARTICIPANT when configured",
+            "startRecording (V1.9.110): the egress mode of the configuration is stored on the row -- PARTICIPANT by default (V1.9.116), TRACK when configured explicitly",
         ) {
             suspend fun startWith(
                 config: ConferenceRecordingConfig,
@@ -422,16 +422,17 @@ class ConferenceRecordingServiceTest :
                 return stored!!
             }
 
-            startWith(ENABLED_RECORDING_CONFIG, "rec-egress-mode-default@example.org") shouldBe ConferenceRecordingEgressMode.TRACK
-            val participantConfig =
+            val defaultConfig = ConferenceRecordingConfig.load { key -> if (key == "LAPIS_RECORDING_ENABLED") "true" else null }
+            startWith(defaultConfig, "rec-egress-mode-default@example.org") shouldBe ConferenceRecordingEgressMode.PARTICIPANT
+            val trackConfig =
                 ConferenceRecordingConfig.load { key ->
                     when (key) {
                         "LAPIS_RECORDING_ENABLED" -> "true"
-                        "LAPIS_RECORDING_EGRESS_MODE" -> "participant"
+                        "LAPIS_RECORDING_EGRESS_MODE" -> "track"
                         else -> null
                     }
                 }
-            startWith(participantConfig, "rec-egress-mode-participant@example.org") shouldBe ConferenceRecordingEgressMode.PARTICIPANT
+            startWith(trackConfig, "rec-egress-mode-track@example.org") shouldBe ConferenceRecordingEgressMode.TRACK
         }
 
         test("startRecording: allowed for a global BOARD account even though it did not create the room") {

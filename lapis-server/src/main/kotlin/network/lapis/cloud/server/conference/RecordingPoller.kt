@@ -170,9 +170,9 @@ private val FAILURE_TEXT_BY_CODE =
  * [network.lapis.cloud.shared.rpc.IConferenceRecordingService] KDoc and the wave plan's own "What
  * we give up by not using webhooks").
  *
- * ## Participant egress mode (V1.9.110, opt-in)
+ * ## Participant egress mode (V1.9.110; the default since V1.9.116)
  *
- * A recording started with `LAPIS_RECORDING_EGRESS_MODE=participant` (stored per recording in `conference_recording.egress_mode`, so a
+ * A recording started in participant mode (the default; `LAPIS_RECORDING_EGRESS_MODE=track` selects the old mode; stored per recording in `conference_recording.egress_mode`, so a
  * restart with another value never mixes modes) records ONE file per person with a Participant Egress -- audio and video muxed by LiveKit on
  * one clock -- instead of one file per track, because Track Egress has no RTCP sender-report synchronisation between its separate files (a
  * measured 5.3 s audio/video offset on the ELB recording `d08d4205`). See [handleRecordingParticipantMode]. Screen shares stay on Track

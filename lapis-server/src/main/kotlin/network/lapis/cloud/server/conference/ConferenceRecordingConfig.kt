@@ -66,8 +66,9 @@ class ConferenceRecordingConfig private constructor(
     /** `true` iff raw per-track files are KEPT after a successful compose (default `false` -- deleted once the composed file is archived as a document). Independent of the poller's FAILED-branch retention, which always keeps raw files regardless of this flag -- see that class's own KDoc "raw-file fate on FAILED". */
     val keepRaw: Boolean,
     /**
-     * V1.9.110: `LAPIS_RECORDING_EGRESS_MODE` -- [ConferenceRecordingEgressMode.TRACK] (default; one Track Egress per track) or
-     * [ConferenceRecordingEgressMode.PARTICIPANT] (opt-in; one Participant Egress per person, audio and video on one clock). The mode
+     * V1.9.110: `LAPIS_RECORDING_EGRESS_MODE` -- [ConferenceRecordingEgressMode.PARTICIPANT] (DEFAULT since V1.9.116; one Participant Egress per person, audio and
+     * video on one clock; one transcode per person, so it costs CPU) or [ConferenceRecordingEgressMode.TRACK] (explicit
+     * `LAPIS_RECORDING_EGRESS_MODE=track`; one Track Egress per track, the pre-V1.9.116 behaviour). The mode
      * applies PER RECORDING from the moment it starts (stored in `conference_recording.egress_mode`): changing this value affects only
      * recordings started afterwards, never one that is already running.
      */
@@ -124,19 +125,21 @@ class ConferenceRecordingConfig private constructor(
         }
 
         /**
-         * `track` / `participant` (trimmed, case-insensitive); blank means [ConferenceRecordingEgressMode.TRACK]; any other value
-         * also yields TRACK plus ONE warning -- the same "bad input falls back to the default, never crashes config load" posture as
+         * `track` / `participant` (trimmed, case-insensitive); blank means [ConferenceRecordingEgressMode.PARTICIPANT] (default since V1.9.116);
+         * any other value also yields the default (PARTICIPANT) plus ONE warning -- the same "bad input falls back to the default, never crashes config load" posture as
          * the numeric values above.
          */
         internal fun parseEgressMode(raw: String?): ConferenceRecordingEgressMode {
             val value = raw?.trim().orEmpty()
-            if (value.isEmpty()) return ConferenceRecordingEgressMode.TRACK
+            if (value.isEmpty()) return ConferenceRecordingEgressMode.PARTICIPANT
             return when (value.lowercase(java.util.Locale.ROOT)) {
                 "track" -> ConferenceRecordingEgressMode.TRACK
                 "participant" -> ConferenceRecordingEgressMode.PARTICIPANT
                 else -> {
-                    logger.warn { "LAPIS_RECORDING_EGRESS_MODE has an unknown value -- using 'track' (allowed: track, participant)" }
-                    ConferenceRecordingEgressMode.TRACK
+                    logger.warn {
+                        "LAPIS_RECORDING_EGRESS_MODE has an unknown value -- using the default 'participant' (allowed: track, participant)"
+                    }
+                    ConferenceRecordingEgressMode.PARTICIPANT
                 }
             }
         }
