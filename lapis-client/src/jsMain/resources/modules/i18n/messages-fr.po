@@ -22734,14 +22734,47 @@ msgstr "Suppression du bruit activée."
 msgid "Nicht verfügbar"
 msgstr "Indisponible"
 
-msgid "Nicht verfügbar – dieser Browser unterstützt AudioWorklet nicht. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "Indisponible – ce navigateur ne prend pas en charge AudioWorklet. La réduction de bruit du navigateur est utilisée."
+msgid "Nicht verfügbar – Grund: %1. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "Indisponible – raison : %1. La réduction de bruit du navigateur est utilisée."
 
-msgid "Nicht verfügbar – dieser Browser unterstützt WebAssembly nicht. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "Indisponible – ce navigateur ne prend pas en charge WebAssembly. La réduction de bruit du navigateur est utilisée."
+msgid "Zum erneuten Versuch einschalten."
+msgstr "Activez pour réessayer."
 
-msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "Indisponible – la suppression du bruit n'a pas pu être chargée. La réduction de bruit du navigateur est utilisée."
+msgid "dieser Browser unterstützt AudioWorklet nicht"
+msgstr "ce navigateur ne prend pas en charge AudioWorklet"
+
+msgid "dieser Browser unterstützt WebAssembly nicht"
+msgstr "ce navigateur ne prend pas en charge WebAssembly"
+
+msgid "die Abtastrate des Audiosystems ist nicht 48 kHz"
+msgstr "la fréquence d'échantillonnage du système audio n'est pas de 48 kHz"
+
+msgid "der Browser stellt keinen Audiokontext bereit"
+msgstr "le navigateur ne fournit pas de contexte audio"
+
+msgid "der Audiokontext läuft nicht (der Browser wartet auf eine Eingabe von Ihnen)"
+msgstr "le contexte audio ne fonctionne pas (le navigateur attend une action de votre part)"
+
+msgid "die Rauschfilter-Datei konnte nicht geladen werden"
+msgstr "le fichier du filtre antibruit n'a pas pu être chargé"
+
+msgid "das Audiomodul konnte nicht geladen werden"
+msgstr "le module audio n'a pas pu être chargé"
+
+msgid "die Audioverarbeitung konnte nicht aufgebaut werden"
+msgstr "le traitement audio n'a pas pu être mis en place"
+
+msgid "der Filter konnte nicht in das Mikrofon eingebunden werden"
+msgstr "le filtre n'a pas pu être relié au microphone"
+
+msgid "der Filter konnte dem Gerätewechsel nicht folgen"
+msgstr "le filtre n'a pas pu suivre le changement d'appareil"
+
+msgid "das Laden hat zu lange gedauert"
+msgstr "le chargement a pris trop de temps"
+
+msgid "das Laden ist aus unbekanntem Grund fehlgeschlagen"
+msgstr "le chargement a échoué pour une raison inconnue"
 
 msgid "Vorherige Seite"
 msgstr "Page précédente"

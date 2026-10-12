@@ -1511,6 +1511,7 @@ internal class EncounterRoom(
         tiles.clear()
         tables.dispose()
         devicePicker?.dispose()
+        pulpitControls?.noiseSuppression?.dispose()
         tableAudioSink.clear()
         audioSink.clear()
         videoElements.clear()

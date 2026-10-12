@@ -1,6 +1,8 @@
 package network.lapis.cloud.client
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
@@ -19,7 +21,7 @@ internal interface NoiseSuppressionChain {
     fun prepare()
 
     /** Puts the filter into the microphone's path. `null` = in place (or nothing to do yet), otherwise why not; the filter is then removed again. */
-    suspend fun attach(): NoiseSuppressionUnavailable?
+    suspend fun attach(): NoiseSuppressionFailure?
 
     /** Takes the filter out of the path again (idempotent). */
     suspend fun detach()
@@ -29,6 +31,12 @@ internal interface NoiseSuppressionChain {
      * RNNoise is off or not available. Echo cancellation and automatic gain are NEVER touched. A browser may refuse; that is ignored.
      */
     suspend fun setBrowserNoiseSuppression(enabled: Boolean)
+
+    /** V1.9.119 -- numbers only (context state/rate, track rate/channels), for the one console line of a failure. Never a device name or id. */
+    fun diagnostics(trigger: String): NoiseSuppressionDiagnostics = NoiseSuppressionDiagnostics(trigger)
+
+    /** V1.9.119 -- where a failure AFTER a successful attach (a device change that cannot be followed) is reported; `null` removes the listener. */
+    fun setRuntimeFailureListener(listener: ((NoiseSuppressionFailure) -> Unit)?) {}
 }
 
 /** How long taking the filter out (or switching the browser's own reduction) may take; the switch must never hang behind a stuck load. */
@@ -48,6 +56,11 @@ internal const val NOISE_SUPPRESSION_LOAD_TIMEOUT_MS = 8_000L
  *   [NoiseSuppressionState.Unavailable]: the filter is taken out, the browser's own noise reduction is switched back on, the choice stays
  *   remembered, and NO error dialog opens.
  * - Operations never overlap (one [Mutex]); a click while one runs is dropped, so a quick double click cannot stack two filters.
+ *
+ * V1.9.119: a failure carries its stage ([NoiseSuppressionFailure]) and is no longer final for the whole page. Only the failures that cannot
+ * change ([NoiseSuppressionUnavailable.retryable] = false) lock the switch; for every other one a click, a new microphone track or (for a
+ * context the browser kept suspended because no gesture had happened yet) the person's next click anywhere on the page tries again. Each
+ * failure writes ONE console line per (stage, trigger) with numbers only -- no device names, no ids, no URLs with a query.
  */
 internal class ConferenceNoiseSuppressionController(
     private val preference: NoiseSuppressionPreference,
@@ -55,13 +68,20 @@ internal class ConferenceNoiseSuppressionController(
     private val capability: () -> NoiseSuppressionUnavailable?,
     private val loadTimeoutMs: Long = NOISE_SUPPRESSION_LOAD_TIMEOUT_MS,
     private val stopTimeoutMs: Long = NOISE_SUPPRESSION_STOP_TIMEOUT_MS,
+    private val gestureHook: GestureHook = DocumentGestureHook,
+    private val logger: NoiseSuppressionLogger = ConsoleNoiseSuppressionLogger,
+    private val scope: CoroutineScope = AppScope,
 ) {
     private val listeners = mutableListOf<(NoiseSuppressionState, Boolean) -> Unit>()
     private val lock = Mutex()
     private var wantOn: Boolean = runCatching { preference.read() }.getOrDefault(false)
+    private val logged = mutableSetOf<Pair<NoiseSuppressionUnavailable, String>>()
+    private var gestureRemover: (() -> Unit)? = null
+    private var gestureTried = false
+    private var disposed = false
 
     var state: NoiseSuppressionState =
-        capability()?.let { NoiseSuppressionState.Unavailable(it) }
+        capability()?.let { NoiseSuppressionState.Unavailable(NoiseSuppressionFailure(it)) }
             ?: if (wantOn) NoiseSuppressionState.On else NoiseSuppressionState.Off
         private set
 
@@ -69,26 +89,41 @@ internal class ConferenceNoiseSuppressionController(
     var busy: Boolean = false
         private set
 
+    init {
+        // a browser without AudioWorklet/WebAssembly is also one console line (stage and numbers only), once per page
+        (state as? NoiseSuppressionState.Unavailable)?.let { log(it.failure, "init", null) }
+    }
+
     /** Tells [listener] every change: the new state and whether it is to be announced. It is called once at once with the current state (never announced). */
     fun observe(listener: (NoiseSuppressionState, announce: Boolean) -> Unit) {
         listeners += listener
         listener(state, false)
     }
 
-    /** Called synchronously inside the click: lets the chain create its audio context inside the gesture. */
-    fun prepareFromGesture() {
-        if (state is NoiseSuppressionState.Unavailable || busy) return
-        runCatching { chain()?.prepare() }
+    /** Takes the "next gesture" hook away (the page is going away). Idempotent; nothing is tried afterwards. */
+    fun dispose() {
+        disposed = true
+        removeGestureHook()
     }
 
-    /** A person flips the switch. Dropped while another change runs or while the filter is not available. */
+    /** `true` for a failure that another attempt cannot fix. */
+    private fun permanentlyUnavailable(): Boolean = (state as? NoiseSuppressionState.Unavailable)?.failure?.reason?.retryable == false
+
+    /** Called synchronously inside the click: lets the chain create (and resume) its audio context inside the gesture. */
+    fun prepareFromGesture() {
+        removeGestureHook()
+        if (permanentlyUnavailable() || busy) return
+        runCatching { chainOrNull()?.prepare() }
+    }
+
+    /** A person flips the switch. Dropped while another change runs or after a failure that cannot change; after any other failure it tries again. */
     suspend fun toggle() {
-        if (busy || state is NoiseSuppressionState.Unavailable) return
+        if (busy || permanentlyUnavailable()) return
         busy = true
         publish(state, announce = false)
         try {
             lock.withLock {
-                if (state is NoiseSuppressionState.On) turnOff() else turnOn(announceSuccess = true)
+                if (state is NoiseSuppressionState.On) turnOff() else turnOn(announceSuccess = true, trigger = "click")
             }
         } finally {
             busy = false
@@ -97,24 +132,33 @@ internal class ConferenceNoiseSuppressionController(
     }
 
     /**
-     * A microphone track was (re-)published (first switch-on, device change, reconnect): applies the remembered choice. Idempotent, and it
-     * never retries a filter that already failed in this page.
+     * A microphone track was (re-)published (first switch-on, device change, reconnect): applies the remembered choice. Idempotent. After a
+     * failure that may be temporary it tries again (the mutex, the once-per-stage log line and the single gesture hook keep that cheap); after
+     * a failure that cannot change it does nothing.
      */
     suspend fun onMicTrackPublished() {
-        if (state is NoiseSuppressionState.Unavailable) return
+        if (permanentlyUnavailable() || disposed) return
         lock.withLock {
-            if (state is NoiseSuppressionState.Unavailable || !wantOn) return@withLock
-            turnOn(announceSuccess = false)
+            if (permanentlyUnavailable() || !wantOn) return@withLock
+            turnOn(announceSuccess = false, trigger = "auto")
         }
     }
 
-    private suspend fun turnOn(announceSuccess: Boolean) {
+    private fun chainOrNull(): NoiseSuppressionChain? =
+        chain()?.also { current ->
+            runCatching { current.setRuntimeFailureListener { failure -> scope.launch { lock.withLock { failRuntime(failure) } } } }
+        }
+
+    private suspend fun turnOn(
+        announceSuccess: Boolean,
+        trigger: String,
+    ) {
         val reason = capability()
         if (reason != null) {
-            fail(reason)
+            fail(NoiseSuppressionFailure(reason), trigger)
             return
         }
-        val current = chain()
+        val current = chainOrNull()
         if (current == null) {
             // no microphone yet: remembered, applied by onMicTrackPublished
             wantOn = true
@@ -124,11 +168,12 @@ internal class ConferenceNoiseSuppressionController(
         }
         val outcome = attach(current)
         if (outcome != null) {
-            fail(outcome)
+            fail(outcome, trigger)
             return
         }
         wantOn = true
         preference.write(true)
+        removeGestureHook()
         bounded { current.setBrowserNoiseSuppression(false) }
         setState(NoiseSuppressionState.On, announce = announceSuccess)
     }
@@ -136,7 +181,8 @@ internal class ConferenceNoiseSuppressionController(
     private suspend fun turnOff() {
         wantOn = false
         preference.write(false)
-        val current = chain()
+        removeGestureHook()
+        val current = chainOrNull()
         if (current != null) {
             bounded { current.detach() }
             bounded { current.setBrowserNoiseSuppression(true) }
@@ -144,29 +190,95 @@ internal class ConferenceNoiseSuppressionController(
         setState(NoiseSuppressionState.Off, announce = false)
     }
 
-    /** `null` = attached. Any exception or a timeout is `LOAD_FAILED`; a cancellation is passed on. */
-    private suspend fun attach(current: NoiseSuppressionChain): NoiseSuppressionUnavailable? =
+    /** `null` = attached. A timeout is `TIMEOUT`, a stage failure keeps its stage, any other exception is `LOAD_FAILED`; a cancellation is passed on. */
+    private suspend fun attach(current: NoiseSuppressionChain): NoiseSuppressionFailure? =
         try {
             val answered = withTimeoutOrNull(loadTimeoutMs) { Attached(current.attach()) }
-            if (answered == null) NoiseSuppressionUnavailable.LOAD_FAILED else answered.failure
+            if (answered == null) NoiseSuppressionFailure(NoiseSuppressionUnavailable.TIMEOUT) else answered.failure
         } catch (e: CancellationException) {
             throw e
+        } catch (e: NoiseSuppressionStageException) {
+            e.failure
         } catch (e: Throwable) {
-            NoiseSuppressionUnavailable.LOAD_FAILED
+            failureOf(NoiseSuppressionUnavailable.LOAD_FAILED, e)
         }
 
     private class Attached(
-        val failure: NoiseSuppressionUnavailable?,
+        val failure: NoiseSuppressionFailure?,
     )
 
-    /** The filter does not work: out of the path, browser noise reduction back on, the choice stays, state `Unavailable`, announced. */
-    private suspend fun fail(reason: NoiseSuppressionUnavailable) {
-        val current = chain()
+    /**
+     * The filter does not work: out of the path, browser noise reduction back on, ONE console line (per stage and trigger), state
+     * `Unavailable`, announced (not again for the same stage after an automatic retry). The remembered choice is NOT touched.
+     */
+    private suspend fun fail(
+        failure: NoiseSuppressionFailure,
+        trigger: String,
+    ) {
+        val current = chainOrNull()
         if (current != null) {
             bounded { current.detach() }
             bounded { current.setBrowserNoiseSuppression(true) }
         }
-        setState(NoiseSuppressionState.Unavailable(reason), announce = true)
+        log(failure, trigger, current)
+        val previous = (state as? NoiseSuppressionState.Unavailable)?.failure?.reason
+        val repeated = trigger == "auto" && previous == failure.reason
+        setState(NoiseSuppressionState.Unavailable(failure), announce = !repeated)
+        if (trigger == "auto" && failure.reason == NoiseSuppressionUnavailable.CONTEXT_NOT_RUNNING && wantOn) registerGestureHook()
+    }
+
+    /** A failure after the filter was in place (a device change LiveKit could not follow): same fallback, trigger `restart`. */
+    private suspend fun failRuntime(failure: NoiseSuppressionFailure) {
+        if (disposed || state !is NoiseSuppressionState.On) return
+        fail(failure, "restart")
+    }
+
+    private fun log(
+        failure: NoiseSuppressionFailure,
+        trigger: String,
+        current: NoiseSuppressionChain?,
+    ) {
+        if (!logged.add(failure.reason to trigger)) return
+        val diagnostics = runCatching { current?.diagnostics(trigger) }.getOrNull() ?: NoiseSuppressionDiagnostics(trigger)
+        runCatching { logger.warn(noiseSuppressionLogLine(failure, diagnostics)) }
+    }
+
+    /** The browser kept the context suspended (no gesture yet): the person's next click or key press anywhere starts it, ONCE. */
+    private fun registerGestureHook() {
+        if (disposed || gestureRemover != null || gestureTried) return
+        gestureRemover = runCatching { gestureHook.registerOnce(::onGesture) }.getOrNull()
+    }
+
+    private fun removeGestureHook() {
+        val remover = gestureRemover ?: return
+        gestureRemover = null
+        runCatching { remover() }
+    }
+
+    private fun onGesture() {
+        gestureRemover = null
+        gestureTried = true
+        if (disposed) return
+        // synchronous, inside the gesture: the audio context may only start here
+        runCatching { chainOrNull()?.prepare() }
+        if (busy || state !is NoiseSuppressionState.Unavailable || !wantOn) return
+        busy = true
+        publish(state, announce = false)
+        scope.launch {
+            try {
+                lock.withLock {
+                    if (!disposed &&
+                        state is NoiseSuppressionState.Unavailable &&
+                        wantOn
+                    ) {
+                        turnOn(announceSuccess = false, trigger = "gesture")
+                    }
+                }
+            } finally {
+                busy = false
+                publish(state, announce = false)
+            }
+        }
     }
 
     private fun setState(

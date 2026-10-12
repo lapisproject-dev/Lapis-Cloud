@@ -22563,14 +22563,47 @@ msgstr "Supresión de ruido activada."
 msgid "Nicht verfügbar"
 msgstr "No disponible"
 
-msgid "Nicht verfügbar – dieser Browser unterstützt AudioWorklet nicht. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "No disponible – este navegador no admite AudioWorklet. Se usa la reducción de ruido del navegador."
+msgid "Nicht verfügbar – Grund: %1. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "No disponible – motivo: %1. Se usa la reducción de ruido del propio navegador."
 
-msgid "Nicht verfügbar – dieser Browser unterstützt WebAssembly nicht. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "No disponible – este navegador no admite WebAssembly. Se usa la reducción de ruido del navegador."
+msgid "Zum erneuten Versuch einschalten."
+msgstr "Actívelo para volver a intentarlo."
 
-msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "No disponible – no se pudo cargar la supresión de ruido. Se usa la reducción de ruido del navegador."
+msgid "dieser Browser unterstützt AudioWorklet nicht"
+msgstr "este navegador no admite AudioWorklet"
+
+msgid "dieser Browser unterstützt WebAssembly nicht"
+msgstr "este navegador no admite WebAssembly"
+
+msgid "die Abtastrate des Audiosystems ist nicht 48 kHz"
+msgstr "la frecuencia de muestreo del sistema de audio no es de 48 kHz"
+
+msgid "der Browser stellt keinen Audiokontext bereit"
+msgstr "el navegador no proporciona un contexto de audio"
+
+msgid "der Audiokontext läuft nicht (der Browser wartet auf eine Eingabe von Ihnen)"
+msgstr "el contexto de audio no está en ejecución (el navegador espera una acción suya)"
+
+msgid "die Rauschfilter-Datei konnte nicht geladen werden"
+msgstr "no se pudo cargar el archivo del filtro de ruido"
+
+msgid "das Audiomodul konnte nicht geladen werden"
+msgstr "no se pudo cargar el módulo de audio"
+
+msgid "die Audioverarbeitung konnte nicht aufgebaut werden"
+msgstr "no se pudo configurar el procesamiento de audio"
+
+msgid "der Filter konnte nicht in das Mikrofon eingebunden werden"
+msgstr "no se pudo conectar el filtro al micrófono"
+
+msgid "der Filter konnte dem Gerätewechsel nicht folgen"
+msgstr "el filtro no pudo seguir el cambio de dispositivo"
+
+msgid "das Laden hat zu lange gedauert"
+msgstr "la carga tardó demasiado"
+
+msgid "das Laden ist aus unbekanntem Grund fehlgeschlagen"
+msgstr "la carga falló por un motivo desconocido"
 
 msgid "Vorherige Seite"
 msgstr "Página anterior"

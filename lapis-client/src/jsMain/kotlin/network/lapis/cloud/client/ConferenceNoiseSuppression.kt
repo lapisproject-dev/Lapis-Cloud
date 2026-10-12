@@ -1,11 +1,12 @@
 package network.lapis.cloud.client
 
+import kotlinx.browser.document
 import kotlinx.browser.localStorage
 import kotlinx.browser.window
 import org.w3c.dom.get
 import org.w3c.dom.set
 
-/**
+/*
  * V1.9.114 -- optional noise suppression of the OWN microphone (RNNoise, run in the browser only). Nothing leaves the browser: no new
  * request to a third party, no server, no DTO. This file holds the pure parts (names, state, the remembered choice, the capability probe);
  * the state machine is [ConferenceNoiseSuppressionController], the LiveKit processor is `livekit/RnnoiseTrackProcessor.kt`.
@@ -13,7 +14,142 @@ import org.w3c.dom.set
  * Why a switch and not a regulator, and why OFF by default: the filter is made for speech; singing and music sound altered with it. The
  * person decides, the browser's own (lighter) noise reduction keeps working whenever the switch is off or the filter is not available.
  */
-internal enum class NoiseSuppressionUnavailable { NO_AUDIO_WORKLET, NO_WEB_ASSEMBLY, LOAD_FAILED }
+
+/**
+ * V1.9.119 -- WHY the filter is not used, one code per stage of the loading chain. [retryable] says whether another attempt can help in
+ * this page: a missing browser feature (`NO_AUDIO_WORKLET`, `NO_WEB_ASSEMBLY`) or a wrong audio context rate (`SAMPLE_RATE`) cannot change
+ * without a different browser or settings, everything else can (a suspended context is resumed by the next click, a failed fetch may be a
+ * hiccup). The code (never a raw browser message) is shown in the panel and written once to the console.
+ */
+internal enum class NoiseSuppressionUnavailable(
+    val retryable: Boolean,
+) {
+    NO_AUDIO_WORKLET(false),
+    NO_WEB_ASSEMBLY(false),
+    SAMPLE_RATE(false),
+    NO_AUDIO_CONTEXT(true),
+    CONTEXT_NOT_RUNNING(true),
+    WASM_FETCH(true),
+    WORKLET_MODULE(true),
+    NODE_CREATE(true),
+    SET_PROCESSOR(true),
+    RESTART(true),
+    TIMEOUT(true),
+    LOAD_FAILED(true),
+}
+
+/** A failure: the stage plus the (shortened, sanitised) name and message of the browser error behind it. Console only, never the panel. */
+internal data class NoiseSuppressionFailure(
+    val reason: NoiseSuppressionUnavailable,
+    val errorName: String? = null,
+    val errorMessage: String? = null,
+)
+
+/** Thrown inside the loading chain so the stage survives up to the controller. */
+internal class NoiseSuppressionStageException(
+    val failure: NoiseSuppressionFailure,
+    cause: Throwable? = null,
+) : IllegalStateException(failure.reason.name, cause)
+
+private const val ERROR_NAME_MAX = 60
+private const val ERROR_MESSAGE_MAX = 160
+
+private val queryPart = Regex("""[?#]\S*""")
+private val lineBreaks = Regex("""[\r\n\t]+""")
+
+/**
+ * Makes a browser error name/message fit for a log line: line breaks become blanks, query strings and fragments (`?token=...`) are cut off
+ * (URLs in browser messages), the length is limited (60 / 160). `null` for anything empty or not text.
+ */
+internal fun sanitizeJsError(
+    name: Any?,
+    message: Any?,
+): Pair<String?, String?> {
+    fun clean(
+        value: Any?,
+        max: Int,
+    ): String? {
+        val text = (value as? String) ?: return null
+        val cleaned = text.replace(lineBreaks, " ").replace(queryPart, "").trim()
+        return if (cleaned.isEmpty()) null else cleaned.take(max)
+    }
+    return clean(name, ERROR_NAME_MAX) to clean(message, ERROR_MESSAGE_MAX)
+}
+
+/** Builds a failure of [reason] from an optional cause and an optional own [message] (which wins over the cause's message). */
+internal fun failureOf(
+    reason: NoiseSuppressionUnavailable,
+    t: Throwable? = null,
+    message: String? = null,
+): NoiseSuppressionFailure {
+    val rawName: Any? = if (t == null) null else runCatching { t.asDynamic().name }.getOrNull() ?: t::class.simpleName
+    val rawMessage: Any? = message ?: if (t == null) null else runCatching { t.asDynamic().message }.getOrNull()
+    val (name, text) = sanitizeJsError(rawName, rawMessage)
+    return NoiseSuppressionFailure(reason, name, text)
+}
+
+/** What is known about the audio path when something fails. NEVER a device name, id or label: only these numbers. */
+internal data class NoiseSuppressionDiagnostics(
+    val trigger: String,
+    val ctxState: String? = null,
+    val ctxRate: Number? = null,
+    val trackRate: Number? = null,
+    val trackChannels: Number? = null,
+)
+
+/** The one console line of a failure: `[noise-suppression] stage=... trigger=... error=... message=... ctxState=... ctxRate=... trackRate=... trackChannels=...`, `-` = unknown. */
+internal fun noiseSuppressionLogLine(
+    f: NoiseSuppressionFailure,
+    d: NoiseSuppressionDiagnostics,
+): String {
+    fun v(x: Any?): String = x?.toString() ?: "-"
+    return "[noise-suppression] stage=${f.reason.name} trigger=${d.trigger} error=${v(f.errorName)} message=${v(f.errorMessage)} " +
+        "ctxState=${v(d.ctxState)} ctxRate=${v(d.ctxRate)} trackRate=${v(d.trackRate)} trackChannels=${v(d.trackChannels)}"
+}
+
+/** Where the log line goes. A seam: a test collects the lines. */
+internal interface NoiseSuppressionLogger {
+    fun warn(line: String)
+}
+
+/** `console.warn` (never `console.error`, never a dialog). */
+internal object ConsoleNoiseSuppressionLogger : NoiseSuppressionLogger {
+    override fun warn(line: String) {
+        runCatching { console.warn(line) }
+    }
+}
+
+/**
+ * Hands over the person's NEXT gesture (a click or a key press anywhere on the page): the browser lets an audio context start only inside
+ * one. [registerOnce] returns the remover (idempotent).
+ */
+internal interface GestureHook {
+    fun registerOnce(onGesture: () -> Unit): () -> Unit
+}
+
+/** `pointerdown` / `pointerup` (touch counts as a gesture only on release) / `keydown` on the document, capturing, all removed as soon as one fired. */
+private val gestureEvents = listOf("pointerdown", "pointerup", "keydown")
+
+internal object DocumentGestureHook : GestureHook {
+    override fun registerOnce(onGesture: () -> Unit): () -> Unit {
+        var removed = false
+        lateinit var listener: (org.w3c.dom.events.Event) -> Unit
+        val remove = {
+            if (!removed) {
+                removed = true
+                runCatching {
+                    gestureEvents.forEach { document.removeEventListener(it, listener, true) }
+                }
+            }
+        }
+        listener = {
+            remove()
+            onGesture()
+        }
+        gestureEvents.forEach { document.addEventListener(it, listener, true) }
+        return remove
+    }
+}
 
 internal sealed interface NoiseSuppressionState {
     /** The filter is not used (the default). */
@@ -24,7 +160,7 @@ internal sealed interface NoiseSuppressionState {
 
     /** The filter cannot be used here; the browser's own noise reduction is in use instead. Never an error dialog. */
     data class Unavailable(
-        val reason: NoiseSuppressionUnavailable,
+        val failure: NoiseSuppressionFailure,
     ) : NoiseSuppressionState
 }
 

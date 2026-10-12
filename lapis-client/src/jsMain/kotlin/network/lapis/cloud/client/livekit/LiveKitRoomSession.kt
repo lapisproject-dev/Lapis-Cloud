@@ -4,11 +4,16 @@ import io.kvision.utils.obj
 import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.await
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.client.NoiseSuppressionAssets
 import network.lapis.cloud.client.NoiseSuppressionChain
+import network.lapis.cloud.client.NoiseSuppressionDiagnostics
+import network.lapis.cloud.client.NoiseSuppressionFailure
+import network.lapis.cloud.client.NoiseSuppressionStageException
 import network.lapis.cloud.client.NoiseSuppressionUnavailable
 import network.lapis.cloud.client.encounter.EncounterReactionWire
+import network.lapis.cloud.client.failureOf
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_TOPIC
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
@@ -1023,7 +1028,17 @@ class LiveKitRoomSession(
     internal var noiseAudioContextFactory: () -> dynamic = ::browserNoiseAudioContext
 
     /** Test seam: builds the LiveKit processor object ([asLiveKitProcessor] of a [RnnoiseTrackProcessor]). */
-    internal var noiseProcessorFactory: () -> dynamic = { RnnoiseTrackProcessor().asLiveKitProcessor() }
+    internal var noiseProcessorFactory: () -> dynamic =
+        { RnnoiseTrackProcessor().asLiveKitProcessor { failure -> noiseRuntimeFailureListener?.invoke(failure) } }
+
+    /**
+     * V1.9.119 -- who hears of a failure AFTER the filter was in place (a device change the processor could not follow). A field of the session,
+     * because [noiseSuppressionChain] returns a new object each time; the chain objects only write here.
+     */
+    internal var noiseRuntimeFailureListener: ((NoiseSuppressionFailure) -> Unit)? = null
+
+    /** V1.9.119 -- how long `resume()` of the filter's context may take. Chrome leaves it pending (neither resolved nor rejected) without a gesture. */
+    internal var noiseResumeTimeoutMs: Long = NOISE_CONTEXT_RESUME_TIMEOUT_MS
 
     private fun localMicrophoneTrack(): LocalAudioTrack? {
         val currentRoom = room ?: return null
@@ -1063,23 +1078,39 @@ class LiveKitRoomSession(
             if (ctx != null && ctx != undefined) runCatching { ctx.resume() }
         }
 
-        override suspend fun attach(): NoiseSuppressionUnavailable? {
+        override suspend fun attach(): NoiseSuppressionFailure? {
             val track = localMicrophoneTrack() ?: return null
             val ctx = ensureNoiseAudioContext()
-            if (ctx == null || ctx == undefined) return NoiseSuppressionUnavailable.LOAD_FAILED
-            // a suspended context delivers SILENCE: the person would be muted without a word. So the state is checked, not hoped for.
-            runCatching { ctx.resume().unsafeCast<Promise<dynamic>>().await() }
-            if (ctx.state != "running" || ctx.sampleRate != NoiseSuppressionAssets.SAMPLE_RATE) {
-                return NoiseSuppressionUnavailable.LOAD_FAILED
+            if (ctx == null || ctx == undefined) return NoiseSuppressionFailure(NoiseSuppressionUnavailable.NO_AUDIO_CONTEXT)
+            // Without a gesture Chrome leaves resume() PENDING (neither resolved nor rejected), so the wait is bounded; a context that does
+            // not run delivers SILENCE (the person would be muted without a word), so the state is checked, not hoped for.
+            try {
+                withTimeoutOrNull(noiseResumeTimeoutMs) { ctx.resume().unsafeCast<Promise<dynamic>>().await() }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // a rejected promise: the state check below decides
             }
-            track.setAudioContext(ctx)
+            if (ctx.state !=
+                "running"
+            ) {
+                return NoiseSuppressionFailure(NoiseSuppressionUnavailable.CONTEXT_NOT_RUNNING, null, "state=${ctx.state}")
+            }
+            if (ctx.sampleRate != NoiseSuppressionAssets.SAMPLE_RATE) {
+                return NoiseSuppressionFailure(NoiseSuppressionUnavailable.SAMPLE_RATE, null, "rate=${ctx.sampleRate}")
+            }
+            try {
+                track.setAudioContext(ctx)
+            } catch (e: Throwable) {
+                return failureOf(NoiseSuppressionUnavailable.SET_PROCESSOR, e)
+            }
             val installed = track.getProcessor()
             if (installed != null && installed != undefined && installed.name == RNNOISE_LIVEKIT_PROCESSOR_NAME) return null
             return try {
                 track.setProcessor(noiseProcessorFactory()).await()
                 if (ctx.state != "running") {
                     runCatching { track.stopProcessor().await() }
-                    NoiseSuppressionUnavailable.LOAD_FAILED
+                    NoiseSuppressionFailure(NoiseSuppressionUnavailable.CONTEXT_NOT_RUNNING, null, "state=${ctx.state}")
                 } else {
                     null
                 }
@@ -1087,8 +1118,23 @@ class LiveKitRoomSession(
                 throw e
             } catch (e: Throwable) {
                 runCatching { track.stopProcessor().await() }
-                NoiseSuppressionUnavailable.LOAD_FAILED
+                (e as? NoiseSuppressionStageException)?.failure ?: failureOf(NoiseSuppressionUnavailable.SET_PROCESSOR, e)
             }
+        }
+
+        override fun diagnostics(trigger: String): NoiseSuppressionDiagnostics {
+            val ctx = noiseAudioContext
+            val ctxState = runCatching { (ctx?.state as? String) }.getOrNull()
+            val ctxRate = runCatching { ctx?.sampleRate as? Number }.getOrNull()
+            // ONLY the numbers: label, deviceId and groupId of the track are never read
+            val settings = runCatching { localMicrophoneTrack()?.asDynamic()?.mediaStreamTrack?.getSettings() }.getOrNull()
+            val trackRate = runCatching { settings?.sampleRate as? Number }.getOrNull()
+            val trackChannels = runCatching { settings?.channelCount as? Number }.getOrNull()
+            return NoiseSuppressionDiagnostics(trigger, ctxState, ctxRate, trackRate, trackChannels)
+        }
+
+        override fun setRuntimeFailureListener(listener: ((NoiseSuppressionFailure) -> Unit)?) {
+            noiseRuntimeFailureListener = listener
         }
 
         override suspend fun detach() {
@@ -1401,6 +1447,9 @@ class LiveKitRoomSession(
  * that are visible are rendered, nothing more).
  */
 internal const val FLOAT_ADAPTS_REMOTE_QUALITY = true
+
+/** V1.9.119 -- the longest wait for `resume()` of the filter's audio context before it counts as "not running". */
+internal const val NOISE_CONTEXT_RESUME_TIMEOUT_MS = 2_000L
 
 /** V1.9.114 -- the real audio context of the noise suppression: 48 kHz (what RNNoise needs), low latency; `null` when the browser has none. */
 internal fun browserNoiseAudioContext(): dynamic {

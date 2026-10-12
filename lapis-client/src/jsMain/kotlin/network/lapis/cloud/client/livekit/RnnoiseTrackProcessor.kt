@@ -1,12 +1,18 @@
 package network.lapis.cloud.client.livekit
 
 import kotlinx.browser.window
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.await
 import kotlinx.coroutines.promise
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import network.lapis.cloud.client.AppScope
 import network.lapis.cloud.client.NoiseSuppressionAssets
+import network.lapis.cloud.client.NoiseSuppressionFailure
+import network.lapis.cloud.client.NoiseSuppressionStageException
+import network.lapis.cloud.client.NoiseSuppressionUnavailable
+import network.lapis.cloud.client.failureOf
+import network.lapis.cloud.client.sanitizeJsError
 import kotlin.js.Promise
 
 /** The name LiveKit shows for this processor (`getProcessor().name`); the session uses it to see that the filter is already in place. */
@@ -28,7 +34,7 @@ internal class RnnoiseAssetCache(
     /** The WebAssembly bytes (`ArrayBuffer`). Throws if loading fails; nothing is cached then. */
     suspend fun wasm(): dynamic =
         lock.withLock {
-            if (wasm == null) wasm = fetchWasm()
+            if (wasm == null) wasm = stage(NoiseSuppressionUnavailable.WASM_FETCH) { fetchWasm() }
             wasm
         }
 
@@ -36,11 +42,31 @@ internal class RnnoiseAssetCache(
     suspend fun ensureModule(context: dynamic) {
         lock.withLock {
             if (modules.any { it === context }) return@withLock
-            addModule(context)
+            stage(NoiseSuppressionUnavailable.WORKLET_MODULE) { addModule(context) }
             modules.add(context)
         }
     }
 }
+
+/** Runs [block]; anything it throws (a cancellation excepted) becomes a [NoiseSuppressionStageException] of [reason], unless it already is one. */
+internal inline fun <T> stage(
+    reason: NoiseSuppressionUnavailable,
+    block: () -> T,
+): T =
+    try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: NoiseSuppressionStageException) {
+        throw e
+    } catch (e: Throwable) {
+        throw NoiseSuppressionStageException(failureOf(reason, e), e)
+    }
+
+private fun wasmRefused(
+    message: String,
+    name: String? = null,
+): Nothing = throw NoiseSuppressionStageException(NoiseSuppressionFailure(NoiseSuppressionUnavailable.WASM_FETCH, name, message))
 
 private val simdProbe =
     intArrayOf(0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11)
@@ -69,17 +95,33 @@ internal suspend fun browserFetchRnnoiseWasm(): dynamic {
     val timer = window.setTimeout({ abort.abort() }, 8_000)
     try {
         val response: dynamic =
-            window
-                .asDynamic()
-                .fetch(url, init)
-                .unsafeCast<Promise<dynamic>>()
-                .await()
-        if (response.ok != true) throw IllegalStateException("wasm refused")
-        val type: dynamic = response.headers.get("Content-Type")
-        if (type !is String || !type.lowercase().startsWith("application/wasm")) throw IllegalStateException("wasm refused")
+            try {
+                window
+                    .asDynamic()
+                    .fetch(url, init)
+                    .unsafeCast<Promise<dynamic>>()
+                    .await()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                val (name, message) =
+                    sanitizeJsError(
+                        runCatching { e.asDynamic().name }.getOrNull(),
+                        runCatching { e.asDynamic().message }.getOrNull(),
+                    )
+                if (name == "AbortError") wasmRefused("aborted", name)
+                throw NoiseSuppressionStageException(NoiseSuppressionFailure(NoiseSuppressionUnavailable.WASM_FETCH, name, message), e)
+            }
+        if (response.ok != true) wasmRefused("status=${response.status}")
+        // NOT `type: dynamic` with a smart cast: on a dynamic value `type.lowercase()` is a JS call that does not exist (every real response
+        // threw "type.lowercase is not a function" and ended as a load failure); the explicit String is a real Kotlin string.
+        val type: String? = response.headers.get("Content-Type") as? String
+        if (type == null || !type.lowercase().startsWith("application/wasm")) {
+            wasmRefused("type=${type?.substringBefore(';')?.trim()?.take(60) ?: "-"}")
+        }
         val body: dynamic = response.arrayBuffer().unsafeCast<Promise<dynamic>>().await()
         val size: Int = (body.byteLength as? Number)?.toInt() ?: 0
-        if (size <= 0 || size > NoiseSuppressionAssets.WASM_MAX_BYTES) throw IllegalStateException("wasm refused")
+        if (size <= 0 || size > NoiseSuppressionAssets.WASM_MAX_BYTES) wasmRefused("size=$size")
         return body
     } finally {
         window.clearTimeout(timer)
@@ -133,7 +175,11 @@ internal class RnnoiseTrackProcessor(
 
     suspend fun init(options: dynamic) {
         val ctx = options.audioContext
-        if (ctx == null || ctx == undefined) throw IllegalStateException("no audio context")
+        if (ctx == null || ctx == undefined) {
+            throw NoiseSuppressionStageException(
+                NoiseSuppressionFailure(NoiseSuppressionUnavailable.NO_AUDIO_CONTEXT, null, "no audio context"),
+            )
+        }
         context = ctx
         destroyed = false
         build(ctx, options.track)
@@ -158,6 +204,14 @@ internal class RnnoiseTrackProcessor(
         val wasm = assets.wasm()
         assets.ensureModule(ctx)
         if (destroyed) throw IllegalStateException("destroyed")
+        stage(NoiseSuppressionUnavailable.NODE_CREATE) { buildNodes(ctx, track, wasm) }
+    }
+
+    private fun buildNodes(
+        ctx: dynamic,
+        track: dynamic,
+        wasm: dynamic,
+    ) {
         val stream = newStream(track)
         val nodeOptions: dynamic = js("{}")
         nodeOptions.channelCount = 1
@@ -196,7 +250,7 @@ internal class RnnoiseTrackProcessor(
  * The plain JS object LiveKit expects (`name`, `init`, `restart`, `destroy`, `processedTrack`): Kotlin member names are not stable JS names,
  * so the object is built by hand. `processedTrack` is set BEFORE the `init`/`restart` promise resolves, which is when LiveKit reads it.
  */
-internal fun RnnoiseTrackProcessor.asLiveKitProcessor(): dynamic {
+internal fun RnnoiseTrackProcessor.asLiveKitProcessor(onRuntimeFailure: (NoiseSuppressionFailure) -> Unit = {}): dynamic {
     val processor = this
     val adapter: dynamic = js("({})")
     adapter.name = RNNOISE_LIVEKIT_PROCESSOR_NAME
@@ -206,10 +260,22 @@ internal fun RnnoiseTrackProcessor.asLiveKitProcessor(): dynamic {
             adapter.processedTrack = processor.processedTrack
         }
     }
+    // A failing restart (a device change whose new track the filter cannot be rebuilt around) must NEVER leave LiveKit without a track:
+    // the promise resolves, the RAW track is passed on (the person stays audible), and the controller is told so it falls back.
     adapter.restart = { options: dynamic ->
         AppScope.promise {
-            processor.restart(options)
-            adapter.processedTrack = processor.processedTrack
+            try {
+                processor.restart(options)
+                adapter.processedTrack = processor.processedTrack
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                adapter.processedTrack = options.track
+                val failure =
+                    (e as? NoiseSuppressionStageException)?.failure?.copy(reason = NoiseSuppressionUnavailable.RESTART)
+                        ?: failureOf(NoiseSuppressionUnavailable.RESTART, e)
+                runCatching { onRuntimeFailure(failure) }
+            }
         }
     }
     adapter.destroy = {

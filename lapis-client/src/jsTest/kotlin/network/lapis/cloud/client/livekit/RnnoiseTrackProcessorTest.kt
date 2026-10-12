@@ -1,8 +1,12 @@
 package network.lapis.cloud.client.livekit
 
+import kotlinx.browser.window
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.await
 import kotlinx.coroutines.promise
+import network.lapis.cloud.client.NoiseSuppressionFailure
+import network.lapis.cloud.client.NoiseSuppressionStageException
+import network.lapis.cloud.client.NoiseSuppressionUnavailable
 import kotlin.js.Promise
 import kotlin.js.jsTypeOf
 import kotlin.test.Test
@@ -242,5 +246,173 @@ class RnnoiseTrackProcessorTest {
             assertNotNull(adapter.processedTrack)
             adapter.destroy().unsafeCast<Promise<dynamic>>().await()
             assertNull(adapter.processedTrack)
+        }
+
+    // ── V1.9.119: every failing step names its stage ──────────────────────────────────────────────────────────────
+
+    @Test
+    fun aWasmThatFailsToLoad_isTheWasmFetchStage_withTheErrorBehindIt() =
+        GlobalScope.promise {
+            val fakes = Fakes()
+            fakes.wasmFailures = 1
+            val e = assertFailsWith<NoiseSuppressionStageException> { fakes.cache.wasm() }
+            assertEquals(NoiseSuppressionUnavailable.WASM_FETCH, e.failure.reason)
+            assertEquals("wasm refused", e.failure.errorMessage)
+        }
+
+    @Test
+    fun aStageExceptionOfTheFetch_isNotWrappedAgain() =
+        GlobalScope.promise {
+            val own = NoiseSuppressionStageException(NoiseSuppressionFailure(NoiseSuppressionUnavailable.WASM_FETCH, null, "status=404"))
+            val cache = RnnoiseAssetCache(fetchWasm = { throw own }, addModule = {})
+            assertSame(own, assertFailsWith<NoiseSuppressionStageException> { cache.wasm() })
+        }
+
+    @Test
+    fun aModuleThatFailsToLoad_isTheWorkletModuleStage() =
+        GlobalScope.promise {
+            val fakes = Fakes()
+            fakes.moduleFailures = 1
+            val e = assertFailsWith<NoiseSuppressionStageException> { fakes.cache.ensureModule(js("({})")) }
+            assertEquals(NoiseSuppressionUnavailable.WORKLET_MODULE, e.failure.reason)
+        }
+
+    @Test
+    fun init_withoutAnAudioContext_isTheNoAudioContextStage() =
+        GlobalScope.promise {
+            val fakes = Fakes()
+            val o: dynamic = js("({})")
+            o.track = js("({})")
+            val e = assertFailsWith<NoiseSuppressionStageException> { processor(fakes).init(o) }
+            assertEquals(NoiseSuppressionUnavailable.NO_AUDIO_CONTEXT, e.failure.reason)
+        }
+
+    @Test
+    fun aNodeThatCannotBeCreated_isTheNodeCreateStage() =
+        GlobalScope.promise {
+            val fakes = Fakes()
+            val ctx = context(fakes, ::fakeNode)
+            val p =
+                RnnoiseTrackProcessor(
+                    assets = fakes.cache,
+                    newStream = { track -> track },
+                    newWorkletNode = { _, _ -> error("AudioWorkletNode refused") },
+                )
+            val e = assertFailsWith<NoiseSuppressionStageException> { p.init(options(ctx)) }
+            assertEquals(NoiseSuppressionUnavailable.NODE_CREATE, e.failure.reason)
+            assertEquals("AudioWorkletNode refused", e.failure.errorMessage)
+        }
+
+    @Test
+    fun aRestartThatFails_resolves_handsOverTheRawTrack_andReportsTheRestartStage() =
+        GlobalScope.promise {
+            val fakes = Fakes()
+            val ctx = context(fakes, ::fakeNode)
+            var failNext = false
+            val p =
+                RnnoiseTrackProcessor(
+                    assets = fakes.cache,
+                    newStream = { track -> track },
+                    newWorkletNode = { _, options ->
+                        if (failNext) error("device gone")
+                        val n = fakeNode("worklet")
+                        n.options = options
+                        n.port = js("({ messages: [] })")
+                        n.port.postMessage = { message: dynamic -> n.port.messages.push(message) }
+                        fakes.nodes.add(n)
+                        n
+                    },
+                )
+            val reported = mutableListOf<NoiseSuppressionFailure>()
+            val adapter = p.asLiveKitProcessor { reported += it }
+            adapter.init(options(ctx)).unsafeCast<Promise<dynamic>>().await()
+            val processedBefore = adapter.processedTrack
+            assertNotNull(processedBefore)
+            failNext = true
+            val restartOptions: dynamic = js("({})")
+            val raw: dynamic = js("({ id: 'raw-2' })")
+            restartOptions.track = raw
+            // MUST resolve: a rejection would leave LiveKit without a track
+            adapter.restart(restartOptions).unsafeCast<Promise<dynamic>>().await()
+            assertSame(raw, adapter.processedTrack, "the raw microphone track is passed on: the person stays audible")
+            assertEquals(1, reported.size)
+            assertEquals(NoiseSuppressionUnavailable.RESTART, reported.single().reason)
+            assertEquals("device gone", reported.single().errorMessage)
+        }
+
+    // ── the real fetch, with a stubbed window.fetch ───────────────────────────────────────────────────────────────
+
+    private fun fakeResponse(
+        ok: Boolean,
+        status: Int,
+        type: String?,
+        bytes: Int,
+    ): dynamic {
+        val r: dynamic = js("({})")
+        r.ok = ok
+        r.status = status
+        val headers: dynamic = js("({})")
+        headers.get = { _: String -> type }
+        r.headers = headers
+        r.arrayBuffer = { js("Promise").resolve(js("Reflect").construct(js("ArrayBuffer"), arrayOf(bytes))) }
+        return r
+    }
+
+    private suspend fun withFetch(
+        answer: () -> dynamic,
+        block: suspend () -> Unit,
+    ) {
+        val scope = window.asDynamic()
+        val original = scope.fetch
+        scope.fetch = { _: String, _: dynamic -> answer() }
+        try {
+            block()
+        } finally {
+            scope.fetch = original
+        }
+    }
+
+    private suspend fun fetchFailure(answer: () -> dynamic): NoiseSuppressionFailure {
+        var failure: NoiseSuppressionFailure? = null
+        withFetch(answer) { failure = assertFailsWith<NoiseSuppressionStageException> { browserFetchRnnoiseWasm() }.failure }
+        return assertNotNull(failure)
+    }
+
+    @Test
+    fun theRealFetch_namesStatusTypeAndSize() =
+        GlobalScope.promise {
+            val status = fetchFailure { js("Promise").resolve(fakeResponse(false, 404, "text/html", 10)) }
+            assertEquals(NoiseSuppressionUnavailable.WASM_FETCH, status.reason)
+            assertEquals("status=404", status.errorMessage)
+            val type = fetchFailure { js("Promise").resolve(fakeResponse(true, 200, "text/html; charset=utf-8", 10)) }
+            assertEquals("type=text/html", type.errorMessage)
+            val size = fetchFailure { js("Promise").resolve(fakeResponse(true, 200, "application/wasm", 2_000_000)) }
+            assertEquals("size=2000000", size.errorMessage)
+            val empty = fetchFailure { js("Promise").resolve(fakeResponse(true, 200, "application/wasm", 0)) }
+            assertEquals("size=0", empty.errorMessage)
+        }
+
+    @Test
+    fun theRealFetch_aTimerAbort_isAborted_andAFetchError_keepsItsNameAndMessage() =
+        GlobalScope.promise {
+            val abort: dynamic = js("new Error('The user aborted a request.')")
+            abort.name = "AbortError"
+            val aborted = fetchFailure { js("Promise").reject(abort) }
+            assertEquals("aborted", aborted.errorMessage)
+            assertEquals("AbortError", aborted.errorName)
+            val typeError: dynamic = js("new TypeError('Failed to fetch')")
+            val failed = fetchFailure { js("Promise").reject(typeError) }
+            assertEquals("TypeError", failed.errorName)
+            assertEquals("Failed to fetch", failed.errorMessage)
+        }
+
+    @Test
+    fun theRealFetch_aGoodAnswer_returnsTheBytes() =
+        GlobalScope.promise {
+            var size = 0
+            withFetch({ js("Promise").resolve(fakeResponse(true, 200, "application/wasm", 1_000)) }) {
+                size = (browserFetchRnnoiseWasm().byteLength as Number).toInt()
+            }
+            assertEquals(1_000, size)
         }
 }

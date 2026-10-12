@@ -192,8 +192,27 @@ A person can switch on a stronger noise filter for their OWN microphone: the row
 * **How it works.** The raw microphone track is not replaced and not unpublished: a LiveKit track processor puts `MediaStreamAudioSourceNode` -> RNNoise worklet -> `MediaStreamAudioDestinationNode` in front of the SAME published track. The mute state is not touched (a muted microphone stays muted when the filter is switched on or off), a device change rebuilds the chain around the new track, a reconnect applies the remembered choice again. The filter runs in the session's own `AudioContext` at 48 kHz (not the room-wide web-audio mix, which would route every remote voice through WebAudio).
 * **Echo cancellation and automatic gain are never touched.** While RNNoise works, the browser's own noise reduction is switched off for the raw track (`applyConstraints({noiseSuppression: false})`, best effort) so the signal is not filtered twice; whenever the filter is off or not available the browser's own reduction is switched back on.
 * **Recording and stream.** They receive the already cleaned track; there is no unfiltered copy and no way for a viewer to ask for one.
-* **Fallback, never a dialog.** If the browser has no AudioWorklet or no WebAssembly, the files cannot be loaded (error or timeout after 8 seconds), the audio context stays suspended (it would deliver silence, so it is checked) or runs at another sample rate, the processor is removed again, the switch shows "Nicht verfügbar" with the reason in plain words and a polite status line, the browser's own noise reduction is used, and the remembered choice stays. A failed load is not retried until the page is reloaded.
-* **Accessibility.** The switch is a real `button` with `role="switch"` and `aria-checked`; Space and Enter work, the focus ring is the global one. While a change runs and while the filter is not available it carries `aria-disabled="true"`. The status element is `aria-live="polite"` (never assertive) and is empty while the page builds: a sentence appears only after a person's own switch-on or on a failure.
+* **Fallback, never a dialog.** If the filter cannot be used, the processor is removed again, the switch shows "Nicht verfügbar" with the reason in plain words and a polite status line, the browser's own noise reduction is used, and the remembered choice stays. Since V1.9.119 the reason is one of 12 stage codes, shown in brackets at the end of the sentence (see the table below).
+* **A failure is not final (V1.9.119).** Only the failures that cannot change lock the switch. For every other one a click on the switch tries again (the switch stays at "off" until it works), and so does every new microphone track. An automatic start with a remembered "on" that finds the audio context suspended (the browser starts it only after a gesture) waits for the person's next click or key press anywhere on the page, starts the context inside that gesture and tries once more, quietly; if that fails there is no second wait.
+* **Console line.** Each failure writes ONE `console.warn` line per stage and trigger: `[noise-suppression] stage=WASM_FETCH trigger=auto error=TypeError message=Failed to fetch ctxState=running ctxRate=48000 trackRate=48000 trackChannels=1` (`-` = unknown; triggers: `auto`, `click`, `gesture`, `restart`, `init`). No personal data: only the numbers above are read from the audio path, never the label, `deviceId` or `groupId` of the microphone, and query strings are cut from browser messages. Raw browser messages are never shown in the panel.
+* **Accessibility.** The switch is a real `button` with `role="switch"` and `aria-checked`; Space and Enter work, the focus ring is the global one. While a change runs and while the filter is unavailable for good (a failure that cannot change) it carries `aria-disabled="true"`; `aria-checked` is `true` only while the filter is on. The status element is `aria-live="polite"` (never assertive) and is empty while the page builds: a sentence appears only after a person's own switch-on or on a failure.
+
+[cols="2,1,4",options="header"]
+|===
+|Code |Retry? |Meaning
+|`NO_AUDIO_WORKLET` |no |The browser has no AudioWorklet.
+|`NO_WEB_ASSEMBLY` |no |The browser has no WebAssembly.
+|`SAMPLE_RATE` |no |The audio context does not run at 48 kHz (RNNoise needs it).
+|`NO_AUDIO_CONTEXT` |yes |The browser gave no audio context.
+|`CONTEXT_NOT_RUNNING` |yes |The context stays suspended (no gesture yet) or `resume()` was refused or did not answer within 2 seconds.
+|`WASM_FETCH` |yes |The WebAssembly file could not be loaded (HTTP status, wrong type, wrong size, abort after 8 seconds, network error).
+|`WORKLET_MODULE` |yes |The worklet module could not be registered.
+|`NODE_CREATE` |yes |The audio nodes could not be created.
+|`SET_PROCESSOR` |yes |LiveKit refused the processor (any other error of `setProcessor`).
+|`RESTART` |yes |A device change could not be followed; the raw microphone track keeps being sent.
+|`TIMEOUT` |yes |The whole load took longer than 8 seconds.
+|`LOAD_FAILED` |yes |Any other error without a known stage.
+|===
 
 A second stage (a neural filter such as DeepFilterNet3) is conceivable later; Krisp-style enhanced noise cancellation is not possible with a self-hosted LiveKit. The asset provenance, the licences and the content-security-policy needs are in link:../architecture/video-background-effects.adoc[video-background-effects.adoc] (section "Noise suppression assets").
 

@@ -22624,14 +22624,47 @@ msgstr "Noise suppression on."
 msgid "Nicht verfügbar"
 msgstr "Not available"
 
-msgid "Nicht verfügbar – dieser Browser unterstützt AudioWorklet nicht. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "Not available – this browser does not support AudioWorklet. The browser's own noise reduction is used."
+msgid "Nicht verfügbar – Grund: %1. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "Not available – reason: %1. The browser's own noise reduction is used."
 
-msgid "Nicht verfügbar – dieser Browser unterstützt WebAssembly nicht. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "Not available – this browser does not support WebAssembly. The browser's own noise reduction is used."
+msgid "Zum erneuten Versuch einschalten."
+msgstr "Switch on to try again."
 
-msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "Not available – noise suppression could not be loaded. The browser's own noise reduction is used."
+msgid "dieser Browser unterstützt AudioWorklet nicht"
+msgstr "this browser does not support AudioWorklet"
+
+msgid "dieser Browser unterstützt WebAssembly nicht"
+msgstr "this browser does not support WebAssembly"
+
+msgid "die Abtastrate des Audiosystems ist nicht 48 kHz"
+msgstr "the audio system's sample rate is not 48 kHz"
+
+msgid "der Browser stellt keinen Audiokontext bereit"
+msgstr "the browser provides no audio context"
+
+msgid "der Audiokontext läuft nicht (der Browser wartet auf eine Eingabe von Ihnen)"
+msgstr "the audio context is not running (the browser is waiting for an action from you)"
+
+msgid "die Rauschfilter-Datei konnte nicht geladen werden"
+msgstr "the noise filter file could not be loaded"
+
+msgid "das Audiomodul konnte nicht geladen werden"
+msgstr "the audio module could not be loaded"
+
+msgid "die Audioverarbeitung konnte nicht aufgebaut werden"
+msgstr "the audio processing could not be set up"
+
+msgid "der Filter konnte nicht in das Mikrofon eingebunden werden"
+msgstr "the filter could not be attached to the microphone"
+
+msgid "der Filter konnte dem Gerätewechsel nicht folgen"
+msgstr "the filter could not follow the device change"
+
+msgid "das Laden hat zu lange gedauert"
+msgstr "loading took too long"
+
+msgid "das Laden ist aus unbekanntem Grund fehlgeschlagen"
+msgstr "loading failed for an unknown reason"
 
 msgid "Vorherige Seite"
 msgstr "Previous page"

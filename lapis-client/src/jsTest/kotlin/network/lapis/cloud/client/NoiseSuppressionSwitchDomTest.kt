@@ -171,7 +171,7 @@ class NoiseSuppressionSwitchDomTest {
 
                     override fun prepare() {}
 
-                    override suspend fun attach(): NoiseSuppressionUnavailable? {
+                    override suspend fun attach(): NoiseSuppressionFailure? {
                         attaches++
                         gate.await()
                         return null
@@ -241,20 +241,80 @@ class NoiseSuppressionSwitchDomTest {
                 val button = element().switchButton()
                 button.click()
                 awaitUntil("the fallback") {
-                    button.getAttribute("aria-disabled") == "true" &&
-                        element().textContent.orEmpty().contains("konnte nicht geladen werden")
+                    element().textContent.orEmpty().contains("das Laden ist aus unbekanntem Grund fehlgeschlagen")
                 }
+                assertEquals("false", button.getAttribute("aria-disabled"), "a temporary failure does not lock the switch")
                 assertEquals("false", button.getAttribute("aria-checked"))
                 assertTrue(
                     element()
                         .status()
                         .textContent
                         .orEmpty()
-                        .contains("konnte nicht geladen werden"),
+                        .contains("das Laden ist aus unbekanntem Grund fehlgeschlagen"),
                 )
                 assertEquals("polite", element().status().getAttribute("aria-live"))
                 assertNull(element().ownerDocument!!.querySelector(".modal.show, [role=dialog], [role=alertdialog]"), "no dialog")
                 assertEquals(listOf(true), rig.chain!!.browserNoiseSuppression, "the browser's own reduction is back on")
             }
         }
+
+    // ── V1.9.119: the reason code in the panel, retry, final failures ─────────────────────────────────────────────
+
+    @Test
+    fun aTemporaryFailure_showsReasonAndCode_offersARetry_keepsTheSwitchUsable_andANewClickSucceeds(): Promise<Unit> =
+        formTest {
+            val chain = FakeNoiseSuppressionChain()
+            chain.attachFailures =
+                listOf(NoiseSuppressionFailure(NoiseSuppressionUnavailable.WASM_FETCH, "TypeError", "Failed to fetch"), null)
+            val rig = Rig(chain = chain)
+            mountedForm("noise-suppression-switch-retry") { root, element ->
+                NoiseSuppressionSwitchRow(root, rig.controller)
+                val button = element().switchButton()
+                button.click()
+                awaitUntil("the failure is shown") { element().textContent.orEmpty().contains("(WASM_FETCH)") }
+                val text = element().textContent.orEmpty()
+                assertTrue(text.contains("Grund: die Rauschfilter-Datei konnte nicht geladen werden."), text)
+                assertTrue(text.contains("Es wird die Rauschminderung des Browsers verwendet."))
+                assertTrue(text.contains("Zum erneuten Versuch einschalten."), "a temporary failure offers the retry")
+                assertFalse(text.contains("Failed to fetch"), "the raw browser message stays in the console")
+                assertEquals("false", button.getAttribute("aria-checked"), "the switch shows OFF while the filter is not in use")
+                assertEquals("false", button.getAttribute("aria-disabled"), "a click may try again")
+                assertEquals("polite", element().status().getAttribute("aria-live"))
+                assertTrue(
+                    element()
+                        .status()
+                        .textContent
+                        .orEmpty()
+                        .contains("(WASM_FETCH)"),
+                    "announced once",
+                )
+                button.click()
+                awaitUntil("the retry works") { button.getAttribute("aria-checked") == "true" }
+                assertEquals(2, chain.attachCalls)
+                assertFalse(element().textContent.orEmpty().contains("(WASM_FETCH)"), "the reason line is gone")
+            }
+        }
+
+    @Test
+    fun aFinalFailure_namesItsCode_hasNoRetryHint_andStaysDisabled() {
+        mount(Rig(capability = NoiseSuppressionUnavailable.NO_WEB_ASSEMBLY)) { element, _ ->
+            val text = element.textContent.orEmpty()
+            assertTrue(text.contains("(NO_WEB_ASSEMBLY)"))
+            assertFalse(text.contains("Zum erneuten Versuch einschalten."), "nothing to retry")
+            assertEquals("true", element.switchButton().getAttribute("aria-disabled"))
+            assertEquals("false", element.switchButton().getAttribute("aria-checked"))
+        }
+    }
+
+    @Test
+    fun theUnavailableSentence_hasTheCode_andTheRetryHintOnlyForTemporaryStages() {
+        for (reason in NoiseSuppressionUnavailable.entries) {
+            val sentence = noiseSuppressionUnavailableSentence(NoiseSuppressionFailure(reason, "SomeError", "raw detail"))
+            assertTrue(sentence.endsWith("(${reason.name})"), sentence)
+            assertTrue(sentence.startsWith("Nicht verfügbar – Grund: "), sentence)
+            assertEquals(reason.retryable, sentence.contains("Zum erneuten Versuch einschalten."), sentence)
+            assertFalse(sentence.contains("raw detail"))
+            assertFalse(sentence.contains("SomeError"))
+        }
+    }
 }

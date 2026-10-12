@@ -48,11 +48,11 @@ class ConferenceNoiseSuppressionControllerTest {
             prepareCalls++
         }
 
-        override suspend fun attach(): NoiseSuppressionUnavailable? {
+        override suspend fun attach(): NoiseSuppressionFailure? {
             attachCalls++
             attachBehavior()
             if (attachResult == null) attached = true
-            return attachResult
+            return attachResult?.let { NoiseSuppressionFailure(it) }
         }
 
         override suspend fun detach() {
@@ -177,19 +177,28 @@ class ConferenceNoiseSuppressionControllerTest {
     fun noAudioWorklet_isUnavailableAtOnce_withNoAttach_andAClickChangesNothing() =
         run {
             val rig = Rig(capability = NoiseSuppressionUnavailable.NO_AUDIO_WORKLET)
-            assertEquals(NoiseSuppressionState.Unavailable(NoiseSuppressionUnavailable.NO_AUDIO_WORKLET), rig.controller.state)
+            assertEquals(
+                NoiseSuppressionState.Unavailable(NoiseSuppressionFailure(NoiseSuppressionUnavailable.NO_AUDIO_WORKLET)),
+                rig.controller.state,
+            )
             rig.controller.toggle()
             rig.controller.onMicTrackPublished()
             assertEquals(0, rig.chain!!.attachCalls)
             assertTrue(rig.preference.writes.isEmpty())
-            assertEquals(NoiseSuppressionState.Unavailable(NoiseSuppressionUnavailable.NO_AUDIO_WORKLET), rig.controller.state)
+            assertEquals(
+                NoiseSuppressionState.Unavailable(NoiseSuppressionFailure(NoiseSuppressionUnavailable.NO_AUDIO_WORKLET)),
+                rig.controller.state,
+            )
         }
 
     @Test
     fun noWebAssembly_isUnavailable() =
         run {
             val rig = Rig(capability = NoiseSuppressionUnavailable.NO_WEB_ASSEMBLY)
-            assertEquals(NoiseSuppressionState.Unavailable(NoiseSuppressionUnavailable.NO_WEB_ASSEMBLY), rig.controller.state)
+            assertEquals(
+                NoiseSuppressionState.Unavailable(NoiseSuppressionFailure(NoiseSuppressionUnavailable.NO_WEB_ASSEMBLY)),
+                rig.controller.state,
+            )
         }
 
     @Test
@@ -207,7 +216,10 @@ class ConferenceNoiseSuppressionControllerTest {
             capability = NoiseSuppressionUnavailable.NO_WEB_ASSEMBLY
             controller.toggle()
             assertEquals(0, chain.attachCalls)
-            assertEquals(NoiseSuppressionState.Unavailable(NoiseSuppressionUnavailable.NO_WEB_ASSEMBLY), controller.state)
+            assertEquals(
+                NoiseSuppressionState.Unavailable(NoiseSuppressionFailure(NoiseSuppressionUnavailable.NO_WEB_ASSEMBLY)),
+                controller.state,
+            )
             assertEquals(listOf(true), chain.browserNoiseSuppression)
         }
 
@@ -217,7 +229,10 @@ class ConferenceNoiseSuppressionControllerTest {
             val rig = Rig()
             rig.chain!!.attachResult = NoiseSuppressionUnavailable.LOAD_FAILED
             rig.controller.toggle()
-            assertEquals(NoiseSuppressionState.Unavailable(NoiseSuppressionUnavailable.LOAD_FAILED), rig.controller.state)
+            assertEquals(
+                NoiseSuppressionState.Unavailable(NoiseSuppressionFailure(NoiseSuppressionUnavailable.LOAD_FAILED)),
+                rig.controller.state,
+            )
             assertEquals(1, rig.chain.detachCalls, "the filter is taken out again")
             assertEquals(listOf(true), rig.chain.browserNoiseSuppression, "the browser's own reduction is on")
             assertTrue(rig.preference.writes.isEmpty(), "the remembered choice is not changed by a failure")
@@ -231,17 +246,22 @@ class ConferenceNoiseSuppressionControllerTest {
             val rig = Rig()
             rig.chain!!.attachBehavior = { error("addModule failed") }
             rig.controller.toggle()
-            assertEquals(NoiseSuppressionState.Unavailable(NoiseSuppressionUnavailable.LOAD_FAILED), rig.controller.state)
+            val failed = rig.controller.state as NoiseSuppressionState.Unavailable
+            assertEquals(NoiseSuppressionUnavailable.LOAD_FAILED, failed.failure.reason)
+            assertEquals("addModule failed", failed.failure.errorMessage)
             assertEquals(listOf(true), rig.chain.browserNoiseSuppression)
         }
 
     @Test
-    fun aLoadThatNeverEnds_isALoadFailedAfterTheTimeout() =
+    fun aLoadThatNeverEnds_isATimeoutFailure() =
         run {
             val rig = Rig(loadTimeoutMs = 30L)
             rig.chain!!.attachBehavior = { awaitCancellation() }
             rig.controller.toggle()
-            assertEquals(NoiseSuppressionState.Unavailable(NoiseSuppressionUnavailable.LOAD_FAILED), rig.controller.state)
+            assertEquals(
+                NoiseSuppressionState.Unavailable(NoiseSuppressionFailure(NoiseSuppressionUnavailable.TIMEOUT)),
+                rig.controller.state,
+            )
             assertEquals(1, rig.chain.detachCalls)
             assertFalse(rig.controller.busy)
         }
@@ -256,10 +276,10 @@ class ConferenceNoiseSuppressionControllerTest {
         }
 
     @Test
-    fun afterAFailure_aTrackChangeDoesNotRetryTheFilter() =
+    fun afterAFailureThatCannotChange_aTrackChangeDoesNotRetryTheFilter() =
         run {
             val rig = Rig(stored = true)
-            rig.chain!!.attachResult = NoiseSuppressionUnavailable.LOAD_FAILED
+            rig.chain!!.attachResult = NoiseSuppressionUnavailable.SAMPLE_RATE
             rig.controller.onMicTrackPublished()
             rig.controller.onMicTrackPublished()
             rig.controller.onMicTrackPublished()
@@ -295,7 +315,7 @@ class ConferenceNoiseSuppressionControllerTest {
                 object : NoiseSuppressionChain {
                     override fun prepare() {}
 
-                    override suspend fun attach(): NoiseSuppressionUnavailable? = null
+                    override suspend fun attach(): NoiseSuppressionFailure? = null
 
                     override suspend fun detach() = stuck.await()
 

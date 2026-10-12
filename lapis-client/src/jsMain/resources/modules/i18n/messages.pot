@@ -21723,13 +21723,46 @@ msgstr ""
 msgid "Nicht verfügbar"
 msgstr ""
 
-msgid "Nicht verfügbar – dieser Browser unterstützt AudioWorklet nicht. Es wird die Rauschminderung des Browsers verwendet."
+msgid "Nicht verfügbar – Grund: %1. Es wird die Rauschminderung des Browsers verwendet."
 msgstr ""
 
-msgid "Nicht verfügbar – dieser Browser unterstützt WebAssembly nicht. Es wird die Rauschminderung des Browsers verwendet."
+msgid "Zum erneuten Versuch einschalten."
 msgstr ""
 
-msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
+msgid "dieser Browser unterstützt AudioWorklet nicht"
+msgstr ""
+
+msgid "dieser Browser unterstützt WebAssembly nicht"
+msgstr ""
+
+msgid "die Abtastrate des Audiosystems ist nicht 48 kHz"
+msgstr ""
+
+msgid "der Browser stellt keinen Audiokontext bereit"
+msgstr ""
+
+msgid "der Audiokontext läuft nicht (der Browser wartet auf eine Eingabe von Ihnen)"
+msgstr ""
+
+msgid "die Rauschfilter-Datei konnte nicht geladen werden"
+msgstr ""
+
+msgid "das Audiomodul konnte nicht geladen werden"
+msgstr ""
+
+msgid "die Audioverarbeitung konnte nicht aufgebaut werden"
+msgstr ""
+
+msgid "der Filter konnte nicht in das Mikrofon eingebunden werden"
+msgstr ""
+
+msgid "der Filter konnte dem Gerätewechsel nicht folgen"
+msgstr ""
+
+msgid "das Laden hat zu lange gedauert"
+msgstr ""
+
+msgid "das Laden ist aus unbekanntem Grund fehlgeschlagen"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1

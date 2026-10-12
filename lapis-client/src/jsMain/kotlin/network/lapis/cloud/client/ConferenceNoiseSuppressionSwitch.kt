@@ -14,18 +14,37 @@ import kotlinx.coroutines.launch
 
 private var noiseSwitchSerial = 0
 
-/** The sentence that says why the filter is not used. Always followed by the fallback ("the browser's own reduction is used"). */
-internal fun noiseSuppressionUnavailableSentence(reason: NoiseSuppressionUnavailable): String =
+/** The (translated) reason of one stage, as a part of a sentence. Never a raw browser message: that stays in the console. */
+private fun noiseSuppressionReasonText(reason: NoiseSuppressionUnavailable): String =
     when (reason) {
-        NoiseSuppressionUnavailable.NO_AUDIO_WORKLET ->
-            gettext("Nicht verfügbar – dieser Browser unterstützt AudioWorklet nicht. Es wird die Rauschminderung des Browsers verwendet.")
-        NoiseSuppressionUnavailable.NO_WEB_ASSEMBLY ->
-            gettext("Nicht verfügbar – dieser Browser unterstützt WebAssembly nicht. Es wird die Rauschminderung des Browsers verwendet.")
-        NoiseSuppressionUnavailable.LOAD_FAILED ->
+        NoiseSuppressionUnavailable.NO_AUDIO_WORKLET -> gettext("dieser Browser unterstützt AudioWorklet nicht")
+        NoiseSuppressionUnavailable.NO_WEB_ASSEMBLY -> gettext("dieser Browser unterstützt WebAssembly nicht")
+        NoiseSuppressionUnavailable.SAMPLE_RATE -> gettext("die Abtastrate des Audiosystems ist nicht 48 kHz")
+        NoiseSuppressionUnavailable.NO_AUDIO_CONTEXT -> gettext("der Browser stellt keinen Audiokontext bereit")
+        NoiseSuppressionUnavailable.CONTEXT_NOT_RUNNING ->
             gettext(
-                "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet.",
+                "der Audiokontext läuft nicht (der Browser wartet auf eine Eingabe von Ihnen)",
             )
+        NoiseSuppressionUnavailable.WASM_FETCH -> gettext("die Rauschfilter-Datei konnte nicht geladen werden")
+        NoiseSuppressionUnavailable.WORKLET_MODULE -> gettext("das Audiomodul konnte nicht geladen werden")
+        NoiseSuppressionUnavailable.NODE_CREATE -> gettext("die Audioverarbeitung konnte nicht aufgebaut werden")
+        NoiseSuppressionUnavailable.SET_PROCESSOR -> gettext("der Filter konnte nicht in das Mikrofon eingebunden werden")
+        NoiseSuppressionUnavailable.RESTART -> gettext("der Filter konnte dem Gerätewechsel nicht folgen")
+        NoiseSuppressionUnavailable.TIMEOUT -> gettext("das Laden hat zu lange gedauert")
+        NoiseSuppressionUnavailable.LOAD_FAILED -> gettext("das Laden ist aus unbekanntem Grund fehlgeschlagen")
     }
+
+/**
+ * The sentence that says why the filter is not used: the reason, the fallback ("the browser's own reduction is used"), for a failure that
+ * may be temporary the hint that switching on tries again, and at the end the untranslated code (so a report names the stage).
+ */
+internal fun noiseSuppressionUnavailableSentence(failure: NoiseSuppressionFailure): String {
+    val reason = failure.reason
+    val base =
+        gettext("Nicht verfügbar – Grund: %1. Es wird die Rauschminderung des Browsers verwendet.", noiseSuppressionReasonText(reason))
+    val retry = if (reason.retryable) " " + gettext("Zum erneuten Versuch einschalten.") else ""
+    return "$base$retry (${reason.name})"
+}
 
 /**
  * V1.9.114 -- the one row of the noise suppression, the same in the conference's device block and in the pulpit's device panel: label left,
@@ -33,7 +52,8 @@ internal fun noiseSuppressionUnavailableSentence(reason: NoiseSuppressionUnavail
  *
  * - The switch is a real `<button type="button" role="switch">` (Space and Enter work, the focus ring is the global one), with `aria-checked`.
  *   No slider, no icon, no listening test; the state is the knob's side, never colour alone.
- * - While a change runs and while the filter is unavailable the switch carries `aria-disabled="true"` (it stays focusable and says why).
+ * - While a change runs and while the filter is unavailable FOR GOOD (V1.9.119: not for a failure that may be temporary, there a click tries
+ *   again) the switch carries `aria-disabled="true"` (it stays focusable and says why). `aria-checked` is "true" only while the filter is on.
  * - The `role="status"` element (polite, never assertive) is EMPTY on construction. A sentence appears only after a person's own switch-on
  *   ("Rauschunterdrückung aktiv.") or when the filter fails; switching off clears it.
  * - Texts: [tr] for visible content, [gettext] for attributes and for text that is set later.
@@ -90,10 +110,10 @@ internal class NoiseSuppressionSwitchRow(
     ) {
         val unavailable = state as? NoiseSuppressionState.Unavailable
         switchButton.setAttrIfChanged("aria-checked", (state is NoiseSuppressionState.On).toString())
-        switchButton.setAttrIfChanged("aria-disabled", (controller.busy || unavailable != null).toString())
+        switchButton.setAttrIfChanged("aria-disabled", (controller.busy || unavailable?.failure?.reason?.retryable == false).toString())
         if (unavailable != null) {
             unavailableTag.show()
-            val sentence = noiseSuppressionUnavailableSentence(unavailable.reason)
+            val sentence = noiseSuppressionUnavailableSentence(unavailable.failure)
             reasonLine.content = sentence
             reasonLine.show()
             if (announce) status.content = sentence

@@ -3888,6 +3888,7 @@ private fun enterCall(
     fun cleanupFullscreen() {
         // V1.9.25: the ballot poll, the receipt hook and the viewport listener end with the call, on every way out of it
         ConferenceVoteRuntime.disposeActive()
+        noiseSuppressionController.dispose()
         overflow.dispose()
         disposeTileGrid()
         viewPopover.dispose()

@@ -22668,14 +22668,47 @@ msgstr "Шумоподавление включено."
 msgid "Nicht verfügbar"
 msgstr "Недоступно"
 
-msgid "Nicht verfügbar – dieser Browser unterstützt AudioWorklet nicht. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "Недоступно – этот браузер не поддерживает AudioWorklet. Используется шумоподавление браузера."
+msgid "Nicht verfügbar – Grund: %1. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "Недоступно – причина: %1. Используется шумоподавление браузера."
 
-msgid "Nicht verfügbar – dieser Browser unterstützt WebAssembly nicht. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "Недоступно – этот браузер не поддерживает WebAssembly. Используется шумоподавление браузера."
+msgid "Zum erneuten Versuch einschalten."
+msgstr "Включите, чтобы повторить попытку."
 
-msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "Недоступно – не удалось загрузить шумоподавление. Используется шумоподавление браузера."
+msgid "dieser Browser unterstützt AudioWorklet nicht"
+msgstr "этот браузер не поддерживает AudioWorklet"
+
+msgid "dieser Browser unterstützt WebAssembly nicht"
+msgstr "этот браузер не поддерживает WebAssembly"
+
+msgid "die Abtastrate des Audiosystems ist nicht 48 kHz"
+msgstr "частота дискретизации аудиосистемы не равна 48 кГц"
+
+msgid "der Browser stellt keinen Audiokontext bereit"
+msgstr "браузер не предоставляет аудиоконтекст"
+
+msgid "der Audiokontext läuft nicht (der Browser wartet auf eine Eingabe von Ihnen)"
+msgstr "аудиоконтекст не запущен (браузер ждёт вашего действия)"
+
+msgid "die Rauschfilter-Datei konnte nicht geladen werden"
+msgstr "не удалось загрузить файл шумового фильтра"
+
+msgid "das Audiomodul konnte nicht geladen werden"
+msgstr "не удалось загрузить аудиомодуль"
+
+msgid "die Audioverarbeitung konnte nicht aufgebaut werden"
+msgstr "не удалось настроить обработку звука"
+
+msgid "der Filter konnte nicht in das Mikrofon eingebunden werden"
+msgstr "не удалось подключить фильтр к микрофону"
+
+msgid "der Filter konnte dem Gerätewechsel nicht folgen"
+msgstr "фильтр не смог последовать за сменой устройства"
+
+msgid "das Laden hat zu lange gedauert"
+msgstr "загрузка заняла слишком много времени"
+
+msgid "das Laden ist aus unbekanntem Grund fehlgeschlagen"
+msgstr "загрузка не удалась по неизвестной причине"
 
 msgid "Vorherige Seite"
 msgstr "Предыдущая страница"

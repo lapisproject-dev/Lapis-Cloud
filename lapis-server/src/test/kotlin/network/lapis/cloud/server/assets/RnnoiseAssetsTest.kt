@@ -158,8 +158,18 @@ class RnnoiseAssetsTest :
                 ).forEach { forbidden ->
                     withClue("$name must not contain '$forbidden'") { text shouldNotContain forbidden }
                 }
-                withClue("$name must not log or send beacons") {
-                    listOf("console.", "sendBeacon", "println", "KotlinLogging").forEach { text shouldNotContain it }
+                // V1.9.119: ONE console.warn (the diagnosis line of a failure, `ConsoleNoiseSuppressionLogger`) is allowed, in this one file only;
+                // anything else that logs, any other console call, and every beacon stays forbidden
+                val allowedWarn = "console.warn(line)"
+                val withoutAllowed =
+                    if (name == "ConferenceNoiseSuppression.kt") {
+                        Regex(Regex.escape(allowedWarn)).findAll(text).count() shouldBe 1
+                        text.replace(allowedWarn, "")
+                    } else {
+                        text
+                    }
+                withClue("$name must not log (beyond the one diagnosis warning) or send beacons") {
+                    listOf("console.", "sendBeacon", "println", "KotlinLogging").forEach { withoutAllowed shouldNotContain it }
                 }
             }
             // the only network calls of the filter are the two same-origin loads of the processor file; their URL arguments are the constants

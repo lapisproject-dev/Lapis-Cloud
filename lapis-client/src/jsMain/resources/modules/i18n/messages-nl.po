@@ -22672,14 +22672,47 @@ msgstr "Ruisonderdrukking actief."
 msgid "Nicht verfügbar"
 msgstr "Niet beschikbaar"
 
-msgid "Nicht verfügbar – dieser Browser unterstützt AudioWorklet nicht. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "Niet beschikbaar – deze browser ondersteunt AudioWorklet niet. De ruisreductie van de browser wordt gebruikt."
+msgid "Nicht verfügbar – Grund: %1. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "Niet beschikbaar – reden: %1. De eigen ruisonderdrukking van de browser wordt gebruikt."
 
-msgid "Nicht verfügbar – dieser Browser unterstützt WebAssembly nicht. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "Niet beschikbaar – deze browser ondersteunt WebAssembly niet. De ruisreductie van de browser wordt gebruikt."
+msgid "Zum erneuten Versuch einschalten."
+msgstr "Schakel in om het opnieuw te proberen."
 
-msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "Niet beschikbaar – de ruisonderdrukking kon niet worden geladen. De ruisreductie van de browser wordt gebruikt."
+msgid "dieser Browser unterstützt AudioWorklet nicht"
+msgstr "deze browser ondersteunt AudioWorklet niet"
+
+msgid "dieser Browser unterstützt WebAssembly nicht"
+msgstr "deze browser ondersteunt WebAssembly niet"
+
+msgid "die Abtastrate des Audiosystems ist nicht 48 kHz"
+msgstr "de samplefrequentie van het audiosysteem is niet 48 kHz"
+
+msgid "der Browser stellt keinen Audiokontext bereit"
+msgstr "de browser biedt geen audiocontext"
+
+msgid "der Audiokontext läuft nicht (der Browser wartet auf eine Eingabe von Ihnen)"
+msgstr "de audiocontext draait niet (de browser wacht op een handeling van u)"
+
+msgid "die Rauschfilter-Datei konnte nicht geladen werden"
+msgstr "het ruisfilterbestand kon niet worden geladen"
+
+msgid "das Audiomodul konnte nicht geladen werden"
+msgstr "de audiomodule kon niet worden geladen"
+
+msgid "die Audioverarbeitung konnte nicht aufgebaut werden"
+msgstr "de audioverwerking kon niet worden opgebouwd"
+
+msgid "der Filter konnte nicht in das Mikrofon eingebunden werden"
+msgstr "het filter kon niet aan de microfoon worden gekoppeld"
+
+msgid "der Filter konnte dem Gerätewechsel nicht folgen"
+msgstr "het filter kon de apparaatwissel niet volgen"
+
+msgid "das Laden hat zu lange gedauert"
+msgstr "het laden duurde te lang"
+
+msgid "das Laden ist aus unbekanntem Grund fehlgeschlagen"
+msgstr "het laden is om onbekende reden mislukt"
 
 msgid "Vorherige Seite"
 msgstr "Vorige pagina"

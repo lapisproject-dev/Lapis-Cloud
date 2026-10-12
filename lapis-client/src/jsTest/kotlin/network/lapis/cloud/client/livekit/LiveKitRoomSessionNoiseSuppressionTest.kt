@@ -2,6 +2,8 @@ package network.lapis.cloud.client.livekit
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.promise
+import network.lapis.cloud.client.NoiseSuppressionFailure
+import network.lapis.cloud.client.NoiseSuppressionStageException
 import network.lapis.cloud.client.NoiseSuppressionUnavailable
 import kotlin.js.Promise
 import kotlin.js.unsafeCast
@@ -30,6 +32,9 @@ class LiveKitRoomSessionNoiseSuppressionTest {
         var stopProcessorCalls = 0
         var audioContext: dynamic = null
         var rejectSetProcessor = false
+        var rejectWith: Throwable? = null
+        var settings: dynamic = null
+        var settingsTouched = 0
         var onSetProcessor: () -> Unit = {}
         val constraintCalls = mutableListOf<dynamic>()
 
@@ -40,7 +45,9 @@ class LiveKitRoomSessionNoiseSuppressionTest {
             t.setProcessor = { p: dynamic ->
                 setProcessorCalls++
                 onSetProcessor()
-                if (rejectSetProcessor) {
+                if (rejectWith != null) {
+                    Promise.reject(rejectWith!!)
+                } else if (rejectSetProcessor) {
                     Promise.reject(IllegalStateException("init failed"))
                 } else {
                     processor = p
@@ -54,6 +61,9 @@ class LiveKitRoomSessionNoiseSuppressionTest {
             }
             t.setAudioContext = { ctx: dynamic -> audioContext = ctx }
             t.getProcessor = { processor }
+            val media: dynamic = js("({})")
+            media.getSettings = { settings }
+            t.mediaStreamTrack = media
             t.applyConstraints = { c: dynamic ->
                 constraintCalls.add(c)
                 Promise.resolve(Unit)
@@ -66,6 +76,9 @@ class LiveKitRoomSessionNoiseSuppressionTest {
         var state: String = "suspended",
         var sampleRate: Int = 48_000,
         private val resumesTo: String = "running",
+        /** Chrome without a gesture: `resume()` neither resolves nor rejects. */
+        private val resumePending: Boolean = false,
+        private val resumeRejects: Boolean = false,
     ) {
         var closed = false
         var resumeCalls = 0
@@ -76,8 +89,14 @@ class LiveKitRoomSessionNoiseSuppressionTest {
             c.sampleRate = sampleRate
             c.resume = {
                 resumeCalls++
-                c.state = resumesTo
-                Promise.resolve(Unit)
+                when {
+                    resumePending -> Promise<Unit> { _, _ -> }
+                    resumeRejects -> Promise.reject(IllegalStateException("not allowed to start"))
+                    else -> {
+                        c.state = resumesTo
+                        Promise.resolve(Unit)
+                    }
+                }
             }
             c.close = {
                 closed = true
@@ -207,7 +226,7 @@ class LiveKitRoomSessionNoiseSuppressionTest {
             val h = Harness(context = FakeContext(resumesTo = "suspended"))
             h.connect()
             val chain = assertNotNull(h.session.noiseSuppressionChain())
-            assertEquals(NoiseSuppressionUnavailable.LOAD_FAILED, chain.attach())
+            assertEquals(NoiseSuppressionUnavailable.CONTEXT_NOT_RUNNING, chain.attach()?.reason)
             assertEquals(0, h.track.setProcessorCalls, "a suspended context would deliver silence")
         }
 
@@ -216,7 +235,7 @@ class LiveKitRoomSessionNoiseSuppressionTest {
         GlobalScope.promise {
             val h = Harness(context = FakeContext(sampleRate = 44_100))
             h.connect()
-            assertEquals(NoiseSuppressionUnavailable.LOAD_FAILED, assertNotNull(h.session.noiseSuppressionChain()).attach())
+            assertEquals(NoiseSuppressionUnavailable.SAMPLE_RATE, assertNotNull(h.session.noiseSuppressionChain()).attach()?.reason)
             assertEquals(0, h.track.setProcessorCalls)
         }
 
@@ -226,7 +245,7 @@ class LiveKitRoomSessionNoiseSuppressionTest {
             val h = Harness()
             h.session.noiseAudioContextFactory = { null }
             h.connect()
-            assertEquals(NoiseSuppressionUnavailable.LOAD_FAILED, assertNotNull(h.session.noiseSuppressionChain()).attach())
+            assertEquals(NoiseSuppressionUnavailable.NO_AUDIO_CONTEXT, assertNotNull(h.session.noiseSuppressionChain()).attach()?.reason)
             assertEquals(0, h.track.setProcessorCalls)
         }
 
@@ -236,7 +255,7 @@ class LiveKitRoomSessionNoiseSuppressionTest {
             val h = Harness()
             h.track.rejectSetProcessor = true
             h.connect()
-            assertEquals(NoiseSuppressionUnavailable.LOAD_FAILED, assertNotNull(h.session.noiseSuppressionChain()).attach())
+            assertEquals(NoiseSuppressionUnavailable.SET_PROCESSOR, assertNotNull(h.session.noiseSuppressionChain()).attach()?.reason)
             assertEquals(1, h.track.stopProcessorCalls)
             assertNull(h.track.processor)
         }
@@ -247,7 +266,7 @@ class LiveKitRoomSessionNoiseSuppressionTest {
             val h = Harness()
             h.track.onSetProcessor = { h.jsContext.state = "suspended" }
             h.connect()
-            assertEquals(NoiseSuppressionUnavailable.LOAD_FAILED, assertNotNull(h.session.noiseSuppressionChain()).attach())
+            assertEquals(NoiseSuppressionUnavailable.CONTEXT_NOT_RUNNING, assertNotNull(h.session.noiseSuppressionChain()).attach()?.reason)
             assertEquals(1, h.track.stopProcessorCalls)
         }
 
@@ -336,5 +355,119 @@ class LiveKitRoomSessionNoiseSuppressionTest {
             h.listeners.getValue(RoomEvent.LocalTrackPublished)(cameraPublication, null, null, null)
             assertEquals(1, h.microphonePublished)
             assertEquals(1, h.cameraPublished)
+        }
+
+    // ── V1.9.119: the stages, the bounded resume, the diagnostics ─────────────────────────────────────────────────
+
+    @Test
+    fun aResumeThatStaysPending_isContextNotRunning_afterTheShortTimeout_andNeverATimeoutOfTheWholeLoad() =
+        GlobalScope.promise {
+            val h = Harness(context = FakeContext(resumePending = true))
+            h.session.noiseResumeTimeoutMs = 20L
+            h.connect()
+            val failure = assertNotNull(assertNotNull(h.session.noiseSuppressionChain()).attach())
+            assertEquals(NoiseSuppressionUnavailable.CONTEXT_NOT_RUNNING, failure.reason)
+            assertEquals("state=suspended", failure.errorMessage)
+            assertEquals(0, h.track.setProcessorCalls)
+        }
+
+    @Test
+    fun aRejectedResume_isContextNotRunning() =
+        GlobalScope.promise {
+            val h = Harness(context = FakeContext(resumeRejects = true))
+            h.connect()
+            assertEquals(NoiseSuppressionUnavailable.CONTEXT_NOT_RUNNING, assertNotNull(h.session.noiseSuppressionChain()).attach()?.reason)
+        }
+
+    @Test
+    fun aWrongSampleRate_namesTheRate() =
+        GlobalScope.promise {
+            val h = Harness(context = FakeContext(sampleRate = 44_100))
+            h.connect()
+            val failure = assertNotNull(assertNotNull(h.session.noiseSuppressionChain()).attach())
+            assertEquals(NoiseSuppressionUnavailable.SAMPLE_RATE, failure.reason)
+            assertEquals("rate=44100", failure.errorMessage)
+            assertFalse(NoiseSuppressionUnavailable.SAMPLE_RATE.retryable)
+        }
+
+    @Test
+    fun aProcessorThatFailsInAStage_keepsItsStage_andIsRemovedAgain() =
+        GlobalScope.promise {
+            val h = Harness()
+            h.track.rejectWith =
+                NoiseSuppressionStageException(NoiseSuppressionFailure(NoiseSuppressionUnavailable.WASM_FETCH, null, "status=404"))
+            h.connect()
+            val failure = assertNotNull(assertNotNull(h.session.noiseSuppressionChain()).attach())
+            assertEquals(NoiseSuppressionUnavailable.WASM_FETCH, failure.reason)
+            assertEquals("status=404", failure.errorMessage)
+            assertEquals(1, h.track.stopProcessorCalls)
+        }
+
+    @Test
+    fun aProcessorThatFailsWithoutAStage_isSetProcessor_withTheErrorMessage() =
+        GlobalScope.promise {
+            val h = Harness()
+            h.track.rejectSetProcessor = true
+            h.connect()
+            val failure = assertNotNull(assertNotNull(h.session.noiseSuppressionChain()).attach())
+            assertEquals(NoiseSuppressionUnavailable.SET_PROCESSOR, failure.reason)
+            assertEquals("init failed", failure.errorMessage)
+        }
+
+    @Test
+    fun diagnostics_readOnlyTheNumbers_neverALabelOrAnId() =
+        GlobalScope.promise {
+            val h = Harness()
+            val settings: dynamic = js("({})")
+            settings.sampleRate = 44_100
+            settings.channelCount = 2
+            val touched = intArrayOf(0)
+            val onTouch = { touched[0]++ }
+            for (key in listOf("label", "deviceId", "groupId")) {
+                val descriptor: dynamic = js("({})")
+                descriptor.enumerable = true
+                descriptor.get = {
+                    onTouch()
+                    "Scarlett 2i2 USB"
+                }
+                js("Object").defineProperty(settings, key, descriptor)
+            }
+            h.track.settings = settings
+            h.connect()
+            val chain = assertNotNull(h.session.noiseSuppressionChain())
+            chain.prepare()
+            val diagnostics = chain.diagnostics("auto")
+            assertEquals("auto", diagnostics.trigger)
+            assertEquals("running", diagnostics.ctxState, "prepare() resumed the fake context")
+            assertEquals(48_000, diagnostics.ctxRate?.toInt())
+            assertEquals(44_100, diagnostics.trackRate?.toInt())
+            assertEquals(2, diagnostics.trackChannels?.toInt())
+            assertEquals(0, touched[0], "label, deviceId and groupId are never read")
+            assertFalse(diagnostics.toString().contains("Scarlett"))
+        }
+
+    @Test
+    fun diagnostics_withoutAContextOrSettings_areNull_andNeverThrow() =
+        GlobalScope.promise {
+            val h = Harness()
+            h.connect()
+            val diagnostics = assertNotNull(h.session.noiseSuppressionChain()).diagnostics("click")
+            assertNull(diagnostics.ctxState)
+            assertNull(diagnostics.ctxRate)
+            assertNull(diagnostics.trackRate)
+            assertNull(diagnostics.trackChannels)
+        }
+
+    @Test
+    fun theRuntimeFailureListener_isTheSessionsOwn_notTheChainObjects() =
+        GlobalScope.promise {
+            val h = Harness()
+            h.connect()
+            val got = mutableListOf<NoiseSuppressionFailure>()
+            assertNotNull(h.session.noiseSuppressionChain()).setRuntimeFailureListener { got += it }
+            // a DIFFERENT chain object, as the controller asks for a new one each time, reaches the same listener
+            val failure = NoiseSuppressionFailure(NoiseSuppressionUnavailable.RESTART)
+            h.session.noiseRuntimeFailureListener!!.invoke(failure)
+            assertEquals(listOf(failure), got)
         }
 }

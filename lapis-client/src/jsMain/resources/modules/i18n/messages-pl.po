@@ -22677,14 +22677,47 @@ msgstr "Tłumienie szumów włączone."
 msgid "Nicht verfügbar"
 msgstr "Niedostępne"
 
-msgid "Nicht verfügbar – dieser Browser unterstützt AudioWorklet nicht. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "Niedostępne – ta przeglądarka nie obsługuje AudioWorklet. Używane jest redukowanie szumów przeglądarki."
+msgid "Nicht verfügbar – Grund: %1. Es wird die Rauschminderung des Browsers verwendet."
+msgstr "Niedostępne – powód: %1. Używane jest własne tłumienie szumów przeglądarki."
 
-msgid "Nicht verfügbar – dieser Browser unterstützt WebAssembly nicht. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "Niedostępne – ta przeglądarka nie obsługuje WebAssembly. Używane jest redukowanie szumów przeglądarki."
+msgid "Zum erneuten Versuch einschalten."
+msgstr "Włącz, aby spróbować ponownie."
 
-msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
-msgstr "Niedostępne – nie udało się załadować tłumienia szumów. Używane jest redukowanie szumów przeglądarki."
+msgid "dieser Browser unterstützt AudioWorklet nicht"
+msgstr "ta przeglądarka nie obsługuje AudioWorklet"
+
+msgid "dieser Browser unterstützt WebAssembly nicht"
+msgstr "ta przeglądarka nie obsługuje WebAssembly"
+
+msgid "die Abtastrate des Audiosystems ist nicht 48 kHz"
+msgstr "częstotliwość próbkowania systemu audio nie wynosi 48 kHz"
+
+msgid "der Browser stellt keinen Audiokontext bereit"
+msgstr "przeglądarka nie udostępnia kontekstu audio"
+
+msgid "der Audiokontext läuft nicht (der Browser wartet auf eine Eingabe von Ihnen)"
+msgstr "kontekst audio nie działa (przeglądarka czeka na Twoje działanie)"
+
+msgid "die Rauschfilter-Datei konnte nicht geladen werden"
+msgstr "nie udało się załadować pliku filtra szumów"
+
+msgid "das Audiomodul konnte nicht geladen werden"
+msgstr "nie udało się załadować modułu audio"
+
+msgid "die Audioverarbeitung konnte nicht aufgebaut werden"
+msgstr "nie udało się skonfigurować przetwarzania dźwięku"
+
+msgid "der Filter konnte nicht in das Mikrofon eingebunden werden"
+msgstr "nie udało się podłączyć filtra do mikrofonu"
+
+msgid "der Filter konnte dem Gerätewechsel nicht folgen"
+msgstr "filtr nie nadążył za zmianą urządzenia"
+
+msgid "das Laden hat zu lange gedauert"
+msgstr "ładowanie trwało zbyt długo"
+
+msgid "das Laden ist aus unbekanntem Grund fehlgeschlagen"
+msgstr "ładowanie nie powiodło się z nieznanego powodu"
 
 msgid "Vorherige Seite"
 msgstr "Poprzednia strona"
