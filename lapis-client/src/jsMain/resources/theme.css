@@ -4680,6 +4680,168 @@ html.lapis-has-dock {
   min-height: 1.5rem;
 }
 
+/* V1.9.115: umschaltbare Ansichten der Videokonferenz. Die Kacheln selbst werden nur UMGEHÄNGT (nie neu erzeugt, V1.4.19); alle Größen kommen als
+   CSS-Variablen (`--lapis-tile-w`/`--lapis-tile-h`) von applyTileGrid auf dem jeweiligen Container. Kein transition/animation: eine Größenänderung
+   springt. Die Filmstreifen-Regel (E4h, weiter oben) bleibt unverändert; sie scrollt nie, weil der Streifen nur zeigt, was hineinpasst. */
+.lapis-conference-main {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.lapis-conference-strip-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.lapis-conference-strip-row .lapis-conference-filmstrip {
+  margin-top: 0;
+  justify-content: center;
+}
+
+.lapis-conference-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.lapis-conference-pager-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.lapis-conference-pager-btn.disabled {
+  opacity: 0.45;
+}
+
+.lapis-conference-pager-status {
+  min-width: 7.5rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--lapis-muted);
+}
+
+/* der Pfeil zu einer Seite, auf der gerade jemand spricht: dieselbe Goldmarke wie die Kachel (Ring + schwarze Haarlinie), nie Farbe allein
+   (der barrierefreie Name nennt die Seite) */
+.lapis-conference-pager--speaking {
+  box-shadow: 0 0 0 3px var(--lapis-fleck), 0 0 0 4px #000;
+}
+
+/* Anheften: ein Knopf (44 x 44 px) oben rechts auf fremden Kacheln -- bei Hover und Fokus sichtbar, auf Touchgeräten immer (außer auf sehr kleinen Kacheln) */
+.lapis-conference-pin {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--lapis-media-overlay-text);
+  opacity: 0;
+}
+
+.lapis-conference-pin > i {
+  padding: 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.lapis-conference-pin[aria-pressed="true"] > i {
+  background: var(--lapis-fleck);
+  color: #000;
+}
+
+div:hover > .lapis-conference-pin,
+.lapis-conference-pin:focus,
+.lapis-conference-pin:focus-visible,
+.lapis-conference-pin[aria-pressed="true"] {
+  opacity: 1;
+}
+
+@media (pointer: coarse) {
+  .lapis-conference-pin {
+    opacity: 1;
+  }
+}
+
+/* in der Leiste (Vorschaubilder) und auf sehr kleinen Kacheln kein Knopf: ein Tippen auf die Kachel selbst heftet an */
+.lapis-conference-filmstrip .lapis-conference-pin {
+  display: none;
+}
+
+.lapis-conference-filmstrip > [data-lapis-strip] {
+  cursor: pointer;
+}
+
+/* Das Auswahlfeld "Ansicht": ein kleines Blatt über der Leiste (feste Position wie das "Mehr"-Blatt, kein eigener Scroller) */
+.lapis-conference-view-popover {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 8px);
+  z-index: 5;
+  width: min(320px, calc(100vw - 16px));
+  background-color: var(--lapis-surface);
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.lapis-conference-view-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lapis-conference-view-radio {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 44px;
+  text-align: left;
+}
+
+.lapis-conference-view-radio[aria-checked="true"] {
+  border-color: var(--lapis-fleck);
+  font-weight: 600;
+}
+
+.lapis-conference-view-radio.disabled {
+  opacity: 0.55;
+}
+
+.lapis-conference-view-check {
+  margin-left: auto;
+}
+
+.lapis-conference-view-hint {
+  padding: 0 4px 4px;
+}
+
+@media (forced-colors: active) {
+  .lapis-conference-pager--speaking {
+    outline: 3px solid Highlight;
+    box-shadow: none;
+  }
+
+  .lapis-conference-view-radio[aria-checked="true"] {
+    outline: 2px solid Highlight;
+  }
+}
+
+
 /* Bewegungsreduktion -- EIN Block am Dateiende fuer alle vier `transition:`-Deklarationen dieser
    Datei (body, Konferenz-Steuerleiste, Hintergrund-Vorschau, `.lapis-busy` der Offene-Posten-Liste, schwebendes Konferenzfenster).
    Wer eine neue Transition ergaenzt, ergaenzt hier den Selektor (Tripwire R54). Kein `!important`. */

@@ -124,8 +124,18 @@ class FfmpegSegmentedComposer(
                     clip(
                         range =
                             TimeRange(
-                                startSeconds = input.offsetSeconds + it.startSeconds / (tempo ?: 1.0),
-                                endSeconds = input.offsetSeconds + it.endSeconds / (tempo ?: 1.0),
+                                startSeconds =
+                                    AudioWallClock.toWallSeconds(
+                                        offsetSeconds = input.offsetSeconds,
+                                        mediaSeconds = it.startSeconds,
+                                        tempo = tempo,
+                                    ),
+                                endSeconds =
+                                    AudioWallClock.toWallSeconds(
+                                        offsetSeconds = input.offsetSeconds,
+                                        mediaSeconds = it.endSeconds,
+                                        tempo = tempo,
+                                    ),
                             ),
                         total = total,
                     )
@@ -155,6 +165,7 @@ class FfmpegSegmentedComposer(
                     trackId = input.trackId,
                     isScreenShare = input.isScreenShare,
                     firstSeenSeconds = input.offsetSeconds,
+                    personKey = input.personKey,
                     ranges =
                         mediaRanges.mapNotNull {
                             clip(
@@ -175,8 +186,16 @@ class FfmpegSegmentedComposer(
                 fps = fps,
                 canvasW = canvas.width,
                 canvasH = canvas.height,
+                layout = spec.layout,
+                speakerSpans = spec.speakerSpans,
             )
-        logger.info { "FfmpegSegmentedComposer: ${segments.size} segment(s) for ${"%.1f".format(java.util.Locale.ROOT, total)}s of output" }
+        // Counts only (privacy): never a key, a file name or an identity.
+        logger.info {
+            "FfmpegSegmentedComposer: ${segments.size} segment(s) (${segments.count {
+                it.speakerTrackId != null
+            }} with a speaker layout) " +
+                "for ${"%.1f".format(java.util.Locale.ROOT, total)}s of output"
+        }
 
         // 4. per segment
         val videoEntries = ArrayList<Pair<String, Long>>()

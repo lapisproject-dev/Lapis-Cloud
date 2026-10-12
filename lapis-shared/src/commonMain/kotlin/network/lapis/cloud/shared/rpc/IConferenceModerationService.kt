@@ -1,6 +1,7 @@
 package network.lapis.cloud.shared.rpc
 
 import dev.kilua.rpc.annotations.RpcService
+import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.ConferenceRoomDto
 
 /**
@@ -49,5 +50,15 @@ interface IConferenceModerationService {
         roomId: String,
         muteOnJoin: Boolean,
         participantsMayUnmute: Boolean,
+    ): ConferenceRoomDto
+
+    /**
+     * V1.9.115 -- sets how a recording (and the start dialog of a stream) shows the room: [ConferenceBroadcastView.RASTER] or
+     * [ConferenceBroadcastView.SPEAKER]. Applies from the NEXT recording / stream start; a running recording keeps the view it froze at
+     * its start. Same authority and the same single `ForbiddenException` for every refusal as [setRoomAudioPolicy]; no LiveKit call.
+     */
+    suspend fun setRoomBroadcastView(
+        roomId: String,
+        view: ConferenceBroadcastView,
     ): ConferenceRoomDto
 }

@@ -46,12 +46,16 @@ import network.lapis.cloud.client.livekit.Track
 import network.lapis.cloud.client.livekit.TrackPublication
 import network.lapis.cloud.client.livekit.requestRemoteVideoQuality
 import network.lapis.cloud.client.maplibre.ResizeObserver
+import network.lapis.cloud.shared.conference.CONFERENCE_TILE_ASPECT
+import network.lapis.cloud.shared.conference.ConferenceViewLayout
 import network.lapis.cloud.shared.conference.computeConferenceTileGrid
+import network.lapis.cloud.shared.conference.conferenceFilmstripTileHeight
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ConferenceBreakoutAssignmentDto
 import network.lapis.cloud.shared.domain.ConferenceBreakoutAssignmentInput
 import network.lapis.cloud.shared.domain.ConferenceBreakoutPlanInput
 import network.lapis.cloud.shared.domain.ConferenceBreakoutRoomDto
+import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
 import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInput
 import network.lapis.cloud.shared.domain.ConferenceGuestConsentDisclaimerDto
@@ -307,23 +311,17 @@ import kotlin.time.Clock
  *   [network.lapis.cloud.shared.rpc.IConferenceService.renameRoom] RPC. `baseDocumentTitle` (captured
  *   once at the top of [enterCall]) had to become a `var` so a mid-call rename immediately propagates
  *   into the "● "-prefixed backgrounded-tab title [updateStatusBadgesAndTitle] renders.
- * - **D3 -- speaking-priority grid reflow above [CONFERENCE_GRID_REFLOW_THRESHOLD] (12) participants.**
- *   [conferenceGridLayout] is the pure partition (join-order priority zone, capped at
- *   [CONFERENCE_PRIORITY_ZONE_MAX], overflow + everyone else in a compact filmstrip). The DOM side
- *   (`applyConferenceGridReflow` inside [enterCall]) re-parents existing tile elements between two
- *   zone containers built ONCE (same "grab once, mutate forever" raw-DOM discipline this file already
- *   documents for `gridElement`/`stageElement`) -- never recreated (V1.4.19: should a re-render replace
- *   the container itself, the insert hooks adopt the old zones/stage content in the same task via
- *   [conferenceAdoptChildren], and the `resumeStalledVideos` watchdog resumes any `<video>` the browser
- *   paused meanwhile -- see [conferenceVideoNeedsResume]). **Reflow cadence is deliberately
- *   decoupled from raw `RoomEvent.ActiveSpeakersChanged` pushes**: those pushes only update a
- *   `lastSpokeAtMs` timestamp map; a periodic ~2s sweep (mirroring `pollInFlightRecordingStatus`'s own
- *   shape) is the SOLE trigger that actually calls the reflow -- LiveKit's speaker-change events fire
- *   on sub-second speaking-level transitions, and reflowing the grid on every one of them would
- *   produce a strobing, unusable layout at 25-person scale, exactly the failure mode D3 exists to
- *   prevent. Below the threshold, the layout is byte-for-byte Wave 1's original single flat grid --
- *   the priority zone's CSS is reset to the original `minmax(200px, 1fr)` rule, never left at the
- *   larger priority-tile size.
+ * - **D3 -- the tile area is laid out by the view logic (V1.9.115 replaced the speaking-priority reflow above 12 participants).**
+ *   `computeConferenceViewLayout` (`lapis-shared`, pure) decides who is where for the four views (gallery with pages, speaker large,
+ *   pinned, screen share large); the DOM side (`applyConferenceGridReflow` inside [enterCall], containers of [ConferenceViewStage]) re-parents
+ *   the EXISTING tile elements between containers built ONCE (same "grab once, mutate forever" raw-DOM discipline this file already
+ *   documents for `gridElement`) -- never recreated (V1.4.19: should a re-render replace the container itself, the insert hook adopts the
+ *   old containers in the same task via [conferenceAdoptChildren], and the `resumeStalledVideos` watchdog resumes any `<video>` the browser
+ *   paused meanwhile -- see [conferenceVideoNeedsResume]). **Reflow cadence is deliberately decoupled from raw
+ *   `RoomEvent.ActiveSpeakersChanged` pushes**: those pushes only update the `lastSpokeAtMs` timestamp map, the mark and the smoothing
+ *   state; the periodic ~2s sweep, a 250 ms beat that runs only while somebody speaks in a speaker view, joins/leaves and user choices
+ *   are what call the reflow -- LiveKit's speaker-change events fire on sub-second speaking-level transitions and the smoothing (800 ms
+ *   claim, 2 s dwell) exists exactly so that the large tile does not strobe.
  * - **D10 -- named connection-state machine.** [ConferenceConnectionState] (`Disconnected`/
  *   `Connecting`/`Connected`/`Reconnecting`/`Failed`/`Ended`) replaces the Wave 1-3 ad-hoc `leftCall`
  *   boolean entirely (zero remaining references) -- [conferenceConnectionReduce] is the ONE place a
@@ -1181,19 +1179,8 @@ private class ConferenceTileEntry(
     var speaking: Boolean = false,
     /** V1.9.85: the symbol in this identity's CURRENT roster row (the list is rebuilt by `refreshRoster`; this is re-set each time). */
     var rosterSpeakingMark: Widget? = null,
-)
-
-/** Wave 4, D3 -- which zone a tile's DOM styling currently reflects. [FLAT] is the <= threshold,
- * unreflowed case (byte-for-byte Wave 1-3 sizing); [PRIORITY_REFLOWED]/[COMPACT] are the two zones
- * once reflowed. See [enterCall]'s `setTileZoneStyle`. */
-private enum class ConferenceTileZone { FLAT, PRIORITY_REFLOWED, COMPACT }
-
-/** Wave 4, D3 -- the concrete pixel/padding values [enterCall]'s `setTileZoneStyle` applies per
- * [ConferenceTileZone], per the design review's own "Decided" sizing table. */
-private data class ConferenceTileZoneStyle(
-    val initialsFontPx: Int,
-    val badgeFontPx: Int,
-    val badgePadding: String,
+    /** V1.9.115: the pin toggle of this tile (`null` on the own tile and on a screen-share tile). */
+    var pinButton: HTMLElement? = null,
 )
 
 private fun enterCall(
@@ -1284,7 +1271,6 @@ private fun enterCall(
     // out into an outbound LiveKit admin call) PER joining participant.
     var guestHomeserverRefreshJob: Job? = null
     var gridElement: HTMLElement? = null
-    var stageElement: HTMLElement? = null
     // V1.2.10 -- unread-chat-count/participant-count badge elements, grabbed once via
     // `addAfterInsertHook` on `chatToggleButton`/`rosterToggleButton` (see those buttons' own
     // declaration below) -- same "grab once, mutate forever" discipline as `gridElement`/
@@ -1294,8 +1280,17 @@ private fun enterCall(
     // Wave 4, D3: the two grid sub-containers -- created ONCE inside `gridDiv`'s own
     // `addAfterInsertHook` (see below), never recreated by `applyConferenceGridReflow`, same
     // "grab once, mutate forever" discipline as `gridElement`/`stageElement` themselves.
-    var priorityZoneElement: HTMLElement? = null
-    var compactZoneElement: HTMLElement? = null
+    var viewContainers: ConferenceViewContainers? = null
+    // V1.9.115: the state of the switchable views (gallery / speaker / pinned / screen share) -- no DOM, see ConferenceViewController
+    val viewController =
+        ConferenceViewController(
+            selfId = joinToken.identity,
+            storedView = ConferenceViewStore.read(),
+        )
+    // V1.9.115: the screen share is a tile of its own (not in `tiles`: it is no person, no roster row); `null` while nobody shares
+    var shareTile: ConferenceTileEntry? = null
+    // V1.9.115: the pin button of a tile and a tap on a strip tile both end here (assigned once `applyConferenceGridReflow` exists)
+    var pinHandler: (String) -> Unit = {}
     // Wave 4, D3: last time (epoch ms) each identity was reported as an active speaker -- updated on
     // EVERY `onActiveSpeakersChanged` push, but deliberately never itself triggers a reflow (see file
     // KDoc "D3" for why the periodic sweep, not this map's mutation, is the sole trigger).
@@ -1320,6 +1315,11 @@ private fun enterCall(
     // mic button; seeded after connect and on every permission change).
     var roomMuteOnJoin = room.muteOnJoin
     var roomMayUnmute = room.participantsMayUnmute
+    // V1.9.115: the view of recordings / streams as the server last said it (moderators set it in the "Moderation" disclosure)
+    // Known limitation: the room's broadcast view is read once at join and refreshed only from this client's own RPC result; nothing pushes
+    // a change made by another moderator, so this panel and the stream dialog's default layout can show a stale value until a rejoin.
+    // Display-only: the server applies the stored value to the next recording.
+    var roomBroadcastView = room.broadcastView
     var microphonePermitted = true
     var moderationPanel: ConferenceModerationPanel? = null
     var toggleMicRef: () -> Unit = {}
@@ -1423,6 +1423,9 @@ private fun enterCall(
     val divider2 = controlsRow.conferenceControlsDivider()
     // V1.2.9 Vollbildmodus: neuer Sichtbarkeits-Schalter für die Teilnehmerliste (D7) -- direkt vor
     // chatToggleButton, damit beide Overlay-Schienen-Schalter im Vollbild nebeneinander sitzen.
+    // V1.9.115 -- "Ansicht": gallery / speaker large / pin a person / screen share large; opens a radio group above the bar. Symbol-only like
+    // its neighbours (the accessible name carries the current view, see `viewControlsSink`).
+    val viewButton = controlsRow.conferenceViewButton()
     val rosterToggleButton = controlsRow.button("", icon = "fas fa-users", style = ButtonStyle.OUTLINESECONDARY)
     val chatToggleButton = controlsRow.button("", icon = "fas fa-comments", style = ButtonStyle.OUTLINESECONDARY)
     // V1.9.25 "Abstimmen im Konferenzraum" -- the panel and its toggle exist only for a member of the organization (the server decides
@@ -1499,6 +1502,8 @@ private fun enterCall(
     val screenTwin = twin(screenShareButton) { it.button(tr("Bildschirm teilen"), style = ButtonStyle.OUTLINESECONDARY) }
     val recordTwin = twin(moderation?.recordButton) { it.actionButton(ActionIcon.RECORD, tr("Aufzeichnung starten")) }
     val streamTwin = twin(moderation?.streamButton) { it.actionButton(ActionIcon.BROADCAST, tr("Live-Stream starten …")) }
+    // V1.9.115 -- the twin of "Ansicht" opens the very same radio group (popover) through the primary control, like every other twin
+    val viewTwin = twin(viewButton) { it.actionButton(ActionIcon.VIEW_GALLERY, tr("Ansicht")) }
     val rosterTwin = twin(rosterToggleButton) { it.actionButton(ActionIcon.PEOPLE, tr("Teilnehmende")) }
     val voteTwin = twin(votingToggle?.button) { it.button(tr("Abstimmen"), style = ButtonStyle.OUTLINESECONDARY) }
     // V1.9.72 -- "Für alle beenden" moves into the sheet LAST (overflow order) and stands LAST in it, set apart by a rule and the danger
@@ -2008,6 +2013,20 @@ private fun enterCall(
                 parent = moreSheet,
                 muteOnJoin = roomMuteOnJoin,
                 participantsMayUnmute = roomMayUnmute,
+                broadcastView = roomBroadcastView,
+                onBroadcastView = { view, revert ->
+                    moderationPanel?.setBusy(true)
+                    AppScope.launch {
+                        val result = guarded { rpcService<IConferenceModerationService>().setRoomBroadcastView(room.id, view) }
+                        moderationPanel?.setBusy(false)
+                        if (result != null) {
+                            roomBroadcastView = result.broadcastView
+                            moderationPanel?.setBroadcastView(roomBroadcastView)
+                        } else {
+                            revert()
+                        }
+                    }
+                },
                 onMuteOnJoin = { value, revert -> applyAudioPolicy(muteOnJoin = value, mayUnmute = roomMayUnmute, revert = revert) },
                 onLock = { locked, revert ->
                     if (locked) {
@@ -2101,7 +2120,7 @@ private fun enterCall(
     recordingBanner.hide()
     // D16: a screen-reader user must be told with the same immediacy a sighted user sees the banner.
     recordingBanner.addAfterInsertHook { vnode -> (vnode.elm as? HTMLElement)?.setAttribute("role", "alert") }
-    recordingBanner.div(CONFERENCE_RECORDING_BANNER_TEXT) { addCssClass("fw-bold") }
+    val recordingBannerText = recordingBanner.div(CONFERENCE_RECORDING_BANNER_TEXT) { addCssClass("fw-bold") }
     val recordingBannerButtons = recordingBanner.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
     val recordingBannerAckButton = recordingBannerButtons.button(tr("Verstanden"), style = ButtonStyle.PRIMARY)
     val recordingBannerLeaveButton =
@@ -2294,7 +2313,10 @@ private fun enterCall(
     fun updateRecordingDetailLine() {
         val active = activeRecordingDto
         if (active != null) {
-            recordingDetailLine.content = conferenceRecordingStartedLabel(active.startedByDisplayName, active.startedAt)
+            recordingDetailLine.content =
+                conferenceRecordingStartedLabel(active.startedByDisplayName, active.startedAt) + " · " +
+                gettext("Ansicht: %1.", conferenceBroadcastViewLabel(active.broadcastView))
+            recordingBannerText.content = conferenceRecordingBannerText(active.broadcastView)
             recordingDetailLine.show()
         } else {
             recordingDetailLine.hide()
@@ -2485,6 +2507,8 @@ private fun enterCall(
                 targets,
                 streamMaxDestinations,
                 participantOptions,
+                // pre-selected from the room's setting (RASTER = gallery, SPEAKER = speaker); the dialog can still choose any layout
+                defaultLayout = conferenceStreamLayoutOf(roomBroadcastView),
             ) { destinationIds, layout, latencyMode, participantIdentity ->
                 group.setStreamBusy(true)
                 AppScope.launch {
@@ -2906,35 +2930,54 @@ private fun enterCall(
     // V1.9.25 -- what a guest or friend sees while ballots run in the room: no panel, one calm line above the tiles.
     val guestVoteLine = if (!votingMember) renderGuestVotingStatusLine(videoArea) else null
 
-    // --- V1.9.92 Best-Fit-Kachelraster ------------------------------------------------------------------------------
+    // --- V1.9.92 Best-Fit-Kachelraster, V1.9.115 umschaltbare Ansichten -----------------------------------------------------------
     // The tile size is no longer a CSS auto-fit guess but the answer of the pure `computeConferenceTileGrid` for the free area. This
-    // function only MEASURES and WRITES THREE NUMBERS as CSS variables on existing elements (`--lapis-tile-w`, `--lapis-tile-h`,
-    // `--lapis-tiles-max-w` on the priority zone, `--lapis-rail-inset` on the area). It never creates, moves or removes a node
-    // (V1.4.19: a <video> that leaves the document pauses) and never touches the speaking mark. H comes from window values only,
-    // never from the area's own height (it grows when `scrolls`, which would feed back into itself).
-    var compactLabelElement: HTMLElement? = null
+    // function only MEASURES and WRITES NUMBERS as CSS variables on existing elements (`--lapis-tile-w`, `--lapis-tile-h`,
+    // `--lapis-tiles-max-w` on the gallery, the large tile's and the strip's own size, `--lapis-rail-inset` on the area). It never
+    // creates, moves or removes a node (V1.4.19: a <video> that leaves the document pauses -- moving is `applyConferenceGridReflow`'s job
+    // and only that) and never touches the speaking mark. H comes from window values only, never from the area's own height (it grows
+    // when `scrolls`, which would feed back into itself).
     var tileGridColumns: Int? = null
     var tileGridDisposed = false
     var tileGridFramePending = false
     var lastTileInputs: List<Double>? = null
+    var lastViewLayout: ConferenceViewLayout? = null
+    // `applyConferenceGridReflow` is declared further down (a local function cannot be referenced before its declaration)
+    var reflowRef: () -> Unit = {}
+
+    /** Writes the full-screen side rail's inset onto the area (it becomes padding, see theme.css) and answers it. */
+    fun writeRailInset(area: HTMLElement): Double {
+        val railVisible = panelState.rosterVisible() || panelState.chatVisible() || panelState.votingVisible()
+        val inset = conferenceRailInset(railVisible, panelState.fullscreen, window.innerWidth.toDouble())
+        val insetValue = "${inset}px"
+        if (area.style.getPropertyValue("--lapis-rail-inset") != insetValue) area.style.setProperty("--lapis-rail-inset", insetValue)
+        return inset
+    }
+
+    /** The free width of the tile area, net of its padding and of the rail. 0 before the area exists. */
+    fun measureTileAreaWidth(): Double {
+        val area = gridElement?.takeIf { it.isConnected } ?: return 0.0
+        writeRailInset(area)
+        val areaStyle = window.getComputedStyle(area)
+        return (area.clientWidth - conferenceCssPx(areaStyle.paddingLeft) - conferenceCssPx(areaStyle.paddingRight)).coerceAtLeast(0.0)
+    }
 
     fun applyTileGrid(force: Boolean = false) {
         if (tileGridDisposed) return
-        val priority = priorityZoneElement ?: return
+        val c = viewContainers ?: return
         val area = gridElement ?: return
-        if (!priority.isConnected || !area.isConnected) return
-        val count = priority.childElementCount
+        if (!c.gallery.isConnected || !area.isConnected) return
+        val layout = lastViewLayout
+        val bigMode = layout?.main != null
+        val count = if (bigMode) 1 else c.gallery.childElementCount
         if (count == 0) return
 
         val areaStyle = window.getComputedStyle(area)
         val padY =
             conferenceCssPx(areaStyle.paddingTop) + conferenceCssPx(areaStyle.paddingBottom) +
                 conferenceCssPx(areaStyle.borderTopWidth) + conferenceCssPx(areaStyle.borderBottomWidth)
-        val railVisible = panelState.rosterVisible() || panelState.chatVisible() || panelState.votingVisible()
-        val inset = conferenceRailInset(railVisible, panelState.fullscreen, window.innerWidth.toDouble())
         // the inset becomes padding of the area (theme.css): write it BEFORE measuring, so the measured width is already net of the rail
-        val insetValue = "${inset}px"
-        if (area.style.getPropertyValue("--lapis-rail-inset") != insetValue) area.style.setProperty("--lapis-rail-inset", insetValue)
+        val inset = writeRailInset(area)
         val width = area.clientWidth - conferenceCssPx(areaStyle.paddingLeft) - conferenceCssPx(areaStyle.paddingRight)
 
         val viewport = window.asDynamic().visualViewport
@@ -2945,26 +2988,72 @@ private fun enterCall(
         // padding is the one place the resolved `env(safe-area-inset-bottom)` can be read in pixels
         val reservedBelow = callPanel.getElement()?.let { conferenceCssPx(window.getComputedStyle(it).paddingBottom) } ?: 0.0
         val bottomBar = if (reservedBelow >= 12.0) reservedBelow - 12.0 else 56.0
-        val strip = compactZoneElement?.takeIf { it.style.display != "none" }
-        val stripHeight = if (strip != null) strip.offsetHeight + (compactLabelElement?.offsetHeight ?: 0) + 12 else 0
+        val pagerHeight = if (c.pager.style.display != "none") c.pager.offsetHeight + CONFERENCE_TILE_GAP_PX else 0.0
+        val stripShown = bigMode && c.stripRow.style.display != "none"
+        val stripTileHeight = conferenceFilmstripTileHeight(width).toDouble()
+        val stripBand = if (stripShown) stripTileHeight + CONFERENCE_TILE_GAP_PX else 0.0
         val height =
             conferenceTileAreaHeight(
                 viewportHeight = viewportHeight,
                 areaTop = areaRect.top + scrolled,
                 barHeight = bottomBar,
                 bottomPad = 12.0,
-            ) - padY - stripHeight
+            ) - padY - pagerHeight - stripBand
 
-        val inputs = listOf(count.toDouble(), width, height, inset)
+        val modeCode = (if (bigMode) 1.0 else 0.0) + (if (layout?.main?.screenShare == true) 2.0 else 0.0) + (if (stripShown) 4.0 else 0.0)
+        val inputs = listOf(count.toDouble(), width, height, inset, modeCode, stripTileHeight)
         val previous = lastTileInputs
         val unchanged =
             previous != null &&
                 previous[0] == inputs[0] &&
                 previous[3] == inputs[3] &&
+                previous[4] == inputs[4] &&
+                previous[5] == inputs[5] &&
                 kotlin.math.abs(previous[1] - width) <= 2.0 &&
                 kotlin.math.abs(previous[2] - height) <= 2.0
         if (!force && unchanged) return
         lastTileInputs = inputs
+
+        fun setVar(
+            element: HTMLElement,
+            name: String,
+            value: String,
+        ) {
+            if (element.style.getPropertyValue(name) != value) element.style.setProperty(name, value)
+        }
+
+        if (bigMode) {
+            // one large tile (16:9 for a camera, the whole box for a shared screen) and, below it, the strip of 16:9 thumbnails
+            val boxW = width.coerceAtLeast(1.0)
+            val boxH = height.coerceAtLeast(CONFERENCE_TILE_MIN_WIDTH_PX * 9.0 / 16.0)
+            val share = layout?.main?.screenShare == true
+            val bigW: Double
+            val bigH: Double
+            if (share) {
+                bigW = boxW
+                bigH = boxH
+            } else {
+                bigW = kotlin.math.min(boxW, boxH * CONFERENCE_TILE_ASPECT)
+                bigH = bigW / CONFERENCE_TILE_ASPECT
+            }
+            setVar(c.main, "--lapis-tile-w", "${kotlin.math.floor(bigW).toInt()}px")
+            setVar(c.main, "--lapis-tile-h", "${kotlin.math.floor(bigH).toInt()}px")
+            setVar(c.strip, "--lapis-tile-w", "${kotlin.math.floor(stripTileHeight * CONFERENCE_TILE_ASPECT).toInt()}px")
+            setVar(c.strip, "--lapis-tile-h", "${stripTileHeight.toInt()}px")
+            area.style.removeProperty("min-height")
+            var child = c.main.firstElementChild
+            while (child != null) {
+                val small = bigW < CONFERENCE_TILE_SMALL_WIDTH_PX
+                if (child.classList.contains(CONFERENCE_TILE_SMALL_CLASS) != small) child.classList.toggle(CONFERENCE_TILE_SMALL_CLASS)
+                child = child.nextElementSibling
+            }
+            var stripChild = c.strip.firstElementChild
+            while (stripChild != null) {
+                if (!stripChild.classList.contains(CONFERENCE_TILE_SMALL_CLASS)) stripChild.classList.add(CONFERENCE_TILE_SMALL_CLASS)
+                stripChild = stripChild.nextElementSibling
+            }
+            return
+        }
 
         val grid =
             computeConferenceTileGrid(
@@ -2977,18 +3066,13 @@ private fun enterCall(
             )
         if (grid.columns == 0) return
         tileGridColumns = grid.columns
-        val widthValue = "${grid.tileWidth}px"
-        val heightValue = "${grid.tileHeight}px"
-        val maxWidthValue = "${grid.columns * grid.tileWidth + CONFERENCE_TILE_GAP_PX * (grid.columns - 1)}px"
-        if (priority.style.getPropertyValue("--lapis-tile-w") != widthValue) priority.style.setProperty("--lapis-tile-w", widthValue)
-        if (priority.style.getPropertyValue("--lapis-tile-h") != heightValue) priority.style.setProperty("--lapis-tile-h", heightValue)
-        if (priority.style.getPropertyValue("--lapis-tiles-max-w") != maxWidthValue) {
-            priority.style.setProperty("--lapis-tiles-max-w", maxWidthValue)
-        }
+        setVar(c.gallery, "--lapis-tile-w", "${grid.tileWidth}px")
+        setVar(c.gallery, "--lapis-tile-h", "${grid.tileHeight}px")
+        setVar(c.gallery, "--lapis-tiles-max-w", "${grid.columns * grid.tileWidth + CONFERENCE_TILE_GAP_PX * (grid.columns - 1)}px")
         // when the floor took effect the area is taller than the window: it may grow, the page scrolls (R59: no scroller of its own)
         if (grid.scrolls) area.style.setProperty("min-height", "${height + padY}px") else area.style.removeProperty("min-height")
         val small = grid.tileWidth < CONFERENCE_TILE_SMALL_WIDTH_PX
-        var child = priority.firstElementChild
+        var child = c.gallery.firstElementChild
         while (child != null) {
             if (child.classList.contains(CONFERENCE_TILE_SMALL_CLASS) != small) child.classList.toggle(CONFERENCE_TILE_SMALL_CLASS)
             child = child.nextElementSibling
@@ -3019,167 +3103,139 @@ private fun enterCall(
         narrowQuery.asDynamic().removeEventListener("change", tileGridResizeListener)
     }
 
-    // --- Screen-share stage (hidden until a "screen_share"-sourced track subscribes) --------------
-    val stageDiv =
-        videoArea.div {
-            addCssClasses("border rounded p-2 text-center")
-            display = io.kvision.core.Display.NONE
-        }
-    stageDiv.addAfterInsertHook { vnode ->
-        val newStage = (vnode.elm as? HTMLElement) ?: return@addAfterInsertHook
-        val previousStage = stageElement
-        stageElement = newStage
-        // a shown or hidden screen share moves the tile area: the observer watches the stage as well
-        tileGridObserver.observe(newStage)
-        if (previousStage != null && previousStage !== newStage) {
-            // V1.4.19 -- der Container wurde von einem Re-Render ersetzt: den laufenden Screen-Share
-            // (`<video>` + Label) SYNCHRON im selben Task übernehmen (sonst pausiert Chrome das Video)
-            // und den zuvor manuell gesetzten `display`-Stil mitnehmen -- das frisch gerenderte
-            // Element trägt nur den KVision-Stil (`display: none`).
-            val wasVisible = previousStage.style.display
-            conferenceAdoptChildren(oldRoot = previousStage, newRoot = newStage)
-            if (newStage.firstChild != null && wasVisible.isNotEmpty()) newStage.style.display = wasVisible
-            resumeStalledVideos(newStage)
-        }
-    }
-
-    // --- Video tile grid (responsive CSS grid, D3) -------------------------------------------------
+    // --- Tile area (the gallery, the large tile, the strip, the pager and the parking container; V1.9.115) ----------------------
+    // The screen share is a tile of its own (`shareTile`, see `showScreenShareStage`), placed by the same view logic as a camera.
     val gridDiv =
         videoArea.div {
             addCssClasses("border rounded lapis-conference-grid")
         }
-    // Wave 4, D3: `gridElement` now holds TWO sub-containers, built ONCE here (never recreated by
-    // `applyConferenceGridReflow` below -- same "grab once, mutate forever" discipline this file
-    // already documents for `gridElement`/`stageElement` themselves, see [enterCall] KDoc). Below the
-    // reflow threshold, `priorityZoneElement` alone renders every tile in the ORIGINAL
-    // `minmax(200px, 1fr)` flat grid -- byte-for-byte Wave 1-3 behaviour -- and `compactZoneElement`
-    // stays empty/hidden.
+    // `gridElement` holds the containers of `ConferenceViewStage`, built ONCE here (never recreated by `applyConferenceGridReflow` below
+    // -- same "grab once, mutate forever" discipline this file already documents for `gridElement` itself).
     gridDiv.addAfterInsertHook { vnode ->
         val root = (vnode.elm as? HTMLElement) ?: return@addAfterInsertHook
         val previousRoot = gridElement
         gridElement = root
-        if (previousRoot != null && previousRoot !== root && priorityZoneElement != null) {
+        if (previousRoot != null && previousRoot !== root && viewContainers != null) {
             // V1.4.19 -- der Grid-Container wurde von einem Re-Render ersetzt (Hook feuert erneut).
-            // Die drei bestehenden Zonen (samt aller Tiles/Videos) SYNCHRON im selben Task in den
-            // neuen Root umziehen, statt leere neue Zonen anzulegen und die alten Tiles erst beim
+            // Die bestehenden Container (samt aller Tiles/Videos) SYNCHRON im selben Task in den
+            // neuen Root umziehen, statt leere neue anzulegen und die alten Tiles erst beim
             // nächsten 2-s-Sweep nachzufüllen (Chrome pausiert ein `<video>`, das länger als einen
             // Task ausgehängt ist).
             conferenceAdoptChildren(oldRoot = previousRoot, newRoot = root)
             resumeStalledVideos(root)
-            // the variables live on the adopted priority zone; the new area needs its own observer and the rail variable at once
+            // the variables live on the adopted containers; the new area needs its own observer and the rail variable at once
             tileGridObserver.observe(root)
             lastTileInputs = null
             applyTileGrid(force = true)
             return@addAfterInsertHook
         }
-        val priority = document.createElement("div") as HTMLElement
-        // V1.9.92: a centred, wrapping flex row (the last row sits in the middle); the tile size comes from `applyTileGrid`
-        priority.className = "lapis-conference-tiles"
-        priority.style.cssText = "display:flex;flex-wrap:wrap;justify-content:center;align-content:center;gap:8px;"
-        priority.style.setProperty("--lapis-tile-w", "320px")
-        priority.style.setProperty("--lapis-tile-h", "180px")
-        root.appendChild(priority)
-        priorityZoneElement = priority
+        viewContainers =
+            ConferenceViewStage.create(
+                root,
+                ConferenceViewStageHandlers(
+                    onPage = { delta ->
+                        viewController.turnPage(delta)
+                        reflowRef()
+                    },
+                    onStripPage = { delta ->
+                        viewController.turnStripPage(delta)
+                        reflowRef()
+                    },
+                    onStripTile = { key -> pinHandler(key) },
+                ),
+            )
         tileGridObserver.observe(root)
-
-        val compactLabel = document.createElement("div") as HTMLElement
-        compactLabel.style.cssText = "font-size:12px;color:var(--lapis-muted);margin-top:8px;display:none;"
-        root.appendChild(compactLabel)
-        compactLabelElement = compactLabel
-
-        val compact = document.createElement("div") as HTMLElement
-        compact.className = "lapis-conference-filmstrip"
-        compact.style.display = "none"
-        root.appendChild(compact)
-        compactZoneElement = compact
     }
 
-    // Wave 4, D3 -- speaking-priority zone/local identity, union computed here so the pure
-    // [conferenceGridLayout] partition itself stays a plain set-membership function, no
-    // time/local-participant special-casing inside it (see that function's own KDoc).
-    fun currentPriorityIdentities(): Set<String> {
-        val now = Clock.System.now().toEpochMilliseconds()
-        return lastSpokeAtMs.filterValues { now - it <= CONFERENCE_SPEAKING_PRIORITY_WINDOW_MS }.keys + joinToken.identity
-    }
-
-    var lastReflowed = false
-
+    /** Smaller fonts and badges on a thumbnail of the strip, the normal ones everywhere else (the sizes themselves are CSS variables). */
     fun setTileZoneStyle(
         entry: ConferenceTileEntry,
-        zone: ConferenceTileZone,
+        thumbnail: Boolean,
     ) {
-        val (initialsFontPx, badgeFontPx, badgePadding) =
-            when (zone) {
-                ConferenceTileZone.COMPACT -> ConferenceTileZoneStyle(16, 10, "1px 4px")
-                ConferenceTileZone.PRIORITY_REFLOWED -> ConferenceTileZoneStyle(28, 12, "2px 6px")
-                ConferenceTileZone.FLAT -> ConferenceTileZoneStyle(28, 12, "2px 6px")
-            }
-        // V1.9.92: the filmstrip has no best-fit variables, its tiles keep the fixed thumbnail size (146 x 82, 16:9)
-        if (zone == ConferenceTileZone.COMPACT) {
-            entry.element.style.setProperty("width", "${CONFERENCE_FILMSTRIP_TILE_WIDTH_PX}px")
-            entry.element.style.setProperty("height", "${CONFERENCE_FILMSTRIP_TILE_HEIGHT_PX}px")
-            entry.element.classList.remove(CONFERENCE_TILE_SMALL_CLASS)
-        } else {
-            entry.element.style.setProperty("width", "var(--lapis-tile-w,100%)")
-            entry.element.style.setProperty("height", "var(--lapis-tile-h,auto)")
-        }
+        val (initialsFontPx, badgeFontPx, badgePadding) = if (thumbnail) Triple(16, 10, "1px 4px") else Triple(28, 12, "2px 6px")
         entry.mediaSlot.style.setProperty("font-size", "${initialsFontPx}px")
         entry.nameBadge.style.setProperty("font-size", "${badgeFontPx}px")
         entry.nameBadge.style.setProperty("padding", badgePadding)
-        // micBadge (D3 decided scope): no compact-specific treatment -- its existing 11px/2px-5px
-        // sizing is already small enough at the 110px compact tile width, see file KDoc "D3".
+    }
+
+    /** The accessible name of the bar's view button and the icon of the current view (called after every layout). */
+    var viewControlsSink: (ConferenceViewLayout) -> Unit = {}
+
+    /** What the view announces by itself (a pinned person left, a share changed the view); wired to the live region once it exists. */
+    var viewNoticeSink: (ConferenceViewNotice) -> Unit = {}
+
+    /** The pin toggles follow the pinned person and the names (called after every layout). */
+    fun refreshPinButtons() {
+        val pinned =
+            if (viewController.state.chosen ==
+                network.lapis.cloud.shared.conference.ConferenceView.PINNED
+            ) {
+                viewController.state.pinnedId
+            } else {
+                null
+            }
+        for (entry in tiles.values) {
+            val pin = entry.pinButton ?: continue
+            val isPinned = entry.identity == pinned
+            val label = if (isPinned) gettext("%1 lösen", entry.displayName) else gettext("%1 anheften", entry.displayName)
+            if (pin.getAttribute("aria-pressed") != isPinned.toString()) pin.setAttribute("aria-pressed", isPinned.toString())
+            if (pin.getAttribute("aria-label") != label) pin.setAttribute("aria-label", label)
+        }
     }
 
     /**
-     * Wave 4, D3 -- the ONE place tiles are actually re-parented/restyled. Re-parenting an EXISTING
-     * node moves it (no clone/recreate). A SYNCHRONOUS move within one task does not pause a `<video>`
-     * (V1.4.19: the browser only pauses one that is still outside the document after "await a stable
-     * state"); what DOES interrupt playback is the zone container being REPLACED by a re-render and
-     * the tiles only being re-filled by the next sweep -- see `gridDiv`'s `addAfterInsertHook`
-     * (adopts the old zones) and `resumeStalledVideos` (safety net). Guarded by a `parentNode`
-     * check so a tile already in its correct zone is left untouched on every sweep tick (repeated
-     * `appendChild` on an already-correctly-placed `<video>`/`<audio>` element risks a real playback
-     * hiccup in some browsers, not just wasted work). Called from [ensureTile]/[removeTile] (so a
-     * join/leave immediately reflows) and from the periodic sweep below -- NEVER directly from the
-     * raw `onActiveSpeakersChanged` push (see file KDoc "D3" for why that would strobe the grid).
+     * Wave 4, D3 (V1.9.115: rewritten) -- the ONE place tiles are actually re-parented/restyled. The layout comes from the pure
+     * `computeConferenceViewLayout` (gallery pages, speaker large, pinned, screen share large); re-parenting an EXISTING node moves it
+     * (no clone/recreate), and only when its place really changed. A SYNCHRONOUS move within one task does not pause a `<video>` (V1.4.19:
+     * the browser only pauses one that is still outside the document after "await a stable state"). Called from [ensureTile]/
+     * [removeTile] (a join/leave reflows at once), from user choices, from the beat of the speaker views and from the periodic sweep
+     * below -- NEVER directly from the raw `onActiveSpeakersChanged` push (those only feed timestamps and the smoothing, see file KDoc "D3").
      */
     fun applyConferenceGridReflow() {
-        val priority = priorityZoneElement ?: return
-        val compact = compactZoneElement ?: return
-        val label = compactLabelElement ?: return
-        val layout = conferenceGridLayout(tiles.keys.toList(), currentPriorityIdentities())
-        if (layout.reflowed) {
-            compact.style.setProperty("display", "flex")
-            label.style.setProperty("display", "block")
-            label.textContent = gettext("Weitere Teilnehmende (%1)", layout.compactIdentities.size)
-        } else {
-            // V1.9.92: the tile size of BOTH cases is the best-fit answer of `applyTileGrid` (the zone only decides who is shown).
-            compact.style.setProperty("display", "none")
-            label.style.setProperty("display", "none")
-        }
-        var moved = false
-        layout.priorityIdentities.forEach { identity ->
-            val entry = tiles[identity] ?: return@forEach
-            if (entry.element.parentNode !== priority) {
-                priority.appendChild(entry.element)
-                moved = true
-            }
-            setTileZoneStyle(entry, if (layout.reflowed) ConferenceTileZone.PRIORITY_REFLOWED else ConferenceTileZone.FLAT)
-        }
-        layout.compactIdentities.forEach { identity ->
-            val entry = tiles[identity] ?: return@forEach
-            if (entry.element.parentNode !== compact) {
-                compact.appendChild(entry.element)
-                moved = true
-            }
-            setTileZoneStyle(entry, ConferenceTileZone.COMPACT)
-        }
+        val c = viewContainers ?: return
+        val width = measureTileAreaWidth()
+        val hasVideo = LinkedHashMap<String, Boolean>()
+        for (entry in tiles.values) hasVideo[entry.identity] = entry.hasCamera
+        val layout = viewController.layout(hasVideo = hasVideo, areaWidthPx = width, nowMs = Clock.System.now().toEpochMilliseconds())
+        val previousLayout = lastViewLayout
+        lastViewLayout = layout
+
+        // the strip: as many 16:9 thumbnails as fit between the two arrows
+        val thumbWidth = conferenceFilmstripTileHeight(width) * CONFERENCE_TILE_ASPECT
+        val capacity = ((width - 2 * CONFERENCE_PAGER_BUTTON_PX + CONFERENCE_TILE_GAP_PX) / (thumbWidth + CONFERENCE_TILE_GAP_PX)).toInt()
+        val (visible, stripPage, stripPages) = conferenceStripSlice(layout.strip, capacity, viewController.stripPage)
+        viewController.setStripPage(stripPage)
+
+        val shareElement = shareTile?.element
+        val moved =
+            ConferenceViewStage.apply(
+                c = c,
+                layout = layout,
+                strip = ConferenceStripState(visible, stripPage, stripPages),
+                elementOf = { tile ->
+                    if (tile.screenShare) {
+                        shareTile?.takeIf { it.identity == "${tile.identity}#screen" }?.element
+                    } else {
+                        tiles[tile.identity]
+                            ?.element
+                    }
+                },
+                allTiles = tiles.values.map { it.element } + listOfNotNull(shareElement),
+                stripNames = { tile -> tiles[tile.identity]?.displayName.orEmpty() },
+            )
+        for (entry in tiles.values) setTileZoneStyle(entry, thumbnail = entry.element.parentNode === c.strip)
+        shareTile?.let { setTileZoneStyle(it, thumbnail = it.element.parentNode === c.strip) }
         // V1.4.19 -- ein frisch (wieder) eingehängtes Tile: pausierte Videos sofort anstossen.
-        if (moved) resumeStalledVideos(priority.parentElement ?: priority)
+        if (moved) resumeStalledVideos(c.gallery.parentElement ?: c.gallery)
+        refreshPinButtons()
+        viewControlsSink(layout)
+        viewController.takeNotice()?.let { viewNoticeSink(it) }
         // V1.9.92: ONCE at the end, and only for the tile grid (the observer triggers `applyTileGrid`, never this function)
-        applyTileGrid(force = moved || layout.reflowed != lastReflowed)
-        lastReflowed = layout.reflowed
+        applyTileGrid(force = moved || previousLayout?.effectiveView != layout.effectiveView || previousLayout?.main != layout.main)
+        ConferenceDock.notifyMediaChanged()
     }
+
+    reflowRef = ::applyConferenceGridReflow
 
     // Required change 1 (design review): the SOLE trigger for `applyConferenceGridReflow` on a
     // steady cadence -- decoupled from raw `RoomEvent.ActiveSpeakersChanged` pushes, which fire on
@@ -3206,6 +3262,66 @@ private fun enterCall(
         }
     }
     AppScope.launch { sweepGridReflow() }
+
+    // V1.9.115 -- the beat of the speaker views: while somebody speaks and the view follows the speaker, the smoothing is fed every 250 ms
+    // (a claim matures although LiveKit reports nothing new) and the layout is re-evaluated. Runs ONLY then; every leave path stops it
+    // through `stopSpeakingTick` (which calls `stopViewBeat`).
+    var viewBeatHandle: Int? = null
+
+    fun stopViewBeat() {
+        viewBeatHandle?.let { window.clearInterval(it) }
+        viewBeatHandle = null
+    }
+
+    fun ensureViewBeat() {
+        if (viewBeatHandle != null || !viewController.needsBeat()) return
+        viewBeatHandle =
+            window.setInterval({
+                if (connectionState is ConferenceConnectionState.Ended || !viewController.needsBeat()) {
+                    stopViewBeat()
+                } else {
+                    applyConferenceGridReflow()
+                }
+            }, CONFERENCE_VIEW_BEAT_MS.toInt())
+    }
+
+    // V1.9.115 -- the view switcher: the popover over the bar (and, through the twin, from the "Mehr" sheet), a user choice, a pin.
+    fun onUserChoseView(view: network.lapis.cloud.shared.conference.ConferenceView) {
+        viewController.choose(view)
+        ConferenceViewStore.write(viewController.storageValue())
+        ensureViewBeat()
+        applyConferenceGridReflow()
+        if (view == network.lapis.cloud.shared.conference.ConferenceView.PINNED && viewController.state.pinnedId == null) {
+            notices.announce(gettext("Es ist niemand sonst im Raum, den Sie anheften könnten."), assertive = false)
+        }
+    }
+    val viewPopover = ConferenceViewPopover(callPanel, viewButton) { view -> onUserChoseView(view) }
+    viewButton.onClick { viewPopover.toggle() }
+    pinHandler = { key ->
+        val identity = key.removeSuffix("#screen")
+        val state = viewController.state
+        if (state.chosen == network.lapis.cloud.shared.conference.ConferenceView.PINNED && state.pinnedId == identity) {
+            viewController.unpin()
+        } else {
+            viewController.pin(identity)
+        }
+        ConferenceViewStore.write(viewController.storageValue())
+        ensureViewBeat()
+        applyConferenceGridReflow()
+    }
+    viewControlsSink = { layout ->
+        viewButton.icon = actionIconClasses(conferenceViewIcon(layout.effectiveView))
+        viewButton.setDynamicA11yTitle(gettext("Ansicht (aktuell: %1)", conferenceViewLabel(layout.effectiveView)))
+        viewPopover.group.update(layout.effectiveView, viewController.shareActive())
+    }
+    viewNoticeSink = { notice ->
+        when (notice) {
+            ConferenceViewNotice.PinnedLeft ->
+                notices.announce(gettext("Die angeheftete Person hat den Raum verlassen. Ansicht: Sprecher groß."), assertive = false)
+            is ConferenceViewNotice.ViewChanged ->
+                notices.announce(gettext("Ansicht: %1", conferenceViewLabel(notice.view)), assertive = false)
+        }
+    }
 
     // V1.4.19 -- Video-Resume-Watchdog-Schleife (Absicherung, siehe `resumeStalledVideos`). Bewusst
     // `!is Ended` statt `isLive()` als Schleifenbedingung: dieselbe Wave-6-Regression wie bei
@@ -3370,6 +3486,7 @@ private fun enterCall(
                         add(OverflowSlot(ConferenceControlSlot.RECORD, it.recordButton, recordTwin))
                         add(OverflowSlot(ConferenceControlSlot.STREAM, it.streamButton, streamTwin))
                     }
+                    add(OverflowSlot(ConferenceControlSlot.VIEW, viewButton, viewTwin))
                     add(OverflowSlot(ConferenceControlSlot.ROSTER, rosterToggleButton, rosterTwin, mirrorPressed = true))
                     add(OverflowSlot(ConferenceControlSlot.CHAT, chatToggleButton, null))
                     votingToggle?.let { add(OverflowSlot(ConferenceControlSlot.VOTE, it.button, voteTwin, mirrorPressed = true)) }
@@ -3761,6 +3878,8 @@ private fun enterCall(
         ConferenceVoteRuntime.disposeActive()
         overflow.dispose()
         disposeTileGrid()
+        viewPopover.dispose()
+        stopViewBeat()
         document.removeEventListener("fullscreenchange", fullscreenChangeListener)
         document.removeEventListener("webkitfullscreenchange", fullscreenChangeListener)
         document.removeEventListener("pointermove", onControlsActivity)
@@ -3982,6 +4101,7 @@ private fun enterCall(
     fun stopSpeakingTick() {
         speakingTickHandle?.let { window.clearInterval(it) }
         speakingTickHandle = null
+        stopViewBeat()
     }
 
     // V1.9.85 -- the beat of the mark. Deviation from the module's `AppScope.launch { while … delay }` sweeps: it must run ONLY while a
@@ -4037,6 +4157,8 @@ private fun enterCall(
         micBadge.style.cssText =
             "position:absolute;right:6px;top:6px;background:rgba(0,0,0,0.55);color:var(--lapis-media-overlay-text);" +
             "font-size:11px;padding:2px 5px;border-radius:3px;display:none;"
+        // V1.9.115: on a foreign tile the pin toggle owns the corner (44 px), the mute badge moves left of it
+        if (!isLocal && !identity.endsWith("#screen")) micBadge.style.setProperty("right", "52px")
         // Same "###KvI18nS###" leak `resolvedA11yText`'s own KDoc documents (V1.2.10, title/aria-label
         // case) -- raw `.textContent` writes bypass KVision's tr() marker resolution just the same.
         micBadge.textContent = resolvedA11yText(tr("Stumm"))
@@ -4071,7 +4193,28 @@ private fun enterCall(
         // Wave 4, D3: NO LONGER appends to `gridElement` here -- placement into the priority/compact
         // zone is [applyConferenceGridReflow]'s job now, called by [ensureTile] right after this
         // returns (see file KDoc "D3").
-        return ConferenceTileEntry(identity, displayName, isLocal, tile, mediaSlot, nameBadge, micBadge, guestBadgeEl, speakingBadge)
+        val entry = ConferenceTileEntry(identity, displayName, isLocal, tile, mediaSlot, nameBadge, micBadge, guestBadgeEl, speakingBadge)
+        // V1.9.115 -- the pin toggle (top right, 44 x 44 px target; shown on hover / focus, always on a touch screen, see theme.css). The own
+        // tile and a screen-share tile have none: nobody pins themselves, a shared screen is no person. The label is set with `setAttribute`
+        // (never markup), the name is re-applied by `refreshPinButtons`.
+        if (!isLocal && !identity.endsWith("#screen")) {
+            val pin = document.createElement("button") as HTMLElement
+            pin.setAttribute("type", "button")
+            pin.className = "lapis-conference-pin"
+            pin.setAttribute("aria-pressed", "false")
+            pin.setAttribute("aria-label", gettext("%1 anheften", displayName))
+            val glyph = document.createElement("i") as HTMLElement
+            glyph.className = actionIconClasses(ActionIcon.PIN)
+            glyph.setAttribute("aria-hidden", "true")
+            pin.appendChild(glyph)
+            pin.addEventListener("click", { event ->
+                event.stopPropagation()
+                pinHandler(identity)
+            })
+            tile.appendChild(pin)
+            entry.pinButton = pin
+        }
+        return entry
     }
 
     /**
@@ -4123,6 +4266,7 @@ private fun enterCall(
         entry.nameBadge.textContent = tileLabel(entry)
         setTileGuest(entry, guestHomeserverByIdentity[identity])
         tiles[identity] = entry
+        viewController.participantJoined(identity)
         refreshRoster()
         applyConferenceGridReflow()
         ConferenceDock.notifyMediaChanged()
@@ -4132,6 +4276,7 @@ private fun enterCall(
     fun removeTile(identity: String) {
         val entry = tiles.remove(identity) ?: return
         speakingMark.forget(identity)
+        viewController.participantLeft(identity)
         ConferenceDock.videoLedger.reclaimSlot(entry.mediaSlot)
         remoteCameraPublications.remove(identity)
         entry.element.parentNode?.removeChild(entry.element)
@@ -4188,24 +4333,31 @@ private fun enterCall(
         displayName: String,
         track: Track,
     ) {
-        val stage = stageElement ?: return
         // Wave 1 keeps only the most-recently-started share on stage -- multiple simultaneous shares
         // stacking/tabbing is out of scope (design review D4 "follow the standard convention, don't
-        // invent a novel layout").
-        ConferenceDock.videoLedger.reclaimSlot(stage)
-        clearElement(stage)
+        // invent a novel layout"). V1.9.115: the share is a TILE of its own, placed by the view logic like a camera (large in the
+        // share view, a thumbnail in the strip, next to its owner in the gallery).
+        shareTile?.let { old ->
+            ConferenceDock.videoLedger.reclaimSlot(old.mediaSlot)
+            old.element.parentNode?.removeChild(old.element)
+        }
+        // the sharer has a tile of their own in every normal case; make sure the layout knows the person even when the share arrives first
+        ensureTile(identity, displayName)
+        val entry = buildTile("$identity#screen", displayName, isLocal = false)
         val mediaElement = track.attach()
         mediaElement.className = "lapis-conference-share-media"
-        stage.appendChild(mediaElement)
+        mediaElement.style.cssText = "width:100%;height:100%;max-height:none;object-fit:contain;"
+        clearElement(entry.mediaSlot)
+        entry.mediaSlot.appendChild(mediaElement)
         activeScreenShareVideo = mediaElement as? org.w3c.dom.HTMLVideoElement
         activeScreenShareLabel = gettext("Bildschirm von %1", displayName)
-        val label = document.createElement("div") as HTMLElement
-        label.style.cssText = "font-size:12px;color:var(--lapis-muted);margin-top:4px;"
-        label.textContent = gettext("%1 teilt den Bildschirm", displayName)
-        stage.appendChild(label)
-        stage.style.display = "block"
+        entry.nameBadge.textContent = gettext("%1 teilt den Bildschirm", displayName)
+        entry.video = activeScreenShareVideo
+        shareTile = entry
         activeScreenShare = identity to track
-        resumeStalledVideos(stage)
+        viewController.shareStarted(identity)
+        applyConferenceGridReflow()
+        resumeStalledVideos(entry.element.parentElement ?: entry.element)
         ConferenceDock.notifyMediaChanged()
     }
 
@@ -4216,13 +4368,15 @@ private fun enterCall(
         val current = activeScreenShare ?: return
         if (current.first != identity) return
         track.detach().forEach { el -> el.parentNode?.removeChild(el) }
-        stageElement?.let {
-            ConferenceDock.videoLedger.reclaimSlot(it)
-            clearElement(it)
-            it.style.display = "none"
+        shareTile?.let {
+            ConferenceDock.videoLedger.reclaimSlot(it.mediaSlot)
+            it.element.parentNode?.removeChild(it.element)
         }
+        shareTile = null
         activeScreenShare = null
         activeScreenShareVideo = null
+        viewController.shareEnded()
+        applyConferenceGridReflow()
         ConferenceDock.notifyMediaChanged()
     }
 
@@ -4818,6 +4972,9 @@ private fun enterCall(
                 speakingMark.onReport(identities, now)
                 applySpeakingMarks(now)
                 ensureSpeakingTick()
+                // V1.9.115: the smoothing of the speaker views gets the raw report; the layout itself follows on the beat / the sweep
+                viewController.onSpeakers(now, identities)
+                ensureViewBeat()
             },
             // V1.3.x Geräteauswahl -- nur UI-Sync (das Dropdown zeigt an, was LiveKit selbst gerade
             // aktiv hat), NIEMALS `localStorage` schreiben hier -- das passiert ausschließlich im
@@ -5505,7 +5662,7 @@ private fun enterCall(
     val dockFloatMedia: () -> List<FloatMediaSource> = {
         buildList {
             activeScreenShare?.let { (identity, _) ->
-                val stage = stageElement
+                val stage = shareTile?.mediaSlot
                 if (stage != null) {
                     add(
                         FloatMediaSource(
@@ -5561,6 +5718,8 @@ private fun enterCall(
             override fun leave() = dockLeave()
 
             override fun floatMedia(): List<FloatMediaSource> = dockFloatMedia()
+
+            override fun floatPreferredKey(): String? = lastViewLayout?.let(viewController::floatPreferredKey)
 
             override suspend fun terminate(reason: DockTerminateReason) {
                 // hard, no question, no `leaveRoom` (the participation of the member may be alive on another device)
@@ -5774,7 +5933,7 @@ private suspend fun resolvePostDisconnectDestination(parentRoomId: String): Post
 /**
  * Pure branch logic behind [resolvePostDisconnectDestination], split out so it is unit-testable
  * without mocking the RPC layer -- same "pure core, thin RPC-touching wrapper" split this file
- * already establishes for [conferenceConnectionReduce]/[conferenceGridLayout]/
+ * already establishes for [conferenceConnectionReduce]/`computeConferenceViewLayout`/
  * [conferenceStreamNeedsPoll]. [parentRoom] is `null` iff the `getRoom` call itself failed (network
  * error or the room no longer exists) -- treated the same as an inactive room. See
  * [resolvePostDisconnectDestination] KDoc for the full four-cause disambiguation this implements.
@@ -6090,6 +6249,7 @@ private fun startStreamDialog(
     targets: List<ConferenceStreamTargetDto>,
     maxDestinations: Int,
     participantOptions: List<Pair<String, String>>,
+    defaultLayout: ConferenceStreamLayout = ConferenceStreamLayout.GRID,
     onConfirm: (
         destinationIds: List<String>,
         layout: ConferenceStreamLayout,
@@ -6125,7 +6285,7 @@ private fun startStreamDialog(
     checkboxesByTarget.values.forEach { checkbox -> checkbox.onClick { updateSummary() } }
 
     val layoutOptions = ConferenceStreamLayout.entries.map { it.name to conferenceStreamLayoutLabel(it) }
-    val layoutSelect = modal.select(options = layoutOptions, value = ConferenceStreamLayout.GRID.name, label = tr("Layout"))
+    val layoutSelect = modal.select(options = layoutOptions, value = defaultLayout.name, label = tr("Layout"))
     val participantSelect =
         modal.searchableSelect(
             options = participantOptions,
@@ -6579,6 +6739,28 @@ internal fun conferenceInitials(displayName: String): String {
  * below, not re-resolved on every widget render; see CONFERENCE_STREAM_BANNER_TEXT's own KDoc for
  * the full reasoning (same pattern, same narrow language-switch-after-first-access limitation). */
 internal val CONFERENCE_RECORDING_BANNER_TEXT: String by lazy { gettext("Diese Besprechung wird ab jetzt aufgezeichnet.") }
+
+/** V1.9.115 -- the name of the view a recording / stream shows (the setting of the room, frozen when the recording started). */
+internal fun conferenceBroadcastViewLabel(view: ConferenceBroadcastView): String =
+    when (view) {
+        ConferenceBroadcastView.RASTER -> gettext("Raster")
+        ConferenceBroadcastView.SPEAKER -> gettext("Sprecher groß")
+    }
+
+/** V1.9.115 -- the notice banner: the fixed sentence of D3, extended by the view the recording shows once it is known. */
+internal fun conferenceRecordingBannerText(view: ConferenceBroadcastView?): String =
+    if (view == null) {
+        CONFERENCE_RECORDING_BANNER_TEXT
+    } else {
+        CONFERENCE_RECORDING_BANNER_TEXT + " " + gettext("Ansicht: %1.", conferenceBroadcastViewLabel(view))
+    }
+
+/** V1.9.115 -- the layout the start dialog of a stream pre-selects for the room's view setting. */
+internal fun conferenceStreamLayoutOf(view: ConferenceBroadcastView): ConferenceStreamLayout =
+    when (view) {
+        ConferenceBroadcastView.RASTER -> ConferenceStreamLayout.GRID
+        ConferenceBroadcastView.SPEAKER -> ConferenceStreamLayout.SPEAKER
+    }
 
 /** Review-round-1 fix (2026-08-09) -- poll interval for `enterCall`'s local
  * `pollInFlightRecordingStatus` loop. See that function's own KDoc for why this exists and why 15s
@@ -7070,19 +7252,11 @@ internal const val MAX_ROOM_TITLE_LENGTH_CLIENT = 200
  * `MAX_BREAKOUT_ROOMS` (20) -- same "not the real boundary" posture as [MAX_ROOM_TITLE_LENGTH_CLIENT]. */
 internal const val MAX_BREAKOUT_ROOMS_CLIENT = 20
 
-/** D3 -- above this many participants, the flat single grid stops reflowing sensibly and the
- * speaking-priority reflow kicks in. Approved as specified in the design review. */
-internal const val CONFERENCE_GRID_REFLOW_THRESHOLD = 12
+/** V1.9.115 -- the beat of the speaker views (ms): while somebody speaks and the view follows the speaker, the smoothing is fed and the layout re-evaluated this often. */
+internal const val CONFERENCE_VIEW_BEAT_MS = 250L
 
-/** D3 -- the priority zone's own capacity once reflowed. Bounded by design: if MORE identities are
- * simultaneously prioritized than this, the overflow is pushed to the compact strip too -- a
- * genuinely-speaking 7th person can be momentarily compact, a deliberate trade-off (design review
- * "Decided" list), not a bug. */
-internal const val CONFERENCE_PRIORITY_ZONE_MAX = 6
-
-/** D3 -- how long (ms) an identity stays in [enterCall]'s `lastSpokeAtMs`-derived priority set after
- * its last `ActiveSpeakersChanged` mention. Approved as specified. */
-internal const val CONFERENCE_SPEAKING_PRIORITY_WINDOW_MS = 8_000L
+/** V1.9.115 -- width of one arrow of the strip / pager (a 44 px touch target), used to compute how many thumbnails fit. */
+internal const val CONFERENCE_PAGER_BUTTON_PX = 44.0
 
 /** D3 -- [enterCall]'s periodic `sweepGridReflow` cadence; the SOLE trigger for
  * `applyConferenceGridReflow` (see that function's own KDoc "Required change 1"). Approved as
@@ -7142,47 +7316,6 @@ internal const val CONFERENCE_CONTROLS_ACTIVITY_POLL_INTERVAL_MS = 1_000L
  * per join -- see that function's own KDoc "DoS amplification".
  */
 internal const val GUEST_HOMESERVER_REFRESH_DEBOUNCE_MS = 1_500L
-
-/** D3 -- the pure partition [enterCall]'s `applyConferenceGridReflow` renders from. */
-internal data class ConferenceGridLayout(
-    val reflowed: Boolean,
-    val priorityIdentities: List<String>,
-    val compactIdentities: List<String>,
-)
-
-/**
- * D3 -- pure partition, no DOM/time/local-participant special-casing inside it (the caller composes
- * [priorityIdentities] from currently-speaking + "recently active within the window" + the local
- * participant's own identity, see [enterCall]'s `currentPriorityIdentities`). [orderedIdentities] is
- * JOIN order (`tiles.keys`, insertion-ordered `LinkedHashMap`) -- deliberately NEVER the
- * alphabetically-sorted roster order [refreshRoster] uses, so tile POSITIONS don't jump every time
- * the roster re-sorts.
- *
- * `<= threshold`: unreflowed, everyone in [priorityIdentities] in join order, [compactIdentities]
- * empty -- today's Wave 1-3 behaviour, byte-for-byte (see [enterCall]'s own "Required change 2").
- * `> threshold`: up to [maxPriorityTiles] slots, filled FIRST from [priorityIdentities] (in join
- * order), then padded with the next join-order identities if fewer than [maxPriorityTiles] are
- * actually prioritized -- so the priority zone is never oddly empty when nobody is currently
- * speaking. Overflow beyond [maxPriorityTiles] (more people prioritized than fit) is pushed to the
- * compact strip too -- a bounded priority zone by design (design review "Decided" list), even if
- * that momentarily compacts a genuinely-speaking participant.
- */
-internal fun conferenceGridLayout(
-    orderedIdentities: List<String>,
-    priorityIdentities: Set<String>,
-    threshold: Int = CONFERENCE_GRID_REFLOW_THRESHOLD,
-    maxPriorityTiles: Int = CONFERENCE_PRIORITY_ZONE_MAX,
-): ConferenceGridLayout {
-    if (orderedIdentities.size <= threshold) {
-        return ConferenceGridLayout(reflowed = false, priorityIdentities = orderedIdentities, compactIdentities = emptyList())
-    }
-    val prioritizedInOrder = orderedIdentities.filter { it in priorityIdentities }
-    val fallbackFill = orderedIdentities.filterNot { it in priorityIdentities }
-    val priority = (prioritizedInOrder + fallbackFill).take(maxPriorityTiles.coerceAtLeast(1))
-    val prioritySet = priority.toSet()
-    val compact = orderedIdentities.filterNot { it in prioritySet }
-    return ConferenceGridLayout(reflowed = true, priorityIdentities = priority, compactIdentities = compact)
-}
 
 /**
  * V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- what [enterCall] is CURRENTLY connected to: the

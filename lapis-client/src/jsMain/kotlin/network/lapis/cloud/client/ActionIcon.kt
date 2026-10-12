@@ -101,6 +101,15 @@ enum class ActionIcon(
     /** V1.9.70: share the screen / stop sharing it (conference dock bar). */
     SCREEN_SHARE("fas fa-display"),
 
+    /**
+     * V1.9.115: the views of the video conference -- [VIEW_GALLERY] the tile grid (also the face of the bar's "Ansicht" button while the gallery
+     * is shown), [VIEW_SPEAKER] the speaker large, [PIN] pin one person (a toggle on a tile and the "Person anheften" view). The screen-share
+     * view reuses [SCREEN_SHARE] (same verb: the shared screen).
+     */
+    VIEW_GALLERY("fas fa-table-cells-large"),
+    VIEW_SPEAKER("fas fa-chalkboard-user"),
+    PIN("fas fa-thumbtack"),
+
     /** V1.9.70: leave a running call from the dock bar (hang up). Same picture as the call's own "Verlassen" button. */
     HANG_UP("fas fa-phone-slash"),
 

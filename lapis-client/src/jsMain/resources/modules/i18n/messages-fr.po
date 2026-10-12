@@ -22748,3 +22748,69 @@ msgstr "Indisponible – ce navigateur ne prend pas en charge WebAssembly. La r�
 
 msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
 msgstr "Indisponible – la suppression du bruit n'a pas pu être chargée. La réduction de bruit du navigateur est utilisée."
+
+msgid "Vorherige Seite"
+msgstr "Page précédente"
+
+msgid "Nächste Seite"
+msgstr "Page suivante"
+
+msgid "Vorherige Kacheln"
+msgstr "Vignettes précédentes"
+
+msgid "Weitere Kacheln"
+msgstr "Autres vignettes"
+
+msgid "%1 anheften"
+msgstr "Épingler %1"
+
+msgid "%1 lösen"
+msgstr "Détacher %1"
+
+msgid "Seite %1 von %2"
+msgstr "Page %1 sur %2"
+
+msgid "Vorherige Seite, dort spricht gerade jemand (Seite %1)"
+msgstr "Page précédente, quelqu'un y parle (page %1)"
+
+msgid "Nächste Seite, dort spricht gerade jemand (Seite %1)"
+msgstr "Page suivante, quelqu'un y parle (page %1)"
+
+msgid "Sprecher groß"
+msgstr "Intervenant en grand"
+
+msgid "Person anheften"
+msgstr "Épingler une personne"
+
+msgid "Bildschirmfreigabe groß"
+msgstr "Écran partagé en grand"
+
+msgid "Ansicht"
+msgstr "Affichage"
+
+msgid "Niemand teilt gerade den Bildschirm"
+msgstr "Personne ne partage son écran en ce moment"
+
+msgid "Ansicht (aktuell: %1)"
+msgstr "Affichage (actuel : %1)"
+
+msgid "Ansicht: %1"
+msgstr "Affichage : %1"
+
+msgid "Ansicht: %1."
+msgstr "Affichage : %1."
+
+msgid "Die angeheftete Person hat den Raum verlassen. Ansicht: Sprecher groß."
+msgstr "La personne épinglée a quitté la salle. Affichage : intervenant en grand."
+
+msgid "Es ist niemand sonst im Raum, den Sie anheften könnten."
+msgstr "Il n'y a personne d'autre dans la salle à épingler."
+
+msgid "Raster"
+msgstr "Grille"
+
+msgid "Ansicht bei Aufzeichnung und Stream"
+msgstr "Affichage pour l'enregistrement et la diffusion"
+
+msgid "Gilt ab der nächsten Aufzeichnung bzw. dem nächsten Streamstart. Eine Bildschirmfreigabe wird immer groß gezeigt."
+msgstr "S'applique à partir du prochain enregistrement ou du prochain démarrage de diffusion. Un écran partagé est toujours affiché en grand."

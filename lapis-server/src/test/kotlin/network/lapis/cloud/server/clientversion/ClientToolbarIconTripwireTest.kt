@@ -519,8 +519,8 @@ class ClientToolbarIconTripwireTest :
         }
 
         test(
-            "R58 (V1.9.66, extended V1.9.70 and V1.9.72): conferenceControlButton is only used inside ConferenceControlBar.kt " +
-                "(the moderation group: two controls, the exit group: three controls, the dock bar: four controls)",
+            "R58 (V1.9.66, extended V1.9.70, V1.9.72 and V1.9.115): conferenceControlButton is only used inside ConferenceControlBar.kt " +
+                "(the moderation group: two controls, the exit group: three controls, the dock bar: four controls, the view button: one)",
         ) {
             val actual =
                 clientFiles()
@@ -529,7 +529,12 @@ class ClientToolbarIconTripwireTest :
             actual shouldBe
                 mapOf(
                     "ConferenceControlBar.kt" to
-                        mapOf("conferenceModerationGroup" to 2, "conferenceExitGroup" to 3, "conferenceDockBarControls" to 4),
+                        mapOf(
+                            "conferenceModerationGroup" to 2,
+                            "conferenceExitGroup" to 3,
+                            "conferenceDockBarControls" to 4,
+                            "conferenceViewButton" to 1,
+                        ),
                 )
         }
 

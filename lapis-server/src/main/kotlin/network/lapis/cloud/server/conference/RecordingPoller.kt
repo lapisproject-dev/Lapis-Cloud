@@ -25,6 +25,7 @@ import network.lapis.cloud.server.routes.archiveNewVersionOfFile
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode
 import network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
@@ -262,6 +263,8 @@ class RecordingPoller(
     private val clock: () -> LocalDateTime = { DbClock.nowLocalDateTime() },
     /** V1.9.109: free-space probe of the recompute's pre-flight check; a test seam. */
     private val diskSpace: (File) -> Long = { it.usableSpace },
+    /** V1.9.115: measures the loudness of the microphones for the speaker timeline; a test seam, [SpeechActivityAnalyzer.None] measures nothing (the recording then shows the grid). */
+    private val speechAnalyzer: SpeechActivityAnalyzer = SpeechActivityAnalyzer.None,
 ) {
     private val composeSemaphore = Semaphore(1)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -1014,6 +1017,8 @@ class RecordingPoller(
 
         val videoInputs = ArrayList<RecordingComposeVideoInput>()
         val audioInputs = ArrayList<RecordingComposeAudioInput>()
+        // V1.9.115: which person (by the identity of the track row) a microphone input belongs to -- only for the speaker timeline.
+        val speechOwners = ArrayList<Pair<String, RecordingComposeAudioInput>>()
         for (r in resolved) {
             val m = measured.getValue(r.track.id)
             val person = m.person
@@ -1026,7 +1031,10 @@ class RecordingPoller(
                         m = person,
                     )
                 video?.let { videoInputs += it }
-                audio?.let { audioInputs += it }
+                audio?.let {
+                    audioInputs += it
+                    speechOwners += r.track.participantIdentity to it
+                }
             } else if (r.track.trackSource in VIDEO_TRACK_SOURCES) {
                 videoInputs +=
                     RecordingComposeVideoInput(
@@ -1044,7 +1052,7 @@ class RecordingPoller(
                     } else {
                         r.track.durationMs?.let { it / 1000.0 }
                     }
-                audioInputs +=
+                val audioInput =
                     RecordingComposeAudioInput(
                         file = r.file,
                         offsetSeconds = m.offset,
@@ -1052,10 +1060,38 @@ class RecordingPoller(
                         mediaDurationSeconds = mediaSeconds(r),
                         wallDurationSeconds = wall,
                     )
+                audioInputs += audioInput
+                // the sound of a screen share is not somebody speaking
+                if (r.track.trackSource ==
+                    ConferenceRecordingTrackSource.MICROPHONE
+                ) {
+                    speechOwners += r.track.participantIdentity to audioInput
+                }
             }
         }
         // A per-person file whose picture is black throughout contributes no video input; with no picture left anywhere there is nothing to compose.
         if (videoInputs.isEmpty()) return SpecResult.NoVideo
+        if (row.broadcastView == ConferenceBroadcastView.SPEAKER) {
+            val plan =
+                speakerPlan(
+                    row = row,
+                    tracks = resolved.map { it.track },
+                    videoInputs = videoInputs,
+                    speechOwners = speechOwners,
+                    totalSeconds = outputDurationSeconds,
+                )
+            if (plan != null) {
+                return SpecResult.Ready(
+                    RecordingComposeSpec(
+                        videoInputs = plan.videoInputs,
+                        audioInputs = audioInputs,
+                        outputDurationSeconds = outputDurationSeconds,
+                        layout = RecordingLayout.SPEAKER,
+                        speakerSpans = plan.spans,
+                    ),
+                )
+            }
+        }
         return SpecResult.Ready(
             RecordingComposeSpec(
                 videoInputs = videoInputs,
@@ -1063,6 +1099,109 @@ class RecordingPoller(
                 outputDurationSeconds = outputDurationSeconds,
             ),
         )
+    }
+
+    /** What the speaker layout needs: the video inputs tagged with their person key, and the smoothed spans. */
+    private data class SpeakerPlan(
+        val videoInputs: List<RecordingComposeVideoInput>,
+        val spans: List<RecordingSpeakerSpan>,
+    )
+
+    /**
+     * V1.9.115 -- the speaker timeline of [row] and the person keys of its pictures, or `null` when there is none and the recording is
+     * composed as the plain grid (analysis unavailable or failed -- this NEVER fails the recording).
+     *
+     * A person is identified by an OPAQUE key: the id of their first track row (the first CAMERA row, else the first MICROPHONE row).
+     * The stored timeline references that row and nothing else. Logs carry counts only -- never an identity, a name or a file name.
+     * The timeline is analysed once and then read back from the store (a recompute does not analyse again).
+     */
+    private suspend fun speakerPlan(
+        row: RecordingRow,
+        tracks: List<TrackRow>,
+        videoInputs: List<RecordingComposeVideoInput>,
+        speechOwners: List<Pair<String, RecordingComposeAudioInput>>,
+        totalSeconds: Double,
+    ): SpeakerPlan? {
+        try {
+            val canonical = HashMap<String, Uuid>()
+            val ordered =
+                tracks.sortedWith(
+                    compareBy<TrackRow> { it.trackSource != ConferenceRecordingTrackSource.CAMERA }
+                        .thenBy { it.trackSource != ConferenceRecordingTrackSource.MICROPHONE }
+                        .thenBy { it.startedAtEpochNanos ?: Long.MAX_VALUE }
+                        .thenBy { it.id },
+                )
+            for (track in ordered) {
+                if (track.trackSource == ConferenceRecordingTrackSource.CAMERA ||
+                    track.trackSource == ConferenceRecordingTrackSource.MICROPHONE
+                ) {
+                    canonical.putIfAbsent(track.participantIdentity, track.id)
+                }
+            }
+            val identityByTrackId = tracks.associate { it.id.toString() to it.participantIdentity }
+            val tagged =
+                videoInputs.map { input ->
+                    val identity = identityByTrackId[input.trackId]
+                    val key = if (input.isScreenShare || identity == null) null else canonical[identity]?.toString()
+                    input.copy(personKey = key)
+                }
+
+            val stored = RecordingSpeakerTimelineStore.load(row.id)
+            if (stored != null) {
+                logger.info { "RecordingPoller: recording ${row.id} reuses its stored speaker timeline (${stored.size} span(s))" }
+                return SpeakerPlan(
+                    videoInputs = tagged,
+                    spans =
+                        stored.map {
+                            RecordingSpeakerSpan(
+                                personKey = it.trackId.toString(),
+                                startSeconds = it.startMs / 1000.0,
+                                endSeconds =
+                                    it.endMs / 1000.0,
+                            )
+                        },
+                )
+            }
+            val perPerson = HashMap<String, MutableList<SpeechWindow>>()
+            var analyzed = 0
+            for ((identity, input) in speechOwners) {
+                val key = canonical[identity]?.toString() ?: continue
+                val series = speechAnalyzer.levels(file = input.file) ?: continue
+                analyzed++
+                val tempo = AudioTempo.ratioFor(mediaSeconds = input.mediaDurationSeconds, wallSeconds = input.wallDurationSeconds)
+                perPerson.getOrPut(key) { ArrayList() } +=
+                    SpeechActivity.detect(series = series, offsetSeconds = input.offsetSeconds, tempo = tempo)
+            }
+            if (analyzed == 0) {
+                logger.warn { "RecordingPoller: no speech analysis possible for recording ${row.id} -- composing the grid" }
+                return null
+            }
+            val spans = RecordingSpeakerTimeline.build(perPerson = perPerson, totalMs = (totalSeconds * 1000.0).toLong())
+            RecordingSpeakerTimelineStore.replace(
+                recordingId = row.id,
+                spans = spans.map { StoredSpeakerSpan(trackId = Uuid.parse(it.key), startMs = it.startMs, endMs = it.endMs) },
+            )
+            logger.info { "RecordingPoller: speaker timeline of recording ${row.id}: ${spans.size} span(s), ${perPerson.size} person(s)" }
+            return SpeakerPlan(
+                videoInputs = tagged,
+                spans =
+                    spans.map {
+                        RecordingSpeakerSpan(
+                            personKey = it.key,
+                            startSeconds = it.startMs / 1000.0,
+                            endSeconds =
+                                it.endMs / 1000.0,
+                        )
+                    },
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn {
+                "RecordingPoller: the speaker timeline of recording ${row.id} failed (${e::class.simpleName ?: "error"}) -- composing the grid"
+            }
+            return null
+        }
     }
 
     /**
@@ -1174,6 +1313,9 @@ class RecordingPoller(
                         "RecordingPoller: failed to delete raw files for recording ${row.id} at $rawDir -- check container UID/permissions"
                     }
                 }
+                // V1.9.115: the speaker timeline lives exactly as long as the raw files it was derived from -- whether or not the
+                // file deletion above succeeded (the timeline is useless without a recompute, and recompute needs the raw files).
+                RecordingSpeakerTimelineStore.deleteFor(row.id)
             }
         } catch (e: CancellationException) {
             throw e
@@ -1444,6 +1586,8 @@ private data class RecordingRow(
     val fileSizeBytes: Long?,
     val recomputeStartedAt: LocalDateTime?,
     val egressMode: ConferenceRecordingEgressMode,
+    /** V1.9.115: the room's view frozen when the recording started. */
+    val broadcastView: ConferenceBroadcastView,
 )
 
 /** Plain data snapshot of a `conference_recording_track` row -- same "never a live ResultRow across suspension" reasoning as [RecordingRow]. */
@@ -1452,6 +1596,8 @@ private data class TrackRow(
     val egressId: String,
     val livekitTrackId: String,
     val egressKind: ConferenceRecordingEgressMode,
+    /** V1.9.115: only used to group a person's tracks; never logged, never stored anywhere but the track row itself. */
+    val participantIdentity: String,
     val status: ConferenceRecordingTrackStatus,
     val trackSource: ConferenceRecordingTrackSource,
     val fileName: String?,
@@ -1476,6 +1622,7 @@ private fun ResultRow.toRecordingRow() =
         fileSizeBytes = this[ConferenceRecordingTable.fileSizeBytes],
         recomputeStartedAt = this[ConferenceRecordingTable.recomputeStartedAt],
         egressMode = this[ConferenceRecordingTable.egressMode],
+        broadcastView = this[ConferenceRecordingTable.broadcastView],
     )
 
 private fun ResultRow.toTrackRow() =
@@ -1484,6 +1631,7 @@ private fun ResultRow.toTrackRow() =
         egressId = this[ConferenceRecordingTrackTable.egressId],
         livekitTrackId = this[ConferenceRecordingTrackTable.livekitTrackId],
         egressKind = this[ConferenceRecordingTrackTable.egressKind],
+        participantIdentity = this[ConferenceRecordingTrackTable.participantIdentity],
         status = this[ConferenceRecordingTrackTable.status],
         trackSource = this[ConferenceRecordingTrackTable.trackSource],
         fileName = this[ConferenceRecordingTrackTable.fileName],

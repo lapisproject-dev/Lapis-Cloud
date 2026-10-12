@@ -21735,3 +21735,91 @@ msgstr ""
 
 msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
 msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Vorherige Seite"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Nächste Seite"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Vorherige Kacheln"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Weitere Kacheln"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "%1 anheften"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "%1 lösen"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Seite %1 von %2"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Vorherige Seite, dort spricht gerade jemand (Seite %1)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Nächste Seite, dort spricht gerade jemand (Seite %1)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Sprecher groß"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Person anheften"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Bildschirmfreigabe groß"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Ansicht"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Niemand teilt gerade den Bildschirm"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Ansicht (aktuell: %1)"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Ansicht: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Ansicht: %1."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Die angeheftete Person hat den Raum verlassen. Ansicht: Sprecher groß."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Es ist niemand sonst im Raum, den Sie anheften könnten."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Raster"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Ansicht bei Aufzeichnung und Stream"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceViewStage.kt:1
+msgid "Gilt ab der nächsten Aufzeichnung bzw. dem nächsten Streamstart. Eine Bildschirmfreigabe wird immer groß gezeigt."
+msgstr ""

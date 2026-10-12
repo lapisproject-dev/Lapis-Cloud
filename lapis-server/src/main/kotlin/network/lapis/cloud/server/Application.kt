@@ -67,6 +67,7 @@ import network.lapis.cloud.server.conference.ConferenceWhiteboardState
 import network.lapis.cloud.server.conference.DefaultSecretBallotStreamGuard
 import network.lapis.cloud.server.conference.FfmpegBlankVideoDetector
 import network.lapis.cloud.server.conference.FfmpegSegmentedComposer
+import network.lapis.cloud.server.conference.FfmpegSpeechActivityAnalyzer
 import network.lapis.cloud.server.conference.FfprobeMediaProber
 import network.lapis.cloud.server.conference.HttpLiveKitAdminClient
 import network.lapis.cloud.server.conference.HttpLiveKitEgressClient
@@ -1012,6 +1013,7 @@ internal fun Application.module(
     val conferenceMuteOneRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
     val conferenceRequestUnmuteRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 30.seconds)
     val conferencePolicyRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 5.seconds)
+    val conferenceBroadcastViewRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 2.seconds)
     val conferenceMutePreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
 
     // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- same "constructed here, NOT left to the
@@ -1145,6 +1147,12 @@ internal fun Application.module(
             prober = recordingMediaProber,
             // V1.9.110: finds the camera-off stretches (black pictures) of per-person files; only used in the opt-in participant mode.
             blankDetector = FfmpegBlankVideoDetector(ffmpegPath = conferenceRecordingConfig.ffmpegPath),
+            // V1.9.115: loudness of the microphones for the speaker timeline (only used for recordings with the "speaker large" view).
+            speechAnalyzer =
+                FfmpegSpeechActivityAnalyzer(
+                    ffmpegPath = conferenceRecordingConfig.ffmpegPath,
+                    timeoutSeconds = (conferenceRecordingConfig.composeTimeoutMinutes * 60L).coerceIn(60L, 1800L),
+                ),
         )
     if (conferenceRecordingConfig.enabled) {
         // V1.9.110: the mode (track/participant) is the one setting an operator must be able to read off the log (staging runbook);
@@ -2248,6 +2256,7 @@ internal fun Application.module(
                 muteOneRateLimiter = conferenceMuteOneRateLimiter,
                 requestUnmuteRateLimiter = conferenceRequestUnmuteRateLimiter,
                 policyRateLimiter = conferencePolicyRateLimiter,
+                broadcastViewRateLimiter = conferenceBroadcastViewRateLimiter,
                 previewRateLimiter = conferenceMutePreviewRateLimiter,
             )
         }

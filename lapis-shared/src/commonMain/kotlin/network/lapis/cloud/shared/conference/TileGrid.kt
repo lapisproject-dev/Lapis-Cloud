@@ -241,3 +241,44 @@ fun <T> assignSlots(
     }
     return result
 }
+
+// -- V1.9.115: the "speaker large" layout of the recording ---------------------------------------------------------------------------
+
+/** The large tile takes this fraction of the canvas height; the rest is the strip below. At 1280x720: 576 + 144. */
+const val SPEAKER_MAIN_FRACTION = 0.8
+
+/**
+ * The rectangles of the "speaker large" layout on a [canvasW] x [canvasH] canvas: one large 16:9 tile on top (80 % of the height,
+ * centred horizontally) and [stripCount] smaller 16:9 tiles in a row below it (centred, as large as the strip band allows). At 1280x720
+ * that is a 1024x576 tile at x = 128 and tiles of 256x144 in the strip. With [stripCount] 0 the large tile fills the canvas as a
+ * single grid cell would. All coordinates and sizes are even (yuv420p). Total for any input.
+ */
+fun speakerLayoutRects(
+    canvasW: Int,
+    canvasH: Int,
+    stripCount: Int,
+): Pair<CellRect, List<CellRect>> {
+    if (canvasW <= 0 || canvasH <= 0) return CellRect(x = 0, y = 0, width = 2, height = 2) to emptyList()
+    if (stripCount <= 0) {
+        return (
+            gridCellRects(count = 1, canvasW = canvasW, canvasH = canvasH, shape = GridShape(cols = 1, rows = 1)).firstOrNull()
+                ?: CellRect(x = 0, y = 0, width = 2, height = 2)
+        ) to
+            emptyList()
+    }
+    var mainH = ((canvasH * SPEAKER_MAIN_FRACTION).roundToInt()).floorToEven().coerceAtLeast(2)
+    var mainW = (mainH * 16 / 9).floorToEven().coerceAtLeast(2)
+    if (mainW > canvasW) {
+        mainW = canvasW.floorToEven().coerceAtLeast(2)
+        mainH = (mainW * 9 / 16).floorToEven().coerceAtLeast(2)
+    }
+    val stripBand = (canvasH - mainH).floorToEven().coerceAtLeast(2)
+    var tileW = (stripBand * 16 / 9).floorToEven().coerceAtLeast(2)
+    if (tileW * stripCount > canvasW) tileW = (canvasW / stripCount).floorToEven().coerceAtLeast(2)
+    val tileH = (tileW * 9 / 16).floorToEven().coerceAtLeast(2).coerceAtMost(stripBand)
+    val main = CellRect(x = ((canvasW - mainW) / 2).floorToEven(), y = 0, width = mainW, height = mainH)
+    val rowLeft = ((canvasW - tileW * stripCount) / 2).floorToEven()
+    val rowTop = (mainH + (stripBand - tileH) / 2).floorToEven()
+    val strip = (0 until stripCount).map { CellRect(x = rowLeft + it * tileW, y = rowTop, width = tileW, height = tileH) }
+    return main to strip
+}

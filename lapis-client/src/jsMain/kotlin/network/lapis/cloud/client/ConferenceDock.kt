@@ -212,6 +212,9 @@ internal interface DockableSession {
 
     /** V1.9.71: the pictures the floating window may lend (default: none, so a fake session in a test needs no change). */
     fun floatMedia(): List<FloatMediaSource> = emptyList()
+
+    /** V1.9.115: the `key` of the source the active view makes the big picture (`null` in the gallery: the floating window's own speaker rule applies). */
+    fun floatPreferredKey(): String? = null
 }
 
 /** What microphone and camera were wanted when the connection ended: an automatic re-entry must not switch on what the person had switched off. */

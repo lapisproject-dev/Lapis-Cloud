@@ -25,12 +25,15 @@ import kotlinx.datetime.LocalDate
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.ConferenceRecordingConfig
+import network.lapis.cloud.server.conference.RecordingSpeakerTimelineStore
+import network.lapis.cloud.server.conference.StoredSpeakerSpan
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
+import network.lapis.cloud.server.db.generated.ConferenceRecordingSpeakerSpanTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
@@ -42,6 +45,7 @@ import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.ConferenceRecordingAvailabilityDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode
@@ -1360,6 +1364,83 @@ class ConferenceRecordingServiceTest :
                 client
                     .post("/test/stop-recording?recordingId=$stoppable") { header("X-Member-Id", creator.toString()) }
                     .status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        // -- V1.9.115: the view frozen at the start, the speaker timeline goes with the recording -----------------------------------
+
+        test(
+            "startRecording (V1.9.115): the room's broadcast view is frozen on the recording, a later change of the room does not touch it",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceRecordingExceptionHandlers() }
+                    routing { registerConferenceRecordingTestRoutes() }
+                }
+                val creator = createTestMember("rec-view-freeze@example.org")
+                val roomId = createTestRoom(creator, "Ansicht-Test")
+                transaction {
+                    ConferenceRoomTable.update({ ConferenceRoomTable.id eq roomId }) { it[broadcastView] = ConferenceBroadcastView.SPEAKER }
+                }
+                val response =
+                    client.post("/test/start-recording?roomId=$roomId&accessLevel=BOARD_ONLY") { header("X-Member-Id", creator.toString()) }
+                response.status shouldBe HttpStatusCode.OK
+                val id = Uuid.parse(response.bodyAsText().toDto().id)
+
+                fun frozen() =
+                    transaction {
+                        ConferenceRecordingTable
+                            .selectAll()
+                            .where {
+                                ConferenceRecordingTable.id eq id
+                            }.single()[ConferenceRecordingTable.broadcastView]
+                    }
+                frozen() shouldBe ConferenceBroadcastView.SPEAKER
+                // the moderator switches the room back afterwards: the running recording keeps SPEAKER
+                transaction {
+                    ConferenceRoomTable.update({ ConferenceRoomTable.id eq roomId }) { it[broadcastView] = ConferenceBroadcastView.RASTER }
+                }
+                frozen() shouldBe ConferenceBroadcastView.SPEAKER
+
+                // a default room freezes RASTER
+                val plain = createTestRoom(creator, "Ansicht-Test Raster")
+                val second =
+                    client.post("/test/start-recording?roomId=$plain&accessLevel=BOARD_ONLY") { header("X-Member-Id", creator.toString()) }
+                val secondId = Uuid.parse(second.bodyAsText().toDto().id)
+                transaction {
+                    ConferenceRecordingTable
+                        .selectAll()
+                        .where { ConferenceRecordingTable.id eq secondId }
+                        .single()[ConferenceRecordingTable.broadcastView]
+                } shouldBe ConferenceBroadcastView.RASTER
+            }
+        }
+
+        test("deleteRecording (V1.9.115): the speaker timeline is deleted with the recording") {
+            testApplication {
+                application {
+                    install(StatusPages) { installConferenceRecordingExceptionHandlers() }
+                    routing { registerConferenceRecordingTestRoutes() }
+                }
+                val creator = createTestMember("rec-delete-timeline@example.org")
+                val roomId = createTestRoom(creator, "Sitzung")
+                val recordingId = seedRecording(roomId = roomId, startedByMemberId = creator, status = ConferenceRecordingStatus.FAILED)
+                val trackId = seedTrack(recordingId)
+                RecordingSpeakerTimelineStore.replace(
+                    recordingId = recordingId,
+                    spans = listOf(StoredSpeakerSpan(trackId = trackId, startMs = 0, endMs = 5_000)),
+                )
+                RecordingSpeakerTimelineStore.load(recordingId)!!.size shouldBe 1
+
+                client.post("/test/delete-recording?recordingId=$recordingId") { header("X-Member-Id", creator.toString()) }.status shouldBe
+                    HttpStatusCode.OK
+                recordingExists(recordingId) shouldBe false
+                transaction {
+                    ConferenceRecordingSpeakerSpanTable
+                        .selectAll()
+                        .where { ConferenceRecordingSpeakerSpanTable.recordingId eq recordingId }
+                        .count()
+                } shouldBe 0L
             }
         }
     })

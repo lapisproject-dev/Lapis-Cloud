@@ -3,6 +3,7 @@ package network.lapis.cloud.server.conference
 import network.lapis.cloud.shared.conference.CellRect
 import network.lapis.cloud.shared.conference.gridCellRects
 import network.lapis.cloud.shared.conference.singleRowGrid
+import network.lapis.cloud.shared.conference.speakerLayoutRects
 import java.util.Locale
 import kotlin.math.roundToLong
 
@@ -76,7 +77,8 @@ object AudioTempo {
  *
  * A black `color` source of exactly the segment's frames is the base; every visible track is seeked (`-ss` BEFORE `-i`, on a remuxed
  * file with an index), put on a constant frame rate, scaled into its cell and overlaid. The placement of the cells is the shared
- * layout ([gridCellRects], the presentation layout puts the screen share above a row of cameras). Every segment is encoded with the
+ * layout ([gridCellRects], the presentation layout puts the screen share above a row of cameras; the speaker layout of V1.9.115 puts one
+ * person large above a strip of up to five, [speakerLayoutRects]). Every segment is encoded with the
  * same parameters, closed GOPs and NO B-frames (`-bf 0`): that makes a lossless join of the segments free of DTS overlaps. The segments are
  * MP4 files, not MPEG-TS: `ffprobe` (and with it the `concat` demuxer) cannot open a two or three frame MPEG-TS written by x264 ("End of
  * file" -- found by the sync test with a 2-frame first segment), an MP4 of any length is fine, and its 1/15360 time scale represents 30 fps
@@ -106,6 +108,13 @@ object SegmentArgumentBuilder {
         canvas: RecordingCanvas,
     ): Map<String, CellRect> {
         val result = LinkedHashMap<String, CellRect>()
+        if (seg.speakerTrackId != null) {
+            // V1.9.115: the speaker large on top (80 % of the height), a strip of up to five pictures below it.
+            val (main, strip) = speakerLayoutRects(canvasW = canvas.width, canvasH = canvas.height, stripCount = seg.stripTrackIds.size)
+            result[seg.speakerTrackId] = main
+            seg.stripTrackIds.forEachIndexed { index, id -> result[id] = strip[index] }
+            return result
+        }
         val cameraIds =
             seg.cameraSlots.entries
                 .sortedBy { it.value }

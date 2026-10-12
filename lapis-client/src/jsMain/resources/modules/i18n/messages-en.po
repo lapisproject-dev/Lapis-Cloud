@@ -22637,3 +22637,69 @@ msgstr "Not available – this browser does not support WebAssembly. The browser
 
 msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
 msgstr "Not available – noise suppression could not be loaded. The browser's own noise reduction is used."
+
+msgid "Vorherige Seite"
+msgstr "Previous page"
+
+msgid "Nächste Seite"
+msgstr "Next page"
+
+msgid "Vorherige Kacheln"
+msgstr "Previous tiles"
+
+msgid "Weitere Kacheln"
+msgstr "More tiles"
+
+msgid "%1 anheften"
+msgstr "Pin %1"
+
+msgid "%1 lösen"
+msgstr "Unpin %1"
+
+msgid "Seite %1 von %2"
+msgstr "Page %1 of %2"
+
+msgid "Vorherige Seite, dort spricht gerade jemand (Seite %1)"
+msgstr "Previous page, somebody is speaking there (page %1)"
+
+msgid "Nächste Seite, dort spricht gerade jemand (Seite %1)"
+msgstr "Next page, somebody is speaking there (page %1)"
+
+msgid "Sprecher groß"
+msgstr "Speaker large"
+
+msgid "Person anheften"
+msgstr "Pin a person"
+
+msgid "Bildschirmfreigabe groß"
+msgstr "Shared screen large"
+
+msgid "Ansicht"
+msgstr "View"
+
+msgid "Niemand teilt gerade den Bildschirm"
+msgstr "Nobody is sharing their screen right now"
+
+msgid "Ansicht (aktuell: %1)"
+msgstr "View (current: %1)"
+
+msgid "Ansicht: %1"
+msgstr "View: %1"
+
+msgid "Ansicht: %1."
+msgstr "View: %1."
+
+msgid "Die angeheftete Person hat den Raum verlassen. Ansicht: Sprecher groß."
+msgstr "The pinned person has left the room. View: speaker large."
+
+msgid "Es ist niemand sonst im Raum, den Sie anheften könnten."
+msgstr "Nobody else is in the room to pin."
+
+msgid "Raster"
+msgstr "Grid"
+
+msgid "Ansicht bei Aufzeichnung und Stream"
+msgstr "View for recording and stream"
+
+msgid "Gilt ab der nächsten Aufzeichnung bzw. dem nächsten Streamstart. Eine Bildschirmfreigabe wird immer groß gezeigt."
+msgstr "Applies from the next recording or stream start. A shared screen is always shown large."

@@ -22690,3 +22690,69 @@ msgstr "Niedostępne – ta przeglądarka nie obsługuje WebAssembly. Używane j
 
 msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
 msgstr "Niedostępne – nie udało się załadować tłumienia szumów. Używane jest redukowanie szumów przeglądarki."
+
+msgid "Vorherige Seite"
+msgstr "Poprzednia strona"
+
+msgid "Nächste Seite"
+msgstr "Następna strona"
+
+msgid "Vorherige Kacheln"
+msgstr "Poprzednie kafelki"
+
+msgid "Weitere Kacheln"
+msgstr "Więcej kafelków"
+
+msgid "%1 anheften"
+msgstr "Przypnij: %1"
+
+msgid "%1 lösen"
+msgstr "Odepnij: %1"
+
+msgid "Seite %1 von %2"
+msgstr "Strona %1 z %2"
+
+msgid "Vorherige Seite, dort spricht gerade jemand (Seite %1)"
+msgstr "Poprzednia strona, ktoś tam mówi (strona %1)"
+
+msgid "Nächste Seite, dort spricht gerade jemand (Seite %1)"
+msgstr "Następna strona, ktoś tam mówi (strona %1)"
+
+msgid "Sprecher groß"
+msgstr "Mówca duży"
+
+msgid "Person anheften"
+msgstr "Przypnij osobę"
+
+msgid "Bildschirmfreigabe groß"
+msgstr "Udostępniony ekran duży"
+
+msgid "Ansicht"
+msgstr "Widok"
+
+msgid "Niemand teilt gerade den Bildschirm"
+msgstr "Nikt nie udostępnia teraz ekranu"
+
+msgid "Ansicht (aktuell: %1)"
+msgstr "Widok (aktualny: %1)"
+
+msgid "Ansicht: %1"
+msgstr "Widok: %1"
+
+msgid "Ansicht: %1."
+msgstr "Widok: %1."
+
+msgid "Die angeheftete Person hat den Raum verlassen. Ansicht: Sprecher groß."
+msgstr "Przypięta osoba opuściła pokój. Widok: mówca duży."
+
+msgid "Es ist niemand sonst im Raum, den Sie anheften könnten."
+msgstr "W pokoju nie ma nikogo innego do przypięcia."
+
+msgid "Raster"
+msgstr "Siatka"
+
+msgid "Ansicht bei Aufzeichnung und Stream"
+msgstr "Widok nagrania i transmisji"
+
+msgid "Gilt ab der nächsten Aufzeichnung bzw. dem nächsten Streamstart. Eine Bildschirmfreigabe wird immer groß gezeigt."
+msgstr "Obowiązuje od następnego nagrania lub rozpoczęcia transmisji. Udostępniony ekran jest zawsze wyświetlany w dużym rozmiarze."

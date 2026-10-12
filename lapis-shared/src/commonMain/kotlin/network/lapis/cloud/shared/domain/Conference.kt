@@ -17,6 +17,14 @@ import kotlinx.serialization.Serializable
 enum class ConferenceRole { MODERATOR, PARTICIPANT }
 
 /**
+ * V1.9.115 -- how a recording (and a stream, as a pre-selection of the start dialog) shows the people of a room: [RASTER] is the tile
+ * grid, [SPEAKER] one large tile for the current speaker with a filmstrip of up to five more. A screen share is always shown large.
+ * The order of the constants is load-bearing (stored by name, but a tripwire pins the set).
+ */
+@Serializable
+enum class ConferenceBroadcastView { RASTER, SPEAKER }
+
+/**
  * Role: MEMBER+, caller must be [MemberStatus.ACTIVE]. Both fields are validated server-side
  * ([title] non-blank, at most 200 characters; [description] at most 1000 characters) -- see
  * [network.lapis.cloud.shared.rpc.IConferenceService.createRoom] KDoc. Wave 1's UI never surfaces
@@ -90,6 +98,8 @@ data class ConferenceRoomDto(
     val muteOnJoin: Boolean = false,
     /** V1.9.108 -- see [ConferenceRoomInput.participantsMayUnmute]. */
     val participantsMayUnmute: Boolean = true,
+    /** V1.9.115 -- see [ConferenceBroadcastView]. Appended last with a default so an older client/server pairing stays wire compatible. */
+    val broadcastView: ConferenceBroadcastView = ConferenceBroadcastView.RASTER,
 )
 
 /**

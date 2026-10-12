@@ -22576,3 +22576,69 @@ msgstr "No disponible – este navegador no admite WebAssembly. Se usa la reducc
 
 msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
 msgstr "No disponible – no se pudo cargar la supresión de ruido. Se usa la reducción de ruido del navegador."
+
+msgid "Vorherige Seite"
+msgstr "Página anterior"
+
+msgid "Nächste Seite"
+msgstr "Página siguiente"
+
+msgid "Vorherige Kacheln"
+msgstr "Mosaicos anteriores"
+
+msgid "Weitere Kacheln"
+msgstr "Más mosaicos"
+
+msgid "%1 anheften"
+msgstr "Fijar a %1"
+
+msgid "%1 lösen"
+msgstr "Soltar a %1"
+
+msgid "Seite %1 von %2"
+msgstr "Página %1 de %2"
+
+msgid "Vorherige Seite, dort spricht gerade jemand (Seite %1)"
+msgstr "Página anterior, allí habla alguien (página %1)"
+
+msgid "Nächste Seite, dort spricht gerade jemand (Seite %1)"
+msgstr "Página siguiente, allí habla alguien (página %1)"
+
+msgid "Sprecher groß"
+msgstr "Orador grande"
+
+msgid "Person anheften"
+msgstr "Fijar a una persona"
+
+msgid "Bildschirmfreigabe groß"
+msgstr "Pantalla compartida grande"
+
+msgid "Ansicht"
+msgstr "Vista"
+
+msgid "Niemand teilt gerade den Bildschirm"
+msgstr "Nadie está compartiendo la pantalla ahora"
+
+msgid "Ansicht (aktuell: %1)"
+msgstr "Vista (actual: %1)"
+
+msgid "Ansicht: %1"
+msgstr "Vista: %1"
+
+msgid "Ansicht: %1."
+msgstr "Vista: %1."
+
+msgid "Die angeheftete Person hat den Raum verlassen. Ansicht: Sprecher groß."
+msgstr "La persona fijada ha salido de la sala. Vista: orador grande."
+
+msgid "Es ist niemand sonst im Raum, den Sie anheften könnten."
+msgstr "No hay nadie más en la sala a quien fijar."
+
+msgid "Raster"
+msgstr "Cuadrícula"
+
+msgid "Ansicht bei Aufzeichnung und Stream"
+msgstr "Vista para grabación y transmisión"
+
+msgid "Gilt ab der nächsten Aufzeichnung bzw. dem nächsten Streamstart. Eine Bildschirmfreigabe wird immer groß gezeigt."
+msgstr "Se aplica a partir de la próxima grabación o del próximo inicio de transmisión. Una pantalla compartida siempre se muestra en grande."

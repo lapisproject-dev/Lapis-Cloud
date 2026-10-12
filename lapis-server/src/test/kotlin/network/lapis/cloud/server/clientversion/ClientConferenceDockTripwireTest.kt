@@ -309,13 +309,22 @@ class ClientConferenceDockTripwireTest :
             )) {
                 withClue(forbidden) { apply shouldNotContain forbidden }
             }
-            val written = Regex("""setProperty\("([^"]+)"""").findAll(apply).map { it.groupValues[1] }.toSet()
+            // V1.9.115: the variables are written through the local `setVar(element, "--name", value)` helper, the rail inset by
+            // `writeRailInset`; both are pinned here so the set of written properties stays closed
+            val written =
+                (
+                    Regex("""setProperty\("([^"]+)"""").findAll(apply).map { it.groupValues[1] } +
+                        Regex("""setVar\([^,]+,\s*"([^"]+)"""").findAll(apply).map { it.groupValues[1] }
+                ).toSet()
             withClue("the only properties the function writes") {
-                written shouldBe setOf("--lapis-rail-inset", "--lapis-tile-w", "--lapis-tile-h", "--lapis-tiles-max-w", "min-height")
+                written shouldBe setOf("--lapis-tile-w", "--lapis-tile-h", "--lapis-tiles-max-w", "min-height")
             }
+            val railInset = screen.between(start = "fun writeRailInset(", end = "fun measureTileAreaWidth(")
+            Regex("""setProperty\("([^"]+)"""").findAll(railInset).map { it.groupValues[1] }.toSet() shouldBe setOf("--lapis-rail-inset")
+            apply shouldContain "writeRailInset("
             apply shouldContain "computeConferenceTileGrid("
             apply shouldContain "conferenceTileAreaHeight("
-            apply shouldContain "conferenceRailInset("
+            railInset shouldContain "conferenceRailInset("
             withClue("no name or identity reaches a CSS variable: the values are formatted numbers") {
                 apply shouldNotContain "displayName"
                 apply shouldNotContain "identity"
@@ -352,14 +361,14 @@ class ClientConferenceDockTripwireTest :
             val schedule = screen.between(start = "fun scheduleTileGrid(", end = "val tileGridObserver")
             schedule shouldContain "requestAnimationFrame"
             schedule shouldContain "tileGridFramePending"
-            val dispose = screen.between(start = "fun disposeTileGrid(", end = "val stageDiv =")
+            val dispose = screen.between(start = "fun disposeTileGrid(", end = "val gridDiv =")
             dispose shouldContain "tileGridObserver.disconnect()"
             Regex("""removeEventListener""").findAll(dispose).count() shouldBe 3
             screen.between(start = "fun cleanupFullscreen()", end = "fun refreshRoster()") shouldContain "disposeTileGrid()"
             withClue("the observer is re-attached to a replaced container in the same task as the adoption") {
                 screen.between(
                     start = "conferenceAdoptChildren(oldRoot = previousRoot, newRoot = root)",
-                    end = "val priority = document.createElement",
+                    end = "viewContainers =",
                 ) shouldContain
                     "tileGridObserver.observe(root)"
             }

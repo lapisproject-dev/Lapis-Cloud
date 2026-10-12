@@ -295,7 +295,7 @@ is in the current set, or left it less than `CONFERENCE_SPEAKING_MARK_WINDOW_MS`
 beat only lets them expire.
 
 *Independent of D3 and of the floating window's choice.* `SpeakingMarkState` is its own object; it neither reads nor writes the `lastSpokeAtMs`
-map that drives the grid reflow (D3) and never calls `applyConferenceGridReflow`. `FloatMediaSource.speakingMarked` is display only:
+map that drives the view reflow (D3; since V1.9.115 the layout of the views, see link:conference-views.adoc[conference-views.adoc]) and never calls `applyConferenceGridReflow`. The floating window follows the large tile of the active view (`DockableSession.floatPreferredKey`, `floatSelectionOf(..., preferredKey)`): in the speaker, pinned and share views the preferred source is its big picture, in the gallery its own speaker rule applies; the own picture is never preferred. `FloatMediaSource.speakingMarked` is display only:
 `FloatSourceInfo` and `floatSelectionOf` do not see it, so the mark cannot change which picture is the big one. The floating window gets
 its marks from `ConferenceFloatController.refreshSpeakingMarks()` (only classes and display values; the one-second tick is too coarse for
 "at once" and `renderFloat` is not needed).
@@ -453,11 +453,11 @@ In full screen with a visible rail panel (roster, chat or voting, from 768 px) `
 *What is written.* Only numbers, as CSS variables on existing elements: `--lapis-tile-w`, `--lapis-tile-h`, `--lapis-tiles-max-w` (the zone's cap, which
 keeps the computed column count even when more tiles would fit a row) and `--lapis-rail-inset`; plus `min-height` of the area while `scrolls`, and
 the class `lapis-conference-tile--small` (below 220 px: only the symbol of the speaker badge, shorter name). No node is created, moved or removed
-(V1.4.19: a `<video>` outside the document pauses) and the speaking mark is never touched. The priority zone is a centred wrapping flex row, so the
-last row sits in the middle. Filmstrip tiles keep their own fixed 146 x 82 px.
+(V1.4.19: a `<video>` outside the document pauses) and the speaking mark is never touched. The gallery is a centred wrapping flex row, so the
+last row sits in the middle. V1.9.115: with a large tile (speaker, pinned, share view) it also writes the size of the large tile (16:9, or the whole box for a shared screen) on the large-tile container and the thumbnail size (112 px, 54 px below 600 px wide, 16:9) on the strip; the gallery's grid is the one of the current page only. The rail inset is written by `writeRailInset`, the written properties are pinned by `ClientConferenceDockTripwireTest`.
 
 *Triggers.* A `ResizeObserver` on the area and the stage (re-attached in the same task when a re-render replaces the container), `window` and
-`visualViewport` resize, the narrow-viewport media query, `applyPanelVisibility`, the end of the D3 reflow (once; the grid never calls the reflow, so
+`visualViewport` resize, the narrow-viewport media query, `applyPanelVisibility`, the end of the view reflow (once; the grid never calls the reflow, so
 there is no loop) and the 2 s sweep as a safety net. Resize events are coalesced to one computation per animation frame, and inputs that differ by
 at most 2 px are skipped (a page scrollbar appearing changes the width by about 15 px, which hysteresis absorbs). `cleanupFullscreen` (every way out
 of a call) disconnects the observer and removes the three listeners.
@@ -497,7 +497,7 @@ focus and speaking mark kept, small tiles, floor, no motion, padding, wide root,
 * **Tile grid (V1.9.92).** Not tried in a real call at 25 participants, on real phones or in Safari; Karma checks the arithmetic, the CSS and that no
   node moves, not the whole call screen. 16:9 is forced even on a phone held upright. Bottom sheets below 768 px still cover the tiles instead of
   displacing them, and in the normal view the side panels still sit below them. Below a 160 px tile the page scrolls. There is no pinned main tile
-  (the screen-share stage stays above the grid; the grid uses the height below it). The help page `video-conferencing` is updated at rollout.
+  (until V1.9.114 the screen-share stage stayed above the grid; since V1.9.115 the share is a tile of the view logic, see conference-views.adoc). The help page `video-conferencing` is updated at rollout.
 
 == See also
 

@@ -5,6 +5,7 @@ package network.lapis.cloud.server.db.generated
 
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode
 import network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
@@ -39,6 +40,13 @@ public object ConferenceRecordingTable : Table("conference_recording") {
         enumerationByName<ConferenceRecordingFailureCode>("last_recompute_failure_code", 32).nullable()
     public val egressMode: Column<ConferenceRecordingEgressMode> =
         enumerationByName<ConferenceRecordingEgressMode>("egress_mode", 11).default(ConferenceRecordingEgressMode.TRACK)
+
+    /** V1.9.115 -- V94. The room's view FROZEN at the start of the recording. */
+    public val broadcastView: Column<ConferenceBroadcastView> =
+        enumerationByName<ConferenceBroadcastView>("broadcast_view", 7).default(ConferenceBroadcastView.RASTER)
+
+    /** V1.9.115 -- V94. `true` iff `conference_recording_speaker_span` holds the speaker timeline of this recording. */
+    public val speakerTimelineComputed: Column<Boolean> = bool("speaker_timeline_computed").default(false)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

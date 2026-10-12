@@ -1,4 +1,4 @@
-= Conference recording: composition, layout, sync, repair, recompute and per-person egress (V1.9.107, V1.9.109, V1.9.110)
+= Conference recording: composition, layout, sync, repair, recompute, per-person egress and the speaker view (V1.9.107, V1.9.109, V1.9.110, V1.9.115)
 :toc:
 
 NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs` Gradle task.
@@ -97,7 +97,45 @@ and 4x3 / 3x4 are equal; the live view with its 8 px gap is not affected, `TileG
 At 1920 x 1080: 1 person 1x1, 2 people 2x1, 3-4 people 2x2, 5-6 people 3x2, 7-9 people 3x3, 10-12 people 4x3, 13-16 people 4x4.
 
 `gridCellRects` places the cells (gap 0, the largest 16:9 cell that fits, even sizes for yuv420p, the block centred, an incomplete last row centred on its own); `assignSlots` keeps a picture in its slot while the shape stays the same
-(a new picture takes the lowest free slot, a changed shape redistributes in first-seen order). With a screen share the earliest share is shown large in the upper 72 % of the canvas and the other visible tracks in one row below it (`singleRowGrid`).
+(a new picture takes the lowest free slot, a changed shape redistributes in first-seen order). With a screen share the share that started LAST (V1.9.115; before: the earliest one -- the rule of the live view) is shown large in the upper 72 % of the canvas and the other visible tracks in one row below it (`singleRowGrid`).
+
+== Layouts: grid, speaker large, screen share (V1.9.115)
+
+A moderator chooses in the "Moderation" disclosure of a running call how recordings (and the pre-selection of the stream dialog) show the room: *Raster* (`RASTER`, the grid above, the default) or *Sprecher groß* (`SPEAKER`).
+The setting is stored on the room (`conference_room.broadcast_view`, `IConferenceModerationService.setRoomBroadcastView`, same authority and the same single `ForbiddenException` for every refusal as the audio policy, no LiveKit call, audit entry with metadata only) and applies from the NEXT recording. **When a recording starts the room's setting is frozen on the recording** (`conference_recording.broadcast_view`, written in the transaction that holds the room row lock): a later change of the room does not touch a running recording, a recompute uses the frozen view, and the notice banner names it ("... aufgezeichnet. Ansicht: Raster." / "Ansicht: Sprecher groß.").
+
+*Speaker large* on the 1280 x 720 canvas: the speaker's picture 1024 x 576 on top (80 % of the height, centred), below it a strip of up to five thumbnails of 256 x 144 (`speakerLayoutRects`, all coordinates even for yuv420p, `lapis-shared`). The output resolution did not change (720p). The strip holds the most recent speakers whose picture is visible (newest first), then the others by first appearance; with more than six visible people the layout cannot show everybody.
+Per segment (`RecordingEditDecisionList.build(..., layout, speakerSpans)`): a visible screen share always wins (the share that started last is large, the layout above); otherwise the speaker of the span that covers the middle of the segment is large if that person has a visible picture, else the grid is shown (before the first span, a speaker without a camera picture, fewer than two pictures). The boundaries of the speaker spans are cut points too, so the large tile changes on an exact frame. Audio is unaffected (a complete mix).
+
+== Speaker timeline (V1.9.115)
+
+*Where it comes from.* LiveKit reports speaker changes only to the browsers (there is no webhook and no server API for it), and a report from one person's browser could be forged. The server therefore derives the timeline when the recording is composed, from the *recorded microphone audio*: one `ffmpeg` run per audio file (`FfmpegSpeechActivityAnalyzer`: `aresample=16000`, `asetnsamples` windows of 100 ms, `astats` RMS, printed with `ametadata` to stdout; stdout is read with a line and byte cap and a hard timeout, nothing of it reaches a log or an exception). `SpeechActivity.detect` calls a window speech when its level is above `max(noise floor + 15 dB, -50 dBFS)` (noise floor = the 10th percentile of the file itself); the windows are placed on the wall clock with the *same* offset and `atempo` ratio as the composer uses for the sound (`AudioWallClock`, one function used by both -- pitfall: otherwise the large tile and the voice drift apart). `RecordingSpeakerTimeline.build` samples the people on a 100 ms grid (loudest first) and runs the *same* smoothing as the live view (`smoothSpeakerTimeline`: 800 ms claim, 2 s dwell, 1.5 s gap bridging, silence holds). The recording only has data for the time it was recorded, so there is nothing to ask for "during recording only".
+In TRACK mode the audio inputs are the MICROPHONE tracks, in PARTICIPANT mode the audio stream of the person file; the sound of a screen share is not speech. Measured on this development machine (Apple silicon): 30 minutes of audio analysed in about 1.5 s per file (a synthetic tone; real speech decodes at the same speed). The analysis runs before the composition and is not part of its timeout.
+
+*Persons are opaque.* A person is identified by the id of their first track row (the first CAMERA row, else the first MICROPHONE row), never by an identity or a name. The composer, the edit decision list and the stored rows only ever see that id.
+
+*Stored once, reused.* The smoothed spans are stored in `conference_recording_speaker_span` (V94: recording, track row, `start_ms`, `end_ms`; `ON DELETE CASCADE` on both foreign keys), `conference_recording.speaker_timeline_computed` marks it. `RecordingSpeakerTimelineStore` is the only reader and writer (a tripwire pins that); a recompute reads the stored timeline and does not analyse again.
+*Failure is not failure.* If the analysis is not available or fails, that composition falls back to the plain grid and the recording still ends READY (warning with counts only).
+
+=== Privacy: speaker timeline
+
+* It is derived only from audio that was recorded, and it carries no name and no identity: only offsets and the id of a track row of this recording.
+* It lives exactly as long as the raw files: `RecordingPoller` deletes it where it deletes the raw files after a successful composition (with `LAPIS_RECORDING_KEEP_RAW=false`), `ConferenceRecordingService.deleteRecording` deletes it with the recording, and the foreign keys cascade as a second line of defence. A FAILED recording keeps its raw files and so its timeline.
+* It is exposed through no API: no DTO, no RPC, no route (`ConferenceRecordingDto` only carries the frozen `broadcastView`). A tripwire (`SpeakerTimelineAccessTripwireTest`) also fails the build if a shared DTO or RPC mentions it, if another class touches the table, or if a log line of the analysis, the timeline or the composer's speaker layout names an identity, a file name or a path.
+* It is excluded from the organization backup (`OrganizationSchemaCatalog.EXCLUDED_TABLES`), because the backup exports every table otherwise.
+* It is **not** part of the personal-data export of Art. 15 GDPR: it is short-lived, has no foreign key to a member and is deleted with the raw files. (Decision recorded here; to be confirmed with the data-protection owner.)
+
+=== Limits of the speaker timeline
+
+* *Loudness is not speech.* A cough, a bang, a loud neighbour or a person talking over a speaker without headphones counts as speech; a person whose microphone is very quiet (below -50 dBFS) never does.
+* Browser noise suppression changes the levels; the floor is measured per file, so a consistently quiet room works, a room with a fluctuating floor may not.
+* Several people speaking at once: the one holding the large tile keeps it while they speak; the loudest takes it only when nobody holds it.
+* A speaker without a camera picture shows the grid for that stretch, not the person's initials.
+* Over six visible people the strip cannot show everybody.
+
+== Streams (RTMP) -- what is and is not different
+
+Nothing changes on the server for streams: `startStream` stores the layout it is given, as before. The start dialog pre-selects `GRID` for *Raster* and `SPEAKER` for *Sprecher groß*; every layout can still be chosen. LiveKit's own template (`grid` / `speaker`) does the arrangement and the switching, **not** our 2 s smoothing; whether that template shows a shared screen large is not verified (there is no test against a real LiveKit here). There is no "pinned person with a strip" in a stream (only `SINGLE_PARTICIPANT`, one person without a strip). The setting applies from the next stream start; pausing and resuming keep the layout of the row.
 
 == Per-segment composition and A/V sync
 
@@ -299,7 +337,7 @@ All timestamps are UTC system stamps (`DbClock`, class A in `time-fields.tsv`).
 
 == DTO
 
-`ConferenceRecordingDto` gained four defaulted fields in V1.9.107 and four more in V1.9.109 (`canRecompute`, `recomputeInProgress`, `lastRecomputeFailed`, `recomputedAt`; see <<Recompute>>). The V1.9.107 fields: `failureCode`, `canRetryComposition` (the caller may press the button right now: FAILED, `COMPOSE_FAILED`, moderator, access, raw files present; the rate limits do not enter),
+`ConferenceRecordingDto` also carries `broadcastView` (V1.9.115, defaulted `RASTER`), the view frozen at the start. `ConferenceRecordingDto` gained four defaulted fields in V1.9.107 and four more in V1.9.109 (`canRecompute`, `recomputeInProgress`, `lastRecomputeFailed`, `recomputedAt`; see <<Recompute>>). The V1.9.107 fields: `failureCode`, `canRetryComposition` (the caller may press the button right now: FAILED, `COMPOSE_FAILED`, moderator, access, raw files present; the rate limits do not enter),
 `rawFilesAvailable` (only set when the caller would have the rights, so nobody else learns anything about the file system) and `compositionRetryStartedAt` (only while `PROCESSING`; the client derives its estimate from it).
 
 == Client
@@ -322,6 +360,7 @@ The segmented composition is slower than the single graph: one remux of each fil
 * *Raw files are usually gone.* `LAPIS_RECORDING_KEEP_RAW` defaults to `false`, and the poller deletes the raw tracks after a successful composition: for such recordings "Neu berechnen" is disabled (with that reason). Only instances that set `KEEP_RAW=true` can recompute.
   No retention period was added in this wave.
 * *No name tag in the recording.* The composed video shows pictures only, no participant names.
+* *Speaker view (V1.9.115):* see "Limits of the speaker timeline"; the ffmpeg chain was verified on synthetic inputs only (`RecordingSpeakerLayoutIntegrationTest`: tone-on-silence microphones, solid-colour cameras, the large tile switches within 150 ms of the second speaker's claim), not with a real meeting; the output stays 720p (the 1080p design measures are scaled).
 * *No grace period.* A camera switched off and on again within a second changes the layout twice; only a data gap of at least the probe threshold (1.0 s video, 0.5 s audio) counts as "off".
 * *`atempo` only corrects small drift* (ratio between 0.95 and 0.997 and more than one second difference); everything else is left alone.
 * *The sync proof is synthetic* (generated WebM/OGG inputs shaped like LiveKit's). The real ELB recordings were not listened to.

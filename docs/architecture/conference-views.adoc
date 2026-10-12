@@ -1,0 +1,97 @@
+= Conference views: gallery, speaker large, pinned person, screen share large (V1.9.115)
+:toc:
+
+NOTE: The `[kuml]` block of this document is rendered and validated by the `:docs-render:renderDocs` Gradle task.
+
+== Purpose
+
+A person in a video conference chooses how the room is shown to *them*: the **gallery** (paged tile grid), **speaker large** (the person who is speaking large, everybody else in a filmstrip), a **pinned person** (one chosen person large) or the **screen share large** (the shared screen large, the people in the filmstrip).
+The choice is made in a radio group "Ansicht" on the call bar (and, when the bar is too narrow, from the twin "Ansicht" in the "Mehr" sheet) and on the tiles themselves (pin toggle, tap on a filmstrip tile).
+A moderator additionally decides how *recordings and streams* show the room ("Ansicht bei Aufzeichnung und Stream": Raster or Sprecher groß); that is described in link:conference-recording.adoc[conference-recording.adoc].
+
+V1.9.115 replaced the speaking-priority reflow of V1.0 Wave 4 (D3: above 12 participants a priority zone and a compact filmstrip) by these views. A large room is now paged in the gallery instead.
+
+== The four views
+
+[cols="2,5", options="header"]
+|===
+| View | What is shown
+| Gallery (`GALLERY`) | All people in a paged tile grid: self first, the others in the order this client first saw them. Page size by the width of the video area: 25 (5 x 5) from 1024 px, 9 (3 x 3) from 600 px, 4 (2 x 2) below. The best-fit grid of V1.9.92 lays out one page. A running screen share is a tile next to its owner.
+| Speaker large (`SPEAKER`) | The person who is speaking is the large tile (16:9, as large as the free area allows), the others (self first) are 112 px (54 px below 600 px) thumbnails in a strip below. Nobody speaking yet: the first other person with a camera picture.
+| Pinned person (`PINNED`) | One person is large until the pin is lifted. The strip is ordered self, then everybody else by join order.
+| Screen share large (`SCREEN_SHARE`) | The newest running share fills the large box (the whole box, `object-fit: contain`), the people are the strip. A sharer without a camera is a tile without picture (initials) in the strip.
+|===
+
+Rules that hold in every view (all in the pure, shared `computeConferenceViewLayout`, `ConferenceViewLayoutTest`):
+
+* *One person in the room* is the large tile, in every view, without a strip.
+* *The pinned person leaves*: the view becomes "speaker large" and a polite live region says so ("Die angeheftete Person hat den Raum verlassen. Ansicht: Sprecher groß.").
+* *Nobody pins themselves.* A pin request for the own identity is refused (the own tile has no pin button).
+* *Screen share large without a share* falls back to the remembered view, or the gallery (never to itself).
+* *No automatic page jump.* The current page is only clamped when the group shrinks. If a person on another page is speaking, the arrow towards that page gets a gold ring and a longer accessible name ("Nächste Seite, dort spricht gerade jemand (Seite 3)"); the page itself never changes by itself.
+* *Strip paging.* The strip shows what fits between two 44 px arrows and pages with them; it never scrolls by itself.
+
+== Who is "the speaker": smoothing
+
+LiveKit reports the set of speakers many times per second. Showing that directly would strobe the large tile, so the large tile follows a *smoothed* speaker (`SpeakerStageSmoother`, `lapis-shared`, no clock of its own):
+
+* a candidate takes over after 800 ms of uninterrupted speech (a hole of one missed sample does not restart the claim);
+* the large tile changes at the earliest 2 s after it last changed;
+* a pause of the current speaker of up to 1.5 s is bridged (nobody else takes over inside it);
+* in silence the large tile stays where it is;
+* of several people speaking at once the loudest (LiveKit's order) is the candidate, the current speaker keeps the tile while he or she speaks.
+
+The very same code runs on the server over the recorded audio, so a recording and the live call agree on who is "the speaker" (see link:conference-recording.adoc[conference-recording.adoc], "Speaker timeline"). The old `lastSpokeAtMs` map and the V1.9.85 speaking mark are unrelated state: the mark never decides the layout, and the layout never moves a mark.
+
+== The state machine of the view
+
+[kuml, conference-view-state, svg]
+----
+stateDiagram(name = "View of a participant") {
+    val start = initialState()
+    val gallery = state(name = "Gallery")
+    val speaker = state(name = "Speaker large")
+    val pinned = state(name = "Pinned person")
+    val share = state(name = "Screen share large")
+
+    transition(source = start, target = gallery) { trigger = "joined (or the remembered view)" }
+    transition(source = gallery, target = speaker) { trigger = "chosen" }
+    transition(source = speaker, target = gallery) { trigger = "chosen" }
+    transition(source = gallery, target = pinned) { trigger = "pin toggle / tap on a strip tile" }
+    transition(source = speaker, target = pinned) { trigger = "pin toggle / tap on a strip tile" }
+    transition(source = pinned, target = speaker) { trigger = "unpin, or the pinned person leaves" }
+    transition(source = gallery, target = share) { trigger = "a share starts (remembers the view)" }
+    transition(source = speaker, target = share) { trigger = "a share starts (remembers the view)" }
+    transition(source = pinned, target = share) { trigger = "a share starts (remembers view and person)" }
+    transition(source = share, target = gallery) { trigger = "the last share ends: back to the remembered view" }
+}
+----
+
+`reduceConferenceView` (pure, `ConferenceViewStateTest`) is the one place that moves between the views. A share that starts switches the view automatically and *remembers* the view (and the pinned person) from before; when the last share ends that view is restored, also after a manual choice made during the share. Only one share is shown at a time (the most recently started one, as since Wave 1).
+
+== What is remembered
+
+Only the choice **GALLERY / SPEAKER**, per browser, in `localStorage` (key `lapis.conference.view`, `ConferenceViewStore`). A pinned view is stored as `SPEAKER`; the share view is never stored; **a person is never stored**. Every read and write is in a try/catch (private window, blocked storage): the view is then the gallery and the call works. Garbage in the storage reads as the gallery.
+
+== How it is drawn
+
+* `ConferenceViewController` (jsMain, no DOM, `ConferenceViewControllerTest`) holds the state, the smoothing, the join order, the current pages and the pending announcement.
+* `ConferenceViewStage` (DOM) creates the containers once inside the tile area: the gallery (`.lapis-conference-tiles`), the pager, the large tile (`.lapis-conference-main`), the strip row with its arrows and the parking container. `ConferenceViewStage.apply` *moves* the existing tile elements between them with `insertBefore` / `appendChild`, and only when a place really changed. A tile and the `<video>` inside it are never cloned or re-created (V1.4.19: a video that leaves the document pauses; the moves happen synchronously in one task and the `resumeStalledVideos` watchdog still runs). `ConferenceViewStageDomTest` asserts reference equality of the `<video>` elements across every switch. Tiles that are on no page rest in the parking container (`display: none`, still in the document); LiveKit's adaptive stream stops fetching pictures nobody sees.
+* The screen share is a tile of its own (`shareTile`, key `identity#screen`), no longer a separate stage element; it is placed by the same logic as a camera.
+* `applyTileGrid` only measures and writes CSS variables (`--lapis-tile-w` / `--lapis-tile-h` on the gallery, the large tile and the strip); the tripwire in `ClientConferenceDockTripwireTest` pins that it never moves a node.
+* While somebody speaks in a speaker view, a 250 ms beat re-feeds the smoothing and re-evaluates the layout; the beat stops on every leave path (through `stopSpeakingTick`).
+* The floating window of the dock follows the large tile in the speaker / pinned / share views (`floatPreferredKey`); in the gallery its own speaker rule applies.
+* Full screen uses the same view; the width of the side rail is taken from the area and decides the page size and the strip.
+
+=== Accessibility
+
+The view switcher is a `radiogroup` of four `radio` buttons (arrow keys move, Enter / Space choose, Escape closes and returns the focus to the bar button; no global shortcut). The current view carries a check mark and `aria-checked`; the screen-share radio is `aria-disabled` while nobody shares, with the visible reason "Niemand teilt gerade den Bildschirm" tied to it by `aria-describedby`. The pin toggle is a `button` with `aria-pressed` and the name "{Name} anheften" / "{Name} lösen" (set with `setAttribute`, never as markup); it is shown on hover and focus and always on a touch screen. A strip tile is activatable (`role="button"`, `tabindex="0"`, Enter / Space / tap pin that person). Page arrows have 44 x 44 px targets and `aria-disabled` at the ends. View changes that the view makes by itself (a share starts or ends, the pinned person leaves) are announced in the polite live region of the call.
+
+== Out of scope and honest limits
+
+* **Not verified in a real browser against a real LiveKit room** with several real participants: the DOM tests mount the stage and the switcher in headless Chrome with synthetic tiles. The call screen itself cannot be mounted in Karma.
+* **Only one screen share is shown** (as before); the layout functions handle several, the call does not receive more.
+* **The guest view for events (`EventGuestCallView`) and the encounter room have no switcher** and keep their own layouts.
+* The "Ansicht" twin in the "Mehr" sheet is a button that opens the same radio group as the bar button (the group itself is not duplicated into the sheet).
+* The speaker is detected from LiveKit's voice activity: a loud room noise counts as speech.
+* The gold ring on the page arrow and the pin icon were not checked with a screen reader or on a real phone; the new texts are agent translations not checked by native speakers.

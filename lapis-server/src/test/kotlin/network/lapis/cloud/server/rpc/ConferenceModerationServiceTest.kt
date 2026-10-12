@@ -41,6 +41,7 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_TOPIC
+import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.ConferenceRole
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterReactionOption
@@ -80,6 +81,7 @@ private class ModerationRig(
     val requestUnmute: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
     val policy: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
     val preview: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
+    val broadcastView: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
 )
 
 private class RoomFx(
@@ -100,6 +102,7 @@ private fun Route.registerModerationRoutes(rig: ModerationRig) {
             requestUnmuteRateLimiter = rig.requestUnmute,
             policyRateLimiter = rig.policy,
             previewRateLimiter = rig.preview,
+            broadcastViewRateLimiter = rig.broadcastView,
         )
 
     fun conference(call: io.ktor.server.application.ApplicationCall) =
@@ -135,6 +138,15 @@ private fun Route.registerModerationRoutes(rig: ModerationRig) {
                 participantsMayUnmute = q["mayUnmute"]!!.toBoolean(),
             )
         call.respondText("ok|${dto.muteOnJoin}|${dto.participantsMayUnmute}|${dto.myRole}")
+    }
+    post("/test/broadcast-view") {
+        val q = call.request.queryParameters
+        val dto =
+            service(call).setRoomBroadcastView(
+                roomId = q["room"]!!,
+                view = ConferenceBroadcastView.valueOf(q["view"]!!),
+            )
+        call.respondText("ok|${dto.broadcastView}|${dto.myRole}")
     }
     post("/test/join") {
         call.respondText(conference(call).joinRoom(roomId = call.request.queryParameters["room"]!!, guestConsent = null).token)
@@ -923,5 +935,71 @@ class ConferenceModerationServiceTest :
             val row = roomRow(room)
             row[ConferenceRoomTable.muteOnJoin] shouldBe false
             row[ConferenceRoomTable.participantsMayUnmute] shouldBe true
+        }
+
+        // -- V1.9.115: the view of recordings and streams ---------------------------------------------------------------------------
+
+        test("setRoomBroadcastView: the creator and BOARD/ADMIN may set it, the DTO and the row carry the value, no LiveKit call happens") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val board = newMember(AccountRole.BOARD)
+            val admin = newMember(AccountRole.ADMIN)
+            val room = newRoom(creator)
+            moderationApp(rig = rig) {
+                val r = room.id.toString()
+                act(path = "/test/broadcast-view", caller = creator, "room" to r, "view" to "SPEAKER") shouldBe
+                    (HttpStatusCode.OK to "ok|SPEAKER|MODERATOR")
+                roomRow(room)[ConferenceRoomTable.broadcastView] shouldBe ConferenceBroadcastView.SPEAKER
+                act(path = "/test/broadcast-view", caller = board, "room" to r, "view" to "RASTER") shouldBe
+                    (HttpStatusCode.OK to "ok|RASTER|PARTICIPANT")
+                act(path = "/test/broadcast-view", caller = admin, "room" to r, "view" to "SPEAKER").first shouldBe HttpStatusCode.OK
+                roomRow(room)[ConferenceRoomTable.broadcastView] shouldBe ConferenceBroadcastView.SPEAKER
+                rig.liveKit.permissionUpdates.shouldBeEmpty()
+                rig.liveKit.packets.shouldBeEmpty()
+            }
+        }
+
+        test(
+            "setRoomBroadcastView: every refusal is the identical Forbidden -- no authority, a guest, an unknown, an ended and an encounter room",
+        ) {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val ordinary = newMember()
+            val guest = newMember(status = MemberStatus.GUEST)
+            val room = newRoom(creator)
+            val ended = newRoom(creator, ended = true)
+            val encounter = newRoom(creator, encounter = true)
+            moderationApp(rig = rig) {
+                val denied = HttpStatusCode.Forbidden to "forbidden"
+                act(path = "/test/broadcast-view", caller = ordinary, "room" to room.id.toString(), "view" to "SPEAKER") shouldBe denied
+                act(path = "/test/broadcast-view", caller = guest, "room" to room.id.toString(), "view" to "SPEAKER") shouldBe denied
+                act(path = "/test/broadcast-view", caller = creator, "room" to Uuid.random().toString(), "view" to "SPEAKER") shouldBe
+                    denied
+                act(path = "/test/broadcast-view", caller = creator, "room" to ended.id.toString(), "view" to "SPEAKER") shouldBe denied
+                act(path = "/test/broadcast-view", caller = creator, "room" to encounter.id.toString(), "view" to "SPEAKER") shouldBe denied
+                act(path = "/test/broadcast-view", caller = creator, "room" to "not-a-uuid", "view" to "SPEAKER") shouldBe denied
+                listOf(room, ended, encounter).forEach {
+                    roomRow(it)[ConferenceRoomTable.broadcastView] shouldBe
+                        ConferenceBroadcastView.RASTER
+                }
+            }
+        }
+
+        test("setRoomBroadcastView: audit entry holds metadata only (no name), and the limiter throttles per room") {
+            val rig = ModerationRig(broadcastView = FederationInboxRateLimiter(maxRequests = 1, window = 10.minutes))
+            val creator = newMember()
+            val outsider = newMember()
+            val room = newRoom(creator)
+            moderationApp(rig = rig) {
+                val r = room.id.toString()
+                repeat(3) {
+                    act(path = "/test/broadcast-view", caller = outsider, "room" to r, "view" to "SPEAKER").first shouldBe
+                        HttpStatusCode.Forbidden
+                }
+                act(path = "/test/broadcast-view", caller = creator, "room" to r, "view" to "SPEAKER").first shouldBe HttpStatusCode.OK
+                act(path = "/test/broadcast-view", caller = creator, "room" to r, "view" to "RASTER").first shouldBe HttpStatusCode.Conflict
+                audits(room) shouldContainExactly listOf("""{"moderation":"BROADCAST_VIEW","view":"SPEAKER"}""")
+                audits(room).forEach { it shouldNotContain "Moderation Test" }
+            }
         }
     })

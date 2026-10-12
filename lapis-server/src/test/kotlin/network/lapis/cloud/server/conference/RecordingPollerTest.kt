@@ -18,6 +18,7 @@ import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.server.db.generated.ConferenceRecordingSpeakerSpanTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
@@ -26,6 +27,7 @@ import network.lapis.cloud.server.db.generated.DocumentVersionTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.routes.archiveGeneratedFile
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode
 import network.lapis.cloud.shared.domain.ConferenceRecordingFailureCode
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
@@ -328,10 +330,12 @@ class RecordingPollerTest :
             stoppedAt: LocalDateTime? = null,
             composeAttempts: Int = 0,
             egressMode: ConferenceRecordingEgressMode = ConferenceRecordingEgressMode.TRACK,
+            broadcastView: ConferenceBroadcastView = ConferenceBroadcastView.RASTER,
         ): Uuid {
             val id = Uuid.random()
             transaction {
                 ConferenceRecordingTable.insert {
+                    it[ConferenceRecordingTable.broadcastView] = broadcastView
                     it[ConferenceRecordingTable.id] = id
                     it[ConferenceRecordingTable.roomId] = roomId
                     it[ConferenceRecordingTable.startedByMemberId] = startedByMemberId
@@ -363,6 +367,7 @@ class RecordingPollerTest :
             startedAtEpochNanos: Long? = null,
             durationMs: Long? = null,
             egressKind: ConferenceRecordingEgressMode = ConferenceRecordingEgressMode.TRACK,
+            identity: String? = null,
         ): Uuid {
             val id = Uuid.random()
             transaction {
@@ -371,7 +376,7 @@ class RecordingPollerTest :
                     it[ConferenceRecordingTrackTable.recordingId] = recordingId
                     it[ConferenceRecordingTrackTable.egressId] = egressId
                     it[ConferenceRecordingTrackTable.livekitTrackId] = livekitTrackId
-                    it[participantIdentity] = "identity-$livekitTrackId"
+                    it[participantIdentity] = identity ?: "identity-$livekitTrackId"
                     it[ConferenceRecordingTrackTable.trackSource] = trackSource
                     it[ConferenceRecordingTrackTable.status] = status
                     it[ConferenceRecordingTrackTable.startedAtEpochNanos] = startedAtEpochNanos
@@ -405,6 +410,7 @@ class RecordingPollerTest :
             diskSpace: (File) -> Long = { Long.MAX_VALUE / 4 },
             egressMode: ConferenceRecordingEgressMode = ConferenceRecordingEgressMode.TRACK,
             blankDetector: RecordingBlankVideoDetector = RecordingBlankVideoDetector.None,
+            speechAnalyzer: SpeechActivityAnalyzer = SpeechActivityAnalyzer.None,
         ): RecordingPoller {
             val config =
                 ConferenceRecordingConfig.load { key ->
@@ -432,6 +438,7 @@ class RecordingPollerTest :
                 blankDetector = blankDetector,
                 clock = clock,
                 diskSpace = diskSpace,
+                speechAnalyzer = speechAnalyzer,
             )
         }
 
@@ -2581,6 +2588,303 @@ class RecordingPollerTest :
                 val row = recordingRow(recordingId)
                 row[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.FAILED
                 row[ConferenceRecordingTable.failureCode] shouldBe ConferenceRecordingFailureCode.COMPOSE_FAILED
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        // ── V1.9.115: speaker timeline ──────────────────────────────────────────
+
+        /** Two people (each with a camera and a microphone file, one identity per person), PROCESSING, the given view. */
+        fun seedTwoPeople(
+            hostRawRoot: File,
+            view: ConferenceBroadcastView,
+            composeAttempts: Int = 0,
+        ): Triple<Uuid, Pair<Uuid, Uuid>, Pair<File, File>> {
+            val member = createMember("poller-speaker-${Uuid.random()}@example.org")
+            val (roomId, _) = createRoom(member)
+            val recordingId =
+                createRecording(
+                    roomId,
+                    member,
+                    ConferenceRecordingStatus.PROCESSING,
+                    composeAttempts = composeAttempts,
+                    broadcastView = view,
+                )
+            val rawDir = hostRawRoot.resolve(recordingId.toString()).apply { mkdirs() }
+            val camA = rawDir.resolve("a__CAMERA__TR_ca.webm").apply { writeBytes(byteArrayOf(1)) }
+            val micA = rawDir.resolve("a__MICROPHONE__TR_ma.ogg").apply { writeBytes(byteArrayOf(2)) }
+            val camB = rawDir.resolve("b__CAMERA__TR_cb.webm").apply { writeBytes(byteArrayOf(3)) }
+            val micB = rawDir.resolve("b__MICROPHONE__TR_mb.ogg").apply { writeBytes(byteArrayOf(4)) }
+            val t0 = 1_000_000_000L
+
+            fun track(
+                egress: String,
+                lk: String,
+                source: ConferenceRecordingTrackSource,
+                file: File,
+                who: String,
+            ) = createTrack(
+                recordingId,
+                "$egress-$recordingId",
+                lk,
+                ConferenceRecordingTrackStatus.COMPLETE,
+                source,
+                file.name,
+                t0,
+                30_000L,
+                identity = who,
+            )
+            val camAId = track("EG_ca", "TR_ca", ConferenceRecordingTrackSource.CAMERA, camA, "person-a")
+            track("EG_ma", "TR_ma", ConferenceRecordingTrackSource.MICROPHONE, micA, "person-a")
+            val camBId = track("EG_cb", "TR_cb", ConferenceRecordingTrackSource.CAMERA, camB, "person-b")
+            track("EG_mb", "TR_mb", ConferenceRecordingTrackSource.MICROPHONE, micB, "person-b")
+            return Triple(recordingId, camAId to camBId, micA to micB)
+        }
+
+        /** Levels in a quiet room (-70 dB) with a loud stretch (-20 dB) from [from] to [to] seconds. */
+        fun levelsWithSpeech(
+            from: Double,
+            to: Double,
+        ) = AudioLevelSeries(
+            points =
+                (0 until 300).map { i ->
+                    AudioLevelPoint(
+                        timeSeconds = i * 0.1,
+                        levelDb =
+                            if (i * 0.1 >= from &&
+                                i * 0.1 < to
+                            ) {
+                                -20.0
+                            } else {
+                                -70.0
+                            },
+                    )
+                },
+            windowSeconds = 0.1,
+        )
+
+        class CountingAnalyzer(
+            private val byFile: Map<String, AudioLevelSeries?>,
+        ) : SpeechActivityAnalyzer {
+            var calls = 0
+
+            override suspend fun levels(
+                file: File,
+                windowMs: Int,
+            ): AudioLevelSeries? {
+                calls++
+                return byFile[file.name]
+            }
+        }
+
+        test(
+            "SPEAKER: the microphones are analysed once, the spec carries the speaker layout with opaque person keys, and the timeline is stored",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val (recordingId, cams, mics) = seedTwoPeople(hostRawRoot, ConferenceBroadcastView.SPEAKER)
+                val analyzer =
+                    CountingAnalyzer(
+                        mapOf(
+                            mics.first.name to levelsWithSpeech(2.0, 10.0),
+                            mics.second.name to levelsWithSpeech(14.0, 25.0),
+                        ),
+                    )
+                var captured: RecordingComposeSpec? = null
+                val composer =
+                    FakeRecordingComposer { spec, out ->
+                        captured = spec
+                        out.writeBytes(byteArrayOf(1))
+                    }
+                buildPoller(
+                    FakeLiveKitAdminClient(),
+                    FakeLiveKitEgressClient(),
+                    composer,
+                    hostRawRoot,
+                    documentStorageRoot,
+                    keepRaw = true,
+                    speechAnalyzer = analyzer,
+                ).tickAndSettle()
+
+                val spec = captured ?: error("composer was not invoked")
+                analyzer.calls shouldBe 2
+                spec.layout shouldBe RecordingLayout.SPEAKER
+                spec.videoInputs.map { it.personKey }.toSet() shouldBe setOf(cams.first.toString(), cams.second.toString())
+                spec.speakerSpans.map { it.personKey } shouldBe listOf(cams.first.toString(), cams.second.toString())
+                // no identity anywhere in what the composer is handed
+                spec.speakerSpans.forEach { (it.personKey.contains("person-")) shouldBe false }
+                // stored for a later recompute
+                val stored = RecordingSpeakerTimelineStore.load(recordingId) ?: error("not stored")
+                stored.map { it.trackId } shouldBe listOf(cams.first, cams.second)
+                recordingRow(recordingId)[ConferenceRecordingTable.speakerTimelineComputed] shouldBe true
+                recordingRow(recordingId)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.READY
+                recordingRow(recordingId)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("SPEAKER: a stored timeline is reused -- the analyzer is not called again (recompute)") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val (recordingId, cams, _) = seedTwoPeople(hostRawRoot, ConferenceBroadcastView.SPEAKER)
+                RecordingSpeakerTimelineStore.replace(
+                    recordingId = recordingId,
+                    spans = listOf(StoredSpeakerSpan(trackId = cams.second, startMs = 1_000, endMs = 9_000)),
+                )
+                val analyzer = CountingAnalyzer(emptyMap())
+                var captured: RecordingComposeSpec? = null
+                buildPoller(
+                    FakeLiveKitAdminClient(),
+                    FakeLiveKitEgressClient(),
+                    FakeRecordingComposer { spec, out ->
+                        captured = spec
+                        out.writeBytes(byteArrayOf(1))
+                    },
+                    hostRawRoot,
+                    documentStorageRoot,
+                    keepRaw = true,
+                    speechAnalyzer = analyzer,
+                ).tickAndSettle()
+
+                analyzer.calls shouldBe 0
+                captured!!.speakerSpans shouldBe
+                    listOf(RecordingSpeakerSpan(personKey = cams.second.toString(), startSeconds = 1.0, endSeconds = 9.0))
+                recordingRow(recordingId)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("SPEAKER: an analysis that fails falls back to the grid -- the recording is READY, not FAILED") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val (recordingId, _, _) = seedTwoPeople(hostRawRoot, ConferenceBroadcastView.SPEAKER)
+                var captured: RecordingComposeSpec? = null
+                buildPoller(
+                    FakeLiveKitAdminClient(),
+                    FakeLiveKitEgressClient(),
+                    FakeRecordingComposer { spec, out ->
+                        captured = spec
+                        out.writeBytes(byteArrayOf(1))
+                    },
+                    hostRawRoot,
+                    documentStorageRoot,
+                    keepRaw = true,
+                    speechAnalyzer = CountingAnalyzer(emptyMap()), // every file: null = measurement failed
+                ).tickAndSettle()
+
+                captured!!.layout shouldBe RecordingLayout.GRID
+                captured!!.speakerSpans shouldBe emptyList()
+                recordingRow(recordingId)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.READY
+                recordingRow(recordingId)[ConferenceRecordingTable.speakerTimelineComputed] shouldBe false
+                recordingRow(recordingId)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("RASTER: the analyzer is never called and the spec is the plain grid") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val (recordingId, _, _) = seedTwoPeople(hostRawRoot, ConferenceBroadcastView.RASTER)
+                val analyzer = CountingAnalyzer(emptyMap())
+                var captured: RecordingComposeSpec? = null
+                buildPoller(
+                    FakeLiveKitAdminClient(),
+                    FakeLiveKitEgressClient(),
+                    FakeRecordingComposer { spec, out ->
+                        captured = spec
+                        out.writeBytes(byteArrayOf(1))
+                    },
+                    hostRawRoot,
+                    documentStorageRoot,
+                    speechAnalyzer = analyzer,
+                ).tickAndSettle()
+
+                analyzer.calls shouldBe 0
+                captured!!.layout shouldBe RecordingLayout.GRID
+                captured!!.videoInputs.forEach { it.personKey shouldBe null }
+                recordingRow(recordingId)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test(
+            "PRIVACY: the timeline is deleted with the raw files (keepRaw=false), kept with keepRaw=true and kept when the composition fails",
+        ) {
+            fun spansOf(recordingId: Uuid) =
+                transaction {
+                    ConferenceRecordingSpeakerSpanTable
+                        .selectAll()
+                        .where { ConferenceRecordingSpeakerSpanTable.recordingId eq recordingId }
+                        .count()
+                }
+
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                fun analyzer(mics: Pair<File, File>) =
+                    CountingAnalyzer(
+                        mapOf(mics.first.name to levelsWithSpeech(2.0, 10.0), mics.second.name to levelsWithSpeech(14.0, 25.0)),
+                    )
+
+                // keepRaw = false: success deletes the raw files AND the timeline
+                val (gone, _, goneMics) = seedTwoPeople(hostRawRoot, ConferenceBroadcastView.SPEAKER)
+                buildPoller(
+                    FakeLiveKitAdminClient(),
+                    FakeLiveKitEgressClient(),
+                    FakeRecordingComposer(),
+                    hostRawRoot,
+                    documentStorageRoot,
+                    keepRaw = false,
+                    speechAnalyzer = analyzer(goneMics),
+                ).tickAndSettle()
+                recordingRow(gone)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.READY
+                spansOf(gone) shouldBe 0L
+                recordingRow(gone)[ConferenceRecordingTable.speakerTimelineComputed] shouldBe false
+                recordingRow(gone)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
+
+                // keepRaw = true: raw files stay, so does the timeline
+                val (kept, _, keptMics) = seedTwoPeople(hostRawRoot, ConferenceBroadcastView.SPEAKER)
+                buildPoller(
+                    FakeLiveKitAdminClient(),
+                    FakeLiveKitEgressClient(),
+                    FakeRecordingComposer(),
+                    hostRawRoot,
+                    documentStorageRoot,
+                    keepRaw = true,
+                    speechAnalyzer = analyzer(keptMics),
+                ).tickAndSettle()
+                (spansOf(kept) > 0L) shouldBe true
+                recordingRow(kept)[ConferenceRecordingTable.speakerTimelineComputed] shouldBe true
+                recordingRow(kept)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
+
+                // a failed composition (final attempt) retains the raw files regardless of keepRaw, and with them the timeline
+                val (failed, _, failedMics) =
+                    seedTwoPeople(hostRawRoot, ConferenceBroadcastView.SPEAKER, composeAttempts = MAX_COMPOSE_ATTEMPTS - 1)
+                buildPoller(
+                    FakeLiveKitAdminClient(),
+                    FakeLiveKitEgressClient(),
+                    FakeRecordingComposer { _, _ -> throw RecordingComposeException(message = "boom") },
+                    hostRawRoot,
+                    documentStorageRoot,
+                    keepRaw = false,
+                    speechAnalyzer = analyzer(failedMics),
+                ).tickAndSettle()
+                recordingRow(failed)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.FAILED
+                (spansOf(failed) > 0L) shouldBe true
             } finally {
                 hostRawRoot.deleteRecursively()
                 documentStorageRoot.deleteRecursively()

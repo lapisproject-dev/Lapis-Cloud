@@ -5,6 +5,7 @@ import dev.kuml.erm.model.ErmModel
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.server.db.generated.ConferenceRecordingSpeakerSpanTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -31,9 +32,16 @@ class ConferenceRecordingSchemaDriftTest :
 
         fun ErmModel.entityNameOf(entityId: String): String? = entities.firstOrNull { it.id == entityId }?.name
 
-        test("model declares exactly the two recording entities plus the Member/ConferenceRoom/Document stubs") {
+        test("model declares exactly the three recording entities plus the Member/ConferenceRoom/Document stubs") {
             model.entities.map { it.name }.toSet() shouldBe
-                setOf("member", "conference_room", "document", "conference_recording", "conference_recording_track")
+                setOf(
+                    "member",
+                    "conference_room",
+                    "document",
+                    "conference_recording",
+                    "conference_recording_track",
+                    "conference_recording_speaker_span",
+                )
         }
 
         // ── conference_recording ────────────────────────────────────────────
@@ -89,6 +97,15 @@ class ConferenceRecordingSchemaDriftTest :
                     values = listOf("TRACK", "PARTICIPANT"),
                     externalFqName = "network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode",
                 )
+            // V1.9.115 (V94): the view frozen at the start and the speaker-timeline marker.
+            entity.attributeByName("broadcast_view")?.nullable shouldBe false
+            entity.attributeByName("broadcast_view")?.type shouldBe
+                ErmDataType.Enum(
+                    name = "ConferenceBroadcastView",
+                    values = listOf("RASTER", "SPEAKER"),
+                    externalFqName = "network.lapis.cloud.shared.domain.ConferenceBroadcastView",
+                )
+            entity.attributeByName("speaker_timeline_computed")?.nullable shouldBe false
             entity.attributeByName("failure_code")?.type shouldBe
                 ErmDataType.Enum(
                     name = "ConferenceRecordingFailureCode",
@@ -165,6 +182,31 @@ class ConferenceRecordingSchemaDriftTest :
                     values = listOf("STARTING", "ACTIVE", "COMPLETE", "FAILED", "ABORTED"),
                     externalFqName = "network.lapis.cloud.shared.domain.ConferenceRecordingTrackStatus",
                 )
+        }
+
+        // ── conference_recording_speaker_span (V1.9.115, V94) ───────────────
+
+        test("conference_recording_speaker_span table shape matches the real migrated schema and its Exposed object 1:1") {
+            val entity = model.entities.single { it.name == "conference_recording_speaker_span" }
+            val real = transaction { introspectConferenceRecordingTable("conference_recording_speaker_span") }
+
+            entity.attributes.map { it.name }.toSet() shouldBe real.columns.keys
+            entity.attributes.forEach { attr ->
+                withClue(clue = "column '${attr.name}'") {
+                    real.columns.getValue(attr.name!!).nullable shouldBe attr.nullable
+                }
+            }
+            entity.attributes.map { it.name } shouldContainExactlyInAnyOrder
+                ConferenceRecordingSpeakerSpanTable.columns.map { it.name }
+            // no name, no identity: only the recording, the track row and an offset range
+            entity.attributes.map { it.name }.toSet() shouldBe setOf("id", "recording_id", "track_id", "start_ms", "end_ms")
+            real.primaryKeyColumns shouldBe setOf("id")
+            real.foreignKeys["recording_id"] shouldBe "conference_recording"
+            real.foreignKeys["track_id"] shouldBe "conference_recording_track"
+            model.entityNameOf(entity.attributeByName("recording_id")?.foreignKey?.targetEntityId ?: "") shouldBe "conference_recording"
+            model.entityNameOf(entity.attributeByName("track_id")?.foreignKey?.targetEntityId ?: "") shouldBe "conference_recording_track"
+            entity.attributeByName("start_ms")?.nullable shouldBe false
+            entity.attributeByName("end_ms")?.nullable shouldBe false
         }
     })
 

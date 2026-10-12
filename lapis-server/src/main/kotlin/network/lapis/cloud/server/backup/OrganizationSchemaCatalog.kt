@@ -67,6 +67,11 @@ object OrganizationSchemaCatalog {
                 "Welle V1.9.81. Singleton row (id = 1, seeded by V80) that serialises slot reservation and holds the global bulk " +
                 "pause -- runtime state, not organizational data. Excluded so a restore target keeps its own seeded row and still " +
                 "counts as empty.",
+            "conference_recording_speaker_span" to
+                "Welle V1.9.115. The smoothed speaker timeline of a recording, derived from the recorded microphone audio while the raw " +
+                "files exist: personal-derived, short-lived (deleted together with the raw files), referencing only a track row -- no " +
+                "name. Not organizational data and meaningless without those raw files, so the whole-organization backup must not carry " +
+                "it (see docs/architecture/conference-recording.adoc, \"Privacy: speaker timeline\"). Restore targets an empty database.",
         )
 
     data class ColumnMetadata(

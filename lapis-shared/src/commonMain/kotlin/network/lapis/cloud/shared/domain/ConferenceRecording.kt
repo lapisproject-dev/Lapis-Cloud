@@ -122,6 +122,8 @@ data class ConferenceRecordingDto(
     val lastRecomputeFailed: Boolean = false,
     /** V1.9.109: when the last recompute finished (UTC system timestamp), `null` if there never was one. */
     val recomputedAt: LocalDateTime? = null,
+    /** V1.9.115: the view frozen when the recording started (the room setting at that moment); a recompute uses this one, not the current room setting. */
+    val broadcastView: ConferenceBroadcastView = ConferenceBroadcastView.RASTER,
 )
 
 /**

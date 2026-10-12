@@ -2262,7 +2262,9 @@ class ClientUiGuidelineTripwireTest :
             buildTile.contains("aspect-ratio") shouldBe false
             buildTile.contains("var(--lapis-tile-w") shouldBe true
             buildTile.contains("var(--lapis-tile-h") shouldBe true
-            screen.contains("gap:8px") shouldBe true
+            // V1.9.115: the gallery container (and with it the 8 px gap) is built by ConferenceViewStage
+            val stage = codeOnly(clientKotlinFiles().first { it.name == "ConferenceViewStage.kt" }.readText())
+            (screen + stage).contains("gap:8px") shouldBe true
             screen.contains("minmax(200px") shouldBe false
             screen.contains("minmax(260px") shouldBe false
             // the 960 px column is a class (an inline max-width would beat the wide-call rule), the lobby keeps it

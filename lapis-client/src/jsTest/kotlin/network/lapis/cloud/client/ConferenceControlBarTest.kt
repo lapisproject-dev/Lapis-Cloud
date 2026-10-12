@@ -29,6 +29,8 @@ class ConferenceControlBarTest {
                 add(ConferenceControlSlot.RECORD)
                 add(ConferenceControlSlot.STREAM)
             }
+            // V1.9.115: "Ansicht" sits at the head of the panels group and is the first control to move into the sheet
+            add(ConferenceControlSlot.VIEW)
             add(ConferenceControlSlot.ROSTER)
             add(ConferenceControlSlot.CHAT)
             if (vote) add(ConferenceControlSlot.VOTE)
@@ -67,7 +69,7 @@ class ConferenceControlBarTest {
 
     @Test
     fun overflow_movesStrictlyInThePriorityOrder_asAPrefix() {
-        // Walk the width down: whatever moves is always a PREFIX of the order (vote, screen, roster, stream, record, end).
+        // Walk the width down: whatever moves is always a PREFIX of the order (view, vote, screen, roster, stream, record, end).
         // End for everyone moves LAST (V1.9.72): it is the control next to "Verlassen".
         var width = 1200.0
         while (width >= 200.0) {
@@ -95,7 +97,8 @@ class ConferenceControlBarTest {
         val moved = conferenceControlsOverflow(344.0, measures(), gap, divider)
         val order = CONFERENCE_OVERFLOW_ORDER
         assertEquals(order.take(moved.size).toSet(), moved)
-        assertTrue(ConferenceControlSlot.VOTE in moved && ConferenceControlSlot.SCREEN in moved && ConferenceControlSlot.ROSTER in moved)
+        assertTrue(ConferenceControlSlot.VIEW in moved && ConferenceControlSlot.VOTE in moved)
+        assertTrue(ConferenceControlSlot.SCREEN in moved && ConferenceControlSlot.ROSTER in moved)
         assertTrue(ConferenceControlSlot.STREAM in moved, "the stream control moves before the recording control")
         // What stays fits: sum of widths + gaps + dividers <= available.
         val shown = measures().filter { it.slot !in moved }

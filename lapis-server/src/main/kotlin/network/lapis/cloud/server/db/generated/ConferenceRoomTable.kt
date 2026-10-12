@@ -5,6 +5,7 @@ package network.lapis.cloud.server.db.generated
 
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import org.jetbrains.exposed.v1.core.Column
 import org.jetbrains.exposed.v1.core.Table
 import org.jetbrains.exposed.v1.datetime.datetime
@@ -42,6 +43,13 @@ public object ConferenceRoomTable : Table("conference_room") {
      * V1.9.108 -- V88. `false`: the room is "locked", a non-moderator cannot publish the microphone (server enforced). Default `true`.
      */
     public val participantsMayUnmute: Column<Boolean> = bool("participants_may_unmute").default(true)
+
+    /**
+     * V1.9.115 -- V94. The view a recording / stream shows (RASTER or SPEAKER). Exposed default deliberate (same reasoning as
+     * [allowFederationGuests]): the many room fixtures need not know the column.
+     */
+    public val broadcastView: Column<ConferenceBroadcastView> =
+        enumerationByName<ConferenceBroadcastView>("broadcast_view", 7).default(ConferenceBroadcastView.RASTER)
 
     /**
      * V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- see

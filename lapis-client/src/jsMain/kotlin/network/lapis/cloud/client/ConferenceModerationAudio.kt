@@ -15,6 +15,7 @@ import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import kotlinx.browser.window
 import network.lapis.cloud.client.livekit.ConferenceModerationSignal
+import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import org.w3c.dom.HTMLInputElement
 import kotlin.time.Clock
 
@@ -397,6 +398,8 @@ internal class ConferenceModerationPanel(
     parent: Container,
     muteOnJoin: Boolean,
     participantsMayUnmute: Boolean,
+    broadcastView: ConferenceBroadcastView = ConferenceBroadcastView.RASTER,
+    private val onBroadcastView: (view: ConferenceBroadcastView, revert: () -> Unit) -> Unit = { _, _ -> },
     private val onMuteOnJoin: (value: Boolean, revert: () -> Unit) -> Unit,
     private val onLock: (locked: Boolean, revert: () -> Unit) -> Unit,
 ) {
@@ -425,9 +428,24 @@ internal class ConferenceModerationPanel(
             tr("Teilnehmende dürfen sich nicht selbst einschalten"),
             tr("Nur Sie und die Menschen, die Sie bitten, können das Mikrofon dann einschalten."),
         ) { lockState }
+    private var broadcastViewState = broadcastView
+
+    // V1.9.115 -- "Ansicht bei Aufzeichnung und Stream": one of two radios. The state lives here (a closed body is not rendered).
+    private val viewFieldset: Tag = body.tag(TAG.FIELDSET, className = "lapis-conference-moderation-view")
+    val rasterInput: Widget
+    val speakerInput: Widget
     private var expanded = false
 
     init {
+        viewFieldset.tag(TAG.LEGEND, content = tr("Ansicht bei Aufzeichnung und Stream"), className = "fs-6")
+        rasterInput = viewFieldset.radioRow(VIEW_RASTER_ID, tr("Raster")) { broadcastViewState == ConferenceBroadcastView.RASTER }
+        speakerInput = viewFieldset.radioRow(VIEW_SPEAKER_ID, tr("Sprecher groß")) { broadcastViewState == ConferenceBroadcastView.SPEAKER }
+        viewFieldset.div(
+            tr("Gilt ab der nächsten Aufzeichnung bzw. dem nächsten Streamstart. Eine Bildschirmfreigabe wird immer groß gezeigt."),
+            className = "text-muted small",
+        )
+        rasterInput.onEvent { change = { chooseBroadcastView(ConferenceBroadcastView.RASTER) } }
+        speakerInput.onEvent { change = { chooseBroadcastView(ConferenceBroadcastView.SPEAKER) } }
         toggle.setAttribute("type", "button")
         toggle.setAttribute("aria-controls", BODY_ID)
         body.setAttribute("id", BODY_ID)
@@ -447,6 +465,38 @@ internal class ConferenceModerationPanel(
         }
         setOpen(false)
         setState(muteOnJoin, participantsMayUnmute)
+    }
+
+    private fun chooseBroadcastView(view: ConferenceBroadcastView) {
+        val before = broadcastViewState
+        if (view == before) return
+        broadcastViewState = view
+        onBroadcastView(view) { setBroadcastView(before) }
+    }
+
+    /** Applies the server's setting of the view (also the revert of a failed call). */
+    fun setBroadcastView(view: ConferenceBroadcastView) {
+        broadcastViewState = view
+        (rasterInput.getElement() as? HTMLInputElement)?.checked = view == ConferenceBroadcastView.RASTER
+        (speakerInput.getElement() as? HTMLInputElement)?.checked = view == ConferenceBroadcastView.SPEAKER
+        rasterInput.setAttrIfChanged("aria-checked", (view == ConferenceBroadcastView.RASTER).toString())
+        speakerInput.setAttrIfChanged("aria-checked", (view == ConferenceBroadcastView.SPEAKER).toString())
+    }
+
+    private fun Container.radioRow(
+        id: String,
+        label: String,
+        state: () -> Boolean,
+    ): Widget {
+        val row = div(className = "form-check lapis-conference-moderation-radio")
+        val input = row.tag(TAG.INPUT, className = "form-check-input")
+        input.setAttribute("type", "radio")
+        input.setAttribute("name", "lapis-conference-broadcast-view")
+        input.setAttribute("id", id)
+        if (state()) input.setAttribute("checked", "")
+        input.setAttribute("aria-checked", state().toString())
+        row.tag(TAG.LABEL, content = label, className = "form-check-label").setAttribute("for", id)
+        return input
     }
 
     private fun putMuteOnJoin(value: Boolean) {
@@ -504,6 +554,8 @@ internal class ConferenceModerationPanel(
     }
 
     fun setBusy(busy: Boolean) {
+        rasterInput.getElement()?.let { (it as? HTMLInputElement)?.disabled = busy }
+        speakerInput.getElement()?.let { (it as? HTMLInputElement)?.disabled = busy }
         muteOnJoinInput.getElement()?.let { (it as? HTMLInputElement)?.disabled = busy }
         lockInput.getElement()?.let { (it as? HTMLInputElement)?.disabled = busy }
     }
@@ -512,5 +564,7 @@ internal class ConferenceModerationPanel(
         const val MUTE_ON_JOIN_ID = "lapis-conference-mute-on-join"
         const val LOCK_ID = "lapis-conference-lock-microphones"
         const val BODY_ID = "lapis-conference-moderation-body"
+        const val VIEW_RASTER_ID = "lapis-conference-broadcast-view-raster"
+        const val VIEW_SPEAKER_ID = "lapis-conference-broadcast-view-speaker"
     }
 }

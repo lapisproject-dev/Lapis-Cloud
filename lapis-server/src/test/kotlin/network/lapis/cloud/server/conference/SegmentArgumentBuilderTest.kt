@@ -296,4 +296,34 @@ class SegmentArgumentBuilderTest :
             valueAfter(args, "-f", from = args.indexOf("-movflags")) shouldBe "mp4"
             args.last() shouldBe "/o/x.mp4.part"
         }
+
+        test("V1.9.115: the speaker layout places the large tile on top and the strip below, all inside the canvas") {
+            val speakerSeg =
+                EdlSegment(
+                    index = 0,
+                    startFrame = 0,
+                    endFrame = 90,
+                    screenShareTrackId = null,
+                    cameraSlots = emptyMap(),
+                    shape = GridShape(cols = 1, rows = 1),
+                    speakerTrackId = "a",
+                    stripTrackIds = listOf("b", "c"),
+                )
+            val cells = SegmentArgumentBuilder.cells(seg = speakerSeg, canvas = canvas)
+            cells.keys.toList() shouldBe listOf("a", "b", "c")
+            cells.getValue("a") shouldBe CellRect(x = 128, y = 0, width = 1024, height = 576)
+            cells.getValue("b").y shouldBe 576
+            cells.getValue("b").width shouldBe 256
+            val args =
+                SegmentArgumentBuilder.buildVideoSegment(
+                    seg = speakerSeg,
+                    inputs = sources("a", "b", "c"),
+                    canvas = canvas,
+                    fps = fps,
+                    outVideo = "/work/seg.mp4",
+                )
+            graphOf(args) shouldContain "scale=1024:576"
+            graphOf(args) shouldContain "overlay=x=128:y=0"
+            graphOf(args) shouldContain "scale=256:144"
+        }
     })

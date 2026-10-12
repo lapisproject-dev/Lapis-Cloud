@@ -554,7 +554,7 @@ private const val MAX_POINTS_PER_STROKE_CLIENT = 1_800
  * [ConferenceWhiteboardController.applyCommit]'s remote-stroke admission check, extracted to a
  * top-level `internal` function (rather than a private method on the controller) specifically so it
  * is unit-testable without this module's DOM/KVision rendering harness -- same "no rendering harness
- * exists, pure functions are tested directly" posture as [conferenceGridLayout] (see
+ * exists, pure functions are tested directly" posture as `computeConferenceViewLayout` (see
  * [ConferenceGridLayoutTest] KDoc).
  *
  * Bounds a room's total remote-plus-local stroke/point counts at the SAME

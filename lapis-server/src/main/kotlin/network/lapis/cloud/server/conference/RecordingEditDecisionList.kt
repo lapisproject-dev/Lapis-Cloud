@@ -1,6 +1,7 @@
 package network.lapis.cloud.server.conference
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import network.lapis.cloud.shared.conference.CONFERENCE_SPEAKER_STRIP_MAX_RECORDING
 import network.lapis.cloud.shared.conference.GridShape
 import network.lapis.cloud.shared.conference.assignSlots
 import network.lapis.cloud.shared.conference.bestFitGrid
@@ -27,6 +28,8 @@ data class EdlVideoTrack(
     val isScreenShare: Boolean,
     val firstSeenSeconds: Double,
     val ranges: List<TimeRange>,
+    /** V1.9.115: opaque key of the person (see [RecordingComposeVideoInput.personKey]); `null` for a screen share. */
+    val personKey: String? = null,
 )
 
 /**
@@ -43,6 +46,10 @@ data class EdlSegment(
     val screenShareTrackId: String?,
     val cameraSlots: Map<String, Int>,
     val shape: GridShape,
+    /** V1.9.115: the track shown large in the SPEAKER layout, `null` otherwise (grid or presentation). */
+    val speakerTrackId: String? = null,
+    /** V1.9.115: the tracks of the strip below the large speaker tile, in display order (at most [CONFERENCE_SPEAKER_STRIP_MAX_RECORDING]). */
+    val stripTrackIds: List<String> = emptyList(),
 ) {
     val frames: Long get() = endFrame - startFrame
 }
@@ -69,9 +76,15 @@ data class EdlSegment(
  * ## What is visible
  *
  * A track is visible in a segment when one of its ranges covers the MIDDLE of the segment (robust against a range edge falling between
- * two frames). With a visible screen share the layout is the presentation layout (earliest screen share large, every other visible
- * track in one row below); otherwise the shared best-fit grid ([bestFitGrid], the same function the live call uses). Pictures keep
- * their slot while the shape stays the same ([assignSlots]).
+ * two frames). With a visible screen share the layout is the presentation layout (the LATEST started visible screen share large -- the
+ * rule of the live view, changed from "earliest" in V1.9.115 -- every other visible track in one row below); otherwise, with
+ * [RecordingLayout.SPEAKER], the person of the speaker span covering the segment large (a strip of at most
+ * [CONFERENCE_SPEAKER_STRIP_MAX_RECORDING] others below: the most recent speakers first, then by first appearance), and where there is
+ * no usable speaker (before the first span, the speaker has no picture, fewer than two pictures) the shared best-fit grid
+ * ([bestFitGrid], the same function the live call uses). Pictures keep their slot while the shape stays the same ([assignSlots]).
+ * The boundaries of the speaker spans are cut points too, so the large tile changes on an exact frame.
+ *
+ * With more than six visible people the speaker layout cannot show everybody (the strip holds five): that is a documented limit.
  *
  * There is deliberately no grace period: a person who turns their camera off and on again within a second leaves and re-enters the
  * layout. Only a gap in the track's own data of at least the prober's threshold counts as "camera off" (a muted LiveKit track is not an
@@ -93,6 +106,8 @@ object RecordingEditDecisionList {
         fps: Int,
         canvasW: Int,
         canvasH: Int,
+        layout: RecordingLayout = RecordingLayout.GRID,
+        speakerSpans: List<RecordingSpeakerSpan> = emptyList(),
     ): List<EdlSegment> {
         require(fps > 0) { "fps must be positive" }
         require(totalSeconds.isFinite() && totalSeconds > 0.0) { "totalSeconds must be > 0" }
@@ -103,6 +118,12 @@ object RecordingEditDecisionList {
             for (range in track.ranges) {
                 rawCuts += frameOf(seconds = range.startSeconds, fps = fps, totalFrames = totalFrames)
                 rawCuts += frameOf(seconds = range.endSeconds, fps = fps, totalFrames = totalFrames)
+            }
+        }
+        if (layout == RecordingLayout.SPEAKER) {
+            for (span in speakerSpans) {
+                rawCuts += frameOf(seconds = span.startSeconds, fps = fps, totalFrames = totalFrames)
+                rawCuts += frameOf(seconds = span.endSeconds, fps = fps, totalFrames = totalFrames)
             }
         }
         val forcedStep = (MAX_SEGMENT_SECONDS * fps).roundToLong()
@@ -129,8 +150,22 @@ object RecordingEditDecisionList {
             val end = cuts[i + 1]
             val middle = (start + end) / 2.0 / fps
             val visible = ordered.filter { track -> track.ranges.any { middle >= it.startSeconds && middle < it.endSeconds } }
-            val share = visible.firstOrNull { it.isScreenShare }
+            // the screen share that started LAST is large (V1.9.115); ties by track id for determinism
+            val share =
+                visible.filter { it.isScreenShare }.maxWithOrNull(
+                    compareBy<EdlVideoTrack> { it.firstSeenSeconds }.thenBy { it.trackId },
+                )
             val cameras = visible.filter { it !== share }
+            if (layout == RecordingLayout.SPEAKER && share == null) {
+                val speakerSegment =
+                    speakerSegment(index = i, start = start, end = end, middle = middle, cameras = cameras, spans = speakerSpans)
+                if (speakerSegment != null) {
+                    segments += speakerSegment
+                    previousSlots = emptyMap()
+                    previousShape = null
+                    continue
+                }
+            }
             val shape =
                 if (share !=
                     null
@@ -159,6 +194,47 @@ object RecordingEditDecisionList {
             previousShape = shape
         }
         return segments
+    }
+
+    /**
+     * The speaker-layout segment for [middle], or `null` when the grid applies: no span covers the middle, the speaker of the span has
+     * no picture here, or there are fewer than two pictures (one picture fills the canvas as a grid of one).
+     */
+    private fun speakerSegment(
+        index: Int,
+        start: Long,
+        end: Long,
+        middle: Double,
+        cameras: List<EdlVideoTrack>,
+        spans: List<RecordingSpeakerSpan>,
+    ): EdlSegment? {
+        if (cameras.size < 2) return null
+        val active = spans.firstOrNull { middle >= it.startSeconds && middle < it.endSeconds } ?: return null
+        val main = cameras.firstOrNull { it.personKey != null && it.personKey == active.personKey } ?: return null
+        val lastSpokeEnd =
+            cameras.associateWith { track ->
+                spans
+                    .filter { it.personKey == track.personKey && track.personKey != null && it.startSeconds < middle }
+                    .maxOfOrNull { minOf(it.endSeconds, middle) }
+            }
+        val others = cameras.filter { it !== main }
+        val strip =
+            others
+                .filter { lastSpokeEnd[it] != null }
+                .sortedWith(compareByDescending<EdlVideoTrack> { lastSpokeEnd[it] }.thenBy { it.firstSeenSeconds }.thenBy { it.trackId }) +
+                others
+                    .filter { lastSpokeEnd[it] == null }
+                    .sortedWith(compareBy<EdlVideoTrack> { it.firstSeenSeconds }.thenBy { it.trackId })
+        return EdlSegment(
+            index = index,
+            startFrame = start,
+            endFrame = end,
+            screenShareTrackId = null,
+            cameraSlots = emptyMap(),
+            shape = GridShape(cols = 1, rows = 1),
+            speakerTrackId = main.trackId,
+            stripTrackIds = strip.take(CONFERENCE_SPEAKER_STRIP_MAX_RECORDING).map { it.trackId },
+        )
     }
 
     private fun frameOf(

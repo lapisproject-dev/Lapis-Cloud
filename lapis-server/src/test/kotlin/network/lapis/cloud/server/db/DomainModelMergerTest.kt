@@ -533,7 +533,8 @@ class DomainModelMergerTest :
             // Welle V1.9.111 "Dynamische Mailinglisten" adds 03-communication.kuml.kts's ONE new real table (mailing_list_opt_out) -- net +1 (188 -> 189).
             // Welle V1.9.112 "regelbasierte Gremien" adds 06-vote.kuml.kts's ONE new real table (vote_eligible_voter) -- net +1 (189 -> 190).
             // Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" adds 67-event-online.kuml.kts's ONE new table (event_conference) -- net +1 (190 -> 191).
-            val distinctTableNames = 191
+            // Welle V1.9.115 "umschaltbare Ansichten" adds 28-conference-recording.kuml.kts's ONE new table (conference_recording_speaker_span) -- net +1 (191 -> 192).
+            val distinctTableNames = 192
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -658,6 +659,7 @@ class DomainModelMergerTest :
                     "ConferenceParticipationTable.kt",
                     "ConferenceRecordingTable.kt",
                     "ConferenceRecordingTrackTable.kt",
+                    "ConferenceRecordingSpeakerSpanTable.kt",
                     "ConferenceStreamDestinationTable.kt",
                     "ConferenceStreamTable.kt",
                     "ConferenceStreamTargetTable.kt",

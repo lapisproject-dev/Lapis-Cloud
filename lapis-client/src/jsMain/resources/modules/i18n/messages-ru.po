@@ -22681,3 +22681,69 @@ msgstr "Недоступно – этот браузер не поддержив
 
 msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
 msgstr "Недоступно – не удалось загрузить шумоподавление. Используется шумоподавление браузера."
+
+msgid "Vorherige Seite"
+msgstr "Предыдущая страница"
+
+msgid "Nächste Seite"
+msgstr "Следующая страница"
+
+msgid "Vorherige Kacheln"
+msgstr "Предыдущие плитки"
+
+msgid "Weitere Kacheln"
+msgstr "Ещё плитки"
+
+msgid "%1 anheften"
+msgstr "Закрепить: %1"
+
+msgid "%1 lösen"
+msgstr "Открепить: %1"
+
+msgid "Seite %1 von %2"
+msgstr "Страница %1 из %2"
+
+msgid "Vorherige Seite, dort spricht gerade jemand (Seite %1)"
+msgstr "Предыдущая страница, там кто-то говорит (страница %1)"
+
+msgid "Nächste Seite, dort spricht gerade jemand (Seite %1)"
+msgstr "Следующая страница, там кто-то говорит (страница %1)"
+
+msgid "Sprecher groß"
+msgstr "Докладчик крупно"
+
+msgid "Person anheften"
+msgstr "Закрепить участника"
+
+msgid "Bildschirmfreigabe groß"
+msgstr "Демонстрация экрана крупно"
+
+msgid "Ansicht"
+msgstr "Вид"
+
+msgid "Niemand teilt gerade den Bildschirm"
+msgstr "Сейчас никто не демонстрирует экран"
+
+msgid "Ansicht (aktuell: %1)"
+msgstr "Вид (сейчас: %1)"
+
+msgid "Ansicht: %1"
+msgstr "Вид: %1"
+
+msgid "Ansicht: %1."
+msgstr "Вид: %1."
+
+msgid "Die angeheftete Person hat den Raum verlassen. Ansicht: Sprecher groß."
+msgstr "Закреплённый участник покинул комнату. Вид: докладчик крупно."
+
+msgid "Es ist niemand sonst im Raum, den Sie anheften könnten."
+msgstr "В комнате больше никого, кого можно закрепить."
+
+msgid "Raster"
+msgstr "Сетка"
+
+msgid "Ansicht bei Aufzeichnung und Stream"
+msgstr "Вид записи и трансляции"
+
+msgid "Gilt ab der nächsten Aufzeichnung bzw. dem nächsten Streamstart. Eine Bildschirmfreigabe wird immer groß gezeigt."
+msgstr "Действует со следующей записи или запуска трансляции. Демонстрация экрана всегда показывается крупно."

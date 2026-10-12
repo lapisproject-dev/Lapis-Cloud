@@ -513,7 +513,17 @@ internal object ConferenceFloatController {
         ConferenceDock.videoLedger.prune()
         val width = floatSizeBucket(clampWidth(preference.geometry.width, viewport(), badgeRows))
         val cameraOn = state.snapshotOrNull?.cameraOn == true
-        val (selection, newMemo) = floatSelectionOf(sources.map { it.info() }, width, cameraOn, Date.now().toLong(), memo)
+        val (selection, newMemo) =
+            floatSelectionOf(
+                sources.map {
+                    it.info()
+                },
+                width,
+                cameraOn,
+                Date.now().toLong(),
+                memo,
+                ConferenceDock.session?.floatPreferredKey(),
+            )
         memo = newMemo
         stage.setStripVisible(width != FloatSize.SMALL)
         stage.render(selection, sources, ConferenceDock.videoLedger, resolvingNow = state is DockState.Resolving)

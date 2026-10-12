@@ -22685,3 +22685,69 @@ msgstr "Niet beschikbaar – deze browser ondersteunt WebAssembly niet. De ruisr
 
 msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
 msgstr "Niet beschikbaar – de ruisonderdrukking kon niet worden geladen. De ruisreductie van de browser wordt gebruikt."
+
+msgid "Vorherige Seite"
+msgstr "Vorige pagina"
+
+msgid "Nächste Seite"
+msgstr "Volgende pagina"
+
+msgid "Vorherige Kacheln"
+msgstr "Vorige tegels"
+
+msgid "Weitere Kacheln"
+msgstr "Meer tegels"
+
+msgid "%1 anheften"
+msgstr "%1 vastzetten"
+
+msgid "%1 lösen"
+msgstr "%1 losmaken"
+
+msgid "Seite %1 von %2"
+msgstr "Pagina %1 van %2"
+
+msgid "Vorherige Seite, dort spricht gerade jemand (Seite %1)"
+msgstr "Vorige pagina, daar spreekt iemand (pagina %1)"
+
+msgid "Nächste Seite, dort spricht gerade jemand (Seite %1)"
+msgstr "Volgende pagina, daar spreekt iemand (pagina %1)"
+
+msgid "Sprecher groß"
+msgstr "Spreker groot"
+
+msgid "Person anheften"
+msgstr "Persoon vastzetten"
+
+msgid "Bildschirmfreigabe groß"
+msgstr "Gedeeld scherm groot"
+
+msgid "Ansicht"
+msgstr "Weergave"
+
+msgid "Niemand teilt gerade den Bildschirm"
+msgstr "Op dit moment deelt niemand zijn scherm"
+
+msgid "Ansicht (aktuell: %1)"
+msgstr "Weergave (huidig: %1)"
+
+msgid "Ansicht: %1"
+msgstr "Weergave: %1"
+
+msgid "Ansicht: %1."
+msgstr "Weergave: %1."
+
+msgid "Die angeheftete Person hat den Raum verlassen. Ansicht: Sprecher groß."
+msgstr "De vastgezette persoon heeft de ruimte verlaten. Weergave: spreker groot."
+
+msgid "Es ist niemand sonst im Raum, den Sie anheften könnten."
+msgstr "Er is niemand anders in de ruimte om vast te zetten."
+
+msgid "Raster"
+msgstr "Raster"
+
+msgid "Ansicht bei Aufzeichnung und Stream"
+msgstr "Weergave bij opname en stream"
+
+msgid "Gilt ab der nächsten Aufzeichnung bzw. dem nächsten Streamstart. Eine Bildschirmfreigabe wird immer groß gezeigt."
+msgstr "Geldt vanaf de volgende opname of de volgende streamstart. Een gedeeld scherm wordt altijd groot getoond."

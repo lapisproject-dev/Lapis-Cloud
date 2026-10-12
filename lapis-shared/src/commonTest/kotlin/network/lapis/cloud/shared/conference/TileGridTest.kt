@@ -359,3 +359,55 @@ class TileGridTest {
         assertEquals(mapOf("a" to 0, "b" to 1, "c" to 2, "d" to 3, "e" to 4), after)
     }
 }
+
+/** V1.9.115 -- the "speaker large" layout of the recording. */
+class SpeakerLayoutRectsTest {
+    @Test
+    fun `at 1280x720 the large tile is 1024x576 and the strip tiles are 256x144`() {
+        val (main, strip) = speakerLayoutRects(canvasW = 1280, canvasH = 720, stripCount = 5)
+        assertEquals(CellRect(x = 128, y = 0, width = 1024, height = 576), main)
+        assertEquals(5, strip.size)
+        strip.forEachIndexed { i, r -> assertEquals(CellRect(x = i * 256, y = 576, width = 256, height = 144), r) }
+    }
+
+    @Test
+    fun `at 1920x1080 the layout scales and all values are even`() {
+        val (main, strip) = speakerLayoutRects(canvasW = 1920, canvasH = 1080, stripCount = 3)
+        assertEquals(CellRect(x = 192, y = 0, width = 1536, height = 864), main)
+        strip.forEach {
+            assertEquals(384, it.width)
+            assertEquals(216, it.height)
+        }
+        listOf(main) +
+            strip
+                .flatMap { listOf(it) }
+                .forEach { r -> assertTrue(r.x % 2 == 0 && r.y % 2 == 0 && r.width % 2 == 0 && r.height % 2 == 0, "$r") }
+    }
+
+    @Test
+    fun `zero to five strip tiles stay inside the canvas and are centred`() {
+        for (n in 0..5) {
+            val (main, strip) = speakerLayoutRects(canvasW = 1280, canvasH = 720, stripCount = n)
+            assertEquals(n, strip.size)
+            assertTrue(main.x >= 0 && main.x + main.width <= 1280 && main.y + main.height <= 720)
+            strip.forEach { assertTrue(it.x >= 0 && it.x + it.width <= 1280 && it.y + it.height <= 720, "$it") }
+            if (n > 0) {
+                val left = strip.first().x
+                val right = 1280 - (strip.last().x + strip.last().width)
+                assertTrue(abs(left - right) <= 2, "centred: $left vs $right")
+            }
+        }
+        assertEquals(
+            CellRect(x = 0, y = 0, width = 1280, height = 720),
+            speakerLayoutRects(canvasW = 1280, canvasH = 720, stripCount = 0).first,
+        )
+    }
+
+    @Test
+    fun `more tiles than fit shrink the tiles and degenerate canvases do not throw`() {
+        val (_, strip) = speakerLayoutRects(canvasW = 1280, canvasH = 720, stripCount = 8)
+        assertTrue(strip.last().x + strip.last().width <= 1280)
+        speakerLayoutRects(canvasW = 0, canvasH = 0, stripCount = 3)
+        speakerLayoutRects(canvasW = -5, canvasH = 10, stripCount = 2)
+    }
+}

@@ -134,6 +134,12 @@ classDiagram(name = "Conference") {
     // Literal order is load-bearing: ConferenceSchemaDriftTest (a future step of this wave) asserts
     // ErmDataType.Enum.values in exactly this order, matching
     // network.lapis.cloud.shared.domain.ConferenceRole.
+    // V1.9.115 (V94): literal order is load-bearing, matching network.lapis.cloud.shared.domain.ConferenceBroadcastView.
+    val conferenceBroadcastView = enumOf(name = "ConferenceBroadcastView") {
+        literal(name = "RASTER")
+        literal(name = "SPEAKER")
+    }
+
     val conferenceRole = enumOf(name = "ConferenceRole") {
         literal(name = "MODERATOR")
         literal(name = "PARTICIPANT")
@@ -218,6 +224,15 @@ classDiagram(name = "Conference") {
         attribute(name = "participantsMayUnmute", type = "Boolean") {
             defaultValue = "TRUE"
             stereotype("Column") { "columnName" to "participants_may_unmute" }
+        }
+        // V1.9.115 -- V94. The view a recording / stream shows (RASTER = tile grid, SPEAKER = one large tile + filmstrip); applies from the
+        // next recording / stream start (see docs/architecture/conference-views.adoc).
+        attribute(name = "broadcastView", type = conferenceBroadcastView) {
+            defaultValue = "RASTER"
+            stereotype("Column") {
+                "columnName" to "broadcast_view"
+                "enumType" to "network.lapis.cloud.shared.domain.ConferenceBroadcastView"
+            }
         }
         // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" addition -- see
         // file header "Wave 9 addition". NULL means this room is not bound to any Sitzung (the

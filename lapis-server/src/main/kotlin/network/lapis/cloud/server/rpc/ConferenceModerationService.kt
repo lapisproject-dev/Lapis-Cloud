@@ -26,6 +26,7 @@ import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_TOPIC
+import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.ConferenceRoomDto
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -52,6 +53,7 @@ internal const val AUDIT_MUTE_ONE = "mute_one"
 internal const val AUDIT_MUTE_ALL = "mute_all"
 internal const val AUDIT_UNMUTE_REQUEST = "unmute_request"
 internal const val AUDIT_AUDIO_POLICY = "audio_policy"
+internal const val AUDIT_BROADCAST_VIEW = "BROADCAST_VIEW"
 
 /**
  * V1.9.108 -- see [IConferenceModerationService]. Every call follows the same three phases (pitfall S6: LiveKit is NEVER called inside a
@@ -82,6 +84,7 @@ class ConferenceModerationService(
     private val requestUnmuteRateLimiter: FederationInboxRateLimiter,
     private val policyRateLimiter: FederationInboxRateLimiter,
     private val previewRateLimiter: FederationInboxRateLimiter,
+    private val broadcastViewRateLimiter: FederationInboxRateLimiter,
 ) : IConferenceModerationService {
     private data class RoomContext(
         val roomId: Uuid,
@@ -272,6 +275,42 @@ class ConferenceModerationService(
                 }
             if (liveKitFailed) throw ConflictException("LiveKit request failed")
             dto
+        }
+    }
+
+    override suspend fun setRoomBroadcastView(
+        roomId: String,
+        view: ConferenceBroadcastView,
+    ): ConferenceRoomDto {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        // Authorization first and from the database; every refusal (no authority, unknown/ended room, encounter session) is the same exception.
+        val room = transaction { authorizeRoom(roomId = roomId, current = current) }
+        requireWithinRate(limiter = broadcastViewRateLimiter, key = "room:${room.roomId}")
+        // No LiveKit call: the view only matters from the next recording / stream start.
+        return transaction {
+            ConferenceRoomTable
+                .selectAll()
+                .where { ConferenceRoomTable.id eq room.roomId }
+                .forUpdate()
+                .singleOrNull()
+                ?.takeIf { it[ConferenceRoomTable.endedAt] == null }
+                ?: throw ForbiddenException(MODERATION_DENIED)
+            ConferenceRoomTable.update({ ConferenceRoomTable.id eq room.roomId }) {
+                it[ConferenceRoomTable.broadcastView] = view
+            }
+            val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq room.roomId }.single()
+            val result = ConferenceRoomDtoMapper.toDto(row = fresh, callerId = current.memberId, liveParticipantCount = 0)
+            // AuditLogRecorder.record must be the LAST lock-taking operation in this transaction. Metadata only -- no names.
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.CONFERENCE_ROOM,
+                entityId = room.roomId,
+                action = AuditAction.UPDATE,
+                after = """{"moderation":"$AUDIT_BROADCAST_VIEW","view":"${view.name}"}""",
+            )
+            result
         }
     }
 

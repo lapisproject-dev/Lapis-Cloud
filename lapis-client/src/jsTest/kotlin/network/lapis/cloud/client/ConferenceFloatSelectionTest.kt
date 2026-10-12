@@ -140,4 +140,35 @@ class ConferenceFloatSelectionTest {
         assertEquals(mapOf("a" to 0, "b" to 0, "c" to 0), floatQualityPlan(sel, keys, DockPresentation.BAR))
         assertEquals(mapOf("a" to 0), floatQualityPlan(null, listOf("a"), DockPresentation.FLOAT))
     }
+
+    @Test
+    fun aPreferredKey_ofTheActiveView_winsOverTheSpeakerAndTheShareRules() {
+        val (sel, _) =
+            floatSelectionOf(
+                listOf(remote("a", spoke = 99_900), remote("b"), share(), self()),
+                FloatSize.MEDIUM,
+                cameraOn = true,
+                nowMs = 100_000L,
+                memo = fresh,
+                preferredKey = "b",
+            )
+        assertEquals("b", sel.mainKey)
+        assertTrue("a" in sel.stripKeys && "share" in sel.stripKeys)
+    }
+
+    @Test
+    fun aPreferredKey_thatIsUnknownOrTheOwnPicture_isIgnored() {
+        val sources = listOf(remote("a", spoke = 99_900), self())
+        val (unknown, _) = floatSelectionOf(sources, FloatSize.MEDIUM, true, 100_000L, fresh, preferredKey = "ghost")
+        assertEquals("a", unknown.mainKey)
+        val (own, _) = floatSelectionOf(sources, FloatSize.MEDIUM, true, 100_000L, fresh, preferredKey = "me")
+        assertEquals("a", own.mainKey)
+    }
+
+    @Test
+    fun aPreferredShare_isTheBigPicture() {
+        val (sel, _) =
+            floatSelectionOf(listOf(remote("a", spoke = 99_900), share()), FloatSize.MEDIUM, true, 100_000L, fresh, preferredKey = "share")
+        assertEquals("share", sel.mainKey)
+    }
 }

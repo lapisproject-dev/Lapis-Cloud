@@ -77,14 +77,25 @@ internal fun floatSelectionOf(
     cameraOn: Boolean,
     nowMs: Long,
     memo: FloatSpeakerMemo,
+    /**
+     * V1.9.115: the key the active view of the call makes the big picture (the speaker, the pinned person, the shared screen). It wins over
+     * every rule below as long as it names a source that is shown; the own picture is never a preferred one. `null` (gallery): the rules apply.
+     */
+    preferredKey: String? = null,
 ): Pair<FloatSelection, FloatSpeakerMemo> {
     val remotes = sources.filter { !it.isLocal && !it.isScreenShare }
+    val preferred = preferredKey?.let { key -> sources.firstOrNull { it.key == key && !it.isLocal } }
     val share = sources.firstOrNull { it.isScreenShare && !it.isLocal }
     val self = sources.firstOrNull { it.isLocal && !it.isScreenShare && it.hasVideo && cameraOn }
 
     var newMemo = memo
     val mainKey: String? =
         when {
+            preferred != null -> {
+                newMemo =
+                    FloatSpeakerMemo(mainKey = preferred.key.takeIf { key -> remotes.any { it.key == key } } ?: memo.mainKey, since = nowMs)
+                preferred.key
+            }
             share != null -> {
                 newMemo = FloatSpeakerMemo(mainKey = memo.mainKey?.takeIf { key -> remotes.any { it.key == key } }, since = nowMs)
                 share.key
@@ -127,8 +138,9 @@ internal fun floatSelectionOf(
             }
         }
 
+    // a screen share that is not the big picture (only possible through [preferredKey]) is one of the strip's pictures
     val otherRemotes =
-        remotes
+        (remotes + listOfNotNull(share))
             .filter { it.key != mainKey }
             .sortedWith(compareByDescending<FloatSourceInfo> { it.hasVideo }.thenByDescending { it.lastSpokeAtMs })
     val selfIsExtra = self != null && self.key != mainKey

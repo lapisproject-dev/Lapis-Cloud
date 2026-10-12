@@ -12,6 +12,7 @@ import network.lapis.cloud.server.conference.ConferenceRecordingConfig
 import network.lapis.cloud.server.conference.MAX_COMPOSE_ATTEMPTS
 import network.lapis.cloud.server.conference.RecordingDiskBudget
 import network.lapis.cloud.server.conference.RecordingRawFiles
+import network.lapis.cloud.server.conference.RecordingSpeakerTimelineStore
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTable
 import network.lapis.cloud.server.db.generated.ConferenceRecordingTrackTable
@@ -284,6 +285,9 @@ class ConferenceRecordingService(
             it[composeAttempts] = 0
             // V1.9.110: the egress mode is fixed for the whole recording at this moment (see conference_recording.egress_mode).
             it[egressMode] = recordingConfig.egressMode
+            // V1.9.115: the room's broadcast view is FROZEN here (read from the room row locked above); a later change of the room setting
+            // does not touch this recording, and a recompute uses this value.
+            it[ConferenceRecordingTable.broadcastView] = room[ConferenceRoomTable.broadcastView]
         }
         // AuditLogRecorder.record must be the LAST lock-taking operation in this transaction --
         // see that object's KDoc "deadlock-avoidance contract".
@@ -444,6 +448,8 @@ class ConferenceRecordingService(
                 }
 
                 val snapshot = deletedRecordingSnapshot(row = row, roomTitle = room[ConferenceRoomTable.title])
+                // V1.9.115: the speaker timeline goes with the recording (the FK cascade is only the second line of defence).
+                RecordingSpeakerTimelineStore.deleteFor(recordingUuid)
                 ConferenceRecordingTrackTable.deleteWhere { ConferenceRecordingTrackTable.recordingId eq recordingUuid }
                 ConferenceRecordingTable.deleteWhere { ConferenceRecordingTable.id eq recordingUuid }
 
@@ -1141,6 +1147,7 @@ class ConferenceRecordingService(
             recomputeInProgress = mayRecompute && recomputeRunning,
             lastRecomputeFailed = mayRecompute && row[ConferenceRecordingTable.lastRecomputeFailureCode] != null,
             recomputedAt = if (status == ConferenceRecordingStatus.READY) row[ConferenceRecordingTable.recomputedAt] else null,
+            broadcastView = row[ConferenceRecordingTable.broadcastView],
         )
     }
 

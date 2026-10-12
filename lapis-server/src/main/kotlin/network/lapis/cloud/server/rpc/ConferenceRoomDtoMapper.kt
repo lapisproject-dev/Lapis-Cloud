@@ -39,6 +39,7 @@ internal object ConferenceRoomDtoMapper {
             meetingTitle = row[ConferenceRoomTable.meetingId]?.let { meetingTitle(it) },
             muteOnJoin = row[ConferenceRoomTable.muteOnJoin],
             participantsMayUnmute = row[ConferenceRoomTable.participantsMayUnmute],
+            broadcastView = row[ConferenceRoomTable.broadcastView],
         )
     }
 

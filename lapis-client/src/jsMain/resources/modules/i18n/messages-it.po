@@ -22730,3 +22730,69 @@ msgstr "Non disponibile – questo browser non supporta WebAssembly. Viene usata
 
 msgid "Nicht verfügbar – die Rauschunterdrückung konnte nicht geladen werden. Es wird die Rauschminderung des Browsers verwendet."
 msgstr "Non disponibile – non è stato possibile caricare la soppressione del rumore. Viene usata la riduzione del rumore del browser."
+
+msgid "Vorherige Seite"
+msgstr "Pagina precedente"
+
+msgid "Nächste Seite"
+msgstr "Pagina successiva"
+
+msgid "Vorherige Kacheln"
+msgstr "Riquadri precedenti"
+
+msgid "Weitere Kacheln"
+msgstr "Altri riquadri"
+
+msgid "%1 anheften"
+msgstr "Fissa %1"
+
+msgid "%1 lösen"
+msgstr "Sblocca %1"
+
+msgid "Seite %1 von %2"
+msgstr "Pagina %1 di %2"
+
+msgid "Vorherige Seite, dort spricht gerade jemand (Seite %1)"
+msgstr "Pagina precedente, lì sta parlando qualcuno (pagina %1)"
+
+msgid "Nächste Seite, dort spricht gerade jemand (Seite %1)"
+msgstr "Pagina successiva, lì sta parlando qualcuno (pagina %1)"
+
+msgid "Sprecher groß"
+msgstr "Relatore grande"
+
+msgid "Person anheften"
+msgstr "Fissa una persona"
+
+msgid "Bildschirmfreigabe groß"
+msgstr "Schermo condiviso grande"
+
+msgid "Ansicht"
+msgstr "Vista"
+
+msgid "Niemand teilt gerade den Bildschirm"
+msgstr "Al momento nessuno sta condividendo lo schermo"
+
+msgid "Ansicht (aktuell: %1)"
+msgstr "Vista (attuale: %1)"
+
+msgid "Ansicht: %1"
+msgstr "Vista: %1"
+
+msgid "Ansicht: %1."
+msgstr "Vista: %1."
+
+msgid "Die angeheftete Person hat den Raum verlassen. Ansicht: Sprecher groß."
+msgstr "La persona fissata ha lasciato la stanza. Vista: relatore grande."
+
+msgid "Es ist niemand sonst im Raum, den Sie anheften könnten."
+msgstr "Non c'è nessun altro nella stanza da fissare."
+
+msgid "Raster"
+msgstr "Griglia"
+
+msgid "Ansicht bei Aufzeichnung und Stream"
+msgstr "Vista per registrazione e streaming"
+
+msgid "Gilt ab der nächsten Aufzeichnung bzw. dem nächsten Streamstart. Eine Bildschirmfreigabe wird immer groß gezeigt."
+msgstr "Vale dalla prossima registrazione o dal prossimo avvio dello streaming. Uno schermo condiviso viene sempre mostrato in grande."

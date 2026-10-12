@@ -168,6 +168,12 @@ classDiagram(name = "ConferenceRecording") {
         literal(name = "PARTICIPANT")
     }
 
+    // V1.9.115 (V94): literal order is load-bearing, matching network.lapis.cloud.shared.domain.ConferenceBroadcastView.
+    val conferenceBroadcastView = enumOf(name = "ConferenceBroadcastView") {
+        literal(name = "RASTER")
+        literal(name = "SPEAKER")
+    }
+
     val conferenceRecording = classOf(name = "ConferenceRecording") {
         stereotype("Entity") { "tableName" to "conference_recording"; "kotlinObjectName" to "ConferenceRecordingTable" }
         stereotype("Index") { "columns" to listOf("room_id"); "name" to "idx_conference_recording_room" }
@@ -311,6 +317,19 @@ classDiagram(name = "ConferenceRecording") {
                 "enumType" to "network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode"
             }
         }
+        // V1.9.115 (V94): the room's broadcast view FROZEN when the recording starts (a recompute uses this one), and whether the speaker
+        // timeline (conference_recording_speaker_span) has been computed for this recording.
+        attribute(name = "broadcastView", type = conferenceBroadcastView) {
+            defaultValue = "RASTER"
+            stereotype("Column") {
+                "columnName" to "broadcast_view"
+                "enumType" to "network.lapis.cloud.shared.domain.ConferenceBroadcastView"
+            }
+        }
+        attribute(name = "speakerTimelineComputed", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "speaker_timeline_computed" }
+        }
     }
 
     val conferenceRecordingTrack = classOf(name = "ConferenceRecordingTrack") {
@@ -411,6 +430,37 @@ classDiagram(name = "ConferenceRecording") {
                 "columnName" to "egress_kind"
                 "enumType" to "network.lapis.cloud.shared.domain.ConferenceRecordingEgressMode"
             }
+        }
+    }
+
+    // V1.9.115 (V94): the SMOOTHED speaker timeline of a recording -- an offset range plus the id of the person's video track row, never a
+    // name or identity. Written/read only by RecordingSpeakerTimelineStore, deleted with the raw files, excluded from the backup. The SQL
+    // carries ON DELETE CASCADE on both foreign keys (V94); kUML cannot express the cascade, the migration is the source of truth for it.
+    val conferenceRecordingSpeakerSpan = classOf(name = "ConferenceRecordingSpeakerSpan") {
+        stereotype("Entity") {
+            "tableName" to "conference_recording_speaker_span"
+            "kotlinObjectName" to "ConferenceRecordingSpeakerSpanTable"
+        }
+        stereotype("Index") {
+            "columns" to listOf("recording_id")
+            "name" to "idx_conference_recording_speaker_span_recording"
+        }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "recordingId", type = "UUID") {
+            stereotype("Column") { "columnName" to "recording_id"; "fkEntity" to "ConferenceRecording" }
+        }
+        attribute(name = "trackId", type = "UUID") {
+            stereotype("Column") { "columnName" to "track_id"; "fkEntity" to "ConferenceRecordingTrack" }
+        }
+        attribute(name = "startMs", type = "Long") {
+            stereotype("Column") { "columnName" to "start_ms" }
+        }
+        attribute(name = "endMs", type = "Long") {
+            stereotype("Column") { "columnName" to "end_ms" }
         }
     }
 }

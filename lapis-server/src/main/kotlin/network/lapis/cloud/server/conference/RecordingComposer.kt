@@ -63,6 +63,11 @@ data class RecordingComposeVideoInput(
     val trackId: String = file.name,
     val ranges: List<TimeRange> = emptyList(),
     val durationSeconds: Double? = null,
+    /**
+     * V1.9.115: an OPAQUE key of the person whose camera this is (the id of the person's first track row) -- never an identity or a name.
+     * Matches [RecordingSpeakerSpan.personKey]; `null` for screen shares and when the speaker layout is not used.
+     */
+    val personKey: String? = null,
 )
 
 /**
@@ -93,4 +98,18 @@ data class RecordingComposeSpec(
     val outputWidth: Int = 1280,
     val outputHeight: Int = 720,
     val frameRate: Int = 30,
+    /** V1.9.115: the layout of the stretches without a screen share: the tile grid or the current speaker large. */
+    val layout: RecordingLayout = RecordingLayout.GRID,
+    /** V1.9.115: who is the large tile when (smoothed, wall-clock seconds); only read when [layout] is [RecordingLayout.SPEAKER]. */
+    val speakerSpans: List<RecordingSpeakerSpan> = emptyList(),
+)
+
+/** V1.9.115 -- how the people are laid out in a recording (a screen share is always shown large, whatever the layout). */
+enum class RecordingLayout { GRID, SPEAKER }
+
+/** V1.9.115 -- [personKey] was the large tile from [startSeconds] to [endSeconds] of the recording's wall clock. */
+data class RecordingSpeakerSpan(
+    val personKey: String,
+    val startSeconds: Double,
+    val endSeconds: Double,
 )

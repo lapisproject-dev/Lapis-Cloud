@@ -123,7 +123,7 @@ it looks at the topic.
 == Audit and privacy
 
 One audit entry per action (`CONFERENCE_ROOM`, `UPDATE`): `{"moderation":"mute_all","count":7}`; the closed set of values is `mute_one`, `mute_all`,
-`unmute_request`, `audio_policy` (with the two flags). It names the actor (the audit actor columns), the room and a count, **never the people affected**
+`unmute_request`, `audio_policy` (with the two flags) and (V1.9.115) `BROADCAST_VIEW` (`{"moderation":"BROADCAST_VIEW","view":"SPEAKER"}`, the room's view of recordings and streams -- see link:conference-recording.adoc[conference-recording.adoc]; no LiveKit call, same single `ForbiddenException` for every refusal, its own per-room rate limit). It names the actor (the audit actor columns), the room and a count, **never the people affected**
 (decision F1; if "whom" is ever wanted: the member UUID only, never a name). Logs and exceptions contain no identity, name or room id.
 
 == Rate limits
@@ -148,7 +148,7 @@ The per-room budgets are consumed only AFTER the caller has been authorized, so 
 * Participant list: Kare's symbol with its words ("Mikrofon an", "Stumm", "Von der Moderation stummgeschaltet"); for moderators a FIXED action slot per row
   ("Stummschalten" with an open microphone, "Bitten" otherwise, or an empty placeholder of the same width); "Alle stummschalten" at the head of the list, the
   confirmation shows the server's count and puts the focus on "Abbrechen".
-* The "Moderation" disclosure (in the "Mehr" sheet, next to the guest-access row) holds the two switches. The room form of the lobby does not exist (design
+* The "Moderation" disclosure (in the "Mehr" sheet, next to the guest-access row) holds the two switches (V1.9.115: and the fieldset "Ansicht bei Aufzeichnung und Stream", two radios *Raster* / *Sprecher groß*, with the hint that it applies from the next recording or stream start and that a shared screen is always shown large). The room form of the lobby does not exist (design
   decision D4, "one button, no form"), so the options are set inside the running room; `ConferenceRoomInput` carries the two fields for API completeness.
 * The affected person gets a calm info band (never error red; a 44 px close button) and a live-region announcement; a request is a band without focus
   change with the person's OWN toggle as its first button. A locked microphone button is disabled with the lock symbol and the reason as label and tooltip.
