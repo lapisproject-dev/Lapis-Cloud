@@ -83,12 +83,12 @@ this repository. This README describes only the technical scope.
 * **Deployment**: Docker Compose (`deploy/example/`). Since `v0.31.1` (V1.9.93) the server image is built once per release tag by CI and
   published to GHCR (`ghcr.io/lapisproject-dev/lapis-cloud:<version>`); hosts pull it instead of compiling the sources
   (`LAPIS_IMAGE_TAG` in `.env`, rollback = previous tag). The pipeline has run and is verified: the published image
-  `ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` (the first image; `0.31.2` follows the same route) is public and all four instances run on `0.31.1` until they are switched -- see `docs/architecture/ci-pipeline.adoc`
+  `ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` (the first image; later tags such as `0.32.0` follow the same route, an instance moves by setting `LAPIS_IMAGE_TAG`) is public -- see `docs/architecture/ci-pipeline.adoc`
   and `deploy/example/README.adoc`. A local source build stays available through `docker-compose.build.yml`.
 
 == Status
 
-Current release: *v0.31.2* (database schema *V87*; patch release on `v0.31.1`: recording composition repaired with a manual retry (the fix is proven on a real server only after the rollout), guest federation repaired, the conference call page really full width, MCP article drafts, committee seat automation and election succession, article author lines, feeds and legacy import -- see `CHANGELOG.md` `[0.31.2]`). Lapis Cloud contains standard membership management (members, contributions, events, communication, GDPR, accounting),
+Current release: *v0.32.0* (database schema *V94*; feature release on `v0.31.2`: video-conference moderation (mute, ask, lock the microphones), switchable views with a speaker layout, an optional local noise filter and recordings that follow who is in the picture, stay in sync and can be recomputed (opt-in recording per person), automatic and mandatory mailing lists, rule-based committees with a frozen electorate for every vote, and online participation in events -- none of it has been seen yet in a real call with several real participants; see `CHANGELOG.md` `[0.32.0]` for the behaviour changes, the seven migrations `V88` to `V94` and the honest limitations). Lapis Cloud contains standard membership management (members, contributions, events, communication, GDPR, accounting),
 the meritocratic governance layer (voting, elections, systemic consensus, LTR economy), federation, video conferencing and many optional modules.
 
 * `CHANGELOG.md` is the authoritative release history; the long-form narrative is in link:docs/release-history.adoc[docs/release-history.adoc].
@@ -119,6 +119,9 @@ Each feature has its own document under `docs/features/`.
 |link:docs/features/member-map.adoc[Member map ("Vorstands-Karte", V1.9.5-V1.9.9)] |Board-only aggregate map of member postal-code distribution
 |link:docs/features/member-counts.adoc[Member counts over time (V1.9.59)] |Member count history per status
 |link:docs/features/supermailer.adoc[SuperMailer (V1.9.7/V1.9.15)] |HTML mailing content and asynchronous send path
+|link:docs/features/dynamic-mailing-lists.adoc[Dynamic and mandatory mailing lists (V1.9.111)] |Mailing lists whose recipients are computed from a rule at send time; mandatory lists without opt-out
+|link:docs/features/rule-based-committees.adoc[Rule-based committees (V1.9.112)] |Committees whose members are computed from a rule instead of seat rows; a vote freezes its electorate when it is opened
+|link:docs/features/event-online-participation.adoc[Online participation in events (V1.9.113)] |Lapis video conference created on the first join, entry into an encounter space, guests without an account
 |link:docs/features/public-member-count.adoc[Public member count toggle (V1.9.10)] |Setting to show or hide the active member count on public pages
 |link:docs/features/public-icon-navigation.adoc[Public icon navigation + overview pages (V1.9.11)] |Icon navigation and overview pages for the public site
 |link:docs/features/mitfahrerzentrale.adoc[Mitfahrerzentrale (V1.9.12)] |Carpooling bulletin board for members

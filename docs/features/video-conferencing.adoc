@@ -153,6 +153,11 @@ anderen Gerät verbunden" with "Hier fortsetzen" / "Zur Übersicht" instead of r
 chat in the floating window; the new texts are agent translations not checked by native speakers. See
 link:../architecture/conference-dock.adoc[conference-dock.adoc].
 
+== Moderation: mute, ask, lock the microphones (V1.9.108)
+
+In a running call the room creator and `BOARD`/`ADMIN` can mute one person or everybody ("Alle stummschalten", with a confirmation that names the count), ask a person to switch the microphone on ("Bitten"; a moderator can only ask, never switch a microphone on), and set two room options in the "Moderation" disclosure: **join muted** and **lock the microphones**. A lock is enforced by the server (the join token of a non-moderator carries no microphone publish source, present participants are updated, and a reconciler closes the gap of a reconnect with an old token). Somebody without `BOARD`/`ADMIN` cannot mute or ask a `BOARD`/`ADMIN`. The audit log records the actor, the action, the room and a count, never the people affected. `enable_remote_unmute` must stay off in every LiveKit configuration.
+The mechanism was verified against a real LiveKit 1.13.5 with a real microphone publisher; the participant token claim against a real browser join and the client behaviour in a real browser call or a mobile WebView were not. See link:../architecture/conference-moderation-audio.adoc[conference-moderation-audio.adoc].
+
 == Recordings: layout, sync and "Neu berechnen" (V1.9.109)
 
 The composed recording now shows who is actually in the picture: a person who leaves disappears from the grid, a person who joins late does not squeeze everybody from the first second, and the grid is the same best-fit grid the call itself uses
