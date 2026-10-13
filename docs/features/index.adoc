@@ -17,7 +17,7 @@ Architecture background lives in link:../architecture/[docs/architecture/]; the 
 |link:bank-statement-import.adoc[Bank Statement Import (V1.4.5.1 / V1.4.5.1.1)] |CSV and MT940 bank statement upload with matching against open contributions
 |link:datev-export.adoc[DATEV Export (V1.4.5.2)] |DATEV-EXTF Buchungsstapel export of posted journal entries
 |link:contribution-relief.adoc[Contribution relief (deferral, exemption, reduction) (V1.4.10)] |Member requests for deferral, exemption or reduction of contributions
-|link:travel-expenses.adoc[Travel expense reimbursement (V1.4.11, PdV form V1.9.122)] |Self-service travel expense reports following the PdV form: a day grid with tiered day allowances and meal deductions, mileage with passengers, receipted costs, advance and payout or donation waiver
+|link:travel-expenses.adoc[Travel expense reimbursement (V1.4.11, PdV form V1.9.122)] |Self-service travel expense reports following the PdV form: a day grid with tiered day allowances and meal deductions, mileage with passengers, receipted costs, advance and payout or donation waiver, SEPA credit transfer file (V1.9.123)
 |link:volunteer-allowance.adoc[Volunteer/instructor allowance (V1.4.12)] |Tax-privileged volunteer and instructor payments with annual caps
 |link:ai-assistance.adoc[AI assistance (optional, default off) (V1.6.1)] |Optional statute Q&A with verified citations (off by default)
 |link:member-map.adoc[Member map ("Vorstands-Karte", V1.9.5-V1.9.9)] |Board-only aggregate map of member postal-code distribution
@@ -30,7 +30,7 @@ Architecture background lives in link:../architecture/[docs/architecture/]; the 
 |link:member-country-nationality.adoc[Country and nationality as selection lists (V1.9.121)] |Country and up to ten nationalities chosen from a list with flags, stored as codes; reconciliation of the old free text; `XS`/`ZZ`
 |link:public-member-count.adoc[Public member count toggle (V1.9.10)] |Setting to show or hide the active member count on public pages
 |link:public-icon-navigation.adoc[Public icon navigation + overview pages (V1.9.11)] |Icon navigation and overview pages for the public site
-|link:mitfahrerzentrale.adoc[Mitfahrerzentrale (V1.9.12)] |Carpooling bulletin board for members
+|link:mitfahrerzentrale.adoc[Mitfahrerzentrale (V1.9.12, passengers V1.9.125)] |Carpooling bulletin board for members; guests and friends can ride along
 |link:regional-chapters.adoc[Regional chapters ("Gliederungsverwaltung", Landesverbände) (V1.9.13/V1.9.14)] |Optional regional chapters with chapter-scoped officer access
 |link:membership-tiers.adoc[Membership tiers (V1.9.18)] |Management of membership tiers and their amounts
 |link:member-photo.adoc[Member photo and public profiles (V1.9.19-V1.9.21)] |Voluntary member photos and public profiles with consent
