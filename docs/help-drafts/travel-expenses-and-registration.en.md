@@ -1,3 +1,4 @@
+<!-- Superseded by the website help page src/content/help/travel-expenses.md (cloud.lapisproject.dev); keep in sync there. -->
 <!--
 Working draft for the website help page (English counterpart of travel-expenses-and-registration.de.md; the website needs EN and DE).
 Markdown on purpose and by explicit request: this is text to hand over to the website editors, NOT part of the versioned project

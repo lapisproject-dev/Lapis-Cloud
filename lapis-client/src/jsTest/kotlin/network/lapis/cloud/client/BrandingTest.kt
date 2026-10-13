@@ -48,6 +48,14 @@ class BrandingTest {
     }
 
     @Test
+    fun helpUrl_englishHasNoPrefix_germanHasDePrefix_otherLanguagesFallBackToEnglish() {
+        assertEquals("https://cloud.lapisproject.dev/help/travel-expenses", Branding.helpUrlFor("travel-expenses", "en"))
+        assertEquals("https://cloud.lapisproject.dev/de/help/travel-expenses", Branding.helpUrlFor("travel-expenses", "de"))
+        assertEquals("https://cloud.lapisproject.dev/de/help/travel-expenses", Branding.helpUrlFor("travel-expenses", "de-AT"))
+        assertEquals("https://cloud.lapisproject.dev/help/travel-expenses", Branding.helpUrlFor("travel-expenses", "fr"))
+    }
+
+    @Test
     fun noElementInDom_fallsBackToDefaults() {
         removeBrandElement()
         assertEquals(Branding.DEFAULT_TITLE, Branding.title)

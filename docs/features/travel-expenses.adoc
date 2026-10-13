@@ -156,7 +156,7 @@ classDiagram(name = "Travel expense calculation core") {
 * An advance larger than the claim is not supported.
 * No SEPA payment file, no donation receipt (Zuwendungsbestätigung) generation, no VAT columns.
 * The contact person is empty until an administrator enters it.
-* The help link on the travel expense page points to `+<platform>/{de|en}/help/travel-expenses+`, which answers 404 until the website release that carries the page.
+* The help link on the travel expense page points to `+<platform>/de/help/travel-expenses+` in German and `+<platform>/help/travel-expenses+` in every other UI language, which answers 404 until the website release that carries the page.
 * Old MILEAGE lines with fractional kilometers cannot be submitted any more (`mileage_fractional_km_reenter`) -- enter the line again.
 * A legacy mileage rate stored with sub-cent digits is rounded HALF_UP to whole cents when the rate set is built.
 

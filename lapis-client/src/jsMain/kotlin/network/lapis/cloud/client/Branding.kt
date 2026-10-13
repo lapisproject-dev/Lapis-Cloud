@@ -62,13 +62,22 @@ object Branding {
     const val PLATFORM_URL: String = "https://cloud.lapisproject.dev"
 
     /**
-     * V1.9.122 -- the public help page of the platform for [topic] (`travel-expenses`), in the UI language (`de` or `en`).
-     * Until the website release that carries the page the link answers 404 (stated in the CHANGELOG).
+     * V1.9.122 -- the public help page of the platform for [topic] (`travel-expenses`), in the UI language.
+     * The website has only English and German and serves English without a prefix (`/help/<topic>`) and German under
+     * `/de/help/<topic>` (Astro `prefixDefaultLocale = false`); every other UI language falls back to English.
      */
-    fun helpUrl(topic: String): String {
-        val language = if (I18n.language.substringBefore('-').lowercase() == "de") "de" else "en"
-        return "$PLATFORM_URL/$language/help/$topic"
-    }
+    fun helpUrl(topic: String): String = helpUrlFor(topic, I18n.language)
+
+    /** Pure counterpart of [helpUrl] for a given UI language code (`de`, `de-AT`, `en`, `fr`, ...). */
+    internal fun helpUrlFor(
+        topic: String,
+        languageCode: String,
+    ): String =
+        if (languageCode.substringBefore('-').lowercase() == "de") {
+            "$PLATFORM_URL/de/help/$topic"
+        } else {
+            "$PLATFORM_URL/help/$topic"
+        }
 
     private const val ELEMENT_ID = "lapis-brand"
 

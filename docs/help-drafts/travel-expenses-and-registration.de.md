@@ -1,3 +1,4 @@
+<!-- Superseded by the website help page src/content/help/travel-expenses.md (cloud.lapisproject.dev); keep in sync there. -->
 <!--
 Arbeitsentwurf für die Hilfeseite der Webseite (Release-Ziel: Website-Release nach Lapis Cloud V1.9.122).
 Bewusst Markdown, auf ausdrücklichen Auftrag: Das ist ein Text zum Weiterreichen an die Website-Redaktion
