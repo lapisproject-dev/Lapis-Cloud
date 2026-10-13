@@ -23586,3 +23586,75 @@ msgstr "Według wspólnych przejazdów potwierdzonych pasażerów: %1."
 
 msgid "Mitfahrt"
 msgstr "Wspólny przejazd"
+
+msgid "Hand senken"
+msgstr "Opuść rękę"
+
+msgid "Reaktion"
+msgstr "Reakcja"
+
+msgid "Daumen hoch"
+msgstr "Kciuk w górę"
+
+msgid "Blume"
+msgstr "Kwiat"
+
+msgid "Hand gehoben"
+msgstr "Ręka podniesiona"
+
+msgid "Hand gehoben: %1"
+msgstr "Ręka podniesiona: %1"
+
+msgid "%1 neue Wortmeldungen"
+msgstr "%1 nowych zgłoszeń do głosu"
+
+msgid "%1, Position %2"
+msgstr "%1, pozycja %2"
+
+msgid "Wortmeldungen"
+msgstr "Zgłoszenia do głosu"
+
+msgid "Keine Wortmeldungen"
+msgstr "Brak zgłoszeń do głosu"
+
+msgid "Alle Hände senken"
+msgstr "Opuść wszystkie ręce"
+
+msgid "Alle Hände senken?"
+msgstr "Opuścić wszystkie ręce?"
+
+msgid "%1 Wortmeldung(en) werden entfernt."
+msgstr "Zostanie usuniętych zgłoszeń do głosu: %1."
+
+msgid "Wortmeldungen ansagen"
+msgstr "Ogłaszaj zgłoszenia do głosu"
+
+msgid "Reaktionen sind in diesem Raum ausgeschaltet."
+msgstr "Reakcje są wyłączone w tym pokoju."
+
+msgid "Ihre Hand wurde gesenkt."
+msgstr "Pana/Pani ręka została opuszczona."
+
+msgid "Ihre Hand ist gehoben"
+msgstr "Pana/Pani ręka jest podniesiona"
+
+msgid "Gehobene Hände: %1"
+msgstr "Podniesione ręce: %1"
+
+msgid "Unbekannt"
+msgstr "Nieznane"
+
+msgid "Die Hand konnte nicht gehoben werden. Bitte versuchen Sie es erneut."
+msgstr "Nie udało się podnieść ręki. Proszę spróbować ponownie."
+
+msgid "Für Gäste ohne Konto nicht verfügbar"
+msgstr "Niedostępne dla gości bez konta"
+
+msgid "Reaktionen in diesem Raum"
+msgstr "Reakcje w tym pokoju"
+
+msgid "Applaus, Herz und weitere Reaktionen. Die Wortmeldeliste bleibt davon unberührt."
+msgstr "Oklaski, serce i inne reakcje. Lista zgłoszeń do głosu pozostaje bez zmian."
+
+msgid "Hand von %1 senken"
+msgstr "Opuść rękę: %1"

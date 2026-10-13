@@ -23645,3 +23645,75 @@ msgstr "Selon le covoiturage, %1 passagers confirmés."
 
 msgid "Mitfahrt"
 msgstr "Trajet partagé"
+
+msgid "Hand senken"
+msgstr "Baisser la main"
+
+msgid "Reaktion"
+msgstr "Réaction"
+
+msgid "Daumen hoch"
+msgstr "Pouce levé"
+
+msgid "Blume"
+msgstr "Fleur"
+
+msgid "Hand gehoben"
+msgstr "Main levée"
+
+msgid "Hand gehoben: %1"
+msgstr "Main levée : %1"
+
+msgid "%1 neue Wortmeldungen"
+msgstr "%1 nouvelles demandes de parole"
+
+msgid "%1, Position %2"
+msgstr "%1, position %2"
+
+msgid "Wortmeldungen"
+msgstr "Demandes de parole"
+
+msgid "Keine Wortmeldungen"
+msgstr "Aucune demande de parole"
+
+msgid "Alle Hände senken"
+msgstr "Baisser toutes les mains"
+
+msgid "Alle Hände senken?"
+msgstr "Baisser toutes les mains ?"
+
+msgid "%1 Wortmeldung(en) werden entfernt."
+msgstr "%1 demande(s) de parole seront supprimées."
+
+msgid "Wortmeldungen ansagen"
+msgstr "Annoncer les demandes de parole"
+
+msgid "Reaktionen sind in diesem Raum ausgeschaltet."
+msgstr "Les réactions sont désactivées dans cette salle."
+
+msgid "Ihre Hand wurde gesenkt."
+msgstr "Votre main a été baissée."
+
+msgid "Ihre Hand ist gehoben"
+msgstr "Votre main est levée"
+
+msgid "Gehobene Hände: %1"
+msgstr "Mains levées : %1"
+
+msgid "Unbekannt"
+msgstr "Inconnu"
+
+msgid "Die Hand konnte nicht gehoben werden. Bitte versuchen Sie es erneut."
+msgstr "La main n'a pas pu être levée. Veuillez réessayer."
+
+msgid "Für Gäste ohne Konto nicht verfügbar"
+msgstr "Non disponible pour les invités sans compte"
+
+msgid "Reaktionen in diesem Raum"
+msgstr "Réactions dans cette salle"
+
+msgid "Applaus, Herz und weitere Reaktionen. Die Wortmeldeliste bleibt davon unberührt."
+msgstr "Applaudissements, cœur et autres réactions. La liste des demandes de parole n'est pas concernée."
+
+msgid "Hand von %1 senken"
+msgstr "Baisser la main de %1"

@@ -63,6 +63,8 @@ import network.lapis.cloud.server.clientversion.ClientShell
 import network.lapis.cloud.server.conference.ConferenceAudioGrantState
 import network.lapis.cloud.server.conference.ConferenceAudioPolicyReconciler
 import network.lapis.cloud.server.conference.ConferenceConfig
+import network.lapis.cloud.server.conference.ConferenceHandQueueReconciler
+import network.lapis.cloud.server.conference.ConferenceHandQueueState
 import network.lapis.cloud.server.conference.ConferenceNotesState
 import network.lapis.cloud.server.conference.ConferenceRecordingConfig
 import network.lapis.cloud.server.conference.ConferenceStreamingConfig
@@ -268,6 +270,7 @@ import network.lapis.cloud.server.rpc.CarpoolService
 import network.lapis.cloud.server.rpc.CateringService
 import network.lapis.cloud.server.rpc.ConferenceBackgroundService
 import network.lapis.cloud.server.rpc.ConferenceBreakoutService
+import network.lapis.cloud.server.rpc.ConferenceHandService
 import network.lapis.cloud.server.rpc.ConferenceModerationService
 import network.lapis.cloud.server.rpc.ConferenceNotesService
 import network.lapis.cloud.server.rpc.ConferenceRecordingService
@@ -362,6 +365,7 @@ import network.lapis.cloud.shared.rpc.ICarpoolService
 import network.lapis.cloud.shared.rpc.ICateringService
 import network.lapis.cloud.shared.rpc.IConferenceBackgroundService
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
+import network.lapis.cloud.shared.rpc.IConferenceHandService
 import network.lapis.cloud.shared.rpc.IConferenceModerationService
 import network.lapis.cloud.shared.rpc.IConferenceNotesService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
@@ -1031,7 +1035,17 @@ internal fun Application.module(
     val conferencePolicyRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 5.seconds)
     val conferenceBroadcastViewRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 2.seconds)
     val conferenceJoinLeaveSoundsRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 2.seconds)
+    val conferenceReactionsRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 2.seconds)
     val conferenceMutePreviewRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+
+    // V1.9.127 "Reaktionen und Handzeichen" -- the raised-hand queue is a process-wide singleton for the same reason as
+    // conferenceAudioGrantState (Kilua builds the service per RPC call). Budgets: raise/lower 10/min per person+room, reading the queue
+    // 30/min per person, a moderator lowering one hand 30/min per room, lowering all hands 6/min per room.
+    val conferenceHandQueueState = ConferenceHandQueueState()
+    val conferenceHandOwnRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    val conferenceHandReadRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    val conferenceHandLowerOneRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    val conferenceHandLowerAllRateLimiter = FederationInboxRateLimiter(maxRequests = 6, window = 1.minutes)
 
     // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- same "constructed here, NOT left to the
     // service's own constructor default" reasoning as conferenceGuestAccessRateLimiter above (the
@@ -1390,6 +1404,15 @@ internal fun Application.module(
         )
     conferenceAudioPolicyReconciler.start()
     monitor.subscribe(ApplicationStopping) { conferenceAudioPolicyReconciler.stop() }
+    // V1.9.127 -- drops raised hands of people who left the room (20 s grace) and tells newly arrived people the queue (see KDoc).
+    val conferenceHandQueueReconciler =
+        ConferenceHandQueueReconciler(
+            liveKitAdminClient = liveKitAdminClient,
+            state = conferenceHandQueueState,
+            liveKitEnabled = conferenceConfig.enabled,
+        )
+    conferenceHandQueueReconciler.start()
+    monitor.subscribe(ApplicationStopping) { conferenceHandQueueReconciler.stop() }
 
     // Welle V1.9.15 -- erases raw mailing open/click events after MailingHtmlPolicy.RETENTION_DAYS.
     val mailingTrackingRetentionPoller = MailingTrackingRetentionPoller()
@@ -2298,7 +2321,20 @@ internal fun Application.module(
                 policyRateLimiter = conferencePolicyRateLimiter,
                 broadcastViewRateLimiter = conferenceBroadcastViewRateLimiter,
                 joinLeaveSoundsRateLimiter = conferenceJoinLeaveSoundsRateLimiter,
+                reactionsRateLimiter = conferenceReactionsRateLimiter,
                 previewRateLimiter = conferenceMutePreviewRateLimiter,
+            )
+        }
+        registerService(IConferenceHandService::class) { call ->
+            ConferenceHandService(
+                call = call,
+                liveKitAdminClient = liveKitAdminClient,
+                config = conferenceConfig,
+                state = conferenceHandQueueState,
+                ownHandRateLimiter = conferenceHandOwnRateLimiter,
+                readRateLimiter = conferenceHandReadRateLimiter,
+                lowerOneRateLimiter = conferenceHandLowerOneRateLimiter,
+                lowerAllRateLimiter = conferenceHandLowerAllRateLimiter,
             )
         }
         registerService(IEncounterSpaceService::class) { call ->

@@ -23577,3 +23577,75 @@ msgstr "По данным совместных поездок подтвержд
 
 msgid "Mitfahrt"
 msgstr "Совместная поездка"
+
+msgid "Hand senken"
+msgstr "Опустить руку"
+
+msgid "Reaktion"
+msgstr "Реакция"
+
+msgid "Daumen hoch"
+msgstr "Палец вверх"
+
+msgid "Blume"
+msgstr "Цветок"
+
+msgid "Hand gehoben"
+msgstr "Рука поднята"
+
+msgid "Hand gehoben: %1"
+msgstr "Рука поднята: %1"
+
+msgid "%1 neue Wortmeldungen"
+msgstr "%1 новых запросов на слово"
+
+msgid "%1, Position %2"
+msgstr "%1, позиция %2"
+
+msgid "Wortmeldungen"
+msgstr "Запросы на слово"
+
+msgid "Keine Wortmeldungen"
+msgstr "Нет запросов на слово"
+
+msgid "Alle Hände senken"
+msgstr "Опустить все руки"
+
+msgid "Alle Hände senken?"
+msgstr "Опустить все руки?"
+
+msgid "%1 Wortmeldung(en) werden entfernt."
+msgstr "Будет удалено запросов на слово: %1."
+
+msgid "Wortmeldungen ansagen"
+msgstr "Объявлять запросы на слово"
+
+msgid "Reaktionen sind in diesem Raum ausgeschaltet."
+msgstr "Реакции в этой комнате отключены."
+
+msgid "Ihre Hand wurde gesenkt."
+msgstr "Вашу руку опустили."
+
+msgid "Ihre Hand ist gehoben"
+msgstr "Ваша рука поднята"
+
+msgid "Gehobene Hände: %1"
+msgstr "Поднятые руки: %1"
+
+msgid "Unbekannt"
+msgstr "Неизвестно"
+
+msgid "Die Hand konnte nicht gehoben werden. Bitte versuchen Sie es erneut."
+msgstr "Не удалось поднять руку. Пожалуйста, попробуйте ещё раз."
+
+msgid "Für Gäste ohne Konto nicht verfügbar"
+msgstr "Недоступно для гостей без учётной записи"
+
+msgid "Reaktionen in diesem Raum"
+msgstr "Реакции в этой комнате"
+
+msgid "Applaus, Herz und weitere Reaktionen. Die Wortmeldeliste bleibt davon unberührt."
+msgstr "Аплодисменты, сердце и другие реакции. Список запросов на слово не затрагивается."
+
+msgid "Hand von %1 senken"
+msgstr "Опустить руку: %1"

@@ -22648,3 +22648,75 @@ msgstr ""
 
 msgid "Mitfahrt"
 msgstr ""
+
+msgid "Hand senken"
+msgstr ""
+
+msgid "Reaktion"
+msgstr ""
+
+msgid "Daumen hoch"
+msgstr ""
+
+msgid "Blume"
+msgstr ""
+
+msgid "Hand gehoben"
+msgstr ""
+
+msgid "Hand gehoben: %1"
+msgstr ""
+
+msgid "%1 neue Wortmeldungen"
+msgstr ""
+
+msgid "%1, Position %2"
+msgstr ""
+
+msgid "Wortmeldungen"
+msgstr ""
+
+msgid "Keine Wortmeldungen"
+msgstr ""
+
+msgid "Alle Hände senken"
+msgstr ""
+
+msgid "Alle Hände senken?"
+msgstr ""
+
+msgid "%1 Wortmeldung(en) werden entfernt."
+msgstr ""
+
+msgid "Wortmeldungen ansagen"
+msgstr ""
+
+msgid "Reaktionen sind in diesem Raum ausgeschaltet."
+msgstr ""
+
+msgid "Ihre Hand wurde gesenkt."
+msgstr ""
+
+msgid "Ihre Hand ist gehoben"
+msgstr ""
+
+msgid "Gehobene Hände: %1"
+msgstr ""
+
+msgid "Unbekannt"
+msgstr ""
+
+msgid "Die Hand konnte nicht gehoben werden. Bitte versuchen Sie es erneut."
+msgstr ""
+
+msgid "Für Gäste ohne Konto nicht verfügbar"
+msgstr ""
+
+msgid "Reaktionen in diesem Raum"
+msgstr ""
+
+msgid "Applaus, Herz und weitere Reaktionen. Die Wortmeldeliste bleibt davon unberührt."
+msgstr ""
+
+msgid "Hand von %1 senken"
+msgstr ""

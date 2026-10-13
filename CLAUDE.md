@@ -156,3 +156,12 @@ Details: `docs/architecture/time-and-timezones.adoc`. Kurzregeln:
 - **Keine Identitäten, Namen, Dateinamen oder Pfade in Logs** der Sprecheranalyse, der Zeitleiste und des Sprecher-Layouts des Composers (nur Zählwerte); die Dateinamen im TRACK-Modus enthalten die Identität.
 - Bild und Zeitleiste nutzen **dieselbe Uhr**: Versatz und `atempo` kommen aus `AudioWallClock` (Composer und `SpeechActivity`). Die Glättung (`SpeakerStageSmoother`) ist dieselbe Datei für die Live-Ansicht und die Aufzeichnung.
 - Im Client werden Kachelelemente (und ihre `<video>`) nur **umgehängt**, nie neu erzeugt (`ConferenceViewStage.apply`); `applyTileGrid` schreibt nur Zahlen. Gespeichert wird im Browser nur GALLERY/SPEAKER, nie eine Person. Details: `docs/architecture/conference-views.adoc`, `docs/architecture/conference-recording.adoc`.
+
+## Reaktionen und Wortmeldeliste (V1.9.127)
+
+Details: `docs/features/video-conferencing.adoc`, Abschnitt "Reactions and raised hands". Kurzregeln:
+
+- **Die Wortmeldeliste lebt nur im Server-Speicher** (`ConferenceHandQueueState`: Reihenfolge, `seq`, zufällige Prozess-Epoch): keine Datenbankzeile, keine gespeicherte Zeit, **kein Audit-Eintrag** (auch nicht, wenn die Moderation eine Hand senkt), in Logs nur Zählwerte (`ConferenceHandsLogPrivacyTripwireTest`). Zustand und Topic `lapis-conference-hands` berühren nur `ConferenceHandService` und `ConferenceHandQueueReconciler` (`ConferenceHandServiceEventGuardTripwireTest`). Neue `roomId`-Methoden in `IConferenceHandService` laufen über `authorize(roomId = roomId, ...)` (Event-Raum-Guard, Begegnungsraum-Ablehnung, einheitliche `ForbiddenException`).
+- **Reaktionen sind Peer-Pakete** (`lapis-conference-reaction`): der Server sieht, zählt und speichert sie nie; `HAND` ist keine Reaktion. Der Raumschalter `setRoomReactions` wirkt nur über die Clients (`canPublishData` bleibt unberührt, der Chat nutzt es mit).
+- **Overlays und Hand-Abzeichen sind Client-DOM und damit nicht in Aufzeichnung und Stream.** Das gilt nur, solange `LiveKitEgressClient` keinen Custom-Template-/Web-Egress kennt und die Aufzeichnung aus Rohspuren zusammengesetzt wird: `ConferenceReactionsRecordingTripwireTest` bricht sonst den Build.
+- Im Client werden Reaktions-Schicht und Hand-Abzeichen **einmal mit der Kachel gebaut** und nur gefüllt bzw. ein-/ausgeblendet (`ConferenceViewStage` hängt Kacheln nur um).

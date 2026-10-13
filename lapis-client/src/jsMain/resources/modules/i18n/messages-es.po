@@ -23473,3 +23473,75 @@ msgstr "Según el centro de coche compartido, %1 acompañantes confirmados."
 
 msgid "Mitfahrt"
 msgstr "Viaje compartido"
+
+msgid "Hand senken"
+msgstr "Bajar la mano"
+
+msgid "Reaktion"
+msgstr "Reacción"
+
+msgid "Daumen hoch"
+msgstr "Pulgar arriba"
+
+msgid "Blume"
+msgstr "Flor"
+
+msgid "Hand gehoben"
+msgstr "Mano levantada"
+
+msgid "Hand gehoben: %1"
+msgstr "Mano levantada: %1"
+
+msgid "%1 neue Wortmeldungen"
+msgstr "%1 nuevas peticiones de palabra"
+
+msgid "%1, Position %2"
+msgstr "%1, posición %2"
+
+msgid "Wortmeldungen"
+msgstr "Peticiones de palabra"
+
+msgid "Keine Wortmeldungen"
+msgstr "Ninguna petición de palabra"
+
+msgid "Alle Hände senken"
+msgstr "Bajar todas las manos"
+
+msgid "Alle Hände senken?"
+msgstr "¿Bajar todas las manos?"
+
+msgid "%1 Wortmeldung(en) werden entfernt."
+msgstr "Se eliminarán %1 petición(es) de palabra."
+
+msgid "Wortmeldungen ansagen"
+msgstr "Anunciar las peticiones de palabra"
+
+msgid "Reaktionen sind in diesem Raum ausgeschaltet."
+msgstr "Las reacciones están desactivadas en esta sala."
+
+msgid "Ihre Hand wurde gesenkt."
+msgstr "Su mano ha sido bajada."
+
+msgid "Ihre Hand ist gehoben"
+msgstr "Su mano está levantada"
+
+msgid "Gehobene Hände: %1"
+msgstr "Manos levantadas: %1"
+
+msgid "Unbekannt"
+msgstr "Desconocido"
+
+msgid "Die Hand konnte nicht gehoben werden. Bitte versuchen Sie es erneut."
+msgstr "No se pudo levantar la mano. Inténtelo de nuevo."
+
+msgid "Für Gäste ohne Konto nicht verfügbar"
+msgstr "No disponible para invitados sin cuenta"
+
+msgid "Reaktionen in diesem Raum"
+msgstr "Reacciones en esta sala"
+
+msgid "Applaus, Herz und weitere Reaktionen. Die Wortmeldeliste bleibt davon unberührt."
+msgstr "Aplauso, corazón y otras reacciones. La lista de peticiones de palabra no se ve afectada."
+
+msgid "Hand von %1 senken"
+msgstr "Bajar la mano de %1"

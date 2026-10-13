@@ -25,7 +25,23 @@ import network.lapis.cloud.shared.domain.ConferenceStreamStatus
  */
 
 /** The controls of the bar, in DOM order. */
-internal enum class ConferenceControlSlot { MIC, CAMERA, SCREEN, RECORD, STREAM, VIEW, ROSTER, CHAT, VOTE, MORE, BACK, END_FOR_ALL, LEAVE }
+internal enum class ConferenceControlSlot {
+    MIC,
+    CAMERA,
+    SCREEN,
+    RECORD,
+    STREAM,
+    VIEW,
+    REACT,
+    HAND,
+    ROSTER,
+    CHAT,
+    VOTE,
+    MORE,
+    BACK,
+    END_FOR_ALL,
+    LEAVE,
+}
 
 /** Group index of a slot: 0 devices, 1 moderation, 2 panels, 3 exit. A divider separates two non-empty groups. */
 internal fun conferenceControlGroup(slot: ConferenceControlSlot): Int =
@@ -33,6 +49,8 @@ internal fun conferenceControlGroup(slot: ConferenceControlSlot): Int =
         ConferenceControlSlot.MIC, ConferenceControlSlot.CAMERA, ConferenceControlSlot.SCREEN -> 0
         ConferenceControlSlot.RECORD, ConferenceControlSlot.STREAM -> 1
         ConferenceControlSlot.VIEW,
+        ConferenceControlSlot.REACT,
+        ConferenceControlSlot.HAND,
         ConferenceControlSlot.ROSTER,
         ConferenceControlSlot.CHAT,
         ConferenceControlSlot.VOTE,
@@ -45,13 +63,16 @@ internal fun conferenceControlGroup(slot: ConferenceControlSlot): Int =
 internal const val CONFERENCE_EXIT_GROUP = 3
 
 /**
- * Overflow order, the first one is moved first (END_FOR_ALL last, V1.9.72). Never moved: MIC, CAMERA, CHAT, MORE, BACK, LEAVE.
+ * Overflow order, the first one is moved first (END_FOR_ALL last, V1.9.72). Never moved: MIC, CAMERA, HAND, CHAT, MORE, BACK, LEAVE.
+ * V1.9.127: REACT ("Reaktion") moves right after VIEW -- a mood is the first thing that can wait; HAND (the raised hand) never moves, a person who
+ * wants the floor must always find the button.
  * V1.9.115: VIEW ("Ansicht") moves FIRST -- before the vote, the roster and the rest -- because its twin in the sheet opens the very same
  * radio group, so nothing is lost when the bar is narrow.
  */
 internal val CONFERENCE_OVERFLOW_ORDER: List<ConferenceControlSlot> =
     listOf(
         ConferenceControlSlot.VIEW,
+        ConferenceControlSlot.REACT,
         ConferenceControlSlot.VOTE,
         ConferenceControlSlot.SCREEN,
         ConferenceControlSlot.ROSTER,
@@ -238,6 +259,57 @@ internal fun Container.conferenceControlButton(
 
 /** V1.9.115: the "Ansicht" button of the bar (gallery / speaker large / pin / screen share large) -- built by the bar's own icon-only factory. */
 internal fun Container.conferenceViewButton(): Button = conferenceControlButton(ActionIcon.VIEW_GALLERY, tr("Ansicht"))
+
+/** V1.9.127: the "Reaktion" button of the bar (opens the menu of the five reactions) -- built by the bar's own icon-only factory. */
+internal fun Container.conferenceReactButton(): Button = conferenceControlButton(ActionIcon.REACT, tr("Reaktion"))
+
+/** The raised-hand toggle of the bar and its position badge (the number shows the own place in the queue while the hand is up). */
+internal class ConferenceHandControl internal constructor(
+    val button: Button,
+    private val badge: Span,
+) {
+    private var shownRaised: Boolean? = null
+    private var shownPosition: Int? = null
+    private var shownBusy: Boolean? = null
+
+    /** The state: `aria-pressed` = the hand is up, the label is the verb a click runs, "Position N" is the badge (and part of the name). */
+    fun apply(
+        raised: Boolean,
+        position: Int?,
+        busy: Boolean,
+    ) {
+        if (shownRaised != raised || shownPosition != position) {
+            shownRaised = raised
+            shownPosition = position
+            button.setAttrIfChanged("aria-pressed", raised.toString())
+            val verb = resolvedAttributeText(if (raised) tr("Hand senken") else tr("Hand heben"))
+            val label = if (raised && position != null) gettext("%1, Position %2", verb, position) else verb
+            button.setAttrIfChanged("aria-label", label)
+            button.setAttrIfChanged("title", label)
+            if (raised) button.addCssClass("active") else button.removeCssClass("active")
+            if (raised && position != null) {
+                val number = position.toString()
+                badge.content = number
+                badge.addCssClass(ConferenceModerationGroup.BADGE_ON)
+            } else {
+                badge.removeCssClass(ConferenceModerationGroup.BADGE_ON)
+            }
+        }
+        if (shownBusy != busy) {
+            shownBusy = busy
+            if (busy) button.setAttrIfChanged("aria-busy", "true") else button.removeAttribute("aria-busy")
+        }
+    }
+}
+
+/** V1.9.127: the raised-hand toggle of the bar, built by the bar's own icon-only factory. */
+internal fun Container.conferenceHandControl(): ConferenceHandControl {
+    val button = conferenceControlButton(ActionIcon.HAND, tr("Hand heben"))
+    val badge = button.span(className = "lapis-conference-control-badge")
+    badge.setAttribute("aria-hidden", "true")
+    button.setAttribute("aria-pressed", "false")
+    return ConferenceHandControl(button, badge)
+}
 
 /** The group of the moderator's controls in the bar: record, live stream ("Für alle beenden" sits in the exit group since V1.9.72). */
 internal class ConferenceModerationGroup internal constructor(

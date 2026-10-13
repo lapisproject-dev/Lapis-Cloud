@@ -239,6 +239,12 @@ classDiagram(name = "Conference") {
             defaultValue = "TRUE"
             stereotype("Column") { "columnName" to "join_leave_sounds" }
         }
+        // V1.9.127 -- V101. Reactions of the room (client-side peer packets); a moderator can switch them off for the whole room. The raised
+        // hand (server-ordered queue, in memory only) is not affected.
+        attribute(name = "reactionsEnabled", type = "Boolean") {
+            defaultValue = "TRUE"
+            stereotype("Column") { "columnName" to "reactions_enabled" }
+        }
         // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" addition -- see
         // file header "Wave 9 addition". NULL means this room is not bound to any Sitzung (the
         // default for every existing and newly-created room). Deliberately NOT unique -- several

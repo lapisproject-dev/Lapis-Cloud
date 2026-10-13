@@ -72,6 +72,8 @@ internal data class FloatWindowView(
     val micPressed: Boolean,
     val cameraPressed: Boolean,
     val resolving: Boolean,
+    /** V1.9.127: "Ihre Hand ist gehoben" / "Gehobene Hände: N". */
+    val handBadges: List<String> = emptyList(),
 )
 
 /** Pure: the paint instructions of the window for [state] (only [DockState.Live] and [DockState.Resolving] are ever floating). */
@@ -99,6 +101,7 @@ internal fun floatWindowViewOf(state: DockState): FloatWindowView {
         micPressed = snapshot?.micOn == true,
         cameraPressed = snapshot?.cameraOn == true,
         resolving = state is DockState.Resolving,
+        handBadges = if (live) conferenceHandBadges(snapshot?.handRaisedSelf == true, snapshot?.raisedHandsCount) else emptyList(),
     )
 }
 
@@ -715,6 +718,7 @@ internal fun Container.conferenceFloatWindow(): Div {
     var shownBadges: List<String> = emptyList()
     var shownVote = false
     var shownShare = false
+    var shownHands: List<String> = emptyList()
     var shownSize: FloatSize? = null
 
     // while a header drag is running the pointer owns the position: layout() must not reset the inline left/top
@@ -770,16 +774,30 @@ internal fun Container.conferenceFloatWindow(): Div {
         if (win.hasCssClass(DOCK_HIDDEN_CLASS)) win.removeCssClass(DOCK_HIDDEN_CLASS)
         val statusText = view.statusText // a local, not a dotted field: the status is a static tr() text, never untrusted content
         statusSpan.content = statusText
-        if (view.consentBadges != shownBadges || view.voteBadge != shownVote || view.screenShare != shownShare) {
+        if (view.consentBadges != shownBadges ||
+            view.voteBadge != shownVote ||
+            view.screenShare != shownShare ||
+            view.handBadges != shownHands
+        ) {
             shownBadges = view.consentBadges
             shownVote = view.voteBadge
             shownShare = view.screenShare
+            shownHands = view.handBadges
             badges.removeAll()
             view.consentBadges.forEach { badges.statusBadge(it, "danger") }
+            view.handBadges.forEach { badges.statusBadge(it, "warning") }
             if (view.voteBadge) badges.statusBadge(tr("Abstimmung läuft"), "info")
             if (view.screenShare) badges.statusBadge(tr("▣ Sie teilen Ihren Bildschirm"), "secondary")
         }
-        if (view.consentBadges.isEmpty() && !view.voteBadge && !view.screenShare) badges.hide() else badges.show()
+        if (view.consentBadges.isEmpty() &&
+            !view.voteBadge &&
+            !view.screenShare &&
+            view.handBadges.isEmpty()
+        ) {
+            badges.hide()
+        } else {
+            badges.show()
+        }
         if (view.showDevices || view.showLeave) controls.root.show() else controls.root.hide()
         if (view.showDevices) {
             controls.mic.show()

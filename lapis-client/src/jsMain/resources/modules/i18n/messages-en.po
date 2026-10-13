@@ -23533,3 +23533,75 @@ msgstr "According to the carpool centre, %1 confirmed passengers."
 
 msgid "Mitfahrt"
 msgstr "Ride"
+
+msgid "Hand senken"
+msgstr "Lower hand"
+
+msgid "Reaktion"
+msgstr "Reaction"
+
+msgid "Daumen hoch"
+msgstr "Thumbs up"
+
+msgid "Blume"
+msgstr "Flower"
+
+msgid "Hand gehoben"
+msgstr "Hand raised"
+
+msgid "Hand gehoben: %1"
+msgstr "Hand raised: %1"
+
+msgid "%1 neue Wortmeldungen"
+msgstr "%1 new requests to speak"
+
+msgid "%1, Position %2"
+msgstr "%1, position %2"
+
+msgid "Wortmeldungen"
+msgstr "Requests to speak"
+
+msgid "Keine Wortmeldungen"
+msgstr "No requests to speak"
+
+msgid "Alle Hände senken"
+msgstr "Lower all hands"
+
+msgid "Alle Hände senken?"
+msgstr "Lower all hands?"
+
+msgid "%1 Wortmeldung(en) werden entfernt."
+msgstr "%1 request(s) to speak will be removed."
+
+msgid "Wortmeldungen ansagen"
+msgstr "Announce requests to speak"
+
+msgid "Reaktionen sind in diesem Raum ausgeschaltet."
+msgstr "Reactions are switched off in this room."
+
+msgid "Ihre Hand wurde gesenkt."
+msgstr "Your hand was lowered."
+
+msgid "Ihre Hand ist gehoben"
+msgstr "Your hand is raised"
+
+msgid "Gehobene Hände: %1"
+msgstr "Raised hands: %1"
+
+msgid "Unbekannt"
+msgstr "Unknown"
+
+msgid "Die Hand konnte nicht gehoben werden. Bitte versuchen Sie es erneut."
+msgstr "The hand could not be raised. Please try again."
+
+msgid "Für Gäste ohne Konto nicht verfügbar"
+msgstr "Not available for guests without an account"
+
+msgid "Reaktionen in diesem Raum"
+msgstr "Reactions in this room"
+
+msgid "Applaus, Herz und weitere Reaktionen. Die Wortmeldeliste bleibt davon unberührt."
+msgstr "Applause, heart and other reactions. The list of raised hands is not affected."
+
+msgid "Hand von %1 senken"
+msgstr "Lower the hand of %1"

@@ -42,6 +42,8 @@ internal data class DockBarView(
     val twoRows: Boolean,
     /** V1.9.71: "Als Fenster zeigen" -- only on a wide viewport while a call is live. */
     val showFloatButton: Boolean,
+    /** V1.9.127: "Ihre Hand ist gehoben" / "Gehobene Hände: N" (text next to the symbol, never colour alone). */
+    val handBadges: List<String> = emptyList(),
 )
 
 internal fun dockStopText(reason: DockStopReason): String =
@@ -96,6 +98,7 @@ internal fun dockBarViewOf(
     val voteBadge = snapshot?.voteOpen == true
     val screenShare = snapshot?.screenSharing == true
     val live = state is DockState.Live
+    val hands = conferenceHandBadges(snapshot?.handRaisedSelf == true, snapshot?.raisedHandsCount)
     return hidden.copy(
         visible = true,
         statusText = status,
@@ -108,8 +111,9 @@ internal fun dockBarViewOf(
         micPressed = snapshot?.micOn == true,
         cameraPressed = snapshot?.cameraOn == true,
         stopped = (state as? DockState.Stopped)?.reason,
-        twoRows = narrow && (badges.isNotEmpty() || voteBadge || (screenShare && live)),
+        twoRows = narrow && (badges.isNotEmpty() || voteBadge || (screenShare && live) || hands.isNotEmpty()),
         showFloatButton = wide && (state is DockState.Live || state is DockState.Resolving),
+        handBadges = if (live) hands else emptyList(),
     )
 }
 
@@ -265,6 +269,7 @@ internal fun Container.conferenceDockBar(): Div {
     var shownBadges: List<String> = emptyList()
     var shownVote = false
     var shownShare = false
+    var shownHands: List<String> = emptyList()
     var wasVisible = false
 
     fun paint(state: DockState) {
@@ -309,16 +314,30 @@ internal fun Container.conferenceDockBar(): Div {
                 }
                 null -> Unit
             }
-            if (view.consentBadges != shownBadges || view.voteBadge != shownVote || view.screenShare != shownShare) {
+            if (view.consentBadges != shownBadges ||
+                view.voteBadge != shownVote ||
+                view.screenShare != shownShare ||
+                view.handBadges != shownHands
+            ) {
                 shownBadges = view.consentBadges
                 shownVote = view.voteBadge
                 shownShare = view.screenShare
+                shownHands = view.handBadges
                 badges.removeAll()
                 view.consentBadges.forEach { badges.statusBadge(it, "danger") }
+                view.handBadges.forEach { badges.statusBadge(it, "warning") }
                 if (view.voteBadge) badges.statusBadge(tr("Abstimmung läuft"), "info")
                 if (view.screenShare) badges.statusBadge(tr("Bildschirmfreigabe"), "secondary")
             }
-            if (view.consentBadges.isEmpty() && !view.voteBadge && !view.screenShare) badges.hide() else badges.show()
+            if (view.consentBadges.isEmpty() &&
+                !view.voteBadge &&
+                !view.screenShare &&
+                view.handBadges.isEmpty()
+            ) {
+                badges.hide()
+            } else {
+                badges.show()
+            }
             if (view.showDevices) {
                 controls.root.show()
             } else if (view.showLeave) {

@@ -17,9 +17,14 @@ import network.lapis.cloud.client.PresenceTracker
 import network.lapis.cloud.client.encounter.EncounterReactionWire
 import network.lapis.cloud.client.failureOf
 import network.lapis.cloud.client.isPresenceCountable
+import network.lapis.cloud.shared.domain.CONFERENCE_HANDS_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.CONFERENCE_HANDS_TOPIC
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_TOPIC
+import network.lapis.cloud.shared.domain.CONFERENCE_REACTION_TOPIC
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
+import network.lapis.cloud.shared.domain.ConferenceHandQueueDto
+import network.lapis.cloud.shared.domain.ConferenceReaction
 import network.lapis.cloud.shared.domain.ConferenceTurnServer
 import network.lapis.cloud.shared.domain.ENCOUNTER_BELL_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_BELL_TOPIC
@@ -427,6 +432,16 @@ class LiveKitRoomSession(
      * connect and on every `ParticipantPermissionsChanged` of the local participant. The truth for the microphone button of a locked room.
      */
     private val onLocalMicrophonePermission: (allowed: Boolean) -> Unit = {},
+    /**
+     * V1.9.127 -- the server-ordered raised-hand queue ([ConferenceHandQueueDto]); see [conferenceHandsPacket] for the strict acceptance rule
+     * (never from a participant, validated shape, at most [CONFERENCE_HANDS_MAX_PAYLOAD_BYTES] bytes). The caller still drops an older `seq`.
+     */
+    private val onHandQueue: (ConferenceHandQueueDto) -> Unit = {},
+    /**
+     * V1.9.127 -- a reaction of another participant. The sender is ONLY the SDK-verified `participant.identity` of the packet, never a
+     * field of the payload (see [ConferenceReactionWire]); `decode` never throws and drops everything that is not one of the five reactions.
+     */
+    private val onConferenceReaction: (senderIdentity: String, reaction: ConferenceReaction) -> Unit = { _, _ -> },
 ) {
     private var room: Room? = null
 
@@ -861,6 +876,15 @@ class LiveKitRoomSession(
                 conferenceModerationPacket(fromParticipant = false, payload = bytes)?.let(onModerationSignal)
                 return@onOwned
             }
+            // V1.9.127 -- the raised-hand queue: accepted ONLY from the server (a packet WITHOUT a participant), so this branch sits
+            // BEFORE the participant check below, like the moderation branch above. Validated and never throwing.
+            if (p3 == CONFERENCE_HANDS_TOPIC) {
+                val fromParticipant = p1.unsafeCast<RemoteParticipant?>() != null
+                if (fromParticipant || payload.length !in 1..CONFERENCE_HANDS_MAX_PAYLOAD_BYTES) return@onOwned
+                val bytes = ByteArray(payload.length) { index -> payload[index] }
+                conferenceHandsPacket(fromParticipant = false, payload = bytes)?.let(onHandQueue)
+                return@onOwned
+            }
             val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@onOwned
             val topic = p3
             when (topic) {
@@ -911,6 +935,11 @@ class LiveKitRoomSession(
                 ENCOUNTER_REACTION_TOPIC ->
                     runCatching {
                         EncounterReactionWire.decode(payload)?.let { onEncounterReaction(participant.identity, it) }
+                    }
+                // V1.9.127 -- the sender is the SDK-verified identity, never a payload field; decode() never throws.
+                CONFERENCE_REACTION_TOPIC ->
+                    runCatching {
+                        ConferenceReactionWire.decode(payload)?.let { onConferenceReaction(participant.identity, it) }
                     }
                 // V1.9.79 -- NO decode: only the length is looked at, the sender is the SDK-verified identity.
                 ENCOUNTER_SEAT_NUDGE_TOPIC -> {
@@ -1370,6 +1399,21 @@ class LiveKitRoomSession(
                 topic = ENCOUNTER_REACTION_TOPIC
             }
         currentRoom.localParticipant.publishData(EncounterReactionWire.encode(reaction), options).await()
+    }
+
+    /**
+     * V1.9.127 -- sends one [ConferenceReaction] as a RELIABLE data packet on [CONFERENCE_REACTION_TOPIC]. The payload is `{"r":"<NAME>"}`
+     * only (see [ConferenceReactionWire.encode]): no sender, no name, no time; the receivers attribute it to the SDK-verified identity of
+     * the packet. A no-op without a room. The packet is peer to peer -- the server never sees or counts it.
+     */
+    suspend fun sendConferenceReaction(reaction: ConferenceReaction) {
+        val currentRoom = room ?: return
+        val options =
+            obj<PublishDataOptions> {
+                reliable = true
+                topic = CONFERENCE_REACTION_TOPIC
+            }
+        currentRoom.localParticipant.publishData(ConferenceReactionWire.encode(reaction), options).await()
     }
 
     /**

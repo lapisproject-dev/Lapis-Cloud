@@ -71,4 +71,15 @@ interface IConferenceModerationService {
         roomId: String,
         enabled: Boolean,
     ): ConferenceRoomDto
+
+    /**
+     * V1.9.127 -- switches the reactions of the room on or off for everybody. Reactions are peer packets between the clients, so the switch
+     * works through the clients only (it does NOT touch the LiveKit `can_publish_data` permission, because the chat travels through it as
+     * well); running clients follow at once through a `reactions_on` / `reactions_off` moderation packet. It does not affect the raised
+     * hand. Same authority and the same single `ForbiddenException` for every refusal as [setRoomAudioPolicy].
+     */
+    suspend fun setRoomReactions(
+        roomId: String,
+        enabled: Boolean,
+    ): ConferenceRoomDto
 }

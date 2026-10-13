@@ -83,6 +83,7 @@ private class ModerationRig(
     val preview: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
     val broadcastView: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
     val joinLeaveSounds: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
+    val reactions: FederationInboxRateLimiter = FederationInboxRateLimiter(maxRequests = 1000, window = 1.minutes),
 )
 
 private class RoomFx(
@@ -105,6 +106,7 @@ private fun Route.registerModerationRoutes(rig: ModerationRig) {
             previewRateLimiter = rig.preview,
             broadcastViewRateLimiter = rig.broadcastView,
             joinLeaveSoundsRateLimiter = rig.joinLeaveSounds,
+            reactionsRateLimiter = rig.reactions,
         )
 
     fun conference(call: io.ktor.server.application.ApplicationCall) =
@@ -154,6 +156,11 @@ private fun Route.registerModerationRoutes(rig: ModerationRig) {
         val q = call.request.queryParameters
         val dto = service(call).setRoomJoinLeaveSounds(roomId = q["room"]!!, enabled = q["enabled"]!!.toBoolean())
         call.respondText("ok|${dto.joinLeaveSounds}|${dto.myRole}")
+    }
+    post("/test/reactions") {
+        val q = call.request.queryParameters
+        val dto = service(call).setRoomReactions(roomId = q["room"]!!, enabled = q["enabled"]!!.toBoolean())
+        call.respondText("ok|${dto.reactionsEnabled}|${dto.myRole}")
     }
     post("/test/join") {
         call.respondText(conference(call).joinRoom(roomId = call.request.queryParameters["room"]!!, guestConsent = null).token)
@@ -1073,6 +1080,76 @@ class ConferenceModerationServiceTest :
                     HttpStatusCode.Conflict
                 audits(room) shouldContainExactly listOf("""{"moderation":"JOIN_LEAVE_SOUNDS","enabled":false}""")
                 audits(room).forEach { it shouldNotContain "Moderation Test" }
+            }
+        }
+
+        test(
+            "setRoomReactions: a moderator switches the room off and on, running clients get the broadcast, the audit holds metadata only",
+        ) {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = newRoom(creator)
+            moderationApp(rig = rig) {
+                roomRow(room)[ConferenceRoomTable.reactionsEnabled] shouldBe true
+                act(path = "/test/reactions", caller = creator, "room" to room.id.toString(), "enabled" to "false") shouldBe
+                    (HttpStatusCode.OK to "ok|false|MODERATOR")
+                roomRow(room)[ConferenceRoomTable.reactionsEnabled] shouldBe false
+                act(path = "/test/reactions", caller = creator, "room" to room.id.toString(), "enabled" to "true") shouldBe
+                    (HttpStatusCode.OK to "ok|true|MODERATOR")
+                roomRow(room)[ConferenceRoomTable.reactionsEnabled] shouldBe true
+                rig.liveKit.packets.map { it.topic to it.payload } shouldContainExactly
+                    listOf(
+                        CONFERENCE_MODERATION_TOPIC to """{"v":1,"k":"reactions_off"}""",
+                        CONFERENCE_MODERATION_TOPIC to """{"v":1,"k":"reactions_on"}""",
+                    )
+                rig.liveKit.packets.forEach { (it.destinations == null) shouldBe true }
+                audits(room) shouldContainExactly
+                    listOf("""{"moderation":"REACTIONS","enabled":false}""", """{"moderation":"REACTIONS","enabled":true}""")
+                audits(room).forEach { it shouldNotContain "Moderation Test" }
+            }
+        }
+
+        test("setRoomReactions: a lost broadcast does not undo the stored option") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val room = newRoom(creator)
+            moderationApp(rig = rig) {
+                rig.liveKit.failSend = true
+                act(path = "/test/reactions", caller = creator, "room" to room.id.toString(), "enabled" to "false").first shouldBe
+                    HttpStatusCode.OK
+                roomRow(room)[ConferenceRoomTable.reactionsEnabled] shouldBe false
+            }
+        }
+
+        test("setRoomReactions: every refusal is the identical Forbidden -- no authority, a guest, unknown, ended, encounter, bad id") {
+            val rig = ModerationRig()
+            val creator = newMember()
+            val ordinary = newMember()
+            val guest = newMember(status = MemberStatus.GUEST)
+            val room = newRoom(creator)
+            val ended = newRoom(creator, ended = true)
+            val encounter = newRoom(creator, encounter = true)
+            moderationApp(rig = rig) {
+                val denied = HttpStatusCode.Forbidden to "forbidden"
+                act(path = "/test/reactions", caller = ordinary, "room" to room.id.toString(), "enabled" to "false") shouldBe denied
+                act(path = "/test/reactions", caller = guest, "room" to room.id.toString(), "enabled" to "false") shouldBe denied
+                act(path = "/test/reactions", caller = creator, "room" to Uuid.random().toString(), "enabled" to "false") shouldBe denied
+                act(path = "/test/reactions", caller = creator, "room" to ended.id.toString(), "enabled" to "false") shouldBe denied
+                act(path = "/test/reactions", caller = creator, "room" to encounter.id.toString(), "enabled" to "false") shouldBe denied
+                act(path = "/test/reactions", caller = creator, "room" to "not-a-uuid", "enabled" to "false") shouldBe denied
+                listOf(room, ended, encounter).forEach { roomRow(it)[ConferenceRoomTable.reactionsEnabled] shouldBe true }
+                rig.liveKit.packets.shouldBeEmpty()
+            }
+        }
+
+        test("setRoomReactions: the limiter throttles per room") {
+            val rig = ModerationRig(reactions = FederationInboxRateLimiter(maxRequests = 1, window = 10.minutes))
+            val creator = newMember()
+            val room = newRoom(creator)
+            moderationApp(rig = rig) {
+                val r = room.id.toString()
+                act(path = "/test/reactions", caller = creator, "room" to r, "enabled" to "false").first shouldBe HttpStatusCode.OK
+                act(path = "/test/reactions", caller = creator, "room" to r, "enabled" to "true").first shouldBe HttpStatusCode.Conflict
             }
         }
     })

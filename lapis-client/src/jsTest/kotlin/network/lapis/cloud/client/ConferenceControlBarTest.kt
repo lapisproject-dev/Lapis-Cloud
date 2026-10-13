@@ -31,6 +31,9 @@ class ConferenceControlBarTest {
             }
             // V1.9.115: "Ansicht" sits at the head of the panels group and is the first control to move into the sheet
             add(ConferenceControlSlot.VIEW)
+            // V1.9.127: "Reaktion" (moves second) and the raised hand (never moves) sit between the view button and the roster
+            add(ConferenceControlSlot.REACT)
+            add(ConferenceControlSlot.HAND)
             add(ConferenceControlSlot.ROSTER)
             add(ConferenceControlSlot.CHAT)
             if (vote) add(ConferenceControlSlot.VOTE)
@@ -46,6 +49,7 @@ class ConferenceControlBarTest {
             ConferenceControlSlot.MIC,
             ConferenceControlSlot.CAMERA,
             ConferenceControlSlot.CHAT,
+            ConferenceControlSlot.HAND,
             ConferenceControlSlot.MORE,
             ConferenceControlSlot.BACK,
             ConferenceControlSlot.LEAVE,
@@ -306,5 +310,35 @@ class ConferenceControlBarTest {
         assertEquals("●", conferenceMoreBadgeGlyphs(true, false))
         assertEquals("◆", conferenceMoreBadgeGlyphs(false, true))
         assertEquals("●◆", conferenceMoreBadgeGlyphs(true, true))
+    }
+
+    // -- V1.9.127: "Reaktion" moves early, the raised hand never --------------------------------------------------------------------------
+
+    @Test
+    fun theReactionButtonMovesRightAfterTheViewButton_theRaisedHandNever() {
+        assertEquals(ConferenceControlSlot.VIEW, CONFERENCE_OVERFLOW_ORDER[0])
+        assertEquals(ConferenceControlSlot.REACT, CONFERENCE_OVERFLOW_ORDER[1])
+        assertFalse(ConferenceControlSlot.HAND in CONFERENCE_OVERFLOW_ORDER)
+        val all = measures()
+        // even in a bar that fits nothing but the fixed controls, the hand stays
+        val tiny = conferenceControlsOverflow(60.0, all, gap, divider)
+        assertFalse(ConferenceControlSlot.HAND in tiny)
+        assertTrue(ConferenceControlSlot.REACT in tiny)
+        assertEquals(CONFERENCE_OVERFLOW_ORDER.toSet(), tiny)
+    }
+
+    @Test
+    fun onAPhoneWidth_theHandStaysInTheBar_andTheReactionIsTheSecondToGo() {
+        val all = measures()
+        val total = all.sumOf { it.width } + gap * (all.size - 1) + divider * 3
+        // one control too many: only the view button moves
+        val one = conferenceControlsOverflow(total - 1.0, all, gap, divider)
+        assertEquals(setOf(ConferenceControlSlot.VIEW), one)
+        // two controls too many: the reaction button follows
+        val two = conferenceControlsOverflow(total - (control + gap) - 1.0, all, gap, divider)
+        assertEquals(setOf(ConferenceControlSlot.VIEW, ConferenceControlSlot.REACT), two)
+        for (width in 300..700 step 10) {
+            assertFalse(ConferenceControlSlot.HAND in conferenceControlsOverflow(width.toDouble(), all, gap, divider), "width $width")
+        }
     }
 }

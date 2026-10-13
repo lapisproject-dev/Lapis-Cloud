@@ -23581,3 +23581,75 @@ msgstr "Volgens Meerijden %1 bevestigde passagiers."
 
 msgid "Mitfahrt"
 msgstr "Meerrit"
+
+msgid "Hand senken"
+msgstr "Hand laten zakken"
+
+msgid "Reaktion"
+msgstr "Reactie"
+
+msgid "Daumen hoch"
+msgstr "Duim omhoog"
+
+msgid "Blume"
+msgstr "Bloem"
+
+msgid "Hand gehoben"
+msgstr "Hand opgestoken"
+
+msgid "Hand gehoben: %1"
+msgstr "Hand opgestoken: %1"
+
+msgid "%1 neue Wortmeldungen"
+msgstr "%1 nieuwe spreekverzoeken"
+
+msgid "%1, Position %2"
+msgstr "%1, positie %2"
+
+msgid "Wortmeldungen"
+msgstr "Spreekverzoeken"
+
+msgid "Keine Wortmeldungen"
+msgstr "Geen spreekverzoeken"
+
+msgid "Alle Hände senken"
+msgstr "Alle handen laten zakken"
+
+msgid "Alle Hände senken?"
+msgstr "Alle handen laten zakken?"
+
+msgid "%1 Wortmeldung(en) werden entfernt."
+msgstr "%1 spreekverzoek(en) worden verwijderd."
+
+msgid "Wortmeldungen ansagen"
+msgstr "Spreekverzoeken aankondigen"
+
+msgid "Reaktionen sind in diesem Raum ausgeschaltet."
+msgstr "Reacties zijn in deze ruimte uitgeschakeld."
+
+msgid "Ihre Hand wurde gesenkt."
+msgstr "Uw hand is neergelaten."
+
+msgid "Ihre Hand ist gehoben"
+msgstr "Uw hand is opgestoken"
+
+msgid "Gehobene Hände: %1"
+msgstr "Opgestoken handen: %1"
+
+msgid "Unbekannt"
+msgstr "Onbekend"
+
+msgid "Die Hand konnte nicht gehoben werden. Bitte versuchen Sie es erneut."
+msgstr "De hand kon niet worden opgestoken. Probeer het opnieuw."
+
+msgid "Für Gäste ohne Konto nicht verfügbar"
+msgstr "Niet beschikbaar voor gasten zonder account"
+
+msgid "Reaktionen in diesem Raum"
+msgstr "Reacties in deze ruimte"
+
+msgid "Applaus, Herz und weitere Reaktionen. Die Wortmeldeliste bleibt davon unberührt."
+msgstr "Applaus, hartje en andere reacties. De lijst met spreekverzoeken blijft ongewijzigd."
+
+msgid "Hand von %1 senken"
+msgstr "Hand van %1 laten zakken"

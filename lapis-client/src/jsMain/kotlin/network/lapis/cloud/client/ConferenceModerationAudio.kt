@@ -402,6 +402,8 @@ internal class ConferenceModerationPanel(
     private val onBroadcastView: (view: ConferenceBroadcastView, revert: () -> Unit) -> Unit = { _, _ -> },
     joinLeaveSounds: Boolean = true,
     private val onJoinLeaveSounds: (enabled: Boolean, revert: () -> Unit) -> Unit = { _, _ -> },
+    reactions: Boolean = true,
+    private val onReactions: (enabled: Boolean, revert: () -> Unit) -> Unit = { _, _ -> },
     private val onMuteOnJoin: (value: Boolean, revert: () -> Unit) -> Unit,
     private val onLock: (locked: Boolean, revert: () -> Unit) -> Unit,
 ) {
@@ -439,6 +441,15 @@ internal class ConferenceModerationPanel(
             tr("Töne bei Beitritt und Verlassen in diesem Raum"),
             joinLeaveSoundHint(),
         ) { joinLeaveSoundsState }
+
+    // V1.9.127 -- "Reaktionen in diesem Raum" (checked = reactions are on; the raised hand is not affected)
+    private var reactionsState = reactions
+    val reactionsInput =
+        body.switchRow(
+            REACTIONS_ID,
+            tr("Reaktionen in diesem Raum"),
+            tr("Applaus, Herz und weitere Reaktionen. Die Wortmeldeliste bleibt davon unberührt."),
+        ) { reactionsState }
     private var broadcastViewState = broadcastView
 
     // V1.9.115 -- "Ansicht bei Aufzeichnung und Stream": one of two radios. The state lives here (a closed body is not rendered).
@@ -471,6 +482,12 @@ internal class ConferenceModerationPanel(
             change = {
                 joinLeaveSoundsState = joinLeaveSoundsInput.isChecked()
                 onJoinLeaveSounds(joinLeaveSoundsState) { setJoinLeaveSounds(!joinLeaveSoundsState) }
+            }
+        }
+        reactionsInput.onEvent {
+            change = {
+                reactionsState = reactionsInput.isChecked()
+                onReactions(reactionsState) { setReactions(!reactionsState) }
             }
         }
         lockInput.onEvent {
@@ -520,6 +537,12 @@ internal class ConferenceModerationPanel(
     fun setJoinLeaveSounds(value: Boolean) {
         joinLeaveSoundsState = value
         joinLeaveSoundsInput.setChecked(value)
+    }
+
+    /** Applies the server's setting of the room's reactions (also the revert of a failed call and a moderation packet). */
+    fun setReactions(value: Boolean) {
+        reactionsState = value
+        reactionsInput.setChecked(value)
     }
 
     private fun putMuteOnJoin(value: Boolean) {
@@ -582,12 +605,14 @@ internal class ConferenceModerationPanel(
         muteOnJoinInput.getElement()?.let { (it as? HTMLInputElement)?.disabled = busy }
         lockInput.getElement()?.let { (it as? HTMLInputElement)?.disabled = busy }
         joinLeaveSoundsInput.getElement()?.let { (it as? HTMLInputElement)?.disabled = busy }
+        reactionsInput.getElement()?.let { (it as? HTMLInputElement)?.disabled = busy }
     }
 
     private companion object {
         const val MUTE_ON_JOIN_ID = "lapis-conference-mute-on-join"
         const val LOCK_ID = "lapis-conference-lock-microphones"
         const val JOIN_LEAVE_SOUNDS_ID = "lapis-conference-join-leave-sounds"
+        const val REACTIONS_ID = "lapis-conference-reactions"
         const val BODY_ID = "lapis-conference-moderation-body"
         const val VIEW_RASTER_ID = "lapis-conference-broadcast-view-raster"
         const val VIEW_SPEAKER_ID = "lapis-conference-broadcast-view-speaker"

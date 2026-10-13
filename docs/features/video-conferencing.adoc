@@ -271,3 +271,56 @@ Things to know:
 * After a short network drop a friend or guest is re-joined automatically like a member; the room is not looked up again (that call is members-only), the join token request decides.
 * The consent text names no home server any more in its first layer (a friend has none); the version changed from `2026-08-16.v1` to `2026-10-13.v1`.
 * `FriendGuestConferenceParityTest` pins that a friend and a guest get the same result from every conference RPC; the only documented differences are `callerIsGuest` of `getGuestJoinInfo` and the home server shown in `listParticipants`.
+
+== Reactions and raised hands (V1.9.127)
+
+Two small things that make a large call feel like a room: a *reaction* (applause, heart, amen, thumbs up, flower) is a mood that appears on a person's tile for three seconds, and the *raised hand* ("Wortmeldung") puts a person into a list that everybody can see and the moderation can work through.
+
+=== Reactions
+
+* **Five reactions, a menu, no shortcut.** The bar has a "Reaktion" button (`aria-haspopup="menu"`, `aria-expanded`) that opens a menu with five items (`role="menuitem"`, the emoji in an `aria-hidden` span plus the word: Applaus, Herz, Amen, Daumen hoch, Blume). Arrow keys, Home and End move, Enter and Space choose, Escape closes and gives the focus back to the button. There is deliberately no global keyboard shortcut. The button moves into the "Mehr" sheet early on a narrow bar (right after "Ansicht"); the raised hand never moves.
+* **Peer to peer, nothing stored.** A reaction is a LiveKit data packet on the topic `lapis-conference-reaction`, reliable, exactly `{"r":"APPLAUSE"}` (at most 32 bytes). The server never sees, counts, stores or audits it. The receiver reads only the key `r` (any other key makes the packet invalid, so a forged sender is never looked at), attributes the packet to the SDK-verified identity of the sender and never throws. `HAND` is *not* a reaction.
+* **Flood guards.** Sending: one reaction per second per client. Receiving: at most five per sender per five seconds, at most 64 senders tracked; more are dropped without a trace.
+* **On the tile.** The overlay is a child of the tile element's reaction layer, which is built once with the tile (the tile itself is never recreated, `ConferenceViewStage` only re-parents it). At most three reactions are shown at the same time, each for three seconds. The word sits in a visually hidden span, there is *no* live region: a reaction is never announced. The rise animation exists only under `prefers-reduced-motion: no-preference`; otherwise a reaction simply stands there and is removed.
+* **Room option.** A moderator can switch the reactions off for the whole room in the "Moderation" disclosure ("Reaktionen in diesem Raum", `IConferenceModerationService.setRoomReactions`, column `conference_room.reactions_enabled`, migration `V101`, default on). The call is rate-limited, writes one audit entry without names (`{"moderation":"REACTIONS","enabled":false}`) and sends a `reactions_on` / `reactions_off` moderation packet so running clients follow at once. A client that missed the packet learns the stored flag at its next join or reload. While the reactions are off the bar button is `aria-disabled` and says "Reaktionen sind in diesem Raum ausgeschaltet."; incoming reactions are dropped.
+* **The option works through the clients only.** It does *not* touch the LiveKit permission `can_publish_data`, because the chat travels through the same permission; a modified client can still send a packet, and other modified clients can still show it. Honest limit, not a security boundary.
+* **The raised hand is not affected by the room option.**
+
+=== The raised hand ("Wortmeldeliste")
+
+* **The server keeps the order.** Option "c with epoch" of the design: the order lives in server memory (`ConferenceHandQueueState`), per room a monotonic `seq` is raised on every real change, and a random 16-hex *epoch* is drawn once per process. Nothing is written to the database, no time is stored, no history is kept, *no audit entry is written* (not even when a moderator lowers a hand: the list is volatile and an audit would tie people to speaking requests). Logs carry counts and exception classes only (`ConferenceHandsLogPrivacyTripwireTest`). Raising twice keeps the place; lowering and raising again puts the person at the end; at most 100 hands per room.
+* **Who may do what.** `IConferenceHandService` (a service of its own, like breakout, whiteboard and recording):
+** `raiseHand`, `lowerHand`: any person who may be in the conference (member, guest or friend; the same membership rule as the join) *and is currently present in the LiveKit room* -- the same truth the moderation uses. Raising needs the presence; lowering one's own hand does not. There is no way to lower somebody else's hand through these methods.
+** `handQueue`: a present person or a moderator.
+** `lowerHandOf`, `lowerAllHands`: the room creator and BOARD/ADMIN (`ConferenceModeratorAuthority`).
+** Every refusal of the own-hand and moderation methods (unknown, ended, encounter room, not present, no authority, malformed identity) is the *same* `ForbiddenException`: Kilua transmits only the exception type, so there is no existence oracle. A rate limit and a server without conference configuration are a `ConflictException`. Limits: raise/lower 10 per minute per person and room, reading the queue 30 per minute per person, lowering one hand 30 per minute per room, lowering all 6 per minute per room.
+** Event rooms: the same rule as the other read methods (`EventConferenceGuard.requireParticipantOrModerator`, tripwire `ConferenceHandServiceEventGuardTripwireTest`). Encounter rooms are refused.
+* **Broadcast.** After every change the server sends the snapshot to the room on the topic `lapis-conference-hands` (server only: a client accepts a packet on this topic *only* if it has no sending participant): `{"v":1,"e":"<epoch>","seq":N,"ids":[...]}`, at most 6144 bytes (100 identities of the form `evg-<uuid>` are 4300 bytes plus the header; 4096 would not be enough). The broadcast is best effort and goes out *after* the per-room lock is released; the RPC answer carries the same snapshot, and a client drops every snapshot that is not newer (same epoch: larger `seq`; other epoch: always newer).
+* **Late joiners and guests without an account.** A member reads the queue with `handQueue` at the join, after a reconnect, once a minute while the own hand is up or the roster is open, and whenever the broadcast might have been lost. An event guest without an account (`evg-` identity) has no session and no RPC access: the reconciler (`ConferenceHandQueueReconciler`, every 5 seconds, only for rooms that hold at least one hand) sends the current snapshot point to point to every identity it sees in the room for the first time. So a guest *sees* the list.
+* **The epoch rule.** After a server restart the queue is empty and `seq` starts over. A client that believes its hand is up and does not find it in a snapshot decides by the epoch: *same epoch* means a moderator lowered it -- the client accepts that and tells only the person ("Ihre Hand wurde gesenkt."), it never raises again (that would overrule the moderation); *new epoch* means the server restarted -- the client raises the hand again automatically and lands at the end of the list. The old order is not restored.
+* **Presence grace.** The reconciler removes a hand whose owner has been missing from LiveKit for 20 seconds; a reconnect with the same identity inside the grace keeps the place. Somebody who moves into a breakout room leaves the main room, so the hand falls after the grace (by design). An event guest who rejoins gets a new `evg-` identity and loses the hand.
+* **In the interface.**
+** Bar: a toggle "Hand heben" / "Hand senken" (`aria-pressed`); while the hand is up the accessible name says "Hand senken, Position N" and a badge shows N.
+** Tile: a badge "Hand gehoben" with the hand symbol *and* the words, built once with the tile and only shown or hidden afterwards (the speaker mark is independent of it).
+** Roster: the symbol and "Hand gehoben" in the row of the person.
+** Above the roster: the section "Wortmeldungen", a numbered list in the order of the server (names as text, never markup; an identity without a tile is "Unbekannt"). Only for the moderation: a "Hand senken" button per row (accessible name "Hand von {name} senken"), "Alle Hände senken" with a confirmation dialog, and the switch "Wortmeldungen ansagen".
+** Moderators only: a polite live announcement for new hands ("Hand gehoben: Anna", or "3 neue Wortmeldungen" when several arrive within ten seconds; never for the first snapshot of an epoch or for the own hand). The personal switch is remembered in the browser only (`localStorage` key `lapis.conference.announceHands`, only the value `off` is written, every access in `try/catch`; a blocked storage means "on" for this page). Reactions are never announced.
+** Mini bar and floating window: "Ihre Hand ist gehoben" and "Gehobene Hände: N" (words, no names).
+* **Breakout rooms** have no raised-hand button: the queue belongs to the main room's LiveKit room and the presence rule would refuse a person who sits in a breakout room.
+* **An event guest without an account** sees the list, but the button is switched off ("Für Gäste ohne Konto nicht verfügbar"). A route that would let such a guest raise a hand with the LiveKit token they hold (`POST /api/conference/hand`, the token verified server side) was planned as an *optional step* and is *not built*: it needs a decision by the owner first (see the CHANGELOG, V1.9.127).
+
+=== Not in the recording and not in the stream
+
+Reactions and hand badges are DOM overlays of the Lapis client. Recordings and streams do not contain them, and this holds only as long as nothing renders the client page into the broadcast:
+
+* `LiveKitEgressClient` offers exactly four egress kinds (`startTrackEgress`, `startParticipantEgress`, `startParticipantFileEgress`, `startRoomCompositeEgress`). The room-composite egress uses LiveKit's *built-in* layout (`ConferenceStreamLayout`); there is no `custom_base_url`, no template path and no headless browser that renders the Lapis client.
+* The recording is composed from the raw per-person tracks by `RecordingComposer` / `FfmpegSegmentedComposer`, never from a rendered page.
+
+`ConferenceReactionsRecordingTripwireTest` fails the build if a custom-template egress, a fifth egress kind or a browser in the composer appears.
+
+=== Not verified (honest)
+
+* Nothing here was seen in a real call with several real people. Everything was exercised by unit, service and DOM tests (a headless Chromium), not by a screen reader or a human; the translations were written by the model.
+* Only Chromium was used for the DOM tests; Safari and Firefox were not tried.
+* A lost broadcast is healed by the next read (at the latest after a minute while the hand is up or the roster is open, and at every reconnect). A person who has neither raised a hand nor opened the roster can see an outdated list for that time.
+* The list is lost on a server restart; clients re-raise automatically, but the old order is gone.

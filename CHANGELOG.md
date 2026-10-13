@@ -6,6 +6,26 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.127 -- Reactions and raised hands (Wortmeldeliste) in the video conference
+
+A person can react with applause, a heart, amen, thumbs up or a flower, and can raise a hand that puts them into a list everybody sees and the moderation can work through. Details: `docs/features/video-conferencing.adoc`, section "Reactions and raised hands (V1.9.127)".
+
+- **Reactions** are peer packets between the clients (topic `lapis-conference-reaction`, `{"r":"APPLAUSE"}`, at most 32 bytes): the server never sees, stores or counts them. Menu button "Reaktion" in the bar (real `role="menu"`, keyboard, Escape), at most three emoji at once on a tile for three seconds, never announced. Flood guards: one per second sending, five per five seconds per sender receiving. A moderator can switch them off for the room (`setRoomReactions`, `conference_room.reactions_enabled`, **migration `V101`**, one metadata-only audit entry, a `reactions_on` / `reactions_off` packet so running clients follow at once).
+- **The raised hand** is a server-ordered queue in memory (`ConferenceHandQueueState`, `IConferenceHandService`: `raiseHand`, `lowerHand`, `handQueue`, `lowerHandOf`, `lowerAllHands`): a random per-process epoch plus a sequence number, broadcast on the server-only topic `lapis-conference-hands` (at most 6144 bytes, 100 hands). Only present people can raise a hand (checked against LiveKit); the moderation (creator, BOARD/ADMIN) lowers one or all hands; every refusal is the same `ForbiddenException`; rate limits are `ConflictException`. **No audit entry and no database row, not even when a moderator lowers a hand.** The reconciler drops hands of people who left (20 s grace) and sends the queue point to point to newly arrived people, which is how an event guest without an account sees it.
+- **Interface:** bar toggle with the own position as a badge, "Hand gehoben" (symbol and words) on the tile, in the roster, the section "Wortmeldungen" above the roster (moderators: "Hand senken" per person, "Alle Hände senken" with a confirmation, the switch "Wortmeldungen ansagen" and a polite throttled live announcement), "Ihre Hand ist gehoben" / "Gehobene Hände: N" in the mini bar and the floating window. 24 new messages in all seven catalogs.
+- **Not in the recording and not in the stream.** The overlays are DOM in the client; `LiveKitEgressClient` has no custom-template egress and the recording is composed from raw tracks. Tripwire `ConferenceReactionsRecordingTripwireTest`.
+- **API / BEHAVIOR CHANGES:** new RPC service `IConferenceHandService`; `IConferenceModerationService.setRoomReactions` appended at the end; `ConferenceRoomDto.reactionsEnabled` (additive, default `true`); two new moderation packet kinds (an older client drops an unknown kind); `DockSnapshot` gets two defaulted fields.
+- **Operator notes:** take a backup first; migration `V101` is additive (a new file, `V100` is part of the released `0.34.0` and was not touched); no new environment variable.
+- **Known limitations (honest status):**
+  - **Not seen by people in a real call.** DOM, service and unit tests only; no screen reader, only Chromium; the translations were written by the model.
+  - Reactions are best effort (a dropped packet is lost); "Reactions off" works through the clients only -- `can_publish_data` is untouched because the chat shares it.
+  - **The list is lost on a server restart.** Clients raise their hand again automatically (epoch change), but the old order is not restored.
+  - A broadcast can be lost; the client reads the queue again at the latest after a minute while its own hand is up or the roster is open, and at every reconnect.
+  - A person who moves into a breakout room leaves the main room: the hand falls after 20 s. There is no raised-hand button inside a breakout room.
+  - An event guest who rejoins gets a new `evg-` identity and loses the hand.
+  - **An event guest without an account cannot raise a hand:** they see the list, the button says "Für Gäste ohne Konto nicht verfügbar". The planned route `POST /api/conference/hand` (the guest's LiveKit token verified server side) is **not built**; it needs a decision by the owner and its own security review.
+  - Decisions of the plan that were taken without asking the owner (the plan listed them as questions): no audit for hands; the 20 s grace and the 60 s read; breakout rooms without a hand button.
+
 ## [0.34.0] — 2026-10-13
 
 Feature release on top of `[0.33.0]` (V1.9.123 -- V1.9.126): **the access rule of the carpool changed** (six methods are now open to guests and friends), approved travel expenses can be put into a **SEPA credit transfer file** (`pain.001`), a person can **ride along on a carpool offer**, **friends can join a video conference** like guests, and an administrator can make the **noise suppression the default of the instance**. Grouped by topic below; the per-wave detail follows under "Changes by wave". Not repeated here: a build-only change (the Kotlin daemon heap 3g to 5g, commit `7fcc3f45`), which is internal.

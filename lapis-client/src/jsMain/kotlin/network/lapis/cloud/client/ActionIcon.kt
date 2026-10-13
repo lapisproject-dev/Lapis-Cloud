@@ -177,4 +177,10 @@ enum class ActionIcon(
     REQUEST_RIDE("fas fa-car-side"),
     PASSENGERS("fas fa-user-group"),
     ADD_PERSON("fas fa-user-plus"),
+
+    /**
+     * V1.9.127: the "Reaktion" button of the video conference bar (opens the menu of the five reactions). The raised hand reuses [HAND] (the same
+     * verb as in the encounter room). A button only; the reactions themselves are shown as emoji on the tiles.
+     */
+    REACT("fas fa-face-smile"),
 }

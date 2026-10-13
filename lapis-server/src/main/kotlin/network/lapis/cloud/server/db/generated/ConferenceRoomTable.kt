@@ -58,6 +58,12 @@ public object ConferenceRoomTable : Table("conference_room") {
     public val joinLeaveSounds: Column<Boolean> = bool("join_leave_sounds").default(true)
 
     /**
+     * V1.9.127 -- V101. `true` (default): clients show and send reactions in this room; a moderator can switch them off for the room.
+     * Exposed default deliberate (same reasoning as [allowFederationGuests]).
+     */
+    public val reactionsEnabled: Column<Boolean> = bool("reactions_enabled").default(true)
+
+    /**
      * V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- see
      * 27-conference.kuml.kts. `null` means this room is not bound to any Sitzung (the default for
      * every existing and newly-created room). Set from INSIDE a running room via

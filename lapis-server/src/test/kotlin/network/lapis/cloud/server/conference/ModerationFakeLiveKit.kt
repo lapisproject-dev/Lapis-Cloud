@@ -40,6 +40,9 @@ internal class ModerationFakeLiveKit : LiveKitAdminClient {
     var failPermission = false
     var failSendTo = false
 
+    /** `sendData` (the room-wide broadcast) throws. */
+    var failSend = false
+
     /** Identities whose `updateParticipantPermission` throws (partial failure). */
     val failPermissionFor = mutableSetOf<String>()
 
@@ -110,6 +113,7 @@ internal class ModerationFakeLiveKit : LiveKitAdminClient {
         topic: String,
         payload: ByteArray,
     ) {
+        if (failSend) throw LiveKitAdminException(message = "simulated LiveKit failure")
         packets += RecordedPacket(room = room, topic = topic, payload = payload.decodeToString(), destinations = null)
     }
 

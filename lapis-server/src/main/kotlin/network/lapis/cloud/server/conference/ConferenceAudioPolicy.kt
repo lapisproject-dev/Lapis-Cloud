@@ -9,6 +9,8 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_LOCK
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_MUTED
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_MUTED_PEER
+import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_REACTIONS_OFF
+import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_REACTIONS_ON
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_UNLOCK
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_KIND_UNMUTE_REQUEST
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES
@@ -172,6 +174,10 @@ internal object ConferenceModerationPackets {
     fun lock(): ByteArray = build(kind = CONFERENCE_MODERATION_KIND_LOCK)
 
     fun unlock(): ByteArray = build(kind = CONFERENCE_MODERATION_KIND_UNLOCK)
+
+    /** V1.9.127 -- broadcast: the room's reactions were switched on / off by a moderator. */
+    fun reactions(enabled: Boolean): ByteArray =
+        build(kind = if (enabled) CONFERENCE_MODERATION_KIND_REACTIONS_ON else CONFERENCE_MODERATION_KIND_REACTIONS_OFF)
 
     /** Sent to the moderators only -- it names WHO was muted, which everybody else does not learn. */
     fun mutedPeer(memberId: Uuid): ByteArray = build(kind = CONFERENCE_MODERATION_KIND_MUTED_PEER, memberId = memberId)

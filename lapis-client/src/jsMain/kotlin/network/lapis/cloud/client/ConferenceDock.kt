@@ -50,6 +50,10 @@ internal data class DockSnapshot(
     val streamPaused: Boolean,
     val voteOpen: Boolean,
     val transitioning: DockTransition?,
+    /** V1.9.127 -- the own hand is up (the bar says so; no names, no position -- those stay in the view). */
+    val handRaisedSelf: Boolean = false,
+    /** V1.9.127 -- how many hands are up in the room (`null` = none); a number only, no names. */
+    val raisedHandsCount: Int? = null,
 )
 
 internal sealed class DockState {

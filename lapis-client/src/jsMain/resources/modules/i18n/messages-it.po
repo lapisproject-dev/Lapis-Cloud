@@ -23626,3 +23626,75 @@ msgstr "Secondo il car pooling, %1 passeggeri confermati."
 
 msgid "Mitfahrt"
 msgstr "Passaggio"
+
+msgid "Hand senken"
+msgstr "Abbassa la mano"
+
+msgid "Reaktion"
+msgstr "Reazione"
+
+msgid "Daumen hoch"
+msgstr "Pollice in su"
+
+msgid "Blume"
+msgstr "Fiore"
+
+msgid "Hand gehoben"
+msgstr "Mano alzata"
+
+msgid "Hand gehoben: %1"
+msgstr "Mano alzata: %1"
+
+msgid "%1 neue Wortmeldungen"
+msgstr "%1 nuove richieste di intervento"
+
+msgid "%1, Position %2"
+msgstr "%1, posizione %2"
+
+msgid "Wortmeldungen"
+msgstr "Richieste di intervento"
+
+msgid "Keine Wortmeldungen"
+msgstr "Nessuna richiesta di intervento"
+
+msgid "Alle Hände senken"
+msgstr "Abbassa tutte le mani"
+
+msgid "Alle Hände senken?"
+msgstr "Abbassare tutte le mani?"
+
+msgid "%1 Wortmeldung(en) werden entfernt."
+msgstr "%1 richiesta/e di intervento verranno rimosse."
+
+msgid "Wortmeldungen ansagen"
+msgstr "Annuncia le richieste di intervento"
+
+msgid "Reaktionen sind in diesem Raum ausgeschaltet."
+msgstr "Le reazioni sono disattivate in questa stanza."
+
+msgid "Ihre Hand wurde gesenkt."
+msgstr "La sua mano è stata abbassata."
+
+msgid "Ihre Hand ist gehoben"
+msgstr "La sua mano è alzata"
+
+msgid "Gehobene Hände: %1"
+msgstr "Mani alzate: %1"
+
+msgid "Unbekannt"
+msgstr "Sconosciuto"
+
+msgid "Die Hand konnte nicht gehoben werden. Bitte versuchen Sie es erneut."
+msgstr "Non è stato possibile alzare la mano. Riprovi."
+
+msgid "Für Gäste ohne Konto nicht verfügbar"
+msgstr "Non disponibile per gli ospiti senza account"
+
+msgid "Reaktionen in diesem Raum"
+msgstr "Reazioni in questa stanza"
+
+msgid "Applaus, Herz und weitere Reaktionen. Die Wortmeldeliste bleibt davon unberührt."
+msgstr "Applauso, cuore e altre reazioni. L'elenco delle richieste di intervento non viene toccato."
+
+msgid "Hand von %1 senken"
+msgstr "Abbassa la mano di %1"

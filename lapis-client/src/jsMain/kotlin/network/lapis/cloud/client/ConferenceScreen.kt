@@ -39,7 +39,10 @@ import network.lapis.cloud.client.livekit.ConferenceConnectFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceFailure
 import network.lapis.cloud.client.livekit.ConferenceDeviceKind
 import network.lapis.cloud.client.livekit.ConferenceModerationSignal
+import network.lapis.cloud.client.livekit.ConferenceReactionReceiveGuard
+import network.lapis.cloud.client.livekit.ConferenceReactionSendThrottle
 import network.lapis.cloud.client.livekit.DisconnectCause
+import network.lapis.cloud.client.livekit.HandAnnouncementThrottle
 import network.lapis.cloud.client.livekit.LiveKitRoomSession
 import network.lapis.cloud.client.livekit.LocalVideoTrack
 import network.lapis.cloud.client.livekit.Track
@@ -61,6 +64,7 @@ import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInp
 import network.lapis.cloud.shared.domain.ConferenceGuestConsentDisclaimerDto
 import network.lapis.cloud.shared.domain.ConferenceGuestJoinInfoDto
 import network.lapis.cloud.shared.domain.ConferenceJoinTokenDto
+import network.lapis.cloud.shared.domain.ConferenceReaction
 import network.lapis.cloud.shared.domain.ConferenceRecordingDto
 import network.lapis.cloud.shared.domain.ConferenceRecordingListQuery
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
@@ -85,6 +89,7 @@ import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.IConferenceBackgroundService
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
+import network.lapis.cloud.shared.rpc.IConferenceHandService
 import network.lapis.cloud.shared.rpc.IConferenceModerationService
 import network.lapis.cloud.shared.rpc.IConferenceNotesService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
@@ -1219,6 +1224,12 @@ private class ConferenceTileEntry(
      * by `setTileSpeaking`; `aria-hidden`, no role, no live region (see `conference-dock.adoc`, "Active-speaker mark").
      */
     val speakingBadge: HTMLElement,
+    /**
+     * V1.9.127 -- the layer that carries this tile's reactions (transient children, at most three) and the raised-hand badge ("Hand gehoben"),
+     * both built ONCE in `buildTile` and only filled / toggled afterwards -- the tile element itself is never recreated.
+     */
+    val reactionLayer: HTMLElement,
+    val handBadge: HTMLElement,
     var hasCamera: Boolean = false,
     var hasMic: Boolean = false,
     /** V1.9.108: LiveKit reports this person's published microphone as muted (the real `TrackMuted` signal; the local tile uses `hasMic` alone). */
@@ -1379,6 +1390,10 @@ private fun enterCall(
     // client only at its next join or reload -- nothing pushes it; the moderator who changes it sees it at once), the personal switch and the
     // dedup gate of this call. The player is the tab's single one (its audio context was created inside the join click).
     var roomJoinLeaveSounds = room.joinLeaveSounds
+    // V1.9.127: reactions of the room as the server last said it (read at join; a moderator's switch reaches running clients as a moderation
+    // packet, a lost packet is healed at the next join / reload).
+    var roomReactionsEnabled = room.reactionsEnabled
+    var reactionsEnabledSink: (Boolean) -> Unit = {}
     val joinLeaveSoundPlayer = ConferenceJoinLeaveSounds.player
     val joinLeaveSoundPreference = ConferenceJoinLeaveSounds.preference
     val joinLeaveSoundGate = PresenceSoundGate(clock = { window.performance.now() })
@@ -1514,6 +1529,10 @@ private fun enterCall(
     // V1.9.115 -- "Ansicht": gallery / speaker large / pin a person / screen share large; opens a radio group above the bar. Symbol-only like
     // its neighbours (the accessible name carries the current view, see `viewControlsSink`).
     val viewButton = controlsRow.conferenceViewButton()
+    // V1.9.127 -- "Reaktion" (the menu of five reactions) and the raised hand ("Hand heben", with the own place as a badge). The raised hand is
+    // the server-ordered queue of the MAIN room only: a breakout call has no such button (its LiveKit room is another one than the queue's).
+    val reactButton = controlsRow.conferenceReactButton()
+    val handControl = if (isBreakout) null else controlsRow.conferenceHandControl()
     val rosterToggleButton = controlsRow.button("", icon = "fas fa-users", style = ButtonStyle.OUTLINESECONDARY)
     val chatToggleButton = controlsRow.button("", icon = "fas fa-comments", style = ButtonStyle.OUTLINESECONDARY)
     // V1.9.25 "Abstimmen im Konferenzraum" -- the panel and its toggle exist only for a member of the organization (the server decides
@@ -1592,6 +1611,7 @@ private fun enterCall(
     val streamTwin = twin(moderation?.streamButton) { it.actionButton(ActionIcon.BROADCAST, tr("Live-Stream starten …")) }
     // V1.9.115 -- the twin of "Ansicht" opens the very same radio group (popover) through the primary control, like every other twin
     val viewTwin = twin(viewButton) { it.actionButton(ActionIcon.VIEW_GALLERY, tr("Ansicht")) }
+    val reactTwin = twin(reactButton) { it.actionButton(ActionIcon.REACT, tr("Reaktion")) }
     val rosterTwin = twin(rosterToggleButton) { it.actionButton(ActionIcon.PEOPLE, tr("Teilnehmende")) }
     val voteTwin = twin(votingToggle?.button) { it.button(tr("Abstimmen"), style = ButtonStyle.OUTLINESECONDARY) }
     // V1.9.72 -- "Für alle beenden" moves into the sheet LAST (overflow order) and stands LAST in it, set apart by a rule and the danger
@@ -2142,6 +2162,21 @@ private fun enterCall(
                         }
                     }
                 },
+                reactions = roomReactionsEnabled,
+                onReactions = { enabled, revert ->
+                    moderationPanel?.setBusy(true)
+                    AppScope.launch {
+                        val result = guarded { rpcService<IConferenceModerationService>().setRoomReactions(room.id, enabled) }
+                        moderationPanel?.setBusy(false)
+                        if (result != null) {
+                            roomReactionsEnabled = result.reactionsEnabled
+                            moderationPanel?.setReactions(roomReactionsEnabled)
+                            reactionsEnabledSink(roomReactionsEnabled)
+                        } else {
+                            revert()
+                        }
+                    }
+                },
                 onMuteOnJoin = { value, revert -> applyAudioPolicy(muteOnJoin = value, mayUnmute = roomMayUnmute, revert = revert) },
                 onLock = { locked, revert ->
                     if (locked) {
@@ -2320,6 +2355,10 @@ private fun enterCall(
 
     // V1.9.70 -- the snapshot the dock's mini bar shows (no personal data, no title). Published at every place that changes one of its
     // inputs: `transition`, the mic/camera state functions, the screen-share click, `updateStatusBadgesAndTitle` and the vote callback.
+    // V1.9.127 -- what the mini bar says about the raised hands (set by `refreshHandUi`, declared here because the snapshot is built earlier).
+    var dockHandRaisedSelf = false
+    var dockRaisedHandsCount: Int? = null
+
     fun dockSnapshot(): DockSnapshot =
         DockSnapshot(
             micOn = micEnabled,
@@ -2330,6 +2369,8 @@ private fun enterCall(
             streamPaused =
                 activeStreamDto?.status.let { it == ConferenceStreamStatus.PAUSED || it == ConferenceStreamStatus.PAUSING },
             voteOpen = (voteController?.state?.badgeCount() ?: 0) > 0,
+            handRaisedSelf = dockHandRaisedSelf,
+            raisedHandsCount = dockRaisedHandsCount,
             transitioning =
                 when (connectionState) {
                     is ConferenceConnectionState.Connecting, is ConferenceConnectionState.Reconnecting -> DockTransition.CONNECTING
@@ -3424,6 +3465,34 @@ private fun enterCall(
     }
     val viewPopover = ConferenceViewPopover(callPanel, viewButton) { view -> onUserChoseView(view) }
     viewButton.onClick { viewPopover.toggle() }
+
+    // --- V1.9.127 reactions: the menu over the bar, the flood guards, the transient emoji on the tiles. A reaction is a peer packet; the
+    // server never sees it. The own reaction is shown at once (LiveKit does not echo a packet to its sender).
+    val reactionSendThrottle = ConferenceReactionSendThrottle { window.performance.now() }
+    val reactionReceiveGuard = ConferenceReactionReceiveGuard({ window.performance.now() })
+    var sendReactionRef: suspend (ConferenceReaction) -> Unit = {}
+
+    fun showReaction(
+        identity: String,
+        reaction: ConferenceReaction,
+    ) {
+        tiles[identity]?.let { showReactionInLayer(it.reactionLayer, reaction) }
+    }
+    val reactionPopover =
+        ConferenceReactionPopover(
+            callPanel = callPanel,
+            trigger = reactButton,
+            onChoose = { reaction ->
+                if (roomReactionsEnabled && reactionSendThrottle.tryEvent()) {
+                    showReaction(joinToken.identity, reaction)
+                    AppScope.launch { runCatching { sendReactionRef(reaction) } }
+                }
+            },
+            onDisabledClick = { notices.announce(gettext("Reaktionen sind in diesem Raum ausgeschaltet."), assertive = false) },
+        )
+    reactionPopover.setEnabled(roomReactionsEnabled)
+    reactionsEnabledSink = { enabled -> reactionPopover.setEnabled(enabled) }
+    reactButton.onClick { reactionPopover.toggle() }
     pinHandler = { key ->
         val identity = key.removeSuffix("#screen")
         val state = viewController.state
@@ -3494,7 +3563,97 @@ private fun enterCall(
         } else {
             null
         }
+    // --- V1.9.127 raised hands ("Wortmeldungen"): the server keeps the order, this block shows it (bar button with the own place, a badge on
+    // the tile, a mark in the roster, the numbered list above the roster, the mini bar). An event guest without an account has no RPC
+    // access: they SEE the list (the server sends it to them) but the button is switched off with the reason.
+    val isEventGuestCaller = joinToken.identity.startsWith("evg-")
+    var handController: ConferenceHandController? = null
+    var refreshHandUi: () -> Unit = {}
+    val handAnnouncePreference = HandAnnouncePreference()
+    val handsPanel =
+        if (isBreakout) {
+            null
+        } else {
+            ConferenceHandQueuePanel(
+                parent = rosterPanel,
+                canModerate = canModerate,
+                preference = handAnnouncePreference,
+                onLowerOf = { identity -> AppScope.launch { handController?.lowerOf(identity) } },
+                onLowerAll = {
+                    val count = handController?.order?.size ?: 0
+                    if (count > 0) conferenceLowerAllHandsDialog(count) { AppScope.launch { handController?.lowerAll() } }
+                },
+            )
+        }
+    if (!isBreakout) {
+        handController =
+            ConferenceHandController(
+                self = joinToken.identity,
+                gateway =
+                    object : ConferenceHandGateway {
+                        // the own raise and the periodic read are quiet (the controller says what failed); the moderation's actions toast
+                        override suspend fun raise() = quietly { rpcService<IConferenceHandService>().raiseHand(room.id) }
+
+                        override suspend fun lower() = guarded { rpcService<IConferenceHandService>().lowerHand(room.id) }
+
+                        override suspend fun queue() =
+                            if (isEventGuestCaller) null else quietly { rpcService<IConferenceHandService>().handQueue(room.id) }
+
+                        override suspend fun lowerOf(identity: String) =
+                            guarded { rpcService<IConferenceHandService>().lowerHandOf(room.id, identity) }
+
+                        override suspend fun lowerAll() = guarded { rpcService<IConferenceHandService>().lowerAllHands(room.id) }
+                    },
+                scope = AppScope,
+                onChanged = { refreshHandUi() },
+                announceSelf = { notices.announce(it, assertive = false) },
+                announceModerators = { notices.announce(it, assertive = false) },
+                notifyError = { notifyError(it) },
+                isModerator = canModerate,
+                announceEnabled = { handAnnouncePreference.isOn() },
+                nameOf = { identity -> tiles[identity]?.displayName ?: gettext("Unbekannt") },
+                throttle = HandAnnouncementThrottle({ window.performance.now() }),
+            )
+    }
     val rosterList = rosterPanel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
+
+    // Redraws everything that shows the raised hands from the controller's state. Cheap guards inside; the roster rebuild is the one cost.
+    refreshHandUi = redraw@{
+        val controller = handController ?: return@redraw
+        if (isEventGuestCaller) {
+            handControl?.button?.let { it.disabled = true }
+        } else {
+            handControl?.apply(raised = controller.selfRaised, position = controller.selfPosition, busy = controller.busy)
+        }
+        val raised = controller.order.toSet()
+        for (entry in tiles.values) toggleHandBadge(entry.handBadge, entry.identity in raised)
+        handsPanel?.render(controller.order) { identity -> tiles[identity]?.displayName }
+        dockHandRaisedSelf = controller.selfRaised
+        dockRaisedHandsCount = raised.size.takeIf { it > 0 }
+        refreshRosterRef()
+        publishDock()
+    }
+    handControl?.button?.let { button ->
+        if (isEventGuestCaller) {
+            // a guest without an account cannot reach the RPC: the button says why instead of failing
+            val reason = resolvedAttributeText(tr("Für Gäste ohne Konto nicht verfügbar"))
+            button.setAttrIfChanged("aria-label", reason)
+            button.setAttrIfChanged("title", reason)
+            button.disabled = true
+        } else {
+            button.onClick { AppScope.launch { handController?.toggleSelf() } }
+        }
+    }
+    // The broadcast of the server can get lost: while the own hand is up or the roster is open, the queue is read once a minute.
+    AppScope.launch {
+        while (connectionState !is ConferenceConnectionState.Ended) {
+            delay(CONFERENCE_HAND_RESYNC_MS.toLong())
+            val controller = handController ?: continue
+            if (connectionState.isLive() && !isEventGuestCaller && (controller.selfRaised || panelState.rosterVisible())) {
+                controller.resync()
+            }
+        }
+    }
 
     // --- Collapsible chat side panel (D7: off by default) ------------------------------------------
     val chatPanel = videoArea.vPanel(spacing = 6) { addCssClasses("border rounded p-2 lapis-conference-chat") }
@@ -3614,6 +3773,8 @@ private fun enterCall(
                         add(OverflowSlot(ConferenceControlSlot.STREAM, it.streamButton, streamTwin))
                     }
                     add(OverflowSlot(ConferenceControlSlot.VIEW, viewButton, viewTwin))
+                    add(OverflowSlot(ConferenceControlSlot.REACT, reactButton, reactTwin))
+                    handControl?.let { add(OverflowSlot(ConferenceControlSlot.HAND, it.button, null)) }
                     add(OverflowSlot(ConferenceControlSlot.ROSTER, rosterToggleButton, rosterTwin, mirrorPressed = true))
                     add(OverflowSlot(ConferenceControlSlot.CHAT, chatToggleButton, null))
                     votingToggle?.let { add(OverflowSlot(ConferenceControlSlot.VOTE, it.button, voteTwin, mirrorPressed = true)) }
@@ -4001,6 +4162,8 @@ private fun enterCall(
     // Browser-Vollbild"-Vermeidung). Muss textuell VOR der ersten returnToLobby(...)-Call-Site stehen.
     // V1.2.10 erweitert: räumt zusätzlich die vier Auto-Hide-Aktivitäts-Listener ab.
     fun cleanupFullscreen() {
+        reactionPopover.dispose()
+        handController?.dispose()
         // V1.9.25: the ballot poll, the receipt hook and the viewport listener end with the call, on every way out of it
         ConferenceVoteRuntime.disposeActive()
         noiseSuppressionController.dispose()
@@ -4070,6 +4233,13 @@ private fun enterCall(
             ) { addCssClasses("flex-grow-1 small") }
             // V1.9.85: the speaking symbol of the roster -- a decorative symbol (no text, `aria-hidden`), set from the mark state right
             // away and afterwards only toggled by `applySpeakingMarks` (a list rebuild per change would cost ~4 per second).
+            // V1.9.127 -- the raised hand: the symbol AND the words, in the row of the person
+            if (handController?.order?.contains(entry.identity) == true) {
+                row.tag(TAG.I, className = "${ActionIcon.HAND.css} lapis-roster-hand") {
+                    setAttribute("aria-hidden", "true")
+                }
+                row.span(tr("Hand gehoben"), className = "small lapis-roster-hand-text")
+            }
             val markedNow = speakingMark.isMarked(entry.identity, Clock.System.now().toEpochMilliseconds())
             row.tag(TAG.I, className = "${ActionIcon.SPEAKING.css} lapis-roster-speaking") {
                 setAttribute("aria-hidden", "true")
@@ -4321,7 +4491,25 @@ private fun enterCall(
         // Wave 4, D3: NO LONGER appends to `gridElement` here -- placement into the priority/compact
         // zone is [applyConferenceGridReflow]'s job now, called by [ensureTile] right after this
         // returns (see file KDoc "D3").
-        val entry = ConferenceTileEntry(identity, displayName, isLocal, tile, mediaSlot, nameBadge, micBadge, guestBadgeEl, speakingBadge)
+        // V1.9.127 -- the raised-hand badge (above the name, symbol AND words) and the reaction layer, built once, never moved.
+        val handBadge = createHandBadge()
+        tile.appendChild(handBadge)
+        val reactionLayer = createReactionLayer()
+        tile.appendChild(reactionLayer)
+        val entry =
+            ConferenceTileEntry(
+                identity,
+                displayName,
+                isLocal,
+                tile,
+                mediaSlot,
+                nameBadge,
+                micBadge,
+                guestBadgeEl,
+                speakingBadge,
+                reactionLayer,
+                handBadge,
+            )
         // V1.9.115 -- the pin toggle (top right, 44 x 44 px target; shown on hover / focus, always on a touch screen, see theme.css). The own
         // tile and a screen-share tile have none: nobody pins themselves, a shared screen is no person. The label is set with `setAttribute`
         // (never markup), the name is re-applied by `refreshPinButtons`.
@@ -4394,6 +4582,7 @@ private fun enterCall(
         entry.nameBadge.textContent = tileLabel(entry)
         setTileGuest(entry, guestHomeserverByIdentity[identity])
         tiles[identity] = entry
+        handController?.let { toggleHandBadge(entry.handBadge, identity in it.order) }
         viewController.participantJoined(identity)
         refreshRoster()
         applyConferenceGridReflow()
@@ -4957,6 +5146,14 @@ private fun enterCall(
             ConferenceModerationSignal.UnmuteRequest ->
                 // never forced: the band offers the person's OWN toggle; a microphone that is on already needs no request
                 if (!micEnabled && microphonePermitted) notices.showUnmuteRequest { if (!micEnabled) toggleMicRef() }
+            ConferenceModerationSignal.ReactionsOn, ConferenceModerationSignal.ReactionsOff -> {
+                roomReactionsEnabled = signal == ConferenceModerationSignal.ReactionsOn
+                reactionPopover.setEnabled(roomReactionsEnabled)
+                moderationPanel?.setReactions(roomReactionsEnabled)
+                if (!canModerate && !roomReactionsEnabled) {
+                    notices.announce(gettext("Reaktionen sind in diesem Raum ausgeschaltet."), assertive = false)
+                }
+            }
             ConferenceModerationSignal.Lock, ConferenceModerationSignal.Unlock -> {
                 roomMayUnmute = signal == ConferenceModerationSignal.Unlock
                 moderationPanel?.setState(roomMuteOnJoin, roomMayUnmute)
@@ -4966,8 +5163,14 @@ private fun enterCall(
         }
     }
 
+    sendReactionRef = { reaction -> session.sendConferenceReaction(reaction) }
+
     session =
         LiveKitRoomSession(
+            onHandQueue = { dto -> handController?.onBroadcast(dto) },
+            onConferenceReaction = { identity, reaction ->
+                if (roomReactionsEnabled && reactionReceiveGuard.admit(identity)) showReaction(identity, reaction)
+            },
             onRemoteTrackMuteChanged = { identity, source, muted ->
                 if (source == "microphone") tiles[identity]?.let { setRemoteMicMuted(it, muted) }
             },
@@ -5154,6 +5357,8 @@ private fun enterCall(
             onReconnecting = { transition(ConferenceConnectionEvent.ReconnectingSignal) },
             onReconnected = {
                 transition(ConferenceConnectionEvent.ReconnectedSignal)
+                // V1.9.127: a broadcast may have been lost while the connection was down -- read the queue again
+                AppScope.launch { handController?.resync() }
                 // ELB-Test-Fix 2026-09-27 (Befund 7): after ANY reconnect, rebuild the remote roster
                 // from the SDK's own state -- participants/tracks announced while this client was
                 // reconnecting can be lost to the UI (see LiveKitRoomSession.resyncRoster KDoc). Tiles
@@ -5392,6 +5597,8 @@ private fun enterCall(
         voteController?.start()
         // Wave 5 -- see refreshGuestHomeservers KDoc "called once right after connect succeeds".
         refreshGuestHomeservers()
+        // V1.9.127 -- the raised hands: a person who joins late (or reloads) reads the queue once; afterwards the broadcasts keep it current
+        handController?.resync()
         // V1.0 Wave 7 "Whiteboard" -- constructed once per connect (mirrors the roster/recording-
         // status "seed once per connect" pattern), NOT gated on the panel being open, so it is
         // instantly ready the moment a participant opens it -- see

@@ -102,6 +102,8 @@ data class ConferenceRoomDto(
     val broadcastView: ConferenceBroadcastView = ConferenceBroadcastView.RASTER,
     /** V1.9.120 -- join/leave tones enabled in this room (moderator option). Appended last with a default: wire compatible. */
     val joinLeaveSounds: Boolean = true,
+    /** V1.9.127 -- reactions enabled in this room (moderator option; client-side only, see [CONFERENCE_REACTION_TOPIC]). Appended last with a default: wire compatible. */
+    val reactionsEnabled: Boolean = true,
 )
 
 /**
@@ -400,6 +402,10 @@ const val CONFERENCE_MODERATION_KIND_UNMUTE_REQUEST = "unmute_request"
 const val CONFERENCE_MODERATION_KIND_LOCK = "lock"
 const val CONFERENCE_MODERATION_KIND_UNLOCK = "unlock"
 
+/** V1.9.127 -- broadcast: a moderator switched the reactions of the room on / off (running clients follow at once). */
+const val CONFERENCE_MODERATION_KIND_REACTIONS_ON = "reactions_on"
+const val CONFERENCE_MODERATION_KIND_REACTIONS_OFF = "reactions_off"
+
 /** The closed set of accepted `k` values -- shared by the server (what it may send) and the client (what it accepts). */
 val CONFERENCE_MODERATION_KINDS: Set<String> =
     setOf(
@@ -408,4 +414,48 @@ val CONFERENCE_MODERATION_KINDS: Set<String> =
         CONFERENCE_MODERATION_KIND_UNMUTE_REQUEST,
         CONFERENCE_MODERATION_KIND_LOCK,
         CONFERENCE_MODERATION_KIND_UNLOCK,
+        CONFERENCE_MODERATION_KIND_REACTIONS_ON,
+        CONFERENCE_MODERATION_KIND_REACTIONS_OFF,
     )
+
+/**
+ * V1.9.127 -- LiveKit data-packet topic of the reactions (participant -> everybody, peer to peer; the server never sees or counts them).
+ * A reaction is a mood, not a record: no storage, no audit, and -- because the client DOM renders it -- it is NOT part of a recording or
+ * a stream (see `docs/features/video-conferencing.adoc`, "Reactions and raised hands"). The sender is always the LiveKit participant
+ * identity of the packet, never a field of the payload.
+ */
+const val CONFERENCE_REACTION_TOPIC = "lapis-conference-reaction"
+
+/** Hard cap of a reaction payload (`{"r":"APPLAUSE"}` is 16 bytes). */
+const val CONFERENCE_REACTION_MAX_PAYLOAD_BYTES = 32
+
+/** The closed set of reactions. There is deliberately no `HAND`: the raised hand is the server-ordered queue, never a peer packet. */
+@Serializable
+enum class ConferenceReaction { APPLAUSE, HEART, AMEN, THUMBS_UP, FLOWER }
+
+/**
+ * V1.9.127 -- LiveKit data-packet topic of the raised-hand queue (server -> client only, like [CONFERENCE_MODERATION_TOPIC]): a packet is
+ * accepted by a client ONLY if it carries no sending participant. Wire format `{"v":1,"e":"<16 hex>","seq":N,"ids":[...]}`.
+ */
+const val CONFERENCE_HANDS_TOPIC = "lapis-conference-hands"
+
+/** Most raised hands of one room at the same time. */
+const val CONFERENCE_HAND_QUEUE_MAX = 100
+
+/**
+ * Hard cap of a hands payload: 100 identities of the form `evg-<uuid>` are 43 bytes each with quotes and comma, i.e. 4300 bytes plus the
+ * header -- 4096 would be too small.
+ */
+const val CONFERENCE_HANDS_MAX_PAYLOAD_BYTES = 6144
+
+/**
+ * V1.9.127 -- the server-ordered queue of raised hands of one room. [epoch] is chosen at random once per server process (16 hex chars):
+ * after a restart the queue is empty and [seq] starts again, so a client compares the epoch to tell "a moderator lowered my hand" (same
+ * epoch, hand missing) from "the server restarted" (new epoch). [identities] is the order, first hand first.
+ */
+@Serializable
+data class ConferenceHandQueueDto(
+    val epoch: String,
+    val seq: Long,
+    val identities: List<String>,
+)

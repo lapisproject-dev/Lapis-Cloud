@@ -67,4 +67,28 @@ class ConferenceDockPresentationTest {
             }
         }
     }
+
+    // -- V1.9.127: the raised hands in the mini bar and the floating window -----------------------------------------------------------------
+
+    @Test
+    fun theBarAndTheWindow_sayTheHandsInWords_onlyWhileLive() {
+        val withHands = snap.copy(handRaisedSelf = true, raisedHandsCount = 2)
+        val live = DockState.Live(attached = false, snapshot = withHands)
+        val expected = listOf("Ihre Hand ist gehoben", "Gehobene Hände: 2")
+        assertEquals(expected, dockBarViewOf(live, narrow = false).handBadges)
+        assertEquals(expected, floatWindowViewOf(live).handBadges)
+        // no hands: nothing, and an old snapshot (defaults) is the same
+        assertEquals(emptyList(), dockBarViewOf(DockState.Live(false, snap), narrow = false).handBadges)
+        assertEquals(emptyList(), floatWindowViewOf(DockState.Live(false, snap)).handBadges)
+        // not live (resolving a breakout switch): the hands of the old room are not claimed
+        assertEquals(emptyList(), dockBarViewOf(DockState.Resolving(false, withHands), narrow = false).handBadges)
+        assertEquals(emptyList(), floatWindowViewOf(DockState.Resolving(false, withHands)).handBadges)
+    }
+
+    @Test
+    fun aNarrowBar_takesTwoRowsForTheHandBadges() {
+        val withHands = snap.copy(handRaisedSelf = true)
+        assertEquals(true, dockBarViewOf(DockState.Live(false, withHands), narrow = true).twoRows)
+        assertEquals(false, dockBarViewOf(DockState.Live(false, snap), narrow = true).twoRows)
+    }
 }

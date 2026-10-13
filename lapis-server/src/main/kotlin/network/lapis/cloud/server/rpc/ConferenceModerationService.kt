@@ -55,6 +55,7 @@ internal const val AUDIT_UNMUTE_REQUEST = "unmute_request"
 internal const val AUDIT_AUDIO_POLICY = "audio_policy"
 internal const val AUDIT_BROADCAST_VIEW = "BROADCAST_VIEW"
 internal const val AUDIT_JOIN_LEAVE_SOUNDS = "JOIN_LEAVE_SOUNDS"
+internal const val AUDIT_REACTIONS = "REACTIONS"
 
 /**
  * V1.9.108 -- see [IConferenceModerationService]. Every call follows the same three phases (pitfall S6: LiveKit is NEVER called inside a
@@ -87,6 +88,7 @@ class ConferenceModerationService(
     private val previewRateLimiter: FederationInboxRateLimiter,
     private val broadcastViewRateLimiter: FederationInboxRateLimiter,
     private val joinLeaveSoundsRateLimiter: FederationInboxRateLimiter,
+    private val reactionsRateLimiter: FederationInboxRateLimiter,
 ) : IConferenceModerationService {
     private data class RoomContext(
         val roomId: Uuid,
@@ -350,6 +352,54 @@ class ConferenceModerationService(
             )
             result
         }
+    }
+
+    override suspend fun setRoomReactions(
+        roomId: String,
+        enabled: Boolean,
+    ): ConferenceRoomDto {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        // Authorization first and from the database; every refusal (no authority, unknown/ended room, encounter session) is the same exception.
+        val room = transaction { authorizeRoom(roomId = roomId, current = current) }
+        requireWithinRate(limiter = reactionsRateLimiter, key = "room:${room.roomId}")
+        val dto =
+            transaction {
+                ConferenceRoomTable
+                    .selectAll()
+                    .where { ConferenceRoomTable.id eq room.roomId }
+                    .forUpdate()
+                    .singleOrNull()
+                    ?.takeIf { it[ConferenceRoomTable.endedAt] == null }
+                    ?: throw ForbiddenException(MODERATION_DENIED)
+                ConferenceRoomTable.update({ ConferenceRoomTable.id eq room.roomId }) {
+                    it[ConferenceRoomTable.reactionsEnabled] = enabled
+                }
+                val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq room.roomId }.single()
+                val result = ConferenceRoomDtoMapper.toDto(row = fresh, callerId = current.memberId, liveParticipantCount = 0)
+                // AuditLogRecorder.record must be the LAST lock-taking operation in this transaction. Metadata only -- no names.
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.CONFERENCE_ROOM,
+                    entityId = room.roomId,
+                    action = AuditAction.UPDATE,
+                    after = """{"moderation":"$AUDIT_REACTIONS","enabled":$enabled}""",
+                )
+                result
+            }
+        // Best effort, OUTSIDE the transaction (LiveKit is never called inside one): running clients follow at once; a lost packet is
+        // healed at the next join or reload, which read the stored flag.
+        try {
+            liveKitAdminClient.sendData(
+                room = room.livekitRoomName,
+                topic = CONFERENCE_MODERATION_TOPIC,
+                payload = ConferenceModerationPackets.reactions(enabled),
+            )
+        } catch (e: LiveKitAdminException) {
+            logger.warn { "conference moderation: the reactions notice could not be sent" }
+        }
+        return dto
     }
 
     // -- LiveKit-side application of a lock change ------------------------------------------------------------------------------------
