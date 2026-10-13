@@ -274,4 +274,44 @@ class TravelExpenseScreenFormDomTest {
                 }
             }
         }
+
+    @Test
+    fun refundAccountForm_onASubmittedReportWithoutIban_sendsTheTypedIbanForTheSubject(): Promise<Unit> =
+        formTest {
+            AppState.setSession(memberSession)
+            val submitted =
+                draft().copy(
+                    status = TravelExpenseReportStatus.REQUESTED,
+                    payoutChoice = network.lapis.cloud.shared.domain.TravelExpensePayoutChoice.PAYOUT,
+                )
+            val ratesRoute = routeOf { rpcService<ITravelExpenseService>().getTravelExpenseRates() }
+            val listRoute = routeOf { rpcService<ITravelExpenseService>().listMyReports() }
+            val setRoute = routeOf { rpcService<ITravelExpenseService>().setRefundAccount("x", null, null) }
+            withFetchStub(
+                respond =
+                    answering(
+                        ratesRoute to jsonOf(TravelExpenseRatesDto.serializer(), rates),
+                        listRoute to jsonOf(ListSerializer(TravelExpenseReportDto.serializer()), listOf(submitted)),
+                        setRoute to jsonOf(TravelExpenseReportDto.serializer(), submitted),
+                    ),
+            ) { calls ->
+                mountedForm("travel-expense-refund-account-form") { root, element ->
+                    renderTravelExpenseScreen(root, null)
+                    awaitUntil("refund form rendered", timeoutMs = 800) {
+                        element().allOf("button").any { it.textContent?.trim() == "Konto speichern" }
+                    }
+                    // Required while no account is stored: an empty IBAN is refused on the field.
+                    element().buttonNamed("Konto speichern").click()
+                    delay(60)
+                    assertEquals(0, calls.toRoute(setRoute).size, "no call without an IBAN")
+                    assertTrue(element().shownErrors().isNotEmpty())
+                    element().typeInto("IBAN für Erstattungen", "  DE02 1203 0000 0000 2020 51  ")
+                    element().buttonNamed("Konto speichern").click()
+                    awaitUntil("setRefundAccount", timeoutMs = 800) { calls.toRoute(setRoute).size == 1 }
+                    val call = calls.singleCall(setRoute)
+                    assertEquals("report-1", call.rpcParam(0) as String)
+                    assertEquals("DE02 1203 0000 0000 2020 51", call.rpcParam(1) as String, "the typed IBAN is sent, trimmed")
+                }
+            }
+        }
 }

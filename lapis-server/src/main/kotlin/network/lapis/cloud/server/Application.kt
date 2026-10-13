@@ -244,6 +244,7 @@ import network.lapis.cloud.server.routes.registerPublicTransparencyRoutes
 import network.lapis.cloud.server.routes.registerSepaRoutes
 import network.lapis.cloud.server.routes.registerSocialPublicRoutes
 import network.lapis.cloud.server.routes.registerTravelExpenseReceiptRoutes
+import network.lapis.cloud.server.routes.registerTravelExpenseSepaRoutes
 import network.lapis.cloud.server.routes.registerTrustAnchorRoutes
 import network.lapis.cloud.server.routes.respondPublicCanonicalRedirect
 import network.lapis.cloud.server.rpc.AccountingExportService
@@ -320,6 +321,7 @@ import network.lapis.cloud.server.rpc.RegistrationService
 import network.lapis.cloud.server.rpc.SepaService
 import network.lapis.cloud.server.rpc.SocialNetworkService
 import network.lapis.cloud.server.rpc.SystemicConsensusService
+import network.lapis.cloud.server.rpc.TravelExpenseSepaExport
 import network.lapis.cloud.server.rpc.TravelExpenseService
 import network.lapis.cloud.server.rpc.TrustAnchorService
 import network.lapis.cloud.server.rpc.VatService
@@ -1266,6 +1268,9 @@ internal fun Application.module(
     // while still bounding a single member's sustained flood to a small multiple of every other
     // write-capable upload route's own 10/min budget in this file.
     val travelExpenseReceiptUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    // Welle V1.9.123 -- ONE limiter shared by both SEPA-credit-transfer routes (generating a payment file is a rare, deliberate action).
+    val travelExpenseSepaExportRateLimiter = FederationInboxRateLimiter(maxRequests = 10, window = 1.minutes)
+    val travelExpenseSepaExport = TravelExpenseSepaExport(sepaConfig.secretEncryptionKey)
 
     // V1.2.7 Automatisiertes Mahnwesen -- DunningConfig.load() is pure string parsing, same
     // deliberately-non-fail-fast posture as SepaConfig (see that class' own KDoc): the feature is
@@ -2024,7 +2029,13 @@ internal fun Application.module(
         // prefix, no new env var/volume (see TravelExpenseReceiptRoutes KDoc).
         registerService(
             ITravelExpenseService::class,
-        ) { call -> TravelExpenseService(call = call, receiptStorageRoot = documentStorageRoot) }
+        ) { call ->
+            TravelExpenseService(
+                call = call,
+                receiptStorageRoot = documentStorageRoot,
+                secretEncryptionKey = sepaConfig.secretEncryptionKey,
+            )
+        }
         // Welle V1.9.4 -- reuses documentStorageRoot with a "conference-backgrounds/" storage-key
         // prefix, same convention as travel-expense receipts above.
         registerService(
@@ -2471,6 +2482,12 @@ internal fun Application.module(
         }
         registerDocumentRoutes(documentStorageRoot)
         registerTravelExpenseReceiptRoutes(storageRoot = documentStorageRoot, rateLimiter = travelExpenseReceiptUploadRateLimiter)
+        // Welle V1.9.123 "SEPA-Ueberweisungsdatei" -- POST (commits + delivers the pain.001 file in one request, never stored).
+        registerTravelExpenseSepaRoutes(
+            export = travelExpenseSepaExport,
+            rateLimiter = travelExpenseSepaExportRateLimiter,
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+        )
         // Welle V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen".
         registerConferenceBackgroundRoutes(
             storageRoot = documentStorageRoot,

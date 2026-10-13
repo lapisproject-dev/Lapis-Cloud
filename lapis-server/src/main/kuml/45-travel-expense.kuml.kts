@@ -59,6 +59,16 @@ classDiagram(name = "TravelExpense") {
         }
     }
 
+    // 47-bank-account.kuml.kts-owned stub -- id-only. V1.9.123: travel_expense_sepa_batch.debtor_bank_account_id
+    // (the account a SEPA credit-transfer file debits) resolves against it.
+    val bankAccount = classOf(name = "BankAccount") {
+        stereotype("Entity") { "tableName" to "bank_account"; "kotlinObjectName" to "BankAccountTable" }
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+    }
+
     // Literal order is load-bearing (TravelExpenseSchemaDriftTest pins ErmDataType.Enum.values
     // against network.lapis.cloud.shared.domain.TravelExpenseReportStatus in exactly this order)
     // -- append only, never reorder/insert among these six.
@@ -189,6 +199,47 @@ classDiagram(name = "TravelExpense") {
         attribute(name = "ratesSnapshot", type = "String") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "rates_snapshot"; "sqlType" to "VARCHAR(2000)" }
+        }
+        // ── V1.9.123 (V98__travel_expense_sepa_credit_transfer.sql) ──
+        // SecretBox ciphertext of the refund IBAN, AAD = "travel_expense_report.refund_iban:<reportId>". The only copy of the IBAN.
+        attribute(name = "refundIbanCiphertext", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "refund_iban_ciphertext"; "sqlType" to "VARCHAR(512)" }
+        }
+        // Masking without decrypting; cleared together with the ciphertext (chk_ter_refund_iban_pair).
+        attribute(name = "refundIbanLast4", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "refund_iban_last4"; "sqlType" to "VARCHAR(4)" }
+        }
+        attribute(name = "refundAccountHolder", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "refund_account_holder"; "sqlType" to "VARCHAR(70)" }
+        }
+        attribute(name = "refundAccountChangedAfterSubmit", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "refund_account_changed_after_submit" }
+        }
+        // TRUE for every report that was already booked as a payout when V98 ran: refunded by hand, never offered for a SEPA file.
+        attribute(name = "paidOutsideLapis", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "paid_outside_lapis" }
+        }
+        // The three sepa_export* columns are all NULL or all set (chk_ter_sepa_export_consistent).
+        attribute(name = "sepaExportedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "sepa_exported_at" }
+        }
+        attribute(name = "sepaExportBatchId", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "sepa_export_batch_id"; "fkEntity" to "TravelExpenseSepaBatch" }
+        }
+        attribute(name = "sepaExportedBy", type = "UUID") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "sepa_exported_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "sepaReexportCount", type = "Int") {
+            defaultValue = "0"
+            stereotype("Column") { "columnName" to "sepa_reexport_count" }
         }
     }
 
@@ -330,6 +381,81 @@ classDiagram(name = "TravelExpense") {
         }
         attribute(name = "uploadedAt", type = "LocalDateTime") {
             stereotype("Column") { "columnName" to "uploaded_at" }
+        }
+    }
+
+    // V1.9.123 -- one generated pain.001 file. Neither the XML nor any member IBAN/name is stored here.
+    val travelExpenseSepaBatch = classOf(name = "TravelExpenseSepaBatch") {
+        stereotype("Entity") { "tableName" to "travel_expense_sepa_batch"; "kotlinObjectName" to "TravelExpenseSepaBatchTable" }
+
+        stereotype("Index") { "columns" to listOf("created_at"); "name" to "idx_tesb_created_at" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        // FK fk_tesb_debtor_bank_account blocks deleting a bank account that was ever used for a file (BankAccountStore.delete -> 409).
+        attribute(name = "debtorBankAccountId", type = "UUID") {
+            stereotype("Column") { "columnName" to "debtor_bank_account_id"; "fkEntity" to "BankAccount" }
+        }
+        attribute(name = "debtorAccountLabel", type = "String") {
+            stereotype("Column") { "columnName" to "debtor_account_label"; "sqlType" to "VARCHAR(120)" }
+        }
+        attribute(name = "debtorIbanLast4", type = "String") {
+            stereotype("Column") { "columnName" to "debtor_iban_last4"; "sqlType" to "VARCHAR(4)" }
+        }
+        attribute(name = "requestedExecutionDate", type = "LocalDate") {
+            stereotype("Column") { "columnName" to "requested_execution_date" }
+        }
+        attribute(name = "transactionCount", type = "Int") {
+            stereotype("Column") { "columnName" to "transaction_count" }
+        }
+        attribute(name = "controlSumCents", type = "Long") {
+            stereotype("Column") { "columnName" to "control_sum_cents" }
+        }
+        attribute(name = "painVersion", type = "String") {
+            stereotype("Column") { "columnName" to "pain_version"; "sqlType" to "VARCHAR(20)" }
+        }
+        attribute(name = "createdBy", type = "UUID") {
+            stereotype("Column") { "columnName" to "created_by"; "fkEntity" to "Member" }
+        }
+        attribute(name = "createdAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "created_at" }
+        }
+        attribute(name = "isReexport", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "is_reexport" }
+        }
+        // Mandatory iff is_reexport (chk_tesb_reexport_reason); must never contain an account number (application check).
+        attribute(name = "reason", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "reason"; "sqlType" to "VARCHAR(500)" }
+        }
+    }
+
+    val travelExpenseSepaBatchItem = classOf(name = "TravelExpenseSepaBatchItem") {
+        stereotype("Entity") { "tableName" to "travel_expense_sepa_batch_item"; "kotlinObjectName" to "TravelExpenseSepaBatchItemTable" }
+
+        stereotype("Index") { "columns" to listOf("end_to_end_id"); "unique" to true; "name" to "uq_tesbi_end_to_end_id" }
+        stereotype("Index") { "columns" to listOf("batch_id", "report_id"); "unique" to true; "name" to "uq_tesbi_batch_report" }
+        stereotype("Index") { "columns" to listOf("report_id"); "name" to "idx_tesbi_report" }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "batchId", type = "UUID") {
+            stereotype("Column") { "columnName" to "batch_id"; "fkEntity" to "TravelExpenseSepaBatch" }
+        }
+        attribute(name = "reportId", type = "UUID") {
+            stereotype("Column") { "columnName" to "report_id"; "fkEntity" to "TravelExpenseReport" }
+        }
+        attribute(name = "amountCents", type = "Long") {
+            stereotype("Column") { "columnName" to "amount_cents" }
+        }
+        // EndToEndId = "TE" + 28 hex of the report id, plus "-R<n>" for a re-export; globally unique.
+        attribute(name = "endToEndId", type = "String") {
+            stereotype("Column") { "columnName" to "end_to_end_id"; "sqlType" to "VARCHAR(35)" }
         }
     }
 }

@@ -6,6 +6,24 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.123 -- SEPA credit transfer file (pain.001) for approved travel expenses
+
+A booked travel expense report can now be put into a SEPA credit transfer file that the treasury uploads in online banking. Nothing is sent to a bank.
+
+- **Refund account.** Only the member the money goes to enters an IBAN and an account holder for refunds, in the draft or later in a form on the submitted/approved/executed report (a requester filing on someone's behalf or the board never can) (`ITravelExpenseService.setRefundAccount`, `getRefundAccountPrefill`). The IBAN is validated and stored **encrypted** (`SecretBox`, AAD bound to the report); only the last four characters are shown. After submission the change is flagged and audited without the IBAN; after the export the member can still correct it (bank return), which is flagged and audited again and is only used by a reasoned re-export. A holder-only correction is possible. The booking check derives the bank credit from the journal entry (a later change of the payment bank account setting does not break it), and the re-export reason is checked for a real IBAN (mod 97), so return codes like `AC04` are accepted.
+- **Export.** New section "Zur Auszahlung bereit" on the approvals page (BOARD/ADMIN): selection with disabled-with-reason checkboxes, running sum, confirm dialog (sum, debit account, execution date), list of earlier files (metadata only, no second download). New HTTP routes `POST /api/travel-expenses/sepa-batches` and `POST /api/travel-expenses/reports/{reportId}/sepa-reexport` (the file is created and delivered in one request, `Cache-Control: no-store`, never stored). New RPC methods `listSepaExportCandidates`, `listSepaBatches`, `getSepaExportContext` (appended at the end of `ITravelExpenseService`).
+- **Rules.** Four eyes as for approving (subject and requester excluded, the whole export is refused); a report can be exported once, a re-export needs a reason; the amount `total - advance` is compared with the booking; 1 to 500 transfers; the execution date must be a TARGET2 business day within 60 days; 10 requests per member and minute, same-origin check; no IBAN/holder/name in audit, logs, errors or batch tables.
+- **Operator notes.** **Take a backup first.** One additive migration **`V98__travel_expense_sepa_credit_transfer.sql`** (schema V98; V97 untouched); it also widens the `audit_log_entry.entity_type` CHECK by `TRAVEL_EXPENSE_SEPA_BATCH`. No `flywayRepair`. To use it: a default bank account (Einstellungen › Bankkonten), the organization name, and `LAPIS_SECRET_ENCRYPTION_KEY` (without it no IBAN can be stored and no file created). A bank account used for a file cannot be deleted any more. The `pain.008` direct-debit writer shares its XML helpers with the new writer without any change of output.
+- **Known limitations (honest status).**
+  - **Never tested with a real bank upload.** The file is checked by a golden file and a structure checker for the element order of `pain.001.001.09`; validation against the official ISO 20022 XSD is optional and only runs when `LAPIS_TEST_PAIN001_XSD` points at a local copy (the XSD is not checked in, licence not reviewed).
+  - The bank may require another version or its own profile; only `pain.001.001.09` is written (`.03` is not supported).
+  - **No reconciliation**: "exported" means a file was created, not that a transfer was executed.
+  - No automatic splitting above 500 transfers.
+  - The IBAN country list has no Vatican City, Gibraltar or the 2025 SEPA newcomers.
+  - The ledger account of the booking and the debited bank account are not reconciled.
+  - Reports that were already booked as a payout when `V98` ran are marked `paid_outside_lapis` (refunded by hand before this release): no refund form, no SEPA candidate, `setRefundAccount` refuses with `paid_outside_lapis`. There is no UI for the treasury to flag a further report that was paid by hand; such a report must be left out of the selection.
+  - The UI was exercised by DOM tests only; no screen was judged visually and no screen reader was used.
+
 ## [0.33.0] — 2026-10-13
 
 Feature release on top of `[0.32.0]`: **recordings are now made per person by default** (a change of behaviour for existing deployments), the conference full screen uses the whole height, the board can tell applicants by e-mail that they were accepted or rejected, the optional noise suppression had a real bug fixed and can be retried, a conference plays a quiet sound when somebody joins or leaves, members choose country and nationalities from a list with flags, and the travel expense report follows the PdV form (V1.9.116 -- V1.9.122). Grouped by topic below; the per-wave detail follows in the sections underneath. Two test-only time-zone fixes mentioned in `[0.32.0]` are not repeated here.

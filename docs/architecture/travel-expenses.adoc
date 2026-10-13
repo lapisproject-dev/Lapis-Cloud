@@ -1,4 +1,4 @@
-= Travel Expense Reimbursement (V1.4.11, PdV form V1.9.122)
+= Travel Expense Reimbursement (V1.4.11, PdV form V1.9.122, SEPA file V1.9.123)
 
 NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-render:renderDocs`
 Gradle task (see `docs-render/`), kept in sync by hand with
@@ -292,3 +292,60 @@ other line stays strictly positive). `travel_expense_report` gains `advance_amou
   person **without a foreign key to `member`**: it is erased manually by the administration (clear the fields on `/travel-expense-settings`).
 * **Security**: `saveDays`/`updateLine` follow the draft rules (subject or requester, no BOARD/ADMIN bypass, DRAFT only); a client-supplied cent value for a mileage line is refused (mass
   assignment); the contact hint is rendered as text, never as markup; `mailto:` is percent-encoded, `tel:` carries only `+` and digits.
+
+== SEPA credit transfer file (V1.9.123)
+
+Migration `V98__travel_expense_sepa_credit_transfer.sql` (additive; V97 is shipped with `v0.33.0` and untouched). Rules in plain words: link:../features/travel-expenses.adoc[the feature document].
+
+[source,kuml,name="travel-expense-sepa"]
+----
+classDiagram(name = "Travel expense SEPA file — ERM excerpt") {
+    val report = classOf(name = "TravelExpenseReport") {
+        attribute(name = "refundIbanCiphertext", type = "String") // SecretBox, AAD = report id; the ONLY copy of the IBAN
+        attribute(name = "refundIbanLast4", type = "String") // masking without decrypting
+        attribute(name = "refundAccountHolder", type = "String")
+        attribute(name = "refundAccountChangedAfterSubmit", type = "Boolean")
+        attribute(name = "paidOutsideLapis", type = "Boolean")
+        attribute(name = "sepaExportedAt", type = "LocalDateTime") // all three sepaExport* columns null or all set
+        attribute(name = "sepaExportBatchId", type = "UUID")
+        attribute(name = "sepaExportedBy", type = "UUID")
+        attribute(name = "sepaReexportCount", type = "Int") // 0..99
+    }
+    val batch = classOf(name = "TravelExpenseSepaBatch") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "debtorBankAccountId", type = "UUID") // fk_tesb_debtor_bank_account blocks deleting the account
+        attribute(name = "debtorAccountLabel", type = "String") // snapshot
+        attribute(name = "debtorIbanLast4", type = "String") // snapshot
+        attribute(name = "requestedExecutionDate", type = "LocalDate")
+        attribute(name = "transactionCount", type = "Int") // 1..500
+        attribute(name = "controlSumCents", type = "Long")
+        attribute(name = "createdAt", type = "LocalDateTime")
+        attribute(name = "isReexport", type = "Boolean")
+        attribute(name = "reason", type = "String") // iff isReexport
+    }
+    val item = classOf(name = "TravelExpenseSepaBatchItem") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "amountCents", type = "Long")
+        attribute(name = "endToEndId", type = "String") // TE + 28 hex (+ -R<n>), globally unique
+    }
+    val bankAccount = classOf(name = "BankAccount") { attribute(name = "id", type = "UUID") }
+
+    association(source = batch, target = item) { target { multiplicity("1..*") } }
+    association(source = item, target = report, id = "report") { target { multiplicity("1") } }
+    association(source = batch, target = bankAccount, id = "debtor") { target { multiplicity("1") } }
+}
+----
+
+* *No XML and no member IBAN in a batch table.* The file is produced inside the export transaction as pure computation and returned in the same HTTP response (`POST`, `Cache-Control: no-store`). It is deliberately
+  not an RPC returning base64 and not a `GET`: a second download would have to regenerate the file and bypass the double-payment guard.
+* *Transaction boundary (`TravelExpenseSepaExport.generate`).* Role check, key check, id validation and the execution date happen before the transaction; inside ONE `transaction {}`: debtor account and organization name,
+  `SELECT ... FOR UPDATE` on the reports **sorted by id** (no deadlocks), blockers per report, decrypting the IBANs in memory, writing the XML (pure), inserting batch, items and marks, one audit entry per report and one for the batch. There is no
+  outside effect inside the block (Exposed may repeat it on an `SQLException`); the response is written only after the commit. One clock read before the transaction keeps a repeated block identical.
+* *AAD.* `"travel_expense_report.refund_iban:" + reportId` binds the ciphertext to its row; a ciphertext copied onto another report cannot be opened (`refund_iban_unreadable`). A fresh `SecretBox` state per call; no key means `409 encryption_key_missing`.
+* *Amount invariant.* `total_amount − advance_amount` (exact cents, from the database) must equal the sum of CREDIT postings on `paymentBankAccountId` of the booked entry; otherwise `AMOUNT_MISMATCH_WITH_BOOKING`. There is no void status for a posted entry in this system, so a reversed booking cannot be detected here -- a reversal changes the credit sum and blocks the report the same way.
+* *Identifiers (`Max35Text`).* `MsgId = "LCRT-" + 30 hex of the batch id`, `PmtInfId = "LCRTP" + 30 hex` (35 characters each), `EndToEndId = "TE" + 28 hex of the report id` plus `-R<n>` for the n-th re-export (at most 34). The
+  unique index `uq_tesbi_end_to_end_id` is the database-side guarantee.
+* *`audit_log_entry.entity_type`* gains `TRAVEL_EXPENSE_SEPA_BATCH` (25 characters, fits `VARCHAR(29)`); V98 widens the CHECK constraint exactly like V92. The batch entry carries ids, counts, cents, the date and the report ids -- never an IBAN or a name.
+* *DSGVO.* Erasing the subject sets `refund_iban_ciphertext`, `refund_iban_last4` and `refund_account_holder` to `NULL` in every status (the organization's bank statement proves the payment; a copy of the member's IBAN is not needed); `sepa_exported_*`
+  and the batch rows stay (accountability, section 147 AO) and contain no personal data. The Art.-15 export shows the masked end, the holder and the export mark -- never the ciphertext (same pattern as `PaymentsPersonalData`).
+* *Tests.* `SepaPain001WriterTest` (golden file, structure, limits, escaping), `Target2CalendarTest`, `TravelExpenseSepaExportScenarios` (H2 and PostgreSQL: rights, blockers, four eyes, double export, atomicity, re-export, dates, parallel exports), `TravelExpenseRefundAccountTest`, `TravelExpenseSepaRoutesTest`, `TravelExpenseSepaMigrationTest`, the schema drift and DSGVO tests and `TravelExpenseSepaPanelDomTest`.

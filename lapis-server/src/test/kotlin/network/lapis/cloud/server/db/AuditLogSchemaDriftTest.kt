@@ -174,6 +174,7 @@ class AuditLogSchemaDriftTest :
                             "MAILING_LIST",
                             "MAILING_MESSAGE",
                             "COMMITTEE",
+                            "TRAVEL_EXPENSE_SEPA_BATCH",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

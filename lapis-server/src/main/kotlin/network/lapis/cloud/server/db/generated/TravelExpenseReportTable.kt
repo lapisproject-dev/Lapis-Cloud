@@ -35,12 +35,24 @@ public object TravelExpenseReportTable : Table("travel_expense_report") {
     public val payoutChoice: Column<TravelExpensePayoutChoice?> = enumerationByName<TravelExpensePayoutChoice>("payout_choice", 15).nullable()
     public val membershipNumberSnapshot: Column<String?> = varchar("membership_number_snapshot", 16).nullable()
     public val ratesSnapshot: Column<String?> = varchar("rates_snapshot", 2000).nullable()
+    public val refundIbanCiphertext: Column<String?> = varchar("refund_iban_ciphertext", 512).nullable()
+    public val refundIbanLast4: Column<String?> = varchar("refund_iban_last4", 4).nullable()
+    public val refundAccountHolder: Column<String?> = varchar("refund_account_holder", 70).nullable()
+    public val refundAccountChangedAfterSubmit: Column<Boolean> = bool("refund_account_changed_after_submit")
+    // TODO default = "FALSE"
+    public val paidOutsideLapis: Column<Boolean> = bool("paid_outside_lapis")
+    // TODO default = "FALSE"
+    public val sepaExportedAt: Column<LocalDateTime?> = datetime("sepa_exported_at").nullable()
+    public val sepaExportBatchId: Column<Uuid?> = optReference("sepa_export_batch_id", TravelExpenseSepaBatchTable.id)
+    public val sepaExportedBy: Column<Uuid?> = optReference("sepa_exported_by", MemberTable.id)
+    public val sepaReexportCount: Column<Int> = integer("sepa_reexport_count")
+    // TODO default = "0"
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 
-    // Note: 4 index(es) declared on this entity are not emitted —
+    // Note: 5 index(es) declared on this entity are not emitted —
     // Exposed's index {} DSL needs typed column references, not wired up in this wave.
 
-    // Note: 6 check constraint(s) declared on this entity are not
+    // Note: 9 check constraint(s) declared on this entity are not
     // emitted — Exposed's check {} DSL needs a typed Op<Boolean>, not a raw SQL string.
 }

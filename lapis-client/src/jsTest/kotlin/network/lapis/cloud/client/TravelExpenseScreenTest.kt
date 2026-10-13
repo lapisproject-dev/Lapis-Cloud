@@ -262,4 +262,63 @@ class TravelExpenseScreenTest {
             travelExpenseCanCopyAsDraft(sampleReport(status = TravelExpenseReportStatus.REJECTED), hasOpenDraft = true),
         )
     }
+
+    @Test
+    fun refundAccountForm_isOfferedToTheSubjectOnLiveReportsOfAPayoutOnly() {
+        val live = listOf(TravelExpenseReportStatus.REQUESTED, TravelExpenseReportStatus.APPROVED, TravelExpenseReportStatus.EXECUTED)
+        TravelExpenseReportStatus.entries.forEach { status ->
+            assertEquals(
+                status in live,
+                travelExpenseCanSetRefundAccount(sampleReport(status = status), memberId = "member-1"),
+                "status $status",
+            )
+        }
+        val executed = sampleReport(status = TravelExpenseReportStatus.EXECUTED)
+        assertFalse(travelExpenseCanSetRefundAccount(executed, memberId = "someone-else"), "never for a requester or a board member")
+        assertFalse(travelExpenseCanSetRefundAccount(executed, memberId = null))
+        assertFalse(
+            travelExpenseCanSetRefundAccount(executed.copy(paidOutsideLapis = true), memberId = "member-1"),
+            "a legacy report refunded by hand gets no form",
+        )
+        assertFalse(
+            travelExpenseCanSetRefundAccount(
+                sampleReport(status = TravelExpenseReportStatus.EXECUTED, payoutChoice = TravelExpensePayoutChoice.DONATION_WAIVER),
+                memberId = "member-1",
+            ),
+        )
+    }
+
+    @Test
+    fun refundAccountRequest_aTypedIbanIsSentWithTheHolder() {
+        val request =
+            travelExpenseRefundAccountRequest(
+                typedIban = " DE02 1203 0000 0000 2020 51 ",
+                typedHolder = " Erika ",
+                storedLast4 = null,
+                storedHolder = null,
+            )!!
+        assertEquals("DE02 1203 0000 0000 2020 51", request.iban)
+        assertEquals("Erika", request.holder)
+    }
+
+    @Test
+    fun refundAccountRequest_aChangedHolderWithoutIbanIsAHolderOnlyUpdate() {
+        val request = travelExpenseRefundAccountRequest("", "Erika Musterfrau", storedLast4 = "2051", storedHolder = "Erika Mustermann")!!
+        assertEquals(null, request.iban)
+        assertEquals("Erika Musterfrau", request.holder)
+    }
+
+    @Test
+    fun refundAccountRequest_neverClearsAndSendsNothingWhenNothingChanged() {
+        assertEquals(null, travelExpenseRefundAccountRequest("", "Erika", storedLast4 = "2051", storedHolder = "Erika"))
+        assertEquals(null, travelExpenseRefundAccountRequest("", "", storedLast4 = "2051", storedHolder = "Erika"))
+        assertEquals(null, travelExpenseRefundAccountRequest("", "Erika", storedLast4 = null, storedHolder = null))
+    }
+
+    @Test
+    fun refundIbanCheck_acceptsBlankAndAValidLookingIbanOnly() {
+        assertEquals(FieldCheck.Ok, travelExpenseRefundIbanCheck(""))
+        assertEquals(FieldCheck.Ok, travelExpenseRefundIbanCheck("DE02120300000000202051"))
+        assertTrue(travelExpenseRefundIbanCheck("nonsense") is FieldCheck.Invalid)
+    }
 }

@@ -186,4 +186,42 @@ class TravelExpenseLabelsTest {
         assertEquals(7, week.toSet().size)
         assertEquals("Montag", week.first())
     }
+
+    // ── V1.9.123 SEPA ──
+
+    @Test
+    fun travelExpenseSepaBlockerLabel_isNonBlankAndDistinctForEveryBlocker() {
+        val labels =
+            network.lapis.cloud.shared.domain.TravelExpenseSepaBlocker.entries
+                .map { travelExpenseSepaBlockerLabel(it) }
+        assertTrue(labels.all { it.isNotBlank() })
+        assertEquals(labels.size, labels.toSet().size, "two blockers must not read the same")
+    }
+
+    @Test
+    fun travelExpenseSepaErrorMessage_neverShowsTheRawCode() {
+        listOf(
+            "execution_date_past",
+            "execution_date_too_far",
+            "execution_date_not_target2_day",
+            "debtor_account_missing",
+            "rate_limited",
+        ).forEach {
+            assertFalse(travelExpenseSepaErrorMessage(it).contains("_"), it)
+        }
+        assertEquals(travelExpenseSepaErrorMessage("anything_unknown"), travelExpenseSepaErrorMessage("http_500"))
+    }
+
+    @Test
+    fun travelExpenseSepaSelectionSumCents_isTheExactSum() {
+        assertEquals(0L, travelExpenseSepaSelectionSumCents(emptyMap()))
+        assertEquals(12_505L, travelExpenseSepaSelectionSumCents(mapOf("a" to 8_000L, "b" to 4_505L)))
+    }
+
+    @Test
+    fun travelExpenseSepaHolderDiffers_comparesTrimmedAndCaseInsensitively() {
+        assertFalse(travelExpenseSepaHolderDiffers(" erika mustermann ", "Erika Mustermann"))
+        assertTrue(travelExpenseSepaHolderDiffers("Max Mustermann", "Erika Mustermann"))
+        assertFalse(travelExpenseSepaHolderDiffers(null, "Erika Mustermann"))
+    }
 }

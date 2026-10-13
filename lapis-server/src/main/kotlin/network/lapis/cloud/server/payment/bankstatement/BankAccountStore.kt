@@ -9,6 +9,7 @@ import network.lapis.cloud.server.db.generated.BankAccountFinTsAcknowledgmentTab
 import network.lapis.cloud.server.db.generated.BankAccountTable
 import network.lapis.cloud.server.db.generated.BankStatementImportTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.db.generated.TravelExpenseSepaBatchTable
 import network.lapis.cloud.server.payment.sepa.BicValidator
 import network.lapis.cloud.server.payment.sepa.IbanValidator
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
@@ -272,6 +273,15 @@ internal object BankAccountStore {
                     "Fuer dieses Bankkonto liegt eine FinTS/HBCI-Rechtshinweis-Bestaetigung vor und kann " +
                         "aus Nachweispflicht (Art. 5(2) DSGVO) nicht geloescht werden.",
                 )
+            }
+            // V1.9.123: an account that was ever the debit account of a SEPA credit-transfer file stays (fk_tesb_debtor_bank_account).
+            val usedForSepaFile =
+                TravelExpenseSepaBatchTable
+                    .selectAll()
+                    .where { TravelExpenseSepaBatchTable.debtorBankAccountId eq bankAccountId }
+                    .count() > 0
+            if (usedForSepaFile) {
+                throw ConflictException("Konto wurde für SEPA-Überweisungsdateien verwendet und kann nicht gelöscht werden")
             }
             BankAccountTable.deleteWhere { BankAccountTable.id eq bankAccountId }
 

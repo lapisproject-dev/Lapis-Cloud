@@ -314,6 +314,47 @@ private fun renderDraftEditor(
         requiredMessage = tr("Bitte wählen Sie, ob ausgezahlt oder auf die Erstattung verzichtet werden soll."),
     )
     settlementForm.panel.div(tr("Die Zuwendungsbestätigung wird außerhalb von Lapis ausgestellt."), className = "text-muted small")
+    // V1.9.123: the account the refund is transferred to. The full IBAN is stored encrypted and never shown again -- only the masked
+    // end ("IBAN •••• 2051") -- so changing it means typing it anew. Visible only while "Auszahlung" is chosen. Only the person the
+    // money goes to may name the account: for a draft filed on someone's behalf the subject does it after submission.
+    val isSubject = AppState.session?.memberId == draft.subjectMemberId
+    val ibanField =
+        settlementForm.textField(
+            label = tr("IBAN für Erstattungen"),
+            hint =
+                draft.refundIbanLast4?.let { gettext("Gespeichert: IBAN •••• %1. Zum Ändern die neue IBAN eingeben.", it) }
+                    ?: tr("Wird für die Überweisung benötigt. Die IBAN wird verschlüsselt gespeichert."),
+            rule = { travelExpenseRefundIbanCheck(it) },
+        )
+    val holderField =
+        settlementForm.textField(
+            label = tr("Kontoinhaber"),
+            value = draft.refundAccountHolder ?: draft.subjectDisplayName,
+            rule = { FormRules.maxLength(it, TRAVEL_EXPENSE_MAX_HOLDER_LENGTH) },
+        )
+    val requesterNote =
+        settlementForm.panel.div(
+            tr("Die IBAN für die Erstattung trägt die reisende Person nach dem Einreichen selbst bei der Abrechnung ein."),
+        ) { addCssClasses("text-muted small") }
+
+    fun updateRefundFieldVisibility(choice: String?) {
+        val payout = choice == TravelExpensePayoutChoice.PAYOUT.name
+        ibanField.setVisible(payout && isSubject)
+        holderField.setVisible(payout && isSubject)
+        requesterNote.visible = payout && !isSubject
+    }
+    updateRefundFieldVisibility(draft.payoutChoice?.name)
+    payoutRadio.subscribe { updateRefundFieldVisibility(it) }
+    if (isSubject && draft.refundIbanLast4 == null) {
+        // Prefill from the member's own earlier report; the server only ever answers the subject.
+        AppScope.launch {
+            val prefill = guarded { rpcService<ITravelExpenseService>().getRefundAccountPrefill(draft.id) }
+            if (prefill?.iban != null && ibanField.value.isBlank()) {
+                ibanField.setValue(prefill.iban)
+                prefill.accountHolder?.let { holderField.setValue(it) }
+            }
+        }
+    }
     advanceField.subscribe {
         settlementAdvanceCents = travelExpenseParseCents(it) ?: settlementAdvanceCents
         refreshTotals()
@@ -338,6 +379,30 @@ private fun renderDraftEditor(
                     )
                 }
             if (result != null) {
+                // V1.9.123: only a typed IBAN is sent -- an empty field leaves the stored account untouched. A changed holder with
+                // no typed IBAN is sent as a holder-only update, so a corrected name is never dropped silently.
+                val request =
+                    if (isSubject && choice == TravelExpensePayoutChoice.PAYOUT) {
+                        travelExpenseRefundAccountRequest(
+                            typedIban = ibanField.value,
+                            typedHolder = holderField.value,
+                            storedLast4 = draft.refundIbanLast4,
+                            storedHolder = draft.refundAccountHolder,
+                        )
+                    } else {
+                        null
+                    }
+                if (request != null) {
+                    val withAccount =
+                        guarded {
+                            rpcService<ITravelExpenseService>().setRefundAccount(
+                                reportId = draft.id,
+                                iban = request.iban,
+                                accountHolder = request.holder,
+                            )
+                        }
+                    if (withAccount == null) return@submit
+                }
                 notifySuccess(tr("Entwurf gespeichert."))
                 onChanged()
             }
@@ -681,6 +746,8 @@ private fun renderOwnReportCard(
         card.div(travelExpensePayoutDisclaimer()) { addCssClasses("text-muted small") }
     }
 
+    if (travelExpenseCanSetRefundAccount(report, AppState.session?.memberId)) renderRefundAccountForm(card, report, onChanged)
+
     val actionsRow = card.hPanel(spacing = 8) { addCssClasses("flex-wrap") }
     if (travelExpenseCanWithdraw(report)) {
         val withdrawButton = actionsRow.actionButton(ActionIcon.UNDO, tr("Zurückziehen"), style = ButtonStyle.OUTLINEDANGER)
@@ -728,6 +795,79 @@ private fun renderOwnReportCard(
                     notifySuccess(tr("Als neuer Entwurf kopiert. Belege müssen erneut hochgeladen werden."))
                     onChanged()
                 }
+            }
+        }
+    }
+}
+
+/**
+ * V1.9.123: the refund-account form on a submitted, approved or executed report. Only the person the money goes to sees it. It is the
+ * recovery path for a report without a (correct) IBAN -- filed on the member's behalf, submitted without one, booked before the
+ * feature existed, or returned by the bank after the export. The stored IBAN is never shown, only its masked end.
+ */
+private fun renderRefundAccountForm(
+    card: SimplePanel,
+    report: TravelExpenseReportDto,
+    onChanged: () -> Unit,
+) {
+    val hasAccount = report.refundIbanLast4 != null
+    val box = card.vPanel(spacing = 4) { addCssClasses("border-top pt-2") }
+    if (!hasAccount) {
+        box.div(tr("Noch keine IBAN hinterlegt: Ohne IBAN kann die Erstattung nicht überwiesen werden.")) {
+            addCssClasses("alert alert-warning")
+        }
+    }
+    if (report.sepaExportedAt != null) {
+        box.div(
+            tr(
+                "Die Erstattung wurde bereits überwiesen. Ein geändertes Konto wird erst durch eine erneute Exportdatei der " +
+                    "Kassenführung verwendet.",
+            ),
+        ) { addCssClasses("text-muted small") }
+    }
+    val form = box.lapisForm()
+    val ibanField =
+        form.textField(
+            label = tr("IBAN für Erstattungen"),
+            hint =
+                report.refundIbanLast4?.let { gettext("Gespeichert: IBAN •••• %1. Zum Ändern die neue IBAN eingeben.", it) }
+                    ?: tr("Wird für die Überweisung benötigt. Die IBAN wird verschlüsselt gespeichert."),
+            required = !hasAccount,
+            requiredMessage = tr("Bitte geben Sie die IBAN ein."),
+            rule = { travelExpenseRefundIbanCheck(it) },
+        )
+    val holderField =
+        form.textField(
+            label = tr("Kontoinhaber"),
+            value = report.refundAccountHolder ?: report.subjectDisplayName,
+            rule = { FormRules.maxLength(it, TRAVEL_EXPENSE_MAX_HOLDER_LENGTH) },
+        )
+    val saveButton = newActionButton(ActionIcon.SAVE, tr("Konto speichern"), ButtonStyle.PRIMARY)
+    form.buttons(primary = saveButton)
+    saveButton.onClick {
+        form.submit(saveButton) {
+            val request =
+                travelExpenseRefundAccountRequest(
+                    typedIban = ibanField.value,
+                    typedHolder = holderField.value,
+                    storedLast4 = report.refundIbanLast4,
+                    storedHolder = report.refundAccountHolder,
+                )
+            if (request == null) {
+                notifySuccess(tr("Erstattungskonto gespeichert."))
+                return@submit
+            }
+            val result =
+                guarded {
+                    rpcService<ITravelExpenseService>().setRefundAccount(
+                        reportId = report.id,
+                        iban = request.iban,
+                        accountHolder = request.holder,
+                    )
+                }
+            if (result != null) {
+                notifySuccess(tr("Erstattungskonto gespeichert."))
+                onChanged()
             }
         }
     }
@@ -857,6 +997,50 @@ internal fun travelExpenseCopiedLines(report: TravelExpenseReportDto): List<Trav
                 TravelExpenseLineInput(kind = line.kind, description = line.description, amountCents = line.amountCents)
         }
     }
+
+/** Longest account holder name the server accepts (and a pain.001 `Nm` element allows). */
+internal const val TRAVEL_EXPENSE_MAX_HOLDER_LENGTH = 70
+
+/** V1.9.123 Feldregel für die Erstattungs-IBAN (optional): leer ist gültig, sonst Länderkennung, Länge und Prüfsumme (lockere Spiegelung des Servers). */
+internal fun travelExpenseRefundIbanCheck(value: String): FieldCheck =
+    if (value.isBlank() || Validation.looksLikeIban(value.trim())) FieldCheck.Ok else FieldCheck.Invalid(gettext("Die IBAN ist ungültig."))
+
+/** What to send to `setRefundAccount`: [iban] `null` with a [holder] is the holder-only update, never a clearing. */
+internal class TravelExpenseRefundAccountRequest(
+    val iban: String?,
+    val holder: String?,
+)
+
+/**
+ * The `setRefundAccount` call a save needs, or `null` when nothing changed. A typed IBAN is sent with the holder; without one, a
+ * holder that differs from the stored one is sent alone (a corrected name must not be dropped silently, and `iban = null` with no
+ * holder would CLEAR the account, so that is never produced).
+ */
+internal fun travelExpenseRefundAccountRequest(
+    typedIban: String,
+    typedHolder: String,
+    storedLast4: String?,
+    storedHolder: String?,
+): TravelExpenseRefundAccountRequest? {
+    val iban = typedIban.trim()
+    val holder = typedHolder.trim().ifBlank { null }
+    return when {
+        iban.isNotEmpty() -> TravelExpenseRefundAccountRequest(iban = iban, holder = holder)
+        storedLast4 != null && holder != null && holder != storedHolder -> TravelExpenseRefundAccountRequest(iban = null, holder = holder)
+        else -> null
+    }
+}
+
+/** The refund-account form on an own report: the subject only, a payout report, still alive (not a draft -- that has its own editor). */
+internal fun travelExpenseCanSetRefundAccount(
+    report: TravelExpenseReportDto,
+    memberId: String?,
+): Boolean =
+    memberId != null &&
+        report.subjectMemberId == memberId &&
+        !report.paidOutsideLapis &&
+        report.payoutChoice == TravelExpensePayoutChoice.PAYOUT &&
+        report.status in setOf(TravelExpenseReportStatus.REQUESTED, TravelExpenseReportStatus.APPROVED, TravelExpenseReportStatus.EXECUTED)
 
 /** Feldregel für den Vorschuss (optional, leer = 0): ganze Cent, nicht negativ, höchstens [TravelExpenseAmountRules.MAX_ADVANCE_CENTS]. */
 internal fun travelExpenseAdvanceCheck(value: String): FieldCheck {

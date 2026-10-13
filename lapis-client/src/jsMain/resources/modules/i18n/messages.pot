@@ -4,8 +4,17 @@ msgstr ""
 "Language: \n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
+msgid "%1 (IBAN •••• %2)"
+msgstr ""
+
+msgid "%1 Abrechnung(en) konnten nicht aufgenommen werden. Die Gründe stehen an den Abrechnungen."
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:102
 msgid "%1 Bankkonto(-en) benötigen eine erneute FinTS-Anmeldung, bevor der Live-Abruf weiterläuft."
+msgstr ""
+
+msgid "%1 ausgewählt · Summe %2"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/SearchableSelect.kt:377
@@ -14,6 +23,18 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:138
 msgid "%1 wurde mit Keycloak verknüpft."
+msgstr ""
+
+msgid "%1 Überweisungen"
+msgstr ""
+
+msgid "%1 Überweisungen von %2 (IBAN •••• %3)"
+msgstr ""
+
+msgid "%1 Überweisungen von %2 (IBAN •••• %3), Ausführung %4"
+msgstr ""
+
+msgid "Abrechnung %1 auswählen"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:223
@@ -32,8 +53,20 @@ msgstr ""
 msgid "Als Standard setzen"
 msgstr ""
 
+msgid "An diesem Tag werden keine SEPA-Überweisungen ausgeführt (Wochenende oder TARGET2-Feiertag)."
+msgstr ""
+
+msgid "Auf dem Server ist kein Verschlüsselungsschlüssel gesetzt."
+msgstr ""
+
+msgid "Ausführungsdatum (JJJJ-MM-TT)"
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/SearchableSelect.kt:301
 msgid "Auswahl leeren"
+msgstr ""
+
+msgid "Auswählen"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:140
@@ -61,16 +94,82 @@ msgstr ""
 msgid "Bankleitzahl (BLZ)"
 msgstr ""
 
+msgid "Belastungskonto"
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:441
 msgid "Benutzerkennung"
+msgstr ""
+
+msgid "Bereits exportiert"
+msgstr ""
+
+msgid "Betrag weicht von der Buchung ab"
+msgstr ""
+
+msgid "Bisherige SEPA-Dateien"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/LoginScreen.kt:184
 msgid "Bitte melden Sie sich über Ihre Organisation an."
 msgstr ""
 
+msgid "Das Ausführungsdatum darf höchstens 60 Tage in der Zukunft liegen."
+msgstr ""
+
+msgid "Das Ausführungsdatum darf nicht in der Vergangenheit liegen."
+msgstr ""
+
+msgid "Datei erzeugen und als exportiert markieren"
+msgstr ""
+
+msgid "Datei heruntergeladen. Laden Sie die Datei jetzt im Online-Banking hoch."
+msgstr ""
+
+msgid "Der Name der Organisation fehlt in den Einstellungen."
+msgstr ""
+
+msgid "Die Abrechnung %1 wurde bereits am %2 exportiert (Datei %3). Ein erneuter Export erzeugt eine neue Datei und kann zu einer doppelten Zahlung führen, wenn die erste Datei bei der Bank eingereicht wurde."
+msgstr ""
+
+msgid "Die Begründung darf keine Kontonummer enthalten."
+msgstr ""
+
+msgid "Die Begründung muss 10 bis 500 Zeichen lang sein."
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:177
 msgid "Die Keycloak-Verknüpfung von %1 wird entfernt, alle aktiven Sitzungen dieses Mitglieds werden beendet und das Mitglied wird per E-Mail benachrichtigt. Falls die E-Mail-Adresse in Keycloak weiterhin übereinstimmt, wird die Verknüpfung bei der nächsten Anmeldung automatisch wiederhergestellt. Um den Zugang dauerhaft zu sperren, deaktivieren Sie das Konto in Keycloak oder setzen Sie den Mitgliedsstatus z. B. auf „Ausgetreten“."
+msgstr ""
+
+msgid "Die SEPA-Datei konnte nicht erzeugt werden."
+msgstr ""
+
+msgid "Eigene Abrechnung"
+msgstr ""
+
+msgid "Ein Bankarbeitstag (TARGET2), höchstens 60 Tage in der Zukunft."
+msgstr ""
+
+msgid "Eine Datei darf höchstens 500 Überweisungen enthalten."
+msgstr ""
+
+msgid "Erneut exportieren"
+msgstr ""
+
+msgid "Erneut exportieren …"
+msgstr ""
+
+msgid "Erneuter Export"
+msgstr ""
+
+msgid "Erzeugt von %1"
+msgstr ""
+
+msgid "Es ist kein Belastungskonto hinterlegt. Bitte legen Sie unter Einstellungen › Bankkonten ein Konto an."
+msgstr ""
+
+msgid "Exportiert am %1 von %2"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:200
@@ -101,6 +200,9 @@ msgstr ""
 msgid "FinTS/HBCI-URL"
 msgstr ""
 
+msgid "Gespeichert: IBAN •••• %1. Zum Ändern die neue IBAN eingeben."
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:477
 msgid "Gültig bis %1 Uhr."
 msgstr ""
@@ -113,6 +215,15 @@ msgstr ""
 msgid "Hinweis: Mit der Bestätigung wird eine unlöschbare Nachweiszeile gespeichert (Art. 5 Abs. 2 DSGVO) -- dieses Bankkonto kann danach nicht mehr gelöscht werden, auch wenn der Live-Abruf fehlschlägt."
 msgstr ""
 
+msgid "IBAN endet auf %1"
+msgstr ""
+
+msgid "IBAN für Erstattungen"
+msgstr ""
+
+msgid "IBAN •••• %1"
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:418
 msgid "Ich habe den Hinweistext vollständig gelesen und bestätige ihn."
 msgstr ""
@@ -123,6 +234,12 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:221
 msgid "Kein Live-Abruf"
+msgstr ""
+
+msgid "Keine Erstattungs-IBAN"
+msgstr ""
+
+msgid "Keine gebuchten Abrechnungen zur Auszahlung."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:124
@@ -144,6 +261,18 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:198
 msgid "Keycloak-Verknüpfung von %1 entfernt."
+msgstr ""
+
+msgid "Konto nach Einreichung geändert"
+msgstr ""
+
+msgid "Kontoinhaber"
+msgstr ""
+
+msgid "Kontoinhaber weicht vom Mitglied ab"
+msgstr ""
+
+msgid "Kontoinhaber: %1"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:254
@@ -178,8 +307,23 @@ msgstr ""
 msgid "Neu anmelden …"
 msgstr ""
 
+msgid "Nichts auszuzahlen"
+msgstr ""
+
+msgid "Noch keine SEPA-Datei erzeugt."
+msgstr ""
+
+msgid "Noch nicht gebucht"
+msgstr ""
+
+msgid "Nur Vorstand und Verwaltung dürfen SEPA-Dateien erzeugen."
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/OpenItemsScreen.kt:1498
 msgid "Nur die ersten %1 von %2 Kontakten geladen."
+msgstr ""
+
+msgid "Nur nötig, wenn ausgezahlt werden soll. Die IBAN wird verschlüsselt gespeichert."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:450
@@ -188,6 +332,15 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:409
 msgid "Rechtlicher Hinweis (bitte vollständig lesen):"
+msgstr ""
+
+msgid "SEPA-Datei erneut erzeugen"
+msgstr ""
+
+msgid "SEPA-Datei erzeugen"
+msgstr ""
+
+msgid "SEPA-Überweisungsdatei"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:179
@@ -811,6 +964,12 @@ msgstr ""
 msgid "Verknüpfung entfernen"
 msgstr ""
 
+msgid "Verschlüsselungsschlüssel fehlt"
+msgstr ""
+
+msgid "Außerhalb von Lapis bezahlt"
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmLabels.kt:37
 msgid "Vertrag (Art. 6 Abs. 1 lit. b)"
 msgstr ""
@@ -818,6 +977,9 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:146
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementImportScreen.kt:148
 msgid "Verwendungszweck"
+msgstr ""
+
+msgid "Verzicht als Spende"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:22
@@ -850,6 +1012,9 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:78
 msgid "Wiedervorlage überfällig"
+msgstr ""
+
+msgid "Wählen Sie gebuchte Abrechnungen aus und erzeugen Sie daraus eine SEPA-Überweisungsdatei für das Online-Banking."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:112
@@ -897,12 +1062,18 @@ msgstr ""
 msgid "Zeitpunkt ist kein gültiges ISO-Format (z. B. 2026-09-14T10:00)."
 msgstr ""
 
+msgid "Zu viele Anfragen. Bitte warten Sie eine Minute."
+msgstr ""
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankStatementLabels.kt:65
 msgid "Zu viele Upload-Versuche in kurzer Folge. Bitte in einigen Minuten erneut versuchen."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConfirmDialog.kt:225
 msgid "Zum Bestätigen bitte \"%1\" eingeben:"
+msgstr ""
+
+msgid "Zur Auszahlung bereit"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:361
@@ -22285,4 +22456,25 @@ msgid "Übernachtung"
 msgstr ""
 
 msgid "− %1"
+msgstr ""
+
+msgid "Konto speichern"
+msgstr ""
+
+msgid "Wird für die Überweisung benötigt. Die IBAN wird verschlüsselt gespeichert."
+msgstr ""
+
+msgid "Noch keine IBAN hinterlegt: Ohne IBAN kann die Erstattung nicht überwiesen werden."
+msgstr ""
+
+msgid "Die Erstattung wurde bereits überwiesen. Ein geändertes Konto wird erst durch eine erneute Exportdatei der Kassenführung verwendet."
+msgstr ""
+
+msgid "Erstattungskonto gespeichert."
+msgstr ""
+
+msgid "Die IBAN für die Erstattung trägt die reisende Person nach dem Einreichen selbst bei der Abrechnung ein."
+msgstr ""
+
+msgid "Bitte geben Sie die IBAN ein."
 msgstr ""

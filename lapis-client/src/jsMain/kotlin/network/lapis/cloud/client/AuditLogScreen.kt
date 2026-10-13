@@ -584,6 +584,8 @@ fun decodeAuditSnapshot(
             AuditEntityType.MAILING_MESSAGE -> null
             // Welle V1.9.112 -- CommitteeRuleChangeSnapshot (event, mode, canonical rule, counts; never a person): raw-text display.
             AuditEntityType.COMMITTEE -> null
+            // Welle V1.9.123 -- TravelExpenseSepaBatchSnapshot (counts, cents, ids), raw-text display like the other backend-written snapshots.
+            AuditEntityType.TRAVEL_EXPENSE_SEPA_BATCH -> null
         }
     }.getOrNull()
 

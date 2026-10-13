@@ -3,12 +3,15 @@ package network.lapis.cloud.shared.rpc
 import dev.kilua.rpc.annotations.RpcService
 import dev.kilua.rpc.types.Decimal
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.shared.domain.RefundAccountPrefillDto
 import network.lapis.cloud.shared.domain.TravelExpenseDayInput
 import network.lapis.cloud.shared.domain.TravelExpenseLineInput
 import network.lapis.cloud.shared.domain.TravelExpenseRatesDto
 import network.lapis.cloud.shared.domain.TravelExpenseReportDto
 import network.lapis.cloud.shared.domain.TravelExpenseReportInput
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
+import network.lapis.cloud.shared.domain.TravelExpenseSepaBatchDto
+import network.lapis.cloud.shared.domain.TravelExpenseSepaContextDto
 import network.lapis.cloud.shared.domain.TravelExpenseSettingsInput
 
 /**
@@ -164,4 +167,31 @@ interface ITravelExpenseService {
         lineId: String,
         input: TravelExpenseLineInput,
     ): TravelExpenseReportDto
+
+    // ── V1.9.123 "SEPA-Ueberweisungsdatei" -- appended, existing signatures untouched. The export itself is NOT an RPC: it is an
+    //    HTTP POST (`TravelExpenseSepaRoutes`) so the file can carry `Cache-Control: no-store` and `Content-Disposition`. ──
+
+    /**
+     * Sets the account a refund is transferred to. The IBAN is validated (country, length, mod 97) and stored SecretBox-encrypted, bound
+     * to this report via AAD. **The subject only** -- never the requester or the board. After submission the change is flagged for the
+     * approver; after a SEPA export it is still allowed (bank return AC01/AC04/MD07 ...), flagged and audited again, and only a reasoned
+     * re-export uses it. `iban == null` with a holder is a holder-only update; `iban == null` without a holder clears (DRAFT only).
+     */
+    suspend fun setRefundAccount(
+        reportId: String,
+        iban: String?,
+        accountHolder: String?,
+    ): TravelExpenseReportDto
+
+    /** Subject only: the IBAN and holder of the subject's most recent OTHER report that has one, in plain text. Never for a requester. */
+    suspend fun getRefundAccountPrefill(reportId: String): RefundAccountPrefillDto
+
+    /** Role: BOARD/ADMIN. EXECUTED reports with `PAYOUT`, oldest first, capped at 500, each with its `sepaBlocker`. */
+    suspend fun listSepaExportCandidates(): List<TravelExpenseReportDto>
+
+    /** Role: BOARD/ADMIN. Metadata of generated files, newest first, `limit` clamped to 1..200. There is no download. */
+    suspend fun listSepaBatches(limit: Int = 50): List<TravelExpenseSepaBatchDto>
+
+    /** Role: BOARD/ADMIN. Debtor account choices, the default execution date and what is still missing in the setup. */
+    suspend fun getSepaExportContext(): TravelExpenseSepaContextDto
 }

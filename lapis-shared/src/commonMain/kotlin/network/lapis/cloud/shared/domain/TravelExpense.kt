@@ -130,6 +130,24 @@ data class TravelExpenseReportDto(
     val ratesSnapshot: TravelExpenseRateSet? = null,
     /** 31 December of the travel year -- an informational hint, never blocking. */
     val submissionDeadline: LocalDate? = null,
+    /**
+     * V1.9.123 "SEPA-Ueberweisungsdatei": every field from here on is additive with a default (wire compatible). Last four characters of
+     * the refund IBAN only; the full IBAN never leaves the server (SecretBox ciphertext).
+     */
+    val refundIbanLast4: String? = null,
+    val refundAccountHolder: String? = null,
+    /** `true` once the subject changed the refund account after the report was submitted. */
+    val refundAccountChangedAfterSubmit: Boolean = false,
+    /** `true` for a report that was already booked as a payout before the SEPA export existed: refunded by hand, never exportable. */
+    val paidOutsideLapis: Boolean = false,
+    val sepaExportedAt: LocalDateTime? = null,
+    val sepaExportBatchId: String? = null,
+    val sepaExportedByDisplayName: String? = null,
+    val sepaReexportCount: Int = 0,
+    /** Filled for BOARD/ADMIN callers only; `null` == the report may be put into a SEPA file. */
+    val sepaBlocker: TravelExpenseSepaBlocker? = null,
+    /** Short human-readable reference `RK-1A2B3C4D`, identical to the one in the transfer's remittance text. */
+    val sepaReference: String? = null,
 )
 
 /**
@@ -315,4 +333,109 @@ data class TravelExpenseSnapshot(
     val payoutChoice: TravelExpensePayoutChoice? = null,
     val advanceCents: Long = 0,
     val dayLineCount: Int = 0,
+    // V1.9.123 -- ids and counters only, never an IBAN, a holder name or a batch's content.
+    val sepaExportBatchId: String? = null,
+    val sepaReexportCount: Int = 0,
+    val refundAccountChanged: Boolean = false,
+)
+
+/**
+ * Welle V1.9.123 "SEPA-Ueberweisungsdatei fuer genehmigte Reisekosten". Why a booked report may NOT be put into a pain.001 file
+ * right now. Wire name only, never persisted -- append only anyway.
+ */
+@Serializable
+enum class TravelExpenseSepaBlocker {
+    NOT_BOOKED,
+    NOT_PAYOUT,
+    NOTHING_PAYABLE,
+    NO_REFUND_IBAN,
+    ALREADY_EXPORTED,
+    OWN_REPORT,
+    AMOUNT_MISMATCH_WITH_BOOKING,
+    ENCRYPTION_KEY_MISSING,
+    PAID_OUTSIDE_LAPIS,
+}
+
+/** Short reference shown in the UI and written into the transfer's remittance information. Pure, shared by client and server. */
+object TravelExpenseSepaReference {
+    private const val HEX_LENGTH = 8
+
+    fun of(reportId: String): String = "RK-" + reportId.filter { it != '-' }.take(HEX_LENGTH).uppercase()
+}
+
+/** One entry of the immutable list of generated SEPA files. The XML itself is never stored and never re-downloadable. */
+@Serializable
+data class TravelExpenseSepaBatchDto(
+    val id: String,
+    val debtorAccountLabel: String,
+    val debtorIbanLast4: String,
+    val requestedExecutionDate: LocalDate,
+    val transactionCount: Int,
+    val controlSumCents: Long,
+    val createdAt: LocalDateTime,
+    val createdByDisplayName: String,
+    val isReexport: Boolean,
+    val reportIds: List<String> = emptyList(),
+)
+
+@Serializable
+data class SepaDebtorAccountOptionDto(
+    val id: String,
+    val label: String,
+    val bankName: String? = null,
+    val ibanLast4: String,
+    val isDefault: Boolean,
+)
+
+/** Everything the export dialog needs; [missingSetup] holds `BANK_ACCOUNT`, `ORGANIZATION_NAME` and/or `ENCRYPTION_KEY`. */
+@Serializable
+data class TravelExpenseSepaContextDto(
+    val bankAccounts: List<SepaDebtorAccountOptionDto> = emptyList(),
+    val defaultExecutionDate: LocalDate? = null,
+    val missingSetup: List<String> = emptyList(),
+    val maxTransactions: Int = 500,
+)
+
+@Serializable
+data class TravelExpenseSepaExportRequest(
+    val reportIds: List<String>,
+    val debtorBankAccountId: String? = null,
+    val executionDate: LocalDate,
+)
+
+@Serializable
+data class TravelExpenseSepaReexportRequest(
+    val reason: String,
+    val debtorBankAccountId: String? = null,
+    val executionDate: LocalDate,
+)
+
+/** JSON error body of the two export routes. Never contains an IBAN, a holder or a member name. */
+@Serializable
+data class TravelExpenseSepaErrorDto(
+    val code: String,
+    val message: String,
+    val blockers: Map<String, TravelExpenseSepaBlocker> = emptyMap(),
+)
+
+/** Plain-text prefill of the subject's own earlier refund account -- only ever returned to the subject. */
+@Serializable
+data class RefundAccountPrefillDto(
+    val iban: String? = null,
+    val accountHolder: String? = null,
+)
+
+/**
+ * After-snapshot of an [AuditEntityType.TRAVEL_EXPENSE_SEPA_BATCH] entry. Ids, counts, cents and a date only -- never an IBAN, a holder
+ * name or a member name.
+ */
+@Serializable
+data class TravelExpenseSepaBatchSnapshot(
+    val batchId: String,
+    val transactionCount: Int,
+    val controlSumCents: Long,
+    val executionDate: LocalDate,
+    val debtorBankAccountId: String,
+    val reportIds: List<String>,
+    val isReexport: Boolean = false,
 )

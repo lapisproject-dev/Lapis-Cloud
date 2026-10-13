@@ -178,6 +178,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.MAILING_LIST -> gettext("Mailingliste")
         AuditEntityType.MAILING_MESSAGE -> gettext("Mailing-Versand")
         AuditEntityType.COMMITTEE -> gettext("Gremium")
+        // Welle V1.9.123 "SEPA-Überweisungsdatei fuer Reisekosten" -- one entry per generated pain.001 file.
+        AuditEntityType.TRAVEL_EXPENSE_SEPA_BATCH -> gettext("SEPA-Überweisungsdatei")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -289,6 +291,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.MAILING_LIST -> "info"
         AuditEntityType.MAILING_MESSAGE -> "info"
         AuditEntityType.COMMITTEE -> "info"
+        // "warning" -- a payment file leaves the system; same administrative-but-financial class as BANK_ACCOUNT.
+        AuditEntityType.TRAVEL_EXPENSE_SEPA_BATCH -> "warning"
     }
 
 // ------------------------------------------------------------------------------------------------

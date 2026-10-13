@@ -52,6 +52,9 @@ fun renderTravelExpenseApprovalsScreen(container: SimplePanel) {
     val ratesPanel = root.vPanel(spacing = 6)
     renderRatesAdminSection(ratesPanel)
 
+    // V1.9.123: booked reports -> SEPA credit-transfer file (BOARD/ADMIN, like the rest of this screen).
+    renderTravelExpenseSepaSection(root)
+
     val filterRow = root.lapisToolbar()
     val statusOptions =
         listOf("" to tr("Alle Status")) +

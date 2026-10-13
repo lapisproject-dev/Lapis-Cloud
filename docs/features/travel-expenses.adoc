@@ -1,4 +1,4 @@
-= Travel expense reimbursement (V1.4.11, PdV form V1.9.122)
+= Travel expense reimbursement (V1.4.11, PdV form V1.9.122, SEPA file V1.9.123)
 :toc:
 
 NOTE: V1.9.122 reworks the editor and the calculation to follow the PdV travel expense form (template 2024, notes of
@@ -147,6 +147,66 @@ classDiagram(name = "Travel expense calculation core") {
 }
 ----
 
+== SEPA credit transfer file (V1.9.123)
+
+A booked report (`EXECUTED`, payout choice `PAYOUT`) can be put into a **SEPA credit transfer file** (ISO 20022 `pain.001.001.09`) that the treasury uploads in the
+online banking of the organization. This is the missing step between the booking ("Zur Auszahlung gebucht") and the money: Lapis Cloud **creates the file and marks
+the reports as exported -- it does not send anything to a bank and does not know whether a transfer was executed.**
+
+=== How it works
+
+. *Refund account.* In the draft, below "Vorschuss und Auszahlung", the member enters the IBAN for refunds and the account holder (pre-filled with the member's own
+  earlier account, and with the member's name). The IBAN is validated (country, length, check digits, SEPA area) and stored **encrypted** (`SecretBox`, AES-256-GCM, bound to the
+  report); screens and the Art.-15 export only ever show the masked end (`IBAN •••• 2051`). After submission only the *member* can change the account (never the requester,
+  never the board); the change is flagged on the report ("Konto nach Einreichung geändert") and audited without the IBAN. Reports created before this release have no account:
+  the member sets it on the existing report or the treasury transfers by hand.
+. *Selection.* On the approvals page, section "Zur Auszahlung bereit" (BOARD/ADMIN), booked reports are cards with a checkbox. A report that cannot be selected keeps a
+  disabled checkbox and shows the reason as text: not booked, waived as a donation, nothing to pay out, no refund IBAN, own report, amount differs from the booking,
+  encryption key missing, already exported. The bottom bar shows "N ausgewählt · Summe X".
+. *Dialog.* "SEPA-Datei erzeugen" opens a dialog that names the sum, the number of transfers, the debit account (a choice only if there is more than one bank account) and the
+  execution date (default: the next TARGET2 business day). "Datei erzeugen und als exportiert markieren" creates the file, **marks the reports as exported in the same
+  transaction** and downloads it. The file is never stored and **cannot be downloaded a second time**; the list "Bisherige SEPA-Dateien" holds metadata only.
+. *Upload.* The treasury uploads the file in the online banking as "Sammelüberweisung / SEPA-Datei (pain.001)". Test it with the check tool of your own bank first.
+
+=== Rules the server enforces
+
+* *Four eyes, identical to approving and retrying a booking:* the subject and the requester of a report can never export it (an own report in the selection refuses the **whole** export, nothing
+  is filtered silently); the person who approved it may -- they are not the beneficiary.
+* *Double-payment protection:* a report that is marked as exported cannot be exported again. The only way is "Erneut exportieren …" with a reason of 10 to 500 characters (which must not
+  contain an account number); the dialog names the first export. A re-export creates a new file with an `-R<n>` suffix on the EndToEndId, increases a counter (at most 99) and is audited.
+  Two parallel exports of one report: exactly one wins (row lock), the other sees "already exported".
+* *Amount invariant:* the transferred amount is `total − advance` in exact cents, read from the database -- never from the browser -- and compared with the CREDIT posting on the
+  payment bank account of the booked journal entry. If they differ the report is blocked ("Betrag weicht von der Buchung ab"), so file and booking cannot drift apart.
+* *Limits:* 1 to 500 transfers per file (no automatic splitting), 0,01 EUR to 999.999.999,99 EUR per transfer. Names are transliterated to the SEPA character set
+  (ä -> ae, ß -> ss, é -> e, unsupported characters become `.`) and truncated to 70 characters, the remittance text (`Reisekosten RK-1A2B3C4D vom 20.09.2026`, 140 characters) never contains the purpose of the trip.
+* *Execution date:* today up to 60 days ahead, and a TARGET2 business day (not Saturday/Sunday, 1 January, Good Friday, Easter Monday, 1 May, 25 and 26 December). A wrong date is refused with a reason, never moved silently.
+* *Rate limit and CSRF:* 10 requests per member and minute (shared by both routes), same-origin check, `Content-Type: application/json`, body at most 64 KiB. The response carries `Cache-Control: no-store`.
+* *Privacy:* no IBAN, holder or name ever appears in an audit entry, a log line, an error message, a batch table or the file name.
+
+=== Why `pain.001.001.09`
+
+`pain.001.001.09` is the generation the German DK implementation guidelines use since November 2023 and the same ISO 20022 generation as the `pain.008.001.08` direct debit file this system
+already writes (element `BICFI`). `pain.001.001.03` is not supported (different element names). The element `DbtrAgt` is mandatory in this version: without a BIC on the debit account it is
+written as `NOTPROVIDED`; the creditor agent is never written (members give no BIC).
+
+=== Operator setup
+
+. Create the bank account under *Einstellungen › Bankkonten* and mark it as default (the file debits this account; an account that was ever used for a file cannot be deleted any more).
+. Maintain the organization name (or the SEPA creditor name) in the organization settings -- it is the name of the debtor in the file.
+. Set `LAPIS_SECRET_ENCRYPTION_KEY` (the same key that protects mandate and FinTS data). Without it refund IBANs cannot be stored and no file can be created; there is no plaintext fallback.
+. The booking account (`paymentBankAccountId`, a *ledger* account) and the bank account that is debited (`bank_account`, an IBAN) are **two different things and are not reconciled by the system** --
+  keep them pointing at the same real bank account.
+
+== What doesn't work yet (V1.9.123, SEPA file)
+
+* *Never tested with a real bank upload.* The file is validated structurally (golden file, element order of `pain.001.001.09`) and optionally against the official XSD when `LAPIS_TEST_PAIN001_XSD` points at a local copy -- the XSD itself is not checked in (licence not reviewed).
+* Your bank may require another version or its own profile; only `pain.001.001.09` is written.
+* There is **no reconciliation**: the system does not learn whether the bank executed a transfer, and "exported" means "a file was created", not "paid".
+* No automatic splitting above 500 transfers: select fewer reports and export twice.
+* The country list is the one of the IBAN validator (EEA, Switzerland, United Kingdom, Monaco, San Marino, Andorra); Vatican City, Gibraltar and the 2025 SEPA newcomers are missing.
+* The ledger account of the booking and the debited bank account are not linked or compared.
+* Reports submitted before this release have no refund IBAN until the member adds it.
+
 == What doesn't work yet (V1.9.122)
 
 * The default tier values are provisional; the PdV form's footnote mentions 24 EUR in one place and 28 EUR in another -- 28 EUR is used.
@@ -154,7 +214,7 @@ classDiagram(name = "Travel expense calculation core") {
 * An arrival/departure day is counted by hours (see `MultiDayRule`), not as the statutory flat 14 EUR.
 * Night trips across midnight are not added up.
 * An advance larger than the claim is not supported.
-* No SEPA payment file, no donation receipt (Zuwendungsbestätigung) generation, no VAT columns.
+* No donation receipt (Zuwendungsbestätigung) generation, no VAT columns. (The SEPA payment file arrived with V1.9.123, see above.)
 * The contact person is empty until an administrator enters it.
 * The help link on the travel expense page points to `+<platform>/de/help/travel-expenses+` in German and `+<platform>/help/travel-expenses+` in every other UI language, which answers 404 until the website release that carries the page.
 * Old MILEAGE lines with fractional kilometers cannot be submitted any more (`mileage_fractional_km_reenter`) -- enter the line again.

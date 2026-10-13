@@ -6,6 +6,7 @@ import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.TravelExpenseLineKind
 import network.lapis.cloud.shared.domain.TravelExpensePayoutChoice
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
+import network.lapis.cloud.shared.domain.TravelExpenseSepaBlocker
 
 /**
  * Welle V1.4.11 "Reisekostenabrechnung für Vorstand und Funktionsträger" -- reine, DOM-freie
@@ -213,3 +214,49 @@ fun travelExpensePostingErrorMessage(raw: String?): String {
             tr("Das Konto für Aufwandsspenden hat den falschen Kontentyp -- bitte einen ADMIN informieren.")
     }
 }
+
+/** V1.9.123: why a booked report cannot be put into a SEPA file right now (shown as visible text next to the disabled checkbox). */
+fun travelExpenseSepaBlockerLabel(blocker: TravelExpenseSepaBlocker): String =
+    when (blocker) {
+        TravelExpenseSepaBlocker.NOT_BOOKED -> tr("Noch nicht gebucht")
+        TravelExpenseSepaBlocker.NOT_PAYOUT -> tr("Verzicht als Spende")
+        TravelExpenseSepaBlocker.NOTHING_PAYABLE -> tr("Nichts auszuzahlen")
+        TravelExpenseSepaBlocker.NO_REFUND_IBAN -> tr("Keine Erstattungs-IBAN")
+        TravelExpenseSepaBlocker.ALREADY_EXPORTED -> tr("Bereits exportiert")
+        TravelExpenseSepaBlocker.OWN_REPORT -> tr("Eigene Abrechnung")
+        TravelExpenseSepaBlocker.AMOUNT_MISMATCH_WITH_BOOKING -> tr("Betrag weicht von der Buchung ab")
+        TravelExpenseSepaBlocker.ENCRYPTION_KEY_MISSING -> tr("Verschlüsselungsschlüssel fehlt")
+        TravelExpenseSepaBlocker.PAID_OUTSIDE_LAPIS -> tr("Außerhalb von Lapis bezahlt")
+    }
+
+/** V1.9.123: the sentence for a refusal code of the SEPA routes; unknown codes get one generic sentence (never the raw code). */
+fun travelExpenseSepaErrorMessage(code: String): String =
+    when (code) {
+        "execution_date_past" -> tr("Das Ausführungsdatum darf nicht in der Vergangenheit liegen.")
+        "execution_date_too_far" -> tr("Das Ausführungsdatum darf höchstens 60 Tage in der Zukunft liegen.")
+        "execution_date_not_target2_day" ->
+            tr(
+                "An diesem Tag werden keine SEPA-Überweisungen ausgeführt (Wochenende oder TARGET2-Feiertag).",
+            )
+        "debtor_account_missing" ->
+            tr(
+                "Es ist kein Belastungskonto hinterlegt. Bitte legen Sie unter Einstellungen › Bankkonten ein Konto an.",
+            )
+        "organization_name_missing" -> tr("Der Name der Organisation fehlt in den Einstellungen.")
+        "encryption_key_missing" -> tr("Auf dem Server ist kein Verschlüsselungsschlüssel gesetzt.")
+        "too_many_transactions" -> tr("Eine Datei darf höchstens 500 Überweisungen enthalten.")
+        "reason_length_invalid" -> tr("Die Begründung muss 10 bis 500 Zeichen lang sein.")
+        "reason_contains_account_number" -> tr("Die Begründung darf keine Kontonummer enthalten.")
+        "rate_limited" -> tr("Zu viele Anfragen. Bitte warten Sie eine Minute.")
+        "forbidden" -> tr("Nur Vorstand und Verwaltung dürfen SEPA-Dateien erzeugen.")
+        else -> tr("Die SEPA-Datei konnte nicht erzeugt werden.")
+    }
+
+/** V1.9.123: the running total of a selection, in whole cents. The server recomputes the binding amount; this is display only. */
+fun travelExpenseSepaSelectionSumCents(selected: Map<String, Long>): Long = selected.values.sum()
+
+/** V1.9.123: `true` when the account holder differs from the member's name (compared case-insensitively, trimmed). */
+fun travelExpenseSepaHolderDiffers(
+    holder: String?,
+    memberName: String,
+): Boolean = holder != null && holder.trim().lowercase() != memberName.trim().lowercase()

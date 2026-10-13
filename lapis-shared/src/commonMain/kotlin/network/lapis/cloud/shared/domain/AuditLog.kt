@@ -450,6 +450,13 @@ enum class AuditEntityType {
      * additive only.
      */
     COMMITTEE,
+
+    /**
+     * Welle V1.9.123 "SEPA-Ueberweisungsdatei fuer genehmigte Reisekosten" -- `TravelExpenseSepaExport` writes ONE `CREATE` entry per generated
+     * pain.001 file, `entityId` = the batch id, `after` = [TravelExpenseSepaBatchSnapshot] (counts, cents, execution date, report ids --
+     * never an IBAN, a holder or a name). 25 chars, fits within `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    TRAVEL_EXPENSE_SEPA_BATCH,
 }
 
 /**

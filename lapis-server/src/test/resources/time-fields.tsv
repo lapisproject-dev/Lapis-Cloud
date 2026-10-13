@@ -867,3 +867,13 @@ col:EventConferenceTable.windowOpensAt	A	stamped by the server clock (DbClock/Se
 col:EventConferenceTable.windowClosesAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:EventConferenceTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:EventConferenceTable.endedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TravelExpenseReportDto.sepaExportedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TravelExpenseSepaBatchDto.requestedExecutionDate	D	calendar date (LocalDate); never converted
+dto:TravelExpenseSepaBatchDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:TravelExpenseSepaContextDto.defaultExecutionDate	D	calendar date (LocalDate); never converted
+dto:TravelExpenseSepaExportRequest.executionDate	D	calendar date (LocalDate); never converted
+dto:TravelExpenseSepaReexportRequest.executionDate	D	calendar date (LocalDate); never converted
+dto:TravelExpenseSepaBatchSnapshot.executionDate	D	calendar date (LocalDate); never converted
+col:TravelExpenseReportTable.sepaExportedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:TravelExpenseSepaBatchTable.requestedExecutionDate	D	calendar date (LocalDate); never converted
+col:TravelExpenseSepaBatchTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

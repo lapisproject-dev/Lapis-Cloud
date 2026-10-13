@@ -537,7 +537,9 @@ class DomainModelMergerTest :
             // Welle V1.9.115 "umschaltbare Ansichten" adds 28-conference-recording.kuml.kts's ONE new table (conference_recording_speaker_span) -- net +1 (191 -> 192).
             // Welle V1.9.121 "Land und Staatsangehoerigkeit als Auswahlliste" adds 68-member-nationality.kuml.kts's ONE new table (member_nationality), with its own
             // Member stub -- net +1 (192 -> 193); the new `country_code` attribute of `member` in 00-foundation adds no table.
-            val distinctTableNames = 193
+            // Welle V1.9.123 "SEPA-Ueberweisungsdatei" adds 45-travel-expense.kuml.kts's TWO new tables (travel_expense_sepa_batch, travel_expense_sepa_batch_item);
+            // its bank_account stub dedups into 47-bank-account -- net +2 (193 -> 195).
+            val distinctTableNames = 195
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -771,6 +773,8 @@ class DomainModelMergerTest :
                     "TravelExpenseReportTable.kt",
                     "TravelExpenseLineTable.kt",
                     "TravelExpenseReceiptTable.kt",
+                    "TravelExpenseSepaBatchTable.kt",
+                    "TravelExpenseSepaBatchItemTable.kt",
                     // Welle V1.4.12 "Übungsleiter- und Ehrenamtspauschale" -- two new real tables
                     // (volunteer_allowance_payment, volunteer_allowance_self_declaration); its
                     // Member/JournalEntry cross-domain stubs both dedup into already-real entities,

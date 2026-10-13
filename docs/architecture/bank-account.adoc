@@ -101,6 +101,12 @@ an analogous "at most one row flagged" constraint.
 which account a file import was attributed to. Nullable because every import made before this wave,
 and any import where no account could be attributed, has none.
 
+== Deletion lock for SEPA credit transfer files (V1.9.123)
+
+A bank account that was ever the debit account of a SEPA credit transfer file (`travel_expense_sepa_batch.debtor_bank_account_id`, foreign key `fk_tesb_debtor_bank_account`) cannot be deleted: `BankAccountStore.delete` answers
+`409` ("Konto wurde für SEPA-Überweisungsdateien verwendet und kann nicht gelöscht werden"), like it already does for an account referenced by a statement import or a FinTS acknowledgment. The batch keeps a label and the last four
+IBAN characters as a snapshot, so a later rename of the account does not change history. The debit account of a file is a `bank_account` row; the *ledger* account `paymentBankAccountId` of the booking is a different thing and is not derived from it.
+
 == Default-account mirror
 
 `BankAccountStore` is the *only* writer of `organization_settings.bank_iban`/`bank_bic` once at

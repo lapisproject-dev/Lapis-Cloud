@@ -7,6 +7,8 @@ import kotlinx.serialization.json.putJsonArray
 import network.lapis.cloud.server.db.generated.TravelExpenseLineTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReceiptTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
+import network.lapis.cloud.server.db.generated.TravelExpenseSepaBatchItemTable
+import network.lapis.cloud.server.db.generated.TravelExpenseSepaBatchTable
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatusSets
@@ -95,7 +97,14 @@ private val receiptStorageRoot: File
 object TravelExpensePersonalData : MemberPersonalDataContributor {
     override val sectionKey = "travelExpenses"
     override val displayName = "Reisekostenabrechnungen"
-    override val coveredTables = setOf(TravelExpenseReportTable, TravelExpenseLineTable, TravelExpenseReceiptTable)
+    override val coveredTables =
+        setOf(
+            TravelExpenseReportTable,
+            TravelExpenseLineTable,
+            TravelExpenseReceiptTable,
+            TravelExpenseSepaBatchTable,
+            TravelExpenseSepaBatchItemTable,
+        )
 
     override fun exportMember(memberId: Uuid) =
         buildJsonObject {
@@ -105,7 +114,8 @@ object TravelExpensePersonalData : MemberPersonalDataContributor {
                     .where {
                         (TravelExpenseReportTable.subjectMemberId eq memberId) or
                             (TravelExpenseReportTable.requestedBy eq memberId) or
-                            (TravelExpenseReportTable.decidedBy eq memberId)
+                            (TravelExpenseReportTable.decidedBy eq memberId) or
+                            (TravelExpenseReportTable.sepaExportedBy eq memberId)
                     }.forEach { row ->
                         val reportId = row[TravelExpenseReportTable.id]
                         val lines = TravelExpenseLineTable.selectAll().where { TravelExpenseLineTable.reportId eq reportId }.toList()
@@ -125,6 +135,11 @@ object TravelExpensePersonalData : MemberPersonalDataContributor {
                                 put("advanceAmount", row[TravelExpenseReportTable.advanceAmount].toPlainString())
                                 put("payoutChoice", row[TravelExpenseReportTable.payoutChoice]?.name)
                                 put("membershipNumberSnapshot", row[TravelExpenseReportTable.membershipNumberSnapshot])
+                                // V1.9.123: masked refund account only (the ciphertext never leaves the database), plus the export mark.
+                                put("refundIbanLast4", row[TravelExpenseReportTable.refundIbanLast4])
+                                put("refundAccountHolder", row[TravelExpenseReportTable.refundAccountHolder])
+                                put("sepaExportedAt", row[TravelExpenseReportTable.sepaExportedAt]?.toString())
+                                put("sepaReexportCount", row[TravelExpenseReportTable.sepaReexportCount])
                                 putJsonArray("lines") {
                                     lines.forEach { line ->
                                         add(
@@ -182,7 +197,8 @@ object TravelExpensePersonalData : MemberPersonalDataContributor {
                 .where {
                     (TravelExpenseReportTable.subjectMemberId eq memberId) or
                         (TravelExpenseReportTable.requestedBy eq memberId) or
-                        (TravelExpenseReportTable.decidedBy eq memberId)
+                        (TravelExpenseReportTable.decidedBy eq memberId) or
+                        (TravelExpenseReportTable.sepaExportedBy eq memberId)
                 }.toList()
         val total = reportRows.size
 
@@ -235,6 +251,10 @@ object TravelExpensePersonalData : MemberPersonalDataContributor {
                     it[purpose] = REDACTED_PLACEHOLDER
                     // V1.9.122: consistent with FoundationPersonalData, which also nulls member_number.
                     it[membershipNumberSnapshot] = null
+                    // V1.9.123: the bank bill of the organization proves the payment; a copy of the member's IBAN is not needed.
+                    it[refundIbanCiphertext] = null
+                    it[refundIbanLast4] = null
+                    it[refundAccountHolder] = null
                 }
                 TravelExpenseLineTable.update({ TravelExpenseLineTable.reportId eq reportId }) {
                     it[description] = REDACTED_PLACEHOLDER
@@ -265,9 +285,44 @@ object TravelExpensePersonalData : MemberPersonalDataContributor {
             ),
             TableErasureOutcome(table = "travel_expense_line", rowsDeleted = linesDeleted),
             TableErasureOutcome(table = "travel_expense_receipt", rowsDeleted = receiptsDeleted),
+            // V1.9.123: file metadata (counts, cents, date, report ids -- never an IBAN or a name) is accountability data.
+            TableErasureOutcome(
+                table = "travel_expense_sepa_batch",
+                rowsRetained =
+                    TravelExpenseSepaBatchTable
+                        .selectAll()
+                        .where { TravelExpenseSepaBatchTable.createdBy eq memberId }
+                        .count()
+                        .toInt(),
+                retentionReason =
+                    "Art. 5(2) DSGVO Rechenschaftspflicht + §147 AO -- wer wann welche SEPA-Überweisungsdatei erzeugt hat, " +
+                        "bleibt nachvollziehbar; die Charge enthält weder IBAN noch Namen.",
+            ),
+            TableErasureOutcome(
+                table = "travel_expense_sepa_batch_item",
+                rowsRetained =
+                    sepaItemsRetained(
+                        reportRows
+                            .filter {
+                                it[TravelExpenseReportTable.subjectMemberId] == memberId
+                            }.map { it[TravelExpenseReportTable.id] },
+                    ),
+                retentionReason = "§147 AO -- Betrag und EndToEndId der erzeugten Überweisung (keine IBAN, kein Name).",
+            ),
         )
     }
 }
+
+private fun sepaItemsRetained(subjectReportIds: List<Uuid>): Int =
+    if (subjectReportIds.isEmpty()) {
+        0
+    } else {
+        TravelExpenseSepaBatchItemTable
+            .selectAll()
+            .where { TravelExpenseSepaBatchItemTable.reportId inList subjectReportIds }
+            .count()
+            .toInt()
+    }
 
 private const val REDACTED_PLACEHOLDER = "[gelöscht]"
 

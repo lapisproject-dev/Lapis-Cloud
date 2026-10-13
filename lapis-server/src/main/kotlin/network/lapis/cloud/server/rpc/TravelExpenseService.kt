@@ -10,13 +10,19 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.toKotlinLocalTime
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
+import network.lapis.cloud.server.crypto.SecretBox
 import network.lapis.cloud.server.db.DbClock
+import network.lapis.cloud.server.db.generated.BankAccountTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.TravelExpenseLineTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReceiptTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
+import network.lapis.cloud.server.db.generated.TravelExpenseSepaBatchItemTable
+import network.lapis.cloud.server.db.generated.TravelExpenseSepaBatchTable
+import network.lapis.cloud.server.payment.sepa.IbanValidator
+import network.lapis.cloud.server.payment.sepa.SepaPain001Writer
 import network.lapis.cloud.server.rpc.TravelExpenseLineRules.orBadRequest
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.requireRole
@@ -27,6 +33,8 @@ import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.MultiDayRule
+import network.lapis.cloud.shared.domain.RefundAccountPrefillDto
+import network.lapis.cloud.shared.domain.SepaDebtorAccountOptionDto
 import network.lapis.cloud.shared.domain.TravelExpenseAmountRules
 import network.lapis.cloud.shared.domain.TravelExpenseCalculator
 import network.lapis.cloud.shared.domain.TravelExpenseDayInput
@@ -34,6 +42,7 @@ import network.lapis.cloud.shared.domain.TravelExpenseDeadline
 import network.lapis.cloud.shared.domain.TravelExpenseLineDto
 import network.lapis.cloud.shared.domain.TravelExpenseLineInput
 import network.lapis.cloud.shared.domain.TravelExpenseLineKind
+import network.lapis.cloud.shared.domain.TravelExpensePayoutChoice
 import network.lapis.cloud.shared.domain.TravelExpenseRateSet
 import network.lapis.cloud.shared.domain.TravelExpenseRatesDto
 import network.lapis.cloud.shared.domain.TravelExpenseRatesSnapshot
@@ -42,6 +51,9 @@ import network.lapis.cloud.shared.domain.TravelExpenseReportDto
 import network.lapis.cloud.shared.domain.TravelExpenseReportInput
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatus
 import network.lapis.cloud.shared.domain.TravelExpenseReportStatusSets
+import network.lapis.cloud.shared.domain.TravelExpenseSepaBatchDto
+import network.lapis.cloud.shared.domain.TravelExpenseSepaContextDto
+import network.lapis.cloud.shared.domain.TravelExpenseSepaReference
 import network.lapis.cloud.shared.domain.TravelExpenseSettingsInput
 import network.lapis.cloud.shared.domain.TravelExpenseSnapshot
 import network.lapis.cloud.shared.rpc.BadRequestException
@@ -57,6 +69,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNotNull
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -107,7 +120,11 @@ private val logger = KotlinLogging.logger {}
 class TravelExpenseService(
     private val call: ApplicationCall,
     private val receiptStorageRoot: File,
+    /** `LAPIS_SECRET_ENCRYPTION_KEY`; `null` == refund IBANs cannot be stored and no SEPA file can be generated (never a plaintext fallback). */
+    private val secretEncryptionKey: ByteArray? = null,
 ) : ITravelExpenseService {
+    private val sepaExport = TravelExpenseSepaExport(secretEncryptionKey)
+
     override suspend fun getTravelExpenseRates(): TravelExpenseRatesDto {
         val current = resolveCurrentMember(call)
         return transaction { TravelExpenseSettingsStore.load().toDto(isAdmin = current.role == AccountRole.ADMIN) }
@@ -842,6 +859,248 @@ class TravelExpenseService(
         }
     }
 
+    // ── V1.9.123 "SEPA-Ueberweisungsdatei" ───────────────────────────────────────────────────
+
+    override suspend fun setRefundAccount(
+        reportId: String,
+        iban: String?,
+        accountHolder: String?,
+    ): TravelExpenseReportDto {
+        val current = resolveCurrentMember(call)
+        val id = reportId.toTravelExpenseUuid("reportId")
+        val now = DbClock.nowLocalDateTime()
+        val holderInput = TravelExpenseRefundAccount.normalizeHolder(accountHolder)
+        val normalizedIban =
+            iban?.let {
+                val normalized = IbanValidator.normalize(it)
+                // Same checks as pain.001 will apply later: mod 97, country length and the SEPA area. The value is never echoed back.
+                if (!IbanValidator.isValid(normalized) || normalized.take(2) !in IbanValidator.SEPA_COUNTRIES) {
+                    throw BadRequestException("refund_iban_invalid")
+                }
+                normalized
+            }
+        if (normalizedIban != null && secretEncryptionKey == null) throw ConflictException("encryption_key_missing")
+        return transaction {
+            val row =
+                TravelExpenseReportTable
+                    .selectAll()
+                    .where { TravelExpenseReportTable.id eq id }
+                    .forUpdate()
+                    .singleOrNull()
+                    ?: throw NotFoundException("TravelExpenseReport $reportId not found")
+            val status = row[TravelExpenseReportTable.status]
+            // Only the person the money goes to may ever name the account: not the requester (who may file on someone's behalf), not the
+            // board. Otherwise a requester could enter an own IBAN in the draft phase without leaving any trace.
+            if (current.memberId != row[TravelExpenseReportTable.subjectMemberId]) throw ForbiddenException()
+            // Already refunded by hand before the SEPA export existed: an account added now could only cause a second payment.
+            if (row[TravelExpenseReportTable.paidOutsideLapis]) throw ConflictException("paid_outside_lapis")
+            if (status == TravelExpenseReportStatus.REJECTED || status == TravelExpenseReportStatus.WITHDRAWN) {
+                throw ConflictException("TravelExpenseReport $reportId is $status, the refund account can no longer be changed")
+            }
+            val isDraft = status == TravelExpenseReportStatus.DRAFT
+            // After the SEPA export the subject may still correct the account (bank return AC01/AC04/MD07 ...): the export mark stays,
+            // the change is flagged and audited, and only a reasoned re-export can use the new account.
+            val wasExported = row[TravelExpenseReportTable.sepaExportedAt] != null
+
+            if (normalizedIban == null && holderInput != null) {
+                // Holder-only update: the stored IBAN stays untouched.
+                if (row[TravelExpenseReportTable.refundIbanCiphertext] == null) throw BadRequestException("refund_account_missing")
+                TravelExpenseReportTable.update({ TravelExpenseReportTable.id eq id }) {
+                    it[refundAccountHolder] = holderInput
+                    if (!isDraft) it[refundAccountChangedAfterSubmit] = true
+                }
+                auditRefundAccountChange(row = row, current = current, status = status, isDraft = isDraft, wasExported = wasExported)
+                return@transaction loadDto(id)
+            }
+            if (normalizedIban == null) {
+                if (!isDraft) throw ConflictException("refund_account_cannot_be_cleared_after_submit")
+                TravelExpenseReportTable.update({ TravelExpenseReportTable.id eq id }) {
+                    it[refundIbanCiphertext] = null
+                    it[refundIbanLast4] = null
+                    it[refundAccountHolder] = null
+                }
+                return@transaction loadDto(id)
+            }
+            val holder =
+                holderInput
+                    ?: displayNamesOf(listOf(row[TravelExpenseReportTable.subjectMemberId]))[row[TravelExpenseReportTable.subjectMemberId]]
+                        ?.trim()
+                        ?.take(TravelExpenseRefundAccount.MAX_HOLDER_LENGTH)
+                        ?.ifBlank { null }
+                    ?: throw BadRequestException("refund_holder_required")
+            val sealed =
+                TravelExpenseRefundAccount.seal(
+                    box = SecretBox(requireNotNull(secretEncryptionKey)),
+                    reportId = id,
+                    normalizedIban = normalizedIban,
+                )
+            TravelExpenseReportTable.update({ TravelExpenseReportTable.id eq id }) {
+                it[refundIbanCiphertext] = sealed
+                it[refundIbanLast4] = IbanValidator.last4(normalizedIban)
+                it[refundAccountHolder] = holder
+                if (!isDraft) it[refundAccountChangedAfterSubmit] = true
+            }
+            auditRefundAccountChange(row = row, current = current, status = status, isDraft = isDraft, wasExported = wasExported)
+            logger.info { "travel expense refund account set: reportId=$id draft=$isDraft" }
+            loadDto(id)
+        }
+    }
+
+    /**
+     * One audit entry for the first change after submission, and one for every change after an export; numbers and flags only, never
+     * the IBAN or the holder.
+     */
+    private fun auditRefundAccountChange(
+        row: ResultRow,
+        current: CurrentMember,
+        status: TravelExpenseReportStatus,
+        isDraft: Boolean,
+        wasExported: Boolean,
+    ) {
+        if (isDraft) return
+        if (row[TravelExpenseReportTable.refundAccountChangedAfterSubmit] && !wasExported) return
+        recordTransition(
+            row = row,
+            actor = current,
+            newStatus = status,
+            newPostedJournalEntryId = row[TravelExpenseReportTable.postedJournalEntryId],
+            newRefundAccountChanged = true,
+        )
+    }
+
+    override suspend fun getRefundAccountPrefill(reportId: String): RefundAccountPrefillDto {
+        val current = resolveCurrentMember(call)
+        val id = reportId.toTravelExpenseUuid("reportId")
+        val key = secretEncryptionKey ?: return RefundAccountPrefillDto()
+        return transaction {
+            val row =
+                TravelExpenseReportTable.selectAll().where { TravelExpenseReportTable.id eq id }.singleOrNull()
+                    ?: return@transaction RefundAccountPrefillDto()
+            // Only the person the money goes to ever sees a plaintext IBAN -- a requester or board member gets an empty prefill.
+            if (row[TravelExpenseReportTable.subjectMemberId] != current.memberId) return@transaction RefundAccountPrefillDto()
+            val previous =
+                TravelExpenseReportTable
+                    .selectAll()
+                    .where {
+                        (TravelExpenseReportTable.subjectMemberId eq current.memberId) and
+                            (TravelExpenseReportTable.id neq id) and
+                            TravelExpenseReportTable.refundIbanCiphertext.isNotNull()
+                    }.orderBy(TravelExpenseReportTable.createdAt to SortOrder.DESC, TravelExpenseReportTable.id to SortOrder.DESC)
+                    .limit(1)
+                    .firstOrNull()
+                    ?: return@transaction RefundAccountPrefillDto()
+            val plain =
+                runCatching {
+                    TravelExpenseRefundAccount.open(
+                        box = SecretBox(key),
+                        reportId = previous[TravelExpenseReportTable.id],
+                        ciphertext = requireNotNull(previous[TravelExpenseReportTable.refundIbanCiphertext]),
+                    )
+                }.getOrNull()
+                    ?: return@transaction RefundAccountPrefillDto()
+            RefundAccountPrefillDto(iban = plain, accountHolder = previous[TravelExpenseReportTable.refundAccountHolder])
+        }
+    }
+
+    override suspend fun listSepaExportCandidates(): List<TravelExpenseReportDto> {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*TRAVEL_EXPENSE_DECISION_ROLES)
+        return transaction {
+            val open =
+                TravelExpenseReportTable
+                    .selectAll()
+                    .where {
+                        (TravelExpenseReportTable.status eq TravelExpenseReportStatus.EXECUTED) and
+                            (TravelExpenseReportTable.payoutChoice eq TravelExpensePayoutChoice.PAYOUT) and
+                            TravelExpenseReportTable.sepaExportedAt.isNull() and
+                            (TravelExpenseReportTable.paidOutsideLapis eq false)
+                    }.orderBy(TravelExpenseReportTable.executedAt to SortOrder.ASC, TravelExpenseReportTable.id to SortOrder.ASC)
+                    .limit(SEPA_CANDIDATE_LIMIT)
+                    .toList()
+            // Already-exported reports stay visible (with their export mark and the re-export action), newest first, bounded.
+            val exportedRoom = minOf(SEPA_EXPORTED_HISTORY_LIMIT, SEPA_CANDIDATE_LIMIT - open.size)
+            val exported =
+                if (exportedRoom <= 0) {
+                    emptyList()
+                } else {
+                    TravelExpenseReportTable
+                        .selectAll()
+                        .where {
+                            (TravelExpenseReportTable.status eq TravelExpenseReportStatus.EXECUTED) and
+                                (TravelExpenseReportTable.payoutChoice eq TravelExpensePayoutChoice.PAYOUT) and
+                                TravelExpenseReportTable.sepaExportedAt.isNotNull()
+                        }.orderBy(TravelExpenseReportTable.sepaExportedAt to SortOrder.DESC, TravelExpenseReportTable.id to SortOrder.DESC)
+                        .limit(exportedRoom)
+                        .toList()
+                }
+            val rows = open + exported
+            val blockers = sepaExport.blockersFor(rows = rows, actor = current)
+            rows.toDtos().map { dto -> dto.copy(sepaBlocker = blockers[Uuid.parse(dto.id)]) }
+        }
+    }
+
+    override suspend fun listSepaBatches(limit: Int): List<TravelExpenseSepaBatchDto> {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*TRAVEL_EXPENSE_DECISION_ROLES)
+        val capped = limit.coerceIn(1, MAX_LIST_RESULTS)
+        return transaction {
+            val batches =
+                TravelExpenseSepaBatchTable
+                    .selectAll()
+                    .orderBy(TravelExpenseSepaBatchTable.createdAt to SortOrder.DESC, TravelExpenseSepaBatchTable.id to SortOrder.DESC)
+                    .limit(capped)
+                    .toList()
+            if (batches.isEmpty()) return@transaction emptyList()
+            val names = displayNamesOf(batches.map { it[TravelExpenseSepaBatchTable.createdBy] })
+            val items =
+                TravelExpenseSepaBatchItemTable
+                    .selectAll()
+                    .where { TravelExpenseSepaBatchItemTable.batchId inList batches.map { it[TravelExpenseSepaBatchTable.id] } }
+                    .toList()
+                    .groupBy({ it[TravelExpenseSepaBatchItemTable.batchId] }, { it[TravelExpenseSepaBatchItemTable.reportId].toString() })
+            batches.map { b ->
+                TravelExpenseSepaBatchDto(
+                    id = b[TravelExpenseSepaBatchTable.id].toString(),
+                    debtorAccountLabel = b[TravelExpenseSepaBatchTable.debtorAccountLabel],
+                    debtorIbanLast4 = b[TravelExpenseSepaBatchTable.debtorIbanLast4],
+                    requestedExecutionDate = b[TravelExpenseSepaBatchTable.requestedExecutionDate],
+                    transactionCount = b[TravelExpenseSepaBatchTable.transactionCount],
+                    controlSumCents = b[TravelExpenseSepaBatchTable.controlSumCents],
+                    createdAt = b[TravelExpenseSepaBatchTable.createdAt],
+                    createdByDisplayName = names[b[TravelExpenseSepaBatchTable.createdBy]] ?: "",
+                    isReexport = b[TravelExpenseSepaBatchTable.isReexport],
+                    reportIds = items[b[TravelExpenseSepaBatchTable.id]].orEmpty(),
+                )
+            }
+        }
+    }
+
+    override suspend fun getSepaExportContext(): TravelExpenseSepaContextDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*TRAVEL_EXPENSE_DECISION_ROLES)
+        return transaction {
+            val accounts =
+                BankAccountTable
+                    .selectAll()
+                    .orderBy(BankAccountTable.isDefault to SortOrder.DESC, BankAccountTable.label to SortOrder.ASC)
+                    .map {
+                        SepaDebtorAccountOptionDto(
+                            id = it[BankAccountTable.id].toString(),
+                            label = it[BankAccountTable.label],
+                            bankName = it[BankAccountTable.bankName],
+                            ibanLast4 = IbanValidator.last4(it[BankAccountTable.iban]),
+                            isDefault = it[BankAccountTable.isDefault],
+                        )
+                    }
+            TravelExpenseSepaContextDto(
+                bankAccounts = accounts,
+                defaultExecutionDate = TravelExpenseSepaExport.defaultExecutionDate(),
+                missingSetup = sepaExport.missingSetup(hasBankAccount = accounts.isNotEmpty()),
+                maxTransactions = SepaPain001Writer.MAX_TRANSACTIONS,
+            )
+        }
+    }
+
     // ── Validation ──────────────────────────────────────────────────────────────────────────
 
     private fun requireValidReportHeader(
@@ -1050,7 +1309,8 @@ class TravelExpenseService(
         val subjectId = this[TravelExpenseReportTable.subjectMemberId]
         val requestedById = this[TravelExpenseReportTable.requestedBy]
         val decidedById = this[TravelExpenseReportTable.decidedBy]
-        val names = namesOverride ?: displayNamesOf(listOfNotNull(subjectId, requestedById, decidedById))
+        val exportedById = this[TravelExpenseReportTable.sepaExportedBy]
+        val names = namesOverride ?: displayNamesOf(listOfNotNull(subjectId, requestedById, decidedById, exportedById))
         val lines = linesOverride?.get(id) ?: linesOf(listOf(id))[id].orEmpty()
         val advance = this[TravelExpenseReportTable.advanceAmount]
         val totals =
@@ -1097,6 +1357,15 @@ class TravelExpenseService(
                     runCatching { travelExpenseSnapshotJson.decodeFromString(TravelExpenseRateSet.serializer(), it) }.getOrNull()
                 },
             submissionDeadline = TravelExpenseDeadline.deadlineFor(this[TravelExpenseReportTable.travelTo]),
+            refundIbanLast4 = this[TravelExpenseReportTable.refundIbanLast4],
+            refundAccountHolder = this[TravelExpenseReportTable.refundAccountHolder],
+            refundAccountChangedAfterSubmit = this[TravelExpenseReportTable.refundAccountChangedAfterSubmit],
+            paidOutsideLapis = this[TravelExpenseReportTable.paidOutsideLapis],
+            sepaExportedAt = this[TravelExpenseReportTable.sepaExportedAt],
+            sepaExportBatchId = this[TravelExpenseReportTable.sepaExportBatchId]?.toString(),
+            sepaExportedByDisplayName = exportedById?.let { names[it] },
+            sepaReexportCount = this[TravelExpenseReportTable.sepaReexportCount],
+            sepaReference = TravelExpenseSepaReference.of(id.toString()),
         )
     }
 
@@ -1119,6 +1388,7 @@ class TravelExpenseService(
             memberIds += row[TravelExpenseReportTable.subjectMemberId]
             memberIds += row[TravelExpenseReportTable.requestedBy]
             row[TravelExpenseReportTable.decidedBy]?.let { memberIds += it }
+            row[TravelExpenseReportTable.sepaExportedBy]?.let { memberIds += it }
         }
         val names = displayNamesOf(memberIds)
         val reportIds = map { it[TravelExpenseReportTable.id] }
@@ -1272,6 +1542,7 @@ class TravelExpenseService(
         newStatus: TravelExpenseReportStatus,
         newPostedJournalEntryId: Uuid? = null,
         newExecutionError: String? = null,
+        newRefundAccountChanged: Boolean? = null,
     ) {
         val id = row[TravelExpenseReportTable.id]
         val subjectId = row[TravelExpenseReportTable.subjectMemberId]
@@ -1291,12 +1562,16 @@ class TravelExpenseService(
                 payoutChoice = row[TravelExpenseReportTable.payoutChoice],
                 advanceCents = row[TravelExpenseReportTable.advanceAmount].toCents(),
                 dayLineCount = lineRows.count { it[TravelExpenseLineTable.kind] == TravelExpenseLineKind.DAY_ALLOWANCE },
+                sepaExportBatchId = row[TravelExpenseReportTable.sepaExportBatchId]?.toString(),
+                sepaReexportCount = row[TravelExpenseReportTable.sepaReexportCount],
+                refundAccountChanged = row[TravelExpenseReportTable.refundAccountChangedAfterSubmit],
             )
         val after =
             before.copy(
                 status = newStatus,
                 postedJournalEntryId = newPostedJournalEntryId?.toString(),
                 executionError = newExecutionError,
+                refundAccountChanged = newRefundAccountChanged ?: before.refundAccountChanged,
             )
         AuditLogRecorder.record(
             actorMemberId = actor.memberId,
@@ -1310,6 +1585,8 @@ class TravelExpenseService(
     }
 }
 
+private const val SEPA_CANDIDATE_LIMIT = 500
+private const val SEPA_EXPORTED_HISTORY_LIMIT = 100
 private const val AMOUNT_SCALE = 2
 private const val MAX_MILEAGE_RATE_SCALE = 2
 private val MAX_MILEAGE_RATE = BigDecimal("1.00")

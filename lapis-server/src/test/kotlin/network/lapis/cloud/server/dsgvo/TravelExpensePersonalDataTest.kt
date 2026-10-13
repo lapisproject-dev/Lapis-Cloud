@@ -112,9 +112,17 @@ class TravelExpensePersonalDataTest :
             return id
         }
 
-        test("PersonalDataCoverageTest regression anchor: coveredTables matches the three travel-expense tables") {
+        test(
+            "PersonalDataCoverageTest regression anchor: coveredTables matches the travel-expense tables (V1.9.123: plus the two SEPA batch tables)",
+        ) {
             TravelExpensePersonalData.coveredTables.map { it.tableName }.toSet() shouldBe
-                setOf("travel_expense_report", "travel_expense_line", "travel_expense_receipt")
+                setOf(
+                    "travel_expense_report",
+                    "travel_expense_line",
+                    "travel_expense_receipt",
+                    "travel_expense_sepa_batch",
+                    "travel_expense_sepa_batch_item",
+                )
         }
 
         test("DRAFT report is fully deleted, including its lines") {

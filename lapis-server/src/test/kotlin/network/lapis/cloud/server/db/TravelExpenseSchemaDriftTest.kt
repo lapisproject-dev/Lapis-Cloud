@@ -8,6 +8,8 @@ import io.kotest.matchers.shouldBe
 import network.lapis.cloud.server.db.generated.TravelExpenseLineTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReceiptTable
 import network.lapis.cloud.server.db.generated.TravelExpenseReportTable
+import network.lapis.cloud.server.db.generated.TravelExpenseSepaBatchItemTable
+import network.lapis.cloud.server.db.generated.TravelExpenseSepaBatchTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.File
@@ -23,9 +25,18 @@ class TravelExpenseSchemaDriftTest :
         val scriptFile = File(KumlModelLoader.kumlSourceDir, "45-travel-expense.kuml.kts")
         val model: ErmModel by lazy { KumlModelLoader.loadErmModel(scriptFile) }
 
-        test("model declares exactly the three travel-expense entities and the member/journal_entry stubs") {
+        test("model declares exactly the travel-expense entities and the member/journal_entry/bank_account stubs") {
             model.entities.map { it.name }.toSet() shouldBe
-                setOf("travel_expense_report", "travel_expense_line", "travel_expense_receipt", "member", "journal_entry")
+                setOf(
+                    "travel_expense_report",
+                    "travel_expense_line",
+                    "travel_expense_receipt",
+                    "member",
+                    "journal_entry",
+                    "bank_account",
+                    "travel_expense_sepa_batch",
+                    "travel_expense_sepa_batch_item",
+                )
         }
 
         test("travel_expense_report table shape matches the real migrated schema") {
@@ -40,6 +51,57 @@ class TravelExpenseSchemaDriftTest :
             real.foreignKeys["requested_by"] shouldBe "member"
             real.foreignKeys["decided_by"] shouldBe "member"
             real.foreignKeys["posted_journal_entry_id"] shouldBe "journal_entry"
+            real.foreignKeys["sepa_export_batch_id"] shouldBe "travel_expense_sepa_batch"
+            real.foreignKeys["sepa_exported_by"] shouldBe "member"
+        }
+
+        test("V1.9.123: the SEPA batch tables match the real migrated schema, FKs and unique indexes included") {
+            val batch = model.entities.single { it.name == "travel_expense_sepa_batch" }
+            val realBatch = transaction { introspectTeTable("travel_expense_sepa_batch") }
+            batch.attributes.map { it.name }.toSet() shouldBe realBatch.columns.keys
+            batch.attributes.forEach { attr ->
+                withClue(clue = "batch column '${attr.name}'") { realBatch.columns.getValue(attr.name!!).nullable shouldBe attr.nullable }
+            }
+            realBatch.foreignKeys["debtor_bank_account_id"] shouldBe "bank_account"
+            realBatch.foreignKeys["created_by"] shouldBe "member"
+            val item = model.entities.single { it.name == "travel_expense_sepa_batch_item" }
+            val realItem = transaction { introspectTeTable("travel_expense_sepa_batch_item") }
+            item.attributes.map { it.name }.toSet() shouldBe realItem.columns.keys
+            item.attributes.forEach { attr ->
+                withClue(clue = "item column '${attr.name}'") { realItem.columns.getValue(attr.name!!).nullable shouldBe attr.nullable }
+            }
+            realItem.foreignKeys["batch_id"] shouldBe "travel_expense_sepa_batch"
+            realItem.foreignKeys["report_id"] shouldBe "travel_expense_report"
+            // end_to_end_id is the only SINGLE-column unique index; (batch_id, report_id) is a two-column one.
+            realItem.uniqueSingleColumns shouldContainExactlyInAnyOrder listOf("end_to_end_id")
+        }
+
+        test("V1.9.123: the refund-account and export columns have the modelled nullability") {
+            val entity = model.entities.single { it.name == "travel_expense_report" }
+            listOf(
+                "refund_iban_ciphertext",
+                "refund_iban_last4",
+                "refund_account_holder",
+                "sepa_exported_at",
+                "sepa_export_batch_id",
+                "sepa_exported_by",
+            ).forEach { name -> withClue(clue = "column '$name'") { entity.attributeByName(name)?.nullable shouldBe true } }
+            listOf("refund_account_changed_after_submit", "sepa_reexport_count", "paid_outside_lapis").forEach { name ->
+                withClue(clue = "column '$name'") { entity.attributeByName(name)?.nullable shouldBe false }
+            }
+        }
+
+        test("V1.9.123: the generated batch Table objects match the modelled column sets 1:1") {
+            model.entities
+                .single { it.name == "travel_expense_sepa_batch" }
+                .attributes
+                .map { it.name } shouldContainExactlyInAnyOrder
+                TravelExpenseSepaBatchTable.columns.map { it.name }
+            model.entities
+                .single { it.name == "travel_expense_sepa_batch_item" }
+                .attributes
+                .map { it.name } shouldContainExactlyInAnyOrder
+                TravelExpenseSepaBatchItemTable.columns.map { it.name }
         }
 
         test("travel_expense_line table shape matches the real migrated schema") {

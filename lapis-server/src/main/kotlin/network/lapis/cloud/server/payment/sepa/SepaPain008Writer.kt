@@ -5,12 +5,11 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.SepaSequenceType
 import java.io.ByteArrayOutputStream
 import java.math.BigDecimal
-import java.util.Locale
 import javax.xml.stream.XMLOutputFactory
 import javax.xml.stream.XMLStreamWriter
 
 /** `NOTPROVIDED` placeholder used for [SepaBatchItemSpec.debtorBic]/`SepaBatchSpec.creditorBic` == `null` -- see M-3 KDoc below. */
-private const val BIC_NOT_PROVIDED = "NOTPROVIDED"
+private const val BIC_NOT_PROVIDED = SepaXmlSupport.BIC_NOT_PROVIDED
 
 /**
  * V1.2.2 "SEPA-Lastschriftmandate". Produces a pain.008 SEPA-Basislastschrift (`CORE`) collective
@@ -268,42 +267,15 @@ object SepaPain008Writer {
         writer: XMLStreamWriter,
         localName: String,
         text: String,
-    ) {
-        writer.writeStartElement(localName)
-        writer.writeCharacters(text)
-        writer.writeEndElement()
-    }
+    ) = SepaXmlSupport.writeTextElement(writer = writer, localName = localName, text = text)
 
     /** Formed from the SAME BigDecimal values as the items, never from a separately maintained figure. */
     private fun totalAmount(spec: SepaBatchSpec): BigDecimal = spec.items.fold(BigDecimal.ZERO) { acc, item -> acc + item.amount }
 
-    /** `setScale(2).toPlainString()` -- never `String.format`/locale-dependent (`60,00` instead of `60.00` would break the file). */
-    private fun formatAmount(amount: BigDecimal): String = amount.setScale(2).toPlainString()
+    private fun formatAmount(amount: BigDecimal): String = SepaXmlSupport.formatAmount(amount)
 
-    /**
-     * M-2 (Review Round 1, 2026-08-19, MAJOR): `LocalDateTime.toString()` has two format defects for
-     * an `xs:dateTime` (`GrpHdr/CreDtTm`): it DROPS seconds entirely when `second == 0 && nano == 0`
-     * (`2026-08-19T14:22` is not a valid `xs:dateTime`), and it INCLUDES fractional/microsecond
-     * seconds otherwise (`2026-08-19T14:22:05.123456`) -- the DK/EPC implementation guideline
-     * specifies exactly `YYYY-MM-DDThh:mm:ss`, no fractional seconds, and many bank validators reject
-     * either deviation. Formatted manually here rather than via a fractional-second-stripping regex
-     * over the stdlib output, so both defects are fixed at their source in one place.
-     *
-     * Review Round 2 (2026-08-20, N-3, MINOR): `Locale.ROOT` added explicitly, same reasoning
-     * [formatAmount] above already documents for BigDecimal -- without it, `%d` renders under the
-     * JVM's default locale, which under certain locale configurations (e.g. Arabic-Indic digit
-     * extensions) can produce non-ASCII digits in a bank-facing XML file.
-     */
-    private fun formatDateTime(dateTime: LocalDateTime): String =
-        "%04d-%02d-%02dT%02d:%02d:%02d".format(
-            Locale.ROOT,
-            dateTime.year,
-            dateTime.monthNumber,
-            dateTime.dayOfMonth,
-            dateTime.hour,
-            dateTime.minute,
-            dateTime.second,
-        )
+    /** See [SepaXmlSupport.formatDateTime] (M-2/N-3 of the V1.2.2 review rounds). */
+    private fun formatDateTime(dateTime: LocalDateTime): String = SepaXmlSupport.formatDateTime(dateTime)
 }
 
 /**
