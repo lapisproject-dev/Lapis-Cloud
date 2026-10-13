@@ -20,4 +20,10 @@ interface IOrganizationSettingsService {
 
     /** Role: ADMIN. Replaces every field of the single seeded row wholesale. */
     suspend fun updateOrganizationSettings(input: OrganizationSettingsInput): OrganizationSettingsDto
+
+    /**
+     * V1.9.124. Role: ADMIN only. Sets the instance default of the optional noise suppression in video conferences (a person's own
+     * remembered choice still wins). A change writes one audit entry; setting the value it already has writes nothing.
+     */
+    suspend fun updateNoiseSuppressionDefault(enabled: Boolean): OrganizationSettingsDto
 }

@@ -515,5 +515,12 @@ classDiagram(name = "OrganizationSettings") {
             defaultValue = "'Europe/Berlin'"
             stereotype("Column") { "columnName" to "timezone"; "sqlType" to "VARCHAR(64)" }
         }
+        // Welle V1.9.124 (V99__organization_noise_suppression_default.sql). Instance default of the optional noise suppression in video
+        // conferences, NOT NULL, FALSE = off unless a person switches it on. NOT part of the generic updateOrganizationSettings write-set:
+        // settable ONLY through IOrganizationSettingsService.updateNoiseSuppressionDefault (ADMIN, audited on change).
+        attribute(name = "noiseSuppressionDefault", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "noise_suppression_default" }
+        }
     }
 }

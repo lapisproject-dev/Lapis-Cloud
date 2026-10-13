@@ -23405,3 +23405,18 @@ msgstr "De reiziger vult het IBAN voor de vergoeding zelf in bij de eigen declar
 
 msgid "Bitte geben Sie die IBAN ein."
 msgstr "Voer het IBAN in."
+
+msgid "Voreinstellung der Instanz"
+msgstr "Standaardinstelling van de instantie"
+
+msgid "Rauschunterdrückung vorgeben"
+msgstr "Ruisonderdrukking als standaard instellen"
+
+msgid "Wer die Rauschunterdrückung noch nie selbst eingestellt hat, startet in Videokonferenzen mit eingeschaltetem Filter. Was eine Person selbst eingestellt hat, bleibt immer erhalten."
+msgstr "Wie ruisonderdrukking nog nooit zelf heeft ingesteld, begint videovergaderingen met het filter ingeschakeld. De eigen keuze van een persoon blijft altijd behouden."
+
+msgid "Rauschunterdrückung wird vorgegeben."
+msgstr "Ruisonderdrukking is nu de standaard."
+
+msgid "Rauschunterdrückung wird nicht mehr vorgegeben."
+msgstr "Ruisonderdrukking is niet langer de standaard."

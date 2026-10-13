@@ -47,11 +47,11 @@ internal class FakeNoiseSuppressionChain : NoiseSuppressionChain {
 
 /** An in-memory remembered choice. */
 internal class FakeNoiseSuppressionPreference(
-    var stored: Boolean = false,
+    var stored: Boolean? = false,
 ) : NoiseSuppressionPreference {
     val writes = mutableListOf<Boolean>()
 
-    override fun read(): Boolean = stored
+    override fun read(): Boolean? = stored
 
     override fun write(on: Boolean) {
         writes += on

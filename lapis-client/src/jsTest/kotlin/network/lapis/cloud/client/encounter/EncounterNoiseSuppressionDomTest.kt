@@ -3,6 +3,7 @@ package network.lapis.cloud.client.encounter
 import kotlinx.browser.localStorage
 import network.lapis.cloud.client.FakeNoiseSuppressionChain
 import network.lapis.cloud.client.NOISE_SUPPRESSION_STORAGE_KEY
+import network.lapis.cloud.client.NoiseSuppressionWarmup
 import network.lapis.cloud.client.awaitUntil
 import network.lapis.cloud.client.formTest
 import network.lapis.cloud.shared.domain.EncounterPresenceRole
@@ -128,6 +129,35 @@ class EncounterNoiseSuppressionDomTest {
                 assertEquals("false", micButton.getAttribute("aria-pressed"))
                 assertEquals(1, micButton.querySelectorAll("i").length, "one glyph, the microphone")
                 assertNull(micButton.querySelector(".lapis-noise-switch"), "no noise glyph on the microphone button")
+            }
+        }
+
+    /**
+     * V1.9.124 -- the instance default belongs to the video conference ONLY. Even when the page already knows an organisation default of
+     * "on" (the lobby of a conference was opened before), the pulpit starts without the filter (singing is its normal use), shows no
+     * "Voreinstellung der Instanz" line and writes nothing.
+     */
+    @Test
+    fun theInstanceDefault_neverReachesThePulpit(): Promise<Unit> =
+        formTest {
+            assertTrue(stylesLoaded)
+            NoiseSuppressionWarmup.remember(true)
+            try {
+                withRoom(EncounterPresenceRole.PULPIT, FakeSpeakerSession()) { _, element ->
+                    element.openPanel()
+                    awaitUntil("the panel is open") {
+                        (element.querySelector("#lapis-encounter-device-panel") as? HTMLElement)?.offsetWidth?.let { it > 0 } == true
+                    }
+                    val switch = assertNotNull(element.noiseSwitch())
+                    assertEquals("false", switch.getAttribute("aria-checked"), "the pulpit starts without the filter")
+                    val panel = element.querySelector("#lapis-encounter-device-panel")!!
+                    assertTrue(!panel.textContent.orEmpty().contains("Voreinstellung der Instanz"), "no default line")
+                    val line = panel.querySelector("[id^=lapis-noise-default-]") as? HTMLElement
+                    assertTrue(line == null || line.getBoundingClientRect().height == 0.0, "the default line is not shown")
+                    assertNull(localStorage.getItem(NOISE_SUPPRESSION_STORAGE_KEY), "nothing was written")
+                }
+            } finally {
+                NoiseSuppressionWarmup.remember(false)
             }
         }
 }

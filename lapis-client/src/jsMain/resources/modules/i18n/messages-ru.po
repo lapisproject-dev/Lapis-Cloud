@@ -23401,3 +23401,18 @@ msgstr "IBAN для возмещения путешественник вводи
 
 msgid "Bitte geben Sie die IBAN ein."
 msgstr "Введите IBAN."
+
+msgid "Voreinstellung der Instanz"
+msgstr "Настройка по умолчанию для экземпляра"
+
+msgid "Rauschunterdrückung vorgeben"
+msgstr "Включить шумоподавление по умолчанию"
+
+msgid "Wer die Rauschunterdrückung noch nie selbst eingestellt hat, startet in Videokonferenzen mit eingeschaltetem Filter. Was eine Person selbst eingestellt hat, bleibt immer erhalten."
+msgstr "Кто никогда сам не настраивал шумоподавление, начинает видеоконференции с включённым фильтром. Собственный выбор человека всегда сохраняется."
+
+msgid "Rauschunterdrückung wird vorgegeben."
+msgstr "Шумоподавление теперь включено по умолчанию."
+
+msgid "Rauschunterdrückung wird nicht mehr vorgegeben."
+msgstr "Шумоподавление больше не включено по умолчанию."

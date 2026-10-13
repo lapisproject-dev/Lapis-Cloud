@@ -34,6 +34,7 @@ import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.EventConferenceStatus
 import network.lapis.cloud.server.db.generated.EventConferenceTable
 import network.lapis.cloud.server.db.generated.EventTable
+import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.events.EVENT_ONLINE_CONFIG
 import network.lapis.cloud.server.events.EventFakeLiveKit
 import network.lapis.cloud.server.events.EventOnlineFixtures
@@ -233,6 +234,10 @@ class EventOnlineServiceRpcTest :
                     "${result.outcome}|${result.token?.roomId}|${result.token?.role}|${result.token?.eventId}|${result.encounterSpaceId}|${result.opensAt}",
                 )
             }
+            post("/ev/{id}/join-noise") {
+                val result = eventService(call, online).joinEventOnline(eventId = call.parameters["id"]!!, guestConsent = null)
+                call.respondText(result.token?.noiseSuppressionDefault.toString())
+            }
             get("/ev/{id}/guests") {
                 call.respondText(
                     "OK|" + eventService(call, online).listEventGuests(call.parameters["id"]!!).joinToString(",") { it.identity },
@@ -312,6 +317,30 @@ class EventOnlineServiceRpcTest :
                     client.asMember(member, "POST", "/ev/${Uuid.random()}/join").bodyAsText() shouldStartWith "FORBIDDEN|"
                     client.post("/ev/$event/join").status shouldBe HttpStatusCode.Unauthorized
                 }
+            }
+        }
+
+        test("joinEventOnline: the token carries the organisation's noise suppression default (V1.9.124)") {
+            fun setDefault(value: Boolean) =
+                transaction {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[noiseSuppressionDefault] = value
+                    }
+                }
+            try {
+                TimeTestSupport.withServerClock(instant = inside) {
+                    testApplication {
+                        application { setUp() }
+                        val event = fx.event(createdBy = board)
+                        val member = fx.member()
+                        setDefault(false)
+                        client.asMember(member, "POST", "/ev/$event/join-noise").bodyAsText() shouldBe "false"
+                        setDefault(true)
+                        client.asMember(member, "POST", "/ev/$event/join-noise").bodyAsText() shouldBe "true"
+                    }
+                }
+            } finally {
+                setDefault(false)
             }
         }
 

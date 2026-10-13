@@ -118,6 +118,7 @@ private fun renderMemberAdministrationSections(
     renderPublicMemberCountToggle(root, canAdmin = callerRole == AccountRole.ADMIN)
     // Welle V1.9.38 "Einheitliche Zeitzonen": ADMIN-only (both RPC methods are), see OrganizationTimeZoneSettings.kt.
     if (callerRole == AccountRole.ADMIN) renderOrganizationTimeZoneCard(root)
+    if (callerRole == AccountRole.ADMIN) renderConferenceDefaultsCard(root)
 }
 
 private fun renderPendingApplications(

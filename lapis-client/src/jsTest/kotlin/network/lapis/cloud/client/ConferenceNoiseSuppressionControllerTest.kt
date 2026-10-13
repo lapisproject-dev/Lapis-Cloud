@@ -21,11 +21,11 @@ import kotlin.test.assertTrue
  */
 class ConferenceNoiseSuppressionControllerTest {
     private class FakePreference(
-        var stored: Boolean = false,
+        var stored: Boolean? = false,
     ) : NoiseSuppressionPreference {
         var writes = mutableListOf<Boolean>()
 
-        override fun read(): Boolean = stored
+        override fun read(): Boolean? = stored
 
         override fun write(on: Boolean) {
             writes += on

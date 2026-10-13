@@ -40,7 +40,9 @@ class ClientNoiseSuppressionEmbeddingTest :
             screen shouldContain "noiseChainProvider = { runCatching { session.noiseSuppressionChain() }.getOrNull() }"
             screen shouldContain "onLocalMicrophoneTrackPublished = {"
             screen shouldContain "noiseSuppressionController.onMicTrackPublished()"
-            screen shouldContain "preference = LocalStorageNoiseSuppressionPreference()"
+            screen shouldContain "preference = NoiseSuppressionWarmup.preference"
+            // V1.9.124: the instance default comes from the join token and only from there
+            screen shouldContain "instanceDefault = joinToken.noiseSuppressionDefault"
         }
 
         test("encounter: the row is built only for an office holder (a speaker session) and only inside the device panel") {
@@ -74,6 +76,54 @@ class ClientNoiseSuppressionEmbeddingTest :
                 withClue(
                     "${file.name} must not define its own noise key",
                 ) { file.readText() shouldNotContain "lapis.audio.noiseSuppression" }
+            }
+        }
+
+        test(
+            "V1.9.124: the audio context is started inside every join click and inside the microphone click, right after the tones' unlock",
+        ) {
+            val screen = source("ConferenceScreen.kt")
+            // the three join clicks (start button, room card, guest consent) carry both unlocks, in this order
+            Regex("""ConferenceJoinLeaveSounds\.unlockFromGesture\(\)\s+NoiseSuppressionWarmup\.unlockFromGesture\(\)""")
+                .findAll(screen)
+                .count() shouldBe 3
+            // the fourth call is the microphone button's click handler, before the toggle itself
+            Regex("""micButton\.onClick \{[^}]*NoiseSuppressionWarmup\.unlockFromGesture\(\)[^}]*toggleMic\(\)""")
+                .containsMatchIn(screen) shouldBe true
+            Regex("""NoiseSuppressionWarmup\.unlockFromGesture\(""").findAll(screen).count() shouldBe 4
+            // the lobby remembers the default it was told about
+            screen shouldContain "NoiseSuppressionWarmup.remember(availability.noiseSuppressionDefault)"
+        }
+
+        test("V1.9.124: the encounter room knows nothing of the instance default, its warm-up or its join-token field") {
+            File(CLIENT_DIR, "encounter").listFiles().orEmpty().filter { it.extension == "kt" }.forEach { file ->
+                val text = file.readText()
+                withClue("${file.name} must not use the instance default") {
+                    text shouldNotContain "instanceDefault"
+                    text shouldNotContain "noiseSuppressionDefault"
+                    text shouldNotContain "NoiseSuppressionWarmup"
+                }
+            }
+        }
+
+        test(
+            "V1.9.124: the server never sets the default in the encounter room's join answers, and the generic settings update never writes it",
+        ) {
+            val serverDir =
+                File("src/main/kotlin/network/lapis/cloud/server").let {
+                    if (it.exists()) it else File("lapis-server/src/main/kotlin/network/lapis/cloud/server")
+                }
+            val encounter = File(serverDir, "rpc/EncounterSpaceService.kt").readText()
+            encounter shouldNotContain "noiseSuppressionDefault"
+            encounter shouldNotContain "NoiseSuppressionDefaultStore"
+            // the generic write-set has no line for the column: its only write is inside updateNoiseSuppressionDefault
+            val settings = File(serverDir, "rpc/OrganizationSettingsService.kt").readText()
+            Regex("""it\[noiseSuppressionDefault\]\s*=""").findAll(settings).count() shouldBe 1
+            val dedicated = settings.indexOf("override suspend fun updateNoiseSuppressionDefault")
+            val generic = settings.indexOf("override suspend fun updateOrganizationSettings")
+            val write = settings.indexOf("it[noiseSuppressionDefault] =")
+            withClue("the only write sits in the dedicated method, which comes before the generic one") {
+                (dedicated in 0 until write && write < generic) shouldBe true
             }
         }
     })

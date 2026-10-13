@@ -1,5 +1,6 @@
 package network.lapis.cloud.server.rpc
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.AuditLogRecorder
@@ -24,10 +25,13 @@ import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
+
+private val logger = KotlinLogging.logger {}
 
 private val READ_ROLES = arrayOf(AccountRole.TREASURER, AccountRole.BOARD, AccountRole.ADMIN)
 
@@ -57,6 +61,38 @@ class OrganizationSettingsService(
         val current = resolveCurrentMember(call)
         current.requireRole(*READ_ROLES)
         return transaction { loadOrganizationSettings() }
+    }
+
+    /**
+     * V1.9.124 -- the ONLY way to change [OrganizationSettingsDto.noiseSuppressionDefault] (ADMIN). A change writes one
+     * [AuditEntityType.ORGANIZATION_SETTINGS] `UPDATE` entry (before/after as a one-field JSON snapshot, no personal data -- the actor is
+     * the audit frame's own); setting the value it already has writes neither a row nor an audit entry. The generic
+     * [updateOrganizationSettings] never touches the column.
+     */
+    override suspend fun updateNoiseSuppressionDefault(enabled: Boolean): OrganizationSettingsDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val result =
+            transaction {
+                val before = NoiseSuppressionDefaultStore.load()
+                if (before != enabled) {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[noiseSuppressionDefault] = enabled
+                    }
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.ORGANIZATION_SETTINGS,
+                        entityId = ORGANIZATION_SETTINGS_ID,
+                        action = AuditAction.UPDATE,
+                        before = "{\"noiseSuppressionDefault\":$before}",
+                        after = "{\"noiseSuppressionDefault\":$enabled}",
+                    )
+                }
+                loadOrganizationSettings() to (before != enabled)
+            }
+        if (result.second) logger.info { "noise suppression default set to $enabled by ${current.memberId}" }
+        return result.first
     }
 
     /**
@@ -319,6 +355,8 @@ class OrganizationSettingsService(
                 // SepaService.enableSepaDebit/disableSepaDebit and
                 // PaymentGatewayService.enablePaymentGateway/disablePaymentGateway (both
                 // disclaimer-acknowledgment-gated) may flip those.
+                // V1.9.124: noiseSuppressionDefault is likewise DELIBERATELY absent -- only
+                // updateNoiseSuppressionDefault (ADMIN, audited on change) may set it.
             }
 
             val afterMapping =
@@ -515,4 +553,26 @@ fun ResultRow.toOrganizationSettingsDto(): OrganizationSettingsDto =
         // V1.9.10 Mitgliederzahl-Sichtbarkeit -- ordinary ADMIN-writable configuration, same tier
         // again.
         showPublicMemberCount = this[OrganizationSettingsTable.showPublicMemberCount],
+        // V1.9.124 -- read-only here, set only through updateNoiseSuppressionDefault.
+        noiseSuppressionDefault = this[OrganizationSettingsTable.noiseSuppressionDefault],
     )
+
+/**
+ * V1.9.124 -- the organisation's noise suppression default for the join answers of the video conferences. Must run inside a
+ * `transaction {}`; a missing row (never happens, V1 seeds it) means "off".
+ */
+internal object NoiseSuppressionDefaultStore {
+    fun load(): Boolean =
+        OrganizationSettingsTable
+            .select(OrganizationSettingsTable.noiseSuppressionDefault)
+            .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+            .singleOrNull()
+            ?.get(OrganizationSettingsTable.noiseSuppressionDefault)
+            ?: false
+
+    /**
+     * For the join answers: opens its own transaction (joining one that is already open) and NEVER fails -- a join must not break because
+     * a default could not be read; the safe answer is "off", today's behaviour.
+     */
+    fun currentValue(): Boolean = runCatching { transaction { load() } }.getOrDefault(false)
+}

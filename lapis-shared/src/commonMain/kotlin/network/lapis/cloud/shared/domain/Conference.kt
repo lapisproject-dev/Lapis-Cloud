@@ -135,6 +135,12 @@ data class ConferenceJoinTokenDto(
     val turnServers: List<ConferenceTurnServer> = emptyList(),
     /** V1.9.113 -- non-null iff this room belongs to an event: a re-join must then run through `IEventService.joinEventOnline`, never `joinRoom`. */
     val eventId: String? = null,
+    /**
+     * V1.9.124 -- the organisation's noise suppression default (an ADMIN's setting). It applies in the browser ONLY while the person never
+     * chose here; a remembered choice (on or off) always wins. `false` for every answer that does not know the setting -- in particular the
+     * encounter room's join answers (the pulpit has no instance default, singing is its normal use) -- so old payloads stay readable.
+     */
+    val noiseSuppressionDefault: Boolean = false,
 )
 
 /**
@@ -205,6 +211,11 @@ data class ConferenceAvailabilityDto(
     val maxParticipants: Int,
     /** V1.9.113 -- the real ceiling of an event conference room (`LAPIS_EVENT_CONFERENCE_MAX_PARTICIPANTS`). */
     val eventMaxParticipants: Int = 0,
+    /**
+     * V1.9.124 -- see [ConferenceJoinTokenDto.noiseSuppressionDefault]. Sent here too, because the lobby asks for the availability before
+     * every join click and guests have no room list; the join token stays the authority.
+     */
+    val noiseSuppressionDefault: Boolean = false,
 )
 
 /**

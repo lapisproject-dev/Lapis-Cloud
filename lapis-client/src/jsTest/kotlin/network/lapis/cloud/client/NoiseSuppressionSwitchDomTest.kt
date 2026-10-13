@@ -34,6 +34,7 @@ class NoiseSuppressionSwitchDomTest {
         val chain: FakeNoiseSuppressionChain? = FakeNoiseSuppressionChain(),
         val preference: FakeNoiseSuppressionPreference = FakeNoiseSuppressionPreference(),
         capability: NoiseSuppressionUnavailable? = null,
+        instanceDefault: Boolean = false,
     ) {
         val controller =
             ConferenceNoiseSuppressionController(
@@ -42,8 +43,14 @@ class NoiseSuppressionSwitchDomTest {
                 capability = { capability },
                 loadTimeoutMs = 2_000L,
                 stopTimeoutMs = 500L,
+                instanceDefault = instanceDefault,
             )
     }
+
+    /** V1.9.124: the instance-default line, `null` when it is not rendered; `visible` = it takes room on the page. */
+    private fun HTMLElement.defaultLine(): HTMLElement? = querySelector("[id^=lapis-noise-default-]") as? HTMLElement
+
+    private fun HTMLElement.defaultLineVisible(): Boolean = defaultLine()?.let { it.getBoundingClientRect().height > 0 } ?: false
 
     private fun HTMLElement.switchButton() = assertNotNull(querySelector("button[role=switch]") as? HTMLElement)
 
@@ -72,7 +79,8 @@ class NoiseSuppressionSwitchDomTest {
             val labelledBy = assertNotNull(button.getAttribute("aria-labelledby"))
             val label = assertNotNull(element.querySelector("#$labelledBy"))
             assertEquals("Rauschunterdrückung", label.textContent.orEmpty().trim())
-            val describedBy = assertNotNull(button.getAttribute("aria-describedby"))
+            // V1.9.124: two ids (the hint, then the instance-default line)
+            val describedBy = assertNotNull(button.getAttribute("aria-describedby")).split(" ").first()
             val hint = assertNotNull(element.querySelector("#$describedBy") as? HTMLElement)
             assertEquals(
                 "Wird nur in diesem Browser verarbeitet. Gesang und Musik klingen damit verändert.",
@@ -315,6 +323,82 @@ class NoiseSuppressionSwitchDomTest {
             assertEquals(reason.retryable, sentence.contains("Zum erneuten Versuch einschalten."), sentence)
             assertFalse(sentence.contains("raw detail"))
             assertFalse(sentence.contains("SomeError"))
+        }
+    }
+
+    @Test
+    fun theInstanceDefaultLine_isShownOnlyWhileTheDefaultDecides_withNoAnnouncement() {
+        mount(Rig(preference = FakeNoiseSuppressionPreference(stored = null), instanceDefault = true)) { element, _ ->
+            val line = assertNotNull(element.defaultLine())
+            assertEquals("Voreinstellung der Instanz", line.textContent.orEmpty().trim())
+            assertTrue(element.defaultLineVisible())
+            val ids = assertNotNull(element.switchButton().getAttribute("aria-describedby")).split(" ")
+            assertEquals(2, ids.size)
+            assertEquals(line.id, ids[1], "the line is the second description of the switch")
+            assertEquals("true", element.switchButton().getAttribute("aria-checked"))
+            assertEquals(
+                "",
+                element
+                    .status()
+                    .textContent
+                    .orEmpty()
+                    .trim(),
+                "never announced",
+            )
+            assertNull(element.querySelector("[aria-live=assertive]"))
+        }
+    }
+
+    @Test
+    fun theInstanceDefaultLine_isHidden_whenThereIsNoDefault_orAChoiceExists() {
+        mount(Rig(preference = FakeNoiseSuppressionPreference(stored = null), instanceDefault = false)) { element, _ ->
+            assertFalse(element.defaultLineVisible())
+        }
+        mount(Rig(preference = FakeNoiseSuppressionPreference(stored = false), instanceDefault = true)) { element, _ ->
+            assertFalse(element.defaultLineVisible(), "a stored off beats the default")
+            assertEquals("false", element.switchButton().getAttribute("aria-checked"))
+        }
+        mount(Rig(preference = FakeNoiseSuppressionPreference(stored = true), instanceDefault = true)) { element, _ ->
+            assertFalse(element.defaultLineVisible(), "a stored on is the person's own choice")
+        }
+    }
+
+    @Test
+    fun aClick_endsTheInstanceDefaultLine_inBothDirections(): Promise<Unit> =
+        formTest {
+            val rig = Rig(preference = FakeNoiseSuppressionPreference(stored = null), instanceDefault = true)
+            mountedForm("noise-suppression-switch-default-click") { root, element ->
+                NoiseSuppressionSwitchRow(root, rig.controller)
+                val button = element().switchButton()
+                assertTrue(element().defaultLineVisible())
+                button.click()
+                awaitUntil("switched off, line gone") {
+                    button.getAttribute("aria-checked") == "false" &&
+                        button.getAttribute("aria-disabled") == "false" &&
+                        !element().defaultLineVisible()
+                }
+                assertEquals(listOf(false), rig.preference.writes)
+            }
+        }
+
+    @Test
+    fun anUnavailableDefault_showsTheLineAndTheReason_butSaysNothingInTheLiveRegion() {
+        mount(
+            Rig(
+                preference = FakeNoiseSuppressionPreference(stored = null),
+                capability = NoiseSuppressionUnavailable.NO_AUDIO_WORKLET,
+                instanceDefault = true,
+            ),
+        ) { element, _ ->
+            assertTrue(element.defaultLineVisible())
+            assertEquals(
+                "",
+                element
+                    .status()
+                    .textContent
+                    .orEmpty()
+                    .trim(),
+            )
         }
     }
 }

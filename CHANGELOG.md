@@ -6,6 +6,21 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.124 -- Noise suppression as an instance default
+
+An administrator can make the optional noise suppression of video conferences the default of the whole instance. A person's own choice always wins; the encounter room is not affected.
+
+- **Setting.** New switch "Rauschunterdrückung vorgeben" in the new card "Videokonferenz" of the member administration (ADMIN only, saved at once). RPC `IOrganizationSettingsService.updateNoiseSuppressionDefault(enabled)` (appended at the end of the interface); `OrganizationSettingsDto.noiseSuppressionDefault` is read-only (not part of `OrganizationSettingsInput`, the generic update never writes it). A change writes one audit entry (`ORGANIZATION_SETTINGS`, `UPDATE`, `{"noiseSuppressionDefault":false}` -> `{"noiseSuppressionDefault":true}`, no personal data); the same value again writes nothing.
+- **In the browser.** Order: remembered choice, then instance default, then off. The remembered choice has three states now (`on`, `off`, never chosen); a click on the switch always stores `on` or `off`, the automatic paths never write, so the default does not turn into the person's choice. While the default decides, the row shows "Voreinstellung der Instanz" (plain text, not announced). A failing default is shown but not announced. The join token (`ConferenceJoinTokenDto.noiseSuppressionDefault`) and the availability answer (`ConferenceAvailabilityDto.noiseSuppressionDefault`) carry the value, both additive with default `false`. The encounter room's answers always carry `false` and its pulpit ignores the default.
+- **First start.** The filter's audio context is started inside the join clicks and the microphone click and handed over to the session (helps browsers that need a gesture); the V1.9.119 "next gesture" hook stays the second line. A `setProcessor` that finishes after the loading timeout is taken out again (no half-installed filter behind the "unavailable" state).
+- **Operator notes.** **Take a backup first.** One additive migration **`V99__organization_noise_suppression_default.sql`** (schema V99; V98 untouched, no `flywayRepair`). The default is `FALSE`: nothing changes until an administrator uses the switch. No new environment variable, no new dependency.
+- **Known limitations (honest status).**
+  - CPU and battery cost on weak devices is **not measured**; the sound was judged by listening only, there is no objective measurement.
+  - Only Chromium was tested; the audio-context warm-up for Safari and Firefox is **untested**. Joins without a click (automatic rejoin, mobile web view) rely on the next-gesture hook.
+  - **Old "off" choices:** before V1.9.124 switching the filter off removed the stored key, so a deliberate "off" from an older version is indistinguishable from "never chosen". With the default on, such a person is started with the filter once and has to switch it off again; from then on `off` is stored.
+  - The conference and the encounter room share one stored choice: switching the filter off in the pulpit (for singing) also keeps the default away in conferences of that browser.
+  - The UI was exercised by DOM tests only; no screen was judged visually and no screen reader was used.
+
 ### V1.9.123 -- SEPA credit transfer file (pain.001) for approved travel expenses
 
 A booked travel expense report can now be put into a SEPA credit transfer file that the treasury uploads in online banking. Nothing is sent to a bank.

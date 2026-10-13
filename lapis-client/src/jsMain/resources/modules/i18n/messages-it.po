@@ -23450,3 +23450,18 @@ msgstr "La persona in viaggio inserisce l'IBAN per il rimborso nella propria ric
 
 msgid "Bitte geben Sie die IBAN ein."
 msgstr "Inserisca l'IBAN."
+
+msgid "Voreinstellung der Instanz"
+msgstr "Impostazione predefinita dell'istanza"
+
+msgid "Rauschunterdrückung vorgeben"
+msgstr "Imposta la soppressione del rumore come predefinita"
+
+msgid "Wer die Rauschunterdrückung noch nie selbst eingestellt hat, startet in Videokonferenzen mit eingeschaltetem Filter. Was eine Person selbst eingestellt hat, bleibt immer erhalten."
+msgstr "Chi non ha mai impostato personalmente la soppressione del rumore avvia le videoconferenze con il filtro attivo. La scelta personale di ciascuno viene sempre mantenuta."
+
+msgid "Rauschunterdrückung wird vorgegeben."
+msgstr "La soppressione del rumore è ora l'impostazione predefinita."
+
+msgid "Rauschunterdrückung wird nicht mehr vorgegeben."
+msgstr "La soppressione del rumore non è più l'impostazione predefinita."

@@ -71,14 +71,24 @@ internal class ConferenceNoiseSuppressionController(
     private val gestureHook: GestureHook = DocumentGestureHook,
     private val logger: NoiseSuppressionLogger = ConsoleNoiseSuppressionLogger,
     private val scope: CoroutineScope = AppScope,
+    /**
+     * V1.9.124 -- the instance default of the organisation (an ADMIN's setting, delivered with the join token). It applies ONLY while the
+     * person never chose here ([choice] == null); a stored choice, on or off, always wins. The automatic paths never write the preference,
+     * so the default stays a default and does not turn into the person's own choice.
+     */
+    private val instanceDefault: Boolean = false,
 ) {
     private val listeners = mutableListOf<(NoiseSuppressionState, Boolean) -> Unit>()
     private val lock = Mutex()
-    private var wantOn: Boolean = runCatching { preference.read() }.getOrDefault(false)
+    private var choice: Boolean? = runCatching { preference.read() }.getOrNull()
+    private val wantOn: Boolean get() = choice ?: instanceDefault
     private val logged = mutableSetOf<Pair<NoiseSuppressionUnavailable, String>>()
     private var gestureRemover: (() -> Unit)? = null
     private var gestureTried = false
     private var disposed = false
+
+    /** `true` while the filter is wanted only because of the instance default (the person never chose). Read by the switch for its hint line. */
+    val fromDefault: Boolean get() = choice == null && instanceDefault
 
     var state: NoiseSuppressionState =
         capability()?.let { NoiseSuppressionState.Unavailable(NoiseSuppressionFailure(it)) }
@@ -153,6 +163,7 @@ internal class ConferenceNoiseSuppressionController(
         announceSuccess: Boolean,
         trigger: String,
     ) {
+        val persist = trigger == "click"
         val reason = capability()
         if (reason != null) {
             fail(NoiseSuppressionFailure(reason), trigger)
@@ -160,9 +171,11 @@ internal class ConferenceNoiseSuppressionController(
         }
         val current = chainOrNull()
         if (current == null) {
-            // no microphone yet: remembered, applied by onMicTrackPublished
-            wantOn = true
-            preference.write(true)
+            // no microphone yet: applied by onMicTrackPublished; only a person's click is remembered, never the default
+            if (persist) {
+                choice = true
+                preference.write(true)
+            }
             setState(NoiseSuppressionState.On, announce = announceSuccess)
             return
         }
@@ -171,15 +184,17 @@ internal class ConferenceNoiseSuppressionController(
             fail(outcome, trigger)
             return
         }
-        wantOn = true
-        preference.write(true)
+        if (persist) {
+            choice = true
+            preference.write(true)
+        }
         removeGestureHook()
         bounded { current.setBrowserNoiseSuppression(false) }
         setState(NoiseSuppressionState.On, announce = announceSuccess)
     }
 
     private suspend fun turnOff() {
-        wantOn = false
+        choice = false
         preference.write(false)
         removeGestureHook()
         val current = chainOrNull()
@@ -223,7 +238,9 @@ internal class ConferenceNoiseSuppressionController(
         log(failure, trigger, current)
         val previous = (state as? NoiseSuppressionState.Unavailable)?.failure?.reason
         val repeated = trigger == "auto" && previous == failure.reason
-        setState(NoiseSuppressionState.Unavailable(failure), announce = !repeated)
+        // V1.9.124: a failure of the instance default (nobody clicked) is shown in the switch but never announced
+        val silentDefault = fromDefault && trigger != "click"
+        setState(NoiseSuppressionState.Unavailable(failure), announce = !repeated && !silentDefault)
         if (trigger == "auto" && failure.reason == NoiseSuppressionUnavailable.CONTEXT_NOT_RUNNING && wantOn) registerGestureHook()
     }
 

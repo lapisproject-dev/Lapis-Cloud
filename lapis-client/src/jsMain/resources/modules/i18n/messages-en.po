@@ -23357,3 +23357,18 @@ msgstr "The traveller enters the IBAN for the refund in the expense report itsel
 
 msgid "Bitte geben Sie die IBAN ein."
 msgstr "Please enter the IBAN."
+
+msgid "Voreinstellung der Instanz"
+msgstr "Instance default"
+
+msgid "Rauschunterdrückung vorgeben"
+msgstr "Set noise suppression as the default"
+
+msgid "Wer die Rauschunterdrückung noch nie selbst eingestellt hat, startet in Videokonferenzen mit eingeschaltetem Filter. Was eine Person selbst eingestellt hat, bleibt immer erhalten."
+msgstr "Anyone who has never set noise suppression themselves starts video conferences with the filter switched on. A person's own choice is always kept."
+
+msgid "Rauschunterdrückung wird vorgegeben."
+msgstr "Noise suppression is now the default."
+
+msgid "Rauschunterdrückung wird nicht mehr vorgegeben."
+msgstr "Noise suppression is no longer the default."

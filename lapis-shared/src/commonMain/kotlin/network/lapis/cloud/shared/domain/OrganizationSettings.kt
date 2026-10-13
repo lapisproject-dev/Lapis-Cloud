@@ -195,6 +195,14 @@ data class OrganizationSettingsDto(
     val payablesAccountId: String? = null,
     val receivableDunningEnabled: Boolean = false,
     val showPublicMemberCount: Boolean = true,
+    /**
+     * V1.9.124 -- the instance default of the optional noise suppression in video conferences (the browser's own RNNoise filter, see
+     * `docs/features/video-conferencing.adoc`). **Read-only here, like [sepaDebitEnabled]**: it is deliberately NOT in
+     * [OrganizationSettingsInput]; it changes only through
+     * [network.lapis.cloud.shared.rpc.IOrganizationSettingsService.updateNoiseSuppressionDefault] (ADMIN, audited). `false` = the filter is
+     * off unless a person switches it on (the behaviour before V1.9.124).
+     */
+    val noiseSuppressionDefault: Boolean = false,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */

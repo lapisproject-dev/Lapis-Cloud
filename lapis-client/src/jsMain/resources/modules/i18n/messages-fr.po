@@ -23467,3 +23467,18 @@ msgstr "La personne en déplacement saisit elle-même l'IBAN du remboursement da
 
 msgid "Bitte geben Sie die IBAN ein."
 msgstr "Veuillez saisir l'IBAN."
+
+msgid "Voreinstellung der Instanz"
+msgstr "Valeur par défaut de l'instance"
+
+msgid "Rauschunterdrückung vorgeben"
+msgstr "Activer la suppression du bruit par défaut"
+
+msgid "Wer die Rauschunterdrückung noch nie selbst eingestellt hat, startet in Videokonferenzen mit eingeschaltetem Filter. Was eine Person selbst eingestellt hat, bleibt immer erhalten."
+msgstr "Toute personne qui n'a jamais réglé elle-même la suppression du bruit démarre les visioconférences avec le filtre activé. Le choix personnel d'une personne est toujours conservé."
+
+msgid "Rauschunterdrückung wird vorgegeben."
+msgstr "La suppression du bruit est désormais activée par défaut."
+
+msgid "Rauschunterdrückung wird nicht mehr vorgegeben."
+msgstr "La suppression du bruit n'est plus activée par défaut."

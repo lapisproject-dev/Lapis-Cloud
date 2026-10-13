@@ -40,6 +40,7 @@ import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
+import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.federation.OidcGuestClaims
@@ -745,6 +746,49 @@ class ConferenceBreakoutServiceTest :
             }
         }
 
+        test("requestBreakoutJoinToken: the token carries the organisation's noise suppression default (V1.9.124)") {
+            fun setDefault(value: Boolean) =
+                transaction {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[noiseSuppressionDefault] = value
+                    }
+                }
+            val fake = FakeBreakoutLiveKitAdminClient()
+            val moderator = createTestMember("bo-noise-mod@example.org")
+            val member = createTestMember("bo-noise-member@example.org")
+            val (roomId, _) = createTestParentRoom(fake, moderator, listOf(member))
+            try {
+                testApplication {
+                    application {
+                        install(StatusPages) { installConferenceBreakoutExceptionHandlers() }
+                        routing { registerConferenceBreakoutTestRoutes(liveKitAdminClient = fake) }
+                    }
+                    val created =
+                        client.post("/test/create-breakout-rooms?roomId=$roomId&roomCount=1&manualMemberId=$member&manualIndex=0") {
+                            header("X-Member-Id", moderator.toString())
+                        }
+                    val breakoutRoomId =
+                        created
+                            .bodyAsText()
+                            .split(";")
+                            .first()
+                            .split("|")[0]
+                    setDefault(false)
+                    client
+                        .post("/test/request-breakout-noise?breakoutRoomId=$breakoutRoomId") {
+                            header("X-Member-Id", member.toString())
+                        }.bodyAsText() shouldBe "false"
+                    setDefault(true)
+                    client
+                        .post("/test/request-breakout-noise?breakoutRoomId=$breakoutRoomId") {
+                            header("X-Member-Id", member.toString())
+                        }.bodyAsText() shouldBe "true"
+                }
+            } finally {
+                setDefault(false)
+            }
+        }
+
         test(
             "requestBreakoutJoinToken: LAPIS_TURNS_URLS configured -- mints ONE ConferenceTurnServer whose urls carry both turn: and turns: (K4 coverage)",
         ) {
@@ -1163,6 +1207,11 @@ private fun Route.registerConferenceBreakoutTestRoutes(
         val q = call.request.queryParameters
         val dto = service.requestBreakoutJoinToken(q["breakoutRoomId"]!!)
         call.respondText(dto.toPipeString())
+    }
+    post("/test/request-breakout-noise") {
+        call.respondText(
+            service(call).requestBreakoutJoinToken(call.request.queryParameters["breakoutRoomId"]!!).noiseSuppressionDefault.toString(),
+        )
     }
     post("/test/return-to-main-room") {
         val service = service(call)

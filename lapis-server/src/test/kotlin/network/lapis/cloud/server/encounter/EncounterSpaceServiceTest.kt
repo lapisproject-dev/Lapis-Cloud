@@ -9,6 +9,7 @@ import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgm
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.EncounterConsentAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.EncounterSpaceRoleTable
+import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
@@ -27,6 +28,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.time.Duration.Companion.minutes
 import kotlin.uuid.Uuid
 
@@ -473,6 +475,42 @@ class EncounterSpaceServiceTest :
                 boardEntry.join.role.name shouldBe "MODERATOR"
 
                 fx.participationCount(room) shouldBe 4L
+            }
+        }
+
+        test("enterSpace: the instance noise suppression default never reaches the encounter room's join answer (V1.9.124)") {
+            fun setDefault(value: Boolean) =
+                transaction {
+                    OrganizationSettingsTable.update({
+                        OrganizationSettingsTable.id eq
+                            network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
+                    }) {
+                        it[noiseSuppressionDefault] = value
+                    }
+                }
+            val rig = EncounterRig()
+            val boardId = board()
+            val pulpit = fx.createMember()
+            val member = fx.createMember()
+            val space = fx.createSpace(createdBy = boardId)
+            fx.setRole(spaceId = space, memberId = pulpit, role = EncounterSpaceRole.PULPIT)
+            setDefault(true)
+            try {
+                encounterApp {
+                    rig.asMember(client = client, member = pulpit) { it.openSpace(space.toString()) }.getOrThrow()
+                    for (who in listOf(member, pulpit)) {
+                        val entry =
+                            rig
+                                .asMember(
+                                    client = client,
+                                    member = who,
+                                ) { it.enterSpace(spaceId = space.toString(), consent = null) }
+                                .getOrThrow()
+                        entry.join.noiseSuppressionDefault shouldBe false
+                    }
+                }
+            } finally {
+                setDefault(false)
             }
         }
 

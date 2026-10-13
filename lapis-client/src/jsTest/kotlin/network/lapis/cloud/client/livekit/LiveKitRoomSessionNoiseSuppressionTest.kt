@@ -5,6 +5,7 @@ import kotlinx.coroutines.promise
 import network.lapis.cloud.client.NoiseSuppressionFailure
 import network.lapis.cloud.client.NoiseSuppressionStageException
 import network.lapis.cloud.client.NoiseSuppressionUnavailable
+import network.lapis.cloud.client.NoiseSuppressionWarmup
 import kotlin.js.Promise
 import kotlin.js.unsafeCast
 import kotlin.test.Test
@@ -36,6 +37,10 @@ class LiveKitRoomSessionNoiseSuppressionTest {
         var settings: dynamic = null
         var settingsTouched = 0
         var onSetProcessor: () -> Unit = {}
+
+        /** V1.9.124: `setProcessor` stays pending until [finishSetProcessor] (a browser promise that ends after the controller gave up). */
+        var deferSetProcessor = false
+        var finishSetProcessor: (() -> Unit)? = null
         val constraintCalls = mutableListOf<dynamic>()
 
         fun asTrack(): dynamic {
@@ -45,7 +50,14 @@ class LiveKitRoomSessionNoiseSuppressionTest {
             t.setProcessor = { p: dynamic ->
                 setProcessorCalls++
                 onSetProcessor()
-                if (rejectWith != null) {
+                if (deferSetProcessor) {
+                    Promise<Unit> { resolve, _ ->
+                        finishSetProcessor = {
+                            processor = p
+                            resolve(Unit)
+                        }
+                    }
+                } else if (rejectWith != null) {
                     Promise.reject(rejectWith!!)
                 } else if (rejectSetProcessor) {
                     Promise.reject(IllegalStateException("init failed"))
@@ -111,6 +123,7 @@ class LiveKitRoomSessionNoiseSuppressionTest {
         withMicrophone: Boolean = true,
         publishEnabled: Boolean = true,
         context: FakeContext = FakeContext(),
+        useDefaultContextFactory: Boolean = false,
     ) {
         val track = FakeTrack()
         val fakeContext = context
@@ -153,9 +166,11 @@ class LiveKitRoomSessionNoiseSuppressionTest {
                 roomFactory = { _ -> asRoom() },
                 publishEnabled = publishEnabled,
             ).also { s ->
-                s.noiseAudioContextFactory = {
-                    created++
-                    jsContext
+                if (!useDefaultContextFactory) {
+                    s.noiseAudioContextFactory = {
+                        created++
+                        jsContext
+                    }
                 }
                 s.noiseProcessorFactory = {
                     val p: dynamic = js("({})")
@@ -309,6 +324,55 @@ class LiveKitRoomSessionNoiseSuppressionTest {
             assertNotNull(h.session.noiseSuppressionChain()).prepare()
             assertEquals(1, h.created)
             assertEquals(1, h.fakeContext.resumeCalls)
+        }
+
+    /** V1.9.124: the session's default factory takes the context that was started inside the join click, once. */
+    @Test
+    fun theSessionTakesTheContextWarmedUpInsideTheJoinClick_andNoSecondOneIsCreated() =
+        GlobalScope.promise {
+            val h = Harness(useDefaultContextFactory = true)
+            val previousFactory = NoiseSuppressionWarmup.contextFactory
+            val previousProbe = NoiseSuppressionWarmup.supportProbe
+            var factoryCalls = 0
+            NoiseSuppressionWarmup.contextFactory = {
+                factoryCalls++
+                h.jsContext
+            }
+            NoiseSuppressionWarmup.supportProbe = { null }
+            try {
+                NoiseSuppressionWarmup.take()
+                NoiseSuppressionWarmup.unlockFromGesture(effectiveOn = true)
+                assertEquals(1, factoryCalls)
+                h.connect()
+                assertNull(assertNotNull(h.session.noiseSuppressionChain()).attach())
+                assertEquals(1, factoryCalls, "the warm context was used, none was created for the session")
+                assertSame(h.jsContext, h.track.audioContext)
+                assertNull(NoiseSuppressionWarmup.take(), "the holder was emptied by the session")
+                h.session.disconnect()
+                assertTrue(h.fakeContext.closed, "the session owns and closes it")
+            } finally {
+                NoiseSuppressionWarmup.take()
+                NoiseSuppressionWarmup.contextFactory = previousFactory
+                NoiseSuppressionWarmup.supportProbe = previousProbe
+            }
+        }
+
+    /** V1.9.124: a `setProcessor` that ends AFTER the controller gave up must not leave a half-installed filter behind the "unavailable" state. */
+    @Test
+    fun aProcessorThatIsInstalledAfterTheTimeout_isTakenOutAgain() =
+        GlobalScope.promise {
+            val h = Harness()
+            h.track.deferSetProcessor = true
+            h.connect()
+            val chain = assertNotNull(h.session.noiseSuppressionChain())
+            val answer = kotlinx.coroutines.withTimeoutOrNull(50) { chain.attach() }
+            assertNull(answer, "the attach did not finish in time")
+            assertEquals(0, h.track.stopProcessorCalls)
+            val finish = assertNotNull(h.track.finishSetProcessor, "the browser finally installs it")
+            finish()
+            kotlinx.coroutines.delay(20)
+            assertEquals(1, h.track.stopProcessorCalls, "it is taken out again")
+            assertNull(h.track.processor)
         }
 
     @Test

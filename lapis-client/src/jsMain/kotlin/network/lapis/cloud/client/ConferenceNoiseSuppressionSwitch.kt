@@ -65,12 +65,14 @@ internal class NoiseSuppressionSwitchRow(
     private val serial = ++noiseSwitchSerial
     private val labelId = "lapis-noise-label-$serial"
     private val hintId = "lapis-noise-hint-$serial"
+    private val defaultId = "lapis-noise-default-$serial"
 
     val root: Div = parent.div(className = "lapis-noise-suppression-row")
     val switchButton: Button
     internal val status: Div
     private val unavailableTag: Span
     private val reasonLine: Div
+    private val defaultLine: Div
 
     init {
         val line = root.div(className = "lapis-noise-suppression-line")
@@ -83,13 +85,17 @@ internal class NoiseSuppressionSwitchRow(
         switchButton.setAttribute("role", "switch")
         switchButton.setAttribute("aria-checked", "false")
         switchButton.setAttribute("aria-labelledby", labelId)
-        switchButton.setAttribute("aria-describedby", hintId)
+        switchButton.setAttribute("aria-describedby", "$hintId $defaultId")
         val hint =
             root.div(
                 tr("Wird nur in diesem Browser verarbeitet. Gesang und Musik klingen damit verändert."),
                 className = "text-muted small",
             )
         hint.setAttribute("id", hintId)
+        // V1.9.124 -- plain text, no icon, no colour, never announced: shown only while the filter is wanted because of the instance default
+        defaultLine = root.div(tr("Voreinstellung der Instanz"), className = "text-muted small")
+        defaultLine.setAttribute("id", defaultId)
+        defaultLine.hide()
         reasonLine = root.div(className = "text-muted small")
         reasonLine.hide()
         status = root.div(className = "visually-hidden")
@@ -109,6 +115,7 @@ internal class NoiseSuppressionSwitchRow(
         announce: Boolean,
     ) {
         val unavailable = state as? NoiseSuppressionState.Unavailable
+        if (controller.fromDefault) defaultLine.show() else defaultLine.hide()
         switchButton.setAttrIfChanged("aria-checked", (state is NoiseSuppressionState.On).toString())
         switchButton.setAttrIfChanged("aria-disabled", (controller.busy || unavailable?.failure?.reason?.retryable == false).toString())
         if (unavailable != null) {

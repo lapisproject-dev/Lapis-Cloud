@@ -8,14 +8,13 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 /**
- * V1.9.114 -- the remembered choice of the noise suppression: one key, only the exact value `"on"` counts as on, a manipulated or empty
- * value means off, and a storage that throws (private window, blocked site data) means "off" without any message, the choice living on in
- * memory for the page.
+ * V1.9.114 / V1.9.124 -- the remembered choice of the noise suppression: one key with THREE states. `"on"` is on, `"off"` is off (stored
+ * explicitly, since V1.9.124 -- before, off removed the key), anything else (missing, empty, manipulated) is "never chosen" (`null`), where
+ * the instance default applies. A storage that throws (private window, blocked site data) is "never chosen" without any message, the
+ * person's choice living on in memory for the page.
  */
 class NoiseSuppressionPreferenceTest {
     @BeforeTest
@@ -32,29 +31,48 @@ class NoiseSuppressionPreferenceTest {
     }
 
     @Test
-    fun defaultIsOff_andOnRoundTrips_andOffRemovesTheKey() {
+    fun neverChosenIsNull_andOnAndOffRoundTrip_andOffIsStoredExplicitly() {
         val preference = LocalStorageNoiseSuppressionPreference()
-        assertFalse(preference.read())
+        assertNull(preference.read(), "nothing stored: never chosen")
         preference.write(true)
         assertEquals("on", localStorage[NOISE_SUPPRESSION_STORAGE_KEY])
-        assertTrue(LocalStorageNoiseSuppressionPreference().read(), "a fresh reader (a new page) sees it")
+        assertEquals(true, LocalStorageNoiseSuppressionPreference().read(), "a fresh reader (a new page) sees it")
         preference.write(false)
-        assertNull(localStorage[NOISE_SUPPRESSION_STORAGE_KEY], "off leaves nothing behind")
-        assertFalse(LocalStorageNoiseSuppressionPreference().read())
+        assertEquals("off", localStorage[NOISE_SUPPRESSION_STORAGE_KEY], "off is a choice and is written, never a removed key")
+        assertEquals(false, LocalStorageNoiseSuppressionPreference().read())
     }
 
     @Test
-    fun onlyTheExactValueOnCounts() {
-        listOf("", "ON", "On", "true", "1", " on", "on ", "yes", "{\"on\":true}", "on\u0000").forEach { value ->
+    fun onlyTheExactValuesOnAndOffCount_anythingElseIsNeverChosen() {
+        listOf(
+            "",
+            "ON",
+            "On",
+            "OFF",
+            "Off",
+            "true",
+            "false",
+            "1",
+            "0",
+            " on",
+            "on ",
+            " off",
+            "yes",
+            "{\"on\":true}",
+            "on\u0000",
+            "off\u0000",
+        ).forEach { value ->
             localStorage[NOISE_SUPPRESSION_STORAGE_KEY] = value
-            assertFalse(LocalStorageNoiseSuppressionPreference().read(), "'$value' is not on")
+            assertNull(LocalStorageNoiseSuppressionPreference().read(), "'$value' is not a choice")
         }
         localStorage[NOISE_SUPPRESSION_STORAGE_KEY] = "on"
-        assertTrue(LocalStorageNoiseSuppressionPreference().read())
+        assertEquals(true, LocalStorageNoiseSuppressionPreference().read())
+        localStorage[NOISE_SUPPRESSION_STORAGE_KEY] = "off"
+        assertEquals(false, LocalStorageNoiseSuppressionPreference().read())
     }
 
     @Test
-    fun aThrowingStorage_means_off_andTheChoiceLivesInMemory_withoutAMessage() {
+    fun aThrowingStorage_isNeverChosen_andTheChoiceLivesInMemory_withoutAMessage() {
         val scope = window.asDynamic()
         val original = js("Object").getOwnPropertyDescriptor(scope, "localStorage")
         try {
@@ -63,11 +81,11 @@ class NoiseSuppressionPreferenceTest {
             blocked.get = { throw IllegalStateException("blocked") }
             js("Object").defineProperty(scope, "localStorage", blocked)
             val preference = LocalStorageNoiseSuppressionPreference()
-            assertFalse(preference.read(), "reading a blocked storage is off")
+            assertNull(preference.read(), "reading a blocked storage: never chosen")
             preference.write(true) // must not throw
-            assertTrue(preference.read(), "the choice is kept for this page")
+            assertEquals(true, preference.read(), "the choice is kept for this page")
             preference.write(false)
-            assertFalse(preference.read())
+            assertEquals(false, preference.read(), "an explicit off survives in memory too")
         } finally {
             js("Object").defineProperty(scope, "localStorage", original)
         }

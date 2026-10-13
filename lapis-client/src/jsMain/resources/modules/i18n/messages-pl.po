@@ -23410,3 +23410,18 @@ msgstr "Osoba podróżująca wpisuje IBAN do zwrotu sama we własnym wniosku po 
 
 msgid "Bitte geben Sie die IBAN ein."
 msgstr "Proszę podać IBAN."
+
+msgid "Voreinstellung der Instanz"
+msgstr "Ustawienie domyślne instancji"
+
+msgid "Rauschunterdrückung vorgeben"
+msgstr "Ustaw tłumienie szumów jako domyślne"
+
+msgid "Wer die Rauschunterdrückung noch nie selbst eingestellt hat, startet in Videokonferenzen mit eingeschaltetem Filter. Was eine Person selbst eingestellt hat, bleibt immer erhalten."
+msgstr "Osoba, która nigdy sama nie ustawiła tłumienia szumów, rozpoczyna wideokonferencje z włączonym filtrem. Własny wybór danej osoby zawsze zostaje zachowany."
+
+msgid "Rauschunterdrückung wird vorgegeben."
+msgstr "Tłumienie szumów jest teraz ustawieniem domyślnym."
+
+msgid "Rauschunterdrückung wird nicht mehr vorgegeben."
+msgstr "Tłumienie szumów nie jest już ustawieniem domyślnym."

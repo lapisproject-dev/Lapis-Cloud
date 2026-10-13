@@ -83,7 +83,7 @@ class NoiseSuppressionRetryControllerTest {
                 assertTrue(line.endsWith("ctxState=suspended ctxRate=48000 trackRate=44100 trackChannels=2"), line)
                 assertEquals(listOf(true), rig.chain.browserNoiseSuppression.takeLast(1), "the browser's own reduction is back on")
                 assertTrue(rig.chain.detachCalls >= 1)
-                assertTrue(rig.preference.stored, "the choice stays on for $code")
+                assertEquals(true, rig.preference.stored, "the choice stays on for $code")
                 assertTrue(rig.preference.writes.isEmpty())
                 rig.controller.onMicTrackPublished()
                 if (code.retryable) assertEquals(1, rig.logger.lines.size, "the same stage and trigger is logged once only")
@@ -323,7 +323,7 @@ class NoiseSuppressionRetryControllerTest {
             assertEquals(NoiseSuppressionUnavailable.RESTART, rig.reason())
             assertTrue(rig.chain.detachCalls > detachBefore)
             assertEquals(true, rig.chain.browserNoiseSuppression.last())
-            assertTrue(rig.preference.stored, "the choice stays")
+            assertEquals(true, rig.preference.stored, "the choice stays")
             assertEquals(1, rig.logger.lines.size)
             assertTrue(
                 rig.logger.lines

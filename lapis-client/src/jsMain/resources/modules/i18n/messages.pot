@@ -22478,3 +22478,18 @@ msgstr ""
 
 msgid "Bitte geben Sie die IBAN ein."
 msgstr ""
+
+msgid "Voreinstellung der Instanz"
+msgstr ""
+
+msgid "Rauschunterdrückung vorgeben"
+msgstr ""
+
+msgid "Wer die Rauschunterdrückung noch nie selbst eingestellt hat, startet in Videokonferenzen mit eingeschaltetem Filter. Was eine Person selbst eingestellt hat, bleibt immer erhalten."
+msgstr ""
+
+msgid "Rauschunterdrückung wird vorgegeben."
+msgstr ""
+
+msgid "Rauschunterdrückung wird nicht mehr vorgegeben."
+msgstr ""

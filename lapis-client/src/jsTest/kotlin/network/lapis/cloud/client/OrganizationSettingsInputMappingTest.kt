@@ -129,6 +129,18 @@ class OrganizationSettingsInputMappingTest {
         assertEquals(expected, fullyPopulated.toInput())
     }
 
+    /**
+     * V1.9.124 -- `noiseSuppressionDefault` is READ-ONLY here, like `sepaDebitEnabled`: it is not a field of the input at all, so no wholesale
+     * replace can carry (or reset) it; it changes only through `updateNoiseSuppressionDefault`.
+     */
+    @Test
+    fun toInput_neverCarriesTheNoiseSuppressionDefault_whateverTheDtoSays() {
+        val on = fullyPopulated.copy(noiseSuppressionDefault = true)
+        val off = fullyPopulated.copy(noiseSuppressionDefault = false)
+        assertEquals(off.toInput(), on.toInput(), "the default has no influence on the input")
+        assertEquals(fullyPopulated.toInput(), on.toInput())
+    }
+
     /** Keine stille Umdeutung von `null`/`false`: ein leeres DTO bleibt leer. */
     @Test
     fun toInput_onAnEmptyDto_keepsEveryFieldAtItsDefault() {

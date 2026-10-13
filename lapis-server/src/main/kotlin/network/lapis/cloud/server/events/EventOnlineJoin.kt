@@ -22,6 +22,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
+import network.lapis.cloud.server.rpc.NoiseSuppressionDefaultStore
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.isPrivileged
@@ -248,6 +249,7 @@ internal class EventOnlineJoin(
                     expiresAt = minted.expiresAt.toLocalDateTime(TimeZone.UTC),
                     turnServers = turn,
                     eventId = eventId.toString(),
+                    noiseSuppressionDefault = NoiseSuppressionDefaultStore.currentValue(),
                 ),
         )
     }

@@ -856,6 +856,7 @@ class ConferenceBreakoutService(
             role = role,
             expiresAt = minted.expiresAt.toLocalDateTime(ServerClock.zone),
             turnServers = turnServers,
+            noiseSuppressionDefault = NoiseSuppressionDefaultStore.currentValue(),
         )
     }
 

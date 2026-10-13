@@ -311,6 +311,7 @@ class ConferenceService(
             serverUrl = if (config.enabled) config.livekitUrl else null,
             maxParticipants = config.maxParticipants,
             eventMaxParticipants = config.eventMaxParticipants,
+            noiseSuppressionDefault = NoiseSuppressionDefaultStore.currentValue(),
         )
     }
 
@@ -653,6 +654,7 @@ class ConferenceService(
             role = prep.role,
             expiresAt = minted.expiresAt.toLocalDateTime(ServerClock.zone),
             turnServers = turnServers,
+            noiseSuppressionDefault = NoiseSuppressionDefaultStore.currentValue(),
         )
     }
 

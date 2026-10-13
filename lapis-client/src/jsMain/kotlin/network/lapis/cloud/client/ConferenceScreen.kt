@@ -431,6 +431,8 @@ fun renderConferenceScreen(
                     return
                 }
         statusLine.hide()
+        // V1.9.124: the organisation's noise suppression default, known before the first join click (see NoiseSuppressionWarmup)
+        NoiseSuppressionWarmup.remember(availability.noiseSuppressionDefault)
         if (!availability.enabled) {
             renderDisabledPanel(lobbyPanel)
             return
@@ -675,6 +677,7 @@ private fun renderLobby(
     // runGuardedAction: a second click while the first still runs is a no-op (exactly one room); `disabled` is restored in its finally.
     startButton.onClick {
         ConferenceJoinLeaveSounds.unlockFromGesture()
+        NoiseSuppressionWarmup.unlockFromGesture()
         runGuardedAction(startButton) {
             // V1.9.70: one conference per tab -- no room is created while another call (or its end state) is still in the dock
             if (!ConferenceDock.canJoin()) return@runGuardedAction
@@ -745,6 +748,7 @@ private fun renderRoomCard(
     joinButton.onClick {
         // V1.9.120: the tones need an audio context that was created inside a click, before the first await
         ConferenceJoinLeaveSounds.unlockFromGesture()
+        NoiseSuppressionWarmup.unlockFromGesture()
         joinButton.disabled = true
         AppScope.launch {
             joinConferenceRoomAndEnterCall(room, lobbyPanel, callPanel, setActiveSession, rejoinGuard, onReturnedToLobby)
@@ -871,6 +875,7 @@ private suspend fun awaitEventGuestNotice(host: SimplePanel): Boolean {
     form.buttons(primary = joinButton)
     joinButton.onClick {
         ConferenceJoinLeaveSounds.unlockFromGesture()
+        NoiseSuppressionWarmup.unlockFromGesture()
         form.submit(joinButton) { decision.complete(true) }
     }
     return decision.await()
@@ -1736,9 +1741,11 @@ private fun enterCall(
     var noiseChainProvider: () -> NoiseSuppressionChain? = { null }
     val noiseSuppressionController =
         ConferenceNoiseSuppressionController(
-            preference = LocalStorageNoiseSuppressionPreference(),
+            preference = NoiseSuppressionWarmup.preference,
             chain = { noiseChainProvider() },
             capability = ::noiseSuppressionSupportInThisBrowser,
+            // V1.9.124: the organisation's default (from the join token); the pulpit of the encounter room never gets one
+            instanceDefault = joinToken.noiseSuppressionDefault,
         )
     NoiseSuppressionSwitchRow(deviceGroup, noiseSuppressionController)
     // V1.9.120 -- personal switch of the join/leave tones, directly below the noise suppression (a sound setting of the same kind).
@@ -5439,7 +5446,11 @@ private fun enterCall(
             }
         }
     }
-    micButton.onClick { toggleMic() }
+    micButton.onClick {
+        // V1.9.124: the microphone starts off, so the first switch-on is a click: a good moment to start the filter's audio context
+        NoiseSuppressionWarmup.unlockFromGesture()
+        toggleMic()
+    }
     toggleMicRef = ::toggleMic
 
     fun toggleCamera() {

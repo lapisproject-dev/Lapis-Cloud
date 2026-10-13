@@ -87,6 +87,9 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     // TODO default = "TRUE"
     // Welle V1.9.38 -- hand-edited, see 11-organization-settings.kuml.kts file header addendum.
     public val timezone: Column<String> = varchar("timezone", 64).default("Europe/Berlin")
+    // Welle V1.9.124 -- hand-edited, see 11-organization-settings.kuml.kts.
+    public val noiseSuppressionDefault: Column<Boolean> = bool("noise_suppression_default")
+    // TODO default = "FALSE"
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

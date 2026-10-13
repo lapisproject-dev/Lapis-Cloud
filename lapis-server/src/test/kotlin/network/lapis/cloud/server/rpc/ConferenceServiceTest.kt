@@ -45,6 +45,7 @@ import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OidcGuestProfileTable
+import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.SessionTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.federation.OidcGuestClaims
@@ -523,6 +524,47 @@ class ConferenceServiceTest :
                             .count()
                     }
                 openCount shouldBe 2L
+            }
+        }
+
+        test(
+            "V1.9.124: the join token and the availability answer carry the organisation's noise suppression default (off unless an ADMIN set it)",
+        ) {
+            fun setDefault(value: Boolean) =
+                transaction {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[noiseSuppressionDefault] = value
+                    }
+                }
+            try {
+                testApplication {
+                    application {
+                        install(StatusPages) { installConferenceExceptionHandlers() }
+                        routing {
+                            registerConferenceTestRoutes(
+                                liveKitAdminClient = FakeLiveKitAdminClient(),
+                                rateLimiter = LoginRateLimiter(),
+                                enabledConfig = ENABLED_CONFIG,
+                                disabledConfig = DISABLED_CONFIG,
+                            )
+                        }
+                    }
+                    val creator = createTestMember("conf-noise-creator@example.org")
+                    val other = createTestMember("conf-noise-other@example.org")
+                    val roomId = createRoom(client = client, creatorId = creator, title = "Rauschen")
+
+                    setDefault(false)
+                    client.post("/test/join-room-noise?roomId=$roomId") { header("X-Member-Id", creator.toString()) }.bodyAsText() shouldBe
+                        "false"
+                    client.get("/test/availability-noise") { header("X-Member-Id", creator.toString()) }.bodyAsText() shouldBe "false"
+
+                    setDefault(true)
+                    client.post("/test/join-room-noise?roomId=$roomId") { header("X-Member-Id", other.toString()) }.bodyAsText() shouldBe
+                        "true"
+                    client.get("/test/availability-noise") { header("X-Member-Id", other.toString()) }.bodyAsText() shouldBe "true"
+                }
+            } finally {
+                setDefault(false)
             }
         }
 
@@ -2708,6 +2750,14 @@ private fun Route.registerConferenceTestRoutes(
             }
         val dto = service.joinRoom(roomId = q["roomId"]!!, guestConsent = consent)
         call.respondText(dto.toPipeString())
+    }
+    // V1.9.124 -- the organisation's noise suppression default as carried by the join token and the availability answer
+    get("/test/availability-noise") {
+        call.respondText(service(call, enabledConfig).getAvailability().noiseSuppressionDefault.toString())
+    }
+    post("/test/join-room-noise") {
+        val dto = service(call, enabledConfig).joinRoom(roomId = call.request.queryParameters["roomId"]!!, guestConsent = null)
+        call.respondText(dto.noiseSuppressionDefault.toString())
     }
     get("/test/guest-join-info") {
         val service = service(call, enabledConfig)

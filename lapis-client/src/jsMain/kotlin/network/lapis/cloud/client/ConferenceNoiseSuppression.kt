@@ -185,36 +185,46 @@ internal object NoiseSuppressionAssets {
     const val WASM_MAX_BYTES = 1_048_576
 }
 
-/** The one key of the remembered choice. `"on"` means on, anything else (also a manipulated value) means off. */
+/** The one key of the remembered choice. `"on"` = on, `"off"` = off, anything else (empty, manipulated) = never chosen. */
 internal const val NOISE_SUPPRESSION_STORAGE_KEY = "lapis.audio.noiseSuppression.v1"
 
-/** The remembered choice. A seam: a `jsTest` hands over a fake. Never throws. */
+/**
+ * The remembered choice. A seam: a `jsTest` hands over a fake. Never throws.
+ *
+ * V1.9.124 -- three states: `true` = the person chose on, `false` = the person chose off (stored explicitly, no longer "key removed"),
+ * `null` = never chosen (then the instance default of the organisation applies).
+ */
 internal interface NoiseSuppressionPreference {
-    fun read(): Boolean
+    fun read(): Boolean?
 
     fun write(on: Boolean)
 }
 
 /**
- * `localStorage`; a blocked or throwing storage means "off" and the choice lives in memory for the rest of the page (no message). Only the
- * exact value `"on"` counts as on. The value is not security relevant and says nothing about the person but this one choice.
+ * `localStorage`; a blocked or throwing storage means "never chosen" unless the person chose in this page (then the choice lives in memory
+ * for the rest of the page, no message). Only the exact values `"on"` and `"off"` count. The value is not security relevant and says
+ * nothing about the person but this one choice.
  */
 internal class LocalStorageNoiseSuppressionPreference : NoiseSuppressionPreference {
     private var inMemory: Boolean? = null
 
-    override fun read(): Boolean {
+    override fun read(): Boolean? {
         inMemory?.let { return it }
         return try {
-            localStorage[NOISE_SUPPRESSION_STORAGE_KEY] == "on"
+            when (localStorage[NOISE_SUPPRESSION_STORAGE_KEY]) {
+                "on" -> true
+                "off" -> false
+                else -> null
+            }
         } catch (e: Throwable) {
-            false
+            null
         }
     }
 
     override fun write(on: Boolean) {
         inMemory = on
         try {
-            if (on) localStorage[NOISE_SUPPRESSION_STORAGE_KEY] = "on" else localStorage.removeItem(NOISE_SUPPRESSION_STORAGE_KEY)
+            localStorage[NOISE_SUPPRESSION_STORAGE_KEY] = if (on) "on" else "off"
         } catch (e: Throwable) {
             // blocked storage: the choice is kept for this page only
         }

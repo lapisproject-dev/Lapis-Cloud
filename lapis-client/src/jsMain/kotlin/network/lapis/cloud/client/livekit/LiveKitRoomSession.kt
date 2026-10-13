@@ -1092,7 +1092,16 @@ class LiveKitRoomSession(
     private var noiseAudioContext: dynamic = null
 
     /** Test seam: builds the audio context (`null` = this browser has none). The real one asks for 48 kHz, which RNNoise needs. */
-    internal var noiseAudioContextFactory: () -> dynamic = ::browserNoiseAudioContext
+    internal var noiseAudioContextFactory: () -> dynamic = {
+        // V1.9.124: a context warmed up inside the person's join click (instance default) is handed over to this session once
+        val warm: dynamic =
+            network.lapis.cloud.client.NoiseSuppressionWarmup
+                .take()
+        if (warm == null || warm == undefined) browserNoiseAudioContext() else warm
+    }
+
+    /** V1.9.124 -- counts the attach attempts; a late `setProcessor` of an abandoned attempt may only undo itself, never a newer one. */
+    private var noiseAttachGeneration = 0
 
     /** Test seam: builds the LiveKit processor object ([asLiveKitProcessor] of a [RnnoiseTrackProcessor]). */
     internal var noiseProcessorFactory: () -> dynamic =
@@ -1173,8 +1182,11 @@ class LiveKitRoomSession(
             }
             val installed = track.getProcessor()
             if (installed != null && installed != undefined && installed.name == RNNOISE_LIVEKIT_PROCESSOR_NAME) return null
+            val generation = ++noiseAttachGeneration
+            var pending: Promise<dynamic>? = null
             return try {
-                track.setProcessor(noiseProcessorFactory()).await()
+                pending = track.setProcessor(noiseProcessorFactory()).unsafeCast<Promise<dynamic>>()
+                pending.await()
                 if (ctx.state != "running") {
                     runCatching { track.stopProcessor().await() }
                     NoiseSuppressionFailure(NoiseSuppressionUnavailable.CONTEXT_NOT_RUNNING, null, "state=${ctx.state}")
@@ -1182,6 +1194,20 @@ class LiveKitRoomSession(
                     null
                 }
             } catch (e: CancellationException) {
+                // V1.9.124: the controller gave up (timeout) but the browser promise may still finish and install the filter after the
+                // switch says "unavailable". If it does (and no newer attempt started), take it out again: no half-installed filter.
+                val late = pending
+                if (late != null) {
+                    runCatching {
+                        late.then(
+                            onFulfilled = { _: dynamic ->
+                                if (generation == noiseAttachGeneration) runCatching { track.stopProcessor() }
+                                Unit
+                            },
+                            onRejected = { _: Throwable -> Unit },
+                        )
+                    }
+                }
                 throw e
             } catch (e: Throwable) {
                 runCatching { track.stopProcessor().await() }
