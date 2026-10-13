@@ -50,7 +50,7 @@ class ConferenceTitleRowStartDomTest {
             memberId = "member-1",
             displayName = "Dana Keller",
             role = AccountRole.MEMBER,
-            status = MemberStatus.ACTIVE,
+            status = if (isGuest) MemberStatus.GUEST else MemberStatus.ACTIVE,
             expiresAt = LocalDateTime(2099, 1, 1, 0, 0),
             isGuest = isGuest,
         )

@@ -68,7 +68,7 @@ class ClientConferenceRejoinTripwireTest :
         test("the automatic decision goes through decideAfterDisconnect with the shared guard, and DuplicateIdentity skips the RPCs") {
             val screen = code(source("ConferenceScreen.kt"))
             screen shouldContain "decideAfterDisconnect(cause, resolved, rejoinGuard::tryConsume)"
-            screen shouldContain "if (cause == DisconnectCause.DuplicateIdentity) null else resolvePostDisconnectDestination(room.id)"
+            screen shouldContain "if (cause == DisconnectCause.DuplicateIdentity) null else resolvePostDisconnectDestination(room)"
             // V1.9.70: ONE guard for the whole conference dock, created in ConferenceDock.kt -- not in the screen (it would be one per route
             // visit) and never inside enterCall (each recursion would reset it). The screen only reads it from the dock.
             screen shouldContain "val rejoinGuard = ConferenceDock.rejoinGuard"

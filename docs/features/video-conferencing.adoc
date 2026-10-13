@@ -251,3 +251,23 @@ When somebody joins or leaves a call, every other participant hears one short, q
 * Autoplay unlocking, `AudioContext.setSinkId` and the actual sound were NOT verified in a real browser, only against a fake audio context (the tests check frequencies, levels, scheduling and that nothing throws). Whether the tones are pleasant and quiet enough has not been listened to.
 * A reconnect sounds once (the leave), by design of the shared 5-second window.
 * The recorder filter is defensive (kind `EGRESS` or the `EG_` prefix); how the egress participant of the current LiveKit setup actually appears to a client was not observed.
+
+== Friends and guests in a conference (V1.9.126)
+
+A person without a membership can take part in a conference: either a *friend* (a self-registered account on this server, no home server) or a *guest* (a federated account that signs in through its own home server). Both have the status class `NON_MEMBER`, get the same lobby ("Als Gast beitreten") and the same rights in a call. Before V1.9.126 the lobby was chosen by the session flag `isGuest`, which is `false` for a friend, so a friend landed in the member lobby, whose room list is members-only, and saw "Keine Berechtigung". The lobby is now chosen by the member status (`conferenceLobbyKindOf`).
+
+To invite a friend:
+
+. The friend has a friend account on this server (see the friends documentation); a guest signs in through the home server.
+. The moderator opens the room, then "Mehr", and clicks "Gäste anderer Server zulassen". The label also means friend accounts; a help text under the row says so. (Renaming the button is deferred.)
+. The moderator clicks "Einladung kopieren" and sends the text. It contains the room identifier.
+. The friend opens "Videokonferenz" and enters the identifier under "Als Gast beitreten".
+. The friend confirms the data protection notice (version `2026-10-13.v1`) and joins.
+
+Things to know:
+
+* Closing the guest access ("Gastzugang beenden") removes every connected guest *including friends* at once.
+* `getRoom` and `listActiveRooms` stay members-only: a friend never sees a room list and cannot open a room by its link; the identifier is the only way in. There is no deep link for friends.
+* After a short network drop a friend or guest is re-joined automatically like a member; the room is not looked up again (that call is members-only), the join token request decides.
+* The consent text names no home server any more in its first layer (a friend has none); the version changed from `2026-08-16.v1` to `2026-10-13.v1`.
+* `FriendGuestConferenceParityTest` pins that a friend and a guest get the same result from every conference RPC; the only documented differences are `callerIsGuest` of `getGuestJoinInfo` and the home server shown in `listParticipants`.

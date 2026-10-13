@@ -32,6 +32,7 @@ class ConferenceGuestJoinUiTest {
         roomActive: Boolean = true,
         allowsFederationGuests: Boolean = true,
         title: String = "Vorstandssitzung",
+        callerIsGuest: Boolean = true,
     ) = ConferenceGuestJoinInfoDto(
         roomId = "11111111-1111-1111-1111-111111111111",
         title = title,
@@ -40,7 +41,7 @@ class ConferenceGuestJoinUiTest {
         organizationName = "Partei der Vernunft",
         createdByMemberId = "22222222-2222-2222-2222-222222222222",
         createdByDisplayName = "Erika Musterfrau",
-        callerIsGuest = true,
+        callerIsGuest = callerIsGuest,
         disclaimer = disclaimer(),
     )
 
@@ -62,6 +63,29 @@ class ConferenceGuestJoinUiTest {
         val reason = conferenceGuestJoinBlockedReason(joinInfo(allowsFederationGuests = false))
         assertTrue(reason!!.contains("Vorstandssitzung"))
         assertTrue(reason.contains("lässt derzeit keine Gäste anderer Server zu"))
+    }
+
+    @Test
+    fun blockedReason_notOptedIn_friend_makesNoClaimAboutOtherServers() {
+        val reason = conferenceGuestJoinBlockedReason(joinInfo(allowsFederationGuests = false, callerIsGuest = false))
+        assertTrue(reason!!.contains("Vorstandssitzung"))
+        assertTrue(reason.contains("lässt derzeit keine Gäste zu"))
+        assertFalse(reason.contains("anderer Server"))
+    }
+
+    @Test
+    fun consentControllerLine_guestNamesHomeServer_friendDoesNot() {
+        assertTrue(conferenceGuestConsentControllerLine(joinInfo(callerIsGuest = true)).contains("nicht Ihr eigener Heimserver"))
+        val friend = conferenceGuestConsentControllerLine(joinInfo(callerIsGuest = false))
+        assertFalse(friend.contains("Heimserver"))
+        assertTrue(friend.contains("verantwortlich"))
+    }
+
+    @Test
+    fun guestAccessHelpText_explainsWhoCountsAsGuest() {
+        val text = conferenceGuestAccessHelpText()
+        assertTrue(text.contains("Freund-Konten"))
+        assertTrue(text.contains("Einladung"))
     }
 
     @Test
@@ -130,6 +154,9 @@ class ConferenceGuestJoinUiTest {
         assertTrue(text.contains("Partei der Vernunft"))
         assertTrue(text.contains("#/conference"))
         assertTrue(text.contains("https://cloud.example.org"))
+        // V1.9.126: step 1 no longer assumes a home server (a FRIEND has none).
+        assertFalse(text.contains("über Ihren eigenen Heimserver an."))
+        assertTrue(text.contains("mit Ihrem Konto auf diesem Server"))
     }
 
     /**

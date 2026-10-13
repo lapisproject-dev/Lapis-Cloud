@@ -6,6 +6,22 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.126 -- Friends can join a video conference
+
+A friend (status `FRIEND`) who got an invitation to a conference could not join: the screen showed "Keine Berechtigung".
+
+- **Cause.** The conference screen chose its lobby with `session.isGuest`, which is `false` for a friend. The friend landed in the member lobby, whose first call (`listActiveRooms`) is members-only. The server was right all along (`joinRoom` admits `FRIEND` on a room with guest access and a current consent); only the client picked the wrong screen. Fix: the lobby is chosen by `status in MemberStatusSets.NON_MEMBER` (`conferenceLobbyKindOf`, `isConferenceNonMember`), also for the auto-join, the resume of a call and the identity key of the dock.
+- **Texts.** Nothing says "home server" to a friend any more: the lobby sentence ("Sie sind mit Ihrem Freund-Konto auf diesem Server angemeldet ..."), the reason when a room is closed to guests, the responsibility line of the consent dialog and step 1 of the invitation text ("Melden Sie sich an: mit Ihrem Konto auf diesem Server oder über Ihren eigenen Heimserver."). The confirmation when guest access is closed now says "Gäste, auch Freund-Konten" (the server already removed friends; a new parity test pins it). Under the guest-access row a moderator sees a help text explaining that friend accounts count as guests (the button label "Gäste anderer Server zulassen" is unchanged, renaming it is deferred). Seven catalogs updated (new msgids, two old ones removed).
+- **Consent text version `2026-10-13.v1`** (was `2026-08-16.v1`). Only one sentence of layer 1 changed: "Die Datenschutzerklärung eines anderen Servers, über den Sie sich gegebenenfalls angemeldet haben, findet hier keine Anwendung." (instead of "... Ihres eigenen Heimservers ..."). The hash is recomputed. A browser tab that was open during the deploy still holds the old version and gets a conflict on joining; reloading fixes it (the version is read again on every join). **This is a versioned data protection text: the owner should confirm the sentence.**
+- **Dock identity key** now contains the status instead of `isGuest`: if the status of the session changes during a call (for example `FRIEND` to `ACTIVE`), the call ends like on an account change, because the conference role changes with it.
+- **After a network drop** a friend or guest is no longer asked `getRoom` (members-only, it answered Forbidden and the call was shown as "ended"); the room known from the join is used, and a removed or ended call is still detected by the failing token request.
+- **Tests.** `FriendGuestConferenceParityTest` (new): a federated guest and a friend get the same result from every conference RPC (availability, join info, join, participants, voting state, recording, streaming, whiteboard, notes, breakout, backgrounds, leave, closing the guest access); documented differences are only `callerIsGuest` and the home server in the participant list. `FriendDeniedEverywhereElseTest` pins the one allowed path. New client tests for the lobby decision (pure and DOM), the texts, the dock key and the post-disconnect handling. `ConferenceGuestConsentDisclaimerTest`: the old assertion "TEXT does not contain 'eines anderen Servers'" is narrowed to the blanket claim "Gast eines anderen Servers", because the new, conditional sentence contains the words.
+- **No migration, no RPC signature change.**
+- **Known limitations (honest status).**
+  - **Not verified with a real friend account on a real instance.** The owner should test with Dirk Hesse on the PdV instance (friend accounts there are unverified, `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` is off). The DOM tests run in a headless browser against stubs; the join itself (LiveKit) was not exercised.
+  - The button "Gäste anderer Server zulassen" still carries its old label.
+  - The event path (`joinEventOnline`) is covered by the existing `EventOnlineServiceRpcTest`, not by the new matrix.
+
 ### V1.9.125 -- Passengers on carpool offers
 
 A person can ride along on an offer in the Mitfahrerzentrale, and the driver decides -- in both directions. **This changes the access rule of the carpool centre.**

@@ -79,8 +79,10 @@ import network.lapis.cloud.shared.domain.EventGuestNotice
 import network.lapis.cloud.shared.domain.EventOnlineOutcome
 import network.lapis.cloud.shared.domain.MeetingDto
 import network.lapis.cloud.shared.domain.MeetingStatus
+import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.RoomBallotStatus
+import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.IConferenceBackgroundService
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
 import network.lapis.cloud.shared.rpc.IConferenceModerationService
@@ -441,8 +443,10 @@ fun renderConferenceScreen(
         // entirely different lobby: no "Besprechung jetzt starten" (createRoom is ACTIVE-only) and
         // no "Aktive Besprechungen" list (listActiveRooms is ACTIVE-only and would 403 on every
         // load, exactly the confusing generic toast this wave exists to avoid -- see design review
-        // "Accepted as planned"). See [renderGuestLobby].
-        if (AppState.session?.isGuest == true) {
+        // "Accepted as planned"). See [renderGuestLobby]. V1.9.126: the decision is the session's STATUS
+        // (GUEST or FRIEND = non-member, see [conferenceLobbyKindOf]), never `isGuest` -- a FRIEND is not
+        // a federated guest (`isGuest == false`) but has exactly the same conference rights.
+        if (conferenceLobbyKindOf(AppState.session) == ConferenceLobbyKind.GUEST_LOBBY) {
             // V1.5.1 Mobile App: no federation-guest-consent UI on mobile yet (see
             // Lapis-Cloud-Mobile's docs/known-limitations.adoc) -- autoJoinRoomId is simply
             // ignored for a GUEST/FRIEND caller, same as it always was for the web guest lobby.
@@ -498,6 +502,48 @@ fun renderConferenceScreen(
     }
     AppScope.launch { showLobby() }
 }
+
+/** Which lobby a session gets in the conference screen (V1.9.126). */
+internal enum class ConferenceLobbyKind { GUEST_LOBBY, MEMBER_LOBBY }
+
+/** True for a session whose status is in [MemberStatusSets.NON_MEMBER] (GUEST or FRIEND). `null` (no session) is not a non-member. */
+internal fun isConferenceNonMember(session: SessionInfoDto?): Boolean = session != null && session.status in MemberStatusSets.NON_MEMBER
+
+/** Pure lobby decision: every non-member (GUEST and FRIEND) gets the guest lobby, everyone else the member lobby. */
+internal fun conferenceLobbyKindOf(session: SessionInfoDto?): ConferenceLobbyKind =
+    if (isConferenceNonMember(session)) ConferenceLobbyKind.GUEST_LOBBY else ConferenceLobbyKind.MEMBER_LOBBY
+
+/** Intro sentence of the guest lobby; a FRIEND has no home server (V1.9.126). */
+internal fun conferenceGuestLobbyIntro(session: SessionInfoDto?): String =
+    if (session?.status == MemberStatus.FRIEND) {
+        tr(
+            "Sie sind mit Ihrem Freund-Konto auf diesem Server angemeldet. Geben Sie die Raum-Kennung aus Ihrer " +
+                "Einladung ein, um der Besprechung beizutreten.",
+        )
+    } else {
+        tr(
+            "Sie sind über Ihren eigenen Heimserver angemeldet. Geben Sie die Raum-Kennung aus Ihrer " +
+                "Einladung ein, um einer Besprechung auf diesem Server beizutreten.",
+        )
+    }
+
+/** Responsibility line of the guest consent dialog; the "not your home server" clause only fits a federated guest. */
+internal fun conferenceGuestConsentControllerLine(info: ConferenceGuestJoinInfoDto): String =
+    if (info.callerIsGuest) {
+        tr(
+            "Diese Organisation ist für die Verarbeitung Ihrer Audio-, Video- und Chatdaten in dieser " +
+                "Besprechung verantwortlich -- nicht Ihr eigener Heimserver.",
+        )
+    } else {
+        tr("Diese Organisation ist für die Verarbeitung Ihrer Audio-, Video- und Chatdaten in dieser Besprechung verantwortlich.")
+    }
+
+/** Help text for moderators under the guest-access row (V1.9.126). */
+internal fun conferenceGuestAccessHelpText(): String =
+    tr(
+        "Als Gäste gelten Personen ohne Mitgliedschaft: Freund-Konten auf diesem Server und Konten anderer Server. " +
+            "Schicken Sie ihnen nach dem Freischalten die Einladung.",
+    )
 
 /** A deep link that met a running call is consumed by that call's screen: the lobby built later (call ended) must not auto-join. */
 internal fun conferenceEffectiveAutoJoin(
@@ -806,7 +852,7 @@ private suspend fun joinEventAndEnterCall(
     rejoinGuard: AutoRejoinGuard,
     onReturnedToLobby: () -> Unit,
 ): Boolean {
-    val nonMember = AppState.session?.let { it.isGuest || it.status in MemberStatusSets.NON_MEMBER } == true
+    val nonMember = isConferenceNonMember(AppState.session)
     val consent: ConferenceGuestConsentAcknowledgmentInput? =
         if (nonMember) {
             if (!awaitEventGuestNotice(noticeHost)) return false
@@ -910,12 +956,7 @@ private fun renderGuestLobby(
     lobbyReturn.rendered = true
 
     lobbyPanel.h2(tr("Als Gast beitreten")) { addCssClass("h5") }
-    lobbyPanel.div(
-        tr(
-            "Sie sind über Ihren eigenen Heimserver angemeldet. Geben Sie die Raum-Kennung aus Ihrer " +
-                "Einladung ein, um einer Besprechung auf diesem Server beizutreten.",
-        ),
-    ) { addCssClasses("text-muted small") }
+    lobbyPanel.div(conferenceGuestLobbyIntro(AppState.session)) { addCssClasses("text-muted small") }
 
     val roomIdInput = lobbyPanel.text(label = tr("Raum-Kennung aus Ihrer Einladung"))
     val errorBox =
@@ -1015,10 +1056,18 @@ internal fun conferenceGuestJoinBlockedReason(info: ConferenceGuestJoinInfoDto):
         // widget-text tripwire's assignment regex) -- sanitize here, at the single source of this return value,
         // so every caller stays safe regardless of how it is later rendered.
         !info.roomActive -> sanitizeUntrustedI18nText(gettext("Die Besprechung „%1\" ist bereits beendet.", info.title))
-        !info.allowsFederationGuests ->
+        !info.allowsFederationGuests && info.callerIsGuest ->
             sanitizeUntrustedI18nText(
                 gettext(
                     "Die Besprechung „%1\" lässt derzeit keine Gäste anderer Server zu. " +
+                        "Bitten Sie die Moderation, den Gastzugang für diesen Raum freizuschalten.",
+                    info.title,
+                ),
+            )
+        !info.allowsFederationGuests ->
+            sanitizeUntrustedI18nText(
+                gettext(
+                    "Die Besprechung „%1\" lässt derzeit keine Gäste zu. " +
                         "Bitten Sie die Moderation, den Gastzugang für diesen Raum freizuschalten.",
                     info.title,
                 ),
@@ -1057,12 +1106,7 @@ private fun conferenceGuestConsentModal(
     modal.div(sanitizeUntrustedI18nText(gettext("Gastgeberin dieser Besprechung: %1", info.organizationName))) {
         addCssClasses("fw-bold mb-1")
     }
-    modal.div(
-        tr(
-            "Diese Organisation ist für die Verarbeitung Ihrer Audio-, Video- und Chatdaten in dieser " +
-                "Besprechung verantwortlich -- nicht Ihr eigener Heimserver.",
-        ),
-    ) { addCssClasses("text-muted small mb-2") }
+    modal.div(conferenceGuestConsentControllerLine(info)) { addCssClasses("text-muted small mb-2") }
 
     val layerOne = modal.div { setAttribute("role", "note") }
     layerOne.untrustedDiv(d.headline, className = "fw-bold mb-2")
@@ -1137,7 +1181,7 @@ internal fun conferenceInviteText(
     val hostedByClause = if (organizationName.isNullOrBlank()) "" else gettext(" bei %1", organizationName)
     return gettext(
         "Sie sind zur Besprechung „%1\"%2 eingeladen.\n" +
-            "1. Melden Sie sich über Ihren eigenen Heimserver an.\n" +
+            "1. Melden Sie sich an: mit Ihrem Konto auf diesem Server oder über Ihren eigenen Heimserver.\n" +
             "2. Öffnen Sie %3/app#/conference\n" +
             "3. Geben Sie dort diese Raum-Kennung ein: %4",
         roomTitle,
@@ -1809,6 +1853,8 @@ private fun enterCall(
     updateGuestAccessUi()
 
     if (canModerate) {
+        // V1.9.126: must keep `lapis-conference-config-row` so full-screen hides it (applyPanelVisibility()).
+        moreSheet.div(conferenceGuestAccessHelpText()) { addCssClasses("text-muted small lapis-conference-config-row") }
         val toggleButton = guestAccessRow.button("", style = ButtonStyle.WARNING)
         guestAccessToggleButton = toggleButton
         val inviteButton = guestAccessRow.button(tr("Einladung kopieren"), style = ButtonStyle.OUTLINESECONDARY)
@@ -1842,7 +1888,7 @@ private fun enterCall(
                     title = tr("Gastzugang beenden"),
                     message =
                         tr(
-                            "Bereits verbundene Gäste anderer Server werden sofort aus der Besprechung entfernt. " +
+                            "Bereits verbundene Gäste, auch Freund-Konten, werden sofort aus der Besprechung entfernt. " +
                                 "Neue Gäste können nicht mehr beitreten. Mitglieder Ihrer eigenen Organisation sind " +
                                 "nicht betroffen.",
                         ),
@@ -4827,7 +4873,7 @@ private fun enterCall(
         }
         val token =
             guarded { rpcService<IConferenceBreakoutService>().rejoinMainRoomToken(room.id) }
-                ?: if (AppState.session?.isGuest == true) null else guarded { rpcService<IConferenceService>().joinRoom(room.id) }
+                ?: if (isConferenceNonMember(AppState.session)) null else guarded { rpcService<IConferenceService>().joinRoom(room.id) }
         return token?.let { target to it }
     }
 
@@ -5169,7 +5215,7 @@ private fun enterCall(
                         // V1.9.69: DUPLICATE_IDENTITY is decided BEFORE any RPC (nothing to resolve, and in a breakout
                         // `requestBreakoutJoinToken` would restart the loop through the breakout path).
                         val resolved =
-                            if (cause == DisconnectCause.DuplicateIdentity) null else resolvePostDisconnectDestination(room.id)
+                            if (cause == DisconnectCause.DuplicateIdentity) null else resolvePostDisconnectDestination(room)
                         // ended hard (sign-out, language change) while the question was on its way: nothing to hand over to
                         if (!ConferenceDock.isCurrent(dockGeneration)) return@launch
                         when (val action = decideAfterDisconnect(cause, resolved, rejoinGuard::tryConsume)) {
@@ -6014,11 +6060,23 @@ internal sealed class PostDisconnectDestination {
  * a scope creep bug. Since V1.9.69 that automatic re-join is bounded by [AutoRejoinGuard] (3 in 60 s) and
  * `DUPLICATE_IDENTITY` is excluded from it altogether (see [decideAfterDisconnect]).
  */
-private suspend fun resolvePostDisconnectDestination(parentRoomId: String): PostDisconnectDestination {
-    val parentRoom = guarded { rpcService<IConferenceService>().getRoom(parentRoomId) }
+private suspend fun resolvePostDisconnectDestination(knownRoom: ConferenceRoomDto): PostDisconnectDestination {
+    val parentRoomId = knownRoom.id
+    // V1.9.126: `getRoom` is ACTIVE-only. For a non-member (GUEST/FRIEND) it would answer Forbidden after EVERY transient drop (error
+    // toast + a wrongly "ended" meeting). The room handed in (synthesized at the join) is used instead; "ended / removed" is then
+    // detected by the caller's `rejoinMainRoomToken` failing, exactly as the KDoc above describes for a kicked caller.
+    val parentRoom =
+        if (conferenceRoomLookupAfterDisconnectAllowed(AppState.session)) {
+            guarded { rpcService<IConferenceService>().getRoom(parentRoomId) }
+        } else {
+            knownRoom
+        }
     val assignment = guarded { rpcService<IConferenceBreakoutService>().getMyBreakoutAssignment(parentRoomId) }?.singleOrNull()
     return resolvePostDisconnectDestinationOf(parentRoom, assignment)
 }
+
+/** V1.9.126: `getRoom` is ACTIVE-only -- a non-member (GUEST/FRIEND) must not ask for it after a disconnect. */
+internal fun conferenceRoomLookupAfterDisconnectAllowed(session: SessionInfoDto?): Boolean = !isConferenceNonMember(session)
 
 /**
  * Pure branch logic behind [resolvePostDisconnectDestination], split out so it is unit-testable

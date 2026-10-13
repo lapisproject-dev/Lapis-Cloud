@@ -228,7 +228,7 @@ internal fun conferenceInitialDevices(last: ConferenceDeviceIntent?): Conference
     last ?: ConferenceDeviceIntent(mic = true, camera = true)
 
 /** Identity key for the account-switch decision: member id, guest flag, home server. Never rendered. */
-internal fun dockIdentityKey(s: SessionInfoDto?): String? = s?.let { "${it.memberId}|${it.isGuest}|${it.homeserverUrl.orEmpty()}" }
+internal fun dockIdentityKey(s: SessionInfoDto?): String? = s?.let { "${it.memberId}|${it.status}|${it.homeserverUrl.orEmpty()}" }
 
 /**
  * The route screen's handle on "show the lobby again": set by the screen while it is mounted, cleared when that same screen goes (a late

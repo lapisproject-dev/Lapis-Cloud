@@ -49,8 +49,14 @@ object ConferenceGuestConsentDisclaimer {
      * longer claims "eines anderen Servers", DETAIL's home-server sentence is no longer a blanket
      * claim, and a new FRIEND-unverified-name sentence was added) is a real, hash-changing edit --
      * see class KDoc "immutability/versioning contract".
+     *
+     * V1.9.126 -- bumped from `"2026-08-16.v1"` to `"2026-10-13.v1"`: [KEY_POINTS] entry 2 no longer
+     * names "Ihres eigenen Heimservers" pauschal (a FRIEND has no home server), it refers to "eines
+     * anderen Servers, über den Sie sich gegebenenfalls angemeldet haben". HEADLINE, DETAIL and the
+     * rest of the text are byte-identical. A client holding the old version/hash is rejected with a
+     * Conflict on purpose (it re-reads the text via `getGuestJoinInfo` on every join).
      */
-    const val VERSION: String = "2026-08-16.v1"
+    const val VERSION: String = "2026-10-13.v1"
 
     /**
      * Layer 1, line 1 -- see class KDoc "Two-layer disclosure". Deliberately does NOT say "eines
@@ -75,7 +81,8 @@ object ConferenceGuestConsentDisclaimer {
             """
             Es gilt die Datenschutzerklärung dieses Servers. Für diese Besprechung gilt
             ausschließlich die Datenschutzerklärung der oben genannten Organisation. Die
-            Datenschutzerklärung Ihres eigenen Heimservers findet hier keine Anwendung. Auskunft,
+            Datenschutzerklärung eines anderen Servers, über den Sie sich gegebenenfalls angemeldet
+            haben, findet hier keine Anwendung. Auskunft,
             Berichtigung und Löschung richten Sie deshalb an diese Organisation.
             """.trimIndent(),
         )

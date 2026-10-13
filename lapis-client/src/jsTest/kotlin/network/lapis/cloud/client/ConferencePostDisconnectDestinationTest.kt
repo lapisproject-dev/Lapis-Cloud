@@ -54,6 +54,14 @@ class ConferencePostDisconnectDestinationTest {
         assertEquals(activeRoom, main.parentRoom)
     }
 
+    @Test
+    fun synthesizedRoomOfANonMember_withoutAssignment_resolvesToMain_neverToEnded() {
+        // V1.9.126: for a GUEST/FRIEND the room handed in at the join is used (getRoom is ACTIVE-only); a transient drop must
+        // lead to the automatic re-join, not to "ended".
+        val synthesized = testRoom(active = true)
+        assertIs<PostDisconnectDestination.Main>(resolvePostDisconnectDestinationOf(synthesized, assignment = null))
+    }
+
     private fun testRoom(active: Boolean): ConferenceRoomDto =
         ConferenceRoomDto(
             id = "room-1",

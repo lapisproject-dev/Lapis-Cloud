@@ -29,9 +29,13 @@ import network.lapis.cloud.server.conference.LiveKitParticipantInfo
 import network.lapis.cloud.server.conference.LiveKitParticipantPermissionUpdate
 import network.lapis.cloud.server.conference.LiveKitRoomInfo
 import network.lapis.cloud.server.db.DatabaseConfig
+import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
+import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -44,6 +48,7 @@ import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CarpoolPostingInput
 import network.lapis.cloud.shared.domain.CarpoolPostingType
+import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInput
 import network.lapis.cloud.shared.domain.ConferenceRoomInput
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.MailingDeliveryMode
@@ -100,6 +105,7 @@ private val ENABLED_CONFIG =
 class FriendDeniedEverywhereElseTest :
     FunSpec({
         val createdMemberIds = mutableListOf<Uuid>()
+        val createdRoomIds = mutableListOf<Uuid>()
 
         beforeSpec {
             DatabaseConfig.connect()
@@ -115,6 +121,12 @@ class FriendDeniedEverywhereElseTest :
                 // AuditLogEntryTable rows with actor_member_id = that same author -- delete those
                 // first too, or the MemberTable delete below violates that FK (test-only cleanup,
                 // audit_log_entry stays append-only in production).
+                ConferenceGuestConsentAcknowledgmentTable.deleteWhere {
+                    ConferenceGuestConsentAcknowledgmentTable.roomId inList
+                        createdRoomIds
+                }
+                ConferenceParticipationTable.deleteWhere { ConferenceParticipationTable.roomId inList createdRoomIds }
+                ConferenceRoomTable.deleteWhere { ConferenceRoomTable.id inList createdRoomIds }
                 AuditLogEntryTable.deleteWhere { AuditLogEntryTable.actorMemberId inList createdMemberIds }
                 DocumentTable.deleteWhere { DocumentTable.createdBy inList createdMemberIds }
                 AccountTable.deleteWhere { AccountTable.memberId inList createdMemberIds }
@@ -166,6 +178,57 @@ class FriendDeniedEverywhereElseTest :
             }
             createdMemberIds += id
             return id
+        }
+
+        test(
+            "V1.9.126 pin: FRIEND's ONE allowed conference path -- getGuestJoinInfo + joinRoom(consent) on an opted-in room succeeds",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installDeniedExceptionHandlers() }
+                    routing { registerDeniedConferenceTestRoutes() }
+                }
+                val friend = createFriendMember("denied-conf-allowed-path@example.org")
+                val creator = Uuid.random()
+                val roomId = Uuid.random()
+                transaction {
+                    MemberTable.insert {
+                        it[MemberTable.id] = creator
+                        it[displayName] = "Denied-Everywhere Moderator"
+                        it[email] = "denied-conf-allowed-path-creator@example.org"
+                        it[status] = MemberStatus.ACTIVE
+                        it[joinedAt] = LocalDate(2026, 1, 1)
+                        it[membershipTierId] = null
+                    }
+                    AccountTable.insert {
+                        it[AccountTable.id] = Uuid.random()
+                        it[memberId] = creator
+                        it[AccountTable.role] = AccountRole.MEMBER
+                    }
+                    ConferenceRoomTable.insert {
+                        it[ConferenceRoomTable.id] = roomId
+                        it[title] = "Pin-Raum"
+                        it[description] = ""
+                        it[livekitRoomName] = "lc-pin-$roomId"
+                        it[createdByMemberId] = creator
+                        it[createdAt] = DbClock.nowLocalDateTime()
+                        it[endedAt] = null
+                        it[maxParticipants] = 25
+                        it[allowFederationGuests] = true
+                    }
+                }
+                createdMemberIds += creator
+                createdRoomIds += roomId
+
+                client.get("/test/get-guest-join-info?roomId=$roomId") { header("X-Member-Id", friend.toString()) }.status shouldBe
+                    HttpStatusCode.OK
+                client
+                    .post(
+                        "/test/join-room?roomId=$roomId&consentVersion=${ConferenceGuestConsentDisclaimer.VERSION}" +
+                            "&consentSha256=${ConferenceGuestConsentDisclaimer.SHA256}",
+                    ) { header("X-Member-Id", friend.toString()) }
+                    .status shouldBe HttpStatusCode.OK
+            }
         }
 
         test("FRIEND is refused by createRoom, listActiveRooms, getRoom -- conference-room enumeration/creation stays ACTIVE-only") {
@@ -469,6 +532,23 @@ private fun Route.registerDeniedConferenceTestRoutes() {
     }
     get("/test/get-room") {
         service(call).getRoom(call.request.queryParameters["roomId"]!!)
+        call.respondText("ok")
+    }
+    get("/test/get-guest-join-info") {
+        service(call).getGuestJoinInfo(call.request.queryParameters["roomId"]!!)
+        call.respondText("ok")
+    }
+    post("/test/join-room") {
+        val q = call.request.queryParameters
+        val consent =
+            q["consentVersion"]?.let {
+                ConferenceGuestConsentAcknowledgmentInput(
+                    consentVersion = it,
+                    consentSha256 =
+                        q["consentSha256"] ?: "",
+                )
+            }
+        service(call).joinRoom(roomId = q["roomId"]!!, guestConsent = consent)
         call.respondText("ok")
     }
 }

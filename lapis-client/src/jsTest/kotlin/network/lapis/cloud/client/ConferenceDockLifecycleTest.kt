@@ -7,6 +7,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.promise
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import kotlin.js.Promise
 import kotlin.test.AfterTest
@@ -71,12 +72,14 @@ class ConferenceDockLifecycleTest {
         id: String,
         expiresAt: LocalDateTime = LocalDateTime(2099, 1, 1, 0, 0),
         guest: Boolean = false,
+        status: MemberStatus = if (guest) MemberStatus.GUEST else MemberStatus.ACTIVE,
     ) = SessionInfoDto(
         memberId = id,
         displayName = "Testperson $id",
         role = AccountRole.MEMBER,
         expiresAt = expiresAt,
         isGuest = guest,
+        status = status,
     )
 
     @BeforeTest
@@ -315,6 +318,9 @@ class ConferenceDockLifecycleTest {
         assertEquals(dockIdentityKey(session("a")), dockIdentityKey(session("a", expiresAt = LocalDateTime(2050, 1, 1, 0, 0))))
         assertTrue(dockIdentityKey(session("a")) != dockIdentityKey(session("b")))
         assertTrue(dockIdentityKey(session("a")) != dockIdentityKey(session("a", guest = true)))
+        // V1.9.126: status is part of the key -- a FRIEND differs from both ACTIVE and GUEST.
+        assertTrue(dockIdentityKey(session("a")) != dockIdentityKey(session("a", status = MemberStatus.FRIEND)))
+        assertTrue(dockIdentityKey(session("a", guest = true)) != dockIdentityKey(session("a", status = MemberStatus.FRIEND)))
     }
 
     @Test

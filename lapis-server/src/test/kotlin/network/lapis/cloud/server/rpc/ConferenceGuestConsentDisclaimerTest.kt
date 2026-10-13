@@ -68,6 +68,17 @@ class ConferenceGuestConsentDisclaimerTest :
             text shouldNotContain "Partei der Vernunft"
         }
 
+        test("layer 1 makes no home-server claim (a FRIEND has none) -- V1.9.126") {
+            val layerOne = listOf(ConferenceGuestConsentDisclaimer.HEADLINE) + ConferenceGuestConsentDisclaimer.KEY_POINTS
+            layerOne.forEach { line ->
+                line.replace(Regex("\\s+"), " ").let {
+                    it shouldNotContain "Ihres eigenen Heimservers"
+                    it shouldNotContain "Ihr eigener Heimserver"
+                }
+            }
+            ConferenceGuestConsentDisclaimer.VERSION shouldBe "2026-10-13.v1"
+        }
+
         test("KEY_POINTS has exactly two entries, both appearing verbatim in TEXT (D7 structural drift-proofing)") {
             ConferenceGuestConsentDisclaimer.KEY_POINTS shouldHaveSize 2
             ConferenceGuestConsentDisclaimer.KEY_POINTS.forEach { point ->
@@ -91,7 +102,9 @@ class ConferenceGuestConsentDisclaimerTest :
             // Servers bei." -- true for a federated GUEST but false for a self-registered FRIEND,
             // who has no other server at all. See class KDoc on DETAIL.
             ConferenceGuestConsentDisclaimer.HEADLINE shouldNotContain "eines anderen Servers"
-            ConferenceGuestConsentDisclaimer.TEXT shouldNotContain "eines anderen Servers"
+            // V1.9.126: KEY_POINTS[1] now says "Die Datenschutzerklärung eines anderen Servers, über den Sie sich
+            // gegebenenfalls angemeldet haben, ..." -- conditional, so the blanket claim itself stays forbidden.
+            ConferenceGuestConsentDisclaimer.TEXT shouldNotContain "Gast eines anderen Servers"
             // The home-server disclosure must now be conditional ("Treten Sie ... bei"), not a
             // blanket claim that every guest has one.
             ConferenceGuestConsentDisclaimer.TEXT shouldContain "föderierten"

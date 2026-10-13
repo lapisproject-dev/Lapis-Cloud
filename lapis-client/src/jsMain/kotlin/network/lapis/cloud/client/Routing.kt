@@ -241,12 +241,12 @@ object Routes {
     // exactly like those routes' own in-screen `canTreasury`/`canBoard`/`canAdmin` splits.
     //
     // V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- `requireAuth` alone already
-    // admits a GUEST (or, since V0.11.0, a FRIEND) session (`AppState.session?.isGuest`, never
+    // admits a GUEST (or, since V0.11.0, a FRIEND) session (status in `NON_MEMBER`, never
     // separately checked by this route), so `joinRoom` is now
     // ACTIVE-unconditional-or-(GUEST/FRIEND + the target room's own
     // `allowFederationGuests` opt-in + a current consent acknowledgment) -- see
     // `IConferenceService` KDoc "Federated guest join". `ConferenceScreen.kt` branches this route's
-    // OWN rendering on `isGuest` (`renderGuestLobby` vs. `renderLobby`), never a second route.
+    // OWN rendering on `conferenceLobbyKindOf` (`renderGuestLobby` vs. `renderLobby`), never a second route.
     const val CONFERENCE = "/conference"
 
     // V1.5.1 Mobile App -- additive parameterized deep link, same `:id`-via-Navigo-`Match.data`

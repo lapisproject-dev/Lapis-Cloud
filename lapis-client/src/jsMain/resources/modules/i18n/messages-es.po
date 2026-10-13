@@ -49,6 +49,15 @@ msgstr "Todos los campos son obligatorios."
 msgid "Alle Mitglieder sind bereits verknüpft (oder die automatische Verknüpfung hat sie bereits zugeordnet)."
 msgstr "Todos los miembros ya están vinculados (o la vinculación automática ya los ha asignado)."
 
+msgid ""
+"Als Gäste gelten Personen ohne Mitgliedschaft: Freund-Konten auf diesem "
+"Server und Konten anderer Server. Schicken Sie ihnen nach dem Freischalten "
+"die Einladung."
+msgstr ""
+"Se consideran invitados las personas sin membresía: cuentas de amigo en este "
+"servidor y cuentas de otros servidores. Envíeles la invitación tras "
+"habilitar el acceso."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:175
 msgid "Als Standard setzen"
 msgstr "Establecer como predeterminada"
@@ -104,6 +113,15 @@ msgstr "Nombre de usuario"
 msgid "Bereits exportiert"
 msgstr "Ya exportado"
 
+msgid ""
+"Bereits verbundene Gäste, auch Freund-Konten, werden sofort aus der "
+"Besprechung entfernt. Neue Gäste können nicht mehr beitreten. Mitglieder "
+"Ihrer eigenen Organisation sind nicht betroffen."
+msgstr ""
+"Los invitados ya conectados, incluidas las cuentas de amigo, serán "
+"eliminados de inmediato de la reunión. Los nuevos invitados ya no podrán "
+"unirse. Los miembros de su propia organización no se ven afectados."
+
 msgid "Betrag weicht von der Buchung ab"
 msgstr "El importe difiere del asiento"
 
@@ -138,12 +156,26 @@ msgstr "El motivo no debe contener un número de cuenta."
 msgid "Die Begründung muss 10 bis 500 Zeichen lang sein."
 msgstr "El motivo debe tener entre 10 y 500 caracteres."
 
+msgid ""
+"Die Besprechung „%1\" lässt derzeit keine Gäste zu. Bitten Sie die "
+"Moderation, den Gastzugang für diesen Raum freizuschalten."
+msgstr ""
+"La reunión «%1» no permite actualmente invitados. Pida a la moderación que "
+"habilite el acceso de invitados para esta sala."
+
 #: src/jsMain/kotlin/network/lapis/cloud/client/KeycloakLinkScreen.kt:177
 msgid "Die Keycloak-Verknüpfung von %1 wird entfernt, alle aktiven Sitzungen dieses Mitglieds werden beendet und das Mitglied wird per E-Mail benachrichtigt. Falls die E-Mail-Adresse in Keycloak weiterhin übereinstimmt, wird die Verknüpfung bei der nächsten Anmeldung automatisch wiederhergestellt. Um den Zugang dauerhaft zu sperren, deaktivieren Sie das Konto in Keycloak oder setzen Sie den Mitgliedsstatus z. B. auf „Ausgetreten“."
 msgstr "Se eliminará la vinculación de Keycloak de %1, se cerrarán todas las sesiones activas de este miembro y se le notificará por correo electrónico. Si la dirección de correo electrónico en Keycloak sigue coincidiendo, la vinculación se restablecerá automáticamente en el próximo inicio de sesión. Para bloquear el acceso de forma permanente, desactive la cuenta en Keycloak o cambie el estado de membresía, p. ej., a «Baja»."
 
 msgid "Die SEPA-Datei konnte nicht erzeugt werden."
 msgstr "No se pudo generar el archivo SEPA."
+
+msgid ""
+"Diese Organisation ist für die Verarbeitung Ihrer Audio-, Video- und "
+"Chatdaten in dieser Besprechung verantwortlich."
+msgstr ""
+"Esta organización es responsable del tratamiento de sus datos de audio, "
+"vídeo y chat en esta reunión."
 
 msgid "Eigene Abrechnung"
 msgstr "Informe de gastos propio"
@@ -342,6 +374,26 @@ msgstr "Generar archivo SEPA"
 
 msgid "SEPA-Überweisungsdatei"
 msgstr "Archivo de transferencias SEPA"
+
+msgid ""
+"Sie sind mit Ihrem Freund-Konto auf diesem Server angemeldet. Geben Sie die "
+"Raum-Kennung aus Ihrer Einladung ein, um der Besprechung beizutreten."
+msgstr ""
+"Ha iniciado sesión con su cuenta de amigo en este servidor. Introduzca el "
+"identificador de sala de su invitación para unirse a la reunión."
+
+msgid ""
+"Sie sind zur Besprechung „%1\"%2 eingeladen.\n"
+"1. Melden Sie sich an: mit Ihrem Konto auf diesem Server oder über Ihren "
+"eigenen Heimserver.\n"
+"2. Öffnen Sie %3/app#/conference\n"
+"3. Geben Sie dort diese Raum-Kennung ein: %4"
+msgstr ""
+"Está invitado a la reunión «%1»%2.\n"
+"1. Inicie sesión: con su cuenta en este servidor o a través de su propio "
+"servidor de origen.\n"
+"2. Abra %3/app#/conference\n"
+"3. Introduzca allí este identificador de sala: %4"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:179
 msgid "Standardkonto gesetzt."
@@ -2969,16 +3021,6 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/RegistrationScreen.kt:179
 msgid "Bereits Mitglied? Zur Anmeldung."
 msgstr "¿Ya es miembro? Ir a iniciar sesión."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1773
-msgid ""
-"Bereits verbundene Gäste anderer Server werden sofort aus der Besprechung "
-"entfernt. Neue Gäste können nicht mehr beitreten. Mitglieder Ihrer eigenen "
-"Organisation sind nicht betroffen."
-msgstr ""
-"Los invitados de otros servidores ya conectados serán eliminados de "
-"inmediato de la reunión. Los nuevos invitados ya no podrán unirse. Los "
-"miembros de su propia organización no se ven afectados."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingLabels.kt:87
 msgid "Berufs- oder Wirtschaftsverband"
@@ -8642,18 +8684,6 @@ msgstr ""
 "Ha iniciado sesión a través de su propio servidor de origen. Introduzca el "
 "identificador de sala de su invitación para unirse a una reunión en este "
 "servidor."
-
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:915
-msgid ""
-"Sie sind zur Besprechung „%1\"%2 eingeladen.\n"
-"1. Melden Sie sich über Ihren eigenen Heimserver an.\n"
-"2. Öffnen Sie %3/app#/conference\n"
-"3. Geben Sie dort diese Raum-Kennung ein: %4"
-msgstr ""
-"Está invitado a la reunión «%1»%2.\n"
-"1. Inicie sesión a través de su propio servidor de origen.\n"
-"2. Abra %3/app#/conference\n"
-"3. Introduzca allí este identificador de sala: %4"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:5662
 msgid ""
