@@ -28,6 +28,7 @@ public object CarpoolPostingTable : Table("carpool_posting") {
     public val notes: Column<String?> = varchar("notes", 500).nullable()
     public val createdAt: Column<LocalDateTime> = datetime("created_at")
     public val updatedAt: Column<LocalDateTime> = datetime("updated_at")
+    public val meetingNote: Column<String?> = varchar("meeting_note", 200).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

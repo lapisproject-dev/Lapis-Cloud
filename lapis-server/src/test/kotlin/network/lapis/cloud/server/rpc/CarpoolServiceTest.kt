@@ -395,7 +395,7 @@ class CarpoolServiceTest :
             listOf(MemberStatus.APPLICATION, MemberStatus.GUEST, MemberStatus.FRIEND, MemberStatus.WITHDRAWN, MemberStatus.REJECTED)
 
         nonMemberStatuses.forEach { status ->
-            test("listPostings/createPosting/contactAuthor: $status is Forbidden") {
+            test("listPostings/createPosting/contactAuthor: $status is Forbidden (listPostings excepted for GUEST/FRIEND since V1.9.125)") {
                 testApplication {
                     application {
                         install(StatusPages) { installExceptionHandlers() }
@@ -416,7 +416,10 @@ class CarpoolServiceTest :
                     }
                     val caller = createTestMember(email = "carpool-gate-$status-${Uuid.random()}@example.org", status = status)
 
-                    client.get("/test/list") { header("X-Member-Id", caller.toString()) }.status shouldBe HttpStatusCode.Forbidden
+                    // V1.9.125: reading the (offers-only) feed is part of the passenger allowlist -- GUEST and FRIEND may, every other status may not.
+                    val listAllowed = status == MemberStatus.GUEST || status == MemberStatus.FRIEND
+                    client.get("/test/list") { header("X-Member-Id", caller.toString()) }.status shouldBe
+                        (if (listAllowed) HttpStatusCode.OK else HttpStatusCode.Forbidden)
                     client.post("/test/create") { header("X-Member-Id", caller.toString()) }.status shouldBe HttpStatusCode.Forbidden
                     client.post("/test/contact") { header("X-Member-Id", caller.toString()) }.status shouldBe HttpStatusCode.Forbidden
                 }

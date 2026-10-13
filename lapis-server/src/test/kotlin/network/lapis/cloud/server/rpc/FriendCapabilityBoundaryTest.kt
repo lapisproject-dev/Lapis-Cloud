@@ -26,6 +26,7 @@ import network.lapis.cloud.server.conference.NoOpSecretBallotStreamGuard
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
@@ -40,6 +41,8 @@ import network.lapis.cloud.server.mail.newsletter.testTrackingToken
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.canAccessDocumentAtLevel
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.CarpoolParticipationStatus
+import network.lapis.cloud.shared.domain.CarpoolPostingType
 import network.lapis.cloud.shared.domain.CommitteeMembershipInput
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CreateAuctionListingInput
@@ -353,6 +356,31 @@ class FriendCapabilityBoundaryTest :
                 val response =
                     client.post("/test/transfer-ltr?recipientId=$recipient&amount=1.00") { header("X-Member-Id", friend.toString()) }
                 response.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("V1.9.125: FRIEND MAY read the carpool offers (offers only, no free text) and ask to ride along -- the named exception") {
+            val carpool = CarpoolTestData()
+            try {
+                carpoolTestApplication {
+                    val driver = carpool.member(label = "friend-carpool-driver")
+                    val offer = carpool.posting(author = driver, seats = 2, notes = "Telefon 0171 123456")
+                    carpool.posting(author = driver, type = CarpoolPostingType.REQUEST)
+                    val feed = call(member = friend) { listPostings(null) }
+                    feed.none {
+                        it.type == CarpoolPostingType.REQUEST && it.authorDisplayName == "Carpool-Test friend-carpool-driver"
+                    } shouldBe
+                        true
+                    feed.single { it.id == offer.toString() }.notes shouldBe null
+                    val mine = call(member = friend) { requestParticipation(offer.toString()) }
+                    mine.status shouldBe CarpoolParticipationStatus.OPEN
+                    call(member = driver) { confirmParticipation(mine.id) }
+                    call(member = friend) { listMyParticipations() }.single().status shouldBe CarpoolParticipationStatus.CONFIRMED
+                    call(member = friend) { withdrawParticipation(mine.id) } shouldBe CarpoolParticipationStatus.WITHDRAWN
+                }
+            } finally {
+                transaction { AuditLogEntryTable.update({ AuditLogEntryTable.actorMemberId eq friend }) { it[actorMemberId] = null } }
+                carpool.cleanUp()
             }
         }
 

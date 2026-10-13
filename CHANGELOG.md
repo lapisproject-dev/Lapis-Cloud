@@ -6,6 +6,37 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.125 -- Passengers on carpool offers
+
+A person can ride along on an offer in the Mitfahrerzentrale, and the driver decides -- in both directions. **This changes the access rule of the carpool centre.**
+
+- **ACCESS RULE CHANGE.** Until now every carpool method was `ACTIVE`-only. Now six of sixteen are open to `ACTIVE`, `GUEST` and `FRIEND` (new set `MemberStatusSets.CARPOOL_PASSENGER`, new guard `requireCarpoolPassengerMembership`): `listPostings` (a guest or friend sees offers only, without the free text), `requestParticipation`, `confirmParticipation`, `declineParticipation`, `withdrawParticipation`, `listMyParticipations`. Everything else stays `ACTIVE`-only. `CarpoolAccessTripwireTest` pins the method list and every use of the guard; the friend tests name the exception. Read `docs/architecture/carpool.adoc` before deploying to an instance that allows friend self-registration.
+- **Participation.** One row per ride and person (`OPEN`, `CONFIRMED`, `DECLINED`, `WITHDRAWN`, initiated by the passenger or by the driver); the other side decides; a new request revives the same row; 24 hours before the same direction may be tried again after a decline; at most 10 open requests per person and 20 per ride. Free seats are shown ("2 von 3 Plätzen frei", "Ausgebucht"); the last seat cannot be taken twice (lock on the ride first, then on the participation) and an update cannot go below the confirmed seats.
+- **Driver.** "Mitfahrer verwalten" on an own offer: passenger list with confirm/decline/remove, exact-name search ("Mitfahrer hinzufügen": first and last name, at least three characters each, at most three hits, never a prefix; the answer for "nobody", "too short" and "rate limited" is the same text) and "Treffpunkt und Uhrzeit" (at most 200 characters, visible only to the driver and to confirmed passengers). New sections "Meine Mitfahrten" and a number in the sidebar; guests and friends get a flat sidebar entry.
+- **New RPC methods, appended at the END of `ICarpoolService`** (indices 6..15 of `/rpc/routeCarpoolServiceManagerN`; the six original methods did not move): `requestParticipation`, `findInvitee`, `inviteParticipant`, `confirmParticipation`, `declineParticipation`, `withdrawParticipation`, `listMyParticipations`, `listParticipants`, `setMeetingNote`, `getPassengerHint`. `CarpoolPostingDto` gains `seatsFree`, `myParticipation`, `meetingNote`, `openRequests` (all defaulted, wire-compatible); `getPassengerHint` returns a non-null DTO (`confirmedPassengers = 0` for "none") because the RPC code generator cannot express a nullable object return type.
+- **Travel expenses.** On a mileage line of one's own report the field "Mitfahrer" shows a suggestion "Laut Mitfahrerzentrale N bestätigte Mitfahrer" with a button "Übernehmen" -- never filled in automatically; the calculator and the server are unchanged.
+- **E-mail.** One new generic mail purpose `carpool-notice` (BULK lane) naming nobody and carrying no meeting point, sent after the commit to `ACTIVE` members and to `FRIEND`s with a verified address; never to a guest. Nothing is sent when SMTP is not configured.
+- **Audit and GDPR.** New audit entity type `CARPOOL_PARTICIPATION` (ids, initiator and status only; the entries outlive the ride because the audit log is append-only). The GDPR contributor covers both tables (export: own rides, meeting note, only the *number* of passengers; erasure: own rides, then own offers with all participations on them); the retention poller deletes participations with a due posting.
+- **Operator notes.** **Take a backup first.** One additive migration **`V100__carpool_participation.sql`** (schema V100; V99 untouched, no `flywayRepair`): new table, `carpool_posting.meeting_note`, widened audit CHECK. No new environment variable. Mail needs the existing SMTP setting.
+- **Known limitations (honest status).**
+  - There is **no distance or kilometre calculation** and no structured place data.
+  - There is **no message channel to a guest** except the meeting-point field (direct messages need an active recipient and sender).
+  - The search compares the **whole display name**: a member has no separate first and last name field, so titles, middle names and names shorter than three characters are not findable.
+  - The travel expense suggestion refers to the **travel period of the report**, not to a line (a mileage line has no date); it disappears with the ride, seven days after the departure.
+  - Invitation tokens are kept in memory and are lost on a restart; **rate limits are per server instance**.
+  - **Guests get no e-mail** (their address is synthetic); unverified friends neither.
+  - A status change of a person (for example leaving the organisation) does **not** end their participations automatically; new confirmations are refused.
+  - The ride is not shown for a `REQUEST` posting; nobody can ride along on a search.
+  - No real browser run and no screen reader: the UI was exercised by DOM tests only; the **translations (six languages) were produced by the model** and not reviewed by a native speaker.
+
+
+#### Security hardening (pre-release review)
+
+- A guest or friend no longer sees member names: the feed and `listMyParticipations` send the neutral label "Mitglied" until the seat is CONFIRMED (or the driver invited the person). Prevents listing party members with their travel times via a throwaway friend account.
+- The driver sees the account kind (member/guest/friend) of invitee search hits and participants, so a friend with an imitated name can be told apart.
+- With `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` on, an unverified friend is no longer found by the invitee search nor invitable.
+- Documented residual risk: sybil friend accounts can fill the open-request slots of rides.
+
 ### V1.9.124 -- Noise suppression as an instance default
 
 An administrator can make the optional noise suppression of video conferences the default of the whole instance. A person's own choice always wins; the encounter room is not affected.

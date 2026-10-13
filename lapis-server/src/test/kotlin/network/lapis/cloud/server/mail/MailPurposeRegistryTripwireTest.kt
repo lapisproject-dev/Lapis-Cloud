@@ -75,8 +75,11 @@ class MailPurposeRegistryTripwireTest :
             }
         }
 
-        test("only event-cancelled draws from the BULK lane; article-review-* and unknown purposes are priority 1, lane SYSTEM") {
-            MailPurpose.KNOWN_PURPOSES.filter { MailPurpose.policyFor(it).lane == MailLane.BULK } shouldBe listOf("event-cancelled")
+        test(
+            "only event-cancelled and carpool-notice draw from the BULK lane; article-review-* and unknown purposes are priority 1, lane SYSTEM",
+        ) {
+            MailPurpose.KNOWN_PURPOSES.filter { MailPurpose.policyFor(it).lane == MailLane.BULK } shouldBe
+                listOf("event-cancelled", "carpool-notice")
             MailPurpose.policyFor("article-review-approved").let {
                 it.priority shouldBe 1
                 it.lane shouldBe MailLane.SYSTEM

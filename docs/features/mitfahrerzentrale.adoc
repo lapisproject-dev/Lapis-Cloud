@@ -15,8 +15,44 @@ deleted seven days later (`CarpoolRetentionPoller`), so an author can still see 
 just-expired trip of their own. Full design, the RPC surface, and the direct-message-reuse
 decision: `docs/architecture/carpool.adoc`.
 
-== What doesn't work yet (this wave)
+== Riding along (V1.9.125)
 
-No seat reservation/booking/acceptance workflow -- a posting is a bulletin-board entry, not a
-matched ride. No structured place data (no postal code, no map, no distance calculation) and no
-notification when a new posting matching a member's interest appears.
+Since V1.9.125 a person can ride along on an offer, and the driver decides. **This changes who may use the carpool centre**: a named
+list of six actions is open to `ACTIVE`, `GUEST` and `FRIEND` (a federated guest or a self-registered friend); everything else stays
+members-only (see "Access rule change" in `docs/architecture/carpool.adoc`).
+
+* **Both directions, one row.** A passenger asks ("Mitfahrt anfragen") and the driver confirms or declines; the driver invites a person
+  (exact-name search, see below) and the person confirms or declines. There is one participation per ride and person; a new request after
+  a decline or a withdrawal revives the same row. States: `OPEN`, `CONFIRMED`, `DECLINED`, `WITHDRAWN`.
+* **Seats.** A card shows "2 von 3 Plätzen frei" or "Ausgebucht". The last seat can never be taken twice (the confirmation runs under a
+  lock on the ride) and the driver cannot lower the seats below the confirmed passengers.
+* **Meeting point.** The driver enters a short free text ("Treffpunkt und Uhrzeit", at most 200 characters). Only the driver and a
+  *confirmed* passenger see it. A guest or friend cannot send or read direct messages, so this is their only channel.
+* **What a guest sees.** The offers only (no requests), without the free-text note, and no "Eintrag erstellen", no type filter and no
+  "Kontakt aufnehmen".
+* **"Meine Mitfahrten".** The rides of the person as a passenger, waiting items first; a declined or withdrawn entry disappears seven days
+  after the decision. The sidebar shows the number of things waiting.
+* **Exact-name search.** The driver enters a first and a last name (at least three characters each). Only a person whose display name matches
+  exactly (case, umlauts and spacing are ignored) is found, at most three hits, never a prefix. Whatever the answer -- nobody, too short, too
+  many searches -- the screen says the same: "Keine Person mit diesem Namen gefunden. Schicken Sie der Person den Link zu dieser Fahrt."
+* **Notifications.** In the app: "Meine Mitfahrten" and the sidebar number. By e-mail (when the instance has mail configured): a short
+  message **without names and without the meeting point** to active members and to friends with a verified address; never to a guest.
+* **Travel expenses.** On a mileage line of one's own travel expense report the field "Mitfahrer" shows a suggestion ("Laut Mitfahrerzentrale
+  2 bestätigte Mitfahrer") with a button "Übernehmen". It is never filled in automatically.
+
+== Limits (honest status)
+
+* There is **no distance or kilometre calculation** and no structured place data.
+* The search compares the **whole display name** (a member has no separate first and last name field): titles, middle names and names shorter
+  than three characters cannot be found.
+* The travel expense suggestion refers to the **travel period of the report**, not to a single line (a mileage line has no date); when several
+  trips fall into the period it shows the largest number and says so.
+* The suggestion disappears with the ride (seven days after the departure).
+* Invitation tokens live in memory: after a restart the driver searches again. Rate limits (20 requests, 20 invitations, 10 searches and 60
+  decisions per hour and person) are per server instance.
+* A person who leaves the organisation keeps their rows; new confirmations are refused, nothing ends automatically.
+
+== What doesn't work yet
+
+No structured place data (no postal code, no map, no distance calculation) and no notification when a new posting matching a member's
+interest appears.

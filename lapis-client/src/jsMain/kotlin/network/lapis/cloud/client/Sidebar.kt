@@ -369,6 +369,12 @@ fun buildSidebar(
         nav.sidebarLink(Routes.ENCOUNTER, tr("Begegnungsräume"), "fas fa-church")
     }
 
+    // V1.9.125 "Mitfahrten": a guest or friend has no "Mitgliedschaft" group -- the carpool centre is a flat entry for them.
+    if (NavVisibility.showsCarpoolFlatLink(session.status)) {
+        val carpoolLink = nav.sidebarLink(Routes.CARPOOL, tr("Mitfahrerzentrale"), "fas fa-car-side")
+        updateCarpoolSidebarCount(link = carpoolLink, isMember = false)
+    }
+
     if (NavVisibility.showsMembershipSection(session.status)) {
         nav.sidebarGroup(SidebarGroupId.MEMBERSHIP, tr("Mitgliedschaft"), "fas fa-id-card") { toggle ->
             sidebarLink(Routes.CONTRIBUTIONS, tr("Beiträge"), "fas fa-coins", toggle)
@@ -387,7 +393,8 @@ fun buildSidebar(
             }
             // Welle V1.9.12 "Mitfahrerzentrale" -- fa-car-side statt fa-car (Icon-Kollision
             // vermeiden: fa-car ist bereits an TRAVEL_EXPENSES weiter unten in dieser Gruppe vergeben).
-            sidebarLink(Routes.CARPOOL, tr("Mitfahrerzentrale"), "fas fa-car-side", toggle)
+            val carpoolLink = sidebarLink(Routes.CARPOOL, tr("Mitfahrerzentrale"), "fas fa-car-side", toggle)
+            updateCarpoolSidebarCount(link = carpoolLink, isMember = true)
             // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- Design-Team-Entscheidung
             // Q6: Gruppe "Kommunikation" (neben COMMUNICATION), nicht "Selbstverwaltung". Für
             // BOARD/ADMIN aktualisiert sich das Label mit der Freigabe-Warteschlangen-Größe --

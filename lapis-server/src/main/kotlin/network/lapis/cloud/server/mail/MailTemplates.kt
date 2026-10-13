@@ -10,6 +10,7 @@ import kotlinx.html.html
 import kotlinx.html.p
 import kotlinx.html.stream.createHTML
 import kotlinx.html.title
+import network.lapis.cloud.server.carpool.CarpoolNoticeKind
 import network.lapis.cloud.server.federation.FederationConfig
 import network.lapis.cloud.server.security.FriendEmailVerificationTokenStore
 import network.lapis.cloud.server.security.PasswordResetTokenStore
@@ -722,6 +723,62 @@ object MailTemplates {
             branding = branding,
         )
     }
+
+    /**
+     * Welle V1.9.125 -- generic carpool news mail. **Names nobody and carries no meeting note**: only that something changed on a ride
+     * (date, from, to) and a link to the carpool centre -- the details are read in the app after signing in. Places are free text typed by
+     * a person: sanitised and cut before they reach the `Subject:` header (header injection); the HTML part is auto-escaped.
+     */
+    fun carpoolNotice(
+        kind: CarpoolNoticeKind,
+        date: kotlinx.datetime.LocalDate,
+        fromPlace: String,
+        toPlace: String,
+        branding: MailBranding,
+    ): RenderedMail {
+        val from = safeName(fromPlace)
+        val to = safeName(toPlace)
+        val (headingDe, headingEn) =
+            when (kind) {
+                CarpoolNoticeKind.REQUESTED -> "Neue Mitfahranfrage zu Ihrer Fahrt" to "New request to ride along on your trip"
+                CarpoolNoticeKind.INVITED -> "Einladung zu einer Mitfahrt" to "Invitation to ride along"
+                CarpoolNoticeKind.CONFIRMED -> "Eine Mitfahrt wurde bestätigt" to "A ride was confirmed"
+                CarpoolNoticeKind.DECLINED -> "Eine Mitfahrt wurde abgelehnt" to "A ride was declined"
+                CarpoolNoticeKind.WITHDRAWN -> "Eine Mitfahrt wurde zurückgezogen" to "A ride was withdrawn"
+                CarpoolNoticeKind.POSTING_CHANGED -> "Eine Fahrt wurde geändert" to "A trip was changed"
+                CarpoolNoticeKind.POSTING_DELETED -> "Eine Fahrt wurde gelöscht" to "A trip was deleted"
+            }
+        val subject = "Mitfahrerzentrale: $headingDe / $headingEn".take(CARPOOL_SUBJECT_MAX)
+        val link = branding.publicBaseUrl.trimEnd('/') + "/app#/carpool"
+        return bilingual(
+            subject = subject,
+            de =
+                MailSection(
+                    heading = headingDe,
+                    paragraphs =
+                        listOf(
+                            "Es gibt eine Neuigkeit zu der Fahrt am $date von $from nach $to.",
+                            "Aus Datenschutzgründen nennt diese Nachricht keine Namen. Die Einzelheiten sehen Sie nach der Anmeldung.",
+                        ),
+                    linkLabel = "Mitfahrerzentrale öffnen",
+                    link = link,
+                ),
+            en =
+                MailSection(
+                    heading = headingEn,
+                    paragraphs =
+                        listOf(
+                            "There is news about the trip on $date from $from to $to.",
+                            "For privacy reasons this message names nobody. Sign in to see the details.",
+                        ),
+                    linkLabel = "Open the carpool centre",
+                    link = link,
+                ),
+            branding = branding,
+        )
+    }
+
+    private const val CARPOOL_SUBJECT_MAX = 150
 
     // ------------------------------------------------------------------------------------------------------------
     // Welle V1.9.57 "Admin-Peer-Schutz" -- receipts: what happened, who (display name), when, one thing to do.

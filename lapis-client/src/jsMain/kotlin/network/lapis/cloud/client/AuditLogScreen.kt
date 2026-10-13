@@ -586,6 +586,8 @@ fun decodeAuditSnapshot(
             AuditEntityType.COMMITTEE -> null
             // Welle V1.9.123 -- TravelExpenseSepaBatchSnapshot (counts, cents, ids), raw-text display like the other backend-written snapshots.
             AuditEntityType.TRAVEL_EXPENSE_SEPA_BATCH -> null
+            // Welle V1.9.125 -- CarpoolParticipationSnapshot (ids and enums only), raw-text display like the other backend-written snapshots.
+            AuditEntityType.CARPOOL_PARTICIPATION -> null
         }
     }.getOrNull()
 

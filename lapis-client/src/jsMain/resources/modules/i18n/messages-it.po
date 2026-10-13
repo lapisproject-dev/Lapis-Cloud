@@ -23465,3 +23465,135 @@ msgstr "La soppressione del rumore è ora l'impostazione predefinita."
 
 msgid "Rauschunterdrückung wird nicht mehr vorgegeben."
 msgstr "La soppressione del rumore non è più l'impostazione predefinita."
+
+msgid "Als Gast können Sie bei angebotenen Fahrten mitfahren. Fahrten anbieten können nur Mitglieder."
+msgstr "Come ospite può viaggiare con i passaggi offerti. Solo i membri possono offrire passaggi."
+
+msgid "Den Treffpunkt nennt Ihnen der Fahrer, sobald die Mitfahrt bestätigt ist."
+msgstr "Il conducente le comunicherà il punto di incontro non appena il passaggio sarà confermato."
+
+msgid "Meine Mitfahrten"
+msgstr "I miei passaggi"
+
+msgid "Noch keine Fahrten angeboten."
+msgstr "Non è ancora stato offerto alcun passaggio."
+
+msgid "1 offene Anfrage"
+msgstr "1 richiesta aperta"
+
+msgid "%1 offene Anfragen"
+msgstr "%1 richieste aperte"
+
+msgid "Mitfahrt anfragen"
+msgstr "Chiedi un passaggio"
+
+msgid "Mitfahrt angefragt."
+msgstr "Passaggio richiesto."
+
+msgid "Wartet auf Ihre Bestätigung"
+msgstr "In attesa della sua conferma"
+
+msgid "Wartet auf Bestätigung durch den Mitfahrer"
+msgstr "In attesa della conferma del passeggero"
+
+msgid "Wartet auf Bestätigung durch den Fahrer"
+msgstr "In attesa della conferma del conducente"
+
+msgid "%1 von %2 Plätzen frei"
+msgstr "%1 posti liberi su %2"
+
+msgid "Anfrage zurückziehen"
+msgstr "Ritira la richiesta"
+
+msgid "Anfrage zurückgezogen."
+msgstr "Richiesta ritirata."
+
+msgid "Mitfahrt zurückziehen"
+msgstr "Ritirati dal passaggio"
+
+msgid "Wirklich zurückziehen?"
+msgstr "Ritirarsi davvero?"
+
+msgid "Endgültig zurückziehen"
+msgstr "Ritira definitivamente"
+
+msgid "Mitfahrt zurückgezogen."
+msgstr "Passaggio ritirato."
+
+msgid "Treffpunkt: %1"
+msgstr "Punto di incontro: %1"
+
+msgid "Mitfahrt bestätigt."
+msgstr "Passaggio confermato."
+
+msgid "Mitfahrt abgelehnt."
+msgstr "Passaggio rifiutato."
+
+msgid "Mitfahrer verwalten"
+msgstr "Gestisci i passeggeri"
+
+msgid "Noch keine Mitfahrer."
+msgstr "Ancora nessun passeggero."
+
+msgid "Einladung zurückziehen"
+msgstr "Ritira l'invito"
+
+msgid "Einladung zurückgezogen."
+msgstr "Invito ritirato."
+
+msgid "Mitfahrer wirklich entfernen?"
+msgstr "Rimuovere davvero questo passeggero?"
+
+msgid "Mitfahrer entfernt."
+msgstr "Passeggero rimosso."
+
+msgid "Mitfahrer hinzufügen"
+msgstr "Aggiungi un passeggero"
+
+msgid "Bitte mindestens 3 Zeichen angeben."
+msgstr "Inserisca almeno 3 caratteri."
+
+msgid "Vorname"
+msgstr "Nome"
+
+msgid "Nachname"
+msgstr "Cognome"
+
+msgid "Keine Person mit diesem Namen gefunden. Schicken Sie der Person den Link zu dieser Fahrt."
+msgstr "Nessuna persona con questo nome trovata. Invii alla persona il link a questo passaggio."
+
+msgid "Gefundene Personen"
+msgstr "Persone trovate"
+
+msgid "Einladen"
+msgstr "Invita"
+
+msgid "Einladung gesendet."
+msgstr "Invito inviato."
+
+msgid "Treffpunkt und Uhrzeit"
+msgstr "Punto di incontro e orario"
+
+msgid "Nur für bestätigte Mitfahrer sichtbar. Höchstens 200 Zeichen."
+msgstr "Visibile solo ai passeggeri confermati. Al massimo 200 caratteri."
+
+msgid "Höchstens 200 Zeichen."
+msgstr "Al massimo 200 caratteri."
+
+msgid "Treffpunkt speichern"
+msgstr "Salva il punto di incontro"
+
+msgid "Treffpunkt wurde gespeichert."
+msgstr "Il punto di incontro è stato salvato."
+
+msgid "Mitfahrerzentrale (%1)"
+msgstr "Car pooling (%1)"
+
+msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer (mehrere Fahrten in diesem Zeitraum)."
+msgstr "Secondo il car pooling, %1 passeggeri confermati (più viaggi in questo periodo)."
+
+msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer."
+msgstr "Secondo il car pooling, %1 passeggeri confermati."
+
+msgid "Mitfahrt"
+msgstr "Passaggio"

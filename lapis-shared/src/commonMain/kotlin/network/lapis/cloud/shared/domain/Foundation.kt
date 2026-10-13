@@ -77,6 +77,18 @@ object MemberStatusSets {
      */
     val NON_MEMBER: Set<MemberStatus> = setOf(MemberStatus.GUEST, MemberStatus.FRIEND)
 
+    /**
+     * V1.9.125 -- may ride along on a carpool offer, answer an invitation and withdraw: ACTIVE, GUEST and FRIEND. **Change of the access
+     * rule** of the carpool centre (V1.9.12 made every method ORGANIZATION_MEMBER-only). Deliberately narrow: it is used ONLY by the named
+     * passenger allowlist of `CarpoolService` (`CarpoolAccessTripwireTest` pins the method list and forbids every other use). Offering or
+     * seeking a ride, contacting an author, inviting people and every read of other people's data stay [ORGANIZATION_MEMBER]-only.
+     */
+    val CARPOOL_PASSENGER: Set<MemberStatus> =
+        setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND)
+
+    /** V1.9.125 -- may offer rides, invite passengers and manage participants (the V1.9.12 rule, unchanged). Only for the carpool methods. */
+    val CARPOOL_DRIVER: Set<MemberStatus> = ORGANIZATION_MEMBER
+
     /** May enter a conference room. THE extension point for widening FRIEND later. */
     val CONFERENCE_ELIGIBLE: Set<MemberStatus> =
         setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND)

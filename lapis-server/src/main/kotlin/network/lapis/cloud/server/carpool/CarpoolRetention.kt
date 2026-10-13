@@ -3,6 +3,7 @@ package network.lapis.cloud.server.carpool
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.minus
+import network.lapis.cloud.server.db.generated.CarpoolParticipationTable
 import network.lapis.cloud.server.db.generated.CarpoolPostingTable
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import org.jetbrains.exposed.v1.core.inList
@@ -34,6 +35,12 @@ internal object CarpoolRetention {
                     .where { CarpoolPostingTable.departureDate less cutoff }
                     .limit(MAX_DELETED_PER_RUN)
                     .map { it[CarpoolPostingTable.id] }
-            if (dueIds.isEmpty()) 0 else CarpoolPostingTable.deleteWhere { CarpoolPostingTable.id inList dueIds }
+            if (dueIds.isEmpty()) {
+                0
+            } else {
+                // V1.9.125: the participations of a due posting go with it -- explicitly, independent of the foreign key's ON DELETE rule.
+                CarpoolParticipationTable.deleteWhere { CarpoolParticipationTable.postingId inList dueIds }
+                CarpoolPostingTable.deleteWhere { CarpoolPostingTable.id inList dueIds }
+            }
         }
 }

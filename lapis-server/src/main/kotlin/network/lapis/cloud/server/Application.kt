@@ -54,7 +54,10 @@ import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.branding.BrandingHtml
 import network.lapis.cloud.server.branding.BrandingStartupCheck
 import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.server.carpool.CarpoolDeps
+import network.lapis.cloud.server.carpool.CarpoolNotifier
 import network.lapis.cloud.server.carpool.CarpoolRetentionPoller
+import network.lapis.cloud.server.carpool.SmtpCarpoolNoticeMailer
 import network.lapis.cloud.server.chapters.ChapterCrestStorage
 import network.lapis.cloud.server.clientversion.ClientShell
 import network.lapis.cloud.server.conference.ConferenceAudioGrantState
@@ -1100,6 +1103,19 @@ internal fun Application.module(
                 ),
         )
     encounterEntryNotifier.start()
+    // V1.9.125 "Mitfahrten" -- ONE set of long-lived collaborators (rate-limit windows, invitee tokens, mail notifier): a request-scoped
+    // service instance must not own state that has to outlive the request.
+    val carpoolDeps =
+        CarpoolDeps(
+            notifier =
+                CarpoolNotifier(
+                    SmtpCarpoolNoticeMailer(
+                        dispatcher = mailDispatcher,
+                        branding = mailBranding,
+                        smtpConfigured = smtpConfigState is SmtpConfigState.Configured,
+                    ),
+                ),
+        )
     monitor.subscribe(ApplicationStopping) { encounterEntryNotifier.stop() }
     val encounterListRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
     val encounterEnterRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
@@ -2085,7 +2101,7 @@ internal fun Application.module(
             MailDeliveryStatusService(call = call, budget = mailBudgetStore, outboxEnabled = mailOutbox != null)
         }
         registerService(IDirectMessageService::class) { call -> DirectMessageService(call) }
-        registerService(ICarpoolService::class) { call -> CarpoolService(call) }
+        registerService(ICarpoolService::class) { call -> CarpoolService(call = call, deps = carpoolDeps) }
         // Welle V1.9.13 "Gliederungsverwaltung (Landesverbände)".
         registerService(IRegionalChapterService::class) { call ->
             RegionalChapterService(

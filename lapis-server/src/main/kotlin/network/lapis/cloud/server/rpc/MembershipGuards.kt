@@ -250,6 +250,31 @@ fun requireConferenceEligibleMembership(
 }
 
 /**
+ * V1.9.125 "Mitfahrten" -- the gate of the carpool PASSENGER allowlist ([MemberStatusSets.CARPOOL_PASSENGER]: ACTIVE, GUEST, FRIEND). A
+ * **change of the access rule** of the carpool centre; ONLY the named `CarpoolService` methods may call it (`CarpoolAccessTripwireTest`
+ * pins the method list and forbids every other use of this function and of the set). Mirrors [requireConferenceEligibleMembership]:
+ * one query reads status, `anonymizedAt` and `emailVerifiedAt`; an anonymised account is rejected for every status, and an unverified
+ * [MemberStatus.FRIEND] is rejected while [FriendRegistrationConfig.requireEmailVerification] is on. No row lock -- like every in-place
+ * action, nothing here mints a standing record from the status read (the participation rules re-check what they need under the posting lock).
+ */
+fun requireCarpoolPassengerMembership(
+    memberId: Uuid,
+    config: FriendRegistrationConfig = FriendRegistrationConfig.load(),
+): MemberStatus {
+    val row =
+        MemberTable
+            .selectAll()
+            .where { MemberTable.id eq memberId }
+            .singleOrNull()
+    val status = row?.get(MemberTable.status)
+    if (status == null || status !in MemberStatusSets.CARPOOL_PASSENGER || row[MemberTable.anonymizedAt] != null) throw ForbiddenException()
+    if (status == MemberStatus.FRIEND && config.requireEmailVerification && row[MemberTable.emailVerifiedAt] == null) {
+        throw ForbiddenException("This FRIEND account has not verified its email address yet")
+    }
+    return status
+}
+
+/**
  * V1.0 Videokonferenzen, Wave 5 "Föderations-Gastbeitritt" -- the SINGLE place "may this caller
  * enter/inspect this conference room at all" is decided, shared by every conference-domain service
  * that needs it ([ConferenceService.joinRoom]/[ConferenceService.listParticipants],

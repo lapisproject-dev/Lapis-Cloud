@@ -26,7 +26,7 @@ data class MailPurposePolicy(
  *
  * Priority 0 = security-relevant, short-lived: password reset, e-mail change (confirm / warning / self-info / applied-info), friend
  * e-mail verification, the administrator-triggered password-reset notice, and the Keycloak provisioning mail. TTL 30 minutes.
- * Everything else is priority 1 without TTL (V1.9.118: including the membership-decision mails `membership-approved` / `membership-rejected`). Lane SYSTEM for all of them -- except [EVENT_CANCELLED]: a cancellation can go to hundreds
+ * Everything else is priority 1 without TTL (V1.9.118: including the membership-decision mails `membership-approved` / `membership-rejected`). Lane SYSTEM for all of them -- except [EVENT_CANCELLED_PURPOSE] and [CARPOOL_NOTICE_PURPOSE]: a cancellation can go to hundreds
  * of registrants at once, so it draws from the BULK lane and can never starve a password reset of the reserve (Q4).
  */
 object MailPurpose {
@@ -67,7 +67,7 @@ object MailPurpose {
         )
 
     /** Priority 1, lane BULK. */
-    private val bulkPurposes = setOf(EVENT_CANCELLED_PURPOSE)
+    private val bulkPurposes = setOf(EVENT_CANCELLED_PURPOSE, CARPOOL_NOTICE_PURPOSE)
 
     private val prefixes = listOf("article-review-")
 
@@ -95,3 +95,9 @@ object MailPurpose {
 
 /** The registry string for the event-cancellation mail (referenced by `EventService`). */
 const val EVENT_CANCELLED_PURPOSE = "event-cancelled"
+
+/**
+ * V1.9.125 -- the registry string of the generic carpool news mail (BULK lane: a driver deleting an offer can notify several people at once, and
+ * it must never starve a password reset of the reserve). Names nobody, see `CarpoolNotifier`.
+ */
+const val CARPOOL_NOTICE_PURPOSE = "carpool-notice"

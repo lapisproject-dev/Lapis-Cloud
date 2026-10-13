@@ -433,7 +433,7 @@ private fun renderDraftEditor(
 // R24 (W4d): migrated to the form grammar. V1.9.122: one form for adding AND editing a "weitere Kosten" line -- Beschreibung plus, depending on
 // [kind], Kilometer + Mitfahrer (mileage), Betrag (public transport / hospitality / other) or Erste Nacht + Nächte + Betrag + "mit Frühstück"
 // (accommodation). Money travels as whole cents; the server computes everything else.
-private fun renderLineForm(
+internal fun renderLineForm(
     panel: SimplePanel,
     draft: TravelExpenseReportDto,
     kind: TravelExpenseLineKind,
@@ -480,6 +480,8 @@ private fun renderLineForm(
         } else {
             null
         }
+    // V1.9.125: the carpool centre may know how many people rode along -- offered as a SUGGESTION under the field, never set by itself.
+    if (passengersField != null) renderPassengerHint(host = form.panel, draft = draft, passengersField = passengersField)
     val firstNightField =
         if (kind == TravelExpenseLineKind.ACCOMMODATION) {
             form.textField(
@@ -1096,3 +1098,36 @@ internal fun travelExpenseAccommodationFits(
     travelFrom: LocalDate,
     travelTo: LocalDate,
 ): Boolean = nights >= 1 && firstNight >= travelFrom && firstNight.plus(nights, DateTimeUnit.DAY) <= travelTo
+
+/**
+ * V1.9.125 "Mitfahrten" -- a suggestion for the "Mitfahrer" field of a mileage line: the number of confirmed passengers on the person's OWN
+ * offers within the travel period of the report. Shown ONLY to the subject of the report and only as an ACTIVE member (the question is about
+ * their own offers); the answer is a number, never a name. A mileage line has no date of its own, so the whole travel period is asked and a
+ * note says when several trips fall into it. **Never filled in automatically**: only "Übernehmen" writes the field, and the calculator and the
+ * server stay untouched. A failed question is silently ignored (a missing suggestion is not an error worth a toast).
+ */
+private fun renderPassengerHint(
+    host: SimplePanel,
+    draft: TravelExpenseReportDto,
+    passengersField: LapisField,
+) {
+    val session = AppState.session ?: return
+    if (session.memberId != draft.subjectMemberId || session.status != network.lapis.cloud.shared.domain.MemberStatus.ACTIVE) return
+    val hintHost = host.vPanel(spacing = 2)
+    AppScope.launch {
+        val hint =
+            runCatching { rpcService<network.lapis.cloud.shared.rpc.ICarpoolService>().getPassengerHint(draft.travelFrom, draft.travelTo) }
+                .getOrNull() ?: return@launch
+        if (hint.confirmedPassengers <= 0) return@launch
+        val text =
+            if (hint.multipleTrips) {
+                gettext("Laut Mitfahrerzentrale %1 bestätigte Mitfahrer (mehrere Fahrten in diesem Zeitraum).", hint.confirmedPassengers)
+            } else {
+                gettext("Laut Mitfahrerzentrale %1 bestätigte Mitfahrer.", hint.confirmedPassengers)
+            }
+        val row = hintHost.hPanel(spacing = 8) { addCssClass("align-items-center") }
+        row.div(text) { addCssClasses("text-muted small") }
+        val adopt = row.actionButton(ActionIcon.APPROVE, tr("Übernehmen"), style = ButtonStyle.OUTLINESECONDARY, small = true)
+        adopt.onClick { passengersField.setValue(hint.confirmedPassengers.toString()) }
+    }
+}

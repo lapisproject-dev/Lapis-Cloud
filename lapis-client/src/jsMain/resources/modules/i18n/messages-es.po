@@ -23311,3 +23311,135 @@ msgstr "La supresión de ruido ahora es el valor predeterminado."
 
 msgid "Rauschunterdrückung wird nicht mehr vorgegeben."
 msgstr "La supresión de ruido ya no es el valor predeterminado."
+
+msgid "Als Gast können Sie bei angebotenen Fahrten mitfahren. Fahrten anbieten können nur Mitglieder."
+msgstr "Como invitado puede viajar en los trayectos ofrecidos. Solo los miembros pueden ofrecer trayectos."
+
+msgid "Den Treffpunkt nennt Ihnen der Fahrer, sobald die Mitfahrt bestätigt ist."
+msgstr "El conductor le indicará el punto de encuentro en cuanto se confirme el viaje."
+
+msgid "Meine Mitfahrten"
+msgstr "Mis viajes"
+
+msgid "Noch keine Fahrten angeboten."
+msgstr "Todavía no se ha ofrecido ningún trayecto."
+
+msgid "1 offene Anfrage"
+msgstr "1 solicitud abierta"
+
+msgid "%1 offene Anfragen"
+msgstr "%1 solicitudes abiertas"
+
+msgid "Mitfahrt anfragen"
+msgstr "Solicitar viaje"
+
+msgid "Mitfahrt angefragt."
+msgstr "Viaje solicitado."
+
+msgid "Wartet auf Ihre Bestätigung"
+msgstr "Esperando su confirmación"
+
+msgid "Wartet auf Bestätigung durch den Mitfahrer"
+msgstr "Esperando la confirmación del acompañante"
+
+msgid "Wartet auf Bestätigung durch den Fahrer"
+msgstr "Esperando la confirmación del conductor"
+
+msgid "%1 von %2 Plätzen frei"
+msgstr "%1 de %2 plazas libres"
+
+msgid "Anfrage zurückziehen"
+msgstr "Retirar solicitud"
+
+msgid "Anfrage zurückgezogen."
+msgstr "Solicitud retirada."
+
+msgid "Mitfahrt zurückziehen"
+msgstr "Retirarse del viaje"
+
+msgid "Wirklich zurückziehen?"
+msgstr "¿Retirarse realmente?"
+
+msgid "Endgültig zurückziehen"
+msgstr "Retirar definitivamente"
+
+msgid "Mitfahrt zurückgezogen."
+msgstr "Viaje retirado."
+
+msgid "Treffpunkt: %1"
+msgstr "Punto de encuentro: %1"
+
+msgid "Mitfahrt bestätigt."
+msgstr "Viaje confirmado."
+
+msgid "Mitfahrt abgelehnt."
+msgstr "Viaje rechazado."
+
+msgid "Mitfahrer verwalten"
+msgstr "Gestionar acompañantes"
+
+msgid "Noch keine Mitfahrer."
+msgstr "Todavía no hay acompañantes."
+
+msgid "Einladung zurückziehen"
+msgstr "Retirar invitación"
+
+msgid "Einladung zurückgezogen."
+msgstr "Invitación retirada."
+
+msgid "Mitfahrer wirklich entfernen?"
+msgstr "¿Eliminar realmente a este acompañante?"
+
+msgid "Mitfahrer entfernt."
+msgstr "Acompañante eliminado."
+
+msgid "Mitfahrer hinzufügen"
+msgstr "Añadir un acompañante"
+
+msgid "Bitte mindestens 3 Zeichen angeben."
+msgstr "Indique al menos 3 caracteres."
+
+msgid "Vorname"
+msgstr "Nombre"
+
+msgid "Nachname"
+msgstr "Apellido"
+
+msgid "Keine Person mit diesem Namen gefunden. Schicken Sie der Person den Link zu dieser Fahrt."
+msgstr "No se encontró ninguna persona con este nombre. Envíe a la persona el enlace a este trayecto."
+
+msgid "Gefundene Personen"
+msgstr "Personas encontradas"
+
+msgid "Einladen"
+msgstr "Invitar"
+
+msgid "Einladung gesendet."
+msgstr "Invitación enviada."
+
+msgid "Treffpunkt und Uhrzeit"
+msgstr "Punto de encuentro y hora"
+
+msgid "Nur für bestätigte Mitfahrer sichtbar. Höchstens 200 Zeichen."
+msgstr "Visible solo para acompañantes confirmados. Máximo 200 caracteres."
+
+msgid "Höchstens 200 Zeichen."
+msgstr "Máximo 200 caracteres."
+
+msgid "Treffpunkt speichern"
+msgstr "Guardar punto de encuentro"
+
+msgid "Treffpunkt wurde gespeichert."
+msgstr "El punto de encuentro se ha guardado."
+
+msgid "Mitfahrerzentrale (%1)"
+msgstr "Coche compartido (%1)"
+
+msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer (mehrere Fahrten in diesem Zeitraum)."
+msgstr "Según el centro de coche compartido, %1 acompañantes confirmados (varios trayectos en este período)."
+
+msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer."
+msgstr "Según el centro de coche compartido, %1 acompañantes confirmados."
+
+msgid "Mitfahrt"
+msgstr "Viaje compartido"

@@ -20,7 +20,9 @@ import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.plus
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.LiveKitAdminClient
 import network.lapis.cloud.server.conference.LiveKitParticipantInfo
@@ -40,6 +42,8 @@ import network.lapis.cloud.server.mail.newsletter.TEST_TRACKING_BASE_URL
 import network.lapis.cloud.server.mail.newsletter.testTrackingToken
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.CarpoolPostingInput
+import network.lapis.cloud.shared.domain.CarpoolPostingType
 import network.lapis.cloud.shared.domain.ConferenceRoomInput
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.MailingDeliveryMode
@@ -254,6 +258,45 @@ class FriendDeniedEverywhereElseTest :
                     HttpStatusCode.Forbidden
                 client.get("/test/inbox") { header("X-Member-Id", friend.toString()) }.status shouldBe HttpStatusCode.Forbidden
                 client.get("/test/unread-count") { header("X-Member-Id", friend.toString()) }.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test(
+            "V1.9.125: FRIEND is refused by every carpool method OUTSIDE the named passenger allowlist -- the one explicit exception of the carpool centre",
+        ) {
+            val carpool = CarpoolTestData()
+            try {
+                carpoolTestApplication {
+                    val friend = createFriendMember("denied-carpool@example.org")
+                    val bogus = Uuid.random().toString()
+                    val today = carpool.today()
+                    val input =
+                        CarpoolPostingInput(
+                            type = CarpoolPostingType.OFFER,
+                            fromPlace = "Braunschweig",
+                            toPlace = "Hannover",
+                            departureDate = today.plus(DatePeriod(days = 5)),
+                            seatsOffered = 2,
+                        )
+                    val denied =
+                        mapOf<String, suspend CarpoolService.() -> Any?>(
+                            "listMyPostings" to { listMyPostings() },
+                            "createPosting" to { createPosting(input) },
+                            "updatePosting" to { updatePosting(id = bogus, input = input) },
+                            "deletePosting" to { deletePosting(bogus) },
+                            "contactAuthor" to { contactAuthor(postingId = bogus, message = "Hallo") },
+                            "findInvitee" to { findInvitee(firstName = "Maria", lastName = "Muster") },
+                            "inviteParticipant" to { inviteParticipant(postingId = bogus, personRef = "token") },
+                            "listParticipants" to { listParticipants(bogus) },
+                            "setMeetingNote" to { setMeetingNote(postingId = bogus, note = "Bahnhof") },
+                            "getPassengerHint" to { getPassengerHint(from = today, to = today.plus(DatePeriod(days = 5))) },
+                        )
+                    denied.forEach { (name, op) ->
+                        withClue(clue = name) { (attempt(member = friend, op = op).exceptionOrNull() is ForbiddenException) shouldBe true }
+                    }
+                }
+            } finally {
+                carpool.cleanUp()
             }
         }
 
@@ -564,3 +607,13 @@ private fun Route.registerDeniedDocumentTestRoutes() {
         call.respondText(docs.joinToString(",") { it.id })
     }
 }
+
+private inline fun <T> withClue(
+    clue: String,
+    block: () -> T,
+): T =
+    try {
+        block()
+    } catch (e: AssertionError) {
+        throw AssertionError("$clue: ${e.message}", e)
+    }

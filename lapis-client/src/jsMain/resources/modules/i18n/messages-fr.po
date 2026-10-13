@@ -23482,3 +23482,135 @@ msgstr "La suppression du bruit est désormais activée par défaut."
 
 msgid "Rauschunterdrückung wird nicht mehr vorgegeben."
 msgstr "La suppression du bruit n'est plus activée par défaut."
+
+msgid "Als Gast können Sie bei angebotenen Fahrten mitfahren. Fahrten anbieten können nur Mitglieder."
+msgstr "En tant qu'invité, vous pouvez voyager avec les trajets proposés. Seuls les membres peuvent proposer des trajets."
+
+msgid "Den Treffpunkt nennt Ihnen der Fahrer, sobald die Mitfahrt bestätigt ist."
+msgstr "Le conducteur vous indiquera le point de rendez-vous dès que le trajet sera confirmé."
+
+msgid "Meine Mitfahrten"
+msgstr "Mes trajets"
+
+msgid "Noch keine Fahrten angeboten."
+msgstr "Aucun trajet n'a encore été proposé."
+
+msgid "1 offene Anfrage"
+msgstr "1 demande en attente"
+
+msgid "%1 offene Anfragen"
+msgstr "%1 demandes en attente"
+
+msgid "Mitfahrt anfragen"
+msgstr "Demander à voyager"
+
+msgid "Mitfahrt angefragt."
+msgstr "Demande envoyée."
+
+msgid "Wartet auf Ihre Bestätigung"
+msgstr "En attente de votre confirmation"
+
+msgid "Wartet auf Bestätigung durch den Mitfahrer"
+msgstr "En attente de la confirmation du passager"
+
+msgid "Wartet auf Bestätigung durch den Fahrer"
+msgstr "En attente de la confirmation du conducteur"
+
+msgid "%1 von %2 Plätzen frei"
+msgstr "%1 places libres sur %2"
+
+msgid "Anfrage zurückziehen"
+msgstr "Retirer la demande"
+
+msgid "Anfrage zurückgezogen."
+msgstr "Demande retirée."
+
+msgid "Mitfahrt zurückziehen"
+msgstr "Se retirer du trajet"
+
+msgid "Wirklich zurückziehen?"
+msgstr "Vraiment se retirer ?"
+
+msgid "Endgültig zurückziehen"
+msgstr "Retirer définitivement"
+
+msgid "Mitfahrt zurückgezogen."
+msgstr "Trajet retiré."
+
+msgid "Treffpunkt: %1"
+msgstr "Point de rendez-vous : %1"
+
+msgid "Mitfahrt bestätigt."
+msgstr "Trajet confirmé."
+
+msgid "Mitfahrt abgelehnt."
+msgstr "Trajet refusé."
+
+msgid "Mitfahrer verwalten"
+msgstr "Gérer les passagers"
+
+msgid "Noch keine Mitfahrer."
+msgstr "Pas encore de passagers."
+
+msgid "Einladung zurückziehen"
+msgstr "Retirer l'invitation"
+
+msgid "Einladung zurückgezogen."
+msgstr "Invitation retirée."
+
+msgid "Mitfahrer wirklich entfernen?"
+msgstr "Vraiment retirer ce passager ?"
+
+msgid "Mitfahrer entfernt."
+msgstr "Passager retiré."
+
+msgid "Mitfahrer hinzufügen"
+msgstr "Ajouter un passager"
+
+msgid "Bitte mindestens 3 Zeichen angeben."
+msgstr "Veuillez saisir au moins 3 caractères."
+
+msgid "Vorname"
+msgstr "Prénom"
+
+msgid "Nachname"
+msgstr "Nom"
+
+msgid "Keine Person mit diesem Namen gefunden. Schicken Sie der Person den Link zu dieser Fahrt."
+msgstr "Aucune personne portant ce nom n'a été trouvée. Envoyez à la personne le lien vers ce trajet."
+
+msgid "Gefundene Personen"
+msgstr "Personnes trouvées"
+
+msgid "Einladen"
+msgstr "Inviter"
+
+msgid "Einladung gesendet."
+msgstr "Invitation envoyée."
+
+msgid "Treffpunkt und Uhrzeit"
+msgstr "Point de rendez-vous et heure"
+
+msgid "Nur für bestätigte Mitfahrer sichtbar. Höchstens 200 Zeichen."
+msgstr "Visible uniquement pour les passagers confirmés. 200 caractères au maximum."
+
+msgid "Höchstens 200 Zeichen."
+msgstr "200 caractères au maximum."
+
+msgid "Treffpunkt speichern"
+msgstr "Enregistrer le point de rendez-vous"
+
+msgid "Treffpunkt wurde gespeichert."
+msgstr "Le point de rendez-vous a été enregistré."
+
+msgid "Mitfahrerzentrale (%1)"
+msgstr "Covoiturage (%1)"
+
+msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer (mehrere Fahrten in diesem Zeitraum)."
+msgstr "Selon le covoiturage, %1 passagers confirmés (plusieurs trajets sur cette période)."
+
+msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer."
+msgstr "Selon le covoiturage, %1 passagers confirmés."
+
+msgid "Mitfahrt"
+msgstr "Trajet partagé"

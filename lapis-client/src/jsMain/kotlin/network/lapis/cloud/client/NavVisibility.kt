@@ -45,6 +45,19 @@ object NavVisibility {
      */
     fun showsEncounterSpaces(status: MemberStatus): Boolean = status in MemberStatusSets.CONFERENCE_ELIGIBLE
 
+    /**
+     * "Mitfahrerzentrale" (V1.9.125 "Mitfahrten") -- the audience of the passenger allowlist of `ICarpoolService`: ACTIVE, GUEST and FRIEND
+     * ([MemberStatusSets.CARPOOL_PASSENGER]). For ACTIVE the entry lives in the "Mitgliedschaft" group as before; GUEST and FRIEND have no such
+     * group, so for them it is a flat entry ([showsCarpoolFlatLink]). The server decides what each status may do on the page.
+     */
+    fun showsCarpool(status: MemberStatus): Boolean = status in MemberStatusSets.CARPOOL_PASSENGER
+
+    /** May offer rides, invite passengers and manage them (the driver side of the carpool centre): ACTIVE members only. */
+    fun mayOfferCarpool(status: MemberStatus): Boolean = status in MemberStatusSets.CARPOOL_DRIVER
+
+    /** The flat sidebar entry of the carpool centre: for everybody who sees it but has no "Mitgliedschaft" group to find it in. */
+    fun showsCarpoolFlatLink(status: MemberStatus): Boolean = showsCarpool(status) && !showsMembershipSection(status)
+
     /** "Mitgliedschaft"-Dropdown als Ganzes (Beiträge/Dokumente/Kommunikation/Meine Daten). */
     fun showsMembershipSection(status: MemberStatus): Boolean = status in MemberStatusSets.ORGANIZATION_MEMBER
 

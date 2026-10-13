@@ -22493,3 +22493,135 @@ msgstr ""
 
 msgid "Rauschunterdrückung wird nicht mehr vorgegeben."
 msgstr ""
+
+msgid "Als Gast können Sie bei angebotenen Fahrten mitfahren. Fahrten anbieten können nur Mitglieder."
+msgstr ""
+
+msgid "Den Treffpunkt nennt Ihnen der Fahrer, sobald die Mitfahrt bestätigt ist."
+msgstr ""
+
+msgid "Meine Mitfahrten"
+msgstr ""
+
+msgid "Noch keine Fahrten angeboten."
+msgstr ""
+
+msgid "1 offene Anfrage"
+msgstr ""
+
+msgid "%1 offene Anfragen"
+msgstr ""
+
+msgid "Mitfahrt anfragen"
+msgstr ""
+
+msgid "Mitfahrt angefragt."
+msgstr ""
+
+msgid "Wartet auf Ihre Bestätigung"
+msgstr ""
+
+msgid "Wartet auf Bestätigung durch den Mitfahrer"
+msgstr ""
+
+msgid "Wartet auf Bestätigung durch den Fahrer"
+msgstr ""
+
+msgid "%1 von %2 Plätzen frei"
+msgstr ""
+
+msgid "Anfrage zurückziehen"
+msgstr ""
+
+msgid "Anfrage zurückgezogen."
+msgstr ""
+
+msgid "Mitfahrt zurückziehen"
+msgstr ""
+
+msgid "Wirklich zurückziehen?"
+msgstr ""
+
+msgid "Endgültig zurückziehen"
+msgstr ""
+
+msgid "Mitfahrt zurückgezogen."
+msgstr ""
+
+msgid "Treffpunkt: %1"
+msgstr ""
+
+msgid "Mitfahrt bestätigt."
+msgstr ""
+
+msgid "Mitfahrt abgelehnt."
+msgstr ""
+
+msgid "Mitfahrer verwalten"
+msgstr ""
+
+msgid "Noch keine Mitfahrer."
+msgstr ""
+
+msgid "Einladung zurückziehen"
+msgstr ""
+
+msgid "Einladung zurückgezogen."
+msgstr ""
+
+msgid "Mitfahrer wirklich entfernen?"
+msgstr ""
+
+msgid "Mitfahrer entfernt."
+msgstr ""
+
+msgid "Mitfahrer hinzufügen"
+msgstr ""
+
+msgid "Bitte mindestens 3 Zeichen angeben."
+msgstr ""
+
+msgid "Vorname"
+msgstr ""
+
+msgid "Nachname"
+msgstr ""
+
+msgid "Keine Person mit diesem Namen gefunden. Schicken Sie der Person den Link zu dieser Fahrt."
+msgstr ""
+
+msgid "Gefundene Personen"
+msgstr ""
+
+msgid "Einladen"
+msgstr ""
+
+msgid "Einladung gesendet."
+msgstr ""
+
+msgid "Treffpunkt und Uhrzeit"
+msgstr ""
+
+msgid "Nur für bestätigte Mitfahrer sichtbar. Höchstens 200 Zeichen."
+msgstr ""
+
+msgid "Höchstens 200 Zeichen."
+msgstr ""
+
+msgid "Treffpunkt speichern"
+msgstr ""
+
+msgid "Treffpunkt wurde gespeichert."
+msgstr ""
+
+msgid "Mitfahrerzentrale (%1)"
+msgstr ""
+
+msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer (mehrere Fahrten in diesem Zeitraum)."
+msgstr ""
+
+msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer."
+msgstr ""
+
+msgid "Mitfahrt"
+msgstr ""

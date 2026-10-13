@@ -23425,3 +23425,135 @@ msgstr "Tłumienie szumów jest teraz ustawieniem domyślnym."
 
 msgid "Rauschunterdrückung wird nicht mehr vorgegeben."
 msgstr "Tłumienie szumów nie jest już ustawieniem domyślnym."
+
+msgid "Als Gast können Sie bei angebotenen Fahrten mitfahren. Fahrten anbieten können nur Mitglieder."
+msgstr "Jako gość może Pan/Pani zabrać się w oferowanych przejazdach. Przejazdy mogą oferować tylko członkowie."
+
+msgid "Den Treffpunkt nennt Ihnen der Fahrer, sobald die Mitfahrt bestätigt ist."
+msgstr "Miejsce spotkania poda Panu/Pani kierowca, gdy tylko przejazd zostanie potwierdzony."
+
+msgid "Meine Mitfahrten"
+msgstr "Moje przejazdy"
+
+msgid "Noch keine Fahrten angeboten."
+msgstr "Nie zaoferowano jeszcze żadnych przejazdów."
+
+msgid "1 offene Anfrage"
+msgstr "1 otwarta prośba"
+
+msgid "%1 offene Anfragen"
+msgstr "%1 otwartych próśb"
+
+msgid "Mitfahrt anfragen"
+msgstr "Poproś o miejsce w przejeździe"
+
+msgid "Mitfahrt angefragt."
+msgstr "Prośba wysłana."
+
+msgid "Wartet auf Ihre Bestätigung"
+msgstr "Oczekuje na Pana/Pani potwierdzenie"
+
+msgid "Wartet auf Bestätigung durch den Mitfahrer"
+msgstr "Oczekuje na potwierdzenie przez pasażera"
+
+msgid "Wartet auf Bestätigung durch den Fahrer"
+msgstr "Oczekuje na potwierdzenie przez kierowcę"
+
+msgid "%1 von %2 Plätzen frei"
+msgstr "Wolnych miejsc: %1 z %2"
+
+msgid "Anfrage zurückziehen"
+msgstr "Wycofaj prośbę"
+
+msgid "Anfrage zurückgezogen."
+msgstr "Prośba wycofana."
+
+msgid "Mitfahrt zurückziehen"
+msgstr "Zrezygnuj z przejazdu"
+
+msgid "Wirklich zurückziehen?"
+msgstr "Czy na pewno zrezygnować?"
+
+msgid "Endgültig zurückziehen"
+msgstr "Zrezygnuj ostatecznie"
+
+msgid "Mitfahrt zurückgezogen."
+msgstr "Przejazd wycofany."
+
+msgid "Treffpunkt: %1"
+msgstr "Miejsce spotkania: %1"
+
+msgid "Mitfahrt bestätigt."
+msgstr "Przejazd potwierdzony."
+
+msgid "Mitfahrt abgelehnt."
+msgstr "Przejazd odrzucony."
+
+msgid "Mitfahrer verwalten"
+msgstr "Zarządzaj pasażerami"
+
+msgid "Noch keine Mitfahrer."
+msgstr "Nie ma jeszcze pasażerów."
+
+msgid "Einladung zurückziehen"
+msgstr "Wycofaj zaproszenie"
+
+msgid "Einladung zurückgezogen."
+msgstr "Zaproszenie wycofane."
+
+msgid "Mitfahrer wirklich entfernen?"
+msgstr "Czy na pewno usunąć tego pasażera?"
+
+msgid "Mitfahrer entfernt."
+msgstr "Pasażer usunięty."
+
+msgid "Mitfahrer hinzufügen"
+msgstr "Dodaj pasażera"
+
+msgid "Bitte mindestens 3 Zeichen angeben."
+msgstr "Proszę podać co najmniej 3 znaki."
+
+msgid "Vorname"
+msgstr "Imię"
+
+msgid "Nachname"
+msgstr "Nazwisko"
+
+msgid "Keine Person mit diesem Namen gefunden. Schicken Sie der Person den Link zu dieser Fahrt."
+msgstr "Nie znaleziono osoby o tym imieniu i nazwisku. Proszę wysłać tej osobie link do tego przejazdu."
+
+msgid "Gefundene Personen"
+msgstr "Znalezione osoby"
+
+msgid "Einladen"
+msgstr "Zaproś"
+
+msgid "Einladung gesendet."
+msgstr "Zaproszenie wysłane."
+
+msgid "Treffpunkt und Uhrzeit"
+msgstr "Miejsce i godzina spotkania"
+
+msgid "Nur für bestätigte Mitfahrer sichtbar. Höchstens 200 Zeichen."
+msgstr "Widoczne tylko dla potwierdzonych pasażerów. Najwyżej 200 znaków."
+
+msgid "Höchstens 200 Zeichen."
+msgstr "Najwyżej 200 znaków."
+
+msgid "Treffpunkt speichern"
+msgstr "Zapisz miejsce spotkania"
+
+msgid "Treffpunkt wurde gespeichert."
+msgstr "Miejsce spotkania zostało zapisane."
+
+msgid "Mitfahrerzentrale (%1)"
+msgstr "Wspólne przejazdy (%1)"
+
+msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer (mehrere Fahrten in diesem Zeitraum)."
+msgstr "Według wspólnych przejazdów potwierdzonych pasażerów: %1 (kilka przejazdów w tym okresie)."
+
+msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer."
+msgstr "Według wspólnych przejazdów potwierdzonych pasażerów: %1."
+
+msgid "Mitfahrt"
+msgstr "Wspólny przejazd"

@@ -84,6 +84,12 @@ dto:CarpoolPostingInput.departureTime	B	time of day typed in by a person (LocalT
 dto:CarpoolPostingDto.departureDate	D	calendar date (LocalDate); never converted
 dto:CarpoolPostingDto.departureTime	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
 dto:CarpoolPostingDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:CarpoolMyParticipationDto.departureDate	D	calendar date (LocalDate); never converted
+dto:CarpoolMyParticipationDto.departureTime	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
+dto:CarpoolMyParticipationDto.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:CarpoolMyParticipationDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:CarpoolParticipantDto.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:CarpoolParticipantDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:MailingListDto.currentMemberOpenTrackingConsentedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:MailingListDto.currentMemberClickTrackingConsentedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:MailingListSubscriptionDto.subscribedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
@@ -508,6 +514,9 @@ col:CarpoolPostingTable.departureDate	D	calendar date (LocalDate); never convert
 col:CarpoolPostingTable.departureTime	B	time of day typed in by a person (LocalTime); organization wall-clock, never converted
 col:CarpoolPostingTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:CarpoolPostingTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:CarpoolParticipationTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:CarpoolParticipationTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:CarpoolParticipationTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:CommitteeMembershipTable.since	D	calendar date (LocalDate); never converted
 col:CommitteeMembershipTable.until	D	calendar date (LocalDate); never converted
 col:CommitteeTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

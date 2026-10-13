@@ -457,7 +457,23 @@ enum class AuditEntityType {
      * never an IBAN, a holder or a name). 25 chars, fits within `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
      */
     TRAVEL_EXPENSE_SEPA_BATCH,
+
+    /**
+     * Welle V1.9.125 "Mitfahrten in der Mitfahrerzentrale" -- `CarpoolParticipations` writes one entry per request, invitation,
+     * confirmation, decline and withdrawal, `entityId` = the participation id, `after` = [CarpoolParticipationSnapshot] (posting id,
+     * initiator, status -- never a name, a place or the meeting note). Entries outlive the posting (append-only). 21 chars, fits within
+     * `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    CARPOOL_PARTICIPATION,
 }
+
+/** V1.9.125 -- after-snapshot of an [AuditEntityType.CARPOOL_PARTICIPATION] entry: ids and enums only. */
+@Serializable
+data class CarpoolParticipationSnapshot(
+    val postingId: String,
+    val initiator: String,
+    val status: String,
+)
 
 /**
  * V1.9.30 -- before/after snapshot of a poll's lifecycle audit entries ([AuditEntityType.POLL]). Carries

@@ -180,6 +180,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.COMMITTEE -> gettext("Gremium")
         // Welle V1.9.123 "SEPA-Überweisungsdatei fuer Reisekosten" -- one entry per generated pain.001 file.
         AuditEntityType.TRAVEL_EXPENSE_SEPA_BATCH -> gettext("SEPA-Überweisungsdatei")
+        // Welle V1.9.125 "Mitfahrten" -- one entry per request, invitation, confirmation, decline and withdrawal (ids and status only).
+        AuditEntityType.CARPOOL_PARTICIPATION -> gettext("Mitfahrt")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -293,6 +295,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.COMMITTEE -> "info"
         // "warning" -- a payment file leaves the system; same administrative-but-financial class as BANK_ACCOUNT.
         AuditEntityType.TRAVEL_EXPENSE_SEPA_BATCH -> "warning"
+        // Welle V1.9.125 -- a person-to-person arrangement, no money moves: the neutral hue.
+        AuditEntityType.CARPOOL_PARTICIPATION -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

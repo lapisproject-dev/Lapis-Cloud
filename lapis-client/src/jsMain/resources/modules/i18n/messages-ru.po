@@ -23416,3 +23416,135 @@ msgstr "Шумоподавление теперь включено по умол
 
 msgid "Rauschunterdrückung wird nicht mehr vorgegeben."
 msgstr "Шумоподавление больше не включено по умолчанию."
+
+msgid "Als Gast können Sie bei angebotenen Fahrten mitfahren. Fahrten anbieten können nur Mitglieder."
+msgstr "В качестве гостя вы можете ехать в предложенных поездках. Предлагать поездки могут только члены."
+
+msgid "Den Treffpunkt nennt Ihnen der Fahrer, sobald die Mitfahrt bestätigt ist."
+msgstr "Место встречи вам сообщит водитель, как только поездка будет подтверждена."
+
+msgid "Meine Mitfahrten"
+msgstr "Мои поездки"
+
+msgid "Noch keine Fahrten angeboten."
+msgstr "Пока не предложено ни одной поездки."
+
+msgid "1 offene Anfrage"
+msgstr "1 открытый запрос"
+
+msgid "%1 offene Anfragen"
+msgstr "Открытых запросов: %1"
+
+msgid "Mitfahrt anfragen"
+msgstr "Запросить место"
+
+msgid "Mitfahrt angefragt."
+msgstr "Запрос отправлен."
+
+msgid "Wartet auf Ihre Bestätigung"
+msgstr "Ожидает вашего подтверждения"
+
+msgid "Wartet auf Bestätigung durch den Mitfahrer"
+msgstr "Ожидает подтверждения пассажира"
+
+msgid "Wartet auf Bestätigung durch den Fahrer"
+msgstr "Ожидает подтверждения водителя"
+
+msgid "%1 von %2 Plätzen frei"
+msgstr "Свободно мест: %1 из %2"
+
+msgid "Anfrage zurückziehen"
+msgstr "Отозвать запрос"
+
+msgid "Anfrage zurückgezogen."
+msgstr "Запрос отозван."
+
+msgid "Mitfahrt zurückziehen"
+msgstr "Отказаться от поездки"
+
+msgid "Wirklich zurückziehen?"
+msgstr "Действительно отказаться?"
+
+msgid "Endgültig zurückziehen"
+msgstr "Отказаться окончательно"
+
+msgid "Mitfahrt zurückgezogen."
+msgstr "Поездка отозвана."
+
+msgid "Treffpunkt: %1"
+msgstr "Место встречи: %1"
+
+msgid "Mitfahrt bestätigt."
+msgstr "Поездка подтверждена."
+
+msgid "Mitfahrt abgelehnt."
+msgstr "Поездка отклонена."
+
+msgid "Mitfahrer verwalten"
+msgstr "Управлять пассажирами"
+
+msgid "Noch keine Mitfahrer."
+msgstr "Пока нет пассажиров."
+
+msgid "Einladung zurückziehen"
+msgstr "Отозвать приглашение"
+
+msgid "Einladung zurückgezogen."
+msgstr "Приглашение отозвано."
+
+msgid "Mitfahrer wirklich entfernen?"
+msgstr "Действительно удалить этого пассажира?"
+
+msgid "Mitfahrer entfernt."
+msgstr "Пассажир удалён."
+
+msgid "Mitfahrer hinzufügen"
+msgstr "Добавить пассажира"
+
+msgid "Bitte mindestens 3 Zeichen angeben."
+msgstr "Введите не менее 3 символов."
+
+msgid "Vorname"
+msgstr "Имя"
+
+msgid "Nachname"
+msgstr "Фамилия"
+
+msgid "Keine Person mit diesem Namen gefunden. Schicken Sie der Person den Link zu dieser Fahrt."
+msgstr "Человек с таким именем не найден. Отправьте ему ссылку на эту поездку."
+
+msgid "Gefundene Personen"
+msgstr "Найденные люди"
+
+msgid "Einladen"
+msgstr "Пригласить"
+
+msgid "Einladung gesendet."
+msgstr "Приглашение отправлено."
+
+msgid "Treffpunkt und Uhrzeit"
+msgstr "Место и время встречи"
+
+msgid "Nur für bestätigte Mitfahrer sichtbar. Höchstens 200 Zeichen."
+msgstr "Видно только подтверждённым пассажирам. Не более 200 символов."
+
+msgid "Höchstens 200 Zeichen."
+msgstr "Не более 200 символов."
+
+msgid "Treffpunkt speichern"
+msgstr "Сохранить место встречи"
+
+msgid "Treffpunkt wurde gespeichert."
+msgstr "Место встречи сохранено."
+
+msgid "Mitfahrerzentrale (%1)"
+msgstr "Совместные поездки (%1)"
+
+msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer (mehrere Fahrten in diesem Zeitraum)."
+msgstr "По данным совместных поездок подтверждённых пассажиров: %1 (несколько поездок за этот период)."
+
+msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer."
+msgstr "По данным совместных поездок подтверждённых пассажиров: %1."
+
+msgid "Mitfahrt"
+msgstr "Совместная поездка"

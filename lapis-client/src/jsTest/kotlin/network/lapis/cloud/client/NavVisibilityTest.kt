@@ -178,4 +178,18 @@ class NavVisibilityTest {
             )
         }
     }
+
+    @Test
+    fun carpool_isOfferedToActiveGuestAndFriend_andFlatOnlyWhereThereIsNoMembershipGroup() {
+        // V1.9.125: the passenger allowlist of `ICarpoolService` (ACTIVE, GUEST, FRIEND); ACTIVE keeps the entry in its group, the others get a flat link.
+        MemberStatus.entries.forEach { status ->
+            val offered = status in setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND)
+            assertEquals(offered, NavVisibility.showsCarpool(status), "showsCarpool($status)")
+            assertEquals(
+                offered && status != MemberStatus.ACTIVE,
+                NavVisibility.showsCarpoolFlatLink(status),
+                "showsCarpoolFlatLink($status)",
+            )
+        }
+    }
 }

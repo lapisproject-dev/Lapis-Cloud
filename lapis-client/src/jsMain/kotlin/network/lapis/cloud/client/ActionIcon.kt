@@ -168,4 +168,13 @@ enum class ActionIcon(
     MIC_OFF("fas fa-microphone-slash"),
     MIC_MODERATION("fas fa-microphone-lines-slash"),
     MIC_LOCKED("fas fa-lock"),
+
+    /**
+     * V1.9.125 "Mitfahrten": the verbs of the carpool centre -- [REQUEST_RIDE] ask to ride along on an offer ("Mitfahrt anfragen"; NOT [SEND], which
+     * "Kontakt aufnehmen" keeps on the same card), [PASSENGERS] open the passenger management of an own offer, [ADD_PERSON] add or invite a passenger.
+     * Confirming and declining use [APPROVE]/[REJECT], withdrawing [UNDO], removing a passenger [REMOVE].
+     */
+    REQUEST_RIDE("fas fa-car-side"),
+    PASSENGERS("fas fa-user-group"),
+    ADD_PERSON("fas fa-user-plus"),
 }

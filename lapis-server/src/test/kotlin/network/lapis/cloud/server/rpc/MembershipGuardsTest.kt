@@ -215,6 +215,67 @@ class MembershipGuardsTest :
             }
         }
 
+        test("V1.9.125 requireCarpoolPassengerMembership: allows ACTIVE, GUEST and FRIEND, denies every other status, returns the status") {
+            MemberStatus.entries.forEach { status ->
+                val memberId = membersByStatus.getValue(status)
+                val isAllowed = allowed(block = { id -> requireCarpoolPassengerMembership(memberId = id) }, memberId = memberId)
+                withClueStatus(status = status) {
+                    isAllowed shouldBe
+                        (status in setOf(MemberStatus.ACTIVE, MemberStatus.GUEST, MemberStatus.FRIEND))
+                }
+            }
+            transaction { requireCarpoolPassengerMembership(memberId = membersByStatus.getValue(MemberStatus.GUEST)) } shouldBe
+                MemberStatus.GUEST
+            allowed(block = { id -> requireCarpoolPassengerMembership(memberId = id) }, memberId = Uuid.random()) shouldBe false
+        }
+
+        test(
+            "V1.9.125 requireCarpoolPassengerMembership: an unverified FRIEND is denied while the verification switch is on, " +
+                "an anonymised account is denied for every status",
+        ) {
+            val verifyingConfig =
+                FriendRegistrationConfig.load { key ->
+                    if (key == "LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION") "true" else null
+                }
+            val unverifiedFriend = membersByStatus.getValue(MemberStatus.FRIEND)
+            val denied =
+                runCatching { transaction { requireCarpoolPassengerMembership(memberId = unverifiedFriend, config = verifyingConfig) } }
+            (denied.exceptionOrNull() is ForbiddenException) shouldBe true
+            val verifiedFriend = createTestMember(MemberStatus.FRIEND)
+            transaction {
+                MemberTable.update(
+                    { MemberTable.id eq verifiedFriend },
+                ) { it[emailVerifiedAt] = LocalDateTime(2026, 1, 1, 0, 0) }
+            }
+            runCatching {
+                transaction {
+                    requireCarpoolPassengerMembership(
+                        memberId = verifiedFriend,
+                        config = verifyingConfig,
+                    )
+                }
+            }.getOrThrow() shouldBe
+                MemberStatus.FRIEND
+            // The switch only ever narrows FRIEND.
+            val active = membersByStatus.getValue(MemberStatus.ACTIVE)
+            runCatching {
+                transaction {
+                    requireCarpoolPassengerMembership(
+                        memberId = active,
+                        config = verifyingConfig,
+                    )
+                }
+            }.getOrThrow() shouldBe
+                MemberStatus.ACTIVE
+            // A default config still admits the unverified FRIEND.
+            runCatching { transaction { requireCarpoolPassengerMembership(memberId = unverifiedFriend) } }.getOrThrow() shouldBe
+                MemberStatus.FRIEND
+            // An anonymised account is refused whatever its status.
+            val anonymised = createTestMember(MemberStatus.GUEST)
+            transaction { MemberTable.update({ MemberTable.id eq anonymised }) { it[anonymizedAt] = LocalDateTime(2026, 1, 2, 0, 0) } }
+            allowed(block = { id -> requireCarpoolPassengerMembership(memberId = id) }, memberId = anonymised) shouldBe false
+        }
+
         test(
             "requireMembershipStatusIn: the raw primitive matches MemberStatusSets.CONFERENCE_ELIGIBLE exactly for an arbitrary custom set",
         ) {

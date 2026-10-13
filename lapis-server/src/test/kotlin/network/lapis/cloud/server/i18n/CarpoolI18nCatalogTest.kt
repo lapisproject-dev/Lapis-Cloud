@@ -21,7 +21,7 @@ class CarpoolI18nCatalogTest :
             File("../lapis-client/src/jsMain/resources/modules/i18n")
                 .let { if (it.exists()) it else File("lapis-client/src/jsMain/resources/modules/i18n") }
 
-        val waveSourceFiles = listOf("CarpoolScreen.kt")
+        val waveSourceFiles = listOf("CarpoolScreen.kt", "CarpoolParticipationUi.kt")
 
         val languages = listOf("en", "es", "fr", "it", "nl", "pl", "ru")
 

@@ -23372,3 +23372,135 @@ msgstr "Noise suppression is now the default."
 
 msgid "Rauschunterdrückung wird nicht mehr vorgegeben."
 msgstr "Noise suppression is no longer the default."
+
+msgid "Als Gast können Sie bei angebotenen Fahrten mitfahren. Fahrten anbieten können nur Mitglieder."
+msgstr "As a guest you can ride along on offered trips. Only members can offer trips."
+
+msgid "Den Treffpunkt nennt Ihnen der Fahrer, sobald die Mitfahrt bestätigt ist."
+msgstr "The driver will tell you the meeting point as soon as the ride is confirmed."
+
+msgid "Meine Mitfahrten"
+msgstr "My rides"
+
+msgid "Noch keine Fahrten angeboten."
+msgstr "No trips have been offered yet."
+
+msgid "1 offene Anfrage"
+msgstr "1 open request"
+
+msgid "%1 offene Anfragen"
+msgstr "%1 open requests"
+
+msgid "Mitfahrt anfragen"
+msgstr "Request a ride"
+
+msgid "Mitfahrt angefragt."
+msgstr "Ride requested."
+
+msgid "Wartet auf Ihre Bestätigung"
+msgstr "Waiting for your confirmation"
+
+msgid "Wartet auf Bestätigung durch den Mitfahrer"
+msgstr "Waiting for confirmation by the passenger"
+
+msgid "Wartet auf Bestätigung durch den Fahrer"
+msgstr "Waiting for confirmation by the driver"
+
+msgid "%1 von %2 Plätzen frei"
+msgstr "%1 of %2 seats free"
+
+msgid "Anfrage zurückziehen"
+msgstr "Withdraw request"
+
+msgid "Anfrage zurückgezogen."
+msgstr "Request withdrawn."
+
+msgid "Mitfahrt zurückziehen"
+msgstr "Withdraw from ride"
+
+msgid "Wirklich zurückziehen?"
+msgstr "Really withdraw?"
+
+msgid "Endgültig zurückziehen"
+msgstr "Withdraw for good"
+
+msgid "Mitfahrt zurückgezogen."
+msgstr "Ride withdrawn."
+
+msgid "Treffpunkt: %1"
+msgstr "Meeting point: %1"
+
+msgid "Mitfahrt bestätigt."
+msgstr "Ride confirmed."
+
+msgid "Mitfahrt abgelehnt."
+msgstr "Ride declined."
+
+msgid "Mitfahrer verwalten"
+msgstr "Manage passengers"
+
+msgid "Noch keine Mitfahrer."
+msgstr "No passengers yet."
+
+msgid "Einladung zurückziehen"
+msgstr "Withdraw invitation"
+
+msgid "Einladung zurückgezogen."
+msgstr "Invitation withdrawn."
+
+msgid "Mitfahrer wirklich entfernen?"
+msgstr "Really remove this passenger?"
+
+msgid "Mitfahrer entfernt."
+msgstr "Passenger removed."
+
+msgid "Mitfahrer hinzufügen"
+msgstr "Add a passenger"
+
+msgid "Bitte mindestens 3 Zeichen angeben."
+msgstr "Please enter at least 3 characters."
+
+msgid "Vorname"
+msgstr "First name"
+
+msgid "Nachname"
+msgstr "Last name"
+
+msgid "Keine Person mit diesem Namen gefunden. Schicken Sie der Person den Link zu dieser Fahrt."
+msgstr "No person with this name was found. Send the person the link to this trip."
+
+msgid "Gefundene Personen"
+msgstr "People found"
+
+msgid "Einladen"
+msgstr "Invite"
+
+msgid "Einladung gesendet."
+msgstr "Invitation sent."
+
+msgid "Treffpunkt und Uhrzeit"
+msgstr "Meeting point and time"
+
+msgid "Nur für bestätigte Mitfahrer sichtbar. Höchstens 200 Zeichen."
+msgstr "Visible only to confirmed passengers. At most 200 characters."
+
+msgid "Höchstens 200 Zeichen."
+msgstr "At most 200 characters."
+
+msgid "Treffpunkt speichern"
+msgstr "Save meeting point"
+
+msgid "Treffpunkt wurde gespeichert."
+msgstr "The meeting point was saved."
+
+msgid "Mitfahrerzentrale (%1)"
+msgstr "Carpooling (%1)"
+
+msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer (mehrere Fahrten in diesem Zeitraum)."
+msgstr "According to the carpool centre, %1 confirmed passengers (several trips in this period)."
+
+msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer."
+msgstr "According to the carpool centre, %1 confirmed passengers."
+
+msgid "Mitfahrt"
+msgstr "Ride"

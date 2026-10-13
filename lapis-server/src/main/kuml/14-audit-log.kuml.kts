@@ -218,6 +218,7 @@ classDiagram(name = "AuditLog") {
         literal(name = "MAILING_MESSAGE") // Welle V1.9.111 -- MailingDeliveryWorker writes ONE POST entry when the recipients of a message to a DYNAMIC list were resolved (after = list id, rule JSON, recipient count, mandatory flag; never a member id, name or address); 15 chars, fits within VARCHAR(29)
         literal(name = "COMMITTEE") // Welle V1.9.112 -- GovernanceService.setCommitteeMembershipRule / createCommittee (rule mode): committee id, mode, canonical rule, counts -- never a member id or name; 9 chars, fits within VARCHAR(29)
         literal(name = "TRAVEL_EXPENSE_SEPA_BATCH") // Welle V1.9.123 "SEPA-Ueberweisungsdatei fuer Reisekosten" -- TravelExpenseSepaExport writes one CREATE entry per generated pain.001 file: batch id, counts, cents, date, report ids -- never an IBAN or a name; 25 chars, fits within VARCHAR(29)
+        literal(name = "CARPOOL_PARTICIPATION") // Welle V1.9.125 "Mitfahrten in der Mitfahrerzentrale" -- CarpoolParticipations writes one entry per request/invitation/confirmation/decline/withdrawal: participation id, posting id, initiator, status -- never a name, a place or the meeting note; 21 chars, fits within VARCHAR(29)
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

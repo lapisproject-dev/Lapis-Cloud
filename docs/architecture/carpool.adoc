@@ -6,15 +6,16 @@
 
 NOTE: **Implementation status.** V1.9.12 built the whole feature in one wave: the `carpool_posting`
 table, `ICarpoolService`, the retention poller, the DSGVO contributor, and the `lapis-client`
-screen. No prior wave touched this domain.
+screen. V1.9.125 added passengers (`carpool_participation`, ten more RPC methods, a changed access rule) --
+see <<access-rule-change>> and <<participations>>.
 
 == Context
 
 Every `MemberStatus.ACTIVE` member may offer a ride (`OFFER`, 1-8 free seats) or ask for one
-(`REQUEST`) between two free-text places on a given date. This is deliberately a lightweight
-bulletin board, not a ride-matching/booking system: there is no seat reservation, no
-confirmation workflow, and no notion of who ultimately rides with whom -- a posting is visible to
-every member, and contacting its author is the only interaction the server mediates.
+(`REQUEST`) between two free-text places on a given date. Until V1.9.125 this was deliberately a lightweight
+bulletin board: no seat reservation, no confirmation workflow, no notion of who ultimately rides with whom.
+Since V1.9.125 a person can ride along on an offer and the driver confirms (<<participations>>); a `REQUEST`
+posting stays a plain bulletin-board entry (nobody rides along on a search).
 
 The sidebar entry "Mitfahrerzentrale" sits in the existing `MEMBERSHIP` group and carries no
 dedicated `NavVisibility` predicate of its own -- it falls under that group's existing
@@ -68,8 +69,10 @@ and `seats_offered` is set (1..8) if and only if `type = 'OFFER'` -- a `REQUEST`
 
 == RPC surface (`ICarpoolService`)
 
-Every method is `ORGANIZATION_MEMBER`-exclusive (`requireActiveMembership`, checked first inside
-every transaction, same discipline as every other member-gated service in this codebase):
+Until V1.9.125 every method was `ORGANIZATION_MEMBER`-exclusive; since then six of sixteen are open to
+the passenger statuses (<<access-rule-change>>). The guard is checked first inside every transaction, same
+discipline as every other member-gated service in this codebase. The six original methods keep their
+indices 0..5 on the wire (Kilua RPC numbers routes by declaration order); the ten new ones are appended:
 
 [cols="1,3", options="header"]
 |===
@@ -98,6 +101,12 @@ every transaction, same discipline as every other member-gated service in this c
 
 | `contactAuthor(postingId, message)`
 | See <<contact-routing>>.
+
+| `requestParticipation`, `confirmParticipation`, `declineParticipation`, `withdrawParticipation`, `listMyParticipations`
+| V1.9.125, passenger allowlist (ACTIVE, GUEST, FRIEND) -- see <<participations>>. `listPostings` joined this list.
+
+| `findInvitee`, `inviteParticipant`, `listParticipants`, `setMeetingNote`, `getPassengerHint`
+| V1.9.125, ACTIVE only. The driver's side: exact-name search, invitation, passenger list, meeting note, and the number for the travel expense suggestion.
 |===
 
 Every write path re-derives ownership from the freshly read row rather than trusting a
@@ -142,6 +151,131 @@ posting must still be in the future (`departure_date >= today`) at contact time,
 server-side even though the public feed already filters expired postings client-visibly -- a
 client could otherwise hold a stale posting id from an earlier `listPostings()` response.
 
+[[access-rule-change]]
+== Access rule change (V1.9.125)
+
+V1.9.12 made the whole carpool centre members-only. V1.9.125 **opens exactly six methods** to a wider set,
+`MemberStatusSets.CARPOOL_PASSENGER` = `ACTIVE`, `GUEST`, `FRIEND`, through its own guard
+`requireCarpoolPassengerMembership` (it mirrors the conference guard: an anonymised account is refused for every status, and an unverified
+`FRIEND` is refused while `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` is on):
+
+[cols="3,1,1,1,1", options="header"]
+|===
+| Method | ACTIVE | GUEST | FRIEND | other (APPLICATION, WITHDRAWN, ...)
+
+| `listPostings` (offers only, no free text, for a guest or friend) | yes | yes | yes | no
+| `requestParticipation`, `confirmParticipation`, `declineParticipation`, `withdrawParticipation`, `listMyParticipations` | yes | yes | yes | no
+| `listMyPostings`, `createPosting`, `updatePosting`, `deletePosting`, `contactAuthor` | yes | no | no | no
+| `findInvitee`, `inviteParticipant`, `listParticipants`, `setMeetingNote`, `getPassengerHint` | yes | no | no | no
+|===
+
+Why the opening is acceptable: a guest or friend can only act on **offers**, only on their **own** participation row, and sees no free text of
+other people and no member name before the ride is confirmed (the feed and `listMyParticipations` send the neutral label "Mitglied"
+instead; a driver's own invitation or a CONFIRMED seat reveals the name); it cannot enumerate members (there is no search for it) and cannot start anything on a posting that is not an offer. The risk
+that remains is a self-registered `FRIEND` asking for rides (a driver confirms nobody they do not want). Two tripwires keep the change narrow:
+`CarpoolAccessTripwireTest` pins the method list and the guard of each method, and forbids every other use of the guard and of the two sets;
+`FriendDeniedEverywhereElseTest` and `FriendCapabilityBoundaryTest` name the carpool exception explicitly.
+
+[[participations]]
+== Participations (V1.9.125)
+
+[source,kuml,name="carpool-participation-model"]
+----
+classDiagram(name = "Carpool participations -- Model") {
+    val posting = classOf(name = "CarpoolPosting") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "seatsOffered", type = "Int")
+        attribute(name = "meetingNote", type = "String")
+    }
+    val participation = classOf(name = "CarpoolParticipation") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "postingId", type = "UUID")
+        attribute(name = "personId", type = "UUID")
+        attribute(name = "initiator", type = "CarpoolParticipationInitiator")
+        attribute(name = "status", type = "CarpoolParticipationStatus")
+        attribute(name = "decidedAt", type = "LocalDateTime")
+    }
+    val member = classOf(name = "Member") {
+        attribute(name = "id", type = "UUID")
+    }
+
+    association(source = posting, target = participation) {
+        source { multiplicity(spec = "1"); role = "posting" }
+        target { multiplicity(spec = "0..*"); role = "participations" }
+    }
+    association(source = member, target = participation) {
+        source { multiplicity(spec = "1"); role = "person" }
+        target { multiplicity(spec = "0..*"); role = "rides" }
+    }
+}
+----
+
+`carpool_participation` (`V100__carpool_participation.sql`, additive) holds ONE row per `(posting, person)` (unique index); `posting_id` is
+`ON DELETE CASCADE`, `person_id` has no cascade (people are anonymised, the GDPR erasure deletes the rows explicitly). `decided_at` is set
+exactly when `status <> OPEN` (a CHECK) and is the basis of the seven-day display rule and the 24-hour lock. The same migration adds
+`carpool_posting.meeting_note` and widens the `audit_log_entry.entity_type` CHECK by `CARPOOL_PARTICIPATION`.
+
+[source,kuml,name="carpool-participation-states"]
+----
+stateDiagram(name = "Carpool participation") {
+    val start = initialState()
+    val open = state(name = "OPEN")
+    val confirmed = state(name = "CONFIRMED")
+    val declined = state(name = "DECLINED")
+    val withdrawn = state(name = "WITHDRAWN")
+
+    transition(source = start, target = open) { trigger = "request / invite" }
+    transition(source = open, target = confirmed) {
+        trigger = "confirm by the other side"
+        guard = "[free seat, both sides eligible]"
+    }
+    transition(source = open, target = declined) { trigger = "decline by the other side" }
+    transition(source = open, target = withdrawn) { trigger = "withdraw (either side)" }
+    transition(source = confirmed, target = withdrawn) { trigger = "withdraw (either side)" }
+    transition(source = declined, target = open) { trigger = "request / invite again [after 24 hours]" }
+    transition(source = withdrawn, target = open) { trigger = "request / invite again" }
+}
+----
+
+*Who decides.* The initiator is `DRIVER` (invitation) or `PASSENGER` (request); only the *other* side may confirm or decline, the initiator
+gets a conflict, a third party the constant not-found answer. Either of the two may withdraw.
+
+*Lock order (everywhere): the posting row first (`SELECT ... FOR UPDATE` on the bare posting row, never on a join), then the participation row.* The
+posting lock serialises every write on one ride: two confirmations cannot both take the last seat, `updatePosting` cannot undercut the
+confirmed seats, two requests of one person cannot both insert (so there is no unique-violation race and no savepoint). The audit write is the
+last lock-taking statement (the audit chain has one global lock). `CarpoolSeatConcurrencyScenarios` proves this with parallel requests on H2 and
+on PostgreSQL.
+
+*No enumeration.* An unknown id, a malformed id, somebody else's participation, a `REQUEST` posting and an expired ride all answer the **same**
+text (`CarpoolParticipations.NOT_FOUND_MESSAGE`, never the id). `findInvitee` compares the whole normalised display name for equality (no prefix, no
+wildcard), needs three characters per part, returns at most three hits, reads only `id` and `display_name`, and answers an empty list for
+"nobody", "too short" and "rate limited" alike. A hit carries an opaque 128-bit token bound to the searching driver (15 minutes, in memory), never
+a member id.
+
+*Identity and verification.* The driver sees the account kind (member, guest, friend) of every search hit and participant, because a
+self-registered friend chooses the display name freely and could imitate a member. While `LAPIS_FRIEND_REQUIRE_EMAIL_VERIFICATION` is on, an
+unverified friend is neither found by the search nor invitable (same rule as the guard).
+
+*Known residual risk.* Friend accounts can be self-registered (up to 500), so about 20 sybil friends can fill the 20 open-request slots of
+every ride (one friend covers up to 10 rides) and block genuine requests until the driver declines them. Accepted; a smaller quota for friends
+is the lever if it is ever abused.
+
+*Limits.* At most 10 open requests per person, 20 open per ride; 24 hours before the same direction may be tried again after a decline (the
+lock only covers the counter-party: whoever declines their own invitation may still ask); per-hour rate limits per member and action (20 requests,
+20 invitations, 10 searches, 60 decisions) -- taken *before* the transaction.
+
+*Notifications.* Collected inside the transaction, sent after the commit (Exposed repeats a block on `SQLException`). One generic mail purpose
+`carpool-notice` (BULK lane, never starves a password reset) naming nobody and carrying no meeting point; only to `ACTIVE` members and to
+`FRIEND`s with a verified address -- never to a `GUEST` (its address is synthetic) or an anonymised account.
+
+*Audit.* Every request, invitation, confirmation, decline and withdrawal writes an `AuditEntityType.CARPOOL_PARTICIPATION` entry (participation
+id, posting id, initiator, status -- no name, place or meeting note). The audit log is append-only, so these entries outlive the ride.
+
+*Retention and GDPR.* `CarpoolRetention` deletes the participations together with a due posting (explicitly, independent of the cascade).
+`CarpoolPersonalData` covers both tables: the export lists the person's own rides and the meeting note of their own offers, and only the *number*
+of passengers per own offer -- never the name of a third person; the erasure removes the person's own rides first (their seats are released), then
+their offers with everybody else's participations on them.
+
 == Retention and expiry
 
 A posting's lifecycle has two independent cutoffs, deliberately not the same date:
@@ -183,13 +317,13 @@ kept anywhere, deliberately simpler than the direct-message case rather than mir
 
 == Non-goals (this wave)
 
-* No seat reservation, booking, or acceptance/decline workflow -- a posting is a bulletin-board
-  entry, not a matched ride.
+* (V1.9.125 added a participation workflow for offers; a `REQUEST` posting remains a bulletin-board entry.)
 * No structured place data (no postal code/geocoding, no map, no distance calculation) -- `from
   Place`/`toPlace` are plain free text, unrelated to the separate Member Map feature's postal-code
   handling.
 * No notification when a new posting matching a member's interest appears -- a member must check
-  the feed themselves.
+  the feed themselves. (Participation news is mailed, see above.)
+* No distance or kilometre calculation, no automatic end of a participation when a person's status changes (new confirmations are refused).
 * No moderation/reporting path specific to carpool postings beyond what already exists for direct
   messages in general.
 

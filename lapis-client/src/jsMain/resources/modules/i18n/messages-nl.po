@@ -23420,3 +23420,135 @@ msgstr "Ruisonderdrukking is nu de standaard."
 
 msgid "Rauschunterdrückung wird nicht mehr vorgegeben."
 msgstr "Ruisonderdrukking is niet langer de standaard."
+
+msgid "Als Gast können Sie bei angebotenen Fahrten mitfahren. Fahrten anbieten können nur Mitglieder."
+msgstr "Als gast kunt u meerijden met aangeboden ritten. Alleen leden kunnen ritten aanbieden."
+
+msgid "Den Treffpunkt nennt Ihnen der Fahrer, sobald die Mitfahrt bestätigt ist."
+msgstr "De bestuurder geeft u het ontmoetingspunt door zodra de rit is bevestigd."
+
+msgid "Meine Mitfahrten"
+msgstr "Mijn ritten"
+
+msgid "Noch keine Fahrten angeboten."
+msgstr "Er zijn nog geen ritten aangeboden."
+
+msgid "1 offene Anfrage"
+msgstr "1 openstaand verzoek"
+
+msgid "%1 offene Anfragen"
+msgstr "%1 openstaande verzoeken"
+
+msgid "Mitfahrt anfragen"
+msgstr "Meerijden aanvragen"
+
+msgid "Mitfahrt angefragt."
+msgstr "Meerijden aangevraagd."
+
+msgid "Wartet auf Ihre Bestätigung"
+msgstr "Wacht op uw bevestiging"
+
+msgid "Wartet auf Bestätigung durch den Mitfahrer"
+msgstr "Wacht op bevestiging door de passagier"
+
+msgid "Wartet auf Bestätigung durch den Fahrer"
+msgstr "Wacht op bevestiging door de bestuurder"
+
+msgid "%1 von %2 Plätzen frei"
+msgstr "%1 van %2 plaatsen vrij"
+
+msgid "Anfrage zurückziehen"
+msgstr "Verzoek intrekken"
+
+msgid "Anfrage zurückgezogen."
+msgstr "Verzoek ingetrokken."
+
+msgid "Mitfahrt zurückziehen"
+msgstr "Rit opzeggen"
+
+msgid "Wirklich zurückziehen?"
+msgstr "Echt intrekken?"
+
+msgid "Endgültig zurückziehen"
+msgstr "Definitief intrekken"
+
+msgid "Mitfahrt zurückgezogen."
+msgstr "Rit opgezegd."
+
+msgid "Treffpunkt: %1"
+msgstr "Ontmoetingspunt: %1"
+
+msgid "Mitfahrt bestätigt."
+msgstr "Rit bevestigd."
+
+msgid "Mitfahrt abgelehnt."
+msgstr "Rit afgewezen."
+
+msgid "Mitfahrer verwalten"
+msgstr "Passagiers beheren"
+
+msgid "Noch keine Mitfahrer."
+msgstr "Nog geen passagiers."
+
+msgid "Einladung zurückziehen"
+msgstr "Uitnodiging intrekken"
+
+msgid "Einladung zurückgezogen."
+msgstr "Uitnodiging ingetrokken."
+
+msgid "Mitfahrer wirklich entfernen?"
+msgstr "Deze passagier echt verwijderen?"
+
+msgid "Mitfahrer entfernt."
+msgstr "Passagier verwijderd."
+
+msgid "Mitfahrer hinzufügen"
+msgstr "Passagier toevoegen"
+
+msgid "Bitte mindestens 3 Zeichen angeben."
+msgstr "Voer minstens 3 tekens in."
+
+msgid "Vorname"
+msgstr "Voornaam"
+
+msgid "Nachname"
+msgstr "Achternaam"
+
+msgid "Keine Person mit diesem Namen gefunden. Schicken Sie der Person den Link zu dieser Fahrt."
+msgstr "Geen persoon met deze naam gevonden. Stuur de persoon de link naar deze rit."
+
+msgid "Gefundene Personen"
+msgstr "Gevonden personen"
+
+msgid "Einladen"
+msgstr "Uitnodigen"
+
+msgid "Einladung gesendet."
+msgstr "Uitnodiging verzonden."
+
+msgid "Treffpunkt und Uhrzeit"
+msgstr "Ontmoetingspunt en tijd"
+
+msgid "Nur für bestätigte Mitfahrer sichtbar. Höchstens 200 Zeichen."
+msgstr "Alleen zichtbaar voor bevestigde passagiers. Maximaal 200 tekens."
+
+msgid "Höchstens 200 Zeichen."
+msgstr "Maximaal 200 tekens."
+
+msgid "Treffpunkt speichern"
+msgstr "Ontmoetingspunt opslaan"
+
+msgid "Treffpunkt wurde gespeichert."
+msgstr "Het ontmoetingspunt is opgeslagen."
+
+msgid "Mitfahrerzentrale (%1)"
+msgstr "Meerijden (%1)"
+
+msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer (mehrere Fahrten in diesem Zeitraum)."
+msgstr "Volgens Meerijden %1 bevestigde passagiers (meerdere ritten in deze periode)."
+
+msgid "Laut Mitfahrerzentrale %1 bestätigte Mitfahrer."
+msgstr "Volgens Meerijden %1 bevestigde passagiers."
+
+msgid "Mitfahrt"
+msgstr "Meerrit"
