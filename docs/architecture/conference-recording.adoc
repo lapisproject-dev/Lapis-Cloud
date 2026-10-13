@@ -5,7 +5,7 @@ NOTE: This document's `[kuml]` block is rendered and validated by the `:docs-ren
 
 == Purpose
 
-A conference recording is captured as raw per-track files (LiveKit Track Egress), then composed into one MP4 by `ffmpeg` (`FfmpegSegmentedComposer`, driven by `RecordingPoller`).
+A conference recording is captured as raw files (one per person with LiveKit Participant Egress, the default since V1.9.116, or one per track with Track Egress), then composed into one MP4 by `ffmpeg` (`FfmpegSegmentedComposer`, driven by `RecordingPoller`).
 V1.9.107 fixes a composition that never ended on a real recording and adds a moderator action to repair a recording whose composition failed.
 Operating context: the ELB recording `bacce4ae-a65c-4f3d-9266-33fcfd309e25` (68 minutes) stayed `FAILED` although all raw files were on disk; `ffmpeg` 8 aborted with `-shortest` when
 the audio ran far ahead of the video, and the video chain ran for about 8000 s instead of 4100 s.

@@ -83,15 +83,15 @@ this repository. This README describes only the technical scope.
 * **Deployment**: Docker Compose (`deploy/example/`). Since `v0.31.1` (V1.9.93) the server image is built once per release tag by CI and
   published to GHCR (`ghcr.io/lapisproject-dev/lapis-cloud:<version>`); hosts pull it instead of compiling the sources
   (`LAPIS_IMAGE_TAG` in `.env`, rollback = previous tag). The pipeline has run and is verified: the published image
-  `ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` (the first image; later tags such as `0.32.0` follow the same route, an instance moves by setting `LAPIS_IMAGE_TAG`) is public -- see `docs/architecture/ci-pipeline.adoc`
+  `ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` (the first image; later tags such as `0.33.0` follow the same route, an instance moves by setting `LAPIS_IMAGE_TAG`) is public -- see `docs/architecture/ci-pipeline.adoc`
   and `deploy/example/README.adoc`. A local source build stays available through `docker-compose.build.yml`.
 
 == Status
 
-Current release: *v0.32.0* (database schema *V94*; feature release on `v0.31.2`: video-conference moderation (mute, ask, lock the microphones), switchable views with a speaker layout, an optional local noise filter and recordings that follow who is in the picture, stay in sync and can be recomputed (opt-in recording per person), automatic and mandatory mailing lists, rule-based committees with a frozen electorate for every vote, and online participation in events -- none of it has been seen yet in a real call with several real participants; see `CHANGELOG.md` `[0.32.0]` for the behaviour changes, the seven migrations `V88` to `V94` and the honest limitations). Lapis Cloud contains standard membership management (members, contributions, events, communication, GDPR, accounting),
+Current release: *v0.33.0* (database schema *V97*; feature release on `v0.32.0`: **recordings are now made per person by default** (existing deployments change behaviour on upgrade and need CPU; `LAPIS_RECORDING_EGRESS_MODE=track` keeps the old mode), the conference full screen uses the whole height, an optional notification mail on approval or rejection of an application (the approve/reject RPCs changed their return type), a noise-suppression bug fix with a retry, quiet join and leave sounds in conferences, country and nationality chosen from a list with flags, and a travel expense report that follows the PdV form (the mileage rate has no default and must be set by an administrator) -- none of it has been seen yet in a real call with several real participants or judged visually in a real browser window; see `CHANGELOG.md` `[0.33.0]` for the behaviour changes, the three migrations `V95` to `V97` and the honest limitations). Lapis Cloud contains standard membership management (members, contributions, events, communication, GDPR, accounting),
 the meritocratic governance layer (voting, elections, systemic consensus, LTR economy), federation, video conferencing and many optional modules.
 
-* Not yet released: `CHANGELOG.md` `[Unreleased]` lists the waves after `v0.32.0`; the latest is V1.9.122 (travel expense report following the PdV form, schema **V97**).
+* Not yet released: `CHANGELOG.md` `[Unreleased]` is empty; everything up to V1.9.122 is in `v0.33.0`.
 * `CHANGELOG.md` is the authoritative release history; the long-form narrative is in link:docs/release-history.adoc[docs/release-history.adoc].
 * Website: https://cloud.lapisproject.dev
 * Feature documentation: link:docs/features/index.adoc[docs/features/index.adoc]
