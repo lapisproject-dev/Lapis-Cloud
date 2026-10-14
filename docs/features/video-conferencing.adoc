@@ -125,7 +125,7 @@ wave that does add webhooks.
 
 **Explicitly out of scope for Wave 1** (see the wave's own KDoc/design-review notes for the full
 list): recording/streaming (LiveKit Egress, RTMP), whiteboard/document sharing, breakout rooms,
-live subtitles/translation, hand-raise/reactions, a lobby/Warteraum, the full four-tier
+live subtitles/translation, hand-raise/reactions (since V1.9.127: see "Reactions and raised hands" below), a lobby/Warteraum, the full four-tier
 Moderator/Präsentator/Teilnehmer/Zuhörer role model, E2EE, "Termin → Konferenzraum" integration with
 the Sitzungen/Gremien module, voting-module integration, federated guest join, and chat persistence
 (chat is intentionally ephemeral — it travels only over the LiveKit data channel and is never

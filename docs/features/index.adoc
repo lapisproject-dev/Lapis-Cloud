@@ -7,7 +7,7 @@ Architecture background lives in link:../architecture/[docs/architecture/]; the 
 [cols="2,3",options="header"]
 |===
 |Feature |Description
-|link:video-conferencing.adoc[Videokonferenzen (V1.0 Wave 1)] |Video conferencing, LiveKit-based, for committee sessions
+|link:video-conferencing.adoc[Videokonferenzen (V1.0 Wave 1)] |Video conferencing, LiveKit-based, for committee sessions; reactions and a raised-hand queue (V1.9.127)
 |link:payment-providers.adoc[Payment service providers (Stripe + PayPal)] |Card and PayPal checkout for contributions and donations, with webhook handling
 |link:public-rest-api.adoc[Public REST API (V1.3.1)] |Read-only machine-to-machine REST API under `/api/v1` with API keys
 |link:webhooks.adoc[Outbound Webhooks (V1.3.2)] |Signed outbound webhooks for fixed domain events

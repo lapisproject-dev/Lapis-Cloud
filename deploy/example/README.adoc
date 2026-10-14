@@ -147,7 +147,7 @@ still wrong.
 [source,bash]
 ----
 cd deploy/example
-cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.34.0) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
+cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.35.0) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
 docker compose pull
 docker compose up -d
 docker compose logs -f lapis-server
@@ -343,7 +343,7 @@ on 2026-10-10 (the tag `v0.31.0` has no image: its first build ran out of heap, 
 (GitHub package settings; an organisation must allow public packages first). Check
 `docker buildx imagetools inspect ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` before switching an instance; an instance on the old server-side build
 keeps working until it is switched (see "Switching a real instance from server-side builds to the published image" below). Example:
-`LAPIS_IMAGE_TAG=0.34.0` (no `v`; the git tag is `v0.34.0`, the image tag is `0.34.0`).
+`LAPIS_IMAGE_TAG=0.35.0` (no `v`; the git tag is `v0.35.0`, the image tag is `0.35.0`).
 ====
 
 Since V1.9.93 the server is **not built on the host any more**: CI builds the image once per release tag and publishes it, the host sets
@@ -362,6 +362,8 @@ any instance: that wave edited 16 already-applied Flyway migration files in plac
 to run at all on any of these three already-migrated instances until `flywayRepair` has run against
 each of them -- see the CHANGELOG "Operator notes" entry for this wave for the full mechanism and
 the exact command. Run it once per instance before rebuilding that instance below.
+
+Upgrading from `v0.34.0` to `v0.35.0` adds one additive migration (`V101`, a room option; the reported migration count goes up by exactly one, check the real count) and needs no `flywayRepair` of its own: take a backup, set `LAPIS_IMAGE_TAG=0.35.0`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. Reactions and raised hands need nothing else (the queue lives in memory and is lost on a restart). **Public event page:** the page `/veranstaltung/<slug>` now carries the full Lapis header and a styled layout; a website that links to it needs no change, one that wants the slim, header-less shape adds `?embed=1`. An `<iframe>` of that shape works only if `LAPIS_EMBED_ENABLED=true` and the website's origin is in `LAPIS_EMBED_ALLOWED_ORIGINS`; without them the page stays unframeable. No new environment variable.
 
 Upgrading from `v0.33.0` to `v0.34.0` adds three additive migrations (`V98` to `V100`; the reported migration count goes up by exactly three, check the real count) and needs no `flywayRepair` of its own: take a backup, set `LAPIS_IMAGE_TAG=0.34.0`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. **Access rule change:** six carpool methods are now open to guests and friends (`GUEST`, `FRIEND`); an instance with free friend self-registration lets anybody who registers a friend account list offers and request a seat (read `docs/architecture/carpool.adoc` first). After the upgrade: for the SEPA credit transfer file of approved travel expenses set a default bank account (Einstellungen > Bankkonten), the organisation name and `LAPIS_SECRET_ENCRYPTION_KEY` (without it no IBAN can be stored); a friend can join a conference only if the room has the switch "Gäste anderer Server zulassen" on and the moderator handed over the room id; an administrator can make the noise suppression the instance default (card "Videokonferenz" in the member administration, off until used). The consent text of the guest notice changed to version `2026-10-13.v1`; open browser tabs get a conflict on joining until reloaded. The bank acceptance of the `pain.001.001.09` file is untested. No new environment variable.
 

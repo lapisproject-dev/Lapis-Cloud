@@ -6,6 +6,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.35.0] — 2026-10-14
+
+Feature release on top of `[0.34.0]` (V1.9.127 and V1.9.128): **reactions and a raised-hand queue** (Wortmeldeliste) in the video conference, and the **public event page** `/veranstaltung/<slug>` with the Lapis header, a proper layout and a slim `?embed=1` variant. One additive migration (`V101`, a room option); no new environment variable. **Behaviour changes:** the event page looks different and prints dates in German; a website that framed the old page never could (it sent `frame-ancestors 'none'`), the new `?embed=1` shape can be framed only with `LAPIS_EMBED_ENABLED=true` and the origin in `LAPIS_EMBED_ALLOWED_ORIGINS`; `registerEventPublicRoutes` takes `branding`, `navAvailability` and `embedConfig` (internal). **Not verified:** neither wave has been seen by real people in a real browser window or a real call; the translations were written by the model; see the two sections below for the honest limitations.
+
 ### V1.9.128 -- Public event page: Lapis header, layout, `?embed=1`
 
 The public event page and its whole registration flow now carry the full Lapis header (brand, icon navigation, language switcher, footer) and a wide, styled layout. `?embed=1` keeps the slim shape for an `<iframe>`. Details: `docs/features/public-event-page.adoc`.
