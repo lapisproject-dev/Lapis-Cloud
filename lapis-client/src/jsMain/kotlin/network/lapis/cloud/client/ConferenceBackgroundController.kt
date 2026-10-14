@@ -13,6 +13,7 @@ import network.lapis.cloud.client.livekit.BackgroundAssetPaths
 import network.lapis.cloud.client.livekit.BackgroundProcessorOptions
 import network.lapis.cloud.client.livekit.BackgroundProcessorWrapper
 import network.lapis.cloud.client.livekit.LocalVideoTrack
+import network.lapis.cloud.client.livekit.ProcessorWrapper
 import network.lapis.cloud.client.livekit.SegmenterOptions
 import network.lapis.cloud.client.livekit.SwitchBackgroundProcessorOptions
 import network.lapis.cloud.client.livekit.createBackgroundProcessor
@@ -60,6 +61,12 @@ internal fun conferenceBackgroundSupportedInThisBrowser(): Boolean =
  * and [LiveKitBackgroundTrack].
  */
 internal interface BackgroundProcessorHandle {
+    /**
+     * V1.9.129 -- what this processor does: the segmenting processor (background effect, with the overlay hook inside) or the overlay-only
+     * one. Defaults to [VideoProcessorKind.SEGMENTING], so every processor that predates the overlays keeps its meaning.
+     */
+    val kind: VideoProcessorKind get() = VideoProcessorKind.SEGMENTING
+
     /** In-place effect change within one episode (no rebuild). Rejects/throws on failure. */
     suspend fun switchTo(choice: ConferenceBackgroundChoice)
 
@@ -81,17 +88,43 @@ internal interface BackgroundTrack {
     fun currentProcessor(): BackgroundProcessorHandle?
 }
 
-/** Production handle around the `@livekit/track-processors` wrapper; equal iff it wraps the same JS object. */
-internal class RealBackgroundProcessor(
-    val raw: BackgroundProcessorWrapper,
-) : BackgroundProcessorHandle {
-    override suspend fun switchTo(choice: ConferenceBackgroundChoice) {
-        raw.switchTo(switchBackgroundOptionsFor(choice)).await()
+/**
+ * V1.9.129 -- which processor sits on the camera track. [NONE]: none (raw camera). [OVERLAY_ONLY]: only the overlay drawing step -- NO
+ * MediaPipe, no WASM, no WebGL (the library's `disabled` mode would still load ~19 MB). [SEGMENTING]: the background processor; the overlay
+ * hook is inside it, so one pipeline serves both.
+ */
+internal enum class VideoProcessorKind { NONE, OVERLAY_ONLY, SEGMENTING }
+
+/** Pure decision: no background effect and no overlay -> none; overlay without effect -> overlay only; any effect -> segmenting. */
+internal fun videoProcessorKindFor(
+    background: ConferenceBackgroundChoice,
+    overlayActive: Boolean,
+): VideoProcessorKind =
+    when {
+        background != CONFERENCE_BACKGROUND_OFF -> VideoProcessorKind.SEGMENTING
+        overlayActive -> VideoProcessorKind.OVERLAY_ONLY
+        else -> VideoProcessorKind.NONE
     }
 
-    override fun appliedBackgroundImagePath(): String? = runCatching { raw.transformer.backgroundImageAndPath?.path }.getOrNull()
+/**
+ * V1.9.129 -- what the controller needs from the overlay side: whether anything is to be drawn, an overlay-only processor, and the hook
+ * for a freshly built segmenting processor. Production: [CompositorOverlayPort]; `null` in the controller means "no overlays" (and keeps
+ * every pre-overlay test and call site unchanged).
+ */
+internal interface OverlayProcessorPort {
+    val wanted: Boolean
 
-    override fun equals(other: Any?): Boolean = other is RealBackgroundProcessor && other.raw === raw
+    fun createOverlayOnlyHandle(): BackgroundProcessorHandle
+
+    /** Puts the drawing step into [handle] (a segmenting processor) BEFORE it is initialised by `setProcessor`. */
+    fun hookSegmenting(handle: BackgroundProcessorHandle)
+}
+
+/** Production handles are equal iff they wrap the same JS object -- whatever their [kind]. */
+internal abstract class JsProcessorHandle(
+    val raw: dynamic,
+) : BackgroundProcessorHandle {
+    override fun equals(other: Any?): Boolean = other is JsProcessorHandle && other.raw === raw
 
     /**
      * Konsistent zu [equals] (Identitaet des umhuellten JS-Objekts): Kotlin/JS vergibt pro Objekt einen
@@ -99,6 +132,50 @@ internal class RealBackgroundProcessor(
      * Konstante `0` war formal erlaubt, aber irrefuehrend (Audit-Befund N8).
      */
     override fun hashCode(): Int = raw.hashCode()
+}
+
+/** Production handle around the `@livekit/track-processors` wrapper; equal iff it wraps the same JS object. */
+internal class RealBackgroundProcessor(
+    raw: BackgroundProcessorWrapper,
+) : JsProcessorHandle(raw) {
+    val wrapper: BackgroundProcessorWrapper get() = raw.unsafeCast<BackgroundProcessorWrapper>()
+
+    override suspend fun switchTo(choice: ConferenceBackgroundChoice) {
+        wrapper.switchTo(switchBackgroundOptionsFor(choice)).await()
+    }
+
+    override fun appliedBackgroundImagePath(): String? = runCatching { wrapper.transformer.backgroundImageAndPath?.path }.getOrNull()
+}
+
+/** V1.9.129 -- handle of the overlay-only processor (a plain `ProcessorWrapper` around a duck-typed transformer). */
+internal class OverlayOnlyProcessorHandle(
+    raw: ProcessorWrapper,
+) : JsProcessorHandle(raw) {
+    override val kind: VideoProcessorKind get() = VideoProcessorKind.OVERLAY_ONLY
+
+    override suspend fun switchTo(choice: ConferenceBackgroundChoice) {
+        error("the overlay-only processor has no background effect to switch")
+    }
+
+    override fun appliedBackgroundImagePath(): String? = null
+}
+
+/** The production [OverlayProcessorPort]: processors whose transformer hands every frame to [compositor]. */
+internal class CompositorOverlayPort(
+    private val compositor: VideoOverlayCompositor,
+) : OverlayProcessorPort {
+    override val wanted: Boolean get() = compositor.hasScene
+
+    override fun createOverlayOnlyHandle(): BackgroundProcessorHandle {
+        val transformer = createOverlayOnlyTransformer(overlayFrameProcessor(compositor))
+        val wrapper = ProcessorWrapper(transformer, "lapis-video-overlay", obj<dynamic> { maxFps = CONFERENCE_BACKGROUND_MAX_FPS })
+        return OverlayOnlyProcessorHandle(wrapper)
+    }
+
+    override fun hookSegmenting(handle: BackgroundProcessorHandle) {
+        val real = handle as? RealBackgroundProcessor ?: return
+        installTransformHook(real.wrapper.transformer, overlayFrameProcessor(compositor))
+    }
 }
 
 /** Thin production adapter from LiveKit's [LocalVideoTrack] to [BackgroundTrack]. */
@@ -110,19 +187,30 @@ internal class LiveKitBackgroundTrack(
         // Handle-Implementierung ist ein Programmierfehler, kein stiller ClassCastException-Absturz. Die
         // Meldung enthaelt nur einen Typnamen, nie Nutzerdaten (Logging-Regel).
         val real =
-            handle as? RealBackgroundProcessor
-                ?: error("LiveKitBackgroundTrack erwartet einen RealBackgroundProcessor, bekam ${handle::class.simpleName}")
+            handle as? JsProcessorHandle
+                ?: error("LiveKitBackgroundTrack erwartet einen JsProcessorHandle, bekam ${handle::class.simpleName}")
         // Positional (Kotlin verbietet benannte Argumente bei external-Aufrufen):
         // setProcessor(processor, showProcessedStreamLocally = true) -- die eigene Selbstansicht IST die
-        // Vorschau, bereits attachte Elemente bekommen den bearbeiteten Track.
-        track.setProcessor(real.raw, true).await()
+        // Vorschau, bereits attachte Elemente bekommen den bearbeiteten Track. livekit-client initialisiert den NEUEN Prozessor zuerst
+        // und stoppt den bisherigen erst danach (LocalVideoTrack.setProcessor) -- ein Wechsel der Art braucht deshalb kein vorheriges Stoppen.
+        track.setProcessor(real.raw.unsafeCast<BackgroundProcessorWrapper>(), true).await()
     }
 
     override suspend fun stopProcessor() {
         track.stopProcessor(false).await()
     }
 
-    override fun currentProcessor(): BackgroundProcessorHandle? = track.getProcessor()?.let { RealBackgroundProcessor(it) }
+    override fun currentProcessor(): BackgroundProcessorHandle? =
+        track.getProcessor()?.let { raw ->
+            // The overlay-only wrapper is a plain `ProcessorWrapper` (no `switchTo`); the segmenting one is the library's own subclass.
+            if (raw.asDynamic().switchTo ==
+                undefined
+            ) {
+                OverlayOnlyProcessorHandle(raw.unsafeCast<ProcessorWrapper>())
+            } else {
+                RealBackgroundProcessor(raw)
+            }
+        }
 }
 
 private fun switchBackgroundOptionsFor(choice: ConferenceBackgroundChoice): SwitchBackgroundProcessorOptions {
@@ -298,6 +386,15 @@ internal class ConferenceBackgroundController(
     private val launchDetachedCleanup: (suspend () -> Unit) -> Unit = { block -> AppScope.launch { block() } },
     /** Test seam: defaults to [BACKGROUND_DISPOSE_STOP_TIMEOUT_MS]. */
     private val disposeStopTimeoutMs: Long = BACKGROUND_DISPOSE_STOP_TIMEOUT_MS,
+    /**
+     * V1.9.129 "Video-Overlays" -- the overlay side (`null` = no overlays at all, the behaviour before V1.9.129). The overlay drawing step
+     * lives INSIDE the processor of this controller (ONE processor per track): [OverlayProcessorPort.hookSegmenting] puts it into every
+     * segmenting processor, [OverlayProcessorPort.createOverlayOnlyHandle] builds the processor for "overlay without background effect"
+     * (no MediaPipe). A failure of the overlay side never touches [state] -- the background keeps its own phase.
+     */
+    private val overlayPort: OverlayProcessorPort? = null,
+    /** V1.9.129 -- the overlay processor itself could not be applied (the camera then runs without overlays). */
+    private val onOverlayFailure: (VideoOverlayFailure) -> Unit = {},
 ) {
     var state: ConferenceBackgroundState = ConferenceBackgroundState()
         private set
@@ -401,7 +498,11 @@ internal class ConferenceBackgroundController(
             if (disposed) return
             transition(ConferenceBackgroundEvent.NewLocalTrack)
             val choice = conferenceBackgroundChoiceForNewTrack(state)
-            if (choice == CONFERENCE_BACKGROUND_OFF) return
+            if (choice == CONFERENCE_BACKGROUND_OFF) {
+                // V1.9.129: no background effect, but possibly overlays -- an idempotent (re)application of the overlay-only processor.
+                if (overlayPort?.wanted == true) ensureOverlayOnlyLocked(track)
+                return
+            }
             // S3 (Umsetzungsplan): eine gespeicherte EIGENE Wahl wird erst angewendet, sobald
             // reconcileCustomImages() einmal gelaufen ist -- sonst wendet ein Beitritt ein
             // inzwischen geloeschtes Bild an und ergibt eine 404/LOAD_FAILED-Meldung fuer etwas,
@@ -460,6 +561,7 @@ internal class ConferenceBackgroundController(
                 }
                 if (track != null && wrapper != null) removeProcessor(track)
                 transition(ConferenceBackgroundEvent.ProcessorLost)
+                if (track != null) restoreOverlayAfterBackgroundRemovedLocked(track)
                 return
             }
             if (track != null && desired is ConferenceBackgroundChoice.Custom) {
@@ -517,7 +619,12 @@ internal class ConferenceBackgroundController(
         // bereits beim Betreten des Mutex; dies ist die Pruefung an der Stelle, die sie einhalten MUSS.
         if (disposed) return
         if (choice == CONFERENCE_BACKGROUND_OFF) {
-            removeProcessor(track)
+            if (overlayPort?.wanted == true) {
+                // V1.9.129: "no effect" but overlays are wanted -- the processor becomes the overlay-only one (no MediaPipe, no WASM).
+                applyOverlayOnlyLocked(track)
+            } else {
+                removeProcessor(track)
+            }
             if (disposed) return // removeProcessor suspendiert -- dispose kann inzwischen gelaufen sein
             transition(ConferenceBackgroundEvent.ApplySucceeded(CONFERENCE_BACKGROUND_OFF))
             onProcessedStreamSwapped()
@@ -555,7 +662,7 @@ internal class ConferenceBackgroundController(
                     // behaelt. `generation` kann hier nur durch [dispose] abweichen: eine neuere Anwendung
                     // braeuchte den Mutex, den dieser Aufruf noch haelt.
                     if (attempt != generation) return@withTimeoutOrNull true
-                    if (existing != null && track.currentProcessor() == existing) {
+                    if (existing != null && existing.kind == VideoProcessorKind.SEGMENTING && track.currentProcessor() == existing) {
                         // Effektwechsel innerhalb einer Episode: kein Neuaufbau (Modell/WASM bleiben geladen).
                         try {
                             existing.switchTo(choice)
@@ -574,6 +681,8 @@ internal class ConferenceBackgroundController(
                         }
                     } else {
                         val created = processorFactory(choice)
+                        // V1.9.129: the overlay drawing step goes into the NEW segmenting processor before the library initialises it.
+                        overlayPort?.hookSegmenting(created)
                         wrapper = created
                         try {
                             track.setProcessor(created)
@@ -629,18 +738,106 @@ internal class ConferenceBackgroundController(
         // Auch nach einem setProcessor-Reject: raeumt einen spaet doch fertig gewordenen Prozessor ab;
         // ohne gesetzten Prozessor ist stopProcessor ein no-op. Nie wiederverwenden, immer neu bauen.
         removeProcessor(track)
-        if (failure == ConferenceBackgroundFailure.TIMEOUT) {
+        val timedOut = failure == ConferenceBackgroundFailure.TIMEOUT
+        if (timedOut) {
             // Audit-Befund M4: nach einem Timeout laeuft das JS-Promise weiter und haelt livekits
             // `trackChangeLock` -- das gedeckelte `stopProcessor` in `removeProcessor` wartet dahinter und
             // laeuft in sein eigenes 3-s-Limit. Deshalb zusaetzlich ein UNBEGRENZTES, losgeloestes
             // Aufraeumen: wird die Anwendung spaeter doch fertig, wird der Prozessor danach abgeraeumt und
             // nie gemeldet oder behalten.
-            launchDetachedCleanup { runCatching { track.stopProcessor() } }
+            //
+            // Review-Befund: `setProcessor` und `stopProcessor` teilen sich livekits FIFO-`trackChangeLock`.
+            // Wuerde der Overlay-only-Prozessor HIER sofort gesetzt, stuende er in der Warteschlange VOR dem
+            // losgeloesten Stop, und der Stop risse ihn gleich wieder herunter (Kachel zeigt "So sehen andere
+            // Sie", die Kamera sendet aber keine Overlays). Darum wird die Wiederherstellung erst NACH dem
+            // abgeschlossenen Stop angestossen -- unter dem Mutex und mit allen Pruefungen von
+            // [onOverlayChanged] (dispose, laufende Anwendung, bereits gesetzter Prozessor).
+            launchDetachedCleanup {
+                runCatching { track.stopProcessor() }
+                runCatching { onOverlayChanged(track) }
+            }
         }
         val notify = conferenceBackgroundShouldNotify(state, failure)
         transition(ConferenceBackgroundEvent.ApplyFailed(failure))
+        // V1.9.129: a failed background effect must not take the overlays down with it.
+        // (Bei TIMEOUT erst nach dem losgeloesten Stop, siehe oben.)
+        if (!timedOut) restoreOverlayAfterBackgroundRemovedLocked(track)
         onProcessedStreamSwapped()
         if (notify) notifyFailure(conferenceBackgroundFailureMessage(failure))
+    }
+
+    /**
+     * V1.9.129 -- the overlay side changed what it wants to draw (a scene appeared, changed its kind, or vanished). Called by the overlay
+     * controller AFTER it handed the new scene to the compositor. [track] is `null` while the camera is off: then nothing is applied now,
+     * [onLocalCameraTrack] does it with the next track. Runs under the same [mutex] as every other application.
+     *
+     * - background effect active: the hook is already inside the segmenting processor, the scene swap alone is enough;
+     * - no effect, overlays wanted: make sure the overlay-only processor is on the track;
+     * - no effect, nothing wanted: take a (now useless) overlay-only processor off the track.
+     */
+    suspend fun onOverlayChanged(track: BackgroundTrack?) {
+        val port = overlayPort ?: return
+        if (!supported || disposed || track == null) return
+        mutex.withLock {
+            if (disposed) return
+            if (state.phase == ConferenceBackgroundPhase.APPLYING) return // that application decides the processor itself
+            val kind = videoProcessorKindFor(state.applied, port.wanted)
+            val current = wrapper
+            when (kind) {
+                VideoProcessorKind.SEGMENTING -> Unit
+                VideoProcessorKind.OVERLAY_ONLY -> ensureOverlayOnlyLocked(track)
+                VideoProcessorKind.NONE ->
+                    if (current != null && current.kind == VideoProcessorKind.OVERLAY_ONLY) {
+                        removeProcessor(track)
+                        if (!disposed) onProcessedStreamSwapped()
+                    }
+            }
+        }
+    }
+
+    /** Idempotent: the overlay-only processor is already on [track], or it is put there. */
+    private suspend fun ensureOverlayOnlyLocked(track: BackgroundTrack) {
+        val current = wrapper
+        if (current != null && current.kind == VideoProcessorKind.OVERLAY_ONLY && track.currentProcessor() == current) return
+        applyOverlayOnlyLocked(track)
+        if (!disposed) onProcessedStreamSwapped()
+    }
+
+    /**
+     * Builds the overlay-only processor and sets it on [track] (replacing whatever processor sat there: the library initialises the new one
+     * first and stops the old one afterwards). A failure or timeout is reported ONLY to the overlay side ([onOverlayFailure]); the camera
+     * keeps running without overlays and the stale processor is cleaned up.
+     */
+    private suspend fun applyOverlayOnlyLocked(track: BackgroundTrack) {
+        val port = overlayPort ?: return
+        if (disposed) return
+        val attempt = ++generation
+        val created = port.createOverlayOnlyHandle()
+        wrapper = created
+        var failed = false
+        try {
+            val finished = withTimeoutOrNull(applyTimeoutMs) { track.setProcessor(created) }
+            if (finished == null) failed = true
+        } catch (e: Throwable) {
+            failed = true
+        }
+        if (attempt != generation) {
+            // Overtaken (dispose): nothing is reported, nothing is kept.
+            wrapper = null
+            launchDetachedCleanup { runCatching { track.stopProcessor() } }
+            return
+        }
+        if (failed) {
+            removeProcessor(track)
+            launchDetachedCleanup { runCatching { track.stopProcessor() } }
+            onOverlayFailure(VideoOverlayFailure.DRAW_FAILED)
+        }
+    }
+
+    /** After a background effect was removed or failed: if overlays are still wanted the camera gets the overlay-only processor. */
+    private suspend fun restoreOverlayAfterBackgroundRemovedLocked(track: BackgroundTrack) {
+        if (disposed || overlayPort?.wanted != true) return
+        applyOverlayOnlyLocked(track)
     }
 
     private suspend fun removeProcessor(track: BackgroundTrack) {

@@ -24,6 +24,7 @@ import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
 import network.lapis.cloud.server.rpc.NoiseSuppressionDefaultStore
 import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
+import network.lapis.cloud.server.rpc.VideoOverlaysOfferedStore
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.server.time.OrganizationTimeZone
@@ -250,6 +251,8 @@ internal class EventOnlineJoin(
                     turnServers = turn,
                     eventId = eventId.toString(),
                     noiseSuppressionDefault = NoiseSuppressionDefaultStore.currentValue(),
+                    // V1.9.129 -- a member's own join only; the accountless guest path below never offers overlays.
+                    videoOverlaysOffered = VideoOverlaysOfferedStore.currentValue(),
                 ),
         )
     }

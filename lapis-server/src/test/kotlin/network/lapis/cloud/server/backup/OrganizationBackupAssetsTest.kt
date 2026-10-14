@@ -16,6 +16,7 @@ import network.lapis.cloud.server.db.generated.ArticleTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.RegionalChapterTable
+import network.lapis.cloud.server.db.generated.VideoOverlayAssetTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ArticleStatus
@@ -71,6 +72,7 @@ class OrganizationBackupAssetsTest :
             val chapterPng: Uuid,
             val eventCover: Uuid,
             val articleCover: Uuid,
+            val videoOverlay: Uuid,
         )
 
         fun seedAdmin(db: Database): Uuid {
@@ -104,23 +106,40 @@ class OrganizationBackupAssetsTest :
                     chapterCrests = Files.createTempDirectory("assets-src-crests").toFile(),
                     eventCovers = Files.createTempDirectory("assets-src-events").toFile(),
                     articleCovers = Files.createTempDirectory("assets-src-articles").toFile(),
+                    videoOverlays = Files.createTempDirectory("assets-src-overlays").toFile(),
                 )
             val targetRoots =
                 BackupAssetRoots(
                     chapterCrests = Files.createTempDirectory("assets-dst-crests").toFile(),
                     eventCovers = Files.createTempDirectory("assets-dst-events").toFile(),
                     articleCovers = Files.createTempDirectory("assets-dst-articles").toFile(),
+                    videoOverlays = Files.createTempDirectory("assets-dst-overlays").toFile(),
                 )
             val adminId = seedAdmin(sourceDb)
             val chapterSvg = Uuid.random()
             val chapterPng = Uuid.random()
             val eventCover = Uuid.random()
             val articleCover = Uuid.random()
+            val videoOverlay = Uuid.random()
             sourceRoots.chapterCrests.resolve("$chapterSvg.svg").writeText(SAFE_SVG)
             sourceRoots.chapterCrests.resolve("$chapterPng.png").writeBytes(pngBytes())
             sourceRoots.eventCovers.resolve("$eventCover.jpg").writeBytes(jpegBytes())
             sourceRoots.articleCovers.resolve("$articleCover.png").writeBytes(pngBytes())
+            sourceRoots.videoOverlays.resolve("$videoOverlay.png").writeBytes(pngBytes())
             transaction(sourceDb) {
+                VideoOverlayAssetTable.insert {
+                    it[id] = videoOverlay
+                    it[kind] = "LOGO"
+                    it[name] = "Backup-Logo"
+                    it[format] = "png"
+                    it[width] = 64
+                    it[height] = 64
+                    it[sizeBytes] = 100L
+                    it[sha256] = "0".repeat(64)
+                    it[accessToken] = "backup-token-$videoOverlay".take(60)
+                    it[sortOrder] = 0
+                    it[createdAt] = LocalDateTime(2027, 1, 1, 8, 0)
+                }
                 for ((name, crestId, type) in listOf(
                     Triple("Svg-Verband", chapterSvg, "image/svg+xml"),
                     Triple("Png-Verband", chapterPng, "image/png"),
@@ -185,6 +204,7 @@ class OrganizationBackupAssetsTest :
                 chapterPng = chapterPng,
                 eventCover = eventCover,
                 articleCover = articleCover,
+                videoOverlay = videoOverlay,
             )
         }
 
@@ -247,9 +267,10 @@ class OrganizationBackupAssetsTest :
             names shouldContain "assets/chapter-crests/${env.chapterPng}.png"
             names shouldContain "assets/event-covers/${env.eventCover}.jpg"
             names shouldContain "assets/article-covers/${env.articleCover}.png"
+            names shouldContain "assets/video-overlays/${env.videoOverlay}.png"
 
             val result = restore(env, bundle)
-            result.assetsRestored shouldBe 4
+            result.assetsRestored shouldBe 5
             env.targetRoots.chapterCrests
                 .resolve("${env.chapterPng}.png")
                 .readBytes()
@@ -264,6 +285,13 @@ class OrganizationBackupAssetsTest :
             env.targetRoots.articleCovers
                 .resolve("${env.articleCover}.png")
                 .isFile shouldBe true
+            // The overlay lands in ITS root and nowhere else (the old else-branch would have put it in the article-cover folder).
+            env.targetRoots.videoOverlays
+                .resolve("${env.videoOverlay}.png")
+                .isFile shouldBe true
+            env.targetRoots.articleCovers
+                .resolve("${env.videoOverlay}.png")
+                .exists() shouldBe false
             env.targetRoots.chapterCrests
                 .resolve("${env.chapterSvg}.svg")
                 .readText() shouldContain "<svg"
@@ -276,7 +304,7 @@ class OrganizationBackupAssetsTest :
                 .delete()
             val bundle = export(env)
             entryNames(bundle) shouldNotContain "assets/chapter-crests/${env.chapterPng}.png"
-            restore(env, bundle).assetsRestored shouldBe 3
+            restore(env, bundle).assetsRestored shouldBe 4
         }
 
         test("a manipulated SVG with a script element is not restored and cannot slip past the sanitizer") {
@@ -293,7 +321,7 @@ class OrganizationBackupAssetsTest :
                     }
                 }
             val result = restore(env, evil)
-            result.assetsRestored shouldBe 3
+            result.assetsRestored shouldBe 4
             env.targetRoots.chapterCrests
                 .resolve("${env.chapterSvg}.svg")
                 .exists() shouldBe false
@@ -315,7 +343,7 @@ class OrganizationBackupAssetsTest :
                         )
                     }
                 }
-            restore(env, evil).assetsRestored shouldBe 3
+            restore(env, evil).assetsRestored shouldBe 4
             env.targetRoots.eventCovers
                 .resolve("${env.eventCover}.jpg")
                 .exists() shouldBe false
@@ -339,7 +367,7 @@ class OrganizationBackupAssetsTest :
                         ),
                 )
             val result = restore(env, evil)
-            result.assetsRestored shouldBe 4
+            result.assetsRestored shouldBe 5
             result.warnings.size shouldBe 5
             outside.listFiles().orEmpty().size shouldBe 0
             env.targetRoots.chapterCrests
@@ -355,7 +383,7 @@ class OrganizationBackupAssetsTest :
             val bundle = export(env)
             val orphan = Uuid.random()
             val result = restore(env, rewrite(bundle, extra = listOf("assets/chapter-crests/$orphan.png" to pngBytes())))
-            result.assetsRestored shouldBe 4
+            result.assetsRestored shouldBe 5
             env.targetRoots.chapterCrests
                 .resolve("$orphan.png")
                 .exists() shouldBe false
@@ -370,7 +398,7 @@ class OrganizationBackupAssetsTest :
                 rewrite(bundle) { name, bytes ->
                     if (name == "assets/article-covers/${env.articleCover}.png") listOf(name to huge) else listOf(name to bytes)
                 }
-            restore(env, big).assetsRestored shouldBe 3
+            restore(env, big).assetsRestored shouldBe 4
             env.targetRoots.articleCovers
                 .resolve("${env.articleCover}.png")
                 .exists() shouldBe false
@@ -429,5 +457,40 @@ class OrganizationBackupAssetsTest :
             BackupAssetRules.parse("assets/chapter-crests/${id.toString().uppercase()}.png").shouldBeNull()
             BackupAssetRules.parse("assets/chapter-crests/$id.png.tmp").shouldBeNull()
             BackupAssetRules.parse("blobs/$id.png").shouldBeNull()
+            BackupAssetRules.parse("assets/video-overlays/$id.png").shouldNotBeNull()
+            BackupAssetRules.parse("assets/video-overlays/$id.jpg").shouldNotBeNull()
+            BackupAssetRules.parse("assets/video-overlays/$id.svg").shouldBeNull()
+        }
+
+        test("every asset family has its OWN storage root (rootFor is exhaustive, an unknown folder is an error)") {
+            val roots =
+                BackupAssetRoots(
+                    chapterCrests = File("a"),
+                    eventCovers = File("b"),
+                    articleCovers = File("c"),
+                    videoOverlays = File("d"),
+                )
+            BACKUP_ASSET_KINDS.map { roots.rootFor(it).path }.toSet().size shouldBe BACKUP_ASSET_KINDS.size
+            shouldThrow<IllegalStateException> {
+                roots.rootFor(BackupAssetKind(folder = "nope", tableName = "t", idColumn = "c", extensions = setOf("png")))
+            }
+        }
+
+        test("a manipulated overlay entry (wrong signature, svg extension) is not restored") {
+            val env = newEnv()
+            val bundle = export(env)
+            val evil =
+                rewrite(bundle) { name, bytes ->
+                    if (name == "assets/video-overlays/${env.videoOverlay}.png") {
+                        listOf(name to "<svg onload=alert(1)/>".toByteArray())
+                    } else {
+                        listOf(name to bytes)
+                    }
+                }
+            val result = restore(env, evil)
+            result.assetsRestored shouldBe 4
+            env.targetRoots.videoOverlays
+                .resolve("${env.videoOverlay}.png")
+                .exists() shouldBe false
         }
     })

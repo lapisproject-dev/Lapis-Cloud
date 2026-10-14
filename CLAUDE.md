@@ -165,3 +165,11 @@ Details: `docs/features/video-conferencing.adoc`, Abschnitt "Reactions and raise
 - **Reaktionen sind Peer-Pakete** (`lapis-conference-reaction`): der Server sieht, zählt und speichert sie nie; `HAND` ist keine Reaktion. Der Raumschalter `setRoomReactions` wirkt nur über die Clients (`canPublishData` bleibt unberührt, der Chat nutzt es mit).
 - **Overlays und Hand-Abzeichen sind Client-DOM und damit nicht in Aufzeichnung und Stream.** Das gilt nur, solange `LiveKitEgressClient` keinen Custom-Template-/Web-Egress kennt und die Aufzeichnung aus Rohspuren zusammengesetzt wird: `ConferenceReactionsRecordingTripwireTest` bricht sonst den Build.
 - Im Client werden Reaktions-Schicht und Hand-Abzeichen **einmal mit der Kachel gebaut** und nur gefüllt bzw. ein-/ausgeblendet (`ConferenceViewStage` hängt Kacheln nur um).
+
+## Video-Overlays (V1.9.129)
+
+Details: `docs/features/video-overlays.adoc`. Kurzregeln:
+
+- **Video-Overlays stecken IM gesendeten Kamerabild** und sind damit in Aufnahme und Livestream -- das Gegenteil der DOM-Overlays aus V1.9.127 (Reaktionen, Hand-Abzeichen). Im Code `VideoOverlay*`, im Text "Video-Overlays (im Kamerabild)"; beide Begriffe nie vermischen.
+- `video_overlay_asset` schreibt **nur** `VideoOverlayStore` (Tripwire `VideoOverlayStoreTripwireTest`); kein SVG, nie `SvgCrestSanitizer`; Auslieferung nur authentifiziert und same-origin ohne CORS.
+- Clientseitig gelangen Bilder **nur** über `fetch` -> Blob -> `ImageBitmap` ins Canvas (nie `<img>`, `crossOrigin`, Object-URL; sonst Canvas-Taint und `new VideoFrame(canvas)` wirft). Die einzige URL-Quelle ist `videoOverlayAssetPath`; ein **Prozessor pro Track** (nur `ConferenceBackgroundController` ruft `setProcessor`/`stopProcessor`), Overlay ohne Effekt = OVERLAY_ONLY ohne MediaPipe (Tripwire `VideoOverlayClientTripwireTest`). Kein Spiegeln.

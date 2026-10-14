@@ -22720,3 +22720,180 @@ msgstr ""
 
 msgid "Hand von %1 senken"
 msgstr ""
+
+msgid "Ein Overlay konnte nicht geladen werden – die Kamera läuft ohne dieses Overlay weiter."
+msgstr ""
+
+msgid "Die Overlays konnten nicht gezeichnet werden – die Kamera läuft ohne Overlays weiter."
+msgstr ""
+
+msgid "Oben links"
+msgstr ""
+
+msgid "Oben rechts"
+msgstr ""
+
+msgid "Unten links"
+msgstr ""
+
+msgid "Unten rechts"
+msgstr ""
+
+msgid "Klein"
+msgstr ""
+
+msgid "Mittelgroß"
+msgstr ""
+
+msgid "Groß"
+msgstr ""
+
+msgid "100 %"
+msgstr ""
+
+msgid "70 %"
+msgstr ""
+
+msgid "40 %"
+msgstr ""
+
+msgid "Overlays: Aus"
+msgstr ""
+
+msgid "Overlays: An"
+msgstr ""
+
+msgid "Overlays werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr ""
+
+msgid "Overlays werden von diesem Browser oder Gerät nicht unterstützt."
+msgstr ""
+
+msgid "Verändert Ihr Bild – alle sehen es, auch in Aufnahme und Livestream."
+msgstr ""
+
+msgid "Overlays einblenden"
+msgstr ""
+
+msgid "Ecke wählen"
+msgstr ""
+
+msgid "Deckkraft"
+msgstr ""
+
+msgid "Rahmen"
+msgstr ""
+
+msgid "Deckkraft des Rahmens"
+msgstr ""
+
+msgid "Es sind noch keine Logos oder Rahmen hinterlegt – Ihr Name steht trotzdem zur Verfügung."
+msgstr ""
+
+msgid "So sehen andere Sie"
+msgstr ""
+
+msgid "Leer"
+msgstr ""
+
+msgid "Kein Rahmen"
+msgstr ""
+
+msgid "Dieses Dateiformat wird nicht unterstützt (nur PNG und JPEG)."
+msgstr ""
+
+msgid "Ein Rahmen muss eine PNG-Datei mit Transparenz sein."
+msgstr ""
+
+msgid "Das Bild ist zu klein."
+msgstr ""
+
+msgid "Das Bild ist zu groß (Kantenlänge)."
+msgstr ""
+
+msgid "Die Bilddatei konnte nicht gelesen werden."
+msgstr ""
+
+msgid "Der Rahmen braucht transparente Bereiche, durch die das Kamerabild sichtbar bleibt."
+msgstr ""
+
+msgid "Ein Rahmen muss das Seitenverhältnis 16:9 haben."
+msgstr ""
+
+msgid "Die Bibliothek ist voll – bitte zuerst ein Element löschen."
+msgstr ""
+
+msgid "Der Name muss 1 bis 60 Zeichen lang sein und darf keine Steuerzeichen enthalten."
+msgstr ""
+
+msgid "Overlays anbieten"
+msgstr ""
+
+msgid "Mitglieder können Logos, ihren Namen und einen Rahmen in ihr eigenes Kamerabild legen. Das veränderte Bild sehen alle Teilnehmer, auch in Aufnahme und Livestream."
+msgstr ""
+
+msgid "Overlays werden angeboten."
+msgstr ""
+
+msgid "Overlays werden nicht mehr angeboten."
+msgstr ""
+
+msgid "Bibliothek der Overlays"
+msgstr ""
+
+msgid "Noch keine Logos oder Rahmen hinterlegt."
+msgstr ""
+
+msgid "Das Logo der Instanz steht allen Mitgliedern als erstes Logo zur Verfügung."
+msgstr ""
+
+msgid "Das Logo der Instanz ist eine SVG-Datei und steht deshalb nicht als Overlay zur Verfügung. Laden Sie es bei Bedarf als PNG hoch."
+msgstr ""
+
+msgid "Logo oder Rahmen hinzufügen"
+msgstr ""
+
+msgid "Nach oben"
+msgstr ""
+
+msgid "Nach unten"
+msgstr ""
+
+msgid "Element löschen?"
+msgstr ""
+
+msgid "Mitglieder, die dieses Element gewählt haben, sehen danach eine leere Ecke."
+msgstr ""
+
+msgid "Logo"
+msgstr ""
+
+msgid "Name des Logos"
+msgstr ""
+
+msgid "Name des Rahmens"
+msgstr ""
+
+msgid "Logo-Datei auswählen"
+msgstr ""
+
+msgid "Rahmen-Datei auswählen"
+msgstr ""
+
+msgid "PNG mit transparentem Hintergrund oder JPEG, mindestens 256 px an der langen Kante, empfohlen 512 px, höchstens 2 MB."
+msgstr ""
+
+msgid "PNG mit Transparenz im Format 16:9, 1280×720 bis 1920×1080 Pixel, höchstens 4 MB."
+msgstr ""
+
+msgid "Logo hochladen"
+msgstr ""
+
+msgid "Rahmen hochladen"
+msgstr ""
+
+msgid "Element wurde hinzugefügt."
+msgstr ""
+
+msgid "Video-Overlay"
+msgstr ""

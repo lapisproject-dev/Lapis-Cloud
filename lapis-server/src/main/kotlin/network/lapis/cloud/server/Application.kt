@@ -251,6 +251,7 @@ import network.lapis.cloud.server.routes.registerSocialPublicRoutes
 import network.lapis.cloud.server.routes.registerTravelExpenseReceiptRoutes
 import network.lapis.cloud.server.routes.registerTravelExpenseSepaRoutes
 import network.lapis.cloud.server.routes.registerTrustAnchorRoutes
+import network.lapis.cloud.server.routes.registerVideoOverlayRoutes
 import network.lapis.cloud.server.routes.respondPublicCanonicalRedirect
 import network.lapis.cloud.server.rpc.AccountingExportService
 import network.lapis.cloud.server.rpc.AccountingService
@@ -331,6 +332,7 @@ import network.lapis.cloud.server.rpc.TravelExpenseSepaExport
 import network.lapis.cloud.server.rpc.TravelExpenseService
 import network.lapis.cloud.server.rpc.TrustAnchorService
 import network.lapis.cloud.server.rpc.VatService
+import network.lapis.cloud.server.rpc.VideoOverlayService
 import network.lapis.cloud.server.rpc.VolunteerAllowanceService
 import network.lapis.cloud.server.rpc.WebhookService
 import network.lapis.cloud.server.rpc.installArticleImportBodyLimit
@@ -338,6 +340,8 @@ import network.lapis.cloud.server.rpc.installEventImportBodyLimit
 import network.lapis.cloud.server.rpc.installRpcErrorSanitizer
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.social.PostDraftRetentionPoller
+import network.lapis.cloud.server.videooverlays.VideoOverlayInstanceLogo
+import network.lapis.cloud.server.videooverlays.VideoOverlayStorage
 import network.lapis.cloud.server.webhook.WebhookConfig
 import network.lapis.cloud.server.webhook.WebhookDeactivationNotifier
 import network.lapis.cloud.server.webhook.WebhookDeliveryPoller
@@ -423,6 +427,7 @@ import network.lapis.cloud.shared.rpc.ISystemicConsensusService
 import network.lapis.cloud.shared.rpc.ITravelExpenseService
 import network.lapis.cloud.shared.rpc.ITrustAnchorService
 import network.lapis.cloud.shared.rpc.IVatService
+import network.lapis.cloud.shared.rpc.IVideoOverlayService
 import network.lapis.cloud.shared.rpc.IVolunteerAllowanceService
 import network.lapis.cloud.shared.rpc.IWebhookService
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
@@ -537,6 +542,13 @@ internal fun Application.module(
         File(System.getenv("LAPIS_CHAPTER_CREST_STORAGE_ROOT") ?: documentStorageRoot.resolve("chapter-crests").path)
     val chapterCrestStorage = ChapterCrestStorage(chapterCrestStorageRoot)
 
+    // Welle V1.9.129 "Video-Overlays" -- the admin's library of logos and frames. Same durable volume as documentStorageRoot, own
+    // "video-overlays/" subdirectory, own env override LAPIS_VIDEO_OVERLAY_STORAGE_ROOT. File name = server UUID + fixed format
+    // enum, never client input. Organization data: part of the admin backup (BackupAssetRoots below).
+    val videoOverlayStorageRoot =
+        File(System.getenv("LAPIS_VIDEO_OVERLAY_STORAGE_ROOT") ?: documentStorageRoot.resolve("video-overlays").path)
+    val videoOverlayStorage = VideoOverlayStorage(videoOverlayStorageRoot)
+
     // V0.7.3 Basis-Mehrseiten-UI: same-origin static serving of the KVision/Kotlin-JS client
     // bundle, replacing the previous "separate origin, no CORS story" gap (see lapis-client's
     // Routing.kt KDoc for why same-origin was chosen over CORS+credentials). Default path assumes
@@ -583,6 +595,9 @@ internal fun Application.module(
     // (a bad title, a missing/oversized logo file) must never stop this server from starting.
     val brandConfig = BrandConfig.load()
     val resolvedBranding = BrandingStartupCheck.resolve(config = brandConfig)
+
+    // V1.9.129 -- whether the operator logo is offered as the first element of the video overlay library (PNG/WebP only), decided once.
+    val videoOverlayInstanceLogo = VideoOverlayInstanceLogo.resolve(resolvedBranding)
 
     // V1.4.7 "Rechtstexte" -- operator-supplied Impressum/Datenschutz details (see LegalConfig
     // KDoc). Same "never fail-fast" posture as BrandConfig/BrandingStartupCheck above: broken or
@@ -1605,6 +1620,10 @@ internal fun Application.module(
     val memberPublicProfileModerationRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 60.minutes)
     val chapterCrestUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 60.minutes)
     val chapterCrestPublicReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes, maxTrackedKeys = 50_000)
+
+    // V1.9.129 "Video-Overlays" -- ADMIN upload budget per actor, and the (authenticated, per member) delivery budget.
+    val videoOverlayUploadRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 60.minutes)
+    val videoOverlayReadRateLimiter = FederationInboxRateLimiter(maxRequests = 240, window = 1.minutes, maxTrackedKeys = 50_000)
     // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- same posture as the event-cover
     // pair above (member-keyed write, bounded per-IP read), plus a member-keyed preview budget
     // and an IP-keyed page-read budget for the public /aktuelles/{slug} surface.
@@ -2337,6 +2356,9 @@ internal fun Application.module(
                 lowerAllRateLimiter = conferenceHandLowerAllRateLimiter,
             )
         }
+        registerService(IVideoOverlayService::class) { call ->
+            VideoOverlayService(call = call, storage = videoOverlayStorage, instanceLogo = videoOverlayInstanceLogo)
+        }
         registerService(IEncounterSpaceService::class) { call ->
             EncounterSpaceService(
                 call = call,
@@ -2572,6 +2594,7 @@ internal fun Application.module(
                     chapterCrests = chapterCrestStorageRoot,
                     eventCovers = eventCoverStorageRoot,
                     articleCovers = articleCoverStorageRoot,
+                    videoOverlays = videoOverlayStorageRoot,
                 ),
         )
         registerAuthRoutes(
@@ -2802,6 +2825,13 @@ internal fun Application.module(
             baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
             uploadRateLimiter = chapterCrestUploadRateLimiter,
             publicReadRateLimiter = chapterCrestPublicReadRateLimiter,
+        )
+        // Welle V1.9.129 "Video-Overlays" -- ADMIN upload + authenticated same-origin delivery of the overlay library. Always on.
+        registerVideoOverlayRoutes(
+            storage = videoOverlayStorage,
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
+            uploadRateLimiter = videoOverlayUploadRateLimiter,
+            readRateLimiter = videoOverlayReadRateLimiter,
         )
         // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- literal routes (/aktuelles/*,
         // /api/articles/*), always-on (NOT gated behind LAPIS_EMBED_ENABLED -- see

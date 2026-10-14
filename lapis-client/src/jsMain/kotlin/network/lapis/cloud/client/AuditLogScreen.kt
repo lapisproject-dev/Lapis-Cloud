@@ -588,6 +588,8 @@ fun decodeAuditSnapshot(
             AuditEntityType.TRAVEL_EXPENSE_SEPA_BATCH -> null
             // Welle V1.9.125 -- CarpoolParticipationSnapshot (ids and enums only), raw-text display like the other backend-written snapshots.
             AuditEntityType.CARPOOL_PARTICIPATION -> null
+            // Welle V1.9.129 -- kind/name/pixel size/byte size of a library element, raw-text display like the other backend-written snapshots.
+            AuditEntityType.VIDEO_OVERLAY -> null
         }
     }.getOrNull()
 

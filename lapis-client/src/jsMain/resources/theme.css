@@ -112,6 +112,9 @@
   --lapis-tile-text:         #EEEEEE;  /* auf --lapis-tile-bg ca. 14:1 */
   --lapis-media-bg:          #000000;
   --lapis-media-overlay-text: #FFFFFF; /* Beschriftung auf rgba(0,0,0,.55)-Overlays */
+  --lapis-overlay-pill-bg: #000000;
+  --lapis-overlay-pill-text: #FFFFFF;
+  --lapis-overlay-pill-shadow: #000000;
   --lapis-guest-fill:        #A855F7;  /* Gast-Abzeichen: bewusst in beiden Themes gleich */
   --lapis-guest-glyph:       #FFFFFF;
 
@@ -195,6 +198,9 @@
     --lapis-tile-text:         #EEEEEE;
     --lapis-media-bg:          #000000;
     --lapis-media-overlay-text: #FFFFFF;
+    --lapis-overlay-pill-bg: #000000;
+    --lapis-overlay-pill-text: #FFFFFF;
+    --lapis-overlay-pill-shadow: #000000;
     --lapis-guest-fill:        #A855F7;
     --lapis-guest-glyph:       #FFFFFF;
 
@@ -262,6 +268,9 @@
   --lapis-tile-text:         #EEEEEE;
   --lapis-media-bg:          #000000;
   --lapis-media-overlay-text: #FFFFFF;
+  --lapis-overlay-pill-bg: #000000;
+  --lapis-overlay-pill-text: #FFFFFF;
+  --lapis-overlay-pill-shadow: #000000;
   --lapis-guest-fill:        #A855F7;
   --lapis-guest-glyph:       #FFFFFF;
 
@@ -1413,6 +1422,88 @@ html.lapis-conference-call-visible .lapis-conference-dock-host {
 .lapis-noise-switch[aria-disabled="true"] {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+/* V1.9.129 Video-Overlays -- wie die Hintergrund-Gruppe bewusst OHNE `.lapis-conference-config-row` (überlebt den Vollbildmodus). */
+.lapis-conference-video-overlay-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.lapis-conference-overlay-hint {
+  border-left: 3px solid var(--lapis-accent);
+  padding-left: 8px;
+}
+
+.lapis-conference-overlay-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lapis-conference-overlay-preview-video,
+.lapis-conference-overlay-preview-canvas {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 16 / 9;
+  background: var(--lapis-surface-sunken);
+  border: 1px solid var(--lapis-border-strong);
+  border-radius: 6px;
+  object-fit: cover; /* die Vorschau spiegelt nie: kein scaleX(-1) irgendwo in diesem Bild */
+}
+
+.lapis-conference-overlay-corners {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  max-width: 320px;
+}
+
+.lapis-conference-overlay-corner {
+  text-align: start;
+  white-space: normal;
+}
+
+.lapis-conference-overlay-corner.active,
+.lapis-conference-overlay-radio.active {
+  border-color: var(--lapis-accent);
+  box-shadow: inset 0 0 0 1px var(--lapis-accent);
+}
+
+.lapis-conference-overlay-corner:focus-visible,
+.lapis-conference-overlay-radio:focus-visible {
+  outline: 2px solid var(--lapis-accent);
+  outline-offset: 2px;
+}
+
+.lapis-conference-overlay-radios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Der Hinweis auf der eigenen Kachel, solange Overlays gezeichnet werden: "So sehen andere Sie". */
+.lapis-conference-overlay-self-note {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  pointer-events: none;
+}
+
+.lapis-overlay-admin-thumb {
+  width: 64px;
+  height: 36px;
+  object-fit: contain;
+  background: var(--lapis-surface-sunken);
+  border-radius: 4px;
 }
 
 /* V1.4.23 Hintergrundeffekte -- bewusst KEINE `.lapis-conference-config-row`-Klasse (wie

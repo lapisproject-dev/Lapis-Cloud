@@ -522,5 +522,12 @@ classDiagram(name = "OrganizationSettings") {
             defaultValue = "FALSE"
             stereotype("Column") { "columnName" to "noise_suppression_default" }
         }
+        // Welle V1.9.129 (V102__video_overlays.sql). Whether members may lay logos, their name and a frame over their own camera image
+        // ("Video-Overlays"), NOT NULL, FALSE = off. NOT part of the generic updateOrganizationSettings write-set: settable ONLY through
+        // IOrganizationSettingsService.updateVideoOverlaysOffered (ADMIN, audited on change).
+        attribute(name = "videoOverlaysOffered", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "video_overlays_offered" }
+        }
     }
 }

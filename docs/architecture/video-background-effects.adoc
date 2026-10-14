@@ -467,6 +467,37 @@ The chain of origin is `@sapphi-red/web-noise-suppressor` -> `@shiguredo/rnnoise
 
 **Content-Security-Policy.** There is no global CSP today (the asset routes set no header and `ClientAssetRoutesTest` pins that). If one is introduced, the filter needs: `script-src 'self' 'wasm-unsafe-eval'` (the worklet module comes from the own origin; WebAssembly is instantiated inside the worklet scope) and `connect-src 'self'` for the two same-origin fetches. Because the worklet is served from the own origin and not from a `blob:` URL, no `blob:` source is needed for this feature (the background effects still need `worker-src 'self' blob:`).
 
+== Overlay step (V1.9.129)
+
+Video overlays (see link:../features/video-overlays.adoc[video-overlays.adoc]) share the ONE processor of the camera track with the background effects.
+
+*Spike result* (`@livekit/track-processors` 0.8.1, `livekit-client` 2.21.0, read from `dist/index.mjs`):
+
+* `ProcessorWrapper`, `BackgroundTransformer` (the segmenting transformer; internal class name `BackgroundProcessor`) and `VideoTransformer` are exported.
+* `VideoTransformer.init` builds the `TransformStream` with `transform: (frame, controller) => this.transform(frame, controller)` -- a *dynamic* call. The fallback path calls
+  `this.transformer.transform(frame, controller)` directly. So replacing `transformer.transform` on the instance BEFORE `setProcessor` (which runs `init`) works on both paths
+  (**variant A**, implemented; variant B -- a wrapping transformer -- was not needed).
+* `BackgroundTransformer.transform` is `async`; the hook returns its promise unchanged.
+* `LocalVideoTrack.setProcessor` initialises the NEW processor first and stops the previous one afterwards, so a change of kind needs no stop in between.
+* `BackgroundTransformer.init` loads MediaPipe even in mode `disabled`; therefore "overlay without background effect" uses a separate OVERLAY_ONLY processor: a
+  `ProcessorWrapper` around a duck-typed transformer (`init`, `restart`, `update`, `destroy`, `transform`, `transformer`), no WASM, no WebGL.
+
+*Processor kinds* (`videoProcessorKindFor`): no effect and no overlay -> none; overlay only -> OVERLAY_ONLY; any effect -> SEGMENTING (the hook is inside it). A scene change
+while an effect runs only swaps the compositor's scene; no processor is rebuilt. A failing effect falls back to the overlay-only processor; a failing overlay processor is reported
+only to the overlay side.
+
+*Drawing step* (`VideoOverlayCompositor`): the hook wraps `controller.enqueue`. Without a scene the original frame is enqueued untouched. With a scene the frame is drawn onto one
+reused 2D `OffscreenCanvas` (`alpha:false`), the overlays follow in the order frame, top left, top right, bottom left, bottom right, and `new VideoFrame(canvas, {timestamp,
+alpha:'discard'})` replaces the original. Every exception is caught: the ORIGINAL frame is enqueued, the step suspends until the next scene and one failure is reported -- an
+exception inside the `TransformStream` would freeze the video. Each `VideoFrame` is closed or enqueued exactly once.
+
+*Bitmaps*: fetched same-origin and authenticated, checked (status, content type), `blob()` -> `createImageBitmap` at the target size (never an `<img>`, `crossOrigin` or object URL --
+a tainted canvas would make `new VideoFrame(canvas)` throw; `VideoOverlayClientTripwireTest`). At most one bitmap per element, keyed by source and size; every superseded bitmap is
+`close()`d at once; nothing is decoded per frame. The name is rendered once into a pill (`OffscreenCanvas`, after `document.fonts.load` of Inter) and truncated by grapheme.
+The camera size comes from the track settings; a different frame size triggers one new preparation.
+
+Known gaps: not verified in a real call or in Firefox/Safari (fallback path is code-reviewed only).
+
 == Manual test plan
 
 Karma cannot drive a camera or WASM, so these steps are manual: Chrome or Chromium with a real camera on HTTPS
@@ -557,3 +588,8 @@ there as part of M12.
 * *N5 Forced failure.* DevTools request blocking on `*rnnoise*`, switch the filter on: exactly one polite sentence ("Nicht verfügbar - Grund: die Rauschfilter-Datei konnte nicht geladen werden ... (WASM_FETCH)", with the retry hint), ONE `[noise-suppression] stage=WASM_FETCH ...` line in the console, the microphone keeps working with the browser's own reduction, no dialog. Since V1.9.119 the switch is NOT `aria-disabled` after this failure: remove the block and click the switch again, the filter then comes on. Reload with the block removed: the remembered choice is applied again.
 * *N6 Suspended context.* A page that has never had a click (autoplay policy) must either run the filter or fall back with the sentence; it must never deliver silence while the switch says "on".
 * *N7 Listening.* Speak with a fan or keyboard noise nearby, then sing: judge by ear whether the speech is cleaner and that singing is altered. This is the only test that says anything about quality.
+* *O1 Overlay without effect.* Overlays on, background Aus: Network shows NO `/assets/mediapipe/` request. A second browser sees the logo and the name.
+* *O2 Effect plus overlay.* Switch a blur on and off while overlays are on: the overlays never disappear, the picture does not freeze.
+* *O3 Recording and livestream.* Record a short call with an overlay: the file shows it.
+* *O4 Failure.* Block `*/api/video-overlays/*`: one notice, the camera keeps running without that element.
+* *O5 Cleanup.* Leave: camera LED off at once; ten on/off cycles do not grow memory (`ImageBitmap`s are closed).

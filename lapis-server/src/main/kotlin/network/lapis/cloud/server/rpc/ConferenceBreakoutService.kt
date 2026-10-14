@@ -857,6 +857,7 @@ class ConferenceBreakoutService(
             expiresAt = minted.expiresAt.toLocalDateTime(ServerClock.zone),
             turnServers = turnServers,
             noiseSuppressionDefault = NoiseSuppressionDefaultStore.currentValue(),
+            videoOverlaysOffered = VideoOverlaysOfferedStore.currentValue(),
         )
     }
 

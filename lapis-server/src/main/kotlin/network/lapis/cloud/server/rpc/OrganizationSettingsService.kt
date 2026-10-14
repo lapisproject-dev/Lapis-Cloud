@@ -96,6 +96,37 @@ class OrganizationSettingsService(
     }
 
     /**
+     * V1.9.129 -- the ONLY way to change [OrganizationSettingsDto.videoOverlaysOffered] (ADMIN). A change writes one
+     * [AuditEntityType.ORGANIZATION_SETTINGS] `UPDATE` entry (before/after as a one-field JSON snapshot, no personal data); setting the
+     * value it already has writes neither a row nor an audit entry. The generic [updateOrganizationSettings] never touches the column.
+     */
+    override suspend fun updateVideoOverlaysOffered(enabled: Boolean): OrganizationSettingsDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        val result =
+            transaction {
+                val before = VideoOverlaysOfferedStore.load()
+                if (before != enabled) {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[videoOverlaysOffered] = enabled
+                    }
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.ORGANIZATION_SETTINGS,
+                        entityId = ORGANIZATION_SETTINGS_ID,
+                        action = AuditAction.UPDATE,
+                        before = "{\"videoOverlaysOffered\":$before}",
+                        after = "{\"videoOverlaysOffered\":$enabled}",
+                    )
+                }
+                loadOrganizationSettings() to (before != enabled)
+            }
+        if (result.second) logger.info { "video overlays offered set to $enabled by ${current.memberId}" }
+        return result.first
+    }
+
+    /**
      * Security Round 1 (2026-08-19). This method wholesale-replaces EVERY field of the single
      * seeded row -- including the three payment-account-mapping fields
      * ([OrganizationSettingsDto.paymentBankAccountId]/[OrganizationSettingsDto.paymentFeeAccountId]/
@@ -357,6 +388,7 @@ class OrganizationSettingsService(
                 // disclaimer-acknowledgment-gated) may flip those.
                 // V1.9.124: noiseSuppressionDefault is likewise DELIBERATELY absent -- only
                 // updateNoiseSuppressionDefault (ADMIN, audited on change) may set it.
+                // V1.9.129: videoOverlaysOffered likewise -- only updateVideoOverlaysOffered may set it.
             }
 
             val afterMapping =
@@ -555,6 +587,8 @@ fun ResultRow.toOrganizationSettingsDto(): OrganizationSettingsDto =
         showPublicMemberCount = this[OrganizationSettingsTable.showPublicMemberCount],
         // V1.9.124 -- read-only here, set only through updateNoiseSuppressionDefault.
         noiseSuppressionDefault = this[OrganizationSettingsTable.noiseSuppressionDefault],
+        // V1.9.129 -- read-only here, set only through updateVideoOverlaysOffered.
+        videoOverlaysOffered = this[OrganizationSettingsTable.videoOverlaysOffered],
     )
 
 /**
@@ -574,5 +608,22 @@ internal object NoiseSuppressionDefaultStore {
      * For the join answers: opens its own transaction (joining one that is already open) and NEVER fails -- a join must not break because
      * a default could not be read; the safe answer is "off", today's behaviour.
      */
+    fun currentValue(): Boolean = runCatching { transaction { load() } }.getOrDefault(false)
+}
+
+/**
+ * V1.9.129 -- whether members may use video overlays. Must run inside a `transaction {}`; a missing row (never happens, V1 seeds it) means
+ * "off".
+ */
+internal object VideoOverlaysOfferedStore {
+    fun load(): Boolean =
+        OrganizationSettingsTable
+            .select(OrganizationSettingsTable.videoOverlaysOffered)
+            .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+            .singleOrNull()
+            ?.get(OrganizationSettingsTable.videoOverlaysOffered)
+            ?: false
+
+    /** For the join answers: opens its own transaction and NEVER fails -- the safe answer is "off", today's behaviour. */
     fun currentValue(): Boolean = runCatching { transaction { load() } }.getOrDefault(false)
 }

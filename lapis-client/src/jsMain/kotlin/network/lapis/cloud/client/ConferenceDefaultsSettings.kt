@@ -19,6 +19,9 @@ import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
  * conferences). One switch, no dialog: a person's own remembered choice in the browser still wins, so the setting only decides what
  * people see who never chose. It is saved at once through its own RPC (ADMIN only, audited on change); a refusal puts the switch back.
  * The pulpit of the encounter room is not affected.
+ *
+ * V1.9.129 -- the same card also offers the video overlays (logos, the person's name, a frame in the own camera image): the switch "Overlays
+ * anbieten" and the library of logos and frames (`ConferenceVideoOverlayLibrarySettings.kt`).
  */
 
 private var defaultsSwitchSerial = 0
@@ -32,7 +35,12 @@ internal fun renderConferenceDefaultsCard(root: SimplePanel) {
         .dataSection<OrganizationSettingsDto>(
             isEmpty = { false },
             load = { guarded { rpcService<IOrganizationSettingsService>().getOrganizationSettings() } },
-            render = { panel, dto -> renderNoiseDefaultSwitch(panel, dto.noiseSuppressionDefault) },
+            render = { panel, dto ->
+                renderNoiseDefaultSwitch(panel, dto.noiseSuppressionDefault)
+                // V1.9.129 -- the video overlays: the switch and the library (see ConferenceVideoOverlayLibrarySettings.kt)
+                renderVideoOverlaysOfferedSwitch(panel, dto.videoOverlaysOffered)
+                renderVideoOverlayLibrary(panel)
+            },
         ).reload()
 }
 

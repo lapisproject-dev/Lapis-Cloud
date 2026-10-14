@@ -182,6 +182,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.TRAVEL_EXPENSE_SEPA_BATCH -> gettext("SEPA-Überweisungsdatei")
         // Welle V1.9.125 "Mitfahrten" -- one entry per request, invitation, confirmation, decline and withdrawal (ids and status only).
         AuditEntityType.CARPOOL_PARTICIPATION -> gettext("Mitfahrt")
+        // Welle V1.9.129 "Video-Overlays" -- one entry per upload, rename, move and removal of a library element.
+        AuditEntityType.VIDEO_OVERLAY -> gettext("Video-Overlay")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -297,6 +299,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.TRAVEL_EXPENSE_SEPA_BATCH -> "warning"
         // Welle V1.9.125 -- a person-to-person arrangement, no money moves: the neutral hue.
         AuditEntityType.CARPOOL_PARTICIPATION -> "secondary"
+        // Welle V1.9.129 -- configuration of a cosmetic feature: the neutral hue.
+        AuditEntityType.VIDEO_OVERLAY -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

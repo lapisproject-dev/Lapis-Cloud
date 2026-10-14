@@ -23717,3 +23717,180 @@ msgstr "Applaudissements, cœur et autres réactions. La liste des demandes de p
 
 msgid "Hand von %1 senken"
 msgstr "Baisser la main de %1"
+
+msgid "Ein Overlay konnte nicht geladen werden – die Kamera läuft ohne dieses Overlay weiter."
+msgstr "Une incrustation n'a pas pu être chargée – la caméra continue sans elle."
+
+msgid "Die Overlays konnten nicht gezeichnet werden – die Kamera läuft ohne Overlays weiter."
+msgstr "Les incrustations n'ont pas pu être dessinées – la caméra continue sans incrustations."
+
+msgid "Oben links"
+msgstr "En haut à gauche"
+
+msgid "Oben rechts"
+msgstr "En haut à droite"
+
+msgid "Unten links"
+msgstr "En bas à gauche"
+
+msgid "Unten rechts"
+msgstr "En bas à droite"
+
+msgid "Klein"
+msgstr "Petit"
+
+msgid "Mittelgroß"
+msgstr "Moyen"
+
+msgid "Groß"
+msgstr "Grand"
+
+msgid "100 %"
+msgstr "100 %"
+
+msgid "70 %"
+msgstr "70 %"
+
+msgid "40 %"
+msgstr "40 %"
+
+msgid "Overlays: Aus"
+msgstr "Incrustations : Désactivées"
+
+msgid "Overlays: An"
+msgstr "Incrustations : Activées"
+
+msgid "Overlays werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr "Les incrustations ne sont pas encore prises en charge dans l'application – elles sont disponibles dans le navigateur de cet appareil."
+
+msgid "Overlays werden von diesem Browser oder Gerät nicht unterstützt."
+msgstr "Les incrustations ne sont pas prises en charge par ce navigateur ou cet appareil."
+
+msgid "Verändert Ihr Bild – alle sehen es, auch in Aufnahme und Livestream."
+msgstr "Modifie votre image – tout le monde la voit, y compris dans l'enregistrement et la diffusion en direct."
+
+msgid "Overlays einblenden"
+msgstr "Afficher les incrustations"
+
+msgid "Ecke wählen"
+msgstr "Choisir le coin"
+
+msgid "Deckkraft"
+msgstr "Opacité"
+
+msgid "Rahmen"
+msgstr "Cadre"
+
+msgid "Deckkraft des Rahmens"
+msgstr "Opacité du cadre"
+
+msgid "Es sind noch keine Logos oder Rahmen hinterlegt – Ihr Name steht trotzdem zur Verfügung."
+msgstr "Aucun logo ni cadre n'a encore été enregistré – votre nom reste néanmoins disponible."
+
+msgid "So sehen andere Sie"
+msgstr "Voici comment les autres vous voient"
+
+msgid "Leer"
+msgstr "Vide"
+
+msgid "Kein Rahmen"
+msgstr "Aucun cadre"
+
+msgid "Dieses Dateiformat wird nicht unterstützt (nur PNG und JPEG)."
+msgstr "Ce format de fichier n'est pas pris en charge (PNG et JPEG uniquement)."
+
+msgid "Ein Rahmen muss eine PNG-Datei mit Transparenz sein."
+msgstr "Un cadre doit être un fichier PNG avec transparence."
+
+msgid "Das Bild ist zu klein."
+msgstr "L'image est trop petite."
+
+msgid "Das Bild ist zu groß (Kantenlänge)."
+msgstr "L'image est trop grande (longueur du côté)."
+
+msgid "Die Bilddatei konnte nicht gelesen werden."
+msgstr "Le fichier image n'a pas pu être lu."
+
+msgid "Der Rahmen braucht transparente Bereiche, durch die das Kamerabild sichtbar bleibt."
+msgstr "Le cadre doit comporter des zones transparentes à travers lesquelles l'image de la caméra reste visible."
+
+msgid "Ein Rahmen muss das Seitenverhältnis 16:9 haben."
+msgstr "Un cadre doit avoir un format 16:9."
+
+msgid "Die Bibliothek ist voll – bitte zuerst ein Element löschen."
+msgstr "La bibliothèque est pleine – veuillez d'abord supprimer un élément."
+
+msgid "Der Name muss 1 bis 60 Zeichen lang sein und darf keine Steuerzeichen enthalten."
+msgstr "Le nom doit comporter de 1 à 60 caractères et ne doit pas contenir de caractères de contrôle."
+
+msgid "Overlays anbieten"
+msgstr "Proposer des incrustations"
+
+msgid "Mitglieder können Logos, ihren Namen und einen Rahmen in ihr eigenes Kamerabild legen. Das veränderte Bild sehen alle Teilnehmer, auch in Aufnahme und Livestream."
+msgstr "Les membres peuvent placer des logos, leur nom et un cadre dans leur propre image de caméra. Tous les participants voient l'image modifiée, y compris dans l'enregistrement et la diffusion en direct."
+
+msgid "Overlays werden angeboten."
+msgstr "Les incrustations sont proposées."
+
+msgid "Overlays werden nicht mehr angeboten."
+msgstr "Les incrustations ne sont plus proposées."
+
+msgid "Bibliothek der Overlays"
+msgstr "Bibliothèque des incrustations"
+
+msgid "Noch keine Logos oder Rahmen hinterlegt."
+msgstr "Aucun logo ni cadre enregistré pour le moment."
+
+msgid "Das Logo der Instanz steht allen Mitgliedern als erstes Logo zur Verfügung."
+msgstr "Le logo de l'instance est disponible pour tous les membres comme premier logo."
+
+msgid "Das Logo der Instanz ist eine SVG-Datei und steht deshalb nicht als Overlay zur Verfügung. Laden Sie es bei Bedarf als PNG hoch."
+msgstr "Le logo de l'instance est un fichier SVG et n'est donc pas disponible comme incrustation. Téléversez-le au besoin au format PNG."
+
+msgid "Logo oder Rahmen hinzufügen"
+msgstr "Ajouter un logo ou un cadre"
+
+msgid "Nach oben"
+msgstr "Monter"
+
+msgid "Nach unten"
+msgstr "Descendre"
+
+msgid "Element löschen?"
+msgstr "Supprimer l'élément ?"
+
+msgid "Mitglieder, die dieses Element gewählt haben, sehen danach eine leere Ecke."
+msgstr "Les membres qui ont choisi cet élément verront ensuite un coin vide."
+
+msgid "Logo"
+msgstr "Logo"
+
+msgid "Name des Logos"
+msgstr "Nom du logo"
+
+msgid "Name des Rahmens"
+msgstr "Nom du cadre"
+
+msgid "Logo-Datei auswählen"
+msgstr "Choisir le fichier du logo"
+
+msgid "Rahmen-Datei auswählen"
+msgstr "Choisir le fichier du cadre"
+
+msgid "PNG mit transparentem Hintergrund oder JPEG, mindestens 256 px an der langen Kante, empfohlen 512 px, höchstens 2 MB."
+msgstr "PNG à fond transparent ou JPEG, au moins 256 px sur le grand côté, 512 px recommandés, 2 Mo au maximum."
+
+msgid "PNG mit Transparenz im Format 16:9, 1280×720 bis 1920×1080 Pixel, höchstens 4 MB."
+msgstr "PNG avec transparence au format 16:9, de 1280×720 à 1920×1080 pixels, 4 Mo au maximum."
+
+msgid "Logo hochladen"
+msgstr "Téléverser le logo"
+
+msgid "Rahmen hochladen"
+msgstr "Téléverser le cadre"
+
+msgid "Element wurde hinzugefügt."
+msgstr "L'élément a été ajouté."
+
+msgid "Video-Overlay"
+msgstr "Incrustation vidéo"

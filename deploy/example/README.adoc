@@ -298,7 +298,7 @@ Rules and details:
 * **The files must be part of every backup.** The database holds only the metadata (an id, a token, a content type); the bytes are in
   the volume. A restore of the database alone leaves crest, cover and document URLs answering 404.
 * If you set a `LAPIS_*_STORAGE_ROOT` override that points outside `/app/document-storage` (`LAPIS_CHAPTER_CREST_STORAGE_ROOT`,
-  `LAPIS_EVENT_COVER_STORAGE_ROOT`, `LAPIS_ARTICLE_COVER_STORAGE_ROOT`, `LAPIS_MEMBER_PHOTO_STORAGE_ROOT`), that directory is not in
+  `LAPIS_EVENT_COVER_STORAGE_ROOT`, `LAPIS_ARTICLE_COVER_STORAGE_ROOT`, `LAPIS_MEMBER_PHOTO_STORAGE_ROOT`, `LAPIS_VIDEO_OVERLAY_STORAGE_ROOT`), that directory is not in
   `document-storage.tar`; back it up in addition.
 * **Order and consistency.** The database is dumped first, the files afterwards: a file that arrives in between is a harmless orphan,
   a row without its file would be a loss. `--stop-server` removes even that window.

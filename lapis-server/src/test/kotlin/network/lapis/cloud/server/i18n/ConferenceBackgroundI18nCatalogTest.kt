@@ -34,6 +34,11 @@ class ConferenceBackgroundI18nCatalogTest :
                 "ConferenceBackgroundSection.kt",
                 // V1.9.4 "private Hintergrundbild-Uploads für Videokonferenzen".
                 "ConferenceBackgroundUploads.kt",
+                // V1.9.129 "Video-Overlays (Logos, Name, Rahmen) im eigenen Kamerabild".
+                "ConferenceVideoOverlays.kt",
+                "ConferenceVideoOverlayController.kt",
+                "ConferenceVideoOverlaySection.kt",
+                "ConferenceVideoOverlayLibrarySettings.kt",
             )
 
         val languages = listOf("en", "es", "fr", "it", "nl", "pl", "ru")

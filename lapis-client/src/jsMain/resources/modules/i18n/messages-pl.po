@@ -23658,3 +23658,180 @@ msgstr "Oklaski, serce i inne reakcje. Lista zgłoszeń do głosu pozostaje bez 
 
 msgid "Hand von %1 senken"
 msgstr "Opuść rękę: %1"
+
+msgid "Ein Overlay konnte nicht geladen werden – die Kamera läuft ohne dieses Overlay weiter."
+msgstr "Nie udało się wczytać nakładki – kamera działa dalej bez niej."
+
+msgid "Die Overlays konnten nicht gezeichnet werden – die Kamera läuft ohne Overlays weiter."
+msgstr "Nie udało się narysować nakładek – kamera działa dalej bez nakładek."
+
+msgid "Oben links"
+msgstr "Lewy górny róg"
+
+msgid "Oben rechts"
+msgstr "Prawy górny róg"
+
+msgid "Unten links"
+msgstr "Lewy dolny róg"
+
+msgid "Unten rechts"
+msgstr "Prawy dolny róg"
+
+msgid "Klein"
+msgstr "Mały"
+
+msgid "Mittelgroß"
+msgstr "Średni"
+
+msgid "Groß"
+msgstr "Duży"
+
+msgid "100 %"
+msgstr "100 %"
+
+msgid "70 %"
+msgstr "70 %"
+
+msgid "40 %"
+msgstr "40 %"
+
+msgid "Overlays: Aus"
+msgstr "Nakładki: Wyłączone"
+
+msgid "Overlays: An"
+msgstr "Nakładki: Włączone"
+
+msgid "Overlays werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr "Nakładki nie są jeszcze obsługiwane w aplikacji – są dostępne w przeglądarce tego urządzenia."
+
+msgid "Overlays werden von diesem Browser oder Gerät nicht unterstützt."
+msgstr "Ta przeglądarka lub to urządzenie nie obsługuje nakładek."
+
+msgid "Verändert Ihr Bild – alle sehen es, auch in Aufnahme und Livestream."
+msgstr "Zmienia Pani/Pana obraz – widzą go wszyscy, także w nagraniu i transmisji na żywo."
+
+msgid "Overlays einblenden"
+msgstr "Pokaż nakładki"
+
+msgid "Ecke wählen"
+msgstr "Wybierz róg"
+
+msgid "Deckkraft"
+msgstr "Krycie"
+
+msgid "Rahmen"
+msgstr "Ramka"
+
+msgid "Deckkraft des Rahmens"
+msgstr "Krycie ramki"
+
+msgid "Es sind noch keine Logos oder Rahmen hinterlegt – Ihr Name steht trotzdem zur Verfügung."
+msgstr "Nie zapisano jeszcze żadnych logo ani ramek – Pani/Pana imię i nazwisko jest mimo to dostępne."
+
+msgid "So sehen andere Sie"
+msgstr "Tak widzą Panią/Pana inni"
+
+msgid "Leer"
+msgstr "Puste"
+
+msgid "Kein Rahmen"
+msgstr "Bez ramki"
+
+msgid "Dieses Dateiformat wird nicht unterstützt (nur PNG und JPEG)."
+msgstr "Ten format pliku nie jest obsługiwany (tylko PNG i JPEG)."
+
+msgid "Ein Rahmen muss eine PNG-Datei mit Transparenz sein."
+msgstr "Ramka musi być plikiem PNG z przezroczystością."
+
+msgid "Das Bild ist zu klein."
+msgstr "Obraz jest zbyt mały."
+
+msgid "Das Bild ist zu groß (Kantenlänge)."
+msgstr "Obraz jest zbyt duży (długość boku)."
+
+msgid "Die Bilddatei konnte nicht gelesen werden."
+msgstr "Nie udało się odczytać pliku obrazu."
+
+msgid "Der Rahmen braucht transparente Bereiche, durch die das Kamerabild sichtbar bleibt."
+msgstr "Ramka musi mieć przezroczyste obszary, przez które widać obraz z kamery."
+
+msgid "Ein Rahmen muss das Seitenverhältnis 16:9 haben."
+msgstr "Ramka musi mieć proporcje 16:9."
+
+msgid "Die Bibliothek ist voll – bitte zuerst ein Element löschen."
+msgstr "Biblioteka jest pełna – proszę najpierw usunąć element."
+
+msgid "Der Name muss 1 bis 60 Zeichen lang sein und darf keine Steuerzeichen enthalten."
+msgstr "Nazwa musi mieć od 1 do 60 znaków i nie może zawierać znaków sterujących."
+
+msgid "Overlays anbieten"
+msgstr "Udostępnij nakładki"
+
+msgid "Mitglieder können Logos, ihren Namen und einen Rahmen in ihr eigenes Kamerabild legen. Das veränderte Bild sehen alle Teilnehmer, auch in Aufnahme und Livestream."
+msgstr "Członkowie mogą umieszczać logo, swoje imię i nazwisko oraz ramkę we własnym obrazie z kamery. Zmieniony obraz widzą wszyscy uczestnicy, także w nagraniu i transmisji na żywo."
+
+msgid "Overlays werden angeboten."
+msgstr "Nakładki są udostępnione."
+
+msgid "Overlays werden nicht mehr angeboten."
+msgstr "Nakładki nie są już udostępniane."
+
+msgid "Bibliothek der Overlays"
+msgstr "Biblioteka nakładek"
+
+msgid "Noch keine Logos oder Rahmen hinterlegt."
+msgstr "Nie zapisano jeszcze żadnych logo ani ramek."
+
+msgid "Das Logo der Instanz steht allen Mitgliedern als erstes Logo zur Verfügung."
+msgstr "Logo instancji jest dostępne dla wszystkich członków jako pierwsze logo."
+
+msgid "Das Logo der Instanz ist eine SVG-Datei und steht deshalb nicht als Overlay zur Verfügung. Laden Sie es bei Bedarf als PNG hoch."
+msgstr "Logo instancji jest plikiem SVG i dlatego nie jest dostępne jako nakładka. W razie potrzeby proszę wgrać je jako PNG."
+
+msgid "Logo oder Rahmen hinzufügen"
+msgstr "Dodaj logo lub ramkę"
+
+msgid "Nach oben"
+msgstr "Przesuń w górę"
+
+msgid "Nach unten"
+msgstr "Przesuń w dół"
+
+msgid "Element löschen?"
+msgstr "Usunąć element?"
+
+msgid "Mitglieder, die dieses Element gewählt haben, sehen danach eine leere Ecke."
+msgstr "Członkowie, którzy wybrali ten element, zobaczą potem pusty róg."
+
+msgid "Logo"
+msgstr "Logo"
+
+msgid "Name des Logos"
+msgstr "Nazwa logo"
+
+msgid "Name des Rahmens"
+msgstr "Nazwa ramki"
+
+msgid "Logo-Datei auswählen"
+msgstr "Wybierz plik logo"
+
+msgid "Rahmen-Datei auswählen"
+msgstr "Wybierz plik ramki"
+
+msgid "PNG mit transparentem Hintergrund oder JPEG, mindestens 256 px an der langen Kante, empfohlen 512 px, höchstens 2 MB."
+msgstr "PNG z przezroczystym tłem lub JPEG, co najmniej 256 px na dłuższym boku, zalecane 512 px, najwyżej 2 MB."
+
+msgid "PNG mit Transparenz im Format 16:9, 1280×720 bis 1920×1080 Pixel, höchstens 4 MB."
+msgstr "PNG z przezroczystością w formacie 16:9, od 1280×720 do 1920×1080 pikseli, najwyżej 4 MB."
+
+msgid "Logo hochladen"
+msgstr "Prześlij logo"
+
+msgid "Rahmen hochladen"
+msgstr "Prześlij ramkę"
+
+msgid "Element wurde hinzugefügt."
+msgstr "Element został dodany."
+
+msgid "Video-Overlay"
+msgstr "Nakładka wideo"

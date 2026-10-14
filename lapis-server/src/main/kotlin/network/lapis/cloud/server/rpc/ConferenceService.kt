@@ -312,6 +312,7 @@ class ConferenceService(
             maxParticipants = config.maxParticipants,
             eventMaxParticipants = config.eventMaxParticipants,
             noiseSuppressionDefault = NoiseSuppressionDefaultStore.currentValue(),
+            videoOverlaysOffered = VideoOverlaysOfferedStore.currentValue(),
         )
     }
 
@@ -655,6 +656,7 @@ class ConferenceService(
             expiresAt = minted.expiresAt.toLocalDateTime(ServerClock.zone),
             turnServers = turnServers,
             noiseSuppressionDefault = NoiseSuppressionDefaultStore.currentValue(),
+            videoOverlaysOffered = VideoOverlaysOfferedStore.currentValue(),
         )
     }
 

@@ -324,3 +324,8 @@ Reactions and hand badges are DOM overlays of the Lapis client. Recordings and s
 * Only Chromium was used for the DOM tests; Safari and Firefox were not tried.
 * A lost broadcast is healed by the next read (at the latest after a minute while the hand is up or the roster is open, and at every reconnect). A person who has neither raised a hand nor opened the roster can see an outdated list for that time.
 * The list is lost on a server restart; clients re-raise automatically, but the old order is gone.
+
+== Video overlays (V1.9.129)
+
+Members may place logos, their name and a frame in their own camera image when an ADMIN offers it. The overlay is part of the sent picture and
+therefore of recordings and livestreams. See link:video-overlays.adoc[video-overlays.adoc].

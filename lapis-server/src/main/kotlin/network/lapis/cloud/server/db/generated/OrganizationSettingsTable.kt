@@ -90,6 +90,9 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     // Welle V1.9.124 -- hand-edited, see 11-organization-settings.kuml.kts.
     public val noiseSuppressionDefault: Column<Boolean> = bool("noise_suppression_default")
     // TODO default = "FALSE"
+    // Welle V1.9.129 -- hand-edited, see 11-organization-settings.kuml.kts.
+    public val videoOverlaysOffered: Column<Boolean> = bool("video_overlays_offered")
+    // TODO default = "FALSE"
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

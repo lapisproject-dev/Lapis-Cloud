@@ -35,7 +35,7 @@ class DomainModelMergerTest :
         // ── Test 1: merging the real 22 domain scripts ───────────────────────────────────
 
         test(
-            "merging the real 69 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
+            "merging the real 70 domain scripts succeeds and the uml-to-erm -> erm-to-exposed chain " +
                 "produces exactly one Table file per distinct table name",
         ) {
             val scriptFiles =
@@ -72,7 +72,8 @@ class DomainModelMergerTest :
             // Welle V1.9.81 "E-Mail-Stundenbudget" -- was 66, now 67 with the addition of 66-mail-outbox.kuml.kts.
             // Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" -- was 67, now 68 with the addition of 67-event-online.kuml.kts.
             // Welle V1.9.121 "Land und Staatsangehoerigkeit als Auswahlliste" -- was 68, now 69 with the addition of 68-member-nationality.kuml.kts.
-            scriptFiles shouldHaveSize 69
+            // Welle V1.9.129 "Video-Overlays" -- was 69, now 70 with the addition of 69-video-overlay.kuml.kts.
+            scriptFiles shouldHaveSize 70
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -540,7 +541,8 @@ class DomainModelMergerTest :
             // Welle V1.9.123 "SEPA-Ueberweisungsdatei" adds 45-travel-expense.kuml.kts's TWO new tables (travel_expense_sepa_batch, travel_expense_sepa_batch_item);
             // its bank_account stub dedups into 47-bank-account -- net +2 (193 -> 195).
             // Welle V1.9.125 "Mitfahrten" adds ONE more real table to 57-carpool.kuml.kts (carpool_participation), no new stub -- net +1 (195 -> 196).
-            val distinctTableNames = 196
+            // Welle V1.9.129 "Video-Overlays" adds 69-video-overlay.kuml.kts's ONE new table (video_overlay_asset), no stub -- net +1 (196 -> 197).
+            val distinctTableNames = 197
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -886,6 +888,8 @@ class DomainModelMergerTest :
                     "EventConferenceTable.kt",
                     // Welle V1.9.121 "Land und Staatsangehoerigkeit als Auswahlliste" -- ONE new real table (member_nationality).
                     "MemberNationalityTable.kt",
+                    // Welle V1.9.129 "Video-Overlays" -- ONE new real table (video_overlay_asset), no stub.
+                    "VideoOverlayAssetTable.kt",
                 )
         }
 

@@ -143,6 +143,11 @@ data class ConferenceJoinTokenDto(
      * encounter room's join answers (the pulpit has no instance default, singing is its normal use) -- so old payloads stay readable.
      */
     val noiseSuppressionDefault: Boolean = false,
+    /**
+     * V1.9.129 -- whether the video overlay panel is offered in this join. `false` for every answer that does not know the setting and
+     * always for event guests without an account (the overlay library needs a member session).
+     */
+    val videoOverlaysOffered: Boolean = false,
 )
 
 /**
@@ -218,6 +223,8 @@ data class ConferenceAvailabilityDto(
      * every join click and guests have no room list; the join token stays the authority.
      */
     val noiseSuppressionDefault: Boolean = false,
+    /** V1.9.129 -- see [ConferenceJoinTokenDto.videoOverlaysOffered]; the join token stays the authority. */
+    val videoOverlaysOffered: Boolean = false,
 )
 
 /**

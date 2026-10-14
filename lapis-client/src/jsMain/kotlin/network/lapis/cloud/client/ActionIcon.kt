@@ -183,4 +183,11 @@ enum class ActionIcon(
      * verb as in the encounter room). A button only; the reactions themselves are shown as emoji on the tiles.
      */
     REACT("fas fa-face-smile"),
+
+    /**
+     * V1.9.129 "Video-Overlays": move an element of the overlay library one place up or down (admin card of the video conference). Only used
+     * for that ordering, never for scrolling or navigation (those use [BACK]/[NEXT]).
+     */
+    MOVE_UP("fas fa-arrow-up"),
+    MOVE_DOWN("fas fa-arrow-down"),
 }

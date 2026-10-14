@@ -98,8 +98,10 @@ import network.lapis.cloud.shared.rpc.IConferenceStreamingService
 import network.lapis.cloud.shared.rpc.IConferenceWhiteboardService
 import network.lapis.cloud.shared.rpc.IEventService
 import network.lapis.cloud.shared.rpc.IGovernanceService
+import org.w3c.dom.HTMLCanvasElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.HTMLVideoElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.get
@@ -1707,6 +1709,35 @@ private fun enterCall(
             onUploadFile = { file -> onBackgroundUploadFile(file) },
             onDeleteCustom = { imageId -> onBackgroundDeleteCustom(imageId) },
             uploadEligible = backgroundUploadEligible,
+        )
+
+    // V1.9.129 "Video-Overlays" -- EINGEKLAPPTE Zeile direkt NACH dem Hintergrund-Abschnitt und VOR der Rauschunterdrückung (DOM-Reihenfolge im
+    // `moreSheet`). Ist die Option für diese Instanz aus (`joinToken.videoOverlaysOffered == false`, immer auch für Gäste), wird NICHTS gebaut --
+    // kein Knoten im DOM. Die Vorschau hängt über eine Brücke am lokalen Kamera-Track, der erst weiter unten deklariert wird (Vorwärtsreferenz).
+    var onOverlayChange: (VideoOverlaySettings) -> Unit = {}
+    val overlayPreviewBridge =
+        object : OverlayPreviewHost {
+            var delegate: OverlayPreviewHost? = null
+
+            override fun cameraOn(): Boolean = delegate?.cameraOn() ?: false
+
+            override fun attachPreview(video: HTMLVideoElement): Boolean = delegate?.attachPreview(video) ?: false
+
+            override fun detachPreview(video: HTMLVideoElement) {
+                delegate?.detachPreview(video)
+            }
+
+            override fun drawStaticScene(canvas: HTMLCanvasElement) {
+                delegate?.drawStaticScene(canvas)
+            }
+        }
+    val overlaySection =
+        ConferenceVideoOverlaySection(
+            parent = moreSheet,
+            offered = joinToken.videoOverlaysOffered,
+            availability = backgroundAvailability,
+            onChange = { settings -> onOverlayChange(settings) },
+            previewHost = overlayPreviewBridge,
         )
 
     // V1.2.10 -- statische a11y-Labels (title/aria-label/data-label) für Buttons, deren Text sich
@@ -4915,17 +4946,96 @@ private fun enterCall(
     // angewendet wird mit dem nächsten Track. Nach jedem `setProcessor`/`stopProcessor` wird
     // `resumeStalledVideos` angestoßen (ein `srcObject`-Tausch pausiert `<video>`, V1.4.19).
     var localCameraTrack: LocalVideoTrack? = null
+    // V1.9.129 "Video-Overlays" -- the drawing step of the camera pipeline. Only built where overlays are offered AND this browser can run
+    // the processor; `overlayController` (below the background controller, which it hands its scene to) is reached through a pointer.
+    var overlayController: ConferenceVideoOverlayController? = null
+    val overlayCompositor =
+        if (overlaySection.supported) {
+            VideoOverlayCompositor(
+                loader = BrowserOverlayBitmapLoader(),
+                surface = CanvasOverlaySurface(),
+                onDrawFailure = { overlayController?.onDrawFailure() },
+                onFrameSizeMismatch = { width, height -> overlayController?.onFrameSizeMismatch(width, height) },
+            )
+        } else {
+            null
+        }
     val backgroundController =
         ConferenceBackgroundController(
             notifyFailure = ::notifyError,
-            onProcessedStreamSwapped = { callPanel.getElement()?.let { el -> resumeStalledVideos(el) } },
+            onProcessedStreamSwapped = {
+                callPanel.getElement()?.let { el -> resumeStalledVideos(el) }
+                runCatching { overlaySection.refreshPreview() }
+            },
             // Audit-Befund N7: `render(...)` ist DOM-Arbeit ausserhalb des controller-eigenen try/catch --
             // ein einzelner Renderfehler darf nie den Anwendungs-/Fehlerpfad des Controllers abbrechen
             // (dieselbe Klammer wie in `disposeBackgroundEffects`).
             onStateChanged = { state -> runCatching { backgroundSection.render(state) } },
             supported = backgroundAvailability == ConferenceBackgroundAvailability.AVAILABLE,
+            overlayPort = overlayCompositor?.let { CompositorOverlayPort(it) },
+            onOverlayFailure = { failure -> overlayController?.onProcessorFailure(failure) },
         )
     backgroundController.restoreDesiredFromStorage()
+    if (overlayCompositor != null) {
+        // The own tile says, as long as overlays are drawn, that this is what OTHERS see (Tesler: no invisible mode).
+        fun setOverlaySelfNote(on: Boolean) {
+            val tile = tiles[joinToken.identity]?.element ?: return
+            var note = tile.querySelector(".lapis-conference-overlay-self-note") as? HTMLElement
+            if (note == null) {
+                if (!on) return
+                note = document.createElement("span") as HTMLElement
+                note.className = "lapis-conference-overlay-self-note"
+                note.setAttribute("aria-hidden", "true")
+                note.textContent = gettext("So sehen andere Sie")
+                tile.appendChild(note)
+            }
+            note.style.display = if (on) "inline-flex" else "none"
+        }
+        overlayController =
+            ConferenceVideoOverlayController(
+                offered = joinToken.videoOverlaysOffered,
+                availability = backgroundAvailability,
+                displayName = joinToken.displayName,
+                compositor = overlayCompositor,
+                backgroundController = backgroundController,
+                currentTrack = { localCameraTrack?.let(::LiveKitBackgroundTrack) },
+                frameSize = {
+                    runCatching {
+                        val settings = localCameraTrack.asDynamic().mediaStreamTrack.getSettings()
+                        (settings.width as Number).toInt() to (settings.height as Number).toInt()
+                    }.getOrNull()
+                },
+                loadLibrary = { loadVideoOverlayLibrary() },
+                notifyFailure = ::notifyError,
+                onChanged = { ui ->
+                    runCatching { overlaySection.render(ui) }
+                    runCatching { setOverlaySelfNote(ui.drawing) }
+                },
+            )
+        onOverlayChange = { settings -> AppScope.launch { runCatching { overlayController.update(settings) } } }
+        overlayPreviewBridge.delegate =
+            object : OverlayPreviewHost {
+                override fun cameraOn(): Boolean = localCameraTrack != null
+
+                override fun attachPreview(video: HTMLVideoElement): Boolean =
+                    localCameraTrack?.let { track ->
+                        runCatching { track.attach(video) }.isSuccess
+                    } ?: false
+
+                override fun detachPreview(video: HTMLVideoElement) {
+                    runCatching { localCameraTrack?.detach(video) }
+                }
+
+                override fun drawStaticScene(canvas: HTMLCanvasElement) {
+                    AppScope.launch {
+                        runCatching {
+                            overlayController.withPreviewScene { prepared -> drawPreparedSceneOnto(canvas.getContext("2d"), prepared) }
+                        }
+                    }
+                }
+            }
+        AppScope.launch { runCatching { overlayController.start() } }
+    }
     onBackgroundSelect = { choice ->
         AppScope.launch {
             runCatching { backgroundController.select(choice, localCameraTrack?.let(::LiveKitBackgroundTrack)) }
@@ -5044,6 +5154,9 @@ private fun enterCall(
     // (dieselbe Fehlerklasse wie die früher behobene "verwaiste Live-Session mit aktiver Kamera/Mikrofon",
     // siehe `onDisconnected` oben). `dispose` nimmt inzwischen zusätzlich den Mutex nicht mehr.
     suspend fun disposeBackgroundEffects() {
+        // V1.9.129: the overlay side first (the drawing step ends, bitmaps close, the preview stream is detached) -- no await, nothing here waits.
+        runCatching { overlayController?.dispose() }
+        runCatching { overlaySection.dispose() }
         runCatching { backgroundController.dispose(localCameraTrack?.let(::LiveKitBackgroundTrack)) }
         localCameraTrack = null
     }
@@ -5254,8 +5367,12 @@ private fun enterCall(
                 // Audit-Befund N7: `runCatching` wie bei `disposeBackgroundEffects` -- der Aufruf endet über
                 // `onStateChanged` in DOM-Arbeit.
                 localCameraTrack?.let { live ->
-                    AppScope.launch { runCatching { backgroundController.onLocalCameraTrack(LiveKitBackgroundTrack(live)) } }
+                    AppScope.launch {
+                        runCatching { backgroundController.onLocalCameraTrack(LiveKitBackgroundTrack(live)) }
+                        runCatching { overlayController?.onCameraTrack() }
+                    }
                 }
+                runCatching { overlaySection.refreshPreview() }
             },
             // V1.4.23 -- Gürtel und Hosenträger: (Re-)Publish der eigenen Kamera (Reconnect, Geräte-Restart);
             // ein gesetzter Prozessor überlebt das ohnehin, die Anwendung ist idempotent. KEIN zweites
@@ -5267,7 +5384,10 @@ private fun enterCall(
             onLocalCameraTrackPublished = { track ->
                 val live = track.unsafeCast<LocalVideoTrack>()
                 localCameraTrack = live
-                AppScope.launch { runCatching { backgroundController.onLocalCameraTrack(LiveKitBackgroundTrack(live)) } }
+                AppScope.launch {
+                    runCatching { backgroundController.onLocalCameraTrack(LiveKitBackgroundTrack(live)) }
+                    runCatching { overlayController?.onCameraTrack() }
+                }
             },
             // Bug fix (GitHub issue #3, "Audio Mute and Camera Toggle Controls Are Unreliable") --
             // see LiveKitRoomSession KDoc "Local mute state is event-driven, never purely optimistic".

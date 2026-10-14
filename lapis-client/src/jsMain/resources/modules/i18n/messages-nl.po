@@ -23653,3 +23653,180 @@ msgstr "Applaus, hartje en andere reacties. De lijst met spreekverzoeken blijft 
 
 msgid "Hand von %1 senken"
 msgstr "Hand van %1 laten zakken"
+
+msgid "Ein Overlay konnte nicht geladen werden – die Kamera läuft ohne dieses Overlay weiter."
+msgstr "Een overlay kon niet worden geladen – de camera blijft zonder deze overlay werken."
+
+msgid "Die Overlays konnten nicht gezeichnet werden – die Kamera läuft ohne Overlays weiter."
+msgstr "De overlays konden niet worden getekend – de camera blijft zonder overlays werken."
+
+msgid "Oben links"
+msgstr "Linksboven"
+
+msgid "Oben rechts"
+msgstr "Rechtsboven"
+
+msgid "Unten links"
+msgstr "Linksonder"
+
+msgid "Unten rechts"
+msgstr "Rechtsonder"
+
+msgid "Klein"
+msgstr "Klein"
+
+msgid "Mittelgroß"
+msgstr "Middelgroot"
+
+msgid "Groß"
+msgstr "Groot"
+
+msgid "100 %"
+msgstr "100 %"
+
+msgid "70 %"
+msgstr "70 %"
+
+msgid "40 %"
+msgstr "40 %"
+
+msgid "Overlays: Aus"
+msgstr "Overlays: Uit"
+
+msgid "Overlays: An"
+msgstr "Overlays: Aan"
+
+msgid "Overlays werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr "Overlays worden in de app nog niet ondersteund – in de browser van dit apparaat zijn ze beschikbaar."
+
+msgid "Overlays werden von diesem Browser oder Gerät nicht unterstützt."
+msgstr "Overlays worden door deze browser of dit apparaat niet ondersteund."
+
+msgid "Verändert Ihr Bild – alle sehen es, auch in Aufnahme und Livestream."
+msgstr "Verandert uw beeld – iedereen ziet het, ook in de opname en de livestream."
+
+msgid "Overlays einblenden"
+msgstr "Overlays tonen"
+
+msgid "Ecke wählen"
+msgstr "Hoek kiezen"
+
+msgid "Deckkraft"
+msgstr "Dekking"
+
+msgid "Rahmen"
+msgstr "Kader"
+
+msgid "Deckkraft des Rahmens"
+msgstr "Dekking van het kader"
+
+msgid "Es sind noch keine Logos oder Rahmen hinterlegt – Ihr Name steht trotzdem zur Verfügung."
+msgstr "Er zijn nog geen logo's of kaders opgeslagen – uw naam is wel beschikbaar."
+
+msgid "So sehen andere Sie"
+msgstr "Zo zien anderen u"
+
+msgid "Leer"
+msgstr "Leeg"
+
+msgid "Kein Rahmen"
+msgstr "Geen kader"
+
+msgid "Dieses Dateiformat wird nicht unterstützt (nur PNG und JPEG)."
+msgstr "Dit bestandsformaat wordt niet ondersteund (alleen PNG en JPEG)."
+
+msgid "Ein Rahmen muss eine PNG-Datei mit Transparenz sein."
+msgstr "Een kader moet een PNG-bestand met transparantie zijn."
+
+msgid "Das Bild ist zu klein."
+msgstr "De afbeelding is te klein."
+
+msgid "Das Bild ist zu groß (Kantenlänge)."
+msgstr "De afbeelding is te groot (zijdelengte)."
+
+msgid "Die Bilddatei konnte nicht gelesen werden."
+msgstr "Het afbeeldingsbestand kon niet worden gelezen."
+
+msgid "Der Rahmen braucht transparente Bereiche, durch die das Kamerabild sichtbar bleibt."
+msgstr "Het kader heeft transparante delen nodig waardoor het camerabeeld zichtbaar blijft."
+
+msgid "Ein Rahmen muss das Seitenverhältnis 16:9 haben."
+msgstr "Een kader moet een beeldverhouding van 16:9 hebben."
+
+msgid "Die Bibliothek ist voll – bitte zuerst ein Element löschen."
+msgstr "De bibliotheek is vol – verwijder eerst een element."
+
+msgid "Der Name muss 1 bis 60 Zeichen lang sein und darf keine Steuerzeichen enthalten."
+msgstr "De naam moet 1 tot 60 tekens lang zijn en mag geen stuurtekens bevatten."
+
+msgid "Overlays anbieten"
+msgstr "Overlays aanbieden"
+
+msgid "Mitglieder können Logos, ihren Namen und einen Rahmen in ihr eigenes Kamerabild legen. Das veränderte Bild sehen alle Teilnehmer, auch in Aufnahme und Livestream."
+msgstr "Leden kunnen logo's, hun naam en een kader in hun eigen camerabeeld plaatsen. Alle deelnemers zien het gewijzigde beeld, ook in de opname en de livestream."
+
+msgid "Overlays werden angeboten."
+msgstr "Overlays worden aangeboden."
+
+msgid "Overlays werden nicht mehr angeboten."
+msgstr "Overlays worden niet meer aangeboden."
+
+msgid "Bibliothek der Overlays"
+msgstr "Overlaybibliotheek"
+
+msgid "Noch keine Logos oder Rahmen hinterlegt."
+msgstr "Nog geen logo's of kaders opgeslagen."
+
+msgid "Das Logo der Instanz steht allen Mitgliedern als erstes Logo zur Verfügung."
+msgstr "Het logo van de instantie staat voor alle leden als eerste logo ter beschikking."
+
+msgid "Das Logo der Instanz ist eine SVG-Datei und steht deshalb nicht als Overlay zur Verfügung. Laden Sie es bei Bedarf als PNG hoch."
+msgstr "Het logo van de instantie is een SVG-bestand en is daarom niet als overlay beschikbaar. Upload het zo nodig als PNG."
+
+msgid "Logo oder Rahmen hinzufügen"
+msgstr "Een logo of kader toevoegen"
+
+msgid "Nach oben"
+msgstr "Omhoog"
+
+msgid "Nach unten"
+msgstr "Omlaag"
+
+msgid "Element löschen?"
+msgstr "Element verwijderen?"
+
+msgid "Mitglieder, die dieses Element gewählt haben, sehen danach eine leere Ecke."
+msgstr "Leden die dit element hebben gekozen, zien daarna een lege hoek."
+
+msgid "Logo"
+msgstr "Logo"
+
+msgid "Name des Logos"
+msgstr "Naam van het logo"
+
+msgid "Name des Rahmens"
+msgstr "Naam van het kader"
+
+msgid "Logo-Datei auswählen"
+msgstr "Logobestand kiezen"
+
+msgid "Rahmen-Datei auswählen"
+msgstr "Kaderbestand kiezen"
+
+msgid "PNG mit transparentem Hintergrund oder JPEG, mindestens 256 px an der langen Kante, empfohlen 512 px, höchstens 2 MB."
+msgstr "PNG met transparante achtergrond of JPEG, minstens 256 px aan de lange zijde, aanbevolen 512 px, hoogstens 2 MB."
+
+msgid "PNG mit Transparenz im Format 16:9, 1280×720 bis 1920×1080 Pixel, höchstens 4 MB."
+msgstr "PNG met transparantie in 16:9-formaat, 1280×720 tot 1920×1080 pixels, hoogstens 4 MB."
+
+msgid "Logo hochladen"
+msgstr "Logo uploaden"
+
+msgid "Rahmen hochladen"
+msgstr "Kader uploaden"
+
+msgid "Element wurde hinzugefügt."
+msgstr "Het element is toegevoegd."
+
+msgid "Video-Overlay"
+msgstr "Video-overlay"

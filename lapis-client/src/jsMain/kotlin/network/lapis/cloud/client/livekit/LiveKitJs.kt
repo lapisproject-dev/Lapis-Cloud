@@ -222,7 +222,16 @@ external interface Track {
 
     fun attach(): HTMLMediaElement
 
+    /**
+     * V1.9.129 -- `Track.attach(element)`: attaches the track to an EXISTING element (the overlay panel's preview `<video>`). While a
+     * processor is set, `setProcessor(..., showProcessedStreamLocally = true)` re-attaches such an element to the processed stream.
+     */
+    fun attach(element: HTMLMediaElement): HTMLMediaElement
+
     fun detach(): Array<HTMLMediaElement>
+
+    /** V1.9.129 -- `Track.detach(element)`: detaches only [element]. */
+    fun detach(element: HTMLMediaElement): HTMLMediaElement
 }
 
 /**

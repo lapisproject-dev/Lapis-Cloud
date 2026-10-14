@@ -6,6 +6,22 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.129 -- Video overlays (logos, name, frame) in your own camera image
+
+An ADMIN can offer a library of logos and 16:9 frames; members place logos, their own name and one frame in the four corners / over the whole picture of their own camera. Details: `docs/features/video-overlays.adoc`, `docs/architecture/video-background-effects.adoc` ("Overlay step").
+
+- **New:** admin card "Videokonferenz": switch "Overlays anbieten" and the library (upload logo / frame, rename, order, delete, thumbnails; the instance logo is offered first when it is a PNG or WebP). Member panel "Overlays" in the "Mehr" sheet (switch, preview, 2x2 corner grid with content / size / opacity, frame with opacity). Limits: logos PNG/JPEG, 256 px long edge minimum, 2 MB; frames PNG 16:9 with real transparency, 1280x720 minimum, 4 MB; 50 elements. Re-encoded by the server; **SVG is never accepted or drawn**.
+- **One processor per track.** Overlay without background effect uses a separate OVERLAY_ONLY processor (no MediaPipe/WASM); with an effect the drawing step sits inside the segmenting processor. A failing overlay never touches the background state and vice versa; every drawing error passes the ORIGINAL frames on.
+- **Delivery** is authenticated and same-origin (`GET /api/video-overlays/{token}`, no CORS, one identical 404 for every miss); images reach the canvas only as `ImageBitmap` from a fetched blob (no `<img>`, no taint).
+- **API / BEHAVIOR CHANGES:** migration **`V102`** (column `organization_settings.video_overlays_offered`, table `video_overlay_asset`, `VIDEO_OVERLAY` in the audit CHECK; additive, `V101` untouched); `IOrganizationSettingsService.updateVideoOverlaysOffered` appended; new RPC service `IVideoOverlayService`; new fields with defaults `OrganizationSettingsDto.videoOverlaysOffered`, `ConferenceJoinTokenDto.videoOverlaysOffered`, `ConferenceAvailabilityDto.videoOverlaysOffered`; `AuditEntityType.VIDEO_OVERLAY` appended (removal is audited as `VOID`); new environment variable `LAPIS_VIDEO_OVERLAY_STORAGE_ROOT` (default `<documents>/video-overlays`); `BackupAssetRoots` has a fourth parameter `videoOverlays` and `rootFor` no longer falls back to the article-cover folder; `ActionIcon.MOVE_UP`/`MOVE_DOWN`.
+- **Not verified / honest limitations:**
+  - **Not seen in a real browser window or a real call.** Unit, service, route and headless-Chromium DOM tests only (a real `VideoFrame` through the hook is tested); only the Chromium path, the Firefox/Safari canvas fallback is code-reviewed only.
+  - **The recording and the livestream contain the overlay** (they are composed from the raw tracks that already carry it). This is the opposite of the DOM overlays of V1.9.127.
+  - No own uploads by members, no SVG (so no SVG instance logo), no function badges, no filters; guests without an account get no overlays (not even their name).
+  - Small simulcast layers make a logo blurry.
+  - The translations (seven catalogs) were written by the model.
+  - Plan deviation: the frame's transparency is checked on the upload (structure) AND on the decoded pixels, because the re-encoder always writes an ARGB PNG, which makes a check of the re-encoded bytes vacuous.
+
 ## [0.35.0] — 2026-10-14
 
 Feature release on top of `[0.34.0]` (V1.9.127 and V1.9.128): **reactions and a raised-hand queue** (Wortmeldeliste) in the video conference, and the **public event page** `/veranstaltung/<slug>` with the Lapis header, a proper layout and a slim `?embed=1` variant. One additive migration (`V101`, a room option); no new environment variable. **Behaviour changes:** the event page looks different and prints dates in German; a website that framed the old page never could (it sent `frame-ancestors 'none'`), the new `?embed=1` shape can be framed only with `LAPIS_EMBED_ENABLED=true` and the origin in `LAPIS_EMBED_ALLOWED_ORIGINS`; `registerEventPublicRoutes` takes `branding`, `navAvailability` and `embedConfig` (internal). **Not verified:** neither wave has been seen by real people in a real browser window or a real call; the translations were written by the model; see the two sections below for the honest limitations.

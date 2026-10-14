@@ -111,3 +111,9 @@ Migration V62 runs with Flyway and is additive/idempotent. Crest files live in `
 
 Trust-sorted politician list, chapter chairs, per-person detail pages, data takeover into the PdV instance, the real website,
 an "active chapters" filter, crest files in a restore, instant nav tabs, a BOARD entry point to the (ADMIN-only) chapter screen.
+
+== Video overlay library in the backup (V1.9.129)
+
+`video_overlay_asset` and its files (`assets/video-overlays/<uuid>.png|jpg`, the fourth asset family of `BACKUP_ASSET_KINDS`) belong to the organization although they are not public: they are
+exported and restored with the backup. A restore treats the ZIP as untrusted (strict entry name, signature of the extension, size cap). A restored frame is not re-checked for
+transparency; the backup comes from the admin themselves, so a fully opaque frame would be a cosmetic problem only.

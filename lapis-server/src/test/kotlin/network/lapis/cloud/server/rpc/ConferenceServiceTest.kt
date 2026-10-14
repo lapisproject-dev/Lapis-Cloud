@@ -568,6 +568,51 @@ class ConferenceServiceTest :
             }
         }
 
+        test(
+            "V1.9.129: the join token and the availability answer carry whether video overlays are offered (off unless an ADMIN switched them on)",
+        ) {
+            fun setOffered(value: Boolean) =
+                transaction {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[videoOverlaysOffered] = value
+                    }
+                }
+            try {
+                testApplication {
+                    application {
+                        install(StatusPages) { installConferenceExceptionHandlers() }
+                        routing {
+                            registerConferenceTestRoutes(
+                                liveKitAdminClient = FakeLiveKitAdminClient(),
+                                rateLimiter = LoginRateLimiter(),
+                                enabledConfig = ENABLED_CONFIG,
+                                disabledConfig = DISABLED_CONFIG,
+                            )
+                        }
+                    }
+                    val creator = createTestMember("conf-overlay-creator@example.org")
+                    val other = createTestMember("conf-overlay-other@example.org")
+                    val roomId = createRoom(client = client, creatorId = creator, title = "Overlays")
+
+                    setOffered(false)
+                    client
+                        .post(
+                            "/test/join-room-overlays?roomId=$roomId",
+                        ) { header("X-Member-Id", creator.toString()) }
+                        .bodyAsText() shouldBe
+                        "false"
+                    client.get("/test/availability-overlays") { header("X-Member-Id", creator.toString()) }.bodyAsText() shouldBe "false"
+
+                    setOffered(true)
+                    client.post("/test/join-room-overlays?roomId=$roomId") { header("X-Member-Id", other.toString()) }.bodyAsText() shouldBe
+                        "true"
+                    client.get("/test/availability-overlays") { header("X-Member-Id", other.toString()) }.bodyAsText() shouldBe "true"
+                }
+            } finally {
+                setOffered(false)
+            }
+        }
+
         test("joinRoom: nonexistent room is NotFound, an already-ended room is Conflict") {
             testApplication {
                 application {
@@ -2758,6 +2803,14 @@ private fun Route.registerConferenceTestRoutes(
     post("/test/join-room-noise") {
         val dto = service(call, enabledConfig).joinRoom(roomId = call.request.queryParameters["roomId"]!!, guestConsent = null)
         call.respondText(dto.noiseSuppressionDefault.toString())
+    }
+    // V1.9.129 -- whether the video overlay panel is offered, as carried by the join token and the availability answer
+    get("/test/availability-overlays") {
+        call.respondText(service(call, enabledConfig).getAvailability().videoOverlaysOffered.toString())
+    }
+    post("/test/join-room-overlays") {
+        val dto = service(call, enabledConfig).joinRoom(roomId = call.request.queryParameters["roomId"]!!, guestConsent = null)
+        call.respondText(dto.videoOverlaysOffered.toString())
     }
     get("/test/guest-join-info") {
         val service = service(call, enabledConfig)

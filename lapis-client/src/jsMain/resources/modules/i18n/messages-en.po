@@ -23605,3 +23605,180 @@ msgstr "Applause, heart and other reactions. The list of raised hands is not aff
 
 msgid "Hand von %1 senken"
 msgstr "Lower the hand of %1"
+
+msgid "Ein Overlay konnte nicht geladen werden – die Kamera läuft ohne dieses Overlay weiter."
+msgstr "An overlay could not be loaded – the camera keeps running without it."
+
+msgid "Die Overlays konnten nicht gezeichnet werden – die Kamera läuft ohne Overlays weiter."
+msgstr "The overlays could not be drawn – the camera keeps running without overlays."
+
+msgid "Oben links"
+msgstr "Top left"
+
+msgid "Oben rechts"
+msgstr "Top right"
+
+msgid "Unten links"
+msgstr "Bottom left"
+
+msgid "Unten rechts"
+msgstr "Bottom right"
+
+msgid "Klein"
+msgstr "Small"
+
+msgid "Mittelgroß"
+msgstr "Medium"
+
+msgid "Groß"
+msgstr "Large"
+
+msgid "100 %"
+msgstr "100 %"
+
+msgid "70 %"
+msgstr "70 %"
+
+msgid "40 %"
+msgstr "40 %"
+
+msgid "Overlays: Aus"
+msgstr "Overlays: Off"
+
+msgid "Overlays: An"
+msgstr "Overlays: On"
+
+msgid "Overlays werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr "Overlays are not yet supported in the app – they are available in this device's browser."
+
+msgid "Overlays werden von diesem Browser oder Gerät nicht unterstützt."
+msgstr "Overlays are not supported by this browser or device."
+
+msgid "Verändert Ihr Bild – alle sehen es, auch in Aufnahme und Livestream."
+msgstr "Changes your picture – everyone sees it, also in the recording and the livestream."
+
+msgid "Overlays einblenden"
+msgstr "Show overlays"
+
+msgid "Ecke wählen"
+msgstr "Choose corner"
+
+msgid "Deckkraft"
+msgstr "Opacity"
+
+msgid "Rahmen"
+msgstr "Frame"
+
+msgid "Deckkraft des Rahmens"
+msgstr "Opacity of the frame"
+
+msgid "Es sind noch keine Logos oder Rahmen hinterlegt – Ihr Name steht trotzdem zur Verfügung."
+msgstr "No logos or frames have been stored yet – your name is still available."
+
+msgid "So sehen andere Sie"
+msgstr "This is how others see you"
+
+msgid "Leer"
+msgstr "Empty"
+
+msgid "Kein Rahmen"
+msgstr "No frame"
+
+msgid "Dieses Dateiformat wird nicht unterstützt (nur PNG und JPEG)."
+msgstr "This file format is not supported (PNG and JPEG only)."
+
+msgid "Ein Rahmen muss eine PNG-Datei mit Transparenz sein."
+msgstr "A frame must be a PNG file with transparency."
+
+msgid "Das Bild ist zu klein."
+msgstr "The image is too small."
+
+msgid "Das Bild ist zu groß (Kantenlänge)."
+msgstr "The image is too large (edge length)."
+
+msgid "Die Bilddatei konnte nicht gelesen werden."
+msgstr "The image file could not be read."
+
+msgid "Der Rahmen braucht transparente Bereiche, durch die das Kamerabild sichtbar bleibt."
+msgstr "The frame needs transparent areas through which the camera picture stays visible."
+
+msgid "Ein Rahmen muss das Seitenverhältnis 16:9 haben."
+msgstr "A frame must have an aspect ratio of 16:9."
+
+msgid "Die Bibliothek ist voll – bitte zuerst ein Element löschen."
+msgstr "The library is full – please delete an element first."
+
+msgid "Der Name muss 1 bis 60 Zeichen lang sein und darf keine Steuerzeichen enthalten."
+msgstr "The name must be 1 to 60 characters long and must not contain control characters."
+
+msgid "Overlays anbieten"
+msgstr "Offer overlays"
+
+msgid "Mitglieder können Logos, ihren Namen und einen Rahmen in ihr eigenes Kamerabild legen. Das veränderte Bild sehen alle Teilnehmer, auch in Aufnahme und Livestream."
+msgstr "Members can place logos, their name and a frame in their own camera picture. All participants see the changed picture, also in the recording and the livestream."
+
+msgid "Overlays werden angeboten."
+msgstr "Overlays are offered."
+
+msgid "Overlays werden nicht mehr angeboten."
+msgstr "Overlays are no longer offered."
+
+msgid "Bibliothek der Overlays"
+msgstr "Overlay library"
+
+msgid "Noch keine Logos oder Rahmen hinterlegt."
+msgstr "No logos or frames stored yet."
+
+msgid "Das Logo der Instanz steht allen Mitgliedern als erstes Logo zur Verfügung."
+msgstr "The instance logo is available to all members as the first logo."
+
+msgid "Das Logo der Instanz ist eine SVG-Datei und steht deshalb nicht als Overlay zur Verfügung. Laden Sie es bei Bedarf als PNG hoch."
+msgstr "The instance logo is an SVG file and is therefore not available as an overlay. Upload it as a PNG if needed."
+
+msgid "Logo oder Rahmen hinzufügen"
+msgstr "Add a logo or frame"
+
+msgid "Nach oben"
+msgstr "Move up"
+
+msgid "Nach unten"
+msgstr "Move down"
+
+msgid "Element löschen?"
+msgstr "Delete element?"
+
+msgid "Mitglieder, die dieses Element gewählt haben, sehen danach eine leere Ecke."
+msgstr "Members who chose this element will see an empty corner afterwards."
+
+msgid "Logo"
+msgstr "Logo"
+
+msgid "Name des Logos"
+msgstr "Name of the logo"
+
+msgid "Name des Rahmens"
+msgstr "Name of the frame"
+
+msgid "Logo-Datei auswählen"
+msgstr "Choose logo file"
+
+msgid "Rahmen-Datei auswählen"
+msgstr "Choose frame file"
+
+msgid "PNG mit transparentem Hintergrund oder JPEG, mindestens 256 px an der langen Kante, empfohlen 512 px, höchstens 2 MB."
+msgstr "PNG with a transparent background or JPEG, at least 256 px on the long edge, 512 px recommended, at most 2 MB."
+
+msgid "PNG mit Transparenz im Format 16:9, 1280×720 bis 1920×1080 Pixel, höchstens 4 MB."
+msgstr "PNG with transparency in 16:9 format, 1280×720 to 1920×1080 pixels, at most 4 MB."
+
+msgid "Logo hochladen"
+msgstr "Upload logo"
+
+msgid "Rahmen hochladen"
+msgstr "Upload frame"
+
+msgid "Element wurde hinzugefügt."
+msgstr "The element was added."
+
+msgid "Video-Overlay"
+msgstr "Video overlay"

@@ -23698,3 +23698,180 @@ msgstr "Applauso, cuore e altre reazioni. L'elenco delle richieste di intervento
 
 msgid "Hand von %1 senken"
 msgstr "Abbassa la mano di %1"
+
+msgid "Ein Overlay konnte nicht geladen werden – die Kamera läuft ohne dieses Overlay weiter."
+msgstr "Non è stato possibile caricare una sovrapposizione: la fotocamera continua a funzionare senza."
+
+msgid "Die Overlays konnten nicht gezeichnet werden – die Kamera läuft ohne Overlays weiter."
+msgstr "Non è stato possibile disegnare le sovrapposizioni: la fotocamera continua a funzionare senza."
+
+msgid "Oben links"
+msgstr "In alto a sinistra"
+
+msgid "Oben rechts"
+msgstr "In alto a destra"
+
+msgid "Unten links"
+msgstr "In basso a sinistra"
+
+msgid "Unten rechts"
+msgstr "In basso a destra"
+
+msgid "Klein"
+msgstr "Piccolo"
+
+msgid "Mittelgroß"
+msgstr "Medio"
+
+msgid "Groß"
+msgstr "Grande"
+
+msgid "100 %"
+msgstr "100 %"
+
+msgid "70 %"
+msgstr "70 %"
+
+msgid "40 %"
+msgstr "40 %"
+
+msgid "Overlays: Aus"
+msgstr "Sovrapposizioni: Disattivate"
+
+msgid "Overlays: An"
+msgstr "Sovrapposizioni: Attivate"
+
+msgid "Overlays werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr "Le sovrapposizioni non sono ancora supportate nell'app: sono disponibili nel browser di questo dispositivo."
+
+msgid "Overlays werden von diesem Browser oder Gerät nicht unterstützt."
+msgstr "Le sovrapposizioni non sono supportate da questo browser o dispositivo."
+
+msgid "Verändert Ihr Bild – alle sehen es, auch in Aufnahme und Livestream."
+msgstr "Modifica la sua immagine: la vedono tutti, anche nella registrazione e nella diretta."
+
+msgid "Overlays einblenden"
+msgstr "Mostra le sovrapposizioni"
+
+msgid "Ecke wählen"
+msgstr "Scegli l'angolo"
+
+msgid "Deckkraft"
+msgstr "Opacità"
+
+msgid "Rahmen"
+msgstr "Cornice"
+
+msgid "Deckkraft des Rahmens"
+msgstr "Opacità della cornice"
+
+msgid "Es sind noch keine Logos oder Rahmen hinterlegt – Ihr Name steht trotzdem zur Verfügung."
+msgstr "Non sono ancora stati salvati loghi o cornici: il suo nome resta comunque disponibile."
+
+msgid "So sehen andere Sie"
+msgstr "Così la vedono gli altri"
+
+msgid "Leer"
+msgstr "Vuoto"
+
+msgid "Kein Rahmen"
+msgstr "Nessuna cornice"
+
+msgid "Dieses Dateiformat wird nicht unterstützt (nur PNG und JPEG)."
+msgstr "Questo formato di file non è supportato (solo PNG e JPEG)."
+
+msgid "Ein Rahmen muss eine PNG-Datei mit Transparenz sein."
+msgstr "Una cornice deve essere un file PNG con trasparenza."
+
+msgid "Das Bild ist zu klein."
+msgstr "L'immagine è troppo piccola."
+
+msgid "Das Bild ist zu groß (Kantenlänge)."
+msgstr "L'immagine è troppo grande (lunghezza del lato)."
+
+msgid "Die Bilddatei konnte nicht gelesen werden."
+msgstr "Non è stato possibile leggere il file immagine."
+
+msgid "Der Rahmen braucht transparente Bereiche, durch die das Kamerabild sichtbar bleibt."
+msgstr "La cornice deve avere aree trasparenti attraverso cui l'immagine della fotocamera resti visibile."
+
+msgid "Ein Rahmen muss das Seitenverhältnis 16:9 haben."
+msgstr "Una cornice deve avere un rapporto d'aspetto di 16:9."
+
+msgid "Die Bibliothek ist voll – bitte zuerst ein Element löschen."
+msgstr "La libreria è piena: elimini prima un elemento."
+
+msgid "Der Name muss 1 bis 60 Zeichen lang sein und darf keine Steuerzeichen enthalten."
+msgstr "Il nome deve essere lungo da 1 a 60 caratteri e non può contenere caratteri di controllo."
+
+msgid "Overlays anbieten"
+msgstr "Offri sovrapposizioni"
+
+msgid "Mitglieder können Logos, ihren Namen und einen Rahmen in ihr eigenes Kamerabild legen. Das veränderte Bild sehen alle Teilnehmer, auch in Aufnahme und Livestream."
+msgstr "I membri possono inserire loghi, il proprio nome e una cornice nella propria immagine della fotocamera. Tutti i partecipanti vedono l'immagine modificata, anche nella registrazione e nella diretta."
+
+msgid "Overlays werden angeboten."
+msgstr "Le sovrapposizioni sono offerte."
+
+msgid "Overlays werden nicht mehr angeboten."
+msgstr "Le sovrapposizioni non sono più offerte."
+
+msgid "Bibliothek der Overlays"
+msgstr "Libreria delle sovrapposizioni"
+
+msgid "Noch keine Logos oder Rahmen hinterlegt."
+msgstr "Nessun logo o cornice ancora salvato."
+
+msgid "Das Logo der Instanz steht allen Mitgliedern als erstes Logo zur Verfügung."
+msgstr "Il logo dell'istanza è disponibile per tutti i membri come primo logo."
+
+msgid "Das Logo der Instanz ist eine SVG-Datei und steht deshalb nicht als Overlay zur Verfügung. Laden Sie es bei Bedarf als PNG hoch."
+msgstr "Il logo dell'istanza è un file SVG e quindi non è disponibile come sovrapposizione. Se necessario, lo carichi come PNG."
+
+msgid "Logo oder Rahmen hinzufügen"
+msgstr "Aggiungi un logo o una cornice"
+
+msgid "Nach oben"
+msgstr "Sposta in alto"
+
+msgid "Nach unten"
+msgstr "Sposta in basso"
+
+msgid "Element löschen?"
+msgstr "Eliminare l'elemento?"
+
+msgid "Mitglieder, die dieses Element gewählt haben, sehen danach eine leere Ecke."
+msgstr "I membri che hanno scelto questo elemento vedranno poi un angolo vuoto."
+
+msgid "Logo"
+msgstr "Logo"
+
+msgid "Name des Logos"
+msgstr "Nome del logo"
+
+msgid "Name des Rahmens"
+msgstr "Nome della cornice"
+
+msgid "Logo-Datei auswählen"
+msgstr "Scegli il file del logo"
+
+msgid "Rahmen-Datei auswählen"
+msgstr "Scegli il file della cornice"
+
+msgid "PNG mit transparentem Hintergrund oder JPEG, mindestens 256 px an der langen Kante, empfohlen 512 px, höchstens 2 MB."
+msgstr "PNG con sfondo trasparente o JPEG, almeno 256 px sul lato lungo, consigliati 512 px, al massimo 2 MB."
+
+msgid "PNG mit Transparenz im Format 16:9, 1280×720 bis 1920×1080 Pixel, höchstens 4 MB."
+msgstr "PNG con trasparenza in formato 16:9, da 1280×720 a 1920×1080 pixel, al massimo 4 MB."
+
+msgid "Logo hochladen"
+msgstr "Carica logo"
+
+msgid "Rahmen hochladen"
+msgstr "Carica cornice"
+
+msgid "Element wurde hinzugefügt."
+msgstr "L'elemento è stato aggiunto."
+
+msgid "Video-Overlay"
+msgstr "Sovrapposizione video"

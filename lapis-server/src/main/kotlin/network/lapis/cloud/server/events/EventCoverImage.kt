@@ -106,6 +106,37 @@ internal data class CoverImageLimits(
         val CHAPTER_CREST = CoverImageLimits(minLongEdgePx = 64, minShortEdgePx = 64, targetLongEdgePx = 1024)
 
         /**
+         * Welle V1.9.129 "Video-Overlays" -- a LOGO of the overlay library: long edge >= 256 px and short edge >= 64 px (a wide wordmark is
+         * legitimate), stored at most 1024 px on the long edge, never upscaled. Mirrors `VideoOverlayRules`.
+         */
+        val VIDEO_OVERLAY_LOGO =
+            CoverImageLimits(
+                minLongEdgePx = network.lapis.cloud.shared.domain.VideoOverlayRules.LOGO_MIN_LONG_EDGE_PX,
+                minShortEdgePx = network.lapis.cloud.shared.domain.VideoOverlayRules.LOGO_MIN_SHORT_EDGE_PX,
+                targetLongEdgePx = network.lapis.cloud.shared.domain.VideoOverlayRules.LOGO_TARGET_LONG_EDGE_PX,
+            )
+
+        /**
+         * Welle V1.9.129 -- a FRAME of the overlay library: at least 1280x720 and a 16:9 aspect within +-1 %, stored at most 1920 px on the
+         * long edge, never upscaled (so a 1280x720 upload stays 1280x720).
+         */
+        val VIDEO_OVERLAY_FRAME =
+            CoverImageLimits(
+                rule =
+                    CoverDimensionRule.WidthAndAspect(
+                        minWidthPx = network.lapis.cloud.shared.domain.VideoOverlayRules.FRAME_MIN_WIDTH_PX,
+                        minHeightPx = network.lapis.cloud.shared.domain.VideoOverlayRules.FRAME_MIN_HEIGHT_PX,
+                        minAspect =
+                            network.lapis.cloud.shared.domain.VideoOverlayRules.FRAME_ASPECT *
+                                (1.0 - network.lapis.cloud.shared.domain.VideoOverlayRules.FRAME_ASPECT_TOLERANCE),
+                        maxAspect =
+                            network.lapis.cloud.shared.domain.VideoOverlayRules.FRAME_ASPECT *
+                                (1.0 + network.lapis.cloud.shared.domain.VideoOverlayRules.FRAME_ASPECT_TOLERANCE),
+                    ),
+                targetLongEdgePx = network.lapis.cloud.shared.domain.VideoOverlayRules.FRAME_TARGET_LONG_EDGE_PX,
+            )
+
+        /**
          * Welle V1.9.106 -- covers of IMPORTED articles only (legacy website images are often small): width >= 300 px, height >= 150 px, aspect
          * 1:2..4:1, never upscaled. Picked exclusively by `ArticleCoverPolicy.limitsForArticle` from the DB row's `imported` flag.
          */

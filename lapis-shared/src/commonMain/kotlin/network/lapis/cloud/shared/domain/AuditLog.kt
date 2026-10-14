@@ -465,6 +465,13 @@ enum class AuditEntityType {
      * `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
      */
     CARPOOL_PARTICIPATION,
+
+    /**
+     * Welle V1.9.129 "Video-Overlays" -- the admin's overlay library: one entry per upload (`CREATE`), rename or move (`UPDATE`) and removal
+     * (`VOID` -- the audit vocabulary has no delete), `entityId` = the library element id, `after`/`before` = kind, name, pixel size and byte size -- never the access token, the
+     * file hash or any bytes. 13 chars, fits within `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    VIDEO_OVERLAY,
 }
 
 /** V1.9.125 -- after-snapshot of an [AuditEntityType.CARPOOL_PARTICIPATION] entry: ids and enums only. */

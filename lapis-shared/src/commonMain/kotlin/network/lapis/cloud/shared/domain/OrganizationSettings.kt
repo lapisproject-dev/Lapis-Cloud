@@ -203,6 +203,12 @@ data class OrganizationSettingsDto(
      * off unless a person switches it on (the behaviour before V1.9.124).
      */
     val noiseSuppressionDefault: Boolean = false,
+    /**
+     * V1.9.129 -- whether members may lay logos, their name and a frame over their own camera image in video conferences. **Read-only
+     * here**: it changes only through [network.lapis.cloud.shared.rpc.IOrganizationSettingsService.updateVideoOverlaysOffered] (ADMIN,
+     * audited). `false` = off (the behaviour before V1.9.129).
+     */
+    val videoOverlaysOffered: Boolean = false,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */

@@ -176,6 +176,7 @@ class AuditLogSchemaDriftTest :
                             "COMMITTEE",
                             "TRAVEL_EXPENSE_SEPA_BATCH",
                             "CARPOOL_PARTICIPATION",
+                            "VIDEO_OVERLAY",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

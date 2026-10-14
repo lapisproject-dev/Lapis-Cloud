@@ -1,0 +1,111 @@
+= Video overlays: logos, name and frame in your own camera image (V1.9.129)
+:toc:
+
+== Purpose
+
+An ADMIN stores a small library of logos and frames. A member who joins a video conference may place those logos, their own name and one frame in
+their *own* camera image. The picture is changed in the browser *before* it is sent, so **everyone sees it -- and it is part of the recording and of
+the livestream**, because both are composed from the raw per-person tracks that already carry the overlay.
+
+This is the opposite of the DOM overlays of V1.9.127 (reactions, hand badges): those live only in the client page and never reach a recording or a
+stream (`ConferenceReactionsRecordingTripwireTest`). In code and text the two are kept apart: `VideoOverlay*` is the feature here, "overlays in the
+client page" means the V1.9.127 kind.
+
+== What a member can do
+
+* Switch the overlays on or off (switch "Overlays einblenden", remembered in the browser only).
+* Per corner (top left, top right, bottom left, bottom right): empty, "Ihr Name", or a logo of the library; size small, medium, large (10 %, 15 %, 22 % of
+  the short edge of the picture); opacity 100 %, 70 %, 40 %.
+* One frame ("Rahmen") of the library with its own opacity, or none.
+* A preview: the own, processed camera stream (what others see), or -- with the camera off -- a static picture with a neutral silhouette. While anything
+  is drawn the panel says "Verändert Ihr Bild -- alle sehen es, auch in Aufnahme und Livestream.", and the own tile carries "So sehen andere Sie".
+
+The panel is one collapsed row in the "Mehr" sheet, directly after the background effects and before the noise suppression. If the instance does not
+offer overlays the row is **not in the document at all**; in a browser without the processor support it stays, disabled, with an explanation.
+Guests without an account never get it (`videoOverlaysOffered` is always `false` for them).
+
+== What an ADMIN can do
+
+In the card "Videokonferenz" of the member administration: the switch "Overlays anbieten" (`IOrganizationSettingsService.updateVideoOverlaysOffered`,
+audited on change) and the library: upload a logo or a frame, rename, move up or down, delete. Library and switch are ADMIN-only (BOARD is not enough,
+exactly like the other branding settings).
+
+[cols="1,3",options="header"]
+|===
+| Kind | Rules
+| Logo | PNG (alpha kept) or JPEG. Long edge at least 256 px, short edge at least 64 px (a wide wordmark is fine), at most 2 MB. Stored at most 1024 px on the long edge, never enlarged.
+| Frame | PNG only, 16:9 (+-1 %), at least 1280x720, at most 4 MB, and it must really contain transparent pixels. Stored at most 1920 px on the long edge.
+|===
+
+Every upload is *re-encoded* by the server (metadata and polyglot payloads do not survive). **SVG is never accepted** and never drawn: no SVG sanitizer
+is involved. At most 50 elements; names are 1 to 60 characters without control characters.
+
+The instance logo (`LAPIS_BRAND_LOGO_PATH`, served at `/api/branding/logo`) is offered automatically as the first logo -- but only if it is a PNG or a
+WebP. An SVG instance logo is not offered; the admin card says so and suggests uploading a PNG.
+
+== Rights and data
+
+* Upload: `POST /api/video-overlays/{LOGO|FRAME}?name=...`, ADMIN, same-origin (CSRF), 20 uploads per hour and admin.
+* Delivery: `GET /api/video-overlays/{token}`, *authenticated, same-origin, no CORS*. A member sees an element only while the option is on and they may
+  enter conferences; an ADMIN always (to prepare). Unknown or malformed token, deleted element, missing file, option off and a member without access
+  are all the same bare `404` with the same headers. The 43-character token is new on every upload.
+* Table `video_overlay_asset` (migration `V102`) holds metadata only: no member column and therefore no personal data. Who changed something is in the
+  hash-chained audit entry (`VIDEO_OVERLAY`: kind, name, pixel size, byte size -- never token, hash or bytes). Files live under
+  `LAPIS_VIDEO_OVERLAY_STORAGE_ROOT` (default `<documents>/video-overlays`) and are part of the admin backup (`assets/video-overlays/`); a restore treats the
+  bundle as untrusted (signature check, no traversal).
+* Privacy: the only personal item an overlay can show is the person's own display name, drawn into their own picture on their own device.
+
+== Phases of the overlay state
+
+[kuml, video-overlay-phases, svg]
+----
+import dev.kuml.sysml2.dsl.sysml2Model
+
+sysml2Model(name = "VideoOverlayPhases") {
+    val off = stateDef(name = "OFF", isInitial = true)
+    val applying = stateDef(name = "APPLYING", entryAction = "all bitmaps of the scene are loaded first")
+    val active = stateDef(name = "ACTIVE", entryAction = "scene swapped into the drawing step")
+    val failed = stateDef(name = "FAILED_FALLBACK", entryAction = "original frames pass on, one message per cause")
+
+    transition(name = "request", source = off, target = applying, trigger = "SceneRequested")
+    transition(name = "loaded", source = applying, target = active, trigger = "SceneActive")
+    transition(name = "loadFailure", source = applying, target = failed, trigger = "Failed(LOAD_FAILED)")
+    transition(name = "drawFailure", source = active, target = failed, trigger = "Failed(DRAW_FAILED)")
+    transition(name = "clear", source = active, target = off, trigger = "SceneCleared")
+    transition(name = "clearFailed", source = failed, target = off, trigger = "SceneCleared")
+    transition(name = "again", source = failed, target = applying, trigger = "SceneRequested")
+
+    stmDiagram(name = "Video overlay phases") {
+        include(state = off)
+        include(state = applying)
+        include(state = active)
+        include(state = failed)
+    }
+}
+----
+
+== Path of an image
+
+[kuml, video-overlay-pipeline, svg]
+----
+sequenceDiagram(name = "Video overlay: upload to drawing step (V1.9.129)") {
+    val admin = participant(name = "ADMIN browser")
+    val server = participant(name = "Lapis Cloud")
+    val member = participant(name = "Member browser")
+
+    message(from = admin, to = server, text = "POST /api/video-overlays/LOGO (same-origin, ADMIN): sniff, re-encode, store, audit")
+    message(from = member, to = server, text = "IVideoOverlayService.getLibrary (only while offered)")
+    message(from = member, to = server, text = "GET /api/video-overlays/token (authenticated fetch, blob)")
+    message(from = member, to = member, text = "createImageBitmap(blob), cache, draw onto the camera frame, send")
+}
+----
+
+== Limits (honest)
+
+* Not seen in a real call with several people; tested by unit, service and headless-Chromium DOM tests only. Only the Chromium path was exercised.
+* A frame is a 16:9 picture. It is only drawn on a camera image that is (almost) 16:9; on a portrait phone camera or a 4:3 webcam it is left out (it would be stretched), while logos and the name are still drawn. When a frame is the only element, the panel shows no "changes your image" hint and the own tile no note, because nothing is drawn. There is no dedicated explanation in the panel yet.
+* Recording and livestream contain the overlay (see above) -- there is no way to hide it from them.
+* No own uploads by members, no SVG, no function or office badge, no filters, no per-room moderation.
+* Small simulcast layers make a logo blurry; the highest layer is sharp.
+* Guests without an account get no overlays.
+* The translations were written by the model.

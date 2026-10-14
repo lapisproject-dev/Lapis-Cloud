@@ -213,6 +213,9 @@ private const val REASON_CLASSNAME =
 private const val REASON_DOMAIN_ICON_3 =
     "DOMAIN_ICON: the background picker toggle (image) and the icon-only 'remove own image' cross with a numbered aria-label"
 
+private const val REASON_DOMAIN_ICON_OVERLAY =
+    "DOMAIN_ICON: the video overlay toggle row (layers) in the conference \"Mehr\" sheet, same shape as the background picker toggle"
+
 private const val REASON_DOMAIN_ICON_4 =
     "DOMAIN_ICON: the conference control bar (microphone, camera, screen share, participants, chat, more, back to main room, leave, whiteboard, notes, expand) -- icon-only domain toggles"
 
@@ -253,6 +256,7 @@ private val R57_LEDGER: Map<String, LedgerEntry> =
         "S3:App.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_2),
         "S3:ClientVersionWatcher.kt" to LedgerEntry(count = 1, reason = REASON_CLASSNAME),
         "S3:ConferenceBackgroundSection.kt" to LedgerEntry(count = 2, reason = REASON_DOMAIN_ICON_3),
+        "S3:ConferenceVideoOverlaySection.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_OVERLAY),
         "S3:ConferenceScreen.kt" to LedgerEntry(count = 9, reason = REASON_DOMAIN_ICON_4),
         "S3:ConferenceVotePanel.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_5),
         "S3:DocumentsScreen.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_6),

@@ -4,7 +4,7 @@ import network.lapis.cloud.server.images.SvgCrestSanitizer
 import network.lapis.cloud.server.images.SvgSanitizeResult
 import java.io.File
 
-/** ZIP entry name prefix under which public-asset files (chapter crests, event and article covers) are stored (bundle format 2). */
+/** ZIP entry name prefix under which public-asset files (chapter crests, event and article covers, video overlays) are stored (bundle format 2). */
 internal const val ASSET_ENTRY_PREFIX = "assets/"
 
 /** Upper bound of one restored asset file; a stored raster is already re-encoded to at most 1600 px (5 MiB is the upload cap of every cover pipeline). */
@@ -32,19 +32,25 @@ internal val BACKUP_ASSET_KINDS: List<BackupAssetKind> =
         ),
         BackupAssetKind(folder = "event-covers", tableName = "event", idColumn = "cover_image_id", extensions = setOf("jpg", "png")),
         BackupAssetKind(folder = "article-covers", tableName = "article", idColumn = "cover_image_id", extensions = setOf("jpg", "png")),
+        // V1.9.129 -- the admin's video overlay library (logos and frames). Not public, but organization data (no member FK).
+        BackupAssetKind(folder = "video-overlays", tableName = "video_overlay_asset", idColumn = "id", extensions = setOf("jpg", "png")),
     )
 
-/** The configured storage roots (`LAPIS_*_STORAGE_ROOT`) of the three asset families. */
+/** The configured storage roots (`LAPIS_*_STORAGE_ROOT`) of the four asset families. */
 class BackupAssetRoots(
     val chapterCrests: File,
     val eventCovers: File,
     val articleCovers: File,
+    val videoOverlays: File,
 ) {
+    /** Exhaustive on purpose: an unknown folder is a programming error, never silently the article-cover folder. */
     internal fun rootFor(kind: BackupAssetKind): File =
         when (kind.folder) {
             "chapter-crests" -> chapterCrests
             "event-covers" -> eventCovers
-            else -> articleCovers
+            "article-covers" -> articleCovers
+            "video-overlays" -> videoOverlays
+            else -> error("No storage root configured for backup asset folder '${kind.folder}'")
         }
 
     companion object {
@@ -54,6 +60,7 @@ class BackupAssetRoots(
                 chapterCrests = documentStorageRoot.resolve("chapter-crests"),
                 eventCovers = documentStorageRoot.resolve("event-covers"),
                 articleCovers = documentStorageRoot.resolve("article-covers"),
+                videoOverlays = documentStorageRoot.resolve("video-overlays"),
             )
     }
 }

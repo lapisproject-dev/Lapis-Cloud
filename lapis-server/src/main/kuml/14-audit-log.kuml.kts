@@ -219,6 +219,7 @@ classDiagram(name = "AuditLog") {
         literal(name = "COMMITTEE") // Welle V1.9.112 -- GovernanceService.setCommitteeMembershipRule / createCommittee (rule mode): committee id, mode, canonical rule, counts -- never a member id or name; 9 chars, fits within VARCHAR(29)
         literal(name = "TRAVEL_EXPENSE_SEPA_BATCH") // Welle V1.9.123 "SEPA-Ueberweisungsdatei fuer Reisekosten" -- TravelExpenseSepaExport writes one CREATE entry per generated pain.001 file: batch id, counts, cents, date, report ids -- never an IBAN or a name; 25 chars, fits within VARCHAR(29)
         literal(name = "CARPOOL_PARTICIPATION") // Welle V1.9.125 "Mitfahrten in der Mitfahrerzentrale" -- CarpoolParticipations writes one entry per request/invitation/confirmation/decline/withdrawal: participation id, posting id, initiator, status -- never a name, a place or the meeting note; 21 chars, fits within VARCHAR(29)
+        literal(name = "VIDEO_OVERLAY") // Welle V1.9.129 "Video-Overlays" -- VideoOverlayRoutes/VideoOverlayService write one entry per upload/rename/move/delete of a library element: kind, name, pixel size, byte size -- never the access token, the hash or bytes; 13 chars, fits within VARCHAR(29)
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

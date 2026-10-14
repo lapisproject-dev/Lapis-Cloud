@@ -23545,3 +23545,180 @@ msgstr "Aplauso, corazón y otras reacciones. La lista de peticiones de palabra 
 
 msgid "Hand von %1 senken"
 msgstr "Bajar la mano de %1"
+
+msgid "Ein Overlay konnte nicht geladen werden – die Kamera läuft ohne dieses Overlay weiter."
+msgstr "No se pudo cargar una superposición: la cámara sigue funcionando sin ella."
+
+msgid "Die Overlays konnten nicht gezeichnet werden – die Kamera läuft ohne Overlays weiter."
+msgstr "No se pudieron dibujar las superposiciones: la cámara sigue funcionando sin ellas."
+
+msgid "Oben links"
+msgstr "Arriba a la izquierda"
+
+msgid "Oben rechts"
+msgstr "Arriba a la derecha"
+
+msgid "Unten links"
+msgstr "Abajo a la izquierda"
+
+msgid "Unten rechts"
+msgstr "Abajo a la derecha"
+
+msgid "Klein"
+msgstr "Pequeño"
+
+msgid "Mittelgroß"
+msgstr "Mediano"
+
+msgid "Groß"
+msgstr "Grande"
+
+msgid "100 %"
+msgstr "100 %"
+
+msgid "70 %"
+msgstr "70 %"
+
+msgid "40 %"
+msgstr "40 %"
+
+msgid "Overlays: Aus"
+msgstr "Superposiciones: Desactivadas"
+
+msgid "Overlays: An"
+msgstr "Superposiciones: Activadas"
+
+msgid "Overlays werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr "Las superposiciones todavía no se admiten en la aplicación: están disponibles en el navegador de este dispositivo."
+
+msgid "Overlays werden von diesem Browser oder Gerät nicht unterstützt."
+msgstr "Este navegador o dispositivo no admite las superposiciones."
+
+msgid "Verändert Ihr Bild – alle sehen es, auch in Aufnahme und Livestream."
+msgstr "Modifica su imagen: todos la ven, también en la grabación y en la transmisión en directo."
+
+msgid "Overlays einblenden"
+msgstr "Mostrar superposiciones"
+
+msgid "Ecke wählen"
+msgstr "Elegir esquina"
+
+msgid "Deckkraft"
+msgstr "Opacidad"
+
+msgid "Rahmen"
+msgstr "Marco"
+
+msgid "Deckkraft des Rahmens"
+msgstr "Opacidad del marco"
+
+msgid "Es sind noch keine Logos oder Rahmen hinterlegt – Ihr Name steht trotzdem zur Verfügung."
+msgstr "Todavía no hay logotipos ni marcos guardados: su nombre sigue estando disponible."
+
+msgid "So sehen andere Sie"
+msgstr "Así le ven los demás"
+
+msgid "Leer"
+msgstr "Vacío"
+
+msgid "Kein Rahmen"
+msgstr "Sin marco"
+
+msgid "Dieses Dateiformat wird nicht unterstützt (nur PNG und JPEG)."
+msgstr "Este formato de archivo no se admite (solo PNG y JPEG)."
+
+msgid "Ein Rahmen muss eine PNG-Datei mit Transparenz sein."
+msgstr "Un marco debe ser un archivo PNG con transparencia."
+
+msgid "Das Bild ist zu klein."
+msgstr "La imagen es demasiado pequeña."
+
+msgid "Das Bild ist zu groß (Kantenlänge)."
+msgstr "La imagen es demasiado grande (longitud del lado)."
+
+msgid "Die Bilddatei konnte nicht gelesen werden."
+msgstr "No se pudo leer el archivo de imagen."
+
+msgid "Der Rahmen braucht transparente Bereiche, durch die das Kamerabild sichtbar bleibt."
+msgstr "El marco necesita zonas transparentes a través de las cuales siga siendo visible la imagen de la cámara."
+
+msgid "Ein Rahmen muss das Seitenverhältnis 16:9 haben."
+msgstr "Un marco debe tener una relación de aspecto de 16:9."
+
+msgid "Die Bibliothek ist voll – bitte zuerst ein Element löschen."
+msgstr "La biblioteca está llena: elimine primero un elemento."
+
+msgid "Der Name muss 1 bis 60 Zeichen lang sein und darf keine Steuerzeichen enthalten."
+msgstr "El nombre debe tener entre 1 y 60 caracteres y no puede contener caracteres de control."
+
+msgid "Overlays anbieten"
+msgstr "Ofrecer superposiciones"
+
+msgid "Mitglieder können Logos, ihren Namen und einen Rahmen in ihr eigenes Kamerabild legen. Das veränderte Bild sehen alle Teilnehmer, auch in Aufnahme und Livestream."
+msgstr "Los miembros pueden colocar logotipos, su nombre y un marco en su propia imagen de cámara. Todos los participantes ven la imagen modificada, también en la grabación y en la transmisión en directo."
+
+msgid "Overlays werden angeboten."
+msgstr "Se ofrecen superposiciones."
+
+msgid "Overlays werden nicht mehr angeboten."
+msgstr "Ya no se ofrecen superposiciones."
+
+msgid "Bibliothek der Overlays"
+msgstr "Biblioteca de superposiciones"
+
+msgid "Noch keine Logos oder Rahmen hinterlegt."
+msgstr "Todavía no hay logotipos ni marcos guardados."
+
+msgid "Das Logo der Instanz steht allen Mitgliedern als erstes Logo zur Verfügung."
+msgstr "El logotipo de la instancia está disponible para todos los miembros como primer logotipo."
+
+msgid "Das Logo der Instanz ist eine SVG-Datei und steht deshalb nicht als Overlay zur Verfügung. Laden Sie es bei Bedarf als PNG hoch."
+msgstr "El logotipo de la instancia es un archivo SVG y por eso no está disponible como superposición. Si lo necesita, súbalo como PNG."
+
+msgid "Logo oder Rahmen hinzufügen"
+msgstr "Añadir un logotipo o un marco"
+
+msgid "Nach oben"
+msgstr "Mover hacia arriba"
+
+msgid "Nach unten"
+msgstr "Mover hacia abajo"
+
+msgid "Element löschen?"
+msgstr "¿Eliminar el elemento?"
+
+msgid "Mitglieder, die dieses Element gewählt haben, sehen danach eine leere Ecke."
+msgstr "Los miembros que hayan elegido este elemento verán después una esquina vacía."
+
+msgid "Logo"
+msgstr "Logotipo"
+
+msgid "Name des Logos"
+msgstr "Nombre del logotipo"
+
+msgid "Name des Rahmens"
+msgstr "Nombre del marco"
+
+msgid "Logo-Datei auswählen"
+msgstr "Elegir archivo de logotipo"
+
+msgid "Rahmen-Datei auswählen"
+msgstr "Elegir archivo de marco"
+
+msgid "PNG mit transparentem Hintergrund oder JPEG, mindestens 256 px an der langen Kante, empfohlen 512 px, höchstens 2 MB."
+msgstr "PNG con fondo transparente o JPEG, al menos 256 px en el lado largo, se recomiendan 512 px, como máximo 2 MB."
+
+msgid "PNG mit Transparenz im Format 16:9, 1280×720 bis 1920×1080 Pixel, höchstens 4 MB."
+msgstr "PNG con transparencia en formato 16:9, de 1280×720 a 1920×1080 píxeles, como máximo 4 MB."
+
+msgid "Logo hochladen"
+msgstr "Subir logotipo"
+
+msgid "Rahmen hochladen"
+msgstr "Subir marco"
+
+msgid "Element wurde hinzugefügt."
+msgstr "Se añadió el elemento."
+
+msgid "Video-Overlay"
+msgstr "Superposición de vídeo"

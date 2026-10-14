@@ -26,4 +26,10 @@ interface IOrganizationSettingsService {
      * remembered choice still wins). A change writes one audit entry; setting the value it already has writes nothing.
      */
     suspend fun updateNoiseSuppressionDefault(enabled: Boolean): OrganizationSettingsDto
+
+    /**
+     * V1.9.129. Role: ADMIN only. Switches on or off whether members may lay logos, their name and a frame over their own camera image
+     * ("Video-Overlays"). A change writes one audit entry; setting the value it already has writes nothing.
+     */
+    suspend fun updateVideoOverlaysOffered(enabled: Boolean): OrganizationSettingsDto
 }

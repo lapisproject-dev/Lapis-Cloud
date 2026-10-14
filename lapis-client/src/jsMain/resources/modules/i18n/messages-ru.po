@@ -23649,3 +23649,180 @@ msgstr "Аплодисменты, сердце и другие реакции. �
 
 msgid "Hand von %1 senken"
 msgstr "Опустить руку: %1"
+
+msgid "Ein Overlay konnte nicht geladen werden – die Kamera läuft ohne dieses Overlay weiter."
+msgstr "Не удалось загрузить наложение – камера продолжает работать без него."
+
+msgid "Die Overlays konnten nicht gezeichnet werden – die Kamera läuft ohne Overlays weiter."
+msgstr "Не удалось нарисовать наложения – камера продолжает работать без наложений."
+
+msgid "Oben links"
+msgstr "Вверху слева"
+
+msgid "Oben rechts"
+msgstr "Вверху справа"
+
+msgid "Unten links"
+msgstr "Внизу слева"
+
+msgid "Unten rechts"
+msgstr "Внизу справа"
+
+msgid "Klein"
+msgstr "Маленький"
+
+msgid "Mittelgroß"
+msgstr "Средний"
+
+msgid "Groß"
+msgstr "Большой"
+
+msgid "100 %"
+msgstr "100 %"
+
+msgid "70 %"
+msgstr "70 %"
+
+msgid "40 %"
+msgstr "40 %"
+
+msgid "Overlays: Aus"
+msgstr "Наложения: Выключено"
+
+msgid "Overlays: An"
+msgstr "Наложения: Включено"
+
+msgid "Overlays werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr "Наложения пока не поддерживаются в приложении – в браузере этого устройства они доступны."
+
+msgid "Overlays werden von diesem Browser oder Gerät nicht unterstützt."
+msgstr "Этот браузер или устройство не поддерживает наложения."
+
+msgid "Verändert Ihr Bild – alle sehen es, auch in Aufnahme und Livestream."
+msgstr "Изменяет ваше изображение – его видят все, в том числе в записи и в прямой трансляции."
+
+msgid "Overlays einblenden"
+msgstr "Показывать наложения"
+
+msgid "Ecke wählen"
+msgstr "Выбрать угол"
+
+msgid "Deckkraft"
+msgstr "Непрозрачность"
+
+msgid "Rahmen"
+msgstr "Рамка"
+
+msgid "Deckkraft des Rahmens"
+msgstr "Непрозрачность рамки"
+
+msgid "Es sind noch keine Logos oder Rahmen hinterlegt – Ihr Name steht trotzdem zur Verfügung."
+msgstr "Логотипы и рамки пока не загружены – ваше имя при этом доступно."
+
+msgid "So sehen andere Sie"
+msgstr "Так вас видят другие"
+
+msgid "Leer"
+msgstr "Пусто"
+
+msgid "Kein Rahmen"
+msgstr "Без рамки"
+
+msgid "Dieses Dateiformat wird nicht unterstützt (nur PNG und JPEG)."
+msgstr "Этот формат файла не поддерживается (только PNG и JPEG)."
+
+msgid "Ein Rahmen muss eine PNG-Datei mit Transparenz sein."
+msgstr "Рамка должна быть файлом PNG с прозрачностью."
+
+msgid "Das Bild ist zu klein."
+msgstr "Изображение слишком маленькое."
+
+msgid "Das Bild ist zu groß (Kantenlänge)."
+msgstr "Изображение слишком большое (длина стороны)."
+
+msgid "Die Bilddatei konnte nicht gelesen werden."
+msgstr "Не удалось прочитать файл изображения."
+
+msgid "Der Rahmen braucht transparente Bereiche, durch die das Kamerabild sichtbar bleibt."
+msgstr "В рамке должны быть прозрачные области, через которые остаётся видно изображение с камеры."
+
+msgid "Ein Rahmen muss das Seitenverhältnis 16:9 haben."
+msgstr "Рамка должна иметь соотношение сторон 16:9."
+
+msgid "Die Bibliothek ist voll – bitte zuerst ein Element löschen."
+msgstr "Библиотека заполнена – сначала удалите один элемент."
+
+msgid "Der Name muss 1 bis 60 Zeichen lang sein und darf keine Steuerzeichen enthalten."
+msgstr "Имя должно содержать от 1 до 60 символов и не должно включать управляющие символы."
+
+msgid "Overlays anbieten"
+msgstr "Предлагать наложения"
+
+msgid "Mitglieder können Logos, ihren Namen und einen Rahmen in ihr eigenes Kamerabild legen. Das veränderte Bild sehen alle Teilnehmer, auch in Aufnahme und Livestream."
+msgstr "Члены могут помещать логотипы, своё имя и рамку в собственное изображение с камеры. Изменённое изображение видят все участники, в том числе в записи и в прямой трансляции."
+
+msgid "Overlays werden angeboten."
+msgstr "Наложения предлагаются."
+
+msgid "Overlays werden nicht mehr angeboten."
+msgstr "Наложения больше не предлагаются."
+
+msgid "Bibliothek der Overlays"
+msgstr "Библиотека наложений"
+
+msgid "Noch keine Logos oder Rahmen hinterlegt."
+msgstr "Логотипы и рамки пока не загружены."
+
+msgid "Das Logo der Instanz steht allen Mitgliedern als erstes Logo zur Verfügung."
+msgstr "Логотип экземпляра доступен всем членам как первый логотип."
+
+msgid "Das Logo der Instanz ist eine SVG-Datei und steht deshalb nicht als Overlay zur Verfügung. Laden Sie es bei Bedarf als PNG hoch."
+msgstr "Логотип экземпляра — файл SVG и поэтому недоступен как наложение. При необходимости загрузите его как PNG."
+
+msgid "Logo oder Rahmen hinzufügen"
+msgstr "Добавить логотип или рамку"
+
+msgid "Nach oben"
+msgstr "Переместить вверх"
+
+msgid "Nach unten"
+msgstr "Переместить вниз"
+
+msgid "Element löschen?"
+msgstr "Удалить элемент?"
+
+msgid "Mitglieder, die dieses Element gewählt haben, sehen danach eine leere Ecke."
+msgstr "Члены, выбравшие этот элемент, увидят после этого пустой угол."
+
+msgid "Logo"
+msgstr "Логотип"
+
+msgid "Name des Logos"
+msgstr "Название логотипа"
+
+msgid "Name des Rahmens"
+msgstr "Название рамки"
+
+msgid "Logo-Datei auswählen"
+msgstr "Выбрать файл логотипа"
+
+msgid "Rahmen-Datei auswählen"
+msgstr "Выбрать файл рамки"
+
+msgid "PNG mit transparentem Hintergrund oder JPEG, mindestens 256 px an der langen Kante, empfohlen 512 px, höchstens 2 MB."
+msgstr "PNG с прозрачным фоном или JPEG, не менее 256 px по длинной стороне, рекомендуется 512 px, не более 2 МБ."
+
+msgid "PNG mit Transparenz im Format 16:9, 1280×720 bis 1920×1080 Pixel, höchstens 4 MB."
+msgstr "PNG с прозрачностью в формате 16:9, от 1280×720 до 1920×1080 пикселей, не более 4 МБ."
+
+msgid "Logo hochladen"
+msgstr "Загрузить логотип"
+
+msgid "Rahmen hochladen"
+msgstr "Загрузить рамку"
+
+msgid "Element wurde hinzugefügt."
+msgstr "Элемент добавлен."
+
+msgid "Video-Overlay"
+msgstr "Видеоналожение"
