@@ -107,7 +107,7 @@ The diagram omits the parameter for readability: in the embed mode every transit
 
 == Known limitations
 
-* `/aktuelles/{slug}` is unchanged (no header) and probably has the same inline-style/CSP pattern as the former honeypot; to be checked.
+* `/aktuelles/{slug}` got the same two modes in V1.9.130 (link:public-article-page.adoc[Public article page]); the header core is now shared (`applyPageModeHeaders`) without any change in the event headers.
 * Links from `/veranstaltungen?lang=en` to the detail page carry no `lang`.
 * The token and follow-up pages carry no `noindex` (unchanged).
 * No automatic iframe height.

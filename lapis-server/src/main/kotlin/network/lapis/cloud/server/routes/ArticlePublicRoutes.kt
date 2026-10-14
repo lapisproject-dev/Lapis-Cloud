@@ -20,6 +20,7 @@ import network.lapis.cloud.server.articles.ArticlePolicy
 import network.lapis.cloud.server.articles.ArticleStore
 import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.generated.ArticleTable
+import network.lapis.cloud.server.embed.EmbedConfig
 import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.time.OrganizationTimeZone
@@ -59,24 +60,33 @@ private val ARTICLE_SLUG_PATTERN = ArticlePolicy.PUBLIC_SLUG_PATTERN
 internal fun Route.registerArticlePublicRoutes(
     baseUrl: String,
     branding: ResolvedBranding,
+    navAvailability: PublicNavAvailabilityProvider,
+    embedConfig: EmbedConfig,
     coverStorage: EventCoverStorage,
     pageRateLimiter: FederationInboxRateLimiter,
     coverReadRateLimiter: FederationInboxRateLimiter,
 ) {
+    val frameAncestors = embedFrameAncestors(embedConfig)
+
+    /** The per-request context -- always the FIRST thing a handler builds, never inside a transaction (see [PublicNavAvailabilityProvider.current]). */
+    fun ApplicationCall.pageContext(): ArticlePageContext =
+        articlePageContext(baseUrl = baseUrl, branding = branding, navAvailability = navAvailability, frameAncestors = frameAncestors)
+
     get("/aktuelles/{slug}") {
-        call.withArticlePublicErrorHandling(branding = branding) {
+        val ctx = call.pageContext()
+        call.withArticlePublicErrorHandling(ctx = ctx) {
             if (!pageRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondArticleTooManyRequests(branding)
+                call.respondArticleTooManyRequests(ctx)
                 return@withArticlePublicErrorHandling
             }
             val slug = call.parameters["slug"]
             if (slug == null || !ARTICLE_SLUG_PATTERN.matches(slug)) {
-                call.respondArticleNotFound(branding)
+                call.respondArticleNotFound(ctx)
                 return@withArticlePublicErrorHandling
             }
             val row = transaction { ArticleStore.getPublishedBySlugOrNull(slug) }
             if (row == null) {
-                call.respondArticleNotFound(branding)
+                call.respondArticleNotFound(ctx)
                 return@withArticlePublicErrorHandling
             }
             val publishedAt =
@@ -85,7 +95,7 @@ internal fun Route.registerArticlePublicRoutes(
                     // (`ArticleService.approveArticle` always sets it in the same UPDATE that flips the
                     // status), but this route must never throw on a data inconsistency -- 404, same as
                     // every other "this shouldn't happen" branch in this file.
-                    call.respondArticleNotFound(branding)
+                    call.respondArticleNotFound(ctx)
                     return@withArticlePublicErrorHandling
                 }
             val view =
@@ -106,9 +116,9 @@ internal fun Route.registerArticlePublicRoutes(
                     byline = row[ArticleTable.byline],
                 )
             call.response.header(HttpHeaders.CacheControl, "no-store")
-            applyArticlePageSecurityHeaders(call)
+            call.applyPageModeHeaders(isEmbed = ctx.isEmbed, frameAncestors = ctx.frameAncestors)
             call.respondText(
-                text = ArticlePublicHtml.articlePage(branding = branding, baseUrl = baseUrl, view = view),
+                text = ArticlePublicHtml.articlePage(ctx = ctx, view = view),
                 contentType = HTML_CONTENT_TYPE,
             )
         }
@@ -149,44 +159,29 @@ internal fun Route.registerArticlePublicRoutes(
     }
 }
 
-/** `default-src 'none'` -- this page has NO script, NO external style, and its only image is same-origin (the cover, if any) -- the strictest CSP any public route in this codebase carries, appropriate for a page whose entire purpose is rendering author-supplied (sanitized) content. */
-private fun applyArticlePageSecurityHeaders(call: ApplicationCall) {
-    call.response.header(
-        "Content-Security-Policy",
-        "default-src 'none'; img-src 'self'; style-src 'self'; base-uri 'none'; frame-ancestors 'none'",
-    )
-    call.response.header("X-Content-Type-Options", "nosniff")
-    call.response.header("Referrer-Policy", "no-referrer")
-    call.response.header("X-Frame-Options", "DENY")
+/** Every HTML response (page, 404, 429, 500) is `no-store` and carries the mode-dependent security headers of [applyPageModeHeaders]. */
+private suspend fun ApplicationCall.respondArticleHtml(
+    ctx: ArticlePageContext,
+    text: String,
+    status: HttpStatusCode,
+) {
+    response.header(HttpHeaders.CacheControl, "no-store")
+    applyPageModeHeaders(isEmbed = ctx.isEmbed, frameAncestors = ctx.frameAncestors)
+    respondText(text = text, contentType = HTML_CONTENT_TYPE, status = status)
 }
 
-private suspend fun ApplicationCall.respondArticleNotFound(branding: ResolvedBranding) {
-    response.header(HttpHeaders.CacheControl, "no-store")
-    applyArticlePageSecurityHeaders(this)
-    respondText(text = ArticlePublicHtml.notFoundPage(branding), contentType = HTML_CONTENT_TYPE, status = HttpStatusCode.NotFound)
-}
+private suspend fun ApplicationCall.respondArticleNotFound(ctx: ArticlePageContext) =
+    respondArticleHtml(ctx = ctx, text = ArticlePublicHtml.notFoundPage(ctx), status = HttpStatusCode.NotFound)
 
-private suspend fun ApplicationCall.respondArticleTooManyRequests(branding: ResolvedBranding) {
-    response.header(HttpHeaders.CacheControl, "no-store")
-    respondText(
-        text = ArticlePublicHtml.tooManyRequestsPage(branding),
-        contentType = HTML_CONTENT_TYPE,
-        status = HttpStatusCode.TooManyRequests,
-    )
-}
+private suspend fun ApplicationCall.respondArticleTooManyRequests(ctx: ArticlePageContext) =
+    respondArticleHtml(ctx = ctx, text = ArticlePublicHtml.tooManyRequestsPage(ctx), status = HttpStatusCode.TooManyRequests)
 
-private suspend fun ApplicationCall.respondArticleServerError(branding: ResolvedBranding) {
-    response.header(HttpHeaders.CacheControl, "no-store")
-    respondText(
-        text = ArticlePublicHtml.serverErrorPage(branding),
-        contentType = HTML_CONTENT_TYPE,
-        status = HttpStatusCode.InternalServerError,
-    )
-}
+private suspend fun ApplicationCall.respondArticleServerError(ctx: ArticlePageContext) =
+    respondArticleHtml(ctx = ctx, text = ArticlePublicHtml.serverErrorPage(ctx), status = HttpStatusCode.InternalServerError)
 
 /** Same guarantee `EventPublicRoutes`' own error handler establishes -- plain `try`/`catch`, NOT `runCatching` (would also swallow [CancellationException] on a client disconnect); logs the PATH only, never the full URI/query string. */
-private suspend fun ApplicationCall.withArticlePublicErrorHandling(
-    branding: ResolvedBranding,
+internal suspend fun ApplicationCall.withArticlePublicErrorHandling(
+    ctx: ArticlePageContext,
     handler: suspend () -> Unit,
 ) {
     try {
@@ -195,6 +190,6 @@ private suspend fun ApplicationCall.withArticlePublicErrorHandling(
         throw e
     } catch (e: Exception) {
         logger.error(e) { "Unhandled exception in a public article handler (${request.path()})" }
-        runCatching { respondArticleServerError(branding) }
+        runCatching { respondArticleServerError(ctx) }
     }
 }

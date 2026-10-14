@@ -32,6 +32,7 @@ Architecture background lives in link:../architecture/[docs/architecture/]; the 
 |link:public-member-count.adoc[Public member count toggle (V1.9.10)] |Setting to show or hide the active member count on public pages
 |link:public-icon-navigation.adoc[Public icon navigation + overview pages (V1.9.11)] |Icon navigation and overview pages for the public site
 |link:public-event-page.adoc[Public event page (V1.9.128)] |Lapis header, layout and `?embed=1` iframe mode of the public event page
+|link:public-article-page.adoc[Public article page (V1.9.130)] |Lapis header, wide layout, single title/lead and `?embed=1` iframe mode of the public article page
 |link:mitfahrerzentrale.adoc[Mitfahrerzentrale (V1.9.12, passengers V1.9.125)] |Carpooling bulletin board for members; guests and friends can ride along
 |link:regional-chapters.adoc[Regional chapters ("Gliederungsverwaltung", Landesverbände) (V1.9.13/V1.9.14)] |Optional regional chapters with chapter-scoped officer access
 |link:membership-tiers.adoc[Membership tiers (V1.9.18)] |Management of membership tiers and their amounts

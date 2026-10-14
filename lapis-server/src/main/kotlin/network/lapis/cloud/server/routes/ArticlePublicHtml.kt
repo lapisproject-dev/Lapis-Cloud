@@ -2,34 +2,41 @@ package network.lapis.cloud.server.routes
 
 import kotlinx.datetime.LocalDateTime
 import kotlinx.html.FlowContent
+import kotlinx.html.HEAD
 import kotlinx.html.a
 import kotlinx.html.article
 import kotlinx.html.body
 import kotlinx.html.div
 import kotlinx.html.h1
-import kotlinx.html.h2
 import kotlinx.html.head
+import kotlinx.html.header
 import kotlinx.html.html
 import kotlinx.html.img
 import kotlinx.html.link
+import kotlinx.html.main
 import kotlinx.html.meta
 import kotlinx.html.p
 import kotlinx.html.span
 import kotlinx.html.stream.createHTML
+import kotlinx.html.time
 import kotlinx.html.title
 import kotlinx.html.unsafe
-import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.server.articles.ArticleLead
 
 /**
  * Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- the server-rendered, unauthenticated
  * public surface for a single published article (`registerArticlePublicRoutes`' `GET
- * /aktuelles/{slug}`). Structurally a close mirror of [EventPublicHtml]'s own `skeleton` (a self-
- * contained `<body>`, no [PublicChrome] multi-language chrome -- this page is single-language
- * German, same as every `/veranstaltung` page): a skip-link/nav bar and eight-language switcher
- * would be disproportionate ceremony for a single article's public read surface.
+ * /aktuelles/{slug}`). Since V1.9.130 it mirrors [EventPublicHtml]: two modes selected by [ArticlePageContext].
  *
- * **[body] is the ONE deliberate `unsafe { }` call in this entire file** -- see [articlePage]'s own
- * KDoc for why it is safe. Every other value (title, excerpt, cover alt text, branding strings)
+ * - **STANDARD**: the full Lapis header and footer ([PublicChrome]), a wide layout (`body.article-wide`): title, meta line, cover
+ *   (56rem) and a 42rem text column.
+ * - **EMBED** (`?embed=1`): the slim, header-less variant for an `<iframe>` on a partner site; every link leaves the frame (`target="_top"`).
+ *
+ * The title appears exactly once (as `<h1>`). The excerpt is shown as a lead paragraph only if the body does not already start with it
+ * ([ArticleLead]).
+ *
+ * **[articleBody] holds the ONE deliberate `unsafe { }` call in this entire file** -- see [articlePage]'s own
+ * KDoc for why it is safe. Every other value (title, excerpt, byline, cover URL, branding strings)
  * flows through `kotlinx.html`'s ordinary, auto-escaping text-node/attribute API, same discipline
  * [EventPublicHtml]/[SocialPublicHtml] already establish.
  *
@@ -69,103 +76,188 @@ internal object ArticlePublicHtml {
      * routine's own checklist flags.
      */
     fun articlePage(
-        branding: ResolvedBranding,
-        baseUrl: String,
+        ctx: ArticlePageContext,
         view: View,
     ): String =
-        skeleton(branding = branding, heading = view.title, view = view) {
-            if (view.coverImageUrl != null) {
-                img(src = view.coverImageUrl, alt = view.title, classes = "lapis-article-cover")
-            }
-            h1 { +view.title }
-            p(classes = "lapis-article-meta") {
-                val byline = view.byline
-                val prefix = if (byline != null) "Von $byline · " else ""
-                +"${prefix}Veröffentlicht am ${germanDate(view.publishedAt)} · ${branding.title}"
-            }
-            p(classes = "lapis-article-lead") { +view.excerpt }
-            article(classes = "lapis-article-body") {
-                unsafe { +view.renderedBodyHtml }
-            }
-            if (branding.websiteUrl != null) {
-                p { a(href = branding.websiteUrl) { +"Alle Neuigkeiten →" } }
+        skeleton(
+            ctx = ctx,
+            heading = view.title,
+            currentPath = "/aktuelles/${view.slug}",
+            canonicalPath = "/aktuelles/${view.slug}",
+            view = view,
+        ) {
+            if (ctx.isEmbed) {
+                h1(classes = "article-title") { +view.title }
+                metaLine(view)
+                cover(view)
+                articleLead(view)
+                articleBody(view)
+            } else {
+                header(classes = "article-column") {
+                    h1(classes = "article-title") { +view.title }
+                    metaLine(view)
+                }
+                cover(view)
+                div(classes = "article-column") {
+                    articleLead(view)
+                    articleBody(view)
+                    p(classes = "article-back") {
+                        a(
+                            href = PublicChrome.languageUrl(baseUrl = ctx.baseUrl, currentPath = "/aktuelles", lang = ctx.lang),
+                        ) { +"← Alle Neuigkeiten" }
+                    }
+                }
             }
         }
 
-    fun notFoundPage(branding: ResolvedBranding): String =
-        plainSkeleton(branding = branding, heading = "Nicht gefunden") {
-            p { +"Diese Seite existiert nicht oder ist nicht öffentlich zugänglich." }
-        }
+    fun notFoundPage(ctx: ArticlePageContext): String =
+        errorPage(ctx = ctx, heading = "Nicht gefunden", text = "Diese Seite existiert nicht oder ist nicht öffentlich zugänglich.")
 
-    fun tooManyRequestsPage(branding: ResolvedBranding): String =
-        plainSkeleton(branding = branding, heading = "Zu viele Anfragen") {
-            p { +"Bitte versuchen Sie es später erneut." }
-        }
+    fun tooManyRequestsPage(ctx: ArticlePageContext): String =
+        errorPage(ctx = ctx, heading = "Zu viele Anfragen", text = "Bitte versuchen Sie es später erneut.")
 
-    fun serverErrorPage(branding: ResolvedBranding): String =
-        plainSkeleton(branding = branding, heading = "Fehler") {
-            p { +"Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut." }
-        }
+    fun serverErrorPage(ctx: ArticlePageContext): String =
+        errorPage(ctx = ctx, heading = "Fehler", text = "Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.")
 
-    private fun plainSkeleton(
-        branding: ResolvedBranding,
+    /** Error pages never contain the slug (404 neutrality: byte-identical for every unknown/unpublished/malformed slug), so `currentPath` is the fixed overview path. */
+    private fun errorPage(
+        ctx: ArticlePageContext,
         heading: String,
-        content: FlowContent.() -> Unit,
-    ): String = skeleton(branding = branding, heading = heading, view = null, content = content)
+        text: String,
+    ): String =
+        skeleton(ctx = ctx, heading = heading, currentPath = "/aktuelles", canonicalPath = null, view = null) {
+            if (ctx.isEmbed) {
+                h1(classes = "article-title") { +heading }
+                p { +text }
+            } else {
+                div(classes = "article-column") {
+                    h1(classes = "article-title") { +heading }
+                    p { +text }
+                }
+            }
+        }
+
+    private fun HEAD.renderArticleOgMetas(view: View) {
+        meta {
+            attributes["property"] = "og:title"
+            attributes["content"] = view.title
+        }
+        meta {
+            attributes["property"] = "og:description"
+            attributes["content"] = view.excerpt
+        }
+        meta {
+            attributes["property"] = "og:type"
+            attributes["content"] = "article"
+        }
+        meta {
+            attributes["property"] = "article:published_time"
+            attributes["content"] = view.publishedAtIso
+        }
+        if (view.coverImageUrl != null) {
+            meta {
+                attributes["property"] = "og:image"
+                attributes["content"] = view.coverImageUrl
+            }
+        }
+    }
+
+    /** "Von <byline> · <date>" -- no "Veröffentlicht am", no organization name (the header already carries the brand). */
+    private fun FlowContent.metaLine(view: View) {
+        p(classes = "lapis-article-meta") {
+            val byline = view.byline
+            if (byline != null) {
+                span(classes = "article-byline") { +"Von $byline" }
+                +" · "
+            }
+            time {
+                attributes["datetime"] = view.publishedAtIso
+                +germanDate(view.publishedAt)
+            }
+        }
+    }
+
+    /** Decorative (the title already says it): empty alt. */
+    private fun FlowContent.cover(view: View) {
+        if (view.coverImageUrl != null) {
+            img(src = view.coverImageUrl, alt = "", classes = "lapis-article-cover")
+        }
+    }
+
+    private fun FlowContent.articleLead(view: View) {
+        if (ArticleLead.shouldShow(excerpt = view.excerpt, renderedBodyHtml = view.renderedBodyHtml)) {
+            p(classes = "lapis-article-lead") { +view.excerpt }
+        }
+    }
+
+    private fun FlowContent.articleBody(view: View) {
+        article(classes = "lapis-article-body") {
+            unsafe { +view.renderedBodyHtml }
+        }
+    }
 
     private fun skeleton(
-        branding: ResolvedBranding,
+        ctx: ArticlePageContext,
         heading: String,
+        currentPath: String,
+        canonicalPath: String?,
         view: View?,
         content: FlowContent.() -> Unit,
     ): String =
         createHTML(prettyPrint = false).html {
-            attributes["lang"] = "de"
+            attributes["lang"] = if (ctx.isEmbed) "de" else ctx.lang.code
             head {
                 meta(charset = "utf-8")
                 meta(name = "viewport", content = "width=device-width, initial-scale=1")
-                title { +"$heading – ${branding.title}" }
+                title { +"$heading – ${ctx.brandTitle}" }
                 link(rel = "stylesheet", href = "/s/assets/style.css")
-                if (view != null) {
-                    meta {
-                        attributes["property"] = "og:title"
-                        attributes["content"] = view.title
-                    }
-                    meta {
-                        attributes["property"] = "og:description"
-                        attributes["content"] = view.excerpt
-                    }
-                    meta {
-                        attributes["property"] = "og:type"
-                        attributes["content"] = "article"
-                    }
-                    meta {
-                        attributes["property"] = "article:published_time"
-                        attributes["content"] = view.publishedAtIso
-                    }
-                    if (view.coverImageUrl != null) {
-                        meta {
-                            attributes["property"] = "og:image"
-                            attributes["content"] = view.coverImageUrl
+                if (ctx.isEmbed) {
+                    meta(name = "robots", content = "noindex")
+                    if (canonicalPath != null) link(rel = "canonical", href = "${ctx.baseUrl}$canonicalPath")
+                } else if (canonicalPath != null) {
+                    link(
+                        rel = "canonical",
+                        href = PublicChrome.languageUrl(baseUrl = ctx.baseUrl, currentPath = canonicalPath, lang = ctx.lang),
+                    )
+                    with(PublicChrome) { renderHreflangAlternates(baseUrl = ctx.baseUrl, currentPath = canonicalPath) }
+                }
+                if (view != null) renderArticleOgMetas(view)
+            }
+            if (ctx.isEmbed) {
+                body {
+                    div("embed-page article-embed") {
+                        content()
+                        // Site-relative, `target="_top"`: leaves the iframe; neither target has an embed mode.
+                        p { a(href = "/aktuelles", target = "_top") { +"Alle Neuigkeiten →" } }
+                        p { a(href = "/", target = "_top") { +"Zur Startseite" } }
+                        p(classes = "section-note") {
+                            a(href = "/impressum", target = "_top") { +"Impressum" }
+                            +" · "
+                            a(href = "/datenschutz", target = "_top") { +"Datenschutz" }
                         }
                     }
                 }
-            }
-            body {
-                div("embed-page") {
-                    if (branding.logoAvailable) {
-                        img(src = "/api/branding/logo", alt = branding.title, classes = "chrome-logo")
-                    } else {
-                        span { +branding.title }
+            } else {
+                body(classes = "has-chrome article-wide") {
+                    with(PublicChrome) {
+                        renderChrome(
+                            lang = ctx.lang,
+                            active = PublicChrome.NavTarget.ARTICLES,
+                            baseUrl = ctx.baseUrl,
+                            branding = ctx.branding,
+                            currentPath = currentPath,
+                            nav = ctx.nav,
+                        )
                     }
-                    h2 { +heading }
-                    content()
-                    p { a(href = "/") { +"Zur Startseite" } }
-                    p(classes = "section-note") {
-                        a(href = "/impressum") { +"Impressum" }
-                        +" · "
-                        a(href = "/datenschutz") { +"Datenschutz" }
+                    main {
+                        attributes["id"] = "main"
+                        // The article content is German in every UI language.
+                        div {
+                            attributes["lang"] = "de"
+                            content()
+                        }
                     }
+                    with(PublicChrome) { renderPublicFooter(lang = ctx.lang, baseUrl = ctx.baseUrl, branding = ctx.branding) }
                 }
             }
         }

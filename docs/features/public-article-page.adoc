@@ -1,0 +1,84 @@
+= Public article page: Lapis header, layout and `?embed=1` (V1.9.130)
+:toc:
+
+The public article page `GET /aktuelles/{slug}` (and its 404, 429 and 500 pages) exists in two presentations, same rule as the event page
+(<<public-event-page.adoc#,V1.9.128>>).
+
+[cols="1,3,3"]
+|===
+| | Standard | `?embed=1`
+
+| Header
+| Full Lapis header (brand, icon navigation with "Aktuelles" highlighted, language switcher), skip link, shared footer.
+| None. A slim page for an `<iframe>`; every link (all news, start page, Impressum, Datenschutz) is site-relative with `target="_top"`.
+
+| Layout
+| Wide page (56 rem): title, meta line, cover image, then a 42 rem text column.
+| Same order in one 42 rem column.
+
+| Language
+| `?lang=xx` switches the chrome. The article content is German in every language.
+| German only.
+
+| Indexing
+| Canonical and hreflang.
+| `noindex`, canonical onto the standard URL.
+
+| Framing
+| Never (`frame-ancestors 'none'`, `X-Frame-Options: DENY`).
+| Only by the embed origins (`LAPIS_EMBED_ENABLED`, `LAPIS_EMBED_ALLOWED_ORIGINS`).
+|===
+
+Only the exact value `embed=1` (a single parameter) activates the embed mode; anything else is the standard page. The raw value is never reflected.
+`/aktuelles` (the overview) has no embed mode, so no `embed=1` is passed on: embed links leave the frame.
+
+== Headers
+
+All HTML responses (page, 404, 429, 500) are `Cache-Control: no-store` and carry the headers of the shared helper `applyPageModeHeaders`:
+
+* standard: `default-src 'none'; img-src 'self' data:; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`
+* embed: `img-src 'self'`, and `frame-ancestors 'self' <origins>` without `X-Frame-Options` only while the embed feature is on and an allowlist exists
+* `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy: geolocation=(), microphone=(), camera=()`
+
+`data:` in the standard mode is needed for the chrome's mask icons; the rendered article body cannot produce an `<img>`.
+
+== Layout and content
+
+Order: title (`<h1>`, once), meta line, cover image (decorative, `alt=""`), lead, text, "Alle Neuigkeiten" link.
+
+*Lead rule.* The excerpt is shown as a lead paragraph only if the visible text of the rendered body does not already start with it. Both are
+normalized (Unicode NFC, lower case, everything but letters and digits becomes a space), so punctuation, an ellipsis or a bold first line do not matter.
+A truncated excerpt counts as a prefix. A body that starts with a heading before the repeated sentence shows the lead. The check only reads the
+sanitized HTML; the lead itself is an escaped text node.
+
+*Meta line.* `Von <byline> · <date>`; without a byline only the date (`<time datetime=...>`). No "Veröffentlicht am", no organization name.
+The byline privacy rule is unchanged: plain escaped text, no link, no `<meta name="author">`.
+
+== SEO
+
+The `og:*` and `article:published_time` tags are unchanged. New: canonical, hreflang (standard), `noindex` (embed). The error pages carry neither
+and never contain the slug, so every 404 is byte-identical.
+
+[kuml, public-article-page-flow, svg]
+----
+stateDiagram(name = "Public article page") {
+    val start = initialState()
+    val standard = state(name = "Standard page")
+    val embed = state(name = "Embed page")
+    val notFound = state(name = "404")
+
+    transition(source = start, target = standard) { trigger = "GET /aktuelles/slug" }
+    transition(source = start, target = embed) { trigger = "embed=1" }
+    transition(source = start, target = notFound) { trigger = "unknown / unpublished slug" }
+}
+----
+
+== Known limitations
+
+* Not seen in a real browser.
+* Old articles whose cover image has the title burnt in keep it, and the cover is now shown whole instead of cropped.
+* No automatic iframe height.
+* `/aktuelles` has no embed mode.
+* Links inside the article text open inside the frame in the embed mode (the renderer is deliberately unchanged).
+* The overview `/aktuelles?lang=xx` does not pass `lang` on to the detail page (unchanged).
+* The cover has no `width`/`height` attributes, so the layout shifts while it loads.

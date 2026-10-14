@@ -2,7 +2,9 @@ package network.lapis.cloud.server.routes
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.response.header
 import network.lapis.cloud.server.branding.ResolvedBranding
+import network.lapis.cloud.server.embed.EmbedConfig
 
 private val logger = KotlinLogging.logger {}
 
@@ -12,7 +14,7 @@ private val logger = KotlinLogging.logger {}
  * - [STANDARD]: the full Lapis header (brand, icon navigation, language switcher), wide layout, footer.
  * - [EMBED]: the slim, header-less page for embedding in an `<iframe>` on a partner website
  *   (`?embed=1`). Framing is only ever allowed for this mode, and only for the operator-configured origin allowlist
- *   (see [applyEventPageHeaders]).
+ *   (see [applyPageModeHeaders]).
  */
 internal enum class EventPageMode {
     STANDARD,
@@ -101,3 +103,37 @@ internal fun sanitizeFrameAncestors(origins: List<String>): List<String> =
             if (!ok) logger.warn { "Dropped an invalid embed origin from the event page frame-ancestors directive." }
         }
     }
+
+/** The sanitized origins that may frame an EMBED-mode page; empty while the embed feature is off. Shared by the event and article pages (V1.9.130). */
+internal fun embedFrameAncestors(embedConfig: EmbedConfig): List<String> =
+    if (embedConfig.enabled) sanitizeFrameAncestors(embedConfig.allowlist.canonicalOrigins) else emptyList()
+
+/**
+ * The security headers of every HTML response of a page family with a STANDARD and an EMBED presentation (`/veranstaltung/...` since
+ * V1.9.128, `/aktuelles/{slug}` since V1.9.130).
+ *
+ * - **`img-src`**: STANDARD is `'self' data:` -- `'self'` for cover images, QR codes and the operator logo, `data:` because the
+ *   chrome's navigation icons are CSS `mask-image: url("data:...")` (without it they would be silently invisible, same trap
+ *   `SocialPublicRoutes.applyPublicPageHeaders` documents). EMBED has no chrome and needs only `'self'`.
+ * - **`frame-ancestors`**: `'none'` (plus `X-Frame-Options: DENY`) for every response EXCEPT an EMBED-mode response while the embed
+ *   feature is enabled and an allowlist is configured: then `'self'` plus the allowlisted origins, and no `X-Frame-Options` (it cannot
+ *   express an allowlist, and browsers that understand `frame-ancestors` ignore it anyway). The STANDARD mode is never frameable, whatever
+ *   the allowlist says -- `?embed=1` is the only switch, and it only has an effect where the operator opted in.
+ * - No `<script>` on this surface, so `default-src 'none'` and `style-src 'self'` stay maximally strict (no inline styles anywhere).
+ */
+internal fun ApplicationCall.applyPageModeHeaders(
+    isEmbed: Boolean,
+    frameAncestors: List<String>,
+) {
+    val imgSrc = if (isEmbed) "'self'" else "'self' data:"
+    val frameable = isEmbed && frameAncestors.isNotEmpty()
+    val ancestors = if (frameable) "'self' " + frameAncestors.joinToString(" ") else "'none'"
+    response.header(
+        "Content-Security-Policy",
+        "default-src 'none'; img-src $imgSrc; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors $ancestors",
+    )
+    response.header("X-Content-Type-Options", "nosniff")
+    response.header("Referrer-Policy", "no-referrer")
+    if (!frameable) response.header("X-Frame-Options", "DENY")
+    response.header("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+}

@@ -41,5 +41,4 @@ archive endpoint (`docs/api/embed-widgets.adoc`). Details and limits: `docs/arch
 
 == What doesn't work yet (this wave)
 
-The public article detail page (`/aktuelles/{slug}`) carries no header/navigation chrome of its
-own — no link back to the site's public navigation from there. No other gaps known at this time.
+The public article detail page (`/aktuelles/{slug}`) has the Lapis header, a wide layout and an `?embed=1` mode since V1.9.130, see link:public-article-page.adoc[Public article page]. No other gaps known at this time.

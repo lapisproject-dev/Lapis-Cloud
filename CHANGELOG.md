@@ -6,6 +6,19 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.130 -- Public article page: Lapis header, layout, `?embed=1`
+
+`GET /aktuelles/{slug}` gets the same two presentations as the event page. Details: `docs/features/public-article-page.adoc`.
+
+- **New:** full Lapis header and footer, wide layout (title, meta line, cover, 42 rem text column), the title and the excerpt appear once (the excerpt is hidden when the body already starts with it), meta line `Von <byline> · <date>`, and an `?embed=1` mode for iframes (slim, noindex, links leave the frame).
+- **Behavior changes:**
+  - "Alle Neuigkeiten" always points to `/aktuelles` (before: `websiteUrl`, only when set); "Zur Startseite" only in the embed mode.
+  - CSP now has `form-action 'self'` and, in the standard mode, `img-src 'self' data:`; new `Permissions-Policy`. The 429 and 500 pages now carry the security headers too (before: none).
+  - Canonical and hreflang are new; the embed mode is `noindex`. The meta line no longer says "Veröffentlicht am" or names the organization. The cover has `alt=""`.
+  - The header core is shared with the event pages (`applyPageModeHeaders`, event headers unchanged).
+- No migration, no RPC.
+- **Not verified / known limitations:** not seen in a real browser; old cover images with a burnt-in title are now shown whole instead of cropped; no automatic iframe height; `/aktuelles` has no embed mode; links in the article text open inside the frame in the embed mode; `/aktuelles?lang=xx` does not pass `lang` to the detail page; the cover has no `width`/`height` (layout shift while loading).
+
 ### V1.9.129 -- Video overlays (logos, name, frame) in your own camera image
 
 An ADMIN can offer a library of logos and 16:9 frames; members place logos, their own name and one frame in the four corners / over the whole picture of their own camera. Details: `docs/features/video-overlays.adoc`, `docs/architecture/video-background-effects.adoc` ("Overlay step").

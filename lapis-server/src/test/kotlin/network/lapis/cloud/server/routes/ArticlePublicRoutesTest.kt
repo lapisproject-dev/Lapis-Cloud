@@ -148,6 +148,8 @@ class ArticlePublicRoutesTest :
                         registerArticlePublicRoutes(
                             baseUrl = "https://lapis.example",
                             branding = branding,
+                            navAvailability = eventTestNav(),
+                            embedConfig = eventTestEmbedConfig(),
                             coverStorage = EventCoverStorage(createTempDirectory("article-public-test").toFile()),
                             pageRateLimiter = pageRateLimiter,
                             coverReadRateLimiter = coverReadRateLimiter,
@@ -159,7 +161,13 @@ class ArticlePublicRoutesTest :
         }
 
         test("happy path: title/lead/body/meta-tags present, no author name or id in the HTML") {
-            val (id, slug) = createArticle(title = "Mein Artikel", excerpt = "Mein Auszug", body = "# Titel\n\nHallo Welt.")
+            val (id, slug) =
+                createArticle(
+                    title = "Mein Artikel",
+                    excerpt = "Mein Auszug",
+                    body = "# Titel\n\nHallo Welt.",
+                    slug = "happy-path-${Uuid.random().toString().take(8)}",
+                )
             testApp {
                 val response = client.get("/aktuelles/$slug")
                 response.status shouldBe HttpStatusCode.OK
@@ -187,16 +195,16 @@ class ArticlePublicRoutesTest :
             }
         }
 
-        test("\"Alle Neuigkeiten\" link only appears when branding.websiteUrl is set") {
+        test("\"Alle Neuigkeiten\" links to /aktuelles regardless of branding.websiteUrl") {
             val (_, slug) = createArticle()
             testApp {
                 val withoutUrl = client.get("/aktuelles/$slug").bodyAsText()
-                withoutUrl.contains("Alle Neuigkeiten") shouldBe false
+                withoutUrl.contains("href=\"https://lapis.example/aktuelles\"") shouldBe true
             }
             testApp(branding = defaultBranding.copy(websiteUrl = "https://example.org")) {
                 val withUrl = client.get("/aktuelles/$slug").bodyAsText()
-                withUrl.contains("Alle Neuigkeiten") shouldBe true
-                withUrl.contains("https://example.org") shouldBe true
+                withUrl.contains("← Alle Neuigkeiten") shouldBe true
+                withUrl.contains("href=\"https://lapis.example/aktuelles\">← Alle Neuigkeiten") shouldBe true
             }
         }
 
@@ -258,7 +266,7 @@ class ArticlePublicRoutesTest :
             testApp {
                 val page = client.get("/aktuelles/$slug")
                 page.headers["Content-Security-Policy"] shouldBe
-                    "default-src 'none'; img-src 'self'; style-src 'self'; base-uri 'none'; frame-ancestors 'none'"
+                    "default-src 'none'; img-src 'self' data:; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
                 page.headers[HttpHeaders.CacheControl] shouldBe "no-store"
 
                 val matchingV = client.get("/aktuelles/$slug/bild?v=${coverId.toString().take(8)}")
@@ -269,15 +277,15 @@ class ArticlePublicRoutesTest :
             }
         }
 
-        test("V1.9.105: the meta line reads 'Von {byline} · Veröffentlicht am ...' only with a byline; without one it is unchanged") {
+        test("V1.9.130: the meta line reads 'Von {byline} · {date}' only with a byline; no 'Veröffentlicht am', no organization name") {
             val (_, withByline) = createArticle(byline = "Max Muster")
             val (_, without) = createArticle()
             testApp {
                 val html = client.get("/aktuelles/$withByline").bodyAsText()
-                html.contains("Von Max Muster · Veröffentlicht am ") shouldBe true
+                html.contains("<span class=\"article-byline\">Von Max Muster</span> · <time") shouldBe true
+                html.contains("Veröffentlicht am") shouldBe false
                 val plain = client.get("/aktuelles/$without").bodyAsText()
-                plain.contains("Von ") shouldBe false
-                plain.contains("Veröffentlicht am ") shouldBe true
+                plain.contains("article-byline") shouldBe false
             }
         }
 

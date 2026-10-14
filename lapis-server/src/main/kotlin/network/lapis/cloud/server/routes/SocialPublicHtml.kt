@@ -399,6 +399,25 @@ internal object SocialPublicHtml {
         .lapis-article-body h2, .lapis-article-body h3, .lapis-article-body h4 { margin: 1.2rem 0 0.4rem 0; }
         .lapis-article-body p { margin: 0.6rem 0; }
 
+        /* V1.9.130 -- public article page (STANDARD/EMBED). Scoped to body.article-wide / .article-embed ONLY: the seven
+           .lapis-article-* rules above are mirrored in lapis-client's theme.css (editor preview) and must stay untouched. */
+        body.has-chrome.article-wide > main,
+        body.has-chrome.article-wide > footer { max-width: 56rem; }
+        body.article-wide .chrome-inner { max-width: 56rem; }
+        .article-column { max-width: 42rem; margin: 0 auto; }
+        .article-title { margin: 1.75rem 0 0.5rem 0; font-size: 2rem; line-height: 1.2; overflow-wrap: anywhere; }
+        body.article-wide .lapis-article-meta, .article-embed .lapis-article-meta { margin: 0 0 1.25rem 0; }
+        body.article-wide .lapis-article-cover, .article-embed .lapis-article-cover {
+            max-width: 56rem; height: auto; aspect-ratio: auto; object-fit: contain; margin: 0 auto 1.5rem auto; border-radius: 0.5rem;
+        }
+        body.article-wide .lapis-article-lead, .article-embed .lapis-article-lead { margin: 0 0 1.25rem 0; }
+        body.article-wide .lapis-article-body, .article-embed .lapis-article-body { font-size: 1.05rem; }
+        .article-back { margin: 2rem 0; }
+        .embed-page.article-embed { max-width: 42rem; margin: 1.5rem auto; padding: 0 1rem; }
+        @media (max-width: 30rem) {
+            .article-title { font-size: 1.55rem; }
+        }
+
         /* Welle V1.9.20 "Öffentliche Seiten" (/vorstand, /politiker, /landesverbaende) -- shares this
            stylesheet, see network.lapis.cloud.server.routes.PublicProfilesHtml class KDoc. Colours
            only from values already used above (no new hex literals except the crest tile's light

@@ -439,6 +439,15 @@ the same `UPDATE`) is skipped and logged rather than failing the whole feed with
 same "never throw on a single data inconsistency" stance `ArticlePublicRoutes`' own `/aktuelles/
 {slug}` route takes (there it 404s the one affected article instead of failing the whole page).
 
+== Page modes, frame headers, lead rule -- V1.9.130
+
+The public page renders in two modes chosen by `EventPageMode.of(call)` (exactly one `embed=1`), carried in an `ArticlePageContext` that is
+built once per request before the rate limiter, so 429 and 500 pages get the right shell. The security headers come from the shared
+`applyPageModeHeaders(isEmbed, frameAncestors)` (also used by the event pages; the name `applyPublicPageHeaders` is taken by the social
+pages). `embedFrameAncestors(embedConfig)` yields the sanitized allowlist, empty while the embed feature is off. `ArticleLead` decides whether
+the excerpt is shown as a lead (read-only look at the sanitized body). The single `unsafe { }` remains the `ArticleMarkdown` output in
+`ArticlePublicHtml.articleBody`. Details: link:../features/public-article-page.adoc[Public article page].
+
 == Non-goals (this wave)
 
 * No pagination on the author's own article list, the board's review/published queues, or the

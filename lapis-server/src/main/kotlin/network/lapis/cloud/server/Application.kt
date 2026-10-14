@@ -2840,6 +2840,8 @@ internal fun Application.module(
         registerArticlePublicRoutes(
             baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
             branding = resolvedBranding,
+            navAvailability = publicNavAvailability,
+            embedConfig = embedConfig,
             coverStorage = articleCoverStorage,
             pageRateLimiter = articlePageRateLimiter,
             coverReadRateLimiter = articleCoverReadRateLimiter,

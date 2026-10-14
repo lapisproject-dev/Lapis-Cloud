@@ -124,8 +124,7 @@ internal fun Route.registerEventPublicRoutes(
     // normal request, not a "failed attempt").
     icsFeedRateLimiter: FederationInboxRateLimiter,
 ) {
-    val frameAncestors =
-        if (embedConfig.enabled) sanitizeFrameAncestors(embedConfig.allowlist.canonicalOrigins) else emptyList()
+    val frameAncestors = embedFrameAncestors(embedConfig)
 
     /** The per-request context -- always the FIRST thing a handler builds, never inside a transaction (see [PublicNavAvailabilityProvider.current]). */
     fun ApplicationCall.pageContext(): EventPageContext =
@@ -846,30 +845,11 @@ private fun loadPublicEventView(
     }
 
 /**
- * The security headers of every HTML response of the `/veranstaltung/...` family (V1.9.128, replaces the former
- * `applyEventPublicPageHeaders`/`applyEventTicketPageHeaders` pair).
- *
- * - **`img-src`**: STANDARD is `'self' data:` -- `'self'` for the cover image, the QR code and the operator logo, `data:` because the
- *   chrome's navigation icons are CSS `mask-image: url("data:...")` (without it they would be silently invisible, same trap
- *   `SocialPublicRoutes.applyPublicPageHeaders` documents). EMBED has no chrome and needs only `'self'`.
- * - **`frame-ancestors`**: `'none'` (plus `X-Frame-Options: DENY`) for every response EXCEPT an EMBED-mode response while the embed
- *   feature is enabled and an allowlist is configured: then `'self'` plus the allowlisted origins, and no `X-Frame-Options` (it cannot
- *   express an allowlist, and browsers that understand `frame-ancestors` ignore it anyway). The STANDARD mode is never frameable, whatever
- *   the allowlist says -- `?embed=1` is the only switch, and it only has an effect where the operator opted in.
- * - No `<script>` on this surface, so `default-src 'none'` and `style-src 'self'` stay maximally strict (no inline styles anywhere).
+ * The security headers of every HTML response of the `/veranstaltung/...` family (V1.9.128). Since V1.9.130 the header core is shared
+ * with the article page via [applyPageModeHeaders]; this is a plain delegation, the emitted headers are unchanged.
  */
 internal fun ApplicationCall.applyEventPageHeaders(ctx: EventPageContext) {
-    val imgSrc = if (ctx.isEmbed) "'self'" else "'self' data:"
-    val frameable = ctx.isEmbed && ctx.frameAncestors.isNotEmpty()
-    val frameAncestors = if (frameable) "'self' " + ctx.frameAncestors.joinToString(" ") else "'none'"
-    response.header(
-        "Content-Security-Policy",
-        "default-src 'none'; img-src $imgSrc; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors $frameAncestors",
-    )
-    response.header("X-Content-Type-Options", "nosniff")
-    response.header("Referrer-Policy", "no-referrer")
-    if (!frameable) response.header("X-Frame-Options", "DENY")
-    response.header("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    applyPageModeHeaders(isEmbed = ctx.isEmbed, frameAncestors = ctx.frameAncestors)
 }
 
 private suspend fun ApplicationCall.respondEventRedirect(
