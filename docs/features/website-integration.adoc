@@ -67,3 +67,5 @@ Deliberately still absent: an automatic "already signed in" indicator on page lo
 click (deliberately absent — that would be a cross-site tracking channel), and donor
 recognition/aggregation across multiple anonymous donations (DSGVO data minimization — every
 widget donation is a fresh, unlinked `external_donor` row by design).
+
+See also xref:public-event-page.adoc[Public event page] for the `?embed=1` iframe variant of the server-rendered event page.

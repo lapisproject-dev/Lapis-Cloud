@@ -14,6 +14,6 @@ request never triggers an extra database lookup.
 
 == What doesn't work yet (this wave)
 
-Neither the article detail page (`/aktuelles/{slug}`) nor the event detail page carries its own
-header/navigation chrome -- there is still no link back to the site's public navigation from a
+The article detail page (`/aktuelles/{slug}`) does not carry its own
+header/navigation chrome (the event detail page does since V1.9.128, see public-event-page.adoc) -- there is still no link back to the site's public navigation from a
 detail page itself. Tracked as a known limitation, open for a follow-up wave.

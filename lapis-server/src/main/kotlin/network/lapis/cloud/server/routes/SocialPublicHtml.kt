@@ -142,9 +142,10 @@ internal object SocialPublicHtml {
            drei öffentlichen Seiten (/, /s, /transparenz), siehe PublicChrome class KDoc. Farbwerte
            1:1 aus theme.css' --lapis-nav-* / --lapis-fleck-Tokens übernommen (kein neuer, frei
            erfundener Hex-Wert), damit /app und die drei server-gerenderten Seiten visuell konsistent
-           wirken. Additiv -- body's max-width bleibt für .page erhalten, EmbedHtml/EventPublicHtml
-           setzen "has-chrome" nie und sind von diesem Block unberührt (Byte-Identitäts-Regressionstest
-           in SocialPublicHtmlTest).
+           wirken. Additiv -- body's max-width bleibt für .page erhalten, EmbedHtml setzt "has-chrome"
+           nie und ist von diesem Block unberührt (Byte-Identitäts-Regressionstest in
+           SocialPublicHtmlTest); EventPublicHtml setzt "has-chrome" seit V1.9.128 im Standardmodus
+           (nicht im ?embed=1-Modus).
 
            Wartungsregel (V1.4.7): die Selektorliste unten führt ABSCHLIESSEND jedes direkte Kind
            von body.has-chrome auf, das die 42rem-Spalte trägt. Wer ein weiteres direktes Kind
@@ -323,7 +324,67 @@ internal object SocialPublicHtml {
            on the <img> itself (EventPublicHtml forbids raw HTML/inline styles categorically, same
            discipline every other block in this file follows) -- a fixed 4:3 aspect ratio, cropped
            via object-fit, matches the admin-side upload card's own preview box. */
-        .event-cover { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; margin-bottom: 1rem; }
+        .event-cover {
+            display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; margin-bottom: 1.5rem; max-height: 22rem;
+            border-radius: 0.75rem; border: 1px solid rgba(128, 128, 128, 0.3);
+        }
+
+        /* Welle V1.9.128 "Veranstaltungsseite: Kopfbereich, Layout, ?embed=1" -- shares this stylesheet, see
+           network.lapis.cloud.server.routes.EventPublicHtml class KDoc. Same palette as the chrome (#C9A227 gold,
+           #14181E ink) and the same semi-transparent greys as every block above, so light and dark mode both work
+           without a second set of colours. NO inline style anywhere (CSP `style-src 'self'`). */
+        body.has-chrome.event-wide > main,
+        body.has-chrome.event-wide > footer { max-width: 56rem; }
+        body.event-wide .chrome-inner { max-width: 56rem; }
+        .event-title { margin: 1.75rem 0 1.25rem 0; font-size: 1.9rem; line-height: 1.2; overflow-wrap: anywhere; }
+        .event-facts {
+            display: grid; grid-template-columns: max-content 1fr; gap: 0.6rem 1.5rem;
+            margin: 0 0 1.5rem 0; padding: 1rem 1.25rem;
+            border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 0.75rem; background: rgba(128, 128, 128, 0.06);
+        }
+        .event-facts dt { font-weight: 600; color: inherit; }
+        .event-facts dd { margin: 0; overflow-wrap: anywhere; }
+        .event-callout {
+            margin: 0 0 1.5rem 0; padding: 0.8rem 1rem; border-left: 4px solid #C9A227; border-radius: 0.35rem;
+            background: rgba(201, 162, 39, 0.12);
+        }
+        .event-callout--waitlist { border-left-color: #888; background: rgba(128, 128, 128, 0.08); }
+        .event-card {
+            margin: 0 0 1.75rem 0; padding: 1.25rem 1.5rem; max-width: 34rem;
+            border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 0.75rem; background: rgba(128, 128, 128, 0.06);
+        }
+        .event-card h2 { margin: 0 0 1rem 0; font-size: 1.25rem; }
+        .event-card p { margin-top: 0; }
+        .event-form { margin: 0; }
+        .event-field { margin-bottom: 1rem; }
+        .event-field label { display: block; margin-bottom: 0.3rem; font-size: 0.95rem; font-weight: 600; }
+        .event-field input {
+            display: block; width: 100%; box-sizing: border-box; padding: 0.65rem 0.75rem; font: inherit; color: inherit;
+            background: transparent; border: 1px solid rgba(128, 128, 128, 0.6); border-radius: 0.4rem;
+        }
+        .event-field input:focus-visible { outline: 2px solid #C9A227; outline-offset: 1px; }
+        .event-field input:user-invalid { border-color: #b00020; }
+        .event-submit {
+            display: block; width: 100%; box-sizing: border-box; padding: 0.75rem 1.1rem; font: inherit; font-weight: 600;
+            text-align: center; text-decoration: none; cursor: pointer;
+            border: 0; border-radius: 0.4rem; background: #C9A227; color: #14181E;
+        }
+        .event-submit:hover { filter: brightness(1.08); }
+        .event-submit:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+        .event-submit--danger { background: #b00020; color: #fff; }
+        .event-hint { margin: 0.75rem 0 0 0; font-size: 0.9rem; color: inherit; }
+        .event-card form { margin: 0; }
+        .event-description { max-width: 44rem; margin: 0 0 2rem 0; overflow-wrap: anywhere; }
+        .event-qr { margin: 1.5rem 0 0.75rem 0; text-align: center; }
+        .event-qr img { max-width: 100%; height: auto; padding: 0.5rem; background: #fff; border-radius: 0.5rem; }
+        .event-ticket-code { text-align: center; font-family: ui-monospace, monospace; font-size: 1.2rem; letter-spacing: 0.08em; }
+        .embed-page.event-embed { max-width: 36rem; margin: 1.5rem auto; padding: 0 1rem; }
+        @media (max-width: 30rem) {
+            .event-title { font-size: 1.5rem; }
+            .event-facts { grid-template-columns: 1fr; gap: 0.15rem; }
+            .event-facts dd { margin-bottom: 0.6rem; }
+            .event-card { padding: 1rem; }
+        }
 
         /* Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- shares this stylesheet, see
            network.lapis.cloud.server.routes.ArticlePublicHtml class KDoc. These four classes are

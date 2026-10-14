@@ -2,6 +2,7 @@ package network.lapis.cloud.server.routes
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -161,14 +162,17 @@ class EventPublicRoutesTest :
                     ),
             )
 
-        fun fakeSuccessfulCheckoutClient(pspConfigState: PspConfigState.Configured): StripeCheckoutClient =
+        fun fakeSuccessfulCheckoutClient(
+            pspConfigState: PspConfigState.Configured,
+            sessionId: String = "cs_test_public_routes_fake",
+        ): StripeCheckoutClient =
             StripeCheckoutClient(
                 pspConfig = pspConfigState.config,
                 httpClient =
                     HttpClient(
                         MockEngine { _ ->
                             respond(
-                                """{"id":"cs_test_public_routes_fake","url":"https://checkout.stripe.com/c/pay/cs_test_public_routes_fake"}""",
+                                """{"id":"$sessionId","url":"https://checkout.stripe.com/c/pay/$sessionId"}""",
                                 HttpStatusCode.OK,
                                 headersOf(HttpHeaders.ContentType, "application/json"),
                             )
@@ -303,7 +307,9 @@ class EventPublicRoutesTest :
                             checkoutGateways = checkoutClient?.let { mapOf(PaymentProvider.STRIPE to it) } ?: emptyMap(),
                             baseUrl = "https://example.org",
                             mailDispatcher = noOpMailDispatcher(),
-                            brandTitle = "Testverein",
+                            branding = eventTestBranding(),
+                            navAvailability = eventTestNav(),
+                            embedConfig = eventTestEmbedConfig(),
                             pageRateLimiter = generousLimiter(),
                             attemptRateLimiter = generousLimiter(),
                             registrationRateLimiter = generousLimiter(),
@@ -336,6 +342,49 @@ class EventPublicRoutesTest :
                     }
                 response.status shouldBe HttpStatusCode(303, "See Other")
                 response.headers[HttpHeaders.Location] shouldBe "https://checkout.stripe.com/c/pay/cs_test_public_routes_fake"
+            }
+        }
+
+        test("EMBED mode: a payment-resume token yields a 200 hand-off page with a top-level link, never a 303 into the iframe") {
+            enableGateway()
+            val pspConfigState = testPspConfigState()
+            val (eventId, slug) = createPaidEvent()
+            val payer = createMember("event-public-routes-embed-payer-${Uuid.random()}@example.org")
+            val token = randomToken()
+            insertPendingPaymentRegistration(eventId = eventId, memberId = payer, token = token)
+
+            testApp(
+                checkoutClient = fakeSuccessfulCheckoutClient(pspConfigState, sessionId = "cs_test_public_routes_embed_fake"),
+                pspConfigState = pspConfigState,
+            ) {
+                val response =
+                    client.post("/veranstaltung/$slug/zahlung?embed=1") {
+                        contentType(ContentType.Application.FormUrlEncoded)
+                        setBody(formBody("token" to token))
+                    }
+                response.status shouldBe HttpStatusCode.OK
+                response.headers[HttpHeaders.Location] shouldBe null
+                response.headers[HttpHeaders.CacheControl] shouldBe "no-store"
+                val body = response.bodyAsText()
+                body shouldContain "href=\"https://checkout.stripe.com/c/pay/cs_test_public_routes_embed_fake\""
+                body shouldContain "target=\"_top\""
+                body shouldContain "Die Zahlung öffnet sich im vollen Browserfenster."
+            }
+        }
+
+        test("EMBED mode: the dead-end redirects of the resume route keep embed=1") {
+            enableGateway()
+            val pspConfigState = testPspConfigState()
+            val (_, slug) = createPaidEvent()
+
+            testApp(checkoutClient = fakeSuccessfulCheckoutClient(pspConfigState), pspConfigState = pspConfigState) {
+                val response =
+                    client.post("/veranstaltung/$slug/zahlung?embed=1") {
+                        contentType(ContentType.Application.FormUrlEncoded)
+                        setBody(formBody("token" to ""))
+                    }
+                response.status shouldBe HttpStatusCode(303, "See Other")
+                response.headers[HttpHeaders.Location] shouldBe "/veranstaltung/$slug/abgebrochen?embed=1"
             }
         }
 

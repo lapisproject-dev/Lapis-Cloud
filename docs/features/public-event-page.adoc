@@ -1,0 +1,114 @@
+= Public event page: Lapis header and `?embed=1` (V1.9.128)
+:toc:
+
+The public event page `GET /veranstaltung/{slug}` and every page of its registration flow (thanks, waiting list, cancelled, storno, payment,
+ticket, error pages) exist in two presentations.
+
+[cols="1,3,3"]
+|===
+| | Standard | `?embed=1`
+
+| Header
+| Full Lapis header (brand, icon navigation, language switcher, login link), skip link, shared footer.
+| None. A slim page for an `<iframe>`; footer links (start page, Impressum, Datenschutz) are site-relative with `target="_top"`.
+
+| Layout
+| Wide column (56 rem), facts list, registration card.
+| Same components, narrow column (36 rem).
+
+| Language
+| `?lang=xx` switches the chrome and is passed through the whole flow. The page content is German in every language.
+| German only.
+
+| Indexing
+| Canonical and hreflang on the detail page.
+| `noindex`, canonical onto the standard URL.
+
+| Framing
+| Never (`frame-ancestors 'none'`, `X-Frame-Options: DENY`).
+| Only by the embed origins, see below.
+|===
+
+Only the exact value `embed=1` (a single parameter) activates the embed mode; anything else is the standard page. The raw value is never
+reflected.
+
+== Passing the mode on
+
+Every family-internal link and redirect is built by `EventPageContext.href(...)`, which appends `embed=1` (or `lang=xx` in the standard mode).
+The POST routes read the mode from the query string of the form action, not from a hidden field. Links in e-mails (storno, payment, ticket)
+are built without the parameter on purpose: a mail is not an iframe.
+
+== Framing rules
+
+[cols="2,2,2"]
+|===
+| Response | `frame-ancestors` | `X-Frame-Options`
+
+| Standard mode (any configuration)
+| `'none'`
+| `DENY`
+
+| `?embed=1`, embed feature off (`LAPIS_EMBED_ENABLED` not `true`)
+| `'none'`
+| `DENY`
+
+| `?embed=1`, embed feature on
+| `'self'` plus the origins of `LAPIS_EMBED_ALLOWED_ORIGINS`
+| not sent
+|===
+
+Each origin is checked once more against `scheme://host[:port]` before it reaches the header. `img-src` is `'self' data:` in the standard mode (the
+navigation icons are CSS masks with `data:` URLs) and `'self'` in the embed mode.
+
+== Paid events inside an iframe
+
+A payment provider cannot be framed. In the embed mode a payment-required result is therefore a `200` page "Zahlung abschließen" with a link to the
+checkout that opens in the top-level window (`target="_top"`), instead of a `303` inside the frame. The return URLs of the provider carry no
+`embed` parameter, because after the checkout the visitor is top-level anyway.
+
+== Language switcher and tokens
+
+The switcher of the token pages (storno, payment, ticket) always points at the detail page, so a bearer token or ticket code never appears in a
+chrome link.
+
+== Using it on a website
+
+[source,html]
+----
+<iframe src="https://cloud.example.org/veranstaltung/sommerfest?embed=1"
+        title="Anmeldung Sommerfest" width="100%" height="900" loading="lazy"></iframe>
+----
+
+Do not add a `sandbox` attribute, or it must include `allow-forms allow-top-navigation-by-user-activation allow-popups`. The height is fixed: there is
+no script, so there is no automatic height.
+
+[kuml, public-event-page-flow, svg]
+----
+stateDiagram(name = "Public event page flow") {
+    val start = initialState()
+    val detail = state(name = "Detail page")
+    val thanks = state(name = "Thanks")
+    val waitlist = state(name = "Waiting list")
+    val cancelled = state(name = "Cancelled")
+    val handoff = state(name = "Payment hand-off (embed)")
+    val provider = state(name = "Payment provider")
+
+    transition(source = start, target = detail)
+    transition(source = detail, target = thanks) { trigger = "free event, seat free" }
+    transition(source = detail, target = waitlist) { trigger = "event full" }
+    transition(source = detail, target = cancelled) { trigger = "honeypot / closed" }
+    transition(source = detail, target = provider) { trigger = "paid, standard: 303" }
+    transition(source = detail, target = handoff) { trigger = "paid, embed=1" }
+    transition(source = handoff, target = provider) { trigger = "link, target _top" }
+}
+----
+
+The diagram omits the parameter for readability: in the embed mode every transition between pages of this family carries `embed=1`.
+
+== Known limitations
+
+* `/aktuelles/{slug}` is unchanged (no header) and probably has the same inline-style/CSP pattern as the former honeypot; to be checked.
+* Links from `/veranstaltungen?lang=en` to the detail page carry no `lang`.
+* The token and follow-up pages carry no `noindex` (unchanged).
+* No automatic iframe height.
+* The CSP `form-action 'self'` against the `303` to the payment provider has not been verified in a live browser (pre-existing).

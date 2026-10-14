@@ -21,10 +21,12 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import kotlinx.coroutines.CancellationException
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.embed.EmbedConfig
 import network.lapis.cloud.server.events.EventCapacityGuard
 import network.lapis.cloud.server.events.EventCoverPolicy
 import network.lapis.cloud.server.events.EventParticipant
@@ -103,7 +105,12 @@ internal fun Route.registerEventPublicRoutes(
     checkoutGateways: Map<PaymentProvider, PspCheckoutGateway>,
     baseUrl: String,
     mailDispatcher: MailDispatcher,
-    brandTitle: String,
+    // V1.9.128 -- the resolved branding (title + logo + website) replaces the former bare `brandTitle`: the public event page now
+    // carries the full Lapis header ([PublicChrome]), unless called with `?embed=1`.
+    branding: ResolvedBranding,
+    navAvailability: PublicNavAvailabilityProvider,
+    // V1.9.128 -- the EMBED variant (`?embed=1`) may only be framed by these origins, and only while the embed feature is on.
+    embedConfig: EmbedConfig,
     pageRateLimiter: FederationInboxRateLimiter,
     attemptRateLimiter: FederationInboxRateLimiter,
     registrationRateLimiter: FederationInboxRateLimiter,
@@ -117,6 +124,13 @@ internal fun Route.registerEventPublicRoutes(
     // normal request, not a "failed attempt").
     icsFeedRateLimiter: FederationInboxRateLimiter,
 ) {
+    val frameAncestors =
+        if (embedConfig.enabled) sanitizeFrameAncestors(embedConfig.allowlist.canonicalOrigins) else emptyList()
+
+    /** The per-request context -- always the FIRST thing a handler builds, never inside a transaction (see [PublicNavAvailabilityProvider.current]). */
+    fun ApplicationCall.pageContext(): EventPageContext =
+        eventPageContext(baseUrl = baseUrl, branding = branding, navAvailability = navAvailability, frameAncestors = frameAncestors)
+
     val submission =
         EventRegistrationSubmission(
             checkoutGateways = checkoutGateways,
@@ -125,26 +139,22 @@ internal fun Route.registerEventPublicRoutes(
         )
 
     get("/veranstaltung/{slug}") {
-        call.withEventPublicErrorHandling(brandTitle = brandTitle) {
+        val ctx = call.pageContext()
+        call.withEventPublicErrorHandling(ctx = ctx) {
             if (!pageRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondEventTooManyRequests(brandTitle)
+                call.respondEventTooManyRequests(ctx)
                 return@withEventPublicErrorHandling
             }
             val slug = call.parameters["slug"]
             val view = slug?.let { loadPublicEventView(slug = it, baseUrl = baseUrl) }
             if (view == null) {
-                call.respondEventNotFound(brandTitle)
+                call.respondEventNotFound(ctx)
                 return@withEventPublicErrorHandling
             }
             call.response.header(HttpHeaders.CacheControl, "no-store")
-            // Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- this is now the one OTHER page
-            // in the `/veranstaltung/*` family that can load an image (the cover, same-origin, from
-            // `/veranstaltung/{slug}/bild`), alongside the ticket page -- reuses
-            // applyEventTicketPageHeaders' `img-src 'self'` CSP rather than adding a third, near-
-            // identical header function. Harmless (`img-src 'self'` is a no-op) for an event with no
-            // cover image.
-            call.applyEventTicketPageHeaders()
-            call.respondText(text = EventPublicHtml.eventPage(brandTitle = brandTitle, view = view), contentType = HTML_CONTENT_TYPE)
+            // The cover image is same-origin (`/veranstaltung/{slug}/bild`), already covered by `img-src 'self'`.
+            call.applyEventPageHeaders(ctx)
+            call.respondText(text = EventPublicHtml.eventPage(ctx = ctx, view = view), contentType = HTML_CONTENT_TYPE)
         }
     }
 
@@ -154,9 +164,10 @@ internal fun Route.registerEventPublicRoutes(
     // the `{slug}` segment of "/veranstaltung/{slug}" anyway -- different path shapes entirely).
     // Kein Secret/Token -- see EventIcsFeed KDoc "Sichtbarkeitsregel".
     get("/veranstaltung.ics") {
-        call.withEventPublicErrorHandling(brandTitle = brandTitle) {
+        val ctx = call.pageContext()
+        call.withEventPublicErrorHandling(ctx = ctx) {
             if (!icsFeedRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondEventTooManyRequests(brandTitle)
+                call.respondEventTooManyRequests(ctx)
                 return@withEventPublicErrorHandling
             }
             val now = DbClock.nowLocalDateTime()
@@ -174,7 +185,7 @@ internal fun Route.registerEventPublicRoutes(
             if (rows.size >= EventIcsFeed.MAX_EVENTS) {
                 logger.warn { "Public iCal feed truncated at ${EventIcsFeed.MAX_EVENTS} events -- consider raising the cap." }
             }
-            val body = EventIcsFeed.render(rows = rows, baseUrl = baseUrl, brandTitle = brandTitle, seriesData = seriesData)
+            val body = EventIcsFeed.render(rows = rows, baseUrl = baseUrl, brandTitle = branding.title, seriesData = seriesData)
             call.response.header(
                 HttpHeaders.ContentDisposition,
                 ContentDisposition.Inline
@@ -186,25 +197,26 @@ internal fun Route.registerEventPublicRoutes(
     }
 
     post("/veranstaltung/{slug}/anmeldung") {
-        call.withEventPublicErrorHandling(brandTitle = brandTitle) {
+        val ctx = call.pageContext()
+        call.withEventPublicErrorHandling(ctx = ctx) {
             val slug = call.parameters["slug"]
             if (slug == null) {
-                call.respondEventNotFound(brandTitle)
+                call.respondEventNotFound(ctx)
                 return@withEventPublicErrorHandling
             }
             // 1. Generous flood/DoS gate -- BEFORE any body read.
             if (!attemptRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondEventTooManyRequests(brandTitle)
+                call.respondEventTooManyRequests(ctx)
                 return@withEventPublicErrorHandling
             }
             // 2. Content-Length pre-check, before any body byte is read.
             val declaredContentLength = call.request.headers[HttpHeaders.ContentLength]?.toLongOrNull()
             if (declaredContentLength == null || declaredContentLength > MAX_EVENT_REGISTRATION_BODY_BYTES) {
-                call.respondEventMalformed(brandTitle = brandTitle, status = HttpStatusCode.PayloadTooLarge)
+                call.respondEventMalformed(ctx = ctx, status = HttpStatusCode.PayloadTooLarge)
                 return@withEventPublicErrorHandling
             }
             if (!call.request.contentType().match(ContentType.Application.FormUrlEncoded)) {
-                call.respondEventMalformed(brandTitle = brandTitle, status = HttpStatusCode.BadRequest)
+                call.respondEventMalformed(ctx = ctx, status = HttpStatusCode.BadRequest)
                 return@withEventPublicErrorHandling
             }
             call.formFieldLimit = EVENT_FORM_FIELD_LIMIT
@@ -213,7 +225,7 @@ internal fun Route.registerEventPublicRoutes(
             // for the "cancelled" outcome, no DB write, no rate-limiter consumption beyond step 1.
             val honeypotFilled = !params["kommentar"].isNullOrBlank()
             if (honeypotFilled) {
-                call.respondEventRedirect("/veranstaltung/$slug/abgebrochen")
+                call.respondEventRedirect(ctx = ctx, location = ctx.href("/veranstaltung/$slug/abgebrochen"))
                 return@withEventPublicErrorHandling
             }
             val guestName = params["guestName"]?.trim().orEmpty()
@@ -224,12 +236,12 @@ internal fun Route.registerEventPublicRoutes(
                 normalizedEmail == null ||
                 normalizedEmail.length > EventPolicy.MAX_GUEST_EMAIL_LENGTH
             ) {
-                call.respondEventMalformed(brandTitle = brandTitle, status = HttpStatusCode.BadRequest)
+                call.respondEventInvalidInput(ctx = ctx, slug = slug)
                 return@withEventPublicErrorHandling
             }
             val eventId = transaction { EventStore.getEventBySlugOrNull(slug)?.get(EventTable.id) }
             if (eventId == null) {
-                call.respondEventNotFound(brandTitle)
+                call.respondEventNotFound(ctx)
                 return@withEventPublicErrorHandling
             }
             val visible =
@@ -239,12 +251,12 @@ internal fun Route.registerEventPublicRoutes(
                 }
             if (!visible) {
                 // DRAFT/CANCELLED/MEMBERS_ONLY/unknown all render the SAME 404 -- no existence oracle.
-                call.respondEventNotFound(brandTitle)
+                call.respondEventNotFound(ctx)
                 return@withEventPublicErrorHandling
             }
             // 4. Strict per-real-attempt budget -- only now, immediately before the DB/Stripe work.
             if (!registrationRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondEventTooManyRequests(brandTitle)
+                call.respondEventTooManyRequests(ctx)
                 return@withEventPublicErrorHandling
             }
             val result =
@@ -253,71 +265,105 @@ internal fun Route.registerEventPublicRoutes(
                     participant = EventParticipant.Guest(name = guestName, normalizedEmail = normalizedEmail),
                 )
             when (result) {
-                is EventRegistrationResult.Confirmed -> call.respondEventRedirect("/veranstaltung/$slug/danke?r=${result.registrationId}")
-                is EventRegistrationResult.PaymentRequired -> call.respondEventRedirect(result.redirectUrl)
-                is EventRegistrationResult.Waitlisted -> call.respondEventRedirect("/veranstaltung/$slug/warteliste")
-                EventRegistrationResult.AlreadyRegistered -> call.respondEventRedirect("/veranstaltung/$slug/danke")
+                is EventRegistrationResult.Confirmed ->
+                    call.respondEventRedirect(
+                        ctx = ctx,
+                        location = ctx.href("/veranstaltung/$slug/danke?r=${result.registrationId}"),
+                    )
+                is EventRegistrationResult.PaymentRequired ->
+                    call.respondEventPaymentRequired(
+                        ctx = ctx,
+                        slug = slug,
+                        redirectUrl = result.redirectUrl,
+                    )
+                is EventRegistrationResult.Waitlisted ->
+                    call.respondEventRedirect(
+                        ctx = ctx,
+                        location = ctx.href("/veranstaltung/$slug/warteliste"),
+                    )
+                EventRegistrationResult.AlreadyRegistered ->
+                    call.respondEventRedirect(
+                        ctx = ctx,
+                        location = ctx.href("/veranstaltung/$slug/danke"),
+                    )
                 EventRegistrationResult.EventNotAvailable -> {
-                    call.respondEventNotFound(brandTitle)
+                    call.respondEventNotFound(ctx)
                 }
-                EventRegistrationResult.WaitlistFull -> call.respondEventRedirect("/veranstaltung/$slug/abgebrochen")
-                EventRegistrationResult.GatewayUnavailable -> call.respondEventRedirect("/veranstaltung/$slug/abgebrochen")
-                is EventRegistrationResult.PaymentFailed -> call.respondEventRedirect("/veranstaltung/$slug/abgebrochen")
+                EventRegistrationResult.WaitlistFull ->
+                    call.respondEventRedirect(
+                        ctx = ctx,
+                        location = ctx.href("/veranstaltung/$slug/abgebrochen"),
+                    )
+                EventRegistrationResult.GatewayUnavailable ->
+                    call.respondEventRedirect(
+                        ctx = ctx,
+                        location = ctx.href("/veranstaltung/$slug/abgebrochen"),
+                    )
+                is EventRegistrationResult.PaymentFailed ->
+                    call.respondEventRedirect(
+                        ctx = ctx,
+                        location = ctx.href("/veranstaltung/$slug/abgebrochen"),
+                    )
             }
         }
     }
 
     get("/veranstaltung/{slug}/danke") {
-        call.respondEventReturnPage(brandTitle = brandTitle, rateLimiter = pageRateLimiter) {
-            EventPublicHtml.thanksPage(brandTitle = brandTitle, registrationId = call.parameters["r"])
+        val ctx = call.pageContext()
+        call.respondEventReturnPage(ctx = ctx, rateLimiter = pageRateLimiter) {
+            EventPublicHtml.thanksPage(ctx = ctx, slug = call.parameters["slug"].orEmpty(), registrationId = call.parameters["r"])
         }
     }
 
     get("/veranstaltung/{slug}/warteliste") {
-        call.respondEventReturnPage(brandTitle = brandTitle, rateLimiter = pageRateLimiter) {
-            EventPublicHtml.waitlistPage(brandTitle = brandTitle)
+        val ctx = call.pageContext()
+        call.respondEventReturnPage(ctx = ctx, rateLimiter = pageRateLimiter) {
+            EventPublicHtml.waitlistPage(ctx = ctx, slug = call.parameters["slug"].orEmpty())
         }
     }
 
     get("/veranstaltung/{slug}/abgebrochen") {
-        call.respondEventReturnPage(brandTitle = brandTitle, rateLimiter = pageRateLimiter) {
-            EventPublicHtml.cancelledPage(brandTitle = brandTitle)
+        val ctx = call.pageContext()
+        call.respondEventReturnPage(ctx = ctx, rateLimiter = pageRateLimiter) {
+            EventPublicHtml.cancelledPage(ctx = ctx, slug = call.parameters["slug"].orEmpty())
         }
     }
 
     get("/veranstaltung/{slug}/storno") {
-        call.withEventPublicErrorHandling(brandTitle = brandTitle) {
+        val ctx = call.pageContext()
+        call.withEventPublicErrorHandling(ctx = ctx) {
             if (!pageRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondEventTooManyRequests(brandTitle)
+                call.respondEventTooManyRequests(ctx)
                 return@withEventPublicErrorHandling
             }
             val slug = call.parameters["slug"].orEmpty()
             val token = call.parameters["token"].orEmpty()
             call.response.header(HttpHeaders.CacheControl, "no-store")
-            call.applyEventPublicPageHeaders()
+            call.applyEventPageHeaders(ctx)
             // GET never mutates (a mail-client link-prefetch must never storno a registration on its
             // own) -- always the confirmation form, even for an unknown/expired token; the actual
             // lookup happens only on POST.
             call.respondText(
-                text = EventPublicHtml.cancelConfirmPage(brandTitle = brandTitle, slug = slug, token = token),
+                text = EventPublicHtml.cancelConfirmPage(ctx = ctx, slug = slug, token = token),
                 contentType = HTML_CONTENT_TYPE,
             )
         }
     }
 
     post("/veranstaltung/{slug}/storno") {
-        call.withEventPublicErrorHandling(brandTitle = brandTitle) {
+        val ctx = call.pageContext()
+        call.withEventPublicErrorHandling(ctx = ctx) {
             if (!attemptRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondEventTooManyRequests(brandTitle)
+                call.respondEventTooManyRequests(ctx)
                 return@withEventPublicErrorHandling
             }
             val declaredContentLength = call.request.headers[HttpHeaders.ContentLength]?.toLongOrNull()
             if (declaredContentLength == null || declaredContentLength > MAX_EVENT_REGISTRATION_BODY_BYTES) {
-                call.respondEventMalformed(brandTitle = brandTitle, status = HttpStatusCode.PayloadTooLarge)
+                call.respondEventMalformed(ctx = ctx, status = HttpStatusCode.PayloadTooLarge)
                 return@withEventPublicErrorHandling
             }
             if (!call.request.contentType().match(ContentType.Application.FormUrlEncoded)) {
-                call.respondEventMalformed(brandTitle = brandTitle, status = HttpStatusCode.BadRequest)
+                call.respondEventMalformed(ctx = ctx, status = HttpStatusCode.BadRequest)
                 return@withEventPublicErrorHandling
             }
             call.formFieldLimit = EVENT_FORM_FIELD_LIMIT
@@ -357,8 +403,11 @@ internal fun Route.registerEventPublicRoutes(
             // ALWAYS the same neutral success page -- unknown/expired token, already-cancelled
             // registration, or a genuine cancellation all look identical to the caller.
             call.response.header(HttpHeaders.CacheControl, "no-store")
-            call.applyEventPublicPageHeaders()
-            call.respondText(text = EventPublicHtml.cancelledSuccessPage(brandTitle = brandTitle), contentType = HTML_CONTENT_TYPE)
+            call.applyEventPageHeaders(ctx)
+            call.respondText(
+                text = EventPublicHtml.cancelledSuccessPage(ctx = ctx, slug = call.parameters["slug"].orEmpty()),
+                contentType = HTML_CONTENT_TYPE,
+            )
         }
     }
 
@@ -371,35 +420,37 @@ internal fun Route.registerEventPublicRoutes(
     // the same registration. Same GET-renders-confirmation/POST-mutates split as `/storno` above --
     // a mail-client link-prefetch must never start a Stripe checkout on its own.
     get("/veranstaltung/{slug}/zahlung") {
-        call.withEventPublicErrorHandling(brandTitle = brandTitle) {
+        val ctx = call.pageContext()
+        call.withEventPublicErrorHandling(ctx = ctx) {
             if (!pageRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondEventTooManyRequests(brandTitle)
+                call.respondEventTooManyRequests(ctx)
                 return@withEventPublicErrorHandling
             }
             val slug = call.parameters["slug"].orEmpty()
             val token = call.parameters["token"].orEmpty()
             call.response.header(HttpHeaders.CacheControl, "no-store")
-            call.applyEventPublicPageHeaders()
+            call.applyEventPageHeaders(ctx)
             call.respondText(
-                text = EventPublicHtml.paymentConfirmPage(brandTitle = brandTitle, slug = slug, token = token),
+                text = EventPublicHtml.paymentConfirmPage(ctx = ctx, slug = slug, token = token),
                 contentType = HTML_CONTENT_TYPE,
             )
         }
     }
 
     post("/veranstaltung/{slug}/zahlung") {
-        call.withEventPublicErrorHandling(brandTitle = brandTitle) {
+        val ctx = call.pageContext()
+        call.withEventPublicErrorHandling(ctx = ctx) {
             if (!attemptRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondEventTooManyRequests(brandTitle)
+                call.respondEventTooManyRequests(ctx)
                 return@withEventPublicErrorHandling
             }
             val declaredContentLength = call.request.headers[HttpHeaders.ContentLength]?.toLongOrNull()
             if (declaredContentLength == null || declaredContentLength > MAX_EVENT_REGISTRATION_BODY_BYTES) {
-                call.respondEventMalformed(brandTitle = brandTitle, status = HttpStatusCode.PayloadTooLarge)
+                call.respondEventMalformed(ctx = ctx, status = HttpStatusCode.PayloadTooLarge)
                 return@withEventPublicErrorHandling
             }
             if (!call.request.contentType().match(ContentType.Application.FormUrlEncoded)) {
-                call.respondEventMalformed(brandTitle = brandTitle, status = HttpStatusCode.BadRequest)
+                call.respondEventMalformed(ctx = ctx, status = HttpStatusCode.BadRequest)
                 return@withEventPublicErrorHandling
             }
             call.formFieldLimit = EVENT_FORM_FIELD_LIMIT
@@ -407,12 +458,12 @@ internal fun Route.registerEventPublicRoutes(
             val params = call.receiveParameters()
             val token = params["token"].orEmpty()
             if (token.isBlank()) {
-                call.respondEventRedirect("/veranstaltung/$slug/abgebrochen")
+                call.respondEventRedirect(ctx = ctx, location = ctx.href("/veranstaltung/$slug/abgebrochen"))
                 return@withEventPublicErrorHandling
             }
             val eventId = transaction { EventStore.getEventBySlugOrNull(slug)?.get(EventTable.id) }
             if (eventId == null) {
-                call.respondEventNotFound(brandTitle)
+                call.respondEventNotFound(ctx)
                 return@withEventPublicErrorHandling
             }
             val tokenHash = sha256Hex(token.toByteArray(Charsets.US_ASCII))
@@ -421,27 +472,32 @@ internal fun Route.registerEventPublicRoutes(
             // hash mismatch) -- no oracle for an anonymous caller, same posture the rest of this
             // file's public surface establishes.
             if (registration == null || registration[EventRegistrationTable.status] != EventRegistrationStatus.PENDING_PAYMENT) {
-                call.respondEventRedirect("/veranstaltung/$slug/abgebrochen")
+                call.respondEventRedirect(ctx = ctx, location = ctx.href("/veranstaltung/$slug/abgebrochen"))
                 return@withEventPublicErrorHandling
             }
             val storedHash = registration[EventRegistrationTable.cancelTokenSha256]
             if (storedHash == null ||
                 !MessageDigest.isEqual(tokenHash.toByteArray(Charsets.US_ASCII), storedHash.toByteArray(Charsets.US_ASCII))
             ) {
-                call.respondEventRedirect("/veranstaltung/$slug/abgebrochen")
+                call.respondEventRedirect(ctx = ctx, location = ctx.href("/veranstaltung/$slug/abgebrochen"))
                 return@withEventPublicErrorHandling
             }
             // Strict per-real-attempt budget -- only now, immediately before the Stripe call, same
             // "cheap gates first, expensive/network-bound work last" ordering `/anmeldung` establishes.
             if (!registrationRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondEventTooManyRequests(brandTitle)
+                call.respondEventTooManyRequests(ctx)
                 return@withEventPublicErrorHandling
             }
             val registrationId = registration[EventRegistrationTable.id]
             val result = submission.resumeCheckout(eventId = eventId, registrationId = registrationId)
             when (result) {
-                is EventRegistrationResult.PaymentRequired -> call.respondEventRedirect(result.redirectUrl)
-                else -> call.respondEventRedirect("/veranstaltung/$slug/abgebrochen")
+                is EventRegistrationResult.PaymentRequired ->
+                    call.respondEventPaymentRequired(
+                        ctx = ctx,
+                        slug = slug,
+                        redirectUrl = result.redirectUrl,
+                    )
+                else -> call.respondEventRedirect(ctx = ctx, location = ctx.href("/veranstaltung/$slug/abgebrochen"))
             }
         }
     }
@@ -462,9 +518,10 @@ internal fun Route.registerEventPublicRoutes(
     // relaxation alongside it.
 
     get("/veranstaltung/{slug}/ticket") {
-        call.withEventPublicErrorHandling(brandTitle = brandTitle) {
+        val ctx = call.pageContext()
+        call.withEventPublicErrorHandling(ctx = ctx) {
             if (!ticketPageRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
-                call.respondEventTooManyRequests(brandTitle)
+                call.respondEventTooManyRequests(ctx)
                 return@withEventPublicErrorHandling
             }
             val slug = call.parameters["slug"].orEmpty()
@@ -479,21 +536,21 @@ internal fun Route.registerEventPublicRoutes(
                         baseUrl = baseUrl,
                     )
             ) {
-                TicketResolution.TooManyRequests -> call.respondEventTooManyRequests(brandTitle)
-                TicketResolution.NotFound -> call.respondEventNotFound(brandTitle)
+                TicketResolution.TooManyRequests -> call.respondEventTooManyRequests(ctx)
+                TicketResolution.NotFound -> call.respondEventNotFound(ctx)
                 is TicketResolution.NotConfirmedYet -> {
                     call.response.header(HttpHeaders.CacheControl, "no-store")
-                    call.applyEventPublicPageHeaders()
+                    call.applyEventPageHeaders(ctx)
                     call.respondText(
-                        text = EventPublicHtml.ticketNotConfirmedPage(brandTitle = brandTitle, status = resolution.status),
+                        text = EventPublicHtml.ticketNotConfirmedPage(ctx = ctx, slug = slug, status = resolution.status),
                         contentType = HTML_CONTENT_TYPE,
                     )
                 }
                 is TicketResolution.Ticket -> {
                     call.response.header(HttpHeaders.CacheControl, "no-store")
-                    call.applyEventTicketPageHeaders()
+                    call.applyEventPageHeaders(ctx)
                     call.respondText(
-                        text = EventPublicHtml.ticketPage(brandTitle = brandTitle, view = resolution.toView()),
+                        text = EventPublicHtml.ticketPage(ctx = ctx, view = resolution.toView()),
                         contentType = HTML_CONTENT_TYPE,
                     )
                 }
@@ -502,7 +559,8 @@ internal fun Route.registerEventPublicRoutes(
     }
 
     get("/veranstaltung/{slug}/ticket.svg") {
-        call.withEventPublicErrorHandling(brandTitle = brandTitle) {
+        val ctx = call.pageContext()
+        call.withEventPublicErrorHandling(ctx = ctx) {
             if (!ticketPageRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
                 call.respondEventTicketBinaryStatus(HttpStatusCode.TooManyRequests)
                 return@withEventPublicErrorHandling
@@ -536,7 +594,8 @@ internal fun Route.registerEventPublicRoutes(
     }
 
     get("/veranstaltung/{slug}/ticket.pdf") {
-        call.withEventPublicErrorHandling(brandTitle = brandTitle) {
+        val ctx = call.pageContext()
+        call.withEventPublicErrorHandling(ctx = ctx) {
             if (!ticketPageRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
                 call.respondEventTicketBinaryStatus(HttpStatusCode.TooManyRequests)
                 return@withEventPublicErrorHandling
@@ -716,23 +775,23 @@ private suspend fun ApplicationCall.respondEventTicketBinaryStatus(status: HttpS
  * logs. Same fix, same reasoning [withEventPublicErrorHandling] below already applies.
  */
 private suspend fun ApplicationCall.respondEventReturnPage(
-    brandTitle: String,
+    ctx: EventPageContext,
     rateLimiter: FederationInboxRateLimiter,
     render: () -> String,
 ) {
     try {
         response.header(HttpHeaders.CacheControl, "no-store")
         if (!rateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = request.origin.remoteHost))) {
-            applyEventPublicPageHeaders()
+            applyEventPageHeaders(ctx)
             respondText(text = render(), contentType = HTML_CONTENT_TYPE, status = HttpStatusCode.TooManyRequests)
             return
         }
-        applyEventPublicPageHeaders()
+        applyEventPageHeaders(ctx)
         respondText(text = render(), contentType = HTML_CONTENT_TYPE)
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
-        runCatching { respondEventServerError(brandTitle) }
+        runCatching { respondEventServerError(ctx) }
     }
 }
 
@@ -786,82 +845,117 @@ private fun loadPublicEventView(
         )
     }
 
-/** Same header set `SocialPublicRoutes.applyPublicPageHeaders` establishes -- no `<script>` on this surface either, so an identical, maximally strict CSP applies. */
-internal fun ApplicationCall.applyEventPublicPageHeaders() {
-    response.header(
-        "Content-Security-Policy",
-        "default-src 'none'; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
-    )
-    response.header("X-Content-Type-Options", "nosniff")
-    response.header("Referrer-Policy", "no-referrer")
-    response.header("X-Frame-Options", "DENY")
-    response.header("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
-}
-
 /**
- * Welle V1.4.3.2 -- like [applyEventPublicPageHeaders], plus `img-src 'self'`. The ONLY page in this
- * family that loads an image at all (the QR code, from the same origin, via `ticket.svg`).
- * Deliberately NOT `img-src data:` (would require a raster/PNG encoder this file never needed) and
- * deliberately no `unsafe { }` inline-SVG-in-HTML shortcut (`EventPublicHtml` forbids raw HTML
- * categorically, see that file's own KDoc) -- the QR stays a separate, same-origin `<img>` request.
+ * The security headers of every HTML response of the `/veranstaltung/...` family (V1.9.128, replaces the former
+ * `applyEventPublicPageHeaders`/`applyEventTicketPageHeaders` pair).
+ *
+ * - **`img-src`**: STANDARD is `'self' data:` -- `'self'` for the cover image, the QR code and the operator logo, `data:` because the
+ *   chrome's navigation icons are CSS `mask-image: url("data:...")` (without it they would be silently invisible, same trap
+ *   `SocialPublicRoutes.applyPublicPageHeaders` documents). EMBED has no chrome and needs only `'self'`.
+ * - **`frame-ancestors`**: `'none'` (plus `X-Frame-Options: DENY`) for every response EXCEPT an EMBED-mode response while the embed
+ *   feature is enabled and an allowlist is configured: then `'self'` plus the allowlisted origins, and no `X-Frame-Options` (it cannot
+ *   express an allowlist, and browsers that understand `frame-ancestors` ignore it anyway). The STANDARD mode is never frameable, whatever
+ *   the allowlist says -- `?embed=1` is the only switch, and it only has an effect where the operator opted in.
+ * - No `<script>` on this surface, so `default-src 'none'` and `style-src 'self'` stay maximally strict (no inline styles anywhere).
  */
-internal fun ApplicationCall.applyEventTicketPageHeaders() {
+internal fun ApplicationCall.applyEventPageHeaders(ctx: EventPageContext) {
+    val imgSrc = if (ctx.isEmbed) "'self'" else "'self' data:"
+    val frameable = ctx.isEmbed && ctx.frameAncestors.isNotEmpty()
+    val frameAncestors = if (frameable) "'self' " + ctx.frameAncestors.joinToString(" ") else "'none'"
     response.header(
         "Content-Security-Policy",
-        "default-src 'none'; img-src 'self'; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+        "default-src 'none'; img-src $imgSrc; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors $frameAncestors",
     )
     response.header("X-Content-Type-Options", "nosniff")
     response.header("Referrer-Policy", "no-referrer")
-    response.header("X-Frame-Options", "DENY")
+    if (!frameable) response.header("X-Frame-Options", "DENY")
     response.header("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
 }
 
-private suspend fun ApplicationCall.respondEventRedirect(location: String) {
+private suspend fun ApplicationCall.respondEventRedirect(
+    ctx: EventPageContext,
+    location: String,
+) {
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyEventPublicPageHeaders()
+    applyEventPageHeaders(ctx)
     response.header(HttpHeaders.Location, location)
     respond(HttpStatusCode(303, "See Other"))
 }
 
-private suspend fun ApplicationCall.respondEventNotFound(brandTitle: String) {
+/**
+ * STANDARD: `303` to the PSP checkout, as before. EMBED: the checkout cannot be framed, so a `200` page offers a link that opens it in the
+ * top-level window (see [EventPublicHtml.paymentHandoffPage]).
+ */
+private suspend fun ApplicationCall.respondEventPaymentRequired(
+    ctx: EventPageContext,
+    slug: String,
+    redirectUrl: String,
+) {
+    if (!ctx.isEmbed) {
+        respondEventRedirect(ctx = ctx, location = redirectUrl)
+        return
+    }
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyEventPublicPageHeaders()
-    respondText(text = EventPublicHtml.notFoundPage(brandTitle), contentType = HTML_CONTENT_TYPE, status = HttpStatusCode.NotFound)
+    applyEventPageHeaders(ctx)
+    respondText(
+        text = EventPublicHtml.paymentHandoffPage(ctx = ctx, slug = slug, redirectUrl = redirectUrl),
+        contentType = HTML_CONTENT_TYPE,
+    )
 }
 
-private suspend fun ApplicationCall.respondEventTooManyRequests(brandTitle: String) {
+private suspend fun ApplicationCall.respondEventNotFound(ctx: EventPageContext) {
+    response.header(HttpHeaders.CacheControl, "no-store")
+    applyEventPageHeaders(ctx)
+    respondText(text = EventPublicHtml.notFoundPage(ctx), contentType = HTML_CONTENT_TYPE, status = HttpStatusCode.NotFound)
+}
+
+private suspend fun ApplicationCall.respondEventTooManyRequests(ctx: EventPageContext) {
     response.header(HttpHeaders.RetryAfter, "60")
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyEventPublicPageHeaders()
+    applyEventPageHeaders(ctx)
     respondText(
-        text = EventPublicHtml.tooManyRequestsPage(brandTitle),
+        text = EventPublicHtml.tooManyRequestsPage(ctx),
         contentType = HTML_CONTENT_TYPE,
         status = HttpStatusCode.TooManyRequests,
     )
 }
 
 private suspend fun ApplicationCall.respondEventMalformed(
-    brandTitle: String,
+    ctx: EventPageContext,
     status: HttpStatusCode,
 ) {
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyEventPublicPageHeaders()
-    respondText(text = EventPublicHtml.malformedRequestPage(brandTitle), contentType = HTML_CONTENT_TYPE, status = status)
+    applyEventPageHeaders(ctx)
+    respondText(text = EventPublicHtml.malformedRequestPage(ctx), contentType = HTML_CONTENT_TYPE, status = status)
 }
 
-private suspend fun ApplicationCall.respondEventServerError(brandTitle: String) {
+/** Validation failure of the registration form: still `400`, but with a human message and a link back. Nothing the visitor typed is reflected. */
+private suspend fun ApplicationCall.respondEventInvalidInput(
+    ctx: EventPageContext,
+    slug: String,
+) {
     response.header(HttpHeaders.CacheControl, "no-store")
-    applyEventPublicPageHeaders()
+    applyEventPageHeaders(ctx)
     respondText(
-        text = EventPublicHtml.serverErrorPage(brandTitle),
+        text = EventPublicHtml.invalidInputPage(ctx = ctx, slug = slug),
+        contentType = HTML_CONTENT_TYPE,
+        status = HttpStatusCode.BadRequest,
+    )
+}
+
+private suspend fun ApplicationCall.respondEventServerError(ctx: EventPageContext) {
+    response.header(HttpHeaders.CacheControl, "no-store")
+    applyEventPageHeaders(ctx)
+    respondText(
+        text = EventPublicHtml.serverErrorPage(ctx),
         contentType = HTML_CONTENT_TYPE,
         status = HttpStatusCode.InternalServerError,
     )
 }
 
 /** Same guarantee `SocialPublicRoutes.withPublicErrorHandling` gives its own route family -- see that function's KDoc. Not reused directly: its error page is `SocialPublicHtml`-specific. */
-private suspend fun ApplicationCall.withEventPublicErrorHandling(
-    brandTitle: String,
+internal suspend fun ApplicationCall.withEventPublicErrorHandling(
+    ctx: EventPageContext,
     handler: suspend () -> Unit,
 ) {
     try {
@@ -874,7 +968,7 @@ private suspend fun ApplicationCall.withEventPublicErrorHandling(
         // in the query string, which the full request.uri would otherwise leak into the log on any
         // unhandled exception.
         logger.error(e) { "Unhandled exception in a public event handler (${request.path()})" }
-        runCatching { respondEventServerError(brandTitle) }
+        runCatching { respondEventServerError(ctx) }
     }
 }
 

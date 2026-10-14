@@ -189,10 +189,16 @@ class PublicFooterTest :
             loginPage shouldNotContain "/impressum"
         }
 
-        test("F4b: EventPublicHtml pages DO carry site-relative Impressum/Datenschutz links (plan § 11/OF-1)") {
-            val html = EventPublicHtml.notFoundPage(brandTitle = BrandConfig.DEFAULT_TITLE)
+        test("F4b: EventPublicHtml EMBED pages DO carry site-relative Impressum/Datenschutz links that leave the frame (plan § 11/OF-1)") {
+            val html = EventPublicHtml.notFoundPage(eventTestContext(embed = true))
             html shouldContain "href=\"/impressum\""
             html shouldContain "href=\"/datenschutz\""
+        }
+
+        test("F4c: EventPublicHtml STANDARD pages carry the shared footer with absolute, hreflang-tagged Impressum/Datenschutz links") {
+            val html = EventPublicHtml.notFoundPage(eventTestContext())
+            html shouldContain "<a href=\"https://example.org/impressum\" hreflang=\"de\">"
+            html shouldContain "<a href=\"https://example.org/datenschutz\" hreflang=\"de\">"
         }
 
         test("F5: both footer <a> tags carry hreflang=\"de\"") {

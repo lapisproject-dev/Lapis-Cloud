@@ -78,9 +78,8 @@ The article page (`/aktuelles/{slug}`) shows the meta line "Von {byline} · Ver�
 * No pagination — hard-capped at 20 articles / 50 events.
 * No images, no excerpt, no location/capacity.
 * No sitemap entry for either page in this wave.
-* The DETAIL pages (`/aktuelles/{slug}`, `/veranstaltung/{slug}`) still carry no chrome —
-  a reader who clicks through from the overview loses the navigation until a later wave
-  adds it there too.
+* The article detail page (`/aktuelles/{slug}`) still carries no chrome. The event detail page has the full
+  header since V1.9.128 (see xref:../features/public-event-page.adoc[Public event page]); `?embed=1` keeps the slim shape.
 
 == See also
 

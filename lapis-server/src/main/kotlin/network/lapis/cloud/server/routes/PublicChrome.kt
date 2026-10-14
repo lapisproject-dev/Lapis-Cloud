@@ -21,9 +21,10 @@ import network.lapis.cloud.server.branding.ResolvedBranding
  * children of `<body class="has-chrome">` on all five unauthenticated, account-less public HTML
  * route families this codebase has ([SocialPublicHtml] `/s`, [PublicTransparencyHtml]
  * `/transparenz`, [PublicLandingHtml] `/`, and, since V1.4.7 "Rechtstexte", [LegalHtml]
- * `/impressum` + `/datenschutz`). Never used by [EmbedHtml]/[EmbedDonationHtml]/
- * [EventPublicHtml] -- those keep their own, narrower `<body>` shape unchanged (see
- * `SocialPublicHtmlTest`'s Embed byte-identity regression test).
+ * `/impressum` + `/datenschutz`) and, since V1.9.128, [EventPublicHtml] in its standard mode. Never
+ * used by [EmbedHtml]/[EmbedDonationHtml] nor by [EventPublicHtml]'s `?embed=1` variant -- those keep
+ * their own, narrower `<body>` shape unchanged (see `SocialPublicHtmlTest`'s Embed byte-identity
+ * regression test).
  *
  * Same five non-negotiable rendering-safety properties [SocialPublicHtml]'s own class KDoc
  * establishes apply here verbatim (escape-only `kotlinx.html` API, no request-time-dependent
@@ -860,8 +861,9 @@ internal object PublicChrome {
      * nicht Nachbereitung"). Head and foot are ONE component, hence living next to [renderChrome]
      * (Raskin).
      *
-     * Deliberately NOT used by [EmbedHtml]/[EmbedDonationHtml]/[EventPublicHtml] -- those never set
-     * `has-chrome` and have their own `<body>` shapes (see [renderChrome] KDoc).
+     * Deliberately NOT used by [EmbedHtml]/[EmbedDonationHtml] nor by [EventPublicHtml]'s `?embed=1`
+     * variant -- those never set `has-chrome` and have their own `<body>` shapes (see [renderChrome]
+     * KDoc). [EventPublicHtml]'s standard mode uses it since V1.9.128.
      *
      * The Impressum/Datenschutz FULL TEXTS are German-only (see [LegalHtml]); only these LINK
      * LABELS are translated. `hreflang="de"` on the link is the standard mechanism that makes this

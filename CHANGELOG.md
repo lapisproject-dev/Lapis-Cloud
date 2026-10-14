@@ -6,6 +6,17 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.128 -- Public event page: Lapis header, layout, `?embed=1`
+
+The public event page and its whole registration flow now carry the full Lapis header (brand, icon navigation, language switcher, footer) and a wide, styled layout. `?embed=1` keeps the slim shape for an `<iframe>`. Details: `docs/features/public-event-page.adoc`.
+
+- **Fixes:** the honeypot field was visible because the CSP (`style-src 'self'`) blocked its inline style (now a CSS class); the registration form had no styles; start and end were printed as ISO timestamps (now "Dienstag, 20. Oktober 2026, 20:15 bis 22:15 Uhr").
+- **New:** facts list (when, where, fee, seats -- still binary), registration card, status callouts, a human message on invalid input (still `400`, nothing reflected), `?embed=1` passed through every link and redirect, `?lang=` passed through in the standard mode.
+- **Framing:** the standard page is never frameable. The `?embed=1` variant may be framed by `LAPIS_EMBED_ALLOWED_ORIGINS` only while `LAPIS_EMBED_ENABLED=true`; otherwise `frame-ancestors 'none'` and `X-Frame-Options: DENY` stay. `img-src` of the standard page is `'self' data:` (navigation icons).
+- **Paid events in an iframe:** a `200` hand-off page with a `target="_top"` link instead of a `303` into the frame.
+- **API / BEHAVIOR CHANGES:** `registerEventPublicRoutes` takes `branding`, `navAvailability` and `embedConfig` instead of `brandTitle`. No migration, no RPC change.
+- **Known limitations:** `/aktuelles/{slug}` unchanged (probably the same inline-style pattern, to be checked); links from `/veranstaltungen?lang=en` carry no `lang`; no `noindex` on token and follow-up pages; no automatic iframe height; the `form-action 'self'` CSP against the payment redirect was not verified in a live browser (pre-existing).
+
 ### V1.9.127 -- Reactions and raised hands (Wortmeldeliste) in the video conference
 
 A person can react with applause, a heart, amen, thumbs up or a flower, and can raise a hand that puts them into a list everybody sees and the moderation can work through. Details: `docs/features/video-conferencing.adoc`, section "Reactions and raised hands (V1.9.127)".

@@ -1,30 +1,41 @@
 package network.lapis.cloud.server.routes
 
 import kotlinx.datetime.LocalDateTime
+import kotlinx.html.ButtonType
+import kotlinx.html.DD
+import kotlinx.html.DL
 import kotlinx.html.FORM
 import kotlinx.html.FlowContent
 import kotlinx.html.FormMethod
 import kotlinx.html.a
 import kotlinx.html.body
 import kotlinx.html.br
+import kotlinx.html.button
+import kotlinx.html.dd
 import kotlinx.html.div
+import kotlinx.html.dl
+import kotlinx.html.dt
 import kotlinx.html.emailInput
+import kotlinx.html.figure
 import kotlinx.html.form
 import kotlinx.html.h1
 import kotlinx.html.h2
 import kotlinx.html.head
 import kotlinx.html.hiddenInput
 import kotlinx.html.html
+import kotlinx.html.id
 import kotlinx.html.img
 import kotlinx.html.label
 import kotlinx.html.link
+import kotlinx.html.main
 import kotlinx.html.meta
 import kotlinx.html.p
+import kotlinx.html.section
 import kotlinx.html.stream.createHTML
-import kotlinx.html.submitInput
 import kotlinx.html.textArea
 import kotlinx.html.textInput
 import kotlinx.html.title
+import network.lapis.cloud.server.events.EventPolicy
 import network.lapis.cloud.server.events.EventText
 import network.lapis.cloud.shared.domain.EventRegistrationStatus
 import network.lapis.cloud.shared.domain.EventTicketCode
@@ -40,12 +51,12 @@ import network.lapis.cloud.shared.domain.EventTicketCode
  * **Occupancy is always BINARY** ("Plätze frei" / "Warteliste"), never an exact remaining count --
  * no digit of a remaining-seats count may ever appear in the rendered HTML.
  *
- * V1.4.7 "Rechtstexte" (Plan § 11/OF-1): [skeleton]'s footer carries plain-text Impressum/
- * Datenschutz links, site-relative (`/impressum`/`/datenschutz`, no [PublicChrome] chrome, no
- * `baseUrl` parameter in scope here) -- the `/veranstaltung` route family is the ONE public route
- * family in this codebase where a visitor enters personal data (guest name/email), so it is the
- * most urgent place for this link, despite carrying none of [PublicChrome.renderPublicFooter]'s
- * shared chrome.
+ * V1.9.128 "Veranstaltungsseite: Kopfbereich, Layout, ?embed=1": the page now has TWO presentations ([EventPageMode]). The standard
+ * mode carries the full [PublicChrome] header (brand, icon navigation, language switcher), a wide layout and the shared footer
+ * (Impressum/Datenschutz as `$baseUrl/impressum`/`/datenschutz`). `?embed=1` keeps the slim, header-less `embed-page` shape for an
+ * `<iframe>` on a partner website, with site-relative footer links that leave the frame (`target="_top"`). Every family-internal link
+ * and redirect goes through [EventPageContext.href] so the mode (and the language) survive the whole registration flow. The page BODY
+ * is German in every UI language (the event texts are); only the chrome is translated.
  */
 internal object EventPublicHtml {
     /** One event's publicly-safe view -- assembled by the route handler OUTSIDE any transaction (Slowloris rule, see `SocialPublicRoutes` KDoc). */
@@ -75,82 +86,169 @@ internal object EventPublicHtml {
     )
 
     fun eventPage(
-        brandTitle: String,
+        ctx: EventPageContext,
         view: View,
     ): String =
-        skeleton(brandTitle = brandTitle, heading = view.title, ogImage = view.coverImageUrl) {
+        skeleton(
+            ctx = ctx,
+            heading = view.title,
+            currentPath = "/veranstaltung/${view.slug}",
+            ogImage = view.coverImageUrl,
+            canonicalPath = "/veranstaltung/${view.slug}",
+        ) {
+            factList {
+                fact(label = "Wann") { +formatEventRange(start = view.startsAt, end = view.endsAt) }
+                if (view.locationText != null || view.onlineUrl != null || view.onlineJoinUrl != null) {
+                    fact(label = "Wo") {
+                        whereLines(
+                            locationText = view.locationText,
+                            onlineUrl = view.onlineUrl,
+                            onlineJoinUrl = view.onlineJoinUrl,
+                            joinHint = true,
+                        )
+                    }
+                }
+                fact(label = "Teilnahme") { +view.feeLabel }
+                // Occupancy stays BINARY -- never a count (see class KDoc).
+                if (!view.hasEnded) {
+                    fact(label = "Plätze") { +(if (view.full) "Ausgebucht – Warteliste möglich" else "Plätze frei") }
+                }
+            }
             if (view.coverImageUrl != null) {
                 img(src = view.coverImageUrl, alt = view.coverImageAlt ?: view.title, classes = "event-cover")
             }
-            // Plain text only: one <p> per paragraph (empty line), single line breaks become <br>. Text nodes are escaped by kotlinx.html.
-            for (paragraph in EventText.paragraphs(EventText.normalizeMultiline(view.description))) {
-                p {
-                    paragraph.forEachIndexed { index, line ->
-                        if (index > 0) br()
-                        +line
+            val canRegister = !view.hasEnded && view.registrationOpen
+            when {
+                view.hasEnded -> callout(text = "Diese Veranstaltung hat stattgefunden.")
+                !view.registrationOpen -> callout(text = "Die Anmeldung ist für diese Veranstaltung derzeit nicht möglich.")
+                view.full ->
+                    callout(
+                        text = "Diese Veranstaltung ist ausgebucht. Sie können sich auf die Warteliste setzen.",
+                        waitlist = true,
+                    )
+            }
+            if (canRegister) registrationCard(ctx = ctx, slug = view.slug, waitlist = view.full)
+            div(classes = "event-description") {
+                // Plain text only: one <p> per paragraph (empty line), single line breaks become <br>. Text nodes are escaped by kotlinx.html.
+                for (paragraph in EventText.paragraphs(EventText.normalizeMultiline(view.description))) {
+                    p {
+                        paragraph.forEachIndexed { index, line ->
+                            if (index > 0) br()
+                            +line
+                        }
                     }
-                }
-            }
-            if (view.locationText != null) p { +"Ort: ${view.locationText}" }
-            // Only set by the route when the administrator ticked "show the online link publicly" AND it is an https link (F1).
-            if (view.onlineUrl != null) p { +"Online: ${view.onlineUrl}" }
-            if (view.onlineJoinUrl != null) {
-                p {
-                    +"Online teilnehmen: "
-                    a(href = view.onlineJoinUrl) { +"Zur Online-Teilnahme" }
-                    +" (der Zugang öffnet kurz vor Beginn)"
-                }
-            }
-            p { +"Beginn: ${view.startsAt}" }
-            p { +"Ende: ${view.endsAt}" }
-            p { +"Teilnahmegebühr: ${view.feeLabel}" }
-            if (view.hasEnded) {
-                p { +"Diese Veranstaltung hat stattgefunden." }
-            } else {
-                p { +(if (view.full) "Plätze frei: Nein (Warteliste möglich)" else "Plätze frei: Ja") }
-                if (!view.registrationOpen) {
-                    p { +"Die Anmeldung ist für diese Veranstaltung derzeit nicht möglich." }
-                } else {
-                    registrationForm(view.slug)
                 }
             }
         }
 
-    private fun FlowContent.registrationForm(slug: String) {
-        form(action = "/veranstaltung/$slug/anmeldung", method = FormMethod.post) {
-            honeypotField()
-            label {
-                htmlFor = "guestName"
-                +"Name"
+    private fun FlowContent.factList(block: DL.() -> Unit) {
+        dl(classes = "event-facts") { block() }
+    }
+
+    private fun DL.fact(
+        label: String,
+        value: DD.() -> Unit,
+    ) {
+        dt { +label }
+        dd { value() }
+    }
+
+    /** Location, the optional public online link (plain text) and the optional link to the Lapis online participation page. */
+    private fun DD.whereLines(
+        locationText: String?,
+        onlineUrl: String?,
+        onlineJoinUrl: String?,
+        joinHint: Boolean,
+    ) {
+        var first = true
+
+        fun separator() {
+            if (!first) br()
+            first = false
+        }
+        if (locationText != null) {
+            separator()
+            +locationText
+        }
+        // Only set by the route when the administrator ticked "show the online link publicly" AND it is an https link (F1).
+        if (onlineUrl != null) {
+            separator()
+            +"Online: $onlineUrl"
+        }
+        if (onlineJoinUrl != null) {
+            separator()
+            a(href = onlineJoinUrl) { +"Zur Online-Teilnahme" }
+            if (joinHint) +" (der Zugang öffnet kurz vor Beginn)"
+        }
+    }
+
+    private fun FlowContent.callout(
+        text: String,
+        waitlist: Boolean = false,
+    ) {
+        div(classes = if (waitlist) "event-callout event-callout--waitlist" else "event-callout") {
+            attributes["role"] = "status"
+            +text
+        }
+    }
+
+    private fun FlowContent.registrationCard(
+        ctx: EventPageContext,
+        slug: String,
+        waitlist: Boolean,
+    ) {
+        section(classes = "event-card") {
+            attributes["aria-labelledby"] = "anmeldung-titel"
+            h2 {
+                id = "anmeldung-titel"
+                +(if (waitlist) "Auf die Warteliste" else "Anmeldung")
             }
-            textInput(name = "guestName") {
-                attributes["id"] = "guestName"
-                required = true
+            form(action = ctx.href("/veranstaltung/$slug/anmeldung"), method = FormMethod.post, classes = "event-form") {
+                honeypotField()
+                div(classes = "event-field") {
+                    label {
+                        htmlFor = "guestName"
+                        +"Name"
+                    }
+                    textInput(name = "guestName") {
+                        id = "guestName"
+                        required = true
+                        attributes["autocomplete"] = "name"
+                        attributes["maxlength"] = EventPolicy.MAX_GUEST_NAME_LENGTH.toString()
+                    }
+                }
+                div(classes = "event-field") {
+                    label {
+                        htmlFor = "guestEmail"
+                        +"E-Mail-Adresse"
+                    }
+                    emailInput(name = "guestEmail") {
+                        id = "guestEmail"
+                        required = true
+                        attributes["autocomplete"] = "email"
+                        attributes["maxlength"] = EventPolicy.MAX_GUEST_EMAIL_LENGTH.toString()
+                    }
+                }
+                button(type = ButtonType.submit, classes = "event-submit") {
+                    +(if (waitlist) "Auf die Warteliste setzen" else "Verbindlich anmelden")
+                }
+                p(classes = "event-hint") { +"Sie erhalten eine Bestätigung per E-Mail." }
             }
-            label {
-                htmlFor = "guestEmail"
-                +"E-Mail-Adresse"
-            }
-            emailInput(name = "guestEmail") {
-                attributes["id"] = "guestEmail"
-                required = true
-            }
-            submitInput { value = "Anmelden" }
         }
     }
 
     private fun FORM.honeypotField() {
         // Klassischer No-JS-Bot-Schutz, siehe registerEventPublicRoutes KDoc -- ein echter Mensch
-        // sieht/füllt dieses Feld nie aus (versteckt per Inline-Style, kein JavaScript nötig).
-        div {
-            attributes["style"] = "position:absolute;left:-9999px"
+        // sieht/füllt dieses Feld nie aus. Versteckt per CSS-Klasse `.hp` (NICHT per Inline-Style: die CSP
+        // `style-src 'self'` blockiert style-Attribute, das Feld wäre sonst sichtbar -- V1.9.128).
+        div(classes = "hp") {
             attributes["aria-hidden"] = "true"
             label {
                 htmlFor = "kommentar"
                 +"Bitte freilassen"
             }
             textArea {
-                attributes["id"] = "kommentar"
+                id = "kommentar"
                 name = "kommentar"
                 attributes["tabindex"] = "-1"
                 attributes["autocomplete"] = "off"
@@ -158,79 +256,127 @@ internal object EventPublicHtml {
         }
     }
 
+    /** Validation failure of the registration form (400) -- never reflects the submitted values. */
+    fun invalidInputPage(
+        ctx: EventPageContext,
+        slug: String,
+    ): String =
+        skeleton(ctx = ctx, heading = "Angaben unvollständig", currentPath = "/veranstaltung/$slug") {
+            callout(text = "Bitte geben Sie Ihren Namen und eine gültige E-Mail-Adresse an.")
+            p { a(href = ctx.href("/veranstaltung/$slug")) { +"Zurück zur Anmeldung" } }
+        }
+
     fun thanksPage(
-        brandTitle: String,
+        ctx: EventPageContext,
+        slug: String,
         registrationId: String?,
     ): String =
-        skeleton(brandTitle = brandTitle, heading = "Anmeldung bestätigt") {
-            p { +"Vielen Dank für Ihre Anmeldung. Eine Bestätigung wurde per E-Mail versendet." }
-            if (registrationId != null) p { +"Vorgang: $registrationId" }
+        skeleton(ctx = ctx, heading = "Anmeldung bestätigt", currentPath = "/veranstaltung/$slug/danke") {
+            callout(text = "Vielen Dank für Ihre Anmeldung. Eine Bestätigung wurde per E-Mail versendet.")
+            if (registrationId != null) p(classes = "event-hint") { +"Vorgang: $registrationId" }
         }
 
-    fun waitlistPage(brandTitle: String): String =
-        skeleton(brandTitle = brandTitle, heading = "Auf der Warteliste") {
-            p {
-                +(
+    fun waitlistPage(
+        ctx: EventPageContext,
+        slug: String,
+    ): String =
+        skeleton(ctx = ctx, heading = "Auf der Warteliste", currentPath = "/veranstaltung/$slug/warteliste") {
+            callout(
+                text =
                     "Diese Veranstaltung ist ausgebucht. Sie stehen auf der Warteliste und werden " +
-                        "benachrichtigt, sobald ein Platz frei wird."
-                )
-            }
+                        "benachrichtigt, sobald ein Platz frei wird.",
+                waitlist = true,
+            )
         }
 
-    fun cancelledPage(brandTitle: String): String =
-        skeleton(brandTitle = brandTitle, heading = "Vorgang abgebrochen") {
-            p { +"Der Vorgang wurde abgebrochen. Es wurden keine Daten gespeichert." }
+    fun cancelledPage(
+        ctx: EventPageContext,
+        slug: String,
+    ): String =
+        skeleton(ctx = ctx, heading = "Vorgang abgebrochen", currentPath = "/veranstaltung/$slug/abgebrochen") {
+            callout(text = "Der Vorgang wurde abgebrochen. Es wurden keine Daten gespeichert.")
         }
 
-    fun notFoundPage(brandTitle: String): String =
-        skeleton(brandTitle = brandTitle, heading = "Nicht gefunden") {
-            p { +"Diese Seite existiert nicht oder ist nicht öffentlich zugänglich." }
+    fun notFoundPage(ctx: EventPageContext): String =
+        skeleton(ctx = ctx, heading = "Nicht gefunden", currentPath = "/veranstaltungen") {
+            callout(text = "Diese Seite existiert nicht oder ist nicht öffentlich zugänglich.")
         }
 
-    fun tooManyRequestsPage(brandTitle: String): String =
-        skeleton(brandTitle = brandTitle, heading = "Zu viele Anfragen") {
-            p { +"Bitte versuchen Sie es später erneut." }
+    fun tooManyRequestsPage(ctx: EventPageContext): String =
+        skeleton(ctx = ctx, heading = "Zu viele Anfragen", currentPath = "/veranstaltungen") {
+            callout(text = "Bitte versuchen Sie es später erneut.")
         }
 
-    fun serverErrorPage(brandTitle: String): String =
-        skeleton(brandTitle = brandTitle, heading = "Fehler") {
-            p { +"Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut." }
+    fun serverErrorPage(ctx: EventPageContext): String =
+        skeleton(ctx = ctx, heading = "Fehler", currentPath = "/veranstaltungen") {
+            callout(text = "Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.")
         }
 
-    fun malformedRequestPage(brandTitle: String): String =
-        skeleton(brandTitle = brandTitle, heading = "Ungültige Anfrage") {
-            p { +"Die Anfrage konnte nicht verarbeitet werden." }
+    fun malformedRequestPage(ctx: EventPageContext): String =
+        skeleton(ctx = ctx, heading = "Ungültige Anfrage", currentPath = "/veranstaltungen") {
+            callout(text = "Die Anfrage konnte nicht verarbeitet werden.")
         }
 
+    /**
+     * Token pages (storno, zahlung, ticket) pass the DETAIL page as `currentPath` -- a bearer token or ticket code must never end up in a
+     * link of the chrome (language switcher).
+     */
     fun cancelConfirmPage(
-        brandTitle: String,
+        ctx: EventPageContext,
         slug: String,
         token: String,
     ): String =
-        skeleton(brandTitle = brandTitle, heading = "Anmeldung stornieren") {
-            p { +"Möchten Sie Ihre Anmeldung wirklich stornieren?" }
-            form(action = "/veranstaltung/$slug/storno", method = FormMethod.post) {
-                hiddenInput(name = "token") { value = token }
-                submitInput { value = "Ja, stornieren" }
+        skeleton(ctx = ctx, heading = "Anmeldung stornieren", currentPath = "/veranstaltung/$slug") {
+            section(classes = "event-card") {
+                p { +"Möchten Sie Ihre Anmeldung wirklich stornieren?" }
+                form(action = ctx.href("/veranstaltung/$slug/storno"), method = FormMethod.post, classes = "event-form") {
+                    hiddenInput(name = "token") { value = token }
+                    button(type = ButtonType.submit, classes = "event-submit event-submit--danger") { +"Ja, stornieren" }
+                }
             }
         }
 
-    fun cancelledSuccessPage(brandTitle: String): String =
-        skeleton(brandTitle = brandTitle, heading = "Anmeldung storniert") {
-            p { +"Ihre Anmeldung wurde storniert." }
+    fun cancelledSuccessPage(
+        ctx: EventPageContext,
+        slug: String,
+    ): String =
+        skeleton(ctx = ctx, heading = "Anmeldung storniert", currentPath = "/veranstaltung/$slug") {
+            callout(text = "Ihre Anmeldung wurde storniert.")
         }
 
     /** Counterpart of [cancelConfirmPage] for `POST /veranstaltung/{slug}/zahlung` (Review MAJOR fix) -- same GET-renders/POST-mutates split, see `registerEventPublicRoutes` KDoc. */
     fun paymentConfirmPage(
-        brandTitle: String,
+        ctx: EventPageContext,
         slug: String,
         token: String,
     ): String =
-        skeleton(brandTitle = brandTitle, heading = "Zahlung abschließen") {
-            p { +"Bitte schließen Sie die Zahlung für Ihren Platz ab." }
-            form(action = "/veranstaltung/$slug/zahlung", method = FormMethod.post) {
-                hiddenInput(name = "token") { value = token }
-                submitInput { value = "Weiter zur Zahlung" }
+        skeleton(ctx = ctx, heading = "Zahlung abschließen", currentPath = "/veranstaltung/$slug") {
+            section(classes = "event-card") {
+                p { +"Bitte schließen Sie die Zahlung für Ihren Platz ab." }
+                form(action = ctx.href("/veranstaltung/$slug/zahlung"), method = FormMethod.post, classes = "event-form") {
+                    hiddenInput(name = "token") { value = token }
+                    button(type = ButtonType.submit, classes = "event-submit") { +"Weiter zur Zahlung" }
+                }
+            }
+        }
+
+    /**
+     * EMBED mode only: a payment service provider (Stripe Checkout) cannot be framed, so instead of a `303` inside the iframe the
+     * visitor gets this page with a link that opens the checkout in the full browser window (`target="_top"`). [redirectUrl] comes
+     * from the server (the PSP gateway), never from the request, and is escaped by kotlinx.html like every other attribute.
+     */
+    fun paymentHandoffPage(
+        ctx: EventPageContext,
+        slug: String,
+        redirectUrl: String,
+    ): String =
+        skeleton(ctx = ctx, heading = "Zahlung abschließen", currentPath = "/veranstaltung/$slug") {
+            section(classes = "event-card") {
+                p { +"Die Zahlung öffnet sich im vollen Browserfenster." }
+                a(href = redirectUrl, target = "_top", classes = "event-submit") {
+                    attributes["rel"] = "noopener"
+                    +"Weiter zur Zahlung"
+                }
             }
         }
 
@@ -262,31 +408,40 @@ internal object EventPublicHtml {
      * ticket holder has no account and gets none).
      */
     fun ticketPage(
-        brandTitle: String,
+        ctx: EventPageContext,
         view: TicketView,
     ): String =
-        skeleton(brandTitle = brandTitle, heading = view.title) {
-            p { +"Beginn: ${view.startsAt}" }
-            p { +"Ende: ${view.endsAt}" }
-            if (view.locationText != null) p { +"Ort: ${view.locationText}" }
-            if (view.onlineUrl != null) p { +"Online: ${view.onlineUrl}" }
-            if (view.onlineJoinUrl != null) {
-                p {
-                    +"Online teilnehmen: "
-                    a(href = view.onlineJoinUrl) { +"Zur Online-Teilnahme" }
+        skeleton(ctx = ctx, heading = view.title, currentPath = "/veranstaltung/${view.slug}") {
+            factList {
+                fact(label = "Wann") { +formatEventRange(start = view.startsAt, end = view.endsAt) }
+                if (view.locationText != null || view.onlineUrl != null || view.onlineJoinUrl != null) {
+                    fact(label = "Wo") {
+                        whereLines(
+                            locationText = view.locationText,
+                            onlineUrl = view.onlineUrl,
+                            onlineJoinUrl = view.onlineJoinUrl,
+                            joinHint = false,
+                        )
+                    }
                 }
             }
-            img(src = "/veranstaltung/${view.slug}/ticket.svg?code=${view.canonicalCode}", alt = "QR-Code für den Einlass") {
-                attributes["width"] = "260"
-                attributes["height"] = "260"
+            figure(classes = "event-qr") {
+                img(
+                    src = ctx.href("/veranstaltung/${view.slug}/ticket.svg?code=${view.canonicalCode}"),
+                    alt = "QR-Code für den Einlass",
+                ) {
+                    attributes["width"] = "260"
+                    attributes["height"] = "260"
+                }
             }
-            p { +EventTicketCode.formatForDisplay(view.canonicalCode) }
-            p { a(href = "/veranstaltung/${view.slug}/ticket.pdf?code=${view.canonicalCode}") { +"Als PDF herunterladen" } }
+            p(classes = "event-ticket-code") { +EventTicketCode.formatForDisplay(view.canonicalCode) }
+            p { a(href = ctx.href("/veranstaltung/${view.slug}/ticket.pdf?code=${view.canonicalCode}")) { +"Als PDF herunterladen" } }
         }
 
     /** A valid-code-but-not-yet-ticketable status -- rendered with the TRUE reason (the caller holds a genuine code, so an honest status line is the right posture here, unlike the neutral 404 an unknown/wrong-event code gets). */
     fun ticketNotConfirmedPage(
-        brandTitle: String,
+        ctx: EventPageContext,
+        slug: String,
         status: EventRegistrationStatus,
     ): String {
         val message =
@@ -298,23 +453,41 @@ internal object EventPublicHtml {
                 // CONFIRMED never reaches this function -- EventPublicRoutes renders ticketPage() instead.
                 EventRegistrationStatus.CONFIRMED -> "Diese Anmeldung ist bestätigt."
             }
-        return skeleton(brandTitle = brandTitle, heading = "Kein Ticket verfügbar") { p { +message } }
+        return skeleton(ctx = ctx, heading = "Kein Ticket verfügbar", currentPath = "/veranstaltung/$slug") { callout(text = message) }
     }
 
+    /**
+     * [PublicChrome] header + wide layout in [EventPageMode.STANDARD]; the slim `embed-page` shape in [EventPageMode.EMBED].
+     * [currentPath] is the site-relative path (NO query) the language switcher points to; [canonicalPath], when non-null, adds the
+     * canonical link (plus hreflang alternates in STANDARD mode). The EMBED variant is always `noindex` and canonicalises onto the
+     * STANDARD URL, so it never creates duplicate content.
+     */
     private fun skeleton(
-        brandTitle: String,
+        ctx: EventPageContext,
         heading: String,
+        currentPath: String,
         /** Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- when non-null, rendered as `og:image` so a shared event link previews with the cover image. `kotlinx.html`'s ordinary attribute API escapes it, same as every other value this file ever writes -- see class KDoc. */
         ogImage: String? = null,
+        canonicalPath: String? = null,
         content: FlowContent.() -> Unit,
     ): String =
         createHTML(prettyPrint = false).html {
-            attributes["lang"] = "de"
+            attributes["lang"] = if (ctx.isEmbed) "de" else ctx.lang.code
             head {
                 meta(charset = "utf-8")
                 meta(name = "viewport", content = "width=device-width, initial-scale=1")
-                title { +"$heading – $brandTitle" }
+                title { +"$heading – ${ctx.brandTitle}" }
                 link(rel = "stylesheet", href = "/s/assets/style.css")
+                if (ctx.isEmbed) {
+                    meta(name = "robots", content = "noindex")
+                    if (canonicalPath != null) link(rel = "canonical", href = "${ctx.baseUrl}$canonicalPath")
+                } else if (canonicalPath != null) {
+                    link(
+                        rel = "canonical",
+                        href = PublicChrome.languageUrl(baseUrl = ctx.baseUrl, currentPath = canonicalPath, lang = ctx.lang),
+                    )
+                    with(PublicChrome) { renderHreflangAlternates(baseUrl = ctx.baseUrl, currentPath = canonicalPath) }
+                }
                 if (ogImage != null) {
                     meta {
                         attributes["property"] = "og:image"
@@ -322,17 +495,43 @@ internal object EventPublicHtml {
                     }
                 }
             }
-            body {
-                div("embed-page") {
-                    h1 { +brandTitle }
-                    h2 { +heading }
-                    content()
-                    p { a(href = "/") { +"Zur Startseite" } }
-                    p(classes = "section-note") {
-                        a(href = "/impressum") { +"Impressum" }
-                        +" · "
-                        a(href = "/datenschutz") { +"Datenschutz" }
+            if (ctx.isEmbed) {
+                body {
+                    div("embed-page event-embed") {
+                        h1 { +ctx.brandTitle }
+                        h2 { +heading }
+                        content()
+                        // Site-relative, `target="_top"`: leaves the iframe; the start page has no embed mode.
+                        p { a(href = "/", target = "_top") { +"Zur Startseite" } }
+                        p(classes = "section-note") {
+                            a(href = "/impressum", target = "_top") { +"Impressum" }
+                            +" · "
+                            a(href = "/datenschutz", target = "_top") { +"Datenschutz" }
+                        }
                     }
+                }
+            } else {
+                body(classes = "has-chrome event-wide") {
+                    with(PublicChrome) {
+                        renderChrome(
+                            lang = ctx.lang,
+                            active = PublicChrome.NavTarget.EVENTS,
+                            baseUrl = ctx.baseUrl,
+                            branding = ctx.branding,
+                            currentPath = currentPath,
+                            nav = ctx.nav,
+                        )
+                    }
+                    main {
+                        attributes["id"] = "main"
+                        // The page content is German in every UI language (see PublicOverviewHtml's event list).
+                        div {
+                            attributes["lang"] = "de"
+                            h1(classes = "event-title") { +heading }
+                            content()
+                        }
+                    }
+                    with(PublicChrome) { renderPublicFooter(lang = ctx.lang, baseUrl = ctx.baseUrl, branding = ctx.branding) }
                 }
             }
         }
