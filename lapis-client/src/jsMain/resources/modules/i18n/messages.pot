@@ -1155,7 +1155,7 @@ msgstr ""
 msgid "\"%1\" wirklich löschen? (Soft-Delete -- bisherige Versionen bleiben zu Prüfzwecken erhalten, das Dokument verschwindet aus der Ansicht.)"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:165
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:166
 msgid "\"%1\" wirklich löschen? Dies ist nur möglich, solange kein aktiver oder unterbrochener Live-Stream dieses Ziel verwendet."
 msgstr ""
 
@@ -1526,7 +1526,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:6174
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:6199
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:6224
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:311
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:319
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceWhiteboardController.kt:621
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceWhiteboardController.kt:653
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConfirmDialog.kt:172
@@ -1773,7 +1773,7 @@ msgid "Aktive Besprechungen"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:458
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:143
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:146
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:784
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:804
@@ -1843,7 +1843,7 @@ msgstr ""
 msgid "Aktueller Preis (Sie führen)"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:299
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:307
 msgid "Aktueller Schlüssel: %1 -- wird hier nie im Klartext angezeigt."
 msgstr ""
 
@@ -2589,7 +2589,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:159
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:147
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:165
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:135
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:136
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceTitleRow.kt:29
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:214
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:165
@@ -3066,11 +3066,11 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:91
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:138
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:315
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:285
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:287
 msgid "Bezeichnung"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:196
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:197
 msgid "Bezeichnung (z. B. \"PdV YouTube-Kanal\")"
 msgstr ""
 
@@ -3612,7 +3612,7 @@ msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:543
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:258
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:141
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:142
 #: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:274
 #: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:285
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:281
@@ -4635,7 +4635,7 @@ msgstr ""
 msgid "Fehlgeschlagen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:312
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:320
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusReceipt.kt:131
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionBooth.kt:450
 #: src/jsMain/kotlin/network/lapis/cloud/client/ElectionBooth.kt:463
@@ -4930,7 +4930,7 @@ msgstr ""
 msgid "Genehmigt"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:357
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:365
 msgid "Generisches RTMP"
 msgstr ""
 
@@ -4984,7 +4984,7 @@ msgstr ""
 msgid "Gesendet am %1"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:328
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:336
 msgid "Gespeichert -- Schlüssel wird nicht erneut angezeigt."
 msgstr ""
 
@@ -6099,8 +6099,8 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:190
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:664
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceRecordingsPanel.kt:687
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:160
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:170
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:161
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:171
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsRowActions.kt:23
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsRowActions.kt:35
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberFamiliesScreen.kt:488
@@ -6783,7 +6783,7 @@ msgstr ""
 msgid "Neuer Schlüssel -- jetzt speichern"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:295
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:297
 msgid "Neuer Stream-Schlüssel (leer lassen = unverändert lassen)"
 msgstr ""
 
@@ -6999,7 +6999,7 @@ msgstr ""
 msgid "Noch keine Sitzungen vorhanden."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:86
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:87
 msgid "Noch keine Stream-Ziele angelegt."
 msgstr ""
 
@@ -7217,7 +7217,7 @@ msgstr ""
 msgid "Ort: %1"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:356
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:364
 msgid "Owncast"
 msgstr ""
 
@@ -7267,7 +7267,7 @@ msgstr ""
 msgid "Peer-Transfer"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:355
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:363
 msgid "PeerTube"
 msgstr ""
 
@@ -7306,7 +7306,7 @@ msgstr ""
 msgid "Pflichten:"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:200
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:201
 msgid "Plattform"
 msgstr ""
 
@@ -7645,20 +7645,20 @@ msgstr ""
 msgid "Rolle"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:208
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:288
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:209
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:290
 msgid "RTMP-Basis-URL"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:387
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:421
 msgid "RTMP-URL Ihrer Owncast-Instanz, z. B. rtmp://owncast.example.org:1935/live"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:386
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:420
 msgid "RTMP-URL Ihrer PeerTube-Instanz, z. B. rtmp://peertube.example.org:1935/live"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:388
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:422
 msgid "RTMP-Ziel-URL, z. B. für Facebook Live, LinkedIn Live oder Vimeo"
 msgstr ""
 
@@ -7741,7 +7741,7 @@ msgstr ""
 msgid "Schließen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:127
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:128
 msgid "Schlüssel gesetzt am %1 von %2"
 msgstr ""
 
@@ -8159,7 +8159,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:294
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceNotesController.kt:515
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:2250
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:314
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:322
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceWhiteboardController.kt:655
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusOptions.kt:170
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsRowActions.kt:121
@@ -8476,39 +8476,39 @@ msgstr ""
 msgid "Stream wird fortgesetzt …"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:219
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:220
 msgid "Stream-Schlüssel"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:251
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:253
 msgid "Stream-Ziel \"%1\" wurde angelegt."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:176
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:177
 msgid "Stream-Ziel \"%1\" wurde gelöscht."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:154
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:155
 msgid "Stream-Ziel aktiviert."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:224
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:225
 msgid "Stream-Ziel anlegen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:282
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:284
 msgid "Stream-Ziel bearbeiten"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:154
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:155
 msgid "Stream-Ziel deaktiviert."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:163
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:164
 msgid "Stream-Ziel löschen"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:67
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:68
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:598
 msgid "Stream-Ziele"
 msgstr ""
@@ -8686,7 +8686,7 @@ msgstr ""
 msgid "Treuhänder-Werkzeuge"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:354
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:362
 msgid "Twitch"
 msgstr ""
 
@@ -8966,7 +8966,7 @@ msgstr ""
 msgid "Verwalten"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:69
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:70
 msgid "Verwalten Sie die externen RTMP-Ziele (YouTube, Twitch, PeerTube, Owncast, generisches RTMP), zu denen Moderatorinnen und Moderatoren eine Besprechung live übertragen können. Der Stream-Schlüssel wird verschlüsselt gespeichert und nach dem Speichern nie wieder angezeigt."
 msgstr ""
 
@@ -9319,7 +9319,7 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1684
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:419
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:631
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:81
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:82
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceVotePanel.kt:798
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConsensusDetail.kt:85
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:195
@@ -9399,7 +9399,7 @@ msgstr ""
 msgid "Wirtschaftlicher Geschäftsbetrieb"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:353
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:361
 msgid "YouTube Live"
 msgstr ""
 
@@ -9920,9 +9920,9 @@ msgstr ""
 msgid "Der Webhook konnte nicht entfernt werden -- es wurden zu viele Anfragen in kurzer Zeit gestellt."
 msgstr ""
 
-# Welle V1.4.1a "Oeffentliche Website-Integration" -- neu hinzugefuegt.
 #: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:40
 #: src/jsMain/kotlin/network/lapis/cloud/client/Sidebar.kt:610
+# Welle V1.4.1a "Oeffentliche Website-Integration" -- neu hinzugefuegt.
 msgid "Website-Integration"
 msgstr ""
 
@@ -10099,8 +10099,8 @@ msgstr ""
 msgid "Für %1 von %2 berücksichtigten Personen ist kein Geburtsdatum hinterlegt -- deren Geburtstage fehlen in dieser Liste."
 msgstr ""
 
-# Welle V1.4.5.2 "DATEV-Format-Export" -- neue Strings.
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:79
+# Welle V1.4.5.2 "DATEV-Format-Export" -- neue Strings.
 msgid "DATEV-Export"
 msgstr ""
 
@@ -10485,8 +10485,8 @@ msgstr ""
 msgid "Wiedervorlage am %1"
 msgstr ""
 
-# Welle V1.4.11 "Reisekostenabrechnung fuer Vorstand und Funktionstraeger" -- angehaengt, nicht alphabetisch einsortiert.
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+# Welle V1.4.11 "Reisekostenabrechnung fuer Vorstand und Funktionstraeger" -- angehaengt, nicht alphabetisch einsortiert.
 msgid "%1 hinzufügen"
 msgstr ""
 
@@ -15352,9 +15352,9 @@ msgstr ""
 msgid "Sie haben ungespeicherte Änderungen am Beitragstext. Speichern Sie diese zuerst -- veröffentlicht wird sonst der ursprüngliche Entwurf, nicht Ihre Änderung."
 msgstr ""
 
+#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentAccessLabels.kt
 #: src/jsMain/kotlin/network/lapis/cloud/client/DocumentsScreen.kt
-#: src/jsMain/kotlin/network/lapis/cloud/client/ComplianceLabels.kt
 msgid "Alle Mitglieder"
 msgstr ""
 
@@ -22896,4 +22896,13 @@ msgid "Element wurde hinzugefügt."
 msgstr ""
 
 msgid "Video-Overlay"
+msgstr ""
+
+msgid "X"
+msgstr ""
+
+msgid "X (ehemals Twitter): Server-URL und Stream-Schlüssel finden Sie im Media Studio von X unter \"Producer\". Der Schlüssel kann sich pro Übertragung ändern. Getestet wurde nur das Layout \"Einzelne Person\". Prüfen Sie vorab, ob Ihr Konto die Zugangsbedingungen für Live-Übertragungen auf X erfüllt."
+msgstr ""
+
+msgid "Bei X kann sich der Schlüssel pro Übertragung ändern. Tragen Sie ihn dann hier neu ein."
 msgstr ""

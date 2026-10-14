@@ -6,6 +6,19 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.131 -- X as an explicit streaming platform
+
+"X" joins YouTube, Twitch, PeerTube, Owncast and generic RTMP in the admin list "Stream-Ziele". On the server it is a plain RTMP destination; the platform value is only stored and passed through. Details: `docs/features/video-conferencing.adoc`, `docs/architecture/conference-recording.adoc`.
+
+- **New:** platform "X" (icon `fa-hashtag`, no brand logo) in the create dialog and in the start-stream destination list; no prefilled URL (the ingest address of X is not reliably known), placeholder `rtmps://...` in the URL field; a hint in the create dialog (where to find URL and key, the key may change, only the "Einzelne Person" layout was tested, check X's access conditions); in the edit dialog of an X destination a short note that the key may change per broadcast and has to be entered again.
+- **Fixed:** switching the platform in the create dialog left a preset address of another platform in place (YouTube -> Twitch kept the YouTube address). One rule now replaces or clears a *preset* value only; an address somebody typed is never overwritten (`conferenceStreamUrlAfterPlatformSwitch`).
+- **API / behavior changes:** migration **`V103`** (the unnamed inline CHECK on `conference_stream_destination.platform` is replaced by the named `chk_conference_stream_destination_platform`, now allowing `'X'`; additive, `V1`-`V102` untouched), enum literal `X` added at the END of `ConferenceStreamPlatform` (and of the kUML model). No new RPC, no new environment variable, no server-side special path.
+- **Known limitations:**
+  - Tested with X on 2026-10-14 using the *Single person* layout only; other layouts, long-running streams and picture quality are untested.
+  - No layout warning in the start dialog when an X destination is started with "Galerie" or "Sprecher" (a design-review suggestion, a wave of its own).
+  - The seven translations were written by the model.
+  - The dialog was not seen by real users in a real browser, only by headless DOM tests.
+
 ### V1.9.130 -- Public article page: Lapis header, layout, `?embed=1`
 
 `GET /aktuelles/{slug}` gets the same two presentations as the event page. Details: `docs/features/public-article-page.adoc`.

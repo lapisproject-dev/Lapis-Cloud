@@ -1,6 +1,7 @@
 package network.lapis.cloud.client
 
 import io.kvision.form.select.Select
+import io.kvision.form.text.Text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
@@ -226,14 +227,15 @@ private fun SimplePanel.renderDestinationCreateForm(
 
     fun applyPlatformDefaults() {
         val platform = ConferenceStreamPlatform.valueOf(platformSelect.value ?: ConferenceStreamPlatform.GENERIC_RTMP.name)
-        conferenceStreamPresetUrl(platform)?.let { preset ->
-            if (urlField.value.isBlank()) {
-                // Über das LapisField, nicht am Control vorbei: sonst bliebe ein schon gezeigter Feldfehler (und
-                // aria-invalid) an der nun gültigen URL stehen.
-                urlField.setValue(preset)
-                urlField.validate(force = false)
-            }
+        // Ersetzt oder leert nur einen Preset-Wert; eine getippte Adresse bleibt unangetastet (conferenceStreamUrlAfterPlatformSwitch).
+        conferenceStreamUrlAfterPlatformSwitch(urlField.value, platform)?.let { next ->
+            // Über das LapisField, nicht am Control vorbei: sonst bliebe ein schon gezeigter Feldfehler (und
+            // aria-invalid) an der nun gültigen URL stehen.
+            urlField.setValue(next)
+            urlField.validate(force = false)
         }
+        // Bei jedem Wechsel neu gesetzt, sonst bliebe der Platzhalter von X bei einer anderen Plattform stehen.
+        (urlField.control as? Text)?.placeholder = conferenceStreamUrlPlaceholder(platform)
         hintLine.content = conferenceStreamPlatformHint(platform).orEmpty()
     }
     platformSelect.subscribe { applyPlatformDefaults() }
@@ -296,6 +298,12 @@ private fun renderDestinationEditModal(
             suppressManagers = true,
             actions = { it.lockIcon() },
         )
+    if (destination.platform == ConferenceStreamPlatform.X) {
+        // X wechselt den Schlüssel unter Umständen pro Übertragung; nur dieses Ziel bekommt den Hinweis.
+        form.panel.div(tr("Bei X kann sich der Schlüssel pro Übertragung ändern. Tragen Sie ihn dann hier neu ein.")) {
+            addCssClasses("text-muted small")
+        }
+    }
     form.panel.div(gettext("Aktueller Schlüssel: %1 -- wird hier nie im Klartext angezeigt.", destination.streamKeyMask)) {
         addCssClasses("text-muted small")
     }
@@ -355,6 +363,7 @@ internal fun conferenceStreamPlatformLabel(platform: ConferenceStreamPlatform): 
         ConferenceStreamPlatform.PEERTUBE -> gettext("PeerTube")
         ConferenceStreamPlatform.OWNCAST -> gettext("Owncast")
         ConferenceStreamPlatform.GENERIC_RTMP -> gettext("Generisches RTMP")
+        ConferenceStreamPlatform.X -> gettext("X")
     }
 
 /** D9 (Zhuo/Rams) -- generic PLATFORM-TYPE iconography, deliberately NOT a trademarked platform
@@ -367,6 +376,7 @@ internal fun conferenceStreamPlatformIconClass(platform: ConferenceStreamPlatfor
         ConferenceStreamPlatform.PEERTUBE -> "fas fa-share-nodes"
         ConferenceStreamPlatform.OWNCAST -> "fas fa-tower-broadcast"
         ConferenceStreamPlatform.GENERIC_RTMP -> "fas fa-gem"
+        ConferenceStreamPlatform.X -> "fas fa-hashtag" // bewusst kein Markenlogo (kein fa-x-twitter)
     }
 
 /** Pure UX/validation metadata only -- the SERVER has zero platform-specific code paths (every
@@ -378,14 +388,45 @@ internal fun conferenceStreamPresetUrl(platform: ConferenceStreamPlatform): Stri
     when (platform) {
         ConferenceStreamPlatform.YOUTUBE -> "rtmp://a.rtmp.youtube.com/live2"
         ConferenceStreamPlatform.TWITCH -> "rtmp://live.twitch.tv/app"
-        ConferenceStreamPlatform.PEERTUBE, ConferenceStreamPlatform.OWNCAST, ConferenceStreamPlatform.GENERIC_RTMP -> null
+        // X: keine Vorbelegung, die Server-Adresse von X ist nicht gesichert (nur der Hinweis, siehe conferenceStreamPlatformHint).
+        ConferenceStreamPlatform.PEERTUBE,
+        ConferenceStreamPlatform.OWNCAST,
+        ConferenceStreamPlatform.GENERIC_RTMP,
+        ConferenceStreamPlatform.X,
+        -> null
     }
+
+/**
+ * Was das URL-Feld nach einem Plattformwechsel zeigen soll. `null` heißt: den Wert nicht anfassen (eine selbst getippte Adresse
+ * wird nie überschrieben). Gilt der getrimmte Wert als Preset irgendeiner Plattform, wird er durch das Preset der neuen Plattform
+ * ersetzt (oder geleert, wenn diese keins hat); ein leeres Feld bekommt das Preset der neuen Plattform, falls es eins gibt.
+ */
+internal fun conferenceStreamUrlAfterPlatformSwitch(
+    current: String,
+    newPlatform: ConferenceStreamPlatform,
+): String? {
+    val trimmed = current.trim()
+    if (trimmed.isEmpty()) return conferenceStreamPresetUrl(newPlatform)
+    val isPreset = ConferenceStreamPlatform.entries.any { conferenceStreamPresetUrl(it) == trimmed }
+    return if (isPreset) conferenceStreamPresetUrl(newPlatform) ?: "" else null
+}
+
+/** Platzhalter des URL-Felds: nur bei X (ohne Vorbelegung) ein Formhinweis, sonst keiner. */
+internal fun conferenceStreamUrlPlaceholder(platform: ConferenceStreamPlatform): String? =
+    if (platform == ConferenceStreamPlatform.X) "rtmps://…" else null
 
 internal fun conferenceStreamPlatformHint(platform: ConferenceStreamPlatform): String? =
     when (platform) {
         ConferenceStreamPlatform.PEERTUBE -> tr("RTMP-URL Ihrer PeerTube-Instanz, z. B. rtmp://peertube.example.org:1935/live")
         ConferenceStreamPlatform.OWNCAST -> tr("RTMP-URL Ihrer Owncast-Instanz, z. B. rtmp://owncast.example.org:1935/live")
         ConferenceStreamPlatform.GENERIC_RTMP -> tr("RTMP-Ziel-URL, z. B. für Facebook Live, LinkedIn Live oder Vimeo")
+        ConferenceStreamPlatform.X ->
+            tr(
+                "X (ehemals Twitter): Server-URL und Stream-Schlüssel finden Sie im Media Studio von X unter \"Producer\". " +
+                    "Der Schlüssel kann sich pro Übertragung ändern. " +
+                    "Getestet wurde nur das Layout \"Einzelne Person\". " +
+                    "Prüfen Sie vorab, ob Ihr Konto die Zugangsbedingungen für Live-Übertragungen auf X erfüllt.",
+            )
         ConferenceStreamPlatform.YOUTUBE, ConferenceStreamPlatform.TWITCH -> null
     }
 

@@ -329,6 +329,56 @@ class ConferenceStreamingServiceTest :
             }
         }
 
+        test(
+            "createDestination: platform X is stored as X, masked, validated like every other platform, and built as <rtmpUrl>/<key> on start",
+        ) {
+            testApplication {
+                val fakeClient = FakeLiveKitEgressClient()
+                application {
+                    install(StatusPages) { installConferenceStreamingExceptionHandlers() }
+                    routing {
+                        registerConferenceStreamingTestRoutes(
+                            egressClient = fakeClient,
+                            destinationLimiter = LoginRateLimiter(maxFailures = 50),
+                        )
+                    }
+                }
+                val dummyKey = "dummy-x-key-0001"
+                val response =
+                    client.post(
+                        "/test/create-destination?label=X-Ziel&platform=X&rtmpUrl=rtmps://ingest.example.org/live&streamKey=$dummyKey",
+                    ) { header("X-Member-Id", ADMIN_ID) }
+                response.status shouldBe HttpStatusCode.OK
+                val dto = response.bodyAsText().toDestinationDto()
+                createdDestinationIds += Uuid.parse(dto.id)
+                dto.platform shouldBe ConferenceStreamPlatform.X
+                dto.streamKeyMask shouldBe "********"
+                dto.rtmpUrl shouldBe "rtmps://ingest.example.org/live"
+                response.bodyAsText() shouldNotContainPlaintext dummyKey
+
+                // Same validation as every other platform: wrong scheme and loopback are rejected.
+                client
+                    .post("/test/create-destination?label=X-Http&platform=X&rtmpUrl=http://ingest.example.org/live&streamKey=k") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }.status shouldBe HttpStatusCode.BadRequest
+                client
+                    .post("/test/create-destination?label=X-Loop&platform=X&rtmpUrl=rtmps://127.0.0.1/live&streamKey=k") {
+                        header("X-Member-Id", ADMIN_ID)
+                    }.status shouldBe HttpStatusCode.BadRequest
+
+                // Start: the X URL is built exactly like GENERIC_RTMP's, <rtmpUrl>/<key>.
+                val creator = createTestMember("stream-platform-x@example.org")
+                val roomId = createTestRoom(creator, "X-Raum")
+                val startResponse =
+                    client.post("/test/start-stream?roomId=$roomId&destinationIds=${dto.id}&layout=GRID&latencyMode=STANDARD") {
+                        header("X-Member-Id", creator.toString())
+                    }
+                startResponse.status shouldBe HttpStatusCode.OK
+                fakeClient.startCalls.single().third shouldBe listOf("rtmps://ingest.example.org/live/$dummyKey")
+                startResponse.bodyAsText() shouldNotContainPlaintext dummyKey
+            }
+        }
+
         test("createDestination: rejected with Forbidden for a non-ADMIN (BOARD, plain member)") {
             testApplication {
                 application {

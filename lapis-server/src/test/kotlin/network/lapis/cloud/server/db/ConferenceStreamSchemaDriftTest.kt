@@ -78,7 +78,7 @@ class ConferenceStreamSchemaDriftTest :
             entity.attributeByName("platform")?.type shouldBe
                 ErmDataType.Enum(
                     name = "ConferenceStreamPlatform",
-                    values = listOf("YOUTUBE", "TWITCH", "PEERTUBE", "OWNCAST", "GENERIC_RTMP"),
+                    values = listOf("YOUTUBE", "TWITCH", "PEERTUBE", "OWNCAST", "GENERIC_RTMP", "X"),
                     externalFqName = "network.lapis.cloud.shared.domain.ConferenceStreamPlatform",
                 )
         }

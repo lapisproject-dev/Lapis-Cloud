@@ -15,6 +15,8 @@ import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -531,6 +533,45 @@ class ConferenceStreamingUiTest {
         assertEquals("PeerTube", conferenceStreamPlatformLabel(ConferenceStreamPlatform.PEERTUBE))
         assertEquals("Owncast", conferenceStreamPlatformLabel(ConferenceStreamPlatform.OWNCAST))
         assertEquals("Generisches RTMP", conferenceStreamPlatformLabel(ConferenceStreamPlatform.GENERIC_RTMP))
+        assertEquals("X", conferenceStreamPlatformLabel(ConferenceStreamPlatform.X))
+    }
+
+    @Test
+    fun platformX_hasAGenericIconNoPresetAndTheFourSentenceHint() {
+        assertEquals("fas fa-hashtag", conferenceStreamPlatformIconClass(ConferenceStreamPlatform.X))
+        assertEquals(null, conferenceStreamPresetUrl(ConferenceStreamPlatform.X))
+        val hint = resolvedAttributeText(assertNotNull(conferenceStreamPlatformHint(ConferenceStreamPlatform.X)))
+        assertTrue(hint.startsWith("X (ehemals Twitter)"), hint)
+        assertTrue(hint.contains("Media Studio"))
+        assertTrue(hint.contains("Der Schlüssel kann sich pro Übertragung ändern."))
+        assertTrue(hint.contains("Einzelne Person"))
+        assertTrue(hint.contains("Zugangsbedingungen"))
+    }
+
+    @Test
+    fun conferenceStreamUrlAfterPlatformSwitch_replacesOnlyPresetValues() {
+        val youtube = "rtmp://a.rtmp.youtube.com/live2"
+        val twitch = "rtmp://live.twitch.tv/app"
+        // A preset of any platform is replaced by the new platform's preset, or cleared when it has none.
+        assertEquals("", conferenceStreamUrlAfterPlatformSwitch(youtube, ConferenceStreamPlatform.X))
+        assertEquals(twitch, conferenceStreamUrlAfterPlatformSwitch(youtube, ConferenceStreamPlatform.TWITCH))
+        assertEquals("", conferenceStreamUrlAfterPlatformSwitch(twitch, ConferenceStreamPlatform.PEERTUBE))
+        // A typed value is never touched.
+        assertNull(conferenceStreamUrlAfterPlatformSwitch("rtmps://ingest.example.org/live", ConferenceStreamPlatform.X))
+        assertNull(conferenceStreamUrlAfterPlatformSwitch("rtmps://ingest.example.org/live", ConferenceStreamPlatform.YOUTUBE))
+        // An empty field behaves as before: the preset if there is one, else nothing to do.
+        assertEquals(youtube, conferenceStreamUrlAfterPlatformSwitch("", ConferenceStreamPlatform.YOUTUBE))
+        assertNull(conferenceStreamUrlAfterPlatformSwitch("", ConferenceStreamPlatform.X))
+        // Whitespace around a preset is ignored when recognising it.
+        assertEquals("", conferenceStreamUrlAfterPlatformSwitch("$youtube ", ConferenceStreamPlatform.X))
+    }
+
+    @Test
+    fun conferenceStreamUrlPlaceholder_isOnlySetForX() {
+        assertEquals("rtmps://…", conferenceStreamUrlPlaceholder(ConferenceStreamPlatform.X))
+        ConferenceStreamPlatform.entries.filter { it != ConferenceStreamPlatform.X }.forEach {
+            assertNull(conferenceStreamUrlPlaceholder(it), it.name)
+        }
     }
 
     @Test

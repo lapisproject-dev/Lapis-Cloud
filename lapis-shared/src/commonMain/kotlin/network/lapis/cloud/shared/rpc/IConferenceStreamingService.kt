@@ -106,6 +106,8 @@ import network.lapis.cloud.shared.domain.ConferenceStreamTargetDto
  *   WORSE than nothing** -- it would look like the promised safeguard while providing none. The
  *   client's start-stream dialog instead carries a mandatory, static Hinweis that this protection
  *   does not exist yet and pausing during a secret ballot is entirely manual -- see the client spec.
+ * - **X is `GENERIC_RTMP` with its own label and hint.** [ConferenceStreamPlatform.X][network.lapis.cloud.shared.domain.ConferenceStreamPlatform.X]
+ *   has no server-side special path and no prefilled URL; the platform value is only stored and passed through.
  * - **No Restream/StreamYard integration.** [ConferenceStreamPlatform.GENERIC_RTMP][network.lapis.cloud.shared.domain.ConferenceStreamPlatform.GENERIC_RTMP]
  *   fully covers the manual case (paste their ingest URL/key like any other destination); a
  *   dedicated integration would mean their API, account linking, and token lifecycle, and directly

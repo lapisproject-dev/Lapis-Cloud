@@ -137,6 +137,15 @@ In TRACK mode the audio inputs are the MICROPHONE tracks, in PARTICIPANT mode th
 
 Nothing changes on the server for streams: `startStream` stores the layout it is given, as before. The start dialog pre-selects `GRID` for *Raster* and `SPEAKER` for *Sprecher groß*; every layout can still be chosen. LiveKit's own template (`grid` / `speaker`) does the arrangement and the switching, **not** our 2 s smoothing; whether that template shows a shared screen large is not verified (there is no test against a real LiveKit here). There is no "pinned person with a strip" in a stream (only `SINGLE_PARTICIPANT`, one person without a strip). The setting applies from the next stream start; pausing and resuming keep the layout of the row.
 
+=== X (V1.9.131)
+
+`X` is a platform of the destination list like `YOUTUBE` or `GENERIC_RTMP`; on the server it is exactly `GENERIC_RTMP` with a different stored value. `createDestination` validates the URL the same way (`rtmp://` or `rtmps://`, loopback and link-local rejected), the key is stored encrypted and never returned, and `startStream` builds `<rtmpUrl>/<streamKey>` like for every platform. There is no server branch for X; the migration `V103` only widens the CHECK constraint on `conference_stream_destination.platform`.
+
+* *Where to get the data.* Server URL and stream key come from X's Media Studio, under "Producer".
+* *The key can change.* X may issue a new key for every broadcast. The edit dialog of an X destination says so; the key is entered again there (write-only, never shown).
+* *No prefilled URL.* The ingest address of X is not reliably known, so the field stays empty (placeholder `rtmps://...`) and the create dialog only shows a hint. Switching the platform in the create dialog replaces or clears a *preset* address of another platform, but never a value somebody typed.
+* *Tested with X on 2026-10-14 using the *Single person* layout only; other layouts, long-running streams and picture quality are untested.* The grid ("Galerie") and speaker ("Sprecher") layouts use the LiveKit web template and are not tested with X.
+
 == Per-segment composition and A/V sync
 
 `SegmentArgumentBuilder` (pure, `SegmentArgumentBuilderTest`) builds one `ffmpeg` run per segment and stream; `FfmpegSegmentedComposer` runs them one after the other (`FfmpegProcessRunner`: argument list only, no shell, stderr only in the log, timeout and

@@ -18,14 +18,14 @@ import kotlinx.serialization.Serializable
 /**
  * Which external platform a [network.lapis.cloud.server.db.generated.ConferenceStreamDestinationTable]
  * row targets -- pure UX/validation metadata (prefilled ingest URL + hint text for
- * `YOUTUBE`/`TWITCH`, hint-only for `PEERTUBE`/`OWNCAST`, no preset for `GENERIC_RTMP`). **The
+ * `YOUTUBE`/`TWITCH`, hint-only for `PEERTUBE`/`OWNCAST`, no preset for `GENERIC_RTMP`, and `X` -- no preset either, hint only: the ingest address of X is not reliably known). **The
  * server has zero platform-specific code paths** -- every platform is `<rtmpUrl>/<streamKey>`
  * built from the same two stored columns, see that table's own KDoc. Literal order is load-bearing:
  * `ConferenceStreamSchemaDriftTest` pins it against `29-conference-streaming.kuml.kts`'s
  * `conferenceStreamPlatform` enum.
  */
 @Serializable
-enum class ConferenceStreamPlatform { YOUTUBE, TWITCH, PEERTUBE, OWNCAST, GENERIC_RTMP }
+enum class ConferenceStreamPlatform { YOUTUBE, TWITCH, PEERTUBE, OWNCAST, GENERIC_RTMP, X }
 
 /**
  * Which LiveKit egress shape [network.lapis.cloud.server.db.generated.ConferenceStreamTable]'s

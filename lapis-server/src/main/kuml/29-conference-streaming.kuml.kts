@@ -126,6 +126,7 @@ classDiagram(name = "ConferenceStreaming") {
         literal(name = "PEERTUBE")
         literal(name = "OWNCAST")
         literal(name = "GENERIC_RTMP")
+        literal(name = "X")
     }
 
     // Literal order is load-bearing (see above), matching

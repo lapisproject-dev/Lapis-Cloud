@@ -329,3 +329,13 @@ Reactions and hand badges are DOM overlays of the Lapis client. Recordings and s
 
 Members may place logos, their name and a frame in their own camera image when an ADMIN offers it. The overlay is part of the sent picture and
 therefore of recordings and livestreams. See link:video-overlays.adoc[video-overlays.adoc].
+
+== Streaming to X (V1.9.131)
+
+X (formerly Twitter) is a platform of its own in the admin list "Stream-Ziele". It behaves like a generic RTMP destination, with its own label and a hint in the create dialog.
+
+* Server URL and stream key are in X's Media Studio, under "Producer". Nothing is prefilled: the ingest address of X is not reliably known, so the field stays empty (placeholder `rtmps://...`).
+* The key may change with every broadcast. When it does, open "Bearbeiten" on the destination and enter the new key (it is write-only and never displayed).
+* Tested with X on 2026-10-14 using the *Single person* layout only; other layouts, long-running streams and picture quality are untested. The grid and speaker layouts use the LiveKit web template and are not tested with X.
+
+Details: link:../architecture/conference-recording.adoc[conference-recording.adoc], section "Streams (RTMP)".

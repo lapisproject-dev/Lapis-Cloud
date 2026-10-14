@@ -10,6 +10,7 @@ import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.HTMLSelectElement
 import org.w3c.dom.events.Event
 import kotlin.js.Promise
 import kotlin.test.Test
@@ -37,10 +38,11 @@ class RestGroupFormsStreamDestinationDomTest {
     private fun destination(
         id: String,
         label: String,
+        platform: ConferenceStreamPlatform = ConferenceStreamPlatform.GENERIC_RTMP,
     ) = ConferenceStreamDestinationDto(
         id = id,
         label = label,
-        platform = ConferenceStreamPlatform.GENERIC_RTMP,
+        platform = platform,
         rtmpUrl = "rtmps://ingest.example.org/live",
         streamKeyMask = "********",
         streamKeySetAt = LocalDateTime(2026, 1, 1, 0, 0),
@@ -238,6 +240,166 @@ class RestGroupFormsStreamDestinationDomTest {
                     pressEscape(host)
                     answerDiscardDialog("Verwerfen")
                     awaitUntil("closed after discarding") { !screen.hostOpen(formId) }
+                }
+            }
+        }
+
+    private val xHintStart = "X (ehemals Twitter)"
+    private val xEditHint = "Bei X kann sich der Schlüssel pro Übertragung ändern."
+
+    private fun HTMLElement.urlInput() = controlOf("RTMP-Basis-URL") as HTMLInputElement
+
+    private fun answerEmptyList(
+        request: RecordedRequest,
+        list: String,
+    ) = if (request.isRpc && request.rpcRoute == list) {
+        request.answerWith(jsonOf(ListSerializer(ConferenceStreamDestinationDto.serializer()), emptyList()))
+    } else {
+        request.answerWith("[]")
+    }
+
+    @Test
+    fun platformX_isTheLastOption_showsTheHint_leavesTheUrlEmptyWithAPlaceholder(): Promise<Unit> =
+        formTest {
+            AppState.setSession(admin)
+            val list = routeOf { rpcService<IConferenceStreamingService>().listDestinations() }
+            withFetchStub(respond = { answerEmptyList(it, list) }) {
+                mountedForm("v131-stream-x-options") { root, element ->
+                    renderConferenceStreamDestinationsScreen(root)
+                    awaitUntil("the empty list is shown") { element().shows("Noch keine Stream-Ziele") }
+                    val screen = element()
+                    val host = openCreateForm(screen, formId)
+                    val options = (host.controlOf("Plattform") as HTMLSelectElement).options
+                    val values = (0 until options.length).map { (options.item(it) as org.w3c.dom.HTMLOptionElement).value }
+                    assertEquals("X", values.last(), "X is the last platform option")
+                    assertFalse(host.shows(xHintStart), "no X hint before X is chosen")
+
+                    host.chooseIn("Plattform", "X")
+                    assertTrue(host.shows(xHintStart), "the X hint is shown")
+                    assertTrue(host.shows("Media Studio"), "the hint says where to find the data")
+                    assertEquals("", host.urlInput().value, "there is no preset for X")
+                    assertEquals("rtmps://…", host.urlInput().placeholder)
+                }
+            }
+        }
+
+    @Test
+    fun switchingPlatform_clearsAPresetUrl_butKeepsATypedOne_andDropsThePlaceholderAgain(): Promise<Unit> =
+        formTest {
+            AppState.setSession(admin)
+            val list = routeOf { rpcService<IConferenceStreamingService>().listDestinations() }
+            withFetchStub(respond = { answerEmptyList(it, list) }) {
+                mountedForm("v131-stream-x-switch") { root, element ->
+                    renderConferenceStreamDestinationsScreen(root)
+                    awaitUntil("the empty list is shown") { element().shows("Noch keine Stream-Ziele") }
+                    val host = openCreateForm(element(), formId)
+
+                    host.chooseIn("Plattform", "YOUTUBE")
+                    assertEquals("rtmp://a.rtmp.youtube.com/live2", host.urlInput().value)
+                    host.chooseIn("Plattform", "X")
+                    assertEquals("", host.urlInput().value, "YouTube -> X empties the preset URL")
+                    host.chooseIn("Plattform", "TWITCH")
+                    assertEquals("rtmp://live.twitch.tv/app", host.urlInput().value)
+                    host.chooseIn("Plattform", "YOUTUBE")
+                    assertEquals("rtmp://a.rtmp.youtube.com/live2", host.urlInput().value, "Twitch -> YouTube replaces the preset")
+
+                    host.typeInto("RTMP-Basis-URL", "rtmps://ingest.example.org/live")
+                    host.chooseIn("Plattform", "X")
+                    assertEquals("rtmps://ingest.example.org/live", host.urlInput().value, "a typed URL survives the switch")
+
+                    host.chooseIn("Plattform", "PEERTUBE")
+                    assertEquals("", host.urlInput().placeholder.orEmpty(), "the placeholder is gone again")
+                    assertFalse(host.shows(xHintStart), "and so is the X hint")
+                }
+            }
+        }
+
+    @Test
+    fun creatingAnXDestination_sendsPlatformXAndTheTrimmedUrl(): Promise<Unit> =
+        formTest {
+            AppState.setSession(admin)
+            val list = routeOf { rpcService<IConferenceStreamingService>().listDestinations() }
+            val create =
+                routeOf {
+                    rpcService<IConferenceStreamingService>().createDestination("l", ConferenceStreamPlatform.X, "u", "k")
+                }
+            withFetchStub(
+                respond = { request ->
+                    when {
+                        !request.isRpc -> StubResponse()
+                        request.rpcRoute == list ->
+                            request.answerWith(jsonOf(ListSerializer(ConferenceStreamDestinationDto.serializer()), emptyList()))
+                        request.rpcRoute == create ->
+                            request.answerWith(
+                                jsonOf(
+                                    ConferenceStreamDestinationDto.serializer(),
+                                    destination("d9", "X-Kanal", ConferenceStreamPlatform.X),
+                                ),
+                            )
+                        else -> request.answerWith("[]")
+                    }
+                },
+            ) { calls ->
+                mountedForm("v131-stream-x-create") { root, element ->
+                    renderConferenceStreamDestinationsScreen(root)
+                    awaitUntil("the empty list is shown") { element().shows("Noch keine Stream-Ziele") }
+                    val host = openCreateForm(element(), formId)
+                    host.typeInto("Bezeichnung", "X-Kanal")
+                    host.chooseIn("Plattform", "X")
+                    host.typeInto("RTMP-Basis-URL", "  rtmps://ingest.example.org/live  ")
+                    host.typeSecret()
+                    host.buttonNamed("Stream-Ziel anlegen").click()
+                    awaitUntil("the create call was made") { calls.toRoute(create).size == 1 }
+                    val body = calls.toRoute(create).single().body
+                    assertTrue(body.contains("\\\"X\\\""), "platform X is sent: $body")
+                    assertTrue(body.contains("\\\"rtmps://ingest.example.org/live\\\""), "the URL is sent trimmed: $body")
+                }
+            }
+        }
+
+    @Test
+    fun theEditModal_showsTheXHintOnlyForAnXDestination_andKeepsTheKeyFieldAPasswordField(): Promise<Unit> =
+        formTest {
+            AppState.setSession(admin)
+            val list = routeOf { rpcService<IConferenceStreamingService>().listDestinations() }
+            withFetchStub(
+                respond = { request ->
+                    if (request.isRpc && request.rpcRoute == list) {
+                        request.answerWith(
+                            jsonOf(
+                                ListSerializer(ConferenceStreamDestinationDto.serializer()),
+                                listOf(
+                                    destination("dx", "Ziel X", ConferenceStreamPlatform.X),
+                                    destination("dg", "Ziel Generisch", ConferenceStreamPlatform.GENERIC_RTMP),
+                                ),
+                            ),
+                        )
+                    } else {
+                        request.answerWith("[]")
+                    }
+                },
+            ) {
+                mountedForm("v131-stream-x-edit") { root, element ->
+                    renderConferenceStreamDestinationsScreen(root)
+                    awaitUntil("both rows") { element().shows("Ziel X") && element().shows("Ziel Generisch") }
+                    // Rows are sorted by label: "Ziel Generisch" first, "Ziel X" second.
+                    val editButtons = element().allOf("button").filter { it.textContent?.trim() == "Bearbeiten" }
+                    assertEquals(2, editButtons.size)
+
+                    editButtons[0].click()
+                    awaitUntil("the edit modal of the generic destination") { document.querySelector(".modal.show") != null }
+                    val generic = lastOpenModal()
+                    assertFalse(generic.shows(xEditHint), "no X hint for GENERIC_RTMP")
+                    assertEquals("password", (generic.querySelector("input[type=password]") as HTMLInputElement).type)
+                    generic.buttonNamed("Abbrechen").click()
+                    awaitUntil("the first modal is closed") { document.querySelector(".modal.show") == null }
+
+                    editButtons[1].click()
+                    awaitUntil("the edit modal of the X destination") { document.querySelector(".modal.show") != null }
+                    val x = lastOpenModal()
+                    assertTrue(x.shows(xEditHint), "the X destination shows the key-rotation hint")
+                    assertEquals("password", (x.querySelector("input[type=password]") as HTMLInputElement).type)
+                    assertEquals("", (x.querySelector("input[type=password]") as HTMLInputElement).value)
                 }
             }
         }

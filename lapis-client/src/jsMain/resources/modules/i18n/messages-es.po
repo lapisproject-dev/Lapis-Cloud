@@ -1191,7 +1191,7 @@ msgstr ""
 "anteriores se conservan con fines de auditoría, el documento desaparece de "
 "la vista.)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:165
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:166
 msgid ""
 "\"%1\" wirklich löschen? Dies ist nur möglich, solange kein aktiver oder "
 "unterbrochener Live-Stream dieses Ziel verwendet."
@@ -1601,7 +1601,7 @@ msgstr "Suscripción cancelada el %1"
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:6174
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:6199
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:6224
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:311
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:319
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceWhiteboardController.kt:621
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceWhiteboardController.kt:653
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConfirmDialog.kt:172
@@ -1850,7 +1850,7 @@ msgid "Aktive Besprechungen"
 msgstr "Reuniones activas"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:458
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:143
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:144
 #: src/jsMain/kotlin/network/lapis/cloud/client/EventRoomsScreen.kt:146
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:784
 #: src/jsMain/kotlin/network/lapis/cloud/client/PoliticianScreen.kt:804
@@ -1920,7 +1920,7 @@ msgstr "Precio actual"
 msgid "Aktueller Preis (Sie führen)"
 msgstr "Precio actual (usted encabeza)"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:299
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:307
 msgid "Aktueller Schlüssel: %1 -- wird hier nie im Klartext angezeigt."
 msgstr "Clave actual: %1 -- nunca se muestra aquí en texto plano."
 
@@ -2706,7 +2706,7 @@ msgstr "Solicitado por %1 el %2"
 #: src/jsMain/kotlin/network/lapis/cloud/client/CarpoolScreen.kt:159
 #: src/jsMain/kotlin/network/lapis/cloud/client/CateringScreen.kt:147
 #: src/jsMain/kotlin/network/lapis/cloud/client/CommitteesScreen.kt:165
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:135
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:136
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceTitleRow.kt:29
 #: src/jsMain/kotlin/network/lapis/cloud/client/CrmContactsScreen.kt:214
 #: src/jsMain/kotlin/network/lapis/cloud/client/DsgvoComplianceScreen.kt:165
@@ -3226,11 +3226,11 @@ msgstr "Valoración retirada."
 #: src/jsMain/kotlin/network/lapis/cloud/client/ApiKeysScreen.kt:91
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:138
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:315
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:285
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:287
 msgid "Bezeichnung"
 msgstr "Denominación"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:196
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:197
 msgid "Bezeichnung (z. B. \"PdV YouTube-Kanal\")"
 msgstr "Denominación (p. ej., \"Canal de YouTube de PdV\")"
 
@@ -3861,7 +3861,7 @@ msgstr "de los cuales vencidos"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AuctionScreen.kt:543
 #: src/jsMain/kotlin/network/lapis/cloud/client/BankAccountsScreen.kt:258
-#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:141
+#: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceStreamDestinationsScreen.kt:142
 #: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:274
 #: src/jsMain/kotlin/network/lapis/cloud/client/CostCentersScreen.kt:285
 #: src/jsMain/kotlin/network/lapis/cloud/client/DonorsScreen.kt:281
@@ -10737,9 +10737,9 @@ msgstr "No se pudo enviar el evento de prueba -- causas posibles: los webhooks e
 msgid "Der Webhook konnte nicht entfernt werden -- es wurden zu viele Anfragen in kurzer Zeit gestellt."
 msgstr "No se pudo eliminar el webhook -- se realizaron demasiadas solicitudes en poco tiempo."
 
-# Welle V1.4.1a "Oeffentliche Website-Integration" -- neu hinzugefuegt.
-#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:41
 #: src/jsMain/kotlin/network/lapis/cloud/client/App.kt:418
+#: src/jsMain/kotlin/network/lapis/cloud/client/EmbedIntegrationScreen.kt:41
+# Welle V1.4.1a "Oeffentliche Website-Integration" -- neu hinzugefuegt.
 msgid "Website-Integration"
 msgstr "Integración en el sitio web"
 
@@ -10912,8 +10912,8 @@ msgstr "29/02 · este año el %1"
 msgid "Für %1 von %2 berücksichtigten Personen ist kein Geburtsdatum hinterlegt -- deren Geburtstage fehlen in dieser Liste."
 msgstr "Para %1 de %2 personas consideradas no hay fecha de nacimiento registrada -- sus cumpleaños faltan en esta lista."
 
-# Welle V1.4.5.2 "DATEV-Format-Export" -- neue Strings, siehe FinancialReportsScreen.kt/AccountingLabels.kt/LedgerScreen.kt.
 #: src/jsMain/kotlin/network/lapis/cloud/client/FinancialReportsScreen.kt:79
+# Welle V1.4.5.2 "DATEV-Format-Export" -- neue Strings, siehe FinancialReportsScreen.kt/AccountingLabels.kt/LedgerScreen.kt.
 msgid "DATEV-Export"
 msgstr "Exportación DATEV"
 
@@ -11298,8 +11298,8 @@ msgstr "Ejecución repetida."
 msgid "Wiedervorlage am %1"
 msgstr "Fecha de revisión %1"
 
-# Welle V1.4.11 "Reisekostenabrechnung fuer Vorstand und Funktionstraeger" -- angehaengt, nicht alphabetisch einsortiert.
 #: src/jsMain/kotlin/network/lapis/cloud/client/TravelExpenseScreen.kt
+# Welle V1.4.11 "Reisekostenabrechnung fuer Vorstand und Funktionstraeger" -- angehaengt, nicht alphabetisch einsortiert.
 msgid "%1 hinzufügen"
 msgstr "Añadir %1"
 
@@ -16561,9 +16561,9 @@ msgid "Der Server ist gerade ausgelastet. Bitte versuchen Sie es in einem Moment
 msgstr "El servidor está ocupado en este momento. Inténtelo de nuevo en un momento."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleEditor.kt
+#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
 msgid "Vorschau wird geladen…"
 msgstr "Cargando vista previa…"
-#: src/jsMain/kotlin/network/lapis/cloud/client/MemberMapMapController.kt:199
 msgid "Baden-Württemberg"
 msgstr "Baden-Wurtemberg"
 
@@ -23722,3 +23722,12 @@ msgstr "Se añadió el elemento."
 
 msgid "Video-Overlay"
 msgstr "Superposición de vídeo"
+
+msgid "X"
+msgstr "X"
+
+msgid "X (ehemals Twitter): Server-URL und Stream-Schlüssel finden Sie im Media Studio von X unter \"Producer\". Der Schlüssel kann sich pro Übertragung ändern. Getestet wurde nur das Layout \"Einzelne Person\". Prüfen Sie vorab, ob Ihr Konto die Zugangsbedingungen für Live-Übertragungen auf X erfüllt."
+msgstr "X (antes Twitter): Encontrará la URL del servidor y la clave de transmisión en el Media Studio de X, en \"Producer\". La clave puede cambiar con cada emisión. Solo se ha probado el diseño \"Persona individual\". Compruebe de antemano si su cuenta cumple los requisitos de X para emitir en directo."
+
+msgid "Bei X kann sich der Schlüssel pro Übertragung ändern. Tragen Sie ihn dann hier neu ein."
+msgstr "En X, la clave puede cambiar con cada emisión. En ese caso, vuelva a introducirla aquí."
