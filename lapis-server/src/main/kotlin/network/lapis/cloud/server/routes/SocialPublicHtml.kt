@@ -418,6 +418,32 @@ internal object SocialPublicHtml {
             .article-title { font-size: 1.55rem; }
         }
 
+        /* V1.9.135 Anmelde-/Einwilligungsseiten (AuthPageHtml) */
+        .auth-card { max-width: 36rem; margin: 2.5rem auto; padding: 1.5rem; border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 0.5rem; background: rgba(128, 128, 128, 0.06); }
+        .auth-card h1 { font-size: 1.4rem; margin-top: 0; overflow-wrap: anywhere; }
+        .auth-field { margin-bottom: 1rem; }
+        .auth-field label { display: block; margin-bottom: 0.3rem; font-weight: 600; }
+        .auth-field input {
+            display: block; width: 100%; box-sizing: border-box; padding: 0.55rem 0.75rem; font: inherit; color: inherit;
+            background: transparent; border: 1px solid rgba(128, 128, 128, 0.6); border-radius: 0.4rem;
+        }
+        .auth-field input:focus-visible { outline: 2px solid #C9A227; outline-offset: 1px; }
+        .auth-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.2rem; }
+        .auth-primary, .auth-secondary {
+            display: inline-block; box-sizing: border-box; padding: 0.6rem 1.2rem; font: inherit; font-weight: 600;
+            text-align: center; text-decoration: none; cursor: pointer; border-radius: 0.35rem;
+        }
+        .auth-primary { background: #C9A227; color: #14181E; border: 1px solid #C9A227; }
+        .auth-secondary { background: transparent; color: inherit; border: 1px solid currentColor; }
+        .auth-primary:focus-visible, .auth-secondary:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+        .auth-callout { margin: 0 0 1rem 0; padding: 0.8rem 1rem; border-left: 4px solid #C9A227; border-radius: 0.35rem; background: rgba(201, 162, 39, 0.12); }
+        .auth-callout--error { border-left-color: #b00020; background: rgba(176, 0, 32, 0.08); }
+        .auth-scopes code, .auth-redirect { overflow-wrap: anywhere; }
+        @media (max-width: 30rem) {
+            .auth-actions > * { flex: 1 1 100%; }
+            .auth-card { padding: 1rem; margin: 1.5rem auto; }
+        }
+
         /* Welle V1.9.20 "Öffentliche Seiten" (/vorstand, /politiker, /landesverbaende) -- shares this
            stylesheet, see network.lapis.cloud.server.routes.PublicProfilesHtml class KDoc. Colours
            only from values already used above (no new hex literals except the crest tile's light

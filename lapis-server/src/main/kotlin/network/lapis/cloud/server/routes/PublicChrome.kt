@@ -689,6 +689,37 @@ internal object PublicChrome {
         }
     }
 
+    private fun FlowContent.renderBrand(
+        baseUrl: String,
+        branding: ResolvedBranding,
+    ) {
+        a(href = baseUrl, classes = "chrome-brand") {
+            if (branding.logoAvailable) {
+                img(src = "/api/branding/logo", alt = branding.title, classes = "chrome-logo")
+            } else {
+                span(classes = "chrome-wordmark") { +branding.title }
+            }
+        }
+    }
+
+    /**
+     * Welle V1.9.135 -- the chrome of the sign-in / consent pages: brand only, no navigation, no language switcher, no
+     * call-to-action. Deliberately a mode without exits (Tesler): leaving a sign-in flow loses `state` and PKCE, so a nav
+     * would only offer ways to break the flow. The brand link is the one way out.
+     */
+    fun FlowContent.renderAuthChrome(
+        lang: PublicLanguage,
+        baseUrl: String,
+        branding: ResolvedBranding,
+    ) {
+        a(href = "#main", classes = "skip-link") { +stringsFor(lang).skipToContent }
+        header(classes = "chrome") {
+            attributes["lang"] = lang.code
+            attributes["role"] = "banner"
+            div(classes = "chrome-inner") { renderBrand(baseUrl = baseUrl, branding = branding) }
+        }
+    }
+
     /**
      * Renders the skip-link + `<header class="chrome">` -- the caller emits these as the FIRST
      * children of `<body class="has-chrome">`, before its own `<main id="main">`. [currentPath] is
@@ -760,13 +791,7 @@ internal object PublicChrome {
             attributes["lang"] = lang.code
             attributes["role"] = "banner"
             div(classes = "chrome-inner") {
-                a(href = baseUrl, classes = "chrome-brand") {
-                    if (branding.logoAvailable) {
-                        img(src = "/api/branding/logo", alt = branding.title, classes = "chrome-logo")
-                    } else {
-                        span(classes = "chrome-wordmark") { +branding.title }
-                    }
-                }
+                renderBrand(baseUrl = baseUrl, branding = branding)
                 nav(classes = "chrome-nav") {
                     attributes["aria-label"] = strings.navMain
                     navLink(

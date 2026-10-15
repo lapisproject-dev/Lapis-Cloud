@@ -6,6 +6,35 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.135 -- Styled sign-in and consent pages
+
+The five plain HTML pages of the sign-in and consent flows (guest consent, home-server form, OIDC error page, Keycloak error page, MCP consent) now look like the rest of the public site: brand header, a card, the public footer, the site stylesheet. Same routes, same fields, same behaviour.
+
+#### Added
+
+- **New:** `AuthPageHtml` (`renderAuthPage`, `applyAuthPageHeaders`, `redirectHostOrNull`) and `PublicChrome.renderAuthChrome` -- a brand-only header with no navigation and no language switcher (leaving a sign-in flow loses `state` and PKCE). `renderChrome` output is unchanged (the brand block was only extracted).
+- **New:** the consent pages show the host (no port) the member is sent to afterwards.
+- **New:** security headers on all five pages -- **newly introduced, none of these pages set any before**: CSP (`default-src 'none'`, own stylesheet, `frame-ancestors 'none'`, `form-action 'self'` on the error pages only), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: same-origin`, `Cache-Control: no-store`, `X-Robots-Tag`, `Permissions-Policy`.
+- **New:** `docs/features/auth-and-consent-pages.adoc`; `AuthPagesTest`.
+
+#### Changed
+
+- The two consent pages and the home-server form carry no `form-action`: the 302 after the POST goes to a foreign origin (the consent `redirect_uri`, validated against the client registration before it is issued; the home server's discovered `authorization_endpoint`, SSRF-checked), which Chrome would check against it and block. Only the error pages (no form) keep `form-action 'self'`. Route tests now assert the headers of the guest consent, MCP consent and home-server form as actually served.
+- `Referrer-Policy` is `same-origin`, not `no-referrer` like the public pages: a form POST from a `no-referrer` document sends `Origin: null`, which `isSameOriginRequest` answers with 403 on `POST /federation/oidc/rp/login`.
+- OIDC error texts were English and are now German; the "could not reach" text no longer repeats the address the visitor typed. "Already linked to a non-guest account" no longer says so ("already linked to another account"); status 401 unchanged.
+- Keycloak error texts have real umlauts (they were transliterated). Error texts are enum constants, so nothing user-controlled can reach them.
+- The guest consent heading filters the self-declared client name like the MCP page (control characters, 80 characters).
+- `registerOidcRoutes` and `registerKeycloakAuthRoutes` take the instance branding (and, for Keycloak, the base URL). The raw-string pages and both hand-written escape functions are gone.
+- Numbering: the roadmap had reserved V1.9.134 for "Datum und Uhrzeit überall" and V1.9.135 for speaking rights. The entry below already moved the date wave to V1.9.135; this wave takes V1.9.135 instead, so the date and time wave becomes V1.9.136 and speaking rights V1.9.137.
+
+#### Known limitations
+
+- The pages were not looked at in a real browser and the flow was not run against a real foreign home server; `form-action` and `Referrer-Policy` behaviour is tested by header string only.
+- The pages are German only; there is no language switcher and no new translation.
+- The guest consent page still shows raw scope strings.
+- The redirect line shows the host without a port, so an MCP loopback client reads "127.0.0.1".
+- The member-card verification page and the mailing unsubscribe page still have no chrome.
+
 ### V1.9.134 -- Wider two-column registration; per-instance versioned agreement texts
 
 Two things for whoever registers. The member and the FRIEND registration are wider (960 px) and put the fields in two columns from 768 px, with the text in a reading frame; and an instance's ADMIN can now publish its own membership agreement and FRIEND terms -- versioned, hashed and never changed afterwards -- instead of living with the built-in placeholder. Details: `docs/features/agreement-texts.adoc`.

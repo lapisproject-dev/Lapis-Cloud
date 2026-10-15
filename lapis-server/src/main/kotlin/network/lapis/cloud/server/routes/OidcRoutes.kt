@@ -11,6 +11,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
 import io.ktor.http.isSuccess
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.plugins.origin
 import io.ktor.server.request.receiveParameters
@@ -27,8 +28,25 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.html.ButtonType
+import kotlinx.html.FormMethod
+import kotlinx.html.InputType
+import kotlinx.html.a
+import kotlinx.html.button
+import kotlinx.html.code
+import kotlinx.html.div
+import kotlinx.html.form
+import kotlinx.html.h1
+import kotlinx.html.id
+import kotlinx.html.input
+import kotlinx.html.label
+import kotlinx.html.li
+import kotlinx.html.p
+import kotlinx.html.strong
+import kotlinx.html.ul
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.OidcLoginAuditRecorder
+import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
@@ -192,7 +210,10 @@ fun Route.registerOidcRoutes(
      * sites already establish for a malformed MCP scope set.
      */
     mcpWriteEnabled: Boolean = false,
+    /** Welle V1.9.135 -- the instance branding the sign-in / consent pages render their brand chrome from. */
+    branding: ResolvedBranding,
 ) {
+    val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
     get("/.well-known/openid-configuration") {
         call.respondText(
             OidcDiscoveryDocument.toJson(OidcDiscoveryDocument.build(mcpEnabled = mcpEnabled, mcpWriteEnabled = mcpWriteEnabled)),
@@ -327,6 +348,7 @@ fun Route.registerOidcRoutes(
             return@get
         }
 
+        call.applyAuthPageHeaders(formAction = AuthFormAction.UNRESTRICTED, imgSrcSelf = branding.logoAvailable)
         if (isMcpRequest) {
             call.respondText(
                 mcpConsentPageHtml(
@@ -338,6 +360,8 @@ fun Route.registerOidcRoutes(
                     codeChallenge = codeChallenge,
                     nonce = normalizedNonce,
                     resource = resourceParam.orEmpty(),
+                    branding = branding,
+                    baseUrl = baseUrl,
                 ),
                 contentType = io.ktor.http.ContentType.Text.Html,
             )
@@ -354,6 +378,8 @@ fun Route.registerOidcRoutes(
                 state = state,
                 codeChallenge = codeChallenge,
                 nonce = nonce.orEmpty(),
+                branding = branding,
+                baseUrl = baseUrl,
             ),
             contentType = io.ktor.http.ContentType.Text.Html,
         )
@@ -694,7 +720,10 @@ fun Route.registerOidcRoutes(
     }
 
     get("/federation/oidc/rp/login") {
-        call.respondText(rpLoginFormHtml(), contentType = io.ktor.http.ContentType.Text.Html)
+        // UNRESTRICTED: the POST answers with a 302 to the discovered authorization_endpoint of the foreign home server,
+        // which Chrome would check against `form-action 'self'` and block.
+        call.applyAuthPageHeaders(formAction = AuthFormAction.UNRESTRICTED, imgSrcSelf = branding.logoAvailable)
+        call.respondText(rpLoginFormHtml(branding = branding, baseUrl = baseUrl), contentType = io.ktor.http.ContentType.Text.Html)
     }
 
     post("/federation/oidc/rp/login") {
@@ -720,10 +749,11 @@ fun Route.registerOidcRoutes(
                 remoteParty = rawInput.take(2048),
                 reason = "INVALID_HOME_SERVER_URL",
             )
-            call.respondText(
-                errorPageHtml("Invalid home-server address."),
-                contentType = io.ktor.http.ContentType.Text.Html,
+            call.respondAuthErrorPage(
+                error = OidcLoginError.INVALID_HOME_SERVER,
                 status = HttpStatusCode.BadRequest,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@post
         }
@@ -735,10 +765,11 @@ fun Route.registerOidcRoutes(
                 remoteParty = homeServer,
                 reason = "DISCOVERY_FAILED",
             )
-            call.respondText(
-                errorPageHtml("Could not reach the OIDC configuration of $homeServer."),
-                contentType = io.ktor.http.ContentType.Text.Html,
+            call.respondAuthErrorPage(
+                error = OidcLoginError.DISCOVERY_FAILED,
                 status = HttpStatusCode.BadGateway,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@post
         }
@@ -748,10 +779,11 @@ fun Route.registerOidcRoutes(
                 remoteParty = homeServer,
                 reason = "ISSUER_MISMATCH",
             )
-            call.respondText(
-                errorPageHtml("The home server's own discovery document disagrees about its issuer identity."),
-                contentType = io.ktor.http.ContentType.Text.Html,
+            call.respondAuthErrorPage(
+                error = OidcLoginError.ISSUER_MISMATCH,
                 status = HttpStatusCode.BadGateway,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@post
         }
@@ -822,10 +854,11 @@ fun Route.registerOidcRoutes(
                 }
             }
         if (registration == null) {
-            call.respondText(
-                errorPageHtml("Could not register with the home server."),
-                contentType = io.ktor.http.ContentType.Text.Html,
+            call.respondAuthErrorPage(
+                error = OidcLoginError.REGISTRATION_FAILED,
                 status = HttpStatusCode.BadGateway,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@post
         }
@@ -899,10 +932,11 @@ fun Route.registerOidcRoutes(
             // `state` value this server itself generated and never disclosed except via the 302
             // Location header to the legitimate browser.
             OidcLoginAuditRecorder.record(eventType = OidcLoginEventType.RP_LOGIN_FAILED, reason = "UNKNOWN_OR_EXPIRED_STATE")
-            call.respondText(
-                errorPageHtml("Invalid or expired login attempt."),
-                contentType = io.ktor.http.ContentType.Text.Html,
+            call.respondAuthErrorPage(
+                error = OidcLoginError.INVALID_ATTEMPT,
                 status = HttpStatusCode.Unauthorized,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -930,10 +964,11 @@ fun Route.registerOidcRoutes(
                 remoteParty = homeServerIssuer,
                 reason = "BROWSER_BINDING_MISMATCH",
             )
-            call.respondText(
-                errorPageHtml("Invalid or expired login attempt."),
-                contentType = io.ktor.http.ContentType.Text.Html,
+            call.respondAuthErrorPage(
+                error = OidcLoginError.INVALID_ATTEMPT,
                 status = HttpStatusCode.Unauthorized,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -948,10 +983,11 @@ fun Route.registerOidcRoutes(
                             ?: "MISSING_CODE"
                     ).take(255),
             )
-            call.respondText(
-                errorPageHtml("Login was not completed."),
-                contentType = io.ktor.http.ContentType.Text.Html,
+            call.respondAuthErrorPage(
+                error = OidcLoginError.NOT_COMPLETED,
                 status = HttpStatusCode.Unauthorized,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -992,10 +1028,11 @@ fun Route.registerOidcRoutes(
                 remoteParty = homeServerIssuer,
                 reason = "TOKEN_EXCHANGE_FAILED",
             )
-            call.respondText(
-                errorPageHtml("Could not exchange the authorization code."),
-                contentType = io.ktor.http.ContentType.Text.Html,
+            call.respondAuthErrorPage(
+                error = OidcLoginError.CODE_EXCHANGE_FAILED,
                 status = HttpStatusCode.BadGateway,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -1016,10 +1053,11 @@ fun Route.registerOidcRoutes(
                 remoteParty = homeServerIssuer,
                 reason = "JWKS_FETCH_FAILED",
             )
-            call.respondText(
-                errorPageHtml("Could not fetch the home server's signing keys."),
-                contentType = io.ktor.http.ContentType.Text.Html,
+            call.respondAuthErrorPage(
+                error = OidcLoginError.JWKS_FAILED,
                 status = HttpStatusCode.BadGateway,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -1032,10 +1070,11 @@ fun Route.registerOidcRoutes(
                 remoteParty = homeServerIssuer,
                 reason = "UNKNOWN_KID",
             )
-            call.respondText(
-                errorPageHtml("Unknown signing key."),
-                contentType = io.ktor.http.ContentType.Text.Html,
+            call.respondAuthErrorPage(
+                error = OidcLoginError.UNKNOWN_KEY,
                 status = HttpStatusCode.Unauthorized,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -1054,10 +1093,11 @@ fun Route.registerOidcRoutes(
                 remoteParty = homeServerIssuer,
                 reason = verification.reason,
             )
-            call.respondText(
-                errorPageHtml("ID token verification failed."),
-                contentType = io.ktor.http.ContentType.Text.Html,
+            call.respondAuthErrorPage(
+                error = OidcLoginError.TOKEN_VERIFICATION_FAILED,
                 status = HttpStatusCode.Unauthorized,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -1069,10 +1109,11 @@ fun Route.registerOidcRoutes(
                 remoteParty = homeServerIssuer,
                 reason = "MISSING_SUB",
             )
-            call.respondText(
-                errorPageHtml("ID token is missing a subject."),
-                contentType = io.ktor.http.ContentType.Text.Html,
+            call.respondAuthErrorPage(
+                error = OidcLoginError.MISSING_SUBJECT,
                 status = HttpStatusCode.Unauthorized,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -1111,10 +1152,11 @@ fun Route.registerOidcRoutes(
                     remoteParty = homeServerIssuer,
                     reason = "GUEST_IDENTITY_BOUND_TO_NON_GUEST_MEMBER",
                 )
-                call.respondText(
-                    errorPageHtml("This identity is already linked to a different, non-guest account."),
-                    contentType = io.ktor.http.ContentType.Text.Html,
+                call.respondAuthErrorPage(
+                    error = OidcLoginError.IDENTITY_ALREADY_LINKED,
                     status = HttpStatusCode.Unauthorized,
+                    branding = branding,
+                    baseUrl = baseUrl,
                 )
                 return@get
             }
@@ -1670,16 +1712,43 @@ private fun buildRedirectUrl(
     return "$redirectUri$separator$query"
 }
 
-/** Not `private` (Welle V1.8.1) -- [mcpConsentPageHtml] in `McpConsentPage.kt` needs it too; Kotlin's file-scoped `private` would otherwise hide it from that file even within the same package. */
-internal fun htmlEscape(value: String): String =
-    value
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace("\"", "&quot;")
-        .replace("'", "&#39;")
+/**
+ * Welle V1.9.135 -- every text of the OIDC relying-party error page. An enum on purpose: the page can only ever show one of
+ * these fixed constants, so no user-controlled value (the home-server address, a token claim) can be reflected into it.
+ */
+private enum class OidcLoginError(
+    val text: String,
+) {
+    INVALID_HOME_SERVER("Die Heimatserver-Adresse ist ungültig."),
+    DISCOVERY_FAILED("Die Anmeldekonfiguration des Heimatservers konnte nicht abgerufen werden."),
+    ISSUER_MISMATCH("Der Heimatserver hat widersprüchliche Angaben zu seiner Identität gemacht."),
+    REGISTRATION_FAILED("Die Registrierung beim Heimatserver ist fehlgeschlagen."),
+    INVALID_ATTEMPT("Der Anmeldeversuch ist ungültig oder abgelaufen."),
+    NOT_COMPLETED("Die Anmeldung wurde nicht abgeschlossen."),
+    CODE_EXCHANGE_FAILED("Der Autorisierungscode konnte nicht eingelöst werden."),
+    JWKS_FAILED("Die Signaturschlüssel des Heimatservers konnten nicht abgerufen werden."),
+    UNKNOWN_KEY("Unbekannter Signaturschlüssel."),
+    TOKEN_VERIFICATION_FAILED("Die Signatur der Anmeldung konnte nicht geprüft werden."),
+    MISSING_SUBJECT("Die Anmeldung enthält kein Subjekt."),
+    IDENTITY_ALREADY_LINKED("Diese Identität ist bereits mit einem anderen Konto verknüpft."),
+}
 
-private fun consentPageHtml(
+/** The one place an OIDC error page is answered -- exactly one header application per response. */
+private suspend fun ApplicationCall.respondAuthErrorPage(
+    error: OidcLoginError,
+    status: HttpStatusCode,
+    branding: ResolvedBranding,
+    baseUrl: String,
+) {
+    applyAuthPageHeaders(formAction = AuthFormAction.SELF, imgSrcSelf = branding.logoAvailable)
+    respondText(
+        authErrorPageHtml(message = error.text, branding = branding, baseUrl = baseUrl),
+        contentType = io.ktor.http.ContentType.Text.Html,
+        status = status,
+    )
+}
+
+internal fun consentPageHtml(
     clientName: String,
     scopes: Set<String>,
     clientId: String,
@@ -1688,47 +1757,74 @@ private fun consentPageHtml(
     state: String,
     codeChallenge: String,
     nonce: String,
+    branding: ResolvedBranding,
+    baseUrl: String,
+): String {
+    // Same filtering the MCP consent page applies to the self-declared client name (control characters, 80 characters).
+    val shownName = clientName.filterNot { it.isISOControl() }.take(80)
+    val host = redirectHostOrNull(redirectUri)
+    return renderAuthPage(title = "Gastzugang genehmigen", branding = branding, baseUrl = baseUrl) {
+        h1 { +"$shownName möchte auf Ihre Lapis-Cloud-Identität zugreifen" }
+        if (host != null) {
+            p(classes = "auth-redirect") {
+                +"Sie werden danach zu "
+                strong { +host }
+                +" weitergeleitet."
+            }
+        }
+        p { +"Angeforderte Berechtigungen:" }
+        ul(classes = "auth-scopes") {
+            scopes.forEach { scope -> li { code { +scope } } }
+        }
+        form(action = "/federation/oidc/authorize/consent", method = FormMethod.post) {
+            hiddenField(name = "client_id", value = clientId)
+            hiddenField(name = "redirect_uri", value = redirectUri)
+            hiddenField(name = "scope", value = scopeParam)
+            hiddenField(name = "state", value = state)
+            hiddenField(name = "code_challenge", value = codeChallenge)
+            hiddenField(name = "nonce", value = nonce)
+            authActions {
+                button(type = ButtonType.submit, classes = "auth-primary") {
+                    name = "decision"
+                    value = "allow"
+                    +"Erlauben"
+                }
+                button(type = ButtonType.submit, classes = "auth-secondary") {
+                    name = "decision"
+                    value = "deny"
+                    +"Ablehnen"
+                }
+            }
+        }
+    }
+}
+
+internal fun rpLoginFormHtml(
+    branding: ResolvedBranding,
+    baseUrl: String,
 ): String =
-    """
-    <!doctype html>
-    <html><head><meta charset="utf-8"><title>Gastzugang genehmigen</title></head>
-    <body>
-    <h1>${htmlEscape(clientName)} moechte auf Ihre Lapis-Cloud-Identitaet zugreifen</h1>
-    <p>Angeforderte Berechtigungen:</p>
-    <ul>${scopes.joinToString("") { "<li>${htmlEscape(it)}</li>" }}</ul>
-    <form method="post" action="/federation/oidc/authorize/consent">
-      <input type="hidden" name="client_id" value="${htmlEscape(clientId)}">
-      <input type="hidden" name="redirect_uri" value="${htmlEscape(redirectUri)}">
-      <input type="hidden" name="scope" value="${htmlEscape(scopeParam)}">
-      <input type="hidden" name="state" value="${htmlEscape(state)}">
-      <input type="hidden" name="code_challenge" value="${htmlEscape(codeChallenge)}">
-      <input type="hidden" name="nonce" value="${htmlEscape(nonce)}">
-      <button type="submit" name="decision" value="allow">Erlauben</button>
-      <button type="submit" name="decision" value="deny">Ablehnen</button>
-    </form>
-    </body></html>
-    """.trimIndent()
-
-private fun rpLoginFormHtml(): String =
-    """
-    <!doctype html>
-    <html><head><meta charset="utf-8"><title>Mit Heimatserver anmelden</title></head>
-    <body>
-    <h1>Gastzugang -- mit Ihrem Heimatserver anmelden</h1>
-    <form method="post" action="/federation/oidc/rp/login">
-      <label for="home_server">Heimatserver-Adresse</label>
-      <input id="home_server" name="home_server" placeholder="https://ihr-heimatserver.example">
-      <button type="submit">Weiter</button>
-    </form>
-    </body></html>
-    """.trimIndent()
-
-private fun errorPageHtml(message: String): String =
-    """
-    <!doctype html>
-    <html><head><meta charset="utf-8"><title>Anmeldung fehlgeschlagen</title></head>
-    <body><h1>Anmeldung fehlgeschlagen</h1><p>${htmlEscape(message)}</p></body></html>
-    """.trimIndent()
+    renderAuthPage(title = "Gastzugang: mit Ihrem Heimatserver anmelden", branding = branding, baseUrl = baseUrl) {
+        h1 { +"Gastzugang: mit Ihrem Heimatserver anmelden" }
+        p { +"Geben Sie die Adresse des Lapis-Cloud-Servers ein, bei dem Sie Mitglied sind." }
+        form(action = "/federation/oidc/rp/login", method = FormMethod.post) {
+            div(classes = "auth-field") {
+                label {
+                    htmlFor = "home_server"
+                    +"Heimatserver-Adresse"
+                }
+                input(type = InputType.url, name = "home_server") {
+                    id = "home_server"
+                    required = true
+                    autoComplete = "url"
+                    placeholder = "https://ihr-heimatserver.example"
+                }
+            }
+            authActions {
+                button(type = ButtonType.submit, classes = "auth-primary") { +"Weiter" }
+                a(href = baseUrl, classes = "auth-secondary") { +"Abbrechen" }
+            }
+        }
+    }
 
 private fun appendRpBindingCookie(
     call: io.ktor.server.application.ApplicationCall,

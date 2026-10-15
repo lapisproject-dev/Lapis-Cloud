@@ -9,6 +9,7 @@ import io.ktor.http.Cookie
 import io.ktor.http.CookieEncoding
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.plugins.origin
 import io.ktor.server.response.respond
@@ -24,6 +25,7 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.audit.OidcLoginAuditRecorder
+import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.KeycloakLoginAttemptTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -176,6 +178,9 @@ internal fun Route.registerKeycloakAuthRoutes(
     provisioner: KeycloakMemberProvisioner? = null,
     /** Welle V1.9.73 -- the opt-in profile sync, run after a successful login of an already linked member. `null` = off. */
     profileSync: KeycloakProfileSync? = null,
+    /** Welle V1.9.135 -- instance branding and public base URL for the brand chrome of the error page. */
+    branding: ResolvedBranding,
+    baseUrl: String,
 ) {
     get("/auth/keycloak/start") {
         if (!config.isOperational) {
@@ -213,10 +218,11 @@ internal fun Route.registerKeycloakAuthRoutes(
         val discovery = metadata.discoveryDocument()
         if (discovery == null) {
             logger.warn { "Keycloak /auth/keycloak/start: discovery document unavailable" }
-            call.respondText(
-                keycloakErrorPageHtml("Der externe Anmeldedienst ist derzeit nicht erreichbar."),
-                contentType = ContentType.Text.Html,
+            call.respondKeycloakErrorPage(
+                error = KeycloakLoginError.IDP_UNREACHABLE,
                 status = HttpStatusCode.BadGateway,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -236,10 +242,11 @@ internal fun Route.registerKeycloakAuthRoutes(
             }.getOrNull()
         if (authorizationEndpoint == null) {
             logger.warn { "Keycloak /auth/keycloak/start: authorization_endpoint failed issuer-URL re-validation" }
-            call.respondText(
-                keycloakErrorPageHtml("Der externe Anmeldedienst ist derzeit nicht erreichbar."),
-                contentType = ContentType.Text.Html,
+            call.respondKeycloakErrorPage(
+                error = KeycloakLoginError.IDP_UNREACHABLE,
                 status = HttpStatusCode.BadGateway,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -387,10 +394,11 @@ internal fun Route.registerKeycloakAuthRoutes(
                 remoteParty = config.issuerUrl,
                 reason = "UNKNOWN_OR_EXPIRED_STATE",
             )
-            call.respondText(
-                keycloakErrorPageHtml("Ungueltiger oder abgelaufener Anmeldeversuch."),
-                contentType = ContentType.Text.Html,
+            call.respondKeycloakErrorPage(
+                error = KeycloakLoginError.INVALID_ATTEMPT,
                 status = HttpStatusCode.Unauthorized,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -413,10 +421,11 @@ internal fun Route.registerKeycloakAuthRoutes(
                 remoteParty = config.issuerUrl,
                 reason = "BROWSER_BINDING_MISMATCH",
             )
-            call.respondText(
-                keycloakErrorPageHtml("Ungueltiger oder abgelaufener Anmeldeversuch."),
-                contentType = ContentType.Text.Html,
+            call.respondKeycloakErrorPage(
+                error = KeycloakLoginError.INVALID_ATTEMPT,
                 status = HttpStatusCode.Unauthorized,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -436,10 +445,11 @@ internal fun Route.registerKeycloakAuthRoutes(
                 remoteParty = config.issuerUrl,
                 reason = reason.take(255),
             )
-            call.respondText(
-                keycloakErrorPageHtml("Die Anmeldung wurde nicht abgeschlossen."),
-                contentType = ContentType.Text.Html,
+            call.respondKeycloakErrorPage(
+                error = KeycloakLoginError.NOT_COMPLETED,
                 status = HttpStatusCode.Unauthorized,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -453,10 +463,11 @@ internal fun Route.registerKeycloakAuthRoutes(
                 remoteParty = config.issuerUrl,
                 reason = "DISCOVERY_UNAVAILABLE",
             )
-            call.respondText(
-                keycloakErrorPageHtml("Der externe Anmeldedienst ist derzeit nicht erreichbar."),
-                contentType = ContentType.Text.Html,
+            call.respondKeycloakErrorPage(
+                error = KeycloakLoginError.IDP_UNREACHABLE,
                 status = HttpStatusCode.BadGateway,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -504,10 +515,11 @@ internal fun Route.registerKeycloakAuthRoutes(
                 remoteParty = config.issuerUrl,
                 reason = "TOKEN_EXCHANGE_FAILED",
             )
-            call.respondText(
-                keycloakErrorPageHtml("Der Autorisierungscode konnte nicht eingeloest werden."),
-                contentType = ContentType.Text.Html,
+            call.respondKeycloakErrorPage(
+                error = KeycloakLoginError.CODE_EXCHANGE_FAILED,
                 status = HttpStatusCode.BadGateway,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -522,10 +534,11 @@ internal fun Route.registerKeycloakAuthRoutes(
                 remoteParty = config.issuerUrl,
                 reason = "UNKNOWN_KID",
             )
-            call.respondText(
-                keycloakErrorPageHtml("Unbekannter Signaturschluessel."),
-                contentType = ContentType.Text.Html,
+            call.respondKeycloakErrorPage(
+                error = KeycloakLoginError.UNKNOWN_KEY,
                 status = HttpStatusCode.Unauthorized,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -546,10 +559,11 @@ internal fun Route.registerKeycloakAuthRoutes(
                 remoteParty = config.issuerUrl,
                 reason = "ID_TOKEN_${verification.reason}".take(255),
             )
-            call.respondText(
-                keycloakErrorPageHtml("Die Signatur der Anmeldung konnte nicht geprueft werden."),
-                contentType = ContentType.Text.Html,
+            call.respondKeycloakErrorPage(
+                error = KeycloakLoginError.VERIFICATION_FAILED,
                 status = HttpStatusCode.Unauthorized,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -563,10 +577,11 @@ internal fun Route.registerKeycloakAuthRoutes(
                 remoteParty = config.issuerUrl,
                 reason = "MISSING_SUB",
             )
-            call.respondText(
-                keycloakErrorPageHtml("Die Anmeldung enthaelt kein Subjekt."),
-                contentType = ContentType.Text.Html,
+            call.respondKeycloakErrorPage(
+                error = KeycloakLoginError.MISSING_SUBJECT,
                 status = HttpStatusCode.Unauthorized,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -580,10 +595,11 @@ internal fun Route.registerKeycloakAuthRoutes(
                 remoteParty = config.issuerUrl,
                 reason = "MISSING_EMAIL",
             )
-            call.respondText(
-                keycloakErrorPageHtml("Die Anmeldung enthaelt keine E-Mail-Adresse."),
-                contentType = ContentType.Text.Html,
+            call.respondKeycloakErrorPage(
+                error = KeycloakLoginError.MISSING_EMAIL,
                 status = HttpStatusCode.Unauthorized,
+                branding = branding,
+                baseUrl = baseUrl,
             )
             return@get
         }
@@ -662,10 +678,11 @@ internal fun Route.registerKeycloakAuthRoutes(
                                 reason = "NO_MATCHING_MEMBER",
                             )
                         }
-                        call.respondText(
-                            keycloakErrorPageHtml(provisionRejectionMessage(rejection)),
-                            contentType = ContentType.Text.Html,
+                        call.respondKeycloakErrorPage(
+                            error = provisionRejection(rejection),
                             status = HttpStatusCode.Unauthorized,
+                            branding = branding,
+                            baseUrl = baseUrl,
                         )
                         return@get
                     }
@@ -695,10 +712,11 @@ internal fun Route.registerKeycloakAuthRoutes(
                             reason = "NO_MATCHING_MEMBER",
                         )
                     }
-                    call.respondText(
-                        keycloakErrorPageHtml("Kein zugeordnetes Mitgliedskonto -- bitte an die Verwaltung wenden."),
-                        contentType = ContentType.Text.Html,
+                    call.respondKeycloakErrorPage(
+                        error = KeycloakLoginError.NO_MEMBER,
                         status = HttpStatusCode.Unauthorized,
+                        branding = branding,
+                        baseUrl = baseUrl,
                     )
                     return@get
                 }
@@ -813,29 +831,48 @@ private fun keycloakPublicBaseUrl(): String =
  * Welle V1.9.73 -- the page for a refused just-in-time creation. The group reasons deliberately read like the ordinary
  * "no member" page (nothing reveals whether the identity is in the group); only the two cases the person can act on differ.
  */
-private fun provisionRejectionMessage(reason: KeycloakMemberProvisioner.RejectReason): String =
+private fun provisionRejection(reason: KeycloakMemberProvisioner.RejectReason): KeycloakLoginError =
     when (reason) {
-        KeycloakMemberProvisioner.RejectReason.RATE_LIMITED ->
-            "Die automatische Anlage ist vorübergehend ausgelastet, bitte später erneut versuchen oder die Verwaltung kontaktieren."
-        KeycloakMemberProvisioner.RejectReason.NAME_MISSING ->
-            "Ihr Anmeldekonto enthält keinen Namen – bitte an die Verwaltung wenden."
-        else -> "Kein zugeordnetes Mitgliedskonto -- bitte an die Verwaltung wenden."
+        KeycloakMemberProvisioner.RejectReason.RATE_LIMITED -> KeycloakLoginError.PROVISION_RATE_LIMITED
+        KeycloakMemberProvisioner.RejectReason.NAME_MISSING -> KeycloakLoginError.NAME_MISSING
+        else -> KeycloakLoginError.NO_MEMBER
     }
 
-private fun keycloakErrorPageHtml(message: String): String =
-    """
-    <!doctype html>
-    <html><head><meta charset="utf-8"><title>Anmeldung fehlgeschlagen</title></head>
-    <body><h1>Anmeldung fehlgeschlagen</h1><p>${keycloakHtmlEscape(message)}</p></body></html>
-    """.trimIndent()
+/**
+ * Welle V1.9.135 -- every text of the Keycloak error page, an enum so that nothing user-controlled can be reflected into it.
+ * (Umlauts are real umlauts since this wave; before, the texts were ASCII-transliterated.)
+ */
+private enum class KeycloakLoginError(
+    val text: String,
+) {
+    IDP_UNREACHABLE("Der externe Anmeldedienst ist derzeit nicht erreichbar."),
+    INVALID_ATTEMPT("Ungültiger oder abgelaufener Anmeldeversuch."),
+    NOT_COMPLETED("Die Anmeldung wurde nicht abgeschlossen."),
+    CODE_EXCHANGE_FAILED("Der Autorisierungscode konnte nicht eingelöst werden."),
+    UNKNOWN_KEY("Unbekannter Signaturschlüssel."),
+    VERIFICATION_FAILED("Die Signatur der Anmeldung konnte nicht geprüft werden."),
+    MISSING_SUBJECT("Die Anmeldung enthält kein Subjekt."),
+    MISSING_EMAIL("Die Anmeldung enthält keine E-Mail-Adresse."),
+    NO_MEMBER("Kein zugeordnetes Mitgliedskonto – bitte an die Verwaltung wenden."),
+    PROVISION_RATE_LIMITED(
+        "Die automatische Anlage ist vorübergehend ausgelastet, bitte später erneut versuchen oder die Verwaltung kontaktieren.",
+    ),
+    NAME_MISSING("Ihr Anmeldekonto enthält keinen Namen – bitte an die Verwaltung wenden."),
+}
 
-private fun keycloakHtmlEscape(value: String): String =
-    value
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace("\"", "&quot;")
-        .replace("'", "&#39;")
+private suspend fun ApplicationCall.respondKeycloakErrorPage(
+    error: KeycloakLoginError,
+    status: HttpStatusCode,
+    branding: ResolvedBranding,
+    baseUrl: String,
+) {
+    applyAuthPageHeaders(formAction = AuthFormAction.SELF, imgSrcSelf = branding.logoAvailable)
+    respondText(
+        authErrorPageHtml(message = error.text, branding = branding, baseUrl = baseUrl),
+        contentType = ContentType.Text.Html,
+        status = status,
+    )
+}
 
 private fun nowLocalDateTime(): LocalDateTime = DbClock.nowLocalDateTime(TimeZone.UTC)
 

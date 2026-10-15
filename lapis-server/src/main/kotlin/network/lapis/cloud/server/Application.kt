@@ -2660,6 +2660,8 @@ internal fun Application.module(
             startFloodLimiter = keycloakStartFloodLimiter,
             provisioner = keycloakMemberProvisioner,
             profileSync = keycloakProfileSync,
+            branding = resolvedBranding,
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
         )
         // V1.5.1 Mobile App -- thin REST wrapper around IConferenceService (see
         // MobileConferenceRoutes.kt KDoc) plus the WebView session-bridge endpoint (see
@@ -2709,6 +2711,7 @@ internal fun Application.module(
             registrationRateLimiter = oidcRegistrationRateLimiter,
             mcpEnabled = mcpConfig.isOperational,
             mcpWriteEnabled = mcpConfig.isWriteOperational,
+            branding = resolvedBranding,
         )
         // Welle V1.8.1 MCP-Server -- OFF by default: with mcpConfig.isOperational false the route
         // is never even REGISTERED (not merely gated inside a handler), so POST /mcp answers a

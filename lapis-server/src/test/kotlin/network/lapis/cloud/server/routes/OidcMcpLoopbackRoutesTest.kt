@@ -377,6 +377,12 @@ class OidcMcpLoopbackRoutesTest :
                 val html = response.bodyAsText()
                 html shouldContain "name=\"scope\" value=\"$READ\""
                 html shouldNotContain "name=\"nonce\""
+                // V1.9.135: consent pages carry NO form-action (the 302 after the POST goes to the foreign redirect_uri).
+                val csp = response.headers["Content-Security-Policy"]!!
+                csp shouldNotContain "form-action"
+                csp shouldContain "frame-ancestors 'none'"
+                response.headers["X-Frame-Options"] shouldBe "DENY"
+                response.headers["Cache-Control"] shouldBe "no-store"
             }
         }
 

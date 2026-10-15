@@ -56,7 +56,7 @@ the switch, a list of the member's own live connections: the self-declared conne
   context (switching on) and shows "Bitte versuchen Sie es in einigen Minuten erneut.", then re-reads the state.
 
 The consent screen an agent's OAuth flow lands the member on is a SEPARATE screen from the existing
-guest-federation consent page (which stays byte-identical). It carries a fixed heading never
+guest-federation consent page (both pages share the auth-page shell since V1.9.135; the MCP wording is unchanged). It carries a fixed heading never
 influenced by the connecting agent, the agent's self-declared name shown only as a quoted,
 explicitly-flagged-as-unverified attribute, a plain-language list of the five data areas covered (no
 raw OAuth scope string), an explicit "what the agent cannot do" paragraph, and a required field for
@@ -344,9 +344,9 @@ every ballot of a vote -- including each voter's display name and stake -- to an
 it, not just the requester's own row. `get_my_ballots` does not build on it; it queries
 `vote_ballot`/`vote` directly, filtered hard on the caller's own member id, precisely to avoid
 inheriting that exposure. The underlying `listVoteBallots` gap is out of scope here (also noted:
-the pre-existing guest-federation consent screen sets the client's self-declared name into an
-unescaped-context-adjacent `<h1>` and lists raw scope strings -- both pre-existing, both untouched by
-this wave).
+the guest-federation consent screen shows the client's self-declared name in its heading and lists
+raw scope strings; since V1.9.135 the name is escaped by kotlinx.html and filtered of control
+characters and capped at 80 characters like on the MCP screen, the raw scope list remains).
 
 == Write tools
 

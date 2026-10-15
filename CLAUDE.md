@@ -198,3 +198,12 @@ Details: `docs/features/agreement-texts.adoc`. Kurzregeln:
 - Ein Test, der eine Fassung veröffentlicht, **räumt in `afterEach` per Test-SQL auf** (`AgreementTextTestState.reset()`): die H2 ist je Test-JVM geteilt, sonst bricht jede Registrierung mit dem Platzhalter.
 - Kilua überträgt nur den Exception-**Typ**: jeder unterscheidbare Fehler braucht einen eigenen Typ und einen festen Toast (`AgreementTextOutdated/Invalid/VersionLabelTaken/DraftChangedException`).
 - **R59/E3d**: `.lapis-agreement-frame` ist der einzige Scroller dieser Klasse und nur ab 768 px (`ScrollSurfaceTripwireTest`); unter 768 px wächst der Rahmen mit dem Text. Kein `overflowY`/`overflow-auto` im Kotlin-Code.
+
+## Anmelde-/Einwilligungsseiten (V1.9.135)
+
+Details: `docs/features/auth-and-consent-pages.adoc`. Kurzregeln:
+
+- Jede HTML-Seite der Anmelde-/Einwilligungsflüsse läuft über `renderAuthPage` und wird nach `applyAuthPageHeaders` beantwortet (genau einmal je Antwort). Kein Raw-String-HTML, kein `unsafe {}`, kein `<script>`, kein `style=`.
+- Seiten, deren Formular-POST mit einem 302 an einen fremden Origin antwortet (Einwilligungsseiten: fremde `redirect_uri`; Heimatserver-Formular: fremder `authorization_endpoint`), tragen nie `form-action` in der CSP (`AuthFormAction.UNRESTRICTED`); Chrome prüft das Redirect-Ziel dagegen. Nur Fehlerseiten (ohne Formular) behalten `'self'`. Der Aufrufer-Wert wird per Route-Test auf den ausgelieferten Headern geprüft.
+- Formularseiten mit Origin-Prüfung (`isSameOriginRequest`) nie mit `Referrer-Policy: no-referrer`: der Browser sendet sonst `Origin: null` und der POST scheitert mit 403.
+- Fehlertexte sind Enum-Konstanten, nie Nutzereingaben.

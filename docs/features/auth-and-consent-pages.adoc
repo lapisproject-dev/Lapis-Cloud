@@ -1,0 +1,46 @@
+= Sign-in and consent pages (V1.9.135)
+:toc:
+
+The five HTML pages of the sign-in and consent flows are rendered with kotlinx.html through one shell, `renderAuthPage` (`AuthPageHtml.kt`), and styled by the public site stylesheet (`/s/assets/style.css`).
+
+== Pages and routes
+
+[cols="2,3,1",options="header"]
+|===
+|Page |Route |`form-action`
+|Guest consent |`GET /federation/oidc/authorize` (non-MCP scope) |none
+|MCP consent |`GET /federation/oidc/authorize` (MCP scope) |none
+|Home-server form |`GET /federation/oidc/rp/login` |none
+|OIDC error page |error answers of `/federation/oidc/rp/login` and `/rp/callback` |`'self'`
+|Keycloak error page |error answers of `/auth/keycloak/start` and `/callback` |`'self'`
+|===
+
+Routes, methods, status codes, cookies, rate limits and the checks of `state`, `nonce` and PKCE are unchanged.
+
+== Shell without navigation
+
+The header carries the brand only: no navigation, no language switcher, no call-to-action. Leaving a sign-in flow loses `state` and PKCE, so a navigation would only offer ways to break it. The brand link is the one way out. The doctype is written by hand because kotlinx.html emits none; without it the pages would run in quirks mode.
+
+== Security headers
+
+These headers are *newly introduced* in V1.9.135; none of the pages set any before.
+
+* `Content-Security-Policy: default-src 'none'; style-src 'self'; img-src data: (plus 'self' with a logo); base-uri 'none'; frame-ancestors 'none'`, plus `form-action 'self'` where the table above says so.
+* `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Cache-Control: no-store`, `X-Robots-Tag: noindex, nofollow`, `Permissions-Policy` without geolocation, microphone and camera.
+* `Referrer-Policy: same-origin`. `no-referrer` (as on the public pages) would make browsers send `Origin: null` on the form POST, which `isSameOriginRequest` answers with 403 on `POST /federation/oidc/rp/login`.
+* No `form-action` on the consent pages and the home-server form: the 302 after the POST goes to a foreign origin, which Chrome checks against `form-action` and would block. For the home-server form that is the discovered `authorization_endpoint` of the (SSRF-checked) home server. The consent `redirect_uri` is validated against the client registration (`OidcRedirectUriMatcher`) before it is issued; the page builds no allowlist of its own.
+
+== Escaping and no reflection
+
+All text goes through kotlinx.html escaping; there is no `unsafe {}`, no script and no inline style. Error pages show enum constants only, so no typed address or token claim can appear in them. The consent pages show the host of the `redirect_uri` (never the whole URL, no port); the full URI exists only as a hidden field. The self-declared client name is filtered of control characters and capped at 80 characters.
+
+== Language
+
+German only. There is no language switcher and no new translation.
+
+== Known limitations
+
+* Not looked at in a real browser; `form-action` and `Referrer-Policy` are tested by header string only. The flow was not run against a real foreign home server.
+* The guest consent page shows raw scope strings.
+* The redirect line shows the host without a port ("127.0.0.1" for an MCP loopback client).
+* The member-card verification page and the mailing unsubscribe page have no chrome yet.

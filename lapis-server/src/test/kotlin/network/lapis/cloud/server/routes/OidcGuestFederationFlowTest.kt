@@ -264,6 +264,11 @@ class OidcGuestFederationFlowTest :
                     consentPage.status shouldBe HttpStatusCode.OK
                     val html = consentPage.bodyAsText()
                     html shouldContain "action=\"/federation/oidc/authorize/consent\""
+                    // The consent POST 302s to the foreign redirect_uri: the served CSP must carry no form-action.
+                    val consentCsp = requireNotNull(consentPage.headers["Content-Security-Policy"])
+                    consentCsp shouldNotContain "form-action"
+                    consentCsp shouldContain "frame-ancestors 'none'"
+                    consentPage.headers["Cache-Control"] shouldBe "no-store"
                     html shouldNotContain "mcp"
                     html shouldNotContain "MCP"
 

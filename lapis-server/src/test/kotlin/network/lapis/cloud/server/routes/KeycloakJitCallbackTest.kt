@@ -276,6 +276,8 @@ class KeycloakJitCallbackTest :
                 application {
                     routing {
                         registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
                             config = cfg,
                             metadata = metadata(cfg),
                             startRateLimiter = LoginRateLimiter(),

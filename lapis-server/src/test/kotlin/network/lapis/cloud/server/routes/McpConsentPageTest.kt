@@ -18,6 +18,8 @@ class McpConsentPageTest :
                 codeChallenge = "c",
                 nonce = null,
                 resource = "http://localhost/mcp",
+                branding = TEST_AUTH_BRANDING,
+                baseUrl = "http://localhost",
             )
 
         test("the reading block names the own-articles tool and its editorial restriction") {

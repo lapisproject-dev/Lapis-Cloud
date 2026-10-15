@@ -1,12 +1,27 @@
 package network.lapis.cloud.server.routes
 
+import kotlinx.html.ButtonType
+import kotlinx.html.FormMethod
+import kotlinx.html.InputType
+import kotlinx.html.button
+import kotlinx.html.div
+import kotlinx.html.form
+import kotlinx.html.h1
+import kotlinx.html.id
+import kotlinx.html.input
+import kotlinx.html.label
+import kotlinx.html.li
+import kotlinx.html.p
+import kotlinx.html.strong
+import kotlinx.html.ul
+import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.federation.OidcScopes
 
 /**
  * Welle V1.8.1 MCP-Server -- the consent screen rendered ONLY for an MCP-scoped `/authorize`
- * request, a deliberately SEPARATE screen from [consentPageHtml] (the guest-federation consent
- * page in `OidcRoutes.kt`, which stays byte-identical -- see design-team requirement "Gast-Consent
- * unangetastet").
+ * request, a deliberately SEPARATE screen from `consentPageHtml` (the guest-federation consent
+ * page in `OidcRoutes.kt`). Since V1.9.135 both are rendered through [renderAuthPage] and no longer
+ * byte-identical to their raw-string predecessors; the CONTENT (wording, scope doctrine) is unchanged.
  *
  * Design requirements this screen must satisfy (Design-Team review, Kare/Norman/Jobs):
  * - A FIXED heading, never influenced by the client's self-declared name.
@@ -50,56 +65,92 @@ internal fun mcpConsentPageHtml(
     codeChallenge: String,
     nonce: String?,
     resource: String,
+    branding: ResolvedBranding,
+    baseUrl: String,
 ): String {
-    val safeClientName = htmlEscape(clientName.filterNot { it.isISOControl() }.take(80))
+    val shownClientName = clientName.filterNot { it.isISOControl() }.take(80)
     val requestedScopes = scopeParam.split(" ").filter { it.isNotBlank() }.toSet()
     val requestsWrite = OidcScopes.MCP_MEMBER_WRITE in requestedScopes
-    val writeBlock =
-        if (requestsWrite) {
-            """
-            <p>Bei Zustimmung kann der Agent zusätzlich in Ihrem Namen:</p>
-            <ul>
-              <li>Sich selbst für eine <strong>gebührenfreie</strong> Veranstaltung anmelden --
-              kostenpflichtige Anmeldungen sind über einen Agenten nicht möglich</li>
-              <li>Einen unveröffentlichten Beitrags-Entwurf anlegen</li>
-              <li>Einen unveröffentlichten Artikel-Entwurf anlegen -- nur wenn Sie Redaktionsrechte haben
-              (Vorstand oder Administration). Einreichen können nur Sie selbst; freigegeben wird wie jeder
-              Artikel durch ein anderes Vorstandsmitglied.</li>
-            </ul>
-            """.trimIndent()
-        } else {
-            ""
+    val host = redirectHostOrNull(redirectUri)
+    return renderAuthPage(title = "KI-Agent-Zugriff genehmigen", branding = branding, baseUrl = baseUrl) {
+        h1 { +"Ein KI-Agent möchte auf Ihre Daten zugreifen." }
+        p {
+            +"Der Agent nennt sich „"
+            strong { +shownClientName }
+            +"“. Diesen Namen hat der Agent selbst angegeben – er ist nicht geprüft."
         }
-    return """
-        <!doctype html>
-        <html><head><meta charset="utf-8"><title>KI-Agent-Zugriff genehmigen</title></head>
-        <body>
-        <h1>Ein KI-Agent möchte auf Ihre Daten zugreifen.</h1>
-        <p>Der Agent nennt sich &bdquo;<strong>$safeClientName</strong>&ldquo;. Diesen Namen hat der Agent selbst angegeben -- er ist nicht geprüft.</p>
-        <p>Bei Zustimmung kann der Agent lesend auf folgende eigene Daten zugreifen:</p>
-        <ul>
-          <li>Eigener Beitragsstand</li>
-          <li>Eigener LTR-Kontostand</li>
-          <li>Satzung und veröffentlichte Dokumente (Volltextsuche)</li>
-          <li>Bevorstehende Veranstaltungen</li>
-          <li>Eigene abgegebene Stimmzettel</li>
-          <li>Eigene Artikel (nur Titel und Status) -- nur wenn Sie Redaktionsrechte haben (Vorstand oder Administration)</li>
-        </ul>
-        $writeBlock
-        <p><strong>Was der Agent nicht kann:</strong> nicht veröffentlichen (jeder Entwurf braucht Ihre Freigabe in der Weboberfläche), nicht abstimmen, keine Daten anderer Mitglieder sehen, keine Stimmgewichte berechnen.</p>
-        <form method="post" action="/federation/oidc/authorize/consent">
-          <input type="hidden" name="client_id" value="${htmlEscape(clientId)}">
-          <input type="hidden" name="redirect_uri" value="${htmlEscape(redirectUri)}">
-          <input type="hidden" name="scope" value="${htmlEscape(scopeParam)}">
-          <input type="hidden" name="state" value="${htmlEscape(state)}">
-          <input type="hidden" name="code_challenge" value="${htmlEscape(codeChallenge)}">
-          ${if (nonce != null) """<input type="hidden" name="nonce" value="${htmlEscape(nonce)}">""" else ""}
-          <input type="hidden" name="resource" value="${htmlEscape(resource)}">
-          <label for="connection_label">Name dieser Verbindung (frei wählbar, z. B. &bdquo;Claude Desktop&ldquo;)</label>
-          <input id="connection_label" name="connection_label" required maxlength="60">
-          <button type="submit" name="decision" value="allow">Erlauben</button>
-          <button type="submit" name="decision" value="deny">Ablehnen</button>
-        </form>
-        </body></html>
-        """.trimIndent()
+        if (host != null) {
+            p(classes = "auth-redirect") {
+                +"Sie werden danach zu "
+                strong { +host }
+                +" weitergeleitet."
+            }
+        }
+        p { +"Bei Zustimmung kann der Agent lesend auf folgende eigene Daten zugreifen:" }
+        ul {
+            li { +"Eigener Beitragsstand" }
+            li { +"Eigener LTR-Kontostand" }
+            li { +"Satzung und veröffentlichte Dokumente (Volltextsuche)" }
+            li { +"Bevorstehende Veranstaltungen" }
+            li { +"Eigene abgegebene Stimmzettel" }
+            li { +"Eigene Artikel (nur Titel und Status) – nur wenn Sie Redaktionsrechte haben (Vorstand oder Administration)" }
+        }
+        if (requestsWrite) {
+            p { +"Bei Zustimmung kann der Agent zusätzlich in Ihrem Namen:" }
+            ul {
+                li {
+                    +"Sich selbst für eine "
+                    strong { +"gebührenfreie" }
+                    +" Veranstaltung anmelden – kostenpflichtige Anmeldungen sind über einen Agenten nicht möglich"
+                }
+                li { +"Einen unveröffentlichten Beitrags-Entwurf anlegen" }
+                li {
+                    +(
+                        "Einen unveröffentlichten Artikel-Entwurf anlegen – nur wenn Sie Redaktionsrechte haben " +
+                            "(Vorstand oder Administration). Einreichen können nur Sie selbst; freigegeben wird wie jeder " +
+                            "Artikel durch ein anderes Vorstandsmitglied."
+                    )
+                }
+            }
+        }
+        p {
+            strong { +"Was der Agent nicht kann:" }
+            +(
+                " nicht veröffentlichen (jeder Entwurf braucht Ihre Freigabe in der Weboberfläche), nicht abstimmen, " +
+                    "keine Daten anderer Mitglieder sehen, keine Stimmgewichte berechnen."
+            )
+        }
+        form(action = "/federation/oidc/authorize/consent", method = FormMethod.post) {
+            hiddenField(name = "client_id", value = clientId)
+            hiddenField(name = "redirect_uri", value = redirectUri)
+            hiddenField(name = "scope", value = scopeParam)
+            hiddenField(name = "state", value = state)
+            hiddenField(name = "code_challenge", value = codeChallenge)
+            if (nonce != null) hiddenField(name = "nonce", value = nonce)
+            hiddenField(name = "resource", value = resource)
+            div(classes = "auth-field") {
+                label {
+                    htmlFor = "connection_label"
+                    +"Name dieser Verbindung (frei wählbar, z. B. „Claude Desktop“)"
+                }
+                input(type = InputType.text, name = "connection_label") {
+                    id = "connection_label"
+                    required = true
+                    maxLength = "60"
+                }
+            }
+            authActions {
+                button(type = ButtonType.submit, classes = "auth-primary") {
+                    name = "decision"
+                    value = "allow"
+                    +"Erlauben"
+                }
+                button(type = ButtonType.submit, classes = "auth-secondary") {
+                    name = "decision"
+                    value = "deny"
+                    +"Ablehnen"
+                }
+            }
+        }
+    }
 }

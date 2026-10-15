@@ -297,6 +297,8 @@ class KeycloakCallbackTest :
                 application {
                     routing {
                         registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
                             config = testConfig(),
                             metadata = mockMetadata(),
                             startRateLimiter = LoginRateLimiter(),
@@ -305,6 +307,33 @@ class KeycloakCallbackTest :
                 }
                 val response = client.get("/auth/keycloak/callback?state=never-issued&code=whatever")
                 response.status shouldBe HttpStatusCode.Unauthorized
+            }
+        }
+
+        test("V1.9.135: the error page carries the auth-page headers, brand chrome and real umlauts") {
+            testApplication {
+                application {
+                    routing {
+                        registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
+                            config = testConfig(),
+                            metadata = mockMetadata(),
+                            startRateLimiter = LoginRateLimiter(),
+                        )
+                    }
+                }
+                val response = client.get("/auth/keycloak/callback?state=never-issued&code=whatever")
+                response.status shouldBe HttpStatusCode.Unauthorized
+                response.headers["Content-Security-Policy"] shouldBe
+                    "default-src 'none'; style-src 'self'; img-src data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+                response.headers["X-Frame-Options"] shouldBe "DENY"
+                response.headers["Cache-Control"] shouldBe "no-store"
+                response.headers["Referrer-Policy"] shouldBe "same-origin"
+                val body = response.bodyAsText()
+                body shouldContain "Ungültiger oder abgelaufener Anmeldeversuch."
+                body shouldContain "class=\"chrome\""
+                body shouldContain "Zur Startseite"
             }
         }
 
@@ -321,6 +350,8 @@ class KeycloakCallbackTest :
                         // itself, contradicting the class KDoc's "never real network I/O" contract.
                         // Inject the same MockEngine-backed stub every other test in this file uses.
                         registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
                             config = config,
                             metadata = mockMetadata(),
                             startRateLimiter = LoginRateLimiter(),
@@ -360,7 +391,13 @@ class KeycloakCallbackTest :
             testApplication {
                 application {
                     routing {
-                        registerKeycloakAuthRoutes(config = testConfig(), metadata = mockMetadata(), startRateLimiter = LoginRateLimiter())
+                        registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
+                            config = testConfig(),
+                            metadata = mockMetadata(),
+                            startRateLimiter = LoginRateLimiter(),
+                        )
                     }
                 }
                 val fixture = createLoginAttempt(expiresInMinutes = -5)
@@ -376,7 +413,13 @@ class KeycloakCallbackTest :
             testApplication {
                 application {
                     routing {
-                        registerKeycloakAuthRoutes(config = testConfig(), metadata = mockMetadata(), startRateLimiter = LoginRateLimiter())
+                        registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
+                            config = testConfig(),
+                            metadata = mockMetadata(),
+                            startRateLimiter = LoginRateLimiter(),
+                        )
                     }
                 }
                 val fixture = createLoginAttempt()
@@ -392,7 +435,13 @@ class KeycloakCallbackTest :
             testApplication {
                 application {
                     routing {
-                        registerKeycloakAuthRoutes(config = testConfig(), metadata = mockMetadata(), startRateLimiter = LoginRateLimiter())
+                        registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
+                            config = testConfig(),
+                            metadata = mockMetadata(),
+                            startRateLimiter = LoginRateLimiter(),
+                        )
                     }
                 }
                 val fixture = createLoginAttempt()
@@ -411,6 +460,8 @@ class KeycloakCallbackTest :
                 application {
                     routing {
                         registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
                             config = testConfig(),
                             metadata = mockMetadata(),
                             startRateLimiter = LoginRateLimiter(),
@@ -434,6 +485,8 @@ class KeycloakCallbackTest :
                 application {
                     routing {
                         registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
                             config = testConfig(),
                             metadata = mockMetadata(),
                             startRateLimiter = LoginRateLimiter(),
@@ -457,6 +510,8 @@ class KeycloakCallbackTest :
                 application {
                     routing {
                         registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
                             config = testConfig(),
                             metadata = mockMetadata(),
                             startRateLimiter = LoginRateLimiter(),
@@ -481,6 +536,8 @@ class KeycloakCallbackTest :
                 application {
                     routing {
                         registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
                             config = testConfig(),
                             metadata = mockMetadata(),
                             startRateLimiter = LoginRateLimiter(),
@@ -507,6 +564,8 @@ class KeycloakCallbackTest :
                 application {
                     routing {
                         registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
                             config = testConfig(),
                             metadata = mockMetadata(),
                             startRateLimiter = LoginRateLimiter(),
@@ -541,7 +600,13 @@ class KeycloakCallbackTest :
             testApplication {
                 application {
                     routing {
-                        registerKeycloakAuthRoutes(config = testConfig(), metadata = mockMetadata(), startRateLimiter = LoginRateLimiter())
+                        registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
+                            config = testConfig(),
+                            metadata = mockMetadata(),
+                            startRateLimiter = LoginRateLimiter(),
+                        )
                     }
                 }
                 val fixture = createLoginAttempt()
@@ -586,6 +651,8 @@ class KeycloakCallbackTest :
                 application {
                     routing {
                         registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
                             config = testConfig(),
                             metadata = mockMetadata(),
                             startRateLimiter = LoginRateLimiter(),
@@ -615,6 +682,8 @@ class KeycloakCallbackTest :
                 application {
                     routing {
                         registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
                             config = testConfig(),
                             metadata = mockMetadata(),
                             startRateLimiter = LoginRateLimiter(),
@@ -644,6 +713,8 @@ class KeycloakCallbackTest :
                 application {
                     routing {
                         registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
                             config = testConfig(),
                             metadata = mockMetadata(),
                             startRateLimiter = LoginRateLimiter(),
@@ -709,6 +780,8 @@ class KeycloakCallbackTest :
                 application {
                     routing {
                         registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
                             config = testConfig(),
                             metadata = mockMetadataWithDiscovery(maliciousDiscovery),
                             startRateLimiter = LoginRateLimiter(),
@@ -747,6 +820,8 @@ class KeycloakCallbackTest :
                     install(ContentNegotiation) { json() }
                     routing {
                         registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
                             config = testConfig(),
                             metadata = mockMetadataWithDiscovery(maliciousDiscovery),
                             startRateLimiter = LoginRateLimiter(),
@@ -769,7 +844,13 @@ class KeycloakCallbackTest :
             testApplication {
                 application {
                     routing {
-                        registerKeycloakAuthRoutes(config = testConfig(), metadata = mockMetadata(), startRateLimiter = LoginRateLimiter())
+                        registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
+                            config = testConfig(),
+                            metadata = mockMetadata(),
+                            startRateLimiter = LoginRateLimiter(),
+                        )
                     }
                 }
                 val noRedirectClient = createClient { followRedirects = false }
@@ -806,6 +887,8 @@ class KeycloakCallbackTest :
                 application {
                     routing {
                         registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
                             config = testConfig(),
                             metadata = mockMetadata(),
                             startRateLimiter = LoginRateLimiter(),
@@ -841,6 +924,8 @@ class KeycloakCallbackTest :
                 application {
                     routing {
                         registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
                             config = testConfig(),
                             metadata = mockMetadata(),
                             startRateLimiter = LoginRateLimiter(),
@@ -864,7 +949,13 @@ class KeycloakCallbackTest :
             testApplication {
                 application {
                     routing {
-                        registerKeycloakAuthRoutes(config = testConfig(), metadata = mockMetadata(), startRateLimiter = LoginRateLimiter())
+                        registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
+                            config = testConfig(),
+                            metadata = mockMetadata(),
+                            startRateLimiter = LoginRateLimiter(),
+                        )
                     }
                 }
                 // KEYCLOAK_LOGIN_ATTEMPT_CLEANUP_AGE is 1 hour -- an attempt whose expiresAt is 70
@@ -895,7 +986,13 @@ class KeycloakCallbackTest :
             testApplication {
                 application {
                     routing {
-                        registerKeycloakAuthRoutes(config = testConfig(), metadata = mockMetadata(), startRateLimiter = LoginRateLimiter())
+                        registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
+                            config = testConfig(),
+                            metadata = mockMetadata(),
+                            startRateLimiter = LoginRateLimiter(),
+                        )
                     }
                 }
                 val fixture = createLoginAttempt()
@@ -946,6 +1043,8 @@ class KeycloakCallbackTest :
                 application {
                     routing {
                         registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
                             config = testConfig(),
                             metadata = mockMetadata(),
                             startRateLimiter = LoginRateLimiter(),
@@ -969,7 +1068,13 @@ class KeycloakCallbackTest :
             testApplication {
                 application {
                     routing {
-                        registerKeycloakAuthRoutes(config = testConfig(), metadata = mockMetadata(), startRateLimiter = LoginRateLimiter())
+                        registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
+                            config = testConfig(),
+                            metadata = mockMetadata(),
+                            startRateLimiter = LoginRateLimiter(),
+                        )
                     }
                 }
                 val noRedirectClient = createClient { followRedirects = false }
@@ -992,7 +1097,13 @@ class KeycloakCallbackTest :
             testApplication {
                 application {
                     routing {
-                        registerKeycloakAuthRoutes(config = testConfig(), metadata = mockMetadata(), startRateLimiter = LoginRateLimiter())
+                        registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
+                            config = testConfig(),
+                            metadata = mockMetadata(),
+                            startRateLimiter = LoginRateLimiter(),
+                        )
                     }
                 }
                 val noRedirectClient = createClient { followRedirects = false }
@@ -1020,7 +1131,13 @@ class KeycloakCallbackTest :
             testApplication {
                 application {
                     routing {
-                        registerKeycloakAuthRoutes(config = testConfig(), metadata = mockMetadata(), startRateLimiter = LoginRateLimiter())
+                        registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
+                            config = testConfig(),
+                            metadata = mockMetadata(),
+                            startRateLimiter = LoginRateLimiter(),
+                        )
                     }
                 }
                 // Valid and within 4096 characters, but the "%3A" escapes are re-encoded to "%253A" in the cookie: 4000 chars -> 3x.
@@ -1062,7 +1179,13 @@ class KeycloakCallbackTest :
             testApplication {
                 application {
                     routing {
-                        registerKeycloakAuthRoutes(config = testConfig(), metadata = mockMetadata(), startRateLimiter = LoginRateLimiter())
+                        registerKeycloakAuthRoutes(
+                            branding = TEST_AUTH_BRANDING,
+                            baseUrl = "http://localhost",
+                            config = testConfig(),
+                            metadata = mockMetadata(),
+                            startRateLimiter = LoginRateLimiter(),
+                        )
                     }
                 }
                 val cookieHeader = returnToCookieHeader(authorizeTarget)
