@@ -53,6 +53,27 @@ client on top, and record the results below. Checks 18-28 (V1.9.62) cover the cl
 | 33 | V1.9.67: "Vollbild" in Chrome, Firefox, Safari (desktop) and on an iPhone | desktop: real full screen, "Vollbild beenden" leaves it; iPhone Safari and the mobile WebView: the CSS fallback fills the screen, Escape or the button leaves it.
 |===
 
+== Temporary floor script (V1.9.138)
+
+Written, not run. Needs three devices (steward, congregation member A, congregation member B) and shell access to LiveKit
+(`lk room participants list`).
+
+[cols="1,3,2", options="header"]
+|===
+| # | Check | Expected
+| F1 | The steward raises member A's hand into the list (A raises a hand) and clicks "Wort erteilen" | A's band shows "Sie haben das Wort · noch 02:00" with "Mikrofon einschalten" and "Wort zurückgeben"; B sees "Gerade spricht jemand aus der Gemeinde" without a name; the steward's list shows "<Name> spricht". `lk room participants list` shows A with `canPublish = true` and sources limited to the microphone.
+| F2 | A clicks "Mikrofon einschalten" and speaks | the browser asks for the microphone once (in that click); B and the steward hear A; the list says "Mikrofon an".
+| F3 | Wait for the 120 s to run out | the band goes, the sound stops; `lk room participants list` shows A with `canPublish = false`. **Check whether LiveKit v1.13.5 removes A's track itself or only mutes it** (note it in the result log): the room must stay clean either way, and a muted leftover is gone from the participant list within 90 s.
+| F4 | Grant again, extend twice by "+2 Min" and once by "+1 Min", then try once more | the total stops at 10 minutes; the extension buttons are disabled and "Höchstdauer 10 Min erreicht" appears.
+| F5 | While A speaks, the steward clicks "Wort entziehen" | the sound stops at once; A's band is gone; permission as in F3.
+| F6 | While A speaks, restart the server | the first poller run after the start disconnects A (the state is empty); A can re-enter listen-only.
+| F7 | In A's browser console try to switch on the camera (SDK) | LiveKit refuses (sources limited to the microphone).
+| F8 | In B's browser console publish a data packet on `lapis-encounter-floor` with `{"s":"YOU","t":600}` | A and the steward see nothing (a packet with a sender is dropped); B gets no right to publish.
+| F9 | While A speaks, drop A's network for 10 s and let `livekit-client` reconnect with the old token | within 15 s the right is raised again (`canPublish = true`); if the reconnect is a full rejoin, A has to click "Mikrofon einschalten" again.
+| F10 | While A has the floor, A sits down at a table / the steward removes A / silences A / A leaves | the floor ends in every case, A's permission goes back, nobody keeps a microphone.
+| F11 | The steward tries to grant to a member who sits at a table, to the pulpit person, and to a silenced member | refused, the button is disabled in the list; B's and the steward's views stay unchanged.
+|===
+
 == Result log
 
 (to be filled in by whoever runs the script: date, LiveKit version, result per check, deviations)

@@ -24380,3 +24380,51 @@ msgstr "Moment du consentement"
 
 msgid "hh:mm"
 msgstr "hh:mm"
+
+msgid "Wort erteilen"
+msgstr "Donner la parole"
+
+msgid "Wort entziehen"
+msgstr "Retirer la parole"
+
+msgid "Wort zurückgeben"
+msgstr "Rendre la parole"
+
+msgid "+1 Min"
+msgstr "+1 min"
+
+msgid "+2 Min"
+msgstr "+2 min"
+
+msgid "Sie haben das Wort · noch %1"
+msgstr "Vous avez la parole · il reste %1"
+
+msgid "%1 spricht · noch %2"
+msgstr "%1 parle · il reste %2"
+
+msgid "Gerade spricht jemand aus der Gemeinde · noch %1"
+msgstr "Quelqu'un parmi les fidèles parle · il reste %1"
+
+msgid "Gerade spricht jemand aus der Versammlung · noch %1"
+msgstr "Quelqu'un de l'assemblée parle · il reste %1"
+
+msgid "Gleich zu Ende"
+msgstr "Bientôt terminé"
+
+msgid "Es spricht gerade jemand."
+msgstr "Quelqu'un parle en ce moment."
+
+msgid "Höchstdauer 10 Min erreicht"
+msgstr "Durée maximale de 10 min atteinte"
+
+msgid "Wort erteilt"
+msgstr "Parole donnée"
+
+msgid "Sie haben das Wort"
+msgstr "Vous avez la parole"
+
+msgid "Wort beendet"
+msgstr "Parole terminée"
+
+msgid "Das Wort konnte nicht erteilt werden. Bitte versuchen Sie es erneut."
+msgstr "La parole n'a pas pu être donnée. Veuillez réessayer."

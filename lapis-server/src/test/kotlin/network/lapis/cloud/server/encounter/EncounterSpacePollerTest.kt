@@ -7,6 +7,8 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.conference.LiveKitParticipantPermission
+import network.lapis.cloud.server.conference.LiveKitTrackInfo
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.mail.FakeEncounterEntryNoticeMailer
@@ -19,6 +21,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TestTimeSource
 import kotlin.uuid.Uuid
 
 private fun ago(duration: Duration): LocalDateTime = (ServerClock.nowInstant() - duration).toLocalDateTime(ServerClock.zone)
@@ -39,6 +42,7 @@ class EncounterSpacePollerTest :
             val moderation: EncounterModerationState,
             val seatState: EncounterSeatState = EncounterSeatState(),
             val tableState: EncounterTableState = EncounterTableState(),
+            val floorState: EncounterFloorState = EncounterFloorState(),
             val space: Uuid,
             val steward: Uuid,
         ) {
@@ -50,16 +54,23 @@ class EncounterSpacePollerTest :
                     bellState = EncounterBellState(),
                     seatState = seatState,
                     tableState = tableState,
+                    floorState = floorState,
                     entryNotifier = EncounterEntryNotifier(state = EncounterEntryNoticeState(), mailer = FakeEncounterEntryNoticeMailer()),
                     liveKitEnabled = enabled,
                 )
         }
 
-        suspend fun world(): World {
+        suspend fun world(floorState: EncounterFloorState = EncounterFloorState()): World {
             val steward = fx.createMember()
             val space = fx.createSpace(createdBy = fx.createMember())
             fx.setRole(spaceId = space, memberId = steward, role = EncounterSpaceRole.STEWARD)
-            return World(liveKit = FakeEncounterLiveKit(), moderation = EncounterModerationState(), space = space, steward = steward)
+            return World(
+                liveKit = FakeEncounterLiveKit(),
+                moderation = EncounterModerationState(),
+                floorState = floorState,
+                space = space,
+                steward = steward,
+            )
         }
 
         /** A session whose LiveKit room exists (registered in the fake) and whose room row is [age] old. */
@@ -359,6 +370,150 @@ class EncounterSpacePollerTest :
                 poller.stop()
                 poller.stop()
                 transaction { ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq room }.count() } shouldBe 1L
+            }
+        }
+
+        // ── V1.9.138: the temporary floor is the ONE tolerated non-officer publisher ──────────────────────────────────────────
+
+        val micTrack = LiveKitTrackInfo(sid = "TR_mic", type = "AUDIO", source = "MICROPHONE", muted = false)
+        val micOnly =
+            LiveKitParticipantPermission(
+                canPublish = true,
+                canPublishData = true,
+                canSubscribe = true,
+                canPublishSources = listOf("MICROPHONE"),
+            )
+
+        suspend fun World.speakerWithFloor(
+            time: TestTimeSource,
+            tracks: List<LiveKitTrackInfo> = listOf(micTrack),
+            permission: LiveKitParticipantPermission = micOnly,
+        ): Triple<Uuid, String, Uuid> {
+            val room = liveSession()
+            val name = fx.livekitName(room)
+            val speaker = fx.createMember()
+            liveKit.connect(room = name, identity = speaker.toString())
+            liveKit.permissions[name to speaker.toString()] = permission
+            liveKit.tracks[name to speaker.toString()] = tracks
+            floorState.tryGrant(roomId = room, livekitRoomName = name, memberId = speaker, displayName = "Redner")
+            return Triple(room, name, speaker)
+        }
+
+        test("V1.9.138: the holder of a valid floor who publishes one microphone track is NOT disconnected") {
+            runBlocking {
+                val time = TestTimeSource()
+                val w = world(EncounterFloorState(time))
+                val (_, name, speaker) = w.speakerWithFloor(time)
+                w.poller().tick()
+                w.liveKit.removed.shouldBeEmpty()
+                w.liveKit.isConnected(room = name, identity = speaker.toString()) shouldBe true
+            }
+        }
+
+        test(
+            "V1.9.138: a camera track, a second track, or sources that are not limited to the microphone are disconnected even during the floor",
+        ) {
+            runBlocking {
+                val cases =
+                    listOf(
+                        listOf(LiveKitTrackInfo(sid = "TR_cam", type = "VIDEO", source = "CAMERA", muted = false)) to micOnly,
+                        listOf(micTrack, micTrack.copy(sid = "TR_2")) to micOnly,
+                        listOf(micTrack) to micOnly.copy(canPublishSources = emptyList()),
+                        listOf(micTrack) to micOnly.copy(canPublishSources = listOf("MICROPHONE", "CAMERA")),
+                    )
+                cases.forEach { (tracks, permission) ->
+                    val time = TestTimeSource()
+                    val w = world(EncounterFloorState(time))
+                    val (_, name, speaker) = w.speakerWithFloor(time, tracks = tracks, permission = permission)
+                    w.poller().tick()
+                    w.liveKit.removed shouldContainExactly listOf(name to speaker.toString())
+                }
+            }
+        }
+
+        test("V1.9.138: once the floor has expired, a publishing right that outlived it is disconnected") {
+            runBlocking {
+                val time = TestTimeSource()
+                val w = world(EncounterFloorState(time))
+                val (room, name, speaker) = w.speakerWithFloor(time)
+                time += 121.seconds
+                w.poller().tick()
+                w.liveKit.removed shouldContainExactly listOf(name to speaker.toString())
+                // a grant that is being revoked is no valid floor either
+                val w2 = world(EncounterFloorState(TestTimeSource()))
+                val (room2, name2, speaker2) = w2.speakerWithFloor(TestTimeSource())
+                w2.floorState.markRevoking(room2)
+                w2.poller().tick()
+                w2.liveKit.removed shouldContainExactly listOf(name2 to speaker2.toString())
+                (room != room2) shouldBe true
+            }
+        }
+
+        test(
+            "V1.9.138: within the 90 s grace after the end a MUTED microphone leftover without publish right stays; an unmuted one, and any leftover after the grace, go",
+        ) {
+            runBlocking {
+                val time = TestTimeSource()
+                val state = EncounterFloorState(time)
+                val w = world(state)
+                val leftover =
+                    LiveKitParticipantPermission(
+                        canPublish = false,
+                        canPublishData = true,
+                        canSubscribe = true,
+                        canPublishSources = listOf("MICROPHONE"),
+                    )
+                val (room, name, speaker) = w.speakerWithFloor(time, tracks = listOf(micTrack.copy(muted = true)), permission = leftover)
+                state.remove(roomId = room, serial = state.current(room)!!.serial)
+                w.poller().tick()
+                w.liveKit.removed.shouldBeEmpty()
+                // the same person, but the track was switched on again after the end
+                w.liveKit.tracks[name to speaker.toString()] = listOf(micTrack.copy(muted = false))
+                w.poller().tick()
+                w.liveKit.removed shouldContainExactly listOf(name to speaker.toString())
+                // after the grace even a muted leftover is disconnected
+                val w2 = world(EncounterFloorState(time))
+                val (room2, name2, speaker2) =
+                    w2.speakerWithFloor(
+                        time,
+                        tracks = listOf(micTrack.copy(muted = true)),
+                        permission = leftover,
+                    )
+                w2.floorState.remove(roomId = room2, serial = w2.floorState.current(room2)!!.serial)
+                time += 91.seconds
+                w2.poller().tick()
+                w2.liveKit.removed shouldContainExactly listOf(name2 to speaker2.toString())
+            }
+        }
+
+        test("V1.9.138: after a restart (empty floor state) the first run disconnects a community member who still publishes") {
+            runBlocking {
+                val w = world(EncounterFloorState())
+                val room = w.liveSession()
+                val name = fx.livekitName(room)
+                val speaker = fx.createMember()
+                w.liveKit.connect(room = name, identity = speaker.toString())
+                w.liveKit.permissions[name to speaker.toString()] = micOnly
+                w.liveKit.tracks[name to speaker.toString()] = listOf(micTrack)
+                w.poller().tick()
+                w.liveKit.removed shouldContainExactly listOf(name to speaker.toString())
+            }
+        }
+
+        test("V1.9.138: closing a session drops its floor") {
+            runBlocking {
+                val state = EncounterFloorState()
+                val w = world(state)
+                val room = w.liveSession(age = (ENCOUNTER_MAX_SESSION_HOURS + 1).hours)
+                state.tryGrant(roomId = room, livekitRoomName = fx.livekitName(room), memberId = fx.createMember(), displayName = "x")
+                w.poller().tick()
+                fx.openSessionRoom(w.space) shouldBe null
+                state.current(room) shouldBe null
+                // and a floor of a session that is not open any more is dropped on the next run
+                val ghost = Uuid.random()
+                state.tryGrant(roomId = ghost, livekitRoomName = "lc-ghost", memberId = Uuid.random(), displayName = "y")
+                w.poller().tick()
+                state.current(ghost) shouldBe null
             }
         }
     })

@@ -26,6 +26,8 @@ import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_TOPIC
 import network.lapis.cloud.shared.domain.CONFERENCE_TIMER_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.CONFERENCE_TIMER_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_TOPIC
 import java.security.SecureRandom
 import kotlin.io.encoding.Base64
 
@@ -147,6 +149,23 @@ fun conferencePermission(microphoneAllowed: Boolean): LiveKitParticipantPermissi
         canPublishData = true,
         canPublishSources =
             if (microphoneAllowed) CONFERENCE_SOURCES_WITHOUT_MICROPHONE + "MICROPHONE" else CONFERENCE_SOURCES_WITHOUT_MICROPHONE,
+    )
+
+/**
+ * V1.9.138 -- the ONE permission of the temporary floor in an encounter space: subscribe, and publish the MICROPHONE only. Never camera,
+ * never screen share, never built via [conferencePermission]. [canPublishSources] is `["MICROPHONE"]` even when the floor is TAKEN AWAY
+ * ([granted] `false`): an empty list means "all sources" in LiveKit, so should `can_publish` ever be evaluated wrongly, the camera would
+ * still stay locked (defence in depth). Every value is explicit -- `UpdateParticipant` replaces the whole permission.
+ */
+fun encounterFloorPermission(
+    granted: Boolean,
+    canPublishData: Boolean,
+): LiveKitParticipantPermissionUpdate =
+    LiveKitParticipantPermissionUpdate(
+        canSubscribe = true,
+        canPublish = granted,
+        canPublishData = canPublishData,
+        canPublishSources = listOf("MICROPHONE"),
     )
 
 /**
@@ -567,5 +586,6 @@ internal fun sendDataPayloadLimit(topic: String): Int =
         CONFERENCE_MODERATION_TOPIC -> CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES
         CONFERENCE_HANDS_TOPIC -> CONFERENCE_HANDS_MAX_PAYLOAD_BYTES
         CONFERENCE_TIMER_TOPIC -> CONFERENCE_TIMER_MAX_PAYLOAD_BYTES
+        ENCOUNTER_FLOOR_TOPIC -> ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES
         else -> ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
     }

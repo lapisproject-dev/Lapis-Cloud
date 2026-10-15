@@ -247,6 +247,7 @@ class EncounterPrivacyWatchTest :
                     bellState = EncounterBellState(),
                     seatState = EncounterSeatState(),
                     tableState = EncounterTableState(),
+                    floorState = EncounterFloorState(),
                     entryNotifier = EncounterEntryNotifier(state = EncounterEntryNoticeState(), mailer = FakeEncounterEntryNoticeMailer()),
                     liveKitEnabled = false,
                 )

@@ -4,6 +4,7 @@ import dev.kilua.rpc.annotations.RpcService
 import network.lapis.cloud.shared.domain.EncounterConsentInput
 import network.lapis.cloud.shared.domain.EncounterEntryDto
 import network.lapis.cloud.shared.domain.EncounterEntryInfoDto
+import network.lapis.cloud.shared.domain.EncounterFloorDto
 import network.lapis.cloud.shared.domain.EncounterPresentDto
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.EncounterSpaceInput
@@ -33,6 +34,8 @@ import network.lapis.cloud.shared.domain.EncounterTableTokenDto
  * - [joinTable]/[leaveTable]/[tableToken]/[listTables] (V1.9.80, assembly profile with tables enabled only): a CONGREGATION person present in
  *   the open session, for their OWN table. Office holders never receive a table token (they do not listen in).
  * - [quietTable]/[sendToPlenum] (V1.9.80): office holder or BOARD/ADMIN; [sendToPlenum] follows the protection rules of [removeFromSpace].
+ * - [grantFloor]/[extendFloor] (V1.9.138): ACTIVE PULPIT/STEWARD of THIS space who is present in the open session -- BOARD/ADMIN without an
+ *   office may not. [endFloor]: the same people OR the person who has the floor. [floorState]: everybody who is present (fields by role).
  *
  * Kilua transmits only the exception TYPE: [NotFoundException] unknown/invisible id, [ForbiddenException] not allowed,
  * [ConflictException] state conflict (closed, full, throttled, consent missing), [BadRequestException] invalid input.
@@ -167,4 +170,27 @@ interface IEncounterSpaceService {
      * session is silently swallowed (Unit). A failed delivery is not reported.
      */
     suspend fun ringBell(spaceId: String)
+
+    /**
+     * V1.9.138 -- gives the person [memberId] (CONGREGATION, present, not silenced, not at a table, connected) the floor for 120 seconds:
+     * the server raises that ONE live LiveKit connection to microphone-only publishing. Only PULPIT/STEWARD of this space who are present
+     * ([ForbiddenException], one bare answer for every refusal). One person at a time ([ConflictException] while somebody has the floor).
+     * Nothing is stored, audited or logged with a person. There is deliberately no duration parameter.
+     */
+    suspend fun grantFloor(
+        spaceId: String,
+        memberId: String,
+    ): EncounterFloorDto
+
+    /** V1.9.138 -- adds [seconds] (60 or 120) to the running floor; the total never exceeds 10 minutes ([BadRequestException]). Same rights as [grantFloor]. */
+    suspend fun extendFloor(
+        spaceId: String,
+        seconds: Int,
+    ): EncounterFloorDto
+
+    /** V1.9.138 -- ends the running floor now: PULPIT/STEWARD of this space (present) or the person who has the floor. Idempotent after the rights check. */
+    suspend fun endFloor(spaceId: String)
+
+    /** V1.9.138 -- the floor as the caller may see it; only for somebody present ([ForbiddenException] otherwise). */
+    suspend fun floorState(spaceId: String): EncounterFloorDto
 }

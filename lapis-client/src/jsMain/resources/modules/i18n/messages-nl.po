@@ -24316,3 +24316,51 @@ msgstr "Tijdstip van de toestemming"
 
 msgid "hh:mm"
 msgstr "uu:mm"
+
+msgid "Wort erteilen"
+msgstr "Het woord geven"
+
+msgid "Wort entziehen"
+msgstr "Het woord ontnemen"
+
+msgid "Wort zurückgeben"
+msgstr "Het woord teruggeven"
+
+msgid "+1 Min"
+msgstr "+1 min"
+
+msgid "+2 Min"
+msgstr "+2 min"
+
+msgid "Sie haben das Wort · noch %1"
+msgstr "U hebt het woord · nog %1"
+
+msgid "%1 spricht · noch %2"
+msgstr "%1 spreekt · nog %2"
+
+msgid "Gerade spricht jemand aus der Gemeinde · noch %1"
+msgstr "Iemand uit de gemeente spreekt · nog %1"
+
+msgid "Gerade spricht jemand aus der Versammlung · noch %1"
+msgstr "Iemand uit de vergadering spreekt · nog %1"
+
+msgid "Gleich zu Ende"
+msgstr "Bijna afgelopen"
+
+msgid "Es spricht gerade jemand."
+msgstr "Er spreekt op dit moment iemand."
+
+msgid "Höchstdauer 10 Min erreicht"
+msgstr "Maximale duur van 10 min bereikt"
+
+msgid "Wort erteilt"
+msgstr "Woord gegeven"
+
+msgid "Sie haben das Wort"
+msgstr "U hebt het woord"
+
+msgid "Wort beendet"
+msgstr "Woord beëindigd"
+
+msgid "Das Wort konnte nicht erteilt werden. Bitte versuchen Sie es erneut."
+msgstr "Het woord kon niet worden gegeven. Probeer het opnieuw."

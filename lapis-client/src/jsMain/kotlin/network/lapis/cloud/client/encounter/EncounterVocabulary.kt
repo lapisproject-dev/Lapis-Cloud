@@ -103,6 +103,62 @@ internal class EncounterTerms(
     /** V1.9.96 -- the name of the gear button when the bell switch is all it holds. */
     fun bellDeviceButtonLabel(): String = gettext("Glockenton einstellen")
 
+    // ── V1.9.138: the temporary floor ("Rederecht") ─────────────────────────────────────────────────────────────
+
+    /** The heading of the list of raised hands (the order is the order of the requests). */
+    fun floorQueueHeadingContent(): String = tr("Wortmeldungen")
+
+    fun floorGrantLabel(): String = gettext("Wort erteilen")
+
+    fun floorTakeBackLabel(): String = gettext("Wort entziehen")
+
+    fun floorHandBackLabel(): String = gettext("Wort zurückgeben")
+
+    fun floorExtendShortLabel(): String = gettext("+1 Min")
+
+    fun floorExtendLongLabel(): String = gettext("+2 Min")
+
+    fun floorMicrophoneOnLabel(): String = gettext("Mikrofon einschalten")
+
+    /** The banner of the person who has the floor; [time] is `MM:SS`. */
+    fun floorSelfBanner(time: String): String = gettext("Sie haben das Wort · noch %1", time)
+
+    /** The line of the office holder's list: [name] is untrusted and must already be sanitised by the caller; [time] is `MM:SS`. */
+    fun floorHolderLine(
+        name: String,
+        time: String,
+    ): String = gettext("%1 spricht · noch %2", name, time)
+
+    /** The banner everybody else sees: NO name, no seat -- only that somebody of the room speaks. */
+    fun floorCommunityBanner(time: String): String =
+        if (church) {
+            gettext("Gerade spricht jemand aus der Gemeinde · noch %1", time)
+        } else {
+            gettext("Gerade spricht jemand aus der Versammlung · noch %1", time)
+        }
+
+    fun floorFinalNote(): String = gettext("Gleich zu Ende")
+
+    fun floorBusyNote(): String = gettext("Es spricht gerade jemand.")
+
+    fun floorMaxReachedNote(): String = gettext("Höchstdauer 10 Min erreicht")
+
+    fun floorMicrophoneOnState(): String = gettext("Mikrofon an")
+
+    fun floorMicrophoneOffState(): String = gettext("Mikrofon aus")
+
+    /** The four fixed sentences a screen reader hears: the floor was given (to somebody else / to me), ten seconds are left, it ended. */
+    fun floorGivenAnnouncement(): String = gettext("Wort erteilt")
+
+    fun floorSelfAnnouncement(): String = gettext("Sie haben das Wort")
+
+    fun floorTenSecondsAnnouncement(): String = gettext("Noch 10 Sekunden")
+
+    fun floorEndedAnnouncement(): String = gettext("Wort beendet")
+
+    /** The one text of every refused grant (the server's reason does not reach the client, Kilua transmits the exception type only). */
+    fun floorGrantFailedNote(): String = gettext("Das Wort konnte nicht erteilt werden. Bitte versuchen Sie es erneut.")
+
     fun emptyStageContent(): String = if (church) tr("Die Kanzel ist noch leer.") else tr("Das Podium ist noch leer.")
 
     fun emptyStage(): String = if (church) gettext("Die Kanzel ist noch leer.") else gettext("Das Podium ist noch leer.")

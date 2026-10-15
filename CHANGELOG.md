@@ -6,6 +6,35 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.138 -- Temporary floor in the encounter space
+
+An office holder (PULPIT/STEWARD) can give one person of the congregation the floor for two minutes, extend it up to ten minutes in total, and
+take it back. The server raises that ONE live connection to "microphone only" and takes it back again; nothing is stored. No migration.
+
+#### Added
+
+- **New:** `grantFloor`, `extendFloor`, `endFloor`, `floorState` at the end of `IEncounterSpaceService`; `EncounterFloorDto`, `EncounterFloorSignal` and the strict packet parser `encounterFloorPacket` in `lapis-shared`.
+- **New:** `EncounterFloorState` (memory only, monotonic clock, at most 64 sessions) and `EncounterFloorEnforcer` (expiry, revoke ladder, verification every 15 s, re-applying after a LiveKit reconnect); `encounterFloorPermission` is the only source of the permission (sources stay `["MICROPHONE"]` also on revoke).
+- **New:** topic `lapis-encounter-floor` (`ON`/`YOU`/`OFF`, no identity) with its own `SendData` limit of 64 bytes.
+- **New:** the list of hands "Wortmeldungen" is numbered; "Wort erteilen", "+1 Min", "+2 Min", "Wort entziehen" for office holders; the band "Gerade spricht jemand aus der Gemeinde" for everybody (no name); "Sie haben das Wort" with "Mikrofon einschalten" and "Wort zurückgeben" for the holder; the last ten seconds are emphasised without animation.
+- **New:** 16 catalog texts in the template and all seven catalogs; docs `docs/features/encounter-space.adoc`, architecture section, staging script "Temporary floor script".
+
+#### Changed
+
+- `EncounterSpacePoller` tolerates the holder of a valid floor (one microphone track, sources limited to the microphone) and, for 90 s after the end, a muted microphone leftover; everything else is disconnected as before.
+- Leaving, being removed or silenced, sitting down at a table, receiving an office and closing the room end a floor.
+- **Deviation from the design text:** the revoke keeps `can_publish_sources = ["MICROPHONE"]` instead of an empty list (an empty list means "all sources" in LiveKit).
+
+#### Known limitations
+
+- Not verified against a real LiveKit (v1.13.5): whether LiveKit removes a track itself when `can_publish` is withdrawn is open (the design is robust both ways; staging script F3).
+- Only tested in Chromium (Karma, headless).
+- The state is lost on a server restart (then nobody has the floor).
+- Microphone only: no device choice and no noise suppression for the floor microphone; one person at a time.
+- The order of hands holds from the arrival of the viewing office holder's client on (a hand raised earlier appears at its next renewal).
+- The floor runs on until its end when the grantor loses the office (at most ten minutes).
+- The new texts are model translations, not reviewed by a native speaker.
+
 ### V1.9.137 -- Dates and times in the locale of the UI
 
 Every date and time the web client shows or accepts now follows the locale of the UI language, from one fixed table of nine locales. Only `lapis-client` changes: storage, wire format, RPC and exports stay ISO-8601, there is no migration.

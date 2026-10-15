@@ -23,10 +23,12 @@ import network.lapis.cloud.client.addCssClasses
 import network.lapis.cloud.client.confirmDialog
 import network.lapis.cloud.client.dataSection
 import network.lapis.cloud.client.guarded
+import network.lapis.cloud.client.livekit.formatMmSs
 import network.lapis.cloud.client.newActionButton
 import network.lapis.cloud.client.notifyError
 import network.lapis.cloud.client.notifySuccess
 import network.lapis.cloud.client.rpcService
+import network.lapis.cloud.client.sanitizeUntrustedI18nText
 import network.lapis.cloud.client.untrustedDiv
 import network.lapis.cloud.client.untrustedSpan
 import network.lapis.cloud.shared.domain.EncounterPresentDto
@@ -68,12 +70,20 @@ internal class EncounterPresentPanel(
     private val tableList: () -> EncounterTableListState? = { null },
     private val onChooseTable: (Int) -> Unit = {},
     private val onLeaveTable: () -> Unit = {},
+    // V1.9.138: the temporary floor. `null` = nobody asks for it (the viewer cannot give it); the buttons exist for office holders only.
+    private val floorList: () -> EncounterFloorListState? = { null },
+    private val onGrantFloor: (String) -> Unit = {},
+    private val onExtendFloor: (Int) -> Unit = {},
+    private val onTakeFloorBack: () -> Unit = {},
 ) {
     val root: Div = parent.div(className = "lapis-encounter-present")
     private var content: SimplePanel? = null
     private var people: List<EncounterPresentDto> = emptyList()
     private var seatListOpen = false
     private var tableListOpen = false
+
+    /** V1.9.138: the line of the running floor; its text is replaced every second without rebuilding the panel. */
+    private var floorRunLine: Div? = null
 
     /** Counts the lists that arrived from elsewhere; a `listPresent` that started under an older count is stale when it answers. */
     private var generation = 0
@@ -131,6 +141,13 @@ internal class EncounterPresentPanel(
     /** Re-renders with the current hands (a hand went up or down). */
     fun rerender() {
         rebuild(people)
+    }
+
+    /** V1.9.138: one second passed -- only the clock of the running-floor line changes, nothing is rebuilt. */
+    fun tickFloorClock() {
+        val line = floorRunLine ?: return
+        val state = floorList() ?: return
+        line.content = floorRunText(state)
     }
 
     /** Rebuilds the content and puts the keyboard focus back on the seat button that had it (the list is rebuilt on every refresh). */
@@ -253,21 +270,80 @@ internal class EncounterPresentPanel(
         panel.add(details)
     }
 
+    /**
+     * The list of raised hands, numbered in the order they went up (the order of the requests). V1.9.138: an office holder gets a
+     * "Wort erteilen" button per hand (disabled while somebody has the floor or while the person sits at a table) and, while a floor
+     * runs, the line "<Name> spricht · noch 1:32" with the extension and take-back buttons. BOARD/ADMIN without an office see the list
+     * and the line, but no buttons (the server refuses them as well). The names stay in this panel: the room's banner names nobody.
+     */
     private fun renderRaisedHands(
         panel: SimplePanel,
         loaded: List<EncounterPresentDto>,
     ) {
+        floorRunLine = null
         val byId = loaded.associateBy { it.memberId }
         val raised = raisedHands().mapNotNull { byId[it] }
+        val floor = floorList()
+        val holderId = floor?.holderId
+        if (raised.isEmpty() && holderId == null) return
+        panel.h2(terms.floorQueueHeadingContent()) { addCssClass("h6") }
+        if (floor != null && holderId != null) renderFloorRun(panel, floor)
         if (raised.isEmpty()) return
-        panel.h2(tr("Erhobene Hände")) { addCssClass("h6") }
-        val list = panel.vPanel(spacing = 2)
-        list.setAttribute("role", "list")
+        val list = Tag(TAG.OL, className = "lapis-encounter-hands-list ps-4 mb-2")
+        val next = if (holderId != null) raised.firstOrNull { it.memberId != holderId } else null
         raised.forEach { person ->
-            val row = list.div(className = "lapis-encounter-hand-row")
-            row.setAttribute("role", "listitem")
+            val item = Tag(TAG.LI, className = "lapis-encounter-hands-item d-flex align-items-center gap-2")
+            if (next != null && person.memberId == next.memberId) item.addCssClasses("lapis-encounter-hand-next fw-semibold")
+            val row = item.div(className = "lapis-encounter-hand-row flex-grow-1")
             row.untrustedSpan(person.displayName)
+            if (viewer.canGrantFloor && floor != null && person.memberId != holderId) {
+                val grant =
+                    newActionButton(ActionIcon.MICROPHONE, terms.floorGrantLabel(), ButtonStyle.OUTLINEPRIMARY, small = true)
+                grant.setAttribute("data-floor-grant", person.memberId)
+                grant.disabled = holderId != null || person.table != null || floor.busy
+                grant.onClick { onGrantFloor(person.memberId) }
+                item.add(grant)
+            }
+            list.add(item)
         }
+        panel.add(list)
+    }
+
+    private fun renderFloorRun(
+        panel: SimplePanel,
+        floor: EncounterFloorListState,
+    ) {
+        val run = Div(className = "lapis-encounter-floor-run d-flex flex-wrap align-items-center gap-2 mb-2")
+        val line = Div(content = floorRunText(floor), className = "lapis-encounter-floor-run-line")
+        floorRunLine = line
+        run.add(line)
+        if (viewer.canGrantFloor) {
+            val shorter = newActionButton(ActionIcon.ADD, terms.floorExtendShortLabel(), ButtonStyle.OUTLINESECONDARY, small = true)
+            shorter.setAttribute("data-floor-extend", "60")
+            shorter.disabled = floor.maxReached || floor.busy
+            shorter.onClick { onExtendFloor(60) }
+            val longer = newActionButton(ActionIcon.ADD, terms.floorExtendLongLabel(), ButtonStyle.OUTLINESECONDARY, small = true)
+            longer.setAttribute("data-floor-extend", "120")
+            longer.disabled = floor.maxReached || floor.busy
+            longer.onClick { onExtendFloor(120) }
+            val takeBack = newActionButton(ActionIcon.REVOKE, terms.floorTakeBackLabel(), ButtonStyle.OUTLINEDANGER, small = true)
+            takeBack.setAttribute("data-floor-take-back", "")
+            takeBack.disabled = floor.busy
+            takeBack.onClick { onTakeFloorBack() }
+            run.add(shorter)
+            run.add(longer)
+            run.add(takeBack)
+        }
+        panel.add(run)
+        panel.div(terms.floorBusyNote(), className = "small text-muted lapis-encounter-floor-busy")
+        if (floor.maxReached) panel.div(terms.floorMaxReachedNote(), className = "small text-muted lapis-encounter-floor-max")
+    }
+
+    /** "<Name> spricht · noch 1:32 · Mikrofon an" -- the name is untrusted and goes through the i18n sanitiser first. */
+    private fun floorRunText(floor: EncounterFloorListState): String {
+        val name = sanitizeUntrustedI18nText(floor.holderName.orEmpty())
+        val mic = if (floor.microphoneOn) terms.floorMicrophoneOnState() else terms.floorMicrophoneOffState()
+        return terms.floorHolderLine(name, formatMmSs(floor.remainingSeconds * FLOOR_MS_PER_SECOND)) + " · " + mic
     }
 
     private fun renderPerson(
@@ -340,8 +416,22 @@ internal class EncounterPresentPanel(
     }
 }
 
+private const val FLOOR_MS_PER_SECOND = 1000L
 private const val FOCUS_RETRIES = 30
 private const val FOCUS_RETRY_MS = 16
+
+/**
+ * V1.9.138: what the list of hands needs to show a running floor. [holderId] `null` = nobody has the floor; [microphoneOn] is derived by the
+ * room from the holder's remote microphone track (client side only); [busy] while the room's own request is in flight.
+ */
+internal class EncounterFloorListState(
+    val holderId: String?,
+    val holderName: String?,
+    val remainingSeconds: Int,
+    val microphoneOn: Boolean,
+    val maxReached: Boolean,
+    val busy: Boolean,
+)
 
 /** What the seat list alternative needs: the viewer's own seat (if any) and every free seat of the drawn grid. */
 internal class EncounterSeatListState(

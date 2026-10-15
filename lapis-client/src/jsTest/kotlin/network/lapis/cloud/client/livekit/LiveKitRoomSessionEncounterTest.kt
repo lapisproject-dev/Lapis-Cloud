@@ -9,9 +9,12 @@ import network.lapis.cloud.shared.domain.ENCOUNTER_BELL_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_PAYLOAD
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_TOPIC
+import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_REACTION_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_TOPIC
+import network.lapis.cloud.shared.domain.EncounterFloorSignal
 import network.lapis.cloud.shared.domain.EncounterReaction
 import org.khronos.webgl.Uint8Array
 import kotlin.js.Promise
@@ -37,6 +40,8 @@ class LiveKitRoomSessionEncounterTest {
         var cameraCalls = 0
         var microphoneCalls = 0
         var screenCalls = 0
+        var unpublishCalls = 0
+        var unpublishStopsTrack = false
         var deviceListCalls = 0
         var switchCalls = 0
         var startAudioCalls = 0
@@ -60,6 +65,16 @@ class LiveKitRoomSessionEncounterTest {
             }
             local.setMicrophoneEnabled = { _: Boolean ->
                 microphoneCalls++
+                Promise.resolve(null)
+            }
+            local.getTrackPublication = { _: String ->
+                val publication: dynamic = js("({})")
+                publication.track = js("({})")
+                publication
+            }
+            local.unpublishTrack = { _: dynamic, stop: Boolean ->
+                unpublishCalls++
+                unpublishStopsTrack = stop
                 Promise.resolve(null)
             }
             local.setScreenShareEnabled = { _: Boolean ->
@@ -117,6 +132,7 @@ class LiveKitRoomSessionEncounterTest {
         val seatNudges = mutableListOf<String>()
         var blessings = 0
         var bells = 0
+        val floors = mutableListOf<EncounterFloorSignal>()
         var chats = 0
 
         val session =
@@ -146,6 +162,7 @@ class LiveKitRoomSessionEncounterTest {
                 onEncounterSeatNudge = { seatNudges += it },
                 onEncounterBlessing = { blessings++ },
                 onEncounterBell = { bells++ },
+                onEncounterFloor = { floors += it },
             )
     }
 
@@ -371,5 +388,98 @@ class LiveKitRoomSessionEncounterTest {
             h.fake.emitServerData(bytesOf(ENCOUNTER_BELL_PAYLOAD), ENCOUNTER_BELL_TOPIC)
             assertEquals(1, h.bells)
             assertEquals(1, h.blessings)
+        }
+
+    // ── V1.9.138: the floor packet is accepted from the server only, and the floor microphone is the one narrow media path ────────
+
+    @Test
+    fun aFloorPacket_withoutAParticipant_isParsed_andReachesTheCallback() =
+        GlobalScope.promise {
+            val h = Harness(publishEnabled = false)
+            h.session.connect("wss://example.invalid", "token")
+            h.fake.emitServerData(bytesOf("""{"s":"ON","t":118}"""), ENCOUNTER_FLOOR_TOPIC)
+            h.fake.emitServerData(bytesOf("""{"s":"YOU","t":90}"""), ENCOUNTER_FLOOR_TOPIC)
+            h.fake.emitServerData(bytesOf("""{"s":"OFF"}"""), ENCOUNTER_FLOOR_TOPIC)
+            assertEquals(listOf(EncounterFloorSignal.On(118), EncounterFloorSignal.You(90), EncounterFloorSignal.Off), h.floors)
+        }
+
+    @Test
+    fun aFloorPacket_fromAParticipant_isAForgery_whoeverTheSenderIs() =
+        GlobalScope.promise {
+            val h = Harness(publishEnabled = false)
+            h.session.connect("wss://example.invalid", "token")
+            h.fake.emitData(bytesOf("""{"s":"YOU","t":600}"""), ENCOUNTER_FLOOR_TOPIC, identity = "a-congregation-member")
+            h.fake.emitData(bytesOf("""{"s":"OFF"}"""), ENCOUNTER_FLOOR_TOPIC, identity = "the-pulpit")
+            assertTrue(h.floors.isEmpty())
+        }
+
+    @Test
+    fun malformedOrOversizedFloorPackets_areDropped_andNeverThrow() =
+        GlobalScope.promise {
+            val h = Harness(publishEnabled = false)
+            h.session.connect("wss://example.invalid", "token")
+            listOf(
+                Uint8Array(0),
+                Uint8Array(ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES + 1),
+                bytesOf("not json"),
+                bytesOf("""{"s":"YOU"}"""),
+                bytesOf("""{"s":"ON","t":601}"""),
+                bytesOf("""{"s":"ON","t":5,"who":"x"}"""),
+                bytesOf("""{"s":"GIVE","t":5}"""),
+            ).forEach { h.fake.emitServerData(it, ENCOUNTER_FLOOR_TOPIC) }
+            h.fake.emitServerData(bytesOf("""{"s":"ON","t":5}"""), "lapis-encounter-other")
+            assertTrue(h.floors.isEmpty())
+            assertEquals(0, h.blessings)
+            assertEquals(0, h.bells)
+        }
+
+    @Test
+    fun theFloorMicrophone_isRefused_untilTheServerGrantOpensIt_andNothingReachesTheSdk() =
+        GlobalScope.promise {
+            val h = Harness(publishEnabled = false)
+            h.session.connect("wss://example.invalid", "token")
+            assertEquals(ConferenceDeviceFailure.OTHER, h.session.setFloorMicrophone(true))
+            assertEquals(0, h.fake.microphoneCalls)
+        }
+
+    @Test
+    fun anOpenedFloorMicrophone_switchesOnlyTheMicrophoneOn_andCameraAndScreenStayLocked() =
+        GlobalScope.promise {
+            val h = Harness(publishEnabled = false)
+            h.session.connect("wss://example.invalid", "token")
+            h.session.openFloorMicrophone()
+            assertEquals(null, h.session.setFloorMicrophone(true))
+            assertEquals(1, h.fake.microphoneCalls)
+            assertEquals(ConferenceDeviceFailure.OTHER, h.session.setCamera(true))
+            assertEquals(ConferenceDeviceFailure.OTHER, h.session.setMicrophone(true), "the general microphone call stays locked")
+            h.session.setScreenShare(true)
+            assertTrue(h.session.listDevices(ConferenceDeviceKind.MICROPHONE).isEmpty())
+            assertEquals(0, h.fake.cameraCalls)
+            assertEquals(0, h.fake.screenCalls)
+            assertEquals(1, h.fake.microphoneCalls)
+        }
+
+    @Test
+    fun closingTheFloorMicrophone_unpublishesTheTrack_stopsIt_andClosesTheWayIn() =
+        GlobalScope.promise {
+            val h = Harness(publishEnabled = false)
+            h.session.connect("wss://example.invalid", "token")
+            h.session.openFloorMicrophone()
+            h.session.setFloorMicrophone(true)
+            h.session.closeFloorMicrophone()
+            assertEquals(1, h.fake.unpublishCalls, "unpublished, not merely muted")
+            assertTrue(h.fake.unpublishStopsTrack, "and the device released")
+            assertEquals(ConferenceDeviceFailure.OTHER, h.session.setFloorMicrophone(true), "closed for good")
+            assertEquals(1, h.fake.microphoneCalls)
+        }
+
+    @Test
+    fun closingTheFloorMicrophone_withoutARoom_orWithoutATrack_neverThrows() =
+        GlobalScope.promise {
+            val h = Harness(publishEnabled = false)
+            h.session.closeFloorMicrophone()
+            h.session.connect("wss://example.invalid", "token")
+            h.session.setFloorMicrophone(false)
+            assertEquals(1, h.fake.unpublishCalls)
         }
 }

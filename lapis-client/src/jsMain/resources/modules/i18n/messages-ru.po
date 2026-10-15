@@ -24314,3 +24314,51 @@ msgstr "Момент согласия"
 
 msgid "hh:mm"
 msgstr "чч:мм"
+
+msgid "Wort erteilen"
+msgstr "Дать слово"
+
+msgid "Wort entziehen"
+msgstr "Отобрать слово"
+
+msgid "Wort zurückgeben"
+msgstr "Вернуть слово"
+
+msgid "+1 Min"
+msgstr "+1 мин"
+
+msgid "+2 Min"
+msgstr "+2 мин"
+
+msgid "Sie haben das Wort · noch %1"
+msgstr "Вам предоставлено слово · осталось %1"
+
+msgid "%1 spricht · noch %2"
+msgstr "%1 говорит · осталось %2"
+
+msgid "Gerade spricht jemand aus der Gemeinde · noch %1"
+msgstr "Говорит один из прихожан · осталось %1"
+
+msgid "Gerade spricht jemand aus der Versammlung · noch %1"
+msgstr "Говорит один из участников собрания · осталось %1"
+
+msgid "Gleich zu Ende"
+msgstr "Скоро конец"
+
+msgid "Es spricht gerade jemand."
+msgstr "Сейчас кто-то говорит."
+
+msgid "Höchstdauer 10 Min erreicht"
+msgstr "Достигнута максимальная длительность 10 мин"
+
+msgid "Wort erteilt"
+msgstr "Слово предоставлено"
+
+msgid "Sie haben das Wort"
+msgstr "Вам предоставлено слово"
+
+msgid "Wort beendet"
+msgstr "Слово завершено"
+
+msgid "Das Wort konnte nicht erteilt werden. Bitte versuchen Sie es erneut."
+msgstr "Не удалось предоставить слово. Пожалуйста, попробуйте ещё раз."

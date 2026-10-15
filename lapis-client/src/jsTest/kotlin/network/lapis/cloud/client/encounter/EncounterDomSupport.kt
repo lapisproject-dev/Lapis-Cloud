@@ -226,6 +226,23 @@ internal open class FakeListenerSession(
     var disconnects = 0
     var audioStarts = 0
 
+    /** V1.9.138: every `floorMicrophone` call (the `on` flag), and how often the floor microphone was ended. */
+    val floorMicrophoneCalls = mutableListOf<Boolean>()
+    var floorMicrophoneEnds = 0
+    var floorMicrophoneFailure: ConferenceDeviceFailure? = null
+
+    override suspend fun floorMicrophone(
+        grant: FloorGrant,
+        on: Boolean,
+    ): ConferenceDeviceFailure? {
+        floorMicrophoneCalls += on
+        return floorMicrophoneFailure
+    }
+
+    override suspend fun endFloorMicrophone() {
+        floorMicrophoneEnds++
+    }
+
     override suspend fun connect(): ConferenceConnectFailure? {
         connects++
         return connectFailure
@@ -418,6 +435,8 @@ internal suspend fun withEncounterRoom(
     soundHasBeenActive: () -> Boolean = { true },
     bellPageVisible: () -> Boolean = { true },
     bellReducedMotion: () -> Boolean = { false },
+    /** V1.9.138: the monotonic clock of the floor countdown (a test moves it by hand). */
+    monotonicNow: () -> Double = { 0.0 },
     block: suspend (EncounterRoomRig, HTMLElement) -> Unit,
 ) {
     val presentRoute = routeOf { rpcService<IEncounterSpaceService>().listPresent("space-1") }
@@ -458,6 +477,7 @@ internal suspend fun withEncounterRoom(
                     soundHasBeenActive = soundHasBeenActive,
                     bellPageVisible = bellPageVisible,
                     bellReducedMotion = bellReducedMotion,
+                    monotonicNow = monotonicNow,
                 )
             room.bind(session)
             room.afterConnected()

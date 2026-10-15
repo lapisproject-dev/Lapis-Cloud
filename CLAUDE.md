@@ -178,6 +178,19 @@ Details: `docs/features/video-conferencing.adoc`, Abschnitt "Timer". Kurzregeln:
 - **Nicht in Aufzeichnung, Stream und Video-Overlay.** Der Timer ist Seitenelement (Raw-DOM, einmal gebaut, danach nur befüllt); die `ConferenceTimer*`-Dateien des Clients dürfen weder `canvas` noch `captureStream`/`publishTrack` enthalten, die `ConferenceVideoOverlay*`-Dateien das Wort Timer nicht (`ConferenceTimerRecordingTripwireTest`). Der Countdown nutzt `performance.now()`, nie `Date.now()`.
 - **Der Puls der letzten 10 s steht nur im `no-preference`-Block** von `theme.css` (ein `animation: none` im Reduktionsblock am Dateiende bricht R54); der Client setzt `is-pulsing` bei "weniger Bewegung" ohnehin nicht.
 
+## Rederecht im Begegnungsraum (V1.9.138)
+
+Details: `docs/architecture/encounter-space.adoc`, Abschnitt "Temporary floor grant"; Feature-Seite `docs/features/encounter-space.adoc`. Kurzregeln:
+
+- **Der Zustand lebt nur im Server-Speicher** (`EncounterFloorState`: Halter, Restzeit auf der **monotonen** Uhr, Serial, höchstens 64 Sitzungen): keine Tabelle, keine Migration, **kein Audit**, in Logs nie Person, Raum oder Name über DEBUG. Ein Neustart beendet jedes Rederecht (der erste Poller-Lauf trennt Gemeinde-Publisher).
+- **Die Berechtigung ist die EINE `encounterFloorPermission(granted, canPublishData)`** (`LiveKitAdminClient.kt`): `canSubscribe = true`, `canPublishSources = ["MICROPHONE"]` **auch beim Entzug** (leere Liste = "alle Quellen" bei LiveKit). Nie `conferencePermission` (Kamera, Bildschirm), nie ein Token mit `canPublish = true` für die Gemeinde.
+- **Zustand setzen VOR `UpdateParticipant`**, sonst trennt der Poller den frisch erteilten Sprecher. **Entzug**: `EncounterFloorEnforcer.revoke` (drei Versuche, dann `removeParticipant`, dann "revoking" mit Wiederholung alle 5 s) -- kein Pfad löscht einen Grant ohne erfolgreichen Entzug/Trennung.
+- **Nur PULPIT/STEWARD des Raums, anwesend, Raum offen und nicht archiviert** erteilen/verlängern (`floorAuthorityInTx`); jede Ablehnung ist dieselbe nackte `ForbiddenException`. BOARD/ADMIN ohne Amt dürfen nicht. `endFloor` darf zusätzlich der Halter. Ziel: Gemeinde-Rolle, anwesend, nicht stummgeschaltet, nicht am Tisch, verbunden, ohne Track.
+- **Topic `lapis-encounter-floor` sendet nur `EncounterFloorEnforcer`** (`ON` an alle, `YOU` an den Halter, `OFF`); `SendData`-Limit 64 Byte in `sendDataPayloadLimit`. Der Client nimmt das Paket nur ohne sendenden Teilnehmer an (Zweig in `LiveKitRoomSession` VOR der Teilnehmerprüfung) und parst es mit dem strengen `encounterFloorPacket` aus `lapis-shared`.
+- **Client**: ein Zuhörer hat genau EINEN Medienaufruf, `floorMicrophone(FloorGrant, on)`; `FloorGrant` hat einen privaten Konstruktor und entsteht nur in `EncounterFloor.kt` aus einem Serverpaket. Das Mikrofon wird nie von selbst eingeschaltet (Klick) und beim Ende **unpublisht** (nicht nur stummgeschaltet). Countdown nur über `performance.now()`, nie `Date.now()`; die Gemeinde sieht **keinen Namen**.
+- **Kilua überträgt nur den Exception-Typ**: die Conflict-Gründe erreichen den Client nicht; er verhindert sie vorab (Knöpfe deaktiviert) und zeigt sonst den einen festen Text. Ein `Unit`-Ergebnis beantwortet ein Test-Stub mit `"{}"`, nicht `"null"` (sonst scheitert die Dekodierung still).
+- Neue RPC-Methoden stehen **am Ende** von `IEncounterSpaceService` (`grantFloor`, `extendFloor`, `endFloor`, `floorState`); die Dienstreihenfolge in `Application.kt` ändert sich nicht. Tripwires: `EncounterPrivacyTripwireTest` (V1.9.138-Block), `ClientEncounterPrivacyTripwireTest` (V1.9.138-Block), `EncounterFloorI18nCatalogTest`.
+
 ## Video-Overlays (V1.9.129)
 
 Details: `docs/features/video-overlays.adoc`. Kurzregeln:

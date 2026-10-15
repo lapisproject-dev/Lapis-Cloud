@@ -3989,6 +3989,21 @@ html .form-select.is-invalid:focus {
   color: var(--lapis-text);
 }
 
+/* V1.9.138: the temporary floor. The band is filled in place every second; the last ten seconds get a thicker border. It has NO transition and NO animation, so nothing needs switching off under prefers-reduced-motion (R54). */
+.lapis-encounter-floor[hidden] {
+  display: none !important;
+}
+
+.lapis-encounter-floor.is-final {
+  border-width: 3px;
+  padding: calc(0.5rem - 2px) calc(0.75rem - 2px);
+}
+
+.lapis-encounter-hand-next {
+  border-left: 3px solid var(--lapis-border-strong);
+  padding-left: 0.5rem;
+}
+
 /* V1.9.74: the dot sits on the corner of the chat symbol and takes no room of its own (the overflow handler measures controls only). */
 .lapis-encounter-unread {
   position: absolute;

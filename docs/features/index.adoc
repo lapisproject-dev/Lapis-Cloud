@@ -7,6 +7,7 @@ Architecture background lives in link:../architecture/[docs/architecture/]; the 
 [cols="2,3",options="header"]
 |===
 |Feature |Description
+|link:encounter-space.adoc[Encounter space with a temporary floor (V1.9.61 to V1.9.138)] |Standing rooms with a pulpit and a listening congregation; an office holder can give one person the floor for two minutes (server-raised, microphone only, memory only)
 |link:locale-dates.adoc[Dates and times in the UI locale (V1.9.137)] |One fixed table of nine locales for every displayed and typed date and time; ISO stays the storage form
 |link:auth-and-consent-pages.adoc[Sign-in and consent pages (V1.9.135)] |Styled guest consent, home-server form, MCP consent and error pages with brand chrome and security headers
 |link:video-conferencing.adoc[Videokonferenzen (V1.0 Wave 1)] |Video conferencing, LiveKit-based, for committee sessions; reactions and a raised-hand queue (V1.9.127), a display-only timer (V1.9.133)

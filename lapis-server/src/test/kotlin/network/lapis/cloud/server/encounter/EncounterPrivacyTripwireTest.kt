@@ -461,4 +461,141 @@ class EncounterPrivacyTripwireTest :
             ) shouldBe
                 true
         }
+
+        // ── Welle V1.9.138: the temporary floor ────────────────────────────
+
+        val floorStateFile = EncounterSourceScan.mainFile("encounter/EncounterFloorState.kt")
+        val floorEnforcerFile = EncounterSourceScan.mainFile("encounter/EncounterFloorEnforcer.kt")
+        val floorMethods = listOf("grantFloor", "extendFloor", "endFloor", "floorState")
+        val floorHelpers =
+            floorMethods +
+                listOf("floorAuthorityInTx", "floorTargetInTx", "isPresentInTx", "floorDto", "takeFloorBack", "requireFloorRate")
+
+        test("V1.9.138: the floor files and methods never write the audit log and never write the database") {
+            val fns = EncounterSourceScan.functions(serviceFile).associateBy { it.name }
+            floorHelpers.forEach { name ->
+                val body = SourceScan.blank((fns[name] ?: error("function $name not found -- the tripwire must not run empty")).body)
+                Regex("""\b(AuditLogRecorder|insert|update|deleteWhere|upsert|batchInsert|replace)\b""").containsMatchIn(body) shouldBe
+                    false
+            }
+            listOf(floorStateFile, floorEnforcerFile).forEach { f ->
+                val code = SourceScan.blank(f.readText())
+                listOf("AuditLogRecorder", "transaction", "Table", "insert(", "deleteWhere", "println").forEach { forbidden ->
+                    code.contains(forbidden) shouldBe false
+                }
+            }
+        }
+
+        test(
+            "V1.9.138: no log line of the floor code is above DEBUG with a person, a room or a name (the enforcer only logs what failed)",
+        ) {
+            val fns = EncounterSourceScan.functions(serviceFile).associateBy { it.name }
+            floorHelpers.forEach { name ->
+                val body = fns.getValue(name).body
+                Regex("""logger\.(info|warn|error)""").containsMatchIn(body) shouldBe false
+            }
+            SourceScan.blank(floorStateFile.readText()).contains("logger") shouldBe false
+            // every logger line of the enforcer is one fixed sentence: no interpolation except a class name or a revoke reason
+            floorEnforcerFile.readLines().filter { it.contains("logger.") }.forEach { line ->
+                Regex("""\$\{?([A-Za-z_.]+)""").findAll(line.substringAfter("logger.")).forEach { m ->
+                    (m.groupValues[1] == "e" || m.groupValues[1] == "reason.name") shouldBe true
+                }
+            }
+        }
+
+        test(
+            "V1.9.138: encounterFloorPermission is the only source of the floor permission; the floor code never builds a conference permission or a publishing token",
+        ) {
+            val fns = EncounterSourceScan.functions(serviceFile).associateBy { it.name }
+            floorHelpers.forEach { name -> fns.getValue(name).body.contains("conferencePermission") shouldBe false }
+            encounterFiles.forEach { f -> SourceScan.blank(f.readText()).contains("conferencePermission") shouldBe false }
+            SourceScan.blank(floorEnforcerFile.readText()).let {
+                it.contains("LiveKitParticipantPermissionUpdate(") shouldBe false
+                it.contains("mintParticipantToken") shouldBe false
+            }
+            val permissionCalls = SourceScan.blank(floorEnforcerFile.readText()).split("encounterFloorPermission(").size - 1
+            (permissionCalls >= 2) shouldBe true
+            // no mintParticipantToken in the encounter code with a literal canPublish = true
+            encounterFiles.forEach { f ->
+                Regex("""canPublish\s*=\s*true""").containsMatchIn(SourceScan.blank(f.readText())) shouldBe false
+            }
+        }
+
+        test("V1.9.138: the floor topic is sent by the enforcer only (a participant-facing path never sends it)") {
+            val users =
+                encounterFiles.filter { SourceScan.blank(it.readText()).contains("ENCOUNTER_FLOOR_TOPIC") }.map { it.name }
+            users shouldBe listOf("EncounterFloorEnforcer.kt")
+        }
+
+        test(
+            "V1.9.138: the floor RPC methods throttle first, make no LiveKit call inside a transaction, and the grant raises the permission only after the state is set",
+        ) {
+            val fns = EncounterSourceScan.functions(serviceFile).associateBy { it.name }
+            listOf("grantFloor", "extendFloor", "endFloor").forEach { name ->
+                val body = fns.getValue(name).body
+                body shouldContain "requireFloorRate"
+                (body.indexOf("requireFloorRate") < body.indexOf("transaction")) shouldBe true
+            }
+            fns.getValue("floorState").body shouldContain "floorStateRateLimiter"
+            floorMethods.forEach { name ->
+                val raw = SourceScan.blank(fns.getValue(name).body)
+                Regex("""transaction\s*\{""").findAll(raw).forEach { m ->
+                    var depth = 0
+                    var end = m.range.last
+                    for (i in m.range.last until raw.length) {
+                        if (raw[i] == '{') depth++
+                        if (raw[i] == '}') {
+                            depth--
+                            if (depth == 0) {
+                                end = i
+                                break
+                            }
+                        }
+                    }
+                    val block = raw.substring(m.range.first, end + 1)
+                    listOf("liveKitAdminClient", "floorEnforcer", "liveKitCall").forEach { forbidden ->
+                        block.contains(forbidden) shouldBe
+                            false
+                    }
+                }
+            }
+            val grant = fns.getValue("grantFloor").body
+            (grant.indexOf("tryGrant") < grant.indexOf("applyGrant")) shouldBe true
+        }
+
+        test("V1.9.138: every hook that must end a floor calls the enforcer") {
+            val fns = EncounterSourceScan.functions(serviceFile).associateBy { it.name }
+            listOf("leaveSpace", "moderate", "joinTable", "setSpaceRoles").forEach { name ->
+                fns.getValue(name).body shouldContain "floorEnforcer.endForMember"
+            }
+            fns.getValue("closeSpace").body shouldContain "floorState.clear"
+            // the end of the floor of a moderated person comes BEFORE the disconnect
+            val moderate = fns.getValue("moderate").body
+            (moderate.indexOf("floorEnforcer.endForMember") < moderate.indexOf("removeParticipant")) shouldBe true
+            EncounterSourceScan
+                .functions(EncounterSourceScan.mainFile("encounter/EncounterSpacePoller.kt"))
+                .single { it.name == "closeSession" }
+                .body shouldContain "floorState.clear"
+        }
+
+        test("V1.9.138: the floor adds no migration and no generated column about a floor") {
+            val migrations = File(SourceScan.mainRoot().parentFile, "resources/db/migration").listFiles()!!.filter { it.extension == "sql" }
+            (migrations.size > 70) shouldBe true
+            migrations.none {
+                Regex("""\bfloor\b""", RegexOption.IGNORE_CASE).containsMatchIn(
+                    it
+                        .readText()
+                        .lines()
+                        .filterNot { l ->
+                            l.trim().startsWith("--")
+                        }.joinToString("\n"),
+                ) &&
+                    it.name.contains("encounter", ignoreCase = true)
+            } shouldBe
+                true
+            val generated = File(SourceScan.mainRoot(), "network/lapis/cloud/server/db/generated")
+            generated.walkTopDown().filter { it.isFile && it.extension == "kt" && it.name.startsWith("Encounter") }.none {
+                Regex("""\bfloor\b""", RegexOption.IGNORE_CASE).containsMatchIn(it.readText())
+            } shouldBe true
+        }
     })

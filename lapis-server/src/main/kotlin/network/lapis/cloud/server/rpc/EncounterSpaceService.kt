@@ -10,6 +10,7 @@ import network.lapis.cloud.server.conference.LiveKitAccessToken
 import network.lapis.cloud.server.conference.LiveKitAdminClient
 import network.lapis.cloud.server.conference.LiveKitAdminException
 import network.lapis.cloud.server.conference.TurnCredentialMinter
+import network.lapis.cloud.server.conference.encounterFloorPermission
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
@@ -24,6 +25,8 @@ import network.lapis.cloud.server.encounter.EncounterBellState
 import network.lapis.cloud.server.encounter.EncounterBlessingState
 import network.lapis.cloud.server.encounter.EncounterConsentText
 import network.lapis.cloud.server.encounter.EncounterEntryNotifier
+import network.lapis.cloud.server.encounter.EncounterFloorEnforcer
+import network.lapis.cloud.server.encounter.EncounterFloorState
 import network.lapis.cloud.server.encounter.EncounterModerationState
 import network.lapis.cloud.server.encounter.EncounterRoles
 import network.lapis.cloud.server.encounter.EncounterSeatState
@@ -32,6 +35,7 @@ import network.lapis.cloud.server.encounter.EncounterSessions
 import network.lapis.cloud.server.encounter.EncounterSpaceViews
 import network.lapis.cloud.server.encounter.EncounterTableRooms
 import network.lapis.cloud.server.encounter.EncounterTableState
+import network.lapis.cloud.server.encounter.RevokeReason
 import network.lapis.cloud.server.encounter.effectiveMaxParticipants
 import network.lapis.cloud.server.encounter.encounterConsentFor
 import network.lapis.cloud.server.encounter.notifyModeOf
@@ -56,6 +60,8 @@ import network.lapis.cloud.shared.domain.ENCOUNTER_BELL_PAYLOAD
 import network.lapis.cloud.shared.domain.ENCOUNTER_BELL_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_PAYLOAD
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_TOPIC
+import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_EXTEND_STEPS
+import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_MAX_TOTAL_SECONDS
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_MAX
 import network.lapis.cloud.shared.domain.ENCOUNTER_TABLE_MAX_COUNT
 import network.lapis.cloud.shared.domain.ENCOUNTER_TABLE_MAX_SEATS
@@ -65,6 +71,7 @@ import network.lapis.cloud.shared.domain.EncounterConsentDisclaimerDto
 import network.lapis.cloud.shared.domain.EncounterConsentInput
 import network.lapis.cloud.shared.domain.EncounterEntryDto
 import network.lapis.cloud.shared.domain.EncounterEntryInfoDto
+import network.lapis.cloud.shared.domain.EncounterFloorDto
 import network.lapis.cloud.shared.domain.EncounterGuestPolicy
 import network.lapis.cloud.shared.domain.EncounterNotifyMode
 import network.lapis.cloud.shared.domain.EncounterPresenceRole
@@ -175,6 +182,8 @@ class EncounterSpaceService(
     private val entryNotifier: EncounterEntryNotifier,
     private val blessingState: EncounterBlessingState,
     private val bellState: EncounterBellState,
+    private val floorState: EncounterFloorState,
+    private val floorEnforcer: EncounterFloorEnforcer,
     private val listRateLimiter: FederationInboxRateLimiter,
     private val enterRateLimiter: FederationInboxRateLimiter,
     private val leaveRateLimiter: FederationInboxRateLimiter,
@@ -184,6 +193,9 @@ class EncounterSpaceService(
     private val seatRateLimiter: FederationInboxRateLimiter,
     private val tableRateLimiter: FederationInboxRateLimiter,
     private val tableTokenRateLimiter: FederationInboxRateLimiter,
+    private val floorRateLimiter: FederationInboxRateLimiter,
+    private val floorBurstRateLimiter: FederationInboxRateLimiter,
+    private val floorStateRateLimiter: FederationInboxRateLimiter,
     private val config: ConferenceConfig = ConferenceConfig.load(),
 ) : IEncounterSpaceService {
     // ── Reads ─────────────────────────────────────────────────────────────
@@ -475,6 +487,12 @@ class EncounterSpaceService(
         disconnectWithdrawnOfficeHolders(roomName = openRoomName, memberIds = withdrawn)
         // V1.9.80: an office holder never listens in at a table -- whoever was just given an office leaves theirs (the table rotates).
         openRoomId?.let { roomId -> applyRotations(tableState.leaveAll(sessionRoomId = roomId, memberIds = parsed.map { it.first })) }
+        // V1.9.138: ... and an office holder does not hold the temporary floor of the congregation either.
+        openRoomId?.let { roomId ->
+            parsed.forEach { (memberId, _) ->
+                floorEnforcer.endForMember(roomId = roomId, memberId = memberId, reason = RevokeReason.MODERATED)
+            }
+        }
         return result
     }
 
@@ -635,6 +653,7 @@ class EncounterSpaceService(
             blessingState.clear(roomId)
             bellState.clear(roomId)
             seatState.clear(roomId)
+            floorState.clear(roomId)
             EncounterTableRooms.deleteAll(liveKit = liveKitAdminClient, rooms = tableState.clear(roomId))
             entryNotifier.clearSession(roomId)
         }
@@ -824,6 +843,8 @@ class EncounterSpaceService(
         sessionRooms.forEach { seatState.release(sessionRoomId = it, memberId = current.memberId) }
         // V1.9.80: so does the table seat (the table rotates, nobody keeps listening with an old token).
         applyRotations(sessionRooms.mapNotNull { tableState.leave(sessionRoomId = it, memberId = current.memberId) })
+        // V1.9.138: a person who leaves does not keep the floor (the grant is in memory, the revoke is a LiveKit call outside any transaction).
+        sessionRooms.forEach { floorEnforcer.endForMember(roomId = it, memberId = current.memberId, reason = RevokeReason.LEFT) }
     }
 
     override suspend fun listPresent(spaceId: String): List<EncounterPresentDto> {
@@ -969,6 +990,257 @@ class EncounterSpaceService(
         moderate(spaceId = spaceId, memberId = memberId, silenceOnly = true)
     }
 
+    // ── Temporary floor (V1.9.138) ─────────────────────────────────────────
+
+    override suspend fun grantFloor(
+        spaceId: String,
+        memberId: String,
+    ): EncounterFloorDto {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        requireFloorRate(memberId = current.memberId)
+        val id = spaceId.toSpaceUuid()
+        val targetId = memberId.toBodyUuid()
+        val prepared =
+            transaction {
+                requireConferenceEligibleMembership(memberId = current.memberId)
+                val space = loadSpace(spaceId = id)
+                val authority = floorAuthorityInTx(space = space, spaceId = id, memberId = current.memberId)
+                floorTargetInTx(authority = authority, spaceId = id, callerId = current.memberId, targetId = targetId)
+            }
+        // Outside the transaction: the target must really be connected and must not publish anything yet. Somebody who sends WITHOUT a
+        // right is a case for the poller, not for a grant.
+        val live =
+            liveKitCall { liveKitAdminClient.listParticipants(prepared.livekitRoomName) }.firstOrNull {
+                it.identity ==
+                    targetId.toString()
+            }
+        if (live == null) throw ConflictException("The person is not connected")
+        if (live.tracks.isNotEmpty()) throw ConflictException("The person already publishes")
+        val grant =
+            floorState.withSessionLock(roomId = prepared.roomId) {
+                // Re-derived right before the grant (the checks above ran in an earlier transaction): the caller may have lost the office,
+                // the target may have been silenced or sat down at a table meanwhile.
+                transaction {
+                    requireConferenceEligibleMembership(memberId = current.memberId)
+                    val authority =
+                        floorAuthorityInTx(space = loadSpace(spaceId = id), spaceId = id, memberId = current.memberId)
+                    floorTargetInTx(authority = authority, spaceId = id, callerId = current.memberId, targetId = targetId)
+                }
+                // The state is set BEFORE the permission is raised: the poller must never see a raised permission without a grant.
+                when (
+                    val result =
+                        floorState.tryGrant(
+                            roomId = prepared.roomId,
+                            livekitRoomName = prepared.livekitRoomName,
+                            memberId = targetId,
+                            displayName = prepared.displayName,
+                        )
+                ) {
+                    EncounterFloorState.GrantResult.Busy -> throw ConflictException("Someone has the floor")
+                    EncounterFloorState.GrantResult.Full -> throw ServiceBusyException("Floor state full")
+                    is EncounterFloorState.GrantResult.Granted -> {
+                        try {
+                            floorEnforcer.applyGrant(livekitRoomName = prepared.livekitRoomName, memberId = targetId)
+                        } catch (e: LiveKitAdminException) {
+                            floorState.remove(roomId = prepared.roomId, serial = result.grant.serial)
+                            takeFloorBack(livekitRoomName = prepared.livekitRoomName, memberId = targetId)
+                            throw ConflictException("The floor could not be given")
+                        }
+                        result.grant
+                    }
+                }
+            }
+        floorEnforcer.broadcast(livekitRoomName = prepared.livekitRoomName, grant = grant)
+        return floorDto(grant = grant, callerId = current.memberId, isOffice = true)
+    }
+
+    override suspend fun extendFloor(
+        spaceId: String,
+        seconds: Int,
+    ): EncounterFloorDto {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        requireFloorRate(memberId = current.memberId)
+        val id = spaceId.toSpaceUuid()
+        if (seconds !in ENCOUNTER_FLOOR_EXTEND_STEPS) throw BadRequestException("Invalid extension")
+        val target =
+            transaction {
+                requireConferenceEligibleMembership(memberId = current.memberId)
+                floorAuthorityInTx(space = loadSpace(spaceId = id), spaceId = id, memberId = current.memberId)
+            }
+        val grant =
+            floorState.withSessionLock(roomId = target.roomId) {
+                when (val result = floorState.extend(roomId = target.roomId, seconds = seconds)) {
+                    EncounterFloorState.ExtendResult.NoGrant -> throw ConflictException("Nobody has the floor")
+                    EncounterFloorState.ExtendResult.LimitReached -> throw BadRequestException("The maximum duration is reached")
+                    is EncounterFloorState.ExtendResult.Extended -> result.grant
+                }
+            }
+        floorEnforcer.broadcast(livekitRoomName = target.livekitRoomName, grant = grant)
+        return floorDto(grant = grant, callerId = current.memberId, isOffice = true)
+    }
+
+    override suspend fun endFloor(spaceId: String) {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        requireFloorRate(memberId = current.memberId)
+        val id = spaceId.toSpaceUuid()
+        val ended =
+            transaction {
+                requireConferenceEligibleMembership(memberId = current.memberId)
+                val space = loadSpace(spaceId = id)
+                val session = EncounterSessions.openSession(spaceId = id) ?: throw ForbiddenException()
+                val sessionRoomId = session[ConferenceRoomTable.id]
+                val holder = floorState.current(sessionRoomId)?.memberId == current.memberId
+                // The person who has the floor may hand it back; everybody else needs the office (and to be present).
+                if (!holder) floorAuthorityInTx(space = space, spaceId = id, memberId = current.memberId)
+                EndFloorTarget(roomId = sessionRoomId, holder = holder)
+            }
+        if (ended.holder) {
+            // The holder may only end THEIR OWN floor: revoke() checks the member under the lock, so a floor that expired and went to
+            // somebody else in the meantime stays untouched.
+            floorEnforcer.revoke(roomId = ended.roomId, memberId = current.memberId, reason = RevokeReason.ENDED)
+        } else {
+            val grant = floorState.current(ended.roomId) ?: return
+            floorEnforcer.revoke(roomId = ended.roomId, memberId = grant.memberId, reason = RevokeReason.ENDED)
+        }
+    }
+
+    override suspend fun floorState(spaceId: String): EncounterFloorDto {
+        val current = resolveCurrentMember(call)
+        requireConferenceEnabled()
+        requireWithinRate(limiter = floorStateRateLimiter, memberId = current.memberId)
+        val id = spaceId.toSpaceUuid()
+        val view =
+            transaction {
+                val status = requireConferenceEligibleMembership(memberId = current.memberId)
+                loadVisibleSpace(spaceId = id, current = current, status = status)
+                val session = EncounterSessions.openSession(spaceId = id) ?: throw ForbiddenException()
+                val roomId = session[ConferenceRoomTable.id]
+                if (!isPresentInTx(roomId = roomId, memberId = current.memberId)) throw ForbiddenException()
+                FloorView(roomId = roomId, isOffice = EncounterRoles.roleOf(spaceId = id, memberId = current.memberId) != null)
+            }
+        return floorDto(grant = floorState.current(view.roomId), callerId = current.memberId, isOffice = view.isOffice)
+    }
+
+    private class EndFloorTarget(
+        val roomId: Uuid,
+        val holder: Boolean,
+    )
+
+    private class FloorView(
+        val roomId: Uuid,
+        val isOffice: Boolean,
+    )
+
+    private class FloorTarget(
+        val roomId: Uuid,
+        val livekitRoomName: String,
+        val displayName: String = "",
+    )
+
+    /**
+     * Inside a transaction: the caller is an ACTIVE PULPIT/STEWARD of THIS space, the space is not archived, a session is open and the
+     * caller is present in it. BOARD/ADMIN without an office are no grantors. Every refusal is the same bare [ForbiddenException].
+     */
+    private fun floorAuthorityInTx(
+        space: ResultRow,
+        spaceId: Uuid,
+        memberId: Uuid,
+    ): FloorTarget {
+        if (space[EncounterSpaceTable.archivedAt] != null) throw ForbiddenException()
+        if (EncounterRoles.roleOf(spaceId = spaceId, memberId = memberId) == null) throw ForbiddenException()
+        val session = EncounterSessions.openSession(spaceId = spaceId) ?: throw ForbiddenException()
+        val roomId = session[ConferenceRoomTable.id]
+        if (!isPresentInTx(roomId = roomId, memberId = memberId)) throw ForbiddenException()
+        return FloorTarget(roomId = roomId, livekitRoomName = session[ConferenceRoomTable.livekitRoomName])
+    }
+
+    /** Inside a transaction: whether [targetId] may receive the floor now; a conflict otherwise. Returns the target with the display name. */
+    private fun floorTargetInTx(
+        authority: FloorTarget,
+        spaceId: Uuid,
+        callerId: Uuid,
+        targetId: Uuid,
+    ): FloorTarget {
+        if (targetId == callerId) throw ConflictException("You cannot give yourself the floor")
+        if (!isPresentInTx(roomId = authority.roomId, memberId = targetId)) throw ConflictException("The person is not present")
+        if (EncounterRoles.hasAnyRoleRow(spaceId = spaceId, memberId = targetId)) throw ConflictException("An office holder needs no floor")
+        if (moderationState.isSilenced(
+                sessionRoomId = authority.roomId,
+                memberId = targetId,
+            )
+        ) {
+            throw ConflictException("The person is silenced")
+        }
+        if (tableState.assignmentOf(sessionRoomId = authority.roomId, memberId = targetId, now = Clock.System.now()) != null) {
+            throw ConflictException("The person sits at a table")
+        }
+        val name =
+            MemberTable
+                .selectAll()
+                .where { MemberTable.id eq targetId }
+                .singleOrNull()
+                ?.get(MemberTable.displayName) ?: throw ConflictException("The person is not present")
+        return FloorTarget(roomId = authority.roomId, livekitRoomName = authority.livekitRoomName, displayName = name)
+    }
+
+    private fun isPresentInTx(
+        roomId: Uuid,
+        memberId: Uuid,
+    ): Boolean =
+        ConferenceParticipationTable
+            .selectAll()
+            .where { (ConferenceParticipationTable.roomId eq roomId) and (ConferenceParticipationTable.memberId eq memberId) }
+            .limit(1)
+            .any()
+
+    /** The floor as [callerId] may see it (see [EncounterFloorDto]): holder and totals only for the office and the holder themselves. */
+    private fun floorDto(
+        grant: EncounterFloorState.Grant?,
+        callerId: Uuid,
+        isOffice: Boolean,
+    ): EncounterFloorDto {
+        val remaining = grant?.let { floorState.remainingSeconds(it) } ?: 0
+        if (grant == null || grant.revoking || remaining <= 0) return EncounterFloorDto(active = false, remainingSeconds = 0)
+        val self = grant.memberId == callerId
+        val detailed = isOffice || self
+        return EncounterFloorDto(
+            active = true,
+            remainingSeconds = remaining,
+            totalSeconds = if (detailed) grant.totalSeconds else 0,
+            maxReached = isOffice && grant.totalSeconds >= ENCOUNTER_FLOOR_MAX_TOTAL_SECONDS,
+            holderMemberId = if (detailed) grant.memberId.toString() else null,
+            holderDisplayName = if (detailed) grant.displayName else null,
+            self = self,
+        )
+    }
+
+    /** Best effort after a failed grant call: LiveKit may have applied the permission although the call reported a failure. */
+    private suspend fun takeFloorBack(
+        livekitRoomName: String,
+        memberId: Uuid,
+    ) {
+        try {
+            liveKitAdminClient.updateParticipantPermission(
+                room = livekitRoomName,
+                identity = memberId.toString(),
+                permission = encounterFloorPermission(granted = false, canPublishData = true),
+            )
+        } catch (e: LiveKitAdminException) {
+            logger.debug { "floor take-back failed" }
+        }
+    }
+
+    /** Own helper: the burst limiter (1 per second) AND the budget (30 per minute) must both allow the call. */
+    private fun requireFloorRate(memberId: Uuid) {
+        val key = "member:$memberId"
+        if (!floorBurstRateLimiter.checkAndRecord(key) || !floorRateLimiter.checkAndRecord(key)) {
+            throw ConflictException("Too many requests -- try again later")
+        }
+    }
+
     // ── Tables (V1.9.80) ──────────────────────────────────────────────────
 
     override suspend fun joinTable(
@@ -1022,6 +1294,11 @@ class EncounterSpaceService(
                     }
                 }
             }
+        // V1.9.138: whoever has the floor of the plenum leaves it once the table seat is really assigned (one place per person). The empty
+        // lock section is a barrier: a grant that passed its table check before the assignment finishes first and is then visible below;
+        // a grant that starts later sees the assignment and is refused.
+        floorState.withSessionLock(roomId = joined.roomId) {}
+        floorEnforcer.endForMember(roomId = joined.roomId, memberId = current.memberId, reason = RevokeReason.MODERATED)
         applyRotations(joined.rotations)
         return mintTableToken(
             sessionRoomId = joined.roomId,
@@ -1562,11 +1839,16 @@ class EncounterSpaceService(
             }
         val roomId = session[ConferenceRoomTable.id]
         // The block/silence is recorded BEFORE the disconnect, so a failing LiveKit call can never leave the person free to re-enter.
+        // Under the session lock of the floor: a grant that already passed its silence check finishes (and is then visible to
+        // endForMember below) before this is recorded; a grant that starts later sees the record. The lock is released before
+        // endForMember, which takes it itself (not reentrant).
         val recorded =
-            if (silenceOnly) {
-                moderationState.silence(sessionRoomId = roomId, memberId = targetId, privileged = current.isPrivileged)
-            } else {
-                moderationState.block(sessionRoomId = roomId, memberId = targetId, privileged = current.isPrivileged)
+            floorState.withSessionLock(roomId = roomId) {
+                if (silenceOnly) {
+                    moderationState.silence(sessionRoomId = roomId, memberId = targetId, privileged = current.isPrivileged)
+                } else {
+                    moderationState.block(sessionRoomId = roomId, memberId = targetId, privileged = current.isPrivileged)
+                }
             }
         if (!recorded) throw ConflictException("The moderation list of this session is full")
         // V1.9.79: a removed person loses the seat (a silenced one keeps it and re-enters without a data channel).
@@ -1576,6 +1858,8 @@ class EncounterSpaceService(
         // V1.9.80: the table seat goes in BOTH cases: a table is a live microphone channel, which silencing must close. The table
         // rotates so the person cannot keep talking/listening with a refreshed token.
         applyRotations(listOfNotNull(tableState.leave(sessionRoomId = roomId, memberId = targetId)))
+        // V1.9.138: the floor of a moderated person ends BEFORE the disconnect (so a failing disconnect never leaves them a microphone).
+        floorEnforcer.endForMember(roomId = roomId, memberId = targetId, reason = RevokeReason.MODERATED)
 
         val roomName = session[ConferenceRoomTable.livekitRoomName]
         val live = liveKitCall { liveKitAdminClient.listParticipants(roomName) }.any { it.identity == targetId.toString() }

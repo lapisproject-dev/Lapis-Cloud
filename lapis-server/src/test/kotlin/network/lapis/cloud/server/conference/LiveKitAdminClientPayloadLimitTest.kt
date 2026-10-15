@@ -20,6 +20,10 @@ import network.lapis.cloud.shared.domain.CONFERENCE_TIMER_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.CONFERENCE_TIMER_TOPIC
 import network.lapis.cloud.shared.domain.ConferenceTimerStatus
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_TOPIC
+import network.lapis.cloud.shared.domain.EncounterFloorSignal
+import network.lapis.cloud.shared.domain.encounterFloorPayload
 import java.util.UUID
 
 private const val ROOM = "lc-11111111-1111-1111-1111-111111111111"
@@ -37,6 +41,8 @@ class LiveKitAdminClientPayloadLimitTest :
             sendDataPayloadLimit(CONFERENCE_TIMER_TOPIC) shouldBe CONFERENCE_TIMER_MAX_PAYLOAD_BYTES
             sendDataPayloadLimit(CONFERENCE_TIMER_TOPIC) shouldBe 256
             sendDataPayloadLimit("lapis-encounter-blessing") shouldBe ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
+            sendDataPayloadLimit(ENCOUNTER_FLOOR_TOPIC) shouldBe ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES
+            sendDataPayloadLimit(ENCOUNTER_FLOOR_TOPIC) shouldBe 64
             sendDataPayloadLimit("something-else") shouldBe 16
         }
 
@@ -107,5 +113,20 @@ class LiveKitAdminClientPayloadLimitTest :
             }
             shouldThrow<IllegalArgumentException> { client.sendData(room = ROOM, topic = "other", payload = ByteArray(17)) }
             requests.size shouldBe 0
+        }
+
+        test(
+            "the real client sends the largest floor packet (V1.9.138) and refuses one over 64 bytes (IllegalArgumentException, not a LiveKit error)",
+        ) {
+            val requests = mutableListOf<HttpRequestData>()
+            val client = admin(requests)
+            val largest = encounterFloorPayload(EncounterFloorSignal.You(600)).encodeToByteArray()
+            (largest.size <= ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES) shouldBe true
+            client.sendData(room = ROOM, topic = ENCOUNTER_FLOOR_TOPIC, payload = largest)
+            client.sendDataTo(room = ROOM, topic = ENCOUNTER_FLOOR_TOPIC, payload = largest, destinationIdentities = listOf("a"))
+            requests.size shouldBe 2
+            shouldThrow<IllegalArgumentException> {
+                client.sendData(room = ROOM, topic = ENCOUNTER_FLOOR_TOPIC, payload = ByteArray(ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES + 1))
+            }
         }
     })

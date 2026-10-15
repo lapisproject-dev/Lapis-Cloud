@@ -23,17 +23,21 @@ import network.lapis.cloud.client.ControlBarSlot
 import network.lapis.cloud.client.actionButton
 import network.lapis.cloud.client.actionIconClasses
 import network.lapis.cloud.client.addCssClasses
+import network.lapis.cloud.client.conferenceDeviceEnableErrorMessage
 import network.lapis.cloud.client.confirmDialog
 import network.lapis.cloud.client.guarded
+import network.lapis.cloud.client.livekit.ConferenceDeviceKind
 import network.lapis.cloud.client.livekit.DisconnectCause
 import network.lapis.cloud.client.livekit.Track
 import network.lapis.cloud.client.livekit.TrackPublication
+import network.lapis.cloud.client.notifyError
 import network.lapis.cloud.client.rpcService
 import network.lapis.cloud.client.sanitizeUntrustedI18nText
 import network.lapis.cloud.client.setAttrIfChanged
 import network.lapis.cloud.client.untrustedContent
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.EncounterEntryDto
+import network.lapis.cloud.shared.domain.EncounterFloorDto
 import network.lapis.cloud.shared.domain.EncounterPresenceRole
 import network.lapis.cloud.shared.domain.EncounterPresentDto
 import network.lapis.cloud.shared.domain.EncounterReaction
@@ -109,6 +113,8 @@ internal class EncounterRoom(
     private val bellPageVisible: () -> Boolean = { (document.asDynamic().visibilityState as? String) != "hidden" },
     /** V1.9.96: whether the person asked for reduced motion (the sign is then hidden without a fade) -- a seam for tests. */
     private val bellReducedMotion: () -> Boolean = { window.matchMedia("(prefers-reduced-motion: reduce)").matches },
+    /** V1.9.138: the monotonic clock of the floor countdown (`performance.now()`) -- a seam for tests; never the wall clock. */
+    private val monotonicNow: () -> Double = ::browserMonotonicNow,
 ) {
     private val terms: EncounterTerms = termsFor(space.profile)
     private val allowedReactions: Set<EncounterReactionOption> = EncounterReactionOption.normalize(space.reactions).toSet()
@@ -133,9 +139,51 @@ internal class EncounterRoom(
 
     /** V1.9.96: the one fixed sentence "the bell rings" -- its OWN persistent polite region, so the bell and the blessing never clear each other's sentence. */
     private val bellLive: Div = root.div(className = "visually-hidden")
+
+    /** V1.9.138: the fixed sentences of the temporary floor (given, ten seconds left, ended) -- a PERSISTENT polite region, never a name. */
+    private val floorLive: Div = root.div(className = "visually-hidden")
     private val bands: Div = root.div(className = "lapis-encounter-bands")
     private val main: Div = root.div(className = "lapis-encounter-main")
     private val layout = EncounterSceneLayout(main, terms)
+
+    // ── the temporary floor (V1.9.138) ──
+    private val floorModel: EncounterFloorModel =
+        EncounterFloorModel(
+            monotonicNow = monotonicNow,
+            terms = terms,
+            host =
+                object : EncounterFloorHost {
+                    override fun floorChanged() = onFloorChanged()
+
+                    override fun announceFloor(sentence: String) = announceFloorSentence(sentence)
+
+                    override fun lowerOwnHand() = lowerOwnHandForFloor()
+
+                    override fun endFloorMicrophone() {
+                        AppScope.launch { session?.endFloorMicrophone() }
+                    }
+                },
+        )
+    private val floorBanner =
+        EncounterFloorBanner(
+            host = bands,
+            terms = terms,
+            onMicrophone = { switchFloorMicrophoneOn() },
+            onHandBack = { handBackFloor() },
+        )
+
+    /** What the server said about the running floor to an office holder (holder name, totals); `null` = nobody, or not loaded yet. */
+    private var floorSnapshot: EncounterFloorDto? = null
+    private var floorBusy = false
+    private var floorLoading = false
+
+    /** Counts the floor packets that arrived; an answer of `floorState` that started under an older count is stale and dropped. */
+    private var floorEpoch = 0
+    private var lastFloorKey = ""
+    private var lastFloorRemaining = 0
+
+    /** Who has a remote audio track right now (client-side source of "Mikrofon an/aus" in the list of the running floor). Identities only. */
+    private val remoteAudio = HashSet<String>()
 
     /** V1.9.96: the label of the bell button; `null` = the viewer gets no bell (not a pulpit, or a room without one). The server decides again. */
     private val bellLabel: String? = terms.bellLabel()?.takeIf { viewer.presenceRole == EncounterPresenceRole.PULPIT }
@@ -320,6 +368,10 @@ internal class EncounterRoom(
             tableList = { tableListState() },
             onChooseTable = { table -> chooseTableFromList(table) },
             onLeaveTable = { leaveTable() },
+            floorList = { floorListState() },
+            onGrantFloor = { memberId -> grantFloor(memberId) },
+            onExtendFloor = { seconds -> extendFloor(seconds) },
+            onTakeFloorBack = { takeFloorBack() },
         )
     private val streamPanel: EncounterStreamPanel? =
         if (viewer.canModerate) {
@@ -368,6 +420,11 @@ internal class EncounterRoom(
             onSeatNudge = { identity -> onSeatNudge(identity) },
             onBlessing = { blessingDisplay.onBlessing() },
             onBell = { bellDisplay?.onBell() },
+            onFloor = { signal ->
+                floorEpoch++
+                floorModel.onSignal(signal)
+            },
+            onMicrophonePermission = { allowed -> floorModel.onMicrophonePermission(allowed) },
             onActiveSpeakers = { identities -> onActiveSpeakers(identities) },
             onParticipantLeft = { identity -> onParticipantLeft(identity) },
             onLocalVideoTrack = { track -> onLocalVideo(track) },
@@ -382,6 +439,7 @@ internal class EncounterRoom(
             onReconnected = {
                 reconnectBand.hide()
                 requestPresentRefresh()
+                refreshFloor()
             },
             onDisconnected = { cause -> if (!disposed) onConnectionLost(cause) },
         )
@@ -400,6 +458,8 @@ internal class EncounterRoom(
         blessingLive.setAttribute("aria-live", "polite")
         bellLive.setAttribute("role", "status")
         bellLive.setAttribute("aria-live", "polite")
+        floorLive.setAttribute("role", "status")
+        floorLive.setAttribute("aria-live", "polite")
         tableView?.let { view ->
             view.onChoose = { table, seat -> chooseTableSeat(table, seat) }
             view.onLeave = { leaveTable() }
@@ -739,6 +799,7 @@ internal class EncounterRoom(
         announceMicOffOnEntry()
         presentPanel.load()
         if (disposed) return
+        refreshFloor()
         refreshTables(startedAt = tables.generation)
         if (disposed) return
         startTimers()
@@ -975,6 +1036,8 @@ internal class EncounterRoom(
             track.kind == "audio" -> {
                 audioSink.add(track.attach().also { it.style.display = "none" })
                 applyPlenumVolume()
+                remoteAudio += identity
+                if (floorModel.view.active) onFloorChanged()
             }
             track.kind == "video" && publication.source == "camera" -> {
                 val element = track.attach()
@@ -991,6 +1054,10 @@ internal class EncounterRoom(
     ) {
         val detached = track.detach().toList()
         detached.forEach { audioSink.remove(it) }
+        if (track.kind == "audio") {
+            remoteAudio -= identity
+            if (floorModel.view.active) onFloorChanged()
+        }
         if (track.kind == "video") {
             videoElements.remove(identity)
             tiles[identity]?.setVideo(null)
@@ -1271,6 +1338,159 @@ internal class EncounterRoom(
         renderTables()
     }
 
+    // ── the temporary floor (V1.9.138) ─────────────────────────────────────
+
+    /** The model changed (or a second passed): the band is updated in place; the list is rebuilt only when its structure changed. */
+    private fun onFloorChanged() {
+        if (disposed) return
+        val view = floorModel.view
+        floorBanner.render(view)
+        if (!view.active) floorSnapshot = null
+        if (viewer.canModerate) {
+            // a floor without details (the office holder joined late, or somebody extended it): ask the server for the holder and the totals
+            if (view.active && (floorSnapshot == null || view.remainingSeconds > lastFloorRemaining + FLOOR_EXTENSION_JUMP_SECONDS)) {
+                refreshFloor()
+            }
+            val key = "${view.active}|${floorSnapshot?.holderMemberId}|${floorSnapshot?.maxReached}|$floorBusy|${holderHasMicrophone()}"
+            if (key != lastFloorKey) {
+                lastFloorKey = key
+                presentPanel.rerender()
+            } else {
+                presentPanel.tickFloorClock()
+            }
+        }
+        lastFloorRemaining = view.remainingSeconds
+    }
+
+    private fun holderHasMicrophone(): Boolean = floorSnapshot?.holderMemberId?.let { it in remoteAudio } == true
+
+    private fun announceFloorSentence(sentence: String) {
+        if (disposed) return
+        floorLive.content = sentence
+        later(LIVE_TEXT_MS) { floorLive.content = "" }
+    }
+
+    /** Whoever is given the floor stops asking for it: their raised hand goes down (and the others learn it). */
+    private fun lowerOwnHandForFloor() {
+        if (!ownHandUp) return
+        ownHandUp = false
+        hands.lower(viewer.selfIdentity)
+        handButton.setAttribute("aria-pressed", "false")
+        handButton.style = ButtonStyle.OUTLINESECONDARY
+        renderSeats()
+        presentPanel.rerender()
+        AppScope.launch { session?.sendReaction(EncounterReaction.HAND_LOWERED) }
+    }
+
+    private fun floorListState(): EncounterFloorListState? {
+        if (!viewer.canModerate) return null
+        val view = floorModel.view
+        val snapshot = floorSnapshot?.takeIf { it.active }
+        val holderId = if (view.active) snapshot?.holderMemberId else null
+        return EncounterFloorListState(
+            holderId = holderId,
+            holderName = snapshot?.holderDisplayName,
+            remainingSeconds = view.remainingSeconds,
+            microphoneOn = holderHasMicrophone(),
+            maxReached = snapshot?.maxReached == true,
+            busy = floorBusy,
+        )
+    }
+
+    /** Asks the server for the floor as this viewer may see it; an answer that a newer packet has overtaken is dropped. */
+    private fun refreshFloor() {
+        if (disposed || floorLoading) return
+        floorLoading = true
+        val startedAt = floorEpoch
+        AppScope.launch {
+            try {
+                val dto = rpcService<IEncounterSpaceService>().floorState(space.id)
+                if (!disposed && startedAt == floorEpoch) {
+                    floorSnapshot = dto
+                    floorModel.onSnapshot(dto)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                // nothing to report: the packets of the server keep the picture current, the next refresh tries again
+            } finally {
+                floorLoading = false
+            }
+        }
+    }
+
+    private fun grantFloor(memberId: String) {
+        if (disposed || floorBusy || !viewer.canGrantFloor) return
+        runFloorAction(failureNote = terms.floorGrantFailedNote()) { rpcService<IEncounterSpaceService>().grantFloor(space.id, memberId) }
+    }
+
+    private fun extendFloor(seconds: Int) {
+        if (disposed || floorBusy || !viewer.canGrantFloor) return
+        runFloorAction(failureNote = null) { rpcService<IEncounterSpaceService>().extendFloor(space.id, seconds) }
+    }
+
+    private fun takeFloorBack() {
+        if (disposed || floorBusy || !viewer.canGrantFloor) return
+        runFloorAction(failureNote = null) {
+            rpcService<IEncounterSpaceService>().endFloor(space.id)
+            EncounterFloorDto(active = false, remainingSeconds = 0)
+        }
+    }
+
+    /** The person who has the floor hands it back (a bystander never sees the button). */
+    private fun handBackFloor() {
+        if (disposed || floorBusy || !floorModel.view.self) return
+        runFloorAction(failureNote = null) {
+            rpcService<IEncounterSpaceService>().endFloor(space.id)
+            EncounterFloorDto(active = false, remainingSeconds = 0)
+        }
+    }
+
+    /**
+     * One call of the floor, one at a time (the buttons are disabled meanwhile). The text of a caught exception is never read; the server's
+     * reason does not reach the client anyway (Kilua transmits only the exception type), so a refusal is [failureNote] -- or, for the calls
+     * that need no text, just a fresh look at the server's picture.
+     */
+    private fun runFloorAction(
+        failureNote: String?,
+        call: suspend () -> EncounterFloorDto,
+    ) {
+        floorBusy = true
+        onFloorChanged()
+        AppScope.launch {
+            try {
+                val dto = call()
+                if (!disposed) {
+                    floorEpoch++
+                    floorSnapshot = dto.takeIf { it.active }
+                    floorModel.onSnapshot(dto)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                if (failureNote != null && !disposed) notifyError(failureNote)
+                refreshFloor()
+            } finally {
+                floorBusy = false
+                onFloorChanged()
+            }
+        }
+    }
+
+    /** The viewer who has the floor switches the microphone on (a click: the browser's permission prompt belongs to it). */
+    private fun switchFloorMicrophoneOn() {
+        val grant = floorModel.currentGrant ?: return
+        AppScope.launch {
+            val failure = session?.floorMicrophone(grant, true)
+            if (disposed) return@launch
+            if (failure == null) {
+                floorModel.onMicrophoneSwitched(true)
+            } else {
+                notifyError(conferenceDeviceEnableErrorMessage(ConferenceDeviceKind.MICROPHONE, failure))
+            }
+        }
+    }
+
     // ── side panel, scene, doors ────────────────────────────────────────────
 
     private fun toggleSide(tab: EncounterSideTab) {
@@ -1348,6 +1568,7 @@ internal class EncounterRoom(
                 AppScope.launch { session?.sendReaction(EncounterReaction.HAND) }
             }
         }
+        every(FLOOR_TICK_MS) { floorModel.onTick() }
         every(PRESENT_POLL_MS) { if (pageVisible()) requestPresentRefresh() }
         every(LIVE_POLL_MS) { if (pageVisible()) AppScope.launch { liveBadge.poll() } }
         val onVisible: (org.w3c.dom.events.Event) -> Unit = {
@@ -1495,6 +1716,7 @@ internal class EncounterRoom(
     fun dispose() {
         if (disposed) return
         disposed = true
+        floorModel.reset()
         cleanups.forEach { it() }
         cleanups.clear()
         sheetCleanup = null
@@ -1532,12 +1754,19 @@ internal class EncounterRoom(
     internal val fullscreenControl: EncounterFullscreen get() = fullscreen
     internal val tablesView: EncounterTablesView? get() = tableView
     internal val tableController: EncounterTableController get() = tables
+    internal val floorBannerView: EncounterFloorBanner get() = floorBanner
+    internal val floorView: EncounterFloorView get() = floorModel.view
+
+    /** One second of the floor countdown, driven by the test (the real room ticks by a timer). */
+    internal fun floorTick() = floorModel.onTick()
 
     private companion object {
         const val OVERFLOWED_CLASS = "lapis-encounter-control-overflowed"
         const val BELL_LOCKED_CLASS = "lapis-encounter-bell-locked"
         const val ENCOUNTER_MORE_SHEET_ID = "lapis-encounter-more-sheet"
         const val MIC_OFF_ANNOUNCE_DELAY_MS = 750
+        const val FLOOR_TICK_MS = 1_000
+        const val FLOOR_EXTENSION_JUMP_SECONDS = 5
         const val HAND_EXPIRY_TICK_MS = 5_000
         const val HAND_RENEW_MS = 30_000
         const val PRESENT_POLL_MS = 20_000

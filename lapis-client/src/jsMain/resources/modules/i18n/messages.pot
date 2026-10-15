@@ -23383,3 +23383,51 @@ msgstr ""
 
 msgid "hh:mm"
 msgstr ""
+
+msgid "Wort erteilen"
+msgstr ""
+
+msgid "Wort entziehen"
+msgstr ""
+
+msgid "Wort zurückgeben"
+msgstr ""
+
+msgid "+1 Min"
+msgstr ""
+
+msgid "+2 Min"
+msgstr ""
+
+msgid "Sie haben das Wort · noch %1"
+msgstr ""
+
+msgid "%1 spricht · noch %2"
+msgstr ""
+
+msgid "Gerade spricht jemand aus der Gemeinde · noch %1"
+msgstr ""
+
+msgid "Gerade spricht jemand aus der Versammlung · noch %1"
+msgstr ""
+
+msgid "Gleich zu Ende"
+msgstr ""
+
+msgid "Es spricht gerade jemand."
+msgstr ""
+
+msgid "Höchstdauer 10 Min erreicht"
+msgstr ""
+
+msgid "Wort erteilt"
+msgstr ""
+
+msgid "Sie haben das Wort"
+msgstr ""
+
+msgid "Wort beendet"
+msgstr ""
+
+msgid "Das Wort konnte nicht erteilt werden. Bitte versuchen Sie es erneut."
+msgstr ""

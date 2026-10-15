@@ -1,0 +1,41 @@
+= Encounter space (Begegnungsraum) with a temporary floor (V1.9.61 to V1.9.138)
+:toc:
+
+A standing room (church service or assembly) in which a few office holders speak and a congregation listens. It is built on the LiveKit stack
+with a different authority model and strict data minimisation (Art. 9 GDPR). The full design lives in
+link:../architecture/encounter-space.adoc[docs/architecture/encounter-space.adoc]; this page is the short operator view.
+
+== What a room offers
+
+* Offices (PULPIT, STEWARD) per room; everybody else listens. Only an office holder's token may publish.
+* Reactions (hand, amen, applause, heart as configured), chat, seats and, in assemblies, tables with their own audio group.
+* Pulpit extras: blessing and bell (church service), transmission, device choice.
+* Presence is transient: nothing about who attended is stored.
+
+== Temporary floor ("Rederecht", V1.9.138)
+
+An office holder can give *one* person of the congregation the floor for two minutes. The person's microphone then reaches everybody in the
+room; afterwards the right is taken back by the server.
+
+* *Who gives it:* only an ACTIVE PULPIT/STEWARD of this room who is present. BOARD/ADMIN without an office see the list of hands but get no
+  button.
+* *How:* the list of hands ("Wortmeldungen", numbered in the order the hands went up) has a "Wort erteilen" button per person. While somebody
+  speaks, the office holder sees "<Name> spricht · noch 1:32", "+1 Min", "+2 Min" (up to ten minutes in total) and "Wort entziehen".
+* *Who receives it:* a present person of the congregation who is not silenced and does not sit at a table. The microphone is never switched
+  on by itself: the person clicks "Mikrofon einschalten" (the browser's permission prompt belongs to that click).
+* *What everybody sees:* a band "Gerade spricht jemand aus der Gemeinde" (or "... Versammlung") with the time left -- no name and no seat. The
+  last ten seconds are emphasised by a thicker border (no animation). A screen reader hears three fixed sentences over a floor's life.
+* *What is stored:* nothing. The state is in server memory only; a restart ends every floor. No audit entry, no log line with a person.
+* *Microphone only:* the server raises that one connection to "microphone only"; camera and screen share stay impossible, also after the end
+  (the permission keeps the source list, so an empty list can never mean "everything").
+
+The security model, the expiry and revoke ladder, the poller's tolerance and the threat model are in the architecture document, section
+"Temporary floor grant (V1.9.138)". The staging check list is `docs/architecture/encounter-space-staging-test.adoc`, "Temporary floor script".
+
+=== Known limitations
+
+* Not verified against a real LiveKit yet; only tested in Chromium.
+* The floor is lost on a server restart (then nobody speaks).
+* No device choice and no noise suppression for the floor microphone; one person at a time.
+* The order of hands holds from the moment the office holder's client arrived (a hand raised earlier appears at its next renewal).
+* Translations are model translations.

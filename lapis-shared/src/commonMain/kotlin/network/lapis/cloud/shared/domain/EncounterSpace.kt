@@ -322,3 +322,95 @@ fun encounterSeatRow(seat: Int): Int = seat / ENCOUNTER_SEATS_PER_ROW + 1
 
 /** V1.9.79: 1-based position within the row of [seat]. */
 fun encounterSeatPosition(seat: Int): Int = seat % ENCOUNTER_SEATS_PER_ROW + 1
+
+// ── Temporary floor grant (V1.9.138) ─────────────────────────────────────────
+
+/** V1.9.138 -- sent ONLY by the server (LiveKit RoomService/SendData); clients accept it only without a participant. */
+const val ENCOUNTER_FLOOR_TOPIC = "lapis-encounter-floor"
+
+/** Largest floor packet in bytes (`{"s":"YOU","t":600}` is 19). Longer packets are dropped unread. */
+const val ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES = 64
+
+/** The floor is always granted for this long; there is no duration parameter. */
+const val ENCOUNTER_FLOOR_DEFAULT_SECONDS = 120
+
+/** Total duration (first grant plus every extension) never exceeds this. */
+const val ENCOUNTER_FLOOR_MAX_TOTAL_SECONDS = 600
+
+/** The two extension steps an office holder may choose. */
+const val ENCOUNTER_FLOOR_EXTEND_SHORT = 60
+const val ENCOUNTER_FLOOR_EXTEND_LONG = 120
+
+/** The only valid extension values. */
+val ENCOUNTER_FLOOR_EXTEND_STEPS: Set<Int> = setOf(ENCOUNTER_FLOOR_EXTEND_SHORT, ENCOUNTER_FLOOR_EXTEND_LONG)
+
+/** The client highlights the countdown in the last this many seconds. */
+const val ENCOUNTER_FLOOR_FINAL_SECONDS = 10
+
+/**
+ * V1.9.138 -- the state of the floor as one caller may see it. [holderMemberId]/[holderDisplayName] only for PULPIT/STEWARD of the room and
+ * the holder themselves; [totalSeconds]/[maxReached] only for the office and the holder; everybody else gets [active] and [remainingSeconds].
+ */
+@Serializable
+data class EncounterFloorDto(
+    val active: Boolean,
+    val remainingSeconds: Int,
+    val totalSeconds: Int = 0,
+    val maxReached: Boolean = false,
+    val holderMemberId: String? = null,
+    val holderDisplayName: String? = null,
+    val self: Boolean = false,
+)
+
+/** What a floor packet says. Carries no identity of anybody. */
+sealed interface EncounterFloorSignal {
+    /** Somebody has the floor; [remainingSeconds] left. */
+    data class On(
+        val remainingSeconds: Int,
+    ) : EncounterFloorSignal
+
+    /** The receiver has the floor. */
+    data class You(
+        val remainingSeconds: Int,
+    ) : EncounterFloorSignal
+
+    /** Nobody has the floor. */
+    data object Off : EncounterFloorSignal
+}
+
+/** The wire payload of [signal]: `{"s":"ON","t":118}`, `{"s":"YOU","t":118}` or `{"s":"OFF"}`. */
+fun encounterFloorPayload(signal: EncounterFloorSignal): String =
+    when (signal) {
+        is EncounterFloorSignal.On -> """{"s":"ON","t":${signal.remainingSeconds.coerceIn(0, ENCOUNTER_FLOOR_MAX_TOTAL_SECONDS)}}"""
+        is EncounterFloorSignal.You -> """{"s":"YOU","t":${signal.remainingSeconds.coerceIn(0, ENCOUNTER_FLOOR_MAX_TOTAL_SECONDS)}}"""
+        EncounterFloorSignal.Off -> """{"s":"OFF"}"""
+    }
+
+/**
+ * Parses a floor packet. `null` if [fromParticipant] (a packet that carries a sending participant is a forgery), the length is outside
+ * `1..ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES`, keys other than `s`/`t` occur, `s` is not ON/YOU/OFF, or `t` is outside `0..600` (or missing for
+ * ON/YOU). Never throws, never reads an identity.
+ */
+fun encounterFloorPacket(
+    fromParticipant: Boolean,
+    payload: ByteArray,
+): EncounterFloorSignal? {
+    if (fromParticipant || payload.size !in 1..ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES) return null
+    return try {
+        val obj =
+            kotlinx.serialization.json.Json
+                .parseToJsonElement(payload.decodeToString()) as? kotlinx.serialization.json.JsonObject ?: return null
+        if (!obj.keys.all { it == "s" || it == "t" }) return null
+        val s = (obj["s"] as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it.isString }?.content ?: return null
+        val tPrimitive = obj["t"] as? kotlinx.serialization.json.JsonPrimitive
+        val t = tPrimitive?.takeIf { !it.isString }?.content?.toIntOrNull()
+        when (s) {
+            "OFF" -> if (obj.containsKey("t")) null else EncounterFloorSignal.Off
+            "ON" -> if (t != null && t in 0..ENCOUNTER_FLOOR_MAX_TOTAL_SECONDS) EncounterFloorSignal.On(t) else null
+            "YOU" -> if (t != null && t in 0..ENCOUNTER_FLOOR_MAX_TOTAL_SECONDS) EncounterFloorSignal.You(t) else null
+            else -> null
+        }
+    } catch (e: Exception) {
+        null
+    }
+}

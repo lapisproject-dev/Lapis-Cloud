@@ -33,12 +33,16 @@ import network.lapis.cloud.shared.domain.ENCOUNTER_BELL_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_BELL_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_TOPIC
+import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_REACTION_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_TOPIC
+import network.lapis.cloud.shared.domain.EncounterFloorSignal
 import network.lapis.cloud.shared.domain.EncounterReaction
 import network.lapis.cloud.shared.domain.NoteBlockBroadcastDto
 import network.lapis.cloud.shared.domain.WhiteboardStrokeWireDto
+import network.lapis.cloud.shared.domain.encounterFloorPacket
 import network.lapis.cloud.shared.domain.isStructurallyValid
 import org.khronos.webgl.Uint8Array
 import org.khronos.webgl.get
@@ -418,6 +422,12 @@ class LiveKitRoomSession(
      * length of at most [ENCOUNTER_BELL_MAX_PAYLOAD_BYTES]; the payload is never decoded.
      */
     private val onEncounterBell: () -> Unit = {},
+    /**
+     * V1.9.138 -- the server's temporary-floor signal ([EncounterFloorSignal]); see [encounterFloorPacket] for the strict acceptance rule
+     * (never from a participant, 1..[ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES] bytes, validated shape). It grants nothing by itself: without the
+     * server's `UpdateParticipant` LiveKit refuses the publish anyway.
+     */
+    private val onEncounterFloor: (EncounterFloorSignal) -> Unit = {},
     /**
      * V1.9.108 -- the mute state of ANOTHER participant's track changed (`RoomEvent.TrackMuted`/`TrackUnmuted` for a remote participant;
      * until now only the local ones were relayed). [source] is the publication source (`"microphone"`, ...). Replaces the "does a
@@ -902,6 +912,15 @@ class LiveKitRoomSession(
                 conferenceTimerPacket(fromParticipant = false, payload = bytes)?.let(onTimer)
                 return@onOwned
             }
+            // V1.9.138 -- the temporary floor of the encounter room: the same rule as the timer (server only, a branch of its own BEFORE the
+            // participant check). A packet that carries a sending participant is a forgery of "you have the floor" and is dropped here.
+            if (p3 == ENCOUNTER_FLOOR_TOPIC) {
+                val fromParticipant = p1.unsafeCast<RemoteParticipant?>() != null
+                if (fromParticipant || payload.length !in 1..ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES) return@onOwned
+                val bytes = ByteArray(payload.length) { index -> payload[index] }
+                encounterFloorPacket(fromParticipant = false, payload = bytes)?.let(onEncounterFloor)
+                return@onOwned
+            }
             val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@onOwned
             val topic = p3
             when (topic) {
@@ -1126,6 +1145,53 @@ class LiveKitRoomSession(
         val currentRoom = room ?: return ConferenceDeviceFailure.OTHER
         return try {
             currentRoom.localParticipant.setMicrophoneEnabled(enabled).await()
+            null
+        } catch (e: Throwable) {
+            classifyDeviceFailure(e.asDynamic())
+        }
+    }
+
+    // ── V1.9.138: the microphone of a listener who was given the floor ──────────────────────────────────────────
+
+    /**
+     * V1.9.138 -- `true` only between [openFloorMicrophone] and [closeFloorMicrophone]: the one narrow way in which a session with
+     * `publishEnabled = false` (an encounter listener) may switch its MICROPHONE on, and only because the server raised the permission of
+     * this very connection. Camera, screen share and the device calls stay locked.
+     */
+    private var floorMicrophoneOpen = false
+
+    internal fun openFloorMicrophone() {
+        floorMicrophoneOpen = true
+    }
+
+    /**
+     * Closes the floor microphone for good: the flag falls and the track is UNPUBLISHED (not merely muted), so no silent leftover track
+     * stays behind that the server's poller would count as a violation after its grace period. Never throws.
+     */
+    internal suspend fun closeFloorMicrophone() {
+        floorMicrophoneOpen = false
+        val currentRoom = room ?: return
+        try {
+            val local: dynamic = currentRoom.localParticipant
+            val track = local.getTrackPublication("microphone")?.track
+            if (track != null && track != undefined) local.unpublishTrack(track, true).unsafeCast<Promise<Any?>>().await()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            // nothing to report: the server revokes the right and mutes the track on its own
+        }
+    }
+
+    /** Switches the microphone on (`true`) or ends it ([closeFloorMicrophone]); a typed refusal unless [openFloorMicrophone] was called. */
+    internal suspend fun setFloorMicrophone(enabled: Boolean): ConferenceDeviceFailure? {
+        if (!enabled) {
+            closeFloorMicrophone()
+            return null
+        }
+        if (!floorMicrophoneOpen) return publishLockedFailure()
+        val currentRoom = room ?: return ConferenceDeviceFailure.OTHER
+        return try {
+            currentRoom.localParticipant.setMicrophoneEnabled(true).await()
             null
         } catch (e: Throwable) {
             classifyDeviceFailure(e.asDynamic())

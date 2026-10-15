@@ -697,4 +697,122 @@ class ClientEncounterPrivacyTripwireTest :
             codeLines(encounterFiles().first { it.name == "EncounterBellSound.kt" }).any { it.contains("AudioContext") } shouldBe true
             findings(pattern = SINK_AND_LIST, allowedFiles = setOf("EncounterAudioOutput.kt")).shouldBeEmpty()
         }
+
+        // ── Welle V1.9.138: the temporary floor ──────────────────────────────────
+
+        test("V1.9.138: a listener's session type has one media call -- the floor microphone -- and nothing else with a device") {
+            val media = encounterFiles().first { it.name == "EncounterMediaSession.kt" }
+            val text = codeLines(media).joinToString("\n")
+            val start = text.indexOf("internal interface EncounterListenerSession")
+            (start >= 0) shouldBe true
+            val body = text.substring(start, text.indexOf("\n}\n", start))
+            Regex("""suspend fun (\w+)""").findAll(body).map { it.groupValues[1] }.toList() shouldBe
+                listOf(
+                    "connect",
+                    "sendReaction",
+                    "sendChat",
+                    "sendSeatNudge",
+                    "startAudio",
+                    "floorMicrophone",
+                    "endFloorMicrophone",
+                    "disconnect",
+                )
+            listOf("Camera", "Screen", "listDevices", "switchDevice", "setMicrophone").forEach { forbidden ->
+                withClue("EncounterListenerSession must not mention '$forbidden'") { body.contains(forbidden) shouldBe false }
+            }
+            // the speaker type adds the office holder's own media, and the floor calls of the listener are a no-op there
+            val speaker =
+                text.substring(
+                    text.indexOf("internal interface EncounterSpeakerSession"),
+                    text.indexOf("internal class EncounterSessionCallbacks"),
+                )
+            speaker.contains("floorMicrophone") shouldBe false
+        }
+
+        test(
+            "V1.9.138: a FloorGrant is made in EncounterFloor.kt only (the server's packet is its one source); its constructor is private",
+        ) {
+            val media = codeLines(encounterFiles().first { it.name == "EncounterMediaSession.kt" }).joinToString("\n")
+            media.contains("class FloorGrant private constructor(") shouldBe true
+            val makers = encounterFiles().filter { f -> codeLines(f).any { it.contains("FloorGrant.issue(") } }.map { it.name }
+            makers shouldBe listOf("EncounterFloor.kt")
+            // no other code builds one by hand, in main or in a test of the production wiring
+            encounterFiles().filter { it.name != "EncounterMediaSession.kt" }.forEach { f ->
+                codeLines(f).filter { Regex("""\bFloorGrant\(""").containsMatchIn(it) }.shouldBeEmpty()
+            }
+        }
+
+        test("V1.9.138: the floor files keep no storage, no console, no wall clock, no canvas, no network and name nobody") {
+            val floorFiles = encounterFiles().filter { it.name == "EncounterFloor.kt" || it.name == "EncounterFloorBanner.kt" }
+            floorFiles.map { it.name }.toSet() shouldBe setOf("EncounterFloor.kt", "EncounterFloorBanner.kt")
+            floorFiles.forEach { f ->
+                val code = codeLines(f).filterNot { it.trimStart().startsWith("import ") }
+                withClue("${f.name} must not touch storage, console, network or the data channel") {
+                    code
+                        .filter {
+                            STORAGE.containsMatchIn(
+                                it,
+                            ) ||
+                                CONSOLE.containsMatchIn(it) ||
+                                NO_LEAK_CHANNELS.containsMatchIn(it)
+                        }.shouldBeEmpty()
+                }
+                withClue("${f.name} must not use the wall clock or a canvas") {
+                    code
+                        .filter {
+                            Regex(
+                                """Date\.now|\bDate\(|\bcanvas\b|\bCanvas\b|toLocale|System\.currentTimeMillis""",
+                            ).containsMatchIn(it)
+                        }.shouldBeEmpty()
+                }
+                withClue("${f.name} must name nobody") {
+                    code
+                        .filter { Regex("""displayName|identity|memberId|\.name\b""", RegexOption.IGNORE_CASE).containsMatchIn(it) }
+                        .shouldBeEmpty()
+                }
+                code.filter { DEVICE_ACCESS.containsMatchIn(it) || DEVICE_IDENTIFIERS.containsMatchIn(it) }.shouldBeEmpty()
+            }
+        }
+
+        test("V1.9.138: the room reaches the microphone only through floorMicrophone/endFloorMicrophone, and announces no name") {
+            val room = codeLines(encounterFiles().first { it.name == "EncounterRoom.kt" })
+            room.count { it.contains("session?.floorMicrophone(") } shouldBe 1
+            room
+                .filter {
+                    it.contains("setFloorMicrophone") || it.contains("openFloorMicrophone") || it.contains("closeFloorMicrophone")
+                }.shouldBeEmpty()
+            // every announcement of the floor goes through the one fixed-sentence function; floorLive gets nothing else
+            room.filter { it.contains("floorLive.content") }.size shouldBe 2
+            room.filter { it.contains("floorLive.content = sentence") }.size shouldBe 1
+        }
+
+        test(
+            "V1.9.138: the floor packet is accepted before the participant check, never from a participant, and is parsed by the shared strict parser",
+        ) {
+            val text = codeLines(LIVEKIT_SESSION).joinToString("\n")
+            val start = text.indexOf("if (p3 == ENCOUNTER_FLOOR_TOPIC)")
+            (start >= 0) shouldBe true
+            val participantCheck = text.indexOf("val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@onOwned")
+            withClue("the floor branch must stand BEFORE the line that drops participant-less packets") {
+                (start in 0 until participantCheck) shouldBe true
+            }
+            val branch = text.substring(start, participantCheck)
+            branch.contains("if (fromParticipant || payload.length !in 1..ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES) return@onOwned") shouldBe true
+            branch.contains("encounterFloorPacket(fromParticipant = false, payload = bytes)") shouldBe true
+            listOf("Json", "TextDecoder", "identity").forEach { forbidden -> branch.contains(forbidden) shouldBe false }
+            // the narrow microphone path: the flag, the three functions, and the general microphone call stays behind publishEnabled
+            text.contains("private var floorMicrophoneOpen = false") shouldBe true
+            val setFloor = text.substring(text.indexOf("internal suspend fun setFloorMicrophone("))
+            (setFloor.indexOf("if (!floorMicrophoneOpen) return publishLockedFailure()") in 0..400) shouldBe true
+            val general = text.substring(text.indexOf("suspend fun setMicrophone("), text.indexOf("suspend fun setMicrophone(") + 300)
+            general.contains("if (!publishEnabled) return publishLockedFailure()") shouldBe true
+        }
+
+        test("V1.9.138: the floor topic and its limit are the shared constants; the topic literal exists once, the limit is at most 64") {
+            val shared = SHARED_ENCOUNTER.readText()
+            Regex("\"lapis-encounter-floor\"").findAll(shared).count() shouldBe 1
+            val limit = Regex("""ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES\s*=\s*(\d+)""").find(shared)!!.groupValues[1].toInt()
+            (limit <= 64) shouldBe true
+            Regex("\"lapis-encounter-floor\"").findAll(LIVEKIT_SESSION.readText()).count() shouldBe 0
+        }
     })

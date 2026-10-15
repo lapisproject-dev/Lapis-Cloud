@@ -13,6 +13,7 @@ import network.lapis.cloud.client.livekit.Track
 import network.lapis.cloud.client.livekit.TrackPublication
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
 import network.lapis.cloud.shared.domain.EncounterEntryDto
+import network.lapis.cloud.shared.domain.EncounterFloorSignal
 import network.lapis.cloud.shared.domain.EncounterReaction
 import network.lapis.cloud.shared.domain.EncounterTableTokenDto
 
@@ -49,7 +50,33 @@ internal interface EncounterListenerSession {
     /** Resumes audio blocked by the browser's autoplay policy (call from a click). */
     suspend fun startAudio()
 
+    /**
+     * V1.9.138 -- THE one media call of a listener: the MICROPHONE, and only while the server gave the floor (the [grant] comes from a
+     * server packet, see [FloorGrant]). `true` switches it on (a typed refusal if the browser says no), `false` ends it. There is
+     * deliberately no camera, no screen share and no device call for a listener.
+     */
+    suspend fun floorMicrophone(
+        grant: FloorGrant,
+        on: Boolean,
+    ): ConferenceDeviceFailure?
+
+    /** V1.9.138 -- ends the floor microphone for good (the track is unpublished). Idempotent; never throws. */
+    suspend fun endFloorMicrophone()
+
     suspend fun disconnect()
+}
+
+/**
+ * V1.9.138 -- proof that the server gave THIS client the floor: it exists only as the result of a server packet that says "you"
+ * ([issue], called from `EncounterFloor.kt` and nowhere else -- `ClientEncounterPrivacyTripwireTest` pins that). The constructor is
+ * private, so no other code can invent one; [remainingSeconds] is what the packet said when it arrived.
+ */
+internal class FloorGrant private constructor(
+    val remainingSeconds: Int,
+) {
+    internal companion object {
+        fun issue(signal: EncounterFloorSignal.You): FloorGrant = FloorGrant(signal.remainingSeconds)
+    }
 }
 
 /** An office holder's session: the listener plus the two media switches. Never handed to a congregation member. */
@@ -107,6 +134,10 @@ internal class EncounterSessionCallbacks(
     val onBell: () -> Unit = {},
     /** V1.9.114: the own microphone track was (re-)published; the remembered noise suppression is applied again (idempotent). */
     val onMicTrackPublished: () -> Unit = {},
+    /** V1.9.138: the server's floor signal (a packet without a participant, strictly parsed). It carries no name. */
+    val onFloor: (EncounterFloorSignal) -> Unit = {},
+    /** V1.9.138: whether the OWN permission lets this connection publish a microphone (fires after connect and on every change). */
+    val onMicrophonePermission: (allowed: Boolean) -> Unit = {},
 )
 
 /** The factory seam of the room view (a `jsTest` hands over a fake). The real one is [openEncounterSession]. */
@@ -142,6 +173,8 @@ private fun defaultLiveKitFactory(
         onEncounterBlessing = callbacks.onBlessing,
         onEncounterBell = callbacks.onBell,
         onLocalMicrophoneTrackPublished = callbacks.onMicTrackPublished,
+        onEncounterFloor = callbacks.onFloor,
+        onLocalMicrophonePermission = callbacks.onMicrophonePermission,
     )
 
 /**
@@ -197,6 +230,22 @@ private open class ListenerSession(
 
     override suspend fun startAudio() = liveKit.startAudio()
 
+    /** The only media path of a listener; it opens only for a [FloorGrant] that still has time. */
+    override suspend fun floorMicrophone(
+        grant: FloorGrant,
+        on: Boolean,
+    ): ConferenceDeviceFailure? {
+        if (!on) {
+            liveKit.closeFloorMicrophone()
+            return null
+        }
+        if (grant.remainingSeconds <= 0) return ConferenceDeviceFailure.OTHER
+        liveKit.openFloorMicrophone()
+        return liveKit.setFloorMicrophone(true)
+    }
+
+    override suspend fun endFloorMicrophone() = liveKit.closeFloorMicrophone()
+
     override suspend fun disconnect() = liveKit.disconnect()
 }
 
@@ -228,6 +277,14 @@ private class SpeakerSession(
         if (kind == ConferenceDeviceKind.SPEAKER) null else runCatching { liveKit.activeDeviceId(kind) }.getOrNull()
 
     override fun noiseSuppressionChain(): NoiseSuppressionChain? = liveKit.noiseSuppressionChain()
+
+    /** An office holder has a microphone of their own and never uses the floor of the congregation: nothing happens here. */
+    override suspend fun floorMicrophone(
+        grant: FloorGrant,
+        on: Boolean,
+    ): ConferenceDeviceFailure? = ConferenceDeviceFailure.OTHER
+
+    override suspend fun endFloorMicrophone() = Unit
 }
 
 // ── V1.9.80 Stage 2b: the audio session of a TABLE ─────────────────────────────────────────────────────────────────────

@@ -24323,3 +24323,51 @@ msgstr "Moment udzielenia zgody"
 
 msgid "hh:mm"
 msgstr "gg:mm"
+
+msgid "Wort erteilen"
+msgstr "Udziel głosu"
+
+msgid "Wort entziehen"
+msgstr "Odbierz głos"
+
+msgid "Wort zurückgeben"
+msgstr "Oddaj głos"
+
+msgid "+1 Min"
+msgstr "+1 min"
+
+msgid "+2 Min"
+msgstr "+2 min"
+
+msgid "Sie haben das Wort · noch %1"
+msgstr "Udzielono Państwu głosu · pozostało %1"
+
+msgid "%1 spricht · noch %2"
+msgstr "%1 zabiera głos · pozostało %2"
+
+msgid "Gerade spricht jemand aus der Gemeinde · noch %1"
+msgstr "Głos zabiera ktoś ze zboru · pozostało %1"
+
+msgid "Gerade spricht jemand aus der Versammlung · noch %1"
+msgstr "Głos zabiera ktoś ze zgromadzenia · pozostało %1"
+
+msgid "Gleich zu Ende"
+msgstr "Za chwilę koniec"
+
+msgid "Es spricht gerade jemand."
+msgstr "Ktoś właśnie przemawia."
+
+msgid "Höchstdauer 10 Min erreicht"
+msgstr "Osiągnięto maksymalny czas 10 min"
+
+msgid "Wort erteilt"
+msgstr "Udzielono głosu"
+
+msgid "Sie haben das Wort"
+msgstr "Udzielono Państwu głosu"
+
+msgid "Wort beendet"
+msgstr "Głos zakończony"
+
+msgid "Das Wort konnte nicht erteilt werden. Bitte versuchen Sie es erneut."
+msgstr "Nie udało się udzielić głosu. Proszę spróbować ponownie."

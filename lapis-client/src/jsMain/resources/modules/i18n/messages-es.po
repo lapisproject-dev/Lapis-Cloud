@@ -24208,3 +24208,51 @@ msgstr "Momento del consentimiento"
 
 msgid "hh:mm"
 msgstr "hh:mm"
+
+msgid "Wort erteilen"
+msgstr "Dar la palabra"
+
+msgid "Wort entziehen"
+msgstr "Quitar la palabra"
+
+msgid "Wort zurückgeben"
+msgstr "Devolver la palabra"
+
+msgid "+1 Min"
+msgstr "+1 min"
+
+msgid "+2 Min"
+msgstr "+2 min"
+
+msgid "Sie haben das Wort · noch %1"
+msgstr "Tiene la palabra · quedan %1"
+
+msgid "%1 spricht · noch %2"
+msgstr "%1 habla · quedan %2"
+
+msgid "Gerade spricht jemand aus der Gemeinde · noch %1"
+msgstr "Habla alguien de la congregación · quedan %1"
+
+msgid "Gerade spricht jemand aus der Versammlung · noch %1"
+msgstr "Habla alguien de la asamblea · quedan %1"
+
+msgid "Gleich zu Ende"
+msgstr "Casi terminado"
+
+msgid "Es spricht gerade jemand."
+msgstr "Ahora está hablando alguien."
+
+msgid "Höchstdauer 10 Min erreicht"
+msgstr "Duración máxima de 10 min alcanzada"
+
+msgid "Wort erteilt"
+msgstr "Palabra concedida"
+
+msgid "Sie haben das Wort"
+msgstr "Tiene la palabra"
+
+msgid "Wort beendet"
+msgstr "Palabra terminada"
+
+msgid "Das Wort konnte nicht erteilt werden. Bitte versuchen Sie es erneut."
+msgstr "No se pudo conceder la palabra. Inténtelo de nuevo."

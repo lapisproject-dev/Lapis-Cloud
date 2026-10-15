@@ -53,6 +53,12 @@ internal data class EncounterViewerRights(
 ) {
     /** Office holders and BOARD/ADMIN moderate (the server's `requireSpaceModerator`). */
     val canModerate: Boolean get() = presenceRole != EncounterPresenceRole.CONGREGATION || isPrivileged
+
+    /**
+     * V1.9.138: only an office holder (PULPIT/STEWARD) may give the temporary floor -- BOARD/ADMIN without an office see the list of hands
+     * but get no button (the server's `floorAuthorityInTx` refuses them too).
+     */
+    val canGrantFloor: Boolean get() = presenceRole != EncounterPresenceRole.CONGREGATION
 }
 
 /**

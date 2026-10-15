@@ -24268,3 +24268,51 @@ msgstr "Time of consent"
 
 msgid "hh:mm"
 msgstr "hh:mm"
+
+msgid "Wort erteilen"
+msgstr "Give the floor"
+
+msgid "Wort entziehen"
+msgstr "Take the floor away"
+
+msgid "Wort zurückgeben"
+msgstr "Hand the floor back"
+
+msgid "+1 Min"
+msgstr "+1 min"
+
+msgid "+2 Min"
+msgstr "+2 min"
+
+msgid "Sie haben das Wort · noch %1"
+msgstr "You have the floor · %1 left"
+
+msgid "%1 spricht · noch %2"
+msgstr "%1 is speaking · %2 left"
+
+msgid "Gerade spricht jemand aus der Gemeinde · noch %1"
+msgstr "Someone from the congregation is speaking · %1 left"
+
+msgid "Gerade spricht jemand aus der Versammlung · noch %1"
+msgstr "Someone from the assembly is speaking · %1 left"
+
+msgid "Gleich zu Ende"
+msgstr "Almost over"
+
+msgid "Es spricht gerade jemand."
+msgstr "Someone is speaking right now."
+
+msgid "Höchstdauer 10 Min erreicht"
+msgstr "Maximum duration of 10 min reached"
+
+msgid "Wort erteilt"
+msgstr "Floor given"
+
+msgid "Sie haben das Wort"
+msgstr "You have the floor"
+
+msgid "Wort beendet"
+msgstr "Floor ended"
+
+msgid "Das Wort konnte nicht erteilt werden. Bitte versuchen Sie es erneut."
+msgstr "The floor could not be given. Please try again."

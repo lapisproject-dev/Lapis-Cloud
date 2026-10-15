@@ -190,6 +190,10 @@ referring to the guard.
   lasting record about a person. Consequence: it is lost on a server restart.
 * **The entry notice (V1.9.76)** tells the office holders _that_ someone without an office arrived, never _who_: no name, address, id or role of the entrant is in the
   mail, in the memory state, in the logs or in the audit log, and nothing is written to the database (see "Entry notice for office holders").
+* **The temporary floor (V1.9.138)** is memory only, like the moderation state: who may speak, since when and for how long lives in
+  `EncounterFloorState` (monotonic clock, bounded to 64 sessions), is dropped when the session ends and is lost on a restart (then nobody
+  has the floor). No table, no migration, no audit entry, no log line with a person; the congregation never sees a name (see "Temporary
+  floor grant").
 * **Logs** in the encounter code never name a member id, an identity, a display name or a room id above DEBUG. Stream keys are untouched
   (`SecretBox`). `EncounterPrivacyTripwireTest` and `EncounterPrivacyWatchTest` pin all of this.
 * **Export and erasure** (`EncounterSpacePersonalData`): the export lists the subject's own spaces, offices and consent proofs. Erasure
@@ -838,6 +842,115 @@ Nothing is stored on the server, nothing counted, no audit entry (it would perma
 * V1.9.97: on a slow network the sample of the first switch-on is dropped if the files take longer than 1500 ms (the same lateness rule as for the call and the blessing); the switch is on nevertheless and the next call sounds once the files are there.
 * V1.9.97: the server's and the proxy's access logs see IP, time, user agent and the path of the recording; the path name is itself a hint of a use in a church-service room (see `dsgvo.adoc`). The HTTP cache entry (immutable, one year) is a further local trace of the same kind as the storage key.
 
+[#floor]
+== Temporary floor grant (V1.9.138)
+
+An office holder (PULPIT or STEWARD) can give one person of the congregation the floor for two minutes, extend it, and take it back.
+The person's microphone then reaches everybody in the room. Nothing about this is stored.
+
+=== Who may grant
+
+Only an ACTIVE PULPIT/STEWARD of *this* space who is present in the open session (`floorAuthorityInTx`). BOARD/ADMIN without an office
+may not, nor may an office holder of another space; the space must not be archived. Every refusal -- wrong role, not present, closed,
+archived -- is the same bare `ForbiddenException` (no side channel: a bystander learns nothing, not even whether somebody speaks).
+`endFloor` additionally lets the person who has the floor hand it back; `floorState` answers everybody who is present.
+
+=== Who may receive
+
+Every person with the CONGREGATION role who is present, not silenced, not seated at a table, and connected at LiveKit without a track
+-- BOARD/ADMIN without an office and guests with a valid consent included. Not allowed (`ConflictException`): oneself, an office holder, a
+silenced person, a person at a table, somebody absent or not connected, somebody who already publishes. Decision of 2026-10-15 (guests
+included); if a guest must be excluded later it is one more `status in NON_MEMBER` check in `floorTargetInTx`.
+
+=== The permission
+
+The grant is *not* a token: a token lives until its TTL and cannot be taken back; the congregation's tokens keep `canPublish = false`.
+The server raises that ONE live connection with `UpdateParticipant` to `{subscribe, publish, publish-data, sources = [MICROPHONE]}`
+(`encounterFloorPermission`, the only source of this permission; never `conferencePermission`, which would give camera and screen share).
+`UpdateParticipant` replaces the whole permission, so `canSubscribe` is always set. The sources stay `["MICROPHONE"]` *also when the floor
+is taken away*: an empty list means "all sources" in LiveKit, so should `can_publish` ever be evaluated wrongly the camera stays locked
+(defence in depth; the design text said "empty sources").
+
+The state is set *before* the permission is raised, so the poller never sees a raised permission without a grant. A LiveKit failure while
+raising rolls the grant back and is a conflict.
+
+=== Expiry and the revoke ladder
+
+`EncounterFloorEnforcer` ticks every second. A floor lasts 120 s; extensions of 60 or 120 s are allowed up to a total of 600 s since the
+grant. When it ends (expiry, `endFloor`, the holder leaves, is removed or silenced, sits down at a table, gets an office, the session
+closes) the ladder runs: (1) the grant is no longer valid at once and "off" goes to everybody; (2) three attempts of `can_publish = false`
+plus muting every unmuted microphone track; (3) `removeParticipant`; (4) if even that fails the grant stays as "revoking" and the
+enforcer tries again every 5 s. *There is no path on which a grant leaves the state without a successful demotion or disconnect* (a
+restart and the end of the session excepted -- then the poller disconnects every publisher that is not an office holder).
+
+Every 15 s the enforcer verifies a valid floor against LiveKit: the holder is still connected (two checks in a row without them end the
+floor), nothing but one microphone track is published (a camera or a second track ends the floor and disconnects the person), and the
+permission is still raised (a LiveKit reconnect with the old token resets it to "listen only"; the grant is applied again while it is valid).
+
+=== Poller tolerance and the 90 s grace
+
+`EncounterSpacePoller` still disconnects every non-officer who publishes -- with one exception: the holder of a *valid* floor who publishes
+one microphone track and whose sources are limited to the microphone. After the end it tolerates, for 90 s, a leftover *muted* microphone
+track without publish right (LiveKit may keep the track until the client unpublishes it; the client does unpublish). Everything else --
+a camera, a second track, an unmuted track after the end, a right that outlived the grant, any leftover after the grace -- is
+disconnected as before. A floor that expires between the poller's two reads costs the person the connection; that is intended (safety
+before comfort) and rare.
+
+=== Restart
+
+The state is empty after a restart, and the poller runs once at start: the first run disconnects every publisher that is not an office
+holder. A floor in progress is lost, never kept.
+
+=== The packet
+
+Topic `lapis-encounter-floor`, sent only by the enforcer: `{"s":"ON","t":118}` to everybody, `{"s":"YOU","t":118}` to the holder alone,
+`{"s":"OFF"}` to everybody. No identity, no name. The client accepts it only without a sending participant, with 1..64 bytes and the strict
+shared parser (`encounterFloorPacket`); a forged packet is dropped and would grant nothing anyway (without `UpdateParticipant` LiveKit
+refuses the publish). `SendData` has a size limit per topic: `lapis-encounter-floor` has its own entry (64 bytes) in
+`sendDataPayloadLimit`; without it the topic would fall back to 16 bytes and throw an `IllegalArgumentException` that fakes do not show.
+
+=== Data protection
+
+The congregation sees "somebody from the congregation is speaking" and the time left -- no name and no seat, although the names of the
+people present are visible to them elsewhere (decision of 2026-10-15: the stricter variant). Only office holders and the holder see the
+name. No audit entry, no database row, no log line with a person or room above DEBUG; the floor files carry tripwires for exactly that
+(`EncounterPrivacyTripwireTest`).
+
+=== Threat model
+
+[cols="2,3", options="header"]
+|===
+| Case | Behaviour
+| A hostile client asks for a token with `canPublish` | Impossible: `enterSpace` still issues `canPublish = false` to the congregation. The raise happens server side on the running connection and can be taken back at any time -- a token cannot.
+| A forged `lapis-encounter-floor` packet | Dropped unread by the client; even if accepted it grants nothing.
+| A manipulated clock in the client | No effect: the server clock is monotonic, the revoke comes from the server.
+| The client does not unpublish / unmutes after the end | `can_publish = false` plus `MutePublishedTrack`; an unmuted track after the end is a violation and the poller disconnects the person.
+| A camera or second track during the floor | The sources are limited to the microphone; additionally the 15 s check and the poller disconnect the person.
+| A double grant | A mutex per session plus `Busy`: a conflict, never a silent replacement.
+| LiveKit is down at the end | Three attempts, then a disconnect, then "revoking" with a retry every 5 s; the poller disconnects independently. The right is never unlimited.
+| A server restart | The state is empty; the first poller run disconnects every community publisher.
+| The holder's LiveKit reconnect | The right falls back to the token (`false`); the enforcer applies it again within 15 s while the floor is valid.
+| The grantor loses the office | The floor runs on until expiry or revoke (at most 10 minutes); documented, see the open questions.
+|===
+
+=== Hand order
+
+The list of hands is numbered in the order the hands arrived *at the viewing office holder's client*. A renewed hand keeps its place; a
+hand that was raised before the office holder arrived appears in the order of its next renewal (every 30 s). A server-side order would mean
+state about persons on the server and contradicts the memory-only decision.
+
+=== Known limitations of the floor
+
+* Not verified against a real LiveKit (v1.13.5): in particular whether LiveKit removes a published track itself when `can_publish` is
+  withdrawn, or only stops forwarding it. The design is robust both ways (mute, client unpublish, 90 s grace, then disconnect); the proof is
+  step 5 of the staging script.
+* Only tested in Chromium (Karma, headless).
+* The state is lost on a restart (then nobody has the floor).
+* Microphone only: no device choice and no noise suppression for the floor microphone.
+* One person at a time.
+* The order of hands holds from the arrival of the office holder's client on.
+* The translations are model translations.
+
 == Open questions (for the product owner and legal)
 
 . The wording of the Art. 9 consent (`EncounterConsentDisclaimer`, version `2026-10-06.v1`) -- a draft, legal review required.
@@ -849,3 +962,7 @@ Nothing is stored on the server, nothing counted, no audit entry (it would perma
 . (V1.9.76) Whether the setting `notifyMode` should be visible to everybody who may see the room (as now: transparency towards the participants, Art. 13) or only to BOARD/ADMIN and office holders.
 . (V1.9.79) Whether the Art. 9 consent texts must name the shared seating position (see <<stage-2a>>), and whether an option to sit without initials is needed.
 . (V1.9.80) Legal review of the tables: the table membership is visible to all present people, conversations at a table are audible, moderators can quiet a table and send people back without listening in, and there is no option to sit at a table without initials (see <<stage-2b>>).
+. (V1.9.138) Whether guests with a valid consent should be excluded from the floor (as now: they may receive it; one more `status in NON_MEMBER` check).
+. (V1.9.138) Whether the name of the speaker should be shown to the congregation (as now: no name, although the names of the present people are visible elsewhere).
+. (V1.9.138) Whether a floor should end at once when the grantor loses their office (as now: it runs to its end, at most 10 minutes).
+. (V1.9.138) Whether the order of hands should be kept on the server (as now: it is the order at the viewing client, no server state about persons).

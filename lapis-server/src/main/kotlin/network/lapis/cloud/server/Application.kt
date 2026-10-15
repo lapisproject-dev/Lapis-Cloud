@@ -105,6 +105,8 @@ import network.lapis.cloud.server.encounter.EncounterBellState
 import network.lapis.cloud.server.encounter.EncounterBlessingState
 import network.lapis.cloud.server.encounter.EncounterEntryNoticeState
 import network.lapis.cloud.server.encounter.EncounterEntryNotifier
+import network.lapis.cloud.server.encounter.EncounterFloorEnforcer
+import network.lapis.cloud.server.encounter.EncounterFloorState
 import network.lapis.cloud.server.encounter.EncounterModerationState
 import network.lapis.cloud.server.encounter.EncounterSeatState
 import network.lapis.cloud.server.encounter.EncounterSpacePoller
@@ -1126,6 +1128,8 @@ internal fun Application.module(
     val encounterBlessingState = EncounterBlessingState()
     // V1.9.96: the bell throttle (same shape, deliberately separate from the blessing).
     val encounterBellState = EncounterBellState()
+    // V1.9.138: the temporary floor of an encounter session (memory only, never persisted); shared with the poller and the enforcer.
+    val encounterFloorState = EncounterFloorState()
     // V1.9.79: the in-memory seat plan of the running sessions (never persisted, see EncounterSeatState); shared with the poller.
     val encounterSeatState = EncounterSeatState()
     // V1.9.80: the in-memory table plan (who sits at which table, which LiveKit room carries which table); shared with the poller and the reconciler.
@@ -1169,6 +1173,10 @@ internal fun Application.module(
     // V1.9.80: sitting down / leaving a table: 1 per 2 s. A rotation makes everybody at the table ask for a new token at once: 20 per minute.
     val encounterTableRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 2.seconds)
     val encounterTableTokenRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
+    // V1.9.138: floor grant/extend/end -- 30 per minute AND at most one per second per caller; the floor state read has its own budget.
+    val encounterFloorRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+    val encounterFloorBurstRateLimiter = FederationInboxRateLimiter(maxRequests = 1, window = 1.seconds)
+    val encounterFloorStateRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
 
     // V1.0 Videokonferenzen (Kleinsitzung), Wave 2 "Aufzeichnung" -- ConferenceRecordingConfig.load()
     // is pure string parsing (no I/O, see that class's own KDoc), so it is safe to call
@@ -1406,11 +1414,21 @@ internal fun Application.module(
             bellState = encounterBellState,
             seatState = encounterSeatState,
             tableState = encounterTableState,
+            floorState = encounterFloorState,
             entryNotifier = encounterEntryNotifier,
             liveKitEnabled = conferenceConfig.enabled,
         )
     encounterSpacePoller.start()
     monitor.subscribe(ApplicationStopping) { encounterSpacePoller.stop() }
+    // V1.9.138 -- the clock of the temporary floor: lets it lapse, retries a failed revoke, re-applies it after a LiveKit reconnect.
+    val encounterFloorEnforcer =
+        EncounterFloorEnforcer(
+            liveKit = liveKitAdminClient,
+            floorState = encounterFloorState,
+            liveKitEnabled = conferenceConfig.enabled,
+        )
+    encounterFloorEnforcer.start()
+    monitor.subscribe(ApplicationStopping) { encounterFloorEnforcer.stop() }
     // V1.9.80 -- defence in depth for the table audio rooms: deletes orphaned table rooms and rotates a table with an unexpected listener.
     val encounterTableReconciler =
         EncounterTableReconciler(
@@ -2387,6 +2405,8 @@ internal fun Application.module(
                 moderationState = encounterModerationState,
                 blessingState = encounterBlessingState,
                 bellState = encounterBellState,
+                floorState = encounterFloorState,
+                floorEnforcer = encounterFloorEnforcer,
                 seatState = encounterSeatState,
                 tableState = encounterTableState,
                 entryNotifier = encounterEntryNotifier,
@@ -2399,6 +2419,9 @@ internal fun Application.module(
                 seatRateLimiter = encounterSeatRateLimiter,
                 tableRateLimiter = encounterTableRateLimiter,
                 tableTokenRateLimiter = encounterTableTokenRateLimiter,
+                floorRateLimiter = encounterFloorRateLimiter,
+                floorBurstRateLimiter = encounterFloorBurstRateLimiter,
+                floorStateRateLimiter = encounterFloorStateRateLimiter,
                 config = conferenceConfig,
             )
         }

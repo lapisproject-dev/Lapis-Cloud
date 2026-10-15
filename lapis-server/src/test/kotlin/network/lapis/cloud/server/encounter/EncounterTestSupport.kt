@@ -103,24 +103,64 @@ internal class FakeEncounterLiveKit : LiveKitAdminClient {
 
     @Volatile var failSendData = false
 
+    /** V1.9.138: every `muteMicrophone` call (room, identity, track sid), in order. */
+    val muted: MutableList<Triple<String, String, String>> = java.util.Collections.synchronizedList(mutableListOf())
+
+    /** V1.9.138: every `updateParticipantPermission` call (room, identity, permission), in order. */
+    val permissionUpdates: MutableList<Triple<String, String, LiveKitParticipantPermissionUpdate>> =
+        java.util.Collections.synchronizedList(mutableListOf())
+
+    /** V1.9.138: every `sendDataTo` call (room, topic, payload, destinations), in order. */
+    val sentDataTo: MutableList<SentTo> = java.util.Collections.synchronizedList(mutableListOf())
+
+    data class SentTo(
+        val room: String,
+        val topic: String,
+        val payload: ByteArray,
+        val destinations: List<String>,
+    )
+
+    @Volatile var failUpdatePermission = false
+
+    @Volatile var failMute = false
+
     override suspend fun muteMicrophone(
         room: String,
         identity: String,
         trackSid: String,
-    ): Unit = throw UnsupportedOperationException("muteMicrophone is not used by this fake")
+    ) {
+        if (failAll || failMute) throw LiveKitAdminException(message = "simulated LiveKit failure")
+        muted += Triple(room, identity, trackSid)
+        tracks[room to identity] = tracks[room to identity].orEmpty().map { if (it.sid == trackSid) it.copy(muted = true) else it }
+    }
 
+    /** Like LiveKit: replaces the WHOLE permission of a connected participant; an unknown participant is a failure. */
     override suspend fun updateParticipantPermission(
         room: String,
         identity: String,
         permission: LiveKitParticipantPermissionUpdate,
-    ): Unit = throw UnsupportedOperationException("updateParticipantPermission is not used by this fake")
+    ) {
+        if (failAll || failUpdatePermission) throw LiveKitAdminException(message = "simulated LiveKit failure")
+        if (live[room]?.contains(identity) != true) throw LiveKitAdminException(message = "participant not found")
+        permissionUpdates += Triple(room, identity, permission)
+        permissions[room to identity] =
+            network.lapis.cloud.server.conference.LiveKitParticipantPermission(
+                canPublish = permission.canPublish,
+                canPublishData = permission.canPublishData,
+                canSubscribe = permission.canSubscribe,
+                canPublishSources = permission.canPublishSources,
+            )
+    }
 
     override suspend fun sendDataTo(
         room: String,
         topic: String,
         payload: ByteArray,
         destinationIdentities: List<String>,
-    ): Unit = throw UnsupportedOperationException("sendDataTo is not used by this fake")
+    ) {
+        if (failSendData || failAll) throw LiveKitAdminException(message = "simulated SendData failure")
+        sentDataTo += SentTo(room = room, topic = topic, payload = payload, destinations = destinationIdentities)
+    }
 
     override suspend fun sendData(
         room: String,
@@ -166,11 +206,25 @@ internal class FakeEncounterLiveKit : LiveKitAdminClient {
         return rooms.values.toList()
     }
 
+    /** Runs once, right after the roster snapshot of the next `listParticipants` (something happening while the call is in flight). */
+    var afterNextListSnapshot: (suspend () -> Unit)? = null
+
     override suspend fun listParticipants(room: String): List<LiveKitParticipantInfo> {
         if (failAll) throw LiveKitAdminException(message = "simulated LiveKit failure")
-        return live[room].orEmpty().map {
-            LiveKitParticipantInfo(identity = it, name = it, permission = permissions[room to it], tracks = tracks[room to it].orEmpty())
+        val snapshot =
+            live[room].orEmpty().map {
+                LiveKitParticipantInfo(
+                    identity = it,
+                    name = it,
+                    permission = permissions[room to it],
+                    tracks = tracks[room to it].orEmpty(),
+                )
+            }
+        afterNextListSnapshot?.let {
+            afterNextListSnapshot = null
+            it()
         }
+        return snapshot
     }
 
     override suspend fun removeParticipant(
@@ -254,12 +308,22 @@ internal class EncounterRig(
     /** V1.9.80: `null` = permissive; a throttle test passes its own. */
     tableLimiterOverride: FederationInboxRateLimiter? = null,
     tableTokenLimiterOverride: FederationInboxRateLimiter? = null,
+    /** V1.9.138: the floor clock -- tests advance it instead of sleeping. */
+    val floorTime: kotlin.time.TestTimeSource = kotlin.time.TestTimeSource(),
+    /** V1.9.138: `null` = permissive; the throttle tests pass their own. */
+    floorLimiterOverride: FederationInboxRateLimiter? = null,
+    floorBurstLimiterOverride: FederationInboxRateLimiter? = null,
     private val limiter: () -> FederationInboxRateLimiter = { FederationInboxRateLimiter(maxRequests = 1_000, window = 1.minutes) },
 ) {
     /** V1.9.76: the entry notice -- ONE state and ONE fake mailer per test, like the moderation state. */
     val entryMailer = FakeEncounterEntryNoticeMailer()
     val entryState = EncounterEntryNoticeState()
     val entryNotifier = EncounterEntryNotifier(state = entryState, mailer = entryMailer)
+
+    /** V1.9.138: ONE floor state and ONE enforcer per test (no background ticker -- tests call `tick()`), the sleeper does not sleep. */
+    val floorState = EncounterFloorState(timeSource = floorTime)
+    val floorEnforcer =
+        EncounterFloorEnforcer(liveKit = liveKit, floorState = floorState, liveKitEnabled = true, sleeper = { })
 
     private val list = limiter()
     private val enter = limiter()
@@ -270,6 +334,9 @@ internal class EncounterRig(
     private val seatLimiter = seatLimiterOverride ?: limiter()
     private val tableLimiter = tableLimiterOverride ?: limiter()
     private val tableTokenLimiter = tableTokenLimiterOverride ?: limiter()
+    private val floorLimiter = floorLimiterOverride ?: limiter()
+    private val floorBurstLimiter = floorBurstLimiterOverride ?: limiter()
+    private val floorStateLimiter = limiter()
 
     fun service(
         call: ApplicationCall,
@@ -280,6 +347,8 @@ internal class EncounterRig(
         moderationState = moderationState,
         blessingState = blessingState,
         bellState = bellState,
+        floorState = floorState,
+        floorEnforcer = floorEnforcer,
         seatState = seatState,
         tableState = tableState,
         entryNotifier = entryNotifier,
@@ -292,6 +361,9 @@ internal class EncounterRig(
         seatRateLimiter = seatLimiter,
         tableRateLimiter = tableLimiter,
         tableTokenRateLimiter = tableTokenLimiter,
+        floorRateLimiter = floorLimiter,
+        floorBurstRateLimiter = floorBurstLimiter,
+        floorStateRateLimiter = floorStateLimiter,
         config = config,
     )
 

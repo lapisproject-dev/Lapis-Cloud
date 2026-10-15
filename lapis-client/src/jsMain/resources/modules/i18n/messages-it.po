@@ -24361,3 +24361,51 @@ msgstr "Momento del consenso"
 
 msgid "hh:mm"
 msgstr "hh:mm"
+
+msgid "Wort erteilen"
+msgstr "Dare la parola"
+
+msgid "Wort entziehen"
+msgstr "Togliere la parola"
+
+msgid "Wort zurückgeben"
+msgstr "Restituire la parola"
+
+msgid "+1 Min"
+msgstr "+1 min"
+
+msgid "+2 Min"
+msgstr "+2 min"
+
+msgid "Sie haben das Wort · noch %1"
+msgstr "Ha la parola · mancano %1"
+
+msgid "%1 spricht · noch %2"
+msgstr "%1 sta parlando · mancano %2"
+
+msgid "Gerade spricht jemand aus der Gemeinde · noch %1"
+msgstr "Parla una persona tra i fedeli · mancano %1"
+
+msgid "Gerade spricht jemand aus der Versammlung · noch %1"
+msgstr "Parla una persona dell'assemblea · mancano %1"
+
+msgid "Gleich zu Ende"
+msgstr "Quasi finito"
+
+msgid "Es spricht gerade jemand."
+msgstr "In questo momento sta parlando qualcuno."
+
+msgid "Höchstdauer 10 Min erreicht"
+msgstr "Durata massima di 10 min raggiunta"
+
+msgid "Wort erteilt"
+msgstr "Parola concessa"
+
+msgid "Sie haben das Wort"
+msgstr "Ha la parola"
+
+msgid "Wort beendet"
+msgstr "Parola terminata"
+
+msgid "Das Wort konnte nicht erteilt werden. Bitte versuchen Sie es erneut."
+msgstr "Non è stato possibile concedere la parola. Riprovi."

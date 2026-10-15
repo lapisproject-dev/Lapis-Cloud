@@ -14,6 +14,7 @@ import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.conference.LiveKitAdminClient
 import network.lapis.cloud.server.conference.LiveKitAdminException
+import network.lapis.cloud.server.conference.LiveKitParticipantInfo
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
@@ -82,6 +83,7 @@ class EncounterSpacePoller(
     private val bellState: EncounterBellState,
     private val seatState: EncounterSeatState,
     private val tableState: EncounterTableState,
+    private val floorState: EncounterFloorState,
     private val entryNotifier: EncounterEntryNotifier,
     private val liveKitEnabled: Boolean,
     private val intervalSeconds: Long = 60,
@@ -120,6 +122,7 @@ class EncounterSpacePoller(
         try {
             val openRoomIds = transaction { loadOpenSessions() }.map { it.roomId }.toSet()
             seatState.retainOnly(openRoomIds)
+            floorState.retainOnly(openRoomIds)
             // V1.9.80: table state of a session that is gone -- its LiveKit rooms go too (best effort, the reconciler is the backstop).
             val orphanRooms = tableState.retainOnly(openRoomIds)
             if (orphanRooms.isNotEmpty() && liveKitEnabled) EncounterTableRooms.deleteAll(liveKit = liveKitAdminClient, rooms = orphanRooms)
@@ -210,7 +213,12 @@ class EncounterSpacePoller(
             }
         participants.forEach { p ->
             if (p.identity in silenced && p.permission?.canPublishData == true) toDisconnect += p.identity
-            if (p.identity in publishers && p.identity !in officers) toDisconnect += p.identity
+            if (p.identity in publishers &&
+                p.identity !in officers &&
+                !floorTolerated(roomId = session.roomId, p = p)
+            ) {
+                toDisconnect += p.identity
+            }
         }
         toDisconnect.forEach { identity ->
             try {
@@ -260,6 +268,32 @@ class EncounterSpacePoller(
         if (removed > 0) logger.info { "encounter poller: $removed stale presence row(s) deleted" }
     }
 
+    /**
+     * V1.9.138 -- the ONE exception to "a non-officer must not publish": the person who currently has the temporary floor. Tolerated only
+     * while the grant is valid (and the person publishes nothing but one microphone track, with the sources limited to the microphone),
+     * or -- for [EncounterFloorState.GRACE_SECONDS] after the floor ended -- as a leftover MUTED microphone track without publish right
+     * (LiveKit may keep the track until the client unpublishes it). Anything else (camera, second track, an unmuted track after the end, a
+     * right that outlived the grant) is disconnected as before. The participants were read BEFORE the state, so a grant that starts
+     * meanwhile still shows `can_publish = false` and is no publisher; one that expires in between costs the person the connection
+     * (data protection and safety before comfort).
+     */
+    private fun floorTolerated(
+        roomId: Uuid,
+        p: LiveKitParticipantInfo,
+    ): Boolean {
+        val memberId = runCatching { Uuid.parse(p.identity) }.getOrNull() ?: return false
+        val micOnly = p.tracks.size <= 1 && p.tracks.all { it.type == "AUDIO" && it.source == "MICROPHONE" }
+        return when {
+            floorState.isValid(roomId = roomId, memberId = memberId) ->
+                micOnly && p.permission?.canPublishSources == listOf("MICROPHONE")
+
+            floorState.recentlyEndedWithinGrace(roomId = roomId, memberId = memberId) ->
+                p.permission?.canPublish != true && micOnly && p.tracks.all { it.muted }
+
+            else -> false
+        }
+    }
+
     /** Closes [session] under the locks (space first, then room, audit last) iff it is still open; never throws into the sweep. */
     private suspend fun closeSession(
         session: OpenSession,
@@ -294,6 +328,7 @@ class EncounterSpacePoller(
         blessingState.clear(session.roomId)
         bellState.clear(session.roomId)
         seatState.clear(session.roomId)
+        floorState.clear(session.roomId)
         EncounterTableRooms.deleteAll(liveKit = liveKitAdminClient, rooms = tableState.clear(session.roomId))
         entryNotifier.clearSession(session.roomId)
         logger.info { "encounter poller: a session was closed ($reason)" }

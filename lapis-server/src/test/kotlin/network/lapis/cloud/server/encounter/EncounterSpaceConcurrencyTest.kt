@@ -194,6 +194,7 @@ abstract class EncounterSpaceConcurrencyScenarios(
                         bellState = rig.bellState,
                         seatState = rig.seatState,
                         tableState = rig.tableState,
+                        floorState = rig.floorState,
                         entryNotifier = rig.entryNotifier,
                         liveKitEnabled = true,
                     )
