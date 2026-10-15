@@ -5281,12 +5281,12 @@ msgid "Gäste"
 msgstr "Гости"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1732
-msgid "Gäste anderer Server zulassen"
-msgstr "Разрешить гостей с других серверов"
+msgid "Gäste und Freunde zulassen"
+msgstr "Разрешить гостей и друзей"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1728
-msgid "Gäste zugelassen"
-msgstr "Гости допущены"
+msgid "Gäste und Freunde zugelassen"
+msgstr "Гости и друзья допущены"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1048
 msgid "Gastgeberin dieser Besprechung: %1"
@@ -24362,3 +24362,39 @@ msgstr "Слово завершено"
 
 msgid "Das Wort konnte nicht erteilt werden. Bitte versuchen Sie es erneut."
 msgstr "Не удалось предоставить слово. Пожалуйста, попробуйте ещё раз."
+
+msgid "Nur Sie beide sehen diesen Verlauf; er wird 8 Tage nach der Fahrt gelöscht."
+msgstr "Эту переписку видите только вы двое; она удаляется через 8 дней после поездки."
+
+msgid "Ältere Nachrichten anzeigen"
+msgstr "Показать более старые сообщения"
+
+msgid "Strg+Eingabe sendet. Eingabe allein beginnt eine neue Zeile."
+msgstr "Ctrl+Enter отправляет. Enter сам по себе начинает новую строку."
+
+msgid "Verlauf beenden"
+msgstr "Завершить переписку"
+
+msgid "Wirklich beenden? Danach kann niemand mehr schreiben."
+msgstr "Действительно завершить? После этого никто больше не сможет писать."
+
+msgid "Endgültig beenden"
+msgstr "Завершить окончательно"
+
+msgid "Verlauf beendet."
+msgstr "Переписка завершена."
+
+msgid "Nachricht gesendet."
+msgstr "Сообщение отправлено."
+
+msgid "Diese Mitfahrt ist nicht mehr verfügbar."
+msgstr "Эта поездка больше недоступна."
+
+msgid "Sie haben den Verlauf beendet."
+msgstr "Вы завершили переписку."
+
+msgid "Der Verlauf wurde beendet."
+msgstr "Другая сторона завершила переписку."
+
+msgid "Dieser Verlauf hat die Höchstzahl von %1 Nachrichten erreicht."
+msgstr "Эта переписка достигла максимума в %1 сообщений."

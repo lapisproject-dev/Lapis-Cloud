@@ -5267,12 +5267,12 @@ msgid "Gäste"
 msgstr "Guests"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1732
-msgid "Gäste anderer Server zulassen"
-msgstr "Allow guests from other servers"
+msgid "Gäste und Freunde zulassen"
+msgstr "Allow guests and friends"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1728
-msgid "Gäste zugelassen"
-msgstr "Guests allowed"
+msgid "Gäste und Freunde zugelassen"
+msgstr "Guests and friends allowed"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1048
 msgid "Gastgeberin dieser Besprechung: %1"
@@ -24316,3 +24316,39 @@ msgstr "Floor ended"
 
 msgid "Das Wort konnte nicht erteilt werden. Bitte versuchen Sie es erneut."
 msgstr "The floor could not be given. Please try again."
+
+msgid "Nur Sie beide sehen diesen Verlauf; er wird 8 Tage nach der Fahrt gelöscht."
+msgstr "Only the two of you can see this history; it is deleted 8 days after the trip."
+
+msgid "Ältere Nachrichten anzeigen"
+msgstr "Show older messages"
+
+msgid "Strg+Eingabe sendet. Eingabe allein beginnt eine neue Zeile."
+msgstr "Ctrl+Enter sends. Enter on its own starts a new line."
+
+msgid "Verlauf beenden"
+msgstr "End history"
+
+msgid "Wirklich beenden? Danach kann niemand mehr schreiben."
+msgstr "Really end it? Afterwards nobody can write any more."
+
+msgid "Endgültig beenden"
+msgstr "End for good"
+
+msgid "Verlauf beendet."
+msgstr "History ended."
+
+msgid "Nachricht gesendet."
+msgstr "Message sent."
+
+msgid "Diese Mitfahrt ist nicht mehr verfügbar."
+msgstr "This ride is no longer available."
+
+msgid "Sie haben den Verlauf beendet."
+msgstr "You have ended the history."
+
+msgid "Der Verlauf wurde beendet."
+msgstr "The history has been ended."
+
+msgid "Dieser Verlauf hat die Höchstzahl von %1 Nachrichten erreicht."
+msgstr "This history has reached the maximum of %1 messages."

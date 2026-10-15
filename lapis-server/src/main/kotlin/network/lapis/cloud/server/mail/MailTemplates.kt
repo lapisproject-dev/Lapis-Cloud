@@ -747,6 +747,28 @@ object MailTemplates {
                 CarpoolNoticeKind.WITHDRAWN -> "Eine Mitfahrt wurde zurückgezogen" to "A ride was withdrawn"
                 CarpoolNoticeKind.POSTING_CHANGED -> "Eine Fahrt wurde geändert" to "A trip was changed"
                 CarpoolNoticeKind.POSTING_DELETED -> "Eine Fahrt wurde gelöscht" to "A trip was deleted"
+                CarpoolNoticeKind.MESSAGE -> "Neue Nachricht zu Ihrer Mitfahrt" to "New message about your ride"
+            }
+        // V1.9.139: the message mail names no date, no place, no person and none of the text -- it only says that there is something to read.
+        val (paragraphsDe, paragraphsEn) =
+            if (kind == CarpoolNoticeKind.MESSAGE) {
+                listOf(
+                    "Sie haben eine neue Nachricht zu einer Ihrer Mitfahrten. Öffnen Sie die Mitfahrerzentrale, um sie zu lesen.",
+                    "Aus Datenschutzgründen nennt diese Nachricht keine Namen und keinen Inhalt.",
+                ) to
+                    listOf(
+                        "You have a new message about one of your rides. Open the carpool centre to read it.",
+                        "For privacy reasons this message names nobody and quotes nothing.",
+                    )
+            } else {
+                listOf(
+                    "Es gibt eine Neuigkeit zu der Fahrt am $date von $from nach $to.",
+                    "Aus Datenschutzgründen nennt diese Nachricht keine Namen. Die Einzelheiten sehen Sie nach der Anmeldung.",
+                ) to
+                    listOf(
+                        "There is news about the trip on $date from $from to $to.",
+                        "For privacy reasons this message names nobody. Sign in to see the details.",
+                    )
             }
         val subject = "Mitfahrerzentrale: $headingDe / $headingEn".take(CARPOOL_SUBJECT_MAX)
         val link = branding.publicBaseUrl.trimEnd('/') + "/app#/carpool"
@@ -755,22 +777,14 @@ object MailTemplates {
             de =
                 MailSection(
                     heading = headingDe,
-                    paragraphs =
-                        listOf(
-                            "Es gibt eine Neuigkeit zu der Fahrt am $date von $from nach $to.",
-                            "Aus Datenschutzgründen nennt diese Nachricht keine Namen. Die Einzelheiten sehen Sie nach der Anmeldung.",
-                        ),
+                    paragraphs = paragraphsDe,
                     linkLabel = "Mitfahrerzentrale öffnen",
                     link = link,
                 ),
             en =
                 MailSection(
                     heading = headingEn,
-                    paragraphs =
-                        listOf(
-                            "There is news about the trip on $date from $from to $to.",
-                            "For privacy reasons this message names nobody. Sign in to see the details.",
-                        ),
+                    paragraphs = paragraphsEn,
                     linkLabel = "Open the carpool centre",
                     link = link,
                 ),

@@ -40,6 +40,24 @@ members-only (see "Access rule change" in `docs/architecture/carpool.adoc`).
 * **Travel expenses.** On a mileage line of one's own travel expense report the field "Mitfahrer" shows a suggestion ("Laut Mitfahrerzentrale
   2 bestätigte Mitfahrer") with a button "Übernehmen". It is never filled in automatically.
 
+== Messages on a confirmed ride (V1.9.139)
+
+Once a ride is confirmed, the driver and that one person have a short message history ("Nachrichten" under the ride, in "Meine Mitfahrten" and
+in the driver's passenger list). Guests and friends can use it too -- it is the only place where they can write to somebody; the direct messages stay
+members-only.
+
+* **Who sees it.** Only the driver and that passenger. Nobody else, not even another passenger of the same ride, gets an answer that tells a
+  history exists.
+* **Limits.** 1000 characters per message, ten messages per minute, 200 per history. The text is shown as plain text (line breaks stay, markup does
+  not work, links are not clickable).
+* **Ending.** Either side can end the history ("Verlauf beenden"); then nobody can write, the messages stay readable until they are deleted.
+* **When it is deleted.** When the person steps back or the driver removes them, when the offer is deleted, and in any case 8 days after the trip
+  (at 00:00 on that day). Changing the date of a ride moves that day. A person who leaves the organisation or is blocked loses
+  the access at once for both sides.
+* **Notification.** At most one e-mail per history and hour, without names, places or text. There is no unread counter, no live update and no
+  push: "Aktualisieren" reads the history again. A guest gets no e-mail at all, so a guest only sees new messages when they look.
+* **Backup.** The histories are not part of the organisation backup; a restore leaves them empty.
+
 == Limits (honest status)
 
 * There is **no distance or kilometre calculation** and no structured place data.
@@ -50,7 +68,8 @@ members-only (see "Access rule change" in `docs/architecture/carpool.adoc`).
 * The suggestion disappears with the ride (seven days after the departure).
 * Invitation tokens live in memory: after a restart the driver searches again. Rate limits (20 requests, 20 invitations, 10 searches and 60
   decisions per hour and person) are per server instance.
-* A person who leaves the organisation keeps their rows; new confirmations are refused, nothing ends automatically.
+* A person who leaves the organisation keeps their rows; new confirmations are refused, nothing ends automatically (the ride messages are the exception: the access ends at once, see above).
+* The ride messages cannot be reported (there is no report path except for social posts), and a throttle of the e-mail is per history, not per recipient: an answer within the hour of the first message sends no second mail.
 
 == What doesn't work yet
 

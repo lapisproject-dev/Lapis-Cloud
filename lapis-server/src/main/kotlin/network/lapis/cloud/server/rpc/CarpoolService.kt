@@ -8,6 +8,7 @@ import kotlinx.datetime.toKotlinLocalTime
 import network.lapis.cloud.server.carpool.CarpoolAction
 import network.lapis.cloud.server.carpool.CarpoolDeps
 import network.lapis.cloud.server.carpool.CarpoolInviteeSearch
+import network.lapis.cloud.server.carpool.CarpoolMessages
 import network.lapis.cloud.server.carpool.CarpoolNotice
 import network.lapis.cloud.server.carpool.CarpoolNoticeKind
 import network.lapis.cloud.server.carpool.CarpoolParticipations
@@ -19,6 +20,7 @@ import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.CarpoolInviteeCandidateDto
+import network.lapis.cloud.shared.domain.CarpoolMessagePageDto
 import network.lapis.cloud.shared.domain.CarpoolMyParticipationDto
 import network.lapis.cloud.shared.domain.CarpoolMyParticipationRef
 import network.lapis.cloud.shared.domain.CarpoolParticipantDto
@@ -70,6 +72,10 @@ private const val MAX_MEETING_NOTE_LENGTH = 200
  * **Kontaktaufnahme** läuft über eine ganz normale Direktnachricht ([contactAuthor] ruft [insertDirectMessage]) -- kein eigenes
  * Carpool-Nachrichtensystem, kein `authorMemberId`-Feld im DTO (Larry Teslers Auflage). Gäste und Freunde können keine Direktnachricht
  * senden oder lesen; für sie gibt es das Treffpunkt-Feld ([setMeetingNote]), sichtbar nur für den Fahrer und bestätigte Mitfahrer.
+ *
+ * **V1.9.139 -- ÄNDERUNG DER ZUGRIFFSREGEL (eng).** Drei weitere Methoden ([sendCarpoolMessage], [carpoolMessages], [endCarpoolThread]) stehen der
+ * Passagier-Allowlist offen, aber nur für den Fahrer und die bestätigte Person der jeweiligen Mitfahrt ([CarpoolMessages.requireAccess]); jeder
+ * andere Zugriff ist die konstante Nicht-gefunden-Antwort. Die Direktnachrichten bleiben unverändert Mitgliedern vorbehalten.
  *
  * Die Zustandslogik der Mitfahrten liegt in [CarpoolParticipations] (Sperrreihenfolge: erst die Fahrt, dann die Mitfahrt). Hier wird sie nur
  * mit Zugriffsprüfung, Ratenbegrenzung (VOR der Transaktion) und dem Versand der Benachrichtigungen NACH dem Commit verdrahtet.
@@ -415,6 +421,100 @@ class CarpoolService internal constructor(
         return transaction {
             requireActiveMembership(memberId = current.memberId)
             CarpoolParticipations.passengerHint(driverId = current.memberId, from = from, to = to)
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------------------------------------------
+    // V1.9.139 "Mitfahr-Nachrichten"
+    // ---------------------------------------------------------------------------------------------------------------------------------
+
+    override suspend fun sendCarpoolMessage(
+        participationId: String,
+        body: String,
+    ): CarpoolMessagePageDto {
+        val current = resolveCurrentMember(call)
+        val pid = CarpoolParticipations.parseId(participationId)
+        // Phase 1 -- read only: access first, then ended, empty, too long, full. A stranger never gets past the first step, so a stranger
+        // cannot learn anything from the later answers and cannot spend the rate budget either.
+        transaction {
+            val status = requireCarpoolPassengerMembership(memberId = current.memberId)
+            val access =
+                CarpoolMessages.requireAccess(
+                    callerId = current.memberId,
+                    callerStatus = status,
+                    participationId = pid,
+                    lock = false,
+                )
+            CarpoolMessages.precheckSend(access = access, body = body)
+        }
+        // Phase 2 -- the rate budget, outside any transaction (Exposed repeats a block on SQLException).
+        if (!deps.rateLimiter.tryAcquire(memberId = current.memberId, action = CarpoolAction.MESSAGE)) {
+            throw ConflictException("Zu viele Nachrichten. Bitte warten Sie eine Minute.")
+        }
+        // Phase 3 -- write under the posting lock, re-checking everything.
+        val (page, notice) =
+            transaction {
+                val status = requireCarpoolPassengerMembership(memberId = current.memberId)
+                val access =
+                    CarpoolMessages.requireAccess(
+                        callerId = current.memberId,
+                        callerStatus = status,
+                        participationId = pid,
+                        lock = true,
+                    )
+                val notice =
+                    CarpoolMessages.insert(
+                        access = access,
+                        body = body,
+                        now = DbClock.nowLocalDateTime(),
+                        mailEnabled = deps.notifier.mailEnabled,
+                    )
+                CarpoolMessages.page(access = access, beforeId = null) to notice
+            }
+        notice?.let { deps.notifier.dispatch(listOf(it)) }
+        return page
+    }
+
+    override suspend fun carpoolMessages(
+        participationId: String,
+        beforeId: String?,
+    ): CarpoolMessagePageDto {
+        val current = resolveCurrentMember(call)
+        val pid = CarpoolParticipations.parseId(participationId)
+        val before = beforeId?.let { CarpoolParticipations.parseId(it) }
+        return transaction {
+            val status = requireCarpoolPassengerMembership(memberId = current.memberId)
+            val access =
+                CarpoolMessages.requireAccess(
+                    callerId = current.memberId,
+                    callerStatus = status,
+                    participationId = pid,
+                    lock = false,
+                )
+            CarpoolMessages.page(access = access, beforeId = before)
+        }
+    }
+
+    override suspend fun endCarpoolThread(participationId: String): CarpoolMessagePageDto {
+        val current = resolveCurrentMember(call)
+        val pid = CarpoolParticipations.parseId(participationId)
+        // Idempotent, but it shares the budget of confirm/decline/withdraw; counted only after the access check (read-only phase first).
+        transaction {
+            val status = requireCarpoolPassengerMembership(memberId = current.memberId)
+            CarpoolMessages.requireAccess(callerId = current.memberId, callerStatus = status, participationId = pid, lock = false)
+        }
+        deps.rateLimiter.checkAndRecord(memberId = current.memberId, action = CarpoolAction.DECIDE)
+        return transaction {
+            val status = requireCarpoolPassengerMembership(memberId = current.memberId)
+            val access =
+                CarpoolMessages.requireAccess(
+                    callerId = current.memberId,
+                    callerStatus = status,
+                    participationId = pid,
+                    lock = true,
+                )
+            CarpoolMessages.end(access = access, now = DbClock.nowLocalDateTime())
+            CarpoolMessages.page(access = access, beforeId = null)
         }
     }
 

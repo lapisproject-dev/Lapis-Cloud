@@ -434,6 +434,7 @@ internal object CarpoolParticipations {
             }.map { it[CarpoolParticipationTable.personId] }
 
     fun deleteAllOf(postingId: Uuid) {
+        CarpoolMessages.deleteForPostings(listOf(postingId))
         CarpoolParticipationTable.deleteWhere { CarpoolParticipationTable.postingId eq postingId }
     }
 
@@ -506,6 +507,12 @@ internal object CarpoolParticipations {
         notify: Uuid,
     ): Result {
         val id = loaded.part[CarpoolParticipationTable.id]
+        // V1.9.139: leaving CONFIRMED (the person steps back, or the driver removes them) deletes the ride messages in the same transaction.
+        if (loaded.part[CarpoolParticipationTable.status] == CarpoolParticipationStatus.CONFIRMED &&
+            newStatus != CarpoolParticipationStatus.CONFIRMED
+        ) {
+            CarpoolMessages.deleteForParticipations(listOf(id))
+        }
         CarpoolParticipationTable.update({ CarpoolParticipationTable.id eq id }) {
             it[status] = newStatus
             it[decidedAt] = now
@@ -563,6 +570,8 @@ internal object CarpoolParticipations {
             return id
         }
         val id = existing[CarpoolParticipationTable.id]
+        // V1.9.139 safety net: a revived row never inherits a history (the messages are normally gone since it left CONFIRMED).
+        CarpoolMessages.deleteForParticipations(listOf(id))
         CarpoolParticipationTable.update({ CarpoolParticipationTable.id eq id }) {
             it[initiator] = initiatorOfNew
             it[status] = CarpoolParticipationStatus.OPEN
@@ -589,6 +598,19 @@ internal object CarpoolParticipations {
                     (CarpoolParticipationTable.status eq CarpoolParticipationStatus.OPEN)
             }.count()
             .toInt()
+
+    /** V1.9.139: the display name of [memberId] when [isEligible] holds for it, otherwise `null` (plain reads, no lock). */
+    fun displayNameIfEligible(
+        memberId: Uuid,
+        allowed: Set<MemberStatus>,
+    ): String? {
+        if (!isEligible(memberId = memberId, allowed = allowed)) return null
+        return MemberTable
+            .selectAll()
+            .where { MemberTable.id eq memberId }
+            .singleOrNull()
+            ?.get(MemberTable.displayName)
+    }
 
     /** The member exists, is not anonymised and has a status in [allowed] (plain read, no lock). */
     private fun isEligible(

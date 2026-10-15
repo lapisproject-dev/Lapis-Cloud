@@ -39,6 +39,8 @@ internal object CarpoolRetention {
                 0
             } else {
                 // V1.9.125: the participations of a due posting go with it -- explicitly, independent of the foreign key's ON DELETE rule.
+                // V1.9.139: the ride messages go first -- departure + 8 days, 00:00 organization time (cutoff = today - 7 days, strictly less).
+                CarpoolMessages.deleteForPostings(dueIds)
                 CarpoolParticipationTable.deleteWhere { CarpoolParticipationTable.postingId inList dueIds }
                 CarpoolPostingTable.deleteWhere { CarpoolPostingTable.id inList dueIds }
             }

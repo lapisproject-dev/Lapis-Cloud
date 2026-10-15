@@ -8,12 +8,16 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import network.lapis.cloud.server.db.DatabaseConfig
+import network.lapis.cloud.server.db.generated.CarpoolMessageTable
+import network.lapis.cloud.server.db.generated.CarpoolMessageThreadTable
 import network.lapis.cloud.server.db.generated.CarpoolParticipationTable
 import network.lapis.cloud.server.db.generated.CarpoolPostingTable
 import network.lapis.cloud.server.rpc.CarpoolTestData
+import network.lapis.cloud.shared.domain.CarpoolMessageSide
 import network.lapis.cloud.shared.domain.CarpoolParticipationStatus
 import network.lapis.cloud.shared.domain.ErasureMode
 import network.lapis.cloud.shared.domain.MemberStatus
+import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
@@ -28,8 +32,9 @@ class CarpoolPersonalDataTest :
         beforeSpec { DatabaseConfig.connect() }
         afterSpec { data.cleanUp() }
 
-        test("it covers both carpool tables (PersonalDataCoverageTest relies on this)") {
-            CarpoolPersonalData.coveredTables shouldBe setOf(CarpoolPostingTable, CarpoolParticipationTable)
+        test("it covers all four carpool tables (PersonalDataCoverageTest relies on this)") {
+            CarpoolPersonalData.coveredTables shouldBe
+                setOf(CarpoolPostingTable, CarpoolParticipationTable, CarpoolMessageTable, CarpoolMessageThreadTable)
         }
 
         test("the export names the own rides and the passenger COUNT of own offers, never a foreign name") {
@@ -77,5 +82,51 @@ class CarpoolPersonalDataTest :
             driverOutcome.first { it.table == "carpool_participation" }.rowsDeleted shouldBe 1
             driverOutcome.first { it.table == "carpool_posting" }.rowsDeleted shouldBe 1
             data.participationRows(offer).size shouldBe 0
+        }
+
+        test(
+            "V1.9.139: the export lists only the person's OWN sent ride messages; the erasure removes every history the person is part of",
+        ) {
+            val driver = data.member(label = "pd3-driver", displayName = "Fahrer Nachrichten")
+            val guest = data.member(label = "pd3-guest", status = MemberStatus.GUEST, displayName = "Gast Nachrichten")
+            val offer = data.posting(author = driver, seats = 2)
+            val pid = data.participation(postingId = offer, personId = guest, status = CarpoolParticipationStatus.CONFIRMED)
+            data.message(participationId = pid, side = CarpoolMessageSide.PASSENGER, body = "Text des Gastes")
+            data.message(participationId = pid, side = CarpoolMessageSide.DRIVER, body = "Text des Fahrers")
+            transaction { CarpoolMessageThreadTable.insert { it[participationId] = pid } }
+
+            fun sent(memberId: kotlin.uuid.Uuid) =
+                transaction { CarpoolPersonalData.exportMember(memberId) }
+                    .jsonObject
+                    .getValue("carpoolMessagesSent")
+                    .jsonArray
+                    .map {
+                        it.jsonObject
+                            .getValue("body")
+                            .jsonPrimitive.content
+                    }
+            sent(guest) shouldBe listOf("Text des Gastes")
+            sent(driver) shouldBe listOf("Text des Fahrers")
+            transaction { CarpoolPersonalData.exportMember(guest) }.toString() shouldNotContain "Text des Fahrers"
+            transaction { CarpoolPersonalData.exportMember(guest) }.toString() shouldNotContain "Fahrer Nachrichten"
+
+            val outcome = transaction { CarpoolPersonalData.eraseMember(memberId = guest, mode = ErasureMode.ANONYMIZE) }
+            outcome.first { it.table == "carpool_message" }.rowsDeleted shouldBe 2
+            outcome.first { it.table == "carpool_message_thread" }.rowsDeleted shouldBe 1
+            data.messageCount(pid) shouldBe 0
+            data.threadCount(pid) shouldBe 0
+
+            // as a driver: the histories of the own offers go as well
+            val driver2 = data.member(label = "pd4-driver")
+            val guest2 = data.member(label = "pd4-guest", status = MemberStatus.GUEST)
+            val pid2 =
+                data.participation(
+                    postingId = data.posting(author = driver2),
+                    personId = guest2,
+                    status = CarpoolParticipationStatus.CONFIRMED,
+                )
+            data.message(participationId = pid2, side = CarpoolMessageSide.DRIVER, body = "weg")
+            transaction { CarpoolPersonalData.eraseMember(memberId = driver2, mode = ErasureMode.ANONYMIZE) }
+            data.messageCount(pid2) shouldBe 0
         }
     })

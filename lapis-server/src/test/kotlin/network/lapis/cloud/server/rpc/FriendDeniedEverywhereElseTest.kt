@@ -23,6 +23,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
+import network.lapis.cloud.server.carpool.CarpoolParticipations
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.LiveKitAdminClient
 import network.lapis.cloud.server.conference.LiveKitParticipantInfo
@@ -46,6 +47,7 @@ import network.lapis.cloud.server.mail.newsletter.TEST_TRACKING_BASE_URL
 import network.lapis.cloud.server.mail.newsletter.testTrackingToken
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.CarpoolParticipationStatus
 import network.lapis.cloud.shared.domain.CarpoolPostingInput
 import network.lapis.cloud.shared.domain.CarpoolPostingType
 import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInput
@@ -356,6 +358,37 @@ class FriendDeniedEverywhereElseTest :
                         )
                     denied.forEach { (name, op) ->
                         withClue(clue = name) { (attempt(member = friend, op = op).exceptionOrNull() is ForbiddenException) shouldBe true }
+                    }
+                }
+            } finally {
+                carpool.cleanUp()
+            }
+        }
+
+        test(
+            "V1.9.139: a FRIEND and a GUEST WITHOUT a confirmed participation get the constant not-found answer from the three ride-message methods",
+        ) {
+            val carpool = CarpoolTestData()
+            try {
+                carpoolTestApplication {
+                    val driver = carpool.member(label = "msg-denied-driver")
+                    val offer = carpool.posting(author = driver)
+                    listOf(MemberStatus.FRIEND, MemberStatus.GUEST).forEach { status ->
+                        val person = carpool.member(label = "msg-denied-$status", status = status)
+                        val open = carpool.participation(postingId = offer, personId = person, status = CarpoolParticipationStatus.OPEN)
+                        val ops =
+                            mapOf<String, suspend CarpoolService.() -> Any?>(
+                                "sendCarpoolMessage" to { sendCarpoolMessage(participationId = open.toString(), body = "Hallo") },
+                                "carpoolMessages" to { carpoolMessages(participationId = open.toString(), beforeId = null) },
+                                "endCarpoolThread" to { endCarpoolThread(open.toString()) },
+                            )
+                        ops.forEach { (name, op) ->
+                            withClue(clue = "$status $name") {
+                                val e = attempt(member = person, op = op).exceptionOrNull()
+                                (e is NotFoundException) shouldBe true
+                                e!!.message shouldBe CarpoolParticipations.NOT_FOUND_MESSAGE
+                            }
+                        }
                     }
                 }
             } finally {

@@ -545,7 +545,9 @@ class DomainModelMergerTest :
             // Welle V1.9.129 "Video-Overlays" adds 69-video-overlay.kuml.kts's ONE new table (video_overlay_asset), no stub -- net +1 (196 -> 197).
             // Welle V1.9.134 "Vertragstexte" adds 70-agreement-texts.kuml.kts's TWO new tables (agreement_text_version, agreement_text_draft) plus an
             // id-only Member stub (dedups into the already-real member entity) -- net +2 (197 -> 199).
-            val distinctTableNames = 199
+            // Welle V1.9.139 "Mitfahr-Nachrichten" adds TWO more real tables to 57-carpool.kuml.kts (carpool_message_thread, carpool_message), no new stub
+            // -- net +2 (199 -> 201).
+            val distinctTableNames = 201
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -854,6 +856,9 @@ class DomainModelMergerTest :
                     "CarpoolPostingTable.kt",
                     // Welle V1.9.125 "Mitfahrten" -- ONE more real table in the same script (carpool_participation).
                     "CarpoolParticipationTable.kt",
+                    // Welle V1.9.139 "Mitfahr-Nachrichten" -- TWO more real tables in the same script.
+                    "CarpoolMessageThreadTable.kt",
+                    "CarpoolMessageTable.kt",
                     // Welle V1.9.19 "Mitglieder-Foto" -- ONE new real table (member_photo); its
                     // Member cross-domain stub dedups into the already-real member entity, no
                     // new Table file for it.

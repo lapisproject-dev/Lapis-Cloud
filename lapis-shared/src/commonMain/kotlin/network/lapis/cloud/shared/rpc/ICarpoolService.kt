@@ -3,6 +3,7 @@ package network.lapis.cloud.shared.rpc
 import dev.kilua.rpc.annotations.RpcService
 import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.CarpoolInviteeCandidateDto
+import network.lapis.cloud.shared.domain.CarpoolMessagePageDto
 import network.lapis.cloud.shared.domain.CarpoolMyParticipationDto
 import network.lapis.cloud.shared.domain.CarpoolParticipantDto
 import network.lapis.cloud.shared.domain.CarpoolParticipationStatus
@@ -17,8 +18,9 @@ import network.lapis.cloud.shared.domain.DirectMessageDto
  * `requireActiveMembership`, kein eigenes `NavVisibility`-Prädikat nötig, siehe
  * `network.lapis.cloud.server.rpc.CarpoolService` KDoc "1a"). Kontaktaufnahme läuft über eine ganz
  * normale Direktnachricht ([contactAuthor] löst den Empfänger serverseitig auf und ruft
- * `network.lapis.cloud.server.rpc.insertDirectMessage`) -- es gibt kein eigenes
- * Carpool-Nachrichtensystem.
+ * `network.lapis.cloud.server.rpc.insertDirectMessage`) -- für den Erstkontakt gibt es kein eigenes Carpool-Nachrichtensystem.
+ * Seit V1.9.139 gibt es einen engen Verlauf je BESTÄTIGTER Mitfahrt (nur Fahrer und diese Person, siehe die drei letzten Methoden); die
+ * Direktnachrichten selbst bleiben unverändert Mitgliedern vorbehalten.
  */
 @RpcService
 interface ICarpoolService {
@@ -92,4 +94,24 @@ interface ICarpoolService {
         from: LocalDate,
         to: LocalDate,
     ): CarpoolPassengerHintDto
+
+    // ---- V1.9.139 "Mitfahr-Nachrichten": appended at the END -- Kilua RPC numbers routes by declaration order, never reorder. ----
+
+    /**
+     * Passenger allowlist, but only for the driver and the CONFIRMED person of this participation (anything else: the constant not-found
+     * answer). Sends one message (at most 1000 characters, ten per minute, 200 per history) and answers the first page.
+     */
+    suspend fun sendCarpoolMessage(
+        participationId: String,
+        body: String,
+    ): CarpoolMessagePageDto
+
+    /** Same access as [sendCarpoolMessage]: a page, newest first; [beforeId] is the id of the oldest message already loaded. */
+    suspend fun carpoolMessages(
+        participationId: String,
+        beforeId: String?,
+    ): CarpoolMessagePageDto
+
+    /** Same access: closes the history for both sides (idempotent). The messages stay readable until they are deleted. */
+    suspend fun endCarpoolThread(participationId: String): CarpoolMessagePageDto
 }

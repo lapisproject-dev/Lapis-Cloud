@@ -7,7 +7,7 @@
 NOTE: **Implementation status.** V1.9.12 built the whole feature in one wave: the `carpool_posting`
 table, `ICarpoolService`, the retention poller, the DSGVO contributor, and the `lapis-client`
 screen. V1.9.125 added passengers (`carpool_participation`, ten more RPC methods, a changed access rule) --
-see <<access-rule-change>> and <<participations>>.
+see <<access-rule-change>> and <<participations>>. V1.9.139 added a short message history per confirmed ride (<<ride-messages>>).
 
 == Context
 
@@ -272,9 +272,62 @@ lock only covers the counter-party: whoever declines their own invitation may st
 id, posting id, initiator, status -- no name, place or meeting note). The audit log is append-only, so these entries outlive the ride.
 
 *Retention and GDPR.* `CarpoolRetention` deletes the participations together with a due posting (explicitly, independent of the cascade).
-`CarpoolPersonalData` covers both tables: the export lists the person's own rides and the meeting note of their own offers, and only the *number*
+`CarpoolPersonalData` covers all four tables (V1.9.139 added the two message tables, see <<ride-messages>>): the export lists the person's own rides and the meeting note of their own offers, and only the *number*
 of passengers per own offer -- never the name of a third person; the erasure removes the person's own rides first (their seats are released), then
 their offers with everybody else's participations on them.
+
+[[ride-messages]]
+== Ride messages (V1.9.139)
+
+A confirmed ride has a short message history that only the driver and that one person can use. It is **a narrow, deliberate exception** to the rule
+that guests and friends cannot write messages: it is not the direct-message system (nothing in `CarpoolMessages` touches `DirectMessageService`,
+`insertDirectMessage` or the `direct_message*` tables), and the direct messages stay members-only. `CarpoolMessageDmBoundaryTripwireTest` pins that
+every method of `DirectMessageService` keeps `requireActiveMembership`.
+
+*RPC surface.* Three methods at the END of `ICarpoolService` (routes 16, 17, 18; Kilua RPC numbers routes by declaration order):
+`sendCarpoolMessage(participationId, body)` (answers the first page), `carpoolMessages(participationId, beforeId)` (a page, newest first, 50 per
+page, `beforeId` is a cursor within the same history) and `endCarpoolThread(participationId)` (idempotent). They use the passenger guard like the other
+six allowlist methods, and then the ONE gate `CarpoolMessages.requireAccess`.
+
+*Access.* The caller is the driver (author of the offer, a member) or the person of a participation that is `CONFIRMED`. **Everything else is the same
+not-found answer** (`CarpoolParticipations.NOT_FOUND_MESSAGE`): a malformed or unknown id, a participation that is `OPEN`, `DECLINED` or `WITHDRAWN`,
+a third person (also one who rides on the same offer), a deleted ride. The access ends for BOTH sides as soon as the other side is anonymised, is no
+longer eligible (a driver who is no longer an active member, a person whose status left the passenger set, an unverified friend while the verification
+duty is on). So a block or a withdrawal from the organisation closes the history for both people, without a hook in the member administration.
+
+*Order of the checks of a send* (so that nothing can be learned without access): (1) access, (2) the history has ended, (3) the text is empty,
+(4) the text is longer than 1000 characters, (5) the history holds 200 messages, (6) the rate budget (ten per minute and member; counted only after
+1-5 passed, outside any transaction), (7) the write under the lock on the ride, which repeats 1-5 (the limit of 200 wins a race). The text is
+trimmed at its ends only; line breaks are unified, control characters (except a line break and a tab) and the bidirectional override characters are
+removed, nothing is escaped (the client only creates text nodes).
+
+*Ending.* Either side can end the history for good; after that nobody can write, reading stays possible until the messages are deleted.
+
+*Deletion.* The messages and the thread row are deleted explicitly (the generated Exposed tables cannot express `ON DELETE CASCADE`) in the same
+transaction when a participation leaves `CONFIRMED` (the person steps back, the driver removes them), when a revived participation is opened again
+(safety net), when the offer is deleted, by the GDPR erasure of either side, and by `CarpoolRetention` together with the posting: that is departure
+day + 8 days, at 00:00 organisation time (a change of the date by the driver moves it with the ride). If a person leaves or is blocked WITHOUT a
+GDPR erasure, access ends at once (see above) and the rows follow with the retention at the latest.
+
+*Backup exclusion.* `carpool_message` and `carpool_message_thread` are in `OrganizationSchemaCatalog.EXCLUDED_TABLES`: the data lives for days, its
+deletion is promised to both people, and a restore must not bring it back or let the ADMIN-only whole-organisation backup become a way to read the
+histories. A restore targets an empty database, so both tables simply stay empty. (Direct messages are permanent and therefore not comparable.)
+They are not in `BLOB_TABLES` either.
+
+*Mail.* At most one mail per history and hour (`carpool_message_thread.last_mail_at`), to the other side, only when the instance can send mail
+(otherwise the throttle is not consumed). The text names no date, no place, no person and none of the message ("You have a new message about one of
+your rides. Open the carpool centre to read it."); recipient rules are those of `CarpoolNotifier` (an active member, or a friend with a verified
+address; never a guest).
+
+*No audit, no logging.* `CarpoolMessages` has no logger and writes no audit entry; no exception names a text. `CarpoolMessageNoContentLeakTest`
+sends a sentinel through every path and searches the log, the audit log and the mail notices for it.
+
+*GDPR.* `CarpoolPersonalData` covers both tables. The export lists only the texts the person sent themselves (`carpoolMessagesSent`: participation id,
+time, text -- the side is the person's role in that ride), never a text or a name of the other side. The erasure removes every history the person
+takes part in.
+
+*Data.* `sender_side` and `ended_by_side` are `DRIVER` or `PASSENGER`, not a member id: both parties follow from the participation, so no second
+personal reference is stored. Timestamps are `TIMESTAMP` like the rest of the schema (class A, UTC).
 
 == Retention and expiry
 
@@ -325,6 +378,6 @@ kept anywhere, deliberately simpler than the direct-message case rather than mir
   the feed themselves. (Participation news is mailed, see above.)
 * No distance or kilometre calculation, no automatic end of a participation when a person's status changes (new confirmations are refused).
 * No moderation/reporting path specific to carpool postings beyond what already exists for direct
-  messages in general.
+  messages in general. The ride messages (V1.9.139) cannot be reported at all: there is no report path except for social posts.
 
 Since V1.9.34 the "Kommunikation" mailbox also offers the conversation history below each message and an unread counter in the sidebar; see `direct-messages.adoc`.

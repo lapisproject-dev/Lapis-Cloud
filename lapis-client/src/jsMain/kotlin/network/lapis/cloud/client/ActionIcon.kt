@@ -190,4 +190,11 @@ enum class ActionIcon(
      */
     MOVE_UP("fas fa-arrow-up"),
     MOVE_DOWN("fas fa-arrow-down"),
+
+    /**
+     * V1.9.139 "Mitfahr-Nachrichten": open the short message history of a CONFIRMED ride ([MESSAGES]; NOT [CHAT], which is the chat of a room, and NOT
+     * [SEND], which sends the message). Closing the history of both sides for good is a text button without a picture of its own ([REVOKE]'s
+     * glyph would suggest a ban).
+     */
+    MESSAGES("fas fa-comment"),
 }

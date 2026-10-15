@@ -5282,12 +5282,12 @@ msgid "Gäste"
 msgstr "Goście"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1732
-msgid "Gäste anderer Server zulassen"
-msgstr "Zezwól na gości innych serwerów"
+msgid "Gäste und Freunde zulassen"
+msgstr "Zezwól na gości i znajomych"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1728
-msgid "Gäste zugelassen"
-msgstr "Goście dopuszczeni"
+msgid "Gäste und Freunde zugelassen"
+msgstr "Goście i znajomi dopuszczeni"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1048
 msgid "Gastgeberin dieser Besprechung: %1"
@@ -24371,3 +24371,39 @@ msgstr "Głos zakończony"
 
 msgid "Das Wort konnte nicht erteilt werden. Bitte versuchen Sie es erneut."
 msgstr "Nie udało się udzielić głosu. Proszę spróbować ponownie."
+
+msgid "Nur Sie beide sehen diesen Verlauf; er wird 8 Tage nach der Fahrt gelöscht."
+msgstr "Tę historię widzą tylko Państwo oboje; zostanie usunięta 8 dni po przejeździe."
+
+msgid "Ältere Nachrichten anzeigen"
+msgstr "Pokaż starsze wiadomości"
+
+msgid "Strg+Eingabe sendet. Eingabe allein beginnt eine neue Zeile."
+msgstr "Ctrl+Enter wysyła. Sam Enter rozpoczyna nowy wiersz."
+
+msgid "Verlauf beenden"
+msgstr "Zakończ historię"
+
+msgid "Wirklich beenden? Danach kann niemand mehr schreiben."
+msgstr "Czy na pewno zakończyć? Potem nikt nie będzie mógł już pisać."
+
+msgid "Endgültig beenden"
+msgstr "Zakończ ostatecznie"
+
+msgid "Verlauf beendet."
+msgstr "Historia zakończona."
+
+msgid "Nachricht gesendet."
+msgstr "Wiadomość wysłana."
+
+msgid "Diese Mitfahrt ist nicht mehr verfügbar."
+msgstr "Ten przejazd nie jest już dostępny."
+
+msgid "Sie haben den Verlauf beendet."
+msgstr "Zakończyli Państwo historię."
+
+msgid "Der Verlauf wurde beendet."
+msgstr "Historia została zakończona."
+
+msgid "Dieser Verlauf hat die Höchstzahl von %1 Nachrichten erreicht."
+msgstr "Ta historia osiągnęła maksymalną liczbę %1 wiadomości."

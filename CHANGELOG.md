@@ -6,6 +6,43 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.139 -- Messages on a confirmed ride, and a clearer name for the guest switch
+
+On a confirmed ride the driver and that one person get a short message history. The conference switch "Gäste anderer Server zulassen" is now called
+"Gäste und Freunde zulassen". One additive migration (`V105`).
+
+#### Added
+
+- **New:** `sendCarpoolMessage`, `carpoolMessages`, `endCarpoolThread` at the end of `ICarpoolService` (routes 16 to 18); `CarpoolMessageDto`, `CarpoolMessagePageDto`, `CarpoolMessageLimits`, `CarpoolMessageSide` in `lapis-shared`.
+- **New:** tables `carpool_message_thread` and `carpool_message` (`V105__carpool_message.sql`, kUML model in `57-carpool.kuml.kts`); `CarpoolMessages` (the one gate `requireAccess`, paging, send, end, deletion).
+- **New:** limits 1000 characters, ten messages per minute and member (new `CarpoolAction.MESSAGE`, the rate limiter now has a window per action), 200 messages per history; either side can end the history.
+- **New:** "Nachrichten" under a confirmed ride (the person's "Meine Mitfahrten" row, also after the trip, and the driver's passenger row); text shown as plain text; Strg/Cmd+Enter sends.
+- **New:** one mail per history and hour without date, place, name or text (`CarpoolNoticeKind.MESSAGE`).
+- **New:** 14 catalog texts (12 new, 2 renamed) in the template and all seven catalogs; docs `docs/architecture/carpool.adoc` ("Ride messages"), `docs/features/mitfahrerzentrale.adoc`.
+
+#### Changed
+
+- The conference switch and its badge: "Gäste anderer Server zulassen" is now "Gäste und Freunde zulassen", "Gäste zugelassen" is now "Gäste und Freunde zugelassen" (friend accounts count as guests; the old label hid that). The API and the database field `allowFederationGuests` are unchanged. The sentence shown to a federated guest ("... lässt derzeit keine Gäste anderer Server zu") stays on purpose.
+
+#### Security and privacy
+
+- **Change of the access rule (narrow):** the three new methods are open to the passenger allowlist (`ACTIVE`, `GUEST`, `FRIEND`) but only for the driver and the person of a CONFIRMED participation; every other case is the same not-found answer, and the access ends for both sides as soon as one of them is blocked, has left or was anonymised. The direct messages are unchanged (members only; a new tripwire pins it).
+- No logging, no audit entry and no message text in any exception or mail; a test searches a sentinel text in the log, the audit log and the mail notices.
+- **The histories are excluded from the organisation backup** (`carpool_message`, `carpool_message_thread`); a restore leaves them empty. The GDPR export lists only the texts the person sent; the erasure removes every history the person takes part in.
+- Deleted when a participation leaves CONFIRMED, with the offer, by the GDPR erasure and by the retention (departure day + 8 days, 00:00 organisation time).
+
+#### Known limitations
+
+- Not looked at in a real browser: only Chromium headless tests (Karma) and the server tests ran.
+- No unread counter and no live update; a guest gets no e-mail at all and therefore no signal that a message arrived.
+- The messages cannot be reported (there is no report path except for social posts).
+- The new texts are model translations, not reviewed by a native speaker.
+- After a restore the carpool histories are empty (by design).
+- The rate limit (ten messages per minute) is per server instance.
+- The mail throttle is per history, not per recipient: an answer within the hour of the first message sends no second mail.
+- A person who leaves or is blocked loses the access at once, but the rows are deleted only with the retention at the latest (no hook in the member administration).
+- The server's error texts for the messages ("Dieser Verlauf wurde beendet." and so on) stay German only and never reach the client (existing pattern); the client shows its own state lines.
+
 ## [0.36.0] — 2026-10-15
 
 Feature release on top of `[0.35.0]` (V1.9.129 -- V1.9.138 and a test fix): **video overlays** (logos, name, frame in your own camera image), a **conference timer**, **X as a streaming platform**, **travel expense polish** (dates in the locale, per-meal amounts, live breakdown), a **wider registration with per-instance versioned agreement texts**, **styled sign-in, consent, member-card and error pages** with new security headers, **dates and times in the locale of the UI language everywhere**, the redesigned **public article page**, and a **temporary floor grant in the encounter space**. Three additive migrations: **`V102`** (video overlays), **`V103`** (platform `X`), **`V104`** (agreement texts). One optional environment variable: `LAPIS_VIDEO_OVERLAY_STORAGE_ROOT`. **Behaviour changes first:** the browser's date/time pickers are gone and English no longer shows ISO dates; the sign-in and consent pages now send security headers (none before); the registration shows the placeholder agreement text until an ADMIN publishes a reviewed one (registration continues, administrators see a warning); the article page links and CSP changed. **Not verified:** none of it has been seen by real people in a real browser window or call, the floor grant has not run against a real LiveKit, the translations were written by the model; the sections below hold the honest limitations of each wave.

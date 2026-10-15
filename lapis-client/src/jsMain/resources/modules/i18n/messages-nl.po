@@ -5290,12 +5290,12 @@ msgid "Gäste"
 msgstr "Gasten"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1732
-msgid "Gäste anderer Server zulassen"
-msgstr "Gasten van andere servers toestaan"
+msgid "Gäste und Freunde zulassen"
+msgstr "Gasten en vrienden toestaan"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1728
-msgid "Gäste zugelassen"
-msgstr "Gasten toegestaan"
+msgid "Gäste und Freunde zugelassen"
+msgstr "Gasten en vrienden toegestaan"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1048
 msgid "Gastgeberin dieser Besprechung: %1"
@@ -24364,3 +24364,39 @@ msgstr "Woord beëindigd"
 
 msgid "Das Wort konnte nicht erteilt werden. Bitte versuchen Sie es erneut."
 msgstr "Het woord kon niet worden gegeven. Probeer het opnieuw."
+
+msgid "Nur Sie beide sehen diesen Verlauf; er wird 8 Tage nach der Fahrt gelöscht."
+msgstr "Alleen u en de ander zien dit verloop; het wordt 8 dagen na de rit verwijderd."
+
+msgid "Ältere Nachrichten anzeigen"
+msgstr "Oudere berichten tonen"
+
+msgid "Strg+Eingabe sendet. Eingabe allein beginnt eine neue Zeile."
+msgstr "Ctrl+Enter verzendt. Enter alleen begint een nieuwe regel."
+
+msgid "Verlauf beenden"
+msgstr "Verloop beëindigen"
+
+msgid "Wirklich beenden? Danach kann niemand mehr schreiben."
+msgstr "Echt beëindigen? Daarna kan niemand meer schrijven."
+
+msgid "Endgültig beenden"
+msgstr "Definitief beëindigen"
+
+msgid "Verlauf beendet."
+msgstr "Verloop beëindigd."
+
+msgid "Nachricht gesendet."
+msgstr "Bericht verzonden."
+
+msgid "Diese Mitfahrt ist nicht mehr verfügbar."
+msgstr "Deze rit is niet meer beschikbaar."
+
+msgid "Sie haben den Verlauf beendet."
+msgstr "U hebt het verloop beëindigd."
+
+msgid "Der Verlauf wurde beendet."
+msgstr "Het verloop is beëindigd."
+
+msgid "Dieser Verlauf hat die Höchstzahl von %1 Nachrichten erreicht."
+msgstr "Dit verloop heeft het maximum van %1 berichten bereikt."

@@ -44,6 +44,9 @@ class OrganizationSchemaCatalogTest :
                     "mail_budget_lock",
                     // Welle V1.9.115 -- the smoothed speaker timeline of a recording (derived from audio, deleted with the raw files)
                     "conference_recording_speaker_span",
+                    // Welle V1.9.139 -- the short-lived private ride messages and their thread state
+                    "carpool_message",
+                    "carpool_message_thread",
                 )
             val names = transaction { OrganizationSchemaCatalog.exportableTables(this).map { it.tableName } }
             ("flyway_schema_history" in names) shouldBe false
@@ -51,6 +54,7 @@ class OrganizationSchemaCatalogTest :
             ("member_photo" in names) shouldBe false
             ("member_public_bio" in names) shouldBe false
             ("conference_recording_speaker_span" in names) shouldBe false
+            listOf("carpool_message", "carpool_message_thread").forEach { ((it in names)) shouldBe false }
             listOf("mail_outbox", "mail_send_slot", "mail_budget_lock").forEach { ((it in names)) shouldBe false }
         }
 

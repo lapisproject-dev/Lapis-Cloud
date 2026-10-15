@@ -5333,12 +5333,12 @@ msgid "Gäste"
 msgstr "Invités"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1732
-msgid "Gäste anderer Server zulassen"
-msgstr "Autoriser les invités d'autres serveurs"
+msgid "Gäste und Freunde zulassen"
+msgstr "Autoriser les invités et les amis"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1728
-msgid "Gäste zugelassen"
-msgstr "Invités autorisés"
+msgid "Gäste und Freunde zugelassen"
+msgstr "Invités et amis autorisés"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1048
 msgid "Gastgeberin dieser Besprechung: %1"
@@ -24428,3 +24428,39 @@ msgstr "Parole terminée"
 
 msgid "Das Wort konnte nicht erteilt werden. Bitte versuchen Sie es erneut."
 msgstr "La parole n'a pas pu être donnée. Veuillez réessayer."
+
+msgid "Nur Sie beide sehen diesen Verlauf; er wird 8 Tage nach der Fahrt gelöscht."
+msgstr "Seuls vous deux voyez cet historique ; il est supprimé 8 jours après le trajet."
+
+msgid "Ältere Nachrichten anzeigen"
+msgstr "Afficher les messages plus anciens"
+
+msgid "Strg+Eingabe sendet. Eingabe allein beginnt eine neue Zeile."
+msgstr "Ctrl+Entrée envoie. Entrée seule commence une nouvelle ligne."
+
+msgid "Verlauf beenden"
+msgstr "Terminer l'historique"
+
+msgid "Wirklich beenden? Danach kann niemand mehr schreiben."
+msgstr "Vraiment terminer ? Ensuite, plus personne ne pourra écrire."
+
+msgid "Endgültig beenden"
+msgstr "Terminer définitivement"
+
+msgid "Verlauf beendet."
+msgstr "Historique terminé."
+
+msgid "Nachricht gesendet."
+msgstr "Message envoyé."
+
+msgid "Diese Mitfahrt ist nicht mehr verfügbar."
+msgstr "Ce trajet n'est plus disponible."
+
+msgid "Sie haben den Verlauf beendet."
+msgstr "Vous avez terminé l'historique."
+
+msgid "Der Verlauf wurde beendet."
+msgstr "L'historique a été terminé."
+
+msgid "Dieser Verlauf hat die Höchstzahl von %1 Nachrichten erreicht."
+msgstr "Cet historique a atteint le maximum de %1 messages."

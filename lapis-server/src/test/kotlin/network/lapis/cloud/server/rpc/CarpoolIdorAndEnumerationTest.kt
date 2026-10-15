@@ -18,6 +18,7 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
@@ -145,7 +146,7 @@ class CarpoolIdorAndEnumerationTest :
             var clock = Instant.parse("2026-10-13T10:00:00Z")
             val limiter = CarpoolRateLimiter(now = { clock })
             val member = Uuid.random()
-            repeat(CarpoolAction.REQUEST.perHour) { limiter.tryAcquire(memberId = member, action = CarpoolAction.REQUEST) shouldBe true }
+            repeat(CarpoolAction.REQUEST.limit) { limiter.tryAcquire(memberId = member, action = CarpoolAction.REQUEST) shouldBe true }
             limiter.tryAcquire(memberId = member, action = CarpoolAction.REQUEST) shouldBe false
             limiter.tryAcquire(memberId = member, action = CarpoolAction.INVITE) shouldBe true // another action: another budget
             limiter.tryAcquire(memberId = Uuid.random(), action = CarpoolAction.REQUEST) shouldBe true // another member
@@ -153,10 +154,21 @@ class CarpoolIdorAndEnumerationTest :
             clock += 61.minutes
             limiter.tryAcquire(memberId = member, action = CarpoolAction.REQUEST) shouldBe true
             // confirm, decline and withdraw share ONE budget of 60.
-            repeat(CarpoolAction.DECIDE.perHour) { limiter.tryAcquire(memberId = member, action = CarpoolAction.DECIDE) shouldBe true }
+            repeat(CarpoolAction.DECIDE.limit) { limiter.tryAcquire(memberId = member, action = CarpoolAction.DECIDE) shouldBe true }
             limiter.tryAcquire(memberId = member, action = CarpoolAction.DECIDE) shouldBe false
-            CarpoolAction.FIND.perHour shouldBe 10
-            CarpoolAction.INVITE.perHour shouldBe 20
+            CarpoolAction.FIND.limit shouldBe 10
+            CarpoolAction.INVITE.limit shouldBe 20
+        }
+
+        test("V1.9.139: the message budget is ten per minute, the eleventh is refused and a minute later it works again") {
+            var clock = Instant.parse("2026-10-13T10:00:00Z")
+            val limiter = CarpoolRateLimiter(now = { clock })
+            val member = Uuid.random()
+            repeat(10) { limiter.tryAcquire(memberId = member, action = CarpoolAction.MESSAGE) shouldBe true }
+            limiter.tryAcquire(memberId = member, action = CarpoolAction.MESSAGE) shouldBe false
+            limiter.tryAcquire(memberId = member, action = CarpoolAction.REQUEST) shouldBe true // own budget
+            clock += 61.seconds
+            limiter.tryAcquire(memberId = member, action = CarpoolAction.MESSAGE) shouldBe true
         }
 
         test("normalize folds case, umlauts, accents and spacing") {

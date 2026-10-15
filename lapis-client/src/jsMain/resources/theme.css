@@ -2568,6 +2568,8 @@ html .form-select.is-invalid:focus {
   color: var(--lapis-accent-strong);
 }
 .lapis-mailing-plaintext { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* V1.9.139: the text of a ride message keeps its line breaks (a text node, never HTML). */
+.lapis-pre-wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* Durchsuchbare Personenauswahl (SearchableSelect.kt). Aufbau: der Feld-Wrapper ist eine Flex-Spalte, damit Dropdown und Knoepfe
    (`.lapis-ssel-layer`, Hoehe 0) per `order` DIREKT unter dem <input> liegen -- vor Hinweis- und Fehlerslot, obwohl sie im DOM

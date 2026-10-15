@@ -241,7 +241,7 @@ private fun renderCarpoolCard(
             openForm(CarpoolFormPrefill(editing = null, duplicateFrom = posting))
         }
         renderCarpoolDeleteControl(actionRow = actionRow, posting = posting, onSaved = onSaved)
-        if (posting.type == CarpoolPostingType.OFFER && !posting.isPast) renderOwnerPanel(row = row, posting = posting, ui = ui)
+        if (posting.type == CarpoolPostingType.OFFER) renderOwnerPanel(row = row, posting = posting, ui = ui)
     } else if (!posting.isPast) {
         if (carpoolMayRequestRide(posting)) {
             val requestButton = actionRow.actionButton(ActionIcon.REQUEST_RIDE, tr("Mitfahrt anfragen"), style = ButtonStyle.PRIMARY)

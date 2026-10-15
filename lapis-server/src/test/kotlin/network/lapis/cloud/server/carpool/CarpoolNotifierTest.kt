@@ -125,7 +125,7 @@ class CarpoolNotifierTest :
 
         test("the mail names nobody, carries no meeting note, is bilingual and goes through the registered BULK purpose") {
             val branding = MailBranding(fromDisplayName = "Lapis Test", replyTo = null, publicBaseUrl = "https://lapis.example.org")
-            CarpoolNoticeKind.entries.forEach { kind ->
+            CarpoolNoticeKind.entries.filter { it != CarpoolNoticeKind.MESSAGE }.forEach { kind ->
                 val mail =
                     MailTemplates.carpoolNotice(
                         kind = kind,
@@ -141,6 +141,21 @@ class CarpoolNotifierTest :
                 mail.plainText shouldContain "names nobody"
                 mail.html shouldContain "Hannover"
             }
+            // V1.9.139: the message mail names no date, no place, no person and none of the text.
+            val message =
+                MailTemplates.carpoolNotice(
+                    kind = CarpoolNoticeKind.MESSAGE,
+                    date = LocalDate(2026, 11, 1),
+                    fromPlace = "Braunschweig-GEHEIM",
+                    toPlace = "Hannover-GEHEIM",
+                    branding = branding,
+                )
+            listOf(message.subject, message.plainText, message.html).forEach { text ->
+                text shouldNotContain "2026-11-01"
+                text shouldNotContain "GEHEIM"
+            }
+            message.plainText shouldContain "https://lapis.example.org/app#/carpool"
+            message.subject shouldNotContain "\n"
             MailPurpose.isKnown(CARPOOL_NOTICE_PURPOSE) shouldBe true
             MailPurpose.policyFor(CARPOOL_NOTICE_PURPOSE).lane shouldBe MailLane.BULK
             MailPurpose.policyFor(CARPOOL_NOTICE_PURPOSE).priority shouldBe 1

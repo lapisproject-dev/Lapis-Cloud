@@ -4,7 +4,7 @@
 // Mitfahrgelegenheit suchen (REQUEST). Postfach-Erweiterung statt eigenem Nachrichtensystem:
 // Kontaktaufnahme läuft über eine ganz normale direct_message (siehe
 // network.lapis.cloud.server.rpc.DirectMessaging.insertDirectMessage), es gibt keine eigene
-// Carpool-Kommunikationstabelle. Sichtbarkeit im Feed endet mit dem Abfahrtsdatum
+// Carpool-Kommunikationstabelle (seit V1.9.139 gibt es eine enge Ausnahme, siehe unten). Sichtbarkeit im Feed endet mit dem Abfahrtsdatum
 // (CarpoolService.listPostings filtert departure_date >= heute); die endgültige Löschung folgt
 // erst 7 Tage später (CarpoolRetention), damit ein Mitglied eine abgelaufene eigene Fahrt kurz
 // duplizieren kann.
@@ -21,6 +21,13 @@
 // deleted, the GDPR erasure removes the rows explicitly. Both FKs are plain «Column» UUID attributes with fkEntity (no association(...) block, same
 // reason as author_member_id above). carpool_posting.meeting_note (VARCHAR(200), nullable) carries the meeting point and time, shown only to the
 // driver and a CONFIRMED passenger. The audit entity type CARPOOL_PARTICIPATION lives in 14-audit-log.kuml.kts.
+//
+// V1.9.139 "Mitfahr-Nachrichten": carpool_message_thread + carpool_message (V105__carpool_message.sql) -- a short history per CONFIRMED
+// participation, visible only to the driver and that passenger. sender_side/ended_by_side are DRIVER|PASSENGER (no person reference stored).
+// Lifetime: deleted when the participation leaves CONFIRMED, with the posting, by the GDPR erasure, and by CarpoolRetention (departure + 8
+// days). EXCLUDED from the organization backup (OrganizationSchemaCatalog.EXCLUDED_TABLES). The participation_id FK is ON DELETE CASCADE in
+// the real schema; the generated Exposed tables cannot express it, so CarpoolMessages.deleteFor* delete explicitly. Plain «Column» UUIDs with
+// fkEntity, no association(...) block (same reason as above).
 //
 // Cross-domain stub: ein minimaler id-only Member-Stub (Foundation-owned), gleiches Muster wie in
 // jeder anderen Domain-Datei, nur damit UmlToErmTransformer author_member_id auflösen kann.
@@ -174,4 +181,62 @@ classDiagram(name = "Carpool") {
                 stereotype("Column") { "columnName" to "decided_at" }
             }
         }
+
+    val carpoolMessageSide =
+        enumOf(name = "CarpoolMessageSide") {
+            literal(name = "DRIVER")
+            literal(name = "PASSENGER")
+        }
+
+    classOf(name = "CarpoolMessageThread") {
+        stereotype("Entity") { "tableName" to "carpool_message_thread"; "kotlinObjectName" to "CarpoolMessageThreadTable" }
+
+        attribute(name = "participationId", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "participation_id"; "fkEntity" to "CarpoolParticipation" }
+        }
+        attribute(name = "endedAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "ended_at" }
+        }
+        attribute(name = "endedBySide", type = carpoolMessageSide) {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") {
+                "columnName" to "ended_by_side"
+                "enumType" to "network.lapis.cloud.shared.domain.CarpoolMessageSide"
+            }
+        }
+        attribute(name = "lastMailAt", type = "LocalDateTime") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "last_mail_at" }
+        }
+    }
+
+    classOf(name = "CarpoolMessage") {
+        stereotype("Entity") { "tableName" to "carpool_message"; "kotlinObjectName" to "CarpoolMessageTable" }
+        stereotype("Index") {
+            "columns" to listOf("participation_id", "sent_at", "id")
+            "name" to "idx_carpool_message_participation_sent"
+        }
+
+        attribute(name = "id", type = "UUID") {
+            stereotype("Id")
+            stereotype("Column") { "columnName" to "id" }
+        }
+        attribute(name = "participationId", type = "UUID") {
+            stereotype("Column") { "columnName" to "participation_id"; "fkEntity" to "CarpoolParticipation" }
+        }
+        attribute(name = "senderSide", type = carpoolMessageSide) {
+            stereotype("Column") {
+                "columnName" to "sender_side"
+                "enumType" to "network.lapis.cloud.shared.domain.CarpoolMessageSide"
+            }
+        }
+        attribute(name = "body", type = "String") {
+            stereotype("Column") { "columnName" to "body"; "sqlType" to "VARCHAR(1000)" }
+        }
+        attribute(name = "sentAt", type = "LocalDateTime") {
+            stereotype("Column") { "columnName" to "sent_at" }
+        }
+    }
 }

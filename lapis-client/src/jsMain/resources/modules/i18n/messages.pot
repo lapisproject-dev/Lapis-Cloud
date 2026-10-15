@@ -4779,11 +4779,11 @@ msgid "Gäste"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1732
-msgid "Gäste anderer Server zulassen"
+msgid "Gäste und Freunde zulassen"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1728
-msgid "Gäste zugelassen"
+msgid "Gäste und Freunde zugelassen"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1048
@@ -23430,4 +23430,40 @@ msgid "Wort beendet"
 msgstr ""
 
 msgid "Das Wort konnte nicht erteilt werden. Bitte versuchen Sie es erneut."
+msgstr ""
+
+msgid "Nur Sie beide sehen diesen Verlauf; er wird 8 Tage nach der Fahrt gelöscht."
+msgstr ""
+
+msgid "Ältere Nachrichten anzeigen"
+msgstr ""
+
+msgid "Strg+Eingabe sendet. Eingabe allein beginnt eine neue Zeile."
+msgstr ""
+
+msgid "Verlauf beenden"
+msgstr ""
+
+msgid "Wirklich beenden? Danach kann niemand mehr schreiben."
+msgstr ""
+
+msgid "Endgültig beenden"
+msgstr ""
+
+msgid "Verlauf beendet."
+msgstr ""
+
+msgid "Nachricht gesendet."
+msgstr ""
+
+msgid "Diese Mitfahrt ist nicht mehr verfügbar."
+msgstr ""
+
+msgid "Sie haben den Verlauf beendet."
+msgstr ""
+
+msgid "Der Verlauf wurde beendet."
+msgstr ""
+
+msgid "Dieser Verlauf hat die Höchstzahl von %1 Nachrichten erreicht."
 msgstr ""

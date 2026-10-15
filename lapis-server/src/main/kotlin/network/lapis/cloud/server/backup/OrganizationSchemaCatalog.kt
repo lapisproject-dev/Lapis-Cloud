@@ -55,6 +55,15 @@ object OrganizationSchemaCatalog {
                 "must not become a way to read an unpublished self-description. Restore targets an " +
                 "empty database, so the table simply stays empty and members write the text again " +
                 "(see docs/architecture/public-profiles.adoc, \"Backup\").",
+            "carpool_message" to
+                "Welle V1.9.139. The private ride messages between a driver and ONE confirmed passenger: short-lived (deleted when the " +
+                "participation leaves CONFIRMED, with the posting, by the GDPR erasure, and at the latest 8 days after the trip) and " +
+                "deletion is promised to both people -- a restore must not bring them back, and the ADMIN-only whole-organization " +
+                "backup must not become a way to read them. Direct messages are permanent and therefore not comparable. Restore " +
+                "targets an empty database, so the table simply stays empty (see docs/architecture/carpool.adoc, \"Ride messages\").",
+            "carpool_message_thread" to
+                "Welle V1.9.139. Ended/mail-throttle state of a ride message history -- same reasoning as carpool_message (a thread " +
+                "without its messages is meaningless).",
             "mail_outbox" to
                 "Welle V1.9.81. Transient operational state of the mail pipeline: open rows hold queued system mails sealed under THIS " +
                 "instance's LAPIS_SECRET_ENCRYPTION_KEY (a restore elsewhere could not open them, and re-sending a stale security mail " +

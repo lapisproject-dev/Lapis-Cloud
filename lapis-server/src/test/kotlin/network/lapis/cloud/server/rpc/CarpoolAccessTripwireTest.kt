@@ -38,6 +38,9 @@ class CarpoolAccessTripwireTest :
                 "listParticipants",
                 "setMeetingNote",
                 "getPassengerHint",
+                "sendCarpoolMessage",
+                "carpoolMessages",
+                "endCarpoolThread",
             )
         val passengerAllowlist =
             setOf(
@@ -47,7 +50,12 @@ class CarpoolAccessTripwireTest :
                 "declineParticipation",
                 "withdrawParticipation",
                 "listMyParticipations",
+                // V1.9.139: open to the allowlist, but narrowed to the two parties of a CONFIRMED ride by CarpoolMessages.requireAccess.
+                "sendCarpoolMessage",
+                "carpoolMessages",
+                "endCarpoolThread",
             )
+        val messageMethods = listOf("sendCarpoolMessage", "carpoolMessages", "endCarpoolThread")
 
         val serviceSource = File(serverMain, "network/lapis/cloud/server/rpc/CarpoolService.kt").readText()
 
@@ -60,7 +68,7 @@ class CarpoolAccessTripwireTest :
             return if (next == null) rest else rest.substring(0, next.range.first)
         }
 
-        test("the RPC surface is exactly the known sixteen methods, in the pinned order") {
+        test("the RPC surface is exactly the known nineteen methods, in the pinned order") {
             ICarpoolService::class.java.declaredMethods
                 .filter { !it.isSynthetic && '$' !in it.name }
                 .map { it.name }
@@ -84,11 +92,23 @@ class CarpoolAccessTripwireTest :
             wrong.shouldBeEmpty()
         }
 
+        test(
+            "V1.9.139: the three message methods pass through the ONE gate CarpoolMessages.requireAccess, and use nothing else to decide",
+        ) {
+            val wrong = mutableListOf<String>()
+            messageMethods.forEach { method ->
+                val body = bodyOf(method)
+                if ("CarpoolMessages.requireAccess(" !in body) wrong += "$method must call CarpoolMessages.requireAccess"
+                if ("CARPOOL_" in body) wrong += "$method must not decide on a status set itself"
+            }
+            wrong.shouldBeEmpty()
+        }
+
         test("the passenger guard is called only by the carpool service; the two sets only by the files that apply them") {
             val guardUsers = setOf("CarpoolService.kt", "MembershipGuards.kt")
             val setUsers =
                 guardUsers +
-                    setOf("Foundation.kt", "NavVisibility.kt", "CarpoolParticipations.kt", "CarpoolInviteeSearch.kt")
+                    setOf("Foundation.kt", "NavVisibility.kt", "CarpoolParticipations.kt", "CarpoolInviteeSearch.kt", "CarpoolMessages.kt")
             val roots =
                 listOf(serverMain, File(repoRoot, "lapis-shared/src/commonMain/kotlin"), File(repoRoot, "lapis-client/src/jsMain/kotlin"))
             val offenders = mutableListOf<String>()

@@ -354,7 +354,7 @@ import kotlin.time.Clock
  *   checkbox -- no precedent in this client for a checkbox that fires a server mutation, and it
  *   would force an optimistic-UI violation this file's own rule forbids). Built UNCONDITIONALLY in
  *   [enterCall] (not `if (canModerate)`, unlike the recording/streaming rows) -- the status badge
- *   ("Gäste zugelassen"/"Nur Mitglieder") is visible to EVERY participant, only the toggle/invite
+ *   ("Gäste und Freunde zugelassen"/"Nur Mitglieder") is visible to EVERY participant, only the toggle/invite
  *   buttons are moderator-gated.
  * - **D4 -- no creation-time toggle.** [network.lapis.cloud.shared.domain.ConferenceRoomInput
  *   .allowFederationGuests] stays in the DTO for API completeness/tests; the client never sets it
@@ -1905,11 +1905,11 @@ private fun enterCall(
     var guestAccessInviteButton: Button? = null
 
     fun updateGuestAccessUi() {
-        guestAccessBadge.content = if (guestAccessOpen) tr("Gäste zugelassen") else tr("Nur Mitglieder")
+        guestAccessBadge.content = if (guestAccessOpen) tr("Gäste und Freunde zugelassen") else tr("Nur Mitglieder")
         guestAccessBadge.removeCssClass("text-bg-secondary")
         guestAccessBadge.removeCssClass("text-bg-info")
         guestAccessBadge.addCssClass(if (guestAccessOpen) "text-bg-info" else "text-bg-secondary")
-        guestAccessToggleButton?.text = if (guestAccessOpen) tr("Gastzugang beenden") else tr("Gäste anderer Server zulassen")
+        guestAccessToggleButton?.text = if (guestAccessOpen) tr("Gastzugang beenden") else tr("Gäste und Freunde zulassen")
         guestAccessToggleButton?.removeCssClass("btn-warning")
         guestAccessToggleButton?.removeCssClass("btn-outline-danger")
         guestAccessToggleButton?.addCssClass(if (guestAccessOpen) "btn-outline-danger" else "btn-warning")

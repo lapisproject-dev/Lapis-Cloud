@@ -259,7 +259,7 @@ A person without a membership can take part in a conference: either a *friend* (
 To invite a friend:
 
 . The friend has a friend account on this server (see the friends documentation); a guest signs in through the home server.
-. The moderator opens the room, then "Mehr", and clicks "Gäste anderer Server zulassen". The label also means friend accounts; a help text under the row says so. (Renaming the button is deferred.)
+. The moderator opens the room, then "Mehr", and clicks "Gäste und Freunde zulassen". The label names friends because friend accounts count as guests here; a help text under the row says so.
 . The moderator clicks "Einladung kopieren" and sends the text. It contains the room identifier.
 . The friend opens "Videokonferenz" and enters the identifier under "Als Gast beitreten".
 . The friend confirms the data protection notice (version `2026-10-13.v1`) and joins.

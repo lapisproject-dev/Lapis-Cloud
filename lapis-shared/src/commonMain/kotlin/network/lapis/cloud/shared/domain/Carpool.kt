@@ -134,3 +134,37 @@ data class CarpoolPassengerHintDto(
     val confirmedPassengers: Int,
     val multipleTrips: Boolean,
 )
+
+/** V1.9.139 -- the two parties of a ride-message history; derived from the participation, never a person reference. */
+@Serializable
+enum class CarpoolMessageSide { DRIVER, PASSENGER }
+
+/** V1.9.139 -- one message of a ride history. [mine] is derived on the server; [senderLabel] is the display name of the other party. */
+@Serializable
+data class CarpoolMessageDto(
+    val id: String,
+    val mine: Boolean,
+    val senderLabel: String,
+    val body: String,
+    val sentAt: LocalDateTime,
+)
+
+/** V1.9.139 -- one page of a history ([items] newest first, at most [CarpoolMessageLimits.PAGE_SIZE]). */
+@Serializable
+data class CarpoolMessagePageDto(
+    val items: List<CarpoolMessageDto>,
+    val hasMore: Boolean,
+    val ended: Boolean,
+    val endedByMe: Boolean,
+    val writable: Boolean,
+    /** A number only, for the "maximum reached" display. */
+    val totalCount: Int,
+)
+
+/** V1.9.139 -- the same limits for client and server (`String.length`). */
+object CarpoolMessageLimits {
+    const val MAX_BODY_LENGTH = 1000
+    const val MAX_MESSAGES = 200
+    const val PAGE_SIZE = 50
+    const val PER_MINUTE = 10
+}

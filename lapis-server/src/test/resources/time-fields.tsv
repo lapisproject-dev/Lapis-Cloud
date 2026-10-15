@@ -897,3 +897,7 @@ col:AgreementTextVersionTable.validFrom	D	calendar date (LocalDate); never conve
 col:AgreementTextVersionTable.publishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:AgreementTextDraftTable.validFrom	D	calendar date (LocalDate); never converted
 col:AgreementTextDraftTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:CarpoolMessageThreadTable.endedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:CarpoolMessageThreadTable.lastMailAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:CarpoolMessageTable.sentAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:CarpoolMessageDto.sentAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

@@ -118,8 +118,13 @@ internal fun renderMyParticipationRow(
     row.div(formatDate(item.departureDate) + carpoolDepartureTimeSuffix(item.departureTime)) { addCssClasses("text-muted small") }
     row.untrustedDiv(gettext("von %1", item.driverDisplayName)) { addCssClasses("text-muted small") }
     item.meetingNote?.takeIf { it.isNotBlank() }?.let { renderMeetingNoteLine(row, it) }
-    if (item.isPast) return
+    // V1.9.139: the message history of a CONFIRMED ride stays reachable after the trip (until it is deleted), so its button comes BEFORE the
+    // "past" return -- a past ride has no other action.
+    val hasMessages = item.status == CarpoolParticipationStatus.CONFIRMED
+    if (item.isPast && !hasMessages) return
     val actions = row.hPanel(spacing = 8) { addCssClass("mt-1") }
+    if (hasMessages) carpoolMessagesToggle(actions = actions, host = row, participationId = item.id, ui = ui)
+    if (item.isPast) return
     when (item.status) {
         CarpoolParticipationStatus.OPEN ->
             if (item.awaitingMe) {
@@ -193,7 +198,7 @@ private fun participationButton(
 }
 
 /** A destructive-ish write that first asks inline ("Wirklich ...?"): the same [InlineConfirmGate] grammar as the delete control of a card. */
-private fun confirmedActionButton(
+internal fun confirmedActionButton(
     actions: SimplePanel,
     icon: ActionIcon,
     label: String,
@@ -249,13 +254,21 @@ private fun confirmedActionButton(
 // The driver's side of an own offer
 // ---------------------------------------------------------------------------------------------------------------------------------------
 
-/** Folded away by default: the passenger list is loaded on the FIRST unfold. Hangs under the card of an own, current OFFER. */
+/**
+ * Folded away by default: the passenger list is loaded on the FIRST unfold. Hangs under the card of an own OFFER. After the trip ([CarpoolPostingDto.isPast])
+ * the panel is read-only (no invitation, no meeting note, no removal) and only keeps the message histories reachable until they are deleted.
+ */
 internal fun renderOwnerPanel(
     row: SimplePanel,
     posting: CarpoolPostingDto,
     ui: CarpoolUi,
 ) {
-    val toggle = row.actionButton(ActionIcon.PASSENGERS, tr("Mitfahrer verwalten"), style = ButtonStyle.OUTLINESECONDARY)
+    val toggle =
+        row.actionButton(
+            ActionIcon.PASSENGERS,
+            if (posting.isPast) tr("Mitfahrer") else tr("Mitfahrer verwalten"),
+            style = ButtonStyle.OUTLINESECONDARY,
+        )
     toggle.setAttribute("aria-expanded", "false")
     val body = row.vPanel(spacing = 8) { addCssClasses("border-top pt-2 mt-1") }
     body.hide()
@@ -285,9 +298,10 @@ private fun buildOwnerBody(
             emptyText = tr("Noch keine Mitfahrer."),
             isEmpty = { it.isEmpty() },
             load = { guarded { rpcService<ICarpoolService>().listParticipants(posting.id) } },
-            render = { panel, items -> items.forEach { renderParticipantRow(panel, it, participantUi) } },
+            render = { panel, items -> items.forEach { renderParticipantRow(panel, it, participantUi, past = posting.isPast) } },
         )
     participants.reload()
+    if (posting.isPast) return
     renderInviteSection(body, posting, participantUi)
     renderMeetingNoteForm(body, posting, ui)
 }
@@ -296,6 +310,7 @@ private fun renderParticipantRow(
     panel: SimplePanel,
     item: CarpoolParticipantDto,
     ui: CarpoolUi,
+    past: Boolean,
 ) {
     val row = panel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
     val headerRow = row.hPanel(spacing = 8) { addCssClass("align-items-center") }
@@ -303,6 +318,13 @@ private fun renderParticipantRow(
     item.memberStatus?.let { headerRow.div(memberStatusLabel(it)) { addCssClasses("text-muted small") } }
     headerRow.carpoolStatusBadge(carpoolBadgeSpec(item.status, item.initiator, viewerIsDriver = true))
     val actions = row.hPanel(spacing = 8)
+    if (past) {
+        // After the trip only the message history stays reachable.
+        if (item.status == CarpoolParticipationStatus.CONFIRMED) {
+            carpoolMessagesToggle(actions = actions, host = row, participationId = item.id, ui = ui)
+        }
+        return
+    }
     when (item.status) {
         CarpoolParticipationStatus.OPEN ->
             if (item.awaitingMe) {
@@ -312,7 +334,8 @@ private fun renderParticipantRow(
                     rpcService<ICarpoolService>().withdrawParticipation(item.id)
                 }
             }
-        CarpoolParticipationStatus.CONFIRMED ->
+        CarpoolParticipationStatus.CONFIRMED -> {
+            carpoolMessagesToggle(actions = actions, host = row, participationId = item.id, ui = ui)
             confirmedActionButton(
                 actions,
                 ActionIcon.REMOVE,
@@ -322,6 +345,7 @@ private fun renderParticipantRow(
                 ui,
                 gettext("Mitfahrer entfernt."),
             ) { rpcService<ICarpoolService>().withdrawParticipation(item.id) }
+        }
         CarpoolParticipationStatus.DECLINED, CarpoolParticipationStatus.WITHDRAWN -> Unit
     }
 }

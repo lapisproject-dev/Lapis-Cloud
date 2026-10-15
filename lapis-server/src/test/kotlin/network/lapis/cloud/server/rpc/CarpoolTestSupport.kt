@@ -15,16 +15,20 @@ import kotlinx.datetime.plus
 import network.lapis.cloud.server.carpool.CarpoolDeps
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
+import network.lapis.cloud.server.db.generated.CarpoolMessageTable
+import network.lapis.cloud.server.db.generated.CarpoolMessageThreadTable
 import network.lapis.cloud.server.db.generated.CarpoolParticipationTable
 import network.lapis.cloud.server.db.generated.CarpoolPostingTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.CarpoolMessageSide
 import network.lapis.cloud.shared.domain.CarpoolParticipationInitiator
 import network.lapis.cloud.shared.domain.CarpoolParticipationStatus
 import network.lapis.cloud.shared.domain.CarpoolPostingType
 import network.lapis.cloud.shared.domain.MemberStatus
+import org.jetbrains.exposed.v1.core.JoinType
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.or
@@ -142,9 +146,10 @@ internal class CarpoolTestData {
         toPlace: String = "Hannover",
         notes: String? = null,
         meetingNote: String? = null,
+        departure: LocalDate? = null,
     ): Uuid {
         val id = Uuid.random()
-        val date = today().plus(DatePeriod(days = daysAhead))
+        val date = departure ?: today().plus(DatePeriod(days = daysAhead))
         transaction {
             CarpoolPostingTable.insert {
                 it[CarpoolPostingTable.id] = id
@@ -190,6 +195,53 @@ internal class CarpoolTestData {
         return id
     }
 
+    /** V1.9.139: a ride message inserted directly (history fixtures: 120 or 199 messages would take minutes through the rate-limited service). */
+    fun message(
+        participationId: Uuid,
+        side: CarpoolMessageSide,
+        body: String,
+        sentAt: LocalDateTime = LocalDateTime(2026, 1, 1, 0, 0),
+    ): Uuid {
+        val messageId = Uuid.random()
+        transaction {
+            CarpoolMessageTable.insert {
+                it[id] = messageId
+                it[CarpoolMessageTable.participationId] = participationId
+                it[senderSide] = side
+                it[CarpoolMessageTable.body] = body
+                it[CarpoolMessageTable.sentAt] = sentAt
+            }
+        }
+        return messageId
+    }
+
+    fun postingOf(participationId: Uuid): String =
+        transaction {
+            CarpoolParticipationTable
+                .selectAll()
+                .where { CarpoolParticipationTable.id eq participationId }
+                .single()[CarpoolParticipationTable.postingId]
+                .toString()
+        }
+
+    fun messageCount(participationId: Uuid): Int =
+        transaction {
+            CarpoolMessageTable
+                .selectAll()
+                .where { CarpoolMessageTable.participationId eq participationId }
+                .count()
+                .toInt()
+        }
+
+    fun threadCount(participationId: Uuid): Int =
+        transaction {
+            CarpoolMessageThreadTable
+                .selectAll()
+                .where { CarpoolMessageThreadTable.participationId eq participationId }
+                .count()
+                .toInt()
+        }
+
     fun setStatus(
         memberId: Uuid,
         status: MemberStatus,
@@ -204,6 +256,19 @@ internal class CarpoolTestData {
 
     fun cleanUp() {
         transaction {
+            // V1.9.139: the ride messages first (explicit, like the production code; the foreign key would cascade anyway).
+            val participationIds =
+                CarpoolParticipationTable
+                    .selectAll()
+                    .where { CarpoolParticipationTable.personId inList memberIds }
+                    .map { it[CarpoolParticipationTable.id] } +
+                    CarpoolParticipationTable
+                        .join(CarpoolPostingTable, JoinType.INNER, CarpoolParticipationTable.postingId, CarpoolPostingTable.id)
+                        .selectAll()
+                        .where { CarpoolPostingTable.authorMemberId inList memberIds }
+                        .map { it[CarpoolParticipationTable.id] }
+            CarpoolMessageTable.deleteWhere { CarpoolMessageTable.participationId inList participationIds }
+            CarpoolMessageThreadTable.deleteWhere { CarpoolMessageThreadTable.participationId inList participationIds }
             CarpoolParticipationTable.deleteWhere { (postingId inList postingIds) or (personId inList memberIds) }
             val authored =
                 CarpoolPostingTable

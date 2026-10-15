@@ -16,7 +16,7 @@ import kotlin.uuid.Uuid
 private val logger = KotlinLogging.logger {}
 
 /** What happened on a ride. The mail carries no name and no meeting note, only the kind, the date and the two places. */
-enum class CarpoolNoticeKind { REQUESTED, INVITED, CONFIRMED, DECLINED, WITHDRAWN, POSTING_CHANGED, POSTING_DELETED }
+enum class CarpoolNoticeKind { REQUESTED, INVITED, CONFIRMED, DECLINED, WITHDRAWN, POSTING_CHANGED, POSTING_DELETED, MESSAGE }
 
 /** One pending notification, collected INSIDE the transaction and sent only AFTER it committed (Exposed repeats a block on `SQLException`). */
 data class CarpoolNotice(
@@ -88,6 +88,9 @@ class SmtpCarpoolNoticeMailer(
 class CarpoolNotifier(
     private val mailer: CarpoolNoticeMailer,
 ) {
+    /** `false` when no mail can be sent at all (V1.9.139: the message throttle must not be consumed then). */
+    val mailEnabled: Boolean get() = mailer.enabled
+
     /** Call AFTER the transaction has committed. */
     fun dispatch(notices: List<CarpoolNotice>) {
         if (notices.isEmpty() || !mailer.enabled) return

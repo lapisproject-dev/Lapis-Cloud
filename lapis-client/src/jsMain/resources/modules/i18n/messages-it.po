@@ -5317,12 +5317,12 @@ msgid "Gäste"
 msgstr "Ospiti"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1732
-msgid "Gäste anderer Server zulassen"
-msgstr "Consenti ospiti di altri server"
+msgid "Gäste und Freunde zulassen"
+msgstr "Consenti ospiti e amici"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1728
-msgid "Gäste zugelassen"
-msgstr "Ospiti ammessi"
+msgid "Gäste und Freunde zugelassen"
+msgstr "Ospiti e amici ammessi"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/ConferenceScreen.kt:1048
 msgid "Gastgeberin dieser Besprechung: %1"
@@ -24409,3 +24409,39 @@ msgstr "Parola terminata"
 
 msgid "Das Wort konnte nicht erteilt werden. Bitte versuchen Sie es erneut."
 msgstr "Non è stato possibile concedere la parola. Riprovi."
+
+msgid "Nur Sie beide sehen diesen Verlauf; er wird 8 Tage nach der Fahrt gelöscht."
+msgstr "Solo voi due vedete questa cronologia; viene eliminata 8 giorni dopo il viaggio."
+
+msgid "Ältere Nachrichten anzeigen"
+msgstr "Mostra messaggi precedenti"
+
+msgid "Strg+Eingabe sendet. Eingabe allein beginnt eine neue Zeile."
+msgstr "Ctrl+Invio invia. Invio da solo va a capo."
+
+msgid "Verlauf beenden"
+msgstr "Termina la cronologia"
+
+msgid "Wirklich beenden? Danach kann niemand mehr schreiben."
+msgstr "Terminare davvero? Dopo nessuno potrà più scrivere."
+
+msgid "Endgültig beenden"
+msgstr "Termina definitivamente"
+
+msgid "Verlauf beendet."
+msgstr "Cronologia terminata."
+
+msgid "Nachricht gesendet."
+msgstr "Messaggio inviato."
+
+msgid "Diese Mitfahrt ist nicht mehr verfügbar."
+msgstr "Questo passaggio non è più disponibile."
+
+msgid "Sie haben den Verlauf beendet."
+msgstr "Lei ha terminato la cronologia."
+
+msgid "Der Verlauf wurde beendet."
+msgstr "La cronologia è stata terminata."
+
+msgid "Dieser Verlauf hat die Höchstzahl von %1 Nachrichten erreicht."
+msgstr "Questa cronologia ha raggiunto il massimo di %1 messaggi."

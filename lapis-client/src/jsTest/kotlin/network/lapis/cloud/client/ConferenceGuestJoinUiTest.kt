@@ -58,6 +58,8 @@ class ConferenceGuestJoinUiTest {
         assertEquals("Die Besprechung „Vorstandssitzung\" ist bereits beendet.", reason)
     }
 
+    // V1.9.139: the moderator's switch was renamed to "Gäste und Freunde zulassen"; THIS sentence stays on purpose -- it is the reason shown to a
+    // FEDERATED GUEST (a person from another server), for whom "Gäste anderer Server" is exactly right. GuestToggleRenameTest does not look for it.
     @Test
     fun blockedReason_notOptedIn() {
         val reason = conferenceGuestJoinBlockedReason(joinInfo(allowsFederationGuests = false))

@@ -4,17 +4,22 @@ import network.lapis.cloud.shared.rpc.ConflictException
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 /** The rate-limited actions of the carpool participation feature. Confirm, decline and withdraw share ONE budget ([DECIDE]). */
 internal enum class CarpoolAction(
-    val perHour: Int,
+    val limit: Int,
+    val window: Duration,
 ) {
-    REQUEST(perHour = 20),
-    INVITE(perHour = 20),
-    FIND(perHour = 10),
-    DECIDE(perHour = 60),
+    REQUEST(limit = 20, window = 1.hours),
+    INVITE(limit = 20, window = 1.hours),
+    FIND(limit = 10, window = 1.hours),
+    DECIDE(limit = 60, window = 1.hours),
+
+    /** V1.9.139 -- ride messages: ten per minute and member. */
+    MESSAGE(limit = 10, window = 1.minutes),
 }
 
 /**
@@ -38,8 +43,8 @@ internal class CarpoolRateLimiter(
         synchronized(lock) {
             val current = now()
             val window = windows.getOrPut(memberId to action) { ArrayDeque() }
-            prune(window = window, cutoff = current - HOUR)
-            if (window.size >= action.perHour) return@synchronized false
+            prune(window = window, cutoff = current - action.window)
+            if (window.size >= action.limit) return@synchronized false
             window.addLast(current)
             if (windows.size > maxTrackedKeys) evict(current)
             true
@@ -63,14 +68,9 @@ internal class CarpoolRateLimiter(
     }
 
     private fun evict(current: Instant) {
-        val cutoff = current - HOUR
-        windows.entries.removeIf { (_, window) ->
-            prune(window = window, cutoff = cutoff)
+        windows.entries.removeIf { (key, window) ->
+            prune(window = window, cutoff = current - key.second.window)
             window.isEmpty()
         }
-    }
-
-    private companion object {
-        val HOUR: Duration = 1.hours
     }
 }

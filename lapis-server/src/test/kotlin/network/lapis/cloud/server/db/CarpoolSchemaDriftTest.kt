@@ -4,6 +4,8 @@ import dev.kuml.erm.model.ErmModel
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.server.db.generated.CarpoolMessageTable
+import network.lapis.cloud.server.db.generated.CarpoolMessageThreadTable
 import network.lapis.cloud.server.db.generated.CarpoolParticipationTable
 import network.lapis.cloud.server.db.generated.CarpoolPostingTable
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -22,11 +24,17 @@ class CarpoolSchemaDriftTest :
         val scriptFile = File(KumlModelLoader.kumlSourceDir, "57-carpool.kuml.kts")
         val model: ErmModel by lazy { KumlModelLoader.loadErmModel(scriptFile) }
 
-        test("the model declares exactly carpool_posting, carpool_participation and the member stub") {
-            model.entities.map { it.name }.toSet() shouldBe setOf("carpool_posting", "carpool_participation", "member")
+        test("the model declares exactly the carpool tables and the member stub") {
+            model.entities.map { it.name }.toSet() shouldBe
+                setOf("carpool_posting", "carpool_participation", "carpool_message_thread", "carpool_message", "member")
         }
 
-        listOf("carpool_posting" to "member", "carpool_participation" to "carpool_posting").forEach { (table, _) ->
+        listOf(
+            "carpool_posting" to "member",
+            "carpool_participation" to "carpool_posting",
+            "carpool_message_thread" to "carpool_participation",
+            "carpool_message" to "carpool_participation",
+        ).forEach { (table, _) ->
             test("$table matches the real migrated schema (columns, nullability)") {
                 val entity = model.entities.single { it.name == table }
                 val real = transaction { introspect(table) }
@@ -43,6 +51,11 @@ class CarpoolSchemaDriftTest :
             real.foreignKeys["person_id"] shouldBe "member"
         }
 
+        test("the foreign keys of the message tables point at carpool_participation") {
+            transaction { introspect("carpool_message").foreignKeys["participation_id"] } shouldBe "carpool_participation"
+            transaction { introspect("carpool_message_thread").foreignKeys["participation_id"] } shouldBe "carpool_participation"
+        }
+
         test("the entity column-name sets match the hand-written Exposed objects 1:1") {
             model.entities
                 .single { it.name == "carpool_posting" }
@@ -54,6 +67,16 @@ class CarpoolSchemaDriftTest :
                 .attributes
                 .map { it.name } shouldContainExactlyInAnyOrder
                 CarpoolParticipationTable.columns.map { it.name }
+            model.entities
+                .single { it.name == "carpool_message_thread" }
+                .attributes
+                .map { it.name } shouldContainExactlyInAnyOrder
+                CarpoolMessageThreadTable.columns.map { it.name }
+            model.entities
+                .single { it.name == "carpool_message" }
+                .attributes
+                .map { it.name } shouldContainExactlyInAnyOrder
+                CarpoolMessageTable.columns.map { it.name }
         }
     })
 
