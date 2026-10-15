@@ -147,7 +147,7 @@ still wrong.
 [source,bash]
 ----
 cd deploy/example
-cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.35.0) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
+cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.36.0) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
 docker compose pull
 docker compose up -d
 docker compose logs -f lapis-server
@@ -343,7 +343,7 @@ on 2026-10-10 (the tag `v0.31.0` has no image: its first build ran out of heap, 
 (GitHub package settings; an organisation must allow public packages first). Check
 `docker buildx imagetools inspect ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` before switching an instance; an instance on the old server-side build
 keeps working until it is switched (see "Switching a real instance from server-side builds to the published image" below). Example:
-`LAPIS_IMAGE_TAG=0.35.0` (no `v`; the git tag is `v0.35.0`, the image tag is `0.35.0`).
+`LAPIS_IMAGE_TAG=0.36.0` (no `v`; the git tag is `v0.36.0`, the image tag is `0.36.0`).
 ====
 
 Since V1.9.93 the server is **not built on the host any more**: CI builds the image once per release tag and publishes it, the host sets
@@ -362,6 +362,8 @@ any instance: that wave edited 16 already-applied Flyway migration files in plac
 to run at all on any of these three already-migrated instances until `flywayRepair` has run against
 each of them -- see the CHANGELOG "Operator notes" entry for this wave for the full mechanism and
 the exact command. Run it once per instance before rebuilding that instance below.
+
+Upgrading from `v0.35.0` to `v0.36.0` adds three additive migrations (`V102` video overlays, `V103` the streaming platform `X`, `V104` versioned agreement texts; the reported migration count goes up by exactly three, check the real count) and needs no `flywayRepair` of its own: take a backup, set `LAPIS_IMAGE_TAG=0.36.0`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. **Things to know before upgrading:** (1) the sign-in and consent pages (guest consent, home-server form, MCP consent, error pages) now send security headers they never sent before (`frame-ancestors 'none'`, `no-store`, a strict CSP); (2) the browser's own date and time pickers are gone from the web client and English dates are no longer ISO (see `docs/features/locale-dates.adoc`); (3) the public registration now shows an **agreement text per instance**: until an ADMIN publishes a reviewed text in the administration screen "Vertragstexte", the built-in placeholder (membership agreement `2026-07-23.v1`, friend terms `2026-08-15.v1`) stays active and registration continues, with a warning for administrators; publishing a new text forces nobody to accept it again and Lapis does not check its legal soundness; (4) video overlays are off until an administrator switches on "Overlays anbieten" and uploads a library; the optional variable `LAPIS_VIDEO_OVERLAY_STORAGE_ROOT` (default `<documents>/video-overlays`) names the folder of the uploaded images, no compose change is needed when the documents volume is already persistent; (5) timer and floor state live in the server's memory and are lost on a restart; (6) the new temporary floor grant of the encounter space was **not verified against a real LiveKit** -- run the "Temporary floor script" of `docs/architecture/encounter-space-staging-test.adoc` on a staging instance before you let office holders use it.
 
 Upgrading from `v0.34.0` to `v0.35.0` adds one additive migration (`V101`, a room option; the reported migration count goes up by exactly one, check the real count) and needs no `flywayRepair` of its own: take a backup, set `LAPIS_IMAGE_TAG=0.35.0`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. Reactions and raised hands need nothing else (the queue lives in memory and is lost on a restart). **Public event page:** the page `/veranstaltung/<slug>` now carries the full Lapis header and a styled layout; a website that links to it needs no change, one that wants the slim, header-less shape adds `?embed=1`. An `<iframe>` of that shape works only if `LAPIS_EMBED_ENABLED=true` and the website's origin is in `LAPIS_EMBED_ALLOWED_ORIGINS`; without them the page stays unframeable. No new environment variable.
 

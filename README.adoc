@@ -83,15 +83,15 @@ this repository. This README describes only the technical scope.
 * **Deployment**: Docker Compose (`deploy/example/`). Since `v0.31.1` (V1.9.93) the server image is built once per release tag by CI and
   published to GHCR (`ghcr.io/lapisproject-dev/lapis-cloud:<version>`); hosts pull it instead of compiling the sources
   (`LAPIS_IMAGE_TAG` in `.env`, rollback = previous tag). The pipeline has run and is verified: the published image
-  `ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` (the first image; later tags such as `0.35.0` follow the same route, an instance moves by setting `LAPIS_IMAGE_TAG`) is public -- see `docs/architecture/ci-pipeline.adoc`
+  `ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` (the first image; later tags such as `0.36.0` follow the same route, an instance moves by setting `LAPIS_IMAGE_TAG`) is public -- see `docs/architecture/ci-pipeline.adoc`
   and `deploy/example/README.adoc`. A local source build stays available through `docker-compose.build.yml`.
 
 == Status
 
-Current release: *v0.35.0* (database schema *V101*; feature release on `v0.34.0`: **reactions and a raised-hand queue** (Wortmeldeliste) in the video conference, and the **public event page** with the Lapis header, a styled layout and a slim `?embed=1` variant -- neither has been seen yet by real people in a real browser window or a real call, and the translations were written by the model; see `CHANGELOG.md` `[0.35.0]` for the behaviour changes, the migration `V101` and the honest limitations). Lapis Cloud contains standard membership management (members, contributions, events, communication, GDPR, accounting),
+Current release: *v0.36.0* (database schema *V104*; feature release on `v0.35.0`: **video overlays** (logos, name, frame in your own camera image), a **conference timer**, **X as a streaming platform**, **dates and times in the locale of the UI language everywhere in the web client**, **travel expense polish**, a **wider registration with per-instance versioned agreement texts** (the built-in text is a placeholder until an administrator publishes a reviewed one), **styled sign-in, consent, member-card and error pages** with new security headers, the redesigned **public article page** and a **temporary floor grant in the encounter space** -- none of it has been seen yet by real people in a real browser window or call, the floor grant has not run against a real LiveKit, and the translations were written by the model; see `CHANGELOG.md` `[0.36.0]` for the behaviour changes, the migrations `V102` to `V104` and the honest limitations). Lapis Cloud contains standard membership management (members, contributions, events, communication, GDPR, accounting),
 the meritocratic governance layer (voting, elections, systemic consensus, LTR economy), federation, video conferencing and many optional modules.
 
-* Not yet released: `CHANGELOG.md` `[Unreleased]` is empty; everything up to V1.9.128 is in `v0.35.0`.
+* Not yet released: `CHANGELOG.md` `[Unreleased]` is empty; everything up to V1.9.138 is in `v0.36.0`.
 * `CHANGELOG.md` is the authoritative release history; the long-form narrative is in link:docs/release-history.adoc[docs/release-history.adoc].
 * Website: https://cloud.lapisproject.dev
 * Feature documentation: link:docs/features/index.adoc[docs/features/index.adoc]

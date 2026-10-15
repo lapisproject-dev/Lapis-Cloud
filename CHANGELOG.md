@@ -6,6 +6,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.36.0] — 2026-10-15
+
+Feature release on top of `[0.35.0]` (V1.9.129 -- V1.9.138 and a test fix): **video overlays** (logos, name, frame in your own camera image), a **conference timer**, **X as a streaming platform**, **travel expense polish** (dates in the locale, per-meal amounts, live breakdown), a **wider registration with per-instance versioned agreement texts**, **styled sign-in, consent, member-card and error pages** with new security headers, **dates and times in the locale of the UI language everywhere**, the redesigned **public article page**, and a **temporary floor grant in the encounter space**. Three additive migrations: **`V102`** (video overlays), **`V103`** (platform `X`), **`V104`** (agreement texts). One optional environment variable: `LAPIS_VIDEO_OVERLAY_STORAGE_ROOT`. **Behaviour changes first:** the browser's date/time pickers are gone and English no longer shows ISO dates; the sign-in and consent pages now send security headers (none before); the registration shows the placeholder agreement text until an ADMIN publishes a reviewed one (registration continues, administrators see a warning); the article page links and CSP changed. **Not verified:** none of it has been seen by real people in a real browser window or call, the floor grant has not run against a real LiveKit, the translations were written by the model; the sections below hold the honest limitations of each wave.
+
 ### V1.9.138 -- Temporary floor in the encounter space
 
 An office holder (PULPIT/STEWARD) can give one person of the congregation the floor for two minutes, extend it up to ten minutes in total, and
