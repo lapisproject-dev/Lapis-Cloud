@@ -112,6 +112,10 @@ object Routes {
     // file (the first ADMIN-only route in this client).
     const val BACKUP = "/backup"
 
+    // V1.9.134 "Vertragstexte" -- the administration of the texts shown at registration (membership agreement, FRIEND terms). Role gate verified against
+    // `AgreementTextAdminService.kt`: every method `requireRole(ADMIN)`, so this route is ADMIN-only exactly like [BACKUP].
+    const val AGREEMENT_TEXTS = "/agreement-texts"
+
     // Compliance UI wave, screen 3 of 5 -- AVV-Register/TOMs/DSFA/Datenpannenmeldung. Role gate
     // verified against `DsgvoComplianceService.kt`'s `COMPLIANCE_READ_ROLES` constant: BOARD/ADMIN,
     // deliberately WITHOUT TREASURER/MEMBER (unlike [AUDIT_LOG]) -- see `IDsgvoComplianceService`
@@ -905,6 +909,9 @@ fun initRouting(pageContainer: SimplePanel) {
     }
     routing.kvOn(Routes.BACKUP) {
         requireRole(routing, AccountRole.ADMIN) { show(Routes.BACKUP, ::renderBackupScreen) }
+    }
+    routing.kvOn(Routes.AGREEMENT_TEXTS) {
+        requireRole(routing, AccountRole.ADMIN) { show(Routes.AGREEMENT_TEXTS, ::renderAgreementTextsScreen) }
     }
     routing.kvOn(Routes.EMBED_INTEGRATION) {
         requireRole(routing, AccountRole.ADMIN) { show(Routes.EMBED_INTEGRATION, ::renderEmbedIntegrationScreen) }

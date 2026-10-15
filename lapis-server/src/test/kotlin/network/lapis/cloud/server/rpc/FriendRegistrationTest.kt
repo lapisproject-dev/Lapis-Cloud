@@ -18,6 +18,7 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
+import network.lapis.cloud.server.agreementtexts.AgreementTextTestState
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
@@ -31,9 +32,11 @@ import network.lapis.cloud.server.mail.FakeFriendVerificationMailer
 import network.lapis.cloud.server.mail.FriendVerificationMailer
 import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.time.OrganizationTimeZone
+import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.DeliveryStatus
 import network.lapis.cloud.shared.domain.FriendRegistrationInput
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.rpc.AgreementTextOutdatedException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -188,8 +191,51 @@ class FriendRegistrationTest :
                 val response =
                     client.post("/test/register-friend?email=$email&termsVersion=stale-version&termsSha256=deadbeef")
                 response.status shouldBe HttpStatusCode.Conflict
+                response.bodyAsText() shouldBe "AgreementTextOutdatedException"
                 findMemberIdByEmail(email) shouldBe null
                 recordingMailer.sentTo shouldBe emptyList()
+            }
+        }
+
+        test(
+            "V1.9.134: after a FRIEND terms version is published the placeholder is outdated and the current version's label+hash are stored",
+        ) {
+            val label = "2026-10-01.v1"
+            val sha =
+                AgreementTextTestState.publishDirect(
+                    kind = AgreementTextKind.FRIEND,
+                    label = label,
+                    body = "Eigene Freund-Nutzungsbedingungen.",
+                )
+            try {
+                testApplication {
+                    val recordingMailer = RecordingFriendVerificationMailer()
+                    application {
+                        install(StatusPages) { installFriendRegistrationExceptionHandlers() }
+                        routing { registerFriendRegistrationTestRoutes(mailer = recordingMailer) }
+                    }
+                    val old = "friend-v134-old@example.org"
+                    val rejected = client.post("/test/register-friend?email=$old")
+                    rejected.status shouldBe HttpStatusCode.Conflict
+                    rejected.bodyAsText() shouldBe "AgreementTextOutdatedException"
+                    findMemberIdByEmail(old) shouldBe null
+
+                    val fresh = "friend-v134-new@example.org"
+                    client.post("/test/register-friend?email=$fresh&termsVersion=$label&termsSha256=$sha").status shouldBe HttpStatusCode.OK
+                    val memberId = requireNotNull(findMemberIdByEmail(fresh))
+                    createdMemberIds += memberId
+                    val ack =
+                        transaction {
+                            FriendTermsAcknowledgmentTable
+                                .selectAll()
+                                .where { FriendTermsAcknowledgmentTable.memberId eq memberId }
+                                .single()
+                        }
+                    ack[FriendTermsAcknowledgmentTable.termsVersion] shouldBe label
+                    ack[FriendTermsAcknowledgmentTable.termsSha256] shouldBe sha
+                }
+            } finally {
+                AgreementTextTestState.reset()
             }
         }
 
@@ -570,6 +616,9 @@ private fun StatusPagesConfig.installFriendRegistrationExceptionHandlers() {
     }
     exception<ConflictException> { call, cause ->
         call.respondText(cause.message, status = HttpStatusCode.Conflict)
+    }
+    exception<AgreementTextOutdatedException> { call, _ ->
+        call.respondText("AgreementTextOutdatedException", status = HttpStatusCode.Conflict)
     }
     exception<WeakPasswordException> { call, cause ->
         call.respondText(cause.message, status = HttpStatusCode.BadRequest)

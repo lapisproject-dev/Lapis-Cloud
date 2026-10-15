@@ -257,6 +257,7 @@ import network.lapis.cloud.server.routes.registerVideoOverlayRoutes
 import network.lapis.cloud.server.routes.respondPublicCanonicalRedirect
 import network.lapis.cloud.server.rpc.AccountingExportService
 import network.lapis.cloud.server.rpc.AccountingService
+import network.lapis.cloud.server.rpc.AgreementTextAdminService
 import network.lapis.cloud.server.rpc.AiAssistantService
 import network.lapis.cloud.server.rpc.ApiKeyService
 import network.lapis.cloud.server.rpc.ArticleImportService
@@ -356,6 +357,7 @@ import network.lapis.cloud.shared.domain.PaymentProvider
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IAccountingExportService
 import network.lapis.cloud.shared.rpc.IAccountingService
+import network.lapis.cloud.shared.rpc.IAgreementTextAdminService
 import network.lapis.cloud.shared.rpc.IAiAssistantService
 import network.lapis.cloud.shared.rpc.IApiKeyService
 import network.lapis.cloud.shared.rpc.IArticleImportService
@@ -2562,7 +2564,8 @@ internal fun Application.module(
                 bulkApproveRateLimiter = articleBulkApproveRateLimiter,
             )
         }
-        // V1.9.133 display-only conference timer. MUST stay the LAST registerService: Kilua numbers routes by declaration order.
+        // V1.9.133 display-only conference timer. Kilua numbers routes by declaration order, so a new service is ALWAYS appended at the end;
+        // ConferenceTimerServiceEventGuardTripwireTest pins the tail order (timer, then agreement texts).
         registerService(IConferenceTimerService::class) { call ->
             ConferenceTimerService(
                 call = call,
@@ -2573,6 +2576,8 @@ internal fun Application.module(
                 readRateLimiter = conferenceTimerReadRateLimiter,
             )
         }
+        // V1.9.134 administration of the registration texts. MUST stay the LAST registerService (see above).
+        registerService(IAgreementTextAdminService::class) { call -> AgreementTextAdminService(call) }
     }
 
     routing {

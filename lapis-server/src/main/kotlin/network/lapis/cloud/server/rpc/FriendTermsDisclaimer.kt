@@ -20,6 +20,10 @@ import java.security.MessageDigest
  * requires a NEW [VERSION] string, never an in-place edit of [TEXT] under the same version (that
  * would silently invalidate the audit trail's claim that a given registrant saw a given version's
  * exact wording).
+ *
+ * Since V1.9.134 this is the built-in STANDARD text: it is shown only while no version of this kind has been published in the
+ * database ([network.lapis.cloud.server.agreementtexts.AgreementTextResolver]). Text, [VERSION] and [SHA256] stay unchanged forever
+ * (`AgreementTextBuiltinPinTest`), because acknowledgments already stored refer to exactly this wording.
  */
 object FriendTermsDisclaimer {
     const val VERSION: String = "2026-08-15.v1"

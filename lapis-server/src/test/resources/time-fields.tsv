@@ -888,3 +888,12 @@ col:TravelExpenseSepaBatchTable.requestedExecutionDate	D	calendar date (LocalDat
 col:TravelExpenseSepaBatchTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:VideoOverlayAssetTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:VideoOverlayAdminItemDto.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AgreementTextVersionSummaryDto.validFrom	D	calendar date (LocalDate); never converted
+dto:AgreementTextVersionSummaryDto.publishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AgreementTextDraftDto.validFrom	D	calendar date (LocalDate); never converted
+dto:AgreementTextDraftDto.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:AgreementTextDraftInput.validFrom	D	calendar date (LocalDate); never converted
+col:AgreementTextVersionTable.validFrom	D	calendar date (LocalDate); never converted
+col:AgreementTextVersionTable.publishedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:AgreementTextDraftTable.validFrom	D	calendar date (LocalDate); never converted
+col:AgreementTextDraftTable.updatedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

@@ -72,3 +72,9 @@ warning (not a success) whenever the person was not told.
 * The operator cannot change the text.
 * Not tested against a real SMTP server or real mailboxes.
 * In Keycloak mode a new applicant cannot sign in locally; the `/app` link leads to the Keycloak login, which is all this mail promises.
+
+== The text the applicant accepted
+
+The applicant accepted the membership agreement that was current when they registered (V1.9.134): label and SHA-256 are in `membership_agreement_acknowledgment`. Since V1.9.134 an
+instance's ADMIN can publish its own, versioned text; what is shown at registration, how a changed text is handled and what stays unchanged is in
+link:agreement-texts.adoc[Registration texts].

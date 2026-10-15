@@ -7117,7 +7117,7 @@ msgid "Nur Mitglieder"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:62
-msgid "Nutzungsbedingungen fuer Freund-Konten (Version %1)"
+msgid "Nutzungsbedingungen für Freund-Konten (Version %1)"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:49
@@ -23128,3 +23128,132 @@ msgid "%1 Sekunde"
 msgid_plural "%1 Sekunden"
 msgstr[0] ""
 msgstr[1] ""
+
+msgid "Vertragstexte"
+msgstr ""
+
+msgid "Hier pflegen Sie die Texte, die bei der Registrierung angezeigt und bestätigt werden. Eine veröffentlichte Fassung kann nicht mehr geändert werden; jede Änderung ist eine neue Fassung."
+msgstr ""
+
+msgid "Beitrittsvertrag"
+msgstr ""
+
+msgid "Freund-Nutzungsbedingungen"
+msgstr ""
+
+msgid "Platzhaltertext aktiv: Diese Instanz zeigt bei der Registrierung den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie Ihre rechtlich geprüfte Fassung."
+msgstr ""
+
+msgid "Text der Version %1"
+msgstr ""
+
+msgid "Aktuelle Fassung"
+msgstr ""
+
+msgid "Eingebauter Mustertext, Version %1."
+msgstr ""
+
+msgid "Version: %1"
+msgstr ""
+
+msgid "Gültig ab: %1"
+msgstr ""
+
+msgid "Veröffentlicht am %1 von %2"
+msgstr ""
+
+msgid "Prüfsumme: %1"
+msgstr ""
+
+msgid "Zeichen: %1"
+msgstr ""
+
+msgid "Personen ohne Bestätigung dieser Fassung: %1"
+msgstr ""
+
+msgid "Text anzeigen"
+msgstr ""
+
+msgid "Bitte eine Version angeben: Buchstaben, Ziffern, Punkt, Unterstrich und Bindestrich, höchstens %1 Zeichen."
+msgstr ""
+
+msgid "Bitte geben Sie den Vertragstext ein."
+msgstr ""
+
+msgid "Der Vertragstext darf höchstens %1 Zeichen lang sein."
+msgstr ""
+
+msgid "Der Vertragstext enthält unzulässige Zeichen (Steuerzeichen oder Richtungsumschalter)."
+msgstr ""
+
+msgid "Nächste Fassung"
+msgstr ""
+
+msgid "Zum Beispiel 2026-10-15.v1. Jede Fassung braucht eine neue Bezeichnung."
+msgstr ""
+
+msgid "Gültig ab"
+msgstr ""
+
+msgid "Nicht in der Zukunft und nicht vor der aktuellen Fassung."
+msgstr ""
+
+msgid "Vertragstext"
+msgstr ""
+
+msgid "Maßgeblich ist die deutsche Fassung. Übersetzungen sind nicht rechtsverbindlich."
+msgstr ""
+
+msgid "Die Vorschau erscheint, sobald Sie Text eingeben."
+msgstr ""
+
+msgid "Vorschau des Vertragstextes"
+msgstr ""
+
+msgid "Vorschau aktualisieren"
+msgstr ""
+
+msgid "Diese Versionsbezeichnung ist bereits vergeben."
+msgstr ""
+
+msgid "Dieser Text oder dieses Datum ist nicht zulässig: Das Datum darf weder in der Zukunft noch vor der aktuellen Fassung liegen, und der Text darf nicht dem Mustertext entsprechen."
+msgstr ""
+
+msgid "Fassung veröffentlichen?"
+msgstr ""
+
+msgid "Version %1, gültig ab %2, %3 Zeichen."
+msgstr ""
+
+msgid "Diese Fassung kann nicht mehr geändert oder gelöscht werden."
+msgstr ""
+
+msgid "Die Fassung wurde veröffentlicht."
+msgstr ""
+
+msgid "Veröffentlichte Fassungen"
+msgstr ""
+
+msgid "Noch keine eigene Fassung veröffentlicht."
+msgstr ""
+
+msgid "Platzhaltertext aktiv: %1"
+msgstr ""
+
+msgid "Vertragstexte bearbeiten"
+msgstr ""
+
+msgid "Bitte lesen Sie den vollständigen Text."
+msgstr ""
+
+msgid "Der Vertrag wurde aktualisiert. Bitte lesen Sie ihn erneut."
+msgstr ""
+
+msgid "Die Nutzungsbedingungen wurden aktualisiert. Bitte lesen Sie sie erneut."
+msgstr ""
+
+msgid "Der Vertragstext ist nicht zulässig. Bitte prüfen Sie Länge, Zeichen, Version und Datum."
+msgstr ""
+
+msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
+msgstr ""

@@ -6,6 +6,7 @@ import io.kotest.matchers.shouldNotBe
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
 import io.ktor.client.request.post
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
@@ -18,6 +19,7 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDate
+import network.lapis.cloud.server.agreementtexts.AgreementTextTestState
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AccountTable
@@ -32,7 +34,9 @@ import network.lapis.cloud.server.security.LoginRateLimiter
 import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.rpc.AgreementTextOutdatedException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -147,7 +151,49 @@ class FriendUpgradePathTest :
                         header("Authorization", "Bearer $rawToken")
                     }
                 response.status shouldBe HttpStatusCode.Conflict
+                response.bodyAsText() shouldBe "AgreementTextOutdatedException"
                 statusOf(memberId) shouldBe MemberStatus.FRIEND
+            }
+        }
+
+        test("V1.9.134: applyForMembership compares against the published version and stores its label+hash") {
+            val label = "2026-10-01.v1"
+            val sha =
+                AgreementTextTestState.publishDirect(
+                    kind = AgreementTextKind.MEMBERSHIP,
+                    label = label,
+                    body = "Eigener Beitrittsvertrag.",
+                )
+            try {
+                testApplication {
+                    application {
+                        install(StatusPages) { installFriendUpgradeExceptionHandlers() }
+                        routing { registerFriendUpgradeTestRoutes() }
+                    }
+                    val (stale, staleToken) = createFriendMember("upgrade-v134-stale@example.org")
+                    val rejected = client.post("/test/apply-for-membership") { header("Authorization", "Bearer $staleToken") }
+                    rejected.status shouldBe HttpStatusCode.Conflict
+                    rejected.bodyAsText() shouldBe "AgreementTextOutdatedException"
+                    statusOf(stale) shouldBe MemberStatus.FRIEND
+
+                    val (memberId, rawToken) = createFriendMember("upgrade-v134-fresh@example.org")
+                    client
+                        .post("/test/apply-for-membership?agreementVersion=$label&agreementSha256=$sha") {
+                            header("Authorization", "Bearer $rawToken")
+                        }.status shouldBe HttpStatusCode.OK
+                    statusOf(memberId) shouldBe MemberStatus.APPLICATION
+                    val ack =
+                        transaction {
+                            MembershipAgreementAcknowledgmentTable
+                                .selectAll()
+                                .where { MembershipAgreementAcknowledgmentTable.memberId eq memberId }
+                                .single()
+                        }
+                    ack[MembershipAgreementAcknowledgmentTable.agreementVersion] shouldBe label
+                    ack[MembershipAgreementAcknowledgmentTable.agreementSha256] shouldBe sha
+                }
+            } finally {
+                AgreementTextTestState.reset()
             }
         }
 
@@ -319,6 +365,9 @@ private fun StatusPagesConfig.installFriendUpgradeExceptionHandlers() {
     }
     exception<ConflictException> { call, cause ->
         call.respondText(cause.message, status = HttpStatusCode.Conflict)
+    }
+    exception<AgreementTextOutdatedException> { call, _ ->
+        call.respondText("AgreementTextOutdatedException", status = HttpStatusCode.Conflict)
     }
     exception<WeakPasswordException> { call, cause ->
         call.respondText(cause.message, status = HttpStatusCode.BadRequest)

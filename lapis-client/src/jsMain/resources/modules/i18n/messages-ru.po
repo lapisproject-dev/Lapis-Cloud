@@ -7774,7 +7774,7 @@ msgid "Nur Mitglieder"
 msgstr "Только участники"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:62
-msgid "Nutzungsbedingungen fuer Freund-Konten (Version %1)"
+msgid "Nutzungsbedingungen für Freund-Konten (Version %1)"
 msgstr "Условия использования аккаунтов друзей (версия %1)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:49
@@ -24059,3 +24059,132 @@ msgid_plural "%1 Sekunden"
 msgstr[0] "%1 секунда"
 msgstr[1] "%1 секунды"
 msgstr[2] "%1 секунд"
+
+msgid "Vertragstexte"
+msgstr "Тексты договоров"
+
+msgid "Hier pflegen Sie die Texte, die bei der Registrierung angezeigt und bestätigt werden. Eine veröffentlichte Fassung kann nicht mehr geändert werden; jede Änderung ist eine neue Fassung."
+msgstr "Здесь ведутся тексты, которые показываются и подтверждаются при регистрации. Опубликованную версию больше нельзя изменить; каждое изменение — это новая версия."
+
+msgid "Beitrittsvertrag"
+msgstr "Договор о вступлении"
+
+msgid "Freund-Nutzungsbedingungen"
+msgstr "Условия использования аккаунтов друзей"
+
+msgid "Platzhaltertext aktiv: Diese Instanz zeigt bei der Registrierung den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie Ihre rechtlich geprüfte Fassung."
+msgstr "Активен временный текст: при регистрации эта установка показывает встроенный образец (версия %1). Опубликуйте вашу юридически проверенную версию."
+
+msgid "Text der Version %1"
+msgstr "Текст версии %1"
+
+msgid "Aktuelle Fassung"
+msgstr "Текущая версия"
+
+msgid "Eingebauter Mustertext, Version %1."
+msgstr "Встроенный образец текста, версия %1."
+
+msgid "Version: %1"
+msgstr "Версия: %1"
+
+msgid "Gültig ab: %1"
+msgstr "Действует с: %1"
+
+msgid "Veröffentlicht am %1 von %2"
+msgstr "Опубликовано %1, автор: %2"
+
+msgid "Prüfsumme: %1"
+msgstr "Контрольная сумма: %1"
+
+msgid "Zeichen: %1"
+msgstr "Символов: %1"
+
+msgid "Personen ohne Bestätigung dieser Fassung: %1"
+msgstr "Людей без подтверждения этой версии: %1"
+
+msgid "Text anzeigen"
+msgstr "Показать текст"
+
+msgid "Bitte eine Version angeben: Buchstaben, Ziffern, Punkt, Unterstrich und Bindestrich, höchstens %1 Zeichen."
+msgstr "Укажите версию: буквы, цифры, точка, подчёркивание и дефис, не более %1 символов."
+
+msgid "Bitte geben Sie den Vertragstext ein."
+msgstr "Введите текст договора."
+
+msgid "Der Vertragstext darf höchstens %1 Zeichen lang sein."
+msgstr "Текст договора может содержать не более %1 символов."
+
+msgid "Der Vertragstext enthält unzulässige Zeichen (Steuerzeichen oder Richtungsumschalter)."
+msgstr "Текст договора содержит недопустимые символы (управляющие символы или переключатели направления текста)."
+
+msgid "Nächste Fassung"
+msgstr "Следующая версия"
+
+msgid "Zum Beispiel 2026-10-15.v1. Jede Fassung braucht eine neue Bezeichnung."
+msgstr "Например, 2026-10-15.v1. Каждая версия требует нового обозначения."
+
+msgid "Gültig ab"
+msgstr "Действует с"
+
+msgid "Nicht in der Zukunft und nicht vor der aktuellen Fassung."
+msgstr "Не в будущем и не раньше текущей версии."
+
+msgid "Vertragstext"
+msgstr "Текст договора"
+
+msgid "Maßgeblich ist die deutsche Fassung. Übersetzungen sind nicht rechtsverbindlich."
+msgstr "Определяющей является немецкая версия. Переводы не имеют юридической силы."
+
+msgid "Die Vorschau erscheint, sobald Sie Text eingeben."
+msgstr "Предпросмотр появится, как только вы введёте текст."
+
+msgid "Vorschau des Vertragstextes"
+msgstr "Предпросмотр текста договора"
+
+msgid "Vorschau aktualisieren"
+msgstr "Обновить предпросмотр"
+
+msgid "Diese Versionsbezeichnung ist bereits vergeben."
+msgstr "Это обозначение версии уже используется."
+
+msgid "Dieser Text oder dieses Datum ist nicht zulässig: Das Datum darf weder in der Zukunft noch vor der aktuellen Fassung liegen, und der Text darf nicht dem Mustertext entsprechen."
+msgstr "Этот текст или эта дата недопустимы: дата не может быть ни в будущем, ни раньше текущей версии, а текст не должен совпадать с образцом."
+
+msgid "Fassung veröffentlichen?"
+msgstr "Опубликовать версию?"
+
+msgid "Version %1, gültig ab %2, %3 Zeichen."
+msgstr "Версия %1, действует с %2, символов: %3."
+
+msgid "Diese Fassung kann nicht mehr geändert oder gelöscht werden."
+msgstr "Эту версию больше нельзя будет изменить или удалить."
+
+msgid "Die Fassung wurde veröffentlicht."
+msgstr "Версия опубликована."
+
+msgid "Veröffentlichte Fassungen"
+msgstr "Опубликованные версии"
+
+msgid "Noch keine eigene Fassung veröffentlicht."
+msgstr "Собственная версия ещё не опубликована."
+
+msgid "Platzhaltertext aktiv: %1"
+msgstr "Активен временный текст: %1"
+
+msgid "Vertragstexte bearbeiten"
+msgstr "Редактировать тексты договоров"
+
+msgid "Bitte lesen Sie den vollständigen Text."
+msgstr "Прочитайте текст полностью."
+
+msgid "Der Vertrag wurde aktualisiert. Bitte lesen Sie ihn erneut."
+msgstr "Договор обновлён. Пожалуйста, прочитайте его снова."
+
+msgid "Die Nutzungsbedingungen wurden aktualisiert. Bitte lesen Sie sie erneut."
+msgstr "Условия использования обновлены. Пожалуйста, прочитайте их снова."
+
+msgid "Der Vertragstext ist nicht zulässig. Bitte prüfen Sie Länge, Zeichen, Version und Datum."
+msgstr "Текст договора недопустим. Проверьте длину, символы, версию и дату."
+
+msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
+msgstr "Черновик тем временем изменён. Перезагрузите страницу и проверьте его снова."

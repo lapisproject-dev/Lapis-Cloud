@@ -29,6 +29,8 @@ internal val ALLOWED_SCROLLER_SELECTORS =
         ".lapis-conference-call-panel.lapis-conference-fullscreen",
         ".lapis-encounter-room.is-pseudo-fullscreen",
         ".lapis-conference-filmstrip",
+        // V1.9.134 (E3d): the registration text's reading area, a scroller only from 768 px up
+        ".lapis-agreement-frame",
         ".modal",
         ".offcanvas-body",
     )

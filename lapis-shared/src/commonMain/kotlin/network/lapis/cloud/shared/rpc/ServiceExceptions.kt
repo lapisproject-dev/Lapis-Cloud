@@ -620,3 +620,31 @@ class RecordingRecomputeInProgressException(
 class RecordingRecomputeInsufficientDiskException(
     override val message: String = "Not enough free disk space to recompute this recording",
 ) : AbstractServiceException()
+
+/**
+ * V1.9.134 -- distinct type (Kilua RPC transmits only the subclass discriminator). The agreement/terms version or hash sent with a
+ * registration (`registerApplication`, `registerFriend`, `applyForMembership`) is no longer the current text: the client reloads the text
+ * and asks the person to read it again.
+ */
+@RpcServiceException
+class AgreementTextOutdatedException(
+    override val message: String = "The agreement text has changed -- please read it again",
+) : AbstractServiceException()
+
+/** V1.9.134 -- distinct type. Empty or over-long text, unusable characters, bad label format, `validFrom` out of range, or a text equal to the built-in placeholder. */
+@RpcServiceException
+class AgreementTextInvalidException(
+    override val message: String = "The agreement text is not valid",
+) : AbstractServiceException()
+
+/** V1.9.134 -- distinct type. The version label is already used by a published version or by the built-in placeholder of that kind. */
+@RpcServiceException
+class AgreementTextVersionLabelTakenException(
+    override val message: String = "This version label is already in use",
+) : AbstractServiceException()
+
+/** V1.9.134 -- distinct type. At publication the draft is missing or differs from the one the admin previewed. */
+@RpcServiceException
+class AgreementTextDraftChangedException(
+    override val message: String = "The draft has changed -- please review it again",
+) : AbstractServiceException()

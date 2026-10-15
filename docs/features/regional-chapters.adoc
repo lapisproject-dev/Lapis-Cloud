@@ -27,3 +27,8 @@ behavioral server-side test yet covers query-parameter manipulation by a chapter
 attempting to widen their own visibility -- the existing allowlist-scan/visibility tests are the
 current coverage. See `docs/architecture/regional-chapters.adoc`'s "Deferred" section for the full
 list.
+
+== Registration
+
+The optional chapter picker sits on the member registration, which since V1.9.134 is a two-column form of 960 px; the chapter field spans both columns and is built before the
+agreement text, the consent and the submit button. See link:agreement-texts.adoc[Registration texts] ("Layout of the registration").

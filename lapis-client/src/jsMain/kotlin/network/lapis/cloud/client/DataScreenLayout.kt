@@ -97,6 +97,12 @@ internal const val NARROW_FORM_MAX_WIDTH_PX = 480
 
 /** The card width of the pre-login screens (login, password reset): narrower than [NARROW_FORM_MAX_WIDTH_PX] (V1.4.28 audit: a named constant instead of a literal in two screens). */
 internal const val AUTH_CARD_MAX_WIDTH_PX = 380
+
+/**
+ * V1.9.134: the wide registration forms (member and FRIEND registration) -- a two-column field grid plus the agreement reading frame. NOT a
+ * data-table width and not a replacement of [NARROW_FORM_MAX_WIDTH_PX] (login, password reset stay narrow) or [AUTH_CARD_MAX_WIDTH_PX].
+ */
+internal const val WIDE_FORM_MAX_WIDTH_PX = 960
 internal const val READING_MAX_WIDTH_PX = 720
 internal const val DASHBOARD_MAX_WIDTH_PX = 640
 internal const val CARD_LIST_BREAKPOINT_PX = 768

@@ -4,7 +4,6 @@ import io.kvision.html.Autocomplete
 import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
 import io.kvision.html.div
-import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -16,6 +15,7 @@ import io.kvision.utils.px
 import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.FriendRegistrationInput
 import network.lapis.cloud.shared.domain.FriendTermsDto
+import network.lapis.cloud.shared.rpc.AgreementTextOutdatedException
 import network.lapis.cloud.shared.rpc.IRegistrationService
 
 /**
@@ -32,7 +32,7 @@ fun renderFriendRegistrationScreen(container: SimplePanel) {
     val root =
         container.vPanel(spacing = 10) {
             addCssClass("mx-auto")
-            maxWidth = NARROW_FORM_MAX_WIDTH_PX.px
+            maxWidth = WIDE_FORM_MAX_WIDTH_PX.px
             width = 100.perc
             marginTop = 32.px
         }
@@ -49,25 +49,26 @@ fun renderFriendRegistrationScreen(container: SimplePanel) {
     val loadingNotice = root.p(tr("Nutzungsbedingungen werden geladen ..."))
 
     AppScope.launch {
-        val terms = guarded { rpcService<IRegistrationService>().getFriendTerms() }
+        val terms = loadFriendTerms()
         loadingNotice.hide()
         if (terms != null) renderFriendRegistrationForm(root, terms)
     }
 }
 
+/** The ONE read of the current terms -- the first load and the reload after "the terms changed" both use it. `null` = failed (the person was told). */
+private suspend fun loadFriendTerms(): FriendTermsDto? = guarded { rpcService<IRegistrationService>().getFriendTerms() }
+
 private fun renderFriendRegistrationForm(
     root: SimplePanel,
     terms: FriendTermsDto,
 ) {
-    root.h2(gettext("Nutzungsbedingungen fuer Freund-Konten (Version %1)", terms.version)) { addCssClass("h5") }
-    root.div {
-        addCssClasses("border rounded p-2 mb-2 lapis-legal-text")
-        content = sanitizeUntrustedI18nText(terms.text)
-    }
-
+    // V1.9.134: the reading frame is replaceable in place -- after "the text changed" the form keeps what was typed.
+    var currentTerms = terms
     val form = root.lapisForm()
     // Vier Felder, alle Pflicht: keine Sterne, Legende "Alle Felder sind Pflichtfelder." (Fall b).
-    val displayNameField = form.textField(label = tr("Anzeigename (nicht überprüft)"), required = true)
+    // V1.9.134: zwei Spalten ab 768 px, ein Feld je Zelle; lesen, zustimmen, absenden.
+    val grid = form.panel.registrationFieldGrid()
+    val displayNameField = form.textField(label = tr("Anzeigename (nicht überprüft)"), required = true, host = grid.gridCell())
     val emailField =
         form.textField(
             label = tr("E-Mail"),
@@ -75,6 +76,7 @@ private fun renderFriendRegistrationForm(
             required = true,
             autocomplete = Autocomplete.USERNAME,
             rule = FormRules::email,
+            host = grid.gridCell(),
         )
     // Die Passwortregel steht als Hinweis UNTER dem Feld (sichtbar, bevor getippt wird), nicht im Label.
     val passwordField =
@@ -85,6 +87,7 @@ private fun renderFriendRegistrationForm(
             reveal = true,
             hint = gettext("Mindestens %1 Zeichen.", Validation.PASSWORD_MIN_LENGTH),
             rule = { FormRules.newPassword(value = it, email = emailField.value.trim()) },
+            host = grid.gridCell(),
         )
     val confirmPasswordField =
         form.passwordField(
@@ -92,32 +95,53 @@ private fun renderFriendRegistrationForm(
             required = true,
             autocomplete = Autocomplete.NEW_PASSWORD,
             revealedBy = passwordField,
+            host = grid.gridCell(),
         )
     form.crossFieldRule(field = confirmPasswordField) {
         FormRules.passwordsMatch(password = passwordField.value, confirmation = confirmPasswordField.value)
     }
+    val termsSection =
+        AgreementTextSection(parent = form.panel, heading = { version ->
+            gettext("Nutzungsbedingungen für Freund-Konten (Version %1)", version)
+        })
+    termsSection.show(version = terms.version, text = terms.text)
     // Die Zustimmung ist ein Feld der Grammatik (V1.4.29, `checkField`): Pflicht heißt "angekreuzt", der Fehler steht AM Feld
     // (nicht mehr in der Sammelfläche), `aria-required` setzt der Baustein.
-    form.checkField(
-        label = tr("Ich habe die Nutzungsbedingungen für Freund-Konten gelesen und akzeptiere sie."),
-        required = true,
-        requiredMessage = gettext("Bitte bestätigen Sie, dass Sie die Nutzungsbedingungen gelesen haben."),
-    )
+    val consentField =
+        form.checkField(
+            label = tr("Ich habe die Nutzungsbedingungen für Freund-Konten gelesen und akzeptiere sie."),
+            required = true,
+            requiredMessage = gettext("Bitte bestätigen Sie, dass Sie die Nutzungsbedingungen gelesen haben."),
+        )
 
     val submitButton = newActionButton(ActionIcon.ADD, tr("Freund-Konto anlegen"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = submitButton, enterSubmits = true)
     submitButton.onClick {
         form.submit(submitButton) {
             val result =
-                guarded {
+                try {
                     rpcService<IRegistrationService>().registerFriend(
                         buildFriendRegistrationInput(
                             displayName = displayNameField.value,
                             email = emailField.value,
                             password = passwordField.value,
-                            terms = terms,
+                            terms = currentTerms,
                         ),
                     )
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: AgreementTextOutdatedException) {
+                    // V1.9.134 -- the terms were replaced while this form was open: a fixed toast (Kilua carries no message), the new text
+                    // is loaded into the frame, the consent is withdrawn and everything typed stays.
+                    notifyError(tr("Die Nutzungsbedingungen wurden aktualisiert. Bitte lesen Sie sie erneut."))
+                    loadFriendTerms()?.let { fresh ->
+                        currentTerms = fresh
+                        termsSection.show(version = fresh.version, text = fresh.text)
+                        consentField.reset()
+                    }
+                    null
+                } catch (e: Throwable) {
+                    guarded { throw e }
                 }
             if (result != null) {
                 root.removeAll()

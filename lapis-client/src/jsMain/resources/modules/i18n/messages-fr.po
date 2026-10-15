@@ -7841,7 +7841,7 @@ msgid "Nur Mitglieder"
 msgstr "Membres uniquement"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:62
-msgid "Nutzungsbedingungen fuer Freund-Konten (Version %1)"
+msgid "Nutzungsbedingungen für Freund-Konten (Version %1)"
 msgstr "Conditions d'utilisation pour les comptes amis (version %1)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:49
@@ -24125,3 +24125,132 @@ msgid "%1 Sekunde"
 msgid_plural "%1 Sekunden"
 msgstr[0] "%1 seconde"
 msgstr[1] "%1 secondes"
+
+msgid "Vertragstexte"
+msgstr "Textes contractuels"
+
+msgid "Hier pflegen Sie die Texte, die bei der Registrierung angezeigt und bestätigt werden. Eine veröffentlichte Fassung kann nicht mehr geändert werden; jede Änderung ist eine neue Fassung."
+msgstr "C'est ici que sont gérés les textes affichés et confirmés lors de l'inscription. Une version publiée ne peut plus être modifiée ; chaque modification donne une nouvelle version."
+
+msgid "Beitrittsvertrag"
+msgstr "Contrat d'adhésion"
+
+msgid "Freund-Nutzungsbedingungen"
+msgstr "Conditions d'utilisation des comptes amis"
+
+msgid "Platzhaltertext aktiv: Diese Instanz zeigt bei der Registrierung den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie Ihre rechtlich geprüfte Fassung."
+msgstr "Texte provisoire actif : cette instance affiche lors de l'inscription le texte d'exemple intégré (version %1). Veuillez publier votre version juridiquement vérifiée."
+
+msgid "Text der Version %1"
+msgstr "Texte de la version %1"
+
+msgid "Aktuelle Fassung"
+msgstr "Version actuelle"
+
+msgid "Eingebauter Mustertext, Version %1."
+msgstr "Texte d'exemple intégré, version %1."
+
+msgid "Version: %1"
+msgstr "Version : %1"
+
+msgid "Gültig ab: %1"
+msgstr "Valable à partir du : %1"
+
+msgid "Veröffentlicht am %1 von %2"
+msgstr "Publié le %1 par %2"
+
+msgid "Prüfsumme: %1"
+msgstr "Somme de contrôle : %1"
+
+msgid "Zeichen: %1"
+msgstr "Caractères : %1"
+
+msgid "Personen ohne Bestätigung dieser Fassung: %1"
+msgstr "Personnes sans confirmation de cette version : %1"
+
+msgid "Text anzeigen"
+msgstr "Afficher le texte"
+
+msgid "Bitte eine Version angeben: Buchstaben, Ziffern, Punkt, Unterstrich und Bindestrich, höchstens %1 Zeichen."
+msgstr "Veuillez indiquer une version : lettres, chiffres, point, trait de soulignement et trait d'union, %1 caractères au maximum."
+
+msgid "Bitte geben Sie den Vertragstext ein."
+msgstr "Veuillez saisir le texte du contrat."
+
+msgid "Der Vertragstext darf höchstens %1 Zeichen lang sein."
+msgstr "Le texte du contrat ne peut pas dépasser %1 caractères."
+
+msgid "Der Vertragstext enthält unzulässige Zeichen (Steuerzeichen oder Richtungsumschalter)."
+msgstr "Le texte du contrat contient des caractères non autorisés (caractères de contrôle ou commutateurs de direction)."
+
+msgid "Nächste Fassung"
+msgstr "Version suivante"
+
+msgid "Zum Beispiel 2026-10-15.v1. Jede Fassung braucht eine neue Bezeichnung."
+msgstr "Par exemple 2026-10-15.v1. Chaque version nécessite une nouvelle désignation."
+
+msgid "Gültig ab"
+msgstr "Valable à partir du"
+
+msgid "Nicht in der Zukunft und nicht vor der aktuellen Fassung."
+msgstr "Pas dans le futur et pas avant la version actuelle."
+
+msgid "Vertragstext"
+msgstr "Texte du contrat"
+
+msgid "Maßgeblich ist die deutsche Fassung. Übersetzungen sind nicht rechtsverbindlich."
+msgstr "La version allemande fait foi. Les traductions n'ont pas de valeur juridique."
+
+msgid "Die Vorschau erscheint, sobald Sie Text eingeben."
+msgstr "L'aperçu apparaît dès que vous saisissez du texte."
+
+msgid "Vorschau des Vertragstextes"
+msgstr "Aperçu du texte du contrat"
+
+msgid "Vorschau aktualisieren"
+msgstr "Actualiser l'aperçu"
+
+msgid "Diese Versionsbezeichnung ist bereits vergeben."
+msgstr "Cette désignation de version est déjà utilisée."
+
+msgid "Dieser Text oder dieses Datum ist nicht zulässig: Das Datum darf weder in der Zukunft noch vor der aktuellen Fassung liegen, und der Text darf nicht dem Mustertext entsprechen."
+msgstr "Ce texte ou cette date n'est pas admis : la date ne peut être ni dans le futur ni antérieure à la version actuelle, et le texte ne peut pas être identique au texte d'exemple."
+
+msgid "Fassung veröffentlichen?"
+msgstr "Publier la version ?"
+
+msgid "Version %1, gültig ab %2, %3 Zeichen."
+msgstr "Version %1, valable à partir du %2, %3 caractères."
+
+msgid "Diese Fassung kann nicht mehr geändert oder gelöscht werden."
+msgstr "Cette version ne pourra plus être modifiée ni supprimée."
+
+msgid "Die Fassung wurde veröffentlicht."
+msgstr "La version a été publiée."
+
+msgid "Veröffentlichte Fassungen"
+msgstr "Versions publiées"
+
+msgid "Noch keine eigene Fassung veröffentlicht."
+msgstr "Aucune version propre n'a encore été publiée."
+
+msgid "Platzhaltertext aktiv: %1"
+msgstr "Texte provisoire actif : %1"
+
+msgid "Vertragstexte bearbeiten"
+msgstr "Modifier les textes contractuels"
+
+msgid "Bitte lesen Sie den vollständigen Text."
+msgstr "Veuillez lire le texte complet."
+
+msgid "Der Vertrag wurde aktualisiert. Bitte lesen Sie ihn erneut."
+msgstr "Le contrat a été mis à jour. Veuillez le relire."
+
+msgid "Die Nutzungsbedingungen wurden aktualisiert. Bitte lesen Sie sie erneut."
+msgstr "Les conditions d'utilisation ont été mises à jour. Veuillez les relire."
+
+msgid "Der Vertragstext ist nicht zulässig. Bitte prüfen Sie Länge, Zeichen, Version und Datum."
+msgstr "Le texte du contrat n'est pas admis. Veuillez vérifier la longueur, les caractères, la version et la date."
+
+msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
+msgstr "Le brouillon a entre-temps été modifié. Veuillez recharger la vue et le vérifier à nouveau."

@@ -73,7 +73,8 @@ class DomainModelMergerTest :
             // Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" -- was 67, now 68 with the addition of 67-event-online.kuml.kts.
             // Welle V1.9.121 "Land und Staatsangehoerigkeit als Auswahlliste" -- was 68, now 69 with the addition of 68-member-nationality.kuml.kts.
             // Welle V1.9.129 "Video-Overlays" -- was 69, now 70 with the addition of 69-video-overlay.kuml.kts.
-            scriptFiles shouldHaveSize 70
+            // Welle V1.9.134 "Vertragstexte" -- was 70, now 71 with the addition of 70-agreement-texts.kuml.kts.
+            scriptFiles shouldHaveSize 71
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -542,7 +543,9 @@ class DomainModelMergerTest :
             // its bank_account stub dedups into 47-bank-account -- net +2 (193 -> 195).
             // Welle V1.9.125 "Mitfahrten" adds ONE more real table to 57-carpool.kuml.kts (carpool_participation), no new stub -- net +1 (195 -> 196).
             // Welle V1.9.129 "Video-Overlays" adds 69-video-overlay.kuml.kts's ONE new table (video_overlay_asset), no stub -- net +1 (196 -> 197).
-            val distinctTableNames = 197
+            // Welle V1.9.134 "Vertragstexte" adds 70-agreement-texts.kuml.kts's TWO new tables (agreement_text_version, agreement_text_draft) plus an
+            // id-only Member stub (dedups into the already-real member entity) -- net +2 (197 -> 199).
+            val distinctTableNames = 199
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -890,6 +893,9 @@ class DomainModelMergerTest :
                     "MemberNationalityTable.kt",
                     // Welle V1.9.129 "Video-Overlays" -- ONE new real table (video_overlay_asset), no stub.
                     "VideoOverlayAssetTable.kt",
+                    // Welle V1.9.134 "Vertragstexte" -- TWO new real tables (agreement_text_version, agreement_text_draft).
+                    "AgreementTextVersionTable.kt",
+                    "AgreementTextDraftTable.kt",
                 )
         }
 

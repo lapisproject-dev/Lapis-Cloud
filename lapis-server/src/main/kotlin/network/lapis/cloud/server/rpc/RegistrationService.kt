@@ -3,6 +3,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.plugins.origin
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.agreementtexts.AgreementTextResolver
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.forMemberUpdate
 import network.lapis.cloud.server.db.generated.AccountTable
@@ -41,6 +42,7 @@ import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AdminCreateMemberInput
+import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.FriendRegistrationInput
 import network.lapis.cloud.shared.domain.FriendTermsDto
 import network.lapis.cloud.shared.domain.MemberDto
@@ -50,6 +52,7 @@ import network.lapis.cloud.shared.domain.PeerAction
 import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.RegistrationInput
 import network.lapis.cloud.shared.domain.WebhookEventType
+import network.lapis.cloud.shared.rpc.AgreementTextOutdatedException
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.DecisionNotificationOutcome
@@ -201,12 +204,11 @@ class RegistrationService internal constructor(
 ) : IRegistrationService {
     private val peerNotifier = PeerNotifier(mailer = peerNotificationMailer, smtpConfigState = peerSmtpConfigState)
 
+    /** V1.9.134 -- the live text: the published version with the highest sequence number, else the built-in placeholder. Never the draft. */
     override suspend fun getMembershipAgreement(): MembershipAgreementDto =
-        MembershipAgreementDto(
-            version = MembershipAgreementDisclaimer.VERSION,
-            text = MembershipAgreementDisclaimer.TEXT,
-            sha256 = MembershipAgreementDisclaimer.SHA256,
-        )
+        AgreementTextResolver.current(AgreementTextKind.MEMBERSHIP).let {
+            MembershipAgreementDto(version = it.versionLabel, text = it.body, sha256 = it.sha256)
+        }
 
     override suspend fun listRegionalChapterOptions(): List<RegionalChapterRefDto> =
         transaction {
@@ -245,11 +247,13 @@ class RegistrationService internal constructor(
         registrationRateLimiter.recordFailure(emailKey)
         registrationRateLimiter.recordFailure(ipKey)
 
-        if (!MembershipAgreementDisclaimer.matches(version = input.agreementVersion, sha256 = input.agreementSha256)) {
-            throw ConflictException(
-                "agreementVersion/agreementSha256 do not match the current MembershipAgreementDisclaimer -- " +
-                    "call getMembershipAgreement again and submit its CURRENT version/sha256 unmodified",
+        if (!AgreementTextResolver.matchesCurrent(
+                kind = AgreementTextKind.MEMBERSHIP,
+                version = input.agreementVersion,
+                sha256 = input.agreementSha256,
             )
+        ) {
+            throw AgreementTextOutdatedException()
         }
         if (input.displayName.isBlank()) throw ConflictException("displayName must not be blank")
         // CRLF-log-injection fix (security-review, V1.2.3): reject a malformed email BEFORE it is
@@ -706,12 +710,11 @@ class RegistrationService internal constructor(
         return result
     }
 
+    /** V1.9.134 -- see [getMembershipAgreement]. */
     override suspend fun getFriendTerms(): FriendTermsDto =
-        FriendTermsDto(
-            version = FriendTermsDisclaimer.VERSION,
-            text = FriendTermsDisclaimer.TEXT,
-            sha256 = FriendTermsDisclaimer.SHA256,
-        )
+        AgreementTextResolver.current(AgreementTextKind.FRIEND).let {
+            FriendTermsDto(version = it.versionLabel, text = it.body, sha256 = it.sha256)
+        }
 
     /**
      * V0.11.0 FRIEND self-registration -- see [IRegistrationService.registerFriend] KDoc. Mirrors
@@ -748,11 +751,13 @@ class RegistrationService internal constructor(
         friendRegistrationRateLimiter.recordFailure(emailKey)
         friendRegistrationRateLimiter.recordFailure(ipKey)
 
-        if (!FriendTermsDisclaimer.matches(version = input.termsVersion, sha256 = input.termsSha256)) {
-            throw ConflictException(
-                "termsVersion/termsSha256 do not match the current FriendTermsDisclaimer -- " +
-                    "call getFriendTerms again and submit its CURRENT version/sha256 unmodified",
+        if (!AgreementTextResolver.matchesCurrent(
+                kind = AgreementTextKind.FRIEND,
+                version = input.termsVersion,
+                sha256 = input.termsSha256,
             )
+        ) {
+            throw AgreementTextOutdatedException()
         }
         if (input.displayName.isBlank()) throw ConflictException("displayName must not be blank")
         if (input.displayName.length > MEMBER_DISPLAY_NAME_MAX_LENGTH) {
@@ -873,11 +878,13 @@ class RegistrationService internal constructor(
         regionalChapterId: String?,
     ): MemberDto {
         val current = resolveCurrentMember(call)
-        if (!MembershipAgreementDisclaimer.matches(version = agreementVersion, sha256 = agreementSha256)) {
-            throw ConflictException(
-                "agreementVersion/agreementSha256 do not match the current MembershipAgreementDisclaimer -- " +
-                    "call getMembershipAgreement again and submit its CURRENT version/sha256 unmodified",
+        if (!AgreementTextResolver.matchesCurrent(
+                kind = AgreementTextKind.MEMBERSHIP,
+                version = agreementVersion,
+                sha256 = agreementSha256,
             )
+        ) {
+            throw AgreementTextOutdatedException()
         }
         val now = nowLocalDateTime()
         return transaction {

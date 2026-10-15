@@ -22,6 +22,7 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDate
+import network.lapis.cloud.server.agreementtexts.AgreementTextTestState
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.DevSeedData
@@ -44,6 +45,7 @@ import network.lapis.cloud.server.security.PasswordHasher
 import network.lapis.cloud.server.security.SessionStore
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AdminCreateMemberInput
+import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.CommitteeInput
@@ -52,6 +54,7 @@ import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CommitteeType
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.RegistrationInput
+import network.lapis.cloud.shared.rpc.AgreementTextOutdatedException
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
@@ -214,7 +217,48 @@ class RegistrationServiceTest :
                         "/test/register?email=$email&agreementVersion=stale-version&agreementSha256=deadbeef",
                     )
                 response.status shouldBe HttpStatusCode.Conflict
+                response.bodyAsText() shouldBe "AgreementTextOutdatedException"
                 findMemberIdByEmail(email) shouldBe null
+            }
+        }
+
+        test(
+            "V1.9.134: after a version is published the placeholder is outdated, the current version is accepted and its label+hash are the proof",
+        ) {
+            val label = "2026-10-01.v1"
+            val body = "Eigener Beitrittsvertrag der Instanz.\n\nZweiter Absatz."
+            val sha = AgreementTextTestState.publishDirect(kind = AgreementTextKind.MEMBERSHIP, label = label, body = body)
+            try {
+                testApplication {
+                    application {
+                        install(StatusPages) { installRegistrationExceptionHandlers() }
+                        routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
+                    }
+                    client.get("/test/agreement").bodyAsText() shouldBe "$label:$sha"
+
+                    val old = "reg-v134-old@example.org"
+                    val rejected = client.post("/test/register?email=$old")
+                    rejected.status shouldBe HttpStatusCode.Conflict
+                    rejected.bodyAsText() shouldBe "AgreementTextOutdatedException"
+                    findMemberIdByEmail(old) shouldBe null
+
+                    val fresh = "reg-v134-new@example.org"
+                    client.post("/test/register?email=$fresh&agreementVersion=$label&agreementSha256=$sha").status shouldBe
+                        HttpStatusCode.OK
+                    val memberId = requireNotNull(findMemberIdByEmail(fresh))
+                    createdMemberIds += memberId
+                    val ack =
+                        transaction {
+                            MembershipAgreementAcknowledgmentTable
+                                .selectAll()
+                                .where { MembershipAgreementAcknowledgmentTable.memberId eq memberId }
+                                .single()
+                        }
+                    ack[MembershipAgreementAcknowledgmentTable.agreementVersion] shouldBe label
+                    ack[MembershipAgreementAcknowledgmentTable.agreementSha256] shouldBe sha
+                }
+            } finally {
+                AgreementTextTestState.reset()
             }
         }
 
@@ -1120,6 +1164,9 @@ private fun StatusPagesConfig.installRegistrationExceptionHandlers() {
     }
     exception<ConflictException> { call, cause ->
         call.respondText(cause.message, status = HttpStatusCode.Conflict)
+    }
+    exception<AgreementTextOutdatedException> { call, _ ->
+        call.respondText("AgreementTextOutdatedException", status = HttpStatusCode.Conflict)
     }
     exception<WeakPasswordException> { call, cause ->
         call.respondText(cause.message, status = HttpStatusCode.BadRequest)

@@ -79,11 +79,17 @@ class ConferenceTimerServiceEventGuardTripwireTest :
                 .toSet() shouldBe setOf("ConferenceTimerState.kt", "ConferenceTimerReconciler.kt", "ConferenceTimerService.kt")
         }
 
-        test("the timer service is registered LAST in Application.kt (Kilua numbers routes by declaration order)") {
+        test(
+            "the tail of the registrations in Application.kt is pinned: timer, then agreement texts (Kilua numbers routes by declaration order)",
+        ) {
             val code = SourceScan.blank(EncounterSourceScan.mainFile("Application.kt").readText())
             val registrations = Regex("""registerService\(""").findAll(code).map { it.range.first }.toList()
             val timer = code.indexOf("registerService(IConferenceTimerService::class)")
+            val agreementTexts = code.indexOf("registerService(IAgreementTextAdminService::class)")
             (timer >= 0) shouldBe true
-            registrations.last() shouldBe timer
+            (agreementTexts > timer) shouldBe true
+            // a new service is always appended: the timer stays second to last, the agreement texts last
+            registrations[registrations.size - 2] shouldBe timer
+            registrations.last() shouldBe agreementTexts
         }
     })

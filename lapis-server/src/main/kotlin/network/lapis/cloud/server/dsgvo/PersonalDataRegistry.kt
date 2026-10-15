@@ -36,6 +36,7 @@ object PersonalDataRegistry {
             AuditLogPersonalData,
             BackupOperationPersonalData,
             DsgvoCompliancePersonalData,
+            AgreementTextPersonalData,
             CrowdfundingPersonalData,
             PeerTransferPersonalData,
             PriceOraclePersonalData,

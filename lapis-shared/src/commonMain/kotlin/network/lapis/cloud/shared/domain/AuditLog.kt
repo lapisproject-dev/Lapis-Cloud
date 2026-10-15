@@ -472,6 +472,14 @@ enum class AuditEntityType {
      * file hash or any bytes. 13 chars, fits within `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
      */
     VIDEO_OVERLAY,
+
+    /**
+     * Welle V1.9.134 "Vertragstexte" -- `AgreementTextAdminService` writes one entry per draft save (`CREATE` the first time, `UPDATE`
+     * afterwards, `entityId` = the stable draft id) and one `POST` entry per publication (`entityId` = the new version id). The snapshot
+     * carries event, kind, version label, hash, character count and validity date -- NEVER the text itself. 14 chars, fits within
+     * `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    AGREEMENT_TEXT,
 }
 
 /** V1.9.125 -- after-snapshot of an [AuditEntityType.CARPOOL_PARTICIPATION] entry: ids and enums only. */

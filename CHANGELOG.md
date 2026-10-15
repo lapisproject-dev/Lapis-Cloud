@@ -6,6 +6,38 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.134 -- Wider two-column registration; per-instance versioned agreement texts
+
+Two things for whoever registers. The member and the FRIEND registration are wider (960 px) and put the fields in two columns from 768 px, with the text in a reading frame; and an instance's ADMIN can now publish its own membership agreement and FRIEND terms -- versioned, hashed and never changed afterwards -- instead of living with the built-in placeholder. Details: `docs/features/agreement-texts.adoc`.
+
+#### Added
+
+- **New:** tables `agreement_text_version` (append-only: label, `sequence_no`, "valid from", text, SHA-256, author, time) and `agreement_text_draft` (one working copy per kind), migration `V104`, kUML model `70-agreement-texts.kuml.kts`. The audit entity-type CHECK is widened by `AGREEMENT_TEXT`. There is no organization id: every instance has its own database. The hash is `sha256("$label\n$body")`, the formula of the built-in placeholders, over the normalized text.
+- **New:** `IAgreementTextAdminService` (ADMIN only): `getOverview`, `getDraft`, `saveDraft`, `publishDraft` (carries the hash of the previewed draft, optimistic lock), `listVersions`, `getVersion`. `AgreementTextStore` is the only reader and writer of both tables; a published version is never updated or deleted.
+- **New:** administration screen "Vertragstexte" (route `/agreement-texts`, sidebar group System): placeholder warning, current version (label, valid from, author, short hash, character count, how many people have not acknowledged it), editor with live counter and preview, publish dialog (focus on "Abbrechen"), list of all versions with their text. A hint on the member administration (ADMIN only) names the texts that are still the placeholder.
+- **New:** `getMembershipAgreement` / `getFriendTerms` answer with the current published version, else the built-in placeholder -- never the draft. A stored hash that no longer matches its text fails the call and no registration is accepted.
+- **New:** registration layout: 960 px wide, field grid (one field per cell, one column below 768 px, two from there), the chapter across both columns, order fields - text - consent - submit; the text sits in a focusable reading frame (`tabindex=0`, `role=region`, accessible name; bounded and scrollable only from 768 px, a CSS-only scroll shadow). Member, FRIEND registration and the preview share one renderer that builds element text only (never markup).
+- **New:** typed exceptions `AgreementTextOutdatedException`, `AgreementTextInvalidException`, `AgreementTextVersionLabelTakenException`, `AgreementTextDraftChangedException` (Kilua transmits only the type) with fixed toasts. A registration against a stale text reloads the text, withdraws the consent and keeps what was typed.
+- **New:** `AgreementTextPersonalData` (DSGVO export without the text; rows retained on erasure); both tables are in the admin backup automatically.
+- **Tripwires/tests:** `AgreementTextBuiltinPinTest` (label and hash of both placeholders as literals), `AgreementTextStoreTripwireTest` (single writer, append-only, one DELETE), `AgreementTextPrivacyTripwireTest` (no text in audit, logs or log calls), `AgreementFormCssTripwireTest`, the Postgres lane `AgreementTextPublishConcurrencyPostgresTest` and `AgreementTextsMigrationPostgresTest`.
+
+#### Changed
+
+- `RegistrationService` compares against the current text in `registerApplication`, `registerFriend` **and `applyForMembership`** (a FRIEND who applies) and raises `AgreementTextOutdatedException` instead of a `ConflictException` (whose message never reached the browser: "Unbekannter Fehler").
+- R59 (one scroll surface) gets a narrow exception class **E3d**: `.lapis-agreement-frame`, ONLY from 768 px up. `lapis-legal-text` (DSGVO page) stays uncapped. **Needs the owner's approval (see below).**
+- Registration of a new service in `Application.kt`: `IAgreementTextAdminService` is the new LAST registration (after the timer); `ConferenceTimerServiceEventGuardTripwireTest` now pins the tail order.
+- The heading "Nutzungsbedingungen fuer Freund-Konten" is now "für" (a heading, not a hashed text) in all seven catalogs.
+- `MembershipAgreementDisclaimer` and `FriendTermsDisclaimer` are byte-for-byte unchanged (only their KDoc says they are the built-in standard text).
+
+#### Known limitations
+
+- Not seen in a real browser by a person; exercised by unit, service, migration, Postgres-lane and headless-Chromium DOM tests only.
+- The placeholder stays active until an ADMIN publishes a reviewed text; the platform does not check that a published text is legally sound (and neither did we).
+- The seven interface translations were written by the model; the German text is the authoritative one.
+- The two-column layout is measured in Karma at the window width Karma has; the CSS text is pinned separately.
+- Nobody is forced to re-accept a new version.
+- The roadmap number V1.9.134 had been reserved for "Datum und Uhrzeit überall"; that wave moves to V1.9.135 (speaking right: V1.9.136).
+
 ### V1.9.133 -- Conference timer (display only)
 
 A countdown that everybody in the room sees, started and controlled by the moderation. It shows the time and enforces nothing (nobody is muted, nothing is closed at zero). Main room of an ordinary or event conference only; encounter and breakout rooms have no timer. Details: `docs/features/video-conferencing.adoc` ("Timer").

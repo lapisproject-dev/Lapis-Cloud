@@ -17,6 +17,9 @@ import java.io.File
  * - **E1** a modal / overlay / bottom sheet (fixed or absolute, bounded by the viewport)
  * - **E2** a popup list (combobox / search results) that opens over the page
  * - **E3** a log (chat) -- a bounded, keyboard-focusable region that follows new messages
+ * - **E3d** (V1.9.134, approved narrowly) the document reading area of a registration text (`.lapis-agreement-frame`): bounded, keyboard-focusable
+ *   (`tabindex=0`, `role=region`, `aria-label`), and a scroller ONLY from 768 px up -- below that it grows with its text, so a phone never gets a
+ *   nested scroller. It is the one place that holds a legal text; the other legal text (`.lapis-legal-text`) stays uncapped.
  * - **E4h** a horizontal strip (`overflow-x` only, `overflow-y: hidden` -- never a vertical scroller)
  * - **E5** anything else: must stay EMPTY
  *
@@ -157,6 +160,7 @@ private val CSS_LEDGER: Map<String, String> =
         ".lapis-conference-chat-log" to "E3",
         ".lapis-encounter-chat-log" to "E3",
         ".lapis-conference-filmstrip" to "E4h",
+        ".lapis-agreement-frame" to "E3d",
     )
 
 /** Kotlin scrollers that remain: file -> number of lines. Empty since V1.9.68 (the conference chat log and the filmstrip are CSS classes). */
@@ -220,13 +224,26 @@ class ScrollSurfaceTripwireTest :
         }
 
         test("R59: E5 stays empty, every ledger entry has a known class") {
-            CSS_LEDGER.values.toSet().subtract(setOf("E0", "E1", "E2", "E3", "E4h")) shouldBe emptySet()
+            CSS_LEDGER.values.toSet().subtract(setOf("E0", "E1", "E2", "E3", "E3d", "E4h")) shouldBe emptySet()
         }
 
         test("R59: every ledger scroller contains its scroll (overscroll-behavior: contain)") {
             val scrollers = cssScrollers(THEME_CSS.readText())
             val leaking = scrollers.filter { (selector, body) -> selector in CSS_LEDGER && !OVERSCROLL_CONTAIN.containsMatchIn(body) }.keys
             withClue("ledger scrollers without `overscroll-behavior: contain`: $leaking") { leaking shouldBe emptySet() }
+        }
+
+        test("R59: the agreement frame (E3d) is a scroller only from 768 px up; below that it has no height cap and no overflow") {
+            val rules = scrollCssRules(THEME_CSS.readText()).filter { it.selector == ".lapis-agreement-frame" }
+            (rules.size >= 2) shouldBe true
+            val scrolling = rules.filter { SCROLLER_DECLARATION.containsMatchIn(it.body) }
+            scrolling.size shouldBe 1
+            scrolling.single().atRules shouldBe listOf("@media (min-width: 768px)")
+            OVERSCROLL_CONTAIN.containsMatchIn(scrolling.single().body) shouldBe true
+            val base = rules.single { it.atRules.isEmpty() }
+            Regex("""(?:max-)?height\s*:""").containsMatchIn(base.body) shouldBe false
+            // E3d is reserved for this one selector
+            CSS_LEDGER.filterValues { it == "E3d" }.keys shouldBe setOf(".lapis-agreement-frame")
         }
 
         test("R59: a horizontal strip (E4h) never scrolls vertically -- overflow-y is hidden") {

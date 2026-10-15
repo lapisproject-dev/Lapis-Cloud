@@ -2200,12 +2200,13 @@ Allowed exceptions (each ledger entry must also say `overscroll-behavior: contai
 |E1 |A modal, overlay or bottom sheet that is fixed or absolute and bounded by the viewport (conference roster/chat/voting rail and sheets, the "Mehr" sheet, the encounter side panel as overlay and as sheet; Bootstrap's `.modal` and `.offcanvas-body`).
 |E2 |A popup list that opens over the page (searchable-select dropdown, member-map search results).
 |E3 |A log: a bounded, keyboard-focusable region that follows new messages (`tabindex="0"`, `role="log"`): the conference chat and the encounter chat.
+|E3d |(V1.9.134) The document reading area of a registration text: `.lapis-agreement-frame`, bounded, keyboard-focusable (`tabindex="0"`, `role="region"`, accessible name), a scroller ONLY from 768 px up, none below. Reserved for that one selector.
 |E4h |A horizontal strip (`overflow-x` only; `overflow-y` is `hidden`, never a vertical scroller): the compact conference filmstrip (superseded by V1.9.115, the paged gallery: the filmstrip and the priority zone no longer exist; kept as history).
 |E5 |Anything else. Must stay empty.
 |===
 
 What is gone: the sidebar's own scroller (and its `position: sticky`; it now scrolls with the page, so on a long page the navigation rolls out of view), the conference tile grid cap (480 px), the
-Rechtstext boxes in modals and on the registration/DSGVO pages (the text stands in full, a modal scrolls as a whole), the API-key reveal boxes (the key wraps), the mailing editor cap, the
+Rechtstext boxes in modals and on the registration/DSGVO pages (the text stands in full, a modal scrolls as a whole; since V1.9.134 only the registration text sits in the bounded reading frame of class E3d, from 768 px up), the API-key reveal boxes (the key wraps), the mailing editor cap, the
 member-map table frame (and with it the sticky table head -- the map stays in view next to the table where the window is at least 760 px high), the encounter benches frame and side column, the sideways
 scrolling of the encounter bar (it wraps) and of the segmented control (it wraps, 44 px high), the webhook delivery log (now a `dataTable`, a card list on a phone).
 
@@ -2374,3 +2375,20 @@ Client only. Architecture: `conference-dock.adoc`, "Best-fit tile grid (V1.9.92)
 * **One switch, one condition.** While the call view is visible (state not idle and attached, the same condition that shows the host) `<html>` carries
   `lapis-conference-call-visible`; the cap falls on both. No `:has`, no transition, no upper limit on very wide screens (deliberate).
 * **No jump.** The top margin is 24 px in the lobby and in the call. The end card is full width while attached.
+
+== V1.9.134 -- Wide, two-column registration and the agreement reading frame (R59/E3d)
+
+Client and server; details in `docs/features/agreement-texts.adoc`.
+
+* **Width.** The member and FRIEND registration use `WIDE_FORM_MAX_WIDTH_PX = 960` (a `max-width`, R2 untouched). `NARROW_FORM_MAX_WIDTH_PX` (480, pinned in `DataTableStateTest`) and
+  `AUTH_CARD_MAX_WIDTH_PX` (380) are unchanged: login and password reset stay narrow.
+* **Grid.** One field per cell (`lapis-form-grid` / `lapis-form-cell`, the cell is the `host` of `textField`/`passwordField`/`selectField`): one column below 768 px (the guideline's one
+  breakpoint), two from there; a field without a partner (the chapter) spans both columns. The DOM order is the row order, no field has a `tabindex`. The page order is: fields, the text,
+  the consent, submit ("read, agree, send"). `login`, password reset and every other form are untouched.
+* **R59, new class E3d -- the document reading area.** `.lapis-agreement-frame` is the one place that may be a bounded box holding a legal text: `tabindex="0"`, `role="region"`, an accessible
+  name (the heading with the version), `overscroll-behavior: contain`, and a scroller **only from 768 px up** (20 rem, a CSS-only scroll shadow: two `background-attachment: local` cover
+  layers over two `scroll` shadows, built from theme tokens so the dark theme follows). Below 768 px it has no height cap and no overflow: a phone gets no nested scroller. A line length of
+  72 ch inside. E3d is reserved for this one selector (`ScrollSurfaceTripwireTest` pins it, including "the scroller sits only inside `@media (min-width: 768px)`"); E5 stays empty. The other
+  legal text (`lapis-legal-text`, the DSGVO page) stays uncapped. *This exception was proposed with the wave and needs the owner's approval; without it the plan B is the text in full height
+  at 72 ch without a frame.* Kotlin has no `overflowY` for it (the Kotlin detector stays at zero).
+* **Not verified:** a real device, Safari/iOS, a screen reader; the two-column assertions of the DOM test run only when the Karma window is at least 768 px wide.

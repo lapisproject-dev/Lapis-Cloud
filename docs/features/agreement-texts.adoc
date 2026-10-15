@@ -1,0 +1,134 @@
+= Registration texts: versioned agreement and terms per instance (V1.9.134)
+:toc:
+
+== Purpose
+
+Whoever registers must see and accept a text first: the *membership agreement* (`registerApplication`, and `applyForMembership` for a FRIEND who applies) or the
+*FRIEND terms of use* (`registerFriend`). Until V1.9.133 both texts were constants in the code (`MembershipAgreementDisclaimer`, `FriendTermsDisclaimer`): a placeholder
+summary that "a real deployment MUST replace". V1.9.134 lets each instance's ADMIN publish its own, legally reviewed text -- versioned, hashed and never changed afterwards.
+
+There is no registration documentation of its own in this repository; the registration flow is described in `membership-decision-notification.adoc` and
+`regional-chapters.adoc`. This page is the reference for the texts it shows.
+
+== The two layers
+
+* **The built-in placeholder** (the two Kotlin objects) stays *byte for byte unchanged*: text, version label (`2026-07-23.v1` for the membership agreement,
+  `2026-08-15.v1` for the FRIEND terms) and hash are pinned by `AgreementTextBuiltinPinTest`. Every acknowledgment stored before an instance published
+  its own text refers to exactly this wording.
+* **Published versions** live in the database. The *current* text of a kind is the published version with the highest `sequence_no`; while there is none, the
+  placeholder is current. `getMembershipAgreement` and `getFriendTerms` (public, no login) always answer with the current text -- never with a draft.
+
+[kuml, agreement-texts-data-model, svg]
+----
+classDiagram(name = "Agreement texts") {
+    val version = classOf(name = "agreement_text_version") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "kind", type = "MEMBERSHIP | FRIEND")
+        attribute(name = "sequence_no", type = "INTEGER")
+        attribute(name = "version_label", type = "VARCHAR(50)")
+        attribute(name = "valid_from", type = "DATE")
+        attribute(name = "body", type = "TEXT")
+        attribute(name = "sha256", type = "VARCHAR(64)")
+        attribute(name = "char_count", type = "INTEGER")
+        attribute(name = "author_member_id", type = "UUID")
+        attribute(name = "published_at", type = "TIMESTAMP")
+    }
+    val draft = classOf(name = "agreement_text_draft") {
+        attribute(name = "kind", type = "MEMBERSHIP | FRIEND (primary key)")
+        attribute(name = "id", type = "UUID")
+        attribute(name = "version_label", type = "VARCHAR(50)")
+        attribute(name = "valid_from", type = "DATE")
+        attribute(name = "body", type = "TEXT")
+        attribute(name = "sha256", type = "VARCHAR(64)")
+        attribute(name = "updated_by", type = "UUID")
+    }
+    val membershipAck = classOf(name = "membership_agreement_acknowledgment") {
+        attribute(name = "agreement_version", type = "VARCHAR(50)")
+        attribute(name = "agreement_sha256", type = "VARCHAR(64)")
+    }
+    val friendAck = classOf(name = "friend_terms_acknowledgment") {
+        attribute(name = "terms_version", type = "VARCHAR(50)")
+        attribute(name = "terms_sha256", type = "VARCHAR(64)")
+    }
+    association(source = version, target = membershipAck, name = "proved by label + hash (MEMBERSHIP)")
+    association(source = version, target = friendAck, name = "proved by label + hash (FRIEND)")
+    association(source = draft, target = version, name = "publication appends")
+}
+----
+
+== Data model
+
+* `agreement_text_version` is **append-only**. The application only ever `INSERT`s; there is no update, no delete, no upsert (tripwire
+  `AgreementTextStoreTripwireTest`). A change is a new version. There is no database trigger: H2 would need Java classes for it and a backup restore must be able to
+  write rows, so the rule lives in the one writer (`AgreementTextStore`) and its tripwire.
+* `agreement_text_draft` holds at most one working copy per kind (primary key `kind`); its `id` is the stable audit entity id of the draft. Publishing deletes it.
+* There is **no organization id**: every instance has its own database, "per instance" means "per database".
+* **The hash** is `sha256("$version_label\n$body")` over UTF-8, lower-case hex -- exactly the formula of the placeholders, so a database version and a placeholder are proven by
+  the same acknowledgment columns (`agreement_version`/`agreement_sha256` and `terms_version`/`terms_sha256`, both `VARCHAR(50)`/`VARCHAR(64)`). The hash is taken over the
+  *normalized* text (`AgreementTextRules.normalizeBody`: CRLF and CR become LF, trailing whitespace of the document is dropped). The client never computes a hash; it only echoes
+  the label and hash it was given.
+* A database version is re-hashed on every read (`AgreementTextResolver`). If the stored hash no longer matches the stored text the call fails (`ServiceBusyException`) and
+  no registration is accepted: a broken proof is worse than no registration.
+
+== Rules for a text
+
+* 1 to 60,000 characters (UTF-16 length, the same on client and server). No control characters other than line feed and tab, no DEL, no bidirectional controls
+  (U+202A..U+202E, U+2066..U+2069: "Trojan Source" -- what is shown must be what is hashed).
+* The label matches `[0-9A-Za-z][0-9A-Za-z._-]{0,49}` and is unique per kind. It may **not** be the label of the kind's built-in placeholder (old acknowledgments would
+  become ambiguous), and a text equal to the placeholder is refused (it would silence the warning while the placeholder stays what people see).
+* "Valid from" is a calendar date in the organization's zone: not in the future (there is no scheduled publication -- a text people are shown must be one that applies) and not
+  before the "valid from" of the previous version.
+
+== Administration (ADMIN only)
+
+Route `/agreement-texts`, sidebar group "System" next to the backup. Two tabs (membership agreement, FRIEND terms). Each tab, top to bottom:
+
+. a warning while the placeholder is the live text (also as a hint on the member administration, ADMIN only);
+. the current version: label, "valid from", who and when, the hash in 8 characters (monospace; the whole hash is the tooltip), the character count, the number of people who have
+  not acknowledged this version (members `ACTIVE`/`APPLICATION` for the membership agreement, `FRIEND` for the terms), and "Text anzeigen";
+. the editor of the draft: label (suggested as `YYYY-MM-DD.vN`), "valid from", the text with a live counter (`aria-live="polite"`, linked with `aria-describedby`), a preview
+  rendered by the same renderer the registration uses, "Als Entwurf speichern" and "Veröffentlichen";
+. the list of everything published, each with "Text anzeigen" (proof of what a member saw).
+
+"Veröffentlichen" is enabled only while the editor holds exactly the stored draft, and asks first (focus on "Abbrechen", Esc closes): "Diese Fassung kann nicht mehr geändert oder
+gelöscht werden." The call carries the hash of the draft the admin previewed (`expectedDraftSha256`): a second admin who changed the draft in between causes
+`AgreementTextDraftChangedException`, nothing is published. Two admins publishing the same draft at once create exactly one version (draft row lock plus hash check; the Postgres
+lane `AgreementTextPublishConcurrencyPostgresTest` proves it).
+
+*The German text is authoritative; translations of the interface are not legally binding.* The platform performs no legal check of what an admin publishes.
+
+== Registration and a changed text
+
+The three callers that compare a text -- `registerApplication`, `registerFriend`, `applyForMembership` -- check against the *current* version, in the same place as before (after the
+rate limit, before the check for an existing e-mail, so no enumeration oracle appears). A stale version or hash raises `AgreementTextOutdatedException`: a distinct type, because
+Kilua RPC transmits only the exception type, never its message. The registration screens catch it, show a fixed toast, load the current text into the reading frame, withdraw the
+consent and keep everything typed. Between the check and the insert of the acknowledgment a publication is not locked against: the acknowledgment records what the registrant was
+shown, which is exactly what it has to prove.
+
+There is **no forced re-acceptance**: people who accepted an earlier version are not asked again (the count in the administration shows how many have not accepted the current one).
+
+== Layout of the registration
+
+The member and FRIEND registration are 960 px wide (`WIDE_FORM_MAX_WIDTH_PX`; login and password reset stay narrow). The fields sit in a grid, one field per cell
+(`lapis-form-grid`, `lapis-form-cell`): one column below 768 px, two from there; the chapter ("Landesverband") spans both columns. The order is: fields, the text, the consent, submit.
+The text is shown in a reading frame (`lapis-agreement-frame`, `tabindex="0"`, `role="region"`, an accessible name): from 768 px up a bounded box (20 rem, scrolls, `overscroll-behavior:
+contain`, a CSS-only scroll shadow), below 768 px it grows with its text so a phone has no nested scroller. This is the one scroller of class E3d in the R59 ledger (see
+`ui-ux-guideline.adoc`); the other legal text (`lapis-legal-text`, DSGVO page) stays uncapped.
+
+== Audit, privacy, backup
+
+* Audit (`AGREEMENT_TEXT`, migration `V104` widens the entity-type CHECK): `CREATE`/`UPDATE` for a draft save (entity id = the stable draft id), `POST` for a publication (entity id =
+  the new version id). The snapshot holds `event`, `kind`, `versionLabel`, `sha256`, `charCount`, `validFrom` (and `sequenceNo`) -- **never the text**. Log lines never carry the text,
+  a hash or a label (`AgreementTextPrivacyTripwireTest`).
+* DSGVO: `AgreementTextPersonalData` exports which versions a member published (kind, label, time -- no text) and retains the rows on erasure: they are the organization's evidence of who
+  published the text a member accepted (Art. 5(2) DSGVO), the member is only the actor.
+* Backup: both tables are exported and restored automatically (they are not in `EXCLUDED_TABLES`); `OrganizationBackupRoundTripTest` proves a 60,000-character text with umlauts comes
+  back bit-identical and that the hash still proves it.
+
+== Limits (honest)
+
+* Not seen in a real browser by a person: tested by unit, service, migration and headless-Chromium DOM tests only.
+* The two-column layout is measured in Karma only at the window width Karma has; the CSS text (single column by default, two columns from 768 px, no height cap below) is pinned
+  separately by `AgreementFormCssTripwireTest`.
+* The platform shows the placeholder until an admin publishes a text; it does not check that the published text is legally sound.
+* The interface translations were written by the model.

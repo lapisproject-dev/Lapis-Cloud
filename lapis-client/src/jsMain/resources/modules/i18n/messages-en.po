@@ -7748,7 +7748,7 @@ msgid "Nur Mitglieder"
 msgstr "Members only"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:62
-msgid "Nutzungsbedingungen fuer Freund-Konten (Version %1)"
+msgid "Nutzungsbedingungen für Freund-Konten (Version %1)"
 msgstr "Terms of use for friend accounts (version %1)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:49
@@ -24013,3 +24013,132 @@ msgid "%1 Sekunde"
 msgid_plural "%1 Sekunden"
 msgstr[0] "%1 second"
 msgstr[1] "%1 seconds"
+
+msgid "Vertragstexte"
+msgstr "Agreement texts"
+
+msgid "Hier pflegen Sie die Texte, die bei der Registrierung angezeigt und bestätigt werden. Eine veröffentlichte Fassung kann nicht mehr geändert werden; jede Änderung ist eine neue Fassung."
+msgstr "Here you maintain the texts that are shown and confirmed at registration. A published version can no longer be changed; every change is a new version."
+
+msgid "Beitrittsvertrag"
+msgstr "Membership agreement"
+
+msgid "Freund-Nutzungsbedingungen"
+msgstr "Friend terms of use"
+
+msgid "Platzhaltertext aktiv: Diese Instanz zeigt bei der Registrierung den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie Ihre rechtlich geprüfte Fassung."
+msgstr "Placeholder text active: this instance shows the built-in sample text (version %1) at registration. Please publish your legally reviewed version."
+
+msgid "Text der Version %1"
+msgstr "Text of version %1"
+
+msgid "Aktuelle Fassung"
+msgstr "Current version"
+
+msgid "Eingebauter Mustertext, Version %1."
+msgstr "Built-in sample text, version %1."
+
+msgid "Version: %1"
+msgstr "Version: %1"
+
+msgid "Gültig ab: %1"
+msgstr "Valid from: %1"
+
+msgid "Veröffentlicht am %1 von %2"
+msgstr "Published on %1 by %2"
+
+msgid "Prüfsumme: %1"
+msgstr "Checksum: %1"
+
+msgid "Zeichen: %1"
+msgstr "Characters: %1"
+
+msgid "Personen ohne Bestätigung dieser Fassung: %1"
+msgstr "People without confirmation of this version: %1"
+
+msgid "Text anzeigen"
+msgstr "Show text"
+
+msgid "Bitte eine Version angeben: Buchstaben, Ziffern, Punkt, Unterstrich und Bindestrich, höchstens %1 Zeichen."
+msgstr "Please enter a version: letters, digits, period, underscore and hyphen, at most %1 characters."
+
+msgid "Bitte geben Sie den Vertragstext ein."
+msgstr "Please enter the agreement text."
+
+msgid "Der Vertragstext darf höchstens %1 Zeichen lang sein."
+msgstr "The agreement text may be at most %1 characters long."
+
+msgid "Der Vertragstext enthält unzulässige Zeichen (Steuerzeichen oder Richtungsumschalter)."
+msgstr "The agreement text contains characters that are not allowed (control characters or text-direction switches)."
+
+msgid "Nächste Fassung"
+msgstr "Next version"
+
+msgid "Zum Beispiel 2026-10-15.v1. Jede Fassung braucht eine neue Bezeichnung."
+msgstr "For example 2026-10-15.v1. Every version needs a new label."
+
+msgid "Gültig ab"
+msgstr "Valid from"
+
+msgid "Nicht in der Zukunft und nicht vor der aktuellen Fassung."
+msgstr "Not in the future and not before the current version."
+
+msgid "Vertragstext"
+msgstr "Agreement text"
+
+msgid "Maßgeblich ist die deutsche Fassung. Übersetzungen sind nicht rechtsverbindlich."
+msgstr "The German version is authoritative. Translations are not legally binding."
+
+msgid "Die Vorschau erscheint, sobald Sie Text eingeben."
+msgstr "The preview appears as soon as you enter text."
+
+msgid "Vorschau des Vertragstextes"
+msgstr "Preview of the agreement text"
+
+msgid "Vorschau aktualisieren"
+msgstr "Update preview"
+
+msgid "Diese Versionsbezeichnung ist bereits vergeben."
+msgstr "This version label is already in use."
+
+msgid "Dieser Text oder dieses Datum ist nicht zulässig: Das Datum darf weder in der Zukunft noch vor der aktuellen Fassung liegen, und der Text darf nicht dem Mustertext entsprechen."
+msgstr "This text or date is not allowed: the date may be neither in the future nor before the current version, and the text may not equal the sample text."
+
+msgid "Fassung veröffentlichen?"
+msgstr "Publish version?"
+
+msgid "Version %1, gültig ab %2, %3 Zeichen."
+msgstr "Version %1, valid from %2, %3 characters."
+
+msgid "Diese Fassung kann nicht mehr geändert oder gelöscht werden."
+msgstr "This version can no longer be changed or deleted."
+
+msgid "Die Fassung wurde veröffentlicht."
+msgstr "The version was published."
+
+msgid "Veröffentlichte Fassungen"
+msgstr "Published versions"
+
+msgid "Noch keine eigene Fassung veröffentlicht."
+msgstr "No own version published yet."
+
+msgid "Platzhaltertext aktiv: %1"
+msgstr "Placeholder text active: %1"
+
+msgid "Vertragstexte bearbeiten"
+msgstr "Edit agreement texts"
+
+msgid "Bitte lesen Sie den vollständigen Text."
+msgstr "Please read the complete text."
+
+msgid "Der Vertrag wurde aktualisiert. Bitte lesen Sie ihn erneut."
+msgstr "The agreement was updated. Please read it again."
+
+msgid "Die Nutzungsbedingungen wurden aktualisiert. Bitte lesen Sie sie erneut."
+msgstr "The terms of use were updated. Please read them again."
+
+msgid "Der Vertragstext ist nicht zulässig. Bitte prüfen Sie Länge, Zeichen, Version und Datum."
+msgstr "The agreement text is not allowed. Please check length, characters, version and date."
+
+msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
+msgstr "The draft has been changed in the meantime. Please reload the view and check it again."

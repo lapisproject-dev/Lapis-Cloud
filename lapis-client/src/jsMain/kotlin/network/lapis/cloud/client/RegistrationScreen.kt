@@ -4,7 +4,6 @@ import io.kvision.html.Autocomplete
 import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
 import io.kvision.html.div
-import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -19,6 +18,7 @@ import kotlinx.coroutines.launch
 import network.lapis.cloud.shared.domain.MembershipAgreementDto
 import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import network.lapis.cloud.shared.domain.RegistrationInput
+import network.lapis.cloud.shared.rpc.AgreementTextOutdatedException
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.IRegistrationService
 import network.lapis.cloud.shared.rpc.RegionalChapterRequiredException
@@ -38,7 +38,7 @@ fun renderRegistrationScreen(container: SimplePanel) {
     val root =
         container.vPanel(spacing = 10) {
             addCssClass("mx-auto")
-            maxWidth = NARROW_FORM_MAX_WIDTH_PX.px
+            maxWidth = WIDE_FORM_MAX_WIDTH_PX.px
             width = 100.perc
             marginTop = 32.px
         }
@@ -54,7 +54,7 @@ fun renderRegistrationScreen(container: SimplePanel) {
         // there never blocks the registration form itself.
         val (agreement, chapters) =
             coroutineScope {
-                val agreementDeferred = async { guarded { rpcService<IRegistrationService>().getMembershipAgreement() } }
+                val agreementDeferred = async { loadMembershipAgreement() }
                 val chaptersDeferred = async { loadRegionalChapterOptionsOrEmpty() }
                 agreementDeferred.await() to chaptersDeferred.await()
             }
@@ -63,21 +63,25 @@ fun renderRegistrationScreen(container: SimplePanel) {
     }
 }
 
+/** The ONE read of the current text -- the first load and the reload after "the text changed" both use it. `null` = failed (the person was told). */
+private suspend fun loadMembershipAgreement(): MembershipAgreementDto? =
+    guarded {
+        rpcService<IRegistrationService>().getMembershipAgreement()
+    }
+
 private fun renderRegistrationForm(
     root: SimplePanel,
     agreement: MembershipAgreementDto,
     chapters: List<RegionalChapterRefDto> = emptyList(),
 ) {
-    root.h2(gettext("Beitrittsvertrag (Version %1)", agreement.version)) { addCssClass("h5") }
-    root.div {
-        addCssClasses("border rounded p-2 mb-2 lapis-legal-text")
-        content = sanitizeUntrustedI18nText(agreement.text)
-    }
-
+    // V1.9.134: the reading frame is replaceable in place -- after "the text changed" the form keeps what was typed.
+    var currentAgreement = agreement
     val form = root.lapisForm()
     // Vier bis fünf Felder, alle bis auf den optionalen Landesverband Pflicht (Welle V1.9.14 macht
     // aus Fall (b) ggf. Fall (a) -- der Formular-Baustein entscheidet das automatisch in `buttons()`).
-    val displayNameField = form.textField(label = tr("Name"), required = true)
+    // V1.9.134: zwei Spalten ab 768 px, ein Feld je Zelle (DOM-Reihenfolge = Zeilenreihenfolge); lesen, zustimmen, absenden.
+    val grid = form.panel.registrationFieldGrid()
+    val displayNameField = form.textField(label = tr("Name"), required = true, host = grid.gridCell())
     val emailField =
         form.textField(
             label = tr("E-Mail"),
@@ -85,6 +89,7 @@ private fun renderRegistrationForm(
             required = true,
             autocomplete = Autocomplete.USERNAME,
             rule = FormRules::email,
+            host = grid.gridCell(),
         )
     // Die Passwortregel steht als Hinweis UNTER dem Feld (sichtbar, bevor getippt wird), nicht im Label.
     val passwordField =
@@ -95,6 +100,7 @@ private fun renderRegistrationForm(
             reveal = true,
             hint = gettext("Mindestens %1 Zeichen.", Validation.PASSWORD_MIN_LENGTH),
             rule = { FormRules.newPassword(value = it, email = emailField.value.trim()) },
+            host = grid.gridCell(),
         )
     val confirmPasswordField =
         form.passwordField(
@@ -102,29 +108,37 @@ private fun renderRegistrationForm(
             required = true,
             autocomplete = Autocomplete.NEW_PASSWORD,
             revealedBy = passwordField,
+            host = grid.gridCell(),
         )
     form.crossFieldRule(field = confirmPasswordField) {
         FormRules.passwordsMatch(password = passwordField.value, confirmation = confirmPasswordField.value)
     }
-    // Die Zustimmung ist ein Feld der Grammatik (V1.4.29, `checkField`): Pflicht heißt "angekreuzt", der Fehler steht AM Feld
-    // (nicht mehr in der Sammelfläche), `aria-required` setzt der Baustein.
-    form.checkField(
-        label = tr("Ich habe den Beitrittsvertrag gelesen und akzeptiere ihn."),
-        required = true,
-        requiredMessage = gettext("Bitte bestätigen Sie, dass Sie den Beitrittsvertrag gelesen haben."),
-    )
     // Welle V1.9.14 -- MUST be built before `form.buttons(...)` (plan §1 P9), only when chapters
     // exist at all. Optional -- the board can assign one later via `MemberAdministrationScreen.kt`.
+    // V1.9.134: über die volle Breite, weil es kein zweites Feld als Partner gibt.
     val chapterField =
         if (chapters.isNotEmpty()) {
             form.selectField(
                 label = tr("Landesverband"),
                 options = listOf("" to tr("— weiß ich noch nicht —")) + untrustedOptions(chapters.map { it.id to it.name }),
                 hint = tr("Optional. Der Vorstand kann die Zuordnung später vornehmen."),
+                host = grid.gridCell(full = true),
             )
         } else {
             null
         }
+
+    val agreementSection =
+        AgreementTextSection(parent = form.panel, heading = { version -> gettext("Beitrittsvertrag (Version %1)", version) })
+    agreementSection.show(version = agreement.version, text = agreement.text)
+    // Die Zustimmung ist ein Feld der Grammatik (V1.4.29, `checkField`): Pflicht heißt "angekreuzt", der Fehler steht AM Feld
+    // (nicht mehr in der Sammelfläche), `aria-required` setzt der Baustein.
+    val consentField =
+        form.checkField(
+            label = tr("Ich habe den Beitrittsvertrag gelesen und akzeptiere ihn."),
+            required = true,
+            requiredMessage = gettext("Bitte bestätigen Sie, dass Sie den Beitrittsvertrag gelesen haben."),
+        )
 
     val submitButton = newActionButton(ActionIcon.SEND, tr("Antrag einreichen"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = submitButton, enterSubmits = true)
@@ -144,12 +158,22 @@ private fun renderRegistrationForm(
                             displayName = displayNameField.value,
                             email = emailField.value,
                             password = passwordField.value,
-                            agreement = agreement,
+                            agreement = currentAgreement,
                             regionalChapterId = chapterId,
                         ),
                     )
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
+                } catch (e: AgreementTextOutdatedException) {
+                    // V1.9.134 -- the text was replaced while this form was open: a fixed toast (Kilua carries no message), the new text
+                    // is loaded into the frame, the consent is withdrawn and everything typed stays.
+                    notifyError(tr("Der Vertrag wurde aktualisiert. Bitte lesen Sie ihn erneut."))
+                    loadMembershipAgreement()?.let { fresh ->
+                        currentAgreement = fresh
+                        agreementSection.show(version = fresh.version, text = fresh.text)
+                        consentField.reset()
+                    }
+                    null
                 } catch (e: RegionalChapterRequiredException) {
                     if (chapterField != null) {
                         chapterField.showError(tr("Bitte wählen Sie einen Landesverband."))

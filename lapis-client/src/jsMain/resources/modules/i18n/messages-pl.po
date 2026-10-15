@@ -7775,7 +7775,7 @@ msgid "Nur Mitglieder"
 msgstr "Tylko członkowie"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:62
-msgid "Nutzungsbedingungen fuer Freund-Konten (Version %1)"
+msgid "Nutzungsbedingungen für Freund-Konten (Version %1)"
 msgstr "Warunki korzystania z kont znajomych (wersja %1)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:49
@@ -24068,3 +24068,132 @@ msgid_plural "%1 Sekunden"
 msgstr[0] "%1 sekunda"
 msgstr[1] "%1 sekundy"
 msgstr[2] "%1 sekund"
+
+msgid "Vertragstexte"
+msgstr "Teksty umów"
+
+msgid "Hier pflegen Sie die Texte, die bei der Registrierung angezeigt und bestätigt werden. Eine veröffentlichte Fassung kann nicht mehr geändert werden; jede Änderung ist eine neue Fassung."
+msgstr "Tutaj zarządza się tekstami wyświetlanymi i potwierdzanymi podczas rejestracji. Opublikowanej wersji nie można już zmienić; każda zmiana to nowa wersja."
+
+msgid "Beitrittsvertrag"
+msgstr "Umowa przystąpienia"
+
+msgid "Freund-Nutzungsbedingungen"
+msgstr "Warunki korzystania z kont znajomych"
+
+msgid "Platzhaltertext aktiv: Diese Instanz zeigt bei der Registrierung den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie Ihre rechtlich geprüfte Fassung."
+msgstr "Aktywny tekst zastępczy: ta instancja pokazuje podczas rejestracji wbudowany tekst wzorcowy (wersja %1). Opublikuj swoją wersję zweryfikowaną prawnie."
+
+msgid "Text der Version %1"
+msgstr "Tekst wersji %1"
+
+msgid "Aktuelle Fassung"
+msgstr "Aktualna wersja"
+
+msgid "Eingebauter Mustertext, Version %1."
+msgstr "Wbudowany tekst wzorcowy, wersja %1."
+
+msgid "Version: %1"
+msgstr "Wersja: %1"
+
+msgid "Gültig ab: %1"
+msgstr "Obowiązuje od: %1"
+
+msgid "Veröffentlicht am %1 von %2"
+msgstr "Opublikowano %1, autor: %2"
+
+msgid "Prüfsumme: %1"
+msgstr "Suma kontrolna: %1"
+
+msgid "Zeichen: %1"
+msgstr "Znaki: %1"
+
+msgid "Personen ohne Bestätigung dieser Fassung: %1"
+msgstr "Osoby bez potwierdzenia tej wersji: %1"
+
+msgid "Text anzeigen"
+msgstr "Pokaż tekst"
+
+msgid "Bitte eine Version angeben: Buchstaben, Ziffern, Punkt, Unterstrich und Bindestrich, höchstens %1 Zeichen."
+msgstr "Podaj wersję: litery, cyfry, kropka, podkreślnik i łącznik, najwyżej %1 znaków."
+
+msgid "Bitte geben Sie den Vertragstext ein."
+msgstr "Wpisz tekst umowy."
+
+msgid "Der Vertragstext darf höchstens %1 Zeichen lang sein."
+msgstr "Tekst umowy może mieć najwyżej %1 znaków."
+
+msgid "Der Vertragstext enthält unzulässige Zeichen (Steuerzeichen oder Richtungsumschalter)."
+msgstr "Tekst umowy zawiera niedozwolone znaki (znaki sterujące lub znaczniki kierunku tekstu)."
+
+msgid "Nächste Fassung"
+msgstr "Następna wersja"
+
+msgid "Zum Beispiel 2026-10-15.v1. Jede Fassung braucht eine neue Bezeichnung."
+msgstr "Na przykład 2026-10-15.v1. Każda wersja wymaga nowego oznaczenia."
+
+msgid "Gültig ab"
+msgstr "Obowiązuje od"
+
+msgid "Nicht in der Zukunft und nicht vor der aktuellen Fassung."
+msgstr "Nie w przyszłości i nie przed aktualną wersją."
+
+msgid "Vertragstext"
+msgstr "Tekst umowy"
+
+msgid "Maßgeblich ist die deutsche Fassung. Übersetzungen sind nicht rechtsverbindlich."
+msgstr "Rozstrzygająca jest wersja niemiecka. Tłumaczenia nie są prawnie wiążące."
+
+msgid "Die Vorschau erscheint, sobald Sie Text eingeben."
+msgstr "Podgląd pojawi się po wpisaniu tekstu."
+
+msgid "Vorschau des Vertragstextes"
+msgstr "Podgląd tekstu umowy"
+
+msgid "Vorschau aktualisieren"
+msgstr "Odśwież podgląd"
+
+msgid "Diese Versionsbezeichnung ist bereits vergeben."
+msgstr "To oznaczenie wersji jest już używane."
+
+msgid "Dieser Text oder dieses Datum ist nicht zulässig: Das Datum darf weder in der Zukunft noch vor der aktuellen Fassung liegen, und der Text darf nicht dem Mustertext entsprechen."
+msgstr "Ten tekst lub ta data jest niedozwolona: data nie może być ani w przyszłości, ani przed aktualną wersją, a tekst nie może być identyczny z tekstem wzorcowym."
+
+msgid "Fassung veröffentlichen?"
+msgstr "Opublikować wersję?"
+
+msgid "Version %1, gültig ab %2, %3 Zeichen."
+msgstr "Wersja %1, obowiązuje od %2, %3 znaków."
+
+msgid "Diese Fassung kann nicht mehr geändert oder gelöscht werden."
+msgstr "Tej wersji nie będzie można już zmienić ani usunąć."
+
+msgid "Die Fassung wurde veröffentlicht."
+msgstr "Wersja została opublikowana."
+
+msgid "Veröffentlichte Fassungen"
+msgstr "Opublikowane wersje"
+
+msgid "Noch keine eigene Fassung veröffentlicht."
+msgstr "Nie opublikowano jeszcze własnej wersji."
+
+msgid "Platzhaltertext aktiv: %1"
+msgstr "Aktywny tekst zastępczy: %1"
+
+msgid "Vertragstexte bearbeiten"
+msgstr "Edytuj teksty umów"
+
+msgid "Bitte lesen Sie den vollständigen Text."
+msgstr "Przeczytaj pełny tekst."
+
+msgid "Der Vertrag wurde aktualisiert. Bitte lesen Sie ihn erneut."
+msgstr "Umowa została zaktualizowana. Przeczytaj ją ponownie."
+
+msgid "Die Nutzungsbedingungen wurden aktualisiert. Bitte lesen Sie sie erneut."
+msgstr "Warunki korzystania zostały zaktualizowane. Przeczytaj je ponownie."
+
+msgid "Der Vertragstext ist nicht zulässig. Bitte prüfen Sie Länge, Zeichen, Version und Datum."
+msgstr "Tekst umowy jest niedozwolony. Sprawdź długość, znaki, wersję i datę."
+
+msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
+msgstr "Wersja robocza została w międzyczasie zmieniona. Odśwież widok i sprawdź ją ponownie."

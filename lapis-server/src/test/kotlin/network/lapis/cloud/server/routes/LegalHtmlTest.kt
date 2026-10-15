@@ -319,6 +319,7 @@ class LegalHtmlTest :
                     "auditLog" to "Prüfpfad",
                     "backupOperations" to "-Restore- oder -Datenexport-Vorgang",
                     "dsgvoCompliance" to "DSGVO-Compliance der Organisation",
+                    "agreementTexts" to "Veröffentlichung der Registrierungstexte",
                     "crowdfunding" to "Crowdfunding",
                     "politician" to "Politiker-Profile und Politiker-Ranking",
                     "auction" to "Auktionen",

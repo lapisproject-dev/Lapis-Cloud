@@ -7781,7 +7781,7 @@ msgid "Nur Mitglieder"
 msgstr "Alleen leden"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:62
-msgid "Nutzungsbedingungen fuer Freund-Konten (Version %1)"
+msgid "Nutzungsbedingungen für Freund-Konten (Version %1)"
 msgstr "Gebruiksvoorwaarden voor vriendenaccounts (versie %1)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:49
@@ -24061,3 +24061,132 @@ msgid "%1 Sekunde"
 msgid_plural "%1 Sekunden"
 msgstr[0] "%1 seconde"
 msgstr[1] "%1 seconden"
+
+msgid "Vertragstexte"
+msgstr "Contractteksten"
+
+msgid "Hier pflegen Sie die Texte, die bei der Registrierung angezeigt und bestätigt werden. Eine veröffentlichte Fassung kann nicht mehr geändert werden; jede Änderung ist eine neue Fassung."
+msgstr "Hier beheert u de teksten die bij de registratie worden getoond en bevestigd. Een gepubliceerde versie kan niet meer worden gewijzigd; elke wijziging is een nieuwe versie."
+
+msgid "Beitrittsvertrag"
+msgstr "Toetredingsovereenkomst"
+
+msgid "Freund-Nutzungsbedingungen"
+msgstr "Gebruiksvoorwaarden voor vriendenaccounts"
+
+msgid "Platzhaltertext aktiv: Diese Instanz zeigt bei der Registrierung den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie Ihre rechtlich geprüfte Fassung."
+msgstr "Tijdelijke tekst actief: deze instantie toont bij de registratie de ingebouwde voorbeeldtekst (versie %1). Publiceer uw juridisch getoetste versie."
+
+msgid "Text der Version %1"
+msgstr "Tekst van versie %1"
+
+msgid "Aktuelle Fassung"
+msgstr "Huidige versie"
+
+msgid "Eingebauter Mustertext, Version %1."
+msgstr "Ingebouwde voorbeeldtekst, versie %1."
+
+msgid "Version: %1"
+msgstr "Versie: %1"
+
+msgid "Gültig ab: %1"
+msgstr "Geldig vanaf: %1"
+
+msgid "Veröffentlicht am %1 von %2"
+msgstr "Gepubliceerd op %1 door %2"
+
+msgid "Prüfsumme: %1"
+msgstr "Controlesom: %1"
+
+msgid "Zeichen: %1"
+msgstr "Tekens: %1"
+
+msgid "Personen ohne Bestätigung dieser Fassung: %1"
+msgstr "Personen zonder bevestiging van deze versie: %1"
+
+msgid "Text anzeigen"
+msgstr "Tekst tonen"
+
+msgid "Bitte eine Version angeben: Buchstaben, Ziffern, Punkt, Unterstrich und Bindestrich, höchstens %1 Zeichen."
+msgstr "Geef een versie op: letters, cijfers, punt, underscore en koppelteken, maximaal %1 tekens."
+
+msgid "Bitte geben Sie den Vertragstext ein."
+msgstr "Voer de contracttekst in."
+
+msgid "Der Vertragstext darf höchstens %1 Zeichen lang sein."
+msgstr "De contracttekst mag maximaal %1 tekens lang zijn."
+
+msgid "Der Vertragstext enthält unzulässige Zeichen (Steuerzeichen oder Richtungsumschalter)."
+msgstr "De contracttekst bevat niet-toegestane tekens (stuurtekens of richtingwisselaars)."
+
+msgid "Nächste Fassung"
+msgstr "Volgende versie"
+
+msgid "Zum Beispiel 2026-10-15.v1. Jede Fassung braucht eine neue Bezeichnung."
+msgstr "Bijvoorbeeld 2026-10-15.v1. Elke versie heeft een nieuwe aanduiding nodig."
+
+msgid "Gültig ab"
+msgstr "Geldig vanaf"
+
+msgid "Nicht in der Zukunft und nicht vor der aktuellen Fassung."
+msgstr "Niet in de toekomst en niet vóór de huidige versie."
+
+msgid "Vertragstext"
+msgstr "Contracttekst"
+
+msgid "Maßgeblich ist die deutsche Fassung. Übersetzungen sind nicht rechtsverbindlich."
+msgstr "De Duitse versie is bepalend. Vertalingen zijn juridisch niet bindend."
+
+msgid "Die Vorschau erscheint, sobald Sie Text eingeben."
+msgstr "Het voorbeeld verschijnt zodra u tekst invoert."
+
+msgid "Vorschau des Vertragstextes"
+msgstr "Voorbeeld van de contracttekst"
+
+msgid "Vorschau aktualisieren"
+msgstr "Voorbeeld vernieuwen"
+
+msgid "Diese Versionsbezeichnung ist bereits vergeben."
+msgstr "Deze versieaanduiding is al in gebruik."
+
+msgid "Dieser Text oder dieses Datum ist nicht zulässig: Das Datum darf weder in der Zukunft noch vor der aktuellen Fassung liegen, und der Text darf nicht dem Mustertext entsprechen."
+msgstr "Deze tekst of datum is niet toegestaan: de datum mag niet in de toekomst liggen of vóór de huidige versie, en de tekst mag niet gelijk zijn aan de voorbeeldtekst."
+
+msgid "Fassung veröffentlichen?"
+msgstr "Versie publiceren?"
+
+msgid "Version %1, gültig ab %2, %3 Zeichen."
+msgstr "Versie %1, geldig vanaf %2, %3 tekens."
+
+msgid "Diese Fassung kann nicht mehr geändert oder gelöscht werden."
+msgstr "Deze versie kan niet meer worden gewijzigd of verwijderd."
+
+msgid "Die Fassung wurde veröffentlicht."
+msgstr "De versie is gepubliceerd."
+
+msgid "Veröffentlichte Fassungen"
+msgstr "Gepubliceerde versies"
+
+msgid "Noch keine eigene Fassung veröffentlicht."
+msgstr "Nog geen eigen versie gepubliceerd."
+
+msgid "Platzhaltertext aktiv: %1"
+msgstr "Tijdelijke tekst actief: %1"
+
+msgid "Vertragstexte bearbeiten"
+msgstr "Contractteksten bewerken"
+
+msgid "Bitte lesen Sie den vollständigen Text."
+msgstr "Lees de volledige tekst."
+
+msgid "Der Vertrag wurde aktualisiert. Bitte lesen Sie ihn erneut."
+msgstr "De overeenkomst is bijgewerkt. Lees hem opnieuw."
+
+msgid "Die Nutzungsbedingungen wurden aktualisiert. Bitte lesen Sie sie erneut."
+msgstr "De gebruiksvoorwaarden zijn bijgewerkt. Lees ze opnieuw."
+
+msgid "Der Vertragstext ist nicht zulässig. Bitte prüfen Sie Länge, Zeichen, Version und Datum."
+msgstr "De contracttekst is niet toegestaan. Controleer lengte, tekens, versie en datum."
+
+msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
+msgstr "Het concept is intussen gewijzigd. Laad de weergave opnieuw en controleer het opnieuw."

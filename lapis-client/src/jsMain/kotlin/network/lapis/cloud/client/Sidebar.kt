@@ -183,6 +183,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
         SidebarGroupId.SYSTEM to
             listOf(
                 Routes.BACKUP,
+                Routes.AGREEMENT_TEXTS,
                 Routes.CONFERENCE_STREAM_DESTINATIONS,
                 Routes.SEPA_SETTINGS,
                 Routes.TRAVEL_EXPENSE_SETTINGS,
@@ -603,6 +604,8 @@ fun buildSidebar(
     if (AppState.hasRole(AccountRole.ADMIN)) {
         nav.sidebarGroup(SidebarGroupId.SYSTEM, tr("System"), "fas fa-server") { toggle ->
             sidebarLink(Routes.BACKUP, tr("Backup & Wiederherstellung"), "fas fa-database", toggle)
+            // Welle V1.9.134 -- the texts of the registration; steht neben dem Backup (ADMIN-only wie dieses). `fa-scroll` ist noch frei.
+            sidebarLink(Routes.AGREEMENT_TEXTS, tr("Vertragstexte"), "fas fa-scroll", toggle)
             sidebarLink(Routes.CONFERENCE_STREAM_DESTINATIONS, tr("Stream-Ziele"), "fas fa-satellite-dish", toggle)
             sidebarLink(Routes.SEPA_SETTINGS, tr("SEPA-Konfiguration"), "fas fa-building-columns", toggle)
             // Welle V1.9.122 -- steht in SYSTEM (wie SEPA_SETTINGS); `fa-sliders` ist in `lapis-client` noch frei.

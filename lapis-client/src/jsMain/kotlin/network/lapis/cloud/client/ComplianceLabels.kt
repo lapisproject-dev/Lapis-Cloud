@@ -184,6 +184,7 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.CARPOOL_PARTICIPATION -> gettext("Mitfahrt")
         // Welle V1.9.129 "Video-Overlays" -- one entry per upload, rename, move and removal of a library element.
         AuditEntityType.VIDEO_OVERLAY -> gettext("Video-Overlay")
+        AuditEntityType.AGREEMENT_TEXT -> gettext("Vertragstext")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -301,6 +302,7 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.CARPOOL_PARTICIPATION -> "secondary"
         // Welle V1.9.129 -- configuration of a cosmetic feature: the neutral hue.
         AuditEntityType.VIDEO_OVERLAY -> "secondary"
+        AuditEntityType.AGREEMENT_TEXT -> "secondary"
     }
 
 // ------------------------------------------------------------------------------------------------

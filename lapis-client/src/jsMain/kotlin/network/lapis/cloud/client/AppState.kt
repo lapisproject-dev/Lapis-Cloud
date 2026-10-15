@@ -5,6 +5,10 @@ import io.kvision.i18n.tr
 import kotlinx.coroutines.CancellationException
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.SessionInfoDto
+import network.lapis.cloud.shared.rpc.AgreementTextDraftChangedException
+import network.lapis.cloud.shared.rpc.AgreementTextInvalidException
+import network.lapis.cloud.shared.rpc.AgreementTextOutdatedException
+import network.lapis.cloud.shared.rpc.AgreementTextVersionLabelTakenException
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.EmailChangeAlreadyCurrentException
@@ -194,6 +198,14 @@ private fun handleGuardedFailure(e: Throwable) {
         is RecordingRecomputeRateLimitedException -> notifyError(tr("Zu viele Neuberechnungen – bitte später erneut versuchen."))
         is RecordingRecomputeInsufficientDiskException -> notifyError(tr("Zu wenig Speicherplatz für die Neuberechnung."))
         is RecordingRecomputeNotAllowedException -> notifyError(tr("Diese Aufzeichnung kann nicht neu berechnet werden."))
+        // Welle V1.9.134 "Vertragstexte" -- typed, fixed toasts (Kilua RPC never transmits the server's own message). The registration screens
+        // catch AgreementTextOutdatedException themselves first (reload the text, withdraw the consent); this is the fallback for every other caller.
+        is AgreementTextOutdatedException -> notifyError(tr("Der Vertrag wurde aktualisiert. Bitte lesen Sie ihn erneut."))
+        is AgreementTextInvalidException ->
+            notifyError(tr("Der Vertragstext ist nicht zulässig. Bitte prüfen Sie Länge, Zeichen, Version und Datum."))
+        is AgreementTextVersionLabelTakenException -> notifyError(tr("Diese Versionsbezeichnung ist bereits vergeben."))
+        is AgreementTextDraftChangedException ->
+            notifyError(tr("Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."))
         else -> {
             val message = e.message?.takeIf { it.isNotBlank() } ?: tr("Unbekannter Fehler")
             if (message.contains("Unauthorized")) {

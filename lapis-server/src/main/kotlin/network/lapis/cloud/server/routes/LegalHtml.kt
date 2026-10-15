@@ -560,6 +560,13 @@ internal object LegalHtml {
             }
             li {
                 +(
+                    "Veröffentlichung der Registrierungstexte (Beitrittsvertrag, Nutzungsbedingungen für Freund-Konten), " +
+                        "einschließlich wer eine Fassung veröffentlicht hat — Art. 6 Abs. 1 lit. c DSGVO i. V. m. " +
+                        "Art. 5 Abs. 2 DSGVO (Rechenschaftspflicht); der Text selbst enthält keine personenbezogenen Daten."
+                )
+            }
+            li {
+                +(
                     "Beitragsvergünstigungen (Stundung, Befreiung, Sozialermäßigung), einschließlich des vom " +
                         "Mitglied freiwillig angegebenen Antragsgrundes, der auch Angaben zur Gesundheit " +
                         "enthalten kann — Art. 6 Abs. 1 lit. b DSGVO (Mitgliedschaftsvertrag) i. V. m. " +

@@ -93,6 +93,8 @@ private fun renderMemberAdministrationSections(
     var reloadCard: () -> Unit = {}
     var reloadRosterOfCard: () -> Unit = {}
     if (callerRole == AccountRole.ADMIN) reloadCard = renderPrivilegedActionsCard(root, onExecuted = { reloadRosterOfCard() })
+    // Welle V1.9.134 -- ADMIN only, invisible unless a registration text is still the built-in placeholder.
+    if (callerRole == AccountRole.ADMIN) renderAgreementPlaceholderHint(root)
     if (isBoardOrAdmin) renderPendingApplications(root, chapters)
     // Welle V1.9.121: the reconciliation of the legacy country / nationality texts (self-gated: BOARD/ADMIN).
     if (isBoardOrAdmin) renderCountryLegacyMappingCard(root)

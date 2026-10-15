@@ -204,6 +204,8 @@ class DataTableStateTest {
     @Test
     fun screenWidthConstants_matchTheGuideline() {
         assertEquals(480, NARROW_FORM_MAX_WIDTH_PX)
+        assertEquals(960, WIDE_FORM_MAX_WIDTH_PX)
+        assertEquals(380, AUTH_CARD_MAX_WIDTH_PX)
         assertEquals(720, READING_MAX_WIDTH_PX)
         assertEquals(640, DASHBOARD_MAX_WIDTH_PX)
         assertEquals(1440, DATA_SCREEN_MAX_WIDTH_PX)

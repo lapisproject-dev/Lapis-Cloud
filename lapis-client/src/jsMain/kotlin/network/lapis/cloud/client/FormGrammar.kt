@@ -348,11 +348,20 @@ class LapisForm internal constructor(
         host: Container = panel,
         requiredMessage: String? = null,
         rule: (String) -> FieldCheck = { FieldCheck.Ok },
+        hintLive: Boolean = false,
         init: ((TextArea) -> Unit)? = null,
     ): LapisField {
         val control = host.textArea(rows = rows, value = value, label = label)
         init?.invoke(control)
-        return wire(control = control, label = label, required = required, hint = hint, requiredMessage = requiredMessage, rule = rule)
+        return wire(
+            control = control,
+            label = label,
+            required = required,
+            hint = hint,
+            requiredMessage = requiredMessage,
+            rule = rule,
+            hintLive = hintLive,
+        )
     }
 
     /**
@@ -742,6 +751,7 @@ class LapisForm internal constructor(
         rule: (String) -> FieldCheck,
         beforeMessages: ((Container) -> Unit)? = null,
         slotHost: Container = panel,
+        hintLive: Boolean = false,
     ): LapisField {
         val inputWidget = control.input as? Widget
         val baseId = inputWidget?.id ?: "lapis-field-${fieldIdCounter++}"
@@ -751,12 +761,16 @@ class LapisForm internal constructor(
         val host: Container = if (control is AbstractText) control else slotHost
         beforeMessages?.invoke(host)
         val describedBy = mutableListOf<String>()
+        var hintSlot: Div? = null
         if (hint != null) {
             val hintId = "$baseId-hint"
-            host.div(hint) {
-                addCssClass("form-text")
-                id = hintId
-            }
+            hintSlot =
+                host.div(hint) {
+                    addCssClass("form-text")
+                    id = hintId
+                    // V1.9.134: a hint that changes while typing (a character counter) is announced politely, never assertively.
+                    if (hintLive) setAttribute("aria-live", "polite")
+                }
             describedBy += hintId
         }
         val errorId = "$baseId-error"
@@ -783,7 +797,7 @@ class LapisForm internal constructor(
                 inputWidget = inputWidget,
                 onStateChange = { onFieldStateChanged() },
                 owner = this,
-            )
+            ).also { it.hintSlot = hintSlot }
         // `onEvent` am Control landet am <input> (AbstractText delegiert), und genau dort feuert blur -- blur bubbelt nicht.
         // Select/CheckBox delegieren NICHT: ihr Wrapper bekäme nie ein `blur`, also hängt der Listener an `control.input`.
         val eventTarget: Widget? = if (control is AbstractText) control as Widget else control.input as? Widget
@@ -931,6 +945,14 @@ class LapisField internal constructor(
     internal var revealGroup: RevealGroup? = null
 
     internal fun isOwnedBy(form: LapisForm): Boolean = owner === form
+
+    /** V1.9.134: the hint element of this field (`null` without a hint); [setHintText] changes its text in place. */
+    internal var hintSlot: Div? = null
+
+    /** Replaces the text of the hint (e.g. a live character counter). A field without a hint ignores it. */
+    fun setHintText(text: String) {
+        hintSlot?.content = text
+    }
 
     private var submitted = false
     private var errorShown = false

@@ -590,6 +590,7 @@ fun decodeAuditSnapshot(
             AuditEntityType.CARPOOL_PARTICIPATION -> null
             // Welle V1.9.129 -- kind/name/pixel size/byte size of a library element, raw-text display like the other backend-written snapshots.
             AuditEntityType.VIDEO_OVERLAY -> null
+            AuditEntityType.AGREEMENT_TEXT -> null
         }
     }.getOrNull()
 

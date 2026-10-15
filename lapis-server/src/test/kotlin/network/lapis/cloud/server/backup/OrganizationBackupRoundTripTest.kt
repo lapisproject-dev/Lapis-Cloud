@@ -6,8 +6,12 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import network.lapis.cloud.server.agreementtexts.AgreementTextHash
+import network.lapis.cloud.server.agreementtexts.AgreementTextStore
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.generated.AccountTable
+import network.lapis.cloud.server.db.generated.AgreementTextDraftTable
+import network.lapis.cloud.server.db.generated.AgreementTextVersionTable
 import network.lapis.cloud.server.db.generated.BackupOperationLogTable
 import network.lapis.cloud.server.db.generated.CostCenterTable
 import network.lapis.cloud.server.db.generated.DocumentFolderTable
@@ -22,6 +26,8 @@ import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AgreementTextKind
+import network.lapis.cloud.shared.domain.AgreementTextRules
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.BackupOperationStatus
@@ -69,6 +75,13 @@ class OrganizationBackupRoundTripTest :
             val versionId = Uuid.random()
             val blobBytes = "hello secession, this is a document blob".toByteArray(Charsets.UTF_8)
             val storageKey = "$documentId/$versionId.bin"
+            val agreementVersionId = Uuid.random()
+            val agreementLabel = "2027-01-01.v1"
+            val agreementBody =
+                ("Vertragstext mit Umlauten: \u00e4\u00f6\u00fc\u00df \u20ac. ")
+                    .repeat(
+                        2_000,
+                    ).take(AgreementTextRules.MAX_CHARS)
 
             transaction(sourceDb) {
                 MembershipTierTable.insert {
@@ -193,6 +206,32 @@ class OrganizationBackupRoundTripTest :
                     it[isPoliticalParty] = true
                 }
 
+                // V1.9.134 "Vertragstexte": one published version with umlauts at the maximum length and one draft of the other kind --
+                // both tables are exported automatically (they are not in EXCLUDED_TABLES) and must come back bit-identical.
+                AgreementTextVersionTable.insert {
+                    it[id] = agreementVersionId
+                    it[kind] = AgreementTextKind.MEMBERSHIP.name
+                    it[sequenceNo] = 1
+                    it[versionLabel] = agreementLabel
+                    it[validFrom] = LocalDate(2027, 1, 1)
+                    it[body] = agreementBody
+                    it[sha256] = AgreementTextHash.of(versionLabel = agreementLabel, body = agreementBody)
+                    it[charCount] = agreementBody.length
+                    it[authorMemberId] = adminId
+                    it[publishedAt] = LocalDateTime(2027, 1, 1, 12, 0)
+                }
+                AgreementTextDraftTable.insert {
+                    it[kind] = AgreementTextKind.FRIEND.name
+                    it[id] = Uuid.random()
+                    it[versionLabel] = "friend-entwurf.v1"
+                    it[validFrom] = LocalDate(2027, 1, 2)
+                    it[body] = "Entwurf der Freund-Bedingungen \u00e4\u00f6\u00fc\u00df"
+                    it[sha256] = "d".repeat(64)
+                    it[charCount] = 40
+                    it[updatedBy] = adminId
+                    it[updatedAt] = LocalDateTime(2027, 1, 2, 12, 0)
+                }
+
                 AuditLogRecorder.record(
                     actorMemberId = adminId,
                     actorRole = AccountRole.ADMIN,
@@ -240,6 +279,13 @@ class OrganizationBackupRoundTripTest :
                         targetRows shouldBe sourceRows
                     }
                 }
+
+                // V1.9.134: the published agreement text came back with its exact text, and the stored hash still proves it.
+                val restoredAgreement = transaction(targetDb) { AgreementTextStore.currentVersion(AgreementTextKind.MEMBERSHIP) }
+                restoredAgreement?.body shouldBe agreementBody
+                restoredAgreement?.versionLabel shouldBe agreementLabel
+                restoredAgreement?.sha256 shouldBe AgreementTextHash.of(versionLabel = agreementLabel, body = agreementBody)
+                transaction(targetDb) { AgreementTextStore.findDraft(AgreementTextKind.FRIEND) }?.versionLabel shouldBe "friend-entwurf.v1"
 
                 // The blob file itself round-tripped byte-for-byte.
                 val restoredBlob = targetStorageRoot.resolve(storageKey)
