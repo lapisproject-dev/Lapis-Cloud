@@ -6,6 +6,31 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.136 -- Shell for member-card and mailing-link pages
+
+The member-card verification pages (`GET /ausweis`) and the two neutral mailing-link pages (`GET /m/c/{token}`, 404 and 429) now use the same brand header, card and footer as the sign-in pages. Routes, status codes, texts, rate limits and the token and code logic are unchanged.
+
+#### Added
+
+- **New:** all four member-card pages (valid, invalid, 429, 500) and both mailing pages render through `renderAuthPage`. The valid page shows the name in a green success callout (`role="status"`) and the three facts as a definition list; the invalid page uses a neutral callout, deliberately not the red error one, because the result concerns a person. Every negative page has a "Zur Startseite" action.
+- **New:** `authSuccessCallout`, and the CSS rules `.auth-callout--success` and `.auth-facts` (single column below 30rem).
+- **New:** `X-Robots-Tag: noindex, nofollow` on the member-card family; `img-src 'self'` when an instance logo is configured (without it the CSP blocked the logo).
+- **New:** `PublicPagesShellTest`.
+
+#### Changed
+
+- These pages keep `applyPublicPageHeaders` (`Referrer-Policy: no-referrer`) instead of `applyAuthPageHeaders`: the URL carries a card code or tracking token and there is no form.
+- `registerMemberCardPublicRoutes` and `registerMailingTrackingRoutes` take `branding` and `baseUrl` instead of `brandTitle`.
+- On the valid page the colon after the labels is gone ("Mitgliedsnummer", "Status", "Mitglied seit" are now `dt` elements); values and date format are unchanged.
+- The mailing 404/429 pages now set the tracking headers themselves (no duplicated `Referrer-Policy`/`nosniff`), so the 500-to-404 path also carries `no-store` and `noindex`. The 302 click redirect and the open pixel are untouched.
+- Numbering: the date and time wave becomes V1.9.137 and speaking rights V1.9.138 (the V1.9.135 entry below still says V1.9.136/V1.9.137 and is kept as the historical state).
+
+#### Known limitations
+
+- Not looked at in a real browser, mail client, via QR scan or on a phone.
+- The pages are German only.
+- There is no unsubscribe page: the mailing has no token-based unsubscribe route, so a link scanner cannot trigger an unsubscribe. Scanner pre-fetches of `/m/c/` still count as clicks (existing behaviour, unchanged; `HEAD` is not counted).
+
 ### V1.9.135 -- Styled sign-in and consent pages
 
 The five plain HTML pages of the sign-in and consent flows (guest consent, home-server form, OIDC error page, Keycloak error page, MCP consent) now look like the rest of the public site: brand header, a card, the public footer, the site stylesheet. Same routes, same fields, same behaviour.

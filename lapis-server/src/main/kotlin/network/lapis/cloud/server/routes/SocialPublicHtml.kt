@@ -438,8 +438,13 @@ internal object SocialPublicHtml {
         .auth-primary:focus-visible, .auth-secondary:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
         .auth-callout { margin: 0 0 1rem 0; padding: 0.8rem 1rem; border-left: 4px solid #C9A227; border-radius: 0.35rem; background: rgba(201, 162, 39, 0.12); }
         .auth-callout--error { border-left-color: #b00020; background: rgba(176, 0, 32, 0.08); }
+        .auth-callout--success { border-left-color: #2e7d32; background: rgba(46, 125, 50, 0.10); }
+        .auth-facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; margin: 0 0 1rem 0; }
+        .auth-facts dt { font-weight: 600; }
+        .auth-facts dd { margin: 0; overflow-wrap: anywhere; }
         .auth-scopes code, .auth-redirect { overflow-wrap: anywhere; }
         @media (max-width: 30rem) {
+            .auth-facts { grid-template-columns: 1fr; }
             .auth-actions > * { flex: 1 1 100%; }
             .auth-card { padding: 1rem; margin: 1.5rem auto; }
         }

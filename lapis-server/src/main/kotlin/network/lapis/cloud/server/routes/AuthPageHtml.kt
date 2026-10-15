@@ -112,6 +112,14 @@ internal fun FlowContent.authErrorCallout(message: String) {
     }
 }
 
+/** A positive result callout (`role="status"`), the counterpart of [authErrorCallout]. */
+internal fun FlowContent.authSuccessCallout(block: DIV.() -> Unit) {
+    div(classes = "auth-callout auth-callout--success") {
+        attributes["role"] = "status"
+        block()
+    }
+}
+
 /** The shared error page. [message] must be a fixed constant, never a user-controlled value. */
 internal fun authErrorPageHtml(
     message: String,

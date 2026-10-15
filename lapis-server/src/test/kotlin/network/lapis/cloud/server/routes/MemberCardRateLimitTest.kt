@@ -137,7 +137,8 @@ class MemberCardRateLimitTest :
                 application {
                     routing {
                         registerMemberCardPublicRoutes(
-                            brandTitle = "Testverband",
+                            branding = TEST_AUTH_BRANDING.copy(title = "Testverband"),
+                            baseUrl = "https://test.example",
                             pageRateLimiter = FederationInboxRateLimiter(maxRequests = 2, window = 1.minutes, maxTrackedKeys = 50_000),
                             codeFailureLimiter = LoginRateLimiter(maxFailures = 1_000, window = 15.minutes),
                         )
@@ -155,7 +156,8 @@ class MemberCardRateLimitTest :
                 application {
                     routing {
                         registerMemberCardPublicRoutes(
-                            brandTitle = "Testverband",
+                            branding = TEST_AUTH_BRANDING.copy(title = "Testverband"),
+                            baseUrl = "https://test.example",
                             // Page budget deliberately generous so ONLY the failure limiter can be
                             // the one that trips -- isolates the two limiters from each other.
                             pageRateLimiter = FederationInboxRateLimiter(maxRequests = 1_000, window = 1.minutes, maxTrackedKeys = 50_000),

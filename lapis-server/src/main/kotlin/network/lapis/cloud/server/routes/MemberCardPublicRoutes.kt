@@ -11,6 +11,7 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import kotlinx.coroutines.CancellationException
+import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.member.MemberCardEligibility
 import network.lapis.cloud.server.member.MemberCardResolution
@@ -49,26 +50,33 @@ private val logger = KotlinLogging.logger {}
  * guard that only a caller producing negative answers ever consumes. Guessing an 80-bit
  * Crockford-Base32 code is not a realistic attack; enumerating or scraping IS the realistic one,
  * and the failures-only limiter is what caps it.
+ *
+ * **Chrome (V1.9.136).** Every page renders through [renderAuthPage] (brand header, card, footer) but is answered with
+ * [applyPublicPageHeaders], NOT `applyAuthPageHeaders`: the URL carries a card code, so `Referrer-Policy` must be
+ * `no-referrer` (the auth headers use `same-origin`, which they need only for their form POSTs -- this family has none).
  */
 internal fun Route.registerMemberCardPublicRoutes(
-    brandTitle: String,
+    branding: ResolvedBranding,
+    baseUrl: String,
     pageRateLimiter: FederationInboxRateLimiter,
     codeFailureLimiter: LoginRateLimiter,
 ) {
     get("/ausweis") {
-        call.withMemberCardErrorHandling(brandTitle = brandTitle) {
+        call.withMemberCardErrorHandling(branding = branding, baseUrl = baseUrl) {
             val remoteKey = "ip:${rateLimitKeyFor(remoteHost = call.request.origin.remoteHost)}"
             if (!pageRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
                 call.respondMemberCardPage(
-                    body = MemberCardPublicHtml.tooManyRequestsPage(brandTitle),
+                    body = MemberCardPublicHtml.tooManyRequestsPage(branding = branding, baseUrl = baseUrl),
                     status = HttpStatusCode.TooManyRequests,
+                    imgSrcSelf = branding.logoAvailable,
                 )
                 return@withMemberCardErrorHandling
             }
             if (!codeFailureLimiter.checkAllowed(remoteKey)) {
                 call.respondMemberCardPage(
-                    body = MemberCardPublicHtml.tooManyRequestsPage(brandTitle),
+                    body = MemberCardPublicHtml.tooManyRequestsPage(branding = branding, baseUrl = baseUrl),
                     status = HttpStatusCode.TooManyRequests,
+                    imgSrcSelf = branding.logoAvailable,
                 )
                 return@withMemberCardErrorHandling
             }
@@ -83,7 +91,11 @@ internal fun Route.registerMemberCardPublicRoutes(
 
             if (valid == null) {
                 codeFailureLimiter.recordFailure(remoteKey)
-                call.respondMemberCardPage(body = MemberCardPublicHtml.invalidPage(brandTitle), status = HttpStatusCode.OK)
+                call.respondMemberCardPage(
+                    body = MemberCardPublicHtml.invalidPage(branding = branding, baseUrl = baseUrl),
+                    status = HttpStatusCode.OK,
+                    imgSrcSelf = branding.logoAvailable,
+                )
                 return@withMemberCardErrorHandling
             }
             // A successful lookup clears this IP's failure budget -- otherwise a shared NAT/office
@@ -92,7 +104,8 @@ internal fun Route.registerMemberCardPublicRoutes(
             call.respondMemberCardPage(
                 body =
                     MemberCardPublicHtml.validPage(
-                        brandTitle = brandTitle,
+                        branding = branding,
+                        baseUrl = baseUrl,
                         card =
                             MemberCardPublicHtml.ValidCard(
                                 displayName = valid.displayName,
@@ -102,6 +115,7 @@ internal fun Route.registerMemberCardPublicRoutes(
                             ),
                     ),
                 status = HttpStatusCode.OK,
+                imgSrcSelf = branding.logoAvailable,
             )
         }
     }
@@ -116,10 +130,13 @@ internal fun Route.registerMemberCardPublicRoutes(
 private suspend fun ApplicationCall.respondMemberCardPage(
     body: String,
     status: HttpStatusCode,
+    imgSrcSelf: Boolean,
 ) {
     response.header(HttpHeaders.CacheControl, "no-store")
     if (status == HttpStatusCode.TooManyRequests) response.header(HttpHeaders.RetryAfter, "60")
-    applyPublicPageHeaders()
+    // A verification result is a per-code answer, never a search result (also in the meta tag).
+    response.header("X-Robots-Tag", "noindex, nofollow")
+    applyPublicPageHeaders(imgSrcSelf = imgSrcSelf)
     respondText(text = body, contentType = HTML_CONTENT_TYPE, status = status)
 }
 
@@ -134,7 +151,8 @@ private suspend fun ApplicationCall.respondMemberCardPage(
  * code, and an exception log is not a place to keep bearer credentials.
  */
 private suspend fun ApplicationCall.withMemberCardErrorHandling(
-    brandTitle: String,
+    branding: ResolvedBranding,
+    baseUrl: String,
     block: suspend () -> Unit,
 ) {
     try {
@@ -145,8 +163,9 @@ private suspend fun ApplicationCall.withMemberCardErrorHandling(
         logger.error(e) { "GET /ausweis failed" }
         runCatching {
             respondMemberCardPage(
-                body = MemberCardPublicHtml.errorPage(brandTitle),
+                body = MemberCardPublicHtml.errorPage(branding = branding, baseUrl = baseUrl),
                 status = HttpStatusCode.InternalServerError,
+                imgSrcSelf = branding.logoAvailable,
             )
         }
     }

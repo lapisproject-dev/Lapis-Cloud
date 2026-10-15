@@ -207,3 +207,5 @@ Details: `docs/features/auth-and-consent-pages.adoc`. Kurzregeln:
 - Seiten, deren Formular-POST mit einem 302 an einen fremden Origin antwortet (Einwilligungsseiten: fremde `redirect_uri`; Heimatserver-Formular: fremder `authorization_endpoint`), tragen nie `form-action` in der CSP (`AuthFormAction.UNRESTRICTED`); Chrome prüft das Redirect-Ziel dagegen. Nur Fehlerseiten (ohne Formular) behalten `'self'`. Der Aufrufer-Wert wird per Route-Test auf den ausgelieferten Headern geprüft.
 - Formularseiten mit Origin-Prüfung (`isSameOriginRequest`) nie mit `Referrer-Policy: no-referrer`: der Browser sendet sonst `Origin: null` und der POST scheitert mit 403.
 - Fehlertexte sind Enum-Konstanten, nie Nutzereingaben.
+- V1.9.136: Ausweis-Prüfseiten (`/ausweis`) und die Mailing-404/429-Seiten (`/m/c/`) laufen ebenfalls über `renderAuthPage`, werden aber mit `applyPublicPageHeaders` beantwortet (nicht `applyAuthPageHeaders`): die URL trägt einen Ausweis-Code bzw. ein Tracking-Token, also `Referrer-Policy: no-referrer`; es gibt kein Formular.
+- Die negative Ausweisseite bleibt byte-identisch und neutral (kein `--error`, kein `role="alert"`, nichts Eingabeabhängiges).

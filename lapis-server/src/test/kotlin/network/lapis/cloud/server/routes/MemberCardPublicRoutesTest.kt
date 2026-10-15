@@ -181,7 +181,7 @@ class MemberCardPublicRoutesTest :
                 val code = issueCode(member)
 
                 val body = client.get("/ausweis?code=$code").bodyAsText()
-                body shouldContain "noindex,nofollow"
+                body shouldContain "noindex, nofollow"
                 // The page must never echo the bearer credential back into a document that can be
                 // screenshotted, shared or cached by the visitor's own browser history preview.
                 body shouldNotContain code

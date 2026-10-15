@@ -58,7 +58,8 @@ class MailingTrackingRoutesTest :
                         trackingToken = token,
                         clickRateLimiter = clickLimiter,
                         pixelRateLimiter = pixelLimiter,
-                        brandTitle = "Testverein",
+                        branding = TEST_AUTH_BRANDING.copy(title = "Testverein"),
+                        baseUrl = "https://test.example",
                     )
                 }
             }

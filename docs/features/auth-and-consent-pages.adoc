@@ -43,4 +43,23 @@ German only. There is no language switcher and no new translation.
 * Not looked at in a real browser; `form-action` and `Referrer-Policy` are tested by header string only. The flow was not run against a real foreign home server.
 * The guest consent page shows raw scope strings.
 * The redirect line shows the host without a port ("127.0.0.1" for an MCP loopback client).
-* The member-card verification page and the mailing unsubscribe page have no chrome yet.
+
+== Member-card verification and mailing-link pages (V1.9.136)
+
+These pages render through the same shell (`renderAuthPage`) but are answered with `applyPublicPageHeaders`, not `applyAuthPageHeaders`: the URL carries a card code or a tracking token, so `Referrer-Policy` must be `no-referrer`, and there is no form that would need `same-origin`.
+
+[cols="2,1,3"]
+|===
+| Page | Status | Notes
+
+| Member card, valid | 200 | Name in a green success callout, three facts as a definition list ("Mitgliedsnummer", "Status", "Mitglied seit"; the colon after the labels no longer exists). No actions.
+| Member card, invalid | 200 | One neutral page for unknown, revoked, malformed and former-member codes; byte-identical, no red alarm because the result concerns a person.
+| Member card, too many requests | 429 | `Retry-After: 60`.
+| Member card, error | 500 | Fixed text.
+| Mailing link not found | 404 | One page for every failure of the click route; no `Location`.
+| Mailing, too many requests | 429 | `Retry-After: 60`.
+|===
+
+Headers: member card pages add `X-Robots-Tag: noindex, nofollow` and `Cache-Control: no-store`; mailing pages carry `X-Robots-Tag: noindex` and `no-store`. With a logo configured the CSP allows `img-src 'self'`.
+
+There is no token-based unsubscribe page, so no link scanner can trigger an unsubscribe. Required mailing lists explain this without a link; dynamic lists point to `${publicBaseUrl}/app` in text. Scanner pre-fetches of `/m/c/` still count as clicks (unchanged); `HEAD` requests do not.

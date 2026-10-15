@@ -15,6 +15,7 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import kotlinx.coroutines.CancellationException
+import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.mail.newsletter.MailingTrackingData
@@ -57,11 +58,17 @@ internal fun Route.registerMailingTrackingRoutes(
     trackingToken: MailingTrackingToken,
     clickRateLimiter: FederationInboxRateLimiter,
     pixelRateLimiter: FederationInboxRateLimiter,
-    brandTitle: String,
+    branding: ResolvedBranding,
+    baseUrl: String,
 ) {
     get("/m/c/{token}") {
-        call.withTrackingErrorHandling(brandTitle = brandTitle) {
-            call.handleClick(trackingToken = trackingToken, rateLimiter = clickRateLimiter, brandTitle = brandTitle)
+        call.withTrackingErrorHandling(branding = branding, baseUrl = baseUrl) {
+            call.handleClick(
+                trackingToken = trackingToken,
+                rateLimiter = clickRateLimiter,
+                branding = branding,
+                baseUrl = baseUrl,
+            )
         }
     }
     get("/m/o/{file}") {
@@ -74,13 +81,17 @@ internal fun Route.registerMailingTrackingRoutes(
 private suspend fun ApplicationCall.handleClick(
     trackingToken: MailingTrackingToken,
     rateLimiter: FederationInboxRateLimiter,
-    brandTitle: String,
+    branding: ResolvedBranding,
+    baseUrl: String,
 ) {
-    applyTrackingHeaders()
     if (!rateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = request.origin.remoteHost))) {
         response.header(HttpHeaders.RetryAfter, "60")
-        applyPublicPageHeaders()
-        respondText(MailingTrackingHtml.tooManyRequestsPage(brandTitle), HTML_CONTENT_TYPE, HttpStatusCode.TooManyRequests)
+        applyTrackingPageHeaders(branding)
+        respondText(
+            MailingTrackingHtml.tooManyRequestsPage(branding = branding, baseUrl = baseUrl),
+            HTML_CONTENT_TYPE,
+            HttpStatusCode.TooManyRequests,
+        )
         return
     }
     val parsed = parameters["token"]?.let { trackingToken.parse(it) } as? MailingTrackingToken.Parsed.Click
@@ -106,7 +117,7 @@ private suspend fun ApplicationCall.handleClick(
             }
         }
     if (resolved == null) {
-        respondNotFound(brandTitle)
+        respondNotFound(branding = branding, baseUrl = baseUrl)
         return
     }
     if (resolved.mayCount && !isHeadRequest()) {
@@ -116,6 +127,7 @@ private suspend fun ApplicationCall.handleClick(
             now = DbClock.nowLocalDateTime(),
         )
     }
+    applyTrackingHeaders()
     respondRedirect(resolved.target, permanent = false)
 }
 
@@ -161,9 +173,23 @@ private fun ApplicationCall.applyTrackingHeaders() {
     response.header("X-Content-Type-Options", "nosniff")
 }
 
-private suspend fun ApplicationCall.respondNotFound(brandTitle: String) {
-    applyPublicPageHeaders()
-    respondText(MailingTrackingHtml.notFoundPage(brandTitle), HTML_CONTENT_TYPE, HttpStatusCode.NotFound)
+/**
+ * Headers of the two HTML pages (404/429): the tracking set minus what [applyPublicPageHeaders] sets itself
+ * (`Referrer-Policy`, `nosniff`) -- `response.header` APPENDS, so setting both would duplicate those headers. Applied
+ * by each page responder itself, so the catch-all 500 -> 404 path carries `no-store`/`noindex` too.
+ */
+private fun ApplicationCall.applyTrackingPageHeaders(branding: ResolvedBranding) {
+    response.header(HttpHeaders.CacheControl, "no-store")
+    response.header("X-Robots-Tag", "noindex")
+    applyPublicPageHeaders(imgSrcSelf = branding.logoAvailable)
+}
+
+private suspend fun ApplicationCall.respondNotFound(
+    branding: ResolvedBranding,
+    baseUrl: String,
+) {
+    applyTrackingPageHeaders(branding)
+    respondText(MailingTrackingHtml.notFoundPage(branding = branding, baseUrl = baseUrl), HTML_CONTENT_TYPE, HttpStatusCode.NotFound)
 }
 
 private suspend fun ApplicationCall.respondPixel() {
@@ -171,7 +197,8 @@ private suspend fun ApplicationCall.respondPixel() {
 }
 
 private suspend fun ApplicationCall.withTrackingErrorHandling(
-    brandTitle: String,
+    branding: ResolvedBranding,
+    baseUrl: String,
     block: suspend () -> Unit,
 ) {
     try {
@@ -181,7 +208,7 @@ private suspend fun ApplicationCall.withTrackingErrorHandling(
     } catch (e: Exception) {
         // No path, no token, no target in the log -- the URL itself is the credential.
         logger.error { "GET /m/c failed (${e::class.simpleName})" }
-        runCatching { respondNotFound(brandTitle) }
+        runCatching { respondNotFound(branding = branding, baseUrl = baseUrl) }
     }
 }
 

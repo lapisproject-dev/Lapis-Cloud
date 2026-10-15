@@ -3,16 +3,13 @@ package network.lapis.cloud.server.routes
 import kotlinx.datetime.LocalDate
 import kotlinx.html.FlowContent
 import kotlinx.html.a
-import kotlinx.html.body
+import kotlinx.html.dd
 import kotlinx.html.div
+import kotlinx.html.dl
+import kotlinx.html.dt
 import kotlinx.html.h1
-import kotlinx.html.head
-import kotlinx.html.html
-import kotlinx.html.link
-import kotlinx.html.meta
 import kotlinx.html.p
-import kotlinx.html.stream.createHTML
-import kotlinx.html.title
+import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.pdf.formatGermanDate
 
 /**
@@ -46,63 +43,65 @@ internal object MemberCardPublicHtml {
     )
 
     fun validPage(
-        brandTitle: String,
+        branding: ResolvedBranding,
+        baseUrl: String,
         card: ValidCard,
     ): String =
-        skeleton(brandTitle = brandTitle, heading = "Gültiger Mitgliedsausweis") {
-            p("lead") { +card.displayName }
-            p { +"Mitgliedsnummer: ${card.memberNumber}" }
-            p { +"Status: ${card.statusLabel}" }
-            p { +"Mitglied seit: ${formatGermanDate(card.joinedAt)}" }
+        renderAuthPage(title = "Gültiger Mitgliedsausweis", branding = branding, baseUrl = baseUrl) {
+            h1 { +"Gültiger Mitgliedsausweis" }
+            authSuccessCallout { p("lead") { +card.displayName } }
+            dl(classes = "auth-facts") {
+                dt { +"Mitgliedsnummer" }
+                dd { +card.memberNumber }
+                dt { +"Status" }
+                dd { +card.statusLabel }
+                dt { +"Mitglied seit" }
+                dd { +formatGermanDate(card.joinedAt) }
+            }
             p { +"Bitte gleichen Sie Name und Mitgliedsnummer mit dem vorgelegten Ausweis ab." }
         }
 
-    /** The ONE negative page -- see the class KDoc for why there is exactly one. */
-    fun invalidPage(brandTitle: String): String =
-        skeleton(brandTitle = brandTitle, heading = "Kein gültiger Mitgliedsausweis") {
-            p {
+    /**
+     * The ONE negative page -- see the class KDoc for why there is exactly one. Deliberately a NEUTRAL callout (no
+     * `--error`, no `role="alert"`): the result concerns a person, it is not a system alarm. Nothing input-dependent
+     * may ever enter this page: for equal [branding]/[baseUrl] it is byte-identical.
+     */
+    fun invalidPage(
+        branding: ResolvedBranding,
+        baseUrl: String,
+    ): String =
+        renderAuthPage(title = "Kein gültiger Mitgliedsausweis", branding = branding, baseUrl = baseUrl) {
+            h1 { +"Kein gültiger Mitgliedsausweis" }
+            div(classes = "auth-callout") {
                 +(
                     "Zu diesem Ausweis-Code liegt keine gültige Mitgliedschaft vor. Der Ausweis kann abgelaufen, " +
                         "ersetzt oder gesperrt worden sein. Bitte wenden Sie sich an die Geschäftsstelle."
                 )
             }
+            homeAction(baseUrl)
         }
 
-    fun tooManyRequestsPage(brandTitle: String): String =
-        skeleton(brandTitle = brandTitle, heading = "Zu viele Anfragen") {
-            p { +"Bitte versuchen Sie es in einer Minute erneut." }
-        }
-
-    fun errorPage(brandTitle: String): String =
-        skeleton(brandTitle = brandTitle, heading = "Vorübergehend nicht verfügbar") {
-            p { +"Die Ausweisprüfung ist gerade nicht erreichbar. Bitte versuchen Sie es später erneut." }
-        }
-
-    private fun skeleton(
-        brandTitle: String,
-        heading: String,
-        content: FlowContent.() -> Unit,
+    fun tooManyRequestsPage(
+        branding: ResolvedBranding,
+        baseUrl: String,
     ): String =
-        createHTML(prettyPrint = false).html {
-            attributes["lang"] = "de"
-            head {
-                meta(charset = "utf-8")
-                meta(name = "viewport", content = "width=device-width, initial-scale=1")
-                // `noindex`: a verification result is a per-code answer, never a search result.
-                meta(name = "robots", content = "noindex,nofollow")
-                title { +"$heading – $brandTitle" }
-                link(rel = "stylesheet", href = "/s/assets/style.css")
-            }
-            body {
-                div("embed-page") {
-                    h1 { +heading }
-                    content()
-                    div("embed-footer") {
-                        a(href = "/impressum") { +"Impressum" }
-                        +" · "
-                        a(href = "/datenschutz") { +"Datenschutz" }
-                    }
-                }
-            }
+        renderAuthPage(title = "Zu viele Anfragen", branding = branding, baseUrl = baseUrl) {
+            h1 { +"Zu viele Anfragen" }
+            p { +"Bitte versuchen Sie es in einer Minute erneut." }
+            homeAction(baseUrl)
         }
+
+    fun errorPage(
+        branding: ResolvedBranding,
+        baseUrl: String,
+    ): String =
+        renderAuthPage(title = "Vorübergehend nicht verfügbar", branding = branding, baseUrl = baseUrl) {
+            h1 { +"Vorübergehend nicht verfügbar" }
+            p { +"Die Ausweisprüfung ist gerade nicht erreichbar. Bitte versuchen Sie es später erneut." }
+            homeAction(baseUrl)
+        }
+
+    private fun FlowContent.homeAction(baseUrl: String) {
+        authActions { a(href = baseUrl, classes = "auth-secondary") { +"Zur Startseite" } }
+    }
 }

@@ -2799,7 +2799,8 @@ internal fun Application.module(
         // Welle "Digitaler Mitgliedsausweis (PDF)" -- literale Route (/ausweis), dieselbe
         // "literal schlaegt catch-all"-Begruendung wie registerLegalRoutes/registerEventPublicRoutes.
         registerMemberCardPublicRoutes(
-            brandTitle = resolvedBranding.title,
+            branding = resolvedBranding,
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
             pageRateLimiter = memberCardPublicPageRateLimiter,
             codeFailureLimiter = memberCardCodeFailureLimiter,
         )
@@ -2808,7 +2809,8 @@ internal fun Application.module(
             trackingToken = mailingTrackingToken,
             clickRateLimiter = mailingClickRateLimiter,
             pixelRateLimiter = mailingPixelRateLimiter,
-            brandTitle = resolvedBranding.title,
+            branding = resolvedBranding,
+            baseUrl = FederationConfig.publicBaseUrl.trimEnd('/'),
         )
         // Welle V1.4.3.1 "Veranstaltungen" -- literal routes (/veranstaltung/*), same "registered
         // before staticFiles" reasoning as registerSocialPublicRoutes' own routes.
