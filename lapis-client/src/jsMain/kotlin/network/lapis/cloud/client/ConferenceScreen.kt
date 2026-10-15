@@ -95,6 +95,7 @@ import network.lapis.cloud.shared.rpc.IConferenceNotesService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.IConferenceService
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
+import network.lapis.cloud.shared.rpc.IConferenceTimerService
 import network.lapis.cloud.shared.rpc.IConferenceWhiteboardService
 import network.lapis.cloud.shared.rpc.IEventService
 import network.lapis.cloud.shared.rpc.IGovernanceService
@@ -1680,6 +1681,17 @@ private fun enterCall(
             null
         }
 
+    // V1.9.133 -- "Timer" (moderators only, main room only: `canModerate` is already `false` in a breakout). Same placement and same
+    // `addCssClasses` discipline as the two buttons above; the pill opens the same dialog (also in full screen, where this button is hidden).
+    val timerToggleButton =
+        if (canModerate) {
+            val btn = moreSheet.button(tr("Timer"), icon = "fas fa-stopwatch", style = ButtonStyle.OUTLINESECONDARY)
+            btn.addCssClasses("w-100 text-start")
+            btn
+        } else {
+            null
+        }
+
     // V1.4.23 Videokonferenz-Hintergrundeffekte -- EINGEKLAPPTE Zeile im "Mehr"-Blatt, DOM-Position
     // exakt "nach Whiteboard/Notizen, vor Geräte" (Jobs-Ruling K1: die Schublade wächst durch dieses
     // Feature nicht). Zustand steht im TEXT des Knopfes (Tesler: kein unsichtbarer Modus). Die Gruppe
@@ -1851,6 +1863,8 @@ private fun enterCall(
             joinLeaveSoundPlayer,
             roomEnabled = { roomJoinLeaveSounds },
         )
+    // V1.9.133 -- personal switch of the timer gong (no timer in a breakout call, so no switch there either)
+    if (!isBreakout) TimerGongSwitchRow(deviceGroup, ConferenceTimerGong.preference, joinLeaveSoundPlayer)
     val cameraDeviceSelect = deviceGroup.select(options = loadingPlaceholder, value = "", label = tr("Kamera"))
     // V1.3.x -- Lautsprecherauswahl nur, wenn der Browser `HTMLMediaElement.setSinkId` überhaupt
     // unterstützt (Safari nicht) -- Feature-Detection-Disziplin wie bei `screenShareButton`.
@@ -2389,6 +2403,8 @@ private fun enterCall(
     // V1.9.127 -- what the mini bar says about the raised hands (set by `refreshHandUi`, declared here because the snapshot is built earlier).
     var dockHandRaisedSelf = false
     var dockRaisedHandsCount: Int? = null
+    // V1.9.133 -- the conference timer for the mini bar / floating window (digits and phase only; set by `refreshTimerUi`).
+    var dockTimer: DockTimer? = null
 
     fun dockSnapshot(): DockSnapshot =
         DockSnapshot(
@@ -2402,6 +2418,7 @@ private fun enterCall(
             voteOpen = (voteController?.state?.badgeCount() ?: 0) > 0,
             handRaisedSelf = dockHandRaisedSelf,
             raisedHandsCount = dockRaisedHandsCount,
+            timer = dockTimer,
             transitioning =
                 when (connectionState) {
                     is ConferenceConnectionState.Connecting, is ConferenceConnectionState.Reconnecting -> DockTransition.CONNECTING
@@ -3117,6 +3134,22 @@ private fun enterCall(
     // V1.9.25 -- what a guest or friend sees while ballots run in the room: no panel, one calm line above the tiles.
     val guestVoteLine = if (!votingMember) renderGuestVotingStatusLine(videoArea) else null
 
+    // --- V1.9.133 conference timer: the display sits above the tiles (never over a video), built ONCE as raw DOM (a 4 Hz countdown must not
+    // go through a vnode patch) and mounted into an empty KVision host. A breakout call has no timer (its LiveKit room is another one).
+    var openTimerDialogRef: () -> Unit = {}
+    val timerPill = if (isBreakout) null else ConferenceTimerPill(isModerator = canModerate, onActivate = { openTimerDialogRef() })
+    // registered BEFORE the host is added (addWithLifecycle): a hook added to an already rendered widget is the "late hook" trap
+    if (timerPill != null) {
+        videoArea.addWithLifecycle(
+            io.kvision.html.Div(className = "lapis-conference-timer-host"),
+            onInsert = { vnode ->
+                val host = vnode.elm as? HTMLElement
+                // an insert hook fires again when a re-render replaced the host: the pill moves along
+                if (host != null && timerPill.element.parentNode !== host) host.appendChild(timerPill.element)
+            },
+        )
+    }
+
     // --- V1.9.92 Best-Fit-Kachelraster, V1.9.115 umschaltbare Ansichten -----------------------------------------------------------
     // The tile size is no longer a CSS auto-fit guess but the answer of the pure `computeConferenceTileGrid` for the free area. This
     // function only MEASURES and WRITES NUMBERS as CSS variables on existing elements (`--lapis-tile-w`, `--lapis-tile-h`,
@@ -3648,6 +3681,78 @@ private fun enterCall(
     }
     val rosterList = rosterPanel.vPanel(spacing = 4) { addCssClasses("border rounded p-2") }
 
+    // --- V1.9.133 conference timer (display only): the server keeps the state, this block shows it (pill above the tiles, chip in the mini
+    // bar and the floating window, the moderator's dialog, the polite live region, the one gong). An event guest without an account has no
+    // RPC: they SEE the timer (the server sends it to them) but never read or control it.
+    var timerController: ConferenceTimerController? = null
+    var timerDialog: ConferenceTimerDialog? = null
+    var lastTimerTrigger: HTMLElement? = null
+    var refreshTimerUi: () -> Unit = {}
+    if (!isBreakout) {
+        timerController =
+            ConferenceTimerController(
+                gateway =
+                    object : ConferenceTimerGateway {
+                        override suspend fun start(seconds: Int) =
+                            timerGuarded { rpcService<IConferenceTimerService>().startTimer(room.id, seconds) }
+
+                        override suspend fun pause() = timerGuarded { rpcService<IConferenceTimerService>().pauseTimer(room.id) }
+
+                        override suspend fun resume() = timerGuarded { rpcService<IConferenceTimerService>().resumeTimer(room.id) }
+
+                        override suspend fun stop() = timerGuarded { rpcService<IConferenceTimerService>().stopTimer(room.id) }
+
+                        override suspend fun extend(seconds: Int) =
+                            timerGuarded { rpcService<IConferenceTimerService>().extendTimer(room.id, seconds) }
+
+                        // the periodic read is quiet (a failed read leaves the picture as it was)
+                        override suspend fun state() =
+                            if (isEventGuestCaller) null else quietly { rpcService<IConferenceTimerService>().timerState(room.id) }
+                    },
+                scope = AppScope,
+                perfNow = { window.performance.now() },
+                onChanged = { refreshTimerUi() },
+                announce = { timerPill?.announce(it) },
+                gong = { runCatching { if (ConferenceTimerGong.preference.isOn()) joinLeaveSoundPlayer.playTimerGong() } },
+                startTicker = { periodMs, tick ->
+                    val handle = window.setInterval({ tick() }, periodMs)
+                    val stopTicker: () -> Unit = { window.clearInterval(handle) }
+                    stopTicker
+                },
+                isModerator = canModerate,
+                isEventGuest = isEventGuestCaller,
+            )
+        if (canModerate) {
+            val controller = checkNotNull(timerController)
+            val dialog = ConferenceTimerDialog(controller, AppScope) { lastTimerTrigger }
+            timerDialog = dialog
+            openTimerDialogRef = {
+                lastTimerTrigger = timerPill?.timerElement
+                dialog.open()
+            }
+            timerToggleButton?.onClick {
+                lastTimerTrigger = timerToggleButton.getElement()
+                dialog.open()
+            }
+        }
+    }
+    refreshTimerUi = redraw@{
+        val controller = timerController ?: return@redraw
+        val display = controller.display()
+        timerPill?.render(display)
+        timerDialog?.refresh()
+        val chip = dockTimerOf(display)
+        if (chip != dockTimer) {
+            dockTimer = chip
+            publishDock()
+        }
+    }
+    // a hidden tab throttles timers: when the tab is shown again the countdown is re-anchored on the server's clock
+    val timerVisibilityListener: (Event) -> Unit = {
+        if (document.asDynamic().visibilityState == "visible") AppScope.launch { timerController?.resync() }
+    }
+    document.addEventListener("visibilitychange", timerVisibilityListener)
+
     // Redraws everything that shows the raised hands from the controller's state. Cheap guards inside; the roster rebuild is the one cost.
     refreshHandUi = redraw@{
         val controller = handController ?: return@redraw
@@ -3955,6 +4060,7 @@ private fun enterCall(
         if (panelState.fullscreen) {
             whiteboardToggleButton?.hide()
             notesToggleButton?.hide()
+            timerToggleButton?.hide()
             if (whiteboardOpen) {
                 whiteboardOpen = false
                 whiteboardPanel.hide()
@@ -3966,6 +4072,7 @@ private fun enterCall(
         } else {
             whiteboardToggleButton?.show()
             notesToggleButton?.show()
+            timerToggleButton?.show()
         }
         whiteboardToggleButton?.setAttributeIfChanged("aria-pressed", whiteboardOpen.toString())
         notesToggleButton?.setAttributeIfChanged("aria-pressed", notesOpen.toString())
@@ -4195,6 +4302,9 @@ private fun enterCall(
     fun cleanupFullscreen() {
         reactionPopover.dispose()
         handController?.dispose()
+        timerController?.dispose()
+        timerDialog?.close()
+        document.removeEventListener("visibilitychange", timerVisibilityListener)
         // V1.9.25: the ballot poll, the receipt hook and the viewport listener end with the call, on every way out of it
         ConferenceVoteRuntime.disposeActive()
         noiseSuppressionController.dispose()
@@ -5281,6 +5391,7 @@ private fun enterCall(
     session =
         LiveKitRoomSession(
             onHandQueue = { dto -> handController?.onBroadcast(dto) },
+            onTimer = { dto -> timerController?.onPacket(dto) },
             onConferenceReaction = { identity, reaction ->
                 if (roomReactionsEnabled && reactionReceiveGuard.admit(identity)) showReaction(identity, reaction)
             },
@@ -5479,6 +5590,8 @@ private fun enterCall(
                 transition(ConferenceConnectionEvent.ReconnectedSignal)
                 // V1.9.127: a broadcast may have been lost while the connection was down -- read the queue again
                 AppScope.launch { handController?.resync() }
+                // V1.9.133: the same for the timer (a pause, an extension or the end may have been missed meanwhile)
+                AppScope.launch { timerController?.resync() }
                 // ELB-Test-Fix 2026-09-27 (Befund 7): after ANY reconnect, rebuild the remote roster
                 // from the SDK's own state -- participants/tracks announced while this client was
                 // reconnecting can be lost to the UI (see LiveKitRoomSession.resyncRoster KDoc). Tiles
@@ -5719,6 +5832,8 @@ private fun enterCall(
         refreshGuestHomeservers()
         // V1.9.127 -- the raised hands: a person who joins late (or reloads) reads the queue once; afterwards the broadcasts keep it current
         handController?.resync()
+        // V1.9.133 -- the timer: a person who joins late (or reloads) reads it once; afterwards the broadcasts keep it current
+        timerController?.resync()
         // V1.0 Wave 7 "Whiteboard" -- constructed once per connect (mirrors the roster/recording-
         // status "seed once per connect" pattern), NOT gated on the panel being open, so it is
         // instantly ready the moment a participant opens it -- see

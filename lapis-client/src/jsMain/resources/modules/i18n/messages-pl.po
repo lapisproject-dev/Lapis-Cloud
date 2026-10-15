@@ -23943,3 +23943,128 @@ msgstr "Obliczenie dnia %1"
 
 msgid "Für diesen Tag fehlen noch Angaben."
 msgstr "Dla tego dnia brakuje jeszcze danych."
+
+# V1.9.133 -- conference timer (display only)
+
+msgid "Der Timer lässt sich jetzt nicht ändern. Bitte versuchen Sie es erneut."
+msgstr "Timera nie można teraz zmienić. Proszę spróbować ponownie."
+
+msgid "Die gewählte Zeit ist nicht möglich (10 Sekunden bis 60 Minuten)."
+msgstr "Wybrany czas jest niedozwolony (od 10 sekund do 60 minut)."
+
+msgid "Timer pausiert: noch %1"
+msgstr "Timer wstrzymany: pozostało %1"
+
+msgid "Timer: noch %1"
+msgstr "Timer: pozostało %1"
+
+msgid "Zeit abgelaufen"
+msgstr "Czas minął"
+
+msgid "Dauer"
+msgstr "Czas trwania"
+
+msgid "Eigene Zeit"
+msgstr "Własny czas"
+
+msgid "Minuten"
+msgstr "Minuty"
+
+msgid "Sekunden"
+msgstr "Sekundy"
+
+msgid "Zwischen 10 Sekunden und 60 Minuten"
+msgstr "Od 10 sekund do 60 minut"
+
+msgid "Starten"
+msgstr "Uruchom"
+
+msgid "Fortsetzen"
+msgstr "Wznów"
+
+msgid "Pausieren"
+msgstr "Wstrzymaj"
+
+msgid "Stoppen"
+msgstr "Zatrzymaj"
+
+msgid "+30 s"
+msgstr "+30 s"
+
+msgid "+1 min"
+msgstr "+1 min"
+
+msgid "+5 min"
+msgstr "+5 min"
+
+msgid "Um 30 Sekunden verlängern"
+msgstr "Przedłuż o 30 sekund"
+
+msgid "Um 1 Minute verlängern"
+msgstr "Przedłuż o 1 minutę"
+
+msgid "Um 5 Minuten verlängern"
+msgstr "Przedłuż o 5 minut"
+
+msgid "Timer"
+msgstr "Timer"
+
+msgid "Timer %1"
+msgstr "Timer %1"
+
+msgid "Gleich vorbei"
+msgstr "Zaraz koniec"
+
+msgid "Pausiert"
+msgstr "Wstrzymano"
+
+msgid "Gong am Ende"
+msgstr "Gong na końcu"
+
+msgid "Ein leiser Gong, wenn ein Timer abläuft. Er erklingt nur, wenn Ihr Browser Ton zulässt."
+msgstr "Cichy gong, gdy timer dobiegnie końca. Rozlegnie się tylko wtedy, gdy przeglądarka zezwala na dźwięk."
+
+msgid "Timer steuern, Zeit abgelaufen"
+msgstr "Steruj timerem, czas minął"
+
+msgid "Timer: Zeit abgelaufen"
+msgstr "Timer: czas minął"
+
+msgid "Timer steuern, pausiert, noch %1"
+msgstr "Steruj timerem, wstrzymany, pozostało %1"
+
+msgid "Timer steuern, noch %1"
+msgstr "Steruj timerem, pozostało %1"
+
+msgid "Timer wurde zurückgesetzt"
+msgstr "Timer został zresetowany"
+
+msgid "Timer gestartet: %1"
+msgstr "Timer uruchomiony: %1"
+
+msgid "Timer pausiert"
+msgstr "Timer wstrzymany"
+
+msgid "Timer fortgesetzt"
+msgstr "Timer wznowiony"
+
+msgid "Timer gestoppt"
+msgstr "Timer zatrzymany"
+
+msgid "Noch 10 Sekunden"
+msgstr "Pozostało 10 sekund"
+
+msgid "Noch eine Minute"
+msgstr "Została jedna minuta"
+
+msgid "%1 Minute"
+msgid_plural "%1 Minuten"
+msgstr[0] "%1 minuta"
+msgstr[1] "%1 minuty"
+msgstr[2] "%1 minut"
+
+msgid "%1 Sekunde"
+msgid_plural "%1 Sekunden"
+msgstr[0] "%1 sekunda"
+msgstr[1] "%1 sekundy"
+msgstr[2] "%1 sekund"

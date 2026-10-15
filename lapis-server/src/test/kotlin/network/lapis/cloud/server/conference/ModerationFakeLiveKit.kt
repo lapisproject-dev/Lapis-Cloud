@@ -174,6 +174,7 @@ internal class ModerationFakeLiveKit : LiveKitAdminClient {
 /** A live participant with one microphone track ([microphoneOpen] = published and not muted) and the permission of an ordinary token. */
 internal fun liveParticipant(
     identity: String,
+    sid: String = "",
     microphoneOpen: Boolean = true,
     hasMicrophoneTrack: Boolean = true,
     cameraOpen: Boolean = false,
@@ -186,6 +187,7 @@ internal fun liveParticipant(
     }
     if (cameraOpen) tracks += LiveKitTrackInfo(sid = "TR_cam_$identity", type = "VIDEO", source = "CAMERA", muted = false)
     return LiveKitParticipantInfo(
+        sid = sid,
         identity = identity,
         name = identity,
         tracks = tracks,

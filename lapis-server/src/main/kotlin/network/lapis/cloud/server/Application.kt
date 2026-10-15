@@ -68,6 +68,8 @@ import network.lapis.cloud.server.conference.ConferenceHandQueueState
 import network.lapis.cloud.server.conference.ConferenceNotesState
 import network.lapis.cloud.server.conference.ConferenceRecordingConfig
 import network.lapis.cloud.server.conference.ConferenceStreamingConfig
+import network.lapis.cloud.server.conference.ConferenceTimerReconciler
+import network.lapis.cloud.server.conference.ConferenceTimerState
 import network.lapis.cloud.server.conference.ConferenceWhiteboardState
 import network.lapis.cloud.server.conference.DefaultSecretBallotStreamGuard
 import network.lapis.cloud.server.conference.FfmpegBlankVideoDetector
@@ -277,6 +279,7 @@ import network.lapis.cloud.server.rpc.ConferenceNotesService
 import network.lapis.cloud.server.rpc.ConferenceRecordingService
 import network.lapis.cloud.server.rpc.ConferenceService
 import network.lapis.cloud.server.rpc.ConferenceStreamingService
+import network.lapis.cloud.server.rpc.ConferenceTimerService
 import network.lapis.cloud.server.rpc.ConferenceWhiteboardService
 import network.lapis.cloud.server.rpc.ContributionReliefService
 import network.lapis.cloud.server.rpc.ContributionService
@@ -375,6 +378,7 @@ import network.lapis.cloud.shared.rpc.IConferenceNotesService
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.IConferenceService
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
+import network.lapis.cloud.shared.rpc.IConferenceTimerService
 import network.lapis.cloud.shared.rpc.IConferenceWhiteboardService
 import network.lapis.cloud.shared.rpc.IContributionReliefService
 import network.lapis.cloud.shared.rpc.IContributionService
@@ -1062,6 +1066,12 @@ internal fun Application.module(
     val conferenceHandLowerOneRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
     val conferenceHandLowerAllRateLimiter = FederationInboxRateLimiter(maxRequests = 6, window = 1.minutes)
 
+    // V1.9.133 display-only conference timer -- in memory, a process-wide singleton for the same reason as the hand queue. Budgets:
+    // control calls 20/min per room, reading the timer 30/min per person.
+    val conferenceTimerState = ConferenceTimerState()
+    val conferenceTimerControlRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
+    val conferenceTimerReadRateLimiter = FederationInboxRateLimiter(maxRequests = 30, window = 1.minutes)
+
     // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- same "constructed here, NOT left to the
     // service's own constructor default" reasoning as conferenceGuestAccessRateLimiter above (the
     // registerService factory lambda below constructs a brand-new ConferenceBreakoutService on
@@ -1428,6 +1438,15 @@ internal fun Application.module(
         )
     conferenceHandQueueReconciler.start()
     monitor.subscribe(ApplicationStopping) { conferenceHandQueueReconciler.stop() }
+    // V1.9.133 -- tells people who arrive while a timer is running/paused/expired the current state (see KDoc).
+    val conferenceTimerReconciler =
+        ConferenceTimerReconciler(
+            liveKitAdminClient = liveKitAdminClient,
+            state = conferenceTimerState,
+            liveKitEnabled = conferenceConfig.enabled,
+        )
+    conferenceTimerReconciler.start()
+    monitor.subscribe(ApplicationStopping) { conferenceTimerReconciler.stop() }
 
     // Welle V1.9.15 -- erases raw mailing open/click events after MailingHtmlPolicy.RETENTION_DAYS.
     val mailingTrackingRetentionPoller = MailingTrackingRetentionPoller()
@@ -2541,6 +2560,17 @@ internal fun Application.module(
                 previewRateLimiter = articleImportPreviewRateLimiter,
                 commitRateLimiter = articleImportCommitRateLimiter,
                 bulkApproveRateLimiter = articleBulkApproveRateLimiter,
+            )
+        }
+        // V1.9.133 display-only conference timer. MUST stay the LAST registerService: Kilua numbers routes by declaration order.
+        registerService(IConferenceTimerService::class) { call ->
+            ConferenceTimerService(
+                call = call,
+                liveKitAdminClient = liveKitAdminClient,
+                config = conferenceConfig,
+                state = conferenceTimerState,
+                controlRateLimiter = conferenceTimerControlRateLimiter,
+                readRateLimiter = conferenceTimerReadRateLimiter,
             )
         }
     }

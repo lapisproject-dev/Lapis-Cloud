@@ -24002,3 +24002,126 @@ msgstr "Calcul du jour %1"
 
 msgid "Für diesen Tag fehlen noch Angaben."
 msgstr "Des informations manquent encore pour ce jour."
+
+# V1.9.133 -- conference timer (display only)
+
+msgid "Der Timer lässt sich jetzt nicht ändern. Bitte versuchen Sie es erneut."
+msgstr "Le minuteur ne peut pas être modifié pour le moment. Veuillez réessayer."
+
+msgid "Die gewählte Zeit ist nicht möglich (10 Sekunden bis 60 Minuten)."
+msgstr "La durée choisie n'est pas possible (de 10 secondes à 60 minutes)."
+
+msgid "Timer pausiert: noch %1"
+msgstr "Minuteur en pause : il reste %1"
+
+msgid "Timer: noch %1"
+msgstr "Minuteur : il reste %1"
+
+msgid "Zeit abgelaufen"
+msgstr "Temps écoulé"
+
+msgid "Dauer"
+msgstr "Durée"
+
+msgid "Eigene Zeit"
+msgstr "Durée personnalisée"
+
+msgid "Minuten"
+msgstr "Minutes"
+
+msgid "Sekunden"
+msgstr "Secondes"
+
+msgid "Zwischen 10 Sekunden und 60 Minuten"
+msgstr "Entre 10 secondes et 60 minutes"
+
+msgid "Starten"
+msgstr "Démarrer"
+
+msgid "Fortsetzen"
+msgstr "Reprendre"
+
+msgid "Pausieren"
+msgstr "Mettre en pause"
+
+msgid "Stoppen"
+msgstr "Arrêter"
+
+msgid "+30 s"
+msgstr "+30 s"
+
+msgid "+1 min"
+msgstr "+1 min"
+
+msgid "+5 min"
+msgstr "+5 min"
+
+msgid "Um 30 Sekunden verlängern"
+msgstr "Prolonger de 30 secondes"
+
+msgid "Um 1 Minute verlängern"
+msgstr "Prolonger de 1 minute"
+
+msgid "Um 5 Minuten verlängern"
+msgstr "Prolonger de 5 minutes"
+
+msgid "Timer"
+msgstr "Minuteur"
+
+msgid "Timer %1"
+msgstr "Minuteur %1"
+
+msgid "Gleich vorbei"
+msgstr "Presque terminé"
+
+msgid "Pausiert"
+msgstr "En pause"
+
+msgid "Gong am Ende"
+msgstr "Gong à la fin"
+
+msgid "Ein leiser Gong, wenn ein Timer abläuft. Er erklingt nur, wenn Ihr Browser Ton zulässt."
+msgstr "Un gong discret à la fin d'un minuteur. Il ne retentit que si votre navigateur autorise le son."
+
+msgid "Timer steuern, Zeit abgelaufen"
+msgstr "Gérer le minuteur, temps écoulé"
+
+msgid "Timer: Zeit abgelaufen"
+msgstr "Minuteur : temps écoulé"
+
+msgid "Timer steuern, pausiert, noch %1"
+msgstr "Gérer le minuteur, en pause, il reste %1"
+
+msgid "Timer steuern, noch %1"
+msgstr "Gérer le minuteur, il reste %1"
+
+msgid "Timer wurde zurückgesetzt"
+msgstr "Le minuteur a été réinitialisé"
+
+msgid "Timer gestartet: %1"
+msgstr "Minuteur démarré : %1"
+
+msgid "Timer pausiert"
+msgstr "Minuteur en pause"
+
+msgid "Timer fortgesetzt"
+msgstr "Minuteur repris"
+
+msgid "Timer gestoppt"
+msgstr "Minuteur arrêté"
+
+msgid "Noch 10 Sekunden"
+msgstr "Il reste 10 secondes"
+
+msgid "Noch eine Minute"
+msgstr "Il reste une minute"
+
+msgid "%1 Minute"
+msgid_plural "%1 Minuten"
+msgstr[0] "%1 minute"
+msgstr[1] "%1 minutes"
+
+msgid "%1 Sekunde"
+msgid_plural "%1 Sekunden"
+msgstr[0] "%1 seconde"
+msgstr[1] "%1 secondes"

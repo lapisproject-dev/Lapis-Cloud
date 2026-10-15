@@ -23005,3 +23005,126 @@ msgstr ""
 
 msgid "Für diesen Tag fehlen noch Angaben."
 msgstr ""
+
+# V1.9.133 -- conference timer (display only)
+
+msgid "Der Timer lässt sich jetzt nicht ändern. Bitte versuchen Sie es erneut."
+msgstr ""
+
+msgid "Die gewählte Zeit ist nicht möglich (10 Sekunden bis 60 Minuten)."
+msgstr ""
+
+msgid "Timer pausiert: noch %1"
+msgstr ""
+
+msgid "Timer: noch %1"
+msgstr ""
+
+msgid "Zeit abgelaufen"
+msgstr ""
+
+msgid "Dauer"
+msgstr ""
+
+msgid "Eigene Zeit"
+msgstr ""
+
+msgid "Minuten"
+msgstr ""
+
+msgid "Sekunden"
+msgstr ""
+
+msgid "Zwischen 10 Sekunden und 60 Minuten"
+msgstr ""
+
+msgid "Starten"
+msgstr ""
+
+msgid "Fortsetzen"
+msgstr ""
+
+msgid "Pausieren"
+msgstr ""
+
+msgid "Stoppen"
+msgstr ""
+
+msgid "+30 s"
+msgstr ""
+
+msgid "+1 min"
+msgstr ""
+
+msgid "+5 min"
+msgstr ""
+
+msgid "Um 30 Sekunden verlängern"
+msgstr ""
+
+msgid "Um 1 Minute verlängern"
+msgstr ""
+
+msgid "Um 5 Minuten verlängern"
+msgstr ""
+
+msgid "Timer"
+msgstr ""
+
+msgid "Timer %1"
+msgstr ""
+
+msgid "Gleich vorbei"
+msgstr ""
+
+msgid "Pausiert"
+msgstr ""
+
+msgid "Gong am Ende"
+msgstr ""
+
+msgid "Ein leiser Gong, wenn ein Timer abläuft. Er erklingt nur, wenn Ihr Browser Ton zulässt."
+msgstr ""
+
+msgid "Timer steuern, Zeit abgelaufen"
+msgstr ""
+
+msgid "Timer: Zeit abgelaufen"
+msgstr ""
+
+msgid "Timer steuern, pausiert, noch %1"
+msgstr ""
+
+msgid "Timer steuern, noch %1"
+msgstr ""
+
+msgid "Timer wurde zurückgesetzt"
+msgstr ""
+
+msgid "Timer gestartet: %1"
+msgstr ""
+
+msgid "Timer pausiert"
+msgstr ""
+
+msgid "Timer fortgesetzt"
+msgstr ""
+
+msgid "Timer gestoppt"
+msgstr ""
+
+msgid "Noch 10 Sekunden"
+msgstr ""
+
+msgid "Noch eine Minute"
+msgstr ""
+
+msgid "%1 Minute"
+msgid_plural "%1 Minuten"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "%1 Sekunde"
+msgid_plural "%1 Sekunden"
+msgstr[0] ""
+msgstr[1] ""

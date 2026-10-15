@@ -44,6 +44,8 @@ internal data class DockBarView(
     val showFloatButton: Boolean,
     /** V1.9.127: "Ihre Hand ist gehoben" / "Gehobene Hände: N" (text next to the symbol, never colour alone). */
     val handBadges: List<String> = emptyList(),
+    /** V1.9.133: the conference timer chip (digits and phase); `null` = none. */
+    val timer: DockTimer? = null,
 )
 
 internal fun dockStopText(reason: DockStopReason): String =
@@ -114,6 +116,7 @@ internal fun dockBarViewOf(
         twoRows = narrow && (badges.isNotEmpty() || voteBadge || (screenShare && live) || hands.isNotEmpty()),
         showFloatButton = wide && (state is DockState.Live || state is DockState.Resolving),
         handBadges = if (live) hands else emptyList(),
+        timer = if (live) snapshot?.timer else null,
     )
 }
 
@@ -238,6 +241,8 @@ internal fun Container.conferenceDockBar(): Div {
 
     val badges = Div(className = "lapis-dock-badges")
     bar.add(badges)
+    // V1.9.133: the timer chip is its own element (the badges are rebuilt when they change; the chip changes every second)
+    val timerChip = ConferenceTimerDockChip(bar)
     val floatToggle =
         bar.actionButton(ActionIcon.FLOAT_WINDOW, tr("Als Fenster zeigen"), ButtonStyle.LIGHT, iconOnly = true) {
             addCssClass("lapis-dock-float-toggle")
@@ -338,6 +343,7 @@ internal fun Container.conferenceDockBar(): Div {
             } else {
                 badges.show()
             }
+            timerChip.render(view.timer)
             if (view.showDevices) {
                 controls.root.show()
             } else if (view.showLeave) {

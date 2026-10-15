@@ -54,6 +54,8 @@ internal data class DockSnapshot(
     val handRaisedSelf: Boolean = false,
     /** V1.9.127 -- how many hands are up in the room (`null` = none); a number only, no names. */
     val raisedHandsCount: Int? = null,
+    /** V1.9.133 -- the conference timer (digits and phase only; `null` = none). */
+    val timer: DockTimer? = null,
 )
 
 internal sealed class DockState {

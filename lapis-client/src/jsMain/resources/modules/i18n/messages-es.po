@@ -23830,3 +23830,126 @@ msgstr "Cálculo del día %1"
 
 msgid "Für diesen Tag fehlen noch Angaben."
 msgstr "Aún faltan datos de este día."
+
+# V1.9.133 -- conference timer (display only)
+
+msgid "Der Timer lässt sich jetzt nicht ändern. Bitte versuchen Sie es erneut."
+msgstr "El temporizador no se puede cambiar ahora. Inténtelo de nuevo."
+
+msgid "Die gewählte Zeit ist nicht möglich (10 Sekunden bis 60 Minuten)."
+msgstr "El tiempo elegido no es posible (de 10 segundos a 60 minutos)."
+
+msgid "Timer pausiert: noch %1"
+msgstr "Temporizador en pausa: quedan %1"
+
+msgid "Timer: noch %1"
+msgstr "Temporizador: quedan %1"
+
+msgid "Zeit abgelaufen"
+msgstr "Se acabó el tiempo"
+
+msgid "Dauer"
+msgstr "Duración"
+
+msgid "Eigene Zeit"
+msgstr "Tiempo personalizado"
+
+msgid "Minuten"
+msgstr "Minutos"
+
+msgid "Sekunden"
+msgstr "Segundos"
+
+msgid "Zwischen 10 Sekunden und 60 Minuten"
+msgstr "Entre 10 segundos y 60 minutos"
+
+msgid "Starten"
+msgstr "Iniciar"
+
+msgid "Fortsetzen"
+msgstr "Reanudar"
+
+msgid "Pausieren"
+msgstr "Pausar"
+
+msgid "Stoppen"
+msgstr "Detener"
+
+msgid "+30 s"
+msgstr "+30 s"
+
+msgid "+1 min"
+msgstr "+1 min"
+
+msgid "+5 min"
+msgstr "+5 min"
+
+msgid "Um 30 Sekunden verlängern"
+msgstr "Ampliar 30 segundos"
+
+msgid "Um 1 Minute verlängern"
+msgstr "Ampliar 1 minuto"
+
+msgid "Um 5 Minuten verlängern"
+msgstr "Ampliar 5 minutos"
+
+msgid "Timer"
+msgstr "Temporizador"
+
+msgid "Timer %1"
+msgstr "Temporizador %1"
+
+msgid "Gleich vorbei"
+msgstr "Casi terminado"
+
+msgid "Pausiert"
+msgstr "En pausa"
+
+msgid "Gong am Ende"
+msgstr "Gong al final"
+
+msgid "Ein leiser Gong, wenn ein Timer abläuft. Er erklingt nur, wenn Ihr Browser Ton zulässt."
+msgstr "Un gong suave cuando termina un temporizador. Solo suena si su navegador permite el sonido."
+
+msgid "Timer steuern, Zeit abgelaufen"
+msgstr "Controlar temporizador, se acabó el tiempo"
+
+msgid "Timer: Zeit abgelaufen"
+msgstr "Temporizador: se acabó el tiempo"
+
+msgid "Timer steuern, pausiert, noch %1"
+msgstr "Controlar temporizador, en pausa, quedan %1"
+
+msgid "Timer steuern, noch %1"
+msgstr "Controlar temporizador, quedan %1"
+
+msgid "Timer wurde zurückgesetzt"
+msgstr "El temporizador se ha restablecido"
+
+msgid "Timer gestartet: %1"
+msgstr "Temporizador iniciado: %1"
+
+msgid "Timer pausiert"
+msgstr "Temporizador en pausa"
+
+msgid "Timer fortgesetzt"
+msgstr "Temporizador reanudado"
+
+msgid "Timer gestoppt"
+msgstr "Temporizador detenido"
+
+msgid "Noch 10 Sekunden"
+msgstr "Quedan 10 segundos"
+
+msgid "Noch eine Minute"
+msgstr "Queda un minuto"
+
+msgid "%1 Minute"
+msgid_plural "%1 Minuten"
+msgstr[0] "%1 minuto"
+msgstr[1] "%1 minutos"
+
+msgid "%1 Sekunde"
+msgid_plural "%1 Sekunden"
+msgstr[0] "%1 segundo"
+msgstr[1] "%1 segundos"

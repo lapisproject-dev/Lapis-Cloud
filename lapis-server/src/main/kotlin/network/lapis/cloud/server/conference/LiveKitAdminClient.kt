@@ -19,8 +19,12 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.shared.domain.CONFERENCE_HANDS_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.CONFERENCE_HANDS_TOPIC
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_TOPIC
+import network.lapis.cloud.shared.domain.CONFERENCE_TIMER_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.CONFERENCE_TIMER_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
 import java.security.SecureRandom
 import kotlin.io.encoding.Base64
@@ -230,15 +234,7 @@ class HttpLiveKitAdminClient(
         topic: String,
         payload: ByteArray,
     ) {
-        val limit =
-            if (topic ==
-                CONFERENCE_MODERATION_TOPIC
-            ) {
-                CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES
-            } else {
-                ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
-            }
-        require(payload.size <= limit) { "SendData payload too large" }
+        require(payload.size <= sendDataPayloadLimit(topic)) { "SendData payload too large" }
         val nonce = ByteArray(NONCE_BYTES).also { SecureRandom().nextBytes(it) }
         call<LiveKitSendDataRequest, LiveKitEmptyResponse>(
             method = "SendData",
@@ -286,15 +282,7 @@ class HttpLiveKitAdminClient(
     ) {
         require(destinationIdentities.isNotEmpty()) { "SendData needs at least one destination (an empty list would address everybody)" }
         require(destinationIdentities.size <= MAX_SEND_DATA_DESTINATIONS) { "SendData has too many destinations" }
-        val limit =
-            if (topic ==
-                CONFERENCE_MODERATION_TOPIC
-            ) {
-                CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES
-            } else {
-                ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
-            }
-        require(payload.size <= limit) { "SendData payload too large" }
+        require(payload.size <= sendDataPayloadLimit(topic)) { "SendData payload too large" }
         val nonce = ByteArray(NONCE_BYTES).also { SecureRandom().nextBytes(it) }
         call<LiveKitSendDataRequest, LiveKitEmptyResponse>(
             method = "SendData",
@@ -568,3 +556,16 @@ internal data class LiveKitListParticipantsResponse(
 /** `DeleteRoom`/`RemoveParticipant` both return `google.protobuf.Empty` -- real verified sample: `{}`. Nothing to read; only used to give [HttpLiveKitAdminClient.call] a `reified` type to decode into so the shared helper stays uniform across every method. */
 @Serializable
 internal class LiveKitEmptyResponse
+
+/**
+ * Largest payload [LiveKitAdminClient.sendData]/`sendDataTo` accepts for [topic]. V1.9.133: one limit per topic -- before, only the
+ * moderation topic had its own limit and every other topic (including the raised-hand queue of V1.9.127, about 47 bytes even when empty) fell
+ * back to the 16-byte encounter-blessing limit and failed with an `IllegalArgumentException`.
+ */
+internal fun sendDataPayloadLimit(topic: String): Int =
+    when (topic) {
+        CONFERENCE_MODERATION_TOPIC -> CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES
+        CONFERENCE_HANDS_TOPIC -> CONFERENCE_HANDS_MAX_PAYLOAD_BYTES
+        CONFERENCE_TIMER_TOPIC -> CONFERENCE_TIMER_MAX_PAYLOAD_BYTES
+        else -> ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
+    }

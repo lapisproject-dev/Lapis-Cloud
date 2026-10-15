@@ -6,6 +6,41 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.133 -- Conference timer (display only)
+
+A countdown that everybody in the room sees, started and controlled by the moderation. It shows the time and enforces nothing (nobody is muted, nothing is closed at zero). Main room of an ordinary or event conference only; encounter and breakout rooms have no timer. Details: `docs/features/video-conferencing.adoc` ("Timer").
+
+#### Added
+
+- **New:** `IConferenceTimerService` (`startTimer` 10 s to 60 min, `pauseTimer`, `resumeTimer`, `stopTimer`, `extendTimer` by 30 / 60 / 300 s, `timerState`). Control is for the room creator and BOARD/ADMIN (`ConferenceModeratorAuthority`) and is checked before the rate limit and before any change; every refusal is the same `ForbiddenException`. Limits: 20 control actions per minute per room, 30 reads per minute per person.
+- **New:** the timer lives in server memory only (`ConferenceTimerState`, monotonic clock, random per-process epoch, `seq` on every real change); no table, no migration, no audit entry, no stored time. "Expired" is derived, not stored.
+- **New:** broadcast on the server-only topic `lapis-conference-timer` (`{"v":1,"e":..,"seq":..,"s":"R|P|X|O","d":..,"rem":..,"t":..}`, at most 256 bytes; a client drops a packet that has a sending participant) and `ConferenceTimerReconciler`, which sends the current state point to point to everybody seen in the room for the first time (event guests without an account have no RPC).
+- **New:** the display above the tiles (digits, progress ring, the words "Gleich vorbei" / "Zeit abgelaufen" / "Pausiert", a 1 Hz pulse in the last ten seconds only without a reduced-motion request, a `<button>` for the moderation, `role="timer"` for everybody else), the moderator's dialog (presets, own time, pause / resume, +30 s / +1 min / +5 min, stop; also the "Timer" button in the "Mehr" sheet), a chip in the mini bar and the floating window, a polite live region of its own with throttled notes, and an optional gong at the end (switch "Gong am Ende", WebAudio, played only for an end experienced live).
+- **New:** the countdown runs on the client's monotonic clock; the offset to the server clock is estimated NTP-style from `timerState` (smallest round trip of the last five minutes); after a server restart the client shows "Timer wurde zurückgesetzt".
+- **Tripwires:** `ConferenceTimerServiceEventGuardTripwireTest`, `ConferenceTimerLogPrivacyTripwireTest`, `ConferenceTimerNoPersistenceTripwireTest`, `ConferenceTimerRecordingTripwireTest` (not in a recording, a stream or a video overlay), `ConferenceTimerClientTripwireTest`, `ConferenceTimerI18nCatalogTest`.
+
+#### Fixed (V1.9.127)
+
+- **Fixed:** `HttpLiveKitAdminClient.sendData` / `sendDataTo` knew only the moderation limit (128 bytes) and a 16-byte fallback for every other topic. A raised-hand packet is about 47 bytes even for an empty queue, so every broadcast of the raised-hand queue threw an `IllegalArgumentException` (not a `LiveKitAdminException`): the state changed, the call answered with a server error, the reconciler logged an error and **the broadcast never went out**. The tests did not notice because they use a fake client. One limit per topic now (`sendDataPayloadLimit`: moderation 128, hands 6144, timer 256, anything else 16); `LiveKitAdminClientPayloadLimitTest` sends real packets through the real client class.
+
+#### Behavior changes
+
+- `JoinLeaveSoundPlayer` has a `playTimerGong` method (default: nothing), and the tab's audio context is now also unlocked inside the join click when only the gong switch is on.
+- The tripwire ledger of string-typed icons (`ClientToolbarIconTripwireTest`) counts one more entry in `ConferenceScreen.kt` (the moderator's "Timer" entry of the "Mehr" sheet, same shape as whiteboard and notes). The pulse of the last ten seconds exists only inside `@media (prefers-reduced-motion: no-preference)`: an `animation: none` in the reduce block at the end of `theme.css` would break rule R54, which allows only selectors with a `transition:` there.
+- No migration. New RPC service, registered last in `Application.kt` (Kilua numbers routes by declaration order).
+
+#### Known limitations
+
+- Not seen in any real call with real people; exercised by unit, service and DOM tests (headless Chromium) only, not by a screen reader.
+- Only Chromium was tried. The gong depends on the browser's autoplay rules and may stay silent in a tab that never had a user gesture.
+- The seven translations were written by the model.
+- The timer is lost on a server restart; the clients detect the new epoch and show a note.
+- Encounter rooms and breakout rooms are excluded; nobody sees the main room's timer from inside a breakout room.
+- An event guest without an account estimates the clock offset from the packet alone (about one network latency, under 300 ms); a periodic refresh broadcast was considered and not built.
+- A timer that has expired keeps the room in the reconciler's list (one LiveKit roster read every five seconds) until it is stopped or the room ends.
+- The V1.9.127 fix was verified against the real client class with a mock HTTP engine, not against a real LiveKit server.
+- README: one line updated. The website and the handbook were not touched (no release in this wave, not checked).
+
 ### V1.9.132 -- Travel expenses: locale dates, meal amounts, live breakdown
 
 Client-only polish of the travel expense screens. Details: `docs/features/travel-expenses.adoc` ("Date format follows the locale", "Meal deductions shown per meal", "Live breakdown").

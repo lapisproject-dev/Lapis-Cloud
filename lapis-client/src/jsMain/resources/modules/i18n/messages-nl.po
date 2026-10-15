@@ -23938,3 +23938,126 @@ msgstr "Dagberekening %1"
 
 msgid "Für diesen Tag fehlen noch Angaben."
 msgstr "Voor deze dag ontbreken nog gegevens."
+
+# V1.9.133 -- conference timer (display only)
+
+msgid "Der Timer lässt sich jetzt nicht ändern. Bitte versuchen Sie es erneut."
+msgstr "De timer kan nu niet worden gewijzigd. Probeert u het opnieuw."
+
+msgid "Die gewählte Zeit ist nicht möglich (10 Sekunden bis 60 Minuten)."
+msgstr "De gekozen tijd is niet mogelijk (10 seconden tot 60 minuten)."
+
+msgid "Timer pausiert: noch %1"
+msgstr "Timer gepauzeerd: nog %1"
+
+msgid "Timer: noch %1"
+msgstr "Timer: nog %1"
+
+msgid "Zeit abgelaufen"
+msgstr "Tijd is om"
+
+msgid "Dauer"
+msgstr "Duur"
+
+msgid "Eigene Zeit"
+msgstr "Eigen tijd"
+
+msgid "Minuten"
+msgstr "Minuten"
+
+msgid "Sekunden"
+msgstr "Seconden"
+
+msgid "Zwischen 10 Sekunden und 60 Minuten"
+msgstr "Tussen 10 seconden en 60 minuten"
+
+msgid "Starten"
+msgstr "Starten"
+
+msgid "Fortsetzen"
+msgstr "Hervatten"
+
+msgid "Pausieren"
+msgstr "Pauzeren"
+
+msgid "Stoppen"
+msgstr "Stoppen"
+
+msgid "+30 s"
+msgstr "+30 s"
+
+msgid "+1 min"
+msgstr "+1 min"
+
+msgid "+5 min"
+msgstr "+5 min"
+
+msgid "Um 30 Sekunden verlängern"
+msgstr "Met 30 seconden verlengen"
+
+msgid "Um 1 Minute verlängern"
+msgstr "Met 1 minuut verlengen"
+
+msgid "Um 5 Minuten verlängern"
+msgstr "Met 5 minuten verlengen"
+
+msgid "Timer"
+msgstr "Timer"
+
+msgid "Timer %1"
+msgstr "Timer %1"
+
+msgid "Gleich vorbei"
+msgstr "Bijna afgelopen"
+
+msgid "Pausiert"
+msgstr "Gepauzeerd"
+
+msgid "Gong am Ende"
+msgstr "Gong aan het einde"
+
+msgid "Ein leiser Gong, wenn ein Timer abläuft. Er erklingt nur, wenn Ihr Browser Ton zulässt."
+msgstr "Een zachte gong als een timer afloopt. Hij klinkt alleen als uw browser geluid toestaat."
+
+msgid "Timer steuern, Zeit abgelaufen"
+msgstr "Timer beheren, tijd is om"
+
+msgid "Timer: Zeit abgelaufen"
+msgstr "Timer: tijd is om"
+
+msgid "Timer steuern, pausiert, noch %1"
+msgstr "Timer beheren, gepauzeerd, nog %1"
+
+msgid "Timer steuern, noch %1"
+msgstr "Timer beheren, nog %1"
+
+msgid "Timer wurde zurückgesetzt"
+msgstr "De timer is gereset"
+
+msgid "Timer gestartet: %1"
+msgstr "Timer gestart: %1"
+
+msgid "Timer pausiert"
+msgstr "Timer gepauzeerd"
+
+msgid "Timer fortgesetzt"
+msgstr "Timer hervat"
+
+msgid "Timer gestoppt"
+msgstr "Timer gestopt"
+
+msgid "Noch 10 Sekunden"
+msgstr "Nog 10 seconden"
+
+msgid "Noch eine Minute"
+msgstr "Nog één minuut"
+
+msgid "%1 Minute"
+msgid_plural "%1 Minuten"
+msgstr[0] "%1 minuut"
+msgstr[1] "%1 minuten"
+
+msgid "%1 Sekunde"
+msgid_plural "%1 Sekunden"
+msgstr[0] "%1 seconde"
+msgstr[1] "%1 seconden"

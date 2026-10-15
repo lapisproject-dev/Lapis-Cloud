@@ -166,6 +166,18 @@ Details: `docs/features/video-conferencing.adoc`, Abschnitt "Reactions and raise
 - **Overlays und Hand-Abzeichen sind Client-DOM und damit nicht in Aufzeichnung und Stream.** Das gilt nur, solange `LiveKitEgressClient` keinen Custom-Template-/Web-Egress kennt und die Aufzeichnung aus Rohspuren zusammengesetzt wird: `ConferenceReactionsRecordingTripwireTest` bricht sonst den Build.
 - Im Client werden Reaktions-Schicht und Hand-Abzeichen **einmal mit der Kachel gebaut** und nur gefüllt bzw. ein-/ausgeblendet (`ConferenceViewStage` hängt Kacheln nur um).
 
+## Timer in Videokonferenzen (V1.9.133)
+
+Details: `docs/features/video-conferencing.adoc`, Abschnitt "Timer". Kurzregeln:
+
+- **Der Timer lebt nur im Server-Speicher** (`ConferenceTimerState`: Phase, Restzeit auf der **monotonen** Uhr, `seq`, zufällige Prozess-Epoch): keine Tabelle, keine Migration, **kein Audit**, in Logs nur Zählwerte. "Abgelaufen" wird abgeleitet, nie gespeichert und erhöht kein `seq`. Die Wanduhr füllt nur das Paketfeld `t` (nie für Logik verwenden).
+- **Absender ist nur der Server.** Topic `lapis-conference-timer` (`conferenceTimerPacket` im Client lehnt jedes Paket mit sendendem Teilnehmer ab; der Zweig steht in `LiveKitRoomSession` VOR der Teilnehmerprüfung). Zustand und Topic berühren nur `ConferenceTimerService`, `ConferenceTimerReconciler`, `Application.kt` (und `LiveKitAdminClient.kt` für das Größenlimit) -- Tripwires `ConferenceTimerServiceEventGuardTripwireTest`, `ConferenceTimerNoPersistenceTripwireTest`, `ConferenceTimerLogPrivacyTripwireTest`, `ConferenceTimerClientTripwireTest`.
+- **Der Moderator-Check steht in `moderatorRoom` vor dem Rate-Limit und vor jeder Änderung**; jede Ablehnung ist dieselbe `ForbiddenException` (Raum unbekannt/beendet/Begegnung/Breakout, kein Moderator, nicht anwesend). Neue `roomId`-Methoden laufen über `authorize(roomId = roomId, ...)`.
+- **`registerService(IConferenceTimerService::class)` muss die letzte Registrierung in `Application.kt` bleiben** (Kilua nummeriert Routen nach Deklarationsreihenfolge; der Tripwire prüft es).
+- **`SendData` hat ein Größenlimit je Topic** (`sendDataPayloadLimit` in `LiveKitAdminClient.kt`: Moderation 128, Wortmeldungen 6144, Timer 256, sonst 16). Ein neues Topic ohne Eintrag fällt auf 16 Byte zurück und wirft eine `IllegalArgumentException` (keine `LiveKitAdminException`!) -- Fake-Clients in Tests merken das nicht, `LiveKitAdminClientPayloadLimitTest` schon.
+- **Nicht in Aufzeichnung, Stream und Video-Overlay.** Der Timer ist Seitenelement (Raw-DOM, einmal gebaut, danach nur befüllt); die `ConferenceTimer*`-Dateien des Clients dürfen weder `canvas` noch `captureStream`/`publishTrack` enthalten, die `ConferenceVideoOverlay*`-Dateien das Wort Timer nicht (`ConferenceTimerRecordingTripwireTest`). Der Countdown nutzt `performance.now()`, nie `Date.now()`.
+- **Der Puls der letzten 10 s steht nur im `no-preference`-Block** von `theme.css` (ein `animation: none` im Reduktionsblock am Dateiende bricht R54); der Client setzt `is-pulsing` bei "weniger Bewegung" ohnehin nicht.
+
 ## Video-Overlays (V1.9.129)
 
 Details: `docs/features/video-overlays.adoc`. Kurzregeln:

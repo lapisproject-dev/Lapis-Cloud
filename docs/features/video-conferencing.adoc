@@ -295,7 +295,7 @@ Two small things that make a large call feel like a room: a *reaction* (applause
 ** `lowerHandOf`, `lowerAllHands`: the room creator and BOARD/ADMIN (`ConferenceModeratorAuthority`).
 ** Every refusal of the own-hand and moderation methods (unknown, ended, encounter room, not present, no authority, malformed identity) is the *same* `ForbiddenException`: Kilua transmits only the exception type, so there is no existence oracle. A rate limit and a server without conference configuration are a `ConflictException`. Limits: raise/lower 10 per minute per person and room, reading the queue 30 per minute per person, lowering one hand 30 per minute per room, lowering all 6 per minute per room.
 ** Event rooms: the same rule as the other read methods (`EventConferenceGuard.requireParticipantOrModerator`, tripwire `ConferenceHandServiceEventGuardTripwireTest`). Encounter rooms are refused.
-* **Broadcast.** After every change the server sends the snapshot to the room on the topic `lapis-conference-hands` (server only: a client accepts a packet on this topic *only* if it has no sending participant): `{"v":1,"e":"<epoch>","seq":N,"ids":[...]}`, at most 6144 bytes (100 identities of the form `evg-<uuid>` are 4300 bytes plus the header; 4096 would not be enough). The broadcast is best effort and goes out *after* the per-room lock is released; the RPC answer carries the same snapshot, and a client drops every snapshot that is not newer (same epoch: larger `seq`; other epoch: always newer).
+* **Broadcast.** After every change the server sends the snapshot to the room on the topic `lapis-conference-hands` (server only: a client accepts a packet on this topic *only* if it has no sending participant): `{"v":1,"e":"<epoch>","seq":N,"ids":[...]}`, at most 6144 bytes (100 identities of the form `evg-<uuid>` are 4300 bytes plus the header; 4096 would not be enough). The broadcast is best effort and goes out *after* the per-room lock is released; the RPC answer carries the same snapshot, and a client drops every snapshot that is not newer (same epoch: larger `seq`; other epoch: always newer). *Until V1.9.133 this broadcast could never leave the server* (the `SendData` size limit of every non-moderation topic was 16 bytes, see "Fixed on the way" in the section "Timer"); clients then healed the list only through their own reads.
 * **Late joiners and guests without an account.** A member reads the queue with `handQueue` at the join, after a reconnect, once a minute while the own hand is up or the roster is open, and whenever the broadcast might have been lost. An event guest without an account (`evg-` identity) has no session and no RPC access: the reconciler (`ConferenceHandQueueReconciler`, every 5 seconds, only for rooms that hold at least one hand) sends the current snapshot point to point to every identity it sees in the room for the first time. So a guest *sees* the list.
 * **The epoch rule.** After a server restart the queue is empty and `seq` starts over. A client that believes its hand is up and does not find it in a snapshot decides by the epoch: *same epoch* means a moderator lowered it -- the client accepts that and tells only the person ("Ihre Hand wurde gesenkt."), it never raises again (that would overrule the moderation); *new epoch* means the server restarted -- the client raises the hand again automatically and lands at the end of the list. The old order is not restored.
 * **Presence grace.** The reconciler removes a hand whose owner has been missing from LiveKit for 20 seconds; a reconnect with the same identity inside the grace keeps the place. Somebody who moves into a breakout room leaves the main room, so the hand falls after the grace (by design). An event guest who rejoins gets a new `evg-` identity and loses the hand.
@@ -324,6 +324,66 @@ Reactions and hand badges are DOM overlays of the Lapis client. Recordings and s
 * Only Chromium was used for the DOM tests; Safari and Firefox were not tried.
 * A lost broadcast is healed by the next read (at the latest after a minute while the hand is up or the roster is open, and at every reconnect). A person who has neither raised a hand nor opened the roster can see an outdated list for that time.
 * The list is lost on a server restart; clients re-raise automatically, but the old order is gone.
+
+== Timer (V1.9.133)
+
+A countdown that everybody in the room can see -- and nothing else. The timer *shows* the time and *enforces* nothing: nobody is muted, no microphone is closed, no room is ended when it reaches zero. It is for a normal meeting of the main room: encounter rooms and breakout rooms have no timer.
+
+=== Who may do what
+
+* `IConferenceTimerService` (a service of its own, like the raised hand): `startTimer`, `pauseTimer`, `resumeTimer`, `stopTimer`, `extendTimer` for the *moderation* (room creator and BOARD/ADMIN, the shared `ConferenceModeratorAuthority`), and `timerState` for a present person or a moderator.
+* The moderator check comes *before* the rate limit and before anything is changed, and every refusal (unknown, ended, encounter or breakout room, malformed id, not a moderator, not present) is the *same* `ForbiddenException`: Kilua transmits only the exception type, so there is no existence oracle. A rate limit (20 control actions per minute per room, 30 reads per minute per person), an impossible transition and a server without conference configuration are a `ConflictException`; a duration outside 10 s to 60 min and an extension that is not 30, 60 or 300 seconds are a `BadRequestException`. Messages never echo the input.
+* Event rooms use the same guard as the other read methods (`EventConferenceGuard.requireParticipantOrModerator`, tripwire `ConferenceTimerServiceEventGuardTripwireTest`).
+
+=== The state machine
+
+[cols="1,3"]
+|===
+|State |Actions
+
+|off |`start` (10 s to 60 min) -> running. Everything else is refused (`stop` is a no-op).
+|running |`pause` -> paused, `extend` (+30 s, +1 min, +5 min; the remaining time may not pass 60 min), `stop` -> off. `resume` is a no-op, `start` is refused.
+|paused |`resume` -> running, `extend` (the paused time grows), `stop` -> off. `pause` is a no-op, `start` is refused.
+|expired |*Derived*, never stored: a running timer whose remaining time is 0. `start` -> running, `extend` -> running with exactly the extension, `stop` -> off. `pause` and `resume` are refused.
+|===
+
+The remaining time of a running timer is `endMark - now` on a *monotonic* clock (`TimeSource.Monotonic`); no wall clock takes part in the logic. The wall clock fills only the field `t` of the packet. "Expired" raises no `seq`, writes nothing and needs no scheduler.
+
+=== Memory only, no audit
+
+Like the raised-hand queue, the timer lives in server memory (`ConferenceTimerState`): per room a phase, the remaining time, a monotonic `seq` raised on every real change and a random 16-hex *epoch* drawn once per process. There is no table, no migration, no audit entry and no stored time; logs carry counts and exception classes only. Tripwires: `ConferenceTimerNoPersistenceTripwireTest` (no insert/update/audit, only read transactions, no migration), `ConferenceTimerLogPrivacyTripwireTest`, `ConferenceTimerServiceEventGuardTripwireTest` (the state and the topic are touched only by the service, the reconciler, `Application.kt` and the size limit; the service is registered *last* in `Application.kt`, because Kilua numbers routes in declaration order).
+
+=== Data flow
+
+* **Broadcast.** After every change the server sends the snapshot on the topic `lapis-conference-timer` (server -> client only: a client accepts a packet *only* if it has no sending participant): `{"v":1,"e":"<epoch>","seq":N,"s":"R|P|X|O","d":<ms>,"rem":<ms>,"t":<epochMs>}`, at most 256 bytes (about 100 in practice). It is sent best effort after the per-room lock is released; the RPC answer carries the same snapshot, and a client drops everything that is not newer (same epoch: larger `seq`; other epoch: always newer).
+* **Late joiners and guests without an account.** A member reads `timerState` at the join, after a reconnect, whenever the tab becomes visible again and once a minute while the timer runs. An event guest without an account has no RPC: `ConferenceTimerReconciler` (every 5 seconds, only for rooms whose timer is not off) sends the current snapshot point to point to every identity it sees in the room for the first time.
+* **Clock offset.** The countdown runs on the *client's monotonic clock* (`performance.now()`), so a changed system clock changes nothing. The offset to the server clock is estimated the way NTP does it: from `timerState` as `t - (send + receive) / 2`, the sample with the smallest round trip of the last five minutes wins. A guest without RPC has only the packet itself (error about one network latency, under 300 ms).
+* **Server restart.** The timer is lost. The client sees a new epoch with an off timer while it believed one was set and shows "Timer wurde zurückgesetzt" for eight seconds.
+
+=== In the interface
+
+* **Pill above the tiles** (never over a video): the digits (24 px, bold, tabular figures), a progress ring and the *words* for every phase -- "Gleich vorbei" in the last ten seconds (3 px outline, warning colour, a 1 Hz pulse only without a reduced-motion request), "Zeit abgelaufen" when it ran out (stands still, never a negative time), "Pausiert". The digits are rounded *up*, so 00:00 only appears when the time is really up. For the moderation the pill is a button ("Timer steuern, noch 2 Minuten 15 Sekunden") that opens the dialog; for everybody else it is a `<div role="timer">`. The countdown itself is *not* a live region.
+* **Dialog** (moderation; also the "Timer" button of the "Mehr" sheet): presets 1, 2, 3, 5, 10 minutes (default 5) and "Eigene Zeit" (minutes 0-60, seconds 0-59, inline message "Zwischen 10 Sekunden und 60 Minuten", "Starten" stays off while the input is invalid); for a running or paused timer "Pausieren"/"Fortsetzen", "+30 s", "+1 min", "+5 min" (off when the remaining time would pass 60 minutes) and "Stoppen".
+* **Mini bar and floating window:** "Timer 02:15" with a 2 px bar; in the last ten seconds "⚠" (decorative) and "Gleich vorbei".
+* **Screen reader:** a polite live region of its own says "Timer gestartet: ...", "Timer pausiert", "Timer fortgesetzt", "Timer gestoppt", "Noch eine Minute" (only for timers of at least two minutes), "Noch 10 Sekunden" and "Zeit abgelaufen"; at most one note per five seconds, the end always; somebody who joins a running timer hears nothing about the state they found.
+* **Gong:** an optional soft gong at the end (switch "Gong am Ende" in the "Mehr" sheet, on by default, remembered per browser under `lapis.conference.timerGong`, only the value `off` is written). It is synthesised with WebAudio (392 Hz plus two inharmonic partials, peak 0.12, 5 ms attack, about 2.2 s decay), played by the tab's single audio player (the same context, unlock and speaker as the join and leave tones) and *only* for an end that was experienced live: not for the first snapshot, not when the end is more than two seconds old, and never queued when the browser does not let the audio context run.
+* **Contrast** (WCAG, calculated): digits on the pill 17.8:1 (light) and 13.0:1 (dark), ring 6.5:1 and 5.1:1; the last ten seconds white on `--lapis-role-guest` 5.0:1 and dark on its dark-mode value 9.1:1; expired 7.1:1 and 7.6:1.
+
+=== Not in the recording and not in the stream
+
+The timer is a page element of the Lapis client. It is not part of the video overlays (V1.9.129 computes those *into* the camera track; the timer must never go there) and not part of any recording or stream. `ConferenceTimerRecordingTripwireTest` fails the build if a custom-template egress, a fifth egress kind, a browser in the composer, a mention of the timer in the video-overlay files or a media-track call in the timer's client files appears; `ConferenceTimerClientTripwireTest` guards that the topic is read in one place, before the participant check.
+
+=== Fixed on the way: the size limit of `SendData` (V1.9.127)
+
+`HttpLiveKitAdminClient.sendData`/`sendDataTo` knew only two limits -- the moderation topic (128 bytes) and *everything else* (16 bytes, the encounter blessing). A raised-hand packet is about 47 bytes even for an empty queue, so every `sendData` on the hands topic failed with an `IllegalArgumentException` (not a `LiveKitAdminException`): the state changed, the call answered with a server error and the broadcast never went out. The tests did not see it because they use a fake client. Since V1.9.133 there is one limit per topic (`sendDataPayloadLimit`: moderation 128, hands 6144, timer 256, anything else 16) and `LiveKitAdminClientPayloadLimitTest` sends real packets through the real client.
+
+=== Not verified (honest)
+
+* Nothing here was seen in a real call with several real people; it was exercised by unit, service and DOM tests (a headless Chromium), not by a screen reader or a human. The seven translations were written by the model.
+* Only Chromium was used; Safari and Firefox were not tried. The gong depends on the browser's autoplay rules: a tab that never had a user gesture may stay silent.
+* The timer is lost on a server restart; clients show the reset note.
+* An event guest without an account estimates the clock offset from the packet alone (about one network latency, under 300 ms); a periodic refresh broadcast was considered and not built.
+* Breakout rooms are other LiveKit rooms: nobody sees the main room's timer from inside a breakout room.
 
 == Video overlays (V1.9.129)
 

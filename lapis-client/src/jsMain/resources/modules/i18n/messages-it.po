@@ -23983,3 +23983,126 @@ msgstr "Calcolo del giorno %1"
 
 msgid "Für diesen Tag fehlen noch Angaben."
 msgstr "Mancano ancora dei dati per questo giorno."
+
+# V1.9.133 -- conference timer (display only)
+
+msgid "Der Timer lässt sich jetzt nicht ändern. Bitte versuchen Sie es erneut."
+msgstr "Al momento non è possibile modificare il timer. Riprovi."
+
+msgid "Die gewählte Zeit ist nicht möglich (10 Sekunden bis 60 Minuten)."
+msgstr "Il tempo scelto non è possibile (da 10 secondi a 60 minuti)."
+
+msgid "Timer pausiert: noch %1"
+msgstr "Timer in pausa: mancano %1"
+
+msgid "Timer: noch %1"
+msgstr "Timer: mancano %1"
+
+msgid "Zeit abgelaufen"
+msgstr "Tempo scaduto"
+
+msgid "Dauer"
+msgstr "Durata"
+
+msgid "Eigene Zeit"
+msgstr "Tempo personalizzato"
+
+msgid "Minuten"
+msgstr "Minuti"
+
+msgid "Sekunden"
+msgstr "Secondi"
+
+msgid "Zwischen 10 Sekunden und 60 Minuten"
+msgstr "Tra 10 secondi e 60 minuti"
+
+msgid "Starten"
+msgstr "Avvia"
+
+msgid "Fortsetzen"
+msgstr "Riprendi"
+
+msgid "Pausieren"
+msgstr "Metti in pausa"
+
+msgid "Stoppen"
+msgstr "Ferma"
+
+msgid "+30 s"
+msgstr "+30 s"
+
+msgid "+1 min"
+msgstr "+1 min"
+
+msgid "+5 min"
+msgstr "+5 min"
+
+msgid "Um 30 Sekunden verlängern"
+msgstr "Prolunga di 30 secondi"
+
+msgid "Um 1 Minute verlängern"
+msgstr "Prolunga di 1 minuto"
+
+msgid "Um 5 Minuten verlängern"
+msgstr "Prolunga di 5 minuti"
+
+msgid "Timer"
+msgstr "Timer"
+
+msgid "Timer %1"
+msgstr "Timer %1"
+
+msgid "Gleich vorbei"
+msgstr "Quasi finito"
+
+msgid "Pausiert"
+msgstr "In pausa"
+
+msgid "Gong am Ende"
+msgstr "Gong alla fine"
+
+msgid "Ein leiser Gong, wenn ein Timer abläuft. Er erklingt nur, wenn Ihr Browser Ton zulässt."
+msgstr "Un gong leggero quando un timer scade. Suona solo se il browser consente l'audio."
+
+msgid "Timer steuern, Zeit abgelaufen"
+msgstr "Gestisci il timer, tempo scaduto"
+
+msgid "Timer: Zeit abgelaufen"
+msgstr "Timer: tempo scaduto"
+
+msgid "Timer steuern, pausiert, noch %1"
+msgstr "Gestisci il timer, in pausa, mancano %1"
+
+msgid "Timer steuern, noch %1"
+msgstr "Gestisci il timer, mancano %1"
+
+msgid "Timer wurde zurückgesetzt"
+msgstr "Il timer è stato reimpostato"
+
+msgid "Timer gestartet: %1"
+msgstr "Timer avviato: %1"
+
+msgid "Timer pausiert"
+msgstr "Timer in pausa"
+
+msgid "Timer fortgesetzt"
+msgstr "Timer ripreso"
+
+msgid "Timer gestoppt"
+msgstr "Timer fermato"
+
+msgid "Noch 10 Sekunden"
+msgstr "Mancano 10 secondi"
+
+msgid "Noch eine Minute"
+msgstr "Manca un minuto"
+
+msgid "%1 Minute"
+msgid_plural "%1 Minuten"
+msgstr[0] "%1 minuto"
+msgstr[1] "%1 minuti"
+
+msgid "%1 Sekunde"
+msgid_plural "%1 Sekunden"
+msgstr[0] "%1 secondo"
+msgstr[1] "%1 secondi"

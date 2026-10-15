@@ -23934,3 +23934,128 @@ msgstr "Расчёт за день %1"
 
 msgid "Für diesen Tag fehlen noch Angaben."
 msgstr "Для этого дня ещё не хватает данных."
+
+# V1.9.133 -- conference timer (display only)
+
+msgid "Der Timer lässt sich jetzt nicht ändern. Bitte versuchen Sie es erneut."
+msgstr "Сейчас изменить таймер невозможно. Пожалуйста, повторите попытку."
+
+msgid "Die gewählte Zeit ist nicht möglich (10 Sekunden bis 60 Minuten)."
+msgstr "Выбранное время недопустимо (от 10 секунд до 60 минут)."
+
+msgid "Timer pausiert: noch %1"
+msgstr "Таймер приостановлен: осталось %1"
+
+msgid "Timer: noch %1"
+msgstr "Таймер: осталось %1"
+
+msgid "Zeit abgelaufen"
+msgstr "Время истекло"
+
+msgid "Dauer"
+msgstr "Длительность"
+
+msgid "Eigene Zeit"
+msgstr "Своё время"
+
+msgid "Minuten"
+msgstr "Минуты"
+
+msgid "Sekunden"
+msgstr "Секунды"
+
+msgid "Zwischen 10 Sekunden und 60 Minuten"
+msgstr "От 10 секунд до 60 минут"
+
+msgid "Starten"
+msgstr "Запустить"
+
+msgid "Fortsetzen"
+msgstr "Продолжить"
+
+msgid "Pausieren"
+msgstr "Приостановить"
+
+msgid "Stoppen"
+msgstr "Остановить"
+
+msgid "+30 s"
+msgstr "+30 с"
+
+msgid "+1 min"
+msgstr "+1 мин"
+
+msgid "+5 min"
+msgstr "+5 мин"
+
+msgid "Um 30 Sekunden verlängern"
+msgstr "Продлить на 30 секунд"
+
+msgid "Um 1 Minute verlängern"
+msgstr "Продлить на 1 минуту"
+
+msgid "Um 5 Minuten verlängern"
+msgstr "Продлить на 5 минут"
+
+msgid "Timer"
+msgstr "Таймер"
+
+msgid "Timer %1"
+msgstr "Таймер %1"
+
+msgid "Gleich vorbei"
+msgstr "Скоро конец"
+
+msgid "Pausiert"
+msgstr "Приостановлено"
+
+msgid "Gong am Ende"
+msgstr "Гонг в конце"
+
+msgid "Ein leiser Gong, wenn ein Timer abläuft. Er erklingt nur, wenn Ihr Browser Ton zulässt."
+msgstr "Тихий гонг, когда таймер заканчивается. Он звучит, только если браузер разрешает звук."
+
+msgid "Timer steuern, Zeit abgelaufen"
+msgstr "Управление таймером, время истекло"
+
+msgid "Timer: Zeit abgelaufen"
+msgstr "Таймер: время истекло"
+
+msgid "Timer steuern, pausiert, noch %1"
+msgstr "Управление таймером, приостановлен, осталось %1"
+
+msgid "Timer steuern, noch %1"
+msgstr "Управление таймером, осталось %1"
+
+msgid "Timer wurde zurückgesetzt"
+msgstr "Таймер был сброшен"
+
+msgid "Timer gestartet: %1"
+msgstr "Таймер запущен: %1"
+
+msgid "Timer pausiert"
+msgstr "Таймер приостановлен"
+
+msgid "Timer fortgesetzt"
+msgstr "Таймер возобновлён"
+
+msgid "Timer gestoppt"
+msgstr "Таймер остановлен"
+
+msgid "Noch 10 Sekunden"
+msgstr "Осталось 10 секунд"
+
+msgid "Noch eine Minute"
+msgstr "Осталась одна минута"
+
+msgid "%1 Minute"
+msgid_plural "%1 Minuten"
+msgstr[0] "%1 минута"
+msgstr[1] "%1 минуты"
+msgstr[2] "%1 минут"
+
+msgid "%1 Sekunde"
+msgid_plural "%1 Sekunden"
+msgstr[0] "%1 секунда"
+msgstr[1] "%1 секунды"
+msgstr[2] "%1 секунд"

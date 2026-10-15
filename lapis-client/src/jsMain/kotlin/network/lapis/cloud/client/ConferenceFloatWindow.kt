@@ -74,6 +74,8 @@ internal data class FloatWindowView(
     val resolving: Boolean,
     /** V1.9.127: "Ihre Hand ist gehoben" / "Gehobene Hände: N". */
     val handBadges: List<String> = emptyList(),
+    /** V1.9.133: the conference timer (digits and phase); `null` = none. */
+    val timer: DockTimer? = null,
 )
 
 /** Pure: the paint instructions of the window for [state] (only [DockState.Live] and [DockState.Resolving] are ever floating). */
@@ -102,6 +104,7 @@ internal fun floatWindowViewOf(state: DockState): FloatWindowView {
         cameraPressed = snapshot?.cameraOn == true,
         resolving = state is DockState.Resolving,
         handBadges = if (live) conferenceHandBadges(snapshot?.handRaisedSelf == true, snapshot?.raisedHandsCount) else emptyList(),
+        timer = if (live) snapshot?.timer else null,
     )
 }
 
@@ -684,6 +687,8 @@ internal fun Container.conferenceFloatWindow(): Div {
     val toViewButton = headerButtons.actionButton(ActionIcon.ENTER, tr("Zur Konferenz"), ButtonStyle.LIGHT, iconOnly = true)
     header.add(statusSpan)
     header.add(badges)
+    // V1.9.133: the timer chip is its own element (the badges are rebuilt when they change; the chip changes every second)
+    val timerChip = ConferenceTimerDockChip(header)
     header.add(headerButtons)
     win.add(header)
 
@@ -798,6 +803,7 @@ internal fun Container.conferenceFloatWindow(): Div {
         } else {
             badges.show()
         }
+        timerChip.render(view.timer)
         if (view.showDevices || view.showLeave) controls.root.show() else controls.root.hide()
         if (view.showDevices) {
             controls.mic.show()

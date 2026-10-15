@@ -466,3 +466,42 @@ data class ConferenceHandQueueDto(
     val seq: Long,
     val identities: List<String>,
 )
+
+/**
+ * V1.9.133 -- LiveKit data-packet topic of the display-only conference timer (server -> client only, like [CONFERENCE_HANDS_TOPIC]): a
+ * packet is accepted by a client ONLY if it carries no sending participant. Wire format
+ * `{"v":1,"e":"<16 hex>","seq":N,"s":"R|P|X|O","d":<ms>,"rem":<ms>,"t":<epochMs>}`.
+ */
+const val CONFERENCE_TIMER_TOPIC = "lapis-conference-timer"
+
+/** Hard cap of a timer payload (the fixed-shape packet is well below 128 bytes). */
+const val CONFERENCE_TIMER_MAX_PAYLOAD_BYTES = 256
+
+/** Shortest and longest timer a moderator can start (and the longest remaining time after an extension). */
+const val CONFERENCE_TIMER_MIN_SECONDS = 10
+const val CONFERENCE_TIMER_MAX_SECONDS = 3600
+
+/** The extension steps a moderator may add to a running or paused timer. */
+val CONFERENCE_TIMER_EXTENSIONS_SECONDS: Set<Int> = setOf(30, 60, 300)
+
+/** The final phase begins at this many milliseconds remaining or fewer. */
+const val CONFERENCE_TIMER_FINAL_PHASE_MS = 10_000L
+
+/** Status of the conference timer. [EXPIRED] is derived (a running timer whose remaining time reached 0), never stored. */
+@Serializable
+enum class ConferenceTimerStatus { OFF, RUNNING, PAUSED, EXPIRED }
+
+/**
+ * V1.9.133 -- one consistent view of a room's timer. [epoch] is random per server process (16 hex chars) and [seq] rises on every real
+ * change, so a client takes only a newer view; [remainingMs] is the time left at [serverNowEpochMs] (used ONLY to estimate the clock
+ * offset, never as a wall clock) and is never negative; [initialDurationMs] is the denominator of the progress ring (0 when OFF).
+ */
+@Serializable
+data class ConferenceTimerDto(
+    val epoch: String,
+    val seq: Long,
+    val status: ConferenceTimerStatus,
+    val initialDurationMs: Long,
+    val remainingMs: Long,
+    val serverNowEpochMs: Long,
+)

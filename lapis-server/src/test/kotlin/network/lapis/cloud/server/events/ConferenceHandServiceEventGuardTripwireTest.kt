@@ -46,7 +46,7 @@ class ConferenceHandServiceEventGuardTripwireTest :
         }
 
         test(
-            "the hand state is written by the hand service and the reconciler only; the hands topic is sent by those two and nobody else",
+            "the hand state is written by the hand service and the reconciler only; the hands topic is sent by those two and nobody else (the size limit of SendData merely names it)",
         ) {
             val stateUsers =
                 SourceScan
@@ -67,7 +67,8 @@ class ConferenceHandServiceEventGuardTripwireTest :
                     .filter { SourceScan.blank(it.readText()).contains("CONFERENCE_HANDS_TOPIC") }
                     .map { it.name }
                     .toSet()
-            topicUsers shouldBe setOf("ConferenceHandQueueReconciler.kt", "ConferenceHandService.kt")
+            // LiveKitAdminClient.kt only names the topic in `sendDataPayloadLimit` (V1.9.133: one SendData size limit per topic)
+            topicUsers shouldBe setOf("ConferenceHandQueueReconciler.kt", "ConferenceHandService.kt", "LiveKitAdminClient.kt")
             EncounterSourceScan
                 .functions(EncounterSourceScan.mainFile("rpc/ConferenceHandService.kt"))
                 .size shouldBeGreaterThan 5

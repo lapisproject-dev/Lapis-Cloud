@@ -69,6 +69,13 @@ private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
                     "group is ALREADY visible (upload/delete always happen with the panel open) renders the new tile " +
                     "immediately too, verified by a DOM probe (ConferenceBackgroundSectionDomTest) -- no gap"
             ),
+        "ConferenceTimerDialog.kt" to
+            (
+                1 to
+                    "(V1.9.133) registered on a Modal created in the same call, before show() gives it an element; it only reports " +
+                    "the close (hidden.bs.modal) and hands the focus back to the control that opened the dialog " +
+                    "(ConferenceTimerDialogDomTest: Escape returns the focus)"
+            ),
         "ConferenceRecordingsPanel.kt" to
             (1 to "raw <video> in a late insert hook; more widgets follow in the same card, exactly one video results"),
         "ConferenceWhiteboardController.kt" to

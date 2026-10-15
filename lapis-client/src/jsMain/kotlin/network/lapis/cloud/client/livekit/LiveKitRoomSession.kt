@@ -22,9 +22,12 @@ import network.lapis.cloud.shared.domain.CONFERENCE_HANDS_TOPIC
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.CONFERENCE_MODERATION_TOPIC
 import network.lapis.cloud.shared.domain.CONFERENCE_REACTION_TOPIC
+import network.lapis.cloud.shared.domain.CONFERENCE_TIMER_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.CONFERENCE_TIMER_TOPIC
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
 import network.lapis.cloud.shared.domain.ConferenceHandQueueDto
 import network.lapis.cloud.shared.domain.ConferenceReaction
+import network.lapis.cloud.shared.domain.ConferenceTimerDto
 import network.lapis.cloud.shared.domain.ConferenceTurnServer
 import network.lapis.cloud.shared.domain.ENCOUNTER_BELL_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_BELL_TOPIC
@@ -437,6 +440,11 @@ class LiveKitRoomSession(
      * (never from a participant, validated shape, at most [CONFERENCE_HANDS_MAX_PAYLOAD_BYTES] bytes). The caller still drops an older `seq`.
      */
     private val onHandQueue: (ConferenceHandQueueDto) -> Unit = {},
+    /**
+     * V1.9.133 -- the display-only conference timer ([ConferenceTimerDto]); see [conferenceTimerPacket] for the strict acceptance rule (never
+     * from a participant, validated shape, at most [CONFERENCE_TIMER_MAX_PAYLOAD_BYTES] bytes). The caller still drops an older `seq`.
+     */
+    private val onTimer: (ConferenceTimerDto) -> Unit = {},
     /**
      * V1.9.127 -- a reaction of another participant. The sender is ONLY the SDK-verified `participant.identity` of the packet, never a
      * field of the payload (see [ConferenceReactionWire]); `decode` never throws and drops everything that is not one of the five reactions.
@@ -883,6 +891,15 @@ class LiveKitRoomSession(
                 if (fromParticipant || payload.length !in 1..CONFERENCE_HANDS_MAX_PAYLOAD_BYTES) return@onOwned
                 val bytes = ByteArray(payload.length) { index -> payload[index] }
                 conferenceHandsPacket(fromParticipant = false, payload = bytes)?.let(onHandQueue)
+                return@onOwned
+            }
+            // V1.9.133 -- the conference timer: the same rule, a branch of its own, also BEFORE the participant check (a packet that carries
+            // a sending participant is a forgery of "the time is up" and is dropped here).
+            if (p3 == CONFERENCE_TIMER_TOPIC) {
+                val fromParticipant = p1.unsafeCast<RemoteParticipant?>() != null
+                if (fromParticipant || payload.length !in 1..CONFERENCE_TIMER_MAX_PAYLOAD_BYTES) return@onOwned
+                val bytes = ByteArray(payload.length) { index -> payload[index] }
+                conferenceTimerPacket(fromParticipant = false, payload = bytes)?.let(onTimer)
                 return@onOwned
             }
             val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@onOwned

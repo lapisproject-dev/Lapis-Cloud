@@ -230,6 +230,13 @@ internal interface JoinLeaveSoundPlayer {
     /** The switch has just been turned on: the join tone once, as a confirmation. Must be called inside the click. */
     fun playProbe()
 
+    /**
+     * V1.9.133 -- the gong at the end of a conference timer ([timerGongPartials]). Dropped, never queued, when the audio context does not run.
+     * [confirmation] = the person has just switched the gong on (inside the click): the context may still be resuming, so it waits for that.
+     * The default does nothing (a test double that only cares about the tones needs no gong).
+     */
+    fun playTimerGong(confirmation: Boolean = false) {}
+
     /** The speaker the person chose (`null` or empty = the default). Best effort. */
     fun setSink(deviceId: String?)
 
@@ -315,6 +322,47 @@ internal class BrowserJoinLeaveSoundPlayer(
             }
         } catch (e: Throwable) {
             // silent
+        }
+    }
+
+    override fun playTimerGong(confirmation: Boolean) {
+        try {
+            val ctx = contextOrCreate()
+            if (!present(ctx)) return
+            if (ctx.state == "running") {
+                gong(ctx)
+                return
+            }
+            if (!confirmation) {
+                // never queue: a context that is not running would sound the gong late, when the browser finally lets it start
+                swallow(resume(ctx))
+                return
+            }
+            val pending = resume(ctx)
+            if (present(pending) && present(pending["then"])) {
+                val onResumed: (dynamic) -> Unit = { runCatching { gong(ctx) } }
+                swallow(pending["then"](onResumed, ignoreRejection))
+            }
+        } catch (e: Throwable) {
+            // a failing gong never takes anything else down
+        }
+    }
+
+    /** The gong: every partial of [timerGongPartials] with a very short attack and one long exponential decay. */
+    private fun gong(ctx: dynamic) {
+        val start = (ctx.currentTime as Double) + JOIN_LEAVE_START_DELAY_S
+        for ((hz, level) in timerGongPartials()) {
+            val oscillator = ctx.createOscillator()
+            oscillator.type = "sine"
+            oscillator.frequency.value = hz
+            val gain = ctx.createGain()
+            gain.gain.setValueAtTime(0.0, start)
+            gain.gain.linearRampToValueAtTime(level, start + TIMER_GONG_ATTACK_S)
+            gain.gain.exponentialRampToValueAtTime(SILENCE, start + TIMER_GONG_DECAY_S)
+            oscillator.connect(gain)
+            gain.connect(ctx.destination)
+            oscillator.start(start)
+            oscillator.stop(start + TIMER_GONG_DECAY_S + STOP_MARGIN_S)
         }
     }
 
@@ -440,10 +488,13 @@ internal object ConferenceJoinLeaveSounds {
     val preference: JoinLeaveSoundPreference by lazy { LocalStorageJoinLeaveSoundPreference() }
     val player: JoinLeaveSoundPlayer by lazy { BrowserJoinLeaveSoundPlayer() }
 
-    /** Synchronously inside a user's click, before any `await`. A person who switched the tones off does not get an audio context. */
+    /**
+     * Synchronously inside a user's click, before any `await`. A person who switched the tones AND the timer gong off does not get an audio
+     * context.
+     */
     fun unlockFromGesture() {
         try {
-            if (preference.isOn()) player.unlock()
+            if (preference.isOn() || ConferenceTimerGong.preference.isOn()) player.unlock()
         } catch (e: Throwable) {
             // silent
         }

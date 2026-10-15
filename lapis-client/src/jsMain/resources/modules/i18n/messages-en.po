@@ -23890,3 +23890,126 @@ msgstr "Day calculation %1"
 
 msgid "Für diesen Tag fehlen noch Angaben."
 msgstr "Details are still missing for this day."
+
+# V1.9.133 -- conference timer (display only)
+
+msgid "Der Timer lässt sich jetzt nicht ändern. Bitte versuchen Sie es erneut."
+msgstr "The timer cannot be changed right now. Please try again."
+
+msgid "Die gewählte Zeit ist nicht möglich (10 Sekunden bis 60 Minuten)."
+msgstr "The selected time is not possible (10 seconds to 60 minutes)."
+
+msgid "Timer pausiert: noch %1"
+msgstr "Timer paused: %1 left"
+
+msgid "Timer: noch %1"
+msgstr "Timer: %1 left"
+
+msgid "Zeit abgelaufen"
+msgstr "Time is up"
+
+msgid "Dauer"
+msgstr "Duration"
+
+msgid "Eigene Zeit"
+msgstr "Custom time"
+
+msgid "Minuten"
+msgstr "Minutes"
+
+msgid "Sekunden"
+msgstr "Seconds"
+
+msgid "Zwischen 10 Sekunden und 60 Minuten"
+msgstr "Between 10 seconds and 60 minutes"
+
+msgid "Starten"
+msgstr "Start"
+
+msgid "Fortsetzen"
+msgstr "Resume"
+
+msgid "Pausieren"
+msgstr "Pause"
+
+msgid "Stoppen"
+msgstr "Stop"
+
+msgid "+30 s"
+msgstr "+30 s"
+
+msgid "+1 min"
+msgstr "+1 min"
+
+msgid "+5 min"
+msgstr "+5 min"
+
+msgid "Um 30 Sekunden verlängern"
+msgstr "Extend by 30 seconds"
+
+msgid "Um 1 Minute verlängern"
+msgstr "Extend by 1 minute"
+
+msgid "Um 5 Minuten verlängern"
+msgstr "Extend by 5 minutes"
+
+msgid "Timer"
+msgstr "Timer"
+
+msgid "Timer %1"
+msgstr "Timer %1"
+
+msgid "Gleich vorbei"
+msgstr "Almost over"
+
+msgid "Pausiert"
+msgstr "Paused"
+
+msgid "Gong am Ende"
+msgstr "Gong at the end"
+
+msgid "Ein leiser Gong, wenn ein Timer abläuft. Er erklingt nur, wenn Ihr Browser Ton zulässt."
+msgstr "A soft gong when a timer runs out. It only sounds if your browser allows sound."
+
+msgid "Timer steuern, Zeit abgelaufen"
+msgstr "Control timer, time is up"
+
+msgid "Timer: Zeit abgelaufen"
+msgstr "Timer: time is up"
+
+msgid "Timer steuern, pausiert, noch %1"
+msgstr "Control timer, paused, %1 left"
+
+msgid "Timer steuern, noch %1"
+msgstr "Control timer, %1 left"
+
+msgid "Timer wurde zurückgesetzt"
+msgstr "The timer was reset"
+
+msgid "Timer gestartet: %1"
+msgstr "Timer started: %1"
+
+msgid "Timer pausiert"
+msgstr "Timer paused"
+
+msgid "Timer fortgesetzt"
+msgstr "Timer resumed"
+
+msgid "Timer gestoppt"
+msgstr "Timer stopped"
+
+msgid "Noch 10 Sekunden"
+msgstr "10 seconds left"
+
+msgid "Noch eine Minute"
+msgstr "One minute left"
+
+msgid "%1 Minute"
+msgid_plural "%1 Minuten"
+msgstr[0] "%1 minute"
+msgstr[1] "%1 minutes"
+
+msgid "%1 Sekunde"
+msgid_plural "%1 Sekunden"
+msgstr[0] "%1 second"
+msgstr[1] "%1 seconds"
