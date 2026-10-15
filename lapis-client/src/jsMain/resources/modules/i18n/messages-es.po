@@ -24306,3 +24306,69 @@ msgstr "Todos los países"
 
 msgid "Bitte prüfen Sie die Angaben zu Land und Staatsangehörigkeit."
 msgstr "Compruebe sus datos de país y nacionalidad."
+
+msgid "Kamera-Filter: Aus"
+msgstr "Filtros de cámara: desactivados"
+
+msgid "Kamera-Filter: An"
+msgstr "Filtros de cámara: activados"
+
+msgid "Kamera-Filter werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr "Los filtros de cámara aún no se admiten en la aplicación; están disponibles en el navegador de este dispositivo."
+
+msgid "Kamera-Filter sind derzeit nur in Chromium-basierten Browsern (Chrome, Edge, Brave) verfügbar."
+msgstr "Los filtros de cámara solo están disponibles actualmente en navegadores basados en Chromium (Chrome, Edge, Brave)."
+
+msgid "Filter einblenden"
+msgstr "Mostrar filtros"
+
+msgid "Licht und Farbe"
+msgstr "Luz y color"
+
+msgid "Helligkeit"
+msgstr "Brillo"
+
+msgid "Kontrast"
+msgstr "Contraste"
+
+msgid "Farbtemperatur"
+msgstr "Temperatura de color"
+
+msgid "Gegenlicht ausgleichen"
+msgstr "Compensar el contraluz"
+
+msgid "Hautglättung"
+msgstr "Suavizado de la piel"
+
+msgid "Stärke"
+msgstr "Intensidad"
+
+msgid "Hautglättung verändert die Darstellung Ihres Gesichts."
+msgstr "El suavizado de la piel cambia el aspecto de su rostro."
+
+msgid "Alle Filter aus"
+msgstr "Desactivar todos los filtros"
+
+msgid "Pausiert (Gerät zu stark belastet)"
+msgstr "En pausa (dispositivo demasiado cargado)"
+
+msgid "Pausiert (nicht gestartet)"
+msgstr "En pausa (no se pudo iniciar)"
+
+msgid "Kamera-Filter konnten nicht angewendet werden. Ihr Bild wird unverändert gesendet."
+msgstr "No se pudieron aplicar los filtros de cámara. Su imagen se envía sin cambios."
+
+msgid "Die Hautglättung wurde pausiert, weil sie Ihr Gerät zu stark belastet. Ihre Einstellung bleibt gespeichert."
+msgstr "El suavizado de la piel se ha puesto en pausa porque sobrecarga su dispositivo. Su ajuste se conserva."
+
+msgid "Die Hautglättung konnte nicht gestartet werden. Ihre übrigen Filter laufen weiter."
+msgstr "No se pudo iniciar el suavizado de la piel. Sus demás filtros siguen funcionando."
+
+msgid "Filter eingeblendet"
+msgstr "Filtros activados"
+
+msgid "Filter ausgeblendet"
+msgstr "Filtros desactivados"
+
+msgid "Alle Filter ausgeschaltet"
+msgstr "Todos los filtros desactivados"

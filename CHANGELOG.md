@@ -6,6 +6,48 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.142 -- Camera filters
+
+A member can now correct the light and colour of their own camera image (brightness, contrast, colour temperature, backlight compensation) and soften their skin, in the
+"Mehr" sheet of the video conference. The picture is changed in the browser before it is sent, so **everyone sees it, also in a recording and in the livestream** (the panel
+says so). Nothing leaves the browser tab: no frame, no detected face, no keypoint is sent, stored or logged. **No migration**: no server change, no RPC, no table, no
+environment variable; `V1__baseline`, the kUML model and the schema-drift tests are untouched. **Nothing was looked at in a real browser or a real call.**
+
+#### What changes
+
+- **Panel** (`ConferenceCameraFilterSection`): one collapsed row "Kamera-Filter: Aus|An" after the overlays; a main switch, the group "Licht und Farbe" (four sliders), the group
+  "Hautglättung" (one slider with its own notice), "Alle Filter aus", an `aria-live` region, a preview of the own processed stream. Real `<input type=range>` with `<label for>`,
+  `<output>` and `aria-valuetext`; arrows +-1, Page up/down +-10, Home/End. Guests without a member session get no panel; in a browser that cannot run it the row stays, disabled, with an explanation.
+- **Frame stage** (`WebGlCameraFilterStage`): WebGL2 on an `OffscreenCanvas`; order light/colour -> skin smoothing -> background effect -> overlays. Skin smoothing is an
+  edge-preserving blur (separable bilateral, half or quarter resolution) blended through an analytic face mask (the detector's box x 1.15, eyes, brows and mouth excluded), at most a 70 % blend.
+  The Kotlin twin `CameraFilterMath` is what the unit tests assert on synthetic pictures.
+- **One processor per track**: `VideoProcessorKind.OVERLAY_ONLY` is now `LIGHTWEIGHT` (overlay step and/or filter stage, no segmenter); `videoProcessorKindFor(background, pipelineActive)`;
+  `installTransformHook` gained an *input* hook (`pre`) so the filter runs before the library's segmentation; `ConferenceBackgroundController.onPipelineChanged` (`onOverlayChanged` stays as a delegate).
+  A camera filter never causes a second processor or a second segmentation.
+- **Face detector**: MediaPipe `FaceDetector` (tasks-vision 0.10.14, already a transitive dependency; externals in `livekit/FaceDetectorJs.kt`), CPU, every 3rd frame, averaged in between,
+  largest face only, created only while smoothing is above zero, WASM from the existing same-origin path.
+- **Performance governor**: stage time above 12 ms for 3 s -> reduced quality; another 3 s -> smoothing paused (slider value kept, "Erneut versuchen"). One message per cause per session; any
+  error passes the ORIGINAL frames on and tells the person once.
+- **Remembered**: five numbers and the main switch in `localStorage` (`lapis.conference.cameraFilters.v1`), every access in a `try`; a damaged value gives neutral settings, switched off.
+- **Tests**: `ConferenceCameraFiltersTest`, `ConferenceCameraFilterMathTest`, `ConferenceCameraFilterControllerTest`, `ConferenceCameraFilterSectionDomTest`, `ConferenceCameraFilterStageTest`
+  (headless Chromium; the GPU tests need WebGL2, which `lapis-client/karma.config.d/webgl-software.js` provides through SwiftShader), the input hook in `VideoOverlayTransformHookTest`, and the server
+  tripwire `CameraFilterClientTripwireTest` (no URL, no network call, nothing stored or logged, `localStorage` only in the controller and only in a `try`). The i18n catalog test covers the new texts.
+- **Docs**: `docs/features/camera-filters.adoc`, the section "Camera filter stage" in `docs/architecture/video-background-effects.adoc`, two kUML diagrams.
+
+#### Known limitations
+
+- **The face model is not bundled yet.** `blaze_face_short_range.tflite` has to be downloaded once from the MediaPipe model host and committed; that external download was not approved while this was
+  written, so no file, size or checksum is claimed (`PROVENANCE.adoc`, "Pending artefact", lists the steps, including `videoEffectStagedPaths`/`videoEffectExpectedSha256` and
+  `VideoBackgroundAssetsTest`). Until then **skin smoothing cannot start** ("Pausiert (nicht gestartet)"); light and colour work without it. The build wiring for the asset is deliberately not in
+  this change: a registered but missing asset would fail `stageVideoEffectAssets`.
+- Not seen in a real browser with a real camera or in a real call; the shader was exercised only on synthetic pictures in headless Chromium with a software rasteriser.
+- Chromium-based browsers only. There is no Canvas2D fallback (the design had one for brightness and contrast; it was left out).
+- The quality of the skin smoothing was not judged on real faces; the ellipse mask can include hair line and beard (only the edge preservation protects them).
+- Recording and livestream contain the filter. CPU/GPU load on weak devices was not measured; the face detector and the library's segmenter are two MediaPipe instances (about 19 MB more
+  memory with a background effect and smoothing together); with a background effect the frame makes one extra GPU round trip.
+- Not included: automatic framing, noise reduction, presets.
+- The translations (en, es, fr, it, nl, pl, ru) were written by the model.
+
 ### V1.9.141 -- Country and nationality at the remaining places
 
 The country of residence and the nationality (V1.9.121) can now also be given at registration, and the member roster shows and filters the country.

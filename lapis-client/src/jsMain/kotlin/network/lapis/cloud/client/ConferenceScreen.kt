@@ -1752,6 +1752,40 @@ private fun enterCall(
             previewHost = overlayPreviewBridge,
         )
 
+    // V1.9.142 "Kamera-Filter" -- EINGEKLAPPTE Zeile direkt NACH den Overlays und VOR der Rauschunterdrückung. Das Panel gibt es für ein Mitglied, nicht
+    // für Gäste ohne Konto (`cameraFilterOfferedFor`): der Filter läuft rein lokal, aber die Zusage "Gäste sehen nur das Nötigste" gilt hier wie bei
+    // den Overlays. Dieselben Vorwärtsreferenzen wie oben: Controller und Stufe entstehen weiter unten, am Hintergrund-Controller.
+    var onCameraFilterSlider: ((CameraFilterSettings) -> CameraFilterSettings) -> Unit = {}
+    var onCameraFilterToggle: (Boolean) -> Unit = {}
+    var onCameraFilterReset: () -> Unit = {}
+    var onCameraFilterRetry: () -> Unit = {}
+    val cameraFilterPreviewBridge =
+        object : OverlayPreviewHost {
+            var delegate: OverlayPreviewHost? = null
+
+            override fun cameraOn(): Boolean = delegate?.cameraOn() ?: false
+
+            override fun attachPreview(video: HTMLVideoElement): Boolean = delegate?.attachPreview(video) ?: false
+
+            override fun detachPreview(video: HTMLVideoElement) {
+                delegate?.detachPreview(video)
+            }
+
+            override fun drawStaticScene(canvas: HTMLCanvasElement) = Unit
+        }
+    val cameraFilterSection =
+        ConferenceCameraFilterSection(
+            parent = moreSheet,
+            offered = cameraFilterOfferedFor(AppState.session),
+            availability = backgroundAvailability,
+            stageAvailable = cameraFilterStageSupportedInThisBrowser(),
+            onSlider = { change -> onCameraFilterSlider(change) },
+            onToggle = { on -> onCameraFilterToggle(on) },
+            onResetAll = { onCameraFilterReset() },
+            onRetrySmoothing = { onCameraFilterRetry() },
+            previewHost = cameraFilterPreviewBridge,
+        )
+
     // V1.2.10 -- statische a11y-Labels (title/aria-label/data-label) für Buttons, deren Text sich
     // NIE ändert -- Kare/Norman-Regel: Handlungsknöpfe (mic/camera/screenShare/leave/backToMain)
     // bekommen KEIN `aria-pressed`; Ansichtsschalter (roster/chat/more/whiteboard/notes) bekommen
@@ -5070,37 +5104,62 @@ private fun enterCall(
         } else {
             null
         }
+    // V1.9.142 "Kamera-Filter" -- the frame stage (light, colour, skin smoothing). Only built where the panel is offered AND this browser can run it.
+    var cameraFilterController: ConferenceCameraFilterController? = null
+    val cameraFilterStage: CameraFilterStage? =
+        if (cameraFilterSection.supported) {
+            WebGlCameraFilterStage(
+                onFailure = { cameraFilterController?.onStageFailure() },
+                onPerfAction = { action -> cameraFilterController?.onPerfAction(action) },
+                onSmoothingUnavailable = { cameraFilterController?.onSmoothingUnavailable() },
+            )
+        } else {
+            null
+        }
     val backgroundController =
         ConferenceBackgroundController(
             notifyFailure = ::notifyError,
             onProcessedStreamSwapped = {
                 callPanel.getElement()?.let { el -> resumeStalledVideos(el) }
                 runCatching { overlaySection.refreshPreview() }
+                runCatching { cameraFilterSection.refreshPreview() }
             },
             // Audit-Befund N7: `render(...)` ist DOM-Arbeit ausserhalb des controller-eigenen try/catch --
             // ein einzelner Renderfehler darf nie den Anwendungs-/Fehlerpfad des Controllers abbrechen
             // (dieselbe Klammer wie in `disposeBackgroundEffects`).
             onStateChanged = { state -> runCatching { backgroundSection.render(state) } },
             supported = backgroundAvailability == ConferenceBackgroundAvailability.AVAILABLE,
-            overlayPort = overlayCompositor?.let { CompositorOverlayPort(it) },
-            onOverlayFailure = { failure -> overlayController?.onProcessorFailure(failure) },
+            overlayPort =
+                if (overlayCompositor != null || cameraFilterStage != null) {
+                    CompositorOverlayPort(overlayCompositor, cameraFilterStage)
+                } else {
+                    null
+                },
+            // The processor failed: each side that wanted it is told (a side that wanted nothing must not report a failure of its own).
+            onOverlayFailure = { failure ->
+                if (overlayCompositor?.hasScene == true) overlayController?.onProcessorFailure(failure)
+                if (cameraFilterStage?.active == true) cameraFilterController?.onProcessorFailure()
+            },
         )
     backgroundController.restoreDesiredFromStorage()
-    if (overlayCompositor != null) {
-        // The own tile says, as long as overlays are drawn, that this is what OTHERS see (Tesler: no invisible mode).
-        fun setOverlaySelfNote(on: Boolean) {
-            val tile = tiles[joinToken.identity]?.element ?: return
-            var note = tile.querySelector(".lapis-conference-overlay-self-note") as? HTMLElement
-            if (note == null) {
-                if (!on) return
-                note = document.createElement("span") as HTMLElement
-                note.className = "lapis-conference-overlay-self-note"
-                note.setAttribute("aria-hidden", "true")
-                note.textContent = gettext("So sehen andere Sie")
-                tile.appendChild(note)
-            }
-            note.style.display = if (on) "inline-flex" else "none"
+
+    // The own tile says, as long as overlays are drawn OR a camera filter changes the picture, that this is what OTHERS see (Tesler: no invisible mode).
+    fun setOverlaySelfNote(on: Boolean) {
+        val tile = tiles[joinToken.identity]?.element ?: return
+        var note = tile.querySelector(".lapis-conference-overlay-self-note") as? HTMLElement
+        if (note == null) {
+            if (!on) return
+            note = document.createElement("span") as HTMLElement
+            note.className = "lapis-conference-overlay-self-note"
+            note.setAttribute("aria-hidden", "true")
+            note.textContent = gettext("So sehen andere Sie")
+            tile.appendChild(note)
         }
+        note.style.display = if (on) "inline-flex" else "none"
+    }
+    var overlayDrawingNow = false
+    var cameraFilterActiveNow = false
+    if (overlayCompositor != null) {
         overlayController =
             ConferenceVideoOverlayController(
                 offered = joinToken.videoOverlaysOffered,
@@ -5119,7 +5178,8 @@ private fun enterCall(
                 notifyFailure = ::notifyError,
                 onChanged = { ui ->
                     runCatching { overlaySection.render(ui) }
-                    runCatching { setOverlaySelfNote(ui.drawing) }
+                    overlayDrawingNow = ui.drawing
+                    runCatching { setOverlaySelfNote(overlayDrawingNow || cameraFilterActiveNow) }
                 },
             )
         onOverlayChange = { settings -> AppScope.launch { runCatching { overlayController.update(settings) } } }
@@ -5145,6 +5205,48 @@ private fun enterCall(
                 }
             }
         AppScope.launch { runCatching { overlayController.start() } }
+    }
+    if (cameraFilterStage != null) {
+        val filterController =
+            ConferenceCameraFilterController(
+                offered = cameraFilterSection.offered,
+                availability = backgroundAvailability,
+                stage = cameraFilterStage,
+                backgroundController = backgroundController,
+                currentTrack = { localCameraTrack?.let(::LiveKitBackgroundTrack) },
+                notifyFailure = ::notifyError,
+                onChanged = { ui ->
+                    runCatching { cameraFilterSection.render(ui) }
+                    cameraFilterActiveNow = ui.filtering
+                    runCatching { setOverlaySelfNote(overlayDrawingNow || cameraFilterActiveNow) }
+                },
+            )
+        cameraFilterController = filterController
+        onCameraFilterSlider = { change -> AppScope.launch { runCatching { filterController.onSliderMoved(change) } } }
+        onCameraFilterToggle = { on -> AppScope.launch { runCatching { filterController.setEnabled(on) } } }
+        onCameraFilterReset = {
+            AppScope.launch {
+                runCatching { filterController.resetAll() }
+                runCatching { cameraFilterSection.focusMainSwitch() }
+            }
+        }
+        onCameraFilterRetry = { AppScope.launch { runCatching { filterController.retrySmoothing() } } }
+        cameraFilterPreviewBridge.delegate =
+            object : OverlayPreviewHost {
+                override fun cameraOn(): Boolean = localCameraTrack != null
+
+                override fun attachPreview(video: HTMLVideoElement): Boolean =
+                    localCameraTrack?.let { track ->
+                        runCatching { track.attach(video) }.isSuccess
+                    } ?: false
+
+                override fun detachPreview(video: HTMLVideoElement) {
+                    runCatching { localCameraTrack?.detach(video) }
+                }
+
+                override fun drawStaticScene(canvas: HTMLCanvasElement) = Unit
+            }
+        AppScope.launch { runCatching { filterController.start() } }
     }
     onBackgroundSelect = { choice ->
         AppScope.launch {
@@ -5267,6 +5369,9 @@ private fun enterCall(
         // V1.9.129: the overlay side first (the drawing step ends, bitmaps close, the preview stream is detached) -- no await, nothing here waits.
         runCatching { overlayController?.dispose() }
         runCatching { overlaySection.dispose() }
+        // V1.9.142: the camera filter side the same way (the stage releases its GPU resources and the face detector, the preview is detached).
+        runCatching { cameraFilterController?.dispose() }
+        runCatching { cameraFilterSection.dispose() }
         runCatching { backgroundController.dispose(localCameraTrack?.let(::LiveKitBackgroundTrack)) }
         localCameraTrack = null
     }
@@ -5481,6 +5586,7 @@ private fun enterCall(
                     AppScope.launch {
                         runCatching { backgroundController.onLocalCameraTrack(LiveKitBackgroundTrack(live)) }
                         runCatching { overlayController?.onCameraTrack() }
+                        runCatching { cameraFilterController?.onCameraTrack() }
                     }
                 }
                 runCatching { overlaySection.refreshPreview() }
@@ -5498,6 +5604,7 @@ private fun enterCall(
                 AppScope.launch {
                     runCatching { backgroundController.onLocalCameraTrack(LiveKitBackgroundTrack(live)) }
                     runCatching { overlayController?.onCameraTrack() }
+                    runCatching { cameraFilterController?.onCameraTrack() }
                 }
             },
             // Bug fix (GitHub issue #3, "Audio Mute and Camera Toggle Controls Are Unreliable") --

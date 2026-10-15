@@ -24366,3 +24366,69 @@ msgstr "All countries"
 
 msgid "Bitte prüfen Sie die Angaben zu Land und Staatsangehörigkeit."
 msgstr "Please check your details for country and nationality."
+
+msgid "Kamera-Filter: Aus"
+msgstr "Camera filters: Off"
+
+msgid "Kamera-Filter: An"
+msgstr "Camera filters: On"
+
+msgid "Kamera-Filter werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr "Camera filters are not yet supported in the app – they are available in the browser on this device."
+
+msgid "Kamera-Filter sind derzeit nur in Chromium-basierten Browsern (Chrome, Edge, Brave) verfügbar."
+msgstr "Camera filters are currently only available in Chromium-based browsers (Chrome, Edge, Brave)."
+
+msgid "Filter einblenden"
+msgstr "Show filters"
+
+msgid "Licht und Farbe"
+msgstr "Light and colour"
+
+msgid "Helligkeit"
+msgstr "Brightness"
+
+msgid "Kontrast"
+msgstr "Contrast"
+
+msgid "Farbtemperatur"
+msgstr "Colour temperature"
+
+msgid "Gegenlicht ausgleichen"
+msgstr "Compensate backlight"
+
+msgid "Hautglättung"
+msgstr "Skin smoothing"
+
+msgid "Stärke"
+msgstr "Strength"
+
+msgid "Hautglättung verändert die Darstellung Ihres Gesichts."
+msgstr "Skin smoothing changes how your face looks."
+
+msgid "Alle Filter aus"
+msgstr "All filters off"
+
+msgid "Pausiert (Gerät zu stark belastet)"
+msgstr "Paused (device under too much load)"
+
+msgid "Pausiert (nicht gestartet)"
+msgstr "Paused (could not start)"
+
+msgid "Kamera-Filter konnten nicht angewendet werden. Ihr Bild wird unverändert gesendet."
+msgstr "The camera filters could not be applied. Your picture is sent unchanged."
+
+msgid "Die Hautglättung wurde pausiert, weil sie Ihr Gerät zu stark belastet. Ihre Einstellung bleibt gespeichert."
+msgstr "Skin smoothing was paused because it puts too much load on your device. Your setting is kept."
+
+msgid "Die Hautglättung konnte nicht gestartet werden. Ihre übrigen Filter laufen weiter."
+msgstr "Skin smoothing could not be started. Your other filters keep running."
+
+msgid "Filter eingeblendet"
+msgstr "Filters shown"
+
+msgid "Filter ausgeblendet"
+msgstr "Filters hidden"
+
+msgid "Alle Filter ausgeschaltet"
+msgstr "All filters switched off"

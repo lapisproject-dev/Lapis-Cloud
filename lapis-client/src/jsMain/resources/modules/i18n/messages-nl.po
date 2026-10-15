@@ -24414,3 +24414,69 @@ msgstr "Alle landen"
 
 msgid "Bitte prüfen Sie die Angaben zu Land und Staatsangehörigkeit."
 msgstr "Controleer uw gegevens voor land en nationaliteit."
+
+msgid "Kamera-Filter: Aus"
+msgstr "Camerafilters: uit"
+
+msgid "Kamera-Filter: An"
+msgstr "Camerafilters: aan"
+
+msgid "Kamera-Filter werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr "Camerafilters worden in de app nog niet ondersteund – in de browser van dit apparaat zijn ze beschikbaar."
+
+msgid "Kamera-Filter sind derzeit nur in Chromium-basierten Browsern (Chrome, Edge, Brave) verfügbar."
+msgstr "Camerafilters zijn momenteel alleen beschikbaar in browsers op basis van Chromium (Chrome, Edge, Brave)."
+
+msgid "Filter einblenden"
+msgstr "Filters tonen"
+
+msgid "Licht und Farbe"
+msgstr "Licht en kleur"
+
+msgid "Helligkeit"
+msgstr "Helderheid"
+
+msgid "Kontrast"
+msgstr "Contrast"
+
+msgid "Farbtemperatur"
+msgstr "Kleurtemperatuur"
+
+msgid "Gegenlicht ausgleichen"
+msgstr "Tegenlicht compenseren"
+
+msgid "Hautglättung"
+msgstr "Huidverzachting"
+
+msgid "Stärke"
+msgstr "Sterkte"
+
+msgid "Hautglättung verändert die Darstellung Ihres Gesichts."
+msgstr "Huidverzachting verandert hoe uw gezicht eruitziet."
+
+msgid "Alle Filter aus"
+msgstr "Alle filters uit"
+
+msgid "Pausiert (Gerät zu stark belastet)"
+msgstr "Gepauzeerd (apparaat te zwaar belast)"
+
+msgid "Pausiert (nicht gestartet)"
+msgstr "Gepauzeerd (niet gestart)"
+
+msgid "Kamera-Filter konnten nicht angewendet werden. Ihr Bild wird unverändert gesendet."
+msgstr "De camerafilters konden niet worden toegepast. Uw beeld wordt ongewijzigd verzonden."
+
+msgid "Die Hautglättung wurde pausiert, weil sie Ihr Gerät zu stark belastet. Ihre Einstellung bleibt gespeichert."
+msgstr "Huidverzachting is gepauzeerd omdat het uw apparaat te zwaar belast. Uw instelling blijft bewaard."
+
+msgid "Die Hautglättung konnte nicht gestartet werden. Ihre übrigen Filter laufen weiter."
+msgstr "Huidverzachting kon niet worden gestart. Uw overige filters blijven werken."
+
+msgid "Filter eingeblendet"
+msgstr "Filters getoond"
+
+msgid "Filter ausgeblendet"
+msgstr "Filters verborgen"
+
+msgid "Alle Filter ausgeschaltet"
+msgstr "Alle filters uitgeschakeld"

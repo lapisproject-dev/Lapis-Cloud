@@ -66,12 +66,46 @@ class VideoOverlayTransformHookTest {
     }
 
     @Test
+    fun thePreHook_runsBeforeTheOriginalTransform_andItsFrameIsTheOneTheOriginalGets() {
+        if (!apisPresent()) return
+        val sink: dynamic = js("[]")
+        val transformer = fakeTransformer()
+        val replacement = realFrame()
+        val original = realFrame()
+        var preSaw: dynamic = null
+        installTransformHook(transformer, pre = { frame: dynamic ->
+            preSaw = frame
+            replacement
+        }) { frame: dynamic, enqueue: dynamic -> enqueue.call(null, frame) }
+        transformer.transform(original, fakeController(sink))
+        assertTrue(preSaw === original, "pre sees the camera frame")
+        assertEquals(1, sink.length as Int)
+        assertTrue(sink[0] === replacement, "the library's transform worked on the frame pre returned")
+        original.close()
+        replacement.close()
+    }
+
+    @Test
+    fun thePreHook_aThrowingPre_fallsBackToTheOriginalFrame() {
+        if (!apisPresent()) return
+        val sink: dynamic = js("[]")
+        val transformer = fakeTransformer()
+        val original = realFrame()
+        installTransformHook(transformer, pre = { _: dynamic ->
+            error("boom")
+        }) { frame: dynamic, enqueue: dynamic -> enqueue.call(null, frame) }
+        transformer.transform(original, fakeController(sink))
+        assertTrue(sink[0] === original, "the camera never freezes: the original frame goes on")
+        original.close()
+    }
+
+    @Test
     fun theOverlayOnlyTransformer_isAValidTransformStreamSource_andRunsTheProcessorPerFrame() =
         GlobalScope.promise {
             if (!apisPresent()) return@promise
             val seen: dynamic = js("[]")
             val transformer =
-                createOverlayOnlyTransformer { frame: dynamic, enqueue: dynamic ->
+                createLightweightTransformer { frame: dynamic, enqueue: dynamic ->
                     seen.push(frame)
                     enqueue.call(null, frame)
                 }

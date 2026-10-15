@@ -111,7 +111,7 @@ external fun createBackgroundProcessor(
 
 /**
  * V1.9.129 -- the library's base class `ProcessorWrapper(transformer, name, options)` (exported by name; `BackgroundProcessorWrapper`
- * extends it). Used with a duck-typed transformer for the OVERLAY_ONLY processor: a camera with overlays but no background effect must
+ * extends it). Used with a duck-typed transformer for the LIGHTWEIGHT processor: a camera with overlays but no background effect must
  * NOT load MediaPipe (`BackgroundTransformer.init` loads ~19 MB of WASM even in mode `disabled`). Verified against
  * `dist/index.mjs` of 0.8.1 (`ProcessorWrapper.init` calls `transformer.init({outputCanvas, inputElement})` and then reads
  * `transformer.transformer` (a `TransformStream`) on the modern path / calls `transformer.transform(frame, controller)` on the fallback).

@@ -24459,3 +24459,69 @@ msgstr "Tutti i paesi"
 
 msgid "Bitte prüfen Sie die Angaben zu Land und Staatsangehörigkeit."
 msgstr "Controlli i dati relativi a paese e nazionalità."
+
+msgid "Kamera-Filter: Aus"
+msgstr "Filtri fotocamera: disattivati"
+
+msgid "Kamera-Filter: An"
+msgstr "Filtri fotocamera: attivati"
+
+msgid "Kamera-Filter werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr "I filtri della fotocamera non sono ancora supportati nell'app – sono disponibili nel browser di questo dispositivo."
+
+msgid "Kamera-Filter sind derzeit nur in Chromium-basierten Browsern (Chrome, Edge, Brave) verfügbar."
+msgstr "Al momento i filtri della fotocamera sono disponibili solo nei browser basati su Chromium (Chrome, Edge, Brave)."
+
+msgid "Filter einblenden"
+msgstr "Mostra i filtri"
+
+msgid "Licht und Farbe"
+msgstr "Luce e colore"
+
+msgid "Helligkeit"
+msgstr "Luminosità"
+
+msgid "Kontrast"
+msgstr "Contrasto"
+
+msgid "Farbtemperatur"
+msgstr "Temperatura colore"
+
+msgid "Gegenlicht ausgleichen"
+msgstr "Compensa il controluce"
+
+msgid "Hautglättung"
+msgstr "Levigatura della pelle"
+
+msgid "Stärke"
+msgstr "Intensità"
+
+msgid "Hautglättung verändert die Darstellung Ihres Gesichts."
+msgstr "La levigatura della pelle modifica l'aspetto del Suo viso."
+
+msgid "Alle Filter aus"
+msgstr "Disattiva tutti i filtri"
+
+msgid "Pausiert (Gerät zu stark belastet)"
+msgstr "In pausa (dispositivo troppo sotto carico)"
+
+msgid "Pausiert (nicht gestartet)"
+msgstr "In pausa (avvio non riuscito)"
+
+msgid "Kamera-Filter konnten nicht angewendet werden. Ihr Bild wird unverändert gesendet."
+msgstr "Non è stato possibile applicare i filtri della fotocamera. La Sua immagine viene inviata invariata."
+
+msgid "Die Hautglättung wurde pausiert, weil sie Ihr Gerät zu stark belastet. Ihre Einstellung bleibt gespeichert."
+msgstr "La levigatura della pelle è stata messa in pausa perché sovraccarica il Suo dispositivo. L'impostazione resta salvata."
+
+msgid "Die Hautglättung konnte nicht gestartet werden. Ihre übrigen Filter laufen weiter."
+msgstr "Non è stato possibile avviare la levigatura della pelle. Gli altri filtri continuano a funzionare."
+
+msgid "Filter eingeblendet"
+msgstr "Filtri attivati"
+
+msgid "Filter ausgeblendet"
+msgstr "Filtri disattivati"
+
+msgid "Alle Filter ausgeschaltet"
+msgstr "Tutti i filtri sono disattivati"

@@ -479,10 +479,10 @@ Video overlays (see link:../features/video-overlays.adoc[video-overlays.adoc]) s
   (**variant A**, implemented; variant B -- a wrapping transformer -- was not needed).
 * `BackgroundTransformer.transform` is `async`; the hook returns its promise unchanged.
 * `LocalVideoTrack.setProcessor` initialises the NEW processor first and stops the previous one afterwards, so a change of kind needs no stop in between.
-* `BackgroundTransformer.init` loads MediaPipe even in mode `disabled`; therefore "overlay without background effect" uses a separate OVERLAY_ONLY processor: a
+* `BackgroundTransformer.init` loads MediaPipe even in mode `disabled`; therefore "overlay without background effect" uses a separate LIGHTWEIGHT processor: a
   `ProcessorWrapper` around a duck-typed transformer (`init`, `restart`, `update`, `destroy`, `transform`, `transformer`), no WASM, no WebGL.
 
-*Processor kinds* (`videoProcessorKindFor`): no effect and no overlay -> none; overlay only -> OVERLAY_ONLY; any effect -> SEGMENTING (the hook is inside it). A scene change
+*Processor kinds* (`videoProcessorKindFor`): no effect and no overlay -> none; overlay only -> LIGHTWEIGHT; any effect -> SEGMENTING (the hook is inside it). A scene change
 while an effect runs only swaps the compositor's scene; no processor is rebuilt. A failing effect falls back to the overlay-only processor; a failing overlay processor is reported
 only to the overlay side.
 
@@ -593,3 +593,58 @@ there as part of M12.
 * *O3 Recording and livestream.* Record a short call with an overlay: the file shows it.
 * *O4 Failure.* Block `*/api/video-overlays/*`: one notice, the camera keeps running without that element.
 * *O5 Cleanup.* Leave: camera LED off at once; ten on/off cycles do not grow memory (`ImageBitmap`s are closed).
+
+== Camera filter stage (V1.9.142)
+
+Camera filters (see link:../features/camera-filters.adoc[camera-filters.adoc]) share the same ONE processor of the camera track.
+
+*Order and why*: light and colour -> skin smoothing -> background effect -> overlays. The light step corrects the sensor, not the chosen background picture (otherwise backlight
+compensation would brighten the background image); the smoothing works on the corrected tone; the face detector runs on the *original* frame, so detection does not depend on the
+sliders; the overlays come last so that logos are never tinted or smoothed.
+
+*Input hook*: the output hook of V1.9.129 (`controller.enqueue`) cannot serve the filter -- it sees the frame AFTER the segmenter. `installTransformHook(transformer, pre, process)` therefore
+also takes `pre`, called with the camera frame BEFORE the library's `transform`; it returns the frame the library works on. *Ownership* (read from `dist/index.mjs` of 0.8.1):
+`BackgroundTransformer.transform` closes the frame it receives in its `finally` unless it enqueued it, so after `pre` returned a NEW frame the original is closed by `pre` -- exactly once,
+after the new frame exists. Any error in `pre` falls back to the original frame.
+
+*Processor kinds*: `NONE | LIGHTWEIGHT | SEGMENTING` (`LIGHTWEIGHT` was `OVERLAY_ONLY` until V1.9.141). `videoProcessorKindFor(background, pipelineActive)`; the port's `wanted` is
+"overlay scene present OR filter stage active". In the `LIGHTWEIGHT` processor the transformer runs `filterStage.process` and then the overlay step; a camera filter alone loads
+neither the segmenter nor the background WASM.
+
+*Stage* (`WebGlCameraFilterStage`): WebGL2 on one `OffscreenCanvas`, created lazily at the first frame, torn down (`WEBGL_lose_context`, textures, programs) when the stage is not wanted.
+Programs: L (light/colour, full resolution), a copy pass to half (quarter when reduced) resolution, BH + BV (separable edge-preserving blur: 4 taps per side, sigma 2 px, range sigma
+0.1) and F (`mix(original, blurred, strength x mask)`; the mask is computed analytically in the shader from seven ellipses, no mask texture). Without smoothing or without a face only L
+runs, straight to the canvas. The output is `new VideoFrame(canvas, {timestamp})` right after the draw. The Kotlin reference `CameraFilterMath` mirrors the arithmetic and is what the
+unit tests assert on synthetic pictures; the GPU path is smoke- and pixel-tested in headless Chromium with SwiftShader (`lapis-client/karma.config.d/webgl-software.js`).
+
+*Face detector*: `@mediapipe/tasks-vision` 0.10.14 (hoisted transitively through `@livekit/track-processors`, exactly pinned and checked by `verifyMediaPipeVersion`), `FaceDetector`
+in `VIDEO` mode with the CPU delegate, created only while smoothing is above zero, from the same same-origin WASM path as the segmenter and from `/assets/mediapipe/blaze_face_short_range.tflite`.
+It is a second MediaPipe task instance next to the segmenter's: the WASM is instantiated twice (the file itself comes from the immutable browser cache). `detectForVideo` is synchronous
+and needs strictly increasing timestamps (microseconds divided by 1000, bumped by one when equal). Five detector errors in a row pause the smoothing as "not started".
+
+*Privacy*: no new external resource, no CDN, no network call with image data, no storage or logging of faces, boxes or keypoints; `CameraFilterClientTripwireTest` scans the sources.
+Manual check: the network tab must show no request to a foreign host while the filters run.
+
+[kuml, camera-filter-processor-kinds, svg]
+----
+import dev.kuml.sysml2.dsl.sysml2Model
+
+sysml2Model(name = "CameraProcessorKinds") {
+    val none = stateDef(name = "NONE", isInitial = true, entryAction = "raw camera, no processor")
+    val light = stateDef(name = "LIGHTWEIGHT", entryAction = "filter stage and overlay step, no segmenter")
+    val seg = stateDef(name = "SEGMENTING", entryAction = "background effect with the filter input hook and the overlay hook")
+
+    transition(name = "pipelineOn", source = none, target = light, trigger = "overlay or filter wanted")
+    transition(name = "pipelineOff", source = light, target = none, trigger = "nothing wanted")
+    transition(name = "effectOn", source = light, target = seg, trigger = "background effect chosen")
+    transition(name = "effectOnDirect", source = none, target = seg, trigger = "background effect chosen")
+    transition(name = "effectOffKeep", source = seg, target = light, trigger = "effect off, overlay or filter still wanted")
+    transition(name = "effectOffClean", source = seg, target = none, trigger = "effect off, nothing else wanted")
+
+    stmDiagram(name = "Camera processor kinds") {
+        include(state = none)
+        include(state = light)
+        include(state = seg)
+    }
+}
+----

@@ -239,13 +239,13 @@ class ConferenceVideoOverlaysTest {
 
     @Test
     fun processorKind_offWithoutOverlayIsNone_offWithOverlayIsOverlayOnly_anyEffectIsSegmenting() {
-        assertEquals(VideoProcessorKind.NONE, videoProcessorKindFor(CONFERENCE_BACKGROUND_OFF, overlayActive = false))
-        assertEquals(VideoProcessorKind.OVERLAY_ONLY, videoProcessorKindFor(CONFERENCE_BACKGROUND_OFF, overlayActive = true))
+        assertEquals(VideoProcessorKind.NONE, videoProcessorKindFor(CONFERENCE_BACKGROUND_OFF, pipelineActive = false))
+        assertEquals(VideoProcessorKind.LIGHTWEIGHT, videoProcessorKindFor(CONFERENCE_BACKGROUND_OFF, pipelineActive = true))
         for (effect in ConferenceBackgroundEffect.entries.filter { it != ConferenceBackgroundEffect.OFF }) {
             val choice = ConferenceBackgroundChoice.BuiltIn(effect)
-            assertEquals(VideoProcessorKind.SEGMENTING, videoProcessorKindFor(choice, overlayActive = false))
-            assertEquals(VideoProcessorKind.SEGMENTING, videoProcessorKindFor(choice, overlayActive = true))
+            assertEquals(VideoProcessorKind.SEGMENTING, videoProcessorKindFor(choice, pipelineActive = false))
+            assertEquals(VideoProcessorKind.SEGMENTING, videoProcessorKindFor(choice, pipelineActive = true))
         }
-        assertEquals(VideoProcessorKind.SEGMENTING, videoProcessorKindFor(ConferenceBackgroundChoice.Custom(logoId), overlayActive = true))
+        assertEquals(VideoProcessorKind.SEGMENTING, videoProcessorKindFor(ConferenceBackgroundChoice.Custom(logoId), pipelineActive = true))
     }
 }

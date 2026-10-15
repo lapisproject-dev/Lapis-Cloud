@@ -23485,3 +23485,69 @@ msgstr ""
 
 msgid "Bitte prüfen Sie die Angaben zu Land und Staatsangehörigkeit."
 msgstr ""
+
+msgid "Kamera-Filter: Aus"
+msgstr ""
+
+msgid "Kamera-Filter: An"
+msgstr ""
+
+msgid "Kamera-Filter werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr ""
+
+msgid "Kamera-Filter sind derzeit nur in Chromium-basierten Browsern (Chrome, Edge, Brave) verfügbar."
+msgstr ""
+
+msgid "Filter einblenden"
+msgstr ""
+
+msgid "Licht und Farbe"
+msgstr ""
+
+msgid "Helligkeit"
+msgstr ""
+
+msgid "Kontrast"
+msgstr ""
+
+msgid "Farbtemperatur"
+msgstr ""
+
+msgid "Gegenlicht ausgleichen"
+msgstr ""
+
+msgid "Hautglättung"
+msgstr ""
+
+msgid "Stärke"
+msgstr ""
+
+msgid "Hautglättung verändert die Darstellung Ihres Gesichts."
+msgstr ""
+
+msgid "Alle Filter aus"
+msgstr ""
+
+msgid "Pausiert (Gerät zu stark belastet)"
+msgstr ""
+
+msgid "Pausiert (nicht gestartet)"
+msgstr ""
+
+msgid "Kamera-Filter konnten nicht angewendet werden. Ihr Bild wird unverändert gesendet."
+msgstr ""
+
+msgid "Die Hautglättung wurde pausiert, weil sie Ihr Gerät zu stark belastet. Ihre Einstellung bleibt gespeichert."
+msgstr ""
+
+msgid "Die Hautglättung konnte nicht gestartet werden. Ihre übrigen Filter laufen weiter."
+msgstr ""
+
+msgid "Filter eingeblendet"
+msgstr ""
+
+msgid "Filter ausgeblendet"
+msgstr ""
+
+msgid "Alle Filter ausgeschaltet"
+msgstr ""

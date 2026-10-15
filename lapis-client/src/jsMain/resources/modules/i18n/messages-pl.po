@@ -24421,3 +24421,69 @@ msgstr "Wszystkie kraje"
 
 msgid "Bitte prüfen Sie die Angaben zu Land und Staatsangehörigkeit."
 msgstr "Proszę sprawdzić dane dotyczące kraju i obywatelstwa."
+
+msgid "Kamera-Filter: Aus"
+msgstr "Filtry kamery: wyłączone"
+
+msgid "Kamera-Filter: An"
+msgstr "Filtry kamery: włączone"
+
+msgid "Kamera-Filter werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr "Filtry kamery nie są jeszcze obsługiwane w aplikacji – w przeglądarce na tym urządzeniu są dostępne."
+
+msgid "Kamera-Filter sind derzeit nur in Chromium-basierten Browsern (Chrome, Edge, Brave) verfügbar."
+msgstr "Filtry kamery są obecnie dostępne tylko w przeglądarkach opartych na Chromium (Chrome, Edge, Brave)."
+
+msgid "Filter einblenden"
+msgstr "Pokaż filtry"
+
+msgid "Licht und Farbe"
+msgstr "Światło i kolor"
+
+msgid "Helligkeit"
+msgstr "Jasność"
+
+msgid "Kontrast"
+msgstr "Kontrast"
+
+msgid "Farbtemperatur"
+msgstr "Temperatura barwowa"
+
+msgid "Gegenlicht ausgleichen"
+msgstr "Kompensuj światło zza pleców"
+
+msgid "Hautglättung"
+msgstr "Wygładzanie skóry"
+
+msgid "Stärke"
+msgstr "Siła"
+
+msgid "Hautglättung verändert die Darstellung Ihres Gesichts."
+msgstr "Wygładzanie skóry zmienia wygląd Państwa twarzy."
+
+msgid "Alle Filter aus"
+msgstr "Wyłącz wszystkie filtry"
+
+msgid "Pausiert (Gerät zu stark belastet)"
+msgstr "Wstrzymano (urządzenie zbyt obciążone)"
+
+msgid "Pausiert (nicht gestartet)"
+msgstr "Wstrzymano (nie udało się uruchomić)"
+
+msgid "Kamera-Filter konnten nicht angewendet werden. Ihr Bild wird unverändert gesendet."
+msgstr "Nie udało się zastosować filtrów kamery. Państwa obraz jest wysyłany bez zmian."
+
+msgid "Die Hautglättung wurde pausiert, weil sie Ihr Gerät zu stark belastet. Ihre Einstellung bleibt gespeichert."
+msgstr "Wygładzanie skóry zostało wstrzymane, ponieważ zbyt mocno obciąża urządzenie. Państwa ustawienie pozostaje zapisane."
+
+msgid "Die Hautglättung konnte nicht gestartet werden. Ihre übrigen Filter laufen weiter."
+msgstr "Nie udało się uruchomić wygładzania skóry. Pozostałe filtry nadal działają."
+
+msgid "Filter eingeblendet"
+msgstr "Filtry włączone"
+
+msgid "Filter ausgeblendet"
+msgstr "Filtry wyłączone"
+
+msgid "Alle Filter ausgeschaltet"
+msgstr "Wszystkie filtry wyłączone"

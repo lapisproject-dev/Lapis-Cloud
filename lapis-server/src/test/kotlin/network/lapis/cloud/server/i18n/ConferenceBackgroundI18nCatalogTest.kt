@@ -39,6 +39,9 @@ class ConferenceBackgroundI18nCatalogTest :
                 "ConferenceVideoOverlayController.kt",
                 "ConferenceVideoOverlaySection.kt",
                 "ConferenceVideoOverlayLibrarySettings.kt",
+                // V1.9.142 "Kamera-Filter (Licht, Farbe, Hautglättung) im eigenen Kamerabild".
+                "ConferenceCameraFilterSection.kt",
+                "ConferenceCameraFilterController.kt",
             )
 
         val languages = listOf("en", "es", "fr", "it", "nl", "pl", "ru")

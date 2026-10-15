@@ -68,15 +68,21 @@ private fun codePointsOf(text: String): List<String> {
  * Replaces `transformer.transform` (called dynamically by the library's own `TransformStream` and, on the canvas fallback path, directly)
  * by a function that runs the original with a controller whose `enqueue` goes through [process]. [process] receives the frame the library
  * wants to enqueue and a function that really enqueues; it takes ownership of the frame. Must run BEFORE the processor is initialised.
+ *
+ * V1.9.142 -- [pre] is the INPUT side: it sees the camera frame BEFORE the library's transformer (segmentation, background) does, and returns
+ * the frame the transformer is to work on -- the same frame, or a new one (then [pre] has closed the original: the library's
+ * `BackgroundTransformer.transform` closes whatever frame it receives in its `finally`, `dist/index.mjs` of 0.8.1, so ownership of the frame
+ * handed over is the library's, ownership of the original stays with [pre]). [pre] must never throw; if it does, the original frame is used.
  */
 @Suppress("UNUSED_PARAMETER")
 internal fun installTransformHook(
     transformer: dynamic,
+    pre: ((dynamic) -> dynamic)? = null,
     process: (dynamic, dynamic) -> Unit,
 ) {
     js(
         """
-        (function (t, processFrame) {
+        (function (t, preFrame, processFrame) {
             var original = t.transform;
             var lastController = null;
             var wrapped = null;
@@ -91,19 +97,29 @@ internal fun installTransformHook(
                         terminate: function () { return controller.terminate(); }
                     };
                 }
-                return original.call(t, frame, wrapped);
+                var input = frame;
+                if (preFrame) {
+                    try {
+                        var result = preFrame(frame);
+                        if (result) { input = result; }
+                    } catch (e) {
+                        input = frame;
+                    }
+                }
+                return original.call(t, input, wrapped);
             };
-        })(transformer, process)
+        })(transformer, pre, process)
         """,
     )
 }
 
 /**
- * A duck-typed transformer for `ProcessorWrapper` that only runs the overlay step (no segmentation, no WebGL, no WASM): the library calls
+ * A duck-typed transformer for `ProcessorWrapper` that only runs the lightweight steps (camera filter stage, overlay step) -- no segmentation and no background WASM; the filter stage owns its
+ * own WebGL context when it is on: the library calls
  * `init({outputCanvas, inputElement})`, `restart`, `update`, `destroy` and reads `.transformer` (a `TransformStream`) and `.transform`.
  */
 @Suppress("UNUSED_PARAMETER")
-internal fun createOverlayOnlyTransformer(process: (dynamic, dynamic) -> Unit): dynamic =
+internal fun createLightweightTransformer(process: (dynamic, dynamic) -> Unit): dynamic =
     js(
         """
         (function (processFrame) {

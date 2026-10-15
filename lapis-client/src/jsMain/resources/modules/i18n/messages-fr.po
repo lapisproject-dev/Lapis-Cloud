@@ -24478,3 +24478,69 @@ msgstr "Tous les pays"
 
 msgid "Bitte prüfen Sie die Angaben zu Land und Staatsangehörigkeit."
 msgstr "Veuillez vérifier vos informations de pays et de nationalité."
+
+msgid "Kamera-Filter: Aus"
+msgstr "Filtres de caméra : désactivés"
+
+msgid "Kamera-Filter: An"
+msgstr "Filtres de caméra : activés"
+
+msgid "Kamera-Filter werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr "Les filtres de caméra ne sont pas encore pris en charge dans l'application – ils sont disponibles dans le navigateur de cet appareil."
+
+msgid "Kamera-Filter sind derzeit nur in Chromium-basierten Browsern (Chrome, Edge, Brave) verfügbar."
+msgstr "Les filtres de caméra ne sont actuellement disponibles que dans les navigateurs basés sur Chromium (Chrome, Edge, Brave)."
+
+msgid "Filter einblenden"
+msgstr "Afficher les filtres"
+
+msgid "Licht und Farbe"
+msgstr "Lumière et couleur"
+
+msgid "Helligkeit"
+msgstr "Luminosité"
+
+msgid "Kontrast"
+msgstr "Contraste"
+
+msgid "Farbtemperatur"
+msgstr "Température de couleur"
+
+msgid "Gegenlicht ausgleichen"
+msgstr "Compenser le contre-jour"
+
+msgid "Hautglättung"
+msgstr "Lissage de la peau"
+
+msgid "Stärke"
+msgstr "Intensité"
+
+msgid "Hautglättung verändert die Darstellung Ihres Gesichts."
+msgstr "Le lissage de la peau modifie l'apparence de votre visage."
+
+msgid "Alle Filter aus"
+msgstr "Désactiver tous les filtres"
+
+msgid "Pausiert (Gerät zu stark belastet)"
+msgstr "En pause (appareil trop sollicité)"
+
+msgid "Pausiert (nicht gestartet)"
+msgstr "En pause (démarrage impossible)"
+
+msgid "Kamera-Filter konnten nicht angewendet werden. Ihr Bild wird unverändert gesendet."
+msgstr "Les filtres de caméra n'ont pas pu être appliqués. Votre image est envoyée sans modification."
+
+msgid "Die Hautglättung wurde pausiert, weil sie Ihr Gerät zu stark belastet. Ihre Einstellung bleibt gespeichert."
+msgstr "Le lissage de la peau a été mis en pause car il sollicite trop votre appareil. Votre réglage est conservé."
+
+msgid "Die Hautglättung konnte nicht gestartet werden. Ihre übrigen Filter laufen weiter."
+msgstr "Le lissage de la peau n'a pas pu démarrer. Vos autres filtres continuent de fonctionner."
+
+msgid "Filter eingeblendet"
+msgstr "Filtres affichés"
+
+msgid "Filter ausgeblendet"
+msgstr "Filtres masqués"
+
+msgid "Alle Filter ausgeschaltet"
+msgstr "Tous les filtres sont désactivés"

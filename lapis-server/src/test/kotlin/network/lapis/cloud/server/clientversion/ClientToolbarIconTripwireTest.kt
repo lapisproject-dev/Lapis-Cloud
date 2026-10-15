@@ -216,6 +216,9 @@ private const val REASON_DOMAIN_ICON_3 =
 private const val REASON_DOMAIN_ICON_OVERLAY =
     "DOMAIN_ICON: the video overlay toggle row (layers) in the conference \"Mehr\" sheet, same shape as the background picker toggle"
 
+private const val REASON_DOMAIN_ICON_CAMERA_FILTER =
+    "DOMAIN_ICON: the camera filter toggle row (sliders) in the conference \"Mehr\" sheet, same shape as the video overlay toggle row"
+
 private const val REASON_DOMAIN_ICON_4 =
     "DOMAIN_ICON: the conference control bar (microphone, camera, screen share, participants, chat, more, back to main room, leave, whiteboard, notes, timer (stopwatch, V1.9.133: the moderator's \"Timer\" entry of the \"Mehr\" sheet, same shape as whiteboard and notes), expand) -- icon-only domain toggles"
 
@@ -257,6 +260,7 @@ private val R57_LEDGER: Map<String, LedgerEntry> =
         "S3:ClientVersionWatcher.kt" to LedgerEntry(count = 1, reason = REASON_CLASSNAME),
         "S3:ConferenceBackgroundSection.kt" to LedgerEntry(count = 2, reason = REASON_DOMAIN_ICON_3),
         "S3:ConferenceVideoOverlaySection.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_OVERLAY),
+        "S3:ConferenceCameraFilterSection.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_CAMERA_FILTER),
         "S3:ConferenceScreen.kt" to LedgerEntry(count = 10, reason = REASON_DOMAIN_ICON_4),
         "S3:ConferenceVotePanel.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_5),
         "S3:DocumentsScreen.kt" to LedgerEntry(count = 1, reason = REASON_DOMAIN_ICON_6),

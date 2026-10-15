@@ -1,0 +1,112 @@
+= Camera filters: light, colour and skin smoothing in your own camera image (V1.9.142)
+:toc:
+
+== Purpose
+
+A member who joins a video conference may correct the light and colour of their *own* camera image and soften their skin. The picture is changed in the
+browser *before* it is sent, so **everyone sees the result -- and it is part of the recording and of the livestream**, because both are composed from the
+raw per-person tracks that already carry the filter. Nothing leaves the browser tab: no frame, no detected face, no keypoint is sent to any server, stored,
+logged or exported (`CameraFilterClientTripwireTest`).
+
+Camera filters share the *one* processor of the camera track with the background effects and the video overlays (see
+link:../architecture/video-background-effects.adoc[video-background-effects.adoc]); there is never a second processor and never a second segmentation.
+
+== What a member can do
+
+The panel is one collapsed row "Kamera-Filter: Aus|An" in the "Mehr" sheet, after the video overlays and before the noise suppression.
+
+* A main switch ("Filter einblenden"). The five sliders keep their values while the switch is off. Moving any slider switches the main switch on and
+  announces "Filter eingeblendet" once.
+* Group "Licht und Farbe": brightness (-40 to +40), contrast (-40 to +40), colour temperature (-50 to +50) and backlight compensation (0 to 100).
+* Group "Hautglättung": strength (0 to 100) with its own notice "Hautglättung verändert die Darstellung Ihres Gesichts."
+* "Alle Filter aus": every slider back to neutral and the main switch off; focus moves to the main switch and the live region announces it.
+* A preview: the own, processed camera stream (what others see) or, with the camera off, a neutral silhouette. While the picture is changed the panel says
+  "Verändert Ihr Bild -- alle sehen es, auch in Aufnahme und Livestream.", and the own tile carries "So sehen andere Sie".
+
+The sliders are real `<input type=range>` elements with a `<label for>`, an `<output>` and an `aria-valuetext`. The arrow keys move by 1, Page up / down by 10,
+Home / End go to the ends. The values (five numbers and the switch) are remembered in the browser only (`localStorage`, `lapis.conference.cameraFilters.v1`); a
+damaged or blocked value gives neutral settings with the switch off.
+
+Guests without a member session never get the panel. In a browser that cannot run the stage the row stays, disabled, with an explanation (Chromium-based
+browsers only; in the app WebView a separate sentence).
+
+== How the sliders map to the picture
+
+[cols="1,3",options="header"]
+|===
+| Slider | Effect on every pixel (colours in 0..1, each step clamped)
+| Colour temperature | red x (1 + 0.10 x v / 50), blue x (1 - 0.10 x v / 50)
+| Brightness | all channels x (1 + v / 100)
+| Contrast | (c - 0.5) x (1 + v / 100) + 0.5
+| Backlight | c + 0.35 x v / 100 x (1 - luma)^2 (Rec. 709 luma): dark pixels are lifted, bright ones hardly
+| Skin smoothing | mix(original, edge-preserving blur, 0.70 x v / 100 x face mask)
+|===
+
+The order is *light and colour, then skin smoothing, then the background effect, then the overlays*: the filter corrects the sensor and not the chosen
+background picture; the smoothing works on the corrected tone; logos are never tinted or smoothed. The face is found on the *original* frame, so the
+detection does not depend on the sliders.
+
+The skin mask is the face box scaled by 1.15 (soft edge of 12 %) minus the eyes, the brows and the mouth, which stay sharp. There is no skin-colour threshold:
+the mask follows the detected face geometry only. Without a detected face (for ten frames) there is no smoothing at all.
+
+== Pipeline
+
+[kuml, camera-filter-pipeline, svg]
+----
+sequenceDiagram(name = "Camera filter: frame pipeline (V1.9.142)") {
+    val camera = participant(name = "Camera frame")
+    val filter = participant(name = "Filter stage (WebGL2)")
+    val detector = participant(name = "Face detector (own WASM)")
+    val background = participant(name = "Background effect")
+    val overlays = participant(name = "Overlay drawing step")
+    val published = participant(name = "Published track")
+
+    message(from = camera, to = filter, text = "VideoFrame (input hook, before the library's transform)")
+    message(from = filter, to = detector, text = "every 3rd frame: detectForVideo (same-origin model)")
+    message(from = filter, to = filter, text = "light and colour, then skin smoothing inside the face mask")
+    message(from = filter, to = background, text = "new VideoFrame, the original is closed once")
+    message(from = background, to = overlays, text = "segmentation and background (only if chosen)")
+    message(from = overlays, to = published, text = "logos, name and frame are drawn last, then enqueue")
+}
+----
+
+== Processor kinds
+
+`videoProcessorKindFor(background, pipelineActive)` where `pipelineActive` is "an overlay is drawn OR a camera filter is on":
+
+* no effect, nothing else -> no processor (the raw camera);
+* no effect, but overlays and/or filter -> `LIGHTWEIGHT`: a `ProcessorWrapper` around a duck-typed transformer that runs `filterStage.process` and then the
+  overlay step. No segmenter and no background WASM; only skin smoothing > 0 additionally loads the small face detector;
+* any background effect -> `SEGMENTING`: the filter is the *input hook* of the library's transformer (`installTransformHook(..., pre = ...)`), the overlays the
+  output hook.
+
+== Performance and failure behaviour
+
+* The detector runs every 3rd frame, in between the box and the keypoints are averaged (exponential mean, alpha 0.5). Only the largest face is used.
+* A governor measures the stage time per frame while smoothing runs (EMA, alpha 0.1). More than 12 ms for 3 s: *reduced* (detector every 6th frame, blur at a
+  quarter of the resolution). Another 3 s: the smoothing is *paused*; the slider keeps its value and "Erneut versuchen" starts again at full quality. The
+  figure is a CPU-side stage cost, not a frame-rate promise.
+* Any error in the stage hands the ORIGINAL frame on (the camera never freezes) and tells the person once per session: "Kamera-Filter konnten nicht
+  angewendet werden. Ihr Bild wird unverändert gesendet." The slider values are never overwritten, and a failing filter never touches the state of the
+  background effect or the overlays.
+* The WebGL context, textures, framebuffers and the face detector are created lazily and released as soon as the stage is not wanted or the call is left.
+
+== Limits (honest)
+
+* **The face model is not bundled yet.** `blaze_face_short_range.tflite` (MediaPipe, Apache-2.0) has to be fetched once and committed (see
+  `lapis-client/src/jsMain/webAssets/mediapipe/PROVENANCE.adoc`, "Pending artefact"); that download was not approved in this wave. Until the file is added the
+  skin smoothing cannot start: the panel then shows "Pausiert (nicht gestartet)" and the message "Die Hautglättung konnte nicht gestartet werden." The light and
+  colour sliders are unaffected.
+* Not seen in a real browser with a real camera or in a real call. The shader runs in the unit tests on headless Chromium with a software rasteriser
+  (SwiftShader) against synthetic pictures; its arithmetic is mirrored by `CameraFilterMath` and tested there.
+* Chromium-based browsers only (Chrome, Edge, Brave). Firefox, Safari and the app WebView get the explanation. There is **no Canvas2D fallback**; the
+  design had sketched one (brightness and contrast only) and it was left out.
+* The quality of the skin smoothing was not judged on real faces. The ellipse mask can include hair line and beard; only the edge preservation of the blur
+  protects them. The face detector is not equally reliable on all faces; without a detection there is no smoothing (a deliberate choice, no fallback to a
+  skin-colour guess).
+* Recording and livestream contain the filter -- there is no way to hide it from them.
+* CPU and GPU load on weak devices were not measured. The face detector and the library's segmenter are two MediaPipe instances; with a background effect *and*
+  skin smoothing the WASM is instantiated twice (served from the browser cache, but about 19 MB of memory more). With a background effect the frame also
+  makes one extra GPU round trip (filter canvas, `VideoFrame`, segmenter upload); this is documented, not optimised.
+* Not included: automatic framing, noise reduction, presets, a before/after button (the main switch does that).
+* The translations were written by the model.

@@ -24412,3 +24412,69 @@ msgstr "Все страны"
 
 msgid "Bitte prüfen Sie die Angaben zu Land und Staatsangehörigkeit."
 msgstr "Пожалуйста, проверьте данные о стране и гражданстве."
+
+msgid "Kamera-Filter: Aus"
+msgstr "Фильтры камеры: выкл."
+
+msgid "Kamera-Filter: An"
+msgstr "Фильтры камеры: вкл."
+
+msgid "Kamera-Filter werden in der App noch nicht unterstützt – im Browser dieses Geräts stehen sie zur Verfügung."
+msgstr "Фильтры камеры пока не поддерживаются в приложении – в браузере этого устройства они доступны."
+
+msgid "Kamera-Filter sind derzeit nur in Chromium-basierten Browsern (Chrome, Edge, Brave) verfügbar."
+msgstr "Фильтры камеры сейчас доступны только в браузерах на основе Chromium (Chrome, Edge, Brave)."
+
+msgid "Filter einblenden"
+msgstr "Показать фильтры"
+
+msgid "Licht und Farbe"
+msgstr "Свет и цвет"
+
+msgid "Helligkeit"
+msgstr "Яркость"
+
+msgid "Kontrast"
+msgstr "Контраст"
+
+msgid "Farbtemperatur"
+msgstr "Цветовая температура"
+
+msgid "Gegenlicht ausgleichen"
+msgstr "Компенсировать контровой свет"
+
+msgid "Hautglättung"
+msgstr "Сглаживание кожи"
+
+msgid "Stärke"
+msgstr "Сила"
+
+msgid "Hautglättung verändert die Darstellung Ihres Gesichts."
+msgstr "Сглаживание кожи меняет внешний вид вашего лица."
+
+msgid "Alle Filter aus"
+msgstr "Выключить все фильтры"
+
+msgid "Pausiert (Gerät zu stark belastet)"
+msgstr "Приостановлено (устройство перегружено)"
+
+msgid "Pausiert (nicht gestartet)"
+msgstr "Приостановлено (не удалось запустить)"
+
+msgid "Kamera-Filter konnten nicht angewendet werden. Ihr Bild wird unverändert gesendet."
+msgstr "Не удалось применить фильтры камеры. Ваше изображение отправляется без изменений."
+
+msgid "Die Hautglättung wurde pausiert, weil sie Ihr Gerät zu stark belastet. Ihre Einstellung bleibt gespeichert."
+msgstr "Сглаживание кожи приостановлено, так как оно слишком сильно нагружает ваше устройство. Ваша настройка сохранена."
+
+msgid "Die Hautglättung konnte nicht gestartet werden. Ihre übrigen Filter laufen weiter."
+msgstr "Не удалось запустить сглаживание кожи. Остальные фильтры продолжают работать."
+
+msgid "Filter eingeblendet"
+msgstr "Фильтры показаны"
+
+msgid "Filter ausgeblendet"
+msgstr "Фильтры скрыты"
+
+msgid "Alle Filter ausgeschaltet"
+msgstr "Все фильтры выключены"

@@ -19,7 +19,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
- * V1.9.129 -- the processor plan and the overlay orchestration through their seams: NONE -> OVERLAY_ONLY -> SEGMENTING -> OVERLAY_ONLY -> NONE,
+ * V1.9.129 -- the processor plan and the overlay orchestration through their seams: NONE -> LIGHTWEIGHT -> SEGMENTING -> LIGHTWEIGHT -> NONE,
  * a scene swap never rebuilds a segmenting processor, a failure of the overlay side never touches the background state, and a failing
  * element is reported once.
  */
@@ -63,8 +63,8 @@ class ConferenceVideoOverlayControllerTest {
         val overlayOnly = mutableListOf<FakeProcessor>()
         val hooked = mutableListOf<BackgroundProcessorHandle>()
 
-        override fun createOverlayOnlyHandle(): BackgroundProcessorHandle =
-            FakeProcessor(VideoProcessorKind.OVERLAY_ONLY).also {
+        override fun createLightweightHandle(): BackgroundProcessorHandle =
+            FakeProcessor(VideoProcessorKind.LIGHTWEIGHT).also {
                 overlayOnly +=
                     it
             }
@@ -117,11 +117,11 @@ class ConferenceVideoOverlayControllerTest {
             assertNull(track.current)
             assertTrue(track.setCalls.isEmpty())
 
-            // Overlays appear, no effect: the OVERLAY_ONLY processor (and no segmenting one, i.e. no MediaPipe).
+            // Overlays appear, no effect: the LIGHTWEIGHT processor (and no segmenting one, i.e. no MediaPipe).
             h.port.wantedNow = true
             h.controller.onOverlayChanged(track)
-            assertEquals(listOf(VideoProcessorKind.OVERLAY_ONLY), track.setCalls)
-            assertEquals(VideoProcessorKind.OVERLAY_ONLY, track.current?.kind)
+            assertEquals(listOf(VideoProcessorKind.LIGHTWEIGHT), track.setCalls)
+            assertEquals(VideoProcessorKind.LIGHTWEIGHT, track.current?.kind)
             assertTrue(h.created.isEmpty())
             // Asking again changes nothing.
             h.controller.onOverlayChanged(track)
@@ -129,7 +129,7 @@ class ConferenceVideoOverlayControllerTest {
 
             // A background effect: ONE segmenting processor that REPLACES the overlay-only one and carries the hook.
             h.controller.select(blur, track)
-            assertEquals(listOf(VideoProcessorKind.OVERLAY_ONLY, VideoProcessorKind.SEGMENTING), track.setCalls)
+            assertEquals(listOf(VideoProcessorKind.LIGHTWEIGHT, VideoProcessorKind.SEGMENTING), track.setCalls)
             assertEquals(VideoProcessorKind.SEGMENTING, track.current?.kind)
             assertEquals(1, h.created.size)
             assertTrue(h.created[0].hooked, "the overlay hook went into the segmenting processor before it was set")
@@ -145,7 +145,7 @@ class ConferenceVideoOverlayControllerTest {
 
             // The effect goes off while overlays stay: back to the overlay-only processor, still no stop of the camera.
             h.controller.select(CONFERENCE_BACKGROUND_OFF, track)
-            assertEquals(VideoProcessorKind.OVERLAY_ONLY, track.current?.kind)
+            assertEquals(VideoProcessorKind.LIGHTWEIGHT, track.current?.kind)
             assertEquals(3, track.setCalls.size)
             assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.applied)
 
@@ -181,7 +181,7 @@ class ConferenceVideoOverlayControllerTest {
             assertEquals(CONFERENCE_BACKGROUND_OFF, h.controller.state.applied)
             assertEquals(ConferenceBackgroundPhase.FAILED_FALLBACK, h.controller.state.phase)
             assertEquals(blur, h.controller.state.desired, "the intent survives")
-            assertEquals(VideoProcessorKind.OVERLAY_ONLY, track.current?.kind)
+            assertEquals(VideoProcessorKind.LIGHTWEIGHT, track.current?.kind)
             assertEquals(1, h.messages.size)
             assertTrue(h.overlayFailures.isEmpty())
         }
@@ -254,8 +254,8 @@ class ConferenceVideoOverlayControllerTest {
             assertEquals(1, detached.size, "the unbounded stop is detached")
             // The detached stop runs (queued behind everything else), THEN the overlay-only processor is set.
             detached.forEach { it() }
-            assertEquals(VideoProcessorKind.OVERLAY_ONLY, track.current?.kind, "the overlays survive: ${track.log}")
-            assertEquals("set OVERLAY_ONLY", track.log.last(), track.log.toString())
+            assertEquals(VideoProcessorKind.LIGHTWEIGHT, track.current?.kind, "the overlays survive: ${track.log}")
+            assertEquals("set LIGHTWEIGHT", track.log.last(), track.log.toString())
         }
 
     @Test
@@ -267,7 +267,7 @@ class ConferenceVideoOverlayControllerTest {
             h.controller.select(CONFERENCE_BACKGROUND_OFF, track)
             val before = h.controller.state
             h.port.wantedNow = true
-            track.failSetFor = VideoProcessorKind.OVERLAY_ONLY
+            track.failSetFor = VideoProcessorKind.LIGHTWEIGHT
             h.controller.onOverlayChanged(track)
             assertEquals(listOf(VideoOverlayFailure.DRAW_FAILED), h.overlayFailures)
             assertEquals(before, h.controller.state)
@@ -283,7 +283,7 @@ class ConferenceVideoOverlayControllerTest {
             h.controller.onOverlayChanged(null)
             val track = FakeTrack()
             h.controller.onLocalCameraTrack(track)
-            assertEquals(VideoProcessorKind.OVERLAY_ONLY, track.current?.kind)
+            assertEquals(VideoProcessorKind.LIGHTWEIGHT, track.current?.kind)
             h.controller.onLocalCameraTrack(track)
             assertEquals(1, track.setCalls.size, "idempotent for the same track")
         }
@@ -424,7 +424,7 @@ class ConferenceVideoOverlayControllerTest {
     ) : OverlayProcessorPort {
         override val wanted: Boolean get() = compositor.hasScene
 
-        override fun createOverlayOnlyHandle(): BackgroundProcessorHandle = FakeProcessor(VideoProcessorKind.OVERLAY_ONLY)
+        override fun createLightweightHandle(): BackgroundProcessorHandle = FakeProcessor(VideoProcessorKind.LIGHTWEIGHT)
 
         override fun hookSegmenting(handle: BackgroundProcessorHandle) = Unit
     }
@@ -479,7 +479,7 @@ class ConferenceVideoOverlayControllerTest {
             h.controller.start()
             assertEquals(1, h.libraryCalls)
             assertTrue(h.compositor.hasScene)
-            assertEquals(VideoProcessorKind.OVERLAY_ONLY, h.track.current?.kind)
+            assertEquals(VideoProcessorKind.LIGHTWEIGHT, h.track.current?.kind)
             assertEquals(VideoOverlayPhase.ACTIVE, h.controller.state.phase)
             assertNotNull(h.controller.scene)
             assertEquals(1, h.loader.loads.size)
@@ -496,7 +496,7 @@ class ConferenceVideoOverlayControllerTest {
             val settings = on(OverlayCorner.TOP_RIGHT to CornerSlot(OverlayContent.OwnName, OverlaySize.LARGE, OverlayOpacity.STRONG))
             h.controller.update(settings)
             assertEquals(listOf(settings), h.saved)
-            assertEquals(VideoProcessorKind.OVERLAY_ONLY, h.track.current?.kind)
+            assertEquals(VideoProcessorKind.LIGHTWEIGHT, h.track.current?.kind)
             h.controller.update(settings.copy(enabled = false))
             assertEquals(2, h.saved.size)
             assertNull(h.track.current)
