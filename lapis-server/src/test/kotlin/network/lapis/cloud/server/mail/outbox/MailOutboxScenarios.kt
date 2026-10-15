@@ -28,6 +28,7 @@ import network.lapis.cloud.server.mail.budget.MailBudget
 import network.lapis.cloud.server.mail.budget.MailBudgetStore
 import network.lapis.cloud.server.mail.minusDuration
 import network.lapis.cloud.server.mail.plusDuration
+import network.lapis.cloud.server.shouldNotContainNumber
 import network.lapis.cloud.server.testdb.PostgresConfigured
 import network.lapis.cloud.server.testdb.TestDatabase
 import network.lapis.cloud.server.testdb.installLaneGuards
@@ -213,7 +214,7 @@ abstract class MailOutboxScenarios(
                 cell shouldNotContain "secret.person"
                 cell shouldNotContain "example.org"
                 cell shouldNotContain "Geheimer"
-                cell shouldNotContain "4711"
+                cell shouldNotContainNumber "4711"
                 cell shouldNotContain "ABC123"
                 cell shouldNotContain "Inhalt"
             }

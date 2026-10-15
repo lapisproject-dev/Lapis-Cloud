@@ -18,6 +18,7 @@ import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.DevSeedData
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.shouldNotContainNumber
 import network.lapis.cloud.shared.domain.AuditEntityType
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
@@ -169,7 +170,7 @@ class TravelExpenseSettingsValidationTest :
                 after shouldNotContain "Erika"
                 after shouldNotContain "Mustermann"
                 after shouldNotContain "example.org"
-                after shouldNotContain "123456"
+                after shouldNotContainNumber "123456"
                 after.contains("\"contactNameSet\":true") shouldBe true
                 after.contains("\"breakfastPercent\":25") shouldBe true
             }

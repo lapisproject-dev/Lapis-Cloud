@@ -64,6 +64,7 @@ import network.lapis.cloud.server.db.generated.VoteOptionTable
 import network.lapis.cloud.server.db.generated.VoteTable
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.LoginRateLimiter
+import network.lapis.cloud.server.shouldNotContainNumber
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.CommitteeRole
 import network.lapis.cloud.shared.domain.CommitteeType
@@ -1094,7 +1095,9 @@ class ConferenceRoomVotingStateTest :
                 ballots.flatMap { it["options"]!!.jsonArray }.forEach { option ->
                     option.jsonObject.keys shouldBe setOf("id", "label", "position")
                 }
-                listOf("7777", "3333", "8888", "4444", "stake", "settled", "secondPrice", "basketTotal", "castAt", "memberId").forEach {
+                // The amounts are numbers: a plain substring check would hit a random UUID that happens to hold "3333".
+                listOf("7777", "3333", "8888", "4444").forEach { body shouldNotContainNumber it }
+                listOf("stake", "settled", "secondPrice", "basketTotal", "castAt", "memberId").forEach {
                     body shouldNotContain it
                 }
                 body shouldNotContain other.toString()
