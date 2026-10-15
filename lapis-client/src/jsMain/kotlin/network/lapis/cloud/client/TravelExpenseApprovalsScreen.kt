@@ -167,7 +167,9 @@ private fun renderApprovalCard(
     }
     headerRow.div(formatMoney(report.totalAmount)) { addCssClasses("fw-bold") }
 
-    card.div(gettext("%1 bis %2", formatDate(report.travelFrom), formatDate(report.travelTo))) { addCssClasses("text-muted small") }
+    card.div(
+        gettext("%1 bis %2", localeDateString(report.travelFrom), localeDateString(report.travelTo)),
+    ) { addCssClasses("text-muted small") }
     card.untrustedDiv(report.purpose)
     report.membershipNumber?.let { card.untrustedDiv(gettext("Mitgliedsnummer: %1", it), className = "text-muted small") }
 
@@ -193,6 +195,8 @@ private fun renderApprovalCard(
             }
         }
     }
+    // V1.9.132: how the amount comes about, from the report's FROZEN rates; the summary line below stays.
+    TravelExpenseBreakdownView(card, collapsible = true).update(buildBreakdown(report, report.ratesSnapshot, null, report.advanceCents))
     card.div(
         gettext(
             "Vorschuss: %1 · Abzüge: %2 · Auszahlungsbetrag: %3",
@@ -349,7 +353,7 @@ internal fun travelExpenseDayRows(dayLines: List<TravelExpenseLineDto>): List<Re
             kind = ReportRowKind.DATA,
             cells =
                 listOf(
-                    ReportCell.Text(formatDate(date)),
+                    ReportCell.Text(localeDateString(date)),
                     ReportCell.Text("$from – $to"),
                     ReportCell.Text(travelExpenseDuration(line.computedMinutes ?: 0)),
                     ReportCell.Money(centsToDecimal(line.baseCents ?: 0L)),

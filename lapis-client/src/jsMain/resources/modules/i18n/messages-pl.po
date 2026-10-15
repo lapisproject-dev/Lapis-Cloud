@@ -23844,3 +23844,102 @@ msgstr "X (dawniej Twitter): Adres URL serwera i klucz transmisji znajdą Państ
 
 msgid "Bei X kann sich der Schlüssel pro Übertragung ändern. Tragen Sie ihn dann hier neu ein."
 msgstr "W serwisie X klucz może zmieniać się przy każdej transmisji. Wtedy proszę wpisać go tutaj ponownie."
+
+msgid "TT"
+msgstr "DD"
+
+msgid "MM"
+msgstr "MM"
+
+msgid "JJJJ"
+msgstr "RRRR"
+
+msgid "Format: %1"
+msgstr "Format: %1"
+
+msgid "Bitte als %1 eingeben."
+msgstr "Proszę wpisać w formacie %1."
+
+msgid "Bitte das Jahr vierstellig eingeben (%1)."
+msgstr "Proszę podać rok czterocyfrowy (%1)."
+
+msgid "Dieses Datum gibt es nicht."
+msgstr "Taka data nie istnieje."
+
+msgid "Bitte ein Jahr zwischen %1 und %2 eingeben."
+msgstr "Proszę podać rok od %1 do %2."
+
+msgid "Erste Nacht"
+msgstr "Pierwsza noc"
+
+msgid "Ausführungsdatum"
+msgstr "Data realizacji"
+
+msgid "Frühstück gestellt (%1 % = −%2)"
+msgstr "Śniadanie zapewnione (%1 % = −%2)"
+
+msgid "Frühstück gestellt: %1 % von %2"
+msgstr "Śniadanie zapewnione: %1 % z %2"
+
+msgid "Mittagessen gestellt (%1 % = −%2)"
+msgstr "Obiad zapewniony (%1 % = −%2)"
+
+msgid "Mittagessen gestellt: %1 % von %2"
+msgstr "Obiad zapewniony: %1 % z %2"
+
+msgid "Abendessen gestellt (%1 % = −%2)"
+msgstr "Kolacja zapewniona (%1 % = −%2)"
+
+msgid "Abendessen gestellt: %1 % von %2"
+msgstr "Kolacja zapewniona: %1 % z %2"
+
+msgid "Kein Tagegeld an diesem Tag, daher kein Abzug."
+msgstr "Tego dnia nie przysługuje dieta, więc nie ma potrącenia."
+
+msgid "Abzug auf den Tagessatz von %1 begrenzt."
+msgstr "Potrącenie ograniczone do diety dziennej w wysokości %1."
+
+msgid "Tagegeld gesamt (brutto)"
+msgstr "Dieta łącznie (brutto)"
+
+msgid "Abzüge für gestellte Mahlzeiten"
+msgstr "Potrącenia za zapewnione posiłki"
+
+msgid "Verzicht zugunsten einer Spende"
+msgstr "Zrzeczenie na rzecz darowizny"
+
+msgid "Fahrtkosten: %1 km × %2"
+msgstr "Koszty podróży: %1 km × %2"
+
+msgid "Mitfahrerzuschlag: %1 km × %2 × %3"
+msgstr "Dodatek za pasażerów: %1 km × %2 × %3"
+
+msgid "Tagegeld (alte Erfassung): %1 Tage × %2"
+msgstr "Dieta (stary wpis): %1 dni × %2"
+
+msgid "Tagegeld (alte Erfassung)"
+msgstr "Dieta (stary wpis)"
+
+msgid "Tagegeld bei %1 Std. Abwesenheit"
+msgstr "Dieta przy %1 godz. nieobecności"
+
+msgid "Tagesbetrag"
+msgstr "Kwota za dzień"
+
+msgid "So setzt sich der Betrag zusammen"
+msgstr "Z czego składa się kwota"
+
+msgid "Für diese Abrechnung sind keine gespeicherten Sätze vorhanden; die Aufschlüsselung wird nicht berechnet."
+msgstr "Dla tego rozliczenia nie ma zapisanych stawek; zestawienie nie jest obliczane."
+
+msgid "%1: netto %2"
+msgstr "%1: netto %2"
+
+msgid "%1: noch nicht vollständig"
+msgstr "%1: jeszcze niekompletne"
+
+msgid "Tagesrechnung %1"
+msgstr "Obliczenie dnia %1"
+
+msgid "Für diesen Tag fehlen noch Angaben."
+msgstr "Dla tego dnia brakuje jeszcze danych."

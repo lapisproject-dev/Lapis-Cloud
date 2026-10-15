@@ -205,13 +205,13 @@ private fun renderDraftEditor(
         card.div(
             gettext(
                 "Die Frist für diese Reise (%1) ist überschritten. Sie können trotzdem einreichen -- die Verwaltung entscheidet.",
-                formatDate(TravelExpenseDeadline.deadlineFor(draft.travelTo)),
+                localeDateString(TravelExpenseDeadline.deadlineFor(draft.travelTo)),
             ),
             className = "alert alert-warning mb-0",
         )
     } else {
         card.div(
-            gettext("Einreichen bis %1", formatDate(TravelExpenseDeadline.deadlineFor(draft.travelTo))),
+            gettext("Einreichen bis %1", localeDateString(TravelExpenseDeadline.deadlineFor(draft.travelTo))),
             className = "text-muted small",
         )
     }
@@ -233,6 +233,8 @@ private fun renderDraftEditor(
     val layout = card.div(className = "lapis-te-editor")
     val main = layout.vPanel(spacing = 8)
     val bar = TravelExpenseTotalsBar(layout)
+    // V1.9.132: the live breakdown follows the totals bar in the DOM (and in the focus order); `theme.css` puts it under the form on a desktop.
+    val breakdown = TravelExpenseBreakdownView(layout)
     var settlementAdvanceCents = draft.advanceCents
     var dayHandle: TravelExpenseDayGrid? = null
 
@@ -252,6 +254,7 @@ private fun renderDraftEditor(
         }
         val preview = travelExpensePreview(draft, rateSet, entries, settlementAdvanceCents)
         bar.show(preview.totals, dirty = (dayHandle?.isDirty() ?: false) || settlementAdvanceCents != draft.advanceCents)
+        breakdown.update(buildBreakdown(draft, rateSet, entries, settlementAdvanceCents))
     }
 
     // Tagesraster
@@ -484,12 +487,11 @@ internal fun renderLineForm(
     if (passengersField != null) renderPassengerHint(host = form.panel, draft = draft, passengersField = passengersField)
     val firstNightField =
         if (kind == TravelExpenseLineKind.ACCOMMODATION) {
-            form.textField(
-                label = tr("Erste Nacht (JJJJ-MM-TT)"),
-                value = line?.dayDate?.toString() ?: draft.travelFrom.toString(),
+            form.localDateField(
+                label = tr("Erste Nacht"),
+                value = line?.dayDate ?: draft.travelFrom,
                 required = true,
-                hint = tr("Beispiel: 2026-03-14."),
-                rule = { travelExpenseFirstNightCheck(it, draft.travelFrom, draft.travelTo) },
+                rule = { travelExpenseFirstNightRangeCheck(it, draft.travelFrom, draft.travelTo) },
             )
         } else {
             null
@@ -525,7 +527,7 @@ internal fun renderLineForm(
         }
     if (kind == TravelExpenseLineKind.ACCOMMODATION && nightsField != null && firstNightField != null) {
         form.crossFieldRule(field = nightsField) {
-            val first = runCatching { LocalDate.parse(firstNightField.value.trim()) }.getOrNull()
+            val first = firstNightField.localDateOrNull()
             val nights = nightsField.value.trim().toIntOrNull()
             if (first != null && nights != null && !travelExpenseAccommodationFits(first, nights, draft.travelFrom, draft.travelTo)) {
                 FieldCheck.Invalid(gettext("Die Übernachtungen müssen innerhalb der Reise liegen."))
@@ -568,7 +570,7 @@ internal fun renderLineForm(
                         TravelExpenseLineInput(
                             kind = kind,
                             description = description,
-                            dayDate = LocalDate.parse(checkNotNull(firstNightField).value.trim()),
+                            dayDate = checkNotNull(checkNotNull(firstNightField).localDateOrNull()),
                             nights = checkNotNull(nightsField).value.trim().toInt(),
                             breakfastIncluded = checkNotNull(breakfastField).value == "true",
                             amountCents = travelExpenseParseCents(checkNotNull(amountField).value),
@@ -641,7 +643,7 @@ private fun renderLineCard(
                 gettext(
                     "%1 Nächte ab %2%3",
                     line.nights ?: 0,
-                    line.dayDate?.let { formatDate(it) } ?: "?",
+                    line.dayDate?.let { localeDateString(it) } ?: "?",
                     if (line.breakfastIncluded == true) gettext(", mit Frühstück") else "",
                 ),
             ) {
@@ -725,7 +727,11 @@ private fun renderOwnReportCard(
     headerRow.statusBadge(travelExpenseStatusLabel(report.status), travelExpenseStatusColor(report.status))
     headerRow.untrustedCardTitle(report.purpose)
     headerRow.div(formatMoney(report.totalAmount))
-    card.div(gettext("%1 bis %2", formatDate(report.travelFrom), formatDate(report.travelTo))) { addCssClasses("text-muted small") }
+    card.div(
+        gettext("%1 bis %2", localeDateString(report.travelFrom), localeDateString(report.travelTo)),
+    ) { addCssClasses("text-muted small") }
+    // V1.9.132: how the amount comes about, from the report's FROZEN rates (never the current ones).
+    TravelExpenseBreakdownView(card, collapsible = true).update(buildBreakdown(report, report.ratesSnapshot, null, report.advanceCents))
     if (report.advanceCents > 0 || report.payoutChoice != null) {
         card.div(
             gettext(
@@ -1078,16 +1084,36 @@ internal fun travelExpenseCentsAmountCheck(value: String): FieldCheck {
 }
 
 /** First night must be a date inside the travel period (the per-night range is the cross-field rule of the form). */
+internal fun travelExpenseFirstNightRangeCheck(
+    date: LocalDate,
+    travelFrom: LocalDate,
+    travelTo: LocalDate,
+): FieldCheck =
+    if (date < travelFrom || date > travelTo) {
+        FieldCheck.Invalid(gettext("Die Übernachtungen müssen innerhalb der Reise liegen."))
+    } else {
+        FieldCheck.Ok
+    }
+
+/**
+ * [travelExpenseFirstNightRangeCheck] for TYPED text, in the date order [spec] (default: the current locale): a text that is not a date is the
+ * date field's own format error, a date outside the trip the range error.
+ */
 internal fun travelExpenseFirstNightCheck(
     value: String,
     travelFrom: LocalDate,
     travelTo: LocalDate,
+    spec: DateFieldOrder = currentDateFieldOrder(),
 ): FieldCheck {
-    val date = runCatching { LocalDate.parse(value.trim()) }.getOrNull() ?: return FormRules.isoDate(value)
-    return if (date < travelFrom || date > travelTo) {
-        FieldCheck.Invalid(gettext("Die Übernachtungen müssen innerhalb der Reise liegen."))
+    val parsed = parseLocalDate(value, spec)
+    return if (parsed is DateParse.Ok) {
+        travelExpenseFirstNightRangeCheck(
+            parsed.date,
+            travelFrom,
+            travelTo,
+        )
     } else {
-        FieldCheck.Ok
+        FormRules.localDate(value, spec)
     }
 }
 

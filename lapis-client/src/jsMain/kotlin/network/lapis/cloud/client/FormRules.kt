@@ -169,7 +169,27 @@ object FormRules {
             FieldCheck.Invalid(gettext("Bitte einen gültigen Termin angeben."))
         }
 
-    /** Datum (`2026-03-14`): ein echtes Kalenderdatum. Das Format nennt der Hinweis des Feldes, nie die Meldung. */
+    /**
+     * V1.9.132: ein Datum in der Reihenfolge und mit dem Trennzeichen des Browser-Locales ([spec], siehe `LocaleDate.kt`).
+     * **Bewusste Abweichung von der Regel R24** ("das Format nennt der Hinweis, nie die Meldung", siehe [isoDate]): hier nennt die
+     * Meldung das Muster, weil dasselbe Datum je nach Locale `22.11.2033` oder `11/22/2033` heißt und der Mensch sonst raten müsste, welche
+     * Reihenfolge das Feld erwartet (Design-Entscheidung der Reisekosten-Sitzung 2026-10-14). Nur für die Reisekosten-Datumsfelder
+     * ([localDateField]); alle anderen Datumsfelder bleiben bei [isoDate].
+     */
+    fun localDate(
+        value: String,
+        spec: DateFieldOrder,
+    ): FieldCheck =
+        when (parseLocalDate(value, spec)) {
+            is DateParse.Ok -> FieldCheck.Ok
+            DateParse.BadFormat -> FieldCheck.Invalid(gettext("Bitte als %1 eingeben.", localeDatePattern(spec)))
+            DateParse.TwoDigitYear -> FieldCheck.Invalid(gettext("Bitte das Jahr vierstellig eingeben (%1).", localeDatePattern(spec)))
+            DateParse.NoSuchDate -> FieldCheck.Invalid(gettext("Dieses Datum gibt es nicht."))
+            DateParse.YearOutOfRange ->
+                FieldCheck.Invalid(gettext("Bitte ein Jahr zwischen %1 und %2 eingeben.", LOCALE_DATE_MIN_YEAR, LOCALE_DATE_MAX_YEAR))
+        }
+
+    /** Datum (`2026-03-14`): ein echtes Kalenderdatum. Das Format nennt der Hinweis des Feldes, nie die Meldung. Reisekosten: siehe [localDate]. */
     fun isoDate(value: String): FieldCheck =
         if (runCatching { LocalDate.parse(value.trim()) }.isSuccess) {
             FieldCheck.Ok

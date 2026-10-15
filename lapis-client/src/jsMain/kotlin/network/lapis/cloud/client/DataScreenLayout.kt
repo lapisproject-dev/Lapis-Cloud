@@ -421,7 +421,7 @@ fun Table.reportRow(
                 // technology can read "Summe Einnahmen, Betrag, 1513 EUR"; the first text cell is the label (the
                 // opening/closing balance of a ledger has blank cells in front of it).
                 val labelIndex =
-                    if (data.kind == ReportRowKind.TOTAL || data.kind == ReportRowKind.BALANCE) {
+                    if (data.kind == ReportRowKind.TOTAL || data.kind == ReportRowKind.BALANCE || data.rowHeader) {
                         data.cells.indexOfFirst { it is ReportCell.Text }
                     } else {
                         -1

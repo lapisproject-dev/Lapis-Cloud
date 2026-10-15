@@ -97,6 +97,32 @@ is shown after it, **it never blocks**.
 With an advance and/or a donation waiver the credit side splits (see `docs/architecture/travel-expenses.adoc`): *bank* for the payout,
 *advance account* for the advance, *donation-waiver income account* for a waived amount -- never the bank, because no money flows.
 
+=== Date format follows the locale (V1.9.132)
+
+The date fields of the travel expense screens (travel from / to, first night, SEPA execution date) are typed and shown in the order and with the separator of the person's locale, not as ISO text.
+
+* The label carries no pattern. The field shows the pattern as placeholder and as a hint ("Format: TT.MM.JJJJ", `DD/MM/YYYY` in English, ...) which `aria-describedby` reads.
+* German always means day-month-year with dots and never asks the browser. English asks the browser with its own tag when that is an English one (so `en-US` gives month-day-year), otherwise with `en-GB`. Every other language asks with its UI tag. Only the order and the separator come from the browser (one `Intl` probe in `LocaleDateProbe.kt`, the single exception to the "no Intl" rule of `DateTime.kt`); the digits are always written by the application. When the browser cannot tell, a fixed table applies (`de`/`pl`/`ru` dots, `fr`/`es`/`it`/`en` slashes, `nl` dashes).
+* Input is read strictly in the locale order, never guessed: `03/04/2026` is 3 April in day-month-year and 4 March in month-day-year. A four-digit-first ISO date (`2026-03-04`) is accepted in every locale. A year with fewer than four digits is refused ("Bitte das Jahr vierstellig eingeben"), years outside 1900-2999 are refused, and impossible dates (31 April, 29 February 2025) are named as such.
+* **Deliberate deviation from rule R24** ("the hint names the format, never the message"): the error message of these fields names the pattern, because the same date is `22.11.2033` or `11/22/2033` depending on the locale.
+* Leaving the field rewrites a valid entry to the canonical form (`5.3.2026` becomes `05.03.2026`); an invalid entry stays exactly as typed. What is sent to the server is always an ISO date.
+* The travel expense screens also *display* their dates in this order (period line, deadline, legend of the day grid, accommodation line). In English that means `DD/MM/YYYY` or `MM/DD/YYYY` there, while the rest of the application still shows ISO dates. Moving `DateTime.kt` onto the same mechanism is a follow-up.
+
+=== Meal deductions shown per meal (V1.9.132)
+
+Each meal checkbox of the day grid says what it takes off: "Frühstück gestellt (20 % = −5,60 €)". The amount is the shared `MealDeductionRule` asked for exactly one meal against the 24-hour tier, so rounding (half up per deduction) is the calculator's own; the client adds no rule. The locked breakfast of an overnight stay shows its amount as well.
+
+Two notes appear under a day when a checked meal changes less than its label promises: "Kein Tagegeld an diesem Tag, daher kein Abzug." (the day earns no allowance) and "Abzug auf den Tagessatz von ... begrenzt." (the meals together exceed the day's allowance). They are linked to the checkboxes with `aria-describedby`.
+
+=== Live breakdown (V1.9.132)
+
+"So setzt sich der Betrag zusammen" is a table below the editor (after the totals bar in reading order): gross daily allowance, meal deductions, each mileage line as `km x rate` (plus passengers), the other cost lines by kind, the sum, the advance and the payout (or the donation waiver). One collapsed `<details>` per travel day shows that day's own calculation (duration, allowance, each meal with its percentage, the cap, the day amount). Open days stay open and keep their focus while the figures change.
+
+* Every figure comes from the shared `TravelExpenseCalculator` or from a stored line; the rows always add up to the calculator's subtotal.
+* A draft uses the current rates. A submitted or decided report (own list, approval screen) uses **only** its frozen `ratesSnapshot`; without one the page says so and shows no numbers.
+* A mileage line is split into own and passenger kilometres only when the two parts add up to the stored amount to the cent; otherwise only the stored amount is shown.
+* It is not a live region. The sentence a screen reader hears stays the totals bar's job (one region, debounced).
+
 == Settings and contact person
 
 The ADMIN-only page **`/travel-expense-settings`** (sidebar: System → Reisekosten-Einstellungen) holds: the three tiers (hours and amounts), the three meal

@@ -266,7 +266,9 @@ class ClientTemporalFormatTripwireTest :
         }
 
         test("T1: no Intl.DateTimeFormat / toLocaleDateString / toLocaleTimeString in the client, and the detector sees one") {
-            files.flatMap { f ->
+            // V1.9.132: LocaleDateProbe.kt is the ONE deliberate exception -- the travel expense date fields ask the browser for the
+            // ORDER and SEPARATOR of a date (never for the digits), with a fixed fallback table. Any other file is still a finding.
+            files.filter { it.name != "LocaleDateProbe.kt" }.flatMap { f ->
                 codeLines(f).filter { FORBIDDEN_DATE_API.containsMatchIn(it) }.map { "${f.name}: ${it.trim()}" }
             } shouldBe
                 emptyList()

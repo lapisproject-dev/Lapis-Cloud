@@ -64,6 +64,10 @@ import kotlinx.datetime.number
  * every render). A date/time inside a `gettext(...)` message is a plain `format*` string and freezes at
  * the language of the moment, like the rest of that message (documented gap, same as [Money.kt]'s W4a).
  *
+ * **Exception since V1.9.132:** the travel expense screens show and read dates in the order and with the separator of the browser locale
+ * (`LocaleDate.kt`, token kind [DATE_KIND_LOCALE_FIELD]); the only Intl call is the small probe in `LocaleDateProbe.kt` (T1 whitelists that one
+ * file), and a fixed fallback table applies when it cannot tell. Everything else in this file stays Intl-free.
+ *
  * **Why no `Intl.DateTimeFormat` / `toLocaleDateString`**: exactly [Money.kt]'s reasoning -- ICU output
  * depends on the browser, which would make the golden tests flaky, and this app does not need month
  * names, only numeric components in a fixed per-language order.
@@ -218,6 +222,9 @@ internal const val DATE_KIND_DATE_TIME = 't'
 internal const val DATE_KIND_TIMESTAMP = 's'
 internal const val DATE_KIND_TIME = 'c'
 
+/** V1.9.132: a date in the order and with the separator of the BROWSER locale (`LocaleDate.kt`), used on the travel expense screens. */
+internal const val DATE_KIND_LOCALE_FIELD = 'f'
+
 /** Live-translatable widget content for a [LocalDate]: `###KvI18nS###` + sentinel + kind + canonical ISO date. */
 internal fun dateToken(date: LocalDate): String = KV_I18N_MARKER + I18N_VALUE_SENTINEL + DATE_KIND_DATE + date.toString()
 
@@ -228,6 +235,9 @@ internal fun dateTimeToken(at: LocalDateTime): String = KV_I18N_MARKER + I18N_VA
 internal fun timestampToken(at: LocalDateTime): String = KV_I18N_MARKER + I18N_VALUE_SENTINEL + DATE_KIND_TIMESTAMP + at.toString()
 
 internal fun timeToken(at: LocalDateTime): String = KV_I18N_MARKER + I18N_VALUE_SENTINEL + DATE_KIND_TIME + at.toString()
+
+/** Live-translatable widget content for a [LocalDate] in the browser-locale order -- see `LocaleDate.kt` for how it relates to [dateToken]. */
+internal fun localeDateToken(date: LocalDate): String = KV_I18N_MARKER + I18N_VALUE_SENTINEL + DATE_KIND_LOCALE_FIELD + date.toString()
 
 /**
  * Resolves ONE of the five date/time token kinds' digits into display text, or `null` when [digits] is
@@ -247,6 +257,8 @@ internal fun formatTemporalTokenDigits(
             DATE_KIND_DATE_TIME -> formatDateTimeIn(language, LocalDateTime.parse(digits))
             DATE_KIND_TIMESTAMP -> formatTimestampIn(language, LocalDateTime.parse(digits))
             DATE_KIND_TIME -> formatTimeIn(language, LocalDateTime.parse(digits))
+            DATE_KIND_LOCALE_FIELD ->
+                formatLocalDate(LocalDate.parse(digits), resolveDateFieldOrder(language, browserLanguageProvider(), dateFieldOrderProbe))
             else -> null
         }
     }.getOrNull()
@@ -265,6 +277,9 @@ fun Container.dateTimeSpan(at: LocalDateTime): Span = span(dateTimeToken(at)) { 
 fun Container.timestampSpan(at: LocalDateTime): Span = span(timestampToken(at)) { addCssClass(TABULAR_NUMS_CLASS) }
 
 fun Container.timeSpan(at: LocalDateTime): Span = span(timeToken(at)) { addCssClass(TABULAR_NUMS_CLASS) }
+
+/** A date in the browser-locale order (V1.9.132, travel expense screens) -- widget content, follows a language switch. */
+fun Container.localeDateSpan(date: LocalDate): Span = span(localeDateToken(date)) { addCssClass(TABULAR_NUMS_CLASS) }
 
 // ---- table columns (DataTableState.kt's textColumn, see the file KDoc there for the trust mechanics) ---------------------------
 

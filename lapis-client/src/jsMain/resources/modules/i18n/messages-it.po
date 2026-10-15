@@ -23884,3 +23884,102 @@ msgstr "X (già Twitter): L'URL del server e la chiave di streaming si trovano n
 
 msgid "Bei X kann sich der Schlüssel pro Übertragung ändern. Tragen Sie ihn dann hier neu ein."
 msgstr "Su X la chiave può cambiare a ogni trasmissione. In tal caso la inserisca di nuovo qui."
+
+msgid "TT"
+msgstr "GG"
+
+msgid "MM"
+msgstr "MM"
+
+msgid "JJJJ"
+msgstr "AAAA"
+
+msgid "Format: %1"
+msgstr "Formato: %1"
+
+msgid "Bitte als %1 eingeben."
+msgstr "Inserisca nel formato %1."
+
+msgid "Bitte das Jahr vierstellig eingeben (%1)."
+msgstr "Inserisca l'anno con quattro cifre (%1)."
+
+msgid "Dieses Datum gibt es nicht."
+msgstr "Questa data non esiste."
+
+msgid "Bitte ein Jahr zwischen %1 und %2 eingeben."
+msgstr "Inserisca un anno compreso tra %1 e %2."
+
+msgid "Erste Nacht"
+msgstr "Prima notte"
+
+msgid "Ausführungsdatum"
+msgstr "Data di esecuzione"
+
+msgid "Frühstück gestellt (%1 % = −%2)"
+msgstr "Colazione fornita (%1 % = −%2)"
+
+msgid "Frühstück gestellt: %1 % von %2"
+msgstr "Colazione fornita: %1 % di %2"
+
+msgid "Mittagessen gestellt (%1 % = −%2)"
+msgstr "Pranzo fornito (%1 % = −%2)"
+
+msgid "Mittagessen gestellt: %1 % von %2"
+msgstr "Pranzo fornito: %1 % di %2"
+
+msgid "Abendessen gestellt (%1 % = −%2)"
+msgstr "Cena fornita (%1 % = −%2)"
+
+msgid "Abendessen gestellt: %1 % von %2"
+msgstr "Cena fornita: %1 % di %2"
+
+msgid "Kein Tagegeld an diesem Tag, daher kein Abzug."
+msgstr "Nessuna indennità giornaliera in questo giorno, quindi nessuna detrazione."
+
+msgid "Abzug auf den Tagessatz von %1 begrenzt."
+msgstr "Detrazione limitata all'indennità giornaliera di %1."
+
+msgid "Tagegeld gesamt (brutto)"
+msgstr "Indennità giornaliera totale (lorda)"
+
+msgid "Abzüge für gestellte Mahlzeiten"
+msgstr "Detrazioni per pasti forniti"
+
+msgid "Verzicht zugunsten einer Spende"
+msgstr "Rinuncia a favore di una donazione"
+
+msgid "Fahrtkosten: %1 km × %2"
+msgstr "Spese di viaggio: %1 km × %2"
+
+msgid "Mitfahrerzuschlag: %1 km × %2 × %3"
+msgstr "Supplemento passeggeri: %1 km × %2 × %3"
+
+msgid "Tagegeld (alte Erfassung): %1 Tage × %2"
+msgstr "Indennità giornaliera (vecchia registrazione): %1 giorni × %2"
+
+msgid "Tagegeld (alte Erfassung)"
+msgstr "Indennità giornaliera (vecchia registrazione)"
+
+msgid "Tagegeld bei %1 Std. Abwesenheit"
+msgstr "Indennità giornaliera per %1 h di assenza"
+
+msgid "Tagesbetrag"
+msgstr "Importo del giorno"
+
+msgid "So setzt sich der Betrag zusammen"
+msgstr "Come si compone l'importo"
+
+msgid "Für diese Abrechnung sind keine gespeicherten Sätze vorhanden; die Aufschlüsselung wird nicht berechnet."
+msgstr "Per questo rendiconto non ci sono tariffe salvate; il dettaglio non viene calcolato."
+
+msgid "%1: netto %2"
+msgstr "%1: netto %2"
+
+msgid "%1: noch nicht vollständig"
+msgstr "%1: non ancora completo"
+
+msgid "Tagesrechnung %1"
+msgstr "Calcolo del giorno %1"
+
+msgid "Für diesen Tag fehlen noch Angaben."
+msgstr "Mancano ancora dei dati per questo giorno."

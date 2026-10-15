@@ -5209,10 +5209,16 @@ div:hover > .lapis-conference-pin,
 
   .lapis-te-totals {
     grid-column: 2;
-    grid-row: 1;
+    grid-row: 1 / span 2;
     position: sticky;
     top: 16px;
     bottom: auto;
+  }
+
+  /* V1.9.132: die Aufschluesselung steht unter dem Formular, die Leiste laeuft daneben ueber beide Zeilen. */
+  .lapis-te-breakdown {
+    grid-column: 1;
+    grid-row: 2;
   }
 }
 

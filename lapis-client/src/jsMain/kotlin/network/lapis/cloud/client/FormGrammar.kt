@@ -924,6 +924,9 @@ class LapisField internal constructor(
     var dirty: Boolean = false
         private set
 
+    /** V1.9.132: gesetzt von [localDateField] -- die Reihenfolge, in der dieses Feld sein Datum liest und zeigt. */
+    internal var dateSpec: DateFieldOrder? = null
+
     /** V1.9.78: die Aufdecken-Gruppe dieses Passwortfelds (eigene oder die des Hauptfelds). */
     internal var revealGroup: RevealGroup? = null
 

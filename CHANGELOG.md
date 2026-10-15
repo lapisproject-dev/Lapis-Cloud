@@ -6,6 +6,24 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.132 -- Travel expenses: locale dates, meal amounts, live breakdown
+
+Client-only polish of the travel expense screens. Details: `docs/features/travel-expenses.adoc` ("Date format follows the locale", "Meal deductions shown per meal", "Live breakdown").
+
+- **New:** the date fields (travel from / to, first night, SEPA execution date) are typed and shown in the order and with the separator of the browser locale (placeholder and hint show the pattern, strict parsing, a leaving field normalises a valid entry); a stored date stays ISO. The travel expense screens also display their dates in that order.
+- **New:** every meal checkbox shows its percentage and amount ("Frühstück gestellt (20 % = −5,60 €)"), computed by the shared `MealDeductionRule`; a day says when a checked meal takes nothing off (no allowance) or less than its label (capped at the day's allowance).
+- **New:** a live breakdown table "So setzt sich der Betrag zusammen" (editor, own report cards, approval cards) with a per-day calculation in collapsed `<details>`. Submitted reports are explained from their frozen `ratesSnapshot` only.
+- **Behavior changes:** the Von/Bis/Erste Nacht/Ausführungsdatum labels no longer carry an ISO pattern; the error messages of these four fields name the pattern (a deliberate deviation from rule R24). The tripwire `T1` of `ClientTemporalFormatTripwireTest` whitelists exactly one file, `LocaleDateProbe.kt`, for the `Intl` probe.
+- No migration, no RPC, no DTO change; `lapis-shared` and `lapis-server/src/main` are untouched.
+- **Known limitations:**
+  - Not seen in a real browser, only by headless DOM tests (UI language `de`, so the browser-dependent English order is covered by injected probes only).
+  - The meal percentages 20/40/40 are provisional until Marc has confirmed them.
+  - The seven translations were written by the model.
+  - In English the travel expense screens show `DD/MM/YYYY` (or `MM/DD/YYYY` with an `en-US` browser) while the rest of the application still shows ISO dates. Follow-up: move `DateTime.kt` onto `DateFieldOrder`.
+  - Only the order and the separator come from the browser (ICU); an unknown separator or order falls back to a fixed table. `nl` falls back to `DD-MM-YYYY`, which a browser's ICU may differ from, and then the browser wins.
+  - The breakdown reuses the totals bar's one live region instead of adding a second one (no double announcement); the day details are not live.
+  - README, website and handbook were not touched (no release in this wave, not checked).
+
 ### V1.9.131 -- X as an explicit streaming platform
 
 "X" joins YouTube, Twitch, PeerTube, Owncast and generic RTMP in the admin list "Stream-Ziele". On the server it is a plain RTMP destination; the platform value is only stored and passed through. Details: `docs/features/video-conferencing.adoc`, `docs/architecture/conference-recording.adoc`.

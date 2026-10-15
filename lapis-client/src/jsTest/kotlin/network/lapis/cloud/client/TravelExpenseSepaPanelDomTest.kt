@@ -225,6 +225,7 @@ class TravelExpenseSepaPanelDomTest {
                 assertTrue(modal.textContent.orEmpty().contains("80,00"), "the sum is named")
                 assertTrue(modal.textContent.orEmpty().contains("Belastungskonto"), "two accounts: a choice")
                 assertTrue(modal.textContent.orEmpty().contains("Ausführungsdatum"))
+                assertTrue(modal.textContent.orEmpty().contains("Format: TT.MM.JJJJ"), "the date field names its pattern")
             }
         }
 

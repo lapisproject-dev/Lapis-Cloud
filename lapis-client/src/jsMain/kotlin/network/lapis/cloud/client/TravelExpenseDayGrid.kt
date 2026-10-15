@@ -13,6 +13,7 @@ import io.kvision.panel.vPanel
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import network.lapis.cloud.shared.domain.DayPosition
+import network.lapis.cloud.shared.domain.DayResult
 import network.lapis.cloud.shared.domain.MultiDayRule
 import network.lapis.cloud.shared.domain.TravelExpenseAmountRules
 import network.lapis.cloud.shared.domain.TravelExpenseDayInput
@@ -97,7 +98,14 @@ internal fun renderTravelExpenseDayGrid(
         val dinner: LapisField,
         val hours: Span,
         val amount: Div,
-    )
+        val deductionNote: Div,
+    ) {
+        /** The sum of the single-meal amounts of the meals that count today (a breakfast the stay provides always counts). */
+        fun mealCents(rates: TravelExpenseRateSet): Long =
+            (if (isForced || breakfast.value == "true") mealDeductionCents(Meal.BREAKFAST, rates) else 0L) +
+                (if (lunch.value == "true") mealDeductionCents(Meal.LUNCH, rates) else 0L) +
+                (if (dinner.value == "true") mealDeductionCents(Meal.DINNER, rates) else 0L)
+    }
 
     val widgets = mutableListOf<DayWidgets>()
     for (line in dayLines) {
@@ -105,7 +113,13 @@ internal fun renderTravelExpenseDayGrid(
         val position = MultiDayRule.positionOf(date, draft.travelFrom, draft.travelTo)
         val isForced = date in forced
         val fieldset = Tag(TAG.FIELDSET, className = "lapis-te-day border rounded p-2")
-        fieldset.add(Tag(TAG.LEGEND, travelExpenseWeekdayLabel(date) + ", " + formatDate(date), className = "h6 mb-1 w-auto px-1"))
+        // V1.9.132: the date in the browser-locale order, as a token child (it follows a language switch; Tag renders children, not a mixed string).
+        fieldset.add(
+            Tag(TAG.LEGEND, className = "h6 mb-1 w-auto px-1").also { legend ->
+                legend.add(Span(travelExpenseWeekdayLabel(date) + ", "))
+                legend.add(Span(localeDateToken(date)))
+            },
+        )
         grid.add(fieldset)
 
         val destination =
@@ -146,16 +160,23 @@ internal fun renderTravelExpenseDayGrid(
         }
 
         // The meals: the locked breakfast of an overnight stay shows as checked and says why (aria-describedby via `hint`).
+        // V1.9.132: every meal says what it takes off ("20 % = −5,60 €"), the shared calculator's own amount -- see mealDeductionCents.
         val breakfast =
             form.checkField(
-                label = tr("Frühstück gestellt"),
+                label = mealLabel(Meal.BREAKFAST, rates),
                 value = line.breakfastProvided || isForced,
                 hint = if (isForced) tr("gesetzt durch Übernachtung mit Frühstück") else null,
                 host = fieldset,
                 init = { if (isForced) it.disabled = true },
             )
-        val lunch = form.checkField(label = tr("Mittagessen gestellt"), value = line.lunchProvided, host = fieldset)
-        val dinner = form.checkField(label = tr("Abendessen gestellt"), value = line.dinnerProvided, host = fieldset)
+        val lunch = form.checkField(label = mealLabel(Meal.LUNCH, rates), value = line.lunchProvided, host = fieldset)
+        val dinner = form.checkField(label = mealLabel(Meal.DINNER, rates), value = line.dinnerProvided, host = fieldset)
+        // Says why a checked meal changes less than its label promises (no allowance that day / capped at the day's allowance).
+        val deductionNote = Div(className = "small text-muted").also { it.hide() }
+        val noteId = "lapis-te-day-note-${dayGridIdCounter++}"
+        deductionNote.id = noteId
+        fieldset.add(deductionNote)
+        listOf(breakfast, lunch, dinner).forEach { describeBy(it, noteId) }
 
         val outputId = "lapis-te-day-out-${dayGridIdCounter++}"
         val hours = Span(className = "lapis-tnum").also { it.id = "$outputId-hours" }
@@ -184,6 +205,7 @@ internal fun renderTravelExpenseDayGrid(
                 dinner = dinner,
                 hours = hours,
                 amount = amount,
+                deductionNote = deductionNote,
             )
     }
 
@@ -209,6 +231,7 @@ internal fun renderTravelExpenseDayGrid(
         preview.days.forEachIndexed { i, day ->
             val w = widgets[i]
             val result = day.result
+            applyDeductionNote(w.deductionNote, result, w.mealCents(rates))
             w.hours.content = if (result != null) travelExpenseDuration(result.minutes) else "–"
             w.amount.content =
                 if (result != null) {
@@ -252,6 +275,42 @@ internal fun renderTravelExpenseDayGrid(
         }
     }
     return TravelExpenseDayGrid(currentEntries = ::entries, savedEntries = saved)
+}
+
+/** "Frühstück gestellt (20 % = −5,60 €)": the label of a meal checkbox with its percentage and the amount it takes off (plain text, no `tr()` marker). */
+internal fun mealLabel(
+    meal: Meal,
+    rates: TravelExpenseRateSet,
+): String {
+    val percent = mealPercent(meal, rates)
+    val amount = formatMoney(centsToDecimal(mealDeductionCents(meal, rates)))
+    return when (meal) {
+        Meal.BREAKFAST -> gettext("Frühstück gestellt (%1 % = −%2)", percent, amount)
+        Meal.LUNCH -> gettext("Mittagessen gestellt (%1 % = −%2)", percent, amount)
+        Meal.DINNER -> gettext("Abendessen gestellt (%1 % = −%2)", percent, amount)
+    }
+}
+
+private fun applyDeductionNote(
+    note: Div,
+    result: DayResult?,
+    selectedMealCents: Long,
+) {
+    val info = dayDeductionNote(result, selectedMealCents)
+    when (info.kind) {
+        DayDeductionKind.NONE -> {
+            note.content = null
+            note.hide()
+        }
+        DayDeductionKind.NO_ALLOWANCE -> {
+            note.content = gettext("Kein Tagegeld an diesem Tag, daher kein Abzug.")
+            note.show()
+        }
+        DayDeductionKind.CAPPED -> {
+            note.content = gettext("Abzug auf den Tagessatz von %1 begrenzt.", formatMoney(centsToDecimal(info.baseCents)))
+            note.show()
+        }
+    }
 }
 
 private fun timeField(

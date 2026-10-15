@@ -13,7 +13,6 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
-import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.TravelExpenseReportDto
 import network.lapis.cloud.shared.domain.TravelExpenseSepaBatchDto
 import network.lapis.cloud.shared.domain.TravelExpenseSepaBlocker
@@ -111,12 +110,11 @@ fun renderTravelExpenseSepaSection(root: SimplePanel) {
             modal.div(gettext("%1 Überweisungen", reportCount))
         }
         val dateField =
-            form.textField(
-                label = tr("Ausführungsdatum (JJJJ-MM-TT)"),
-                value = ctx.defaultExecutionDate?.toString(),
+            form.localDateField(
+                label = tr("Ausführungsdatum"),
+                value = ctx.defaultExecutionDate,
                 required = true,
-                hint = tr("Ein Bankarbeitstag (TARGET2), höchstens 60 Tage in der Zukunft."),
-                rule = { FormRules.isoDate(it) },
+                extraHint = gettext("Ein Bankarbeitstag (TARGET2), höchstens 60 Tage in der Zukunft."),
             )
         val setupProblems = ctx.missingSetup
         if (setupProblems.isNotEmpty()) {
@@ -139,7 +137,7 @@ fun renderTravelExpenseSepaSection(root: SimplePanel) {
             }
         confirmButton.onClick {
             if (!form.validateAndReport()) return@onClick
-            val date = LocalDate.parse(dateField.value.trim())
+            val date = checkNotNull(dateField.localDateOrNull())
             val accountId = accountField?.value ?: defaultAccount?.id
             form.runBusy(confirmButton, restoreDisabled = { setupProblems.isNotEmpty() }) {
                 val outcome =
@@ -274,7 +272,7 @@ fun renderTravelExpenseSepaSection(root: SimplePanel) {
                 batch.transactionCount,
                 sanitizeUntrustedI18nText(batch.debtorAccountLabel),
                 batch.debtorIbanLast4,
-                formatDate(batch.requestedExecutionDate),
+                localeDateString(batch.requestedExecutionDate),
             ),
             className = "small",
         )

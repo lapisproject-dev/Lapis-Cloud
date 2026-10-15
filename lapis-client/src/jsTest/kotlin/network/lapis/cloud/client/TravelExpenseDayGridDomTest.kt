@@ -162,7 +162,11 @@ class TravelExpenseDayGridDomTest {
                 assertEquals("Dienstag, 10.03.2026", fieldsets[0].querySelector("legend")?.textContent?.trim())
                 assertEquals("Mittwoch, 11.03.2026", fieldsets[1].querySelector("legend")?.textContent?.trim())
                 assertEquals("Donnerstag, 12.03.2026", fieldsets[2].querySelector("legend")?.textContent?.trim())
-                assertEquals(0, element().querySelectorAll("table").length, "an input grid is never a table")
+                assertEquals(
+                    0,
+                    element().querySelector(".lapis-te-day-grid")!!.querySelectorAll("table").length,
+                    "an input grid is never a table",
+                )
                 assertTrue(element().querySelector(".lapis-te-day-grid") != null, "the CSS grid class")
                 // Position-dependent fields: first day departure only, middle day nothing, last day arrival only.
                 assertEquals(1, fieldsets[0].allOf("input[type=time]").size)

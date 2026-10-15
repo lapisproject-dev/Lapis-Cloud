@@ -11,6 +11,7 @@ import network.lapis.cloud.shared.domain.TravelExpenseReportDto
 // V1.9.49: the report header form of `TravelExpenseScreen.kt` (shared by the create form behind the page header button and the draft
 // editor), moved out of the screen. With `collapse` it is built into the host of the collapsible create form and gets a Cancel.
 // R24 (W4d): migrated to the form grammar -- Zweck (required text), Von/Bis (required date text, cross-field rule).
+// V1.9.132: Von/Bis are locale date fields (`localDateField`), not ISO text fields.
 internal fun renderReportHeaderForm(
     panel: SimplePanel,
     existing: TravelExpenseReportDto?,
@@ -25,27 +26,14 @@ internal fun renderReportHeaderForm(
             required = true,
             rule = { FormRules.maxLength(it, TravelExpenseAmountRules.MAX_PURPOSE_LENGTH) },
         )
-    val fromField =
-        form.textField(
-            label = tr("Von (JJJJ-MM-TT)"),
-            value = existing?.travelFrom?.toString(),
-            required = true,
-            hint = tr("Beispiel: 2026-03-14."),
-            rule = { FormRules.isoDate(it) },
-        )
-    val toField =
-        form.textField(
-            label = tr("Bis (JJJJ-MM-TT)"),
-            value = existing?.travelTo?.toString(),
-            required = true,
-            hint = tr("Beispiel: 2026-03-14."),
-            rule = { FormRules.isoDate(it) },
-        )
+    // V1.9.132: Von/Bis in der Reihenfolge des Browser-Locales (LocaleDate.kt); gespeichert wird weiterhin ein ISO-LocalDate.
+    val fromField = form.localDateField(label = tr("Von"), value = existing?.travelFrom, required = true)
+    val toField = form.localDateField(label = tr("Bis"), value = existing?.travelTo, required = true)
     // Das Bis-Datum darf nicht vor dem Von-Datum liegen -- am Bis-Feld gezeigt, geprüft sobald beide echte Daten sind.
     // V1.9.122: höchstens 31 Reisetage, und kein bereits ausgefüllter Reisetag darf aus dem Zeitraum fallen.
     form.crossFieldRule(field = toField) {
-        val from = runCatching { LocalDate.parse(fromField.value.trim()) }.getOrNull()
-        val to = runCatching { LocalDate.parse(toField.value.trim()) }.getOrNull()
+        val from = fromField.localDateOrNull()
+        val to = toField.localDateOrNull()
         when {
             from == null || to == null -> FieldCheck.Ok
             to < from -> FieldCheck.Invalid(gettext("Das Bis-Datum darf nicht vor dem Von-Datum liegen."))
@@ -66,8 +54,8 @@ internal fun renderReportHeaderForm(
     saveButton.onClick {
         form.submit(saveButton) {
             val purpose = purposeField.value.trim()
-            val from = LocalDate.parse(fromField.value.trim())
-            val to = LocalDate.parse(toField.value.trim())
+            val from = checkNotNull(fromField.localDateOrNull())
+            val to = checkNotNull(toField.localDateOrNull())
             onSave(purpose, from, to)
         }
     }

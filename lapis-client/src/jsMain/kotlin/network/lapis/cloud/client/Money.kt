@@ -342,7 +342,7 @@ internal fun formatValueTokenIn(
         MONEY_KIND_LTR -> "◆ " + formatAmountDigits(digits, "LTR", locale)
         MONEY_KIND_PLAIN -> formatAmountDigits(digits, "", locale)
         MONEY_KIND_COUNT -> formatCountDigits(digits, locale)
-        DATE_KIND_DATE, DATE_KIND_DAY_MONTH, DATE_KIND_DATE_TIME, DATE_KIND_TIMESTAMP, DATE_KIND_TIME ->
+        DATE_KIND_DATE, DATE_KIND_DAY_MONTH, DATE_KIND_DATE_TIME, DATE_KIND_TIMESTAMP, DATE_KIND_TIME, DATE_KIND_LOCALE_FIELD ->
             formatTemporalTokenDigits(kind, digits, language) ?: digits
         else -> digits
     }

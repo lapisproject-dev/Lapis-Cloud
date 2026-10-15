@@ -44,6 +44,33 @@ class DateTimeTokenDomTest {
     }
 
     @Test
+    fun localeDateSpan_followsTheLanguageAndTheBrowserOrder_withoutLeakingTheMarker() {
+        val previousProbe = dateFieldOrderProbe
+        val previousBrowser = browserLanguageProvider
+        try {
+            dateFieldOrderProbe = { DateFieldOrder(DateOrder.MDY, '/') }
+            browserLanguageProvider = { "en-US" }
+            withMountedRoot("datetime-token-locale-field") { root, element ->
+                val span = root.localeDateSpan(sample)
+                assertEquals("24.09.2026", span.getElement()?.textContent, "German: day-month-year with dots, whatever the browser says")
+                try {
+                    I18n.language = "en"
+                    span.refresh()
+                    assertEquals("09/24/2026", element().querySelector("span")?.textContent, "English follows the browser's order")
+                } finally {
+                    I18n.language = "de"
+                }
+                span.refresh()
+                assertEquals("24.09.2026", element().querySelector("span")?.textContent)
+                assertFalse(leaks(element().textContent.orEmpty()))
+            }
+        } finally {
+            dateFieldOrderProbe = previousProbe
+            browserLanguageProvider = previousBrowser
+        }
+    }
+
+    @Test
     fun dateTimeSpan_neverLeaksTheMarker() {
         withMountedRoot("datetime-token-dt") { root, element ->
             root.dateTimeSpan(sampleDateTime)

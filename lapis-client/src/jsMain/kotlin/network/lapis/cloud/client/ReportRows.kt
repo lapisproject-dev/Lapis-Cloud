@@ -114,6 +114,8 @@ class ReportRow(
     val kind: ReportRowKind,
     val cells: List<ReportCell>,
     val strong: Boolean = false,
+    /** V1.9.132: the first text cell of a plain [ReportRowKind.DATA] row is its row header (`<th scope="row">`), as a total's label already is. */
+    val rowHeader: Boolean = false,
 )
 
 /** The cell strings of a row list -- the one form every golden test compares. */

@@ -23839,3 +23839,102 @@ msgstr "X (voorheen Twitter): U vindt de server-URL en de streamsleutel in de Me
 
 msgid "Bei X kann sich der Schlüssel pro Übertragung ändern. Tragen Sie ihn dann hier neu ein."
 msgstr "Bij X kan de sleutel bij elke uitzending veranderen. Voer hem dan hier opnieuw in."
+
+msgid "TT"
+msgstr "DD"
+
+msgid "MM"
+msgstr "MM"
+
+msgid "JJJJ"
+msgstr "JJJJ"
+
+msgid "Format: %1"
+msgstr "Notatie: %1"
+
+msgid "Bitte als %1 eingeben."
+msgstr "Voer in als %1."
+
+msgid "Bitte das Jahr vierstellig eingeben (%1)."
+msgstr "Voer het jaar met vier cijfers in (%1)."
+
+msgid "Dieses Datum gibt es nicht."
+msgstr "Deze datum bestaat niet."
+
+msgid "Bitte ein Jahr zwischen %1 und %2 eingeben."
+msgstr "Voer een jaar tussen %1 en %2 in."
+
+msgid "Erste Nacht"
+msgstr "Eerste nacht"
+
+msgid "Ausführungsdatum"
+msgstr "Uitvoeringsdatum"
+
+msgid "Frühstück gestellt (%1 % = −%2)"
+msgstr "Ontbijt verstrekt (%1 % = −%2)"
+
+msgid "Frühstück gestellt: %1 % von %2"
+msgstr "Ontbijt verstrekt: %1 % van %2"
+
+msgid "Mittagessen gestellt (%1 % = −%2)"
+msgstr "Lunch verstrekt (%1 % = −%2)"
+
+msgid "Mittagessen gestellt: %1 % von %2"
+msgstr "Lunch verstrekt: %1 % van %2"
+
+msgid "Abendessen gestellt (%1 % = −%2)"
+msgstr "Avondeten verstrekt (%1 % = −%2)"
+
+msgid "Abendessen gestellt: %1 % von %2"
+msgstr "Avondeten verstrekt: %1 % van %2"
+
+msgid "Kein Tagegeld an diesem Tag, daher kein Abzug."
+msgstr "Geen reisdagvergoeding op deze dag, dus geen aftrek."
+
+msgid "Abzug auf den Tagessatz von %1 begrenzt."
+msgstr "Aftrek beperkt tot de dagvergoeding van %1."
+
+msgid "Tagegeld gesamt (brutto)"
+msgstr "Reisdagvergoeding totaal (bruto)"
+
+msgid "Abzüge für gestellte Mahlzeiten"
+msgstr "Aftrek voor verstrekte maaltijden"
+
+msgid "Verzicht zugunsten einer Spende"
+msgstr "Afstand ten gunste van een donatie"
+
+msgid "Fahrtkosten: %1 km × %2"
+msgstr "Ritkosten: %1 km × %2"
+
+msgid "Mitfahrerzuschlag: %1 km × %2 × %3"
+msgstr "Passagierstoeslag: %1 km × %2 × %3"
+
+msgid "Tagegeld (alte Erfassung): %1 Tage × %2"
+msgstr "Reisdagvergoeding (oude invoer): %1 dagen × %2"
+
+msgid "Tagegeld (alte Erfassung)"
+msgstr "Reisdagvergoeding (oude invoer)"
+
+msgid "Tagegeld bei %1 Std. Abwesenheit"
+msgstr "Reisdagvergoeding bij %1 u afwezigheid"
+
+msgid "Tagesbetrag"
+msgstr "Dagbedrag"
+
+msgid "So setzt sich der Betrag zusammen"
+msgstr "Hoe het bedrag is opgebouwd"
+
+msgid "Für diese Abrechnung sind keine gespeicherten Sätze vorhanden; die Aufschlüsselung wird nicht berechnet."
+msgstr "Voor deze declaratie zijn geen opgeslagen tarieven aanwezig; de specificatie wordt niet berekend."
+
+msgid "%1: netto %2"
+msgstr "%1: netto %2"
+
+msgid "%1: noch nicht vollständig"
+msgstr "%1: nog niet volledig"
+
+msgid "Tagesrechnung %1"
+msgstr "Dagberekening %1"
+
+msgid "Für diesen Tag fehlen noch Angaben."
+msgstr "Voor deze dag ontbreken nog gegevens."

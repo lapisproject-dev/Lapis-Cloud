@@ -108,8 +108,9 @@ class TravelExpenseScreenFormDomTest {
                     delay(80)
                     openCreateForm(element(), "travel-expense-create")
                     element().typeInto("Zweck der Reise", "  Delegiertenversammlung  ")
-                    element().typeInto("Von (JJJJ-MM-TT)", "  2026-03-10  ")
-                    element().typeInto("Bis (JJJJ-MM-TT)", "  2026-03-12  ")
+                    // V1.9.132: typed in the German order (UI language de), stored as ISO.
+                    element().typeInto("Von", "  10.03.2026  ")
+                    element().typeInto("Bis", "  12.03.2026  ")
                     element().buttonNamed("Entwurf anlegen").click()
                     awaitUntil("createDraft", timeoutMs = 800) { calls.toRoute(createDraftRoute).size == 1 }
                     val call = calls.singleCall(createDraftRoute)
@@ -148,8 +149,8 @@ class TravelExpenseScreenFormDomTest {
                     delay(80)
                     openCreateForm(element(), "travel-expense-create")
                     element().typeInto("Zweck der Reise", "Delegiertenversammlung")
-                    element().typeInto("Von (JJJJ-MM-TT)", "nicht-ein-datum")
-                    element().typeInto("Bis (JJJJ-MM-TT)", "2026-03-12")
+                    element().typeInto("Von", "nicht-ein-datum")
+                    element().typeInto("Bis", "12.03.2026")
                     element().buttonNamed("Entwurf anlegen").click()
                     delay(80)
                     assertTrue(calls.toRoute(createDraftRoute).isEmpty(), "no createDraft call for an invalid date")

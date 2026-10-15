@@ -23835,3 +23835,102 @@ msgstr "X (ранее Twitter): URL сервера и ключ трансляц�
 
 msgid "Bei X kann sich der Schlüssel pro Übertragung ändern. Tragen Sie ihn dann hier neu ein."
 msgstr "В X ключ может меняться при каждой трансляции. В таком случае введите его здесь заново."
+
+msgid "TT"
+msgstr "ДД"
+
+msgid "MM"
+msgstr "ММ"
+
+msgid "JJJJ"
+msgstr "ГГГГ"
+
+msgid "Format: %1"
+msgstr "Формат: %1"
+
+msgid "Bitte als %1 eingeben."
+msgstr "Введите в формате %1."
+
+msgid "Bitte das Jahr vierstellig eingeben (%1)."
+msgstr "Введите год четырьмя цифрами (%1)."
+
+msgid "Dieses Datum gibt es nicht."
+msgstr "Такой даты не существует."
+
+msgid "Bitte ein Jahr zwischen %1 und %2 eingeben."
+msgstr "Введите год от %1 до %2."
+
+msgid "Erste Nacht"
+msgstr "Первая ночь"
+
+msgid "Ausführungsdatum"
+msgstr "Дата исполнения"
+
+msgid "Frühstück gestellt (%1 % = −%2)"
+msgstr "Завтрак предоставлен (%1 % = −%2)"
+
+msgid "Frühstück gestellt: %1 % von %2"
+msgstr "Завтрак предоставлен: %1 % от %2"
+
+msgid "Mittagessen gestellt (%1 % = −%2)"
+msgstr "Обед предоставлен (%1 % = −%2)"
+
+msgid "Mittagessen gestellt: %1 % von %2"
+msgstr "Обед предоставлен: %1 % от %2"
+
+msgid "Abendessen gestellt (%1 % = −%2)"
+msgstr "Ужин предоставлен (%1 % = −%2)"
+
+msgid "Abendessen gestellt: %1 % von %2"
+msgstr "Ужин предоставлен: %1 % от %2"
+
+msgid "Kein Tagegeld an diesem Tag, daher kein Abzug."
+msgstr "В этот день суточные не положены, поэтому вычет не производится."
+
+msgid "Abzug auf den Tagessatz von %1 begrenzt."
+msgstr "Вычет ограничен суточными в размере %1."
+
+msgid "Tagegeld gesamt (brutto)"
+msgstr "Суточные всего (брутто)"
+
+msgid "Abzüge für gestellte Mahlzeiten"
+msgstr "Вычеты за предоставленное питание"
+
+msgid "Verzicht zugunsten einer Spende"
+msgstr "Отказ в пользу пожертвования"
+
+msgid "Fahrtkosten: %1 km × %2"
+msgstr "Расходы на поездку: %1 км × %2"
+
+msgid "Mitfahrerzuschlag: %1 km × %2 × %3"
+msgstr "Надбавка за пассажиров: %1 км × %2 × %3"
+
+msgid "Tagegeld (alte Erfassung): %1 Tage × %2"
+msgstr "Суточные (прежний ввод): %1 дн. × %2"
+
+msgid "Tagegeld (alte Erfassung)"
+msgstr "Суточные (прежний ввод)"
+
+msgid "Tagegeld bei %1 Std. Abwesenheit"
+msgstr "Суточные при отсутствии %1 ч"
+
+msgid "Tagesbetrag"
+msgstr "Сумма за день"
+
+msgid "So setzt sich der Betrag zusammen"
+msgstr "Из чего складывается сумма"
+
+msgid "Für diese Abrechnung sind keine gespeicherten Sätze vorhanden; die Aufschlüsselung wird nicht berechnet."
+msgstr "Для этого отчёта нет сохранённых ставок; расшифровка не рассчитывается."
+
+msgid "%1: netto %2"
+msgstr "%1: нетто %2"
+
+msgid "%1: noch nicht vollständig"
+msgstr "%1: ещё не заполнено полностью"
+
+msgid "Tagesrechnung %1"
+msgstr "Расчёт за день %1"
+
+msgid "Für diesen Tag fehlen noch Angaben."
+msgstr "Для этого дня ещё не хватает данных."
