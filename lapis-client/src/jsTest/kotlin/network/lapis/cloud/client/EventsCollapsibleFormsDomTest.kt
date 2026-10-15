@@ -129,8 +129,8 @@ class EventsCollapsibleFormsDomTest {
         typeInto("Titel", title)
         typeInto("Beschreibung", "Ein Abend für alle")
         typeInto("Ort", "Vereinsheim")
-        typeInto("Beginn", "2099-11-01T18:00")
-        typeInto("Ende", "2099-11-01T20:00")
+        typeDateTimeInto("Beginn", "2099-11-01T18:00")
+        typeDateTimeInto("Ende", "2099-11-01T20:00")
     }
 
     // ---- Events ---------------------------------------------------------------------------------------------------------
@@ -272,8 +272,8 @@ class EventsCollapsibleFormsDomTest {
         formTest {
             withFetchStub { _ ->
                 mountedForm("r36b-events-fingerprint") { root, element ->
-                    val starts = root.text()
-                    val ends = root.text()
+                    val starts = root.localDateTimeInput(label = "Beginn")
+                    val ends = root.localDateTimeInput(label = "Ende")
                     val editor = renderRecurrenceEditor(root, starts, ends)
                     awaitUntil("the editor is rendered") { element().querySelector("input[type=checkbox]") != null }
                     val initial = editor.stateFingerprint()

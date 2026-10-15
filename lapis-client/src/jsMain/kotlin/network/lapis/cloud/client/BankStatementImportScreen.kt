@@ -277,7 +277,7 @@ fun renderBankStatementImportScreen(
                             import.statementTo?.let { to -> gettext("%1 – %2", formatDate(from), formatDate(to)) }
                         },
                         import.uploadedByDisplayName,
-                        import.uploadedAt.toString(),
+                        formatSystemDateTime(import.uploadedAt),
                     )
                 row.div(secondLineParts.joinToString(" · ")) { addCssClasses("text-muted small") }
                 row.onClick { selectImport(import.id) }
@@ -472,7 +472,7 @@ private fun renderLineRow(
     onEdit: () -> Unit,
 ) {
     table.row {
-        textCell(line.bookingDate.toString())
+        textCell(trusted(dateToken(line.bookingDate)))
         textCell(formatMoney(line.amount))
         cell {
             untrustedDiv(line.counterpartyName ?: "—")
@@ -519,7 +519,7 @@ internal fun renderAssignmentWorkbench(
 ) {
     host.removeAll()
     val panel = host.vPanel(spacing = 10) { addCssClasses("border rounded p-3") }
-    panel.div(gettext("Zeile vom %1 -- %2", line.bookingDate.toString(), formatMoney(line.amount))) { addCssClass("fw-bold") }
+    panel.div(gettext("Zeile vom %1 -- %2", formatDate(line.bookingDate), formatMoney(line.amount))) { addCssClass("fw-bold") }
 
     // W4c: die Arbeitsfläche ist EIN [LapisForm] (gemeinsame Notiz, Spendenzuordnung, Ignorieren in der Gefahrenzone). Die Vorschläge und
     // die Freitextsuche stehen als Nicht-Felder dazwischen; die Suche ist ein Filter, kein Formularfeld.
@@ -547,8 +547,8 @@ internal fun renderAssignmentWorkbench(
                     "%1 -- %2, %3 – %4, %5",
                     candidate.memberDisplayName,
                     candidate.membershipTierName,
-                    candidate.periodStart.toString(),
-                    candidate.periodEnd.toString(),
+                    formatDate(candidate.periodStart),
+                    formatDate(candidate.periodEnd),
                     formatMoney(candidate.amountDue),
                 ),
             )

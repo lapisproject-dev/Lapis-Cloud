@@ -319,22 +319,18 @@ private fun renderExportSection(
     // W4c: der Zeitraum ist ein [LapisForm] -- die Fehler stehen an den Feldern (vorher ein Sammelsatz über dem Knopf).
     val form = panel.lapisForm()
     val fromField =
-        form.textField(
+        form.localDateField(
             label = tr("Von"),
-            value = "${currentYear()}-01-01",
+            value = LocalDate(currentYear(), 1, 1),
             required = true,
-            hint = tr("Beispiel: 2026-03-14."),
             requiredMessage = tr("Bitte ein gültiges Datum angeben."),
-            rule = { FormRules.isoDate(it) },
         )
     val toField =
-        form.textField(
+        form.localDateField(
             label = tr("Bis"),
-            value = todayIso(),
+            value = organizationToday(),
             required = true,
-            hint = tr("Beispiel: 2026-03-14."),
             requiredMessage = tr("Bitte ein gültiges Datum angeben."),
-            rule = { FormRules.isoDate(it) },
         )
     val filterControls = DateRangeFilterControls(fromField.control as Text, toField.control as Text)
     val checkButton = Button(tr("Prüfen"), style = ButtonStyle.OUTLINESECONDARY)
@@ -674,8 +670,6 @@ private fun accountingExportRunStatusLabel(status: AccountingExportRunStatus): S
     }
 
 private fun currentYear(): Int = organizationToday().year
-
-private fun todayIso(): String = organizationToday().toString()
 
 /** Security review Fund 2026-09-07 (Runde 4, Befund 2): the client-side counterpart of
  * `IAccountingExportService.resolveUnknownItem` -- the only UI path to resolve an

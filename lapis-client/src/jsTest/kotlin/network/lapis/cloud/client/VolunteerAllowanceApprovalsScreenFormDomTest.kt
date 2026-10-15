@@ -227,7 +227,7 @@ class VolunteerAllowanceApprovalsScreenFormDomTest {
                         element().allOf("button").any { it.textContent?.trim() == "Papiererklärung erfassen" }
                     }
                     delay(80)
-                    element().typeInto("Unterschrieben am (JJJJ-MM-TT)", "  2026-03-14  ")
+                    element().typeInto("Unterschrieben am", "  2026-03-14  ")
                     element().buttonNamed("Papiererklärung erfassen").click()
                     awaitUntil("record", timeoutMs = 800) { calls.toRoute(recordRoute).size == 1 }
                     val call = calls.singleCall(recordRoute)
@@ -271,7 +271,7 @@ class VolunteerAllowanceApprovalsScreenFormDomTest {
                         element().allOf("button").any { it.textContent?.trim() == "Papiererklärung erfassen" }
                     }
                     delay(80)
-                    element().typeInto("Unterschrieben am (JJJJ-MM-TT)", "nicht-ein-datum")
+                    element().typeInto("Unterschrieben am", "nicht-ein-datum")
                     element().buttonNamed("Papiererklärung erfassen").click()
                     delay(60)
                     assertEquals(0, calls.toRoute(recordRoute).size, "no recordPaperDeclaration call for an invalid date")

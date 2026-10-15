@@ -20,6 +20,7 @@ import io.kvision.table.Row
 import io.kvision.table.Table
 import io.kvision.table.cell
 import kotlinx.coroutines.launch
+import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.FourSphereIncomeStatementDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
@@ -161,7 +162,7 @@ private fun renderFourSphereIncomeStatementView(panel: SimplePanel) {
     val filterControls = panel.dateRangeFilter()
     // `to` is a required LocalDate server-side (matches the GuV's own filter shape) -- pre-filled
     // to today so the first render already shows a meaningful report.
-    filterControls.toInput.value = todayIso()
+    filterControls.toInput.value = todayLocaleText()
     val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         panel.div().apply {
@@ -184,7 +185,7 @@ private fun renderFourSphereIncomeStatementView(panel: SimplePanel) {
     fun load() {
         errorBox.hide()
         if (filterControls.parseTo() == null) {
-            errorBox.content = tr("Bitte ein gültiges \"Bis\"-Datum angeben (JJJJ-MM-TT).")
+            errorBox.content = gettext("Bitte ein gültiges \"Bis\"-Datum angeben (%1).", localeDatePattern())
             errorBox.show()
             return
         }
@@ -389,9 +390,9 @@ private fun renderVatReturnPreviewView(panel: SimplePanel) {
 
     // Both bounds required -- see load()'s own comment. fromLabel overridden to drop the shared
     // helper's default "(optional)" suffix, which would be misleading here.
-    val filterControls = panel.dateRangeFilter(fromLabel = tr("Von (JJJJ-MM-TT)"))
-    filterControls.fromInput.value = "${currentYear()}-01-01"
-    filterControls.toInput.value = todayIso()
+    val filterControls = panel.dateRangeFilter(fromLabel = tr("Von"))
+    filterControls.fromInput.value = formatLocalDate(LocalDate(currentYear(), 1, 1), currentTemporalLocale())
+    filterControls.toInput.value = todayLocaleText()
     val loadButton = panel.button(tr("Berechnen"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         panel.div().apply {
@@ -419,7 +420,7 @@ private fun renderVatReturnPreviewView(panel: SimplePanel) {
     fun load() {
         errorBox.hide()
         if (filterControls.parseTo() == null || filterControls.parseFrom() == null) {
-            errorBox.content = tr("Bitte ein gültiges \"Von\"- und \"Bis\"-Datum angeben (JJJJ-MM-TT).")
+            errorBox.content = gettext("Bitte ein gültiges \"Von\"- und \"Bis\"-Datum angeben (%1).", localeDatePattern())
             errorBox.show()
             return
         }
@@ -714,9 +715,5 @@ fun useOfFundsPeriodCaption(
  * own rule. [UseOfFundsYearDto.overdueAmount] is documented as never negative, so this checks for
  * "positive" (i.e. there IS an overdue amount), not "negative". */
 fun hasOverdueAmount(amount: Decimal): Boolean = amount.toDouble() > 0.0
-
-/** Mirrors `LedgerScreen.kt`/`FinancialReportsScreen.kt`'s own private `todayIso()` -- no shared
- * date-util file exists in this client. */
-private fun todayIso(): String = organizationToday().toString()
 
 private fun currentYear(): Int = organizationToday().year

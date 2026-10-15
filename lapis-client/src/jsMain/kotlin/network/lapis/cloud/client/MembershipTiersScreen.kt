@@ -6,14 +6,12 @@ import io.kvision.core.Container
 import io.kvision.form.select.Select
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
-import io.kvision.html.InputType
 import io.kvision.html.div
 import io.kvision.html.p
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
 import io.kvision.panel.SimplePanel
-import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.MembershipTierDto
 import network.lapis.cloud.shared.domain.MembershipTierInput
@@ -358,8 +356,8 @@ internal fun openGenerateContributionsDialog(
                 "Bereits vorhandene Forderungen werden übersprungen.",
         ),
     ) { addCssClass("text-muted") }
-    val startField = form.textField(label = tr("Beginn"), type = InputType.DATE, required = true)
-    val endField = form.textField(label = tr("Ende"), type = InputType.DATE, required = true)
+    val startField = form.localDateField(label = tr("Beginn"), value = null, required = true)
+    val endField = form.localDateField(label = tr("Ende"), value = null, required = true)
     form.crossFieldRule(field = endField) { periodOrderCheck(startField.value, endField.value) }
     form.finish()
 
@@ -367,8 +365,8 @@ internal fun openGenerateContributionsDialog(
     val generateButton = Button(tr("Beiträge erzeugen"), style = ButtonStyle.PRIMARY)
     generateButton.onClick {
         form.submit(generateButton) {
-            val start = runCatching { LocalDate.parse(startField.value.trim()) }.getOrNull() ?: return@submit
-            val end = runCatching { LocalDate.parse(endField.value.trim()) }.getOrNull() ?: return@submit
+            val start = startField.localDateOrNull() ?: return@submit
+            val end = endField.localDateOrNull() ?: return@submit
             val created = membershipTierGuarded { rpcService<IContributionService>().generateContributionsForPeriod(tier.id, start, end) }
             if (created == null) {
                 form.showFormError(tr("Die Beiträge konnten nicht erzeugt werden."))
@@ -387,8 +385,8 @@ internal fun periodOrderCheck(
     start: String,
     end: String,
 ): FieldCheck {
-    val from = runCatching { LocalDate.parse(start.trim()) }.getOrNull() ?: return FieldCheck.Ok
-    val to = runCatching { LocalDate.parse(end.trim()) }.getOrNull() ?: return FieldCheck.Ok
+    val from = parseLocalDateOrNull(start) ?: return FieldCheck.Ok
+    val to = parseLocalDateOrNull(end) ?: return FieldCheck.Ok
     return if (to < from) FieldCheck.Invalid(gettext("Ende darf nicht vor dem Beginn liegen.")) else FieldCheck.Ok
 }
 

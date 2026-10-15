@@ -7,6 +7,7 @@ Architecture background lives in link:../architecture/[docs/architecture/]; the 
 [cols="2,3",options="header"]
 |===
 |Feature |Description
+|link:locale-dates.adoc[Dates and times in the UI locale (V1.9.137)] |One fixed table of nine locales for every displayed and typed date and time; ISO stays the storage form
 |link:auth-and-consent-pages.adoc[Sign-in and consent pages (V1.9.135)] |Styled guest consent, home-server form, MCP consent and error pages with brand chrome and security headers
 |link:video-conferencing.adoc[Videokonferenzen (V1.0 Wave 1)] |Video conferencing, LiveKit-based, for committee sessions; reactions and a raised-hand queue (V1.9.127), a display-only timer (V1.9.133)
 |link:agreement-texts.adoc[Registration texts (V1.9.134)] |Versioned, hashed membership agreement and FRIEND terms per instance; ADMIN administration; wide two-column registration with a reading frame

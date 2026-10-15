@@ -27,15 +27,18 @@ class DateTimeTokenDomTest {
 
     @Test
     fun dateSpan_rendersLocalized_andFollowsALanguageSwitch() {
+        val previousBrowser = browserLanguageProvider
         withMountedRoot("datetime-token-switch") { root, element ->
             val span = root.dateSpan(sample)
             assertEquals("24.09.2026", span.getElement()?.textContent)
             try {
                 I18n.language = "en"
+                browserLanguageProvider = { null }
                 span.refresh()
-                assertEquals("2026-09-24", element().querySelector("span")?.textContent)
+                assertEquals("24/09/2026", element().querySelector("span")?.textContent)
             } finally {
                 I18n.language = "de"
+                browserLanguageProvider = previousBrowser
             }
             span.refresh()
             assertEquals("24.09.2026", element().querySelector("span")?.textContent)
@@ -44,29 +47,45 @@ class DateTimeTokenDomTest {
     }
 
     @Test
-    fun localeDateSpan_followsTheLanguageAndTheBrowserOrder_withoutLeakingTheMarker() {
-        val previousProbe = dateFieldOrderProbe
+    fun dateSpan_enSplitsByTheBrowserLanguage_andFollowsALanguageSwitchWithoutLeakingTheMarker() {
         val previousBrowser = browserLanguageProvider
         try {
-            dateFieldOrderProbe = { DateFieldOrder(DateOrder.MDY, '/') }
             browserLanguageProvider = { "en-US" }
             withMountedRoot("datetime-token-locale-field") { root, element ->
-                val span = root.localeDateSpan(sample)
-                assertEquals("24.09.2026", span.getElement()?.textContent, "German: day-month-year with dots, whatever the browser says")
+                val span = root.dateTimeSpan(sampleDateTime)
+                assertEquals(
+                    "24.09.2026,${NBSP}14:30",
+                    span.getElement()?.textContent,
+                    "German: day.month.year, 24 h, whatever the browser says",
+                )
                 try {
                     I18n.language = "en"
                     span.refresh()
-                    assertEquals("09/24/2026", element().querySelector("span")?.textContent, "English follows the browser's order")
+                    assertEquals(
+                        "09/24/2026,${NBSP}2:30${NBSP}PM",
+                        element().querySelector("span")?.textContent,
+                        "en-US: month/day/year, 12 h",
+                    )
                 } finally {
                     I18n.language = "de"
                 }
                 span.refresh()
-                assertEquals("24.09.2026", element().querySelector("span")?.textContent)
+                assertEquals("24.09.2026,${NBSP}14:30", element().querySelector("span")?.textContent)
                 assertFalse(leaks(element().textContent.orEmpty()))
             }
         } finally {
-            dateFieldOrderProbe = previousProbe
             browserLanguageProvider = previousBrowser
+        }
+    }
+
+    @Test
+    fun weekdayDateTimeSpan_rendersTheCatalogWeekday_withoutLeakingTheMarker() {
+        withMountedRoot("datetime-token-weekday") { root, element ->
+            withTranslations(mapOf("Do." to "Donnerstag.")) {
+                root.weekdayDateTimeSpan(sampleDateTime)
+                assertEquals("Donnerstag.,${NBSP}24.09.2026,${NBSP}14:30", element().querySelector("span")?.textContent)
+            }
+            assertFalse(leaks(element().textContent.orEmpty()))
         }
     }
 

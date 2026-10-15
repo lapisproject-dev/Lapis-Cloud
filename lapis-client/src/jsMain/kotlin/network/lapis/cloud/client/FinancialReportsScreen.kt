@@ -3,7 +3,6 @@ package network.lapis.cloud.client
 import dev.kilua.rpc.types.Decimal
 import dev.kilua.rpc.types.toDouble
 import io.kvision.core.Container
-import io.kvision.form.text.text
 import io.kvision.html.ButtonStyle
 import io.kvision.html.button
 import io.kvision.html.div
@@ -126,9 +125,9 @@ private val KEY_FIGURE_HEADERS =
 private fun renderDatevExportView(panel: SimplePanel) {
     panel.h2(tr("DATEV-Buchungsstapel-Export")) { addCssClass("h5") }
     val role = AppState.session?.role
-    val filterControls = panel.dateRangeFilter(fromLabel = tr("Von (JJJJ-MM-TT)"), toLabel = tr("Bis (JJJJ-MM-TT)"))
-    filterControls.fromInput.value = "${currentYear()}-01-01"
-    filterControls.toInput.value = todayIso()
+    val filterControls = panel.dateRangeFilter(fromLabel = tr("Von"), toLabel = tr("Bis"))
+    filterControls.fromInput.value = formatLocalDate(LocalDate(currentYear(), 1, 1), currentTemporalLocale())
+    filterControls.toInput.value = todayLocaleText()
     val checkButton = panel.button(tr("Prüfen"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         panel.div().apply {
@@ -142,7 +141,8 @@ private fun renderDatevExportView(panel: SimplePanel) {
         val from = filterControls.parseFrom()
         val to = filterControls.parseTo()
         if (from == null || to == null) {
-            errorBox.content = tr("Bitte Von- und Bis-Datum angeben (JJJJ-MM-TT) -- beide sind für den DATEV-Export Pflicht.")
+            errorBox.content =
+                gettext("Bitte Von- und Bis-Datum angeben (%1) -- beide sind für den DATEV-Export Pflicht.", localeDatePattern())
             errorBox.show()
             return
         }
@@ -227,7 +227,7 @@ private fun renderIncomeStatementView(panel: SimplePanel) {
     // `to` is a required LocalDate server-side (unlike the Journal/Hauptbuch/Kassenbuch filters'
     // optional `to`) -- pre-filled to today so the first render shows a meaningful report instead
     // of an immediate validation error before the treasurer has touched anything.
-    filterControls.toInput.value = todayIso()
+    filterControls.toInput.value = todayLocaleText()
     val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         panel.div().apply {
@@ -251,7 +251,7 @@ private fun renderIncomeStatementView(panel: SimplePanel) {
     fun load() {
         errorBox.hide()
         if (filterControls.parseTo() == null) {
-            errorBox.content = tr("Bitte ein gültiges \"Bis\"-Datum angeben (JJJJ-MM-TT).")
+            errorBox.content = gettext("Bitte ein gültiges \"Bis\"-Datum angeben (%1).", localeDatePattern())
             errorBox.show()
             return
         }
@@ -290,7 +290,7 @@ internal fun renderIncomeStatementBody(
 private fun renderBalanceSheetView(panel: SimplePanel) {
     panel.h2(tr("Bilanz")) { addCssClass("h5") }
     val filterRow = panel.lapisToolbar()
-    val asOfInput = filterRow.text(value = todayIso(), label = tr("Stichtag (JJJJ-MM-TT)"))
+    val asOfInput = filterRow.localDateInput(label = tr("Stichtag"), value = organizationToday(), hintLine = false).input
     val loadButton = filterRow.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val errorBox =
         panel.div().apply {
@@ -298,7 +298,7 @@ private fun renderBalanceSheetView(panel: SimplePanel) {
             hide()
         }
 
-    fun parseAsOf(): LocalDate? = runCatching { LocalDate.parse(asOfInput.value.orEmpty().trim()) }.getOrNull()
+    fun parseAsOf(): LocalDate? = parseLocalDateOrNull(asOfInput.value.orEmpty())
     val section =
         panel.dataSection<BalanceSheetDto>(
             isEmpty = { false },
@@ -309,7 +309,7 @@ private fun renderBalanceSheetView(panel: SimplePanel) {
     fun load() {
         errorBox.hide()
         if (parseAsOf() == null) {
-            errorBox.content = tr("Bitte einen gültigen Stichtag angeben (JJJJ-MM-TT).")
+            errorBox.content = gettext("Bitte einen gültigen Stichtag angeben (%1).", localeDatePattern())
             errorBox.show()
             return
         }
@@ -446,7 +446,7 @@ internal fun renderStatementSectionTable(
 fun periodRangeCaption(
     from: LocalDate?,
     to: LocalDate,
-): String = gettext("Zeitraum: %1 bis %2", from?.toString() ?: gettext("seit Gründung"), to)
+): String = gettext("Zeitraum: %1 bis %2", from?.let { formatDate(it) } ?: gettext("seit Gründung"), formatDate(to))
 
 /** D6: the only place this screen inspects a raw [Decimal]'s sign -- a **typed** numeric
  * comparison ([Decimal.toDouble] against `0.0`), never string/regex inspection of the rendered
@@ -461,9 +461,5 @@ fun resultQualifierLabel(negative: Boolean): String? = if (negative) gettext("(J
 fun balancedLabel(balanced: Boolean): String = if (balanced) gettext("Bilanz ausgeglichen") else gettext("Bilanz NICHT ausgeglichen")
 
 fun balancedColor(balanced: Boolean): String = if (balanced) "success" else "danger"
-
-/** Mirrors `LedgerScreen.kt`'s own private `todayIso()` -- no shared date-util file exists in this
- * client (each screen that needs "today as JJJJ-MM-TT" carries its own copy). */
-private fun todayIso(): String = organizationToday().toString()
 
 private fun currentYear(): Int = organizationToday().year

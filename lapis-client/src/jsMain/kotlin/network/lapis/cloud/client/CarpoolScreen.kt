@@ -11,7 +11,6 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.px
-import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import network.lapis.cloud.shared.domain.CarpoolMyParticipationDto
 import network.lapis.cloud.shared.domain.CarpoolPostingDto
@@ -356,18 +355,6 @@ private fun renderCarpoolContactForm(
 }
 
 /**
- * A native `<input type="time">` yields `"HH:mm"` (no seconds) -- kotlinx-datetime's
- * [LocalTime.parse] default ISO format requires seconds, so a bare `"HH:mm"` is normalized to
- * `"HH:mm:00"` first. `"HH:mm:ss"` (already has seconds) is passed through unchanged.
- */
-internal fun parseTimeInputValue(raw: String): LocalTime? {
-    val trimmed = raw.trim()
-    if (trimmed.isEmpty()) return null
-    val normalized = if (trimmed.count { it == ':' } == 1) "$trimmed:00" else trimmed
-    return runCatching { LocalTime.parse(normalized) }.getOrNull()
-}
-
-/**
  * The create/edit/duplicate form, built into the shared host of [collapsibleCreateForm]. [prefill] is `null` for a new entry. The
  * fingerprint ([snapshot]) covers all seven inputs, so a duplicate (pre-filled) counts as unchanged until the person types.
  */
@@ -398,19 +385,16 @@ private fun buildCarpoolForm(
     val fromField = form.textField(label = tr("Von (Ort oder PLZ)"), value = base?.fromPlace, required = true)
     val toField = form.textField(label = tr("Nach (Ort oder PLZ)"), value = base?.toPlace, required = true)
     val dateField =
-        form.textField(
+        form.localDateField(
             label = tr("Abfahrtsdatum"),
-            type = InputType.DATE,
-            value = if (duplicateFrom != null) null else base?.departureDate?.toString(),
+            value = if (duplicateFrom != null) null else base?.departureDate,
             required = true,
             requiredMessage = tr("Bitte ein gültiges Datum angeben."),
-            rule = { FormRules.isoDate(it) },
         )
     val timeField =
-        form.textField(
+        form.localTimeField(
             label = tr("Abfahrtszeit (optional)"),
-            type = InputType.TIME,
-            value = if (duplicateFrom != null) null else base?.departureTime?.toString(),
+            value = if (duplicateFrom != null) null else base?.departureTime,
         )
     val seatsField =
         form.textField(
@@ -447,8 +431,8 @@ private fun buildCarpoolForm(
                     type = type,
                     fromPlace = fromField.value.trim(),
                     toPlace = toField.value.trim(),
-                    departureDate = LocalDate.parse(dateField.value.trim()),
-                    departureTime = parseTimeInputValue(timeField.value),
+                    departureDate = checkNotNull(dateField.localDateOrNull()),
+                    departureTime = timeField.localTimeOrNull(),
                     seatsOffered = if (type == CarpoolPostingType.OFFER) seatsText.toInt() else null,
                     notes = notesField.value.trim().takeIf { it.isNotEmpty() },
                 )
@@ -476,4 +460,4 @@ private fun buildCarpoolForm(
  * only resolves a marker at the very start of a widget's content -- mid-string it leaked as `###KvI18nS###`.
  */
 internal fun carpoolDepartureTimeSuffix(departureTime: LocalTime?): String =
-    departureTime?.let { gettext(", ab %1 Uhr", it.toString()) } ?: gettext(", Uhrzeit flexibel")
+    departureTime?.let { gettext(", ab %1 Uhr", formatLocalTime(it, currentTemporalLocale())) } ?: gettext(", Uhrzeit flexibel")

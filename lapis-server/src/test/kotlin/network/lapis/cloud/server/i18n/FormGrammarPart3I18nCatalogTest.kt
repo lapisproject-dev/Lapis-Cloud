@@ -62,7 +62,6 @@ class FormGrammarPart3I18nCatalogTest :
         val newSentences =
             listOf(
                 "Beispiel: 1234,56.",
-                "Beispiel: 2026-03-14.",
                 "Beispiel: %1.",
                 "Pflichtangabe für diesen Spendertyp.",
                 "-- Position wählen --",

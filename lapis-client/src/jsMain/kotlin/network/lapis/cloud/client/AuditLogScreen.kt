@@ -91,8 +91,8 @@ fun renderAuditLogScreen(container: SimplePanel) {
     val actorMemberIdInput = filterRow1.text(label = tr("Akteur-Mitglieds-ID (optional)"))
 
     val filterRow2 = root.lapisToolbar()
-    val fromInput = filterRow2.text(label = tr("Von (JJJJ-MM-TTTHH:MM:SS, optional)"))
-    val toInput = filterRow2.text(label = tr("Bis (JJJJ-MM-TTTHH:MM:SS, optional)"))
+    val fromInput = filterRow2.localDateTimeInput(label = gettext("Von (optional)"), hintLine = false)
+    val toInput = filterRow2.localDateTimeInput(label = gettext("Bis (optional)"), hintLine = false)
     val filterButton = filterRow2.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
 
     val statusRegion = root.dataStatusRegion()

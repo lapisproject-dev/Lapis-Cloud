@@ -16,7 +16,6 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
-import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.VolunteerAllowanceCapAcknowledgmentInput
@@ -121,7 +120,7 @@ private fun renderVolunteerAllowanceApprovalCard(
     }
     headerRow.div(formatMoney(payment.amount)) { addCssClasses("fw-bold") }
 
-    card.div(payment.paymentDate.toString()) { addCssClasses("text-muted small") }
+    card.dateSpan(payment.paymentDate).apply { addCssClasses("text-muted small") }
     card.untrustedDiv(payment.activityDescription)
 
     if (payment.decisionNote != null) {
@@ -360,17 +359,15 @@ private fun renderPaperDeclarationForm(
 ) {
     val form = panel.lapisForm()
     val signedOnField =
-        form.textField(
-            label = tr("Unterschrieben am (JJJJ-MM-TT)"),
+        form.localDateField(
+            label = tr("Unterschrieben am"),
             required = true,
-            hint = tr("Beispiel: 2026-03-14."),
-            rule = { FormRules.isoDate(it) },
         )
     val recordButton = Button(tr("Papiererklärung erfassen"), style = ButtonStyle.OUTLINEPRIMARY)
     form.buttons(primary = recordButton)
     recordButton.onClick {
         form.submit(recordButton) {
-            val signedOn = LocalDate.parse(signedOnField.value.trim())
+            val signedOn = checkNotNull(signedOnField.localDateOrNull())
             val result =
                 guarded {
                     rpcService<IVolunteerAllowanceService>().recordPaperDeclaration(

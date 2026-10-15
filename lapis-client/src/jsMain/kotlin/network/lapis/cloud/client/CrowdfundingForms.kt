@@ -121,7 +121,7 @@ internal fun renderDistributionComputeForm(
         ),
     ) { addCssClasses("text-muted small mb-2") }
     val range =
-        root.dateRangeFilter(fromLabel = tr("Von (JJJJ-MM-TT, Pflichtfeld)"), toLabel = tr("Bis (JJJJ-MM-TT, Pflichtfeld)"))
+        root.dateRangeFilter(fromLabel = tr("Von (Pflichtfeld)"), toLabel = tr("Bis (Pflichtfeld)"))
     val errorBox =
         root.div().apply {
             addCssClass("text-danger")
@@ -136,7 +136,8 @@ internal fun renderDistributionComputeForm(
         val periodStart = range.parseFrom()
         val periodEnd = range.parseTo()
         if (periodStart == null || periodEnd == null) {
-            errorBox.content = tr("Bitte Start- und Enddatum im Format JJJJ-MM-TT angeben -- beide Felder sind hier Pflicht.")
+            errorBox.content =
+                gettext("Bitte Start- und Enddatum im Format %1 angeben -- beide Felder sind hier Pflicht.", localeDatePattern())
             errorBox.show()
             return@onClick
         }

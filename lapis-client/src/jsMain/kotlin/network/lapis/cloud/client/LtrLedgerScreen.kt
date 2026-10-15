@@ -349,8 +349,13 @@ internal fun sortLtrEntries(
  */
 private fun ltrEntryColumns(): List<DataColumn<LtrLedgerEntryDto>> =
     listOf(
-        textColumn(title = tr("Datum"), primary = true, sortKey = LTR_ENTRY_SORT_DATE) { entry: LtrLedgerEntryDto ->
-            entry.createdAt.toString()
+        systemDateTimeColumn(
+            title = tr("Datum"),
+            numeric = false,
+            primary = true,
+            sortKey = LTR_ENTRY_SORT_DATE,
+        ) { entry: LtrLedgerEntryDto ->
+            entry.createdAt
         },
         DataColumn(
             title = tr("Typ"),

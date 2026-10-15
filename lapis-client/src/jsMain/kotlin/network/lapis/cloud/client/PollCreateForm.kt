@@ -3,7 +3,6 @@ package network.lapis.cloud.client
 import io.kvision.form.check.radioGroup
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
-import io.kvision.html.InputType
 import io.kvision.html.div
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
@@ -145,24 +144,14 @@ internal fun SimplePanel.renderPollCreateForm(
             required = true,
         )
     val customField =
-        form.textField(
-            label = tr("Datum und Uhrzeit der Frist"),
-            type = InputType.DATETIME_LOCAL,
-            rule = { value ->
-                if (deadlineChoiceOf(deadlineField.value) != PollDeadlineChoice.Custom) {
-                    FieldCheck.Ok
-                } else {
-                    FormRules.localDateTime(value)
-                }
-            },
-        )
+        form.localDateTimeFields(label = gettext("Frist"))
     customField.setVisible(false)
     val noDeadlineHint = form.panel.div(tr("Sie müssen die Umfrage dann selbst schließen.")) { addCssClasses("text-muted small") }
     noDeadlineHint.hide()
 
     fun draft(): PollDraftError? {
         val choice = deadlineChoiceOf(deadlineField.value)
-        val custom = runCatching { LocalDateTime.parse(customField.value.trim()) }.getOrNull()
+        val custom = customField.dateTimeOrNull()
         val now = localNow()
         return validatePollDraft(
             question = questionField.value,
@@ -344,7 +333,7 @@ internal fun SimplePanel.renderPollCreateForm(
         if (draft() != null || !form.validateAndReport()) return@onClick
         form.runBusy(submitButton, restoreDisabled = { draft() != null }) {
             val choice = deadlineChoiceOf(deadlineField.value)
-            val custom = runCatching { LocalDateTime.parse(customField.value.trim()) }.getOrNull()
+            val custom = customField.dateTimeOrNull()
             val chosenKind = kind()
             val input =
                 PollCreateInput(

@@ -398,8 +398,7 @@ private fun renderCrmContactEditForm(
             visible = isInitiallyConsent
         }
     val consentGivenAtInput =
-        panel.text(label = tr("Zeitpunkt der Einwilligung (ISO, z. B. 2026-09-14T10:00)")).apply {
-            value = contact.consentGivenAt?.toString()
+        panel.localDateTimeInput(label = gettext("Zeitpunkt der Einwilligung"), value = contact.consentGivenAt).apply {
             visible = isInitiallyConsent
         }
     // Art. 16 DSGVO correction path for a WRONGLY recorded consent (review finding "eine
@@ -449,7 +448,7 @@ private fun renderCrmContactEditForm(
 
         val consentGivenAt =
             if (lawfulBasis == CrmLawfulBasis.CONSENT) {
-                val raw = consentGivenAtInput.value?.trim().orEmpty()
+                val raw = consentGivenAtInput.value
                 if (raw.isBlank()) {
                     errorBox.content = tr("Bei Rechtsgrundlage 'Einwilligung' ist der Zeitpunkt der Einwilligung Pflicht.")
                     errorBox.show()
@@ -457,7 +456,7 @@ private fun renderCrmContactEditForm(
                 }
                 runCatching { LocalDateTime.parse(raw) }.getOrNull()
                     ?: run {
-                        errorBox.content = tr("Zeitpunkt ist kein gültiges ISO-Format (z. B. 2026-09-14T10:00).")
+                        errorBox.content = tr("Bitte einen gültigen Zeitpunkt angeben.")
                         errorBox.show()
                         return@onClick
                     }

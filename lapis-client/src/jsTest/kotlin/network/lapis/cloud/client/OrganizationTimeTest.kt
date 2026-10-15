@@ -108,6 +108,30 @@ class OrganizationTimeTest {
     }
 
     @Test
+    fun v19137_dstDays_theConvertedWallClockIsFormattedInTheLocaleForm() {
+        val de = TEMPORAL_LOCALES.getValue("de")
+        val us = TEMPORAL_LOCALES.getValue("en-US")
+
+        fun shown(
+            locale: TemporalLocale,
+            utc: LocalDateTime,
+        ) = formatDateTimeIn(locale, toOrganizationZone(utc, "Europe/Berlin"))
+        // 29 March 2026, spring forward: there is no 02:xx on the wall clock
+        assertEquals("29.03.2026,${NBSP}01:59", shown(de, LocalDateTime(2026, 3, 29, 0, 59)))
+        assertEquals("29.03.2026,${NBSP}03:00", shown(de, LocalDateTime(2026, 3, 29, 1, 0)))
+        assertEquals("03/29/2026,${NBSP}3:00${NBSP}AM", shown(us, LocalDateTime(2026, 3, 29, 1, 0)))
+        // 25 October 2026, fall back: the wall clock 02:30 occurs twice, both stamps are shown as 02:30
+        assertEquals("25.10.2026,${NBSP}02:30", shown(de, LocalDateTime(2026, 10, 25, 0, 30)))
+        assertEquals("25.10.2026,${NBSP}02:30", shown(de, LocalDateTime(2026, 10, 25, 1, 30)))
+        assertEquals("10/25/2026,${NBSP}2:30${NBSP}AM", shown(us, LocalDateTime(2026, 10, 25, 1, 30)))
+        // the conversion itself is untouched by the formatting change: the same UTC instants as before
+        assertEquals(LocalDateTime(2026, 3, 29, 3, 0), toOrganizationZone(LocalDateTime(2026, 3, 29, 1, 0), "Europe/Berlin"))
+        assertEquals(LocalDateTime(2026, 10, 25, 2, 30), toOrganizationZone(LocalDateTime(2026, 10, 25, 1, 30), "Europe/Berlin"))
+        // a class-B wall clock 02:30 on the spring-forward day is displayed exactly as typed (never shifted to 03:30)
+        assertEquals("29.03.2026,${NBSP}02:30", formatDateTimeIn(de, LocalDateTime(2026, 3, 29, 2, 30)))
+    }
+
+    @Test
     fun organizationNow_isAWallClockOfTheOrganizationZone() {
         OrganizationTime.zoneId = "Pacific/Kiritimati" // UTC+14: far from every test machine's zone
         val kiritimati = organizationNow()

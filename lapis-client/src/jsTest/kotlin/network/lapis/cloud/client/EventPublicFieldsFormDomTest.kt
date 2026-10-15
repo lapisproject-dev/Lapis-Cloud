@@ -194,8 +194,8 @@ class EventPublicFieldsFormDomTest {
                     form.typeInto("Ort", "Vereinsheim")
                     form.tick("Externer Link")
                     form.typeInto("Online-Link", "https://meet.example/x")
-                    form.typeInto("Beginn", "2099-11-01T18:00")
-                    form.typeInto("Ende", "2099-11-01T20:00")
+                    form.typeDateTimeInto("Beginn", "2099-11-01T18:00")
+                    form.typeDateTimeInto("Ende", "2099-11-01T20:00")
                     form.tick("Online-Link öffentlich anzeigen")
                     element().buttonNamed("Veranstaltung anlegen").click()
                     awaitUntil("createEvent was called") { calls.toRoute(create).size == 1 }

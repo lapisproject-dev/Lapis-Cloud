@@ -257,12 +257,10 @@ private fun renderPaymentForm(
             init = { it.maxlength = VolunteerAllowanceRules.MAX_ACTIVITY_DESCRIPTION_LENGTH },
         )
     val dateField =
-        form.textField(
-            label = tr("Zahlungsdatum (JJJJ-MM-TT)"),
-            value = existing?.paymentDate?.toString(),
+        form.localDateField(
+            label = tr("Zahlungsdatum"),
+            value = existing?.paymentDate,
             required = true,
-            hint = tr("Beispiel: 2026-03-14."),
-            rule = { FormRules.isoDate(it) },
         )
     val saveButton =
         newActionButton(
@@ -276,7 +274,7 @@ private fun renderPaymentForm(
             val category = checkNotNull(VolunteerAllowanceCategory.entries.firstOrNull { it.name == categoryField.value })
             val amount = (parseAmountInput(amountField.value, allowZero = false, enforceMaxAmount = false) as AmountInput.Valid).value
             val description = descriptionField.value.trim()
-            val date = LocalDate.parse(dateField.value.trim())
+            val date = checkNotNull(dateField.localDateOrNull())
             onSave(category, amount, description, date)
         }
     }
@@ -361,7 +359,7 @@ private fun renderOwnPaymentCard(
         headerRow.typeBadge(label, "secondary")
     }
     headerRow.div(formatMoney(payment.amount)) { addCssClasses("fw-bold flex-grow-1") }
-    card.div(payment.paymentDate.toString()) { addCssClasses("text-muted small") }
+    card.dateSpan(payment.paymentDate).apply { addCssClasses("text-muted small") }
     card.untrustedDiv(payment.activityDescription)
     if (payment.decisionNote != null) {
         card.div(gettext("Begründung: %1", payment.decisionNote)) { addCssClasses("text-muted small") }

@@ -3,8 +3,6 @@ package network.lapis.cloud.client
 import dev.kilua.rpc.types.toDecimal
 import dev.kilua.rpc.types.toDouble
 import io.kvision.i18n.gettext
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.LocalDateTime
 
 /**
  * Obergrenze eines Buchungsbetrags (eine Billion). Die Spalte `posting.amount` ist `DECIMAL(15,2)` und läuft ab 10^13 über; die Grenze
@@ -161,24 +159,16 @@ object FormRules {
             FieldCheck.Invalid(gettext("Bitte eine Begründung mit %1 bis %2 Zeichen angeben.", min, max))
         }
 
-    /** Zeitpunkt (`2026-08-15T18:00`): ein echter Kalenderzeitpunkt. Das Format nennt der Hinweis des Feldes, nie die Meldung. */
-    fun localDateTime(value: String): FieldCheck =
-        if (runCatching { LocalDateTime.parse(value.trim()) }.isSuccess) {
-            FieldCheck.Ok
-        } else {
-            FieldCheck.Invalid(gettext("Bitte einen gültigen Termin angeben."))
-        }
-
     /**
      * V1.9.132: ein Datum in der Reihenfolge und mit dem Trennzeichen des Browser-Locales ([spec], siehe `LocaleDate.kt`).
-     * **Bewusste Abweichung von der Regel R24** ("das Format nennt der Hinweis, nie die Meldung", siehe [isoDate]): hier nennt die
+     * **Bewusste Abweichung von der Regel R24** ("das Format nennt der Hinweis, nie die Meldung"): hier nennt die
      * Meldung das Muster, weil dasselbe Datum je nach Locale `22.11.2033` oder `11/22/2033` heißt und der Mensch sonst raten müsste, welche
-     * Reihenfolge das Feld erwartet (Design-Entscheidung der Reisekosten-Sitzung 2026-10-14). Nur für die Reisekosten-Datumsfelder
-     * ([localDateField]); alle anderen Datumsfelder bleiben bei [isoDate].
+     * Reihenfolge das Feld erwartet (Design-Entscheidung der Reisekosten-Sitzung 2026-10-14). Seit V1.9.137 gilt das für jedes Datumsfeld
+     * ([localDateField]): der reine ISO-Text (`isoDate`) ist entfernt.
      */
     fun localDate(
         value: String,
-        spec: DateFieldOrder,
+        spec: TemporalLocale,
     ): FieldCheck =
         when (parseLocalDate(value, spec)) {
             is DateParse.Ok -> FieldCheck.Ok
@@ -189,12 +179,19 @@ object FormRules {
                 FieldCheck.Invalid(gettext("Bitte ein Jahr zwischen %1 und %2 eingeben.", LOCALE_DATE_MIN_YEAR, LOCALE_DATE_MAX_YEAR))
         }
 
-    /** Datum (`2026-03-14`): ein echtes Kalenderdatum. Das Format nennt der Hinweis des Feldes, nie die Meldung. Reisekosten: siehe [localDate]. */
-    fun isoDate(value: String): FieldCheck =
-        if (runCatching { LocalDate.parse(value.trim()) }.isSuccess) {
-            FieldCheck.Ok
-        } else {
-            FieldCheck.Invalid(gettext("Bitte ein gültiges Datum angeben."))
+    /**
+     * V1.9.137: eine Uhrzeit im Locale ([spec]): `15:05`, in en-US auch `3:05 PM`. Wie [localDate] nennt die Meldung das Muster (bewusste
+     * Abweichung von R24, gleiche Begründung: das Muster hängt vom Locale ab).
+     */
+    fun localTime(
+        value: String,
+        spec: TemporalLocale,
+    ): FieldCheck =
+        when (parseLocalTime(value, spec)) {
+            is TimeParse.Ok -> FieldCheck.Ok
+            TimeParse.BadFormat -> FieldCheck.Invalid(gettext("Bitte eine Uhrzeit im Format %1 eingeben.", timePatternText(spec)))
+            TimeParse.NoSuchTime -> FieldCheck.Invalid(gettext("Diese Uhrzeit gibt es nicht."))
+            TimeParse.AmPmMissing -> FieldCheck.Invalid(gettext("Bitte AM oder PM angeben."))
         }
 
     /** Irgendeine ganze Zahl (Position einer Tagesordnung): spiegelt "lässt sich als `Int` lesen". */

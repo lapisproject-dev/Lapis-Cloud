@@ -368,7 +368,7 @@ private fun renderDiscardedFooter(
     val changedAt = draft.statusChangedAt
     if (changedAt != null) {
         val deadline = changedAt.plusDays(DRAFT_RESTORE_WINDOW_DAYS)
-        row.div(gettext("Wiederherstellbar bis %1", deadline.toString())) { addCssClasses("text-muted small") }
+        row.div(gettext("Wiederherstellbar bis %1", formatSystemDateTime(deadline))) { addCssClasses("text-muted small") }
     }
     restoreButton.onClick {
         runGuardedAction(restoreButton) {

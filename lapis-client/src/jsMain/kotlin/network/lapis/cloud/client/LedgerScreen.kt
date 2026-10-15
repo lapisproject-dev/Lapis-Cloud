@@ -321,7 +321,7 @@ fun renderLedgerScreen(container: SimplePanel) {
     val journalDateFilter = journalFilterRow.dateRangeFilter(fromLabel = tr("Von"), toLabel = tr("Bis"))
     val journalRefreshButton = journalFilterRow.actionButton(ActionIcon.REFRESH, tr("Aktualisieren"), style = ButtonStyle.OUTLINESECONDARY)
     // Das Datumsformat steht im Hinweis, nie im Label (W4c): ein Beispielsatz stimmt in jeder Sprache.
-    root.div(tr("Beispiel: 2026-03-14.")) { addCssClasses("text-muted small") }
+    root.div(gettext("Format: %1", localeDatePattern())) { addCssClasses("text-muted small") }
     val journalCountsLabel = root.div().apply { addCssClasses("text-muted small") }
     val journalStatusRegion = root.dataStatusRegion()
     val journalListPanel = root.vPanel(spacing = 6)
@@ -1137,7 +1137,7 @@ internal fun renderHauptbuchView(
     account: LedgerAccountDto,
 ) {
     val filterControls = panel.dateRangeFilter(fromLabel = tr("Von"), toLabel = tr("Bis"))
-    panel.div(tr("Beispiel: 2026-03-14.")) { addCssClasses("text-muted small") }
+    panel.div(gettext("Format: %1", localeDatePattern())) { addCssClasses("text-muted small") }
     val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     // Welle V1.4.27 (W3): dataSection instead of a stuck "Wird geladen ..." when the load fails.
     val section =
@@ -1191,7 +1191,7 @@ internal fun renderKassenbuchView(
     account: LedgerAccountDto,
 ) {
     val filterControls = panel.dateRangeFilter(fromLabel = tr("Von"), toLabel = tr("Bis"))
-    panel.div(tr("Beispiel: 2026-03-14.")) { addCssClasses("text-muted small") }
+    panel.div(gettext("Format: %1", localeDatePattern())) { addCssClasses("text-muted small") }
     val loadButton = panel.button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
     val section =
         panel.dataSection<KassenbuchDto>(
@@ -1324,9 +1324,7 @@ private fun journalEntryColumns(): List<DataColumn<JournalEntryDto>> =
             sortKey = JOURNAL_SORT_DESCRIPTION,
             cell = { container, entry -> container.untrustedSpan(entry.description, className = "fw-bold") },
         ),
-        textColumn(title = tr("Datum"), numeric = true, sortKey = JOURNAL_SORT_DATE) { entry: JournalEntryDto ->
-            entry.entryDate.toString()
-        },
+        dateColumn(title = tr("Datum"), numeric = true, sortKey = JOURNAL_SORT_DATE) { entry: JournalEntryDto -> entry.entryDate },
         DataColumn(
             title = tr("Status"),
             cell = { container, entry ->
@@ -1635,7 +1633,7 @@ internal fun buildJournalEntryInput(
     postings: List<PostingInput>,
     donor: Triple<String?, String?, DonorCategory?>,
 ): JournalEntryInput? {
-    val entryDate = runCatching { LocalDate.parse(dateText.trim()) }.getOrNull() ?: return null
+    val entryDate = parseLocalDateOrNull(dateText) ?: return null
     val trimmedDescription = description.trim()
     if (!Validation.isNonBlank(trimmedDescription)) return null
     val (donorMemberId, externalDonorId, donorCategory) = donor
@@ -1678,12 +1676,10 @@ internal fun renderNewEntryForm(
     val form = root.lapisForm()
     val panel = form.panel
     val dateField =
-        form.textField(
+        form.localDateField(
             label = tr("Buchungsdatum"),
-            value = todayIso(),
+            value = organizationToday(),
             required = true,
-            hint = tr("Beispiel: 2026-03-14."),
-            rule = { FormRules.isoDate(it) },
         )
     val descriptionField =
         form.textField(
@@ -1947,7 +1943,7 @@ internal fun renderNewEntryForm(
 
     fun resetForm() {
         dateField.reset()
-        dateField.setValue(todayIso())
+        dateField.setValue(todayLocaleText())
         descriptionField.reset()
         voucherField.reset()
         clearRows()
@@ -2364,9 +2360,9 @@ private fun postingConfirmDialog(
     ) { addCssClass("fw-bold") }
     val entrySummary =
         if (voucherReference != null) {
-            gettext("%1 -- %2 (Beleg: %3)", entryDate, description, voucherReference)
+            gettext("%1 -- %2 (Beleg: %3)", formatDate(entryDate), description, voucherReference)
         } else {
-            gettext("%1 -- %2", entryDate, description)
+            gettext("%1 -- %2", formatDate(entryDate), description)
         }
     modal.div(entrySummary) {
         addCssClasses("text-muted small mb-2")
@@ -2397,10 +2393,6 @@ private fun postingConfirmDialog(
     modal.addButton(confirmButton)
     modal.show()
 }
-
-/** Mirrors `CommitteesScreen.kt`'s own private `todayIso()` -- no shared date-util file exists in
- * this client (each screen that needs "today as JJJJ-MM-TT" carries its own copy). */
-private fun todayIso(): String = organizationToday().toString()
 
 // ============================================================================================
 // German label/badge-color tables -- LedgerAccountType/PostingSide/JournalEntryStatus stay local

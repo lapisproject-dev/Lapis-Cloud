@@ -500,12 +500,10 @@ internal fun renderAddCommitteeOfficeForm(
         )
     val roleField = form.selectField(label = tr("Rolle"), options = roleOptions, value = CommitteeRole.CHAIR.name, required = true)
     val sinceField =
-        form.textField(
+        form.localDateField(
             label = tr("Seit"),
-            value = todayIso(),
+            value = organizationToday(),
             required = true,
-            hint = gettext("Beispiel: 2026-03-14."),
-            rule = { FormRules.isoDate(value = it) },
         )
     val addButton = newActionButton(ActionIcon.ADD, tr("Amt vergeben"), style = ButtonStyle.PRIMARY)
     form.buttons(primary = addButton)
@@ -518,7 +516,7 @@ internal fun renderAddCommitteeOfficeForm(
                         CommitteeMembershipInput(
                             memberId = memberField.value,
                             role = CommitteeRole.valueOf(roleField.value),
-                            since = LocalDate.parse(sinceField.value.trim()),
+                            since = checkNotNull(sinceField.localDateOrNull()),
                         ),
                     )
                 }
@@ -599,12 +597,10 @@ internal fun endCommitteeMembershipDialog(
     // Formular-Grammatik (V1.4.29): ein einziges Pflichtfeld (Enddatum): Stern und Legende (kein Fall (c)), keine Sammelmeldung (Einfeld-Formular).
     val form = modal.lapisForm()
     val untilField =
-        form.textField(
+        form.localDateField(
             label = tr("Enddatum"),
-            value = todayIso(),
+            value = organizationToday(),
             required = true,
-            hint = gettext("Beispiel: 2026-03-14."),
-            rule = { FormRules.isoDate(value = it) },
         )
     form.finish()
     modal.addButton(
@@ -614,7 +610,7 @@ internal fun endCommitteeMembershipDialog(
         Button(tr("Mitgliedschaft beenden"), style = ButtonStyle.DANGER).apply {
             onClick {
                 if (!form.validateAndReport()) return@onClick
-                val until = LocalDate.parse(untilField.value.trim())
+                val until = checkNotNull(untilField.localDateOrNull())
                 modal.hide()
                 onConfirm(until)
             }
@@ -647,12 +643,10 @@ internal fun renderAddCommitteeMemberForm(
     val memberSelect = memberField.control as SearchableSelect
     val roleField = form.selectField(label = tr("Rolle"), options = roleOptions, value = CommitteeRole.MEMBER.name, required = true)
     val sinceField =
-        form.textField(
+        form.localDateField(
             label = tr("Seit"),
-            value = todayIso(),
+            value = organizationToday(),
             required = true,
-            hint = gettext("Beispiel: 2026-03-14."),
-            rule = { FormRules.isoDate(value = it) },
         )
 
     AppScope.launch {
@@ -673,7 +667,7 @@ internal fun renderAddCommitteeMemberForm(
                         CommitteeMembershipInput(
                             memberId = memberField.value,
                             role = CommitteeRole.valueOf(roleField.value),
-                            since = LocalDate.parse(sinceField.value.trim()),
+                            since = checkNotNull(sinceField.localDateOrNull()),
                         ),
                     )
                 }
@@ -684,12 +678,6 @@ internal fun renderAddCommitteeMemberForm(
         }
     }
 }
-
-/** Today's date as `JJJJ-MM-TT`, used to pre-fill `since`/`until` date-text-inputs -- mirrors
- * `ContributionsScreen.kt`'s `Clock.System.now().toLocalDateTime(...)` idiom (the stdlib
- * `kotlin.time.Clock`, not `kotlinx.datetime.Clock` -- this codebase's pinned kotlinx-datetime
- * version only extends the former). */
-private fun todayIso(): String = organizationToday().toString()
 
 /**
  * German label/badge-color tables for [CommitteeType]/[CommitteeRole] -- this screen's own first

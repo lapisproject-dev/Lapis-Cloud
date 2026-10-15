@@ -97,7 +97,7 @@ class VolunteerAllowanceScreenFormDomTest {
                     element().chooseIn("Kategorie", VolunteerAllowanceCategory.INSTRUCTOR.name)
                     element().typeInto("Betrag (EUR)", "  123,45  ")
                     element().typeInto("Tätigkeitsbeschreibung", "  Jugendtrainer beim Vereinsfest  ")
-                    element().typeInto("Zahlungsdatum (JJJJ-MM-TT)", "  2026-03-10  ")
+                    element().typeInto("Zahlungsdatum", "  2026-03-10  ")
                     element().buttonNamed("Entwurf anlegen").click()
                     awaitUntil("createDraft", timeoutMs = 800) { calls.toRoute(createDraftRoute).size == 1 }
                     val call = calls.singleCall(createDraftRoute)
@@ -148,7 +148,7 @@ class VolunteerAllowanceScreenFormDomTest {
                     delay(80)
                     element().typeInto("Betrag (EUR)", "50,00")
                     element().typeInto("Tätigkeitsbeschreibung", "Jugendtrainer beim Vereinsfest")
-                    element().typeInto("Zahlungsdatum (JJJJ-MM-TT)", "nicht-ein-datum")
+                    element().typeInto("Zahlungsdatum", "nicht-ein-datum")
                     element().buttonNamed("Entwurf anlegen").click()
                     delay(80)
                     assertTrue(calls.toRoute(createDraftRoute).isEmpty(), "no createDraft call for an invalid date")
@@ -190,7 +190,7 @@ class VolunteerAllowanceScreenFormDomTest {
                     element().typeInto("Betrag (EUR)", "50,00")
                     // Below VolunteerAllowanceRules.MIN_ACTIVITY_DESCRIPTION_LENGTH (3).
                     element().typeInto("Tätigkeitsbeschreibung", "ab")
-                    element().typeInto("Zahlungsdatum (JJJJ-MM-TT)", "2026-03-10")
+                    element().typeInto("Zahlungsdatum", "2026-03-10")
                     element().buttonNamed("Entwurf anlegen").click()
                     delay(80)
                     assertTrue(calls.toRoute(createDraftRoute).isEmpty(), "no createDraft call for a too-short description")

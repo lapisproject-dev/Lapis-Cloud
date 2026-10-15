@@ -463,8 +463,12 @@ private fun versionColumns(): List<DataColumn<DocumentVersionDto>> =
         ),
         textColumn(title = tr("Größe"), numeric = true) { version: DocumentVersionDto -> formatFileSize(version.fileSizeBytes) },
         textColumn(title = tr("Hochgeladen von")) { version: DocumentVersionDto -> version.uploadedByDisplayName },
-        textColumn(title = tr("Hochgeladen am"), sortKey = VERSION_SORT_UPLOADED) { version: DocumentVersionDto ->
-            version.uploadedAt.toString()
+        systemDateTimeColumn(
+            title = tr("Hochgeladen am"),
+            numeric = false,
+            sortKey = VERSION_SORT_UPLOADED,
+        ) { version: DocumentVersionDto ->
+            version.uploadedAt
         },
         textColumn(title = tr("Änderungshinweis")) { version: DocumentVersionDto -> version.changeNote.orEmpty() },
         // Own text element, `text-muted small` as its own CSS class (design rule, see `formatDownloadCount` in FileDisplay.kt).

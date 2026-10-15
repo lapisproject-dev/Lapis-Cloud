@@ -1646,6 +1646,8 @@ since the field-list-derived grep only ever undercounts, as this section's own e
    today because every such branch was reviewed call site by call site during this wave, but no automated check
    would catch a future regression where a sentence literally ends "am" with nothing after it.
 
+NOTE: *V1.9.137:* every entry of the tables below is closed. `T5A_LEDGER` is `emptyMap()`; the sites moved onto `formatDate`/`formatSystemDateTime` and the `dateColumn`/`systemDateTimeColumn` forms, the three `ReportRows.kt` rows onto `dateToken` (the golden test pins the token). The tables are kept as the historical record of what Teilwelle B left open. See xref:../features/locale-dates.adoc[Dates and times in the UI locale].
+
 The table below names `T5A_LEDGER` (route 1) as measured by Teilwelle B's own re-scan -- larger than the number in
 prior revisions of this section, for the same reason T5b's count grew: this wave's grep additionally excludes
 machine-readable/sort-key contexts (`setValue(`/`value = `/`compareBy`/`thenBy`/`sortedBy`/`sortedWith`/`sortBy`)

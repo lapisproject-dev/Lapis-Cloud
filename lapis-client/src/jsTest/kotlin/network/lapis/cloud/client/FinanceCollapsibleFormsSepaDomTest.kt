@@ -135,7 +135,7 @@ class FinanceCollapsibleFormsSepaDomTest {
                     reopened.buttonNamed("Abbrechen").click()
                     awaitDiscardDialog().buttonNamed("Weiter bearbeiten").click()
                     awaitUntil("the dialog is gone") { document.querySelector(".modal.show") == null }
-                    assertEquals("2030-01-15", (reopened.controlOf("Einzugsdatum") as HTMLInputElement).value)
+                    assertEquals("15.01.2030", (reopened.controlOf("Einzugsdatum") as HTMLInputElement).value)
                 }
             }
         }

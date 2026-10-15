@@ -938,8 +938,8 @@ class LapisField internal constructor(
     var dirty: Boolean = false
         private set
 
-    /** V1.9.132: gesetzt von [localDateField] -- die Reihenfolge, in der dieses Feld sein Datum liest und zeigt. */
-    internal var dateSpec: DateFieldOrder? = null
+    /** V1.9.132: gesetzt von [localDateField]/[localTimeField] -- das Locale, in dem dieses Feld sein Datum bzw. seine Uhrzeit liest und zeigt. */
+    internal var dateSpec: TemporalLocale? = null
 
     /** V1.9.78: die Aufdecken-Gruppe dieses Passwortfelds (eigene oder die des Hauptfelds). */
     internal var revealGroup: RevealGroup? = null
@@ -1034,12 +1034,13 @@ class LapisField internal constructor(
      * für ein Feld, das nur bei einer bestimmten Auswahl gilt (Sterbedatum bei Zielstatus "Verstorben"). Für `select` und
      * `check` liegen Hinweis- und Fehlerslot als Geschwister außerhalb des Steuerelements; dort würde nur das Steuerelement
      * verschwinden und ein Fehlertext ohne Feld stehen bleiben, deshalb scheitert der Aufruf laut. Ein bereits angezeigter
-     * Fehler wird beim Ausblenden geräumt; die Feldregel eines ausgeblendeten Feldes muss der Aufrufer selbst stillegen
-     * (sonst blockiert ein unsichtbarer Fehler das Absenden).
+     * Fehler wird beim Ausblenden geräumt, und ein ausgeblendetes Feld gilt immer als gültig (auch bei Pflicht oder ungültig
+     * stehengebliebenem Text) -- sonst blockierte ein unsichtbarer Fehler das Absenden. Der Text bleibt erhalten.
      */
     fun setVisible(visible: Boolean) {
         val widget = control as? AbstractText
         check(widget != null) { "LapisField.setVisible() supports text controls only, not ${control::class.simpleName}" }
+        hiddenByCaller = !visible
         if (visible) {
             widget.show()
         } else {
@@ -1114,7 +1115,12 @@ class LapisField internal constructor(
         }
     }
 
+    /** `true` nach `setVisible(false)`: das Feld ist ausgeblendet und wird nicht geprüft. */
+    internal var hiddenByCaller: Boolean = false
+        private set
+
     private fun evaluate(): FieldCheck {
+        if (hiddenByCaller) return FieldCheck.Ok
         if (control is CheckBox) {
             // KVisions `CheckBox.getValueAsString()` ist `"false"` (nicht leer): die Pflicht heißt hier "angekreuzt".
             if (required && !control.value) return FieldCheck.Invalid(requiredMessage ?: gettext("Bitte dieses Kästchen ankreuzen."))

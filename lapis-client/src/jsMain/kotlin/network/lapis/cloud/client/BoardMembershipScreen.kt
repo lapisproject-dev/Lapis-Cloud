@@ -231,12 +231,10 @@ internal fun endBoardMembershipDialog(
     // Formular-Grammatik (V1.4.29): ein einziges Pflichtfeld (Enddatum): Stern und Legende (kein Fall (c)), keine Sammelmeldung (Einfeld-Formular).
     val form = modal.lapisForm()
     val untilField =
-        form.textField(
+        form.localDateField(
             label = tr("Enddatum"),
-            value = todayIso(),
+            value = organizationToday(),
             required = true,
-            hint = gettext("Beispiel: 2026-03-14."),
-            rule = { FormRules.isoDate(value = it) },
         )
     form.finish()
     modal.addButton(
@@ -246,7 +244,7 @@ internal fun endBoardMembershipDialog(
         Button(tr("Mitgliedschaft beenden"), style = ButtonStyle.DANGER).apply {
             onClick {
                 if (!form.validateAndReport()) return@onClick
-                val until = LocalDate.parse(untilField.value.trim())
+                val until = checkNotNull(untilField.localDateOrNull())
                 modal.hide()
                 onConfirm(until)
             }
@@ -290,12 +288,10 @@ internal fun renderAppointmentForm(
     val memberSelect = memberField.control as SearchableSelect
     val roleField = form.selectField(label = tr("Rolle"), options = roleOptions, value = CommitteeRole.MEMBER.name, required = true)
     val startedAtField =
-        form.textField(
+        form.localDateField(
             label = tr("Seit"),
-            value = todayIso(),
+            value = organizationToday(),
             required = true,
-            hint = gettext("Beispiel: 2026-03-14."),
-            rule = { FormRules.isoDate(value = it) },
         )
 
     val snapshot = form.snapshot()
@@ -315,7 +311,7 @@ internal fun renderAppointmentForm(
         val memberId = memberField.value
         val role = CommitteeRole.valueOf(roleField.value)
         val input =
-            BoardMembershipInput(memberId = memberId, committeeRole = role, startedAt = LocalDate.parse(startedAtField.value.trim()))
+            BoardMembershipInput(memberId = memberId, committeeRole = role, startedAt = checkNotNull(startedAtField.localDateOrNull()))
 
         fun doAppoint() {
             form.runBusy(appointButton) {
@@ -483,10 +479,6 @@ fun resolvedCaption(reminder: TransparenzregisterReminderDto): String {
     val who = reminder.resolvedByDisplayName ?: reminder.resolvedById ?: gettext("unbekannt")
     return gettext("Bestätigt von %1 am %2", who, formatSystemDateTime(reminder.resolvedAt!!))
 }
-
-/** Today's date as `JJJJ-MM-TT` -- mirrors `CommitteesScreen.todayIso`'s own `kotlin.time.Clock`
- * idiom (this codebase's pinned kotlinx-datetime version only extends the stdlib clock). */
-private fun todayIso(): String = organizationToday().toString()
 
 // ================================================================================================
 // Copy constants -- the German source text is the msgid; every use site wraps it in `tr(...)` (audit fix M4), so they are translated.

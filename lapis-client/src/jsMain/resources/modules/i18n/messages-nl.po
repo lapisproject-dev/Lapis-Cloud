@@ -24190,3 +24190,129 @@ msgstr "De contracttekst is niet toegestaan. Controleer lengte, tekens, versie e
 
 msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
 msgstr "Het concept is intussen gewijzigd. Laad de weergave opnieuw en controleer het opnieuw."
+
+msgid "%1 (Datum)"
+msgstr "%1 (datum)"
+
+msgid "%1 (Uhrzeit)"
+msgstr "%1 (tijd)"
+
+msgid "Aufsichtsbehörde benachrichtigt am (optional)"
+msgstr "Toezichthouder op de hoogte gesteld op (optioneel)"
+
+msgid "Befreiung ab"
+msgstr "Vrijstelling vanaf"
+
+msgid "Betroffene Personen benachrichtigt am (optional)"
+msgstr "Betrokken personen op de hoogte gesteld op (optioneel)"
+
+msgid "Bis (Pflichtfeld)"
+msgstr "Tot (verplicht)"
+
+msgid "Bis (optional)"
+msgstr "Tot (optioneel)"
+
+msgid "Bitte AM oder PM angeben."
+msgstr "Geef AM of PM op."
+
+msgid "Bitte Mitglied, Titel, Kategorie und ein gültiges Datum (%1) angeben."
+msgstr "Geef een lid, een titel, een categorie en een geldige datum (%1) op."
+
+msgid "Bitte Start- und Enddatum im Format %1 angeben -- beide Felder sind hier Pflicht."
+msgstr "Geef een begin- en einddatum op in het formaat %1 -- beide velden zijn hier verplicht."
+
+msgid "Bitte Von- und Bis-Datum angeben (%1) -- beide sind für den DATEV-Export Pflicht."
+msgstr "Geef een begin- en einddatum op (%1) -- beide zijn verplicht voor de DATEV-export."
+
+msgid "Bitte ein gültiges \"Bis\"-Datum angeben (%1)."
+msgstr "Geef een geldige datum \"tot\" op (%1)."
+
+msgid "Bitte ein gültiges \"Von\"- und \"Bis\"-Datum angeben (%1)."
+msgstr "Geef geldige datums \"van\" en \"tot\" op (%1)."
+
+msgid "Bitte ein gültiges Beginn-Datum angeben (%1)."
+msgstr "Geef een geldige begindatum op (%1)."
+
+msgid "Bitte ein gültiges, in der Zukunft liegendes Fälligkeitsdatum angeben (%1)."
+msgstr "Geef een geldige vervaldatum in de toekomst op (%1)."
+
+msgid "Bitte eine Uhrzeit im Format %1 eingeben."
+msgstr "Voer een tijd in met het formaat %1."
+
+msgid "Bitte einen gültigen Entdeckungszeitpunkt, Beschreibung, betroffene Datenkategorien und Status angeben."
+msgstr "Geef een geldig ontdekkingstijdstip, een beschrijving, de betrokken gegevenscategorieën en een status op."
+
+msgid "Bitte einen gültigen Stichtag angeben (%1)."
+msgstr "Geef een geldige peildatum op (%1)."
+
+msgid "Bitte einen gültigen Zeitpunkt angeben."
+msgstr "Geef een geldig tijdstip op."
+
+msgid "Bitte gültige Datumsangaben (%1) verwenden, oder das Feld leer lassen."
+msgstr "Gebruik geldige datums (%1) of laat het veld leeg."
+
+msgid "Der Zeitpunkt der Entdeckung startet die 72-Stunden-Frist."
+msgstr "Het tijdstip van ontdekking start de termijn van 72 uur."
+
+msgid "Mo."
+msgstr "ma"
+
+msgid "Di."
+msgstr "di"
+
+msgid "Mi."
+msgstr "wo"
+
+msgid "Do."
+msgstr "do"
+
+msgid "Fr."
+msgstr "vr"
+
+msgid "Sa."
+msgstr "za"
+
+msgid "So."
+msgstr "zo"
+
+msgid "Diese Uhrzeit gibt es nicht."
+msgstr "Deze tijd bestaat niet."
+
+msgid "Entdeckt am"
+msgstr "Ontdekt op"
+
+msgid "Monat (Tag wird ignoriert)"
+msgstr "Maand (de dag wordt genegeerd)"
+
+msgid "Neues Fälligkeitsdatum"
+msgstr "Nieuwe vervaldatum"
+
+msgid "Prüftermin (optional)"
+msgstr "Controledatum (optioneel)"
+
+msgid "Stichtag"
+msgstr "Peildatum"
+
+msgid "Unterzeichnet am (optional)"
+msgstr "Ondertekend op (optioneel)"
+
+msgid "Verliehen am"
+msgstr "Verleend op"
+
+msgid "Von (Pflichtfeld)"
+msgstr "Van (verplicht)"
+
+msgid "Von (optional)"
+msgstr "Van (optioneel)"
+
+msgid "Wiedervorlage am (optional)"
+msgstr "Opvolging op (optioneel)"
+
+msgid "Zeitpunkt (optional, leer = jetzt)"
+msgstr "Tijdstip (optioneel, leeg = nu)"
+
+msgid "Zeitpunkt der Einwilligung"
+msgstr "Tijdstip van de toestemming"
+
+msgid "hh:mm"
+msgstr "uu:mm"

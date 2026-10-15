@@ -183,13 +183,13 @@ class DsgvoRightsScreenTest {
                 decisionNote = "Identität geprüft.",
             )
         val caption = erasureDecidedCaption(r)
-        assertEquals("Entschieden von admin-1 am 2026-01-02T09:00: Identität geprüft.", caption)
+        assertEquals("Entschieden von admin-1 am ${formatSystemDateTime(LocalDateTime(2026, 1, 2, 9, 0))}: Identität geprüft.", caption)
     }
 
     @Test
     fun erasureDecidedCaption_omitsNoteSuffixWhenNoteAbsent() {
         val r = request(ErasureStatus.APPROVED, decidedBy = "admin-1", decidedAt = LocalDateTime(2026, 1, 2, 9, 0))
-        assertEquals("Entschieden von admin-1 am 2026-01-02T09:00", erasureDecidedCaption(r))
+        assertEquals("Entschieden von admin-1 am ${formatSystemDateTime(LocalDateTime(2026, 1, 2, 9, 0))}", erasureDecidedCaption(r))
     }
 
     @Test

@@ -96,11 +96,14 @@ internal fun travelExpensePreview(
 /** `1234` minutes -> `20:34`; the "Stunden h:mm" shown next to a day's times. */
 internal fun travelExpenseDuration(minutes: Int): String = "${minutes / 60}:${pad2(minutes % 60)}"
 
-/** `"08:30"` (native time input) -> [LocalTime]; blank or malformed -> `null`. */
-internal fun travelExpenseParseTime(raw: String?): LocalTime? {
+/** `"08:30"` (a time typed in the locale of [locale], V1.9.137; en-US also `8:30 AM`) -> [LocalTime]; blank or malformed -> `null`. */
+internal fun travelExpenseParseTime(
+    raw: String?,
+    locale: TemporalLocale = currentTemporalLocale(),
+): LocalTime? {
     val text = raw?.trim().orEmpty()
     if (text.isEmpty()) return null
-    return runCatching { LocalTime.parse(text) }.getOrNull()
+    return (parseLocalTime(text, locale) as? TimeParse.Ok)?.time
 }
 
 /** `"12,50"` / `"12.5"` -> 1250 cents; blank -> 0; malformed or more than 2 decimals -> `null`. Whole cents, never a `Double`. */

@@ -250,7 +250,7 @@ class CarpoolCollapsibleFormDomTest {
                     val host = assertNotNull(screen.querySelector("[id='$formId']") as? HTMLElement)
                     assertTrue(host.shows("Eintrag bearbeiten"))
                     assertEquals("Braunschweig", host.valueOf("Von (Ort oder PLZ)"))
-                    assertEquals("2099-05-01", host.valueOf("Abfahrtsdatum"))
+                    assertEquals("01.05.2099", host.valueOf("Abfahrtsdatum"))
                     assertEquals(1, screen.allOf("[id='$formId'] .lapis-form").size, "never two forms at once")
 
                     screen.buttonNamed("Duplizieren").click()

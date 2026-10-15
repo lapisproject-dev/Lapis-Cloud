@@ -656,7 +656,7 @@ fun erasureDecidedCaption(request: ErasureRequestDto): String? {
             ?.takeIf { it.isNotBlank() }
             ?.let { gettext(": %1", it) }
             .orEmpty()
-    return gettext("Entschieden von %1 am %2", decidedBy, decidedAt) + notePart
+    return gettext("Entschieden von %1 am %2", decidedBy, formatSystemDateTime(decidedAt)) + notePart
 }
 
 /** [ErasureRequestDto] has no `executedBy` field (only [ErasureRequestDto.executedAt]) --

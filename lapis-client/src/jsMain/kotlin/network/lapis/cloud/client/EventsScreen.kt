@@ -13,7 +13,6 @@ import io.kvision.form.upload.upload
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
-import io.kvision.html.InputType
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
@@ -55,11 +54,9 @@ import network.lapis.cloud.shared.rpc.IEventService
  * Screens [Routes.EVENT_ROOMS]/[Routes.EVENT_VOLUNTEERS]/[Routes.CATERING]/[Routes.EVENT_CHECKIN]
  * stay their own routes -- linked here only as secondary links, no parametrized sub-routing.
  *
- * Start/Ende/Anmeldeschluss use a native `datetime-local` input ([InputType.DATETIME_LOCAL]) --
- * unlike `EventVolunteerShiftsScreen.kt` (which predates this verification), KVision 9.6.0's
- * `io.kvision.html.InputType` DOES carry `DATETIME_LOCAL` (`"datetime-local"`), and
- * `io.kvision.form.text.Text`'s constructor accepts a `type: InputType` parameter -- confirmed by
- * inspecting the `kvision-js` klib directly (no repo precedent existed yet to copy from).
+ * Start/Ende/Anmeldeschluss are a date field plus a time field each ([LocalDateTimeInput], V1.9.137): the person types them in the
+ * locale of the UI (`15.10.2026` / `18:00`, en-US `10/15/2026` / `6:00 PM`) and the form reads ISO. The browser's own
+ * `datetime-local` picker is gone on purpose -- its display followed the operating system, not the UI language.
  */
 fun renderEventsScreen(container: SimplePanel) {
     val root =
@@ -197,7 +194,7 @@ private fun renderEventListRow(
         headerRow.eventVisibilityBadge(event.visibility)
         if (event.imported) headerRow.div(tr("Importiert")) { addCssClasses("badge text-bg-secondary") }
 
-        displayHolder.div(event.startsAt.toString()) { addCssClasses("text-muted small") }
+        displayHolder.weekdayDateTimeSpan(event.startsAt).apply { addCssClasses("text-muted small") }
         if (event.roomName != null) {
             displayHolder.div(gettext("Raum: %1", event.roomName)) { addCssClasses("text-muted small") }
         }
@@ -414,9 +411,9 @@ private class EventFormFieldRefs(
     val locationTextInput: Text,
     /** V1.9.113 -- the "Online-Teilnahme" section: the kind, the external link (only for the external kind) and the encounter space. */
     val online: EventOnlineKindRefs,
-    val startsAtInput: Text,
-    val endsAtInput: Text,
-    val registrationClosesAtInput: Text,
+    val startsAtInput: LocalDateTimeInput,
+    val endsAtInput: LocalDateTimeInput,
+    val registrationClosesAtInput: LocalDateTimeInput,
     val capacityInput: Text,
     val feeAmountInput: Text,
     val visibilitySelect: Select,
@@ -456,7 +453,7 @@ private fun buildEventFormFields(
     panel.div(tr("Wird öffentlich angezeigt.")) { addCssClasses("text-muted small") }
     // V1.9.113: the form fields the online section's warnings depend on are created further below; the section reads them through these holders.
     var visibilityHolder: Select? = null
-    var registrationClosesHolder: Text? = null
+    var registrationClosesHolder: LocalDateTimeInput? = null
     var capacityHolder: Text? = null
     val online =
         buildEventOnlineKindSection(
@@ -468,18 +465,14 @@ private fun buildEventFormFields(
                         visibilityHolder?.value?.let { runCatching { EventVisibility.valueOf(it) }.getOrNull() }
                             ?: prefill?.visibility ?: EventVisibility.MEMBERS_ONLY
                     },
-                    hasRegistrationDeadline = { !registrationClosesHolder?.value.isNullOrBlank() },
+                    hasRegistrationDeadline = { registrationClosesHolder?.isBlank == false },
                     capacity = { capacityHolder?.value?.trim()?.toIntOrNull() },
                 ),
         )
-    val startsAtInput =
-        panel.text(type = InputType.DATETIME_LOCAL, label = tr("Beginn")).apply { value = prefill?.startsAt?.toString() }
-    val endsAtInput =
-        panel.text(type = InputType.DATETIME_LOCAL, label = tr("Ende")).apply { value = prefill?.endsAt?.toString() }
+    val startsAtInput = panel.localDateTimeInput(label = gettext("Beginn"), value = prefill?.startsAt)
+    val endsAtInput = panel.localDateTimeInput(label = gettext("Ende"), value = prefill?.endsAt)
     val registrationClosesAtInput =
-        panel.text(type = InputType.DATETIME_LOCAL, label = tr("Anmeldeschluss (optional)")).apply {
-            value = prefill?.registrationClosesAt?.toString()
-        }
+        panel.localDateTimeInput(label = gettext("Anmeldeschluss (optional)"), value = prefill?.registrationClosesAt)
     val capacityInput = panel.text(label = tr("Kapazität (optional)")).apply { value = prefill?.capacity?.toString() }
     capacityHolder = capacityInput
     registrationClosesHolder = registrationClosesAtInput
@@ -586,9 +579,9 @@ private fun readEventForm(
                 } else {
                     ""
                 },
-            startsAtRaw = fields.startsAtInput.value.orEmpty(),
-            endsAtRaw = fields.endsAtInput.value.orEmpty(),
-            registrationClosesAtRaw = fields.registrationClosesAtInput.value.orEmpty(),
+            startsAtRaw = fields.startsAtInput.value,
+            endsAtRaw = fields.endsAtInput.value,
+            registrationClosesAtRaw = fields.registrationClosesAtInput.value,
             capacityRaw = fields.capacityInput.value.orEmpty(),
             feeAmountRaw = feeAmountRaw,
             visibility = visibility,

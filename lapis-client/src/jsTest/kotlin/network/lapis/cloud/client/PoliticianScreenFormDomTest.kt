@@ -80,7 +80,7 @@ class PoliticianScreenFormDomTest {
                 mountedForm("politician-snapshot-happy") { root, element ->
                     renderPoliticianScreen(root)
                     delay(80)
-                    element().typeInto("Monat (JJJJ-MM-TT, Tag wird ignoriert)", "  2026-03-14  ")
+                    element().typeInto("Monat (Tag wird ignoriert)", "  2026-03-14  ")
                     element().buttonNamed("Snapshot auslösen").click()
                     awaitUntil("snapshotWeights", timeoutMs = 800) { calls.toRoute(snapshotRoute).size == 1 }
                     val call = calls.singleCall(snapshotRoute)
@@ -109,7 +109,7 @@ class PoliticianScreenFormDomTest {
                 mountedForm("politician-snapshot-invalid") { root, element ->
                     renderPoliticianScreen(root)
                     delay(80)
-                    element().typeInto("Monat (JJJJ-MM-TT, Tag wird ignoriert)", "  nicht-ein-datum  ")
+                    element().typeInto("Monat (Tag wird ignoriert)", "  nicht-ein-datum  ")
                     element().buttonNamed("Snapshot auslösen").click()
                     delay(80)
                     // NOT "no RPC at all": the screen's own background reads (listPoliticians, getTopPoliticians,

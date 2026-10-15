@@ -14,7 +14,6 @@ import io.kvision.panel.SimplePanel
 import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import kotlinx.coroutines.launch
-import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.SepaMandateInput
 import network.lapis.cloud.shared.rpc.ISepaService
@@ -137,8 +136,6 @@ internal suspend fun loadMyMandateQuietly() = sepaProbe { rpcService<ISepaServic
 
 internal suspend fun loadMyPrenotificationsQuietly() = sepaProbe { rpcService<ISepaService>().listMyPrenotifications() }
 
-private fun todayIso(): String = organizationToday().toString()
-
 /**
  * Plan §2.5 -- the shared mandate form for both self- and on-behalf ([onBehalf]) grants, rendered
  * inline (K9: never a modal for a data-entry form of this length). [memberOptions] is empty for
@@ -218,13 +215,11 @@ internal fun renderSepaMandateForm(
             },
         )
     val signatureDateField =
-        form.textField(
+        form.localDateField(
             label = tr("Datum der Unterschrift"),
-            value = todayIso(),
+            value = organizationToday(),
             required = true,
-            hint = tr("Beispiel: 2026-03-14."),
             requiredMessage = tr("Bitte ein gültiges Datum angeben."),
-            rule = { FormRules.isoDate(it) },
         )
     val acknowledgedField =
         form.checkField(
@@ -246,7 +241,7 @@ internal fun renderSepaMandateForm(
             val debtorName = debtorNameField.value.trim()
             val ibanRaw = ibanField.value.trim()
             val bicRaw = bicField.value.trim().uppercase()
-            val signatureDate = runCatching { LocalDate.parse(signatureDateField.value.trim()) }.getOrNull() ?: return@submit
+            val signatureDate = signatureDateField.localDateOrNull() ?: return@submit
             val acknowledged = (acknowledgedField.control as CheckBox).value
             val result =
                 sepaGuarded(gettext(SEPA_MANDATE_CONFLICT_MESSAGE, SEPA_SIGNATURE_MAX_AGE_MONTHS)) {
@@ -275,7 +270,7 @@ internal fun renderSepaMandateForm(
                 ibanEcho.content = ""
                 bicField.reset()
                 signatureDateField.reset()
-                signatureDateField.setValue(todayIso())
+                signatureDateField.setValue(todayLocaleText())
                 acknowledgedField.reset()
                 onGranted()
                 collapse?.invoke(true)

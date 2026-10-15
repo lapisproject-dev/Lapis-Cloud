@@ -63,11 +63,8 @@ class FormGrammarPart2I18nCatalogTest :
         /** Sentences this wave put into the catalog (previously untranslated or new): held to the French non-breaking-space rule. */
         val newSentences =
             listOf(
-                "Beispiel: 2026-03-14.",
-                "Beispiel: 2026-08-15T18:00.",
                 "Eingecheckt: %1",
                 "Bitte dieses Kästchen ankreuzen.",
-                "Bitte einen gültigen Termin angeben.",
                 "Bitte eine ganze Zahl eingeben.",
                 "Bitte eine ganze Zahl von %1 oder größer eingeben.",
                 "Aktuelle Mitgliedschaftsstufe: %1",
@@ -293,7 +290,6 @@ class FormGrammarPart2I18nCatalogTest :
             val ids = waveMessages.map { it.msgid }
             listOf(
                 "Bitte dieses Kästchen ankreuzen.",
-                "Bitte einen gültigen Termin angeben.",
                 "Bitte eine ganze Zahl eingeben.",
                 "Bitte eine ganze Zahl von %1 oder größer eingeben.",
                 "Bitte eine Begründung mit %1 bis %2 Zeichen angeben.",
@@ -305,7 +301,7 @@ class FormGrammarPart2I18nCatalogTest :
             val ids = waveMessages.filter { it.file in setOf("MemberAdministrationScreen.kt", "EventCheckInScreen.kt") }.map { it.msgid }
             listOf(
                 "Sterbedatum",
-                "Beispiel: 2026-03-14.",
+                "Leer lassen nimmt ein irrtümlich erfasstes Datum zurück.",
                 "Ticket-Code",
                 "Code unbekannt.",
                 "Mitgliedschaftsstufe",

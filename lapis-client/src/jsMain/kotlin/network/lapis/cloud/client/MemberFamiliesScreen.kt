@@ -572,9 +572,9 @@ internal fun familiesEmptyStateText(): String = tr("Keine Familien angelegt.")
 
 internal fun majorityRowLabel(entry: UpcomingMajorityEntryDto): String =
     if (entry.alreadyMajor) {
-        gettext("%1 · %2 · bereits volljährig seit %3", entry.memberDisplayName, entry.familyName, entry.turnsMajorOn.toString())
+        gettext("%1 · %2 · bereits volljährig seit %3", entry.memberDisplayName, entry.familyName, formatDate(entry.turnsMajorOn))
     } else {
-        gettext("%1 · %2 · wird volljährig am %3", entry.memberDisplayName, entry.familyName, entry.turnsMajorOn.toString())
+        gettext("%1 · %2 · wird volljährig am %3", entry.memberDisplayName, entry.familyName, formatDate(entry.turnsMajorOn))
     }
 
 /** `null` when every dependent already has a recorded birthdate -- the mandatory coverage line otherwise. */

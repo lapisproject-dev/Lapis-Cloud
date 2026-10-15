@@ -209,8 +209,8 @@ class PseudoTableGoldenDomTest {
             assertEquals(listOf("Monat", "Mitglieder-Gewicht", "Gast-Gewicht", "Gesamt", "Berechnet"), element().headerTexts())
             assertEquals(
                 listOf(
-                    listOf("2026-08-01", "◆ 10,50${NBSP}LTR", "2,50", "13,00", "01.09.2026,${NBSP}02:00"),
-                    listOf("2026-07-01", "◆ 8,00${NBSP}LTR", "1", "9,00", "01.08.2026,${NBSP}02:00"),
+                    listOf("01.08.2026", "◆ 10,50${NBSP}LTR", "2,50", "13,00", "01.09.2026,${NBSP}02:00"),
+                    listOf("01.07.2026", "◆ 8,00${NBSP}LTR", "1", "9,00", "01.08.2026,${NBSP}02:00"),
                 ),
                 element().bodyRows(),
             )
@@ -297,7 +297,7 @@ class PseudoTableGoldenDomTest {
             assertEquals(0, element().querySelectorAll("table").length, "no table below 768 px")
             assertEquals(8, element().querySelectorAll(".lapis-data-card").length, "one card per entry")
             val text = element().textContent.orEmpty()
-            listOf("Vereinsbanner", "Tombola", "Vereinsgarten", "Jugendtreff", "2026-08-01", "Anna", "Bert").forEach { name ->
+            listOf("Vereinsbanner", "Tombola", "Vereinsgarten", "Jugendtreff", "01.08.2026", "Anna", "Bert").forEach { name ->
                 assertTrue(text.contains(name), "card list shows $name")
             }
         }

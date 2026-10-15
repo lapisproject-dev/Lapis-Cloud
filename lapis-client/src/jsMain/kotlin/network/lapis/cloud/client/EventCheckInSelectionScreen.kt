@@ -64,7 +64,7 @@ fun renderEventCheckInSelectionScreen(container: SimplePanel) {
                 val headerRow = row.hPanel(spacing = 12) { addCssClasses("align-items-center justify-content-between") }
                 headerRow.div {
                     untrustedDiv(event.title) { addCssClasses("fw-bold") }
-                    dateTimeSpan(event.startsAt).addCssClasses("text-muted small")
+                    weekdayDateTimeSpan(event.startsAt).addCssClasses("text-muted small")
                 }
                 headerRow.button(tr("Check-in öffnen"), style = ButtonStyle.PRIMARY) {
                     onClick { navigateTo("${Routes.EVENT_CHECKIN}/${event.id}") }

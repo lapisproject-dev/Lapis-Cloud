@@ -1404,27 +1404,23 @@ internal fun renderOpenItemCreateForm(
     val prefillHint = panel.div().apply { addCssClasses("text-muted small") }
     val today = todayLocalDate()
     val itemDateField =
-        form.textField(
+        form.localDateField(
             label = tr("Belegdatum"),
-            value = today.toString(),
+            value = today,
             required = true,
-            hint = tr("Beispiel: 2026-03-14."),
             requiredMessage = tr("Bitte ein Belegdatum angeben."),
-            rule = { FormRules.isoDate(it) },
         )
     val dueDateField =
-        form.textField(
+        form.localDateField(
             label = tr("Fällig am"),
-            value = today.plus(DatePeriod(days = OPEN_ITEMS_DEFAULT_DUE_DAYS)).toString(),
+            value = today.plus(DatePeriod(days = OPEN_ITEMS_DEFAULT_DUE_DAYS)),
             required = true,
-            hint = tr("Beispiel: 2026-03-14."),
             requiredMessage = tr("Bitte ein Fälligkeitsdatum angeben."),
-            rule = { FormRules.isoDate(it) },
         )
     // Das Fälligkeitsdatum darf nicht vor dem Belegdatum liegen -- am Fälligkeitsfeld gezeigt, geprüft, sobald beide Daten echte Daten sind.
     form.crossFieldRule(field = dueDateField) {
-        val itemDate = runCatching { LocalDate.parse(itemDateField.value.trim()) }.getOrNull()
-        val dueDate = runCatching { LocalDate.parse(dueDateField.value.trim()) }.getOrNull()
+        val itemDate = itemDateField.localDateOrNull()
+        val dueDate = dueDateField.localDateOrNull()
         if (itemDate != null && dueDate != null && dueDate < itemDate) {
             FieldCheck.Invalid(gettext("Das Fälligkeitsdatum darf nicht vor dem Belegdatum liegen."))
         } else {
@@ -1568,8 +1564,8 @@ internal fun renderOpenItemCreateForm(
     saveButton.onClick {
         form.submit(saveButton) {
             val direction = selectedDirection()
-            val itemDate = runCatching { LocalDate.parse(itemDateField.value.trim()) }.getOrNull()
-            val dueDate = runCatching { LocalDate.parse(dueDateField.value.trim()) }.getOrNull()
+            val itemDate = itemDateField.localDateOrNull()
+            val dueDate = dueDateField.localDateOrNull()
             val amount = parseAmountInput(amountField.value)
             val contraAccountId = contraField.value.takeIf { it.isNotBlank() }
             val reference = referenceField.value.trim().takeIf { it.isNotEmpty() }

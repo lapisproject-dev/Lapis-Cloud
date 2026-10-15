@@ -19,7 +19,6 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
-import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AgendaItemDto
 import network.lapis.cloud.shared.domain.AgendaItemInput
@@ -250,13 +249,7 @@ internal fun renderMeetingCreationForm(
     val committeeField =
         form.selectField(label = tr("Gremium"), options = committeeOptions, value = committees.firstOrNull()?.id, required = true)
     val titleField = form.textField(label = tr("Titel"), required = true)
-    val scheduledAtField =
-        form.textField(
-            label = tr("Termin"),
-            required = true,
-            hint = gettext("Beispiel: 2026-08-15T18:00."),
-            rule = { FormRules.localDateTime(value = it) },
-        )
+    val scheduledAtField = form.localDateTimeFields(label = gettext("Termin"), required = true)
     val locationField = form.textField(label = tr("Ort"))
     val formatOptions = MeetingFormat.entries.map { it.name to meetingFormatLabel(it) }
     val formatField =
@@ -298,7 +291,7 @@ internal fun renderMeetingCreationForm(
                         MeetingInput(
                             committeeId = committeeField.value,
                             title = title,
-                            scheduledAt = LocalDateTime.parse(scheduledAtField.value.trim()),
+                            scheduledAt = checkNotNull(scheduledAtField.dateTimeOrNull()),
                             location = locationField.value.trim().takeIf { it.isNotBlank() },
                             format = MeetingFormat.valueOf(formatField.value),
                             chairMemberId = chairField.value.takeIf { it.isNotBlank() },
@@ -533,14 +526,7 @@ private fun renderRosterEinladungForm(
     // (ein Fehlerslot je Mitglied wäre absurd): "mindestens ein Empfänger" ist eine Querregel in der Sammelfläche.
     val form = formPanel.lapisForm()
     val titleField = form.textField(label = tr("Titel"), value = meeting.title, required = true)
-    val eventDateTimeField =
-        form.textField(
-            label = tr("Termin"),
-            value = meeting.scheduledAt.toString(),
-            required = true,
-            hint = gettext("Beispiel: 2026-08-15T18:00."),
-            rule = { FormRules.localDateTime(value = it) },
-        )
+    val eventDateTimeField = form.localDateTimeFields(label = gettext("Termin"), value = meeting.scheduledAt, required = true)
     val locationField = form.textField(label = tr("Ort"), value = meeting.location.orEmpty(), required = true)
     val bodyTextField = form.textAreaField(label = tr("Einladungstext"), rows = 4, required = true)
 
@@ -590,7 +576,7 @@ private fun renderRosterEinladungForm(
         if (!form.validateAndReport()) return@onClick
         MailmergeHttp.submitEinladungPdfDownload(
             titleField.value.trim(),
-            LocalDateTime.parse(eventDateTimeField.value.trim()),
+            checkNotNull(eventDateTimeField.dateTimeOrNull()),
             locationField.value.trim(),
             bodyTextField.value.trim(),
             selectedRecipients().map { it.id },
@@ -607,7 +593,7 @@ private fun renderRosterEinladungForm(
             if (!form.validateAndReport()) return@onClick
             val recipients = selectedRecipients()
             val title = titleField.value.trim()
-            val eventDateTime = LocalDateTime.parse(eventDateTimeField.value.trim())
+            val eventDateTime = checkNotNull(eventDateTimeField.dateTimeOrNull())
             val location = locationField.value.trim()
             val bodyText = bodyTextField.value.trim()
             if (recipients.size > MAX_POSTAL_INVITATION_RECIPIENTS) {
@@ -681,14 +667,7 @@ private fun renderGeneralAssemblyEinladungForm(
     val formPanel = panel.vPanel(spacing = 6) { addCssClasses("border rounded p-3") }
     val form = formPanel.lapisForm()
     val titleField = form.textField(label = tr("Titel"), value = meeting.title, required = true)
-    val eventDateTimeField =
-        form.textField(
-            label = tr("Termin"),
-            value = meeting.scheduledAt.toString(),
-            required = true,
-            hint = gettext("Beispiel: 2026-08-15T18:00."),
-            rule = { FormRules.localDateTime(value = it) },
-        )
+    val eventDateTimeField = form.localDateTimeFields(label = gettext("Termin"), value = meeting.scheduledAt, required = true)
     val locationField = form.textField(label = tr("Ort"), value = meeting.location.orEmpty(), required = true)
     val bodyTextField = form.textAreaField(label = tr("Einladungstext"), rows = 4, required = true)
 
@@ -781,7 +760,7 @@ private fun renderGeneralAssemblyEinladungForm(
             if (!form.validateAndReport()) return@onClick
             MailmergeHttp.submitEinladungPdfDownload(
                 title = titleField.value.trim(),
-                eventDateTime = LocalDateTime.parse(eventDateTimeField.value.trim()),
+                eventDateTime = checkNotNull(eventDateTimeField.dateTimeOrNull()),
                 location = locationField.value.trim(),
                 bodyText = bodyTextField.value.trim(),
                 recipientMemberIds = if (allActive()) emptyList() else picked.keys.toList(),
@@ -873,7 +852,7 @@ private fun renderGeneralAssemblyEinladungForm(
         button.onClick {
             if (!form.validateAndReport()) return@onClick
             val title = titleField.value.trim()
-            val eventDateTime = LocalDateTime.parse(eventDateTimeField.value.trim())
+            val eventDateTime = checkNotNull(eventDateTimeField.dateTimeOrNull())
             val location = locationField.value.trim()
             val bodyText = bodyTextField.value.trim()
             val everyone = allActive()

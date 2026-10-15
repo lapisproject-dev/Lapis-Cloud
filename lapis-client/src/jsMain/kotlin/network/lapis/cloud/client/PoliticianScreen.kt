@@ -16,7 +16,6 @@ import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberSummaryDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
@@ -614,7 +613,7 @@ internal fun renderWeightHistoryTable(
     panel.plainDataTable(
         columns =
             listOf(
-                textColumn<PoliticianWeightSnapshotDto>(title = tr("Monat"), primary = true) { it.periodMonth.toString() },
+                dateColumn<PoliticianWeightSnapshotDto>(title = tr("Monat"), numeric = false, primary = true) { it.periodMonth },
                 DataColumn(title = tr("Mitglieder-Gewicht"), numeric = true, cell = { cell, s -> cell.ltrSpan(s.memberTrustWeight) }),
                 DataColumn(
                     title = tr("Gast-Gewicht"),
@@ -719,18 +718,16 @@ private fun renderSnapshotForm(
     // every other date-shaped field in this client (e.g. `BoardMembershipScreen.kt`'s "Seit").
     val form = root.lapisForm()
     val monthField =
-        form.textField(
-            label = tr("Monat (JJJJ-MM-TT, Tag wird ignoriert)"),
+        form.localDateField(
+            label = tr("Monat (Tag wird ignoriert)"),
             required = true,
-            hint = tr("Beispiel: 2026-03-14."),
-            rule = { FormRules.isoDate(value = it) },
         )
     val snapshotButton = Button(tr("Snapshot auslösen"), style = ButtonStyle.SECONDARY)
     form.buttons(primary = snapshotButton)
 
     snapshotButton.onClick {
         form.submit(snapshotButton) {
-            val periodMonth = LocalDate.parse(monthField.value.trim())
+            val periodMonth = checkNotNull(monthField.localDateOrNull())
             val result = guarded { rpcService<IPoliticianService>().snapshotWeights(periodMonth) }
             if (result != null) {
                 notifySuccess(gettext("Snapshot für %1 Profil(e) berechnet.", result.size))

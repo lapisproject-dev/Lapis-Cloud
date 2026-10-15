@@ -275,7 +275,7 @@ class TravelExpensePolishDomTest {
             AppState.setSession(memberSession)
             withEditor("te-polish-note-no-allowance") { element, _, _ ->
                 val first = element().allOf("fieldset.lapis-te-day")[0]
-                fire(first.querySelector("input[type=time]") as HTMLInputElement, "23:00")
+                fire(first.querySelector("input[inputmode=numeric]") as HTMLInputElement, "23:00")
                 delay(60)
                 assertFalse(first.textContent.orEmpty().contains("Kein Tagegeld an diesem Tag"), "no meal checked: nothing to explain")
                 check(first, 1)
@@ -294,7 +294,7 @@ class TravelExpensePolishDomTest {
             withEditor("te-polish-note-capped") { element, _, _ ->
                 val first = element().allOf("fieldset.lapis-te-day")[0]
                 // 08:00 to 24:00 = 16 h -> 12,00 EUR; lunch + dinner would take 22,40 off.
-                fire(first.querySelector("input[type=time]") as HTMLInputElement, "08:00")
+                fire(first.querySelector("input[inputmode=numeric]") as HTMLInputElement, "08:00")
                 check(first, 1)
                 check(first, 2)
                 delay(60)
@@ -324,7 +324,7 @@ class TravelExpensePolishDomTest {
             AppState.setSession(memberSession)
             withEditor("te-polish-breakdown-table") { element, _, _ ->
                 val first = element().allOf("fieldset.lapis-te-day")[0]
-                fire(first.querySelector("input[type=time]") as HTMLInputElement, "08:00")
+                fire(first.querySelector("input[inputmode=numeric]") as HTMLInputElement, "08:00")
                 check(first, 1)
                 delay(80)
                 val breakdown = assertNotNull(element().querySelector(".lapis-te-breakdown") as? HTMLElement)
@@ -369,7 +369,7 @@ class TravelExpensePolishDomTest {
                 )
                 details[0].asDynamic().open = true
                 val first = element().allOf("fieldset.lapis-te-day")[0]
-                fire(first.querySelector("input[type=time]") as HTMLInputElement, "09:00")
+                fire(first.querySelector("input[inputmode=numeric]") as HTMLInputElement, "09:00")
                 delay(80)
                 val after = element().allOf(".lapis-te-breakdown details")
                 assertTrue(after[0] === details[0], "the very same element is kept (focus and open state survive)")

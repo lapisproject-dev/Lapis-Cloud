@@ -334,31 +334,21 @@ internal fun renderNewBatchSection(
     // `createDebitBatch` lehnt `requestedCollectionDate <= today` ab, `previewDebitBatch` prüft das Datum gar nicht: die Regel steht
     // deshalb am Einzugsdatum-Feld, damit schon die Vorschau nicht mit einem Datum gelingt, mit dem "Lauf anlegen" nie gelingen kann.
     val collectionDateField =
-        form.textField(
+        form.localDateField(
             label = tr("Einzugsdatum"),
-            value = todayLocalDate().plus(1, DateTimeUnit.DAY).toString(),
+            value = todayLocalDate().plus(1, DateTimeUnit.DAY),
             required = true,
-            hint = tr("Beispiel: 2026-03-14."),
             requiredMessage = tr("Bitte ein gültiges Datum angeben."),
-            rule = { value ->
-                val check = FormRules.isoDate(value)
-                when {
-                    check is FieldCheck.Invalid -> check
-                    LocalDate.parse(
-                        value.trim(),
-                    ) <= todayLocalDate() -> FieldCheck.Invalid(gettext("Das Einzugsdatum muss in der Zukunft liegen."))
-                    else -> FieldCheck.Ok
-                }
+            rule = { date ->
+                if (date <= todayLocalDate()) FieldCheck.Invalid(gettext("Das Einzugsdatum muss in der Zukunft liegen.")) else FieldCheck.Ok
             },
         )
     val dueOnOrBeforeField =
-        form.textField(
+        form.localDateField(
             label = tr("Fällig bis"),
-            value = todayLocalDate().toString(),
+            value = todayLocalDate(),
             required = true,
-            hint = tr("Beispiel: 2026-03-14."),
             requiredMessage = tr("Bitte ein gültiges Datum angeben."),
-            rule = { FormRules.isoDate(it) },
         )
     val tierField =
         form.selectField(
@@ -379,8 +369,8 @@ internal fun renderNewBatchSection(
     val createButtonHost = form.panel.vPanel(spacing = 4)
 
     fun buildInput(): SepaDebitBatchInput? {
-        val collectionDate = runCatching { LocalDate.parse(collectionDateField.value.trim()) }.getOrNull() ?: return null
-        val dueOnOrBefore = runCatching { LocalDate.parse(dueOnOrBeforeField.value.trim()) }.getOrNull() ?: return null
+        val collectionDate = collectionDateField.localDateOrNull() ?: return null
+        val dueOnOrBefore = dueOnOrBeforeField.localDateOrNull() ?: return null
         val tierId = tierField.value.takeIf { it.isNotBlank() }
         return SepaDebitBatchInput(requestedCollectionDate = collectionDate, dueOnOrBefore = dueOnOrBefore, membershipTierId = tierId)
     }
@@ -760,15 +750,15 @@ internal fun renderSepaReturnsSection(
 ): () -> Unit {
     root.h2(tr("Rücklastschriften")) { addCssClass("h5") }
     val filterRow = root.lapisToolbar()
-    val fromInput = filterRow.text(label = tr("Von"))
-    val toInput = filterRow.text(label = tr("Bis"))
+    val fromInput = filterRow.localDateInput(label = tr("Von"), hintLine = false).input
+    val toInput = filterRow.localDateInput(label = tr("Bis"), hintLine = false).input
     val filterButton = filterRow.actionButton(ActionIcon.FILTER, tr("Filtern"), style = ButtonStyle.OUTLINESECONDARY)
     // Das Datumsformat steht im Hinweis, nie im Label (W4c). Hinweis und Fehler hängen per `aria-describedby` an beiden Feldern; ein
     // nicht lesbares Datum ("13.03.2026") ist ein Feldfehler -- vorher lief der Abruf still OHNE Filter, die volle Liste stand da und
     // bei einer leeren Antwort behauptete die Leermeldung "Keine Rücklastschrift im gewählten Zeitraum".
     val filterHintId = "sepa-returns-filter-hint"
     val filterErrorId = "sepa-returns-filter-error"
-    root.div(tr("Beispiel: 2026-03-14.")) {
+    root.div(gettext("Format: %1", localeDatePattern())) {
         addCssClasses("text-muted small")
         id = filterHintId
     }
@@ -796,8 +786,8 @@ internal fun renderSepaReturnsSection(
     fun loadReturns() {
         val fromRaw = fromInput.value.orEmpty().trim()
         val toRaw = toInput.value.orEmpty().trim()
-        val from = runCatching { LocalDate.parse(fromRaw) }.getOrNull()
-        val to = runCatching { LocalDate.parse(toRaw) }.getOrNull()
+        val from = parseLocalDateOrNull(fromRaw)
+        val to = parseLocalDateOrNull(toRaw)
         val badInputs =
             listOfNotNull(
                 fromInput.takeIf { fromRaw.isNotEmpty() && from == null },
@@ -894,13 +884,11 @@ internal fun renderRecordReturnForm(
             requiredMessage = tr("Bitte eine Position auswählen."),
         )
     val returnedAtField =
-        form.textField(
+        form.localDateField(
             label = tr("Rücklastschrift-Datum"),
-            value = todayLocalDate().toString(),
+            value = todayLocalDate(),
             required = true,
-            hint = tr("Beispiel: 2026-03-14."),
             requiredMessage = tr("Bitte ein gültiges Datum angeben."),
-            rule = { FormRules.isoDate(it) },
         )
     val reasonOptions = SepaReturnReason.entries.map { it.name to sepaReturnReasonLabel(it) }
     val reasonField =
@@ -1013,7 +1001,7 @@ internal fun renderRecordReturnForm(
     submitButton.onClick {
         form.submit(submitButton) {
             val itemId = itemField.value
-            val returnedAt = runCatching { LocalDate.parse(returnedAtField.value.trim()) }.getOrNull() ?: return@submit
+            val returnedAt = returnedAtField.localDateOrNull() ?: return@submit
             val reason = runCatching { SepaReturnReason.valueOf(reasonField.value) }.getOrNull() ?: return@submit
             val reasonText = reasonTextField.value.trim().takeIf { it.isNotBlank() }
             // Die Feldregel lässt nur einen Betrag mit höchstens zwei Nachkommastellen durch (`recordReturn` lehnt `scale > 2` ab).
@@ -1036,7 +1024,7 @@ internal fun renderRecordReturnForm(
                 // Freitext und Gebühr leer. Nichts davon darf für die NÄCHSTE Rücklastschrift stehen bleiben.
                 itemField.reset()
                 returnedAtField.reset()
-                returnedAtField.setValue(todayLocalDate().toString())
+                returnedAtField.setValue(todayLocaleText())
                 reasonField.reset()
                 reasonField.setValue(reasonOptions.first().first)
                 reasonTextField.reset()

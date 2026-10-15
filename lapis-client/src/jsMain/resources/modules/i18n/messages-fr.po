@@ -24254,3 +24254,129 @@ msgstr "Le texte du contrat n'est pas admis. Veuillez vérifier la longueur, les
 
 msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
 msgstr "Le brouillon a entre-temps été modifié. Veuillez recharger la vue et le vérifier à nouveau."
+
+msgid "%1 (Datum)"
+msgstr "%1 (date)"
+
+msgid "%1 (Uhrzeit)"
+msgstr "%1 (heure)"
+
+msgid "Aufsichtsbehörde benachrichtigt am (optional)"
+msgstr "Autorité de contrôle notifiée le (facultatif)"
+
+msgid "Befreiung ab"
+msgstr "Exonération à partir du"
+
+msgid "Betroffene Personen benachrichtigt am (optional)"
+msgstr "Personnes concernées informées le (facultatif)"
+
+msgid "Bis (Pflichtfeld)"
+msgstr "Jusqu'au (obligatoire)"
+
+msgid "Bis (optional)"
+msgstr "Jusqu'au (facultatif)"
+
+msgid "Bitte AM oder PM angeben."
+msgstr "Veuillez indiquer AM ou PM."
+
+msgid "Bitte Mitglied, Titel, Kategorie und ein gültiges Datum (%1) angeben."
+msgstr "Veuillez indiquer un membre, un titre, une catégorie et une date valide (%1)."
+
+msgid "Bitte Start- und Enddatum im Format %1 angeben -- beide Felder sind hier Pflicht."
+msgstr "Veuillez indiquer une date de début et de fin au format %1 -- les deux champs sont obligatoires ici."
+
+msgid "Bitte Von- und Bis-Datum angeben (%1) -- beide sind für den DATEV-Export Pflicht."
+msgstr "Veuillez indiquer une date de début et de fin (%1) -- les deux sont obligatoires pour l'export DATEV."
+
+msgid "Bitte ein gültiges \"Bis\"-Datum angeben (%1)."
+msgstr "Veuillez indiquer une date « jusqu'au » valide (%1)."
+
+msgid "Bitte ein gültiges \"Von\"- und \"Bis\"-Datum angeben (%1)."
+msgstr "Veuillez indiquer des dates « du » et « jusqu'au » valides (%1)."
+
+msgid "Bitte ein gültiges Beginn-Datum angeben (%1)."
+msgstr "Veuillez indiquer une date de début valide (%1)."
+
+msgid "Bitte ein gültiges, in der Zukunft liegendes Fälligkeitsdatum angeben (%1)."
+msgstr "Veuillez indiquer une date d'échéance valide dans le futur (%1)."
+
+msgid "Bitte eine Uhrzeit im Format %1 eingeben."
+msgstr "Veuillez saisir une heure au format %1."
+
+msgid "Bitte einen gültigen Entdeckungszeitpunkt, Beschreibung, betroffene Datenkategorien und Status angeben."
+msgstr "Veuillez indiquer un moment de découverte valide, une description, les catégories de données concernées et un statut."
+
+msgid "Bitte einen gültigen Stichtag angeben (%1)."
+msgstr "Veuillez indiquer une date de référence valide (%1)."
+
+msgid "Bitte einen gültigen Zeitpunkt angeben."
+msgstr "Veuillez indiquer un moment valide."
+
+msgid "Bitte gültige Datumsangaben (%1) verwenden, oder das Feld leer lassen."
+msgstr "Veuillez utiliser des dates valides (%1) ou laisser le champ vide."
+
+msgid "Der Zeitpunkt der Entdeckung startet die 72-Stunden-Frist."
+msgstr "Le moment de la découverte fait courir le délai de 72 heures."
+
+msgid "Mo."
+msgstr "lun."
+
+msgid "Di."
+msgstr "mar."
+
+msgid "Mi."
+msgstr "mer."
+
+msgid "Do."
+msgstr "jeu."
+
+msgid "Fr."
+msgstr "ven."
+
+msgid "Sa."
+msgstr "sam."
+
+msgid "So."
+msgstr "dim."
+
+msgid "Diese Uhrzeit gibt es nicht."
+msgstr "Cette heure n'existe pas."
+
+msgid "Entdeckt am"
+msgstr "Découvert le"
+
+msgid "Monat (Tag wird ignoriert)"
+msgstr "Mois (le jour est ignoré)"
+
+msgid "Neues Fälligkeitsdatum"
+msgstr "Nouvelle date d'échéance"
+
+msgid "Prüftermin (optional)"
+msgstr "Date de révision (facultatif)"
+
+msgid "Stichtag"
+msgstr "Date de référence"
+
+msgid "Unterzeichnet am (optional)"
+msgstr "Signé le (facultatif)"
+
+msgid "Verliehen am"
+msgstr "Décerné le"
+
+msgid "Von (Pflichtfeld)"
+msgstr "Du (obligatoire)"
+
+msgid "Von (optional)"
+msgstr "Du (facultatif)"
+
+msgid "Wiedervorlage am (optional)"
+msgstr "Suivi le (facultatif)"
+
+msgid "Zeitpunkt (optional, leer = jetzt)"
+msgstr "Moment (facultatif, vide = maintenant)"
+
+msgid "Zeitpunkt der Einwilligung"
+msgstr "Moment du consentement"
+
+msgid "hh:mm"
+msgstr "hh:mm"

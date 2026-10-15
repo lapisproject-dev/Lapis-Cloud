@@ -169,9 +169,9 @@ class TravelExpenseDayGridDomTest {
                 )
                 assertTrue(element().querySelector(".lapis-te-day-grid") != null, "the CSS grid class")
                 // Position-dependent fields: first day departure only, middle day nothing, last day arrival only.
-                assertEquals(1, fieldsets[0].allOf("input[type=time]").size)
-                assertEquals(0, fieldsets[1].allOf("input[type=time]").size)
-                assertEquals(1, fieldsets[2].allOf("input[type=time]").size)
+                assertEquals(1, fieldsets[0].allOf("input[inputmode=numeric]").size)
+                assertEquals(0, fieldsets[1].allOf("input[inputmode=numeric]").size)
+                assertEquals(1, fieldsets[2].allOf("input[inputmode=numeric]").size)
                 assertTrue(fieldsets[1].textContent.orEmpty().contains("ganztägig (24 Std.)"))
             }
         }
@@ -186,7 +186,7 @@ class TravelExpenseDayGridDomTest {
                 assertTrue(bar != null, "the totals bar exists")
                 // Saved state: no preview marker.
                 assertTrue(bar.querySelector(".badge")?.let { (it as org.w3c.dom.HTMLElement).style.display == "none" } != false)
-                val input = first.querySelector("input[type=time]") as HTMLInputElement
+                val input = first.querySelector("input[inputmode=numeric]") as HTMLInputElement
                 input.value = "08:00"
                 input.dispatchEvent(
                     org.w3c.dom.events
@@ -264,7 +264,7 @@ class TravelExpenseDayGridDomTest {
             AppState.setSession(memberSession)
             withDraft("te-grid-save", draft()) { _, element, calls, route ->
                 val first = element().allOf("fieldset.lapis-te-day")[0]
-                val time = first.querySelector("input[type=time]") as HTMLInputElement
+                val time = first.querySelector("input[inputmode=numeric]") as HTMLInputElement
                 time.value = "09:30"
                 time.dispatchEvent(
                     org.w3c.dom.events

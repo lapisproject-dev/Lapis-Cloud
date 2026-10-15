@@ -748,7 +748,7 @@ private fun rosterColumns(showChapter: Boolean): List<DataColumn<MemberAdminRowD
                 title = tr("Beitritt"),
                 numeric = true,
                 sortKey = ROSTER_SORT_JOINED,
-                cell = { container, row -> container.cellText(row.joinedAt.toString()) },
+                cell = { container, row -> container.cellText(trusted(dateToken(row.joinedAt))) },
             ),
         )
 
@@ -1139,20 +1139,18 @@ internal fun openMemberEditorDialog(
             }
 
         // Welle V1.4.4.5 -- nur sichtbar, wenn der Zielstatus "Verstorben" ist. BEWUSST NICHT mit
-        // todayLocalDate() vorbefüllt (anders als BoardMembershipScreen.todayIso()): ein
+        // todayLocalDate() vorbefüllt (anders als BoardMembershipScreen): ein
         // vorbefülltes heutiges Datum in einem Sterbedatumsfeld ist eine Behauptung, die die
         // Software aufstellt und der Mensch nur noch bestätigt -- übersieht er das Feld, hat dieses
         // System aus eigenem Antrieb einen Todestag erfunden und in eine GoBD-unveränderliche
         // Buchhaltung geschrieben. Leer. Immer leer.
         fun deceasedSelected(): Boolean = statusField.value == MemberStatus.DECEASED.name
         val deathDateField =
-            form.textField(
+            form.localDateField(
                 label = tr("Sterbedatum"),
-                hint = "${gettext(
-                    "Beispiel: 2026-03-14.",
-                )} ${gettext("Leer lassen, wenn das genaue Datum noch nicht feststeht — später korrigierbar.")}",
+                extraHint = gettext("Leer lassen, wenn das genaue Datum noch nicht feststeht — später korrigierbar."),
                 // Ein ausgeblendetes Feld darf das Absenden nicht durch einen unsichtbaren Fehler blockieren.
-                rule = { if (deceasedSelected()) deathDateCheck(value = it) else FieldCheck.Ok },
+                rule = { date -> if (deceasedSelected()) deathDateCheck(date) else FieldCheck.Ok },
             )
         // V1.9.57: against another ADMIN the reason also feeds a four-eyes request, which the server bounds to 10..500 characters.
         val reasonField =
@@ -1263,9 +1261,7 @@ internal fun openMemberEditorDialog(
                 }
                 // Welle V1.4.4.5 -- nur relevant, wenn der Zielstatus DECEASED ist; leer bleibt erlaubt
                 // ("Datum noch nicht bekannt", siehe Kommentar oben). Die Feldregel hat das Datum bereits geprüft.
-                val rawDeathDate = deathDateField.value.trim()
-                val deathDate =
-                    if (target == MemberStatus.DECEASED && rawDeathDate.isNotEmpty()) LocalDate.parse(rawDeathDate) else null
+                val deathDate = if (target == MemberStatus.DECEASED) deathDateField.localDateOrNull() else null
                 val result =
                     memberAdminGuarded { rpcService<IMemberService>().updateMemberStatus(row.id, target, reason, deathDate) }
                 if (result != null) {
@@ -1287,11 +1283,11 @@ internal fun openMemberEditorDialog(
         modal.h2(tr("Sterbedatum")) { addCssClass("h6") }
         val form = modal.lapisForm(legendGroup)
         val correctionField =
-            form.textField(
+            form.localDateField(
                 label = tr("Sterbedatum"),
-                value = row.dateOfDeath?.toString(),
-                hint = "${gettext("Beispiel: 2026-03-14.")} ${gettext("Leer lassen nimmt ein irrtümlich erfasstes Datum zurück.")}",
-                rule = { deathDateCheck(value = it) },
+                value = row.dateOfDeath,
+                extraHint = gettext("Leer lassen nimmt ein irrtümlich erfasstes Datum zurück."),
+                rule = { date -> deathDateCheck(date) },
             )
         val correctionReason = memberReasonField(form)
         val correctButton = newActionButton(ActionIcon.SAVE, tr("Sterbedatum korrigieren"), ButtonStyle.WARNING)
@@ -1299,8 +1295,7 @@ internal fun openMemberEditorDialog(
         correctButton.onClick {
             form.submit(correctButton) {
                 val reason = correctionReason.value.trim()
-                val raw = correctionField.value.trim()
-                val parsedDate = if (raw.isEmpty()) null else LocalDate.parse(raw)
+                val parsedDate = correctionField.localDateOrNull()
                 val result =
                     memberAdminGuarded { rpcService<IMemberService>().correctDateOfDeath(row.id, parsedDate, reason) }
                 if (result != null) {
@@ -1585,13 +1580,23 @@ private fun memberReasonField(
  * ist gültig (die Prüfung sieht nur nicht-leere Werte). Der Text nennt KEIN Format -- das Beispiel steht im Hinweis des Feldes.
  */
 internal fun deathDateCheck(value: String): FieldCheck {
-    val parsed = runCatching { LocalDate.parse(value.trim()) }.getOrNull()
-    return if (parsed == null || DeathDateRules.violation(dateOfDeath = parsed, dateOfBirth = null, today = todayLocalDate()) != null) {
+    val parsed = parseLocalDateOrNull(value)
+    return if (parsed ==
+        null
+    ) {
+        FieldCheck.Invalid(gettext("Bitte ein gültiges Datum angeben, das nicht in der Zukunft liegt."))
+    } else {
+        deathDateCheck(parsed)
+    }
+}
+
+/** [deathDateCheck] for an already parsed date. */
+internal fun deathDateCheck(date: LocalDate): FieldCheck =
+    if (DeathDateRules.violation(dateOfDeath = date, dateOfBirth = null, today = todayLocalDate()) != null) {
         FieldCheck.Invalid(gettext("Bitte ein gültiges Datum angeben, das nicht in der Zukunft liegt."))
     } else {
         FieldCheck.Ok
     }
-}
 
 /**
  * Welle V1.2.13 -- öffnet den Editor-Dialog nach einer erfolgreichen Kontoanlage sofort mit der
@@ -1862,7 +1867,7 @@ fun deceasedDateNote(
     when {
         status != MemberStatus.DECEASED -> null
         dateOfDeath == null -> tr("Sterbedatum fehlt")
-        else -> gettext("verstorben am %1", dateOfDeath.toString())
+        else -> gettext("verstorben am %1", formatDate(dateOfDeath))
     }
 
 /**

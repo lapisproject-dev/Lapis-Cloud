@@ -24188,3 +24188,129 @@ msgstr "Текст договора недопустим. Проверьте д�
 
 msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
 msgstr "Черновик тем временем изменён. Перезагрузите страницу и проверьте его снова."
+
+msgid "%1 (Datum)"
+msgstr "%1 (дата)"
+
+msgid "%1 (Uhrzeit)"
+msgstr "%1 (время)"
+
+msgid "Aufsichtsbehörde benachrichtigt am (optional)"
+msgstr "Надзорный орган уведомлён (необязательно)"
+
+msgid "Befreiung ab"
+msgstr "Освобождение с"
+
+msgid "Betroffene Personen benachrichtigt am (optional)"
+msgstr "Затронутые лица уведомлены (необязательно)"
+
+msgid "Bis (Pflichtfeld)"
+msgstr "По (обязательно)"
+
+msgid "Bis (optional)"
+msgstr "По (необязательно)"
+
+msgid "Bitte AM oder PM angeben."
+msgstr "Укажите AM или PM."
+
+msgid "Bitte Mitglied, Titel, Kategorie und ein gültiges Datum (%1) angeben."
+msgstr "Укажите участника, название, категорию и действительную дату (%1)."
+
+msgid "Bitte Start- und Enddatum im Format %1 angeben -- beide Felder sind hier Pflicht."
+msgstr "Укажите дату начала и окончания в формате %1 -- оба поля обязательны."
+
+msgid "Bitte Von- und Bis-Datum angeben (%1) -- beide sind für den DATEV-Export Pflicht."
+msgstr "Укажите даты «с» и «по» (%1) -- обе обязательны для экспорта DATEV."
+
+msgid "Bitte ein gültiges \"Bis\"-Datum angeben (%1)."
+msgstr "Укажите действительную дату «по» (%1)."
+
+msgid "Bitte ein gültiges \"Von\"- und \"Bis\"-Datum angeben (%1)."
+msgstr "Укажите действительные даты «с» и «по» (%1)."
+
+msgid "Bitte ein gültiges Beginn-Datum angeben (%1)."
+msgstr "Укажите действительную дату начала (%1)."
+
+msgid "Bitte ein gültiges, in der Zukunft liegendes Fälligkeitsdatum angeben (%1)."
+msgstr "Укажите действительный срок платежа в будущем (%1)."
+
+msgid "Bitte eine Uhrzeit im Format %1 eingeben."
+msgstr "Введите время в формате %1."
+
+msgid "Bitte einen gültigen Entdeckungszeitpunkt, Beschreibung, betroffene Datenkategorien und Status angeben."
+msgstr "Укажите действительный момент обнаружения, описание, затронутые категории данных и статус."
+
+msgid "Bitte einen gültigen Stichtag angeben (%1)."
+msgstr "Укажите действительную отчётную дату (%1)."
+
+msgid "Bitte einen gültigen Zeitpunkt angeben."
+msgstr "Укажите действительный момент времени."
+
+msgid "Bitte gültige Datumsangaben (%1) verwenden, oder das Feld leer lassen."
+msgstr "Используйте действительные даты (%1) или оставьте поле пустым."
+
+msgid "Der Zeitpunkt der Entdeckung startet die 72-Stunden-Frist."
+msgstr "Момент обнаружения запускает 72-часовой срок."
+
+msgid "Mo."
+msgstr "пн"
+
+msgid "Di."
+msgstr "вт"
+
+msgid "Mi."
+msgstr "ср"
+
+msgid "Do."
+msgstr "чт"
+
+msgid "Fr."
+msgstr "пт"
+
+msgid "Sa."
+msgstr "сб"
+
+msgid "So."
+msgstr "вс"
+
+msgid "Diese Uhrzeit gibt es nicht."
+msgstr "Такого времени не существует."
+
+msgid "Entdeckt am"
+msgstr "Обнаружено"
+
+msgid "Monat (Tag wird ignoriert)"
+msgstr "Месяц (день игнорируется)"
+
+msgid "Neues Fälligkeitsdatum"
+msgstr "Новый срок платежа"
+
+msgid "Prüftermin (optional)"
+msgstr "Дата проверки (необязательно)"
+
+msgid "Stichtag"
+msgstr "Отчётная дата"
+
+msgid "Unterzeichnet am (optional)"
+msgstr "Подписано (необязательно)"
+
+msgid "Verliehen am"
+msgstr "Присвоено"
+
+msgid "Von (Pflichtfeld)"
+msgstr "С (обязательно)"
+
+msgid "Von (optional)"
+msgstr "С (необязательно)"
+
+msgid "Wiedervorlage am (optional)"
+msgstr "Повторное рассмотрение (необязательно)"
+
+msgid "Zeitpunkt (optional, leer = jetzt)"
+msgstr "Момент (необязательно, пусто = сейчас)"
+
+msgid "Zeitpunkt der Einwilligung"
+msgstr "Момент согласия"
+
+msgid "hh:mm"
+msgstr "чч:мм"

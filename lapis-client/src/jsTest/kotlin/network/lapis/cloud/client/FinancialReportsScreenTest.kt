@@ -18,14 +18,14 @@ class FinancialReportsScreenTest {
     @Test
     fun periodRangeCaption_withNullFrom_saysSeitGruendung() {
         val to = LocalDate(2026, 12, 31)
-        assertEquals("Zeitraum: seit Gründung bis 2026-12-31", periodRangeCaption(null, to))
+        assertEquals("Zeitraum: seit Gründung bis 31.12.2026", periodRangeCaption(null, to))
     }
 
     @Test
     fun periodRangeCaption_withFrom_showsBothDates() {
         val from = LocalDate(2026, 1, 1)
         val to = LocalDate(2026, 12, 31)
-        assertEquals("Zeitraum: 2026-01-01 bis 2026-12-31", periodRangeCaption(from, to))
+        assertEquals("Zeitraum: 01.01.2026 bis 31.12.2026", periodRangeCaption(from, to))
     }
 
     @Test

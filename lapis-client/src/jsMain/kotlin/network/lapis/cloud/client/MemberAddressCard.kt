@@ -4,7 +4,6 @@ import io.kvision.core.onClick
 import io.kvision.html.Autocomplete
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
-import io.kvision.html.InputType
 import io.kvision.html.div
 import io.kvision.html.h2
 import io.kvision.html.icon
@@ -307,21 +306,20 @@ internal class MemberAddressCard(
         root: SimplePanel,
         dto: MemberAddressFormData,
     ) {
-        val initialDate = dto.dateOfBirth?.let { machineDate(it) }
+        val initialDate = dto.dateOfBirth
         val form = root.lapisForm()
         val dateOfBirth =
-            form.textField(
+            form.localDateField(
                 label = tr("Geburtsdatum"),
-                type = InputType.DATE,
-                value = initialDate.orEmpty(),
+                value = initialDate,
                 autocomplete = Autocomplete.BDAY,
-                rule = { raw -> birthDateCheck(raw.trim(), dto.dateOfDeath) },
+                rule = { date -> birthDateCheck(date, dto.dateOfDeath) },
             )
         val nationality = form.panel.nationalityMultiSelect(label = tr("Staatsangehörigkeit"), initial = dto.nationalityCodes)
         legacyHint(form, dto.nationalityLegacy.takeIf { dto.nationalityCodes.isEmpty() })
         val initialCodes = dto.nationalityCodes.sorted()
 
-        fun dateValue(): String? = dateOfBirth.value.trim().ifEmpty { null }
+        fun dateValue(): LocalDate? = dateOfBirth.localDateOrNull()
 
         fun dirty() = dateValue() != initialDate || nationality.codes != initialCodes
 
@@ -336,7 +334,7 @@ internal class MemberAddressCard(
         nationality.subscribe { button.disabled = !canSave() }
         button.onClick {
             if (!canSave()) return@onClick
-            val date = dateValue()?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            val date = dateValue()
             val codes = nationality.codes
             confirmSave {
                 form.runBusy(button, restoreDisabled = { !canSave() }) {
@@ -347,19 +345,18 @@ internal class MemberAddressCard(
     }
 
     private fun birthDateCheck(
-        raw: String,
+        date: LocalDate,
         dateOfDeath: LocalDate?,
-    ): FieldCheck {
-        val date =
-            runCatching { LocalDate.parse(raw) }.getOrNull() ?: return FieldCheck.Invalid(gettext("Bitte ein gültiges Datum angeben."))
-        return when (MemberAddressRules.birthDateViolation(date, dateOfDeath, today())) {
+    ): FieldCheck =
+        when (MemberAddressRules.birthDateViolation(date, dateOfDeath, today())) {
             MemberAddressViolation.BIRTH_IN_FUTURE -> FieldCheck.Invalid(gettext("Das Geburtsdatum darf nicht in der Zukunft liegen."))
-            MemberAddressViolation.BIRTH_BEFORE_1900 -> FieldCheck.Invalid(gettext("Bitte ein Datum ab dem 01.01.1900 angeben."))
+            // The date field itself already rejects a year before 1900 (LOCALE_DATE_MIN_YEAR); this branch only keeps the rule total.
+            MemberAddressViolation.BIRTH_BEFORE_1900 ->
+                FieldCheck.Invalid(gettext("Bitte ein Jahr zwischen %1 und %2 eingeben.", LOCALE_DATE_MIN_YEAR, LOCALE_DATE_MAX_YEAR))
             MemberAddressViolation.BIRTH_AFTER_DEATH ->
                 FieldCheck.Invalid(gettext("Das Geburtsdatum darf nicht nach dem Sterbedatum liegen."))
             else -> FieldCheck.Ok
         }
-    }
 
     /** One write, then ALWAYS a reload: the card shows the server state afterwards, whatever happened. */
     private suspend fun save(write: suspend () -> MemberDto) {

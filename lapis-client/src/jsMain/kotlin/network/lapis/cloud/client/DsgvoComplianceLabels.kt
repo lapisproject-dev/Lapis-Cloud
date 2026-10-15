@@ -89,7 +89,7 @@ fun parseOptionalDate(raw: String?): LocalDate? =
     raw
         ?.trim()
         ?.takeIf { it.isNotBlank() }
-        ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        ?.let { parseLocalDateOrNull(it) }
 
 /** A required `LocalDateTime` field (Breach `discoveredAt`) -- blank or unparsable both resolve to
  * `null`, which the caller then treats as a validation failure rather than silently defaulting to

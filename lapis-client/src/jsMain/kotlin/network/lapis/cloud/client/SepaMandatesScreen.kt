@@ -251,7 +251,7 @@ private fun sepaMandateColumns(): List<DataColumn<SepaMandateDto>> =
                 container.statusBadge(sepaMandateStatusLabel(mandate.status), sepaMandateStatusColor(mandate.status))
             },
         ),
-        textColumn(title = tr("Erteilt am"), numeric = true) { mandate: SepaMandateDto -> mandate.grantedAt.toString() },
+        systemDateTimeColumn(title = tr("Erteilt am"), numeric = true) { mandate: SepaMandateDto -> mandate.grantedAt },
         textColumn(title = tr("Erfasst von")) { mandate: SepaMandateDto ->
             // Security audit W6b, round 7 (major finding 2): trusted(tr(...)) so this branch keeps its live
             // translation instead of losing its marker to textColumn's unconditional untrusted-text sanitizer --

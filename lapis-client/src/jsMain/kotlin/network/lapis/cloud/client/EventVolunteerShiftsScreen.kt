@@ -15,7 +15,6 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
-import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.EventQuery
 import network.lapis.cloud.shared.domain.EventVolunteerShiftDto
 import network.lapis.cloud.shared.domain.EventVolunteerShiftInput
@@ -134,7 +133,9 @@ private fun renderEventVolunteerShiftRow(
         headerRow.untrustedCardTitle(shift.description)
         headerRow.eventVolunteerShiftStatusBadge(shift.status)
 
-        displayHolder.div(gettext("%1 – %2", shift.startsAt.toString(), shift.endsAt.toString())) { addCssClasses("text-muted small") }
+        displayHolder.div(
+            gettext("%1 – %2", formatDateTime(shift.startsAt), formatDateTime(shift.endsAt)),
+        ) { addCssClasses("text-muted small") }
         displayHolder.div(gettext("Besetzung: %1 von %2", shift.confirmedCount.toString(), shift.neededCount.toString())) {
             addCssClasses("text-muted small")
         }
@@ -212,8 +213,8 @@ private fun renderEventVolunteerShiftEditForm(
     onCancel: () -> Unit,
 ) {
     val descriptionInput = panel.text(label = tr("Beschreibung")).apply { value = shift.description }
-    val startsAtInput = panel.text(label = tr("Beginn (JJJJ-MM-TTThh:mm)")).apply { value = shift.startsAt.toString() }
-    val endsAtInput = panel.text(label = tr("Ende (JJJJ-MM-TTThh:mm)")).apply { value = shift.endsAt.toString() }
+    val startsAtInput = panel.localDateTimeInput(label = gettext("Beginn"), value = shift.startsAt)
+    val endsAtInput = panel.localDateTimeInput(label = gettext("Ende"), value = shift.endsAt)
     val neededCountInput = panel.text(label = tr("Benötigte Anzahl")).apply { value = shift.neededCount.toString() }
     val errorBox =
         panel.div().apply {
@@ -255,8 +256,8 @@ private fun renderEventVolunteerShiftCreationForm(
     targetRow.span(tr("Für Veranstaltung:")) { addCssClass("text-muted") }
     targetRow.untrustedSpan(targetEventTitle, className = "fw-bold")
     val descriptionInput = panel.text(label = tr("Beschreibung"))
-    val startsAtInput = panel.text(label = tr("Beginn (JJJJ-MM-TTThh:mm)"))
-    val endsAtInput = panel.text(label = tr("Ende (JJJJ-MM-TTThh:mm)"))
+    val startsAtInput = panel.localDateTimeInput(label = gettext("Beginn"))
+    val endsAtInput = panel.localDateTimeInput(label = gettext("Ende"))
     val neededCountInput = panel.text(label = tr("Benötigte Anzahl"))
     val errorBox =
         panel.div().apply {
@@ -290,15 +291,15 @@ private fun renderEventVolunteerShiftCreationForm(
         }
     }
     return FormSnapshot {
-        listOf(descriptionInput.value, startsAtInput.value, endsAtInput.value, neededCountInput.value).map { it.orEmpty() }
+        listOf(descriptionInput.value.orEmpty(), startsAtInput.value, endsAtInput.value, neededCountInput.value.orEmpty())
     }
 }
 
 /** Shared read+validate für Create- und Edit-Formular -- vermeidet doppelte Validierungslogik. */
 private fun readAndValidateShiftForm(
     descriptionInput: io.kvision.form.text.Text,
-    startsAtInput: io.kvision.form.text.Text,
-    endsAtInput: io.kvision.form.text.Text,
+    startsAtInput: LocalDateTimeInput,
+    endsAtInput: LocalDateTimeInput,
     neededCountInput: io.kvision.form.text.Text,
     errorBox: io.kvision.html.Div,
     eventId: String,
@@ -312,15 +313,15 @@ private fun readAndValidateShiftForm(
         errorBox.show()
         return null
     }
-    val startsAt = runCatching { LocalDateTime.parse(startsAtInput.value.orEmpty().trim()) }.getOrNull()
+    val startsAt = startsAtInput.dateTimeOrNull()
     if (startsAt == null) {
-        errorBox.content = tr("Bitte einen gültigen Beginn im Format JJJJ-MM-TTThh:mm angeben.")
+        errorBox.content = tr("Bitte einen gültigen Beginn angeben.")
         errorBox.show()
         return null
     }
-    val endsAt = runCatching { LocalDateTime.parse(endsAtInput.value.orEmpty().trim()) }.getOrNull()
+    val endsAt = endsAtInput.dateTimeOrNull()
     if (endsAt == null) {
-        errorBox.content = tr("Bitte ein gültiges Ende im Format JJJJ-MM-TTThh:mm angeben.")
+        errorBox.content = tr("Bitte ein gültiges Ende angeben.")
         errorBox.show()
         return null
     }

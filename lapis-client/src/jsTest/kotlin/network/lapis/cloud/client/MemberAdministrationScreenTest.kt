@@ -454,7 +454,7 @@ class MemberAdministrationScreenTest {
     @Test
     fun deceasedDateNote_deceasedWithDate_containsTheDateAndNeverACross() {
         val note = deceasedDateNote(MemberStatus.DECEASED, LocalDate(2026, 3, 3))
-        assertTrue(note!!.contains("2026-03-03"))
+        assertTrue(note!!.contains("03.03.2026"))
         assertFalse(note.contains("†"), "must never use a religiously-coded cross symbol")
     }
 

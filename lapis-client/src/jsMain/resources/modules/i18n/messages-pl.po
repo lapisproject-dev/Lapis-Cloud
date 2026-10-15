@@ -24197,3 +24197,129 @@ msgstr "Tekst umowy jest niedozwolony. Sprawdź długość, znaki, wersję i dat
 
 msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
 msgstr "Wersja robocza została w międzyczasie zmieniona. Odśwież widok i sprawdź ją ponownie."
+
+msgid "%1 (Datum)"
+msgstr "%1 (data)"
+
+msgid "%1 (Uhrzeit)"
+msgstr "%1 (godzina)"
+
+msgid "Aufsichtsbehörde benachrichtigt am (optional)"
+msgstr "Organ nadzorczy powiadomiony dnia (opcjonalnie)"
+
+msgid "Befreiung ab"
+msgstr "Zwolnienie od"
+
+msgid "Betroffene Personen benachrichtigt am (optional)"
+msgstr "Osoby, których dane dotyczą, powiadomione dnia (opcjonalnie)"
+
+msgid "Bis (Pflichtfeld)"
+msgstr "Do (wymagane)"
+
+msgid "Bis (optional)"
+msgstr "Do (opcjonalnie)"
+
+msgid "Bitte AM oder PM angeben."
+msgstr "Proszę podać AM lub PM."
+
+msgid "Bitte Mitglied, Titel, Kategorie und ein gültiges Datum (%1) angeben."
+msgstr "Proszę podać członka, tytuł, kategorię i prawidłową datę (%1)."
+
+msgid "Bitte Start- und Enddatum im Format %1 angeben -- beide Felder sind hier Pflicht."
+msgstr "Proszę podać datę rozpoczęcia i zakończenia w formacie %1 -- oba pola są tu wymagane."
+
+msgid "Bitte Von- und Bis-Datum angeben (%1) -- beide sind für den DATEV-Export Pflicht."
+msgstr "Proszę podać datę od i do (%1) -- obie są wymagane dla eksportu DATEV."
+
+msgid "Bitte ein gültiges \"Bis\"-Datum angeben (%1)."
+msgstr "Proszę podać prawidłową datę „do” (%1)."
+
+msgid "Bitte ein gültiges \"Von\"- und \"Bis\"-Datum angeben (%1)."
+msgstr "Proszę podać prawidłowe daty „od” i „do” (%1)."
+
+msgid "Bitte ein gültiges Beginn-Datum angeben (%1)."
+msgstr "Proszę podać prawidłową datę rozpoczęcia (%1)."
+
+msgid "Bitte ein gültiges, in der Zukunft liegendes Fälligkeitsdatum angeben (%1)."
+msgstr "Proszę podać prawidłowy termin płatności w przyszłości (%1)."
+
+msgid "Bitte eine Uhrzeit im Format %1 eingeben."
+msgstr "Proszę wpisać godzinę w formacie %1."
+
+msgid "Bitte einen gültigen Entdeckungszeitpunkt, Beschreibung, betroffene Datenkategorien und Status angeben."
+msgstr "Proszę podać prawidłowy moment wykrycia, opis, kategorie danych, których dotyczy naruszenie, oraz status."
+
+msgid "Bitte einen gültigen Stichtag angeben (%1)."
+msgstr "Proszę podać prawidłową datę bilansową (%1)."
+
+msgid "Bitte einen gültigen Zeitpunkt angeben."
+msgstr "Proszę podać prawidłowy moment."
+
+msgid "Bitte gültige Datumsangaben (%1) verwenden, oder das Feld leer lassen."
+msgstr "Proszę użyć prawidłowych dat (%1) lub zostawić pole puste."
+
+msgid "Der Zeitpunkt der Entdeckung startet die 72-Stunden-Frist."
+msgstr "Moment wykrycia rozpoczyna 72-godzinny termin."
+
+msgid "Mo."
+msgstr "pon."
+
+msgid "Di."
+msgstr "wt."
+
+msgid "Mi."
+msgstr "śr."
+
+msgid "Do."
+msgstr "czw."
+
+msgid "Fr."
+msgstr "pt."
+
+msgid "Sa."
+msgstr "sob."
+
+msgid "So."
+msgstr "niedz."
+
+msgid "Diese Uhrzeit gibt es nicht."
+msgstr "Taka godzina nie istnieje."
+
+msgid "Entdeckt am"
+msgstr "Wykryto dnia"
+
+msgid "Monat (Tag wird ignoriert)"
+msgstr "Miesiąc (dzień jest ignorowany)"
+
+msgid "Neues Fälligkeitsdatum"
+msgstr "Nowy termin płatności"
+
+msgid "Prüftermin (optional)"
+msgstr "Termin przeglądu (opcjonalnie)"
+
+msgid "Stichtag"
+msgstr "Data bilansowa"
+
+msgid "Unterzeichnet am (optional)"
+msgstr "Podpisano dnia (opcjonalnie)"
+
+msgid "Verliehen am"
+msgstr "Przyznano dnia"
+
+msgid "Von (Pflichtfeld)"
+msgstr "Od (wymagane)"
+
+msgid "Von (optional)"
+msgstr "Od (opcjonalnie)"
+
+msgid "Wiedervorlage am (optional)"
+msgstr "Przypomnienie dnia (opcjonalnie)"
+
+msgid "Zeitpunkt (optional, leer = jetzt)"
+msgstr "Moment (opcjonalnie, puste = teraz)"
+
+msgid "Zeitpunkt der Einwilligung"
+msgstr "Moment udzielenia zgody"
+
+msgid "hh:mm"
+msgstr "gg:mm"

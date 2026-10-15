@@ -1103,7 +1103,7 @@ internal fun travelExpenseFirstNightCheck(
     value: String,
     travelFrom: LocalDate,
     travelTo: LocalDate,
-    spec: DateFieldOrder = currentDateFieldOrder(),
+    spec: TemporalLocale = currentTemporalLocale(),
 ): FieldCheck {
     val parsed = parseLocalDate(value, spec)
     return if (parsed is DateParse.Ok) {

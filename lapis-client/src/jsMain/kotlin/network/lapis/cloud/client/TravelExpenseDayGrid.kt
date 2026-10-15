@@ -2,7 +2,6 @@ package network.lapis.cloud.client
 
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Div
-import io.kvision.html.InputType
 import io.kvision.html.Span
 import io.kvision.html.TAG
 import io.kvision.html.Tag
@@ -117,7 +116,7 @@ internal fun renderTravelExpenseDayGrid(
         fieldset.add(
             Tag(TAG.LEGEND, className = "h6 mb-1 w-auto px-1").also { legend ->
                 legend.add(Span(travelExpenseWeekdayLabel(date) + ", "))
-                legend.add(Span(localeDateToken(date)))
+                legend.add(Span(dateToken(date)))
             },
         )
         grid.add(fieldset)
@@ -318,13 +317,7 @@ private fun timeField(
     host: Tag,
     label: String,
     value: LocalTime?,
-): LapisField =
-    form.textField(
-        label = label,
-        type = InputType.TIME,
-        value = value?.let { "${pad2(it.hour)}:${pad2(it.minute)}" },
-        host = host,
-    )
+): LapisField = form.localTimeField(label = label, value = value, host = host)
 
 /** Appends [id] to the field's `aria-describedby` (the hint/error slots the form grammar already put there stay). */
 private fun describeBy(

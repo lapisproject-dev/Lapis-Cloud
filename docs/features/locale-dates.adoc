@@ -1,0 +1,107 @@
+= Dates and times in the locale of the UI (V1.9.137)
+:toc:
+
+== Purpose
+
+Every date and time that the web client shows, and every date and time a person types into it, follows the locale of the UI
+language. Until V1.9.136 there were three truths: a fixed per-language table for display (`DateTime.kt`, English was ISO), a
+browser probe for the travel expense fields (`LocaleDateProbe.kt`, V1.9.132) and the browser's own `date`/`time`/`datetime-local`
+pickers, whose display follows the operating system and not the UI language. V1.9.137 replaces all three with one table.
+
+Only `lapis-client` changes. Nothing is stored differently: the wire format and the database stay ISO-8601 (`LocalDate`,
+`LocalTime`, `LocalDateTime`), there is no migration and no RPC change.
+
+== The rule
+
+* One fixed table of nine locales (`TemporalLocale.kt`). There is no `Intl` call anywhere in the client, and tripwire T1 has no
+  exception any more.
+* A date is written in the order and with the separator of the locale, a time on the locale's clock.
+* A person types dates and times in exactly that form; ISO (`2026-10-15`) is always accepted as an alternative input.
+* What is stored, sorted, sent, named (file names) or exported (CSV, DATEV) is ISO, never the display form.
+
+[cols="1,1,1,1,2", options="header"]
+|===
+| Locale | Date | Time | Day and month | Example date and time
+| `de`, `pl`, `ru` | `DD.MM.YYYY` | 24 h | `DD.MM.` | `15.10.2026, 15:05`
+| `en-GB` | `DD/MM/YYYY` | 24 h | `DD/MM` | `15/10/2026, 15:05`
+| `en-US` | `MM/DD/YYYY` | 12 h `AM`/`PM` | `MM/DD` | `10/15/2026, 3:05 PM`
+| `fr`, `es`, `it` | `DD/MM/YYYY` | 24 h | `DD/MM` | `15/10/2026, 15:05`
+| `nl` | `DD-MM-YYYY` | 24 h | `DD-MM` | `15-10-2026, 15:05`
+|===
+
+Details that are pinned by tests:
+
+* The separator between date and time is a comma and a no-break space (U+00A0). The separator before `AM`/`PM` is also U+00A0,
+  never the narrow no-break space U+202F.
+* The year always has at least four digits (`0099`, `10000` stays five).
+* `00:xx` is `12:xx AM`, `12:xx` is `12:xx PM`; seconds go before the suffix (`3:05:09 PM`).
+* Digits are always Latin, also for `ru`.
+
+=== Resolution of the locale
+
+`resolveTemporalLocale(uiLanguage, browserLanguage)` is pure:
+
+* `de` is always `de`, whatever the browser says.
+* `en` is `en-US` when the browser language is exactly `en-US` (case-insensitive), and `en-GB` otherwise. `en-CA`, `en-AU`,
+  `en-IN` and everything else are `en-GB`.
+* `pl`, `ru`, `fr`, `es`, `it`, `nl` use their own entry; an unknown language reads like German.
+
+== API
+
+[cols="2,3", options="header"]
+|===
+| Function | Use
+| `formatDate`, `formatDayMonth`, `formatDateTime`, `formatTimestamp`, `formatTime`, `formatWeekdayDateTime`
+| Plain strings, for a `gettext(...)` argument or a non-widget place. They freeze at the language of the moment.
+| `dateToken`, `dateTimeToken`, ..., `*Span`, `*Column`
+| Widget content. A token is resolved on every render and follows a language switch. A token is never concatenated into another string.
+| `formatSystemDateTime`, `systemDateTimeColumn`, ...
+| Class A system timestamps: converted into the organization zone, then formatted (see xref:../architecture/time-and-timezones.adoc[time and time zones]).
+| `localDateField`, `localTimeField`, `localDateTimeFields`
+| Fields of a `LapisForm`: a plain text field with the pattern as placeholder and hint (`aria-describedby`), the parsed value as ISO.
+| `localDateInput`, `localTimeInput`, `localDateTimeInput`
+| The same for screens that build raw KVision `Text` widgets (filters, modals, the event form).
+| `parseLocalDate`, `parseLocalTime`
+| Pure parsers: every failure is a value (`DateParse`, `TimeParse`), never an exception.
+| `machineDate`, `machineDateTime`
+| The ISO form, for prefill of hidden values, sort keys and API parameters.
+|===
+
+The weekday abbreviation (`Do., 15.10.2026, 18:00`, `Thu, 10/15/2026, 6:00 PM`) appears only in the events window (list, check-in,
+member events). It is a catalog text (`Mo.` ... `So.`); there are no month names and no relative times ("yesterday").
+
+=== Time input rules
+
+* `H:MM` and `HH:MM`, a dot is accepted as the separator; the 24-hour form is read in every locale.
+* `en-US` additionally reads `h:mm AM|PM` (case-insensitive, with or without a space). A bare one-digit hour (`3:05`) there is
+  "AM or PM is missing"; the two-digit form (`03:05`, `15:05`) is read as 24-hour.
+* `9` and `0905` are not times; `24:00`, `12:60`, `13:00 PM` and `0:30 AM` do not exist.
+* Seconds are not part of a time field. A value that was stored with seconds is shown without them and saved without them when the
+  person saves the form.
+
+== Tripwires
+
+`ClientTemporalFormatTripwireTest` keeps the old forms from coming back:
+
+* *T1* no `Intl.DateTimeFormat`/`toLocaleDateString`/`toLocaleTimeString`, no exception.
+* *T5a* the ledger of raw `field.toString()` display sites is empty.
+* *T6* no `.toString()` on `todayLocalDate()`, `organizationToday()`, `organizationNow()`.
+* *T7* no native `date`, `time`, `datetime-local`, `month` or `week` input.
+* *T8* no fixed pattern literal (`dd.MM`, `yyyy`, `HH:mm`, `TT.MM`) and no `FormRules.isoDate`/`localDateTime` in UI code, except in
+  `TemporalLocale.kt` and `LocaleDate.kt`.
+
+Every rule has a positive and a negative detector example and a red proof on a copied, deliberately violating source.
+
+== Allowlist: what stays ISO
+
+`machineDate`/`machineDateTime`, `isoUtcTitle`, sort keys, API parameters, file names, logs, and the bytes of the CSV and DATEV exports.
+The GoBD report tables on screen (`ReportRows.kt`) show the locale form; the export bytes are untouched.
+
+== Known limits
+
+* Not looked at in a real browser in all nine locales.
+* Mails, PDFs and server-rendered pages are unchanged and keep their own forms.
+* The translations of the new texts are model translations.
+* `en-US` versus `en-GB` is decided by the browser language only; other English regions read as `en-GB`.
+* The browser's calendar picker is gone. An accessible calendar is a separate follow-up.
+* English no longer shows ISO dates.

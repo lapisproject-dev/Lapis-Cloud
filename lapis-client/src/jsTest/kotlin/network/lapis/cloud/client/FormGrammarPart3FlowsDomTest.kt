@@ -60,7 +60,7 @@ class FormGrammarPart3FlowsDomTest {
 
     private fun HTMLElement.first(selector: String): HTMLElement = assertNotNull(querySelector(selector) as? HTMLElement, selector)
 
-    private fun todayIso(): String = todayLocalDate().toString()
+    private fun todayIso(): String = todayLocaleText()
 
     private fun openItem(counterparty: String = "Muster GmbH") =
         OpenItemDto(
@@ -147,7 +147,7 @@ class FormGrammarPart3FlowsDomTest {
                     )
                     assertEquals(todayIso(), (element().controlOf("Belegdatum") as HTMLInputElement).value)
                     assertEquals(
-                        todayLocalDate().plus(DatePeriod(days = 14)).toString(),
+                        formatLocalDate(todayLocalDate().plus(DatePeriod(days = 14)), currentTemporalLocale()),
                         (element().controlOf("Fällig am") as HTMLInputElement).value,
                     )
 

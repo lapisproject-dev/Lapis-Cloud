@@ -13,7 +13,6 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
-import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.LedgerAccountDto
 import network.lapis.cloud.shared.domain.NettingCandidateDto
 import network.lapis.cloud.shared.domain.NettingPreviewDto
@@ -86,13 +85,11 @@ internal fun openItemSettlementDialog(
             },
         )
     val dateField =
-        form.textField(
+        form.localDateField(
             label = tr("Zahlungsdatum"),
-            value = todayLocalDate().toString(),
+            value = todayLocalDate(),
             required = true,
-            hint = tr("Beispiel: 2026-03-14."),
             requiredMessage = tr("Bitte ein gültiges Datum angeben."),
-            rule = { FormRules.isoDate(it) },
         )
     val bankChoice = settlementBankChoice(accounts = accounts(), mapping = paymentMapping())
     val bankOptions =
@@ -159,7 +156,7 @@ internal fun openItemSettlementDialog(
         // Die Feldregeln prüfen Betrag, Datum und Zahlungskonto; die Fehler stehen an den Feldern.
         if (!form.validateAndReport()) return@onClick
         val amount = parseAmountInput(amountField.value) as? AmountInput.Valid ?: return@onClick
-        val settledOn = runCatching { LocalDate.parse(dateField.value.trim()) }.getOrNull() ?: return@onClick
+        val settledOn = dateField.localDateOrNull() ?: return@onClick
         val bankAccountId = bankField.value.takeIf { it.isNotBlank() }
         if (!gate.openConfirmation()) return@onClick
         syncSettleButton()

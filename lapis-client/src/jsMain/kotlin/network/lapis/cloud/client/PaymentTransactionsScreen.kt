@@ -219,9 +219,7 @@ private fun paymentTransactionColumns(): List<DataColumn<PaymentTransactionDto>>
                 )
             },
         ),
-        textColumn(title = tr("Eingegangen"), numeric = true) { transaction: PaymentTransactionDto ->
-            transaction.receivedAt.toString()
-        },
+        systemDateTimeColumn(title = tr("Eingegangen"), numeric = true) { transaction: PaymentTransactionDto -> transaction.receivedAt },
         DataColumn(
             title = tr("Gebucht"),
             cell = { container, transaction ->

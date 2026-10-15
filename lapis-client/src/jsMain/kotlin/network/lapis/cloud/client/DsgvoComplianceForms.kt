@@ -43,8 +43,8 @@ internal fun SimplePanel.renderAgreementForm(
     val dataCategoriesInput = panel.text(value = existing?.dataCategories, label = tr("Datenkategorien"))
     val statusSelect =
         panel.select(options = statusOptions, value = (existing?.avvStatus ?: AvvStatus.NONE).name, label = tr("AVV-Status"))
-    val signedDateInput = panel.text(value = existing?.signedDate?.toString(), label = tr("Unterzeichnet am (JJJJ-MM-TT, optional)"))
-    val reviewDueDateInput = panel.text(value = existing?.reviewDueDate?.toString(), label = tr("Prüftermin (JJJJ-MM-TT, optional)"))
+    val signedDateInput = panel.localDateInput(label = tr("Unterzeichnet am (optional)"), value = existing?.signedDate)
+    val reviewDueDateInput = panel.localDateInput(label = tr("Prüftermin (optional)"), value = existing?.reviewDueDate)
     val documentIdInput = panel.text(value = existing?.documentId, label = tr("Dokument-ID (optional)"))
     val notesInput = panel.textArea(value = existing?.notes, label = tr("Notizen (optional)"), rows = 2)
     val errorBox =
@@ -69,11 +69,11 @@ internal fun SimplePanel.renderAgreementForm(
         val processingPurpose = processingPurposeInput.value.orEmpty().trim()
         val dataCategories = dataCategoriesInput.value.orEmpty().trim()
         val statusValue = statusSelect.value
-        val signedDate = parseOptionalDate(signedDateInput.value)
-        val reviewDueDate = parseOptionalDate(reviewDueDateInput.value)
+        val signedDate = parseOptionalDate(signedDateInput.text)
+        val reviewDueDate = parseOptionalDate(reviewDueDateInput.text)
         val hasInvalidDate =
-            (signedDateInput.value?.trim()?.isNotBlank() == true && signedDate == null) ||
-                (reviewDueDateInput.value?.trim()?.isNotBlank() == true && reviewDueDate == null)
+            (signedDateInput.text.isNotBlank() && signedDate == null) ||
+                (reviewDueDateInput.text.isNotBlank() && reviewDueDate == null)
 
         if (!Validation.isNonBlank(processorName) ||
             !Validation.isNonBlank(processingPurpose) ||
@@ -85,7 +85,7 @@ internal fun SimplePanel.renderAgreementForm(
             return@onClick
         }
         if (hasInvalidDate) {
-            errorBox.content = tr("Bitte gültige Datumsangaben (JJJJ-MM-TT) verwenden, oder das Feld leer lassen.")
+            errorBox.content = gettext("Bitte gültige Datumsangaben (%1) verwenden, oder das Feld leer lassen.", localeDatePattern())
             errorBox.show()
             return@onClick
         }
@@ -130,8 +130,8 @@ internal fun SimplePanel.renderAgreementForm(
             processingPurposeInput.value,
             dataCategoriesInput.value,
             statusSelect.value,
-            signedDateInput.value,
-            reviewDueDateInput.value,
+            signedDateInput.text,
+            reviewDueDateInput.text,
             documentIdInput.value,
             notesInput.value,
         ).map {
@@ -331,11 +331,8 @@ internal fun SimplePanel.renderBreachForm(
     val statusOptions = BreachStatus.entries.map { it.name to breachStatusLabel(it) }
     val requiredOptions = listOf("" to tr("Noch nicht festgelegt"), "true" to tr("Ja"), "false" to tr("Nein"))
 
-    val discoveredAtInput =
-        panel.text(
-            value = existing?.discoveredAt?.toString(),
-            label = tr("Entdeckt am (JJJJ-MM-TTTHH:MM:SS) -- startet die 72h-Frist"),
-        )
+    val discoveredAtInput = panel.localDateTimeInput(label = gettext("Entdeckt am"), value = existing?.discoveredAt)
+    panel.div(tr("Der Zeitpunkt der Entdeckung startet die 72-Stunden-Frist.")) { addCssClasses("text-muted small") }
     val descriptionInput = panel.textArea(value = existing?.description, label = tr("Beschreibung"), rows = 3)
     val affectedDataCategoriesInput = panel.text(value = existing?.affectedDataCategories, label = tr("Betroffene Datenkategorien"))
     val estimatedAffectedPersonsInput =
@@ -352,14 +349,11 @@ internal fun SimplePanel.renderBreachForm(
             label = tr("Meldung an Aufsichtsbehörde erforderlich (Ihre Entscheidung)"),
         )
     val authorityNotifiedAtInput =
-        panel.text(
-            value = existing?.authorityNotifiedAt?.toString(),
-            label = tr("Aufsichtsbehörde benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"),
-        )
+        panel.localDateTimeInput(label = gettext("Aufsichtsbehörde benachrichtigt am (optional)"), value = existing?.authorityNotifiedAt)
     val dataSubjectsNotifiedAtInput =
-        panel.text(
-            value = existing?.dataSubjectsNotifiedAt?.toString(),
-            label = tr("Betroffene Personen benachrichtigt am (JJJJ-MM-TTTHH:MM:SS, optional)"),
+        panel.localDateTimeInput(
+            label = gettext("Betroffene Personen benachrichtigt am (optional)"),
+            value = existing?.dataSubjectsNotifiedAt,
         )
     val statusSelect =
         panel.select(options = statusOptions, value = (existing?.status ?: BreachStatus.REPORTED).name, label = tr("Status"))
@@ -388,10 +382,10 @@ internal fun SimplePanel.renderBreachForm(
         val estimatedAffectedPersonsRaw = estimatedAffectedPersonsInput.value?.trim().orEmpty()
         val estimatedAffectedPersons = estimatedAffectedPersonsRaw.toIntOrNull()
         val hasInvalidEstimate = estimatedAffectedPersonsRaw.isNotBlank() && estimatedAffectedPersons == null
-        val authorityNotifiedAtRaw = authorityNotifiedAtInput.value?.trim().orEmpty()
+        val authorityNotifiedAtRaw = authorityNotifiedAtInput.value
         val authorityNotifiedAt = parseOptionalDateTime(authorityNotifiedAtInput.value)
         val hasInvalidAuthorityNotifiedAt = authorityNotifiedAtRaw.isNotBlank() && authorityNotifiedAt == null
-        val dataSubjectsNotifiedAtRaw = dataSubjectsNotifiedAtInput.value?.trim().orEmpty()
+        val dataSubjectsNotifiedAtRaw = dataSubjectsNotifiedAtInput.value
         val dataSubjectsNotifiedAt = parseOptionalDateTime(dataSubjectsNotifiedAtInput.value)
         val hasInvalidDataSubjectsNotifiedAt = dataSubjectsNotifiedAtRaw.isNotBlank() && dataSubjectsNotifiedAt == null
 
@@ -402,7 +396,7 @@ internal fun SimplePanel.renderBreachForm(
         ) {
             errorBox.content =
                 tr(
-                    "Bitte einen gültigen Entdeckungszeitpunkt (JJJJ-MM-TTTHH:MM:SS), Beschreibung, betroffene " +
+                    "Bitte einen gültigen Entdeckungszeitpunkt, Beschreibung, betroffene " +
                         "Datenkategorien und Status angeben.",
                 )
             errorBox.show()

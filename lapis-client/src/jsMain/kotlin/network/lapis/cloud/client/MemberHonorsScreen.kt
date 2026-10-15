@@ -18,7 +18,6 @@ import io.kvision.panel.simplePanel
 import io.kvision.panel.vPanel
 import kotlinx.browser.window
 import kotlinx.coroutines.launch
-import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberHonorCategory
 import network.lapis.cloud.shared.domain.MemberHonorCategory.HONORARY_MEMBERSHIP
@@ -263,7 +262,7 @@ private fun memberHonorColumns(showMemberColumn: Boolean): List<DataColumn<Membe
         if (showMemberColumn) {
             add(textColumn(title = tr("Mitglied"), primary = true) { honor: MemberHonorDto -> honor.memberDisplayName })
         }
-        add(textColumn(title = tr("Datum"), numeric = true) { honor: MemberHonorDto -> honor.awardedAt.toString() })
+        add(dateColumn(title = tr("Datum"), numeric = true) { honor: MemberHonorDto -> honor.awardedAt })
         add(
             DataColumn(
                 title = tr("Ehrung"),
@@ -355,7 +354,7 @@ private fun openMemberHonorEditorDialog(
             label = tr("Kategorie"),
         )
     val titleInput = modal.text(value = existing?.title, label = tr("Titel"))
-    val awardedAtInput = modal.text(value = existing?.awardedAt?.toString() ?: todayIso(), label = tr("Verliehen am (JJJJ-MM-TT)"))
+    val awardedAtInput = modal.localDateInput(label = tr("Verliehen am"), value = existing?.awardedAt ?: organizationToday())
     val awardedByInput = modal.text(value = existing?.awardedBy, label = tr("Verliehen durch (optional)"))
     val noteInput = modal.textArea(value = existing?.note, label = tr("Notiz (optional)"), rows = 3)
     val errorBox =
@@ -369,10 +368,10 @@ private fun openMemberHonorEditorDialog(
         errorBox.hide()
         val memberId = memberSelect.value
         val title = titleInput.value.orEmpty().trim()
-        val awardedAt = runCatching { LocalDate.parse(awardedAtInput.value.orEmpty().trim()) }.getOrNull()
+        val awardedAt = awardedAtInput.dateOrNull()
         val category = categorySelect.value?.let { runCatching { MemberHonorCategory.valueOf(it) }.getOrNull() }
         if (memberId == null || title.isEmpty() || awardedAt == null || category == null) {
-            errorBox.content = tr("Bitte Mitglied, Titel, Kategorie und ein gültiges Datum (JJJJ-MM-TT) angeben.")
+            errorBox.content = gettext("Bitte Mitglied, Titel, Kategorie und ein gültiges Datum (%1) angeben.", localeDatePattern())
             errorBox.show()
             return@onClick
         }
@@ -446,6 +445,3 @@ internal fun memberHonorsEmptyStateText(
     } else {
         gettext("Für %1 sind noch keine Ehrungen erfasst.", memberDisplayName)
     }
-
-/** Today's date as `JJJJ-MM-TT` -- mirrors `BoardMembershipScreen.todayIso`'s own `kotlin.time.Clock` idiom. */
-private fun todayIso(): String = organizationToday().toString()

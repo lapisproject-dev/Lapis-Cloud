@@ -112,7 +112,7 @@ private fun renderMyVolunteerShiftRow(
     val headerRow = row.hPanel(spacing = 8) { addCssClasses("align-items-center") }
     headerRow.untrustedCardTitle(shift.description)
 
-    row.div(gettext("%1 – %2", shift.startsAt.toString(), shift.endsAt.toString())) { addCssClasses("text-muted small") }
+    row.div(gettext("%1 – %2", formatDateTime(shift.startsAt), formatDateTime(shift.endsAt))) { addCssClasses("text-muted small") }
     row.div(gettext("Besetzung: %1 von %2", shift.confirmedCount.toString(), shift.neededCount.toString())) {
         addCssClasses("text-muted small")
     }

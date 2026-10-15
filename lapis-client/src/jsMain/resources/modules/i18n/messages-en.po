@@ -24142,3 +24142,129 @@ msgstr "The agreement text is not allowed. Please check length, characters, vers
 
 msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
 msgstr "The draft has been changed in the meantime. Please reload the view and check it again."
+
+msgid "%1 (Datum)"
+msgstr "%1 (date)"
+
+msgid "%1 (Uhrzeit)"
+msgstr "%1 (time)"
+
+msgid "Aufsichtsbehörde benachrichtigt am (optional)"
+msgstr "Supervisory authority notified on (optional)"
+
+msgid "Befreiung ab"
+msgstr "Exemption from"
+
+msgid "Betroffene Personen benachrichtigt am (optional)"
+msgstr "Data subjects notified on (optional)"
+
+msgid "Bis (Pflichtfeld)"
+msgstr "To (required)"
+
+msgid "Bis (optional)"
+msgstr "To (optional)"
+
+msgid "Bitte AM oder PM angeben."
+msgstr "Please enter AM or PM."
+
+msgid "Bitte Mitglied, Titel, Kategorie und ein gültiges Datum (%1) angeben."
+msgstr "Please enter a member, a title, a category and a valid date (%1)."
+
+msgid "Bitte Start- und Enddatum im Format %1 angeben -- beide Felder sind hier Pflicht."
+msgstr "Please enter a start and an end date in the format %1 -- both fields are required here."
+
+msgid "Bitte Von- und Bis-Datum angeben (%1) -- beide sind für den DATEV-Export Pflicht."
+msgstr "Please enter a from and a to date (%1) -- both are required for the DATEV export."
+
+msgid "Bitte ein gültiges \"Bis\"-Datum angeben (%1)."
+msgstr "Please enter a valid \"to\" date (%1)."
+
+msgid "Bitte ein gültiges \"Von\"- und \"Bis\"-Datum angeben (%1)."
+msgstr "Please enter a valid \"from\" and \"to\" date (%1)."
+
+msgid "Bitte ein gültiges Beginn-Datum angeben (%1)."
+msgstr "Please enter a valid start date (%1)."
+
+msgid "Bitte ein gültiges, in der Zukunft liegendes Fälligkeitsdatum angeben (%1)."
+msgstr "Please enter a valid due date in the future (%1)."
+
+msgid "Bitte eine Uhrzeit im Format %1 eingeben."
+msgstr "Please enter a time in the format %1."
+
+msgid "Bitte einen gültigen Entdeckungszeitpunkt, Beschreibung, betroffene Datenkategorien und Status angeben."
+msgstr "Please enter a valid discovery time, a description, the affected data categories and a status."
+
+msgid "Bitte einen gültigen Stichtag angeben (%1)."
+msgstr "Please enter a valid reporting date (%1)."
+
+msgid "Bitte einen gültigen Zeitpunkt angeben."
+msgstr "Please enter a valid point in time."
+
+msgid "Bitte gültige Datumsangaben (%1) verwenden, oder das Feld leer lassen."
+msgstr "Please use valid dates (%1) or leave the field empty."
+
+msgid "Der Zeitpunkt der Entdeckung startet die 72-Stunden-Frist."
+msgstr "The time of discovery starts the 72-hour deadline."
+
+msgid "Mo."
+msgstr "Mon"
+
+msgid "Di."
+msgstr "Tue"
+
+msgid "Mi."
+msgstr "Wed"
+
+msgid "Do."
+msgstr "Thu"
+
+msgid "Fr."
+msgstr "Fri"
+
+msgid "Sa."
+msgstr "Sat"
+
+msgid "So."
+msgstr "Sun"
+
+msgid "Diese Uhrzeit gibt es nicht."
+msgstr "This time does not exist."
+
+msgid "Entdeckt am"
+msgstr "Discovered on"
+
+msgid "Monat (Tag wird ignoriert)"
+msgstr "Month (the day is ignored)"
+
+msgid "Neues Fälligkeitsdatum"
+msgstr "New due date"
+
+msgid "Prüftermin (optional)"
+msgstr "Review date (optional)"
+
+msgid "Stichtag"
+msgstr "Reporting date"
+
+msgid "Unterzeichnet am (optional)"
+msgstr "Signed on (optional)"
+
+msgid "Verliehen am"
+msgstr "Awarded on"
+
+msgid "Von (Pflichtfeld)"
+msgstr "From (required)"
+
+msgid "Von (optional)"
+msgstr "From (optional)"
+
+msgid "Wiedervorlage am (optional)"
+msgstr "Follow-up on (optional)"
+
+msgid "Zeitpunkt (optional, leer = jetzt)"
+msgstr "Time (optional, empty = now)"
+
+msgid "Zeitpunkt der Einwilligung"
+msgstr "Time of consent"
+
+msgid "hh:mm"
+msgstr "hh:mm"

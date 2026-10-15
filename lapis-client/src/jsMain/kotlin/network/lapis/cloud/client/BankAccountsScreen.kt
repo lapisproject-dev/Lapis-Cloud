@@ -245,7 +245,10 @@ private fun renderFinTsCell(
             statusRow.div(
                 when (activeStatusVariant) {
                     FinTsActiveStatusVariant.LAST_SUCCESS ->
-                        gettext("Live-Abruf aktiv · letzter Abruf %1", account.finTsLastSuccessAt.toString())
+                        gettext(
+                            "Live-Abruf aktiv · letzter Abruf %1",
+                            account.finTsLastSuccessAt?.let { formatSystemDateTime(it) }.orEmpty(),
+                        )
                     FinTsActiveStatusVariant.ERROR_NO_SUCCESS ->
                         gettext(
                             "Live-Abruf aktiv · noch kein erfolgreicher Abruf (Fehlercode: %1)",
@@ -292,9 +295,9 @@ private fun renderFinTsGapNotice(
     panel.div(
         gettext(
             "Hinweis: Datenlücke im Live-Abruf erkannt am %1 (übersprungener Zeitraum: %2 – %3).",
-            detectedAt.toString(),
-            account.finTsGapFrom.toString(),
-            account.finTsGapTo.toString(),
+            formatSystemDateTime(detectedAt),
+            account.finTsGapFrom?.let { formatDate(it) }.orEmpty(),
+            account.finTsGapTo?.let { formatDate(it) }.orEmpty(),
         ),
     ) {
         addCssClasses("text-warning small")
@@ -474,7 +477,7 @@ internal fun showFinTsSetupModal(
         tanPanel.show()
         submitTanButton.show()
         untrustedContent(tanPromptLabel, outcome.bankPrompt)
-        tanExpiryLabel.content = gettext("Gültig bis %1 Uhr.", outcome.expiresAt.toString())
+        tanExpiryLabel.content = gettext("Gültig bis %1 Uhr.", formatSystemDateTime(outcome.expiresAt))
         tanField.reset()
     }
 

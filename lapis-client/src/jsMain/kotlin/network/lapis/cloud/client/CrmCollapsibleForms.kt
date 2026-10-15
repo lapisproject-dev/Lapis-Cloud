@@ -52,7 +52,7 @@ internal fun renderCrmInteractionCaptureForm(
     val form = panel.vPanel(spacing = 6)
     val kindOptions = CrmInteractionKind.entries.map { it.name to crmInteractionKindLabel(it) }
     val kindSelect = form.select(options = kindOptions, value = CrmInteractionKind.NOTE.name, label = tr("Art"))
-    val occurredAtInput = form.text(label = tr("Zeitpunkt (optional, ISO -- leer = jetzt, z. B. 2026-09-14T10:00)"))
+    val occurredAtInput = form.localDateTimeInput(label = gettext("Zeitpunkt (optional, leer = jetzt)"))
     val summaryInput = form.textArea(label = tr("Notiz (Pflichtfeld)")) { rows = 3 }
     val errorBox =
         form.div().apply {
@@ -72,14 +72,14 @@ internal fun renderCrmInteractionCaptureForm(
             return@onClick
         }
         val kind = runCatching { CrmInteractionKind.valueOf(kindSelect.value.orEmpty()) }.getOrNull() ?: CrmInteractionKind.NOTE
-        val occurredAtRaw = occurredAtInput.value?.trim().orEmpty()
+        val occurredAtRaw = occurredAtInput.value
         val occurredAt =
             if (occurredAtRaw.isBlank()) {
                 null
             } else {
                 runCatching { LocalDateTime.parse(occurredAtRaw) }.getOrNull()
                     ?: run {
-                        errorBox.content = tr("Zeitpunkt ist kein gültiges ISO-Format (z. B. 2026-09-14T10:00).")
+                        errorBox.content = tr("Bitte einen gültigen Zeitpunkt angeben.")
                         errorBox.show()
                         return@onClick
                     }
@@ -101,7 +101,7 @@ internal fun renderCrmInteractionCaptureForm(
             }
         }
     }
-    return FormSnapshot { listOf(kindSelect.value.orEmpty(), occurredAtInput.value.orEmpty(), summaryInput.value.orEmpty()) }
+    return FormSnapshot { listOf(kindSelect.value.orEmpty(), occurredAtInput.value, summaryInput.value.orEmpty()) }
 }
 
 internal fun renderCrmContactCreationForm(
@@ -122,7 +122,7 @@ internal fun renderCrmContactCreationForm(
     val basisOptions = listOf("" to tr("-- Rechtsgrundlage wählen --")) + CrmLawfulBasis.entries.map { it.name to crmLawfulBasisLabel(it) }
     val basisSelect = panel.select(options = basisOptions, value = "", label = tr("Rechtsgrundlage (Art. 6 DSGVO)"))
     val consentSourceInput = panel.text(label = tr("Herkunft der Einwilligung (z. B. \"Infostand Braunschweig\")")) { hide() }
-    val consentGivenAtInput = panel.text(label = tr("Zeitpunkt der Einwilligung (ISO, z. B. 2026-09-14T10:00)")) { hide() }
+    val consentGivenAtInput = panel.localDateTimeInput(label = gettext("Zeitpunkt der Einwilligung")).apply { visible = false }
     basisSelect.subscribe { value ->
         val isConsent = value == CrmLawfulBasis.CONSENT.name
         consentSourceInput.visible = isConsent
@@ -151,7 +151,7 @@ internal fun renderCrmContactCreationForm(
 
         val consentGivenAt =
             if (lawfulBasis == CrmLawfulBasis.CONSENT) {
-                val raw = consentGivenAtInput.value?.trim().orEmpty()
+                val raw = consentGivenAtInput.value
                 if (raw.isBlank()) {
                     errorBox.content = tr("Bei Rechtsgrundlage 'Einwilligung' ist der Zeitpunkt der Einwilligung Pflicht.")
                     errorBox.show()
@@ -159,7 +159,7 @@ internal fun renderCrmContactCreationForm(
                 }
                 runCatching { LocalDateTime.parse(raw) }.getOrNull()
                     ?: run {
-                        errorBox.content = tr("Zeitpunkt ist kein gültiges ISO-Format (z. B. 2026-09-14T10:00).")
+                        errorBox.content = tr("Bitte einen gültigen Zeitpunkt angeben.")
                         errorBox.show()
                         return@onClick
                     }
@@ -209,7 +209,7 @@ internal fun renderCrmContactCreationForm(
             typeSelect.value.orEmpty(),
             basisSelect.value.orEmpty(),
             consentSourceInput.value.orEmpty(),
-            consentGivenAtInput.value.orEmpty(),
+            consentGivenAtInput.value,
         )
     }
 }

@@ -170,6 +170,15 @@ internal fun HTMLElement.controlOf(
     return assertNotNull(document.getElementById(target.getAttribute("for").orEmpty()) as? HTMLElement, "no control for '$label'")
 }
 
+/** V1.9.137: a point in time is a date field and a time field ("Beginn (Datum)", "Beginn (Uhrzeit)"); [iso] is `2099-11-01T18:00`. */
+internal fun HTMLElement.typeDateTimeInto(
+    label: String,
+    iso: String,
+) {
+    typeInto("$label (Datum)", iso.substringBefore('T'))
+    typeInto("$label (Uhrzeit)", iso.substringAfter('T'))
+}
+
 /** Types [text] into the text control of [label] the way a person does: value, `input`, then leaving the field (`blur`). */
 internal fun HTMLElement.typeInto(
     label: String,

@@ -355,15 +355,13 @@ internal fun renderCostCenterReportView(panel: SimplePanel) {
     // vorbelegt, "Von" bleibt leer = seit Gründung.
     val form = panel.lapisForm()
     val fromField =
-        form.textField(label = tr("Von"), hint = tr("Beispiel: 2026-03-14."), rule = { FormRules.isoDate(it) })
+        form.localDateField(label = tr("Von"))
     val toField =
-        form.textField(
+        form.localDateField(
             label = tr("Bis"),
-            value = todayIso(),
+            value = organizationToday(),
             required = true,
-            hint = tr("Beispiel: 2026-03-14."),
             requiredMessage = tr("Bitte ein gültiges \"Bis\"-Datum angeben."),
-            rule = { FormRules.isoDate(it) },
         )
     val filterControls = DateRangeFilterControls(fromField.control as Text, toField.control as Text)
     val loadButton = Button(tr("Laden"), style = ButtonStyle.OUTLINESECONDARY)
@@ -453,8 +451,3 @@ fun costCenterLabel(costCenter: CostCenterDto): String = gettext("%1 · %2", cos
  * function rather than a shared interface, since the two DTOs otherwise have no supertype in
  * common and coercing one would be more machinery than the one-line duplication it avoids. */
 fun costCenterResultLabel(costCenter: CostCenterResultDto): String = gettext("%1 · %2", costCenter.code, costCenter.name)
-
-/** Mirrors `LedgerScreen.kt`/`FinancialReportsScreen.kt`'s own private `todayIso()` -- no shared
- * date-util file exists in this client (each screen that needs "today as JJJJ-MM-TT" carries its
- * own copy). */
-private fun todayIso(): String = organizationToday().toString()

@@ -166,7 +166,7 @@ private fun renderApiKeyCard(
     val lastUsedLine =
         if (key.lastUsedAt != null) {
             // 5-Minuten-Genauigkeit -- ApiKeyStore.touchLastUsed throttles writes, siehe dessen KDoc.
-            gettext("Zuletzt genutzt (5-Minuten-Genauigkeit): %1", key.lastUsedAt.toString())
+            gettext("Zuletzt genutzt (5-Minuten-Genauigkeit): %1", key.lastUsedAt?.let { formatSystemDateTime(it) }.orEmpty())
         } else {
             tr("Noch nicht genutzt")
         }

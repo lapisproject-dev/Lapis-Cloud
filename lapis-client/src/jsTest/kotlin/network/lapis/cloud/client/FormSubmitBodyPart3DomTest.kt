@@ -403,7 +403,7 @@ class FormSubmitBodyPart3DomTest {
                 mountedForm("p3-meeting") { root, element ->
                     renderMeetingCreationForm(root, listOf(committee()), onCreated = {})
                     element().typeInto("Titel", "  Vorstandssitzung  ")
-                    element().typeInto("Termin", "  2026-08-15T18:00 ")
+                    element().typeDateTimeInto("Termin", "2026-08-15T18:00")
                     element().typeInto("Ort", "  Halle 3  ")
                     element().chooseIn("Format", "HYBRID")
                     element().chooseRemote("Sitzungsleitung", query = "ko", id = "m2")
@@ -421,7 +421,7 @@ class FormSubmitBodyPart3DomTest {
                 mountedForm("p3-meeting-blank") { root, element ->
                     renderMeetingCreationForm(root, listOf(committee()), onCreated = {})
                     element().typeInto("Titel", "Nur ein Titel")
-                    element().typeInto("Termin", "2026-08-15T18:00")
+                    element().typeDateTimeInto("Termin", "2026-08-15T18:00")
                     element().typeInto("Ort", "   ")
                     element().buttonNamed("Sitzung anlegen").click()
                     awaitUntil("createMeeting", timeoutMs = 800) { calls.toRoute(create).size == 1 }
@@ -664,7 +664,7 @@ class FormSubmitBodyPart3DomTest {
                         }
                     }
                     element().typeInto("Titel", "  Sommerfest  ")
-                    element().typeInto("Termin", "  2026-09-05T15:30 ")
+                    element().typeDateTimeInto("Termin", "2026-09-05T15:30")
                     element().typeInto("Ort", "  Gemeindehaus  ")
                     element().typeInto("Einladungstext", "  Wir freuen uns auf Sie.  ")
 

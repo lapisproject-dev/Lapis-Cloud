@@ -141,7 +141,7 @@ fun renderEventCheckInScreen(
             when (result.outcome) {
                 EventCheckInOutcome.OK -> "alert alert-success" to gettext("Eingecheckt: %1", result.participantName ?: "")
                 EventCheckInOutcome.ALREADY_CHECKED_IN -> {
-                    val at = result.checkedInAt?.toString() ?: ""
+                    val at = result.checkedInAt?.let { formatSystemDateTime(it) } ?: ""
                     val by = result.checkedInByDisplayName ?: ""
                     "alert alert-secondary" to gettext("Bereits eingecheckt um %1 durch %2.", at, by)
                 }
@@ -181,7 +181,7 @@ fun renderEventCheckInScreen(
                         ?: registrationsById
             }
             pageHead.setSubtitle(fresh.eventTitle)
-            headerMeta.content = listOfNotNull(formatDateTime(fresh.startsAt), fresh.locationText).joinToString(" · ")
+            headerMeta.content = listOfNotNull(formatWeekdayDateTime(fresh.startsAt), fresh.locationText).joinToString(" · ")
             renderRoster(searchField.value.orEmpty())
         }
     }
@@ -405,7 +405,7 @@ private fun renderInvoiceLine(
         invoiceLine.div(
             gettext(
                 "Rechnung gestellt am %1 durch %2 (Offener Posten).",
-                registration.invoiceIssuedAt?.toString().orEmpty(),
+                registration.invoiceIssuedAt?.let { formatSystemDateTime(it) }.orEmpty(),
                 registration.invoiceIssuedByDisplayName.orEmpty(),
             ),
         ) { addCssClasses("text-muted small") }

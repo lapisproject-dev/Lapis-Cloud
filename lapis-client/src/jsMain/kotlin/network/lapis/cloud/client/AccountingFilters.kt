@@ -31,13 +31,13 @@ class DateRangeFilterControls(
         fromInput.value
             ?.trim()
             ?.takeIf { it.isNotBlank() }
-            ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            ?.let { parseLocalDateOrNull(it) }
 
     fun parseTo(): LocalDate? =
         toInput.value
             ?.trim()
             ?.takeIf { it.isNotBlank() }
-            ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            ?.let { parseLocalDateOrNull(it) }
 
     /**
      * Welle V1.4.26 (W2): „hat der Leser überhaupt einen Zeitraum eingegrenzt?" -- die Frage, die ein
@@ -50,12 +50,13 @@ class DateRangeFilterControls(
 }
 
 fun Container.dateRangeFilter(
-    fromLabel: String = tr("Von (JJJJ-MM-TT, optional)"),
-    toLabel: String = tr("Bis (JJJJ-MM-TT)"),
+    fromLabel: String = tr("Von (optional)"),
+    toLabel: String = tr("Bis"),
 ): DateRangeFilterControls {
     val row = lapisToolbar()
-    val fromInput = row.text(label = fromLabel)
-    val toInput = row.text(label = toLabel)
+    // V1.9.137: the two fields read and show the date in the locale (`15.10.2026`); the pattern is their placeholder, no hint line in a toolbar.
+    val fromInput = row.localDateInput(label = fromLabel, hintLine = false).input
+    val toInput = row.localDateInput(label = toLabel, hintLine = false).input
     return DateRangeFilterControls(fromInput, toInput)
 }
 

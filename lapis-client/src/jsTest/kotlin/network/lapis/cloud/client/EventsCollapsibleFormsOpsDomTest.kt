@@ -328,8 +328,8 @@ class EventsCollapsibleFormsOpsDomTest {
                     awaitUntil("the dialog is gone") { document.querySelector(".modal.show") == null }
                     assertTrue(screen.formOpen("lapis-create-event-shift"))
 
-                    host.typeInto("Beginn", "2099-11-01T16:00")
-                    host.typeInto("Ende", "2099-11-01T18:00")
+                    host.typeDateTimeInto("Beginn", "2099-11-01T16:00")
+                    host.typeDateTimeInto("Ende", "2099-11-01T18:00")
                     host.typeInto("Benötigte Anzahl", "3")
                     screen.buttonNamed("Schicht anlegen").click()
                     awaitUntil("createShift was called") { calls.toRoute(create).size == 1 }

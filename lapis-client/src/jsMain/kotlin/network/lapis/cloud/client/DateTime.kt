@@ -3,7 +3,8 @@ package network.lapis.cloud.client
 import io.kvision.core.Container
 import io.kvision.html.Span
 import io.kvision.html.span
-import io.kvision.i18n.I18n
+import io.kvision.i18n.gettext
+import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.number
@@ -17,13 +18,10 @@ import kotlinx.datetime.number
  *
  * **Raw ISO can reach the DOM by three routes; two of the three are now an enforced invariant, not just
  * a convention** (V1.4.32 W7 Teilwelle B, 2026-09-27):
- *   1. `<field>.toString()` -- the only form a plain field-list grep sees. Converted app-wide at Teilwelle
- *      A, EXCEPT the three sites inside `ReportRows.kt`'s GoBD financial reports
- *      (`generalLedgerRows`/`kassenbuchRows`/`anonymousForwardingRows`, pinned verbatim by `ReportGoldenTest`)
- *      and 31 further call sites across 20 files Teilwelle A explicitly deferred as "Teilwelle B". This
- *      route is STILL a ledgered snapshot, not an enforced invariant -- `ClientTemporalFormatTripwireTest`'s
- *      `T5a` rule only ever lowers `T5A_LEDGER`'s ceiling, it does not require it to reach zero. See
- *      `docs/architecture/ui-ux-guideline.adoc`'s W7 section for the current file-by-file table.
+ *   1. `<field>.toString()` -- the only form a plain field-list grep sees. Converted app-wide at Teilwelle A and, since V1.9.137, closed for
+ *      good: the 31 sites of 20 files Teilwelle A deferred (including the three GoBD report rows of `ReportRows.kt`) moved onto the
+ *      formatters and the `*Span`/`*Column`/`*Token` forms. `T5A_LEDGER` is `emptyMap()` and `ClientTemporalFormatTripwireTest`'s `T5a`
+ *      fails the build on any new raw site (T6 does the same for `today`/`now`).
  *   2. `gettext("... %1", <LocalDate|LocalDateTime>)` -- no `.toString()` appears in the source at all;
  *      `gettext(key: String, vararg args: Any?)` stringifies every non-String argument in
  *      `I18nCatalogManager.kt` (`args[index - 1]?.toString()`), directly or behind a
@@ -36,8 +34,9 @@ import kotlinx.datetime.number
  *
  * A bare local `val` that renames a field before the call (`val decidedAt = request.decidedAt ?: return
  * null`, no lambda involved) has the same blind-spot shape as the lambda-rename case above and is NOT
- * covered by `T5b`/`T5b-λ` -- `DsgvoRightsScreen.kt`'s `erasureDecidedCaption` is one confirmed, deliberately
- * left-open instance (see the guideline's W7 section, Tesler-named follow-up).
+ * covered by `T5b`/`T5b-λ`. Its confirmed instance, `DsgvoRightsScreen.kt`'s `erasureDecidedCaption`, formats through
+ * [formatSystemDateTime] since V1.9.137 (together with `periodRangeCaption`, `postingConfirmDialog` and the AI draft deadline, which
+ * the scan could not see either); a screen-by-screen review is the only guard for this shape.
  *
  * **No `Instant`, no zone conversion, no zone suffix -- in THIS file.** Every persisted time field in `lapis-shared` is
  * [LocalDate] or [LocalDateTime]; there is not a single `Instant` field on the wire. Since V1.9.38 a `LocalDateTime` is one of
@@ -64,61 +63,110 @@ import kotlinx.datetime.number
  * every render). A date/time inside a `gettext(...)` message is a plain `format*` string and freezes at
  * the language of the moment, like the rest of that message (documented gap, same as [Money.kt]'s W4a).
  *
- * **Exception since V1.9.132:** the travel expense screens show and read dates in the order and with the separator of the browser locale
- * (`LocaleDate.kt`, token kind [DATE_KIND_LOCALE_FIELD]); the only Intl call is the small probe in `LocaleDateProbe.kt` (T1 whitelists that one
- * file), and a fixed fallback table applies when it cannot tell. Everything else in this file stays Intl-free.
+ * **Since V1.9.137** every date and time in the app follows the locale table of `TemporalLocale.kt` (nine locales, no `Intl`): `15.10.2026, 15:05`
+ * (de), `15/10/2026, 15:05` (en-GB), `10/15/2026, 3:05 PM` (en-US). The `*In` functions take a [TemporalLocale] (or a language string, which is
+ * resolved through [resolveTemporalLocale] with the browser language).
  *
  * **Why no `Intl.DateTimeFormat` / `toLocaleDateString`**: exactly [Money.kt]'s reasoning -- ICU output
  * depends on the browser, which would make the golden tests flaky, and this app does not need month
- * names, only numeric components in a fixed per-language order.
+ * names, only numeric components in a fixed per-locale order.
  */
-fun formatDate(date: LocalDate): String = formatDateIn(I18n.language, date)
+fun formatDate(date: LocalDate): String = formatDateIn(currentTemporalLocale(), date)
 
-/** [formatDate] for an EXPLICIT language -- the seam tests use so they never have to set `I18n.language`. */
+/** [formatDate] for an EXPLICIT locale -- the seam tests use so they never have to set `I18n.language`. */
+internal fun formatDateIn(
+    locale: TemporalLocale,
+    date: LocalDate,
+): String = formatDateComponents(date.year, date.month.number, date.day, locale)
+
+/** [formatDateIn] for a UI language string (resolved with the browser language). */
 internal fun formatDateIn(
     language: String,
     date: LocalDate,
-): String = formatDateComponents(date.year, date.month.number, date.day, dateLocale(language))
+): String = formatDateIn(languageLocale(language), date)
 
-/** Day+month only (e.g. an anniversary), no year -- see [DATE_LOCALES] for the per-language form. */
-fun formatDayMonth(date: LocalDate): String = formatDayMonthIn(I18n.language, date)
+/** Day+month only (e.g. an anniversary), no year. */
+fun formatDayMonth(date: LocalDate): String = formatDayMonthIn(currentTemporalLocale(), date)
+
+internal fun formatDayMonthIn(
+    locale: TemporalLocale,
+    date: LocalDate,
+): String = formatDayMonthComponents(date.month.number, date.day, locale)
 
 internal fun formatDayMonthIn(
     language: String,
     date: LocalDate,
-): String = formatDayMonthComponents(date.month.number, date.day, dateLocale(language))
+): String = formatDayMonthIn(languageLocale(language), date)
 
 /** Date + time, no seconds -- the default form for a displayed `LocalDateTime`. */
-fun formatDateTime(at: LocalDateTime): String = formatDateTimeIn(I18n.language, at)
+fun formatDateTime(at: LocalDateTime): String = formatDateTimeIn(currentTemporalLocale(), at)
+
+internal fun formatDateTimeIn(
+    locale: TemporalLocale,
+    at: LocalDateTime,
+): String =
+    formatDateComponents(at.date.year, at.date.month.number, at.date.day, locale) +
+        "," + NBSP + formatTimeComponents(at.hour, at.minute, locale.hourCycle)
 
 internal fun formatDateTimeIn(
     language: String,
     at: LocalDateTime,
-): String {
-    val locale = dateLocale(language)
-    return formatDateComponents(at.date.year, at.date.month.number, at.date.day, locale) +
-        "," + NBSP + formatTimeComponents(at.hour, at.minute)
-}
+): String = formatDateTimeIn(languageLocale(language), at)
 
 /** Date + time WITH seconds -- audit trails ([AuditLogScreen.kt]) and delivery logs ([WebhookDeliveryLogPanel.kt]). */
-fun formatTimestamp(at: LocalDateTime): String = formatTimestampIn(I18n.language, at)
+fun formatTimestamp(at: LocalDateTime): String = formatTimestampIn(currentTemporalLocale(), at)
+
+internal fun formatTimestampIn(
+    locale: TemporalLocale,
+    at: LocalDateTime,
+): String =
+    formatDateComponents(at.date.year, at.date.month.number, at.date.day, locale) +
+        "," + NBSP + formatTimeComponents(at.hour, at.minute, locale.hourCycle, at.second)
 
 internal fun formatTimestampIn(
     language: String,
     at: LocalDateTime,
-): String {
-    val locale = dateLocale(language)
-    return formatDateComponents(at.date.year, at.date.month.number, at.date.day, locale) +
-        "," + NBSP + formatTimeComponents(at.hour, at.minute) + ":" + pad2(at.second)
-}
+): String = formatTimestampIn(languageLocale(language), at)
 
 /** Time only -- for a row whose date already stands in a group heading (e.g. a day's shift plan). */
-fun formatTime(at: LocalDateTime): String = formatTimeIn(I18n.language, at)
+fun formatTime(at: LocalDateTime): String = formatTimeIn(currentTemporalLocale(), at)
+
+internal fun formatTimeIn(
+    locale: TemporalLocale,
+    at: LocalDateTime,
+): String = formatTimeComponents(at.hour, at.minute, locale.hourCycle)
 
 internal fun formatTimeIn(
     language: String,
     at: LocalDateTime,
-): String = formatTimeComponents(at.hour, at.minute)
+): String = formatTimeIn(languageLocale(language), at)
+
+/**
+ * Weekday abbreviation + date + time (`Do., 15.10.2026, 18:00`, en-US `Thu, 10/15/2026, 6:00 PM`) -- only the events window uses it (V1.9.137).
+ * The abbreviation is a catalog text (`gettext`, resolved at the moment of formatting), so as widget content it goes through the token
+ * ([weekdayDateTimeToken]) and follows a language switch.
+ */
+fun formatWeekdayDateTime(at: LocalDateTime): String = formatWeekdayDateTimeIn(currentTemporalLocale(), at)
+
+internal fun formatWeekdayDateTimeIn(
+    locale: TemporalLocale,
+    at: LocalDateTime,
+): String = weekdayShortLabel(at.date.dayOfWeek) + "," + NBSP + formatDateTimeIn(locale, at)
+
+/** The abbreviation of a weekday in the current language -- resolved text, never a `tr()` marker (it is embedded mid-string). */
+internal fun weekdayShortLabel(day: DayOfWeek): String =
+    when (day) {
+        DayOfWeek.MONDAY -> gettext("Mo.")
+        DayOfWeek.TUESDAY -> gettext("Di.")
+        DayOfWeek.WEDNESDAY -> gettext("Mi.")
+        DayOfWeek.THURSDAY -> gettext("Do.")
+        DayOfWeek.FRIDAY -> gettext("Fr.")
+        DayOfWeek.SATURDAY -> gettext("Sa.")
+        DayOfWeek.SUNDAY -> gettext("So.")
+    }
+
+/** The locale of a UI language string, with the browser language for the `en` split. */
+internal fun languageLocale(language: String): TemporalLocale = resolveTemporalLocale(language, browserLanguageProvider())
 
 // ---- component rendering (shared by the token resolver below) ---------------------------------------------------------------
 
@@ -135,84 +183,54 @@ internal fun formatDateComponents(
     year: Int,
     month: Int,
     day: Int,
-    locale: DateLocale,
-): String =
-    when (locale.datePattern) {
-        DatePattern.DMY_DOT -> "${pad2(day)}.${pad2(month)}.${pad4(year)}"
-        DatePattern.ISO -> "${pad4(year)}-${pad2(month)}-${pad2(day)}"
-        DatePattern.DMY_SLASH -> "${pad2(day)}/${pad2(month)}/${pad4(year)}"
-        DatePattern.DMY_DASH -> "${pad2(day)}-${pad2(month)}-${pad4(year)}"
-    }
+    locale: TemporalLocale,
+): String {
+    val parts =
+        when (locale.order) {
+            DateOrder.DMY -> listOf(pad2(day), pad2(month), pad4(year))
+            DateOrder.MDY -> listOf(pad2(month), pad2(day), pad4(year))
+            DateOrder.YMD -> listOf(pad4(year), pad2(month), pad2(day))
+        }
+    return parts.joinToString(locale.separator.toString())
+}
 
 internal fun formatDayMonthComponents(
     month: Int,
     day: Int,
-    locale: DateLocale,
+    locale: TemporalLocale,
 ): String {
     val trailingDot = if (locale.dayMonthTrailingDot) "." else ""
-    return when (locale.datePattern) {
-        DatePattern.DMY_DOT -> "${pad2(day)}.${pad2(month)}$trailingDot"
-        DatePattern.ISO -> "${pad2(month)}-${pad2(day)}"
-        DatePattern.DMY_SLASH -> "${pad2(day)}/${pad2(month)}"
-        DatePattern.DMY_DASH -> "${pad2(day)}-${pad2(month)}"
-    }
+    val parts =
+        when (locale.order) {
+            DateOrder.DMY, DateOrder.YMD -> listOf(pad2(day), pad2(month))
+            DateOrder.MDY -> listOf(pad2(month), pad2(day))
+        }
+    return parts.joinToString(locale.separator.toString()) + trailingDot
 }
 
-/** No `locale` parameter: unlike the date, every one of the eight UI languages renders `HH:MM` identically
- * (see `DateTimeTest.eightLanguageMatrix_time`) -- there is no per-language variant to select, so there is
- * nothing here for a locale parameter to do. An earlier revision carried one anyway, dead and
- * `@Suppress`-ed; removed rather than kept as decoration a reader might assume does something. */
+/** The 12-hour clock's suffixes. Constants, not literals: they are not German and must not read as a raw German fallback to the catalog scan. */
+private const val AM_SUFFIX = "AM"
+private const val PM_SUFFIX = "PM"
+
+/**
+ * `15:05` on the 24-hour clock; `3:05 PM` on the 12-hour clock (NBSP before `AM`/`PM`, never U+202F; `00:xx` is `12:xx AM`, `12:xx` is `12:xx PM`).
+ * [second] is appended before the AM/PM suffix (`3:05:09 PM`).
+ */
 internal fun formatTimeComponents(
     hour: Int,
     minute: Int,
-): String = "${pad2(hour)}:${pad2(minute)}"
-
-// ---- locale table --------------------------------------------------------------------------------------------------------------
-
-/** The four date-component orderings this app renders. No month names, no AM/PM, no zone -- see the file KDoc. */
-internal enum class DatePattern { DMY_DOT, ISO, DMY_SLASH, DMY_DASH }
-
-/**
- * Date pattern and [formatDayMonth]'s trailing dot of one UI language.
- *
- * [dayMonthTrailingDot] is only ever WIRED UP for [DatePattern.DMY_DOT] -- [formatDayMonthComponents]'s
- * `ISO`/`DMY_SLASH`/`DMY_DASH` branches never consult it (a trailing dot is a `de`/`pl`/`ru`-specific
- * ordinal-day convention, not something a slash- or dash-ordered date has ever needed). The `init` block
- * turns "a ninth language pairs `dayMonthTrailingDot = true` with a non-dot pattern" from a silent
- * mismatch between this KDoc and [formatDayMonthComponents] into a construction-time failure, so a future
- * [DATE_LOCALES] entry cannot make the same claim [formatDayMonthComponents] would then quietly ignore.
- */
-internal data class DateLocale(
-    val datePattern: DatePattern,
-    /** `true` = [formatDayMonth] ends with a dot (`de`/`pl`/`ru`'s ordinal-day convention) -- meaningful
-     * ONLY when [datePattern] is [DatePattern.DMY_DOT], see the class KDoc. */
-    val dayMonthTrailingDot: Boolean,
-) {
-    init {
-        require(!dayMonthTrailingDot || datePattern == DatePattern.DMY_DOT) {
-            "dayMonthTrailingDot=true has no effect outside DatePattern.DMY_DOT " +
-                "(formatDayMonthComponents never reads it for $datePattern) -- pass false, or add support " +
-                "for a trailing dot to that branch first"
+    cycle: HourCycle = HourCycle.H23,
+    second: Int? = null,
+): String {
+    val seconds = if (second == null) "" else ":" + pad2(second)
+    return when (cycle) {
+        HourCycle.H23 -> "${pad2(hour)}:${pad2(minute)}$seconds"
+        HourCycle.H12 -> {
+            val h = if (hour % 12 == 0) 12 else hour % 12
+            "$h:${pad2(minute)}$seconds" + NBSP + (if (hour < 12) AM_SUFFIX else PM_SUFFIX)
         }
     }
 }
-
-/** The eight UI languages (`SUPPORTED_LANGUAGES` in App.kt) -- same set as [MONEY_LOCALES]. */
-internal val DATE_LOCALES: Map<String, DateLocale> =
-    mapOf(
-        "de" to DateLocale(datePattern = DatePattern.DMY_DOT, dayMonthTrailingDot = true),
-        "pl" to DateLocale(datePattern = DatePattern.DMY_DOT, dayMonthTrailingDot = true),
-        "ru" to DateLocale(datePattern = DatePattern.DMY_DOT, dayMonthTrailingDot = true),
-        "en" to DateLocale(datePattern = DatePattern.ISO, dayMonthTrailingDot = false),
-        "fr" to DateLocale(datePattern = DatePattern.DMY_SLASH, dayMonthTrailingDot = false),
-        "es" to DateLocale(datePattern = DatePattern.DMY_SLASH, dayMonthTrailingDot = false),
-        "it" to DateLocale(datePattern = DatePattern.DMY_SLASH, dayMonthTrailingDot = false),
-        "nl" to DateLocale(datePattern = DatePattern.DMY_DASH, dayMonthTrailingDot = false),
-    )
-
-/** `I18n.language` may carry a region ("de-DE"); the table is keyed by the base tag. Unknown -> German. */
-internal fun dateLocale(language: String): DateLocale =
-    DATE_LOCALES[language.substringBefore('-').lowercase()] ?: DATE_LOCALES.getValue("de")
 
 // ---- token mechanics (shares the sentinel with Money.kt, see the D5 rename there) -----------------------------------------------
 
@@ -221,9 +239,7 @@ internal const val DATE_KIND_DAY_MONTH = 'm'
 internal const val DATE_KIND_DATE_TIME = 't'
 internal const val DATE_KIND_TIMESTAMP = 's'
 internal const val DATE_KIND_TIME = 'c'
-
-/** V1.9.132: a date in the order and with the separator of the BROWSER locale (`LocaleDate.kt`), used on the travel expense screens. */
-internal const val DATE_KIND_LOCALE_FIELD = 'f'
+internal const val DATE_KIND_WEEKDAY_DATE_TIME = 'w'
 
 /** Live-translatable widget content for a [LocalDate]: `###KvI18nS###` + sentinel + kind + canonical ISO date. */
 internal fun dateToken(date: LocalDate): String = KV_I18N_MARKER + I18N_VALUE_SENTINEL + DATE_KIND_DATE + date.toString()
@@ -236,8 +252,8 @@ internal fun timestampToken(at: LocalDateTime): String = KV_I18N_MARKER + I18N_V
 
 internal fun timeToken(at: LocalDateTime): String = KV_I18N_MARKER + I18N_VALUE_SENTINEL + DATE_KIND_TIME + at.toString()
 
-/** Live-translatable widget content for a [LocalDate] in the browser-locale order -- see `LocaleDate.kt` for how it relates to [dateToken]. */
-internal fun localeDateToken(date: LocalDate): String = KV_I18N_MARKER + I18N_VALUE_SENTINEL + DATE_KIND_LOCALE_FIELD + date.toString()
+internal fun weekdayDateTimeToken(at: LocalDateTime): String =
+    KV_I18N_MARKER + I18N_VALUE_SENTINEL + DATE_KIND_WEEKDAY_DATE_TIME + at.toString()
 
 /**
  * Resolves ONE of the five date/time token kinds' digits into display text, or `null` when [digits] is
@@ -248,17 +264,16 @@ internal fun localeDateToken(date: LocalDate): String = KV_I18N_MARKER + I18N_VA
 internal fun formatTemporalTokenDigits(
     kind: Char,
     digits: String,
-    language: String,
+    locale: TemporalLocale,
 ): String? =
     runCatching {
         when (kind) {
-            DATE_KIND_DATE -> formatDateIn(language, LocalDate.parse(digits))
-            DATE_KIND_DAY_MONTH -> formatDayMonthIn(language, LocalDate.parse(digits))
-            DATE_KIND_DATE_TIME -> formatDateTimeIn(language, LocalDateTime.parse(digits))
-            DATE_KIND_TIMESTAMP -> formatTimestampIn(language, LocalDateTime.parse(digits))
-            DATE_KIND_TIME -> formatTimeIn(language, LocalDateTime.parse(digits))
-            DATE_KIND_LOCALE_FIELD ->
-                formatLocalDate(LocalDate.parse(digits), resolveDateFieldOrder(language, browserLanguageProvider(), dateFieldOrderProbe))
+            DATE_KIND_DATE -> formatDateIn(locale, LocalDate.parse(digits))
+            DATE_KIND_DAY_MONTH -> formatDayMonthIn(locale, LocalDate.parse(digits))
+            DATE_KIND_DATE_TIME -> formatDateTimeIn(locale, LocalDateTime.parse(digits))
+            DATE_KIND_TIMESTAMP -> formatTimestampIn(locale, LocalDateTime.parse(digits))
+            DATE_KIND_TIME -> formatTimeIn(locale, LocalDateTime.parse(digits))
+            DATE_KIND_WEEKDAY_DATE_TIME -> formatWeekdayDateTimeIn(locale, LocalDateTime.parse(digits))
             else -> null
         }
     }.getOrNull()
@@ -278,8 +293,8 @@ fun Container.timestampSpan(at: LocalDateTime): Span = span(timestampToken(at)) 
 
 fun Container.timeSpan(at: LocalDateTime): Span = span(timeToken(at)) { addCssClass(TABULAR_NUMS_CLASS) }
 
-/** A date in the browser-locale order (V1.9.132, travel expense screens) -- widget content, follows a language switch. */
-fun Container.localeDateSpan(date: LocalDate): Span = span(localeDateToken(date)) { addCssClass(TABULAR_NUMS_CLASS) }
+/** Weekday + date + time as live-translatable widget content, for the events window. */
+fun Container.weekdayDateTimeSpan(at: LocalDateTime): Span = span(weekdayDateTimeToken(at)) { addCssClass(TABULAR_NUMS_CLASS) }
 
 // ---- table columns (DataTableState.kt's textColumn, see the file KDoc there for the trust mechanics) ---------------------------
 

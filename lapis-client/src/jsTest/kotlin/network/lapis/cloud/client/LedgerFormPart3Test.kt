@@ -192,7 +192,13 @@ class LedgerFormPart3Test {
         assertEquals("Spende", built.description)
         assertNull(built.voucherReference, "a blank voucher is null, never \"\"")
         assertEquals("B-1", buildJournalEntryInput("2026-03-14", "x", "  B-1 ", lines, none)!!.voucherReference)
-        assertNull(buildJournalEntryInput("14.03.2026", "x", null, lines, none))
+        assertEquals(
+            LocalDate(2026, 3, 14),
+            buildJournalEntryInput("14.03.2026", "x", null, lines, none)!!.entryDate,
+            "the locale form is read too",
+        )
+        assertNull(buildJournalEntryInput("nicht-ein-datum", "x", null, lines, none))
+        assertNull(buildJournalEntryInput("31.04.2026", "x", null, lines, none))
         assertNull(buildJournalEntryInput("2026-03-14", "   ", null, lines, none))
         val donor = buildJournalEntryInput("2026-03-14", "x", null, lines, Triple("m1", null, DonorCategory.GERMAN_NATURAL_PERSON))!!
         assertEquals("m1", donor.donorMemberId)

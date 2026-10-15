@@ -6,6 +6,39 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.137 -- Dates and times in the locale of the UI
+
+Every date and time the web client shows or accepts now follows the locale of the UI language, from one fixed table of nine locales. Only `lapis-client` changes: storage, wire format, RPC and exports stay ISO-8601, there is no migration.
+
+#### Added
+
+- **New:** `TemporalLocale.kt` -- `de`, `pl`, `ru` (`15.10.2026, 15:05`), `en-GB`/`fr`/`es`/`it` (`15/10/2026, 15:05`), `nl` (`15-10-2026, 15:05`) and `en-US` (`10/15/2026, 3:05 PM`, 12-hour clock). `resolveTemporalLocale(uiLanguage, browserLanguage)` is pure: `de` is always `de`, `en` is `en-US` only for the browser language `en-US`, otherwise `en-GB`. No `Intl` anywhere; `LocaleDateProbe.kt` is deleted.
+- **New:** time input. `parseLocalTime`/`formatLocalTime`/`timePatternText` and `TimeParse` (`Ok`, `BadFormat`, `NoSuchTime`, `AmPmMissing`); `localTimeField`, `localDateTimeFields` for a `LapisForm`, and `localDateInput`/`localTimeInput`/`localDateTimeInput` (`LocalInputs.kt`) for screens that build raw `Text` widgets. A point in time is two fields, "X (Datum)" and "X (Uhrzeit)", each with the pattern as placeholder and hint (`aria-describedby`).
+- **New:** weekday abbreviation in the events window (event list, check-in, member events): `Do., 15.10.2026, 18:00`, `Thu, 10/15/2026, 6:00 PM`; catalog texts `Mo.` ... `So.`, live-translatable token kind `w`.
+- **New:** tripwires `T6` (no `.toString()` on `todayLocalDate()`/`organizationToday()`/`organizationNow()`), `T7` (no native `date`/`time`/`datetime-local`/`month`/`week` input) and `T8` (no fixed pattern literal, no ISO-only field rule); each with a red proof on a copied violating source. `docs/features/locale-dates.adoc`.
+- **New:** 42 catalog texts in the template and all seven catalogs.
+
+#### Changed
+
+- **Behavior changes:** English no longer shows ISO dates (`2026-10-15` is `15/10/2026`, or `10/15/2026` for an `en-US` browser). Other English regions (`en-CA`, `en-AU`, `en-IN`) read as `en-GB`; this reverses the Intl-based order lookup of V1.9.132 after three days.
+- **Behavior changes:** the browser's own date, time and `datetime-local` pickers are gone from the whole client (event form, poll deadline, carpool, membership tiers, birth date, agreement texts, travel expense day grid): they are locale text fields now. ISO (`2026-10-15`) is still accepted as input everywhere.
+- Roughly 30 date fields that were ISO text (`FormRules.isoDate`, filters, modals, CRM and GDPR forms, the meeting form, volunteer-shift forms) are locale fields; their labels no longer carry `(JJJJ-MM-TT)`, their messages name the locale pattern. `FormRules.isoDate` and `FormRules.localDateTime` are removed.
+- The 31 raw `field.toString()` display sites of 20 files that `T5A_LEDGER` listed (incl. the three GoBD report rows of `ReportRows.kt`) use the formatters; `T5A_LEDGER` is empty. Four more raw sites the scan cannot see (`periodRangeCaption`, `postingConfirmDialog`, the AI draft restore deadline, `erasureDecidedCaption`) were fixed by review.
+- The GoBD report tables on screen show the locale form; `ReportGoldenTest` pins the live date token. The bytes of the CSV and DATEV exports are untouched.
+- `travelExpenseParseTime` and `deathDateCheck(String)` read the locale form; `localeDateToken`/`localeDateSpan` and `DATE_KIND_LOCALE_FIELD` are gone (`dateToken`/`dateSpan`).
+
+#### Known limitations
+
+- Not looked at in a real browser in all nine locales; only the Karma run (Chrome headless, German UI) and unit tests.
+- Mails, PDFs and server-rendered pages are unchanged and keep their own date forms.
+- The new texts are model translations, not reviewed by a native speaker.
+- `en-US` versus `en-GB` is decided by the browser language only.
+- The browser calendar is gone: keyboard and screen-reader users type the date. An accessible calendar is a separate follow-up.
+- Time fields have no seconds: a stored value with seconds (e.g. a GDPR breach `discoveredAt`, CRM consent time) is shown without them and saved without them when the form is saved.
+- Member statistics period labels (`2026-10`) and the CSV export of that screen stay ISO-like by design; the auto-generated conference room title keeps its German `dd.MM.yyyy` wording.
+- `gettext` messages that embed a formatted date freeze at the language of the moment (existing, documented gap).
+- A point in time is two separate fields one under the other (no combined field, no side-by-side layout); not looked at on a phone.
+
 ### V1.9.136 -- Shell for member-card and mailing-link pages
 
 The member-card verification pages (`GET /ausweis`) and the two neutral mailing-link pages (`GET /m/c/{token}`, 404 and 429) now use the same brand header, card and footer as the sign-in pages. Routes, status codes, texts, rate limits and the token and code logic are unchanged.

@@ -23,6 +23,12 @@ import java.io.File
  * interpolation. T5a/b/b-lambda/c below are the enforcement of all four, mirroring T3's own field-list mechanics but
  * deriving the field list itself from `lapis-shared` at test-run time (a hand-maintained list, like M5's
  * `DECIMAL_FIELDS`, goes stale the moment a new persisted temporal field is added without a matching test edit).
+ *
+ * V1.9.137 "Datum und Uhrzeit überall im Locale" tightens three things: T1 has NO exception any more (the Intl probe of V1.9.132 is gone),
+ * T5a's ledger is empty (every raw `field.toString()` display site moved onto the formatters), and three new rules close the doors that
+ * would let the old forms back in -- T6 (`.toString()` on today/now), T7 (native `date`/`time`/`datetime-local` inputs) and T8 (fixed
+ * format literals and the ISO-only field rule in UI code). Each new rule has a positive detector example, a negative one, and a red proof on
+ * a copied, deliberately violating source.
  */
 private val CLIENT_SOURCES =
     File("../lapis-client/src/jsMain/kotlin")
@@ -188,37 +194,10 @@ private fun templateTemporalSites(file: File): List<String> =
 private val T5_FALSE_POSITIVES: Set<Pair<String, String>> = emptySet()
 
 /**
- * File name -> finding count. Only ever lowered -- an increase means a NEW raw-ISO display site was introduced and
- * the ledger tests below will fail, exactly like M4/M6's `MotionsScreen.kt` ledgers. Measured by this Teilwelle B's
- * own red-proof run (T5's tests failing against an empty ledger, per this class' own commit history); every entry
- * still open after this wave is also carried into `docs/architecture/ui-ux-guideline.adoc`'s W7 section and
- * `CHANGELOG.md`.
+ * File name -> finding count. EMPTY since V1.9.137 (the 31 sites of 20 files, including the three GoBD report rows of `ReportRows.kt`, were
+ * moved onto the formatters and the `*Span`/`*Column`/`*Token` forms); a NEW raw-ISO display site fails the build.
  */
-private val T5A_LEDGER: Map<String, Int> =
-    mapOf(
-        "ApiKeysScreen.kt" to 1,
-        "BankAccountsScreen.kt" to 4,
-        "BankStatementImportScreen.kt" to 5,
-        "DocumentsScreen.kt" to 1,
-        "EventCheckInScreen.kt" to 2,
-        "EventVolunteerShiftsScreen.kt" to 1,
-        "EventsScreen.kt" to 1,
-        "LedgerScreen.kt" to 1,
-        "LtrLedgerScreen.kt" to 1,
-        "MemberAdministrationScreen.kt" to 1,
-        "MemberFamiliesScreen.kt" to 2,
-        "MemberHonorsScreen.kt" to 1,
-        "MyVolunteerShiftsScreen.kt" to 1,
-        "PaymentTransactionsScreen.kt" to 1,
-        "PoliticianScreen.kt" to 1,
-        "PriceOracleScreen.kt" to 1,
-        // GoBD golden-test pinning (ReportGoldenTest) -- stays open, not part of any Teilwelle B commit, see
-        // ui-ux-guideline.adoc "Not done in this wave" and DateTime.kt's file KDoc.
-        "ReportRows.kt" to 3,
-        "SepaMandatesScreen.kt" to 1,
-        "VolunteerAllowanceApprovalsScreen.kt" to 1,
-        "VolunteerAllowanceScreen.kt" to 1,
-    )
+private val T5A_LEDGER: Map<String, Int> = emptyMap()
 
 /**
  * Commit 3 of this wave (Route 2 Group A) closed AuditLogScreen.kt, DunningCasesScreen.kt,
@@ -254,6 +233,46 @@ private val T5B_LAMBDA_LEDGER: Map<String, Int> = emptyMap()
  * shrink further (there is nothing left to shrink from). */
 private val T5C_LEDGER: Map<String, Int> = emptyMap()
 
+// ---- T6: `.toString()` on today / now ----------------------------------------------------------------------------------
+
+/** T6: `todayLocalDate().toString()`, `organizationToday().toString()`, `organizationNow().toString()` (also behind a method chain such as
+ * `.plus(1, DateTimeUnit.DAY)`) prefill or show an ISO date -- the locale form is [formatLocalDate]/`todayLocaleText()`, the machine form
+ * `machineDate`/`machineDateTime`. A machine-readable use (a prefill of a hidden value, a sort key) is exempt like in T5a. */
+private val TODAY_NOW_TOSTRING =
+    Regex("""\b(?:todayLocalDate|organizationToday|organizationNow|localNow)\(\)(?:\.\w+\([^()]*\))*\??\.toString\(\)""")
+
+/** file name -> count; empty. An entry needs a reason and still has to match at test time. */
+private val T6_ALLOWLIST: Map<String, Int> = emptyMap()
+
+private fun todayNowToStringSites(file: File): List<String> =
+    codeLines(file).filter { TODAY_NOW_TOSTRING.containsMatchIn(it) && !MACHINE_OR_SORT_CONTEXT.containsMatchIn(it) }.map { it.trim() }
+
+// ---- T7: native date/time inputs -----------------------------------------------------------------------------------------
+
+/** T7: the browser's own date/time pickers show the date in the order of the operating system, not the UI language. */
+private val NATIVE_DATE_INPUT =
+    Regex(
+        """InputType\.(?:DATE|DATETIME_LOCAL|TIME|MONTH|WEEK)\b|""" +
+            """(?:\btype\s*=\s*|setAttribute\(\s*"type"\s*,\s*)"(?:date|datetime-local|time|month|week)"""",
+    )
+
+// ---- T8: fixed format literals, ISO-only UI rules -----------------------------------------------------------------------
+
+/** T8: a fixed date/time pattern as a literal (`dd.MM.yyyy`, `HH:mm`, `TT.MM`), or the ISO-only field rules in UI code. `TemporalLocale.kt`
+ * and `LocaleDate.kt` are the only files that may name a pattern; `FormRules.kt` may DECLARE the legacy rules. */
+private val FIXED_PATTERN_LITERAL = Regex(""""[^"]*(?:dd\.MM|yyyy|HH:mm|TT\.MM)[^"]*"""")
+private val ISO_ONLY_FIELD_RULE = Regex("""FormRules\.(?:isoDate|localDateTime)\(""")
+private val T8_EXEMPT_FILES = setOf("TemporalLocale.kt", "LocaleDate.kt")
+
+private fun fixedPatternSites(file: File): List<String> =
+    if (file.name in T8_EXEMPT_FILES) {
+        emptyList()
+    } else {
+        codeLines(file)
+            .filter { FIXED_PATTERN_LITERAL.containsMatchIn(it) || ISO_ONLY_FIELD_RULE.containsMatchIn(it) }
+            .map { it.trim() }
+    }
+
 class ClientTemporalFormatTripwireTest :
     FunSpec({
         val files = CLIENT_SOURCES.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
@@ -265,16 +284,16 @@ class ClientTemporalFormatTripwireTest :
             files.any { it.name == "DateTime.kt" } shouldBe true
         }
 
-        test("T1: no Intl.DateTimeFormat / toLocaleDateString / toLocaleTimeString in the client, and the detector sees one") {
-            // V1.9.132: LocaleDateProbe.kt is the ONE deliberate exception -- the travel expense date fields ask the browser for the
-            // ORDER and SEPARATOR of a date (never for the digits), with a fixed fallback table. Any other file is still a finding.
-            files.filter { it.name != "LocaleDateProbe.kt" }.flatMap { f ->
+        test("T1: no Intl.DateTimeFormat / toLocaleDateString / toLocaleTimeString anywhere in the client, and the detector sees one") {
+            // V1.9.137: no exception. The Intl probe of V1.9.132 (LocaleDateProbe.kt) is gone; the locale comes from a fixed table.
+            files.flatMap { f ->
                 codeLines(f).filter { FORBIDDEN_DATE_API.containsMatchIn(it) }.map { "${f.name}: ${it.trim()}" }
             } shouldBe
                 emptyList()
             FORBIDDEN_DATE_API.containsMatchIn("""x.asDynamic().toLocaleDateString("de-DE")""") shouldBe true
             FORBIDDEN_DATE_API.containsMatchIn("""Intl.DateTimeFormat("de").format(x)""") shouldBe true
             FORBIDDEN_DATE_API.containsMatchIn("""formatDate(x)""") shouldBe false
+            File(CLIENT_SOURCES, "network/lapis/cloud/client/LocaleDateProbe.kt").exists() shouldBe false
         }
 
         test("T2: a temporal token is never concatenated into a string nor passed to gettext, and the detector sees both") {
@@ -366,6 +385,68 @@ class ClientTemporalFormatTripwireTest :
             TEMPLATE_TEMPORAL_FIELD.containsMatchIn("""div(formatDateTime(event.startsAt))""") shouldBe false
             val findings = others.associate { it.name to templateTemporalSites(it).size }.filterValues { it > 0 }
             findings shouldBe T5C_LEDGER
+        }
+
+        test("T6: .toString() on today/now is caught (also behind a chain), a formatted call and a machine-readable use are not") {
+            TODAY_NOW_TOSTRING.containsMatchIn("""field.setValue(todayLocalDate().toString())""") shouldBe true
+            TODAY_NOW_TOSTRING.containsMatchIn("""value = organizationToday().plus(1, DateTimeUnit.DAY).toString(),""") shouldBe true
+            TODAY_NOW_TOSTRING.containsMatchIn("""div(organizationNow().toString())""") shouldBe true
+            TODAY_NOW_TOSTRING.containsMatchIn("""field.setValue(todayLocaleText())""") shouldBe false
+            TODAY_NOW_TOSTRING.containsMatchIn("""div(formatDateTime(organizationNow()))""") shouldBe false
+            MACHINE_OR_SORT_CONTEXT.containsMatchIn("""value = organizationToday().toString()""") shouldBe true
+            // red proof on a copied source: the detector fails a real screen with one violating line appended
+            val copy = File.createTempFile("t6-red-proof", ".kt")
+            try {
+                copy.writeText(others.first { it.name == "SepaBatchesScreen.kt" }.readText() + "\nval bad = todayLocalDate().toString()\n")
+                todayNowToStringSites(copy) shouldBe listOf("val bad = todayLocalDate().toString()")
+            } finally {
+                copy.delete()
+            }
+            val findings = others.associate { it.name to todayNowToStringSites(it).size }.filterValues { it > 0 }
+            findings shouldBe T6_ALLOWLIST
+        }
+
+        test("T7: no native date/time/datetime-local/month/week input, and the detector sees each form") {
+            NATIVE_DATE_INPUT.containsMatchIn("""type = InputType.DATE,""") shouldBe true
+            NATIVE_DATE_INPUT.containsMatchIn("""panel.text(type = InputType.DATETIME_LOCAL, label = tr("Beginn"))""") shouldBe true
+            NATIVE_DATE_INPUT.containsMatchIn("""InputType.TIME""") shouldBe true
+            NATIVE_DATE_INPUT.containsMatchIn("""setAttribute("type", "date")""") shouldBe true
+            NATIVE_DATE_INPUT.containsMatchIn("""type = "datetime-local"""") shouldBe true
+            NATIVE_DATE_INPUT.containsMatchIn("""type = InputType.TEXT""") shouldBe false
+            NATIVE_DATE_INPUT.containsMatchIn("""val time = "time"""") shouldBe false
+            NATIVE_DATE_INPUT.containsMatchIn("""InputType.TIMEOUT""") shouldBe false
+            val copy = File.createTempFile("t7-red-proof", ".kt")
+            try {
+                copy.writeText(others.first { it.name == "CarpoolScreen.kt" }.readText() + "\nval bad = text(type = InputType.DATE)\n")
+                codeLines(copy).filter { NATIVE_DATE_INPUT.containsMatchIn(it) }.map { it.trim() } shouldBe
+                    listOf("val bad = text(type = InputType.DATE)")
+            } finally {
+                copy.delete()
+            }
+            files
+                .flatMap { f -> codeLines(f).filter { NATIVE_DATE_INPUT.containsMatchIn(it) }.map { "${f.name}: ${it.trim()}" } } shouldBe
+                emptyList()
+        }
+
+        test("T8: no fixed format literal and no ISO-only field rule in UI code, and the detector sees both") {
+            FIXED_PATTERN_LITERAL.containsMatchIn("""val p = "dd.MM.yyyy"""") shouldBe true
+            FIXED_PATTERN_LITERAL.containsMatchIn("""label = "Uhrzeit (HH:mm)"""") shouldBe true
+            FIXED_PATTERN_LITERAL.containsMatchIn("""hint = "TT.MM.JJJJ"""") shouldBe true
+            FIXED_PATTERN_LITERAL.containsMatchIn("""label = tr("Beginn")""") shouldBe false
+            ISO_ONLY_FIELD_RULE.containsMatchIn("""rule = { FormRules.isoDate(it) },""") shouldBe true
+            ISO_ONLY_FIELD_RULE.containsMatchIn("""rule = { FormRules.localDateTime(value = it) },""") shouldBe true
+            ISO_ONLY_FIELD_RULE.containsMatchIn("""rule = { FormRules.localDate(it, spec) },""") shouldBe false
+            val copy = File.createTempFile("t8-red-proof", ".kt")
+            try {
+                copy.writeText(others.first { it.name == "LedgerScreen.kt" }.readText() + "\nval bad = \"dd.MM.yyyy\"\n")
+                fixedPatternSites(copy) shouldBe listOf("val bad = \"dd.MM.yyyy\"")
+            } finally {
+                copy.delete()
+            }
+            // the two files that name the patterns are exempt by name
+            val exempt = others.filter { it.name in T8_EXEMPT_FILES }
+            exempt.map { it.name }.toSet() shouldBe T8_EXEMPT_FILES
+            others.flatMap { f -> fixedPatternSites(f).map { "${f.name}: $it" } } shouldBe emptyList()
         }
 
         test("T5 false-positive entries still apply") {

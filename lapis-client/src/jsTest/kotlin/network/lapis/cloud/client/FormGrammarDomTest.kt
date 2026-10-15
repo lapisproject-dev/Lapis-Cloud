@@ -459,6 +459,41 @@ class FormGrammarDomTest {
     }
 
     @Test
+    fun aHiddenLocalDateField_withInvalidText_doesNotBlockValidation() {
+        withMountedRoot("form-grammar-hidden-date") { root, element ->
+            val form = root.lapisForm()
+            val date = form.localDateField(label = tr("Sterbedatum"))
+            form.buttons(primary = Button("Weiter"))
+            val input = element().inputs().first()
+            typeInto(input, "31.02.2026")
+            assertFalse(form.validateAll(force = true), "an invalid date blocks while the field is visible")
+
+            date.setVisible(false)
+            assertTrue(form.validateAll(force = true), "a hidden field must not block, although its text is still invalid")
+            assertEquals(0, element().querySelectorAll(".lapis-field-error--shown").length)
+
+            date.setVisible(true)
+            assertFalse(form.validateAll(force = true), "showing the field again validates its text again")
+        }
+    }
+
+    @Test
+    fun aHiddenLocalDateTimeFields_withInvalidText_doesNotBlockValidation() {
+        withMountedRoot("form-grammar-hidden-datetime") { root, element ->
+            val form = root.lapisForm()
+            val fields = form.localDateTimeFields(label = tr("Frist"))
+            form.buttons(primary = Button("Weiter"))
+            val inputs = element().inputs()
+            typeInto(inputs[0], "31.02.2026")
+            typeInto(inputs[1], "25:00")
+            assertFalse(form.validateAll(force = true))
+
+            fields.setVisible(false)
+            assertTrue(form.validateAll(force = true), "hidden date and time fields must not block")
+        }
+    }
+
+    @Test
     fun aSelectFieldWithASlotHost_putsItsErrorSlotOutsideTheFlexRow() {
         withMountedRoot("form-grammar-slot-host") { root, element ->
             val form = root.lapisForm()

@@ -18,7 +18,6 @@ import io.kvision.panel.hPanel
 import io.kvision.panel.vPanel
 import io.kvision.utils.px
 import kotlinx.coroutines.launch
-import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.ContributionDto
 import network.lapis.cloud.shared.domain.ContributionReliefKind
@@ -247,7 +246,7 @@ private fun openDeferralRequestDialog(
 ) {
     val modal = Modal(caption = tr("Stundung beantragen"))
     val body = modal.div()
-    val dueDateInput = body.text(label = tr("Neues Fälligkeitsdatum (JJJJ-MM-TT)"))
+    val dueDateInput = body.localDateInput(label = tr("Neues Fälligkeitsdatum"))
     val reasonOptions = ContributionReliefReason.entries.map { it.name to reliefReasonLabel(it) }
     val reasonSelect =
         body.select(options = reasonOptions, value = reasonOptions.firstOrNull()?.first, label = tr("Begründungs-Kategorie"))
@@ -272,10 +271,10 @@ private fun openDeferralRequestDialog(
         errorBox.hide()
         val now = organizationNow()
         val today = now.date
-        val newDueDate = runCatching { LocalDate.parse(dueDateInput.value.orEmpty().trim()) }.getOrNull()
+        val newDueDate = dueDateInput.dateOrNull()
         val reason = reasonSelect.value?.let { runCatching { ContributionReliefReason.valueOf(it) }.getOrNull() }
         if (newDueDate == null || newDueDate <= today || reason == null) {
-            errorBox.content = tr("Bitte ein gültiges, in der Zukunft liegendes Fälligkeitsdatum angeben (JJJJ-MM-TT).")
+            errorBox.content = gettext("Bitte ein gültiges, in der Zukunft liegendes Fälligkeitsdatum angeben (%1).", localeDatePattern())
             errorBox.show()
             return@onClick
         }
@@ -330,8 +329,8 @@ private fun renderOwnReliefRequests(
     val kindSelect = formPanel.select(options = kindOptions, value = kindOptions.first().first, label = tr("Art"))
 
     val exemptionFieldsPanel = formPanel.vPanel(spacing = 4)
-    val exemptionFromInput = exemptionFieldsPanel.text(label = tr("Befreiung ab (JJJJ-MM-TT)"))
-    val exemptionUntilInput = exemptionFieldsPanel.text(label = tr("bis (optional, leer = unbefristet)"))
+    val exemptionFromInput = exemptionFieldsPanel.localDateInput(label = tr("Befreiung ab"))
+    val exemptionUntilInput = exemptionFieldsPanel.localDateInput(label = tr("bis (optional, leer = unbefristet)"))
 
     val reductionFieldsPanel = formPanel.vPanel(spacing = 4)
     val tierSelect = reductionFieldsPanel.select(options = emptyList(), label = tr("Ziel-Beitragsstufe"))
@@ -344,7 +343,7 @@ private fun renderOwnReliefRequests(
     applyKindVisibility(kindSelect.value)
     kindSelect.subscribe { value -> applyKindVisibility(value) }
 
-    val reviewDueOnInput = formPanel.text(label = tr("Wiedervorlage am (optional, JJJJ-MM-TT)"))
+    val reviewDueOnInput = formPanel.localDateInput(label = tr("Wiedervorlage am (optional)"))
     val reasonOptions = ContributionReliefReason.entries.map { it.name to reliefReasonLabel(it) }
     val reasonSelect =
         formPanel.select(options = reasonOptions, value = reasonOptions.firstOrNull()?.first, label = tr("Begründungs-Kategorie"))
@@ -368,20 +367,16 @@ private fun renderOwnReliefRequests(
         val reason = reasonSelect.value?.let { runCatching { ContributionReliefReason.valueOf(it) }.getOrNull() }
         // Optionales Feld -- ein unparsbarer Wert wird stillschweigend als "kein Wiedervorlage-Datum"
         // behandelt statt den Antrag zu blockieren (reine Komfortfunktion, keine Pflichtangabe).
-        val reviewDueOn =
-            reviewDueOnInput.value
-                ?.trim()
-                ?.takeIf { it.isNotBlank() }
-                ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        val reviewDueOn = reviewDueOnInput.dateOrNull()
 
         val input: ContributionReliefRequestInput? =
             when (kind) {
                 ContributionReliefKind.EXEMPTION -> {
-                    val from = runCatching { LocalDate.parse(exemptionFromInput.value.orEmpty().trim()) }.getOrNull()
-                    val untilRaw = exemptionUntilInput.value?.trim().orEmpty()
-                    val until = if (untilRaw.isBlank()) null else runCatching { LocalDate.parse(untilRaw) }.getOrNull()
+                    val from = exemptionFromInput.dateOrNull()
+                    val untilRaw = exemptionUntilInput.text.trim()
+                    val until = if (untilRaw.isBlank()) null else exemptionUntilInput.dateOrNull()
                     if (from == null || reason == null || (untilRaw.isNotBlank() && until == null)) {
-                        errorBox.content = tr("Bitte ein gültiges Beginn-Datum angeben (JJJJ-MM-TT).")
+                        errorBox.content = gettext("Bitte ein gültiges Beginn-Datum angeben (%1).", localeDatePattern())
                         errorBox.show()
                         null
                     } else {

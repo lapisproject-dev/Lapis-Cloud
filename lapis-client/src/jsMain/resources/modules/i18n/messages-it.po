@@ -24235,3 +24235,129 @@ msgstr "Il testo del contratto non è ammesso. Verifichi lunghezza, caratteri, v
 
 msgid "Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."
 msgstr "La bozza è stata nel frattempo modificata. Ricarichi la vista e la controlli di nuovo."
+
+msgid "%1 (Datum)"
+msgstr "%1 (data)"
+
+msgid "%1 (Uhrzeit)"
+msgstr "%1 (ora)"
+
+msgid "Aufsichtsbehörde benachrichtigt am (optional)"
+msgstr "Autorità di controllo notificata il (facoltativo)"
+
+msgid "Befreiung ab"
+msgstr "Esenzione dal"
+
+msgid "Betroffene Personen benachrichtigt am (optional)"
+msgstr "Persone interessate informate il (facoltativo)"
+
+msgid "Bis (Pflichtfeld)"
+msgstr "Fino al (obbligatorio)"
+
+msgid "Bis (optional)"
+msgstr "Fino al (facoltativo)"
+
+msgid "Bitte AM oder PM angeben."
+msgstr "Indicare AM o PM."
+
+msgid "Bitte Mitglied, Titel, Kategorie und ein gültiges Datum (%1) angeben."
+msgstr "Indicare un membro, un titolo, una categoria e una data valida (%1)."
+
+msgid "Bitte Start- und Enddatum im Format %1 angeben -- beide Felder sind hier Pflicht."
+msgstr "Indicare la data di inizio e di fine nel formato %1 -- entrambi i campi sono obbligatori."
+
+msgid "Bitte Von- und Bis-Datum angeben (%1) -- beide sind für den DATEV-Export Pflicht."
+msgstr "Indicare la data iniziale e finale (%1) -- entrambe sono obbligatorie per l'esportazione DATEV."
+
+msgid "Bitte ein gültiges \"Bis\"-Datum angeben (%1)."
+msgstr "Indicare una data «fino al» valida (%1)."
+
+msgid "Bitte ein gültiges \"Von\"- und \"Bis\"-Datum angeben (%1)."
+msgstr "Indicare date «dal» e «fino al» valide (%1)."
+
+msgid "Bitte ein gültiges Beginn-Datum angeben (%1)."
+msgstr "Indicare una data di inizio valida (%1)."
+
+msgid "Bitte ein gültiges, in der Zukunft liegendes Fälligkeitsdatum angeben (%1)."
+msgstr "Indicare una data di scadenza valida nel futuro (%1)."
+
+msgid "Bitte eine Uhrzeit im Format %1 eingeben."
+msgstr "Inserire un'ora nel formato %1."
+
+msgid "Bitte einen gültigen Entdeckungszeitpunkt, Beschreibung, betroffene Datenkategorien und Status angeben."
+msgstr "Indicare un momento di scoperta valido, una descrizione, le categorie di dati interessate e uno stato."
+
+msgid "Bitte einen gültigen Stichtag angeben (%1)."
+msgstr "Indicare una data di riferimento valida (%1)."
+
+msgid "Bitte einen gültigen Zeitpunkt angeben."
+msgstr "Indicare un momento valido."
+
+msgid "Bitte gültige Datumsangaben (%1) verwenden, oder das Feld leer lassen."
+msgstr "Usare date valide (%1) o lasciare il campo vuoto."
+
+msgid "Der Zeitpunkt der Entdeckung startet die 72-Stunden-Frist."
+msgstr "Il momento della scoperta avvia il termine di 72 ore."
+
+msgid "Mo."
+msgstr "lun"
+
+msgid "Di."
+msgstr "mar"
+
+msgid "Mi."
+msgstr "mer"
+
+msgid "Do."
+msgstr "gio"
+
+msgid "Fr."
+msgstr "ven"
+
+msgid "Sa."
+msgstr "sab"
+
+msgid "So."
+msgstr "dom"
+
+msgid "Diese Uhrzeit gibt es nicht."
+msgstr "Quest'ora non esiste."
+
+msgid "Entdeckt am"
+msgstr "Scoperto il"
+
+msgid "Monat (Tag wird ignoriert)"
+msgstr "Mese (il giorno viene ignorato)"
+
+msgid "Neues Fälligkeitsdatum"
+msgstr "Nuova data di scadenza"
+
+msgid "Prüftermin (optional)"
+msgstr "Data di verifica (facoltativo)"
+
+msgid "Stichtag"
+msgstr "Data di riferimento"
+
+msgid "Unterzeichnet am (optional)"
+msgstr "Firmato il (facoltativo)"
+
+msgid "Verliehen am"
+msgstr "Conferito il"
+
+msgid "Von (Pflichtfeld)"
+msgstr "Dal (obbligatorio)"
+
+msgid "Von (optional)"
+msgstr "Dal (facoltativo)"
+
+msgid "Wiedervorlage am (optional)"
+msgstr "Promemoria il (facoltativo)"
+
+msgid "Zeitpunkt (optional, leer = jetzt)"
+msgstr "Momento (facoltativo, vuoto = adesso)"
+
+msgid "Zeitpunkt der Einwilligung"
+msgstr "Momento del consenso"
+
+msgid "hh:mm"
+msgstr "hh:mm"

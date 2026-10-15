@@ -704,11 +704,6 @@ private val R24_JUSTIFIED: Map<String, List<String>> =
                 "val journalSearchInput = journalFilterRow.text(label = tr(\"Buchung suchen (Beschreibung)\"))",
             ),
         "OpenItemsScreen.kt" to listOf("val searchInput = filterRow.text(label = tr(\"Suche (Gegenpartei, Beleg)\"))"),
-        "SepaBatchesScreen.kt" to
-            listOf(
-                "val fromInput = filterRow.text(label = tr(\"Von\"))",
-                "val toInput = filterRow.text(label = tr(\"Bis\"))",
-            ),
         "SepaMandatesScreen.kt" to listOf("val searchInput = filterRow.text(label = tr(\"Suche nach Mitglied oder Mandatsreferenz\"))"),
         "DonorsScreen.kt" to listOf("val donorSearchInput = filterRow.text(label = tr(\"Spender suchen (Name)\"))"),
         // The live search of the assignment workbench: it narrows a list of candidates, it is never submitted.
@@ -756,9 +751,11 @@ private val R24_JUSTIFIED: Map<String, List<String>> =
  * same FILTER_IS_NOT_A_FORM shape every other roster/filter search input in this codebase already takes (see
  * `MemberAdministrationScreen.kt`'s own `searchInput` in [R24_JUSTIFIED] below) -- a search box has nothing to submit
  * and no invalid state to report, so it stays a plain labelled `text(` call outside the form grammar, same as its host
- * file's counterpart on `MemberAdministrationScreen.kt`. Only ever lowered.
+ * file's counterpart on `MemberAdministrationScreen.kt`. 120 after V1.9.137 "Datum und Uhrzeit überall im Locale": 24 labelled
+ * raw `text(` date/time fields (the event form's three, the shift forms, the CRM, GDPR, contribution, honor and filter dates)
+ * became `localDateInput`/`localDateTimeInput`/`dateRangeFilter` calls, which are not `text(` calls any more. Only ever lowered.
  */
-private const val R24_REMAINING_MAX = 144
+private const val R24_REMAINING_MAX = 120
 
 private fun r24Findings(file: File): List<String> = labelledFieldFindings(file.readText()).minusMultiset(R24_JUSTIFIED[file.name].orEmpty())
 

@@ -2,7 +2,6 @@ package network.lapis.cloud.client
 
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
-import io.kvision.html.InputType
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.html.h2
@@ -21,7 +20,6 @@ import io.kvision.utils.px
 import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import kotlinx.datetime.LocalDate
 import network.lapis.cloud.shared.domain.AgreementTextDraftDto
 import network.lapis.cloud.shared.domain.AgreementTextDraftInput
 import network.lapis.cloud.shared.domain.AgreementTextKind
@@ -263,14 +261,12 @@ private fun renderDraftEditor(
             rule = ::labelCheck,
         )
     val validFromField =
-        form.textField(
+        form.localDateField(
             label = tr("Gültig ab"),
-            type = InputType.DATE,
-            value = draft?.validFrom?.toString() ?: today.toString(),
+            value = draft?.validFrom ?: today,
             required = true,
             requiredMessage = tr("Bitte ein gültiges Datum angeben."),
-            hint = tr("Nicht in der Zukunft und nicht vor der aktuellen Fassung."),
-            rule = { FormRules.isoDate(it) },
+            extraHint = tr("Nicht in der Zukunft und nicht vor der aktuellen Fassung."),
         )
     val bodyField =
         form.textAreaField(
@@ -309,7 +305,7 @@ private fun renderDraftEditor(
     fun matchesDraft(): Boolean =
         draft != null &&
             labelField.value.trim() == draft.versionLabel &&
-            runCatching { LocalDate.parse(validFromField.value.trim()) }.getOrNull() == draft.validFrom &&
+            validFromField.localDateOrNull() == draft.validFrom &&
             AgreementTextRules.normalizeBody(bodyField.value) == draft.body
 
     fun syncPublishButton() {
@@ -335,7 +331,7 @@ private fun renderDraftEditor(
                         AgreementTextDraftInput(
                             kind = kind,
                             versionLabel = labelField.value.trim(),
-                            validFrom = LocalDate.parse(validFromField.value.trim()),
+                            validFrom = checkNotNull(validFromField.localDateOrNull()),
                             body = bodyField.value,
                         ),
                     )

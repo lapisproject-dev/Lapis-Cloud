@@ -5,7 +5,6 @@ import network.lapis.cloud.shared.domain.PollDto
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.HTMLSelectElement
-import org.w3c.dom.events.Event
 import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -145,14 +144,17 @@ class PollCreateFormDomTest {
                     },
                 )
                 el.chooseIn("Frist", "custom")
-                val custom = el.controlOf("Datum und Uhrzeit der Frist") as HTMLInputElement
-                assertEquals("datetime-local", custom.type)
-                assertTrue(custom.offsetParent != null, "the date field is visible")
+                val customDate = el.controlOf("Frist (Datum)") as HTMLInputElement
+                val customTime = el.controlOf("Frist (Uhrzeit)") as HTMLInputElement
+                assertEquals("text", customDate.type, "V1.9.137: a locale text field, not the browser's date picker")
+                assertEquals("text", customTime.type)
+                assertTrue(customDate.offsetParent != null, "the date field is visible")
+                assertTrue(customTime.offsetParent != null, "the time field is visible")
                 el.fillValid()
                 assertTrue(el.isButtonDisabled("Umfrage starten"), "a custom deadline needs a date")
                 assertTrue(el.reason().contains("Bitte geben Sie für die Frist ein gültiges Datum mit Uhrzeit an."))
-                custom.value = "2020-01-01T10:00"
-                custom.dispatchEvent(Event("input"))
+                el.typeInto("Frist (Datum)", "01.01.2020")
+                el.typeInto("Frist (Uhrzeit)", "10:00")
                 assertTrue(el.reason().contains("Die Frist muss mindestens 15 Minuten in der Zukunft liegen."))
             }
         }

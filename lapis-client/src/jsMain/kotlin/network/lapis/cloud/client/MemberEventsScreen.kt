@@ -226,7 +226,7 @@ private fun renderEventCard(
     // V1.9.113: how the event can be attended online -- a word, never colour or a symbol alone.
     if (e.onlineKind.isLapisHosted()) header.statusBadge(eventOnlineKindLabel(e.onlineKind), "info")
 
-    card.div(formatDateTime(e.startsAt)) { addCssClasses("text-muted small") }
+    card.weekdayDateTimeSpan(e.startsAt).apply { addCssClasses("text-muted small") }
     val place = e.locationText?.takeIf { it.isNotBlank() } ?: e.roomName?.takeIf { it.isNotBlank() }
     if (place != null) {
         card.untrustedDiv(place) { addCssClasses("small") }

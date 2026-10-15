@@ -381,7 +381,7 @@ fun anonymousForwardingRows(forwarding: List<AnonymousDonationDutyDto>): List<Re
         val duty = DonationDuty.ANONYMOUS_FORWARDING_REQUIRED
         row(
             ReportRowKind.DATA,
-            text(entry.entryDate.toString()),
+            text(dateToken(entry.entryDate)),
             money(entry.amount),
             ReportCell.Badge(donationDutyLabel(duty), donationDutyColor(duty), filled = true),
         )
@@ -408,7 +408,7 @@ fun generalLedgerRows(dto: GeneralLedgerDto): List<ReportRow> =
             add(
                 row(
                     ReportRowKind.DATA,
-                    text(line.entryDate.toString()),
+                    text(dateToken(line.entryDate)),
                     untrustedText(line.description),
                     if (line.side == PostingSide.DEBIT) money(line.amount) else BLANK,
                     if (line.side == PostingSide.CREDIT) money(line.amount) else BLANK,
@@ -440,7 +440,7 @@ fun kassenbuchRows(dto: KassenbuchDto): List<ReportRow> =
                 row(
                     ReportRowKind.DATA,
                     text(line.kassenbuchNumber.toString()),
-                    text(line.entryDate.toString()),
+                    text(dateToken(line.entryDate)),
                     untrustedText(line.description),
                     untrustedText(line.voucherReference ?: "--"),
                     if (line.amountIn.toDouble() != 0.0) money(line.amountIn) else BLANK,

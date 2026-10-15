@@ -12,6 +12,8 @@ generated between 00:00 and 02:00 carried yesterday's date, and the 72-hour data
 V1.9.38 ("stage 1") fixes this *without* changing the wire format: every temporal field is classified, the server has one
 clock, and the client has one zone. Stage 2 (sending `Instant`s on the wire) is deliberately not part of it.
 
+NOTE: Since V1.9.137 the *form* in which a date or time is displayed or typed (order, separator, 12/24 h) is the business of `TemporalLocale.kt`, see xref:../features/locale-dates.adoc[Dates and times in the UI locale]. This document is about the *zone* and the classes A, B and D; the two do not interact -- a class A value is converted first and formatted second, a class B value is formatted exactly as it arrived.
+
 NOTE: This document's `[kuml]` blocks are rendered and validated by the `:docs-render:renderDocs` Gradle task.
 
 == The three kinds of time

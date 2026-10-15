@@ -129,15 +129,18 @@ class OrganizationTimeDomTest {
     fun systemSpan_followsALanguageSwitch_withoutLeakingTheMarker(): Promise<Unit> =
         test {
             AppState.setSession(session())
+            val previousBrowser = browserLanguageProvider
             withMountedRoot("org-time-switch") { root, element ->
                 val span = root.systemDateTimeSpan(LocalDateTime(2026, 10, 2, 1, 48))
                 assertEquals("02.10.2026,${NBSP}03:48", span.getElement()?.textContent)
                 try {
                     I18n.language = "en"
+                    browserLanguageProvider = { null }
                     span.refresh()
-                    assertEquals("2026-10-02,${NBSP}03:48", element().querySelector("span")?.textContent)
+                    assertEquals("02/10/2026,${NBSP}03:48", element().querySelector("span")?.textContent)
                 } finally {
                     I18n.language = "de"
+                    browserLanguageProvider = previousBrowser
                 }
                 assertFalse(element().textContent.orEmpty().contains(KV_I18N_MARKER))
             }

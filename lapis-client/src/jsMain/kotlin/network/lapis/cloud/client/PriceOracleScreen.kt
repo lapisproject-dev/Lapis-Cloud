@@ -465,7 +465,9 @@ private fun renderPriceStatus(
     }
     box.div(gettext("Median-Kurs: %1", status.medianPrice?.let { formatDonationAmount(it, "") } ?: "--")) { addCssClasses("small") }
     box.div(gettext("Quellen: %1", status.sourceIds.joinToString(", ").ifBlank { "--" })) { addCssClasses("text-muted small") }
-    box.div(gettext("Zeitstempel: %1", status.priceTimestamp?.toString() ?: "--")) { addCssClasses("text-muted small") }
+    box.div(
+        gettext("Zeitstempel: %1", status.priceTimestamp?.let { formatSystemDateTime(it) } ?: "--"),
+    ) { addCssClasses("text-muted small") }
 }
 
 // ================================================================================================

@@ -3,11 +3,9 @@ package network.lapis.cloud.client
 import io.kvision.form.check.CheckBox
 import io.kvision.form.check.checkBox
 import io.kvision.form.select.select
-import io.kvision.form.text.Text
 import io.kvision.form.text.text
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
-import io.kvision.html.InputType
 import io.kvision.html.button
 import io.kvision.html.div
 import io.kvision.i18n.gettext
@@ -92,15 +90,15 @@ class RecurrenceEditor internal constructor(
 
 /**
  * Builds the "Wiederkehrend?" checkbox + (once checked) preset dropdown/custom-editor/live-sentence
- * block, appended to [root]. [startsAtInput]/[endsAtInput] are the SAME `Text` widgets
+ * block, appended to [root]. [startsAtInput]/[endsAtInput] are the SAME [LocalDateTimeInput]s
  * [EventsScreen.buildEventFormFields] already built for the plain start/end fields -- this editor
  * subscribes to both (to re-derive preset labels/weekday-lock and to re-run the live preview) rather
  * than owning its own copies.
  */
-fun renderRecurrenceEditor(
+internal fun renderRecurrenceEditor(
     root: SimplePanel,
-    startsAtInput: Text,
-    endsAtInput: Text,
+    startsAtInput: LocalDateTimeInput,
+    endsAtInput: LocalDateTimeInput,
 ): RecurrenceEditor {
     val enabledCheck = root.checkBox(value = false, label = tr("Wiederkehrende Veranstaltung (Serie)"))
     val body =
@@ -155,7 +153,7 @@ fun renderRecurrenceEditor(
             label = tr("Serie endet …"),
         )
     val countInput = endRow.text(label = tr("Anzahl der Termine")).apply { value = "10" }
-    val untilInput = endRow.text(type = InputType.DATE, label = tr("Enddatum")).apply { hide() }
+    val untilInput = endRow.localDateInput(label = gettext("Enddatum")).apply { visible = false }
     body.div(
         gettext(
             "Eine Serie umfasst höchstens %1 Termine, innerhalb von höchstens %2 Monaten ab dem Beginn.",
@@ -171,9 +169,9 @@ fun renderRecurrenceEditor(
             hide()
         }
 
-    fun startsAtOrNull(): LocalDateTime? = runCatching { LocalDateTime.parse(startsAtInput.value.orEmpty().trim()) }.getOrNull()
+    fun startsAtOrNull(): LocalDateTime? = startsAtInput.dateTimeOrNull()
 
-    fun endsAtOrNull(): LocalDateTime? = runCatching { LocalDateTime.parse(endsAtInput.value.orEmpty().trim()) }.getOrNull()
+    fun endsAtOrNull(): LocalDateTime? = endsAtInput.dateTimeOrNull()
 
     fun currentFrequency(): RecurrenceFrequency =
         RecurrenceFrequency.entries.firstOrNull { it.name == frequencySelect.value } ?: RecurrenceFrequency.WEEKLY
@@ -230,7 +228,7 @@ fun renderRecurrenceEditor(
             monthlyVariantSelect.value.orEmpty(),
             endTypeSelect.value.orEmpty(),
             countInput.value.orEmpty(),
-            untilInput.value.orEmpty(),
+            untilInput.text,
         ).joinToString("\u0001")
 
     fun refreshCustomVisibility() {
@@ -264,7 +262,7 @@ fun renderRecurrenceEditor(
         return if (endType == SeriesEndType.COUNT) {
             (countInput.value?.trim()?.toIntOrNull()) to null
         } else {
-            null to runCatching { LocalDate.parse(untilInput.value.orEmpty().trim()) }.getOrNull()
+            null to untilInput.dateOrNull()
         }
     }
 

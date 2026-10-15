@@ -54,7 +54,7 @@ import kotlin.test.assertTrue
 class FormGrammarPart3AuditDomTest {
     private fun HTMLElement.first(selector: String): HTMLElement = assertNotNull(querySelector(selector) as? HTMLElement, selector)
 
-    private fun todayIso(): String = todayLocalDate().toString()
+    private fun todayIso(): String = todayLocaleText()
 
     private fun thisYear(): Int = todayLocalDate().year
 
@@ -512,11 +512,11 @@ class FormGrammarPart3AuditDomTest {
                     renderSepaReturnsSection(root, canRecordReturn = false)
                     awaitUntil("the initial load", timeoutMs = 1500) { calls.toRoute(listReturns).size == 1 }
                     val hint = element().first("#sepa-returns-filter-hint")
-                    assertTrue(hint.textContent.orEmpty().contains("Beispiel: 2026-03-14."))
+                    assertTrue(hint.textContent.orEmpty().contains("Format: TT.MM.JJJJ"))
                     val from = element().controlOf("Von")
                     assertEquals("sepa-returns-filter-hint sepa-returns-filter-error", from.getAttribute("aria-describedby"))
 
-                    element().typeInto("Von", "13.03.2026")
+                    element().typeInto("Von", "13.03.26")
                     element().buttonNamed("Filtern").click()
                     delay(120)
                     assertEquals(1, calls.toRoute(listReturns).size, "an unreadable date is not a filter: no second request")
@@ -582,7 +582,7 @@ class FormGrammarPart3AuditDomTest {
                     element().buttonNamed("Laden").click()
                     delay(120)
                     assertEquals(1, calls.toRoute(report).size, "an unreadable date: no second request")
-                    assertTrue(element().shownErrors().contains("Bitte ein gültiges Datum angeben."), "shown: ${element().shownErrors()}")
+                    assertTrue(element().shownErrors().contains("Bitte als TT.MM.JJJJ eingeben."), "shown: ${element().shownErrors()}")
                 }
             }
         }

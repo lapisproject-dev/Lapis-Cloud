@@ -1,33 +1,21 @@
 package network.lapis.cloud.client
 
-import io.kvision.i18n.I18n
-import kotlinx.browser.window
+import io.kvision.i18n.gettext
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.number
 
 /**
- * V1.9.132 "Reisekosten-Feinschliff" -- the date INPUT convention of the travel expense screens: a person types a date in the order and with the
- * separator of their own locale (`22.11.2033`, `22/11/2033`, `11/22/2033`), the field shows the pattern as placeholder and hint, and what is
- * stored is always an ISO [LocalDate].
+ * V1.9.132 "Reisekosten-Feinschliff" / V1.9.137 -- the date and time INPUT convention of the whole client: a person types a date in the order and
+ * with the separator of their own locale (`22.11.2033`, `22/11/2033`, `11/22/2033`) and a time as `15:05` (en-US also `3:05 PM`), the field shows the
+ * pattern as placeholder and hint, and what is stored is always an ISO [LocalDate]/[LocalTime].
  *
- * **Relation to `DateTime.kt`** (two date truths, on purpose, for exactly one wave): `DateTime.kt` renders a date for DISPLAY from a fixed
- * per-language table and says "no Intl". This file serves the travel expense screens only, and there the ORDER and the SEPARATOR come from the
- * browser (see [resolveDateFieldOrder] and `LocaleDateProbe.kt`), with a deterministic fallback table when the browser cannot tell. Everything
- * that is not typed or shown on a travel expense screen keeps `DateTime.kt`'s forms (English: ISO). Follow-up wave: move `DateTime.kt` itself onto
- * [DateFieldOrder].
+ * The locale comes from the fixed table in `TemporalLocale.kt` (the same one `DateTime.kt` renders with, so what is shown is what can be typed
+ * back); there is no `Intl` and no browser probe. Pure and DOM-free except [currentTemporalLocale]'s callers -- everything here takes the
+ * [TemporalLocale] as a parameter and is directly unit-testable.
  *
- * Pure and DOM-free except [currentDateFieldOrder]/[localeDateString] (which read the UI language and the browser language) -- everything else is
- * directly unit-testable with injected [DateFieldOrder]s.
+ * [DateParse] is the result of [parseLocalDate]; every failure is a value, never an exception.
  */
-enum class DateOrder { DMY, MDY, YMD }
-
-/** Order of the three components plus the one separator character (`.`, `/` or `-`). */
-data class DateFieldOrder(
-    val order: DateOrder,
-    val separator: Char,
-)
-
-/** Result of [parseLocalDate]. Every failure is a value, never an exception. */
 sealed interface DateParse {
     data class Ok(
         val date: LocalDate,
@@ -55,7 +43,7 @@ private val SPLIT_DATE_SHAPE = Regex("""^(\d+)([./-])(\d+)\2(\d+)$""")
 /** `22.11.2033` for DMY/`.`: day and month two digits, year four digits, in the order and with the separator of [spec]. */
 fun formatLocalDate(
     date: LocalDate,
-    spec: DateFieldOrder,
+    spec: TemporalLocale,
 ): String {
     val day = pad2(date.day)
     val month = pad2(date.month.number)
@@ -76,7 +64,7 @@ fun formatLocalDate(
  */
 fun parseLocalDate(
     text: String,
-    spec: DateFieldOrder,
+    spec: TemporalLocale,
 ): DateParse {
     val trimmed = text.trim()
     val iso = ISO_DATE_SHAPE.matchEntire(trimmed)
@@ -124,9 +112,15 @@ fun parseLocalDate(
     return DateParse.Ok(date)
 }
 
+/** [parseLocalDate] as a nullable: the date, or `null` for blank text or any failure. ISO is read in every locale. */
+fun parseLocalDateOrNull(
+    text: String,
+    spec: TemporalLocale = currentTemporalLocale(),
+): LocalDate? = (parseLocalDate(text, spec) as? DateParse.Ok)?.date
+
 /** The visible pattern, e.g. `TT.MM.JJJJ`: the three words (already translated) in the order and with the separator of [spec]. */
 fun patternText(
-    spec: DateFieldOrder,
+    spec: TemporalLocale,
     dayWord: String,
     monthWord: String,
     yearWord: String,
@@ -141,51 +135,64 @@ fun patternText(
 }
 
 /**
- * The deterministic fallback when the browser cannot tell (probe returns `null`): `de`/`pl`/`ru` day-month-year with a dot, `fr`/`es`/`it`/`en` with a
- * slash, `nl` with a dash. `en` deliberately differs from `DateTime.kt`'s ISO table (see the file KDoc). Unknown languages: German.
+ * [date] in the locale order, as a plain string for a `gettext(...)` argument (it freezes at the language of the moment, like every plain date
+ * string in a message). Widget content uses `dateSpan` (a token, follows a language switch).
  */
-internal fun fallbackDateFieldOrder(uiLanguage: String): DateFieldOrder =
-    when (uiLanguage.substringBefore('-').lowercase()) {
-        "fr", "es", "it", "en" -> DateFieldOrder(DateOrder.DMY, '/')
-        "nl" -> DateFieldOrder(DateOrder.DMY, '-')
-        else -> DateFieldOrder(DateOrder.DMY, '.')
-    }
+fun localeDateString(date: LocalDate): String = formatLocalDate(date, currentTemporalLocale())
 
-/**
- * The order and separator to use for the UI language [uiLanguage]:
- *  - `de`: always day-month-year with a dot, without asking the browser (the primary audience, and ICU-independent);
- *  - `en`: asks the browser with its own tag if that is an English one (so `en-US` gives month-day-year), else with `en-GB`;
- *  - any other language: asks with the UI tag.
- * [probe] answers `null` when it does not know (or the separator is none of `.`, `/`, `-`); then [fallbackDateFieldOrder] applies.
- * [probe] is injected, so tests need no browser.
- */
-fun resolveDateFieldOrder(
-    uiLanguage: String,
-    browserLanguage: String?,
-    probe: (String) -> DateFieldOrder?,
-): DateFieldOrder {
-    val base = uiLanguage.substringBefore('-').lowercase()
-    if (base == "de") return DateFieldOrder(DateOrder.DMY, '.')
-    val tag =
-        if (base == "en") {
-            if (browserLanguage != null && browserLanguage.substringBefore('-').lowercase() == "en") browserLanguage else "en-GB"
-        } else {
-            uiLanguage
-        }
-    return probe(tag) ?: fallbackDateFieldOrder(uiLanguage)
+// ---- time ------------------------------------------------------------------------------------------------------------------------
+
+/** Result of [parseLocalTime]. Every failure is a value, never an exception. */
+sealed interface TimeParse {
+    data class Ok(
+        val time: LocalTime,
+    ) : TimeParse
+
+    /** Not `H:MM`/`HH:MM` (`.` also accepted as separator), or a 12-hour form in a locale that has none. */
+    data object BadFormat : TimeParse
+
+    /** Hour or minute out of range (`24:00`, `12:60`), or an hour a 12-hour clock does not have (`13:00 PM`, `0:30 AM`). */
+    data object NoSuchTime : TimeParse
+
+    /** A 12-hour locale and a bare `h:mm` (`3:05`): neither `AM` nor `PM` given and not a two-digit 24-hour form. */
+    data object AmPmMissing : TimeParse
 }
 
-/** Test seam: the probe [currentDateFieldOrder] asks (the browser one by default). Tests must put it back. */
-internal var dateFieldOrderProbe: (String) -> DateFieldOrder? = ::jsDateFieldOrderProbe
-
-/** Test seam: the browser's own language tag. Tests must put it back. */
-internal var browserLanguageProvider: () -> String? = { runCatching { window.navigator.language }.getOrNull() }
-
-/** The order and separator for the current UI language and browser -- see [resolveDateFieldOrder]. */
-fun currentDateFieldOrder(): DateFieldOrder = resolveDateFieldOrder(I18n.language, browserLanguageProvider(), dateFieldOrderProbe)
+private val TIME_SHAPE = Regex("""^(\d{1,2})[:.](\d{2})(?:\s*([AaPp][Mm]))?$""")
 
 /**
- * [date] in the locale order, as a plain string for a `gettext(...)` argument (it freezes at the language of the moment, like every plain date
- * string in a message). Widget content uses [localeDateSpan] (a token, follows a language switch).
+ * Reads [text] as a time of day. The 24-hour form (`15:05`, `9:05`, `09.05`) is read in every locale; a bare one-digit hour in a 12-hour locale
+ * (`3:05`) is [TimeParse.AmPmMissing] because it could be either. Only a 12-hour locale ([HourCycle.H12]) accepts `h:mm AM|PM` (case-insensitive,
+ * with or without a space); `12:xx AM` is `00:xx`, `12:xx PM` is `12:xx`. Digits without a separator (`9`, `0905`) are [TimeParse.BadFormat].
  */
-fun localeDateString(date: LocalDate): String = formatLocalDate(date, currentDateFieldOrder())
+fun parseLocalTime(
+    text: String,
+    locale: TemporalLocale,
+): TimeParse {
+    val match = TIME_SHAPE.matchEntire(text.trim()) ?: return TimeParse.BadFormat
+    val hourText = match.groupValues[1]
+    val hour = hourText.toInt()
+    val minute = match.groupValues[2].toInt()
+    val suffix = match.groupValues[3].uppercase()
+    if (suffix.isNotEmpty()) {
+        if (locale.hourCycle != HourCycle.H12) return TimeParse.BadFormat
+        if (hour !in 1..12 || minute !in 0..59) return TimeParse.NoSuchTime
+        val hour24 = if (suffix == "AM") hour % 12 else hour % 12 + 12
+        return TimeParse.Ok(LocalTime(hour24, minute))
+    }
+    if (locale.hourCycle == HourCycle.H12 && hourText.length == 1) return TimeParse.AmPmMissing
+    if (hour !in 0..23 || minute !in 0..59) return TimeParse.NoSuchTime
+    return TimeParse.Ok(LocalTime(hour, minute))
+}
+
+/** The time of [time] as the locale writes it (`15:05`, en-US `3:05 PM`). */
+fun formatLocalTime(
+    time: LocalTime,
+    locale: TemporalLocale,
+): String = formatTimeComponents(time.hour, time.minute, locale.hourCycle)
+
+/** The visible time pattern: `hh:mm` (translated) on a 24-hour clock, the fixed `h:mm AM/PM` on a 12-hour clock. */
+fun timePatternText(locale: TemporalLocale): String = if (locale.hourCycle == HourCycle.H12) "h:mm AM/PM" else gettext("hh:mm")
+
+/** Today (organization zone) as the locale writes it -- the prefill of a plain text date field. */
+fun todayLocaleText(): String = formatLocalDate(organizationToday(), currentTemporalLocale())

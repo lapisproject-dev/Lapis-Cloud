@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import io.kvision.i18n.I18n
 import io.kvision.i18n.tr
+import kotlinx.datetime.LocalDate
 import network.lapis.cloud.client.ReportRowKind.DATA
 import network.lapis.cloud.client.ReportRowKind.NOTE
 import network.lapis.cloud.client.ReportRowKind.SECTION
@@ -261,8 +262,8 @@ class ReportGoldenTest {
         assertEquals(
             listOf(
                 listOf("", t("Eröffnungssaldo"), "", "", m(1000.0)),
-                listOf("2026-03-01", "Beitrag März", m(200.0), "", m(1200.0)),
-                listOf("2026-03-05", "Miete", "", m(49.5), m(1150.5)),
+                listOf(dateToken(LocalDate(2026, 3, 1)), "Beitrag März", m(200.0), "", m(1200.0)),
+                listOf(dateToken(LocalDate(2026, 3, 5)), "Miete", "", m(49.5), m(1150.5)),
                 listOf("", t("Schlusssaldo"), "", "", m(1150.5)),
             ),
             rows.cellTexts(),
@@ -282,8 +283,8 @@ class ReportGoldenTest {
         assertEquals(
             listOf(
                 listOf("", "", t("Eröffnungssaldo"), "", "", "", m(50.0)),
-                listOf("1", "2026-04-01", "Spende Fest", "B-17", m(30.5), "", m(80.5)),
-                listOf("2", "2026-04-02", "Getränke", "--", "", m(20.0), m(60.5)),
+                listOf("1", dateToken(LocalDate(2026, 4, 1)), "Spende Fest", "B-17", m(30.5), "", m(80.5)),
+                listOf("2", dateToken(LocalDate(2026, 4, 2)), "Getränke", "--", "", m(20.0), m(60.5)),
                 listOf("", "", t("Schlusssaldo"), "", "", "", m(60.5)),
             ),
             rows.cellTexts(),
@@ -397,7 +398,7 @@ class ReportGoldenTest {
             donorDutyRows(donorDuties).cellTexts(),
         )
         assertEquals(
-            listOf(listOf("2026-05-01", m(600.5), "Weiterleitungspflicht")),
+            listOf(listOf(dateToken(LocalDate(2026, 5, 1)), m(600.5), "Weiterleitungspflicht")),
             anonymousForwardingRows(anonymousForwarding).cellTexts(),
         )
     }
