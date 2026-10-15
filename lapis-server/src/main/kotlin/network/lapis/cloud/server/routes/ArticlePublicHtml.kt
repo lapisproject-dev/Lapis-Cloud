@@ -30,7 +30,9 @@ import network.lapis.cloud.server.articles.ArticleLead
  *
  * - **STANDARD**: the full Lapis header and footer ([PublicChrome]), a wide layout (`body.article-wide`): title, meta line, cover
  *   (56rem) and a 42rem text column.
- * - **EMBED** (`?embed=1`): the slim, header-less variant for an `<iframe>` on a partner site; every link leaves the frame (`target="_top"`).
+ * - **EMBED** (`?embed=1`): the slim, header-less variant for an `<iframe>` on a partner site; the frame links (all news, start page, legal
+ *   links) leave the frame (`target="_top"`). Links inside the article text are decided by [network.lapis.cloud.server.articles.ArticleMarkdown]:
+ *   every `http(s)` link opens a new window, except (V1.9.140) an absolute link to the instance's own host, which gets `_top` in this mode.
  *
  * The title appears exactly once (as `<h1>`). The excerpt is shown as a lead paragraph only if the body does not already start with it
  * ([ArticleLead]).

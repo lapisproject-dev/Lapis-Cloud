@@ -10,7 +10,7 @@ The public article page `GET /aktuelles/{slug}` (and its 404, 429 and 500 pages)
 
 | Header
 | Full Lapis header (brand, icon navigation with "Aktuelles" highlighted, language switcher), skip link, shared footer.
-| None. A slim page for an `<iframe>`; every link (all news, start page, Impressum, Datenschutz) is site-relative with `target="_top"`.
+| None. A slim page for an `<iframe>`; the frame links (all news, start page, Impressum, Datenschutz) are site-relative with `target="_top"`. Links inside the article text: see <<Links in the article text>>.
 
 | Layout
 | Wide page (56 rem): title, meta line, cover image, then a 42 rem text column.
@@ -41,6 +41,14 @@ All HTML responses (page, 404, 429, 500) are `Cache-Control: no-store` and carry
 * `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy: geolocation=(), microphone=(), camera=()`
 
 `data:` in the standard mode is needed for the chrome's mask icons; the rendered article body cannot produce an `<img>`.
+
+== Links in the article text
+
+Only absolute `http(s)` links and `mailto:` links are live; every other link (relative, `#...`, `tel:`, `javascript:`, `data:`) loses its `href` and is
+inert text. An `http(s)` link opens a new window (`target="_blank"`, `rel="nofollow noopener ugc"`) -- in both modes. Since V1.9.140 there is one exception in
+the embed mode: an absolute link to the instance's own host (same scheme, host and effective port, compared as parsed URLs, so `https://example.org@evil.test/`
+is foreign) gets `target="_top"` and leaves the frame instead of opening a window. Without `?embed=1` the rendered HTML is byte-identical to before.
+No `noreferrer` is added: the page already sends `Referrer-Policy: no-referrer`.
 
 == Layout and content
 
@@ -79,6 +87,6 @@ stateDiagram(name = "Public article page") {
 * Old articles whose cover image has the title burnt in keep it, and the cover is now shown whole instead of cropped.
 * No automatic iframe height.
 * `/aktuelles` has no embed mode.
-* Links inside the article text open inside the frame in the embed mode (the renderer is deliberately unchanged).
-* The overview `/aktuelles?lang=xx` does not pass `lang` on to the detail page (unchanged).
+* External links (and links to the own host in the standard mode) open a new window without saying so.
+* An upper-case scheme (`HTTPS://...`) is not recognised as a link and stays inert, as before.
 * The cover has no `width`/`height` attributes, so the layout shifts while it loads.

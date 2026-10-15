@@ -18,6 +18,7 @@ import network.lapis.cloud.server.articles.ArticleCoverPolicy
 import network.lapis.cloud.server.articles.ArticleMarkdown
 import network.lapis.cloud.server.articles.ArticlePolicy
 import network.lapis.cloud.server.articles.ArticleStore
+import network.lapis.cloud.server.articles.EmbedLinkHost
 import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.db.generated.ArticleTable
 import network.lapis.cloud.server.embed.EmbedConfig
@@ -103,7 +104,11 @@ internal fun Route.registerArticlePublicRoutes(
                     title = row[ArticleTable.title],
                     slug = slug,
                     excerpt = row[ArticleTable.excerpt],
-                    renderedBodyHtml = ArticleMarkdown.render(row[ArticleTable.body]),
+                    renderedBodyHtml =
+                        ArticleMarkdown.render(
+                            markdown = row[ArticleTable.body],
+                            embedHost = if (ctx.isEmbed) EmbedLinkHost.fromBaseUrl(baseUrl) else null,
+                        ),
                     coverImageUrl =
                         ArticleCoverPolicy.publicCoverImageUrl(
                             baseUrl = baseUrl,

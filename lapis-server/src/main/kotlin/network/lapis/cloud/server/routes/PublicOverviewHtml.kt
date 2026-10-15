@@ -27,7 +27,8 @@ import network.lapis.cloud.server.branding.ResolvedBranding
  * **Datensparsamkeit** (same posture as [PublicLandingHtml]): only title, slug, and the publish/start
  * date/time -- no excerpt, no author, no location, no capacity. Both list items link to the
  * respective DETAIL page ([ArticlePublicHtml]/`EventPublicHtml`), which is the one place that shows
- * more.
+ * more. V1.9.140: the chosen UI language is carried onto the detail pages (`?lang=en`, via [PublicChrome.languageUrl]; nothing is
+ * appended for the default language), so the detail page's chrome stays in the language the visitor picked. The page body stays German.
  *
  * **Entries are ALWAYS rendered `lang="de"`** with a German date/time (via [germanDate]/[germanTime]),
  * regardless of the surrounding chrome's [PublicLanguage] -- both `/aktuelles/{slug}` and
@@ -77,7 +78,7 @@ internal object PublicOverviewHtml {
                     attributes["lang"] = "de"
                     items.forEach { item ->
                         li {
-                            a(href = "$baseUrl/aktuelles/${item.slug}") {
+                            a(href = PublicChrome.languageUrl(baseUrl = baseUrl, currentPath = "/aktuelles/${item.slug}", lang = lang)) {
                                 attributes["hreflang"] = "de"
                                 +item.title
                             }
@@ -113,7 +114,14 @@ internal object PublicOverviewHtml {
                     attributes["lang"] = "de"
                     items.forEach { item ->
                         li {
-                            a(href = "$baseUrl/veranstaltung/${item.slug}") {
+                            a(
+                                href =
+                                    PublicChrome.languageUrl(
+                                        baseUrl = baseUrl,
+                                        currentPath = "/veranstaltung/${item.slug}",
+                                        lang = lang,
+                                    ),
+                            ) {
                                 attributes["hreflang"] = "de"
                                 +item.title
                             }

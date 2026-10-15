@@ -421,7 +421,7 @@ class McpArticleDraftToolsDispatcherTest :
                     .jsonPrimitive.content
             val stored = transaction { ArticleStore.getOrThrow(Uuid.parse(id))[ArticleTable.body] }
             stored shouldBe hostile
-            val html = ArticleMarkdown.render(stored)
+            val html = ArticleMarkdown.render(markdown = stored)
             html shouldNotContain "<script"
             html shouldNotContain "javascript:"
         }

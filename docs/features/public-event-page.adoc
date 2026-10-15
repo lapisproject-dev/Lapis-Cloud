@@ -17,7 +17,7 @@ ticket, error pages) exist in two presentations.
 | Same components, narrow column (36 rem).
 
 | Language
-| `?lang=xx` switches the chrome and is passed through the whole flow. The page content is German in every language.
+| `?lang=xx` switches the chrome and is passed through the whole flow, including the links from `/veranstaltungen?lang=xx` to the detail page (V1.9.140). The page content is German in every language.
 | German only.
 
 | Indexing
@@ -31,6 +31,22 @@ ticket, error pages) exist in two presentations.
 
 Only the exact value `embed=1` (a single parameter) activates the embed mode; anything else is the standard page. The raw value is never
 reflected.
+
+== Order of the detail page (V1.9.140)
+
+Facts, cover image, description, status callout (ended / closed / full), then the registration card. The registration card used to sit above the
+description, so the visitor had to get past the form to read about the event; now the text comes first.
+
+The card carries `id="anmeldung"`. The "Plätze" row ends with a same-page link "Zur Anmeldung" (`href="#anmeldung"`, no `target`, in both modes)
+only while registration is possible *and* the description is not blank. Occupancy stays binary: the row never shows a count.
+
+== Robots (V1.9.140)
+
+The token and follow-up pages -- registration POST, thanks, waiting list, cancelled, storno, payment (including the hand-off page and the `303`),
+ticket page, `ticket.svg`, `ticket.pdf` -- send `X-Robots-Tag: noindex, nofollow` on every response, set as the first statement of the handler so that
+404, 429, 400, 500 and redirects carry it too. Their HTML bodies, and every error page of the family, also carry
+`<meta name="robots" content="noindex, nofollow">`; in the embed mode this replaces (never duplicates) the plain `noindex`. The detail page (`200`)
+never sends the header and, in the standard mode, has no robots meta. `Referrer-Policy: no-referrer` was already set on all HTML responses.
 
 == Passing the mode on
 
@@ -108,7 +124,7 @@ The diagram omits the parameter for readability: in the embed mode every transit
 == Known limitations
 
 * `/aktuelles/{slug}` got the same two modes in V1.9.130 (link:public-article-page.adoc[Public article page]); the header core is now shared (`applyPageModeHeaders`) without any change in the event headers.
-* Links from `/veranstaltungen?lang=en` to the detail page carry no `lang`.
-* The token and follow-up pages carry no `noindex` (unchanged).
+* `ticket.svg` and `ticket.pdf` send no `Referrer-Policy` (only CSP, `nosniff`, `no-store`, `noindex`); harmless, as neither document loads or links anything.
+* The "Zur Anmeldung" link has not been tried on a phone.
 * No automatic iframe height.
 * The CSP `form-action 'self'` against the `303` to the payment provider has not been verified in a live browser (pre-existing).

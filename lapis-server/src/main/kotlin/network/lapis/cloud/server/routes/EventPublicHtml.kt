@@ -57,6 +57,12 @@ import network.lapis.cloud.shared.domain.EventTicketCode
  * `<iframe>` on a partner website, with site-relative footer links that leave the frame (`target="_top"`). Every family-internal link
  * and redirect goes through [EventPageContext.href] so the mode (and the language) survive the whole registration flow. The page BODY
  * is German in every UI language (the event texts are); only the chrome is translated.
+ *
+ * V1.9.140: the detail page reads facts -> cover image -> description -> status callout -> registration card (the form used to sit above
+ * the description). The card carries `id="anmeldung"`; the "Plätze" row links to it ("Zur Anmeldung") only when registration is possible
+ * AND the description is not blank (otherwise there is nothing to skip). Token and follow-up pages and every error page pass
+ * `noIndex = true` to [skeleton] (`<meta name="robots" content="noindex, nofollow">`, next to the `X-Robots-Tag` header the route sets);
+ * the detail page (200) never does.
  */
 internal object EventPublicHtml {
     /** One event's publicly-safe view -- assembled by the route handler OUTSIDE any transaction (Slowloris rule, see `SocialPublicRoutes` KDoc). */
@@ -96,6 +102,9 @@ internal object EventPublicHtml {
             ogImage = view.coverImageUrl,
             canonicalPath = "/veranstaltung/${view.slug}",
         ) {
+            val canRegister = !view.hasEnded && view.registrationOpen
+            // The jump link only makes sense when the description pushes the form down (V1.9.140).
+            val showJump = canRegister && view.description.isNotBlank()
             factList {
                 fact(label = "Wann") { +formatEventRange(start = view.startsAt, end = view.endsAt) }
                 if (view.locationText != null || view.onlineUrl != null || view.onlineJoinUrl != null) {
@@ -111,23 +120,18 @@ internal object EventPublicHtml {
                 fact(label = "Teilnahme") { +view.feeLabel }
                 // Occupancy stays BINARY -- never a count (see class KDoc).
                 if (!view.hasEnded) {
-                    fact(label = "Plätze") { +(if (view.full) "Ausgebucht – Warteliste möglich" else "Plätze frei") }
+                    fact(label = "Plätze") {
+                        +(if (view.full) "Ausgebucht – Warteliste möglich" else "Plätze frei")
+                        if (showJump) {
+                            +" · "
+                            a(href = "#anmeldung") { +"Zur Anmeldung" }
+                        }
+                    }
                 }
             }
             if (view.coverImageUrl != null) {
                 img(src = view.coverImageUrl, alt = view.coverImageAlt ?: view.title, classes = "event-cover")
             }
-            val canRegister = !view.hasEnded && view.registrationOpen
-            when {
-                view.hasEnded -> callout(text = "Diese Veranstaltung hat stattgefunden.")
-                !view.registrationOpen -> callout(text = "Die Anmeldung ist für diese Veranstaltung derzeit nicht möglich.")
-                view.full ->
-                    callout(
-                        text = "Diese Veranstaltung ist ausgebucht. Sie können sich auf die Warteliste setzen.",
-                        waitlist = true,
-                    )
-            }
-            if (canRegister) registrationCard(ctx = ctx, slug = view.slug, waitlist = view.full)
             div(classes = "event-description") {
                 // Plain text only: one <p> per paragraph (empty line), single line breaks become <br>. Text nodes are escaped by kotlinx.html.
                 for (paragraph in EventText.paragraphs(EventText.normalizeMultiline(view.description))) {
@@ -139,6 +143,16 @@ internal object EventPublicHtml {
                     }
                 }
             }
+            when {
+                view.hasEnded -> callout(text = "Diese Veranstaltung hat stattgefunden.")
+                !view.registrationOpen -> callout(text = "Die Anmeldung ist für diese Veranstaltung derzeit nicht möglich.")
+                view.full ->
+                    callout(
+                        text = "Diese Veranstaltung ist ausgebucht. Sie können sich auf die Warteliste setzen.",
+                        waitlist = true,
+                    )
+            }
+            if (canRegister) registrationCard(ctx = ctx, slug = view.slug, waitlist = view.full)
         }
 
     private fun FlowContent.factList(block: DL.() -> Unit) {
@@ -198,6 +212,7 @@ internal object EventPublicHtml {
         waitlist: Boolean,
     ) {
         section(classes = "event-card") {
+            id = "anmeldung"
             attributes["aria-labelledby"] = "anmeldung-titel"
             h2 {
                 id = "anmeldung-titel"
@@ -261,7 +276,7 @@ internal object EventPublicHtml {
         ctx: EventPageContext,
         slug: String,
     ): String =
-        skeleton(ctx = ctx, heading = "Angaben unvollständig", currentPath = "/veranstaltung/$slug") {
+        skeleton(ctx = ctx, heading = "Angaben unvollständig", currentPath = "/veranstaltung/$slug", noIndex = true) {
             callout(text = "Bitte geben Sie Ihren Namen und eine gültige E-Mail-Adresse an.")
             p { a(href = ctx.href("/veranstaltung/$slug")) { +"Zurück zur Anmeldung" } }
         }
@@ -271,7 +286,7 @@ internal object EventPublicHtml {
         slug: String,
         registrationId: String?,
     ): String =
-        skeleton(ctx = ctx, heading = "Anmeldung bestätigt", currentPath = "/veranstaltung/$slug/danke") {
+        skeleton(ctx = ctx, heading = "Anmeldung bestätigt", currentPath = "/veranstaltung/$slug/danke", noIndex = true) {
             callout(text = "Vielen Dank für Ihre Anmeldung. Eine Bestätigung wurde per E-Mail versendet.")
             if (registrationId != null) p(classes = "event-hint") { +"Vorgang: $registrationId" }
         }
@@ -280,7 +295,7 @@ internal object EventPublicHtml {
         ctx: EventPageContext,
         slug: String,
     ): String =
-        skeleton(ctx = ctx, heading = "Auf der Warteliste", currentPath = "/veranstaltung/$slug/warteliste") {
+        skeleton(ctx = ctx, heading = "Auf der Warteliste", currentPath = "/veranstaltung/$slug/warteliste", noIndex = true) {
             callout(
                 text =
                     "Diese Veranstaltung ist ausgebucht. Sie stehen auf der Warteliste und werden " +
@@ -293,27 +308,27 @@ internal object EventPublicHtml {
         ctx: EventPageContext,
         slug: String,
     ): String =
-        skeleton(ctx = ctx, heading = "Vorgang abgebrochen", currentPath = "/veranstaltung/$slug/abgebrochen") {
+        skeleton(ctx = ctx, heading = "Vorgang abgebrochen", currentPath = "/veranstaltung/$slug/abgebrochen", noIndex = true) {
             callout(text = "Der Vorgang wurde abgebrochen. Es wurden keine Daten gespeichert.")
         }
 
     fun notFoundPage(ctx: EventPageContext): String =
-        skeleton(ctx = ctx, heading = "Nicht gefunden", currentPath = "/veranstaltungen") {
+        skeleton(ctx = ctx, heading = "Nicht gefunden", currentPath = "/veranstaltungen", noIndex = true) {
             callout(text = "Diese Seite existiert nicht oder ist nicht öffentlich zugänglich.")
         }
 
     fun tooManyRequestsPage(ctx: EventPageContext): String =
-        skeleton(ctx = ctx, heading = "Zu viele Anfragen", currentPath = "/veranstaltungen") {
+        skeleton(ctx = ctx, heading = "Zu viele Anfragen", currentPath = "/veranstaltungen", noIndex = true) {
             callout(text = "Bitte versuchen Sie es später erneut.")
         }
 
     fun serverErrorPage(ctx: EventPageContext): String =
-        skeleton(ctx = ctx, heading = "Fehler", currentPath = "/veranstaltungen") {
+        skeleton(ctx = ctx, heading = "Fehler", currentPath = "/veranstaltungen", noIndex = true) {
             callout(text = "Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.")
         }
 
     fun malformedRequestPage(ctx: EventPageContext): String =
-        skeleton(ctx = ctx, heading = "Ungültige Anfrage", currentPath = "/veranstaltungen") {
+        skeleton(ctx = ctx, heading = "Ungültige Anfrage", currentPath = "/veranstaltungen", noIndex = true) {
             callout(text = "Die Anfrage konnte nicht verarbeitet werden.")
         }
 
@@ -326,7 +341,7 @@ internal object EventPublicHtml {
         slug: String,
         token: String,
     ): String =
-        skeleton(ctx = ctx, heading = "Anmeldung stornieren", currentPath = "/veranstaltung/$slug") {
+        skeleton(ctx = ctx, heading = "Anmeldung stornieren", currentPath = "/veranstaltung/$slug", noIndex = true) {
             section(classes = "event-card") {
                 p { +"Möchten Sie Ihre Anmeldung wirklich stornieren?" }
                 form(action = ctx.href("/veranstaltung/$slug/storno"), method = FormMethod.post, classes = "event-form") {
@@ -340,7 +355,7 @@ internal object EventPublicHtml {
         ctx: EventPageContext,
         slug: String,
     ): String =
-        skeleton(ctx = ctx, heading = "Anmeldung storniert", currentPath = "/veranstaltung/$slug") {
+        skeleton(ctx = ctx, heading = "Anmeldung storniert", currentPath = "/veranstaltung/$slug", noIndex = true) {
             callout(text = "Ihre Anmeldung wurde storniert.")
         }
 
@@ -350,7 +365,7 @@ internal object EventPublicHtml {
         slug: String,
         token: String,
     ): String =
-        skeleton(ctx = ctx, heading = "Zahlung abschließen", currentPath = "/veranstaltung/$slug") {
+        skeleton(ctx = ctx, heading = "Zahlung abschließen", currentPath = "/veranstaltung/$slug", noIndex = true) {
             section(classes = "event-card") {
                 p { +"Bitte schließen Sie die Zahlung für Ihren Platz ab." }
                 form(action = ctx.href("/veranstaltung/$slug/zahlung"), method = FormMethod.post, classes = "event-form") {
@@ -370,7 +385,7 @@ internal object EventPublicHtml {
         slug: String,
         redirectUrl: String,
     ): String =
-        skeleton(ctx = ctx, heading = "Zahlung abschließen", currentPath = "/veranstaltung/$slug") {
+        skeleton(ctx = ctx, heading = "Zahlung abschließen", currentPath = "/veranstaltung/$slug", noIndex = true) {
             section(classes = "event-card") {
                 p { +"Die Zahlung öffnet sich im vollen Browserfenster." }
                 a(href = redirectUrl, target = "_top", classes = "event-submit") {
@@ -411,7 +426,7 @@ internal object EventPublicHtml {
         ctx: EventPageContext,
         view: TicketView,
     ): String =
-        skeleton(ctx = ctx, heading = view.title, currentPath = "/veranstaltung/${view.slug}") {
+        skeleton(ctx = ctx, heading = view.title, currentPath = "/veranstaltung/${view.slug}", noIndex = true) {
             factList {
                 fact(label = "Wann") { +formatEventRange(start = view.startsAt, end = view.endsAt) }
                 if (view.locationText != null || view.onlineUrl != null || view.onlineJoinUrl != null) {
@@ -453,7 +468,9 @@ internal object EventPublicHtml {
                 // CONFIRMED never reaches this function -- EventPublicRoutes renders ticketPage() instead.
                 EventRegistrationStatus.CONFIRMED -> "Diese Anmeldung ist bestätigt."
             }
-        return skeleton(ctx = ctx, heading = "Kein Ticket verfügbar", currentPath = "/veranstaltung/$slug") { callout(text = message) }
+        return skeleton(ctx = ctx, heading = "Kein Ticket verfügbar", currentPath = "/veranstaltung/$slug", noIndex = true) {
+            callout(text = message)
+        }
     }
 
     /**
@@ -469,6 +486,8 @@ internal object EventPublicHtml {
         /** Welle "Veranstaltungs-Titelbild" (Event Cover Image) -- when non-null, rendered as `og:image` so a shared event link previews with the cover image. `kotlinx.html`'s ordinary attribute API escapes it, same as every other value this file ever writes -- see class KDoc. */
         ogImage: String? = null,
         canonicalPath: String? = null,
+        /** V1.9.140 -- token/follow-up and error pages: `noindex, nofollow` (replaces, never duplicates, the EMBED `noindex`). */
+        noIndex: Boolean = false,
         content: FlowContent.() -> Unit,
     ): String =
         createHTML(prettyPrint = false).html {
@@ -478,8 +497,14 @@ internal object EventPublicHtml {
                 meta(name = "viewport", content = "width=device-width, initial-scale=1")
                 title { +"$heading – ${ctx.brandTitle}" }
                 link(rel = "stylesheet", href = "/s/assets/style.css")
+                val robots =
+                    when {
+                        noIndex -> "noindex, nofollow"
+                        ctx.isEmbed -> "noindex"
+                        else -> null
+                    }
+                if (robots != null) meta(name = "robots", content = robots)
                 if (ctx.isEmbed) {
-                    meta(name = "robots", content = "noindex")
                     if (canonicalPath != null) link(rel = "canonical", href = "${ctx.baseUrl}$canonicalPath")
                 } else if (canonicalPath != null) {
                     link(

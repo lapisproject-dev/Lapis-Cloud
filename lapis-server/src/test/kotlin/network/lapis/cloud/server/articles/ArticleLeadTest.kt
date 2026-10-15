@@ -9,7 +9,7 @@ class ArticleLeadTest :
         fun show(
             excerpt: String,
             body: String,
-        ) = ArticleLead.shouldShow(excerpt = excerpt, renderedBodyHtml = ArticleMarkdown.render(body))
+        ) = ArticleLead.shouldShow(excerpt = excerpt, renderedBodyHtml = ArticleMarkdown.render(markdown = body))
 
         test("empty or punctuation-only excerpt is never shown") {
             show(excerpt = "", body = "Text") shouldBe false

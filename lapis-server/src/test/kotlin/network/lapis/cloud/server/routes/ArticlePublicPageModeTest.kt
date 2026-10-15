@@ -398,7 +398,22 @@ class ArticlePublicPageModeTest :
         test("render-level: ArticleMarkdown output is the only unsafe content (smoke)") {
             val html = ArticlePublicHtml.articlePage(ctx = articleTestContext(), view = viewOf("<p>x</p>"))
             html shouldContain "<article class=\"lapis-article-body\"><p>x</p></article>"
-            ArticleMarkdown.render("a") shouldContain "a"
+            ArticleMarkdown.render(markdown = "a") shouldContain "a"
+        }
+
+        test("V1.9.140: an own absolute link leaves the frame (_top) in EMBED, but opens a new window (_blank) in STANDARD") {
+            val slug =
+                createArticle(
+                    body = "[eigen](https://lapis.example/impressum) und [fremd](https://other.example/x)",
+                )
+            withApp {
+                val embed = client.get("/aktuelles/$slug?embed=1").bodyAsText()
+                embed shouldContain "href=\"https://lapis.example/impressum\" target=\"_top\""
+                embed shouldContain "href=\"https://other.example/x\" target=\"_blank\""
+                val standard = client.get("/aktuelles/$slug").bodyAsText()
+                standard shouldContain "href=\"https://lapis.example/impressum\" target=\"_blank\""
+                standard shouldNotContain "href=\"https://lapis.example/impressum\" target=\"_top\""
+            }
         }
     })
 

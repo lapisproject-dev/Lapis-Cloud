@@ -512,7 +512,7 @@ class EventPublicPageModeTest :
                 html shouldContain "Sie erhalten eine Bestätigung per E-Mail."
                 html shouldContain "<div class=\"hp\" aria-hidden=\"true\">"
                 html shouldContain "tabindex=\"-1\""
-                html shouldContain "section class=\"event-card\" aria-labelledby=\"anmeldung-titel\""
+                html shouldContain "section class=\"event-card\" id=\"anmeldung\" aria-labelledby=\"anmeldung-titel\""
                 html shouldContain "id=\"anmeldung-titel\""
                 for ((name, path) in getPages(slug, code, cancelled)) {
                     val page = client.get(path).bodyAsText()
@@ -531,7 +531,7 @@ class EventPublicPageModeTest :
             withApp {
                 for (slug in listOf(openSlug, fullSlug)) {
                     val html = client.get("/veranstaltung/$slug").bodyAsText()
-                    val row = Regex("<dt>Plätze</dt><dd>([^<]*)</dd>").find(html)!!.groupValues[1]
+                    val row = Regex("<dt>Plätze</dt><dd>(.*?)</dd>").find(html)!!.groupValues[1]
                     withClue(row) { row.any { it.isDigit() } shouldBe false }
                 }
             }

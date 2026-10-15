@@ -6,6 +6,73 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.140 -- Cleanup wave from V1.9.127--V1.9.139
+
+A small wave that works off what the design reviews of the last waves left open, and checks which of the open points were real. No migration, no
+RPC or DTO change, no new environment variable, no new text in the catalogs. Nothing was looked at in a real browser.
+
+#### Found
+
+The "Known limitations" of V1.9.127 to V1.9.139, one line each (what this wave takes up is marked):
+
+- V1.9.128 / V1.9.130: links from `/veranstaltungen?lang=en` and `/aktuelles?lang=en` carry no `lang` -- **fixed here**.
+- V1.9.128: no `noindex` on the token and follow-up pages of the event family -- **fixed here**.
+- V1.9.128 / V1.9.130: the registration card sat above the event description -- **fixed here** (order and jump link).
+- V1.9.130: "links in the article text open inside the frame in the embed mode" -- **wrong as written, corrected here** (see below).
+- V1.9.128 / V1.9.130: no automatic iframe height; `/aktuelles` and `/veranstaltungen` have no embed mode; the cover has no `width`/`height` -- not done, see below.
+- V1.9.128: the CSP `form-action 'self'` against the `303` to the payment provider was never tried in a live browser -- unchanged.
+- V1.9.127 to V1.9.139: not seen in a real browser, a real call or on a phone; the new texts are model translations -- unchanged.
+- V1.9.133: the timer is lost on a server restart; encounter and breakout rooms excluded; the guest clock offset is estimated from one packet -- unchanged.
+- V1.9.134: the placeholder agreement text stays until an ADMIN publishes one; nobody is forced to re-accept -- unchanged.
+- V1.9.135 / V1.9.136: sign-in, consent, member-card and mailing-link pages are German only; the consent page still shows raw scope strings; the redirect line has no port -- unchanged.
+- V1.9.137: no browser calendar (typing only), no seconds in time fields, `gettext` messages freeze the language of the moment -- unchanged.
+- V1.9.138: floor state lost on restart; not verified against a real LiveKit; microphone only -- unchanged.
+- V1.9.139: no unread counter, no live update, no way to report a message, no hook in the member administration, rate limit per instance -- unchanged.
+
+#### Fixed
+
+- **Event detail page: order and jump link.** Facts, cover image, description, status callout, registration card (before: the card came before the description). The card has `id="anmeldung"`; the "Plätze" row ends with "· Zur Anmeldung" (`href="#anmeldung"`, no `target`) only while registration is possible and the description is not blank. Occupancy is still binary, no count.
+- **`lang` on the way to the detail pages.** `/aktuelles?lang=en` and `/veranstaltungen?lang=en` now link to `<detail>?lang=en` (`PublicChrome.languageUrl`; the default language adds nothing, an unknown value is redirected to the plain URL as before). Canonical and hreflang of the detail pages are unchanged.
+- **`noindex` on token and follow-up pages.** `X-Robots-Tag: noindex, nofollow` on every response of registration POST, thanks, waiting list, cancelled, storno (GET/POST), payment (GET/POST, also the hand-off and the `303`), ticket page, `ticket.svg` and `ticket.pdf`, set as the first statement of each handler, so 400/404/429/500 and redirects carry it. Their HTML pages and all error pages of the family carry `<meta name="robots" content="noindex, nofollow">`; in the embed mode it replaces the plain `noindex` (never two robots metas). The detail page (200) is untouched.
+- **Article links in the embed mode.** An absolute link to the instance's own host (scheme, host, effective port, compared as parsed URLs; `https://example.org@evil.test/` is foreign) now gets `target="_top"` instead of `_blank` in the `?embed=1` page; `rel` is unchanged. Without `?embed=1` the rendered HTML is byte-identical (golden fixture, generated before the change).
+- **Dates and times:** the client files of V1.9.138 and V1.9.139 were checked for `LocalDate`/`LocalDateTime`/`Instant` shown by `toString()` or interpolation -- **checked, no finding** (`CarpoolMessagesUi` already uses `systemDateTimeSpan`). The tripwires T1 to T8 are unchanged.
+
+#### Behavior changes
+
+- The event detail page reads description first, registration second.
+- `event-page-embed.html` (golden) was regenerated on purpose; its diff is exactly: the description block moved above the card, `id="anmeldung"` on the card, and `" · <a href="#anmeldung">Zur Anmeldung</a>"` in the "Plätze" row.
+- Error pages of the event family (404/429/500/400) now carry a robots meta (`noindex, nofollow`; the embed variant used to carry `noindex`).
+- In the embed mode, own absolute links in an article open in the top window.
+
+#### Not done (with reason)
+
+| Point | Reason |
+|---|---|
+| `Referrer-Policy` on the token pages | **Checked: already set** (`no-referrer` on every HTML response of the event family, by `applyPageModeHeaders`). The open question of the design review is answered; no follow-up wave needed. Only `ticket.svg` and `ticket.pdf` send none (CSP, `nosniff`, `no-store`, now `noindex` only); listed, not changed, because neither document loads or links anything. |
+| "Links in the article text open inside the frame" (V1.9.130) | **Corrected, not as assumed:** every `http(s)` link in the text always had `target="_blank"` and `rel="nofollow noopener ugc"`, in both modes; relative, `#...` and `tel:` links were always dead. What remained was only that own absolute links opened a window in the embed mode; that is the change above. No `noreferrer` added (redundant next to `Referrer-Policy: no-referrer`, and it would break the byte identity of the standard mode). |
+| `width`/`height` on the cover image | Needs a migration or file access at render time; contradicts the V1.9.130 decision. |
+| Old covers with the title burnt in | Cannot be repaired in code. |
+| Reporting carpool messages | Decision of the product owner: no. |
+| Unread counter, live update, hook in the member administration (V1.9.139) | Own wave. |
+| Conference features, travel expenses, OIDC texts, JSON error texts | Listed only; the OIDC texts are German and give nothing internal away, `"Invalid or expired token/session"` is a machine answer. |
+| iframe height, embed mode for `/aktuelles` | Needs a script or a new mode; own decision. |
+| Review by native speakers of the translations | Needs people. |
+
+#### Docs drift fixed
+
+- KDocs: `PublicChrome` (article page standard mode uses `renderChrome`/`renderPublicFooter` since V1.9.130, the embed variants do not; `renderAuthChrome` since V1.9.135), `EventPublicHtml` (order, jump link, `noIndex`), `ArticlePublicHtml` (frame links versus text links), `ArticleMarkdown` (embed host), `PublicOverviewHtml` (`lang`).
+- `docs/features/public-event-page.adoc`: order, jump link, "Robots" section; the two limitations "no `lang`" and "no `noindex`" removed, two new ones listed.
+- `docs/features/public-article-page.adoc`: new section "Links in the article text" replaces the wrong limitation; the `lang` limitation removed.
+- Repo `CLAUDE.md`: short rule "Öffentliche Veranstaltungsseite (V1.9.128/V1.9.140)".
+- Checked and left as is: `README.adoc` (no stale statement), `locale-dates.adoc` (historical context), `member-country-nationality.adoc` (correct), `travel-expenses.adoc`; "Gäste anderer Server zulassen" appears nowhere in the docs any more.
+
+#### Known limitations
+
+- Not looked at in a real browser; headless server tests only.
+- An external link (and, in the standard mode, an own link) still opens a new window without saying so.
+- The jump link "Zur Anmeldung" was not tried on a phone.
+- An upper-case scheme (`HTTPS://...`) in an article link is not recognised as a link (dead, unchanged); the host comparison itself is case-insensitive.
+
 ### V1.9.139 -- Messages on a confirmed ride, and a clearer name for the guest switch
 
 On a confirmed ride the driver and that one person get a short message history. The conference switch "Gäste anderer Server zulassen" is now called

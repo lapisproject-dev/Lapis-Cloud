@@ -21,8 +21,9 @@ import network.lapis.cloud.server.branding.ResolvedBranding
  * children of `<body class="has-chrome">` on all five unauthenticated, account-less public HTML
  * route families this codebase has ([SocialPublicHtml] `/s`, [PublicTransparencyHtml]
  * `/transparenz`, [PublicLandingHtml] `/`, and, since V1.4.7 "Rechtstexte", [LegalHtml]
- * `/impressum` + `/datenschutz`) and, since V1.9.128, [EventPublicHtml] in its standard mode. Never
- * used by [EmbedHtml]/[EmbedDonationHtml] nor by [EventPublicHtml]'s `?embed=1` variant -- those keep
+ * `/impressum` + `/datenschutz`) and, since V1.9.128, [EventPublicHtml] in its standard mode and, since V1.9.130,
+ * [ArticlePublicHtml] in its standard mode. Since V1.9.135 [renderAuthChrome] is a slimmer variant for the account pages
+ * ([AuthPageHtml]). Never used by [EmbedHtml]/[EmbedDonationHtml] nor by the `?embed=1` variants of [EventPublicHtml]/[ArticlePublicHtml] -- those keep
  * their own, narrower `<body>` shape unchanged (see `SocialPublicHtmlTest`'s Embed byte-identity
  * regression test).
  *
@@ -886,9 +887,9 @@ internal object PublicChrome {
      * nicht Nachbereitung"). Head and foot are ONE component, hence living next to [renderChrome]
      * (Raskin).
      *
-     * Deliberately NOT used by [EmbedHtml]/[EmbedDonationHtml] nor by [EventPublicHtml]'s `?embed=1`
-     * variant -- those never set `has-chrome` and have their own `<body>` shapes (see [renderChrome]
-     * KDoc). [EventPublicHtml]'s standard mode uses it since V1.9.128.
+     * Deliberately NOT used by [EmbedHtml]/[EmbedDonationHtml] nor by the `?embed=1` variants of
+     * [EventPublicHtml]/[ArticlePublicHtml] -- those never set `has-chrome` and have their own `<body>` shapes (see
+     * [renderChrome] KDoc). The standard mode of [EventPublicHtml] uses it since V1.9.128, that of [ArticlePublicHtml] since V1.9.130.
      *
      * The Impressum/Datenschutz FULL TEXTS are German-only (see [LegalHtml]); only these LINK
      * LABELS are translated. `hreflang="de"` on the link is the standard mechanism that makes this

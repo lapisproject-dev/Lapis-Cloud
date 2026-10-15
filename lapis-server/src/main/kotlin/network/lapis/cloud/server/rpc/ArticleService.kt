@@ -240,7 +240,7 @@ internal class ArticleService(
         transaction { requireActiveMembership(memberId = current.memberId) }
         if (!previewRateLimiter.checkAndRecord("member:${current.memberId}")) throw RateLimitedException()
         if (body.length > ArticlePolicy.BODY_MAX) throw BadRequestException("body exceeds ${ArticlePolicy.BODY_MAX} characters")
-        return ArticleMarkdown.render(body)
+        return ArticleMarkdown.render(markdown = body)
     }
 
     // -- Welle V1.9.105: author line (byline) with consent --
@@ -493,7 +493,7 @@ internal class ArticleService(
                 id = row[ArticleTable.id].toString(),
                 title = row[ArticleTable.title],
                 excerpt = row[ArticleTable.excerpt],
-                renderedBodyHtml = ArticleMarkdown.render(row[ArticleTable.body]),
+                renderedBodyHtml = ArticleMarkdown.render(markdown = row[ArticleTable.body]),
                 coverImageUrl =
                     ArticleCoverPolicy.authenticatedCoverImageUrl(
                         baseUrl = baseUrl,

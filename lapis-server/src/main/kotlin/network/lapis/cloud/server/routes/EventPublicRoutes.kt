@@ -196,6 +196,7 @@ internal fun Route.registerEventPublicRoutes(
     }
 
     post("/veranstaltung/{slug}/anmeldung") {
+        call.markEventNoIndex()
         val ctx = call.pageContext()
         call.withEventPublicErrorHandling(ctx = ctx) {
             val slug = call.parameters["slug"]
@@ -308,6 +309,7 @@ internal fun Route.registerEventPublicRoutes(
     }
 
     get("/veranstaltung/{slug}/danke") {
+        call.markEventNoIndex()
         val ctx = call.pageContext()
         call.respondEventReturnPage(ctx = ctx, rateLimiter = pageRateLimiter) {
             EventPublicHtml.thanksPage(ctx = ctx, slug = call.parameters["slug"].orEmpty(), registrationId = call.parameters["r"])
@@ -315,6 +317,7 @@ internal fun Route.registerEventPublicRoutes(
     }
 
     get("/veranstaltung/{slug}/warteliste") {
+        call.markEventNoIndex()
         val ctx = call.pageContext()
         call.respondEventReturnPage(ctx = ctx, rateLimiter = pageRateLimiter) {
             EventPublicHtml.waitlistPage(ctx = ctx, slug = call.parameters["slug"].orEmpty())
@@ -322,6 +325,7 @@ internal fun Route.registerEventPublicRoutes(
     }
 
     get("/veranstaltung/{slug}/abgebrochen") {
+        call.markEventNoIndex()
         val ctx = call.pageContext()
         call.respondEventReturnPage(ctx = ctx, rateLimiter = pageRateLimiter) {
             EventPublicHtml.cancelledPage(ctx = ctx, slug = call.parameters["slug"].orEmpty())
@@ -329,6 +333,7 @@ internal fun Route.registerEventPublicRoutes(
     }
 
     get("/veranstaltung/{slug}/storno") {
+        call.markEventNoIndex()
         val ctx = call.pageContext()
         call.withEventPublicErrorHandling(ctx = ctx) {
             if (!pageRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
@@ -350,6 +355,7 @@ internal fun Route.registerEventPublicRoutes(
     }
 
     post("/veranstaltung/{slug}/storno") {
+        call.markEventNoIndex()
         val ctx = call.pageContext()
         call.withEventPublicErrorHandling(ctx = ctx) {
             if (!attemptRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
@@ -419,6 +425,7 @@ internal fun Route.registerEventPublicRoutes(
     // the same registration. Same GET-renders-confirmation/POST-mutates split as `/storno` above --
     // a mail-client link-prefetch must never start a Stripe checkout on its own.
     get("/veranstaltung/{slug}/zahlung") {
+        call.markEventNoIndex()
         val ctx = call.pageContext()
         call.withEventPublicErrorHandling(ctx = ctx) {
             if (!pageRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
@@ -437,6 +444,7 @@ internal fun Route.registerEventPublicRoutes(
     }
 
     post("/veranstaltung/{slug}/zahlung") {
+        call.markEventNoIndex()
         val ctx = call.pageContext()
         call.withEventPublicErrorHandling(ctx = ctx) {
             if (!attemptRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
@@ -517,6 +525,7 @@ internal fun Route.registerEventPublicRoutes(
     // relaxation alongside it.
 
     get("/veranstaltung/{slug}/ticket") {
+        call.markEventNoIndex()
         val ctx = call.pageContext()
         call.withEventPublicErrorHandling(ctx = ctx) {
             if (!ticketPageRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
@@ -558,6 +567,7 @@ internal fun Route.registerEventPublicRoutes(
     }
 
     get("/veranstaltung/{slug}/ticket.svg") {
+        call.markEventNoIndex()
         val ctx = call.pageContext()
         call.withEventPublicErrorHandling(ctx = ctx) {
             if (!ticketPageRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
@@ -593,6 +603,7 @@ internal fun Route.registerEventPublicRoutes(
     }
 
     get("/veranstaltung/{slug}/ticket.pdf") {
+        call.markEventNoIndex()
         val ctx = call.pageContext()
         call.withEventPublicErrorHandling(ctx = ctx) {
             if (!ticketPageRateLimiter.checkAndRecord(rateLimitKeyFor(remoteHost = call.request.origin.remoteHost))) {
@@ -967,3 +978,12 @@ private fun onlineJoinUrlFor(
     } else {
         null
     }
+
+/**
+ * V1.9.140 -- token and follow-up pages (registration POST, thanks, waitlist, cancelled, storno, zahlung, ticket) are never to be indexed.
+ * Called as the FIRST statement of each handler, before the rate limit and the error handling, so that 404/429/500/303 carry the header
+ * too. The detail page (200), the `.ics` feed and the cover image never call it.
+ */
+private fun ApplicationCall.markEventNoIndex() {
+    response.header("X-Robots-Tag", "noindex, nofollow")
+}

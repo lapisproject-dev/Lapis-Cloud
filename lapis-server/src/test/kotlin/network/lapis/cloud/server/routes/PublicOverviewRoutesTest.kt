@@ -317,4 +317,37 @@ class PublicOverviewRoutesTest :
                 body shouldContain "rel=\"canonical\""
             }
         }
+
+        // ── V1.9.140: the UI language is carried onto the detail pages ────────────
+        test("V1.9.140: ?lang=en on both overviews carries lang=en onto the detail links; the default language adds nothing") {
+            val (_, articleSlug) = createArticle()
+            val (_, eventSlug) = createEvent()
+            testApp {
+                val articlesEn = client.get("/aktuelles?lang=en").bodyAsText()
+                articlesEn shouldContain "href=\"http://localhost:8080/aktuelles/$articleSlug?lang=en\""
+                val eventsEn = client.get("/veranstaltungen?lang=en").bodyAsText()
+                eventsEn shouldContain "href=\"http://localhost:8080/veranstaltung/$eventSlug?lang=en\""
+                val articlesDe = client.get("/aktuelles").bodyAsText()
+                articlesDe shouldContain "href=\"http://localhost:8080/aktuelles/$articleSlug\""
+                articlesDe shouldNotContain "$articleSlug?lang"
+                val eventsDe = client.get("/veranstaltungen").bodyAsText()
+                eventsDe shouldContain "href=\"http://localhost:8080/veranstaltung/$eventSlug\""
+                eventsDe shouldNotContain "$eventSlug?lang"
+            }
+        }
+
+        test("V1.9.140: an unknown ?lang value is canonicalised away before any detail link is rendered") {
+            createArticle()
+            createEvent()
+            testApp {
+                val noFollow = createClient { followRedirects = false }
+                for (path in listOf("/aktuelles", "/veranstaltungen")) {
+                    val response = noFollow.get("$path?lang=zz")
+                    (response.status.value in 300..399) shouldBe true
+                    val location = response.headers[HttpHeaders.Location].orEmpty()
+                    location shouldBe "http://localhost:8080$path"
+                    location shouldNotContain "lang"
+                }
+            }
+        }
     })

@@ -9,6 +9,7 @@ import org.commonmark.renderer.NodeRenderer
 import org.commonmark.renderer.html.AttributeProvider
 import org.commonmark.renderer.html.HtmlNodeRendererContext
 import org.commonmark.renderer.html.HtmlRenderer
+import java.net.URI
 
 /**
  * Server-side Markdown -> sanitized HTML rendering for the article body -- the ONLY place a
@@ -24,7 +25,11 @@ import org.commonmark.renderer.html.HtmlRenderer
  * 2. Links: a `javascript:`/`data:`/other non-http(s)/mailto scheme has its `href` stripped
  *    entirely (dead `<a>`, not a removed element -- keeps the link TEXT visible); `http(s)` links
  *    get `target="_blank"` + `rel="nofollow noopener ugc"`; `mailto:` links keep `rel` but no
- *    `target` (no external tab context makes sense for a mail client).
+ *    `target` (no external tab context makes sense for a mail client). Relative, `#...` and `tel:`
+ *    links are dead like any other non-allowlisted scheme. V1.9.140 (embed): with an [EmbedLinkHost]
+ *    (`?embed=1` page), an absolute link to THAT host (scheme, host and effective port equal, compared
+ *    via [URI], never by string prefix) gets `target="_top"` instead, so it leaves the iframe; its `rel`
+ *    stays. Without an [EmbedLinkHost] the output is byte-identical to the pre-V1.9.140 output.
  * 3. Images render as their alt text ONLY, never an `<img>` tag -- commonmark-java has no built-in
  *    "image -> alt text" mode; [ImageAsAltTextRenderer] below recurses into the [Image] node's
  *    children (the alt text is a set of inline child nodes in commonmark's AST, not an attribute)
@@ -36,7 +41,10 @@ import org.commonmark.renderer.html.HtmlRenderer
 object ArticleMarkdown {
     private val parser: Parser = Parser.builder().extensions(emptyList()).build()
 
-    fun render(markdown: String): String {
+    fun render(
+        markdown: String,
+        embedHost: EmbedLinkHost? = null,
+    ): String {
         // Defense-in-depth cap -- ArticlePolicy.BODY_MAX already bounds this at the write path
         // (saveDraft/submitArticle), this is a second, independent belt for any caller that
         // reaches this function with an un-vetted string (e.g. a future direct previewArticle
@@ -46,7 +54,7 @@ object ArticleMarkdown {
             HtmlRenderer
                 .builder()
                 .escapeHtml(true)
-                .attributeProviderFactory { LinkAttributeProvider() }
+                .attributeProviderFactory { LinkAttributeProvider(embedHost) }
                 .nodeRendererFactory { context -> ImageAsAltTextRenderer(context) }
                 .nodeRendererFactory { context -> HeadingShiftRenderer(context = context, minLevel = 2, maxLevel = 4) }
                 .build()
@@ -54,8 +62,44 @@ object ArticleMarkdown {
     }
 }
 
+/** The own origin of an embedded article page: absolute links to it leave the frame (`_top`). */
+data class EmbedLinkHost(
+    val scheme: String,
+    val host: String,
+    val port: Int,
+) {
+    internal fun matches(href: String): Boolean {
+        val uri = runCatching { URI(href) }.getOrNull() ?: return false
+        val uriScheme = uri.scheme?.lowercase() ?: return false
+        val uriHost = uri.host?.lowercase() ?: return false
+        return uriScheme == scheme && uriHost == host && effectivePort(scheme = uriScheme, port = uri.port) == port
+    }
+
+    companion object {
+        fun fromBaseUrl(baseUrl: String): EmbedLinkHost? {
+            val uri = runCatching { URI(baseUrl) }.getOrNull() ?: return null
+            val scheme = uri.scheme?.lowercase() ?: return null
+            val host = uri.host?.lowercase() ?: return null
+            if (scheme != "http" && scheme != "https") return null
+            return EmbedLinkHost(scheme = scheme, host = host, port = effectivePort(scheme = scheme, port = uri.port))
+        }
+
+        private fun effectivePort(
+            scheme: String,
+            port: Int,
+        ): Int =
+            when {
+                port != -1 -> port
+                scheme == "https" -> 443
+                else -> 80
+            }
+    }
+}
+
 /** See [ArticleMarkdown] KDoc point 2. */
-private class LinkAttributeProvider : AttributeProvider {
+private class LinkAttributeProvider(
+    private val embedHost: EmbedLinkHost?,
+) : AttributeProvider {
     override fun setAttributes(
         node: Node,
         tagName: String,
@@ -65,7 +109,7 @@ private class LinkAttributeProvider : AttributeProvider {
         val href = attributes["href"].orEmpty()
         when {
             href.startsWith("http://") || href.startsWith("https://") -> {
-                attributes["target"] = "_blank"
+                attributes["target"] = if (embedHost != null && embedHost.matches(href)) "_top" else "_blank"
                 attributes["rel"] = "nofollow noopener ugc"
             }
             href.startsWith("mailto:") -> {

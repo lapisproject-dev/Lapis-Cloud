@@ -222,3 +222,11 @@ Details: `docs/features/auth-and-consent-pages.adoc`. Kurzregeln:
 - Fehlertexte sind Enum-Konstanten, nie Nutzereingaben.
 - V1.9.136: Ausweis-Prüfseiten (`/ausweis`) und die Mailing-404/429-Seiten (`/m/c/`) laufen ebenfalls über `renderAuthPage`, werden aber mit `applyPublicPageHeaders` beantwortet (nicht `applyAuthPageHeaders`): die URL trägt einen Ausweis-Code bzw. ein Tracking-Token, also `Referrer-Policy: no-referrer`; es gibt kein Formular.
 - Die negative Ausweisseite bleibt byte-identisch und neutral (kein `--error`, kein `role="alert"`, nichts Eingabeabhängiges).
+
+## Öffentliche Veranstaltungsseite (V1.9.128/V1.9.140)
+
+Details: `docs/features/public-event-page.adoc`. Kurzregeln:
+
+- Token- und Folgeseiten (Anmelde-POST, danke, Warteliste, abgebrochen, Storno, Zahlung, Ticket inkl. `ticket.svg`/`ticket.pdf`) setzen `X-Robots-Tag: noindex, nofollow` als **erste Anweisung** im Handler (`markEventNoIndex()`, vor Rate-Limit und Fehlerbehandlung, damit auch 400/404/429/500 und Redirects ihn tragen) und rendern mit `skeleton(noIndex = true)`; dasselbe gilt für alle Fehlerseiten der Familie. Die Detailseite (200) nie. Nie zwei `name="robots"`-Metas in einem Dokument.
+- Reihenfolge der Detailseite: Fakten, Titelbild, Beschreibung, Hinweis, Anmeldekarte (`id="anmeldung"`); der Link „Zur Anmeldung“ nur bei möglicher Anmeldung und nicht leerer Beschreibung, ohne `target`.
+- Artikel-Textlinks: `ArticleMarkdown.render(md)` ohne `embedHost` bleibt byte-gleich (Golden-Test); nur im Embed-Modus bekommen absolute Links auf den eigenen Host `target="_top"`, jedes `_blank` trägt `noopener`.
