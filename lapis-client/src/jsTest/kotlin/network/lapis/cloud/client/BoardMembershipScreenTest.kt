@@ -134,6 +134,41 @@ class BoardMembershipScreenTest {
     }
 
     @Test
+    fun beneficialOwnerGapDetail_missingCountry_namesTheCountryOfResidenceOnly() {
+        val gap =
+            BeneficialOwnerDataGapDto(
+                memberId = "member-dora",
+                memberDisplayName = "Dora",
+                committeeRole = CommitteeRole.MEMBER,
+                missingDateOfBirth = false,
+                missingNationality = false,
+                missingCountry = true,
+            )
+        val text = beneficialOwnerGapDetail(gap)
+        assertTrue(text.contains("Dora"))
+        assertTrue(text.contains("Land des Wohnsitzes"))
+        assertTrue(!text.contains("Geburtsdatum"))
+        assertTrue(!text.contains("Staatsangehörigkeit"))
+    }
+
+    @Test
+    fun beneficialOwnerGapDetail_everythingMissing_namesAllThreeFields() {
+        val gap =
+            BeneficialOwnerDataGapDto(
+                memberId = "member-egon",
+                memberDisplayName = "Egon",
+                committeeRole = CommitteeRole.CHAIR,
+                missingDateOfBirth = true,
+                missingNationality = true,
+                missingCountry = true,
+            )
+        val text = beneficialOwnerGapDetail(gap)
+        assertTrue(text.contains("Geburtsdatum"))
+        assertTrue(text.contains("Land des Wohnsitzes"))
+        assertTrue(text.contains("Staatsangehörigkeit"))
+    }
+
+    @Test
     fun beneficialOwnerGapDetail_nationalityOnly_omitsDateOfBirth() {
         val gap =
             BeneficialOwnerDataGapDto(

@@ -5097,12 +5097,8 @@ msgid "Farbe wählen"
 msgstr "Выбрать цвет"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:405
-msgid ""
-"Fehlende Angaben für das Transparenzregister: %1 Vorstandsmitglied(er) ohne "
-"Geburtsdatum und/oder Staatsangehörigkeit."
-msgstr ""
-"Отсутствуют данные для реестра прозрачности: %1 член(-ов) правления без даты "
-"рождения и/или гражданства."
+msgid "Fehlende Angaben für das Transparenzregister: %1 Vorstandsmitglied(er) ohne Geburtsdatum, Land des Wohnsitzes und/oder Staatsangehörigkeit."
+msgstr "Отсутствуют данные для реестра прозрачности: %1 член(-ов) правления без даты рождения, страны проживания и/или гражданства."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:584
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt:312
@@ -24398,3 +24394,21 @@ msgstr "Другая сторона завершила переписку."
 
 msgid "Dieser Verlauf hat die Höchstzahl von %1 Nachrichten erreicht."
 msgstr "Эта переписка достигла максимума в %1 сообщений."
+
+msgid "Angaben zur Person (freiwillig)"
+msgstr "Личные данные (необязательно)"
+
+msgid "Diese Angaben sind freiwillig. Sie können sie später jederzeit in Ihrem Profil ergänzen oder ändern."
+msgstr "Эти данные необязательны. Вы можете дополнить или изменить их позже в любое время в своём профиле."
+
+msgid "Land des Wohnsitzes"
+msgstr "Страна проживания"
+
+msgid "Keine Angabe"
+msgstr "Не указано"
+
+msgid "Alle Länder"
+msgstr "Все страны"
+
+msgid "Bitte prüfen Sie die Angaben zu Land und Staatsangehörigkeit."
+msgstr "Пожалуйста, проверьте данные о стране и гражданстве."

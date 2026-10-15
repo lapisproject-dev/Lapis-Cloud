@@ -5098,12 +5098,8 @@ msgid "Farbe wählen"
 msgstr "Wybierz kolor"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:405
-msgid ""
-"Fehlende Angaben für das Transparenzregister: %1 Vorstandsmitglied(er) ohne "
-"Geburtsdatum und/oder Staatsangehörigkeit."
-msgstr ""
-"Brakujące dane do Rejestru Przejrzystości: %1 członek(-ów) zarządu bez daty "
-"urodzenia i/lub obywatelstwa."
+msgid "Fehlende Angaben für das Transparenzregister: %1 Vorstandsmitglied(er) ohne Geburtsdatum, Land des Wohnsitzes und/oder Staatsangehörigkeit."
+msgstr "Brakujące dane do Rejestru Przejrzystości: %1 członek(-ów) zarządu bez daty urodzenia, kraju zamieszkania i/lub obywatelstwa."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:584
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt:312
@@ -24407,3 +24403,21 @@ msgstr "Historia została zakończona."
 
 msgid "Dieser Verlauf hat die Höchstzahl von %1 Nachrichten erreicht."
 msgstr "Ta historia osiągnęła maksymalną liczbę %1 wiadomości."
+
+msgid "Angaben zur Person (freiwillig)"
+msgstr "Dane osobowe (dobrowolne)"
+
+msgid "Diese Angaben sind freiwillig. Sie können sie später jederzeit in Ihrem Profil ergänzen oder ändern."
+msgstr "Te dane są dobrowolne. Mogą Państwo uzupełnić lub zmienić je w dowolnym momencie później w swoim profilu."
+
+msgid "Land des Wohnsitzes"
+msgstr "Kraj zamieszkania"
+
+msgid "Keine Angabe"
+msgstr "Nie podano"
+
+msgid "Alle Länder"
+msgstr "Wszystkie kraje"
+
+msgid "Bitte prüfen Sie die Angaben zu Land und Staatsangehörigkeit."
+msgstr "Proszę sprawdzić dane dotyczące kraju i obywatelstwa."

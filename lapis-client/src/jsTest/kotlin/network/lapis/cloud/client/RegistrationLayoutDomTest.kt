@@ -196,7 +196,12 @@ class RegistrationLayoutDomTest {
                 withMountedRoot("body-registration-layout-nochapter") { root, element ->
                     renderRegistrationScreen(root)
                     awaitUntil("the form") { element().querySelector(".$AGREEMENT_FRAME_CLASS") != null }
-                    assertEquals(4, element().allOf(".$FORM_CELL_CLASS").size)
+                    // Four required-field cells in the first grid, plus the two optional cells (country, nationality) of V1.9.141.
+                    assertEquals(
+                        4,
+                        element().querySelector(".$FORM_GRID_CLASS")!!.let { (it as HTMLElement).allOf(".$FORM_CELL_CLASS").size },
+                    )
+                    assertEquals(6, element().allOf(".$FORM_CELL_CLASS").size)
                     assertEquals(0, element().allOf(".$FORM_CELL_FULL_CLASS").size)
                     assertNull(element().querySelector("select"))
                 }

@@ -367,6 +367,45 @@ class BoardMembershipServiceTest :
             }
         }
 
+        test("V1.9.141: getTransparenzregisterReport flags a missing country; a country code or the legacy text counts as given") {
+            testApplication {
+                application {
+                    install(StatusPages) { installBoardMembershipExceptionHandlers() }
+                    routing { registerBoardMembershipTestRoutes() }
+                }
+                val admin = createTestMember("bms-gap-country-admin@example.org", role = AccountRole.ADMIN)
+                val withoutCountry = createTestMember("bms-gap-country-none@example.org")
+                val withCode = createTestMember("bms-gap-country-code@example.org")
+                val withLegacyOnly = createTestMember("bms-gap-country-legacy@example.org")
+                transaction {
+                    // Date of birth and (legacy) nationality are present everywhere, so only the country decides.
+                    listOf(withoutCountry, withCode, withLegacyOnly).forEach { id ->
+                        MemberTable.update({ MemberTable.id eq id }) {
+                            it[dateOfBirth] = LocalDate(1980, 1, 1)
+                            it[nationality] = "deutsch"
+                        }
+                    }
+                    MemberTable.update({ MemberTable.id eq withCode }) { it[countryCode] = "PL" }
+                    MemberTable.update({ MemberTable.id eq withLegacyOnly }) { it[country] = "Polen" }
+                }
+                listOf(withoutCountry, withCode, withLegacyOnly).forEach { id ->
+                    client
+                        .post("/test/appoint-board-member?memberId=$id&committeeRole=ASSESSOR&startedAt=2026-02-01") {
+                            header("X-Member-Id", admin.toString())
+                        }.status shouldBe HttpStatusCode.OK
+                }
+                val gaps =
+                    client
+                        .get("/test/report-gaps") { header("X-Member-Id", admin.toString()) }
+                        .bodyAsText()
+                        .split(";")
+                        .filter { it.isNotBlank() }
+                gaps.single { it.startsWith("$withoutCountry:") } shouldBe "$withoutCountry:dob=false:nat=false:country=true"
+                gaps.any { it.startsWith("$withCode:") } shouldBe false
+                gaps.any { it.startsWith("$withLegacyOnly:") } shouldBe false
+            }
+        }
+
         test("resolveTransparenzregisterReminder flips resolved/resolvedAt/resolvedBy; re-resolving throws Conflict") {
             testApplication {
                 application {
@@ -552,6 +591,15 @@ private fun Route.registerBoardMembershipTestRoutes() {
         call.respondText(
             "openReminders=${report.openReminders.size};currentBoard=${report.currentBoard.size};" +
                 "gaps=${report.beneficialOwnerDataGaps.size}",
+        )
+    }
+    get("/test/report-gaps") {
+        val service = BoardMembershipService(call)
+        val report = service.getTransparenzregisterReport()
+        call.respondText(
+            report.beneficialOwnerDataGaps.joinToString(";") {
+                "${it.memberId}:dob=${it.missingDateOfBirth}:nat=${it.missingNationality}:country=${it.missingCountry}"
+            },
         )
     }
     post("/test/resolve-reminder/{id}") {

@@ -29,6 +29,7 @@ class CountryCodeAccessTripwireTest :
                 "network/lapis/cloud/server/db/StagingSeedData.kt" to "staging seed, NEW members in an empty database",
                 "network/lapis/cloud/server/rpc/MemberService.kt" to "peer-guarded writes; the caller's own / privileged projections",
                 "network/lapis/cloud/server/rpc/BoardMemberMapService.kt" to "aggregate counts only, no value leaves",
+                "network/lapis/cloud/server/rpc/BoardMembershipService.kt" to "presence flag only (missingCountry), no value leaves",
                 "network/lapis/cloud/server/routes/MailmergeRoutes.kt" to "the recipient's postal address is the purpose of a mail merge",
             )
 
@@ -38,6 +39,8 @@ class CountryCodeAccessTripwireTest :
         val writingCallers =
             mapOf(
                 "network/lapis/cloud/server/rpc/MemberService.kt" to "peer-guarded RPCs",
+                "network/lapis/cloud/server/rpc/RegistrationService.kt" to
+                    "registration stores the applicant's own optional input on a brand-new row; rejection erases it",
                 "network/lapis/cloud/server/member/CountryLegacyMappingEngine.kt" to "reconciliation",
                 "network/lapis/cloud/server/dsgvo/MemberNationalityPersonalData.kt" to "erasure",
                 "network/lapis/cloud/server/bootstrap/MemberCsvImport.kt" to "import of NEW members",

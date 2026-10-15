@@ -5147,12 +5147,8 @@ msgid "Farbe wählen"
 msgstr "Choisir une couleur"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:405
-msgid ""
-"Fehlende Angaben für das Transparenzregister: %1 Vorstandsmitglied(er) ohne "
-"Geburtsdatum und/oder Staatsangehörigkeit."
-msgstr ""
-"Informations manquantes pour le registre de transparence : %1 membre(s) du "
-"conseil sans date de naissance et/ou nationalité."
+msgid "Fehlende Angaben für das Transparenzregister: %1 Vorstandsmitglied(er) ohne Geburtsdatum, Land des Wohnsitzes und/oder Staatsangehörigkeit."
+msgstr "Informations manquantes pour le registre de transparence : %1 membre(s) du conseil sans date de naissance, pays de résidence et/ou nationalité."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:584
 #: src/jsMain/kotlin/network/lapis/cloud/client/ArticleImportScreen.kt:312
@@ -24464,3 +24460,21 @@ msgstr "L'historique a été terminé."
 
 msgid "Dieser Verlauf hat die Höchstzahl von %1 Nachrichten erreicht."
 msgstr "Cet historique a atteint le maximum de %1 messages."
+
+msgid "Angaben zur Person (freiwillig)"
+msgstr "Informations personnelles (facultatif)"
+
+msgid "Diese Angaben sind freiwillig. Sie können sie später jederzeit in Ihrem Profil ergänzen oder ändern."
+msgstr "Ces informations sont facultatives. Vous pouvez les compléter ou les modifier à tout moment plus tard dans votre profil."
+
+msgid "Land des Wohnsitzes"
+msgstr "Pays de résidence"
+
+msgid "Keine Angabe"
+msgstr "Non renseigné"
+
+msgid "Alle Länder"
+msgstr "Tous les pays"
+
+msgid "Bitte prüfen Sie die Angaben zu Land und Staatsangehörigkeit."
+msgstr "Veuillez vérifier vos informations de pays et de nationalité."

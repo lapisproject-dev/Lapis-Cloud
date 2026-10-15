@@ -4602,7 +4602,7 @@ msgid "Farbe wählen"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/BoardMembershipScreen.kt:405
-msgid "Fehlende Angaben für das Transparenzregister: %1 Vorstandsmitglied(er) ohne Geburtsdatum und/oder Staatsangehörigkeit."
+msgid "Fehlende Angaben für das Transparenzregister: %1 Vorstandsmitglied(er) ohne Geburtsdatum, Land des Wohnsitzes und/oder Staatsangehörigkeit."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/AccountingExportScreen.kt:584
@@ -23466,4 +23466,22 @@ msgid "Der Verlauf wurde beendet."
 msgstr ""
 
 msgid "Dieser Verlauf hat die Höchstzahl von %1 Nachrichten erreicht."
+msgstr ""
+
+msgid "Angaben zur Person (freiwillig)"
+msgstr ""
+
+msgid "Diese Angaben sind freiwillig. Sie können sie später jederzeit in Ihrem Profil ergänzen oder ändern."
+msgstr ""
+
+msgid "Land des Wohnsitzes"
+msgstr ""
+
+msgid "Keine Angabe"
+msgstr ""
+
+msgid "Alle Länder"
+msgstr ""
+
+msgid "Bitte prüfen Sie die Angaben zu Land und Staatsangehörigkeit."
 msgstr ""

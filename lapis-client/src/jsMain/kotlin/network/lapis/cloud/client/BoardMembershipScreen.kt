@@ -399,8 +399,8 @@ private fun renderTransparenzregisterReport(
 /** Exact summary line for the beneficial-owner-data-gaps `alert-warning` box. */
 fun beneficialOwnerGapsSummary(count: Int): String =
     gettext(
-        "Fehlende Angaben für das Transparenzregister: %1 Vorstandsmitglied(er) ohne Geburtsdatum und/oder " +
-            "Staatsangehörigkeit.",
+        "Fehlende Angaben für das Transparenzregister: %1 Vorstandsmitglied(er) ohne Geburtsdatum, Land des Wohnsitzes " +
+            "und/oder Staatsangehörigkeit.",
         count,
     )
 
@@ -410,6 +410,8 @@ fun beneficialOwnerGapDetail(gap: BeneficialOwnerDataGapDto): String {
     val missingFields =
         buildList {
             if (gap.missingDateOfBirth) add(gettext("Geburtsdatum"))
+            // V1.9.141
+            if (gap.missingCountry) add(gettext("Land des Wohnsitzes"))
             if (gap.missingNationality) add(gettext("Staatsangehörigkeit"))
         }
     // Welle V1.9.121: "ungeklärt" (code ZZ) is recorded but not settled -- named on its own, never as "missing".

@@ -31,6 +31,7 @@ import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.BoardMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeMembershipTable
 import network.lapis.cloud.server.db.generated.CommitteeTable
+import network.lapis.cloud.server.db.generated.MemberNationalityTable
 import network.lapis.cloud.server.db.generated.MemberStatusHistoryTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipAgreementAcknowledgmentTable
@@ -160,6 +161,159 @@ class RegistrationServiceTest :
             transaction {
                 MemberTable.selectAll().where { MemberTable.id eq memberId }.single()[MemberTable.status]
             }
+
+        // ---- V1.9.141: optional country / nationality at registration -------------------------------------------------------
+
+        fun countryOf(memberId: Uuid): String? =
+            transaction { MemberTable.selectAll().where { MemberTable.id eq memberId }.single()[MemberTable.countryCode] }
+
+        fun nationalitiesOf(memberId: Uuid): List<String> =
+            transaction {
+                MemberNationalityTable
+                    .selectAll()
+                    .where { MemberNationalityTable.memberId eq memberId }
+                    .map { it[MemberNationalityTable.countryCode] }
+                    .sorted()
+            }
+
+        test("registerApplication V1.9.141: country and nationalities are stored (normalised), and survive the approval") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
+                }
+                val email = "reg-country-given@example.org"
+                client.post("/test/register?email=$email&countryCode=pl&nationalityCodes=pl,de").status shouldBe HttpStatusCode.OK
+                val memberId = requireNotNull(findMemberIdByEmail(email))
+                createdMemberIds += memberId
+                countryOf(memberId) shouldBe "PL"
+                nationalitiesOf(memberId) shouldBe listOf("DE", "PL")
+
+                client.post("/test/approve/$memberId") { header("X-Member-Id", BOARD_ID) }.status shouldBe HttpStatusCode.OK
+                statusOf(memberId) shouldBe MemberStatus.ACTIVE
+                countryOf(memberId) shouldBe "PL"
+                nationalitiesOf(memberId) shouldBe listOf("DE", "PL")
+            }
+        }
+
+        test("registerApplication V1.9.141: nothing given leaves country and nationalities empty") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
+                }
+                val email = "reg-country-none@example.org"
+                client.post("/test/register?email=$email").status shouldBe HttpStatusCode.OK
+                val memberId = requireNotNull(findMemberIdByEmail(email))
+                createdMemberIds += memberId
+                countryOf(memberId) shouldBe null
+                nationalitiesOf(memberId) shouldBe emptyList()
+            }
+        }
+
+        test("registerApplication V1.9.141: the stateless and unclear nationality codes are accepted on their own") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
+                }
+                for ((suffix, code) in listOf("xs" to "XS", "zz" to "ZZ")) {
+                    val email = "reg-nat-$suffix@example.org"
+                    client.post("/test/register?email=$email&nationalityCodes=$code").status shouldBe HttpStatusCode.OK
+                    val memberId = requireNotNull(findMemberIdByEmail(email))
+                    createdMemberIds += memberId
+                    nationalitiesOf(memberId) shouldBe listOf(code)
+                    countryOf(memberId) shouldBe null
+                }
+            }
+        }
+
+        test("registerApplication V1.9.141: invalid country or nationality input is rejected as BadRequest and creates no row") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter(maxFailures = 1000)) }
+                }
+                val elevenCodes = listOf("AD", "AE", "AF", "AG", "AI", "AL", "AM", "AO", "AR", "AT", "AU").joinToString(",")
+                val bad =
+                    listOf(
+                        "countryCode=QQ",
+                        "countryCode=XS",
+                        "countryCode=ZZ",
+                        "countryCode=DEU",
+                        "nationalityCodes=QQ",
+                        "nationalityCodes=ZZ,DE",
+                        "nationalityCodes=XS,DE",
+                        "nationalityCodes=$elevenCodes",
+                    )
+                bad.forEachIndexed { index, query ->
+                    val email = "reg-country-bad-$index@example.org"
+                    val response = client.post("/test/register?email=$email&$query")
+                    response.status shouldBe HttpStatusCode.BadRequest
+                    // The message carries no submitted value.
+                    response.bodyAsText().contains("QQ") shouldBe false
+                    findMemberIdByEmail(email) shouldBe null
+                }
+                // A duplicate code is normalised away, not an error.
+                val dupEmail = "reg-country-dup@example.org"
+                client.post("/test/register?email=$dupEmail&nationalityCodes=DE,de").status shouldBe HttpStatusCode.OK
+                val dupId = requireNotNull(findMemberIdByEmail(dupEmail))
+                createdMemberIds += dupId
+                nationalitiesOf(dupId) shouldBe listOf("DE")
+            }
+        }
+
+        test(
+            "registerApplication V1.9.141: invalid codes are rejected identically for an already registered email (no enumeration oracle)",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
+                }
+                createTestMember("reg-country-existing@example.org", MemberStatus.ACTIVE)
+                val existing = client.post("/test/register?email=reg-country-existing@example.org&countryCode=QQ")
+                val fresh = client.post("/test/register?email=reg-country-fresh@example.org&countryCode=QQ")
+                existing.status shouldBe HttpStatusCode.BadRequest
+                fresh.status shouldBe existing.status
+                fresh.bodyAsText() shouldBe existing.bodyAsText()
+            }
+        }
+
+        test("registerApplication V1.9.141: an existing email with valid codes is a silent no-op that writes nothing to the existing row") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
+                }
+                val existingId = createTestMember("reg-country-noop@example.org", MemberStatus.ACTIVE)
+                client
+                    .post("/test/register?email=reg-country-noop@example.org&countryCode=FR&nationalityCodes=FR")
+                    .status shouldBe HttpStatusCode.OK
+                countryOf(existingId) shouldBe null
+                nationalitiesOf(existingId) shouldBe emptyList()
+            }
+        }
+
+        test("rejectApplication V1.9.141: the optional country and nationalities of the applicant are erased with the rejection") {
+            testApplication {
+                application {
+                    install(StatusPages) { installRegistrationExceptionHandlers() }
+                    routing { registerRegistrationTestRoutes(rateLimiter = LoginRateLimiter()) }
+                }
+                val email = "reg-country-reject@example.org"
+                client.post("/test/register?email=$email&countryCode=DE&nationalityCodes=DE,PL").status shouldBe HttpStatusCode.OK
+                val memberId = requireNotNull(findMemberIdByEmail(email))
+                createdMemberIds += memberId
+                countryOf(memberId) shouldBe "DE"
+                client
+                    .post("/test/reject/$memberId?reason=Unvollstaendige+Unterlagen") { header("X-Member-Id", BOARD_ID) }
+                    .status shouldBe HttpStatusCode.OK
+                statusOf(memberId) shouldBe MemberStatus.REJECTED
+                countryOf(memberId) shouldBe null
+                nationalitiesOf(memberId) shouldBe emptyList()
+            }
+        }
 
         test("getMembershipAgreement is reachable without any authentication") {
             testApplication {
@@ -1135,6 +1289,7 @@ private fun cleanUpRegistrationTestData(
                 it[actorMemberId] = null
             }
             TransparenzregisterReminderTable.deleteWhere { TransparenzregisterReminderTable.memberId inList memberIds }
+            MemberNationalityTable.deleteWhere { MemberNationalityTable.memberId inList memberIds }
             BoardMembershipTable.deleteWhere { BoardMembershipTable.memberId inList memberIds }
             CommitteeMembershipTable.deleteWhere { CommitteeMembershipTable.memberId inList memberIds }
         }
@@ -1230,6 +1385,8 @@ private fun Route.registerRegistrationTestRoutes(
                 agreementVersion = q["agreementVersion"] ?: MembershipAgreementDisclaimer.VERSION,
                 agreementSha256 = q["agreementSha256"] ?: MembershipAgreementDisclaimer.SHA256,
                 regionalChapterId = q["regionalChapterId"],
+                countryCode = q["countryCode"],
+                nationalityCodes = q["nationalityCodes"]?.split(',')?.filter { it.isNotEmpty() }.orEmpty(),
             ),
         )
         call.respondText("OK")

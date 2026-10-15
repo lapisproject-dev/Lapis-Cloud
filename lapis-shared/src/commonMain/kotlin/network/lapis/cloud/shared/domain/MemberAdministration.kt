@@ -78,6 +78,13 @@ data class MemberAdminRowDto(
      */
     val hasPhoto: Boolean = false,
     val hasPublicBio: Boolean = false,
+    /**
+     * V1.9.141 -- `member.country_code` (ISO 3166-1 alpha-2). Filled ONLY for BOARD/ADMIN callers;
+     * always `null` for TREASURER and chapter-scoped officers (they do not see the address data
+     * either), and `null` for rows of ADMIN accounts when the caller is BOARD (peer protection,
+     * `PeerPolicy.READ_PROTECTED_DATA`). `null` therefore does NOT mean "not recorded".
+     */
+    val countryCode: String? = null,
 )
 
 /** Welle V1.4.4.5 -- rein fachliche Plausibilitaetsregeln fuer ein Sterbedatum. */
@@ -132,6 +139,12 @@ data class MemberAdminQuery(
     val regionalChapterId: String? = null,
     /** Welle V1.9.13 -- filter to members with `regionalChapterId == null`. See [regionalChapterId] "mutually exclusive"/"ignored" notes. */
     val unassignedOnly: Boolean = false,
+    /**
+     * V1.9.141 -- filter to members with this `country_code`. BOARD/ADMIN only: any other caller gets
+     * a `BadRequestException` (no silent ignoring -- that would be an oracle). Combinable with
+     * [regionalChapterId], [unassignedOnly], [search] and [statuses].
+     */
+    val countryCode: String? = null,
 ) {
     companion object {
         const val DEFAULT_LIMIT = 25

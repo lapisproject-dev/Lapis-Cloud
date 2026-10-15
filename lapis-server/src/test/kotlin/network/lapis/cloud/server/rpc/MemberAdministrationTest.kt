@@ -675,6 +675,170 @@ class MemberAdministrationTest :
             }
         }
 
+        // ── V1.9.141: country column and filter of the roster ──
+        fun setCountryDirect(
+            memberId: Uuid,
+            code: String?,
+        ) {
+            transaction { MemberTable.update({ MemberTable.id eq memberId }) { it[countryCode] = code } }
+        }
+
+        fun countryRow(
+            body: String,
+            memberId: Uuid,
+        ): String? =
+            body
+                .split("|")[0]
+                .split(";")
+                .firstOrNull { it.startsWith("$memberId:") }
+                ?.substringAfter(":country=")
+
+        test("listMembersForAdministration V1.9.141: the country is visible to BOARD and ADMIN, never to TREASURER or a chapter officer") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val chapter = createChapterDirect()
+                val officer = createTestMember("country-officer-${Uuid.random()}@example.org", displayName = "Ctrymatrix Officer")
+                transaction { MemberTable.update({ MemberTable.id eq officer }) { it[regionalChapterId] = chapter } }
+                grantOfficerDirect(memberId = officer, chapterId = chapter, grantedBy = Uuid.parse(ADMIN_ID))
+                val target = createTestMember("country-matrix-${Uuid.random()}@example.org", displayName = "Ctrymatrix Target")
+                transaction { MemberTable.update({ MemberTable.id eq target }) { it[regionalChapterId] = chapter } }
+                setCountryDirect(target, "PL")
+                val noCountry = createTestMember("country-matrix-none-${Uuid.random()}@example.org", displayName = "Ctrymatrix Nocountry")
+
+                fun body(actor: String) =
+                    runBlocking {
+                        client
+                            .get(
+                                "/test/roster?search=ctrymatrix&withCountry=true&limit=100",
+                            ) { header("X-Member-Id", actor) }
+                            .bodyAsText()
+                    }
+                countryRow(body(ADMIN_ID), target) shouldBe "PL"
+                countryRow(body(BOARD_ID), target) shouldBe "PL"
+                countryRow(body(ADMIN_ID), noCountry) shouldBe "null"
+                // Same rows, same members -- but the value never leaves for TREASURER.
+                countryRow(body(TREASURER_ID), target) shouldBe "null"
+                // The chapter-scoped officer sees the member (own chapter) but not the country.
+                countryRow(body(officer.toString()), target) shouldBe "null"
+            }
+        }
+
+        test("listMembersForAdministration V1.9.141: a BOARD caller gets null for the row of an ADMIN account, an ADMIN caller sees it") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val adminTarget =
+                    createTestMember("country-admin-${Uuid.random()}@example.org", role = AccountRole.ADMIN, displayName = "Ctrypeer Admin")
+                val boardTarget =
+                    createTestMember("country-board-${Uuid.random()}@example.org", role = AccountRole.BOARD, displayName = "Ctrypeer Board")
+                setCountryDirect(adminTarget, "FR")
+                setCountryDirect(boardTarget, "FR")
+
+                fun body(actor: String) =
+                    runBlocking {
+                        client.get("/test/roster?search=ctrypeer&withCountry=true") { header("X-Member-Id", actor) }.bodyAsText()
+                    }
+                countryRow(body(ADMIN_ID), adminTarget) shouldBe "FR"
+                countryRow(body(BOARD_ID), adminTarget) shouldBe "null"
+                countryRow(body(BOARD_ID), boardTarget) shouldBe "FR"
+            }
+        }
+
+        test("listMembersForAdministration V1.9.141: the country filter paginates over two pages and keeps totals and chips consistent") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                repeat(30) { i ->
+                    val id =
+                        createTestMember("country-page-$i-${Uuid.random()}@example.org", displayName = "Ctrypage Member %02d".format(i))
+                    setCountryDirect(id, "NZ")
+                }
+                repeat(3) { i ->
+                    val id =
+                        createTestMember("country-other-$i-${Uuid.random()}@example.org", displayName = "Ctrypage Other %02d".format(i))
+                    setCountryDirect(id, "AT")
+                }
+                createTestMember("country-nil-${Uuid.random()}@example.org", displayName = "Ctrypage Nil")
+
+                fun page(offset: Int) =
+                    runBlocking {
+                        client
+                            .get("/test/roster?search=ctrypage&countryCode=nz&limit=25&offset=$offset&withCountry=true") {
+                                header("X-Member-Id", BOARD_ID)
+                            }.bodyAsText()
+                    }
+                val first = page(0).split("|")
+                val second = page(25).split("|")
+                first[0].split(";").filter { it.isNotBlank() }.size shouldBe 25
+                first[1].toInt() shouldBe 30
+                second[0].split(";").filter { it.isNotBlank() }.size shouldBe 5
+                second[1].toInt() shouldBe 30
+                (first[0] + second[0]).split(";").filter { it.isNotBlank() }.all { it.endsWith(":country=NZ") } shouldBe true
+                // Chip numbers follow the same predicate: 30 ACTIVE, no AT / null rows counted.
+                first[4] shouldBe "ACTIVE=30"
+            }
+        }
+
+        test(
+            "listMembersForAdministration V1.9.141: the country filter is BadRequest for TREASURER, a chapter officer and for invalid codes",
+        ) {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val chapter = createChapterDirect()
+                val officer = createTestMember("country-filter-officer-${Uuid.random()}@example.org")
+                transaction { MemberTable.update({ MemberTable.id eq officer }) { it[regionalChapterId] = chapter } }
+                grantOfficerDirect(memberId = officer, chapterId = chapter, grantedBy = Uuid.parse(ADMIN_ID))
+                client.get("/test/roster?countryCode=DE") { header("X-Member-Id", TREASURER_ID) }.status shouldBe HttpStatusCode.BadRequest
+                client.get("/test/roster?countryCode=DE") { header("X-Member-Id", officer.toString()) }.status shouldBe
+                    HttpStatusCode.BadRequest
+                // Invalid values for the allowed callers; XS / ZZ are not countries.
+                for (bad in listOf("QQ", "XS", "ZZ", "DEU", "1")) {
+                    client.get("/test/roster?countryCode=$bad") { header("X-Member-Id", ADMIN_ID) }.status shouldBe
+                        HttpStatusCode.BadRequest
+                }
+                client.get("/test/roster?countryCode=DE") { header("X-Member-Id", ADMIN_ID) }.status shouldBe HttpStatusCode.OK
+                // An unauthenticated / MEMBER caller never reaches the filter.
+                client.get("/test/roster?countryCode=DE") { header("X-Member-Id", MEMBER_ID) }.status shouldBe HttpStatusCode.Forbidden
+            }
+        }
+
+        test("listMembersForAdministration V1.9.141: a BOARD caller's country filter does not find an ADMIN account (no value oracle)") {
+            testApplication {
+                application {
+                    install(StatusPages) { installMemberAdminExceptionHandlers() }
+                    routing { registerMemberAdminTestRoutes() }
+                }
+                val adminTarget =
+                    createTestMember(
+                        "country-oracle-admin-${Uuid.random()}@example.org",
+                        role = AccountRole.ADMIN,
+                        displayName = "Ctryoracle Admin",
+                    )
+                val plainTarget = createTestMember("country-oracle-plain-${Uuid.random()}@example.org", displayName = "Ctryoracle Plain")
+                setCountryDirect(adminTarget, "JP")
+                setCountryDirect(plainTarget, "JP")
+                val asBoard =
+                    client.get("/test/roster?search=ctryoracle&countryCode=JP") { header("X-Member-Id", BOARD_ID) }.bodyAsText()
+                asBoard.split("|")[0].contains(adminTarget.toString()) shouldBe false
+                asBoard.split("|")[0].contains(plainTarget.toString()) shouldBe true
+                asBoard.split("|")[1].toInt() shouldBe 1
+                val asAdmin =
+                    client.get("/test/roster?search=ctryoracle&countryCode=JP") { header("X-Member-Id", ADMIN_ID) }.bodyAsText()
+                asAdmin.split("|")[0].contains(adminTarget.toString()) shouldBe true
+                asAdmin.split("|")[1].toInt() shouldBe 2
+            }
+        }
+
         test("listMembersForAdministration: regionalChapterId and unassignedOnly together is BadRequest") {
             testApplication {
                 application {
@@ -3091,12 +3255,16 @@ private fun Route.registerMemberAdminTestRoutes(
                     // coverage gap test block below can exercise both new filters end to end.
                     regionalChapterId = q["regionalChapterId"],
                     unassignedOnly = q["unassignedOnly"]?.toBoolean() ?: false,
+                    // V1.9.141
+                    countryCode = q["countryCode"],
                 ),
             )
+        val withCountry = q["withCountry"]?.toBoolean() ?: false
         val rowsPart =
             page.rows.joinToString(";") {
                 "${it.id}:${it.status}:${it.role}:${it.anonymized}:${it.familyId}:${it.familyName}:${it.familyRole}:" +
-                    "${it.membershipTierId}:${it.externalReference}:${it.dateOfDeath}"
+                    "${it.membershipTierId}:${it.externalReference}:${it.dateOfDeath}" +
+                    (if (withCountry) ":country=${it.countryCode}" else "")
             }
         val countsPart = page.statusCounts.entries.joinToString(",") { "${it.key}=${it.value}" }
         call.respondText("$rowsPart|${page.totalCount}|${page.limit}|${page.offset}|$countsPart")

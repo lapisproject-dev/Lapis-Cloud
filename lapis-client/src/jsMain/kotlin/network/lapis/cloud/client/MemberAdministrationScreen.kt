@@ -13,6 +13,7 @@ import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.html.span
+import io.kvision.i18n.I18n
 import io.kvision.i18n.gettext
 import io.kvision.i18n.tr
 import io.kvision.modal.Modal
@@ -98,7 +99,7 @@ private fun renderMemberAdministrationSections(
     if (isBoardOrAdmin) renderPendingApplications(root, chapters)
     // Welle V1.9.121: the reconciliation of the legacy country / nationality texts (self-gated: BOARD/ADMIN).
     if (isBoardOrAdmin) renderCountryLegacyMappingCard(root)
-    val reloadRoster = renderMemberRoster(root, chapters, afterChange = { reloadCard() })
+    val reloadRoster = renderMemberRoster(root, chapters, isBoardOrAdmin = isBoardOrAdmin, afterChange = { reloadCard() })
     reloadRosterOfCard = reloadRoster
     // Built exactly once: the sections are assembled once, after the chapter options loaded (or fell back to an empty list).
     if (createHost != null) {
@@ -459,6 +460,8 @@ internal data class RosterState(
     val offset: Int = 0,
     /** Welle V1.9.14 -- see [ChapterFilter]. */
     val chapterFilter: ChapterFilter = ChapterFilter.All,
+    /** V1.9.141 -- country filter (BOARD/ADMIN only); `null` = all countries. */
+    val countryCode: String? = null,
 )
 
 private val STATUS_CHIPS: List<MemberStatus?> =
@@ -509,6 +512,7 @@ internal fun rosterQuery(state: RosterState): MemberAdminQuery {
         offset = state.offset,
         regionalChapterId = chapterId,
         unassignedOnly = unassignedOnly,
+        countryCode = state.countryCode?.takeIf { it.isNotBlank() },
     )
 }
 
@@ -524,6 +528,7 @@ internal fun rosterQuery(state: RosterState): MemberAdminQuery {
 private fun renderMemberRoster(
     root: SimplePanel,
     chapters: List<RegionalChapterRefDto>,
+    isBoardOrAdmin: Boolean = false,
     afterChange: () -> Unit = {},
 ): () -> Unit {
     root.h2(tr("Mitgliederverzeichnis")) { addCssClass("h5") }
@@ -547,6 +552,15 @@ private fun renderMemberRoster(
                         untrustedOptions(chapters.map { it.id to it.name }),
                 value = "",
             )
+        } else {
+            null
+        }
+    // V1.9.141 -- country filter, BOARD/ADMIN only (the server rejects it for anyone else, and the column is not shown to them).
+    val countryFilterSelect =
+        if (isBoardOrAdmin) {
+            filterRow.countrySelect(value = null, label = tr("Land")) {
+                options = listOf("" to tr("Alle Länder")) + options.orEmpty().filter { it.first.isNotEmpty() }
+            }
         } else {
             null
         }
@@ -594,7 +608,13 @@ private fun renderMemberRoster(
     section =
         root.dataSection<MemberAdminPageDto>(
             emptyText = tr("Noch keine Mitglieder vorhanden."),
-            filterTerm = { rosterFilterTerm(state.search, state.statuses, chapterFilterTermLabel(state.chapterFilter)) },
+            filterTerm = {
+                rosterFilterTerm(
+                    state.search,
+                    state.statuses,
+                    chapterFilterTermLabel(state.chapterFilter) ?: state.countryCode?.let { countryDisplayName(it, I18n.language) },
+                )
+            },
             noMatchText = { term -> gettext("Kein Mitglied passt zu \"%1\".", term) },
             isEmpty = { it.rows.isEmpty() },
             onSettled = { page ->
@@ -613,7 +633,7 @@ private fun renderMemberRoster(
             load = { guarded { rpcService<IMemberService>().listMembersForAdministration(rosterQuery(state)) } },
             render = { panel, page ->
                 panel.dataTable(
-                    columns = rosterColumns(chapters.isNotEmpty()),
+                    columns = rosterColumns(showChapter = chapters.isNotEmpty(), showCountry = isBoardOrAdmin),
                     rows = page.rows,
                     sort = state.sort.toSortState(),
                     onSort = { clicked ->
@@ -650,6 +670,17 @@ private fun renderMemberRoster(
         // No debounce (Design-Team decision, same as every other `select` filter): a select change is
         // one discrete event, not a keystroke stream.
         state = state.copy(chapterFilter = chapterFilterFromSelectValue(value), offset = 0)
+        refresh()
+    }
+
+    var isInitialCountryFilterEvent = true
+    countryFilterSelect?.subscribe { value ->
+        if (isInitialCountryFilterEvent) {
+            isInitialCountryFilterEvent = false
+            return@subscribe
+        }
+        // Back to the first page, like every other filter: the old offset means nothing for a different result set.
+        state = state.copy(countryCode = value?.takeIf { it.isNotBlank() }, offset = 0)
         refresh()
     }
 
@@ -712,7 +743,10 @@ private const val ROSTER_SORT_NAME = "name"
 private const val ROSTER_SORT_JOINED = "joined"
 
 /** The columns of the roster table / card list; Name is the card title. [showChapter] mirrors every other chapter-UI element's `chapters.isNotEmpty()` gate (Welle V1.9.14). */
-private fun rosterColumns(showChapter: Boolean): List<DataColumn<MemberAdminRowDto>> =
+private fun rosterColumns(
+    showChapter: Boolean,
+    showCountry: Boolean = false,
+): List<DataColumn<MemberAdminRowDto>> =
     listOf<DataColumn<MemberAdminRowDto>>(
         DataColumn(
             title = tr("Name"),
@@ -736,6 +770,29 @@ private fun rosterColumns(showChapter: Boolean): List<DataColumn<MemberAdminRowD
                             container.untrustedSpan(name)
                         } else {
                             container.span(tr("nicht zugeordnet")) { addCssClass("text-body-secondary") }
+                        }
+                    },
+                ),
+            )
+        } else {
+            emptyList()
+        } +
+        // V1.9.141 -- BOARD/ADMIN only; NOT sortable (no sort key, so no sort button). A missing value ("not recorded", and also a
+        // peer-masked ADMIN row) shows a dash with an accessible text.
+        if (showCountry) {
+            listOf(
+                DataColumn(
+                    title = tr("Land"),
+                    cell = { container, row ->
+                        val code = row.countryCode
+                        if (code != null) {
+                            container.countryFlag(code)
+                            container.cellText(countryDisplayName(code, I18n.language))
+                        } else {
+                            container.cellText("—", "text-body-secondary").apply {
+                                setAttribute("role", "img")
+                                setAttribute("aria-label", gettext("Keine Angabe"))
+                            }
                         }
                     },
                 ),

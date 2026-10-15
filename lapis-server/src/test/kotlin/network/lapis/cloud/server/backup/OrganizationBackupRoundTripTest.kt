@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.generated.DocumentVersionTable
 import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
+import network.lapis.cloud.server.db.generated.MemberNationalityTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
@@ -70,6 +71,7 @@ class OrganizationBackupRoundTripTest :
             val targetStorageRoot = Files.createTempDirectory("roundtrip-target-storage").toFile()
 
             val adminId = Uuid.random()
+            val applicantId = Uuid.random()
             val memberTierId = Uuid.random()
             val documentId = Uuid.random()
             val versionId = Uuid.random()
@@ -106,6 +108,22 @@ class OrganizationBackupRoundTripTest :
                     it[memberId] = adminId
                     it[passwordHash] = "a-fake-bcrypt-hash-for-round-trip-verification-only"
                     it[role] = AccountRole.ADMIN
+                }
+                // V1.9.141: an applicant (status APPLICATION) with the optional country and two nationalities from the
+                // registration form -- the generic comparison below covers member.country_code and member_nationality.
+                MemberTable.insert {
+                    it[id] = applicantId
+                    it[displayName] = "Roundtrip Applicant"
+                    it[email] = "roundtrip-applicant@example.org"
+                    it[status] = MemberStatus.APPLICATION
+                    it[joinedAt] = LocalDate(2027, 1, 2)
+                    it[countryCode] = "PL"
+                }
+                listOf("DE", "PL").forEach { code ->
+                    MemberNationalityTable.insert {
+                        it[memberId] = applicantId
+                        it[countryCode] = code
+                    }
                 }
 
                 val folderId = Uuid.random()
@@ -281,6 +299,15 @@ class OrganizationBackupRoundTripTest :
                 }
 
                 // V1.9.134: the published agreement text came back with its exact text, and the stored hash still proves it.
+                // V1.9.141: the applicant's country and nationalities survived export and import, explicitly (not only via the generic comparison).
+                transaction(targetDb) {
+                    MemberTable.selectAll().where { MemberTable.id eq applicantId }.single()[MemberTable.countryCode] shouldBe "PL"
+                    MemberNationalityTable
+                        .selectAll()
+                        .where { MemberNationalityTable.memberId eq applicantId }
+                        .map { it[MemberNationalityTable.countryCode] }
+                        .sorted() shouldBe listOf("DE", "PL")
+                }
                 val restoredAgreement = transaction(targetDb) { AgreementTextStore.currentVersion(AgreementTextKind.MEMBERSHIP) }
                 restoredAgreement?.body shouldBe agreementBody
                 restoredAgreement?.versionLabel shouldBe agreementLabel

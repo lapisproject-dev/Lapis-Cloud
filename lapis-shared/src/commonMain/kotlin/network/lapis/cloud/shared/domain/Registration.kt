@@ -48,6 +48,10 @@ data class RegistrationInput(
      * unauthenticated picker source.
      */
     val regionalChapterId: String? = null,
+    /** V1.9.141 -- optional, ISO 3166-1 alpha-2 from `CountryCodes` (no preselection). `null` = not given. */
+    val countryCode: String? = null,
+    /** V1.9.141 -- optional, 0..`CountryCodes.MAX_NATIONALITIES` codes incl. XS/ZZ; empty = not given. */
+    val nationalityCodes: List<String> = emptyList(),
 )
 
 /**

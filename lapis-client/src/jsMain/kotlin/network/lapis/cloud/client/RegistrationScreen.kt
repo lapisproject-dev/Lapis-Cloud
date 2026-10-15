@@ -4,6 +4,7 @@ import io.kvision.html.Autocomplete
 import io.kvision.html.ButtonStyle
 import io.kvision.html.InputType
 import io.kvision.html.div
+import io.kvision.html.h2
 import io.kvision.html.link
 import io.kvision.html.p
 import io.kvision.i18n.gettext
@@ -128,6 +129,22 @@ private fun renderRegistrationForm(
             null
         }
 
+    // V1.9.141 -- optional personal details: country of residence and nationality. NO preselection (the pinned country only orders
+    // the list). Built before `form.buttons(...)` and before the agreement, like the chapter field. Nothing here is required.
+    form.panel.h2(tr("Angaben zur Person (freiwillig)")) { addCssClass("h6") }
+    form.panel.p(tr("Diese Angaben sind freiwillig. Sie können sie später jederzeit in Ihrem Profil ergänzen oder ändern.")) {
+        addCssClasses("text-muted small")
+    }
+    val personGrid = form.panel.registrationFieldGrid()
+    val countryField = personGrid.gridCell().countrySelect(value = null, label = tr("Land des Wohnsitzes"))
+    val nationalityField = personGrid.gridCell().nationalityMultiSelect(label = tr("Staatsangehörigkeit"), initial = emptyList())
+    val countryError =
+        form.panel.div {
+            addCssClasses("text-danger small")
+            setAttribute("role", "alert")
+            visible = false
+        }
+
     val agreementSection =
         AgreementTextSection(parent = form.panel, heading = { version -> gettext("Beitrittsvertrag (Version %1)", version) })
     agreementSection.show(version = agreement.version, text = agreement.text)
@@ -145,6 +162,9 @@ private fun renderRegistrationForm(
     submitButton.onClick {
         form.submit(submitButton) {
             val chapterId = chapterField?.value
+            val countryCode = countryField.value?.takeIf { it.isNotBlank() }
+            val nationalityCodes = nationalityField.codes
+            countryError.visible = false
             // Welle V1.9.14 -- registerApplication runs in ITS OWN try, ahead of the `guarded {}`
             // fallback (plan §2.8): RegionalChapterRequiredException/a chapter-shaped
             // BadRequestException are shown AT THE FIELD; everything else (including a
@@ -160,6 +180,8 @@ private fun renderRegistrationForm(
                             password = passwordField.value,
                             agreement = currentAgreement,
                             regionalChapterId = chapterId,
+                            countryCode = countryCode,
+                            nationalityCodes = nationalityCodes,
                         ),
                     )
                 } catch (e: kotlinx.coroutines.CancellationException) {
@@ -182,8 +204,19 @@ private fun renderRegistrationForm(
                         guarded { throw e }
                     }
                 } catch (e: BadRequestException) {
-                    if (chapterField != null && !chapterId.isNullOrBlank()) {
-                        chapterField.showError(tr("Dieser Landesverband ist nicht mehr verfügbar -- bitte Seite neu laden."))
+                    // Kilua carries no message, so the rejected field cannot be told apart: show the chapter hint when a chapter was
+                    // chosen AND the country hint when a country/nationality was given (the list only offers valid values, so this
+                    // only happens with a stale client).
+                    val chapterChosen = chapterField != null && !chapterId.isNullOrBlank()
+                    val countryGiven = countryCode != null || nationalityCodes.isNotEmpty()
+                    if (chapterChosen) {
+                        chapterField?.showError(tr("Dieser Landesverband ist nicht mehr verfügbar -- bitte Seite neu laden."))
+                    }
+                    if (countryGiven) {
+                        countryError.content = gettext("Bitte prüfen Sie die Angaben zu Land und Staatsangehörigkeit.")
+                        countryError.visible = true
+                    }
+                    if (chapterChosen || countryGiven) {
                         null
                     } else {
                         guarded { throw e }
@@ -216,6 +249,8 @@ internal fun buildRegistrationInput(
     password: String,
     agreement: MembershipAgreementDto,
     regionalChapterId: String? = null,
+    countryCode: String? = null,
+    nationalityCodes: List<String> = emptyList(),
 ): RegistrationInput =
     RegistrationInput(
         displayName = displayName.trim(),
@@ -226,6 +261,9 @@ internal fun buildRegistrationInput(
         // Welle V1.9.14 -- blank/`null` alike become `null` (an empty select value "— weiß ich noch
         // nicht —" is `""`, never a real chapter id).
         regionalChapterId = regionalChapterId?.takeIf { it.isNotBlank() },
+        // V1.9.141 -- optional; a blank select value is "not given", never a code.
+        countryCode = countryCode?.takeIf { it.isNotBlank() },
+        nationalityCodes = nationalityCodes,
     )
 
 private fun renderRegistrationPending(root: SimplePanel) {

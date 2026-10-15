@@ -146,7 +146,9 @@ class BoardMembershipService(
                     val codes = nationalitiesByMember[row[BoardMembershipTable.memberId]].orEmpty()
                     val missingNationality = row[MemberTable.nationality] == null && codes.isEmpty()
                     val nationalityUnclear = codes == listOf(CountryCodes.UNCLEAR)
-                    if (!missingDateOfBirth && !missingNationality && !nationalityUnclear) {
+                    // V1.9.141: presence flag only -- no country value leaves. A legacy free text counts as given, like the nationality.
+                    val missingCountry = row[MemberTable.countryCode] == null && row[MemberTable.country] == null
+                    if (!missingDateOfBirth && !missingNationality && !nationalityUnclear && !missingCountry) {
                         null
                     } else {
                         BeneficialOwnerDataGapDto(
@@ -156,6 +158,7 @@ class BoardMembershipService(
                             missingDateOfBirth = missingDateOfBirth,
                             missingNationality = missingNationality,
                             nationalityUnclear = nationalityUnclear,
+                            missingCountry = missingCountry,
                         )
                     }
                 }

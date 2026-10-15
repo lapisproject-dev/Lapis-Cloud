@@ -75,6 +75,10 @@ class PrivilegedPeerActionTripwireTest :
             mapOf(
                 "network/lapis/cloud/server/rpc/MemberService.kt#requirePlausibleDeathDate" to
                     "date of birth only feeds the plausibility check",
+                "network/lapis/cloud/server/rpc/MemberService.kt#predicate" to
+                    "V1.9.141 country filter (local predicate() of listMembersForAdministration): BOARD/ADMIN only (others get " +
+                    "BadRequest), ADMIN accounts are excluded from the match for a BOARD caller, and the value of a row is " +
+                    "projected through the peer decision (rosterCountryCodeFor)",
                 "network/lapis/cloud/server/rpc/MemberService.kt#toMemberDto" to
                     "projection used for the caller's OWN view and for writers who already passed the peer decision",
                 "network/lapis/cloud/server/rpc/BoardMemberMapService.kt" to

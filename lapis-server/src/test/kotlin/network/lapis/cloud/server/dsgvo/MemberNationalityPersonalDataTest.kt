@@ -13,6 +13,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.member.MemberCountryStore
 import network.lapis.cloud.server.member.PeerFixture
 import network.lapis.cloud.shared.domain.ErasureMode
+import network.lapis.cloud.shared.domain.MemberStatus
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -70,6 +71,26 @@ class MemberNationalityPersonalDataTest :
                 transaction { MemberNationalityTable.selectAll().where { MemberNationalityTable.memberId eq m }.count() } shouldBe 0L
                 transaction { MemberTable.selectAll().where { MemberTable.id eq m }.single()[MemberTable.countryCode] } shouldBe null
             }
+        }
+
+        test("V1.9.141: an applicant (status APPLICATION) is exported and erased like any other member") {
+            val m = fx.member(status = MemberStatus.APPLICATION)
+            transaction {
+                MemberCountryStore.setCountry(memberId = m, code = "PL")
+                MemberCountryStore.replaceNationalities(memberId = m, codes = listOf("PL", "DE"), clearLegacy = false)
+            }
+            val nationalityJson = transaction { MemberNationalityPersonalData.exportMember(m) } as JsonObject
+            ((nationalityJson.getValue("nationalities")) as JsonArray).map {
+                (it as JsonObject).getValue("code").jsonPrimitive.content
+            } shouldBe listOf("DE", "PL")
+            val foundationJson = transaction { FoundationPersonalData.exportMember(m) } as JsonObject
+            foundationJson.getValue("countryCode").jsonPrimitive.content shouldBe "PL"
+
+            val erased = transaction { MemberNationalityPersonalData.eraseMember(memberId = m, mode = ErasureMode.ANONYMIZE) }.single()
+            erased.rowsDeleted shouldBe 2
+            transaction { FoundationPersonalData.eraseMember(memberId = m, mode = ErasureMode.ANONYMIZE) }
+            transaction { MemberNationalityTable.selectAll().where { MemberNationalityTable.memberId eq m }.count() } shouldBe 0L
+            transaction { MemberTable.selectAll().where { MemberTable.id eq m }.single()[MemberTable.countryCode] } shouldBe null
         }
 
         test("the contributor is registered and covers the table") {

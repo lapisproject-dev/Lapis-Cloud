@@ -102,6 +102,7 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.like
 import org.jetbrains.exposed.v1.core.lowerCase
+import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -759,6 +760,16 @@ class MemberService(
                 runCatching { Uuid.parse(it) }.getOrElse { throw BadRequestException("regionalChapterId is not a valid id") }
             }
 
+        // V1.9.141 -- the country filter: syntax check up front (value-free); BOARD/ADMIN only, checked right after the visibility
+        // gate below (a caller without roster access still gets Forbidden first). Anyone else with roster access gets a
+        // BadRequestException -- no silent ignoring, that would be an existence/value oracle.
+        val queriedCountry =
+            query.countryCode?.let {
+                val code = CountryCodes.normalizeCode(it)
+                if (code == null || CountryCodes.validateCountry(code) != null) throw BadRequestException("invalid country selection")
+                code
+            }
+
         return transaction {
             // Welle V1.9.13 -- see `network.lapis.cloud.server.security.memberVisibility` KDoc.
             // Evaluated FIRST, before any roster data is touched -- `None` throws before a single
@@ -766,6 +777,7 @@ class MemberService(
             val visibility = current.memberVisibility()
             if (visibility is MemberVisibility.None) throw ForbiddenException()
             val chapterScopeId = (visibility as? MemberVisibility.Chapter)?.chapterId
+            if (queriedCountry != null && !current.isPrivileged) throw BadRequestException("country filter is not available")
 
             // Plain function -- `eq`/`like`/`and`/`or`/`inList` are all top-level functions in this
             // pinned Exposed version (the interface-member overloads are deprecated in favor of these),
@@ -812,6 +824,15 @@ class MemberService(
                 }
                 if (queriedChapterId != null) predicate = predicate and (MemberTable.regionalChapterId eq queriedChapterId)
                 if (query.unassignedOnly) predicate = predicate and (MemberTable.regionalChapterId.isNull())
+                if (queriedCountry != null) {
+                    predicate = predicate and (MemberTable.countryCode eq queriedCountry)
+                    // A BOARD caller must not find an ADMIN account by its country (the column is masked for it, so a hit would
+                    // be a value oracle): ADMIN accounts are excluded from the match whenever the filter is active. The same
+                    // predicate feeds the status chips, so the chip numbers stay consistent with the list.
+                    if (current.role != AccountRole.ADMIN) {
+                        predicate = predicate and (AccountTable.role.isNull() or (AccountTable.role neq AccountRole.ADMIN))
+                    }
+                }
                 return predicate
             }
 
@@ -833,7 +854,13 @@ class MemberService(
                     .orderBy(*orderColumns)
                     .limit(limit)
                     .offset(offset.toLong())
-                    .map { it.toMemberAdminRowDto(includeFamilyDetails = current.isPrivileged, chapterScoped = chapterScopeId != null) }
+                    .map {
+                        it.toMemberAdminRowDto(
+                            includeFamilyDetails = current.isPrivileged,
+                            chapterScoped = chapterScopeId != null,
+                            countryViewer = current,
+                        )
+                    }
 
             val totalCount =
                 adminRosterSource
@@ -849,7 +876,7 @@ class MemberService(
             // avoids introducing an unproven SQL-aggregate idiom into this codebase for a single
             // call site.
             val statusCounts =
-                MemberTable
+                adminRosterSource
                     .select(MemberTable.status)
                     .where { predicate(false) }
                     .map { it[MemberTable.status] }
@@ -926,7 +953,7 @@ class MemberService(
                 after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
                 occurredAt = now,
             )
-            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
+            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
         }
     }
 
@@ -974,7 +1001,7 @@ class MemberService(
                     // Idempotent no-op: DTO back, no update, no audit entry, no side effect -- a call
                     // repeated with the SAME target status must have no additional consequence.
                     if (newStatus == fromStatus) {
-                        return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
+                        return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
                     }
 
                     val allowedTargets = MemberStatusTransitions.allowedTargets(fromStatus)
@@ -1029,7 +1056,7 @@ class MemberService(
                             peerFacts = peerFacts,
                         )
                     revokeSessions = outcome.revokeSessions
-                    loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
+                    loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
                 }
             }
         // resolveCurrentMember does not itself re-check MemberStatusSets.LOGIN_BLOCKED per call --
@@ -1088,7 +1115,7 @@ class MemberService(
             val previous = row[MemberTable.dateOfDeath]
             if (previous == dateOfDeath) {
                 // Idempotent: the same value again is a no-op -- no update, no audit entry.
-                return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
+                return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
             }
 
             MemberTable.update({ MemberTable.id eq targetId }) { it[MemberTable.dateOfDeath] = dateOfDeath }
@@ -1117,7 +1144,7 @@ class MemberService(
                 after = Json.encodeToString(MemberChangeSnapshot.serializer(), afterSnapshot),
                 occurredAt = now,
             )
-            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
+            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
         }
     }
 
@@ -1165,7 +1192,7 @@ class MemberService(
                     if (newRole ==
                         currentRole
                     ) {
-                        return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
+                        return@transaction loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
                     }
 
                     // Welle V1.9.57 "Admin-Peer-Schutz" -- taking the ADMIN role away from an ADMIN needs the approval of a second
@@ -1208,7 +1235,7 @@ class MemberService(
                     )
                     // Deliberately NO SessionStore.revokeAllForMember here -- see interface KDoc
                     // "Deliberately does NOT invalidate the target's existing sessions".
-                    loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
+                    loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
                 }
             }
         if (promotedToAdmin) peerNotifier.newAdministrator(newAdminId = targetId, actorId = current.memberId, occurredAt = now)
@@ -1359,7 +1386,7 @@ class MemberService(
                     // Deliberately NO SessionStore.revokeAllForMember -- there is no session to revoke for an
                     // account that did not exist a moment ago. Stated explicitly so no reviewer "adds the
                     // missing revocation" by analogy with updateMemberStatus.
-                    loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
+                    loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
                 }
             }
         if (role == AccountRole.ADMIN) peerNotifier.newAdministrator(newAdminId = targetId, actorId = current.memberId, occurredAt = now)
@@ -1416,7 +1443,7 @@ class MemberService(
                 familyId = null,
                 now = now,
             )
-            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged)
+            loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current)
         }
     }
 
@@ -1515,7 +1542,7 @@ class MemberService(
                     Triple(
                         effectivePassword,
                         memberRow[MemberTable.email],
-                        loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged),
+                        loadMemberAdminRow(id = targetId, includeFamilyDetails = current.isPrivileged, viewer = current),
                     )
                 }
             }
@@ -1896,6 +1923,13 @@ private fun ResultRow.toMemberAdminRowDto(
      * fields' own KDoc.
      */
     chapterScoped: Boolean = false,
+    /**
+     * V1.9.141 -- the caller whose view this row is rendered for, or `null` for "no country". The country code is filled ONLY for a
+     * BOARD/ADMIN viewer ([CurrentMember.isPrivileged]) and, for a BOARD viewer, never for the row of an ADMIN account
+     * (`PeerPolicy` `READ_PROTECTED_DATA` = Mask) -- the same boundary `getMemberAddressForAdministration` draws. No read audit
+     * entry is written (the country is an address component shown in the roster; see CHANGELOG decision F2).
+     */
+    countryViewer: CurrentMember? = null,
 ): MemberAdminRowDto =
     MemberAdminRowDto(
         id = this[MemberTable.id].toString(),
@@ -1919,17 +1953,35 @@ private fun ResultRow.toMemberAdminRowDto(
         // moderation RPCs themselves use; a TREASURER or chapter-scoped officer always gets `false`.
         hasPhoto = includeFamilyDetails && !chapterScoped && this.getOrNull(MemberPhotoTable.id) != null,
         hasPublicBio = includeFamilyDetails && !chapterScoped && this.getOrNull(MemberPublicBioTable.id) != null,
+        countryCode = if (chapterScoped) null else rosterCountryCodeFor(countryViewer),
     )
+
+/** V1.9.141 -- see [toMemberAdminRowDto] `countryViewer`. `null` for non-privileged viewers and for peer-masked rows. */
+private fun ResultRow.rosterCountryCodeFor(viewer: CurrentMember?): String? {
+    if (viewer == null || !viewer.isPrivileged) return null
+    val decision =
+        PeerPolicy.decide(
+            actorRole = viewer.role,
+            actorId = viewer.memberId,
+            targetRole = this.getOrNull(AccountTable.role),
+            targetId = this[MemberTable.id],
+            action = PeerAction.READ_PROTECTED_DATA,
+            eligibleApprovers = 0,
+            mailConfigured = false,
+        )
+    return if (decision is PeerDecision.Allow) this[MemberTable.countryCode] else null
+}
 
 private fun loadMemberAdminRow(
     id: Uuid,
     includeFamilyDetails: Boolean,
+    viewer: CurrentMember? = null,
 ): MemberAdminRowDto =
     adminRosterSource
         .selectAll()
         .where { MemberTable.id eq id }
         .single()
-        .toMemberAdminRowDto(includeFamilyDetails = includeFamilyDetails)
+        .toMemberAdminRowDto(includeFamilyDetails = includeFamilyDetails, countryViewer = viewer)
 
 private fun String.toMemberUuidOrThrow(): Uuid =
     runCatching { Uuid.parse(this) }.getOrElse { throw NotFoundException("Member $this not found") }

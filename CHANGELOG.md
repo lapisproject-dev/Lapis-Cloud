@@ -6,6 +6,57 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.141 -- Country and nationality at the remaining places
+
+The country of residence and the nationality (V1.9.121) can now also be given at registration, and the member roster shows and filters the country.
+**No migration**: an application is a `member` row with status `APPLICATION` (`RegistrationService.registerApplication`), and `member.country_code` and
+`member_nationality` exist since V96 -- approval does not copy anything, it is the same row. `V1__baseline`, the kUML model and the schema-drift tests are untouched
+(`MemberNationalitySchemaDriftTest`, `RegistrationSchemaDriftTest`, `BackupSchemaDriftTest` stay green unchanged). Nothing was looked at in a real browser.
+
+#### What changes
+
+- **Registration form** (`RegistrationScreen`): a last, optional section "Angaben zur Person (freiwillig)" before the agreement -- country of residence (`countrySelect`)
+  and nationality (`nationalityMultiSelect`). **No preselection**; the pinned country only orders the list. `RegistrationInput` gets `countryCode: String?` and
+  `nationalityCodes: List<String>` (both with defaults, wire-compatible both ways).
+- **Server** (`RegistrationService.registerApplication`): both values are validated (`CountryCodes`) **before** the transaction, before the password hash and before the
+  already-exists branch, with value-free `BadRequestException`s -- so an application with invalid codes is rejected identically for a new and an already registered
+  email (no account-enumeration oracle). Valid values are written through `MemberCountryStore` on the freshly inserted row; a duplicate email with valid codes stays a silent
+  no-op that writes nothing to the existing row.
+- **Rejection erases them**: `rejectApplication` (both outcomes, `REJECTED` and the `FRIEND` fallback) calls `MemberCountryStore.clearAll` in the same transaction -- the purpose
+  (postal contact, Transparenzregister) ends with the rejection (data minimisation; the decision F3 below).
+- **Member roster** (`MemberAdministrationScreen`): a column "Land" (flag, name; a dash with an accessible "Keine Angabe" for no value), **not sortable**, and a country
+  filter (`MemberAdminQuery.countryCode`, resets to the first page). `MemberAdminRowDto.countryCode` is new.
+- **Roles** (deliberately narrower than "as before", see the decisions): the value is filled **only for BOARD/ADMIN**, never for TREASURER or a chapter-scoped officer, and for a
+  BOARD caller it is `null` on the rows of ADMIN accounts (`PeerPolicy` `READ_PROTECTED_DATA` = mask) -- the same boundary `getMemberAddressForAdministration` draws. The filter is
+  BOARD/ADMIN only (anyone else with roster access gets `BadRequestException`, no silent ignoring), and for a BOARD caller ADMIN accounts are excluded from the match, so the filter is
+  no value oracle for the masked rows. `statusCounts` use the same predicate (and now the same joined source) as the list, so the chip numbers stay consistent.
+- **Board gaps** (`BoardMembershipService`): `BeneficialOwnerDataGapDto.missingCountry` (neither code nor legacy text); the Transparenzregister overview names "Land des Wohnsitzes".
+- Tripwires: `CountryCodeAccessTripwireTest` learned two reasoned entries (`RegistrationService` writes, `BoardMembershipService` presence flag), `PrivilegedPeerActionTripwireTest`
+  one (the filter predicate). The public API, webhooks, the OpenAPI document and MCP are untouched (`PublicApiFieldReductionTest` unchanged; MCP has no access to these columns).
+
+#### Decisions taken without asking (change them here if wrong)
+
+- **F1 -- nationality chips in the roster: not done.** The list would give up to 25 nationalities per page without the per-access read audit that `getMemberAddressForAdministration` has
+  written since V1.9.35 -- that would undo the audit for exactly this datum.
+- **F2 -- the country in the roster has no read audit.** It is an address component, shown only to BOARD/ADMIN with the peer mask. If an audit per list read is wanted, the column and filter go away.
+- **F3 -- rejection erases country and nationality** (see above); remove the one `clearAll` line in `rejectApplication` to keep them.
+- **F4 -- roles**: the specification said "roles as today"; the roster is open to TREASURER and chapter officers, who do not see the address data today, so the new value is narrower (see above).
+
+#### Not done, on purpose
+
+- **Member CSV export**: there is none; it would be a new feature with its own permission question.
+- **Public API and webhooks**: `PublicApiMemberDto` is deliberately reduced to `id` and `displayName`.
+- **MCP**: delivers no master data.
+- **Direct creation and friend registration**: neither collects master data; the profile stays the one place for it.
+
+#### Known limitations
+
+- Not looked at in a real browser.
+- Existing members without a code stay empty until the reconciliation (V1.9.121) or the profile fills them.
+- The new texts and the catalogs (7 languages) are model translations.
+- The roster shows the country without a read audit (F2).
+- An application is stored with these values before anybody has approved it; they are visible to BOARD/ADMIN like the rest of the application until it is decided.
+
 ### V1.9.140 -- Cleanup wave from V1.9.127--V1.9.139
 
 A small wave that works off what the design reviews of the last waves left open, and checks which of the open points were real. No migration, no

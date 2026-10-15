@@ -135,12 +135,15 @@ class MemberCountryIntegrationTest :
                 fun seat(
                     codes: List<String>?,
                     legacy: String? = null,
+                    // V1.9.141: the country of residence is part of the gap too; every case below has it unless stated.
+                    withCountry: Boolean = true,
                 ): Uuid {
                     val m = fx.member()
                     transaction {
                         MemberTable.update({ MemberTable.id eq m }) {
                             it[dateOfBirth] = LocalDate(1980, 1, 1)
                             it[nationality] = legacy
+                            it[countryCode] = if (withCountry) "DE" else null
                         }
                         if (codes != null) MemberCountryStore.replaceNationalities(memberId = m, codes = codes, clearLegacy = false)
                         val seatId = Uuid.random()
@@ -161,6 +164,8 @@ class MemberCountryIntegrationTest :
                 gapOf(seat(codes = null, legacy = "deutsch")) shouldBe "none"
                 gapOf(seat(codes = listOf("ZZ"))) shouldBe "gap:false:false:true"
                 gapOf(seat(codes = listOf("XS"))) shouldBe "none"
+                // V1.9.141: only the country is missing -> a gap (the flag itself is asserted in BoardMembershipServiceTest).
+                gapOf(seat(codes = listOf("DE"), withCountry = false)) shouldBe "gap:false:false:false"
             }
         }
     })

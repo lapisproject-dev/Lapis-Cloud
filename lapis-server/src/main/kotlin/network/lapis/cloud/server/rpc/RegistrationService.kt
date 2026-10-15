@@ -43,6 +43,7 @@ import network.lapis.cloud.server.webhook.WebhookEventPublisher
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AdminCreateMemberInput
 import network.lapis.cloud.shared.domain.AgreementTextKind
+import network.lapis.cloud.shared.domain.CountryCodes
 import network.lapis.cloud.shared.domain.FriendRegistrationInput
 import network.lapis.cloud.shared.domain.FriendTermsDto
 import network.lapis.cloud.shared.domain.MemberDto
@@ -262,6 +263,11 @@ class RegistrationService internal constructor(
         // \r/\n-bearing email otherwise survives into every later password-reset/FRIEND-verification
         // log line for this row via MailDispatcher.enqueue's maskEmailForLogging call).
         if (!isValidMailboxAddress(normalizedEmail)) throw ConflictException("email is not a valid mailbox address")
+        // V1.9.141 -- optional country / nationality. Validated HERE, before the transaction, before the password hash and
+        // before the alreadyExists branch: an application with invalid codes is rejected identically for a new and for an
+        // already-registered email, so this validation cannot become an account-enumeration oracle. Value-free messages.
+        val validatedCountry = requireValidOptionalCountry(input.countryCode)
+        val validatedNationalities = requireValidOptionalNationalities(input.nationalityCodes)
         PasswordPolicy.validate(newPassword = input.password, email = normalizedEmail)
 
         val now = nowLocalDateTime()
@@ -299,6 +305,14 @@ class RegistrationService internal constructor(
                     it[membershipTierId] = null
                     it[regionalChapterId] = resolvedChapterId
                 }
+                // V1.9.141 -- optional country / nationalities of the applicant. The member row was just inserted in THIS
+                // transaction (nobody else can hold or contend its lock), so the store's lock precondition holds. A new row has no
+                // legacy text to clear. Normalised, deduplicated codes cannot violate the (member_id, country_code) primary key, so
+                // the ExposedSQLException catch below keeps meaning "UNIQUE(email) race" only.
+                if (validatedCountry != null) MemberCountryStore.setCountry(memberId = memberId, code = validatedCountry)
+                if (validatedNationalities.isNotEmpty()) {
+                    MemberCountryStore.replaceNationalities(memberId = memberId, codes = validatedNationalities, clearLegacy = false)
+                }
                 // Welle V1.9.59 -- the status history starts with the member row (same transaction, member row just inserted).
                 MemberStatusHistory.recordLocked(
                     memberId = memberId,
@@ -335,6 +349,21 @@ class RegistrationService internal constructor(
             }
         }
     }
+
+    /** V1.9.141 -- blank/`null` = not given; otherwise a selectable country code. Value-free rejection. */
+    private fun requireValidOptionalCountry(raw: String?): String? {
+        if (raw == null || raw.isBlank()) return null
+        val code = CountryCodes.normalizeCode(raw)
+        if (code == null || CountryCodes.validateCountry(code) != null) throw BadRequestException("invalid country selection")
+        return code
+    }
+
+    /** V1.9.141 -- empty = not given; otherwise normalised (upper case, deduplicated, sorted) and checked. Value-free rejection. */
+    private fun requireValidOptionalNationalities(raw: List<String>): List<String> =
+        when (val selection = CountryCodes.normalizeNationalities(raw)) {
+            is CountryCodes.NationalitySelection.Valid -> selection.codes
+            is CountryCodes.NationalitySelection.Invalid -> throw BadRequestException("invalid nationality selection")
+        }
 
     override suspend fun listPendingApplications(): List<MemberDto> {
         val current = resolveCurrentMember(call)
@@ -527,6 +556,9 @@ class RegistrationService internal constructor(
                     if (updated == 0) {
                         throw ConflictException("Application $memberId was concurrently decided -- retry")
                     }
+                    // V1.9.141 -- the purpose of the optional country / nationality (postal contact, Transparenzregister) ends with
+                    // the rejection, so they are erased in the same transaction under the member row lock taken above (data minimisation).
+                    MemberCountryStore.clearAll(targetId)
                     // Welle V1.9.59 -- status history, after the successful write, under the member row lock.
                     MemberStatusHistory.recordLocked(
                         memberId = targetId,

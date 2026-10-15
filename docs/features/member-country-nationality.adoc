@@ -130,7 +130,18 @@ Keyboard: arrows open and move, Enter picks, Esc closes, Tab leaves (a second Es
 * The old RPCs `updateMemberAddress(..., country)` and `updateMemberBeneficialOwnerData(..., nationality)` stay for a tab that has not been reloaded. They write the legacy text: the effective name sent back unchanged keeps the
   code; another text becomes the legacy text and drops the code; an empty text clears both.
 
+== Registration, member list, board gaps (V1.9.141)
+
+* **Registration** asks, optionally and without a preselection, for the country of residence and the nationality (`RegistrationInput.countryCode`, `nationalityCodes`). The server validates before
+  anything else (also for an already registered email, so there is no enumeration oracle) and writes through `MemberCountryStore` onto the new `APPLICATION` row; approval keeps the same row.
+  Rejecting an application (also the fall back to `FRIEND`) erases both again. Direct creation and friend registration do not ask: the profile stays the one place for them.
+* **Member list**: BOARD and ADMIN see a column "Land" (flag and name, a dash for "no value") and can filter by country. TREASURER and chapter officers see neither value nor filter (the filter is rejected
+  for them), and a BOARD caller does not see -- and cannot find by filter -- the country of an ADMIN account (peer protection). The column is not sortable; there is no read audit entry for the list
+  and no nationality in the list.
+* **Board gaps**: the Transparenzregister overview also flags a board member without a country (code or legacy text).
+* No migration was needed: an application is an ordinary `member` row.
+
 == Known limits
 
-See the section in `CHANGELOG.md` (V1.9.121). In short: names depend on browser and JDK; `XK`, `XS`, `ZZ` are not ISO codes; registration, application and direct creation still do not ask for an address; the
+See the section in `CHANGELOG.md` (V1.9.121). In short: names depend on browser and JDK; `XK`, `XS`, `ZZ` are not ISO codes; registration asks only for country and nationality (since V1.9.141), not for an address, and direct creation and friend registration ask for nothing; the
 legacy columns stay; rare legacy values have to be corrected by hand; Letterxpress gets the name, not the code, and was not tested against the real counterpart.

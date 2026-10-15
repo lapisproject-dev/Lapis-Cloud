@@ -77,4 +77,36 @@ class RegistrationScreenTest {
         assertEquals("erika@example.org", input.email)
         assertEquals("  leading and trailing spaces kept  ", input.password)
     }
+
+    // ---- V1.9.141: optional country / nationality ----
+
+    @Test
+    fun countryAndNationalities_default_toNotGiven() {
+        val input =
+            buildRegistrationInput(
+                displayName = "Erika Musterfrau",
+                email = "erika@example.org",
+                password = "correct horse battery staple",
+                agreement = agreement,
+            )
+        assertNull(input.countryCode)
+        assertEquals(emptyList(), input.nationalityCodes)
+    }
+
+    @Test
+    fun countryCode_blank_becomesNull_andARealCodeIsPassedThrough() {
+        fun build(country: String?) =
+            buildRegistrationInput(
+                displayName = "Erika Musterfrau",
+                email = "erika@example.org",
+                password = "correct horse battery staple",
+                agreement = agreement,
+                countryCode = country,
+                nationalityCodes = listOf("DE", "PL"),
+            )
+        assertNull(build("").countryCode)
+        assertNull(build("  ").countryCode)
+        assertEquals("PL", build("PL").countryCode)
+        assertEquals(listOf("DE", "PL"), build("PL").nationalityCodes)
+    }
 }

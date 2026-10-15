@@ -9,6 +9,8 @@ import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.HTMLSelectElement
 import org.w3c.dom.events.Event
+import org.w3c.dom.events.KeyboardEvent
+import org.w3c.dom.events.KeyboardEventInit
 import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -160,6 +162,63 @@ class RegistrationScreenFieldErrorDomTest {
                         element().querySelector("input[type=email]") != null,
                         "the form must still be showing, not the pending screen",
                     )
+                }
+            }
+        }
+
+    // ---- V1.9.141: the optional person section ----
+
+    private fun HTMLElement.countryInput(): HTMLInputElement = inputs("input[role=combobox]")[0]
+
+    @Test
+    fun theOptionalPersonSection_isThere_withoutAPreselection_andSubmitsWithoutCountry(): Promise<Unit> =
+        test {
+            val respond = respondWithChapterAndAgreement { request -> request.answerWith("null") }
+            withFetchStub(respond = respond) { calls ->
+                withMountedRoot("body-registration-person-empty") { root, element ->
+                    renderRegistrationScreen(root)
+                    awaitUntil("the form") { element().querySelector("input[type=email]") != null }
+                    val text = element().textContent.orEmpty()
+                    assertTrue(text.contains("Angaben zur Person (freiwillig)"), "the section heading")
+                    assertTrue(text.contains("Land des Wohnsitzes"), "the country label")
+                    assertTrue(text.contains("Staatsangehörigkeit"), "the nationality label")
+                    // No preselection: neither the pinned country nor anything else is chosen.
+                    assertEquals("", element().countryInput().value)
+                    element().fillRequiredFields()
+                    element().button("Antrag einreichen").click()
+                    awaitUntil("the register request") { calls.any { it.isRpc && (it.json.params.length as Int) == 1 } }
+                    val register = calls.last { it.isRpc && (it.json.params.length as Int) == 1 }
+                    val sent = JSON.stringify(register.json.params)
+                    assertTrue(!sent.contains("\"countryCode\":\""), "no country code is sent: $sent")
+                    assertTrue(!sent.contains("nationalityCodes\":[\""), "no nationality is sent: $sent")
+                }
+            }
+        }
+
+    @Test
+    fun badRequestException_withACountryGiven_showsTheCountryHint(): Promise<Unit> =
+        test {
+            val respond =
+                respondWithChapterAndAgreement { request ->
+                    serviceExceptionResult(request.json.id as Int, "network.lapis.cloud.shared.rpc.BadRequestException")
+                }
+            withFetchStub(respond = respond) { calls ->
+                withMountedRoot("body-registration-person-bad") { root, element ->
+                    renderRegistrationScreen(root)
+                    awaitUntil("the form") { element().querySelector("input[type=email]") != null }
+                    element().fillRequiredFields()
+                    // Choose Poland in the country list: type, then pick the option.
+                    val input = element().countryInput()
+                    input.value = "poland"
+                    input.dispatchEvent(Event("input"))
+                    awaitUntil("the option") { element().querySelector("[role=option]") != null }
+                    input.dispatchEvent(KeyboardEvent("keydown", KeyboardEventInit(key = "Enter", bubbles = true, cancelable = true)))
+                    element().button("Antrag einreichen").click()
+                    awaitUntil("the register request") { calls.any { it.isRpc && (it.json.params.length as Int) == 1 } }
+                    awaitUntil("the country hint") {
+                        element().textContent.orEmpty().contains("Bitte prüfen Sie die Angaben zu Land und Staatsangehörigkeit.")
+                    }
+                    assertTrue(element().querySelector("input[type=email]") != null, "the form must still be showing")
                 }
             }
         }
