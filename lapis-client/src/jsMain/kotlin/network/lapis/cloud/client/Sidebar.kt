@@ -120,6 +120,7 @@ private val GROUP_ROUTES: Map<SidebarGroupId, List<String>> =
                 Routes.COMMUNICATION,
                 Routes.MY_CHAPTER,
                 Routes.CARPOOL,
+                Routes.MEMBER_FINDER,
                 Routes.DONATE,
                 Routes.DSGVO_RIGHTS,
                 Routes.TRAVEL_EXPENSES,
@@ -262,6 +263,8 @@ fun buildSidebar(
     // theme.css's `:not(.lapis-sidebar-empty)` comment and `clearSidebar`'s own KDoc.
     body.removeCssClass("lapis-sidebar-empty")
     NavHighlight.reset()
+    // V1.9.145: the listeners of the old member-finder link go with the old links.
+    MemberFinderNav.resetListeners()
 
     // V1.4.8 Sidebar-Layout-Fix (Design-Team Atkinson/Kay, Jobs' Review): EIN eigener, vertikal
     // stapelnder Container statt Bootstraps privatem `.offcanvas-body` direkt zu befüllen. Bootstrap
@@ -396,6 +399,11 @@ fun buildSidebar(
             // vermeiden: fa-car ist bereits an TRAVEL_EXPENSES weiter unten in dieser Gruppe vergeben).
             val carpoolLink = sidebarLink(Routes.CARPOOL, tr("Mitfahrerzentrale"), "fas fa-car-side", toggle)
             updateCarpoolSidebarCount(link = carpoolLink, isMember = true)
+            // V1.9.145 "Mitglieder-Finder" -- shown only while the server offers it (instance switch on); `fa-user-group` is free (`fa-address-book` is the contacts).
+            val finderLink = sidebarLink(Routes.MEMBER_FINDER, tr("Mitglieder-Finder"), "fas fa-user-group", toggle)
+            finderLink.visible = NavVisibility.showsMemberFinder(session.status, MemberFinderNav.offered)
+            MemberFinderNav.onChange { offered -> finderLink.visible = NavVisibility.showsMemberFinder(session.status, offered) }
+            MemberFinderNav.ensureLoaded(session)
             // Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- Design-Team-Entscheidung
             // Q6: Gruppe "Kommunikation" (neben COMMUNICATION), nicht "Selbstverwaltung". Für
             // BOARD/ADMIN aktualisiert sich das Label mit der Freigabe-Warteschlangen-Größe --

@@ -24588,3 +24588,291 @@ msgstr "The recording service is currently not available."
 
 msgid "Die Aufzeichnung konnte nicht geändert werden. Bitte versuchen Sie es erneut."
 msgstr "The recording could not be changed. Please try again."
+
+msgid "Ortsgruppe gründen"
+msgstr "Found a local group"
+
+msgid "Stammtisch besuchen"
+msgstr "Attend a regular meet-up"
+
+msgid "Beides"
+msgstr "Both"
+
+msgid "Noch nicht sichtbar (weniger als fünf Teilnehmende)"
+msgstr "Not visible yet (fewer than five participants)"
+
+msgid "5 bis 9 Teilnehmende"
+msgstr "5 to 9 participants"
+
+msgid "10 bis 19 Teilnehmende"
+msgstr "10 to 19 participants"
+
+msgid "20 oder mehr Teilnehmende"
+msgstr "20 or more participants"
+
+msgid "Verbunden"
+msgstr "Connected"
+
+msgid "Ein Mitglied aus Ihrer Region möchte eine Ortsgruppe gründen."
+msgstr "A member from your region would like to found a local group."
+
+msgid "Ein Mitglied aus Ihrer Region möchte sich zu einem Stammtisch treffen."
+msgstr "A member from your region would like to meet at a regular meet-up."
+
+msgid "Der Text wurde aktualisiert, bitte neu lesen."
+msgstr "The text has been updated, please read it again."
+
+msgid "Bitte bestätigen Sie, dass Sie volljährig sind."
+msgstr "Please confirm that you are of age."
+
+msgid "Der Mitglieder-Finder steht für Ihr Konto derzeit nicht zur Verfügung."
+msgstr "The member finder is currently not available for your account."
+
+msgid "Bitte willigen Sie zuerst in den Mitglieder-Finder ein."
+msgstr "Please consent to the member finder first."
+
+msgid "Eine erneute Teilnahme ist erst 24 Stunden nach Ihrem Widerruf möglich."
+msgstr "You can only take part again 24 hours after your withdrawal."
+
+msgid "Ihre Region ist noch nicht sichtbar. Es fehlen noch Teilnehmende."
+msgstr "Your region is not visible yet. More participants are needed."
+
+msgid "Sie haben bereits die höchste Zahl offener Anfragen. Ziehen Sie eine zurück oder warten Sie, bis eine endet."
+msgstr "You already have the maximum number of open requests. Withdraw one or wait until one ends."
+
+msgid "Die Notiz ist zu lang oder enthält unzulässige Zeichen."
+msgstr "The note is too long or contains invalid characters."
+
+msgid "Zu viele Aktionen in kurzer Zeit. Bitte versuchen Sie es später erneut."
+msgstr "Too many actions in a short time. Please try again later."
+
+msgid "Der Mitglieder-Finder ist auf dieser Instanz nicht eingeschaltet."
+msgstr "The member finder is not switched on for this instance."
+
+msgid "Der Hinweis wurde aktualisiert, bitte erneut lesen."
+msgstr "The notice has been updated, please read it again."
+
+msgid "Mitglieder-Finder"
+msgstr "Member finder"
+
+msgid "Der Mitglieder-Finder steht nur Mitgliedern zur Verfügung."
+msgstr "The member finder is only available to members."
+
+msgid "Zu viele Aufrufe in kurzer Zeit. Bitte versuchen Sie es später erneut."
+msgstr "Too many requests in a short time. Please try again later."
+
+msgid "Der Mitglieder-Finder hilft Ihnen, andere Mitglieder in Ihrer Region zu finden, um eine Ortsgruppe zu gründen oder sich zu treffen. Die Teilnahme ist freiwillig. Namen sehen Sie erst, wenn beide Seiten zugestimmt haben."
+msgstr "The member finder helps you find other members in your region to found a local group or to meet. Taking part is voluntary. You only see names once both sides have agreed."
+
+msgid "Für den Mitglieder-Finder benötigen wir Ihre Postanschrift mit deutscher Postleitzahl, und Sie müssen volljährig sein. Bitte prüfen Sie Ihre Angaben in Ihrem Profil."
+msgstr "The member finder needs your postal address with a German postcode, and you must be of age. Please check your details in your profile."
+
+msgid "Zum Profil"
+msgstr "Go to profile"
+
+msgid "Frühere Einwilligung widerrufen"
+msgstr "Withdraw earlier consent"
+
+msgid "Nicht mehr teilnehmen?"
+msgstr "Stop taking part?"
+
+msgid "Ihre Einwilligung wird widerrufen. Ihre Anfragen, Verbindungen und Blockierungen werden gelöscht. Eine erneute Teilnahme ist frühestens 24 Stunden nach dem Widerruf möglich."
+msgstr "Your consent will be withdrawn. Your requests, connections and blocks will be deleted. You can take part again 24 hours after the withdrawal at the earliest."
+
+msgid "Nicht mehr teilnehmen"
+msgstr "Stop taking part"
+
+msgid "Ihre Teilnahme ist beendet."
+msgstr "Your participation has ended."
+
+msgid "Einwilligungstext"
+msgstr "Consent text"
+
+msgid "Woran haben Sie Interesse?"
+msgstr "What are you interested in?"
+
+msgid "Ich bestätige, dass ich volljährig bin."
+msgstr "I confirm that I am of age."
+
+msgid "Eine erneute Teilnahme ist ab %1 möglich."
+msgstr "You can take part again from %1."
+
+msgid "Sie nehmen jetzt teil."
+msgstr "You are now taking part."
+
+msgid "Ihre Teilnahme"
+msgstr "Your participation"
+
+msgid "Ihre Region: Postleitzahlbereich %1"
+msgstr "Your region: postcode area %1"
+
+msgid "Ihr Interesse: %1"
+msgstr "Your interest: %1"
+
+msgid "Eingehende Anfragen"
+msgstr "Incoming requests"
+
+msgid "Erhalten am %1"
+msgstr "Received on %1"
+
+msgid "Läuft ab am %1"
+msgstr "Expires on %1"
+
+msgid "Anfrage vom %1 annehmen"
+msgstr "Accept request of %1"
+
+msgid "Anfrage vom %1 ablehnen"
+msgstr "Decline request of %1"
+
+msgid "Ablehnen und blockieren"
+msgstr "Decline and block"
+
+msgid "Anfrage vom %1 ablehnen und blockieren"
+msgstr "Decline and block request of %1"
+
+msgid "Ablehnen und blockieren?"
+msgstr "Decline and block?"
+
+msgid "Diese Person kann Ihnen keine Anfragen mehr schicken. Wer es ist, erfahren Sie nicht. Sie können die Blockierung später aufheben."
+msgstr "This person can no longer send you requests. You will not find out who it is. You can lift the block later."
+
+msgid "Diese Anfrage ist nicht mehr offen."
+msgstr "This request is no longer open."
+
+msgid "Verbindung hergestellt."
+msgstr "Connection established."
+
+msgid "Anfrage abgelehnt und blockiert."
+msgstr "Request declined and blocked."
+
+msgid "Anfrage abgelehnt."
+msgstr "Request declined."
+
+msgid "Verbindungen"
+msgstr "Connections"
+
+msgid "Verbunden seit %1"
+msgstr "Connected since %1"
+
+msgid "Endet am %1"
+msgstr "Ends on %1"
+
+msgid "Verbindung blockieren"
+msgstr "Block connection"
+
+msgid "Verbindung blockieren?"
+msgstr "Block connection?"
+
+msgid "Die Verbindung wird beendet. Diese Person kann Ihnen keine Anfragen mehr schicken."
+msgstr "The connection will be ended. This person can no longer send you requests."
+
+msgid "Verbindung blockiert."
+msgstr "Connection blocked."
+
+msgid "Ihre Nachricht"
+msgstr "Your message"
+
+msgid "Nachricht gesendet. Die Unterhaltung finden Sie unter Kommunikation."
+msgstr "Message sent. You will find the conversation under Communication."
+
+msgid "Anfrage senden"
+msgstr "Send request"
+
+msgid "Ihre Anfrage geht an ein zufällig gewähltes Mitglied Ihrer Region, das Interesse hat. Die Person erfährt nicht, wer Sie sind, bevor sie zustimmt."
+msgstr "Your request goes to a randomly chosen member of your region who is interested. The person does not learn who you are before agreeing."
+
+msgid "Wofür?"
+msgstr "For what?"
+
+msgid "So lautet Ihre Anfrage: %1"
+msgstr "Your request reads: %1"
+
+msgid "Notiz (freiwillig)"
+msgstr "Note (optional)"
+
+msgid "Die Notiz sieht nur die angefragte Person. Bitte schreiben Sie keine persönlichen Daten hinein."
+msgstr "Only the person you ask sees the note. Please do not write any personal data in it."
+
+msgid "%1 von %2 offenen Anfragen"
+msgstr "%1 of %2 open requests"
+
+msgid "Ihre Anfrage wurde gesendet."
+msgstr "Your request has been sent."
+
+msgid "Sie erfahren nur, wenn jemand zustimmt."
+msgstr "You will only hear back if someone agrees."
+
+msgid "Gesendete Anfragen"
+msgstr "Sent requests"
+
+msgid "Anfrage vom %1 zurückziehen"
+msgstr "Withdraw request of %1"
+
+msgid "Blockierte"
+msgstr "Blocked"
+
+msgid "Blockiert am %1"
+msgstr "Blocked on %1"
+
+msgid "Entsperren"
+msgstr "Unblock"
+
+msgid "Blockierung vom %1 aufheben"
+msgstr "Lift block of %1"
+
+msgid "Entsperrt."
+msgstr "Unblocked."
+
+msgid "Sie sind im Begriff, den Mitglieder-Finder für diese Instanz einzuschalten. Mitglieder, die ausdrücklich einwilligen, können damit andere Mitglieder derselben Region (die ersten zwei Ziffern der Postleitzahl) finden. Namen werden erst nach beidseitiger Zustimmung sichtbar."
+msgstr "You are about to switch on the member finder for this instance. Members who expressly consent can use it to find other members of the same region (the first two digits of the postcode). Names only become visible after both sides have agreed."
+
+msgid "Eine Parteimitgliedschaft ist ein besonders geschütztes Datum (Art. 9 DSGVO und ähnliche Regelungen anderer Länder). Zulässigkeit, Einwilligung, Informationspflichten und die Notwendigkeit einer Datenschutz-Folgenabschätzung sind je Land verschieden. Lapis Cloud ist keine Rechtsberatung."
+msgstr "Party membership is a specially protected piece of data (Art. 9 GDPR and similar rules of other countries). Admissibility, consent, information duties and the need for a data protection impact assessment differ from country to country. Lapis Cloud is not legal advice."
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass eine Rechtsgrundlage besteht und die Mitglieder informiert werden. Ersetzen Sie den eingebauten Einwilligungstext in der Verwaltung der Vertragstexte durch eine rechtlich geprüfte Fassung."
+msgstr "As the operator you are responsible for ensuring that a legal basis exists and that the members are informed. Replace the built-in consent text in the administration of the agreement texts with a legally reviewed version."
+
+msgid "Mitglieder-Finder erlauben"
+msgstr "Allow member finder"
+
+msgid "Mitglieder können sich nach ausdrücklicher Einwilligung gegenseitig finden. Namen werden erst nach beidseitiger Zustimmung sichtbar."
+msgstr "Members can find each other after expressly consenting. Names only become visible after both sides have agreed."
+
+msgid "Platzhaltertext aktiv: Ersetzen Sie den eingebauten Einwilligungstext unter Vertragstexte."
+msgstr "Placeholder text active: replace the built-in consent text under Agreement texts."
+
+msgid "Zu den Vertragstexten"
+msgstr "To the agreement texts"
+
+msgid "Der Mitglieder-Finder ist eingeschaltet."
+msgstr "The member finder is switched on."
+
+msgid "Mitglieder-Finder abschalten?"
+msgstr "Switch off member finder?"
+
+msgid "Wenn Sie den Mitglieder-Finder abschalten, werden alle Anfragen und Blockierungen gelöscht und alle Einwilligungen beendet."
+msgstr "If you switch off the member finder, all requests and blocks are deleted and all consents are ended."
+
+msgid "Abschalten"
+msgstr "Switch off"
+
+msgid "Der Mitglieder-Finder ist ausgeschaltet."
+msgstr "The member finder is switched off."
+
+msgid "Mitglieder-Finder erlauben?"
+msgstr "Allow member finder?"
+
+msgid "Gut zu wissen: Wenn Sie den Mitglieder-Finder später abschalten, werden alle Anfragen und Blockierungen gelöscht und alle Einwilligungen beendet."
+msgstr "Good to know: if you switch off the member finder later, all requests and blocks are deleted and all consents are ended."
+
+msgid "Mitglieder-Finder: Regionen"
+msgstr "Member finder: regions"
+
+msgid "Noch keine Region mit mindestens fünf Teilnehmenden."
+msgstr "No region with at least five participants yet."
+
+msgid "Region"
+msgstr "Region"
+
+msgid "Regionen mit mindestens fünf Teilnehmenden"
+msgstr "Regions with at least five participants"

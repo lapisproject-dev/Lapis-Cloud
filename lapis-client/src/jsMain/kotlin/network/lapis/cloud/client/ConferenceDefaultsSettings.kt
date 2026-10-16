@@ -44,6 +44,8 @@ internal fun renderConferenceDefaultsCard(root: SimplePanel) {
                     renderVideoOverlayLibrary(panel)
                     // V1.9.143 -- the optional recording of the pulpit of the encounter room (see PulpitRecordingSettings.kt). A change rebuilds the card.
                     renderPulpitRecordingSection(panel, dto) { data.reload() }
+                    // V1.9.145 -- the optional member finder (see MemberFinderSettings.kt). A change rebuilds the card as well.
+                    renderMemberFinderSection(panel, dto) { data.reload() }
                 },
             )
     data.reload()

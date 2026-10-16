@@ -24528,3 +24528,291 @@ msgstr "El servicio de grabación no está disponible en este momento."
 
 msgid "Die Aufzeichnung konnte nicht geändert werden. Bitte versuchen Sie es erneut."
 msgstr "No se pudo modificar la grabación. Inténtelo de nuevo."
+
+msgid "Ortsgruppe gründen"
+msgstr "Fundar un grupo local"
+
+msgid "Stammtisch besuchen"
+msgstr "Asistir a una tertulia"
+
+msgid "Beides"
+msgstr "Ambas cosas"
+
+msgid "Noch nicht sichtbar (weniger als fünf Teilnehmende)"
+msgstr "Aún no visible (menos de cinco participantes)"
+
+msgid "5 bis 9 Teilnehmende"
+msgstr "De 5 a 9 participantes"
+
+msgid "10 bis 19 Teilnehmende"
+msgstr "De 10 a 19 participantes"
+
+msgid "20 oder mehr Teilnehmende"
+msgstr "20 o más participantes"
+
+msgid "Verbunden"
+msgstr "Conectado"
+
+msgid "Ein Mitglied aus Ihrer Region möchte eine Ortsgruppe gründen."
+msgstr "Un miembro de su región quiere fundar un grupo local."
+
+msgid "Ein Mitglied aus Ihrer Region möchte sich zu einem Stammtisch treffen."
+msgstr "Un miembro de su región quiere reunirse en una tertulia."
+
+msgid "Der Text wurde aktualisiert, bitte neu lesen."
+msgstr "El texto se ha actualizado, léalo de nuevo."
+
+msgid "Bitte bestätigen Sie, dass Sie volljährig sind."
+msgstr "Confirme que es mayor de edad."
+
+msgid "Der Mitglieder-Finder steht für Ihr Konto derzeit nicht zur Verfügung."
+msgstr "El buscador de miembros no está disponible actualmente para su cuenta."
+
+msgid "Bitte willigen Sie zuerst in den Mitglieder-Finder ein."
+msgstr "Primero dé su consentimiento para el buscador de miembros."
+
+msgid "Eine erneute Teilnahme ist erst 24 Stunden nach Ihrem Widerruf möglich."
+msgstr "Podrá volver a participar 24 horas después de su revocación."
+
+msgid "Ihre Region ist noch nicht sichtbar. Es fehlen noch Teilnehmende."
+msgstr "Su región aún no es visible. Faltan participantes."
+
+msgid "Sie haben bereits die höchste Zahl offener Anfragen. Ziehen Sie eine zurück oder warten Sie, bis eine endet."
+msgstr "Ya tiene el número máximo de solicitudes abiertas. Retire una o espere a que termine alguna."
+
+msgid "Die Notiz ist zu lang oder enthält unzulässige Zeichen."
+msgstr "La nota es demasiado larga o contiene caracteres no permitidos."
+
+msgid "Zu viele Aktionen in kurzer Zeit. Bitte versuchen Sie es später erneut."
+msgstr "Demasiadas acciones en poco tiempo. Inténtelo de nuevo más tarde."
+
+msgid "Der Mitglieder-Finder ist auf dieser Instanz nicht eingeschaltet."
+msgstr "El buscador de miembros no está activado en esta instancia."
+
+msgid "Der Hinweis wurde aktualisiert, bitte erneut lesen."
+msgstr "El aviso se ha actualizado, léalo de nuevo."
+
+msgid "Mitglieder-Finder"
+msgstr "Buscador de miembros"
+
+msgid "Der Mitglieder-Finder steht nur Mitgliedern zur Verfügung."
+msgstr "El buscador de miembros solo está disponible para miembros."
+
+msgid "Zu viele Aufrufe in kurzer Zeit. Bitte versuchen Sie es später erneut."
+msgstr "Demasiadas consultas en poco tiempo. Inténtelo de nuevo más tarde."
+
+msgid "Der Mitglieder-Finder hilft Ihnen, andere Mitglieder in Ihrer Region zu finden, um eine Ortsgruppe zu gründen oder sich zu treffen. Die Teilnahme ist freiwillig. Namen sehen Sie erst, wenn beide Seiten zugestimmt haben."
+msgstr "El buscador de miembros le ayuda a encontrar a otros miembros de su región para fundar un grupo local o para reunirse. La participación es voluntaria. Solo verá los nombres cuando ambas partes hayan aceptado."
+
+msgid "Für den Mitglieder-Finder benötigen wir Ihre Postanschrift mit deutscher Postleitzahl, und Sie müssen volljährig sein. Bitte prüfen Sie Ihre Angaben in Ihrem Profil."
+msgstr "Para el buscador de miembros necesitamos su dirección postal con código postal alemán, y debe ser mayor de edad. Revise sus datos en su perfil."
+
+msgid "Zum Profil"
+msgstr "Ir al perfil"
+
+msgid "Frühere Einwilligung widerrufen"
+msgstr "Revocar el consentimiento anterior"
+
+msgid "Nicht mehr teilnehmen?"
+msgstr "¿Dejar de participar?"
+
+msgid "Ihre Einwilligung wird widerrufen. Ihre Anfragen, Verbindungen und Blockierungen werden gelöscht. Eine erneute Teilnahme ist frühestens 24 Stunden nach dem Widerruf möglich."
+msgstr "Se revocará su consentimiento. Se eliminarán sus solicitudes, conexiones y bloqueos. Podrá volver a participar como pronto 24 horas después de la revocación."
+
+msgid "Nicht mehr teilnehmen"
+msgstr "Dejar de participar"
+
+msgid "Ihre Teilnahme ist beendet."
+msgstr "Su participación ha terminado."
+
+msgid "Einwilligungstext"
+msgstr "Texto de consentimiento"
+
+msgid "Woran haben Sie Interesse?"
+msgstr "¿Qué le interesa?"
+
+msgid "Ich bestätige, dass ich volljährig bin."
+msgstr "Confirmo que soy mayor de edad."
+
+msgid "Eine erneute Teilnahme ist ab %1 möglich."
+msgstr "Podrá volver a participar a partir del %1."
+
+msgid "Sie nehmen jetzt teil."
+msgstr "Ahora participa."
+
+msgid "Ihre Teilnahme"
+msgstr "Su participación"
+
+msgid "Ihre Region: Postleitzahlbereich %1"
+msgstr "Su región: zona de código postal %1"
+
+msgid "Ihr Interesse: %1"
+msgstr "Su interés: %1"
+
+msgid "Eingehende Anfragen"
+msgstr "Solicitudes recibidas"
+
+msgid "Erhalten am %1"
+msgstr "Recibida el %1"
+
+msgid "Läuft ab am %1"
+msgstr "Caduca el %1"
+
+msgid "Anfrage vom %1 annehmen"
+msgstr "Aceptar la solicitud del %1"
+
+msgid "Anfrage vom %1 ablehnen"
+msgstr "Rechazar la solicitud del %1"
+
+msgid "Ablehnen und blockieren"
+msgstr "Rechazar y bloquear"
+
+msgid "Anfrage vom %1 ablehnen und blockieren"
+msgstr "Rechazar y bloquear la solicitud del %1"
+
+msgid "Ablehnen und blockieren?"
+msgstr "¿Rechazar y bloquear?"
+
+msgid "Diese Person kann Ihnen keine Anfragen mehr schicken. Wer es ist, erfahren Sie nicht. Sie können die Blockierung später aufheben."
+msgstr "Esta persona ya no podrá enviarle solicitudes. No sabrá quién es. Puede levantar el bloqueo más tarde."
+
+msgid "Diese Anfrage ist nicht mehr offen."
+msgstr "Esta solicitud ya no está abierta."
+
+msgid "Verbindung hergestellt."
+msgstr "Conexión establecida."
+
+msgid "Anfrage abgelehnt und blockiert."
+msgstr "Solicitud rechazada y bloqueada."
+
+msgid "Anfrage abgelehnt."
+msgstr "Solicitud rechazada."
+
+msgid "Verbindungen"
+msgstr "Conexiones"
+
+msgid "Verbunden seit %1"
+msgstr "Conectados desde el %1"
+
+msgid "Endet am %1"
+msgstr "Termina el %1"
+
+msgid "Verbindung blockieren"
+msgstr "Bloquear conexión"
+
+msgid "Verbindung blockieren?"
+msgstr "¿Bloquear la conexión?"
+
+msgid "Die Verbindung wird beendet. Diese Person kann Ihnen keine Anfragen mehr schicken."
+msgstr "Se terminará la conexión. Esta persona ya no podrá enviarle solicitudes."
+
+msgid "Verbindung blockiert."
+msgstr "Conexión bloqueada."
+
+msgid "Ihre Nachricht"
+msgstr "Su mensaje"
+
+msgid "Nachricht gesendet. Die Unterhaltung finden Sie unter Kommunikation."
+msgstr "Mensaje enviado. Encontrará la conversación en Comunicación."
+
+msgid "Anfrage senden"
+msgstr "Enviar solicitud"
+
+msgid "Ihre Anfrage geht an ein zufällig gewähltes Mitglied Ihrer Region, das Interesse hat. Die Person erfährt nicht, wer Sie sind, bevor sie zustimmt."
+msgstr "Su solicitud se envía a un miembro de su región elegido al azar que tenga interés. La persona no sabe quién es usted antes de aceptar."
+
+msgid "Wofür?"
+msgstr "¿Para qué?"
+
+msgid "So lautet Ihre Anfrage: %1"
+msgstr "Su solicitud dice: %1"
+
+msgid "Notiz (freiwillig)"
+msgstr "Nota (opcional)"
+
+msgid "Die Notiz sieht nur die angefragte Person. Bitte schreiben Sie keine persönlichen Daten hinein."
+msgstr "Solo la persona a la que se dirige la solicitud ve la nota. No escriba datos personales en ella."
+
+msgid "%1 von %2 offenen Anfragen"
+msgstr "%1 de %2 solicitudes abiertas"
+
+msgid "Ihre Anfrage wurde gesendet."
+msgstr "Su solicitud se ha enviado."
+
+msgid "Sie erfahren nur, wenn jemand zustimmt."
+msgstr "Solo recibirá noticias si alguien acepta."
+
+msgid "Gesendete Anfragen"
+msgstr "Solicitudes enviadas"
+
+msgid "Anfrage vom %1 zurückziehen"
+msgstr "Retirar la solicitud del %1"
+
+msgid "Blockierte"
+msgstr "Bloqueados"
+
+msgid "Blockiert am %1"
+msgstr "Bloqueado el %1"
+
+msgid "Entsperren"
+msgstr "Desbloquear"
+
+msgid "Blockierung vom %1 aufheben"
+msgstr "Levantar el bloqueo del %1"
+
+msgid "Entsperrt."
+msgstr "Desbloqueado."
+
+msgid "Sie sind im Begriff, den Mitglieder-Finder für diese Instanz einzuschalten. Mitglieder, die ausdrücklich einwilligen, können damit andere Mitglieder derselben Region (die ersten zwei Ziffern der Postleitzahl) finden. Namen werden erst nach beidseitiger Zustimmung sichtbar."
+msgstr "Está a punto de activar el buscador de miembros para esta instancia. Los miembros que consientan expresamente podrán encontrar así a otros miembros de la misma región (las dos primeras cifras del código postal). Los nombres solo serán visibles tras el acuerdo de ambas partes."
+
+msgid "Eine Parteimitgliedschaft ist ein besonders geschütztes Datum (Art. 9 DSGVO und ähnliche Regelungen anderer Länder). Zulässigkeit, Einwilligung, Informationspflichten und die Notwendigkeit einer Datenschutz-Folgenabschätzung sind je Land verschieden. Lapis Cloud ist keine Rechtsberatung."
+msgstr "La afiliación a un partido es un dato especialmente protegido (art. 9 RGPD y normas similares de otros países). La licitud, el consentimiento, los deberes de información y la necesidad de una evaluación de impacto relativa a la protección de datos varían según el país. Lapis Cloud no es asesoramiento jurídico."
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass eine Rechtsgrundlage besteht und die Mitglieder informiert werden. Ersetzen Sie den eingebauten Einwilligungstext in der Verwaltung der Vertragstexte durch eine rechtlich geprüfte Fassung."
+msgstr "Como operador, usted es responsable de que exista una base jurídica y de que se informe a los miembros. Sustituya el texto de consentimiento integrado en la administración de los textos contractuales por una versión revisada jurídicamente."
+
+msgid "Mitglieder-Finder erlauben"
+msgstr "Permitir el buscador de miembros"
+
+msgid "Mitglieder können sich nach ausdrücklicher Einwilligung gegenseitig finden. Namen werden erst nach beidseitiger Zustimmung sichtbar."
+msgstr "Los miembros pueden encontrarse entre sí tras dar su consentimiento expreso. Los nombres solo serán visibles tras el acuerdo de ambas partes."
+
+msgid "Platzhaltertext aktiv: Ersetzen Sie den eingebauten Einwilligungstext unter Vertragstexte."
+msgstr "Texto provisional activo: sustituya el texto de consentimiento integrado en Textos contractuales."
+
+msgid "Zu den Vertragstexten"
+msgstr "A los textos contractuales"
+
+msgid "Der Mitglieder-Finder ist eingeschaltet."
+msgstr "El buscador de miembros está activado."
+
+msgid "Mitglieder-Finder abschalten?"
+msgstr "¿Desactivar el buscador de miembros?"
+
+msgid "Wenn Sie den Mitglieder-Finder abschalten, werden alle Anfragen und Blockierungen gelöscht und alle Einwilligungen beendet."
+msgstr "Si desactiva el buscador de miembros, se eliminarán todas las solicitudes y bloqueos y finalizarán todos los consentimientos."
+
+msgid "Abschalten"
+msgstr "Desactivar"
+
+msgid "Der Mitglieder-Finder ist ausgeschaltet."
+msgstr "El buscador de miembros está desactivado."
+
+msgid "Mitglieder-Finder erlauben?"
+msgstr "¿Permitir el buscador de miembros?"
+
+msgid "Gut zu wissen: Wenn Sie den Mitglieder-Finder später abschalten, werden alle Anfragen und Blockierungen gelöscht und alle Einwilligungen beendet."
+msgstr "Conviene saber: si más adelante desactiva el buscador de miembros, se eliminarán todas las solicitudes y bloqueos y finalizarán todos los consentimientos."
+
+msgid "Mitglieder-Finder: Regionen"
+msgstr "Buscador de miembros: regiones"
+
+msgid "Noch keine Region mit mindestens fünf Teilnehmenden."
+msgstr "Aún no hay ninguna región con al menos cinco participantes."
+
+msgid "Region"
+msgstr "Región"
+
+msgid "Regionen mit mindestens fünf Teilnehmenden"
+msgstr "Regiones con al menos cinco participantes"

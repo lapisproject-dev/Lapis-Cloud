@@ -83,6 +83,8 @@ object AppState {
         if (newSession == session) return
         val previousSession = session
         session = newSession
+        // V1.9.145: the cached answer "is the member finder offered" belongs to one identity and one status.
+        if (previousSession?.memberId != newSession?.memberId || previousSession?.status != newSession?.status) MemberFinderNav.clear()
         // V1.9.70: a sign-out or another identity ends a running conference (before any screen re-renders); a refresh of the same
         // identity (new `expiresAt`) does not.
         ConferenceDock.onAuthSessionChanged(previousSession, newSession)

@@ -24634,3 +24634,291 @@ msgstr "Служба записи сейчас недоступна."
 
 msgid "Die Aufzeichnung konnte nicht geändert werden. Bitte versuchen Sie es erneut."
 msgstr "Не удалось изменить запись. Попробуйте ещё раз."
+
+msgid "Ortsgruppe gründen"
+msgstr "Основать местную группу"
+
+msgid "Stammtisch besuchen"
+msgstr "Посетить регулярную встречу"
+
+msgid "Beides"
+msgstr "И то, и другое"
+
+msgid "Noch nicht sichtbar (weniger als fünf Teilnehmende)"
+msgstr "Пока не видно (меньше пяти участников)"
+
+msgid "5 bis 9 Teilnehmende"
+msgstr "От 5 до 9 участников"
+
+msgid "10 bis 19 Teilnehmende"
+msgstr "От 10 до 19 участников"
+
+msgid "20 oder mehr Teilnehmende"
+msgstr "20 и более участников"
+
+msgid "Verbunden"
+msgstr "Связаны"
+
+msgid "Ein Mitglied aus Ihrer Region möchte eine Ortsgruppe gründen."
+msgstr "Участник из вашего региона хочет основать местную группу."
+
+msgid "Ein Mitglied aus Ihrer Region möchte sich zu einem Stammtisch treffen."
+msgstr "Участник из вашего региона хочет встретиться на регулярной встрече."
+
+msgid "Der Text wurde aktualisiert, bitte neu lesen."
+msgstr "Текст обновлён, прочитайте его снова."
+
+msgid "Bitte bestätigen Sie, dass Sie volljährig sind."
+msgstr "Подтвердите, что вам исполнилось 18 лет."
+
+msgid "Der Mitglieder-Finder steht für Ihr Konto derzeit nicht zur Verfügung."
+msgstr "Поиск участников сейчас недоступен для вашей учётной записи."
+
+msgid "Bitte willigen Sie zuerst in den Mitglieder-Finder ein."
+msgstr "Сначала дайте согласие на поиск участников."
+
+msgid "Eine erneute Teilnahme ist erst 24 Stunden nach Ihrem Widerruf möglich."
+msgstr "Участвовать снова можно только через 24 часа после отзыва согласия."
+
+msgid "Ihre Region ist noch nicht sichtbar. Es fehlen noch Teilnehmende."
+msgstr "Ваш регион пока не виден. Не хватает участников."
+
+msgid "Sie haben bereits die höchste Zahl offener Anfragen. Ziehen Sie eine zurück oder warten Sie, bis eine endet."
+msgstr "У вас уже максимальное число открытых запросов. Отзовите один или подождите, пока один завершится."
+
+msgid "Die Notiz ist zu lang oder enthält unzulässige Zeichen."
+msgstr "Заметка слишком длинная или содержит недопустимые символы."
+
+msgid "Zu viele Aktionen in kurzer Zeit. Bitte versuchen Sie es später erneut."
+msgstr "Слишком много действий за короткое время. Повторите попытку позже."
+
+msgid "Der Mitglieder-Finder ist auf dieser Instanz nicht eingeschaltet."
+msgstr "Поиск участников на этом экземпляре не включён."
+
+msgid "Der Hinweis wurde aktualisiert, bitte erneut lesen."
+msgstr "Уведомление обновлено, прочитайте его снова."
+
+msgid "Mitglieder-Finder"
+msgstr "Поиск участников"
+
+msgid "Der Mitglieder-Finder steht nur Mitgliedern zur Verfügung."
+msgstr "Поиск участников доступен только членам организации."
+
+msgid "Zu viele Aufrufe in kurzer Zeit. Bitte versuchen Sie es später erneut."
+msgstr "Слишком много обращений за короткое время. Повторите попытку позже."
+
+msgid "Der Mitglieder-Finder hilft Ihnen, andere Mitglieder in Ihrer Region zu finden, um eine Ortsgruppe zu gründen oder sich zu treffen. Die Teilnahme ist freiwillig. Namen sehen Sie erst, wenn beide Seiten zugestimmt haben."
+msgstr "Поиск участников помогает вам найти других членов организации в вашем регионе, чтобы основать местную группу или встретиться. Участие добровольное. Имена вы увидите только после согласия обеих сторон."
+
+msgid "Für den Mitglieder-Finder benötigen wir Ihre Postanschrift mit deutscher Postleitzahl, und Sie müssen volljährig sein. Bitte prüfen Sie Ihre Angaben in Ihrem Profil."
+msgstr "Для поиска участников нужен ваш почтовый адрес с немецким почтовым индексом, и вы должны быть совершеннолетним. Проверьте данные в своём профиле."
+
+msgid "Zum Profil"
+msgstr "Перейти в профиль"
+
+msgid "Frühere Einwilligung widerrufen"
+msgstr "Отозвать прежнее согласие"
+
+msgid "Nicht mehr teilnehmen?"
+msgstr "Больше не участвовать?"
+
+msgid "Ihre Einwilligung wird widerrufen. Ihre Anfragen, Verbindungen und Blockierungen werden gelöscht. Eine erneute Teilnahme ist frühestens 24 Stunden nach dem Widerruf möglich."
+msgstr "Ваше согласие будет отозвано. Ваши запросы, связи и блокировки будут удалены. Снова участвовать можно будет не раньше чем через 24 часа после отзыва."
+
+msgid "Nicht mehr teilnehmen"
+msgstr "Больше не участвовать"
+
+msgid "Ihre Teilnahme ist beendet."
+msgstr "Ваше участие завершено."
+
+msgid "Einwilligungstext"
+msgstr "Текст согласия"
+
+msgid "Woran haben Sie Interesse?"
+msgstr "Что вас интересует?"
+
+msgid "Ich bestätige, dass ich volljährig bin."
+msgstr "Подтверждаю, что я совершеннолетний."
+
+msgid "Eine erneute Teilnahme ist ab %1 möglich."
+msgstr "Снова участвовать можно с %1."
+
+msgid "Sie nehmen jetzt teil."
+msgstr "Теперь вы участвуете."
+
+msgid "Ihre Teilnahme"
+msgstr "Ваше участие"
+
+msgid "Ihre Region: Postleitzahlbereich %1"
+msgstr "Ваш регион: почтовая зона %1"
+
+msgid "Ihr Interesse: %1"
+msgstr "Ваш интерес: %1"
+
+msgid "Eingehende Anfragen"
+msgstr "Входящие запросы"
+
+msgid "Erhalten am %1"
+msgstr "Получен %1"
+
+msgid "Läuft ab am %1"
+msgstr "Истекает %1"
+
+msgid "Anfrage vom %1 annehmen"
+msgstr "Принять запрос от %1"
+
+msgid "Anfrage vom %1 ablehnen"
+msgstr "Отклонить запрос от %1"
+
+msgid "Ablehnen und blockieren"
+msgstr "Отклонить и заблокировать"
+
+msgid "Anfrage vom %1 ablehnen und blockieren"
+msgstr "Отклонить и заблокировать запрос от %1"
+
+msgid "Ablehnen und blockieren?"
+msgstr "Отклонить и заблокировать?"
+
+msgid "Diese Person kann Ihnen keine Anfragen mehr schicken. Wer es ist, erfahren Sie nicht. Sie können die Blockierung später aufheben."
+msgstr "Этот человек больше не сможет отправлять вам запросы. Кто это, вы не узнаете. Блокировку можно снять позже."
+
+msgid "Diese Anfrage ist nicht mehr offen."
+msgstr "Этот запрос больше не открыт."
+
+msgid "Verbindung hergestellt."
+msgstr "Связь установлена."
+
+msgid "Anfrage abgelehnt und blockiert."
+msgstr "Запрос отклонён и заблокирован."
+
+msgid "Anfrage abgelehnt."
+msgstr "Запрос отклонён."
+
+msgid "Verbindungen"
+msgstr "Связи"
+
+msgid "Verbunden seit %1"
+msgstr "Связаны с %1"
+
+msgid "Endet am %1"
+msgstr "Заканчивается %1"
+
+msgid "Verbindung blockieren"
+msgstr "Заблокировать связь"
+
+msgid "Verbindung blockieren?"
+msgstr "Заблокировать связь?"
+
+msgid "Die Verbindung wird beendet. Diese Person kann Ihnen keine Anfragen mehr schicken."
+msgstr "Связь будет прекращена. Этот человек больше не сможет отправлять вам запросы."
+
+msgid "Verbindung blockiert."
+msgstr "Связь заблокирована."
+
+msgid "Ihre Nachricht"
+msgstr "Ваше сообщение"
+
+msgid "Nachricht gesendet. Die Unterhaltung finden Sie unter Kommunikation."
+msgstr "Сообщение отправлено. Беседу вы найдёте в разделе «Коммуникация»."
+
+msgid "Anfrage senden"
+msgstr "Отправить запрос"
+
+msgid "Ihre Anfrage geht an ein zufällig gewähltes Mitglied Ihrer Region, das Interesse hat. Die Person erfährt nicht, wer Sie sind, bevor sie zustimmt."
+msgstr "Ваш запрос уходит случайно выбранному участнику вашего региона, который заинтересован. Этот человек не узнает, кто вы, пока не согласится."
+
+msgid "Wofür?"
+msgstr "Для чего?"
+
+msgid "So lautet Ihre Anfrage: %1"
+msgstr "Ваш запрос звучит так: %1"
+
+msgid "Notiz (freiwillig)"
+msgstr "Заметка (необязательно)"
+
+msgid "Die Notiz sieht nur die angefragte Person. Bitte schreiben Sie keine persönlichen Daten hinein."
+msgstr "Заметку видит только тот, кому адресован запрос. Не указывайте в ней личные данные."
+
+msgid "%1 von %2 offenen Anfragen"
+msgstr "%1 из %2 открытых запросов"
+
+msgid "Ihre Anfrage wurde gesendet."
+msgstr "Ваш запрос отправлен."
+
+msgid "Sie erfahren nur, wenn jemand zustimmt."
+msgstr "Вы узнаете об этом, только если кто-то согласится."
+
+msgid "Gesendete Anfragen"
+msgstr "Отправленные запросы"
+
+msgid "Anfrage vom %1 zurückziehen"
+msgstr "Отозвать запрос от %1"
+
+msgid "Blockierte"
+msgstr "Заблокированные"
+
+msgid "Blockiert am %1"
+msgstr "Заблокирован %1"
+
+msgid "Entsperren"
+msgstr "Разблокировать"
+
+msgid "Blockierung vom %1 aufheben"
+msgstr "Снять блокировку от %1"
+
+msgid "Entsperrt."
+msgstr "Разблокировано."
+
+msgid "Sie sind im Begriff, den Mitglieder-Finder für diese Instanz einzuschalten. Mitglieder, die ausdrücklich einwilligen, können damit andere Mitglieder derselben Region (die ersten zwei Ziffern der Postleitzahl) finden. Namen werden erst nach beidseitiger Zustimmung sichtbar."
+msgstr "Вы собираетесь включить поиск участников для этого экземпляра. Участники, давшие явное согласие, смогут находить других членов организации из того же региона (первые две цифры почтового индекса). Имена становятся видны только после согласия обеих сторон."
+
+msgid "Eine Parteimitgliedschaft ist ein besonders geschütztes Datum (Art. 9 DSGVO und ähnliche Regelungen anderer Länder). Zulässigkeit, Einwilligung, Informationspflichten und die Notwendigkeit einer Datenschutz-Folgenabschätzung sind je Land verschieden. Lapis Cloud ist keine Rechtsberatung."
+msgstr "Членство в партии — особо охраняемые данные (ст. 9 GDPR и аналогичные нормы других стран). Допустимость, согласие, обязанности по информированию и необходимость оценки воздействия на защиту данных в разных странах различаются. Lapis Cloud не является юридической консультацией."
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass eine Rechtsgrundlage besteht und die Mitglieder informiert werden. Ersetzen Sie den eingebauten Einwilligungstext in der Verwaltung der Vertragstexte durch eine rechtlich geprüfte Fassung."
+msgstr "Как оператор вы отвечаете за наличие правового основания и за информирование участников. Замените встроенный текст согласия в управлении текстами договоров юридически проверенной версией."
+
+msgid "Mitglieder-Finder erlauben"
+msgstr "Разрешить поиск участников"
+
+msgid "Mitglieder können sich nach ausdrücklicher Einwilligung gegenseitig finden. Namen werden erst nach beidseitiger Zustimmung sichtbar."
+msgstr "Участники могут находить друг друга после явного согласия. Имена становятся видны только после согласия обеих сторон."
+
+msgid "Platzhaltertext aktiv: Ersetzen Sie den eingebauten Einwilligungstext unter Vertragstexte."
+msgstr "Активен временный текст: замените встроенный текст согласия в разделе «Тексты договоров»."
+
+msgid "Zu den Vertragstexten"
+msgstr "К текстам договоров"
+
+msgid "Der Mitglieder-Finder ist eingeschaltet."
+msgstr "Поиск участников включён."
+
+msgid "Mitglieder-Finder abschalten?"
+msgstr "Выключить поиск участников?"
+
+msgid "Wenn Sie den Mitglieder-Finder abschalten, werden alle Anfragen und Blockierungen gelöscht und alle Einwilligungen beendet."
+msgstr "Если вы выключите поиск участников, все запросы и блокировки будут удалены, а все согласия прекращены."
+
+msgid "Abschalten"
+msgstr "Выключить"
+
+msgid "Der Mitglieder-Finder ist ausgeschaltet."
+msgstr "Поиск участников выключен."
+
+msgid "Mitglieder-Finder erlauben?"
+msgstr "Разрешить поиск участников?"
+
+msgid "Gut zu wissen: Wenn Sie den Mitglieder-Finder später abschalten, werden alle Anfragen und Blockierungen gelöscht und alle Einwilligungen beendet."
+msgstr "Полезно знать: если вы позже выключите поиск участников, все запросы и блокировки будут удалены, а все согласия прекращены."
+
+msgid "Mitglieder-Finder: Regionen"
+msgstr "Поиск участников: регионы"
+
+msgid "Noch keine Region mit mindestens fünf Teilnehmenden."
+msgstr "Пока нет региона как минимум с пятью участниками."
+
+msgid "Region"
+msgstr "Регион"
+
+msgid "Regionen mit mindestens fünf Teilnehmenden"
+msgstr "Регионы как минимум с пятью участниками"

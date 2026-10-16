@@ -122,6 +122,8 @@ private fun renderMemberAdministrationSections(
     // Welle V1.9.38 "Einheitliche Zeitzonen": ADMIN-only (both RPC methods are), see OrganizationTimeZoneSettings.kt.
     if (callerRole == AccountRole.ADMIN) renderOrganizationTimeZoneCard(root)
     if (callerRole == AccountRole.ADMIN) renderConferenceDefaultsCard(root)
+    // V1.9.145: the bands of the member finder per region (BOARD/ADMIN; draws nothing while the finder is off).
+    if (isBoardOrAdmin) renderMemberFinderBoardCard(root)
 }
 
 private fun renderPendingApplications(

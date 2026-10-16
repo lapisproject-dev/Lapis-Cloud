@@ -107,10 +107,14 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * (`EventGuestJoinScreen.kt`: one `listEvents` that only finds the event id to continue at), the moderator's refreshable list of guests without
  * an account (`EventsScreen.kt`: `listEventGuests`, a button-triggered panel) and the `getRoom` that fetches the room of an event conference
  * after the join (`ConferenceScreen.kt`, an action step of the join). Two new files, hence 53 -> 55 files. 172 -> 177.
+ * Welle V1.9.145 "Mitglieder-Finder" adds ONE, in the new `MemberFinderNav.kt` (a new file, hence 55 -> 56 files): the sidebar's navigation probe calls
+ * `getState(` once per session to learn whether the instance offers the finder at all. Same accepted shape as the badge reads above: it runs in the background,
+ * shows no loading/empty/error state (a failed probe simply leaves the entry out) and must not toast (the server refuses every status but ACTIVE). The screen
+ * itself (`MemberFinderScreen.kt`) loads through `dataSection`. 177 -> 178.
  * The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 177
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 55
+private const val READ_OUTSIDE_STATE_REGION_MAX = 178
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 56
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

@@ -382,6 +382,55 @@ class SidebarStructureTest {
         )
     }
 
+    // V1.9.145 "Mitglieder-Finder": a link of the "Mitgliedschaft" group right after the carpool centre, visible only while the server offers the finder.
+    private fun memberFinderLinkOf(session: SessionInfoDto): Link? {
+        AppState.setSession(session)
+        val body = SimplePanel()
+        buildSidebar(body, session, activeRoute = null) {}
+        return (body.getChildren().single() as Nav)
+            .getChildren()
+            .filterIsInstance<Nav>()
+            .flatMap { it.getChildren() }
+            .filterIsInstance<Link>()
+            .firstOrNull { it.url == "#${Routes.MEMBER_FINDER}" }
+    }
+
+    @Test
+    fun memberFinderLink_sitsRightAfterTheCarpoolCentre_forAnActiveMember() {
+        val urls = orderedSidebarLinkUrls(adminSession)
+        val carpool = urls.indexOf("#${Routes.CARPOOL}")
+        assertTrue(carpool >= 0)
+        assertEquals(carpool + 1, urls.indexOf("#${Routes.MEMBER_FINDER}"))
+    }
+
+    @Test
+    fun memberFinderLink_isHiddenUntilTheServerOffersTheFinder_thenFollowsTheAnswer() {
+        MemberFinderNav.clear()
+        val link = assertNotNullLink(memberFinderLinkOf(adminSession))
+        assertFalse(link.visible, "unknown means hidden")
+        MemberFinderNav.update(finderState(offered = true))
+        assertTrue(link.visible)
+        MemberFinderNav.update(finderState(offered = false, optedIn = false))
+        assertFalse(link.visible)
+        MemberFinderNav.clear()
+    }
+
+    @Test
+    fun memberFinderLink_isAbsentForGuestAndFriend_andNoStateIsRequested() {
+        MemberFinderNav.clear()
+        listOf(MemberStatus.GUEST, MemberStatus.FRIEND).forEach { status ->
+            assertEquals(null, memberFinderLinkOf(adminSession.copy(status = status)), "$status has no membership group")
+        }
+        assertEquals(null, MemberFinderNav.offered)
+    }
+
+    @Test
+    fun memberFinderRoute_belongsToTheMembershipGroup() {
+        assertEquals(SidebarGroupId.MEMBERSHIP, sidebarGroupForRoute(Routes.MEMBER_FINDER))
+    }
+
+    private fun assertNotNullLink(link: Link?): Link = kotlin.test.assertNotNull(link, "no member finder link")
+
     @Test
     fun anonymousClearSidebar_stillLeavesBodyEmpty() {
         // Regressions-Abgrenzung: clearSidebar() bekommt KEINEN Wrapper (kein Inhalt), damit

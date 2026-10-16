@@ -24636,3 +24636,291 @@ msgstr "De opnamedienst is momenteel niet beschikbaar."
 
 msgid "Die Aufzeichnung konnte nicht geändert werden. Bitte versuchen Sie es erneut."
 msgstr "De opname kon niet worden gewijzigd. Probeer het opnieuw."
+
+msgid "Ortsgruppe gründen"
+msgstr "Een lokale afdeling oprichten"
+
+msgid "Stammtisch besuchen"
+msgstr "Een vaste ontmoeting bijwonen"
+
+msgid "Beides"
+msgstr "Beide"
+
+msgid "Noch nicht sichtbar (weniger als fünf Teilnehmende)"
+msgstr "Nog niet zichtbaar (minder dan vijf deelnemers)"
+
+msgid "5 bis 9 Teilnehmende"
+msgstr "5 tot 9 deelnemers"
+
+msgid "10 bis 19 Teilnehmende"
+msgstr "10 tot 19 deelnemers"
+
+msgid "20 oder mehr Teilnehmende"
+msgstr "20 of meer deelnemers"
+
+msgid "Verbunden"
+msgstr "Verbonden"
+
+msgid "Ein Mitglied aus Ihrer Region möchte eine Ortsgruppe gründen."
+msgstr "Een lid uit uw regio wil een lokale afdeling oprichten."
+
+msgid "Ein Mitglied aus Ihrer Region möchte sich zu einem Stammtisch treffen."
+msgstr "Een lid uit uw regio wil graag samenkomen bij een vaste ontmoeting."
+
+msgid "Der Text wurde aktualisiert, bitte neu lesen."
+msgstr "De tekst is bijgewerkt, lees hem opnieuw."
+
+msgid "Bitte bestätigen Sie, dass Sie volljährig sind."
+msgstr "Bevestig dat u meerderjarig bent."
+
+msgid "Der Mitglieder-Finder steht für Ihr Konto derzeit nicht zur Verfügung."
+msgstr "De ledenzoeker is momenteel niet beschikbaar voor uw account."
+
+msgid "Bitte willigen Sie zuerst in den Mitglieder-Finder ein."
+msgstr "Geef eerst toestemming voor de ledenzoeker."
+
+msgid "Eine erneute Teilnahme ist erst 24 Stunden nach Ihrem Widerruf möglich."
+msgstr "U kunt pas 24 uur na uw intrekking opnieuw deelnemen."
+
+msgid "Ihre Region ist noch nicht sichtbar. Es fehlen noch Teilnehmende."
+msgstr "Uw regio is nog niet zichtbaar. Er zijn nog deelnemers nodig."
+
+msgid "Sie haben bereits die höchste Zahl offener Anfragen. Ziehen Sie eine zurück oder warten Sie, bis eine endet."
+msgstr "U hebt al het maximale aantal openstaande verzoeken. Trek er een in of wacht tot er een afloopt."
+
+msgid "Die Notiz ist zu lang oder enthält unzulässige Zeichen."
+msgstr "De notitie is te lang of bevat ongeldige tekens."
+
+msgid "Zu viele Aktionen in kurzer Zeit. Bitte versuchen Sie es später erneut."
+msgstr "Te veel acties in korte tijd. Probeer het later opnieuw."
+
+msgid "Der Mitglieder-Finder ist auf dieser Instanz nicht eingeschaltet."
+msgstr "De ledenzoeker is voor deze instantie niet ingeschakeld."
+
+msgid "Der Hinweis wurde aktualisiert, bitte erneut lesen."
+msgstr "De mededeling is bijgewerkt, lees haar opnieuw."
+
+msgid "Mitglieder-Finder"
+msgstr "Ledenzoeker"
+
+msgid "Der Mitglieder-Finder steht nur Mitgliedern zur Verfügung."
+msgstr "De ledenzoeker is alleen beschikbaar voor leden."
+
+msgid "Zu viele Aufrufe in kurzer Zeit. Bitte versuchen Sie es später erneut."
+msgstr "Te veel aanroepen in korte tijd. Probeer het later opnieuw."
+
+msgid "Der Mitglieder-Finder hilft Ihnen, andere Mitglieder in Ihrer Region zu finden, um eine Ortsgruppe zu gründen oder sich zu treffen. Die Teilnahme ist freiwillig. Namen sehen Sie erst, wenn beide Seiten zugestimmt haben."
+msgstr "De ledenzoeker helpt u andere leden in uw regio te vinden om een lokale afdeling op te richten of elkaar te ontmoeten. Deelname is vrijwillig. Namen ziet u pas wanneer beide kanten hebben ingestemd."
+
+msgid "Für den Mitglieder-Finder benötigen wir Ihre Postanschrift mit deutscher Postleitzahl, und Sie müssen volljährig sein. Bitte prüfen Sie Ihre Angaben in Ihrem Profil."
+msgstr "Voor de ledenzoeker hebben we uw postadres met een Duitse postcode nodig en moet u meerderjarig zijn. Controleer uw gegevens in uw profiel."
+
+msgid "Zum Profil"
+msgstr "Naar het profiel"
+
+msgid "Frühere Einwilligung widerrufen"
+msgstr "Eerdere toestemming intrekken"
+
+msgid "Nicht mehr teilnehmen?"
+msgstr "Niet meer deelnemen?"
+
+msgid "Ihre Einwilligung wird widerrufen. Ihre Anfragen, Verbindungen und Blockierungen werden gelöscht. Eine erneute Teilnahme ist frühestens 24 Stunden nach dem Widerruf möglich."
+msgstr "Uw toestemming wordt ingetrokken. Uw verzoeken, verbindingen en blokkades worden verwijderd. U kunt op zijn vroegst 24 uur na de intrekking opnieuw deelnemen."
+
+msgid "Nicht mehr teilnehmen"
+msgstr "Niet meer deelnemen"
+
+msgid "Ihre Teilnahme ist beendet."
+msgstr "Uw deelname is beëindigd."
+
+msgid "Einwilligungstext"
+msgstr "Toestemmingstekst"
+
+msgid "Woran haben Sie Interesse?"
+msgstr "Waar bent u in geïnteresseerd?"
+
+msgid "Ich bestätige, dass ich volljährig bin."
+msgstr "Ik bevestig dat ik meerderjarig ben."
+
+msgid "Eine erneute Teilnahme ist ab %1 möglich."
+msgstr "U kunt opnieuw deelnemen vanaf %1."
+
+msgid "Sie nehmen jetzt teil."
+msgstr "U neemt nu deel."
+
+msgid "Ihre Teilnahme"
+msgstr "Uw deelname"
+
+msgid "Ihre Region: Postleitzahlbereich %1"
+msgstr "Uw regio: postcodegebied %1"
+
+msgid "Ihr Interesse: %1"
+msgstr "Uw interesse: %1"
+
+msgid "Eingehende Anfragen"
+msgstr "Binnenkomende verzoeken"
+
+msgid "Erhalten am %1"
+msgstr "Ontvangen op %1"
+
+msgid "Läuft ab am %1"
+msgstr "Verloopt op %1"
+
+msgid "Anfrage vom %1 annehmen"
+msgstr "Verzoek van %1 accepteren"
+
+msgid "Anfrage vom %1 ablehnen"
+msgstr "Verzoek van %1 afwijzen"
+
+msgid "Ablehnen und blockieren"
+msgstr "Afwijzen en blokkeren"
+
+msgid "Anfrage vom %1 ablehnen und blockieren"
+msgstr "Verzoek van %1 afwijzen en blokkeren"
+
+msgid "Ablehnen und blockieren?"
+msgstr "Afwijzen en blokkeren?"
+
+msgid "Diese Person kann Ihnen keine Anfragen mehr schicken. Wer es ist, erfahren Sie nicht. Sie können die Blockierung später aufheben."
+msgstr "Deze persoon kan u geen verzoeken meer sturen. Wie het is, krijgt u niet te weten. U kunt de blokkade later opheffen."
+
+msgid "Diese Anfrage ist nicht mehr offen."
+msgstr "Dit verzoek staat niet meer open."
+
+msgid "Verbindung hergestellt."
+msgstr "Verbinding tot stand gebracht."
+
+msgid "Anfrage abgelehnt und blockiert."
+msgstr "Verzoek afgewezen en geblokkeerd."
+
+msgid "Anfrage abgelehnt."
+msgstr "Verzoek afgewezen."
+
+msgid "Verbindungen"
+msgstr "Verbindingen"
+
+msgid "Verbunden seit %1"
+msgstr "Verbonden sinds %1"
+
+msgid "Endet am %1"
+msgstr "Eindigt op %1"
+
+msgid "Verbindung blockieren"
+msgstr "Verbinding blokkeren"
+
+msgid "Verbindung blockieren?"
+msgstr "Verbinding blokkeren?"
+
+msgid "Die Verbindung wird beendet. Diese Person kann Ihnen keine Anfragen mehr schicken."
+msgstr "De verbinding wordt beëindigd. Deze persoon kan u geen verzoeken meer sturen."
+
+msgid "Verbindung blockiert."
+msgstr "Verbinding geblokkeerd."
+
+msgid "Ihre Nachricht"
+msgstr "Uw bericht"
+
+msgid "Nachricht gesendet. Die Unterhaltung finden Sie unter Kommunikation."
+msgstr "Bericht verzonden. U vindt het gesprek onder Communicatie."
+
+msgid "Anfrage senden"
+msgstr "Verzoek versturen"
+
+msgid "Ihre Anfrage geht an ein zufällig gewähltes Mitglied Ihrer Region, das Interesse hat. Die Person erfährt nicht, wer Sie sind, bevor sie zustimmt."
+msgstr "Uw verzoek gaat naar een willekeurig gekozen lid van uw regio dat interesse heeft. De persoon weet niet wie u bent voordat hij of zij instemt."
+
+msgid "Wofür?"
+msgstr "Waarvoor?"
+
+msgid "So lautet Ihre Anfrage: %1"
+msgstr "Uw verzoek luidt: %1"
+
+msgid "Notiz (freiwillig)"
+msgstr "Notitie (optioneel)"
+
+msgid "Die Notiz sieht nur die angefragte Person. Bitte schreiben Sie keine persönlichen Daten hinein."
+msgstr "Alleen de aangeschreven persoon ziet de notitie. Schrijf er geen persoonlijke gegevens in."
+
+msgid "%1 von %2 offenen Anfragen"
+msgstr "%1 van %2 openstaande verzoeken"
+
+msgid "Ihre Anfrage wurde gesendet."
+msgstr "Uw verzoek is verzonden."
+
+msgid "Sie erfahren nur, wenn jemand zustimmt."
+msgstr "U hoort het alleen als iemand instemt."
+
+msgid "Gesendete Anfragen"
+msgstr "Verzonden verzoeken"
+
+msgid "Anfrage vom %1 zurückziehen"
+msgstr "Verzoek van %1 intrekken"
+
+msgid "Blockierte"
+msgstr "Geblokkeerd"
+
+msgid "Blockiert am %1"
+msgstr "Geblokkeerd op %1"
+
+msgid "Entsperren"
+msgstr "Deblokkeren"
+
+msgid "Blockierung vom %1 aufheben"
+msgstr "Blokkade van %1 opheffen"
+
+msgid "Entsperrt."
+msgstr "Gedeblokkeerd."
+
+msgid "Sie sind im Begriff, den Mitglieder-Finder für diese Instanz einzuschalten. Mitglieder, die ausdrücklich einwilligen, können damit andere Mitglieder derselben Region (die ersten zwei Ziffern der Postleitzahl) finden. Namen werden erst nach beidseitiger Zustimmung sichtbar."
+msgstr "U staat op het punt de ledenzoeker voor deze instantie in te schakelen. Leden die uitdrukkelijk toestemming geven, kunnen daarmee andere leden uit dezelfde regio vinden (de eerste twee cijfers van de postcode). Namen worden pas zichtbaar nadat beide kanten hebben ingestemd."
+
+msgid "Eine Parteimitgliedschaft ist ein besonders geschütztes Datum (Art. 9 DSGVO und ähnliche Regelungen anderer Länder). Zulässigkeit, Einwilligung, Informationspflichten und die Notwendigkeit einer Datenschutz-Folgenabschätzung sind je Land verschieden. Lapis Cloud ist keine Rechtsberatung."
+msgstr "Partijlidmaatschap is een bijzonder beschermd gegeven (art. 9 AVG en vergelijkbare regels van andere landen). Toelaatbaarheid, toestemming, informatieplichten en de noodzaak van een gegevensbeschermingseffectbeoordeling verschillen per land. Lapis Cloud is geen juridisch advies."
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass eine Rechtsgrundlage besteht und die Mitglieder informiert werden. Ersetzen Sie den eingebauten Einwilligungstext in der Verwaltung der Vertragstexte durch eine rechtlich geprüfte Fassung."
+msgstr "Als beheerder bent u ervoor verantwoordelijk dat er een rechtsgrond bestaat en dat de leden worden geïnformeerd. Vervang de ingebouwde toestemmingstekst in het beheer van de overeenkomstteksten door een juridisch gecontroleerde versie."
+
+msgid "Mitglieder-Finder erlauben"
+msgstr "Ledenzoeker toestaan"
+
+msgid "Mitglieder können sich nach ausdrücklicher Einwilligung gegenseitig finden. Namen werden erst nach beidseitiger Zustimmung sichtbar."
+msgstr "Leden kunnen elkaar vinden na uitdrukkelijke toestemming. Namen worden pas zichtbaar nadat beide kanten hebben ingestemd."
+
+msgid "Platzhaltertext aktiv: Ersetzen Sie den eingebauten Einwilligungstext unter Vertragstexte."
+msgstr "Plaatsvervangende tekst actief: vervang de ingebouwde toestemmingstekst onder Overeenkomstteksten."
+
+msgid "Zu den Vertragstexten"
+msgstr "Naar de overeenkomstteksten"
+
+msgid "Der Mitglieder-Finder ist eingeschaltet."
+msgstr "De ledenzoeker is ingeschakeld."
+
+msgid "Mitglieder-Finder abschalten?"
+msgstr "Ledenzoeker uitschakelen?"
+
+msgid "Wenn Sie den Mitglieder-Finder abschalten, werden alle Anfragen und Blockierungen gelöscht und alle Einwilligungen beendet."
+msgstr "Als u de ledenzoeker uitschakelt, worden alle verzoeken en blokkades verwijderd en alle toestemmingen beëindigd."
+
+msgid "Abschalten"
+msgstr "Uitschakelen"
+
+msgid "Der Mitglieder-Finder ist ausgeschaltet."
+msgstr "De ledenzoeker is uitgeschakeld."
+
+msgid "Mitglieder-Finder erlauben?"
+msgstr "Ledenzoeker toestaan?"
+
+msgid "Gut zu wissen: Wenn Sie den Mitglieder-Finder später abschalten, werden alle Anfragen und Blockierungen gelöscht und alle Einwilligungen beendet."
+msgstr "Goed om te weten: als u de ledenzoeker later uitschakelt, worden alle verzoeken en blokkades verwijderd en alle toestemmingen beëindigd."
+
+msgid "Mitglieder-Finder: Regionen"
+msgstr "Ledenzoeker: regio's"
+
+msgid "Noch keine Region mit mindestens fünf Teilnehmenden."
+msgstr "Nog geen regio met ten minste vijf deelnemers."
+
+msgid "Region"
+msgstr "Regio"
+
+msgid "Regionen mit mindestens fünf Teilnehmenden"
+msgstr "Regio's met ten minste vijf deelnemers"

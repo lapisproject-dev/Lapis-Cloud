@@ -2,6 +2,7 @@ package network.lapis.cloud.client
 
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.RegionalChapterRefDto
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -190,6 +191,17 @@ class NavVisibilityTest {
                 NavVisibility.showsCarpoolFlatLink(status),
                 "showsCarpoolFlatLink($status)",
             )
+        }
+    }
+
+    @Test
+    fun memberFinder_needsAnActiveMember_andTheServersYes() {
+        // V1.9.145: ACTIVE only (the server refuses everybody else), and only while the instance switch is on; unknown (null) hides the entry.
+        MemberStatus.entries.forEach { status ->
+            val member = status in MemberStatusSets.ORGANIZATION_MEMBER
+            assertEquals(member, NavVisibility.showsMemberFinder(status, true), "showsMemberFinder($status, true)")
+            assertFalse(NavVisibility.showsMemberFinder(status, false), "showsMemberFinder($status, false)")
+            assertFalse(NavVisibility.showsMemberFinder(status, null), "showsMemberFinder($status, null)")
         }
     }
 }

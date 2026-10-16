@@ -198,6 +198,14 @@ class AgreementTextsScreenDomTest {
                         hasDraft = false,
                         olderAcknowledgmentCount = null,
                     ),
+                    AgreementTextKindOverviewDto(
+                        kind = AgreementTextKind.FINDER,
+                        placeholderActive = true,
+                        current = null,
+                        builtinVersionLabel = "2026-10-16.v1",
+                        hasDraft = false,
+                        olderAcknowledgmentCount = null,
+                    ),
                 ),
         )
 
@@ -250,6 +258,28 @@ class AgreementTextsScreenDomTest {
                     ) { element().text().contains("Version: 2026-10-01.v1") }
                     assertFalse(element().text().contains("Platzhaltertext aktiv"))
                     assertTrue(element().text().contains("Personen ohne Bestätigung dieser Fassung: 3"))
+                }
+            }
+        }
+
+    @Test
+    fun theFinderTab_isAnOptionalFeatureText_withItsHintAndWarning_andSavesUnderItsOwnKind(): Promise<Unit> =
+        test {
+            withWorld(World()) { calls, routes ->
+                mountedForm("agreement-texts-finder") { root, element ->
+                    renderAgreementTextsScreen(root)
+                    awaitUntil("the tabs") { element().allOf("[role=tab]").size == 5 }
+                    element().buttonNamed("Einwilligung Mitglieder-Finder").click()
+                    awaitUntil("the hint of the optional feature") {
+                        element().text().contains("Gilt nur, wenn der Mitglieder-Finder für die Instanz eingeschaltet ist.")
+                    }
+                    awaitUntil("the placeholder warning of the finder text") { element().text().contains("(Version 2026-10-16.v1)") }
+                    awaitUntil("the editor") { element().allOf("label").any { it.text().trim().startsWith("Vertragstext") } }
+                    element().typeInto("Version", "2026-10-16.v2")
+                    element().typeInto("Vertragstext", "Einwilligung in den Mitglieder-Finder.")
+                    element().buttonNamed("Als Entwurf speichern").click()
+                    awaitUntil("the save call") { calls.toRoute(routes.save).size == 1 }
+                    assertEquals("FINDER", calls.singleCall(routes.save).rpcParam(0).kind as String)
                 }
             }
         }

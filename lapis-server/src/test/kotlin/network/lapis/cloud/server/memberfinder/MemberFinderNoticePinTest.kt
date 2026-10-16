@@ -4,14 +4,16 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import network.lapis.cloud.server.db.SourceScan
 import network.lapis.cloud.server.encounter.ConsentHashing
 import network.lapis.cloud.shared.domain.MEMBER_FINDER_NOTICE_VERSION
+import java.io.File
 
 /**
  * V1.9.144 -- the operator notice an ADMIN acknowledges before switching the member finder on. Version and hash of the German reference text are pinned as
  * LITERALS (pattern of `PulpitRecordingNoticePinTest`): every textual change forces a new version -- the answer to a failing pin is to bump
- * [MEMBER_FINDER_NOTICE_VERSION] together with [MemberFinderNotice.VERSION], never to edit the literal. (The admin dialog that shows this text comes with
- * the client wave; its paragraph-for-paragraph check is added there.)
+ * [MEMBER_FINDER_NOTICE_VERSION] together with [MemberFinderNotice.VERSION], never to edit the literal. The admin dialog (V1.9.145) shows the same paragraphs
+ * through gettext; the last test checks that each one stands word for word in the client source.
  */
 class MemberFinderNoticePinTest :
     FunSpec({
@@ -41,5 +43,17 @@ class MemberFinderNoticePinTest :
             text shouldContain "Ich habe die rechtliche Zulässigkeit für mein Land geprüft und übernehme die Verantwortung."
             MemberFinderNotice.PARAGRAPHS_DE.size shouldBe 4
             for (bad in listOf("*innen", ":innen", "_innen", "/innen")) text shouldNotContain bad
+        }
+
+        test("every paragraph of the reference text stands word for word in the client source (so the translated text cannot drift)") {
+            val client =
+                listOf(File("../lapis-client/src/jsMain/kotlin"), File("lapis-client/src/jsMain/kotlin"))
+                    .first { it.exists() }
+                    .resolve("network/lapis/cloud/client/MemberFinderSettings.kt")
+                    .readText()
+            (SourceScan.blank(client).isNotEmpty()) shouldBe true
+            MemberFinderNotice.PARAGRAPHS_DE.forEach { paragraph ->
+                (client.contains("\"$paragraph\"")) shouldBe true
+            }
         }
     })

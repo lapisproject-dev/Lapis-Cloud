@@ -23707,3 +23707,291 @@ msgstr ""
 
 msgid "Die Aufzeichnung konnte nicht geändert werden. Bitte versuchen Sie es erneut."
 msgstr ""
+
+msgid "Ortsgruppe gründen"
+msgstr ""
+
+msgid "Stammtisch besuchen"
+msgstr ""
+
+msgid "Beides"
+msgstr ""
+
+msgid "Noch nicht sichtbar (weniger als fünf Teilnehmende)"
+msgstr ""
+
+msgid "5 bis 9 Teilnehmende"
+msgstr ""
+
+msgid "10 bis 19 Teilnehmende"
+msgstr ""
+
+msgid "20 oder mehr Teilnehmende"
+msgstr ""
+
+msgid "Verbunden"
+msgstr ""
+
+msgid "Ein Mitglied aus Ihrer Region möchte eine Ortsgruppe gründen."
+msgstr ""
+
+msgid "Ein Mitglied aus Ihrer Region möchte sich zu einem Stammtisch treffen."
+msgstr ""
+
+msgid "Der Text wurde aktualisiert, bitte neu lesen."
+msgstr ""
+
+msgid "Bitte bestätigen Sie, dass Sie volljährig sind."
+msgstr ""
+
+msgid "Der Mitglieder-Finder steht für Ihr Konto derzeit nicht zur Verfügung."
+msgstr ""
+
+msgid "Bitte willigen Sie zuerst in den Mitglieder-Finder ein."
+msgstr ""
+
+msgid "Eine erneute Teilnahme ist erst 24 Stunden nach Ihrem Widerruf möglich."
+msgstr ""
+
+msgid "Ihre Region ist noch nicht sichtbar. Es fehlen noch Teilnehmende."
+msgstr ""
+
+msgid "Sie haben bereits die höchste Zahl offener Anfragen. Ziehen Sie eine zurück oder warten Sie, bis eine endet."
+msgstr ""
+
+msgid "Die Notiz ist zu lang oder enthält unzulässige Zeichen."
+msgstr ""
+
+msgid "Zu viele Aktionen in kurzer Zeit. Bitte versuchen Sie es später erneut."
+msgstr ""
+
+msgid "Der Mitglieder-Finder ist auf dieser Instanz nicht eingeschaltet."
+msgstr ""
+
+msgid "Der Hinweis wurde aktualisiert, bitte erneut lesen."
+msgstr ""
+
+msgid "Mitglieder-Finder"
+msgstr ""
+
+msgid "Der Mitglieder-Finder steht nur Mitgliedern zur Verfügung."
+msgstr ""
+
+msgid "Zu viele Aufrufe in kurzer Zeit. Bitte versuchen Sie es später erneut."
+msgstr ""
+
+msgid "Der Mitglieder-Finder hilft Ihnen, andere Mitglieder in Ihrer Region zu finden, um eine Ortsgruppe zu gründen oder sich zu treffen. Die Teilnahme ist freiwillig. Namen sehen Sie erst, wenn beide Seiten zugestimmt haben."
+msgstr ""
+
+msgid "Für den Mitglieder-Finder benötigen wir Ihre Postanschrift mit deutscher Postleitzahl, und Sie müssen volljährig sein. Bitte prüfen Sie Ihre Angaben in Ihrem Profil."
+msgstr ""
+
+msgid "Zum Profil"
+msgstr ""
+
+msgid "Frühere Einwilligung widerrufen"
+msgstr ""
+
+msgid "Nicht mehr teilnehmen?"
+msgstr ""
+
+msgid "Ihre Einwilligung wird widerrufen. Ihre Anfragen, Verbindungen und Blockierungen werden gelöscht. Eine erneute Teilnahme ist frühestens 24 Stunden nach dem Widerruf möglich."
+msgstr ""
+
+msgid "Nicht mehr teilnehmen"
+msgstr ""
+
+msgid "Ihre Teilnahme ist beendet."
+msgstr ""
+
+msgid "Einwilligungstext"
+msgstr ""
+
+msgid "Woran haben Sie Interesse?"
+msgstr ""
+
+msgid "Ich bestätige, dass ich volljährig bin."
+msgstr ""
+
+msgid "Eine erneute Teilnahme ist ab %1 möglich."
+msgstr ""
+
+msgid "Sie nehmen jetzt teil."
+msgstr ""
+
+msgid "Ihre Teilnahme"
+msgstr ""
+
+msgid "Ihre Region: Postleitzahlbereich %1"
+msgstr ""
+
+msgid "Ihr Interesse: %1"
+msgstr ""
+
+msgid "Eingehende Anfragen"
+msgstr ""
+
+msgid "Erhalten am %1"
+msgstr ""
+
+msgid "Läuft ab am %1"
+msgstr ""
+
+msgid "Anfrage vom %1 annehmen"
+msgstr ""
+
+msgid "Anfrage vom %1 ablehnen"
+msgstr ""
+
+msgid "Ablehnen und blockieren"
+msgstr ""
+
+msgid "Anfrage vom %1 ablehnen und blockieren"
+msgstr ""
+
+msgid "Ablehnen und blockieren?"
+msgstr ""
+
+msgid "Diese Person kann Ihnen keine Anfragen mehr schicken. Wer es ist, erfahren Sie nicht. Sie können die Blockierung später aufheben."
+msgstr ""
+
+msgid "Diese Anfrage ist nicht mehr offen."
+msgstr ""
+
+msgid "Verbindung hergestellt."
+msgstr ""
+
+msgid "Anfrage abgelehnt und blockiert."
+msgstr ""
+
+msgid "Anfrage abgelehnt."
+msgstr ""
+
+msgid "Verbindungen"
+msgstr ""
+
+msgid "Verbunden seit %1"
+msgstr ""
+
+msgid "Endet am %1"
+msgstr ""
+
+msgid "Verbindung blockieren"
+msgstr ""
+
+msgid "Verbindung blockieren?"
+msgstr ""
+
+msgid "Die Verbindung wird beendet. Diese Person kann Ihnen keine Anfragen mehr schicken."
+msgstr ""
+
+msgid "Verbindung blockiert."
+msgstr ""
+
+msgid "Ihre Nachricht"
+msgstr ""
+
+msgid "Nachricht gesendet. Die Unterhaltung finden Sie unter Kommunikation."
+msgstr ""
+
+msgid "Anfrage senden"
+msgstr ""
+
+msgid "Ihre Anfrage geht an ein zufällig gewähltes Mitglied Ihrer Region, das Interesse hat. Die Person erfährt nicht, wer Sie sind, bevor sie zustimmt."
+msgstr ""
+
+msgid "Wofür?"
+msgstr ""
+
+msgid "So lautet Ihre Anfrage: %1"
+msgstr ""
+
+msgid "Notiz (freiwillig)"
+msgstr ""
+
+msgid "Die Notiz sieht nur die angefragte Person. Bitte schreiben Sie keine persönlichen Daten hinein."
+msgstr ""
+
+msgid "%1 von %2 offenen Anfragen"
+msgstr ""
+
+msgid "Ihre Anfrage wurde gesendet."
+msgstr ""
+
+msgid "Sie erfahren nur, wenn jemand zustimmt."
+msgstr ""
+
+msgid "Gesendete Anfragen"
+msgstr ""
+
+msgid "Anfrage vom %1 zurückziehen"
+msgstr ""
+
+msgid "Blockierte"
+msgstr ""
+
+msgid "Blockiert am %1"
+msgstr ""
+
+msgid "Entsperren"
+msgstr ""
+
+msgid "Blockierung vom %1 aufheben"
+msgstr ""
+
+msgid "Entsperrt."
+msgstr ""
+
+msgid "Sie sind im Begriff, den Mitglieder-Finder für diese Instanz einzuschalten. Mitglieder, die ausdrücklich einwilligen, können damit andere Mitglieder derselben Region (die ersten zwei Ziffern der Postleitzahl) finden. Namen werden erst nach beidseitiger Zustimmung sichtbar."
+msgstr ""
+
+msgid "Eine Parteimitgliedschaft ist ein besonders geschütztes Datum (Art. 9 DSGVO und ähnliche Regelungen anderer Länder). Zulässigkeit, Einwilligung, Informationspflichten und die Notwendigkeit einer Datenschutz-Folgenabschätzung sind je Land verschieden. Lapis Cloud ist keine Rechtsberatung."
+msgstr ""
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass eine Rechtsgrundlage besteht und die Mitglieder informiert werden. Ersetzen Sie den eingebauten Einwilligungstext in der Verwaltung der Vertragstexte durch eine rechtlich geprüfte Fassung."
+msgstr ""
+
+msgid "Mitglieder-Finder erlauben"
+msgstr ""
+
+msgid "Mitglieder können sich nach ausdrücklicher Einwilligung gegenseitig finden. Namen werden erst nach beidseitiger Zustimmung sichtbar."
+msgstr ""
+
+msgid "Platzhaltertext aktiv: Ersetzen Sie den eingebauten Einwilligungstext unter Vertragstexte."
+msgstr ""
+
+msgid "Zu den Vertragstexten"
+msgstr ""
+
+msgid "Der Mitglieder-Finder ist eingeschaltet."
+msgstr ""
+
+msgid "Mitglieder-Finder abschalten?"
+msgstr ""
+
+msgid "Wenn Sie den Mitglieder-Finder abschalten, werden alle Anfragen und Blockierungen gelöscht und alle Einwilligungen beendet."
+msgstr ""
+
+msgid "Abschalten"
+msgstr ""
+
+msgid "Der Mitglieder-Finder ist ausgeschaltet."
+msgstr ""
+
+msgid "Mitglieder-Finder erlauben?"
+msgstr ""
+
+msgid "Gut zu wissen: Wenn Sie den Mitglieder-Finder später abschalten, werden alle Anfragen und Blockierungen gelöscht und alle Einwilligungen beendet."
+msgstr ""
+
+msgid "Mitglieder-Finder: Regionen"
+msgstr ""
+
+msgid "Noch keine Region mit mindestens fünf Teilnehmenden."
+msgstr ""
+
+msgid "Region"
+msgstr ""
+
+msgid "Regionen mit mindestens fünf Teilnehmenden"
+msgstr ""

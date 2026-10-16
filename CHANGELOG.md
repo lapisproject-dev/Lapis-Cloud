@@ -6,6 +6,40 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.145 -- Member finder (client)
+
+The client of the **optional member finder** (server since V1.9.144): the member screen, the operator-notice dialog for the ADMIN, a board overview and the menu entry. No server change, **no migration**
+(V1 to V107 untouched); the server got only tests. **Nothing was run in a real browser or on a real instance** -- the client is covered by headless-browser tests with a stubbed server.
+
+#### What changes
+
+- **Member screen** `/member-finder` (menu entry "Mitglieder-Finder" in the group "Mitgliedschaft", right after the carpool centre; visible only for ACTIVE members and only while the instance offers the finder --
+  one `getState` per session, in memory only). Mode A: consent text in the reading frame, interest without a default, confirmation of age, a stale text is re-read with the choices kept. Mode B: own participation
+  (region, band, interest, withdrawal with a question first), incoming requests (accept, decline, decline and block; **the sender is never shown**), connections (the only place a name appears; message, block), the
+  form for a new request (purpose fixed by the interest, fixed templates, note with the server's own counting), own requests (withdraw while pending) and blocks (lift). **Empty lists are not drawn at all.**
+- **Same answer for every request:** after `sendRequest` the page reads the own list again and announces one fixed sentence; nothing of the response steers the page.
+- **Admin dialog** in the "Videokonferenz" card (below the pulpit recording): switching on shows the operator notice (paragraphs word for word as the server's reference text, pinned by a test), focus on
+  "Abbrechen", Escape cancels, "Einschalten" locked until the legal check is ticked; a warning while the built-in consent text is still the placeholder; a stale acknowledgment can be repeated; switching **off** asks
+  first because it deletes data.
+- **Board overview:** regions with a **band** (never a count), sorted, for BOARD/ADMIN on the member administration; silent while the finder is off.
+- **Privacy in the client:** no member id is read, only random ids of requests/connections/blocks are in the DOM, note and name only through the `untrusted*` helpers, never in `aria-label`, live region, toast or title;
+  nothing in the console or browser storage.
+- **Fixed sentence per exception type** (Kilua RPC transmits only the type); the global toast chain is unchanged.
+- **Tests:** `MemberFinderScreenDomTest` (23 cases incl. the allowlist of the DOM), `MemberFinderSettingsDomTest`, `MemberFinderBoardCardDomTest`, sidebar/route/visibility tests, FINDER tab of the agreement texts;
+  server side `ClientMemberFinderPrivacyTripwireTest`, `MemberFinderI18nCatalogTest`, the paragraph pin in `MemberFinderNoticePinTest`; ratchet R34 documented 177 -> 178 reads / 55 -> 56 files (the navigation probe).
+  **Docs:** `docs/features/member-finder.adoc`, `docs/architecture/member-finder.adoc`, `CLAUDE.md`. 96 new client messages in all eight catalogs (**model translations**).
+
+#### Known limitations
+
+- **Never seen in real operation.** Not run in a browser, not on a real instance; no server defect was found in this wave.
+- The interest can only be changed by withdrawing and taking part again (the server allows a change without a wait; the screen has no control for it).
+- An earlier consent of a member who is not eligible any more can be withdrawn through a quiet link, but the screen cannot tell whether one exists (no field for it in the state).
+- The admin switch lives in the "Videokonferenz" card although the finder is no conference feature.
+- `eligible` is not broken down; the screen names the likely reasons (German postal address, age).
+- The notice's sentence about the deletion on switch-off is not part of the hashed notice V1.
+- No e-mail notification, no "report"; the privacy page (`LegalHtml`) does not mention the finder yet.
+- Not legal advice: the notice and the built-in consent text are drafts.
+
 ### V1.9.144 -- Member finder (server side)
 
 The first wave of an **optional member finder**: members who *explicitly consent* can send a neutral request to **one** random consenting member of the same region (the first two digits of

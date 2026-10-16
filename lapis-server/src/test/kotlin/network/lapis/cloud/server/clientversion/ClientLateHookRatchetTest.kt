@@ -112,6 +112,19 @@ private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
                     "V1.9.143: the operator-notice dialog; the hook only moves the focus to \"Abbrechen\" once Bootstrap has shown the " +
                     "modal (the same two-moment idiom as confirmDialog); no attribute is written"
             ),
+        "MemberFinderSettings.kt" to
+            (
+                1 to
+                    "V1.9.145: the operator-notice dialog of the member finder; the hook only moves the focus to \"Abbrechen\" once " +
+                    "Bootstrap has shown the modal (the same two-moment idiom as confirmDialog and the pulpit recording); no attribute is written"
+            ),
+        "MemberFinderScreen.kt" to
+            (
+                1 to
+                    "V1.9.145: the message dialog of a connection; registered on a Modal created in the same call, before it has an " +
+                    "element, " +
+                    "it only moves the focus into the text field once Bootstrap has shown the modal; no attribute is written"
+            ),
         "EncounterPulpitRecordingConsentDialog.kt" to
             (
                 1 to

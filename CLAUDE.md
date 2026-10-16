@@ -225,6 +225,12 @@ Details: `docs/features/member-finder.adoc`, `docs/architecture/member-finder.ad
 - **Texte**: Agreement-Kind `FINDER` (Platzhalter ein Entwurf); eine neu veröffentlichte Fassung beendet alle wirksamen Einwilligungen; der Zähler "ältere Bestätigungen" ist für `FINDER` immer 0.
 - **Backup und DSGVO**: die vier Tabellen sind aus dem Backup ausgeschlossen; `MemberFinderPersonalData` exportiert Ausgänge nur in der Sender-Sicht. Neue Methoden von `IMemberFinderService` kommen ans ENDE des Interface; der Dienst wird als letzter in `Application.kt` registriert.
 
+V1.9.145 (Client) -- drei Kurzregeln:
+
+- **Im Client erscheint keine Mitglieds-ID**; `data-*` nur für `data-request-id`, `data-connection-id` und `data-block-id` (zufällige UUIDs). Der Name der Gegenseite steht nur in der Verbindungskarte, nie in `aria-label`, Live-Region, Toast oder Titel; Notiz und Name nur über `untrusted*` (`ClientMemberFinderPrivacyTripwireTest`).
+- **Die Hinweisabsätze stehen wörtlich in `MemberFinderSettings.kt`** (`MemberFinderNoticePinTest`); eine Textänderung braucht eine neue Version. Der Lösch-Satz ("Gut zu wissen: ...") gehört nicht zum gehashten Text V1.
+- **`getState` nur für ACTIVE aufrufen** (der Server verweigert alle anderen mit einem nackten Forbidden und es kostet eine der 240 Lese-Anfragen je Stunde); nach Aktionen nur die betroffene Liste neu lesen, kein Polling.
+
 ## Vertragstexte (V1.9.134)
 
 Details: `docs/features/agreement-texts.adoc`. Kurzregeln:

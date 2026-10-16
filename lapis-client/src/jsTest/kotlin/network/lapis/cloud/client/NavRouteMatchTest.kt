@@ -48,4 +48,12 @@ class NavRouteMatchTest {
     fun nullCurrentRoute_isNeverActive() {
         assertFalse(NavRouteMatch.isActive(null, "/dashboard"))
     }
+
+    @Test
+    fun memberFinder_doesNotMatchNeighbours() {
+        assertTrue(NavRouteMatch.isActive(Routes.MEMBER_FINDER, Routes.MEMBER_FINDER))
+        assertFalse(NavRouteMatch.isActive("/member-finders", Routes.MEMBER_FINDER))
+        assertFalse(NavRouteMatch.isActive("/members", Routes.MEMBER_FINDER))
+        assertFalse(NavRouteMatch.isActive(Routes.MEMBER_FINDER, "/members"))
+    }
 }

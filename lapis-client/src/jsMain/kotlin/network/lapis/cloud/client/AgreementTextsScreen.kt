@@ -79,7 +79,7 @@ internal fun agreementKindLabel(kind: AgreementTextKind): String =
         // V1.9.143: the two texts of the optional pulpit recording (see PulpitRecordingSettings.kt).
         AgreementTextKind.REC_ROOM -> tr("Hinweis bei Aufzeichnung (Raum)")
         AgreementTextKind.REC_PULPIT -> tr("Zustimmung der Kanzel zur Aufzeichnung")
-        // V1.9.144: the consent text of the optional member finder (server only so far, no screen of its own yet).
+        // V1.9.144/V1.9.145: the consent text of the optional member finder (shown to the member on /member-finder, see MemberFinderScreen.kt).
         AgreementTextKind.FINDER -> tr("Einwilligung Mitglieder-Finder")
     }
 

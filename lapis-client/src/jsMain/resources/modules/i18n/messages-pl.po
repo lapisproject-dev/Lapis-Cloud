@@ -24643,3 +24643,291 @@ msgstr "Usługa nagrywania jest w tej chwili niedostępna."
 
 msgid "Die Aufzeichnung konnte nicht geändert werden. Bitte versuchen Sie es erneut."
 msgstr "Nie udało się zmienić nagrywania. Spróbuj ponownie."
+
+msgid "Ortsgruppe gründen"
+msgstr "Założyć grupę lokalną"
+
+msgid "Stammtisch besuchen"
+msgstr "Odwiedzić stałe spotkanie"
+
+msgid "Beides"
+msgstr "Oba"
+
+msgid "Noch nicht sichtbar (weniger als fünf Teilnehmende)"
+msgstr "Jeszcze niewidoczne (mniej niż pięciu uczestników)"
+
+msgid "5 bis 9 Teilnehmende"
+msgstr "5 do 9 uczestników"
+
+msgid "10 bis 19 Teilnehmende"
+msgstr "10 do 19 uczestników"
+
+msgid "20 oder mehr Teilnehmende"
+msgstr "20 lub więcej uczestników"
+
+msgid "Verbunden"
+msgstr "Połączono"
+
+msgid "Ein Mitglied aus Ihrer Region möchte eine Ortsgruppe gründen."
+msgstr "Członek z Twojego regionu chce założyć grupę lokalną."
+
+msgid "Ein Mitglied aus Ihrer Region möchte sich zu einem Stammtisch treffen."
+msgstr "Członek z Twojego regionu chce spotkać się na stałym spotkaniu."
+
+msgid "Der Text wurde aktualisiert, bitte neu lesen."
+msgstr "Tekst został zaktualizowany, przeczytaj go ponownie."
+
+msgid "Bitte bestätigen Sie, dass Sie volljährig sind."
+msgstr "Potwierdź, że jesteś pełnoletni."
+
+msgid "Der Mitglieder-Finder steht für Ihr Konto derzeit nicht zur Verfügung."
+msgstr "Wyszukiwarka członków jest obecnie niedostępna dla Twojego konta."
+
+msgid "Bitte willigen Sie zuerst in den Mitglieder-Finder ein."
+msgstr "Najpierw wyraź zgodę na wyszukiwarkę członków."
+
+msgid "Eine erneute Teilnahme ist erst 24 Stunden nach Ihrem Widerruf möglich."
+msgstr "Ponowny udział jest możliwy dopiero 24 godziny po wycofaniu zgody."
+
+msgid "Ihre Region ist noch nicht sichtbar. Es fehlen noch Teilnehmende."
+msgstr "Twój region nie jest jeszcze widoczny. Brakuje uczestników."
+
+msgid "Sie haben bereits die höchste Zahl offener Anfragen. Ziehen Sie eine zurück oder warten Sie, bis eine endet."
+msgstr "Masz już maksymalną liczbę otwartych zapytań. Wycofaj jedno lub poczekaj, aż któreś wygaśnie."
+
+msgid "Die Notiz ist zu lang oder enthält unzulässige Zeichen."
+msgstr "Notatka jest za długa lub zawiera niedozwolone znaki."
+
+msgid "Zu viele Aktionen in kurzer Zeit. Bitte versuchen Sie es später erneut."
+msgstr "Zbyt wiele działań w krótkim czasie. Spróbuj ponownie później."
+
+msgid "Der Mitglieder-Finder ist auf dieser Instanz nicht eingeschaltet."
+msgstr "Wyszukiwarka członków nie jest włączona w tej instancji."
+
+msgid "Der Hinweis wurde aktualisiert, bitte erneut lesen."
+msgstr "Informacja została zaktualizowana, przeczytaj ją ponownie."
+
+msgid "Mitglieder-Finder"
+msgstr "Wyszukiwarka członków"
+
+msgid "Der Mitglieder-Finder steht nur Mitgliedern zur Verfügung."
+msgstr "Wyszukiwarka członków jest dostępna tylko dla członków."
+
+msgid "Zu viele Aufrufe in kurzer Zeit. Bitte versuchen Sie es später erneut."
+msgstr "Zbyt wiele wywołań w krótkim czasie. Spróbuj ponownie później."
+
+msgid "Der Mitglieder-Finder hilft Ihnen, andere Mitglieder in Ihrer Region zu finden, um eine Ortsgruppe zu gründen oder sich zu treffen. Die Teilnahme ist freiwillig. Namen sehen Sie erst, wenn beide Seiten zugestimmt haben."
+msgstr "Wyszukiwarka członków pomaga Ci znaleźć innych członków w Twoim regionie, aby założyć grupę lokalną lub się spotkać. Udział jest dobrowolny. Imiona i nazwiska zobaczysz dopiero, gdy obie strony wyrażą zgodę."
+
+msgid "Für den Mitglieder-Finder benötigen wir Ihre Postanschrift mit deutscher Postleitzahl, und Sie müssen volljährig sein. Bitte prüfen Sie Ihre Angaben in Ihrem Profil."
+msgstr "Do korzystania z wyszukiwarki członków potrzebujemy Twojego adresu pocztowego z niemieckim kodem pocztowym, a Ty musisz być pełnoletni. Sprawdź swoje dane w profilu."
+
+msgid "Zum Profil"
+msgstr "Przejdź do profilu"
+
+msgid "Frühere Einwilligung widerrufen"
+msgstr "Wycofaj wcześniejszą zgodę"
+
+msgid "Nicht mehr teilnehmen?"
+msgstr "Zrezygnować z udziału?"
+
+msgid "Ihre Einwilligung wird widerrufen. Ihre Anfragen, Verbindungen und Blockierungen werden gelöscht. Eine erneute Teilnahme ist frühestens 24 Stunden nach dem Widerruf möglich."
+msgstr "Twoja zgoda zostanie wycofana. Twoje zapytania, połączenia i blokady zostaną usunięte. Ponowny udział będzie możliwy najwcześniej 24 godziny po wycofaniu zgody."
+
+msgid "Nicht mehr teilnehmen"
+msgstr "Zrezygnuj z udziału"
+
+msgid "Ihre Teilnahme ist beendet."
+msgstr "Twój udział został zakończony."
+
+msgid "Einwilligungstext"
+msgstr "Treść zgody"
+
+msgid "Woran haben Sie Interesse?"
+msgstr "Czym jesteś zainteresowany?"
+
+msgid "Ich bestätige, dass ich volljährig bin."
+msgstr "Potwierdzam, że jestem pełnoletni."
+
+msgid "Eine erneute Teilnahme ist ab %1 möglich."
+msgstr "Ponowny udział jest możliwy od %1."
+
+msgid "Sie nehmen jetzt teil."
+msgstr "Bierzesz teraz udział."
+
+msgid "Ihre Teilnahme"
+msgstr "Twój udział"
+
+msgid "Ihre Region: Postleitzahlbereich %1"
+msgstr "Twój region: obszar kodu pocztowego %1"
+
+msgid "Ihr Interesse: %1"
+msgstr "Twoje zainteresowanie: %1"
+
+msgid "Eingehende Anfragen"
+msgstr "Przychodzące zapytania"
+
+msgid "Erhalten am %1"
+msgstr "Otrzymano %1"
+
+msgid "Läuft ab am %1"
+msgstr "Wygasa %1"
+
+msgid "Anfrage vom %1 annehmen"
+msgstr "Przyjmij zapytanie z dnia %1"
+
+msgid "Anfrage vom %1 ablehnen"
+msgstr "Odrzuć zapytanie z dnia %1"
+
+msgid "Ablehnen und blockieren"
+msgstr "Odrzuć i zablokuj"
+
+msgid "Anfrage vom %1 ablehnen und blockieren"
+msgstr "Odrzuć i zablokuj zapytanie z dnia %1"
+
+msgid "Ablehnen und blockieren?"
+msgstr "Odrzucić i zablokować?"
+
+msgid "Diese Person kann Ihnen keine Anfragen mehr schicken. Wer es ist, erfahren Sie nicht. Sie können die Blockierung später aufheben."
+msgstr "Ta osoba nie może już wysyłać Ci zapytań. Nie dowiesz się, kim jest. Blokadę możesz zdjąć później."
+
+msgid "Diese Anfrage ist nicht mehr offen."
+msgstr "To zapytanie nie jest już otwarte."
+
+msgid "Verbindung hergestellt."
+msgstr "Połączenie nawiązane."
+
+msgid "Anfrage abgelehnt und blockiert."
+msgstr "Zapytanie odrzucone i zablokowane."
+
+msgid "Anfrage abgelehnt."
+msgstr "Zapytanie odrzucone."
+
+msgid "Verbindungen"
+msgstr "Połączenia"
+
+msgid "Verbunden seit %1"
+msgstr "Połączeni od %1"
+
+msgid "Endet am %1"
+msgstr "Kończy się %1"
+
+msgid "Verbindung blockieren"
+msgstr "Zablokuj połączenie"
+
+msgid "Verbindung blockieren?"
+msgstr "Zablokować połączenie?"
+
+msgid "Die Verbindung wird beendet. Diese Person kann Ihnen keine Anfragen mehr schicken."
+msgstr "Połączenie zostanie zakończone. Ta osoba nie może już wysyłać Ci zapytań."
+
+msgid "Verbindung blockiert."
+msgstr "Połączenie zablokowane."
+
+msgid "Ihre Nachricht"
+msgstr "Twoja wiadomość"
+
+msgid "Nachricht gesendet. Die Unterhaltung finden Sie unter Kommunikation."
+msgstr "Wiadomość wysłana. Rozmowę znajdziesz w sekcji Komunikacja."
+
+msgid "Anfrage senden"
+msgstr "Wyślij zapytanie"
+
+msgid "Ihre Anfrage geht an ein zufällig gewähltes Mitglied Ihrer Region, das Interesse hat. Die Person erfährt nicht, wer Sie sind, bevor sie zustimmt."
+msgstr "Twoje zapytanie trafia do losowo wybranego członka Twojego regionu, który jest zainteresowany. Ta osoba nie dowie się, kim jesteś, zanim się nie zgodzi."
+
+msgid "Wofür?"
+msgstr "W jakim celu?"
+
+msgid "So lautet Ihre Anfrage: %1"
+msgstr "Treść Twojego zapytania: %1"
+
+msgid "Notiz (freiwillig)"
+msgstr "Notatka (opcjonalnie)"
+
+msgid "Die Notiz sieht nur die angefragte Person. Bitte schreiben Sie keine persönlichen Daten hinein."
+msgstr "Notatkę widzi tylko osoba, do której kierujesz zapytanie. Nie wpisuj w niej danych osobowych."
+
+msgid "%1 von %2 offenen Anfragen"
+msgstr "%1 z %2 otwartych zapytań"
+
+msgid "Ihre Anfrage wurde gesendet."
+msgstr "Twoje zapytanie zostało wysłane."
+
+msgid "Sie erfahren nur, wenn jemand zustimmt."
+msgstr "Dowiesz się tylko wtedy, gdy ktoś się zgodzi."
+
+msgid "Gesendete Anfragen"
+msgstr "Wysłane zapytania"
+
+msgid "Anfrage vom %1 zurückziehen"
+msgstr "Wycofaj zapytanie z dnia %1"
+
+msgid "Blockierte"
+msgstr "Zablokowani"
+
+msgid "Blockiert am %1"
+msgstr "Zablokowano %1"
+
+msgid "Entsperren"
+msgstr "Odblokuj"
+
+msgid "Blockierung vom %1 aufheben"
+msgstr "Zdejmij blokadę z dnia %1"
+
+msgid "Entsperrt."
+msgstr "Odblokowano."
+
+msgid "Sie sind im Begriff, den Mitglieder-Finder für diese Instanz einzuschalten. Mitglieder, die ausdrücklich einwilligen, können damit andere Mitglieder derselben Region (die ersten zwei Ziffern der Postleitzahl) finden. Namen werden erst nach beidseitiger Zustimmung sichtbar."
+msgstr "Zamierzasz włączyć wyszukiwarkę członków dla tej instancji. Członkowie, którzy wyraźnie wyrażą zgodę, mogą dzięki niej znaleźć innych członków z tego samego regionu (pierwsze dwie cyfry kodu pocztowego). Imiona i nazwiska stają się widoczne dopiero po zgodzie obu stron."
+
+msgid "Eine Parteimitgliedschaft ist ein besonders geschütztes Datum (Art. 9 DSGVO und ähnliche Regelungen anderer Länder). Zulässigkeit, Einwilligung, Informationspflichten und die Notwendigkeit einer Datenschutz-Folgenabschätzung sind je Land verschieden. Lapis Cloud ist keine Rechtsberatung."
+msgstr "Członkostwo w partii jest szczególnie chronioną daną (art. 9 RODO i podobne przepisy innych krajów). Dopuszczalność, zgoda, obowiązki informacyjne i konieczność oceny skutków dla ochrony danych różnią się w zależności od kraju. Lapis Cloud nie jest poradą prawną."
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass eine Rechtsgrundlage besteht und die Mitglieder informiert werden. Ersetzen Sie den eingebauten Einwilligungstext in der Verwaltung der Vertragstexte durch eine rechtlich geprüfte Fassung."
+msgstr "Jako operator odpowiadasz za to, aby istniała podstawa prawna i aby członkowie zostali poinformowani. Zastąp wbudowany tekst zgody w zarządzaniu tekstami umów wersją sprawdzoną pod względem prawnym."
+
+msgid "Mitglieder-Finder erlauben"
+msgstr "Zezwól na wyszukiwarkę członków"
+
+msgid "Mitglieder können sich nach ausdrücklicher Einwilligung gegenseitig finden. Namen werden erst nach beidseitiger Zustimmung sichtbar."
+msgstr "Członkowie mogą się nawzajem znajdować po wyraźnym wyrażeniu zgody. Imiona i nazwiska stają się widoczne dopiero po zgodzie obu stron."
+
+msgid "Platzhaltertext aktiv: Ersetzen Sie den eingebauten Einwilligungstext unter Vertragstexte."
+msgstr "Aktywny tekst zastępczy: zastąp wbudowany tekst zgody w sekcji Teksty umów."
+
+msgid "Zu den Vertragstexten"
+msgstr "Do tekstów umów"
+
+msgid "Der Mitglieder-Finder ist eingeschaltet."
+msgstr "Wyszukiwarka członków jest włączona."
+
+msgid "Mitglieder-Finder abschalten?"
+msgstr "Wyłączyć wyszukiwarkę członków?"
+
+msgid "Wenn Sie den Mitglieder-Finder abschalten, werden alle Anfragen und Blockierungen gelöscht und alle Einwilligungen beendet."
+msgstr "Po wyłączeniu wyszukiwarki członków wszystkie zapytania i blokady zostaną usunięte, a wszystkie zgody wygasną."
+
+msgid "Abschalten"
+msgstr "Wyłącz"
+
+msgid "Der Mitglieder-Finder ist ausgeschaltet."
+msgstr "Wyszukiwarka członków jest wyłączona."
+
+msgid "Mitglieder-Finder erlauben?"
+msgstr "Zezwolić na wyszukiwarkę członków?"
+
+msgid "Gut zu wissen: Wenn Sie den Mitglieder-Finder später abschalten, werden alle Anfragen und Blockierungen gelöscht und alle Einwilligungen beendet."
+msgstr "Warto wiedzieć: jeśli później wyłączysz wyszukiwarkę członków, wszystkie zapytania i blokady zostaną usunięte, a wszystkie zgody wygasną."
+
+msgid "Mitglieder-Finder: Regionen"
+msgstr "Wyszukiwarka członków: regiony"
+
+msgid "Noch keine Region mit mindestens fünf Teilnehmenden."
+msgstr "Nie ma jeszcze regionu z co najmniej pięcioma uczestnikami."
+
+msgid "Region"
+msgstr "Region"
+
+msgid "Regionen mit mindestens fünf Teilnehmenden"
+msgstr "Regiony z co najmniej pięcioma uczestnikami"

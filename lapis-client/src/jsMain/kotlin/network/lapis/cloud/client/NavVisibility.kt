@@ -52,6 +52,16 @@ object NavVisibility {
      */
     fun showsCarpool(status: MemberStatus): Boolean = status in MemberStatusSets.CARPOOL_PASSENGER
 
+    /**
+     * "Mitglieder-Finder" (V1.9.145) -- ACTIVE members only, and only where the server reports the instance switch as on ([offered] comes from
+     * `IMemberFinderService.getState().offered`, `null` while unknown). Deliberately NOT tied to whether the member is eligible: an ineligible
+     * member opens the page and is told what is missing.
+     */
+    fun showsMemberFinder(
+        status: MemberStatus,
+        offered: Boolean?,
+    ): Boolean = status in MemberStatusSets.ORGANIZATION_MEMBER && offered == true
+
     /** May offer rides, invite passengers and manage them (the driver side of the carpool centre): ACTIVE members only. */
     fun mayOfferCarpool(status: MemberStatus): Boolean = status in MemberStatusSets.CARPOOL_DRIVER
 

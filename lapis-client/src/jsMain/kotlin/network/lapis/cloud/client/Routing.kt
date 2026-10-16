@@ -693,6 +693,12 @@ object Routes {
      * route already resolved.
      */
     const val MY_CHAPTER = "/my-chapter"
+
+    /**
+     * V1.9.145 -- the member finder of a member (consent, requests, connections). `requireAuth` only: the screen itself checks the status
+     * (ACTIVE) before it calls the server, because the server refuses every other status with a plain "forbidden" and a request of the hourly budget.
+     */
+    const val MEMBER_FINDER = "/member-finder"
 }
 
 private var appRouting: Routing? = null
@@ -1253,6 +1259,9 @@ fun initRouting(pageContainer: SimplePanel) {
     // gated by role INSIDE renderArticlesScreen, not by a second route.
     routing.kvOn(Routes.ARTICLES) {
         requireAuth(routing) { show(Routes.ARTICLES, ::renderArticlesScreen) }
+    }
+    routing.kvOn(Routes.MEMBER_FINDER) {
+        requireAuth(routing) { show(Routes.MEMBER_FINDER, ::renderMemberFinderScreen) }
     }
     routing.kvOn("/") {
         routing.navigate(if (AppState.isAuthenticated) Routes.DASHBOARD else Routes.LOGIN)

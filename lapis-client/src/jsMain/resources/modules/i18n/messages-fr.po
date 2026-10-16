@@ -24700,3 +24700,291 @@ msgstr "Le service d'enregistrement n'est pas disponible pour le moment."
 
 msgid "Die Aufzeichnung konnte nicht geändert werden. Bitte versuchen Sie es erneut."
 msgstr "L'enregistrement n'a pas pu être modifié. Veuillez réessayer."
+
+msgid "Ortsgruppe gründen"
+msgstr "Fonder un groupe local"
+
+msgid "Stammtisch besuchen"
+msgstr "Participer à une rencontre régulière"
+
+msgid "Beides"
+msgstr "Les deux"
+
+msgid "Noch nicht sichtbar (weniger als fünf Teilnehmende)"
+msgstr "Pas encore visible (moins de cinq participants)"
+
+msgid "5 bis 9 Teilnehmende"
+msgstr "De 5 à 9 participants"
+
+msgid "10 bis 19 Teilnehmende"
+msgstr "De 10 à 19 participants"
+
+msgid "20 oder mehr Teilnehmende"
+msgstr "20 participants ou plus"
+
+msgid "Verbunden"
+msgstr "Connecté"
+
+msgid "Ein Mitglied aus Ihrer Region möchte eine Ortsgruppe gründen."
+msgstr "Un membre de votre région souhaite fonder un groupe local."
+
+msgid "Ein Mitglied aus Ihrer Region möchte sich zu einem Stammtisch treffen."
+msgstr "Un membre de votre région souhaite se retrouver lors d'une rencontre régulière."
+
+msgid "Der Text wurde aktualisiert, bitte neu lesen."
+msgstr "Le texte a été mis à jour, veuillez le relire."
+
+msgid "Bitte bestätigen Sie, dass Sie volljährig sind."
+msgstr "Veuillez confirmer que vous êtes majeur."
+
+msgid "Der Mitglieder-Finder steht für Ihr Konto derzeit nicht zur Verfügung."
+msgstr "Le moteur de recherche de membres n'est actuellement pas disponible pour votre compte."
+
+msgid "Bitte willigen Sie zuerst in den Mitglieder-Finder ein."
+msgstr "Veuillez d'abord consentir au moteur de recherche de membres."
+
+msgid "Eine erneute Teilnahme ist erst 24 Stunden nach Ihrem Widerruf möglich."
+msgstr "Vous ne pouvez participer à nouveau que 24 heures après votre retrait."
+
+msgid "Ihre Region ist noch nicht sichtbar. Es fehlen noch Teilnehmende."
+msgstr "Votre région n'est pas encore visible. Il manque encore des participants."
+
+msgid "Sie haben bereits die höchste Zahl offener Anfragen. Ziehen Sie eine zurück oder warten Sie, bis eine endet."
+msgstr "Vous avez déjà le nombre maximal de demandes ouvertes. Retirez-en une ou attendez qu'une se termine."
+
+msgid "Die Notiz ist zu lang oder enthält unzulässige Zeichen."
+msgstr "La note est trop longue ou contient des caractères non autorisés."
+
+msgid "Zu viele Aktionen in kurzer Zeit. Bitte versuchen Sie es später erneut."
+msgstr "Trop d'actions en peu de temps. Veuillez réessayer plus tard."
+
+msgid "Der Mitglieder-Finder ist auf dieser Instanz nicht eingeschaltet."
+msgstr "Le moteur de recherche de membres n'est pas activé sur cette instance."
+
+msgid "Der Hinweis wurde aktualisiert, bitte erneut lesen."
+msgstr "L'avis a été mis à jour, veuillez le relire."
+
+msgid "Mitglieder-Finder"
+msgstr "Recherche de membres"
+
+msgid "Der Mitglieder-Finder steht nur Mitgliedern zur Verfügung."
+msgstr "Le moteur de recherche de membres est réservé aux membres."
+
+msgid "Zu viele Aufrufe in kurzer Zeit. Bitte versuchen Sie es später erneut."
+msgstr "Trop d'appels en peu de temps. Veuillez réessayer plus tard."
+
+msgid "Der Mitglieder-Finder hilft Ihnen, andere Mitglieder in Ihrer Region zu finden, um eine Ortsgruppe zu gründen oder sich zu treffen. Die Teilnahme ist freiwillig. Namen sehen Sie erst, wenn beide Seiten zugestimmt haben."
+msgstr "Le moteur de recherche de membres vous aide à trouver d'autres membres de votre région pour fonder un groupe local ou vous rencontrer. La participation est volontaire. Vous ne voyez les noms qu'une fois que les deux parties ont accepté."
+
+msgid "Für den Mitglieder-Finder benötigen wir Ihre Postanschrift mit deutscher Postleitzahl, und Sie müssen volljährig sein. Bitte prüfen Sie Ihre Angaben in Ihrem Profil."
+msgstr "Pour le moteur de recherche de membres, nous avons besoin de votre adresse postale avec un code postal allemand, et vous devez être majeur. Veuillez vérifier vos informations dans votre profil."
+
+msgid "Zum Profil"
+msgstr "Aller au profil"
+
+msgid "Frühere Einwilligung widerrufen"
+msgstr "Retirer le consentement antérieur"
+
+msgid "Nicht mehr teilnehmen?"
+msgstr "Ne plus participer ?"
+
+msgid "Ihre Einwilligung wird widerrufen. Ihre Anfragen, Verbindungen und Blockierungen werden gelöscht. Eine erneute Teilnahme ist frühestens 24 Stunden nach dem Widerruf möglich."
+msgstr "Votre consentement sera retiré. Vos demandes, connexions et blocages seront supprimés. Vous pourrez participer à nouveau au plus tôt 24 heures après le retrait."
+
+msgid "Nicht mehr teilnehmen"
+msgstr "Ne plus participer"
+
+msgid "Ihre Teilnahme ist beendet."
+msgstr "Votre participation est terminée."
+
+msgid "Einwilligungstext"
+msgstr "Texte de consentement"
+
+msgid "Woran haben Sie Interesse?"
+msgstr "Qu'est-ce qui vous intéresse ?"
+
+msgid "Ich bestätige, dass ich volljährig bin."
+msgstr "Je confirme que je suis majeur."
+
+msgid "Eine erneute Teilnahme ist ab %1 möglich."
+msgstr "Vous pourrez participer à nouveau à partir du %1."
+
+msgid "Sie nehmen jetzt teil."
+msgstr "Vous participez maintenant."
+
+msgid "Ihre Teilnahme"
+msgstr "Votre participation"
+
+msgid "Ihre Region: Postleitzahlbereich %1"
+msgstr "Votre région : zone de code postal %1"
+
+msgid "Ihr Interesse: %1"
+msgstr "Votre intérêt : %1"
+
+msgid "Eingehende Anfragen"
+msgstr "Demandes reçues"
+
+msgid "Erhalten am %1"
+msgstr "Reçue le %1"
+
+msgid "Läuft ab am %1"
+msgstr "Expire le %1"
+
+msgid "Anfrage vom %1 annehmen"
+msgstr "Accepter la demande du %1"
+
+msgid "Anfrage vom %1 ablehnen"
+msgstr "Refuser la demande du %1"
+
+msgid "Ablehnen und blockieren"
+msgstr "Refuser et bloquer"
+
+msgid "Anfrage vom %1 ablehnen und blockieren"
+msgstr "Refuser et bloquer la demande du %1"
+
+msgid "Ablehnen und blockieren?"
+msgstr "Refuser et bloquer ?"
+
+msgid "Diese Person kann Ihnen keine Anfragen mehr schicken. Wer es ist, erfahren Sie nicht. Sie können die Blockierung später aufheben."
+msgstr "Cette personne ne pourra plus vous envoyer de demandes. Vous ne saurez pas qui c'est. Vous pourrez lever le blocage plus tard."
+
+msgid "Diese Anfrage ist nicht mehr offen."
+msgstr "Cette demande n'est plus ouverte."
+
+msgid "Verbindung hergestellt."
+msgstr "Connexion établie."
+
+msgid "Anfrage abgelehnt und blockiert."
+msgstr "Demande refusée et bloquée."
+
+msgid "Anfrage abgelehnt."
+msgstr "Demande refusée."
+
+msgid "Verbindungen"
+msgstr "Connexions"
+
+msgid "Verbunden seit %1"
+msgstr "Connectés depuis le %1"
+
+msgid "Endet am %1"
+msgstr "Se termine le %1"
+
+msgid "Verbindung blockieren"
+msgstr "Bloquer la connexion"
+
+msgid "Verbindung blockieren?"
+msgstr "Bloquer la connexion ?"
+
+msgid "Die Verbindung wird beendet. Diese Person kann Ihnen keine Anfragen mehr schicken."
+msgstr "La connexion sera terminée. Cette personne ne pourra plus vous envoyer de demandes."
+
+msgid "Verbindung blockiert."
+msgstr "Connexion bloquée."
+
+msgid "Ihre Nachricht"
+msgstr "Votre message"
+
+msgid "Nachricht gesendet. Die Unterhaltung finden Sie unter Kommunikation."
+msgstr "Message envoyé. Vous trouverez la conversation sous Communication."
+
+msgid "Anfrage senden"
+msgstr "Envoyer une demande"
+
+msgid "Ihre Anfrage geht an ein zufällig gewähltes Mitglied Ihrer Region, das Interesse hat. Die Person erfährt nicht, wer Sie sind, bevor sie zustimmt."
+msgstr "Votre demande est envoyée à un membre de votre région choisi au hasard et intéressé. La personne ne sait pas qui vous êtes avant d'accepter."
+
+msgid "Wofür?"
+msgstr "Pour quoi ?"
+
+msgid "So lautet Ihre Anfrage: %1"
+msgstr "Votre demande se lit ainsi : %1"
+
+msgid "Notiz (freiwillig)"
+msgstr "Note (facultative)"
+
+msgid "Die Notiz sieht nur die angefragte Person. Bitte schreiben Sie keine persönlichen Daten hinein."
+msgstr "Seule la personne sollicitée voit la note. Veuillez n'y inscrire aucune donnée personnelle."
+
+msgid "%1 von %2 offenen Anfragen"
+msgstr "%1 sur %2 demandes ouvertes"
+
+msgid "Ihre Anfrage wurde gesendet."
+msgstr "Votre demande a été envoyée."
+
+msgid "Sie erfahren nur, wenn jemand zustimmt."
+msgstr "Vous n'en serez informé que si quelqu'un accepte."
+
+msgid "Gesendete Anfragen"
+msgstr "Demandes envoyées"
+
+msgid "Anfrage vom %1 zurückziehen"
+msgstr "Retirer la demande du %1"
+
+msgid "Blockierte"
+msgstr "Bloqués"
+
+msgid "Blockiert am %1"
+msgstr "Bloqué le %1"
+
+msgid "Entsperren"
+msgstr "Débloquer"
+
+msgid "Blockierung vom %1 aufheben"
+msgstr "Lever le blocage du %1"
+
+msgid "Entsperrt."
+msgstr "Débloqué."
+
+msgid "Sie sind im Begriff, den Mitglieder-Finder für diese Instanz einzuschalten. Mitglieder, die ausdrücklich einwilligen, können damit andere Mitglieder derselben Region (die ersten zwei Ziffern der Postleitzahl) finden. Namen werden erst nach beidseitiger Zustimmung sichtbar."
+msgstr "Vous êtes sur le point d'activer le moteur de recherche de membres pour cette instance. Les membres qui y consentent expressément peuvent ainsi trouver d'autres membres de la même région (les deux premiers chiffres du code postal). Les noms ne deviennent visibles qu'après l'accord des deux parties."
+
+msgid "Eine Parteimitgliedschaft ist ein besonders geschütztes Datum (Art. 9 DSGVO und ähnliche Regelungen anderer Länder). Zulässigkeit, Einwilligung, Informationspflichten und die Notwendigkeit einer Datenschutz-Folgenabschätzung sind je Land verschieden. Lapis Cloud ist keine Rechtsberatung."
+msgstr "L'appartenance à un parti est une donnée particulièrement protégée (art. 9 RGPD et réglementations similaires d'autres pays). La licéité, le consentement, les obligations d'information et la nécessité d'une analyse d'impact relative à la protection des données varient selon les pays. Lapis Cloud ne constitue pas un conseil juridique."
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass eine Rechtsgrundlage besteht und die Mitglieder informiert werden. Ersetzen Sie den eingebauten Einwilligungstext in der Verwaltung der Vertragstexte durch eine rechtlich geprüfte Fassung."
+msgstr "En tant qu'exploitant, vous êtes responsable de l'existence d'une base juridique et de l'information des membres. Remplacez le texte de consentement intégré dans l'administration des textes contractuels par une version vérifiée juridiquement."
+
+msgid "Mitglieder-Finder erlauben"
+msgstr "Autoriser la recherche de membres"
+
+msgid "Mitglieder können sich nach ausdrücklicher Einwilligung gegenseitig finden. Namen werden erst nach beidseitiger Zustimmung sichtbar."
+msgstr "Les membres peuvent se trouver mutuellement après avoir consenti expressément. Les noms ne deviennent visibles qu'après l'accord des deux parties."
+
+msgid "Platzhaltertext aktiv: Ersetzen Sie den eingebauten Einwilligungstext unter Vertragstexte."
+msgstr "Texte provisoire actif : remplacez le texte de consentement intégré sous Textes contractuels."
+
+msgid "Zu den Vertragstexten"
+msgstr "Vers les textes contractuels"
+
+msgid "Der Mitglieder-Finder ist eingeschaltet."
+msgstr "Le moteur de recherche de membres est activé."
+
+msgid "Mitglieder-Finder abschalten?"
+msgstr "Désactiver la recherche de membres ?"
+
+msgid "Wenn Sie den Mitglieder-Finder abschalten, werden alle Anfragen und Blockierungen gelöscht und alle Einwilligungen beendet."
+msgstr "Si vous désactivez la recherche de membres, toutes les demandes et tous les blocages sont supprimés et tous les consentements prennent fin."
+
+msgid "Abschalten"
+msgstr "Désactiver"
+
+msgid "Der Mitglieder-Finder ist ausgeschaltet."
+msgstr "Le moteur de recherche de membres est désactivé."
+
+msgid "Mitglieder-Finder erlauben?"
+msgstr "Autoriser la recherche de membres ?"
+
+msgid "Gut zu wissen: Wenn Sie den Mitglieder-Finder später abschalten, werden alle Anfragen und Blockierungen gelöscht und alle Einwilligungen beendet."
+msgstr "Bon à savoir : si vous désactivez plus tard la recherche de membres, toutes les demandes et tous les blocages sont supprimés et tous les consentements prennent fin."
+
+msgid "Mitglieder-Finder: Regionen"
+msgstr "Recherche de membres : régions"
+
+msgid "Noch keine Region mit mindestens fünf Teilnehmenden."
+msgstr "Aucune région avec au moins cinq participants pour l'instant."
+
+msgid "Region"
+msgstr "Région"
+
+msgid "Regionen mit mindestens fünf Teilnehmenden"
+msgstr "Régions avec au moins cinq participants"

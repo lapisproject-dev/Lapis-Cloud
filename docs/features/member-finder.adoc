@@ -1,4 +1,4 @@
-= Member finder (V1.9.144, server side)
+= Member finder (V1.9.144 server side, V1.9.145 client)
 :toc:
 
 The member finder lets members who **explicitly consent** find other consenting members of the *same region* (the first two digits of the German postal code) -- to found
@@ -6,9 +6,8 @@ a local group or to meet. A member sends a neutral request; the system picks **o
 is **off by default** and switched on per instance by an ADMIN. This page is the operator view; the design and the threat model are in
 link:../architecture/member-finder.adoc[docs/architecture/member-finder.adoc].
 
-NOTE: **Status of V1.9.144: server only.** The Remote Procedure Call interface, the data model, the safeguards, the instance switch and the housekeeping exist and are tested.
-There is **no user interface yet** (no member screen, no admin dialog, no menu entry); the feature cannot be used by a person before the client wave. Nothing was run in a real
-browser or on a real instance.
+NOTE: **Status of V1.9.145: server and client.** The server side exists since V1.9.144; V1.9.145 adds the member screen (`/member-finder`), the admin dialog with the operator notice, the
+board overview (bands only) and the menu entry. **Nothing was run in a real browser or on a real instance** -- the client is tested in a headless browser with a stubbed server only.
 
 == Country-specific law, operator duties
 
@@ -20,7 +19,7 @@ the operator:
 * An ADMIN switches the finder on only after reading an operator notice (four paragraphs, version `MEMBER_FINDER_NOTICE_VERSION`) and acknowledging that the legal admissibility
   for the country has been checked. The audit entry records the notice version and the hash of the German reference text -- and nothing else (no member, no count).
 * The built-in consent text (kind `FINDER`) is a **draft**. Replace it with a legally reviewed text in the administration of the agreement texts before you switch the finder on.
-* Complete your privacy notice (data protection statement) with the finder. The built-in privacy page does not mention it yet (planned for the client wave).
+* Complete your privacy notice (data protection statement) with the finder. The built-in privacy page does not mention it yet (still open after the client wave).
 * A newly published `FINDER` text **ends every effective consent at once**: members have to consent again to the new text. Plan the moment of publication.
 
 == What a member can do (Remote Procedure Call methods)
@@ -72,3 +71,55 @@ or expired request are detached; the row itself goes seven days after `max(decis
 The four finder tables are **excluded** from the organization backup (a restore leaves them empty and every member consents again; the consent proofs are gone after a restore). The GDPR export
 shows the member's own events, their own requests *in the sender's view*, the own decisions on incoming requests (without the sender) and two counts. Erasure deletes everything that names the
 member; requests the member only *received* are detached (not deleted) so that a sender sees no change.
+
+== Member screen (V1.9.145)
+
+The menu entry "Mitglieder-Finder" (group "Mitgliedschaft", right after the carpool centre) appears for ACTIVE members only, and only while the instance switch is on. The client asks `getState` once per
+session (answer kept in memory only); for every other status it makes **no call at all**, because the server refuses them with a plain "forbidden" and every call costs a request of the hourly budget of 240
+reads.
+
+*Mode A -- no consent.* The member reads the consent text in a reading frame (the shared agreement frame), chooses the interest (nothing is preselected), confirms being of age and takes part. The button stays
+locked until interest and confirmation are set. If the text changed in the meantime, the client reads it again, keeps the choices and says so above the frame; the next click sends the new version and hash.
+A member who is not eligible gets an explanation (German postal address and age) and a link to the profile, plus a quiet way to withdraw an earlier consent (Art. 7(3) GDPR: the server treats a withdrawal
+without an open consent as a no-op).
+
+*Mode B -- taking part.* In order of urgency: own participation (region, band, interest, "Nicht mehr teilnehmen" with a question first), incoming requests (accept, decline, decline and block -- the sender is
+never shown), connections (the name of the other side, message, block), the form for a new request, own requests (withdraw while pending) and blocks (lift). **A list that is empty is not drawn at all**, not
+even its heading.
+
+*Same answer for every request.* After `sendRequest` the page reads the list of own requests again, then says "Ihre Anfrage wurde gesendet." and "Sie erfahren nur, wenn jemand zustimmt." and moves on. Nothing
+of the server's answer steers the page, so the text, the focus and the counters do not depend on whether anybody was found. The purpose is never a free choice: a single interest fixes it, only "both" offers two
+radio buttons (without a default). The recipient sees one of two fixed templates plus the optional note (200 characters; the counter counts the text the way the server normalises it).
+
+*Fixed sentences.* Kilua RPC transmits only the exception type, so every refusal of the finder has its own fixed German sentence (shown at the form as an alert, or as a toast). A refusal that means the page is
+out of date (no consent, not eligible, switch off) redraws it from the server's state.
+
+== Operator notice and instance switch (V1.9.145)
+
+The switch sits in the "Videokonferenz" card of the member administration, below the recording of the pulpit (ADMIN only). Switching **on** opens the operator notice: three paragraphs, the legal check as the label
+of a box (the fourth paragraph), a hint what a later switch-off deletes, and "Hinweis Version 1" in the foot. The focus starts on "Abbrechen", Escape cancels, "Einschalten" stays locked until the box is ticked. The
+paragraphs stand **word for word** in `MemberFinderSettings.kt`; `MemberFinderNoticePinTest` pins them against the server's reference text, so a change needs a new version. The sentence about the deletion is *not* part
+of the hashed notice V1. While the built-in consent text is still the placeholder, a warning with a link to the agreement texts shows in the section and in the dialog. An acknowledgment of an older notice version is
+shown with "Erneut bestätigen". Switching **off** asks first (it deletes every request, block and band and ends every consent), with the focus on "Abbrechen".
+
+== Board overview (V1.9.145)
+
+BOARD and ADMIN see a table on the member administration page: the region (`DE-` plus two digits) and its **band**, sorted by region -- never a count, never a person. While the finder is off, or the caller is not an
+ACTIVE member, the card draws nothing at all (no heading, no toast).
+
+== Client-side data minimisation (V1.9.145)
+
+* No id of a member is read anywhere in the client (the answer of `contactConnection` carries both ids of the conversation and is dropped).
+* The only ids in the DOM are the random ids of requests, connections and blocks (`data-request-id`, `data-connection-id`, `data-block-id`).
+* The name of the other side appears in the connection card only -- never in an `aria-label`, the live region, a toast or the title. Note and name are somebody else's text and go through the `untrusted*` helpers.
+* Nothing is written to the console or to the storage of the browser. `ClientMemberFinderPrivacyTripwireTest` checks this statically; `MemberFinderScreenDomTest` checks the DOM.
+
+== Known limitations (V1.9.145)
+
+* Never run in a real browser or on a real instance.
+* The interest can only be changed by withdrawing and taking part again (the server allows a change without a wait; the screen has no control for it yet).
+* An earlier consent of a member who is not eligible any more can be withdrawn, but the screen cannot tell whether one exists (the state has no such field).
+* The switch lives in the "Videokonferenz" card although the finder is no conference feature (a card of its own may follow).
+* `eligible` is not broken down: the screen names the likely reasons (German postal address, age).
+* No e-mail notification, no "report", and the privacy page (`LegalHtml`) does not mention the finder yet.
+* Not legal advice: the notice and the built-in consent text are drafts.

@@ -93,6 +93,13 @@ class SidebarGroupStorageTest {
     }
 
     @Test
+    fun sidebarGroupForRoute_memberFinder_resolvesToMembership_evenForADeepLink() {
+        assertEquals(SidebarGroupId.MEMBERSHIP, sidebarGroupForRoute("/member-finder"))
+        assertEquals(SidebarGroupId.MEMBERSHIP, sidebarGroupForRoute("/member-finder?x=1"))
+        assertNull(sidebarGroupForRoute("/member-finders"))
+    }
+
+    @Test
     fun sidebarGroupForRoute_ungroupedTopLevelRoute_isNull() {
         assertNull(sidebarGroupForRoute("/dashboard"))
         assertNull(sidebarGroupForRoute("/conference"))
