@@ -472,7 +472,10 @@ class MemberFinderRequestFlowTest :
                     // messages through the existing direct-message mechanism, both ways; a stranger gets the same NotFound
                     call(member = x) { contactConnection(connectionId = requestId, message = "Hallo zusammen") }.shouldNotBeNull()
                     call(member = sender) { contactConnection(connectionId = requestId, message = "Hallo zurück") }.shouldNotBeNull()
-                    attempt(member = six[5]) {
+                    // The counterpart is the first candidate by member id (the injected random always answers 0), i.e. ANY of six[1..5] --
+                    // so the stranger must be chosen relative to it, never as a fixed index.
+                    val stranger = six.first { it != sender && it != x }
+                    attempt(member = stranger) {
                         contactConnection(connectionId = requestId, message = "Hallo")
                     }.exceptionOrNull().shouldBeInstanceOf<NotFoundException>()
 
