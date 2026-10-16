@@ -197,27 +197,52 @@ internal suspend fun <T> withFetchStub(
  * short for a screen to load, save and reload. Every caller waits for something that MUST happen eventually (none probes for a
  * failure -- checked 2026-10-03), so a longer budget never weakens an assertion; a condition that holds returns at once, only a real
  * failure reports later. The failure text names the wall-clock time actually waited.
+ *
+ * A condition that THROWS (typically `buttonNamed(..)` while a screen is re-rendering and the element is not in the document for a
+ * moment -- CI flake of 2026-10-16, `AgreementTextsScreenDomTest.saving_sendsTheEditorValues_thenOffersPublish`) counts as "not yet":
+ * the wait goes on. If the condition never holds, the failure text names the last error the condition threw, so a real mistake in a
+ * condition (a wrong button name) is still reported, just after the budget instead of at the first poll.
  */
 internal suspend fun awaitUntil(
     message: String,
     timeoutMs: Int = AWAIT_UNTIL_MIN_TIMEOUT_MS,
     detail: (() -> String)? = null,
     condition: () -> Boolean,
+) = awaitUntilWithin(message, maxOf(timeoutMs, AWAIT_UNTIL_MIN_TIMEOUT_MS), detail, condition)
+
+/** [awaitUntil] with the budget taken as it is (no floor): only for the test of the helper itself, so that its failure path does not wait 15 s. */
+internal suspend fun awaitUntilWithin(
+    message: String,
+    budget: Int,
+    detail: (() -> String)? = null,
+    condition: () -> Boolean,
 ) {
-    val budget = maxOf(timeoutMs, AWAIT_UNTIL_MIN_TIMEOUT_MS)
     val started = Date.now()
     var polled = 0
+    var lastError: Throwable? = null
+    // A throwing condition is "not yet" (see above); the last error is kept for the failure text. Cancellation must pass through.
+    val holds: () -> Boolean = {
+        try {
+            condition()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            lastError = e
+            false
+        }
+    }
     // Not reset in a `finally`: when the deadline of [formTest] cancels this wait, its failure has to name it.
     currentAwait = message
-    while (!condition() && polled < budget) {
+    while (!holds() && polled < budget) {
         kotlinx.coroutines.delay(AWAIT_UNTIL_POLL_MS.toLong())
         polled += AWAIT_UNTIL_POLL_MS
     }
     currentAwait = null
-    if (condition()) return
+    if (holds()) return
     val elapsed = (Date.now() - started).toLong()
     val extra = detail?.let { " -- ${it()}" }.orEmpty()
-    val text = "timeout: $message (not reached after $polled ms of polls, $elapsed ms wall clock)$extra"
+    val thrown = lastError?.let { " -- last error of the condition: ${it.message ?: it::class.simpleName}" }.orEmpty()
+    val text = "timeout: $message (not reached after $polled ms of polls, $elapsed ms wall clock)$extra$thrown"
     console.error("awaitUntil $text")
     kotlin.test.fail(text)
 }
