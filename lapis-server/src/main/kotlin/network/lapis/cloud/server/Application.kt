@@ -318,6 +318,7 @@ import network.lapis.cloud.server.rpc.MemberEmailChangeService
 import network.lapis.cloud.server.rpc.MemberFamilyService
 import network.lapis.cloud.server.rpc.MemberFinancialHistoryService
 import network.lapis.cloud.server.rpc.MemberFinderService
+import network.lapis.cloud.server.rpc.MemberFinderSettingsStore
 import network.lapis.cloud.server.rpc.MemberHonorService
 import network.lapis.cloud.server.rpc.MemberPhotoService
 import network.lapis.cloud.server.rpc.MemberPublicProfileService
@@ -2839,6 +2840,8 @@ internal fun Application.module(
             keycloakEnabled = keycloakConfig.isOperational,
             mcpEnabled = mcpConfig.isOperational,
             navAvailability = publicNavAvailability,
+            // V1.9.147: evaluated per request (the switch moves at runtime); never throws, "off" on error.
+            memberFinderEnabled = { MemberFinderSettingsStore.currentValue().active() },
         )
         // Welle V1.9.11 "Öffentliche Icon-Navigation" -- literal routes (/aktuelles,
         // /veranstaltungen), same "registered before staticFiles" reasoning as

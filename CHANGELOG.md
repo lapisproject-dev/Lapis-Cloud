@@ -6,6 +6,31 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.147 -- Privacy page names the member finder
+
+The built-in privacy page (`/datenschutz`) now describes the **optional member finder**, but only while the finder is active (switch on AND the current operator notice acknowledged). No migration (V1 to V107 untouched), no new
+RPC methods. **Not checked in a real browser or on a real instance, and the text is not legally reviewed.**
+
+#### What changes
+
+- `registerLegalRoutes` takes a provider `memberFinderEnabled: () -> Boolean`, evaluated **per request** after the rate limiter (the switch moves at runtime, so a startup value would be wrong until the next restart). A throwing provider counts as "off".
+  Production wiring: `MemberFinderSettingsStore.currentValue().active()` (one read-only single-row query, "off" on error). Both render variants are precomputed; the ETag follows the variant.
+- `LegalHtml.privacyPage(memberFinderEnabled)`: a list item in the purposes list and its own section "Mitglieder-Finder (optional)": purpose (group founding / meetups), Art. 6(1)(a) and Art. 9(2)(a) GDPR, voluntary and adults only, region from the first two postal-code digits (not stored),
+  threshold of five with bands only, mediation only (one random counterpart, name after mutual consent, the sender is never revealed), withdrawal, deletion on switch-off and on leaving, retention of the consent proof, nothing in logs or audit. A visible "template, not legally reviewed" notice (once, inside the section).
+- `/datenschutz` now sends `Cache-Control: public, max-age=300` (was 3600) so a switch is not shown wrongly for an hour; `/impressum` is unchanged.
+- Docs: `docs/features/member-finder.adoc`, `docs/architecture/member-finder.adoc`, `CLAUDE.md`.
+
+#### Known limitations
+
+- Browsers and proxies may keep the previous version of the page for up to 5 minutes after the switch moves.
+- The text is a template, German only, not legally reviewed; the operator must check it for the country.
+- `registerLegalRoutes` is no longer free of database access in production (one read per `/datenschutz` request); the file itself still has no `transaction {}`.
+
+#### Tests
+
+- `LegalHtmlTest` F1 to F6 (absent without finder, content, no gender markers, no overstatement, notice exactly once, same text in all language variants); H12 now maps `memberFinder` to "Mitglieder-Finder" and no longer allowlists it.
+- `LegalRoutesTest` R13 to R16 (provider on/off, switched per request with ETag change, `/impressum` untouched, throwing provider is "off"); R12 still passes without a database.
+
 ### V1.9.146 -- Face model for the camera filters
 
 The face detector `blaze_face_short_range.tflite` (MediaPipe BlazeFace, short range, 229 746 bytes) is now bundled, so the skin smoothing of V1.9.142 can start. It is served from this server like the segmenter and

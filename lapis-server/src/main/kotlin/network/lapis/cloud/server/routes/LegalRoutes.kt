@@ -17,11 +17,18 @@ import network.lapis.cloud.server.legal.LegalConfig
  * [hasOnlyAllowedQueryParams]/[HTML_CONTENT_TYPE]/[rateLimitKeyFor]) -- never a second, driftable
  * copy of the CSP/security-header set.
  *
- * **No `transaction {}`, no DB access at all.** The page content is a pure function of
- * ([LegalConfig], [ResolvedBranding], [PublicLanguage]) -- all three are fixed at startup time.
- * Because of that, all 2 × 8 render variants are precomputed ONCE at registration time (below)
- * instead of per request: this makes the byte-identity [respondPublicCacheable] relies on trivially
- * guaranteed, and needs no invalidation, unlike [PublicLandingRoutes]'s TTL memo.
+ * **No `transaction {}` in this file.** The page content is a pure function of
+ * ([LegalConfig], [ResolvedBranding], [PublicLanguage]) -- all three are fixed at startup time --
+ * plus, for `/datenschutz` only, ONE runtime flag (below). All render variants are precomputed ONCE
+ * at registration time (below) instead of per request: this makes the byte-identity
+ * [respondPublicCacheable] relies on trivially guaranteed, and needs no invalidation, unlike
+ * [PublicLandingRoutes]'s TTL memo.
+ *
+ * **Exception V1.9.147:** `/datenschutz` reads whether the member finder is active via the injected
+ * `memberFinderEnabled` provider PER REQUEST (an admin switches it at runtime, so a startup value
+ * would make the privacy notice wrong until the next restart). The production wiring opens a
+ * read-only transaction there; this file stays DB-free, and the render variants stay precomputed
+ * (with and without the finder section).
  *
  * `noindex,follow` (like `/transparenz`): a legal-text page must be reachable FROM the page the
  * visitor is on, not from a search index. No `hreflang` alternates set -- the full text exists in
@@ -51,6 +58,11 @@ fun Route.registerLegalRoutes(
      * configuration changes) refreshes it. Documented limitation, not a defect.
      */
     navAvailability: PublicNavAvailabilityProvider,
+    /**
+     * V1.9.147: answers per request whether the member finder is ACTIVE (switch on AND the current notice acknowledged). Evaluated
+     * after the rate limiter; a throwing provider is treated as "off".
+     */
+    memberFinderEnabled: () -> Boolean = { false },
 ) {
     val baseUrl = FederationConfig.publicBaseUrl.trimEnd('/')
     val nav = navAvailability.current()
@@ -59,7 +71,8 @@ fun Route.registerLegalRoutes(
         PublicLanguage.entries.associateWith { lang ->
             LegalHtml.imprintPage(legal = legal, baseUrl = baseUrl, branding = branding, lang = lang, nav = nav)
         }
-    val privacyBodies: Map<PublicLanguage, String> =
+
+    fun privacyBodiesFor(memberFinder: Boolean): Map<PublicLanguage, String> =
         PublicLanguage.entries.associateWith { lang ->
             LegalHtml.privacyPage(
                 legal = legal,
@@ -70,8 +83,11 @@ fun Route.registerLegalRoutes(
                 aiAssistantEnabled = aiAssistantEnabled,
                 keycloakEnabled = keycloakEnabled,
                 mcpEnabled = mcpEnabled,
+                memberFinderEnabled = memberFinder,
             )
         }
+    val privacyBodiesWithoutFinder = privacyBodiesFor(memberFinder = false)
+    val privacyBodiesWithFinder = privacyBodiesFor(memberFinder = true)
 
     get("/impressum") {
         call.withPublicErrorHandling(baseUrl = baseUrl, branding = branding) {
@@ -110,10 +126,12 @@ fun Route.registerLegalRoutes(
                 return@withPublicErrorHandling
             }
             val lang = call.resolvePublicLanguage()
+            val finderActive = runCatching { memberFinderEnabled() }.getOrDefault(false)
             call.respondPublicCacheable(
-                body = privacyBodies.getValue(lang),
+                body = (if (finderActive) privacyBodiesWithFinder else privacyBodiesWithoutFinder).getValue(lang),
                 contentType = HTML_CONTENT_TYPE,
-                cacheControl = "public, max-age=3600",
+                // Shorter than /impressum: the finder section follows a runtime switch (the ETag changes with the variant).
+                cacheControl = "public, max-age=300",
                 imgSrcSelf = branding.logoAvailable,
             )
         }

@@ -194,3 +194,11 @@ no member, region, note or number. There is no e-mail notification (a queued mai
 |E12 |"Report" is not in wave A (legally open).
 |E13 |Loss of ACTIVE status: live filter, lifecycle hook in the status transactions, and the poller cleanup.
 |===
+
+== Privacy page wiring (V1.9.147)
+
+`/datenschutz` names the finder only while it is *active* (`MemberFinderSettings.active()`: switch on AND current notice acknowledged -- an unacknowledged switch does not process anything).
+The switch moves at runtime, so a startup value (like the AI and MCP flags) would be wrong until the next restart. `registerLegalRoutes` therefore takes a provider `() -> Boolean`, evaluated per request after the rate limiter;
+`Application.kt` wires `MemberFinderSettingsStore.currentValue().active()` (one read-only single-row `SELECT`, "off" on any error). `routes/` does not depend on `rpc/`: it only sees the lambda.
+Both render variants (with and without the finder section) are precomputed at registration; the ETag is computed from the body and therefore follows the variant. `/datenschutz` uses `max-age=300`, `/impressum` keeps 3600.
+The section is a template with an explicit "not legally reviewed" notice.

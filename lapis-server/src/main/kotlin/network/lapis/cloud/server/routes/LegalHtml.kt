@@ -72,6 +72,9 @@ internal object LegalHtml {
      * rendered **only** when that layer is operational on this installation -- otherwise the page
      * would describe a data flow that does not exist here (see the absolute rule in the class
      * KDoc). Both default to `false`.
+     *
+     * [memberFinderEnabled] (V1.9.147): renders the member-finder list item, its own section and the review notice -- only while the finder is ACTIVE on
+     * this installation (switch on AND current notice acknowledged). Unlike the two flags above it changes at runtime; the caller picks the variant.
      */
     fun privacyPage(
         legal: LegalConfig,
@@ -83,6 +86,7 @@ internal object LegalHtml {
         aiAssistantEnabled: Boolean = false,
         keycloakEnabled: Boolean = false,
         mcpEnabled: Boolean = false,
+        memberFinderEnabled: Boolean = false,
     ): String =
         skeleton(
             baseUrl = baseUrl,
@@ -97,6 +101,7 @@ internal object LegalHtml {
                 aiAssistantEnabled = aiAssistantEnabled,
                 keycloakEnabled = keycloakEnabled,
                 mcpEnabled = mcpEnabled,
+                memberFinderEnabled = memberFinderEnabled,
             )
         }
 
@@ -273,6 +278,7 @@ internal object LegalHtml {
         aiAssistantEnabled: Boolean,
         keycloakEnabled: Boolean,
         mcpEnabled: Boolean,
+        memberFinderEnabled: Boolean,
     ) {
         h1 { +"Datenschutzerklärung" }
         h2 { +"Verantwortliche Stelle" }
@@ -513,6 +519,18 @@ internal object LegalHtml {
                     )
                 }
             }
+            if (memberFinderEnabled) {
+                li {
+                    +(
+                        "Mitglieder-Finder (freiwillig, nur nach Ihrer ausdrücklichen Einwilligung): Vermittlung des " +
+                            "Kontakts zwischen Mitgliedern derselben Region, um eine Ortsgruppe zu gründen und/oder " +
+                            "Stammtische zu organisieren — Art. 6 Abs. 1 lit. a DSGVO i. V. m. Art. 9 Abs. 2 lit. a " +
+                            "DSGVO (die Teilnahme lässt Rückschlüsse auf die Mitgliedschaft und gegebenenfalls auf " +
+                            "die politische Überzeugung zu). Einzelheiten im Abschnitt \u201EMitglieder-Finder " +
+                            "(optional)\u201C weiter unten."
+                    )
+                }
+            }
             li {
                 +(
                     "Dokumentenablage, interne Kommunikation, Mitfahrerzentrale, Crowdfunding, API-Schlüssel und " +
@@ -606,6 +624,8 @@ internal object LegalHtml {
             }
         }
 
+        if (memberFinderEnabled) renderMemberFinderSection()
+
         h2 { +"Empfänger" }
         p {
             +(
@@ -662,6 +682,99 @@ internal object LegalHtml {
             )
         }
         renderTemplateDisclaimer()
+    }
+
+    /**
+     * V1.9.147 -- the member-finder section. Every sentence is checked against the V1.9.144 code and `docs/architecture/member-finder.adoc`; nothing is
+     * rounded up (e.g. an exit does NOT delete everything: received, unanswered requests are detached and removed later).
+     */
+    private fun FlowContent.renderMemberFinderSection() {
+        h2 { +"Mitglieder-Finder (optional)" }
+        p {
+            +(
+                "Der Mitglieder-Finder ist ein freiwilliges Angebot dieser Installation. Er vermittelt den Kontakt " +
+                    "zwischen Mitgliedern derselben Region, um eine Ortsgruppe zu gründen und/oder Stammtische zu " +
+                    "organisieren (Interesse: Gruppengründung, Stammtisch oder beides). Weitere Zwecke gibt es nicht."
+            )
+        }
+        ul {
+            li {
+                +(
+                    "Rechtsgrundlage ist Ihre ausdrückliche Einwilligung (Art. 6 Abs. 1 lit. a, Art. 9 Abs. 2 lit. a " +
+                        "DSGVO), weil Ihre Teilnahme Rückschlüsse auf Ihre Mitgliedschaft und gegebenenfalls auf Ihre " +
+                        "politische Überzeugung zulässt. Teilnehmen können Sie nur auf eigenen Wunsch und nur, wenn " +
+                        "Sie bestätigen, volljährig zu sein; ist ein Geburtsdatum bekannt und liegt es unter 18 Jahren " +
+                        "zurück, ist die Teilnahme nicht möglich."
+                )
+            }
+            li {
+                +(
+                    "Die Region wird nur grob aus den ersten zwei Ziffern der Postleitzahl Ihrer hinterlegten " +
+                        "(deutschen) Anschrift abgeleitet. Sie wird nicht bei Ihnen gespeichert, sondern bei jeder " +
+                        "Abfrage neu berechnet."
+                )
+            }
+            li {
+                +(
+                    "Eine Region wird erst ab fünf Teilnehmenden angezeigt, und es werden nie genaue Zahlen genannt, " +
+                        "sondern nur Größenbereiche (5–9, 10–19, 20 und mehr). Diese Bereiche werden höchstens einmal " +
+                        "je Organisationstag neu berechnet."
+                )
+            }
+            li {
+                +(
+                    "Es wird nur vermittelt: Pro Anfrage wird genau eine zufällig gewählte Person derselben Region " +
+                        "angesprochen. Ihr Name wird erst nach beidseitiger Zustimmung sichtbar. Die angefragte Person " +
+                        "erfährt nie, wer die Anfrage gesendet hat, und die Rückmeldung an den Absender ist für jede " +
+                        "Anfrage gleich (zunächst immer „ausstehend“). Der weitere Kontakt läuft über die " +
+                        "vorhandenen Direktnachrichten."
+                )
+            }
+            li {
+                +(
+                    "Widerruf: Sie können Ihre Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen, auch " +
+                        "wenn der Finder inzwischen abgeschaltet wurde. Der Widerruf löscht Ihre eigenen Anfragen, " +
+                        "Verbindungen und Sperren; eine erneute Teilnahme ist frühestens nach 24 Stunden möglich."
+                )
+            }
+            li {
+                +(
+                    "Wird der Finder von dieser Installation abgeschaltet, werden alle Anfragen, Verbindungen, " +
+                        "Sperren und Größenbereiche gelöscht, und alle Einwilligungen werden beendet."
+                )
+            }
+            li {
+                +(
+                    "Verlassen Sie die Organisation oder verlieren Sie den Mitgliedsstatus, endet Ihre Einwilligung. " +
+                        "Ihre eigenen gesendeten Anfragen, Verbindungen und Sperren werden gelöscht; bei Anfragen, die " +
+                        "an Sie gerichtet waren und nicht angenommen wurden, wird der Bezug zu Ihrer Person gelöst, und " +
+                        "sie werden spätestens 7 Tage nach ihrem Ablauf bzw. Abschluss entfernt."
+                )
+            }
+            li {
+                +(
+                    "Der Nachweis Ihrer Einwilligung und eines Widerrufs (Zeitpunkt, Textfassung, Prüfsumme) bleibt " +
+                        "bis zur Löschung Ihres Kontos gespeichert."
+                )
+            }
+            li {
+                +(
+                    "Weder Protokolle noch die Prüfspur enthalten Namen, Regionen, Notizen oder Zahlen. Die Prüfspur " +
+                        "hält nur fest, dass der Betreiber den Schalter geändert hat."
+                )
+            }
+        }
+        renderMemberFinderReviewNotice()
+    }
+
+    private fun FlowContent.renderMemberFinderReviewNotice() {
+        p(classes = "section-note") {
+            +(
+                "Dieser Abschnitt ist eine Vorlage und juristisch noch nicht geprüft. Ob der Mitglieder-Finder in " +
+                    "Ihrem Land zulässig ist und welche Informationspflichten gelten, muss der Betreiber für sein " +
+                    "Land selbst prüfen."
+            )
+        }
     }
 
     /**

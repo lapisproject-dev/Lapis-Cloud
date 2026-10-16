@@ -19,7 +19,7 @@ the operator:
 * An ADMIN switches the finder on only after reading an operator notice (four paragraphs, version `MEMBER_FINDER_NOTICE_VERSION`) and acknowledging that the legal admissibility
   for the country has been checked. The audit entry records the notice version and the hash of the German reference text -- and nothing else (no member, no count).
 * The built-in consent text (kind `FINDER`) is a **draft**. Replace it with a legally reviewed text in the administration of the agreement texts before you switch the finder on.
-* Complete your privacy notice (data protection statement) with the finder. The built-in privacy page does not mention it yet (still open after the client wave).
+* The built-in privacy page (`/datenschutz`) describes the finder from V1.9.147 on, **only while the finder is active** (switch on AND the current notice acknowledged); the page follows the switch at runtime. The paragraph is a template and not legally reviewed: complete or replace it for your country. If you use your own privacy notice, add the finder to it yourself.
 * A newly published `FINDER` text **ends every effective consent at once**: members have to consent again to the new text. Plan the moment of publication.
 
 == What a member can do (Remote Procedure Call methods)
@@ -121,5 +121,6 @@ ACTIVE member, the card draws nothing at all (no heading, no toast).
 * An earlier consent of a member who is not eligible any more can be withdrawn, but the screen cannot tell whether one exists (the state has no such field).
 * The switch lives in the "Videokonferenz" card although the finder is no conference feature (a card of its own may follow).
 * `eligible` is not broken down: the screen names the likely reasons (German postal address, age).
-* No e-mail notification, no "report", and the privacy page (`LegalHtml`) does not mention the finder yet.
+* No e-mail notification and no "report".
+* The privacy page follows the switch, but browsers and proxies may keep the previous version for up to 5 minutes (`Cache-Control: public, max-age=300`); the ETag changes with the variant.
 * Not legal advice: the notice and the built-in consent text are drafts.

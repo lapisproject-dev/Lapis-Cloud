@@ -293,6 +293,7 @@ class LegalHtmlTest :
                     aiAssistantEnabled = true,
                     keycloakEnabled = true,
                     mcpEnabled = true,
+                    memberFinderEnabled = true,
                 )
             val purposesSection =
                 html.substringAfter("Zwecke und Rechtsgrundlagen der Verarbeitung").substringBefore("Empfänger")
@@ -310,6 +311,8 @@ class LegalHtmlTest :
                     "communication" to "interne Kommunikation",
                     "carpool" to "Mitfahrerzentrale",
                     "polls" to "Umfragen",
+                    // V1.9.147 -- the conditional finder paragraph exists now (rendered with memberFinderEnabled = true above).
+                    "memberFinder" to "Mitglieder-Finder",
                     "governance" to "Gremien",
                     "elections" to "Wahlen",
                     "systemic_consensus" to "Abstimmungsverfahren",
@@ -367,11 +370,6 @@ class LegalHtmlTest :
                     "ltrLedger",
                     "peerTransfer",
                     "priceOracleConversions",
-                    // V1.9.144 -- the member finder is an OPTIONAL feature, off by default and with no user interface yet (server wave only): there is
-                    // no processing to describe on an instance that has not switched it on. Its conditional privacy paragraph (like the AI assistant's)
-                    // comes with the client wave; until then the operator notice tells the operator to complete the privacy notice
-                    // (docs/features/member-finder.adoc, "Country-specific law, operator duties"). Remove this entry together with that paragraph.
-                    "memberFinder",
                 )
 
             PersonalDataRegistry.contributors.forEach { contributor ->
@@ -406,5 +404,91 @@ class LegalHtmlTest :
             text shouldContain "statischen Webseite"
             text shouldContain "ohne Ihre Einwilligung wird kein Autorenname angezeigt"
             text shouldNotContain "Ihr Name als Autor jedoch nicht angezeigt"
+        }
+
+        fun finderPrivacy(
+            enabled: Boolean?,
+            lang: PublicLanguage = PublicLanguage.DE,
+        ): String =
+            if (enabled == null) {
+                privacy(completeLegalConfig(), lang)
+            } else {
+                LegalHtml.privacyPage(
+                    legal = completeLegalConfig(),
+                    baseUrl = baseUrl,
+                    branding = branding,
+                    lang = lang,
+                    nav = PublicNavAvailability.NONE,
+                    memberFinderEnabled = enabled,
+                )
+            }
+
+        fun finderSection(html: String): String = html.substringAfterLast("Mitglieder-Finder (optional)").substringBefore("Empfänger")
+
+        test("F1: without the finder (explicit false or default) the page names neither the finder nor its section") {
+            for (html in listOf(finderPrivacy(false), finderPrivacy(null))) {
+                html shouldNotContain "Mitglieder-Finder"
+                html shouldNotContain "Mitglieder-Finder (optional)"
+                html shouldNotContain "Stammtische"
+            }
+        }
+
+        test(
+            "F2: with the finder the page states purpose, bases, withdrawal, deletion, region, threshold, neutrality, adulthood and the review notice",
+        ) {
+            val html = finderPrivacy(true)
+            html shouldContain "Mitglieder-Finder"
+            val section = finderSection(html)
+            section shouldContain "Ortsgruppe"
+            section shouldContain "Stammtische"
+            section shouldContain "Art. 6 Abs. 1 lit. a"
+            section shouldContain "Art. 9 Abs. 2 lit. a"
+            section shouldContain "jederzeit mit Wirkung für die Zukunft widerrufen"
+            section shouldContain "24 Stunden"
+            section shouldContain "Wird der Finder von dieser Installation abgeschaltet"
+            section shouldContain "Verlassen Sie die Organisation"
+            section shouldContain "spätestens 7 Tage nach ihrem Ablauf bzw. Abschluss entfernt"
+            section shouldContain "ersten zwei Ziffern der Postleitzahl"
+            section shouldContain "ab fünf Teilnehmenden"
+            section shouldContain "beidseitiger Zustimmung"
+            section shouldContain "erfährt nie, wer die Anfrage gesendet hat"
+            section shouldContain "volljährig"
+            section shouldContain "juristisch noch nicht geprüft"
+            // the purposes list names it too (Art. 9 reason: membership and political conviction)
+            html
+                .substringAfter(
+                    "Zwecke und Rechtsgrundlagen der Verarbeitung",
+                ).substringBefore("Mitglieder-Finder (optional)") shouldContain
+                "Mitglieder-Finder (freiwillig"
+            section shouldContain "politische Überzeugung"
+        }
+
+        test("F3: the finder text contains no gender markers") {
+            val gender = Regex("""[A-Za-zäöüß]\*in|:in\b|_in\b|/in\b|\(in\)""")
+            gender.containsMatchIn(finderSection(finderPrivacy(true))) shouldBe false
+        }
+
+        test("F4: the finder text does not overstate -- no 'vollständig gelöscht', no concrete count other than the threshold") {
+            val section = finderSection(finderPrivacy(true))
+            section shouldNotContain "vollständig gelöscht"
+            section shouldNotContain "alles gelöscht"
+            section shouldNotContain "E-Mail-Benachrichtigung"
+        }
+
+        test("F5: the review notice appears exactly once as a section-note inside the finder section, and without the finder not at all") {
+            val notice = "Dieser Abschnitt ist eine Vorlage und juristisch noch nicht geprüft"
+            val html = finderPrivacy(true)
+            html.windowed(notice.length).count { it == notice } shouldBe 1
+            finderSection(html) shouldContain notice
+            html shouldContain "<p class=\"section-note\">$notice"
+            finderPrivacy(false) shouldNotContain notice
+            // the global template disclaimer stays untouched
+            html shouldContain "Diese Seite ist eine Vorlage und stellt keine Rechtsberatung dar"
+        }
+
+        test("F6: the finder section is the same German text in every language variant") {
+            val de = finderSection(finderPrivacy(true, PublicLanguage.DE))
+            PublicLanguage.entries.forEach { lang -> finderSection(finderPrivacy(true, lang)) shouldBe de }
+            de shouldContain "Ortsgruppe"
         }
     })

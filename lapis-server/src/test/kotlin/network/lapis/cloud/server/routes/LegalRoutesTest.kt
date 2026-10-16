@@ -2,6 +2,7 @@ package network.lapis.cloud.server.routes
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import io.ktor.client.request.get
@@ -19,6 +20,7 @@ import network.lapis.cloud.server.branding.BrandConfig
 import network.lapis.cloud.server.branding.ResolvedBranding
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.legal.LegalConfig
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -50,6 +52,7 @@ class LegalRoutesTest :
         suspend fun testApp(
             readLimiter: FederationInboxRateLimiter = generousLimiter(),
             legal: LegalConfig = completeLegalConfig(),
+            memberFinderEnabled: () -> Boolean = { false },
             block: suspend ApplicationTestBuilder.() -> Unit,
         ) {
             testApplication {
@@ -62,6 +65,7 @@ class LegalRoutesTest :
                             branding = ResolvedBranding(title = BrandConfig.DEFAULT_TITLE, logoAvailable = false, logoPath = null),
                             legal = legal,
                             navAvailability = PublicNavAvailabilityProvider(),
+                            memberFinderEnabled = memberFinderEnabled,
                         )
                     }
                 }
@@ -145,7 +149,7 @@ class LegalRoutesTest :
             }
         }
 
-        test("R8: Cache-Control public max-age=3600, no stale-while-revalidate, no Vary: Cookie") {
+        test("R8: Cache-Control public max-age=3600 (impressum), no stale-while-revalidate, no Vary: Cookie") {
             testApp {
                 val response = client.get("/impressum")
                 val cacheControl = response.headers[HttpHeaders.CacheControl]
@@ -185,6 +189,53 @@ class LegalRoutesTest :
                 // of returning 200 -- see class KDoc.
                 client.get("/impressum").status shouldBe HttpStatusCode.OK
                 client.get("/datenschutz").status shouldBe HttpStatusCode.OK
+            }
+        }
+
+        test("R13: /datenschutz names the member finder only while the provider says it is active") {
+            testApp(memberFinderEnabled = { false }) {
+                client.get("/datenschutz").bodyAsText() shouldNotContain "Mitglieder-Finder"
+            }
+            testApp(memberFinderEnabled = { true }) {
+                val response = client.get("/datenschutz")
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldContain "Mitglieder-Finder (optional)"
+            }
+        }
+
+        test("R14: the provider is evaluated per request -- switching it changes the body and the ETag without re-registering") {
+            val active = AtomicBoolean(false)
+            testApp(memberFinderEnabled = { active.get() }) {
+                val before = client.get("/datenschutz")
+                active.set(true)
+                val during = client.get("/datenschutz")
+                active.set(false)
+                val after = client.get("/datenschutz")
+                before.bodyAsText() shouldNotContain "Mitglieder-Finder"
+                during.bodyAsText() shouldContain "Mitglieder-Finder"
+                after.bodyAsText() shouldNotContain "Mitglieder-Finder"
+                during.headers[HttpHeaders.ETag] shouldNotBe before.headers[HttpHeaders.ETag]
+                after.headers[HttpHeaders.ETag] shouldBe before.headers[HttpHeaders.ETag]
+                during.headers[HttpHeaders.CacheControl] shouldBe "public, max-age=300"
+            }
+        }
+
+        test("R15: /impressum never carries the finder text, and the finder variant exists in every language") {
+            testApp(memberFinderEnabled = { true }) {
+                client.get("/impressum").bodyAsText() shouldNotContain "Mitglieder-Finder"
+                PublicLanguage.entries.forEach { lang ->
+                    // the default language is canonical WITHOUT the parameter (R5)
+                    val path = if (lang == PublicLanguage.DE) "/datenschutz" else "/datenschutz?lang=${lang.code}"
+                    client.get(path).bodyAsText() shouldContain "Mitglieder-Finder (optional)"
+                }
+            }
+        }
+
+        test("R16: a throwing provider is treated as 'off' -- 200 without the finder text, never 500") {
+            testApp(memberFinderEnabled = { error("boom") }) {
+                val response = client.get("/datenschutz")
+                response.status shouldBe HttpStatusCode.OK
+                response.bodyAsText() shouldNotContain "Mitglieder-Finder"
             }
         }
 
