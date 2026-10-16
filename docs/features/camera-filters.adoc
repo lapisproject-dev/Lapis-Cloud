@@ -93,10 +93,9 @@ sequenceDiagram(name = "Camera filter: frame pipeline (V1.9.142)") {
 
 == Limits (honest)
 
-* **The face model is not bundled yet.** `blaze_face_short_range.tflite` (MediaPipe, Apache-2.0) has to be fetched once and committed (see
-  `lapis-client/src/jsMain/webAssets/mediapipe/PROVENANCE.adoc`, "Pending artefact"); that download was not approved in this wave. Until the file is added the
-  skin smoothing cannot start: the panel then shows "Pausiert (nicht gestartet)" and the message "Die Hautglättung konnte nicht gestartet werden." The light and
-  colour sliders are unaffected.
+* The face model `blaze_face_short_range.tflite` (MediaPipe, short range) is bundled since V1.9.146 (see `lapis-client/src/jsMain/webAssets/mediapipe/PROVENANCE.adoc`).
+  It finds faces up to about two metres from the camera, which fits a video conference; faces further away are not smoothed. Its licence (Apache-2.0) was
+  taken from the link in the model card, not from a clear-text sentence.
 * Not seen in a real browser with a real camera or in a real call. The shader runs in the unit tests on headless Chromium with a software rasteriser
   (SwiftShader) against synthetic pictures; its arithmetic is mirrored by `CameraFilterMath` and tested there.
 * Chromium-based browsers only (Chrome, Edge, Brave). Firefox, Safari and the app WebView get the explanation. There is **no Canvas2D fallback**; the

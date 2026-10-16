@@ -40,6 +40,18 @@ class VideoBackgroundAssetsTest :
             digest.joinToString("") { "%02x".format(it) } shouldBe expectedModelSha256
         }
 
+        test("das Gesichtsmodell der Hautglaettung existiert mit der dokumentierten Groesse und SHA-256") {
+            val faceModel = File(webAssets, "mediapipe/blaze_face_short_range.tflite")
+            faceModel.exists() shouldBe true
+            faceModel.length() shouldBe 229_746L
+            val digest = MessageDigest.getInstance("SHA-256").digest(faceModel.readBytes())
+            digest.joinToString("") { "%02x".format(it) } shouldBe
+                "b4578f35940bf5a1a655214a1cce5cab13eba73c1297cd78e1a04c2380b0152f"
+            val doc = provenance.readText()
+            doc.contains("b4578f35940bf5a1a655214a1cce5cab13eba73c1297cd78e1a04c2380b0152f") shouldBe true
+            doc.contains("229 746") shouldBe true
+        }
+
         test("alle sechs Hintergrundbilder existieren, sind kleiner als 150 KiB und echte WebP-Dateien") {
             whitelistedImageIds.forEach { id ->
                 val file = File(backgroundsDir, "$id.webp")

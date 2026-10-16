@@ -34,20 +34,19 @@ therefore served from this server under `/assets/mediapipe/selfie_segmenter.tfli
   the file disagree.
 . Re-run the manual privacy check from `docs/architecture/video-background-effects.adoc` (no request to a foreign host).
 
-== Pending artefact: the face detector model (V1.9.142)
+== The face detector model (V1.9.146)
 
-The camera filters (skin smoothing) need a second model, `blaze_face_short_range.tflite` (MediaPipe BlazeFace short range, Apache-2.0 according to the MediaPipe
-model card). It is **not yet in this directory**: fetching it is an external download that was not approved while V1.9.142 was written, and a checksum can only be
-written down after the file has been measured -- none is stated here on purpose.
+Used by the skin smoothing of the camera filters (V1.9.142). Served from this server under `/assets/mediapipe/blaze_face_short_range.tflite`; nothing is loaded
+from a third-party host at run time.
 
-To finish it:
+[cols="1,3"]
+|===
+| File | `blaze_face_short_range.tflite` (MediaPipe BlazeFace, short range: faces up to about two metres from the camera)
+| Source | `https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite`
+| Size | 229 746 bytes
+| SHA-256 | `b4578f35940bf5a1a655214a1cce5cab13eba73c1297cd78e1a04c2380b0152f`
+| Licence | Apache-2.0. The model card PDF (`https://storage.googleapis.com/mediapipe-assets/MediaPipe%20BlazeFace%20Model%20Card%20(Short%20Range).pdf`) links to the Apache-2.0 text; the PDF body is compressed and its licence sentence was not read in clear text (checked 2026-10-16).
+| Retrieved | 2026-10-16 (version-pinned `/1/` URL, source last modified 2023-04-26)
+|===
 
-. Download `https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite` once (the version-pinned `/1/`
-  URL, not `/latest/`) into this directory. Nothing is ever loaded from that host at run time.
-. Measure size and SHA-256, check the licence against the model card, and add a second table to this document (source, size, SHA-256, licence, retrieval date).
-. In `lapis-client/build.gradle.kts` add `mediapipe/blaze_face_short_range.tflite` to `videoEffectStagedPaths` and its SHA-256 to `videoEffectExpectedSha256`
-  (the staging and the webpack copy are both verified), and add a block for it to `VideoBackgroundAssetsTest` (`lapis-server`).
-. Run `:lapis-client:jsBrowserProductionWebpack` -- a new asset is not noticed by `check` alone.
-. Re-run the manual privacy check from `docs/architecture/video-background-effects.adoc`.
-
-Until then the skin smoothing reports "Pausiert (nicht gestartet)"; light and colour work without the model.
+NOTE: A reviewer should read the licence sentence in the model card itself and note the date here.

@@ -225,6 +225,8 @@ val videoEffectStagedPaths =
         "mediapipe/tasks-vision-$mediaPipeTasksVisionVersion/wasm/vision_wasm_nosimd_internal.js",
         "mediapipe/tasks-vision-$mediaPipeTasksVisionVersion/wasm/vision_wasm_nosimd_internal.wasm",
         "mediapipe/selfie_segmenter.tflite",
+        // V1.9.146: the face detector of the camera-filter skin smoothing (checksum below, provenance in mediapipe/PROVENANCE.adoc).
+        "mediapipe/blaze_face_short_range.tflite",
     ) + videoEffectBackgroundIds.map { "video-backgrounds/$it.webp" } +
         // V1.9.67 Begegnungsraum: the decorative floor-plan scenes (CSS masks, see theme.css `.lapis-encounter-scene-front`/`-rows`) ride the same staging.
         listOf("church", "hall").flatMap { theme -> listOf("front", "row").map { part -> "encounter-themes/$theme/$part.svg" } } +
@@ -240,6 +242,7 @@ val videoEffectStagedPaths =
 // V1.9.97: SHA-256 of the two recorded bells (V1.9.114: and of the RNNoise files); checked on the staging AND on the webpack copy.
 val videoEffectExpectedSha256 =
     mapOf(
+        "mediapipe/blaze_face_short_range.tflite" to "b4578f35940bf5a1a655214a1cce5cab13eba73c1297cd78e1a04c2380b0152f",
         "encounter-sounds-v1/call-bell.mp3" to "b41a4b3e8a6bc490c815a3398767bf2b9a39ec9048692587f174398430434405",
         "encounter-sounds-v1/blessing-bell.mp3" to "7eebd9ed890b21ea230dfa9c3cec8ace23e728e77c1c8d8438abd22b4d91d267",
         "rnnoise-v1/rnnoise-worklet.js" to "1e06facbb3d7459b89769aa4247cd4b71263e6662e4da0c54763f3bf06f5893b",

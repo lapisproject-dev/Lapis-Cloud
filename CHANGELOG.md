@@ -6,6 +6,13 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.146 -- Face model for the camera filters
+
+The face detector `blaze_face_short_range.tflite` (MediaPipe BlazeFace, short range, 229 746 bytes) is now bundled, so the skin smoothing of V1.9.142 can start. It is served from this server like the segmenter and
+never loaded from a third-party host. Size and SHA-256 are in `PROVENANCE.adoc`, checked by the staging, by the webpack copy and by `VideoBackgroundAssetsTest`. No migration, no server code.
+
+**Limits:** the licence (Apache-2.0) was taken from the link in the model card, not from a clear-text sentence. The skin smoothing was never judged on real faces; faces further than about two metres are not smoothed.
+
 ### V1.9.145 -- Member finder (client)
 
 The client of the **optional member finder** (server since V1.9.144): the member screen, the operator-notice dialog for the ADMIN, a board overview and the menu entry. No server change, **no migration**
