@@ -71,27 +71,37 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    # V1.9.37 Postgres test lane (docs/architecture/postgres-test-lane.adoc): a throwaway PostgreSQL service
-    # container, reachable on localhost through the port mapping. The password is the literal of this
-    # disposable container, not a secret; it is only handed to the lane step below.
-    services:
-      postgres:
-        # Docker's official image, mirrored by AWS (public ECR): the shared GitHub runners hit Docker Hub's anonymous pull
-        # rate limit (toomanyrequests) and the lane failed before a single test ran (2026-10-09). Same image, no registry login.
-        image: public.ecr.aws/docker/library/postgres:17
-        env:
-          POSTGRES_USER: lapis_test
-          POSTGRES_PASSWORD: lapis-ci-throwaway
-          POSTGRES_DB: lapis_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U lapis_test -d lapis_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
+    # V1.9.37 Postgres test lane (docs/architecture/postgres-test-lane.adoc): a throwaway PostgreSQL container, reachable on
+    # localhost through the port mapping. It is started by the step "Start PostgreSQL" below (not by a `services:` block) so that
+    # the image can come from three registries in turn: the shared GitHub runners hit the anonymous pull limit of Docker Hub
+    # (2026-10-09) and then of the AWS public ECR mirror ("toomanyrequests: Data limit exceeded", 2026-10-15, three runs). The
+    # password is the literal of this disposable container, not a secret.
 
     steps:
+      - name: Start PostgreSQL (registry fallback)
+        run: |
+          started=0
+          for image in public.ecr.aws/docker/library/postgres:17 mirror.gcr.io/library/postgres:17 postgres:17; do
+            for attempt in 1 2 3; do
+              if docker pull "$image"; then break; fi
+              echo "::warning::pull of $image failed (attempt $attempt)"
+              sleep $((attempt * 5))
+            done
+            if docker image inspect "$image" >/dev/null 2>&1; then
+              docker run -d --name lapis-postgres -p 5432:5432 \
+                -e POSTGRES_USER=lapis_test -e POSTGRES_PASSWORD=lapis-ci-throwaway -e POSTGRES_DB=lapis_test \
+                --health-cmd "pg_isready -U lapis_test -d lapis_test" --health-interval 5s --health-timeout 5s --health-retries 12 \
+                "$image" && started=1 && echo "PostgreSQL image: $image" && break
+            fi
+          done
+          if [ "$started" != 1 ]; then echo "::error::no registry delivered the PostgreSQL image"; exit 1; fi
+          for i in $(seq 1 60); do
+            status=$(docker inspect -f '{{.State.Health.Status}}' lapis-postgres)
+            if [ "$status" = healthy ]; then echo "PostgreSQL is healthy"; exit 0; fi
+            sleep 2
+          done
+          echo "::error::PostgreSQL did not become healthy"; docker logs lapis-postgres; exit 1
+
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 

@@ -46,7 +46,7 @@ Without `LAPIS_TEST_POSTGRES_URL` the task is skipped and `./gradlew clean check
 == Continuous integration
 
 Since V1.9.58 the lane has its own job, `postgres`, in `.github/workflows/ci.yml` (see `ci-pipeline.adoc`). The job starts a `postgres:17`
-service container (`lapis_test`, a disposable password that is not a secret) and sets the three `LAPIS_TEST_POSTGRES_*` variables on the
+throwaway container started by the step "Start PostgreSQL (registry fallback)" (`lapis_test`, a disposable password that is not a secret) and sets the three `LAPIS_TEST_POSTGRES_*` variables on the
 `./gradlew clean :lapis-server:postgresTest` step ONLY (not job-wide, never echoed). The host is `localhost` through the port mapping.
 The job runs in parallel with the H2 job (`check`, which excludes `postgresTest` by name) and the browser job.
 
