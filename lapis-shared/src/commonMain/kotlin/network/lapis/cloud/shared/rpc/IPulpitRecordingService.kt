@@ -8,7 +8,7 @@ import network.lapis.cloud.shared.domain.PulpitRecordingTextsDto
 /**
  * V1.9.143 -- recording of the PULPIT of an encounter room (see `docs/features/pulpit-recording.adoc`). Every method that touches a room
  * answers every refusal -- instance switch off, room option off, room closed, no session, caller not an office holder present in the room --
- * with the same bare [ForbiddenException], so nothing is learned from the type. **Registered LAST** in `Application.kt` (Kilua numbers routes
+ * with the same bare [ForbiddenException], so nothing is learned from the type. **Registered second to last** in `Application.kt` (the member finder of V1.9.144 is last) (Kilua numbers routes
  * by declaration order; a service in the middle would shift every later route).
  */
 @RpcService

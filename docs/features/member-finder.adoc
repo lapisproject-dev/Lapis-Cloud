@@ -1,0 +1,74 @@
+= Member finder (V1.9.144, server side)
+:toc:
+
+The member finder lets members who **explicitly consent** find other consenting members of the *same region* (the first two digits of the German postal code) -- to found
+a local group or to meet. A member sends a neutral request; the system picks **one** random counterpart; names become visible only after **both** sides agreed. The feature
+is **off by default** and switched on per instance by an ADMIN. This page is the operator view; the design and the threat model are in
+link:../architecture/member-finder.adoc[docs/architecture/member-finder.adoc].
+
+NOTE: **Status of V1.9.144: server only.** The Remote Procedure Call interface, the data model, the safeguards, the instance switch and the housekeeping exist and are tested.
+There is **no user interface yet** (no member screen, no admin dialog, no menu entry); the feature cannot be used by a person before the client wave. Nothing was run in a real
+browser or on a real instance.
+
+== Country-specific law, operator duties
+
+IMPORTANT: Membership of a party is a *special category of personal data* (Art. 9 GDPR and comparable rules of other countries): taking part in the finder can reveal membership
+and, possibly, a political or philosophical conviction. Whether the finder is admissible, which consent and information duties apply, and whether a data protection impact
+assessment is needed **differs per country**. **Lapis Cloud is not legal advice and does not decide that.** It makes the feature opt-in and puts the responsibility, in writing, with
+the operator:
+
+* An ADMIN switches the finder on only after reading an operator notice (four paragraphs, version `MEMBER_FINDER_NOTICE_VERSION`) and acknowledging that the legal admissibility
+  for the country has been checked. The audit entry records the notice version and the hash of the German reference text -- and nothing else (no member, no count).
+* The built-in consent text (kind `FINDER`) is a **draft**. Replace it with a legally reviewed text in the administration of the agreement texts before you switch the finder on.
+* Complete your privacy notice (data protection statement) with the finder. The built-in privacy page does not mention it yet (planned for the client wave).
+* A newly published `FINDER` text **ends every effective consent at once**: members have to consent again to the new text. Plan the moment of publication.
+
+== What a member can do (Remote Procedure Call methods)
+
+[cols="2,5"]
+|===
+|Method |Meaning
+
+|`getState`, `getConsentText` |The own state and the consent text (version label and hash are sent back with the opt-in). `getState` answers `offered = false` while the switch is off.
+|`optIn` |Consent to the current text, choose the interest (group founding, meet-ups, both) and confirm being of age. A known minor is refused; an unknown birth date plus the confirmation is accepted.
+|`optOut` |Withdraw. **Always possible** (also while the switch is off), immediately, never throttled (Art. 7(3) GDPR). Removes the own requests and connections and the own blocks.
+|`sendRequest` |A neutral request (purpose, optional note of 200 characters) to **one** random counterpart. The answer is always `PENDING` with the same shape.
+|`listOutgoingRequests`, `withdrawRequest` |The own requests as the sender may see them (`PENDING`, `ENDED`, `WITHDRAWN`, `CONNECTED`); withdrawing.
+|`listIncomingRequests`, `respondToRequest` |Requests addressed to the member (purpose, dates, note -- **never the sender**). Accept (creates a connection) or decline, optionally with a block.
+|`listConnections`, `contactConnection`, `blockConnection` |After both sides agreed: the name of the other side, a message through the existing direct messages, a block.
+|`listBlocks`, `unblock` |The own blocks (without names).
+|`getBoardOverview` |BOARD/ADMIN: regions with a visible *band* -- never a count, never a person.
+|===
+
+Who may use it: ACTIVE, not anonymized members only. Guests, friends, applicants, withdrawn members, donors and deceased persons are refused with the plain "forbidden" answer.
+
+== The safeguards (none of them is configurable)
+
+* **Threshold of five.** A region is invisible below five consenting participants. The threshold is the constant `MEMBER_FINDER_MIN_REGION_SIZE = 5`; no setting, environment variable or column
+  changes it (a tripwire test pins this).
+* **Coarse bands, once a day.** Only the bands `5-9`, `10-19`, `20+` are ever shown, and they are recomputed *once per organization day*. A join or a leave moves no published reading
+  before the next evaluation, so two readings cannot be subtracted to find out who joined.
+* **A region is never stored on a person.** It is derived from the postal code on every query (a German address is required; the legacy free-text country counts only if it is not blank).
+* **Neutral answers.** `sendRequest` always answers `PENDING`. When nobody qualifies a *phantom* request is stored (no addressee) that looks identical to the sender everywhere: in the
+  answer, the list, the limit of five pending requests and the data export. Declined, expired-early and phantom requests read as `PENDING` until the 30 days run out, then as `ENDED`.
+  Every refusal about somebody else's request is the same "not found".
+* **Limits.** Five pending requests per sender, three open requests per addressee, 3 sends per hour and 10 per day, a note of 200 characters (control and bidirectional characters removed).
+* **Re-consent.** Renewing a withdrawn consent waits 24 hours after the last event; withdrawing never waits. A new consent text needs no wait.
+* **Nothing audited, nothing logged.** Opt-in, opt-out, requests and blocks are *not* written to the audit log (it cannot be erased), and no log line names a member, a region or a note.
+* **No e-mail.** The finder sends no notification mail (it would leave an additional trace at the mail provider).
+
+== Switching the instance switch off
+
+Switching off (ADMIN) deletes all requests, all blocks and all bands and ends every effective consent with a system withdrawal (`INSTANCE_OFF`). The consent *events* stay as proof, but
+switching on again does **not** revive them: members consent again. This is deliberate -- blocks are gone, and a blocked sender must not be drawable again by accident.
+
+== Housekeeping (hourly)
+
+Open requests end after 30 days. Requests whose sender or addressee is no longer eligible (or moved region) end at once. Seven days after a decision the counterpart link and the note of a declined
+or expired request are detached; the row itself goes seven days after `max(decision, end)`; a request the sender withdrew goes seven days after the withdrawal, whatever its stored status, a connection after 90 days.
+
+== Backup and erasure
+
+The four finder tables are **excluded** from the organization backup (a restore leaves them empty and every member consents again; the consent proofs are gone after a restore). The GDPR export
+shows the member's own events, their own requests *in the sender's view*, the own decisions on incoming requests (without the sender) and two counts. Erasure deletes everything that names the
+member; requests the member only *received* are detached (not deleted) so that a sender sees no change.

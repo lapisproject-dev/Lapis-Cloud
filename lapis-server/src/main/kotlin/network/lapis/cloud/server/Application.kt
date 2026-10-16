@@ -177,6 +177,8 @@ import network.lapis.cloud.server.member.KeycloakProvisioningNotifier
 import network.lapis.cloud.server.member.MemberStatusHistoryConsistency
 import network.lapis.cloud.server.member.PrivilegedActionPoller
 import network.lapis.cloud.server.member.PrivilegedActionService
+import network.lapis.cloud.server.memberfinder.MemberFinderPoller
+import network.lapis.cloud.server.memberfinder.MemberFinderRateLimiter
 import network.lapis.cloud.server.membermap.MemberMapConfig
 import network.lapis.cloud.server.membermap.MemberMapStartupCheck
 import network.lapis.cloud.server.membermap.PlaceSearchIndex
@@ -315,6 +317,7 @@ import network.lapis.cloud.server.rpc.MemberAnniversaryService
 import network.lapis.cloud.server.rpc.MemberEmailChangeService
 import network.lapis.cloud.server.rpc.MemberFamilyService
 import network.lapis.cloud.server.rpc.MemberFinancialHistoryService
+import network.lapis.cloud.server.rpc.MemberFinderService
 import network.lapis.cloud.server.rpc.MemberHonorService
 import network.lapis.cloud.server.rpc.MemberPhotoService
 import network.lapis.cloud.server.rpc.MemberPublicProfileService
@@ -414,6 +417,7 @@ import network.lapis.cloud.shared.rpc.IMemberAnniversaryService
 import network.lapis.cloud.shared.rpc.IMemberEmailChangeService
 import network.lapis.cloud.shared.rpc.IMemberFamilyService
 import network.lapis.cloud.shared.rpc.IMemberFinancialHistoryService
+import network.lapis.cloud.shared.rpc.IMemberFinderService
 import network.lapis.cloud.shared.rpc.IMemberHonorService
 import network.lapis.cloud.shared.rpc.IMemberPhotoService
 import network.lapis.cloud.shared.rpc.IMemberPublicProfileService
@@ -1417,6 +1421,12 @@ internal fun Application.module(
     val carpoolRetentionPoller = CarpoolRetentionPoller()
     carpoolRetentionPoller.start()
     monitor.subscribe(ApplicationStopping) { carpoolRetentionPoller.stop() }
+    // V1.9.144 member finder: hourly housekeeping (expiry, detaching, deletion, once-a-day band evaluation); idle while the instance switch is off.
+    val memberFinderPoller = MemberFinderPoller()
+    memberFinderPoller.start()
+    monitor.subscribe(ApplicationStopping) { memberFinderPoller.stop() }
+    // One limiter for the whole process (the service is constructed per request).
+    val memberFinderRateLimiter = MemberFinderRateLimiter()
 
     // Welle V1.9.56 -- always on: expires overdue address changes, applies confirmed path B0/C changes once their 72 hour
     // warning period elapsed, purges old resolved rows. Idempotent (status guard under the member lock).
@@ -2622,7 +2632,7 @@ internal fun Application.module(
             )
         }
         // V1.9.133 display-only conference timer. Kilua numbers routes by declaration order, so a new service is ALWAYS appended at the end;
-        // ConferenceTimerServiceEventGuardTripwireTest pins the tail order (timer, agreement texts, then the pulpit recording).
+        // ConferenceTimerServiceEventGuardTripwireTest pins the tail order (timer, agreement texts, pulpit recording, then the member finder).
         registerService(IConferenceTimerService::class) { call ->
             ConferenceTimerService(
                 call = call,
@@ -2635,7 +2645,7 @@ internal fun Application.module(
         }
         // V1.9.134 administration of the registration texts.
         registerService(IAgreementTextAdminService::class) { call -> AgreementTextAdminService(call) }
-        // V1.9.143 optional recording of the pulpit of an encounter room. MUST stay the LAST registerService (see above).
+        // V1.9.143 optional recording of the pulpit of an encounter room. Since V1.9.144 the member finder below is the LAST registerService.
         registerService(IPulpitRecordingService::class) { call ->
             PulpitRecordingService(
                 call = call,
@@ -2644,6 +2654,10 @@ internal fun Application.module(
                 readRateLimiter = pulpitRecordingReadRateLimiter,
                 recordingInfrastructureAvailable = conferenceRecordingConfig.enabled && conferenceConfig.enabled,
             )
+        }
+        // V1.9.144 optional member finder. MUST stay the LAST registerService (Kilua numbers routes by declaration order).
+        registerService(IMemberFinderService::class) { call ->
+            MemberFinderService(call = call, rateLimiter = memberFinderRateLimiter)
         }
     }
 

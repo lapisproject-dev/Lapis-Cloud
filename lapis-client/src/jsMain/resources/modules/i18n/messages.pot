@@ -23561,6 +23561,12 @@ msgstr ""
 msgid "Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist."
 msgstr ""
 
+msgid "Einwilligung Mitglieder-Finder"
+msgstr ""
+
+msgid "Gilt nur, wenn der Mitglieder-Finder für die Instanz eingeschaltet ist."
+msgstr ""
+
 msgid "Platzhaltertext aktiv: Diese Instanz zeigt den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie eine rechtlich geprüfte Fassung für Ihr Land."
 msgstr ""
 

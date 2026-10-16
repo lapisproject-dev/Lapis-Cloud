@@ -24497,6 +24497,12 @@ msgstr "Zgoda ambony na nagrywanie"
 msgid "Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist."
 msgstr "Obowiązuje tylko wtedy, gdy nagrywanie ambony jest włączone dla instancji."
 
+msgid "Einwilligung Mitglieder-Finder"
+msgstr "Zgoda na wyszukiwarkę członków"
+
+msgid "Gilt nur, wenn der Mitglieder-Finder für die Instanz eingeschaltet ist."
+msgstr "Obowiązuje tylko wtedy, gdy wyszukiwarka członków jest włączona dla instancji."
+
 msgid "Platzhaltertext aktiv: Diese Instanz zeigt den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie eine rechtlich geprüfte Fassung für Ihr Land."
 msgstr "Aktywny tekst zastępczy: ta instancja pokazuje wbudowany tekst wzorcowy (wersja %1). Opublikuj wersję sprawdzoną prawnie dla swojego kraju."
 

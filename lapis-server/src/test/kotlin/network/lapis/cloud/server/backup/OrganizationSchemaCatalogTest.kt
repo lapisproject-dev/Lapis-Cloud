@@ -47,6 +47,11 @@ class OrganizationSchemaCatalogTest :
                     // Welle V1.9.139 -- the short-lived private ride messages and their thread state
                     "carpool_message",
                     "carpool_message_thread",
+                    // Welle V1.9.144 -- the member finder (Art. 9 data): consent proofs, requests, blocks and the derived daily bands
+                    "member_finder_consent_event",
+                    "member_finder_request",
+                    "member_finder_block",
+                    "member_finder_region_band",
                 )
             val names = transaction { OrganizationSchemaCatalog.exportableTables(this).map { it.tableName } }
             ("flyway_schema_history" in names) shouldBe false

@@ -546,5 +546,16 @@ classDiagram(name = "OrganizationSettings") {
             defaultValue = "TRUE"
             stereotype("Column") { "columnName" to "pulpit_recording_require_confirmation" }
         }
+        // Welle V1.9.144 (V107__member_finder.sql). The instance switch of the optional member finder (NOT NULL, FALSE = off) and the version of the
+        // operator notice the admin acknowledged when switching it on (NULL until then). Both are NOT part of the generic
+        // updateOrganizationSettings write-set: settable ONLY through IOrganizationSettingsService.updateMemberFinderEnabled (ADMIN, audited).
+        attribute(name = "memberFinderEnabled", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "member_finder_enabled" }
+        }
+        attribute(name = "memberFinderNoticeVersion", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "member_finder_notice_version"; "sqlType" to "VARCHAR(16)" }
+        }
     }
 }

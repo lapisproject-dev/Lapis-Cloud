@@ -77,6 +77,17 @@ person gets in a room whose pulpit may be recorded) and `REC_PULPIT` ("Zustimmun
 a placeholder **per room profile** (church service / assembly); a published version applies to both profiles. A text or a label equal to *either* placeholder is refused.
 Nobody acknowledges them persistently, so no "people without acknowledgment" count exists. Details: link:pulpit-recording.adoc[Optional recording of the pulpit].
 
+== The consent text of the member finder (V1.9.144)
+
+A fifth kind, `FINDER` ("Einwilligung Mitglieder-Finder"), is the explicit consent a member gives to the optional member finder. It applies only while the finder is switched on. Unlike the two
+recording texts a consent to it **is** stored (`member_finder_consent_event`, with the label and hash of the text), but not as an acknowledgment column. Consequences for the operator:
+
+* *A newly published `FINDER` version ends every effective consent at once.* A consent counts only for the *current* text; members consent again to the new one (without the 24-hour wait).
+* The "people without acknowledgment" count of the overview is **always 0** for this kind on purpose: a real count would be the exact number of members who consented to the finder, and the finder
+  shows only coarse bands. The built-in placeholder is a draft, not legal advice -- publish a legally reviewed text for your country before switching the finder on.
+
+Details: link:member-finder.adoc[Member finder].
+
 == Rules for a text
 
 * 1 to 60,000 characters (UTF-16 length, the same on client and server). No control characters other than line feed and tab, no DEL, no bidirectional controls

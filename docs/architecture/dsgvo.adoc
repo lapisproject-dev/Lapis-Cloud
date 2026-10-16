@@ -473,6 +473,15 @@ list of recordings (BOARD/ADMIN) names room and moment, not the person; for a re
 **hard** (bytes and rows); older backups keep a copy until they rotate. There is **no new `PersonalDataContributor`**: the new table has no personal data. Who agreed in a session is
 kept in memory only. Retention is unlimited by decision of the owner; the proof of the agreement with a person attached lives outside Lapis Cloud.
 
+*Member finder (V1.9.144, optional, off by default).* Taking part in the finder can reveal party membership and, possibly, a political or philosophical conviction (Art. 9). The legal basis is the
+explicit consent of the member (kind `FINDER` of the agreement texts; the proof is `member_finder_consent_event`, label and hash of the text); whether the finder is admissible at all is a decision of the operator
+for the country of the instance, acknowledged by an audited operator notice. *Tables / contributor:* `MemberFinderPersonalData` (`member_finder_consent_event`, `member_finder_request`, `member_finder_block`);
+`member_finder_region_band` has no member column and needs no contributor. *Export (Art. 15/20):* the member's own consent events (capped at 2000, `truncated` flag), the own outgoing requests **only in the sender's
+view** (never the stored `DECLINED`, which would be an oracle about the other side) and **without their note**: the note of an outgoing request is the sender's own data, but it is deliberately not exported, because retention, opt-out and erasure of the addressee null it while the sender still sees `PENDING`, so its presence would be an oracle about the other side (decision E6); the own incoming requests with the member's own decision and **without the sender**, and the number of connections and of own
+blocks -- never a foreign id or name. *Erasure:* hard; events, the member's own requests and the blocks of both sides are deleted; requests the member only *received* are detached (addressee and note removed) and
+stay as phantom rows, so that a sender sees no change. *Backup:* all four tables are excluded (a restore leaves them empty; the consent proofs are gone). *Audit and logs:* opt-in, opt-out, requests and blocks are
+not audited and no log line names a member, region or note (the audit chain cannot be erased). See `docs/architecture/member-finder.adoc`.
+
 NOTE: *Known limitation.* The **ordinary conference** keeps what the encounter space deliberately does not: `conference_participation` is append-only
 with `left_at`, `listParticipants` shows the history, and `conference_guest_consent_acknowledgment` is written per join. That is unchanged: a formal
 meeting needs its attendance record. An encounter session is fenced off from all of it (`EncounterRoomGuard`).

@@ -77,6 +77,8 @@ object PersonalDataRegistry {
             MemberPublicBioPersonalData,
             PollPersonalData,
             EncounterSpacePersonalData,
+            // V1.9.144: the member finder (consent events, requests, blocks).
+            MemberFinderPersonalData,
         )
 
     /**

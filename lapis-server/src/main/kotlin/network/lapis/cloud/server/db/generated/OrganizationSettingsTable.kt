@@ -97,6 +97,9 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     public val pulpitRecordingEnabled: Column<Boolean> = bool("pulpit_recording_enabled").default(false)
     public val pulpitRecordingNoticeVersion: Column<String?> = varchar("pulpit_recording_notice_version", 16).nullable()
     public val pulpitRecordingRequireConfirmation: Column<Boolean> = bool("pulpit_recording_require_confirmation").default(true)
+    // Welle V1.9.144 -- hand-edited, see 11-organization-settings.kuml.kts.
+    public val memberFinderEnabled: Column<Boolean> = bool("member_finder_enabled").default(false)
+    public val memberFinderNoticeVersion: Column<String?> = varchar("member_finder_notice_version", 16).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

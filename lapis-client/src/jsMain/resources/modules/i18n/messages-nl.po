@@ -24490,6 +24490,12 @@ msgstr "Toestemming van de kansel voor de opname"
 msgid "Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist."
 msgstr "Geldt alleen als de opname van de kansel voor de instantie is ingeschakeld."
 
+msgid "Einwilligung Mitglieder-Finder"
+msgstr "Toestemming voor de ledenzoeker"
+
+msgid "Gilt nur, wenn der Mitglieder-Finder für die Instanz eingeschaltet ist."
+msgstr "Geldt alleen als de ledenzoeker voor de instantie is ingeschakeld."
+
 msgid "Platzhaltertext aktiv: Diese Instanz zeigt den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie eine rechtlich geprüfte Fassung für Ihr Land."
 msgstr "Plaatshoudertekst actief: deze instantie toont de ingebouwde voorbeeldtekst (versie %1). Publiceer een juridisch getoetste versie voor uw land."
 

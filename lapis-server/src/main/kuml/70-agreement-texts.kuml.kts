@@ -38,7 +38,7 @@ classDiagram(name = "AgreementTexts") {
             stereotype("Id")
             stereotype("Column") { "columnName" to "id" }
         }
-        // MEMBERSHIP | FRIEND | REC_ROOM | REC_PULPIT (V1.9.143 added the last two; the CHECK lives in V106). REC_* texts are never acknowledged persistently.
+        // MEMBERSHIP | FRIEND | REC_ROOM | REC_PULPIT | FINDER (V1.9.143 added the REC kinds, the CHECK lives in V106; V1.9.144 added FINDER, V107). REC_* texts are never acknowledged persistently; a FINDER consent is stored in member_finder_consent_event.
         attribute(name = "kind", type = "String") {
             stereotype("Column") { "columnName" to "kind"; "sqlType" to "VARCHAR(10)" }
         }

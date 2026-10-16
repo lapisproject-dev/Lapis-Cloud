@@ -68,7 +68,8 @@ object OrganizationSchemaCatalog {
                 "Welle V1.9.81. Transient operational state of the mail pipeline: open rows hold queued system mails sealed under THIS " +
                 "instance's LAPIS_SECRET_ENCRYPTION_KEY (a restore elsewhere could not open them, and re-sending a stale security mail " +
                 "after a restore would be wrong), final rows hold nothing but a purpose and a status. Nothing organizational, and the " +
-                "whole-organization backup must not carry other people's queued mail (see docs/architecture/mail-delivery-budget-and-outbox.adoc).",
+                "whole-organization backup must not carry other people's queued mail (see " +
+                "docs/architecture/mail-delivery-budget-and-outbox.adoc).",
             "mail_send_slot" to
                 "Welle V1.9.81. The sliding one-hour window of the hourly send budget -- runtime state of the mailbox, meaningless on " +
                 "another server and expired within two hours anyway.",
@@ -81,6 +82,25 @@ object OrganizationSchemaCatalog {
                 "files exist: personal-derived, short-lived (deleted together with the raw files), referencing only a track row -- no " +
                 "name. Not organizational data and meaningless without those raw files, so the whole-organization backup must not carry " +
                 "it (see docs/architecture/conference-recording.adoc, \"Privacy: speaker timeline\"). Restore targets an empty database.",
+            "member_finder_consent_event" to
+                "Welle V1.9.144. The consent proof of the optional member finder. Party membership is a special " +
+                "category of data (Art. 9 GDPR): " +
+                "whoever is interested in finding other members is itself sensitive, so the ADMIN-only " +
+                "whole-organization backup must not become a way " +
+                "to read it. Restore targets an empty database, so the table stays empty and every member consents " +
+                "again -- the safe direction. " +
+                "Consequence: the consent proofs are gone after a restore (see docs/architecture/member-finder.adoc, \"Backup\").",
+            "member_finder_request" to
+                "Welle V1.9.144. Requests between two members of the finder (who asked whom, with an optional note) " +
+                "-- the same Art. 9 reasoning as " +
+                "member_finder_consent_event; short-lived (30 days open, 7 days after a decision) and a restore must not bring them back.",
+            "member_finder_block" to
+                "Welle V1.9.144. Blocks a member set in the finder -- names two members and is private to the blocker; same reasoning as " +
+                "member_finder_consent_event.",
+            "member_finder_region_band" to
+                "Welle V1.9.144. The daily aggregate (region key + coarse band) of the finder. It names no member, " +
+                "but it is derived from the excluded " +
+                "consent events, so it is meaningless without them and is recomputed by the poller.",
         )
 
     data class ColumnMetadata(

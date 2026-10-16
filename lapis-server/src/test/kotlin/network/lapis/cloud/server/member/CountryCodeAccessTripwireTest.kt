@@ -31,6 +31,8 @@ class CountryCodeAccessTripwireTest :
                 "network/lapis/cloud/server/rpc/BoardMemberMapService.kt" to "aggregate counts only, no value leaves",
                 "network/lapis/cloud/server/rpc/BoardMembershipService.kt" to "presence flag only (missingCountry), no value leaves",
                 "network/lapis/cloud/server/routes/MailmergeRoutes.kt" to "the recipient's postal address is the purpose of a mail merge",
+                "network/lapis/cloud/server/memberfinder/MemberFinderEligibility.kt" to
+                    "V1.9.144: derives the finder region on every query (only 'is it DE', never stored, never returned) -- the one finder reader",
             )
 
         val access =

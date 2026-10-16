@@ -46,4 +46,15 @@ interface IOrganizationSettingsService {
 
     /** V1.9.143. Role: ADMIN only. Whether the person at the pulpit has to confirm a recording start. Only while the instance switch is on. */
     suspend fun updatePulpitRecordingRequireConfirmation(required: Boolean): OrganizationSettingsDto
+
+    /**
+     * V1.9.144. Role: ADMIN only. Switches the optional member finder on or off. Switching ON requires [acknowledgedNoticeVersion] to equal
+     * [network.lapis.cloud.shared.domain.MEMBER_FINDER_NOTICE_VERSION] (the admin has read the operator notice and checked the legal
+     * admissibility -- party membership is a special category of data), else [MemberFinderNoticeOutdatedException]. Switching OFF deletes every
+     * request, block and band and ends every consent. A change writes one audit entry (no count, no member).
+     */
+    suspend fun updateMemberFinderEnabled(
+        enabled: Boolean,
+        acknowledgedNoticeVersion: String?,
+    ): OrganizationSettingsDto
 }

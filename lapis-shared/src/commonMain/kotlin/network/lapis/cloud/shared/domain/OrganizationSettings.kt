@@ -220,6 +220,13 @@ data class OrganizationSettingsDto(
     val pulpitRecordingRequireConfirmation: Boolean = true,
     /** V1.9.143 -- `true` iff this server has a recording service at all (`LAPIS_RECORDING_ENABLED`); computed, never stored. */
     val pulpitRecordingInfrastructureAvailable: Boolean = false,
+    /**
+     * V1.9.144 -- instance switch of the optional member finder (default off). **Read-only here**: it changes only through
+     * [network.lapis.cloud.shared.rpc.IOrganizationSettingsService.updateMemberFinderEnabled] (ADMIN, audited).
+     */
+    val memberFinderEnabled: Boolean = false,
+    /** V1.9.144 -- the version of the operator notice the admin acknowledged when switching the finder on; `null` until then. Read-only here. */
+    val memberFinderAcknowledgedNoticeVersion: String? = null,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */

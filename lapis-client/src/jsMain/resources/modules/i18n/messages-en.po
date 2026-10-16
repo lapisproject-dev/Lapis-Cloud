@@ -24442,6 +24442,12 @@ msgstr "Pulpit's consent to the recording"
 msgid "Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist."
 msgstr "Applies only if the pulpit recording is switched on for the instance."
 
+msgid "Einwilligung Mitglieder-Finder"
+msgstr "Consent to the member finder"
+
+msgid "Gilt nur, wenn der Mitglieder-Finder für die Instanz eingeschaltet ist."
+msgstr "Applies only if the member finder is switched on for the instance."
+
 msgid "Platzhaltertext aktiv: Diese Instanz zeigt den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie eine rechtlich geprüfte Fassung für Ihr Land."
 msgstr "Placeholder text active: this instance shows the built-in sample text (version %1). Please publish a legally reviewed version for your country."
 

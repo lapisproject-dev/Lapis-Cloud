@@ -7,6 +7,7 @@ import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.generated.AccountTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.memberbio.MemberPublicBioStore
+import network.lapis.cloud.server.memberfinder.MemberFinderLifecycle
 import network.lapis.cloud.server.memberphoto.MemberPhotoStore
 import network.lapis.cloud.server.payment.sepa.revokeMandatesForEndedMembership
 import network.lapis.cloud.server.rpc.CommitteeSeatEndResult
@@ -220,6 +221,8 @@ internal object MemberRoleStatusMutations {
             actorRole = actor?.role,
             now = now,
         )
+        // V1.9.144: a member who is no longer ACTIVE ends the member finder consent (plain database code, nothing audited).
+        MemberFinderLifecycle.onStatusChange(memberId = targetId, newStatus = newStatus, now = now)
         if (newStatus == MemberStatus.ACTIVE) {
             WebhookEventPublisher.publish(eventType = WebhookEventType.MEMBER_CREATED, entityId = targetId, occurredAt = now)
         }

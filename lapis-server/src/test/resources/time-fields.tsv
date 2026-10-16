@@ -903,3 +903,21 @@ col:CarpoolMessageTable.sentAt	A	stamped by the server clock (DbClock/ServerCloc
 dto:CarpoolMessageDto.sentAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:PulpitRecordingDocumentDto.recordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:PulpitRecordingDocumentTable.recordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:MemberFinderStateDto.bandComputedOn	D	calendar date (LocalDate); never converted
+dto:MemberFinderOutgoingRequestDto.sentOn	D	calendar date (LocalDate); never converted
+dto:MemberFinderOutgoingRequestDto.expiresOn	D	calendar date (LocalDate); never converted
+dto:MemberFinderIncomingRequestDto.receivedOn	D	calendar date (LocalDate); never converted
+dto:MemberFinderIncomingRequestDto.expiresOn	D	calendar date (LocalDate); never converted
+dto:MemberFinderConnectionDto.connectedOn	D	calendar date (LocalDate); never converted
+dto:MemberFinderConnectionDto.endsOn	D	calendar date (LocalDate); never converted
+dto:MemberFinderBlockDto.createdOn	D	calendar date (LocalDate); never converted
+dto:MemberFinderBoardOverviewDto.computedOn	D	calendar date (LocalDate); never converted
+dto:MemberFinderStateDto.nextOptInAllowedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberFinderConsentEventTable.occurredAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberFinderConsentEventTable.supersededAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberFinderRequestTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberFinderRequestTable.expiresAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberFinderRequestTable.decidedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberFinderRequestTable.senderWithdrawnAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberFinderBlockTable.createdAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:MemberFinderRegionBandTable.computedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

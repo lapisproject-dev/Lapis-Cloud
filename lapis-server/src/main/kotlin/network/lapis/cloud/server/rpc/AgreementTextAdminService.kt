@@ -284,6 +284,7 @@ class AgreementTextAdminService(
                 AgreementTextKind.FRIEND to LocalDate(2026, 8, 15),
                 AgreementTextKind.REC_ROOM to LocalDate(2026, 10, 16),
                 AgreementTextKind.REC_PULPIT to LocalDate(2026, 10, 16),
+                AgreementTextKind.FINDER to LocalDate(2026, 10, 16),
             )
         val BUILTIN_PUBLISHED_AT =
             BUILTIN_VALID_FROM.mapValues { (_, date) -> LocalDateTime(date.year, date.month, date.day, 0, 0) }

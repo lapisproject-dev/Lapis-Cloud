@@ -1,0 +1,186 @@
+= Member finder (V1.9.144)
+:description: Optional, consent-based search for members of the same region -- data model, request life cycle, neutrality for the sender, the global lock and the retention rules.
+:toc:
+:toc-placement: preamble
+:icons: font
+
+NOTE: **Implementation status.** V1.9.144 built the server side: migration `V107__member_finder.sql`, `IMemberFinderService`, the instance switch
+(`updateMemberFinderEnabled`), the hourly poller, the DSGVO contributor and the tripwires. There is **no client** yet. Operator view:
+link:../features/member-finder.adoc[docs/features/member-finder.adoc].
+
+== Context
+
+A member consents (agreement kind `FINDER`), then can send a neutral request to **one** random consenting member of the same region (the first two digits of the German postal code).
+Party membership is a special category of data (Art. 9 GDPR), so every design decision answers one question: *what can the next attacker or the next curious member learn?*
+
+== Data model
+
+[source,kuml,name="member-finder-model"]
+----
+classDiagram(name = "Member finder -- Model") {
+    val member = classOf(name = "Member") {
+        attribute(name = "id", type = "UUID")
+    }
+
+    val consent = classOf(name = "MemberFinderConsentEvent") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "memberId", type = "UUID")
+        attribute(name = "eventType", type = "String")
+        attribute(name = "occurredAt", type = "LocalDateTime")
+        attribute(name = "supersededAt", type = "LocalDateTime")
+        attribute(name = "consentVersion", type = "String")
+        attribute(name = "consentSha256", type = "String")
+        attribute(name = "interest", type = "String")
+        attribute(name = "adultConfirmed", type = "Boolean")
+        attribute(name = "revokeReason", type = "String")
+    }
+
+    val request = classOf(name = "MemberFinderRequest") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "fromMemberId", type = "UUID")
+        attribute(name = "toMemberId", type = "UUID")
+        attribute(name = "purpose", type = "String")
+        attribute(name = "note", type = "String")
+        attribute(name = "status", type = "String")
+        attribute(name = "createdAt", type = "LocalDateTime")
+        attribute(name = "expiresAt", type = "LocalDateTime")
+        attribute(name = "decidedAt", type = "LocalDateTime")
+    }
+
+    val block = classOf(name = "MemberFinderBlock") {
+        attribute(name = "id", type = "UUID")
+        attribute(name = "blockerMemberId", type = "UUID")
+        attribute(name = "blockedMemberId", type = "UUID")
+        attribute(name = "createdAt", type = "LocalDateTime")
+    }
+
+    val band = classOf(name = "MemberFinderRegionBand") {
+        attribute(name = "regionKey", type = "String")
+        attribute(name = "band", type = "String")
+        attribute(name = "computedAt", type = "LocalDateTime")
+    }
+
+    association(source = member, target = consent) {
+        source { multiplicity(spec = "1"); role = "member" }
+        target { multiplicity(spec = "0..*"); role = "consentEvents" }
+    }
+    association(source = member, target = request) {
+        source { multiplicity(spec = "1"); role = "sender" }
+        target { multiplicity(spec = "0..*"); role = "sentRequests" }
+    }
+    association(source = member, target = block) {
+        source { multiplicity(spec = "1"); role = "blocker" }
+        target { multiplicity(spec = "0..*"); role = "blocks" }
+    }
+}
+----
+
+* **No region on any person row.** `MemberFinderRegion.keyOf` derives it from `member.postal_code` on every query. The only region key is in `member_finder_region_band`, which has *no member column*
+  (an aggregate). `member.city` is never used. The "no stored region" rule is pinned by `MemberFinderTripwireTest`.
+* **`to_member_id` NULL** means a *phantom* request (nobody was found) or a request whose counterpart link was detached after the retention period.
+* **Excluded from the backup** (`OrganizationSchemaCatalog.EXCLUDED_TABLES`); a restore leaves them empty -- every member consents again. The consent proofs are gone after a restore (see the conflict below).
+* Request ids are random v4 UUIDs (`Uuid.random()`), never v7: no time information in an id.
+
+== Request life cycle
+
+[source,kuml,name="member-finder-request-states"]
+----
+stateDiagram(name = "Member finder request (stored status)") {
+    val start = initialState()
+    val open = state(name = "OPEN")
+    val accepted = state(name = "ACCEPTED")
+    val declined = state(name = "DECLINED")
+    val withdrawn = state(name = "WITHDRAWN")
+    val expired = state(name = "EXPIRED")
+    val gone = finalState()
+
+    transition(source = start, target = open) { trigger = "sendRequest (random addressee or phantom)" }
+    transition(source = open, target = accepted) { trigger = "addressee accepts" }
+    transition(source = open, target = declined) { trigger = "addressee declines" }
+    transition(source = open, target = withdrawn) { trigger = "sender withdraws" }
+    transition(source = open, target = expired) {
+        trigger = "30 days / a side lost eligibility"
+    }
+    transition(source = declined, target = declined) { trigger = "after 7 days: detach addressee and note" }
+    transition(source = expired, target = expired) { trigger = "after 7 days: detach addressee and note" }
+    transition(source = declined, target = gone) { trigger = "7 days after max(decision, end)" }
+    transition(source = expired, target = gone) { trigger = "7 days after max(decision, end)" }
+    transition(source = withdrawn, target = gone) { trigger = "7 days after the withdrawal" }
+    transition(source = accepted, target = gone) { trigger = "90 days after acceptance" }
+}
+----
+
+== What a sender sees (decision E6)
+
+The *stored* status never reaches a sender. `MemberFinderRequestStore.outgoingStateOf` maps it: `ACCEPTED` -> `CONNECTED`, `WITHDRAWN` -> `WITHDRAWN`, and `OPEN`/`DECLINED`/`EXPIRED` -> `PENDING` while
+`now < expires_at`, else `ENDED`. Three oracles would otherwise answer "what happened on the other side", and all three are closed by the data model, not by the answer alone:
+
+. The limit of five pending requests counts the *derived* `PENDING` state, so declined and phantom requests count like open ones; the number does not drop on a decline.
+. Deletion is keyed to `max(decided_at, expires_at) + 7 days`, so a declined request disappears from the sender's list exactly when an open one would.
+. The data export lists own requests in the sender's view, never the stored `DECLINED`, and deliberately leaves out the note of an outgoing request: the addressee's retention, opt-out and erasure null it while the sender still sees `PENDING`, so exporting it would be an oracle about the other side (E6).
+. A sender's withdrawal reads `WITHDRAWN` whatever the stored status is. It sets the timestamp `sender_withdrawn_at`, which `outgoingStateOf` and the pending count evaluate first and which drives retention (every withdrawn row is deleted seven days after the withdrawal, whatever its stored status); a stored `DECLINED`/`EXPIRED` keeps the addressee's own decision (the addressee export still says `DECLINED`).
+
+When an *addressee* leaves (opt-out, status loss, erasure) the row is **detached, not deleted** (addressee and note removed, status unchanged): the sender must not see a pending request vanish.
+Only an `ACCEPTED` request is deleted then (the sender saw the connection). Every refusal about somebody else's request -- unknown, malformed, foreign, decided, expired -- is the same
+`NotFoundException("Not found")`.
+
+== Consent
+
+Append-only `member_finder_consent_event` (`PublicRankingConsentStore` pattern: the open row has `superseded_at` NULL; a new event supersedes it). A `GRANT` carries the version label and hash of the
+`FINDER` agreement text, the interest and the adult confirmation; a `REVOKE` carries the reason (`MEMBER`, `STATUS_LOST`, `INSTANCE_OFF`). A consent counts only when it is for the **current** text
+(`AgreementTextResolver.current(FINDER)`); a newly published text therefore ends every effective consent, and renewing needs no 24-hour wait. The 24-hour rule applies to a fresh `GRANT` after a
+`REVOKE` only (decision E7: the withdrawal itself is never delayed or throttled).
+
+*Conflict of aims (concept 6.5): proof versus erasure.* The consent proof (GRANT/REVOKE with hash) is kept until the member's account is erased, as for `public_ranking_consent_event`; erasure of the
+member deletes it. The legal review should confirm that this is acceptable; after a restore the proofs are gone (the tables are excluded from the backup).
+
+== Threshold and bands
+
+`MemberFinderMatcher.pick` draws only when the **real** number of participants of the sender's region (sender included) is at least `MEMBER_FINDER_MIN_REGION_SIZE`; candidates are the other
+participants of the region whose interest matches (`BOTH` matches everything), who are not blocked in either direction, form no open pair or connection with the sender, are not in the 7-day pair
+block after a decision, and have fewer than three open incoming requests. They are sorted by id and one is chosen with `SecureRandom`.
+
+The *published* reading is the table `member_finder_region_band`: recomputed by the poller at most once per organization day (and while the table is empty). A restart with an empty table triggers one
+extra evaluation (accepted). The board sees the same bands, never a count.
+
+== The global lock (decision E9)
+
+Every finder write first takes the row lock of the single `organization_settings` row (`MemberFinderSettingsStore.lockAndLoad`, the idiom of `PollService`). One lock only, so there is no lock-order
+problem among finder writers, and it closes three races: a switch-off versus a request being sent (otherwise a ghost request survives), the inbox limit of three, and a duplicate open pair (a partial
+unique index is not H2-compatible). Reads take no lock. `MemberFinderConcurrencyScenarios` proves it with parallel requests on H2 and on PostgreSQL. The lifecycle hooks of the status paths take *no* lock:
+they only delete or detach, and a request inserted a moment later is caught by the live filters and the poller.
+
+== Instance switch off (decision E8)
+
+`MemberFinderLifecycle.onInstanceDisabled` runs in the same transaction as the switch: it deletes every request, block and band and appends a system `REVOKE` (`INSTANCE_OFF`) to every open consent.
+The events stay as proof but are not revived by a later switch-on -- the blocks are gone, and a blocked sender must not be drawable again by accident.
+
+== What is audited and logged
+
+Only the instance switch (`ORGANIZATION_SETTINGS`, with notice version and hash) and the publication of the consent text (`AGREEMENT_TEXT`). **Opt-in, opt-out, requests and blocks are deliberately not
+audited**: the audit chain is hash-linked and cannot be erased, so "member X used the finder" would be an unerasable Art. 9 trace. The switch-off entry carries no count of deleted rows. Log lines name
+no member, region, note or number. There is no e-mail notification (a queued mail would leave a trace at the mail provider).
+
+== Tripwires
+
+`MemberFinderTripwireTest` (DTO allowlist, logging, audit and mail, no stored region, one gate, table access, v4 ids), `MemberFinderThresholdPinTest` (the literal 5),
+`MemberFinderAccessTest` (every status against every method, the switch gate), `MemberFinderBackupExclusionTest`, `MemberFinderNoticePinTest`, `MemberFinderBuiltinTextPinTest`.
+
+== Decisions (E1 to E13)
+
+[cols="1,6"]
+|===
+|E1 |New migration `V107` (V106 is on `origin/master`; changing it would break the Flyway checksum).
+|E2 |Agreement kind `FINDER` (six characters, fits `VARCHAR(10)`; only the two CHECKs grow).
+|E3 |kUML file `72-member-finder.kuml.kts` (71 is the pulpit recording).
+|E4 |No new audit entity type; only the switch and the text publication are audited.
+|E5 |The region is never stored; derived on every query.
+|E6 |Neutrality for the sender is enforced by the data model (phantom request, derived states, retention keyed to `max(decided_at, expires_at)`).
+|E7 |Withdrawal is always immediate; the 24-hour wait applies to a fresh consent only.
+|E8 |Switch off deletes data and ends consents with a system revoke; a later switch-on does not revive them.
+|E9 |One global lock for all finder writes.
+|E10 |No e-mail notification in wave A.
+|E11 |Admin notice dialog not in wave A (recommended for wave B so the feature can be switched on and tested).
+|E12 |"Report" is not in wave A (legally open).
+|E13 |Loss of ACTIVE status: live filter, lifecycle hook in the status transactions, and the poller cleanup.
+|===

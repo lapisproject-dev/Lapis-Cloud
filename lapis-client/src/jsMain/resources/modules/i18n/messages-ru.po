@@ -24488,6 +24488,12 @@ msgstr "Согласие кафедры на запись"
 msgid "Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist."
 msgstr "Действует только если запись кафедры включена для этой установки."
 
+msgid "Einwilligung Mitglieder-Finder"
+msgstr "Согласие на поиск участников"
+
+msgid "Gilt nur, wenn der Mitglieder-Finder für die Instanz eingeschaltet ist."
+msgstr "Действует только если поиск участников включён для экземпляра."
+
 msgid "Platzhaltertext aktiv: Diese Instanz zeigt den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie eine rechtlich geprüfte Fassung für Ihr Land."
 msgstr "Активен временный текст: эта установка показывает встроенный образец (версия %1). Опубликуйте юридически проверенную версию для вашей страны."
 

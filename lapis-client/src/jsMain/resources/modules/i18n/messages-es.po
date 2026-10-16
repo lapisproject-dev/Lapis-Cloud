@@ -24382,6 +24382,12 @@ msgstr "Consentimiento del púlpito para la grabación"
 msgid "Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist."
 msgstr "Solo se aplica si la grabación del púlpito está activada para la instancia."
 
+msgid "Einwilligung Mitglieder-Finder"
+msgstr "Consentimiento para el buscador de miembros"
+
+msgid "Gilt nur, wenn der Mitglieder-Finder für die Instanz eingeschaltet ist."
+msgstr "Solo se aplica si el buscador de miembros está activado para la instancia."
+
 msgid "Platzhaltertext aktiv: Diese Instanz zeigt den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie eine rechtlich geprüfte Fassung für Ihr Land."
 msgstr "Texto provisional activo: esta instancia muestra el texto de muestra integrado (versión %1). Publique una versión revisada jurídicamente para su país."
 

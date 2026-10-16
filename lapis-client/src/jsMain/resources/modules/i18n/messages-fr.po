@@ -24554,6 +24554,12 @@ msgstr "Consentement de la chaire à l'enregistrement"
 msgid "Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist."
 msgstr "S'applique uniquement si l'enregistrement de la chaire est activé pour l'instance."
 
+msgid "Einwilligung Mitglieder-Finder"
+msgstr "Consentement au moteur de recherche de membres"
+
+msgid "Gilt nur, wenn der Mitglieder-Finder für die Instanz eingeschaltet ist."
+msgstr "S'applique uniquement si la recherche de membres est activée pour l'instance."
+
 msgid "Platzhaltertext aktiv: Diese Instanz zeigt den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie eine rechtlich geprüfte Fassung für Ihr Land."
 msgstr "Texte provisoire actif : cette instance affiche le texte modèle intégré (version %1). Veuillez publier une version vérifiée juridiquement pour votre pays."
 

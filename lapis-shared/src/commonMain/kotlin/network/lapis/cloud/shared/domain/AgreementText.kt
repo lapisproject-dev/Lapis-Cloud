@@ -19,6 +19,13 @@ enum class AgreementTextKind {
 
     /** V1.9.143 -- the consent the person at the pulpit gives to being recorded. */
     REC_PULPIT,
+
+    /**
+     * V1.9.144 -- the explicit consent to the optional member finder (a special category of data: it can reveal a political or philosophical
+     * conviction). Unlike the two REC kinds a consent IS recorded persistently (`member_finder_consent_event`), but it is not an
+     * acknowledgment column: a new published version simply ends every effective consent until the member consents again.
+     */
+    FINDER,
 }
 
 /**

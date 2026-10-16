@@ -287,6 +287,9 @@ internal object AgreementTextStore {
                     }.count()
             // V1.9.143: nobody acknowledges the pulpit-recording texts persistently, so there is nothing older to count.
             AgreementTextKind.REC_ROOM, AgreementTextKind.REC_PULPIT -> 0L
+            // V1.9.144: ALWAYS 0 on purpose. A real count would be the exact number of members who consented to the finder -- the finder shows
+            // only coarse bands, and the admin console must not become a back door to the exact number.
+            AgreementTextKind.FINDER -> 0L
         }.toInt()
 
     /** `{"event","kind","versionLabel","sha256","charCount","validFrom"[,"sequenceNo"]}` -- nothing else may ever enter the audit chain. */

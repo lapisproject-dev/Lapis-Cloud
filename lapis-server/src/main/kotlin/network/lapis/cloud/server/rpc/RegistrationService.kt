@@ -26,6 +26,7 @@ import network.lapis.cloud.server.member.MemberStatusHistory
 import network.lapis.cloud.server.member.MemberStatusHistorySource
 import network.lapis.cloud.server.member.PeerNotifier
 import network.lapis.cloud.server.memberbio.MemberPublicBioStore
+import network.lapis.cloud.server.memberfinder.MemberFinderLifecycle
 import network.lapis.cloud.server.memberphoto.MemberPhotoStore
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.ESCALATED_ROLES
@@ -734,6 +735,8 @@ class RegistrationService internal constructor(
                     actorRole = current.role,
                     now = now,
                 )
+                // V1.9.144 -- the member finder consent ends with the membership.
+                MemberFinderLifecycle.onStatusChange(memberId = current.memberId, newStatus = MemberStatus.WITHDRAWN, now = now)
                 // Phase 2 of the seat hook -- the last audit writes of this transaction (AuditLogRecorder lock order).
                 seatEnd.recordAudits()
                 loadMember(current.memberId)

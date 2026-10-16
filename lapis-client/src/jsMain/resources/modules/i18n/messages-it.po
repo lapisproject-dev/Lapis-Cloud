@@ -24535,6 +24535,12 @@ msgstr "Consenso del pulpito alla registrazione"
 msgid "Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist."
 msgstr "Vale solo se la registrazione del pulpito è attivata per l'istanza."
 
+msgid "Einwilligung Mitglieder-Finder"
+msgstr "Consenso per la ricerca dei membri"
+
+msgid "Gilt nur, wenn der Mitglieder-Finder für die Instanz eingeschaltet ist."
+msgstr "Vale solo se la ricerca dei membri è attivata per l'istanza."
+
 msgid "Platzhaltertext aktiv: Diese Instanz zeigt den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie eine rechtlich geprüfte Fassung für Ihr Land."
 msgstr "Testo segnaposto attivo: questa istanza mostra il testo di esempio integrato (versione %1). Pubblichi una versione verificata legalmente per il suo paese."
 

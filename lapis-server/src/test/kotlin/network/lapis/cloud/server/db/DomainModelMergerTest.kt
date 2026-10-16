@@ -75,7 +75,8 @@ class DomainModelMergerTest :
             // Welle V1.9.129 "Video-Overlays" -- was 69, now 70 with the addition of 69-video-overlay.kuml.kts.
             // Welle V1.9.134 "Vertragstexte" -- was 70, now 71 with the addition of 70-agreement-texts.kuml.kts.
             // Welle V1.9.143 "Kanzel-Aufzeichnung" -- was 71, now 72 with the addition of 71-pulpit-recording.kuml.kts.
-            scriptFiles shouldHaveSize 72
+            // Welle V1.9.144 "Mitglieder-Finder" -- now 73 with the addition of 72-member-finder.kuml.kts.
+            scriptFiles shouldHaveSize 73
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -550,7 +551,9 @@ class DomainModelMergerTest :
             // -- net +2 (199 -> 201).
             // Welle V1.9.143 "Kanzel-Aufzeichnung" adds 71-pulpit-recording.kuml.kts's ONE new table (pulpit_recording_document) plus id-only
             // Document and EncounterSpace stubs (dedup into the real entities) -- net +1 (201 -> 202).
-            val distinctTableNames = 202
+            // Welle V1.9.144 "Mitglieder-Finder" adds 72-member-finder.kuml.kts's FOUR new tables (member_finder_consent_event, member_finder_request,
+            // member_finder_block, member_finder_region_band) plus an id-only Member stub (dedups into the real entity) -- net +4 (202 -> 206).
+            val distinctTableNames = 206
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -906,6 +909,11 @@ class DomainModelMergerTest :
                     "AgreementTextDraftTable.kt",
                     // Welle V1.9.143 "Kanzel-Aufzeichnung" -- ONE new real table (pulpit_recording_document), no new stub.
                     "PulpitRecordingDocumentTable.kt",
+                    // Welle V1.9.144 "Mitglieder-Finder" -- FOUR new real tables, no new stub.
+                    "MemberFinderConsentEventTable.kt",
+                    "MemberFinderRequestTable.kt",
+                    "MemberFinderBlockTable.kt",
+                    "MemberFinderRegionBandTable.kt",
                 )
         }
 

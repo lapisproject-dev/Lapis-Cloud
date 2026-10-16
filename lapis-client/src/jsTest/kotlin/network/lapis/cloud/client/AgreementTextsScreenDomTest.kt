@@ -229,7 +229,7 @@ class AgreementTextsScreenDomTest {
                         "the warning",
                     ) { element().text().contains("Platzhaltertext aktiv: Diese Instanz zeigt bei der Registrierung") }
                     assertTrue(element().text().contains("(Version $builtin)"))
-                    assertEquals(4, element().allOf("[role=tab]").size)
+                    assertEquals(5, element().allOf("[role=tab]").size) // V1.9.144: + the FINDER consent text
                     assertEquals("true", element().allOf("[role=tab]")[0].getAttribute("aria-selected"))
                     assertEquals(
                         "Eingebauter Mustertext, Version $builtin.",

@@ -68,6 +68,13 @@ internal object BuiltinAgreementTexts {
                             sha256 = RecPulpitAssemblyDefault.SHA256,
                         )
                 }
+            // V1.9.144: one placeholder for both profiles (the finder has no room profile).
+            AgreementTextKind.FINDER ->
+                BuiltinText(
+                    versionLabel = MemberFinderConsentDefault.VERSION,
+                    body = MemberFinderConsentDefault.TEXT,
+                    sha256 = MemberFinderConsentDefault.SHA256,
+                )
         }
 
     /** Every placeholder of [kind] (two for the REC kinds, one otherwise): what a published text must differ from and must not collide with. */

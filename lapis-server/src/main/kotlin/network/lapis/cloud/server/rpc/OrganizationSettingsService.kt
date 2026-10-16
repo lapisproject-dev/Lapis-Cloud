@@ -10,14 +10,18 @@ import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.encounter.PulpitRecordingControl
 import network.lapis.cloud.server.encounter.PulpitRecordingNotice
 import network.lapis.cloud.server.encounter.PulpitStopReason
+import network.lapis.cloud.server.memberfinder.MemberFinderLifecycle
+import network.lapis.cloud.server.memberfinder.MemberFinderNotice
 import network.lapis.cloud.server.payment.sepa.BicValidator
 import network.lapis.cloud.server.payment.sepa.IbanValidator
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.LedgerAccountType
+import network.lapis.cloud.shared.domain.MEMBER_FINDER_NOTICE_VERSION
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsInput
 import network.lapis.cloud.shared.domain.OrganizationSettingsPaymentMappingSnapshot
@@ -26,6 +30,7 @@ import network.lapis.cloud.shared.domain.PaymentAccountMapping
 import network.lapis.cloud.shared.domain.paymentAccountMappingConflictOf
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
+import network.lapis.cloud.shared.rpc.MemberFinderNoticeOutdatedException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.PulpitRecordingNoticeOutdatedException
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -135,6 +140,56 @@ class OrganizationSettingsService(
                 loadOrganizationSettings().withInfrastructure() to (before != enabled)
             }
         if (result.second) logger.info { "video overlays offered set to $enabled by ${current.memberId}" }
+        return result.first
+    }
+
+    /**
+     * V1.9.144 -- the ONLY way to switch the optional member finder on or off (ADMIN). Party membership is a special category of data, so switching it
+     * ON requires [acknowledgedNoticeVersion] to be the current version of the operator notice ([MEMBER_FINDER_NOTICE_VERSION]); the audit entry records
+     * that version and the hash of the German reference text. A stale or missing version is [MemberFinderNoticeOutdatedException]. Setting the value it
+     * already has writes nothing -- except acknowledging the CURRENT version again while the stored one is older, which is a change and is audited.
+     *
+     * Switching OFF takes no parameter and, in the SAME transaction (plain database code, no external effect), deletes every request, block and band and
+     * ends every effective consent with a system revoke (decision E8, [MemberFinderLifecycle.onInstanceDisabled]). The audit entry carries NO count of
+     * what was deleted. The whole change runs under the global finder lock, so it cannot interleave with a request being sent.
+     */
+    override suspend fun updateMemberFinderEnabled(
+        enabled: Boolean,
+        acknowledgedNoticeVersion: String?,
+    ): OrganizationSettingsDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        if (enabled && acknowledgedNoticeVersion != MEMBER_FINDER_NOTICE_VERSION) throw MemberFinderNoticeOutdatedException()
+        val result =
+            transaction {
+                val before = MemberFinderSettingsStore.lockAndLoad()
+                val newVersion = if (enabled) MEMBER_FINDER_NOTICE_VERSION else before.noticeVersion
+                val changed = before.enabled != enabled || before.noticeVersion != newVersion
+                if (changed) {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[memberFinderEnabled] = enabled
+                        it[memberFinderNoticeVersion] = newVersion
+                    }
+                    if (!enabled && before.enabled) MemberFinderLifecycle.onInstanceDisabled(now = ServerClock.now())
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.ORGANIZATION_SETTINGS,
+                        entityId = ORGANIZATION_SETTINGS_ID,
+                        action = AuditAction.UPDATE,
+                        before = finderSnapshot(enabled = before.enabled, version = before.noticeVersion),
+                        after =
+                            finderSnapshot(
+                                enabled = enabled,
+                                version = newVersion,
+                                noticeSha256 = if (enabled) MemberFinderNotice.SHA256 else null,
+                            ),
+                    )
+                }
+                loadOrganizationSettings().withInfrastructure() to changed
+            }
+        // No member and no count in the log: only the fact that the switch moved.
+        if (result.second) logger.info { "member finder switched ${if (enabled) "on" else "off"}" }
         return result.first
     }
 
@@ -484,6 +539,7 @@ class OrganizationSettingsService(
                 // V1.9.129: videoOverlaysOffered likewise -- only updateVideoOverlaysOffered may set it.
                 // V1.9.143: pulpitRecordingEnabled / pulpitRecordingNoticeVersion / pulpitRecordingRequireConfirmation likewise -- only
                 // updatePulpitRecordingEnabled / updatePulpitRecordingRequireConfirmation may set them.
+                // V1.9.144: memberFinderEnabled / memberFinderNoticeVersion likewise -- only updateMemberFinderEnabled may set them.
             }
 
             val afterMapping =
@@ -688,6 +744,9 @@ fun ResultRow.toOrganizationSettingsDto(): OrganizationSettingsDto =
         pulpitRecordingEnabled = this[OrganizationSettingsTable.pulpitRecordingEnabled],
         pulpitRecordingAcknowledgedNoticeVersion = this[OrganizationSettingsTable.pulpitRecordingNoticeVersion],
         pulpitRecordingRequireConfirmation = this[OrganizationSettingsTable.pulpitRecordingRequireConfirmation],
+        // V1.9.144 -- read-only here, set only through updateMemberFinderEnabled.
+        memberFinderEnabled = this[OrganizationSettingsTable.memberFinderEnabled],
+        memberFinderAcknowledgedNoticeVersion = this[OrganizationSettingsTable.memberFinderNoticeVersion],
     )
 
 /**
@@ -771,4 +830,55 @@ private fun pulpitSnapshot(
     noticeSha256: String? = null,
 ): String =
     "{\"pulpitRecordingEnabled\":$enabled,\"pulpitRecordingNoticeVersion\":${if (version == null) "null" else "\"$version\""}" +
+        (if (noticeSha256 == null) "" else ",\"noticeSha256\":\"$noticeSha256\"") + "}"
+
+/** V1.9.144 -- the two settings of the optional member finder. */
+internal data class MemberFinderSettings(
+    val enabled: Boolean,
+    /** The version of the operator notice acknowledged when the feature was switched on; `null` until then. */
+    val noticeVersion: String?,
+) {
+    /** The finder works: the switch is on AND the CURRENT version of the notice was acknowledged. */
+    fun active(): Boolean = enabled && noticeVersion == MEMBER_FINDER_NOTICE_VERSION
+}
+
+/**
+ * V1.9.144 -- the member finder settings. Must run inside a `transaction {}`; a missing row (never happens, V1 seeds it) means "off". The OFF default is
+ * also what [currentValue] answers when the database fails.
+ */
+internal object MemberFinderSettingsStore {
+    private val OFF = MemberFinderSettings(enabled = false, noticeVersion = null)
+
+    fun load(): MemberFinderSettings = loadWith(lock = false)
+
+    /**
+     * Reads the settings while holding the row lock of the single organization-settings row -- THE global lock of every finder write (decision E9, the
+     * `PollService`/`AdminBootstrap` idiom). It serializes a switch-off against a request being sent, the inbox limit of 3 and the duplicate open pair
+     * (a partial unique index is not H2-compatible). One lock only, so there is no lock-order problem among finder writers.
+     */
+    fun lockAndLoad(): MemberFinderSettings = loadWith(lock = true)
+
+    private fun loadWith(lock: Boolean): MemberFinderSettings =
+        OrganizationSettingsTable
+            .select(OrganizationSettingsTable.memberFinderEnabled, OrganizationSettingsTable.memberFinderNoticeVersion)
+            .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+            .let { if (lock) it.forUpdate() else it }
+            .singleOrNull()
+            ?.let {
+                MemberFinderSettings(
+                    enabled = it[OrganizationSettingsTable.memberFinderEnabled],
+                    noticeVersion = it[OrganizationSettingsTable.memberFinderNoticeVersion],
+                )
+            } ?: OFF
+
+    /** Opens its own transaction and NEVER fails -- the safe answer is "off". */
+    fun currentValue(): MemberFinderSettings = runCatching { transaction { load() } }.getOrDefault(OFF)
+}
+
+private fun finderSnapshot(
+    enabled: Boolean,
+    version: String?,
+    noticeSha256: String? = null,
+): String =
+    "{\"memberFinderEnabled\":$enabled,\"memberFinderNoticeVersion\":${if (version == null) "null" else "\"$version\""}" +
         (if (noticeSha256 == null) "" else ",\"noticeSha256\":\"$noticeSha256\"") + "}"

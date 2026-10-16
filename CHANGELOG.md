@@ -6,6 +6,51 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.144 -- Member finder (server side)
+
+The first wave of an **optional member finder**: members who *explicitly consent* can send a neutral request to **one** random consenting member of the same region (the first two digits of
+the German postal code) -- to found a local group or to meet; names become visible only after **both** sides agreed. Party membership is a special category of data (Art. 9 GDPR and
+comparable rules), so the feature is **off by default**, switched on per instance by an ADMIN after an operator notice, and built to store and show as little as possible. This wave is
+**server only**: Remote Procedure Call interface, data model, safeguards, instance switch, housekeeping, GDPR contributor and tests. Migration **V107** (V1 to V106 untouched).
+**Nothing was run in a real browser or on a real instance.**
+
+#### What changes
+
+- **Instance switch** (ADMIN, `updateMemberFinderEnabled(enabled, acknowledgedNoticeVersion)`): switching on needs the *current* notice version (`MemberFinderNoticeOutdatedException` otherwise); one audit
+  entry with the version and the hash of the German reference text and **no count and no member**. Switching **off** deletes all requests, blocks and bands and ends every effective consent with a system
+  revoke (`INSTANCE_OFF`); a later switch-on does *not* revive them. The two columns are *not* part of the generic `updateOrganizationSettings`.
+- **`IMemberFinderService`** (fifteen methods, registered last): `getState`, `getConsentText`, `optIn`, `optOut`, `sendRequest`, `listOutgoingRequests`, `withdrawRequest`, `listIncomingRequests`,
+  `respondToRequest`, `listConnections`, `contactConnection`, `blockConnection`, `listBlocks`, `unblock`, `getBoardOverview`. ACTIVE, non-anonymized members only (plain `ForbiddenException` otherwise).
+- **Safeguards, none configurable:** threshold of five consenting participants (`MEMBER_FINDER_MIN_REGION_SIZE`, pinned by a test); only the bands 5-9 / 10-19 / 20+, recomputed **once per organization
+  day**; the region is **derived from the postal code on every query and never stored on a person**; five pending requests per sender, three open per addressee, 3/hour and 10/day sends, a note of 200
+  characters; adult confirmation; withdrawal always immediate (the 24-hour wait applies to a fresh consent only).
+- **Neutrality for the sender:** `sendRequest` always answers `PENDING` with the same shape; when nobody qualifies a *phantom* request is stored. Declined, early-expired and phantom requests read the same in
+  the answer, the list, the limit and the data export; every refusal about somebody else's request is the same "not found". Request ids are random v4 UUIDs.
+- **Consent:** new agreement kind `FINDER` (built-in placeholder `2026-10-16.finder.v1`, a draft); stored as an append-only log `member_finder_consent_event`. A **newly published `FINDER` text ends every effective
+  consent** until members consent again. The "older acknowledgments" count of the administration is always 0 for this kind (a count would reveal the exact number of consenting members).
+- **Housekeeping** (`MemberFinderPoller`, hourly, idle while the switch is off): expiry after 30 days, early expiry when a side loses eligibility or moves, detaching of the counterpart link 7 days after a
+  decision, deletion 7 days after `max(decision, end)` (withdrawn: 7 days after the withdrawal, connection: 90 days), cleanup of members who are no longer eligible, the daily band evaluation.
+- **Status loss:** a change away from ACTIVE (status path and `leaveMembership`) ends the consent (`STATUS_LOST`) in the same transaction; every query also filters live.
+- **One global lock** (the row lock of `organization_settings`) serializes all finder writes (switch-off versus send, inbox limit, duplicate pair).
+- **GDPR / backup:** `MemberFinderPersonalData` (export in the sender's view only, no foreign id or name; erasure hard, requests only *received* are detached); the four tables are **excluded from the backup**.
+- **Not audited, not logged:** opt-in, opt-out, requests and blocks are deliberately not audited (the chain cannot be erased) and no log line names a member, region or note.
+- **Client:** only what the new enum value forces -- the label and the hint of the new agreement kind in the administration of the agreement texts (two new catalog entries in all eight catalogs).
+- **Tests:** access matrix (every status against every method), threshold/bands/differential, matcher exclusions, neutrality, limits, lifecycle, poller, instance switch, GDPR contributor, backup exclusion, migration
+  (H2 and PostgreSQL), schema drift, concurrency (H2 and PostgreSQL), pins, tripwires. **Docs:** `docs/features/member-finder.adoc`, `docs/architecture/member-finder.adoc`, `dsgvo.adoc`, `agreement-texts.adoc`.
+
+#### Known limitations
+
+- **Server only.** There is no member screen and no admin dialog (the operator notice has no UI yet), so the finder cannot be switched on or used by a person before the client wave.
+- **Never seen in real operation.** Not run in a browser, not on a real instance.
+- **Not legal advice.** The operator notice and the built-in consent text are drafts; the law of the country of use must be checked by the operator. The new client strings are model translations.
+- Members without a postal code or country, or with an empty legacy country and no country code, cannot take part (stricter than the member map, which treats an empty country as Germany).
+- **No e-mail notification** of a new request (it would leave a trace at the mail provider and needs a member-side opt-out screen) and **no "report"** (the legal position is open).
+- Blocking in the finder does not block direct messages (there is no direct-message block).
+- A newly published `FINDER` text ends *all* effective consents at once; the warning for the admin comes with the client wave.
+- After a **restore** the consent proofs are gone (the tables are excluded from the backup) and every member consents again.
+- The rate limiters are in memory per process (a multi-instance deployment multiplies the limits).
+- The privacy page (`LegalHtml`) does not mention the finder yet.
+
 ### V1.9.143 -- Optional recording of the pulpit
 
 An encounter room can now **optionally** record its *pulpit* -- the camera and the microphone of the person who holds the PULPIT office -- into the document store. The

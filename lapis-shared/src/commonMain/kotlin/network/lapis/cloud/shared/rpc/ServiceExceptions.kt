@@ -678,3 +678,69 @@ class PulpitRecordingUnavailableException(
 class PulpitRecordingFloorActiveException(
     override val message: String = "No recording while a person of the congregation speaks",
 ) : AbstractServiceException()
+
+/** V1.9.144 -- distinct type. The admin acknowledged an older version of the operator notice (or none) when switching the member finder on. */
+@RpcServiceException
+class MemberFinderNoticeOutdatedException(
+    override val message: String = "The operator notice has changed -- please read it again",
+) : AbstractServiceException()
+
+/** V1.9.144 -- distinct type. The member finder is switched off for this instance. Reveals nothing about any member. */
+@RpcServiceException
+class MemberFinderUnavailableException(
+    override val message: String = "The member finder is not available",
+) : AbstractServiceException()
+
+/** V1.9.144 -- distinct type. The consent text changed since the member read it; the member is asked to read it again. Concerns the caller only. */
+@RpcServiceException
+class MemberFinderConsentOutdatedException(
+    override val message: String = "The consent text has changed -- please read it again",
+) : AbstractServiceException()
+
+/** V1.9.144 -- distinct type. The member did not confirm being of age. Concerns the caller only. */
+@RpcServiceException
+class MemberFinderAdultConfirmationRequiredException(
+    override val message: String = "Please confirm that you are of age",
+) : AbstractServiceException()
+
+/** V1.9.144 -- distinct type. The caller has no derivable region, or is known to be a minor. Concerns the caller's own data only. */
+@RpcServiceException
+class MemberFinderNotEligibleException(
+    override val message: String = "The member finder is not available for this account",
+) : AbstractServiceException()
+
+/** V1.9.144 -- distinct type. The caller has no effective consent. */
+@RpcServiceException
+class MemberFinderConsentRequiredException(
+    override val message: String = "Please consent to the member finder first",
+) : AbstractServiceException()
+
+/** V1.9.144 -- distinct type. A consent was granted less than 24 hours ago (applies to granting again, never to revoking). */
+@RpcServiceException
+class MemberFinderRegrantCooldownException(
+    override val message: String = "Please wait before consenting again",
+) : AbstractServiceException()
+
+/** V1.9.144 -- distinct type. The caller's own region has no visible group size yet. The caller sees this about their own region anyway. */
+@RpcServiceException
+class MemberFinderRegionNotVisibleException(
+    override val message: String = "There is no visible group in your region yet",
+) : AbstractServiceException()
+
+/** V1.9.144 -- distinct type. The caller already has the maximum number of pending requests. Phantom and declined requests count like open ones. */
+@RpcServiceException
+class MemberFinderLimitReachedException(
+    override val message: String = "The maximum number of pending requests is reached",
+) : AbstractServiceException()
+
+/** V1.9.144 -- distinct type. The note is longer than 200 characters. */
+@RpcServiceException
+class MemberFinderNoteInvalidException(
+    override val message: String = "The note is too long",
+) : AbstractServiceException()
+
+/** V1.9.144 -- distinct type. The caller exceeded the rate limit; concerns the caller's own behaviour only. */
+@RpcServiceException
+class MemberFinderRateLimitedException(
+    override val message: String = "Too many actions in a short time. Please try again later.",
+) : AbstractServiceException()

@@ -363,7 +363,16 @@ class LegalHtmlTest :
             // their own. If that ever needs sharpening, do it deliberately -- this map exists so
             // the gap stays a documented decision, not an unnoticed one.
             val umbrellaAllowlist =
-                setOf("ltrLedger", "peerTransfer", "priceOracleConversions")
+                setOf(
+                    "ltrLedger",
+                    "peerTransfer",
+                    "priceOracleConversions",
+                    // V1.9.144 -- the member finder is an OPTIONAL feature, off by default and with no user interface yet (server wave only): there is
+                    // no processing to describe on an instance that has not switched it on. Its conditional privacy paragraph (like the AI assistant's)
+                    // comes with the client wave; until then the operator notice tells the operator to complete the privacy notice
+                    // (docs/features/member-finder.adoc, "Country-specific law, operator duties"). Remove this entry together with that paragraph.
+                    "memberFinder",
+                )
 
             PersonalDataRegistry.contributors.forEach { contributor ->
                 val keyword = keywordBySectionKey[contributor.sectionKey]
