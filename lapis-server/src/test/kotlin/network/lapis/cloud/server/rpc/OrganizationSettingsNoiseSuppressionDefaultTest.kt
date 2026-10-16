@@ -184,14 +184,23 @@ class OrganizationSettingsNoiseSuppressionDefaultTest :
 
 private fun Route.registerNoiseDefaultTestRoutes() {
     post("/t/noise") {
-        val dto = OrganizationSettingsService(call).updateNoiseSuppressionDefault(call.request.queryParameters["enabled"]!!.toBoolean())
+        val dto =
+            OrganizationSettingsService(
+                call = call,
+                pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING,
+            ).updateNoiseSuppressionDefault(call.request.queryParameters["enabled"]!!.toBoolean())
         call.respondText(dto.noiseSuppressionDefault.toString())
     }
     get("/t/get") {
-        call.respondText(OrganizationSettingsService(call).getOrganizationSettings().noiseSuppressionDefault.toString())
+        call.respondText(
+            OrganizationSettingsService(
+                call = call,
+                pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING,
+            ).getOrganizationSettings().noiseSuppressionDefault.toString(),
+        )
     }
     post("/t/generic") {
-        val service = OrganizationSettingsService(call)
+        val service = OrganizationSettingsService(call = call, pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING)
         val dto =
             service.updateOrganizationSettings(
                 network.lapis.cloud.shared.domain

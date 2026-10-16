@@ -463,6 +463,16 @@ is used at the moment of sending (individual mails, nobody sees the others) on t
 linked by an office holder who knows who was expected at that minute; the window of the other mode blurs this. The setting is part of the configuration snapshot in the audit log (actor = BOARD/ADMIN); the room list shows every authorised person that the office holders are
 informed (transparency, Art. 13).
 
+*Pulpit recording (V1.9.143, optional, off by default).* A room whose option is on records the picture and voice of the person who holds the PULPIT office into the
+document store (`docs/features/pulpit-recording.adoc`). The file is personal data of that person (and, if they are visible, of people next to them); in an encounter space it can
+also reveal religious belief or a worldview (Art. 9). Lapis Cloud does not decide the legal basis: the operator does, for the country of the instance, after an
+acknowledgment that is audited (version and hash of the operator notice). The congregation is never recorded and nothing about attendance is stored; the entry panel and the
+non-member consent say that the pulpit can be recorded (a separate consent text version). *Tables:* `pulpit_recording_document` (document, room, moment) -- **no person column**;
+the file itself is a `document` (creator = the person who started the recording; the path of the erasure of a member's documents applies). *Information and erasure:* the
+list of recordings (BOARD/ADMIN) names room and moment, not the person; for a request under Art. 15/17 an operator finds the files by room and time and deletes them
+**hard** (bytes and rows); older backups keep a copy until they rotate. There is **no new `PersonalDataContributor`**: the new table has no personal data. Who agreed in a session is
+kept in memory only. Retention is unlimited by decision of the owner; the proof of the agreement with a person attached lives outside Lapis Cloud.
+
 NOTE: *Known limitation.* The **ordinary conference** keeps what the encounter space deliberately does not: `conference_participation` is append-only
 with `left_at`, `listParticipants` shows the history, and `conference_guest_consent_acknowledgment` is written per join. That is unchanged: a formal
 meeting needs its attendance record. An encounter session is fenced off from all of it (`EncounterRoomGuard`).

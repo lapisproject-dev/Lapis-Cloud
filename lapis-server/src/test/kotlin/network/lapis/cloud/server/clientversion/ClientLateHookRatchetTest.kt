@@ -106,6 +106,18 @@ private val AUDITED_DIRECT_HOOK_CALLS: Map<String, Pair<Int, String>> =
                     "`div(className = ...)`), before that widget has any element of its own, exactly the `canvasHost` shape " +
                     "already audited for PriceOracleScreen.kt"
             ),
+        "PulpitRecordingSettings.kt" to
+            (
+                1 to
+                    "V1.9.143: the operator-notice dialog; the hook only moves the focus to \"Abbrechen\" once Bootstrap has shown the " +
+                    "modal (the same two-moment idiom as confirmDialog); no attribute is written"
+            ),
+        "EncounterPulpitRecordingConsentDialog.kt" to
+            (
+                1 to
+                    "V1.9.143: the pulpit's consent dialog; the hook moves the focus to \"Nicht aufzeichnen\" and listens for " +
+                    "hidden.bs.modal, so every other way to close the dialog (Escape, close button) counts as a \"no\"; no attribute is written"
+            ),
     )
 
 /**

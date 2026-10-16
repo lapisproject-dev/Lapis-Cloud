@@ -304,6 +304,8 @@ class EncounterPrivacyWatchTest :
                         "table_count",
                         "table_seats",
                         "guest_policy",
+                        // V1.9.143: one more room setting (whether the pulpit of the room may be recorded), a flag of the room and never a person
+                        "pulpit_recording_allowed",
                         "max_participants",
                         "closed_notice",
                         "created_at",

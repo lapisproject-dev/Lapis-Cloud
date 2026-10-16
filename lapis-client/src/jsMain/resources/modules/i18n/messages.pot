@@ -23551,3 +23551,153 @@ msgstr ""
 
 msgid "Alle Filter ausgeschaltet"
 msgstr ""
+
+msgid "Hinweis bei Aufzeichnung (Raum)"
+msgstr ""
+
+msgid "Zustimmung der Kanzel zur Aufzeichnung"
+msgstr ""
+
+msgid "Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist."
+msgstr ""
+
+msgid "Platzhaltertext aktiv: Diese Instanz zeigt den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie eine rechtlich geprüfte Fassung für Ihr Land."
+msgstr ""
+
+msgid "Kanzel-Aufzeichnung"
+msgstr ""
+
+msgid "Sie sind im Begriff, die Aufzeichnung der Kanzel in den Begegnungsräumen dieser Instanz zu erlauben. Aufgezeichnet werden ausschließlich Bild und Ton der Person, die das Amt der Kanzel (in Versammlungen: des Podiums) innehat. Die Gemeinde (in Versammlungen: die Teilnehmenden) wird nicht aufgezeichnet."
+msgstr ""
+
+msgid "Ob und unter welchen Bedingungen eine solche Aufzeichnung zulässig ist, hängt vom Recht Ihres Landes ab, zum Beispiel vom Datenschutz-, Persönlichkeits- und Urheberrecht und von Vorgaben für Religionsgemeinschaften und Versammlungen. Lapis Cloud nimmt diese Prüfung nicht vor und ersetzt keine Rechtsberatung."
+msgstr ""
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass Sie eine Rechtsgrundlage haben und dass die aufgezeichnete Person informiert ist und, wo erforderlich, einwilligt. Die Aufnahme wird in der Dokumentenablage gespeichert, ist nur für Vorstand und Administratoren sichtbar und bleibt bis zu ihrer Löschung bestehen."
+msgstr ""
+
+msgid "Zeigt die Kamera Personen, die vor Ort neben der Kanzel anwesend sind, werden auch diese aufgezeichnet. Das kann die Software nicht verhindern."
+msgstr ""
+
+msgid "Aufzeichnung von Kanzel bzw. Podium erlauben"
+msgstr ""
+
+msgid "Nur die Kamera und das Mikrofon der Person mit dem Amt der Kanzel werden aufgezeichnet, nie die Gemeinde. Zusätzlich muss die Aufzeichnung je Raum erlaubt werden."
+msgstr ""
+
+msgid "Der Aufzeichnungsdienst ist auf diesem Server nicht eingerichtet."
+msgstr ""
+
+msgid "Bestätigt für Hinweis Version %1, aktuell Version %2. Bitte erneut bestätigen."
+msgstr ""
+
+msgid "Erneut bestätigen"
+msgstr ""
+
+msgid "Die Aufzeichnung der Kanzel ist ausgeschaltet."
+msgstr ""
+
+msgid "Der Hinweis wurde geändert. Bitte lesen Sie ihn erneut."
+msgstr ""
+
+msgid "Die Aufzeichnung der Kanzel ist eingeschaltet."
+msgstr ""
+
+msgid "Zustimmung der Kanzel vor jeder Aufnahme verlangen"
+msgstr ""
+
+msgid "Die Aufzeichnung ist nicht eingeschaltet."
+msgstr ""
+
+msgid "Aufzeichnung der Kanzel erlauben?"
+msgstr ""
+
+msgid "Hinweis Version %1"
+msgstr ""
+
+msgid "Ich habe die rechtliche Zulässigkeit für mein Land geprüft und übernehme die Verantwortung."
+msgstr ""
+
+msgid "Einschalten"
+msgstr ""
+
+msgid "Aufzeichnung löschen?"
+msgstr ""
+
+msgid "Die Aufzeichnung wird endgültig gelöscht. Ältere Sicherungen können sie noch enthalten."
+msgstr ""
+
+msgid "Die Aufzeichnung wurde gelöscht."
+msgstr ""
+
+msgid "Aufzeichnung läuft · Nur die Kanzel wird aufgezeichnet"
+msgstr ""
+
+msgid "Aufzeichnung läuft · Nur das Podium wird aufgezeichnet"
+msgstr ""
+
+msgid "Aufnahme"
+msgstr ""
+
+msgid "Aufzeichnung gestartet"
+msgstr ""
+
+msgid "Warte auf Zustimmung der Kanzel"
+msgstr ""
+
+msgid "Warte auf Zustimmung des Podiums"
+msgstr ""
+
+msgid "Kanzel-Aufzeichnung in diesem Raum erlauben"
+msgstr ""
+
+msgid "Podium-Aufzeichnung in diesem Raum erlauben"
+msgstr ""
+
+msgid "Aufzeichnung von Kanzel bzw. Podium in diesem Raum erlauben"
+msgstr ""
+
+msgid "Aufgezeichnet wird nur, wer das Amt der Kanzel bzw. des Podiums innehat, nie die Gemeinde."
+msgstr ""
+
+msgid "Von der Instanz nicht freigegeben."
+msgstr ""
+
+msgid "Nur bei geschlossenem Raum einschaltbar."
+msgstr ""
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann die Kanzel aufgezeichnet werden, die Gemeinde nicht."
+msgstr ""
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann das Podium aufgezeichnet werden, die Teilnehmenden nicht."
+msgstr ""
+
+msgid "Aufzeichnung zustimmen?"
+msgstr ""
+
+msgid "Aufzeichnung zustimmen"
+msgstr ""
+
+msgid "Nicht aufzeichnen"
+msgstr ""
+
+msgid "Höchstzahl gleichzeitiger Aufnahmen erreicht"
+msgstr ""
+
+msgid "Die Kanzel wurde um Zustimmung gebeten."
+msgstr ""
+
+msgid "Das Podium wurde um Zustimmung gebeten."
+msgstr ""
+
+msgid "Solange jemand aus der Gemeinde spricht, wird nicht aufgezeichnet."
+msgstr ""
+
+msgid "Solange jemand aus der Versammlung spricht, wird nicht aufgezeichnet."
+msgstr ""
+
+msgid "Der Aufzeichnungsdienst ist gerade nicht verfügbar."
+msgstr ""
+
+msgid "Die Aufzeichnung konnte nicht geändert werden. Bitte versuchen Sie es erneut."
+msgstr ""

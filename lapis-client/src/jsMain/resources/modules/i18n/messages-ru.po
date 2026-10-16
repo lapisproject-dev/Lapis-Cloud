@@ -24478,3 +24478,153 @@ msgstr "Фильтры скрыты"
 
 msgid "Alle Filter ausgeschaltet"
 msgstr "Все фильтры выключены"
+
+msgid "Hinweis bei Aufzeichnung (Raum)"
+msgstr "Уведомление о записи (зал)"
+
+msgid "Zustimmung der Kanzel zur Aufzeichnung"
+msgstr "Согласие кафедры на запись"
+
+msgid "Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist."
+msgstr "Действует только если запись кафедры включена для этой установки."
+
+msgid "Platzhaltertext aktiv: Diese Instanz zeigt den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie eine rechtlich geprüfte Fassung für Ihr Land."
+msgstr "Активен временный текст: эта установка показывает встроенный образец (версия %1). Опубликуйте юридически проверенную версию для вашей страны."
+
+msgid "Kanzel-Aufzeichnung"
+msgstr "Запись кафедры"
+
+msgid "Sie sind im Begriff, die Aufzeichnung der Kanzel in den Begegnungsräumen dieser Instanz zu erlauben. Aufgezeichnet werden ausschließlich Bild und Ton der Person, die das Amt der Kanzel (in Versammlungen: des Podiums) innehat. Die Gemeinde (in Versammlungen: die Teilnehmenden) wird nicht aufgezeichnet."
+msgstr "Вы собираетесь разрешить запись кафедры в залах встреч этой установки. Записываются только изображение и звук лица, занимающего должность кафедры (на собраниях: подиума). Прихожане (на собраниях: участники) не записываются."
+
+msgid "Ob und unter welchen Bedingungen eine solche Aufzeichnung zulässig ist, hängt vom Recht Ihres Landes ab, zum Beispiel vom Datenschutz-, Persönlichkeits- und Urheberrecht und von Vorgaben für Religionsgemeinschaften und Versammlungen. Lapis Cloud nimmt diese Prüfung nicht vor und ersetzt keine Rechtsberatung."
+msgstr "Допустима ли такая запись и на каких условиях, зависит от права вашей страны, например от защиты данных, личных неимущественных прав и авторского права, а также от правил для религиозных общин и собраний. Lapis Cloud такую проверку не проводит и не заменяет юридическую консультацию."
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass Sie eine Rechtsgrundlage haben und dass die aufgezeichnete Person informiert ist und, wo erforderlich, einwilligt. Die Aufnahme wird in der Dokumentenablage gespeichert, ist nur für Vorstand und Administratoren sichtbar und bleibt bis zu ihrer Löschung bestehen."
+msgstr "Как оператор вы отвечаете за наличие правового основания и за то, чтобы записываемое лицо было проинформировано и, если требуется, дало согласие. Запись хранится в архиве документов, видна только правлению и администраторам и сохраняется до удаления."
+
+msgid "Zeigt die Kamera Personen, die vor Ort neben der Kanzel anwesend sind, werden auch diese aufgezeichnet. Das kann die Software nicht verhindern."
+msgstr "Если камера показывает людей, находящихся на месте рядом с кафедрой, они тоже записываются. Программа не может этого предотвратить."
+
+msgid "Aufzeichnung von Kanzel bzw. Podium erlauben"
+msgstr "Разрешить запись кафедры или подиума"
+
+msgid "Nur die Kamera und das Mikrofon der Person mit dem Amt der Kanzel werden aufgezeichnet, nie die Gemeinde. Zusätzlich muss die Aufzeichnung je Raum erlaubt werden."
+msgstr "Записываются только камера и микрофон лица, занимающего должность кафедры, никогда не прихожане. Кроме того, запись нужно разрешить для каждого зала."
+
+msgid "Der Aufzeichnungsdienst ist auf diesem Server nicht eingerichtet."
+msgstr "Служба записи на этом сервере не настроена."
+
+msgid "Bestätigt für Hinweis Version %1, aktuell Version %2. Bitte erneut bestätigen."
+msgstr "Подтверждено для версии %1 уведомления, текущая версия %2. Подтвердите снова."
+
+msgid "Erneut bestätigen"
+msgstr "Подтвердить снова"
+
+msgid "Die Aufzeichnung der Kanzel ist ausgeschaltet."
+msgstr "Запись кафедры выключена."
+
+msgid "Der Hinweis wurde geändert. Bitte lesen Sie ihn erneut."
+msgstr "Уведомление изменилось. Прочитайте его снова."
+
+msgid "Die Aufzeichnung der Kanzel ist eingeschaltet."
+msgstr "Запись кафедры включена."
+
+msgid "Zustimmung der Kanzel vor jeder Aufnahme verlangen"
+msgstr "Требовать согласие кафедры перед каждой записью"
+
+msgid "Die Aufzeichnung ist nicht eingeschaltet."
+msgstr "Запись не включена."
+
+msgid "Aufzeichnung der Kanzel erlauben?"
+msgstr "Разрешить запись кафедры?"
+
+msgid "Hinweis Version %1"
+msgstr "Уведомление, версия %1"
+
+msgid "Ich habe die rechtliche Zulässigkeit für mein Land geprüft und übernehme die Verantwortung."
+msgstr "Я проверил(а) правовую допустимость для моей страны и беру на себя ответственность."
+
+msgid "Einschalten"
+msgstr "Включить"
+
+msgid "Aufzeichnung löschen?"
+msgstr "Удалить запись?"
+
+msgid "Die Aufzeichnung wird endgültig gelöscht. Ältere Sicherungen können sie noch enthalten."
+msgstr "Запись будет удалена окончательно. Старые резервные копии могут её ещё содержать."
+
+msgid "Die Aufzeichnung wurde gelöscht."
+msgstr "Запись удалена."
+
+msgid "Aufzeichnung läuft · Nur die Kanzel wird aufgezeichnet"
+msgstr "Идёт запись · записывается только кафедра"
+
+msgid "Aufzeichnung läuft · Nur das Podium wird aufgezeichnet"
+msgstr "Идёт запись · записывается только подиум"
+
+msgid "Aufnahme"
+msgstr "Запись"
+
+msgid "Aufzeichnung gestartet"
+msgstr "Запись начата"
+
+msgid "Warte auf Zustimmung der Kanzel"
+msgstr "Ожидание согласия кафедры"
+
+msgid "Warte auf Zustimmung des Podiums"
+msgstr "Ожидание согласия подиума"
+
+msgid "Kanzel-Aufzeichnung in diesem Raum erlauben"
+msgstr "Разрешить запись кафедры в этом зале"
+
+msgid "Podium-Aufzeichnung in diesem Raum erlauben"
+msgstr "Разрешить запись подиума в этом зале"
+
+msgid "Aufzeichnung von Kanzel bzw. Podium in diesem Raum erlauben"
+msgstr "Разрешить запись кафедры или подиума в этом зале"
+
+msgid "Aufgezeichnet wird nur, wer das Amt der Kanzel bzw. des Podiums innehat, nie die Gemeinde."
+msgstr "Записывается только лицо, занимающее должность кафедры или подиума, никогда не прихожане."
+
+msgid "Von der Instanz nicht freigegeben."
+msgstr "Не разрешено установкой."
+
+msgid "Nur bei geschlossenem Raum einschaltbar."
+msgstr "Включить можно только при закрытом зале."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann die Kanzel aufgezeichnet werden, die Gemeinde nicht."
+msgstr "Lapis Cloud не сохраняет список присутствующих. В этом зале кафедра может записываться, прихожане — нет."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann das Podium aufgezeichnet werden, die Teilnehmenden nicht."
+msgstr "Lapis Cloud не сохраняет список присутствующих. В этом зале подиум может записываться, участники — нет."
+
+msgid "Aufzeichnung zustimmen?"
+msgstr "Согласиться на запись?"
+
+msgid "Aufzeichnung zustimmen"
+msgstr "Согласиться на запись"
+
+msgid "Nicht aufzeichnen"
+msgstr "Не записывать"
+
+msgid "Höchstzahl gleichzeitiger Aufnahmen erreicht"
+msgstr "Достигнуто максимальное число одновременных записей"
+
+msgid "Die Kanzel wurde um Zustimmung gebeten."
+msgstr "Кафедру попросили дать согласие."
+
+msgid "Das Podium wurde um Zustimmung gebeten."
+msgstr "Подиум попросили дать согласие."
+
+msgid "Solange jemand aus der Gemeinde spricht, wird nicht aufgezeichnet."
+msgstr "Пока говорит кто-то из прихожан, запись не ведётся."
+
+msgid "Solange jemand aus der Versammlung spricht, wird nicht aufgezeichnet."
+msgstr "Пока говорит кто-то из собрания, запись не ведётся."
+
+msgid "Der Aufzeichnungsdienst ist gerade nicht verfügbar."
+msgstr "Служба записи сейчас недоступна."
+
+msgid "Die Aufzeichnung konnte nicht geändert werden. Bitte versuchen Sie es erneut."
+msgstr "Не удалось изменить запись. Попробуйте ещё раз."

@@ -24432,3 +24432,153 @@ msgstr "Filters hidden"
 
 msgid "Alle Filter ausgeschaltet"
 msgstr "All filters switched off"
+
+msgid "Hinweis bei Aufzeichnung (Raum)"
+msgstr "Notice for recording (room)"
+
+msgid "Zustimmung der Kanzel zur Aufzeichnung"
+msgstr "Pulpit's consent to the recording"
+
+msgid "Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist."
+msgstr "Applies only if the pulpit recording is switched on for the instance."
+
+msgid "Platzhaltertext aktiv: Diese Instanz zeigt den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie eine rechtlich geprüfte Fassung für Ihr Land."
+msgstr "Placeholder text active: this instance shows the built-in sample text (version %1). Please publish a legally reviewed version for your country."
+
+msgid "Kanzel-Aufzeichnung"
+msgstr "Pulpit recording"
+
+msgid "Sie sind im Begriff, die Aufzeichnung der Kanzel in den Begegnungsräumen dieser Instanz zu erlauben. Aufgezeichnet werden ausschließlich Bild und Ton der Person, die das Amt der Kanzel (in Versammlungen: des Podiums) innehat. Die Gemeinde (in Versammlungen: die Teilnehmenden) wird nicht aufgezeichnet."
+msgstr "You are about to allow the recording of the pulpit in the encounter rooms of this instance. Only the picture and sound of the person who holds the pulpit office (in assemblies: the podium) are recorded. The congregation (in assemblies: the participants) is not recorded."
+
+msgid "Ob und unter welchen Bedingungen eine solche Aufzeichnung zulässig ist, hängt vom Recht Ihres Landes ab, zum Beispiel vom Datenschutz-, Persönlichkeits- und Urheberrecht und von Vorgaben für Religionsgemeinschaften und Versammlungen. Lapis Cloud nimmt diese Prüfung nicht vor und ersetzt keine Rechtsberatung."
+msgstr "Whether and under which conditions such a recording is permitted depends on the law of your country, for example data protection, personality and copyright law and rules for religious communities and assemblies. Lapis Cloud does not perform this check and is not legal advice."
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass Sie eine Rechtsgrundlage haben und dass die aufgezeichnete Person informiert ist und, wo erforderlich, einwilligt. Die Aufnahme wird in der Dokumentenablage gespeichert, ist nur für Vorstand und Administratoren sichtbar und bleibt bis zu ihrer Löschung bestehen."
+msgstr "As operator you are responsible for having a legal basis and for the recorded person being informed and, where required, consenting. The recording is stored in the document store, is visible only to the board and administrators and remains until it is deleted."
+
+msgid "Zeigt die Kamera Personen, die vor Ort neben der Kanzel anwesend sind, werden auch diese aufgezeichnet. Das kann die Software nicht verhindern."
+msgstr "If the camera shows people who are present on site next to the pulpit, they are recorded as well. The software cannot prevent this."
+
+msgid "Aufzeichnung von Kanzel bzw. Podium erlauben"
+msgstr "Allow recording of the pulpit or podium"
+
+msgid "Nur die Kamera und das Mikrofon der Person mit dem Amt der Kanzel werden aufgezeichnet, nie die Gemeinde. Zusätzlich muss die Aufzeichnung je Raum erlaubt werden."
+msgstr "Only the camera and microphone of the person holding the pulpit office are recorded, never the congregation. In addition, the recording has to be allowed for each room."
+
+msgid "Der Aufzeichnungsdienst ist auf diesem Server nicht eingerichtet."
+msgstr "The recording service is not set up on this server."
+
+msgid "Bestätigt für Hinweis Version %1, aktuell Version %2. Bitte erneut bestätigen."
+msgstr "Confirmed for notice version %1, current version %2. Please confirm again."
+
+msgid "Erneut bestätigen"
+msgstr "Confirm again"
+
+msgid "Die Aufzeichnung der Kanzel ist ausgeschaltet."
+msgstr "The pulpit recording is switched off."
+
+msgid "Der Hinweis wurde geändert. Bitte lesen Sie ihn erneut."
+msgstr "The notice has changed. Please read it again."
+
+msgid "Die Aufzeichnung der Kanzel ist eingeschaltet."
+msgstr "The pulpit recording is switched on."
+
+msgid "Zustimmung der Kanzel vor jeder Aufnahme verlangen"
+msgstr "Require the pulpit's consent before every recording"
+
+msgid "Die Aufzeichnung ist nicht eingeschaltet."
+msgstr "The recording is not switched on."
+
+msgid "Aufzeichnung der Kanzel erlauben?"
+msgstr "Allow the pulpit recording?"
+
+msgid "Hinweis Version %1"
+msgstr "Notice version %1"
+
+msgid "Ich habe die rechtliche Zulässigkeit für mein Land geprüft und übernehme die Verantwortung."
+msgstr "I have checked the legal admissibility for my country and accept responsibility."
+
+msgid "Einschalten"
+msgstr "Switch on"
+
+msgid "Aufzeichnung löschen?"
+msgstr "Delete the recording?"
+
+msgid "Die Aufzeichnung wird endgültig gelöscht. Ältere Sicherungen können sie noch enthalten."
+msgstr "The recording is deleted permanently. Older backups may still contain it."
+
+msgid "Die Aufzeichnung wurde gelöscht."
+msgstr "The recording was deleted."
+
+msgid "Aufzeichnung läuft · Nur die Kanzel wird aufgezeichnet"
+msgstr "Recording in progress · only the pulpit is recorded"
+
+msgid "Aufzeichnung läuft · Nur das Podium wird aufgezeichnet"
+msgstr "Recording in progress · only the podium is recorded"
+
+msgid "Aufnahme"
+msgstr "Recording"
+
+msgid "Aufzeichnung gestartet"
+msgstr "Recording started"
+
+msgid "Warte auf Zustimmung der Kanzel"
+msgstr "Waiting for the pulpit's consent"
+
+msgid "Warte auf Zustimmung des Podiums"
+msgstr "Waiting for the podium's consent"
+
+msgid "Kanzel-Aufzeichnung in diesem Raum erlauben"
+msgstr "Allow pulpit recording in this room"
+
+msgid "Podium-Aufzeichnung in diesem Raum erlauben"
+msgstr "Allow podium recording in this room"
+
+msgid "Aufzeichnung von Kanzel bzw. Podium in diesem Raum erlauben"
+msgstr "Allow recording of the pulpit or podium in this room"
+
+msgid "Aufgezeichnet wird nur, wer das Amt der Kanzel bzw. des Podiums innehat, nie die Gemeinde."
+msgstr "Only the person holding the pulpit or podium office is recorded, never the congregation."
+
+msgid "Von der Instanz nicht freigegeben."
+msgstr "Not enabled by the instance."
+
+msgid "Nur bei geschlossenem Raum einschaltbar."
+msgstr "Can only be switched on while the room is closed."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann die Kanzel aufgezeichnet werden, die Gemeinde nicht."
+msgstr "Lapis Cloud stores no attendance list. In this room the pulpit may be recorded, the congregation is not."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann das Podium aufgezeichnet werden, die Teilnehmenden nicht."
+msgstr "Lapis Cloud stores no attendance list. In this room the podium may be recorded, the participants are not."
+
+msgid "Aufzeichnung zustimmen?"
+msgstr "Agree to the recording?"
+
+msgid "Aufzeichnung zustimmen"
+msgstr "Agree to the recording"
+
+msgid "Nicht aufzeichnen"
+msgstr "Do not record"
+
+msgid "Höchstzahl gleichzeitiger Aufnahmen erreicht"
+msgstr "Maximum number of simultaneous recordings reached"
+
+msgid "Die Kanzel wurde um Zustimmung gebeten."
+msgstr "The pulpit was asked for consent."
+
+msgid "Das Podium wurde um Zustimmung gebeten."
+msgstr "The podium was asked for consent."
+
+msgid "Solange jemand aus der Gemeinde spricht, wird nicht aufgezeichnet."
+msgstr "While someone from the congregation speaks, nothing is recorded."
+
+msgid "Solange jemand aus der Versammlung spricht, wird nicht aufgezeichnet."
+msgstr "While someone from the assembly speaks, nothing is recorded."
+
+msgid "Der Aufzeichnungsdienst ist gerade nicht verfügbar."
+msgstr "The recording service is currently not available."
+
+msgid "Die Aufzeichnung konnte nicht geändert werden. Bitte versuchen Sie es erneut."
+msgstr "The recording could not be changed. Please try again."

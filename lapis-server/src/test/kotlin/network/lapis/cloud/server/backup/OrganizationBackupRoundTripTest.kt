@@ -17,6 +17,7 @@ import network.lapis.cloud.server.db.generated.CostCenterTable
 import network.lapis.cloud.server.db.generated.DocumentFolderTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
+import network.lapis.cloud.server.db.generated.EncounterSpaceTable
 import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
@@ -25,6 +26,7 @@ import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PostingTable
+import network.lapis.cloud.server.db.generated.PulpitRecordingDocumentTable
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AgreementTextKind
@@ -78,6 +80,7 @@ class OrganizationBackupRoundTripTest :
             val blobBytes = "hello secession, this is a document blob".toByteArray(Charsets.UTF_8)
             val storageKey = "$documentId/$versionId.bin"
             val agreementVersionId = Uuid.random()
+            val pulpitSpaceId = Uuid.random()
             val agreementLabel = "2027-01-01.v1"
             val agreementBody =
                 ("Vertragstext mit Umlauten: \u00e4\u00f6\u00fc\u00df \u20ac. ")
@@ -250,6 +253,25 @@ class OrganizationBackupRoundTripTest :
                     it[updatedAt] = LocalDateTime(2027, 1, 2, 12, 0)
                 }
 
+                // V1.9.143 "Kanzel-Aufzeichnung": a room and the marker row of a stored pulpit recording (the document above stands in for the recording).
+                // The marker table is exported automatically and must come back bit-identical -- with no column that names a person.
+                EncounterSpaceTable.insert {
+                    it[id] = pulpitSpaceId
+                    it[title] = "Roundtrip-Gottesdienst"
+                    it[description] = ""
+                    it[themeKey] = "CHURCH"
+                    it[mode] = "SERVICE"
+                    it[guestPolicy] = "MEMBERS_ONLY"
+                    it[pulpitRecordingAllowed] = true
+                    it[createdAt] = LocalDateTime(2027, 1, 3, 8, 0)
+                    it[createdByMemberId] = adminId
+                }
+                PulpitRecordingDocumentTable.insert {
+                    it[PulpitRecordingDocumentTable.documentId] = documentId
+                    it[PulpitRecordingDocumentTable.spaceId] = pulpitSpaceId
+                    it[recordedAt] = LocalDateTime(2027, 1, 3, 10, 30)
+                }
+
                 AuditLogRecorder.record(
                     actorMemberId = adminId,
                     actorRole = AccountRole.ADMIN,
@@ -313,6 +335,20 @@ class OrganizationBackupRoundTripTest :
                 restoredAgreement?.versionLabel shouldBe agreementLabel
                 restoredAgreement?.sha256 shouldBe AgreementTextHash.of(versionLabel = agreementLabel, body = agreementBody)
                 transaction(targetDb) { AgreementTextStore.findDraft(AgreementTextKind.FRIEND) }?.versionLabel shouldBe "friend-entwurf.v1"
+
+                // V1.9.143: the marker of the pulpit recording and the room option came back.
+                transaction(targetDb) {
+                    PulpitRecordingDocumentTable.selectAll().single().let {
+                        it[PulpitRecordingDocumentTable.spaceId] shouldBe pulpitSpaceId
+                        it[PulpitRecordingDocumentTable.recordedAt] shouldBe LocalDateTime(2027, 1, 3, 10, 30)
+                    }
+                    EncounterSpaceTable
+                        .selectAll()
+                        .where {
+                            EncounterSpaceTable.id eq pulpitSpaceId
+                        }.single()[EncounterSpaceTable.pulpitRecordingAllowed] shouldBe
+                        true
+                }
 
                 // The blob file itself round-tripped byte-for-byte.
                 val restoredBlob = targetStorageRoot.resolve(storageKey)

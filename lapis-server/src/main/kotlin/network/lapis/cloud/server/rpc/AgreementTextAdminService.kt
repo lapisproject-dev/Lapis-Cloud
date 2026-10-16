@@ -61,7 +61,7 @@ class AgreementTextAdminService(
                             kind = kind,
                             placeholderActive = row == null,
                             current = row?.let { AgreementTextStore.toSummary(it) },
-                            builtinVersionLabel = BuiltinAgreementTexts.of(kind).versionLabel,
+                            builtinVersionLabel = BuiltinAgreementTexts.of(kind = kind).versionLabel,
                             hasDraft = AgreementTextStore.findDraft(kind) != null,
                             olderAcknowledgmentCount =
                                 row?.let { AgreementTextStore.countOlderAcknowledgments(kind = kind, currentLabel = it.versionLabel) },
@@ -220,7 +220,10 @@ class AgreementTextAdminService(
             if (row != null) {
                 AgreementTextVersionDto(summary = AgreementTextStore.toSummary(row), body = row.body)
             } else {
-                val builtin = BuiltinAgreementTexts.of(kind)
+                // V1.9.143: a REC kind has two placeholders (one per room profile); the label picks the one that is shown.
+                val builtin =
+                    BuiltinAgreementTexts.allOf(kind).firstOrNull { it.versionLabel == versionLabel }
+                        ?: BuiltinAgreementTexts.of(kind = kind)
                 if (builtin.versionLabel != versionLabel) throw NotFoundException("Version not found")
                 // The built-in placeholder has no author and no publication; it is shown with an empty author and its own hash.
                 AgreementTextVersionDto(
@@ -261,10 +264,13 @@ class AgreementTextAdminService(
         if (validFrom > today) throw AgreementTextInvalidException()
         val currentRow = AgreementTextStore.currentVersion(kind)
         if (currentRow != null && validFrom < currentRow.validFrom) throw AgreementTextInvalidException()
-        val builtin = BuiltinAgreementTexts.of(kind)
+        // V1.9.143: the REC kinds have one placeholder per room profile; a text equal to ANY of them, or a label equal to ANY of them, is refused.
+        val builtins = BuiltinAgreementTexts.allOf(kind)
         // A text equal to the placeholder would silence the placeholder warning while the placeholder stays what people see.
-        if (AgreementTextRules.normalizeBody(builtin.body) == body) throw AgreementTextInvalidException()
-        if (versionLabel == builtin.versionLabel || AgreementTextStore.versionLabelExists(kind = kind, versionLabel = versionLabel)) {
+        if (builtins.any { AgreementTextRules.normalizeBody(it.body) == body }) throw AgreementTextInvalidException()
+        if (builtins.any { it.versionLabel == versionLabel } ||
+            AgreementTextStore.versionLabelExists(kind = kind, versionLabel = versionLabel)
+        ) {
             throw AgreementTextVersionLabelTakenException()
         }
     }
@@ -276,6 +282,8 @@ class AgreementTextAdminService(
             mapOf(
                 AgreementTextKind.MEMBERSHIP to LocalDate(2026, 7, 23),
                 AgreementTextKind.FRIEND to LocalDate(2026, 8, 15),
+                AgreementTextKind.REC_ROOM to LocalDate(2026, 10, 16),
+                AgreementTextKind.REC_PULPIT to LocalDate(2026, 10, 16),
             )
         val BUILTIN_PUBLISHED_AT =
             BUILTIN_VALID_FROM.mapValues { (_, date) -> LocalDateTime(date.year, date.month, date.day, 0, 0) }

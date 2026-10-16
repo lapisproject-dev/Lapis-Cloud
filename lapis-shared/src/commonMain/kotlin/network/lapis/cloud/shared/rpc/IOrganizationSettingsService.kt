@@ -32,4 +32,18 @@ interface IOrganizationSettingsService {
      * ("Video-Overlays"). A change writes one audit entry; setting the value it already has writes nothing.
      */
     suspend fun updateVideoOverlaysOffered(enabled: Boolean): OrganizationSettingsDto
+
+    /**
+     * V1.9.143. Role: ADMIN only. Switches the optional recording of the pulpit in the encounter space on or off. Switching ON requires
+     * [acknowledgedNoticeVersion] to equal [network.lapis.cloud.shared.domain.PULPIT_RECORDING_NOTICE_VERSION] (the admin has read the
+     * operator notice and checked the legal admissibility for the country of the instance), else
+     * [PulpitRecordingNoticeOutdatedException]. Switching OFF stops every running pulpit recording. A change writes one audit entry.
+     */
+    suspend fun updatePulpitRecordingEnabled(
+        enabled: Boolean,
+        acknowledgedNoticeVersion: String?,
+    ): OrganizationSettingsDto
+
+    /** V1.9.143. Role: ADMIN only. Whether the person at the pulpit has to confirm a recording start. Only while the instance switch is on. */
+    suspend fun updatePulpitRecordingRequireConfirmation(required: Boolean): OrganizationSettingsDto
 }

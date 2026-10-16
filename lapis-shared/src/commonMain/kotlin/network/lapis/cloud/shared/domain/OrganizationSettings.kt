@@ -209,6 +209,17 @@ data class OrganizationSettingsDto(
      * audited). `false` = off (the behaviour before V1.9.129).
      */
     val videoOverlaysOffered: Boolean = false,
+    /**
+     * V1.9.143 -- instance switch of the optional pulpit recording in the encounter space (default off). **Read-only here**: it changes only
+     * through [network.lapis.cloud.shared.rpc.IOrganizationSettingsService.updatePulpitRecordingEnabled] (ADMIN, audited).
+     */
+    val pulpitRecordingEnabled: Boolean = false,
+    /** V1.9.143 -- the version of the operator notice the admin acknowledged when switching on; `null` until then. Read-only here. */
+    val pulpitRecordingAcknowledgedNoticeVersion: String? = null,
+    /** V1.9.143 -- whether the person at the pulpit has to confirm before a recording starts (default `true`). Read-only here. */
+    val pulpitRecordingRequireConfirmation: Boolean = true,
+    /** V1.9.143 -- `true` iff this server has a recording service at all (`LAPIS_RECORDING_ENABLED`); computed, never stored. */
+    val pulpitRecordingInfrastructureAvailable: Boolean = false,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */

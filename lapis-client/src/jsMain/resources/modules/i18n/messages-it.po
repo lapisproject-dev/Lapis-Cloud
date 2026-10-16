@@ -24525,3 +24525,153 @@ msgstr "Filtri disattivati"
 
 msgid "Alle Filter ausgeschaltet"
 msgstr "Tutti i filtri sono disattivati"
+
+msgid "Hinweis bei Aufzeichnung (Raum)"
+msgstr "Avviso di registrazione (sala)"
+
+msgid "Zustimmung der Kanzel zur Aufzeichnung"
+msgstr "Consenso del pulpito alla registrazione"
+
+msgid "Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist."
+msgstr "Vale solo se la registrazione del pulpito è attivata per l'istanza."
+
+msgid "Platzhaltertext aktiv: Diese Instanz zeigt den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie eine rechtlich geprüfte Fassung für Ihr Land."
+msgstr "Testo segnaposto attivo: questa istanza mostra il testo di esempio integrato (versione %1). Pubblichi una versione verificata legalmente per il suo paese."
+
+msgid "Kanzel-Aufzeichnung"
+msgstr "Registrazione del pulpito"
+
+msgid "Sie sind im Begriff, die Aufzeichnung der Kanzel in den Begegnungsräumen dieser Instanz zu erlauben. Aufgezeichnet werden ausschließlich Bild und Ton der Person, die das Amt der Kanzel (in Versammlungen: des Podiums) innehat. Die Gemeinde (in Versammlungen: die Teilnehmenden) wird nicht aufgezeichnet."
+msgstr "Sta per consentire la registrazione del pulpito nelle sale di incontro di questa istanza. Vengono registrati solo l'immagine e l'audio della persona che ricopre l'incarico del pulpito (nelle assemblee: del podio). I fedeli (nelle assemblee: i partecipanti) non vengono registrati."
+
+msgid "Ob und unter welchen Bedingungen eine solche Aufzeichnung zulässig ist, hängt vom Recht Ihres Landes ab, zum Beispiel vom Datenschutz-, Persönlichkeits- und Urheberrecht und von Vorgaben für Religionsgemeinschaften und Versammlungen. Lapis Cloud nimmt diese Prüfung nicht vor und ersetzt keine Rechtsberatung."
+msgstr "Se e a quali condizioni una tale registrazione sia ammessa dipende dal diritto del suo paese, ad esempio dalla protezione dei dati, dai diritti della personalità e d'autore e dalle norme per le comunità religiose e le assemblee. Lapis Cloud non effettua questa verifica e non sostituisce una consulenza legale."
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass Sie eine Rechtsgrundlage haben und dass die aufgezeichnete Person informiert ist und, wo erforderlich, einwilligt. Die Aufnahme wird in der Dokumentenablage gespeichert, ist nur für Vorstand und Administratoren sichtbar und bleibt bis zu ihrer Löschung bestehen."
+msgstr "Come gestore è responsabile di disporre di una base giuridica e di far sì che la persona registrata sia informata e, ove necessario, acconsenta. La registrazione è conservata nell'archivio documenti, è visibile solo al consiglio direttivo e agli amministratori e resta fino alla sua eliminazione."
+
+msgid "Zeigt die Kamera Personen, die vor Ort neben der Kanzel anwesend sind, werden auch diese aufgezeichnet. Das kann die Software nicht verhindern."
+msgstr "Se la telecamera inquadra persone presenti sul posto accanto al pulpito, anche queste vengono registrate. Il software non può impedirlo."
+
+msgid "Aufzeichnung von Kanzel bzw. Podium erlauben"
+msgstr "Consentire la registrazione del pulpito o del podio"
+
+msgid "Nur die Kamera und das Mikrofon der Person mit dem Amt der Kanzel werden aufgezeichnet, nie die Gemeinde. Zusätzlich muss die Aufzeichnung je Raum erlaubt werden."
+msgstr "Vengono registrate solo la telecamera e il microfono della persona con l'incarico del pulpito, mai i fedeli. Inoltre la registrazione deve essere consentita per ogni sala."
+
+msgid "Der Aufzeichnungsdienst ist auf diesem Server nicht eingerichtet."
+msgstr "Il servizio di registrazione non è configurato su questo server."
+
+msgid "Bestätigt für Hinweis Version %1, aktuell Version %2. Bitte erneut bestätigen."
+msgstr "Confermato per la versione %1 dell'avviso, versione attuale %2. Confermi di nuovo."
+
+msgid "Erneut bestätigen"
+msgstr "Conferma di nuovo"
+
+msgid "Die Aufzeichnung der Kanzel ist ausgeschaltet."
+msgstr "La registrazione del pulpito è disattivata."
+
+msgid "Der Hinweis wurde geändert. Bitte lesen Sie ihn erneut."
+msgstr "L'avviso è stato modificato. Lo legga di nuovo."
+
+msgid "Die Aufzeichnung der Kanzel ist eingeschaltet."
+msgstr "La registrazione del pulpito è attivata."
+
+msgid "Zustimmung der Kanzel vor jeder Aufnahme verlangen"
+msgstr "Richiedere il consenso del pulpito prima di ogni registrazione"
+
+msgid "Die Aufzeichnung ist nicht eingeschaltet."
+msgstr "La registrazione non è attivata."
+
+msgid "Aufzeichnung der Kanzel erlauben?"
+msgstr "Consentire la registrazione del pulpito?"
+
+msgid "Hinweis Version %1"
+msgstr "Avviso versione %1"
+
+msgid "Ich habe die rechtliche Zulässigkeit für mein Land geprüft und übernehme die Verantwortung."
+msgstr "Ho verificato l'ammissibilità giuridica per il mio paese e me ne assumo la responsabilità."
+
+msgid "Einschalten"
+msgstr "Attiva"
+
+msgid "Aufzeichnung löschen?"
+msgstr "Eliminare la registrazione?"
+
+msgid "Die Aufzeichnung wird endgültig gelöscht. Ältere Sicherungen können sie noch enthalten."
+msgstr "La registrazione viene eliminata definitivamente. I backup più vecchi possono ancora contenerla."
+
+msgid "Die Aufzeichnung wurde gelöscht."
+msgstr "La registrazione è stata eliminata."
+
+msgid "Aufzeichnung läuft · Nur die Kanzel wird aufgezeichnet"
+msgstr "Registrazione in corso · viene registrato solo il pulpito"
+
+msgid "Aufzeichnung läuft · Nur das Podium wird aufgezeichnet"
+msgstr "Registrazione in corso · viene registrato solo il podio"
+
+msgid "Aufnahme"
+msgstr "Registrazione"
+
+msgid "Aufzeichnung gestartet"
+msgstr "Registrazione avviata"
+
+msgid "Warte auf Zustimmung der Kanzel"
+msgstr "In attesa del consenso del pulpito"
+
+msgid "Warte auf Zustimmung des Podiums"
+msgstr "In attesa del consenso del podio"
+
+msgid "Kanzel-Aufzeichnung in diesem Raum erlauben"
+msgstr "Consentire la registrazione del pulpito in questa sala"
+
+msgid "Podium-Aufzeichnung in diesem Raum erlauben"
+msgstr "Consentire la registrazione del podio in questa sala"
+
+msgid "Aufzeichnung von Kanzel bzw. Podium in diesem Raum erlauben"
+msgstr "Consentire la registrazione del pulpito o del podio in questa sala"
+
+msgid "Aufgezeichnet wird nur, wer das Amt der Kanzel bzw. des Podiums innehat, nie die Gemeinde."
+msgstr "Viene registrata solo la persona che ricopre l'incarico del pulpito o del podio, mai i fedeli."
+
+msgid "Von der Instanz nicht freigegeben."
+msgstr "Non abilitato dall'istanza."
+
+msgid "Nur bei geschlossenem Raum einschaltbar."
+msgstr "Attivabile solo a sala chiusa."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann die Kanzel aufgezeichnet werden, die Gemeinde nicht."
+msgstr "Lapis Cloud non conserva alcun elenco dei presenti. In questa sala il pulpito può essere registrato, i fedeli no."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann das Podium aufgezeichnet werden, die Teilnehmenden nicht."
+msgstr "Lapis Cloud non conserva alcun elenco dei presenti. In questa sala il podio può essere registrato, i partecipanti no."
+
+msgid "Aufzeichnung zustimmen?"
+msgstr "Acconsentire alla registrazione?"
+
+msgid "Aufzeichnung zustimmen"
+msgstr "Acconsento alla registrazione"
+
+msgid "Nicht aufzeichnen"
+msgstr "Non registrare"
+
+msgid "Höchstzahl gleichzeitiger Aufnahmen erreicht"
+msgstr "Raggiunto il numero massimo di registrazioni simultanee"
+
+msgid "Die Kanzel wurde um Zustimmung gebeten."
+msgstr "Al pulpito è stato chiesto il consenso."
+
+msgid "Das Podium wurde um Zustimmung gebeten."
+msgstr "Al podio è stato chiesto il consenso."
+
+msgid "Solange jemand aus der Gemeinde spricht, wird nicht aufgezeichnet."
+msgstr "Finché qualcuno dei fedeli parla, non si registra."
+
+msgid "Solange jemand aus der Versammlung spricht, wird nicht aufgezeichnet."
+msgstr "Finché qualcuno dell'assemblea parla, non si registra."
+
+msgid "Der Aufzeichnungsdienst ist gerade nicht verfügbar."
+msgstr "Il servizio di registrazione al momento non è disponibile."
+
+msgid "Die Aufzeichnung konnte nicht geändert werden. Bitte versuchen Sie es erneut."
+msgstr "Non è stato possibile modificare la registrazione. Riprovi."

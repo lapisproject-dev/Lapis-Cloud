@@ -71,8 +71,8 @@ class EncounterConsentDisclaimerTest :
         }
 
         test("V1.9.67: matches is profile specific -- each text accepts only itself") {
-            val church = encounterConsentFor(network.lapis.cloud.shared.domain.EncounterProfile.CHURCH_SERVICE)
-            val assembly = encounterConsentFor(network.lapis.cloud.shared.domain.EncounterProfile.ASSEMBLY)
+            val church = encounterConsentFor(profile = network.lapis.cloud.shared.domain.EncounterProfile.CHURCH_SERVICE)
+            val assembly = encounterConsentFor(profile = network.lapis.cloud.shared.domain.EncounterProfile.ASSEMBLY)
             church.matches(version = church.version, sha256 = church.sha256) shouldBe true
             assembly.matches(version = assembly.version, sha256 = assembly.sha256) shouldBe true
             church.matches(version = assembly.version, sha256 = assembly.sha256) shouldBe false

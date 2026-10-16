@@ -480,6 +480,14 @@ enum class AuditEntityType {
      * `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
      */
     AGREEMENT_TEXT,
+
+    /**
+     * Welle V1.9.143 "Kanzel-Aufzeichnung" -- `PulpitRecordingService`/`PulpitRecordingCoordinator` write one entry per start, stop,
+     * automatic stop and deletion of a pulpit recording: the event, a reason code, the hashes of the two texts -- never a number of
+     * participants, an identity of a person other than the acting one, a path or the text. 16 chars, fits within
+     * `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    PULPIT_RECORDING,
 }
 
 /** V1.9.125 -- after-snapshot of an [AuditEntityType.CARPOOL_PARTICIPATION] entry: ids and enums only. */

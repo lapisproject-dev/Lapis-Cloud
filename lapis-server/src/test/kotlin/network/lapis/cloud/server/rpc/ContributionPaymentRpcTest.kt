@@ -716,7 +716,11 @@ class ContributionPaymentRpcTest :
 /** Shared throwaway routes for [ContributionPaymentRpcTest]. */
 private fun Route.registerContributionPaymentTestRoutes() {
     get("/test/org-settings") {
-        val dto = OrganizationSettingsService(call).getOrganizationSettings()
+        val dto =
+            OrganizationSettingsService(
+                call = call,
+                pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING,
+            ).getOrganizationSettings()
         call.respondText("${dto.paymentBankAccountId}:${dto.paymentFeeAccountId}:${dto.contributionIncomeAccountId}")
     }
     // Review MAJOR fix regression coverage: eventIncomeAccountId/eventIncomeSphere are read back
@@ -724,13 +728,20 @@ private fun Route.registerContributionPaymentTestRoutes() {
     // exact-string-match assertions on `/test/org-settings`/`/test/org-settings/update` above stay
     // untouched.
     get("/test/org-settings/event-income") {
-        val dto = OrganizationSettingsService(call).getOrganizationSettings()
+        val dto =
+            OrganizationSettingsService(
+                call = call,
+                pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING,
+            ).getOrganizationSettings()
         call.respondText("${dto.eventIncomeAccountId}:${dto.eventIncomeSphere}")
     }
     post("/test/org-settings/update") {
         val q = call.request.queryParameters
         val dto =
-            OrganizationSettingsService(call).updateOrganizationSettings(
+            OrganizationSettingsService(
+                call = call,
+                pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING,
+            ).updateOrganizationSettings(
                 OrganizationSettingsInput(
                     name = "RPC-Fixture Verein",
                     paymentBankAccountId = q["bankAccountId"]?.takeIf { it.isNotBlank() },

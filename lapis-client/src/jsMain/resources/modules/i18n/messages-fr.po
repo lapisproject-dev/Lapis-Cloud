@@ -24544,3 +24544,153 @@ msgstr "Filtres masqués"
 
 msgid "Alle Filter ausgeschaltet"
 msgstr "Tous les filtres sont désactivés"
+
+msgid "Hinweis bei Aufzeichnung (Raum)"
+msgstr "Avis d'enregistrement (salle)"
+
+msgid "Zustimmung der Kanzel zur Aufzeichnung"
+msgstr "Consentement de la chaire à l'enregistrement"
+
+msgid "Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist."
+msgstr "S'applique uniquement si l'enregistrement de la chaire est activé pour l'instance."
+
+msgid "Platzhaltertext aktiv: Diese Instanz zeigt den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie eine rechtlich geprüfte Fassung für Ihr Land."
+msgstr "Texte provisoire actif : cette instance affiche le texte modèle intégré (version %1). Veuillez publier une version vérifiée juridiquement pour votre pays."
+
+msgid "Kanzel-Aufzeichnung"
+msgstr "Enregistrement de la chaire"
+
+msgid "Sie sind im Begriff, die Aufzeichnung der Kanzel in den Begegnungsräumen dieser Instanz zu erlauben. Aufgezeichnet werden ausschließlich Bild und Ton der Person, die das Amt der Kanzel (in Versammlungen: des Podiums) innehat. Die Gemeinde (in Versammlungen: die Teilnehmenden) wird nicht aufgezeichnet."
+msgstr "Vous êtes sur le point d'autoriser l'enregistrement de la chaire dans les salles de rencontre de cette instance. Seuls l'image et le son de la personne qui tient la fonction de la chaire (dans les assemblées : du podium) sont enregistrés. L'assemblée des fidèles (dans les réunions : les participants) n'est pas enregistrée."
+
+msgid "Ob und unter welchen Bedingungen eine solche Aufzeichnung zulässig ist, hängt vom Recht Ihres Landes ab, zum Beispiel vom Datenschutz-, Persönlichkeits- und Urheberrecht und von Vorgaben für Religionsgemeinschaften und Versammlungen. Lapis Cloud nimmt diese Prüfung nicht vor und ersetzt keine Rechtsberatung."
+msgstr "La licéité d'un tel enregistrement et ses conditions dépendent du droit de votre pays, par exemple de la protection des données, des droits de la personnalité et d'auteur et des règles applicables aux communautés religieuses et aux assemblées. Lapis Cloud n'effectue pas ce contrôle et ne remplace pas un conseil juridique."
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass Sie eine Rechtsgrundlage haben und dass die aufgezeichnete Person informiert ist und, wo erforderlich, einwilligt. Die Aufnahme wird in der Dokumentenablage gespeichert, ist nur für Vorstand und Administratoren sichtbar und bleibt bis zu ihrer Löschung bestehen."
+msgstr "En tant qu'exploitant, vous êtes responsable de disposer d'une base juridique et de veiller à ce que la personne enregistrée soit informée et, si nécessaire, consente. L'enregistrement est conservé dans le classeur de documents, n'est visible que du conseil d'administration et des administrateurs et reste jusqu'à sa suppression."
+
+msgid "Zeigt die Kamera Personen, die vor Ort neben der Kanzel anwesend sind, werden auch diese aufgezeichnet. Das kann die Software nicht verhindern."
+msgstr "Si la caméra montre des personnes présentes sur place à côté de la chaire, elles sont également enregistrées. Le logiciel ne peut pas l'empêcher."
+
+msgid "Aufzeichnung von Kanzel bzw. Podium erlauben"
+msgstr "Autoriser l'enregistrement de la chaire ou du podium"
+
+msgid "Nur die Kamera und das Mikrofon der Person mit dem Amt der Kanzel werden aufgezeichnet, nie die Gemeinde. Zusätzlich muss die Aufzeichnung je Raum erlaubt werden."
+msgstr "Seuls la caméra et le micro de la personne qui tient la fonction de la chaire sont enregistrés, jamais les fidèles. De plus, l'enregistrement doit être autorisé pour chaque salle."
+
+msgid "Der Aufzeichnungsdienst ist auf diesem Server nicht eingerichtet."
+msgstr "Le service d'enregistrement n'est pas configuré sur ce serveur."
+
+msgid "Bestätigt für Hinweis Version %1, aktuell Version %2. Bitte erneut bestätigen."
+msgstr "Confirmé pour la version %1 de l'avis, version actuelle %2. Veuillez confirmer à nouveau."
+
+msgid "Erneut bestätigen"
+msgstr "Confirmer à nouveau"
+
+msgid "Die Aufzeichnung der Kanzel ist ausgeschaltet."
+msgstr "L'enregistrement de la chaire est désactivé."
+
+msgid "Der Hinweis wurde geändert. Bitte lesen Sie ihn erneut."
+msgstr "L'avis a été modifié. Veuillez le relire."
+
+msgid "Die Aufzeichnung der Kanzel ist eingeschaltet."
+msgstr "L'enregistrement de la chaire est activé."
+
+msgid "Zustimmung der Kanzel vor jeder Aufnahme verlangen"
+msgstr "Exiger le consentement de la chaire avant chaque enregistrement"
+
+msgid "Die Aufzeichnung ist nicht eingeschaltet."
+msgstr "L'enregistrement n'est pas activé."
+
+msgid "Aufzeichnung der Kanzel erlauben?"
+msgstr "Autoriser l'enregistrement de la chaire ?"
+
+msgid "Hinweis Version %1"
+msgstr "Avis version %1"
+
+msgid "Ich habe die rechtliche Zulässigkeit für mein Land geprüft und übernehme die Verantwortung."
+msgstr "J'ai vérifié la licéité juridique pour mon pays et j'en assume la responsabilité."
+
+msgid "Einschalten"
+msgstr "Activer"
+
+msgid "Aufzeichnung löschen?"
+msgstr "Supprimer l'enregistrement ?"
+
+msgid "Die Aufzeichnung wird endgültig gelöscht. Ältere Sicherungen können sie noch enthalten."
+msgstr "L'enregistrement est supprimé définitivement. Les anciennes sauvegardes peuvent encore le contenir."
+
+msgid "Die Aufzeichnung wurde gelöscht."
+msgstr "L'enregistrement a été supprimé."
+
+msgid "Aufzeichnung läuft · Nur die Kanzel wird aufgezeichnet"
+msgstr "Enregistrement en cours · seule la chaire est enregistrée"
+
+msgid "Aufzeichnung läuft · Nur das Podium wird aufgezeichnet"
+msgstr "Enregistrement en cours · seul le podium est enregistré"
+
+msgid "Aufnahme"
+msgstr "Enregistrement"
+
+msgid "Aufzeichnung gestartet"
+msgstr "Enregistrement démarré"
+
+msgid "Warte auf Zustimmung der Kanzel"
+msgstr "En attente du consentement de la chaire"
+
+msgid "Warte auf Zustimmung des Podiums"
+msgstr "En attente du consentement du podium"
+
+msgid "Kanzel-Aufzeichnung in diesem Raum erlauben"
+msgstr "Autoriser l'enregistrement de la chaire dans cette salle"
+
+msgid "Podium-Aufzeichnung in diesem Raum erlauben"
+msgstr "Autoriser l'enregistrement du podium dans cette salle"
+
+msgid "Aufzeichnung von Kanzel bzw. Podium in diesem Raum erlauben"
+msgstr "Autoriser l'enregistrement de la chaire ou du podium dans cette salle"
+
+msgid "Aufgezeichnet wird nur, wer das Amt der Kanzel bzw. des Podiums innehat, nie die Gemeinde."
+msgstr "Seule la personne qui tient la fonction de la chaire ou du podium est enregistrée, jamais les fidèles."
+
+msgid "Von der Instanz nicht freigegeben."
+msgstr "Non autorisé par l'instance."
+
+msgid "Nur bei geschlossenem Raum einschaltbar."
+msgstr "Activable uniquement lorsque la salle est fermée."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann die Kanzel aufgezeichnet werden, die Gemeinde nicht."
+msgstr "Lapis Cloud ne conserve aucune liste de présence. Dans cette salle, la chaire peut être enregistrée, les fidèles ne le sont pas."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann das Podium aufgezeichnet werden, die Teilnehmenden nicht."
+msgstr "Lapis Cloud ne conserve aucune liste de présence. Dans cette salle, le podium peut être enregistré, les participants ne le sont pas."
+
+msgid "Aufzeichnung zustimmen?"
+msgstr "Accepter l'enregistrement ?"
+
+msgid "Aufzeichnung zustimmen"
+msgstr "Accepter l'enregistrement"
+
+msgid "Nicht aufzeichnen"
+msgstr "Ne pas enregistrer"
+
+msgid "Höchstzahl gleichzeitiger Aufnahmen erreicht"
+msgstr "Nombre maximal d'enregistrements simultanés atteint"
+
+msgid "Die Kanzel wurde um Zustimmung gebeten."
+msgstr "La chaire a été priée de donner son consentement."
+
+msgid "Das Podium wurde um Zustimmung gebeten."
+msgstr "Le podium a été prié de donner son consentement."
+
+msgid "Solange jemand aus der Gemeinde spricht, wird nicht aufgezeichnet."
+msgstr "Tant que quelqu'un des fidèles parle, rien n'est enregistré."
+
+msgid "Solange jemand aus der Versammlung spricht, wird nicht aufgezeichnet."
+msgstr "Tant que quelqu'un parmi les participants parle, rien n'est enregistré."
+
+msgid "Der Aufzeichnungsdienst ist gerade nicht verfügbar."
+msgstr "Le service d'enregistrement n'est pas disponible pour le moment."
+
+msgid "Die Aufzeichnung konnte nicht geändert werden. Bitte versuchen Sie es erneut."
+msgstr "L'enregistrement n'a pas pu être modifié. Veuillez réessayer."

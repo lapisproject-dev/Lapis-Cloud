@@ -591,6 +591,8 @@ fun decodeAuditSnapshot(
             // Welle V1.9.129 -- kind/name/pixel size/byte size of a library element, raw-text display like the other backend-written snapshots.
             AuditEntityType.VIDEO_OVERLAY -> null
             AuditEntityType.AGREEMENT_TEXT -> null
+            // Welle V1.9.143 -- event, reason code, text hashes of a pulpit recording; raw-text display like the other backend-written snapshots.
+            AuditEntityType.PULPIT_RECORDING -> null
         }
     }.getOrNull()
 

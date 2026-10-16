@@ -18,11 +18,19 @@ interface EncounterConsentText {
     ): Boolean
 }
 
-/** The consent text of a room profile. A guest who consented to one profile's text must consent again for the other (another purpose). */
-fun encounterConsentFor(profile: EncounterProfile): EncounterConsentText =
+/**
+ * The consent text of a room profile. V1.9.143: for a room whose option "the pulpit may be recorded" is ON, the variant that says so. The choice follows
+ * the ROOM option, not the instance switch: better to inform too much than too little, and a guest never has to guess which text applied. A guest who
+ * consented to the variant without recording must consent again for the other one (another version and hash). A guest who consented to one profile's text must consent again for the other (another purpose). */
+fun encounterConsentFor(
+    profile: EncounterProfile,
+    pulpitRecordingAllowed: Boolean = false,
+): EncounterConsentText =
     when (profile) {
-        EncounterProfile.CHURCH_SERVICE -> EncounterConsentDisclaimer
-        EncounterProfile.ASSEMBLY -> EncounterAssemblyConsentDisclaimer
+        EncounterProfile.CHURCH_SERVICE ->
+            if (pulpitRecordingAllowed) EncounterRecordingConsentDisclaimer else EncounterConsentDisclaimer
+        EncounterProfile.ASSEMBLY ->
+            if (pulpitRecordingAllowed) EncounterAssemblyRecordingConsentDisclaimer else EncounterAssemblyConsentDisclaimer
     }
 
 internal object ConsentHashing {
@@ -149,6 +157,75 @@ object EncounterAssemblyConsentDisclaimer : EncounterConsentText {
         Dieser Hinweis ist ein Entwurf und stellt keine Rechtsberatung dar. Ein reales Deployment sollte diesen Text unter einer neuen
         Version durch die eigene, rechtlich geprüfte Fassung ersetzen.
         """.trimIndent()
+
+    val TEXT: String = HEADLINE + "\n\n" + KEY_POINTS.joinToString("\n\n") + "\n\n" + DETAIL
+
+    val SHA256: String = ConsentHashing.sha256Hex("$VERSION\n$TEXT")
+
+    override val version: String get() = VERSION
+    override val headline: String get() = HEADLINE
+    override val keyPoints: List<String> get() = KEY_POINTS
+    override val text: String get() = TEXT
+    override val sha256: String get() = SHA256
+
+    override fun matches(
+        version: String,
+        sha256: String,
+    ): Boolean = ConsentHashing.matches(expectedVersion = VERSION, expectedSha256 = SHA256, version = version, sha256 = sha256)
+}
+
+/**
+ * V1.9.143: the Art. 9 consent of a CHURCH_SERVICE room whose pulpit MAY be recorded. Same contract as [EncounterConsentDisclaimer], but the second key
+ * point tells the truth: the pulpit can be recorded, the person's own picture and sound never are. The statements about attendance are unchanged
+ * (`PulpitRecordingConsentTextTest` pins both).
+ *
+ * **DRAFT, MUST be reviewed by a lawyer** for the country of the instance before a real deployment relies on it; replace it under a new [VERSION].
+ */
+object EncounterRecordingConsentDisclaimer : EncounterConsentText {
+    const val VERSION: String = "2026-10-16.rec.v1"
+
+    val HEADLINE: String = EncounterConsentDisclaimer.HEADLINE
+
+    val KEY_POINTS: List<String> =
+        listOf(
+            EncounterConsentDisclaimer.KEY_POINTS[0],
+            "In diesem Raum kann die Kanzel aufgezeichnet werden. Ihr eigenes Bild und Ihr Ton werden nicht gesendet und nie " +
+                "aufgezeichnet. Andere Anwesende sehen höchstens Ihren Namen, und nur solange Sie im Raum sind.",
+        )
+
+    private val DETAIL: String = EncounterConsentDisclaimer.TEXT.substringAfter(EncounterConsentDisclaimer.KEY_POINTS[1] + "\n\n")
+
+    val TEXT: String = HEADLINE + "\n\n" + KEY_POINTS.joinToString("\n\n") + "\n\n" + DETAIL
+
+    val SHA256: String = ConsentHashing.sha256Hex("$VERSION\n$TEXT")
+
+    override val version: String get() = VERSION
+    override val headline: String get() = HEADLINE
+    override val keyPoints: List<String> get() = KEY_POINTS
+    override val text: String get() = TEXT
+    override val sha256: String get() = SHA256
+
+    override fun matches(
+        version: String,
+        sha256: String,
+    ): Boolean = ConsentHashing.matches(expectedVersion = VERSION, expectedSha256 = SHA256, version = version, sha256 = sha256)
+}
+
+/** V1.9.143: the same for an ASSEMBLY room whose podium may be recorded. DRAFT, lawyer review required. */
+object EncounterAssemblyRecordingConsentDisclaimer : EncounterConsentText {
+    const val VERSION: String = "2026-10-16.assembly-rec.v1"
+
+    val HEADLINE: String = EncounterAssemblyConsentDisclaimer.HEADLINE
+
+    val KEY_POINTS: List<String> =
+        listOf(
+            EncounterAssemblyConsentDisclaimer.KEY_POINTS[0],
+            "In diesem Raum kann das Podium aufgezeichnet werden. Ihr eigenes Bild und Ihr Ton werden nicht gesendet und nie " +
+                "aufgezeichnet. Andere Anwesende sehen höchstens Ihren Namen, und nur solange Sie im Raum sind.",
+        )
+
+    private val DETAIL: String =
+        EncounterAssemblyConsentDisclaimer.TEXT.substringAfter(EncounterAssemblyConsentDisclaimer.KEY_POINTS[1] + "\n\n")
 
     val TEXT: String = HEADLINE + "\n\n" + KEY_POINTS.joinToString("\n\n") + "\n\n" + DETAIL
 

@@ -74,7 +74,8 @@ class DomainModelMergerTest :
             // Welle V1.9.121 "Land und Staatsangehoerigkeit als Auswahlliste" -- was 68, now 69 with the addition of 68-member-nationality.kuml.kts.
             // Welle V1.9.129 "Video-Overlays" -- was 69, now 70 with the addition of 69-video-overlay.kuml.kts.
             // Welle V1.9.134 "Vertragstexte" -- was 70, now 71 with the addition of 70-agreement-texts.kuml.kts.
-            scriptFiles shouldHaveSize 71
+            // Welle V1.9.143 "Kanzel-Aufzeichnung" -- was 71, now 72 with the addition of 71-pulpit-recording.kuml.kts.
+            scriptFiles shouldHaveSize 72
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -547,7 +548,9 @@ class DomainModelMergerTest :
             // id-only Member stub (dedups into the already-real member entity) -- net +2 (197 -> 199).
             // Welle V1.9.139 "Mitfahr-Nachrichten" adds TWO more real tables to 57-carpool.kuml.kts (carpool_message_thread, carpool_message), no new stub
             // -- net +2 (199 -> 201).
-            val distinctTableNames = 201
+            // Welle V1.9.143 "Kanzel-Aufzeichnung" adds 71-pulpit-recording.kuml.kts's ONE new table (pulpit_recording_document) plus id-only
+            // Document and EncounterSpace stubs (dedup into the real entities) -- net +1 (201 -> 202).
+            val distinctTableNames = 202
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -901,6 +904,8 @@ class DomainModelMergerTest :
                     // Welle V1.9.134 "Vertragstexte" -- TWO new real tables (agreement_text_version, agreement_text_draft).
                     "AgreementTextVersionTable.kt",
                     "AgreementTextDraftTable.kt",
+                    // Welle V1.9.143 "Kanzel-Aufzeichnung" -- ONE new real table (pulpit_recording_document), no new stub.
+                    "PulpitRecordingDocumentTable.kt",
                 )
         }
 

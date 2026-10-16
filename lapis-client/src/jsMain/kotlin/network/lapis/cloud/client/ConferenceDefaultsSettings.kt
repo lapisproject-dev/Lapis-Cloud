@@ -31,17 +31,22 @@ internal fun renderConferenceDefaultsCard(root: SimplePanel) {
     val section = root.vPanel(spacing = 8) { addCssClasses("border rounded p-3 mt-2") }
     section.h2(tr("Videokonferenz")) { addCssClass("h5") }
     val host = section.vPanel(spacing = 6)
-    host
-        .dataSection<OrganizationSettingsDto>(
-            isEmpty = { false },
-            load = { guarded { rpcService<IOrganizationSettingsService>().getOrganizationSettings() } },
-            render = { panel, dto ->
-                renderNoiseDefaultSwitch(panel, dto.noiseSuppressionDefault)
-                // V1.9.129 -- the video overlays: the switch and the library (see ConferenceVideoOverlayLibrarySettings.kt)
-                renderVideoOverlaysOfferedSwitch(panel, dto.videoOverlaysOffered)
-                renderVideoOverlayLibrary(panel)
-            },
-        ).reload()
+    lateinit var data: DataSection
+    data =
+        host
+            .dataSection<OrganizationSettingsDto>(
+                isEmpty = { false },
+                load = { guarded { rpcService<IOrganizationSettingsService>().getOrganizationSettings() } },
+                render = { panel, dto ->
+                    renderNoiseDefaultSwitch(panel, dto.noiseSuppressionDefault)
+                    // V1.9.129 -- the video overlays: the switch and the library (see ConferenceVideoOverlayLibrarySettings.kt)
+                    renderVideoOverlaysOfferedSwitch(panel, dto.videoOverlaysOffered)
+                    renderVideoOverlayLibrary(panel)
+                    // V1.9.143 -- the optional recording of the pulpit of the encounter room (see PulpitRecordingSettings.kt). A change rebuilds the card.
+                    renderPulpitRecordingSection(panel, dto) { data.reload() }
+                },
+            )
+    data.reload()
 }
 
 private fun renderNoiseDefaultSwitch(

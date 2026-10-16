@@ -112,6 +112,9 @@ import network.lapis.cloud.server.encounter.EncounterSeatState
 import network.lapis.cloud.server.encounter.EncounterSpacePoller
 import network.lapis.cloud.server.encounter.EncounterTableReconciler
 import network.lapis.cloud.server.encounter.EncounterTableState
+import network.lapis.cloud.server.encounter.PulpitRecordingCoordinator
+import network.lapis.cloud.server.encounter.PulpitRecordingDocuments
+import network.lapis.cloud.server.encounter.PulpitRecordingState
 import network.lapis.cloud.server.events.EventConferencePoller
 import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.events.EventOnlineServices
@@ -328,6 +331,7 @@ import network.lapis.cloud.server.rpc.PollService
 import network.lapis.cloud.server.rpc.PostalMailService
 import network.lapis.cloud.server.rpc.PriceOracleService
 import network.lapis.cloud.server.rpc.PrivilegedActionRpcService
+import network.lapis.cloud.server.rpc.PulpitRecordingService
 import network.lapis.cloud.server.rpc.RegionalChapterEnforcementConfig
 import network.lapis.cloud.server.rpc.RegionalChapterService
 import network.lapis.cloud.server.rpc.RegistrationService
@@ -426,6 +430,7 @@ import network.lapis.cloud.shared.rpc.IPollService
 import network.lapis.cloud.shared.rpc.IPostalMailService
 import network.lapis.cloud.shared.rpc.IPriceOracleService
 import network.lapis.cloud.shared.rpc.IPrivilegedActionService
+import network.lapis.cloud.shared.rpc.IPulpitRecordingService
 import network.lapis.cloud.shared.rpc.IReceivableDunningService
 import network.lapis.cloud.shared.rpc.IRegionalChapterService
 import network.lapis.cloud.shared.rpc.IRegistrationService
@@ -1239,6 +1244,28 @@ internal fun Application.module(
         applicationLogger.info { "Conference recording enabled: $conferenceRecordingConfig" }
         recordingPoller.start()
     }
+
+    // V1.9.143 "Kanzel-Aufzeichnung" -- the engine of the optional recording of the pulpit of an encounter room (module singleton: its in-memory state
+    // must not be recreated per request). It is the only caller of startParticipantFileEgress besides RecordingPoller, with its own egress
+    // subdirectory (`pulpit/`). The clock is started whenever LiveKit is configured, even with the recording service off, so that a leftover
+    // banner is cleared after a restart; with the recording service off it only does that.
+    PulpitRecordingDocuments.useStorageRoot(documentStorageRoot)
+    val pulpitRecordingState = PulpitRecordingState()
+    val pulpitRecordingCoordinator =
+        PulpitRecordingCoordinator(
+            liveKitAdminClient = liveKitAdminClient,
+            liveKitEgressClient = liveKitEgressClient,
+            recordingConfig = conferenceRecordingConfig,
+            liveKitEnabled = conferenceConfig.enabled,
+            state = pulpitRecordingState,
+            floorState = encounterFloorState,
+            documentStorageRoot = documentStorageRoot,
+            prober = recordingMediaProber,
+        )
+    pulpitRecordingCoordinator.start()
+    monitor.subscribe(ApplicationStopping) { pulpitRecordingCoordinator.stop() }
+    val pulpitRecordingControlRateLimiter = FederationInboxRateLimiter(maxRequests = 20, window = 1.minutes)
+    val pulpitRecordingReadRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes)
 
     // V1.0 Videokonferenzen (Kleinsitzung), Wave 3 "Externes Streaming" -- ConferenceStreamingConfig
     // .load() is pure string parsing (same "safe to call unconditionally" posture
@@ -2225,7 +2252,13 @@ internal fun Application.module(
                 previewRateLimiter = accountingExportPreviewRateLimiter,
             )
         }
-        registerService(IOrganizationSettingsService::class) { call -> OrganizationSettingsService(call) }
+        registerService(IOrganizationSettingsService::class) { call ->
+            OrganizationSettingsService(
+                call = call,
+                pulpitRecording = pulpitRecordingCoordinator,
+                recordingInfrastructureAvailable = conferenceRecordingConfig.enabled && conferenceConfig.enabled,
+            )
+        }
         registerService(IOrganizationTimeZoneService::class) { call -> OrganizationTimeZoneService(call) }
         registerService(
             IPostalMailService::class,
@@ -2407,6 +2440,7 @@ internal fun Application.module(
                 bellState = encounterBellState,
                 floorState = encounterFloorState,
                 floorEnforcer = encounterFloorEnforcer,
+                pulpitRecording = pulpitRecordingCoordinator,
                 seatState = encounterSeatState,
                 tableState = encounterTableState,
                 entryNotifier = encounterEntryNotifier,
@@ -2588,7 +2622,7 @@ internal fun Application.module(
             )
         }
         // V1.9.133 display-only conference timer. Kilua numbers routes by declaration order, so a new service is ALWAYS appended at the end;
-        // ConferenceTimerServiceEventGuardTripwireTest pins the tail order (timer, then agreement texts).
+        // ConferenceTimerServiceEventGuardTripwireTest pins the tail order (timer, agreement texts, then the pulpit recording).
         registerService(IConferenceTimerService::class) { call ->
             ConferenceTimerService(
                 call = call,
@@ -2599,8 +2633,18 @@ internal fun Application.module(
                 readRateLimiter = conferenceTimerReadRateLimiter,
             )
         }
-        // V1.9.134 administration of the registration texts. MUST stay the LAST registerService (see above).
+        // V1.9.134 administration of the registration texts.
         registerService(IAgreementTextAdminService::class) { call -> AgreementTextAdminService(call) }
+        // V1.9.143 optional recording of the pulpit of an encounter room. MUST stay the LAST registerService (see above).
+        registerService(IPulpitRecordingService::class) { call ->
+            PulpitRecordingService(
+                call = call,
+                coordinator = pulpitRecordingCoordinator,
+                controlRateLimiter = pulpitRecordingControlRateLimiter,
+                readRateLimiter = pulpitRecordingReadRateLimiter,
+                recordingInfrastructureAvailable = conferenceRecordingConfig.enabled && conferenceConfig.enabled,
+            )
+        }
     }
 
     routing {

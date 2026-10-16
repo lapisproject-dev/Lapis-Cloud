@@ -11,6 +11,7 @@ import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.documents.FolderAccessLevels
+import network.lapis.cloud.server.encounter.PulpitRecordingDocuments
 import network.lapis.cloud.server.security.ESCALATED_ROLES
 import network.lapis.cloud.server.security.canAccessDocumentAtLevel
 import network.lapis.cloud.server.security.resolveCurrentMember
@@ -373,6 +374,7 @@ class DocumentService(
         val current = resolveCurrentMember(call)
         if (current.role !in ESCALATED_ROLES) throw ForbiddenException()
         val docId = Uuid.parse(documentId)
+        var pulpitRecordingToDelete = false
         transaction {
             val documentRow =
                 DocumentTable
@@ -385,6 +387,12 @@ class DocumentService(
             }
             if (!current.canAccessDocumentAtLevel(documentRow[DocumentTable.accessLevel])) {
                 throw ForbiddenException("Not authorized to delete this document")
+            }
+            // V1.9.143: a pulpit recording holds the voice and the face of a person -- "delete" means removed for real here, not soft-deleted
+            // (bytes and rows stay otherwise). The hard delete runs in its own transaction after this one, see below.
+            if (PulpitRecordingDocuments.isPulpitRecording(docId)) {
+                pulpitRecordingToDelete = true
+                return@transaction
             }
             DocumentTable.update({ DocumentTable.id eq docId }) {
                 it[isDeleted] = true
@@ -405,6 +413,10 @@ class DocumentService(
                     ),
                 after = null,
             )
+        }
+        if (pulpitRecordingToDelete) {
+            PulpitRecordingDocuments.hardDelete(documentId = docId, actor = current)
+            return
         }
         // V1.6.1: a soft-deleted document leaves the AI knowledge base (release + chunks + state).
         // Housekeeping only -- the retriever already filters is_deleted live -- so it never fails the delete.
@@ -464,6 +476,11 @@ class DocumentService(
                     throw ForbiddenException("Not authorized to change the access level of this document")
                 }
                 if (before != accessLevel) {
+                    if (accessLevel.restrictiveness < DocumentAccessLevel.BOARD_ONLY.restrictiveness &&
+                        PulpitRecordingDocuments.isPulpitRecording(docId)
+                    ) {
+                        throw ConflictException("A pulpit recording cannot be made more visible than BOARD_ONLY")
+                    }
                     val folderEffective = snapshot.effectiveLevel(folderId)
                     if (accessLevel.restrictiveness < folderEffective.restrictiveness) {
                         throw ConflictException("A document cannot be more visible than the folder it is placed in")
@@ -599,6 +616,11 @@ class DocumentService(
                                 ?: throw NotFoundException("Folder $folderId not found")
                         if (!current.canAccessDocumentAtLevel(snapshot.effectiveLevel(fid))) {
                             throw NotFoundException("Folder $folderId not found")
+                        }
+                        if (accessLevel.restrictiveness < DocumentAccessLevel.BOARD_ONLY.restrictiveness &&
+                            PulpitRecordingDocuments.isPulpitRecordingFolder(fid)
+                        ) {
+                            throw ConflictException("The pulpit recordings folder cannot be made more visible than BOARD_ONLY")
                         }
                         val parentId = snapshot.parentFolderId(fid)
                         if (parentId != null) {

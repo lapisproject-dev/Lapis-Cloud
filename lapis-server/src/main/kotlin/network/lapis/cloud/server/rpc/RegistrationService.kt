@@ -207,7 +207,7 @@ class RegistrationService internal constructor(
 
     /** V1.9.134 -- the live text: the published version with the highest sequence number, else the built-in placeholder. Never the draft. */
     override suspend fun getMembershipAgreement(): MembershipAgreementDto =
-        AgreementTextResolver.current(AgreementTextKind.MEMBERSHIP).let {
+        AgreementTextResolver.current(kind = AgreementTextKind.MEMBERSHIP).let {
             MembershipAgreementDto(version = it.versionLabel, text = it.body, sha256 = it.sha256)
         }
 
@@ -744,7 +744,7 @@ class RegistrationService internal constructor(
 
     /** V1.9.134 -- see [getMembershipAgreement]. */
     override suspend fun getFriendTerms(): FriendTermsDto =
-        AgreementTextResolver.current(AgreementTextKind.FRIEND).let {
+        AgreementTextResolver.current(kind = AgreementTextKind.FRIEND).let {
             FriendTermsDto(version = it.versionLabel, text = it.body, sha256 = it.sha256)
         }
 

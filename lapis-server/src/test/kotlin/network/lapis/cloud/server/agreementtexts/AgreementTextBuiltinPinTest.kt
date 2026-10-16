@@ -41,11 +41,11 @@ class AgreementTextBuiltinPinTest :
         }
 
         test("BuiltinAgreementTexts reads the two placeholder objects unchanged") {
-            val m = BuiltinAgreementTexts.of(AgreementTextKind.MEMBERSHIP)
+            val m = BuiltinAgreementTexts.of(kind = AgreementTextKind.MEMBERSHIP)
             m.versionLabel shouldBe MembershipAgreementDisclaimer.VERSION
             m.body shouldBe MembershipAgreementDisclaimer.TEXT
             m.sha256 shouldBe MembershipAgreementDisclaimer.SHA256
-            val f = BuiltinAgreementTexts.of(AgreementTextKind.FRIEND)
+            val f = BuiltinAgreementTexts.of(kind = AgreementTextKind.FRIEND)
             f.versionLabel shouldBe FriendTermsDisclaimer.VERSION
             f.body shouldBe FriendTermsDisclaimer.TEXT
             f.sha256 shouldBe FriendTermsDisclaimer.SHA256

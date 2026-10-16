@@ -168,7 +168,9 @@ fun archiveGeneratedPdf(
  * must never run while holding a DB connection/transaction open, same discipline every outbound
  * network call in this codebase already follows (see `ConferenceService`'s own "Transaction
  * boundaries" KDoc). `documentId`/`versionId`/`storageKey` are therefore generated up front, before
- * the copy, so the DB insert afterward is a single short transaction. On a copy failure the
+ * the copy, so the DB insert afterward is a single short transaction. [folderAccessLevel] (V1.9.143) is the level a NEWLY created folder gets
+ * (default `PUBLIC_MEMBERS`, as before; an existing folder is never changed) and [onDocumentCreated] runs inside that same transaction right after
+ * the document row exists (the pulpit recording marker). On a copy failure the
  * partially-written [File.resolve] target under [storageRoot] is deleted before the exception
  * propagates -- no dangling half-written blob left behind, and (because nothing was inserted) no
  * dangling DB reference to it either.
@@ -182,6 +184,8 @@ fun archiveGeneratedFile(
     mimeType: String,
     uploadedBy: Uuid,
     accessLevel: DocumentAccessLevel,
+    folderAccessLevel: DocumentAccessLevel = DocumentAccessLevel.PUBLIC_MEMBERS,
+    onDocumentCreated: (documentId: Uuid) -> Unit = {},
 ): Uuid {
     val now = DbClock.nowLocalDateTime()
     val documentId = Uuid.random()
@@ -224,7 +228,7 @@ fun archiveGeneratedFile(
                         it[id] = newId
                         it[name] = folderName
                         it[parentFolderId] = null
-                        it[DocumentFolderTable.accessLevel] = DocumentAccessLevel.PUBLIC_MEMBERS
+                        it[DocumentFolderTable.accessLevel] = folderAccessLevel
                     }
                 }
 
@@ -259,6 +263,8 @@ fun archiveGeneratedFile(
         DocumentTable.update({ DocumentTable.id eq documentId }) {
             it[currentVersionId] = versionId
         }
+        // V1.9.143: lets the caller write a marker row in the SAME transaction as the document (the pulpit recording marker).
+        onDocumentCreated(documentId)
 
         documentId
     }

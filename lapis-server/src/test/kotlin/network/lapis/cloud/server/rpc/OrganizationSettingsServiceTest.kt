@@ -513,33 +513,33 @@ class OrganizationSettingsServiceTest :
 /** Shared throwaway routes for [OrganizationSettingsServiceTest] -- mirrors [AccountingServiceTest]'s own idiom. */
 private fun Route.registerOrgSettingsTestRoutes() {
     get("/test/get") {
-        val service = OrganizationSettingsService(call)
+        val service = OrganizationSettingsService(call = call, pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING)
         val dto = service.getOrganizationSettings()
         call.respondText("${dto.id}:${dto.name}:${dto.street}:${dto.bankIban}")
     }
     get("/test/get-datev") {
-        val service = OrganizationSettingsService(call)
+        val service = OrganizationSettingsService(call = call, pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING)
         val dto = service.getOrganizationSettings()
         call.respondText("${dto.datevBeraterNummer}:${dto.datevMandantNummer}")
     }
     get("/test/get-is-political-party") {
-        val service = OrganizationSettingsService(call)
+        val service = OrganizationSettingsService(call = call, pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING)
         call.respondText(service.getOrganizationSettings().isPoliticalParty.toString())
     }
     get("/test/get-postal-mail-enabled") {
-        val service = OrganizationSettingsService(call)
+        val service = OrganizationSettingsService(call = call, pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING)
         call.respondText(service.getOrganizationSettings().postalMailEnabled.toString())
     }
     get("/test/get-politician-ranking-enabled") {
-        val service = OrganizationSettingsService(call)
+        val service = OrganizationSettingsService(call = call, pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING)
         call.respondText(service.getOrganizationSettings().politicianRankingEnabled.toString())
     }
     get("/test/get-show-public-member-count") {
-        val service = OrganizationSettingsService(call)
+        val service = OrganizationSettingsService(call = call, pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING)
         call.respondText(service.getOrganizationSettings().showPublicMemberCount.toString())
     }
     post("/test/update") {
-        val service = OrganizationSettingsService(call)
+        val service = OrganizationSettingsService(call = call, pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING)
         val q = call.request.queryParameters
         val dto =
             service.updateOrganizationSettings(

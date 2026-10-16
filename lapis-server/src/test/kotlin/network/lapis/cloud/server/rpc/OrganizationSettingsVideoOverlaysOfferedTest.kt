@@ -155,15 +155,27 @@ class OrganizationSettingsVideoOverlaysOfferedTest :
 
 private fun Route.registerVideoOverlaysOfferedTestRoutes() {
     post("/t/overlays") {
-        val dto = OrganizationSettingsService(call).updateVideoOverlaysOffered(call.request.queryParameters["enabled"]!!.toBoolean())
+        val dto =
+            OrganizationSettingsService(
+                call = call,
+                pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING,
+            ).updateVideoOverlaysOffered(call.request.queryParameters["enabled"]!!.toBoolean())
         call.respondText(dto.videoOverlaysOffered.toString())
     }
     get("/t/get") {
-        call.respondText(OrganizationSettingsService(call).getOrganizationSettings().videoOverlaysOffered.toString())
+        call.respondText(
+            OrganizationSettingsService(
+                call = call,
+                pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING,
+            ).getOrganizationSettings().videoOverlaysOffered.toString(),
+        )
     }
     post("/t/generic") {
         val dto =
-            OrganizationSettingsService(call).updateOrganizationSettings(
+            OrganizationSettingsService(
+                call = call,
+                pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING,
+            ).updateOrganizationSettings(
                 network.lapis.cloud.shared.domain
                     .OrganizationSettingsInput(name = call.request.queryParameters["name"]!!),
             )

@@ -6,10 +6,20 @@ import kotlinx.serialization.Serializable
 
 /**
  * V1.9.134 -- which registration document an [AgreementTextVersionDto] belongs to. `MEMBERSHIP` is the Beitrittsvertrag a registrant
- * accepts in `registerApplication`/`applyForMembership`, `FRIEND` the terms of use of a FRIEND account.
+ * accepts in `registerApplication`/`applyForMembership`, `FRIEND` the terms of use of a FRIEND account. V1.9.143 added `REC_ROOM` and
+ * `REC_PULPIT`, the two texts of the optional pulpit recording; nobody acknowledges them persistently (see `docs/features/pulpit-recording.adoc`).
  */
 @Serializable
-enum class AgreementTextKind { MEMBERSHIP, FRIEND }
+enum class AgreementTextKind {
+    MEMBERSHIP,
+    FRIEND,
+
+    /** V1.9.143 -- the notice shown in an encounter room whose pulpit may be recorded ("the pulpit is recorded, the congregation is not"). */
+    REC_ROOM,
+
+    /** V1.9.143 -- the consent the person at the pulpit gives to being recorded. */
+    REC_PULPIT,
+}
 
 /**
  * V1.9.134 -- the one set of rules for an administered agreement text, shared by client (live counter, label suggestion) and server

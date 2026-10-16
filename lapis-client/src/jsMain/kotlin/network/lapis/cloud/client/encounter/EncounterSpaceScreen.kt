@@ -53,6 +53,7 @@ import network.lapis.cloud.shared.domain.EncounterSpaceInput
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
 import network.lapis.cloud.shared.domain.EncounterTablesConfig
 import network.lapis.cloud.shared.rpc.IEncounterSpaceService
+import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 
 /**
  * V1.9.62 Begegnungsraum (B2) -- the list of the standing rooms ("Begegnungsräume"). Everybody who may see a room sees its row: title,
@@ -85,6 +86,8 @@ fun renderEncounterSpaceScreen(container: SimplePanel) {
             spaces.forEach { space -> renderEncounterSpaceRow(panel, space, canManage) { section.reload() } }
         }
     section.reload()
+    // V1.9.143: stored pulpit recordings (BOARD/ADMIN); the section appears only when there is something to show.
+    if (canManage) root.pulpitRecordingList()
 
     if (createHost != null) {
         collapsibleCreateForm<Unit>(
@@ -352,6 +355,40 @@ internal fun renderEncounterSpaceForm(
             hint = gettext("Höchstens %1 Zeichen.", SPACE_NOTICE_MAX),
             rule = { FormRules.maxLength(value = it, max = SPACE_NOTICE_MAX) },
         )
+    // V1.9.143: the pulpit recording. Off by default; it can only be switched ON while the instance offers it (an admin acknowledged the operator
+    // notice) AND the room is closed (the consent of non-members depends on it). It can always be switched OFF. While the instance setting is unknown
+    // (loading, or not readable) the box stays locked and nothing is sent.
+    val recordingTerms = termsFor(existing?.profile ?: EncounterProfile.CHURCH_SERVICE)
+    val recordingNow = existing?.pulpitRecordingAllowed == true
+    val recordingCheck =
+        form.checkField(
+            label = if (existing == null) recordingTerms.recordingRoomOptionNeutralLabel() else recordingTerms.recordingRoomOptionLabel(),
+            value = recordingNow,
+            hint = recordingTerms.recordingRoomOptionHint(),
+            init = { box -> box.disabled = true },
+        )
+    val recordingNote = form.panel.div(className = "text-muted small")
+    var recordingUnlocked = false
+    AppScope.launch {
+        val settings =
+            try {
+                rpcService<IOrganizationSettingsService>().getOrganizationSettings()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                null
+            } ?: return@launch
+        val offered = settings.pulpitRecordingEnabled && settings.pulpitRecordingInfrastructureAvailable
+        val mayChange = recordingNow || (offered && !locked)
+        recordingUnlocked = mayChange
+        (recordingCheck.control as? CheckBox)?.disabled = !mayChange
+        recordingNote.content =
+            when {
+                mayChange -> ""
+                !offered -> recordingTerms.recordingRoomOptionNotOfferedHint()
+                else -> recordingTerms.recordingRoomOptionClosedOnlyHint()
+            }
+    }
     val maxField =
         form.textField(
             label = tr("Höchstzahl der Anwesenden"),
@@ -384,6 +421,8 @@ internal fun renderEncounterSpaceForm(
                     closedNotice = noticeField.value.trim().ifEmpty { null },
                     maxParticipants = maxField.value.trim().toIntOrNull(),
                     notifyMode = EncounterNotifyMode.entries.firstOrNull { it.name == notifyField.value } ?: EncounterNotifyMode.NONE,
+                    // `null` = unchanged: a locked box (setting unknown, not offered, room open) never overwrites the stored option.
+                    pulpitRecordingAllowed = if (recordingUnlocked) recordingCheck.value == "true" else null,
                     tables =
                         EncounterTablesConfig(
                             enabled = tablesCheck.value == "true" && profileField.value == EncounterProfile.ASSEMBLY.name,

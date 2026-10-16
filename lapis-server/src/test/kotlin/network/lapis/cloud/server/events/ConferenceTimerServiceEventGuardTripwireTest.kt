@@ -80,16 +80,19 @@ class ConferenceTimerServiceEventGuardTripwireTest :
         }
 
         test(
-            "the tail of the registrations in Application.kt is pinned: timer, then agreement texts (Kilua numbers routes by declaration order)",
+            "the tail of the registrations in Application.kt is pinned: timer, agreement texts, then the pulpit recording (Kilua numbers routes by declaration order)",
         ) {
             val code = SourceScan.blank(EncounterSourceScan.mainFile("Application.kt").readText())
             val registrations = Regex("""registerService\(""").findAll(code).map { it.range.first }.toList()
             val timer = code.indexOf("registerService(IConferenceTimerService::class)")
             val agreementTexts = code.indexOf("registerService(IAgreementTextAdminService::class)")
+            val pulpitRecording = code.indexOf("registerService(IPulpitRecordingService::class)")
             (timer >= 0) shouldBe true
             (agreementTexts > timer) shouldBe true
-            // a new service is always appended: the timer stays second to last, the agreement texts last
-            registrations[registrations.size - 2] shouldBe timer
-            registrations.last() shouldBe agreementTexts
+            (pulpitRecording > agreementTexts) shouldBe true
+            // a new service is always appended: the timer stays third to last, the agreement texts second to last, the pulpit recording last
+            registrations[registrations.size - 3] shouldBe timer
+            registrations[registrations.size - 2] shouldBe agreementTexts
+            registrations.last() shouldBe pulpitRecording
         }
     })

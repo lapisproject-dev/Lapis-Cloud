@@ -76,7 +76,13 @@ internal fun agreementKindLabel(kind: AgreementTextKind): String =
     when (kind) {
         AgreementTextKind.MEMBERSHIP -> tr("Beitrittsvertrag")
         AgreementTextKind.FRIEND -> tr("Freund-Nutzungsbedingungen")
+        // V1.9.143: the two texts of the optional pulpit recording (see PulpitRecordingSettings.kt).
+        AgreementTextKind.REC_ROOM -> tr("Hinweis bei Aufzeichnung (Raum)")
+        AgreementTextKind.REC_PULPIT -> tr("Zustimmung der Kanzel zur Aufzeichnung")
     }
+
+/** V1.9.143: the pulpit-recording kinds are no registration text: nobody acknowledges them persistently, and they apply only while the recording is on. */
+private fun isRecordingKind(kind: AgreementTextKind): Boolean = kind == AgreementTextKind.REC_ROOM || kind == AgreementTextKind.REC_PULPIT
 
 /** Everything one tab shows, loaded together so the tab renders once. */
 internal class AgreementKindData(
@@ -101,7 +107,19 @@ private fun renderAgreementKind(
             isEmpty = { false },
             load = { guarded { loadAgreementKindData(kind) } },
             render = { panel, data ->
-                if (data.overview.placeholderActive) renderPlaceholderWarning(panel, data.overview.builtinVersionLabel)
+                if (isRecordingKind(kind)) {
+                    panel.div(
+                        gettext("Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist."),
+                        className = "text-muted small",
+                    )
+                }
+                if (data.overview.placeholderActive) {
+                    renderPlaceholderWarning(
+                        panel,
+                        data.overview.builtinVersionLabel,
+                        isRecordingKind(kind),
+                    )
+                }
                 renderCurrentVersionCard(panel, kind, data)
                 renderDraftEditor(panel, kind, data, reload = { section.reload() })
                 renderVersionList(panel, kind, data.versions)
@@ -113,16 +131,25 @@ private fun renderAgreementKind(
 private fun renderPlaceholderWarning(
     panel: SimplePanel,
     builtinLabel: String,
+    recording: Boolean = false,
 ) {
     panel.div {
         addCssClasses("alert alert-warning d-flex align-items-center gap-2")
         icon("fas fa-triangle-exclamation")
         div(
-            gettext(
-                "Platzhaltertext aktiv: Diese Instanz zeigt bei der Registrierung den eingebauten Mustertext (Version %1). " +
-                    "Bitte veröffentlichen Sie Ihre rechtlich geprüfte Fassung.",
-                builtinLabel,
-            ),
+            if (recording) {
+                gettext(
+                    "Platzhaltertext aktiv: Diese Instanz zeigt den eingebauten Mustertext (Version %1). " +
+                        "Bitte veröffentlichen Sie eine rechtlich geprüfte Fassung für Ihr Land.",
+                    builtinLabel,
+                )
+            } else {
+                gettext(
+                    "Platzhaltertext aktiv: Diese Instanz zeigt bei der Registrierung den eingebauten Mustertext (Version %1). " +
+                        "Bitte veröffentlichen Sie Ihre rechtlich geprüfte Fassung.",
+                    builtinLabel,
+                )
+            },
         )
     }
 }
@@ -428,7 +455,7 @@ internal fun renderAgreementPlaceholderHint(root: SimplePanel) {
     val band = root.div { hide() }
     AppScope.launch {
         val overview = quietly { rpcService<IAgreementTextAdminService>().getOverview() } ?: return@launch
-        val names = overview.kinds.filter { it.placeholderActive }.map { agreementKindLabel(it.kind) }
+        val names = overview.kinds.filter { it.placeholderActive && !isRecordingKind(it.kind) }.map { agreementKindLabel(it.kind) }
         if (names.isEmpty()) return@launch
         band.addCssClasses("alert alert-warning d-flex align-items-center flex-wrap gap-2")
         band.icon("fas fa-triangle-exclamation")

@@ -115,6 +115,8 @@ internal class EncounterRoom(
     private val bellReducedMotion: () -> Boolean = { window.matchMedia("(prefers-reduced-motion: reduce)").matches },
     /** V1.9.138: the monotonic clock of the floor countdown (`performance.now()`) -- a seam for tests; never the wall clock. */
     private val monotonicNow: () -> Double = ::browserMonotonicNow,
+    /** V1.9.143: the operator's notice of a room whose pulpit may be recorded (the `REC_ROOM` text of the entry info); `null` = none. Untrusted text. */
+    recordingRoomNotice: String? = null,
 ) {
     private val terms: EncounterTerms = termsFor(space.profile)
     private val allowedReactions: Set<EncounterReactionOption> = EncounterReactionOption.normalize(space.reactions).toSet()
@@ -142,6 +144,9 @@ internal class EncounterRoom(
 
     /** V1.9.138: the fixed sentences of the temporary floor (given, ten seconds left, ended) -- a PERSISTENT polite region, never a name. */
     private val floorLive: Div = root.div(className = "visually-hidden")
+
+    /** V1.9.143: "recording started / ended" -- a PERSISTENT polite region, a fixed sentence, never a name. */
+    private val recordingLive: Div = root.div(className = "visually-hidden")
     private val bands: Div = root.div(className = "lapis-encounter-bands")
     private val main: Div = root.div(className = "lapis-encounter-main")
     private val layout = EncounterSceneLayout(main, terms)
@@ -171,6 +176,33 @@ internal class EncounterRoom(
             onMicrophone = { switchFloorMicrophoneOn() },
             onHandBack = { handBackFloor() },
         )
+
+    // ── the pulpit recording (V1.9.143) ──
+    private val recordingBanner =
+        EncounterRecordingBanner(host = bands, terms = terms, roomNotice = recordingRoomNotice, announce = ::announceRecordingSentence)
+
+    /** PULPIT/STEWARD of a room whose recording option is on: the only viewers who get the control (the server checks everything again). */
+    private val recordingOfficer: Boolean = viewer.canGrantFloor && space.pulpitRecordingAllowed
+    private val recordingController =
+        EncounterRecordingController(
+            spaceId = space.id,
+            terms = terms,
+            officer = recordingOfficer,
+            pulpit = viewer.presenceRole == EncounterPresenceRole.PULPIT,
+            banner = recordingBanner,
+            host =
+                object : EncounterRecordingHost {
+                    override fun notify(message: String) = notifyError(message)
+
+                    override fun leaveFullscreen() = fullscreen.leaveIfActive()
+
+                    override fun changed() = updateRecordingControls()
+
+                    override fun isDisposed(): Boolean = disposed
+                },
+        )
+    private var recordingButton: Button? = null
+    private var recordingTwin: Button? = null
 
     /** What the server said about the running floor to an office holder (holder name, totals); `null` = nobody, or not loaded yet. */
     private var floorSnapshot: EncounterFloorDto? = null
@@ -313,7 +345,8 @@ internal class EncounterRoom(
             if (viewer.canModerate) add(EncounterSideTab.STREAM)
         }
     private val side = EncounterSidePanel(main, tabs) { tab -> onTabShown(tab) }
-    private val controlBar = EncounterControlBar(root, liturgy = blessingLabel != null || bellLabel != null)
+    private val controlBar =
+        EncounterControlBar(root, liturgy = blessingLabel != null || bellLabel != null, recording = recordingOfficer)
     private val controls: Div get() = controlBar.root
 
     /**
@@ -424,6 +457,7 @@ internal class EncounterRoom(
                 floorEpoch++
                 floorModel.onSignal(signal)
             },
+            onRecording = { signal -> recordingController.onSignal(signal) },
             onMicrophonePermission = { allowed -> floorModel.onMicrophonePermission(allowed) },
             onActiveSpeakers = { identities -> onActiveSpeakers(identities) },
             onParticipantLeft = { identity -> onParticipantLeft(identity) },
@@ -440,6 +474,7 @@ internal class EncounterRoom(
                 reconnectBand.hide()
                 requestPresentRefresh()
                 refreshFloor()
+                recordingController.refresh()
             },
             onDisconnected = { cause -> if (!disposed) onConnectionLost(cause) },
         )
@@ -460,6 +495,8 @@ internal class EncounterRoom(
         bellLive.setAttribute("aria-live", "polite")
         floorLive.setAttribute("role", "status")
         floorLive.setAttribute("aria-live", "polite")
+        recordingLive.setAttribute("role", "status")
+        recordingLive.setAttribute("aria-live", "polite")
         tableView?.let { view ->
             view.onChoose = { table, seat -> chooseTableSeat(table, seat) }
             view.onLeave = { leaveTable() }
@@ -470,6 +507,7 @@ internal class EncounterRoom(
         handLive?.setAttribute("aria-live", "polite")
         buildBands()
         buildControls()
+        recordingController.seedActive(entry.pulpitRecordingActive)
         chat.setSendingEnabled(entry.canPublishData)
         audioSink.attachTo(root)
         tableAudioSink.attachTo(root)
@@ -557,6 +595,20 @@ internal class EncounterRoom(
             blessingButton.onClick { bless() }
             barSlots += ControlBarSlot(EncounterControlSlot.Blessing, blessingButton, sheetTwin(icon, label) { bless() })
         }
+        // V1.9.143: start/stop of the pulpit recording -- its own group, only for PULPIT/STEWARD of a room whose recording option is on.
+        if (recordingOfficer) {
+            val icon = ActionIcon.PULPIT_RECORD
+            val label = terms.recordingStartLabel()
+            val button = controlBar.group(EncounterControlGroup.RECORDING).encounterControlButton(icon, label)
+            button.setAttribute("aria-pressed", "false")
+            button.onClick { recordingController.toggle() }
+            val twin = sheetTwin(icon, label) { recordingController.toggle() }
+            recordingButton = button
+            recordingTwin = twin
+            recordingController.seed(startable = space.pulpitRecordingStartable)
+            barSlots += ControlBarSlot(EncounterControlSlot.Recording, button, twin, mirrorPressed = true)
+            updateRecordingControls()
+        }
         val panels = controlBar.group(EncounterControlGroup.PANELS)
         chatButton = panels.encounterControlButton(ActionIcon.CHAT, tr("Chat"))
         chatButton.setAttribute("aria-expanded", "false")
@@ -631,7 +683,13 @@ internal class EncounterRoom(
                 slots = barSlots,
                 dividers = emptyList(),
                 groupOf = { encounterControlGroup(it).ordinal },
-                order = encounterOverflowOrder(allowedReactions, blessing = blessingLabel != null, bell = bellLabel != null),
+                order =
+                    encounterOverflowOrder(
+                        allowedReactions,
+                        blessing = blessingLabel != null,
+                        bell = bellLabel != null,
+                        recording = recordingOfficer,
+                    ),
                 exitGroup = EncounterControlGroup.EXIT.ordinal,
                 overflowedClass = OVERFLOWED_CLASS,
                 onChanged = { onOverflowChanged() },
@@ -800,6 +858,7 @@ internal class EncounterRoom(
         presentPanel.load()
         if (disposed) return
         refreshFloor()
+        recordingController.refresh()
         refreshTables(startedAt = tables.generation)
         if (disposed) return
         startTimers()
@@ -1362,6 +1421,36 @@ internal class EncounterRoom(
         lastFloorRemaining = view.remainingSeconds
     }
 
+    private fun announceRecordingSentence(sentence: String) {
+        if (disposed) return
+        recordingLive.content = sentence
+        later(LIVE_TEXT_MS) { recordingLive.content = "" }
+    }
+
+    /** Draws the recording toggle from the controller: the label is the next step, the state is `aria-pressed`; locked while a call runs or the pulpit has not answered. */
+    private fun updateRecordingControls() {
+        val controller = recordingController
+        val label =
+            when {
+                controller.active -> terms.recordingStopLabel()
+                controller.awaiting -> terms.recordingAwaitingLabel()
+                else -> terms.recordingStartLabel()
+            }
+        val locked = controller.busy || controller.awaiting || (!controller.active && !controller.startable)
+        recordingButton?.let { button ->
+            button.setAttrIfChanged("aria-pressed", controller.active.toString())
+            button.setAttrIfChanged("title", label)
+            button.setAttrIfChanged("aria-label", label)
+            button.setAttrIfChanged("data-label", label)
+            button.disabled = locked
+        }
+        recordingTwin?.let { twin ->
+            twin.text = label
+            twin.disabled = locked
+        }
+        if (::overflow.isInitialized) overflow.recompute()
+    }
+
     private fun holderHasMicrophone(): Boolean = floorSnapshot?.holderMemberId?.let { it in remoteAudio } == true
 
     private fun announceFloorSentence(sentence: String) {
@@ -1756,6 +1845,9 @@ internal class EncounterRoom(
     internal val tableController: EncounterTableController get() = tables
     internal val floorBannerView: EncounterFloorBanner get() = floorBanner
     internal val floorView: EncounterFloorView get() = floorModel.view
+    internal val recordingBannerView: EncounterRecordingBanner get() = recordingBanner
+    internal val recordingControllerView: EncounterRecordingController get() = recordingController
+    internal val recordingToggle: Button? get() = recordingButton
 
     /** One second of the floor countdown, driven by the test (the real room ticks by a timer). */
     internal fun floorTick() = floorModel.onTick()

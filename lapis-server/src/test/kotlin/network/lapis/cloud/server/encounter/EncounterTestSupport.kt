@@ -338,6 +338,9 @@ internal class EncounterRig(
     private val floorBurstLimiter = floorBurstLimiterOverride ?: limiter()
     private val floorStateLimiter = limiter()
 
+    /** V1.9.143: what the service asked the pulpit-recording engine to do (it stops nothing here). */
+    val pulpitRecording = RecordingControlSpy()
+
     fun service(
         call: ApplicationCall,
         config: ConferenceConfig = this.config,
@@ -349,6 +352,7 @@ internal class EncounterRig(
         bellState = bellState,
         floorState = floorState,
         floorEnforcer = floorEnforcer,
+        pulpitRecording = pulpitRecording,
         seatState = seatState,
         tableState = tableState,
         entryNotifier = entryNotifier,
@@ -460,6 +464,7 @@ internal class EncounterFixtures {
         tablesEnabled: Boolean = false,
         tableCount: Int = 4,
         tableSeats: Int = 6,
+        pulpitRecordingAllowed: Boolean = false,
     ): Uuid {
         val id = Uuid.random()
         val now = DbClock.nowLocalDateTime()
@@ -477,6 +482,7 @@ internal class EncounterFixtures {
                 it[EncounterSpaceTable.tableSeats] = tableSeats.toShort()
                 it[mode] = "SERVICE"
                 it[EncounterSpaceTable.guestPolicy] = guestPolicy.name
+                it[EncounterSpaceTable.pulpitRecordingAllowed] = pulpitRecordingAllowed
                 it[EncounterSpaceTable.maxParticipants] = maxParticipants
                 it[closedNotice] = null
                 it[createdAt] = now
@@ -611,6 +617,21 @@ internal class EncounterFixtures {
                 (EncounterSpaceRoleTable.spaceId inList spaceIds) or (EncounterSpaceRoleTable.memberId inList memberIds)
             }
             EncounterConsentAcknowledgmentTable.deleteWhere { EncounterConsentAcknowledgmentTable.memberId inList memberIds }
+            // V1.9.143: stored pulpit recordings of these spaces (marker, versions, document) go before the spaces
+            val recordingDocuments =
+                network.lapis.cloud.server.db.generated.PulpitRecordingDocumentTable
+                    .selectAll()
+                    .where { network.lapis.cloud.server.db.generated.PulpitRecordingDocumentTable.spaceId inList spaceIds }
+                    .map { it[network.lapis.cloud.server.db.generated.PulpitRecordingDocumentTable.documentId] }
+            network.lapis.cloud.server.db.generated.PulpitRecordingDocumentTable.deleteWhere {
+                network.lapis.cloud.server.db.generated.PulpitRecordingDocumentTable.spaceId inList spaceIds
+            }
+            network.lapis.cloud.server.db.generated.DocumentVersionTable.deleteWhere {
+                network.lapis.cloud.server.db.generated.DocumentVersionTable.documentId inList recordingDocuments
+            }
+            network.lapis.cloud.server.db.generated.DocumentTable.deleteWhere {
+                network.lapis.cloud.server.db.generated.DocumentTable.id inList recordingDocuments
+            }
             EncounterSpaceTable.deleteWhere {
                 (EncounterSpaceTable.id inList spaceIds) or
                     (EncounterSpaceTable.createdByMemberId inList memberIds)

@@ -95,6 +95,12 @@ classDiagram(name = "EncounterSpace") {
         attribute(name = "guestPolicy", type = "String") {
             stereotype("Column") { "columnName" to "guest_policy"; "sqlType" to "VARCHAR(18)" }
         }
+        // Welle V1.9.143 (V106). Whether the PULPIT of this room may be recorded (NOT NULL, FALSE = off). Settable only by BOARD/ADMIN, only to
+        // TRUE while the instance switch is on and the room is closed (the non-member consent differs by this option).
+        attribute(name = "pulpitRecordingAllowed", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "pulpit_recording_allowed" }
+        }
         // NULL = use the conference default; the service clamps to ConferenceConfig.maxParticipants.
         attribute(name = "maxParticipants", type = "Int") {
             multiplicity = Multiplicity(0, 1)

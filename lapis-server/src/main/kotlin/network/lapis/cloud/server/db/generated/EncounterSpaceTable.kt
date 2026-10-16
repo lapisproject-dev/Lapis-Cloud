@@ -23,6 +23,7 @@ public object EncounterSpaceTable : Table("encounter_space") {
     public val tableCount: Column<Short> = short("table_count").default(4)
     public val tableSeats: Column<Short> = short("table_seats").default(6)
     public val guestPolicy: Column<String> = varchar("guest_policy", 18)
+    public val pulpitRecordingAllowed: Column<Boolean> = bool("pulpit_recording_allowed").default(false)
     public val maxParticipants: Column<Int?> = integer("max_participants").nullable()
     public val closedNotice: Column<String?> = varchar("closed_notice", 200).nullable()
     public val createdAt: Column<LocalDateTime> = datetime("created_at")

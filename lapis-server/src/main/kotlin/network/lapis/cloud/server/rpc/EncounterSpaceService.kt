@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toLocalDateTime
+import network.lapis.cloud.server.agreementtexts.AgreementTextResolver
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.LiveKitAccessToken
@@ -35,6 +36,8 @@ import network.lapis.cloud.server.encounter.EncounterSessions
 import network.lapis.cloud.server.encounter.EncounterSpaceViews
 import network.lapis.cloud.server.encounter.EncounterTableRooms
 import network.lapis.cloud.server.encounter.EncounterTableState
+import network.lapis.cloud.server.encounter.PulpitRecordingControl
+import network.lapis.cloud.server.encounter.PulpitStopReason
 import network.lapis.cloud.server.encounter.RevokeReason
 import network.lapis.cloud.server.encounter.effectiveMaxParticipants
 import network.lapis.cloud.server.encounter.encounterConsentFor
@@ -51,6 +54,7 @@ import network.lapis.cloud.server.security.resolveCurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.ConferenceJoinTokenDto
@@ -184,6 +188,8 @@ class EncounterSpaceService(
     private val bellState: EncounterBellState,
     private val floorState: EncounterFloorState,
     private val floorEnforcer: EncounterFloorEnforcer,
+    /** V1.9.143: stops a running pulpit recording when its preconditions go away (room closed, option off, floor granted, office changed). */
+    private val pulpitRecording: PulpitRecordingControl,
     private val listRateLimiter: FederationInboxRateLimiter,
     private val enterRateLimiter: FederationInboxRateLimiter,
     private val leaveRateLimiter: FederationInboxRateLimiter,
@@ -233,13 +239,21 @@ class EncounterSpaceService(
         return transaction {
             val status = requireConferenceEligibleMembership(memberId = current.memberId)
             val row = loadVisibleSpace(spaceId = id, current = current, status = status)
-            val consentText = encounterConsentFor(profileOf(row))
+            val recordingAllowed = row[EncounterSpaceTable.pulpitRecordingAllowed]
+            val consentText = encounterConsentFor(profile = profileOf(row), pulpitRecordingAllowed = recordingAllowed)
             val consentRequired =
                 status in MemberStatusSets.NON_MEMBER && !hasCurrentConsent(memberId = current.memberId, text = consentText)
             EncounterEntryInfoDto(
                 space = EncounterSpaceViews.toDtos(rows = listOf(row), current = current, config = config).single(),
                 consentRequired = consentRequired,
                 disclaimer = if (consentRequired) disclaimerDto(consentText) else null,
+                // V1.9.143: everybody who enters (members too) is told when the pulpit of this room may be recorded.
+                pulpitRecordingRoomNotice =
+                    if (recordingAllowed) {
+                        AgreementTextResolver.current(kind = AgreementTextKind.REC_ROOM, profile = profileOf(row)).body
+                    } else {
+                        null
+                    },
             )
         }
     }
@@ -278,6 +292,10 @@ class EncounterSpaceService(
             val newReactions = valid.reactions ?: EncounterReactionOption.defaultsFor(newProfile)
             val newTables = valid.tables ?: EncounterTablesConfig()
             requireTablesFitProfile(tables = newTables, profile = newProfile)
+            val newRecordingAllowed = input.pulpitRecordingAllowed == true
+            if (newRecordingAllowed && !PulpitRecordingSettingsStore.load().enabled) {
+                throw ConflictException("The pulpit recording is not enabled for this instance")
+            }
             EncounterSpaceTable.insert {
                 it[EncounterSpaceTable.id] = newId
                 it[EncounterSpaceTable.title] = valid.title
@@ -292,6 +310,7 @@ class EncounterSpaceService(
                 it[EncounterSpaceTable.tableSeats] = newTables.seats.toShort()
                 it[EncounterSpaceTable.mode] = EncounterSpaceMode.SERVICE.name
                 it[EncounterSpaceTable.guestPolicy] = input.guestPolicy.name
+                it[EncounterSpaceTable.pulpitRecordingAllowed] = newRecordingAllowed
                 it[EncounterSpaceTable.maxParticipants] = input.maxParticipants
                 it[EncounterSpaceTable.closedNotice] = valid.closedNotice
                 it[EncounterSpaceTable.createdAt] = now
@@ -322,6 +341,7 @@ class EncounterSpaceService(
         val valid = validateInput(input)
         val now = nowLocalDateTime()
         var notifyModeChanged = false
+        var recordingSwitchedOff = false
         val updated =
             transaction {
                 requireConfigAuthority(current)
@@ -349,6 +369,19 @@ class EncounterSpaceService(
                     // People may already sit at tables: the table layout cannot change under them (same pattern as the profile).
                     throw ConflictException("The tables can only be changed while the encounter space is closed")
                 }
+                // V1.9.143: the option decides which consent text the non-members agreed to, so it can only be switched ON while the room is closed
+                // (same pattern as the guest policy). Switching it OFF is always allowed (it is the safer direction) and stops a running recording.
+                val oldRecordingAllowed = before[EncounterSpaceTable.pulpitRecordingAllowed]
+                val newRecordingAllowed = input.pulpitRecordingAllowed ?: oldRecordingAllowed
+                if (newRecordingAllowed && !oldRecordingAllowed) {
+                    if (!PulpitRecordingSettingsStore.load().enabled) {
+                        throw ConflictException("The pulpit recording is not enabled for this instance")
+                    }
+                    if (EncounterSessions.openSession(spaceId = id) != null) {
+                        throw ConflictException("The recording option can only be switched on while the encounter space is closed")
+                    }
+                }
+                recordingSwitchedOff = oldRecordingAllowed && !newRecordingAllowed
                 // The notify mode may change while the room is open (it only affects who is told about FUTURE entries).
                 val oldNotifyMode = notifyModeOf(before)
                 val newNotifyMode = valid.notifyMode ?: oldNotifyMode
@@ -363,6 +396,7 @@ class EncounterSpaceService(
                     it[EncounterSpaceTable.tableCount] = newTables.count.toShort()
                     it[EncounterSpaceTable.tableSeats] = newTables.seats.toShort()
                     it[EncounterSpaceTable.guestPolicy] = input.guestPolicy.name
+                    it[EncounterSpaceTable.pulpitRecordingAllowed] = newRecordingAllowed
                     it[EncounterSpaceTable.maxParticipants] = input.maxParticipants
                     it[EncounterSpaceTable.closedNotice] = valid.closedNotice
                     it[EncounterSpaceTable.updatedAt] = now
@@ -381,6 +415,8 @@ class EncounterSpaceService(
             }
         // After the commit: on a rolled-back update the notice state stays untouched.
         if (notifyModeChanged) entryNotifier.clearSpace(id)
+        // V1.9.143: switching the option off ends a recording that runs right now (after the commit, LiveKit is called outside a transaction).
+        if (recordingSwitchedOff) pulpitRecording.stopSpace(spaceId = id, reason = PulpitStopReason.ROOM_OPTION_OFF)
         return updated
     }
 
@@ -484,6 +520,8 @@ class EncounterSpaceService(
                         )
                     }.sortedWith(compareBy({ it.role }, { it.displayName }))
             }
+        // V1.9.143: a recording whose source lost the PULPIT office stops BEFORE the person is disconnected.
+        pulpitRecording.reconcileSpace(spaceId = id)
         disconnectWithdrawnOfficeHolders(roomName = openRoomName, memberIds = withdrawn)
         // V1.9.80: an office holder never listens in at a table -- whoever was just given an office leaves theirs (the table rotates).
         openRoomId?.let { roomId -> applyRotations(tableState.leaveAll(sessionRoomId = roomId, memberIds = parsed.map { it.first })) }
@@ -622,6 +660,8 @@ class EncounterSpaceService(
             }
         if (session != null) {
             val roomId = session[ConferenceRoomTable.id]
+            // V1.9.143: stop a pulpit recording first, so its file is closed properly before the room disappears.
+            pulpitRecording.stopSession(sessionRoomId = roomId, reason = PulpitStopReason.SESSION_CLOSED)
             // Data protection beats LiveKit availability: a failed deleteRoom is only logged; the database is cleaned up regardless and
             // the poller retries the LiveKit deletion (see EncounterSpacePoller).
             try {
@@ -815,6 +855,8 @@ class EncounterSpaceService(
             presenceRole = prep.presenceRole,
             canPublish = prep.canPublish,
             canPublishData = prep.canPublishData,
+            // Read after the entry committed: a person who walks into a room that is being recorded sees the banner from the first moment.
+            pulpitRecordingActive = pulpitRecording.isRecordingActive(prep.roomId),
         )
     }
 
@@ -1040,6 +1082,9 @@ class EncounterSpaceService(
                     EncounterFloorState.GrantResult.Busy -> throw ConflictException("Someone has the floor")
                     EncounterFloorState.GrantResult.Full -> throw ServiceBusyException("Floor state full")
                     is EncounterFloorState.GrantResult.Granted -> {
+                        // V1.9.143: a person of the congregation is about to speak into the room; the pulpit's loudspeaker would carry that voice into
+                        // the recording, so a running pulpit recording ends BEFORE the right is raised (the state is set, the poller sees the grant).
+                        pulpitRecording.stopSession(sessionRoomId = prepared.roomId, reason = PulpitStopReason.FLOOR_GRANTED)
                         try {
                             floorEnforcer.applyGrant(livekitRoomName = prepared.livekitRoomName, memberId = targetId)
                         } catch (e: LiveKitAdminException) {
@@ -1710,7 +1755,8 @@ class EncounterSpaceService(
         val role = EncounterRoles.roleOf(spaceId = spaceId, memberId = current.memberId)
         // A non-member needs the current Art. 9 consent: either already on file, or submitted now (verbatim, never altered).
         var needsConsentRow = false
-        val consentText = encounterConsentFor(profileOf(space))
+        val consentText =
+            encounterConsentFor(profile = profileOf(space), pulpitRecordingAllowed = space[EncounterSpaceTable.pulpitRecordingAllowed])
         if (status in MemberStatusSets.NON_MEMBER && !hasCurrentConsent(memberId = current.memberId, text = consentText)) {
             val submitted =
                 consent

@@ -93,6 +93,10 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     // Welle V1.9.129 -- hand-edited, see 11-organization-settings.kuml.kts.
     public val videoOverlaysOffered: Column<Boolean> = bool("video_overlays_offered")
     // TODO default = "FALSE"
+    // Welle V1.9.143 -- hand-edited, see 11-organization-settings.kuml.kts.
+    public val pulpitRecordingEnabled: Column<Boolean> = bool("pulpit_recording_enabled").default(false)
+    public val pulpitRecordingNoticeVersion: Column<String?> = varchar("pulpit_recording_notice_version", 16).nullable()
+    public val pulpitRecordingRequireConfirmation: Column<Boolean> = bool("pulpit_recording_require_confirmation").default(true)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

@@ -146,6 +146,11 @@ data class EncounterSpaceInput(
     val notifyMode: EncounterNotifyMode? = null,
     /** V1.9.80: Create: `null` = tables off. Update: `null` = unchanged (an old cached admin client sends none). Describes the ROOM. */
     val tables: EncounterTablesConfig? = null,
+    /**
+     * V1.9.143: whether the PULPIT of this room may be recorded. Create: `null` = off. Update: `null` = unchanged (an old cached admin client
+     * sends none). Switching it ON needs the instance switch and a CLOSED room; switching it OFF is always allowed.
+     */
+    val pulpitRecordingAllowed: Boolean? = null,
 )
 
 /**
@@ -198,6 +203,10 @@ data class EncounterSpaceDto(
     val notifyMode: EncounterNotifyMode = EncounterNotifyMode.NONE,
     /** V1.9.80: effective table configuration (`enabled` only ever true in the assembly profile). Last + default = wire compatible. */
     val tables: EncounterTablesConfig = EncounterTablesConfig(),
+    /** V1.9.143: the room option "the pulpit may be recorded". Last + default = wire compatible. */
+    val pulpitRecordingAllowed: Boolean = false,
+    /** V1.9.143: only for office holders (and BOARD/ADMIN): a recording may be started here right now (switch, room option, infrastructure). */
+    val pulpitRecordingStartable: Boolean = false,
 )
 
 /** One office assignment of [network.lapis.cloud.shared.rpc.IEncounterSpaceService.setSpaceRoles] (replace-all, at most 20). */
@@ -236,6 +245,8 @@ data class EncounterEntryInfoDto(
     val space: EncounterSpaceDto,
     val consentRequired: Boolean,
     val disclaimer: EncounterConsentDisclaimerDto?,
+    /** V1.9.143: the notice to the room ("the pulpit is recorded, the congregation is not"); `null` when the room option is off. */
+    val pulpitRecordingRoomNotice: String? = null,
 )
 
 /**
@@ -248,6 +259,8 @@ data class EncounterEntryDto(
     val presenceRole: EncounterPresenceRole,
     val canPublish: Boolean,
     val canPublishData: Boolean,
+    /** V1.9.143: `true` while this room's pulpit is being recorded at the moment of entry (the banner shows from the first moment). Last + default = wire compatible. */
+    val pulpitRecordingActive: Boolean = false,
 )
 
 /** One person currently present. No time, no home server -- see the file KDoc. */

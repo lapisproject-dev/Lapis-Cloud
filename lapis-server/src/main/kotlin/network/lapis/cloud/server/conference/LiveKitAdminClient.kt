@@ -28,6 +28,8 @@ import network.lapis.cloud.shared.domain.CONFERENCE_TIMER_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_TOPIC
+import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_TOPIC
 import java.security.SecureRandom
 import kotlin.io.encoding.Base64
 
@@ -587,5 +589,7 @@ internal fun sendDataPayloadLimit(topic: String): Int =
         CONFERENCE_HANDS_TOPIC -> CONFERENCE_HANDS_MAX_PAYLOAD_BYTES
         CONFERENCE_TIMER_TOPIC -> CONFERENCE_TIMER_MAX_PAYLOAD_BYTES
         ENCOUNTER_FLOOR_TOPIC -> ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES
+        // V1.9.143: without this entry the topic would fall back to the 16-byte blessing limit and every send would fail.
+        ENCOUNTER_RECORDING_TOPIC -> ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES
         else -> ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
     }

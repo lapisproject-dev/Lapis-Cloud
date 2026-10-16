@@ -54,7 +54,14 @@ internal fun SimplePanel.encounterEntryPanel(
             content = tr("Andere Anwesende sehen Ihren Namen, solange Sie im Raum sind. Ihre Kamera und Ihr Mikrofon bleiben aus."),
         ),
     )
-    notes.add(Tag(TAG.LI, content = tr("Lapis Cloud speichert keine Anwesenheitsliste und keine Aufzeichnung dieses Raums.")))
+    // V1.9.143: a room whose pulpit may be recorded says so instead of promising "no recording"; the operator's own notice follows below.
+    val roomNotice = info.pulpitRecordingRoomNotice
+    if (roomNotice == null) {
+        notes.add(Tag(TAG.LI, content = tr("Lapis Cloud speichert keine Anwesenheitsliste und keine Aufzeichnung dieses Raums.")))
+    } else {
+        notes.add(Tag(TAG.LI, content = terms.recordingEntryNoteContent()))
+    }
+    if (roomNotice != null) box.untrustedDiv(roomNotice, className = "small fw-semibold")
     box.div(terms.article9NoteContent(), className = "text-muted small")
 
     val disclaimer = if (info.consentRequired) info.disclaimer else null

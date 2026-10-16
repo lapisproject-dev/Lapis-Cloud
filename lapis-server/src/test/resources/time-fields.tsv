@@ -901,3 +901,5 @@ col:CarpoolMessageThreadTable.endedAt	A	stamped by the server clock (DbClock/Ser
 col:CarpoolMessageThreadTable.lastMailAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 col:CarpoolMessageTable.sentAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
 dto:CarpoolMessageDto.sentAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+dto:PulpitRecordingDocumentDto.recordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC
+col:PulpitRecordingDocumentTable.recordedAt	A	stamped by the server clock (DbClock/ServerClock) or derived from it; stored and sent as UTC

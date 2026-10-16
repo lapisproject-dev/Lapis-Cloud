@@ -529,5 +529,22 @@ classDiagram(name = "OrganizationSettings") {
             defaultValue = "FALSE"
             stereotype("Column") { "columnName" to "video_overlays_offered" }
         }
+        // Welle V1.9.143 (V106__pulpit_recording.sql). The instance switch of the optional pulpit recording in the encounter space (NOT NULL,
+        // FALSE = off), the version of the operator notice the admin acknowledged when switching it on (NULL until then) and whether the
+        // pulpit has to confirm before a recording starts (NOT NULL, TRUE). All three are NOT part of the generic updateOrganizationSettings
+        // write-set: settable ONLY through IOrganizationSettingsService.updatePulpitRecordingEnabled / updatePulpitRecordingRequireConfirmation
+        // (ADMIN, audited on change).
+        attribute(name = "pulpitRecordingEnabled", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "pulpit_recording_enabled" }
+        }
+        attribute(name = "pulpitRecordingNoticeVersion", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "pulpit_recording_notice_version"; "sqlType" to "VARCHAR(16)" }
+        }
+        attribute(name = "pulpitRecordingRequireConfirmation", type = "Boolean") {
+            defaultValue = "TRUE"
+            stereotype("Column") { "columnName" to "pulpit_recording_require_confirmation" }
+        }
     }
 }

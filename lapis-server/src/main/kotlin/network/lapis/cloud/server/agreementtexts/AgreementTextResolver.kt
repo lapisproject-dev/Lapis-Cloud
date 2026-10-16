@@ -2,6 +2,7 @@ package network.lapis.cloud.server.agreementtexts
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import network.lapis.cloud.shared.domain.AgreementTextKind
+import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.rpc.ServiceBusyException
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
@@ -22,11 +23,14 @@ internal data class CurrentAgreementText(
  * fails with [ServiceBusyException] and no registration is accepted.
  */
 internal object AgreementTextResolver {
-    fun current(kind: AgreementTextKind): CurrentAgreementText =
+    fun current(
+        kind: AgreementTextKind,
+        profile: EncounterProfile = EncounterProfile.CHURCH_SERVICE,
+    ): CurrentAgreementText =
         transaction {
             val row = AgreementTextStore.currentVersion(kind)
             if (row == null) {
-                val builtin = BuiltinAgreementTexts.of(kind)
+                val builtin = BuiltinAgreementTexts.of(kind = kind, profile = profile)
                 CurrentAgreementText(versionLabel = builtin.versionLabel, body = builtin.body, sha256 = builtin.sha256, placeholder = true)
             } else {
                 val label = row.versionLabel
@@ -49,8 +53,9 @@ internal object AgreementTextResolver {
         kind: AgreementTextKind,
         version: String,
         sha256: String,
+        profile: EncounterProfile = EncounterProfile.CHURCH_SERVICE,
     ): Boolean {
-        val current = current(kind)
+        val current = current(kind = kind, profile = profile)
         if (version != current.versionLabel) return false
         return AgreementTextHash.matches(expectedSha256 = current.sha256, providedSha256 = sha256)
     }

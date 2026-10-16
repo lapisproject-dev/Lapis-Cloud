@@ -4001,6 +4001,36 @@ html .form-select.is-invalid:focus {
   padding: calc(0.5rem - 2px) calc(0.75rem - 2px);
 }
 
+/* V1.9.143: the pulpit recording band. Symbol AND words (never colour alone); NO transition and NO animation, so nothing needs switching off under
+   prefers-reduced-motion (R54). On a narrow screen the long text and the operator's notice give way to the short word "Aufnahme", the symbol stays. */
+.lapis-encounter-recording[hidden] {
+  display: none !important;
+}
+
+.lapis-encounter-recording {
+  border-width: 2px;
+  border-color: var(--lapis-invalid);
+}
+
+.lapis-encounter-recording-dot {
+  color: var(--lapis-invalid);
+}
+
+.lapis-encounter-recording-short {
+  display: none;
+}
+
+@media (max-width: 575.98px) {
+  .lapis-encounter-recording-text,
+  .lapis-encounter-recording-notice {
+    display: none;
+  }
+
+  .lapis-encounter-recording-short {
+    display: inline;
+  }
+}
+
 .lapis-encounter-hand-next {
   border-left: 3px solid var(--lapis-border-strong);
   padding-left: 0.5rem;

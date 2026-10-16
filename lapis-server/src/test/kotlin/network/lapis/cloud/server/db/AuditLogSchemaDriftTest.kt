@@ -178,6 +178,7 @@ class AuditLogSchemaDriftTest :
                             "CARPOOL_PARTICIPATION",
                             "VIDEO_OVERLAY",
                             "AGREEMENT_TEXT",
+                            "PULPIT_RECORDING",
                         ),
                     externalFqName = "network.lapis.cloud.shared.domain.AuditEntityType",
                 )

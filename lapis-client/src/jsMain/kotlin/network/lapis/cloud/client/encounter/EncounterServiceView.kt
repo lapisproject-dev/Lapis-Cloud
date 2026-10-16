@@ -146,7 +146,7 @@ private class EncounterVisit(
         when {
             info.space.archived -> panel.div(tr("Dieser Raum wurde archiviert."), className = "text-muted")
             !info.space.open -> renderClosed(panel, info.space)
-            else -> panel.encounterEntryPanel(info) { consent -> enter(info.space, consent) }
+            else -> panel.encounterEntryPanel(info) { consent -> enter(info.space, consent, info.pulpitRecordingRoomNotice) }
         }
     }
 
@@ -213,6 +213,7 @@ private class EncounterVisit(
     private suspend fun enter(
         space: EncounterSpaceDto,
         consent: EncounterConsentInput?,
+        recordingRoomNotice: String? = null,
     ) {
         if (tornDown || entered) return
         // V1.9.70: one conference per tab -- a running video conference (or its end state) in the dock holds the seat; the encounter room
@@ -262,6 +263,7 @@ private class EncounterVisit(
                 onLeave = ::leave,
                 onDoorsClosed = { exitRoom(message = termsFor(space.profile).eventEndedContent()) },
                 onConnectionLost = { cause -> onConnectionLost(space, cause) },
+                recordingRoomNotice = recordingRoomNotice,
             )
         val newSession = opener(entry, newRoom.callbacks)
         newRoom.bind(newSession)
@@ -370,9 +372,10 @@ private class EncounterVisit(
     }
 
     private suspend fun reenter(space: EncounterSpaceDto) {
+        var notice: String? = null
         val refused =
             try {
-                rpcService<IEncounterSpaceService>().getEntryInfo(space.id)
+                notice = rpcService<IEncounterSpaceService>().getEntryInfo(space.id).pulpitRecordingRoomNotice
                 false
             } catch (e: CancellationException) {
                 throw e
@@ -387,7 +390,7 @@ private class EncounterVisit(
         }
         // No consent is sent: a guest who consented before is still on record; a missing consent comes back as a conflict and lands on
         // the entry panel (which asks again).
-        enter(space, consent = null)
+        enter(space, consent = null, recordingRoomNotice = notice)
         if (!entered && !tornDown) showEntryAgain(tr("Die Verbindung wurde unterbrochen."))
     }
 

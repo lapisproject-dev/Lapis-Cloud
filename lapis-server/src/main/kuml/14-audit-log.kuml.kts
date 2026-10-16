@@ -221,6 +221,7 @@ classDiagram(name = "AuditLog") {
         literal(name = "CARPOOL_PARTICIPATION") // Welle V1.9.125 "Mitfahrten in der Mitfahrerzentrale" -- CarpoolParticipations writes one entry per request/invitation/confirmation/decline/withdrawal: participation id, posting id, initiator, status -- never a name, a place or the meeting note; 21 chars, fits within VARCHAR(29)
         literal(name = "VIDEO_OVERLAY") // Welle V1.9.129 "Video-Overlays" -- VideoOverlayRoutes/VideoOverlayService write one entry per upload/rename/move/delete of a library element: kind, name, pixel size, byte size -- never the access token, the hash or bytes; 13 chars, fits within VARCHAR(29)
         literal(name = "AGREEMENT_TEXT") // Welle V1.9.134 "Vertragstexte" -- AgreementTextAdminService writes one entry per draft save (CREATE/UPDATE) and one POST per publication: event, kind, version label, hash, character count, validity date -- never the text; 14 chars, fits within VARCHAR(29)
+        literal(name = "PULPIT_RECORDING") // Welle V1.9.143 "Kanzel-Aufzeichnung" -- PulpitRecordingService/PulpitRecordingCoordinator write one entry per start, stop, automatic stop and deletion: event, reason code, text hashes -- never a participant count, a path, a text or the identity of anybody but the acting person; 16 chars, fits within VARCHAR(29)
     }
 
     // Genesis-singleton row (see file header) -- gapless sequence_number + hash-chain

@@ -6,6 +6,48 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.143 -- Optional recording of the pulpit
+
+An encounter room can now **optionally** record its *pulpit* -- the camera and the microphone of the person who holds the PULPIT office -- into the document store. The
+congregation (in an assembly: the participants) is never recorded. The feature is **off by default** and double-gated: an ADMIN switches it on per instance after reading an
+operator notice and ticking that the legal admissibility for the instance's country has been checked; BOARD/ADMIN allow it per room. Because the legal position differs per
+country, Lapis Cloud makes this a *configuration with a notice*, not a product decision. Migration **V106** (V104 and V105 untouched). **Nothing was run against a real LiveKit,
+egress service or browser.**
+
+#### What changes
+
+- **Instance switch** (ADMIN, `updatePulpitRecordingEnabled(enabled, acknowledgedNoticeVersion)`): switching on needs the *current* notice version (`PulpitRecordingNoticeOutdatedException`
+  otherwise); one audit entry with the version and the hash of the German reference text; switching off stops every running recording after the commit. A raised notice version blocks
+  only new starts. `updatePulpitRecordingRequireConfirmation` (default on). The three columns are *not* part of the generic `updateOrganizationSettings`.
+- **Room option** (`encounter_space.pulpit_recording_allowed`): BOARD/ADMIN; switching on needs the instance switch and a closed room, switching off is always allowed and stops a
+  running recording; part of the audited room configuration.
+- **Recording** (`IPulpitRecordingService`, registered last): start/stop by an ACTIVE PULPIT/STEWARD present in the room, agreement of the pulpit (`REC_PULPIT` text, label and hash sent back,
+  remembered in memory only), `ask`/state packets on the new topic `lapis-encounter-recording` (server only, 32 bytes). Only the PULPIT holder is a source (never a steward, never the
+  congregation); at most two per room, eight per server. Reuses `startParticipantFileEgress`, output `<dir>/pulpit/<space>/<uuid>.mp4`. **Echo rule:** no recording while a person of the
+  congregation holds the floor; a floor granted during a recording stops it.
+- **Clock** (`PulpitRecordingCoordinator.tick`, 15 s): ends a recording when the switch, the room option, the office or the session goes, on `MAX_DURATION` and on a floor; archives finished
+  files; tells newcomers; stops unowned file egresses after a restart; **never switches the banner off on doubt**.
+- **Storage:** document in the folder "Aufzeichnungen Begegnungsraum" (`BOARD_ONLY`), marker table `pulpit_recording_document` (document, room, moment -- no person column),
+  **hard delete** (bytes, versions, marker, document; also through the ordinary "delete document"). `archiveGeneratedFile` gained `folderAccessLevel` and `onDocumentCreated`.
+- **Texts:** two new agreement kinds `REC_ROOM` and `REC_PULPIT` (placeholders per room profile, administered like the registration texts); two recording variants of the Art. 9 consent for
+  non-members (`2026-10-16.rec.v1`, `2026-10-16.assembly-rec.v1`) selected by the *room option*; the two old consent texts are byte-for-byte unchanged. The entry panel of a room with the
+  option no longer promises "no recording" and shows the operator's notice.
+- **Client:** settings section with the notice dialog, room option and list/delete of recordings in the room administration, the banner (symbol and words, no animation, short form), the
+  toggle in its own control group, the pulpit's consent dialog (focus on "Nicht aufzeichnen"), 50 new catalog entries in all eight catalogs.
+- **Tests:** service/clock/archive/delete/source/migration/backup/consent/pin/tripwire tests on the server, packet test in `lapis-shared`, controller/bar/DOM tests in the client; existing
+  tripwires adapted where they pin counts (icon factory, liturgy lines, registration tail, room columns).
+- **Docs:** `docs/features/pulpit-recording.adoc`, "Pulpit recording (V1.9.143)" in `docs/architecture/encounter-space.adoc`, the staging script "Pulpit recording script", `dsgvo.adoc`, `agreement-texts.adoc`.
+
+#### Known limitations
+
+- Not verified against a real LiveKit/egress or in a real browser (the staging script R1-R17 is written, not run); in particular whether the encounter poller leaves the egress participant alone and
+  whether an active file egress reports its path at start (the restart sweep relies on it).
+- **Not legal advice.** The operator notice, the four placeholder texts and the two consent variants are drafts; a lawyer for the country of use must review them. The translations are model translations.
+- The camera can show people who are physically next to the pulpit person; the software cannot prevent that.
+- Retention is **unlimited** (decision of the owner). A hard delete does not reach older backups until they rotate.
+- The state (who agreed, which files run) is in server memory: lost on a restart, not shared between several server instances.
+- Recordings are stored `BOARD_ONLY`; as for every such document TREASURER can read them.
+
 ### CI -- PostgreSQL test image from three registries
 
 The Postgres lane started its container from a `services:` block that pulled `public.ecr.aws/docker/library/postgres:17`. Two CI runs (V1.9.132 on 2026-10-15 and V1.9.141 on 2026-10-15; both passed after a rerun of the failed job) stopped there with `toomanyrequests: Data limit exceeded` before a single test ran. The container is now started by an own step that tries `public.ecr.aws`, then `mirror.gcr.io`, then Docker Hub (three pulls each, with a pause) and waits for the health check. No code and no test changed. **Not verified until the first run on GitHub has used it.**

@@ -20,12 +20,14 @@ import network.lapis.cloud.shared.domain.EncounterReactionOption
  *   "Kanzel lauter" of a congregation person who sits at a table (the two sets never occur together).
  * - [REACTIONS]: the configured reactions of the room (hand always first, then the allowed events) -- the only controls with a word.
  * - [LITURGY] (V1.9.95/V1.9.96): the bell, then the blessing -- ONLY in a church-service room and ONLY for the pulpit; the group does not exist in the DOM otherwise.
+ * - [RECORDING] (V1.9.143): start/stop of the pulpit recording -- ONLY for PULPIT/STEWARD of a room whose recording option is on; the group does not exist in the
+ *   DOM otherwise. It stands before the panels, so it is never next to a moderation control or the exit.
  * - [PANELS]: the side panel (chat) and "Mehr" (the sheet with what did not fit).
  * - [VIEW]: scene on/off and the full screen.
  * - [MODERATION]: the transmission (people who moderate); never next to the reactions, so a slip does not trigger a reaction.
  * - [EXIT] (V1.9.74): "Türen schließen" (people who moderate) and "Verlassen", pushed to the end of the bar, 12 px apart.
  */
-internal enum class EncounterControlGroup { DEVICES, REACTIONS, LITURGY, PANELS, VIEW, MODERATION, EXIT }
+internal enum class EncounterControlGroup { DEVICES, REACTIONS, LITURGY, RECORDING, PANELS, VIEW, MODERATION, EXIT }
 
 /** A control of the bar that the overflow handler knows about ("Mehr" itself is the sheet's opener and never moves). */
 internal sealed interface EncounterControlSlot {
@@ -54,6 +56,9 @@ internal sealed interface EncounterControlSlot {
     /** V1.9.96: the pulpit's bell (church profile only); stands before the blessing in the liturgy group. */
     data object Bell : EncounterControlSlot
 
+    /** V1.9.143: start/stop of the pulpit recording (PULPIT/STEWARD, room option on); a toggle with `aria-pressed`. */
+    data object Recording : EncounterControlSlot
+
     data object Chat : EncounterControlSlot
 
     data object More : EncounterControlSlot
@@ -77,6 +82,7 @@ internal fun encounterControlGroup(slot: EncounterControlSlot): EncounterControl
         ->
             EncounterControlGroup.DEVICES
         EncounterControlSlot.Bell, EncounterControlSlot.Blessing -> EncounterControlGroup.LITURGY
+        EncounterControlSlot.Recording -> EncounterControlGroup.RECORDING
         EncounterControlSlot.Chat, EncounterControlSlot.More -> EncounterControlGroup.PANELS
         EncounterControlSlot.Scene, EncounterControlSlot.Fullscreen -> EncounterControlGroup.VIEW
         EncounterControlSlot.Broadcast -> EncounterControlGroup.MODERATION
@@ -92,6 +98,7 @@ internal fun encounterOverflowOrder(
     allowed: Collection<EncounterReactionOption>,
     blessing: Boolean = false,
     bell: Boolean = false,
+    recording: Boolean = false,
 ): List<EncounterControlSlot> =
     buildList {
         add(EncounterControlSlot.Fullscreen)
@@ -104,6 +111,8 @@ internal fun encounterOverflowOrder(
         add(EncounterControlSlot.CloseDoors)
         if (bell) add(EncounterControlSlot.Bell)
         if (blessing) add(EncounterControlSlot.Blessing)
+        // V1.9.143: the recording control stays in the bar as long as possible (only the chat outlasts it) and so always has the chat or "Mehr" next to it.
+        if (recording) add(EncounterControlSlot.Recording)
         add(EncounterControlSlot.Chat)
     }
 
@@ -149,6 +158,17 @@ internal fun bellNeverAdjacentToModeration(shownInOrder: List<EncounterControlSl
     }
 
 /**
+ * Pure invariant (V1.9.143): the recording control never stands directly next to "Verlassen", "Türen schließen" or a moderation control (a slip must
+ * not end the visit, close the doors or hit the transmission).
+ */
+internal fun recordingNeverAdjacentToExitOrModeration(shownInOrder: List<EncounterControlSlot>): Boolean =
+    shownInOrder.zipWithNext().none { (a, b) ->
+        fun dangerous(slot: EncounterControlSlot) =
+            encounterControlGroup(slot).let { it == EncounterControlGroup.MODERATION || it == EncounterControlGroup.EXIT }
+        (a == EncounterControlSlot.Recording && dangerous(b)) || (b == EncounterControlSlot.Recording && dangerous(a))
+    }
+
+/**
  * V1.9.74 (R58 named exception c): the ONLY icon-only factory of the encounter room. At least 44 x 44 px through theme.css. [label]
  * becomes `title`, `aria-label` and `data-label`; the button never shows a word, in no width. V1.9.84: the reactions too (hand and events).
  */
@@ -176,17 +196,21 @@ internal class EncounterControlBar(
     parent: Container,
     /** V1.9.95/V1.9.96: `true` only for the pulpit of a church-service room (blessing or bell); otherwise the liturgy group is not even built. */
     liturgy: Boolean,
+    /** V1.9.143: `true` only for PULPIT/STEWARD of a room whose recording option is on; otherwise the recording group is not even built. */
+    recording: Boolean = false,
 ) {
     val root: Div = parent.lapisToolbar { addCssClass("lapis-encounter-controls") }
     private val groups: Map<EncounterControlGroup, Div> =
-        EncounterControlGroup.entries.filter { it != EncounterControlGroup.LITURGY || liturgy }.associateWith { group ->
-            root.div(className = "lapis-encounter-control-group lapis-encounter-control-group--${group.name.lowercase()}").also {
-                labelOf(group)?.let { label ->
-                    it.setAttribute("role", "group")
-                    it.setAttribute("aria-label", label)
+        EncounterControlGroup.entries
+            .filter { (it != EncounterControlGroup.LITURGY || liturgy) && (it != EncounterControlGroup.RECORDING || recording) }
+            .associateWith { group ->
+                root.div(className = "lapis-encounter-control-group lapis-encounter-control-group--${group.name.lowercase()}").also {
+                    labelOf(group)?.let { label ->
+                        it.setAttribute("role", "group")
+                        it.setAttribute("aria-label", label)
+                    }
                 }
             }
-        }
 
     /** The container of [group]; add the group's buttons there. Throws for [EncounterControlGroup.LITURGY] when the bar was built without it (on purpose). */
     fun group(group: EncounterControlGroup): Div = groups.getValue(group)
@@ -196,6 +220,7 @@ internal class EncounterControlBar(
             EncounterControlGroup.MODERATION -> gettext("Moderation")
             EncounterControlGroup.EXIT -> gettext("Ausgang")
             EncounterControlGroup.REACTIONS -> gettext("Reaktionen")
+            EncounterControlGroup.RECORDING -> gettext("Aufzeichnung")
             EncounterControlGroup.DEVICES -> gettext("Geräte")
             else -> null
         }

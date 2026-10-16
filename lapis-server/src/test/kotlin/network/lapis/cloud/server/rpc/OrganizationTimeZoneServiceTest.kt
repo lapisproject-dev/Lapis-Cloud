@@ -232,7 +232,7 @@ private fun Route.registerTimeZoneTestRoutes() {
         call.respondText("valid=${AuditLogService(call).verifyChainIntegrity(fromSequenceNumber = seq, toSequenceNumber = seq).valid}")
     }
     post("/tz/generic-update") {
-        val service = OrganizationSettingsService(call)
+        val service = OrganizationSettingsService(call = call, pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING)
         val current = service.getOrganizationSettings()
         service.updateOrganizationSettings(OrganizationSettingsInput(name = current.name))
         call.respondText("ok")

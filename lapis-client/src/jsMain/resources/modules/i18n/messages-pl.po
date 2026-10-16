@@ -24487,3 +24487,153 @@ msgstr "Filtry wyłączone"
 
 msgid "Alle Filter ausgeschaltet"
 msgstr "Wszystkie filtry wyłączone"
+
+msgid "Hinweis bei Aufzeichnung (Raum)"
+msgstr "Informacja o nagrywaniu (sala)"
+
+msgid "Zustimmung der Kanzel zur Aufzeichnung"
+msgstr "Zgoda ambony na nagrywanie"
+
+msgid "Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist."
+msgstr "Obowiązuje tylko wtedy, gdy nagrywanie ambony jest włączone dla instancji."
+
+msgid "Platzhaltertext aktiv: Diese Instanz zeigt den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie eine rechtlich geprüfte Fassung für Ihr Land."
+msgstr "Aktywny tekst zastępczy: ta instancja pokazuje wbudowany tekst wzorcowy (wersja %1). Opublikuj wersję sprawdzoną prawnie dla swojego kraju."
+
+msgid "Kanzel-Aufzeichnung"
+msgstr "Nagranie ambony"
+
+msgid "Sie sind im Begriff, die Aufzeichnung der Kanzel in den Begegnungsräumen dieser Instanz zu erlauben. Aufgezeichnet werden ausschließlich Bild und Ton der Person, die das Amt der Kanzel (in Versammlungen: des Podiums) innehat. Die Gemeinde (in Versammlungen: die Teilnehmenden) wird nicht aufgezeichnet."
+msgstr "Za chwilę zezwoli Pan/Pani na nagrywanie ambony w salach spotkań tej instancji. Nagrywany jest wyłącznie obraz i dźwięk osoby pełniącej funkcję ambony (na zgromadzeniach: podium). Zbór (na zgromadzeniach: uczestnicy) nie jest nagrywany."
+
+msgid "Ob und unter welchen Bedingungen eine solche Aufzeichnung zulässig ist, hängt vom Recht Ihres Landes ab, zum Beispiel vom Datenschutz-, Persönlichkeits- und Urheberrecht und von Vorgaben für Religionsgemeinschaften und Versammlungen. Lapis Cloud nimmt diese Prüfung nicht vor und ersetzt keine Rechtsberatung."
+msgstr "To, czy i na jakich warunkach takie nagrywanie jest dozwolone, zależy od prawa Pana/Pani kraju, na przykład od ochrony danych, dóbr osobistych i praw autorskich oraz przepisów dla wspólnot religijnych i zgromadzeń. Lapis Cloud nie dokonuje tej oceny i nie zastępuje porady prawnej."
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass Sie eine Rechtsgrundlage haben und dass die aufgezeichnete Person informiert ist und, wo erforderlich, einwilligt. Die Aufnahme wird in der Dokumentenablage gespeichert, ist nur für Vorstand und Administratoren sichtbar und bleibt bis zu ihrer Löschung bestehen."
+msgstr "Jako operator odpowiada Pan/Pani za to, aby istniała podstawa prawna oraz aby nagrywana osoba była poinformowana i, jeśli to wymagane, wyraziła zgodę. Nagranie jest przechowywane w archiwum dokumentów, widoczne tylko dla zarządu i administratorów i pozostaje do chwili usunięcia."
+
+msgid "Zeigt die Kamera Personen, die vor Ort neben der Kanzel anwesend sind, werden auch diese aufgezeichnet. Das kann die Software nicht verhindern."
+msgstr "Jeśli kamera pokazuje osoby obecne na miejscu obok ambony, one również są nagrywane. Oprogramowanie nie może temu zapobiec."
+
+msgid "Aufzeichnung von Kanzel bzw. Podium erlauben"
+msgstr "Zezwól na nagrywanie ambony lub podium"
+
+msgid "Nur die Kamera und das Mikrofon der Person mit dem Amt der Kanzel werden aufgezeichnet, nie die Gemeinde. Zusätzlich muss die Aufzeichnung je Raum erlaubt werden."
+msgstr "Nagrywane są tylko kamera i mikrofon osoby pełniącej funkcję ambony, nigdy zbór. Dodatkowo nagrywanie musi być dozwolone dla każdej sali."
+
+msgid "Der Aufzeichnungsdienst ist auf diesem Server nicht eingerichtet."
+msgstr "Usługa nagrywania nie jest skonfigurowana na tym serwerze."
+
+msgid "Bestätigt für Hinweis Version %1, aktuell Version %2. Bitte erneut bestätigen."
+msgstr "Potwierdzono dla wersji %1 informacji, aktualna wersja %2. Proszę potwierdzić ponownie."
+
+msgid "Erneut bestätigen"
+msgstr "Potwierdź ponownie"
+
+msgid "Die Aufzeichnung der Kanzel ist ausgeschaltet."
+msgstr "Nagrywanie ambony jest wyłączone."
+
+msgid "Der Hinweis wurde geändert. Bitte lesen Sie ihn erneut."
+msgstr "Informacja została zmieniona. Proszę przeczytać ją ponownie."
+
+msgid "Die Aufzeichnung der Kanzel ist eingeschaltet."
+msgstr "Nagrywanie ambony jest włączone."
+
+msgid "Zustimmung der Kanzel vor jeder Aufnahme verlangen"
+msgstr "Wymagaj zgody ambony przed każdym nagraniem"
+
+msgid "Die Aufzeichnung ist nicht eingeschaltet."
+msgstr "Nagrywanie nie jest włączone."
+
+msgid "Aufzeichnung der Kanzel erlauben?"
+msgstr "Zezwolić na nagrywanie ambony?"
+
+msgid "Hinweis Version %1"
+msgstr "Informacja wersja %1"
+
+msgid "Ich habe die rechtliche Zulässigkeit für mein Land geprüft und übernehme die Verantwortung."
+msgstr "Sprawdziłem/am dopuszczalność prawną dla mojego kraju i przejmuję odpowiedzialność."
+
+msgid "Einschalten"
+msgstr "Włącz"
+
+msgid "Aufzeichnung löschen?"
+msgstr "Usunąć nagranie?"
+
+msgid "Die Aufzeichnung wird endgültig gelöscht. Ältere Sicherungen können sie noch enthalten."
+msgstr "Nagranie zostanie usunięte bezpowrotnie. Starsze kopie zapasowe mogą je jeszcze zawierać."
+
+msgid "Die Aufzeichnung wurde gelöscht."
+msgstr "Nagranie zostało usunięte."
+
+msgid "Aufzeichnung läuft · Nur die Kanzel wird aufgezeichnet"
+msgstr "Trwa nagrywanie · nagrywana jest tylko ambona"
+
+msgid "Aufzeichnung läuft · Nur das Podium wird aufgezeichnet"
+msgstr "Trwa nagrywanie · nagrywane jest tylko podium"
+
+msgid "Aufnahme"
+msgstr "Nagrywanie"
+
+msgid "Aufzeichnung gestartet"
+msgstr "Nagrywanie rozpoczęte"
+
+msgid "Warte auf Zustimmung der Kanzel"
+msgstr "Oczekiwanie na zgodę ambony"
+
+msgid "Warte auf Zustimmung des Podiums"
+msgstr "Oczekiwanie na zgodę podium"
+
+msgid "Kanzel-Aufzeichnung in diesem Raum erlauben"
+msgstr "Zezwól na nagrywanie ambony w tej sali"
+
+msgid "Podium-Aufzeichnung in diesem Raum erlauben"
+msgstr "Zezwól na nagrywanie podium w tej sali"
+
+msgid "Aufzeichnung von Kanzel bzw. Podium in diesem Raum erlauben"
+msgstr "Zezwól na nagrywanie ambony lub podium w tej sali"
+
+msgid "Aufgezeichnet wird nur, wer das Amt der Kanzel bzw. des Podiums innehat, nie die Gemeinde."
+msgstr "Nagrywana jest tylko osoba pełniąca funkcję ambony lub podium, nigdy zbór."
+
+msgid "Von der Instanz nicht freigegeben."
+msgstr "Niedostępne w tej instancji."
+
+msgid "Nur bei geschlossenem Raum einschaltbar."
+msgstr "Można włączyć tylko przy zamkniętej sali."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann die Kanzel aufgezeichnet werden, die Gemeinde nicht."
+msgstr "Lapis Cloud nie zapisuje listy obecności. W tej sali ambona może być nagrywana, zbór nie."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann das Podium aufgezeichnet werden, die Teilnehmenden nicht."
+msgstr "Lapis Cloud nie zapisuje listy obecności. W tej sali podium może być nagrywane, uczestnicy nie."
+
+msgid "Aufzeichnung zustimmen?"
+msgstr "Wyrazić zgodę na nagrywanie?"
+
+msgid "Aufzeichnung zustimmen"
+msgstr "Wyrażam zgodę na nagrywanie"
+
+msgid "Nicht aufzeichnen"
+msgstr "Nie nagrywaj"
+
+msgid "Höchstzahl gleichzeitiger Aufnahmen erreicht"
+msgstr "Osiągnięto maksymalną liczbę równoczesnych nagrań"
+
+msgid "Die Kanzel wurde um Zustimmung gebeten."
+msgstr "Poproszono ambonę o zgodę."
+
+msgid "Das Podium wurde um Zustimmung gebeten."
+msgstr "Poproszono podium o zgodę."
+
+msgid "Solange jemand aus der Gemeinde spricht, wird nicht aufgezeichnet."
+msgstr "Dopóki ktoś ze zboru zabiera głos, nagrywanie nie trwa."
+
+msgid "Solange jemand aus der Versammlung spricht, wird nicht aufgezeichnet."
+msgstr "Dopóki ktoś ze zgromadzenia zabiera głos, nagrywanie nie trwa."
+
+msgid "Der Aufzeichnungsdienst ist gerade nicht verfügbar."
+msgstr "Usługa nagrywania jest w tej chwili niedostępna."
+
+msgid "Die Aufzeichnung konnte nicht geändert werden. Bitte versuchen Sie es erneut."
+msgstr "Nie udało się zmienić nagrywania. Spróbuj ponownie."

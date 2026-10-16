@@ -7,6 +7,9 @@ import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.generated.BankAccountTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
+import network.lapis.cloud.server.encounter.PulpitRecordingControl
+import network.lapis.cloud.server.encounter.PulpitRecordingNotice
+import network.lapis.cloud.server.encounter.PulpitStopReason
 import network.lapis.cloud.server.payment.sepa.BicValidator
 import network.lapis.cloud.server.payment.sepa.IbanValidator
 import network.lapis.cloud.server.security.requireRole
@@ -18,11 +21,13 @@ import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
 import network.lapis.cloud.shared.domain.OrganizationSettingsInput
 import network.lapis.cloud.shared.domain.OrganizationSettingsPaymentMappingSnapshot
+import network.lapis.cloud.shared.domain.PULPIT_RECORDING_NOTICE_VERSION
 import network.lapis.cloud.shared.domain.PaymentAccountMapping
 import network.lapis.cloud.shared.domain.paymentAccountMappingConflictOf
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.NotFoundException
+import network.lapis.cloud.shared.rpc.PulpitRecordingNoticeOutdatedException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.select
@@ -56,11 +61,18 @@ val ORGANIZATION_SETTINGS_ID: Uuid = Uuid.parse("00000000-0000-0000-0000-0000000
  */
 class OrganizationSettingsService(
     private val call: ApplicationCall,
+    /**
+     * V1.9.143: switching the pulpit recording OFF stops every running recording. A module singleton, WITHOUT a default: a default would hand every
+     * request an engine that knows of no running recording and would silently stop nothing.
+     */
+    private val pulpitRecording: PulpitRecordingControl,
+    /** V1.9.143: whether this server has a recording service at all (`LAPIS_RECORDING_ENABLED`); only shown to the admin, never stored. */
+    private val recordingInfrastructureAvailable: Boolean = false,
 ) : IOrganizationSettingsService {
     override suspend fun getOrganizationSettings(): OrganizationSettingsDto {
         val current = resolveCurrentMember(call)
         current.requireRole(*READ_ROLES)
-        return transaction { loadOrganizationSettings() }
+        return transaction { loadOrganizationSettings() }.withInfrastructure()
     }
 
     /**
@@ -89,7 +101,7 @@ class OrganizationSettingsService(
                         after = "{\"noiseSuppressionDefault\":$enabled}",
                     )
                 }
-                loadOrganizationSettings() to (before != enabled)
+                loadOrganizationSettings().withInfrastructure() to (before != enabled)
             }
         if (result.second) logger.info { "noise suppression default set to $enabled by ${current.memberId}" }
         return result.first
@@ -120,10 +132,91 @@ class OrganizationSettingsService(
                         after = "{\"videoOverlaysOffered\":$enabled}",
                     )
                 }
-                loadOrganizationSettings() to (before != enabled)
+                loadOrganizationSettings().withInfrastructure() to (before != enabled)
             }
         if (result.second) logger.info { "video overlays offered set to $enabled by ${current.memberId}" }
         return result.first
+    }
+
+    private fun OrganizationSettingsDto.withInfrastructure(): OrganizationSettingsDto =
+        copy(pulpitRecordingInfrastructureAvailable = recordingInfrastructureAvailable)
+
+    /**
+     * V1.9.143 -- the ONLY way to switch the optional pulpit recording on or off (ADMIN). The legal admissibility of a recording depends on the
+     * country of the instance, so switching it ON requires [acknowledgedNoticeVersion] to be the current version of the operator notice
+     * ([PULPIT_RECORDING_NOTICE_VERSION]); the audit entry records that version and the hash of the German reference text. A stale or missing version is
+     * [PulpitRecordingNoticeOutdatedException] (the admin is authorized already, so the type reveals nothing). Setting the value it already has
+     * writes nothing -- except acknowledging the CURRENT version again while the stored one is older, which is a change and is audited.
+     *
+     * Switching OFF takes no parameter, keeps the stored version as history and -- AFTER the commit -- stops every running recording. Merely raising the
+     * notice version later does NOT stop anything: it only blocks new starts until an admin acknowledges the new text.
+     */
+    override suspend fun updatePulpitRecordingEnabled(
+        enabled: Boolean,
+        acknowledgedNoticeVersion: String?,
+    ): OrganizationSettingsDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        if (enabled && acknowledgedNoticeVersion != PULPIT_RECORDING_NOTICE_VERSION) throw PulpitRecordingNoticeOutdatedException()
+        val result =
+            transaction {
+                val before = PulpitRecordingSettingsStore.load()
+                val newVersion = if (enabled) PULPIT_RECORDING_NOTICE_VERSION else before.noticeVersion
+                val changed = before.enabled != enabled || before.noticeVersion != newVersion
+                if (changed) {
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[pulpitRecordingEnabled] = enabled
+                        it[pulpitRecordingNoticeVersion] = newVersion
+                    }
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.ORGANIZATION_SETTINGS,
+                        entityId = ORGANIZATION_SETTINGS_ID,
+                        action = AuditAction.UPDATE,
+                        before = pulpitSnapshot(enabled = before.enabled, version = before.noticeVersion),
+                        after =
+                            pulpitSnapshot(
+                                enabled = enabled,
+                                version = newVersion,
+                                noticeSha256 = if (enabled) PulpitRecordingNotice.SHA256 else null,
+                            ),
+                    )
+                }
+                loadOrganizationSettings().withInfrastructure() to changed
+            }
+        if (result.second) logger.info { "pulpit recording switched ${if (enabled) "on" else "off"} by ${current.memberId}" }
+        // After the commit, never inside the transaction: LiveKit calls are made outside of it.
+        if (!enabled) pulpitRecording.stopAll(PulpitStopReason.INSTANCE_DISABLED)
+        return result.first
+    }
+
+    /**
+     * V1.9.143 -- whether the person at the pulpit has to confirm before a recording starts (ADMIN, audited on change). Only while the instance switch is
+     * on: without a running feature the setting has no meaning, so a call while it is off is a [ConflictException].
+     */
+    override suspend fun updatePulpitRecordingRequireConfirmation(required: Boolean): OrganizationSettingsDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        return transaction {
+            val before = PulpitRecordingSettingsStore.load()
+            if (!before.enabled) throw ConflictException("The pulpit recording is not switched on")
+            if (before.requireConfirmation != required) {
+                OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                    it[pulpitRecordingRequireConfirmation] = required
+                }
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.ORGANIZATION_SETTINGS,
+                    entityId = ORGANIZATION_SETTINGS_ID,
+                    action = AuditAction.UPDATE,
+                    before = "{\"pulpitRecordingRequireConfirmation\":${before.requireConfirmation}}",
+                    after = "{\"pulpitRecordingRequireConfirmation\":$required}",
+                )
+            }
+            loadOrganizationSettings().withInfrastructure()
+        }
     }
 
     /**
@@ -389,6 +482,8 @@ class OrganizationSettingsService(
                 // V1.9.124: noiseSuppressionDefault is likewise DELIBERATELY absent -- only
                 // updateNoiseSuppressionDefault (ADMIN, audited on change) may set it.
                 // V1.9.129: videoOverlaysOffered likewise -- only updateVideoOverlaysOffered may set it.
+                // V1.9.143: pulpitRecordingEnabled / pulpitRecordingNoticeVersion / pulpitRecordingRequireConfirmation likewise -- only
+                // updatePulpitRecordingEnabled / updatePulpitRecordingRequireConfirmation may set them.
             }
 
             val afterMapping =
@@ -438,7 +533,7 @@ class OrganizationSettingsService(
                 )
             }
 
-            loadOrganizationSettings()
+            loadOrganizationSettings().withInfrastructure()
         }
     }
 }
@@ -589,6 +684,10 @@ fun ResultRow.toOrganizationSettingsDto(): OrganizationSettingsDto =
         noiseSuppressionDefault = this[OrganizationSettingsTable.noiseSuppressionDefault],
         // V1.9.129 -- read-only here, set only through updateVideoOverlaysOffered.
         videoOverlaysOffered = this[OrganizationSettingsTable.videoOverlaysOffered],
+        // V1.9.143 -- read-only here, set only through updatePulpitRecordingEnabled / updatePulpitRecordingRequireConfirmation.
+        pulpitRecordingEnabled = this[OrganizationSettingsTable.pulpitRecordingEnabled],
+        pulpitRecordingAcknowledgedNoticeVersion = this[OrganizationSettingsTable.pulpitRecordingNoticeVersion],
+        pulpitRecordingRequireConfirmation = this[OrganizationSettingsTable.pulpitRecordingRequireConfirmation],
     )
 
 /**
@@ -627,3 +726,49 @@ internal object VideoOverlaysOfferedStore {
     /** For the join answers: opens its own transaction and NEVER fails -- the safe answer is "off", today's behaviour. */
     fun currentValue(): Boolean = runCatching { transaction { load() } }.getOrDefault(false)
 }
+
+/** V1.9.143 -- the three settings of the optional pulpit recording. */
+internal data class PulpitRecordingSettings(
+    val enabled: Boolean,
+    /** The version of the operator notice acknowledged when the feature was switched on; `null` until then. */
+    val noticeVersion: String?,
+    val requireConfirmation: Boolean,
+) {
+    /** A new recording may start: the switch is on AND the CURRENT version of the notice was acknowledged. */
+    fun startAllowed(): Boolean = enabled && noticeVersion == PULPIT_RECORDING_NOTICE_VERSION
+}
+
+/**
+ * V1.9.143 -- the pulpit recording settings. Must run inside a `transaction {}`; a missing row (never happens, V1 seeds it) means "off". The OFF default
+ * is also what [currentValue] answers when the database fails.
+ */
+internal object PulpitRecordingSettingsStore {
+    private val OFF = PulpitRecordingSettings(enabled = false, noticeVersion = null, requireConfirmation = true)
+
+    fun load(): PulpitRecordingSettings =
+        OrganizationSettingsTable
+            .select(
+                OrganizationSettingsTable.pulpitRecordingEnabled,
+                OrganizationSettingsTable.pulpitRecordingNoticeVersion,
+                OrganizationSettingsTable.pulpitRecordingRequireConfirmation,
+            ).where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+            .singleOrNull()
+            ?.let {
+                PulpitRecordingSettings(
+                    enabled = it[OrganizationSettingsTable.pulpitRecordingEnabled],
+                    noticeVersion = it[OrganizationSettingsTable.pulpitRecordingNoticeVersion],
+                    requireConfirmation = it[OrganizationSettingsTable.pulpitRecordingRequireConfirmation],
+                )
+            } ?: OFF
+
+    /** Opens its own transaction and NEVER fails -- the safe answer is "off". */
+    fun currentValue(): PulpitRecordingSettings = runCatching { transaction { load() } }.getOrDefault(OFF)
+}
+
+private fun pulpitSnapshot(
+    enabled: Boolean,
+    version: String?,
+    noticeSha256: String? = null,
+): String =
+    "{\"pulpitRecordingEnabled\":$enabled,\"pulpitRecordingNoticeVersion\":${if (version == null) "null" else "\"$version\""}" +
+        (if (noticeSha256 == null) "" else ",\"noticeSha256\":\"$noticeSha256\"") + "}"

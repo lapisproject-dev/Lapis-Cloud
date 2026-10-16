@@ -285,6 +285,8 @@ internal object AgreementTextStore {
                                 },
                             )
                     }.count()
+            // V1.9.143: nobody acknowledges the pulpit-recording texts persistently, so there is nothing older to count.
+            AgreementTextKind.REC_ROOM, AgreementTextKind.REC_PULPIT -> 0L
         }.toInt()
 
     /** `{"event","kind","versionLabel","sha256","charCount","validFrom"[,"sequenceNo"]}` -- nothing else may ever enter the audit chain. */

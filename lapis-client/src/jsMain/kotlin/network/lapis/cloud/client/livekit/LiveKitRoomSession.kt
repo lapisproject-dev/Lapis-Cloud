@@ -36,13 +36,17 @@ import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_REACTION_TOPIC
+import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_TOPIC
 import network.lapis.cloud.shared.domain.EncounterFloorSignal
 import network.lapis.cloud.shared.domain.EncounterReaction
+import network.lapis.cloud.shared.domain.EncounterRecordingSignal
 import network.lapis.cloud.shared.domain.NoteBlockBroadcastDto
 import network.lapis.cloud.shared.domain.WhiteboardStrokeWireDto
 import network.lapis.cloud.shared.domain.encounterFloorPacket
+import network.lapis.cloud.shared.domain.encounterRecordingPacket
 import network.lapis.cloud.shared.domain.isStructurallyValid
 import org.khronos.webgl.Uint8Array
 import org.khronos.webgl.get
@@ -428,6 +432,12 @@ class LiveKitRoomSession(
      * server's `UpdateParticipant` LiveKit refuses the publish anyway.
      */
     private val onEncounterFloor: (EncounterFloorSignal) -> Unit = {},
+    /**
+     * V1.9.143 -- the server's recording signal ([EncounterRecordingSignal]): "the pulpit is being recorded" and, point to point, "the pulpit is asked
+     * to agree". Same rule as the floor: never from a participant (a forged "recording off" would hide a running recording), 1..[ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES]
+     * bytes, strictly validated by [encounterRecordingPacket]. The branch sits BEFORE the participant check.
+     */
+    private val onEncounterRecording: (EncounterRecordingSignal) -> Unit = {},
     /**
      * V1.9.108 -- the mute state of ANOTHER participant's track changed (`RoomEvent.TrackMuted`/`TrackUnmuted` for a remote participant;
      * until now only the local ones were relayed). [source] is the publication source (`"microphone"`, ...). Replaces the "does a
@@ -919,6 +929,14 @@ class LiveKitRoomSession(
                 if (fromParticipant || payload.length !in 1..ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES) return@onOwned
                 val bytes = ByteArray(payload.length) { index -> payload[index] }
                 encounterFloorPacket(fromParticipant = false, payload = bytes)?.let(onEncounterFloor)
+                return@onOwned
+            }
+            // V1.9.143 -- the pulpit recording: the same rule (server only, a branch of its own BEFORE the participant check).
+            if (p3 == ENCOUNTER_RECORDING_TOPIC) {
+                val fromParticipant = p1.unsafeCast<RemoteParticipant?>() != null
+                if (fromParticipant || payload.length !in 1..ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES) return@onOwned
+                val bytes = ByteArray(payload.length) { index -> payload[index] }
+                encounterRecordingPacket(fromParticipant = false, payload = bytes)?.let(onEncounterRecording)
                 return@onOwned
             }
             val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@onOwned

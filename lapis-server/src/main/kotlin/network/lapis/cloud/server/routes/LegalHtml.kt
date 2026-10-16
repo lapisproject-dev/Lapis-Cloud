@@ -341,7 +341,11 @@ internal object LegalHtml {
                 +(
                     "Begegnungsräume (z. B. Gottesdienste): Wer eine Veranstaltung gerade besucht, wird nur " +
                         "für die Dauer der Teilnahme geführt und beim Verlassen oder Ende der Veranstaltung " +
-                        "gelöscht; es gibt keine Teilnahmeliste und keine Aufzeichnung. Gäste willigen vorher " +
+                        "gelöscht; es gibt keine Teilnahmeliste und keine Aufzeichnung der Teilnehmenden. Hat der " +
+                        "Betreiber die Aufzeichnung der Kanzel für einen Raum erlaubt, wird ausschließlich die " +
+                        "Person mit dem Amt der Kanzel aufgezeichnet; der Raum weist vor dem Eintritt und " +
+                        "während der Aufnahme ausdrücklich darauf hin, und die Aufnahme kann jederzeit gelöscht " +
+                        "werden. Gäste willigen vorher " +
                         "ausdrücklich ein (Art. 9 Abs. 2 lit. a DSGVO, da die Teilnahme Rückschlüsse auf " +
                         "religiöse Überzeugungen zulassen kann); als Nachweis werden nur Version des Textes, " +
                         "Prüfsumme und Datum gespeichert (Art. 7 Abs. 1 DSGVO). Die Ämter (Kanzel, Ordner) " +

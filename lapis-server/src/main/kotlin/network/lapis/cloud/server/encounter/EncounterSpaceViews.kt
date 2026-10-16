@@ -4,11 +4,13 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import network.lapis.cloud.server.conference.ConferenceConfig
+import network.lapis.cloud.server.conference.ConferenceRecordingConfig
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.EncounterSpaceRoleTable
 import network.lapis.cloud.server.db.generated.EncounterSpaceTable
 import network.lapis.cloud.server.db.generated.MemberTable
+import network.lapis.cloud.server.rpc.PulpitRecordingSettingsStore
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.security.isPrivileged
 import network.lapis.cloud.shared.domain.EncounterGuestPolicy
@@ -83,10 +85,14 @@ internal fun effectiveMaxParticipants(
  * congregation, and no timestamps other than the session's opening time.
  */
 internal object EncounterSpaceViews {
+    /** Whether this server has a recording service (`LAPIS_RECORDING_ENABLED`), read once from the environment like the other configuration. */
+    private val RECORDING_INFRASTRUCTURE_AVAILABLE: Boolean by lazy { ConferenceRecordingConfig.load().enabled }
+
     fun toDtos(
         rows: List<ResultRow>,
         current: CurrentMember,
         config: ConferenceConfig,
+        recordingInfrastructureAvailable: Boolean = RECORDING_INFRASTRUCTURE_AVAILABLE,
     ): List<EncounterSpaceDto> {
         if (rows.isEmpty()) return emptyList()
         val ids = rows.map { it[EncounterSpaceTable.id] }
@@ -111,6 +117,9 @@ internal object EncounterSpaceViews {
                 .selectAll()
                 .where { (EncounterSpaceRoleTable.spaceId inList ids) and (MemberTable.status eq MemberStatus.ACTIVE) }
                 .toList()
+        // V1.9.143: read once per call. A recording may be started here iff the instance switch is on with the CURRENT notice, the server has a
+        // recording service and the room allows it -- and it is shown to office holders only (nobody else can start anything).
+        val recordingStartAllowed = PulpitRecordingSettingsStore.load().startAllowed() && recordingInfrastructureAvailable
         return rows.map { row ->
             val spaceId = row[EncounterSpaceTable.id]
             val session = sessions[spaceId]
@@ -143,6 +152,9 @@ internal object EncounterSpaceViews {
                 reactions = parseReactionSet(row[EncounterSpaceTable.reactionSet]),
                 notifyMode = notifyModeOf(row),
                 tables = tablesOf(row),
+                pulpitRecordingAllowed = row[EncounterSpaceTable.pulpitRecordingAllowed],
+                pulpitRecordingStartable =
+                    myRole != null && recordingStartAllowed && row[EncounterSpaceTable.pulpitRecordingAllowed],
             )
         }
     }
@@ -160,6 +172,7 @@ internal object EncounterSpaceViews {
             put("tableCount", row[EncounterSpaceTable.tableCount].toInt())
             put("tableSeats", row[EncounterSpaceTable.tableSeats].toInt())
             put("guestPolicy", row[EncounterSpaceTable.guestPolicy])
+            put("pulpitRecordingAllowed", row[EncounterSpaceTable.pulpitRecordingAllowed])
             put("maxParticipants", row[EncounterSpaceTable.maxParticipants])
             put("closedNotice", row[EncounterSpaceTable.closedNotice])
             put("archived", row[EncounterSpaceTable.archivedAt] != null)

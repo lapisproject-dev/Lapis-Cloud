@@ -160,7 +160,7 @@ six conference services (and of `requireRoomEntryAuthorization`, which the share
 | Service | In an encounter session
 | `ConferenceService` | `getRoom`, `joinRoom`, `leaveRoom`, `endRoom`, `listParticipants`, `removeParticipant`, `renameRoom`, `getGuestJoinInfo`, `setRoomGuestAccess`, `setRoomMeeting`, `getRoomVotingState`: all refused. `listActiveRooms` and the lazy reconciliation skip encounter rooms (they would close a session by `left_at` instead of deleting the rows).
 | `ConferenceBreakoutService` | every room-id method refused, including `rejoinMainRoomToken` and (defence in depth) `requestBreakoutJoinToken`. `returnToMainRoom` only closes the caller's own assignment row.
-| `ConferenceRecordingService` | `startRecording`, `getActiveRecording` refused: a recording would be a lasting record of who was in a church service.
+| `ConferenceRecordingService` | `startRecording`, `getActiveRecording` refused: a recording would be a lasting record of who was in a church service. **Unchanged since V1.9.143**: the optional pulpit recording is a separate, deliberately narrow path (see "Pulpit recording (V1.9.143)").
 | `ConferenceNotesService`, `ConferenceWhiteboardService` | every method refused (attributed, persistent content).
 | `ConferenceStreamingService` | allowed, but `startStream` only with layout `SINGLE_PARTICIPANT` on an `ACTIVE` `PULPIT` holder: the congregation never reaches an external platform. `getActiveStream` stays visible to everybody present ("everybody in the room may know a stream runs").
 |===
@@ -951,6 +951,110 @@ state about persons on the server and contradicts the memory-only decision.
 * The order of hands holds from the arrival of the office holder's client on.
 * The translations are model translations.
 
+[#pulpit-recording]
+== Pulpit recording (V1.9.143)
+
+An encounter room can optionally record **the pulpit**: the camera and the microphone of the person who holds the PULPIT office, into the document store. It is the
+one deliberate exception to "nothing is recorded"; it is built so that it stays narrow. Operator view: `docs/features/pulpit-recording.adoc`.
+
+=== Why it is configuration, not a decision of the product
+
+Whether a recording of a person is lawful depends on the country of the instance. Lapis Cloud therefore does not rule on it: the feature is **off**, an ADMIN switches it
+on after acknowledging an operator notice (`PulpitRecordingNotice`, version `1`, hash pinned by `PulpitRecordingNoticePinTest`; a changed text needs a new version, which
+blocks only *new* starts until it is acknowledged), and BOARD/ADMIN allow it per room. The notice is not legal advice either.
+
+=== Gates (every one answers with the same bare `ForbiddenException`)
+
+. instance switch on **and** the current notice version acknowledged (for a *start*; a *stop* needs neither, so a recording can always be ended);
+. the room option on and the room not archived;
+. an open session that is an encounter session (`EncounterRoomGuard.isEncounterRoom`), so an ordinary conference room is never reachable;
+. the caller is an ACTIVE PULPIT/STEWARD **of this space** (`EncounterRoles.roleOf`) and present in the session;
+. the setting is read again in the final transaction after the egress started (prepare, act, re-verify); if a condition vanished meanwhile the egress is stopped and its file
+  discarded.
+
+`PulpitRecordingService` is registered **last** in `Application.kt` (Kilua numbers routes by declaration order; `ConferenceTimerServiceEventGuardTripwireTest` pins the tail:
+timer, agreement texts, pulpit recording).
+
+=== Who is recorded
+
+Only `PulpitRecordingSources.select`: ACTIVE PULPIT holders with a presence row in the session and a connected LiveKit participant whose identity equals the member UUID.
+A steward never; a person with a temporary floor holds no office, so never. Per room at most `PULPIT_RECORDING_MAX_CONCURRENT_PER_ROOM = 2` (stable order by member id,
+those already recorded keep their slot), server-wide `MAX_ACTIVE_PULPIT_EGRESSES = 8`. The congregation is not in the file: a *participant* egress records only the
+published tracks of one identity. The existing `LiveKitEgressClient.startParticipantFileEgress` is reused; **no new egress method** exists
+(`ConferenceTimerRecordingTripwireTest` still pins the four kinds). The output path is `<container dir>/pulpit/<space uuid>/<random uuid>.mp4` -- no identity in it.
+
+=== The pulpit's own agreement
+
+With "require confirmation" (default) the start asks the PULPIT identities point to point (`ask` flag of the recording packet) and throws
+`PulpitRecordingAwaitingConfirmationException`; the person agrees in a dialog (the `REC_PULPIT` text, label and hash sent back and compared in constant time) and the
+engine then starts their file. **Nothing is persisted**: who agreed in this session lives in `PulpitRecordingState` (memory, `PulpitRecordingPersistenceTripwire` in
+`PulpitRecordingTripwireTest`), because a table "person X stood at the pulpit on day Y" would be a lasting trace in an Art. 9 context. The audit entry of a start carries
+`pulpitConfirmed`, `confirmationRequired`, the hashes of both texts and the notice version -- no participant count, no identity but the acting person (the audit frame's actor).
+
+=== Echo rule (floor)
+
+A person of the congregation who holds the temporary floor is played through the pulpit's loudspeaker and could end up in the pulpit's microphone. Therefore: a start is
+refused while a floor is granted (`PulpitRecordingFloorActiveException`), and a floor granted during a recording stops the recording *before* the right is raised
+(`FLOOR_GRANTED`); it has to be started again, which gives a new file.
+
+=== The clock (`PulpitRecordingCoordinator.tick`, every 15 s)
+
+Per running session: instance off, room option off, floor granted, maximum duration (`LAPIS_RECORDING_MAX_DURATION_MINUTES`), the room gone -- each stops the recording
+(audit without an actor, `reason`); a source that is no PULPIT any more is stopped (`SOURCE_NOT_PULPIT`, also directly after `setSpaceRoles`); a file that ended on its own is
+queued for archiving and the session stays *armed*; a pulpit person who arrives later (and has agreed) is recorded; every newcomer learns the state point to point
+(roster key = identity + LiveKit sid). **The banner is never switched off on doubt**: an unreachable LiveKit leaves the state as it is. After a restart the first run stops
+every file egress in an encounter room that the process does not own (a stream egress has no file result and is left alone), sends "off" to the open rooms and logs a
+warning with a count if files lie unclaimed on the volume (nothing is deleted).
+
+=== Storage, marker and hard delete
+
+`PulpitRecordingDocuments.archive` copies the file with the existing streaming `archiveGeneratedFile` (new parameters `folderAccessLevel` -- the folder "Aufzeichnungen
+Begegnungsraum" is created `BOARD_ONLY`, because the function used to create missing folders `PUBLIC_MEMBERS` -- and `onDocumentCreated`, which writes the marker row
+`pulpit_recording_document(document_id, space_id, recorded_at)` in the same transaction). The marker has no member column (`PulpitRecordingSchemaDriftTest`). Deleting is
+**hard**: bytes of every version (path checked to stay inside the store), version rows, the AI-knowledge rows of the document, the marker and the document; the ordinary
+`DocumentService.deleteDocument` redirects a pulpit recording to the same function. Backups keep older copies until rotation. The table is part of the organization backup
+(`OrganizationBackupRoundTripTest`).
+
+=== Privacy rules of the code
+
+No log line of the pulpit files names a member, identity, room, space, title or path (`PulpitRecordingTripwireTest`, `EncounterPrivacyTripwireTest`); LiveKit is never called
+inside a `transaction {}`; the recording topic `lapis-encounter-recording` is sent only by the engine and accepted by the client only without a participant and before the
+participant check; its payload limit (32 bytes) is registered in `sendDataPayloadLimit` (without an entry the topic would fall back to 16 bytes and every send would fail).
+
+=== Consent texts for non-members
+
+A room with the option on uses the recording variants `EncounterRecordingConsentDisclaimer` (`2026-10-16.rec.v1`) and `EncounterAssemblyRecordingConsentDisclaimer`
+(`2026-10-16.assembly-rec.v1`): same attendance statements, but "the pulpit can be recorded; your own picture and sound never are". The choice follows the **room option**, not
+the instance switch (rather too much information than too little), which is why the option can only be switched on while the room is closed. The two old texts are unchanged
+byte for byte (their acknowledgments are proof). All consent texts are drafts and need a legal review for the country of the instance. Members are not asked; the entry panel
+tells them and shows the operator's `REC_ROOM` text.
+
+=== Threat model
+
+[cols="2,3", options="header"]
+|===
+| Threat | Answer
+| A listener starts a recording | The gate: only an ACTIVE PULPIT/STEWARD of this space who is present; the same bare Forbidden for everybody else.
+| A client names whom to record | There is no such parameter; the source is derived from the database and the LiveKit roster.
+| The congregation ends up in the file | A participant egress records one identity; the echo rule keeps a floor speaker out.
+| A forged "recording off" packet | The client accepts the packet only without a participant (server only) and a strict shape.
+| The banner lies after an outage | It is never switched off on doubt; a stop that LiveKit does not confirm keeps the recording "on".
+| A recording outlives the switch | The instance switch stops all, the room option stops the room, the clock re-checks every 15 s.
+| A restart loses the state | The first run stops unowned file egresses and sends "off"; leftover files stay and are counted, never deleted.
+| Deleting is only "soft" | Hard delete of bytes and rows; older backups keep a copy until rotation (documented).
+|===
+
+=== Known limitations of the pulpit recording
+
+* Not verified against a real LiveKit v1.13.5 / egress: the participant file egress request, that the recording participant is ignored by the encounter poller, and that an
+  active file egress reports its target path at start (the restart sweep relies on a non-empty `file_results` without `stream_results`).
+* The camera can show people who are physically next to the pulpit person; the software cannot prevent it.
+* The state is in memory and not shared between several server instances.
+* The egress volume needs the right for the `pulpit/` subdirectory (the ELB ACL trap of the conference recording applies).
+* The unlimited retention, the `BOARD_ONLY` level (TREASURER can read it as for every such document), the draft consent texts and the model translations are decisions or
+  tasks of the owner.
+
+
 == Open questions (for the product owner and legal)
 
 . The wording of the Art. 9 consent (`EncounterConsentDisclaimer`, version `2026-10-06.v1`) -- a draft, legal review required.
@@ -966,3 +1070,8 @@ state about persons on the server and contradicts the memory-only decision.
 . (V1.9.138) Whether the name of the speaker should be shown to the congregation (as now: no name, although the names of the present people are visible elsewhere).
 . (V1.9.138) Whether a floor should end at once when the grantor loses their office (as now: it runs to its end, at most 10 minutes).
 . (V1.9.138) Whether the order of hands should be kept on the server (as now: it is the order at the viewing client, no server state about persons).
+. (V1.9.143) Legal review of the recording variants of the consent (`EncounterRecordingConsentDisclaimer`, `EncounterAssemblyRecordingConsentDisclaimer`) and of the four placeholder texts of `REC_ROOM`/`REC_PULPIT` for each country of use.
+. (V1.9.143) Whether pulpit recordings should be stored at `ADMIN_ONLY` instead of `BOARD_ONLY` (as now: TREASURER can read every `BOARD_ONLY` document of the store).
+. (V1.9.143) Whether members should also confirm the recording notice actively when they enter (as now: they are told, only non-members consent).
+. (V1.9.143) A retention period for recordings (as now: unlimited, nothing is deleted automatically).
+. (V1.9.143) Whether the physical presence of other people next to the pulpit should be named in the `REC_PULPIT` placeholder (as now: in the operator notice and the documentation only).

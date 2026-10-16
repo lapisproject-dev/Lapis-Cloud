@@ -347,6 +347,83 @@ internal class EncounterTerms(
     /** Accessible name of the strip of the stewards. */
     fun stewardsName(): String = presenceRoleLabel(EncounterPresenceRole.STEWARD)
 
+    // ── V1.9.143: the optional recording of the pulpit ───────────────────────────────────────────────────────────
+
+    /** The banner everybody in the room sees while a recording runs (the long form). */
+    fun recordingBanner(): String =
+        if (church) {
+            gettext("Aufzeichnung läuft · Nur die Kanzel wird aufgezeichnet")
+        } else {
+            gettext("Aufzeichnung läuft · Nur das Podium wird aufgezeichnet")
+        }
+
+    /** The banner in a narrow room or the full screen (the short form). */
+    fun recordingBannerShort(): String = gettext("Aufnahme")
+
+    /** The two fixed sentences a screen reader hears when the recording starts / ends. */
+    fun recordingStartedAnnouncement(): String = gettext("Aufzeichnung gestartet")
+
+    fun recordingEndedAnnouncement(): String = gettext("Aufzeichnung beendet")
+
+    /** Accessible names of the toggle in the bar (the state is `aria-pressed`, the label stays the verb of the next step). */
+    fun recordingStartLabel(): String = gettext("Aufzeichnung starten")
+
+    fun recordingStopLabel(): String = gettext("Aufzeichnung beenden")
+
+    fun recordingAwaitingLabel(): String =
+        if (church) gettext("Warte auf Zustimmung der Kanzel") else gettext("Warte auf Zustimmung des Podiums")
+
+    /** The option in the room administration. */
+    fun recordingRoomOptionLabel(): String =
+        if (church) gettext("Kanzel-Aufzeichnung in diesem Raum erlauben") else gettext("Podium-Aufzeichnung in diesem Raum erlauben")
+
+    /** The same option where the room's kind is not chosen yet (the create form): neutral, names both words once. */
+    fun recordingRoomOptionNeutralLabel(): String = gettext("Aufzeichnung von Kanzel bzw. Podium in diesem Raum erlauben")
+
+    /** The hints under the option. */
+    fun recordingRoomOptionHint(): String =
+        gettext("Aufgezeichnet wird nur, wer das Amt der Kanzel bzw. des Podiums innehat, nie die Gemeinde.")
+
+    fun recordingRoomOptionNotOfferedHint(): String = gettext("Von der Instanz nicht freigegeben.")
+
+    fun recordingRoomOptionClosedOnlyHint(): String = gettext("Nur bei geschlossenem Raum einschaltbar.")
+
+    /** The sentence in the entry panel of a room whose pulpit may be recorded (the operator's own notice follows it). */
+    fun recordingEntryNoteContent(): String =
+        if (church) {
+            tr("Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann die Kanzel aufgezeichnet werden, die Gemeinde nicht.")
+        } else {
+            tr(
+                "Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann das Podium aufgezeichnet werden, die Teilnehmenden nicht.",
+            )
+        }
+
+    /** The consent dialog of the person at the pulpit. */
+    fun recordingConsentTitle(): String = gettext("Aufzeichnung zustimmen?")
+
+    fun recordingConsentAccept(): String = gettext("Aufzeichnung zustimmen")
+
+    fun recordingConsentDecline(): String = gettext("Nicht aufzeichnen")
+
+    fun recordingMaxReached(): String = gettext("Höchstzahl gleichzeitiger Aufnahmen erreicht")
+
+    /** One fixed text per refused start (the server's reason does not reach the client, Kilua transmits the exception type only). */
+    fun recordingAskedNote(): String =
+        if (church) gettext("Die Kanzel wurde um Zustimmung gebeten.") else gettext("Das Podium wurde um Zustimmung gebeten.")
+
+    fun recordingNobodyThereNote(): String = if (church) gettext("Niemand ist auf der Kanzel.") else gettext("Niemand ist auf dem Podium.")
+
+    fun recordingFloorNote(): String =
+        if (church) {
+            gettext("Solange jemand aus der Gemeinde spricht, wird nicht aufgezeichnet.")
+        } else {
+            gettext("Solange jemand aus der Versammlung spricht, wird nicht aufgezeichnet.")
+        }
+
+    fun recordingUnavailableNote(): String = gettext("Der Aufzeichnungsdienst ist gerade nicht verfügbar.")
+
+    fun recordingFailedNote(): String = gettext("Die Aufzeichnung konnte nicht geändert werden. Bitte versuchen Sie es erneut.")
+
     private companion object {
         const val SCENE_DIR = "/assets/encounter-themes"
     }

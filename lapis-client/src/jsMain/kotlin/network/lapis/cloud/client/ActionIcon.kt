@@ -160,6 +160,13 @@ enum class ActionIcon(
     BELL("fas fa-bell"),
 
     /**
+     * V1.9.143: start/stop of the pulpit recording in the encounter room (PULPIT/STEWARD present, room option on), and the recording mark of the banner
+     * that tells everybody. Assigned to this purpose only (NOT [RECORD], which the conference bar keeps); the bar button is the icon-only factory of
+     * the encounter bar (R58 named exception c).
+     */
+    PULPIT_RECORD("fas fa-clapperboard"),
+
+    /**
      * V1.9.108: the three microphone states a moderator sees in the conference roster, STATE displays next to their text (never the face
      * of a button): [MIC_OFF] the person is muted, [MIC_MODERATION] the moderators muted them (a CSS badge sets it apart from [MIC_OFF]),
      * [MIC_LOCKED] the moderators locked the room's microphones. [MIC_LOCKED] uses the glyph that [LOCK] reserves; [LOCK] itself stays

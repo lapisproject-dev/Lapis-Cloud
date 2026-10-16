@@ -24372,3 +24372,153 @@ msgstr "Filtros desactivados"
 
 msgid "Alle Filter ausgeschaltet"
 msgstr "Todos los filtros desactivados"
+
+msgid "Hinweis bei Aufzeichnung (Raum)"
+msgstr "Aviso de grabación (sala)"
+
+msgid "Zustimmung der Kanzel zur Aufzeichnung"
+msgstr "Consentimiento del púlpito para la grabación"
+
+msgid "Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist."
+msgstr "Solo se aplica si la grabación del púlpito está activada para la instancia."
+
+msgid "Platzhaltertext aktiv: Diese Instanz zeigt den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie eine rechtlich geprüfte Fassung für Ihr Land."
+msgstr "Texto provisional activo: esta instancia muestra el texto de muestra integrado (versión %1). Publique una versión revisada jurídicamente para su país."
+
+msgid "Kanzel-Aufzeichnung"
+msgstr "Grabación del púlpito"
+
+msgid "Sie sind im Begriff, die Aufzeichnung der Kanzel in den Begegnungsräumen dieser Instanz zu erlauben. Aufgezeichnet werden ausschließlich Bild und Ton der Person, die das Amt der Kanzel (in Versammlungen: des Podiums) innehat. Die Gemeinde (in Versammlungen: die Teilnehmenden) wird nicht aufgezeichnet."
+msgstr "Está a punto de permitir la grabación del púlpito en las salas de encuentro de esta instancia. Solo se graban la imagen y el sonido de la persona que ocupa el cargo del púlpito (en asambleas: del podio). La congregación (en asambleas: los participantes) no se graba."
+
+msgid "Ob und unter welchen Bedingungen eine solche Aufzeichnung zulässig ist, hängt vom Recht Ihres Landes ab, zum Beispiel vom Datenschutz-, Persönlichkeits- und Urheberrecht und von Vorgaben für Religionsgemeinschaften und Versammlungen. Lapis Cloud nimmt diese Prüfung nicht vor und ersetzt keine Rechtsberatung."
+msgstr "Si una grabación de este tipo está permitida y en qué condiciones depende de la legislación de su país, por ejemplo de la protección de datos, los derechos de la personalidad y de autor y las normas para comunidades religiosas y asambleas. Lapis Cloud no realiza esta comprobación y no sustituye el asesoramiento jurídico."
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass Sie eine Rechtsgrundlage haben und dass die aufgezeichnete Person informiert ist und, wo erforderlich, einwilligt. Die Aufnahme wird in der Dokumentenablage gespeichert, ist nur für Vorstand und Administratoren sichtbar und bleibt bis zu ihrer Löschung bestehen."
+msgstr "Como operador, usted es responsable de contar con una base jurídica y de que la persona grabada esté informada y, cuando sea necesario, consienta. La grabación se guarda en el archivo de documentos, solo es visible para la junta directiva y los administradores y permanece hasta que se elimine."
+
+msgid "Zeigt die Kamera Personen, die vor Ort neben der Kanzel anwesend sind, werden auch diese aufgezeichnet. Das kann die Software nicht verhindern."
+msgstr "Si la cámara muestra a personas presentes en el lugar junto al púlpito, también se las graba. El software no puede impedirlo."
+
+msgid "Aufzeichnung von Kanzel bzw. Podium erlauben"
+msgstr "Permitir la grabación del púlpito o del podio"
+
+msgid "Nur die Kamera und das Mikrofon der Person mit dem Amt der Kanzel werden aufgezeichnet, nie die Gemeinde. Zusätzlich muss die Aufzeichnung je Raum erlaubt werden."
+msgstr "Solo se graban la cámara y el micrófono de la persona con el cargo del púlpito, nunca la congregación. Además, la grabación debe permitirse para cada sala."
+
+msgid "Der Aufzeichnungsdienst ist auf diesem Server nicht eingerichtet."
+msgstr "El servicio de grabación no está configurado en este servidor."
+
+msgid "Bestätigt für Hinweis Version %1, aktuell Version %2. Bitte erneut bestätigen."
+msgstr "Confirmado para la versión %1 del aviso, versión actual %2. Confirme de nuevo."
+
+msgid "Erneut bestätigen"
+msgstr "Confirmar de nuevo"
+
+msgid "Die Aufzeichnung der Kanzel ist ausgeschaltet."
+msgstr "La grabación del púlpito está desactivada."
+
+msgid "Der Hinweis wurde geändert. Bitte lesen Sie ihn erneut."
+msgstr "El aviso ha cambiado. Léalo de nuevo."
+
+msgid "Die Aufzeichnung der Kanzel ist eingeschaltet."
+msgstr "La grabación del púlpito está activada."
+
+msgid "Zustimmung der Kanzel vor jeder Aufnahme verlangen"
+msgstr "Exigir el consentimiento del púlpito antes de cada grabación"
+
+msgid "Die Aufzeichnung ist nicht eingeschaltet."
+msgstr "La grabación no está activada."
+
+msgid "Aufzeichnung der Kanzel erlauben?"
+msgstr "¿Permitir la grabación del púlpito?"
+
+msgid "Hinweis Version %1"
+msgstr "Aviso versión %1"
+
+msgid "Ich habe die rechtliche Zulässigkeit für mein Land geprüft und übernehme die Verantwortung."
+msgstr "He comprobado la licitud jurídica para mi país y asumo la responsabilidad."
+
+msgid "Einschalten"
+msgstr "Activar"
+
+msgid "Aufzeichnung löschen?"
+msgstr "¿Eliminar la grabación?"
+
+msgid "Die Aufzeichnung wird endgültig gelöscht. Ältere Sicherungen können sie noch enthalten."
+msgstr "La grabación se elimina definitivamente. Las copias de seguridad antiguas pueden seguir conteniéndola."
+
+msgid "Die Aufzeichnung wurde gelöscht."
+msgstr "La grabación se ha eliminado."
+
+msgid "Aufzeichnung läuft · Nur die Kanzel wird aufgezeichnet"
+msgstr "Grabación en curso · solo se graba el púlpito"
+
+msgid "Aufzeichnung läuft · Nur das Podium wird aufgezeichnet"
+msgstr "Grabación en curso · solo se graba el podio"
+
+msgid "Aufnahme"
+msgstr "Grabando"
+
+msgid "Aufzeichnung gestartet"
+msgstr "Grabación iniciada"
+
+msgid "Warte auf Zustimmung der Kanzel"
+msgstr "Esperando el consentimiento del púlpito"
+
+msgid "Warte auf Zustimmung des Podiums"
+msgstr "Esperando el consentimiento del podio"
+
+msgid "Kanzel-Aufzeichnung in diesem Raum erlauben"
+msgstr "Permitir la grabación del púlpito en esta sala"
+
+msgid "Podium-Aufzeichnung in diesem Raum erlauben"
+msgstr "Permitir la grabación del podio en esta sala"
+
+msgid "Aufzeichnung von Kanzel bzw. Podium in diesem Raum erlauben"
+msgstr "Permitir la grabación del púlpito o del podio en esta sala"
+
+msgid "Aufgezeichnet wird nur, wer das Amt der Kanzel bzw. des Podiums innehat, nie die Gemeinde."
+msgstr "Solo se graba a quien ocupa el cargo del púlpito o del podio, nunca a la congregación."
+
+msgid "Von der Instanz nicht freigegeben."
+msgstr "No habilitado por la instancia."
+
+msgid "Nur bei geschlossenem Raum einschaltbar."
+msgstr "Solo se puede activar con la sala cerrada."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann die Kanzel aufgezeichnet werden, die Gemeinde nicht."
+msgstr "Lapis Cloud no guarda ninguna lista de asistencia. En esta sala se puede grabar el púlpito, la congregación no."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann das Podium aufgezeichnet werden, die Teilnehmenden nicht."
+msgstr "Lapis Cloud no guarda ninguna lista de asistencia. En esta sala se puede grabar el podio, los participantes no."
+
+msgid "Aufzeichnung zustimmen?"
+msgstr "¿Aceptar la grabación?"
+
+msgid "Aufzeichnung zustimmen"
+msgstr "Aceptar la grabación"
+
+msgid "Nicht aufzeichnen"
+msgstr "No grabar"
+
+msgid "Höchstzahl gleichzeitiger Aufnahmen erreicht"
+msgstr "Se ha alcanzado el número máximo de grabaciones simultáneas"
+
+msgid "Die Kanzel wurde um Zustimmung gebeten."
+msgstr "Se ha pedido el consentimiento del púlpito."
+
+msgid "Das Podium wurde um Zustimmung gebeten."
+msgstr "Se ha pedido el consentimiento del podio."
+
+msgid "Solange jemand aus der Gemeinde spricht, wird nicht aufgezeichnet."
+msgstr "Mientras alguien de la congregación habla, no se graba."
+
+msgid "Solange jemand aus der Versammlung spricht, wird nicht aufgezeichnet."
+msgstr "Mientras alguien de la asamblea habla, no se graba."
+
+msgid "Der Aufzeichnungsdienst ist gerade nicht verfügbar."
+msgstr "El servicio de grabación no está disponible en este momento."
+
+msgid "Die Aufzeichnung konnte nicht geändert werden. Bitte versuchen Sie es erneut."
+msgstr "No se pudo modificar la grabación. Inténtelo de nuevo."

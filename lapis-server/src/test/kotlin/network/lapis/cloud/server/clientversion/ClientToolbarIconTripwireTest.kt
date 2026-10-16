@@ -712,7 +712,8 @@ class ClientToolbarIconTripwireTest :
                         // V1.9.84: + the hand and the event reactions loop (reaction group)
                         // V1.9.95: + the blessing (liturgy group, pulpit of a church-service room only)
                         // V1.9.96: + the bell (the same group, before the blessing)
-                        "EncounterRoom.kt" to 13,
+                        // V1.9.143: + the recording toggle (its own group, PULPIT/STEWARD of a room whose recording option is on)
+                        "EncounterRoom.kt" to 14,
                         // V1.9.90: the named R58 group "encounter devices (microphone and camera)"
                         "EncounterPulpitControls.kt" to 2,
                         // V1.9.91: the named R58 group "encounter device picker (gear)": exactly one icon-only button
@@ -810,7 +811,8 @@ class ClientToolbarIconTripwireTest :
             val room = clientFiles().first { it.name == "EncounterRoom.kt" }.readText()
             // bar button and sheet twin share the variable (one picture for one verb), and the button is built only from the liturgy group
             // V1.9.96: the bell has its own variable pair in the same liturgy group (button + twin = 2 lines), the blessing keeps its 2
-            codeLines(room).count { Regex("""\(icon, label\)""").containsMatchIn(it) || it.contains("sheetTwin(icon, label)") } shouldBe 4
+            // V1.9.143: the recording toggle has the same pair in its own group (2 more lines)
+            codeLines(room).count { Regex("""\(icon, label\)""").containsMatchIn(it) || it.contains("sheetTwin(icon, label)") } shouldBe 6
             room.contains("controlBar.group(EncounterControlGroup.LITURGY)") shouldBe true
         }
 

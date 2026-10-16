@@ -82,7 +82,7 @@ class ConferenceVideoOverlayLibrarySettingsDomTest {
             withFetchStub(respond = respond) {
                 withMountedRoot("overlay-admin-switch") { root, element ->
                     renderConferenceDefaultsCard(root)
-                    awaitUntil("both switches are there") { element().switches().size == 2 }
+                    awaitUntil("both switches are there") { element().switches().size >= 2 }
                     val overlay = element().switches()[1]
                     assertEquals("false", overlay.getAttribute("aria-checked"))
                     val label = assertNotNull(element().querySelector("#" + overlay.getAttribute("aria-labelledby")))

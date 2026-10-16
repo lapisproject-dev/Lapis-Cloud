@@ -185,6 +185,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         // Welle V1.9.129 "Video-Overlays" -- one entry per upload, rename, move and removal of a library element.
         AuditEntityType.VIDEO_OVERLAY -> gettext("Video-Overlay")
         AuditEntityType.AGREEMENT_TEXT -> gettext("Vertragstext")
+        // V1.9.143 -- start, stop, automatic stop and deletion of a pulpit recording; the entry names no participant.
+        AuditEntityType.PULPIT_RECORDING -> gettext("Kanzel-Aufzeichnung")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -303,6 +305,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         // Welle V1.9.129 -- configuration of a cosmetic feature: the neutral hue.
         AuditEntityType.VIDEO_OVERLAY -> "secondary"
         AuditEntityType.AGREEMENT_TEXT -> "secondary"
+        // "warning" -- a recording of a person is a consequential act (like CONFERENCE_STREAM), never colour alone: the label says it too.
+        AuditEntityType.PULPIT_RECORDING -> "warning"
     }
 
 // ------------------------------------------------------------------------------------------------

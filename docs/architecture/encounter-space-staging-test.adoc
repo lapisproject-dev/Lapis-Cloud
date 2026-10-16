@@ -74,6 +74,33 @@ Written, not run. Needs three devices (steward, congregation member A, congregat
 | F11 | The steward tries to grant to a member who sits at a table, to the pulpit person, and to a silenced member | refused, the button is disabled in the list; B's and the steward's views stay unchanged.
 |===
 
+== Pulpit recording script (V1.9.143)
+
+Written, not run. Needs four devices (steward, pulpit person, congregation member A, congregation member B), shell access to LiveKit and the egress service
+(`LAPIS_RECORDING_ENABLED=true`, a writable egress volume) and an ADMIN login.
+
+[cols="1,3,2", options="header"]
+|===
+| # | Check | Expected
+| R1 | As ADMIN switch on "Aufzeichnung von Kanzel bzw. Podium erlauben" | the notice dialog opens, "Einschalten" is locked until the box is ticked, Esc cancels without a call; after switching on the audit log shows the version and the hash.
+| R2 | As BOARD allow the option in a closed room; try the same in an open room | closed: allowed. open: refused ("Nur bei geschlossenem Raum einschaltbar").
+| R3 | A guest (FRIEND) opens the entry panel of that room | the panel does not promise "no recording"; it names the pulpit and shows the operator's room notice; the guest must consent to the recording variant (new version/hash), even if they consented before.
+| R4 | The steward starts the recording; the pulpit person has not agreed yet | the toggle shows "Warte auf Zustimmung der Kanzel"; the pulpit person gets a dialog with the focus on "Nicht aufzeichnen"; nothing is recorded (`ls` the egress volume: no `pulpit/` file).
+| R5 | The pulpit person agrees | the band "Aufzeichnung läuft · Nur die Kanzel wird aufgezeichnet" appears for A, B, the steward and the pulpit person, also in the full screen and with the scene off; a screen reader says "Aufzeichnung gestartet".
+| R6 | A joins late (after the start) | A sees the band within 15 s (point-to-point packet).
+| R7 | Play back the finished file later | it contains the pulpit person's picture and voice **only**; neither A's nor B's nor the steward's.
+| R8 | The steward grants the floor to A while the recording runs, with the pulpit person's loudspeaker on | the recording stops at once ("FLOOR_GRANTED" in the audit log, band off); A's voice is **not** in the file. Starting again while A speaks is refused. **Echo test:** repeat with the loudspeaker loud -- the file of the first part must not contain A.
+| R9 | Two pulpit persons and a third | exactly two files, the third is reported ("Höchstzahl gleichzeitiger Aufnahmen erreicht").
+| R10 | Withdraw the pulpit office of the recorded person via "Ämter" | their file stops within seconds, the band goes off, audit `SOURCE_NOT_PULPIT`.
+| R11 | Stop by hand | the file closes, the band goes off, the document appears in "Aufzeichnungen Begegnungsraum" (level `BOARD_ONLY`, title without a name, file name with a UUID); `ls` shows the raw file gone.
+| R12 | Delete the recording in the list under the room administration; then try to find the bytes | the document, the versions and the marker are gone, the blob is removed from the store. The dialog warned about older backups.
+| R13 | Delete a second recording with the ordinary "delete document" of the store | the same hard delete.
+| R14 | Restart the server **while a recording runs** | within one clock run the egress is stopped (audit `RESTART_ORPHAN`), the band goes off in the open room, the partial file stays on the volume (warning with a count, nothing deleted); starting again works.
+| R15 | Check the rights of the egress volume for the `pulpit/` subdirectory (the ELB ACL trap) | the egress service can create `pulpit/<space>/` (otherwise the start fails with "Aufzeichnungsdienst nicht verfügbar").
+| R16 | Does the encounter poller disconnect the egress participant? (`lk room participants list` during a recording) | the recorder stays connected (it publishes nothing). **If it is removed, the recording ends after a minute: report it.**
+| R17 | Switch the instance switch off during a recording | the recording stops at once, the band goes off, audit `INSTANCE_DISABLED`.
+|===
+
 == Result log
 
 (to be filled in by whoever runs the script: date, LiveKit version, result per check, deviations)

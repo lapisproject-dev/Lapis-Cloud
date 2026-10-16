@@ -22,8 +22,12 @@ import network.lapis.cloud.shared.domain.ConferenceTimerStatus
 import network.lapis.cloud.shared.domain.ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_FLOOR_TOPIC
+import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_TOPIC
 import network.lapis.cloud.shared.domain.EncounterFloorSignal
+import network.lapis.cloud.shared.domain.EncounterRecordingSignal
 import network.lapis.cloud.shared.domain.encounterFloorPayload
+import network.lapis.cloud.shared.domain.encounterRecordingPayload
 import java.util.UUID
 
 private const val ROOM = "lc-11111111-1111-1111-1111-111111111111"
@@ -43,6 +47,9 @@ class LiveKitAdminClientPayloadLimitTest :
             sendDataPayloadLimit("lapis-encounter-blessing") shouldBe ENCOUNTER_BLESSING_MAX_PAYLOAD_BYTES
             sendDataPayloadLimit(ENCOUNTER_FLOOR_TOPIC) shouldBe ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES
             sendDataPayloadLimit(ENCOUNTER_FLOOR_TOPIC) shouldBe 64
+            // V1.9.143: without an entry the recording topic would fall back to 16 bytes and every real send would fail
+            sendDataPayloadLimit(ENCOUNTER_RECORDING_TOPIC) shouldBe ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES
+            sendDataPayloadLimit(ENCOUNTER_RECORDING_TOPIC) shouldBe 32
             sendDataPayloadLimit("something-else") shouldBe 16
         }
 
@@ -128,5 +135,22 @@ class LiveKitAdminClientPayloadLimitTest :
             shouldThrow<IllegalArgumentException> {
                 client.sendData(room = ROOM, topic = ENCOUNTER_FLOOR_TOPIC, payload = ByteArray(ENCOUNTER_FLOOR_MAX_PAYLOAD_BYTES + 1))
             }
+        }
+
+        test("the real client sends every recording packet the server can produce, to everybody and point to point") {
+            val requests = mutableListOf<HttpRequestData>()
+            val client = admin(requests)
+            listOf(
+                EncounterRecordingSignal(active = true),
+                EncounterRecordingSignal(active = false),
+                EncounterRecordingSignal(active = true, ask = true),
+                EncounterRecordingSignal(active = false, ask = true),
+            ).forEach { signal ->
+                val payload = encounterRecordingPayload(signal).toByteArray()
+                (payload.size <= ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES) shouldBe true
+                client.sendData(room = ROOM, topic = ENCOUNTER_RECORDING_TOPIC, payload = payload)
+                client.sendDataTo(room = ROOM, topic = ENCOUNTER_RECORDING_TOPIC, payload = payload, destinationIdentities = listOf("a"))
+            }
+            requests.size shouldBe 8
         }
     })

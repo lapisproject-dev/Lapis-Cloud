@@ -648,3 +648,33 @@ class AgreementTextVersionLabelTakenException(
 class AgreementTextDraftChangedException(
     override val message: String = "The draft has changed -- please review it again",
 ) : AbstractServiceException()
+
+/** V1.9.143 -- distinct type. The admin acknowledged an older version of the operator notice (or none) when switching the pulpit recording on. */
+@RpcServiceException
+class PulpitRecordingNoticeOutdatedException(
+    override val message: String = "The operator notice has changed -- please read it again",
+) : AbstractServiceException()
+
+/** V1.9.143 -- distinct type. A recording start waits for the confirmation of the person at the pulpit (who has been asked). */
+@RpcServiceException
+class PulpitRecordingAwaitingConfirmationException(
+    override val message: String = "Waiting for the confirmation of the pulpit",
+) : AbstractServiceException()
+
+/** V1.9.143 -- distinct type. The server-wide limit of simultaneous pulpit recordings is reached. */
+@RpcServiceException
+class PulpitRecordingLimitReachedException(
+    override val message: String = "The maximum number of simultaneous recordings is reached",
+) : AbstractServiceException()
+
+/** V1.9.143 -- distinct type. This server has no recording service configured, or its disk budget is exhausted. */
+@RpcServiceException
+class PulpitRecordingUnavailableException(
+    override val message: String = "The recording service is not available",
+) : AbstractServiceException()
+
+/** V1.9.143 -- distinct type. A person of the congregation currently holds the floor; recording is paused for the duration (echo risk). */
+@RpcServiceException
+class PulpitRecordingFloorActiveException(
+    override val message: String = "No recording while a person of the congregation speaks",
+) : AbstractServiceException()

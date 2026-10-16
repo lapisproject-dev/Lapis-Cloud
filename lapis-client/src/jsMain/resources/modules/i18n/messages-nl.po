@@ -24480,3 +24480,153 @@ msgstr "Filters verborgen"
 
 msgid "Alle Filter ausgeschaltet"
 msgstr "Alle filters uitgeschakeld"
+
+msgid "Hinweis bei Aufzeichnung (Raum)"
+msgstr "Mededeling bij opname (ruimte)"
+
+msgid "Zustimmung der Kanzel zur Aufzeichnung"
+msgstr "Toestemming van de kansel voor de opname"
+
+msgid "Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist."
+msgstr "Geldt alleen als de opname van de kansel voor de instantie is ingeschakeld."
+
+msgid "Platzhaltertext aktiv: Diese Instanz zeigt den eingebauten Mustertext (Version %1). Bitte veröffentlichen Sie eine rechtlich geprüfte Fassung für Ihr Land."
+msgstr "Plaatshoudertekst actief: deze instantie toont de ingebouwde voorbeeldtekst (versie %1). Publiceer een juridisch getoetste versie voor uw land."
+
+msgid "Kanzel-Aufzeichnung"
+msgstr "Opname van de kansel"
+
+msgid "Sie sind im Begriff, die Aufzeichnung der Kanzel in den Begegnungsräumen dieser Instanz zu erlauben. Aufgezeichnet werden ausschließlich Bild und Ton der Person, die das Amt der Kanzel (in Versammlungen: des Podiums) innehat. Die Gemeinde (in Versammlungen: die Teilnehmenden) wird nicht aufgezeichnet."
+msgstr "U staat op het punt de opname van de kansel in de ontmoetingsruimten van deze instantie toe te staan. Alleen beeld en geluid van de persoon met het ambt van de kansel (in vergaderingen: van het podium) worden opgenomen. De gemeente (in vergaderingen: de deelnemers) wordt niet opgenomen."
+
+msgid "Ob und unter welchen Bedingungen eine solche Aufzeichnung zulässig ist, hängt vom Recht Ihres Landes ab, zum Beispiel vom Datenschutz-, Persönlichkeits- und Urheberrecht und von Vorgaben für Religionsgemeinschaften und Versammlungen. Lapis Cloud nimmt diese Prüfung nicht vor und ersetzt keine Rechtsberatung."
+msgstr "Of en onder welke voorwaarden zo'n opname is toegestaan, hangt af van het recht van uw land, bijvoorbeeld het gegevensbeschermings-, persoonlijkheids- en auteursrecht en regels voor religieuze gemeenschappen en vergaderingen. Lapis Cloud voert deze toetsing niet uit en vervangt geen juridisch advies."
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass Sie eine Rechtsgrundlage haben und dass die aufgezeichnete Person informiert ist und, wo erforderlich, einwilligt. Die Aufnahme wird in der Dokumentenablage gespeichert, ist nur für Vorstand und Administratoren sichtbar und bleibt bis zu ihrer Löschung bestehen."
+msgstr "Als beheerder bent u ervoor verantwoordelijk dat u een rechtsgrond hebt en dat de opgenomen persoon is geïnformeerd en, waar nodig, toestemming geeft. De opname wordt in het documentenarchief bewaard, is alleen zichtbaar voor het bestuur en beheerders en blijft bestaan tot ze wordt verwijderd."
+
+msgid "Zeigt die Kamera Personen, die vor Ort neben der Kanzel anwesend sind, werden auch diese aufgezeichnet. Das kann die Software nicht verhindern."
+msgstr "Als de camera mensen toont die ter plaatse naast de kansel aanwezig zijn, worden ook zij opgenomen. De software kan dat niet voorkomen."
+
+msgid "Aufzeichnung von Kanzel bzw. Podium erlauben"
+msgstr "Opname van kansel of podium toestaan"
+
+msgid "Nur die Kamera und das Mikrofon der Person mit dem Amt der Kanzel werden aufgezeichnet, nie die Gemeinde. Zusätzlich muss die Aufzeichnung je Raum erlaubt werden."
+msgstr "Alleen de camera en microfoon van de persoon met het ambt van de kansel worden opgenomen, nooit de gemeente. Bovendien moet de opname per ruimte worden toegestaan."
+
+msgid "Der Aufzeichnungsdienst ist auf diesem Server nicht eingerichtet."
+msgstr "De opnamedienst is op deze server niet ingericht."
+
+msgid "Bestätigt für Hinweis Version %1, aktuell Version %2. Bitte erneut bestätigen."
+msgstr "Bevestigd voor versie %1 van de mededeling, huidige versie %2. Bevestig opnieuw."
+
+msgid "Erneut bestätigen"
+msgstr "Opnieuw bevestigen"
+
+msgid "Die Aufzeichnung der Kanzel ist ausgeschaltet."
+msgstr "De opname van de kansel is uitgeschakeld."
+
+msgid "Der Hinweis wurde geändert. Bitte lesen Sie ihn erneut."
+msgstr "De mededeling is gewijzigd. Lees hem opnieuw."
+
+msgid "Die Aufzeichnung der Kanzel ist eingeschaltet."
+msgstr "De opname van de kansel is ingeschakeld."
+
+msgid "Zustimmung der Kanzel vor jeder Aufnahme verlangen"
+msgstr "Toestemming van de kansel vóór elke opname vereisen"
+
+msgid "Die Aufzeichnung ist nicht eingeschaltet."
+msgstr "De opname is niet ingeschakeld."
+
+msgid "Aufzeichnung der Kanzel erlauben?"
+msgstr "Opname van de kansel toestaan?"
+
+msgid "Hinweis Version %1"
+msgstr "Mededeling versie %1"
+
+msgid "Ich habe die rechtliche Zulässigkeit für mein Land geprüft und übernehme die Verantwortung."
+msgstr "Ik heb de juridische toelaatbaarheid voor mijn land gecontroleerd en neem de verantwoordelijkheid op me."
+
+msgid "Einschalten"
+msgstr "Inschakelen"
+
+msgid "Aufzeichnung löschen?"
+msgstr "Opname verwijderen?"
+
+msgid "Die Aufzeichnung wird endgültig gelöscht. Ältere Sicherungen können sie noch enthalten."
+msgstr "De opname wordt definitief verwijderd. Oudere back-ups kunnen haar nog bevatten."
+
+msgid "Die Aufzeichnung wurde gelöscht."
+msgstr "De opname is verwijderd."
+
+msgid "Aufzeichnung läuft · Nur die Kanzel wird aufgezeichnet"
+msgstr "Opname loopt · alleen de kansel wordt opgenomen"
+
+msgid "Aufzeichnung läuft · Nur das Podium wird aufgezeichnet"
+msgstr "Opname loopt · alleen het podium wordt opgenomen"
+
+msgid "Aufnahme"
+msgstr "Opname"
+
+msgid "Aufzeichnung gestartet"
+msgstr "Opname gestart"
+
+msgid "Warte auf Zustimmung der Kanzel"
+msgstr "Wachten op toestemming van de kansel"
+
+msgid "Warte auf Zustimmung des Podiums"
+msgstr "Wachten op toestemming van het podium"
+
+msgid "Kanzel-Aufzeichnung in diesem Raum erlauben"
+msgstr "Opname van de kansel in deze ruimte toestaan"
+
+msgid "Podium-Aufzeichnung in diesem Raum erlauben"
+msgstr "Opname van het podium in deze ruimte toestaan"
+
+msgid "Aufzeichnung von Kanzel bzw. Podium in diesem Raum erlauben"
+msgstr "Opname van kansel of podium in deze ruimte toestaan"
+
+msgid "Aufgezeichnet wird nur, wer das Amt der Kanzel bzw. des Podiums innehat, nie die Gemeinde."
+msgstr "Alleen de persoon met het ambt van kansel of podium wordt opgenomen, nooit de gemeente."
+
+msgid "Von der Instanz nicht freigegeben."
+msgstr "Niet vrijgegeven door de instantie."
+
+msgid "Nur bei geschlossenem Raum einschaltbar."
+msgstr "Alleen in te schakelen bij een gesloten ruimte."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann die Kanzel aufgezeichnet werden, die Gemeinde nicht."
+msgstr "Lapis Cloud bewaart geen aanwezigheidslijst. In deze ruimte kan de kansel worden opgenomen, de gemeente niet."
+
+msgid "Lapis Cloud speichert keine Anwesenheitsliste. In diesem Raum kann das Podium aufgezeichnet werden, die Teilnehmenden nicht."
+msgstr "Lapis Cloud bewaart geen aanwezigheidslijst. In deze ruimte kan het podium worden opgenomen, de deelnemers niet."
+
+msgid "Aufzeichnung zustimmen?"
+msgstr "Akkoord met de opname?"
+
+msgid "Aufzeichnung zustimmen"
+msgstr "Akkoord met de opname"
+
+msgid "Nicht aufzeichnen"
+msgstr "Niet opnemen"
+
+msgid "Höchstzahl gleichzeitiger Aufnahmen erreicht"
+msgstr "Maximaal aantal gelijktijdige opnamen bereikt"
+
+msgid "Die Kanzel wurde um Zustimmung gebeten."
+msgstr "De kansel is om toestemming gevraagd."
+
+msgid "Das Podium wurde um Zustimmung gebeten."
+msgstr "Het podium is om toestemming gevraagd."
+
+msgid "Solange jemand aus der Gemeinde spricht, wird nicht aufgezeichnet."
+msgstr "Zolang iemand uit de gemeente spreekt, wordt er niet opgenomen."
+
+msgid "Solange jemand aus der Versammlung spricht, wird nicht aufgezeichnet."
+msgstr "Zolang iemand uit de vergadering spreekt, wordt er niet opgenomen."
+
+msgid "Der Aufzeichnungsdienst ist gerade nicht verfügbar."
+msgstr "De opnamedienst is momenteel niet beschikbaar."
+
+msgid "Die Aufzeichnung konnte nicht geändert werden. Bitte versuchen Sie es erneut."
+msgstr "De opname kon niet worden gewijzigd. Probeer het opnieuw."

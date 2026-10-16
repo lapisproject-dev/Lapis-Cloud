@@ -193,6 +193,7 @@ class EncounterControlBarTest {
                 EncounterControlGroup.DEVICES,
                 EncounterControlGroup.REACTIONS,
                 EncounterControlGroup.LITURGY,
+                EncounterControlGroup.RECORDING,
                 EncounterControlGroup.PANELS,
                 EncounterControlGroup.VIEW,
                 EncounterControlGroup.MODERATION,

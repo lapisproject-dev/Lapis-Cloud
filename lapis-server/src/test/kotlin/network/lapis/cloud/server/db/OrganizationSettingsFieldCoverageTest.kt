@@ -353,7 +353,7 @@ private fun OrganizationSettingsDto.toCoverageLine(): String =
 /** Throwaway test routes, scoped to this file only -- mirrors [OrganizationSettingsServiceTest]'s own idiom. */
 private fun Route.registerFieldCoverageTestRoutes() {
     post("/test/coverage/update") {
-        val service = OrganizationSettingsService(call)
+        val service = OrganizationSettingsService(call = call, pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING)
         val q = call.request.queryParameters
         val dto =
             service.updateOrganizationSettings(
@@ -387,12 +387,12 @@ private fun Route.registerFieldCoverageTestRoutes() {
         call.respondText(dto.toCoverageLine())
     }
     post("/test/coverage/get") {
-        val service = OrganizationSettingsService(call)
+        val service = OrganizationSettingsService(call = call, pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING)
         call.respondText(service.getOrganizationSettings().toCoverageLine())
     }
     // V1.4.13 -- isKleinunternehmer round-trip + vatEnabled read-only regression guard.
     post("/test/coverage/update-vat") {
-        val service = OrganizationSettingsService(call)
+        val service = OrganizationSettingsService(call = call, pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING)
         val q = call.request.queryParameters
         val dto =
             service.updateOrganizationSettings(
@@ -404,7 +404,7 @@ private fun Route.registerFieldCoverageTestRoutes() {
         call.respondText(dto.isKleinunternehmer.toString())
     }
     post("/test/coverage/get-vat") {
-        val service = OrganizationSettingsService(call)
+        val service = OrganizationSettingsService(call = call, pulpitRecording = network.lapis.cloud.server.encounter.NO_PULPIT_RECORDING)
         call.respondText(service.getOrganizationSettings().isKleinunternehmer.toString())
     }
 }
