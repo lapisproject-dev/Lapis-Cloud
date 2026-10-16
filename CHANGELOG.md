@@ -8,7 +8,7 @@ All notable changes to this project are documented here. Format follows
 
 ### CI -- PostgreSQL test image from three registries
 
-The Postgres lane started its container from a `services:` block that pulled `public.ecr.aws/docker/library/postgres:17`. Three CI runs (V1.9.132, V1.9.141 and the release image of v0.35.0 in a related form) stopped there with `toomanyrequests: Data limit exceeded` before a single test ran. The container is now started by an own step that tries `public.ecr.aws`, then `mirror.gcr.io`, then Docker Hub (three pulls each, with a pause) and waits for the health check. No code and no test changed. **Not verified until the first run on GitHub has used it.**
+The Postgres lane started its container from a `services:` block that pulled `public.ecr.aws/docker/library/postgres:17`. Two CI runs (V1.9.132 on 2026-10-15 and V1.9.141 on 2026-10-15; both passed after a rerun of the failed job) stopped there with `toomanyrequests: Data limit exceeded` before a single test ran. The container is now started by an own step that tries `public.ecr.aws`, then `mirror.gcr.io`, then Docker Hub (three pulls each, with a pause) and waits for the health check. No code and no test changed. **Not verified until the first run on GitHub has used it.**
 
 ### V1.9.142 -- Camera filters
 

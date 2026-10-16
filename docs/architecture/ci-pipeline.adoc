@@ -19,7 +19,7 @@ H2 tests use several JVMs. No check was removed and no assertion was weakened.
 |Longest job: compile, lint, and the H2 tests spread over four test JVMs.
 
 |`postgres` (Postgres lane)
-|`./gradlew clean :lapis-server:postgresTest` against a `postgres:17` container that the step "Start PostgreSQL (registry fallback)" starts (it tries `public.ecr.aws`, then `mirror.gcr.io`, then Docker Hub, three pulls each, because the anonymous pull limits of single registries stopped the lane before a single test on 2026-10-09 and 2026-10-15). Then `ci-assert-lane-ran.sh` requires at least 30 XML files
+|`./gradlew clean :lapis-server:postgresTest` against a `postgres:17` container that the step "Start PostgreSQL (registry fallback)" starts (it tries `public.ecr.aws`, then `mirror.gcr.io`, then Docker Hub, three pulls each, because the anonymous pull limits of single registries stopped the lane before a single test on 2026-10-09 (Docker Hub) and twice on 2026-10-15 (the AWS mirror)). Then `ci-assert-lane-ran.sh` requires at least 30 XML files
 (33 at V1.9.58, 36 in CI run 37405895540 on 2026-10-06) and the result file of `ElectionIntegrityPostgresTest`.
 |The lane needs only the server compile and about 4 to 6 minutes of its own. It stays on ONE test JVM (see below).
 
