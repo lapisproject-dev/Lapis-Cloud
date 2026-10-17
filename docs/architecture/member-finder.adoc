@@ -92,7 +92,7 @@ stateDiagram(name = "Member finder request (stored status)") {
     val declined = state(name = "DECLINED")
     val withdrawn = state(name = "WITHDRAWN")
     val expired = state(name = "EXPIRED")
-    val gone = finalState()
+    val gone = finalState(name = "removed")
 
     transition(source = start, target = open) { trigger = "sendRequest (random addressee or phantom)" }
     transition(source = open, target = accepted) { trigger = "addressee accepts" }

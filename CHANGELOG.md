@@ -6,6 +6,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.150 -- Fix: member finder diagram renders again
+
+`docs/architecture/member-finder.adoc` called `finalState()` without the required name, so `:docs-render:renderDocs` failed on that file (since V1.9.145). The final state is now named `removed`. Documentation only; no code, no migration. `renderDocs` is not part of `check` or of the CI, which is why this went unnoticed (76 diagrams, 0 failed after the fix).
+
 ### V1.9.149 -- Load-test tool and run sheet for the encounter tables
 
 A command line tool (`scripts/loadtest`, Node.js) and a run sheet (`docs/architecture/encounter-load-test.adoc`) for the question the tables were never tested for: does the room hold with about 20 to 40 people (BR-J1)?
