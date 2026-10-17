@@ -68,15 +68,20 @@ export async function postJson(url, body, { jar, timeoutMs = 10_000, maxBytes = 
   const cookie = jar?.header();
   if (cookie) headers.cookie = cookie;
   let response;
+  // An explicit, REFERENCED timer instead of AbortSignal.timeout(): that timer is unreferenced, so a hanging request with nothing else
+  // alive let the event loop end (Node 22 in CI cancelled the test file with "Promise resolution is still pending").
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new DOMException('The operation timed out.', 'TimeoutError')), timeoutMs);
   try {
     response = await fetchImpl(url, {
       method: 'POST',
       headers,
       body,
       redirect: 'manual',
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: controller.signal,
     });
   } catch (e) {
+    clearTimeout(timer);
     if (e?.name === 'TimeoutError' || e?.name === 'AbortError') throw new HttpError('timeout');
     throw new HttpError('network');
   }
@@ -92,5 +97,7 @@ export async function postJson(url, body, { jar, timeoutMs = 10_000, maxBytes = 
     if (e instanceof HttpError) throw e;
     if (e?.name === 'TimeoutError' || e?.name === 'AbortError') throw new HttpError('timeout');
     throw new HttpError('network');
+  } finally {
+    clearTimeout(timer);
   }
 }

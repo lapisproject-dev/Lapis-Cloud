@@ -6,6 +6,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.151 -- Fix: load-test tool timeout kept the event loop alive
+
+The CI job `loadtest` (V1.9.149) failed on Node 22: four tests of `kilua.test.mjs` were cancelled with "Promise resolution is still pending but the event loop has already resolved". Cause (probable, **not reproduced** locally, which has Node 26): `postJson` used `AbortSignal.timeout()`, whose timer does not keep the event loop alive, so a hanging request with nothing else running let the process end. It now uses an `AbortController` with a referenced timer, cleared in a `finally`. Tool only; no server code, no migration. Whether this is the whole cause is decided by the next CI run.
+
 ### V1.9.150 -- Fix: member finder diagram renders again
 
 `docs/architecture/member-finder.adoc` called `finalState()` without the required name, so `:docs-render:renderDocs` failed on that file (since V1.9.145). The final state is now named `removed`. Documentation only; no code, no migration. `renderDocs` is not part of `check` or of the CI, which is why this went unnoticed (76 diagrams, 0 failed after the fix).
