@@ -39,6 +39,8 @@ private val logger = KotlinLogging.logger {}
  * 6. **Verification** with `ffprobe`: a video and an audio stream, a duration within one second of the expected length. A file that
  *    fails this is never handed on.
  *
+ * The `atempo` ratio of an audio input comes only from [effectiveTempo] (V1.9.154: the participant drift ratio, else the track-mode rule).
+ *
  * Every failure surfaces as a [RecordingComposeException] with a short generic message -- never `ffmpeg` output (see
  * [FfmpegProcessRunner]).
  */
@@ -108,7 +110,7 @@ class FfmpegSegmentedComposer(
         spec.audioInputs.forEachIndexed { index, input ->
             val remuxed = File(workDir, "a$index.mka")
             remux(source = input.file, map = "0:a:0", target = remuxed, deadline = deadline, label = "remux audio ${index + 1}")
-            val tempo = AudioTempo.ratioFor(mediaSeconds = input.mediaDurationSeconds, wallSeconds = input.wallDurationSeconds)
+            val tempo = input.effectiveTempo()
             val mediaRanges =
                 input.ranges.ifEmpty {
                     listOf(

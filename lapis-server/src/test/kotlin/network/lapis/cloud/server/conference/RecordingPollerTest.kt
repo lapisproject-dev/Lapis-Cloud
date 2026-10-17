@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.doubles.plusOrMinus
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
@@ -2755,6 +2756,187 @@ class RecordingPollerTest :
                 analyzer.calls shouldBe 0
                 captured!!.speakerSpans shouldBe
                     listOf(RecordingSpeakerSpan(personKey = cams.second.toString(), startSeconds = 1.0, endSeconds = 9.0))
+                recordingRow(recordingId)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        // ── V1.9.154: egress DTX drift of a per-person file ──
+
+        /** One PARTICIPANT recording, SPEAKER view, one person file whose audio (100 s) is 1 s longer than its picture (99 s): drift 1.0101. */
+        fun seedDriftingPerson(hostRawRoot: File): Pair<Uuid, Uuid> {
+            val member = createMember("poller-drift-${Uuid.random()}@example.org")
+            val (roomId, _) = createRoom(member)
+            val recordingId =
+                createRecording(
+                    roomId,
+                    member,
+                    ConferenceRecordingStatus.PROCESSING,
+                    egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    broadcastView = ConferenceBroadcastView.SPEAKER,
+                )
+            val rawDir = hostRawRoot.resolve(recordingId.toString()).apply { mkdirs() }
+            val file = rawDir.resolve("p-alice.mp4").apply { writeBytes(byteArrayOf(1)) }
+            val trackId =
+                createTrack(
+                    recordingId,
+                    "EG_a-$recordingId",
+                    "PA_alice",
+                    ConferenceRecordingTrackStatus.COMPLETE,
+                    ConferenceRecordingTrackSource.CAMERA,
+                    file.name,
+                    1_000_000_000_000L,
+                    100_000L,
+                    ConferenceRecordingEgressMode.PARTICIPANT,
+                    identity = "person-a",
+                )
+            return recordingId to trackId
+        }
+
+        val driftProber =
+            object : RecordingMediaProber {
+                override suspend fun probeDurationSeconds(file: File): Double? = null
+
+                override suspend fun probeStreamStartTimes(file: File): StreamStartTimes? =
+                    StreamStartTimes(videoSeconds = 0.0, audioSeconds = 0.0)
+
+                override suspend fun probePacketRanges(
+                    file: File,
+                    kind: StreamKind,
+                    gapThresholdSeconds: Double,
+                ): PacketRanges? {
+                    val end = if (kind == StreamKind.VIDEO) 99.0 else 100.0
+                    return PacketRanges(ranges = listOf(TimeRange(startSeconds = 0.0, endSeconds = end)), mediaDurationSeconds = end)
+                }
+            }
+        val noBlank =
+            object : RecordingBlankVideoDetector {
+                override suspend fun detectBlankRanges(
+                    file: File,
+                    videoStreamStartSeconds: Double,
+                    minSeconds: Double,
+                ): List<TimeRange>? = emptyList()
+            }
+
+        fun speechAt(
+            from: Double,
+            to: Double,
+        ) = AudioLevelSeries(
+            points =
+                (0 until 1000).map { i ->
+                    AudioLevelPoint(
+                        timeSeconds = i * 0.1,
+                        levelDb =
+                            if (i * 0.1 in
+                                from..to
+                            ) {
+                                -20.0
+                            } else {
+                                -70.0
+                            },
+                    )
+                },
+            windowSeconds = 0.1,
+        )
+
+        test("PARTICIPANT drift (P1): a person file with an overlong audio carries driftTempo into the composer spec") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val (recordingId, _) = seedDriftingPerson(hostRawRoot)
+                var captured: RecordingComposeSpec? = null
+                buildPoller(
+                    FakeLiveKitAdminClient(),
+                    FakeLiveKitEgressClient(),
+                    FakeRecordingComposer { spec, out ->
+                        captured = spec
+                        out.writeBytes(byteArrayOf(1))
+                    },
+                    hostRawRoot,
+                    documentStorageRoot,
+                    keepRaw = true,
+                    prober = driftProber,
+                    blankDetector = noBlank,
+                    speechAnalyzer = CountingAnalyzer(emptyMap()),
+                ).tickAndSettle()
+                val audio = (captured ?: error("composer was not invoked")).audioInputs.single()
+                audio.driftTempo.shouldNotBeNull() shouldBe (100.0 / 99.0 plusOrMinus 1e-9)
+                audio.wallDurationSeconds shouldBe null
+                recordingRow(recordingId)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("PARTICIPANT drift (P2): a stored (uncorrected) timeline is re-analysed in corrected time and replaced") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val (recordingId, trackId) = seedDriftingPerson(hostRawRoot)
+                RecordingSpeakerTimelineStore.replace(
+                    recordingId = recordingId,
+                    spans = listOf(StoredSpeakerSpan(trackId = trackId, startMs = 1_000, endMs = 9_000)),
+                )
+                val analyzer = CountingAnalyzer(mapOf("p-alice.mp4" to speechAt(60.0, 70.0)))
+                var captured: RecordingComposeSpec? = null
+                buildPoller(
+                    FakeLiveKitAdminClient(),
+                    FakeLiveKitEgressClient(),
+                    FakeRecordingComposer { spec, out ->
+                        captured = spec
+                        out.writeBytes(byteArrayOf(1))
+                    },
+                    hostRawRoot,
+                    documentStorageRoot,
+                    keepRaw = true,
+                    prober = driftProber,
+                    blankDetector = noBlank,
+                    speechAnalyzer = analyzer,
+                ).tickAndSettle()
+                recordingRow(recordingId)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
+                analyzer.calls shouldBe 1
+                val stored = RecordingSpeakerTimelineStore.load(recordingId) ?: error("not stored")
+                stored.none { it.startMs == 1_000L && it.endMs == 9_000L } shouldBe true
+                val first = (captured ?: error("composer was not invoked")).speakerSpans.first { it.endSeconds > 30.0 }
+                // media 60 s is wall 59.4 s (60 / 1.0101) plus the 0.8 s claim delay of the smoothing; uncorrected it would be 60.8 s
+                first.startSeconds shouldBe (60.2 plusOrMinus 0.2)
+                recordingRow(recordingId)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test("PARTICIPANT drift (P4): drift but the re-analysis is impossible -- the stored timeline is used, the recording is READY") {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val (recordingId, trackId) = seedDriftingPerson(hostRawRoot)
+                RecordingSpeakerTimelineStore.replace(
+                    recordingId = recordingId,
+                    spans = listOf(StoredSpeakerSpan(trackId = trackId, startMs = 1_000, endMs = 9_000)),
+                )
+                var captured: RecordingComposeSpec? = null
+                buildPoller(
+                    FakeLiveKitAdminClient(),
+                    FakeLiveKitEgressClient(),
+                    FakeRecordingComposer { spec, out ->
+                        captured = spec
+                        out.writeBytes(byteArrayOf(1))
+                    },
+                    hostRawRoot,
+                    documentStorageRoot,
+                    keepRaw = true,
+                    prober = driftProber,
+                    blankDetector = noBlank,
+                    speechAnalyzer = CountingAnalyzer(emptyMap()),
+                ).tickAndSettle()
+                (captured ?: error("composer was not invoked")).speakerSpans shouldBe
+                    listOf(RecordingSpeakerSpan(personKey = trackId.toString(), startSeconds = 1.0, endSeconds = 9.0))
+                recordingRow(recordingId)[ConferenceRecordingTable.status] shouldBe ConferenceRecordingStatus.READY
                 recordingRow(recordingId)[ConferenceRecordingTable.documentId]?.let { createdDocumentIds += it }
             } finally {
                 hostRawRoot.deleteRecursively()

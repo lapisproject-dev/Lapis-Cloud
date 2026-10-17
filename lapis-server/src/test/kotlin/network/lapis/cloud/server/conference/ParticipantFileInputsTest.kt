@@ -286,4 +286,93 @@ class ParticipantFileInputsTest :
             TimeRanges.subtract(from = listOf(range(from = 0.0, to = 10.0)), remove = listOf(range(from = 5.0, to = 5.0))) shouldBe
                 listOf(range(from = 0.0, to = 10.0))
         }
+
+        test("drift measurements set the audio driftTempo on the endpoints formula; wallDurationSeconds stays null") {
+            val (_, audio) =
+                ParticipantFileInputs.build(
+                    file = FILE,
+                    trackId = TRACK,
+                    fileOffsetSeconds = 0.0,
+                    m =
+                        ParticipantStreamMeasurements(
+                            videoStartSeconds = 0.0,
+                            audioStartSeconds = 0.0,
+                            videoPacketRanges = ranges(range(from = 0.0, to = 498.333)),
+                            audioPacketRanges = ranges(range(from = 0.0, to = 500.0)),
+                        ),
+                )
+            audio.shouldNotBeNull().driftTempo.shouldNotBeNull() shouldBe (1.003345 plusOrMinus 1e-5)
+            audio.wallDurationSeconds.shouldBeNull()
+        }
+
+        test("no video stream, no audio stream or only a reported duration: no driftTempo") {
+            val drifting = ranges(range(from = 0.0, to = 500.0))
+            val video = ranges(range(from = 0.0, to = 498.0))
+            ParticipantFileInputs
+                .build(
+                    file = FILE,
+                    trackId = TRACK,
+                    fileOffsetSeconds = 0.0,
+                    m =
+                        ParticipantStreamMeasurements(
+                            hasVideo = false,
+                            videoStartSeconds = 0.0,
+                            audioStartSeconds = 0.0,
+                            videoPacketRanges = video,
+                            audioPacketRanges = drifting,
+                        ),
+                ).second
+                .shouldNotBeNull()
+                .driftTempo
+                .shouldBeNull()
+            ParticipantFileInputs
+                .build(
+                    file = FILE,
+                    trackId = TRACK,
+                    fileOffsetSeconds = 0.0,
+                    m =
+                        ParticipantStreamMeasurements(
+                            videoStartSeconds = 0.0,
+                            audioStartSeconds = 0.0,
+                            reportedDurationSeconds = 500.0,
+                        ),
+                ).second
+                .shouldNotBeNull()
+                .driftTempo
+                .shouldBeNull()
+            ParticipantFileInputs
+                .build(
+                    file = FILE,
+                    trackId = TRACK,
+                    fileOffsetSeconds = 0.0,
+                    m =
+                        ParticipantStreamMeasurements(
+                            hasAudio = false,
+                            videoStartSeconds = 0.0,
+                            audioStartSeconds = 0.0,
+                            videoPacketRanges = video,
+                            audioPacketRanges = drifting,
+                        ),
+                ).second
+                .shouldBeNull()
+        }
+
+        test("a picture that is black throughout contributes no video input, but the drift is still corrected") {
+            val (video, audio) =
+                ParticipantFileInputs.build(
+                    file = FILE,
+                    trackId = TRACK,
+                    fileOffsetSeconds = 0.0,
+                    m =
+                        ParticipantStreamMeasurements(
+                            videoStartSeconds = 0.0,
+                            audioStartSeconds = 0.0,
+                            videoPacketRanges = ranges(range(from = 0.0, to = 498.333)),
+                            audioPacketRanges = ranges(range(from = 0.0, to = 500.0)),
+                            blankVideoRanges = listOf(range(from = 0.0, to = 498.333)),
+                        ),
+                )
+            video.shouldBeNull()
+            audio.shouldNotBeNull().driftTempo.shouldNotBeNull() shouldBe (1.003345 plusOrMinus 1e-5)
+        }
     })

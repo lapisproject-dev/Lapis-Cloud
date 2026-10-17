@@ -968,7 +968,9 @@ class RecordingPoller(
                             "audioStartS=${person.audioStartSeconds?.let(::formatSeconds) ?: "n/a"}, " +
                             "videoRanges=${person.videoPacketRanges?.ranges?.size ?: "n/a"}, " +
                             "audioRanges=${person.audioPacketRanges?.ranges?.size ?: "n/a"}, " +
-                            "blankRanges=${person.blankVideoRanges?.size ?: "n/a"}; " +
+                            "blankRanges=${person.blankVideoRanges?.size ?: "n/a"}, " +
+                            "videoMediaS=${person.videoPacketRanges?.mediaDurationSeconds?.let(::formatSeconds) ?: "n/a"}, " +
+                            "audioMediaS=${person.audioPacketRanges?.mediaDurationSeconds?.let(::formatSeconds) ?: "n/a"}; " +
                             "probedDurationS=${probe.durationSeconds?.let(::formatSeconds) ?: "n/a"}"
                     }
                     return@associate r.track.id to Measured(offset, probe, null, person)
@@ -1146,8 +1148,9 @@ class RecordingPoller(
                     input.copy(personKey = key)
                 }
 
+            val driftCorrected = speechOwners.any { it.second.driftTempo != null }
             val stored = RecordingSpeakerTimelineStore.load(row.id)
-            if (stored != null) {
+            if (stored != null && !driftCorrected) {
                 logger.info { "RecordingPoller: recording ${row.id} reuses its stored speaker timeline (${stored.size} span(s))" }
                 return SpeakerPlan(
                     videoInputs = tagged,
@@ -1168,9 +1171,23 @@ class RecordingPoller(
                 val key = canonical[identity]?.toString() ?: continue
                 val series = speechAnalyzer.levels(file = input.file) ?: continue
                 analyzed++
-                val tempo = AudioTempo.ratioFor(mediaSeconds = input.mediaDurationSeconds, wallSeconds = input.wallDurationSeconds)
+                val tempo = input.effectiveTempo()
                 perPerson.getOrPut(key) { ArrayList() } +=
                     SpeechActivity.detect(series = series, offsetSeconds = input.offsetSeconds, tempo = tempo)
+            }
+            if (analyzed == 0 && stored != null) {
+                logger.warn { "RecordingPoller: recording ${row.id}: re-analysis impossible, uncorrected timeline reused" }
+                return SpeakerPlan(
+                    videoInputs = tagged,
+                    spans =
+                        stored.map {
+                            RecordingSpeakerSpan(
+                                personKey = it.trackId.toString(),
+                                startSeconds = it.startMs / 1000.0,
+                                endSeconds = it.endMs / 1000.0,
+                            )
+                        },
+                )
             }
             if (analyzed == 0) {
                 logger.warn { "RecordingPoller: no speech analysis possible for recording ${row.id} -- composing the grid" }

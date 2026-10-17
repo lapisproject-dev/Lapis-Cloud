@@ -78,4 +78,8 @@ class SpeechActivityTest :
                 (AudioWallClock.toWallSeconds(offsetSeconds = 2.5, mediaSeconds = 10.1, tempo = tempo) plusOrMinus 1e-12)
             AudioWallClock.toWallSeconds(offsetSeconds = 1.0, mediaSeconds = 10.0, tempo = null) shouldBe 11.0
         }
+
+        test("a drift tempo above 1 maps media time 471 s to wall time 469.43 s") {
+            AudioWallClock.toWallSeconds(offsetSeconds = 0.0, mediaSeconds = 471.0, tempo = 1.00335) shouldBe (469.43 plusOrMinus 0.01)
+        }
     })

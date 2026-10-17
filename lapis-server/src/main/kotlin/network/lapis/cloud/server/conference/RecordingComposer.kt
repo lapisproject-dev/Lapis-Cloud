@@ -82,7 +82,13 @@ data class RecordingComposeAudioInput(
     val ranges: List<TimeRange> = emptyList(),
     val mediaDurationSeconds: Double? = null,
     val wallDurationSeconds: Double? = null,
+    /** V1.9.154: media / wall ratio of the egress DTX drift; only set by [ParticipantFileInputs], overrules [AudioTempo]. */
+    val driftTempo: Double? = null,
 )
+
+/** V1.9.154: THE one `atempo` decision of an audio input -- used by the composer AND the speaker timeline. */
+fun RecordingComposeAudioInput.effectiveTempo(): Double? =
+    driftTempo ?: AudioTempo.ratioFor(mediaSeconds = mediaDurationSeconds, wallSeconds = wallDurationSeconds)
 
 /**
  * The full input to one composition -- see [FfmpegSegmentedComposer] for how this becomes a series of `ffmpeg` runs.

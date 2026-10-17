@@ -195,6 +195,19 @@ class SegmentArgumentBuilderTest :
             args listShouldContain "pcm_s16le"
         }
 
+        test("audio: a drift tempo above 1 seeks and cuts in media time (multiplied) and filters with atempo") {
+            val args =
+                SegmentArgumentBuilder.buildAudioSegment(
+                    seg = seg(13800, 14400),
+                    sources = listOf(audioSource(listOf(TimeRange(startSeconds = 460.0, endSeconds = 480.0)), tempo = 1.00335)),
+                    fps = fps,
+                    outWav = "/w.wav",
+                )
+            args[args.indexOf("-ss") + 1] shouldBe "461.541000"
+            args[args.indexOf("-t") + 1] shouldBe "20.067000"
+            graphOf(args) shouldContain "atempo=1.00335000"
+        }
+
         test("audio: one input per data range that overlaps the segment, none for a range outside it") {
             val ranges =
                 listOf(

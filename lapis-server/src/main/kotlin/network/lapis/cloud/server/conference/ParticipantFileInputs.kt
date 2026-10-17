@@ -36,10 +36,11 @@ data class ParticipantStreamMeasurements(
  * stream's offset is the file offset plus the distance of its start from `fileZero`.
  * (A start slightly below zero, e.g. AAC priming of about -0.02 s, is harmless: only the difference counts.)
  *
- * ## No `atempo`
+ * ## Conditional drift correction (V1.9.154)
  *
- * The audio input gets NO wall-clock duration, so the composer never stretches it: stretching only the audio would destroy the
- * synchronicity the muxer created inside the file. The egress already resamples onto its pipeline clock.
+ * The audio input gets NO wall-clock duration. Opus DTX makes the egress write the audio ~0.34 % too long, though; [ParticipantAudioDrift]
+ * compares the END POINTS of both streams inside the container (not the durations: a later video start is an offset, no drift) and, only
+ * for a clear, bounded excess, sets [RecordingComposeAudioInput.driftTempo]. The composer then applies it per segment.
  */
 object ParticipantFileInputs {
     /** The video and the audio input of [file]; a part is `null` when the file has no such stream (or, for video, the picture is black throughout). */
@@ -94,6 +95,25 @@ object ParticipantFileInputs {
             } else {
                 null
             }
+        val driftTempo =
+            if (m.hasVideo && m.hasAudio) {
+                ParticipantAudioDrift
+                    .tempoFor(
+                        audioMediaSeconds = m.audioPacketRanges?.mediaDurationSeconds,
+                        audioStartSeconds = m.audioStartSeconds,
+                        videoMediaSeconds = m.videoPacketRanges?.mediaDurationSeconds,
+                        videoStartSeconds = m.videoStartSeconds,
+                    )?.also { ratio ->
+                        logger.info {
+                            "ParticipantFileInputs: audio drift corrected, atempo ratio ${"%.6f".format(
+                                java.util.Locale.ROOT,
+                                ratio,
+                            )}"
+                        }
+                    }
+            } else {
+                null
+            }
         val audio =
             if (m.hasAudio) {
                 RecordingComposeAudioInput(
@@ -102,6 +122,7 @@ object ParticipantFileInputs {
                     ranges = m.audioPacketRanges?.ranges.orEmpty(),
                     mediaDurationSeconds = m.audioPacketRanges?.mediaDurationSeconds ?: m.reportedDurationSeconds,
                     wallDurationSeconds = null,
+                    driftTempo = driftTempo,
                 )
             } else {
                 null

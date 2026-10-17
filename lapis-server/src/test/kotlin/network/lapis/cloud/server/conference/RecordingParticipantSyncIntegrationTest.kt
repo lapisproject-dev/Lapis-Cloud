@@ -153,67 +153,10 @@ class RecordingParticipantSyncIntegrationTest :
             return out
         }
 
-        fun measureFlashes(video: File): List<Double> {
-            val stats = File(workDir, "${video.nameWithoutExtension}-yavg.txt")
-            FfmpegForTests.run(
-                ffmpeg = ffmpeg!!,
-                args =
-                    listOf(
-                        "-nostats",
-                        "-hide_banner",
-                        "-i",
-                        video.absolutePath,
-                        "-vf",
-                        "signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=${stats.absolutePath}",
-                        "-an",
-                        "-f",
-                        "null",
-                        "-",
-                    ),
-                timeoutSeconds = 600 + total.toLong(),
-            )
-            val times = ArrayList<Double>()
-            val luma = ArrayList<Double>()
-            var pendingTime: Double? = null
-            stats.forEachLine { line ->
-                Regex("pts_time:([0-9.]+)").find(line)?.let { pendingTime = it.groupValues[1].toDouble() }
-                Regex("YAVG=([0-9.]+)").find(line)?.let {
-                    times += pendingTime ?: 0.0
-                    luma += it.groupValues[1].toDouble()
-                }
-            }
-            val flashes = ArrayList<Double>()
-            for (i in 1 until luma.size - 1) {
-                if (luma[i] - maxOf(luma[i - 1], luma[i + 1]) > SPIKE_LUMA) flashes += times[i]
-            }
-            return flashes
-        }
+        fun measureFlashes(video: File): List<Double> =
+            AvEventMeasurement.flashes(ffmpeg = ffmpeg!!, video = video, workDir = workDir, totalSeconds = total)
 
-        fun measureBeeps(video: File): List<Double> {
-            val out =
-                FfmpegForTests.run(
-                    ffmpeg = ffmpeg!!,
-                    args =
-                        listOf(
-                            "-nostats",
-                            "-hide_banner",
-                            "-i",
-                            video.absolutePath,
-                            "-vn",
-                            "-af",
-                            "silencedetect=n=-35dB:d=0.02",
-                            "-f",
-                            "null",
-                            "-",
-                        ),
-                    timeoutSeconds = 600 + total.toLong(),
-                )
-            return Regex("silence_end: ([0-9.]+)")
-                .findAll(out)
-                .map { it.groupValues[1].toDouble() }
-                .filter { it < total - 0.25 }
-                .toList()
-        }
+        fun measureBeeps(video: File): List<Double> = AvEventMeasurement.beeps(ffmpeg = ffmpeg!!, video = video, totalSeconds = total)
 
         fun probeValue(
             file: File,
@@ -297,6 +240,8 @@ class RecordingParticipantSyncIntegrationTest :
             check(
                 audioA.wallDurationSeconds == null && audioB.wallDurationSeconds == null,
             ) { "audio of a person file must not be stretched" }
+            // an offset between the streams (video starts 0.4 s later) is no drift
+            check(audioA.driftTempo == null && audioB.driftTempo == null) { "a start offset must not be read as drift" }
 
             val spec =
                 RecordingComposeSpec(
@@ -354,9 +299,6 @@ class RecordingParticipantSyncIntegrationTest :
     })
 
 private const val TOLERANCE = 0.15
-
-/** A flash frame's mean luma is at least this far above BOTH neighbours (see [RecordingSyncIntegrationTest]). */
-private const val SPIKE_LUMA = 8.0
 
 /** `LAPIS_TEST_FFMPEG_PATH` or `ffmpeg` on the PATH, if it can encode `libx264` and `aac` -- else `null` (the test then skips itself). */
 private fun locateFfmpeg(): String? {

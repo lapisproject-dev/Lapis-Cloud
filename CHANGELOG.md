@@ -6,6 +6,24 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.154 -- Participant recordings: audio no longer falls behind the picture
+
+Server fix only: no migration, no RPC change, no new text, no new environment variable.
+**Not verified on the real ELB recording (cc27c031) until a recompute ran there.** The proof is synthetic (real `ffmpeg`, generated files).
+
+#### What was wrong
+
+- The LiveKit egress (v1.13.0) fills every Opus DTX gap about 1.5 ms too long, so the audio of a per-person file is written about 0.34 % longer than the picture (cc27c031: audio 500.0 s, picture 498.33 s; clap at 470.93 s in the picture, 472.43 s in the sound). The cause is in the egress, not in the composition.
+
+#### What changes
+
+- `ParticipantAudioDrift.tempoFor` decides from the END POINTS of both streams (not from the quotient of the durations, which would read the usual video start 1.2 to 1.7 s after the audio as drift) whether the audio is stretched: only with measured packet durations, streams and wall span of at least 30 s, an excess of at least `max(0.25 s, 0.05 %)` and at most 2 %. Audio shorter than the picture is never touched.
+- The ratio travels as `RecordingComposeAudioInput.driftTempo`; `effectiveTempo()` is the one `atempo` decision for the composer and the speaker timeline. The existing per-segment `atempo` path does the work, nothing happens at remux time.
+- "Neu berechnen" benefits without new raw files. A stored speaker timeline of a corrected recording was computed uncorrected, so it is analysed again and replaced (falling back to the stored one with a warning if the analysis is impossible).
+- Remaining error: the model is linear. With evenly spread silence about 0.07 s; with unevenly spread speech at worst about half of the total drift (8 minutes, first half silent: about 0.8 s in the middle). The picture is assumed to run to the end of the egress.
+- Switching DTX off in the browser is deliberately not built (it costs bandwidth).
+- Tests: `ParticipantAudioDriftTest`, `ParticipantFileInputsTest`, `SegmentArgumentBuilderTest`, `SpeechActivityTest`, `RecordingPollerTest` (P1, P2, P4), `RecordingParticipantDriftIntegrationTest` (positive, counter-check, rule), `AvEventMeasurement` shared by both participant integration tests.
+
 ### V1.9.153 -- Encounter room: seats and drawing line up, the podium is no longer hidden
 
 Client, CSS and asset fix only: no migration, no RPC change, no new text, no new environment variable. Seat ids, table assignment and every accessible name are untouched.

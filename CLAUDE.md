@@ -154,7 +154,7 @@ Details: `docs/architecture/time-and-timezones.adoc`. Kurzregeln:
 
 - `conference_recording_speaker_span` (die geglättete Sprecher-Zeitleiste einer Aufzeichnung) wird **nur** von `RecordingSpeakerTimelineStore` gelesen und geschrieben (Tripwire `SpeakerTimelineAccessTripwireTest`), ist aus dem Gesamt-Backup ausgenommen (`OrganizationSchemaCatalog.EXCLUDED_TABLES`), wird zusammen mit den Rohdateien gelöscht (Erfolgszweig mit `keepRaw=false`, `deleteRecording`) und ist über keine API sichtbar. Sie trägt weder Namen noch Identitäten; Personen sind die opake ID der ersten Spurzeile.
 - **Keine Identitäten, Namen, Dateinamen oder Pfade in Logs** der Sprecheranalyse, der Zeitleiste und des Sprecher-Layouts des Composers (nur Zählwerte); die Dateinamen im TRACK-Modus enthalten die Identität.
-- Bild und Zeitleiste nutzen **dieselbe Uhr**: Versatz und `atempo` kommen aus `AudioWallClock` (Composer und `SpeechActivity`). Die Glättung (`SpeakerStageSmoother`) ist dieselbe Datei für die Live-Ansicht und die Aufzeichnung.
+- Bild und Zeitleiste nutzen **dieselbe Uhr**: Versatz und `atempo` kommen aus `AudioWallClock` (Composer und `SpeechActivity`); die `atempo`-Entscheidung kommt **nur** aus `RecordingComposeAudioInput.effectiveTempo()` (Composer und Zeitleiste, V1.9.154). Die Glättung (`SpeakerStageSmoother`) ist dieselbe Datei für die Live-Ansicht und die Aufzeichnung.
 - Im Client werden Kachelelemente (und ihre `<video>`) nur **umgehängt**, nie neu erzeugt (`ConferenceViewStage.apply`); `applyTileGrid` schreibt nur Zahlen. Gespeichert wird im Browser nur GALLERY/SPEAKER, nie eine Person. Details: `docs/architecture/conference-views.adoc`, `docs/architecture/conference-recording.adoc`.
 
 ## Reaktionen und Wortmeldeliste (V1.9.127)

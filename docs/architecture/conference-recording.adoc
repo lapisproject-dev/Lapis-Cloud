@@ -114,7 +114,7 @@ In TRACK mode the audio inputs are the MICROPHONE tracks, in PARTICIPANT mode th
 
 *Persons are opaque.* A person is identified by the id of their first track row (the first CAMERA row, else the first MICROPHONE row), never by an identity or a name. The composer, the edit decision list and the stored rows only ever see that id.
 
-*Stored once, reused.* The smoothed spans are stored in `conference_recording_speaker_span` (V94: recording, track row, `start_ms`, `end_ms`; `ON DELETE CASCADE` on both foreign keys), `conference_recording.speaker_timeline_computed` marks it. `RecordingSpeakerTimelineStore` is the only reader and writer (a tripwire pins that); a recompute reads the stored timeline and does not analyse again.
+*Stored once, reused.* The smoothed spans are stored in `conference_recording_speaker_span` (V94: recording, track row, `start_ms`, `end_ms`; `ON DELETE CASCADE` on both foreign keys), `conference_recording.speaker_timeline_computed` marks it. `RecordingSpeakerTimelineStore` is the only reader and writer (a tripwire pins that); a recompute reads the stored timeline and does not analyse again -- except for a recording whose person file needs the drift correction (V1.9.154, see <<participant-composition>>): then it is analysed again in corrected time and replaced, falling back to the stored one if the analysis is impossible.
 *Failure is not failure.* If the analysis is not available or fails, that composition falls back to the plain grid and the recording still ends READY (warning with counts only).
 
 === Privacy: speaker timeline
@@ -227,18 +227,37 @@ activityDiagram(name = "Participant egress mode") {
   offset back unnoticed. The consequence is that the person is missing from the recording until capacity is free.
 * `maxTracks` counts every row, person files included.
 
-=== Composition: per-stream offsets, no `atempo`
+[[participant-composition]]
+=== Composition: per-stream offsets, conditional drift correction (V1.9.154)
 
 `ParticipantFileInputs.build` turns one person file into one video input and one audio input that point at the same file. `FfmpegSegmentedComposer` remuxes `0:v:0` and `0:a:0` into separate files, so media time 0 of each stream is *its own first packet*.
 In a real egress file the two streams do not start together: measured on a real `livekit/egress:v1.13.0` file (2026-10-11) video started 1.2 to 1.7 s after the audio. Giving both inputs the file's offset would therefore put the person 1.2 to 1.7 s out of sync inside the file.
 
 * `fileZero = min(videoStart, audioStart)` (`ffprobe stream.start_time`, `RecordingMediaProber.probeStreamStartTimes`); `videoOffset = fileOffset + (videoStart - fileZero)`, `audioOffset = fileOffset + (audioStart - fileZero)`. Only the difference counts, so a common shift or the AAC priming
   (about -0.02 s) changes nothing. A stream whose start could not be measured is taken to start with the file (and a warning says so when neither could be measured).
-* The audio input has no wall-clock duration, so the composer never applies `atempo`: stretching only the audio would destroy the synchronicity the muxer created inside the file; the egress already resamples onto its pipeline clock.
+* The audio input has no wall-clock duration, so the track-mode `atempo` rule never applies to it. The only stretching of a person file is the drift correction below.
 * The file's `file_results[].started_at` (relative to the recording's earliest track) is the file offset; `t0` and the output length are computed as before, so recordings that mix person files and screen shares need no special case.
 * *Who is in the picture.* The video ranges are the packet ranges of the video stream (gaps of at least 1 s) minus the black stretches (below). A file without a video stream contributes audio only; a picture that is black throughout contributes no video input at all
   (an empty range list would mean "not measured, visible throughout" to the composer). If nothing visible is left in the whole recording the composition ends with `COMPOSE_FAILED`, as in the track mode.
 * *Recompute needs no special case.* `RecordingPoller.buildSpec` decides per ROW (`egress_kind`), not by the current configuration: a TRACK recording can be recomputed on an instance that now runs in participant mode and vice versa.
+
+==== Drift correction (V1.9.154)
+
+*Cause.* The LiveKit egress (v1.13.0) fills every Opus DTX gap of about 400 ms roughly 1.5 ms too long, so the audio of a person file is written about 0.34 % longer than the wall clock while the picture runs on the wall clock. Measured on 2026-10-17 in recording cc27c031 (ELB): audio 500.0 s in 21533 packets, picture 14950 frames = 498.33 s;
+1057 silence pieces of 0.381 s at a spacing of 0.4215 s; the clap in the picture at 470.93 s, in the sound at 472.43 s (the model predicts 1.57 s); the egress synchronizer itself reports +-5 ms.
+
+*Decision* (`ParticipantAudioDrift.tempoFor`, one pure function). The ratio comes from the END POINTS inside the container, not from `audioDur / videoDur`: `wallSpan = (videoStart + videoDur) - audioStart`, `ratio = audioDur / wallSpan`. The quotient of the durations would read the usual start offset
+(video 1.2 to 1.7 s after the audio) as drift. Assumption: both streams end together when the egress stops (egress log: last PTS 8:18.27 against 8:18.32). Only measured packet durations count, never a reported duration.
+Corrected only if all of this holds: audio, video and `wallSpan` are at least 30 s; `excess = audio - wallSpan` is at least `max(0.25 s, 0.05 % of wallSpan)` and at most 2 % of `wallSpan`. An audio that is SHORTER than the picture is never corrected (documented only).
+
+*Application.* `ParticipantFileInputs` puts the ratio into `RecordingComposeAudioInput.driftTempo`; `RecordingComposeAudioInput.effectiveTempo()` is the one `atempo` decision (drift ratio first, else the track-mode `AudioTempo` rule) and is used by the composer AND the speaker timeline.
+So the existing per-segment path does the work (`atempo` in the filter chain, `mediaStart = (from - offset) * ratio`); nothing is done at remux time, and the data ranges and the speech windows land on the wall clock with the same function. The output length stays `duration_ms`; at most about 1.7 s of still picture with silence can follow at the end.
+If the egress is fixed one day, the audio is no longer longer than the picture and the correction switches itself off.
+
+*Recompute and the stored speaker timeline.* The stored timeline of an existing recording was computed without the correction. If a person file needs the correction, "Neu berechnen" therefore analyses the microphones again and replaces the stored timeline (`RecordingSpeakerTimelineStore.replace`); if that analysis is impossible the stored timeline is used with a warning.
+
+*Measuring by hand* (no script in the repo, it would be untested): picture event = luma jump around the clap (`ffmpeg -i f.mp4 -vf signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=y.txt -an -f null -`); sound event = `astats` peak or `silencedetect`; silence statistics = `silencedetect=n=-85dB:d=0.04`. This allows re-measuring cc27c031 after "Neu berechnen" on ELB.
+*Proof.* `RecordingParticipantDriftIntegrationTest` (real `ffmpeg`): a synthetic file with the audio 0.34 % too long, three events across the file, every beep/flash pair within 150 ms after the correction, and a counter-check that the last beep is more than `0.8 * T * 0.0034` late without it.
 
 === Detecting "camera off"
 
@@ -391,13 +410,15 @@ The segmented composition is slower than the single graph: one remux of each fil
 * *No name tag in the recording.* The composed video shows pictures only, no participant names.
 * *Speaker view (V1.9.115):* see "Limits of the speaker timeline"; the ffmpeg chain was verified on synthetic inputs only (`RecordingSpeakerLayoutIntegrationTest`: tone-on-silence microphones, solid-colour cameras, the large tile switches within 150 ms of the second speaker's claim), not with a real meeting; the output stays 720p (the 1080p design measures are scaled).
 * *No grace period.* A camera switched off and on again within a second changes the layout twice; only a data gap of at least the probe threshold (1.0 s video, 0.5 s audio) counts as "off".
-* *`atempo` only corrects small drift* (ratio between 0.95 and 0.997 and more than one second difference); everything else is left alone.
+* *Drift correction of person files is linear (V1.9.154).* The DTX gaps, and so the drift, arise only in silence. With evenly spread silence the remaining error is about 0.07 s (cc27c031: 1.50 s measured against 1.57 s modelled at 471 s); with unevenly spread speech it is at worst about half of the total drift
+  (8 minutes, first half silent, second half speech: about 0.8 s in the middle). Not verified on a real recording until a recompute ran on ELB. It assumes the picture runs to the end of the egress. Switching DTX off in the browser is deliberately not built (it would cost bandwidth).
+* *`atempo` in track mode only corrects small drift* (ratio between 0.95 and 0.997 and more than one second difference); everything else is left alone.
 * *The sync proof is synthetic* (generated WebM/OGG inputs shaped like LiveKit's). The real ELB recordings were not listened to.
 * *The budget is shared.* Retry and recompute draw on the same 3 per 24 hours of one recording.
 * *The previous version stays* in the document store after a recompute (space).
 * *`-bf 0`* makes the video 5-10 % larger.
 * *Slower than before:* the composition is sequential (a remux of every file, then one `ffmpeg` run per segment and stream), one composition at a time system-wide.
-* *Gradle tests that need the `ffmpeg` binary* (`FfmpegCompositionIntegrationTest`, `RecordingSyncIntegrationTest`; `RecordingParticipantSyncIntegrationTest` needs only `libx264` and `aac`) run only where `ffmpeg` with `libx264`, `aac`, `libvpx` and `libopus` is installed (the Docker image's Ubuntu `ffmpeg` 6.1 and the CI runner's `ffmpeg` have them).
+* *Gradle tests that need the `ffmpeg` binary* (`FfmpegCompositionIntegrationTest`, `RecordingSyncIntegrationTest`; `RecordingParticipantSyncIntegrationTest` and `RecordingParticipantDriftIntegrationTest` need only `libx264` and `aac`) run only where `ffmpeg` with `libx264`, `aac`, `libvpx` and `libopus` is installed (the Docker image's Ubuntu `ffmpeg` 6.1 and the CI runner's `ffmpeg` have them).
 * After a successful retry with `LAPIS_RECORDING_KEEP_RAW=true` the raw files stay on disk; cleaning them up is an operator decision.
 * The backfill of V87 also classifies the cases "room gone while STOPPING" and "no resolvable video track" as `COMPOSE_FAILED` (same text); the raw-file check protects, but the classification is not exact.
 * There is no real progress, only an estimate; the estimate ignores a queue.
