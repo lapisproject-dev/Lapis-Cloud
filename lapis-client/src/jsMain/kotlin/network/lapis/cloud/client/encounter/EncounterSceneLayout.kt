@@ -32,9 +32,11 @@ internal const val ENCOUNTER_EVENT_VISIBLE_MS = 3_000
 /**
  * V1.9.62 Begegnungsraum (B2) -- the two layers of the room (design team, Duarte: scene and operation in separate layers):
  *
- * - **Layer 0, the scene** (`lapis-encounter-scene-layer` and `lapis-encounter-scene-rows`): a floor plan seen from above, drawn as CSS
- *   masks, `aria-hidden`: the drawings of the room template (V1.9.152, [EncounterRoomLayouts]: altar, podium, counter, board, plants) and
- *   one row of benches, chairs or stools tiled behind the seats. Switched off by "Szene aus", by forced-colours/high-contrast modes and
+ * - **Layer 0, the scene**: a floor plan seen from above, drawn as CSS masks, `aria-hidden`: the drawings of the room template (V1.9.152,
+ *   [EncounterRoomLayouts]: altar, podium, counter, board, plants) and, behind each block of three seats, a bench, three chairs or three
+ *   stools. Since V1.9.153 nothing is an absolute layer any more: the drawings stand in two strips IN THE FLOW of the stage (`lapis-encounter-scene-zone`,
+ *   above the pulpit and below the seats) and each block of seats draws its own tile (`.lapis-encounter-block::before`), so a drawing can never
+ *   drift against the seats or hide under the pulpit card. Switched off by "Szene aus", by forced-colours/high-contrast modes and
  *   removed from the picture when switched off. Which drawings are used comes from the room's template ([EncounterRoomLayout]); this class
  *   never asks the profile itself.
  * - **Layer 1, the stage** (`lapis-encounter-stage`): an opaque surface (`--lapis-encounter-surface`) with the pulpit, the stewards'
@@ -51,17 +53,13 @@ internal class EncounterSceneLayout(
 ) {
     val root: Div = parent.div(className = "lapis-encounter lapis-encounter--layout-${layoutCssKey(roomLayout)}")
 
-    init {
-        // V1.9.152: layer 0 -- the drawings of the room template (altar, podium, counter, board, plants), `aria-hidden`, drawn by the very renderer the
-        // previews of the room form use. It must be the first child of the room, below the stage.
-        renderLayoutScene(parent = root, layout = roomLayout)
-    }
-
     private val stage: Div = root.div(className = "lapis-encounter-stage")
 
     init {
         // V1.9.152: the ONE spoken sentence about the template ("Raumvorlage: Saal"), first in the stage, not a live region (it is read, never announced).
         stage.div(layoutRoomSentence(roomLayout), className = "visually-hidden lapis-encounter-room-sentence")
+        // V1.9.153: the front strip of the template (altar, podium, counter, board) stands in the flow ABOVE the pulpit card, `aria-hidden`.
+        renderSceneZone(parent = stage, layout = roomLayout, zone = EncounterZone.FRONT)
     }
 
     /** The pulpit region; the keyboard focus lands here after entering (`tabindex=-1`: focusable by script, not a tab stop). */
@@ -75,20 +73,27 @@ internal class EncounterSceneLayout(
 
     /** V1.9.80: the home of the tables (between the pulpit and the pews); hidden unless the room has tables. */
     val tablesHost: Div = stage.div(className = "lapis-encounter-tables-host")
-    private val benchesFrame: Div = stage.div(className = "lapis-encounter-benches-frame")
-    private val rowsLayer: Div = benchesFrame.div(className = "lapis-encounter-scene lapis-encounter-scene-rows")
 
-    /** V1.9.79: "Tippen Sie auf einen freien Platz ..." -- shown only to a congregation person who has not chosen a seat. */
-    private val seatHint: Tag = benchesFrame.tag(TAG.P, content = terms.chooseSeatHint(), className = "lapis-encounter-seat-hint")
+    /** V1.9.79: "Tippen Sie auf einen freien Platz ..." -- shown only to a congregation person who has not chosen a seat. V1.9.153: a line of the stage, not inside the seat frame. */
+    private val seatHint: Tag = stage.tag(TAG.P, content = terms.chooseSeatHint(), className = "lapis-encounter-seat-hint")
+    private val benchesFrame: Div = stage.div(className = "lapis-encounter-benches-frame")
     private val benches: Div = benchesFrame.div(className = "lapis-encounter-benches")
     val seats: EncounterSeatGrid = EncounterSeatGrid(benches, terms)
 
+    init {
+        // V1.9.153: the back-wall strip (plants) stands in the flow BELOW the seats and is followed by the quiet lines, so no hint line lies on a drawing.
+        renderSceneZone(parent = stage, layout = roomLayout, zone = EncounterZone.REAR)
+    }
+
+    // The audience-muted sentence describes the plan: a visible, quiet line (not only for screen readers).
+    private val seatNote: Tag = stage.tag(TAG.P, content = terms.audienceMutedNote(), className = "lapis-encounter-seat-note")
+
     /** V1.9.79: the people without a seat -- a quiet row of symbols below the pews (not operable). */
-    val unseated: EncounterUnseatedRow = EncounterUnseatedRow(benchesFrame, terms)
+    val unseated: EncounterUnseatedRow = EncounterUnseatedRow(stage, terms)
 
     /** V1.9.79: gives up the viewer's own seat; a SECONDARY button (R36), visible only while the viewer sits. */
     val releaseSeatButton: Button =
-        benchesFrame.actionButton(
+        stage.actionButton(
             ActionIcon.RELEASE_SEAT,
             terms.releaseSeatLabelContent(),
             style = ButtonStyle.OUTLINESECONDARY,
@@ -96,12 +101,12 @@ internal class EncounterSceneLayout(
         )
 
     init {
-        rowsLayer.setAttribute("aria-hidden", "true")
         // The decorative masks: set inline because the bundler would try to resolve a `url()` in theme.css at build time, and the files are
-        // runtime assets served from `/assets` (staged by `stageVideoEffectAssets`). Size, repeat, colour and visibility come from theme.css
-        // through the custom properties below. The tile behind the seats and the drawing behind a table card come from the template.
+        // runtime assets served from `/assets` (staged by `stageVideoEffectAssets`). Size, colour and visibility come from theme.css
+        // through the custom properties below. The tile behind each block of seats and the drawing behind a table card come from the template.
         val spec = EncounterRoomLayouts.spec(roomLayout)
-        rowsLayer.setStyle("--lapis-enc-scene-row", "url(\"${encounterObjectPath(spec.row)}\")")
+        benches.setStyle("--lapis-enc-scene-block", "url(\"${encounterObjectPath(spec.block)}\")")
+        if (spec.stretch) benches.addCssClass("lapis-encounter-benches--stretch")
         tablesHost.setStyle("--lapis-enc-table-art", "url(\"${encounterObjectPath(spec.table)}\")")
         if (spec.tableColumns > 0) tablesHost.setStyle("--lapis-enc-table-cols", spec.tableColumns.toString())
         tablesHost.addCssClass("lapis-encounter-tables-host--${layoutCssKey(roomLayout)}")
@@ -114,9 +119,7 @@ internal class EncounterSceneLayout(
         seatHint.hide()
         releaseSeatButton.addCssClass("lapis-encounter-seat-release")
         releaseSeatButton.hide()
-        // The audience-muted sentence describes the plan: a visible, quiet line (not only for screen readers).
-        val note = benchesFrame.tag(TAG.P, content = terms.audienceMutedNote(), className = "lapis-encounter-seat-note")
-        note.setAttribute("id", SEAT_NOTE_ID)
+        seatNote.setAttribute("id", SEAT_NOTE_ID)
         benches.setAttribute("aria-describedby", SEAT_NOTE_ID)
     }
 

@@ -87,23 +87,26 @@ class EncounterRoomLayoutSceneDomTest {
             combinations.forEach { (profile, layout) ->
                 withRoom(profile, layout) { element ->
                     val spec = EncounterRoomLayouts.spec(layout)
-                    val layer = assertNotNull(element.querySelector(".lapis-encounter-scene-layer") as? HTMLElement)
-                    assertEquals("true", layer.getAttribute("aria-hidden"))
-                    val drawings = layer.allOf(".lapis-encounter-scene-object")
+                    val zones = element.allOf(".lapis-encounter-scene-zone")
+                    assertEquals(2, zones.size, "$layout: a front and a rear strip")
+                    zones.forEach { assertEquals("true", it.getAttribute("aria-hidden")) }
+                    assertNull(element.querySelector(".lapis-encounter-scene-layer"), "$layout: no absolute layer in the room any more")
+                    val drawings = zones.flatMap { it.allOf(".lapis-encounter-scene-object") }
                     assertEquals(spec.objects.size, drawings.size, "$layout: one element per placed drawing")
                     assertTrue(drawings.size in 1..ENCOUNTER_LAYOUT_MAX_OBJECTS)
                     assertEquals(
                         drawings.size,
                         element.allOf(".lapis-encounter-scene-object").size,
-                        "no drawing outside the aria-hidden layer",
+                        "no drawing outside the aria-hidden strips",
                     )
                     drawings.forEach {
                         assertTrue(
                             it.style.getPropertyValue("--lapis-enc-object").contains("/assets/encounter-objects-v1/"),
                         )
                     }
-                    val rows = assertNotNull(element.querySelector(".lapis-encounter-scene-rows") as? HTMLElement)
-                    assertTrue(rows.style.getPropertyValue("--lapis-enc-scene-row").contains("/${spec.row.file}.svg"))
+                    val benches = assertNotNull(element.querySelector(".lapis-encounter-benches") as? HTMLElement)
+                    assertTrue(benches.style.getPropertyValue("--lapis-enc-scene-block").contains("/${spec.block.file}.svg"))
+                    assertEquals(spec.stretch, benches.classList.contains("lapis-encounter-benches--stretch"))
                     assertNotNull(
                         element.querySelector(".lapis-encounter--layout-${layoutCssKey(layout)}"),
                         "$layout: the root carries the template class",
@@ -118,8 +121,8 @@ class EncounterRoomLayoutSceneDomTest {
     fun szeneAus_takesTheDrawings_theTableDrawingAndTheSentenceWithIt(): Promise<Unit> =
         formTest {
             withRoom(EncounterProfile.ASSEMBLY, EncounterRoomLayout.FOYER) { element ->
-                val layer = assertNotNull(element.querySelector(".lapis-encounter-scene-layer") as? HTMLElement)
-                val rows = assertNotNull(element.querySelector(".lapis-encounter-scene-rows") as? HTMLElement)
+                val layer = assertNotNull(element.querySelector(".lapis-encounter-scene-zone--front") as? HTMLElement)
+                val rows = assertNotNull(element.querySelector(".lapis-encounter-scene-zone--rear") as? HTMLElement)
                 val sentence = assertNotNull(element.querySelector(".lapis-encounter-room-sentence") as? HTMLElement)
                 assertTrue(layer.isShown() && rows.isShown(), "the scene is on")
                 element.barControl("Szene ausblenden").click()
@@ -173,10 +176,7 @@ class EncounterRoomLayoutSceneDomTest {
             }
             val selectors = hiding.joinToString(",")
             assertTrue(selectors.contains(".lapis-encounter-scene-layer"), "the drawings are hidden in high contrast: $selectors")
-            assertTrue(
-                selectors.contains(".lapis-encounter-scene,") || selectors.contains(".lapis-encounter-scene "),
-                "the row layer too: $selectors",
-            )
+            assertTrue(selectors.contains(".lapis-encounter-scene-zone"), "the strips of the room too: $selectors")
             assertFalse(selectors.contains("room-sentence"), "the sentence stays for people who use a screen reader: $selectors")
         }
 }

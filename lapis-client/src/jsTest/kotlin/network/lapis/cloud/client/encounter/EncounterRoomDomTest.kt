@@ -511,8 +511,9 @@ class EncounterRoomDomTest {
             window.localStorage.removeItem(ENCOUNTER_SCENE_OFF_KEY)
             try {
                 withRoom(testEntry(), sixPeople) { _, element ->
-                    val scene = assertNotNull(element.querySelector(".lapis-encounter-scene") as? HTMLElement)
-                    assertEquals("true", scene.getAttribute("aria-hidden"))
+                    val strips = element.allOf(".lapis-encounter-scene-zone")
+                    assertEquals(2, strips.size)
+                    strips.forEach { assertEquals("true", it.getAttribute("aria-hidden")) }
                     val root = assertNotNull(element.querySelector(".lapis-encounter") as? HTMLElement)
                     assertFalse(root.classList.contains("lapis-encounter--scene-off"))
                     assertEquals("false", element.barControl("Szene ausblenden").getAttribute("aria-pressed"))

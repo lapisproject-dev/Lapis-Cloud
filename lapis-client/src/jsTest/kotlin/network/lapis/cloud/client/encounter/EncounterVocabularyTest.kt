@@ -90,9 +90,9 @@ class EncounterVocabularyTest {
     fun theObjectsOfTheRoomTemplates_liveInTheVersionedFolder_andEveryTemplateHasItsOwnRowTile() {
         assertEquals("/assets/encounter-objects-v1/altar.svg", encounterObjectPath(EncounterObjectKind.ALTAR))
         assertEquals("/assets/encounter-objects-v1/table-round.svg", encounterObjectPath(EncounterObjectKind.TABLE_ROUND))
-        assertEquals(EncounterObjectKind.ROW_PEW, EncounterRoomLayouts.spec(EncounterRoomLayout.NAVE).row)
-        assertEquals(EncounterObjectKind.ROW_STOOL, EncounterRoomLayouts.spec(EncounterRoomLayout.FOYER).row)
-        assertEquals(EncounterObjectKind.ROW_CHAIR, EncounterRoomLayouts.spec(EncounterRoomLayout.HALL).row)
+        assertEquals(EncounterObjectKind.BLOCK_PEW, EncounterRoomLayouts.spec(EncounterRoomLayout.NAVE).block)
+        assertEquals(EncounterObjectKind.BLOCK_STOOL, EncounterRoomLayouts.spec(EncounterRoomLayout.FOYER).block)
+        assertEquals(EncounterObjectKind.BLOCK_CHAIR, EncounterRoomLayouts.spec(EncounterRoomLayout.HALL).block)
         assertEquals(EncounterObjectKind.TABLE_LONG, EncounterRoomLayouts.spec(EncounterRoomLayout.SMALL_GROUP).table)
         // no template still points at the V1.9.67 folder
         EncounterObjectKind.entries.forEach { assertFalse(encounterObjectPath(it).contains("encounter-themes")) }

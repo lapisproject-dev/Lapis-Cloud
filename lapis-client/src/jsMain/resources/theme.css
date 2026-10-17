@@ -3307,13 +3307,13 @@ html .form-select.is-invalid:focus {
   align-items: stretch;
 }
 
-/* Raster der Plaetze und Mass der Szenen-Kachel (`row.svg`, 352 x 56): ein DOM-Test prueft, dass beides zu EncounterSeating passt. */
+/* Raster der Plaetze und Mass der Block-Kachel (`block-*.svg`, 160 x 48 = drei Plaetze plus zwei Luecken; 140 px auf dem Telefon). Die Kachel haengt
+   seit V1.9.153 am Block selbst (`.lapis-encounter-block::before`), nicht mehr an einem Rahmen hinter den Reihen; `EncounterLayoutGeometryTest` misst das. */
 .lapis-encounter {
   --lapis-enc-seat: 48px;
   --lapis-enc-seat-gap: 8px;
   --lapis-enc-aisle: 32px;
-  --lapis-enc-row-w: 352px;
-  --lapis-enc-row-h: 56px;
+  --lapis-enc-block-tile-w: 160px;
   position: relative;
   display: flex;
   flex: 1 1 auto;
@@ -3326,13 +3326,32 @@ html .form-select.is-invalid:focus {
   overflow: hidden;
 }
 
-/* Die Szene: Ebene 0 -- die Zeichnungen der Raumvorlage (V1.9.152: Altar, Podium, Tresen, Tafel, Pflanzen; `encounter-objects-v1`) vorne einmal oben bzw.
-   hinten unten, dahinter die Reihen als Kachel hinter den Plaetzen. Die Maske selbst (`--lapis-enc-object` / `--lapis-enc-scene-row`) setzt
-   EncounterSceneLayout bzw. `renderLayoutScene` inline: ein `url()` hier wuerde der Bundler zur Build-Zeit aufloesen, die Dateien sind aber
-   Laufzeit-Assets unter `/assets`. Farben nur aus den zwei Tokens `--lapis-encounter-scene-ink` / `-tint`; nichts animiert. */
-.lapis-encounter-scene {
-  background-color: var(--lapis-encounter-scene-ink);
+/* Die Szene: Ebene 0 -- die Zeichnungen der Raumvorlage (V1.9.152: Altar, Podium, Tresen, Tafel, Pflanzen; `encounter-objects-v1`). Seit V1.9.153 stehen sie
+   in zwei Streifen IM FLUSS der Buehne (vorne ueber der Kanzel, hinten unter den Plaetzen und ihren Hinweisen), nicht mehr als absolute Ebene hinter der
+   deckenden Kanzel-Karte; hinter jedem Dreier-Block der Plaetze zeichnet dessen `::before` die Baenke, Stuehle oder Hocker. Die Maske selbst
+   (`--lapis-enc-object` / `--lapis-enc-scene-block`) setzt EncounterSceneLayout bzw. `renderLayoutScene` inline: ein `url()` hier wuerde der
+   Bundler zur Build-Zeit aufloesen, die Dateien sind aber Laufzeit-Assets unter `/assets`. Farben nur aus den zwei Tokens
+   `--lapis-encounter-scene-ink` / `-tint`; nichts animiert. */
+.lapis-encounter-scene-zone {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
   pointer-events: none;
+}
+
+.lapis-encounter-scene-zone--front {
+  height: 72px;
+}
+
+.lapis-encounter-scene-zone--rear {
+  height: 48px;
+}
+
+.lapis-encounter-scene-zone .lapis-encounter-scene-object {
+  inset-block: 0;
+  height: 100%;
+  -webkit-mask-position: center bottom;
+  mask-position: center bottom;
 }
 
 .lapis-encounter-scene-layer {
@@ -3350,11 +3369,12 @@ html .form-select.is-invalid:focus {
   pointer-events: none;
 }
 
-.lapis-encounter-scene-object--front {
+/* Nur die Vorschau im Raumformular (absolute Ebene); im Raum gilt die Streifen-Regel oben. */
+.lapis-encounter-scene-layer .lapis-encounter-scene-object--front {
   inset-block-start: 0;
 }
 
-.lapis-encounter-scene-object--rear {
+.lapis-encounter-scene-layer .lapis-encounter-scene-object--rear {
   inset-block-end: 0;
 }
 
@@ -3365,43 +3385,73 @@ html .form-select.is-invalid:focus {
   }
 }
 
-/* Die Reihen-Vorschau der Raumvorlagen-Kachel im Raumformular (zwei Reihen derselben Kachel wie hinter den Plaetzen). */
-.lapis-encounter-preview-rows {
+/* Die Zeichnung eines Dreier-Blocks: haengt am Block, nicht am Rahmen -- Sitzmitte und Stuhlmitte koennen nicht auseinanderlaufen. */
+.lapis-encounter-block {
+  position: relative;
+}
+
+.lapis-encounter-block::before {
+  content: "";
   position: absolute;
-  inset-inline: 0;
-  inset-block-end: 0;
-  height: calc(var(--lapis-enc-preview-row-h) * 2);
+  inset: 0;
+  z-index: 0;
   background-color: var(--lapis-encounter-scene-ink);
-  -webkit-mask: var(--lapis-enc-scene-row) top center / var(--lapis-enc-preview-row-w) var(--lapis-enc-preview-row-h) repeat-y;
-  mask: var(--lapis-enc-scene-row) top center / var(--lapis-enc-preview-row-w) var(--lapis-enc-preview-row-h) repeat-y;
+  -webkit-mask: var(--lapis-enc-scene-block) left top / var(--lapis-enc-block-tile-w) 100% no-repeat;
+  mask: var(--lapis-enc-scene-block) left top / var(--lapis-enc-block-tile-w) 100% no-repeat;
   pointer-events: none;
 }
 
-.lapis-encounter-scene-rows {
+/* Die Bank ist eine lange Zeichnung: sie wird auf die Blockbreite gestreckt. */
+.lapis-encounter-benches--stretch .lapis-encounter-block::before {
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+/* Die Vorschau der Raumvorlagen-Kachel im Raumformular: zwei Reihen derselben Bloecke, mit Attrappen statt Knoepfen (reine Dekoration). */
+.lapis-encounter-preview-seats {
+  --lapis-enc-seat: 48px;
+  --lapis-enc-seat-gap: 8px;
+  --lapis-enc-aisle: 32px;
+  --lapis-enc-block-tile-w: 160px;
   position: absolute;
-  inset: 0;
-  -webkit-mask: var(--lapis-enc-scene-row) top center / var(--lapis-enc-row-w) var(--lapis-enc-row-h) repeat-y;
-  mask: var(--lapis-enc-scene-row) top center / var(--lapis-enc-row-w) var(--lapis-enc-row-h) repeat-y;
+  inset-inline: 0;
+  inset-block-end: 0;
+  display: flex;
+  justify-content: center;
+  transform: scale(var(--lapis-enc-preview-scale, 1));
+  transform-origin: center bottom;
+  pointer-events: none;
+}
+
+.lapis-encounter-seat-dummy {
+  box-sizing: border-box;
+  width: var(--lapis-enc-seat);
+  height: var(--lapis-enc-seat);
+  border-radius: 50%;
+  background: var(--lapis-encounter-seat);
+  opacity: 0.6;
 }
 
 /* Der gesprochene Satz "Raumvorlage: ..." gehoert zur Szene: "Szene aus" nimmt ihn mit. */
-.lapis-encounter--scene-off .lapis-encounter-scene,
 .lapis-encounter--scene-off .lapis-encounter-scene-layer,
+.lapis-encounter--scene-off .lapis-encounter-scene-zone,
 .lapis-encounter--scene-off .lapis-encounter-room-sentence {
   display: none;
 }
 
-.lapis-encounter--scene-off .lapis-encounter-table::before {
+.lapis-encounter--scene-off .lapis-encounter-table::before,
+.lapis-encounter--scene-off .lapis-encounter-block::before {
   content: none;
 }
 
 /* Hoher Kontrast und erzwungene Farben: das Motiv verschwindet von selbst, es darf mit dem Inhalt nie konkurrieren. */
 @media (forced-colors: active), (prefers-contrast: more) {
-  .lapis-encounter-scene,
-  .lapis-encounter-scene-layer {
+  .lapis-encounter-scene-layer,
+  .lapis-encounter-scene-zone {
     display: none;
   }
 
+  .lapis-encounter-block::before,
   .lapis-encounter-table::before {
     content: none;
   }
@@ -3471,9 +3521,9 @@ html .form-select.is-invalid:focus {
   min-height: 0;
 }
 
-/* Kanzel/Podium: 16:9, so gross wie die Raumhoehe es zulaesst (hoechstens 62 % der Raumhoehe), nie breiter als der Raum. */
+/* Kanzel/Podium: 16:9, so gross wie die Raumhoehe es zulaesst (hoechstens 56 % der Raumhoehe; V1.9.153: 62 % liessen der Buehnenzeile darueber zu wenig Platz), nie breiter als der Raum. */
 .lapis-encounter-pulpit {
-  width: min(100%, calc(0.62 * var(--lapis-encounter-room-h) * 16 / 9));
+  width: min(100%, calc(0.56 * var(--lapis-encounter-room-h) * 16 / 9));
   max-width: 1600px;
   flex: 0 0 auto;
   padding: 0.5rem;
@@ -3699,6 +3749,10 @@ html .form-select.is-invalid:focus {
   gap: var(--lapis-enc-seat-gap);
 }
 
+.lapis-encounter-block > .lapis-encounter-seat {
+  z-index: 1;
+}
+
 /* V1.9.79 (Stufe 2a): ein Platz ist ein echter Knopf (`<button>`), mindestens 44 x 44 px. Frei = gestrichelter Kreis (Rahmen in der Textfarbe,
    damit die Kontur gegen die Flaeche mindestens 3:1 hat), besetzt = gefuellter Kreis mit Initialen, eigener Platz = Doppelring plus das
    sichtbare Wort "Sie" (nie Farbe allein), ausstehend = gestrichelter Ring. Fokus: eigener, kraeftiger Ring statt des goldenen
@@ -3796,8 +3850,8 @@ html .form-select.is-invalid:focus {
 
 .lapis-encounter-seat-hint,
 .lapis-encounter-seat-note {
-  position: relative;
-  margin: 0 0 0.5rem;
+  position: static;
+  margin: 0;
   text-align: center;
   font-size: 0.875rem;
   color: var(--lapis-encounter-seat-text);
@@ -4333,8 +4387,15 @@ html .form-select.is-invalid:focus {
     --lapis-enc-seat: 44px;
     --lapis-enc-seat-gap: 4px;
     --lapis-enc-aisle: 16px;
-    --lapis-enc-row-w: 296px;
-    --lapis-enc-row-h: 48px;
+    --lapis-enc-block-tile-w: 140px;
+  }
+
+  .lapis-encounter-scene-zone--front {
+    height: 56px;
+  }
+
+  .lapis-encounter-scene-zone--rear {
+    height: 40px;
   }
 
   .lapis-encounter-seat {
@@ -4392,6 +4453,13 @@ html .form-select.is-invalid:focus {
     /* Ledger class E1: the fixed full-screen sheet is a modal surface. */
     overflow: auto;
     overscroll-behavior: contain;
+  }
+}
+
+/* V1.9.153: auf dem schmalsten Telefon wird die Buehnenzeile noch etwas flacher (nach der 768er-Regel, damit sie gewinnt). */
+@media (max-width: 479.98px) {
+  .lapis-encounter-scene-zone--front {
+    height: 48px;
   }
 }
 

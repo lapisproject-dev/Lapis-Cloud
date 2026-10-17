@@ -12,7 +12,7 @@ import java.security.MessageDigest
  * Lives in `lapis-server` because `jsTest` has no file system (same reason as [VideoBackgroundAssetsTest]).
  *
  * The contract (see `PROVENANCE.adoc`): vector only with a `viewBox`, no `<text>`, `<script>`, `<foreignObject>`, gradient, raster image or external reference,
- * at most 8 KB, the three row tiles are 352 x 56, every file has a provenance entry and a SHA-256 in `lapis-client/build.gradle.kts` that matches the file.
+ * at most 8 KB, the three block tiles are 160 x 48, every file has a provenance entry and a SHA-256 in `lapis-client/build.gradle.kts` that matches the file.
  */
 class EncounterObjectAssetsTest :
     FunSpec({
@@ -21,9 +21,8 @@ class EncounterObjectAssetsTest :
         val provenance = File(dir, "PROVENANCE.adoc")
         val gradleFile = File(clientDir, "build.gradle.kts")
 
-        val names =
-            listOf("altar", "podium", "plant", "counter", "whiteboard", "table-round", "table-long", "row-pew", "row-chair", "row-stool")
-        val rowTiles = listOf("row-pew", "row-chair", "row-stool")
+        val blockTiles = listOf("block-pew", "block-chair", "block-stool")
+        val names = listOf("altar", "podium", "plant", "counter", "whiteboard", "table-round", "table-long") + blockTiles
 
         fun svg(name: String) = File(dir, "$name.svg")
 
@@ -64,8 +63,21 @@ class EncounterObjectAssetsTest :
             }
         }
 
-        test("the three row tiles are 352 x 56, exactly one row of seats") {
-            rowTiles.forEach { svg(it).readText() shouldContain "viewBox=\"0 0 352 56\"" }
+        test("the three block tiles are 160 x 48, exactly one block of three seats") {
+            blockTiles.forEach { svg(it).readText() shouldContain "viewBox=\"0 0 160 48\"" }
+        }
+
+        test("the chairs and stools are centred on the seats of a block (x 24, 80, 136 and y 24)") {
+            val chairs = Regex("<rect x=\"(\\d+)\" y=\"(\\d+)\" width=\"36\" height=\"36\"").findAll(svg("block-chair").readText()).toList()
+            chairs.map { it.groupValues[1].toInt() + 18 } shouldBe listOf(24, 80, 136)
+            chairs.map { it.groupValues[2].toInt() + 18 }.distinct() shouldBe listOf(24)
+            val stools = Regex("<circle cx=\"(\\d+)\" cy=\"(\\d+)\" r=\"17\"").findAll(svg("block-stool").readText()).toList()
+            stools.map { it.groupValues[1].toInt() } shouldBe listOf(24, 80, 136)
+            stools.map { it.groupValues[2].toInt() }.distinct() shouldBe listOf(24)
+        }
+
+        test("the pew covers the whole block (x 2 to 158)") {
+            svg("block-pew").readText() shouldContain "<rect x=\"2\" y=\"4\" width=\"156\" height=\"40\""
         }
 
         test("every drawing has its SHA-256 in the Gradle task and it matches the file") {

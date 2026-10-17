@@ -20,5 +20,5 @@ Technical contract of every theme asset:
 
 * Vector only (no raster image, no gradient, no `<script>`, no `<foreignObject>`, no external reference), at most 30 KB.
 * Used as a CSS *mask* (`theme.css`, `.lapis-encounter-scene-front` and `.lapis-encounter-scene-rows`): only the alpha channel counts, so the drawing uses two tones through opacity -- lines at 1.0, areas at about 0.3 -- and the colour comes from the design token `--lapis-encounter-scene-ink`.
-* The `row.svg` tile is 352 x 56 units, exactly the footprint of one row of seats (`--lapis-enc-row-w` x `--lapis-enc-row-h` in `theme.css`, checked against `EncounterSeating` by a DOM test). On a narrow screen the tile is scaled to 256 x 44 (`preserveAspectRatio="none"`); the benches are decorative, a slight mismatch with the narrower aisle is accepted.
+* The `row.svg` tile is 352 x 56 units, exactly the footprint of one row of seats (historic: since V1.9.153 nothing references these files any more). On a narrow screen the tile is scaled to 256 x 44 (`preserveAspectRatio="none"`); the benches are decorative, a slight mismatch with the narrower aisle is accepted.
 * Decorative only (`aria-hidden`); nothing the person has to read or press ever sits on it.

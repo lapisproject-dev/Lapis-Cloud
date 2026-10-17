@@ -6,6 +6,25 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.153 -- Encounter room: seats and drawing line up, the podium is no longer hidden
+
+Client, CSS and asset fix only: no migration, no RPC change, no new text, no new environment variable. Seat ids, table assignment and every accessible name are untouched.
+**Measured, not seen:** the geometry is verified by a new browser test (`EncounterLayoutGeometryTest`, real boxes in iframes of 360, 600, 768 and 1170 px) and by the asset test; nobody has looked at the result in a real browser window.
+
+#### What was wrong
+
+- The bench/chair drawing hung on the frame behind all rows, but the "choose a seat" hint stood inside that frame in front of the rows: the tile started about 29 px above the first seat (half a row at a 56 px pitch), plus a fixed 4 px between chair centre and seat centre. Depending on whether the hint was shown, the offset changed.
+- Below 768 px the seat grid is 296 x 48 but the tile stayed 352 x 56 and was stretched (`preserveAspectRatio="none"`): up to about 4.7 px off.
+- The drawings of the template lay in an absolute layer behind the opaque pulpit card; only their edges stuck out, so the podium looked covered. The hint lines, the muted-audience note and the rear plants shared space with the drawings without having any of their own.
+
+#### What changes
+
+- The drawing is now one tile per block of three seats (`block-pew|chair|stool.svg`, 160 x 48; 140 x 44 on a phone) drawn by the block itself (`.lapis-encounter-block::before`), so it cannot drift against the seats. The bench is stretched over the block. The three `row-*.svg` files are deleted (an already open v0.37.0 tab loses its bench drawing until it reloads; the files were served only for one release).
+- The front drawings and the rear drawings stand in two strips in the flow of the stage (72/56/48 px above the pulpit card, 48/40 px below the seats); the hint, the note and "Platz freigeben" are lines of the stage and no longer lie on a drawing. The pulpit card is at most 56 % (was 62 %) of the room height so the strip above it fits.
+- The preview tiles of the room form show dummy seats in the same block structure instead of the old tiled row.
+- Tests: `EncounterLayoutGeometryTest` (new), `EncounterObjectAssetsTest` (block geometry), existing scene and stage tests moved to the new structure.
+- Not changed: the Stufe-2c rollout still needs a release and a rollout (nothing was released or deployed).
+
 ## [0.37.0] — 2026-10-17
 
 Feature release on top of `[0.36.0]` (V1.9.139 -- V1.9.152, including a CI change for the PostgreSQL test image and two small fix waves): **messages on a confirmed carpool ride** between the driver and one passenger, **country of residence and nationality** at registration and in the member roster, **camera filters** (light, colour and skin smoothing in your own camera image, plus the bundled face model), an **optional recording of the pulpit** in the encounter space, an **optional member finder** (server, client and a privacy-page section), **encounter entry notices administered per instance** (the built-in notice now states what everybody present really sees), **fixed room templates** (nave, foyer and cafe, hall, small-group room) and a **load-test tool with a run sheet** for the encounter tables. Five additive migrations: **`V105`** (carpool messages), **`V106`** (pulpit recording), **`V107`** (member finder), **`V108`** (encounter entry notices as agreement texts), **`V109`** (room template). No new required environment variable. **Behaviour changes first:** non-members (guests and friends) must acknowledge the changed entry notice of an encounter room again on their next entry (V1.9.148); `/datenschutz` now reads one switch from the database per request and is cached for 5 minutes instead of an hour (V1.9.147); the conference switch "Gäste anderer Server zulassen" is now called "Gäste und Freunde zulassen" (V1.9.139); the public event page reads description first, registration second, and the pages of the event family carry `noindex` (V1.9.140); the member roster shows a country column and filter for BOARD/ADMIN (V1.9.141). **Switched off until somebody switches them on:** the member finder and the pulpit recording (instance switch by an ADMIN after an operator notice), the camera filters (off until a member switches them on). **Not verified:** none of it has been seen by real people in a real browser window or call; the pulpit recording and the load-test media layer have never run against a real LiveKit or egress service; the load-test tool has never run against a real instance; the skin smoothing was never judged on real faces; the room drawings were never looked at; the translations were written by the model; the privacy-page section, the operator notices and every agreement or consent text are drafts that no lawyer has reviewed. The sections below hold the honest limitations of each wave.

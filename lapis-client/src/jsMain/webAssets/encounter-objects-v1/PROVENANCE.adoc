@@ -2,7 +2,7 @@
 
 All ten assets are original drawings made for Lapis Cloud (V1.9.152, "Begegnungsraum Stufe 2c", the fixed room templates): objects of a floor plan seen from above.
 They are not derived from any photograph, font, clip art or third-party artwork. They are licensed under the licence of this repository.
-Seven of them were drawn for this directory, `row-pew.svg` and `row-chair.svg` are the two row tiles of `encounter-themes/` (V1.9.67) under their new names, `row-stool.svg` was drawn in the same grid.
+Seven of them were drawn for this directory, the three block tiles (`block-pew.svg`, `block-chair.svg`, `block-stool.svg`, V1.9.153) replace the row tiles of V1.9.152 and are drawn in the grid of one block of three seats.
 
 [cols="2,3"]
 |===
@@ -15,14 +15,14 @@ Seven of them were drawn for this directory, `row-pew.svg` and `row-chair.svg` a
 | `whiteboard.svg`   | The board of the small-group template, drawn with abstract strokes (no letters).
 | `table-round.svg`  | A round table top; drawn behind a table card of the foyer and hall templates.
 | `table-long.svg`   | A long table top; drawn behind a table card of the small-group template.
-| `row-pew.svg`      | One row of pews (352 x 56): a bench per block, aisle in the middle.
-| `row-chair.svg`    | One row of chairs (352 x 56): three chairs per block, aisle in the middle.
-| `row-stool.svg`    | One row of stools (352 x 56): three stools per block, aisle in the middle.
+| `block-pew.svg`    | One block of pews (160 x 48): a single bench spanning the three seats of the block.
+| `block-chair.svg`  | One block of chairs (160 x 48): three chairs, centred on the three seats.
+| `block-stool.svg`  | One block of stools (160 x 48): three stools, centred on the three seats.
 |===
 
 Technical contract of every object asset (checked by `EncounterObjectAssetsTest` and, for the SHA-256 values, by the Gradle task `stageVideoEffectAssets` on the staging AND on the webpack copy):
 
 * Vector only: a `viewBox`, no raster image, no gradient, no `<text>`, no `<script>`, no `<foreignObject>`, no external reference; at most 8 KB.
-* Used as a CSS *mask* (`theme.css`, `.lapis-encounter-scene-object`, `.lapis-encounter-scene-rows`, `.lapis-encounter-table::before`): only the alpha channel counts, so the drawing uses two tones through opacity -- lines at 1.0, areas at about 0.3 -- and the colour comes from the design token `--lapis-encounter-scene-ink`.
-* The three row tiles are 352 x 56 units, exactly the footprint of one row of seats (`--lapis-enc-row-w` x `--lapis-enc-row-h` in `theme.css`, checked against `EncounterSeating` by a DOM test).
+* Used as a CSS *mask* (`theme.css`, `.lapis-encounter-scene-object`, `.lapis-encounter-block::before`, `.lapis-encounter-table::before`): only the alpha channel counts, so the drawing uses two tones through opacity -- lines at 1.0, areas at about 0.3 -- and the colour comes from the design token `--lapis-encounter-scene-ink`.
+* The three block tiles are 160 x 48 units, exactly the footprint of one block of three seats (48 px seats, 8 px gap; 140 x 44 on a phone, where the tile is scaled to the block). The tile hangs on the block itself (`.lapis-encounter-block::before`), so it can never drift from the seats; `EncounterLayoutGeometryTest` measures that.
 * Decorative only (`aria-hidden`); nothing the person has to read or press ever sits on it. A change of any file here needs a new SHA-256 in `lapis-client/build.gradle.kts` (`videoEffectExpectedSha256`).

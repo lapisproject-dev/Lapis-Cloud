@@ -228,7 +228,7 @@ val videoEffectStagedPaths =
         // V1.9.146: the face detector of the camera-filter skin smoothing (checksum below, provenance in mediapipe/PROVENANCE.adoc).
         "mediapipe/blaze_face_short_range.tflite",
     ) + videoEffectBackgroundIds.map { "video-backgrounds/$it.webp" } +
-        // V1.9.67 Begegnungsraum: the decorative floor-plan scenes (CSS masks, see theme.css `.lapis-encounter-scene-front`/`-rows`) ride the same staging.
+        // V1.9.67 Begegnungsraum: the decorative floor-plan scenes (CSS masks, see theme.css `.lapis-encounter-scene-front` and, since V1.9.153, `.lapis-encounter-block::before`) ride the same staging.
         listOf("church", "hall").flatMap { theme -> listOf("front", "row").map { part -> "encounter-themes/$theme/$part.svg" } } +
         // V1.9.152 Begegnungsraum Stufe 2c: the ten objects of the fixed room templates (served immutable under `encounter-objects-v1`, checksums below).
         // The V1.9.67 `encounter-themes/*` files above stay staged (an old cached client still loads them); the new client no longer references them.
@@ -240,9 +240,9 @@ val videoEffectStagedPaths =
             "whiteboard",
             "table-round",
             "table-long",
-            "row-pew",
-            "row-chair",
-            "row-stool",
+            "block-pew",
+            "block-chair",
+            "block-stool",
         ).map { "encounter-objects-v1/$it.svg" } +
         // V1.9.97: the two recorded bells (served immutable under the versioned path `encounter-sounds-v1`).
         listOf("encounter-sounds-v1/call-bell.mp3", "encounter-sounds-v1/blessing-bell.mp3") +
@@ -265,9 +265,9 @@ val videoEffectExpectedSha256 =
         "encounter-objects-v1/whiteboard.svg" to "05e3fad20c266d6460ef2b420e5f628ff9506f7477c9d193bd88ed7e45d7f0a2",
         "encounter-objects-v1/table-round.svg" to "7e0e0e4e4463d2d28fb67155575d1beb35c4bf7919e075e9de1b4720874606d2",
         "encounter-objects-v1/table-long.svg" to "0772f7b3e8bb44d9b49c0d57f2985d65a49378e8e45b62b3473dfd445d7be8b0",
-        "encounter-objects-v1/row-pew.svg" to "e3e449919befe6aa97732df1e69eb45c4ad0b359503cb0e75e9220b5d7efcd08",
-        "encounter-objects-v1/row-chair.svg" to "9a97406df4b1f7bf4518558b602007168cee5b0b648eefaacfb864789dff10cf",
-        "encounter-objects-v1/row-stool.svg" to "e9bea5e3d883ef2a816f8249f80e28ad20134345468a71666fd75de858ff22ef",
+        "encounter-objects-v1/block-pew.svg" to "816e45e3f9b1e130c087e9effcd9a1a88d30f05d6d25cbab91f765147fb6800a",
+        "encounter-objects-v1/block-chair.svg" to "b17046387521a049a17d9f1b4876753e859ced6cbc0d64af0324a97269669777",
+        "encounter-objects-v1/block-stool.svg" to "31b63849d8d1986c07fc75fe91a5ef2e8eb6836e343fc84f322968f1b2f437b0",
         "encounter-sounds-v1/call-bell.mp3" to "b41a4b3e8a6bc490c815a3398767bf2b9a39ec9048692587f174398430434405",
         "encounter-sounds-v1/blessing-bell.mp3" to "7eebd9ed890b21ea230dfa9c3cec8ace23e728e77c1c8d8438abd22b4d91d267",
         "rnnoise-v1/rnnoise-worklet.js" to "1e06facbb3d7459b89769aa4247cd4b71263e6662e4da0c54763f3bf06f5893b",

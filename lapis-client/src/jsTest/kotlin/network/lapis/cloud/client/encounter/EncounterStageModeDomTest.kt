@@ -279,14 +279,15 @@ class EncounterStageModeDomTest {
                 EncounterProfile.ASSEMBLY to "podium",
             ).forEach { (profile, mainObject) ->
                 withRoom(profile) { _, element ->
-                    val layer = assertNotNull(element.querySelector(".lapis-encounter-scene-layer") as? HTMLElement)
-                    val rows = assertNotNull(element.querySelector(".lapis-encounter-scene-rows") as? HTMLElement)
+                    val layer = assertNotNull(element.querySelector(".lapis-encounter-scene-zone--front") as? HTMLElement)
+                    val rows = assertNotNull(element.querySelector(".lapis-encounter-scene-zone--rear") as? HTMLElement)
+                    val benches = assertNotNull(element.querySelector(".lapis-encounter-benches") as? HTMLElement)
                     assertEquals("true", layer.getAttribute("aria-hidden"))
                     assertEquals("true", rows.getAttribute("aria-hidden"))
                     val drawing = assertNotNull(layer.querySelector(".lapis-encounter-scene-object--$mainObject") as? HTMLElement)
                     assertTrue(drawing.style.getPropertyValue("--lapis-enc-object").contains("/encounter-objects-v1/$mainObject.svg"))
-                    val tile = if (profile == EncounterProfile.CHURCH_SERVICE) "row-pew" else "row-chair"
-                    assertTrue(rows.style.getPropertyValue("--lapis-enc-scene-row").contains("/encounter-objects-v1/$tile.svg"))
+                    val tile = if (profile == EncounterProfile.CHURCH_SERVICE) "block-pew" else "block-chair"
+                    assertTrue(benches.style.getPropertyValue("--lapis-enc-scene-block").contains("/encounter-objects-v1/$tile.svg"))
                     element.barControl("Szene ausblenden").click()
                     awaitUntil("the scene is gone") { element.querySelector(".lapis-encounter--scene-off") != null }
                     assertFalse(layer.isShown() || rows.isShown(), "both layers leave the picture")
@@ -297,7 +298,7 @@ class EncounterStageModeDomTest {
         }
 
     @Test
-    fun theSeatGridCss_matchesTheRowTileOfTheScene(): Promise<Unit> =
+    fun theSeatGridCss_matchesTheBlockTileOfTheScene(): Promise<Unit> =
         formTest {
             assertTrue(stylesLoaded)
             withRoom(EncounterProfile.CHURCH_SERVICE) { _, element ->
@@ -316,8 +317,8 @@ class EncounterStageModeDomTest {
                 val width =
                     blocks * perBlock * px("--lapis-enc-seat") + blocks * (perBlock - 1) * px("--lapis-enc-seat-gap") +
                         (blocks - 1) * px("--lapis-enc-aisle")
-                assertEquals(width, px("--lapis-enc-row-w"), "row tile width = footprint of one row of seats")
-                assertEquals(px("--lapis-enc-seat") + px("--lapis-enc-seat-gap"), px("--lapis-enc-row-h"), "row tile height = seat + gap")
+                val blockWidth = perBlock * px("--lapis-enc-seat") + (perBlock - 1) * px("--lapis-enc-seat-gap")
+                assertEquals(blockWidth, px("--lapis-enc-block-tile-w"), "block tile width = footprint of one block of three seats")
                 // the real boxes agree with the variables
                 val firstRow = element.querySelector(".lapis-encounter-row") as HTMLElement
                 assertEquals(width, firstRow.getBoundingClientRect().width, 1.0)
