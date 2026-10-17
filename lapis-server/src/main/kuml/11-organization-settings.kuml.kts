@@ -557,5 +557,16 @@ classDiagram(name = "OrganizationSettings") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "member_finder_notice_version"; "sqlType" to "VARCHAR(16)" }
         }
+        // Welle V1.9.156 (V110__event_capture.sql). The instance switch "recording and live streaming in event rooms" (NOT NULL, FALSE = off) and the
+        // version of the operator notice the admin acknowledged when switching it on (NULL until then). Both are NOT part of the generic
+        // updateOrganizationSettings write-set: settable ONLY through IOrganizationSettingsService.updateEventCaptureEnabled (ADMIN, audited).
+        attribute(name = "eventCaptureEnabled", type = "Boolean") {
+            defaultValue = "FALSE"
+            stereotype("Column") { "columnName" to "event_capture_enabled" }
+        }
+        attribute(name = "eventCaptureNoticeVersion", type = "String") {
+            multiplicity = Multiplicity(0, 1)
+            stereotype("Column") { "columnName" to "event_capture_notice_version"; "sqlType" to "VARCHAR(16)" }
+        }
     }
 }

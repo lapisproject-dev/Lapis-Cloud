@@ -2248,6 +2248,53 @@ class RecordingPollerTest :
         }
 
         test(
+            "PARTICIPANT mode (i): the identities of people WITHOUT an account in an event room (evg-<uuid> and the ticket form evg-<32 hex>) are recorded like any other (V1.9.156)",
+        ) {
+            val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()
+            val documentStorageRoot = Files.createTempDirectory("poller-test-docs").toFile()
+            try {
+                val member = createMember("poller-pe-i@example.org")
+                val (roomId, livekitRoomName) = createRoom(member)
+                val recordingId =
+                    createRecording(
+                        roomId,
+                        member,
+                        ConferenceRecordingStatus.RECORDING,
+                        egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                    )
+                val randomGuest = "evg-" + Uuid.random()
+                val ticketGuest = "evg-" + "0123456789abcdef0123456789abcdef"
+                (randomGuest.length <= 64 && ticketGuest.length <= 64) shouldBe true
+                val adminClient = FakeLiveKitAdminClient()
+                adminClient.participantsByRoom[livekitRoomName] =
+                    listOf(
+                        person("PA_g1", randomGuest, cam("TR_c1"), mic("TR_m1")),
+                        person("PA_g2", ticketGuest, mic("TR_m2")),
+                        person("PA_member", member.toString(), cam("TR_c3")),
+                    )
+                val egressClient = FakeLiveKitEgressClient()
+                buildPoller(
+                    adminClient,
+                    egressClient,
+                    FakeRecordingComposer(),
+                    hostRawRoot,
+                    documentStorageRoot,
+                    egressMode = ConferenceRecordingEgressMode.PARTICIPANT,
+                ).tickAndSettle()
+
+                egressClient.participantFileStarts.map { it.second }.toSet() shouldBe setOf(randomGuest, ticketGuest, member.toString())
+                val rows = trackRowsOf(recordingId)
+                rows shouldHaveSize 3
+                // the recording knows these people only by identity -- the same identity the nameless consent proof was keyed on (as a hash)
+                rows.map { it[ConferenceRecordingTrackTable.participantIdentity] }.toSet() shouldBe
+                    setOf(randomGuest, ticketGuest, member.toString())
+            } finally {
+                hostRawRoot.deleteRecursively()
+                documentStorageRoot.deleteRecursively()
+            }
+        }
+
+        test(
             "PARTICIPANT mode (h): the mode is per recording -- a running PARTICIPANT recording stays PARTICIPANT after the configuration changed to TRACK",
         ) {
             val hostRawRoot = Files.createTempDirectory("poller-test-raw").toFile()

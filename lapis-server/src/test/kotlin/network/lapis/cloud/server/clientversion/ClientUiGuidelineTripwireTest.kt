@@ -921,8 +921,11 @@ private val R24B_JUSTIFIED: Map<String, List<String>> =
  * 71 after Welle V1.9.113 "Online-Teilnahme an Veranstaltungen": the same event form gains the picker of the encounter space (a select that
  * feeds `createEvent`/`updateEvent`, shown only for the kind "Begegnungsraum"). Not a filter, so it cannot be justified; the new guest
  * screens (`EventGuestJoinScreen.kt`, the notice of `ConferenceScreen.kt`) were built with the form grammar and add nothing here. 70 -> 71.
+ * 72 after Welle V1.9.156 "Aufzeichnung in Veranstaltungsräumen": the same event form gains the box "Aufzeichnung und Übertragung erlauben" (`EventCaptureSection.kt`,
+ * a checkbox whose value feeds `setEventCaptureAllowed` after the event is saved -- a genuine field, not a filter, so it cannot be justified). The new consent screen
+ * (`EventCaptureConsent.kt`) and the guest page were built with the form grammar and add nothing here. 71 -> 72.
  */
-private const val R24B_REMAINING_MAX = 71
+private const val R24B_REMAINING_MAX = 72
 
 private fun r24bFindings(file: File): List<String> =
     labelledSelectFindings(file.readText()).minusMultiset(R24B_JUSTIFIED[file.name].orEmpty())

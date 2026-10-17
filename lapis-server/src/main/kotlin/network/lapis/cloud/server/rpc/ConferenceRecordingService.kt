@@ -21,6 +21,7 @@ import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
 import network.lapis.cloud.server.encounter.EncounterRoomGuard
+import network.lapis.cloud.server.events.EventCaptureLiveBroadcaster
 import network.lapis.cloud.server.events.EventConferenceGuard
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.security.CurrentMember
@@ -41,6 +42,7 @@ import network.lapis.cloud.shared.domain.ConferenceRecordingSnapshot
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
@@ -221,6 +223,8 @@ class ConferenceRecordingService(
         // Only reached once the row is committed -- a poller tick woken BEFORE the commit would not
         // see the new RECORDING row yet and the wake-up would be wasted.
         onRecordingStarted()
+        // V1.9.156: the banner of an event room switches on now, not at the next sweep. After the commit, best-effort, a no-op for an ordinary room.
+        EventCaptureLiveBroadcaster.notifyRoomChanged(roomUuid)
         return dto
     }
 
@@ -250,9 +254,15 @@ class ConferenceRecordingService(
         }
         // V1.9.61: an encounter session is never recorded (a recording would be a lasting record of who was in a church service).
         EncounterRoomGuard.requireNotEncounterRoom(row = room)
-        // V1.9.113: an event room is never recorded -- a person without an account has given no recording consent that could be proven.
-        EventConferenceGuard.requireNotEventRoom(row = room)
+        // V1.9.156: an event room is recorded ONLY when the instance switch is on AND the organizer released this event -- and everybody who
+        // enters such a room has acknowledged the capture consent (proof in event_capture_acknowledgment; EventOnlineJoin enforces it). The
+        // release is frozen while the room is active, so no participant can be inside without that proof. Room-row lock is held (see above).
+        EventConferenceGuard.requireEventCaptureAllowed(row = room)
         requireModeratorOrPrivileged(room = room, current = current)
+        // The file of an event room is for the board: it contains images of persons who did not agree to a wider circle.
+        if (accessLevel == DocumentAccessLevel.PUBLIC_MEMBERS && EventConferenceGuard.isEventRoom(room)) {
+            throw BadRequestException("A recording of an event room cannot be shared with all members")
+        }
 
         val alreadyActive =
             ConferenceRecordingTable
@@ -304,6 +314,13 @@ class ConferenceRecordingService(
     }
 
     override suspend fun stopRecording(recordingId: String): ConferenceRecordingDto {
+        val dto = stopRecordingInternal(recordingId)
+        // V1.9.156: the banner of an event room switches off now, not at the next sweep. After the commit, best-effort, a no-op for an ordinary room.
+        runCatching { Uuid.parse(dto.roomId) }.getOrNull()?.let { EventCaptureLiveBroadcaster.notifyRoomChanged(it) }
+        return dto
+    }
+
+    private suspend fun stopRecordingInternal(recordingId: String): ConferenceRecordingDto {
         val current = resolveCurrentMember(call)
         requireRecordingEnabled()
         requireWithinRate(limiter = stopRecordingRateLimiter, memberId = current.memberId)
@@ -494,7 +511,7 @@ class ConferenceRecordingService(
             // who is actually in the room (allowFederationGuests + has joined) can see the
             // recording badge too -- "everyone in the room has a legal right to know" applies to a
             // guest exactly as much as to an ACTIVE member. See requireRoomEntryAuthorization KDoc.
-            // allowEventRoom: the (always empty) recording badge stays readable in an event room, nothing else.
+            // allowEventRoom: the recording badge stays readable in an event room (V1.9.156: it reflects real recordings once capture is allowed), nothing else.
             val status = requireRoomEntryAuthorization(roomRow = room, current = current, allowEventRoom = true)
             requireGuestHasJoinedRoom(roomId = roomUuid, current = current, status = status)
             val row =

@@ -750,3 +750,39 @@ class MemberFinderNoteInvalidException(
 class MemberFinderRateLimitedException(
     override val message: String = "Too many actions in a short time. Please try again later.",
 ) : AbstractServiceException()
+
+/** V1.9.156 -- distinct type. The event allows recording / streaming and the participant has not acknowledged the capture consent. */
+@RpcServiceException
+class EventCaptureNoticeRequiredException(
+    override val message: String = "Please confirm the recording notice of this event",
+) : AbstractServiceException()
+
+/** V1.9.156 -- distinct type. The acknowledged capture consent is not the current text (a new version was published meanwhile). */
+@RpcServiceException
+class EventCaptureNoticeOutdatedException(
+    override val message: String = "The recording notice has changed -- please read it again",
+) : AbstractServiceException()
+
+/** V1.9.156 -- distinct type. The release of this event, or the instance switch, cannot be changed right now. */
+@RpcServiceException
+class EventCaptureChangeLockedException(
+    override val message: String = "The recording release cannot be changed while the event room is active",
+) : AbstractServiceException()
+
+/** V1.9.156 -- distinct type. The admin acknowledged an older version of the operator notice (or none) when switching event capture on. */
+@RpcServiceException
+class EventCaptureOperatorNoticeOutdatedException(
+    override val message: String = "The operator notice has changed -- please read it again",
+) : AbstractServiceException()
+
+/** V1.9.156 -- distinct type. Event capture cannot be switched off while an event room is being recorded or streamed. */
+@RpcServiceException
+class EventCaptureBusyException(
+    override val message: String = "A recording or stream is running in an event room",
+) : AbstractServiceException()
+
+/** V1.9.156 -- distinct type. No consent text for event capture was published yet. */
+@RpcServiceException
+class EventCaptureTextMissingException(
+    override val message: String = "Publish the recording consent text for events first",
+) : AbstractServiceException()

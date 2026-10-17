@@ -49,6 +49,9 @@ internal class EventGuestCallView(
     private lateinit var micButton: Button
     private lateinit var cameraButton: Button
     private lateinit var statusLine: Div
+
+    /** V1.9.156: the capture line; built in [show] before the connection starts and only ever fed by the server's packets. */
+    private var captureBanner: EventCaptureBanner? = null
     private val session: LiveKitRoomSession =
         LiveKitRoomSession(
             onRemoteTrack = { identity, displayName, track, _ -> attachRemote(identity, displayName, track) },
@@ -62,6 +65,7 @@ internal class EventGuestCallView(
                 syncButtons()
             },
             onRecordingStatusChanged = { _ -> },
+            onEventCapture = { live -> captureBanner?.render(live) },
             onActiveSpeakersChanged = { _ -> },
             onActiveDeviceChanged = { _, _ -> },
             onMediaDevicesChanged = {},
@@ -76,6 +80,9 @@ internal class EventGuestCallView(
         )
 
     fun show() {
+        // First in the picture: a person who joined an event that may be recorded sees, from the first frame on, whether it is (the join answer
+        // carries the state at that moment; the server's packets update it).
+        captureBanner = EventCaptureBanner(host).also { it.render(response.captureLive) }
         host.div(tr("Sie sind in der Videokonferenz. Mikrofon und Kamera sind aus.")) { addCssClasses("fw-bold") }
         statusLine =
             host.div {

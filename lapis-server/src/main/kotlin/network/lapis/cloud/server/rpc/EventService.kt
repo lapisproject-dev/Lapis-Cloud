@@ -15,6 +15,8 @@ import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.OpenItemTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.events.EventCapacityGuard
+import network.lapis.cloud.server.events.EventCaptureLock
+import network.lapis.cloud.server.events.EventCaptureRequirement
 import network.lapis.cloud.server.events.EventCheckIn
 import network.lapis.cloud.server.events.EventCoverPolicy
 import network.lapis.cloud.server.events.EventOnlineJoin
@@ -53,6 +55,9 @@ import network.lapis.cloud.shared.domain.AuditEntityType
 import network.lapis.cloud.shared.domain.AuditMarkers
 import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInput
 import network.lapis.cloud.shared.domain.CounterpartyKey
+import network.lapis.cloud.shared.domain.EventCaptureAcknowledgmentInput
+import network.lapis.cloud.shared.domain.EventCaptureChangeLock
+import network.lapis.cloud.shared.domain.EventCaptureStateDto
 import network.lapis.cloud.shared.domain.EventCheckInResultDto
 import network.lapis.cloud.shared.domain.EventCheckInRosterDto
 import network.lapis.cloud.shared.domain.EventCheckInRowDto
@@ -85,6 +90,7 @@ import network.lapis.cloud.shared.domain.RecurrenceRuleInput
 import network.lapis.cloud.shared.domain.SeriesPreviewDto
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.EventCaptureChangeLockedException
 import network.lapis.cloud.shared.rpc.IEventService
 import network.lapis.cloud.shared.rpc.NotFoundException
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -352,7 +358,21 @@ class EventService(
                 previousRegistrationClosesAt = existing[EventTable.registrationClosesAt],
                 newRegistrationClosesAt = normalized.registrationClosesAt,
             )
-            EventStore.getEventOrThrow(eventId).toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl)
+            // V1.9.156: switching an event away from a Lapis conference withdraws its capture release (EventOnlineLifecycle). The audit trail of the release
+            // (EVENT_CAPTURE) must show that, like every other change of it. AuditLogRecorder.record is the LAST lock-taking operation of the transaction.
+            val updated = EventStore.getEventOrThrow(eventId)
+            if (existing[EventTable.captureAllowed] && !updated[EventTable.captureAllowed]) {
+                AuditLogRecorder.record(
+                    actorMemberId = current.memberId,
+                    actorRole = current.role,
+                    entityType = AuditEntityType.EVENT_CAPTURE,
+                    entityId = eventId,
+                    action = AuditAction.UPDATE,
+                    before = "{\"eventId\":\"$eventId\",\"captureAllowed\":true}",
+                    after = "{\"eventId\":\"$eventId\",\"captureAllowed\":false}",
+                )
+            }
+            updated.toEventDto(now = now, memberId = current.memberId, baseUrl = baseUrl)
         }
     }
 
@@ -938,7 +958,109 @@ class EventService(
         val join = eventOnline.join ?: return EventOnlineJoinResultDto(outcome = EventOnlineOutcome.UNAVAILABLE)
         // An unparsable id answers like any other event the caller may not enter -- never a different error shape.
         val id = runCatching { Uuid.parse(eventId) }.getOrNull() ?: return EventOnlineJoinResultDto(outcome = EventOnlineOutcome.FORBIDDEN)
-        return join.joinMember(eventId = id, current = current, guestConsent = guestConsent, now = ServerClock.nowInstant())
+        // Pre-V1.9.156 clients know no capture consent: a released event answers EventCaptureNoticeRequiredException (the safe side).
+        return join.joinMember(
+            eventId = id,
+            current = current,
+            guestConsent = guestConsent,
+            captureConsent = null,
+            now = ServerClock.nowInstant(),
+        )
+    }
+
+    override suspend fun joinEventOnlineWithCapture(
+        eventId: String,
+        guestConsent: ConferenceGuestConsentAcknowledgmentInput?,
+        captureConsent: EventCaptureAcknowledgmentInput?,
+    ): EventOnlineJoinResultDto {
+        val current = resolveCurrentMember(call)
+        requireWithinOnlineRate(limiter = eventOnline.memberJoinRateLimiter, memberId = current.memberId)
+        val join = eventOnline.join ?: return EventOnlineJoinResultDto(outcome = EventOnlineOutcome.UNAVAILABLE)
+        val id = runCatching { Uuid.parse(eventId) }.getOrNull() ?: return EventOnlineJoinResultDto(outcome = EventOnlineOutcome.FORBIDDEN)
+        return join.joinMember(
+            eventId = id,
+            current = current,
+            guestConsent = guestConsent,
+            captureConsent = captureConsent,
+            now = ServerClock.nowInstant(),
+        )
+    }
+
+    // ── V1.9.156 "Aufzeichnung und Live-Uebertragung in Veranstaltungsraeumen" ──────────────────────
+
+    override suspend fun getEventCaptureState(eventId: String): EventCaptureStateDto {
+        val current = resolveCurrentMember(call)
+        val isManager = current.role in EVENT_MANAGE_ROLES
+        val id = eventId.toEventUuid()
+        return transaction {
+            val row = EventStore.getEventOrThrow(id)
+            // The same visibility rule as getEvent: an unpublished event is for BOARD/ADMIN only, everything else looks like an unknown id.
+            if (!isManager && row[EventTable.status] != EventStatus.PUBLISHED) throw NotFoundException("Event $eventId not found")
+            captureStateOf(row = row, isManager = isManager)
+        }
+    }
+
+    override suspend fun setEventCaptureAllowed(
+        eventId: String,
+        allowed: Boolean,
+    ): EventCaptureStateDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(*EVENT_MANAGE_ROLES)
+        requireWithinRate(current.memberId)
+        val id = eventId.toEventUuid()
+        return transaction {
+            // FIRST operation: the event row lock. The entry path (EventOnlineJoin) re-reads the release under the same lock, so a release can never be
+            // granted between a person's look and their token (see EventCaptureLock for the order of all locks).
+            val row = EventStore.lockEventForUpdate(id) ?: throw NotFoundException("Event $eventId not found")
+            if (row[EventTable.captureAllowed] == allowed) return@transaction captureStateOf(row = row, isManager = true)
+            val settings = EventCaptureSettingsStore.load()
+            if (allowed && !settings.startAllowed()) throw EventCaptureChangeLockedException()
+            if (allowed && row[EventTable.onlineKind] != EventOnlineKind.LAPIS_CONFERENCE) {
+                throw BadRequestException("Recording can only be released for an event with a Lapis video conference")
+            }
+            // `now` is read AFTER the lock: the entry path has the same order, so "window open" is judged consistently.
+            if (EventCaptureLock.isActive(eventRow = row, now = ServerClock.nowInstant(), orgZone = OrganizationTimeZone.current())) {
+                throw EventCaptureChangeLockedException()
+            }
+            EventTable.update({ EventTable.id eq id }) { it[captureAllowed] = allowed }
+            // AuditLogRecorder.record is the LAST lock-taking operation of the transaction (its deadlock-avoidance contract).
+            AuditLogRecorder.record(
+                actorMemberId = current.memberId,
+                actorRole = current.role,
+                entityType = AuditEntityType.EVENT_CAPTURE,
+                entityId = id,
+                action = AuditAction.UPDATE,
+                before = "{\"eventId\":\"$id\",\"captureAllowed\":${!allowed}}",
+                after = "{\"eventId\":\"$id\",\"captureAllowed\":$allowed}",
+            )
+            captureStateOf(row = EventStore.getEventOrThrow(id), isManager = true)
+        }
+    }
+
+    /** The capture state of [row] for a caller; inside a transaction. Reads only -- never locks. */
+    private fun captureStateOf(
+        row: ResultRow,
+        isManager: Boolean,
+    ): EventCaptureStateDto {
+        val settings = EventCaptureSettingsStore.load()
+        val allowed = row[EventTable.captureAllowed]
+        val noticeRequired = EventCaptureRequirement.applies(row)
+        val lock =
+            when {
+                !isManager -> EventCaptureChangeLock.NOT_PRIVILEGED
+                !settings.startAllowed() -> EventCaptureChangeLock.INSTANCE_OFF
+                EventCaptureLock.isActive(eventRow = row, now = ServerClock.nowInstant(), orgZone = OrganizationTimeZone.current()) ->
+                    EventCaptureChangeLock.ROOM_ACTIVE
+                else -> EventCaptureChangeLock.NONE
+            }
+        return EventCaptureStateDto(
+            instanceEnabled = settings.startAllowed(),
+            allowed = allowed,
+            noticeRequired = noticeRequired,
+            changeLock = lock,
+            mayChange = lock == EventCaptureChangeLock.NONE,
+            notice = if (noticeRequired) EventCaptureRequirement.noticeDto() else null,
+        )
     }
 
     override suspend fun listEventGuests(eventId: String): List<EventGuestParticipantDto> {
@@ -1454,6 +1576,7 @@ private fun ResultRow.toEventDto(
         onlineUrlPublic = this[EventTable.onlineUrlPublic],
         imported = this[EventTable.imported],
         onlineKind = onlineKind,
+        captureAllowed = this[EventTable.captureAllowed],
         encounterSpaceId = encounterSpace?.get(EncounterSpaceTable.id)?.toString(),
         encounterSpaceTitle = encounterSpace?.get(EncounterSpaceTable.title),
         encounterSpaceMembersOnly = encounterSpace?.get(EncounterSpaceTable.guestPolicy) == "MEMBERS_ONLY",

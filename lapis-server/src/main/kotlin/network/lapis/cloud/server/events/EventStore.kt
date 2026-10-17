@@ -852,6 +852,8 @@ internal object EventStore {
     fun deleteEventHard(id: Uuid): Int {
         // V1.9.113: the conference bookkeeping row references the event (foreign key); a running conference vetoes the delete.
         EventOnlineLifecycle.beforeEventDeleted(id)
+        // V1.9.156: the capture-consent proofs of this event go first (no ON DELETE CASCADE in V110).
+        EventCaptureAcknowledgments.deleteForEvent(id)
         return EventTable.deleteWhere { EventTable.id eq id }
     }
 }

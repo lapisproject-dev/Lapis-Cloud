@@ -89,6 +89,13 @@ internal object BuiltinAgreementTexts {
                     body = EncounterAssemblyConsentDefault.TEXT,
                     sha256 = EncounterAssemblyConsentDefault.SHA256,
                 )
+            // V1.9.156: the event-room capture consent; one placeholder, no room profile.
+            AgreementTextKind.EVENT_REC ->
+                BuiltinText(
+                    versionLabel = EventCaptureConsentDefault.VERSION,
+                    body = EventCaptureConsentDefault.TEXT,
+                    sha256 = EventCaptureConsentDefault.SHA256,
+                )
         }
 
     /** Every placeholder of [kind] (two for the REC kinds, one otherwise): what a published text must differ from and must not collide with. */

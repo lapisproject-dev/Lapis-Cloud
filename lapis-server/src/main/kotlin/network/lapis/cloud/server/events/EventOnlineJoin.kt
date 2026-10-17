@@ -32,8 +32,10 @@ import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInp
 import network.lapis.cloud.shared.domain.ConferenceJoinTokenDto
 import network.lapis.cloud.shared.domain.ConferenceRole
 import network.lapis.cloud.shared.domain.ConferenceTurnServer
+import network.lapis.cloud.shared.domain.EventCaptureAcknowledgmentInput
 import network.lapis.cloud.shared.domain.EventGuestJoinResponseDto
 import network.lapis.cloud.shared.domain.EventGuestNotice
+import network.lapis.cloud.shared.domain.EventGuestNoticeCapture
 import network.lapis.cloud.shared.domain.EventGuestParticipantDto
 import network.lapis.cloud.shared.domain.EventOnlineJoinResultDto
 import network.lapis.cloud.shared.domain.EventOnlineKind
@@ -42,6 +44,7 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.EventCaptureNoticeRequiredException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
@@ -100,6 +103,8 @@ internal class EventOnlineJoin(
         eventId: Uuid,
         current: CurrentMember,
         guestConsent: ConferenceGuestConsentAcknowledgmentInput?,
+        // V1.9.156. `null` is the safe default: an event that is released for recording refuses a join without it.
+        captureConsent: EventCaptureAcknowledgmentInput? = null,
         now: Instant,
     ): EventOnlineJoinResultDto {
         if (!config.enabled) return EventOnlineJoinResultDto(outcome = EventOnlineOutcome.UNAVAILABLE)
@@ -114,8 +119,12 @@ internal class EventOnlineJoin(
         val (eventRow, decision, kind) = first
         if (decision.outcome != EventOnlineOutcome.JOINED) return notJoined(decision = decision, eventRow = eventRow, orgZone = orgZone)
         if (kind == EventOnlineKind.LAPIS_ENCOUNTER) return encounterResult(eventRow = eventRow)
-        // A non-member account (GUEST/FRIEND) must acknowledge the event notice -- checked before any room is created.
-        if (decision.isGuest) requireGuestNotice(guestConsent)
+        // V1.9.156: a released event needs the capture consent of EVERY participant -- checked before any room is created.
+        val capture = transaction { EventCaptureRequirement.applies(eventRow) }
+        val captureText = if (capture) EventCaptureRequirement.requireConsent(captureConsent) else null
+        // A non-member account (GUEST/FRIEND) must acknowledge the event notice -- checked before any room is created. In a released event
+        // it is the capture variant (the old text claims that nothing is recorded).
+        if (decision.isGuest) requireGuestNotice(consent = guestConsent, capture = capture)
 
         val ready =
             try {
@@ -171,6 +180,10 @@ internal class EventOnlineJoin(
         // TOCTOU re-check + participation record, atomically against everything that locks the room row.
         val recheck =
             transaction {
+                // V1.9.156: the event row first (the lock order of updateEvent / setEventCaptureAllowed), then the room row. This serializes the entry
+                // against a release that is being granted at the same moment: either the release commits first and is seen below, or this entry
+                // commits first and the release is refused because the room is active.
+                EventStore.lockEventForUpdate(eventId)
                 ConferenceRoomTable
                     .selectAll()
                     .where { ConferenceRoomTable.id eq room.roomId }
@@ -183,6 +196,9 @@ internal class EventOnlineJoin(
                 }
                 val roomRow = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq room.roomId }.single()
                 if (roomRow[ConferenceRoomTable.endedAt] != null) return@transaction EventOnlineOutcome.ENDED
+                // A release granted since the first look: this person has acknowledged nothing, so they are not let in (the client reloads the state).
+                val freshCapture = EventCaptureRequirement.applies(freshEvent)
+                if (freshCapture && !capture) throw EventCaptureNoticeRequiredException()
                 val nowUtc = DbClock.nowLocalDateTime()
                 if (fresh.isGuest) {
                     val open =
@@ -223,8 +239,8 @@ internal class EventOnlineJoin(
                         it[ConferenceGuestConsentAcknowledgmentTable.memberId] = current.memberId
                         it[ConferenceGuestConsentAcknowledgmentTable.roomId] = room.roomId
                         it[acknowledgedAt] = nowUtc
-                        it[consentVersion] = EventGuestNotice.VERSION
-                        it[consentSha256] = EventGuestNotice.SHA256
+                        it[consentVersion] = if (capture) EventGuestNoticeCapture.VERSION else EventGuestNotice.VERSION
+                        it[consentSha256] = if (capture) EventGuestNoticeCapture.SHA256 else EventGuestNotice.SHA256
                         it[ConferenceGuestConsentAcknowledgmentTable.homeserverUrl] = homeserver
                         it[organizationName] =
                             OrganizationSettingsTable
@@ -233,11 +249,23 @@ internal class EventOnlineJoin(
                                 .single()[OrganizationSettingsTable.name]
                     }
                 }
+                // V1.9.156: the proof of the capture consent -- written in the same transaction as the participation, so nobody is inside without it.
+                if (captureText != null) {
+                    EventCaptureAcknowledgments.recordMember(
+                        eventId = eventId,
+                        memberId = current.memberId,
+                        consentVersion = captureText.versionLabel,
+                        consentSha256 = captureText.sha256,
+                        today = OrganizationTimeZone.today(),
+                    )
+                }
                 EventOnlineOutcome.JOINED
             }
         if (recheck != EventOnlineOutcome.JOINED) return EventOnlineJoinResultDto(outcome = recheck)
+        val captureLive = if (capture) transaction { EventCaptureLock.liveState(room.roomId) } else null
         return EventOnlineJoinResultDto(
             outcome = EventOnlineOutcome.JOINED,
+            captureLive = captureLive,
             token =
                 ConferenceJoinTokenDto(
                     roomId = room.roomId.toString(),
@@ -262,6 +290,9 @@ internal class EventOnlineJoin(
         eventId: Uuid,
         displayName: String,
         ticketCodeSha256: String?,
+        // V1.9.156. The defaults are the safe ones: the plain notice is refused for a released event, a missing consent too.
+        guestNoticeVersion: String = EventGuestNotice.VERSION,
+        captureConsent: EventCaptureAcknowledgmentInput? = null,
         now: Instant,
     ): EventGuestJoinResponseDto {
         if (!config.enabled) return EventGuestJoinResponseDto(outcome = EventOnlineOutcome.UNAVAILABLE)
@@ -289,6 +320,12 @@ internal class EventOnlineJoin(
         if (eventRow == null || eventRow[EventTable.onlineKind] != EventOnlineKind.LAPIS_CONFERENCE) {
             return EventGuestJoinResponseDto(outcome = EventOnlineOutcome.FORBIDDEN)
         }
+        // V1.9.156: a released event needs the capture consent AND the capture variant of the guest notice (the old text claims that nothing is
+        // recorded). Checked before any room is created; the page the guest used must have shown the variant that matches this event.
+        val capture = transaction { EventCaptureRequirement.applies(eventRow) }
+        val captureText = if (capture) EventCaptureRequirement.requireConsent(captureConsent) else null
+        val expectedGuestNotice = if (capture) EventGuestNoticeCapture.VERSION else EventGuestNotice.VERSION
+        if (guestNoticeVersion != expectedGuestNotice) throw EventCaptureNoticeRequiredException()
         val ready =
             try {
                 provisioner.ensureRoom(eventId = eventId, now = now)
@@ -329,6 +366,10 @@ internal class EventOnlineJoin(
         if (roomRow[ConferenceRoomTable.endedAt] != null) return EventGuestJoinResponseDto(outcome = EventOnlineOutcome.ENDED)
         val window = checkNotNull(decision.window)
         val ttl = tokenTtl(isGuest = true, window = window, now = now)
+        // Did this identity already hold a seat (connected, or a pending token)? Then a failed re-join must not take it away.
+        val heldBefore =
+            present.any { it.identity == identity } ||
+                synchronized(pendingGuests) { pendingGuests[room.livekitRoomName]?.containsKey(identity) == true }
         // Check the seats and reserve this guest atomically (no suspension point in between): connected AND still-pending guests count.
         val reserved =
             reserveGuestSeat(
@@ -341,6 +382,28 @@ internal class EventOnlineJoin(
                 now = now,
             )
         if (!reserved) return EventGuestJoinResponseDto(outcome = EventOnlineOutcome.FULL)
+        // V1.9.156: re-check the release under the event row lock and write the proof BEFORE a token leaves this function -- a person without an account
+        // leaves no participation row, so this is the only place to prove their acknowledgment, and the only place where a release that was granted
+        // meanwhile is noticed. A failure here gives the reserved seat back.
+        try {
+            transaction {
+                EventStore.lockEventForUpdate(eventId)
+                val freshEvent = EventStore.getEventOrNull(eventId)
+                if (EventCaptureRequirement.applies(freshEvent) && !capture) throw EventCaptureNoticeRequiredException()
+                if (captureText != null) {
+                    EventCaptureAcknowledgments.recordGuest(
+                        eventId = eventId,
+                        guestKey = EventCaptureAcknowledgments.guestKeyOf(identity = identity, serverSecret = config.apiSecret),
+                        consentVersion = captureText.versionLabel,
+                        consentSha256 = captureText.sha256,
+                        today = OrganizationTimeZone.today(),
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            releaseGuestSeat(roomName = room.livekitRoomName, identity = identity, wasHolding = heldBefore)
+            throw e
+        }
         val minted =
             LiveKitAccessToken.mintParticipantToken(
                 apiKey = config.apiKey,
@@ -362,7 +425,22 @@ internal class EventOnlineJoin(
             displayName = displayName,
             expiresAt = minted.expiresAt.toString(),
             turnServers = turnServers(label = identity, ttl = ttl, now = now),
+            captureLive = if (capture) transaction { EventCaptureLock.liveState(room.roomId) } else null,
         )
+    }
+
+    /** Gives back the seat [reserveGuestSeat] just reserved, unless the identity already held one before (a re-join keeps the seat it had). */
+    private fun releaseGuestSeat(
+        roomName: String,
+        identity: String,
+        wasHolding: Boolean,
+    ) {
+        if (wasHolding) return
+        synchronized(pendingGuests) {
+            val ledger = pendingGuests[roomName] ?: return
+            ledger.remove(identity)
+            if (ledger.isEmpty()) pendingGuests.remove(roomName)
+        }
     }
 
     /**
@@ -487,9 +565,15 @@ internal class EventOnlineJoin(
         }
     }
 
-    private fun requireGuestNotice(consent: ConferenceGuestConsentAcknowledgmentInput?) {
+    /** [capture]: the event is released for recording / streaming, so the capture variant of the notice is the one that must have been shown. */
+    private fun requireGuestNotice(
+        consent: ConferenceGuestConsentAcknowledgmentInput?,
+        capture: Boolean,
+    ) {
         val given = consent ?: throw ConflictException("Das Gast-Hinweis muss bestätigt werden.")
-        if (given.consentVersion != EventGuestNotice.VERSION || given.consentSha256 != EventGuestNotice.SHA256) {
+        val version = if (capture) EventGuestNoticeCapture.VERSION else EventGuestNotice.VERSION
+        val sha256 = if (capture) EventGuestNoticeCapture.SHA256 else EventGuestNotice.SHA256
+        if (given.consentVersion != version || given.consentSha256 != sha256) {
             throw ConflictException("Der Gast-Hinweis ist nicht mehr aktuell -- bitte erneut bestätigen.")
         }
     }

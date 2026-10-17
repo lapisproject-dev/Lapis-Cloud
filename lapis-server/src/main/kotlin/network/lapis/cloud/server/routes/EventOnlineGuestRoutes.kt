@@ -17,6 +17,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.events.EVENT_GUEST_NAME_SUFFIX
+import network.lapis.cloud.server.events.EventCaptureLock
+import network.lapis.cloud.server.events.EventCaptureRequirement
 import network.lapis.cloud.server.events.EventOnlineJoin
 import network.lapis.cloud.server.events.EventOnlineServices
 import network.lapis.cloud.server.events.EventOnlineWindow
@@ -24,9 +26,12 @@ import network.lapis.cloud.server.events.EventStore
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
+import network.lapis.cloud.shared.domain.EventCaptureAcknowledgmentInput
+import network.lapis.cloud.shared.domain.EventCaptureLiveDto
 import network.lapis.cloud.shared.domain.EventGuestJoinRequestDto
 import network.lapis.cloud.shared.domain.EventGuestJoinResponseDto
 import network.lapis.cloud.shared.domain.EventGuestNotice
+import network.lapis.cloud.shared.domain.EventGuestNoticeCapture
 import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventOnlineOutcome
 import network.lapis.cloud.shared.domain.EventOnlinePhase
@@ -34,6 +39,9 @@ import network.lapis.cloud.shared.domain.EventOnlineStateDto
 import network.lapis.cloud.shared.domain.EventStatus
 import network.lapis.cloud.shared.domain.EventTicketCode
 import network.lapis.cloud.shared.domain.EventVisibility
+import network.lapis.cloud.shared.rpc.EventCaptureNoticeOutdatedException
+import network.lapis.cloud.shared.rpc.EventCaptureNoticeRequiredException
+import network.lapis.cloud.shared.rpc.EventCaptureTextMissingException
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.net.URI
 
@@ -57,7 +65,9 @@ private val GUEST_JSON = Json { ignoreUnknownKeys = true }
  * and a bounded read; strict JSON; the notice acknowledgment must match [EventGuestNotice]. Every refusal for an unknown / hidden /
  * unauthorized event is the SAME `200 {"outcome":"FORBIDDEN"}` -- there is no 404 that would tell slugs apart. The name is normalized
  * (NFC, control and bidi characters removed, 1..60 characters) and gets the server-side suffix `" (Gast)"` so it cannot impersonate a
- * member; the LiveKit identity is random (`evg-<uuid>`), never the name. No row is written for the guest (no identity, nothing to keep).
+ * member; the LiveKit identity is random (`evg-<uuid>`), never the name. For an event that is NOT released for recording no row is written for the guest (no
+ * identity, nothing to keep); for a released one (V1.9.156) a proof WITHOUT a name is written (`event_capture_acknowledgment`: the event, the consent version and
+ * hash, a day and the SHA-256 of the identity).
  * Responses are `Cache-Control: no-store`.
  */
 internal fun Route.registerEventOnlineGuestRoutes(
@@ -126,8 +136,12 @@ internal fun Route.registerEventOnlineGuestRoutes(
                 call.respond(HttpStatusCode.BadRequest)
                 return@post
             }
-        // 4. The notice the guest acknowledged must be the current one (an old or forged page is told to reload).
-        if (request.consentVersion != EventGuestNotice.VERSION || request.consentSha256 != EventGuestNotice.SHA256) {
+        // 4. The notice the guest acknowledged must be one of the two current variants (an old or forged page is told to reload). Which of the two is
+        // the right one for THIS event (the capture variant when it may be recorded) is checked by joinAccountless, once the event is known.
+        val plainNotice = request.consentVersion == EventGuestNotice.VERSION && request.consentSha256 == EventGuestNotice.SHA256
+        val captureNoticeOk =
+            request.consentVersion == EventGuestNoticeCapture.VERSION && request.consentSha256 == EventGuestNoticeCapture.SHA256
+        if (!plainNotice && !captureNoticeOk) {
             call.respond(HttpStatusCode.Conflict)
             return@post
         }
@@ -163,8 +177,20 @@ internal fun Route.registerEventOnlineGuestRoutes(
                     eventId = eventId,
                     displayName = name + EVENT_GUEST_NAME_SUFFIX,
                     ticketCodeSha256 = ticketHash,
+                    guestNoticeVersion = request.consentVersion,
+                    captureConsent = captureConsentOf(request),
                     now = ServerClock.nowInstant(),
                 )
+            } catch (e: EventCaptureNoticeRequiredException) {
+                // V1.9.156: the page showed a different notice than this event needs (a release was granted, a text was published): reload the state.
+                call.respond(HttpStatusCode.Conflict)
+                return@post
+            } catch (e: EventCaptureNoticeOutdatedException) {
+                call.respond(HttpStatusCode.Conflict)
+                return@post
+            } catch (e: EventCaptureTextMissingException) {
+                call.respond(HttpStatusCode.Conflict)
+                return@post
             } catch (e: Exception) {
                 logger.error { "event guest join failed (${e::class.simpleName})" }
                 EventGuestJoinResponseDto(outcome = EventOnlineOutcome.UNAVAILABLE)
@@ -179,6 +205,13 @@ private const val MAX_TICKET_INPUT_LENGTH = 400
 
 private suspend fun io.ktor.server.application.ApplicationCall.respondGuest(response: EventGuestJoinResponseDto) {
     respondText(text = GUEST_JSON.encodeToString(response), contentType = ContentType.Application.Json)
+}
+
+/** Both fields or none: half a consent is no consent. */
+private fun captureConsentOf(request: EventGuestJoinRequestDto): EventCaptureAcknowledgmentInput? {
+    val version = request.captureConsentVersion
+    val sha = request.captureConsentSha256
+    return if (version != null && sha != null) EventCaptureAcknowledgmentInput(consentVersion = version, consentSha256 = sha) else null
 }
 
 private fun forbiddenState(): EventOnlineStateDto = EventOnlineStateDto(outcome = EventOnlineOutcome.FORBIDDEN)
@@ -200,14 +233,28 @@ private fun loadState(slug: String): EventOnlineStateDto {
             EventOnlinePhase.ENDED -> EventOnlineOutcome.ENDED
             EventOnlinePhase.OPEN -> EventOnlineOutcome.JOINED
         }
+    // V1.9.156: a released event shows the capture consent and the capture variant of the guest notice (never "Es wird nichts aufgezeichnet.").
+    val capture = transaction { EventCaptureRequirement.applies(row) }
+    val captureNotice = if (capture) EventCaptureRequirement.noticeDto() else null
+    val captureLive =
+        if (capture && outcome == EventOnlineOutcome.JOINED) {
+            transaction {
+                EventCaptureLock.roomIdOf(row[EventTable.id])?.let { EventCaptureLock.liveState(it) }
+                    ?: EventCaptureLiveDto(recording = false, streaming = false)
+            }
+        } else {
+            null
+        }
     return EventOnlineStateDto(
         outcome = outcome,
         title = row[EventTable.title],
         opensAt = window.opensAt.toLocalDateTime(orgZone).toString(),
         closesAt = window.closesAt.toLocalDateTime(orgZone).toString(),
         requiresTicket = row[EventTable.registrationClosesAt] != null,
-        noticeVersion = EventGuestNotice.VERSION,
-        noticeSha256 = EventGuestNotice.SHA256,
+        noticeVersion = if (capture) EventGuestNoticeCapture.VERSION else EventGuestNotice.VERSION,
+        noticeSha256 = if (capture) EventGuestNoticeCapture.SHA256 else EventGuestNotice.SHA256,
+        captureNotice = captureNotice,
+        captureLive = captureLive,
     )
 }
 

@@ -29,6 +29,7 @@ import network.lapis.cloud.shared.domain.AgreementTextRules
 import network.lapis.cloud.shared.domain.AgreementTextVersionSummaryDto
 import network.lapis.cloud.shared.domain.EncounterConsentLayout
 import network.lapis.cloud.shared.domain.isEncounterConsent
+import network.lapis.cloud.shared.domain.isEventCapture
 import network.lapis.cloud.shared.rpc.AgreementTextInvalidException
 import network.lapis.cloud.shared.rpc.AgreementTextLayoutInvalidException
 import network.lapis.cloud.shared.rpc.AgreementTextVersionLabelTakenException
@@ -88,6 +89,8 @@ internal fun agreementKindLabel(kind: AgreementTextKind): String =
         // V1.9.148: the entry notice a non-member acknowledges before entering an encounter room.
         AgreementTextKind.ENC_CHURCH -> tr("Eintrittshinweis Gottesdienst")
         AgreementTextKind.ENC_ASSEM -> tr("Eintrittshinweis Versammlung")
+        // V1.9.156: the consent every participant gives before entering an event room that may be recorded or streamed (see EventCaptureSettings.kt).
+        AgreementTextKind.EVENT_REC -> tr("Aufzeichnung (Veranstaltung)")
     }
 
 /**
@@ -98,7 +101,8 @@ private fun isOptionalFeatureKind(kind: AgreementTextKind): Boolean =
     kind == AgreementTextKind.REC_ROOM ||
         kind == AgreementTextKind.REC_PULPIT ||
         kind == AgreementTextKind.FINDER ||
-        kind.isEncounterConsent()
+        kind.isEncounterConsent() ||
+        kind.isEventCapture()
 
 /** Everything one tab shows, loaded together so the tab renders once. */
 internal class AgreementKindData(
@@ -131,6 +135,8 @@ private fun renderAgreementKind(
                                     "Gilt nur, wenn der Mitglieder-Finder für die Instanz eingeschaltet ist.",
                                 )
                             kind.isEncounterConsent() -> gettext("Gilt nur für Begegnungsräume, die Gäste oder Freunde zulassen.")
+                            kind.isEventCapture() ->
+                                gettext("Gilt nur, wenn die Aufzeichnung in Veranstaltungsräumen für die Instanz eingeschaltet ist.")
                             else -> gettext("Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist.")
                         },
                         className = "text-muted small",
@@ -290,7 +296,7 @@ private fun bodyCheck(
             FieldCheck.Invalid(gettext("Der Vertragstext darf höchstens %1 Zeichen lang sein.", AgreementTextRules.MAX_CHARS))
         AgreementTextRules.invalidCharacter(body) ->
             FieldCheck.Invalid(gettext("Der Vertragstext enthält unzulässige Zeichen (Steuerzeichen oder Richtungsumschalter)."))
-        kind.isEncounterConsent() -> layoutCheck(body)
+        kind.isEncounterConsent() || kind.isEventCapture() -> layoutCheck(body)
         else -> FieldCheck.Ok
     }
 }
@@ -373,6 +379,8 @@ private fun renderDraftEditor(
 
     // V1.9.148: the entry notices are laid out as headline + three key points + detail, and the system owns the recording sentence.
     val encounter = kind.isEncounterConsent()
+    // V1.9.156: the event-room consent has the same layout (headline + three key points + detail) but NO code-owned recording sentence.
+    val eventCapture = kind.isEventCapture()
     var recordingRoom = false
     var refreshPreviewHook: (() -> Unit)? = null
     var contradictionWarning: SimplePanel? = null
@@ -389,7 +397,13 @@ private fun renderDraftEditor(
             }
     }
 
-    form.panel.h2(if (encounter) tr("So sieht der Gast den Hinweis") else tr("Vorschau")) { addCssClass("h6") }
+    val previewTitle =
+        when {
+            encounter -> tr("So sieht der Gast den Hinweis")
+            eventCapture -> tr("So sehen Teilnehmende den Hinweis")
+            else -> tr("Vorschau")
+        }
+    form.panel.h2(previewTitle) { addCssClass("h6") }
     if (encounter) {
         form
             .checkField(
@@ -410,8 +424,8 @@ private fun renderDraftEditor(
         }
         if (text.isEmpty()) {
             previewHost.p(tr("Die Vorschau erscheint, sobald Sie Text eingeben.")) { addCssClasses("text-muted") }
-        } else if (encounter) {
-            val paragraph = if (recordingRoom) EncounterConsentLayout.recordingParagraph(kind) else null
+        } else if (encounter || eventCapture) {
+            val paragraph = if (recordingRoom && encounter) EncounterConsentLayout.recordingParagraph(kind) else null
             val split = EncounterConsentLayout.splitOrNull(body = text, extraKeyPoint = paragraph)
             if (split == null) {
                 previewHost.p(tr("Die Vorschau erscheint, sobald der Hinweis die vorgegebene Gliederung erfüllt.")) {

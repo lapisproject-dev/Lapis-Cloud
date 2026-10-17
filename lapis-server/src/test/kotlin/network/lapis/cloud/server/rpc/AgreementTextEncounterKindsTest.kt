@@ -120,14 +120,14 @@ class AgreementTextEncounterKindsTest :
             return post("/t/publish?kind=${kind.name}&sha=$sha") { header("X-Member-Id", ADMIN_ID) }
         }
 
-        test("the overview lists seven kinds; both ENC kinds are placeholders with their own label and no count") {
+        test("the overview lists eight kinds; both ENC kinds are placeholders with their own label and no count") {
             withApp {
                 val overview =
                     Json.decodeFromString(
                         AgreementTextOverviewDto.serializer(),
                         client.post("/t/overview") { header("X-Member-Id", ADMIN_ID) }.bodyAsText(),
                     )
-                overview.kinds.size shouldBe 7
+                overview.kinds.size shouldBe 8
                 val church = overview.kinds.single { it.kind == AgreementTextKind.ENC_CHURCH }
                 val assembly = overview.kinds.single { it.kind == AgreementTextKind.ENC_ASSEM }
                 church.placeholderActive shouldBe true

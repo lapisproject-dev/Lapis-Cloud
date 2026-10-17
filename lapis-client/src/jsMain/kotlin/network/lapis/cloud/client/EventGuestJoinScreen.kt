@@ -17,6 +17,7 @@ import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.EventGuestJoinRequestDto
 import network.lapis.cloud.shared.domain.EventGuestJoinResponseDto
 import network.lapis.cloud.shared.domain.EventGuestNotice
+import network.lapis.cloud.shared.domain.EventGuestNoticeCapture
 import network.lapis.cloud.shared.domain.EventOnlineOutcome
 import network.lapis.cloud.shared.domain.EventOnlineStateDto
 import network.lapis.cloud.shared.domain.EventQuery
@@ -92,8 +93,9 @@ internal fun renderEventJoinScreenWith(
         return
     }
 
-    lateinit var load: () -> Unit
-    load = {
+    // [message] is shown in the status line once the state is read again (the notice changed under the person's hands).
+    lateinit var load: (String?) -> Unit
+    load = { message ->
         body.removeAll()
         status.content = tr("Wird geladen …")
         AppScope.launch {
@@ -103,12 +105,12 @@ internal fun renderEventJoinScreenWith(
                 return@launch
             }
             val state = api.state(slug)
-            status.content = ""
+            status.content = message ?: ""
             if (state == null) {
                 body.div(
                     tr("Der Zugang konnte nicht geladen werden. Bitte versuchen Sie es erneut."),
                 ) { addCssClasses("alert alert-warning") }
-                body.button(tr("Erneut prüfen"), style = ButtonStyle.OUTLINESECONDARY) { onClick { load() } }
+                body.button(tr("Erneut prüfen"), style = ButtonStyle.OUTLINESECONDARY) { onClick { load(null) } }
                 return@launch
             }
             renderGuestState(
@@ -118,11 +120,11 @@ internal fun renderEventJoinScreenWith(
                 state = state,
                 api = api,
                 startCall = startCall,
-                reload = { load() },
+                reload = { notice -> load(notice) },
             )
         }
     }
-    load()
+    load(null)
 }
 
 private fun renderGuestState(
@@ -132,14 +134,14 @@ private fun renderGuestState(
     state: EventOnlineStateDto,
     api: EventGuestApi,
     startCall: EventGuestCallStarter,
-    reload: () -> Unit,
+    reload: (String?) -> Unit,
 ) {
     when (state.outcome) {
         EventOnlineOutcome.NOT_YET -> {
             state.title?.let { body.untrustedHeading(it, level = 2, className = "h5") }
             val opens = state.opensAt?.let { runCatching { LocalDateTime.parse(it) }.getOrNull() }
             body.div(eventOnlineOutcomeMessage(EventOnlineOutcome.NOT_YET, opens).orEmpty()) { addCssClasses("alert alert-info") }
-            body.button(tr("Erneut prüfen"), style = ButtonStyle.OUTLINESECONDARY) { onClick { reload() } }
+            body.button(tr("Erneut prüfen"), style = ButtonStyle.OUTLINESECONDARY) { onClick { reload(null) } }
         }
         EventOnlineOutcome.ENDED ->
             body.div(eventOnlineOutcomeMessage(EventOnlineOutcome.ENDED).orEmpty()) { addCssClasses("alert alert-secondary") }
@@ -151,6 +153,7 @@ private fun renderGuestState(
                 state = state,
                 api = api,
                 startCall = startCall,
+                reload = reload,
             )
         else ->
             // FORBIDDEN (unknown, hidden, members-only ... all the same words), UNAVAILABLE and the rest.
@@ -165,6 +168,7 @@ private fun renderGuestForm(
     state: EventOnlineStateDto,
     api: EventGuestApi,
     startCall: EventGuestCallStarter,
+    reload: (String?) -> Unit,
 ) {
     state.title?.let { body.untrustedHeading(it, level = 2, className = "h5") }
     // The form grammar: required marks, one error slot per field, a collective message and a busy button that cannot be double-clicked.
@@ -188,10 +192,32 @@ private fun renderGuestForm(
         } else {
             null
         }
-    // The one sentence of the notice -- the acknowledged version/hash are those of [EventGuestNotice], which the server compares.
-    form.panel.div(tr("Ihr Name ist für alle Teilnehmenden sichtbar. Ihr Mikrofon ist zu Beginn aus. Es wird nichts aufgezeichnet.")) {
-        addCssClasses("alert alert-info mb-0")
-        setAttribute("role", "note")
+    // V1.9.156: an event that may be recorded or streamed shows the capture consent FIRST, with a box of its own, and then the capture variant of the
+    // guest notice (the old sentence promises that nothing is recorded). The server tells which one applies (captureNotice) and re-checks both.
+    val captureNotice = state.captureNotice
+    val captureField =
+        if (captureNotice != null) {
+            form.panel.div(tr("Aufzeichnung und Übertragung in diesem Raum")) { addCssClasses("fw-bold") }
+            form.panel.renderEventCaptureNotice(captureNotice)
+            form.checkField(
+                label = tr("Ich willige ein, dass mein Bild und mein Ton aufgezeichnet und live übertragen werden dürfen."),
+                required = true,
+                requiredMessage = tr("Bitte bestätigen Sie die Einwilligung, um teilzunehmen."),
+            )
+        } else {
+            null
+        }
+    // The one sentence of the notice -- the acknowledged version/hash are those of [EventGuestNotice] (or [EventGuestNoticeCapture]), which the server compares.
+    if (captureNotice != null) {
+        form.panel.div(tr("Ihr Name ist für alle Teilnehmenden sichtbar. Ihr Mikrofon ist zu Beginn aus.")) {
+            addCssClasses("alert alert-info mb-0")
+            setAttribute("role", "note")
+        }
+    } else {
+        form.panel.div(tr("Ihr Name ist für alle Teilnehmenden sichtbar. Ihr Mikrofon ist zu Beginn aus. Es wird nichts aufgezeichnet.")) {
+            addCssClasses("alert alert-info mb-0")
+            setAttribute("role", "note")
+        }
     }
     form.checkField(
         label = tr("Ich habe den Hinweis gelesen."),
@@ -206,9 +232,11 @@ private fun renderGuestForm(
             val request =
                 EventGuestJoinRequestDto(
                     name = nameField.value.trim(),
-                    consentVersion = EventGuestNotice.VERSION,
-                    consentSha256 = EventGuestNotice.SHA256,
+                    consentVersion = if (captureNotice != null) EventGuestNoticeCapture.VERSION else EventGuestNotice.VERSION,
+                    consentSha256 = if (captureNotice != null) EventGuestNoticeCapture.SHA256 else EventGuestNotice.SHA256,
                     ticketCode = ticketField?.value?.trim()?.takeIf { it.isNotEmpty() },
+                    captureConsentVersion = captureNotice?.versionLabel,
+                    captureConsentSha256 = captureNotice?.sha256,
                 )
             var result = api.join(slug, request)
             var attempts = 0
@@ -239,8 +267,11 @@ private fun renderGuestForm(
                 }
                 EventGuestJoinHttpResult.RateLimited ->
                     form.showFormError(gettext("Zu viele Anfragen. Bitte warten Sie einen Moment und versuchen Sie es erneut."))
-                EventGuestJoinHttpResult.NoticeOutdated ->
-                    form.showFormError(gettext("Der Hinweis hat sich geändert. Bitte laden Sie die Seite neu."))
+                EventGuestJoinHttpResult.NoticeOutdated -> {
+                    // V1.9.156: the notice (or the release of the event) changed since this page was loaded: read the state again, so the person sees
+                    // exactly what is asked now. A name typed in has to be typed again; nothing was sent.
+                    reload(gettext("Der Hinweis wurde geändert. Bitte lesen und bestätigen Sie ihn erneut."))
+                }
                 EventGuestJoinHttpResult.Invalid -> form.showFormError(gettext("Bitte prüfen Sie Ihren Namen."))
                 EventGuestJoinHttpResult.Failed ->
                     form.showFormError(gettext("Die Teilnahme ist gerade nicht möglich. Bitte versuchen Sie es erneut."))

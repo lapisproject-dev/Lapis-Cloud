@@ -57,4 +57,17 @@ interface IOrganizationSettingsService {
         enabled: Boolean,
         acknowledgedNoticeVersion: String?,
     ): OrganizationSettingsDto
+
+    /**
+     * V1.9.156. Role: ADMIN only. Switches "recording and live streaming in event rooms" on or off. Switching ON requires
+     * [acknowledgedNoticeVersion] to equal [network.lapis.cloud.shared.domain.EVENT_CAPTURE_NOTICE_VERSION]
+     * ([network.lapis.cloud.shared.rpc.EventCaptureOperatorNoticeOutdatedException]), a PUBLISHED `EVENT_REC` text
+     * ([network.lapis.cloud.shared.rpc.EventCaptureTextMissingException]) and no active released event room
+     * ([network.lapis.cloud.shared.rpc.EventCaptureChangeLockedException]). Switching OFF is refused while any event room records or streams
+     * ([network.lapis.cloud.shared.rpc.EventCaptureBusyException]); it never stops anything remotely.
+     */
+    suspend fun updateEventCaptureEnabled(
+        enabled: Boolean,
+        acknowledgedNoticeVersion: String?,
+    ): OrganizationSettingsDto
 }

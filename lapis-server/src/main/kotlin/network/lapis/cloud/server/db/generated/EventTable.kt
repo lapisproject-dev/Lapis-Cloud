@@ -10,6 +10,7 @@
 // `onlineUrlPublic`/`imported` columns added, see 39-events.kuml.kts file header addendum.
 // Welle V1.9.113 "Online-Teilnahme an Veranstaltungen" -- hand-edited, `onlineKind`/`encounterSpaceId` columns added, see
 // 39-events.kuml.kts file header addendum.
+// Welle V1.9.156 "Aufzeichnung in Veranstaltungsräumen" -- hand-edited, `captureAllowed` column added, see 39-events.kuml.kts file header addendum.
 
 package network.lapis.cloud.server.db.generated
 
@@ -72,6 +73,9 @@ public object EventTable : Table("event") {
     // lives in V93__event_online_participation.sql only).
     public val onlineKind: Column<EventOnlineKind> = enumerationByName<EventOnlineKind>("online_kind", 32).default(EventOnlineKind.NONE)
     public val encounterSpaceId: Column<Uuid?> = uuid("encounter_space_id").nullable()
+
+    // V1.9.156 addendum -- see 39-events.kuml.kts file header and 73-event-capture.kuml.kts.
+    public val captureAllowed: Column<Boolean> = bool("capture_allowed").default(false)
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 

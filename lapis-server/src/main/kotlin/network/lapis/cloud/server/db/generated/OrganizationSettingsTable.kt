@@ -100,6 +100,9 @@ public object OrganizationSettingsTable : Table("organization_settings") {
     // Welle V1.9.144 -- hand-edited, see 11-organization-settings.kuml.kts.
     public val memberFinderEnabled: Column<Boolean> = bool("member_finder_enabled").default(false)
     public val memberFinderNoticeVersion: Column<String?> = varchar("member_finder_notice_version", 16).nullable()
+    // Welle V1.9.156 -- hand-edited, see 11-organization-settings.kuml.kts.
+    public val eventCaptureEnabled: Column<Boolean> = bool("event_capture_enabled").default(false)
+    public val eventCaptureNoticeVersion: Column<String?> = varchar("event_capture_notice_version", 16).nullable()
 
     override val primaryKey: PrimaryKey = PrimaryKey(id)
 }

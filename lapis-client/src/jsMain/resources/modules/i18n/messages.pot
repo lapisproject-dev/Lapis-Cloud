@@ -24100,3 +24100,112 @@ msgstr ""
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoomLayoutChoice.kt
 msgid "Wählen Sie zuerst die Raumart."
 msgstr ""
+
+# V1.9.156 -- Aufzeichnung und Live-Übertragung in Veranstaltungsräumen
+msgid "Aufzeichnung (Veranstaltung)"
+msgstr ""
+
+msgid "Gilt nur, wenn die Aufzeichnung in Veranstaltungsräumen für die Instanz eingeschaltet ist."
+msgstr ""
+
+msgid "So sehen Teilnehmende den Hinweis"
+msgstr ""
+
+msgid "Bitte bestätigen Sie zuerst den Hinweis zur Aufzeichnung."
+msgstr ""
+
+msgid "Der Hinweis zur Aufzeichnung hat sich geändert. Bitte lesen Sie ihn erneut."
+msgstr ""
+
+msgid "Die Freigabe der Aufzeichnung kann gerade nicht geändert werden."
+msgstr ""
+
+msgid "In einem Veranstaltungsraum läuft gerade eine Aufzeichnung oder Übertragung. Beenden Sie sie zuerst."
+msgstr ""
+
+msgid "Veröffentlichen Sie zuerst den Einwilligungstext für Veranstaltungen unter Vertragstexte."
+msgstr ""
+
+msgid "Der Hinweis hat sich geändert. Bitte versuchen Sie es erneut."
+msgstr ""
+
+msgid "Diese Besprechung wird aufgezeichnet und live übertragen."
+msgstr ""
+
+msgid "Diese Besprechung wird aufgezeichnet."
+msgstr ""
+
+msgid "Diese Besprechung wird live übertragen."
+msgstr ""
+
+msgid "Aufzeichnung und Übertragung in diesem Raum"
+msgstr ""
+
+msgid "Ich willige ein, dass mein Bild und mein Ton aufgezeichnet und live übertragen werden dürfen."
+msgstr ""
+
+msgid "Bitte bestätigen Sie die Einwilligung, um teilzunehmen."
+msgstr ""
+
+msgid "Ihr Name ist für alle Teilnehmenden sichtbar. Ihr Mikrofon ist zu Beginn aus."
+msgstr ""
+
+msgid "Aufzeichnung und Übertragung erlauben"
+msgstr ""
+
+msgid "Dann können Bild, Ton und Name aller Personen im Online-Raum aufgezeichnet und live übertragen werden, nicht nur die der Vortragenden. Jede Person muss vor dem Betreten ausdrücklich zustimmen, und im Raum steht, solange aufgezeichnet oder übertragen wird. Gestartet wird nur durch die Moderation im Raum."
+msgstr ""
+
+msgid "Die Aufzeichnung in Veranstaltungsräumen ist auf dieser Instanz nicht eingeschaltet."
+msgstr ""
+
+msgid "Die Freigabe kann nicht mehr geändert werden: Der Online-Raum ist geöffnet oder es läuft eine Aufzeichnung oder Übertragung."
+msgstr ""
+
+msgid "Die Veranstaltung wurde gespeichert, die Freigabe der Aufzeichnung konnte aber nicht mehr geändert werden."
+msgstr ""
+
+msgid "Sie sind im Begriff, die Aufzeichnung und die Live-Übertragung in den Online-Räumen von Veranstaltungen dieser Instanz zu erlauben. Aufgezeichnet und übertragen werden können Bild, Ton und Anzeigename aller Personen im Raum, nicht nur der Vortragenden. Der Vorstand entscheidet danach für jede Veranstaltung einzeln."
+msgstr ""
+
+msgid "Ob und unter welchen Bedingungen eine solche Aufzeichnung zulässig ist, hängt vom Recht Ihres Landes ab, zum Beispiel vom Datenschutz-, Persönlichkeits- und Urheberrecht. Bei Veranstaltungen kann ein Teil der Daten besondere Kategorien betreffen, etwa die politische oder religiöse Überzeugung. Lapis Cloud nimmt diese Prüfung nicht vor und ersetzt keine Rechtsberatung."
+msgstr ""
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass Sie eine Rechtsgrundlage haben und dass jede Person vor dem Betreten des Raums informiert ist und, wo erforderlich, einwilligt. Lapis Cloud verlangt dafür von jeder Person eine ausdrückliche Bestätigung des Einwilligungstextes und hält sie ohne Namen und ohne Uhrzeit fest. Das ersetzt keine Prüfung, ob die Einwilligung freiwillig und ausreichend ist."
+msgstr ""
+
+msgid "Das Programm kann nicht verhindern, dass Teilnehmende Bildschirmfotos oder eigene Mitschnitte anfertigen. Der Einwilligungstext, der angezeigt wird, muss von Ihnen vor dem Einschalten veröffentlicht werden."
+msgstr ""
+
+msgid "Aufzeichnung und Übertragung in Veranstaltungsräumen erlauben"
+msgstr ""
+
+msgid "Der Vorstand erlaubt die Aufzeichnung danach für jede Veranstaltung einzeln. Jede Person im Raum stimmt vorher ausdrücklich zu und sieht im Raum, solange aufgezeichnet oder übertragen wird."
+msgstr ""
+
+msgid "Der Einwilligungstext für Veranstaltungen ist noch der Platzhalter. Veröffentlichen Sie zuerst einen eigenen, rechtlich geprüften Text."
+msgstr ""
+
+msgid "Aufzeichnung in Veranstaltungsräumen ausschalten?"
+msgstr ""
+
+msgid "Danach kann in keinem Veranstaltungsraum mehr aufgezeichnet oder übertragen werden."
+msgstr ""
+
+msgid "Die Aufzeichnung in Veranstaltungsräumen ist ausgeschaltet."
+msgstr ""
+
+msgid "Eine freigegebene Veranstaltung läuft gerade. Bitte versuchen Sie es nach ihrem Ende erneut."
+msgstr ""
+
+msgid "Die Aufzeichnung in Veranstaltungsräumen ist eingeschaltet."
+msgstr ""
+
+msgid "Aufzeichnung in Veranstaltungsräumen erlauben?"
+msgstr ""
+
+msgid "Aufzeichnung und Übertragung: erlaubt"
+msgstr ""
+
+msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
+msgstr ""

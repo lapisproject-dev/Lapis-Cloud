@@ -25029,3 +25029,112 @@ msgstr "De ruimtesjabloon kan alleen worden gewijzigd als de ruimte gesloten is.
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoomLayoutChoice.kt
 msgid "Wählen Sie zuerst die Raumart."
 msgstr "Kies eerst de soort ruimte."
+
+# V1.9.156 -- Aufzeichnung und Live-Übertragung in Veranstaltungsräumen
+msgid "Aufzeichnung (Veranstaltung)"
+msgstr "Opname (evenement)"
+
+msgid "Gilt nur, wenn die Aufzeichnung in Veranstaltungsräumen für die Instanz eingeschaltet ist."
+msgstr "Geldt alleen als opnemen in evenementruimtes voor de instantie is ingeschakeld."
+
+msgid "So sehen Teilnehmende den Hinweis"
+msgstr "Zo zien deelnemers de mededeling"
+
+msgid "Bitte bestätigen Sie zuerst den Hinweis zur Aufzeichnung."
+msgstr "Bevestig eerst de mededeling over de opname."
+
+msgid "Der Hinweis zur Aufzeichnung hat sich geändert. Bitte lesen Sie ihn erneut."
+msgstr "De mededeling over de opname is gewijzigd. Lees hem opnieuw."
+
+msgid "Die Freigabe der Aufzeichnung kann gerade nicht geändert werden."
+msgstr "De vrijgave van de opname kan nu niet worden gewijzigd."
+
+msgid "In einem Veranstaltungsraum läuft gerade eine Aufzeichnung oder Übertragung. Beenden Sie sie zuerst."
+msgstr "In een evenementruimte loopt een opname of livestream. Beëindig die eerst."
+
+msgid "Veröffentlichen Sie zuerst den Einwilligungstext für Veranstaltungen unter Vertragstexte."
+msgstr "Publiceer eerst de toestemmingstekst voor evenementen onder Contractteksten."
+
+msgid "Der Hinweis hat sich geändert. Bitte versuchen Sie es erneut."
+msgstr "De mededeling is gewijzigd. Probeer het opnieuw."
+
+msgid "Diese Besprechung wird aufgezeichnet und live übertragen."
+msgstr "Deze bespreking wordt opgenomen en live uitgezonden."
+
+msgid "Diese Besprechung wird aufgezeichnet."
+msgstr "Deze bespreking wordt opgenomen."
+
+msgid "Diese Besprechung wird live übertragen."
+msgstr "Deze bespreking wordt live uitgezonden."
+
+msgid "Aufzeichnung und Übertragung in diesem Raum"
+msgstr "Opname en livestream in deze ruimte"
+
+msgid "Ich willige ein, dass mein Bild und mein Ton aufgezeichnet und live übertragen werden dürfen."
+msgstr "Ik geef toestemming dat mijn beeld en geluid worden opgenomen en live worden uitgezonden."
+
+msgid "Bitte bestätigen Sie die Einwilligung, um teilzunehmen."
+msgstr "Bevestig uw toestemming om deel te nemen."
+
+msgid "Ihr Name ist für alle Teilnehmenden sichtbar. Ihr Mikrofon ist zu Beginn aus."
+msgstr "Uw naam is zichtbaar voor alle deelnemers. Uw microfoon staat aan het begin uit."
+
+msgid "Aufzeichnung und Übertragung erlauben"
+msgstr "Opname en livestream toestaan"
+
+msgid "Dann können Bild, Ton und Name aller Personen im Online-Raum aufgezeichnet und live übertragen werden, nicht nur die der Vortragenden. Jede Person muss vor dem Betreten ausdrücklich zustimmen, und im Raum steht, solange aufgezeichnet oder übertragen wird. Gestartet wird nur durch die Moderation im Raum."
+msgstr "Dan kunnen beeld, geluid en naam van alle personen in de onlineruimte worden opgenomen en live worden uitgezonden, niet alleen die van de sprekers. Iedereen moet vóór het binnenkomen uitdrukkelijk toestemming geven, en de ruimte laat zien zolang er wordt opgenomen of uitgezonden. Alleen de moderatie in de ruimte kan dit starten."
+
+msgid "Die Aufzeichnung in Veranstaltungsräumen ist auf dieser Instanz nicht eingeschaltet."
+msgstr "Opnemen in evenementruimtes is voor deze instantie niet ingeschakeld."
+
+msgid "Die Freigabe kann nicht mehr geändert werden: Der Online-Raum ist geöffnet oder es läuft eine Aufzeichnung oder Übertragung."
+msgstr "De vrijgave kan niet meer worden gewijzigd: de onlineruimte is geopend of er loopt een opname of livestream."
+
+msgid "Die Veranstaltung wurde gespeichert, die Freigabe der Aufzeichnung konnte aber nicht mehr geändert werden."
+msgstr "Het evenement is opgeslagen, maar de vrijgave van de opname kon niet meer worden gewijzigd."
+
+msgid "Sie sind im Begriff, die Aufzeichnung und die Live-Übertragung in den Online-Räumen von Veranstaltungen dieser Instanz zu erlauben. Aufgezeichnet und übertragen werden können Bild, Ton und Anzeigename aller Personen im Raum, nicht nur der Vortragenden. Der Vorstand entscheidet danach für jede Veranstaltung einzeln."
+msgstr "U staat op het punt opname en livestream toe te staan in de onlineruimtes van evenementen van deze instantie. Beeld, geluid en weergegeven naam van alle personen in de ruimte kunnen worden opgenomen en uitgezonden, niet alleen die van de sprekers. Het bestuur beslist daarna per evenement afzonderlijk."
+
+msgid "Ob und unter welchen Bedingungen eine solche Aufzeichnung zulässig ist, hängt vom Recht Ihres Landes ab, zum Beispiel vom Datenschutz-, Persönlichkeits- und Urheberrecht. Bei Veranstaltungen kann ein Teil der Daten besondere Kategorien betreffen, etwa die politische oder religiöse Überzeugung. Lapis Cloud nimmt diese Prüfung nicht vor und ersetzt keine Rechtsberatung."
+msgstr "Of en onder welke voorwaarden een dergelijke opname is toegestaan, hangt af van het recht van uw land, bijvoorbeeld van de regels voor gegevensbescherming, persoonlijkheidsrechten en auteursrecht. Bij evenementen kan een deel van de gegevens onder bijzondere categorieën vallen, zoals politieke of religieuze overtuiging. Lapis Cloud voert deze toetsing niet uit en vervangt geen juridisch advies."
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass Sie eine Rechtsgrundlage haben und dass jede Person vor dem Betreten des Raums informiert ist und, wo erforderlich, einwilligt. Lapis Cloud verlangt dafür von jeder Person eine ausdrückliche Bestätigung des Einwilligungstextes und hält sie ohne Namen und ohne Uhrzeit fest. Das ersetzt keine Prüfung, ob die Einwilligung freiwillig und ausreichend ist."
+msgstr "Als beheerder bent u ervoor verantwoordelijk dat u een rechtsgrond hebt en dat iedere persoon vóór het betreden van de ruimte is geïnformeerd en, waar nodig, toestemming geeft. Lapis Cloud vraagt hiervoor van iedere persoon een uitdrukkelijke bevestiging van de toestemmingstekst en legt die vast zonder naam en zonder tijdstip. Dat vervangt niet de toetsing of de toestemming vrijwillig en toereikend is."
+
+msgid "Das Programm kann nicht verhindern, dass Teilnehmende Bildschirmfotos oder eigene Mitschnitte anfertigen. Der Einwilligungstext, der angezeigt wird, muss von Ihnen vor dem Einschalten veröffentlicht werden."
+msgstr "Het programma kan niet voorkomen dat deelnemers schermafbeeldingen of eigen opnamen maken. De toestemmingstekst die wordt getoond, moet u vóór het inschakelen publiceren."
+
+msgid "Aufzeichnung und Übertragung in Veranstaltungsräumen erlauben"
+msgstr "Opname en livestream in evenementruimtes toestaan"
+
+msgid "Der Vorstand erlaubt die Aufzeichnung danach für jede Veranstaltung einzeln. Jede Person im Raum stimmt vorher ausdrücklich zu und sieht im Raum, solange aufgezeichnet oder übertragen wird."
+msgstr "Het bestuur staat de opname daarna per evenement afzonderlijk toe. Iedereen in de ruimte stemt vooraf uitdrukkelijk in en ziet in de ruimte wanneer er wordt opgenomen of uitgezonden."
+
+msgid "Der Einwilligungstext für Veranstaltungen ist noch der Platzhalter. Veröffentlichen Sie zuerst einen eigenen, rechtlich geprüften Text."
+msgstr "De toestemmingstekst voor evenementen is nog de tijdelijke tekst. Publiceer eerst een eigen, juridisch getoetste tekst."
+
+msgid "Aufzeichnung in Veranstaltungsräumen ausschalten?"
+msgstr "Opnemen in evenementruimtes uitschakelen?"
+
+msgid "Danach kann in keinem Veranstaltungsraum mehr aufgezeichnet oder übertragen werden."
+msgstr "Daarna kan in geen enkele evenementruimte meer worden opgenomen of uitgezonden."
+
+msgid "Die Aufzeichnung in Veranstaltungsräumen ist ausgeschaltet."
+msgstr "Opnemen in evenementruimtes is uitgeschakeld."
+
+msgid "Eine freigegebene Veranstaltung läuft gerade. Bitte versuchen Sie es nach ihrem Ende erneut."
+msgstr "Er loopt op dit moment een vrijgegeven evenement. Probeer het opnieuw nadat het is afgelopen."
+
+msgid "Die Aufzeichnung in Veranstaltungsräumen ist eingeschaltet."
+msgstr "Opnemen in evenementruimtes is ingeschakeld."
+
+msgid "Aufzeichnung in Veranstaltungsräumen erlauben?"
+msgstr "Opnemen in evenementruimtes toestaan?"
+
+msgid "Aufzeichnung und Übertragung: erlaubt"
+msgstr "Opname en livestream: toegestaan"
+
+msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
+msgstr "De vrijgave van de opname geldt niet voor reeksen van afspraken. Geef de afzonderlijke afspraken na het aanmaken vrij."

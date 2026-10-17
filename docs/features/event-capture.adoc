@@ -1,0 +1,94 @@
+= Recording and live streaming in event rooms (V1.9.156)
+:toc:
+
+The online room of an event (`LAPIS_CONFERENCE`, see link:event-online-participation.adoc[Online participation in events]) can be recorded and streamed live --
+*if the operator allows it, if the board releases the event and if everybody who enters has acknowledged the consent first*. Everything is **off by default**.
+The design and the threat model are in link:../architecture/conference-recording.adoc[docs/architecture/conference-recording.adoc], section "Event rooms (V1.9.156)".
+
+IMPORTANT: Whether and under which conditions persons may be recorded and streamed depends on the **country** of the instance (data protection, personality and
+copyright law; at political or religious events also the special categories of Art. 9 GDPR). Lapis Cloud does not decide that and is not legal advice. It makes the
+feature opt-in on three levels, puts the responsibility with the operator in writing, and keeps a nameless proof that every participant acknowledged the consent
+text. The texts shown to the persons concerned are drafts the operator replaces with legally reviewed ones -- and the feature **cannot be switched on before the
+operator has published its own consent text**.
+
+== Switching on
+
+. *Instance (ADMIN):* settings, card "Videokonferenz", section "Veranstaltungen": "Aufzeichnung und Übertragung in Veranstaltungsräumen erlauben". The switch opens the
+  operator notice (four paragraphs, version in the foot); "Einschalten" stays locked until the legal-check box is ticked. The switch is locked with a hint and a link
+  while the consent text (`EVENT_REC`, tab "Aufzeichnung (Veranstaltung)" under "Vertragstexte") is still the built-in placeholder. The audit entry records the notice
+  version and the hash of the German reference text. Switching **on** is refused while a released event is active (people who entered while it was off acknowledged
+  nothing); switching **off** is refused while any event room records or streams (nothing is stopped remotely -- the moderator ends it first).
+. *Event (BOARD/ADMIN):* the event form has the box "Aufzeichnung und Übertragung erlauben" (only for a Lapis conference and only while the instance switch is on). It is
+  saved with its own call (`setEventCaptureAllowed`) after the event itself and audited as `EVENT_CAPTURE` with the event id and the value. A new series occurrence is never
+  released; occurrences are released one by one.
+. *Room:* the moderator starts and stops the recording and the stream in the room exactly as in an ordinary room. The recording of an event room is stored `BOARD_ONLY`
+  (or `ADMIN_ONLY`); `PUBLIC_MEMBERS` is refused.
+
+== The release is frozen while people may be inside
+
+`EventCaptureLock` freezes the release of an event -- and the instance switch ON -- from the moment people may be inside, in both directions:
+
+* the online window is open (from 15 minutes before the start; tokens are handed out from then on, also to people without an account, who leave no participation row);
+* the room has not ended;
+* a recording or a stream of the room is not over (PAUSED counts as alive);
+* somebody has an open participation.
+
+The entry path re-reads the release under the row lock of the event (lock order: event, then room -- the order of `updateEvent` and `setEventCaptureAllowed`). A
+release that is granted while a person is being let in is noticed there and that person is refused. A kind of the event other than the Lapis conference drops the
+release.
+
+== What a participant sees and acknowledges
+
+[kuml, event-capture-consent, svg]
+----
+sequenceDiagram(name = "Entry into a released event room (V1.9.156)") {
+    val person = participant(name = "Person")
+    val client = participant(name = "Client")
+    val server = participant(name = "Server")
+    val db = participant(name = "Database")
+
+    message(from = person, to = client, text = "opens the event")
+    message(from = client, to = server, text = "getEventCaptureState / online-state")
+    message(from = server, to = client, text = "consent text (version, hash), only if required")
+    message(from = person, to = client, text = "ticks the consent")
+    message(from = client, to = server, text = "join with version and hash")
+    message(from = server, to = db, text = "re-check the release under the event lock")
+    message(from = server, to = db, text = "write the proof, in the same transaction")
+    message(from = server, to = client, text = "token, initial banner state")
+}
+----
+
+* *Members* (and guests with an account): the screen "Aufzeichnung und Übertragung in diesem Raum" with the headline, three key points and the full text behind a
+  disclosure, one box, "Teilnehmen" locked until every box is ticked. A guest account also sees the **capture variant** of the guest notice with its own box on the
+  same screen (the old notice says "Es wird nichts aufgezeichnet.", which would be false). Reconnecting after a lost connection does not ask again as long as the text is
+  the same; a new version always asks.
+* *People without an account* (`#/event-join/<slug>`): the same consent block above the guest notice, both boxes required; the request carries both versions and
+  hashes. `409` means "the text or the release changed": the page reads the state again.
+* The server decides and checks; the client never decides. A client that sends no consent for a released event is refused; the old `joinEventOnline` refuses it too.
+* *Everybody inside* sees a line (dot and words, `role="status"`, no close button, no animation) while the room is recorded and / or streamed. It follows the state
+  sent by the server as a LiveKit data packet (`lapis-event-capture`, only packets without a sending participant are accepted) and the state in the join answer.
+
+== The proof (`event_capture_acknowledgment`)
+
+[cols="1,3",options="header"]
+|===
+|Column |Meaning
+|`event_id` |The event (FK, no cascade; deleting an event deletes its proofs first).
+|`member_id` / `guest_key` |Exactly one of them (CHECK). `guest_key` = HMAC-SHA256 hex of the LiveKit identity (`evg-...`) of a person without an account, keyed with a domain-separated sub-key of the LiveKit API secret. It names nobody and, without the server secret, cannot be linked to a registration or a ticket hash (the identity of a ticket holder derives from `event_registration.ticket_code_sha256`, so an unkeyed hash would have made the table an online attendance list by name). The server can match it with the track files of a recording (whose participant identity it is), which is what the proof is for. Rotating the LiveKit API secret makes old keys unmatchable with later recordings.
+|`consent_version`, `consent_sha256` |What was acknowledged (the live `EVENT_REC` text, or its version and hash at the moment of entry).
+|`acknowledged_on` |A DATE of the organization zone -- no clock time, no room, no name.
+|===
+
+Unique per event, subject and version, so an entry is idempotent and a new text is a new proof. The table is part of the organization backup. In the GDPR export a member sees
+their own proofs (event title, version, day); an erasure *retains* the proof (Art. 5(2), 7(1) GDPR: it is the organization's record that the consent was acknowledged
+before the image could be recorded) -- it carries no name and no time of day.
+
+== Known limitations
+
+* Nothing was verified in a real browser, in a real call, against a real LiveKit or a real egress. A rehearsal on staging (a guest without an account, a participant egress, an RTMP stream, the banner) is the next step before a real event.
+* The proof does not show what a third party does with the stream (screenshots, their own recordings); the software cannot prevent that.
+* A person without an account now leaves a nameless proof in a released event (until V1.9.155 such a person left no row at all).
+* The banner can be up to 5 seconds late for transitions that only a poller makes; it never switches off because of a failed send.
+* The instance feature cannot be moved while an event room records or streams, and the start reads the settings without the lock the switching side takes.
+* No per-person opt-out of the picture inside the room (a person who does not want to be recorded leaves, or keeps camera and microphone off).
+* The built-in consent text is a draft; the translations are model translations.

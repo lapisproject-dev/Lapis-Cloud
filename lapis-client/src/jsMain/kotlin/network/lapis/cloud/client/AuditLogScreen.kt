@@ -593,6 +593,8 @@ fun decodeAuditSnapshot(
             AuditEntityType.AGREEMENT_TEXT -> null
             // Welle V1.9.143 -- event, reason code, text hashes of a pulpit recording; raw-text display like the other backend-written snapshots.
             AuditEntityType.PULPIT_RECORDING -> null
+            // Welle V1.9.156 -- event id and the new value of the release of recording / streaming; raw-text display like the other backend-written snapshots.
+            AuditEntityType.EVENT_CAPTURE -> null
         }
     }.getOrNull()
 

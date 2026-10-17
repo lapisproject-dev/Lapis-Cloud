@@ -3,6 +3,8 @@ package network.lapis.cloud.shared.rpc
 import dev.kilua.rpc.annotations.RpcService
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInput
+import network.lapis.cloud.shared.domain.EventCaptureAcknowledgmentInput
+import network.lapis.cloud.shared.domain.EventCaptureStateDto
 import network.lapis.cloud.shared.domain.EventCheckInResultDto
 import network.lapis.cloud.shared.domain.EventCheckInRosterDto
 import network.lapis.cloud.shared.domain.EventDto
@@ -236,4 +238,31 @@ interface IEventService {
 
     /** V1.9.113 -- BOARD/ADMIN: all active, non-archived encounter spaces for the event form's picker. */
     suspend fun listEncounterSpacesForEvents(): List<EventEncounterSpaceOptionDto>
+
+    /**
+     * V1.9.156 -- the capture state of [eventId] (release, lock reason, the consent text a participant must acknowledge). Everybody who may
+     * see the event; an unknown or hidden event is the same refusal as [getEvent].
+     */
+    suspend fun getEventCaptureState(eventId: String): EventCaptureStateDto
+
+    /**
+     * V1.9.156 -- BOARD/ADMIN. Releases or withdraws the recording / live streaming of [eventId]'s online room. Only for a Lapis conference,
+     * only while the instance switch is on, and NEVER while the room is active (window open, room alive, recording / stream running, somebody
+     * sits in it): everybody who enters must have acknowledged the consent, so the release is frozen from the moment people may enter.
+     */
+    suspend fun setEventCaptureAllowed(
+        eventId: String,
+        allowed: Boolean,
+    ): EventCaptureStateDto
+
+    /**
+     * V1.9.156 -- like [joinEventOnline], plus the capture consent. Required when the event allows recording or streaming
+     * ([network.lapis.cloud.shared.rpc.EventCaptureNoticeRequiredException]); a stale text is
+     * [network.lapis.cloud.shared.rpc.EventCaptureNoticeOutdatedException]. [guestConsent] carries the capture variant of the guest notice.
+     */
+    suspend fun joinEventOnlineWithCapture(
+        eventId: String,
+        guestConsent: ConferenceGuestConsentAcknowledgmentInput?,
+        captureConsent: EventCaptureAcknowledgmentInput?,
+    ): EventOnlineJoinResultDto
 }

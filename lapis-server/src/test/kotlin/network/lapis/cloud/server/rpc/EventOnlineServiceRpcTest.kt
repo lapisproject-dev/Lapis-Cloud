@@ -60,6 +60,7 @@ import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
 import network.lapis.cloud.shared.rpc.UnauthenticatedException
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -592,6 +593,58 @@ class EventOnlineServiceRpcTest :
                 }
                 client.asMember(board, "POST", "/ev/$event/update?kind=NONE&location=Saal").status shouldBe HttpStatusCode.OK
                 transaction { EventConferenceTable.selectAll().where { EventConferenceTable.eventId eq event }.count() } shouldBe 0L
+            }
+        }
+
+        // the seeded board member as actor: an audit entry references its actor and is never deleted, so a fixture member could not be cleaned up afterwards
+        val seededBoard = Uuid.parse("00000000-0000-0000-0000-000000000002")
+
+        fun captureAllowedOf(event: Uuid): Boolean =
+            transaction { EventTable.selectAll().where { EventTable.id eq event }.single()[EventTable.captureAllowed] }
+
+        fun captureAuditOf(event: Uuid) =
+            transaction {
+                network.lapis.cloud.server.db.generated.AuditLogEntryTable
+                    .selectAll()
+                    .where {
+                        (
+                            network.lapis.cloud.server.db.generated.AuditLogEntryTable.entityType eq
+                                network.lapis.cloud.shared.domain.AuditEntityType.EVENT_CAPTURE
+                        ) and
+                            (network.lapis.cloud.server.db.generated.AuditLogEntryTable.entityId eq event)
+                    }.toList()
+            }
+
+        test("updateEvent: switching an idle event away from a conference withdraws the capture release and audits it") {
+            testApplication {
+                application { setUp() }
+                val event = fx.event(createdBy = board, captureAllowed = true)
+                captureAllowedOf(event) shouldBe true
+                client.asMember(seededBoard, "POST", "/ev/$event/update?kind=NONE&location=Saal").status shouldBe HttpStatusCode.OK
+                captureAllowedOf(event) shouldBe false
+                val entries = captureAuditOf(event)
+                entries.size shouldBe 1
+                entries.single()[network.lapis.cloud.server.db.generated.AuditLogEntryTable.afterSnapshot]!! shouldContain
+                    "\"captureAllowed\":false"
+                // an event that was never released writes no capture audit entry on a kind change
+                val neverReleased = fx.event(createdBy = board)
+                client.asMember(seededBoard, "POST", "/ev/$neverReleased/update?kind=NONE&location=Saal").status shouldBe HttpStatusCode.OK
+                captureAuditOf(neverReleased).size shouldBe 0
+            }
+        }
+
+        test("updateEvent: a running conference vetoes the kind change and the capture release stays") {
+            TimeTestSupport.withServerClock(instant = inside) {
+                testApplication {
+                    application { setUp() }
+                    val event = fx.event(createdBy = board)
+                    client.asMember(fx.member(), "POST", "/ev/$event/join").bodyAsText() shouldStartWith "JOINED|"
+                    transaction { EventTable.update({ EventTable.id eq event }) { it[captureAllowed] = true } }
+                    client.asMember(seededBoard, "POST", "/ev/$event/update?kind=NONE&location=Saal").status shouldBe
+                        HttpStatusCode.Conflict
+                    captureAllowedOf(event) shouldBe true
+                    captureAuditOf(event).size shouldBe 0
+                }
             }
         }
 

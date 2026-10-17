@@ -3,10 +3,13 @@ package network.lapis.cloud.server.events
 import kotlinx.datetime.LocalDateTime
 import network.lapis.cloud.server.db.generated.EventConferenceStatus
 import network.lapis.cloud.server.db.generated.EventConferenceTable
+import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventVisibility
 import network.lapis.cloud.shared.rpc.ConflictException
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.update
 import kotlin.uuid.Uuid
 
 /**
@@ -33,7 +36,13 @@ internal object EventOnlineLifecycle {
         previousRegistrationClosesAt: LocalDateTime?,
         newRegistrationClosesAt: LocalDateTime?,
     ) {
-        val row = EventConferenceStore.get(eventId) ?: return
+        val row = EventConferenceStore.get(eventId)
+        // V1.9.156: the release of recording / streaming belongs to a Lapis conference only. An event that is no conference (any more) must not keep a
+        // dormant release that would silently apply again if the kind is switched back. (A running conference vetoes the kind change below.)
+        if (kind != EventOnlineKind.LAPIS_CONFERENCE && row?.get(EventConferenceTable.status) != EventConferenceStatus.ACTIVE) {
+            EventTable.update({ EventTable.id eq eventId }) { it[captureAllowed] = false }
+        }
+        if (row == null) return
         if (row[EventConferenceTable.status] == EventConferenceStatus.ACTIVE &&
             accessTightened(
                 previousVisibility = previousVisibility,

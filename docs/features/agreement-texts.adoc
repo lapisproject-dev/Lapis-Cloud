@@ -93,6 +93,13 @@ Details: link:member-finder.adoc[Member finder].
 The kinds `ENC_CHURCH` ("Eintrittshinweis Gottesdienst") and `ENC_ASSEM` ("Eintrittshinweis Versammlung") are the Art. 9 notice a **non-member** (guest or friend) acknowledges before entering a church-service or
 assembly room. They apply only to rooms that admit guests or friends and are therefore not listed in the "placeholder active" hint of the member administration.
 
+The kind `EVENT_REC` (tab "Aufzeichnung (Veranstaltung)", V1.9.156) is the consent every participant of an event room that may be recorded or streamed acknowledges before entering
+(link:event-capture.adoc[Recording and live streaming in event rooms]). It follows the same paragraph rule as the encounter notices (a headline of at most 160 characters, three key
+points of at most 600 characters, any further paragraphs as the full text; the whole body is hashed verbatim) but has **no** `+rec` suffix, **no** system-owned recording sentence and
+therefore the general label limit of 50 characters. While only the built-in placeholder exists, the instance feature cannot be switched on; a published text equal to the placeholder
+(or a label equal to its label) is refused. The administration never counts acknowledgments of this kind (`olderAcknowledgmentCount` is `0` or `null`: a real number would be an
+attendance figure).
+
 * *Layout.* At least four paragraphs separated by blank lines: the headline (at most 160 characters) and three key points (at most 600 characters each) are what the guest reads without clicking, everything after is the detail
   behind a disclosure. The editor names the violated rule live and blocks save and publish. The preview "So sieht der Gast den Hinweis" is drawn by the same function as the entry panel.
 * *Recording.* In a room whose pulpit may be recorded the **system** appends its own paragraph ("the pulpit can be recorded; your own picture and sound never are") and the suffix `+rec` to the label. Do not

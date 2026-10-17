@@ -227,6 +227,8 @@ private fun renderEventListRow(
         if (event.onlineKind != EventOnlineKind.NONE) {
             displayHolder.div(gettext("Online-Teilnahme: %1", eventOnlineKindLabel(event.onlineKind))) { addCssClasses("text-muted small") }
         }
+        // V1.9.156: the board sees at a glance that recording / live streaming is released for this event (words, not a symbol).
+        if (event.captureAllowed) displayHolder.div(tr("Aufzeichnung und Übertragung: erlaubt")) { addCssClasses("text-muted small") }
         if (event.status == EventStatus.PUBLISHED) renderEventGuestsPanel(displayHolder, event)
 
         val actionRow = displayHolder.hPanel(spacing = 8)
@@ -411,6 +413,8 @@ private class EventFormFieldRefs(
     val locationTextInput: Text,
     /** V1.9.113 -- the "Online-Teilnahme" section: the kind, the external link (only for the external kind) and the encounter space. */
     val online: EventOnlineKindRefs,
+    /** V1.9.156 -- the release of recording / live streaming (saved with its own call after the event). */
+    val capture: EventCaptureRefs,
     val startsAtInput: LocalDateTimeInput,
     val endsAtInput: LocalDateTimeInput,
     val registrationClosesAtInput: LocalDateTimeInput,
@@ -469,6 +473,7 @@ private fun buildEventFormFields(
                     capacity = { capacityHolder?.value?.trim()?.toIntOrNull() },
                 ),
         )
+    val capture = buildEventCaptureSection(panel = panel, prefill = prefill, online = online)
     val startsAtInput = panel.localDateTimeInput(label = gettext("Beginn"), value = prefill?.startsAt)
     val endsAtInput = panel.localDateTimeInput(label = gettext("Ende"), value = prefill?.endsAt)
     val registrationClosesAtInput =
@@ -520,6 +525,7 @@ private fun buildEventFormFields(
         descriptionInput = descriptionInput,
         locationTextInput = locationTextInput,
         online = online,
+        capture = capture,
         startsAtInput = startsAtInput,
         endsAtInput = endsAtInput,
         registrationClosesAtInput = registrationClosesAtInput,
@@ -633,6 +639,13 @@ private fun renderEventCreationForm(
     createButton.onClick {
         val input = readEventForm(fields, errorBox, existingStartsAt = null) ?: return@onClick
         if (recurrenceEditor.isEnabled) {
+            // The release belongs to ONE event: an occurrence of a series is released one by one after it was created.
+            if (fields.capture.changed()) {
+                errorBox.content =
+                    tr("Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei.")
+                errorBox.show()
+                return@onClick
+            }
             val rule = recurrenceEditor.currentRule()
             if (rule == null) {
                 errorBox.content = tr("Bitte die Wiederholungsregel prüfen -- sie kann so nicht angelegt werden.")
@@ -661,6 +674,8 @@ private fun renderEventCreationForm(
                 val result = guarded { rpcService<IEventService>().createEvent(input) }
                 createButton.disabled = false
                 if (result != null) {
+                    // V1.9.156: the release follows the event (own call); a refusal has its own toast and leaves the event saved.
+                    applyEventCaptureRelease(eventId = result.id, refs = fields.capture)
                     notifySuccess(gettext("Veranstaltung \"%1\" wurde angelegt.", input.title))
                     collapse(true)
                     onCreated()
@@ -678,6 +693,7 @@ private fun EventFormFieldRefs.snapshotValues(): List<String> =
         locationTextInput.value,
         online.onlineUrlInput.value,
         online.kind().name,
+        if (capture.wanted()) "1" else "0",
         online.encounterSpaceId(),
         startsAtInput.value,
         endsAtInput.value,
@@ -730,6 +746,7 @@ private fun renderEventEditForm(
                         guarded { rpcService<IEventService>().updateSeriesEvent(eventId = event.id, input = input, scope = scope) }
                     saveButton.disabled = false
                     if (result != null) {
+                        applyEventCaptureRelease(eventId = event.id, refs = fields.capture)
                         notifySuccess(
                             gettext(
                                 "%1 Termin(e) wurden aktualisiert (%2 Angemeldete betroffen).",
@@ -748,6 +765,7 @@ private fun renderEventEditForm(
             val result = guarded { rpcService<IEventService>().updateEvent(id = event.id, input = input) }
             saveButton.disabled = false
             if (result != null) {
+                applyEventCaptureRelease(eventId = event.id, refs = fields.capture)
                 notifySuccess(gettext("Veranstaltung \"%1\" wurde aktualisiert.", input.title))
                 onSaved()
             }

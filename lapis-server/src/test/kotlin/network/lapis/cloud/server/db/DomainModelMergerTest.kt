@@ -75,8 +75,9 @@ class DomainModelMergerTest :
             // Welle V1.9.129 "Video-Overlays" -- was 69, now 70 with the addition of 69-video-overlay.kuml.kts.
             // Welle V1.9.134 "Vertragstexte" -- was 70, now 71 with the addition of 70-agreement-texts.kuml.kts.
             // Welle V1.9.143 "Kanzel-Aufzeichnung" -- was 71, now 72 with the addition of 71-pulpit-recording.kuml.kts.
-            // Welle V1.9.144 "Mitglieder-Finder" -- now 73 with the addition of 72-member-finder.kuml.kts.
-            scriptFiles shouldHaveSize 73
+            // Welle V1.9.144 "Mitglieder-Finder" -- was 72, now 73 with the addition of 72-member-finder.kuml.kts.
+            // Welle V1.9.156 "Aufzeichnung in Veranstaltungsraeumen" -- now 74 with the addition of 73-event-capture.kuml.kts.
+            scriptFiles shouldHaveSize 74
 
             val diagrams = scriptFiles.map { KumlModelLoader.loadUmlDiagram(it) }
 
@@ -553,7 +554,9 @@ class DomainModelMergerTest :
             // Document and EncounterSpace stubs (dedup into the real entities) -- net +1 (201 -> 202).
             // Welle V1.9.144 "Mitglieder-Finder" adds 72-member-finder.kuml.kts's FOUR new tables (member_finder_consent_event, member_finder_request,
             // member_finder_block, member_finder_region_band) plus an id-only Member stub (dedups into the real entity) -- net +4 (202 -> 206).
-            val distinctTableNames = 206
+            // Welle V1.9.156 "Aufzeichnung in Veranstaltungsraeumen" -- ONE new real table (event_capture_acknowledgment) plus id-only Event and Member
+            // stubs (dedup into the real entities) -- net +1 (206 -> 207).
+            val distinctTableNames = 207
 
             val result =
                 UmlToExposedViaErmScriptTransformer().transform(
@@ -914,6 +917,8 @@ class DomainModelMergerTest :
                     "MemberFinderRequestTable.kt",
                     "MemberFinderBlockTable.kt",
                     "MemberFinderRegionBandTable.kt",
+                    // Welle V1.9.156 "Aufzeichnung in Veranstaltungsraeumen" -- ONE new real table, no new stub.
+                    "EventCaptureAcknowledgmentTable.kt",
                 )
         }
 

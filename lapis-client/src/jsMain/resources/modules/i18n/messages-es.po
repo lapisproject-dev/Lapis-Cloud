@@ -24921,3 +24921,112 @@ msgstr "La plantilla de sala solo se puede cambiar con la sala cerrada."
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoomLayoutChoice.kt
 msgid "Wählen Sie zuerst die Raumart."
 msgstr "Elija primero el tipo de sala."
+
+# V1.9.156 -- Aufzeichnung und Live-Übertragung in Veranstaltungsräumen
+msgid "Aufzeichnung (Veranstaltung)"
+msgstr "Grabación (evento)"
+
+msgid "Gilt nur, wenn die Aufzeichnung in Veranstaltungsräumen für die Instanz eingeschaltet ist."
+msgstr "Solo se aplica si la grabación en las salas de eventos está activada para la instancia."
+
+msgid "So sehen Teilnehmende den Hinweis"
+msgstr "Así ven el aviso los participantes"
+
+msgid "Bitte bestätigen Sie zuerst den Hinweis zur Aufzeichnung."
+msgstr "Confirme primero el aviso de grabación."
+
+msgid "Der Hinweis zur Aufzeichnung hat sich geändert. Bitte lesen Sie ihn erneut."
+msgstr "El aviso de grabación ha cambiado. Léalo de nuevo."
+
+msgid "Die Freigabe der Aufzeichnung kann gerade nicht geändert werden."
+msgstr "La habilitación de la grabación no se puede modificar ahora."
+
+msgid "In einem Veranstaltungsraum läuft gerade eine Aufzeichnung oder Übertragung. Beenden Sie sie zuerst."
+msgstr "En una sala de eventos se está grabando o transmitiendo en directo. Termínelo primero."
+
+msgid "Veröffentlichen Sie zuerst den Einwilligungstext für Veranstaltungen unter Vertragstexte."
+msgstr "Publique primero el texto de consentimiento para eventos en Textos contractuales."
+
+msgid "Der Hinweis hat sich geändert. Bitte versuchen Sie es erneut."
+msgstr "El aviso ha cambiado. Inténtelo de nuevo."
+
+msgid "Diese Besprechung wird aufgezeichnet und live übertragen."
+msgstr "Esta reunión se está grabando y transmitiendo en directo."
+
+msgid "Diese Besprechung wird aufgezeichnet."
+msgstr "Esta reunión se está grabando."
+
+msgid "Diese Besprechung wird live übertragen."
+msgstr "Esta reunión se está transmitiendo en directo."
+
+msgid "Aufzeichnung und Übertragung in diesem Raum"
+msgstr "Grabación y transmisión en directo en esta sala"
+
+msgid "Ich willige ein, dass mein Bild und mein Ton aufgezeichnet und live übertragen werden dürfen."
+msgstr "Doy mi consentimiento para que mi imagen y mi voz se graben y se transmitan en directo."
+
+msgid "Bitte bestätigen Sie die Einwilligung, um teilzunehmen."
+msgstr "Confirme su consentimiento para participar."
+
+msgid "Ihr Name ist für alle Teilnehmenden sichtbar. Ihr Mikrofon ist zu Beginn aus."
+msgstr "Su nombre es visible para todos los participantes. Su micrófono está desactivado al inicio."
+
+msgid "Aufzeichnung und Übertragung erlauben"
+msgstr "Permitir grabación y transmisión en directo"
+
+msgid "Dann können Bild, Ton und Name aller Personen im Online-Raum aufgezeichnet und live übertragen werden, nicht nur die der Vortragenden. Jede Person muss vor dem Betreten ausdrücklich zustimmen, und im Raum steht, solange aufgezeichnet oder übertragen wird. Gestartet wird nur durch die Moderation im Raum."
+msgstr "Entonces se pueden grabar y transmitir en directo la imagen, la voz y el nombre de todas las personas de la sala en línea, no solo las de quienes intervienen. Todas las personas deben aceptar expresamente antes de entrar, y la sala indica mientras se graba o se transmite. Solo lo inicia la moderación en la sala."
+
+msgid "Die Aufzeichnung in Veranstaltungsräumen ist auf dieser Instanz nicht eingeschaltet."
+msgstr "La grabación en las salas de eventos no está activada para esta instancia."
+
+msgid "Die Freigabe kann nicht mehr geändert werden: Der Online-Raum ist geöffnet oder es läuft eine Aufzeichnung oder Übertragung."
+msgstr "La habilitación ya no se puede modificar: la sala en línea está abierta o hay una grabación o transmisión en curso."
+
+msgid "Die Veranstaltung wurde gespeichert, die Freigabe der Aufzeichnung konnte aber nicht mehr geändert werden."
+msgstr "El evento se ha guardado, pero la habilitación de la grabación ya no se pudo modificar."
+
+msgid "Sie sind im Begriff, die Aufzeichnung und die Live-Übertragung in den Online-Räumen von Veranstaltungen dieser Instanz zu erlauben. Aufgezeichnet und übertragen werden können Bild, Ton und Anzeigename aller Personen im Raum, nicht nur der Vortragenden. Der Vorstand entscheidet danach für jede Veranstaltung einzeln."
+msgstr "Está a punto de permitir la grabación y la transmisión en directo en las salas en línea de los eventos de esta instancia. Se pueden grabar y transmitir la imagen, la voz y el nombre visible de todas las personas de la sala, no solo los de quienes intervienen. La junta directiva decidirá después para cada evento por separado."
+
+msgid "Ob und unter welchen Bedingungen eine solche Aufzeichnung zulässig ist, hängt vom Recht Ihres Landes ab, zum Beispiel vom Datenschutz-, Persönlichkeits- und Urheberrecht. Bei Veranstaltungen kann ein Teil der Daten besondere Kategorien betreffen, etwa die politische oder religiöse Überzeugung. Lapis Cloud nimmt diese Prüfung nicht vor und ersetzt keine Rechtsberatung."
+msgstr "Si una grabación de este tipo es admisible y en qué condiciones depende del derecho de su país, por ejemplo de la protección de datos y de los derechos de la personalidad y de autor. En los eventos, parte de los datos puede pertenecer a categorías especiales, como las convicciones políticas o religiosas. Lapis Cloud no realiza esta comprobación y no sustituye el asesoramiento jurídico."
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass Sie eine Rechtsgrundlage haben und dass jede Person vor dem Betreten des Raums informiert ist und, wo erforderlich, einwilligt. Lapis Cloud verlangt dafür von jeder Person eine ausdrückliche Bestätigung des Einwilligungstextes und hält sie ohne Namen und ohne Uhrzeit fest. Das ersetzt keine Prüfung, ob die Einwilligung freiwillig und ausreichend ist."
+msgstr "Como operador, usted es responsable de contar con una base jurídica y de que cada persona esté informada antes de entrar en la sala y, cuando sea necesario, dé su consentimiento. Para ello, Lapis Cloud pide a cada persona una confirmación expresa del texto de consentimiento y la registra sin nombre y sin hora. Esto no sustituye la comprobación de que el consentimiento sea libre y suficiente."
+
+msgid "Das Programm kann nicht verhindern, dass Teilnehmende Bildschirmfotos oder eigene Mitschnitte anfertigen. Der Einwilligungstext, der angezeigt wird, muss von Ihnen vor dem Einschalten veröffentlicht werden."
+msgstr "El programa no puede impedir que los participantes hagan capturas de pantalla o sus propias grabaciones. El texto de consentimiento que se muestra debe publicarlo usted antes de activar la función."
+
+msgid "Aufzeichnung und Übertragung in Veranstaltungsräumen erlauben"
+msgstr "Permitir grabación y transmisión en directo en las salas de eventos"
+
+msgid "Der Vorstand erlaubt die Aufzeichnung danach für jede Veranstaltung einzeln. Jede Person im Raum stimmt vorher ausdrücklich zu und sieht im Raum, solange aufgezeichnet oder übertragen wird."
+msgstr "La junta directiva permite después la grabación para cada evento por separado. Todas las personas de la sala aceptan expresamente de antemano y ven en la sala mientras se graba o se transmite."
+
+msgid "Der Einwilligungstext für Veranstaltungen ist noch der Platzhalter. Veröffentlichen Sie zuerst einen eigenen, rechtlich geprüften Text."
+msgstr "El texto de consentimiento para eventos sigue siendo el texto provisional. Publique primero un texto propio, revisado jurídicamente."
+
+msgid "Aufzeichnung in Veranstaltungsräumen ausschalten?"
+msgstr "¿Desactivar la grabación en las salas de eventos?"
+
+msgid "Danach kann in keinem Veranstaltungsraum mehr aufgezeichnet oder übertragen werden."
+msgstr "Después, ya no se podrá grabar ni transmitir en ninguna sala de eventos."
+
+msgid "Die Aufzeichnung in Veranstaltungsräumen ist ausgeschaltet."
+msgstr "La grabación en las salas de eventos está desactivada."
+
+msgid "Eine freigegebene Veranstaltung läuft gerade. Bitte versuchen Sie es nach ihrem Ende erneut."
+msgstr "Ahora mismo hay un evento habilitado en curso. Inténtelo de nuevo cuando haya terminado."
+
+msgid "Die Aufzeichnung in Veranstaltungsräumen ist eingeschaltet."
+msgstr "La grabación en las salas de eventos está activada."
+
+msgid "Aufzeichnung in Veranstaltungsräumen erlauben?"
+msgstr "¿Permitir la grabación en las salas de eventos?"
+
+msgid "Aufzeichnung und Übertragung: erlaubt"
+msgstr "Grabación y transmisión en directo: permitidas"
+
+msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
+msgstr "La habilitación de la grabación no se aplica a las series de fechas. Habilite cada fecha después de crearla."

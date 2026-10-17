@@ -25027,3 +25027,112 @@ msgstr "Шаблон комнаты можно изменить только п�
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoomLayoutChoice.kt
 msgid "Wählen Sie zuerst die Raumart."
 msgstr "Сначала выберите тип комнаты."
+
+# V1.9.156 -- Aufzeichnung und Live-Übertragung in Veranstaltungsräumen
+msgid "Aufzeichnung (Veranstaltung)"
+msgstr "Запись (мероприятие)"
+
+msgid "Gilt nur, wenn die Aufzeichnung in Veranstaltungsräumen für die Instanz eingeschaltet ist."
+msgstr "Действует только если запись в комнатах мероприятий включена для экземпляра."
+
+msgid "So sehen Teilnehmende den Hinweis"
+msgstr "Так участники видят уведомление"
+
+msgid "Bitte bestätigen Sie zuerst den Hinweis zur Aufzeichnung."
+msgstr "Сначала подтвердите уведомление о записи."
+
+msgid "Der Hinweis zur Aufzeichnung hat sich geändert. Bitte lesen Sie ihn erneut."
+msgstr "Уведомление о записи изменилось. Прочитайте его снова."
+
+msgid "Die Freigabe der Aufzeichnung kann gerade nicht geändert werden."
+msgstr "Разрешение на запись сейчас нельзя изменить."
+
+msgid "In einem Veranstaltungsraum läuft gerade eine Aufzeichnung oder Übertragung. Beenden Sie sie zuerst."
+msgstr "В комнате мероприятия идёт запись или прямая трансляция. Сначала завершите её."
+
+msgid "Veröffentlichen Sie zuerst den Einwilligungstext für Veranstaltungen unter Vertragstexte."
+msgstr "Сначала опубликуйте текст согласия для мероприятий в разделе «Тексты договоров»."
+
+msgid "Der Hinweis hat sich geändert. Bitte versuchen Sie es erneut."
+msgstr "Уведомление изменилось. Попробуйте ещё раз."
+
+msgid "Diese Besprechung wird aufgezeichnet und live übertragen."
+msgstr "Эта встреча записывается и транслируется в прямом эфире."
+
+msgid "Diese Besprechung wird aufgezeichnet."
+msgstr "Эта встреча записывается."
+
+msgid "Diese Besprechung wird live übertragen."
+msgstr "Эта встреча транслируется в прямом эфире."
+
+msgid "Aufzeichnung und Übertragung in diesem Raum"
+msgstr "Запись и прямая трансляция в этой комнате"
+
+msgid "Ich willige ein, dass mein Bild und mein Ton aufgezeichnet und live übertragen werden dürfen."
+msgstr "Я даю согласие на запись и прямую трансляцию моего изображения и голоса."
+
+msgid "Bitte bestätigen Sie die Einwilligung, um teilzunehmen."
+msgstr "Подтвердите согласие, чтобы принять участие."
+
+msgid "Ihr Name ist für alle Teilnehmenden sichtbar. Ihr Mikrofon ist zu Beginn aus."
+msgstr "Ваше имя видно всем участникам. В начале ваш микрофон выключен."
+
+msgid "Aufzeichnung und Übertragung erlauben"
+msgstr "Разрешить запись и прямую трансляцию"
+
+msgid "Dann können Bild, Ton und Name aller Personen im Online-Raum aufgezeichnet und live übertragen werden, nicht nur die der Vortragenden. Jede Person muss vor dem Betreten ausdrücklich zustimmen, und im Raum steht, solange aufgezeichnet oder übertragen wird. Gestartet wird nur durch die Moderation im Raum."
+msgstr "Тогда изображение, голос и имя всех людей в онлайн-комнате могут записываться и транслироваться в прямом эфире, а не только докладчиков. Каждый человек должен перед входом прямо выразить согласие, а в комнате показывается, пока идёт запись или трансляция. Запустить её может только модерация в комнате."
+
+msgid "Die Aufzeichnung in Veranstaltungsräumen ist auf dieser Instanz nicht eingeschaltet."
+msgstr "Запись в комнатах мероприятий для этого экземпляра не включена."
+
+msgid "Die Freigabe kann nicht mehr geändert werden: Der Online-Raum ist geöffnet oder es läuft eine Aufzeichnung oder Übertragung."
+msgstr "Разрешение больше нельзя изменить: онлайн-комната открыта или идёт запись либо трансляция."
+
+msgid "Die Veranstaltung wurde gespeichert, die Freigabe der Aufzeichnung konnte aber nicht mehr geändert werden."
+msgstr "Мероприятие сохранено, но разрешение на запись изменить уже не удалось."
+
+msgid "Sie sind im Begriff, die Aufzeichnung und die Live-Übertragung in den Online-Räumen von Veranstaltungen dieser Instanz zu erlauben. Aufgezeichnet und übertragen werden können Bild, Ton und Anzeigename aller Personen im Raum, nicht nur der Vortragenden. Der Vorstand entscheidet danach für jede Veranstaltung einzeln."
+msgstr "Вы собираетесь разрешить запись и прямую трансляцию в онлайн-комнатах мероприятий этого экземпляра. Изображение, голос и отображаемое имя всех людей в комнате могут записываться и транслироваться, а не только докладчиков. Правление затем решает по каждому мероприятию отдельно."
+
+msgid "Ob und unter welchen Bedingungen eine solche Aufzeichnung zulässig ist, hängt vom Recht Ihres Landes ab, zum Beispiel vom Datenschutz-, Persönlichkeits- und Urheberrecht. Bei Veranstaltungen kann ein Teil der Daten besondere Kategorien betreffen, etwa die politische oder religiöse Überzeugung. Lapis Cloud nimmt diese Prüfung nicht vor und ersetzt keine Rechtsberatung."
+msgstr "Допустима ли такая запись и на каких условиях, зависит от права вашей страны, например от защиты данных, личных неимущественных прав и авторского права. На мероприятиях часть данных может относиться к особым категориям, например к политическим или религиозным убеждениям. Lapis Cloud не проводит эту проверку и не заменяет юридическую консультацию."
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass Sie eine Rechtsgrundlage haben und dass jede Person vor dem Betreten des Raums informiert ist und, wo erforderlich, einwilligt. Lapis Cloud verlangt dafür von jeder Person eine ausdrückliche Bestätigung des Einwilligungstextes und hält sie ohne Namen und ohne Uhrzeit fest. Das ersetzt keine Prüfung, ob die Einwilligung freiwillig und ausreichend ist."
+msgstr "Как оператор вы отвечаете за наличие правового основания и за то, чтобы каждый человек перед входом в комнату был проинформирован и, где это необходимо, дал согласие. Для этого Lapis Cloud запрашивает у каждого человека явное подтверждение текста согласия и сохраняет его без имени и без времени суток. Это не заменяет проверку того, что согласие добровольно и достаточно."
+
+msgid "Das Programm kann nicht verhindern, dass Teilnehmende Bildschirmfotos oder eigene Mitschnitte anfertigen. Der Einwilligungstext, der angezeigt wird, muss von Ihnen vor dem Einschalten veröffentlicht werden."
+msgstr "Программа не может помешать участникам делать снимки экрана или собственные записи. Показываемый текст согласия вы должны опубликовать до включения."
+
+msgid "Aufzeichnung und Übertragung in Veranstaltungsräumen erlauben"
+msgstr "Разрешить запись и прямую трансляцию в комнатах мероприятий"
+
+msgid "Der Vorstand erlaubt die Aufzeichnung danach für jede Veranstaltung einzeln. Jede Person im Raum stimmt vorher ausdrücklich zu und sieht im Raum, solange aufgezeichnet oder übertragen wird."
+msgstr "Правление затем разрешает запись по каждому мероприятию отдельно. Каждый человек в комнате заранее прямо соглашается и видит в комнате, пока идёт запись или трансляция."
+
+msgid "Der Einwilligungstext für Veranstaltungen ist noch der Platzhalter. Veröffentlichen Sie zuerst einen eigenen, rechtlich geprüften Text."
+msgstr "Текст согласия для мероприятий всё ещё временный. Сначала опубликуйте собственный, юридически проверенный текст."
+
+msgid "Aufzeichnung in Veranstaltungsräumen ausschalten?"
+msgstr "Выключить запись в комнатах мероприятий?"
+
+msgid "Danach kann in keinem Veranstaltungsraum mehr aufgezeichnet oder übertragen werden."
+msgstr "После этого ни в одной комнате мероприятий нельзя будет записывать или транслировать."
+
+msgid "Die Aufzeichnung in Veranstaltungsräumen ist ausgeschaltet."
+msgstr "Запись в комнатах мероприятий выключена."
+
+msgid "Eine freigegebene Veranstaltung läuft gerade. Bitte versuchen Sie es nach ihrem Ende erneut."
+msgstr "Сейчас идёт мероприятие с выданным разрешением. Повторите попытку после его окончания."
+
+msgid "Die Aufzeichnung in Veranstaltungsräumen ist eingeschaltet."
+msgstr "Запись в комнатах мероприятий включена."
+
+msgid "Aufzeichnung in Veranstaltungsräumen erlauben?"
+msgstr "Разрешить запись в комнатах мероприятий?"
+
+msgid "Aufzeichnung und Übertragung: erlaubt"
+msgstr "Запись и прямая трансляция: разрешены"
+
+msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
+msgstr "Разрешение на запись не распространяется на серии дат. Выдайте разрешение для отдельных дат после их создания."

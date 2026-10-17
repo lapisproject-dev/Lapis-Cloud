@@ -32,7 +32,8 @@ window; a conference that is already running vetoes a change that would remove i
 * *Guests without an account* use the public page `#/event-join/<slug>`. They confirm the guest notice
   (`EventGuestNotice`, version and SHA-256 are checked server-side), enter a display name (normalized, suffix " (Gast)") and receive a
   short-lived token with identity prefix `evg-`. Protection is a per-IP and per-event rate limit, an own-origin check, a 4 KiB body cap
-  and a uniform HTTP 200 answer. A moderator sees the guests of the event and can remove one.
+  and a uniform HTTP 200 answer. A moderator sees the guests of the event and can remove one. For an event that is *not* released for recording no row is
+  written about such a guest; for a released one (V1.9.156) a proof *without a name* is (see link:event-capture.adoc[Recording and live streaming in event rooms]).
   Account-less guests are capped per room (the non-member ceiling) and a quarter of the room's seats stays reserved for members and
   moderators. For events with a registration deadline the identity is derived from the ticket, so one confirmed ticket holds at most one
   live connection (a second use replaces the first). Guests are subject to the room-wide audio rules (lock, mute all, reconciler) like
@@ -65,7 +66,9 @@ over, and `activate`/`markFailed` are fenced by the `claim_token`, so a slow fir
 == Isolation from ordinary rooms
 
 An event room is entered *only* through `joinEventOnline`. `EventConferenceGuard` refuses the ordinary conference RPCs (join, rename,
-guest access, meeting binding, recording, streaming) for an event room, and the room lists never show it. Tripwire tests
+guest access, meeting binding, recording, streaming) for an event room, and the room lists never show it. Since V1.9.156 the recording and the stream do not refuse
+an event room outright any more but ask one decision function, `EventConferenceGuard.requireEventCaptureAllowed` (instance switch, release of the event, Lapis
+conference), at exactly two places; every other function keeps the plain refusal. Tripwire tests
 (`EventConferenceGuardTripwireTest`) force a decision for every new room-id method.
 
 == Configuration
@@ -76,7 +79,9 @@ guest access, meeting binding, recording, streaming) for an event room, and the 
 == Known limits
 
 See the V1.9.113 entry of `CHANGELOG.md`: no load test was run, the ceiling of 100 is an assumption, the flow was not verified in a real
-browser against a real LiveKit, no recording, guests are not part of the participant history, guests cannot enter encounter spaces.
+browser against a real LiveKit, guests are not part of the participant history, guests cannot enter encounter spaces. An event room is never recorded or streamed
+*unless* the operator, the board and every participant agreed (V1.9.156, link:event-capture.adoc[Recording and live streaming in event rooms]); the guest notice
+"Es wird nichts aufgezeichnet." is only used for events that are not released -- a released event shows the capture variant of the notice instead.
 
 * A removed account-less guest keeps a valid token for up to `guestTokenTtlMinutes` and LiveKit has no identity blocklist, so the person
   can reconnect with the same token until it expires. Re-minting a token is bounded by the rate limits only.

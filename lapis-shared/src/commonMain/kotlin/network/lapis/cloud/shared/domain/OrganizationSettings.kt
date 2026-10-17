@@ -227,6 +227,15 @@ data class OrganizationSettingsDto(
     val memberFinderEnabled: Boolean = false,
     /** V1.9.144 -- the version of the operator notice the admin acknowledged when switching the finder on; `null` until then. Read-only here. */
     val memberFinderAcknowledgedNoticeVersion: String? = null,
+    /**
+     * V1.9.156 -- instance switch "recording and live streaming in event rooms" (default off). **Read-only here**: it changes only through
+     * [network.lapis.cloud.shared.rpc.IOrganizationSettingsService.updateEventCaptureEnabled] (ADMIN, audited).
+     */
+    val eventCaptureEnabled: Boolean = false,
+    /** V1.9.156 -- the version of the operator notice acknowledged when switching on; `null` until then. Read-only here. */
+    val eventCaptureNoticeVersion: String? = null,
+    /** V1.9.156 -- `true` while no `EVENT_REC` text was published (capture cannot be switched on then). Computed, never stored. */
+    val eventCaptureTextIsPlaceholder: Boolean = true,
 )
 
 /** Replaces every field of the single [OrganizationSettingsDto] row wholesale (no partial update). */

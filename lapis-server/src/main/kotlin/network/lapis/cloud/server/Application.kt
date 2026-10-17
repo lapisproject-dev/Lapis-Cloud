@@ -115,6 +115,7 @@ import network.lapis.cloud.server.encounter.EncounterTableState
 import network.lapis.cloud.server.encounter.PulpitRecordingCoordinator
 import network.lapis.cloud.server.encounter.PulpitRecordingDocuments
 import network.lapis.cloud.server.encounter.PulpitRecordingState
+import network.lapis.cloud.server.events.EventCaptureLiveBroadcaster
 import network.lapis.cloud.server.events.EventConferencePoller
 import network.lapis.cloud.server.events.EventCoverStorage
 import network.lapis.cloud.server.events.EventOnlineServices
@@ -1670,6 +1671,15 @@ internal fun Application.module(
         val eventConferencePoller = EventConferencePoller(provisioner = provisioner)
         eventConferencePoller.start()
         monitor.subscribe(ApplicationStopping) { eventConferencePoller.stop() }
+        // Welle V1.9.156 -- the banner of event rooms (recording / streaming on or off), sent by the server only. Installed so the recording service
+        // can nudge it right after a start; the sweep catches everything the pollers change. A no-op for rooms of events that are not released.
+        val eventCaptureBroadcaster = EventCaptureLiveBroadcaster(liveKit = liveKitAdminClient)
+        EventCaptureLiveBroadcaster.install(eventCaptureBroadcaster)
+        eventCaptureBroadcaster.start()
+        monitor.subscribe(ApplicationStopping) {
+            eventCaptureBroadcaster.stop()
+            EventCaptureLiveBroadcaster.install(null)
+        }
     }
     val eventTicketPageRateLimiter = FederationInboxRateLimiter(maxRequests = 60, window = 1.minutes, maxTrackedKeys = 50_000)
     val eventTicketCodeFailureLimiter = LoginRateLimiter(maxFailures = 20, window = 15.minutes)

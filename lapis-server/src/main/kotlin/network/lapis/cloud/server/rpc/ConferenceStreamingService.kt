@@ -20,6 +20,7 @@ import network.lapis.cloud.server.db.generated.ConferenceStreamTargetTable
 import network.lapis.cloud.server.db.generated.MemberTable
 import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
 import network.lapis.cloud.server.encounter.EncounterRoles
+import network.lapis.cloud.server.events.EventCaptureLiveBroadcaster
 import network.lapis.cloud.server.events.EventConferenceGuard
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.server.federation.isIpv6UniqueLocalAddress
@@ -518,6 +519,38 @@ class ConferenceStreamingService(
         layout: ConferenceStreamLayout,
         latencyMode: ConferenceStreamLatencyMode,
         participantIdentity: String?,
+    ): ConferenceStreamDto =
+        notifyingEventBanner(
+            startStreamInternal(
+                roomId = roomId,
+                destinationIds = destinationIds,
+                layout = layout,
+                latencyMode = latencyMode,
+                participantIdentity = participantIdentity,
+            ),
+        )
+
+    override suspend fun pauseStream(streamId: String): ConferenceStreamDto = notifyingEventBanner(pauseStreamInternal(streamId))
+
+    override suspend fun resumeStream(streamId: String): ConferenceStreamDto = notifyingEventBanner(resumeStreamInternal(streamId))
+
+    override suspend fun stopStream(streamId: String): ConferenceStreamDto = notifyingEventBanner(stopStreamInternal(streamId))
+
+    /**
+     * V1.9.156: the banner of an event room follows a stream change at once, not at the next sweep. Runs AFTER the transaction of the call committed; best-effort,
+     * a no-op for an ordinary room (see [EventCaptureLiveBroadcaster.notifyRoomChanged]).
+     */
+    private suspend fun notifyingEventBanner(dto: ConferenceStreamDto): ConferenceStreamDto {
+        runCatching { Uuid.parse(dto.roomId) }.getOrNull()?.let { EventCaptureLiveBroadcaster.notifyRoomChanged(it) }
+        return dto
+    }
+
+    private suspend fun startStreamInternal(
+        roomId: String,
+        destinationIds: List<String>,
+        layout: ConferenceStreamLayout,
+        latencyMode: ConferenceStreamLatencyMode,
+        participantIdentity: String?,
     ): ConferenceStreamDto {
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
@@ -561,8 +594,9 @@ class ConferenceStreamingService(
                     throw ConflictException("Conference room $roomUuid has already ended -- cannot start a stream")
                 }
                 requireModeratorOrPrivileged(room = room, current = current)
-                // V1.9.113: an event room is never streamed (no consent of the people without an account could be proven).
-                EventConferenceGuard.requireNotEventRoom(row = room)
+                // V1.9.156: an event room is streamed ONLY when the instance switch is on AND the organizer released this event; everybody who
+                // enters such a room has acknowledged the capture consent (EventOnlineJoin), and the release is frozen while the room is active.
+                EventConferenceGuard.requireEventCaptureAllowed(row = room)
                 requireEncounterStreamIsPulpitOnly(room = room, layout = layout, participantIdentity = participantIdentity)
 
                 // V1.0 Videokonferenzen, Wave 9 "Stream-Pause bei geheimen Abstimmungen" -- hard-wired,
@@ -834,7 +868,7 @@ class ConferenceStreamingService(
         }
     }
 
-    override suspend fun pauseStream(streamId: String): ConferenceStreamDto {
+    private suspend fun pauseStreamInternal(streamId: String): ConferenceStreamDto {
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
         requireWithinRate(limiter = mutateRateLimiter, memberId = current.memberId)
@@ -991,7 +1025,7 @@ class ConferenceStreamingService(
         }
     }
 
-    override suspend fun resumeStream(streamId: String): ConferenceStreamDto {
+    private suspend fun resumeStreamInternal(streamId: String): ConferenceStreamDto {
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
         requireWithinRate(limiter = mutateRateLimiter, memberId = current.memberId)
@@ -1048,7 +1082,7 @@ class ConferenceStreamingService(
         }
     }
 
-    override suspend fun stopStream(streamId: String): ConferenceStreamDto {
+    private suspend fun stopStreamInternal(streamId: String): ConferenceStreamDto {
         val current = resolveCurrentMember(call)
         requireStreamingEnabled()
         requireWithinRate(limiter = mutateRateLimiter, memberId = current.memberId)

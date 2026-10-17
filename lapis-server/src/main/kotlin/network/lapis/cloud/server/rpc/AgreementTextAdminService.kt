@@ -28,6 +28,7 @@ import network.lapis.cloud.shared.domain.AgreementTextVersionSummaryDto
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.EncounterConsentLayout
 import network.lapis.cloud.shared.domain.isEncounterConsent
+import network.lapis.cloud.shared.domain.isEventCapture
 import network.lapis.cloud.shared.rpc.AgreementTextDraftChangedException
 import network.lapis.cloud.shared.rpc.AgreementTextInvalidException
 import network.lapis.cloud.shared.rpc.AgreementTextLayoutInvalidException
@@ -290,6 +291,11 @@ class AgreementTextAdminService(
                 throw AgreementTextVersionLabelTakenException()
             }
         }
+        if (kind.isEventCapture()) {
+            // V1.9.156: the same paragraph rule (headline + three key points + full text); no "+rec" suffix and no code-owned paragraph, so the label
+            // limit is the general VERSION_LABEL_MAX that isValidLabel already enforced above.
+            if (EncounterConsentLayout.violation(label = "", body = body) != null) throw AgreementTextLayoutInvalidException()
+        }
         // V1.9.143: the REC kinds have one placeholder per room profile; a text equal to ANY of them, or a label equal to ANY of them, is refused.
         val builtins = BuiltinAgreementTexts.allOf(kind)
         // A text equal to the placeholder would silence the placeholder warning while the placeholder stays what people see.
@@ -313,6 +319,7 @@ class AgreementTextAdminService(
                 AgreementTextKind.FINDER to LocalDate(2026, 10, 16),
                 AgreementTextKind.ENC_CHURCH to LocalDate(2026, 10, 17),
                 AgreementTextKind.ENC_ASSEM to LocalDate(2026, 10, 17),
+                AgreementTextKind.EVENT_REC to LocalDate(2026, 10, 18),
             )
         val BUILTIN_PUBLISHED_AT =
             BUILTIN_VALID_FROM.mapValues { (_, date) -> LocalDateTime(date.year, date.month, date.day, 0, 0) }

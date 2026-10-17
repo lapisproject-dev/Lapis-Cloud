@@ -18,6 +18,12 @@ import network.lapis.cloud.shared.rpc.EmailChangeNotAllowedException
 import network.lapis.cloud.shared.rpc.EmailChangePendingNotFoundException
 import network.lapis.cloud.shared.rpc.EmailChangeRateLimitedException
 import network.lapis.cloud.shared.rpc.EmailChangeRepeatMismatchException
+import network.lapis.cloud.shared.rpc.EventCaptureBusyException
+import network.lapis.cloud.shared.rpc.EventCaptureChangeLockedException
+import network.lapis.cloud.shared.rpc.EventCaptureNoticeOutdatedException
+import network.lapis.cloud.shared.rpc.EventCaptureNoticeRequiredException
+import network.lapis.cloud.shared.rpc.EventCaptureOperatorNoticeOutdatedException
+import network.lapis.cloud.shared.rpc.EventCaptureTextMissingException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.InvalidPasswordException
 import network.lapis.cloud.shared.rpc.MemberPhotoConsentOutdatedException
@@ -86,6 +92,8 @@ object AppState {
         session = newSession
         // V1.9.145: the cached answer "is the member finder offered" belongs to one identity and one status.
         if (previousSession?.memberId != newSession?.memberId || previousSession?.status != newSession?.status) MemberFinderNav.clear()
+        // V1.9.156: an acknowledged event-capture consent belongs to the person who gave it; a sign-out (an SPA navigation, no reload) or another account asks again.
+        if (previousSession?.memberId != newSession?.memberId) EventCaptureConsentMemory.clear()
         // V1.9.70: a sign-out or another identity ends a running conference (before any screen re-renders); a refresh of the same
         // identity (new `expiresAt`) does not.
         ConferenceDock.onAuthSessionChanged(previousSession, newSession)
@@ -210,6 +218,18 @@ private fun handleGuardedFailure(e: Throwable) {
         is AgreementTextVersionLabelTakenException -> notifyError(tr("Diese Versionsbezeichnung ist bereits vergeben."))
         is AgreementTextDraftChangedException ->
             notifyError(tr("Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."))
+        // Welle V1.9.156 -- typed, fixed toasts of the capture consent in event rooms (the callers that can act on them catch them first).
+        is EventCaptureNoticeRequiredException -> notifyError(tr("Bitte bestätigen Sie zuerst den Hinweis zur Aufzeichnung."))
+        is EventCaptureNoticeOutdatedException ->
+            notifyError(
+                tr("Der Hinweis zur Aufzeichnung hat sich geändert. Bitte lesen Sie ihn erneut."),
+            )
+        is EventCaptureChangeLockedException -> notifyError(tr("Die Freigabe der Aufzeichnung kann gerade nicht geändert werden."))
+        is EventCaptureOperatorNoticeOutdatedException -> notifyError(tr("Der Hinweis wurde geändert. Bitte lesen Sie ihn erneut."))
+        is EventCaptureBusyException ->
+            notifyError(tr("In einem Veranstaltungsraum läuft gerade eine Aufzeichnung oder Übertragung. Beenden Sie sie zuerst."))
+        is EventCaptureTextMissingException ->
+            notifyError(tr("Veröffentlichen Sie zuerst den Einwilligungstext für Veranstaltungen unter Vertragstexte."))
         else -> {
             val message = e.message?.takeIf { it.isNotBlank() } ?: tr("Unbekannter Fehler")
             if (message.contains("Unauthorized")) {

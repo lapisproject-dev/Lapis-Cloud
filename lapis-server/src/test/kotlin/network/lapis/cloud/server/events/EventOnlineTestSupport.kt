@@ -17,6 +17,7 @@ import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgm
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.EncounterSpaceTable
+import network.lapis.cloud.server.db.generated.EventCaptureAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.EventConferenceTable
 import network.lapis.cloud.server.db.generated.EventRegistrationTable
 import network.lapis.cloud.server.db.generated.EventSeriesTable
@@ -127,11 +128,19 @@ internal class EventFakeLiveKit : LiveKitAdminClient {
         rooms.remove(name)
     }
 
+    /** V1.9.156: every packet [sendData] was asked to send (room, topic, payload); [failSend] makes it fail like an unreachable LiveKit. */
+    val sentData = CopyOnWriteArrayList<Triple<String, String, String>>()
+
+    @Volatile var failSend = false
+
     override suspend fun sendData(
         room: String,
         topic: String,
         payload: ByteArray,
-    ): Unit = throw UnsupportedOperationException()
+    ) {
+        if (failSend) throw LiveKitAdminException(message = "simulated LiveKit failure")
+        sentData += Triple(room, topic, payload.toString(Charsets.UTF_8))
+    }
 
     override suspend fun muteMicrophone(
         room: String,
@@ -229,6 +238,7 @@ internal class EventOnlineFixtures {
         encounterSpaceId: Uuid? = null,
         locationText: String? = "Saal",
         title: String = "Online-Event",
+        captureAllowed: Boolean = false,
     ): Uuid {
         val id = Uuid.random()
         transaction {
@@ -241,6 +251,7 @@ internal class EventOnlineFixtures {
                 it[onlineUrl] = null
                 it[onlineKind] = kind
                 it[EventTable.encounterSpaceId] = encounterSpaceId
+                it[EventTable.captureAllowed] = captureAllowed
                 it[EventTable.startsAt] = startsAt
                 it[EventTable.endsAt] = endsAt
                 it[EventTable.capacity] = capacity
@@ -300,6 +311,9 @@ internal class EventOnlineFixtures {
 
     fun cleanUp() {
         transaction {
+            // V1.9.156: the capture-consent proofs reference events and members (no ON DELETE CASCADE)
+            if (eventIds.isNotEmpty()) EventCaptureAcknowledgmentTable.deleteWhere { eventId inList eventIds }
+            if (memberIds.isNotEmpty()) EventCaptureAcknowledgmentTable.deleteWhere { memberId inList memberIds }
             if (eventIds.isNotEmpty()) {
                 EventConferenceTable.deleteWhere { eventId inList eventIds }
             }

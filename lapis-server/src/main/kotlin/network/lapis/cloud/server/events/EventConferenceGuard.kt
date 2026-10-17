@@ -5,9 +5,11 @@ import network.lapis.cloud.server.db.generated.ConferenceRoomTable
 import network.lapis.cloud.server.db.generated.EventConferenceTable
 import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.encounter.ConferenceModeratorAuthority
+import network.lapis.cloud.server.rpc.EventCaptureSettingsStore
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
+import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventOnlineOutcome
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.jetbrains.exposed.v1.core.ResultRow
@@ -46,6 +48,24 @@ internal object EventConferenceGuard {
     /** For every method that would let a caller ENTER or reconfigure an event room outside of `joinEventOnline`. */
     fun requireNotEventRoom(row: ResultRow) {
         if (isEventRoom(row)) throw ForbiddenException(EVENT_ROOM_UNSUPPORTED)
+    }
+
+    /**
+     * V1.9.156 -- ONLY for `ConferenceRecordingService.startRecordingInTransaction` and `ConferenceStreamingService.startStream` (tripwire
+     * `EventConferenceGuardTripwireTest` counts exactly these two call sites). An ordinary room is not touched. An event room may be recorded /
+     * streamed iff the instance switch is on with the CURRENT operator notice, the event is released (`capture_allowed`) and it is a Lapis
+     * conference. Runs under the room-row lock of the caller; the release itself is frozen while the room is active (`EventCaptureLock`), so what
+     * is read here cannot change between the participants' entry and this start.
+     */
+    fun requireEventCaptureAllowed(row: ResultRow) {
+        val eventId = eventIdOfRoom(row[ConferenceRoomTable.id]) ?: return
+        val event = EventTable.selectAll().where { EventTable.id eq eventId }.singleOrNull()
+        val allowed =
+            event != null &&
+                EventCaptureSettingsStore.load().startAllowed() &&
+                event[EventTable.captureAllowed] &&
+                event[EventTable.onlineKind] == EventOnlineKind.LAPIS_CONFERENCE
+        if (!allowed) throw ForbiddenException(EVENT_ROOM_UNSUPPORTED)
     }
 
     /**

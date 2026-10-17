@@ -25036,3 +25036,112 @@ msgstr "Szablon pokoju można zmienić tylko przy zamkniętym pokoju."
 #: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoomLayoutChoice.kt
 msgid "Wählen Sie zuerst die Raumart."
 msgstr "Najpierw wybierz rodzaj pokoju."
+
+# V1.9.156 -- Aufzeichnung und Live-Übertragung in Veranstaltungsräumen
+msgid "Aufzeichnung (Veranstaltung)"
+msgstr "Nagrywanie (wydarzenie)"
+
+msgid "Gilt nur, wenn die Aufzeichnung in Veranstaltungsräumen für die Instanz eingeschaltet ist."
+msgstr "Obowiązuje tylko wtedy, gdy nagrywanie w pokojach wydarzeń jest włączone dla instancji."
+
+msgid "So sehen Teilnehmende den Hinweis"
+msgstr "Tak uczestnicy widzą informację"
+
+msgid "Bitte bestätigen Sie zuerst den Hinweis zur Aufzeichnung."
+msgstr "Proszę najpierw potwierdzić informację o nagrywaniu."
+
+msgid "Der Hinweis zur Aufzeichnung hat sich geändert. Bitte lesen Sie ihn erneut."
+msgstr "Informacja o nagrywaniu została zmieniona. Proszę przeczytać ją ponownie."
+
+msgid "Die Freigabe der Aufzeichnung kann gerade nicht geändert werden."
+msgstr "Zgody na nagrywanie nie można teraz zmienić."
+
+msgid "In einem Veranstaltungsraum läuft gerade eine Aufzeichnung oder Übertragung. Beenden Sie sie zuerst."
+msgstr "W pokoju wydarzenia trwa nagrywanie lub transmisja na żywo. Proszę najpierw ją zakończyć."
+
+msgid "Veröffentlichen Sie zuerst den Einwilligungstext für Veranstaltungen unter Vertragstexte."
+msgstr "Najpierw opublikuj tekst zgody dla wydarzeń w sekcji Teksty umów."
+
+msgid "Der Hinweis hat sich geändert. Bitte versuchen Sie es erneut."
+msgstr "Informacja została zmieniona. Proszę spróbować ponownie."
+
+msgid "Diese Besprechung wird aufgezeichnet und live übertragen."
+msgstr "To spotkanie jest nagrywane i transmitowane na żywo."
+
+msgid "Diese Besprechung wird aufgezeichnet."
+msgstr "To spotkanie jest nagrywane."
+
+msgid "Diese Besprechung wird live übertragen."
+msgstr "To spotkanie jest transmitowane na żywo."
+
+msgid "Aufzeichnung und Übertragung in diesem Raum"
+msgstr "Nagrywanie i transmisja na żywo w tym pokoju"
+
+msgid "Ich willige ein, dass mein Bild und mein Ton aufgezeichnet und live übertragen werden dürfen."
+msgstr "Wyrażam zgodę na nagrywanie i transmisję na żywo mojego obrazu i głosu."
+
+msgid "Bitte bestätigen Sie die Einwilligung, um teilzunehmen."
+msgstr "Proszę potwierdzić zgodę, aby wziąć udział."
+
+msgid "Ihr Name ist für alle Teilnehmenden sichtbar. Ihr Mikrofon ist zu Beginn aus."
+msgstr "Twoje imię i nazwisko jest widoczne dla wszystkich uczestników. Twój mikrofon jest na początku wyłączony."
+
+msgid "Aufzeichnung und Übertragung erlauben"
+msgstr "Zezwól na nagrywanie i transmisję na żywo"
+
+msgid "Dann können Bild, Ton und Name aller Personen im Online-Raum aufgezeichnet und live übertragen werden, nicht nur die der Vortragenden. Jede Person muss vor dem Betreten ausdrücklich zustimmen, und im Raum steht, solange aufgezeichnet oder übertragen wird. Gestartet wird nur durch die Moderation im Raum."
+msgstr "Wtedy obraz, głos i imię i nazwisko wszystkich osób w pokoju online mogą być nagrywane i transmitowane na żywo, nie tylko osób prowadzących. Każda osoba musi przed wejściem wyraźnie wyrazić zgodę, a pokój pokazuje, dopóki trwa nagrywanie lub transmisja. Uruchomić je może tylko moderacja w pokoju."
+
+msgid "Die Aufzeichnung in Veranstaltungsräumen ist auf dieser Instanz nicht eingeschaltet."
+msgstr "Nagrywanie w pokojach wydarzeń nie jest włączone dla tej instancji."
+
+msgid "Die Freigabe kann nicht mehr geändert werden: Der Online-Raum ist geöffnet oder es läuft eine Aufzeichnung oder Übertragung."
+msgstr "Zgody nie można już zmienić: pokój online jest otwarty albo trwa nagrywanie lub transmisja."
+
+msgid "Die Veranstaltung wurde gespeichert, die Freigabe der Aufzeichnung konnte aber nicht mehr geändert werden."
+msgstr "Wydarzenie zostało zapisane, ale zgody na nagrywanie nie można już było zmienić."
+
+msgid "Sie sind im Begriff, die Aufzeichnung und die Live-Übertragung in den Online-Räumen von Veranstaltungen dieser Instanz zu erlauben. Aufgezeichnet und übertragen werden können Bild, Ton und Anzeigename aller Personen im Raum, nicht nur der Vortragenden. Der Vorstand entscheidet danach für jede Veranstaltung einzeln."
+msgstr "Zamierza Pan/Pani zezwolić na nagrywanie i transmisję na żywo w pokojach online wydarzeń tej instancji. Obraz, głos i wyświetlana nazwa wszystkich osób w pokoju mogą być nagrywane i transmitowane, nie tylko osób prowadzących. Zarząd decyduje następnie osobno dla każdego wydarzenia."
+
+msgid "Ob und unter welchen Bedingungen eine solche Aufzeichnung zulässig ist, hängt vom Recht Ihres Landes ab, zum Beispiel vom Datenschutz-, Persönlichkeits- und Urheberrecht. Bei Veranstaltungen kann ein Teil der Daten besondere Kategorien betreffen, etwa die politische oder religiöse Überzeugung. Lapis Cloud nimmt diese Prüfung nicht vor und ersetzt keine Rechtsberatung."
+msgstr "To, czy i na jakich warunkach takie nagrywanie jest dozwolone, zależy od prawa Pana/Pani kraju, na przykład od ochrony danych, praw osobistych i prawa autorskiego. Podczas wydarzeń część danych może należeć do szczególnych kategorii, na przykład dotyczyć przekonań politycznych lub religijnych. Lapis Cloud nie przeprowadza tej oceny i nie zastępuje porady prawnej."
+
+msgid "Als Betreiber sind Sie dafür verantwortlich, dass Sie eine Rechtsgrundlage haben und dass jede Person vor dem Betreten des Raums informiert ist und, wo erforderlich, einwilligt. Lapis Cloud verlangt dafür von jeder Person eine ausdrückliche Bestätigung des Einwilligungstextes und hält sie ohne Namen und ohne Uhrzeit fest. Das ersetzt keine Prüfung, ob die Einwilligung freiwillig und ausreichend ist."
+msgstr "Jako operator odpowiada Pan/Pani za posiadanie podstawy prawnej oraz za to, aby każda osoba przed wejściem do pokoju była poinformowana i, tam gdzie to konieczne, wyraziła zgodę. W tym celu Lapis Cloud prosi każdą osobę o wyraźne potwierdzenie tekstu zgody i zapisuje je bez imienia i nazwiska oraz bez godziny. Nie zastępuje to oceny, czy zgoda jest dobrowolna i wystarczająca."
+
+msgid "Das Programm kann nicht verhindern, dass Teilnehmende Bildschirmfotos oder eigene Mitschnitte anfertigen. Der Einwilligungstext, der angezeigt wird, muss von Ihnen vor dem Einschalten veröffentlicht werden."
+msgstr "Program nie może zapobiec temu, że uczestnicy wykonają zrzuty ekranu lub własne nagrania. Wyświetlany tekst zgody musi zostać opublikowany przez Pana/Panią przed włączeniem."
+
+msgid "Aufzeichnung und Übertragung in Veranstaltungsräumen erlauben"
+msgstr "Zezwól na nagrywanie i transmisję na żywo w pokojach wydarzeń"
+
+msgid "Der Vorstand erlaubt die Aufzeichnung danach für jede Veranstaltung einzeln. Jede Person im Raum stimmt vorher ausdrücklich zu und sieht im Raum, solange aufgezeichnet oder übertragen wird."
+msgstr "Zarząd zezwala następnie na nagrywanie osobno dla każdego wydarzenia. Każda osoba w pokoju wyraźnie wyraża wcześniej zgodę i widzi w pokoju, dopóki trwa nagrywanie lub transmisja."
+
+msgid "Der Einwilligungstext für Veranstaltungen ist noch der Platzhalter. Veröffentlichen Sie zuerst einen eigenen, rechtlich geprüften Text."
+msgstr "Tekst zgody dla wydarzeń jest nadal tekstem zastępczym. Najpierw proszę opublikować własny, prawnie zweryfikowany tekst."
+
+msgid "Aufzeichnung in Veranstaltungsräumen ausschalten?"
+msgstr "Wyłączyć nagrywanie w pokojach wydarzeń?"
+
+msgid "Danach kann in keinem Veranstaltungsraum mehr aufgezeichnet oder übertragen werden."
+msgstr "Potem w żadnym pokoju wydarzeń nie będzie można już nagrywać ani transmitować."
+
+msgid "Die Aufzeichnung in Veranstaltungsräumen ist ausgeschaltet."
+msgstr "Nagrywanie w pokojach wydarzeń jest wyłączone."
+
+msgid "Eine freigegebene Veranstaltung läuft gerade. Bitte versuchen Sie es nach ihrem Ende erneut."
+msgstr "Właśnie trwa wydarzenie, dla którego udzielono zgody. Proszę spróbować ponownie po jego zakończeniu."
+
+msgid "Die Aufzeichnung in Veranstaltungsräumen ist eingeschaltet."
+msgstr "Nagrywanie w pokojach wydarzeń jest włączone."
+
+msgid "Aufzeichnung in Veranstaltungsräumen erlauben?"
+msgstr "Zezwolić na nagrywanie w pokojach wydarzeń?"
+
+msgid "Aufzeichnung und Übertragung: erlaubt"
+msgstr "Nagrywanie i transmisja na żywo: dozwolone"
+
+msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
+msgstr "Zgoda na nagrywanie nie obejmuje serii terminów. Proszę udzielić zgody dla poszczególnych terminów po ich utworzeniu."

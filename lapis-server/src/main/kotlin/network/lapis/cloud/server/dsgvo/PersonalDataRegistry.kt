@@ -79,6 +79,8 @@ object PersonalDataRegistry {
             EncounterSpacePersonalData,
             // V1.9.144: the member finder (consent events, requests, blocks).
             MemberFinderPersonalData,
+            // V1.9.156: the capture-consent proofs of event rooms (retained, no name, no clock time).
+            EventCapturePersonalData,
         )
 
     /**

@@ -40,13 +40,17 @@ import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_RECORDING_TOPIC
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_MAX_PAYLOAD_BYTES
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEAT_NUDGE_TOPIC
+import network.lapis.cloud.shared.domain.EVENT_CAPTURE_MAX_PAYLOAD_BYTES
+import network.lapis.cloud.shared.domain.EVENT_CAPTURE_TOPIC
 import network.lapis.cloud.shared.domain.EncounterFloorSignal
 import network.lapis.cloud.shared.domain.EncounterReaction
 import network.lapis.cloud.shared.domain.EncounterRecordingSignal
+import network.lapis.cloud.shared.domain.EventCaptureLiveDto
 import network.lapis.cloud.shared.domain.NoteBlockBroadcastDto
 import network.lapis.cloud.shared.domain.WhiteboardStrokeWireDto
 import network.lapis.cloud.shared.domain.encounterFloorPacket
 import network.lapis.cloud.shared.domain.encounterRecordingPacket
+import network.lapis.cloud.shared.domain.eventCapturePacket
 import network.lapis.cloud.shared.domain.isStructurallyValid
 import org.khronos.webgl.Uint8Array
 import org.khronos.webgl.get
@@ -438,6 +442,13 @@ class LiveKitRoomSession(
      * bytes, strictly validated by [encounterRecordingPacket]. The branch sits BEFORE the participant check.
      */
     private val onEncounterRecording: (EncounterRecordingSignal) -> Unit = {},
+    /**
+     * V1.9.156 -- the state of an EVENT room: is it being recorded / streamed ([EventCaptureLiveDto]). Same rule as the pulpit recording signal and for
+     * the same reason, stricter than usual because a guest without an account may publish data: only the server's `SendData` is accepted (a packet that
+     * carries a sending participant is a forged "nothing is recorded"), 1..[EVENT_CAPTURE_MAX_PAYLOAD_BYTES] bytes, strictly validated by [eventCapturePacket].
+     * The branch sits BEFORE the participant check.
+     */
+    private val onEventCapture: (EventCaptureLiveDto) -> Unit = {},
     /**
      * V1.9.108 -- the mute state of ANOTHER participant's track changed (`RoomEvent.TrackMuted`/`TrackUnmuted` for a remote participant;
      * until now only the local ones were relayed). [source] is the publication source (`"microphone"`, ...). Replaces the "does a
@@ -937,6 +948,14 @@ class LiveKitRoomSession(
                 if (fromParticipant || payload.length !in 1..ENCOUNTER_RECORDING_MAX_PAYLOAD_BYTES) return@onOwned
                 val bytes = ByteArray(payload.length) { index -> payload[index] }
                 encounterRecordingPacket(fromParticipant = false, payload = bytes)?.let(onEncounterRecording)
+                return@onOwned
+            }
+            // V1.9.156 -- the capture state of an event room: the same rule, a branch of its own BEFORE the participant check.
+            if (p3 == EVENT_CAPTURE_TOPIC) {
+                val fromParticipant = p1.unsafeCast<RemoteParticipant?>() != null
+                if (fromParticipant || payload.length !in 1..EVENT_CAPTURE_MAX_PAYLOAD_BYTES) return@onOwned
+                val bytes = ByteArray(payload.length) { index -> payload[index] }
+                eventCapturePacket(fromParticipant = false, payload = bytes)?.let(onEventCapture)
                 return@onOwned
             }
             val participant = p1.unsafeCast<RemoteParticipant?>() ?: return@onOwned

@@ -419,6 +419,35 @@ The segmented composition is slower than the single graph: one remux of each fil
 `LAPIS_RECORDING_COMPOSE_TIMEOUT_MINUTES` stays at 120 and now bounds the whole composition across all of its runs.
 Per video or audio run (V1.9.155): up to three attempts with `max(30 s, 3 x segment length)`, `max(30 s, 3 x segment length)` and `max(60 s, 4 x segment length)`; a permanently hanging segment of 6 s therefore costs about 120 s before the composition fails, far below the overall limit. Remux and the final mux: one attempt.
 
+== Event rooms (V1.9.156)
+
+Until V1.9.155 `EventConferenceGuard.requireNotEventRoom` refused `startRecording` and `startStream` for an event room, because a person without an account had
+given no consent that could be proven. V1.9.156 replaces the refusal at **exactly these two places** by one decision function and builds the proof it relies on.
+Operator view: link:../features/event-capture.adoc[Recording and live streaming in event rooms].
+
+*The decision* (`EventConferenceGuard.requireEventCaptureAllowed(row)`, called under the room-row lock of the caller): an ordinary room is not touched; an event
+room may be recorded or streamed iff the instance switch is on **with the current operator notice** (`EventCaptureSettings.startAllowed()`), the event is released
+(`event.capture_allowed`) and it is a Lapis conference. Everything else stays `requireNotEventRoom` (`ConferenceService`, `MembershipGuards`); a tripwire
+(`EventConferenceGuardTripwireTest`) counts the call sites of the new function (exactly `startRecordingInTransaction` and `startStream`) and the remaining ones.
+`requireParticipantOrModerator` and `requireStillEntitled` are unchanged. A recording of an event room cannot be put at `PUBLIC_MEMBERS`.
+
+*The proof the decision relies on.* Nobody gets a token for a released event room without having acknowledged the live `EVENT_REC` text (`EventOnlineJoin`, the only place
+that mints a token for an event room besides `rejoinMainRoomToken`, which needs an open participation that only `EventOnlineJoin` creates). The proof is written in the
+same transaction that records the participation (members) or before the token leaves the server (people without an account), under the row lock of the event.
+
+*Why a lock and which order.* A release granted between a person's look at the event and their token would let somebody in who acknowledged nothing. The release is
+therefore frozen (`EventCaptureLock.isActive`) from the opening of the online window, while the room lives, while a recording or stream is not over and while somebody
+has an open participation. The entry path takes `lockEventForUpdate` first and the room row second; `setEventCaptureAllowed` takes the event lock first and reads the
+room state without locking it; `updateEvent` locks the event. There is no path that locks the room and then the event, so the order cannot deadlock. The audit entry is the
+last locking operation of the release transaction.
+
+*The banner.* `EventCaptureLiveBroadcaster` sends `{"v":1,"r":0|1,"s":0|1}` on the topic `lapis-event-capture` (`sendDataPayloadLimit` knows it) after a recording started and
+from a sweep every 5 seconds (a change at once, a heartbeat every 30 seconds while something runs). Only rooms of released events that are alive are looked at. A failed
+send is not retried and not remembered. The clients drop every packet that carries a sending participant.
+
+*Unchanged on purpose.* The poller (`RecordingPoller`) has no new runtime check: the identities `evg-<uuid>` and `evg-<32 hex>` satisfy `RecordingEgressPaths.isAcceptableIdentity`
+(`RecordingPollerTest`, participant mode (i)); "Neu berechnen", the download and the speaker timeline process only tracks that already exist and obey the document rights.
+
 == Known limitations
 
 * *Participant egress mode (the default since V1.9.116) was measured with one real browser participant only* (see <<Staging results (2026-10-12)>>) and re-encodes (CPU), see <<Participant egress mode (V1.9.110, default since V1.9.116)>>: a late camera, the screen-share offset, several people and the CPU cost under load are open; there is no fallback to Track Egress when LiveKit refuses a start; recordings made in Track mode (all before V1.9.116 unless `track` was set) keep their audio/video offset and cannot be repaired.

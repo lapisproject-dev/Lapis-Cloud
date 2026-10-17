@@ -187,6 +187,8 @@ fun auditEntityTypeLabel(entityType: AuditEntityType): String =
         AuditEntityType.AGREEMENT_TEXT -> gettext("Vertragstext")
         // V1.9.143 -- start, stop, automatic stop and deletion of a pulpit recording; the entry names no participant.
         AuditEntityType.PULPIT_RECORDING -> gettext("Kanzel-Aufzeichnung")
+        // V1.9.156 -- the release of recording / live streaming of one event; the entry names no participant.
+        AuditEntityType.EVENT_CAPTURE -> gettext("Aufzeichnung (Veranstaltung)")
     }
 
 fun auditEntityTypeColor(entityType: AuditEntityType): String =
@@ -307,6 +309,8 @@ fun auditEntityTypeColor(entityType: AuditEntityType): String =
         AuditEntityType.AGREEMENT_TEXT -> "secondary"
         // "warning" -- a recording of a person is a consequential act (like CONFERENCE_STREAM), never colour alone: the label says it too.
         AuditEntityType.PULPIT_RECORDING -> "warning"
+        // Same reasoning as PULPIT_RECORDING: a release that allows recording persons is a consequential act; the label says it too.
+        AuditEntityType.EVENT_CAPTURE -> "warning"
     }
 
 // ------------------------------------------------------------------------------------------------

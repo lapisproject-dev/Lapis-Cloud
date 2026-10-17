@@ -488,6 +488,13 @@ enum class AuditEntityType {
      * `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
      */
     PULPIT_RECORDING,
+
+    /**
+     * Welle V1.9.156 "Aufzeichnung in Veranstaltungsräumen" -- `EventService.setEventCaptureAllowed` writes one `UPDATE` entry per change of the
+     * release of ONE event (`entityId` = the event id, snapshot `{eventId, captureAllowed}`) -- never a participant, a name or the text. 13 chars,
+     * fits within `audit_log_entry.entity_type` `VARCHAR(29)`. Appended LAST, additive only.
+     */
+    EVENT_CAPTURE,
 }
 
 /** V1.9.125 -- after-snapshot of an [AuditEntityType.CARPOOL_PARTICIPATION] entry: ids and enums only. */

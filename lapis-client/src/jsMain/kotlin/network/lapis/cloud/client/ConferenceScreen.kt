@@ -79,7 +79,11 @@ import network.lapis.cloud.shared.domain.ConferenceStreamStatus
 import network.lapis.cloud.shared.domain.ConferenceStreamTargetDto
 import network.lapis.cloud.shared.domain.ConferenceStreamTargetStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import network.lapis.cloud.shared.domain.EventCaptureAcknowledgmentInput
+import network.lapis.cloud.shared.domain.EventCaptureLiveDto
 import network.lapis.cloud.shared.domain.EventGuestNotice
+import network.lapis.cloud.shared.domain.EventGuestNoticeCapture
+import network.lapis.cloud.shared.domain.EventOnlineJoinResultDto
 import network.lapis.cloud.shared.domain.EventOnlineOutcome
 import network.lapis.cloud.shared.domain.MeetingDto
 import network.lapis.cloud.shared.domain.MeetingStatus
@@ -87,6 +91,8 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.domain.SessionInfoDto
+import network.lapis.cloud.shared.rpc.EventCaptureNoticeOutdatedException
+import network.lapis.cloud.shared.rpc.EventCaptureNoticeRequiredException
 import network.lapis.cloud.shared.rpc.IConferenceBackgroundService
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
 import network.lapis.cloud.shared.rpc.IConferenceHandService
@@ -859,25 +865,86 @@ private suspend fun joinEventAndEnterCall(
     setActiveSession: (LiveKitRoomSession?) -> Unit,
     rejoinGuard: AutoRejoinGuard,
     onReturnedToLobby: () -> Unit,
+    // V1.9.156: `true` on the one repeat after the server said the capture text changed while the person was reading it.
+    consentRetried: Boolean = false,
 ): Boolean {
     val nonMember = isConferenceNonMember(AppState.session)
-    val consent: ConferenceGuestConsentAcknowledgmentInput? =
-        if (nonMember) {
-            if (!awaitEventGuestNotice(noticeHost)) return false
-            ConferenceGuestConsentAcknowledgmentInput(consentVersion = EventGuestNotice.VERSION, consentSha256 = EventGuestNotice.SHA256)
-        } else {
-            null
+    // V1.9.156: a released event needs the capture consent of EVERY participant; the server decides (never the client) and sends the text to show.
+    val captureState = guarded { rpcService<IEventService>().getEventCaptureState(eventId) } ?: return false
+    val captureNotice = captureState.notice?.takeIf { captureState.noticeRequired }
+    var captureConsent: EventCaptureAcknowledgmentInput? = null
+    val consent: ConferenceGuestConsentAcknowledgmentInput?
+    if (captureNotice != null) {
+        // The same text acknowledged earlier in this tab (a reconnect) is not asked again; a new version always is.
+        if (!EventCaptureConsentMemory.covers(eventId, captureNotice)) {
+            if (!awaitEventCaptureNotice(noticeHost, captureNotice, withGuestNotice = nonMember)) return false
+            EventCaptureConsentMemory.remember(eventId, captureNotice)
         }
+        captureConsent = EventCaptureAcknowledgmentInput(consentVersion = captureNotice.versionLabel, consentSha256 = captureNotice.sha256)
+        consent =
+            if (nonMember) {
+                ConferenceGuestConsentAcknowledgmentInput(
+                    consentVersion = EventGuestNoticeCapture.VERSION,
+                    consentSha256 = EventGuestNoticeCapture.SHA256,
+                )
+            } else {
+                null
+            }
+    } else {
+        consent =
+            if (nonMember) {
+                if (!awaitEventGuestNotice(noticeHost)) return false
+                ConferenceGuestConsentAcknowledgmentInput(
+                    consentVersion = EventGuestNotice.VERSION,
+                    consentSha256 = EventGuestNotice.SHA256,
+                )
+            } else {
+                null
+            }
+    }
     // one conference per tab; a second click is a no-op
     if (!ConferenceDock.beginJoin("event:$eventId")) return false
     val generation = ConferenceDock.generation
-    var result = guarded { rpcService<IEventService>().joinEventOnline(eventId, consent) }
+    var consentStale = false
+
+    // The text can change between the look and the join (a new version was published): not an error, the dialog is shown again with the new text.
+    suspend fun attemptJoin(): EventOnlineJoinResultDto? =
+        guarded {
+            try {
+                rpcService<IEventService>().joinEventOnlineWithCapture(eventId, consent, captureConsent)
+            } catch (e: EventCaptureNoticeOutdatedException) {
+                consentStale = true
+                null
+            } catch (e: EventCaptureNoticeRequiredException) {
+                consentStale = true
+                null
+            }
+        }
+    var result = attemptJoin()
     var attempts = 0
     while (result?.outcome == EventOnlineOutcome.PREPARING && attempts < EVENT_PREPARING_RETRIES) {
         attempts++
         delay(EVENT_PREPARING_RETRY_MS)
         if (!ConferenceDock.isCurrent(generation)) return false
-        result = guarded { rpcService<IEventService>().joinEventOnline(eventId, consent) }
+        result = attemptJoin()
+    }
+    if (consentStale) {
+        EventCaptureConsentMemory.forget(eventId)
+        ConferenceDock.dispatch(DockEvent.Terminated(DockTerminateReason.LEAVE))
+        if (consentRetried) {
+            notifyError(tr("Der Hinweis hat sich geändert. Bitte versuchen Sie es erneut."))
+            return false
+        }
+        return joinEventAndEnterCall(
+            eventId = eventId,
+            noticeHost = noticeHost,
+            lobbyPanel = lobbyPanel,
+            callPanel = callPanel,
+            setActiveSession = setActiveSession,
+            rejoinGuard = rejoinGuard,
+            onReturnedToLobby = onReturnedToLobby,
+            consentRetried = true,
+        )
     }
     if (result == null || result.outcome != EventOnlineOutcome.JOINED) {
         result?.let { notifyError(eventOnlineOutcomeMessage(it.outcome, it.opensAt).orEmpty()) }
@@ -899,7 +966,16 @@ private suspend fun joinEventAndEnterCall(
     // the call was ended hard (sign-out, language change) while the token was on its way: no device may be switched on
     if (!ConferenceDock.isCurrent(generation)) return false
     ConferenceDock.adoptRoomId(token.roomId)
-    enterCall(ConferenceCallTarget.MainRoom(room), token, lobbyPanel, callPanel, setActiveSession, rejoinGuard, onReturnedToLobby)
+    enterCall(
+        target = ConferenceCallTarget.MainRoom(room),
+        joinToken = token,
+        lobbyPanel = lobbyPanel,
+        callPanel = callPanel,
+        setActiveSession = setActiveSession,
+        rejoinGuard = rejoinGuard,
+        onReturnedToLobby = onReturnedToLobby,
+        initialCaptureLive = result.captureLive,
+    )
     return true
 }
 
@@ -1263,6 +1339,8 @@ private fun enterCall(
     // V1.9.70: what microphone and camera start as. A deliberate join switches both on; every AUTOMATIC re-entry (breakout, recall,
     // resume) passes the last wish of the person -- with the view undocked a camera they had switched off must not come back on unseen.
     initialDevices: ConferenceDeviceIntent = conferenceInitialDevices(null),
+    // V1.9.156: the state of the capture banner of an EVENT room at the moment of the join (null for every other call).
+    initialCaptureLive: EventCaptureLiveDto? = null,
 ) {
     // V1.9.70: the dock decides whether this call still wants to start (it was ended hard in the meantime: sign-out, language change)
     if (ConferenceDock.state is DockState.Idle) return
@@ -1273,6 +1351,8 @@ private fun enterCall(
     setConferenceLobbyVisible(lobbyPanel, false)
     callPanel.removeAll()
     callPanel.show()
+    // V1.9.156: an EVENT room says, in the picture of everybody, while it is recorded or streamed (the server's packets only, see LiveKitRoomSession).
+    val eventCaptureBanner = if (joinToken.eventId != null) EventCaptureBanner(callPanel).also { it.render(initialCaptureLive) } else null
 
     // V1.0 Videokonferenzen, Wave 6 "Breakout-Räume" -- every IConferenceService/
     // IConferenceRecordingService/IConferenceStreamingService call below targets the PARENT room's
@@ -5504,6 +5584,7 @@ private fun enterCall(
                 if (source == "microphone") tiles[identity]?.let { setRemoteMicMuted(it, muted) }
             },
             onModerationSignal = { signal -> handleModerationSignal(signal) },
+            onEventCapture = { live -> eventCaptureBanner?.render(live) },
             onLocalMicrophonePermission = { allowed ->
                 val before = microphonePermitted
                 microphonePermitted = allowed

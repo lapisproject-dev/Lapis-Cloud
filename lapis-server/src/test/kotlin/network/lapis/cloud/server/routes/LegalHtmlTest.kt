@@ -357,6 +357,7 @@ class LegalHtmlTest :
                     "memberStatusHistory" to "Mitgliederstatistik",
                     "memberNationality" to "Staatsangehörigkeiten",
                     "encounterSpace" to "Begegnungsräume",
+                    "eventCapture" to "Aufzeichnung in Veranstaltungsräumen",
                     "mailOutbox" to "System-E-Mails",
                 )
 

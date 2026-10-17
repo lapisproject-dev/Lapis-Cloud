@@ -32,7 +32,18 @@ enum class AgreementTextKind {
 
     /** V1.9.148 -- the same for an ASSEMBLY room. */
     ENC_ASSEM,
+
+    /**
+     * V1.9.156 -- the consent every participant (member, guest with an account, guest without an account) gives before entering an EVENT room whose
+     * organizer allowed recording and live streaming. Unlike the REC kinds a consent IS recorded persistently (`event_capture_acknowledgment`: version,
+     * hash, event, a day -- no name, no clock time). The paragraph rule of the encounter notices applies ([EncounterConsentLayout]), the "+rec"
+     * suffix and the code-owned recording paragraph do not.
+     */
+    EVENT_REC,
 }
+
+/** V1.9.156 -- `true` for the one event-room capture consent ([AgreementTextKind.EVENT_REC]). */
+fun AgreementTextKind.isEventCapture(): Boolean = this == AgreementTextKind.EVENT_REC
 
 /** V1.9.148 -- `true` for the two encounter entry notices ([AgreementTextKind.ENC_CHURCH], [AgreementTextKind.ENC_ASSEM]). */
 fun AgreementTextKind.isEncounterConsent(): Boolean = this == AgreementTextKind.ENC_CHURCH || this == AgreementTextKind.ENC_ASSEM

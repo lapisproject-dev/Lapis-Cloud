@@ -360,6 +360,18 @@ internal object LegalHtml {
             }
             li {
                 +(
+                    "Aufzeichnung in Veranstaltungsräumen (nur wenn der Betreiber sie erlaubt und der Vorstand sie für eine " +
+                        "Veranstaltung freigegeben hat): Bild, Ton und Anzeigename aller Personen im Online-Raum — auch von " +
+                        "Gästen ohne Konto — können aufgezeichnet und live übertragen werden; der Raum weist während der " +
+                        "Aufnahme oder Übertragung ausdrücklich darauf hin. Vor dem Eintritt bestätigt jede Person den " +
+                        "Einwilligungstext ausdrücklich (Art. 6 Abs. 1 lit. a DSGVO, bei besonderen Kategorien personenbezogener " +
+                        "Daten Art. 9 Abs. 2 lit. a DSGVO); als Nachweis werden nur die Veranstaltung, die Version und die " +
+                        "Prüfsumme des Textes und das Datum gespeichert, ohne Namen und ohne Uhrzeit (Art. 7 Abs. 1 DSGVO). " +
+                        "Die Aufnahme ist nur für Vorstand und Administratoren sichtbar und kann gelöscht werden."
+                )
+            }
+            li {
+                +(
                     "Versand von System-E-Mails (z. B. Passwort zurücksetzen, Bestätigungen, Hinweise): Ist die " +
                         "Zustellung nicht sofort möglich, wird die E-Mail verschlüsselt zwischengespeichert, bis sie " +
                         "zugestellt ist; sicherheitsrelevante E-Mails verfallen nach 30 Minuten ungesendet. Nach " +

@@ -163,6 +163,8 @@ data class EventDto(
     val onlineWindowOpensAt: LocalDateTime? = null,
     /** V1.9.113 -- organization-zone wall clock (class B, derived from `endsAt`) at which online participation closes. */
     val onlineWindowClosesAt: LocalDateTime? = null,
+    /** V1.9.156 -- the organizer allowed recording / live streaming in this event's room. Not secret; it only says "may be recorded". */
+    val captureAllowed: Boolean = false,
 )
 
 /** V1.9.113 -- one selectable encounter space in the event form's picker (BOARD/ADMIN). */
@@ -184,6 +186,8 @@ data class EventOnlineJoinResultDto(
     val token: ConferenceJoinTokenDto? = null,
     val opensAt: LocalDateTime? = null,
     val encounterSpaceId: String? = null,
+    /** V1.9.156 -- initial banner state when the event allows capture and something already runs; otherwise `null`. */
+    val captureLive: EventCaptureLiveDto? = null,
 )
 
 /** V1.9.113 -- body of `POST /api/events/{slug}/online-guest` (a join without an account). */
@@ -194,6 +198,9 @@ data class EventGuestJoinRequestDto(
     val consentSha256: String,
     /** Only for events with a registration deadline: the ticket code of the registration. Never sent as a URL parameter. */
     val ticketCode: String? = null,
+    /** V1.9.156 -- only for an event that allows capture: the version / hash of the capture consent the guest ticked. */
+    val captureConsentVersion: String? = null,
+    val captureConsentSha256: String? = null,
 )
 
 /** V1.9.113 -- response of the account-less join. Everything but [outcome] is null unless [EventOnlineOutcome.JOINED]. */
@@ -207,6 +214,8 @@ data class EventGuestJoinResponseDto(
     val expiresAt: String? = null,
     val turnServers: List<ConferenceTurnServer> = emptyList(),
     val opensAt: String? = null,
+    /** V1.9.156 -- initial banner state, `null` unless the event allows capture. */
+    val captureLive: EventCaptureLiveDto? = null,
 )
 
 /** V1.9.113 -- public, token-free state of an event's online window (`GET /api/events/{slug}/online-state`). */
@@ -222,6 +231,10 @@ data class EventOnlineStateDto(
     /** Always [EventGuestNotice.VERSION]/[EventGuestNotice.SHA256] when the event may be joined without an account. */
     val noticeVersion: String? = null,
     val noticeSha256: String? = null,
+    /** V1.9.156 -- the capture consent to show, `null` unless the event allows capture (then [noticeVersion] is the capture variant of the guest notice). */
+    val captureNotice: EventCaptureNoticeDto? = null,
+    /** V1.9.156 -- banner state while the window is open and the event allows capture. */
+    val captureLive: EventCaptureLiveDto? = null,
 )
 
 /** V1.9.113 -- one account-less participant of an event conference, for the moderator. [identity] always starts with `evg-`. */

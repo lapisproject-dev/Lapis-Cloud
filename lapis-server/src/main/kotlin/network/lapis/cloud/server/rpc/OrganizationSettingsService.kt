@@ -3,6 +3,7 @@ package network.lapis.cloud.server.rpc
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.serialization.json.Json
+import network.lapis.cloud.server.agreementtexts.AgreementTextStore
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.db.generated.BankAccountTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
@@ -10,16 +11,21 @@ import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.encounter.PulpitRecordingControl
 import network.lapis.cloud.server.encounter.PulpitRecordingNotice
 import network.lapis.cloud.server.encounter.PulpitStopReason
+import network.lapis.cloud.server.events.EventCaptureLock
+import network.lapis.cloud.server.events.EventCaptureNotice
 import network.lapis.cloud.server.memberfinder.MemberFinderLifecycle
 import network.lapis.cloud.server.memberfinder.MemberFinderNotice
 import network.lapis.cloud.server.payment.sepa.BicValidator
 import network.lapis.cloud.server.payment.sepa.IbanValidator
 import network.lapis.cloud.server.security.requireRole
 import network.lapis.cloud.server.security.resolveCurrentMember
+import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.AuditAction
 import network.lapis.cloud.shared.domain.AuditEntityType
+import network.lapis.cloud.shared.domain.EVENT_CAPTURE_NOTICE_VERSION
 import network.lapis.cloud.shared.domain.LedgerAccountType
 import network.lapis.cloud.shared.domain.MEMBER_FINDER_NOTICE_VERSION
 import network.lapis.cloud.shared.domain.OrganizationSettingsDto
@@ -29,6 +35,10 @@ import network.lapis.cloud.shared.domain.PULPIT_RECORDING_NOTICE_VERSION
 import network.lapis.cloud.shared.domain.PaymentAccountMapping
 import network.lapis.cloud.shared.domain.paymentAccountMappingConflictOf
 import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.EventCaptureBusyException
+import network.lapis.cloud.shared.rpc.EventCaptureChangeLockedException
+import network.lapis.cloud.shared.rpc.EventCaptureOperatorNoticeOutdatedException
+import network.lapis.cloud.shared.rpc.EventCaptureTextMissingException
 import network.lapis.cloud.shared.rpc.IOrganizationSettingsService
 import network.lapis.cloud.shared.rpc.MemberFinderNoticeOutdatedException
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -243,6 +253,72 @@ class OrganizationSettingsService(
         if (result.second) logger.info { "pulpit recording switched ${if (enabled) "on" else "off"} by ${current.memberId}" }
         // After the commit, never inside the transaction: LiveKit calls are made outside of it.
         if (!enabled) pulpitRecording.stopAll(PulpitStopReason.INSTANCE_DISABLED)
+        return result.first
+    }
+
+    /**
+     * V1.9.156 -- the ONLY way to switch "recording and live streaming in event rooms" on or off (ADMIN). Same shape as [updatePulpitRecordingEnabled]:
+     * switching ON requires the CURRENT version of the operator notice ([EVENT_CAPTURE_NOTICE_VERSION]) and a PUBLISHED `EVENT_REC` consent text -- the
+     * built-in placeholder never suffices, so an instance cannot record before its operator has published a consent text of its own.
+     *
+     * **Switching ON is refused while a released event is active** (window open, room alive, recording / stream running, somebody inside): a person who
+     * entered while the switch was off acknowledged nothing, and a recording must never start for such a room.
+     * **Switching OFF is refused while any event room records or streams** ([EventCaptureBusyException]); there is no remote stop -- the moderator ends the
+     * recording or stream, then the switch can be moved. Both checks run under the row lock of the settings row.
+     * Setting the value it already has writes nothing.
+     */
+    override suspend fun updateEventCaptureEnabled(
+        enabled: Boolean,
+        acknowledgedNoticeVersion: String?,
+    ): OrganizationSettingsDto {
+        val current = resolveCurrentMember(call)
+        current.requireRole(AccountRole.ADMIN)
+        if (enabled && acknowledgedNoticeVersion != EVENT_CAPTURE_NOTICE_VERSION) throw EventCaptureOperatorNoticeOutdatedException()
+        val result =
+            transaction {
+                val before = EventCaptureSettingsStore.lockAndLoad()
+                if (enabled &&
+                    AgreementTextStore.currentVersion(AgreementTextKind.EVENT_REC) == null
+                ) {
+                    throw EventCaptureTextMissingException()
+                }
+                val newVersion = if (enabled) EVENT_CAPTURE_NOTICE_VERSION else before.noticeVersion
+                val changed = before.enabled != enabled || before.noticeVersion != newVersion
+                if (changed) {
+                    if (enabled) {
+                        if (EventCaptureLock.anyReleasedEventActive(
+                                now = ServerClock.nowInstant(),
+                                orgZone = OrganizationTimeZone.current(),
+                            )
+                        ) {
+                            throw EventCaptureChangeLockedException()
+                        }
+                    } else if (EventCaptureLock.anyEventRoomCapturing()) {
+                        throw EventCaptureBusyException()
+                    }
+                    OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                        it[eventCaptureEnabled] = enabled
+                        it[eventCaptureNoticeVersion] = newVersion
+                    }
+                    AuditLogRecorder.record(
+                        actorMemberId = current.memberId,
+                        actorRole = current.role,
+                        entityType = AuditEntityType.ORGANIZATION_SETTINGS,
+                        entityId = ORGANIZATION_SETTINGS_ID,
+                        action = AuditAction.UPDATE,
+                        before = eventCaptureSnapshot(enabled = before.enabled, version = before.noticeVersion),
+                        after =
+                            eventCaptureSnapshot(
+                                enabled = enabled,
+                                version = newVersion,
+                                noticeSha256 = if (enabled) EventCaptureNotice.SHA256 else null,
+                            ),
+                    )
+                }
+                loadOrganizationSettings().withInfrastructure() to changed
+            }
+        // Only the fact that the switch moved and who moved it -- never an event, a name or a count.
+        if (result.second) logger.info { "event capture switched ${if (enabled) "on" else "off"} by ${current.memberId}" }
         return result.first
     }
 
@@ -540,6 +616,7 @@ class OrganizationSettingsService(
                 // V1.9.143: pulpitRecordingEnabled / pulpitRecordingNoticeVersion / pulpitRecordingRequireConfirmation likewise -- only
                 // updatePulpitRecordingEnabled / updatePulpitRecordingRequireConfirmation may set them.
                 // V1.9.144: memberFinderEnabled / memberFinderNoticeVersion likewise -- only updateMemberFinderEnabled may set them.
+                // V1.9.156: eventCaptureEnabled / eventCaptureNoticeVersion likewise -- only updateEventCaptureEnabled may set them.
             }
 
             val afterMapping =
@@ -676,6 +753,8 @@ private fun loadOrganizationSettings(): OrganizationSettingsDto =
         .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
         .singleOrNull()
         ?.toOrganizationSettingsDto()
+        // V1.9.156: whether the consent text of event capture is still the built-in placeholder (the admin console shows a warning then).
+        ?.copy(eventCaptureTextIsPlaceholder = AgreementTextStore.currentVersion(AgreementTextKind.EVENT_REC) == null)
         ?: throw NotFoundException("OrganizationSettings row $ORGANIZATION_SETTINGS_ID not found -- baseline seed missing?")
 
 /**
@@ -747,6 +826,9 @@ fun ResultRow.toOrganizationSettingsDto(): OrganizationSettingsDto =
         // V1.9.144 -- read-only here, set only through updateMemberFinderEnabled.
         memberFinderEnabled = this[OrganizationSettingsTable.memberFinderEnabled],
         memberFinderAcknowledgedNoticeVersion = this[OrganizationSettingsTable.memberFinderNoticeVersion],
+        // V1.9.156 -- read-only here, set only through updateEventCaptureEnabled. eventCaptureTextIsPlaceholder is filled by loadOrganizationSettings().
+        eventCaptureEnabled = this[OrganizationSettingsTable.eventCaptureEnabled],
+        eventCaptureNoticeVersion = this[OrganizationSettingsTable.eventCaptureNoticeVersion],
     )
 
 /**
@@ -881,4 +963,51 @@ private fun finderSnapshot(
     noticeSha256: String? = null,
 ): String =
     "{\"memberFinderEnabled\":$enabled,\"memberFinderNoticeVersion\":${if (version == null) "null" else "\"$version\""}" +
+        (if (noticeSha256 == null) "" else ",\"noticeSha256\":\"$noticeSha256\"") + "}"
+
+/** V1.9.156 -- the two settings of "recording and live streaming in event rooms". */
+internal data class EventCaptureSettings(
+    val enabled: Boolean,
+    /** The version of the operator notice acknowledged when the feature was switched on; `null` until then. */
+    val noticeVersion: String?,
+) {
+    /** A recording / stream may start and the consent is required: the switch is on AND the CURRENT version of the notice was acknowledged. */
+    fun startAllowed(): Boolean = enabled && noticeVersion == EVENT_CAPTURE_NOTICE_VERSION
+}
+
+/**
+ * V1.9.156 -- the event-capture settings. Must run inside a `transaction {}`; a missing row (never happens, V1 seeds it) means "off". The OFF default is also
+ * what [currentValue] answers when the database fails.
+ */
+internal object EventCaptureSettingsStore {
+    private val OFF = EventCaptureSettings(enabled = false, noticeVersion = null)
+
+    fun load(): EventCaptureSettings = loadWith(lock = false)
+
+    /** Reads the settings under the row lock of the single organization-settings row: serializes two admins moving the switch. */
+    fun lockAndLoad(): EventCaptureSettings = loadWith(lock = true)
+
+    private fun loadWith(lock: Boolean): EventCaptureSettings =
+        OrganizationSettingsTable
+            .select(OrganizationSettingsTable.eventCaptureEnabled, OrganizationSettingsTable.eventCaptureNoticeVersion)
+            .where { OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }
+            .let { if (lock) it.forUpdate() else it }
+            .singleOrNull()
+            ?.let {
+                EventCaptureSettings(
+                    enabled = it[OrganizationSettingsTable.eventCaptureEnabled],
+                    noticeVersion = it[OrganizationSettingsTable.eventCaptureNoticeVersion],
+                )
+            } ?: OFF
+
+    /** Opens its own transaction and NEVER fails -- the safe answer is "off". */
+    fun currentValue(): EventCaptureSettings = runCatching { transaction { load() } }.getOrDefault(OFF)
+}
+
+private fun eventCaptureSnapshot(
+    enabled: Boolean,
+    version: String?,
+    noticeSha256: String? = null,
+): String =
+    "{\"eventCaptureEnabled\":$enabled,\"eventCaptureNoticeVersion\":${if (version == null) "null" else "\"$version\""}" +
         (if (noticeSha256 == null) "" else ",\"noticeSha256\":\"$noticeSha256\"") + "}"

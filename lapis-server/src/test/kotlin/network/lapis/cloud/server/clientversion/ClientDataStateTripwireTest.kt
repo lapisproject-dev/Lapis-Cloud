@@ -111,10 +111,15 @@ private fun readsOutsideStateRegions(files: List<File>): Map<String, Int> =
  * `getState(` once per session to learn whether the instance offers the finder at all. Same accepted shape as the badge reads above: it runs in the background,
  * shows no loading/empty/error state (a failed probe simply leaves the entry out) and must not toast (the server refuses every status but ACTIVE). The screen
  * itself (`MemberFinderScreen.kt`) loads through `dataSection`. 177 -> 178.
+ * Welle V1.9.156 "Aufzeichnung in Veranstaltungsräumen" adds THREE reads in two accepted shapes, and one new file (56 -> 57 files): in the new
+ * `EventCaptureSection.kt` the event form's box loads its state once (`getEventCaptureState(` for an existing event, `getOrganizationSettings(` for a new one) --
+ * the same fire-and-forget option loader as `EventOnlineKindSegment.kt` above: the box stays hidden until the answer is there (a hidden box is the safe default),
+ * there is no list with a loading/empty/error state, and a failure toasts through `guarded`; and in `ConferenceScreen.kt` the `getEventCaptureState(` that the
+ * entry into an event room asks BEFORE the join (an action step of the join: the answer decides which consent screen is shown). 178 -> 181.
  * The lower bound keeps the scanner honest: a broken regex that suddenly finds much less fails the second assertion.
  */
-private const val READ_OUTSIDE_STATE_REGION_MAX = 178
-private const val FILES_OUTSIDE_STATE_REGION_MAX = 56
+private const val READ_OUTSIDE_STATE_REGION_MAX = 181
+private const val FILES_OUTSIDE_STATE_REGION_MAX = 57
 
 /**
  * A `when` branch that returns a raw German label (`X -> "Geplant"`) shows German in every language: a label goes through

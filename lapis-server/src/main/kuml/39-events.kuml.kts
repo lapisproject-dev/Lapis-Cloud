@@ -214,6 +214,9 @@
 // `encounterSpaceId` (nullable, set exactly for LAPIS_ENCOUNTER). The FK to `encounter_space` is SQL-only with no model stub, the
 // `seriesId` precedent -- it keeps this file's entity set unchanged (EventSeriesSchemaDriftTest/EventRoomSchemaDriftTest pin it). The
 // conference an event creates on the first join is its own entity in `67-event-online.kuml.kts`.
+// **Welle V1.9.156 "Aufzeichnung in Veranstaltungsräumen" addendum** (`V110__event_capture.sql`) adds one `event` column: `captureAllowed`
+// (Boolean, default false -- the release of recording / live streaming of this event's room; frozen while the room is active). The proof of
+// acknowledgment is its own entity in `73-event-capture.kuml.kts`.
 //
 import dev.kuml.profile.erm.ermMappingProfile
 import dev.kuml.uml.Multiplicity
@@ -478,6 +481,11 @@ classDiagram(name = "Events") {
         attribute(name = "encounterSpaceId", type = "UUID") {
             multiplicity = Multiplicity(0, 1)
             stereotype("Column") { "columnName" to "encounter_space_id" }
+        }
+        // V1.9.156 addendum (see file header). The release of recording / live streaming; changed only by IEventService.setEventCaptureAllowed.
+        attribute(name = "captureAllowed", type = "Boolean") {
+            defaultValue = "false"
+            stereotype("Column") { "columnName" to "capture_allowed" }
         }
     }
 

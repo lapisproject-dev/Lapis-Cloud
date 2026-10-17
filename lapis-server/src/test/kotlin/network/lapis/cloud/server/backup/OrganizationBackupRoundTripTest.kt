@@ -18,6 +18,8 @@ import network.lapis.cloud.server.db.generated.DocumentFolderTable
 import network.lapis.cloud.server.db.generated.DocumentTable
 import network.lapis.cloud.server.db.generated.DocumentVersionTable
 import network.lapis.cloud.server.db.generated.EncounterSpaceTable
+import network.lapis.cloud.server.db.generated.EventCaptureAcknowledgmentTable
+import network.lapis.cloud.server.db.generated.EventTable
 import network.lapis.cloud.server.db.generated.JournalEntryTable
 import network.lapis.cloud.server.db.generated.LedgerAccountTable
 import network.lapis.cloud.server.db.generated.LtrLedgerEntryTable
@@ -27,6 +29,7 @@ import network.lapis.cloud.server.db.generated.MembershipTierTable
 import network.lapis.cloud.server.db.generated.OrganizationSettingsTable
 import network.lapis.cloud.server.db.generated.PostingTable
 import network.lapis.cloud.server.db.generated.PulpitRecordingDocumentTable
+import network.lapis.cloud.server.rpc.ORGANIZATION_SETTINGS_ID
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.AgreementTextKind
@@ -37,6 +40,9 @@ import network.lapis.cloud.shared.domain.BackupOperationStatus
 import network.lapis.cloud.shared.domain.BackupOperationType
 import network.lapis.cloud.shared.domain.BillingInterval
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
+import network.lapis.cloud.shared.domain.EventOnlineKind
+import network.lapis.cloud.shared.domain.EventStatus
+import network.lapis.cloud.shared.domain.EventVisibility
 import network.lapis.cloud.shared.domain.GemeinnuetzigkeitSphere
 import network.lapis.cloud.shared.domain.JournalEntryStatus
 import network.lapis.cloud.shared.domain.LedgerAccountType
@@ -77,6 +83,7 @@ class OrganizationBackupRoundTripTest :
             val memberTierId = Uuid.random()
             val documentId = Uuid.random()
             val versionId = Uuid.random()
+            val captureEventId = Uuid.random()
             val blobBytes = "hello secession, this is a document blob".toByteArray(Charsets.UTF_8)
             val storageKey = "$documentId/$versionId.bin"
             val agreementVersionId = Uuid.random()
@@ -275,6 +282,48 @@ class OrganizationBackupRoundTripTest :
                     it[recordedAt] = LocalDateTime(2027, 1, 3, 10, 30)
                 }
 
+                // V1.9.156 "Aufzeichnung in Veranstaltungsraeumen": an event released for recording, the instance switch ON, and the two nameless proofs
+                // (a member and a person without an account). The tables are exported automatically and must come back bit-identical.
+                EventTable.insert {
+                    it[id] = captureEventId
+                    it[slug] = "roundtrip-capture"
+                    it[title] = "Roundtrip-Veranstaltung"
+                    it[description] = "x"
+                    it[locationText] = "Saal"
+                    it[onlineKind] = EventOnlineKind.LAPIS_CONFERENCE
+                    it[startsAt] = LocalDateTime(2027, 2, 1, 18, 0)
+                    it[endsAt] = LocalDateTime(2027, 2, 1, 20, 0)
+                    it[feeAmount] = BigDecimal.ZERO
+                    it[feeCurrency] = "EUR"
+                    it[status] = EventStatus.PUBLISHED
+                    it[visibility] = EventVisibility.PUBLIC
+                    it[createdAt] = LocalDateTime(2027, 1, 3, 9, 0)
+                    it[createdBy] = adminId
+                    it[captureAllowed] = true
+                }
+                OrganizationSettingsTable.update({ OrganizationSettingsTable.id eq ORGANIZATION_SETTINGS_ID }) {
+                    it[eventCaptureEnabled] = true
+                    it[eventCaptureNoticeVersion] = "1"
+                }
+                EventCaptureAcknowledgmentTable.insert {
+                    it[id] = Uuid.random()
+                    it[eventId] = captureEventId
+                    it[memberId] = applicantId
+                    it[guestKey] = null
+                    it[consentVersion] = "2027-01-03.rec.v1"
+                    it[consentSha256] = "e".repeat(64)
+                    it[acknowledgedOn] = LocalDate(2027, 2, 1)
+                }
+                EventCaptureAcknowledgmentTable.insert {
+                    it[id] = Uuid.random()
+                    it[eventId] = captureEventId
+                    it[memberId] = null
+                    it[guestKey] = "9".repeat(64)
+                    it[consentVersion] = "2027-01-03.rec.v1"
+                    it[consentSha256] = "e".repeat(64)
+                    it[acknowledgedOn] = LocalDate(2027, 2, 1)
+                }
+
                 AuditLogRecorder.record(
                     actorMemberId = adminId,
                     actorRole = AccountRole.ADMIN,
@@ -355,6 +404,20 @@ class OrganizationBackupRoundTripTest :
                     // V1.9.152: the room template came back (not silently reset to the default).
                     restoredSpace[EncounterSpaceTable.roomLayout] shouldBe "FOYER"
                     restoredSpace[EncounterSpaceTable.profile] shouldBe "ASSEMBLY"
+                }
+
+                // V1.9.156: the release, the switch and both proofs came back (the generic comparison above covers the bytes; this names the meaning).
+                transaction(targetDb) {
+                    EventTable.selectAll().where { EventTable.id eq captureEventId }.single()[EventTable.captureAllowed] shouldBe true
+                    OrganizationSettingsTable.selectAll().single().let {
+                        it[OrganizationSettingsTable.eventCaptureEnabled] shouldBe true
+                        it[OrganizationSettingsTable.eventCaptureNoticeVersion] shouldBe "1"
+                    }
+                    val proofs = EventCaptureAcknowledgmentTable.selectAll().toList()
+                    proofs.size shouldBe 2
+                    proofs.count { it[EventCaptureAcknowledgmentTable.memberId] == applicantId } shouldBe 1
+                    proofs.count { it[EventCaptureAcknowledgmentTable.guestKey] == "9".repeat(64) } shouldBe 1
+                    proofs.all { it[EventCaptureAcknowledgmentTable.acknowledgedOn] == LocalDate(2027, 2, 1) } shouldBe true
                 }
 
                 // The blob file itself round-tripped byte-for-byte.
