@@ -149,7 +149,7 @@ Nothing changes on the server for streams: `startStream` stores the layout it is
 == Per-segment composition and A/V sync
 
 `SegmentArgumentBuilder` (pure, `SegmentArgumentBuilderTest`) builds one `ffmpeg` run per segment and stream; `FfmpegSegmentedComposer` runs them one after the other (`FfmpegProcessRunner`: argument list only, no shell, stderr only in the log, timeout and
-`destroyForcibly`). Each run has its own timeout, `max(60 s, 4 x segment length)`, additionally bounded by what is left of `LAPIS_RECORDING_COMPOSE_TIMEOUT_MINUTES` for the whole composition.
+`destroyForcibly`). Each video and audio run has its own timeout and, since V1.9.155, up to three attempts (see <<Hanging ffmpeg runs (V1.9.155)>>); every run is additionally bounded by what is left of `LAPIS_RECORDING_COMPOSE_TIMEOUT_MINUTES` for the whole composition.
 
 *Video.* A black `color` source of exactly the segment's frames, every visible track seeked (`-ss` before `-i`, on the remuxed file), `fps=...:start_time=0` (a picture that arrives a fraction of a frame late is not a black frame),
 `scale` + `pad` into its cell, `overlay=eof_action=repeat`. Every segment is encoded with identical parameters (`libx264 -preset veryfast -crf 23 -profile:v high -g 60 -bf 0`): closed GOPs and *no B-frames* make the lossless join free of DTS overlaps
@@ -176,6 +176,22 @@ If `ffprobe` cannot be run the verification is skipped with a warning.
 file both are within 150 ms of their nominal time and of each other (measured: within 1 ms for the beeps and exactly on the frame for the flashes), the frame count is exactly `round(total * 30)`, in four cases: base (cameras joining and leaving, forced cuts), a drifting microphone
 (`atempo`), a camera that lost every 20th frame, and a 20 s hole in the microphone's timeline. Length: `LAPIS_RECORDING_SYNC_TEST_MINUTES` (default 6), directory `LAPIS_RECORDING_SYNC_TEST_DIR`.
 The 70 minute proof was run by hand on 2026-10-11 (case base, 640 x 360, `LAPIS_RECORDING_SYNC_TEST_MINUTES=70`): passed, 4200.0 s, exact frame count, 121 MB, 3 min 7 s including the generation of the inputs.
+
+=== Hanging ffmpeg runs (V1.9.155)
+
+*Finding (2026-10-17).* In the six-camera segments of recording bacce4ae (171 segments) the video run of a segment sometimes did not end and was killed by its timeout. Observed outside the server on the production `ffmpeg` 8.0.1: one input alone runs in about 0.5 s; six inputs together hung in about half of the runs (10 of 20); threading options did not help; with every input bounded by `-t` about 1 of 20 hung. `compose_attempts` above 1 on bacce4ae (5), staging c13166f4 (2) and ELB cc27c031 (2) fits this. Upstream reports about `overlay` / `filter_complex` hanging when inputs differ in length (FFmpeg tickets 6292, 6458, 6854) point the same way (inputs without an end block the overlay queue); this is a theory, not a proof.
+
+*Measures.*
+
+* Every video input gets `-t <segment length - tpad lead + 0.5 s>` right after its `-ss` and before its `-i` (`VIDEO_INPUT_TAIL_SECONDS`). `tpad` supplies the first `lead` seconds itself, so the picture is unchanged; a source that ends early is still held by `eof_action=repeat`.
+* A video or audio run that exceeds its limit (a `RecordingComposeTimeoutException`, thrown only by the timeout branch of `FfmpegProcessRunner`) is killed and started again, at most three attempts: attempts 1 and 2 get `max(30 s, 3 x segment length)` (a healthy run takes about 0.3 x), the last one the old `max(60 s, 4 x segment length)` so that a slow host is not mistaken for a hang. The half-written segment file is removed before a retry.
+* *Only a timeout is retried.* A non-zero exit, a start failure and a cancellation are passed on at once. Remux and the final mux keep a single attempt (one input each, never seen hanging).
+* The overall `LAPIS_RECORDING_COMPOSE_TIMEOUT_MINUTES` stays binding: when it is used up no further attempt starts.
+* Log lines name only the step ("video segment 12/171") and the attempt, never a path or a name.
+
+*Measuring tools.* `FfmpegSegmentStressTest` (off unless the test variable `LAPIS_RECORDING_STRESS_RUNS` is set; `LAPIS_RECORDING_STRESS_TIMEOUT_SECONDS` sets the per-run kill time; both are test variables, the server does not read them) runs the six-camera command in the variants old / production / canvas bounded by `-t` / `-thread_queue_size` / without `eof_action=repeat` / audio, and checks that the production command decodes to the same frames as the old one. `scripts/recording-segment-stress.sh` mirrors the old and the production command with `bash` and `ffmpeg` only, to measure inside the production image.
+
+*Measured with synthetic inputs (2026-10-17), 20 runs per variant, six VP8 cameras, 184 frames:* no hang in any variant, neither with ffmpeg 9.0.2 (macOS, Homebrew; all variants) nor with ffmpeg 8.0.1-3ubuntu2 in the production base image (`eclipse-temurin:25-jre` plus the Ubuntu `ffmpeg` package, arm64; old and production command). The hang was therefore *not reproduced* here; the synthetic cameras lack the real LiveKit timestamps and gaps. The mean run time was 0.33 s (old) against 0.34 s (production).
 
 == Participant egress mode (V1.9.110, default since V1.9.116)
 
@@ -401,10 +417,12 @@ dropped when the panel is re-rendered or removed, at most 150 minutes) and annou
 
 The segmented composition is slower than the single graph: one remux of each file and one `ffmpeg` run per segment and stream. Measured on the sync test (6 minutes, 640 x 360, Apple silicon): see the CHANGELOG entry V1.9.109.
 `LAPIS_RECORDING_COMPOSE_TIMEOUT_MINUTES` stays at 120 and now bounds the whole composition across all of its runs.
+Per video or audio run (V1.9.155): up to three attempts with `max(30 s, 3 x segment length)`, `max(30 s, 3 x segment length)` and `max(60 s, 4 x segment length)`; a permanently hanging segment of 6 s therefore costs about 120 s before the composition fails, far below the overall limit. Remux and the final mux: one attempt.
 
 == Known limitations
 
 * *Participant egress mode (the default since V1.9.116) was measured with one real browser participant only* (see <<Staging results (2026-10-12)>>) and re-encodes (CPU), see <<Participant egress mode (V1.9.110, default since V1.9.116)>>: a late camera, the screen-share offset, several people and the CPU cost under load are open; there is no fallback to Track Egress when LiveKit refuses a start; recordings made in Track mode (all before V1.9.116 unless `track` was set) keep their audio/video offset and cannot be repaired.
+* *Hanging `ffmpeg` runs (V1.9.155): cause not proven, hang not reproduced.* The cause is probably in the `ffmpeg` 8 command line (six unbounded inputs in one `overlay` chain), but that is a theory; the synthetic stress test found no hang, with `ffmpeg` 9.0.2 or with the 8.0.1 of the production image. The measures (`-t` per input, up to three attempts) reduce the effect, a residual risk remains (a segment that hangs three times fails the composition). Not verified on the real recording bacce4ae until "Neu berechnen" has run there. The diagnosis tools are `FfmpegSegmentStressTest` and `scripts/recording-segment-stress.sh`; the base image's `ffmpeg` is left untouched (the Dockerfile installs the unpinned Ubuntu package, 8.0.1-3ubuntu2 at the time of writing). `ffmpeg`'s own last output, which the runner logs on a timeout, can contain file paths (unchanged behaviour).
 * *Raw files are usually gone.* `LAPIS_RECORDING_KEEP_RAW` defaults to `false`, and the poller deletes the raw tracks after a successful composition: for such recordings "Neu berechnen" is disabled (with that reason). Only instances that set `KEEP_RAW=true` can recompute.
   No retention period was added in this wave.
 * *No name tag in the recording.* The composed video shows pictures only, no participant names.

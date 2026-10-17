@@ -99,6 +99,9 @@ object AudioTempo {
 object SegmentArgumentBuilder {
     const val AUDIO_SAMPLE_RATE = 48_000
 
+    /** V1.9.155: seconds a video input is read beyond the segment length (rounding, frames still pulled by fps/overlay at the end). */
+    const val VIDEO_INPUT_TAIL_SECONDS = 0.5
+
     /** Fraction of the canvas height the camera strip below a screen share occupies. */
     const val CAMERA_STRIP_HEIGHT_FRACTION = 0.28
 
@@ -170,7 +173,11 @@ object SegmentArgumentBuilder {
             val want = segStart - source.offsetSeconds
             val seek = want.coerceAtLeast(0.0)
             val lead = (-want).coerceAtLeast(0.0)
-            args += listOf("-ss", seconds(seek), "-i", source.path)
+            // V1.9.155: every video input is bounded (-t). tpad supplies the first `lead` seconds itself, so the input only needs
+            // duration - lead real seconds; the tail covers rounding and the frames fps/overlay still pull at the end. An unbounded
+            // input let ffmpeg 8 hang in the overlay queue in about half of the 6-camera segments.
+            val inputLength = (duration - lead).coerceAtLeast(1.0 / fps) + VIDEO_INPUT_TAIL_SECONDS
+            args += listOf("-ss", seconds(seek), "-t", seconds(inputLength), "-i", source.path)
             val label = "v$inputIndex"
             val lag = if (lead > 0.0005) "tpad=start_duration=${seconds(lead)}:start_mode=clone," else ""
             parts +=

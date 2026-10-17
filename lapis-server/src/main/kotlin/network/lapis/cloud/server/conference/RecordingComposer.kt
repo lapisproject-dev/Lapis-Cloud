@@ -36,7 +36,7 @@ interface RecordingComposer {
  * [network.lapis.cloud.server.conference.LiveKitAdminException] KDoc establishes for its own
  * outbound-HTTP error surface.
  */
-class RecordingComposeException(
+open class RecordingComposeException(
     message: String,
     cause: Throwable? = null,
 ) : Exception(message, cause)

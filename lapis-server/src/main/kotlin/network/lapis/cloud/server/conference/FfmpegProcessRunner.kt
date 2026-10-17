@@ -9,6 +9,24 @@ import kotlin.time.Duration
 
 private val logger = KotlinLogging.logger {}
 
+/** One `ffmpeg` step of the composition -- the seam [FfmpegSegmentedComposer] is tested through without a real process. */
+fun interface FfmpegStepRunner {
+    /** Throws [RecordingComposeTimeoutException] on a timeout, any other [RecordingComposeException] on every other failure. */
+    suspend fun run(
+        args: List<String>,
+        timeout: Duration,
+        label: String,
+    )
+}
+
+/**
+ * V1.9.155 -- the step ran longer than its limit and was killed. A subclass so that ONLY a hang (never a real `ffmpeg` error such as a
+ * non-zero exit) can be retried.
+ */
+class RecordingComposeTimeoutException(
+    message: String,
+) : RecordingComposeException(message = message)
+
 /**
  * Runs ONE `ffmpeg`/`ffprobe` child process to completion -- the process discipline of the recording composition, shared by every step of
  * [FfmpegSegmentedComposer] (it used to live in `FfmpegGalleryComposer`):
@@ -22,12 +40,12 @@ private val logger = KotlinLogging.logger {}
  */
 class FfmpegProcessRunner(
     private val binaryPath: String,
-) {
+) : FfmpegStepRunner {
     /**
-     * Runs the binary with [args]. Throws [RecordingComposeException] if the process cannot start, exits non-zero, or runs longer than
-     * [timeout]; [label] names the step in the (sanitized) messages.
+     * Runs the binary with [args]. Throws [RecordingComposeException] if the process cannot start or exits non-zero, and its subclass
+     * [RecordingComposeTimeoutException] if it runs longer than [timeout]; [label] names the step in the (sanitized) messages.
      */
-    suspend fun run(
+    override suspend fun run(
         args: List<String>,
         timeout: Duration,
         label: String,
@@ -72,7 +90,7 @@ class FfmpegProcessRunner(
         }
         if (!finished) {
             logger.warn { "$label exceeded $timeout and was killed -- last output: ${lastLines(outputBuffer)}" }
-            throw RecordingComposeException(message = "$label exceeded its time limit and was forcibly terminated")
+            throw RecordingComposeTimeoutException(message = "$label exceeded its time limit and was forcibly terminated")
         }
         val exitCode = process.exitValue()
         if (exitCode != 0) {

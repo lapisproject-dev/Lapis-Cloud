@@ -6,6 +6,16 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.155 — Segment composition no longer gets stuck on hanging ffmpeg runs
+
+Server fix only: no migration (the schema stays **`V109`**), no RPC change, no new text, no new environment variable for the server. The composition of a recording sometimes stalled in a many-camera segment (recording bacce4ae: six cameras, 171 segments; `compose_attempts` above 1 there and on staging c13166f4 and ELB cc27c031) because one `ffmpeg` video run did not end and was killed by its timeout after minutes.
+
+- Every video input of a segment run is now bounded with `-t` (segment length minus the `tpad` lead plus 0.5 s). The picture content is unchanged (checked frame by frame in the stress test).
+- A video or audio segment run that exceeds its time limit is killed and started again, at most three attempts (`max(30 s, 3 x segment length)` twice, then the old `max(60 s, 4 x segment length)`). Only a timeout is retried, never a non-zero exit or a cancellation; remux and the final mux keep one attempt; the overall composition limit stays binding.
+- New measuring tools: `FfmpegSegmentStressTest` (off unless the **test** variable `LAPIS_RECORDING_STRESS_RUNS` is set; `LAPIS_RECORDING_STRESS_TIMEOUT_SECONDS` is the per-run kill time) and `scripts/recording-segment-stress.sh` for use inside the production image.
+
+**Not verified:** the hang was *not reproduced* with synthetic inputs (20 runs per variant, ffmpeg 9.0.2 on macOS and the 8.0.1 of the production base image, no timeout in any variant), so the effect of the measures is not measured; the cause (ffmpeg 8 with unbounded `overlay` inputs) is a theory; a residual risk remains; not checked on the real recording bacce4ae until "Neu berechnen" has run there. The limit factors 3 and 4 are estimates. See `docs/architecture/conference-recording.adoc`, "Hanging ffmpeg runs".
+
 ## [0.37.1] — 2026-10-17
 
 Patch release on top of `[0.37.0]` (V1.9.153 and V1.9.154, both fix waves): the **encounter room** seat drawings now sit on the seats and the hints and the podium are no longer covered (client, CSS and assets), and **participant recordings** no longer let the audio fall behind the picture (server). No migration (the schema stays **`V109`**), no RPC change, no new text, no new environment variable. **Things to know:** (1) an encounter-room tab opened before the upgrade loses its bench drawing until it is reloaded, because the three `row-*.svg` files are gone (V1.9.153); (2) existing participant recordings are corrected only by "Neu berechnen" in the recordings list, which needs the raw files (`LAPIS_RECORDING_KEEP_RAW=true` at the time of the original recording); new recordings are corrected on their own (V1.9.154). **Not verified:** the room layout was measured in a browser test, nobody has looked at it in a real browser window; the audio correction was proven only with generated files and real `ffmpeg`, and on a real recording only after a recompute has run there; the correction assumes a linear drift, so a small remainder is left (about 0.07 s with evenly spread silence, at worst about half of the total drift with unevenly spread speech); the cause lies in the LiveKit egress, not in Lapis, and is not removed.

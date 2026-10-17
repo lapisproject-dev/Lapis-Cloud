@@ -52,6 +52,9 @@ class SegmentArgumentBuilderTest :
             val inputIndex = args.indexOf("/work/a.mkv")
             (ssIndex in 0 until inputIndex) shouldBe true
             args[ssIndex + 1] shouldBe "119.500000" // segment start 120 s minus the track offset 0.5 s
+            // V1.9.155: the input is bounded right after -ss, before -i: 30 s of segment + 0.5 s tail
+            args[ssIndex + 2] shouldBe "-t"
+            args[ssIndex + 3] shouldBe "30.500000"
             args[args.indexOf("-frames:v") + 1] shouldBe "900"
             args[args.indexOf("-bf") + 1] shouldBe "0"
             args[args.indexOf("-g") + 1] shouldBe "60"
@@ -87,6 +90,57 @@ class SegmentArgumentBuilderTest :
                 )
             args[args.indexOf("-ss") + 1] shouldBe "0.000000"
             graphOf(args) shouldContain "tpad=start_duration=0.500000:start_mode=clone"
+        }
+
+        test("video: with a tpad lead the input is shortened by the lead (tpad supplies those seconds itself)") {
+            val args =
+                SegmentArgumentBuilder.buildVideoSegment(
+                    seg = seg(start = 0, end = 900),
+                    inputs = mapOf("a" to SegmentVideoSource(trackId = "a", path = "/work/a.mkv", offsetSeconds = 0.5)),
+                    canvas = canvas,
+                    fps = fps,
+                    outVideo = "/o.mp4",
+                )
+            // 30 s segment - 0.5 s lead + 0.5 s tail
+            args[args.indexOf("-t") + 1] shouldBe "30.000000"
+        }
+
+        test("video: every input of a six-camera segment is bounded, -t sits between -ss and its own -i") {
+            val ids = listOf("a", "b", "c", "d", "e", "f")
+            val args =
+                SegmentArgumentBuilder.buildVideoSegment(
+                    seg =
+                        seg(
+                            start = 180,
+                            end = 360,
+                            slots = ids.withIndex().associate { it.value to it.index },
+                            shape = GridShape(cols = 3, rows = 2),
+                        ),
+                    inputs = sources(*ids.toTypedArray()),
+                    canvas = canvas,
+                    fps = fps,
+                    outVideo = "/o.mp4",
+                )
+            args.count { it == "-t" } shouldBe 6
+            for (id in ids) {
+                val i = args.indexOf("/work/$id.mkv")
+                args[i - 1] shouldBe "-i"
+                args[i - 3] shouldBe "-t"
+                args[i - 5] shouldBe "-ss"
+                args[i - 2] shouldBe "6.500000"
+            }
+        }
+
+        test("video: a lead longer than the segment never makes -t negative (floor of one frame plus the tail)") {
+            val args =
+                SegmentArgumentBuilder.buildVideoSegment(
+                    seg = seg(start = 0, end = 15),
+                    inputs = mapOf("a" to SegmentVideoSource(trackId = "a", path = "/work/a.mkv", offsetSeconds = 5.0)),
+                    canvas = canvas,
+                    fps = fps,
+                    outVideo = "/o.mp4",
+                )
+            args[args.indexOf("-t") + 1] shouldBe "0.533333" // 1/30 + 0.5
         }
 
         test("video: gallery cells come from the shared grid; every picture is put on a constant frame rate and fitted into its cell") {

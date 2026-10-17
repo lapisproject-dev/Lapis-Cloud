@@ -32,8 +32,11 @@ private val logger = KotlinLogging.logger {}
  *    more than 10 s in the file's own timeline (a muted stretch of a microphone) by shifting all later packets -- the data ranges the
  *    layout and the audio inputs are built from would then no longer match the audio (found by the sync test with a 30 s hole).
  * 3. **Edit decision list** from the tracks' data ranges (wall clock = `offset + media time`, for audio with the optional `atempo`).
- * 4. **One video and one audio `ffmpeg` run per segment** -- sequential, each with its own timeout (`max(60 s, 4 x segment length)`,
- *    additionally bounded by what is left of [timeoutMinutes] for the whole composition).
+ * 4. **One video and one audio `ffmpeg` run per segment** -- sequential, each with its own timeout, additionally bounded by what is
+ *    left of [timeoutMinutes] for the whole composition. V1.9.155: a run that merely HANGS (ffmpeg 8 sometimes stalls in the overlay
+ *    queue of a many-camera segment) is killed and restarted, up to [SEGMENT_MAX_ATTEMPTS] times: the first attempts get the short
+ *    limit `max(30 s, 3 x segment length)` (healthy runs take about 0.3 x), the last one the old generous `max(60 s, 4 x segment
+ *    length)` so a slow host is not mistaken for a hang. Only a timeout is retried -- a non-zero exit or a cancellation never is.
  * 5. **Join without re-encoding** (`concat` demuxer, `-safe 1`, generated file names only) and one final mux: the video is copied, the
  *    audio is encoded to AAC once.
  * 6. **Verification** with `ffprobe`: a video and an audio stream, a duration within one second of the expected length. A file that
@@ -48,7 +51,8 @@ class FfmpegSegmentedComposer(
     private val ffmpegPath: String,
     private val timeoutMinutes: Long,
     private val prober: RecordingMediaProber = RecordingMediaProber.None,
-    private val runner: FfmpegProcessRunner = FfmpegProcessRunner(ffmpegPath),
+    private val runner: FfmpegStepRunner = FfmpegProcessRunner(ffmpegPath),
+    private val timeSource: TimeSource = TimeSource.Monotonic,
 ) : RecordingComposer {
     override suspend fun compose(
         spec: RecordingComposeSpec,
@@ -64,7 +68,7 @@ class FfmpegSegmentedComposer(
             throw RecordingComposeException(message = "invalid composition spec")
         }
         val parent = outputFile.absoluteFile.parentFile ?: throw RecordingComposeException(message = "invalid output location")
-        val deadline = TimeSource.Monotonic.markNow() + timeoutMinutes.minutes
+        val deadline = timeSource.markNow() + timeoutMinutes.minutes
         var workDir: File? = null
         try {
             val dir =
@@ -205,7 +209,14 @@ class FfmpegSegmentedComposer(
         for (seg in segments) {
             val base = "seg-%05d".format(java.util.Locale.ROOT, seg.index)
             val segSeconds = seg.frames.toDouble() / fps
-            val timeout = maxOf(MIN_STEP_TIMEOUT, (segSeconds * SEGMENT_TIMEOUT_FACTOR).seconds)
+            val attemptTimeouts =
+                List(SEGMENT_MAX_ATTEMPTS) { attempt ->
+                    if (attempt < SEGMENT_MAX_ATTEMPTS - 1) {
+                        maxOf(SEGMENT_FAST_TIMEOUT_MIN, (segSeconds * SEGMENT_FAST_TIMEOUT_FACTOR).seconds)
+                    } else {
+                        maxOf(MIN_STEP_TIMEOUT, (segSeconds * SEGMENT_TIMEOUT_FACTOR).seconds)
+                    }
+                }
             val video = File(workDir, "$base.mp4")
             val wav = File(workDir, "$base.wav")
             runStep(
@@ -217,15 +228,17 @@ class FfmpegSegmentedComposer(
                         fps = fps,
                         outVideo = video.absolutePath,
                     ),
-                stepTimeout = timeout,
+                attemptTimeouts = attemptTimeouts,
                 deadline = deadline,
                 label = "video segment ${seg.index + 1}/${segments.size}",
+                partialOutput = video,
             )
             runStep(
                 args = SegmentArgumentBuilder.buildAudioSegment(seg = seg, sources = audioSources, fps = fps, outWav = wav.absolutePath),
-                stepTimeout = timeout,
+                attemptTimeouts = attemptTimeouts,
                 deadline = deadline,
                 label = "audio segment ${seg.index + 1}/${segments.size}",
+                partialOutput = wav,
             )
             videoEntries += "$base.mp4" to seg.frames
             audioEntries += "$base.wav" to seg.frames
@@ -245,7 +258,7 @@ class FfmpegSegmentedComposer(
                     audioList = audioList.absolutePath,
                     out = outputFile.absolutePath,
                 ),
-            stepTimeout = MIN_STEP_TIMEOUT.coerceAtLeast((total * SEGMENT_TIMEOUT_FACTOR / 8).seconds),
+            attemptTimeouts = listOf(MIN_STEP_TIMEOUT.coerceAtLeast((total * SEGMENT_TIMEOUT_FACTOR / 8).seconds)),
             deadline = deadline,
             label = "final mux",
         )
@@ -280,23 +293,43 @@ class FfmpegSegmentedComposer(
                     "matroska",
                     target.absolutePath,
                 ),
-            stepTimeout = MIN_STEP_TIMEOUT.coerceAtLeast(10.minutes),
+            attemptTimeouts = listOf(MIN_STEP_TIMEOUT.coerceAtLeast(10.minutes)),
             deadline = deadline,
             label = label,
         )
     }
 
+    /**
+     * Runs one step. One attempt per entry of [attemptTimeouts]; ONLY a [RecordingComposeTimeoutException] starts the next attempt
+     * (never a non-zero exit, a start failure or a cancellation), and only while time is left of the whole composition's [deadline].
+     * [partialOutput] (the half-written file of a killed attempt) is removed before a retry.
+     */
     private suspend fun runStep(
         args: List<String>,
-        stepTimeout: Duration,
+        attemptTimeouts: List<Duration>,
         deadline: TimeMark,
         label: String,
+        partialOutput: File? = null,
     ) {
-        val remaining = -deadline.elapsedNow()
-        if (remaining <= Duration.ZERO) {
-            throw RecordingComposeException(message = "composition exceeded $timeoutMinutes minute(s) and was stopped")
+        val maxAttempts = attemptTimeouts.size
+        for (attempt in 1..maxAttempts) {
+            val remaining = -deadline.elapsedNow()
+            if (remaining <= Duration.ZERO) {
+                throw RecordingComposeException(message = "composition exceeded $timeoutMinutes minute(s) and was stopped")
+            }
+            try {
+                runner.run(args = args, timeout = minOf(attemptTimeouts[attempt - 1], remaining), label = label)
+                return
+            } catch (e: RecordingComposeTimeoutException) {
+                if (attempt >= maxAttempts) {
+                    if (maxAttempts == 1) throw e
+                    logger.warn { "FfmpegSegmentedComposer: $label: attempt $attempt/$maxAttempts exceeded its time limit, giving up" }
+                    throw RecordingComposeTimeoutException(message = "$label exceeded its time limit $maxAttempts times")
+                }
+                logger.warn { "FfmpegSegmentedComposer: $label: attempt $attempt/$maxAttempts exceeded its time limit, retrying" }
+                partialOutput?.let { withContext(Dispatchers.IO) { Files.deleteIfExists(it.toPath()) } }
+            }
         }
-        runner.run(args = args, timeout = minOf(stepTimeout, remaining), label = label)
     }
 
     private suspend fun verify(
@@ -337,6 +370,11 @@ class FfmpegSegmentedComposer(
     private companion object {
         const val WORK_PREFIX = ".work-"
         const val SEGMENT_TIMEOUT_FACTOR = 4.0
+
+        /** V1.9.155: attempts for a video/audio segment run that hangs (the last one gets the generous limit). */
+        const val SEGMENT_MAX_ATTEMPTS = 3
+        const val SEGMENT_FAST_TIMEOUT_FACTOR = 3.0
+        val SEGMENT_FAST_TIMEOUT_MIN: Duration = 30.seconds
         const val VERIFY_TOLERANCE_SECONDS = 1.0
         const val MIN_RANGE_SECONDS = 1.0 / 1000
         val MIN_STEP_TIMEOUT: Duration = 60.seconds
