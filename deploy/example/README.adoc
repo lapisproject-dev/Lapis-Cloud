@@ -147,7 +147,7 @@ still wrong.
 [source,bash]
 ----
 cd deploy/example
-cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.37.1) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
+cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.37.2) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
 docker compose pull
 docker compose up -d
 docker compose logs -f lapis-server
@@ -343,7 +343,7 @@ on 2026-10-10 (the tag `v0.31.0` has no image: its first build ran out of heap, 
 (GitHub package settings; an organisation must allow public packages first). Check
 `docker buildx imagetools inspect ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` before switching an instance; an instance on the old server-side build
 keeps working until it is switched (see "Switching a real instance from server-side builds to the published image" below). Example:
-`LAPIS_IMAGE_TAG=0.37.1` (no `v`; the git tag is `v0.37.1`, the image tag is `0.37.1`).
+`LAPIS_IMAGE_TAG=0.37.2` (no `v`; the git tag is `v0.37.2`, the image tag is `0.37.2`).
 ====
 
 Since V1.9.93 the server is **not built on the host any more**: CI builds the image once per release tag and publishes it, the host sets
@@ -362,6 +362,8 @@ any instance: that wave edited 16 already-applied Flyway migration files in plac
 to run at all on any of these three already-migrated instances until `flywayRepair` has run against
 each of them -- see the CHANGELOG "Operator notes" entry for this wave for the full mechanism and
 the exact command. Run it once per instance before rebuilding that instance below.
+
+Upgrading from `v0.37.1` to `v0.37.2` adds one additive migration (`V110` event capture; the reported migration count goes up by exactly one, check the real count) and needs no `flywayRepair` of its own: take a backup as always, set `LAPIS_IMAGE_TAG=0.37.2`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. No new environment variable. **Things to know:** (1) recording and streaming of event rooms is **off on three levels**: the instance switch ("Aufzeichnung und Übertragung in Veranstaltungsräumen erlauben") can be switched on only by an ADMIN, after reading the operator notice, and only **after** the instance has published its own consent text under `/agreement-texts` (tab "Aufzeichnung (Veranstaltung)"; the built-in text is a placeholder and never enough); then each event needs its own release (BOARD/ADMIN, Lapis conferences only), and the recording or stream is started by the moderation in the room; (2) the release of an event can no longer be changed from 15 minutes before its start (the online window), while the room lives, while a recording or stream runs and while somebody is inside, and the instance switch cannot be switched off while an event room records or streams; (3) a new table `event_capture_acknowledgment` holds the proof of consent (event, consent version and hash, a date, and either a member id or a `guest_key`; no name, no room, no clock time); the `guest_key` of a person without an account is an HMAC derived from the LiveKit API secret, so **rotating that secret makes old keys unmatchable** with new recordings; the table is kept on a GDPR erasure and deleted with its event; (4) a browser tab with an event page opened before the upgrade gets an error message on a released event until it reloads, because the old entry routes and the old `joinEventOnline` refuse a released event; (5) the consent texts and the operator notice are drafts that no lawyer has reviewed, the legal position depends on the country of the instance, and nothing of it has been seen in a real browser, in a real call or against a real LiveKit or egress service; (6) V1.9.155 makes the composition of recordings more reliable (bounded video inputs, up to three attempts after a timeout); it is not yet confirmed on the real recording that showed the hang, the cause is probably in ffmpeg 8; a recording stuck earlier is repaired with "Neu berechnen" if the raw files exist.
 
 Upgrading from `v0.37.0` to `v0.37.1` adds no migration (the schema stays `V109`) and needs no `flywayRepair`: take a backup as always, set `LAPIS_IMAGE_TAG=0.37.1`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. No new environment variable. **Things to know:** (1) an encounter-room tab that was opened before the upgrade loses its bench drawing until the browser reloads the page, because the three `row-*.svg` drawing files were replaced by block files (V1.9.153); (2) recordings that already exist keep their audio offset until a moderator uses "Neu berechnen" in the recordings list, which needs the raw files (`LAPIS_RECORDING_KEEP_RAW=true` when the recording was made); new participant recordings are corrected on their own (V1.9.154); the correction is a linear approximation and leaves a small remainder, the cause is in the LiveKit egress; (3) the room layout was measured in a browser test, not looked at in a real browser window.
 

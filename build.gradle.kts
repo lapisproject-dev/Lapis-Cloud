@@ -17,7 +17,7 @@ plugins {
 
 allprojects {
     group = "network.lapis.cloud"
-    version = "0.37.1"
+    version = "0.37.2"
 }
 
 // Kotlin modules that provably cannot be covered by the RequireNamedArguments
