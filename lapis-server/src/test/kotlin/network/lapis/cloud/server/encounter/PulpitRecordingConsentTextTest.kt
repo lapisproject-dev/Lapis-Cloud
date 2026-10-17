@@ -4,7 +4,12 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import network.lapis.cloud.server.agreementtexts.AgreementTextTestState
+import network.lapis.cloud.server.agreementtexts.EncounterAssemblyConsentDefault
+import network.lapis.cloud.server.agreementtexts.EncounterChurchConsentDefault
+import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.shared.domain.EncounterProfile
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
  * V1.9.143 -- the Art. 9 consent of a room whose pulpit MAY be recorded. The variants tell the truth about the recording (the pulpit may be recorded, the
@@ -13,6 +18,10 @@ import network.lapis.cloud.shared.domain.EncounterProfile
  */
 class PulpitRecordingConsentTextTest :
     FunSpec({
+        beforeSpec { DatabaseConfig.connect() }
+        afterEach { AgreementTextTestState.reset() }
+        afterSpec { AgreementTextTestState.reset() }
+
         test("the old consent texts are unchanged: version, hash and the promise of no recording") {
             EncounterConsentDisclaimer.VERSION shouldBe "2026-10-06.v1"
             EncounterAssemblyConsentDisclaimer.VERSION shouldBe "2026-10-07.assembly.v1"
@@ -35,14 +44,15 @@ class PulpitRecordingConsentTextTest :
             EncounterRecordingConsentDisclaimer.TEXT shouldContain "Dieser Hinweis ist ein Entwurf und stellt keine Rechtsberatung dar."
         }
 
+        val all =
+            listOf(
+                EncounterConsentDisclaimer,
+                EncounterAssemblyConsentDisclaimer,
+                EncounterRecordingConsentDisclaimer,
+                EncounterAssemblyRecordingConsentDisclaimer,
+            )
+
         test("each variant is its own version and hash, the hash is the formula of every other consent, and it matches only itself") {
-            val all =
-                listOf(
-                    EncounterConsentDisclaimer,
-                    EncounterAssemblyConsentDisclaimer,
-                    EncounterRecordingConsentDisclaimer,
-                    EncounterAssemblyRecordingConsentDisclaimer,
-                )
             all.map { it.version }.toSet().size shouldBe 4
             all.map { it.sha256 }.toSet().size shouldBe 4
             EncounterRecordingConsentDisclaimer.SHA256 shouldBe
@@ -66,12 +76,24 @@ class PulpitRecordingConsentTextTest :
             EncounterAssemblyRecordingConsentDisclaimer.SHA256 shouldBe "93cf8c4522dafb63493b0a39b86afbae64ddfa5675089b0f4a52ce3799161879"
         }
 
-        test("the room option selects the variant, per profile; without the option it is the old text") {
-            encounterConsentFor(profile = EncounterProfile.CHURCH_SERVICE) shouldBe EncounterConsentDisclaimer
-            encounterConsentFor(profile = EncounterProfile.ASSEMBLY) shouldBe EncounterAssemblyConsentDisclaimer
-            encounterConsentFor(profile = EncounterProfile.CHURCH_SERVICE, pulpitRecordingAllowed = true) shouldBe
-                EncounterRecordingConsentDisclaimer
-            encounterConsentFor(profile = EncounterProfile.ASSEMBLY, pulpitRecordingAllowed = true) shouldBe
-                EncounterAssemblyRecordingConsentDisclaimer
+        test(
+            "the room option selects the variant, per profile: V1.9.148 serves the placeholder (with the system suffix for a recording room)",
+        ) {
+            val church = transaction { encounterConsentFor(profile = EncounterProfile.CHURCH_SERVICE) }
+            val assembly = transaction { encounterConsentFor(profile = EncounterProfile.ASSEMBLY) }
+            val churchRec = transaction { encounterConsentFor(profile = EncounterProfile.CHURCH_SERVICE, pulpitRecordingAllowed = true) }
+            val assemblyRec = transaction { encounterConsentFor(profile = EncounterProfile.ASSEMBLY, pulpitRecordingAllowed = true) }
+            church.version shouldBe EncounterChurchConsentDefault.VERSION
+            assembly.version shouldBe EncounterAssemblyConsentDefault.VERSION
+            churchRec.version shouldBe EncounterChurchConsentDefault.VERSION + "+rec"
+            assemblyRec.version shouldBe EncounterAssemblyConsentDefault.VERSION + "+rec"
+            setOf(church.sha256, assembly.sha256, churchRec.sha256, assemblyRec.sha256).size shouldBe 4
+            churchRec.text shouldContain "kann die Kanzel aufgezeichnet werden"
+            assemblyRec.text shouldContain "kann das Podium aufgezeichnet werden"
+            church.text shouldContain "Es wird nichts aufgezeichnet."
+            churchRec.text shouldNotContain "Es wird nichts aufgezeichnet."
+            // none of the four served labels is one of the four earlier labels: every guest acknowledges the corrected notice again
+            val earlier = all.map { it.version }.toSet()
+            listOf(church, assembly, churchRec, assemblyRec).none { it.version in earlier } shouldBe true
         }
     })

@@ -3,6 +3,7 @@ package network.lapis.cloud.server.encounter
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import network.lapis.cloud.server.agreementtexts.EncounterChurchConsentDefault
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.shared.domain.AccountRole
@@ -184,9 +185,18 @@ class EncounterSpacePulpitOptionTest :
                         .getOrThrow()
                 infoWith.pulpitRecordingRoomNotice shouldBe "Die Kanzel wird aufgezeichnet, die Gemeinde nicht."
                 infoWithout.pulpitRecordingRoomNotice shouldBe null
-                infoWith.disclaimer!!.version shouldBe EncounterRecordingConsentDisclaimer.VERSION
-                infoWithout.disclaimer!!.version shouldBe EncounterConsentDisclaimer.VERSION
-                infoWith.disclaimer!!.sha256 shouldBe EncounterRecordingConsentDisclaimer.SHA256
+                // V1.9.148: the variant is the placeholder with the system suffix; the code appends the recording sentence as the last key point.
+                infoWith.disclaimer!!.version shouldBe EncounterChurchConsentDefault.VERSION + "+rec"
+                infoWithout.disclaimer!!.version shouldBe EncounterChurchConsentDefault.VERSION
+                infoWith.disclaimer!!.sha256 shouldBe
+                    transaction {
+                        encounterConsentFor(
+                            profile = network.lapis.cloud.shared.domain.EncounterProfile.CHURCH_SERVICE,
+                            pulpitRecordingAllowed = true,
+                        )
+                    }.sha256
+                infoWith.disclaimer!!.keyPoints.last() shouldContain "kann die Kanzel aufgezeichnet werden"
+                infoWithout.disclaimer!!.keyPoints.none { it.contains("kann die Kanzel aufgezeichnet werden") } shouldBe true
             }
         }
     })

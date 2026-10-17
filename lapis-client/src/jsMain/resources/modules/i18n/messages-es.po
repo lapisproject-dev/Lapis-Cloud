@@ -24816,3 +24816,48 @@ msgstr "Región"
 
 msgid "Regionen mit mindestens fünf Teilnehmenden"
 msgstr "Regiones con al menos cinco participantes"
+
+msgid "Eintrittshinweis Gottesdienst"
+msgstr "Aviso de entrada para cultos"
+
+msgid "Eintrittshinweis Versammlung"
+msgstr "Aviso de entrada para asambleas"
+
+msgid "Gilt nur für Begegnungsräume, die Gäste oder Freunde zulassen."
+msgstr "Se aplica solo a las salas de encuentro que admiten invitados o amigos."
+
+msgid "Die Version darf höchstens %1 Zeichen lang sein."
+msgstr "La versión puede tener como máximo %1 caracteres."
+
+msgid "Der Hinweis braucht mindestens vier Absätze: Überschrift und drei Kernpunkte."
+msgstr "El aviso necesita al menos cuatro párrafos: un título y tres puntos clave."
+
+msgid "Die Überschrift darf höchstens %1 Zeichen lang sein."
+msgstr "El título puede tener como máximo %1 caracteres."
+
+msgid "Kernpunkt %1 darf höchstens %2 Zeichen lang sein."
+msgstr "El punto clave %1 puede tener como máximo %2 caracteres."
+
+msgid "Die Aussage zur Kanzel-Aufzeichnung fügt das System selbst an, wenn ein Raum sie erlaubt."
+msgstr "El sistema añade por sí mismo la declaración sobre la grabación del púlpito cuando una sala la permite."
+
+msgid "Dieser Text widerspricht der Kanzel-Aufzeichnung in Räumen, die sie erlauben."
+msgstr "Este texto contradice la grabación del púlpito en las salas que la permiten."
+
+msgid "So sieht der Gast den Hinweis"
+msgstr "Así ve el invitado el aviso"
+
+msgid "Raum mit Kanzel-Aufzeichnung"
+msgstr "Sala con grabación del púlpito"
+
+msgid "Raum mit Podium-Aufzeichnung"
+msgstr "Sala con grabación del podio"
+
+msgid "Die Vorschau erscheint, sobald der Hinweis die vorgegebene Gliederung erfüllt."
+msgstr "La vista previa aparece en cuanto el aviso cumple la estructura requerida."
+
+msgid "Der Hinweis entspricht nicht der vorgegebenen Gliederung."
+msgstr "El aviso no cumple la estructura requerida."
+
+msgid "Der Hinweis wurde geändert. Bitte lesen und bestätigen Sie ihn erneut."
+msgstr "El aviso ha cambiado. Por favor, léalo y confírmelo de nuevo."

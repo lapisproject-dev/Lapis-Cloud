@@ -20,6 +20,7 @@ internal object BuiltinAgreementTexts {
     /**
      * The placeholder of [kind]. MEMBERSHIP and FRIEND ignore [profile]; REC_ROOM and REC_PULPIT have one placeholder per room profile
      * (V1.9.143), because "Kanzel/Gemeinde" and "Podium/Teilnehmende" must not be mixed up. A PUBLISHED version of a kind applies to both profiles.
+     * ENC_CHURCH and ENC_ASSEM (V1.9.148) ignore [profile] too: the kind itself decides the room profile.
      */
     fun of(
         kind: AgreementTextKind,
@@ -74,6 +75,19 @@ internal object BuiltinAgreementTexts {
                     versionLabel = MemberFinderConsentDefault.VERSION,
                     body = MemberFinderConsentDefault.TEXT,
                     sha256 = MemberFinderConsentDefault.SHA256,
+                )
+            // V1.9.148: the KIND fixes the room profile, so [profile] is ignored.
+            AgreementTextKind.ENC_CHURCH ->
+                BuiltinText(
+                    versionLabel = EncounterChurchConsentDefault.VERSION,
+                    body = EncounterChurchConsentDefault.TEXT,
+                    sha256 = EncounterChurchConsentDefault.SHA256,
+                )
+            AgreementTextKind.ENC_ASSEM ->
+                BuiltinText(
+                    versionLabel = EncounterAssemblyConsentDefault.VERSION,
+                    body = EncounterAssemblyConsentDefault.TEXT,
+                    sha256 = EncounterAssemblyConsentDefault.SHA256,
                 )
         }
 

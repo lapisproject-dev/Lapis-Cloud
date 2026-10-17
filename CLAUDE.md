@@ -243,6 +243,7 @@ Details: `docs/features/agreement-texts.adoc`. Kurzregeln:
 - **Hash = `sha256("$label\n$body")` über den normalisierten Text** (`AgreementTextRules.normalizeBody`); der Client rechnet nie selbst.
 - Ein Test, der eine Fassung veröffentlicht, **räumt in `afterEach` per Test-SQL auf** (`AgreementTextTestState.reset()`): die H2 ist je Test-JVM geteilt, sonst bricht jede Registrierung mit dem Platzhalter.
 - Kilua überträgt nur den Exception-**Typ**: jeder unterscheidbare Fehler braucht einen eigenen Typ und einen festen Toast (`AgreementTextOutdated/Invalid/VersionLabelTaken/DraftChangedException`).
+- **Eintrittshinweise Begegnungsraum (V1.9.148, Arten `ENC_CHURCH`/`ENC_ASSEM`)**: Ein ENC-Label ist **über beide Arten eindeutig** und darf kein Label sein, das der Code je geschrieben hat (`EncounterConsentLabels.reserved`), weil `encounter_consent_acknowledgment` keine Art-Spalte hat (und nie eine bekommen darf). `+rec` ist reserviert (das System hängt es an Räume mit Aufzeichnung an), also höchstens 46 Zeichen. Der Aufzeichnungsabsatz gehört dem Code, nie dem Admin. Die vier Altobjekte (`EncounterConsentDisclaimer` usw.) **nie ändern** (Nachweis, `@Deprecated`, werden nicht mehr ausgeliefert); ausgeliefert wird nur `encounterConsentFor`. Zählung der Bestätigungen bleibt 0.
 - **R59/E3d**: `.lapis-agreement-frame` ist der einzige Scroller dieser Klasse und nur ab 768 px (`ScrollSurfaceTripwireTest`); unter 768 px wächst der Rahmen mit dem Text. Kein `overflowY`/`overflow-auto` im Kotlin-Code.
 
 ## Anmelde-/Einwilligungsseiten (V1.9.135)

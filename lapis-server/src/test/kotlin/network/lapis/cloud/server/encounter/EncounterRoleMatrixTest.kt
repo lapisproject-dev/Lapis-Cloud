@@ -2,6 +2,7 @@ package network.lapis.cloud.server.encounter
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.server.agreementtexts.EncounterChurchConsentDefault
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.EncounterSpaceTable
 import network.lapis.cloud.server.rpc.EncounterSpaceService
@@ -73,7 +74,7 @@ private class Ctx(
 )
 
 private val CONSENT_INPUT =
-    EncounterConsentInput(consentVersion = EncounterConsentDisclaimer.VERSION, consentSha256 = EncounterConsentDisclaimer.SHA256)
+    EncounterConsentInput(consentVersion = EncounterChurchConsentDefault.VERSION, consentSha256 = EncounterChurchConsentDefault.SHA256)
 
 /**
  * Welle V1.9.61 -- the access matrix of [EncounterSpaceService] pinned as a data table: every kind of caller against every method,

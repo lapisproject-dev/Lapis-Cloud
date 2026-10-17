@@ -206,6 +206,22 @@ class AgreementTextsScreenDomTest {
                         hasDraft = false,
                         olderAcknowledgmentCount = null,
                     ),
+                    AgreementTextKindOverviewDto(
+                        kind = AgreementTextKind.ENC_CHURCH,
+                        placeholderActive = true,
+                        current = null,
+                        builtinVersionLabel = "2026-10-17.v2",
+                        hasDraft = false,
+                        olderAcknowledgmentCount = null,
+                    ),
+                    AgreementTextKindOverviewDto(
+                        kind = AgreementTextKind.ENC_ASSEM,
+                        placeholderActive = true,
+                        current = null,
+                        builtinVersionLabel = "2026-10-17.assembly.v2",
+                        hasDraft = false,
+                        olderAcknowledgmentCount = null,
+                    ),
                 ),
         )
 
@@ -237,7 +253,8 @@ class AgreementTextsScreenDomTest {
                         "the warning",
                     ) { element().text().contains("Platzhaltertext aktiv: Diese Instanz zeigt bei der Registrierung") }
                     assertTrue(element().text().contains("(Version $builtin)"))
-                    assertEquals(5, element().allOf("[role=tab]").size) // V1.9.144: + the FINDER consent text
+                    // V1.9.144: + the FINDER consent text, V1.9.148: + the two entry notices
+                    assertEquals(7, element().allOf("[role=tab]").size)
                     assertEquals("true", element().allOf("[role=tab]")[0].getAttribute("aria-selected"))
                     assertEquals(
                         "Eingebauter Mustertext, Version $builtin.",
@@ -268,7 +285,7 @@ class AgreementTextsScreenDomTest {
             withWorld(World()) { calls, routes ->
                 mountedForm("agreement-texts-finder") { root, element ->
                     renderAgreementTextsScreen(root)
-                    awaitUntil("the tabs") { element().allOf("[role=tab]").size == 5 }
+                    awaitUntil("the tabs") { element().allOf("[role=tab]").size == 7 }
                     element().buttonNamed("Einwilligung Mitglieder-Finder").click()
                     awaitUntil("the hint of the optional feature") {
                         element().text().contains("Gilt nur, wenn der Mitglieder-Finder für die Instanz eingeschaltet ist.")
@@ -442,6 +459,109 @@ class AgreementTextsScreenDomTest {
                     assertEquals("false", last.getAttribute("aria-expanded"))
                     last.click()
                     assertEquals(1, calls.toRoute(routes.version).size, "shown again from memory")
+                }
+            }
+        }
+
+    @Test
+    fun theEncounterTabs_areOptionalFeatureTexts_withTheirHintTheSystemNoteAndThePlaceholderWarning(): Promise<Unit> =
+        test {
+            withWorld(World()) { _, _ ->
+                mountedForm("agreement-texts-enc-tabs") { root, element ->
+                    renderAgreementTextsScreen(root)
+                    awaitUntil("the tabs") { element().allOf("[role=tab]").size == 7 }
+                    assertNotNull(element().allOf("[role=tab]").firstOrNull { it.text().trim() == "Eintrittshinweis Gottesdienst" })
+                    assertNotNull(element().allOf("[role=tab]").firstOrNull { it.text().trim() == "Eintrittshinweis Versammlung" })
+                    element().buttonNamed("Eintrittshinweis Gottesdienst").click()
+                    awaitUntil("the hint") {
+                        element().text().contains("Gilt nur für Begegnungsräume, die Gäste oder Freunde zulassen.")
+                    }
+                    awaitUntil("the placeholder warning") { element().text().contains("(Version 2026-10-17.v2)") }
+                    awaitUntil("the system note") {
+                        element().text().contains(
+                            "Die Aussage zur Kanzel-Aufzeichnung fügt das System selbst an, wenn ein Raum sie erlaubt.",
+                        )
+                    }
+                    element().buttonNamed("Eintrittshinweis Versammlung").click()
+                    awaitUntil("the assembly warning") { element().text().contains("(Version 2026-10-17.assembly.v2)") }
+                }
+            }
+        }
+
+    @Test
+    fun anEncounterNotice_needsFourParagraphs_theMessageSaysSo_andNothingIsSent(): Promise<Unit> =
+        test {
+            withWorld(World()) { calls, routes ->
+                mountedForm("agreement-texts-enc-layout") { root, element ->
+                    renderAgreementTextsScreen(root)
+                    awaitUntil("the tabs") { element().allOf("[role=tab]").size == 7 }
+                    element().buttonNamed("Eintrittshinweis Gottesdienst").click()
+                    awaitUntil("the editor") { element().allOf("label").any { it.text().trim().startsWith("Vertragstext") } }
+                    element().typeInto("Version", "2026-10-18.v1")
+                    element().typeInto("Vertragstext", "Überschrift\n\nPunkt eins\n\nPunkt zwei")
+                    element().buttonNamed("Als Entwurf speichern").click()
+                    awaitUntil("the message") {
+                        element().text().contains("Der Hinweis braucht mindestens vier Absätze: Überschrift und drei Kernpunkte.")
+                    }
+                    assertEquals(0, calls.toRoute(routes.save).size, "a violated rule blocks the save")
+                    // a long label is named as well
+                    element().typeInto("Vertragstext", "Überschrift\n\nPunkt eins\n\nPunkt zwei\n\nPunkt drei")
+                    element().typeInto("Version", "a".repeat(47))
+                    element().buttonNamed("Als Entwurf speichern").click()
+                    awaitUntil("the label message") { element().text().contains("Die Version darf höchstens 46 Zeichen lang sein.") }
+                    assertEquals(0, calls.toRoute(routes.save).size)
+                }
+            }
+        }
+
+    @Test
+    fun anEncounterNotice_isPreviewedLikeTheGuestSeesIt_withTheRecordingSentenceOnRequest(): Promise<Unit> =
+        test {
+            withWorld(World()) { _, _ ->
+                mountedForm("agreement-texts-enc-preview") { root, element ->
+                    renderAgreementTextsScreen(root)
+                    awaitUntil("the tabs") { element().allOf("[role=tab]").size == 7 }
+                    element().buttonNamed("Eintrittshinweis Gottesdienst").click()
+                    awaitUntil("the editor") { element().allOf("label").any { it.text().trim().startsWith("Vertragstext") } }
+                    element().typeInto("Vertragstext", "Meine Überschrift\n\nPunkt eins\n\nPunkt zwei\n\nPunkt drei\n\nDetailabsatz")
+                    awaitUntil("the preview shows the headline and the key points") {
+                        element().allOf("h3").any { it.text().trim() == "Meine Überschrift" } &&
+                            element().allOf("div.small").count { it.text().trim() in setOf("Punkt eins", "Punkt zwei", "Punkt drei") } == 3
+                    }
+                    assertFalse(element().text().contains("kann die Kanzel aufgezeichnet werden"))
+                    element().tick("Raum mit Kanzel-Aufzeichnung")
+                    awaitUntil("the recording sentence is the last key point") {
+                        element()
+                            .allOf(
+                                "div.small",
+                            ).any { it.text().trim().startsWith("In diesem Raum kann die Kanzel aufgezeichnet werden.") }
+                    }
+                }
+            }
+        }
+
+    @Test
+    fun aTextThatSaysNothingIsRecorded_getsAWarning_butIsNotBlocked(): Promise<Unit> =
+        test {
+            withWorld(World()) { calls, routes ->
+                mountedForm("agreement-texts-enc-warning") { root, element ->
+                    renderAgreementTextsScreen(root)
+                    awaitUntil("the tabs") { element().allOf("[role=tab]").size == 7 }
+                    element().buttonNamed("Eintrittshinweis Gottesdienst").click()
+                    awaitUntil("the editor") { element().allOf("label").any { it.text().trim().startsWith("Vertragstext") } }
+                    val warning = "Dieser Text widerspricht der Kanzel-Aufzeichnung in Räumen, die sie erlauben."
+                    assertFalse(element().text().contains(warning))
+                    element().typeInto("Version", "2026-10-18.v1")
+                    element().typeInto("Vertragstext", "Titel\n\nEins\n\nZwei\n\nEs wird nichts aufgezeichnet.")
+                    awaitUntil("the warning") {
+                        element().allOf("[role=status]").any {
+                            it.text().contains(warning) &&
+                                it.offsetParent != null
+                        }
+                    }
+                    element().buttonNamed("Als Entwurf speichern").click()
+                    awaitUntil("saving is not blocked") { calls.toRoute(routes.save).size == 1 }
+                    assertEquals("ENC_CHURCH", calls.singleCall(routes.save).rpcParam(0).kind as String)
                 }
             }
         }

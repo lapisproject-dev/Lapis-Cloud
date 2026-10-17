@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.server.agreementtexts.EncounterChurchConsentDefault
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.ConferenceRoomTable
@@ -34,8 +35,8 @@ import kotlin.uuid.Uuid
 
 private val CONSENT =
     EncounterConsentInput(
-        consentVersion = network.lapis.cloud.server.encounter.EncounterConsentDisclaimer.VERSION,
-        consentSha256 = network.lapis.cloud.server.encounter.EncounterConsentDisclaimer.SHA256,
+        consentVersion = EncounterChurchConsentDefault.VERSION,
+        consentSha256 = EncounterChurchConsentDefault.SHA256,
     )
 
 /**
@@ -576,9 +577,9 @@ class EncounterSpaceServiceTest :
 
                 val info = rig.asMember(client = client, member = guest) { it.getEntryInfo(space.toString()) }.getOrThrow()
                 info.consentRequired shouldBe true
-                info.disclaimer!!.version shouldBe EncounterConsentDisclaimer.VERSION
-                info.disclaimer!!.sha256 shouldBe EncounterConsentDisclaimer.SHA256
-                info.disclaimer!!.text shouldBe EncounterConsentDisclaimer.TEXT
+                info.disclaimer!!.version shouldBe EncounterChurchConsentDefault.VERSION
+                info.disclaimer!!.sha256 shouldBe EncounterChurchConsentDefault.SHA256
+                info.disclaimer!!.text shouldBe EncounterChurchConsentDefault.TEXT
 
                 rig
                     .asMember(
@@ -623,8 +624,8 @@ class EncounterSpaceServiceTest :
                                     guest
                             }.single()
                     }
-                row[EncounterConsentAcknowledgmentTable.consentVersion] shouldBe EncounterConsentDisclaimer.VERSION
-                row[EncounterConsentAcknowledgmentTable.consentSha256] shouldBe EncounterConsentDisclaimer.SHA256
+                row[EncounterConsentAcknowledgmentTable.consentVersion] shouldBe EncounterChurchConsentDefault.VERSION
+                row[EncounterConsentAcknowledgmentTable.consentSha256] shouldBe EncounterChurchConsentDefault.SHA256
                 row[EncounterConsentAcknowledgmentTable.acknowledgedOn] shouldBe OrganizationTimeZone.today()
                 // the legacy conference consent table is never written for an encounter session
                 transaction {
@@ -667,7 +668,7 @@ class EncounterSpaceServiceTest :
                     .asMember(client = client, member = guest) {
                         it.enterSpace(
                             spaceId = space.toString(),
-                            consent = CONSENT.copy(consentSha256 = EncounterConsentDisclaimer.SHA256.uppercase()),
+                            consent = CONSENT.copy(consentSha256 = EncounterChurchConsentDefault.SHA256.uppercase()),
                         )
                     }.getOrThrow()
                 transaction {
@@ -675,7 +676,7 @@ class EncounterSpaceServiceTest :
                         .selectAll()
                         .where { EncounterConsentAcknowledgmentTable.memberId eq guest }
                         .single()[EncounterConsentAcknowledgmentTable.consentSha256]
-                } shouldBe EncounterConsentDisclaimer.SHA256
+                } shouldBe EncounterChurchConsentDefault.SHA256
                 rig.asMember(client = client, member = guest) { it.getEntryInfo(space.toString()) }.getOrThrow().consentRequired shouldBe
                     false
                 rig.asMember(client = client, member = guest) { it.enterSpace(spaceId = space.toString(), consent = null) }.getOrThrow()

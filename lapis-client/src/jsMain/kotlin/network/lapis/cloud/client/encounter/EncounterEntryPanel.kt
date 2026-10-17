@@ -1,5 +1,6 @@
 package network.lapis.cloud.client.encounter
 
+import io.kvision.core.Container
 import io.kvision.html.ButtonStyle
 import io.kvision.html.TAG
 import io.kvision.html.Tag
@@ -16,6 +17,7 @@ import network.lapis.cloud.client.untrustedDiv
 import network.lapis.cloud.client.untrustedHeading
 import network.lapis.cloud.client.untrustedP
 import network.lapis.cloud.shared.domain.EncounterConsentInput
+import network.lapis.cloud.shared.domain.EncounterConsentLayout
 import network.lapis.cloud.shared.domain.EncounterEntryInfoDto
 
 /**
@@ -66,12 +68,16 @@ internal fun SimplePanel.encounterEntryPanel(
 
     val disclaimer = if (info.consentRequired) info.disclaimer else null
     if (disclaimer != null) {
-        box.untrustedHeading(disclaimer.headline, level = 3, className = "h6 mb-0")
-        disclaimer.keyPoints.forEach { point -> box.untrustedDiv(point, className = "small") }
-        val details = Tag(TAG.DETAILS, className = "small")
-        details.add(Tag(TAG.SUMMARY, content = tr("Vollständigen Text anzeigen")))
-        details.untrustedP(disclaimer.text, className = "mt-2 mb-0")
-        box.add(details)
+        // V1.9.148: a guest who acknowledged an older version of this notice is told why the box is back.
+        if (info.consentChanged) {
+            box.div(tr("Der Hinweis wurde geändert. Bitte lesen und bestätigen Sie ihn erneut.")) {
+                addCssClasses("alert alert-info small mb-0")
+                setAttribute("role", "status")
+            }
+        }
+        box.renderEncounterConsentPreview(
+            EncounterConsentLayout.Split(headline = disclaimer.headline, keyPoints = disclaimer.keyPoints, text = disclaimer.text),
+        )
     }
     val form = box.lapisForm()
     val consentField =
@@ -101,4 +107,17 @@ internal fun SimplePanel.encounterEntryPanel(
             onEnter(consent)
         }
     }
+}
+
+/**
+ * V1.9.148: how an entry notice is shown -- the headline, the key points, the full text behind a disclosure; always as untrusted element text.
+ * ONE function for the entry panel and for the back-office preview (`AgreementTextsScreen`), so what the admin previews is what the guest sees.
+ */
+internal fun Container.renderEncounterConsentPreview(split: EncounterConsentLayout.Split) {
+    untrustedHeading(split.headline, level = 3, className = "h6 mb-0")
+    split.keyPoints.forEach { point -> untrustedDiv(point, className = "small") }
+    val details = Tag(TAG.DETAILS, className = "small")
+    details.add(Tag(TAG.SUMMARY, content = tr("Vollständigen Text anzeigen")))
+    details.untrustedP(split.text, className = "mt-2 mb-0")
+    add(details)
 }

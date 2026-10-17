@@ -20,13 +20,17 @@ import io.kvision.utils.px
 import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import network.lapis.cloud.client.encounter.renderEncounterConsentPreview
 import network.lapis.cloud.shared.domain.AgreementTextDraftDto
 import network.lapis.cloud.shared.domain.AgreementTextDraftInput
 import network.lapis.cloud.shared.domain.AgreementTextKind
 import network.lapis.cloud.shared.domain.AgreementTextKindOverviewDto
 import network.lapis.cloud.shared.domain.AgreementTextRules
 import network.lapis.cloud.shared.domain.AgreementTextVersionSummaryDto
+import network.lapis.cloud.shared.domain.EncounterConsentLayout
+import network.lapis.cloud.shared.domain.isEncounterConsent
 import network.lapis.cloud.shared.rpc.AgreementTextInvalidException
+import network.lapis.cloud.shared.rpc.AgreementTextLayoutInvalidException
 import network.lapis.cloud.shared.rpc.AgreementTextVersionLabelTakenException
 import network.lapis.cloud.shared.rpc.IAgreementTextAdminService
 
@@ -81,14 +85,20 @@ internal fun agreementKindLabel(kind: AgreementTextKind): String =
         AgreementTextKind.REC_PULPIT -> tr("Zustimmung der Kanzel zur Aufzeichnung")
         // V1.9.144/V1.9.145: the consent text of the optional member finder (shown to the member on /member-finder, see MemberFinderScreen.kt).
         AgreementTextKind.FINDER -> tr("Einwilligung Mitglieder-Finder")
+        // V1.9.148: the entry notice a non-member acknowledges before entering an encounter room.
+        AgreementTextKind.ENC_CHURCH -> tr("Eintrittshinweis Gottesdienst")
+        AgreementTextKind.ENC_ASSEM -> tr("Eintrittshinweis Versammlung")
     }
 
 /**
- * V1.9.143/V1.9.144: the pulpit-recording kinds and the member-finder consent are no registration text: nobody acknowledges them as part of the
+ * V1.9.143/V1.9.144/V1.9.148: the pulpit-recording kinds, the member-finder consent and the two encounter entry notices are no registration text: nobody acknowledges them as part of the
  * registration, and they apply only while the optional feature is on.
  */
 private fun isOptionalFeatureKind(kind: AgreementTextKind): Boolean =
-    kind == AgreementTextKind.REC_ROOM || kind == AgreementTextKind.REC_PULPIT || kind == AgreementTextKind.FINDER
+    kind == AgreementTextKind.REC_ROOM ||
+        kind == AgreementTextKind.REC_PULPIT ||
+        kind == AgreementTextKind.FINDER ||
+        kind.isEncounterConsent()
 
 /** Everything one tab shows, loaded together so the tab renders once. */
 internal class AgreementKindData(
@@ -115,10 +125,13 @@ private fun renderAgreementKind(
             render = { panel, data ->
                 if (isOptionalFeatureKind(kind)) {
                     panel.div(
-                        if (kind == AgreementTextKind.FINDER) {
-                            gettext("Gilt nur, wenn der Mitglieder-Finder für die Instanz eingeschaltet ist.")
-                        } else {
-                            gettext("Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist.")
+                        when {
+                            kind == AgreementTextKind.FINDER ->
+                                gettext(
+                                    "Gilt nur, wenn der Mitglieder-Finder für die Instanz eingeschaltet ist.",
+                                )
+                            kind.isEncounterConsent() -> gettext("Gilt nur für Begegnungsräume, die Gäste oder Freunde zulassen.")
+                            else -> gettext("Gilt nur, wenn die Aufzeichnung der Kanzel für die Instanz eingeschaltet ist.")
                         },
                         className = "text-muted small",
                     )
@@ -248,19 +261,28 @@ private fun renderCurrentVersionCard(
     attachVersionTextToggle(button = viewButton, textHost = textHost, kind = kind, versionLabel = label)
 }
 
-private fun labelCheck(value: String): FieldCheck =
-    if (AgreementTextRules.isValidLabel(value.trim())) {
-        FieldCheck.Ok
-    } else {
-        FieldCheck.Invalid(
-            gettext(
-                "Bitte eine Version angeben: Buchstaben, Ziffern, Punkt, Unterstrich und Bindestrich, höchstens %1 Zeichen.",
-                AgreementTextRules.VERSION_LABEL_MAX,
-            ),
-        )
+private fun labelCheck(
+    kind: AgreementTextKind,
+    value: String,
+): FieldCheck =
+    when {
+        !AgreementTextRules.isValidLabel(value.trim()) ->
+            FieldCheck.Invalid(
+                gettext(
+                    "Bitte eine Version angeben: Buchstaben, Ziffern, Punkt, Unterstrich und Bindestrich, höchstens %1 Zeichen.",
+                    AgreementTextRules.VERSION_LABEL_MAX,
+                ),
+            )
+        // V1.9.148: the system adds "+rec" for rooms with a recording; the label must leave room for it.
+        kind.isEncounterConsent() && value.trim().length > EncounterConsentLayout.ENC_LABEL_MAX ->
+            FieldCheck.Invalid(gettext("Die Version darf höchstens %1 Zeichen lang sein.", EncounterConsentLayout.ENC_LABEL_MAX))
+        else -> FieldCheck.Ok
     }
 
-private fun bodyCheck(value: String): FieldCheck {
+private fun bodyCheck(
+    kind: AgreementTextKind,
+    value: String,
+): FieldCheck {
     val body = AgreementTextRules.normalizeBody(value)
     return when {
         body.isEmpty() -> FieldCheck.Invalid(gettext("Bitte geben Sie den Vertragstext ein."))
@@ -268,9 +290,38 @@ private fun bodyCheck(value: String): FieldCheck {
             FieldCheck.Invalid(gettext("Der Vertragstext darf höchstens %1 Zeichen lang sein.", AgreementTextRules.MAX_CHARS))
         AgreementTextRules.invalidCharacter(body) ->
             FieldCheck.Invalid(gettext("Der Vertragstext enthält unzulässige Zeichen (Steuerzeichen oder Richtungsumschalter)."))
+        kind.isEncounterConsent() -> layoutCheck(body)
         else -> FieldCheck.Ok
     }
 }
+
+/** V1.9.148: the paragraph rule of an entry notice, with the concrete message (the server only answers with its own fixed one). */
+private fun layoutCheck(body: String): FieldCheck {
+    val paragraphs = EncounterConsentLayout.paragraphs(body = body)
+    return when {
+        paragraphs.size < EncounterConsentLayout.MIN_PARAGRAPHS ->
+            FieldCheck.Invalid(gettext("Der Hinweis braucht mindestens vier Absätze: Überschrift und drei Kernpunkte."))
+        paragraphs[0].length > EncounterConsentLayout.HEADLINE_MAX ->
+            FieldCheck.Invalid(gettext("Die Überschrift darf höchstens %1 Zeichen lang sein.", EncounterConsentLayout.HEADLINE_MAX))
+        else -> {
+            val tooLong =
+                (1 until EncounterConsentLayout.MIN_PARAGRAPHS).firstOrNull {
+                    paragraphs[it].length >
+                        EncounterConsentLayout.KEY_POINT_MAX
+                }
+            if (tooLong == null) {
+                FieldCheck.Ok
+            } else {
+                FieldCheck.Invalid(
+                    gettext("Kernpunkt %1 darf höchstens %2 Zeichen lang sein.", tooLong, EncounterConsentLayout.KEY_POINT_MAX),
+                )
+            }
+        }
+    }
+}
+
+/** V1.9.148: `true` if the text says nothing is recorded -- which contradicts the sentence code appends in a room with a recording. */
+private fun contradictsRecording(body: String): Boolean = body.lowercase().replace(Regex("\\s+"), " ").contains("nichts aufgezeichnet")
 
 private fun counterText(value: String): String =
     gettext("%1 von %2 Zeichen", AgreementTextRules.normalizeBody(value).length, AgreementTextRules.MAX_CHARS)
@@ -295,7 +346,7 @@ private fun renderDraftEditor(
             value = draft?.versionLabel ?: AgreementTextRules.suggestLabel(today, sameDay + 1),
             required = true,
             hint = tr("Zum Beispiel 2026-10-15.v1. Jede Fassung braucht eine neue Bezeichnung."),
-            rule = ::labelCheck,
+            rule = { labelCheck(kind, it) },
         )
     val validFromField =
         form.localDateField(
@@ -314,24 +365,68 @@ private fun renderDraftEditor(
             requiredMessage = tr("Bitte geben Sie den Vertragstext ein."),
             hint = counterText(draft?.body.orEmpty()),
             hintLive = true,
-            rule = ::bodyCheck,
+            rule = { bodyCheck(kind, it) },
         )
     form.panel.p(
         tr("Maßgeblich ist die deutsche Fassung. Übersetzungen sind nicht rechtsverbindlich."),
     ) { addCssClasses("text-muted small") }
 
-    form.panel.h2(tr("Vorschau")) { addCssClass("h6") }
+    // V1.9.148: the entry notices are laid out as headline + three key points + detail, and the system owns the recording sentence.
+    val encounter = kind.isEncounterConsent()
+    var recordingRoom = false
+    var refreshPreviewHook: (() -> Unit)? = null
+    var contradictionWarning: SimplePanel? = null
+    if (encounter) {
+        form.panel.p(
+            tr("Die Aussage zur Kanzel-Aufzeichnung fügt das System selbst an, wenn ein Raum sie erlaubt."),
+        ) { addCssClasses("text-muted small") }
+        contradictionWarning =
+            form.panel.simplePanel {
+                addCssClasses("alert alert-warning small")
+                setAttribute("role", "status")
+                span(tr("Dieser Text widerspricht der Kanzel-Aufzeichnung in Räumen, die sie erlauben."))
+                hide()
+            }
+    }
+
+    form.panel.h2(if (encounter) tr("So sieht der Gast den Hinweis") else tr("Vorschau")) { addCssClass("h6") }
+    if (encounter) {
+        form
+            .checkField(
+                label = if (kind == AgreementTextKind.ENC_ASSEM) tr("Raum mit Podium-Aufzeichnung") else tr("Raum mit Kanzel-Aufzeichnung"),
+                value = false,
+            ).subscribe {
+                recordingRoom = it == "true"
+                refreshPreviewHook?.invoke()
+            }
+    }
     val previewHost = form.panel.simplePanel()
 
     fun refreshPreview() {
         previewHost.removeAll()
         val text = AgreementTextRules.normalizeBody(bodyField.value)
+        if (contradictionWarning != null) {
+            if (contradictsRecording(text)) contradictionWarning.show() else contradictionWarning.hide()
+        }
         if (text.isEmpty()) {
             previewHost.p(tr("Die Vorschau erscheint, sobald Sie Text eingeben.")) { addCssClasses("text-muted") }
+        } else if (encounter) {
+            val paragraph = if (recordingRoom) EncounterConsentLayout.recordingParagraph(kind) else null
+            val split = EncounterConsentLayout.splitOrNull(body = text, extraKeyPoint = paragraph)
+            if (split == null) {
+                previewHost.p(tr("Die Vorschau erscheint, sobald der Hinweis die vorgegebene Gliederung erfüllt.")) {
+                    addCssClasses("text-muted")
+                }
+            } else {
+                previewHost.renderEncounterConsentPreview(
+                    split.copy(text = if (paragraph != null) text + "\n\n" + paragraph else text),
+                )
+            }
         } else {
             previewHost.agreementFrame(text = text, ariaLabel = tr("Vorschau des Vertragstextes"))
         }
     }
+    refreshPreviewHook = ::refreshPreview
     refreshPreview()
     form.panel.actionButton(ActionIcon.REFRESH, tr("Vorschau aktualisieren")) { onClick { refreshPreview() } }
 
@@ -377,6 +472,9 @@ private fun renderDraftEditor(
                 } catch (e: AgreementTextVersionLabelTakenException) {
                     labelField.showError(tr("Diese Versionsbezeichnung ist bereits vergeben."))
                     null
+                } catch (e: AgreementTextLayoutInvalidException) {
+                    bodyField.showError(tr("Der Hinweis entspricht nicht der vorgegebenen Gliederung."))
+                    null
                 } catch (e: AgreementTextInvalidException) {
                     bodyField.showError(
                         tr(
@@ -400,7 +498,14 @@ private fun renderDraftEditor(
         if (!matchesDraft()) return@onClick
         confirmDialog(
             title = tr("Fassung veröffentlichen?"),
-            message = gettext("Version %1, gültig ab %2, %3 Zeichen.", stored.versionLabel, formatDate(stored.validFrom), stored.charCount),
+            message =
+                gettext("Version %1, gültig ab %2, %3 Zeichen.", stored.versionLabel, formatDate(stored.validFrom), stored.charCount) +
+                    // V1.9.148: a warning, never a block -- the admin may have a reason (and the system appends its own sentence anyway).
+                    if (encounter && contradictsRecording(stored.body)) {
+                        " " + gettext("Dieser Text widerspricht der Kanzel-Aufzeichnung in Räumen, die sie erlauben.")
+                    } else {
+                        ""
+                    },
             confirmLabel = tr("Veröffentlichen"),
             confirmStyle = ButtonStyle.PRIMARY,
             dangerNote = tr("Diese Fassung kann nicht mehr geändert oder gelöscht werden."),

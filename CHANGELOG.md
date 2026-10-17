@@ -6,6 +6,35 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.148 -- Encounter entry notices are administered per instance and tell the truth
+
+The Art. 9 entry notice a non-member acknowledges before entering an encounter room is no longer fixed in code: it is **administered per instance** through the agreement texts (two new kinds `ENC_CHURCH` and `ENC_ASSEM`),
+and the built-in placeholder now says what everybody present really sees and hears. **Migration V108** (V1 to V107 untouched). **Not checked in a real browser or on a real instance, and the texts are not legally reviewed.**
+
+#### What changes
+
+- **Why:** the earlier notice promised that other attendees "see at most your name". The server shows more: the seat with initials, the table and the seat at the table, the guest status (`isGuest` goes to every client), reactions at the seat, chat messages with the name, the name in the floor banner while a person has the word. A consent given for a wrong statement is not a valid one.
+- **V108:** the two `CHECK` constraints of `agreement_text_version` / `agreement_text_draft` grow by `ENC_CHURCH` and `ENC_ASSEM` (`VARCHAR(10)` unchanged). `encounter_consent_acknowledgment` is unchanged -- it has **no kind column on purpose**.
+- **Resolver instead of constants:** `encounterConsentFor(profile, pulpitRecordingAllowed)` reads the published version of the profile's kind (else the placeholder) through `AgreementTextResolver`, re-hashes it on every read (a stored hash that no longer matches is a `ServiceBusyException`, nobody enters) and compares label and hash in constant time. The `substringAfter` derivation of the recording variants is gone.
+- **Paragraph rule** (`EncounterConsentLayout`, shared by server, back office and preview): paragraph 1 is the headline (at most 160 characters), paragraphs 2 to 4 are the key points (at most 600 each), everything else is detail; the whole body is hashed and shown behind the disclosure. A violation is `AgreementTextLayoutInvalidException`; the client names the concrete rule live and blocks save and publish.
+- **Recording sentence belongs to the code:** for a room whose pulpit may be recorded the code appends one fixed paragraph (never admin-editable) as an additional, **visible** key point and at the end of the full text, adds the system suffix `+rec` to the label and hashes the result. In the placeholder the false sentence "Es wird nichts aufgezeichnet." is removed there. The back office warns (does not block) when a text says nothing is recorded.
+- **Label namespace:** `+rec` is reserved (the label regex forbids `+`), so an ENC label is at most **46** characters. Because the acknowledgment table has no kind column, a label must identify one text across **both** ENC kinds and every label code ever wrote (the four earlier ones, the two new placeholders, each with `+rec`): checked on save and on publish, publications of the two kinds lock both drafts in a fixed order, and `recordConsent` refuses ("busy", logged without label, hash or person) a unique violation whose stored hash differs instead of treating it as "already on file".
+- **Every non-member acknowledges again:** the new placeholders carry new labels (`2026-10-17.v2`, `2026-10-17.assembly.v2`). `EncounterEntryInfoDto.consentChanged` (last field, default `false`) is `true` when the caller holds an acknowledgment of an older notice of the same line; the entry panel then says "Der Hinweis wurde geändert. Bitte lesen und bestätigen Sie ihn erneut."
+- **The four earlier objects** (`EncounterConsentDisclaimer`, `EncounterAssemblyConsentDisclaimer`, `EncounterRecordingConsentDisclaimer`, `EncounterAssemblyRecordingConsentDisclaimer`) stay **byte for byte** as proof of consents already given, are `@Deprecated` and are never served; label and hash are pinned by tests.
+- **Back office** (`/agreement-texts`): two new tabs, a preview "So sieht der Gast den Hinweis" that uses the very renderer of the entry panel (with a switch for a room with recording), fixed note about the recording sentence, taken-label and layout refusals as field errors. Seven catalogs plus `messages.pot` extended.
+- Docs: `docs/architecture/encounter-space.adoc`, `docs/features/agreement-texts.adoc`, `docs/features/encounter-space.adoc`, `docs/architecture/dsgvo.adoc`, `CLAUDE.md`.
+
+#### Known limitations
+
+- `isGuest` still goes to **every** client (the roster shows it to moderators only). Restricting it to moderators is a separate later wave; the notice must then be republished under a new label.
+- The texts are drafts, not legally reviewed; German only (the notice is content and is not translated).
+- `olderAcknowledgmentCount` is deliberately `0` for the ENC kinds (it would be the number of non-members who entered services or assemblies).
+- A guest standing in front of the entry dialog during the deploy gets a conflict on the first click and must read the new notice (existing behavior, pinned by a test).
+
+#### Tests
+
+- `EncounterConsentTextPinTest` (labels and hashes as literals, paragraph rule, every statement about what others see, negative pin on "at most your name", recording variant), `EncounterConsentLayoutTest` (shared), `AgreementTextEncounterKindsTest` (ADMIN only, layout, 46 characters, label namespace, audit without text, no count), `EncounterConsentVersioningTest` (re-consent, `consentChanged`, `+rec`, published version, tampered hash, invalid published body, malformed hash, label collision, stale dialog), `EncounterPrivacyWatchTest` extended by an ASSEMBLY room, client DOM tests (`AgreementTextsScreenDomTest`, `EncounterEntryDomTest`).
+
 ### V1.9.147 -- Privacy page names the member finder
 
 The built-in privacy page (`/datenschutz`) now describes the **optional member finder**, but only while the finder is active (switch on AND the current operator notice acknowledged). No migration (V1 to V107 untouched), no new

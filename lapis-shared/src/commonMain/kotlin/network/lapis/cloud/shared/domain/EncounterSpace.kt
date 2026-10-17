@@ -247,6 +247,8 @@ data class EncounterEntryInfoDto(
     val disclaimer: EncounterConsentDisclaimerDto?,
     /** V1.9.143: the notice to the room ("the pulpit is recorded, the congregation is not"); `null` when the room option is off. */
     val pulpitRecordingRoomNotice: String? = null,
+    /** V1.9.148: `true` iff the caller already acknowledged an OLDER version of this room's entry notice (same kind): shows "the notice has changed". Last + default = wire compatible. */
+    val consentChanged: Boolean = false,
 )
 
 /**

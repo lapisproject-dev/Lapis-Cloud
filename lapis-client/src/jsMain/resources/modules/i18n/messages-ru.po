@@ -24922,3 +24922,48 @@ msgstr "Регион"
 
 msgid "Regionen mit mindestens fünf Teilnehmenden"
 msgstr "Регионы как минимум с пятью участниками"
+
+msgid "Eintrittshinweis Gottesdienst"
+msgstr "Уведомление при входе для богослужений"
+
+msgid "Eintrittshinweis Versammlung"
+msgstr "Уведомление при входе для собраний"
+
+msgid "Gilt nur für Begegnungsräume, die Gäste oder Freunde zulassen."
+msgstr "Действует только для гостиных общины, в которых допускаются гости или друзья."
+
+msgid "Die Version darf höchstens %1 Zeichen lang sein."
+msgstr "Версия может содержать не более %1 символов."
+
+msgid "Der Hinweis braucht mindestens vier Absätze: Überschrift und drei Kernpunkte."
+msgstr "Уведомление должно содержать не менее четырёх абзацев: заголовок и три ключевых пункта."
+
+msgid "Die Überschrift darf höchstens %1 Zeichen lang sein."
+msgstr "Заголовок может содержать не более %1 символов."
+
+msgid "Kernpunkt %1 darf höchstens %2 Zeichen lang sein."
+msgstr "Ключевой пункт %1 может содержать не более %2 символов."
+
+msgid "Die Aussage zur Kanzel-Aufzeichnung fügt das System selbst an, wenn ein Raum sie erlaubt."
+msgstr "Система сама добавляет заявление о записи кафедры, если зал её разрешает."
+
+msgid "Dieser Text widerspricht der Kanzel-Aufzeichnung in Räumen, die sie erlauben."
+msgstr "Этот текст противоречит записи кафедры в залах, где она разрешена."
+
+msgid "So sieht der Gast den Hinweis"
+msgstr "Так гость видит уведомление"
+
+msgid "Raum mit Kanzel-Aufzeichnung"
+msgstr "Зал с записью кафедры"
+
+msgid "Raum mit Podium-Aufzeichnung"
+msgstr "Зал с записью подиума"
+
+msgid "Die Vorschau erscheint, sobald der Hinweis die vorgegebene Gliederung erfüllt."
+msgstr "Предпросмотр появится, как только уведомление будет соответствовать требуемой структуре."
+
+msgid "Der Hinweis entspricht nicht der vorgegebenen Gliederung."
+msgstr "Уведомление не соответствует требуемой структуре."
+
+msgid "Der Hinweis wurde geändert. Bitte lesen und bestätigen Sie ihn erneut."
+msgstr "Уведомление изменилось. Пожалуйста, прочитайте и подтвердите его снова."

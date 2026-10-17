@@ -88,6 +88,20 @@ recording texts a consent to it **is** stored (`member_finder_consent_event`, wi
 
 Details: link:member-finder.adoc[Member finder].
 
+== The two entry notices of the encounter rooms (V1.9.148)
+
+The kinds `ENC_CHURCH` ("Eintrittshinweis Gottesdienst") and `ENC_ASSEM` ("Eintrittshinweis Versammlung") are the Art. 9 notice a **non-member** (guest or friend) acknowledges before entering a church-service or
+assembly room. They apply only to rooms that admit guests or friends and are therefore not listed in the "placeholder active" hint of the member administration.
+
+* *Layout.* At least four paragraphs separated by blank lines: the headline (at most 160 characters) and three key points (at most 600 characters each) are what the guest reads without clicking, everything after is the detail
+  behind a disclosure. The editor names the violated rule live and blocks save and publish. The preview "So sieht der Gast den Hinweis" is drawn by the same function as the entry panel.
+* *Recording.* In a room whose pulpit may be recorded the **system** appends its own paragraph ("the pulpit can be recorded; your own picture and sound never are") and the suffix `+rec` to the label. Do not
+  write such a sentence yourself. A text that says "nothing is recorded" triggers a warning (it contradicts that room); it is not blocked.
+* *Label.* At most **46** characters (the suffix needs room in `VARCHAR(50)`), and unique across *both* notices and across the labels of the earlier built-in texts (`2026-10-06.v1`, `2026-10-07.assembly.v1`,
+  `2026-10-16.rec.v1`, `2026-10-16.assembly-rec.v1`, the two new placeholders), because the proof table has no column for the kind.
+* *Effect.* A newly published version means every non-member acknowledges again; the entry panel says so ("Der Hinweis wurde geändert."). The overview never shows a count for these kinds.
+* The built-in placeholders (`2026-10-17.v2`, `2026-10-17.assembly.v2`) say what everybody present sees and hears of a guest. They are drafts, not legal advice.
+
 == Rules for a text
 
 * 1 to 60,000 characters (UTF-16 length, the same on client and server). No control characters other than line feed and tab, no DEL, no bidirectional controls

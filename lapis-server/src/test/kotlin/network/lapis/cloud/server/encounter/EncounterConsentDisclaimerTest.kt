@@ -3,14 +3,21 @@ package network.lapis.cloud.server.encounter
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import network.lapis.cloud.server.agreementtexts.AgreementTextTestState
+import network.lapis.cloud.server.db.DatabaseConfig
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.security.MessageDigest
 
 /** SHA-256 of the church consent text as of V1.9.61, computed from the pre-V1.9.67 source. A change here invalidates every guest's consent. */
 private const val CHURCH_SHA256_PINNED = "bd0356b664bb37b4866ebf31ac844b575a19592ba7922a8d5608ad2bb7467319"
 
-/** Welle V1.9.61 -- [EncounterConsentDisclaimer]: versioned, hashed, composed from its parts, and exact-match only. */
+/** Welle V1.9.61 -- [EncounterConsentDisclaimer] (since V1.9.148 proof of earlier consents only, never served): versioned, hashed, composed from its parts, and exact-match only. */
 class EncounterConsentDisclaimerTest :
     FunSpec({
+        beforeSpec { DatabaseConfig.connect() }
+        afterEach { AgreementTextTestState.reset() }
+        afterSpec { AgreementTextTestState.reset() }
+
         test("the hash is SHA-256 over \"version\\ntext\" and the text is composed from headline, key points and detail") {
             val expected =
                 MessageDigest
@@ -71,8 +78,9 @@ class EncounterConsentDisclaimerTest :
         }
 
         test("V1.9.67: matches is profile specific -- each text accepts only itself") {
-            val church = encounterConsentFor(profile = network.lapis.cloud.shared.domain.EncounterProfile.CHURCH_SERVICE)
-            val assembly = encounterConsentFor(profile = network.lapis.cloud.shared.domain.EncounterProfile.ASSEMBLY)
+            // V1.9.148: the LIVE notices (placeholders until an admin publishes) come from the resolver; the four objects above are proof only.
+            val church = transaction { encounterConsentFor(profile = network.lapis.cloud.shared.domain.EncounterProfile.CHURCH_SERVICE) }
+            val assembly = transaction { encounterConsentFor(profile = network.lapis.cloud.shared.domain.EncounterProfile.ASSEMBLY) }
             church.matches(version = church.version, sha256 = church.sha256) shouldBe true
             assembly.matches(version = assembly.version, sha256 = assembly.sha256) shouldBe true
             church.matches(version = assembly.version, sha256 = assembly.sha256) shouldBe false

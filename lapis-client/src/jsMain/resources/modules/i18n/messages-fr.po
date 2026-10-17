@@ -24988,3 +24988,48 @@ msgstr "Région"
 
 msgid "Regionen mit mindestens fünf Teilnehmenden"
 msgstr "Régions avec au moins cinq participants"
+
+msgid "Eintrittshinweis Gottesdienst"
+msgstr "Avis d'entrée pour les cultes"
+
+msgid "Eintrittshinweis Versammlung"
+msgstr "Avis d'entrée pour les assemblées"
+
+msgid "Gilt nur für Begegnungsräume, die Gäste oder Freunde zulassen."
+msgstr "S'applique uniquement aux salles de rencontre ouvertes aux invités ou aux amis."
+
+msgid "Die Version darf höchstens %1 Zeichen lang sein."
+msgstr "La version peut comporter au maximum %1 caractères."
+
+msgid "Der Hinweis braucht mindestens vier Absätze: Überschrift und drei Kernpunkte."
+msgstr "L'avis doit comporter au moins quatre paragraphes : un titre et trois points clés."
+
+msgid "Die Überschrift darf höchstens %1 Zeichen lang sein."
+msgstr "Le titre peut comporter au maximum %1 caractères."
+
+msgid "Kernpunkt %1 darf höchstens %2 Zeichen lang sein."
+msgstr "Le point clé %1 peut comporter au maximum %2 caractères."
+
+msgid "Die Aussage zur Kanzel-Aufzeichnung fügt das System selbst an, wenn ein Raum sie erlaubt."
+msgstr "Le système ajoute lui-même la mention de l'enregistrement de la chaire lorsqu'une salle l'autorise."
+
+msgid "Dieser Text widerspricht der Kanzel-Aufzeichnung in Räumen, die sie erlauben."
+msgstr "Ce texte contredit l'enregistrement de la chaire dans les salles qui l'autorisent."
+
+msgid "So sieht der Gast den Hinweis"
+msgstr "Voici comment l'invité voit l'avis"
+
+msgid "Raum mit Kanzel-Aufzeichnung"
+msgstr "Salle avec enregistrement de la chaire"
+
+msgid "Raum mit Podium-Aufzeichnung"
+msgstr "Salle avec enregistrement du podium"
+
+msgid "Die Vorschau erscheint, sobald der Hinweis die vorgegebene Gliederung erfüllt."
+msgstr "L'aperçu apparaît dès que l'avis respecte la structure requise."
+
+msgid "Der Hinweis entspricht nicht der vorgegebenen Gliederung."
+msgstr "L'avis ne respecte pas la structure requise."
+
+msgid "Der Hinweis wurde geändert. Bitte lesen und bestätigen Sie ihn erneut."
+msgstr "L'avis a changé. Veuillez le lire et le confirmer à nouveau."

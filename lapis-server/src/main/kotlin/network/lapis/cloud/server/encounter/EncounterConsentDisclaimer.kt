@@ -1,9 +1,17 @@
+@file:Suppress("DEPRECATION")
+
 package network.lapis.cloud.server.encounter
 
+import network.lapis.cloud.server.agreementtexts.AgreementTextHash
+import network.lapis.cloud.server.agreementtexts.AgreementTextResolver
+import network.lapis.cloud.server.agreementtexts.EncounterConsentLabels
+import network.lapis.cloud.shared.domain.AgreementTextKind
+import network.lapis.cloud.shared.domain.EncounterConsentLayout
 import network.lapis.cloud.shared.domain.EncounterProfile
+import network.lapis.cloud.shared.rpc.ServiceBusyException
 import java.security.MessageDigest
 
-/** One versioned, hashed consent text; every [EncounterProfile] has exactly one ([encounterConsentFor]). */
+/** One versioned, hashed consent text; every [EncounterProfile] has exactly one at a time ([encounterConsentFor]). */
 interface EncounterConsentText {
     val version: String
     val headline: String
@@ -19,19 +27,69 @@ interface EncounterConsentText {
 }
 
 /**
- * The consent text of a room profile. V1.9.143: for a room whose option "the pulpit may be recorded" is ON, the variant that says so. The choice follows
- * the ROOM option, not the instance switch: better to inform too much than too little, and a guest never has to guess which text applied. A guest who
- * consented to the variant without recording must consent again for the other one (another version and hash). A guest who consented to one profile's text must consent again for the other (another purpose). */
-fun encounterConsentFor(
+ * One resolved entry notice: label, texts and hash as the guest is shown them AND as the proof stores them. [kind] is the ENC kind it came from,
+ * [placeholder] is `true` while the built-in text (not an admin's published version) is the live one.
+ */
+internal data class ResolvedEncounterConsent(
+    override val version: String,
+    override val headline: String,
+    override val keyPoints: List<String>,
+    override val text: String,
+    override val sha256: String,
+    val kind: AgreementTextKind,
+    val placeholder: Boolean,
+) : EncounterConsentText {
+    override fun matches(
+        version: String,
+        sha256: String,
+    ): Boolean = version == this.version && AgreementTextHash.matches(expectedSha256 = this.sha256, providedSha256 = sha256)
+}
+
+/**
+ * The entry notice of a room profile (V1.9.148: administered per instance). The kind follows the profile (ENC_CHURCH / ENC_ASSEM); the text is the
+ * published version with the highest sequence number, else the built-in placeholder -- resolved and re-hashed by [AgreementTextResolver] (a
+ * stored hash that no longer matches fails the call with [ServiceBusyException] instead of serving a wrong proof). Must run inside a transaction.
+ *
+ * For a room whose option "the pulpit may be recorded" is ON ([pulpitRecordingAllowed]) the code, never the admin, appends the recording paragraph as
+ * the last key point and as the end of the full text, adds the system suffix `+rec` to the label and hashes the result. The choice follows the ROOM
+ * option, not the instance switch: better to inform too much than too little. A guest who acknowledged the variant without recording must acknowledge
+ * again for the other one (another label and hash), and so must a guest after the admin published a new version.
+ */
+internal fun encounterConsentFor(
     profile: EncounterProfile,
     pulpitRecordingAllowed: Boolean = false,
-): EncounterConsentText =
-    when (profile) {
-        EncounterProfile.CHURCH_SERVICE ->
-            if (pulpitRecordingAllowed) EncounterRecordingConsentDisclaimer else EncounterConsentDisclaimer
-        EncounterProfile.ASSEMBLY ->
-            if (pulpitRecordingAllowed) EncounterAssemblyRecordingConsentDisclaimer else EncounterAssemblyConsentDisclaimer
+): EncounterConsentText {
+    val kind = EncounterConsentLabels.kindOf(profile)
+    val current = AgreementTextResolver.current(kind = kind, profile = profile)
+    if (!pulpitRecordingAllowed) {
+        // A published body that breaks the paragraph rule (an old row, a manual edit) is never served half-way.
+        val split = EncounterConsentLayout.splitOrNull(body = current.body) ?: throw ServiceBusyException()
+        return ResolvedEncounterConsent(
+            version = current.versionLabel,
+            headline = split.headline,
+            keyPoints = split.keyPoints,
+            text = current.body,
+            sha256 = current.sha256,
+            kind = kind,
+            placeholder = current.placeholder,
+        )
     }
+    val paragraph = EncounterConsentLayout.recordingParagraph(kind)
+    // Only the placeholder carries the sentence "Es wird nichts aufgezeichnet."; the leading space belongs to the pattern.
+    val base = if (current.placeholder) current.body.replaceFirst(" " + EncounterConsentLayout.NO_RECORDING_SENTENCE, "") else current.body
+    val split = EncounterConsentLayout.splitOrNull(body = base, extraKeyPoint = paragraph) ?: throw ServiceBusyException()
+    val label = current.versionLabel + EncounterConsentLayout.RECORDING_SUFFIX
+    val text = base + "\n\n" + paragraph
+    return ResolvedEncounterConsent(
+        version = label,
+        headline = split.headline,
+        keyPoints = split.keyPoints,
+        text = text,
+        sha256 = AgreementTextHash.of(versionLabel = label, body = text),
+        kind = kind,
+        placeholder = current.placeholder,
+    )
+}
 
 internal object ConsentHashing {
     fun sha256Hex(input: String): String {
@@ -72,6 +130,10 @@ internal object ConsentHashing {
  * it makes about the system (nothing about attendance is stored, no recording, only the pulpit is broadcast) are exactly what the
  * server implements -- `EncounterPrivacyWatchTest` pins them.
  */
+@Deprecated(
+    "V1.9.148: proof of consents already given only -- never served; the live notice comes from encounterConsentFor",
+    level = DeprecationLevel.WARNING,
+)
 object EncounterConsentDisclaimer : EncounterConsentText {
     const val VERSION: String = "2026-10-06.v1"
 
@@ -128,6 +190,10 @@ object EncounterConsentDisclaimer : EncounterConsentText {
  * what the server implements (`EncounterConsentDisclaimerTest` pins the wording of those claims by substring checks; unlike the church
  * text, this one is not part of `EncounterPrivacyWatchTest`).
  */
+@Deprecated(
+    "V1.9.148: proof of consents already given only -- never served; the live notice comes from encounterConsentFor",
+    level = DeprecationLevel.WARNING,
+)
 object EncounterAssemblyConsentDisclaimer : EncounterConsentText {
     const val VERSION: String = "2026-10-07.assembly.v1"
 
@@ -181,6 +247,10 @@ object EncounterAssemblyConsentDisclaimer : EncounterConsentText {
  *
  * **DRAFT, MUST be reviewed by a lawyer** for the country of the instance before a real deployment relies on it; replace it under a new [VERSION].
  */
+@Deprecated(
+    "V1.9.148: proof of consents already given only -- never served; the live notice comes from encounterConsentFor",
+    level = DeprecationLevel.WARNING,
+)
 object EncounterRecordingConsentDisclaimer : EncounterConsentText {
     const val VERSION: String = "2026-10-16.rec.v1"
 
@@ -212,6 +282,10 @@ object EncounterRecordingConsentDisclaimer : EncounterConsentText {
 }
 
 /** V1.9.143: the same for an ASSEMBLY room whose podium may be recorded. DRAFT, lawyer review required. */
+@Deprecated(
+    "V1.9.148: proof of consents already given only -- never served; the live notice comes from encounterConsentFor",
+    level = DeprecationLevel.WARNING,
+)
 object EncounterAssemblyRecordingConsentDisclaimer : EncounterConsentText {
     const val VERSION: String = "2026-10-16.assembly-rec.v1"
 

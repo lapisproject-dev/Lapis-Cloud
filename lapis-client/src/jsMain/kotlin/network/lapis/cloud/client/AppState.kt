@@ -7,6 +7,7 @@ import network.lapis.cloud.shared.domain.AccountRole
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.AgreementTextDraftChangedException
 import network.lapis.cloud.shared.rpc.AgreementTextInvalidException
+import network.lapis.cloud.shared.rpc.AgreementTextLayoutInvalidException
 import network.lapis.cloud.shared.rpc.AgreementTextOutdatedException
 import network.lapis.cloud.shared.rpc.AgreementTextVersionLabelTakenException
 import network.lapis.cloud.shared.rpc.BadRequestException
@@ -205,6 +206,7 @@ private fun handleGuardedFailure(e: Throwable) {
         is AgreementTextOutdatedException -> notifyError(tr("Der Vertrag wurde aktualisiert. Bitte lesen Sie ihn erneut."))
         is AgreementTextInvalidException ->
             notifyError(tr("Der Vertragstext ist nicht zulässig. Bitte prüfen Sie Länge, Zeichen, Version und Datum."))
+        is AgreementTextLayoutInvalidException -> notifyError(tr("Der Hinweis entspricht nicht der vorgegebenen Gliederung."))
         is AgreementTextVersionLabelTakenException -> notifyError(tr("Diese Versionsbezeichnung ist bereits vergeben."))
         is AgreementTextDraftChangedException ->
             notifyError(tr("Der Entwurf wurde inzwischen geändert. Bitte laden Sie die Ansicht neu und prüfen Sie ihn erneut."))

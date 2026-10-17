@@ -26,6 +26,93 @@ enum class AgreementTextKind {
      * acknowledgment column: a new published version simply ends every effective consent until the member consents again.
      */
     FINDER,
+
+    /** V1.9.148 -- the Art. 9 entry notice a non-member acknowledges before entering a CHURCH_SERVICE encounter room. */
+    ENC_CHURCH,
+
+    /** V1.9.148 -- the same for an ASSEMBLY room. */
+    ENC_ASSEM,
+}
+
+/** V1.9.148 -- `true` for the two encounter entry notices ([AgreementTextKind.ENC_CHURCH], [AgreementTextKind.ENC_ASSEM]). */
+fun AgreementTextKind.isEncounterConsent(): Boolean = this == AgreementTextKind.ENC_CHURCH || this == AgreementTextKind.ENC_ASSEM
+
+/**
+ * V1.9.148 -- the ONE paragraph rule of an encounter entry notice, shared by the server (validation, the split into headline and key
+ * points) and the back-office preview. Paragraph 1 is the headline, paragraphs 2-4 are the key points the guest reads without clicking; the
+ * whole body (hashed verbatim) is the expandable full text. The recording sentence is owned by the code, never by an admin.
+ */
+object EncounterConsentLayout {
+    const val MIN_PARAGRAPHS: Int = 4
+    const val HEADLINE_MAX: Int = 160
+    const val KEY_POINT_MAX: Int = 600
+
+    /** "+rec" is reserved for the system (the label regex forbids "+"); an ENC label must leave room for it in `VARCHAR(50)`. */
+    const val RECORDING_SUFFIX: String = "+rec"
+    const val ENC_LABEL_MAX: Int = AgreementTextRules.VERSION_LABEL_MAX - RECORDING_SUFFIX.length
+
+    /** The sentence the placeholder holds that is false in a room whose pulpit may be recorded; removed (with its leading space) there. */
+    const val NO_RECORDING_SENTENCE: String = "Es wird nichts aufgezeichnet."
+
+    private const val CHURCH_RECORDING: String =
+        "In diesem Raum kann die Kanzel aufgezeichnet werden. Ihr eigenes Bild und Ihr Ton werden nie aufgezeichnet."
+    private const val ASSEMBLY_RECORDING: String =
+        "In diesem Raum kann das Podium aufgezeichnet werden. Ihr eigenes Bild und Ihr Ton werden nie aufgezeichnet."
+
+    private val PARAGRAPH_SEPARATOR = Regex("\n[ \t]*\n+")
+
+    data class Split(
+        val headline: String,
+        val keyPoints: List<String>,
+        val text: String,
+    )
+
+    enum class Violation { TOO_FEW_PARAGRAPHS, HEADLINE_TOO_LONG, KEY_POINT_TOO_LONG, LABEL_TOO_LONG }
+
+    /** The sentence code appends to the notice of a room whose pulpit may be recorded. [kind] must be an ENC kind. */
+    fun recordingParagraph(kind: AgreementTextKind): String =
+        when (kind) {
+            AgreementTextKind.ENC_ASSEM -> ASSEMBLY_RECORDING
+            else -> CHURCH_RECORDING
+        }
+
+    /** Paragraphs = split of the NORMALIZED [body] at blank lines (blank paragraphs dropped, each trimmed). */
+    fun paragraphs(body: String): List<String> =
+        AgreementTextRules
+            .normalizeBody(body)
+            .split(PARAGRAPH_SEPARATOR)
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+
+    /** headline = paragraph 1, key points = paragraphs 2-4 (+ [extraKeyPoint] if given), text = [body] verbatim. Throws if the layout is invalid. */
+    fun split(
+        body: String,
+        extraKeyPoint: String? = null,
+    ): Split = requireNotNull(splitOrNull(body = body, extraKeyPoint = extraKeyPoint)) { "encounter notice layout is invalid" }
+
+    /** Like [split], but `null` instead of an exception when a layout rule is violated. */
+    fun splitOrNull(
+        body: String,
+        extraKeyPoint: String? = null,
+    ): Split? {
+        if (violation(label = "", body = body) != null) return null
+        val paragraphs = paragraphs(body)
+        val keyPoints = paragraphs.subList(1, MIN_PARAGRAPHS) + listOfNotNull(extraKeyPoint)
+        return Split(headline = paragraphs[0], keyPoints = keyPoints, text = body)
+    }
+
+    /** The first violated rule, or `null`. */
+    fun violation(
+        label: String,
+        body: String,
+    ): Violation? {
+        if (label.length > ENC_LABEL_MAX) return Violation.LABEL_TOO_LONG
+        val paragraphs = paragraphs(body)
+        if (paragraphs.size < MIN_PARAGRAPHS) return Violation.TOO_FEW_PARAGRAPHS
+        if (paragraphs[0].length > HEADLINE_MAX) return Violation.HEADLINE_TOO_LONG
+        if (paragraphs.subList(1, MIN_PARAGRAPHS).any { it.length > KEY_POINT_MAX }) return Violation.KEY_POINT_TOO_LONG
+        return null
+    }
 }
 
 /**

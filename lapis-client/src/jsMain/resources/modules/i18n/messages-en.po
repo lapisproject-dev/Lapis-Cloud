@@ -24876,3 +24876,48 @@ msgstr "Region"
 
 msgid "Regionen mit mindestens fünf Teilnehmenden"
 msgstr "Regions with at least five participants"
+
+msgid "Eintrittshinweis Gottesdienst"
+msgstr "Entry notice for church services"
+
+msgid "Eintrittshinweis Versammlung"
+msgstr "Entry notice for assemblies"
+
+msgid "Gilt nur für Begegnungsräume, die Gäste oder Freunde zulassen."
+msgstr "Applies only to gathering rooms that admit guests or friends."
+
+msgid "Die Version darf höchstens %1 Zeichen lang sein."
+msgstr "The version may be at most %1 characters long."
+
+msgid "Der Hinweis braucht mindestens vier Absätze: Überschrift und drei Kernpunkte."
+msgstr "The notice needs at least four paragraphs: a headline and three key points."
+
+msgid "Die Überschrift darf höchstens %1 Zeichen lang sein."
+msgstr "The headline may be at most %1 characters long."
+
+msgid "Kernpunkt %1 darf höchstens %2 Zeichen lang sein."
+msgstr "Key point %1 may be at most %2 characters long."
+
+msgid "Die Aussage zur Kanzel-Aufzeichnung fügt das System selbst an, wenn ein Raum sie erlaubt."
+msgstr "The system adds the statement about the pulpit recording itself when a room allows it."
+
+msgid "Dieser Text widerspricht der Kanzel-Aufzeichnung in Räumen, die sie erlauben."
+msgstr "This text contradicts the pulpit recording in rooms that allow it."
+
+msgid "So sieht der Gast den Hinweis"
+msgstr "How the guest sees the notice"
+
+msgid "Raum mit Kanzel-Aufzeichnung"
+msgstr "Room with pulpit recording"
+
+msgid "Raum mit Podium-Aufzeichnung"
+msgstr "Room with podium recording"
+
+msgid "Die Vorschau erscheint, sobald der Hinweis die vorgegebene Gliederung erfüllt."
+msgstr "The preview appears as soon as the notice meets the required layout."
+
+msgid "Der Hinweis entspricht nicht der vorgegebenen Gliederung."
+msgstr "The notice does not follow the required layout."
+
+msgid "Der Hinweis wurde geändert. Bitte lesen und bestätigen Sie ihn erneut."
+msgstr "The notice has changed. Please read and confirm it again."

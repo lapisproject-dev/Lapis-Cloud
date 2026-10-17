@@ -2,6 +2,7 @@ package network.lapis.cloud.server.encounter
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import network.lapis.cloud.server.agreementtexts.EncounterChurchConsentDefault
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
 import network.lapis.cloud.shared.domain.AccountRole
@@ -21,8 +22,8 @@ import kotlin.uuid.Uuid
 
 private val SEAT_CONSENT =
     EncounterConsentInput(
-        consentVersion = EncounterConsentDisclaimer.VERSION,
-        consentSha256 = EncounterConsentDisclaimer.SHA256,
+        consentVersion = EncounterChurchConsentDefault.VERSION,
+        consentSha256 = EncounterChurchConsentDefault.SHA256,
     )
 
 /** Welle V1.9.79 -- `selectSeat` end to end on H2 with a fake LiveKit: access, conflicts, throttle, release points, no trace. */

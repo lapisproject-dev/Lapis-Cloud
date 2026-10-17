@@ -5,6 +5,8 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import network.lapis.cloud.server.agreementtexts.EncounterAssemblyConsentDefault
+import network.lapis.cloud.server.agreementtexts.EncounterChurchConsentDefault
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.EncounterConsentAcknowledgmentTable
 import network.lapis.cloud.server.db.generated.EncounterSpaceTable
@@ -233,10 +235,10 @@ class EncounterSpaceProfileTest :
                 rig.asMember(client = client, member = steward) { it.openSpace(assembly.toString()) }.getOrThrow()
 
                 val churchInfo = rig.asMember(client = client, member = guest) { it.getEntryInfo(church.toString()) }.getOrThrow()
-                churchInfo.disclaimer!!.version shouldBe EncounterConsentDisclaimer.VERSION
+                churchInfo.disclaimer!!.version shouldBe EncounterChurchConsentDefault.VERSION
                 val assemblyInfo = rig.asMember(client = client, member = guest) { it.getEntryInfo(assembly.toString()) }.getOrThrow()
-                assemblyInfo.disclaimer!!.version shouldBe EncounterAssemblyConsentDisclaimer.VERSION
-                assemblyInfo.disclaimer!!.sha256 shouldBe EncounterAssemblyConsentDisclaimer.SHA256
+                assemblyInfo.disclaimer!!.version shouldBe EncounterAssemblyConsentDefault.VERSION
+                assemblyInfo.disclaimer!!.sha256 shouldBe EncounterAssemblyConsentDefault.SHA256
 
                 // submitting the CHURCH text for an ASSEMBLY room is rejected
                 rig
@@ -245,8 +247,8 @@ class EncounterSpaceProfileTest :
                             spaceId = assembly.toString(),
                             consent =
                                 EncounterConsentInput(
-                                    consentVersion = EncounterConsentDisclaimer.VERSION,
-                                    consentSha256 = EncounterConsentDisclaimer.SHA256,
+                                    consentVersion = EncounterChurchConsentDefault.VERSION,
+                                    consentSha256 = EncounterChurchConsentDefault.SHA256,
                                 ),
                         )
                     }.failure<ConflictException>()
@@ -258,8 +260,8 @@ class EncounterSpaceProfileTest :
                             spaceId = church.toString(),
                             consent =
                                 EncounterConsentInput(
-                                    consentVersion = EncounterConsentDisclaimer.VERSION,
-                                    consentSha256 = EncounterConsentDisclaimer.SHA256,
+                                    consentVersion = EncounterChurchConsentDefault.VERSION,
+                                    consentSha256 = EncounterChurchConsentDefault.SHA256,
                                 ),
                         )
                     }.getOrThrow()
@@ -277,8 +279,8 @@ class EncounterSpaceProfileTest :
                             spaceId = assembly.toString(),
                             consent =
                                 EncounterConsentInput(
-                                    consentVersion = EncounterAssemblyConsentDisclaimer.VERSION,
-                                    consentSha256 = EncounterAssemblyConsentDisclaimer.SHA256,
+                                    consentVersion = EncounterAssemblyConsentDefault.VERSION,
+                                    consentSha256 = EncounterAssemblyConsentDefault.SHA256,
                                 ),
                         )
                     }.getOrThrow()
@@ -289,7 +291,7 @@ class EncounterSpaceProfileTest :
                             .where { EncounterConsentAcknowledgmentTable.memberId eq guest }
                             .map { it[EncounterConsentAcknowledgmentTable.consentVersion] }
                     }
-                versions.toSet() shouldBe setOf(EncounterConsentDisclaimer.VERSION, EncounterAssemblyConsentDisclaimer.VERSION)
+                versions.toSet() shouldBe setOf(EncounterChurchConsentDefault.VERSION, EncounterAssemblyConsentDefault.VERSION)
             }
         }
     })

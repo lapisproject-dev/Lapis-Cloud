@@ -5,6 +5,7 @@ import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.toLocalDateTime
 import network.lapis.cloud.server.agreementtexts.AgreementTextResolver
+import network.lapis.cloud.server.agreementtexts.EncounterConsentLabels
 import network.lapis.cloud.server.audit.AuditLogRecorder
 import network.lapis.cloud.server.conference.ConferenceConfig
 import network.lapis.cloud.server.conference.LiveKitAccessToken
@@ -38,6 +39,7 @@ import network.lapis.cloud.server.encounter.EncounterTableRooms
 import network.lapis.cloud.server.encounter.EncounterTableState
 import network.lapis.cloud.server.encounter.PulpitRecordingControl
 import network.lapis.cloud.server.encounter.PulpitStopReason
+import network.lapis.cloud.server.encounter.ResolvedEncounterConsent
 import network.lapis.cloud.server.encounter.RevokeReason
 import network.lapis.cloud.server.encounter.effectiveMaxParticipants
 import network.lapis.cloud.server.encounter.encounterConsentFor
@@ -110,6 +112,7 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.neq
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.update
@@ -247,6 +250,7 @@ class EncounterSpaceService(
                 space = EncounterSpaceViews.toDtos(rows = listOf(row), current = current, config = config).single(),
                 consentRequired = consentRequired,
                 disclaimer = if (consentRequired) disclaimerDto(consentText) else null,
+                consentChanged = consentRequired && hasOlderConsentOfSameKind(memberId = current.memberId, profile = profileOf(row)),
                 // V1.9.143: everybody who enters (members too) is told when the pulpit of this room may be recorded.
                 pulpitRecordingRoomNotice =
                     if (recordingAllowed) {
@@ -1863,6 +1867,19 @@ class EncounterSpaceService(
             }
         } catch (e: Exception) {
             if (!e.isUniqueViolation()) throw e
+            // V1.9.148: "already on file" is only true if the stored proof is for THIS very text. The table has no kind column, so a label that
+            // collides with a different text (same label, other hash) must not pass silently as a valid proof.
+            val onFile =
+                EncounterConsentAcknowledgmentTable
+                    .selectAll()
+                    .where {
+                        (EncounterConsentAcknowledgmentTable.memberId eq memberId) and
+                            (EncounterConsentAcknowledgmentTable.consentVersion eq text.version)
+                    }.singleOrNull()
+            if (onFile == null || onFile[EncounterConsentAcknowledgmentTable.consentSha256] != text.sha256) {
+                logger.warn { "encounter consent label collision (kind=${(text as? ResolvedEncounterConsent)?.kind?.name})" }
+                throw ServiceBusyException()
+            }
         }
     }
 
@@ -2040,6 +2057,25 @@ class EncounterSpaceService(
                     (EncounterConsentAcknowledgmentTable.consentSha256 eq text.sha256)
             }.limit(1)
             .any()
+
+    /**
+     * V1.9.148: `true` iff [memberId] holds an acknowledgment of an OLDER version of this profile's entry notice: a label of the profile's own line
+     * (the earlier code objects, the built-in placeholder, any published version, each with or without the recording suffix). An acknowledgment of
+     * the other profile's notice is another purpose and does not count. Reads only this member's own rows.
+     */
+    private fun hasOlderConsentOfSameKind(
+        memberId: Uuid,
+        profile: EncounterProfile,
+    ): Boolean {
+        val mine =
+            EncounterConsentAcknowledgmentTable
+                .select(EncounterConsentAcknowledgmentTable.consentVersion)
+                .where { EncounterConsentAcknowledgmentTable.memberId eq memberId }
+                .map { it[EncounterConsentAcknowledgmentTable.consentVersion] }
+        if (mine.isEmpty()) return false
+        val line = EncounterConsentLabels.linesOf(EncounterConsentLabels.kindOf(profile))
+        return mine.any { it in line }
+    }
 
     private fun disclaimerDto(text: EncounterConsentText) =
         EncounterConsentDisclaimerDto(

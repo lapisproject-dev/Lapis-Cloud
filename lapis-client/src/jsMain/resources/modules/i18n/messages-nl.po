@@ -24924,3 +24924,48 @@ msgstr "Regio"
 
 msgid "Regionen mit mindestens fünf Teilnehmenden"
 msgstr "Regio's met ten minste vijf deelnemers"
+
+msgid "Eintrittshinweis Gottesdienst"
+msgstr "Toegangsmededeling voor kerkdiensten"
+
+msgid "Eintrittshinweis Versammlung"
+msgstr "Toegangsmededeling voor vergaderingen"
+
+msgid "Gilt nur für Begegnungsräume, die Gäste oder Freunde zulassen."
+msgstr "Geldt alleen voor ontmoetingsruimtes die gasten of vrienden toelaten."
+
+msgid "Die Version darf höchstens %1 Zeichen lang sein."
+msgstr "De versie mag maximaal %1 tekens lang zijn."
+
+msgid "Der Hinweis braucht mindestens vier Absätze: Überschrift und drei Kernpunkte."
+msgstr "De mededeling heeft minstens vier alinea's nodig: een kop en drie kernpunten."
+
+msgid "Die Überschrift darf höchstens %1 Zeichen lang sein."
+msgstr "De kop mag maximaal %1 tekens lang zijn."
+
+msgid "Kernpunkt %1 darf höchstens %2 Zeichen lang sein."
+msgstr "Kernpunt %1 mag maximaal %2 tekens lang zijn."
+
+msgid "Die Aussage zur Kanzel-Aufzeichnung fügt das System selbst an, wenn ein Raum sie erlaubt."
+msgstr "Het systeem voegt de verklaring over de opname van de kansel zelf toe wanneer een ruimte die toestaat."
+
+msgid "Dieser Text widerspricht der Kanzel-Aufzeichnung in Räumen, die sie erlauben."
+msgstr "Deze tekst spreekt de opname van de kansel tegen in ruimtes die haar toestaan."
+
+msgid "So sieht der Gast den Hinweis"
+msgstr "Zo ziet de gast de mededeling"
+
+msgid "Raum mit Kanzel-Aufzeichnung"
+msgstr "Ruimte met opname van de kansel"
+
+msgid "Raum mit Podium-Aufzeichnung"
+msgstr "Ruimte met opname van het podium"
+
+msgid "Die Vorschau erscheint, sobald der Hinweis die vorgegebene Gliederung erfüllt."
+msgstr "De voorbeeldweergave verschijnt zodra de mededeling aan de vereiste indeling voldoet."
+
+msgid "Der Hinweis entspricht nicht der vorgegebenen Gliederung."
+msgstr "De mededeling voldoet niet aan de vereiste indeling."
+
+msgid "Der Hinweis wurde geändert. Bitte lesen und bestätigen Sie ihn erneut."
+msgstr "De mededeling is gewijzigd. Lees en bevestig haar opnieuw."

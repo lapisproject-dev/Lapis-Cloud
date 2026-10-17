@@ -112,4 +112,41 @@ class EncounterEntryDomTest {
                 delay(50)
             }
         }
+
+    @Test
+    fun theNoticeHasChanged_isSaidOnlyWhenTheServerSaysSo_andOnlyToAGuestWhoMustConsent(): Promise<Unit> =
+        formTest {
+            mountedForm("encounter-entry-changed") { root, element ->
+                root.encounterEntryPanel(info(consentRequired = true).copy(consentChanged = true)) { }
+                awaitUntil("the changed notice is shown") {
+                    element().textContent.orEmpty().contains("Der Hinweis wurde geändert. Bitte lesen und bestätigen Sie ihn erneut.")
+                }
+                root.removeAll()
+                root.encounterEntryPanel(info(consentRequired = true)) { }
+                awaitUntil("the plain notice is shown") { element().textContent.orEmpty().contains("Vollständigen Text anzeigen") }
+                assertFalse(
+                    element().textContent.orEmpty().contains("Der Hinweis wurde geändert"),
+                    "a first-time guest is not told that anything changed",
+                )
+                root.removeAll()
+                // a member never sees a consent text, whatever the flag says
+                root.encounterEntryPanel(info(consentRequired = false).copy(consentChanged = true)) { }
+                awaitUntil("the member panel is shown") { element().textContent.orEmpty().contains("Bevor Sie eintreten") }
+                assertFalse(element().textContent.orEmpty().contains("Der Hinweis wurde geändert"))
+            }
+        }
+
+    @Test
+    fun theRecordingParagraph_isOneOfTheVisibleKeyPoints(): Promise<Unit> =
+        formTest {
+            mountedForm("encounter-entry-rec") { root, element ->
+                val recording =
+                    "In diesem Raum kann die Kanzel aufgezeichnet werden. Ihr eigenes Bild und Ihr Ton werden nie aufgezeichnet."
+                val withRecording = disclaimer.copy(keyPoints = disclaimer.keyPoints + recording)
+                root.encounterEntryPanel(info(consentRequired = true).copy(disclaimer = withRecording)) { }
+                awaitUntil("the key points are shown") { element().textContent.orEmpty().contains("kann die Kanzel aufgezeichnet werden") }
+                // a key point of its own, not only a sentence inside the collapsed full text
+                assertTrue(element().allOf("div.small").any { it.textContent.orEmpty() == recording })
+            }
+        }
 }

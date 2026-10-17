@@ -24969,3 +24969,48 @@ msgstr "Regione"
 
 msgid "Regionen mit mindestens fünf Teilnehmenden"
 msgstr "Regioni con almeno cinque partecipanti"
+
+msgid "Eintrittshinweis Gottesdienst"
+msgstr "Avviso d'ingresso per le funzioni religiose"
+
+msgid "Eintrittshinweis Versammlung"
+msgstr "Avviso d'ingresso per le assemblee"
+
+msgid "Gilt nur für Begegnungsräume, die Gäste oder Freunde zulassen."
+msgstr "Vale solo per le sale d'incontro che ammettono ospiti o amici."
+
+msgid "Die Version darf höchstens %1 Zeichen lang sein."
+msgstr "La versione può contenere al massimo %1 caratteri."
+
+msgid "Der Hinweis braucht mindestens vier Absätze: Überschrift und drei Kernpunkte."
+msgstr "L'avviso richiede almeno quattro paragrafi: un titolo e tre punti chiave."
+
+msgid "Die Überschrift darf höchstens %1 Zeichen lang sein."
+msgstr "Il titolo può contenere al massimo %1 caratteri."
+
+msgid "Kernpunkt %1 darf höchstens %2 Zeichen lang sein."
+msgstr "Il punto chiave %1 può contenere al massimo %2 caratteri."
+
+msgid "Die Aussage zur Kanzel-Aufzeichnung fügt das System selbst an, wenn ein Raum sie erlaubt."
+msgstr "Il sistema aggiunge da sé l'indicazione sulla registrazione del pulpito quando una sala la consente."
+
+msgid "Dieser Text widerspricht der Kanzel-Aufzeichnung in Räumen, die sie erlauben."
+msgstr "Questo testo contraddice la registrazione del pulpito nelle sale che la consentono."
+
+msgid "So sieht der Gast den Hinweis"
+msgstr "Così l'ospite vede l'avviso"
+
+msgid "Raum mit Kanzel-Aufzeichnung"
+msgstr "Sala con registrazione del pulpito"
+
+msgid "Raum mit Podium-Aufzeichnung"
+msgstr "Sala con registrazione del podio"
+
+msgid "Die Vorschau erscheint, sobald der Hinweis die vorgegebene Gliederung erfüllt."
+msgstr "L'anteprima compare appena l'avviso rispetta la struttura richiesta."
+
+msgid "Der Hinweis entspricht nicht der vorgegebenen Gliederung."
+msgstr "L'avviso non rispetta la struttura richiesta."
+
+msgid "Der Hinweis wurde geändert. Bitte lesen und bestätigen Sie ihn erneut."
+msgstr "L'avviso è cambiato. Lo legga e lo confermi di nuovo."

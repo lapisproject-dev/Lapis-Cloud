@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import network.lapis.cloud.server.agreementtexts.EncounterChurchConsentDefault
 import network.lapis.cloud.server.db.generated.ConferenceParticipationTable
 import network.lapis.cloud.server.db.generated.EncounterConsentAcknowledgmentTable
 import network.lapis.cloud.server.testdb.PostgresConfigured
@@ -26,7 +27,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.uuid.Uuid
 
 private val CONSENT =
-    EncounterConsentInput(consentVersion = EncounterConsentDisclaimer.VERSION, consentSha256 = EncounterConsentDisclaimer.SHA256)
+    EncounterConsentInput(consentVersion = EncounterChurchConsentDefault.VERSION, consentSha256 = EncounterChurchConsentDefault.SHA256)
 
 private suspend fun <T> parallel(
     n: Int,

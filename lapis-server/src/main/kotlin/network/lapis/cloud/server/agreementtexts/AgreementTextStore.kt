@@ -290,6 +290,9 @@ internal object AgreementTextStore {
             // V1.9.144: ALWAYS 0 on purpose. A real count would be the exact number of members who consented to the finder -- the finder shows
             // only coarse bands, and the admin console must not become a back door to the exact number.
             AgreementTextKind.FINDER -> 0L
+            // V1.9.148: ALWAYS 0 on purpose. encounter_consent_acknowledgment has no kind column (and must not get one); a real number would be the
+            // count of non-members who entered church services or assemblies -- an Art. 9 aggregate the admin console must not offer.
+            AgreementTextKind.ENC_CHURCH, AgreementTextKind.ENC_ASSEM -> 0L
         }.toInt()
 
     /** `{"event","kind","versionLabel","sha256","charCount","validFrom"[,"sequenceNo"]}` -- nothing else may ever enter the audit chain. */

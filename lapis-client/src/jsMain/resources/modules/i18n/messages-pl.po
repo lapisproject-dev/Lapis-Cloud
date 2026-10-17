@@ -24931,3 +24931,48 @@ msgstr "Region"
 
 msgid "Regionen mit mindestens fünf Teilnehmenden"
 msgstr "Regiony z co najmniej pięcioma uczestnikami"
+
+msgid "Eintrittshinweis Gottesdienst"
+msgstr "Informacja wstępna dla nabożeństw"
+
+msgid "Eintrittshinweis Versammlung"
+msgstr "Informacja wstępna dla zgromadzeń"
+
+msgid "Gilt nur für Begegnungsräume, die Gäste oder Freunde zulassen."
+msgstr "Dotyczy tylko przestrzeni wspólnoty, które dopuszczają gości lub przyjaciół."
+
+msgid "Die Version darf höchstens %1 Zeichen lang sein."
+msgstr "Wersja może mieć najwyżej %1 znaków."
+
+msgid "Der Hinweis braucht mindestens vier Absätze: Überschrift und drei Kernpunkte."
+msgstr "Informacja wymaga co najmniej czterech akapitów: nagłówka i trzech kluczowych punktów."
+
+msgid "Die Überschrift darf höchstens %1 Zeichen lang sein."
+msgstr "Nagłówek może mieć najwyżej %1 znaków."
+
+msgid "Kernpunkt %1 darf höchstens %2 Zeichen lang sein."
+msgstr "Kluczowy punkt %1 może mieć najwyżej %2 znaków."
+
+msgid "Die Aussage zur Kanzel-Aufzeichnung fügt das System selbst an, wenn ein Raum sie erlaubt."
+msgstr "System sam dodaje stwierdzenie o nagrywaniu ambony, jeśli sala je dopuszcza."
+
+msgid "Dieser Text widerspricht der Kanzel-Aufzeichnung in Räumen, die sie erlauben."
+msgstr "Ten tekst jest sprzeczny z nagrywaniem ambony w salach, które je dopuszczają."
+
+msgid "So sieht der Gast den Hinweis"
+msgstr "Tak gość widzi informację"
+
+msgid "Raum mit Kanzel-Aufzeichnung"
+msgstr "Sala z nagrywaniem ambony"
+
+msgid "Raum mit Podium-Aufzeichnung"
+msgstr "Sala z nagrywaniem podium"
+
+msgid "Die Vorschau erscheint, sobald der Hinweis die vorgegebene Gliederung erfüllt."
+msgstr "Podgląd pojawi się, gdy informacja spełni wymagany układ."
+
+msgid "Der Hinweis entspricht nicht der vorgegebenen Gliederung."
+msgstr "Informacja nie spełnia wymaganego układu."
+
+msgid "Der Hinweis wurde geändert. Bitte lesen und bestätigen Sie ihn erneut."
+msgstr "Informacja została zmieniona. Proszę ją przeczytać i potwierdzić ponownie."

@@ -3,6 +3,8 @@ package network.lapis.cloud.server.encounter
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.runBlocking
+import network.lapis.cloud.server.agreementtexts.EncounterAssemblyConsentDefault
+import network.lapis.cloud.server.agreementtexts.EncounterChurchConsentDefault
 import network.lapis.cloud.server.db.DatabaseConfig
 import network.lapis.cloud.server.db.generated.AuditLogEntryTable
 import network.lapis.cloud.server.db.generated.ConferenceGuestConsentAcknowledgmentTable
@@ -21,8 +23,11 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.uuid.Uuid
 
+private val CONSENT_ASSEMBLY =
+    EncounterConsentInput(consentVersion = EncounterAssemblyConsentDefault.VERSION, consentSha256 = EncounterAssemblyConsentDefault.SHA256)
+
 private val CONSENT =
-    EncounterConsentInput(consentVersion = EncounterConsentDisclaimer.VERSION, consentSha256 = EncounterConsentDisclaimer.SHA256)
+    EncounterConsentInput(consentVersion = EncounterChurchConsentDefault.VERSION, consentSha256 = EncounterChurchConsentDefault.SHA256)
 
 /**
  * Welle V1.9.61 -- the data-protection WATCH of the encounter spaces. Each test names one promise made to a person who takes part in
@@ -181,6 +186,44 @@ class EncounterPrivacyWatchTest :
                         names
                     }
                 columns shouldBe setOf("member_id", "consent_version", "consent_sha256", "acknowledged_on")
+                transaction {
+                    network.lapis.cloud.server.db.generated.EncounterConsentAcknowledgmentTable
+                        .selectAll()
+                        .where { network.lapis.cloud.server.db.generated.EncounterConsentAcknowledgmentTable.memberId eq guest }
+                        .count()
+                } shouldBe 1L
+            }
+        }
+
+        test(
+            "V1.9.148: the same promises hold for an ASSEMBLY room -- one date-only proof row per (member, version), nothing about the room",
+        ) {
+            encounterApp {
+                val rig = EncounterRig()
+                val steward = fx.createMember()
+                val guest = fx.createMember(status = MemberStatus.GUEST)
+                val space =
+                    fx.createSpace(
+                        createdBy = fx.createMember(),
+                        guestPolicy = EncounterGuestPolicy.MEMBERS_AND_GUESTS,
+                        profile = network.lapis.cloud.shared.domain.EncounterProfile.ASSEMBLY,
+                    )
+                fx.setRole(spaceId = space, memberId = steward, role = EncounterSpaceRole.STEWARD)
+                rig.asMember(client = client, member = steward) { it.openSpace(space.toString()) }.getOrThrow()
+                val room = fx.openSessionRoom(space)!!
+                rig
+                    .asMember(client = client, member = guest) { it.enterSpace(spaceId = space.toString(), consent = CONSENT_ASSEMBLY) }
+                    .getOrThrow()
+                fx.participationCount(room) shouldBe 1L
+                transaction {
+                    network.lapis.cloud.server.db.generated.EncounterConsentAcknowledgmentTable
+                        .selectAll()
+                        .where { network.lapis.cloud.server.db.generated.EncounterConsentAcknowledgmentTable.memberId eq guest }
+                        .map { it[network.lapis.cloud.server.db.generated.EncounterConsentAcknowledgmentTable.consentVersion] }
+                } shouldBe listOf(EncounterAssemblyConsentDefault.VERSION)
+                rig.asMember(client = client, member = steward) { it.closeSpace(space.toString()) }.getOrThrow()
+                sessionRows(space) shouldBe 0L
+                // closing the room leaves only the date-only proof
                 transaction {
                     network.lapis.cloud.server.db.generated.EncounterConsentAcknowledgmentTable
                         .selectAll()

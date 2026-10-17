@@ -4,9 +4,11 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
+import network.lapis.cloud.server.agreementtexts.AgreementTextDraftRecord
 import network.lapis.cloud.server.agreementtexts.AgreementTextHash
 import network.lapis.cloud.server.agreementtexts.AgreementTextStore
 import network.lapis.cloud.server.agreementtexts.BuiltinAgreementTexts
+import network.lapis.cloud.server.agreementtexts.EncounterConsentLabels
 import network.lapis.cloud.server.db.DbClock
 import network.lapis.cloud.server.db.isUniqueViolation
 import network.lapis.cloud.server.security.CurrentMember
@@ -24,8 +26,11 @@ import network.lapis.cloud.shared.domain.AgreementTextRules
 import network.lapis.cloud.shared.domain.AgreementTextVersionDto
 import network.lapis.cloud.shared.domain.AgreementTextVersionSummaryDto
 import network.lapis.cloud.shared.domain.AuditAction
+import network.lapis.cloud.shared.domain.EncounterConsentLayout
+import network.lapis.cloud.shared.domain.isEncounterConsent
 import network.lapis.cloud.shared.rpc.AgreementTextDraftChangedException
 import network.lapis.cloud.shared.rpc.AgreementTextInvalidException
+import network.lapis.cloud.shared.rpc.AgreementTextLayoutInvalidException
 import network.lapis.cloud.shared.rpc.AgreementTextVersionLabelTakenException
 import network.lapis.cloud.shared.rpc.IAgreementTextAdminService
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -150,7 +155,7 @@ class AgreementTextAdminService(
         val summary =
             try {
                 transaction {
-                    val draft = AgreementTextStore.lockDraft(kind) ?: throw AgreementTextDraftChangedException()
+                    val draft = lockDraftForPublish(kind) ?: throw AgreementTextDraftChangedException()
                     val label = draft.versionLabel
                     val body = draft.body
                     val validFrom = draft.validFrom
@@ -244,6 +249,17 @@ class AgreementTextAdminService(
         }
     }
 
+    /**
+     * Locks the draft of [kind]. The two encounter notices share ONE label namespace (the acknowledgment table has no kind column), so
+     * their publications are serialized against each other: both drafts are locked, always ENC_CHURCH before ENC_ASSEM (no deadlock).
+     */
+    private fun lockDraftForPublish(kind: AgreementTextKind): AgreementTextDraftRecord? {
+        if (!kind.isEncounterConsent()) return AgreementTextStore.lockDraft(kind)
+        val church = AgreementTextStore.lockDraft(AgreementTextKind.ENC_CHURCH)
+        val assembly = AgreementTextStore.lockDraft(AgreementTextKind.ENC_ASSEM)
+        return if (kind == AgreementTextKind.ENC_CHURCH) church else assembly
+    }
+
     private suspend fun requireAdmin(): CurrentMember {
         val current = resolveCurrentMember(call)
         current.requireRole(AccountRole.ADMIN)
@@ -264,6 +280,16 @@ class AgreementTextAdminService(
         if (validFrom > today) throw AgreementTextInvalidException()
         val currentRow = AgreementTextStore.currentVersion(kind)
         if (currentRow != null && validFrom < currentRow.validFrom) throw AgreementTextInvalidException()
+        if (kind.isEncounterConsent()) {
+            // V1.9.148: the paragraph rule and the label length (room for the system's "+rec" in VARCHAR(50)).
+            if (EncounterConsentLayout.violation(label = versionLabel, body = body) != null) throw AgreementTextLayoutInvalidException()
+            // The acknowledgment table has no kind column: a label must identify ONE text across both ENC kinds and every label code ever wrote.
+            if (EncounterConsentLabels.isReserved(versionLabel) ||
+                AgreementTextStore.versionLabelExists(kind = EncounterConsentLabels.siblingOf(kind), versionLabel = versionLabel)
+            ) {
+                throw AgreementTextVersionLabelTakenException()
+            }
+        }
         // V1.9.143: the REC kinds have one placeholder per room profile; a text equal to ANY of them, or a label equal to ANY of them, is refused.
         val builtins = BuiltinAgreementTexts.allOf(kind)
         // A text equal to the placeholder would silence the placeholder warning while the placeholder stays what people see.
@@ -285,6 +311,8 @@ class AgreementTextAdminService(
                 AgreementTextKind.REC_ROOM to LocalDate(2026, 10, 16),
                 AgreementTextKind.REC_PULPIT to LocalDate(2026, 10, 16),
                 AgreementTextKind.FINDER to LocalDate(2026, 10, 16),
+                AgreementTextKind.ENC_CHURCH to LocalDate(2026, 10, 17),
+                AgreementTextKind.ENC_ASSEM to LocalDate(2026, 10, 17),
             )
         val BUILTIN_PUBLISHED_AT =
             BUILTIN_VALID_FROM.mapValues { (_, date) -> LocalDateTime(date.year, date.month, date.day, 0, 0) }

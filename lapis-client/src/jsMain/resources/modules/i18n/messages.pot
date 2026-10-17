@@ -23995,3 +23995,48 @@ msgstr ""
 
 msgid "Regionen mit mindestens fünf Teilnehmenden"
 msgstr ""
+
+msgid "Eintrittshinweis Gottesdienst"
+msgstr ""
+
+msgid "Eintrittshinweis Versammlung"
+msgstr ""
+
+msgid "Gilt nur für Begegnungsräume, die Gäste oder Freunde zulassen."
+msgstr ""
+
+msgid "Die Version darf höchstens %1 Zeichen lang sein."
+msgstr ""
+
+msgid "Der Hinweis braucht mindestens vier Absätze: Überschrift und drei Kernpunkte."
+msgstr ""
+
+msgid "Die Überschrift darf höchstens %1 Zeichen lang sein."
+msgstr ""
+
+msgid "Kernpunkt %1 darf höchstens %2 Zeichen lang sein."
+msgstr ""
+
+msgid "Die Aussage zur Kanzel-Aufzeichnung fügt das System selbst an, wenn ein Raum sie erlaubt."
+msgstr ""
+
+msgid "Dieser Text widerspricht der Kanzel-Aufzeichnung in Räumen, die sie erlauben."
+msgstr ""
+
+msgid "So sieht der Gast den Hinweis"
+msgstr ""
+
+msgid "Raum mit Kanzel-Aufzeichnung"
+msgstr ""
+
+msgid "Raum mit Podium-Aufzeichnung"
+msgstr ""
+
+msgid "Die Vorschau erscheint, sobald der Hinweis die vorgegebene Gliederung erfüllt."
+msgstr ""
+
+msgid "Der Hinweis entspricht nicht der vorgegebenen Gliederung."
+msgstr ""
+
+msgid "Der Hinweis wurde geändert. Bitte lesen und bestätigen Sie ihn erneut."
+msgstr ""

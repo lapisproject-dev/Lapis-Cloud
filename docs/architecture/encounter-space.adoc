@@ -204,10 +204,41 @@ referring to the guard.
 === The consent of a non-member
 
 A GUEST or FRIEND must explicitly consent (Art. 9(2)(a)) before entering a space with `MEMBERS_AND_GUESTS`. `getEntryInfo` returns
-`consentRequired` and the text; `enterSpace` takes the version and hash *unmodified* (`EncounterConsentDisclaimer.matches`, constant time). The
-proof is one row `(member, version)` with the hash and a *date*, written inside a savepoint (`isUniqueViolation()` is the only exception
+`consentRequired`, `consentChanged` and the text; `enterSpace` takes the version and hash *unmodified* (`ResolvedEncounterConsent.matches`, constant time; a malformed
+hash is a plain mismatch). The proof is one row `(member, version)` with the hash and a *date*, written inside a savepoint (`isUniqueViolation()` is the only exception
 swallowed -- on PostgreSQL a failed statement would otherwise poison the transaction). Consent given once covers every space for that version.
 For an `ACTIVE` member a submitted consent is ignored and nothing is stored. **The text is a draft** and needs legal review.
+
+==== Consent text (V1.9.148): administered per instance
+
+Since V1.9.148 the text is no code constant. `encounterConsentFor(profile, pulpitRecordingAllowed)` maps the profile to a kind (`ENC_CHURCH` for a church service,
+`ENC_ASSEM` for an assembly) and asks `AgreementTextResolver` for the live text: the published version with the highest sequence number, else the built-in placeholder
+(`BuiltinEncounterConsentTexts.kt`). A database version is re-hashed on every read; a stored hash that no longer matches is a `ServiceBusyException` and nobody enters.
+A body that breaks the paragraph rule is never served half-way (also `ServiceBusyException`).
+
+[cols="1,3", options="header"]
+|===
+| Rule | Detail
+| Layout | `EncounterConsentLayout` (shared): paragraph 1 headline (at most 160 characters), paragraphs 2 to 4 key points (at most 600), the rest detail; the whole body is hashed and is the disclosure text. Paragraphs are separated by blank lines (spaces and several line feeds allowed).
+| Recording | For a room whose option "the pulpit may be recorded" is on, the code appends one fixed paragraph (never admin-editable) as an extra visible key point and at the end of the text, adds the suffix `+rec` to the label and hashes the result. The placeholder's own sentence "Es wird nichts aufgezeichnet." is removed there.
+| Label | `[0-9A-Za-z][0-9A-Za-z._-]{0,49}`, but at most **46** characters for the ENC kinds: the system adds `+rec` and the column is `VARCHAR(50)`. `+` is not allowed in an admin label, so the suffix namespace belongs to the code.
+| Namespace | `encounter_consent_acknowledgment` has the key `(member_id, consent_version)` and **no kind column** (and must not get one). A label therefore identifies one text across *both* ENC kinds and every label code ever wrote (`EncounterConsentLabels.reserved`). Checked on save and on publish; both drafts are locked in a fixed order while one is published; `recordConsent` refuses a unique violation whose stored hash differs (`ServiceBusyException`, logged without label, hash or person).
+| Re-consent | A new label means every non-member acknowledges again. `consentChanged` is `true` when the caller holds an acknowledgment of an older notice *of the same line* (the profile's earlier code objects, its placeholder, any published version, each with or without `+rec`); an acknowledgment of the other profile's notice does not count.
+| Earlier objects | The four earlier objects stay byte for byte as proof, are `@Deprecated` and are never served; `EncounterConsentLabels` and the pin tests are their only readers.
+| Count | `olderAcknowledgmentCount` is always 0 for the ENC kinds (it would be the number of non-members who entered services or assemblies).
+|===
+
+What the placeholder says about what everybody present sees and hears of a guest is pinned by `EncounterConsentTextPinTest`:
+
+[cols="2,3", options="header"]
+|===
+| What others see or hear | Shown to
+| Display name; seat with initials; table and seat at the table; guest status (`isGuest` goes to every client); reactions at the seat | Everybody present
+| Chat messages, with the name (not stored) | Everybody present at that moment
+| Name in the floor banner, and the voice, while the person has the word and has switched the microphone on themselves | Everybody present
+| Voice at a table, only after the person switched the microphone on themselves | The people at that table
+| Picture | Never sent
+|===
 
 == Session lifecycle and the poller
 
@@ -407,7 +438,7 @@ table, no new column with personal data, no log of reactions, so the Art. 9 posi
 | Who listens | Gemeinde | Teilnehmende
 | Default reactions | hand, amen | hand, applause
 | Scene | chancel, pews | podium, chairs
-| Consent text | `EncounterConsentDisclaimer` (`2026-10-06.v1`) | `EncounterAssemblyConsentDisclaimer` (`2026-10-07.assembly.v1`)
+| Consent text | agreement text kind `ENC_CHURCH` (placeholder `2026-10-17.v2`) | agreement text kind `ENC_ASSEM` (placeholder `2026-10-17.assembly.v2`)
 |===
 
 All profile words live in one client file (`EncounterVocabulary.kt`, `EncounterTerms`); `ClientEncounterVocabularyTripwireTest` fails the build if another file of
@@ -1023,8 +1054,8 @@ participant check; its payload limit (32 bytes) is registered in `sendDataPayloa
 
 === Consent texts for non-members
 
-A room with the option on uses the recording variants `EncounterRecordingConsentDisclaimer` (`2026-10-16.rec.v1`) and `EncounterAssemblyRecordingConsentDisclaimer`
-(`2026-10-16.assembly-rec.v1`): same attendance statements, but "the pulpit can be recorded; your own picture and sound never are". The choice follows the **room option**, not
+(Superseded in V1.9.148: the recording variants are now derived by the code from the administered text, see "Consent text (V1.9.148)" above; the objects `EncounterRecordingConsentDisclaimer` (`2026-10-16.rec.v1`) and `EncounterAssemblyRecordingConsentDisclaimer`
+(`2026-10-16.assembly-rec.v1`) remain only as proof.) A room with the option on shows a notice with the same attendance statements, but "the pulpit can be recorded; your own picture and sound never are". The choice follows the **room option**, not
 the instance switch (rather too much information than too little), which is why the option can only be switched on while the room is closed. The two old texts are unchanged
 byte for byte (their acknowledgments are proof). All consent texts are drafts and need a legal review for the country of the instance. Members are not asked; the entry panel
 tells them and shows the operator's `REC_ROOM` text.
@@ -1057,7 +1088,7 @@ tells them and shows the operator's `REC_ROOM` text.
 
 == Open questions (for the product owner and legal)
 
-. The wording of the Art. 9 consent (`EncounterConsentDisclaimer`, version `2026-10-06.v1`) -- a draft, legal review required.
+. The wording of the Art. 9 consent (placeholders `2026-10-17.v2` / `2026-10-17.assembly.v2`, administered per instance since V1.9.148) -- a draft, legal review required.
 . Retention of `encounter_consent_acknowledgment` -- kept as accountability proof, the period is open.
 . Whether the audit entry of `setSpaceRoles` should carry the office holders' ids (as now) or only counts.
 . Listing the participants of an encounter session in the ordinary API is refused (`listParticipants`); the only roster is `listPresent`.

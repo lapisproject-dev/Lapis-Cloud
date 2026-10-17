@@ -637,6 +637,12 @@ class AgreementTextInvalidException(
     override val message: String = "The agreement text is not valid",
 ) : AbstractServiceException()
 
+/** V1.9.148 -- distinct type. An encounter entry notice (ENC kinds) breaks the paragraph rule (at least four paragraphs, length limits) or its label is too long. */
+@RpcServiceException
+class AgreementTextLayoutInvalidException(
+    override val message: String = "The entry notice does not follow the required layout",
+) : AbstractServiceException()
+
 /** V1.9.134 -- distinct type. The version label is already used by a published version or by the built-in placeholder of that kind. */
 @RpcServiceException
 class AgreementTextVersionLabelTakenException(
