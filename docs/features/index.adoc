@@ -7,15 +7,16 @@ Architecture background lives in link:../architecture/[docs/architecture/]; the 
 [cols="2,3",options="header"]
 |===
 |Feature |Description
-|link:encounter-space.adoc[Encounter space with a temporary floor (V1.9.61 to V1.9.138)] |Standing rooms with a pulpit and a listening congregation; an office holder can give one person the floor for two minutes (server-raised, microphone only, memory only)
+|link:encounter-space.adoc[Encounter space with a temporary floor (V1.9.61 to V1.9.152)] |Standing rooms with a pulpit and a listening congregation; an office holder can give one person the floor for two minutes (server-raised, microphone only, memory only); entry notices for non-members administered per instance (V1.9.148); four fixed room templates with own vector drawings (V1.9.152, never seen in a real browser)
+|link:../architecture/encounter-load-test.adoc[Load-test tool and run sheet for the encounter tables (V1.9.149)] |Node.js command line tool (`scripts/loadtest`) and run sheet for the question whether a room holds about 20 to 40 people; not part of the image; built and tested only against a fake server, never run against a real instance, no measurements exist
 |link:pulpit-recording.adoc[Optional recording of the pulpit (V1.9.143)] |Per-instance and per-room opt-in recording of the PULPIT only; operator notice with a legal check for the country; stored `BOARD_ONLY`, hard delete
-|link:member-finder.adoc[Member finder (V1.9.144 to V1.9.145)] |Consent-based search for members of the same region; random single counterpart, names only after both agreed; threshold of five, coarse daily bands; member screen, operator-notice dialog and board overview; operator notice, country-specific law
+|link:member-finder.adoc[Member finder (V1.9.144 to V1.9.147)] |Consent-based search for members of the same region; random single counterpart, names only after both agreed; threshold of five, coarse daily bands; member screen, operator-notice dialog and board overview; operator notice, country-specific law
 |link:locale-dates.adoc[Dates and times in the UI locale (V1.9.137)] |One fixed table of nine locales for every displayed and typed date and time; ISO stays the storage form
 |link:auth-and-consent-pages.adoc[Sign-in and consent pages (V1.9.135)] |Styled guest consent, home-server form, MCP consent and error pages with brand chrome and security headers
 |link:video-conferencing.adoc[Videokonferenzen (V1.0 Wave 1)] |Video conferencing, LiveKit-based, for committee sessions; reactions and a raised-hand queue (V1.9.127), a display-only timer (V1.9.133), X as an explicit streaming platform (V1.9.131)
-|link:agreement-texts.adoc[Registration texts (V1.9.134)] |Versioned, hashed membership agreement and FRIEND terms per instance; ADMIN administration; wide two-column registration with a reading frame
+|link:agreement-texts.adoc[Registration texts (V1.9.134, encounter kinds V1.9.148)] |Versioned, hashed membership agreement and FRIEND terms per instance, plus the entry notices of the two encounter room profiles; ADMIN administration; wide two-column registration with a reading frame
 |link:video-overlays.adoc[Video overlays (V1.9.129)] |Logos, the own name and a frame in the own camera image; ADMIN library; visible to everyone, also in recording and livestream
-|link:camera-filters.adoc[Camera filters (V1.9.142)] |Light, colour and skin smoothing in the own camera image; runs in the browser only; visible to everyone, also in recording and livestream
+|link:camera-filters.adoc[Camera filters (V1.9.142, face model V1.9.146)] |Light, colour and skin smoothing in the own camera image; runs in the browser only; visible to everyone, also in recording and livestream; the bundled face model (Apache-2.0) lets the skin smoothing start, never judged on real faces
 |link:payment-providers.adoc[Payment service providers (Stripe + PayPal)] |Card and PayPal checkout for contributions and donations, with webhook handling
 |link:public-rest-api.adoc[Public REST API (V1.3.1)] |Read-only machine-to-machine REST API under `/api/v1` with API keys
 |link:webhooks.adoc[Outbound Webhooks (V1.3.2)] |Signed outbound webhooks for fixed domain events
@@ -35,7 +36,7 @@ Architecture background lives in link:../architecture/[docs/architecture/]; the 
 |link:rule-based-committees.adoc[Rule-based committees (V1.9.112)] |Committees whose members are computed from a rule instead of seat rows; a vote freezes its electorate when it is opened
 |link:event-online-participation.adoc[Online participation in events (V1.9.113)] |Lapis video conference created on the first join, entry into an encounter space, guests without an account
 |link:membership-decision-notification.adoc[Notification mail on membership decisions (V1.9.118)] |Optional short mail to the applicant when the board approves or rejects an application; language chosen per decision, never contains the reason
-|link:member-country-nationality.adoc[Country and nationality as selection lists (V1.9.121)] |Country and up to ten nationalities chosen from a list with flags, stored as codes; reconciliation of the old free text; `XS`/`ZZ`
+|link:member-country-nationality.adoc[Country and nationality as selection lists (V1.9.121, V1.9.141)] |Country and up to ten nationalities chosen from a list with flags, stored as codes; reconciliation of the old free text; `XS`/`ZZ`; optional at registration (erased on rejection) and a country column and filter in the member roster for BOARD/ADMIN (V1.9.141)
 |link:public-member-count.adoc[Public member count toggle (V1.9.10)] |Setting to show or hide the active member count on public pages
 |link:public-icon-navigation.adoc[Public icon navigation + overview pages (V1.9.11)] |Icon navigation and overview pages for the public site
 |link:public-event-page.adoc[Public event page (V1.9.128)] |Lapis header, layout and `?embed=1` iframe mode of the public event page
