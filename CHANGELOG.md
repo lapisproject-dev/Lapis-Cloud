@@ -6,6 +6,10 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.37.1] — 2026-10-17
+
+Patch release on top of `[0.37.0]` (V1.9.153 and V1.9.154, both fix waves): the **encounter room** seat drawings now sit on the seats and the hints and the podium are no longer covered (client, CSS and assets), and **participant recordings** no longer let the audio fall behind the picture (server). No migration (the schema stays **`V109`**), no RPC change, no new text, no new environment variable. **Things to know:** (1) an encounter-room tab opened before the upgrade loses its bench drawing until it is reloaded, because the three `row-*.svg` files are gone (V1.9.153); (2) existing participant recordings are corrected only by "Neu berechnen" in the recordings list, which needs the raw files (`LAPIS_RECORDING_KEEP_RAW=true` at the time of the original recording); new recordings are corrected on their own (V1.9.154). **Not verified:** the room layout was measured in a browser test, nobody has looked at it in a real browser window; the audio correction was proven only with generated files and real `ffmpeg`, and on a real recording only after a recompute has run there; the correction assumes a linear drift, so a small remainder is left (about 0.07 s with evenly spread silence, at worst about half of the total drift with unevenly spread speech); the cause lies in the LiveKit egress, not in Lapis, and is not removed.
+
 ### V1.9.154 -- Participant recordings: audio no longer falls behind the picture
 
 Server fix only: no migration, no RPC change, no new text, no new environment variable.

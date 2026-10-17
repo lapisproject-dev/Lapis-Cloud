@@ -147,7 +147,7 @@ still wrong.
 [source,bash]
 ----
 cd deploy/example
-cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.37.0) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
+cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.37.1) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
 docker compose pull
 docker compose up -d
 docker compose logs -f lapis-server
@@ -343,7 +343,7 @@ on 2026-10-10 (the tag `v0.31.0` has no image: its first build ran out of heap, 
 (GitHub package settings; an organisation must allow public packages first). Check
 `docker buildx imagetools inspect ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` before switching an instance; an instance on the old server-side build
 keeps working until it is switched (see "Switching a real instance from server-side builds to the published image" below). Example:
-`LAPIS_IMAGE_TAG=0.37.0` (no `v`; the git tag is `v0.37.0`, the image tag is `0.37.0`).
+`LAPIS_IMAGE_TAG=0.37.1` (no `v`; the git tag is `v0.37.1`, the image tag is `0.37.1`).
 ====
 
 Since V1.9.93 the server is **not built on the host any more**: CI builds the image once per release tag and publishes it, the host sets
@@ -362,6 +362,8 @@ any instance: that wave edited 16 already-applied Flyway migration files in plac
 to run at all on any of these three already-migrated instances until `flywayRepair` has run against
 each of them -- see the CHANGELOG "Operator notes" entry for this wave for the full mechanism and
 the exact command. Run it once per instance before rebuilding that instance below.
+
+Upgrading from `v0.37.0` to `v0.37.1` adds no migration (the schema stays `V109`) and needs no `flywayRepair`: take a backup as always, set `LAPIS_IMAGE_TAG=0.37.1`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. No new environment variable. **Things to know:** (1) an encounter-room tab that was opened before the upgrade loses its bench drawing until the browser reloads the page, because the three `row-*.svg` drawing files were replaced by block files (V1.9.153); (2) recordings that already exist keep their audio offset until a moderator uses "Neu berechnen" in the recordings list, which needs the raw files (`LAPIS_RECORDING_KEEP_RAW=true` when the recording was made); new participant recordings are corrected on their own (V1.9.154); the correction is a linear approximation and leaves a small remainder, the cause is in the LiveKit egress; (3) the room layout was measured in a browser test, not looked at in a real browser window.
 
 Upgrading from `v0.36.0` to `v0.37.0` adds five additive migrations (`V105` carpool messages, `V106` pulpit recording, `V107` member finder, `V108` encounter entry notices as agreement texts, `V109` room template; the reported migration count goes up by exactly five, check the real count) and needs no `flywayRepair` of its own: take a backup, set `LAPIS_IMAGE_TAG=0.37.0`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. No new required environment variable. **Things to know before upgrading:** (1) the two features that touch special-category data are **off by default**: the member finder and the pulpit recording are switched on per instance only by an ADMIN after reading an operator notice (the recording additionally per room by BOARD/ADMIN); the camera filters are the member's own choice and start switched off; the video overlays of `v0.36.0` stay off until an administrator switches them on; (2) **non-members (guests and friends) must acknowledge the changed entry notice of an encounter room again at their next entry** -- the built-in placeholder now states what everybody present really sees (V1.9.148), and an ADMIN can publish an own, reviewed text per room profile in "Vertragstexte"; all notices and consent texts are unreviewed drafts; (3) `/datenschutz` now reads one switch (the member finder) from the database on every request and sends `Cache-Control: public, max-age=300` (was 3600), so a browser or proxy may show the previous version for up to five minutes after the switch moves (V1.9.147); `/impressum` is unchanged; (4) the conference switch for guests from other servers is now labelled "Gäste und Freunde zulassen" (label only, the API and the database field are unchanged); (5) the member finder tables are excluded from the organisation backup, so after a restore every member consents again, and the carpool message histories are empty after a restore; (6) the pulpit recording was **not verified against a real LiveKit or egress service** -- run its staging script in `docs/architecture/encounter-space-staging-test.adoc` before you switch it on, recordings are stored in the document folder "Aufzeichnungen Begegnungsraum" (`BOARD_ONLY`) with unlimited retention; (7) pulpit-recording state, the finder rate limits and the carpool message rate limit live in the server's memory and are lost on a restart; (8) existing rooms get the template `NAVE` (church service) or `HALL` (everything else) from the migration; (9) the load-test tool (`scripts/loadtest`, V1.9.149) is **not part of the image** -- it is a command line tool you run from your own machine against a staging instance, and it has never been run against a real instance.
 
