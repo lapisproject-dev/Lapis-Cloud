@@ -25,6 +25,29 @@ enum class EncounterTheme { CHURCH, }
 enum class EncounterProfile { CHURCH_SERVICE, ASSEMBLY }
 
 /**
+ * V1.9.152 (stage 2c): the fixed room template (what the room LOOKS like). Describes the ROOM, never a person; identical for everybody present.
+ * Stored in `encounter_space.room_layout` (V109). [NAVE] = church nave with pews, [FOYER] = foyer/cafe with round tables, [HALL] = hall with
+ * rows of chairs (both profiles), [SMALL_GROUP] = small-group room with long tables. See [allowedFor] for the combination rule.
+ */
+@Serializable
+enum class EncounterRoomLayout { NAVE, FOYER, HALL, SMALL_GROUP }
+
+/** The combination rule (also a CHECK constraint, V109): NAVE only with the church profile, FOYER/SMALL_GROUP only with the assembly profile, HALL with both. */
+fun EncounterRoomLayout.allowedFor(profile: EncounterProfile): Boolean =
+    when (this) {
+        EncounterRoomLayout.NAVE -> profile == EncounterProfile.CHURCH_SERVICE
+        EncounterRoomLayout.FOYER, EncounterRoomLayout.SMALL_GROUP -> profile == EncounterProfile.ASSEMBLY
+        EncounterRoomLayout.HALL -> true
+    }
+
+/** The template a room gets when none is chosen: the nave for a church service, the hall for an assembly. Pure; shared by server and client form. */
+fun defaultRoomLayout(profile: EncounterProfile): EncounterRoomLayout =
+    when (profile) {
+        EncounterProfile.CHURCH_SERVICE -> EncounterRoomLayout.NAVE
+        EncounterProfile.ASSEMBLY -> EncounterRoomLayout.HALL
+    }
+
+/**
  * The reactions a room can be configured with (V1.9.67). Canonical order = declaration order. [HAND] is always on and
  * [HAND_LOWERED] (the wire counterpart of [HAND]) is never selectable. There is deliberately no thumbs-up: in an assembly it reads as
  * a vote.
@@ -151,6 +174,8 @@ data class EncounterSpaceInput(
      * sends none). Switching it ON needs the instance switch and a CLOSED room; switching it OFF is always allowed.
      */
     val pulpitRecordingAllowed: Boolean? = null,
+    /** V1.9.152: the room template. Create: `null` = [defaultRoomLayout] of the profile. Update: `null` = unchanged. Must fit the profile ([allowedFor]). */
+    val roomLayout: EncounterRoomLayout? = null,
 )
 
 /**
@@ -207,6 +232,8 @@ data class EncounterSpaceDto(
     val pulpitRecordingAllowed: Boolean = false,
     /** V1.9.143: only for office holders (and BOARD/ADMIN): a recording may be started here right now (switch, room option, infrastructure). */
     val pulpitRecordingStartable: Boolean = false,
+    /** V1.9.152: the room template. Last + default = wire compatible (an old server sends none: the nave, as before). */
+    val roomLayout: EncounterRoomLayout = EncounterRoomLayout.NAVE,
 )
 
 /** One office assignment of [network.lapis.cloud.shared.rpc.IEncounterSpaceService.setSpaceRoles] (replace-all, at most 20). */

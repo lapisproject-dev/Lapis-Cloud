@@ -17,12 +17,14 @@ import network.lapis.cloud.shared.domain.EncounterGuestPolicy
 import network.lapis.cloud.shared.domain.EncounterNotifyMode
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterReactionOption
+import network.lapis.cloud.shared.domain.EncounterRoomLayout
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.EncounterSpaceMode
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
 import network.lapis.cloud.shared.domain.EncounterTablesConfig
 import network.lapis.cloud.shared.domain.EncounterTheme
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.defaultRoomLayout
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.count
@@ -54,6 +56,10 @@ internal fun parseReactionSet(csv: String): List<EncounterReactionOption> =
 /** The profile of a space row; an unknown stored value (impossible under the CHECK constraint) falls back to the church profile. */
 internal fun profileOf(row: ResultRow): EncounterProfile =
     EncounterProfile.entries.firstOrNull { it.name == row[EncounterSpaceTable.profile] } ?: EncounterProfile.CHURCH_SERVICE
+
+/** The room template of a space row; an unknown stored value (impossible under the CHECK constraint) falls back to the default of the profile. */
+internal fun roomLayoutOf(row: ResultRow): EncounterRoomLayout =
+    EncounterRoomLayout.entries.firstOrNull { it.name == row[EncounterSpaceTable.roomLayout] } ?: defaultRoomLayout(profileOf(row))
 
 /** The notify mode of a space row; an unknown stored value (impossible under the CHECK constraint) falls back to NONE (no mail). */
 internal fun notifyModeOf(row: ResultRow): EncounterNotifyMode =
@@ -155,6 +161,7 @@ internal object EncounterSpaceViews {
                 pulpitRecordingAllowed = row[EncounterSpaceTable.pulpitRecordingAllowed],
                 pulpitRecordingStartable =
                     myRole != null && recordingStartAllowed && row[EncounterSpaceTable.pulpitRecordingAllowed],
+                roomLayout = roomLayoutOf(row),
             )
         }
     }
@@ -168,6 +175,7 @@ internal object EncounterSpaceViews {
             put("profile", row[EncounterSpaceTable.profile])
             put("reactions", row[EncounterSpaceTable.reactionSet])
             put("notifyMode", row[EncounterSpaceTable.notifyMode])
+            put("roomLayout", row[EncounterSpaceTable.roomLayout])
             put("tablesEnabled", row[EncounterSpaceTable.tablesEnabled])
             put("tableCount", row[EncounterSpaceTable.tableCount].toInt())
             put("tableSeats", row[EncounterSpaceTable.tableSeats].toInt())

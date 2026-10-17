@@ -36,8 +36,10 @@ import network.lapis.cloud.shared.domain.EncounterGuestPolicy
 import network.lapis.cloud.shared.domain.EncounterNotifyMode
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterReactionOption
+import network.lapis.cloud.shared.domain.EncounterRoomLayout
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
 import network.lapis.cloud.shared.domain.MemberStatus
+import network.lapis.cloud.shared.domain.defaultRoomLayout
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
@@ -465,6 +467,7 @@ internal class EncounterFixtures {
         tableCount: Int = 4,
         tableSeats: Int = 6,
         pulpitRecordingAllowed: Boolean = false,
+        roomLayout: EncounterRoomLayout = defaultRoomLayout(profile),
     ): Uuid {
         val id = Uuid.random()
         val now = DbClock.nowLocalDateTime()
@@ -475,6 +478,7 @@ internal class EncounterFixtures {
                 it[description] = ""
                 it[themeKey] = "CHURCH"
                 it[EncounterSpaceTable.profile] = profile.name
+                it[EncounterSpaceTable.roomLayout] = roomLayout.name
                 it[reactionSet] = reactionSetCsv(reactions)
                 it[EncounterSpaceTable.notifyMode] = notifyMode.name
                 it[EncounterSpaceTable.tablesEnabled] = tablesEnabled

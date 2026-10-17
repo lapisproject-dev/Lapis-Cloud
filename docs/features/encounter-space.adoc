@@ -15,6 +15,12 @@ link:../architecture/encounter-space.adoc[docs/architecture/encounter-space.adoc
   link:pulpit-recording.adoc[Optional recording of the pulpit (V1.9.143)]. Without that option (the default) nothing is recorded at all, and the entry panel and the consent
   text say so; with it, they say the opposite.
 
+== Room template (V1.9.152)
+
+When a room is created or edited (BOARD/ADMIN) the form offers a *room template*: nave (church service), foyer and cafe, hall, or small-group room. It decides how the room looks: an altar with pews, a counter with round tables and stools, a podium with rows of chairs, or a board with long tables. A template that does not fit the chosen room kind is greyed out with the reason; choosing the foyer or the small-group room switches the tables on and pre-fills them. The template can only be changed while the room is closed.
+
+It is decoration for the room and is the same for everybody who is present: it changes nothing about who may speak, where people sit or which entry notice they acknowledge, and it stores nothing about a person. "Szene aus" in the control bar hides it on one device; high-contrast settings hide the drawings by themselves.
+
 == What other people in the room see and hear of a guest (V1.9.148)
 
 The entry notice that a guest (or friend) acknowledges is administered in the agreement texts (kinds `ENC_CHURCH` and `ENC_ASSEM`, see link:agreement-texts.adoc[Agreement texts]) and its built-in placeholder states exactly this:

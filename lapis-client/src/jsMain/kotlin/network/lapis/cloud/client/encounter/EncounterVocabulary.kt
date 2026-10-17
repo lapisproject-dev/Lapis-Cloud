@@ -6,7 +6,9 @@ import network.lapis.cloud.client.ActionIcon
 import network.lapis.cloud.shared.domain.EncounterPresenceRole
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterReactionOption
+import network.lapis.cloud.shared.domain.EncounterRoomLayout
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
+import network.lapis.cloud.shared.domain.allowedFor
 
 /**
  * V1.9.67 Begegnungsraum Stufe 1 -- the ONE place that knows which words and which picture belong to which [EncounterProfile]. Everything
@@ -24,12 +26,6 @@ internal class EncounterTerms(
     val profile: EncounterProfile,
 ) {
     private val church: Boolean get() = profile == EncounterProfile.CHURCH_SERVICE
-
-    /** Floor-plan scene of this profile: the front (altar or podium, once at the top) and the repeating row of benches or chairs. */
-    val sceneFrontPath: String
-        get() = if (church) "$SCENE_DIR/church/front.svg" else "$SCENE_DIR/hall/front.svg"
-    val sceneRowPath: String
-        get() = if (church) "$SCENE_DIR/church/row.svg" else "$SCENE_DIR/hall/row.svg"
 
     fun profileName(): String = if (church) gettext("Gottesdienst") else gettext("Versammlung")
 
@@ -423,13 +419,54 @@ internal class EncounterTerms(
     fun recordingUnavailableNote(): String = gettext("Der Aufzeichnungsdienst ist gerade nicht verfügbar.")
 
     fun recordingFailedNote(): String = gettext("Die Aufzeichnung konnte nicht geändert werden. Bitte versuchen Sie es erneut.")
-
-    private companion object {
-        const val SCENE_DIR = "/assets/encounter-themes"
-    }
 }
 
 internal fun termsFor(profile: EncounterProfile): EncounterTerms = EncounterTerms(profile)
+
+// ── V1.9.152 (stage 2c): the fixed room templates. Words only; the data (which drawing stands where) is `EncounterRoomLayouts`. ─────────────────
+
+/** Legend of the template choice in the room form. */
+internal fun layoutLegend(): String = gettext("Raumvorlage")
+
+/** Name of a template: a plain label of the choice tile and the spoken sentence. */
+internal fun layoutName(layout: EncounterRoomLayout): String =
+    when (layout) {
+        EncounterRoomLayout.NAVE -> gettext("Kirchenschiff")
+        EncounterRoomLayout.FOYER -> gettext("Foyer und Café")
+        EncounterRoomLayout.HALL -> gettext("Saal")
+        EncounterRoomLayout.SMALL_GROUP -> gettext("Kleingruppenraum")
+    }
+
+/** One short line under the name of a template. */
+internal fun layoutDescription(layout: EncounterRoomLayout): String =
+    when (layout) {
+        EncounterRoomLayout.NAVE -> gettext("Altar, Bankreihen und Pflanzen.")
+        EncounterRoomLayout.FOYER -> gettext("Ein Tresen, runde Tische und Hocker.")
+        EncounterRoomLayout.HALL -> gettext("Ein Podium und Stuhlreihen.")
+        EncounterRoomLayout.SMALL_GROUP -> gettext("Eine Tafel und lange Tische.")
+    }
+
+/** Why a template cannot be chosen for the room kind that is chosen: it names the kind that offers it. Pure; the rule itself is `allowedFor`. */
+internal fun layoutLockedReason(layout: EncounterRoomLayout): String {
+    val offeredBy = if (layout.allowedFor(EncounterProfile.CHURCH_SERVICE)) EncounterProfile.CHURCH_SERVICE else EncounterProfile.ASSEMBLY
+    return gettext("Nur in der Raumart %1.", termsFor(offeredBy).profileName())
+}
+
+/** The single sentence a screen reader gets about the template (the drawings themselves are `aria-hidden`). */
+internal fun layoutRoomSentence(layout: EncounterRoomLayout): String = gettext("Raumvorlage: %1", layoutName(layout))
+
+/** Status line after the form reset the template because the room kind changed. */
+internal fun layoutResetNotice(layout: EncounterRoomLayout): String =
+    gettext("Die Raumvorlage wurde auf %1 gesetzt, passend zur Raumart.", layoutName(layout))
+
+/** Status line after the form switched the tables on for a template that is built around tables. */
+internal fun layoutTablesNotice(
+    count: Int,
+    seats: Int,
+): String = gettext("Die Tische wurden eingeschaltet: %1 Tische mit je %2 Plätzen.", count, seats)
+
+/** Shown under the template choice while the room is open. */
+internal fun layoutFrozenNote(): String = gettext("Die Raumvorlage lässt sich nur bei geschlossenem Raum ändern.")
 
 /** Visible label of a configurable reaction (plain text, also the accessible name of its button). */
 internal fun reactionLabel(option: EncounterReactionOption): String =

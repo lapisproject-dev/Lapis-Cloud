@@ -24861,3 +24861,63 @@ msgstr "El aviso no cumple la estructura requerida."
 
 msgid "Der Hinweis wurde geändert. Bitte lesen und bestätigen Sie ihn erneut."
 msgstr "El aviso ha cambiado. Por favor, léalo y confírmelo de nuevo."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Raumvorlage"
+msgstr "Plantilla de sala"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Kirchenschiff"
+msgstr "Nave de la iglesia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Foyer und Café"
+msgstr "Vestíbulo y cafetería"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Saal"
+msgstr "Salón"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Kleingruppenraum"
+msgstr "Sala de grupos pequeños"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Altar, Bankreihen und Pflanzen."
+msgstr "Altar, filas de bancos y plantas."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Ein Tresen, runde Tische und Hocker."
+msgstr "Un mostrador, mesas redondas y taburetes."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Ein Podium und Stuhlreihen."
+msgstr "Un podio y filas de sillas."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Eine Tafel und lange Tische."
+msgstr "Una pizarra y mesas largas."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Nur in der Raumart %1."
+msgstr "Solo en el tipo de sala %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Raumvorlage: %1"
+msgstr "Plantilla de sala: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Die Raumvorlage wurde auf %1 gesetzt, passend zur Raumart."
+msgstr "La plantilla de sala se ha cambiado a %1 para que coincida con el tipo de sala."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Die Tische wurden eingeschaltet: %1 Tische mit je %2 Plätzen."
+msgstr "Se activaron las mesas: %1 mesas con %2 plazas cada una."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Die Raumvorlage lässt sich nur bei geschlossenem Raum ändern."
+msgstr "La plantilla de sala solo se puede cambiar con la sala cerrada."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoomLayoutChoice.kt
+msgid "Wählen Sie zuerst die Raumart."
+msgstr "Elija primero el tipo de sala."

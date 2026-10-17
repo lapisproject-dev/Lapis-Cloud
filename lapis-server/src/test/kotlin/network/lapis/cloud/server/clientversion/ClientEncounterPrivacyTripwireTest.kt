@@ -815,4 +815,39 @@ class ClientEncounterPrivacyTripwireTest :
             (limit <= 64) shouldBe true
             Regex("\"lapis-encounter-floor\"").findAll(LIVEKIT_SESSION.readText()).count() shouldBe 0
         }
+
+        test(
+            "V1.9.152: the room templates are decoration -- the two layout files know no member, identity, seat occupancy, roster, storage or channel",
+        ) {
+            val layoutFiles = encounterFiles().filter { it.name in setOf("EncounterRoomLayouts.kt", "EncounterRoomLayoutChoice.kt") }
+            withClue("the scan sees both files") { layoutFiles.size shouldBe 2 }
+            val person =
+                Regex(
+                    """\b(?:Member\w*|memberId|identity|displayName|initials|EncounterPresentDto|SeatSlot|SeatGridModel|SeatCell|""" +
+                        """presentPeople|roster|participants?|isGuest|myRole|EncounterTerms|EncounterSpaceDto)\b""",
+                )
+            layoutFiles.forEach { file ->
+                val code = codeLines(file).filterNot { it.trimStart().startsWith("import ") }
+                withClue("${file.name} names a person or a seat: ${code.filter { person.containsMatchIn(it) }}") {
+                    code.filter { person.containsMatchIn(it) }.shouldBeEmpty()
+                }
+                code
+                    .filter {
+                        STORAGE.containsMatchIn(
+                            it,
+                        ) ||
+                            CONSOLE.containsMatchIn(it) ||
+                            NO_LEAK_CHANNELS.containsMatchIn(it)
+                    }.shouldBeEmpty()
+                code.filter { EXCEPTION_MESSAGE.containsMatchIn(it) || INNER_HTML.containsMatchIn(it) }.shouldBeEmpty()
+            }
+            // the shared template type carries no person either: an enum of four names and two pure functions
+            val shared = SHARED_ENCOUNTER.readText()
+            val enumBody = Regex("""enum class EncounterRoomLayout \{([^}]*)}""").find(shared)!!.groupValues[1]
+            enumBody
+                .split(",")
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .toSet() shouldBe setOf("NAVE", "FOYER", "HALL", "SMALL_GROUP")
+        }
     })

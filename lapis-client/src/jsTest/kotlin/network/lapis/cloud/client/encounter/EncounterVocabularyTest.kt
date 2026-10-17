@@ -3,9 +3,11 @@ package network.lapis.cloud.client.encounter
 import network.lapis.cloud.shared.domain.EncounterPresenceRole
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterReactionOption
+import network.lapis.cloud.shared.domain.EncounterRoomLayout
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
@@ -85,13 +87,28 @@ class EncounterVocabularyTest {
     }
 
     @Test
-    fun theScenesOfTheProfiles_areDistinctFilesOfTheirOwnFolders() {
-        val church = termsFor(EncounterProfile.CHURCH_SERVICE)
-        val assembly = termsFor(EncounterProfile.ASSEMBLY)
-        assertEquals("/assets/encounter-themes/church/front.svg", church.sceneFrontPath)
-        assertEquals("/assets/encounter-themes/church/row.svg", church.sceneRowPath)
-        assertEquals("/assets/encounter-themes/hall/front.svg", assembly.sceneFrontPath)
-        assertEquals("/assets/encounter-themes/hall/row.svg", assembly.sceneRowPath)
+    fun theObjectsOfTheRoomTemplates_liveInTheVersionedFolder_andEveryTemplateHasItsOwnRowTile() {
+        assertEquals("/assets/encounter-objects-v1/altar.svg", encounterObjectPath(EncounterObjectKind.ALTAR))
+        assertEquals("/assets/encounter-objects-v1/table-round.svg", encounterObjectPath(EncounterObjectKind.TABLE_ROUND))
+        assertEquals(EncounterObjectKind.ROW_PEW, EncounterRoomLayouts.spec(EncounterRoomLayout.NAVE).row)
+        assertEquals(EncounterObjectKind.ROW_STOOL, EncounterRoomLayouts.spec(EncounterRoomLayout.FOYER).row)
+        assertEquals(EncounterObjectKind.ROW_CHAIR, EncounterRoomLayouts.spec(EncounterRoomLayout.HALL).row)
+        assertEquals(EncounterObjectKind.TABLE_LONG, EncounterRoomLayouts.spec(EncounterRoomLayout.SMALL_GROUP).table)
+        // no template still points at the V1.9.67 folder
+        EncounterObjectKind.entries.forEach { assertFalse(encounterObjectPath(it).contains("encounter-themes")) }
+    }
+
+    @Test
+    fun everyRoomTemplate_hasAName_aDescription_andALockedReasonThatNamesTheKindThatOffersIt() {
+        EncounterRoomLayout.entries.forEach {
+            assertTrue(layoutName(it).isNotBlank(), it.name)
+            assertTrue(layoutDescription(it).isNotBlank(), it.name)
+            assertTrue(layoutRoomSentence(it).contains(layoutName(it)), it.name)
+        }
+        assertEquals("Nur in der Raumart Gottesdienst.", layoutLockedReason(EncounterRoomLayout.NAVE))
+        assertEquals("Nur in der Raumart Versammlung.", layoutLockedReason(EncounterRoomLayout.FOYER))
+        assertEquals("Nur in der Raumart Versammlung.", layoutLockedReason(EncounterRoomLayout.SMALL_GROUP))
+        assertEquals("Raumvorlage: Saal", layoutRoomSentence(EncounterRoomLayout.HALL))
     }
 
     @Test

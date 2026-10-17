@@ -24040,3 +24040,63 @@ msgstr ""
 
 msgid "Der Hinweis wurde geändert. Bitte lesen und bestätigen Sie ihn erneut."
 msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Raumvorlage"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Kirchenschiff"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Foyer und Café"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Saal"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Kleingruppenraum"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Altar, Bankreihen und Pflanzen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Ein Tresen, runde Tische und Hocker."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Ein Podium und Stuhlreihen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Eine Tafel und lange Tische."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Nur in der Raumart %1."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Raumvorlage: %1"
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Die Raumvorlage wurde auf %1 gesetzt, passend zur Raumart."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Die Tische wurden eingeschaltet: %1 Tische mit je %2 Plätzen."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Die Raumvorlage lässt sich nur bei geschlossenem Raum ändern."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoomLayoutChoice.kt
+msgid "Wählen Sie zuerst die Raumart."
+msgstr ""

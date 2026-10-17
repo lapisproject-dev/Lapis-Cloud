@@ -26,12 +26,14 @@ import network.lapis.cloud.shared.domain.EncounterPresentDto
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterReaction
 import network.lapis.cloud.shared.domain.EncounterReactionOption
+import network.lapis.cloud.shared.domain.EncounterRoomLayout
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.EncounterSpaceMode
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
 import network.lapis.cloud.shared.domain.EncounterTableTokenDto
 import network.lapis.cloud.shared.domain.EncounterTablesConfig
 import network.lapis.cloud.shared.domain.EncounterTheme
+import network.lapis.cloud.shared.domain.defaultRoomLayout
 import network.lapis.cloud.shared.rpc.IEncounterSpaceService
 import org.w3c.dom.HTMLElement
 import kotlin.js.Promise
@@ -52,6 +54,7 @@ internal fun testSpace(
     reactions: List<EncounterReactionOption> = EncounterReactionOption.defaultsFor(profile),
     notifyMode: network.lapis.cloud.shared.domain.EncounterNotifyMode = network.lapis.cloud.shared.domain.EncounterNotifyMode.NONE,
     tables: EncounterTablesConfig = EncounterTablesConfig(),
+    roomLayout: EncounterRoomLayout = defaultRoomLayout(profile),
 ) = EncounterSpaceDto(
     id = id,
     title = title,
@@ -72,6 +75,7 @@ internal fun testSpace(
     reactions = reactions,
     notifyMode = notifyMode,
     tables = tables,
+    roomLayout = roomLayout,
 )
 
 /** V1.9.80: an assembly room with 3 tables of 6 seats. */

@@ -24976,3 +24976,63 @@ msgstr "Informacja nie spełnia wymaganego układu."
 
 msgid "Der Hinweis wurde geändert. Bitte lesen und bestätigen Sie ihn erneut."
 msgstr "Informacja została zmieniona. Proszę ją przeczytać i potwierdzić ponownie."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Raumvorlage"
+msgstr "Szablon pokoju"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Kirchenschiff"
+msgstr "Nawa kościoła"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Foyer und Café"
+msgstr "Foyer i kawiarnia"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Saal"
+msgstr "Sala"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Kleingruppenraum"
+msgstr "Pokój małych grup"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Altar, Bankreihen und Pflanzen."
+msgstr "Ołtarz, rzędy ławek i rośliny."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Ein Tresen, runde Tische und Hocker."
+msgstr "Lada, okrągłe stoły i stołki."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Ein Podium und Stuhlreihen."
+msgstr "Podium i rzędy krzeseł."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Eine Tafel und lange Tische."
+msgstr "Tablica i długie stoły."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Nur in der Raumart %1."
+msgstr "Tylko dla rodzaju pokoju %1."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Raumvorlage: %1"
+msgstr "Szablon pokoju: %1"
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Die Raumvorlage wurde auf %1 gesetzt, passend zur Raumart."
+msgstr "Szablon pokoju ustawiono na %1, zgodnie z rodzajem pokoju."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Die Tische wurden eingeschaltet: %1 Tische mit je %2 Plätzen."
+msgstr "Włączono stoły: %1 stołów po %2 miejsc."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterVocabulary.kt
+msgid "Die Raumvorlage lässt sich nur bei geschlossenem Raum ändern."
+msgstr "Szablon pokoju można zmienić tylko przy zamkniętym pokoju."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/encounter/EncounterRoomLayoutChoice.kt
+msgid "Wählen Sie zuerst die Raumart."
+msgstr "Najpierw wybierz rodzaj pokoju."

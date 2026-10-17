@@ -47,6 +47,7 @@ import network.lapis.cloud.server.encounter.notifyModeOf
 import network.lapis.cloud.server.encounter.parseReactionSet
 import network.lapis.cloud.server.encounter.profileOf
 import network.lapis.cloud.server.encounter.reactionSetCsv
+import network.lapis.cloud.server.encounter.roomLayoutOf
 import network.lapis.cloud.server.encounter.storedTablesOf
 import network.lapis.cloud.server.encounter.tablesOf
 import network.lapis.cloud.server.federation.FederationInboxRateLimiter
@@ -84,6 +85,7 @@ import network.lapis.cloud.shared.domain.EncounterPresenceRole
 import network.lapis.cloud.shared.domain.EncounterPresentDto
 import network.lapis.cloud.shared.domain.EncounterProfile
 import network.lapis.cloud.shared.domain.EncounterReactionOption
+import network.lapis.cloud.shared.domain.EncounterRoomLayout
 import network.lapis.cloud.shared.domain.EncounterSpaceDto
 import network.lapis.cloud.shared.domain.EncounterSpaceInput
 import network.lapis.cloud.shared.domain.EncounterSpaceMode
@@ -97,6 +99,8 @@ import network.lapis.cloud.shared.domain.EncounterTablesConfig
 import network.lapis.cloud.shared.domain.EncounterTheme
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
+import network.lapis.cloud.shared.domain.allowedFor
+import network.lapis.cloud.shared.domain.defaultRoomLayout
 import network.lapis.cloud.shared.domain.encounterSeatCapacity
 import network.lapis.cloud.shared.rpc.BadRequestException
 import network.lapis.cloud.shared.rpc.ConflictException
@@ -296,6 +300,8 @@ class EncounterSpaceService(
             val newReactions = valid.reactions ?: EncounterReactionOption.defaultsFor(newProfile)
             val newTables = valid.tables ?: EncounterTablesConfig()
             requireTablesFitProfile(tables = newTables, profile = newProfile)
+            val newRoomLayout = valid.roomLayout ?: defaultRoomLayout(newProfile)
+            requireLayoutFitsProfile(layout = newRoomLayout, profile = newProfile)
             val newRecordingAllowed = input.pulpitRecordingAllowed == true
             if (newRecordingAllowed && !PulpitRecordingSettingsStore.load().enabled) {
                 throw ConflictException("The pulpit recording is not enabled for this instance")
@@ -307,6 +313,7 @@ class EncounterSpaceService(
                 // theme_key stays frozen at CHURCH (V1.9.67): old cached clients still decode EncounterTheme; the profile is the truth.
                 it[EncounterSpaceTable.themeKey] = EncounterTheme.CHURCH.name
                 it[EncounterSpaceTable.profile] = newProfile.name
+                it[EncounterSpaceTable.roomLayout] = newRoomLayout.name
                 it[EncounterSpaceTable.reactionSet] = reactionSetCsv(newReactions)
                 it[EncounterSpaceTable.notifyMode] = (valid.notifyMode ?: EncounterNotifyMode.NONE).name
                 it[EncounterSpaceTable.tablesEnabled] = newTables.enabled
@@ -362,6 +369,13 @@ class EncounterSpaceService(
                 val oldTables = storedTablesOf(before)
                 val newTables = valid.tables ?: oldTables
                 requireTablesFitProfile(tables = newTables, profile = newProfile)
+                val oldRoomLayout = roomLayoutOf(before)
+                // Effective template = the one sent, else the stored one. A template that was SENT must fit the (possibly new) profile like the
+                // tables do (BadRequest). A stored one that no longer fits (an old cached admin client switches the profile and sends no template)
+                // is reset to the default of the new profile instead of making that client's profile switch impossible.
+                val newRoomLayout =
+                    valid.roomLayout ?: oldRoomLayout.takeIf { it.allowedFor(newProfile) } ?: defaultRoomLayout(newProfile)
+                requireLayoutFitsProfile(layout = newRoomLayout, profile = newProfile)
                 val changesProfile =
                     newProfile != profileOf(before) ||
                         reactionSetCsv(newReactions) != reactionSetCsv(parseReactionSet(before[EncounterSpaceTable.reactionSet]))
@@ -372,6 +386,10 @@ class EncounterSpaceService(
                 if (newTables != oldTables && EncounterSessions.openSession(spaceId = id) != null) {
                     // People may already sit at tables: the table layout cannot change under them (same pattern as the profile).
                     throw ConflictException("The tables can only be changed while the encounter space is closed")
+                }
+                if (newRoomLayout != oldRoomLayout && EncounterSessions.openSession(spaceId = id) != null) {
+                    // The room must not be rebuilt around people who are present (same pattern as the profile); the same value is accepted.
+                    throw ConflictException("The room template can only be changed while the encounter space is closed")
                 }
                 // V1.9.143: the option decides which consent text the non-members agreed to, so it can only be switched ON while the room is closed
                 // (same pattern as the guest policy). Switching it OFF is always allowed (it is the safer direction) and stops a running recording.
@@ -394,6 +412,7 @@ class EncounterSpaceService(
                     it[EncounterSpaceTable.title] = valid.title
                     it[EncounterSpaceTable.description] = input.description
                     it[EncounterSpaceTable.profile] = newProfile.name
+                    it[EncounterSpaceTable.roomLayout] = newRoomLayout.name
                     it[EncounterSpaceTable.reactionSet] = reactionSetCsv(newReactions)
                     it[EncounterSpaceTable.notifyMode] = newNotifyMode.name
                     it[EncounterSpaceTable.tablesEnabled] = newTables.enabled
@@ -1655,6 +1674,15 @@ class EncounterSpaceService(
         }
     }
 
+    private fun requireLayoutFitsProfile(
+        layout: EncounterRoomLayout,
+        profile: EncounterProfile,
+    ) {
+        if (!layout.allowedFor(profile)) {
+            throw BadRequestException("The room template $layout does not fit the profile $profile")
+        }
+    }
+
     /** Initials of a display name ("Anna Maria Beispiel" becomes "AB"): the only name a table ever shows. */
     private fun initialsOf(displayName: String): String {
         val parts = displayName.split(' ', '-', '\t').filter { it.isNotBlank() }
@@ -1676,6 +1704,7 @@ class EncounterSpaceService(
         val reactions: List<EncounterReactionOption>?,
         val notifyMode: EncounterNotifyMode?,
         val tables: EncounterTablesConfig?,
+        val roomLayout: EncounterRoomLayout?,
     )
 
     private data class OpenOutcome(
@@ -1739,6 +1768,7 @@ class EncounterSpaceService(
             reactions = reactions?.let { EncounterReactionOption.normalize(it) },
             notifyMode = input.notifyMode,
             tables = tables,
+            roomLayout = input.roomLayout,
         )
     }
 

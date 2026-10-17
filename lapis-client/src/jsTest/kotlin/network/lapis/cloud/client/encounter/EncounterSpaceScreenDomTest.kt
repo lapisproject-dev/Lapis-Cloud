@@ -212,8 +212,13 @@ class EncounterSpaceScreenDomTest {
     private fun HTMLElement.profileRadios(): List<HTMLInputElement> =
         allOf("input[type=radio]").map { it as HTMLInputElement }.filter { it.getAttribute("value") in profileValues }
 
+    // V1.9.152: the room templates are radios too (values NAVE, FOYER, HALL, SMALL_GROUP); they are neither a room kind nor a notify mode.
+    private val layoutValues = setOf("NAVE", "FOYER", "HALL", "SMALL_GROUP")
+
     private fun HTMLElement.notifyRadios(): List<HTMLInputElement> =
-        allOf("input[type=radio]").map { it as HTMLInputElement }.filter { it.getAttribute("value") !in profileValues }
+        allOf("input[type=radio]")
+            .map { it as HTMLInputElement }
+            .filter { it.getAttribute("value") !in profileValues && it.getAttribute("value") !in layoutValues }
 
     private fun HTMLElement.profileRadio(profile: String): HTMLInputElement =
         allOf("input[type=radio]").first { it.getAttribute("value") == profile } as HTMLInputElement

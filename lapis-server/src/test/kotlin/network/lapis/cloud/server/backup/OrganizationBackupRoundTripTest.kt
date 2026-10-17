@@ -261,6 +261,9 @@ class OrganizationBackupRoundTripTest :
                     it[description] = ""
                     it[themeKey] = "CHURCH"
                     it[mode] = "SERVICE"
+                    // V1.9.152: a NON-default template (FOYER with the assembly profile), so a restore that dropped the column would show.
+                    it[profile] = "ASSEMBLY"
+                    it[roomLayout] = "FOYER"
                     it[guestPolicy] = "MEMBERS_ONLY"
                     it[pulpitRecordingAllowed] = true
                     it[createdAt] = LocalDateTime(2027, 1, 3, 8, 0)
@@ -342,12 +345,16 @@ class OrganizationBackupRoundTripTest :
                         it[PulpitRecordingDocumentTable.spaceId] shouldBe pulpitSpaceId
                         it[PulpitRecordingDocumentTable.recordedAt] shouldBe LocalDateTime(2027, 1, 3, 10, 30)
                     }
-                    EncounterSpaceTable
-                        .selectAll()
-                        .where {
-                            EncounterSpaceTable.id eq pulpitSpaceId
-                        }.single()[EncounterSpaceTable.pulpitRecordingAllowed] shouldBe
-                        true
+                    val restoredSpace =
+                        EncounterSpaceTable
+                            .selectAll()
+                            .where {
+                                EncounterSpaceTable.id eq pulpitSpaceId
+                            }.single()
+                    restoredSpace[EncounterSpaceTable.pulpitRecordingAllowed] shouldBe true
+                    // V1.9.152: the room template came back (not silently reset to the default).
+                    restoredSpace[EncounterSpaceTable.roomLayout] shouldBe "FOYER"
+                    restoredSpace[EncounterSpaceTable.profile] shouldBe "ASSEMBLY"
                 }
 
                 // The blob file itself round-tripped byte-for-byte.

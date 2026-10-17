@@ -275,3 +275,12 @@ Details: `scripts/loadtest/README.adoc`, Laufzettel `docs/architecture/encounter
 - **Nie Mitglieds-IDs, E-Mails, Tokens oder Raumnamen in Ergebnissen** (Teilnehmende heißen `p01`..`p40`). Das Werkzeug nutzt nie Admin- oder Amtsträger-Zugänge und löscht keine Konten (`cleanup` gibt nur die E-Mail-Liste aus).
 - **`scripts/loadtest/lib/routes.json` ist an die Methodenreihenfolge von `IEncounterSpaceService` gebunden** (Route = `/rpc/routeEncounterSpaceServiceManager<Index>`): Tripwire `LoadTestRouteIndexTripwireTest`, Drahtformat `LoadTestWireContractTest` (gleiche Fixtures wie die Node-Tests). **Neue RPC-Methoden ans ENDE** des Interfaces, nie in die Mitte.
 - Node-Tests (`node --test scripts/loadtest/test/*.test.mjs`) laufen als eigener CI-Job `loadtest`, ohne `npm install`; die optionale Medienschicht (`@livekit/rtc-node`) wird in CI nie installiert und nur per `import()` bei `--media=livekit` geladen.
+
+## Begegnungsraum: Raumvorlagen (V1.9.152)
+
+Details: Abschnitt "Stage 2c" in `docs/architecture/encounter-space.adoc`. Kurzregeln:
+
+- **Die Vorlage beschreibt den Raum, nie eine Person** und ist für alle Anwesenden gleich (`encounter_space.room_layout`, V109). Sie geht nie in `encounterConsentFor` ein (der Eintrittshinweis und sein Hash hängen nicht von ihr ab) und nie in eine Platz- oder Tischlogik. `EncounterRoomLayouts.kt`/`EncounterRoomLayoutChoice.kt` kennen keine Person (Tripwire `ClientEncounterPrivacyTripwireTest`, V1.9.152-Block).
+- **Die Regel "welche Vorlage zu welcher Raumart passt" steht an EINER Stelle**: `EncounterRoomLayout.allowedFor` in `lapis-shared` (Server, Formular und der SQL-CHECK `chk_encounter_space_room_layout_profile` spiegeln sie). Eine neue Vorlage ändert alle vier Stellen.
+- **Die zehn Zeichnungen in `encounter-objects-v1/` sind unveränderlich versioniert**: jede Änderung an einer SVG braucht den neuen SHA-256 in `lapis-client/build.gradle.kts` (`videoEffectExpectedSha256`), sonst bricht `stageVideoEffectAssets` auf dem Staging UND auf der Webpack-Kopie (`check` allein prüft die Webpack-Kopie nicht; `:lapis-client:jsBrowserProductionWebpack` ist Pflicht). Eine inhaltlich neue Fassung bekommt einen neuen Ordner (`encounter-objects-v2`).
+- Im Client verzweigt nichts auf das Profil außer `EncounterVocabulary.kt` (Tripwire `ClientEncounterVocabularyTripwireTest`): die Raumvorlagen-Texte stehen dort (`layoutName`, `layoutLockedReason`, ...).

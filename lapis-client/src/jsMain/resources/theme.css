@@ -3326,21 +3326,55 @@ html .form-select.is-invalid:focus {
   overflow: hidden;
 }
 
-/* Die Szene: Ebene 0 -- vorne (Altarraum oder Podium) einmal oben, dahinter die Reihen als Kachel hinter den Plaetzen. Die Maske selbst
-   (`--lapis-enc-scene-front` / `--lapis-enc-scene-row`) setzt EncounterSceneLayout inline: ein `url()` hier wuerde der Bundler zur
-   Build-Zeit aufloesen, die Dateien sind aber Laufzeit-Assets unter `/assets`. */
+/* Die Szene: Ebene 0 -- die Zeichnungen der Raumvorlage (V1.9.152: Altar, Podium, Tresen, Tafel, Pflanzen; `encounter-objects-v1`) vorne einmal oben bzw.
+   hinten unten, dahinter die Reihen als Kachel hinter den Plaetzen. Die Maske selbst (`--lapis-enc-object` / `--lapis-enc-scene-row`) setzt
+   EncounterSceneLayout bzw. `renderLayoutScene` inline: ein `url()` hier wuerde der Bundler zur Build-Zeit aufloesen, die Dateien sind aber
+   Laufzeit-Assets unter `/assets`. Farben nur aus den zwei Tokens `--lapis-encounter-scene-ink` / `-tint`; nichts animiert. */
 .lapis-encounter-scene {
   background-color: var(--lapis-encounter-scene-ink);
   pointer-events: none;
 }
 
-.lapis-encounter-scene-front {
+.lapis-encounter-scene-layer {
   position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.lapis-encounter-scene-object {
+  position: absolute;
+  background-color: var(--lapis-encounter-scene-ink);
+  -webkit-mask: var(--lapis-enc-object) center / contain no-repeat;
+  mask: var(--lapis-enc-object) center / contain no-repeat;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.lapis-encounter-scene-object--front {
   inset-block-start: 0;
+}
+
+.lapis-encounter-scene-object--rear {
+  inset-block-end: 0;
+}
+
+/* Auf dem Telefon (unter 480 px) fallen die Pflanzen weg: sie nehmen dort nur Platz, den die Plaetze brauchen. */
+@media (max-width: 479.98px) {
+  .lapis-encounter-scene-object--plant {
+    display: none;
+  }
+}
+
+/* Die Reihen-Vorschau der Raumvorlagen-Kachel im Raumformular (zwei Reihen derselben Kachel wie hinter den Plaetzen). */
+.lapis-encounter-preview-rows {
+  position: absolute;
   inset-inline: 0;
-  height: 240px;
-  -webkit-mask: var(--lapis-enc-scene-front) top center / contain no-repeat;
-  mask: var(--lapis-enc-scene-front) top center / contain no-repeat;
+  inset-block-end: 0;
+  height: calc(var(--lapis-enc-preview-row-h) * 2);
+  background-color: var(--lapis-encounter-scene-ink);
+  -webkit-mask: var(--lapis-enc-scene-row) top center / var(--lapis-enc-preview-row-w) var(--lapis-enc-preview-row-h) repeat-y;
+  mask: var(--lapis-enc-scene-row) top center / var(--lapis-enc-preview-row-w) var(--lapis-enc-preview-row-h) repeat-y;
+  pointer-events: none;
 }
 
 .lapis-encounter-scene-rows {
@@ -3350,14 +3384,26 @@ html .form-select.is-invalid:focus {
   mask: var(--lapis-enc-scene-row) top center / var(--lapis-enc-row-w) var(--lapis-enc-row-h) repeat-y;
 }
 
-.lapis-encounter--scene-off .lapis-encounter-scene {
+/* Der gesprochene Satz "Raumvorlage: ..." gehoert zur Szene: "Szene aus" nimmt ihn mit. */
+.lapis-encounter--scene-off .lapis-encounter-scene,
+.lapis-encounter--scene-off .lapis-encounter-scene-layer,
+.lapis-encounter--scene-off .lapis-encounter-room-sentence {
   display: none;
+}
+
+.lapis-encounter--scene-off .lapis-encounter-table::before {
+  content: none;
 }
 
 /* Hoher Kontrast und erzwungene Farben: das Motiv verschwindet von selbst, es darf mit dem Inhalt nie konkurrieren. */
 @media (forced-colors: active), (prefers-contrast: more) {
-  .lapis-encounter-scene {
+  .lapis-encounter-scene,
+  .lapis-encounter-scene-layer {
     display: none;
+  }
+
+  .lapis-encounter-table::before {
+    content: none;
   }
 }
 
@@ -3814,9 +3860,14 @@ html .form-select.is-invalid:focus {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(154px, 1fr));
   gap: 0.5rem;
+  /* V1.9.152: `isolate` keeps the table drawing (z-index -1) inside the grid; Foyer and Kleingruppenraum cap the columns (`--lapis-enc-table-cols`). */
+  isolation: isolate;
+  max-width: calc(var(--lapis-enc-table-cols, 12) * 154px + (var(--lapis-enc-table-cols, 12) - 1) * 0.5rem);
+  margin-inline: auto;
 }
 
 .lapis-encounter-table {
+  position: relative;
   box-sizing: border-box;
   min-width: 0;
   padding: 0.4rem;
@@ -3824,6 +3875,23 @@ html .form-select.is-invalid:focus {
   border-radius: 0.75rem;
   background: var(--lapis-encounter-surface);
   color: var(--lapis-encounter-seat-text);
+}
+
+/* V1.9.152: the table top of the template, behind the opaque card and 8 px taller (above and below only: a sideways overhang would widen the grid
+   past the 320 px that two cards need); no text ever stands on it. */
+.lapis-encounter-table::before {
+  content: "";
+  position: absolute;
+  inset: -8px 0;
+  z-index: -1;
+  background-color: var(--lapis-encounter-scene-ink);
+  -webkit-mask: var(--lapis-enc-table-art) center / 100% 100% no-repeat;
+  mask: var(--lapis-enc-table-art) center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+
+.lapis-encounter-tables-host--foyer .lapis-encounter-table {
+  border-radius: 1.5rem;
 }
 
 .lapis-encounter-table-head {
@@ -5506,6 +5574,116 @@ div:hover > .lapis-conference-pin,
     background-repeat: no-repeat;
     background-size: 100% 2.5rem, 100% 2.5rem, 100% .75rem, 100% .75rem;
     background-attachment: local, local, scroll, scroll;
+  }
+}
+
+/* V1.9.152 (Stufe 2c): die Raumvorlagen-Auswahl im Raumformular. Ein <fieldset> mit <legend>, je Vorlage ein NATIVER Radioknopf (Pfeiltasten und
+   Gruppensemantik vom Browser); der Knopf ist unsichtbar ueber die ganze Kachel gelegt, die Kachel ist sein sichtbares Gesicht mit eigenem Fokusring.
+   Mindestgroesse 140 x 112 px. Gewaehlt = dicker Rahmen PLUS Haken (nie Farbe allein), nicht waehlbar = gestrichelt PLUS Begruendung als Text. */
+.lapis-encounter-layout-fieldset {
+  min-width: 0;
+  margin: 0 0 1rem;
+  padding: 0;
+  border: 0;
+}
+
+.lapis-encounter-layout-legend {
+  float: none;
+  width: auto;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.lapis-encounter-layout-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+
+.lapis-encounter-layout-tile {
+  position: relative;
+  display: block;
+  min-width: 140px;
+  min-height: 112px;
+  cursor: pointer;
+}
+
+.lapis-encounter-layout-radio {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.lapis-encounter-layout-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  gap: 0.25rem;
+  min-height: 112px;
+  height: 100%;
+  padding: 0.5rem;
+  border: 2px solid var(--lapis-encounter-seat-text);
+  border-radius: 0.5rem;
+  background: var(--lapis-encounter-surface);
+  color: var(--lapis-encounter-seat-text);
+}
+
+.lapis-encounter-layout-preview {
+  position: relative;
+  height: 96px;
+  overflow: hidden;
+  border-radius: 0.25rem;
+  background: var(--lapis-encounter-scene-tint);
+}
+
+.lapis-encounter-layout-name {
+  font-weight: 600;
+}
+
+.lapis-encounter-layout-radio:checked + .lapis-encounter-layout-body {
+  border-width: 4px;
+  padding: calc(0.5rem - 2px);
+}
+
+.lapis-encounter-layout-radio:checked + .lapis-encounter-layout-body .lapis-encounter-layout-name::after {
+  content: " \2713";
+}
+
+.lapis-encounter-layout-radio:focus-visible + .lapis-encounter-layout-body {
+  outline: 3px solid var(--lapis-encounter-seat-text);
+  outline-offset: 3px;
+}
+
+.lapis-encounter-layout-radio:disabled,
+.lapis-encounter-layout-radio:disabled + .lapis-encounter-layout-body {
+  cursor: not-allowed;
+}
+
+.lapis-encounter-layout-radio:disabled + .lapis-encounter-layout-body {
+  border-style: dashed;
+}
+
+.lapis-encounter-layout-reason:empty {
+  display: none;
+}
+
+.lapis-encounter-layout-status:empty {
+  display: none;
+}
+
+@media (forced-colors: active) {
+  .lapis-encounter-layout-radio:checked + .lapis-encounter-layout-body {
+    border-color: Highlight;
+  }
+
+  .lapis-encounter-layout-radio:focus-visible + .lapis-encounter-layout-body {
+    outline: 3px solid Highlight;
   }
 }
 

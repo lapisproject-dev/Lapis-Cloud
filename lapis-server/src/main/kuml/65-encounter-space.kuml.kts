@@ -91,6 +91,12 @@ classDiagram(name = "EncounterSpace") {
         attribute(name = "tableSeats", type = "Int") {
             stereotype("Column") { "columnName" to "table_seats"; "sqlType" to "SMALLINT" }
         }
+        // Welle V1.9.152 (V109). The fixed room template: NAVE | FOYER | HALL | SMALL_GROUP. Describes the ROOM, never a person. The CHECK
+        // "template fits profile" (NAVE only church, FOYER/SMALL_GROUP only assembly, HALL both) lives in the SQL only.
+        attribute(name = "roomLayout", type = "String") {
+            defaultValue = "HALL"
+            stereotype("Column") { "columnName" to "room_layout"; "sqlType" to "VARCHAR(16)" }
+        }
         // MEMBERS_ONLY | MEMBERS_AND_GUESTS
         attribute(name = "guestPolicy", type = "String") {
             stereotype("Column") { "columnName" to "guest_policy"; "sqlType" to "VARCHAR(18)" }

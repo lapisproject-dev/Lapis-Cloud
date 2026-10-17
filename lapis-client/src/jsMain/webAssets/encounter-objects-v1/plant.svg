@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" preserveAspectRatio="xMidYMid meet" role="presentation" focusable="false">
+<circle cx="24" cy="24" r="20" fill="#000" fill-opacity="0.12" stroke="#000" stroke-width="2.5"/>
+<path d="M24,24 C24,10 36,8 40,12 C40,24 32,28 24,24 Z" fill="#000" fill-opacity="0.3" stroke="#000" stroke-width="2" stroke-opacity="0.8" stroke-linejoin="round"/>
+<path d="M24,24 C10,24 8,12 12,8 C24,8 28,16 24,24 Z" fill="#000" fill-opacity="0.3" stroke="#000" stroke-width="2" stroke-opacity="0.8" stroke-linejoin="round"/>
+<path d="M24,24 C24,38 12,40 8,36 C8,24 16,20 24,24 Z" fill="#000" fill-opacity="0.3" stroke="#000" stroke-width="2" stroke-opacity="0.8" stroke-linejoin="round"/>
+<circle cx="24" cy="24" r="3" fill="#000" fill-opacity="0.8"/>
+</svg>

@@ -149,7 +149,7 @@ internal class EncounterRoom(
     private val recordingLive: Div = root.div(className = "visually-hidden")
     private val bands: Div = root.div(className = "lapis-encounter-bands")
     private val main: Div = root.div(className = "lapis-encounter-main")
-    private val layout = EncounterSceneLayout(main, terms)
+    private val layout = EncounterSceneLayout(main, terms, space.roomLayout)
 
     // ── the temporary floor (V1.9.138) ──
     private val floorModel: EncounterFloorModel =

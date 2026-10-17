@@ -20,6 +20,7 @@ import network.lapis.cloud.client.sanitizeUntrustedI18nText
 import network.lapis.cloud.client.untrustedContent
 import network.lapis.cloud.shared.domain.ENCOUNTER_SEATS_PER_ROW
 import network.lapis.cloud.shared.domain.EncounterReactionOption
+import network.lapis.cloud.shared.domain.EncounterRoomLayout
 import network.lapis.cloud.shared.domain.encounterSeatPosition
 import network.lapis.cloud.shared.domain.encounterSeatRow
 import org.w3c.dom.HTMLElement
@@ -31,10 +32,11 @@ internal const val ENCOUNTER_EVENT_VISIBLE_MS = 3_000
 /**
  * V1.9.62 Begegnungsraum (B2) -- the two layers of the room (design team, Duarte: scene and operation in separate layers):
  *
- * - **Layer 0, the scene** (`lapis-encounter-scene-front` and `lapis-encounter-scene-rows`): a floor plan seen from above, drawn as CSS
- *   masks, `aria-hidden`: the front (chancel or podium) once at the top, one row of benches or chairs tiled behind the seats. Switched
- *   off by "Szene aus", by forced-colours/high-contrast modes and removed from the picture when switched off. Which drawing is used
- *   comes from the room's [EncounterTerms] (the profile); this class never asks the profile itself.
+ * - **Layer 0, the scene** (`lapis-encounter-scene-layer` and `lapis-encounter-scene-rows`): a floor plan seen from above, drawn as CSS
+ *   masks, `aria-hidden`: the drawings of the room template (V1.9.152, [EncounterRoomLayouts]: altar, podium, counter, board, plants) and
+ *   one row of benches, chairs or stools tiled behind the seats. Switched off by "Szene aus", by forced-colours/high-contrast modes and
+ *   removed from the picture when switched off. Which drawings are used comes from the room's template ([EncounterRoomLayout]); this class
+ *   never asks the profile itself.
  * - **Layer 1, the stage** (`lapis-encounter-stage`): an opaque surface (`--lapis-encounter-surface`) with the pulpit, the stewards'
  *   strip and the pews. Text is always on this surface, never on the scene, so contrast does not depend on the motif.
  *
@@ -45,10 +47,22 @@ internal const val ENCOUNTER_EVENT_VISIBLE_MS = 3_000
 internal class EncounterSceneLayout(
     parent: Container,
     private val terms: EncounterTerms,
+    private val roomLayout: EncounterRoomLayout,
 ) {
-    val root: Div = parent.div(className = "lapis-encounter")
-    private val sceneLayer: Div = root.div(className = "lapis-encounter-scene lapis-encounter-scene-front")
+    val root: Div = parent.div(className = "lapis-encounter lapis-encounter--layout-${layoutCssKey(roomLayout)}")
+
+    init {
+        // V1.9.152: layer 0 -- the drawings of the room template (altar, podium, counter, board, plants), `aria-hidden`, drawn by the very renderer the
+        // previews of the room form use. It must be the first child of the room, below the stage.
+        renderLayoutScene(parent = root, layout = roomLayout)
+    }
+
     private val stage: Div = root.div(className = "lapis-encounter-stage")
+
+    init {
+        // V1.9.152: the ONE spoken sentence about the template ("Raumvorlage: Saal"), first in the stage, not a live region (it is read, never announced).
+        stage.div(layoutRoomSentence(roomLayout), className = "visually-hidden lapis-encounter-room-sentence")
+    }
 
     /** The pulpit region; the keyboard focus lands here after entering (`tabindex=-1`: focusable by script, not a tab stop). */
     val pulpit: Div = stage.div(className = "lapis-encounter-pulpit")
@@ -82,13 +96,15 @@ internal class EncounterSceneLayout(
         )
 
     init {
-        sceneLayer.setAttribute("aria-hidden", "true")
         rowsLayer.setAttribute("aria-hidden", "true")
         // The decorative masks: set inline because the bundler would try to resolve a `url()` in theme.css at build time, and the files are
         // runtime assets served from `/assets` (staged by `stageVideoEffectAssets`). Size, repeat, colour and visibility come from theme.css
-        // through the custom properties below.
-        sceneLayer.setStyle("--lapis-enc-scene-front", "url(\"${terms.sceneFrontPath}\")")
-        rowsLayer.setStyle("--lapis-enc-scene-row", "url(\"${terms.sceneRowPath}\")")
+        // through the custom properties below. The tile behind the seats and the drawing behind a table card come from the template.
+        val spec = EncounterRoomLayouts.spec(roomLayout)
+        rowsLayer.setStyle("--lapis-enc-scene-row", "url(\"${encounterObjectPath(spec.row)}\")")
+        tablesHost.setStyle("--lapis-enc-table-art", "url(\"${encounterObjectPath(spec.table)}\")")
+        if (spec.tableColumns > 0) tablesHost.setStyle("--lapis-enc-table-cols", spec.tableColumns.toString())
+        tablesHost.addCssClass("lapis-encounter-tables-host--${layoutCssKey(roomLayout)}")
         pulpit.setAttribute("tabindex", "-1")
         pulpit.setAttribute("role", "group")
         stewards.setAttribute("role", "group")

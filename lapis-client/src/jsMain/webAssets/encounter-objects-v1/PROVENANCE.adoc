@@ -1,0 +1,28 @@
+= Encounter objects (v1): provenance
+
+All ten assets are original drawings made for Lapis Cloud (V1.9.152, "Begegnungsraum Stufe 2c", the fixed room templates): objects of a floor plan seen from above.
+They are not derived from any photograph, font, clip art or third-party artwork. They are licensed under the licence of this repository.
+Seven of them were drawn for this directory, `row-pew.svg` and `row-chair.svg` are the two row tiles of `encounter-themes/` (V1.9.67) under their new names, `row-stool.svg` was drawn in the same grid.
+
+[cols="2,3"]
+|===
+| Asset | What it shows
+
+| `altar.svg`        | The altar of the nave template: steps, an altar block with two candlesticks.
+| `podium.svg`       | The podium of the hall template: a stage with a lectern, two microphones and a step.
+| `plant.svg`        | A potted plant seen from above; sits in the corners of several templates.
+| `counter.svg`      | The counter of the foyer template, with cup rings and four stools.
+| `whiteboard.svg`   | The board of the small-group template, drawn with abstract strokes (no letters).
+| `table-round.svg`  | A round table top; drawn behind a table card of the foyer and hall templates.
+| `table-long.svg`   | A long table top; drawn behind a table card of the small-group template.
+| `row-pew.svg`      | One row of pews (352 x 56): a bench per block, aisle in the middle.
+| `row-chair.svg`    | One row of chairs (352 x 56): three chairs per block, aisle in the middle.
+| `row-stool.svg`    | One row of stools (352 x 56): three stools per block, aisle in the middle.
+|===
+
+Technical contract of every object asset (checked by `EncounterObjectAssetsTest` and, for the SHA-256 values, by the Gradle task `stageVideoEffectAssets` on the staging AND on the webpack copy):
+
+* Vector only: a `viewBox`, no raster image, no gradient, no `<text>`, no `<script>`, no `<foreignObject>`, no external reference; at most 8 KB.
+* Used as a CSS *mask* (`theme.css`, `.lapis-encounter-scene-object`, `.lapis-encounter-scene-rows`, `.lapis-encounter-table::before`): only the alpha channel counts, so the drawing uses two tones through opacity -- lines at 1.0, areas at about 0.3 -- and the colour comes from the design token `--lapis-encounter-scene-ink`.
+* The three row tiles are 352 x 56 units, exactly the footprint of one row of seats (`--lapis-enc-row-w` x `--lapis-enc-row-h` in `theme.css`, checked against `EncounterSeating` by a DOM test).
+* Decorative only (`aria-hidden`); nothing the person has to read or press ever sits on it. A change of any file here needs a new SHA-256 in `lapis-client/build.gradle.kts` (`videoEffectExpectedSha256`).

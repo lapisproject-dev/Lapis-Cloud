@@ -275,19 +275,21 @@ class EncounterStageModeDomTest {
     fun theSceneOfEachProfile_isItsOwnFloorPlan_andSwitchedOffByTheToggle(): Promise<Unit> =
         formTest {
             listOf(
-                EncounterProfile.CHURCH_SERVICE to "church",
-                EncounterProfile.ASSEMBLY to "hall",
-            ).forEach { (profile, folder) ->
+                EncounterProfile.CHURCH_SERVICE to "altar",
+                EncounterProfile.ASSEMBLY to "podium",
+            ).forEach { (profile, mainObject) ->
                 withRoom(profile) { _, element ->
-                    val front = assertNotNull(element.querySelector(".lapis-encounter-scene-front") as? HTMLElement)
+                    val layer = assertNotNull(element.querySelector(".lapis-encounter-scene-layer") as? HTMLElement)
                     val rows = assertNotNull(element.querySelector(".lapis-encounter-scene-rows") as? HTMLElement)
-                    assertEquals("true", front.getAttribute("aria-hidden"))
+                    assertEquals("true", layer.getAttribute("aria-hidden"))
                     assertEquals("true", rows.getAttribute("aria-hidden"))
-                    assertTrue(front.style.getPropertyValue("--lapis-enc-scene-front").contains("/encounter-themes/$folder/front.svg"))
-                    assertTrue(rows.style.getPropertyValue("--lapis-enc-scene-row").contains("/encounter-themes/$folder/row.svg"))
+                    val drawing = assertNotNull(layer.querySelector(".lapis-encounter-scene-object--$mainObject") as? HTMLElement)
+                    assertTrue(drawing.style.getPropertyValue("--lapis-enc-object").contains("/encounter-objects-v1/$mainObject.svg"))
+                    val tile = if (profile == EncounterProfile.CHURCH_SERVICE) "row-pew" else "row-chair"
+                    assertTrue(rows.style.getPropertyValue("--lapis-enc-scene-row").contains("/encounter-objects-v1/$tile.svg"))
                     element.barControl("Szene ausblenden").click()
                     awaitUntil("the scene is gone") { element.querySelector(".lapis-encounter--scene-off") != null }
-                    assertFalse(front.isShown() || rows.isShown(), "both layers leave the picture")
+                    assertFalse(layer.isShown() || rows.isShown(), "both layers leave the picture")
                     element.barControl("Szene ausblenden").click()
                     awaitUntil("the scene is back") { element.querySelector(".lapis-encounter--scene-off") == null }
                 }

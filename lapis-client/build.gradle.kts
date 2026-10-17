@@ -230,6 +230,20 @@ val videoEffectStagedPaths =
     ) + videoEffectBackgroundIds.map { "video-backgrounds/$it.webp" } +
         // V1.9.67 Begegnungsraum: the decorative floor-plan scenes (CSS masks, see theme.css `.lapis-encounter-scene-front`/`-rows`) ride the same staging.
         listOf("church", "hall").flatMap { theme -> listOf("front", "row").map { part -> "encounter-themes/$theme/$part.svg" } } +
+        // V1.9.152 Begegnungsraum Stufe 2c: the ten objects of the fixed room templates (served immutable under `encounter-objects-v1`, checksums below).
+        // The V1.9.67 `encounter-themes/*` files above stay staged (an old cached client still loads them); the new client no longer references them.
+        listOf(
+            "altar",
+            "podium",
+            "plant",
+            "counter",
+            "whiteboard",
+            "table-round",
+            "table-long",
+            "row-pew",
+            "row-chair",
+            "row-stool",
+        ).map { "encounter-objects-v1/$it.svg" } +
         // V1.9.97: the two recorded bells (served immutable under the versioned path `encounter-sounds-v1`).
         listOf("encounter-sounds-v1/call-bell.mp3", "encounter-sounds-v1/blessing-bell.mp3") +
         // V1.9.114: optional microphone noise suppression (RNNoise): the worklet, BOTH WebAssembly variants (SIMD or not is decided in the
@@ -243,6 +257,17 @@ val videoEffectStagedPaths =
 val videoEffectExpectedSha256 =
     mapOf(
         "mediapipe/blaze_face_short_range.tflite" to "b4578f35940bf5a1a655214a1cce5cab13eba73c1297cd78e1a04c2380b0152f",
+        // V1.9.152: the ten objects of the room templates (a changed drawing needs a new value here).
+        "encounter-objects-v1/altar.svg" to "772a94708909aa49023a03909d214acacb2bbe3e700fd6725681d529ef69234b",
+        "encounter-objects-v1/podium.svg" to "a013ba1f678ad28a07ffd70fe22764f0d97cc6e62615bf0a6af574dec1b741e0",
+        "encounter-objects-v1/plant.svg" to "670579ef15da926daf4c63059451ca4787ae25a77efbd1470b2cf7a5de2b8352",
+        "encounter-objects-v1/counter.svg" to "879ba8d690cceefa4a6e556f80f12d6385cc23d9389921f80d30288dcc03ec1e",
+        "encounter-objects-v1/whiteboard.svg" to "05e3fad20c266d6460ef2b420e5f628ff9506f7477c9d193bd88ed7e45d7f0a2",
+        "encounter-objects-v1/table-round.svg" to "7e0e0e4e4463d2d28fb67155575d1beb35c4bf7919e075e9de1b4720874606d2",
+        "encounter-objects-v1/table-long.svg" to "0772f7b3e8bb44d9b49c0d57f2985d65a49378e8e45b62b3473dfd445d7be8b0",
+        "encounter-objects-v1/row-pew.svg" to "e3e449919befe6aa97732df1e69eb45c4ad0b359503cb0e75e9220b5d7efcd08",
+        "encounter-objects-v1/row-chair.svg" to "9a97406df4b1f7bf4518558b602007168cee5b0b648eefaacfb864789dff10cf",
+        "encounter-objects-v1/row-stool.svg" to "e9bea5e3d883ef2a816f8249f80e28ad20134345468a71666fd75de858ff22ef",
         "encounter-sounds-v1/call-bell.mp3" to "b41a4b3e8a6bc490c815a3398767bf2b9a39ec9048692587f174398430434405",
         "encounter-sounds-v1/blessing-bell.mp3" to "7eebd9ed890b21ea230dfa9c3cec8ace23e728e77c1c8d8438abd22b4d91d267",
         "rnnoise-v1/rnnoise-worklet.js" to "1e06facbb3d7459b89769aa4247cd4b71263e6662e4da0c54763f3bf06f5893b",
@@ -270,6 +295,11 @@ val stageVideoEffectAssets by tasks.registering(Sync::class) {
     // V1.9.62 Begegnungsraum: scene assets (the task keeps its historical name; it stages every own asset of the client).
     from(layout.projectDirectory.dir("src/jsMain/webAssets/encounter-themes")) {
         into("encounter-themes")
+        exclude("PROVENANCE.adoc")
+    }
+    // V1.9.152: the ten objects of the fixed room templates (provenance stays in the repository).
+    from(layout.projectDirectory.dir("src/jsMain/webAssets/encounter-objects-v1")) {
+        into("encounter-objects-v1")
         exclude("PROVENANCE.adoc")
     }
     // V1.9.97: the recorded bells of the bell and the blessing.

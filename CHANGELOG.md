@@ -6,6 +6,26 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.152 -- Encounter space stage 2c: fixed room templates
+
+A room now has a *template* that decides how it looks: nave (church service), foyer and cafe, hall, small-group room. Four templates, ten own vector drawings, one new column. The template is decoration around the same operation: seats, tables, rights and the entry notice are untouched.
+**The drawings were never seen in a real browser; they are verified only by DOM tests (structure, attributes, hiding rules) and by the asset test (size, forbidden tokens, checksums). Whether they look good is open.**
+
+#### What changes
+
+- **Migration V109** (`V109__encounter_room_layout.sql`, additive, V1 to V108 untouched): `encounter_space.room_layout` is added nullable, back-filled (church service to `NAVE`, everything else to `HALL`), then `NOT NULL`, then two CHECKs (the four names; `NAVE` only with `CHURCH_SERVICE`, `FOYER`/`SMALL_GROUP` only with `ASSEMBLY`, `HALL` with both). The column keeps a database default `HALL` (valid for both profiles) so a pre-V109 server image still can create rooms after a rollback. Verified on H2 and on PostgreSQL 17.
+- **Shared:** `EncounterRoomLayout`, `allowedFor(profile)`, `defaultRoomLayout(profile)`; `EncounterSpaceInput.roomLayout` and `EncounterSpaceDto.roomLayout` as last fields with defaults (wire compatible). No new RPC method, so `scripts/loadtest/lib/routes.json` is unchanged.
+- **Server:** `createSpace`/`updateSpace` validate the combination (`BadRequestException`); a real change while a session is open is a `ConflictException`, the same value is accepted; without a template on update the stored one is kept (reset to the default if a profile switch makes it unfit). Audit snapshot carries the enum name. The consent text and its hash do not depend on the template.
+- **Assets:** `encounter-objects-v1/` with `altar`, `podium`, `plant`, `counter`, `whiteboard`, `table-round`, `table-long`, `row-pew`, `row-chair`, `row-stool` (vector, at most 8 KB, no text/script/gradient/external reference), SHA-256 checked on the staging directory and on the webpack copy.
+- **Client:** `EncounterRoomLayouts` (data and the one renderer, shared by the room and the form preview), the room draws the template (front objects, row tile, table drawing behind the table card), a visually hidden sentence "Raumvorlage: ..." (not a live region), "Szene aus" removes everything, high contrast hides the drawings. The room form gets a `<fieldset>` with four native radio tiles (at least 140 x 112 px), reasons for unfit tiles, a `role="status"` line, and pre-filled tables for foyer (6 x 4) and small-group room (3 x 8). New i18n messages in the template and all seven catalogs.
+- **Tests:** `EncounterRoomLayoutMigrationTest` (H2 + Postgres), `EncounterRoomLayoutServiceTest`, `EncounterObjectAssetsTest`, `EncounterRoomLayoutFormDomTest`, `EncounterRoomLayoutSceneDomTest`, a block in `ClientEncounterPrivacyTripwireTest`, the backup round trip carries a non-default template; the privacy watch learned the new column.
+- Docs: `docs/architecture/encounter-space.adoc` (section "Stage 2c", one kUML diagram), `docs/features/encounter-space.adoc`.
+
+#### Known limitations
+
+- The old `encounter-themes/*` drawings are no longer referenced by the current client; they stay staged for cached old clients and may be removed in a later wave.
+- The server does not couple template and tables: a foyer without tables is an empty room; only the form pre-fills them.
+
 ### V1.9.151 -- Fix: load-test tool timeout kept the event loop alive
 
 The CI job `loadtest` (V1.9.149) failed on Node 22: four tests of `kilua.test.mjs` were cancelled with "Promise resolution is still pending but the event loop has already resolved". Cause (probable, **not reproduced** locally, which has Node 26): `postJson` used `AbortSignal.timeout()`, whose timer does not keep the event loop alive, so a hanging request with nothing else running let the process end. It now uses an `AbortController` with a referenced timer, cleared in a `finally`. Tool only; no server code, no migration. Whether this is the whole cause is decided by the next CI run.

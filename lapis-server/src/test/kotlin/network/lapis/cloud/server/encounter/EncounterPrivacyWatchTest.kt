@@ -346,6 +346,8 @@ class EncounterPrivacyWatchTest :
                         "tables_enabled",
                         "table_count",
                         "table_seats",
+                        // V1.9.152: the fixed room template (what the ROOM looks like, identical for everybody present; never a person)
+                        "room_layout",
                         "guest_policy",
                         // V1.9.143: one more room setting (whether the pulpit of the room may be recorded), a flag of the room and never a person
                         "pulpit_recording_allowed",

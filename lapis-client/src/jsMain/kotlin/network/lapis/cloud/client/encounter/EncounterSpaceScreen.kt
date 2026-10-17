@@ -2,6 +2,7 @@ package network.lapis.cloud.client.encounter
 
 import io.kvision.form.check.CheckBox
 import io.kvision.form.check.radioGroup
+import io.kvision.form.text.Text
 import io.kvision.html.ButtonStyle
 import io.kvision.html.Span
 import io.kvision.html.div
@@ -242,6 +243,10 @@ internal fun renderEncounterSpaceForm(
             required = true,
             requiredMessage = tr("Bitte wählen Sie eine Raumart."),
         )
+    // V1.9.152 (stage 2c): the fixed room template. Which template fits which kind is the shared rule `allowedFor`; the choice is frozen while a session is
+    // open (the server refuses a change too). Wired to the tables and to the kind further down, where those fields exist.
+    val layoutChoice = EncounterRoomLayoutChoice(parent = form.panel, initial = existing?.roomLayout, locked = locked)
+    layoutChoice.restrictTo(existing?.profile)
     val reactionChecks = LinkedHashMap<EncounterReactionOption, LapisField>()
     val currentReactions = existing?.reactions ?: emptyList()
     EncounterReactionOption.entries.forEach { option ->
@@ -304,6 +309,24 @@ internal fun renderEncounterSpaceForm(
         if (locked) return@subscribe
         val defaults = EncounterReactionOption.defaultsFor(profile)
         reactionChecks.forEach { (option, field) -> (field.control as? CheckBox)?.value = option in defaults }
+    }
+    profileRadio.subscribe { chosen ->
+        // The kind decides which templates fit: the others are greyed out with a reason, a template that no longer fits is replaced.
+        val kind = EncounterProfile.entries.firstOrNull { it.name == chosen }
+        layoutChoice.restrictTo(kind)
+        if (!locked && kind != null) layoutChoice.adaptTo(kind)
+    }
+    // A template built around tables (foyer, small-group room) switches the tables on and pre-fills them; the person may change the numbers afterwards.
+    layoutChoice.onChosen = { layout ->
+        val preset = layoutTablePreset(layout)
+        val box = tablesCheck.control as? CheckBox
+        if (preset != null && box != null && !locked && !box.value) {
+            box.disabled = false
+            box.value = true
+            (tableCountField.control as? Text)?.value = preset.first.toString()
+            (tableSeatsField.control as? Text)?.value = preset.second.toString()
+            layoutChoice.say(layoutTablesNotice(count = preset.first, seats = preset.second))
+        }
     }
     profileRadio.subscribe { chosen ->
         val box = tablesCheck.control as? CheckBox ?: return@subscribe
@@ -421,6 +444,8 @@ internal fun renderEncounterSpaceForm(
                     closedNotice = noticeField.value.trim().ifEmpty { null },
                     maxParticipants = maxField.value.trim().toIntOrNull(),
                     notifyMode = EncounterNotifyMode.entries.firstOrNull { it.name == notifyField.value } ?: EncounterNotifyMode.NONE,
+                    // `null` = the server's default for the kind (nothing chosen); an open room sends its stored template back unchanged.
+                    roomLayout = layoutChoice.selected,
                     // `null` = unchanged: a locked box (setting unknown, not offered, room open) never overwrites the stored option.
                     pulpitRecordingAllowed = if (recordingUnlocked) recordingCheck.value == "true" else null,
                     tables =

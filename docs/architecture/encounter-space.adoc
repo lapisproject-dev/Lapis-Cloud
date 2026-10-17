@@ -362,7 +362,7 @@ The pure invariant `devicesAreFirst` pins the order in tests.
 
 === Scene, pews, reactions
 
-* *Two layers* (design team, Duarte): the scene `lapis-encounter-scene-front`/`-rows` are decorative CSS masks of the floor plans under `/assets/encounter-themes/<theme>/` (since V1.9.67, see <<stage-1>>; set inline by the layout, colour and visibility from `theme.css`; own drawings, vector only, `aria-hidden`);
+* *Two layers* (design team, Duarte): the scene (`lapis-encounter-scene-layer` with its drawings and `lapis-encounter-scene-rows`) consists of decorative CSS masks. Until V1.9.151 they were the floor plans under `/assets/encounter-themes/<theme>/` (V1.9.67, see <<stage-1>>); since V1.9.152 the drawings come from the fixed room templates under `/assets/encounter-objects-v1/` (see <<stage-2c>>; set inline by the layout, colour and visibility from `theme.css`; own drawings, vector only, `aria-hidden`). The old `encounter-themes/*` files stay in the repository and are still staged, because a cached old client still loads them; the current client no longer references them;
   the stage on top holds opaque surfaces (pulpit, stewards' strip, seats, name labels), so text never sits on the motif. Contrast pairs are documented in `theme.css`
   (`--lapis-encounter-*`, light and dark). "Szene aus" removes the layer; forced-colours and `prefers-contrast: more` hide it automatically.
 * *Pews* (B2 as built, *replaced by stage 2a, see <<stage-2a>>*): 2 blocks of 3 seats per row, an aisle between. In B2 the plan was assigned *per device* (filled alternately left/right from the
@@ -1085,6 +1085,88 @@ tells them and shows the operator's `REC_ROOM` text.
 * The unlimited retention, the `BOARD_ONLY` level (TREASURER can read it as for every such document), the draft consent texts and the model translations are decisions or
   tasks of the owner.
 
+
+[[stage-2c]]
+== Stage 2c (V1.9.152): fixed room templates
+
+A room has a *template*: what the room looks like. There are four, drawn from ten own vector drawings. The template is configuration of the *room*, never of a person, and it is identical for everybody who is present. It changes the picture and nothing else: not who may speak, not the seat grid, not the consent text.
+
+[source,kuml,name="encounter-room-layouts"]
+----
+classDiagram(name = "Encounter room templates") {
+    val space = classOf(name = "encounter_space") {
+        attribute(name = "profile", type = "String")
+        attribute(name = "room_layout", type = "String")
+        attribute(name = "tables_enabled", type = "Boolean")
+    }
+
+    val nave = classOf(name = "NAVE (church nave)") {
+        attribute(name = "front", type = "altar")
+        attribute(name = "rows", type = "pews")
+    }
+
+    val foyer = classOf(name = "FOYER (foyer and cafe)") {
+        attribute(name = "front", type = "counter")
+        attribute(name = "rows", type = "stools")
+        attribute(name = "tables", type = "round, 3 columns")
+    }
+
+    val hall = classOf(name = "HALL (hall)") {
+        attribute(name = "front", type = "podium")
+        attribute(name = "rows", type = "chairs")
+        attribute(name = "tables", type = "round")
+    }
+
+    val small = classOf(name = "SMALL_GROUP (small-group room)") {
+        attribute(name = "front", type = "board")
+        attribute(name = "rows", type = "chairs")
+        attribute(name = "tables", type = "long, 2 columns")
+    }
+
+    association(source = space, target = nave) {
+        source { multiplicity(spec = "1"); role = "room" }
+        target { multiplicity(spec = "0..1"); role = "church service only" }
+    }
+    association(source = space, target = foyer) {
+        source { multiplicity(spec = "1"); role = "room" }
+        target { multiplicity(spec = "0..1"); role = "assembly only" }
+    }
+    association(source = space, target = hall) {
+        source { multiplicity(spec = "1"); role = "room" }
+        target { multiplicity(spec = "0..1"); role = "both profiles" }
+    }
+    association(source = space, target = small) {
+        source { multiplicity(spec = "1"); role = "room" }
+        target { multiplicity(spec = "0..1"); role = "assembly only" }
+    }
+}
+----
+
+=== Data and rules
+
+* *Migration V109* (`V109__encounter_room_layout.sql`, additive; V1 to V108 untouched): the column `encounter_space.room_layout` (`VARCHAR(16)`) is added nullable, **back-filled** (church service becomes `NAVE`, every other room `HALL`), only then set `NOT NULL`, and only then do the two CHECK constraints apply (`chk_encounter_space_room_layout`: the four names; `chk_encounter_space_room_layout_profile`: `NAVE` only with `CHURCH_SERVICE`, `FOYER` and `SMALL_GROUP` only with `ASSEMBLY`, `HALL` with both). The order matters: a CHECK or `NOT NULL` before the back-fill fails on existing rows.
+  The column keeps a database default of `HALL`. `HALL` is valid for both profiles, so a row written by a server image from before V109 (a rollback, staging) still satisfies the CHECK instead of failing every `createSpace`; the current server always writes the column explicitly. Verified on H2 and on PostgreSQL 17 (`EncounterRoomLayoutMigrationScenarios`).
+* *Shared* (`lapis-shared`): `EncounterRoomLayout`, the one rule `EncounterRoomLayout.allowedFor(profile)` and `defaultRoomLayout(profile)` (nave for a church service, hall for an assembly). `EncounterSpaceInput.roomLayout` (`null`: on create the default of the profile, on update unchanged) and `EncounterSpaceDto.roomLayout` are the last fields, with a default (wire compatible both ways). `EncounterTheme` stays frozen at `CHURCH`.
+* *Service* (`createSpace`/`updateSpace`, BOARD/ADMIN): a template **that was sent** and does not fit the profile is a `BadRequestException` (never a SQL exception). On update without a template the stored one stays; if it no longer fits because the profile changes (an old cached admin client sends no template) it is reset to the default of the new profile. A real change while a session is open is a `ConflictException`, the same value is accepted (same pattern as the profile and the tables). The audit snapshot carries the enum name and no person. `encounterConsentFor` does not take the template: the entry notice and its hash are identical for all four templates (`EncounterRoomLayoutServiceTest`).
+* *The server does not couple template and tables.* `FOYER` and `SMALL_GROUP` are allowed with tables off (an empty room); only the form pre-fills the tables. They stay switchable off afterwards.
+* *Backup*: the column is exported and restored with the table (`OrganizationBackupRoundTripTest` carries a `FOYER`/`ASSEMBLY` room).
+
+=== The drawings (`encounter-objects-v1`)
+
+Ten files in `lapis-client/src/jsMain/webAssets/encounter-objects-v1` (own drawings, `PROVENANCE.adoc`): `altar`, `podium`, `plant`, `counter`, `whiteboard`, `table-round`, `table-long` and the three row tiles `row-pew`, `row-chair`, `row-stool` (352 x 56, exactly one row of seats). Vector only with a `viewBox`, no text, script, `foreignObject`, gradient or external reference, at most 8 KB, two tones through opacity (lines 1.0, areas 0.3); the colour is the token `--lapis-encounter-scene-ink`. They are staged with the other own assets and **checked by SHA-256 on the staging directory and again on the webpack copy** (`VerifyVideoEffectAssets`; a changed drawing needs a new value in `lapis-client/build.gradle.kts`). `EncounterObjectAssetsTest` pins existence, size, the forbidden tokens, the row-tile size, the checksums and the provenance entry.
+
+=== The client
+
+* `EncounterRoomLayouts` holds the template data (which drawing stands where, at most 12 per template) and the pure renderer `renderLayoutScene`. The room and the preview tiles of the form call the same function (one source, no second preview images). It knows no member, seat occupancy or identity (`ClientEncounterPrivacyTripwireTest`).
+* In the room, `EncounterSceneLayout` draws the front objects and the row tile of the template; the table drawing is a `::before` behind the opaque table card (8 px taller above and below, never under text); Foyer and small-group room cap the table columns at 3 and 2. The visually hidden sentence "Raumvorlage: ..." is the first element of the stage and **no** live region; the drawings are `aria-hidden`.
+* "Szene aus" removes all drawing layers, the table drawing and the sentence. `forced-colors: active` and `prefers-contrast: more` hide the drawings (not the sentence); below 480 px the plants are dropped. Nothing animates.
+* The room form has a `<fieldset>` "Raumvorlage" with four *native* radios (arrow keys come from the browser) in tiles of at least 140 x 112 px with a focus ring. A template that does not fit the chosen room kind is `disabled` with the reason as text. A change of the room kind resets a template that no longer fits and says so in a `role="status"` line; choosing the foyer or the small-group room switches the tables on and pre-fills them (foyer 6 x 4, small-group room 3 x 8) with a status line. The choice is frozen while a session is open.
+
+=== Known limitations of stage 2c
+
+* *The drawings were never looked at in a real browser by the author.* They are checked by DOM tests (structure, attributes, hiding rules) and by the asset test; whether they look good is open until somebody opens a room.
+* The old `encounter-themes/*` files are no longer used by the current client and could be removed in a later wave.
+* The rows behind the seats do not change their count with the template; only the tile (pews, chairs, stools).
 
 == Open questions (for the product owner and legal)
 
