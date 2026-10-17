@@ -638,7 +638,7 @@ exported, and dropped when the person leaves, when the session closes and on a r
 
 === Known limitations of stage 2a
 
-* No load test (the precondition of stage 2 in the vault, about 20 people, is not met).
+* No load test (the precondition of stage 2 in the vault, about 20 people, is not met); tool and run sheet: xref:encounter-load-test.adoc[] (V1.9.149, not run yet).
 * Seats live in the memory of one server instance; several instances would not share them (a deployment with more than one instance per Lapis instance is not supported for this feature).
 * A silenced person's nudge is dropped by LiveKit; others see the change within 20 s.
 * After a page reload the person is without a seat (by design).
@@ -696,7 +696,7 @@ The consent texts were *not* changed. *Needs legal review:* (1) the table member
 
 === Known limitations of stage 2b
 
-* No load test (the precondition of stage 2 in the vault, about 20 people, is not met); several table connections raise the TURN load (a second connection per person at a table).
+* No load test (the precondition of stage 2 in the vault, about 20 people, is not met); several table connections raise the TURN load (a second connection per person at a table); tool and run sheet: xref:encounter-load-test.adoc[] (V1.9.149, not run yet).
 * The table state lives in the memory of one server instance and is lost on a restart (the people at tables are then back in the plenary and their client reconnects or gives up).
 * Every departure briefly interrupts the others at the table (the room is replaced); the client reconnects within about half a second.
 * "Kanzel lauter": the plenary is turned down through `HTMLMediaElement.volume`, which is read-only on iOS Safari -- there the plenary keeps its full volume.

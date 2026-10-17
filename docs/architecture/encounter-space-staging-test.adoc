@@ -101,6 +101,11 @@ Written, not run. Needs four devices (steward, pulpit person, congregation membe
 | R17 | Switch the instance switch off during a recording | the recording stops at once, the band goes off, audit `INSTANCE_DISABLED`.
 |===
 
+== Load test (V1.9.149)
+
+The behaviour of the tables with about 20 to 40 people (rotation storms, relay share, CPU, time until audible) is *not* covered by the checks above. A tool and its own run sheet
+exist for it: `scripts/loadtest` and xref:encounter-load-test.adoc[]. Written, not run. Run it after checks 29 to 33 and the floor script passed on the same staging instance.
+
 == Result log
 
 (to be filled in by whoever runs the script: date, LiveKit version, result per check, deviations)

@@ -1,0 +1,8 @@
+{
+  "network.lapis.cloud.shared.rpc.UnauthenticatedException": "Unauthenticated",
+  "network.lapis.cloud.shared.rpc.ForbiddenException": "Forbidden",
+  "network.lapis.cloud.shared.rpc.NotFoundException": "NotFound",
+  "network.lapis.cloud.shared.rpc.ServiceBusyException": "ServiceBusy",
+  "network.lapis.cloud.shared.rpc.ConflictException": "Conflict",
+  "network.lapis.cloud.shared.rpc.BadRequestException": "BadRequest"
+}

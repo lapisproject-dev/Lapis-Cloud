@@ -264,3 +264,14 @@ Details: `docs/features/public-event-page.adoc`. Kurzregeln:
 - Token- und Folgeseiten (Anmelde-POST, danke, Warteliste, abgebrochen, Storno, Zahlung, Ticket inkl. `ticket.svg`/`ticket.pdf`) setzen `X-Robots-Tag: noindex, nofollow` als **erste Anweisung** im Handler (`markEventNoIndex()`, vor Rate-Limit und Fehlerbehandlung, damit auch 400/404/429/500 und Redirects ihn tragen) und rendern mit `skeleton(noIndex = true)`; dasselbe gilt für alle Fehlerseiten der Familie. Die Detailseite (200) nie. Nie zwei `name="robots"`-Metas in einem Dokument.
 - Reihenfolge der Detailseite: Fakten, Titelbild, Beschreibung, Hinweis, Anmeldekarte (`id="anmeldung"`); der Link „Zur Anmeldung“ nur bei möglicher Anmeldung und nicht leerer Beschreibung, ohne `target`.
 - Artikel-Textlinks: `ArticleMarkdown.render(md)` ohne `embedHost` bleibt byte-gleich (Golden-Test); nur im Embed-Modus bekommen absolute Links auf den eigenen Host `target="_top"`, jedes `_blank` trägt `noopener`.
+
+## Lasttest-Werkzeug (V1.9.149)
+
+Details: `scripts/loadtest/README.adoc`, Laufzettel `docs/architecture/encounter-load-test.adoc`. **Geschrieben und gegen einen Fake getestet, nie gegen eine echte Instanz gelaufen.** Kurzregeln:
+
+- **Die Allowlist ist standardmäßig leer** (`LAPIS_LT_ALLOWED_HOSTS`, `LAPIS_LT_ALLOWED_LIVEKIT_HOSTS`): nichts ist erlaubt, bis der Betreiber es in seiner Umgebung einträgt. **Keine Hostnamen, IP-Adressen oder Domains im Repo** (öffentlich; die Topologie liegt in Lapis-Cloud-Ops), außer Loopback und `example.*`/`*.test` -- `LoadTestNoHostLiteralTripwireTest` prüft Werkzeug und Laufzettel.
+- **Geheimnisse nur aus der Umgebung** (`LAPIS_LT_PASSWORD`, Konto-Muster); sie stehen nie in Argumenten, Konfigurations-JSON oder Ausgaben. Alle Ausgaben laufen durch `redact()`; Fehler werden nur als Art gemeldet, nie Antworttext.
+- **Testkonten-Präfix ist Pflicht** (`LT-`): ein Konto, dessen Anzeigename im `enterSpace`-Ergebnis nicht so beginnt, handelt nicht weiter; eine Person ohne Präfix in `listPresent` stoppt den Lauf.
+- **Nie Mitglieds-IDs, E-Mails, Tokens oder Raumnamen in Ergebnissen** (Teilnehmende heißen `p01`..`p40`). Das Werkzeug nutzt nie Admin- oder Amtsträger-Zugänge und löscht keine Konten (`cleanup` gibt nur die E-Mail-Liste aus).
+- **`scripts/loadtest/lib/routes.json` ist an die Methodenreihenfolge von `IEncounterSpaceService` gebunden** (Route = `/rpc/routeEncounterSpaceServiceManager<Index>`): Tripwire `LoadTestRouteIndexTripwireTest`, Drahtformat `LoadTestWireContractTest` (gleiche Fixtures wie die Node-Tests). **Neue RPC-Methoden ans ENDE** des Interfaces, nie in die Mitte.
+- Node-Tests (`node --test scripts/loadtest/test/*.test.mjs`) laufen als eigener CI-Job `loadtest`, ohne `npm install`; die optionale Medienschicht (`@livekit/rtc-node`) wird in CI nie installiert und nur per `import()` bei `--media=livekit` geladen.

@@ -1,0 +1,17 @@
+{
+  "name": "lapis-encounter-loadtest",
+  "version": "1.9.149",
+  "private": true,
+  "description": "Load-test tool for the encounter-room tables (V1.9.149). Never run against a real instance when this was written.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "optionalDependencies": {
+    "@livekit/rtc-node": "1.1.0"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "id": 1,
+  "result": "{\"join\":{\"roomId\":\"room-1\",\"livekitRoomName\":\"lk-room-1\",\"serverUrl\":\"wss://livekit.example.test\",\"token\":\"TOKEN-PLACEHOLDER\",\"identity\":\"identity-1\",\"displayName\":\"LT-01\",\"role\":\"PARTICIPANT\",\"expiresAt\":\"2026-10-17T12:00\",\"turnServers\":[{\"urls\":[\"turn:turn.example.test:3478\"],\"username\":\"user-placeholder\",\"credential\":\"CREDENTIAL-PLACEHOLDER\"}]},\"presenceRole\":\"CONGREGATION\",\"canPublish\":false,\"canPublishData\":true}",
+  "error": null,
+  "exceptionType": null,
+  "exceptionJson": null,
+  "jsonrpc": "2.0"
+}

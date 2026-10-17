@@ -1,0 +1,49 @@
+= Encounter room load-test tool (V1.9.149)
+:toc:
+
+A command line tool that puts up to 40 simulated people into an encounter room (assembly profile, with tables) of a *staging* instance and measures what the server and the media
+server make of it. The run sheet, thresholds and decision rule are in `docs/architecture/encounter-load-test.adoc`.
+
+*Status: built and tested only against a fake server on loopback. It has never been run against a real instance, staging or a real LiveKit server. There are no measurements.*
+
+== Requirements
+
+* Node.js 20 or newer. The RPC layer has no dependencies.
+* Optional, for `--media=livekit`: `@livekit/rtc-node`, *Apache-2.0*, exact version in `package.json`, locked in `package-lock.json`. It ships native prebuilds (macOS arm64, Linux x64
+  and arm64) and is installed with `npm install` in this directory. CI never installs it. It is only loaded (dynamic `import()`) for `--media=livekit`; without it the tool says so and stops.
+
+== Commands
+
+[source,shell]
+----
+node bin/encounter-loadtest.mjs plan     --scenario C --participants 20     # planned calls per method and minute against the server limits
+node bin/encounter-loadtest.mjs selftest --scenario C                       # whole run against the built-in fake server, no network
+node bin/encounter-loadtest.mjs run      --target https://HOST --confirm-host HOST --space-id ID --scenario A --participants 20 --media livekit
+node bin/encounter-loadtest.mjs cleanup  --target https://HOST --confirm-host HOST --space-id ID
+npm test                                                                    # the unit and scenario tests (loopback only)
+----
+
+`run --dry-run` is the same as `selftest` for a chosen scenario: it runs against the in-process fake with a virtual clock, opens no socket and marks its results `"dryRun": true`.
+
+== Safety rails (summary)
+
+* The environment variable `LAPIS_LT_ALLOWED_HOSTS` is empty by default and allows nothing. The target must be an exact entry, an `https` origin, confirmed by `--confirm-host`.
+* `LAPIS_LT_ALLOWED_LIVEKIT_HOSTS` does the same for the LiveKit URL in the join answer.
+* Hard caps: 40 participants, 30 requests per second, 45 minutes.
+* The password and the account pattern (`LAPIS_LT_EMAIL_PATTERN`, with `{n}`) come from the environment only. All output is redacted; no member id, e-mail, token, room or host name is written.
+* Only accounts whose display name starts with `LT-` act; a person without the prefix in the room stops the run.
+* `SIGINT` / `SIGTERM`: clean-up (leave table and room, logout) within a grace period of 15 seconds plus the time the clean-up needs at the configured --max-rps, exit code 130; a second signal ends at once.
+* The tool never uses an administrator or office holder login and never deletes accounts; `cleanup` prints the e-mail addresses to delete.
+
+== Layout
+
+[cols="1,3"]
+|===
+| `bin/encounter-loadtest.mjs` | the command line
+| `lib/config.mjs`, `lib/guard.mjs` | arguments and environment; all rails
+| `lib/kilua.mjs`, `lib/routes.json` | Kilua RPC by hand; route index table pinned to `IEncounterSpaceService` by `LoadTestRouteIndexTripwireTest`. New methods are appended at the END of the interface
+| `lib/participant.mjs`, `lib/scenarios.mjs`, `lib/runner.mjs` | one simulated person, the five scenarios, the run
+| `lib/media/` | `none`, `fake` (tests) and `livekit` (the optional real layer)
+| `lib/metrics.mjs`, `lib/redact.mjs` | measurements, output redaction
+| `test/` | tests, fixtures shared with the Kotlin contract test (`LoadTestWireContractTest`), the fake server
+|===

@@ -1,0 +1,8 @@
+{
+  "id": 1,
+  "result": null,
+  "error": "Too many table changes -- please wait a moment",
+  "exceptionType": "network.lapis.cloud.shared.rpc.ServiceBusyException",
+  "exceptionJson": "{\"type\":\"network.lapis.cloud.shared.rpc.ServiceBusyException\",\"message\":\"Too many table changes -- please wait a moment\"}",
+  "jsonrpc": "2.0"
+}

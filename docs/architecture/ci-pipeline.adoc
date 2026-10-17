@@ -26,9 +26,16 @@ H2 tests use several JVMs. No check was removed and no assertion was weakened.
 |`browser` (Browser tests, Karma)
 |`./gradlew :lapis-shared:allTests :lapis-client:allTests`
 |ChromeHeadless on its own runner: no more CPU competition with the server tests (the cause of the "Disconnected ... ping timeout" flakes of 2026-10-03).
+
+|`loadtest` (Load-test tool, V1.9.149)
+|`node --test scripts/loadtest/test/*.test.mjs` with Node.js 22 (`actions/setup-node`, pinned by commit SHA). No `npm install`: the tool's RPC layer has no dependencies and the
+optional LiveKit media layer (`@livekit/rtc-node`) is never installed in CI. The tests run against a fake server on loopback and need no network.
+|The only Node job. The Gradle jobs do not need Node (a Gradle test that called `node` would have made every local `check` depend on it). About one minute; `timeout-minutes: 10`.
 |===
 
-All jobs set `timeout-minutes: 30`, and the workflow sets `permissions: contents: read`. Pull-request runs are cancelled when a newer commit arrives
+The table above was written as "the three jobs"; since V1.9.149 there is a fourth, small one (`loadtest`). It is not part of the Gradle check task list below.
+
+All jobs except `loadtest` (10) set `timeout-minutes: 30`, and the workflow sets `permissions: contents: read`. Pull-request runs are cancelled when a newer commit arrives
 (`concurrency`, never for pushes to `master`). Every job prints `nproc; free -h` first, so the real runner hardware is visible in the log.
 
 == What ran where: before and after

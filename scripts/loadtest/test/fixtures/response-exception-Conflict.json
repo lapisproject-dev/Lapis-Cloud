@@ -1,0 +1,8 @@
+{
+  "id": 1,
+  "result": null,
+  "error": "Seat taken",
+  "exceptionType": "network.lapis.cloud.shared.rpc.ConflictException",
+  "exceptionJson": "{\"type\":\"network.lapis.cloud.shared.rpc.ConflictException\",\"message\":\"Seat taken\"}",
+  "jsonrpc": "2.0"
+}

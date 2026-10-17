@@ -1,0 +1,8 @@
+{
+  "id": 1,
+  "result": "[{\"memberId\":\"member-1\",\"displayName\":\"LT-01\",\"role\":\"CONGREGATION\",\"isGuest\":false,\"seat\":5}]",
+  "error": null,
+  "exceptionType": null,
+  "exceptionJson": null,
+  "jsonrpc": "2.0"
+}

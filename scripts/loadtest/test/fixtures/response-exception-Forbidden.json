@@ -1,0 +1,8 @@
+{
+  "id": 1,
+  "result": null,
+  "error": "Not authorized for this operation",
+  "exceptionType": "network.lapis.cloud.shared.rpc.ForbiddenException",
+  "exceptionJson": "{\"type\":\"network.lapis.cloud.shared.rpc.ForbiddenException\"}",
+  "jsonrpc": "2.0"
+}

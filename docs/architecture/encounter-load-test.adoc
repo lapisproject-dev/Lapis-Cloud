@@ -1,0 +1,264 @@
+= Encounter tables: load-test tool and run sheet (V1.9.149)
+:toc:
+
+This page is *written, not executed*. The tool in `scripts/loadtest` was built and tested only against a fake server on loopback. It has never run against a real
+instance, a staging system or a real LiveKit server, and *no measurement exists yet*. Every threshold below is a proposal that needs a decision by the people who run the
+system (see <<decision>>).
+
+== Purpose
+
+The tables of the assembly room (V1.9.80, stage 2b) and everything planned after them (proximity audio, stage 3) rest on one precondition that the vault names
+as business requirement BR-J1: *about 20 people in one room must work*. The default limits are 25 people per LiveKit room and 20 per table room, TURN is needed for
+a share of the participants (WorkAdventure reports about 15 percent who only get through a relay), and every person at a table holds a second connection.
+The unit and scenario tests cannot say anything about this. The tool produces the numbers; the run sheet says how to take them and what they mean.
+
+Not covered: the browser (rendering, echo cancellation, autoplay), video, and the pulpit recording. The tool talks the RPC protocol by hand and, optionally, the
+LiveKit protocol through a native SDK; it is not a browser.
+
+== What the tool does
+
+[source,kuml,name="encounter-load-test-setup"]
+----
+sequenceDiagram(name = "Load-test tool, Lapis and LiveKit with the measuring points") {
+    val operator = lifeline(name = "Operator (run sheet)")
+    val tool = lifeline(name = "encounter-loadtest (N simulated people)")
+    val lapis = lifeline(name = "Lapis staging (RPC, poller, reconciler)")
+    val livekit = lifeline(name = "LiveKit and TURN (own host)")
+    val probes = lifeline(name = "Server-side probes (docker stats, Prometheus, lk, coturn)")
+
+    message(from = operator, to = tool, label = "run --scenario A..E (allowlist, confirm-host, password from the environment)")
+    message(from = tool, to = lapis, label = "login, then enterSpace, selectSeat, listTables, joinTable, tableToken, leaveTable, leaveSpace")
+    message(from = lapis, to = tool, label = "join token (plenum) and table token (30 s)")
+    message(from = tool, to = livekit, label = "plenum connection, table connection, sine tone, data packets (media layer)")
+    message(from = livekit, to = tool, label = "audio of the others: time until audible")
+    message(from = lapis, to = livekit, label = "table room rotation on every change of a table")
+    message(from = livekit, to = tool, label = "rotation: table connection dropped, tool asks tableToken again")
+    message(from = operator, to = probes, label = "CPU, memory, packet loss, relay share, connections, GC while the run goes")
+    message(from = tool, to = operator, label = "samples.csv, events.csv, summary.json (no member ids, no names)")
+}
+----
+
+One simulated person is one test account that logs in with the normal web login, enters the room like a member would, picks a bench seat, sits at a table, speaks a
+synthetic sine tone for 20 seconds, sends a reaction or a chat line and leaves. The people are indexed `p01` to `p40`; nothing else about them ever leaves the tool.
+
+[source,kuml,name="encounter-load-test-participant-states"]
+----
+stateDiagram(name = "A simulated participant") {
+    val start = initialState()
+    val fresh = state(name = "new")
+    val present = state(name = "present")
+    val seated = state(name = "at a table")
+    val lost = state(name = "lost")
+    val left = state(name = "left")
+    val aborted = state(name = "aborted")
+
+    transition(source = start, target = fresh) { trigger = "created" }
+    transition(source = fresh, target = present) { trigger = "enterSpace" }
+    transition(source = fresh, target = aborted) { trigger = "no test prefix" }
+    transition(source = present, target = seated) { trigger = "joinTable" }
+    transition(source = seated, target = present) { trigger = "leaveTable" }
+    transition(source = present, target = lost) { trigger = "Forbidden" }
+    transition(source = lost, target = present) { trigger = "enter again" }
+    transition(source = present, target = left) { trigger = "leaveSpace" }
+}
+----
+
+States in words: *present* means the plenum is connected; *at a table* adds the table connection (a table change or a rotation stays in this state and asks `tableToken`);
+*lost* means the server deleted the presence row (`EncounterSpacePoller`, answer `ForbiddenException`, from either state); *aborted* means a guard fired and the participant makes no
+further request; *left* means `leaveTable` (if seated), `leaveSpace`, media closed and logout.
+
+=== Two layers
+
+* *RPC layer* (always): Node.js 20 or newer, no dependencies. It speaks Kilua RPC by hand (wire format pinned by `LoadTestWireContractTest` against the real route) and holds
+  all rails, scenarios and measurements. The tests and CI use only this layer.
+* *Media layer* (optional, `--media=livekit`): an adapter on `@livekit/rtc-node` (Apache-2.0, native prebuilds for macOS arm64 and Linux x64/arm64), exact version pinned in
+  `scripts/loadtest/package.json` and `package-lock.json`. It is loaded with a dynamic `import()` only for this mode and is never installed by CI. *It was written against
+  the type definitions of the pinned version and never run against a real LiveKit server.*
+
+*Why the media layer is not optional for meaningful numbers:* the presence poller (`EncounterSpacePoller`, every 60 seconds) deletes the presence row of everybody who is not
+connected to LiveKit once the row is older than 120 seconds and the person was missing in two consecutive runs. A client that only sends RPCs loses its presence after about
+two to three minutes; after that `selectSeat` and `joinTable` answer `ForbiddenException`. Reactions and chat are LiveKit data packets, the microphone exists only at a table.
+Without media the tool therefore refuses scenarios C, D and E (unless `--accept-presence-loss` is given) and prints a warning for A and B that values after 120 seconds are invalid.
+
+== Prerequisites
+
+. A *staging* instance that is a copy of the production set-up (same LiveKit configuration, same TURN). Never production.
+. A LiveKit server of its own with the metrics endpoint switched on (`prometheus_port`), and the coturn statistics.
+. An assembly room with tables (for example 4 tables with 6 seats, or 12 with 8 for the larger runs). The room is opened and closed by hand.
+. Test accounts `lt-01` to `lt-40`, created by the operator in the administration as `ACTIVE` members with the display names `LT-01` to `LT-40`, all with the same test
+  password. They are *normal members*: the tool never uses an administrator or an office holder. Guests (OIDC) and friends (registration, three per hour and address) cannot
+  be automated and are not covered.
+. Nobody else in the room. The tool stops as soon as `listPresent` shows a display name without the prefix.
+. A backup of staging, and a machine for the tool with enough downstream: 40 people with up to seven table audio tracks plus the pulpit audio is fine, video is never subscribed.
+. The Keycloak mode is *off* on staging, or the test accounts are accounts that may use the password login; otherwise `/api/auth/login` is refused for non-administrators.
+
+== Safety rails
+
+* *Allowlist, empty by default.* `LAPIS_LT_ALLOWED_HOSTS` lists exact host names (no wildcard, no IP address, no port). The target must be on it, must be an `https` origin without
+  path or user info, and `--confirm-host` must repeat it exactly. Redirects are never followed.
+* *LiveKit allowlist.* The `serverUrl` of a join answer is checked against `LAPIS_LT_ALLOWED_LIVEKIT_HOSTS` (`wss` only) before the media layer connects.
+* *Hard caps:* 40 participants, 30 requests per second for the whole run, 45 minutes. Defaults 20, 10 and the scenario length.
+* *The client stays below the server limits* (<<limits>>): the throttles are a little above them, and `plan` refuses a scenario that would exceed a limit by design.
+* *Test prefix.* The display name from `enterSpace` must start with `LT-`; otherwise that participant makes no further request and the run exits with code 3.
+* *Foreign people.* If `listPresent` shows anybody without the prefix, the run stops and cleans up (`--abort-on-foreign-presence`, default on). Only the count is kept.
+* *Secrets only from the environment* (`LAPIS_LT_PASSWORD`, the lists above). Every output goes through a redactor. Failures are reported as a kind (timeout, HTTP status, exception
+  type), never as a body or message. No member id, e-mail address, token or room name is ever written.
+* *Not-Aus.* The first `SIGINT` or `SIGTERM` makes everybody leave table and room, close the media and log out (within a grace period of 15 seconds plus the time the clean-up needs at the configured `--max-rps`); the second signal ends the process at once. Exit code 130.
+* *Abort criteria* (<<abort>>) are evaluated on the last minute during the run.
+* The synthetic tone is a sine. No voice, no recording. Chat lines are marked `[LT]`.
+
+[#limits]
+=== Server limits per member that shape the tool
+
+[cols="2,1,2", options="header"]
+|===
+| Call | Limit | Answer when exceeded
+| `listSpaces`, `getSpace`, `getEntryInfo`, `listPresent`, `listTables` | 60 per minute | `ConflictException`
+| `enterSpace` | 30 per minute | `ConflictException`
+| `leaveSpace` | 30 per minute | `ConflictException`
+| `selectSeat` | 1 per second | `ServiceBusyException`
+| `joinTable`, `leaveTable` | 1 per 2 seconds (together) | `ServiceBusyException`
+| `tableToken` | 20 per minute | `ServiceBusyException`
+|===
+
+A `ConflictException` can also mean "seat taken", and a `ServiceBusyException` also "table state full". The tool classifies by method and type, not wholesale: a taken seat is part of
+normal play ("expected"); a throttle answer while the tool's own throttle is on is "unexpected" and counts against the thresholds.
+
+== Running
+
+[source,shell]
+----
+cd scripts/loadtest
+npm install                      # only for --media=livekit (optional dependency, native)
+export LAPIS_LT_ALLOWED_HOSTS=staging.example.org
+export LAPIS_LT_ALLOWED_LIVEKIT_HOSTS=livekit.example.org
+export LAPIS_LT_EMAIL_PATTERN='lt-{n}@example.org'
+read -rs LAPIS_LT_PASSWORD && export LAPIS_LT_PASSWORD
+
+node bin/encounter-loadtest.mjs plan --scenario C --participants 20
+node bin/encounter-loadtest.mjs selftest --scenario C                    # fake server on loopback, no network
+node bin/encounter-loadtest.mjs run --target https://staging.example.org --confirm-host staging.example.org \
+     --space-id <room id> --scenario A --participants 20 --media livekit --relay-share 0.15
+node bin/encounter-loadtest.mjs cleanup --target https://staging.example.org --confirm-host staging.example.org --space-id <room id>
+----
+
+`cleanup` logs every test account in, takes it out of table and room and logs it out, then prints the *e-mail addresses* (never passwords) of the accounts to delete. Deleting them is
+the operator's job in the administration; the tool never holds an administrator login. Closing the room is manual too.
+
+== Scenarios
+
+[cols="1,3,2", options="header"]
+|===
+| # | What happens | Nominal length
+| A | Gentle: one person every 6 s enters, picks a bench seat, sits at a table after 20 to 40 s, speaks for 20 s, sends about one reaction per minute and one chat line per two minutes, leaves in a staggered way | about 10 min
+| B | Burst: everybody enters within 10 s (jitter), sits at tables within the next 10 s, holds, everybody leaves within 10 s | 5 min
+| C | Table changes: every 5 to 15 s each person moves to another table with a free seat (at least 2.2 s apart); measures `tableToken` storms after rotations | 10 min
+| D | Waves: every 2 min half of the room leaves (`leaveSpace` and disconnect), comes back after 30 s and sits down again | 15 min
+| E | Endurance: A-level behaviour with occasional table changes and microphone bursts; token renewal after rotations | 30 min
+|===
+
+The plan of a scenario is deterministic for a given `--seed`. `--duration-min` shortens or lengthens the run (a scenario that cannot fit is refused instead of being cut off).
+`--relay-share` is the share of people who force the TURN relay (default 0.15, the extra run uses 0.3).
+
+*Scenario C is deliberately kept just below the per-member `tableToken` limit* (the tool's own throttle allows 19 per minute). What it measures is how long a person waits for a fresh
+token while a rotation storm is running (`rotation_token`), not whether the limit is reached; with `--unsafe-ignore-client-throttle` (only on loopback and in the dry run) the
+limit itself can be provoked against the fake.
+
+== What to measure on the server while a run goes
+
+[cols="2,3", options="header"]
+|===
+| Probe | What to read
+| `docker stats` for the LiveKit, Lapis and coturn containers | CPU and memory, peak and plateau
+| LiveKit Prometheus (`prometheus_port`) | participants, rooms, packet loss, NACK rate, CPU
+| coturn statistics | allocations against participants = relay share
+| `lk room list`, `lk room participants list` | table rooms exist and are removed after a rotation; participants per room
+| `pg_stat_activity` (read only) | number of connections and of waiting statements
+| Lapis log lines of the reconciler and the poller | duration of their runs (there is no metric for this yet, see the CHANGELOG)
+| `jcmd <pid> GC.heap_info` or `-Xlog:gc`, staging only | heap after a full collection, GC pauses
+|===
+
+== How to read the results
+
+* `summary.json` / `summary.csv`: per method the count, `p50`, `p95`, `p99` of the latency, the rejections by type, the errors (HTTP status, timeout); the totals of *expected* and
+  *unexpected* rejections; `tableAssignMs` (from the `joinTable` request to the connected table, or to the token without media); `hearMs` (microphone on until the first audible frame at a
+  listener); `rotationTokenMs` (rotation notice until the fresh token is in use); `rotations`; `disconnects` by reason; `presenceLost`.
+* `samples.csv`: one row per call, `t_ms,p,method,latency_ms,outcome`. `events.csv`: `table_assigned`, `heard`, `rotation`, `rotation_token`, `table_lost`, `presence_lost`, `disconnect:<reason>`.
+* Latencies are real milliseconds. Durations of events are in the milliseconds of the run (real time on a real run).
+* The tool's own machine and network limit what is measured; note CPU and bandwidth of the tool host in the result log.
+* `"dryRun": true` marks results that came from the fake server; they say nothing about the system.
+
+== Thresholds (proposal)
+
+[cols="2,2", options="header"]
+|===
+| Metric | Proposed value
+| RPC latency of `enterSpace`, `joinTable`, `tableToken` | p95 below 300 ms, p99 below 1 s
+| Time to table assignment | p95 below 2 s
+| Time until audible | p95 below 1.5 s
+| Unexpected errors | below 0.5 percent of all calls
+| Unexpected disconnects in A, B and E (a rotation is not one) | 0
+| LiveKit CPU | below 70 percent
+| Heap after a full collection in E | no monotonic rise
+|===
+
+[#abort]
+=== Abort criteria (the tool applies the first three itself)
+
+* more than 5 percent unexpected errors within one minute (at least 20 calls)
+* p99 latency above 5 s within one minute (at least 20 calls)
+* more than 10 answers with an HTTP 5xx status within one minute
+* LiveKit CPU above 90 percent for 2 minutes, or memory above 85 percent (operator, from the probes)
+* a person who is not a test account is present (the tool)
+
+[#decision]
+== Decision rule (proposal)
+
+* *Stage 3 (proximity audio) may start only if scenarios A, B, C and E pass at N = 20 and at N = 25*, measured with `--relay-share 0.15`, and once more with 0.3.
+* If N = 20 does not pass: lower the participant limit to the largest passing N minus 20 percent, and postpone stages 2c and 3.
+* If only C fails (the `tableToken` storm): analyse the rotation and the limit first, no release.
+
+== Measurement table (to fill in)
+
+[cols="1,1,1,1,1,1,1,1", options="header"]
+|===
+| Scenario | N | relay share | p95 enter | p95 join | p95 token | assign p95 | audible p95
+| A | 20 | 0.15 | | | | |
+| A | 25 | 0.15 | | | | |
+| A | 30 | 0.15 | | | | |
+| B | 20 | 0.15 | | | | |
+| B | 25 | 0.15 | | | | |
+| B | 30 | 0.15 | | | | |
+| C | 20 | 0.15 | | | | |
+| C | 25 | 0.15 | | | | |
+| C | 30 | 0.15 | | | | |
+| D | 20 | 0.15 | | | | |
+| D | 25 | 0.15 | | | | |
+| E | 20 | 0.15 | | | | |
+| E | 25 | 0.15 | | | | |
+| A / C / E | 20 | 0.30 | | | | |
+|===
+
+== Privacy
+
+Only synthetic data: test accounts with a fixed prefix, a sine tone, chat lines marked `[LT]`. The result files name people `p01` to `p40` and contain no member id, e-mail
+address, token, room name or host name. Nothing of what `listPresent` returns is stored. The test accounts are deleted afterwards (by the operator), and the result log below carries
+no personal data.
+
+== Result log
+
+[cols="1,2,3,3", options="header"]
+|===
+| Date | Run (scenario, N, media, relay share) | Result | Decision / follow-up
+| | | |
+|===
+
+== Known limitations
+
+* The tool and its media layer were never run against a real instance; the wire format of the RPC calls is verified against the real Kilua route in a test, the LiveKit adapter only against a stub.
+* Only pre-created member accounts. Guests and friends cannot be automated.
+* Reactions are sent as `{"r":"APPLAUSE"}` on the topic `lapis-encounter-reaction`, chat lines as a `ConferenceChatMessage` on `lapis-chat` (an active function of the encounter room); both formats were taken from the client source, not observed on a wire. The room's reaction options decide what the other clients show.
+* Video subscription is not simulated; downstream of the tool host limits the measurement.
+* `rtc-node` may not report which ICE candidate type was chosen; then the relay share is read from the coturn statistics.
+* No server metric exists yet for the duration of the reconciler and the poller, rotations and rejected `tableToken` calls. *Proposal, not built:* a read-only admin endpoint with counters
+  and durations only (no ids). It would make runs on production-like systems comparable without log scraping.

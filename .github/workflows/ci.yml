@@ -177,6 +177,24 @@ jobs:
             **/build/test-results/**/*.xml
           retention-days: 7
 
+  # V1.9.149: the unit and scenario tests of the encounter load-test tool (scripts/loadtest). Plain Node, no dependencies, no
+  # npm install: the optional LiveKit media layer is never installed here (the tests use the fake media layer, loopback only).
+  loadtest:
+    name: Load-test tool (node --test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '22'
+
+      - name: Test the load-test tool
+        run: node --test scripts/loadtest/test/*.test.mjs
+
   # V1.9.93: builds the release image and runs the same content check the release workflow runs, so a broken check or
   # Dockerfile shows up on the pull request and not for the first time on a release tag. Not part of the tag pipeline
   # (release-image.yml builds and checks the candidate itself), hence the event condition: workflow_call inherits the

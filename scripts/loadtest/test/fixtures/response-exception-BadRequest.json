@@ -1,0 +1,8 @@
+{
+  "id": 1,
+  "result": null,
+  "error": "Table or seat out of range",
+  "exceptionType": "network.lapis.cloud.shared.rpc.BadRequestException",
+  "exceptionJson": "{\"type\":\"network.lapis.cloud.shared.rpc.BadRequestException\",\"message\":\"Table or seat out of range\"}",
+  "jsonrpc": "2.0"
+}

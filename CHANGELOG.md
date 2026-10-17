@@ -6,6 +6,42 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.149 -- Load-test tool and run sheet for the encounter tables
+
+A command line tool (`scripts/loadtest`, Node.js) and a run sheet (`docs/architecture/encounter-load-test.adoc`) for the question the tables were never tested for: does the room hold with about 20 to 40 people (BR-J1)?
+**Built and tested only against a fake server; never run against a real instance, staging or a real LiveKit; no measurements exist.** No migration (V1 to V108 untouched), no RPC change, no production code change.
+
+#### What changes
+
+- **Tool** (`scripts/loadtest`): `plan` (planned calls per method and minute against the server limits, refuses a plan that exceeds one), `run`, `cleanup` (takes every test account out of table and room, prints the e-mail addresses to delete) and `selftest` / `--dry-run` (the whole run against a built-in fake server with a virtual clock, opens no socket). It speaks Kilua RPC by hand: one POST route per method, `/rpc/routeEncounterSpaceServiceManager<N>`, parameters as JSON documents inside strings, `Unit` as `"{}"`.
+- **Scenarios A to E:** gentle, burst, table changes (rotation and `tableToken` storms), waves, endurance. Deterministic per `--seed`. The client throttles sit a little above the server limits (list 60/min, enter 30/min, leave 30/min, seat 1/s, table 1/2 s, `tableToken` 20/min), and spacing is counted from the moment a request really leaves.
+- **Rails:** empty host allowlist by default, `https` only, `--confirm-host`, no redirects, own allowlist for the LiveKit URL of a join answer, hard caps (40 people, 30 requests/s, 45 min), secrets only from the environment and redacted in every output, test-name prefix `LT-` enforced, abort on a foreign person in `listPresent`, abort criteria on the last minute (more than 5 percent unexpected errors, p99 above 5 s, more than 10 server errors), Not-Aus on `SIGINT`/`SIGTERM` (clean-up within 15 s, exit 130).
+- **Results** (`samples.csv`, `events.csv`, `summary.json`, `summary.csv`): nearest-rank p50/p95/p99 per method, rejections by type split into expected and unexpected, time to table assignment, time until audible, rotations and the time to a fresh token, disconnects by reason. People are `p01` to `p40`; no member id, e-mail, token, room or host name is ever written.
+- **Media layer** (optional, `--media=livekit`): adapter on `@livekit/rtc-node` 1.1.0 (**Apache-2.0**, released 2026-09-20, native prebuilds), exact version pinned and locked, loaded with `import()` only for this mode, audio-only subscription, sine tone, a configurable share of people forced onto the TURN relay. CI never installs it.
+- **Tests:** Node (`scripts/loadtest/test`), Kotlin `LoadTestWireContractTest` (the committed request fixtures are posted to the REAL Kilua route with a stub service behind it; the real answers are compared with the committed response fixtures; the Node tests encode and decode the same files), `LoadTestRouteIndexTripwireTest` (route table pinned to the order of `IEncounterSpaceService`, exception class names exist), `LoadTestNoHostLiteralTripwireTest` (public repository: no host name or address in the tool or the run sheet).
+- **CI:** new job `loadtest` (`node --test`, Node 22, `actions/setup-node` pinned by commit SHA, no `npm install`, 10 minutes).
+- Docs: `docs/architecture/encounter-load-test.adoc` (purpose, prerequisites, rails, scenarios A to E, server-side probes, how to read the results, proposed thresholds, abort criteria, decision rule, measurement table, privacy, result log, two kUML diagrams), `README.adoc` of the tool, links from `encounter-space.adoc` and `encounter-space-staging-test.adoc`, `ci-pipeline.adoc`, `CLAUDE.md`.
+
+#### Known limitations
+
+- **The media layer was never run against a real LiveKit.** It was written against the type definitions of the pinned version.
+- **Without a media layer the server deletes presence after about 2 to 3 minutes** (`EncounterSpacePoller` removes people who are not connected to LiveKit): scenarios C, D and E are refused with `--media=none` unless `--accept-presence-loss` is given, and A and B print a warning that values after 120 s are invalid.
+- Only pre-created member accounts. Guests (OIDC) and friends (registration limited to 3 per hour and address) cannot be automated. With Keycloak active the password login is refused for non-administrators.
+- Video subscription is not simulated; the downstream of the tool host limits what can be measured. Whether `rtc-node` reports the chosen ICE candidate type is unknown; the relay share may have to come from the coturn statistics.
+- Scenario C stays just below the per-member `tableToken` limit by design (coalesced renewals, 19/min); it measures the waiting time for a fresh token, not the rejection.
+- Test accounts must be deleted by the operator outside the tool; opening and closing the room is manual.
+- The thresholds, abort criteria and decision rule in the run sheet are proposals and need a decision.
+- **Proposal, not built:** a read-only admin metric with counts and durations only (reconciler and poller runs, rotations, rejected `tableToken` calls), no ids.
+- The Node tests are run with a shell glob (`node --test scripts/loadtest/test/*.test.mjs`) instead of a directory argument, which newer Node versions do not accept.
+
+#### Tests
+
+- Node: 62 tests in 11 files (`node --test scripts/loadtest/test/*.test.mjs`, about 5 s, loopback only -- a guard in the test helpers makes any other connection throw): guards (empty allowlist, host not listed, confirmation missing or different, http, IP literal, wildcard, user info, path, loopback, hard caps, LiveKit URL, test prefix), redaction (canary values for password, cookie, join token, table token, TURN credential, member id, refusal text, response body and e-mail through complete runs, including a failed login, HTTP 500 answers and the abort path), wire encoding and decoding against the shared fixtures, timeout, redirect, oversized and non-JSON answers, route indices, nearest-rank percentiles, CSV escaping, abort criteria, scenarios A to E to the end with no server throttling and a clean room afterwards (nobody present, nobody at a table, every session logged out), the server limits of the fake, a foreign person and a wrong display name, `SIGINT` against a child process (clean-up, `summary.json`, exit 130), dry run without a socket, the media layer against a stub and against injected delays.
+- Kotlin: `LoadTestWireContractTest` (3), `LoadTestRouteIndexTripwireTest` (2), `LoadTestNoHostLiteralTripwireTest` (1), all in `./gradlew clean check`.
+- `./gradlew clean check -Plapis.test.forks=4` with the CI exclusions and `--no-build-cache --rerun-tasks`: BUILD SUCCESSFUL in 5 min 46 s, 1040 result files, 10014 tests, 0 failures, 0 errors, 9 skipped (not from this wave). `npm audit --package-lock-only` of the tool's lock file: 0 vulnerabilities.
+- `./gradlew clean :docs-render:renderDocs` renders both new diagrams; the task still FAILS on `member-finder.adoc` ("No value passed for parameter 'name'" in `member-finder-request-states`, apparently its `finalState()`), which is unchanged since V1.9.147 and not part of this wave.
+- Not done: no run against a real instance, staging or a real LiveKit (by design of this wave).
+
 ### V1.9.148 -- Encounter entry notices are administered per instance and tell the truth
 
 The Art. 9 entry notice a non-member acknowledges before entering an encounter room is no longer fixed in code: it is **administered per instance** through the agreement texts (two new kinds `ENC_CHURCH` and `ENC_ASSEM`),

@@ -1,0 +1,8 @@
+{
+  "id": 1,
+  "result": "[{\"table\":0,\"seats\":6,\"occupiedSeats\":[1,2],\"quieted\":false}]",
+  "error": null,
+  "exceptionType": null,
+  "exceptionJson": null,
+  "jsonrpc": "2.0"
+}
