@@ -2394,3 +2394,14 @@ Client and server; details in `docs/features/agreement-texts.adoc`.
   legal text (`lapis-legal-text`, the DSGVO page) stays uncapped. *This exception was proposed with the wave and needs the owner's approval; without it the plan B is the text in full height
   at 72 ch without a frame.* Kotlin has no `overflowY` for it (the Kotlin detector stays at zero).
 * **Not verified:** a real device, Safari/iOS, a screen reader; the two-column assertions of the DOM test run only when the Karma window is at least 768 px wide.
+
+== Unavailable options (V1.9.158)
+
+Four rules for an option that cannot work in the current state:
+
+. *Do not offer what can never work here.* A select without the impossible value (the access level "Mitglieder" of an event recording), a row that does not exist (guest access in an event room). The hint text that explained the impossible choice is replaced, not kept.
+. *A control that is unavailable for a reason stays focusable.* `aria-disabled="true"` plus `aria-describedby` to a visible reason line; not `disabled`, which removes it from the focus order so nobody hears why. The click does nothing (no toast, no request).
+. *The reason is calm text.* No alert role, no error colour; one line for all controls it concerns. It is shown only to the person who may act on it (moderators); a stranger learns nothing about the state of the release.
+. *A refusal that still happens is typed.* Kilua RPC transmits only the exception type, so every refusal the person can cause has its own `@RpcServiceException` and its own German text in `AppState` (or a local catch). `ClientServiceExceptionMappingTripwireTest` fails the build for a service exception that is neither mapped, caught by the client nor listed as a known gap with its reason.
+
+A checkbox of a form (the release of an event for capture) keeps `disabled` with a visible, linked reason: unlike a toolbar control it is not part of a focus path that has to explain itself.

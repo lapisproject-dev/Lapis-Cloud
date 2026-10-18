@@ -448,6 +448,21 @@ send is not retried and not remembered. The clients drop every packet that carri
 *Unchanged on purpose.* The poller (`RecordingPoller`) has no new runtime check: the identities `evg-<uuid>` and `evg-<32 hex>` satisfy `RecordingEgressPaths.isAcceptableIdentity`
 (`RecordingPollerTest`, participant mode (i)); "Neu berechnen", the download and the speaker timeline process only tracks that already exist and obey the document rights.
 
+== Order of checks and typed refusals (V1.9.158)
+
+`startRecordingInTransaction` checks in this order: the room row (`forUpdate`), `endedAt` (`ConferenceRoomEndedException`), encounter room, *moderator*, the event capture decision (`EventRoomCaptureBlockedByAdminException`, `EventRoomCaptureBlockedByOrganizerException`), the access level of an event recording (`EventRoomRecordingAccessLevelNotAllowedException`), an already active recording (`ConferenceRecordingAlreadyActiveException`). The moderator check must precede every typed reason: before V1.9.158 the release check ran first and told any member who knew the room id whether an event was released. The stream start (`startStreamInternal`) has the same order and `ConferenceRoomEndedException`.
+
+[cols="2,3"]
+|===
+|Exception |Raised when
+
+|`ConferenceRoomEndedException` |start of a recording or stream in an ended room
+|`ConferenceRecordingAlreadyActiveException` |a recording of the room is RECORDING or STOPPING
+|`EventRoomRecordingAccessLevelNotAllowedException` |event room, access level `PUBLIC_MEMBERS`
+|`EventRoomCaptureBlockedByAdminException` |event room, instance switch off / notice outdated / text placeholder (moderator only)
+|`EventRoomCaptureBlockedByOrganizerException` |event room, event not released or not a Lapis conference (moderator only)
+|===
+
 == Known limitations
 
 * *Participant egress mode (the default since V1.9.116) was measured with one real browser participant only* (see <<Staging results (2026-10-12)>>) and re-encodes (CPU), see <<Participant egress mode (V1.9.110, default since V1.9.116)>>: a late camera, the screen-share offset, several people and the CPU cost under load are open; there is no fallback to Track Egress when LiveKit refuses a start; recordings made in Track mode (all before V1.9.116 unless `track` was set) keep their audio/video offset and cannot be repaired.

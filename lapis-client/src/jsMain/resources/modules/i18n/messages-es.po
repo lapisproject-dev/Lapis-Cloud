@@ -25030,3 +25030,27 @@ msgstr "Grabación y transmisión en directo: permitidas"
 
 msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
 msgstr "La habilitación de la grabación no se aplica a las series de fechas. Habilite cada fecha después de crearla."
+
+msgid "Aufzeichnung und Live-Stream sind für Veranstaltungen auf diesem Server nicht aktiviert. Bitte wenden Sie sich an die Administration."
+msgstr "La grabación y la transmisión en directo no están activadas para los eventos en este servidor. Póngase en contacto con la administración."
+
+msgid "Die Organisatoren haben Aufzeichnung und Live-Stream für diese Veranstaltung nicht freigegeben."
+msgstr "Los organizadores no han autorizado la grabación ni la transmisión en directo de este evento."
+
+msgid "Die Aufzeichnung einer Veranstaltung ist nur für den Vorstand oder die Administration bestimmt, weil darauf Personen zu sehen sind, die keinem größeren Kreis zugestimmt haben."
+msgstr "La grabación de un evento está destinada solo a la junta directiva o a la administración, porque muestra a personas que no han consentido un círculo más amplio."
+
+msgid "Die Aufzeichnung einer Veranstaltung ist nur für den Vorstand oder die Administration möglich."
+msgstr "Solo la junta directiva o la administración puede grabar un evento."
+
+msgid "Es läuft bereits eine Aufzeichnung."
+msgstr "Ya hay una grabación en curso."
+
+msgid "Diese Konferenz ist bereits beendet."
+msgstr "Esta conferencia ya ha terminado."
+
+msgid "Gäste und Einladungen verwalten Sie bei Veranstaltungen auf der Veranstaltungsseite."
+msgstr "En los eventos, los invitados y las invitaciones se gestionan en la página del evento."
+
+msgid "Zu viele Anfragen – bitte kurz warten."
+msgstr "Demasiadas solicitudes – espere un momento."

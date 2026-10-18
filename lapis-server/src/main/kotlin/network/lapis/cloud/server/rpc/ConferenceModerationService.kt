@@ -264,7 +264,7 @@ class ConferenceModerationService(
             val dto =
                 transaction {
                     val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq room.roomId }.single()
-                    val result = ConferenceRoomDtoMapper.toDto(row = fresh, callerId = current.memberId, liveParticipantCount = liveCount)
+                    val result = ConferenceRoomDtoMapper.toDto(row = fresh, current = current, liveParticipantCount = liveCount)
                     // AuditLogRecorder.record must be the LAST lock-taking operation in this transaction.
                     AuditLogRecorder.record(
                         actorMemberId = current.memberId,
@@ -304,7 +304,7 @@ class ConferenceModerationService(
                 it[ConferenceRoomTable.broadcastView] = view
             }
             val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq room.roomId }.single()
-            val result = ConferenceRoomDtoMapper.toDto(row = fresh, callerId = current.memberId, liveParticipantCount = 0)
+            val result = ConferenceRoomDtoMapper.toDto(row = fresh, current = current, liveParticipantCount = 0)
             // AuditLogRecorder.record must be the LAST lock-taking operation in this transaction. Metadata only -- no names.
             AuditLogRecorder.record(
                 actorMemberId = current.memberId,
@@ -340,7 +340,7 @@ class ConferenceModerationService(
                 it[ConferenceRoomTable.joinLeaveSounds] = enabled
             }
             val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq room.roomId }.single()
-            val result = ConferenceRoomDtoMapper.toDto(row = fresh, callerId = current.memberId, liveParticipantCount = 0)
+            val result = ConferenceRoomDtoMapper.toDto(row = fresh, current = current, liveParticipantCount = 0)
             // AuditLogRecorder.record must be the LAST lock-taking operation in this transaction. Metadata only -- no names.
             AuditLogRecorder.record(
                 actorMemberId = current.memberId,
@@ -376,7 +376,7 @@ class ConferenceModerationService(
                     it[ConferenceRoomTable.reactionsEnabled] = enabled
                 }
                 val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq room.roomId }.single()
-                val result = ConferenceRoomDtoMapper.toDto(row = fresh, callerId = current.memberId, liveParticipantCount = 0)
+                val result = ConferenceRoomDtoMapper.toDto(row = fresh, current = current, liveParticipantCount = 0)
                 // AuditLogRecorder.record must be the LAST lock-taking operation in this transaction. Metadata only -- no names.
                 AuditLogRecorder.record(
                     actorMemberId = current.memberId,

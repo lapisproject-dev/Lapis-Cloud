@@ -25183,3 +25183,27 @@ msgstr "Registrazione e trasmissione in diretta: consentite"
 
 msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
 msgstr "L'autorizzazione alla registrazione non vale per le serie di date. Autorizzi le singole date dopo averle create."
+
+msgid "Aufzeichnung und Live-Stream sind für Veranstaltungen auf diesem Server nicht aktiviert. Bitte wenden Sie sich an die Administration."
+msgstr "La registrazione e la diretta in streaming non sono attivate per gli eventi su questo server. Contatti l'amministrazione."
+
+msgid "Die Organisatoren haben Aufzeichnung und Live-Stream für diese Veranstaltung nicht freigegeben."
+msgstr "Gli organizzatori non hanno autorizzato la registrazione e la diretta in streaming per questo evento."
+
+msgid "Die Aufzeichnung einer Veranstaltung ist nur für den Vorstand oder die Administration bestimmt, weil darauf Personen zu sehen sind, die keinem größeren Kreis zugestimmt haben."
+msgstr "La registrazione di un evento è destinata solo al consiglio direttivo o all'amministrazione, perché mostra persone che non hanno acconsentito a una cerchia più ampia."
+
+msgid "Die Aufzeichnung einer Veranstaltung ist nur für den Vorstand oder die Administration möglich."
+msgstr "Solo il consiglio direttivo o l'amministrazione può registrare un evento."
+
+msgid "Es läuft bereits eine Aufzeichnung."
+msgstr "Una registrazione è già in corso."
+
+msgid "Diese Konferenz ist bereits beendet."
+msgstr "Questa conferenza è già terminata."
+
+msgid "Gäste und Einladungen verwalten Sie bei Veranstaltungen auf der Veranstaltungsseite."
+msgstr "Per gli eventi, gli ospiti e gli inviti si gestiscono nella pagina dell'evento."
+
+msgid "Zu viele Anfragen – bitte kurz warten."
+msgstr "Troppe richieste – attenda un momento."

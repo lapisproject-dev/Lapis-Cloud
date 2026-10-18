@@ -17,6 +17,7 @@ import network.lapis.cloud.shared.domain.ArticleDraftInput
 import network.lapis.cloud.shared.domain.ArticleDto
 import network.lapis.cloud.shared.domain.ArticleStatus
 import network.lapis.cloud.shared.rpc.IArticleService
+import network.lapis.cloud.shared.rpc.RateLimitedException
 
 /**
  * Welle V1.4.36 "Nachrichten-/Artikel-Modul, Folgewelle" -- inserts server-rendered article HTML
@@ -144,7 +145,16 @@ fun renderArticleEditor(
         fun loadReadOnly() {
             readOnlyBody.removeAll()
             AppScope.launch {
-                val html = guarded { rpcService<IArticleService>().previewArticle(initial!!.body) }
+                val html =
+                    guarded {
+                        try {
+                            rpcService<IArticleService>().previewArticle(initial!!.body)
+                        } catch (e: RateLimitedException) {
+                            // V1.9.158: the general "too many requests" text is not about the preview -- this one is
+                            notifyError(tr("Vorschau vorübergehend nicht verfügbar – bitte kurz warten."))
+                            null
+                        }
+                    }
                 if (html == null) {
                     readOnlyBody.dataErrorState(onRetry = ::loadReadOnly)
                     return@launch
@@ -305,7 +315,16 @@ fun renderArticleEditor(
                 previewPanel.removeAll()
                 previewPanel.div(tr("Vorschau wird geladen…")) { addCssClasses("text-muted small") }
                 AppScope.launch {
-                    val html = guarded { rpcService<IArticleService>().previewArticle(bodyField.value) }
+                    val html =
+                        guarded {
+                            try {
+                                rpcService<IArticleService>().previewArticle(bodyField.value)
+                            } catch (e: RateLimitedException) {
+                                // V1.9.158: the general "too many requests" text is not about the preview -- this one is
+                                notifyError(tr("Vorschau vorübergehend nicht verfügbar – bitte kurz warten."))
+                                null
+                            }
+                        }
                     previewPanel.removeAll()
                     if (html == null) {
                         previewLoadedForCurrentTab = false

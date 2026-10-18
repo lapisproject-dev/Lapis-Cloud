@@ -15481,7 +15481,7 @@ msgstr "Corriger l'entrée (supprimer)"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
 msgid "Diese Ehrung (%1) unwiderruflich löschen? Dies ist eine Datenkorrektur, keine Aberkennung -- für eine echte Aberkennung ist ein eigener Vorstandsbeschluss vorgesehen, keine Löschung dieses Eintrags."
-msgstr "Supprimer irrémédiablement cette distinction (%1) ? Il s'agit d'une correction de données et non d'un retrait : un véritable retrait requiert une décision propre du comité directeur, et non la suppression de cette entrée."
+msgstr "Supprimer irrémédiablement cette distinction (%1) ? Il s'agit d'une correction de données et non d'un retrait : un véritable retrait requiert une décision propre du conseil d'administration, et non la suppression de cette entrée."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MemberHonorsScreen.kt:1
 msgid "Eintrag gelöscht."
@@ -15965,7 +15965,7 @@ msgstr "%1 exonérés d'impôt / %2 soumis à l'impôt et, le cas échéant, aux
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
 msgid "Eigene Zahlung — Entscheidung durch ein anderes Vorstandsmitglied."
-msgstr "Paiement personnel -- décision par un autre membre du comité directeur."
+msgstr "Paiement personnel -- décision par un autre membre du conseil d'administration."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/VolunteerAllowanceApprovalsScreen.kt:1
 msgid "Jahresstatus wird geladen …"
@@ -25202,3 +25202,27 @@ msgstr "Enregistrement et diffusion en direct : autorisés"
 
 msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
 msgstr "L'autorisation d'enregistrer ne s'applique pas aux séries de dates. Autorisez chaque date après sa création."
+
+msgid "Aufzeichnung und Live-Stream sind für Veranstaltungen auf diesem Server nicht aktiviert. Bitte wenden Sie sich an die Administration."
+msgstr "L'enregistrement et la diffusion en direct ne sont pas activés pour les événements sur ce serveur. Veuillez contacter l'administration."
+
+msgid "Die Organisatoren haben Aufzeichnung und Live-Stream für diese Veranstaltung nicht freigegeben."
+msgstr "Les organisateurs n'ont pas autorisé l'enregistrement ni la diffusion en direct pour cet événement."
+
+msgid "Die Aufzeichnung einer Veranstaltung ist nur für den Vorstand oder die Administration bestimmt, weil darauf Personen zu sehen sind, die keinem größeren Kreis zugestimmt haben."
+msgstr "L'enregistrement d'un événement est réservé au conseil d'administration ou à l'administration, car il montre des personnes qui n'ont pas consenti à un cercle plus large."
+
+msgid "Die Aufzeichnung einer Veranstaltung ist nur für den Vorstand oder die Administration möglich."
+msgstr "Seuls le conseil d'administration ou l'administration peuvent enregistrer un événement."
+
+msgid "Es läuft bereits eine Aufzeichnung."
+msgstr "Un enregistrement est déjà en cours."
+
+msgid "Diese Konferenz ist bereits beendet."
+msgstr "Cette conférence est déjà terminée."
+
+msgid "Gäste und Einladungen verwalten Sie bei Veranstaltungen auf der Veranstaltungsseite."
+msgstr "Pour les événements, vous gérez les invités et les invitations sur la page de l'événement."
+
+msgid "Zu viele Anfragen – bitte kurz warten."
+msgstr "Trop de requêtes – veuillez patienter un instant."

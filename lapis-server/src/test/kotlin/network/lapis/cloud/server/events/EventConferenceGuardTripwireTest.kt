@@ -106,6 +106,44 @@ class EventConferenceGuardTripwireTest :
         }
 
         test(
+            "V1.9.158: the moderator check runs BEFORE the capture decision (typed reasons reach moderators only); the typed refusals and the decision live in the guard only",
+        ) {
+            listOf(
+                "rpc/ConferenceRecordingService.kt" to "startRecordingInTransaction",
+                "rpc/ConferenceStreamingService.kt" to "startStreamInternal",
+            ).forEach { (file, fn) ->
+                val body = EncounterSourceScan.functions(EncounterSourceScan.mainFile(file)).first { it.name == fn }.body
+                val moderator = body.indexOf("requireModeratorOrPrivileged(")
+                val capture = body.indexOf("requireEventCaptureAllowed(")
+                withClueName(name = fn) {
+                    (moderator >= 0) shouldBe true
+                    (capture >= 0) shouldBe true
+                    (moderator < capture) shouldBe true
+                }
+            }
+            // the typed reasons are thrown by the guard and nowhere else
+            val throwers =
+                SourceScan
+                    .mainFiles()
+                    .filter { file ->
+                        val code = SourceScan.blank(file.readText())
+                        code.contains("EventRoomCaptureBlockedByAdminException(") ||
+                            code.contains("EventRoomCaptureBlockedByOrganizerException(")
+                    }.map { it.name }
+            throwers shouldBe listOf("EventConferenceGuard.kt")
+            // the decision is read by the guard only (the DTO goes through eventCaptureStateFor, never through the throwing function)
+            val readers =
+                SourceScan
+                    .mainFiles()
+                    .filter { SourceScan.blank(it.readText()).contains("eventCaptureAvailability(") }
+                    .map { it.name }
+            readers shouldBe listOf("EventConferenceGuard.kt")
+            val mapper = EncounterSourceScan.mainFile("rpc/ConferenceRoomDtoMapper.kt").readText()
+            mapper shouldContain "EventConferenceGuard.eventCaptureStateFor("
+            mapper shouldNotContain "requireEventCaptureAllowed"
+        }
+
+        test(
             "requireEventCaptureAllowed is called from exactly startRecordingInTransaction and startStreamInternal (V1.9.156; startStream delegates to it)",
         ) {
             val callers =

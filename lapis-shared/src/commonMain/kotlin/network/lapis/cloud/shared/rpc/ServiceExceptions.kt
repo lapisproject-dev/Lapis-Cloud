@@ -786,3 +786,33 @@ class EventCaptureBusyException(
 class EventCaptureTextMissingException(
     override val message: String = "Publish the recording consent text for events first",
 ) : AbstractServiceException()
+
+/** V1.9.158 -- distinct type. A recording of an event room is for the board or the administration only. */
+@RpcServiceException
+class EventRoomRecordingAccessLevelNotAllowedException(
+    override val message: String = "A recording of an event room is for the board or the administration only",
+) : AbstractServiceException()
+
+/** V1.9.158 -- distinct type, sent only to moderators. Recording and streaming are not enabled for events on this instance. */
+@RpcServiceException
+class EventRoomCaptureBlockedByAdminException(
+    override val message: String = "Recording and streaming are not enabled for events on this instance",
+) : AbstractServiceException()
+
+/** V1.9.158 -- distinct type, sent only to moderators. The organizers did not release recording and streaming for this event. */
+@RpcServiceException
+class EventRoomCaptureBlockedByOrganizerException(
+    override val message: String = "The organizers did not release recording and streaming for this event",
+) : AbstractServiceException()
+
+/** V1.9.158 -- distinct type. A recording is already running in this room. */
+@RpcServiceException
+class ConferenceRecordingAlreadyActiveException(
+    override val message: String = "A recording is already running",
+) : AbstractServiceException()
+
+/** V1.9.158 -- distinct type. The conference has already ended. */
+@RpcServiceException
+class ConferenceRoomEndedException(
+    override val message: String = "This conference has already ended",
+) : AbstractServiceException()

@@ -45,6 +45,7 @@ import network.lapis.cloud.shared.domain.ConferenceStreamTargetStatus
 import network.lapis.cloud.shared.domain.ConferenceStreamTargetStatusDto
 import network.lapis.cloud.shared.domain.EncounterSpaceRole
 import network.lapis.cloud.shared.rpc.BadRequestException
+import network.lapis.cloud.shared.rpc.ConferenceRoomEndedException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IConferenceStreamingService
@@ -591,7 +592,7 @@ class ConferenceStreamingService(
                         .singleOrNull()
                         ?: throw NotFoundException("Conference room $roomUuid not found")
                 if (room[ConferenceRoomTable.endedAt] != null) {
-                    throw ConflictException("Conference room $roomUuid has already ended -- cannot start a stream")
+                    throw ConferenceRoomEndedException()
                 }
                 requireModeratorOrPrivileged(room = room, current = current)
                 // V1.9.156: an event room is streamed ONLY when the instance switch is on AND the organizer released this event; everybody who

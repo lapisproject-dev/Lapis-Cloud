@@ -4,6 +4,7 @@ import dev.kilua.rpc.getService
 import io.kvision.i18n.tr
 import kotlinx.coroutines.CancellationException
 import network.lapis.cloud.shared.domain.AccountRole
+import network.lapis.cloud.shared.domain.ConferenceEventCaptureState
 import network.lapis.cloud.shared.domain.SessionInfoDto
 import network.lapis.cloud.shared.rpc.AgreementTextDraftChangedException
 import network.lapis.cloud.shared.rpc.AgreementTextInvalidException
@@ -11,6 +12,8 @@ import network.lapis.cloud.shared.rpc.AgreementTextLayoutInvalidException
 import network.lapis.cloud.shared.rpc.AgreementTextOutdatedException
 import network.lapis.cloud.shared.rpc.AgreementTextVersionLabelTakenException
 import network.lapis.cloud.shared.rpc.BadRequestException
+import network.lapis.cloud.shared.rpc.ConferenceRecordingAlreadyActiveException
+import network.lapis.cloud.shared.rpc.ConferenceRoomEndedException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.EmailChangeAlreadyCurrentException
 import network.lapis.cloud.shared.rpc.EmailChangeMailUnavailableException
@@ -24,6 +27,9 @@ import network.lapis.cloud.shared.rpc.EventCaptureNoticeOutdatedException
 import network.lapis.cloud.shared.rpc.EventCaptureNoticeRequiredException
 import network.lapis.cloud.shared.rpc.EventCaptureOperatorNoticeOutdatedException
 import network.lapis.cloud.shared.rpc.EventCaptureTextMissingException
+import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByAdminException
+import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByOrganizerException
+import network.lapis.cloud.shared.rpc.EventRoomRecordingAccessLevelNotAllowedException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.InvalidPasswordException
 import network.lapis.cloud.shared.rpc.MemberPhotoConsentOutdatedException
@@ -150,11 +156,34 @@ suspend fun <T> guarded(block: suspend () -> T): T? =
     }
 
 /**
+ * V1.9.158 -- the fixed German text of the "unavailable option" refusals and of the general rate limit (a pure function so it is testable
+ * without a toast). They do not extend [ForbiddenException] / [ConflictException], so they never fall into those generic branches.
+ * `RateLimitedException` is the general "too many requests" text; the article preview catches it itself for its own wording.
+ */
+internal fun typedRefusalText(e: Throwable): String? =
+    when (e) {
+        is RateLimitedException -> tr("Zu viele Anfragen – bitte kurz warten.")
+        is EventRoomRecordingAccessLevelNotAllowedException ->
+            tr("Die Aufzeichnung einer Veranstaltung ist nur für den Vorstand oder die Administration möglich.")
+        is EventRoomCaptureBlockedByAdminException ->
+            conferenceEventCaptureBlockedReason(ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_BLOCKED_BY_ADMIN)
+        is EventRoomCaptureBlockedByOrganizerException ->
+            conferenceEventCaptureBlockedReason(ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_BLOCKED_BY_ORGANIZER)
+        is ConferenceRecordingAlreadyActiveException -> tr("Es läuft bereits eine Aufzeichnung.")
+        is ConferenceRoomEndedException -> tr("Diese Konferenz ist bereits beendet.")
+        else -> null
+    }
+
+/**
  * The typed-exception -> toast mapping of [guarded] (see its KDoc), extracted unchanged in V1.4.20
  * so [guarded] can hook every failure with a single line. Branch ORDER matters and is preserved:
  * the specific `@RpcServiceException` subclasses first, the generic `Throwable` fallback last.
  */
 private fun handleGuardedFailure(e: Throwable) {
+    typedRefusalText(e)?.let {
+        notifyError(it)
+        return
+    }
     when (e) {
         is UnauthenticatedException -> sessionExpired()
         is ForbiddenException -> notifyError(tr("Keine Berechtigung für diese Aktion."))
@@ -169,7 +198,6 @@ private fun handleGuardedFailure(e: Throwable) {
         // never transmits the server's own message, only the exception TYPE.
         // Welle V1.9.55 -- synthesized by the server's RpcErrorSanitizer for DB lock/statement timeouts.
         is ServiceBusyException -> notifyError(tr("Der Server ist gerade ausgelastet. Bitte versuchen Sie es in einem Moment erneut."))
-        is RateLimitedException -> notifyError(tr("Vorschau vorübergehend nicht verfügbar – bitte kurz warten."))
         // Welle V1.9.101 -- the committee-candidate search's per-member rate limit (a typed exception: Kilua RPC has no HTTP 429).
         is SearchRateLimitedException -> notifyError(tr("Zu viele Suchanfragen -- bitte kurz warten."))
         // Welle V1.9.19 "Mitglieder-Foto" -- typed, fixed toasts (Kilua RPC never transmits the server's own message).

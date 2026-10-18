@@ -25138,3 +25138,27 @@ msgstr "Opname en livestream: toegestaan"
 
 msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
 msgstr "De vrijgave van de opname geldt niet voor reeksen van afspraken. Geef de afzonderlijke afspraken na het aanmaken vrij."
+
+msgid "Aufzeichnung und Live-Stream sind für Veranstaltungen auf diesem Server nicht aktiviert. Bitte wenden Sie sich an die Administration."
+msgstr "Opname en livestream zijn op deze server niet ingeschakeld voor evenementen. Neem contact op met de administratie."
+
+msgid "Die Organisatoren haben Aufzeichnung und Live-Stream für diese Veranstaltung nicht freigegeben."
+msgstr "De organisatoren hebben opname en livestream voor dit evenement niet vrijgegeven."
+
+msgid "Die Aufzeichnung einer Veranstaltung ist nur für den Vorstand oder die Administration bestimmt, weil darauf Personen zu sehen sind, die keinem größeren Kreis zugestimmt haben."
+msgstr "De opname van een evenement is alleen bedoeld voor het bestuur of de administratie, omdat er personen in te zien zijn die niet met een grotere kring hebben ingestemd."
+
+msgid "Die Aufzeichnung einer Veranstaltung ist nur für den Vorstand oder die Administration möglich."
+msgstr "Alleen het bestuur of de administratie kan een evenement opnemen."
+
+msgid "Es läuft bereits eine Aufzeichnung."
+msgstr "Er loopt al een opname."
+
+msgid "Diese Konferenz ist bereits beendet."
+msgstr "Deze conferentie is al afgelopen."
+
+msgid "Gäste und Einladungen verwalten Sie bei Veranstaltungen auf der Veranstaltungsseite."
+msgstr "Gasten en uitnodigingen beheert u bij evenementen op de evenementpagina."
+
+msgid "Zu viele Anfragen – bitte kurz warten."
+msgstr "Te veel verzoeken – wacht even."

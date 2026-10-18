@@ -25136,3 +25136,27 @@ msgstr "Запись и прямая трансляция: разрешены"
 
 msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
 msgstr "Разрешение на запись не распространяется на серии дат. Выдайте разрешение для отдельных дат после их создания."
+
+msgid "Aufzeichnung und Live-Stream sind für Veranstaltungen auf diesem Server nicht aktiviert. Bitte wenden Sie sich an die Administration."
+msgstr "Запись и прямая трансляция не включены для мероприятий на этом сервере. Обратитесь к администрации."
+
+msgid "Die Organisatoren haben Aufzeichnung und Live-Stream für diese Veranstaltung nicht freigegeben."
+msgstr "Организаторы не разрешили запись и прямую трансляцию для этого мероприятия."
+
+msgid "Die Aufzeichnung einer Veranstaltung ist nur für den Vorstand oder die Administration bestimmt, weil darauf Personen zu sehen sind, die keinem größeren Kreis zugestimmt haben."
+msgstr "Запись мероприятия предназначена только для правления или администрации, так как на ней видны люди, не давшие согласия на более широкий круг зрителей."
+
+msgid "Die Aufzeichnung einer Veranstaltung ist nur für den Vorstand oder die Administration möglich."
+msgstr "Записывать мероприятие могут только правление или администрация."
+
+msgid "Es läuft bereits eine Aufzeichnung."
+msgstr "Запись уже идёт."
+
+msgid "Diese Konferenz ist bereits beendet."
+msgstr "Эта конференция уже завершена."
+
+msgid "Gäste und Einladungen verwalten Sie bei Veranstaltungen auf der Veranstaltungsseite."
+msgstr "Гостями и приглашениями для мероприятий управляют на странице мероприятия."
+
+msgid "Zu viele Anfragen – bitte kurz warten."
+msgstr "Слишком много запросов – подождите немного."

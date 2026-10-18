@@ -330,7 +330,7 @@ class ConferenceService(
                 .where { ConferenceRoomTable.endedAt.isNull() and ConferenceRoomTable.encounterSpaceId.isNull() and notAnEventRoom() }
                 .orderBy(ConferenceRoomTable.createdAt, SortOrder.DESC)
                 .limit(MAX_LIST_RESULTS)
-                .map { row -> rowToDto(row = row, callerId = current.memberId, liveRooms = liveRooms) }
+                .map { row -> rowToDto(row = row, current = current, liveRooms = liveRooms) }
         }
     }
 
@@ -366,7 +366,7 @@ class ConferenceService(
             // V1.9.113: an event room is readable only by its moderators and by somebody who currently sits in it.
             EventConferenceGuard.requireParticipantOrModerator(row = row, current = current)
             val fresh = reconcileRoomIfDue(row = row, liveRooms = liveRooms, now = now)
-            rowToDto(row = fresh, callerId = current.memberId, liveRooms = liveRooms)
+            rowToDto(row = fresh, current = current, liveRooms = liveRooms)
         }
     }
 
@@ -421,7 +421,7 @@ class ConferenceService(
                 it[ConferenceRoomTable.participantsMayUnmute] = input.participantsMayUnmute
             }
             val row = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.single()
-            rowToDto(row = row, callerId = current.memberId, liveRooms = mapOf(newRoomName to liveKitRoom.numParticipants))
+            rowToDto(row = row, current = current, liveRooms = mapOf(newRoomName to liveKitRoom.numParticipants))
         }
     }
 
@@ -711,7 +711,7 @@ class ConferenceService(
         }
         return transaction {
             val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
-            rowToDto(row = fresh, callerId = current.memberId, liveRooms = emptyMap())
+            rowToDto(row = fresh, current = current, liveRooms = emptyMap())
         }
     }
 
@@ -858,7 +858,7 @@ class ConferenceService(
         }
         return transaction {
             val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
-            rowToDto(row = fresh, callerId = current.memberId, liveRooms = emptyMap())
+            rowToDto(row = fresh, current = current, liveRooms = emptyMap())
         }
     }
 
@@ -996,7 +996,7 @@ class ConferenceService(
                         .where {
                             ConferenceRoomTable.id eq id
                         }.single(),
-                callerId = current.memberId,
+                current = current,
                 liveRooms = emptyMap(),
             )
         }
@@ -1129,7 +1129,7 @@ class ConferenceService(
         }
         return transaction {
             val fresh = ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq id }.single()
-            rowToDto(row = fresh, callerId = current.memberId, liveRooms = emptyMap())
+            rowToDto(row = fresh, current = current, liveRooms = emptyMap())
         }
     }
 
@@ -1622,12 +1622,12 @@ class ConferenceService(
 
     private fun rowToDto(
         row: ResultRow,
-        callerId: Uuid,
+        current: CurrentMember,
         liveRooms: Map<String, Int>,
     ): ConferenceRoomDto =
         ConferenceRoomDtoMapper.toDto(
             row = row,
-            callerId = callerId,
+            current = current,
             liveParticipantCount = liveRooms[row[ConferenceRoomTable.livekitRoomName]] ?: 0,
         )
 

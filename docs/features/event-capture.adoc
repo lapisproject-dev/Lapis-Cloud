@@ -83,6 +83,21 @@ Unique per event, subject and version, so an entry is idempotent and a new text 
 their own proofs (event title, version, day); an erasure *retains* the proof (Art. 5(2), 7(1) GDPR: it is the organization's record that the consent was acknowledged
 before the image could be recorded) -- it carries no name and no time of day.
 
+== What a moderator sees when capture is blocked (V1.9.158)
+
+The room DTO carries `eventCapture` (`ConferenceEventCaptureState`). Only a moderator of the event room (its creator, or BOARD/ADMIN) receives the concrete reason; every other caller sees `EVENT_ROOM`.
+
+[cols="2,3,3"]
+|===
+|State |Meaning |What the moderator sees
+
+|`EVENT_ROOM_CAPTURE_AVAILABLE` |switch on with the current notice and text, event released, Lapis conference |record and stream buttons work; the start dialog offers "Vorstand" and "Administration" only
+|`EVENT_ROOM_CAPTURE_BLOCKED_BY_ADMIN` |instance switch off, operator notice outdated or the consent text still the placeholder |buttons are `aria-disabled`, the line under the bar names the administration
+|`EVENT_ROOM_CAPTURE_BLOCKED_BY_ORGANIZER` |the event is not released, or it is no Lapis conference |buttons are `aria-disabled`, the line names the organizers
+|===
+
+The administration's reason has precedence, because the organizer could not help. A start that the server still refuses (the switch changed while the room was open) throws `EventRoomCaptureBlockedByAdminException` or `EventRoomCaptureBlockedByOrganizerException`; the client corrects its state and shows the same text. These typed exceptions are thrown after the moderator check, so a stranger only ever receives `ForbiddenException`.
+
 == Known limitations
 
 * Nothing was verified in a real browser, in a real call, against a real LiveKit or a real egress. A rehearsal on staging (a guest without an account, a participant egress, an RTMP stream, the banner) is the next step before a real event.

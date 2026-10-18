@@ -104,7 +104,33 @@ data class ConferenceRoomDto(
     val joinLeaveSounds: Boolean = true,
     /** V1.9.127 -- reactions enabled in this room (moderator option; client-side only, see [CONFERENCE_REACTION_TOPIC]). Appended last with a default: wire compatible. */
     val reactionsEnabled: Boolean = true,
+    /** V1.9.158 -- see [ConferenceEventCaptureState]. Appended last with a default: wire compatible (an older server sends [ConferenceEventCaptureState.NONE]). */
+    val eventCapture: ConferenceEventCaptureState = ConferenceEventCaptureState.NONE,
 )
+
+/**
+ * V1.9.158 -- whether a conference room is an EVENT room and, only for its moderators, whether recording / streaming is currently
+ * available there. The concrete reason ([EVENT_ROOM_CAPTURE_BLOCKED_BY_ADMIN], [EVENT_ROOM_CAPTURE_BLOCKED_BY_ORGANIZER]) is sent ONLY to
+ * a caller who may moderate the room; everybody else gets [EVENT_ROOM] (or [NONE] for an ordinary room), so the state of the release is
+ * never revealed to a stranger.
+ */
+@Serializable
+enum class ConferenceEventCaptureState {
+    /** An ordinary room. */
+    NONE,
+
+    /** An event room; the caller is not a moderator (or the reason is not disclosed). */
+    EVENT_ROOM,
+
+    /** An event room, the caller moderates it and recording / streaming can be started. */
+    EVENT_ROOM_CAPTURE_AVAILABLE,
+
+    /** An event room, the caller moderates it; the instance switch is off (or the consent text / operator notice is missing or outdated). */
+    EVENT_ROOM_CAPTURE_BLOCKED_BY_ADMIN,
+
+    /** An event room, the caller moderates it; the organizers did not release recording and streaming for this event. */
+    EVENT_ROOM_CAPTURE_BLOCKED_BY_ORGANIZER,
+}
 
 /**
  * Result of [network.lapis.cloud.shared.rpc.IConferenceService.joinRoom] -- the ONLY LiveKit token

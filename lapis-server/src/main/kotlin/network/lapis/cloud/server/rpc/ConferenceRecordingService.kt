@@ -42,8 +42,10 @@ import network.lapis.cloud.shared.domain.ConferenceRecordingSnapshot
 import network.lapis.cloud.shared.domain.ConferenceRecordingStatus
 import network.lapis.cloud.shared.domain.ConferenceRecordingTrackStatus
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
-import network.lapis.cloud.shared.rpc.BadRequestException
+import network.lapis.cloud.shared.rpc.ConferenceRecordingAlreadyActiveException
+import network.lapis.cloud.shared.rpc.ConferenceRoomEndedException
 import network.lapis.cloud.shared.rpc.ConflictException
+import network.lapis.cloud.shared.rpc.EventRoomRecordingAccessLevelNotAllowedException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.IConferenceRecordingService
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -250,18 +252,20 @@ class ConferenceRecordingService(
                 .singleOrNull()
                 ?: throw NotFoundException("Conference room $roomUuid not found")
         if (room[ConferenceRoomTable.endedAt] != null) {
-            throw ConflictException("Conference room $roomUuid has already ended -- cannot start a recording")
+            throw ConferenceRoomEndedException()
         }
         // V1.9.61: an encounter session is never recorded (a recording would be a lasting record of who was in a church service).
         EncounterRoomGuard.requireNotEncounterRoom(row = room)
+        // V1.9.158: the moderator check MUST come first -- the typed reasons below (event not released / switch off / access level) tell the
+        // release state of an event and may only reach a moderator; a stranger gets the neutral ForbiddenException.
+        requireModeratorOrPrivileged(room = room, current = current)
         // V1.9.156: an event room is recorded ONLY when the instance switch is on AND the organizer released this event -- and everybody who
         // enters such a room has acknowledged the capture consent (proof in event_capture_acknowledgment; EventOnlineJoin enforces it). The
         // release is frozen while the room is active, so no participant can be inside without that proof. Room-row lock is held (see above).
         EventConferenceGuard.requireEventCaptureAllowed(row = room)
-        requireModeratorOrPrivileged(room = room, current = current)
         // The file of an event room is for the board: it contains images of persons who did not agree to a wider circle.
         if (accessLevel == DocumentAccessLevel.PUBLIC_MEMBERS && EventConferenceGuard.isEventRoom(room)) {
-            throw BadRequestException("A recording of an event room cannot be shared with all members")
+            throw EventRoomRecordingAccessLevelNotAllowedException()
         }
 
         val alreadyActive =
@@ -273,7 +277,7 @@ class ConferenceRecordingService(
                 }.limit(1)
                 .any()
         if (alreadyActive) {
-            throw ConflictException("A recording is already active for this room")
+            throw ConferenceRecordingAlreadyActiveException()
         }
 
         val now = nowLocalDateTime()

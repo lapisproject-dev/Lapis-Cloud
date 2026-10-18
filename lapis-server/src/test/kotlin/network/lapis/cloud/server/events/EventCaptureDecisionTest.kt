@@ -4,7 +4,9 @@ import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.runBlocking
 import network.lapis.cloud.server.conference.ConferenceAudioGrantState
 import network.lapis.cloud.server.conference.ConferenceNotesState
@@ -35,8 +37,9 @@ import network.lapis.cloud.shared.domain.ConferenceStreamLayout
 import network.lapis.cloud.shared.domain.ConferenceStreamPlatform
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.EventOnlineKind
-import network.lapis.cloud.shared.rpc.BadRequestException
-import network.lapis.cloud.shared.rpc.ForbiddenException
+import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByAdminException
+import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByOrganizerException
+import network.lapis.cloud.shared.rpc.EventRoomRecordingAccessLevelNotAllowedException
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
@@ -200,16 +203,24 @@ class EventCaptureDecisionTest :
             return id
         }
 
-        fun allowed(roomId: Uuid): Boolean =
+        fun availability(roomId: Uuid): EventCaptureAvailability =
+            transaction {
+                EventConferenceGuard.eventCaptureAvailability(
+                    ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.single(),
+                )
+            }
+
+        /** The thrown typed refusal (V1.9.158) of the guard, or `null` when it lets the room through. */
+        fun refusal(roomId: Uuid): Throwable? =
             try {
                 transaction {
                     EventConferenceGuard.requireEventCaptureAllowed(
                         ConferenceRoomTable.selectAll().where { ConferenceRoomTable.id eq roomId }.single(),
                     )
                 }
-                true
-            } catch (e: ForbiddenException) {
-                false
+                null
+            } catch (e: Exception) {
+                e
             }
 
         test(
@@ -218,20 +229,29 @@ class EventCaptureDecisionTest :
             val released = eventRoom(released = true)
             val notReleased = eventRoom(released = false)
             val ordinary = ordinaryRoom()
-            listOf(false, true).forEach { switchOn ->
-                EventCaptureTestState.instance(enabled = switchOn)
-                allowed(released) shouldBe switchOn
-                allowed(notReleased) shouldBe false
-                allowed(ordinary) shouldBe true
-            }
+            // V1.9.158: the administration's reason has precedence over the organizers' one (the organizer could not help)
+            EventCaptureTestState.instance(enabled = false)
+            availability(released) shouldBe EventCaptureAvailability.BLOCKED_BY_ADMIN
+            availability(notReleased) shouldBe EventCaptureAvailability.BLOCKED_BY_ADMIN
+            availability(ordinary) shouldBe EventCaptureAvailability.NOT_EVENT_ROOM
+            refusal(released).shouldBeInstanceOf<EventRoomCaptureBlockedByAdminException>()
+            refusal(notReleased).shouldBeInstanceOf<EventRoomCaptureBlockedByAdminException>()
+            refusal(ordinary) shouldBe null
+            EventCaptureTestState.instance(enabled = true)
+            availability(released) shouldBe EventCaptureAvailability.AVAILABLE
+            availability(notReleased) shouldBe EventCaptureAvailability.BLOCKED_BY_ORGANIZER
+            availability(ordinary) shouldBe EventCaptureAvailability.NOT_EVENT_ROOM
+            refusal(released) shouldBe null
+            refusal(notReleased).shouldBeInstanceOf<EventRoomCaptureBlockedByOrganizerException>()
+            refusal(ordinary) shouldBe null
         }
 
         test("the switch is on but with an older operator notice: nothing may start") {
             val released = eventRoom(released = true)
             EventCaptureTestState.instance(enabled = true, noticeVersion = "0")
-            allowed(released) shouldBe false
+            availability(released) shouldBe EventCaptureAvailability.BLOCKED_BY_ADMIN
             EventCaptureTestState.instance(enabled = true, noticeVersion = null)
-            allowed(released) shouldBe false
+            availability(released) shouldBe EventCaptureAvailability.BLOCKED_BY_ADMIN
         }
 
         test("a release on an event that is no Lapis conference does not count") {
@@ -241,7 +261,7 @@ class EventCaptureDecisionTest :
                 // the kind is switched away behind the release's back (the lifecycle hook normally resets the flag)
                 EventTable.update({ EventTable.id eq fx.eventIds.last() }) { it[onlineKind] = EventOnlineKind.NONE }
             }
-            allowed(room) shouldBe false
+            availability(room) shouldBe EventCaptureAvailability.BLOCKED_BY_ORGANIZER
         }
 
         test(
@@ -263,14 +283,14 @@ class EventCaptureDecisionTest :
                     level: DocumentAccessLevel = DocumentAccessLevel.BOARD_ONLY,
                 ) = client.runAs(member = board) { call -> recording(call).startRecording(roomId = room.toString(), accessLevel = level) }
 
-                // switch off: refused for both
-                start(released).failure<ForbiddenException>()
-                start(notReleased).failure<ForbiddenException>()
+                // switch off: refused for both (the moderator is told the administration's reason)
+                start(released).failure<EventRoomCaptureBlockedByAdminException>()
+                start(notReleased).failure<EventRoomCaptureBlockedByAdminException>()
                 EventCaptureTestState.enabledWithText()
-                // switch on, event NOT released: refused
-                start(notReleased).failure<ForbiddenException>()
+                // switch on, event NOT released: refused (the organizers' reason)
+                start(notReleased).failure<EventRoomCaptureBlockedByOrganizerException>()
                 // released, but the file may not go to all members
-                start(released, DocumentAccessLevel.PUBLIC_MEMBERS).failure<BadRequestException>()
+                start(released, DocumentAccessLevel.PUBLIC_MEMBERS).failure<EventRoomRecordingAccessLevelNotAllowedException>()
                 transaction { ConferenceRecordingTable.selectAll().where { ConferenceRecordingTable.roomId eq released }.count() } shouldBe
                     0
                 // released: BOARD_ONLY and ADMIN_ONLY are fine
@@ -317,9 +337,9 @@ class EventCaptureDecisionTest :
                         )
                     }
 
-                start(released).failure<ForbiddenException>()
+                start(released).failure<EventRoomCaptureBlockedByAdminException>()
                 EventCaptureTestState.enabledWithText()
-                start(notReleased).failure<ForbiddenException>()
+                start(notReleased).failure<EventRoomCaptureBlockedByOrganizerException>()
                 egress.starts.shouldBeEmpty()
                 start(released).getOrThrow().roomId shouldBe released.toString()
                 egress.starts shouldHaveSize 1
@@ -328,7 +348,7 @@ class EventCaptureDecisionTest :
 
         test("an ordinary room can still be recorded and streamed with the feature OFF (nothing of V1.9.156 touches it)") {
             val ordinary = ordinaryRoom()
-            shouldNotThrowAny { allowed(ordinary) }
-            allowed(ordinary) shouldBe true
+            shouldNotThrowAny { refusal(ordinary).shouldBeNull() }
+            availability(ordinary) shouldBe EventCaptureAvailability.NOT_EVENT_ROOM
         }
     })

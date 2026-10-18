@@ -58,6 +58,8 @@ import network.lapis.cloud.shared.domain.ConferenceRole
 import network.lapis.cloud.shared.domain.DocumentAccessLevel
 import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.rpc.BadRequestException
+import network.lapis.cloud.shared.rpc.ConferenceRecordingAlreadyActiveException
+import network.lapis.cloud.shared.rpc.ConferenceRoomEndedException
 import network.lapis.cloud.shared.rpc.ConflictException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import network.lapis.cloud.shared.rpc.NotFoundException
@@ -1580,6 +1582,13 @@ private fun StatusPagesConfig.installConferenceRecordingExceptionHandlers() {
     }
     exception<BadRequestException> { call, cause ->
         call.respondText(cause.message, status = HttpStatusCode.BadRequest)
+    }
+    // V1.9.158: "ended" and "already running" have their own types now; they stand for the same conflict as before
+    exception<ConferenceRoomEndedException> { call, cause ->
+        call.respondText(cause.message, status = HttpStatusCode.Conflict)
+    }
+    exception<ConferenceRecordingAlreadyActiveException> { call, cause ->
+        call.respondText(cause.message, status = HttpStatusCode.Conflict)
     }
 }
 

@@ -25145,3 +25145,27 @@ msgstr "Nagrywanie i transmisja na żywo: dozwolone"
 
 msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
 msgstr "Zgoda na nagrywanie nie obejmuje serii terminów. Proszę udzielić zgody dla poszczególnych terminów po ich utworzeniu."
+
+msgid "Aufzeichnung und Live-Stream sind für Veranstaltungen auf diesem Server nicht aktiviert. Bitte wenden Sie sich an die Administration."
+msgstr "Nagrywanie i transmisja na żywo nie są włączone dla wydarzeń na tym serwerze. Proszę skontaktować się z administracją."
+
+msgid "Die Organisatoren haben Aufzeichnung und Live-Stream für diese Veranstaltung nicht freigegeben."
+msgstr "Organizatorzy nie udostępnili nagrywania ani transmisji na żywo dla tego wydarzenia."
+
+msgid "Die Aufzeichnung einer Veranstaltung ist nur für den Vorstand oder die Administration bestimmt, weil darauf Personen zu sehen sind, die keinem größeren Kreis zugestimmt haben."
+msgstr "Nagranie wydarzenia jest przeznaczone tylko dla zarządu lub administracji, ponieważ widać na nim osoby, które nie wyraziły zgody na szersze grono odbiorców."
+
+msgid "Die Aufzeichnung einer Veranstaltung ist nur für den Vorstand oder die Administration möglich."
+msgstr "Wydarzenie może nagrywać tylko zarząd lub administracja."
+
+msgid "Es läuft bereits eine Aufzeichnung."
+msgstr "Nagrywanie już trwa."
+
+msgid "Diese Konferenz ist bereits beendet."
+msgstr "Ta konferencja już się zakończyła."
+
+msgid "Gäste und Einladungen verwalten Sie bei Veranstaltungen auf der Veranstaltungsseite."
+msgstr "Gości i zaproszenia do wydarzeń zarządza się na stronie wydarzenia."
+
+msgid "Zu viele Anfragen – bitte kurz warten."
+msgstr "Zbyt wiele żądań – proszę chwilę poczekać."

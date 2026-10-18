@@ -9,8 +9,11 @@ import network.lapis.cloud.server.rpc.EventCaptureSettingsStore
 import network.lapis.cloud.server.security.CurrentMember
 import network.lapis.cloud.server.time.OrganizationTimeZone
 import network.lapis.cloud.server.time.ServerClock
+import network.lapis.cloud.shared.domain.ConferenceEventCaptureState
 import network.lapis.cloud.shared.domain.EventOnlineKind
 import network.lapis.cloud.shared.domain.EventOnlineOutcome
+import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByAdminException
+import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByOrganizerException
 import network.lapis.cloud.shared.rpc.ForbiddenException
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
@@ -34,6 +37,8 @@ internal const val EVENT_ROOM_UNSUPPORTED = "This function is not available in a
  *
  * All functions must run INSIDE the caller's open `transaction {}`.
  */
+internal enum class EventCaptureAvailability { NOT_EVENT_ROOM, AVAILABLE, BLOCKED_BY_ADMIN, BLOCKED_BY_ORGANIZER }
+
 internal object EventConferenceGuard {
     /** The event a conference room belongs to, or `null` for every ordinary room. */
     fun eventIdOfRoom(roomId: Uuid): Uuid? =
@@ -51,21 +56,52 @@ internal object EventConferenceGuard {
     }
 
     /**
-     * V1.9.156 -- ONLY for `ConferenceRecordingService.startRecordingInTransaction` and `ConferenceStreamingService.startStream` (tripwire
-     * `EventConferenceGuardTripwireTest` counts exactly these two call sites). An ordinary room is not touched. An event room may be recorded /
-     * streamed iff the instance switch is on with the CURRENT operator notice, the event is released (`capture_allowed`) and it is a Lapis
-     * conference. Runs under the room-row lock of the caller; the release itself is frozen while the room is active (`EventCaptureLock`), so what
-     * is read here cannot change between the participants' entry and this start.
+     * V1.9.158 -- ONLY for `ConferenceRecordingService.startRecordingInTransaction` and `ConferenceStreamingService.startStream` (tripwire
+     * `EventConferenceGuardTripwireTest` counts exactly these two call sites). Caller MUST have run the moderator check first: the typed
+     * reasons thrown here ([EventRoomCaptureBlockedByAdminException], [EventRoomCaptureBlockedByOrganizerException]) tell the release state of
+     * the event and must only reach moderators. An ordinary room is not touched.
      */
     fun requireEventCaptureAllowed(row: ResultRow) {
-        val eventId = eventIdOfRoom(row[ConferenceRoomTable.id]) ?: return
+        when (eventCaptureAvailability(row)) {
+            EventCaptureAvailability.BLOCKED_BY_ADMIN -> throw EventRoomCaptureBlockedByAdminException()
+            EventCaptureAvailability.BLOCKED_BY_ORGANIZER -> throw EventRoomCaptureBlockedByOrganizerException()
+            EventCaptureAvailability.NOT_EVENT_ROOM, EventCaptureAvailability.AVAILABLE -> Unit
+        }
+    }
+
+    /**
+     * V1.9.158 -- pure read; the ONE rule for the guard AND the DTO. An event room may be recorded / streamed iff the instance switch is on
+     * with the CURRENT operator notice and consent text, the event is released (`capture_allowed`) and it is a Lapis conference. The admin
+     * reason has precedence (the organizer could not help). Must run inside the caller's transaction.
+     */
+    internal fun eventCaptureAvailability(row: ResultRow): EventCaptureAvailability {
+        val eventId = eventIdOfRoom(row[ConferenceRoomTable.id]) ?: return EventCaptureAvailability.NOT_EVENT_ROOM
+        if (!EventCaptureSettingsStore.load().startAllowed()) return EventCaptureAvailability.BLOCKED_BY_ADMIN
         val event = EventTable.selectAll().where { EventTable.id eq eventId }.singleOrNull()
-        val allowed =
+        val released =
             event != null &&
-                EventCaptureSettingsStore.load().startAllowed() &&
                 event[EventTable.captureAllowed] &&
                 event[EventTable.onlineKind] == EventOnlineKind.LAPIS_CONFERENCE
-        if (!allowed) throw ForbiddenException(EVENT_ROOM_UNSUPPORTED)
+        return if (released) EventCaptureAvailability.AVAILABLE else EventCaptureAvailability.BLOCKED_BY_ORGANIZER
+    }
+
+    /**
+     * V1.9.158 -- the [ConferenceEventCaptureState] for the room DTO. The concrete reason goes ONLY to a moderator (same check as
+     * `requireModeratorOrPrivileged`); everybody else sees [ConferenceEventCaptureState.EVENT_ROOM]. Never call [requireEventCaptureAllowed]
+     * from here (the two-call-site tripwire).
+     */
+    fun eventCaptureStateFor(
+        row: ResultRow,
+        current: CurrentMember,
+    ): ConferenceEventCaptureState {
+        val availability = eventCaptureAvailability(row)
+        return when {
+            availability == EventCaptureAvailability.NOT_EVENT_ROOM -> ConferenceEventCaptureState.NONE
+            !ConferenceModeratorAuthority.isModerator(row = row, current = current) -> ConferenceEventCaptureState.EVENT_ROOM
+            availability == EventCaptureAvailability.AVAILABLE -> ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_AVAILABLE
+            availability == EventCaptureAvailability.BLOCKED_BY_ADMIN -> ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_BLOCKED_BY_ADMIN
+            else -> ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_BLOCKED_BY_ORGANIZER
+        }
     }
 
     /**

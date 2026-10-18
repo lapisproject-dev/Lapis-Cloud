@@ -139,11 +139,17 @@ internal data class ConferenceToggleView(
     val title: String,
     /** Shown in the status line while [busy]; `null` otherwise. */
     val progressText: String?,
+    /**
+     * V1.9.158 -- why starting is not possible in this room (event room: switched off by the administration / not released by the
+     * organizers). The control stays focusable (`aria-disabled`, not `disabled`) and points to the reason line; `null` otherwise.
+     */
+    val unavailableReason: String? = null,
 )
 
 internal fun recordingToggleView(
     status: ConferenceRecordingStatus?,
     canStart: Boolean,
+    blockedReason: String? = null,
 ): ConferenceToggleView =
     when (status) {
         ConferenceRecordingStatus.RECORDING ->
@@ -168,10 +174,11 @@ internal fun recordingToggleView(
             ConferenceToggleView(
                 true,
                 pressed = false,
-                disabled = !canStart,
+                disabled = !canStart && blockedReason == null,
                 busy = false,
                 title = tr("Aufzeichnung starten"),
                 progressText = null,
+                unavailableReason = blockedReason,
             )
     }
 
@@ -179,6 +186,7 @@ internal fun streamToggleView(
     status: ConferenceStreamStatus?,
     pauseReason: ConferenceStreamPauseReason?,
     canStart: Boolean,
+    blockedReason: String? = null,
 ): ConferenceToggleView =
     when (status) {
         null, ConferenceStreamStatus.ENDED, ConferenceStreamStatus.FAILED ->
@@ -186,10 +194,11 @@ internal fun streamToggleView(
                 // A new stream while a secret ballot pauses the room is refused by the server; the control never invites that click.
                 visible = pauseReason != ConferenceStreamPauseReason.SECRET_BALLOT,
                 pressed = false,
-                disabled = !canStart,
+                disabled = !canStart && blockedReason == null,
                 busy = false,
                 title = tr("Live-Stream starten …"),
                 progressText = null,
+                unavailableReason = blockedReason,
             )
         ConferenceStreamStatus.STARTING,
         ConferenceStreamStatus.LIVE,
@@ -424,6 +433,17 @@ internal class ConferenceModerationGroup internal constructor(
             button.setAttrIfChanged("aria-pressed", pressed.toString())
         }
         button.disabled = (view?.disabled == true) || localBusy
+        // V1.9.158: an unavailable option is NOT `disabled` (that would remove it from the focus order and nobody would hear why):
+        // `aria-disabled` + a pointer to the reason line; a click is swallowed by the handlers.
+        if (view?.unavailableReason != null) {
+            button.addCssClass("disabled")
+            button.setAttrIfChanged("aria-disabled", "true")
+            button.setAttrIfChanged("aria-describedby", CAPTURE_REASON_ID)
+        } else {
+            button.removeCssClass("disabled")
+            if (button.getAttribute("aria-disabled") != null) button.removeAttribute("aria-disabled")
+            if (button.getAttribute("aria-describedby") != null) button.removeAttribute("aria-describedby")
+        }
         if (busy) {
             button.setAttrIfChanged("aria-busy", "true")
         } else if (button.getAttribute("aria-busy") !=
@@ -444,6 +464,9 @@ internal class ConferenceModerationGroup internal constructor(
 
     companion object {
         const val BADGE_ON = "lapis-conference-control-badge-on"
+
+        /** V1.9.158 -- id of the one reason line of the bar that `aria-describedby` of an unavailable control points to. */
+        const val CAPTURE_REASON_ID = "lapis-conference-capture-reason"
     }
 }
 

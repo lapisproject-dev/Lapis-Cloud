@@ -11,6 +11,7 @@ import io.kvision.form.text.text
 import io.kvision.form.text.textArea
 import io.kvision.html.Button
 import io.kvision.html.ButtonStyle
+import io.kvision.html.Div
 import io.kvision.html.TAG
 import io.kvision.html.button
 import io.kvision.html.div
@@ -60,6 +61,7 @@ import network.lapis.cloud.shared.domain.ConferenceBreakoutPlanInput
 import network.lapis.cloud.shared.domain.ConferenceBreakoutRoomDto
 import network.lapis.cloud.shared.domain.ConferenceBroadcastView
 import network.lapis.cloud.shared.domain.ConferenceChatMessage
+import network.lapis.cloud.shared.domain.ConferenceEventCaptureState
 import network.lapis.cloud.shared.domain.ConferenceGuestConsentAcknowledgmentInput
 import network.lapis.cloud.shared.domain.ConferenceGuestConsentDisclaimerDto
 import network.lapis.cloud.shared.domain.ConferenceGuestJoinInfoDto
@@ -91,8 +93,11 @@ import network.lapis.cloud.shared.domain.MemberStatus
 import network.lapis.cloud.shared.domain.MemberStatusSets
 import network.lapis.cloud.shared.domain.RoomBallotStatus
 import network.lapis.cloud.shared.domain.SessionInfoDto
+import network.lapis.cloud.shared.rpc.ConferenceRecordingAlreadyActiveException
 import network.lapis.cloud.shared.rpc.EventCaptureNoticeOutdatedException
 import network.lapis.cloud.shared.rpc.EventCaptureNoticeRequiredException
+import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByAdminException
+import network.lapis.cloud.shared.rpc.EventRoomCaptureBlockedByOrganizerException
 import network.lapis.cloud.shared.rpc.IConferenceBackgroundService
 import network.lapis.cloud.shared.rpc.IConferenceBreakoutService
 import network.lapis.cloud.shared.rpc.IConferenceHandService
@@ -1578,6 +1583,11 @@ private fun enterCall(
     actionStatusLine.setAttribute("role", "status")
     actionStatusLine.setAttribute("aria-live", "polite")
     actionStatusLine.hide()
+    // V1.9.158: ONE reason line for every unavailable moderator control (the record / stream buttons and their twins point to it through
+    // `aria-describedby`). Calm text, no alert role, no error colour.
+    val captureReasonLine = callPanel.div { addCssClasses("text-muted small lapis-conference-capture-reason") }
+    captureReasonLine.id = ConferenceModerationGroup.CAPTURE_REASON_ID
+    captureReasonLine.hide()
     // V1.9.108: what the person is told when a moderator mutes them / asks them to switch on -- a calm band above the control bar and two
     // live regions; never a focus change, never an error colour.
     val notices = ConferenceModerationNotices(callPanel)
@@ -1597,6 +1607,8 @@ private fun enterCall(
     // handlers exist (a local function cannot be referenced before its declaration).
     val divider1 = controlsRow.conferenceControlsDivider()
     var recordClick: () -> Unit = {}
+    // forward reference: `refreshRecordingState` is declared after the click handlers (V1.9.158)
+    var refreshRecordingStateRef: suspend () -> Unit = {}
     var streamClick: () -> Unit = {}
     var endForAllClick: () -> Unit = {}
     val moderation =
@@ -1676,6 +1688,14 @@ private fun enterCall(
 
     // V1.9.66 -- labelled twins of the bar controls that do not fit (R58: the sheet has room, so the words stand there). A click on a
     // twin clicks the (hidden) primary control, so there is exactly one handler per action. Shown by `ConferenceControlsOverflow`.
+    // V1.9.158: an EVENT room (the server says so in the DTO) has no guest access / invitation / session binding / rename of its own, and a
+    // moderator is told why recording / streaming is not possible instead of meeting a refusal after the click. `eventCapture` is the local
+    // copy: a start that the server refuses as blocked corrects it (the instance switch can change while the room is open).
+    var eventCapture = room.eventCapture
+    val setupRows = conferenceSetupRowsVisible(room.eventCapture)
+    // rows that do not exist for this room are built into a detached host: every later reference stays valid, nothing is rendered
+    val setupHost: Container = if (setupRows) moreSheet else Div()
+
     val barTwinSection = moreSheet.vPanel(spacing = 4) { addCssClasses("lapis-conference-bar-twins") }
     barTwinSection.hide()
 
@@ -1917,6 +1937,38 @@ private fun enterCall(
     // shows the busy state (disabled + aria-busy + spinner). Errors stay toasts (guarded {}), as before. Moderator only.
     var lastActionStatus = ""
 
+    // V1.9.158: the reason an event room blocks recording / streaming (moderators only, `null` otherwise) and the one line that shows it.
+    fun captureBlockedReason(): String? = if (canModerate) conferenceEventCaptureBlockedReason(eventCapture) else null
+
+    fun updateCaptureReasonLine() {
+        val reason = captureBlockedReason()
+        val controlShown = moderation?.let { it.recordButton.visible || it.streamButton.visible } == true
+        if (reason != null && controlShown) {
+            if (captureReasonLine.content != reason) captureReasonLine.content = reason
+            captureReasonLine.show()
+        } else {
+            captureReasonLine.hide()
+        }
+    }
+
+    // the twin in the "Mehr" sheet mirrors the unavailable state of its primary control (and clicks it, where the handler swallows the click)
+    fun mirrorUnavailable(
+        twin: Button?,
+        view: ConferenceToggleView,
+    ) {
+        twin ?: return
+        if (view.unavailableReason != null) {
+            twin.addCssClass("disabled")
+            twin.setAttribute("aria-disabled", "true")
+            twin.setAttribute("aria-describedby", ConferenceModerationGroup.CAPTURE_REASON_ID)
+        } else {
+            twin.removeCssClass("disabled")
+            if (twin.getAttribute("aria-disabled") != null) twin.removeAttribute("aria-disabled")
+            if (twin.getAttribute("aria-describedby") != null) twin.removeAttribute("aria-describedby")
+        }
+        updateCaptureReasonLine()
+    }
+
     fun updateActionStatusLine() {
         val text = moderation?.progressTexts?.joinToString(" · ").orEmpty()
         if (text == lastActionStatus) return
@@ -2011,7 +2063,12 @@ private fun enterCall(
     // V1.2.10 -- Empfänger `moreSheet` statt `callPanel` (Plan Abschnitt 3.8): Einrichtungs-Zeilen
     // wandern ins "Mehr"-Blatt. `lapis-conference-config-row` bleibt unverändert für die
     // Vollbild-Ausblendlogik (`applyPanelVisibility()`), die Klasse ist von der Umhängung unberührt.
-    val guestAccessRow = moreSheet.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap lapis-conference-config-row") }
+    if (!setupRows && canModerate) {
+        moreSheet.div(tr("Gäste und Einladungen verwalten Sie bei Veranstaltungen auf der Veranstaltungsseite.")) {
+            addCssClasses("text-muted small lapis-conference-config-row")
+        }
+    }
+    val guestAccessRow = setupHost.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap lapis-conference-config-row") }
     guestAccessRow.div(tr("Gastzugang:")) { addCssClasses("text-muted small") }
     var guestAccessOpen = room.allowFederationGuests
     val guestAccessBadge = guestAccessRow.statusBadge("", "secondary")
@@ -2033,7 +2090,7 @@ private fun enterCall(
 
     if (canModerate) {
         // V1.9.126: must keep `lapis-conference-config-row` so full-screen hides it (applyPanelVisibility()).
-        moreSheet.div(conferenceGuestAccessHelpText()) { addCssClasses("text-muted small lapis-conference-config-row") }
+        setupHost.div(conferenceGuestAccessHelpText()) { addCssClasses("text-muted small lapis-conference-config-row") }
         val toggleButton = guestAccessRow.button("", style = ButtonStyle.WARNING)
         guestAccessToggleButton = toggleButton
         val inviteButton = guestAccessRow.button(tr("Einladung kopieren"), style = ButtonStyle.OUTLINESECONDARY)
@@ -2114,7 +2171,7 @@ private fun enterCall(
     // muss diese Zeile sichtbar bleiben, auch wenn (der Normalfall) nichts gebunden ist -- nie hinter
     // einem "erweiterte Einstellungen"-Toggle versteckt.
     // V1.2.10 -- Empfänger `moreSheet` statt `callPanel`, siehe guestAccessRow oben.
-    val meetingBindingRow = moreSheet.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap lapis-conference-config-row") }
+    val meetingBindingRow = setupHost.hPanel(spacing = 8) { addCssClasses("align-items-center flex-wrap lapis-conference-config-row") }
     meetingBindingRow.div(tr("Sitzung:")) { addCssClasses("text-muted small") }
     var boundMeetingId = room.meetingId
     var boundMeetingTitle = room.meetingTitle
@@ -2585,7 +2642,7 @@ private fun enterCall(
 
     fun renderTitleViewMode() {
         titleEditing = false
-        titleRow.renderConferenceTitleView(roomTitle = roomTitle, canModerate = canModerate, onEdit = { showTitleEditMode() })
+        titleRow.renderConferenceTitleView(roomTitle = roomTitle, canModerate = canModerate && setupRows, onEdit = { showTitleEditMode() })
     }
 
     fun renderTitleEditMode() {
@@ -2698,10 +2755,17 @@ private fun enterCall(
         val view =
             recordingToggleView(
                 activeRecordingDto?.status,
-                recordingCanStart(canModerate = canModerate, recordingAvailable = recordingAvailable, activeRecording = activeRecordingDto),
+                recordingCanStart(
+                    canModerate = canModerate,
+                    recordingAvailable = recordingAvailable,
+                    activeRecording = activeRecordingDto,
+                    captureBlocked = captureBlockedReason() != null,
+                ),
+                blockedReason = captureBlockedReason(),
             )
         group.applyRecording(view)
         recordTwin?.text = view.title
+        mirrorUnavailable(recordTwin, view)
         updateActionStatusLine()
     }
 
@@ -2737,10 +2801,12 @@ private fun enterCall(
             streamToggleView(
                 status,
                 activeStreamDto?.pauseReason,
-                conferenceStreamCanStart(canModerate, streamingAvailable, activeStreamDto),
+                conferenceStreamCanStart(canModerate, streamingAvailable, activeStreamDto, captureBlocked = captureBlockedReason() != null),
+                blockedReason = captureBlockedReason(),
             )
         moderation?.applyStream(view)
         streamTwin?.text = view.title
+        mirrorUnavailable(streamTwin, view)
 
         val pauseBtn = streamPauseButton
         val resumeBtn = streamResumeButton
@@ -2762,11 +2828,42 @@ private fun enterCall(
         val group = moderation ?: return
         val active = activeRecordingDto
         if (active == null) {
-            if (!recordingCanStart(canModerate = canModerate, recordingAvailable = recordingAvailable, activeRecording = active)) return
-            startRecordingConfirmDialog { accessLevel ->
+            // V1.9.158: an unavailable option swallows the click (the reason is shown on the line under the bar), no dialog, no request
+            if (!recordingCanStart(
+                    canModerate = canModerate,
+                    recordingAvailable = recordingAvailable,
+                    activeRecording = active,
+                    captureBlocked = captureBlockedReason() != null,
+                )
+            ) {
+                return
+            }
+            startRecordingConfirmDialog(eventCapture) { accessLevel ->
                 group.setRecordingBusy(true)
                 AppScope.launch {
-                    val result = guarded { rpcService<IConferenceRecordingService>().startRecording(room.id, accessLevel) }
+                    val result =
+                        guarded {
+                            try {
+                                rpcService<IConferenceRecordingService>().startRecording(room.id, accessLevel)
+                            } catch (e: ConferenceRecordingAlreadyActiveException) {
+                                // a second moderator was faster: say so, then show the recording that runs
+                                notifyError(tr("Es läuft bereits eine Aufzeichnung."))
+                                refreshRecordingStateRef()
+                                null
+                            } catch (e: EventRoomCaptureBlockedByAdminException) {
+                                eventCapture = ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_BLOCKED_BY_ADMIN
+                                notifyError(captureBlockedReason().orEmpty())
+                                updateRecordButtonLabel()
+                                updateStreamButtonsVisibility()
+                                null
+                            } catch (e: EventRoomCaptureBlockedByOrganizerException) {
+                                eventCapture = ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_BLOCKED_BY_ORGANIZER
+                                notifyError(captureBlockedReason().orEmpty())
+                                updateRecordButtonLabel()
+                                updateStreamButtonsVisibility()
+                                null
+                            }
+                        }
                     group.setRecordingBusy(false)
                     // Rule: only update UI state once the guarded {} call's result confirms success --
                     // never optimistically before the RPC resolves.
@@ -2800,7 +2897,15 @@ private fun enterCall(
     // `streamingAvailable`/`canModerate` are already known true (the button is disabled/hidden
     // otherwise, see [updateStreamButtonsVisibility]/[conferenceStreamCanStart]).
     fun onStreamStartClicked() {
-        if (!conferenceStreamCanStart(canModerate, streamingAvailable, activeStreamDto)) return
+        if (!conferenceStreamCanStart(
+                canModerate,
+                streamingAvailable,
+                activeStreamDto,
+                captureBlocked = captureBlockedReason() != null,
+            )
+        ) {
+            return
+        }
         val group = moderation ?: return
         group.setStreamBusy(true)
         AppScope.launch {
@@ -2832,13 +2937,27 @@ private fun enterCall(
                 AppScope.launch {
                     val result =
                         guarded {
-                            rpcService<IConferenceStreamingService>().startStream(
-                                room.id,
-                                destinationIds,
-                                layout,
-                                latencyMode,
-                                participantIdentity,
-                            )
+                            try {
+                                rpcService<IConferenceStreamingService>().startStream(
+                                    room.id,
+                                    destinationIds,
+                                    layout,
+                                    latencyMode,
+                                    participantIdentity,
+                                )
+                            } catch (e: EventRoomCaptureBlockedByAdminException) {
+                                eventCapture = ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_BLOCKED_BY_ADMIN
+                                notifyError(captureBlockedReason().orEmpty())
+                                updateRecordButtonLabel()
+                                updateStreamButtonsVisibility()
+                                null
+                            } catch (e: EventRoomCaptureBlockedByOrganizerException) {
+                                eventCapture = ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_BLOCKED_BY_ORGANIZER
+                                notifyError(captureBlockedReason().orEmpty())
+                                updateRecordButtonLabel()
+                                updateStreamButtonsVisibility()
+                                null
+                            }
                         }
                     group.setStreamBusy(false)
                     // Rule: only update UI state once the guarded {} call's result confirms success --
@@ -2966,6 +3085,7 @@ private fun enterCall(
         updateRecordButtonLabel()
         updateSecretBallotBanner()
     }
+    refreshRecordingStateRef = { refreshRecordingState() }
 
     // Wave 3 -- mirrors [refreshRecordingState] exactly, for the independent streaming availability
     // gate (D11): [IConferenceStreamingService.getStreamingAvailability] never throws, but
@@ -4038,6 +4158,7 @@ private fun enterCall(
             containerGroups = setOfNotNull(if (moderation != null) 1 else null, CONFERENCE_EXIT_GROUP),
         )
     moderation?.onStateChanged = {
+        updateCaptureReasonLine()
         overflow.recompute()
         barOverflowSink()
     }
@@ -6842,7 +6963,10 @@ private fun removeParticipantConfirmDialog(
  * consequence is legible AT THE MOMENT of the choice, not discovered weeks later. [onConfirm]
  * receives the chosen access level; cancelling calls nothing.
  */
-private fun startRecordingConfirmDialog(onConfirm: (DocumentAccessLevel) -> Unit) {
+internal fun startRecordingConfirmDialog(
+    eventCapture: ConferenceEventCaptureState = ConferenceEventCaptureState.NONE,
+    onConfirm: (DocumentAccessLevel) -> Unit,
+) {
     val modal = Modal(caption = tr("Aufzeichnung starten"))
     modal.div(
         tr("Diese Aufzeichnung kann NICHT rückgängig gemacht werden, sobald Teilnehmende gesprochen haben."),
@@ -6853,16 +6977,26 @@ private fun startRecordingConfirmDialog(onConfirm: (DocumentAccessLevel) -> Unit
                 "davon, wer die Aufzeichnung startet.",
         ),
     ) { addCssClasses("small mb-2") }
-    val accessOptions = DocumentAccessLevel.entries.map { it.name to conferenceRecordingAccessLevelLabel(it) }
+    // V1.9.158: an option that cannot work here is not offered (an event recording is for the board / administration only).
+    val accessOptions = conferenceRecordingAccessOptions(eventCapture).map { it.name to conferenceRecordingAccessLevelLabel(it) }
     val accessSelect =
         modal.select(options = accessOptions, value = DocumentAccessLevel.BOARD_ONLY.name, label = tr("Zugriffsebene"))
-    modal.div(
-        tr(
-            "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, die " +
-                "Aufzeichnung später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn die Aufnahme allen " +
-                "Teilnehmenden zugänglich sein soll.",
-        ),
-    ) { addCssClasses("text-muted small mb-2") }
+    val accessHintText =
+        if (eventCapture == ConferenceEventCaptureState.NONE) {
+            tr(
+                "Bei \"Vorstand\" können anwesende Mitglieder, die nicht dem Vorstand angehören, die " +
+                    "Aufzeichnung später NICHT ansehen -- wählen Sie \"Mitglieder\", wenn die Aufnahme allen " +
+                    "Teilnehmenden zugänglich sein soll.",
+            )
+        } else {
+            tr(
+                "Die Aufzeichnung einer Veranstaltung ist nur für den Vorstand oder die Administration bestimmt, " +
+                    "weil darauf Personen zu sehen sind, die keinem größeren Kreis zugestimmt haben.",
+            )
+        }
+    val accessHint = modal.div(accessHintText) { addCssClasses("text-muted small mb-2") }
+    accessHint.id = RECORDING_ACCESS_HINT_ID
+    accessSelect.setAttribute("aria-describedby", RECORDING_ACCESS_HINT_ID)
     modal.addButton(newActionButton(ActionIcon.CANCEL, tr("Abbrechen"), ButtonStyle.SECONDARY).apply { onClick { modal.hide() } })
     modal.addButton(
         Button(tr("Aufzeichnung jetzt starten"), style = ButtonStyle.WARNING).apply {
@@ -6875,6 +7009,8 @@ private fun startRecordingConfirmDialog(onConfirm: (DocumentAccessLevel) -> Unit
     )
     modal.show()
 }
+
+private const val RECORDING_ACCESS_HINT_ID = "recording-access-hint"
 
 /**
  * Design review D8 -- "lighter but real": stopping is not destructive by itself, but it IS the
@@ -7613,7 +7749,32 @@ internal fun recordingCanStart(
     canModerate: Boolean,
     recordingAvailable: Boolean,
     activeRecording: ConferenceRecordingDto?,
-): Boolean = canModerate && recordingAvailable && activeRecording == null
+    captureBlocked: Boolean = false,
+): Boolean = canModerate && recordingAvailable && activeRecording == null && !captureBlocked
+
+/** V1.9.158 -- the reason line of an event room whose recording / streaming is blocked (moderators only); `null` when nothing blocks. */
+internal fun conferenceEventCaptureBlockedReason(state: ConferenceEventCaptureState): String? =
+    when (state) {
+        ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_BLOCKED_BY_ADMIN ->
+            tr(
+                "Aufzeichnung und Live-Stream sind für Veranstaltungen auf diesem Server nicht aktiviert. Bitte wenden Sie sich an die Administration.",
+            )
+        ConferenceEventCaptureState.EVENT_ROOM_CAPTURE_BLOCKED_BY_ORGANIZER ->
+            tr("Die Organisatoren haben Aufzeichnung und Live-Stream für diese Veranstaltung nicht freigegeben.")
+        else -> null
+    }
+
+/** V1.9.158 -- the access levels the start dialog offers: an event recording is for the board or the administration only. */
+internal fun conferenceRecordingAccessOptions(eventCapture: ConferenceEventCaptureState): List<DocumentAccessLevel> =
+    if (eventCapture == ConferenceEventCaptureState.NONE) {
+        DocumentAccessLevel.entries
+    } else {
+        listOf(DocumentAccessLevel.BOARD_ONLY, DocumentAccessLevel.ADMIN_ONLY)
+    }
+
+/** V1.9.158 -- guest access, invitation, session binding and renaming do not exist for an event room (the event page owns them). */
+internal fun conferenceSetupRowsVisible(eventCapture: ConferenceEventCaptureState): Boolean =
+    eventCapture == ConferenceEventCaptureState.NONE
 
 /** The in-call detail line's "Aufzeichnung gestartet von X um HH:MM" copy -- zero-padded 24h time via
  * `DateTime.kt`'s [pad2] (W7, shared with [conferenceDefaultRoomTitle]/[conferenceStreamStartedLabel]),
@@ -7881,7 +8042,8 @@ internal fun conferenceStreamCanStart(
     canModerate: Boolean,
     streamingAvailable: Boolean,
     activeStream: ConferenceStreamDto?,
-): Boolean = canModerate && streamingAvailable && activeStream == null
+    captureBlocked: Boolean = false,
+): Boolean = canModerate && streamingAvailable && activeStream == null && !captureBlocked
 
 /** [startStreamDialog]'s destination-checklist bound -- `IConferenceStreamingService.startStream`
  * throws `ConflictException` on an empty or over-cap `destinationIds`; this is the client-side UX

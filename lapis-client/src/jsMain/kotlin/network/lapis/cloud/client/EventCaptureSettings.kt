@@ -91,6 +91,10 @@ internal fun renderEventCaptureSection(
     if (textMissing) {
         val warn = box.div(className = "text-warning small")
         warn.setAttribute("role", "status")
+        // V1.9.158: a switch that cannot be turned on says why to assistive technology, too (the reason is the line below)
+        val warnId = "lapis-event-capture-textmissing-$serial"
+        warn.setAttribute("id", warnId)
+        if (switch.disabled) switch.setAttribute("aria-describedby", "$helpId $warnId")
         warn.content =
             tr(
                 "Der Einwilligungstext für Veranstaltungen ist noch der Platzhalter. Veröffentlichen Sie zuerst einen eigenen, rechtlich geprüften Text.",

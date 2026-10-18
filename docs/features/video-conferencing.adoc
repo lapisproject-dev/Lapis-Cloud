@@ -399,3 +399,12 @@ X (formerly Twitter) is a platform of its own in the admin list "Stream-Ziele". 
 * Tested with X on 2026-10-14 using the *Single person* layout only; other layouts, long-running streams and picture quality are untested. The grid and speaker layouts use the LiveKit web template and are not tested with X.
 
 Details: link:../architecture/conference-recording.adoc[conference-recording.adoc], section "Streams (RTMP)".
+
+== Unavailable options in event rooms (V1.9.158)
+
+An option that cannot work in a room is not offered, or it is `aria-disabled` with a reason; it never ends in a bare "no permission".
+
+* *Access level of a recording.* In an event room the start dialog offers "Vorstand" and "Administration" only (the file shows persons who did not agree to a wider circle). The server refuses "Mitglieder" with `EventRoomRecordingAccessLevelNotAllowedException`.
+* *Record and stream buttons.* `aria-disabled` plus one reason line under the bar when the instance switch is off or the organizers did not release the event (see `event-capture.adoc`). The twins in the "Mehr" sheet mirror the state.
+* *Guest access, invitation, session binding, rename.* They do not exist for an event room (the event page owns them); the "Mehr" sheet shows a footer instead. Breakout rooms and the room settings stay.
+* *Typed refusals.* `ConferenceRecordingAlreadyActiveException` (a second moderator was faster; the client reloads the state) and `ConferenceRoomEndedException` replace the generic conflict for these two cases.

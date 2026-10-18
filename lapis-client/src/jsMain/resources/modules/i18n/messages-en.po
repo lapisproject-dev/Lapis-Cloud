@@ -25090,3 +25090,27 @@ msgstr "Recording and live stream: allowed"
 
 msgid "Die Freigabe der Aufzeichnung gilt nicht für Terminserien. Geben Sie die einzelnen Termine nach dem Anlegen frei."
 msgstr "The release of the recording does not apply to series of dates. Release the individual dates after creating them."
+
+msgid "Aufzeichnung und Live-Stream sind für Veranstaltungen auf diesem Server nicht aktiviert. Bitte wenden Sie sich an die Administration."
+msgstr "Recording and live streaming are not enabled for events on this server. Please contact the administration."
+
+msgid "Die Organisatoren haben Aufzeichnung und Live-Stream für diese Veranstaltung nicht freigegeben."
+msgstr "The organizers have not released recording and live streaming for this event."
+
+msgid "Die Aufzeichnung einer Veranstaltung ist nur für den Vorstand oder die Administration bestimmt, weil darauf Personen zu sehen sind, die keinem größeren Kreis zugestimmt haben."
+msgstr "The recording of an event is meant for the board or the administration only, because it shows people who did not agree to a wider circle."
+
+msgid "Die Aufzeichnung einer Veranstaltung ist nur für den Vorstand oder die Administration möglich."
+msgstr "Only the board or the administration can record an event."
+
+msgid "Es läuft bereits eine Aufzeichnung."
+msgstr "A recording is already running."
+
+msgid "Diese Konferenz ist bereits beendet."
+msgstr "This conference has already ended."
+
+msgid "Gäste und Einladungen verwalten Sie bei Veranstaltungen auf der Veranstaltungsseite."
+msgstr "For events, you manage guests and invitations on the event page."
+
+msgid "Zu viele Anfragen – bitte kurz warten."
+msgstr "Too many requests – please wait a moment."
