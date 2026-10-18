@@ -16,6 +16,7 @@ H2 tests use several JVMs. No check was removed and no assertion was weakened.
 |`check` (Check: ktlint, detekt, H2 tests)
 |`./gradlew clean check -Plapis.test.forks=4`, without `postgresTest` and without the browser tests (excluded by name). Then
 `scripts/ci-assert-lane-ran.sh` requires at least 600 JUnit XML files (703 at V1.9.58, 716 in CI run 37405895540 on 2026-10-06).
+Since V1.9.160 the job also runs `./gradlew :docs-render:renderDocs` (about 15 seconds): every kUML block in `docs/**/*.adoc` must still render, otherwise the job fails. The task renders into `docs-render/build/docs-rendered`; the output is not published.
 |Longest job: compile, lint, and the H2 tests spread over four test JVMs.
 
 |`postgres` (Postgres lane)
@@ -206,9 +207,9 @@ Rollback is `LAPIS_IMAGE_TAG` back to the old version, `pull`, `up -d` -- but ac
 === Supply-chain trade-offs
 
 * The image is public, so no token ever lives on a server. Only CI writes, with the short-lived `GITHUB_TOKEN`, and only in the `image` job.
-* All actions in `ci.yml` and `release-image.yml` are pinned to full commit SHAs (version in the comment). Base images come from the AWS public ECR mirror, pinned by digest.
+* All actions in `ci.yml` and `release-image.yml` are pinned to full commit SHAs (version in the comment). Base images come from the AWS public ECR mirror, pinned by digest. If the ECR anonymous pull limit is hit, `scripts/ci-pick-base-registry.sh` selects `mirror.gcr.io` or Docker Hub (V1.9.160); the digest is identical on all three, so only the origin of the bytes changes. The script is tested without a Docker daemon by `scripts/test-ci-pick-base-registry.sh`.
 * Untrusted values (tag name) reach shell code only through `env:` and are validated by regular expression.
-* `.dockerignore` is an allowlist; the Dockerfile has no `COPY .`, no `ADD`, no build arguments and no secrets.
+* `.dockerignore` is an allowlist; the Dockerfile has no `COPY .`, no `ADD`, no secrets and only two build arguments (`NODE_MAX_OLD_SPACE_MB`, `BASE_REGISTRY`).
 * The gha build cache (`mode=max`, repository-internal, not public) also holds build-stage layers. The build context is a fresh checkout, so it holds no `.env` or `deploy/production*`.
 * Test sources stay in the build context (public, and not in the runtime image: only `installDist` and the client bundle are copied).
 

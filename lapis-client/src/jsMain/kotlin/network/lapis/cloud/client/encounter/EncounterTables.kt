@@ -70,6 +70,20 @@ internal class EncounterTableListState(
     val tablesWithFreeSeats: List<Pair<Int, Int>>,
 )
 
+/**
+ * V1.9.159 -- unit position (x to the right, y downwards, both -1..1, rounded to 4 places) of seat [seat] of [seats] on the ring: seat 0 at 12 o'clock,
+ * clockwise. Pure, so the layout is testable without a DOM.
+ */
+internal fun encounterTableRingUnit(
+    seat: Int,
+    seats: Int,
+): Pair<Double, Double> {
+    val angle = -kotlin.math.PI / 2 + 2 * kotlin.math.PI * seat / seats.coerceAtLeast(1)
+
+    fun round(v: Double) = kotlin.math.round(v * 10_000) / 10_000
+    return round(kotlin.math.cos(angle)) to round(kotlin.math.sin(angle))
+}
+
 /** "Tisch 3" -- the number is 1-based for people. */
 internal fun encounterTableTitle(table: Int): String = gettext("Tisch %1", table + 1)
 
@@ -201,6 +215,7 @@ internal class EncounterTablesView(
                 cell.setAttribute("data-table", index.toString())
                 cell.setAttribute("data-table-seat", seat.toString())
                 cell.setAttribute("tabindex", "-1")
+                placeOnRing(cell, seat, seats)
                 val initials = Span(className = "lapis-encounter-table-seat-initials")
                 cell.add(initials)
                 val speaking = Span(content = tr("spricht"), className = "lapis-encounter-table-seat-speaking")
@@ -228,6 +243,17 @@ internal class EncounterTablesView(
         lift.onClick { onQuiet(index, false) }
         lift.hide()
         return TableCardCell(card, title, quietNote, micStatus, row, cells, leave, quiet, lift)
+    }
+
+    /** V1.9.159: seat [seat] of [seats] stands on a ring around the table top, the first one at 12 o'clock, clockwise (DOM order = reading order). */
+    private fun placeOnRing(
+        cell: Tag,
+        seat: Int,
+        seats: Int,
+    ) {
+        val (x, y) = encounterTableRingUnit(seat, seats)
+        cell.setStyle("left", "calc(50% + (50% - ${SEAT_RADIUS_PX}px) * $x)")
+        cell.setStyle("top", "calc(50% + (50% - ${SEAT_RADIUS_PX}px) * $y)")
     }
 
     private fun apply(
@@ -345,6 +371,7 @@ internal class EncounterTablesView(
 
     companion object {
         const val HEADING_ID = "lapis-encounter-tables-heading"
+        private const val SEAT_RADIUS_PX = 22
         private const val FOCUS_RETRIES = 30
         private const val FOCUS_RETRY_MS = 16
     }

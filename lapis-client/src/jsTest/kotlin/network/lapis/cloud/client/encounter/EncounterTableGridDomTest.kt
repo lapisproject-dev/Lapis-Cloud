@@ -2,6 +2,7 @@ package network.lapis.cloud.client.encounter
 
 import io.kvision.html.div
 import kotlinx.browser.document
+import kotlinx.browser.window
 import network.lapis.cloud.client.allOf
 import network.lapis.cloud.client.awaitUntil
 import network.lapis.cloud.client.formTest
@@ -10,6 +11,7 @@ import org.w3c.dom.HTMLElement
 import org.w3c.dom.events.KeyboardEvent
 import org.w3c.dom.events.KeyboardEventInit
 import kotlin.js.Promise
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -298,9 +300,9 @@ class EncounterTableGridDomTest {
         }
 
     @Test
-    fun onAPhone_twoCardsFitSideBySide_withoutASidewaysScroll(): Promise<Unit> =
+    fun onAWidePhone_twoRingCardsFitSideBySide_onASmallPhoneOnePerRow_neverASidewaysScroll(): Promise<Unit> =
         formTest {
-            withView(width = "352px") { view, element ->
+            withView(width = "400px") { view, element ->
                 view.render(model(cards = (0 until 4).map { card(table = it) }))
                 awaitUntil("cards") { element.allOf(".lapis-encounter-table").size == 4 }
                 val grid = assertNotNull(element.querySelector(".lapis-encounter-tables-grid") as? HTMLElement)
@@ -310,6 +312,45 @@ class EncounterTableGridDomTest {
                 }
                 val lefts = element.allOf(".lapis-encounter-table").map { it.getBoundingClientRect().left }.toSet()
                 assertEquals(2, lefts.size, "two columns")
+            }
+            // V1.9.159: a ring of up to 8 seats needs a card of 172 px; at 320 px there is one table per row, still without a sideways scroll.
+            withView(width = "320px") { view, element ->
+                view.render(model(cards = (0 until 2).map { card(table = it) }))
+                awaitUntil("cards") { element.allOf(".lapis-encounter-table").size == 2 }
+                val grid = assertNotNull(element.querySelector(".lapis-encounter-tables-grid") as? HTMLElement)
+                assertTrue(grid.scrollWidth <= grid.clientWidth + 1, "no sideways scroll: ${grid.scrollWidth} > ${grid.clientWidth}")
+                assertEquals(
+                    1,
+                    element
+                        .allOf(".lapis-encounter-table")
+                        .map { it.getBoundingClientRect().left }
+                        .toSet()
+                        .size,
+                    "one column",
+                )
+            }
+        }
+
+    @Test
+    fun seatsStandOnARing_aroundAVisibleTableTop(): Promise<Unit> =
+        formTest {
+            withView(width = "400px") { view, element ->
+                view.render(model(cards = listOf(card(table = 0))))
+                awaitUntil("seats") { element.seatsOf(0).size == 6 }
+                val ring = assertNotNull(element.querySelector(".lapis-encounter-table-seats") as? HTMLElement)
+                val box = ring.getBoundingClientRect()
+                val cx = box.left + box.width / 2
+                val cy = box.top + box.height / 2
+                val first = element.seatsOf(0)[0].getBoundingClientRect()
+                assertTrue(abs((first.left + first.width / 2) - cx) < 2, "seat 1 at 12 o'clock (horizontally centred)")
+                assertTrue((first.top + first.height / 2) < cy - box.height / 4, "seat 1 above the centre")
+                element.seatsOf(0).forEach { seat ->
+                    val r = seat.getBoundingClientRect()
+                    val d = kotlin.math.hypot(r.left + r.width / 2 - cx, r.top + r.height / 2 - cy)
+                    assertTrue(abs(d - (box.width / 2 - 22)) < 2, "every seat on the same ring, radius $d")
+                }
+                val top = window.getComputedStyle(ring, "::before")
+                assertTrue(top.getPropertyValue("content") != "none", "the table top is drawn")
             }
         }
 

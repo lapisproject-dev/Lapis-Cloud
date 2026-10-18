@@ -5186,9 +5186,9 @@ msgstr "Free reserve (%1)"
 msgid "Freund"
 msgstr "Friend"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:158
-msgid "Freund-Konto angelegt"
-msgstr "Friend account created"
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Registrierung abgeschickt"
+msgstr "Registration submitted"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:107
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:42
@@ -5798,14 +5798,13 @@ msgstr ""
 "approves or rejects the project. This system has no refund path for this "
 "stake."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:160
-msgid ""
-"Ihr Freund-Konto ist sofort nutzbar -- Sie können sich jetzt mit Ihrem "
-"gewählten Passwort anmelden und an Videokonferenzen teilnehmen, zu denen Sie "
-"eingeladen wurden."
-msgstr ""
-"Your friend account is usable immediately -- you can now log in with your "
-"chosen password and join video conferences you have been invited to."
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Ist diese Adresse neu, ist Ihr Freund-Konto sofort nutzbar -- Sie können sich jetzt mit Ihrem gewählten Passwort anmelden und an Videokonferenzen teilnehmen, zu denen Sie eingeladen wurden."
+msgstr "If this address is new, your friend account is usable immediately -- you can now log in with your chosen password and join video conferences you have been invited to."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Hatten Sie sich mit dieser Adresse schon einmal registriert, wurde kein neues Konto angelegt und Ihr eben gewähltes Passwort nicht übernommen. Melden Sie sich dann mit Ihrem bisherigen Passwort an oder nutzen Sie auf der Anmeldeseite „Passwort vergessen?“."
+msgstr "If you had already registered with this address, no new account was created and the password you just chose was not adopted. Log in with your previous password, or use “Passwort vergessen?” (forgot password) on the login page."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1010
 msgid "Ihr Gebot: %1, %2"

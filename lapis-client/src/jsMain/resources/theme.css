@@ -3439,7 +3439,7 @@ html .form-select.is-invalid:focus {
   display: none;
 }
 
-.lapis-encounter--scene-off .lapis-encounter-table::before,
+.lapis-encounter--scene-off .lapis-encounter-table-seats::before,
 .lapis-encounter--scene-off .lapis-encounter-block::before {
   content: none;
 }
@@ -3452,7 +3452,7 @@ html .form-select.is-invalid:focus {
   }
 
   .lapis-encounter-block::before,
-  .lapis-encounter-table::before {
+  .lapis-encounter-table-seats::before {
     content: none;
   }
 }
@@ -3887,23 +3887,14 @@ html .form-select.is-invalid:focus {
   min-height: 44px;
 }
 
-/* V1.9.80 (Stufe 2b): die Tische zwischen Kanzel und Baenken. Je Tisch eine Karte (`role="group"`), je Platz ein Knopf von mindestens 44 x 44 px,
-   drei je Zeile (3 x 44 + 2 x 2 = 136 px + Innenabstand und Rahmen = 154 px je Karte: zwei Karten nebeneinander bei 320 px). Frei = gestrichelt, besetzt =
-   gefuellt mit Initialen, eigener Platz = Doppelring plus das Wort "Sie", spricht = kraeftiger Ring plus das Wort "spricht", beruhigt = Symbol
-   plus Text (nie Farbe allein). Keine Transition: nichts animiert. */
+/* V1.9.80 (Stufe 2b): die Tische zwischen Kanzel und Baenken. Je Tisch eine Karte (`role="group"`), je Platz ein Knopf von mindestens 44 x 44 px.
+   V1.9.159: die Plaetze stehen auf einem Ring um die sichtbare Tischplatte (bis 8 Plaetze brauchen einen Ring von 159 px: Karte 172 px, zwei Karten
+   nebeneinander ab 352 px; auf einem 320-px-Telefon steht darum ein Tisch je Zeile). Frei = gestrichelt, besetzt = gefuellt mit Initialen, eigener Platz = Doppelring plus das Wort
+   "Sie", spricht = kraeftiger Ring plus das Wort "spricht", beruhigt = Symbol plus Text (nie Farbe allein). Keine Transition: nichts animiert. */
 .lapis-encounter-tables-host {
   box-sizing: border-box;
   width: 100%;
   margin: 0.5rem 0;
-}
-
-/* Telefon: der Raum hat 296 px Innenbreite, zwei Karten brauchen 2 x 154 + 8 px -- der Tischbereich ragt darum 12 px links und rechts in
-   den Innenabstand des Raums (der Raum selbst schneidet nichts ab: 320 px Breite, zwei Spalten). */
-@media (max-width: 767.98px) {
-  .lapis-encounter-tables-host {
-    width: calc(100% + 1.5rem);
-    margin-inline: -0.75rem;
-  }
 }
 
 .lapis-encounter-tables-heading {
@@ -3912,11 +3903,11 @@ html .form-select.is-invalid:focus {
 
 .lapis-encounter-tables-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(154px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
   gap: 0.5rem;
   /* V1.9.152: `isolate` keeps the table drawing (z-index -1) inside the grid; Foyer and Kleingruppenraum cap the columns (`--lapis-enc-table-cols`). */
   isolation: isolate;
-  max-width: calc(var(--lapis-enc-table-cols, 12) * 154px + (var(--lapis-enc-table-cols, 12) - 1) * 0.5rem);
+  max-width: calc(var(--lapis-enc-table-cols, 12) * 172px + (var(--lapis-enc-table-cols, 12) - 1) * 0.5rem);
   margin-inline: auto;
 }
 
@@ -3931,12 +3922,16 @@ html .form-select.is-invalid:focus {
   color: var(--lapis-encounter-seat-text);
 }
 
-/* V1.9.152: the table top of the template, behind the opaque card and 8 px taller (above and below only: a sideways overhang would widen the grid
-   past the 320 px that two cards need); no text ever stands on it. */
+/* V1.9.159: the table top of the template lies INSIDE the ring of seats (the ring's own stacking context puts it above the card background; before it
+   lay behind the opaque card and was never seen); no text ever stands on it. */
 .lapis-encounter-table::before {
+  content: none;
+}
+
+.lapis-encounter-table-seats::before {
   content: "";
   position: absolute;
-  inset: -8px 0;
+  inset: 50px;
   z-index: -1;
   background-color: var(--lapis-encounter-scene-ink);
   -webkit-mask: var(--lapis-enc-table-art) center / 100% 100% no-repeat;
@@ -3965,15 +3960,18 @@ html .form-select.is-invalid:focus {
 }
 
 .lapis-encounter-table-seats {
-  display: grid;
-  grid-template-columns: repeat(3, 44px);
-  justify-content: start;
-  gap: 2px;
-  margin: 0.5rem 0;
+  position: relative;
+  isolation: isolate;
+  box-sizing: border-box;
+  /* the ring may use the card's inner padding (0.4rem each side): 8 seats need a ring box of about 159 px */
+  width: calc(100% + 0.8rem);
+  aspect-ratio: 1;
+  margin: 0.5rem -0.4rem;
 }
 
 .lapis-encounter-table-seat {
-  position: relative;
+  position: absolute;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: center;

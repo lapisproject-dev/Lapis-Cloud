@@ -5250,9 +5250,9 @@ msgstr "Réserve libre (%1)"
 msgid "Freund"
 msgstr "Ami"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:158
-msgid "Freund-Konto angelegt"
-msgstr "Compte ami créé"
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Registrierung abgeschickt"
+msgstr "Inscription envoyée"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:107
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:42
@@ -5867,15 +5867,13 @@ msgstr ""
 "approuve ou rejette le projet par la suite. Ce système ne prévoit aucun "
 "mécanisme de remboursement pour cette mise."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:160
-msgid ""
-"Ihr Freund-Konto ist sofort nutzbar -- Sie können sich jetzt mit Ihrem "
-"gewählten Passwort anmelden und an Videokonferenzen teilnehmen, zu denen Sie "
-"eingeladen wurden."
-msgstr ""
-"Votre compte ami est utilisable immédiatement -- vous pouvez désormais vous "
-"connecter avec le mot de passe choisi et participer aux visioconférences "
-"auxquelles vous avez été invité(e)."
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Ist diese Adresse neu, ist Ihr Freund-Konto sofort nutzbar -- Sie können sich jetzt mit Ihrem gewählten Passwort anmelden und an Videokonferenzen teilnehmen, zu denen Sie eingeladen wurden."
+msgstr "Si cette adresse est nouvelle, votre compte ami est utilisable immédiatement : vous pouvez maintenant vous connecter avec le mot de passe choisi et participer aux visioconférences auxquelles vous avez été invité(e)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Hatten Sie sich mit dieser Adresse schon einmal registriert, wurde kein neues Konto angelegt und Ihr eben gewähltes Passwort nicht übernommen. Melden Sie sich dann mit Ihrem bisherigen Passwort an oder nutzen Sie auf der Anmeldeseite „Passwort vergessen?“."
+msgstr "Si vous étiez déjà inscrit(e) avec cette adresse, aucun nouveau compte n'a été créé et le mot de passe que vous venez de choisir n'a pas été retenu. Connectez-vous avec votre mot de passe actuel ou utilisez « Mot de passe oublié ? » sur la page de connexion."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1010
 msgid "Ihr Gebot: %1, %2"

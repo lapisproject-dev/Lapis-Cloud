@@ -51,6 +51,11 @@ jobs:
           -x :lapis-client:allTests -x :lapis-client:jsBrowserTest
           -x :lapis-shared:allTests -x :lapis-shared:jsBrowserTest
 
+      # V1.9.160: every kUML block in docs/**/*.adoc must still render (about 15 seconds; the task fails if a single file fails).
+      # A diagram that no longer compiles after a metamodel or DSL change used to show up only when somebody built the documentation.
+      - name: Render documentation diagrams
+        run: ./gradlew :docs-render:renderDocs
+
       # 703 XML files today (one per spec class); the floor leaves room for deleting specs but catches a lane that
       # silently ran nothing.
       - name: Assert H2 lane ran
@@ -209,7 +214,16 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Logic test of the check script (stub docker)
-        run: scripts/test-ci-assert-image-clean.sh
+        run: |
+          scripts/test-ci-assert-image-clean.sh
+          scripts/test-ci-pick-base-registry.sh
+
+      # V1.9.160: same fallback as in release-image.yml, so a rate-limited primary registry does not fail a pull request either.
+      - name: Pick base image registry
+        id: base
+        run: |
+          set -euo pipefail
+          echo "registry=$(scripts/ci-pick-base-registry.sh Dockerfile)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
@@ -221,6 +235,8 @@ jobs:
           load: true
           push: false
           platforms: linux/amd64
+          build-args: |
+            BASE_REGISTRY=${{ steps.base.outputs.registry }}
           tags: lapis-cloud-candidate:pr
           cache-from: type=gha,scope=lapis-image
 

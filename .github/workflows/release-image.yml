@@ -79,6 +79,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # V1.9.160: base images are pinned by digest and exist on several mirrors; if the primary (ECR) is rate limited, take the next one.
+      - name: Pick base image registry
+        id: base
+        run: |
+          set -euo pipefail
+          echo "registry=$(scripts/ci-pick-base-registry.sh Dockerfile)" >> "$GITHUB_OUTPUT"
+
       # Candidate build, loaded locally and NOT pushed: its content is inspected before anything is published.
       - name: Build candidate image (no push)
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
@@ -89,6 +96,7 @@ jobs:
           platforms: linux/amd64
           build-args: |
             NODE_MAX_OLD_SPACE_MB=8192
+            BASE_REGISTRY=${{ steps.base.outputs.registry }}
           tags: lapis-cloud-candidate:${{ steps.meta.outputs.version }}
           cache-from: type=gha,scope=lapis-image
           # Written here so the push build below reuses every layer instead of compiling a second time.
@@ -108,6 +116,7 @@ jobs:
           platforms: linux/amd64
           build-args: |
             NODE_MAX_OLD_SPACE_MB=8192
+            BASE_REGISTRY=${{ steps.base.outputs.registry }}
           provenance: mode=max
           sbom: true
           tags: |

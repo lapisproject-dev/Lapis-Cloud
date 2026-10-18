@@ -4702,8 +4702,8 @@ msgstr ""
 msgid "Freund"
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:158
-msgid "Freund-Konto angelegt"
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Registrierung abgeschickt"
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:107
@@ -5258,8 +5258,12 @@ msgstr ""
 msgid "Ihr Einsatz wird NICHT zurückerstattet -- unabhängig davon, ob der Vorstand das Projekt später genehmigt oder ablehnt. Es gibt in diesem System keinen Rückerstattungspfad für diesen Einsatz."
 msgstr ""
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:160
-msgid "Ihr Freund-Konto ist sofort nutzbar -- Sie können sich jetzt mit Ihrem gewählten Passwort anmelden und an Videokonferenzen teilnehmen, zu denen Sie eingeladen wurden."
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Ist diese Adresse neu, ist Ihr Freund-Konto sofort nutzbar -- Sie können sich jetzt mit Ihrem gewählten Passwort anmelden und an Videokonferenzen teilnehmen, zu denen Sie eingeladen wurden."
+msgstr ""
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Hatten Sie sich mit dieser Adresse schon einmal registriert, wurde kein neues Konto angelegt und Ihr eben gewähltes Passwort nicht übernommen. Melden Sie sich dann mit Ihrem bisherigen Passwort an oder nutzen Sie auf der Anmeldeseite „Passwort vergessen?“."
 msgstr ""
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1010

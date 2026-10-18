@@ -5201,9 +5201,9 @@ msgstr "Wolna rezerwa (%1)"
 msgid "Freund"
 msgstr "Znajomy"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:158
-msgid "Freund-Konto angelegt"
-msgstr "Utworzono konto znajomego"
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Registrierung abgeschickt"
+msgstr "Rejestracja wysłana"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:107
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:42
@@ -5811,15 +5811,13 @@ msgstr ""
 "zatwierdzi projekt później, czy go odrzuci. W tym systemie nie istnieje "
 "ścieżka zwrotu dla tej stawki."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:160
-msgid ""
-"Ihr Freund-Konto ist sofort nutzbar -- Sie können sich jetzt mit Ihrem "
-"gewählten Passwort anmelden und an Videokonferenzen teilnehmen, zu denen Sie "
-"eingeladen wurden."
-msgstr ""
-"Twoje konto znajomego jest od razu gotowe do użycia -- możesz teraz "
-"zalogować się wybranym hasłem i dołączać do wideokonferencji, na które "
-"zostałeś/-aś zaproszony/-a."
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Ist diese Adresse neu, ist Ihr Freund-Konto sofort nutzbar -- Sie können sich jetzt mit Ihrem gewählten Passwort anmelden und an Videokonferenzen teilnehmen, zu denen Sie eingeladen wurden."
+msgstr "Jeśli ten adres jest nowy, Twoje konto przyjaciela jest od razu gotowe do użycia -- możesz się teraz zalogować wybranym hasłem i uczestniczyć w wideokonferencjach, na które zostałeś(-aś) zaproszony(-a)."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Hatten Sie sich mit dieser Adresse schon einmal registriert, wurde kein neues Konto angelegt und Ihr eben gewähltes Passwort nicht übernommen. Melden Sie sich dann mit Ihrem bisherigen Passwort an oder nutzen Sie auf der Anmeldeseite „Passwort vergessen?“."
+msgstr "Jeśli rejestrowałeś(-aś) się już wcześniej z tym adresem, nowe konto nie zostało utworzone, a właśnie wybrane hasło nie zostało przyjęte. Zaloguj się dotychczasowym hasłem lub użyj opcji „Nie pamiętasz hasła?” na stronie logowania."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1010
 msgid "Ihr Gebot: %1, %2"

@@ -6,6 +6,25 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### V1.9.160 -- Small items: base-image registry fallback, documentation diagrams in CI, honest friend-registration confirmation
+
+No migration, no RPC change, no new environment variable. Client texts changed (seven catalogs); CI and Docker changed.
+
+- **Base image registry fallback.** The release image build was stopped twice (v0.37.0, v0.37.2) by the anonymous pull limit of the AWS public ECR mirror. The Dockerfile now takes the registry from the build argument `BASE_REGISTRY` (default unchanged: the ECR mirror); `scripts/ci-pick-base-registry.sh` picks the first of ECR, `mirror.gcr.io`, Docker Hub that serves BOTH digest-pinned base images, and both `release-image.yml` and the pull-request image job pass it. The digests are identical on all three registries (checked), so only the origin of the bytes changes. New `scripts/test-ci-pick-base-registry.sh` (stub docker, runs in CI).
+- **`renderDocs` in CI.** The `check` job now runs `./gradlew :docs-render:renderDocs` (about 15 seconds): every kUML block in `docs/**/*.adoc` must still render (77 diagrams in 121 files today), otherwise the job fails.
+- **Friend registration: no more false promise.** The server answers identically for a new and a known address (account-enumeration hardening, unchanged). The confirmation screen, however, announced "Freund-Konto angelegt" and "sofort nutzbar" in both cases, and a person with a known address waited for a mail that never comes and then failed to log in. Now the header reads "Registrierung abgeschickt", the first paragraph is conditional ("Ist diese Adresse neu ..."), and a second paragraph says what to do after an earlier registration (no new account, the new password was not adopted, log in with the old one or use "Passwort vergessen?"). The identical text for both cases keeps the hardening. The optional notice mail to the owner of a known address was NOT built (mail budget, would need its own rate limit). New `FriendRegistrationConfirmationDomTest`.
+- **Not seen in a real browser window**; the CI changes were not run on GitHub (the picker script and the Dockerfile check were run locally: `docker buildx build --check`, picker against the three real registries).
+
+### V1.9.159 -- Encounter room: tables show their table top, seats stand on a ring
+
+Client and CSS fix only: no migration, no RPC change, no new text, no new environment variable. Seat ids, table assignment and every accessible name are untouched (the DOM order of the seats is unchanged, so the arrow-key order is too).
+
+- **Table top visible.** The drawing of the template lay behind the opaque table card and was never seen. It now lies inside the ring of seats (own stacking context of the ring), still absent with "Szene aus", high contrast and forced colours.
+- **Seats on a ring.** The three-column seat grid is replaced by seats on a circle around the table top (seat 1 at 12 o'clock, clockwise); position is computed by the pure function `encounterTableRingUnit`.
+- **Wider cards.** A ring of 8 seats needs about 159 px, so a table card is at least 172 px wide (was 154 px). Two cards stand side by side from about 400 px viewport width; on a 320 px phone there is one table per row (no sideways scroll). The old phone overhang of the table area is removed.
+- **Tests.** New `EncounterTableRingTest` (geometry, no seat touching its neighbour at 8 seats) and a DOM test measuring the real seat positions and the table top; the phone grid test now pins "two columns at 400 px, one at 320 px, never a sideways scroll".
+- **Not seen in a real browser window**: measured in a headless browser test only.
+
 ### V1.9.158 -- Unavailable options never fail silently
 
 Anlass: in an event room the recording dialog offered the access level "Mitglieder", the server refused it and the person saw "Ungültige Anfrage."; the record and stream buttons were active although the instance switch or the organizers' release was off, and the click ended in "Keine Berechtigung für diese Aktion.". Rule from now on: an option that cannot work is not offered, or it is `aria-disabled` with a reason next to it; a refusal that still happens (race, stale state) has its own typed exception and its own text.

@@ -9,8 +9,8 @@ import java.io.File
  * Welle V1.9.80 -- the stylesheet half of the tables as a source scan (the DOM tests measure the real boxes; this keeps the next change from
  * quietly undoing the numbers they cannot see, because the Karma window is wider than a phone):
  *
- * - a table seat is a real 44 x 44 px target with a pointer cursor, three per row;
- * - on the phone the tables break out of the room's padding by 12 px on each side, so two cards (2 x 154 + 8 px) fit into 320 px;
+ * - a table seat is a real 44 x 44 px target with a pointer cursor, placed on a ring around the table top (V1.9.159: absolute, square ring box);
+ * - a card is at least 172 px wide, so that eight seats do not touch on the ring (V1.9.159); a 320 px phone shows one table per row;
  * - no table rule animates (no `transition`, `animation`), so none belongs into the single reduced-motion block (R54);
  * - forced colours keep a visible outline for the own and the speaking seat, and the words "Sie" / "spricht" stay (no `display: none`).
  */
@@ -27,14 +27,18 @@ class ClientEncounterTableCssTripwireTest :
     FunSpec({
         val css = THEME_CSS.readText()
 
-        test("a table seat is a 44 pixel target and a card holds three of them per row") {
+        test("a table seat is a 44 pixel target and stands on a ring in a square box") {
             val seat = rule(css = css, selector = ".lapis-encounter-table-seat")
             withClue(seat) {
                 seat.contains("min-width: 44px") shouldBe true
                 seat.contains("min-height: 44px") shouldBe true
                 seat.contains("cursor: pointer") shouldBe true
             }
-            rule(css = css, selector = ".lapis-encounter-table-seats").contains("grid-template-columns: repeat(3, 44px)") shouldBe true
+            seat.contains("position: absolute") shouldBe true
+            val ring = rule(css = css, selector = ".lapis-encounter-table-seats")
+            ring.contains("aspect-ratio: 1") shouldBe true
+            ring.contains("position: relative") shouldBe true
+            ring.contains("isolation: isolate") shouldBe true // the table top (z-index -1) lies above the card background, not behind it
         }
 
         test("the table list buttons of the people tab are 44 pixel targets") {
@@ -42,18 +46,14 @@ class ClientEncounterTableCssTripwireTest :
             rule(css = css, selector = ".lapis-encounter-table-list summary").contains("min-height: 44px") shouldBe true
         }
 
-        test("on the phone the tables reach 320 px: the host breaks out of the room's padding by 0.75rem on each side") {
-            val phone =
-                Regex("""@media \(max-width: 767\.98px\) \{\s*\.lapis-encounter-tables-host \{([^}]*)}""").find(css)?.groupValues?.get(1)
-            withClue(phone) {
-                (phone != null) shouldBe true
-                phone!!.contains("width: calc(100% + 1.5rem)") shouldBe true
-                phone.contains("margin-inline: -0.75rem") shouldBe true
-            }
-            // 3 x 44 + 2 x 2 = 136 px of seats + 2 x 0.4rem padding + 2 x 2px border fits into a card of 154 px; 2 cards + 8 px gap = 316 <= 320
-            (3 * 44 + 2 * 2 + 2 * 7 + 2 * 2 <= 154) shouldBe true
-            (2 * 154 + 8 <= 320) shouldBe true
-            rule(css = css, selector = ".lapis-encounter-tables-grid").contains("minmax(154px, 1fr)") shouldBe true
+        test("a card is wide enough for the ring of eight seats, and the old phone breakout is gone") {
+            // Ring box = card 172 px - 2 x 2 px border = 168 px (the padding is given back by a negative margin); radius to the seat centres
+            // = (168 - 44) / 2 = 62 px; the chord between two neighbours of eight seats is 2 x 62 x sin(22.5 degrees) = 47.4 px >= 44 px.
+            val radius = (172 - 2 * 2 - 44) / 2.0
+            (2 * radius * kotlin.math.sin(Math.PI / 8) >= 44.0) shouldBe true
+            rule(css = css, selector = ".lapis-encounter-tables-grid").contains("minmax(172px, 1fr)") shouldBe true
+            rule(css = css, selector = ".lapis-encounter-table-seats").contains("margin: 0.5rem -0.4rem") shouldBe true
+            Regex("""@media \(max-width: 767\.98px\) \{\s*\.lapis-encounter-tables-host \{""").containsMatchIn(css) shouldBe false
         }
 
         test("no table rule animates: no transition, no animation") {

@@ -15,8 +15,13 @@
 # limit already broke the Postgres CI lane once, 2026-10-09) and are pinned by digest of the multi-arch index.
 # To update: `docker buildx imagetools inspect public.ecr.aws/docker/library/eclipse-temurin:25-jdk` (and `25-jre`),
 # copy the top-level Digest into the two FROM lines below, rebuild. There is no automatic update.
+#
+# V1.9.160: the registry is a build argument. The default is the ECR mirror; when its anonymous pull limit is hit (v0.37.0 and v0.37.2), CI
+# runs scripts/ci-pick-base-registry.sh and passes the first registry that serves the pinned digests (mirror.gcr.io, then Docker Hub). The digest
+# is the same on all of them, so only the origin of the bytes changes.
+ARG BASE_REGISTRY=public.ecr.aws/docker/library
 
-FROM public.ecr.aws/docker/library/eclipse-temurin:25-jdk@sha256:8c0a84ea11c8f6ed52600fc19f1040121f2a162998e9f50a5faebbbad9172dcc AS build
+FROM ${BASE_REGISTRY}/eclipse-temurin:25-jdk@sha256:8c0a84ea11c8f6ed52600fc19f1040121f2a162998e9f50a5faebbbad9172dcc AS build
 WORKDIR /workspace
 
 # Copy build configuration first (Gradle wrapper, settings, version catalog, per-module
@@ -55,7 +60,7 @@ RUN ./gradlew --no-daemon :lapis-server:installDist
 ARG NODE_MAX_OLD_SPACE_MB=6144
 RUN NODE_OPTIONS=--max-old-space-size=${NODE_MAX_OLD_SPACE_MB} ./gradlew --no-daemon :lapis-client:jsBrowserProductionWebpack
 
-FROM public.ecr.aws/docker/library/eclipse-temurin:25-jre@sha256:fcd7fd7b387f94bb2ac461478a7436ad8e349924c374ea8313919624dceae636 AS runtime
+FROM ${BASE_REGISTRY}/eclipse-temurin:25-jre@sha256:fcd7fd7b387f94bb2ac461478a7436ad8e349924c374ea8313919624dceae636 AS runtime
 
 # V1.0 Videokonferenzen, Wave 2 "Aufzeichnung": ConferenceRecordingConfig.probeFfmpegAvailable
 # shells out to a plain `ffmpeg` on PATH to compose the raw per-track Egress recordings into a

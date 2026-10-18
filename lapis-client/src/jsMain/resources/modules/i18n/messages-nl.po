@@ -5209,9 +5209,9 @@ msgstr "Vrije reserve (%1)"
 msgid "Freund"
 msgstr "Vriend"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:158
-msgid "Freund-Konto angelegt"
-msgstr "Vriendenaccount aangemaakt"
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Registrierung abgeschickt"
+msgstr "Registratie verzonden"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:107
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:42
@@ -5823,14 +5823,13 @@ msgstr ""
 "later goedkeurt of afwijst. Er bestaat in dit systeem geen "
 "terugbetalingstraject voor deze inzet."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:160
-msgid ""
-"Ihr Freund-Konto ist sofort nutzbar -- Sie können sich jetzt mit Ihrem "
-"gewählten Passwort anmelden und an Videokonferenzen teilnehmen, zu denen Sie "
-"eingeladen wurden."
-msgstr ""
-"Uw vriendenaccount is direct bruikbaar -- u kunt nu inloggen met uw gekozen "
-"wachtwoord en deelnemen aan videoconferenties waarvoor u bent uitgenodigd."
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Ist diese Adresse neu, ist Ihr Freund-Konto sofort nutzbar -- Sie können sich jetzt mit Ihrem gewählten Passwort anmelden und an Videokonferenzen teilnehmen, zu denen Sie eingeladen wurden."
+msgstr "Als dit adres nieuw is, is uw vriendenaccount direct bruikbaar: u kunt nu inloggen met het gekozen wachtwoord en deelnemen aan videoconferenties waarvoor u bent uitgenodigd."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Hatten Sie sich mit dieser Adresse schon einmal registriert, wurde kein neues Konto angelegt und Ihr eben gewähltes Passwort nicht übernommen. Melden Sie sich dann mit Ihrem bisherigen Passwort an oder nutzen Sie auf der Anmeldeseite „Passwort vergessen?“."
+msgstr "Als u zich al eerder met dit adres had geregistreerd, is er geen nieuw account aangemaakt en is het zojuist gekozen wachtwoord niet overgenomen. Log in met uw eerdere wachtwoord of gebruik op de inlogpagina “Wachtwoord vergeten?”."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1010
 msgid "Ihr Gebot: %1, %2"

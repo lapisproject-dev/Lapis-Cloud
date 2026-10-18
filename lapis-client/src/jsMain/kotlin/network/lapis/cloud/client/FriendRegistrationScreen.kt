@@ -174,17 +174,32 @@ internal fun buildFriendRegistrationInput(
         termsSha256 = terms.sha256,
     )
 
-private fun renderFriendRegistrationConfirmation(root: SimplePanel) {
+internal const val FRIEND_CONFIRMATION_NEW_CLASS = "lapis-friend-confirmation-new"
+internal const val FRIEND_CONFIRMATION_KNOWN_CLASS = "lapis-friend-confirmation-known"
+
+internal fun renderFriendRegistrationConfirmation(root: SimplePanel) {
     // V1.4.7: root.removeAll() (caller) cleared the lockup added in
     // renderFriendRegistrationScreen too -- re-add it here, this is the SAME card, a follow-up
     // state, not a new screen (S13).
     root.brandLockup()
-    root.pageHeader(tr("Freund-Konto angelegt"))
-    root.p(
-        tr(
-            "Ihr Freund-Konto ist sofort nutzbar -- Sie können sich jetzt mit Ihrem gewählten Passwort " +
-                "anmelden und an Videokonferenzen teilnehmen, zu denen Sie eingeladen wurden.",
-        ),
-    )
+    // Same text for a new and for a known address (account-enumeration hardening, see the class KDoc): the header does not claim that an account
+    // was created, the first paragraph is conditional, the second tells a person who had registered before what to do instead of leaving them
+    // waiting. The server answer and the mail behaviour are unchanged.
+    root.pageHeader(tr("Registrierung abgeschickt"))
+    root
+        .p(
+            tr(
+                "Ist diese Adresse neu, ist Ihr Freund-Konto sofort nutzbar -- Sie können sich jetzt mit Ihrem gewählten Passwort " +
+                    "anmelden und an Videokonferenzen teilnehmen, zu denen Sie eingeladen wurden.",
+            ),
+        ).addCssClass(FRIEND_CONFIRMATION_NEW_CLASS)
+    root
+        .p(
+            tr(
+                "Hatten Sie sich mit dieser Adresse schon einmal registriert, wurde kein neues Konto angelegt und Ihr eben gewähltes " +
+                    "Passwort nicht übernommen. Melden Sie sich dann mit Ihrem bisherigen Passwort an oder nutzen Sie auf der " +
+                    "Anmeldeseite „Passwort vergessen?“.",
+            ),
+        ).addCssClass(FRIEND_CONFIRMATION_KNOWN_CLASS)
     root.link(tr("Zur Anmeldung"), url = "#${Routes.LOGIN}")
 }

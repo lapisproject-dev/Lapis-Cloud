@@ -5235,9 +5235,9 @@ msgstr "Riserva libera (%1)"
 msgid "Freund"
 msgstr "Amico"
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:158
-msgid "Freund-Konto angelegt"
-msgstr "Account amico creato"
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Registrierung abgeschickt"
+msgstr "Registrazione inviata"
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:107
 #: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:42
@@ -5850,15 +5850,13 @@ msgstr ""
 "consiglio direttivo approvi o respinga successivamente il progetto. In "
 "questo sistema non esiste alcun percorso di rimborso per questa puntata."
 
-#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt:160
-msgid ""
-"Ihr Freund-Konto ist sofort nutzbar -- Sie können sich jetzt mit Ihrem "
-"gewählten Passwort anmelden und an Videokonferenzen teilnehmen, zu denen Sie "
-"eingeladen wurden."
-msgstr ""
-"Il Suo account amico è utilizzabile subito -- ora può accedere con la "
-"password scelta e partecipare alle videoconferenze a cui è stato/a invitato/"
-"a."
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Ist diese Adresse neu, ist Ihr Freund-Konto sofort nutzbar -- Sie können sich jetzt mit Ihrem gewählten Passwort anmelden und an Videokonferenzen teilnehmen, zu denen Sie eingeladen wurden."
+msgstr "Se questo indirizzo è nuovo, il suo account amico è utilizzabile subito: ora può accedere con la password scelta e partecipare alle videoconferenze a cui è stato invitato."
+
+#: src/jsMain/kotlin/network/lapis/cloud/client/FriendRegistrationScreen.kt
+msgid "Hatten Sie sich mit dieser Adresse schon einmal registriert, wurde kein neues Konto angelegt und Ihr eben gewähltes Passwort nicht übernommen. Melden Sie sich dann mit Ihrem bisherigen Passwort an oder nutzen Sie auf der Anmeldeseite „Passwort vergessen?“."
+msgstr "Se si era già registrato con questo indirizzo, non è stato creato alcun nuovo account e la password appena scelta non è stata adottata. Acceda con la password precedente oppure utilizzi «Password dimenticata?» nella pagina di accesso."
 
 #: src/jsMain/kotlin/network/lapis/cloud/client/MotionsScreen.kt:1010
 msgid "Ihr Gebot: %1, %2"
