@@ -8,7 +8,7 @@ link:../architecture/encounter-space.adoc[docs/architecture/encounter-space.adoc
 == What a room offers
 
 * Offices (PULPIT, STEWARD) per room; everybody else listens. Only an office holder's token may publish.
-* Reactions (hand, amen, applause, heart as configured), chat, seats and, in assemblies, tables with their own audio group.
+* Reactions (hand, amen, applause, heart as configured), chat, seats and, in assemblies, tables with their own audio group. A table is shown as its table top with the seats on a ring around it (V1.9.159); the card is at least 172 px wide, so a 320 px phone shows one table per row.
 * Pulpit extras: blessing and bell (church service), transmission, device choice.
 * Presence is transient: nothing about who attended is stored.
 * Optional, off by default: the pulpit (only the PULPIT office holder, never the congregation) can be recorded into the document store, see
