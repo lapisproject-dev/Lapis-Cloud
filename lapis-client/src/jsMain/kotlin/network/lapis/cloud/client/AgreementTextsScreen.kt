@@ -360,7 +360,8 @@ private fun renderDraftEditor(
             value = draft?.validFrom ?: today,
             required = true,
             requiredMessage = tr("Bitte ein gültiges Datum angeben."),
-            extraHint = tr("Nicht in der Zukunft und nicht vor der aktuellen Fassung."),
+            // gettext, not tr(): the hint is joined to "Format: ..." in LocalDateField and a tr() marker only resolves at the start of a text
+            extraHint = gettext("Nicht in der Zukunft und nicht vor der aktuellen Fassung."),
         )
     val bodyField =
         form.textAreaField(

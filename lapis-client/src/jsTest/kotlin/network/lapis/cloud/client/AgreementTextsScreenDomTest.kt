@@ -288,6 +288,32 @@ class AgreementTextsScreenDomTest {
         }
 
     @Test
+    fun noTab_showsAnI18nMarker_andTheDateHintReadsAsOneSentence(): Promise<Unit> =
+        test {
+            val world = World()
+            withWorld(world) { _, _ ->
+                mountedForm("agreement-texts-marker") { root, element ->
+                    renderAgreementTextsScreen(root)
+                    awaitUntil("the screen") { element().allOf("[role=tab]").size == 8 }
+                    val tabs = element().allOf("[role=tab]")
+                    for (index in tabs.indices) {
+                        element().allOf("[role=tab]")[index].click()
+                        awaitUntil("the tab ${tabs[index].text()} selected") {
+                            element().allOf("[role=tab]")[index].getAttribute("aria-selected") == "true"
+                        }
+                        assertFalse(
+                            element().text().contains("###KvI18nS###"),
+                            "tab ${tabs[index].text()} shows a raw i18n marker",
+                        )
+                    }
+                    element().allOf("[role=tab]")[0].click()
+                    awaitUntil("the date hint") { element().text().contains("Nicht in der Zukunft und nicht vor der aktuellen Fassung.") }
+                    assertTrue(element().text().contains("TT.MM.JJJJ Nicht in der Zukunft"))
+                }
+            }
+        }
+
+    @Test
     fun theFinderTab_isAnOptionalFeatureText_withItsHintAndWarning_andSavesUnderItsOwnKind(): Promise<Unit> =
         test {
             withWorld(World()) { calls, routes ->
