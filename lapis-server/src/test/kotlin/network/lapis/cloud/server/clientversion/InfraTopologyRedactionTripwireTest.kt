@@ -95,6 +95,21 @@ private val ALLOWED_IPV4_LITERALS =
         "127.0.0.1", // loopback -- every port-forwarding/bind example in deploy/ uses this deliberately
         "0.0.0.0", // all-interfaces bind, and the log line format `Responding at http://0.0.0.0:8080`
         "1.1.1.1", // Cloudflare's public resolver, used only as a `docker run alpine ping` connectivity example
+        // Boundary addresses of the reserved ranges in the coturn `denied-peer-ip` list (deploy/example/turnserver.conf.template):
+        // private (10/8, 172.16/12, 192.168/16), shared (100.64/10), loopback, link-local and "this network" -- none is a real host.
+        "0.255.255.255",
+        "10.0.0.0",
+        "10.255.255.255",
+        "100.64.0.0",
+        "100.127.255.255",
+        "127.0.0.0",
+        "127.255.255.255",
+        "169.254.0.0",
+        "169.254.255.255",
+        "172.16.0.0",
+        "172.31.255.255",
+        "192.168.0.0",
+        "192.168.255.255",
     )
 
 /**
