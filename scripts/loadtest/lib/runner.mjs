@@ -3,7 +3,7 @@ import { assertCaps, assertTargetAllowed, assertTurnOverrideAllowed, GuardError 
 import { assertAccountConfig, publicConfig } from './config.mjs';
 import { buildPlan, durationMs } from './scenarios.mjs';
 import { Clock, TokenBucket, createRng } from './scheduler.mjs';
-import { Recorder, evaluateAbort, writeResults } from './metrics.mjs';
+import { Recorder, entryFailureReason, evaluateAbort, writeResults } from './metrics.mjs';
 import { AudibleBoard, SimParticipant } from './participant.mjs';
 import { createMediaFactory } from './media/index.mjs';
 import { FakeMediaHub } from './media/fake.mjs';
@@ -133,7 +133,8 @@ export function startRun(cfg, deps) {
   const monitor = (async () => {
     for (let t = 10_000; ; t += 10_000) {
       if (!(await clock.sleepUntil(t, controller.signal))) return;
-      const reason = evaluateAbort(recorder.recent(60_000), { expectThrottle: cfg.unsafeIgnoreClientThrottle });
+      const reason =
+        entryFailureReason(recorder.samples, participants.length) ?? evaluateAbort(recorder.recent(60_000), { expectThrottle: cfg.unsafeIgnoreClientThrottle });
       if (reason) return abort(reason);
       if (t > total + 120_000) return;
     }

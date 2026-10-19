@@ -17,7 +17,9 @@
 # load-bearing PRODUCTION difference is host networking (see below), not an address setting.
 listening-port=3478
 min-port=51000
-max-port=51019
+max-port=51099
+# 100 relay ports (was 20): every relay client holds several ports for as long as an allocation lives; with 8 relay clients and constant table
+# changes 20 ports ran out (staging load test, 2026-10-19: 758 'no available ports' lines, 25 % of the relay clients' connects timed out).
 realm=${LAPIS_TURN_REALM}
 use-auth-secret
 static-auth-secret=${LAPIS_TURN_SECRET}

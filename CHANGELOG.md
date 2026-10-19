@@ -6,6 +6,18 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.37.5] — 2026-10-19
+
+Patch release on top of `[0.37.4]` (V1.9.162 and V1.9.163). No migration (the schema stays **`V110`**), no RPC change, no new server environment variable. **Behaviour changes first:** none for the people using the application. For operators: the deployment example now gives the TURN relay 100 ports instead of 20 (`51000-51099`); a running instance keeps its own files, whoever has many people behind strict networks in one room widens `min-port`/`max-port`, the firewall rule and the TTL rule together (on the operator's own instances this was done on 2026-10-19 and checked with a TURN test client: allocation over UDP and TCP, no packet lost; nobody who needs the relay has tried it). The load-test tool got minimum call counts for its abort rules and a stop when nobody could enter the room. **Honest limitations:** the port finding was measured on a test instance with the load-test tool, not with real browsers; the end-to-end re-measurement with real browsers is missing; the example change did not run through a fresh install.
+
+### V1.9.162 -- Load-test tool: abort rules no longer end a healthy run on single calls
+
+No server change, no migration. With the participants spread over several processes each process sees only a few dozen calls a minute; one slow call (the p99 of 60 samples) or two entry conflicts (5 % of 40) then stopped runs that were healthy. The error-rate rule now needs at least 3 unexpected calls, the p99 rule at least 100 calls in the last minute. A run in which the process made at least as many `enterSpace` calls as it has participants and none was accepted (a closed room) now stops with `nobody-could-enter-the-room` (exit 3) instead of idling to the end with exit 0 and a handful of calls. Tests: 99.
+
+### V1.9.163 -- Deployment example: 100 TURN relay ports
+
+No server change, no migration. The relay range of the example coturn is now `51000-51099` (was 20 ports): in the staging load test with 8 of 22 participants (relay share 30 %, random draw) forced onto the relay and constant table changes, coturn logged 758 "no available ports" lines and about a quarter of the relay clients' connects ran into the 15 s timeout (delivery of the map packets 74.8 % instead of 97.6 % at 15 % relay). Whoever runs a deployment must widen `min-port`/`max-port`, the firewall rule and the TTL rule together. Re-run on staging with the tool after the change: 22 instead of 71 unexpected errors, connect p95 724 ms instead of 15.3 s, no "no available ports" line, and scenario F at 30 % relay delivered 99.6 % of the map packets instead of 74.8 % (p95 delay 73 ms); not with real browsers. Only `deploy/example` was changed; `deploy/local` (developer setup) keeps its 20 ports.
+
 ## [0.37.4] — 2026-10-19
 
 Patch release on top of `[0.37.3]` (V1.9.161). No migration (the schema stays **`V110`**), no RPC change, no new server environment variable. **Behaviour changes first:** none for the people using the application. For operators: the deployment example (`deploy/example`) now runs coturn in host networking without `external-ip` and documents an nftables rule against UDP replies with TTL 1; running instances keep their own files, whoever switches opens the coturn ports in the host firewall first. **Honest limitations:** the relay finding was measured on staging with the load-test tool, never with real browsers; why host-networked coturn sends UDP replies with TTL 1 after TURN traffic is not understood; the new `updateSubscriptions` call is not used by the product; the example change did not run through a fresh install.

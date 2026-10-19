@@ -1,7 +1,7 @@
 import './helpers.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Recorder, csvCell, evaluateAbort, isExpectedRejection, percentile, stats, summaryCsv } from '../lib/metrics.mjs';
+import { Recorder, csvCell, entryFailureReason, evaluateAbort, isExpectedRejection, percentile, stats, summaryCsv } from '../lib/metrics.mjs';
 
 test('nearest-rank percentiles on known series', () => {
   const ten = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -73,6 +73,10 @@ test('abort criteria of the run sheet', () => {
   assert.equal(evaluateAbort([...ok(50), ...bad(11, 'http_503')]), 'more-than-10-server-errors-per-minute');
   assert.equal(evaluateAbort(ok(100, 6000)), 'p99-above-5-seconds');
   assert.equal(evaluateAbort([...ok(94), ...bad(6, 'Conflict')]), null, 'a taken seat is part of normal play');
+  assert.equal(evaluateAbort([...ok(38), ...bad(2, 'Forbidden')]), null, 'two unexpected calls in 40 are 5 % but not a trend');
+  assert.equal(evaluateAbort([...ok(37), ...bad(3, 'Forbidden')]), 'unexpected-error-rate-above-5-percent', 'three in 40 are');
+  assert.equal(evaluateAbort([...ok(59), ...ok(1, 7000)]), null, 'one slow call among 60 is the p99 of 60 samples, not a trend');
+  assert.equal(evaluateAbort([...ok(98), ...ok(2, 7000)]), 'p99-above-5-seconds', 'two slow calls in 100 are');
 });
 
 
@@ -117,4 +121,13 @@ test('"heard" is measured from the later of the microphone going on and the list
   board.micOn('speaker');
   now = 20_900;
   assert.equal(board.heard('speaker', 'late'), 500, 'no connection time known: from the microphone');
+});
+
+test('nobody could enter: only when every participant tried and none was accepted', () => {
+  const enter = (outcome) => ({ method: 'enterSpace', outcome, latency: 70 });
+  assert.equal(entryFailureReason([enter('Conflict'), enter('Conflict'), enter('Conflict')], 3), 'nobody-could-enter-the-room');
+  assert.equal(entryFailureReason([enter('Conflict'), enter('ok'), enter('Conflict')], 3), null, 'one entry is enough to go on');
+  assert.equal(entryFailureReason([enter('Conflict'), enter('Conflict')], 3), null, 'not everybody has tried yet');
+  assert.equal(entryFailureReason([], 0), null);
+  assert.equal(entryFailureReason([{ method: 'login', outcome: 'ok', latency: 1 }], 1), null);
 });

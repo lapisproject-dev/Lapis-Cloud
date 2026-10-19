@@ -57,7 +57,7 @@ services:
     # V1.9.93: the server pulls the image CI published for a release tag instead of compiling the sources itself.
     # LAPIS_IMAGE_TAG is an exact version without the leading `v` (never `latest`); rollback = set the old value.
     # To build from source instead, add the override file: see docker-compose.build.yml.
-    image: ghcr.io/lapisproject-dev/lapis-cloud:${LAPIS_IMAGE_TAG:?LAPIS_IMAGE_TAG must be set in .env (e.g. 0.37.4)}
+    image: ghcr.io/lapisproject-dev/lapis-cloud:${LAPIS_IMAGE_TAG:?LAPIS_IMAGE_TAG must be set in .env (e.g. 0.37.5)}
     container_name: lapis-cloud-server
     depends_on:
       postgres:
@@ -303,7 +303,7 @@ services:
       - ./coturn-certs:/etc/coturn/certs:ro
     # HOST networking (2026-10-18), no `ports:`: on a Docker bridge with `external-ip` the media relayed by
     # coturn never reached the client when LiveKit runs on the same host. The host firewall must now allow
-    # 3478/udp+tcp and 51000-51019/udp (port 5350, TURNS: coturn now binds it on every address, so it is
+    # 3478/udp+tcp and 51000-51099/udp (port 5350, TURNS: coturn now binds it on every address, so it is
     # closed to the outside ONLY because the firewall does not open it -- keep it that way; sniproxy dials it on loopback). Add the TTL rule from README.adoc "TURN relay: host
     # networking and the TTL rule" -- coturn answers with TTL 1 after some TURN traffic.
     network_mode: host

@@ -210,11 +210,12 @@ limit itself can be provoked against the fake.
 [#abort]
 === Abort criteria (the tool applies the first three itself)
 
-* more than 5 percent unexpected errors within one minute (at least 20 calls)
-* p99 latency above 5 s within one minute (at least 20 calls)
+* more than 5 percent unexpected errors within one minute (at least 20 calls and at least 3 unexpected ones)
+* p99 latency above 5 s within one minute (at least 100 calls; with fewer, one slow call is the p99)
 * more than 10 answers with an HTTP 5xx status within one minute
 * LiveKit CPU above 90 percent for 2 minutes, or memory above 85 percent (operator, from the probes)
 * a person who is not a test account is present (the tool)
+* the process made at least as many `enterSpace` calls as it has participants and none was accepted, usually a closed room (the tool, exit code 3)
 
 [#decision]
 == Decision rule (proposal)

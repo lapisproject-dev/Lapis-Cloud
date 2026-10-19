@@ -211,19 +211,35 @@ export function writeResults(dir, { recorder, meta }, redact = (s) => s) {
 }
 
 /**
- * Abort criteria of the run sheet, evaluated on the last minute of samples: more than 5 % unexpected errors (at least 20 calls),
- * p99 above 5 s (at least 20 calls), more than 10 answers with a 5xx status.
+ * Abort criteria of the run sheet, evaluated on the last minute of samples: more than 5 % unexpected errors (at least 20 calls and at least
+ * 3 unexpected ones), p99 above 5 s (at least 100 calls), more than 10 answers with a 5xx status.
+ * Minimums (2026-10-19): with the participants spread over several processes one process sees only a few dozen calls a minute; then one or two
+ * unlucky calls were enough to end a healthy run (a single 7 s call is the p99 of 60 samples, two entry conflicts are 5 % of 40).
  */
+export const ABORT_MIN_CALLS_RATE = 20;
+export const ABORT_MIN_UNEXPECTED = 3;
+export const ABORT_MIN_CALLS_P99 = 100;
 export function evaluateAbort(recentSamples, { expectThrottle = false } = {}) {
   const n = recentSamples.length;
   const unexpected = recentSamples.filter((s) => s.outcome !== 'ok' && !isExpectedRejection(s.method, s.outcome, { expectThrottle })).length;
   const fiveXx = recentSamples.filter((s) => /^http_5\d\d$/.test(s.outcome)).length;
   if (fiveXx > 10) return 'more-than-10-server-errors-per-minute';
-  if (n >= 20 && unexpected / n > 0.05) return 'unexpected-error-rate-above-5-percent';
-  if (n >= 20) {
+  if (n >= ABORT_MIN_CALLS_RATE && unexpected >= ABORT_MIN_UNEXPECTED && unexpected / n > 0.05) return 'unexpected-error-rate-above-5-percent';
+  if (n >= ABORT_MIN_CALLS_P99) {
     const p99 = percentile(recentSamples.map((s) => s.latency).sort((a, b) => a - b), 99);
     if (p99 > 5000) return 'p99-above-5-seconds';
   }
+  return null;
+}
+
+/**
+ * "Nobody could enter": every participant of this process tried enterSpace and not one call was accepted. The usual reason is that the
+ * room is closed (or full of other people); the run would otherwise idle to its end and look like a success (exit 0 with a handful of calls).
+ * @param expectedEntries how many participants this process carries
+ */
+export function entryFailureReason(samples, expectedEntries) {
+  const tries = samples.filter((s) => s.method === 'enterSpace');
+  if (expectedEntries > 0 && tries.length >= expectedEntries && !tries.some((s) => s.outcome === 'ok')) return 'nobody-could-enter-the-room';
   return null;
 }
 

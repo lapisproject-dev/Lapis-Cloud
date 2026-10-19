@@ -49,7 +49,8 @@ node bin/encounter-loadtest.mjs run ... --scenario C --participants 20 --process
 * `--shard I/K` runs only the participants `p` with `(p - 1) % K = I - 1` of the same plan (the same seed gives the same plan and the same relay draw in every shard). Use it to spread a run over several machines; give every machine its own `--out` and merge the directories later.
 * `--max-rps` is the budget of the whole run; every shard takes `1/K` of it.
 * Not merged across shards: the time until a tone is heard (a tone is only heard by listeners of the same shard) and the map-packet counters; scenario F therefore cannot be sharded.
-* The abort criteria (error rate, p99) are evaluated per shard on its own calls, so a shard with few calls reacts earlier than the whole run would.
+* A run in which the process made at least as many `enterSpace` calls as it has participants and none was accepted (usually: the room is closed) stops with `nobody-could-enter-the-room` and exit code 3; before, it ended with exit 0 after a handful of calls.
+* The abort criteria (error rate, p99) are evaluated per shard on its own calls. So that a shard with few calls does not end a healthy run on one or two unlucky calls, the error-rate rule needs at least 20 calls and 3 unexpected ones in the last minute, and the p99 rule at least 100 calls.
 
 == Layout
 
