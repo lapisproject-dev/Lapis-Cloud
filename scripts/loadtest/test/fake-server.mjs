@@ -141,7 +141,8 @@ export function createFakeServer({
   const tableToken = (n, t, seat) => ({ join: joinDto(n, `table-${t}-g${tableSeats[t].gen}`, c.tableToken), canPublish: true, table: t, tableSeat: seat });
   const presentList = () => [
     ...[...present].map(([n, p]) => ({ memberId: `${c.memberId}${n}`, displayName: nameOf(n), role: 'CONGREGATION', isGuest: false, seat: p.seat, table: p.table, tableSeat: p.tableSeat })),
-    ...(foreignPresent ? [{ memberId: `${c.memberId}x`, displayName: 'Fremde Person', role: 'PULPIT', isGuest: false }] : []),
+    // true = one foreign name, a number = that many
+    ...Array.from({ length: foreignPresent === true ? 1 : Number(foreignPresent) || 0 }, (_, i) => ({ memberId: `${c.memberId}x${i}`, displayName: `Fremde Person ${i}`, role: 'PULPIT', isGuest: false })),
   ];
 
   const handlers = {

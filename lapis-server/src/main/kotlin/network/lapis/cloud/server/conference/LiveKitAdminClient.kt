@@ -132,10 +132,35 @@ interface LiveKitAdminClient {
         payload: ByteArray,
         destinationIdentities: List<String>,
     )
+
+    /**
+     * `POST .../UpdateSubscriptions` (V1.9.161, preparation for the proximity audio of encounter stage 3) -- the SERVER subscribes
+     * [identity] to ([subscribe] = `true`) or unsubscribes it from (`false`) the tracks [trackSids] (1..[MAX_UPDATE_SUBSCRIPTION_TRACKS],
+     * never empty: LiveKit answers an empty list with 200 and does nothing, which would hide a caller bug). Gated on `roomAdmin`, room-scoped
+     * token like [listParticipants] (without the room claim LiveKit answers 401). Measured against LiveKit v1.13.5: a subscription is in
+     * place after about 40 ms, an unsubscription stops the audio within 500 ms, and a flip-flop faster than about 300 ms per participant and
+     * track is merged by LiveKit (the caller needs a minimum interval and a hysteresis). An identity that is not in the room is answered
+     * with 503, mapped to [LiveKitAdminException] like every other failure.
+     *
+     * The DEFAULT throws on purpose (a loud [UnsupportedOperationException], not a silent no-op): nothing calls this method yet, so the 17
+     * test fakes of this interface do not have to grow an override that nothing exercises. The first caller must override it in its fake.
+     */
+    suspend fun updateSubscriptions(
+        room: String,
+        identity: String,
+        trackSids: List<String>,
+        subscribe: Boolean,
+    ): Unit = throw UnsupportedOperationException("updateSubscriptions is not implemented by this LiveKitAdminClient")
 }
 
 /** Most destination identities of one targeted `SendData` call. */
 const val MAX_SEND_DATA_DESTINATIONS = 50
+
+/** Most tracks of one `UpdateSubscriptions` call. */
+const val MAX_UPDATE_SUBSCRIPTION_TRACKS = 50
+
+/** A LiveKit track sid: `TR_` followed by letters and digits only (what LiveKit issues); anything else never reaches the wire. */
+private val TRACK_SID_PATTERN = Regex("^TR_[A-Za-z0-9]{1,60}$")
 
 /** The publish sources of an ordinary conference participant WITHOUT the microphone (LiveKit's protojson enum names). */
 private val CONFERENCE_SOURCES_WITHOUT_MICROPHONE = listOf("CAMERA", "SCREEN_SHARE", "SCREEN_SHARE_AUDIO")
@@ -319,6 +344,22 @@ class HttpLiveKitAdminClient(
                     nonce = Base64.Default.encode(nonce),
                     destinationIdentities = destinationIdentities,
                 ),
+        )
+    }
+
+    override suspend fun updateSubscriptions(
+        room: String,
+        identity: String,
+        trackSids: List<String>,
+        subscribe: Boolean,
+    ) {
+        require(trackSids.isNotEmpty()) { "UpdateSubscriptions needs at least one track (an empty list is a silent no-op in LiveKit)" }
+        require(trackSids.size <= MAX_UPDATE_SUBSCRIPTION_TRACKS) { "UpdateSubscriptions has too many tracks" }
+        require(trackSids.all { TRACK_SID_PATTERN.matches(it) }) { "UpdateSubscriptions: not a LiveKit track sid" }
+        call<LiveKitUpdateSubscriptionsRequest, LiveKitEmptyResponse>(
+            method = "UpdateSubscriptions",
+            room = room,
+            request = LiveKitUpdateSubscriptionsRequest(room = room, identity = identity, trackSids = trackSids, subscribe = subscribe),
         )
     }
 
@@ -520,6 +561,19 @@ internal data class LiveKitSendDataRequest(
     val topic: String,
     val nonce: String,
     @SerialName("destination_identities") val destinationIdentities: List<String>? = null,
+)
+
+/**
+ * `UpdateSubscriptions` request shape. [subscribe] has NO default value on purpose: [LIVEKIT_JSON] omits properties that equal their default
+ * (pitfall S1), and `false` is the unsubscribe -- a defaulted `subscribe = false` would vanish from the wire and LiveKit would read the proto
+ * default, which is also `false`, but a defaulted `true` would turn every unsubscribe into a subscription.
+ */
+@Serializable
+internal data class LiveKitUpdateSubscriptionsRequest(
+    val room: String,
+    val identity: String,
+    @SerialName("track_sids") val trackSids: List<String>,
+    val subscribe: Boolean,
 )
 
 /**

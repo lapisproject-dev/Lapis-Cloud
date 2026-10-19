@@ -1,8 +1,7 @@
 = Encounter tables: load-test tool and run sheet (V1.9.149)
 :toc:
 
-This page is *written, not executed*. The tool in `scripts/loadtest` was built and tested only against a fake server on loopback. It has never run against a real
-instance, a staging system or a real LiveKit server, and *no measurement exists yet*. Every threshold below is a proposal that needs a decision by the people who run the
+This page described a tool that was *written, not executed*; since 2026-10-18 it has run against staging (see the run protocol at the end). It was built and tested against a fake server on loopback first. Measurements from staging exist since 2026-10-18 (run protocol at the end); none from PdV or ELB and none with real browsers. Every threshold below is a proposal that needs a decision by the people who run the
 system (see <<decision>>).
 
 == Purpose
@@ -88,8 +87,9 @@ Without media the tool therefore refuses scenarios C, D and E (unless `--accept-
 . Test accounts `lt-01` to `lt-40`, created by the operator in the administration as `ACTIVE` members with the display names `LT-01` to `LT-40`, all with the same test
   password. They are *normal members*: the tool never uses an administrator or an office holder. Guests (OIDC) and friends (registration, three per hour and address) cannot
   be automated and are not covered.
-. Nobody else in the room. The tool stops as soon as `listPresent` shows a display name without the prefix.
+. Nobody else in the room. The tool stops as soon as `listPresent` shows a display name without the prefix. *One exception that the operation itself forces:* opening the room ("Eintreten und Kanzel übernehmen") puts the operator into it, and the staging poller ends the session (reason `EMPTY`) a short time after the LiveKit room is gone, which happens when the last person leaves. An operator who leaves before the first test account is connected therefore closes the room again. The operator stays in the room, silent (microphone and camera off), and the run is started with `--tolerate-foreign 1` (0 to 2, default 0): that many foreign names are recorded as `foreign_tolerated` and do not stop the run, a further name still does. The summary names the setting (`config.tolerateForeign`). The operator counts as one more person against the room limit, so for N = 25 the room limit must be 26.
 . A backup of staging, and a machine for the tool with enough downstream: 40 people with up to seven table audio tracks plus the pulpit audio is fine, video is never subscribed.
+. If a reverse proxy guards the staging host with HTTP Basic authentication (the Staging of the project does: Caddy answers `401` with `WWW-Authenticate: Basic realm="restricted"` before the application sees a request, and the tool's login then fails with `401` although account and password are right), put the credential into the environment as `LAPIS_LT_BASIC_AUTH=user:password`. It is sent to the confirmed target origin only (never to LiveKit, never after a redirect, which the tool does not follow) and is redacted from every output like the password.
 . The Keycloak mode is *off* on staging, or the test accounts are accounts that may use the password login; otherwise `/api/auth/login` is refused for non-administrators.
 
 == Safety rails
@@ -152,10 +152,13 @@ the operator's job in the administration; the tool never holds an administrator 
 | # | What happens | Nominal length
 | A | Gentle: one person every 6 s enters, picks a bench seat, sits at a table after 20 to 40 s, speaks for 20 s, sends about one reaction per minute and one chat line per two minutes, leaves in a staggered way | about 10 min
 | B | Burst: everybody enters within 10 s (jitter), sits at tables within the next 10 s, holds, everybody leaves within 10 s | 5 min
-| C | Table changes: every 5 to 15 s each person moves to another table with a free seat (at least 2.2 s apart); measures `tableToken` storms after rotations | 10 min
+| C | Table changes: every 10.5 to 15 s each person moves to another table with a free seat (the server allows one departure from a shared table per 10 s and person, so a faster plan would only measure that limit); measures `tableToken` storms after rotations | 10 min
 | D | Waves: every 2 min half of the room leaves (`leaveSpace` and disconnect), comes back after 30 s and sits down again | 15 min
 | E | Endurance: A-level behaviour with occasional table changes and microphone bursts; token renewal after rotations | 30 min
+| F | Map traffic (V1.9.161): A-level entry, then everybody walks in segments of 15 s with pauses of 3 to 9 s and sends position packets (default 4 per second, `--move-rate`, not reliable) on the plenum data channel; at the end one short table and microphone round. Measures the fan-out of the data channel: delay and delivery | about 10 min
 |===
+
+*Scenario F* (V1.9.161) measures the LiveKit data channel that the planned map of encounter stage 3 would use (snapshots and positions as data packets). It sends synthetic packets on the topic `lapis-lt-map` (a topic of the tool, not of the product): a sequence number, the send time of the run's clock and two numbers. Every receiver turns an incoming packet into a delay; the sender counts how many other people were in the room, so that `summary.json` can state a delivery ratio. The block `mapPackets` holds counters and exact percentiles to the millisecond, never one row per packet (40 people at 4 packets per second would be millions of rows). What F does *not* cover: the map itself does not exist in the server yet, so the path "client moves, server decides, server sends a snapshot" is not simulated; F measures only the client-to-client path through LiveKit. Like C, D and E, F needs a media layer (`--media=livekit`), because the presence poller deletes people who are not connected. `plan --scenario F` prints the packets and deliveries per second at the busiest moment.
 
 The plan of a scenario is deterministic for a given `--seed`. `--duration-min` shortens or lengthens the run (a scenario that cannot fit is refused instead of being cut off).
 `--relay-share` is the share of people who force the TURN relay (default 0.15, the extra run uses 0.3).
@@ -199,6 +202,8 @@ limit itself can be provoked against the fake.
 | Unexpected errors | below 0.5 percent of all calls
 | Unexpected disconnects in A, B and E (a rotation is not one) | 0
 | LiveKit CPU | below 70 percent
+| Scenario F: delivery ratio of map packets | at least 98 percent (the channel is not reliable on purpose)
+| Scenario F: delay of map packets | p95 below 300 ms, p99 below 600 ms
 | Heap after a full collection in E | no monotonic rise
 |===
 
@@ -215,6 +220,7 @@ limit itself can be provoked against the fake.
 == Decision rule (proposal)
 
 * *Stage 3 (proximity audio) may start only if scenarios A, B, C and E pass at N = 20 and at N = 25*, measured with `--relay-share 0.15`, and once more with 0.3.
+* Proposal for the map waves of stage 3: additionally scenario F at N = 20 and at N = 25 (delivery and delay as in the thresholds above). F says nothing about the server side of the map.
 * If N = 20 does not pass: lower the participant limit to the largest passing N minus 20 percent, and postpone stages 2c and 3.
 * If only C fails (the `tableToken` storm): analyse the rotation and the limit first, no release.
 
@@ -239,6 +245,16 @@ limit itself can be provoked against the fake.
 | A / C / E | 20 | 0.30 | | | | |
 |===
 
+Scenario F is read from `mapPackets` in `summary.json`:
+
+[cols="1,1,1,1,1,1,1", options="header"]
+|===
+| Scenario | N | relay share | sent | delivery ratio | delay p95 | delay p99
+| F | 20 | 0.15 | | | |
+| F | 25 | 0.15 | | | |
+| F | 40 | 0.15 | | | |
+|===
+
 == Privacy
 
 Only synthetic data: test accounts with a fixed prefix, a sine tone, chat lines marked `[LT]`. The result files name people `p01` to `p40` and contain no member id, e-mail
@@ -255,7 +271,9 @@ no personal data.
 
 == Known limitations
 
-* The tool and its media layer were never run against a real instance; the wire format of the RPC calls is verified against the real Kilua route in a test, the LiveKit adapter only against a stub.
+* *First data on the adapter (2026-10-18, not a measurement of the system):* the real media layer (`lib/media/livekit.mjs`) was run once against a throw-away LiveKit v1.13.5 in development mode on loopback, without the Lapis server, with the join tokens made by hand: 10 and 40 people, all of them walking all the time at 4 packets per second for 20 seconds. Delivery was 99.99 percent and 100 percent (118,248 of 118,248 deliveries at N = 40); delay p50 2 and 4 ms, p95 5 and 68 ms, p99 61 and 613 ms. Sender and receivers shared one Node process and one machine, no TURN, no network: the large p99 at N = 40 mostly shows the load of the tool itself. It proves that the adapter publishes and receives data packets correctly, nothing more.
+
+* Until 2026-10-18 the tool and its media layer had never run against a real instance; since then they have run against the staging instance (scenarios A, B, C, E, F, with real LiveKit). The wire format of the RPC calls is verified against the real Kilua route in a test. They have never run against PdV or ELB and never with real browsers.
 * Only pre-created member accounts. Guests and friends cannot be automated.
 * Reactions are sent as `{"r":"APPLAUSE"}` on the topic `lapis-encounter-reaction`, chat lines as a `ConferenceChatMessage` on `lapis-chat` (an active function of the encounter room); both formats were taken from the client source, not observed on a wire. The room's reaction options decide what the other clients show.
 * Video subscription is not simulated; downstream of the tool host limits the measurement.

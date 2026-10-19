@@ -89,7 +89,7 @@ function stubRtc() {
     captured: () => captured,
     rtc: {
       Room,
-      RoomEvent: { TrackPublished: 'trackPublished', TrackSubscribed: 'trackSubscribed', Disconnected: 'disconnected' },
+      RoomEvent: { TrackPublished: 'trackPublished', TrackSubscribed: 'trackSubscribed', Disconnected: 'disconnected', DataReceived: 'dataReceived' },
       IceTransportType: { TRANSPORT_RELAY: 0, TRANSPORT_ALL: 2 },
       ContinualGatheringPolicy: { GATHER_CONTINUALLY: 1 },
       DisconnectReason: { 1: 'CLIENT_INITIATED' },
@@ -155,10 +155,20 @@ test('the LiveKit adapter: relay config, audio-only subscription, tone, data pac
 
   await media.publishData('lapis-chat', new Uint8Array([1]));
   assert.equal(plenum.sent[0].options.topic, 'lapis-chat');
+  assert.equal(plenum.sent[0].options.reliable, true, 'reliable is the default (reactions, chat)');
+  // V1.9.161 (scenario F): not reliable on request, and incoming packets of the plenum connection reach onData with their topic
+  await media.publishData('lapis-lt-map', new Uint8Array([2]), { reliable: false });
+  assert.deepEqual([plenum.sent[1].options.topic, plenum.sent[1].options.reliable], ['lapis-lt-map', false]);
+  const received = [];
+  media.onData((x) => received.push([x.topic, [...x.bytes]]));
+  plenum.emit('dataReceived', new Uint8Array([7, 8]), { identity: 'other' }, 0, 'lapis-lt-map');
+  plenum.emit('dataReceived', new Uint8Array([9]), undefined, 0, undefined);
+  assert.deepEqual(received, [['lapis-lt-map', [7, 8]], ['', [9]]]);
 
   await media.connectTable({ join: { ...join, token: 'table-token' } });
   const table = rooms[1];
   assert.equal(table.connectedWith.token, 'table-token');
+  assert.ok(media.lastTableTimings.connectMs >= 0 && media.lastTableTimings.teardownMs >= 0, 'phase timings of the table connect are numbers');
   await media.setMic(true);
   assert.equal(table.published[0].options.source, 2);
   await new Promise((r) => setTimeout(r, 30));
@@ -227,11 +237,15 @@ test('a failing media connection is counted as a step error, does not end the ru
     setMic: async () => {},
     publishData: async () => {},
     onAudible() {},
+    onData() {},
     onDisconnect() {},
     close: async () => {},
   });
   const { result, fake, dir, lines } = await dryRun({ args: ['--scenario', 'B', '--participants', '4', '--abort-on-foreign-presence', 'false'], mediaFactory: failing });
   assert.ok(result.summary.stepErrors >= 4, `stepErrors ${result.summary.stepErrors}`);
+  // the diagnosis names the failed step and the error class, never the message ('connect failed: secret-detail')
+  assert.ok(result.summary.stepErrorsByOp.enter >= 4, JSON.stringify(result.summary.stepErrorsByOp));
+  assert.ok(result.summary.errorTypes.Error >= 4, JSON.stringify(result.summary.errorTypes));
   assert.equal(fake.presentCount(), 0);
   const { allOutputs } = await import('./helpers.mjs');
   assert.equal(allOutputs(dir, lines).includes('secret-detail'), false, 'the text of the error is never kept');
@@ -355,4 +369,96 @@ test('a tableToken answer with a foreign LiveKit URL aborts the participant befo
   assert.ok(fake.stats.rotations > 0);
   assert.ok(result.summary.participantsAbortedByGuard > 0, 'a participant was stopped by the guard');
   assert.equal(result.exitCode, 3);
+});
+
+import { createNativeErrorGuard, MAX_NATIVE_ERRORS } from '../lib/runner.mjs';
+import { Recorder } from '../lib/metrics.mjs';
+
+test('native errors from outside any promise chain are counted by class name only, and too many stop the run', () => {
+  const recorder = new Recorder({ clock: { now: () => 0 } });
+  const aborts = [];
+  const guard = createNativeErrorGuard({ recorder, abort: (r) => aborts.push(r) });
+  const err = new Error('trying to drop an invalid handle: secret-detail');
+  guard.handler(err);
+  guard.handler(Object.assign(new Error('x'), { name: 'weird name with spaces' }));
+  assert.equal(guard.count, 2);
+  assert.deepEqual(aborts, []);
+  const summary = recorder.summary();
+  assert.deepEqual(summary.nativeErrorTypes, { Error: 1, unknown: 1 });
+  assert.ok(!JSON.stringify(summary).includes('secret-detail'), 'never the message');
+  for (let i = 0; i < MAX_NATIVE_ERRORS; i++) guard.handler(err);
+  assert.ok(aborts.includes('too-many-native-errors'));
+});
+
+test('a run installs the native error guard and removes it again, so nothing leaks into the next run', async () => {
+  const before = [process.listenerCount('uncaughtException'), process.listenerCount('unhandledRejection')];
+  const { result } = await dryRun({ args: ['--scenario', 'B', '--participants', '4', '--abort-on-foreign-presence', 'false'] });
+  assert.equal(result.summary.nativeErrors, 0);
+  assert.deepEqual([process.listenerCount('uncaughtException'), process.listenerCount('unhandledRejection')], before);
+});
+
+test('--subscribe audio-passive subscribes to audio (the server forwards it) but never reads a frame; audio reads them; none subscribes to nothing', async () => {
+  const run = async (opts) => {
+    const { rtc, rooms } = stubRtc();
+    let streams = 0;
+    const RealStream = rtc.AudioStream;
+    rtc.AudioStream = class extends RealStream {
+      constructor(track) {
+        super(track);
+        streams += 1;
+      }
+    };
+    const media = createLiveKitMedia({ importer: async () => rtc, ...opts });
+    await media.connect({ serverUrl: 'wss://livekit.example.test', token: 't' });
+    const audio = { kind: 1, subscribed: false, setSubscribed(v) { this.subscribed = v; } };
+    rooms[0].emit('trackPublished', audio);
+    rooms[0].emit('trackSubscribed', { kind: 1 }, audio, { identity: 'speaker' });
+    await new Promise((r) => setTimeout(r, 20));
+    return { subscribed: audio.subscribed, streams };
+  };
+  assert.deepEqual(await run({ subscribeAudio: true, consumeAudio: true }), { subscribed: true, streams: 1 });
+  assert.deepEqual(await run({ subscribeAudio: true, consumeAudio: false }), { subscribed: true, streams: 0 });
+  assert.deepEqual(await run({ subscribeAudio: false, consumeAudio: false }), { subscribed: false, streams: 0 });
+  const cfg = (v) => parseConfig(['plan', '--subscribe', v], {}).subscribe;
+  assert.equal(cfg('audio-passive'), 'audio-passive');
+  assert.throws(() => cfg('video'), GuardError);
+});
+
+test('--no-turn leaves the TURN servers of the join answer out of the ICE configuration, and is refused together with a relay share', async () => {
+  const { rtc, rooms } = stubRtc();
+  const join = { serverUrl: 'wss://livekit.example.test', token: 't', turnServers: [{ urls: ['turn:t.example.test:3478'], username: 'u', credential: 'c' }] };
+  const withTurn = createLiveKitMedia({ importer: async () => rtc });
+  await withTurn.connect(join);
+  assert.equal(rooms[0].connectedWith.opts.rtcConfig.iceServers.length, 1);
+  const without = createLiveKitMedia({ importer: async () => rtc, useTurn: false });
+  await without.connect(join);
+  assert.equal(rooms[1].connectedWith.opts.rtcConfig.iceServers.length, 0);
+  assert.equal(parseConfig(['plan', '--no-turn', '--relay-share', '0'], {}).noTurn, true);
+  assert.throws(() => parseConfig(['plan', '--no-turn'], {}), GuardError, 'default relay share is above 0');
+  assert.throws(() => parseConfig(['plan', '--no-turn', '--relay-share', '0.15'], {}), GuardError);
+});
+
+import { parseTurnOverride, assertTurnOverrideAllowed } from '../lib/guard.mjs';
+
+test('--turn-override swaps the TURN URLs but keeps the credentials, only for a host that is on the TURN allowlist', async () => {
+  const { rtc, rooms } = stubRtc();
+  const join = { serverUrl: 'wss://livekit.example.test', token: 't', turnServers: [{ urls: ['turn:orig.example.test:3478'], username: 'u', credential: 'c' }] };
+  const media = createLiveKitMedia({ importer: async () => rtc, turnOverride: { host: '203.0.113.7', port: 3490 } });
+  await media.connect(join);
+  const ice = rooms[0].connectedWith.opts.rtcConfig.iceServers[0];
+  assert.deepEqual(ice.urls, ['turn:203.0.113.7:3490?transport=udp', 'turn:203.0.113.7:3490?transport=tcp']);
+  assert.equal(ice.username, 'u');
+  assert.equal(ice.password, 'c');
+  assert.deepEqual(parseTurnOverride('turn:203.0.113.7:3490'), { host: '203.0.113.7', port: 3490 });
+  for (const bad of ['turns:h:3490', 'turn:h', 'turn:h:80', 'turn:h:99999', 'turn:h:3490?x=1', 'turn:us er@h:3490', '']) {
+    assert.throws(() => parseTurnOverride(bad), GuardError, bad);
+  }
+  const cfg = (allow) => ({ turnOverride: 'turn:203.0.113.7:3490', allowedTurnHosts: allow });
+  assert.throws(() => assertTurnOverrideAllowed(cfg([])), (e) => e instanceof GuardError && e.code === 'turn-host');
+  assert.throws(() => assertTurnOverrideAllowed(cfg(['203.0.113.8'])), GuardError);
+  assert.deepEqual(assertTurnOverrideAllowed(cfg(['203.0.113.7'])), { host: '203.0.113.7', port: 3490 });
+  assert.equal(assertTurnOverrideAllowed({ allowedTurnHosts: [] }), null, 'no override, nothing to check');
+  assert.throws(() => parseConfig(['plan', '--turn-override', 'turn:203.0.113.7:3490', '--no-turn', '--relay-share', '0'], {}), GuardError);
+  const parsed = parseConfig(['plan', '--turn-override', 'turn:203.0.113.7:3490'], { LAPIS_LT_ALLOWED_TURN_HOSTS: '203.0.113.7' });
+  assert.deepEqual([parsed.turnOverride, parsed.allowedTurnHosts], ['turn:203.0.113.7:3490', ['203.0.113.7']]);
 });

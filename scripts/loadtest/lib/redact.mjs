@@ -2,7 +2,7 @@
 
 const PLACEHOLDER = '[redacted]';
 // Fallbacks for things that look like secrets even if they were never registered.
-const GENERIC = [/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*/g, /lapis_session=[^;\s"]+/gi, /Bearer\s+[A-Za-z0-9._~+/=-]{8,}/gi];
+const GENERIC = [/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*/g, /lapis_session=[^;\s"]+/gi, /Bearer\s+[A-Za-z0-9._~+/=-]{8,}/gi, /Basic\s+[A-Za-z0-9+/=]{8,}/g];
 
 export class SecretSet {
   #values = new Set();

@@ -15,8 +15,9 @@ export class FakeMediaHub {
   }
 }
 
-export function createFakeMedia({ hub, clock, connectDelayMs = 0, audibleDelayMs = 20 } = {}) {
+export function createFakeMedia({ hub, clock, connectDelayMs = 0, audibleDelayMs = 20, dataDelayMs = 5 } = {}) {
   const audible = [];
+  const dataCallbacks = [];
   const disconnected = [];
   let identity = null;
   let tableRoom = null;
@@ -51,7 +52,15 @@ export function createFakeMedia({ hub, clock, connectDelayMs = 0, audibleDelayMs
         if (other !== session) void delay(audibleDelayMs).then(() => other._heard(identity));
       }
     },
-    async publishData() {},
+    /** Like LiveKit: a data packet goes to everybody else on the plenum connection, never back to the sender. */
+    async publishData(topic, bytes) {
+      for (const other of hub.sessions.values()) {
+        if (other !== session) void delay(dataDelayMs).then(() => other._data({ topic, bytes }));
+      }
+    },
+    onData(cb) {
+      dataCallbacks.push(cb);
+    },
     onAudible(cb) {
       audible.push(cb);
     },
@@ -64,6 +73,9 @@ export function createFakeMedia({ hub, clock, connectDelayMs = 0, audibleDelayMs
         hub.connected.delete(identity);
         hub.sessions.delete(identity);
       }
+    },
+    _data(packet) {
+      for (const cb of dataCallbacks) cb(packet);
     },
     _heard(speakerIdentity) {
       if (tableRoom) for (const cb of audible) cb({ speakerIdentity });

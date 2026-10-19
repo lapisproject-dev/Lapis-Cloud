@@ -14,16 +14,30 @@
 # `static-auth-secret` is used instead of a static long-term username/credential pair -- coturn's
 # REST-API shared-secret scheme, same as dev: this value is never itself sent to a client,
 # `TurnCredentialMinter.kt` derives a fresh short-lived credential per `joinRoom` call from it). The
-# load-bearing PRODUCTION difference is `external-ip` below.
+# load-bearing PRODUCTION difference is host networking (see below), not an address setting.
 listening-port=3478
 min-port=51000
 max-port=51019
 realm=${LAPIS_TURN_REALM}
 use-auth-secret
 static-auth-secret=${LAPIS_TURN_SECRET}
-# PRODUCTION: the VPS's real public IP, not 127.0.0.1 -- same reasoning as livekit.yaml's
-# `rtc.node_ip`. Without this, coturn advertises an address real clients cannot relay through.
-external-ip=${LAPIS_PUBLIC_IP}
+# NO `external-ip`, on purpose (2026-10-18). This coturn runs in HOST networking (docker-compose.yml): it
+# binds the host's real addresses, so it needs no address mapping. With `external-ip` and the coturn on
+# a Docker bridge next to LiveKit on the same host, relayed media from LiveKit never reached the client
+# (measured on staging: a client forced onto the TURN relay never connected, with the coturn in host
+# networking the same run had no error). See README.adoc "TURN relay: host networking and the TTL rule".
+# A TURN client must not use the relay to reach the host's own networks (host networking, see above): deny private,
+# link-local and loopback peers and multicast, and allow only this host's public address (LiveKit is reached through it).
+# For a LAN-only test setup whose own address is private, remove the denied-peer-ip lines.
+no-multicast-peers
+denied-peer-ip=0.0.0.0-0.255.255.255
+denied-peer-ip=10.0.0.0-10.255.255.255
+denied-peer-ip=100.64.0.0-100.127.255.255
+denied-peer-ip=127.0.0.0-127.255.255.255
+denied-peer-ip=169.254.0.0-169.254.255.255
+denied-peer-ip=172.16.0.0-172.31.255.255
+denied-peer-ip=192.168.0.0-192.168.255.255
+allowed-peer-ip=${LAPIS_PUBLIC_IP}
 no-dtls
 fingerprint
 log-file=stdout

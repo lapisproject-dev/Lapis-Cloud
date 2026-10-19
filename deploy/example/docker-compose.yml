@@ -57,7 +57,7 @@ services:
     # V1.9.93: the server pulls the image CI published for a release tag instead of compiling the sources itself.
     # LAPIS_IMAGE_TAG is an exact version without the leading `v` (never `latest`); rollback = set the old value.
     # To build from source instead, add the override file: see docker-compose.build.yml.
-    image: ghcr.io/lapisproject-dev/lapis-cloud:${LAPIS_IMAGE_TAG:?LAPIS_IMAGE_TAG must be set in .env (e.g. 0.37.3)}
+    image: ghcr.io/lapisproject-dev/lapis-cloud:${LAPIS_IMAGE_TAG:?LAPIS_IMAGE_TAG must be set in .env (e.g. 0.37.4)}
     container_name: lapis-cloud-server
     depends_on:
       postgres:
@@ -286,10 +286,10 @@ services:
     networks: [internal]
     restart: unless-stopped
 
-  # Deliberately NOT on the `internal` network -- see that network's own top-of-file comment. A TURN
-  # relay has no internal-service dependencies of its own; keeping it off `internal` means it cannot
-  # reach redis/egress even if compromised via its own (large, unauthenticated-by-protocol-design)
-  # public STUN/TURN attack surface.
+  # Host networking since 2026-10-18 (see `network_mode: host` below): coturn is therefore NOT isolated from the
+  # host's networks any more -- it can reach the Docker bridge subnets and the host's loopback ports. Two things
+  # keep a TURN client from using it as a way in: `turnserver.conf.template` denies relaying to private, link-local
+  # and loopback peers (`denied-peer-ip`), and the host firewall opens only the coturn ports.
   coturn:
     image: coturn/coturn:4.17.0-alpine
     container_name: lapis-cloud-coturn
@@ -301,16 +301,12 @@ services:
       # script + daily systemd timer, not part of this repo -- see README.adoc "TURNS over TLS
       # (port 443)") -- ./coturn-certs/ itself is gitignored, never commit real key material.
       - ./coturn-certs:/etc/coturn/certs:ro
-    ports:
-      # PUBLIC -- coturn is a TURN relay; real browsers connect here directly when a direct/host
-      # ICE candidate fails (restrictive NAT, symmetric firewall, etc.).
-      - "3478:3478/udp"
-      - "3478:3478/tcp"
-      - "51000-51019:51000-51019/udp"
-      # TURNS over TLS -- ACTIVE since 2026-09-12, see README.adoc "TURNS over TLS (port 443)".
-      # 127.0.0.1-only: only sniproxy (the host's SNI multiplexer on the real public 443) ever
-      # dials this, never a real external client directly.
-      - "127.0.0.1:5350:5350/tcp"
+    # HOST networking (2026-10-18), no `ports:`: on a Docker bridge with `external-ip` the media relayed by
+    # coturn never reached the client when LiveKit runs on the same host. The host firewall must now allow
+    # 3478/udp+tcp and 51000-51019/udp (port 5350, TURNS: coturn now binds it on every address, so it is
+    # closed to the outside ONLY because the firewall does not open it -- keep it that way; sniproxy dials it on loopback). Add the TTL rule from README.adoc "TURN relay: host
+    # networking and the TTL rule" -- coturn answers with TTL 1 after some TURN traffic.
+    network_mode: host
     restart: unless-stopped
 
   # V1.0 Videokonferenzen, Wave 2 "Aufzeichnung" -- LiveKit's own self-hosting docs state the Egress

@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-// CLI of the encounter-room load-test tool (V1.9.149). Never run against a real instance when this was written.
+// CLI of the encounter-room load-test tool (V1.9.161). Never run against a real instance when this was written.
 import { parseConfig, assertAccountConfig, withOverrides, USAGE } from '../lib/config.mjs';
-import { GuardError, assertCaps } from '../lib/guard.mjs';
+import { GuardError, assertCaps, assertTargetAllowed } from '../lib/guard.mjs';
+import { basicAuthSecrets, withBasicAuth } from '../lib/basicauth.mjs';
 import { SecretSet, createOutput, safeError } from '../lib/redact.mjs';
 import { estimatePlan } from '../lib/scenarios.mjs';
 import { startRun, runCleanup, CLEANUP_CONCURRENCY } from '../lib/runner.mjs';
 import { installShutdown, cleanupGraceMs } from '../lib/shutdown.mjs';
 import { VirtualClock } from '../lib/scheduler.mjs';
+import { launchShards } from '../lib/launcher.mjs';
 
 const secrets = new SecretSet();
 const out = createOutput({ secrets });
@@ -27,6 +29,14 @@ async function withFake(cfg, body) {
     spaceId: fake.spaceId,
   });
   return body(dry, { fetchImpl: fake.fetch, clock, hub: fake.hub, fake });
+}
+
+/** The fetch for a real target: with the Basic credential for the confirmed origin, if one is configured. */
+function targetFetch(cfg) {
+  for (const s of basicAuthSecrets(cfg.basicAuth)) secrets.add(s);
+  if (!cfg.basicAuth) return globalThis.fetch;
+  const { origin } = assertTargetAllowed(cfg);
+  return withBasicAuth(globalThis.fetch, { origin, credential: cfg.basicAuth });
 }
 
 async function main() {
@@ -56,9 +66,21 @@ async function main() {
       }
     });
   }
+  if (cfg.command === 'run' && cfg.processes > 1) {
+    assertAccountConfig(cfg);
+    assertTargetAllowed(cfg);
+    // The parent starts no run of its own: it forwards the signals to the shards (each cleans up its own accounts) and merges.
+    let children = null;
+    const stop = installShutdown(() => children?.stopAll(), { graceMs: cleanupGraceMs(cfg, { concurrency: CLEANUP_CONCURRENCY }) + 15_000 });
+    try {
+      return await launchShards({ argv: process.argv.slice(2), cfg, out, script: process.argv[1], onSpawned: (c) => (children = c) });
+    } finally {
+      stop();
+    }
+  }
   if (cfg.command === 'run') {
     assertAccountConfig(cfg);
-    const run = startRun(cfg, { fetchImpl: globalThis.fetch, secrets, out });
+    const run = startRun(cfg, { fetchImpl: targetFetch(cfg), secrets, out });
     const stop = installShutdown(() => run.abort('signal'), { graceMs: cleanupGraceMs(cfg, { concurrency: CLEANUP_CONCURRENCY }) });
     try {
       return (await run.done).exitCode;
@@ -67,7 +89,7 @@ async function main() {
     }
   }
   if (cfg.command === 'cleanup') {
-    await runCleanup(cfg, { fetchImpl: globalThis.fetch, secrets, out });
+    await runCleanup(cfg, { fetchImpl: targetFetch(cfg), secrets, out });
     return 0;
   }
   return 1;

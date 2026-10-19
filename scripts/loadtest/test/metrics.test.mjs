@@ -74,3 +74,47 @@ test('abort criteria of the run sheet', () => {
   assert.equal(evaluateAbort(ok(100, 6000)), 'p99-above-5-seconds');
   assert.equal(evaluateAbort([...ok(94), ...bad(6, 'Conflict')]), null, 'a taken seat is part of normal play');
 });
+
+
+test('map packet statistics: counters and a histogram, exact percentiles to the millisecond, no block without packets', () => {
+  const none = new Recorder({ clock: { now: () => 0 } });
+  assert.equal(none.summary().mapPackets, undefined);
+
+  const r = new Recorder({ clock: { now: () => 0 } });
+  for (let i = 0; i < 100; i++) r.mapSent(3);
+  for (let i = 1; i <= 100; i++) r.mapReceived(i); // delays 1..100 ms, 100 deliveries of the 300 expected
+  r.mapReceived(25_000); // far beyond the histogram: shares the last bucket, but max stays exact
+  const m = r.summary().mapPackets;
+  assert.equal(m.sent, 100);
+  assert.equal(m.expectedDeliveries, 300);
+  assert.equal(m.received, 101);
+  assert.equal(m.deliveryRatio, 0.3367);
+  assert.equal(m.delayMs.p50, 51);
+  assert.equal(m.delayMs.p95, 96);
+  assert.equal(m.delayMs.p99, 100);
+  assert.equal(m.delayMs.max, 25_000);
+});
+
+import { AudibleBoard } from '../lib/participant.mjs';
+
+test('"heard" is measured from the later of the microphone going on and the listener being connected', () => {
+  let now = 0;
+  const board = new AudibleBoard({ now: () => now });
+  board.joined('early'); // connected at 0
+  board.micOn('speaker'); // microphone on at 0
+  now = 300;
+  assert.equal(board.heard('speaker', 'early'), 300, 'a listener who was there: from the microphone');
+  now = 10_000;
+  board.joined('late'); // sits down 10 s after the speaker started
+  now = 10_250;
+  assert.equal(board.heard('speaker', 'late'), 250, 'a late listener: from his own connection, not 10 s late');
+  assert.equal(board.heard('speaker', 'late'), null, 'once per listener and episode');
+  now = 20_000;
+  board.micOn('speaker'); // a new episode
+  now = 20_400;
+  assert.equal(board.heard('speaker', 'late'), 400);
+  board.left('late');
+  board.micOn('speaker');
+  now = 20_900;
+  assert.equal(board.heard('speaker', 'late'), 500, 'no connection time known: from the microphone');
+});

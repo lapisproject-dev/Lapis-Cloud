@@ -1,4 +1,4 @@
-// The five scenarios of the run sheet. A scenario is a deterministic PLAN (seeded): a list of steps
+// The six scenarios of the run sheet. A scenario is a deterministic PLAN (seeded): a list of steps
 // {p, at, op} with `at` in virtual milliseconds from the start of the run. Throttles are applied when the steps are executed.
 import { createRng } from './scheduler.mjs';
 import { GuardError } from './guard.mjs';
@@ -6,8 +6,9 @@ import { GuardError } from './guard.mjs';
 export const SCENARIOS = Object.freeze({
   A: { name: 'gentle', nominalMin: 10, title: 'Gentle: one person every 6 s sits down, takes a table, speaks, reacts, leaves in a staggered way' },
   B: { name: 'burst', nominalMin: 5, title: 'Burst: everybody enters within 10 s, sits at tables in the next 10 s, leaves within 10 s' },
-  C: { name: 'table changes', nominalMin: 10, title: 'Table changes every 5 to 15 s per person: rotation and tableToken storms' },
+  C: { name: 'table changes', nominalMin: 10, title: 'Table changes every 10.5 to 15 s per person (the server allows one departure from a shared table per 10 s and person): rotation and tableToken storms' },
   D: { name: 'waves', nominalMin: 15, title: 'Waves: half of the room leaves and comes back every 2 minutes' },
+  F: { name: 'map traffic', nominalMin: 10, title: 'Map traffic: everybody walks in 15 s segments and sends position packets on the plenum data channel; measures fan-out delay and delivery' },
   E: { name: 'endurance', nominalMin: 30, title: 'Endurance: mixed behaviour on the level of A, token renewal after rotations' },
 });
 
@@ -25,7 +26,11 @@ export const OP_CALLS = Object.freeze({
     ['leaveSpace', 1],
   ],
   watch: [['listPresent', 1]],
+  walk: [],
 });
+
+/** Length of one walking segment of scenario F and the pause between two segments (a person stops to talk). */
+export const MAP_WALK_MS = 15_000;
 
 const MIN = 60_000;
 
@@ -67,7 +72,9 @@ export function buildPlan(name, cfg) {
     need(60_000);
     for (let p = 1; p <= N; p++) {
       const enter = rng.between(0, 10_000);
-      const table = 10_000 + rng.between(0, 10_000);
+      // The bench seat (enter + 2 to 4 s, up to three tries one second apart) must be taken BEFORE the table: the server keeps one place per
+      // person and a bench seat frees the table seat, so a late entrant who sat down at a table first lost it again (found in the first run B).
+      const table = Math.max(10_000 + rng.between(0, 10_000), enter + 9000);
       add(p, enter, 'enter');
       add(p, enter + rng.between(2000, 4000), 'seat');
       add(p, table, 'table');
@@ -85,7 +92,8 @@ export function buildPlan(name, cfg) {
       add(p, first, 'table');
       add(p, first + 3000, 'micOn');
       const last = D - 60_000;
-      for (let t = first + rng.between(5000, 15_000); t < last; t += rng.between(5000, 15_000)) add(p, t, 'table');
+      // 10.5 s at the least: the server lets one person leave a shared table once per ROTATION_COOLDOWN (10 s); faster changes only measure that cooldown.
+      for (let t = first + rng.between(10_500, 15_000); t < last; t += rng.between(10_500, 15_000)) add(p, t, 'table');
       add(p, D - 30_000 + (p - 1) * 500, 'leave');
     }
   } else if (name === 'D') {
@@ -107,6 +115,23 @@ export function buildPlan(name, cfg) {
         add(p, out + 45_000 + rng.between(0, 10_000), 'table');
       }
       add(p, D - 30_000 + p * 300, 'leave');
+    }
+  } else if (name === 'F') {
+    need(N * 2000 + 150_000);
+    const hz = cfg.moveRate ?? 4;
+    for (let p = 1; p <= N; p++) {
+      const enter = (p - 1) * 2000;
+      add(p, enter, 'enter');
+      add(p, enter + 3000, 'seat');
+      const stop = D - 60_000;
+      for (let t = enter + 10_000; t + MAP_WALK_MS <= stop; t += MAP_WALK_MS + rng.between(3000, 9000)) {
+        steps.push({ p, at: Math.round(t), op: 'walk', ms: MAP_WALK_MS, hz });
+      }
+      const table = D - 50_000 + (p - 1) * 300;
+      add(p, table, 'table');
+      add(p, table + 2000, 'micOn');
+      add(p, table + 12_000, 'micOff');
+      add(p, D - 30_000 + (p - 1) * 500, 'leave');
     }
   } else {
     need(N * 2000 + 4 * MIN);
@@ -165,6 +190,14 @@ export function estimatePlan(name, cfg) {
     groups[group] = { limit, planned: Math.round(peak * 10) / 10, exceeds: peak > limit };
   }
   const switches = steps.filter((s) => s.op === 'table').length;
+  // Scenario F: position packets per second at the busiest moment, and the deliveries they cause (every packet reaches everybody else).
+  const walks = steps.filter((s) => s.op === 'walk');
+  let peakWalkers = 0;
+  for (const w of walks) peakWalkers = Math.max(peakWalkers, walks.filter((x) => x.at <= w.at && w.at < x.at + x.ms).length);
+  const hz = cfg.moveRate ?? 4;
+  const map = walks.length
+    ? { peakWalkers, packetsPerSecondPeak: peakWalkers * hz, deliveriesPerSecondPeak: peakWalkers * hz * (cfg.participants - 1) }
+    : undefined;
   return {
     scenario: name,
     participants: cfg.participants,
@@ -175,5 +208,6 @@ export function estimatePlan(name, cfg) {
     // event driven, not planned: every change of a table makes everybody at that table ask for a new token
     expectedRotationsPerMinute: Math.round(((switches * 2) / (D / MIN)) * 10) / 10,
     exceedsServerLimit: Object.values(groups).some((g) => g.exceeds),
+    ...(map ? { map } : {}),
   };
 }

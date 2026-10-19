@@ -86,6 +86,27 @@ export function assertLiveKitAllowed(serverUrl, cfg) {
   return host;
 }
 
+/**
+ * `--turn-override turn:HOST:PORT` points the clients at another TURN server than the one in the join answer (a test coturn). The credentials
+ * of the join answer then go to that server, so its host must be named in LAPIS_LT_ALLOWED_TURN_HOSTS (exact entries, an IPv4 address is allowed
+ * here because TURN servers are addressed that way), and the port must be an unprivileged one.
+ */
+export function parseTurnOverride(value) {
+  const match = /^turn:([A-Za-z0-9.-]{1,253}):(\d{4,5})$/.exec(String(value ?? ''));
+  if (!match) throw new GuardError('turn-override', '--turn-override must have the form turn:HOST:PORT');
+  const port = Number(match[2]);
+  if (port < 1024 || port > 65535) throw new GuardError('turn-override', '--turn-override port must be 1024..65535');
+  return { host: match[1], port };
+}
+
+export function assertTurnOverrideAllowed(cfg) {
+  if (!cfg.turnOverride) return null;
+  const { host, port } = parseTurnOverride(cfg.turnOverride);
+  const allowed = cfg.allowedTurnHosts ?? [];
+  if (!allowed.includes(host)) throw new GuardError('turn-host', 'the --turn-override host is not in LAPIS_LT_ALLOWED_TURN_HOSTS');
+  return { host, port };
+}
+
 export function assertCaps(cfg) {
   if (!Number.isInteger(cfg.participants) || cfg.participants < 1 || cfg.participants > HARD_LIMITS.participants) {
     throw new GuardError('cap-participants', `--participants must be 1..${HARD_LIMITS.participants}`);

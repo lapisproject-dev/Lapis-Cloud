@@ -147,7 +147,7 @@ still wrong.
 [source,bash]
 ----
 cd deploy/example
-cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.37.3) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
+cp .env.example .env   # fill in LAPIS_IMAGE_TAG (e.g. 0.37.4) / LAPIS_DB_PASSWORD / LAPIS_PUBLIC_BASE_URL
 docker compose pull
 docker compose up -d
 docker compose logs -f lapis-server
@@ -343,7 +343,7 @@ on 2026-10-10 (the tag `v0.31.0` has no image: its first build ran out of heap, 
 (GitHub package settings; an organisation must allow public packages first). Check
 `docker buildx imagetools inspect ghcr.io/lapisproject-dev/lapis-cloud:0.31.1` before switching an instance; an instance on the old server-side build
 keeps working until it is switched (see "Switching a real instance from server-side builds to the published image" below). Example:
-`LAPIS_IMAGE_TAG=0.37.3` (no `v`; the git tag is `v0.37.3`, the image tag is `0.37.3`).
+`LAPIS_IMAGE_TAG=0.37.4` (no `v`; the git tag is `v0.37.4`, the image tag is `0.37.4`).
 ====
 
 Since V1.9.93 the server is **not built on the host any more**: CI builds the image once per release tag and publishes it, the host sets
@@ -362,6 +362,8 @@ any instance: that wave edited 16 already-applied Flyway migration files in plac
 to run at all on any of these three already-migrated instances until `flywayRepair` has run against
 each of them -- see the CHANGELOG "Operator notes" entry for this wave for the full mechanism and
 the exact command. Run it once per instance before rebuilding that instance below.
+
+Upgrading from `v0.37.3` to `v0.37.4` adds no migration (the schema stays `V110`) and needs no `flywayRepair`: take a backup as always, set `LAPIS_IMAGE_TAG=0.37.4`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. No new environment variable. **Things to know:** nothing changes for the people using the application. The deployment example now runs coturn in host networking without `external-ip` (see "TURN relay: host networking and the TTL rule"); a running instance keeps its own `docker-compose.yml` and `turnserver.conf` and is not touched by the upgrade. Whoever switches must open the coturn ports in the host firewall first and should add the TTL rule; an instance that has TURN clients behind strict NATs should switch, because on the Docker bridge with `external-ip` they could not connect when LiveKit runs on the same host.
 
 Upgrading from `v0.37.2` to `v0.37.3` adds no migration (the schema stays `V110`) and needs no `flywayRepair`: take a backup as always, set `LAPIS_IMAGE_TAG=0.37.3`, `docker compose pull lapis-server`, `docker compose up -d lapis-server`. No new environment variable. **Things to know:** a table card in the encounter room is wider now (one table per row on a 320 px phone), and an open browser tab of an older version keeps the old layout until it reloads.
 
@@ -548,11 +550,27 @@ either directly, same posture `deploy/local/docker-compose.yml` already establis
   the reverse proxy instead, TLS-terminated on its own subdomain (`video.<domain>` by convention --
   needs its own DNS record and cert, separate from the main app's vhost, because LiveKit's own path
   conventions and the app's Ktor routes would collide if reverse-proxied off the same origin).
-* **Media** (LiveKit's ICE TCP/UDP ports 7881/7882, and coturn's TURN port 3478 + relay range
-  51000-51019) must be reachable directly from the public internet -- published `0.0.0.0`, not
-  `127.0.0.1`, and the host firewall must allow inbound traffic to them (this host's own nftables
-  ruleset defaults to `policy drop` on everything not explicitly listed -- see that host's
-  `/etc/nftables.conf` for the exact accept rules this required).
+* **Media**: LiveKit's ICE TCP/UDP ports 7881/7882 must be reachable directly from the public internet -- published `0.0.0.0`, not `127.0.0.1`. coturn (TURN port 3478 and relay range 51000-51019) runs in host networking and publishes nothing through Docker: the host firewall alone opens it (see "TURN relay: host networking and the TTL rule" below). In both cases the host firewall must allow the inbound traffic (this host's own nftables ruleset defaults to `policy drop` on everything not explicitly listed -- see that host's `/etc/nftables.conf` for the exact accept rules this required).
+
+=== TURN relay: host networking and the TTL rule
+
+Two findings from the encounter-room load test (staging, 2026-10-18):
+
+. **coturn on a Docker bridge with `external-ip` did not relay for clients when LiveKit ran on the same host (measured on staging).** A client that is forced onto the TURN relay (a strict NAT, a firewall) never connects; LiveKit's packets reach coturn but nothing comes back. With coturn in host networking and no `external-ip` the same run had no error and relay clients connected in about 350 ms. `docker-compose.yml` therefore runs coturn with `network_mode: host`. Docker no longer opens its ports: allow `3478/udp`, `3478/tcp` and `51000-51019/udp` in the host firewall (and keep `5350` closed to the outside: in host networking coturn binds it on every address, so only the firewall keeps it private and only the SNI proxy on the same host dials it). Because coturn now sees the host's networks, the template denies relaying to private, link-local and loopback peers (`denied-peer-ip`); keep those lines.
+. **In host networking coturn answers over UDP with TTL 1 after some TURN traffic** (its TTL handling; the cause inside coturn is not understood yet). Such replies are lost on the way, so UDP TURN works right after a start and then degrades (measured: 20 of 20 answered when freshly started, 13 of 20 or even 0 of 20 afterwards); TCP and TURNS on 443 are not affected. Until this is understood, reset the TTL of coturn's replies in the output chain (nftables):
++
+----
+table ip lt_ttl {
+    chain out {
+        type route hook output priority mangle; policy accept;
+        udp sport { 3478, 51000-51019 } ip ttl set 64 comment "lt-ttl-fix"
+    }
+}
+----
++
+Keep it in its own file that starts with `table ip lt_ttl {}` and `delete table ip lt_ttl` (so loading it twice does not add a second rule), and load only that file with `nft -f`. Do not reload a file that starts with `flush ruleset` on a host whose Docker uses iptables-nft: it removes Docker's tables. Make the file load at boot (for example from the `include` list of the nftables service).
++
+Check with `nft list table ip lt_ttl` and from outside: run `for i in $(seq 20); do docker exec lapis-cloud-coturn turnutils_stunclient -p 3478 PUBLIC_IP; done` from another machine's coturn image, or any STUN client, and count the answers; all 20 should arrive. Not yet verified with real browsers.
 
 Setup:
 

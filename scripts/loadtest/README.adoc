@@ -1,4 +1,4 @@
-= Encounter room load-test tool (V1.9.149)
+= Encounter room load-test tool (V1.9.161)
 :toc:
 
 A command line tool that puts up to 40 simulated people into an encounter room (assembly profile, with tables) of a *staging* instance and measures what the server and the media
@@ -17,6 +17,7 @@ server make of it. The run sheet, thresholds and decision rule are in `docs/arch
 [source,shell]
 ----
 node bin/encounter-loadtest.mjs plan     --scenario C --participants 20     # planned calls per method and minute against the server limits
+node bin/encounter-loadtest.mjs plan     --scenario F --participants 20 --move-rate 4   # F: position packets and deliveries per second at the busiest moment
 node bin/encounter-loadtest.mjs selftest --scenario C                       # whole run against the built-in fake server, no network
 node bin/encounter-loadtest.mjs run      --target https://HOST --confirm-host HOST --space-id ID --scenario A --participants 20 --media livekit
 node bin/encounter-loadtest.mjs cleanup  --target https://HOST --confirm-host HOST --space-id ID
@@ -30,10 +31,25 @@ npm test                                                                    # th
 * The environment variable `LAPIS_LT_ALLOWED_HOSTS` is empty by default and allows nothing. The target must be an exact entry, an `https` origin, confirmed by `--confirm-host`.
 * `LAPIS_LT_ALLOWED_LIVEKIT_HOSTS` does the same for the LiveKit URL in the join answer.
 * Hard caps: 40 participants, 30 requests per second, 45 minutes.
+* A target behind a reverse proxy with HTTP Basic authentication: `LAPIS_LT_BASIC_AUTH=user:password` (environment only). It goes to the confirmed target origin and nowhere else, and is redacted like the password.
 * The password and the account pattern (`LAPIS_LT_EMAIL_PATTERN`, with `{n}`) come from the environment only. All output is redacted; no member id, e-mail, token, room or host name is written.
 * Only accounts whose display name starts with `LT-` act; a person without the prefix in the room stops the run.
 * `SIGINT` / `SIGTERM`: clean-up (leave table and room, logout) within a grace period of 15 seconds plus the time the clean-up needs at the configured --max-rps, exit code 130; a second signal ends at once.
 * The tool never uses an administrator or office holder login and never deletes accounts; `cleanup` prints the e-mail addresses to delete.
+
+== Several processes (sharding)
+
+One Node process cannot carry 20 LiveKit connections with constant table changes: the native memory of dropped rooms is not released fast enough (measured: 300 MB growing to 3.5 GB within two minutes of scenario C, and connects that then take 15 seconds). The tool therefore splits the participants over processes:
+
+----
+node bin/encounter-loadtest.mjs run ... --scenario C --participants 20 --processes 3
+----
+
+* `--processes K` (at most 8) starts K copies of the tool, each with `--shard I/K`, and merges their results into `--out`; the per-shard results stay in `--out/shard-N`. Output lines are prefixed `[sN]`. A signal is forwarded to all of them; if one shard ends with a non-zero code the others are stopped (they clean up their accounts).
+* `--shard I/K` runs only the participants `p` with `(p - 1) % K = I - 1` of the same plan (the same seed gives the same plan and the same relay draw in every shard). Use it to spread a run over several machines; give every machine its own `--out` and merge the directories later.
+* `--max-rps` is the budget of the whole run; every shard takes `1/K` of it.
+* Not merged across shards: the time until a tone is heard (a tone is only heard by listeners of the same shard) and the map-packet counters; scenario F therefore cannot be sharded.
+* The abort criteria (error rate, p99) are evaluated per shard on its own calls, so a shard with few calls reacts earlier than the whole run would.
 
 == Layout
 
@@ -41,8 +57,9 @@ npm test                                                                    # th
 |===
 | `bin/encounter-loadtest.mjs` | the command line
 | `lib/config.mjs`, `lib/guard.mjs` | arguments and environment; all rails
+| `lib/launcher.mjs` | `--processes`: starts the shards and merges their results
 | `lib/kilua.mjs`, `lib/routes.json` | Kilua RPC by hand; route index table pinned to `IEncounterSpaceService` by `LoadTestRouteIndexTripwireTest`. New methods are appended at the END of the interface
-| `lib/participant.mjs`, `lib/scenarios.mjs`, `lib/runner.mjs` | one simulated person, the five scenarios, the run
+| `lib/participant.mjs`, `lib/scenarios.mjs`, `lib/runner.mjs` | one simulated person, the six scenarios, the run
 | `lib/media/` | `none`, `fake` (tests) and `livekit` (the optional real layer)
 | `lib/metrics.mjs`, `lib/redact.mjs` | measurements, output redaction
 | `test/` | tests, fixtures shared with the Kotlin contract test (`LoadTestWireContractTest`), the fake server

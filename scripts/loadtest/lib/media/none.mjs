@@ -9,6 +9,7 @@ export function createNoneMedia() {
     async setMic() {},
     async publishData() {},
     onAudible() {},
+    onData() {},
     onDisconnect() {},
     async close() {},
   };

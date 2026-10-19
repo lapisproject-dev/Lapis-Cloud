@@ -1,8 +1,8 @@
 {
   "name": "lapis-encounter-loadtest",
-  "version": "1.9.149",
+  "version": "1.9.161",
   "private": true,
-  "description": "Load-test tool for the encounter-room tables (V1.9.149). Never run against a real instance when this was written.",
+  "description": "Load-test tool for the encounter-room tables (V1.9.161). Never run against a real instance when this was written.",
   "type": "module",
   "license": "Apache-2.0",
   "engines": {

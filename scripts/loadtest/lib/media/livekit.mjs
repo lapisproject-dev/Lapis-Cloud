@@ -14,7 +14,7 @@ export class MediaUnavailableError extends Error {
 
 const SAMPLE_RATE = 48000;
 
-export function createLiveKitMedia({ importer = () => import('@livekit/rtc-node'), relay = false, subscribeAudio = true } = {}) {
+export function createLiveKitMedia({ importer = () => import('@livekit/rtc-node'), relay = false, subscribeAudio = true, consumeAudio = true, useTurn = true, turnOverride = null } = {}) {
   let rtc = null;
   let plenum = null;
   let table = null;
@@ -25,6 +25,7 @@ export function createLiveKitMedia({ importer = () => import('@livekit/rtc-node'
   let micTrackSid = null;
   const audible = [];
   const disconnected = [];
+  const dataCallbacks = [];
 
   async function load() {
     if (rtc) return rtc;
@@ -37,7 +38,7 @@ export function createLiveKitMedia({ importer = () => import('@livekit/rtc-node'
   }
 
   function listen(track, participant) {
-    if (!subscribeAudio || track.kind !== rtc.TrackKind.KIND_AUDIO) return;
+    if (!subscribeAudio || !consumeAudio || track.kind !== rtc.TrackKind.KIND_AUDIO) return;
     const speakerIdentity = participant?.identity ?? '';
     (async () => {
       const stream = new rtc.AudioStream(track);
@@ -56,6 +57,12 @@ export function createLiveKitMedia({ importer = () => import('@livekit/rtc-node'
     const room = new rtc.Room();
     room.on(rtc.RoomEvent.TrackPublished, (publication) => subscribeAudioOnly(publication));
     room.on(rtc.RoomEvent.TrackSubscribed, (track, _publication, participant) => listen(track, participant));
+    // Data packets (reactions, chat, the synthetic map packets of scenario F) arrive on the plenum connection.
+    if (which === 'plenum') {
+      room.on(rtc.RoomEvent.DataReceived, (payload, _participant, _kind, topic) => {
+        for (const cb of dataCallbacks) cb({ topic: topic ?? '', bytes: payload });
+      });
+    }
     room.on(rtc.RoomEvent.Disconnected, (reason) => {
       if (closing || (which === 'table' && table !== room) || (which === 'plenum' && plenum !== room)) return;
       for (const cb of disconnected) cb(which, String(rtc.DisconnectReason?.[reason] ?? reason));
@@ -63,7 +70,16 @@ export function createLiveKitMedia({ importer = () => import('@livekit/rtc-node'
     const rtcConfig = {
       iceTransportType: relay ? rtc.IceTransportType.TRANSPORT_RELAY : rtc.IceTransportType.TRANSPORT_ALL,
       continualGatheringPolicy: rtc.ContinualGatheringPolicy.GATHER_CONTINUALLY,
-      iceServers: (join.turnServers ?? []).map((t) => new rtc.IceServer({ urls: t.urls, username: t.username, password: t.credential })),
+      // useTurn=false (--no-turn): the TURN servers of the join answer are not used at all, so the client takes no relay allocation on the server.
+      // turnOverride ({host, port}): the credentials of the join answer, but the URLs of another TURN server (a test coturn, see guard.mjs).
+      iceServers: (useTurn ? (join.turnServers ?? []) : []).map(
+        (t) =>
+          new rtc.IceServer({
+            urls: turnOverride ? [`turn:${turnOverride.host}:${turnOverride.port}?transport=udp`, `turn:${turnOverride.host}:${turnOverride.port}?transport=tcp`] : t.urls,
+            username: t.username,
+            password: t.credential,
+          }),
+      ),
     };
     // autoSubscribe is off on purpose: only audio publications are subscribed, one by one.
     await room.connect(join.serverUrl, join.token, { autoSubscribe: false, dynacast: false, rtcConfig });
@@ -88,6 +104,8 @@ export function createLiveKitMedia({ importer = () => import('@livekit/rtc-node'
     table = null;
     micTrackSid = null;
     if (room) await room.disconnect().catch(() => {});
+    // Experiment (LAPIS_LT_FORCE_GC=1 with node --expose-gc): the native memory of a dropped Room is only freed when its JS wrapper is collected.
+    if (process.env.LAPIS_LT_FORCE_GC === '1' && typeof globalThis.gc === 'function') globalThis.gc();
   }
 
   return {
@@ -105,10 +123,15 @@ export function createLiveKitMedia({ importer = () => import('@livekit/rtc-node'
       }
       plenum = room;
     },
+    /** Milliseconds of the two phases of the last connectTable: dropping the previous table connection, and building the new one. */
+    lastTableTimings: { teardownMs: 0, connectMs: 0 },
     async connectTable(tokenDto) {
       const gen = ++tableGen;
+      const t0 = performance.now();
       await teardownTable();
+      const t1 = performance.now();
       const room = await open(tokenDto.join, 'table');
+      this.lastTableTimings = { teardownMs: t1 - t0, connectMs: performance.now() - t1 };
       if (gen !== tableGen) {
         await room.disconnect().catch(() => {});
         return;
@@ -142,9 +165,12 @@ export function createLiveKitMedia({ importer = () => import('@livekit/rtc-node'
       })();
       pump = state;
     },
-    async publishData(topic, bytes) {
+    async publishData(topic, bytes, { reliable = true } = {}) {
       if (!plenum?.localParticipant) return;
-      await plenum.localParticipant.publishData(bytes, { reliable: true, topic });
+      await plenum.localParticipant.publishData(bytes, { reliable, topic });
+    },
+    onData(cb) {
+      dataCallbacks.push(cb);
     },
     onAudible(cb) {
       audible.push(cb);

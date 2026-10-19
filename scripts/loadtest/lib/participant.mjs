@@ -12,11 +12,15 @@ import { assertLiveKitAllowed, assertTestIdentity, GuardError } from './guard.mj
 
 export const REACTION_TOPIC = 'lapis-encounter-reaction';
 export const CHAT_TOPIC = 'lapis-chat';
+/** Topic of the synthetic position packets of scenario F. NOT a topic of the product: the map of stage 3 does not exist yet. */
+export const MAP_TOPIC = 'lapis-lt-map';
 const encoder = new TextEncoder();
+const decoder = new TextDecoder();
 
 /** Who turned a microphone on and when, so that the listeners' "heard it" can be turned into a delay. In memory only. */
 export class AudibleBoard {
   #episodes = new Map();
+  #joinedAt = new Map(); // listener identity -> when its CURRENT table connection was established
   #clock;
   constructor(clock) {
     this.#clock = clock;
@@ -27,14 +31,27 @@ export class AudibleBoard {
   micOff(identity) {
     this.#episodes.delete(identity);
   }
+  /** A listener's table connection is up (also after a rotation): what it hears is measured from here on, not from before it was there. */
+  joined(identity) {
+    this.#joinedAt.set(identity, this.#clock.now());
+  }
+  left(identity) {
+    this.#joinedAt.delete(identity);
+  }
   /** Milliseconds from the microphone going on to this listener hearing it, once per listener and episode; otherwise null. */
   heard(speaker, listener) {
     const episode = this.#episodes.get(speaker);
     if (!episode || episode.heardBy.has(listener)) return null;
     episode.heardBy.add(listener);
-    return this.#clock.now() - episode.t0;
+    // From the later of "the microphone went on" and "this listener was connected": somebody who sits down 15 s after the speaker started
+    // would otherwise be counted as hearing 15 s late (scenario A showed p95 19 s for exactly that reason).
+    const since = Math.max(episode.t0, this.#joinedAt.get(listener) ?? episode.t0);
+    return this.#clock.now() - since;
   }
 }
+
+/** Minimum time between two table moves of one person: the server's rotation cooldown (10 s) plus a margin. */
+export const TABLE_MOVE_MIN_GAP_MS = 10_600;
 
 export class SimParticipant {
   idx;
@@ -52,9 +69,11 @@ export class SimParticipant {
   #refreshing = false;
   #rotationSince = null;
   #chatCount = 0;
+  #mapSeq = 0;
   #lock = Promise.resolve();
 
-  /** deps: clock, recorder, bucket, fetchImpl, secrets, board, rng, signal, onFatal, baseUrl, media, relay */
+  /** deps: clock, recorder, bucket, fetchImpl, secrets, board, rng, signal, onFatal, baseUrl, media, relay, presentCount */
+  #lastMoveAt = null;
   constructor({ idx, cfg, deps }) {
     this.idx = idx;
     this.#cfg = cfg;
@@ -75,6 +94,15 @@ export class SimParticipant {
       if (ms !== null) deps.recorder.mark('heard', idx, ms);
     });
     this.#media.onDisconnect((which, reason) => this.#onMediaDisconnect(which, reason));
+    this.#media.onData(({ topic, bytes }) => {
+      if (topic !== MAP_TOPIC) return;
+      try {
+        const packet = JSON.parse(decoder.decode(bytes));
+        if (packet?.t === 'lt-map' && Number.isFinite(packet.c)) deps.recorder.mapReceived(deps.clock.now() - packet.c);
+      } catch {
+        /* not one of ours */
+      }
+    });
   }
 
   get isAborted() {
@@ -162,6 +190,8 @@ export class SimParticipant {
         return this.#d.media.publishData(REACTION_TOPIC, encoder.encode(JSON.stringify({ r: 'APPLAUSE' })));
       case 'chat':
         return this.chat();
+      case 'walk':
+        return this.walk(step.ms, step.hz);
       case 'watch':
         return this.watch();
       case 'leave':
@@ -203,6 +233,9 @@ export class SimParticipant {
 
   async joinAnyTable() {
     if (!this.isPresent) return;
+    // The server lets one person leave a shared table once per 10 s (ROTATION_COOLDOWN). A step that runs late (a busy event loop) must not fire
+    // right behind the previous move: that would only measure the cooldown, not the load.
+    if (this.#lastMoveAt !== null && !(await this.#d.clock.sleepUntil(this.#lastMoveAt + TABLE_MOVE_MIN_GAP_MS, this.#d.signal))) return;
     for (let attempt = 0; attempt < 3 && this.isPresent; attempt++) {
       const tables = await this.#rpc('listTables', [this.#cfg.spaceId]);
       if (!tables.ok) return;
@@ -218,6 +251,7 @@ export class SimParticipant {
           throw e;
         }
         this.#table = { table: choice.table, seat: choice.seat };
+        this.#lastMoveAt = this.#d.clock.now(); // when the answer arrived: the call itself may have waited for the client throttle after `started`
         this.state = 'atTable';
         await this.#connectTableMedia(r.value);
         this.#d.recorder.mark('table_assigned', this.idx, this.#d.clock.now() - started);
@@ -230,6 +264,13 @@ export class SimParticipant {
   /** Connects the table media and puts the microphone back on if the person had it on (a reconnect silences it in the media layer). */
   async #connectTableMedia(tokenDto) {
     await this.#media.connectTable(tokenDto);
+    this.#d.board.joined(this.#identity);
+    // Where do the seconds go? Dropping the old table connection and building the new one are measured apart (numbers only).
+    const timings = this.#media.lastTableTimings;
+    if (timings) {
+      this.#d.recorder.mark('table_teardown', this.idx, timings.teardownMs);
+      this.#d.recorder.mark('table_connect', this.idx, timings.connectMs);
+    }
     if (this.#micOn && this.state === 'atTable') {
       this.#d.board.micOn(this.#identity); // a new episode: "heard" now measures the delay from the re-publish, not from the first mic-on
       await this.#media.setMic(true);
@@ -251,6 +292,7 @@ export class SimParticipant {
     if (this.state !== 'atTable') return;
     await this.#rpc('leaveTable', [this.#cfg.spaceId], { final });
     this.#micOn = false;
+    this.#d.board.left(this.#identity);
     await this.#media.disconnectTable();
     this.#table = null;
     if (this.state === 'atTable') this.state = 'present';
@@ -270,13 +312,34 @@ export class SimParticipant {
     await this.#media.publishData(CHAT_TOPIC, encoder.encode(JSON.stringify(message)));
   }
 
+  /**
+   * Scenario F: for `ms` milliseconds send `hz` position packets per second on the plenum data channel (not reliable, like a position stream
+   * would be). The packet carries the send time of the run's clock and a sequence number, nothing else; receivers turn it into a delay.
+   */
+  async walk(ms, hz) {
+    if (!this.isPresent) return;
+    const end = this.#d.clock.now() + ms;
+    const gap = 1000 / hz;
+    while (!this.isAborted && !this.#d.signal.aborted && this.isPresent && this.#d.clock.now() < end) {
+      this.#mapSeq += 1;
+      const packet = { t: 'lt-map', s: this.#mapSeq, c: Math.round(this.#d.clock.now()), x: this.#d.rng.int(0, 63), y: this.#d.rng.int(0, 63) };
+      this.#d.recorder.mapSent(Math.max(0, this.#d.presentCount() - 1));
+      await this.#media.publishData(MAP_TOPIC, encoder.encode(JSON.stringify(packet)), { reliable: false });
+      await this.#d.clock.sleep(gap, this.#d.signal);
+    }
+  }
+
   /** The foreign-presence check: only the NUMBER of names without the test prefix is looked at, nothing is kept. */
   async watch() {
     if (!this.isPresent) return;
     const r = await this.#rpc('listPresent', [this.#cfg.spaceId]);
     if (!r.ok) return;
     const foreign = r.value.filter((x) => !String(x.displayName).startsWith(this.#cfg.namePrefix)).length;
-    if (foreign > 0) {
+    // An operator who keeps an otherwise empty room open (the session ends when LiveKit drops the empty room) may be tolerated, a fixed
+    // number of names at most (--tolerate-foreign, 0 by default); anything beyond that is a foreign presence as before.
+    const tolerated = this.#cfg.tolerateForeign ?? 0;
+    if (foreign > 0 && foreign <= tolerated) this.#d.recorder.mark('foreign_tolerated', this.idx, foreign);
+    if (foreign > tolerated) {
       this.#d.recorder.mark('foreign_presence', this.idx, foreign);
       if (this.#cfg.abortOnForeignPresence) this.#d.onFatal('foreign-presence', { count: foreign });
     }

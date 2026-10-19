@@ -323,6 +323,123 @@ class LiveKitAdminClientTest :
             video["roomAdmin"] shouldBe true
         }
 
+        test("updateSubscriptions POSTs UpdateSubscriptions with room, identity, track_sids and subscribe on the wire, both ways") {
+            val bodies = mutableListOf<String>()
+            var capturedUrl = ""
+            var capturedToken = ""
+            val client =
+                mockClient { request ->
+                    capturedUrl = request.url.toString()
+                    bodies += bodyText(request)
+                    capturedToken = bearerToken(request)
+                    jsonResponse("{}")
+                }
+            val admin = HttpLiveKitAdminClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
+
+            admin.updateSubscriptions(room = ROOM_NAME, identity = "member-1", trackSids = listOf("TR_abc", "TR_def9"), subscribe = true)
+            admin.updateSubscriptions(room = ROOM_NAME, identity = "member-1", trackSids = listOf("TR_abc"), subscribe = false)
+
+            capturedUrl shouldBe "$API_URL/twirp/livekit.RoomService/UpdateSubscriptions"
+            // The field names were checked against a real LiveKit v1.13.5 (200, audio started and stopped); subscribe:false MUST be on the wire.
+            bodies[0] shouldBe """{"room":"$ROOM_NAME","identity":"member-1","track_sids":["TR_abc","TR_def9"],"subscribe":true}"""
+            bodies[1] shouldBe """{"room":"$ROOM_NAME","identity":"member-1","track_sids":["TR_abc"],"subscribe":false}"""
+            val video = SignedJWT.parse(capturedToken).jwtClaimsSet.getJSONObjectClaim("video")
+            video["room"] shouldBe ROOM_NAME
+            video["roomAdmin"] shouldBe true
+        }
+
+        test("updateSubscriptions refuses an empty list, too many tracks and anything that is not a track sid, before any request") {
+            var requests = 0
+            val client =
+                mockClient {
+                    requests++
+                    jsonResponse("{}")
+                }
+            val admin = HttpLiveKitAdminClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
+
+            fun call(sids: List<String>) =
+                suspend { admin.updateSubscriptions(room = ROOM_NAME, identity = "m", trackSids = sids, subscribe = true) }
+
+            shouldThrow<IllegalArgumentException> { call(emptyList())() }
+            shouldThrow<IllegalArgumentException> { call((1..MAX_UPDATE_SUBSCRIPTION_TRACKS + 1).map { "TR_$it" })() }
+            shouldThrow<IllegalArgumentException> { call(listOf("abc"))() }
+            shouldThrow<IllegalArgumentException> { call(listOf("TR_ab\"c"))() }
+            shouldThrow<IllegalArgumentException> { call(listOf("TR_abc\n"))() }
+            requests shouldBe 0
+            // the boundary is allowed
+            call((1..MAX_UPDATE_SUBSCRIPTION_TRACKS).map { "TR_$it" })()
+            requests shouldBe 1
+        }
+
+        test("updateSubscriptions maps an unknown identity (LiveKit answers 503) to a sanitized LiveKitAdminException") {
+            val client =
+                mockClient {
+                    respondError(
+                        HttpStatusCode.ServiceUnavailable,
+                        """{"code":"unavailable","msg":"twirp error unknown: no response from servers"}""",
+                    )
+                }
+            val admin = HttpLiveKitAdminClient(apiUrl = API_URL, apiKey = API_KEY, apiSecret = API_SECRET, httpClient = client)
+
+            val e =
+                shouldThrow<LiveKitAdminException> {
+                    admin.updateSubscriptions(room = ROOM_NAME, identity = "nobody", trackSids = listOf("TR_abc"), subscribe = true)
+                }
+            e.message.orEmpty() shouldNotContain "nobody"
+        }
+
+        test("the default updateSubscriptions of the interface fails loudly instead of doing nothing") {
+            // A class that implements the interface WITHOUT overriding updateSubscriptions gets the throwing default.
+            val minimal =
+                object : LiveKitAdminClient {
+                    override suspend fun createRoom(
+                        name: String,
+                        maxParticipants: Int,
+                        emptyTimeoutSeconds: Int,
+                        departureTimeoutSeconds: Int?,
+                    ) = error("unused")
+
+                    override suspend fun deleteRoom(name: String) = error("unused")
+
+                    override suspend fun listRooms() = error("unused")
+
+                    override suspend fun listParticipants(room: String) = error("unused")
+
+                    override suspend fun removeParticipant(
+                        room: String,
+                        identity: String,
+                    ) = error("unused")
+
+                    override suspend fun sendData(
+                        room: String,
+                        topic: String,
+                        payload: ByteArray,
+                    ) = error("unused")
+
+                    override suspend fun muteMicrophone(
+                        room: String,
+                        identity: String,
+                        trackSid: String,
+                    ) = error("unused")
+
+                    override suspend fun updateParticipantPermission(
+                        room: String,
+                        identity: String,
+                        permission: LiveKitParticipantPermissionUpdate,
+                    ) = error("unused")
+
+                    override suspend fun sendDataTo(
+                        room: String,
+                        topic: String,
+                        payload: ByteArray,
+                        destinationIdentities: List<String>,
+                    ) = error("unused")
+                }
+            shouldThrow<UnsupportedOperationException> {
+                minimal.updateSubscriptions(room = ROOM_NAME, identity = "m", trackSids = listOf("TR_a"), subscribe = true)
+            }
+        }
+
         test("a MutePublishedTrack request can never be constructed as an unmute") {
             shouldThrow<IllegalArgumentException> {
                 LiveKitMutePublishedTrackRequest(room = ROOM_NAME, identity = "member-1", trackSid = "TR_abc", muted = false)

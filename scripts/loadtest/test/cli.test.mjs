@@ -21,7 +21,7 @@ test('--dry-run opens no socket at all and marks the results as dry-run', async 
     const summary = JSON.parse(readFileSync(`${dir}/summary.json`, 'utf8'));
     assert.equal(summary.dryRun, true);
     assert.equal(summary.config.dryRun, true);
-    assert.equal(summary.toolVersion, '1.9.149');
+    assert.equal(summary.toolVersion, '1.9.161');
     assert.equal(JSON.stringify(summary).includes('127.0.0.1'), false, 'no host in the results');
   } finally {
     net.Socket.prototype.connect = original;

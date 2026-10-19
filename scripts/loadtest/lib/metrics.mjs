@@ -1,5 +1,5 @@
 // Measurements. Nothing here ever holds a member id, an e-mail, a token or a room name: participants are "p01".."p40".
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export function percentile(sortedAsc, p) {
@@ -46,9 +46,13 @@ export function isExpectedRejection(method, outcome, { expectThrottle = false } 
   return outcome === 'Conflict' && RATE_CONFLICT_METHODS.has(method);
 }
 
+const MAP_HIST_MS = 10_000; // delays of map packets are counted per millisecond up to 10 s; slower ones share the last bucket
+
 export class Recorder {
   #clock;
   #expectThrottle;
+  // Map packets (scenario F) are far too many for one event each (40 people, 4 per second, 39 receivers): counters and a histogram.
+  #map = { sent: 0, expected: 0, received: 0, max: 0, hist: new Uint32Array(MAP_HIST_MS + 1) };
   samples = [];
   events = [];
   constructor({ clock, expectThrottle = false } = {}) {
@@ -63,6 +67,39 @@ export class Recorder {
   }
   mark(event, idx, valueMs = null) {
     this.events.push({ t: this.#t(), p: idx, event, value: valueMs });
+  }
+  /** A map packet left; `expectedRecipients` = how many other people were in the room at that moment. */
+  mapSent(expectedRecipients) {
+    this.#map.sent += 1;
+    this.#map.expected += expectedRecipients;
+  }
+  /** A map packet arrived after `delayMs`. */
+  mapReceived(delayMs) {
+    const b = Math.min(MAP_HIST_MS, Math.max(0, Math.round(delayMs)));
+    this.#map.hist[b] += 1;
+    this.#map.received += 1;
+    this.#map.max = Math.max(this.#map.max, delayMs);
+  }
+  #mapSummary() {
+    const m = this.#map;
+    if (m.sent === 0) return undefined;
+    const at = (p) => {
+      if (m.received === 0) return null;
+      const rank = Math.ceil((p / 100) * m.received);
+      let seen = 0;
+      for (let i = 0; i < m.hist.length; i++) {
+        seen += m.hist[i];
+        if (seen >= rank) return i;
+      }
+      return MAP_HIST_MS;
+    };
+    return {
+      sent: m.sent,
+      expectedDeliveries: m.expected,
+      received: m.received,
+      deliveryRatio: m.expected ? Math.round((m.received / m.expected) * 10000) / 10000 : null,
+      delayMs: { p50: at(50), p95: at(95), p99: at(99), max: m.received ? Math.round(m.max) : null },
+    };
   }
   /** Samples and events of the last `windowMs` (virtual) milliseconds. */
   recent(windowMs) {
@@ -104,6 +141,15 @@ export class Recorder {
     const disconnects = {};
     for (const e of this.events) if (e.event.startsWith('disconnect:')) disconnects[e.event.slice(11)] = (disconnects[e.event.slice(11)] ?? 0) + 1;
     const stepErrors = byEvent('step_error').length;
+    // Which steps failed and with which error class (names only, see runner.mjs): a map name -> count.
+    const countPrefix = (prefix) => {
+      const out = {};
+      for (const e of this.events) if (e.event.startsWith(prefix)) out[e.event.slice(prefix.length)] = (out[e.event.slice(prefix.length)] ?? 0) + 1;
+      return Object.keys(out).length ? out : undefined;
+    };
+    const stepErrorsByOp = countPrefix('step_error:');
+    const errorTypes = countPrefix('error_type:');
+    const nativeErrorTypes = countPrefix('native_error_type:');
     const unexpected = rejectedUnexpected + stepErrors + this.samples.filter((s) => !isRejection(s.outcome) && s.outcome !== 'ok').length;
     return {
       calls,
@@ -117,11 +163,17 @@ export class Recorder {
       tableAssignMs: stats(valuesOf('table_assigned')),
       hearMs: stats(valuesOf('heard')),
       rotationTokenMs: stats(valuesOf('rotation_token')),
+      ...(byEvent('table_connect').length
+        ? { tableTeardownMs: stats(valuesOf('table_teardown')), tableConnectMs: stats(valuesOf('table_connect')) }
+        : {}),
       stepErrors,
+      ...(stepErrorsByOp ? { stepErrorsByOp, errorTypes } : {}),
+      ...(nativeErrorTypes ? { nativeErrorTypes } : {}),
       rotations: byEvent('rotation').length,
       presenceLost: byEvent('presence_lost').length,
       tableLost: byEvent('table_lost').length,
       disconnects,
+      ...(this.#mapSummary() ? { mapPackets: this.#mapSummary() } : {}),
     };
   }
   samplesCsv() {
@@ -173,4 +225,84 @@ export function evaluateAbort(recentSamples, { expectThrottle = false } = {}) {
     if (p99 > 5000) return 'p99-above-5-seconds';
   }
   return null;
+}
+
+function parseCsvLine(line) {
+  const cells = [];
+  let cur = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quoted) {
+      if (c === '"' && line[i + 1] === '"') {
+        cur += '"';
+        i += 1;
+      } else if (c === '"') quoted = false;
+      else cur += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ',') {
+      cells.push(cur);
+      cur = '';
+    } else cur += c;
+  }
+  cells.push(cur);
+  return cells;
+}
+
+/** The rows (without the header) of a CSV written by [Recorder]; the cells never contain a line break. */
+export function readCsvRows(text) {
+  return text
+    .split('\n')
+    .slice(1)
+    .filter((l) => l !== '')
+    .map(parseCsvLine);
+}
+
+const labelToIdx = (label) => Number(String(label).replace(/^p/, ''));
+
+/**
+ * Merges the result directories of the shards of one run (same virtual start, disjoint participants) into one set of result files: the samples and
+ * events are put together by time and the summary is computed again from them, so percentiles are real percentiles of the whole run.
+ * Not merged: the counters of map packets (scenario F cannot be sharded) and "heard" across shards (a tone is only heard by listeners of the same shard).
+ * @returns {{ summary: object, merged: number }} merged = number of shard directories that had results
+ */
+export function mergeShardResults(dirs, outDir, redact = (s) => s) {
+  const recorder = new Recorder({ clock: null });
+  const metas = [];
+  for (const dir of dirs) {
+    if (!existsSync(join(dir, 'summary.json'))) continue; // a shard that died before writing: its absence is visible in "merged"
+    metas.push(JSON.parse(readFileSync(join(dir, 'summary.json'), 'utf8')));
+    for (const [t, p, method, latency, outcome] of readCsvRows(readFileSync(join(dir, 'samples.csv'), 'utf8'))) {
+      recorder.samples.push({ t: Number(t), p: labelToIdx(p), method, latency: Number(latency), outcome });
+    }
+    for (const [t, p, event, value] of readCsvRows(readFileSync(join(dir, 'events.csv'), 'utf8'))) {
+      recorder.events.push({ t: Number(t), p: labelToIdx(p), event, value: value === '' ? null : Number(value) });
+    }
+  }
+  if (metas.length === 0) return { summary: null, merged: 0 };
+  recorder.samples.sort((a, b) => a.t - b.t);
+  recorder.events.sort((a, b) => a.t - b.t);
+  const first = metas[0];
+  const abortReason = metas.map((m) => m.abortReason).find((r) => r && r !== 'signal') ?? metas.map((m) => m.abortReason).find(Boolean) ?? null;
+  const config = { ...first.config, processes: dirs.length };
+  delete config.shard;
+  const summary = writeResults(
+    outDir,
+    {
+      recorder,
+      meta: {
+        toolVersion: first.toolVersion,
+        dryRun: first.dryRun,
+        media: first.media,
+        config,
+        virtualDurationMs: Math.max(...metas.map((m) => m.virtualDurationMs ?? 0)),
+        abortReason,
+        participantsAbortedByGuard: metas.reduce((n, m) => n + (m.participantsAbortedByGuard ?? 0), 0),
+        nativeErrors: metas.reduce((n, m) => n + (m.nativeErrors ?? 0), 0),
+        shardsMerged: metas.length,
+      },
+    },
+    redact,
+  );
+  return { summary, merged: metas.length };
 }
